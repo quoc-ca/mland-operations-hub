@@ -21,4 +21,9 @@ public class LocalCheckoutCancellationController {
     public CheckoutDtos.GroupedCheckoutView cancel(HttpServletRequest request, @PathVariable String checkoutId) {
         return cancellation.cancelAsDemoExpiry(actors.requireActiveMember(request).accountId(), checkoutId);
     }
+
+    @PostMapping("/api/v1/ready-ring-orders/{orderId}/cancellations")
+    public CheckoutDtos.GroupedCheckoutView cancelBranchOrder(HttpServletRequest request, @PathVariable String orderId) {
+        return cancellation.cancelBranchOrderAsDemo(actors.requireActiveMember(request).accountId(), orderId);
+    }
 }

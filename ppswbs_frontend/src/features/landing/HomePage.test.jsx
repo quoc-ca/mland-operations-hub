@@ -64,9 +64,17 @@ describe('Landing HomePage (Figma Page 01 · Public & Live Features Integration)
 
   it('renders Member chip and, with an upcoming ticket, its real time and a link to that booking', async () => {
     const start = new Date(Date.now() + 3 * 24 * 3600 * 1000).toISOString();
-    vi.spyOn(workshopApi, 'listMemberBookings').mockResolvedValue([
-      { bookingCode: 'BK-NEXT-1', bookingStatus: 'CONFIRMED', sessions: [{ scheduledStart: start, scheduledEnd: start }] },
-      { bookingCode: 'BK-PENDING-2', bookingStatus: 'PENDING_PAYMENT', sessions: [{ scheduledStart: start, scheduledEnd: start }] },
+    vi.spyOn(workshopApi, 'listMemberBookingGroups').mockResolvedValue([
+      {
+        groupCode: 'WG-NEXT-1',
+        groupStatus: 'CONFIRMED',
+        tickets: [{ ticketCode: 'WT-1', ticketStatus: 'CONFIRMED', sessions: [{ sessionReference: 's1', scheduledStart: start, scheduledEnd: start }] }],
+      },
+      {
+        groupCode: 'WG-PENDING-2',
+        groupStatus: 'PENDING_PAYMENT',
+        tickets: [{ ticketCode: 'WT-2', ticketStatus: 'PENDING_PAYMENT', sessions: [{ sessionReference: 's2', scheduledStart: start, scheduledEnd: start }] }],
+      },
     ]);
     renderHomePage({ initialAuthState: { status: 'signed-in' } });
     const memberChip = screen.getByRole('button', { name: /Tùy chọn tài khoản/i });
@@ -75,7 +83,7 @@ describe('Landing HomePage (Figma Page 01 · Public & Live Features Integration)
     expect(await screen.findByText(/Buổi workshop sắp tới:/i)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Xem vé & mã QR/i })).toHaveAttribute(
       'href',
-      '/workshop-booking/lookup?code=BK-NEXT-1',
+      '/workshop-booking/lookup?code=WG-NEXT-1',
     );
     expect(screen.getByRole('link', { name: /Đơn hàng \(\d+\)/ })).toHaveAttribute(
       'href',
@@ -84,7 +92,7 @@ describe('Landing HomePage (Figma Page 01 · Public & Live Features Integration)
   });
 
   it('says there is no upcoming workshop and offers no QR link when the Member has no confirmed ticket', async () => {
-    vi.spyOn(workshopApi, 'listMemberBookings').mockResolvedValue([]);
+    vi.spyOn(workshopApi, 'listMemberBookingGroups').mockResolvedValue([]);
     renderHomePage({ initialAuthState: { status: 'signed-in' } });
     expect(await screen.findByText(/Bạn chưa có buổi workshop nào sắp tới/i)).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /Xem vé/i })).toBeNull();

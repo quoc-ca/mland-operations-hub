@@ -66,7 +66,7 @@ class PromotionUsageIT {
             String code = "UG" + UUID.randomUUID().toString().replace("-", "").substring(0, 10).toUpperCase();
             PromotionProgram program = programs.saveAndFlush(kind == ProgramKind.VOUCHER
                     ? PromotionProgram.voucher(TargetScope.WORKSHOP, code, code, 10, 5, AT, 1L)
-                    : PromotionProgram.autoDiscount(AT, 1L));
+                    : PromotionProgram.autoDiscount(TargetScope.PRODUCT, AT, 1L));
             PromotionRevision revision = revisions.saveAndFlush(PromotionRevision.create(program.getId(), 1, kind, "U",
                     AT, AT.plusSeconds(86_400), DiscountTerms.fixed(n(100_000), n(100_000), BigInteger.ZERO), true, AT, 1L));
             program.pointToRevision(revision.getId());

@@ -101,7 +101,7 @@ class SavedVoucherContractIT {
         return transaction.execute(status -> {
             PromotionProgram program = programs.saveAndFlush(kind == ProgramKind.VOUCHER
                     ? PromotionProgram.voucher(scope, code, code, 10, 2, now, 1L)
-                    : PromotionProgram.autoDiscount(now, 1L));
+                    : PromotionProgram.autoDiscount(TargetScope.PRODUCT, now, 1L));
             PromotionRevision revision = revisions.saveAndFlush(PromotionRevision.create(program.getId(), 1, kind,
                     "Ưu đãi", now.plus(startOffsetDays, ChronoUnit.DAYS), now.plus(endOffsetDays, ChronoUnit.DAYS),
                     DiscountTerms.fixed(BigInteger.valueOf(20_000), BigInteger.valueOf(20_000), BigInteger.ZERO), true,

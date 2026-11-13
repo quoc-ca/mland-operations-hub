@@ -29,13 +29,15 @@ public class WorkshopCartBenefitService {
 
     /**
      * @param eligibleTicketIndexes 0-based positions, in cart order, of the tickets the voucher covers
+     * @param maxPoints the most points 006 lets this Member spend on this cart (FR-034); 0 when none may be spent
+     * @param minRedeemPoints the smallest redeemable amount of the recorded point policy
      */
     public record CartBenefits(long voucherDiscountVnd, long pointsUsed, long pointValueVnd, long pointDiscountVnd,
                                List<Integer> eligibleTicketIndexes, String termsDigest, long policyRevision,
-                               List<String> reasons) {
+                               List<String> reasons, long maxPoints, long minRedeemPoints) {
 
         public static CartBenefits none() {
-            return new CartBenefits(0, 0, 0, 0, List.of(), null, 0, List.of());
+            return new CartBenefits(0, 0, 0, 0, List.of(), null, 0, List.of(), 0, 0);
         }
 
         public boolean isEmpty() {
@@ -65,7 +67,8 @@ public class WorkshopCartBenefitService {
         BenefitPreview preview = loyalty.previewBenefits(trusted(memberAccountId, cart, Instant.now()), selection);
         return new CartBenefits(exact(preview.programDiscount()), exact(preview.pointsUsed()),
                 exact(preview.pointValue()), exact(preview.pointDiscount()), preview.eligibleLineIndexes(),
-                preview.termsDigest(), preview.policyRevisionNo(), preview.reasons());
+                preview.termsDigest(), preview.policyRevisionNo(), preview.reasons(),
+                exact(preview.maxPoints()), exact(preview.minRedeemPoints()));
     }
 
     /**

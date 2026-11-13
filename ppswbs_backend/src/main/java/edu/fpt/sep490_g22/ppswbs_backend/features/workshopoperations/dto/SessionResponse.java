@@ -42,4 +42,13 @@ public class SessionResponse {
 
     /** Accounts of the Staff currently assigned to this session (empty when none). */
     private java.util.List<Long> assignedStaffAccountIds;
+
+    /** 003.2 FR-035: tickets this session may still receive by customer change. */
+    private Integer rescheduleQuota;
+
+    /** True when a Manager set the quota, so a capacity change no longer recomputes it. */
+    private Boolean rescheduleQuotaOverridden;
+
+    /** Tickets this session has already received by customer change. */
+    private Integer rescheduleQuotaUsed;
 }

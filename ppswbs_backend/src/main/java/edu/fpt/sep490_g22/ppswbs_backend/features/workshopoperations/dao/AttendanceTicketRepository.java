@@ -19,6 +19,10 @@ public interface AttendanceTicketRepository extends JpaRepository<AttendanceTick
     Optional<AttendanceTicket> findByTicketCode(String ticketCode);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select t from AttendanceTicket t where t.reference = :reference")
+    Optional<AttendanceTicket> findByReferenceWithLock(@Param("reference") String reference);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select t from AttendanceTicket t where t.ticketCode = :ticketCode")
     Optional<AttendanceTicket> findByTicketCodeWithLock(@Param("ticketCode") String ticketCode);
 

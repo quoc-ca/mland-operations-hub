@@ -76,6 +76,18 @@ public class WorkshopSettlementAuthorizationService {
         return actor;
     }
 
+    /**
+     * 003.3 FR-038a: counter work on a refund request, which has no booking location of its own — the payer is
+     * at a branch counter, so any active Staff member or a Manager may record what the payer hands over.
+     */
+    public CurrentAccountActor requireManagerOrAnyStaff(CurrentAccountActor actor) {
+        requireActive(actor);
+        if (actor.role() != ActorRole.MANAGER && actor.role() != ActorRole.STAFF) {
+            throw deny(actor.accountId().toString(), "STAFF_OR_MANAGER_REQUIRED");
+        }
+        return actor;
+    }
+
     private void requireActive(CurrentAccountActor actor) {
         if (actor == null || actor.accountId() == null) throw deny("UNKNOWN", "ACCOUNT_NOT_FOUND");
         if (actor.status() != ActorStatus.ACTIVE) throw deny(actor.accountId().toString(), "ACCOUNT_NOT_ACTIVE");

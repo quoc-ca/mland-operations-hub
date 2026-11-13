@@ -104,7 +104,10 @@ class GroupCapacityServiceTest {
 
     @Test
     void oneShortLineRefusesTheWholeGroupAndReportsOnlyThatLine() {
-        when(holds.sumActiveHoldsForSession(eq(2L), any())).thenReturn(4);
+        when(holds.findCountableHoldsForSessionForShare(2L)).thenReturn(java.util.List.of(
+                edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.CapacityHold.builder()
+                        .state(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.CapacityHoldState.ACTIVE)
+                        .requestedTicketCount(4).expiresAt(java.time.Instant.now().plusSeconds(600)).build()));
         var command = command(line("L0", sessionA, 2), line("L1", sessionB, 2));
 
         GroupCapacityOutcome outcome = service.reserveGroupCapacity(command);

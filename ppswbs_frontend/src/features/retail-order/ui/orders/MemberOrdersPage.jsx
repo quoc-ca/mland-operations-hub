@@ -4,7 +4,7 @@ import { RequireSession } from '../../../../shared/auth/RequireSession';
 import { useFormat } from '../../../../shared/i18n/I18nProvider';
 import { ErrorNotice, Loading, useCommand, useResource } from '../../../../shared/ui/components';
 import { useRetailApi } from '../../application/useRetailApi';
-import { cardToggleProps, displayTime, orderCode } from '../orderCode';
+import { cardToggleProps, displayTime, orderCode, OrderMoneyRows } from '../orderCode';
 
 /** FE-08 FR-08-050: "Đơn mua" grouped into marketplace-style tabs, one card per branch order. */
 const TABS = [
@@ -71,6 +71,11 @@ function OrdersContent() {
   const pay = order => perform(order, key => api.initiatePayment(order.checkoutId, key), result => {
     if (result?.paymentUrl) window.location.assign(result.paymentUrl); else orders.reload();
   });
+  // A cash branch order is cancelled on its own; the other branch orders of the same checkout stay (FR-08-046).
+  const cancelCashOrder = order => {
+    if (!window.confirm(`Hủy đơn ${orderCode(order)}? Sản phẩm sẽ được trả lại giỏ hàng.`)) return;
+    perform(order, key => api.cancelOrder(order.id, key), () => orders.reload());
+  };
   const cancel = order => {
     const together = ordersPerCheckout.get(order.checkoutId) || 1;
     if (together > 1 && !window.confirm(`Đơn này được đặt cùng ${together - 1} đơn khác. Hủy sẽ hủy cả ${together} đơn của lần đặt đó. Tiếp tục?`)) return;
@@ -95,7 +100,6 @@ function OrdersContent() {
       const busy = busyId === order.id;
       const open = openId === order.id;
       const together = ordersPerCheckout.get(order.checkoutId) || 1;
-      const discount = (() => { try { const value = BigInt(order.subtotal || '0') + BigInt(order.shippingCharge || '0') - BigInt(order.payableAmount || '0'); return value > 0n ? value.toString() : '0'; } catch { return '0'; } })();
       return <article className={`order-card${open ? ' open' : ''}`} key={order.id} {...cardToggleProps(open, () => setOpenId(open ? null : order.id))}>
         <div className="order-card-top">
           <span className="order-code">{orderCode(order)}</span>
@@ -117,9 +121,7 @@ function OrdersContent() {
           <div><dt>Nhận hàng</dt><dd>{order.fulfilmentMethod === 'GHTK' ? 'Giao tận nơi qua GHTK' : 'Nhận tại cửa hàng'}</dd></div>
           <div><dt>Thanh toán</dt><dd>{cash ? 'Tiền mặt tại quầy' : 'VNPay'}</dd></div>
           {cash && order.counterPaymentDeadline && current !== 'COMPLETED' && <div><dt>Hạn giữ hàng</dt><dd>{displayTime(order.counterPaymentDeadline)}</dd></div>}
-          <div><dt>Tiền hàng</dt><dd>{format.money(order.subtotal)}</dd></div>
-          <div><dt>Phí vận chuyển</dt><dd>{format.money(order.shippingCharge || '0')}</dd></div>
-          <div><dt>Ưu đãi và điểm</dt><dd>−{format.money(discount)}</dd></div>
+          <OrderMoneyRows order={order} format={format} together={together} />
         </dl>}
         <div className="order-card-bottom">
           <span className="order-more">{open ? 'Thu gọn ▲' : 'Bấm để xem chi tiết ▼'}</span>
@@ -130,7 +132,7 @@ function OrdersContent() {
             <button type="button" className="button outline" disabled={busy} onClick={() => cancel(order)}>Hủy đơn</button>
             <button type="button" className="button primary" disabled={busy} onClick={() => pay(order)}>{busy ? 'Đang xử lý…' : 'Thanh toán'}</button>
           </>}
-          {current === 'AWAITING_PICKUP' && cash && order.checkoutId && <button type="button" className="button outline" disabled={busy} onClick={() => cancel(order)}>Hủy đơn</button>}
+          {current === 'AWAITING_PICKUP' && cash && order.paymentState === 'ACCEPTED_UNPAID' && <button type="button" className="button outline" disabled={busy} onClick={() => cancelCashOrder(order)}>Hủy đơn</button>}
           {(current === 'COMPLETED' || current === 'CANCELLED') && <button type="button" className={`button ${current === 'COMPLETED' ? 'primary' : 'outline'}`} disabled={busy} onClick={() => buyAgain(order)}>{busy ? 'Đang thêm…' : 'Mua lại'}</button>}
         </div>}
       </article>;

@@ -113,6 +113,7 @@ class RetailCatalogueMySqlIntegrationTest {
     @Autowired RetailCheckoutQuotePreviewService quotePreview;
     @Autowired RetailCheckoutAcceptanceService acceptance;
     @Autowired RetailCheckoutCancellationService cancellation;
+    @Autowired edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailBranchPartService branchParts;
     @Autowired RetailOrderQueryService orderQueries;
     @Autowired SimulatedRetailPaymentOutcomeService simulatedPayments;
     @Autowired JdbcTemplate jdbc;
@@ -383,7 +384,7 @@ class RetailCatalogueMySqlIntegrationTest {
         doThrow(new IllegalStateException("simulated loyalty failure"))
             .when(failingLoyalty).finishIneligibleEarn(any());
         var failingExpiry = new RetailUnstartedExpiryService(carts, checkouts, holdRepository, holds,
-            sales, guard, failingLoyalty);
+            sales, guard, failingLoyalty, branchParts);
         assertThatThrownBy(() -> transaction.execute(status -> failingExpiry.expire(order.member(), order.checkout())))
             .isInstanceOf(IllegalStateException.class);
         assertThat(checkouts.findById(order.checkout()).orElseThrow().getPaymentState()).isEqualTo(PaymentState.ACCEPTED_UNPAID);

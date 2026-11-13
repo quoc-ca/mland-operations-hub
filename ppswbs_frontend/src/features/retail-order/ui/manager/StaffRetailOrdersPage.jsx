@@ -6,7 +6,7 @@ import { ErrorNotice, Loading, SuccessNotice, useResource } from '../../../../sh
 import { newCommandId } from '../../../../shared/api/http';
 import { useRetailApi } from '../../application/useRetailApi';
 import { OperationsSidebar } from '../../../../shared/ui/OperationsSidebar';
-import { cardToggleProps, displayTime, orderCode } from '../orderCode';
+import { cardToggleProps, displayTime, orderCode, OrderMoneyRows } from '../orderCode';
 
 /**
  * FE-08 FR-08-051: one Staff page for the branch's retail work. Tabs follow the day's tasks; each card offers only
@@ -183,7 +183,7 @@ function PickupCard({ item, open, onToggle, busy, format, branchName, received, 
       <div><dt>Mã đơn</dt><dd>{item.code}</dd></div>
       <div><dt>Thời gian đặt</dt><dd>{displayTime(order.orderedAt)}</dd></div>
       <div><dt>Thanh toán</dt><dd>{cash ? 'Tiền mặt tại quầy' : 'VNPay'}</dd></div>
-      <div><dt>Tiền hàng</dt><dd>{format.money(order.subtotal)}</dd></div>
+      <OrderMoneyRows order={order} format={format} />
       {row.cashCollection && <div><dt>Tiền mặt</dt><dd>Thu {format.money(row.cashCollection.amountReceived)}, thối {format.money(row.cashCollection.changeReturned)} lúc {displayTime(row.cashCollection.confirmedAt)}</dd></div>}
     </dl>}
     <div className="order-card-bottom">

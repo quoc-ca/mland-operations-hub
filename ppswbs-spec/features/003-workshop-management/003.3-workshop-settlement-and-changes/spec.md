@@ -1,7 +1,7 @@
 # Feature Specification: Workshop Settlement and Changes
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-06
+**Date updated**: 2026-11-13
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -97,7 +97,8 @@ only the exceptional correction flow (T040) applies.
   it returns the existing folio.
 - **D2**: a booking is a no-show only when every ticket on every required
   session is a final `NO_SHOW`; partial attendance proceeds to normal checkout.
-- **D3**: Operations publishes `BookingAttendanceFinalizedEvent` and exposes
+- **D3** *(superseded 2026-11-13 by FR-046/FR-047: per ticket only)*:
+  Operations publishes `BookingAttendanceFinalizedEvent` and exposes
   `BookingAttendanceOutcomeQuery`; Settlement decides closure from the query.
 - **D4**: folio states are `OPEN`, `FINALIZED` (checkout, `balanceDue = 0`) and
   `CLOSED` (ordinary cancellation/no-show at the verified collected amount, or
@@ -253,9 +254,13 @@ self-service (FR-018 and Scope); whole-booking Mland remedy (FR-020, FR-021).
 - **FR-040**: The system MUST collect the recipient account through a single-use
   link sent to the payer (valid 7 days, resendable, a resend revokes the old
   link) or Staff entry at the counter (recording actor, channel and time): bank,
-  account number and holder name. A holder name different from the payer needs
-  the payer's confirmation; the transferring actor checks the name shown by the
-  bank and stops on a mismatch. Account numbers are encrypted, shown in full
+  account number and holder name. The system does not compare the holder with the payer
+  *(decision 2026-11-13: no trustworthy payer name or source account exists —
+  VNPay returns neither — and name matching misjudges namesakes and spelling)*;
+  the approving Manager approves the amount, reason and order, and the
+  transferring actor compares the holder name the bank shows for the account
+  number with the name entered and stops on a mismatch (a mistyped account
+  number), then contacts the customer. Account numbers are encrypted, shown in full
   only to the approving Manager and the transferring actor, masked
   (`****1234`) elsewhere, never written to email, logs or audit, and only the
   masked form is kept after `REFUNDED`. Without a reply the request stays
@@ -331,6 +336,48 @@ changes. Customer email content was approved 2026-11-12 in
 `artifacts/workshop-email-templates-draft.md` (filename retained; not yet
 implemented). Reschedule quota values were decided 2026-11-12 (003.2 FR-035)
 and the OTA add-on refund in FR-038a.
+
+## No-show per ticket only; direct booking is only a group (decision 2026-11-13)
+
+**Source:** in-session instruction of Hồ Hoàng Quốc (owner Feature 003),
+2026-11-13; follows 003.1 FR-044–FR-051 (every direct booking is a booking
+group with ticket folios). **Status:** approved 2026-11-13 by the owner in session (the "Open" item stays open);
+not implemented (task T105).
+
+**Supersedes:** D3 and the "Close on final no-show (P2)" row of the open-folio
+lifecycle as applied to a whole booking, FR-015a, and the D5 legacy backfill
+(no direct `WorkshopBooking` with a folio remains). Superseded lines are kept
+for history and read through this section.
+
+- **FR-046**: Settlement MUST close a ticket folio for no-show only from the
+  per-ticket signal: 003.2 `TicketAttendanceFinalizedEvent`, keyed by the 003.2
+  ticket reference (`attendance_tickets.reference`) and published per ticket
+  after its 24-hour correction window (003.2 FR-032, T092). Settlement reads the
+  per-ticket outcome (`getTicketAttendanceOutcome`) and, when terminal
+  `NO_SHOW`, closes that ticket's OPEN folio as `CLOSED` at the verified
+  collected amount, idempotently, touching no other ticket of the group.
+  Because ticket folios are keyed by the 003.1 `ticketCode`, Settlement
+  resolves the 003.2 ticket reference to the ticket booking through
+  `WorkshopBookingFacade` (003.1 stores it as
+  `ticket_bookings.operations_ticket_reference`); an unknown reference is
+  recorded and retried, never guessed.
+- **FR-047**: The booking-wide `BookingAttendanceFinalizedEvent`, its outbox
+  `workshop_booking_attendance_finalization_outbox`, its consumer
+  `BookingAttendanceFinalizedEventConsumer` and the booking-wide
+  `BookingAttendanceOutcomeQuery` are removed once T092 publishes the ticket
+  event. The Loyalty no-show outcome (D6, T089) is taken per ticket from the
+  same per-ticket outcome, consistent with T093.
+- **Open (owner decision needed, not decided here):** after FR-044–FR-051 of
+  003.1 no direct `WorkshopBooking` remains and OTA bookings have no Mland
+  folio, so the booking-wide routes of `workshop-settlement.openapi.yaml`
+  (`/workshop-bookings/{bookingCode}/final-bill*`, `…/folio-corrections*`,
+  `…/cancellation-cases*`, `…/required-session-change-cases*`,
+  `…/mland-cancellation-remedy-cases*`) have no direct subject. The per-ticket
+  contract still lacks add-on charges, the operator/add-on read views,
+  explicit finalization, the final-balance VNPay attempt and the
+  post-`FINALIZED` folio correction for a ticket folio. Recommended: a separate
+  003.3 task decides which per-ticket routes replace them before the
+  booking-wide ones are removed; this decision does not remove them.
 
 ## Scope
 

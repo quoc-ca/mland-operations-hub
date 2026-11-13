@@ -23,6 +23,9 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
@@ -45,6 +48,7 @@ class GroupConfirmationTest {
     private WorkshopOperationsAdapter operations;
     private ApplicationEventPublisher events;
     private GroupLoyaltyOutcomeService loyaltyOutcome;
+    private edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.GroupNotificationService notifications;
     private GroupConfirmationService service;
 
     private BookingGroup group;
@@ -65,8 +69,9 @@ class GroupConfirmationTest {
         when(tickets.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(magicLinks.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         loyaltyOutcome = mock(GroupLoyaltyOutcomeService.class);
+        notifications = mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.GroupNotificationService.class);
         service = new GroupConfirmationService(groups, lines, tickets, snapshots, magicLinks, operations,
-                loyaltyOutcome, events);
+                loyaltyOutcome, events, notifications);
     }
 
     // ---- internal confirmation ----
@@ -346,7 +351,8 @@ class GroupConfirmationTest {
                 .merchantReference("GRP-M1").attemptStatus(PaymentAttemptStatus.PENDING).build();
         when(attempts.findByMerchantReference("GRP-M1")).thenReturn(Optional.of(attempt));
         when(attempts.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-        GroupPaymentEvidenceService evidence = new GroupPaymentEvidenceService(attempts, service);
+        GroupPaymentEvidenceService evidence = new GroupPaymentEvidenceService(attempts, service, groups,
+                mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.LatePaymentReviewService.class));
 
         DepositPaymentEvidenceOutcome first = evidence.apply(GROUP, "GRP-M1", 150_000, "VND", "VNPAY-TX-7", "op-1", "corr-1");
         DepositPaymentEvidenceOutcome second = evidence.apply(GROUP, "GRP-M1", 150_000, "VND", "VNPAY-TX-7", "op-1", "corr-1");
@@ -356,6 +362,11 @@ class GroupConfirmationTest {
         assertThat(attempt.getAttemptStatus()).isEqualTo(PaymentAttemptStatus.SUCCESS);
         assertThat(group.getGroupStatus()).isEqualTo(BookingStatus.CONFIRMED);
         verify(magicLinks, times(1)).save(any());
+        // Email 1 once, to the buyer, with the ticket, its QR and the group Magic Link (FR-048); a replay sends nothing more.
+        verify(notifications, times(1)).queue(eq(group), isNull(), eq("GROUP_CONFIRMATION"), eq("buyer@example.com"),
+                eq("MLAND – Xác nhận đặt chỗ workshop " + GROUP), argThat(body -> !body.contains("Thanh toán của bạn đến sau")),
+                argThat(items -> items.size() == 1 && items.getFirst().contains("QR: ")), isNull(),
+                startsWith("/workshop-booking/access#"), eq("corr-1"));
     }
 
     @Test
@@ -365,7 +376,8 @@ class GroupConfirmationTest {
         GroupPaymentAttempt attempt = GroupPaymentAttempt.builder().group(group).amountVnd(150_000)
                 .merchantReference("GRP-M1").attemptStatus(PaymentAttemptStatus.PENDING).build();
         when(attempts.findByMerchantReference("GRP-M1")).thenReturn(Optional.of(attempt));
-        GroupPaymentEvidenceService evidence = new GroupPaymentEvidenceService(attempts, service);
+        GroupPaymentEvidenceService evidence = new GroupPaymentEvidenceService(attempts, service, groups,
+                mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.LatePaymentReviewService.class));
 
         assertThat(evidence.apply(GROUP, "GRP-M1", 149_000, "VND", "ev", "op", "corr").reason())
                 .isEqualTo(BookingRejectionReason.PAYMENT_MISMATCH);

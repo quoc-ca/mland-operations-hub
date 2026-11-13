@@ -35,6 +35,8 @@ export function retailApi(request) {
     quoteShipping: body => request('/api/v1/ready-ring-shipping-quotes', { method: 'POST', body }),
     createCheckout: (body, key = newCommandId()) => request('/api/v1/ready-ring-orders', { method: 'POST', body, idempotencyKey: key }),
     initiatePayment: (checkoutId, key = newCommandId()) => request(`/api/v1/ready-ring-checkouts/${id(checkoutId)}/payment`, { method: 'POST', idempotencyKey: key }),
+    // One cash branch order before Staff confirmed it (FR-08-046); the other branch orders stay.
+    cancelOrder: (orderId, key = newCommandId()) => request(`/api/v1/ready-ring-orders/${id(orderId)}/cancellations`, { method: 'POST', idempotencyKey: key }),
     cancelCheckout: (checkoutId, key = newCommandId()) => request(`/api/v1/ready-ring-checkouts/${id(checkoutId)}/cancellations`, { method: 'POST', idempotencyKey: key }),
   };
 }

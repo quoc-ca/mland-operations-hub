@@ -116,9 +116,15 @@ public class GroupCapacityService {
         Map<String, Boolean> sessionShort = new HashMap<>();
         for (Map.Entry<String, Integer> e : demand.entrySet()) {
             WorkshopSession session = sessions.get(e.getKey());
-            int activeHolds = capacityHoldRepository.sumActiveHoldsForSession(session.getId(), now);
-            int confirmedHolds = capacityHoldRepository.sumConfirmedHoldsForSession(session.getId());
-            int confirmedTickets = entitlementRepository.countActiveConfirmedSeatsForSession(session.getId());
+            // Locking reads: the caller's transaction may already hold an older REPEATABLE READ snapshot, so a plain
+            // count could miss seats another group committed while this one waited for the session lock.
+            List<CapacityHold> countable = capacityHoldRepository.findCountableHoldsForSessionForShare(session.getId());
+            int activeHolds = countable.stream()
+                    .filter(h -> h.getState() == CapacityHoldState.ACTIVE && h.getExpiresAt().isAfter(now))
+                    .mapToInt(CapacityHold::getRequestedTicketCount).sum();
+            int confirmedHolds = countable.stream().filter(h -> h.getState() == CapacityHoldState.CONFIRMED)
+                    .mapToInt(CapacityHold::getRequestedTicketCount).sum();
+            int confirmedTickets = entitlementRepository.findActiveSeatsForSessionForShare(session.getId()).size();
             int remaining = session.getCapacity() - activeHolds - Math.max(confirmedHolds, confirmedTickets);
             sessionShort.put(e.getKey(), remaining < e.getValue());
         }

@@ -20,6 +20,8 @@ public interface SettlementFolioCollectionRepository extends JpaRepository<Settl
 
     List<SettlementFolioCollection> findByBillReferenceOrderByIdAsc(String billReference);
 
+    List<SettlementFolioCollection> findByBookingReferenceOrderByIdAsc(String bookingReference);
+
     List<SettlementFolioCollection> findByBillReferenceAndStatusOrderByIdAsc(String billReference,
                                                                             FolioCollectionStatus status);
 

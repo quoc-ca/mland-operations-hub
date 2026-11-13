@@ -104,7 +104,7 @@ class LoyaltyEntityRulesTests {
 
     @Test
     void automaticDiscountIsProductOnlyWithoutCodeOrQuota() {
-        PromotionProgram auto = PromotionProgram.autoDiscount(NOW, 1L);
+        PromotionProgram auto = PromotionProgram.autoDiscount(TargetScope.PRODUCT, NOW, 1L);
         assertThat(auto.getScope()).isEqualTo(TargetScope.PRODUCT);
         assertThat(auto.getCodeKey()).isNull();
         assertCode(auto::hold, LoyaltyErrorCode.BENEFIT_STATE_CONFLICT);

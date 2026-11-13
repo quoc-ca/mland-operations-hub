@@ -29,7 +29,7 @@ public class RefundAccountReminderScheduler {
     private static final Duration SECOND_REMINDER = Duration.ofDays(7);
 
     private final SettlementRefundRequestRepository requests;
-    private final SettlementCustomerNotifier notifier;
+    private final BankRefundService bankRefunds;
 
     @Scheduled(fixedDelayString = "${workshop.settlement.refund-reminder-sweep:PT1H}")
     @Transactional
@@ -54,8 +54,7 @@ public class RefundAccountReminderScheduler {
         if (!dueFirst && !dueSecond) {
             return;
         }
-        notifier.notifyRefundAccountNeeded(request.getBookingReference(), request.getAmountVnd(),
-                request.getRequestReference(), "REFUND-REMINDER-" + UUID.randomUUID());
+        bankRefunds.remindAccountNeeded(request, "REFUND-REMINDER-" + UUID.randomUUID());
         if (dueSecond) {
             request.setReminderDay7At(now);
             if (request.getReminderDay3At() == null) {

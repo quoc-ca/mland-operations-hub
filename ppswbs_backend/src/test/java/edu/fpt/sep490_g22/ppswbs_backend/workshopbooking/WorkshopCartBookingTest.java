@@ -79,6 +79,8 @@ class WorkshopCartBookingTest {
         when(snapshots.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         WorkshopCartPricingService pricing = new WorkshopCartPricingService(operations);
         loyalty = mock(LoyaltyFacade.class);
+        // A Member cart previews even with nothing selected, so the quote can report the point limits (FR-034).
+        when(loyalty.previewBenefits(any(), any())).thenReturn(preview(0, 0, 0, 0, List.of(), 0, 0, List.of()));
         WorkshopCartBenefitService benefits = new WorkshopCartBenefitService(loyalty);
         quoteService = new WorkshopCartQuoteService(authorization, pricing, benefits, quotes, mapper);
         groupConfirmation = mock(GroupConfirmationService.class);
@@ -130,6 +132,57 @@ class WorkshopCartBookingTest {
         quoteService.quote("Bearer token", cart(line(7L, session, 1)));
 
         assertThat(saved.get(0).getBuyerMemberAccountId()).isEqualTo(42L);
+    }
+
+    @Test
+    void aMemberCartReportsThePointLimitsEvenWhenNothingIsSelected() {
+        UUID session = publishedLine("7", 150_000, 1, 6, 1, "Clay Workshop");
+        givenMember(42L);
+        givenLimits(1_400, 100, 100, List.of());
+
+        WorkshopCartQuoteResponse quote = quoteService.quote("Bearer token", cart(line(7L, session, 1)));
+
+        assertThat(quote.maxPoints()).isEqualTo(1_400);
+        assertThat(quote.minRedeemPoints()).isEqualTo(100);
+        assertThat(quote.pointValueVnd()).isEqualTo(100);
+        assertThat(quote.pointsUsed()).isZero();
+        assertThat(quote.voucherDiscountVnd()).isZero();
+        // The read-only preview holds nothing, so the quote keeps an empty benefit snapshot.
+        assertThat(saved.get(0).getBenefitSelectionJson()).isNull();
+        assertThat(saved.get(0).getTermsDigest()).isNull();
+        verify(loyalty, times(1)).previewBenefits(any(), any());
+        verify(loyalty, never()).reserveAcceptedTransaction(any(), any(), anyString());
+    }
+
+    @Test
+    void aRefusedPointAmountComesBackWithTheReasonAndTheCap() {
+        UUID session = publishedLine("7", 150_000, 1, 6, 1, "Clay Workshop");
+        givenMember(42L);
+        // 006 refuses 5,000 points because the cart only allows 1,400; it applies nothing and says why.
+        givenLimits(1_400, 100, 100, List.of("Points must be between 100 and 1400"));
+
+        WorkshopCartQuoteResponse quote = quoteService.quote("Bearer token",
+                cartWithPoints("5000", line(7L, session, 1)));
+
+        assertThat(quote.pointsUsed()).isZero();
+        assertThat(quote.pointDiscountVnd()).isZero();
+        assertThat(quote.maxPoints()).isEqualTo(1_400);
+        assertThat(quote.minRedeemPoints()).isEqualTo(100);
+        assertThat(quote.reasons()).containsExactly("Points must be between 100 and 1400");
+        assertThat(quote.finalTotalVnd()).isEqualTo(150_000);
+    }
+
+    @Test
+    void aGuestCartHasNoPointLimitsAndNoReasons() {
+        UUID session = publishedLine("7", 150_000, 1, 6, 1, "Clay Workshop");
+
+        WorkshopCartQuoteResponse quote = quoteService.quote(null, cart(line(7L, session, 1)));
+
+        assertThat(quote.maxPoints()).isZero();
+        assertThat(quote.minRedeemPoints()).isZero();
+        assertThat(quote.pointValueVnd()).isZero();
+        assertThat(quote.reasons()).isEmpty();
+        verifyNoInteractions(loyalty);
     }
 
     @Test
@@ -484,11 +537,24 @@ class WorkshopCartBookingTest {
     /** The answer 006 gives for a whole cart, including which tickets the voucher covers. */
     private void givenPreview(long discount, long pointsUsed, long pointValue, long pointDiscount,
                               List<Integer> eligibleTickets) {
-        when(loyalty.previewBenefits(any(), any())).thenReturn(new BenefitPreview(
-                BigInteger.ZERO, BigInteger.ZERO, BigInteger.valueOf(discount), BigInteger.ZERO, BigInteger.ZERO,
-                BigInteger.ZERO, BigInteger.valueOf(pointValue), BigInteger.valueOf(pointsUsed),
-                BigInteger.valueOf(pointDiscount), BigInteger.ZERO, BigInteger.ZERO, null, null, null, 3L, true,
-                List.of(), "digest-1", List.of(), eligibleTickets));
+        when(loyalty.previewBenefits(any(), any())).thenReturn(
+                preview(discount, pointsUsed, pointValue, pointDiscount, eligibleTickets, 0, 0, List.of()));
+    }
+
+    /** The point limits and reasons 006 reports for a cart that applied nothing (FR-034). */
+    private void givenLimits(long maxPoints, long minRedeemPoints, long pointValue, List<String> reasons) {
+        when(loyalty.previewBenefits(any(), any())).thenReturn(
+                preview(0, 0, pointValue, 0, List.of(), maxPoints, minRedeemPoints, reasons));
+    }
+
+    private static BenefitPreview preview(long discount, long pointsUsed, long pointValue, long pointDiscount,
+                                          List<Integer> eligibleTickets, long maxPoints, long minRedeemPoints,
+                                          List<String> reasons) {
+        return new BenefitPreview(
+                BigInteger.ZERO, BigInteger.ZERO, BigInteger.valueOf(discount), BigInteger.ZERO,
+                BigInteger.valueOf(maxPoints), BigInteger.valueOf(minRedeemPoints), BigInteger.valueOf(pointValue),
+                BigInteger.valueOf(pointsUsed), BigInteger.valueOf(pointDiscount), BigInteger.ZERO, BigInteger.ZERO,
+                null, null, null, 3L, true, reasons, "digest-1", List.of(), eligibleTickets);
     }
 
     private static AcceptedBenefitRef acceptedRef(long discount, long points) {

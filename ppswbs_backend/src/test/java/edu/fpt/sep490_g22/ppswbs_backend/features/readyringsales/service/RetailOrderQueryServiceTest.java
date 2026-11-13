@@ -44,4 +44,19 @@ class RetailOrderQueryServiceTest {
             assertThat(item.unitPrice()).isEqualTo("100");
         });
     }
+
+    @Test void branchOrderShowsItsDiscountShareAndHowManyBranchOrdersWerePlacedTogether() {
+        var repository = mock(RetailOrderRepository.class);
+        var catalogue = mock(RetailCataloguePort.class);
+        var checkout = new GroupedCheckout(1L, "key", 0, BigDecimal.valueOf(1040000), BigDecimal.ZERO, BigDecimal.valueOf(150000));
+        var order = new RetailOrder(checkout, 5L, "PICKUP", BigDecimal.valueOf(890000), BigDecimal.ZERO, BigDecimal.ZERO);
+        order.applyDiscount(BigDecimal.valueOf(128366));
+        when(repository.findOwnedOrder(1L, "order")).thenReturn(Optional.of(order));
+        when(repository.countByCheckout(any())).thenReturn(2L);
+        var result = new RetailOrderQueryService(repository, catalogue).find(1L, "order");
+        assertThat(result.subtotal()).isEqualTo("890000");
+        assertThat(result.discountAmount()).isEqualTo("128366");
+        assertThat(result.payableAmount()).isEqualTo("761634");
+        assertThat(result.checkoutOrderCount()).isEqualTo(2);
+    }
 }
