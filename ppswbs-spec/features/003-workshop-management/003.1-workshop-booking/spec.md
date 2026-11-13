@@ -1,7 +1,7 @@
 # Feature Specification: Customer Workshop Booking Core
 
 **Date created**: 2026-10-06
-**Date updated**: 2026-11-13
+**Date updated**: 2026-11-14
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -367,6 +367,36 @@ FR-030–FR-043 or below. **Not changed:** OTA bookings (003.4) keep
   Links; the backend step confirms each against code still used by groups and
   OTA and lists the result in `data-model.md`. Applied migrations are not edited.
   Tables still used by OTA bookings stay. Environments are reseeded.
+
+## Public package price shows the automatic discount (decision 2026-11-14)
+
+**Source:** in-session instruction of Hồ Hoàng Quốc (owner Feature 003),
+2026-11-14: a customer must see what a package can cost before entering any
+code, the way a marketplace shows it. **Status:** approved 2026-11-14 by Hồ
+Hoàng Quốc; the enabling requirement is 006 FR-044/FR-045 and D-013, whose
+FE-06 baseline still waits for Đặng Thị Khương to re-confirm. **Not
+implemented** (no task yet).
+
+- **FR-052 — one discounted price, on every public surface.** Every customer
+  surface that shows a package price MUST show the price after the largest
+  applicable **automatic** workshop discount (006 FR-044), with the original
+  price struck through, and MUST take the figures from the display rules of 006
+  FR-045 — never from its own percentage arithmetic. The surfaces are the
+  workshop strip on the home page, the package card in the list, the package
+  detail page, the booking screen's package summary and every cart line.
+  All of them MUST use one shared computation, so two screens never show two
+  different prices for the same package. A failure to read the offers MUST
+  leave the page working and show the plain price.
+- **FR-052a — what the price is, and is not.** The displayed price is the price
+  of **one ticket** and applies to Guest and Member alike, because an automatic
+  discount needs no account (006 FR-044); it therefore carries no "possible
+  discount" wording. A voucher MUST NOT be subtracted from it: a voucher is
+  shown as a label of its discount, with an invitation to sign in, because
+  workshop vouchers are Member-only and have quotas. Points are never
+  subtracted from a displayed price. The amount a customer actually pays stays
+  the one `POST /api/v1/workshop-cart-quotes` computes (FR-030, FR-035), and
+  the quote, the hold and every screen after confirmation keep showing only
+  server figures.
 
 ## Scope and source alignment
 

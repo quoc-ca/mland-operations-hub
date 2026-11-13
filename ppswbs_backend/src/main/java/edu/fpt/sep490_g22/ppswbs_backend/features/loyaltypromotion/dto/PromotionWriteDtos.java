@@ -85,9 +85,6 @@ public final class PromotionWriteDtos {
             case "WORKSHOP" -> TargetScope.WORKSHOP;
             default -> throw LoyaltyException.invalidField("scope", "Must be PRODUCT or WORKSHOP.");
         };
-        if (kind == ProgramKind.AUTO_DISCOUNT && scope != TargetScope.PRODUCT) {
-            throw LoyaltyException.invalidField("scope", "An automatic discount applies to products only.");
-        }
         Set<String> allowed = new LinkedHashSet<>(COMMON);
         if (kind == ProgramKind.VOUCHER) {
             allowed.addAll(VOUCHER_ONLY);
@@ -113,7 +110,7 @@ public final class PromotionWriteDtos {
 
         List<TargetRef> targets = scope == TargetScope.PRODUCT
                 ? productTargets(object(body, "targets"), kind)
-                : workshopTargets(object(body, "targets"));
+                : workshopTargets(object(body, "targets"), kind);
 
         NormalizedCode code = null;
         Long totalLimit = null;
@@ -239,7 +236,27 @@ public final class PromotionWriteDtos {
         return refs;
     }
 
-    private static List<TargetRef> workshopTargets(JsonNode targets) {
+    /**
+     * A workshop voucher takes any of the four dimensions; a workshop automatic discount takes packages only
+     * (Session 2026-11-14, FR-044), because its discounted price is shown publicly before the customer picks a
+     * branch and a session. A branch, date or session sent with an automatic discount is refused with the field
+     * path, and at least one package is required, as for a product automatic discount (FR-005).
+     */
+    private static List<TargetRef> workshopTargets(JsonNode targets, ProgramKind kind) {
+        if (kind == ProgramKind.AUTO_DISCOUNT) {
+            for (String field : List.of("branchIds", "workshopDates", "sessionIds")) {
+                if (targets.has(field)) {
+                    throw LoyaltyException.invalidField("targets." + field,
+                            "A workshop automatic discount is limited to packages only.");
+                }
+            }
+            onlyFields(targets, Set.of("packageIds"), "targets.");
+            List<TargetRef> packages = ids(targets, "packageIds", TargetDimension.PACKAGE);
+            if (packages.isEmpty()) {
+                throw LoyaltyException.invalidField("targets.packageIds", "At least one package is required.");
+            }
+            return packages;
+        }
         onlyFields(targets, Set.of("packageIds", "branchIds", "workshopDates", "sessionIds"), "targets.");
         // Every dimension is optional (decision 2026-11-06): a voucher without packageIds covers all packages, and
         // likewise for branches and sessions. WorkshopBenefitEvaluator already reads an empty set as "not restricted".

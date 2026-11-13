@@ -82,6 +82,13 @@ public class LoyaltyReservationService {
                     "Only a Member's direct website transaction can use these benefits.");
         }
         TrustedSourceContext trusted = context.trusted();
+        if (trusted.isGuest()) {
+            // FR-044 opened the preview to a Guest, not the accepted snapshot: an accepted benefit is owned by a
+            // Member (member_id, the wallet and the per-member counters all require one). A Guest accept needs its
+            // own approved contract first (ERROR-LOG BE-DESIGN-0005).
+            throw new LoyaltyException(LoyaltyErrorCode.PROMOTION_INELIGIBLE,
+                    "Only a signed-in Member's transaction can hold these benefits.");
+        }
         Optional<AcceptedBenefit> existing = benefits.findBySourceKindAndSourceRef(trusted.sourceKind(), context.sourceRef());
         if (existing.isPresent()) {
             return replay(existing.get(), context);
@@ -95,8 +102,10 @@ public class LoyaltyReservationService {
         locks.readRegistry();
         PromotionProgram voucher = voucherProgramId == null ? null
                 : locks.lockPrograms(Set.of(voucherProgramId)).get(voucherProgramId);
-        List<PromotionProgram> autos = selection.choice() == SelectionChoice.AUTO
-                ? locks.shareActiveAutoDiscounts(trusted.at()) : null;
+        List<PromotionProgram> autos = selection.choice() != SelectionChoice.AUTO ? null
+                : trusted.sourceKind() == SourceKind.WORKSHOP
+                        ? locks.shareActiveWorkshopAutoDiscounts(trusted.at())
+                        : locks.shareActiveAutoDiscounts(trusted.at());
         LoyaltyWallet wallet = selection.requestedPoints().signum() > 0
                 ? locks.lockOrOpenWallet(memberId) : locks.lockWallet(memberId).orElse(null);
         MemberProgram counters = voucher == null || voucher.getKind() != ProgramKind.VOUCHER ? null

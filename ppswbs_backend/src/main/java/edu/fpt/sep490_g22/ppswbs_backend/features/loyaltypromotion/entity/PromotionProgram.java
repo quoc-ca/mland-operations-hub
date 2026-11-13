@@ -100,9 +100,16 @@ public class PromotionProgram {
         return program;
     }
 
-    /** Automatic discounts are product-only, have no code and no quota. */
-    public static PromotionProgram autoDiscount(Instant createdAt, long createdBy) {
-        return base(ProgramKind.AUTO_DISCOUNT, TargetScope.PRODUCT, createdAt, createdBy);
+    /**
+     * Automatic discounts have no code and no quota. Since Session 2026-11-14 (FR-044) the scope may also be
+     * {@link TargetScope#WORKSHOP}: a workshop automatic discount is targeted by package only, so the discounted
+     * price can be shown publicly before the customer picks a branch or a session.
+     */
+    public static PromotionProgram autoDiscount(TargetScope scope, Instant createdAt, long createdBy) {
+        if (scope == null) {
+            throw LoyaltyException.invalidField("scope", "A scope is required.");
+        }
+        return base(ProgramKind.AUTO_DISCOUNT, scope, createdAt, createdBy);
     }
 
     private static PromotionProgram base(ProgramKind kind, TargetScope scope, Instant createdAt, long createdBy) {
