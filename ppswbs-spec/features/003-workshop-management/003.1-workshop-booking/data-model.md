@@ -152,6 +152,29 @@ the per-ticket `TicketPriceSnapshot` and the 003.3 folio replace the group-level
 **Update 2026-11-12:** only dev/test data exists, so the group/ticket model is
 introduced by a schema migration plus reseed; no booking conversion is needed.
 
+**Update 2026-11-13 (spec FR-051, tasks T101).** A direct booking is only a
+booking group, so the tables of the removed single direct flow go in two
+append-only migrations:
+
+- **V132** deletes every non-OTA `workshop_bookings` row (its cascading rows,
+  plus `booking_late_payment_evidence` and `booking_deposit_reconciliations`
+  first, whose keys do not cascade) and every `member_workshop_booking_quotes`
+  row. OTA bookings (`booking_code LIKE 'OTA-%'`) are kept.
+- **V133** drops the tables no entity maps any more:
+  `booking_ticket_session_entitlements`, `booking_tickets`,
+  `booking_capacity_holds`, `booking_magic_links`,
+  `booking_notification_intents`, `booking_deposit_reconciliations`.
+- **Kept with their tables:** `workshop_bookings` and
+  `booking_session_commitments` (an OTA booking is still one of these);
+  `booking_invoices`, `booking_payment_attempts`, `booking_payment_receipts`,
+  `booking_late_payment_evidence` and `member_workshop_booking_quotes`, which
+  the 003.3 booking-wide settlement and the Loyalty single-booking source read
+  until the open 003.3 decision of 2026-11-13; `booking_audit_evidence` and
+  `booking_idempotency_records`, shared with the group flow.
+
+An OTA booking has no invoice, ticket row, folio, Magic Link or notification
+intent, so dropping those tables does not touch it.
+
 This document does not authorize a migration. Existing applied migrations stay
 unchanged. Dev/test reset requires a preflight confirming no booking/customer
 data needs retention. Staging, production, or any data-bearing environment needs

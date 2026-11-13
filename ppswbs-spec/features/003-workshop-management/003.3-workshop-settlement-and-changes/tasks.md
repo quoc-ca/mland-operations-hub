@@ -177,13 +177,15 @@ ticket bookings) and 003.2 per-ticket capacity/attendance/quota.
 
 - [ ] T104 **Done 2026-11-12**: `ADDON_REFUND` joined the bank-routed case types, mapped to `OTA_ADDON_OVERCHARGE`, so the overcharge refund of an OTA booking's separate Mland shop add-on bill no longer asks VNPay for a partial refund; `WorkshopRefundService` now makes no gateway refund call for any Mland money. Approval stays Manager-only through the T097 lifecycle, and `BankRefundService.submitAccountAtCounter` lets Staff enter the account at the counter, which FR-038a expects when the payer is standing there. The OTA's own base ticket stays the OTA's process and was never handled here. The existing add-on test was rewritten to assert the bank route and the Manager's confirmation. **Note:** `CUSTOMER_CANCELLATION` is the one case type still reaching the gateway; FR-038 says a customer self-cancellation never refunds the booking-time collection, so that path is legacy and belongs with the per-ticket cancellation of T099-T101. Original wording: Move the OTA shop add-on overcharge refund (T092, `ADDON_REFUND`) from VNPay partial refund to the bank refund flow of T097 (FR-038a); keep Manager-only approval; allow counter entry of the account.
 
+- [ ] T105 No-show per ticket only (FR-046, FR-047, decision 2026-11-13): consume 003.2 `TicketAttendanceFinalizedEvent`, resolve the ticket reference to `ticketCode` through 003.1 T099, read `getTicketAttendanceOutcome` and close only that ticket's OPEN folio as `CLOSED` on terminal `NO_SHOW` (idempotent, no refund); take the Loyalty no-show per ticket (D6/T089). Remove `BookingAttendanceFinalizedEventConsumer` and the booking-wide outcome use; 003.2 removes `BookingAttendanceFinalizedEvent`, its outbox and `BookingAttendanceOutcomeQuery` in the same change (003.1 T100). Narrow tests on the consumer.
+
 **Email content approved 2026-11-12:** use `artifacts/workshop-email-templates-draft.md` (filename retained). **Open:** exact online rescheduling auto-approval conditions for T101; approval of the email text does not close this policy item.
 
 ## Dependencies and execution order
 
 Phase 8: 003.1 T089–T093 → T093 → T094 → T095; T096 after T094; T097 → T098;
 T099–T101 after T093 and 003.2 per-ticket work; T100 needs T097; T102 alongside;
-T103 last.
+T103 last. T105 after 003.2 T092 and 003.1 T099.
 
 - Approved refund-payment boundary work: 003.2 Operations cancellation facts;
   003.1 verified deposits; 003.3 verified final payments; and paymentintegration

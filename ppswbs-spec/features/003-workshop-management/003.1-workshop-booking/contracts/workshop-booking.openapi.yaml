@@ -6,6 +6,12 @@ info:
     Draft direct-Mland booking contract; requires owner approval before
     implementation. Shared VNPay provider ingress is documented in
     ../../contracts/vnpay-payment-ingress.openapi.yaml.
+    REMOVED BY DECISION 2026-11-13 (spec FR-044–FR-051): every route below
+    served the single direct WorkshopBooking flow and is deleted together with
+    its controller; the group routes in workshop-booking-cart.openapi.yaml
+    replace them. This file is kept for history until the backend removal
+    (task T100) lands, then the implemented group routes move here and the
+    removed paths are deleted.
 paths:
   /api/v1/workshop-booking-quotes:
     post:

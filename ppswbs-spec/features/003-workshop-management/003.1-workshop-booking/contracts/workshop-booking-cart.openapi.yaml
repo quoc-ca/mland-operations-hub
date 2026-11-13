@@ -8,6 +8,10 @@ info:
     Kept separate from workshop-booking.openapi.yaml, whose routes must match
     the implemented controllers exactly; each route moves there when its
     controller is implemented. Money values are whole VND strings.
+    Decision 2026-11-13 (spec FR-044–FR-051): the booking group is the only
+    direct booking; the single-booking routes of workshop-booking.openapi.yaml
+    are removed and replaced by the group routes here. Routes marked
+    "approved 2026-11-13" were approved by the owner that day and are not implemented yet.
 paths:
   /api/v1/workshop-cart-quotes:
     post:
@@ -54,15 +58,117 @@ paths:
         '422': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-booking-groups/{groupCode}:
     get:
-      summary: Read a group with its tickets (buyer view)
-      description: Member ownership, Guest lookup proof or Magic Link (FR-042).
-      security: [{}, {bearerAuth: []}]
+      summary: Read an owned group with its tickets (Member buyer view)
+      description: >-
+        Owning Member bearer only (FR-048, approved 2026-11-13). A Guest reads
+        the group through POST /workshop-booking-group-lookups or the Magic-Link
+        exchange, so contact proof never travels in a URL. A group the Member
+        does not own answers 404, never 403.
+      security: [{bearerAuth: []}]
       parameters: [{$ref: '#/components/parameters/GroupCode'}]
       responses:
+        '200': {description: Group projection with ticketReference per ticket, content: {application/json: {schema: {$ref: '#/components/schemas/BookingGroup'}}}}
+        '401': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+  /api/v1/members/me/workshop-booking-groups:
+    get:
+      summary: List the authenticated Member's own booking groups (approved 2026-11-13)
+      description: >-
+        Replaces GET /members/me/workshop-bookings (FR-046, FR-048). At most 30
+        groups, newest createdAt first; an EXPIRED group only while
+        holdExpiresAt is within the last 24 hours. A group that cannot be
+        projected is skipped fail-soft.
+      security: [{bearerAuth: []}]
+      responses:
+        '200': {description: Member's groups, content: {application/json: {schema: {type: array, maxItems: 30, items: {$ref: '#/components/schemas/BookingGroup'}}}}}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-booking-group-lookups:
+    post:
+      summary: Guest lookup of a group by group code and one contact proof (approved 2026-11-13)
+      description: >-
+        Replaces POST /booking-lookups (FR-048). Exactly one of contactEmail or
+        contactPhone. A wrong code or proof answers the same 404
+        BOOKING_NOT_FOUND; rate limits as the single-booking lookup. The
+        response omits ticketReference.
+      security: [{}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/GroupLookupRequest'}}}}
+      responses:
         '200': {description: Group projection, content: {application/json: {schema: {$ref: '#/components/schemas/BookingGroup'}}}}
+        '400': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '429': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-booking-group-magic-links/exchanges:
+    post:
+      summary: Exchange the group Magic Link for a read-only group projection (approved 2026-11-13)
+      description: >-
+        Replaces POST /booking-magic-links/exchanges (FR-048). The token comes
+        from the URL fragment; it is never persisted or logged. Expired,
+        revoked or unknown tokens answer the same 404. The response omits
+        ticketReference.
+      security: [{}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/MagicLinkExchangeRequest'}}}}
+      responses:
+        '200': {description: Group projection, content: {application/json: {schema: {$ref: '#/components/schemas/BookingGroup'}}}}
+        '400': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-booking-groups/{groupCode}/pending-hold-release:
+    post:
+      summary: Release a PENDING_PAYMENT group's holds before payment (approved 2026-11-13)
+      description: >-
+        Guest with exactly one stored contact proof and no bearer, or the
+        owning Member with no proof; both give a reason (FR-048). Releases
+        every line's hold; with no payment attempt and no late evidence it also
+        releases the held voucher/points (FR-017j). Refused with 409
+        PAYMENT_ATTEMPT_EXISTS once a group payment attempt exists; 409
+        INVALID_STATE when the group is not PENDING_PAYMENT. A replay with the
+        same Idempotency-Key returns 204.
+      security: [{}, {bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/GroupCode'}, {$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/GroupPendingHoldReleaseRequest'}}}}
+      responses:
+        '204': {description: Released}
+        '400': {$ref: '#/components/responses/Problem'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-booking-groups/{groupCode}/confirmation-deliveries:
+    post:
+      summary: Resend the buyer confirmation of a CONFIRMED group to the stored contact email (approved 2026-11-13)
+      description: >-
+        Guest supplies exactly one stored contact proof; the owning Member
+        none; Staff within active location scope of a group session; any
+        active Manager globally. Sends every ticket again to the stored
+        contact only, never to a recipient. Rolling limits: 3 accepted
+        self-service resends per group per hour, 5 accepted internal resends
+        per group per 15 minutes; a rejected request queues nothing.
+      security: [{}, {bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/GroupCode'}, {$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: false, content: {application/json: {schema: {$ref: '#/components/schemas/ContactProof'}}}}
+      responses:
+        '202': {description: Accepted, content: {application/json: {schema: {$ref: '#/components/schemas/GroupActionOutcome'}}}}
+        '400': {$ref: '#/components/responses/Problem'}
         '401': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+        '429': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-booking-groups/{groupCode}/magic-link-incidents:
+    post:
+      summary: Revoke or rotate the group Magic Link (approved 2026-11-13)
+      description: >-
+        Any active Manager globally. ROTATE revokes the active link and sends a
+        new one to the stored contact email; REVOKE only revokes.
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/GroupCode'}, {$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/MagicLinkIncidentRequest'}}}}
+      responses:
+        '200': {description: Safe outcome, content: {application/json: {schema: {$ref: '#/components/schemas/GroupActionOutcome'}}}}
+        '400': {$ref: '#/components/responses/Problem'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-booking-groups/{groupCode}/buyer-verifications:
     post:
       summary: Send a buyer-verification OTP to the group's original contact email
@@ -253,11 +359,28 @@ components:
         onlineRecipientChangesRemaining: {type: integer, minimum: 0, maximum: 3, nullable: true}
         attendanceStatus: {type: string, nullable: true}
         sessionReferences: {type: array, items: {type: string, format: uuid}}
+        packageName: {type: string, description: FR-049, approved 2026-11-13.}
+        sessions: {type: array, items: {$ref: '#/components/schemas/TicketSession'}, description: FR-049, approved 2026-11-13.}
+        finalPrice: {$ref: '#/components/schemas/Vnd'}
+        collectedAtBooking: {$ref: '#/components/schemas/Vnd'}
+        remaining: {$ref: '#/components/schemas/Vnd'}
+        qrReference: {type: string, nullable: true, description: FR-049, approved 2026-11-13. Buyer projection only (Member owner, Guest lookup, Magic Link) while the ticket is active; null otherwise.}
+        ticketReference: {type: string, nullable: true, description: FR-049 (FR-021c carried over), approved 2026-11-13. Opaque; only in the owning Member's projection, for Feature 011 review matching; never displayed.}
+    TicketSession:
+      type: object
+      required: [sessionReference, locationId, ordinal, scheduledStart, scheduledEnd]
+      properties:
+        sessionReference: {type: string, format: uuid}
+        locationId: {type: integer, format: int64}
+        ordinal: {type: integer, minimum: 1}
+        scheduledStart: {type: string, format: date-time}
+        scheduledEnd: {type: string, format: date-time}
     BookingGroup:
       type: object
       required: [groupCode, status, paymentMode, groupCollection, tickets]
       properties:
         groupCode: {type: string}
+        createdAt: {type: string, format: date-time, description: Proposed 2026-11-13; list ordering.}
         status: {type: string, enum: [PENDING_PAYMENT, CONFIRMED, EXPIRED, CANCELLED]}
         paymentMode: {type: string, enum: [VNPAY, INTERNAL_FREE, INTERNAL_DEFERRED]}
         groupCollection: {$ref: '#/components/schemas/Vnd'}
@@ -295,6 +418,46 @@ components:
       properties:
         buyerVerificationReference: {type: string, format: uuid}
         expiresAt: {type: string, format: date-time}
+    ContactProof:
+      type: object
+      description: Guest sends exactly one stored contact value; a Member or authorized internal caller sends none.
+      properties:
+        contactEmail: {type: string, format: email, maxLength: 254, writeOnly: true}
+        contactPhone: {type: string, minLength: 7, maxLength: 32, writeOnly: true}
+    GroupLookupRequest:
+      type: object
+      required: [groupCode]
+      description: Exactly one of contactEmail or contactPhone.
+      properties:
+        groupCode: {type: string}
+        contactEmail: {type: string, format: email, maxLength: 254, writeOnly: true}
+        contactPhone: {type: string, minLength: 7, maxLength: 32, writeOnly: true}
+    MagicLinkExchangeRequest:
+      type: object
+      required: [token]
+      properties:
+        token: {type: string, writeOnly: true, description: Opaque value from the Magic Link URL fragment; never persist or log it.}
+    GroupPendingHoldReleaseRequest:
+      type: object
+      required: [reason]
+      properties:
+        contactEmail: {type: string, format: email, maxLength: 254, writeOnly: true}
+        contactPhone: {type: string, minLength: 7, maxLength: 32, writeOnly: true}
+        reason: {type: string, minLength: 1, maxLength: 1000, description: Audit reason; contact proof is never copied to audit.}
+    MagicLinkIncidentRequest:
+      type: object
+      required: [action, reason]
+      properties:
+        action: {type: string, enum: [REVOKE, ROTATE]}
+        reason: {type: string, minLength: 1, maxLength: 1000, description: Must not contain URLs, link fragments or credentials.}
+    GroupActionOutcome:
+      type: object
+      required: [groupCode, action, outcome, correlationId]
+      properties:
+        groupCode: {type: string}
+        action: {type: string}
+        outcome: {type: string}
+        correlationId: {type: string}
     LatePaymentReview:
       type: object
       required: [reviewId, groupCode, outcome, amount, arrivedAt, failedConditions]
