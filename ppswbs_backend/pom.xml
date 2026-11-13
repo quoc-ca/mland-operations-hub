@@ -36,6 +36,8 @@
 		<cloudinary.version>2.4.0</cloudinary.version>
 		<!-- FE-02 Excel import (T092, approved 2026-10-26) -->
 		<poi.version>5.5.1</poi.version>
+		<!-- MySQL 8.4 LTS support; keep flyway-core and flyway-mysql aligned. -->
+		<flyway.version>11.15.0</flyway.version>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -163,6 +165,11 @@
 					     application.properties imports .env; a system property overrides it for every test. -->
 					<systemPropertyVariables>
 						<app.mail.adapter>captured</app.mail.adapter>
+						<!-- Full application contexts must not start background jobs while tests own temporary schemas. -->
+						<app.scheduling.enabled>false</app.scheduling.enabled>
+						<spring.modulith.moments.enabled>false</spring.modulith.moments.enabled>
+						<!-- Evict and close old Spring contexts before their Hikari pools exhaust MySQL. -->
+						<spring.test.context.cache.maxSize>8</spring.test.context.cache.maxSize>
 					</systemPropertyVariables>
 					<includes>
 						<include>**/*Test.java</include>

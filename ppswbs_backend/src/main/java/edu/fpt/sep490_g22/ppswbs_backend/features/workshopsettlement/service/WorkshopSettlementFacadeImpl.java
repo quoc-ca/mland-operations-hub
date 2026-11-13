@@ -137,9 +137,13 @@ public class WorkshopSettlementFacadeImpl implements WorkshopSettlementFacade {
                 .findByNotificationReference(query.notificationReference().trim()).orElse(null);
         if (handoff == null || !handoff.getPayloadExpiresAt().isAfter(Instant.now())) return null;
 
+        Instant now = Instant.now();
+        String link = handoff.getActionLink() != null
+                && (handoff.getActionLinkExpiresAt() == null || handoff.getActionLinkExpiresAt().isAfter(now))
+                ? handoff.getActionLink() : null;
         return new SettlementNotificationDeliveryPayload(handoff.getNotificationKind(),
                 handoff.getStoredRecipient(), handoff.getRenderedSettlementContent(),
-                handoff.getCorrelationReference());
+                handoff.getCorrelationReference(), handoff.getRenderedSubject(), link);
     }
 
     @Override

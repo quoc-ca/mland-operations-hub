@@ -63,21 +63,89 @@ paths:
         '401': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-booking-groups/{groupCode}/buyer-verifications:
+    post:
+      summary: Send a buyer-verification OTP to the group's original contact email
+      description: >-
+        Guest buyer, or Staff at the shop on the buyer's behalf (FR-041,
+        decision 2026-11-13). The caller proves the booking with exactly one of
+        the stored contact email or phone (same proof as guest lookup); the OTP
+        is always sent to the original contact email, never to a ticket
+        recipient. 6 digits, valid 10 minutes, at most 5 wrong attempts; only a
+        hash is stored. A new request supersedes the active challenge of the
+        group; requests are at least 60 seconds apart and at most 5 per hour
+        per group. The response never reveals whether the contact matched; a
+        mismatch sends nothing.
+      security: [{}, {bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/GroupCode'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/BuyerVerificationRequest'}}}}
+      responses:
+        '202': {description: Challenge accepted, content: {application/json: {schema: {$ref: '#/components/schemas/BuyerVerificationChallenge'}}}}
+        '400': {$ref: '#/components/responses/Problem'}
+        '429': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-booking-groups/{groupCode}/buyer-verifications/{verificationId}/confirmations:
+    post:
+      summary: Confirm the OTP and receive a single-use buyerVerificationReference
+      description: >-
+        On success returns a buyerVerificationReference scoped to the group,
+        valid 15 minutes and consumed by one recipient change. Errors:
+        400 BUYER_VERIFICATION_FAILED (wrong code, attempts remain),
+        409 BUYER_VERIFICATION_LOCKED (5 wrong attempts),
+        409 BUYER_VERIFICATION_EXPIRED (expired or superseded). An unknown
+        verificationId is answered like a wrong code.
+      security: [{}, {bearerAuth: []}]
+      parameters:
+        - {$ref: '#/components/parameters/GroupCode'}
+        - {name: verificationId, in: path, required: true, schema: {type: string, format: uuid}}
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/BuyerVerificationConfirmation'}}}}
+      responses:
+        '200': {description: Buyer verified, content: {application/json: {schema: {$ref: '#/components/schemas/BuyerVerificationResult'}}}}
+        '400': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-tickets/{ticketCode}/recipient:
     put:
       summary: Send a ticket to a recipient email, or change its recipient
       description: >-
-        Buyer only, or Staff after verifying the buyer (FR-041). A new email
-        revokes the old QR and issues a new one; the same email resends with the
-        same QR. Refused after check-in and after 3 online changes.
+        Buyer only, or Staff after verifying the buyer (FR-041, decision
+        2026-11-13). Proof: a Member buyer sends a Firebase bearer and must own
+        the group; a Guest buyer sends buyerVerificationReference; Staff or
+        Manager sends a bearer with location scope plus buyerVerificationReference
+        and reason. A recipient has no management right. The first send keeps
+        the current QR and is not counted. Changing to a different email
+        revokes the old QR at once, issues a new opaque QR for the same
+        entitlements (003.2 FR-033), emails the new recipient and tells the
+        previous recipient the old QR is void; it counts as one online change
+        (at most 3 per ticket). Staff changes are not counted. The same email
+        resends with the same QR. Errors: 401 BUYER_VERIFICATION_REQUIRED,
+        403 RECIPIENT_CHANGE_FORBIDDEN, 404 TICKET_NOT_FOUND,
+        409 TICKET_NOT_CONFIRMED, 409 TICKET_ALREADY_CHECKED_IN,
+        409 RECIPIENT_CHANGE_LIMIT_REACHED (go to the shop),
+        409 BUYER_VERIFICATION_EXPIRED, 409 IDEMPOTENCY_KEY_REUSED.
+        A refused request changes nothing. Audit keeps masked old/new email,
+        actor, channel, time and correlation only.
       security: [{}, {bearerAuth: []}]
       parameters: [{$ref: '#/components/parameters/TicketCode'}, {$ref: '#/components/parameters/IdempotencyKey'}]
       requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/RecipientRequest'}}}}
       responses:
         '200': {description: Recipient updated, content: {application/json: {schema: {$ref: '#/components/schemas/Ticket'}}}}
         '400': {$ref: '#/components/responses/Problem'}
+        '401': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
+  /api/v1/late-payment-reviews:
+    get:
+      summary: Manager queue of late-payment reviews
+      description: >-
+        Manager only (FR-040a, decision 2026-11-13). Ordered by earliest session
+        start, then resultDueAt. Contains no buyer contact data.
+      security: [{bearerAuth: []}]
+      parameters:
+        - {name: status, in: query, required: false, schema: {type: string, enum: [AUTO_RECONFIRMED, PENDING_MANAGER, MANAGER_CONFIRMED, REFUND_REQUESTED], default: PENDING_MANAGER}}
+      responses:
+        '200': {description: Queue, content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/LatePaymentReview'}}}}}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-booking-groups/{groupCode}/late-payment-reviews/{reviewId}/decisions:
     post:
       summary: Manager decision on a late payment that was not re-confirmed automatically
@@ -85,11 +153,20 @@ paths:
         CONFIRM only when the failed conditions are limited to the 60-minute
         window or a duplicate booking, the buyer still wants to attend, and
         capacity, start time and recomputed amount still hold; REFUND opens a
-        100% bank refund in 003.3 (FR-040).
+        100% bank refund in 003.3 (FR-040). Only a PENDING_MANAGER review is
+        decided. CONFIRM rechecks conditions 1–3 at decision time and holds
+        capacity for the whole group atomically; it is refused with
+        409 LATE_PAYMENT_CONFIRM_NOT_ALLOWED when any of conditions 1–3 failed
+        on arrival or fails now. REFUND asks 003.3 through
+        LatePaymentRefundPort in the same transaction and is recorded only
+        once a durable bank-refund request exists (PENDING_ACCOUNT when the
+        refund account is still missing); it never calls VNPay Refund. A
+        repeated decision with the same Idempotency-Key replays the result;
+        a decided review returns 409 LATE_PAYMENT_REVIEW_ALREADY_DECIDED.
       security: [{bearerAuth: []}]
       parameters:
         - {$ref: '#/components/parameters/GroupCode'}
-        - {name: reviewId, in: path, required: true, schema: {type: string}}
+        - {name: reviewId, in: path, required: true, schema: {type: string, format: uuid}, description: LatePaymentReview.reviewId}
         - {$ref: '#/components/parameters/IdempotencyKey'}
       requestBody:
         required: true
@@ -102,9 +179,11 @@ paths:
                 decision: {type: string, enum: [CONFIRM, REFUND]}
                 reason: {type: string, minLength: 1, maxLength: 1000}
       responses:
-        '200': {description: Decision recorded}
+        '200': {description: Decision recorded, content: {application/json: {schema: {$ref: '#/components/schemas/LatePaymentReview'}}}}
+        '400': {$ref: '#/components/responses/Problem'}
         '401': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
 components:
   securitySchemes:
@@ -171,6 +250,7 @@ components:
         status: {type: string}
         collectionKind: {type: string, enum: [FREE, FULL, DEPOSIT, DEFERRED_BELOW_VNPAY_MINIMUM]}
         recipientEmailMasked: {type: string, nullable: true}
+        onlineRecipientChangesRemaining: {type: integer, minimum: 0, maximum: 3, nullable: true}
         attendanceStatus: {type: string, nullable: true}
         sessionReferences: {type: array, items: {type: string, format: uuid}}
     BookingGroup:
@@ -190,6 +270,48 @@ components:
       required: [recipientEmail]
       properties:
         recipientEmail: {type: string, format: email, maxLength: 254}
+        buyerVerificationReference: {type: string, format: uuid, description: Required for a Guest buyer and for Staff/Manager; ignored for the owning Member.}
+        reason: {type: string, minLength: 1, maxLength: 500, description: Required for Staff/Manager.}
+    BuyerVerificationRequest:
+      type: object
+      description: Exactly one of contactEmail or contactPhone.
+      properties:
+        contactEmail: {type: string, format: email, maxLength: 254}
+        contactPhone: {type: string, minLength: 7, maxLength: 32}
+    BuyerVerificationChallenge:
+      type: object
+      required: [verificationId, expiresAt]
+      properties:
+        verificationId: {type: string, format: uuid}
+        expiresAt: {type: string, format: date-time}
+    BuyerVerificationConfirmation:
+      type: object
+      required: [otp]
+      properties:
+        otp: {type: string, pattern: '^[0-9]{6}$'}
+    BuyerVerificationResult:
+      type: object
+      required: [buyerVerificationReference, expiresAt]
+      properties:
+        buyerVerificationReference: {type: string, format: uuid}
+        expiresAt: {type: string, format: date-time}
+    LatePaymentReview:
+      type: object
+      required: [reviewId, groupCode, outcome, amount, arrivedAt, failedConditions]
+      properties:
+        reviewId: {type: string, format: uuid}
+        groupCode: {type: string}
+        outcome: {type: string, enum: [AUTO_RECONFIRMED, PENDING_MANAGER, MANAGER_CONFIRMED, REFUND_REQUESTED]}
+        amount: {$ref: '#/components/schemas/Vnd'}
+        arrivedAt: {type: string, format: date-time}
+        failedConditions:
+          type: array
+          items: {type: string, enum: [CAPACITY, START_TIME, AMOUNT, ARRIVAL_WINDOW, DUPLICATE_BOOKING]}
+        confirmAllowed: {type: boolean, description: True when only ARRIVAL_WINDOW and/or DUPLICATE_BOOKING failed.}
+        earliestSessionAt: {type: string, format: date-time, nullable: true}
+        resultDueAt: {type: string, format: date-time, nullable: true}
+        decidedAt: {type: string, format: date-time, nullable: true}
+        refundRequestReference: {type: string, nullable: true}
     Problem:
       type: object
       required: [code, correlationId]

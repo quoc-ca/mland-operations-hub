@@ -267,6 +267,10 @@ paths:
     parameters: [ { $ref: '#/components/parameters/SessionId' } ]
     post:
       summary: Normal QR or exact ticket-code check-in; repeat scan returns the existing result without another attendance action
+      description: >-
+        A QR revoked by a recipient change (FR-033) is refused with 409
+        TICKET_QR_REVOKED and records no attendance; the ticket's current QR
+        or exact ticket code still checks in.
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CheckInRequest' } } } }
       responses:
         '200': { $ref: '#/components/responses/CheckInResult' }

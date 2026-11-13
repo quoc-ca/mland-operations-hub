@@ -54,6 +54,7 @@ public class GroupConfirmationService {
     private final WorkshopOperationsAdapter operations;
     private final GroupLoyaltyOutcomeService loyaltyOutcome;
     private final ApplicationEventPublisher events;
+    private final GroupNotificationService notifications;
 
     /** How long after the last session a group's Magic Link stays usable when no session end is known. */
     private static final Duration FALLBACK_LINK_LIFETIME = Duration.ofDays(30);
@@ -104,6 +105,21 @@ public class GroupConfirmationService {
             throw new BookingConflictException("The verified amount does not match the group collection");
         }
         return confirm(group, "GROUP_PAYMENT_CONFIRMED", evidenceReference, operationReference, correlationReference);
+    }
+
+    /**
+     * FR-040: confirms a late-paid group as a new acceptance once the caller has held fresh capacity for every
+     * line (all or none). Runs inside the caller's transaction so a refusal leaves nothing behind.
+     */
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public GroupConfirmation confirmReheldLateGroup(String groupCode, long verifiedAmountVnd, String evidenceReference,
+                                                   String auditAction, String operationReference,
+                                                   String correlationReference) {
+        BookingGroup group = lockGroup(groupCode);
+        if (group.getPaymentMode() != GroupPaymentMode.VNPAY || verifiedAmountVnd != group.getGroupCollectionVnd()) {
+            throw new BookingConflictException("The late payment does not match the group collection");
+        }
+        return confirm(group, auditAction, evidenceReference, operationReference, correlationReference);
     }
 
     /** FR-032: when the 12-minute hold runs out the whole group is released, never a part of it. */
@@ -233,6 +249,9 @@ public class GroupConfirmationService {
                 .expiresAt(lastSessionEnd != null ? lastSessionEnd : now.plus(FALLBACK_LINK_LIFETIME))
                 .build());
 
+        // 2b. Email 1 to the buyer with every ticket (6a adds one line for a late payment re-confirmed automatically).
+        queueConfirmationEmail(group, groupLines, confirmedEntities, auditAction, correlationReference);
+
         // 3. One voucher use and one points hold per group, settled once now that the group is real.
         loyaltyOutcome.settleConfirmedGroup(group, evidenceReference);
 
@@ -248,6 +267,76 @@ public class GroupConfirmationService {
         return new GroupConfirmation(group.getGroupCode(), group.getGroupStatus().name(),
                 group.getPaymentMode().name(), group.getGroupCollectionVnd(), group.getConfirmedAt(), rawMagicToken,
                 List.copyOf(confirmed), false);
+    }
+
+    private static final java.time.format.DateTimeFormatter SCHEDULE = java.time.format.DateTimeFormatter
+            .ofPattern("dd/MM/yyyy HH:mm").withZone(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
+
+    /**
+     * Template 1 (approved 2026-11-12) to the buyer's contact email, with every ticket and its QR; template 6a's line
+     * is added when a late payment was re-confirmed automatically. The group Magic Link has no exchange route yet,
+     * so the email carries no link and never stores the raw token.
+     */
+    private void queueConfirmationEmail(BookingGroup group, List<BookingGroupLine> groupLines,
+                                        List<TicketBooking> confirmedTickets, String auditAction,
+                                        String correlationReference) {
+        if (group.getContactEmail() == null || group.getContactEmail().isBlank()) {
+            return;
+        }
+        StringBuilder body = new StringBuilder("Xin chào,\n\n");
+        if ("LATE_PAYMENT_RECONFIRMED".equals(auditAction)) {
+            body.append("Thanh toán của bạn đến sau thời hạn nhưng chỗ vẫn còn, đặt chỗ đã được xác nhận.\n\n");
+        }
+        body.append("Đặt chỗ workshop của bạn đã được xác nhận.\n\nMã đặt chỗ: ").append(group.getGroupCode()).append("\n");
+        List<String> artifacts = new ArrayList<>();
+        long collected = 0;
+        boolean deferred = false;
+        long deferredAmount = 0;
+        for (TicketBooking ticket : confirmedTickets) {
+            TicketPriceSnapshot snapshot = snapshots.findByTicketId(ticket.getId()).orElse(null);
+            BookingGroupLine line = groupLines.stream().filter(l -> l.getLineIndex() == ticket.getLineIndex())
+                    .findFirst().orElse(null);
+            String schedule = line == null ? "" : String.join("; ", line.getSessions().stream()
+                    .sorted(java.util.Comparator.comparingInt(BookingGroupLineSession::getOrdinal))
+                    .map(s -> s.getScheduledStart() == null ? "" : SCHEDULE.format(s.getScheduledStart())).toList());
+            long paid = snapshot == null ? 0 : snapshot.getCollectedAtBookingVnd();
+            long remaining = snapshot == null ? 0 : snapshot.getRemainingVnd();
+            TicketCollectionKind kind = snapshot == null ? null : snapshot.getCollectionKind();
+            if (kind == TicketCollectionKind.DEFERRED_BELOW_VNPAY_MINIMUM) {
+                deferred = true;
+                deferredAmount += snapshot.getFinalPriceVnd();
+            }
+            collected += paid;
+            artifacts.add(ticket.getTicketCode() + " · " + ticket.getPackageNameSnapshot() + " · " + schedule
+                    + " · Đã thanh toán lúc đặt: " + vnd(paid) + " (" + collectionLabel(kind) + ")"
+                    + " · Còn lại khi checkout: " + vnd(remaining)
+                    + " · QR: " + ticket.getQrReference());
+        }
+        body.append("\nTổng đã thanh toán: ").append(vnd(collected)).append(".");
+        if (deferred) {
+            body.append(" Bạn không cần thanh toán online; vui lòng thanh toán ").append(vnd(deferredAmount))
+                    .append(" tại quầy khi checkout.");
+        }
+        body.append("\n\nXuất trình mã vé hoặc QR khi check-in. Bạn có thể gửi từng vé cho người đi cùng trong trang "
+                + "đặt chỗ.\n\nLưu ý: khoản đã thanh toán lúc đặt không được hoàn khi bạn tự hủy hoặc không tham dự. "
+                + "Hủy trước giờ bắt đầu buổi đầu tiên của vé ít nhất 24 giờ thì điểm thưởng đã dùng được trả lại.");
+        notifications.queue(group, null, GroupNotificationService.KIND_GROUP_CONFIRMATION, group.getContactEmail(),
+                "MLAND – Xác nhận đặt chỗ workshop " + group.getGroupCode(), body.toString(), artifacts, null,
+                correlationReference);
+    }
+
+    private static String collectionLabel(TicketCollectionKind kind) {
+        if (kind == null) return "";
+        return switch (kind) {
+            case FULL -> "Thanh toán toàn bộ";
+            case DEPOSIT -> "Cọc";
+            case FREE -> "Miễn phí";
+            case DEFERRED_BELOW_VNPAY_MINIMUM -> "Thanh toán tại quầy";
+        };
+    }
+
+    private static String vnd(long amountVnd) {
+        return String.format(java.util.Locale.ROOT, "%,d", amountVnd).replace(',', '.') + " VND";
     }
 
     /** A replayed confirmation reports the stored outcome and issues no second Magic Link. */

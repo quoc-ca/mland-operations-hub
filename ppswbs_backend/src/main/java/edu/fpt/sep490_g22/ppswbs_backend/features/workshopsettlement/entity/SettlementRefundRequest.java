@@ -50,9 +50,6 @@ public class SettlementRefundRequest {
     @Column(name = "status", nullable = false, length = 32)
     private RefundRequestStatus status;
 
-    @Column(name = "payer_label", length = 200)
-    private String payerLabel;
-
     @Column(name = "recipient_bank_code", length = 32)
     private String recipientBankCode;
 
@@ -65,12 +62,6 @@ public class SettlementRefundRequest {
 
     @Column(name = "recipient_holder_name", length = 200)
     private String recipientHolderName;
-
-    @Column(name = "recipient_is_payer", nullable = false)
-    private boolean recipientIsPayer;
-
-    @Column(name = "payer_confirmed_other_recipient", nullable = false)
-    private boolean payerConfirmedOtherRecipient;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "account_entry_channel", length = 16)

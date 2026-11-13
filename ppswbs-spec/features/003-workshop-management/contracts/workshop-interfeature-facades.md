@@ -1,7 +1,7 @@
 # 003 Workshop Management — Internal Facade Contract
 
 **Date created**: 2026-10-25
-**Date updated**: 2026-11-05
+**Date updated**: 2026-11-13
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -85,7 +85,9 @@ check that state without depending on the `paymentintegration` module. For a
 verified successful deposit that arrives after its hold is released, Booking
 stores a deduplicated `BookingLatePaymentEvidence` record through its facade;
 that record is reconciliation evidence for Manager `RECORD`/`ESCALATE` only
-and never restores the hold or confirms the booking.
+and never restores the hold or confirms the booking. This applies to the
+single-booking model only. For a booking group, FR-040 (`CONFIRM`/`REFUND`)
+supersedes it: see "Late-payment review and bank refund (decision 2026-11-13)".
 
 ## Final-payment checkout boundary
 
@@ -343,13 +345,58 @@ chosen at implementation.
 | --- | --- | --- |
 | 003.2 | Reserve/commit/release capacity | Accept a booking-group reference with lines (package, session set, ticket count); one seat per ticket per session; all or none for the group before confirmation, per ticket afterwards. |
 | 003.2 | Cancel ticket entitlements | New per-ticket command releasing the ticket's future seats and revoking its future entitlements; replaces whole-booking `CancelBookingCommand` for new bookings. |
-| 003.2 | Revoke and reissue ticket QR | New command for a recipient change; old QR refused at check-in; refused after any check-in. |
+| 003.2 | Revoke and reissue ticket QR | Implemented 2026-11-13 as `WorkshopOperationsFacade.reissueTicketQr(ReissueTicketQrCommand(ticketReference, QrRevokeReason.RECIPIENT_CHANGED, operationReference, correlationReference)) → TicketQrReissueOutcome(status, ticketReference, qrGeneration, qrReference, reason)`. Idempotent per `operationReference` (replay re-reads the QR, the ledger never stores it); `REJECTED` with `TICKET_NOT_FOUND`, `INVALID_STATE` (not ACTIVE) or `TICKET_ALREADY_CHECKED_IN`. Joins the caller's transaction. The revoked QR is kept in `ticket_qr_generations`; check-in answers 409 `TICKET_QR_REVOKED`. |
 | 003.2 | Replace ticket sessions | Per-ticket replacement for the selected tickets, all or none, with capacity, reschedule quota and the late-arrival window; type `CUSTOMER_ADVANCE`, `CUSTOMER_LATE_ARRIVAL` or `MLAND`. |
 | 003.2 | Attendance outcome / readiness / `BookingAttendanceFinalizedEvent` | Keyed by ticket booking instead of booking. |
 | 003.1 | `MlandBookingConfirmedEvent` and `ConfirmedBookingFinancialProjection` | One per ticket booking; the projection gives the ticket's final price, allocated booking-time collection and kind (`FREE`, `FULL`, `DEPOSIT`, `DEFERRED_BELOW_VNPAY_MINIMUM`) so 003.3 opens the ticket folio. |
 | 003.1 | Verified booking-time payments | Group payment evidence plus each ticket's allocated share. |
 | 003.3 → 003.1 | Booking status conclusions | Per ticket booking; refund status set only at `REFUNDED` after bank reconciliation. |
 | 003.3 → paymentintegration | Refund adapter | No longer used for direct Mland money (bank refunds); VNPay collection unchanged. |
+
+## Late-payment review and bank refund (decision 2026-11-13)
+
+Approved by the Feature 003 owner on 2026-11-13 for 003.1 FR-040/FR-040a.
+
+- **Direction.** Booking may not depend on Settlement (Settlement already
+  depends on `workshopbooking :: facade`). Booking therefore declares the port
+  `LatePaymentRefundPort` in `workshopbooking.facade`, and Settlement implements
+  it. Booking never references Settlement types.
+- **Command.** `OpenLatePaymentRefundCommand(groupCode, reviewReference,
+  evidenceReference, amountVnd, operationReference, correlationReference)`.
+- **Amount source.** The verified late evidence amount recorded on the review.
+  No ticket was confirmed, so there is no folio and no per-ticket allocation:
+  one group-level bank-refund request per review, reason
+  `LATE_PAYMENT_NOT_RECONFIRMED`, source reference = `reviewReference`.
+  Settlement rechecks the amount against Booking's verified late evidence
+  through the Booking facade before opening the request.
+- **Result.** `LatePaymentRefundOutcome(status, refundRequestReference,
+  refundStatus, reason)` with status `ACCEPTED`, `PRIOR_EQUIVALENT` (same source
+  and amount already opened) or `REJECTED` with a safe reason (for example
+  `AMOUNT_MISMATCH`, `EVIDENCE_NOT_FOUND`, `SOURCE_CONFLICT`).
+- **Idempotency.** Unique `(reason, source_reference)` in
+  `settlement_refund_requests`; a repeated command returns `PRIOR_EQUIVALENT`.
+- **Transaction.** The port runs with propagation `MANDATORY` inside the
+  Manager decision transaction. A failure rolls back both, so a review becomes
+  `REFUND_REQUESTED` only once the durable refund request exists.
+- **Missing account.** Still `ACCEPTED`; the request starts in
+  `PENDING_ACCOUNT` and the refund-account email (template 7, 003.3 FR-040)
+  counts as the FR-040a result. VNPay Refund is never called.
+- **Conditions.** Condition 1 checks session capacity through
+  `reserveGroupCapacity` only (no channel quota exists in V1). Condition 3
+  holds only when the current loyalty revision equals the recorded revision,
+  the voucher and points can be held again and the recomputed total equals
+  the collected amount.
+- **Manager queue.** `GET /api/v1/late-payment-reviews` ordered by earliest
+  session start. Booking publishes `LatePaymentReviewQueued(reviewReference,
+  groupReference, earliestSessionAt, resultDueAt, correlationReference)` with
+  references only. Internal Manager email (template 13) goes to every active Manager through
+  `ManagerAlertRecipientSource`, to be backed by FE-001 `AccountFacade.listActiveManagerEmails()` once FE-001
+  agrees; until then no alert email is sent.
+- **Customer emails.** Booking-group emails (templates 1/6a, 2, 3, 4, 6b, 12) are `booking_group_notification_intents`
+  pulled through `WorkshopBookingNotificationFacade`. Settlement emails, including template 7 with the private
+  `/refund-account#{token}` link, are `settlement_notification_handoffs` pulled through
+  `WorkshopSettlementFacade.getSettlementNotificationDeliveryPayload`; Feature 007 now consumes both
+  `BookingNotificationReady` and `SettlementNotificationReady` (decision 2026-11-13).
 
 ## Explicitly not decided here
 

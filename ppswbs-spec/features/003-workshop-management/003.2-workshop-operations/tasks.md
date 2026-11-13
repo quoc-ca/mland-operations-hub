@@ -1,7 +1,7 @@
 # Tasks: Workshop Operations
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-05
+**Date updated**: 2026-11-13
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -301,7 +301,7 @@ and 003.3 Phase 8 (per-ticket cancellation, Mland remedy, changes).
 - [x] T090 Group capacity facade (FR-030): `WorkshopOperationsFacade.reserveGroupCapacity` (`GroupCapacityService`) reserves every line all or none, sums demand per session across lines, one hold per line per session, 12-minute hold (`workshop.booking.group-hold-minutes`), per-line failing indexes on refusal, idempotent with replay; commit/release reuse the per-line booking references. `GroupCapacityServiceTest` (8 cases). Per-ticket commit/release after confirmation continues in 003.2 T091.
 - [ ] T091 Per-ticket cancellation (FR-031): release the ticket's seats in its future sessions and revoke its future entitlements without touching other tickets or attendance history.
 - [ ] T092 Per-ticket readiness and attendance outcome (FR-032): query and `BookingAttendanceFinalizedEvent` per ticket booking after the 24-hour correction window; no-show per ticket.
-- [ ] T093 QR revoke and reissue for a recipient change (FR-033): revoke immediately, issue a new opaque QR for the same entitlements, refuse after any check-in; check-in rejects revoked QR.
+- [x] T093 QR revoke and reissue for a recipient change (FR-033): revoke immediately, issue a new opaque QR for the same entitlements, refuse after any check-in; check-in rejects revoked QR. **Done 2026-11-13** (`TicketQrReissueIT` on MySQL, 5 tests): Flyway V126 (`attendance_tickets.qr_generation`, `ticket_qr_generations`); `WorkshopOperationsFacade.reissueTicketQr` idempotent per operation reference, refused with `TICKET_ALREADY_CHECKED_IN`; check-in and override answer 409 `TICKET_QR_REVOKED`; audit carries no QR. `GroupCapacityService` now counts holds and seats with locking reads after the session lock, so a caller with an older REPEATABLE READ snapshot cannot take the last seat twice.
 - [ ] T094 Per-ticket session replacement (FR-034): selected tickets all or none, capacity + reschedule quota + package rules, late-arrival exception for an `IN_PROGRESS` source before it ends with the 7-day window, Mland replacements not counted.
 - [ ] T095 Reschedule quota (FR-035): one quota per session shared by advance and late-arrival changes, default floor(25% × capacity) with minimum 1, Manager override per session (0 closes it), default recomputed on capacity change unless overridden, Mland replacements exempt; counted per moved ticket.
 - [ ] T096 Integration tests on MySQL: group reserve with one failing line, per-ticket release, per-ticket attendance outcome, QR revoke at check-in, replacement all-or-none, late-arrival window edges (old end + 7 days), quota exhausted vs capacity full, OTA ticket refused.

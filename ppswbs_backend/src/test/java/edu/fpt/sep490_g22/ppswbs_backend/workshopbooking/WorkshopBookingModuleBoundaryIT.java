@@ -228,8 +228,13 @@ class WorkshopBookingModuleBoundaryIT {
             assertThat(route).satisfiesAnyOf(
                     r -> assertThat(r).startsWith("/api/v1/workshop-bookings"),
                     r -> assertThat(r).startsWith("/api/v1/workshop-booking-quotes"),
+                    r -> assertThat(r).startsWith("/api/v1/workshop-cart-quotes"),
+                    r -> assertThat(r).startsWith("/api/v1/workshop-booking-groups"),
                     r -> assertThat(r).startsWith("/api/v1/booking-"),
-                    r -> assertThat(r).startsWith("/api/v1/members/me/workshop-bookings")
+                    r -> assertThat(r).startsWith("/api/v1/members/me/workshop-bookings"),
+                    // Cart contract (003.1 FR-040/FR-041): ticket recipients and the late-payment Manager queue.
+                    r -> assertThat(r).startsWith("/api/v1/workshop-tickets/"),
+                    r -> assertThat(r).isEqualTo("/api/v1/late-payment-reviews")
             );
         }
     }

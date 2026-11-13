@@ -61,7 +61,7 @@ class WorkshopBookingDtoTests {
                 .build();
         assertThat(validator.validate(valid)).isEmpty();
 
-        // Missing packageId
+        // A Guest request must provide the complete package/session selection.
         CreateBookingRequest missingPkg = CreateBookingRequest.builder()
                 .sessionReferences(List.of(UUID.randomUUID()))
                 .participantCount(1)
@@ -69,7 +69,8 @@ class WorkshopBookingDtoTests {
                 .contactPhone("0901234567")
                 .build();
         Set<ConstraintViolation<CreateBookingRequest>> v1 = validator.validate(missingPkg);
-        assertThat(v1).anyMatch(v -> v.getMessage().contains("packageId is required"));
+        assertThat(v1).anyMatch(v -> v.getMessage()
+                .contains("Provide either quoteRef or the complete Guest package/session selection"));
 
         // Invalid participant count < 1
         CreateBookingRequest zeroParticipants = CreateBookingRequest.builder()
@@ -102,7 +103,7 @@ class WorkshopBookingDtoTests {
                 .contactPhone("0901234567")
                 .build();
         Set<ConstraintViolation<CreateBookingRequest>> v4 = validator.validate(threeSessions);
-        assertThat(v4).anyMatch(v -> v.getMessage().contains("1 or 2 sessions"));
+        assertThat(v4).anyMatch(v -> v.getMessage().contains("one or two sessions"));
 
         UUID duplicateReference = UUID.randomUUID();
         CreateBookingRequest duplicateSessions = CreateBookingRequest.builder()

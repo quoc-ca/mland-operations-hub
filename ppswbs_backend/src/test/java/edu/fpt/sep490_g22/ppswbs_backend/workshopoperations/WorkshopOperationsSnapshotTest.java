@@ -47,6 +47,7 @@ class WorkshopOperationsSnapshotTest {
             new ObjectMapper(),
             mock(CapacityHoldService.class),
             mock(GroupCapacityService.class),
+            mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.TicketQrReissueService.class),
             mock(AttendanceTicketService.class),
             mock(WorkshopOtaSnapshotService.class),
             packagePolicy,

@@ -33,7 +33,10 @@ class BankRefundServiceTest {
     private SettlementRefundRequestRepository requests;
     private SettlementRefundAccountLinkRepository links;
     private SettlementFolioCollectionRepository collections;
+    private SettlementFinalBillRepository bills;
+    private SettlementEvidenceConclusionRepository evidence;
     private BankRefundService service;
+    private final SettlementCustomerNotifier notifier = mock(SettlementCustomerNotifier.class);
     private final List<SettlementRefundRequest> requestRows = new ArrayList<>();
     private final List<SettlementRefundAccountLink> linkRows = new ArrayList<>();
     private final AtomicLong ids = new AtomicLong(1);
@@ -49,6 +52,8 @@ class BankRefundServiceTest {
         requests = mock(SettlementRefundRequestRepository.class);
         links = mock(SettlementRefundAccountLinkRepository.class);
         collections = mock(SettlementFolioCollectionRepository.class);
+        bills = mock(SettlementFinalBillRepository.class);
+        evidence = mock(SettlementEvidenceConclusionRepository.class);
         SettlementBusinessAuditRepository audits = mock(SettlementBusinessAuditRepository.class);
         requestRows.clear();
         linkRows.clear();
@@ -93,32 +98,33 @@ class BankRefundServiceTest {
                         && row.getLifecycleStatus() == invocation.getArgument(1)).toList());
         givenCollected(500_000);
 
-        service = new BankRefundService(requests, links, collections, audits,
-                mock(org.springframework.context.ApplicationEventPublisher.class));
+        service = new BankRefundService(requests, links, collections, bills, evidence, audits,
+                mock(org.springframework.context.ApplicationEventPublisher.class), notifier);
     }
 
     // ---- opening ----
 
     @Test
     void opensARequestWaitingForTheAccountAndSendsOneLink() {
-        var opened = service.open(TICKET, GROUP, RefundReason.MLAND_CANCELLATION, "case-1", 200_000,
-                "Nguyen Van A", "corr");
+        var opened = service.open(TICKET, GROUP, RefundReason.MLAND_CANCELLATION, "case-1", 200_000, "corr");
 
         assertThat(opened.request().getStatus()).isEqualTo(RefundRequestStatus.PENDING_ACCOUNT);
         assertThat(opened.request().getRequestReference()).startsWith("REFUND-");
-        assertThat(opened.request().isRecipientIsPayer()).isTrue();
         assertThat(opened.rawAccountLinkToken()).isNotBlank();
         assertThat(linkRows).singleElement().satisfies(link -> {
             assertThat(link.getLifecycleStatus()).isEqualTo(RefundAccountLinkStatus.ACTIVE);
             assertThat(link.getExpiresAt()).isAfter(Instant.now().plusSeconds(6 * 24 * 3600));
             assertThat(link.getTokenHash()).hasSize(64).isNotEqualTo(opened.rawAccountLinkToken());
         });
+        // Email 7 goes out once, with the raw token only in the email snapshot.
+        verify(notifier, times(1)).notifyRefundAccountRequest(eq(opened.request()), eq(opened.rawAccountLinkToken()),
+                any(), eq(false), eq("corr"));
     }
 
     @Test
     void theSameMoneyIsNeverAskedBackTwice() {
-        var first = service.open(TICKET, GROUP, RefundReason.MLAND_CANCELLATION, "case-1", 200_000, "A", "corr");
-        var again = service.open(TICKET, GROUP, RefundReason.MLAND_CANCELLATION, "case-1", 200_000, "A", "corr");
+        var first = service.open(TICKET, GROUP, RefundReason.MLAND_CANCELLATION, "case-1", 200_000, "corr");
+        var again = service.open(TICKET, GROUP, RefundReason.MLAND_CANCELLATION, "case-1", 200_000, "corr");
 
         assertThat(again.request().getRequestReference()).isEqualTo(first.request().getRequestReference());
         assertThat(again.rawAccountLinkToken()).isNull();
@@ -126,20 +132,32 @@ class BankRefundServiceTest {
     }
 
     @Test
+    void aReminderIssuesAFreshLinkAndSendsTheReminderEmail() {
+        var opened = service.open(TICKET, GROUP, RefundReason.MLAND_CANCELLATION, "case-1", 200_000, "corr");
+
+        service.remindAccountNeeded(opened.request(), "corr-r");
+
+        assertThat(linkRows).hasSize(2);
+        assertThat(linkRows.get(0).getLifecycleStatus()).isEqualTo(RefundAccountLinkStatus.REVOKED);
+        assertThat(linkRows.get(1).getLifecycleStatus()).isEqualTo(RefundAccountLinkStatus.ACTIVE);
+        verify(notifier).notifyRefundAccountRequest(eq(opened.request()), anyString(), any(), eq(true), eq("corr-r"));
+    }
+
+    @Test
     void aRefundNeverExceedsWhatWasCollectedForThatTicket() {
-        service.open(TICKET, GROUP, RefundReason.MLAND_CANCELLATION, "case-1", 400_000, "A", "corr");
+        service.open(TICKET, GROUP, RefundReason.MLAND_CANCELLATION, "case-1", 400_000, "corr");
 
         assertThatThrownBy(() -> service.open(TICKET, GROUP, RefundReason.EXCESS_OR_DUPLICATE_MONEY, "coll-1",
-                200_000, "A", "corr"))
+                200_000, "corr"))
                 .isInstanceOf(WorkshopSettlementConflictException.class)
                 .hasMessageContaining("REFUND_EXCEEDS_COLLECTED_FOR_TICKET");
     }
 
     @Test
     void thereIsNoMinimumButThereIsNoRefundOfNothing() {
-        assertThat(service.open(TICKET, GROUP, RefundReason.EXCESS_OR_DUPLICATE_MONEY, "coll-2", 1_000, "A",
+        assertThat(service.open(TICKET, GROUP, RefundReason.EXCESS_OR_DUPLICATE_MONEY, "coll-2", 1_000,
                 "corr").request().getAmountVnd()).isEqualTo(1_000);
-        assertThatThrownBy(() -> service.open(TICKET, GROUP, RefundReason.MLAND_CANCELLATION, "case-9", 0, "A",
+        assertThatThrownBy(() -> service.open(TICKET, GROUP, RefundReason.MLAND_CANCELLATION, "case-9", 0,
                 "corr")).isInstanceOf(WorkshopSettlementValidationException.class);
     }
 
@@ -147,9 +165,9 @@ class BankRefundServiceTest {
 
     @Test
     void theCustomerAnswersTheLinkOnceAndTheNumberIsStoredEncrypted() {
-        var opened = service.open(TICKET, GROUP, RefundReason.MLAND_CANCELLATION, "case-1", 200_000, "A", "corr");
+        var opened = service.open(TICKET, GROUP, RefundReason.MLAND_CANCELLATION, "case-1", 200_000, "corr");
 
-        var request = service.submitAccountByLink(opened.rawAccountLinkToken(), "BIDV", "12345678901", "A", false,
+        var request = service.submitAccountByLink(opened.rawAccountLinkToken(), "BIDV", "12345678901", "A",
                 "corr");
 
         assertThat(request.getStatus()).isEqualTo(RefundRequestStatus.PENDING_APPROVAL);
@@ -159,13 +177,12 @@ class BankRefundServiceTest {
         assertThat(service.revealAccountNumber(request.getRequestReference())).isEqualTo("12345678901");
         assertThat(linkRows.get(0).getLifecycleStatus()).isEqualTo(RefundAccountLinkStatus.USED);
 
-        assertThatThrownBy(() -> service.submitAccountByLink(opened.rawAccountLinkToken(), "BIDV", "999", "A",
-                false, "corr")).isInstanceOf(WorkshopSettlementConflictException.class);
+        assertThatThrownBy(() -> service.submitAccountByLink(opened.rawAccountLinkToken(), "BIDV", "999", "A", "corr")).isInstanceOf(WorkshopSettlementConflictException.class);
     }
 
     @Test
     void aResendRevokesTheOldLink() {
-        var opened = service.open(TICKET, GROUP, RefundReason.MLAND_CANCELLATION, "case-1", 200_000, "A", "corr");
+        var opened = service.open(TICKET, GROUP, RefundReason.MLAND_CANCELLATION, "case-1", 200_000, "corr");
         String old = opened.rawAccountLinkToken();
 
         String fresh = service.resendAccountLink(opened.request().getRequestReference(), STAFF, "corr");
@@ -173,17 +190,17 @@ class BankRefundServiceTest {
         assertThat(fresh).isNotEqualTo(old);
         assertThat(linkRows).hasSize(2);
         assertThat(linkRows.get(0).getLifecycleStatus()).isEqualTo(RefundAccountLinkStatus.REVOKED);
-        assertThatThrownBy(() -> service.submitAccountByLink(old, "BIDV", "12345678901", "A", false, "corr"))
+        assertThatThrownBy(() -> service.submitAccountByLink(old, "BIDV", "12345678901", "A", "corr"))
                 .isInstanceOf(WorkshopSettlementConflictException.class);
     }
 
     @Test
     void staffMayEnterTheAccountAtTheCounterAndThatKillsTheLink() {
-        var opened = service.open(TICKET, GROUP, RefundReason.OTA_ADDON_OVERCHARGE, "addon-1", 50_000, "A",
+        var opened = service.open(TICKET, GROUP, RefundReason.OTA_ADDON_OVERCHARGE, "addon-1", 50_000,
                 "corr");
 
         var request = service.submitAccountAtCounter(opened.request().getRequestReference(), "BIDV",
-                "12345678901", "A", false, STAFF, "corr");
+                "12345678901", "A", STAFF, "corr");
 
         assertThat(request.getAccountEntryChannel()).isEqualTo(RefundAccountEntryChannel.COUNTER);
         assertThat(request.getAccountEnteredByAccountId()).isEqualTo(STAFF);
@@ -191,27 +208,22 @@ class BankRefundServiceTest {
     }
 
     @Test
-    void anotherRecipientNeedsThePayersConfirmation() {
-        var opened = service.open(TICKET, GROUP, RefundReason.MLAND_CANCELLATION, "case-1", 200_000,
-                "Nguyen Van A", "corr");
-
-        assertThatThrownBy(() -> service.submitAccountByLink(opened.rawAccountLinkToken(), "BIDV", "12345678901",
-                "Tran Thi B", false, "corr"))
-                .isInstanceOf(WorkshopSettlementConflictException.class)
-                .hasMessageContaining("REFUND_RECIPIENT_NEEDS_PAYER_CONFIRMATION");
+    void anotherHolderNameIsRecordedAndLeftToTheManagerToCheck() {
+        // Decision 2026-11-13: no payer name to compare; the approving Manager and the transfer check the holder.
+        var opened = service.open(TICKET, GROUP, RefundReason.MLAND_CANCELLATION, "case-1", 200_000, "corr");
 
         var request = service.submitAccountByLink(opened.rawAccountLinkToken(), "BIDV", "12345678901",
-                "Tran Thi B", true, "corr");
-        assertThat(request.isRecipientIsPayer()).isFalse();
-        assertThat(request.isPayerConfirmedOtherRecipient()).isTrue();
+                "Tran Thi B", "corr");
+
+        assertThat(request.getStatus()).isEqualTo(RefundRequestStatus.PENDING_APPROVAL);
+        assertThat(request.getRecipientHolderName()).isEqualTo("Tran Thi B");
     }
 
     @Test
     void anIncompleteAccountIsRefused() {
-        var opened = service.open(TICKET, GROUP, RefundReason.MLAND_CANCELLATION, "case-1", 200_000, "A", "corr");
+        var opened = service.open(TICKET, GROUP, RefundReason.MLAND_CANCELLATION, "case-1", 200_000, "corr");
 
-        assertThatThrownBy(() -> service.submitAccountByLink(opened.rawAccountLinkToken(), "BIDV", "  ", "A",
-                false, "corr")).isInstanceOf(WorkshopSettlementValidationException.class);
+        assertThatThrownBy(() -> service.submitAccountByLink(opened.rawAccountLinkToken(), "BIDV", "  ", "A", "corr")).isInstanceOf(WorkshopSettlementValidationException.class);
     }
 
     // ---- approval, transfer, reconciliation ----
@@ -269,7 +281,7 @@ class BankRefundServiceTest {
 
     @Test
     void aRequestIsClosedOnlyAfterThirtyDaysAndCanBeReopened() {
-        var opened = service.open(TICKET, GROUP, RefundReason.MLAND_CANCELLATION, "case-1", 200_000, "A", "corr");
+        var opened = service.open(TICKET, GROUP, RefundReason.MLAND_CANCELLATION, "case-1", 200_000, "corr");
         String reference = opened.request().getRequestReference();
 
         assertThatThrownBy(() -> service.closeUnreachable(reference, MANAGER, "Khong lien lac duoc", "corr"))
@@ -323,13 +335,13 @@ class BankRefundServiceTest {
     // ---- helpers ----
 
     private SettlementRefundRequest awaitingApproval() {
-        var opened = service.open(TICKET, GROUP, RefundReason.MLAND_CANCELLATION, "case-1", 200_000, "A", "corr");
-        return service.submitAccountByLink(opened.rawAccountLinkToken(), "BIDV", "12345678901", "A", false,
+        var opened = service.open(TICKET, GROUP, RefundReason.MLAND_CANCELLATION, "case-1", 200_000, "corr");
+        return service.submitAccountByLink(opened.rawAccountLinkToken(), "BIDV", "12345678901", "A",
                 "corr");
     }
 
     private void givenCollected(long amountVnd) {
-        when(collections.findByBillReferenceOrderByIdAsc(TICKET)).thenReturn(List.of(
+        when(collections.findByBookingReferenceOrderByIdAsc(TICKET)).thenReturn(List.of(
                 SettlementFolioCollection.builder().billReference(TICKET).bookingReference(TICKET)
                         .method(FolioCollectionMethod.VNPAY).amountVnd(amountVnd)
                         .status(FolioCollectionStatus.CONFIRMED).build()));
