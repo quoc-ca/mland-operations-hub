@@ -18,6 +18,9 @@ public interface WorkshopOperationsFacade {
     /** Reserves every line of a booking group all or none, one seat per ticket per session (003.2 FR-030). */
     GroupCapacityOutcome reserveGroupCapacity(ReserveGroupCapacityCommand command);
 
+    /** Revokes a ticket's active QR and issues a new opaque QR for the same entitlements (003.2 FR-033). */
+    TicketQrReissueOutcome reissueTicketQr(ReissueTicketQrCommand command);
+
     CapacityCommitOutcome commitBookingHolds(CommitBookingHoldsCommand command);
 
     OtaBookingCapacityOutcome acceptOtaBooking(AcceptOtaBookingCommand command);

@@ -33,6 +33,14 @@ public interface CapacityHoldRepository extends JpaRepository<CapacityHold, Long
     @Query("SELECT COALESCE(SUM(ch.requestedTicketCount), 0) FROM CapacityHold ch WHERE ch.session.id = :sessionId AND ch.state = 'CONFIRMED'")
     int sumConfirmedHoldsForSession(@Param("sessionId") Long sessionId);
 
+    /**
+     * Locking read of a session's active and confirmed holds. Under REPEATABLE READ a plain count may come from the
+     * transaction's earlier snapshot; a locking read always sees the latest committed rows (003.2 FR-030 race).
+     */
+    @Lock(LockModeType.PESSIMISTIC_READ)
+    @Query("SELECT ch FROM CapacityHold ch WHERE ch.session.id = :sessionId AND ch.state IN ('ACTIVE', 'CONFIRMED')")
+    List<CapacityHold> findCountableHoldsForSessionForShare(@Param("sessionId") Long sessionId);
+
     @Query("SELECT ch FROM CapacityHold ch WHERE ch.state = 'ACTIVE' AND ch.expiresAt <= :now")
     List<CapacityHold> findExpiredActiveHolds(@Param("now") Instant now);
 }

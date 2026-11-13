@@ -43,6 +43,11 @@ public class AttendanceTicket {
     @Column(name = "qr_reference", nullable = false, unique = true, length = 64)
     private String qrReference;
 
+    /** Generation of the active QR; increments on each revoke/reissue (003.2 FR-033). */
+    @Column(name = "qr_generation", nullable = false)
+    @Builder.Default
+    private Integer qrGeneration = 1;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "validity_state", nullable = false, length = 32)
     @Builder.Default
