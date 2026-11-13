@@ -228,6 +228,8 @@ class WorkshopBookingModuleBoundaryIT {
             assertThat(route).satisfiesAnyOf(
                     r -> assertThat(r).startsWith("/api/v1/workshop-bookings"),
                     r -> assertThat(r).startsWith("/api/v1/workshop-booking-quotes"),
+                    r -> assertThat(r).startsWith("/api/v1/workshop-cart-quotes"),
+                    r -> assertThat(r).startsWith("/api/v1/workshop-booking-groups"),
                     r -> assertThat(r).startsWith("/api/v1/booking-"),
                     r -> assertThat(r).startsWith("/api/v1/members/me/workshop-bookings")
             );

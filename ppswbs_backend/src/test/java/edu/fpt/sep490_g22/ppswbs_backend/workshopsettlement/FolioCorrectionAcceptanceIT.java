@@ -26,9 +26,11 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.Sett
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementFinalBill;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementRefundAllocation;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.FinalBookingBillService;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.BankRefundService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.FolioCorrectionService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.WorkshopSettlementConflictException;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -36,6 +38,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -84,6 +87,7 @@ class FolioCorrectionAcceptanceIT {
     @Autowired private SettlementNotificationHandoffRepository handoffs;
     @Autowired private FinalBookingBillService finalBills;
     @Autowired private FolioCorrectionService corrections;
+    @Autowired private BankRefundService bankRefunds;
 
     @MockitoSpyBean private WorkshopBookingFacade bookingFacade;
     @MockitoBean private WorkshopOperationsFacade operations;
@@ -94,6 +98,13 @@ class FolioCorrectionAcceptanceIT {
     private UUID currentSession;
     /** Provider status the QueryDR mock reports for a refund: "00" verified, "05" still processing. */
     private volatile String refundQueryStatus;
+
+    @BeforeAll
+    static void refundEncryptionKey() {
+        ReflectionTestUtils.invokeMethod(
+                edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.RefundAccountCipher.class,
+                "useKeyForTests", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=");
+    }
 
     @BeforeEach
     void setUp() {
@@ -140,18 +151,23 @@ class FolioCorrectionAcceptanceIT {
         FolioCorrectionDtos.Response created = corrections.create(folio.bookingCode(), "key-" + UUID.randomUUID(), null,
                 new FolioCorrectionDtos.CreateRequest(60_000L, "Customer was overcharged"), manager);
 
-        assertThat(created.lifecycleStatus()).isIn("PENDING_PROVIDER", "RESOLVED");
+        assertThat(created.lifecycleStatus()).isEqualTo("PENDING_PROVIDER");
         var caseReference = cases.findAll().stream()
                 .filter(c -> folio.bookingCode().equals(c.getBookingReference()) && "FOLIO_CORRECTION".equals(c.getCaseType()))
                 .findFirst().orElseThrow();
-        assertThat(caseReference.getLifecycleStatus()).isEqualTo("RESOLVED");
+        assertThat(caseReference.getLifecycleStatus()).isEqualTo("PENDING_PROVIDER");
         List<SettlementRefundAllocation> refunded = allocations.findAllByCaseReferenceOrderByCreatedAtAsc(caseReference.getCaseReference());
         // Oldest verified payment first (the deposit), capped at its amount; the rest comes from the final payment.
         assertThat(refunded).extracting(SettlementRefundAllocation::getOriginalPaymentReference)
                 .containsExactly(folio.depositReference(), folio.finalReference());
         assertThat(refunded).extracting(SettlementRefundAllocation::getAllocatedAmountVnd)
                 .containsExactly(DEPOSIT, 60_000L - DEPOSIT);
-        assertThat(refunded).allSatisfy(a -> assertThat(a.getLifecycleStatus()).isEqualTo("VERIFIED"));
+        assertThat(refunded).allSatisfy(a -> assertThat(a.getLifecycleStatus()).isEqualTo("PENDING_BANK_REFUND"));
+        completeBankRefunds(folio.bookingCode());
+        assertThat(cases.findByCaseReference(caseReference.getCaseReference()).orElseThrow().getLifecycleStatus())
+                .isEqualTo("RESOLVED");
+        assertThat(allocations.findAllByCaseReferenceOrderByCreatedAtAsc(caseReference.getCaseReference()))
+                .allSatisfy(a -> assertThat(a.getLifecycleStatus()).isEqualTo("VERIFIED"));
 
         // T006: the resolved correction hands exactly one refund notice, to the booking's contact email, to Feature 007.
         var notices = handoffs.findAll().stream()
@@ -189,7 +205,7 @@ class FolioCorrectionAcceptanceIT {
         // An unresolved refund (UNKNOWN to the customer) sends no notice yet.
         assertThat(handoffs.findAll().stream().filter(h -> pending.getCaseReference().equals(h.getSettlementReference()))).isEmpty();
         assertThat(allocations.findAllByCaseReferenceOrderByCreatedAtAsc(pending.getCaseReference()))
-                .extracting(SettlementRefundAllocation::getLifecycleStatus).containsExactly("ACCEPTED");
+                .extracting(SettlementRefundAllocation::getLifecycleStatus).containsExactly("PENDING_BANK_REFUND");
         assertThat(bills.findByBookingReference(folio.bookingCode()).orElseThrow().getLifecycleStatus()).isEqualTo("FINALIZED");
         assertThatThrownBy(() -> corrections.create(folio.bookingCode(), "key-" + UUID.randomUUID(), null,
                 new FolioCorrectionDtos.CreateRequest(1_000L, "Second correction"), manager))
@@ -213,10 +229,14 @@ class FolioCorrectionAcceptanceIT {
                 && h.getSettlementReference().equals(cases.findAll().stream()
                         .filter(c -> folio.bookingCode().equals(c.getBookingReference())
                                 && "FOLIO_CORRECTION".equals(c.getCaseType()))
-                        .findFirst().orElseThrow().getCaseReference()))).hasSize(1);
-        // Count only this booking's refund: the refund recovery scheduler may dispatch other tests' leftovers.
-        verify(provider, times(1)).requestRefund(argThat(command -> command != null
-                && command.merchantReference().equals(folio.depositReference())));
+                        .findFirst().orElseThrow().getCaseReference()))).isEmpty();
+        assertThat(bankRefunds.listForBooking(folio.bookingCode())).hasSize(1);
+        completeBankRefunds(folio.bookingCode());
+        assertThat(handoffs.findAll().stream().filter(h -> h.getSettlementReference().equals(cases.findAll().stream()
+                .filter(c -> folio.bookingCode().equals(c.getBookingReference())
+                        && "FOLIO_CORRECTION".equals(c.getCaseType()))
+                .findFirst().orElseThrow().getCaseReference()))).hasSize(1);
+        verify(provider, never()).requestRefund(any());
     }
 
     @Test
@@ -273,6 +293,19 @@ class FolioCorrectionAcceptanceIT {
     private long originalAmount(String paymentReference) {
         return allocations.findAll().stream().filter(a -> paymentReference.equals(a.getOriginalPaymentReference()))
                 .map(SettlementRefundAllocation::getOriginalAmountVnd).findFirst().orElse(-1L);
+    }
+
+    private void completeBankRefunds(String bookingReference) {
+        for (var refund : bankRefunds.listForBooking(bookingReference)) {
+            String reference = refund.getRequestReference();
+            bankRefunds.submitAccountAtCounter(reference, "BIDV", "8608150999", "Buyer", false,
+                    staff.accountId(), "CORR-ACCOUNT-" + reference);
+            bankRefunds.approve(reference, manager.accountId(), "Approved correction refund",
+                    "CORR-APPROVE-" + reference);
+            bankRefunds.recordTransfer(reference, manager.accountId(), "BANK-" + reference,
+                    "PROOF-" + reference, "CORR-TRANSFER-" + reference);
+            bankRefunds.confirmRefunded(reference, manager.accountId(), "CORR-CONFIRM-" + reference);
+        }
     }
 
     /** Confirms a deposit, collects the balance and finalizes the folio, as the real checkout does. */

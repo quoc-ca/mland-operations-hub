@@ -33,6 +33,8 @@ class BankRefundServiceTest {
     private SettlementRefundRequestRepository requests;
     private SettlementRefundAccountLinkRepository links;
     private SettlementFolioCollectionRepository collections;
+    private SettlementFinalBillRepository bills;
+    private SettlementEvidenceConclusionRepository evidence;
     private BankRefundService service;
     private final List<SettlementRefundRequest> requestRows = new ArrayList<>();
     private final List<SettlementRefundAccountLink> linkRows = new ArrayList<>();
@@ -49,6 +51,8 @@ class BankRefundServiceTest {
         requests = mock(SettlementRefundRequestRepository.class);
         links = mock(SettlementRefundAccountLinkRepository.class);
         collections = mock(SettlementFolioCollectionRepository.class);
+        bills = mock(SettlementFinalBillRepository.class);
+        evidence = mock(SettlementEvidenceConclusionRepository.class);
         SettlementBusinessAuditRepository audits = mock(SettlementBusinessAuditRepository.class);
         requestRows.clear();
         linkRows.clear();
@@ -93,7 +97,7 @@ class BankRefundServiceTest {
                         && row.getLifecycleStatus() == invocation.getArgument(1)).toList());
         givenCollected(500_000);
 
-        service = new BankRefundService(requests, links, collections, audits,
+        service = new BankRefundService(requests, links, collections, bills, evidence, audits,
                 mock(org.springframework.context.ApplicationEventPublisher.class));
     }
 
@@ -329,7 +333,7 @@ class BankRefundServiceTest {
     }
 
     private void givenCollected(long amountVnd) {
-        when(collections.findByBillReferenceOrderByIdAsc(TICKET)).thenReturn(List.of(
+        when(collections.findByBookingReferenceOrderByIdAsc(TICKET)).thenReturn(List.of(
                 SettlementFolioCollection.builder().billReference(TICKET).bookingReference(TICKET)
                         .method(FolioCollectionMethod.VNPAY).amountVnd(amountVnd)
                         .status(FolioCollectionStatus.CONFIRMED).build()));

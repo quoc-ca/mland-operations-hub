@@ -49,6 +49,8 @@ public class BankRefundService {
     private final SettlementRefundRequestRepository requests;
     private final SettlementRefundAccountLinkRepository links;
     private final SettlementFolioCollectionRepository collections;
+    private final SettlementFinalBillRepository bills;
+    private final SettlementEvidenceConclusionRepository evidence;
     private final SettlementBusinessAuditRepository audits;
     private final org.springframework.context.ApplicationEventPublisher events;
 
@@ -321,10 +323,19 @@ public class BankRefundService {
 
     /** FR-038: the money refunded or pending for one ticket never exceeds what was collected for it. */
     private void requireWithinCollected(String bookingReference, long amountVnd) {
-        long collected = collections.findByBillReferenceOrderByIdAsc(bookingReference).stream()
+        long counterCollections = collections.findByBookingReferenceOrderByIdAsc(bookingReference).stream()
                 .filter(collection -> collection.getStatus() == FolioCollectionStatus.CONFIRMED)
                 .mapToLong(collection -> collection.getAmountVnd())
                 .sum();
+        long bookingTimeCollection = bills.findByBookingReference(bookingReference)
+                .map(SettlementFinalBill::getAcceptedDepositAmountVnd)
+                .orElse(0L);
+        long verifiedGatewayCollections = java.util.stream.Stream.of("FINAL_PAYMENT_VERIFIED", "SHOP_ADDON_VERIFIED")
+                .flatMap(conclusion -> evidence.findByBookingReferenceAndConclusion(bookingReference, conclusion).stream())
+                .mapToLong(item -> item.getAmountVnd() == null ? 0L : item.getAmountVnd())
+                .sum();
+        long collected = Math.addExact(bookingTimeCollection,
+                Math.addExact(verifiedGatewayCollections, counterCollections));
         long alreadyOwed = requests.sumRefundedOrPending(bookingReference);
         if (Math.addExact(alreadyOwed, amountVnd) > collected) {
             throw new WorkshopSettlementConflictException("REFUND_EXCEEDS_COLLECTED_FOR_TICKET");

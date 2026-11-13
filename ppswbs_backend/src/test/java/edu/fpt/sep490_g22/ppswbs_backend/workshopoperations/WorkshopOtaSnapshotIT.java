@@ -87,8 +87,11 @@ class WorkshopOtaSnapshotIT {
 
     @DynamicPropertySource
     static void isolatedMysql(DynamicPropertyRegistry registry) {
-        org.junit.jupiter.api.Assumptions.assumeTrue(OTA_DB != null,
-                "Set WORKSHOP_OTA_TEST_JDBC_URL/USER/PASSWORD for isolated MySQL evidence");
+        // An assumption raised while Spring is building the context is reported as
+        // an ApplicationContext error, not as a skipped test. Leave the default
+        // test datasource in place when OTA MySQL evidence is not configured; the
+        // per-test assumption in setUp() then skips this optional suite cleanly.
+        if (OTA_DB == null) return;
         registry.add("spring.datasource.url", () -> OTA_DB.jdbcUrl(OTA_SCHEMA));
         registry.add("spring.datasource.driver-class-name", () -> "com.mysql.cj.jdbc.Driver");
         registry.add("spring.datasource.username", () -> System.getenv("WORKSHOP_OTA_TEST_JDBC_USER"));

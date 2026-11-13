@@ -26,7 +26,9 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.Sett
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.ApplyVerifiedSettlementPaymentEvidenceCommand;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.WorkshopSettlementFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.OtaAddonPaymentService;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.BankRefundService;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -34,6 +36,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -75,6 +78,7 @@ class OtaAddonCollectionAcceptanceIT {
     @Autowired private SettlementCaseRepository cases;
     @Autowired private SettlementRefundAllocationRepository allocations;
     @Autowired private SettlementFinalBillRepository folios;
+    @Autowired private BankRefundService bankRefunds;
 
     @MockitoBean private PaymentGatewayCheckoutPort checkout;
     @MockitoBean private VnpayMerchantOperationsPort provider;
@@ -86,6 +90,13 @@ class OtaAddonCollectionAcceptanceIT {
     private final CurrentAccountActor staffInScope = new CurrentAccountActor(20L, ActorRole.STAFF, ActorStatus.ACTIVE, true, List.of(LOCATION));
     private final CurrentAccountActor staffOutOfScope = new CurrentAccountActor(21L, ActorRole.STAFF, ActorStatus.ACTIVE, true, List.of(LOCATION + 1));
     private volatile String refundQueryStatus;
+
+    @BeforeAll
+    static void refundEncryptionKey() {
+        ReflectionTestUtils.invokeMethod(
+                edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.RefundAccountCipher.class,
+                "useKeyForTests", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=");
+    }
 
     @BeforeEach
     void setUp() {
@@ -168,12 +179,17 @@ class OtaAddonCollectionAcceptanceIT {
         assertThat(refund.amountVnd()).isEqualTo(12_000L);
         var refundCase = cases.findByCaseReference(refund.caseReference()).orElseThrow();
         assertThat(refundCase.getCaseType()).isEqualTo("ADDON_REFUND");
-        assertThat(refundCase.getLifecycleStatus()).isEqualTo("RESOLVED");
+        assertThat(refundCase.getLifecycleStatus()).isEqualTo("PENDING_PROVIDER");
         assertThat(allocations.findAllByCaseReferenceOrderByCreatedAtAsc(refund.caseReference()))
                 .singleElement().satisfies(a -> {
                     assertThat(a.getAllocatedAmountVnd()).isEqualTo(12_000L);
-                    assertThat(a.getLifecycleStatus()).isEqualTo("VERIFIED");
+                    assertThat(a.getLifecycleStatus()).isEqualTo("PENDING_BANK_REFUND");
                 });
+        completeBankRefund(bill.channelReference());
+        assertThat(cases.findByCaseReference(refund.caseReference()).orElseThrow().getLifecycleStatus())
+                .isEqualTo("RESOLVED");
+        assertThat(allocations.findAllByCaseReferenceOrderByCreatedAtAsc(refund.caseReference()))
+                .singleElement().satisfies(a -> assertThat(a.getLifecycleStatus()).isEqualTo("VERIFIED"));
         assertThat(addonBills.findByBillReference(bill.reference()).orElseThrow().getLifecycleStatus()).isEqualTo("PAID");
         assertThat(folios.findByBookingReference(bill.channelReference())).isEmpty();
         verify(bookingFacade, never()).recordBookingRefundStatus(any());
@@ -207,7 +223,8 @@ class OtaAddonCollectionAcceptanceIT {
         OtaAddonRefundProjection retry = addonPayments.createRefund(bill.reference(), key, null, command, manager);
 
         assertThat(retry.refundReference()).isEqualTo(first.refundReference());
-        verify(provider, times(1)).requestRefund(any());
+        assertThat(bankRefunds.listForBooking(bill.channelReference())).hasSize(1);
+        verify(provider, never()).requestRefund(any());
     }
 
     /** A verified payment that arrives for an already PAID bill is real money and must be recorded to be refundable. */
@@ -262,6 +279,18 @@ class OtaAddonCollectionAcceptanceIT {
         } finally {
             pool.shutdownNow();
         }
+    }
+
+    private void completeBankRefund(String bookingReference) {
+        var refund = bankRefunds.listForBooking(bookingReference).get(0);
+        String reference = refund.getRequestReference();
+        bankRefunds.submitAccountAtCounter(reference, "BIDV", "8608150999", "OTA payer", false,
+                staffInScope.accountId(), "CORR-ACCOUNT-" + reference);
+        bankRefunds.approve(reference, manager.accountId(), "Approved add-on refund",
+                "CORR-APPROVE-" + reference);
+        bankRefunds.recordTransfer(reference, manager.accountId(), "BANK-" + reference,
+                "PROOF-" + reference, "CORR-TRANSFER-" + reference);
+        bankRefunds.confirmRefunded(reference, manager.accountId(), "CORR-CONFIRM-" + reference);
     }
 
     private long paidAmount(String merchantReference) {

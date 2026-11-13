@@ -114,7 +114,12 @@ public class WorkshopRefundService {
             }
             dispatchPreparedAllocation(allocation.getAllocationReference());
             SettlementRefundAllocation latest = findAllocation(allocation.getAllocationReference());
-            if (latest == null || !"VERIFIED".equals(latest.getLifecycleStatus())) return;
+            if (latest == null) return;
+            // A case may be split across several original payments. Route every allocation to its own
+            // durable bank-refund request before waiting for reconciliation; stopping after the first one
+            // would leave the remaining allocations PREPARED forever.
+            if (PENDING_BANK_REFUND.equals(latest.getLifecycleStatus())) continue;
+            if (!"VERIFIED".equals(latest.getLifecycleStatus())) return;
         }
         applyCancellationConsequenceIfFullyRefunded(caseReference);
     }
