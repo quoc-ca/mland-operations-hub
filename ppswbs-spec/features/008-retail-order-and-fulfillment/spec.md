@@ -222,8 +222,12 @@ configuration, accounting, or executive reporting in FE-10.
   benefits is settled and its earned points are granted.
 - Q: What happens to the voucher and points if one branch order is never
   collected? → A: That branch order is cancelled and the points used for its
-  share are returned. The voucher is returned only if no branch order of the
-  checkout was paid; once any branch order is paid the voucher counts as used.
+  share are returned. (Revised 2026-11-13 with FE-06, D-011.) The voucher counts
+  as used as soon as a branch order that carries a share of the voucher
+  discount is paid, and it is returned once every branch order carrying a
+  share ended unpaid (cancelled or expired), even if a branch order without a
+  share was paid. When no branch order carries a voucher share, every branch
+  order counts as carrying it.
 - Q: Can the Member cancel a cash order? → A: Yes, any branch order that Staff
   has not yet confirmed as paid, with the same release rules as expiry.
 - Q: How is cash recorded? → A: Staff of the branch confirm the exact payable
@@ -537,7 +541,8 @@ cancelled after 3 days.
    the Member before confirmation, **When** the deadline passes or the Member
    cancels, **Then** the order is cancelled, its goods and point share are
    released, its lines return to the cart, and the voucher is returned only
-   if no branch order of the checkout was paid.
+   once every branch order carrying a share of the voucher discount ended
+   unpaid. Other branch orders of the checkout are not affected.
 7. **Given** a Manager with permitted branches, **When** the Manager opens the
    daily cash view, **Then** confirmed retail cash per branch and Vietnam
    calendar day is shown with each collection's order, amount, Staff and time.
@@ -811,7 +816,10 @@ including frozen items, amounts, payment state, and fulfilment evidence.
   `PAYMENT_INITIATED`, and expiry/cancellation reuse the unpaid release flow.
 - **FR-08-044**: The checkout discount MUST be allocated to branch orders from
   the FE-06 eligible lines, so each branch order has its own discount, points
-  share, and payable cash amount; no branch order may become negative.
+  share, and payable cash amount; no branch order may become negative. For a
+  cash checkout FE-08 MUST accept it with one FE-06 settlement part per branch
+  order (`partRef` = branch order id, its quote lines) and MUST use the shares
+  FE-06 returns as each branch order's discount.
 - **FR-08-045**: Only authenticated Staff assigned to the order's branch, or a
   Manager delegated for that branch, MAY confirm a counter cash collection.
   The confirmation MUST be for the exact payable amount of that branch order
@@ -825,8 +833,13 @@ including frozen items, amounts, payment state, and fulfilment evidence.
 - **FR-08-046**: Before Staff confirmation the Member MAY cancel a cash branch
   order. At the pickup deadline an unconfirmed cash branch order MUST be
   cancelled automatically. Both MUST release its holds and its points share,
-  restore its lines to the cart, and return the voucher only when no branch
-  order of the checkout has been paid. Confirmation after cancellation or
+  restore its lines to the cart, and release its FE-06 part
+  (`RETAIL_BRANCH_CANCELLED_BEFORE_PAYMENT` or `RETAIL_BRANCH_UNPAID_EXPIRY`);
+  FE-06 returns the voucher once every branch order carrying a voucher share
+  ended unpaid. Staff confirmation sends `RETAIL_BRANCH_PAID` for that branch
+  order only. Other branch orders stay as they are; the checkout becomes paid
+  when its last branch order is decided and at least one was paid, cancelled
+  when all were cancelled, else expired. Confirmation after cancellation or
   expiry MUST be rejected.
 - **FR-08-047**: A Manager MUST be able to view, read-only and only for
   permitted branches, the confirmed retail cash per branch and Vietnam
@@ -1066,14 +1079,11 @@ not be inferred from a browser redirect.
   require contradictory manual-only behavior. Until approved GHTK Partner
   access is available, the contract is exercised through a mock provider for
   development and automated testing only.
-- Counter cash (FR-08-041–FR-08-049) depends on FE-06: the current
-  `loyaltypromotion::facade` settles, grants, and releases benefits for the
-  whole accepted transaction only. Per-branch settlement, per-branch earned
-  points, returning the points share of one cancelled branch order, and
-  returning a voucher only when no branch order was paid require an approved
-  FE-06 facade change (owner: FE-06). Until it exists, FE-08 MAY accept a cash
-  checkout only when it has a single branch order, and MUST NOT approximate the
-  per-branch rules by itself.
+- Counter cash (FR-08-041–FR-08-049) uses the FE-06 settlement parts (006
+  D-011, delivered 2026-11-13): a cash checkout may have several store-pickup
+  branch orders, each paid, cancelled, or expired with its own part. Cash
+  checkouts accepted before parts existed stay one unit and keep the earlier
+  single-branch rule.
 - The 72-hour cash pickup hold replaces the 15-minute payment hold only for
   `AWAITING_COUNTER_PAYMENT` branch orders; VNPay checkouts keep the 15-minute
   hold and 10-minute payment link.

@@ -156,8 +156,10 @@ public class RetailCheckoutAcceptanceService {
                     branch.getLocationId()))).toList();
             var selection = new BenefitSelection(SelectionChoice.valueOf(quote.getSelectionChoice()), quote.getVoucherCode(), quote.getRequestedPoints());
             var trusted = new TrustedSourceContext(SourceKind.RETAIL, memberId, now, lines, null, quote.getShippingTotal());
+            // Cash: one FE-06 settlement part per branch order, paid, cancelled or expired on its own (D-011).
+            List<SettlementPart> parts = checkout.isCounterCash() && !zeroTotal ? settlementParts(checkout, quote) : List.of();
             var accepted = loyalty.reserveAcceptedTransaction(new AcceptedSourceContext(trusted, checkout.getId(), checkout.getVersion(),
-                true, now, deadline, quote.getId(), quote.getTermsDigest()), selection, key);
+                true, now, deadline, quote.getId(), quote.getTermsDigest(), parts), selection, key);
             if (!accepted.grossAmount().equals(quote.getMerchandiseSubtotal())
                 || !accepted.programDiscount().equals(quote.getProgramDiscount())
                 || !accepted.pointDiscount().equals(quote.getPointsDiscount())
@@ -165,6 +167,7 @@ public class RetailCheckoutAcceptanceService {
                     .add(quote.getShippingTotal()).equals(quote.getPayableTotal())) {
                 throw new RetailConflictException("Benefit terms changed; review a new quote");
             }
+            if (!parts.isEmpty()) applyPartShares(checkout, accepted.parts());
             if (zeroTotal) {
                 createdHolds.forEach(holds::settle);
                 checkout.markPaid();
@@ -192,6 +195,36 @@ public class RetailCheckoutAcceptanceService {
             }
         }
         return view;
+    }
+
+    /** One part per branch order; its lines are the branch's quote items, in the order they are sent to FE-06. */
+    private static List<SettlementPart> settlementParts(GroupedCheckout checkout, RetailCheckoutQuote quote) {
+        Map<Long, String> orderByLocation = checkout.getOrders().stream()
+            .collect(Collectors.toMap(RetailOrder::getLocationId, RetailOrder::getId));
+        Map<Long, List<Integer>> indexes = new LinkedHashMap<>();
+        int index = 0;
+        for (var branch : quote.getBranches()) {
+            for (var ignored : branch.getItems()) indexes.computeIfAbsent(branch.getLocationId(), location -> new ArrayList<>()).add(index++);
+        }
+        return indexes.entrySet().stream().map(entry -> new SettlementPart(orderByLocation.get(entry.getKey()), entry.getValue())).toList();
+    }
+
+    /** The branch orders take the voucher and points shares FE-06 fixed for each part; the checkout total is unchanged. */
+    private void applyPartShares(GroupedCheckout checkout, List<BenefitPartRef> shares) {
+        BigDecimal before = checkout.getOrders().stream().map(RetailOrder::getDiscountAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal after = BigDecimal.ZERO;
+        for (BenefitPartRef share : shares) {
+            RetailOrder order = checkout.getOrders().stream().filter(candidate -> candidate.getId().equals(share.partRef()))
+                .findFirst().orElseThrow(() -> new RetailConflictException("Benefit part does not match a branch order"));
+            BigDecimal discount = decimal(share.programDiscount().add(share.pointDiscount()));
+            if (discount.compareTo(order.getSubtotal()) > 0) throw new RetailConflictException("Benefit part exceeds its branch order");
+            order.applyDiscount(discount);
+            after = after.add(discount);
+        }
+        if (shares.size() != checkout.getOrders().size() || before.compareTo(after) != 0) {
+            throw new RetailConflictException("Benefit parts do not add up to the checkout discount");
+        }
+        checkouts.saveAndFlush(checkout);
     }
 
     private boolean sameSelectionAndBranches(RetailCheckoutQuote quote, CheckoutDtos.CreateGroupedCheckoutRequest request) {
