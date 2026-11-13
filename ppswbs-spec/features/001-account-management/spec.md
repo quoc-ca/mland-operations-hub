@@ -1,7 +1,7 @@
 # Feature Specification: Account Management
 
 **Date created**: 2026-10-19
-**Date updated**: 2026-11-04
+**Date updated**: 2026-11-14
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
@@ -22,9 +22,10 @@ The feature serves a small-to-medium business. It deliberately uses fixed roles 
 - Email/password registration and sign-in; Google and Facebook sign-in when those providers are configured.
 - Sign-out, email verification, password reset, password change, and login-email change.
 - Account bootstrap, own-profile management, and email synchronization after a verified email change.
-- Member shipping address book management (Shopee model: add, edit, hard delete, set default, maximum 10 addresses, HOME/OFFICE labels, normalized 10-digit VN phone, GHTK Level 1-4 standard administrative division integration).
+- Member shipping address book management: a two-level Vietnam administrative address (province/city then commune/ward/special zone), sequential Shopee-style entry, default-address rules, and a versioned administrative directory managed by Admin.
 - System-wide time standardization to Vietnam local time (`Asia/Ho_Chi_Minh`, UTC+7) for MySQL DB, JDBC connection, and API responses.
-- Internal facade methods and REST endpoints providing shipping address lookups and snapshots for FE-008 Retail Order & Fulfillment.
+- An immutable shipping-address facade snapshot for a future FE-008 checkout integration; changing FE-008 checkout or GHTK fee calculation is not part of this revision.
+- Admin management of versioned Vietnam administrative-directory reference data; only the active directory is available for new or edited Member addresses.
 - Admin list/detail, internal-account creation, invitation resend, internal profile edit, role/location assignment, account suspension/restoration, and fixed-role reference.
 - Account lifecycle audit, safe retry/recovery, and notification requests to FE-07.
 
@@ -35,6 +36,18 @@ The feature serves a small-to-medium business. It deliberately uses fixed roles 
 - Automatic merging/linking of accounts that merely share an email address.
 - Dashboard content, Home-page implementation, frontend application scaffolding, production deployment, and production identity-provider setup.
 - Direct email delivery; FE-07 owns delivery after Account records a notification request.
+- Account deletion workflow or endpoints. If a future approved account-deletion workflow removes an Account, this feature deletes its owned address-book records but retains only safe audit/log metadata.
+- FE-008 checkout selection by `savedAddressId`, GHTK quoting, carrier aliases, carrier fallback, and Workshop Location pickup-address management.
+
+### Address-book revision decisions (2026-11-14)
+
+- These decisions supersede earlier FE-001 clarification text that describes a Province/District/Ward/Hamlet address hierarchy or public directory lookup.
+- A new or edited Member address uses **Province/City -> Commune/Ward/Special Zone -> Detail address**. District, legacy ward and hamlet are not fields in the new model.
+- The address form is progressive: recipient name, recipient phone, province/city, commune and detail address are enabled in that order. It starts blank; it does not prefill recipient data from Account Profile.
+- The address request supplies official province and commune codes only. The server resolves and persists display names from the active directory; it never trusts administrative names supplied by the browser.
+- The administrative directory is versioned reference data owned by FE-001. An Admin creates a new draft by copying the active version, edits it, then activates it. Each version records `version`, `sourceUrl`, and `effectiveFrom`; there is exactly one active version. Active versions are not edited in place. Data-shape changes require a code change; ordinary reference-data changes do not.
+- Existing addresses retain their directory version. They are not automatically remapped when a new directory is activated. A future GHTK integration must require reselection against the current active directory before using a superseded address to quote shipping.
+- Address-book CRUD and directory lookup require an authenticated Member. Administrative-directory version management requires Admin. No Staff, Manager or Admin endpoint exposes another Member's address book.
 
 ## Clarifications
 
@@ -205,21 +218,22 @@ An Admin can search and inspect accounts, see the fixed role catalogue, and make
 
 ---
 
-### User Story 6 - Manage personal shipping address book and select at checkout (Priority: P1)
+### User Story 6 - Manage a two-level personal shipping address book (Priority: P1)
 
-A signed-in Member can view, add, edit, physically delete, and set a default shipping address from their profile or during checkout. Administrative levels (Province, District, Ward, and optional Level-4 Hamlet) are chosen from standard dropdowns compatible with GHTK. The checkout flow receives a stable address snapshot, so subsequent profile changes do not alter existing orders.
+A signed-in Member can view, add, edit, physically delete, and set a default shipping address from Profile. The address has Province/City, Commune/Ward/Special Zone and a detail address selected from the active administrative-directory version. Entry follows a progressive form: name, phone, province, commune, then detail address. A future checkout consumer may obtain an immutable address snapshot; checkout behavior itself is outside this revision.
 
 **Why this priority**: Fast, accurate shipping destination entry is mandatory for physical retail fulfillment and live carrier fee quoting.
 
-**Independent Test**: A Member can save up to 10 addresses, exactly one default is maintained, deleting a default address while others exist is rejected, phone numbers with formatting or international codes are normalized to 10-digit Vietnamese format, and FE-008 checkout captures an immutable snapshot.
+**Independent Test**: A Member can save up to 10 addresses using only an active directory's valid province/commune pair; exactly one default is maintained; stale writes are rejected; and client-provided administrative names cannot alter stored canonical names.
 
 **Acceptance Scenarios**:
 
-1. **Given** a Member with no saved addresses adds their first address, **When** they open the form, **Then** recipient name and phone are pre-filled from their Profile (editable), and saving sets `is_default = true` automatically.
+1. **Given** a Member with no saved addresses opens the form, **When** it is displayed, **Then** recipient name and phone are blank, and later fields remain disabled until each preceding required field is valid.
 2. **Given** a Member adds an address with a phone number containing whitespace, punctuation, or `+84`/`84`, **When** the address is saved, **Then** the system normalizes the number to clean 10-digit format matching `^0[35789]\d{8}$` and rejects non-Vietnamese or malformed numbers.
 3. **Given** a Member with multiple addresses attempts to delete their default address, **When** the deletion is requested, **Then** the system rejects the deletion with an actionable error instructing them to designate another address as default first.
 4. **Given** a Member already has 10 saved addresses, **When** they submit an 11th address, **Then** the system returns an address quota conflict (`409 ADDRESS_LIMIT_EXCEEDED`).
-5. **Given** a Member selects an address during checkout in FE-008, **When** the order is created, **Then** FE-008 records an independent snapshot of all address fields; later edits or deletions in the Member's address book do not alter past orders.
+5. **Given** a Member submits a commune code that does not belong to the selected province, **When** the server validates the address, **Then** it rejects the request and persists no client-supplied administrative name.
+6. **Given** an address is changed by another browser session after a Member opened it, **When** the Member saves or deletes using the earlier version, **Then** the system rejects the stale command and requires reload.
 
 ### Edge Cases
 
@@ -274,11 +288,15 @@ A signed-in Member can view, add, edit, physically delete, and set a default shi
 - **FR-033**: The shared Account ID is opaque outside Account Management. REST/UI contracts represent it as a canonical positive-integer string; malformed, padded, decimal, signed, blank, provider-UID, or alternate-ID representations are invalid. Java facade boundary types represent the same identifier without creating a Personnel ID, UUID, or mapping layer. The identifier is not a credential or authorization proof.
 - **FR-034**: Bootstrap for an unknown verified UID MUST require a syntactically valid identity email claim. When that email is unverified, the system still creates the Account and initial Profile, then applies the existing verification reminder and verified-email gates. When an unknown identity has no valid email claim, the system MUST create neither Account nor Profile, MUST NOT accept a browser-supplied email as a substitute, and MUST give safe alternative-method/recovery guidance. A pre-existing Account identified by UID remains resolvable without overwriting its email or Profile from a missing email claim.
 - **FR-035**: The system MUST store and process all date-time data using the fixed business timezone `Asia/Ho_Chi_Minh` (UTC+7). The MySQL database connection MUST enforce `connectionTimeZone=Asia/Ho_Chi_Minh&forceConnectionTimeZoneToSession=true`, the application JVM default timezone MUST be set to `Asia/Ho_Chi_Minh`, and API serialization MUST output ISO-8601 with `+07:00` offset. All database `DATETIME` columns reflect local Vietnam wall-clock time directly.
-- **FR-036**: The system MUST allow an authenticated Member to maintain a personal shipping address book with a maximum quota of 10 addresses. Each address includes recipient name, normalized Vietnamese phone number, province, district, ward, optional hamlet (GHTK Level 4), detail address, address type (`HOME` or `OFFICE`), and a default flag. Only the owning Member can view or mutate their own addresses.
-- **FR-037**: The system MUST enforce that a Member has at most one default shipping address. The first created address automatically becomes default. Designating an address as default atomically removes the default flag from any previous default address. Deleting a default address when other addresses exist MUST be rejected. Deleting an address physically removes the record (Hard Delete).
-- **FR-038**: The system MUST automatically normalize recipient phone numbers by stripping whitespace and delimiters, converting `+84` or `84` prefixes to `0`, and validating against the standard 10-digit Vietnamese mobile pattern (`^0[35789]\d{8}$`).
-- **FR-039**: The system MUST provide standard administrative division lookup endpoints for Province, District, Ward, and optional Level-4 Hamlet compatible with GHTK, ensuring cascading selection and consistent naming and IDs.
-- **FR-040**: The system MUST expose public Spring Modulith `AccountFacade` methods (`findDefaultShippingAddress` and `findShippingAddressById`) returning an immutable `MemberAddressSnapshot` to approved consumer modules (such as FE-008 Retail Order & Fulfillment). Modifying or deleting an address in FE-001 MUST NOT alter historical order snapshots in FE-008.
+- **FR-036**: The system MUST allow only an authenticated owning Member to maintain up to 10 shipping addresses. An address has recipient name, normalized Vietnamese mobile phone, province code/name, commune code/name/type, detail address, directory version, `HOME`/`OFFICE`, default flag and optimistic-lock version. No profile prefill is applied when opening a new address form.
+- **FR-037**: Address entry MUST be progressive: recipient name, recipient phone, province/city, commune/ward/special zone and detail address are enabled in that order. Changing a province clears the selected commune and detail address; changing a commune clears the detail address. Save is unavailable until all required fields are valid.
+- **FR-038**: The server MUST resolve province and commune names from the active directory using supplied codes, reject a nonexistent code or a commune whose parent province differs, and never persist browser-supplied administrative names. An address from a non-active directory version remains readable but is not automatically remapped.
+- **FR-039**: The system MUST enforce at most one default address per Member. The first created address becomes default; designating another atomically replaces the prior default; deleting a default while other addresses exist is rejected; deleting the sole address is allowed. All address mutations serialize per owning account and enforce the quota and default invariant.
+- **FR-040**: The system MUST normalize recipient phones by stripping permitted delimiters, converting `+84`/`84` to `0`, then requiring a 10-digit Vietnamese mobile number beginning `03`, `05`, `07`, `08`, or `09`. Recipient name and detail address are outer-trimmed, required and reject ISO control characters.
+- **FR-041**: The system MUST expose authenticated lookup of the active directory's provinces and the selected province's communes. The browser loads communes only after province selection and may filter that province's results locally without diacritic or case sensitivity.
+- **FR-042**: An Admin MAY create a draft directory version by copying the active version, edit its provinces/communes and `version`, `sourceUrl`, `effectiveFrom` metadata, then activate it after validation. There MUST be exactly one active version; an active version cannot be edited in place; activation records safe metadata only.
+- **FR-043**: Address update, delete and default commands MUST carry the currently observed optimistic-lock version. A stale command fails without changing the address/default invariant and returns a conflict outcome requiring reload.
+- **FR-044**: The system MUST expose internal `AccountFacade` queries for the default address and an owned address ID, returning an immutable two-level `MemberAddressSnapshot`. A future consumer copies the snapshot into its own record; later address edits/deletes do not mutate that consumer's historical snapshot.
 - **FR-041**: The browser MUST apply the shared session and navigation lifecycle in `spec-general.md` to all Account/Profile/Address/Security canonical routes and compatibility aliases. `AuthProvider` is the only session source; a Router-level boundary alone performs terminal cleanup, transient flash creation, and navigation. Protected-route guards show no PII while `loading`, show an unavailable state without navigation when Firebase is unconfigured, and send a resolved signed-out Guest to `/login` with `replace`. `/sign-in` must `replace` to canonical `/login`; successful sign-in always goes to `/`. A valid `403` retains session and routes to Home with a safe notice, while the first session-loss outcome from Firebase or `401` clears private UI state/drafts and routes to Home. This requirement standardizes session guard mechanics only; backend authorization and feature-owned role/scope rules are unchanged.
 
 ### Key Entities *(include if feature involves data)*
