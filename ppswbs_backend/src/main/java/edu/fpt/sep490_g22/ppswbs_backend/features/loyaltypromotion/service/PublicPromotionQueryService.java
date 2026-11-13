@@ -115,11 +115,25 @@ public class PublicPromotionQueryService {
     public PublicPromotionDtos.PublicPromotion get(long programId) {
         PromotionProgram program = programs.findById(programId).orElseThrow(PromotionManagementQueryService::notFound);
         Projection projection = project(program);
-        if (program.getStatus() != ProgramStatus.ENABLED || !projection.revision().isActiveAt(clock.instant())
-                || !projection.hasPublicTarget()) {
+        if (!shownPublicly(program, projection)) {
             throw PromotionManagementQueryService.notFound();
         }
         return projection.card();
+    }
+
+    /**
+     * Throws 404 unless the programme is listed publicly now (enabled, inside its window, with a public target). A
+     * Member can only save what a Guest can see, so knowing an ID never reveals the code of a paused, scheduled or
+     * hidden voucher (review 2026-11-10, L1).
+     */
+    @Transactional(readOnly = true)
+    public void requirePublic(long programId) {
+        get(programId);
+    }
+
+    private boolean shownPublicly(PromotionProgram program, Projection projection) {
+        return program.getStatus() == ProgramStatus.ENABLED && projection.revision().isActiveAt(clock.instant())
+                && projection.hasPublicTarget();
     }
 
     /** Card of the current revision, with product targets reduced to those public now. */
@@ -135,13 +149,17 @@ public class PublicPromotionQueryService {
             productIds.forEach(key -> refs.add(new TargetRef(TargetDimension.PRODUCT, key)));
             variantIds.forEach(key -> refs.add(new TargetRef(TargetDimension.VARIANT, key)));
             List<TargetFact> facts = targetFacts.facts(TargetScope.PRODUCT, refs);
+            boolean sizeLimited = !variantIds.isEmpty();
             productIds = publicKeys(facts, TargetDimension.PRODUCT);
             variantIds = publicKeys(facts, TargetDimension.VARIANT);
-            hasPublic = !productIds.isEmpty() || !variantIds.isEmpty();
+            // Products AND sizes: when every targeted size left the public catalogue, no line can match any more,
+            // even if a targeted product is still public. Showing the product alone would read as "all its sizes"
+            // (review 2026-11-10, M2), so the programme has no public target.
+            hasPublic = sizeLimited ? !variantIds.isEmpty() : !productIds.isEmpty();
         }
         PromotionReadDtos.Program management = PromotionManagementQueryService.toDto(program, revision, rows);
         PromotionReadDtos.Targets shown = program.getScope() == TargetScope.PRODUCT
-                ? new PromotionReadDtos.Targets(productIds, variantIds, null, null, null, null)
+                ? new PromotionReadDtos.Targets(productIds, variantIds, null, productBranches(rows), null, null)
                 : management.targets();
         PublicPromotionDtos.PublicPromotion card = new PublicPromotionDtos.PublicPromotion(management.id(),
                 management.kind(), management.scope(), management.code(), management.name(), management.startAt(),
@@ -152,6 +170,12 @@ public class PublicPromotionQueryService {
 
     private static List<String> keys(List<PromotionTarget> rows, TargetDimension dimension) {
         return rows.stream().filter(row -> row.getDimension() == dimension).map(PromotionTarget::getTargetKey).toList();
+    }
+
+    /** Branches a product voucher is limited to (Session 2026-11-09); {@code null} = every branch. */
+    private static List<String> productBranches(List<PromotionTarget> rows) {
+        List<String> branches = keys(rows, TargetDimension.BRANCH);
+        return branches.isEmpty() ? null : branches;
     }
 
     private static List<String> publicKeys(List<TargetFact> facts, TargetDimension dimension) {

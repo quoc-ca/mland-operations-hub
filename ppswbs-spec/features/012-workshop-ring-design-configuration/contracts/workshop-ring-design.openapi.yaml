@@ -1,5 +1,5 @@
 # Date created: 2026-11-08
-# Date updated: 2026-11-08
+# Date updated: 2026-11-09
 # Author: Ngô Tiến Đạt
 # Last updated by: Ngô Tiến Đạt
 
@@ -214,6 +214,103 @@ components:
       schema: { type: string, minLength: 16, maxLength: 128 }
       description: Opaque Guest session reference; never a raw identity or database ID.
   schemas:
+    DesignOptionsResponse:
+      type: object
+      required: [packageReference, rulesVersion, materials, shapes, sizes, components, attachments, engravingConfig]
+      properties:
+        packageReference: { type: string }
+        rulesVersion: { type: string }
+        materials:
+          type: array
+          items:
+            type: object
+            required: [reference, name]
+            properties:
+              reference: { type: string }
+              name: { type: string }
+              description: { type: string, nullable: true }
+              purity: { type: string, nullable: true }
+              unitPrice: { type: string, nullable: true }
+              currency: { type: string, nullable: true }
+              difficultyScore: { type: string, nullable: true }
+              imageUrl: { type: string, nullable: true }
+        shapes:
+          type: array
+          items:
+            type: object
+            required: [reference, name]
+            properties:
+              reference: { type: string }
+              name: { type: string }
+              description: { type: string, nullable: true }
+              priceAdjustment: { type: string, nullable: true }
+              currency: { type: string, nullable: true }
+              difficultyScore: { type: string, nullable: true }
+              imageUrl: { type: string, nullable: true }
+        sizes:
+          type: array
+          items: { type: string }
+        components:
+          type: array
+          items:
+            type: object
+            required: [reference, name]
+            properties:
+              reference: { type: string }
+              name: { type: string }
+              description: { type: string, nullable: true }
+              type: { type: string, nullable: true }
+              color: { type: string, nullable: true }
+              cutName: { type: string, nullable: true }
+              unitPrice: { type: string, nullable: true }
+              currency: { type: string, nullable: true }
+              difficultyScore: { type: string, nullable: true }
+              imageUrl: { type: string, nullable: true }
+              maxQuantity: { type: integer, nullable: true }
+              allowedPlacements:
+                type: array
+                items: { type: string }
+        attachments:
+          type: array
+          items:
+            type: object
+            required: [reference, name]
+            properties:
+              reference: { type: string }
+              name: { type: string }
+              description: { type: string, nullable: true }
+              type: { type: string, nullable: true }
+              unitPrice: { type: string, nullable: true }
+              currency: { type: string, nullable: true }
+              difficultyScore: { type: string, nullable: true }
+              imageUrl: { type: string, nullable: true }
+              maxQuantity: { type: integer, nullable: true }
+              allowedPlacements:
+                type: array
+                items: { type: string }
+        engravingConfig:
+          type: object
+          required: [supported]
+          properties:
+            supported: { type: boolean }
+            maxCharacters: { type: integer, nullable: true }
+            allowedPlacements:
+              type: array
+              items: { type: string }
+            priceAdjustment: { type: string, nullable: true }
+            currency: { type: string, nullable: true }
+        models:
+          type: array
+          items:
+            type: object
+            required: [modelReference, name]
+            properties:
+              modelReference: { type: string }
+              name: { type: string }
+              description: { type: string, nullable: true }
+              imageUrl: { type: string, nullable: true }
+              materialReference: { type: string, nullable: true }
+              shapeReference: { type: string, nullable: true }
     CreateDesignRequest:
       type: object
       additionalProperties: false

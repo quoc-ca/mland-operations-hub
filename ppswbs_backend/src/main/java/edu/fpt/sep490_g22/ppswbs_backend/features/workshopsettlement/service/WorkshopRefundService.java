@@ -14,6 +14,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.Settlem
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementBusinessAudit;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementCase;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementFinalBillLifecycleStatus;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.RefundReason;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementRefundAllocation;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.WorkshopBookingSettlementAdapter;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.WorkshopOperationsSettlementAdapter;
@@ -43,6 +44,8 @@ public class WorkshopRefundService {
     private static final String CASE_RESOLVED = edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementCaseLifecycleStatus.RESOLVED.name();
     private static final String CASE_REJECTED = edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementCaseLifecycleStatus.REJECTED.name();
     private static final String REASON_MANUAL_REMEDIATION = "REFUND_PARTIAL_MANUAL_REMEDIATION_REQUIRED";
+    /** The allocation is with the T097 bank refund and waits for a Manager to confirm the transfer. */
+    static final String PENDING_BANK_REFUND = "PENDING_BANK_REFUND";
     private static final Duration QUERY_INTERVAL = Duration.ofMinutes(5);
     private static final Duration QUERY_WINDOW = Duration.ofHours(24);
 
@@ -55,6 +58,7 @@ public class WorkshopRefundService {
     private final WorkshopBookingSettlementAdapter booking;
     private final SettlementFinalBillRepository bills;
     private final SettlementCustomerNotifier notifier;
+    private final BankRefundService bankRefunds;
     private final TransactionTemplate transaction;
     private final String merchantApiIpAddress;
     private final String merchantApiCreatedBy;
@@ -69,6 +73,7 @@ public class WorkshopRefundService {
             WorkshopBookingSettlementAdapter booking,
             SettlementFinalBillRepository bills,
             SettlementCustomerNotifier notifier,
+            BankRefundService bankRefunds,
             PlatformTransactionManager transactionManager,
             @Value("${vnpay.merchant-api-ip-address:}") String merchantApiIpAddress,
             @Value("${vnpay.merchant-api-created-by:}") String merchantApiCreatedBy) {
@@ -81,6 +86,7 @@ public class WorkshopRefundService {
         this.booking = booking;
         this.bills = bills;
         this.notifier = notifier;
+        this.bankRefunds = bankRefunds;
         this.transaction = new TransactionTemplate(transactionManager);
         this.merchantApiIpAddress = trimToNull(merchantApiIpAddress);
         this.merchantApiCreatedBy = trimToNull(merchantApiCreatedBy);
@@ -113,6 +119,64 @@ public class WorkshopRefundService {
         applyCancellationConsequenceIfFullyRefunded(caseReference);
     }
 
+    /**
+     * T098: Mland's own money — a remedy for a cancellation Mland caused, an overcharge corrected after the
+     * folio was finalized, and a late payment that was not re-confirmed — is refunded by bank transfer, so
+     * these never reach the gateway. The overcharge refund of an OTA booking's separate Mland shop add-on
+     * bill is Mland money too, so T104 brought {@code ADDON_REFUND} here as well; only the OTA's own base
+     * ticket stays the OTA's process, which this service never touched.
+     */
+    private static final java.util.Set<String> BANK_ROUTED_CASE_TYPES =
+            java.util.Set.of("MLAND_CANCELLATION_REMEDY", "FOLIO_CORRECTION", "LATE_PAYMENT_REFUND",
+                    "ADDON_REFUND");
+
+    /** Hands one prepared allocation to the bank refund of T097 and leaves it waiting for a Manager. */
+    private void routeToBankRefund(SettlementRefundAllocation allocation, SettlementCase settlementCase) {
+        // A legacy refund already at the gateway is never duplicated by hand: reconcile it first (T098).
+        if ("99".equals(allocation.getProviderResponseCode())
+                || allocation.getProviderRefundTransactionNumber() != null) {
+            log.warn("Allocation {} has an unreconciled gateway refund; the bank refund waits for it",
+                    allocation.getAllocationReference());
+            return;
+        }
+        RefundReason reason = switch (settlementCase.getCaseType()) {
+            case "FOLIO_CORRECTION" -> RefundReason.OVERCHARGE_AFTER_FINALIZED;
+            case "LATE_PAYMENT_REFUND" -> RefundReason.LATE_PAYMENT_NOT_RECONFIRMED;
+            case "ADDON_REFUND" -> RefundReason.OTA_ADDON_OVERCHARGE;
+            default -> RefundReason.MLAND_CANCELLATION;
+        };
+        var opened = bankRefunds.open(settlementCase.getBookingReference(), null, reason,
+                allocation.getAllocationReference(), allocation.getAllocatedAmountVnd(), null,
+                settlementCase.getCorrelationReference());
+        allocation.setLifecycleStatus(PENDING_BANK_REFUND);
+        allocation.setBankRefundReference(opened.request().getRequestReference());
+        allocation.setUpdatedAt(Instant.now());
+        allocations.saveAndFlush(allocation);
+        log.info("Allocation {} of case {} goes back by bank refund {}", allocation.getAllocationReference(),
+                settlementCase.getCaseReference(), opened.request().getRequestReference());
+    }
+
+    /**
+     * The Manager matched the bank statement, so the allocation is settled and the consequences of
+     * FR-039 may follow. Replay is harmless: an allocation already verified is left alone.
+     */
+    @org.springframework.context.event.EventListener
+    @org.springframework.transaction.annotation.Transactional
+    public void onBankRefundConfirmed(
+            edu.fpt.sep490_g22.ppswbs_backend.common.booking.MlandBankRefundConfirmedEvent event) {
+        if (event == null || event.sourceReference() == null) {
+            return;
+        }
+        SettlementRefundAllocation allocation = findAllocation(event.sourceReference());
+        if (allocation == null || !PENDING_BANK_REFUND.equals(allocation.getLifecycleStatus())) {
+            return;
+        }
+        allocation.setLifecycleStatus("VERIFIED");
+        allocation.setUpdatedAt(Instant.now());
+        allocations.saveAndFlush(allocation);
+        applyCancellationConsequenceIfFullyRefunded(allocation.getCaseReference());
+    }
+
     private void dispatchPreparedAllocation(String allocationReference) {
         SettlementRefundAllocation allocation = findAllocation(allocationReference);
         if (allocation == null || !"PREPARED".equals(allocation.getLifecycleStatus())) return;
@@ -131,6 +195,13 @@ public class WorkshopRefundService {
                 log.warn("Failed to notify booking of refund pending status; caseReference={} ({})",
                         settlementCase.getCaseReference(), failure.getClass().getSimpleName());
             }
+        }
+
+        // FR-038 (T098): direct Mland money goes back by bank transfer, never through VNPay Refund. The
+        // allocation keeps its original payment evidence and is handed to the T097 request instead.
+        if (BANK_ROUTED_CASE_TYPES.contains(settlementCase.getCaseType())) {
+            routeToBankRefund(allocation, settlementCase);
+            return;
         }
 
         String expectedType = expectedRefundType(allocation);

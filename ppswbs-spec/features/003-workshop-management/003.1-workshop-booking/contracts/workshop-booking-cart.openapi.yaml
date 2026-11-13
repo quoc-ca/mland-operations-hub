@@ -1,0 +1,199 @@
+openapi: 3.0.3
+info:
+  title: Workshop Booking Cart API (planned)
+  version: 0.1.0-planned
+  description: >-
+    Planned contract for the multi-ticket cart and per-ticket booking of spec
+    FR-030–FR-043 (decision 2026-11-12). Not implemented yet (tasks Phase 8).
+    Kept separate from workshop-booking.openapi.yaml, whose routes must match
+    the implemented controllers exactly; each route moves there when its
+    controller is implemented. Money values are whole VND strings.
+paths:
+  /api/v1/workshop-cart-quotes:
+    post:
+      summary: Quote a cart of one or more package lines
+      description: >-
+        Guest or Member. Computes per-ticket voucher and points allocation
+        (FR-033, FR-034), booking-time collection per ticket (FR-035) and the
+        group payment mode (FR-036). Reserves no capacity or benefit. A Member
+        quote is bound to the Member and expires 30 minutes after creation.
+      security: [{}, {bearerAuth: []}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CartQuoteRequest'}}}}
+      responses:
+        '201': {description: Cart quote, content: {application/json: {schema: {$ref: '#/components/schemas/CartQuote'}}}}
+        '400': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-booking-groups:
+    post:
+      summary: Confirm a cart quote and hold every line atomically
+      description: >-
+        Holds all lines all-or-nothing (FR-031). Returns PENDING_PAYMENT with
+        holdExpiresAt (12 minutes) and paymentDeadline (10 minutes) when the
+        group collection is at least 5,000 VND; returns CONFIRMED when the group
+        is 0 VND or deferred below 5,000 VND (FR-036, FR-038). A capacity
+        failure returns 409 with failingLines and holds nothing.
+      security: [{}, {bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CreateGroupRequest'}}}}
+      responses:
+        '201': {description: Group created, content: {application/json: {schema: {$ref: '#/components/schemas/BookingGroup'}}}}
+        '400': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-booking-groups/{groupCode}/payment-attempts:
+    post:
+      summary: Start or retry the single VNPay payment of the group
+      description: >-
+        Only for group collection ≥ 5,000 VND; the amount is rechecked before the
+        attempt is created. vnp_ExpireDate = holdExpiresAt − 2 minutes; retry
+        never extends the hold (FR-032).
+      parameters: [{$ref: '#/components/parameters/GroupCode'}, {$ref: '#/components/parameters/IdempotencyKey'}]
+      responses:
+        '200': {description: Payment initiation}
+        '409': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-booking-groups/{groupCode}:
+    get:
+      summary: Read a group with its tickets (buyer view)
+      description: Member ownership, Guest lookup proof or Magic Link (FR-042).
+      security: [{}, {bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/GroupCode'}]
+      responses:
+        '200': {description: Group projection, content: {application/json: {schema: {$ref: '#/components/schemas/BookingGroup'}}}}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-tickets/{ticketCode}/recipient:
+    put:
+      summary: Send a ticket to a recipient email, or change its recipient
+      description: >-
+        Buyer only, or Staff after verifying the buyer (FR-041). A new email
+        revokes the old QR and issues a new one; the same email resends with the
+        same QR. Refused after check-in and after 3 online changes.
+      security: [{}, {bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/TicketCode'}, {$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/RecipientRequest'}}}}
+      responses:
+        '200': {description: Recipient updated, content: {application/json: {schema: {$ref: '#/components/schemas/Ticket'}}}}
+        '400': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-booking-groups/{groupCode}/late-payment-reviews/{reviewId}/decisions:
+    post:
+      summary: Manager decision on a late payment that was not re-confirmed automatically
+      description: >-
+        CONFIRM only when the failed conditions are limited to the 60-minute
+        window or a duplicate booking, the buyer still wants to attend, and
+        capacity, start time and recomputed amount still hold; REFUND opens a
+        100% bank refund in 003.3 (FR-040).
+      security: [{bearerAuth: []}]
+      parameters:
+        - {$ref: '#/components/parameters/GroupCode'}
+        - {name: reviewId, in: path, required: true, schema: {type: string}}
+        - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decision, reason]
+              properties:
+                decision: {type: string, enum: [CONFIRM, REFUND]}
+                reason: {type: string, minLength: 1, maxLength: 1000}
+      responses:
+        '200': {description: Decision recorded}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+components:
+  securitySchemes:
+    bearerAuth: {type: http, scheme: bearer, bearerFormat: Firebase-ID-Token}
+  parameters:
+    GroupCode: {name: groupCode, in: path, required: true, schema: {type: string}}
+    TicketCode: {name: ticketCode, in: path, required: true, schema: {type: string}}
+    IdempotencyKey: {name: Idempotency-Key, in: header, required: true, schema: {type: string, minLength: 16, maxLength: 128}}
+  responses:
+    Problem:
+      description: Typed problem
+      content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}
+  schemas:
+    Vnd: {type: string, pattern: '^(0|[1-9][0-9]*)$'}
+    CartLine:
+      type: object
+      required: [packageId, sessionReferences, participantCount]
+      properties:
+        packageId: {type: integer, format: int64}
+        sessionReferences: {type: array, minItems: 1, maxItems: 2, uniqueItems: true, items: {type: string, format: uuid}}
+        participantCount: {type: integer, minimum: 1}
+    CartQuoteRequest:
+      type: object
+      required: [lines]
+      properties:
+        lines: {type: array, minItems: 1, items: {$ref: '#/components/schemas/CartLine'}}
+        voucherCode: {type: string, maxLength: 128, description: Member only.}
+        requestedPoints: {$ref: '#/components/schemas/Vnd'}
+    TicketQuote:
+      type: object
+      required: [lineIndex, packagePrice, voucherDiscount, pointsUsed, pointDiscount, finalPrice, collectedAtBooking, collectionKind, remaining]
+      properties:
+        lineIndex: {type: integer}
+        packagePrice: {$ref: '#/components/schemas/Vnd'}
+        voucherDiscount: {$ref: '#/components/schemas/Vnd'}
+        pointsUsed: {$ref: '#/components/schemas/Vnd'}
+        pointDiscount: {$ref: '#/components/schemas/Vnd'}
+        finalPrice: {$ref: '#/components/schemas/Vnd'}
+        collectedAtBooking: {$ref: '#/components/schemas/Vnd'}
+        collectionKind: {type: string, enum: [FREE, FULL, DEPOSIT, DEFERRED_BELOW_VNPAY_MINIMUM]}
+        remaining: {$ref: '#/components/schemas/Vnd'}
+    CartQuote:
+      type: object
+      required: [quoteRef, expiresAt, tickets, groupCollection, paymentMode, reasons]
+      properties:
+        quoteRef: {type: string, format: uuid}
+        expiresAt: {type: string, format: date-time}
+        tickets: {type: array, items: {$ref: '#/components/schemas/TicketQuote'}}
+        groupCollection: {$ref: '#/components/schemas/Vnd'}
+        paymentMode: {type: string, enum: [VNPAY, INTERNAL_FREE, INTERNAL_DEFERRED]}
+        reasons: {type: array, items: {type: string}}
+    CreateGroupRequest:
+      type: object
+      required: [quoteRef, contactEmail, contactPhone]
+      properties:
+        quoteRef: {type: string, format: uuid}
+        contactEmail: {type: string, format: email, maxLength: 254}
+        contactPhone: {type: string, minLength: 7, maxLength: 32}
+    Ticket:
+      type: object
+      required: [ticketCode, status, collectionKind]
+      properties:
+        ticketCode: {type: string}
+        status: {type: string}
+        collectionKind: {type: string, enum: [FREE, FULL, DEPOSIT, DEFERRED_BELOW_VNPAY_MINIMUM]}
+        recipientEmailMasked: {type: string, nullable: true}
+        attendanceStatus: {type: string, nullable: true}
+        sessionReferences: {type: array, items: {type: string, format: uuid}}
+    BookingGroup:
+      type: object
+      required: [groupCode, status, paymentMode, groupCollection, tickets]
+      properties:
+        groupCode: {type: string}
+        status: {type: string, enum: [PENDING_PAYMENT, CONFIRMED, EXPIRED, CANCELLED]}
+        paymentMode: {type: string, enum: [VNPAY, INTERNAL_FREE, INTERNAL_DEFERRED]}
+        groupCollection: {$ref: '#/components/schemas/Vnd'}
+        holdExpiresAt: {type: string, format: date-time, nullable: true, description: Internal hold end (12 minutes); not shown to customers.}
+        paymentDeadline: {type: string, format: date-time, nullable: true, description: Customer-visible deadline (10 minutes).}
+        tickets: {type: array, items: {$ref: '#/components/schemas/Ticket'}}
+        failingLines: {type: array, items: {type: integer}, description: Present on a 409 capacity failure.}
+    RecipientRequest:
+      type: object
+      required: [recipientEmail]
+      properties:
+        recipientEmail: {type: string, format: email, maxLength: 254}
+    Problem:
+      type: object
+      required: [code, correlationId]
+      properties:
+        code: {type: string}
+        correlationId: {type: string}
+        message: {type: string}

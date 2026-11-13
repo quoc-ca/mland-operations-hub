@@ -39,6 +39,22 @@ The server remains authoritative for ownership, role, quote validity, capacity, 
 | Pending-hold release | Guest/Member | `POST /api/v1/workshop-bookings/{bookingCode}/pending-hold-release` | One cancellation action per booking attempt; release capacity, set booking `CANCELLED`, and do not create a refund. Replay returns the existing result. |
 | Confirmation delivery | Guest/Member | `POST /api/v1/workshop-bookings/{bookingCode}/confirmation-deliveries` | Show send/retry result and rate limit; do not expose raw provider payload or secrets. |
 
+### Behaviour backfilled from implementation (2026-11-12)
+
+Recorded from commits made without a spec update (see `artifacts/003-spec-code-gap-review.md`).
+
+| Screen / flow | Entry and actor | Workflow/API reference | Behaviour |
+| --- | --- | --- | --- |
+| Package page | Public Guest/Member | 003.2 discovery; Feature 011 public review list | Sessions are paged; the package's reviews show on the package page and on workshop list cards. Choosing a session card opens the booking page with that session, branch and dates pre-selected (12e7b76). |
+| Booking form | Guest/Member | Quote and booking routes | A progress bar follows the form; the ticket count is a stepper (bfdb20e). |
+| Member benefits | Authenticated Member | `POST /api/v1/workshop-booking-quotes` | Member picks a voucher from "Kho Voucher" instead of typing a code, sees available points, and the quote is requested automatically on change; Vietnamese `reasonDetails` messages are shown (FR-006a, FR-006b). |
+| Hold success | Guest/Member right after accept | `POST .../payment-attempts` | The success page shows the VNPay deposit button and the hold countdown. When the countdown ends the booking is reloaded until the server reports the new state (bfdb20e). |
+| Member bookings ("Đặt chỗ của tôi") | Authenticated Member on `/workshop-booking/lookup` | `GET /api/v1/members/me/workshop-bookings` | A signed-in Member picks a booking from the list instead of typing a code; the list shows tickets, `attendanceStatus` (including no-show) and expired holds from the last 24 hours (FR-021a, FR-021b). |
+| Review offer | Authenticated Member in own bookings | Feature 011 eligibility, `ticketReferences` | A review is offered only for an attended ticket that Feature 011 reports eligible (FR-021c). |
+| Home quick bar | Authenticated Member | Member bookings list | Shows the Member's next confirmed session and opens that booking (bfdb20e). |
+| Magic Link | Anyone holding the link | `POST /api/v1/booking-magic-links/exchanges` | Opens the read-only booking without signing in, using the token carried by the confirmation email (881fd93). |
+| Payment return (Staff) | Staff who opened a counter VNPay return page | 003.3 final bill | A Staff is told to go back to the booking's final bill instead of the customer view (34012cf). |
+
 ## Payment recovery guardrails for regeneration
 
 These states apply to the booking lookup and browser-return views as well as

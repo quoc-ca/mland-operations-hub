@@ -2,15 +2,20 @@
 
 #### Primary Actors
 
-- Manager
+Manager.
 
 #### Secondary Actors
 
-- Product Management, which supplies products and size variants for the scope
+Product Management, which supplies products and size variants for the scope.
 
 #### Description
 
 This use case allows a Manager to create, view, edit, pause and resume automatic discounts for retail products. An automatic discount needs no code, has no branch limit and always allows loyalty points. There are no automatic discounts for workshops.
+
+This use case includes the following sub-flows:
+
+- Create Automatic Discount
+- View, Edit, Pause or Resume Automatic Discount
 
 #### Preconditions
 
@@ -40,7 +45,7 @@ The system rejects missing fields, a start time that is not before the end time,
 
 **Create Step 3 — Invalid scope**
 
-The system rejects a product or size that does not exist, a size that does not belong to a selected product, or a soft-deleted product (MSG40). Unpublished, hidden products and stopped sizes can still be selected.
+The system rejects a product or size that does not exist, a size that does not belong to a selected product, or a soft-deleted product, and a request that includes a branch (MSG40). Unpublished, hidden products and stopped sizes can still be selected.
 
 **Edit Step 3 — Changing the scope**
 
@@ -58,6 +63,10 @@ The system rejects the request (MSG01, MSG02). Admin, Staff, Member and Guest ca
 
 The system reports success only after a confirmed result and does not create a duplicate (MSG04).
 
+**Any save — Request is rejected**
+
+When a create, edit, pause or resume request is rejected, for example for permission, stale data, invalid data or limits, the system records the rejected attempt with the actor, the request path containing only identifiers, the error code and the names of the rejected fields, without values, tokens or personal data.
+
 #### Postconditions
 
 - A valid automatic discount is available to eligible new orders during its time.
@@ -66,10 +75,7 @@ The system reports success only after a confirmed result and does not create a d
 
 #### Business Rules
 
-- BR-45-01
-- BR-45-02
-- BR-45-03
-- BR-45-04
+BR-45-01, BR-45-02, BR-45-03, BR-45-04
 
 #### Business Rule Definitions
 

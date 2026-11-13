@@ -71,6 +71,7 @@ export function WorkshopBookingPage({ packageId }) {
   // A session card on the package page opens this page with the session, branch and dates already chosen.
   const urlParams = useRef(new URLSearchParams(typeof window !== 'undefined' ? window.location.search : ''));
   const pendingSessionRef = useRef(urlParams.current.get('session'));
+  const attachedDesignId = urlParams.current.get('designId');
   const [locationId, setLocationId] = useState(Number(urlParams.current.get('locationId')) || null);
   const [locations, setLocations] = useState([]);
   const [loadingLocations, setLoadingLocations] = useState(false);
@@ -522,6 +523,9 @@ export function WorkshopBookingPage({ packageId }) {
           idempotencyKey,
           authorization: idToken ? `Bearer ${idToken}` : undefined,
         };
+      }
+      if (attachedDesignId) {
+        payload.designReference = attachedDesignId;
       } else {
         payload = {
           packageId: Number(packageId),
@@ -531,6 +535,9 @@ export function WorkshopBookingPage({ packageId }) {
           contactPhone: contactPhone.trim(),
           idempotencyKey,
         };
+      }
+      if (attachedDesignId) {
+        payload.designReference = attachedDesignId;
       }
 
       const outcome = await createWorkshopBooking(payload);
@@ -600,10 +607,20 @@ export function WorkshopBookingPage({ packageId }) {
 
   // If booking succeeded, display BookingSummary confirmation state
   if (bookingOutcome) {
+    // A booking returned already CONFIRMED by the create call is a 0 VND booking (FR-007a1): benefits covered the
+    // whole price, so it was confirmed without a deposit payment.
+    const isZeroAmountBooking = bookingOutcome.bookingStatus === 'CONFIRMED';
     return (
       <main className="public-page figma-public-page">
-        <p className="eyebrow">GIỮ CHỖ THÀNH CÔNG</p>
-        <h1 style={{ color: '#002967' }}>Đã tạo đơn đặt chỗ workshop</h1>
+        <p className="eyebrow">{isZeroAmountBooking ? 'ĐẶT CHỖ THÀNH CÔNG' : 'GIỮ CHỖ THÀNH CÔNG'}</p>
+        <h1 style={{ color: '#002967' }}>
+          {isZeroAmountBooking ? 'Đơn đặt chỗ đã được xác nhận' : 'Đã tạo đơn đặt chỗ workshop'}
+        </h1>
+        {isZeroAmountBooking && (
+          <p className="muted">
+            Ưu đãi đã trả toàn bộ giá vé nên không cần đặt cọc. Vé và đường dẫn tra cứu được gửi qua email.
+          </p>
+        )}
 
         <div className="workspace-card" style={{ marginTop: '24px', padding: '32px', border: '2px solid #002967' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #eee', paddingBottom: '16px' }}>
@@ -615,10 +632,13 @@ export function WorkshopBookingPage({ packageId }) {
             </div>
             <div style={{ textAlign: 'right' }}>
               <span className="status ok" style={{ fontSize: '14px', fontWeight: 'bold' }}>
-                {bookingOutcome.bookingStatus === 'PENDING_PAYMENT' ? 'CHỜ ĐẶT CỌC' : bookingOutcome.bookingStatus}
+                {bookingOutcome.bookingStatus === 'PENDING_PAYMENT' ? 'CHỜ ĐẶT CỌC'
+                  : bookingOutcome.bookingStatus === 'CONFIRMED' ? 'ĐÃ XÁC NHẬN' : bookingOutcome.bookingStatus}
               </span>
               <span className="muted" style={{ display: 'block', fontSize: '12px', marginTop: '4px' }}>
-                Thanh toán: {bookingOutcome.paymentStatus === 'UNPAID' ? 'Chưa thanh toán' : bookingOutcome.paymentStatus}
+                Thanh toán: {bookingOutcome.paymentStatus === 'UNPAID' ? 'Chưa thanh toán'
+                  : bookingOutcome.bookingStatus === 'CONFIRMED' && isZeroAmountBooking ? 'Miễn phí, không cần thanh toán online'
+                  : bookingOutcome.paymentStatus}
               </span>
             </div>
           </div>
@@ -759,6 +779,23 @@ export function WorkshopBookingPage({ packageId }) {
               Mã đối soát (Correlation ID): {serverError.correlationId}
             </p>
           )}
+        </div>
+      )}
+
+      {attachedDesignId && (
+        <div className="workspace-card" style={{ border: '1px solid #c8a265', background: '#fcfbf8', marginBottom: '24px', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderRadius: '8px' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '18px' }}>💍</span>
+              <strong style={{ color: '#002967' }}>Mẫu nhẫn tự thiết kế đã đính kèm</strong>
+            </div>
+            <p style={{ margin: '4px 0 0', fontSize: '14px', color: '#666' }}>
+              Mã thiết kế: <code>{attachedDesignId}</code> — Mẫu cấu hình này sẽ được gắn cố định vào lịch đặt workshop của bạn sau khi giữ chỗ thành công.
+            </p>
+          </div>
+          <span className="status" style={{ background: '#e8f4fd', color: '#002967', borderColor: '#b8daff', fontWeight: 'bold' }}>
+            ĐÃ THẨM ĐỊNH
+          </span>
         </div>
       )}
 

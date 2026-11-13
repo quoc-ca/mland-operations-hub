@@ -248,11 +248,11 @@ export default function MainTopbar() {
                             <span>🏢</span> Staff Vận hành
                           </Link>
                           <Link
-                            to="/staff/retail-shipments"
+                            to="/staff/retail-orders"
                             className="main-topbar-dropdown-item"
                             role="menuitem"
                           >
-                            <span>🚚</span> Vận đơn GHTK
+                            <span>🏪</span> Đơn bán lẻ chi nhánh
                           </Link>
                         </>
                       )}

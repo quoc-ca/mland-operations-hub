@@ -1,0 +1,183 @@
+// Bilingual dictionary for Feature 012 Workshop Ring Design Configuration
+
+export const messages = {
+  vi: {
+    // Header & Meta
+    featureTitle: 'Cấu hình mẫu nhẫn Workshop',
+    featureSubtitle: 'Tự tay thiết kế và phối hợp các thông số chế tác độc bản cho buổi trải nghiệm workshop của bạn.',
+    workshopOnlyNotice: 'Thiết kế nhẫn áp dụng cho buổi chế tác Workshop. Giá thẩm định chỉ mang tính chất tham khảo, không làm thay đổi giá gói workshop và tiền cọc đặt lịch.',
+    advisoryBadge: 'Giá tham khảo',
+    advisoryWarning: 'Giá và độ khó tính toán mang tính chất tham khảo (Advisory), giá chính thức tuân thủ theo gói workshop đã chọn.',
+    unsavedChangesNotice: 'Có thay đổi chưa lưu. Vui lòng bấm "Lưu & Thẩm định" để cập nhật phiên bản chính thức.',
+    versionLabel: 'Phiên bản',
+    statusLabel: 'Trạng thái',
+
+    // Starting points
+    chooseStartingPoint: 'Chọn điểm bắt đầu thiết kế',
+    modelChoiceTitle: 'Mẫu gợi ý theo gói',
+    modelChoiceDesc: 'Bắt đầu từ một mẫu thiết kế có sẵn đã được các nghệ nhân chế tác chuẩn hóa.',
+    blankChoiceTitle: 'Tự thiết kế từ phôi trắng',
+    blankChoiceDesc: 'Khởi đầu từ phôi nhẫn trơn cơ bản và tự do tùy chỉnh toàn bộ thông số theo ý muốn.',
+    startConfiguring: 'Bắt đầu cấu hình',
+    selectModel: 'Chọn mẫu này',
+
+    // Sections
+    materialSection: '1. Chất liệu nhẫn',
+    materialSectionDesc: 'Chọn loại kim loại chế tác (Bạc Ý 925, Vàng 14K, Vàng Hồng, Vàng Trắng).',
+    shapeSection: '2. Dáng đai & Kích thước',
+    shapeSectionDesc: 'Phom dáng cấu trúc đai nhẫn và size ngón tay tiêu chuẩn.',
+    gemstoneSection: '3. Đá quý đính kèm',
+    gemstoneSectionDesc: 'Chọn loại đá, giác cắt, màu sắc và vị trí gắn trên mặt nhẫn.',
+    attachmentSection: '4. Họa tiết trang trí',
+    attachmentSectionDesc: 'Thêm các chi tiết chạm khắc viền bi Milgrain hoặc hoàn thiện phay xước.',
+    engravingSection: '5. Khắc chữ cá nhân hóa',
+    engravingSectionDesc: 'Khắc tên, ngày kỷ niệm hoặc thông điệp ý nghĩa lên lòng trong/mặt ngoài nhẫn.',
+
+    // Fields
+    ringSizeLabel: 'Size nhẫn (Kích thước ngón tay)',
+    ringSizeHelper: 'Size tiêu chuẩn từ 6 đến 20 theo chuẩn trang sức Việt Nam.',
+    engravingToggleLabel: 'Khắc chữ kỷ niệm (+80.000 đ)',
+    engravingTextInputLabel: 'Nội dung khắc (tối đa 50 ký tự)',
+    engravingPlaceholder: 'Ví dụ: Forever Love 2026',
+    engravingPlacementLabel: 'Vị trí khắc',
+    innerBand: 'Lòng trong nhẫn (Kín đáo)',
+    outerBand: 'Mặt ngoài nhẫn (Nổi bật)',
+
+    // Actions
+    saveAndEvaluate: 'Lưu & Thẩm định',
+    saving: 'Đang lưu & thẩm định...',
+    proceedToBooking: 'Tiếp tục đặt lịch Workshop',
+    editDesign: 'Chỉnh sửa thiết kế',
+    archiveDesign: 'Lưu trữ mẫu thiết kế',
+    archiving: 'Đang lưu trữ...',
+    retry: 'Thử lại',
+    restartFlow: 'Bắt đầu phiên mới',
+    backToModels: 'Quay lại chọn mẫu',
+    viewMyDesigns: 'Thiết kế của tôi',
+
+    // Statuses
+    DRAFT: 'Bản nháp',
+    VALIDATED: 'Đã thẩm định',
+    ATTACHED_TO_BOOKING: 'Đã gắn lịch đặt',
+    LOCKED: 'Đã khóa',
+    ARCHIVED: 'Đã lưu trữ',
+
+    // Summary & Evaluation
+    evaluationTitle: 'Kết quả thẩm định thiết kế',
+    estimatedPriceLabel: 'Chi phí tham khảo ước tính',
+    difficultyLabel: 'Độ khó chế tác',
+    rulesVersionLabel: 'Phiên bản quy tắc',
+    summaryHeading: 'Tóm tắt thông số cấu hình',
+    materialSummary: 'Chất liệu',
+    shapeSummary: 'Dáng nhẫn',
+    sizeSummary: 'Size',
+    gemstonesSummary: 'Đá quý',
+    attachmentsSummary: 'Họa tiết phụ',
+    engravingSummary: 'Khắc chữ',
+    none: 'Không có',
+
+    // Branch recovery
+    branchRecoveryTitle: 'Thiết kế cần điều chỉnh cho chi nhánh',
+    branchRecoveryDesc: 'Chi nhánh workshop bạn vừa chọn chưa hỗ trợ một số vật liệu/kỹ thuật của mẫu nhẫn hiện tại.',
+    branchRecoveryAction: 'Điều chỉnh thiết kế',
+    changeBranchAction: 'Chọn chi nhánh khác',
+
+    // Session Expired
+    sessionExpiredTitle: 'Phiên làm việc đã hết hạn',
+    sessionExpiredDesc: 'Vì lý do bảo mật, phiên cấu hình của khách vãng lai tự động đóng sau 20 phút không hoạt động.',
+    startNewSession: 'Bắt đầu thiết kế mới',
+    loginPrompt: 'Hoặc đăng nhập để lưu trữ lịch sử thiết kế vĩnh viễn.',
+
+    // Member History
+    memberHistoryTitle: 'Lịch sử thiết kế nhẫn của bạn',
+    memberHistorySubtitle: 'Xem lại các mẫu thiết kế đã tạo, các phiên bản đã lưu và trạng thái đặt lịch.',
+    noDesignsYet: 'Bạn chưa có mẫu thiết kế nào.',
+    createFirstDesign: 'Tạo mẫu nhẫn đầu tiên',
+    versionHistory: 'Lịch sử phiên bản',
+  },
+  en: {
+    featureTitle: 'Workshop Ring Design Configuration',
+    featureSubtitle: 'Craft and personalize bespoke ring specifications for your upcoming workshop experience.',
+    workshopOnlyNotice: 'Ring configuration applies exclusively to Workshop crafting. Advisory estimate does not alter the package price or the 50% deposit.',
+    advisoryBadge: 'Advisory Estimate',
+    advisoryWarning: 'Price estimate and difficulty score are advisory. Official payable amount adheres to your chosen workshop package.',
+    unsavedChangesNotice: 'You have unsaved changes. Please click "Save & Evaluate" to create a new authoritative version.',
+    versionLabel: 'Version',
+    statusLabel: 'Status',
+
+    chooseStartingPoint: 'Choose a Starting Point',
+    modelChoiceTitle: 'Package Suggested Models',
+    modelChoiceDesc: 'Begin from an artisan-approved standard template curated for this package.',
+    blankChoiceTitle: 'Start from Blank Design',
+    blankChoiceDesc: 'Start from a plain ring band and freely customize all dimensions.',
+    startConfiguring: 'Start Configuring',
+    selectModel: 'Select this model',
+
+    materialSection: '1. Ring Material',
+    materialSectionDesc: 'Select precious metal (Sterling Silver 925, 14K Gold, Rose Gold, White Gold).',
+    shapeSection: '2. Band Shape & Sizing',
+    shapeSectionDesc: 'Structural band contour and standard finger sizing.',
+    gemstoneSection: '3. Gemstone & Components',
+    gemstoneSectionDesc: 'Select gemstone type, cut, color and mounting placement.',
+    attachmentSection: '4. Decorative Attachments',
+    attachmentSectionDesc: 'Add milgrain beaded edges or satin matte brushed finishing.',
+    engravingSection: '5. Custom Engraving',
+    engravingSectionDesc: 'Engrave memorable names, dates or quotes on inner or outer band.',
+
+    ringSizeLabel: 'Ring Size',
+    ringSizeHelper: 'Standard sizes from 6 to 20.',
+    engravingToggleLabel: 'Custom Engraving (+80,000 VND)',
+    engravingTextInputLabel: 'Engraving text (up to 50 characters)',
+    engravingPlaceholder: 'e.g. Forever Love 2026',
+    engravingPlacementLabel: 'Placement',
+    innerBand: 'Inner band (Discreet)',
+    outerBand: 'Outer band (Prominent)',
+
+    saveAndEvaluate: 'Save & Evaluate',
+    saving: 'Saving & Evaluating...',
+    proceedToBooking: 'Proceed to Workshop Booking',
+    editDesign: 'Edit Design',
+    archiveDesign: 'Archive Design',
+    archiving: 'Archiving...',
+    retry: 'Retry',
+    restartFlow: 'Restart Session',
+    backToModels: 'Back to Models',
+    viewMyDesigns: 'My Ring Designs',
+
+    DRAFT: 'Draft',
+    VALIDATED: 'Validated',
+    ATTACHED_TO_BOOKING: 'Attached to Booking',
+    LOCKED: 'Locked',
+    ARCHIVED: 'Archived',
+
+    evaluationTitle: 'Design Evaluation Results',
+    estimatedPriceLabel: 'Advisory Estimated Cost',
+    difficultyLabel: 'Crafting Difficulty Score',
+    rulesVersionLabel: 'Rules Version',
+    summaryHeading: 'Configuration Summary',
+    materialSummary: 'Material',
+    shapeSummary: 'Band Shape',
+    sizeSummary: 'Size',
+    gemstonesSummary: 'Gemstones',
+    attachmentsSummary: 'Attachments',
+    engravingSummary: 'Engraving',
+    none: 'None',
+
+    branchRecoveryTitle: 'Branch Compatibility Adjustment Required',
+    branchRecoveryDesc: 'The workshop branch you selected does not currently support certain materials or techniques in this design.',
+    branchRecoveryAction: 'Adjust Design',
+    changeBranchAction: 'Choose Another Branch',
+
+    sessionExpiredTitle: 'Session Expired',
+    sessionExpiredDesc: 'For security reasons, guest design sessions expire after 20 minutes of inactivity.',
+    startNewSession: 'Start New Design',
+    loginPrompt: 'Or sign in to retain your design history permanently.',
+
+    memberHistoryTitle: 'Your Ring Design History',
+    memberHistorySubtitle: 'Review your personalized ring designs, version history and booking associations.',
+    noDesignsYet: 'You have not configured any ring designs yet.',
+    createFirstDesign: 'Create Your First Design',
+    versionHistory: 'Version History',
+  },
+};
+

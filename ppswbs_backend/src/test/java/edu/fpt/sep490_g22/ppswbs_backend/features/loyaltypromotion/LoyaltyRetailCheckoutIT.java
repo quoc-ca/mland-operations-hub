@@ -76,7 +76,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @Import(CatalogueFlowFixture.class)
 class LoyaltyRetailCheckoutIT {
 
-    private static final long LOCATION = 1L;
+    /** The active test branch the catalogue fixture sells at (002 US10: a cart line needs a selling branch). */
+    private long location;
 
     @Autowired private CatalogueFlowFixture catalogue;
     @Autowired private VariantQuantityService quantities;
@@ -104,7 +105,7 @@ class LoyaltyRetailCheckoutIT {
         Sale sale = sale(5);
         String code = voucher(sale.productId());
         long member = member(500);
-        carts.addLine(member, new CartDtos.AddCartLineRequest(sale.sizeId(), LOCATION, 2));
+        carts.addLine(member, new CartDtos.AddCartLineRequest(sale.sizeId(), location, 2));
         CheckoutDtos.BenefitSelection selection = new CheckoutDtos.BenefitSelection("VOUCHER", code, "100");
 
         CheckoutDtos.BenefitPreviewView preview = previews.preview(member, previewRequest(selection));
@@ -138,7 +139,7 @@ class LoyaltyRetailCheckoutIT {
         Sale sale = sale(5);
         String code = voucher(sale.productId());
         long member = member(500);
-        carts.addLine(member, new CartDtos.AddCartLineRequest(sale.sizeId(), LOCATION, 2));
+        carts.addLine(member, new CartDtos.AddCartLineRequest(sale.sizeId(), location, 2));
         CheckoutDtos.BenefitSelection selection = new CheckoutDtos.BenefitSelection("VOUCHER", code, "100");
         CheckoutDtos.BenefitPreviewView preview = previews.preview(member, previewRequest(selection));
         transaction.executeWithoutResult(status -> programs.findByCodeKey(code).orElseThrow().pause());
@@ -159,7 +160,7 @@ class LoyaltyRetailCheckoutIT {
     void pointsWithoutAVoucherAreHeldAndTheShippingIsNotDiscounted() {
         Sale sale = sale(5);
         long member = member(1_000);
-        carts.addLine(member, new CartDtos.AddCartLineRequest(sale.sizeId(), LOCATION, 1));
+        carts.addLine(member, new CartDtos.AddCartLineRequest(sale.sizeId(), location, 1));
         CheckoutDtos.BenefitSelection selection = new CheckoutDtos.BenefitSelection("NONE", null, "150");
 
         CheckoutDtos.BenefitPreviewView preview = previews.preview(member, previewRequest(selection));
@@ -177,7 +178,7 @@ class LoyaltyRetailCheckoutIT {
         Sale sale = sale(5);
         String code = voucher(sale.productId());
         long member = member(500);
-        carts.addLine(member, new CartDtos.AddCartLineRequest(sale.sizeId(), LOCATION, 2));
+        carts.addLine(member, new CartDtos.AddCartLineRequest(sale.sizeId(), location, 2));
         CheckoutDtos.BenefitSelection selection = new CheckoutDtos.BenefitSelection("VOUCHER", code, "100");
         CheckoutDtos.BenefitPreviewView preview = previews.preview(member, previewRequest(selection));
         CheckoutDtos.GroupedCheckoutView accepted = acceptance.accept(member, UUID.randomUUID().toString(),
@@ -208,7 +209,7 @@ class LoyaltyRetailCheckoutIT {
         Sale sale = sale(5);
         String code = voucher(sale.productId());
         long member = member(500);
-        carts.addLine(member, new CartDtos.AddCartLineRequest(sale.sizeId(), LOCATION, 2));
+        carts.addLine(member, new CartDtos.AddCartLineRequest(sale.sizeId(), location, 2));
         CheckoutDtos.BenefitSelection selection = new CheckoutDtos.BenefitSelection("VOUCHER", code, "100");
         CheckoutDtos.BenefitPreviewView preview = previews.preview(member, previewRequest(selection));
         CheckoutDtos.GroupedCheckoutView accepted = acceptance.accept(member, UUID.randomUUID().toString(),
@@ -235,7 +236,7 @@ class LoyaltyRetailCheckoutIT {
         String code = voucher(sale.productId(), DiscountTerms.fixed(BigInteger.valueOf(150_000), BigInteger.valueOf(150_000),
                 BigInteger.ZERO));
         long member = member(500);
-        carts.addLine(member, new CartDtos.AddCartLineRequest(sale.sizeId(), LOCATION, 1));
+        carts.addLine(member, new CartDtos.AddCartLineRequest(sale.sizeId(), location, 1));
         CheckoutDtos.BenefitSelection selection = new CheckoutDtos.BenefitSelection("VOUCHER", code, "0");
         CheckoutDtos.BenefitPreviewView preview = previews.preview(member, previewRequest(selection));
         assertThat(preview.payableAmount()).isEqualTo("0");
@@ -257,7 +258,7 @@ class LoyaltyRetailCheckoutIT {
         Sale sale = sale(5);
         String code = voucher(sale.productId());
         long member = member(500);
-        carts.addLine(member, new CartDtos.AddCartLineRequest(sale.sizeId(), LOCATION, 2));
+        carts.addLine(member, new CartDtos.AddCartLineRequest(sale.sizeId(), location, 2));
         CheckoutDtos.BenefitSelection selection = new CheckoutDtos.BenefitSelection("VOUCHER", code, "100");
         CheckoutDtos.BenefitPreviewView preview = previews.preview(member, previewRequest(selection));
         CheckoutDtos.GroupedCheckoutView accepted = acceptance.accept(member, UUID.randomUUID().toString(),
@@ -291,7 +292,7 @@ class LoyaltyRetailCheckoutIT {
         Sale sale = sale(5);
         String code = voucher(sale.productId());
         long member = member(500);
-        carts.addLine(member, new CartDtos.AddCartLineRequest(sale.sizeId(), LOCATION, 2));
+        carts.addLine(member, new CartDtos.AddCartLineRequest(sale.sizeId(), location, 2));
         CheckoutDtos.BenefitSelection selection = new CheckoutDtos.BenefitSelection("VOUCHER", code, "100");
         CheckoutDtos.BenefitPreviewView preview = previews.preview(member, previewRequest(selection));
         CheckoutDtos.GroupedCheckoutView accepted = acceptance.accept(member, UUID.randomUUID().toString(),
@@ -324,6 +325,7 @@ class LoyaltyRetailCheckoutIT {
     /** A published ring (size 5 at 150.000) with {@code quantity} left, set under FE-08's real guard. */
     private Sale sale(long quantity) {
         long productId = catalogue.publishedProduct(STAFF, MANAGER);
+        location = catalogue.testBranch();
         ProductVariant size = transaction.execute(status -> variants.findByProductIdOrderByRingSizeAsc(productId)).get(0);
         quantities.setQuantity(STAFF, UUID.randomUUID(), size.getId().toString(), size.getVersion(), Long.toString(quantity));
         return new Sale(productId, size.getId());
@@ -363,15 +365,15 @@ class LoyaltyRetailCheckoutIT {
         return id;
     }
 
-    private static CheckoutDtos.BenefitPreviewRequest previewRequest(CheckoutDtos.BenefitSelection selection) {
+    private CheckoutDtos.BenefitPreviewRequest previewRequest(CheckoutDtos.BenefitSelection selection) {
         return new CheckoutDtos.BenefitPreviewRequest(selection,
-                List.of(new CheckoutDtos.BranchOrderCheckoutInput(LOCATION, "PICKUP", null)));
+                List.of(new CheckoutDtos.BranchOrderCheckoutInput(location, "PICKUP", null)));
     }
 
-    private static CheckoutDtos.CreateGroupedCheckoutRequest acceptRequest(CheckoutDtos.BenefitPreviewView preview,
+    private CheckoutDtos.CreateGroupedCheckoutRequest acceptRequest(CheckoutDtos.BenefitPreviewView preview,
                                                                            CheckoutDtos.BenefitSelection selection) {
         return new CheckoutDtos.CreateGroupedCheckoutRequest(
-                List.of(new CheckoutDtos.BranchOrderCheckoutInput(LOCATION, "PICKUP", null)),
+                List.of(new CheckoutDtos.BranchOrderCheckoutInput(location, "PICKUP", null)),
                 preview.previewId(), selection, true);
     }
 

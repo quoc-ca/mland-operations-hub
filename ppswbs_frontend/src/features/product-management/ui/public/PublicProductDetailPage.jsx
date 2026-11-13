@@ -7,6 +7,7 @@ import { useCatalogueApi } from '../../application/useCatalogueApi';
 import { messages } from '../messages';
 import { AddToCartPanel } from './AddToCartPanel';
 import { PriceRange } from './PriceRange';
+import { OfferBadges, OfferPrice, offersForProduct, ProductOfferList, SizeOfferPrice, usePublicProductPrograms } from '../../../loyalty-promotion';
 
 /**
  * T071: public detail. Reading creates no cart, hold or order; only "Add to cart" (T072, {@link AddToCartPanel})
@@ -19,6 +20,7 @@ export default function PublicProductDetailPage() {
   const { productId } = useParams();
   const product = useResource(() => api.getPublicProduct(productId), [productId]);
   const [imageIndex, setImageIndex] = useState(0);
+  const programs = usePublicProductPrograms();
 
   if (product.loading) return <main className="container public-page pm-theme pm-public"><Loading /></main>;
   if (product.error) {
@@ -37,6 +39,7 @@ export default function PublicProductDetailPage() {
   const data = product.data;
   const images = [...(data.images || [])].sort((a, b) => a.position - b.position);
   const image = images[Math.min(imageIndex, images.length - 1)];
+  const offers = offersForProduct(data, programs);
 
   return (
     <main className="container public-page pm-theme pm-public">
@@ -56,7 +59,8 @@ export default function PublicProductDetailPage() {
           )}
         </div>
         <div>
-          <PriceRange range={data.priceRange} format={format} />
+          <OfferPrice offers={offers} fallback={<PriceRange range={data.priceRange} format={format} />} />
+          <OfferBadges offers={offers} />
           <p className="pre-line">{data.description}</p>
           <span className={data.canBuy ? 'status ok' : 'status'}>{data.canBuy ? t('public.canBuy') : t('public.cannotBuy')}</span>
           <h2 className="section-title">{t('public.sizes')}</h2>
@@ -64,11 +68,12 @@ export default function PublicProductDetailPage() {
             {(data.variants || []).map(variant => (
               <li key={variant.id} className={variant.saleEnabled && variant.canBuy ? '' : 'unavailable'}>
                 <strong>{t('size', { size: variant.size })}</strong>
-                <span>{format.money(variant.appliedPrice)}</span>
+                <SizeOfferPrice size={offers.sizes[variant.id]} fallback={<span>{format.money(variant.appliedPrice)}</span>} />
                 <span className="muted">{!variant.saleEnabled ? t('public.sizeDisabled') : variant.canBuy ? t('public.canBuy') : t('public.soldOut')}</span>
               </li>
             ))}
           </ul>
+          <ProductOfferList offers={offers} />
           <AddToCartPanel product={data} />
           <p className="muted small">{t('public.priceNotice')}</p>
         </div>

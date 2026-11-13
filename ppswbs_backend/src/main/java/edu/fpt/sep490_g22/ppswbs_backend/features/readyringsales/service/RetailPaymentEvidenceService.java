@@ -65,14 +65,13 @@ public class RetailPaymentEvidenceService implements RetailPaymentEvidenceFacade
                     .createdAt(now).build());
             return;
         }
-        Map<Long, Integer> quantities = new HashMap<>();
-        checkout.getOrders().forEach(o -> o.getItems().forEach(i -> quantities.merge(i.getVariantId(), i.getQuantity(), Integer::sum)));
-        List<Long> ids = quantities.keySet().stream().sorted().toList();
+        Map<BranchVariant, Integer> quantities = RetailBranchOrderKeys.quantities(checkout);
+        List<BranchVariant> branchKeys = quantities.keySet().stream().sorted().toList();
+        List<Long> ids = RetailBranchOrderKeys.variantIds(quantities);
         if (ids.isEmpty()) throw new RetailConflictException("Checkout has no items");
-        catalogue.withLockedHistoricalContext(payment.checkoutId(), ids, context -> {
-            guard.withGuard(ids, context.asOf(), snapshots -> {
-                var locked = ids.stream().map(id -> holdRepository.findByGroupedCheckoutIdAndVariantId(payment.checkoutId(), id)
-                        .orElseThrow(() -> new RetailConflictException("Checkout inventory hold is missing"))).toList();
+        catalogue.withLockedHistoricalBranchContext(payment.checkoutId(), branchKeys, context -> {
+            guard.withBranchGuard(branchKeys, context.asOf(), snapshots -> {
+                var locked = holds.requireBranchHolds(payment.checkoutId(), branchKeys);
                 Instant deadline = locked.getFirst().getExpiresAt();
                 if (locked.stream().anyMatch(h -> h.getStatus() != RetailVariantHoldStatus.HELD
                         || !deadline.equals(h.getExpiresAt()) || !now.isBefore(h.getExpiresAt())))
@@ -87,9 +86,9 @@ public class RetailPaymentEvidenceService implements RetailPaymentEvidenceFacade
                 loyalty.grantEarnedPoints(outcome);
                 return null;
             });
-            for (Long id : ids) catalogue.recordAcceptedSale(UUID.nameUUIDFromBytes(
-                    ("retail-paid:" + payment.checkoutId() + ":" + id).getBytes(StandardCharsets.UTF_8)),
-                    id, BigInteger.valueOf(quantities.get(id)));
+            for (BranchVariant key : branchKeys) catalogue.recordAcceptedSale(UUID.nameUUIDFromBytes(
+                    ("retail-paid:" + payment.checkoutId() + ":" + key.variantId() + ":" + key.locationId())
+                        .getBytes(StandardCharsets.UTF_8)), key.variantId(), key.locationId(), BigInteger.valueOf(quantities.get(key)));
             return null;
         });
     }

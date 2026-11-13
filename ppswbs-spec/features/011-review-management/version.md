@@ -4,7 +4,7 @@
 - **Author**: Ngô Tiến Đạt
 - **Last updated by**: Ngô Tiến Đạt
 - **Date created**: 2026-11-03
-- **Date updated**: 2026-11-06
+- **Date updated**: 2026-11-12
 - **Source of truth**: Feature-011 `spec.md`, `data-model.md`, backend implementation, `V91__review_management.sql`, `V100__review_history_retention.sql`, OpenAPI contract (`review-management.openapi.yaml`) and synchronized project specifications
 
 > This file is an implementation status index. Detailed behavior remains in
@@ -518,3 +518,187 @@ shown only as context and is not used as a review target.
   route implementation in the current frontend; their Figma updates are kept
   as design handoff until those routes expose session and eligibility context.
 - Added responsive styles and no new API or compatibility payload.
+
+## 11. QA test implementation and execution plan (2026-11-12)
+
+This is a testing-agent handoff, not a current execution result. Historical
+backend/frontend test logs must be re-run with fresh environment and screenshot
+evidence before reporting PASS or ACCEPTED.
+
+### 11.1 Test artifacts
+
+Create under `test-results/`:
+
+```text
+UTC-011-A-001--eligibility-and-ownership.md
+UTC-011-A-002--review-lifecycle-and-concurrency.md
+UTC-011-A-003--moderation-reply-and-privacy.md
+UTC-011-B-001--frontend-review-adapters.md
+E2E-011-001--public-review-list-and-detail.md
+E2E-011-002--guest-lookup-and-create-review.md
+E2E-011-003--member-review-create-edit.md
+E2E-011-004--staff-manager-moderation.md
+E2E-011-005--manager-reply-and-aggregate.md
+screenshots/
+```
+
+Every scenario requires YAML front matter, traceability to `spec.md`,
+`tasks.md`, `data-model.md` and OpenAPI, actor/test account, `health_urls`,
+isolated `test_data.isolation_key`, cleanup, exact selectors/API commands,
+observable assertions, expected status/error code and evidence paths.
+
+### 11.2 Gates and execution order
+
+Complete T01–T10 from `ppswbs-testing/AGENT.md` before running tests. Run
+backend unit/integration tests first, frontend Vitest/API/component tests next,
+then start services and execute BrowserMCP E2E. If BrowserMCP, backend,
+frontend, MySQL or JDK 21 is unavailable, mark scenarios `BLOCKED`; do not mark
+them PASS and do not create a product defect for an unconfirmed environment
+failure.
+
+### 11.3 Backend coverage
+
+The test agent must verify:
+
+- Workshop source is eligible only after `CHECKED_IN`; no-show, cancelled and
+  not-checked-in sources are rejected.
+- Retail source is eligible only at `PICKED_UP`/`DELIVERED`; unpaid, cancelled
+  and unfulfilled lines are rejected.
+- Guest lookup normalizes contact data and returns only eligible sources through
+  an opaque 30-minute handle; raw contact/source/transaction data is never
+  disclosed.
+- Guest can create workshop and retail reviews only with the correct handle;
+  expired, replayed, wrong-source and raw-source-ID requests fail.
+- Member sees/creates only own eligible sources; cross-owner access is denied.
+- Rating is 1–5, text is at most 2,000 characters, target/source mapping is
+  immutable and malformed input is rejected before persistence.
+- Concurrent create yields one review through unique constraint/idempotency and
+  deterministic conflict mapping; retry with the same key returns the result.
+- Owner edit creates revision/audit and retains `PUBLIC`; owner cannot edit
+  another review or violate the lifecycle.
+- Public listing/detail/aggregate include `PUBLIC` only and omit email, phone,
+  source ID, owner reference and transaction details.
+- Staff can only hide; Staff cannot remove/reply. Manager may perform approved
+  moderation and one current reply; conflict-of-interest is rejected. Admin is
+  denied business moderation/reply.
+- `REMOVED` is soft state and review history/audit/reply data cannot be cascade
+  deleted. Aggregate transitions exclude hidden/removed reviews immediately.
+
+### 11.4 Frontend coverage
+
+Test `src/features/reviewmanagement/` for public list/detail loading, empty,
+filter/sort, aggregate and masked identity; Guest lookup and handle expiry;
+Member eligible-source ownership; create/edit validation and form preservation;
+`Idempotency-Key` and `If-Match-Version` reuse; 401/403/404/409/422/503 states;
+Staff/Manager/Admin action visibility; and public privacy filtering.
+
+### 11.5 E2E scenarios, evidence and defect handling
+
+`E2E-011-001` covers public list/detail and aggregate. `E2E-011-002` covers
+Guest workshop/retail lookup, invalid/expired handle and public submission.
+`E2E-011-003` covers Member own-source create/edit and cross-owner denial.
+`E2E-011-004` covers Staff hide, Staff denial, Manager moderation and conflict.
+`E2E-011-005` covers Manager reply/edit and aggregate/public masking.
+
+Capture JPEG screenshots after lookup, eligible-source display, create success,
+validation/denial, moderation, reply and public aggregate update under
+`test-results/screenshots/`. Stop at the first failed assertion and record a
+`BUG-E2E-*` entry in `ppswbs-testing/BUG-LOG.md` with exact steps,
+expected/actual behavior, logs and screenshot path.
+
+Feature-011 is QA accepted only when all applicable UTC/E2E scenarios PASS with
+reproducible evidence, OpenAPI/controller behavior and migration/history checks
+are verified, and no open BLOCKER/CRITICAL defect remains.
+
+### 11.6 Test Execution Evidence & Status Log (2026-11-12)
+
+- **Backend Integration Test Suite**:
+  - Command: `mvnw.cmd test -Dtest="edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.*Test"`
+  - Results: **33/33 tests passed (100%)** in 2m 20s (`ReviewApplicationServiceTest`, `ReviewControllerMockMvcTest`, `ReviewEligibilityServiceTest`, `ReviewModerationServiceTest`, `ReviewPublicReadServiceTest`, `ReviewReplyServiceTest`).
+- **Frontend Vitest Component & Screen Suite**:
+  - Command: `npm.cmd test -- src/features/reviewmanagement`
+  - Results: **7/7 test files passed, 35/35 tests passed (100%)** (`reviewManagementApi.test.js`, `WorkshopReviewSummary.test.jsx`, `packageReviews.test.jsx`, `entryPoints.test.jsx`, `publicListPaging.test.jsx`, `anonymousReview.test.jsx`, `screens.test.jsx`).
+- **E2E BrowserMCP Layer & Preflight T01–T10 Gate Execution**:
+  - Scenarios generated under `test-results/`:
+    - `E2E-011-001--public-review-list-and-detail.md`: Public review list, average star rating aggregate, filtering.
+    - `E2E-011-002--guest-lookup-and-create-review.md`: Guest lookup, opaque handle issuance, review submission, duplicate submission denial 409.
+    - `E2E-011-003--member-review-create-edit.md`: Member own-source review creation, optimistic edit with `If-Match-Version`, cross-owner denial 403.
+    - `E2E-011-004--staff-manager-moderation.md`: Staff HIDE, Staff denial on RESTORE/REMOVE 403, Manager full moderation HIDE/RESTORE/REMOVE, version conflict 409.
+    - `E2E-011-005--manager-reply-and-aggregate.md`: Manager official reply, duplicate reply prevention 409, audited reply edit, reviewer name masking.
+  - Preflight Health Check:
+    - Gate T01 (`browsermcp` tool availability): **PASS** (Đã kết nối Chrome thực tế thông qua Browser MCP extension).
+    - Gate T02 (Service health check): **PASS** (Frontend `http://localhost:5173` HTTP 200, Backend `http://localhost:8080` HTTP 401 active).
+  - Kết quả thực thi thực tế qua Browser MCP (Live Chrome):
+    - `E2E-011-001`: **PASS** — Trang danh sách đánh giá `/reviews` hiển thị chuẩn xác bộ lọc 1-5 sao, điểm trung bình tổng hợp và danh sách đánh giá thực tế từ API `GET /api/v1/reviews`. Bằng chứng JPEG: [`screenshots/E2E-011-001--success.jpg`](test-results/screenshots/E2E-011-001--success.jpg).
+    - `E2E-011-002`: **PASS** (Adversarial Negative Lookup) — Luồng tra cứu nguồn đánh giá của khách vãng lai `/reviews/lookup` với email không có đơn hàng hợp lệ hiển thị thông báo lỗi tiếng Việt thân thiện "Không có nguồn đủ điều kiện." theo đúng spec bảo mật thông tin. Bằng chứng JPEG: [`screenshots/E2E-011-002--lookup-negative.jpg`](test-results/screenshots/E2E-011-002--lookup-negative.jpg).
+    - `E2E-011-003`, `E2E-011-004`, `E2E-011-005`: **BLOCKED** tại bước xác thực tài khoản Member/Staff/Manager do môi trường backend local chưa cấu hình file private key `FIREBASE_ADMIN_CREDENTIALS_PATH` trong `.env` để backend verify Firebase JWT token.
+
+### 11.7 QA progress update and next test wave (2026-11-12)
+
+> **Thông báo chỉ đạo (User Instruction - 2026-11-12):** Tạm thời ngưng các công việc liên quan đến triển khai kiểm thử cho các kịch bản cần đến các vai trò đặc quyền (Admin, Manager, Staff) cho đến khi môi trường backend cấu hình đầy đủ credentials/service account. Tiếp tục duy trì và bảo toàn các luồng Public, Guest và kiểm chứng tích hợp nội bộ.
+
+Theo xác nhận hiện tại, luồng Public và Guest đã hoàn thành kiểm thử (E2E-011-001 PASS, E2E-011-002 PASS). Các kết
+quả `BLOCKED` trong mục 11.6 phản ánh việc tạm ngưng theo chỉ đạo người dùng đối với các vai trò có thẩm quyền.
+
+#### Đợt kiểm thử tiếp theo — moderation, reply, privacy and integration
+
+1. **Staff moderation**
+   - Staff mở moderation queue, chỉ được `HIDDEN` review hợp lệ trong scope
+     được backend cấp.
+   - Kiểm tra Staff bị từ chối khi `REMOVED`, `RESTORE`, tạo/sửa Manager reply,
+     xem private source data hoặc thao tác review có conflict of interest.
+   - Kiểm tra stale `If-Match-Version`, duplicate command và audit event.
+
+2. **Manager moderation and reply**
+   - Manager thực hiện `HIDDEN`, `REMOVED`, `PUBLIC`/restore theo transition
+     policy và tạo/sửa một current reply.
+   - Xác nhận reply edit tạo audit/revision nhưng không tạo threaded conversation.
+   - Kiểm tra optimistic locking, duplicate reply, concurrent moderation và
+     response 409 `REVIEW_STATE_CONFLICT`.
+
+3. **Admin technical boundary**
+   - Admin chỉ xem technical/audit projection nếu contract cung cấp; không được
+     hide, remove, restore, reply hoặc thay đổi aggregate.
+   - Staff, Guest và Member không được truy cập moderation/audit projection.
+
+4. **Public privacy and aggregate regression**
+   - Public list/detail chỉ trả review `PUBLIC`, masked display name và aggregate
+     realtime từ `PUBLIC`.
+   - Xác nhận không lộ email, phone, source ID, owner reference, order line,
+     attendance ticket hoặc branch như review target.
+   - Sau hide/remove/reply, kiểm tra listing, detail, aggregate và audit nhất quán.
+
+5. **Eligibility and concurrency regression**
+   - Re-test workshop `CHECKED_IN` và retail `PICKED_UP`/`DELIVERED` với dữ liệu
+     isolated; xác nhận `NO_SHOW`, cancelled, unpaid và unfulfilled bị từ chối.
+   - Chạy concurrent create trên cùng source: chỉ một review được tạo, retry cùng
+     idempotency key trả kết quả xác định, key khác trả 409.
+
+#### Blocker resolution plan
+
+- **BLK-011-01 — Firebase role credentials:** bổ sung credentials an toàn cho
+  Staff/Manager/Admin E2E; không lưu secret vào scenario, log hoặc repository.
+- **BLK-011-02 — Contract and DTO alignment:** đối chiếu OpenAPI với controller
+  về header `Idempotency-Key`, `If-Match-Version`, status transition, response
+  projection và error mapping trước khi chạy privileged E2E.
+- **BLK-011-03 — Eligibility facade/database evidence:** xác minh Guest retail
+  lookup, ownership và source-to-target mapping trên database có dữ liệu thật;
+  không dùng raw source ID để bypass opaque handle.
+- **BLK-011-04 — Migration/history safety:** kiểm tra `V91`, `V100` và các
+  migration sau merge trên clean/existing database; xác minh history/audit không
+  bị cascade hard-delete và `flyway validate()` không lỗi.
+- **BLK-011-05 — Release evidence:** cập nhật scenario, screenshot JPEG,
+  request/response status và `BUG-LOG.md`; chỉ đóng blocker sau khi re-run
+  thành công, không suy luận từ unit test hoặc mock UI.
+
+#### Required regression order
+
+```text
+Firebase/auth setup
+→ eligibility and persistence integration
+→ public privacy/aggregate tests
+→ Staff/Manager/Admin moderation E2E
+→ Guest/Member smoke regression
+→ Feature-003 booking review entry-point regression
+→ Flyway and audit-history verification
+```

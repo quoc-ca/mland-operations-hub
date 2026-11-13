@@ -1,0 +1,25 @@
+/* FE-08 counter cash: checkout method choice, Staff pickup desk, Manager daily cash. */
+.retail-payment-options{display:grid;gap:10px;margin-top:10px}
+.retail-payment-options label{display:grid;grid-template-columns:20px 1fr;gap:4px 10px;align-items:center;padding:12px 14px;border:1px solid #e5e7eb;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600}
+.retail-payment-options label span{grid-column:2;font-size:12px;font-weight:400;color:#6b7280}
+.retail-payment-options label.selected{border-color:#b4a500;background:#fdfbe8}
+.retail-payment-options label.disabled{cursor:not-allowed;opacity:.6}
+.retail-payment-options input{accent-color:#b4a500}
+
+.pickup-desk{display:grid;gap:14px}
+.pickup-desk-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:12px}
+.pickup-desk-tabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.pickup-desk-toolbar .pickup-desk-tabs{margin-bottom:0}
+.pickup-desk-tabs button{border:1px solid #d9d9d9;background:#fff;border-radius:999px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer}
+.pickup-desk-tabs button.active{background:#1a1a1a;border-color:#1a1a1a;color:#fff}
+.pickup-desk-search{flex:1;min-width:180px;max-width:280px;padding:9px 12px;border:1px solid #d9d9d9;border-radius:8px}
+.pickup-order{display:grid;gap:10px}
+.pickup-order-head{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.pickup-order-head .status{margin-left:auto}
+.pickup-order ul{margin:0;padding-left:20px;font-size:14px}
+.pickup-order-amount strong{font-size:18px;color:#7b6e00}
+.pickup-order-actions{display:flex;flex-wrap:wrap;align-items:end;gap:14px}
+.pickup-order-actions label{display:grid;gap:4px;font-size:12px;color:#6b7280}
+.pickup-order-actions input{width:160px;padding:9px 12px;border:1px solid #d9d9d9;border-radius:8px;font-size:15px;color:#1a1a1a}
+.cash-daily-total{font-size:15px;margin:12px 0}
+.cash-daily-total strong{font-size:20px;color:#7b6e00}

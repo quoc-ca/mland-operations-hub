@@ -50,6 +50,10 @@ public class SettlementRefundAllocation {
     @Column(name = "lifecycle_status", nullable = false, length = 24)
     private String lifecycleStatus;
 
+    /** The T097 bank refund this allocation was handed to, when it is not going back through a gateway. */
+    @Column(name = "bank_refund_reference", length = 128)
+    private String bankRefundReference;
+
     @Column(name = "provider_response_code", length = 8)
     private String providerResponseCode;
 

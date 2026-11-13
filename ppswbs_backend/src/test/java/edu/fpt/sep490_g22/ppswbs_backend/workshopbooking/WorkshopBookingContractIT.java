@@ -122,13 +122,14 @@ class WorkshopBookingContractIT {
             });
         });
 
-        // OpenAPI must contain exactly the 10 defined booking operations
+        // OpenAPI must contain exactly the 11 defined booking operations (Member list backfilled 2026-11-12, FR-021a)
         assertThat(openApiOperations).containsExactlyInAnyOrder(
                 "POST /api/v1/workshop-booking-quotes",
                 "POST /api/v1/workshop-bookings",
                 "POST /api/v1/workshop-bookings/{bookingCode}/payment-attempts",
                 "POST /api/v1/booking-lookups",
                 "POST /api/v1/booking-magic-links/exchanges",
+                "GET /api/v1/members/me/workshop-bookings",
                 "GET /api/v1/members/me/workshop-bookings/{bookingCode}",
                 "POST /api/v1/workshop-bookings/{bookingCode}/pending-hold-release",
                 "POST /api/v1/workshop-bookings/{bookingCode}/confirmation-deliveries",

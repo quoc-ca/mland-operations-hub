@@ -2,6 +2,8 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service;
 
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.SaleContext;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.SaleVariantFact;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.BranchStockFact;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.BranchVariant;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.dto.CheckoutDtos;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.entity.CartLine;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.entity.RetailCart;
@@ -27,6 +29,9 @@ public class RetailCheckoutQuoteValidator {
             || cart.getVersion() == null || cart.getVersion() != quote.getCartVersion()) {
             throw stale();
         }
+        if (!Objects.equals(RetailPaymentMethods.parse(request.paymentMethod()).name(), quote.getPaymentMethod())) {
+            throw stale();
+        }
         var selected = request.benefitSelection();
         if (selected == null || !Objects.equals(selected.choice(), quote.getSelectionChoice())
             || !Objects.equals(selected.voucherCode(), quote.getVoucherCode()) || selected.requestedPoints() == null
@@ -47,6 +52,10 @@ public class RetailCheckoutQuoteValidator {
         for (var fact : context.variants()) {
             if (saleFacts.put(fact.variantId(), fact) != null) throw stale();
         }
+        Map<BranchVariant, BranchStockFact> branchFacts = new HashMap<>();
+        for (var fact : context.branchStocks()) {
+            if (branchFacts.put(fact.key(), fact) != null) throw stale();
+        }
         Map<LineKey, Integer> quotedLines = new HashMap<>();
         for (RetailCheckoutQuoteBranch branch : quote.getBranches()) {
             var choice = choices.remove(branch.getLocationId());
@@ -58,13 +67,21 @@ public class RetailCheckoutQuoteValidator {
                 var key = new LineKey(branch.getLocationId(), item.getVariantId());
                 if (quotedLines.put(key, item.getQuantity()) != null) throw stale();
                 SaleVariantFact fact = saleFacts.get(item.getVariantId());
+                BranchStockFact branchFact = branchFacts.get(new BranchVariant(item.getVariantId(), branch.getLocationId()));
                 if (fact == null || fact.productId() != item.getProductId() || fact.productDeleted()
                     || !fact.publiclyEligible() || !fact.saleEnabled() || !Objects.equals(fact.appliedPrice(), item.getUnitPrice())
-                    || !Objects.equals(fact.currency(), quote.getCurrency())) throw stale();
+                    || !Objects.equals(fact.currency(), quote.getCurrency()) || branchFact == null
+                    || !branchFact.saleEnabled() || !branchFact.branchActive() || !branchFact.assignedToBranches()) throw stale();
             }
         }
-        if (!choices.isEmpty() || quotedLines.isEmpty() || !quotedLines.equals(currentLines)
-            || !saleFacts.keySet().equals(quotedLines.keySet().stream().map(LineKey::variantId).collect(java.util.stream.Collectors.toSet()))) {
+        // The quote may cover only the lines the Member selected; each quoted line must still be in the
+        // cart with the same quantity, while unselected cart lines are allowed to remain.
+        boolean quotedLinesUnchanged = quotedLines.entrySet().stream()
+            .allMatch(entry -> entry.getValue().equals(currentLines.get(entry.getKey())));
+        if (!choices.isEmpty() || quotedLines.isEmpty() || !quotedLinesUnchanged
+            || !saleFacts.keySet().equals(quotedLines.keySet().stream().map(LineKey::variantId).collect(java.util.stream.Collectors.toSet()))
+            || !branchFacts.keySet().equals(quotedLines.keySet().stream()
+                .map(key -> new BranchVariant(key.variantId(), key.locationId())).collect(java.util.stream.Collectors.toSet()))) {
             throw stale();
         }
     }

@@ -47,6 +47,12 @@ public class DirectBookingFolioOpeningService {
             return Optional.empty();
         }
 
+        if (projection.frozenPostPromotionAmount() == 0L && projection.acceptedDepositAmount() == 0L) {
+            // FR-007a1 (2026-11-12): a confirmed 0 VND booking has no deposit payment and still gets an OPEN folio
+            // (base 0, collected 0, balance 0) so attendance, add-ons and checkout follow the normal flow.
+            return Optional.of(saveOpenFolio(ref, 0L, 0L, 0L, confirmedAt));
+        }
+
         VerifiedBookingDepositPaymentsProjection depositPayments = booking.verifiedDepositPayments(ref);
         if (depositPayments == null || depositPayments.payments() == null || depositPayments.payments().isEmpty()) {
             log.info("No verified deposit payments for bookingReference={}, skipping folio creation", ref);
@@ -65,7 +71,11 @@ public class DirectBookingFolioOpeningService {
         long postPromotionAmount = projection.frozenPostPromotionAmount();
         long depositAmount = depositPaid;
         long remainingAmount = Math.max(0L, Math.subtractExact(postPromotionAmount, depositAmount));
+        return Optional.ofNullable(saveOpenFolio(ref, postPromotionAmount, depositAmount, remainingAmount, confirmedAt));
+    }
 
+    private SettlementFinalBill saveOpenFolio(String ref, long postPromotionAmount, long depositAmount,
+                                              long remainingAmount, Instant confirmedAt) {
         Instant now = Instant.now();
         Instant frozenAt = confirmedAt != null ? confirmedAt : now;
 
@@ -82,9 +92,9 @@ public class DirectBookingFolioOpeningService {
                 .build();
 
         try {
-            return Optional.of(bills.saveAndFlush(bill));
+            return bills.saveAndFlush(bill);
         } catch (DataIntegrityViolationException duplicate) {
-            return bills.findByBookingReference(ref);
+            return bills.findByBookingReference(ref).orElse(null);
         }
     }
 }

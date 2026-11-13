@@ -18,7 +18,11 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.time.Instant;
 import java.util.UUID;
 
-/** One held quantity of a canonical variant under an accepted grouped checkout. */
+/**
+ * One held quantity of a canonical variant at one branch under an accepted grouped checkout (FR-053, T124).
+ * {@link #UNATTRIBUTED_LOCATION} marks a legacy size-level hold that is not tied to a branch; it is counted at
+ * every branch of its size so a branch never looks more available than it is.
+ */
 @Entity
 @Table(name = "retail_variant_holds")
 @Getter
@@ -35,6 +39,9 @@ public class RetailVariantHold {
 
     @Column(name = "variant_id", nullable = false)
     private Long variantId;
+
+    @Column(name = "location_id", nullable = false)
+    private Long locationId;
 
     @Column(nullable = false)
     private int quantity;
@@ -54,13 +61,24 @@ public class RetailVariantHold {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
-    public RetailVariantHold(GroupedCheckout groupedCheckout, Long variantId, int quantity, Instant expiresAt) {
+    /** Location id of a legacy size-level hold (no branch). */
+    public static final long UNATTRIBUTED_LOCATION = 0L;
+
+    public RetailVariantHold(GroupedCheckout groupedCheckout, Long variantId, Long locationId, int quantity, Instant expiresAt) {
         this.groupedCheckout = groupedCheckout;
         this.variantId = variantId;
+        this.locationId = locationId;
         this.quantity = quantity;
         this.status = RetailVariantHoldStatus.HELD;
         this.expiresAt = expiresAt;
     }
+
+    /** Legacy size-level hold kept for callers that still lock by size only. */
+    public RetailVariantHold(GroupedCheckout groupedCheckout, Long variantId, int quantity, Instant expiresAt) {
+        this(groupedCheckout, variantId, UNATTRIBUTED_LOCATION, quantity, expiresAt);
+    }
+
+    public boolean isBranchAttributed() { return locationId != null && locationId != UNATTRIBUTED_LOCATION; }
 
     @PrePersist
     void assignId() {

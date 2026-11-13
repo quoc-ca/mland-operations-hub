@@ -6,6 +6,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dto.ActionRe
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.Product;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.ProductVariant;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.VariantBranchStock;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.BranchVariant;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.SellingLocation;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.SellingLocationPort;
 import org.springframework.beans.factory.ObjectProvider;
@@ -16,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigInteger;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -148,6 +150,11 @@ public class ProductBranchStockService {
         return valid;
     }
 
+    /** FR-048/FR-050: creating without a branch (old import template) is for a Manager or an internal call only. */
+    public void requireNoBranchAllowed() {
+        scope.requireNoBranchAllowed();
+    }
+
     /** Total quantity per size of validated branches (the size's initial total at creation). */
     public static Map<Integer, BigInteger> totals(List<ValidBranch> branches) {
         Map<Integer, BigInteger> totals = new HashMap<>();
@@ -246,6 +253,18 @@ public class ProductBranchStockService {
             if (row.getRemainingUnsold().equals(value)) {
                 return stockResult(commandId, row, false);
             }
+            if (product.hasEverBeenPublished() && availability.tracksHoldsPerBranch()) {
+                // FR-053: holds are per branch, so the new branch quantity may not go below the holds at this branch.
+                BranchVariant stockKey = new BranchVariant(id, location);
+                Instant asOf = Instant.now();
+                return availability.withBranchGuard(List.of(stockKey), asOf, snapshots -> {
+                    if (value.compareTo(snapshots.get(stockKey).heldQuantity()) < 0) {
+                        throw new CatalogueException(CatalogueErrorCode.QUANTITY_BELOW_HELD);
+                    }
+                    BigInteger heldOfSize = availability.readSnapshots(List.of(id), asOf).get(id).heldQuantity();
+                    return applyQuantity(actorId, commandId, variant, row, value, heldOfSize);
+                });
+            }
             return guarded(product, List.of(variant), held -> applyQuantity(actorId, commandId, variant, row, value,
                     held.getOrDefault(id, BigInteger.ZERO)));
         });
@@ -259,6 +278,8 @@ public class ProductBranchStockService {
     public boolean legacyQuantityTouchesBranch(ProductVariant variant, BigInteger newTotal) {
         List<VariantBranchStock> rows = stocks.findByVariantIdInOrderByVariantIdAscLocationIdAsc(List.of(variant.getId()));
         if (rows.isEmpty()) {
+            // FR-050: a Staff member without an assigned branch changes no stock, not even an unassigned total.
+            scope.requireAnyBranch();
             return false;
         }
         if (rows.size() > 1) {
@@ -270,15 +291,29 @@ public class ProductBranchStockService {
         return true;
     }
 
-    /** FR-049: stop or resume selling every size of the product at one branch. */
+    /** FR-049: stop or resume selling every size of the product at one branch (internal call: no stale check). */
     public CatalogueCommandExecutor.Outcome setSaleEnabled(String actorId, UUID commandId, String productId,
                                                            String locationId, boolean enabled) {
+        return setSaleEnabled(actorId, commandId, productId, locationId, enabled, null);
+    }
+
+    /**
+     * FR-049 with FR-026 (T142): {@code expectedSaleEnabled} is the branch state the user saw (sold there or not).
+     * When the current state differs, someone changed it meanwhile → {@code STALE_VERSION}, nothing changes. The
+     * command sets a target state, so a lost answer retried with the same key replays the receipt.
+     */
+    public CatalogueCommandExecutor.Outcome setSaleEnabled(String actorId, UUID commandId, String productId,
+                                                           String locationId, boolean enabled,
+                                                           Boolean expectedSaleEnabled) {
         long id = CatalogueValues.parseId("productId", productId);
         long location = CatalogueValues.parseId("locationId", locationId);
         Map<String, Object> request = new LinkedHashMap<>();
         request.put("productId", id);
         request.put("locationId", location);
         request.put("saleEnabled", enabled);
+        if (expectedSaleEnabled != null) {
+            request.put("expectedSaleEnabled", expectedSaleEnabled);
+        }
         var key = new CatalogueCommandExecutor.CommandKey(actorId, SALE_ACTION, commandId,
                 CatalogueCommandExecutor.digest(request));
         return executor.execute(key, () -> {
@@ -290,6 +325,11 @@ public class ProductBranchStockService {
                     .stream().filter(row -> row.getLocationId() == location).toList();
             if (rows.isEmpty()) {
                 throw new CatalogueException(CatalogueErrorCode.BRANCH_STOCK_NOT_FOUND);
+            }
+            // Same rule as the management read (ManagementProductQueryService): sold there when any row is sale-enabled.
+            boolean current = rows.stream().anyMatch(VariantBranchStock::isSaleEnabled);
+            if (expectedSaleEnabled != null && expectedSaleEnabled != current) {
+                throw new CatalogueException(CatalogueErrorCode.STALE_VERSION);
             }
             boolean changed = false;
             for (VariantBranchStock row : rows) {
@@ -331,6 +371,26 @@ public class ProductBranchStockService {
             stocks.saveAllAndFlush(rows);
         }
         return touched;
+    }
+
+    // ---- FR-053 support for the sales facade ----
+
+    /** Branch rows of the sizes: size id → (branch id → row). A size without rows is absent (not yet assigned). */
+    public Map<Long, Map<Long, VariantBranchStock>> stocksBySize(Collection<Long> variantIds) {
+        Map<Long, Map<Long, VariantBranchStock>> result = new HashMap<>();
+        if (variantIds.isEmpty()) {
+            return result;
+        }
+        for (VariantBranchStock row : stocks.findByVariantIdInOrderByVariantIdAscLocationIdAsc(variantIds)) {
+            result.computeIfAbsent(row.getVariantId(), ignored -> new LinkedHashMap<>()).put(row.getLocationId(), row);
+        }
+        return result;
+    }
+
+    /** Saves a branch row changed by an accepted sale; the caller holds the size lock. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public VariantBranchStock saveSaleDeduction(VariantBranchStock row) {
+        return stocks.saveAndFlush(row);
     }
 
     // ---- helpers ----

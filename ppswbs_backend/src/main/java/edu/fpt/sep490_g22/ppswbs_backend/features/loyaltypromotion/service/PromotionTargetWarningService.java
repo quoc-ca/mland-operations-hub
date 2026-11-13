@@ -45,6 +45,9 @@ public class PromotionTargetWarningService {
         if (targets != null && targets.variantIds() != null) {
             targets.variantIds().forEach(key -> refs.add(new TargetRef(TargetDimension.VARIANT, key)));
         }
+        if (targets != null && targets.branchIds() != null) {
+            targets.branchIds().forEach(key -> refs.add(new TargetRef(TargetDimension.BRANCH, key)));
+        }
         List<TargetFact> facts;
         try {
             facts = targetFacts.facts(TargetScope.PRODUCT, refs);
@@ -56,7 +59,10 @@ public class PromotionTargetWarningService {
         }
         List<PromotionReadDtos.TargetWarning> warnings = new ArrayList<>();
         for (TargetFact fact : facts) {
-            String state = !fact.exists() || fact.softDeleted() ? "DELETED"
+            // A branch of a product voucher (Session 2026-11-09) only warns when it no longer sells.
+            String state = fact.dimension() == TargetDimension.BRANCH
+                    ? (!fact.exists() || !fact.purchasable() ? "BRANCH_INACTIVE" : null)
+                    : !fact.exists() || fact.softDeleted() ? "DELETED"
                     : !fact.publicVisible() ? "NOT_PUBLIC"
                     : !fact.purchasable() ? "NOT_ON_SALE" : null;
             if (state != null) {

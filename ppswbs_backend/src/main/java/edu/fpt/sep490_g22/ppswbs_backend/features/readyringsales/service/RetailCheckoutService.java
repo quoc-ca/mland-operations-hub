@@ -40,20 +40,27 @@ public class RetailCheckoutService {
     @Transactional(readOnly = true)
     public CheckoutDtos.BenefitPreviewView previewBenefits(Long memberAccountId, CheckoutDtos.BenefitPreviewRequest request) {
         RetailCart cart = requireCart(memberAccountId);
-        List<RetailCheckoutPorts.PricedLine> lines = pricingPort.price(cart.getLines());
+        var paymentMethod = RetailPaymentMethods.parse(request.paymentMethod());
+        if (request.branchOrders() != null && !request.branchOrders().isEmpty()) {
+            RetailPaymentMethods.requireAllowed(paymentMethod, request.branchOrders().stream()
+                .map(CheckoutDtos.BranchOrderCheckoutInput::method).toList());
+        }
+        List<RetailCheckoutPorts.PricedLine> lines = pricingPort.price(RetailCartSelection.select(cart, request.cartLineIds()));
         RetailCheckoutPorts.BenefitPreview preview = benefitPort.preview(memberAccountId, lines, toSelection(request.selection()));
         BigDecimal subtotal = subtotal(lines);
         BigDecimal shipping = previewShipping(memberAccountId, request.branchOrders(), lines);
         BigDecimal payable = subtotal.subtract(preview.discountAmount()).subtract(preview.pointsDiscountAmount()).add(shipping);
         return new CheckoutDtos.BenefitPreviewView(preview.previewId(), "VND", money(subtotal), true,
             money(preview.discountAmount()), money(preview.pointsDiscountAmount()),
-            money(payable), preview.expiresAt().toString(), money(shipping));
+            money(payable), preview.expiresAt().toString(), money(shipping), preview.eligible(), preview.reasons(),
+            preview.maxPoints() == null ? null : preview.maxPoints().toString(),
+            preview.minRedeemPoints() == null ? null : preview.minRedeemPoints().toString());
     }
 
     @Transactional(readOnly = true)
     public CheckoutDtos.ShippingQuoteView quoteShipping(Long memberAccountId, CheckoutDtos.ShippingQuoteRequest request) {
         RetailCart cart = requireCart(memberAccountId);
-        List<RetailCheckoutPorts.PricedLine> lines = pricingPort.price(cart.getLines()).stream()
+        List<RetailCheckoutPorts.PricedLine> lines = pricingPort.price(RetailCartSelection.select(cart, request.cartLineIds())).stream()
             .filter(line -> line.locationId().equals(request.locationId())).toList();
         if (lines.isEmpty()) throw new RetailConflictException("Cart has no line for the selected location");
         var recipient = request.recipient() == null ? null : new RetailCheckoutPorts.RecipientAddress(
@@ -75,11 +82,15 @@ public class RetailCheckoutService {
         RetailCart cart = cartRepository.findLockedByMemberAccountId(memberAccountId)
             .orElseThrow(() -> new RetailConflictException("Retail cart is empty"));
         if (cart.getLines().isEmpty()) throw new RetailConflictException("Retail cart is empty");
+        List<CartLine> selected = RetailCartSelection.select(cart, request.cartLineIds());
         Map<Long, CheckoutDtos.BranchOrderCheckoutInput> choices = choicesByLocation(request.branchOrders());
-        Set<Long> cartLocations = cart.getLines().stream().map(CartLine::getLocationId).collect(Collectors.toSet());
-        if (!cartLocations.equals(choices.keySet())) throw new RetailConflictException("Checkout choices must match every cart location exactly once");
+        var paymentMethod = RetailPaymentMethods.parse(request.paymentMethod());
+        RetailPaymentMethods.requireAllowed(paymentMethod, choices.values().stream()
+            .map(CheckoutDtos.BranchOrderCheckoutInput::method).toList());
+        Set<Long> cartLocations = selected.stream().map(CartLine::getLocationId).collect(Collectors.toSet());
+        if (!cartLocations.equals(choices.keySet())) throw new RetailConflictException("Checkout choices must match every selected cart location exactly once");
 
-        List<RetailCheckoutPorts.PricedLine> priced = pricingPort.price(cart.getLines());
+        List<RetailCheckoutPorts.PricedLine> priced = pricingPort.price(selected);
         BigDecimal subtotal = subtotal(priced);
         RetailCheckoutPorts.BenefitPreview benefit = benefitPort.requireValidPreview(memberAccountId, request.benefitPreviewId(),
             toSelection(request.benefitSelection()), subtotal);
@@ -89,11 +100,15 @@ public class RetailCheckoutService {
 
         GroupedCheckout checkout = new GroupedCheckout(memberAccountId, idempotencyKey, cart.getVersion() == null ? 0L : cart.getVersion(), subtotal, shipping, discount);
         List<Long> locations = cartLocations.stream().sorted().toList();
+        // The discount is spread over branch orders in proportion to their amount (the local path has no FE-06 line facts).
+        List<java.math.BigInteger> branchSubtotals = locations.stream().map(locationId -> subtotal(priced.stream()
+            .filter(line -> line.locationId().equals(locationId)).toList()).toBigIntegerExact()).toList();
+        List<java.math.BigInteger> branchDiscounts = RetailDiscountAllocation.split(discount.toBigIntegerExact(), branchSubtotals, branchSubtotals);
         for (int index = 0; index < locations.size(); index++) {
             Long locationId = locations.get(index);
             List<RetailCheckoutPorts.PricedLine> branchLines = priced.stream().filter(line -> line.locationId().equals(locationId)).toList();
             BigDecimal branchSubtotal = subtotal(branchLines);
-            BigDecimal branchDiscount = index == 0 ? discount : BigDecimal.ZERO;
+            BigDecimal branchDiscount = new BigDecimal(branchDiscounts.get(index));
             RetailOrder order = new RetailOrder(checkout, locationId, choices.get(locationId).method().toUpperCase(), branchSubtotal,
                 shippingByLocation.get(locationId), branchDiscount);
             var recipientInput = choices.get(locationId).recipient();
@@ -104,10 +119,14 @@ public class RetailCheckoutService {
             branchLines.forEach(line -> order.addItem(new OrderItem(order, line.variantId(), line.quantity(), line.unitPrice())));
             checkout.addOrder(order);
         }
+        RetailPaymentMethods.requirePayableForCash(paymentMethod, checkout.getPayableAmount());
+        Instant holdDeadline = RetailPaymentMethods.holdDeadline(paymentMethod, Instant.now());
+        if (paymentMethod == edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.entity.RetailPaymentMethod.CASH_AT_COUNTER) {
+            checkout.useCounterCash(holdDeadline);
+        }
         checkoutRepository.saveAndFlush(checkout);
-        entityManager.persist(new CheckoutHold(checkout, Instant.now().plus(15, ChronoUnit.MINUTES)));
-        cart.getLines().clear();
-        cart.touch();
+        entityManager.persist(new CheckoutHold(checkout, holdDeadline));
+        RetailCartSelection.removeCheckedOut(cart, selected);
         return toView(checkout);
     }
 
@@ -169,6 +188,7 @@ public class RetailCheckoutService {
         return new CheckoutDtos.GroupedCheckoutView(checkout.getId(), checkout.getOrders().stream().map(order -> new CheckoutDtos.RetailOrderView(
             order.getId(), order.getLocationId(), money(order.getSubtotal()), money(order.getShippingCharge()), money(order.getPayableAmount()),
             order.getPaymentState().name(), order.getFulfilmentState())).toList(), money(checkout.getMerchandiseSubtotal()), money(checkout.getShippingCharge()),
-            money(checkout.getPayableAmount()), checkout.getPaymentState().name(), checkout.getPaymentInitiatedAt() == null ? null : checkout.getPaymentInitiatedAt().toString());
+            money(checkout.getPayableAmount()), checkout.getPaymentState().name(), checkout.getPaymentInitiatedAt() == null ? null : checkout.getPaymentInitiatedAt().toString(),
+            checkout.getPaymentMethod(), checkout.getCounterPaymentDeadline() == null ? null : checkout.getCounterPaymentDeadline().toString());
     }
 }

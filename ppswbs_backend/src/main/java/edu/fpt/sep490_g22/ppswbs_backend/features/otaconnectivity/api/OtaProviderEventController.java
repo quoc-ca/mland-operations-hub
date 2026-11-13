@@ -1,6 +1,7 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.api;
 
 import edu.fpt.sep490_g22.ppswbs_backend.common.CorrelationIdFilter;
+import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.application.exception.OtaForbiddenException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.application.exception.OtaUnauthorizedException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.integration.OtaProviderEventHandler;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.integration.OtaProviderEventHandler.OtaBookingEventCommand;
@@ -47,6 +48,10 @@ public class OtaProviderEventController {
 
     @Value("${ota.auth.allow-test-tokens:false}")
     private boolean allowTestTokens;
+
+    /** Comma-separated providers whose signed production callback is approved; empty means none (fail closed). */
+    @Value("${ota.provider-callbacks.approved-production-providers:}")
+    private String approvedProductionProviders;
 
     public record ProviderBookingCallbackRequest(
             @NotNull(message = "Provider is required")
@@ -140,26 +145,56 @@ public class OtaProviderEventController {
         }
     }
 
+    /**
+     * E3 (2026-11-12), fail closed until a provider's real signed callback is approved in provider-readiness.
+     * <ul>
+     *   <li>PRODUCTION callbacks are refused (403) unless the provider is listed in
+     *       {@code ota.provider-callbacks.approved-production-providers}; that list stays empty until the provider's
+     *       signature procedure is approved and implemented. The interim shared-value check is never a production
+     *       authentication scheme.</li>
+     *   <li>The connection must exist and be ACTIVE.</li>
+     *   <li>Test tokens are honoured only for the TEST environment, even when {@code ota.auth.allow-test-tokens} is on.</li>
+     *   <li>The shared value is compared in constant time. Replays are deduplicated downstream by the inbound event
+     *       service (external event reference + payload fingerprint).</li>
+     * </ul>
+     */
     private void verifyProviderSignature(String signature, OtaProvider provider, OtaEnvironment environment) {
         if (signature == null || signature.isBlank()) {
             throw new OtaUnauthorizedException("Provider signature is required");
         }
 
-        if (allowTestTokens && (signature.startsWith("test-") || signature.startsWith("test-sig:"))) {
+        if (environment == OtaEnvironment.PRODUCTION && !approvedProductionProviders().contains(provider.name())) {
+            log.warn("Refused OTA production callback: no approved signed callback for provider={}", provider);
+            throw new OtaForbiddenException("Production callbacks are not enabled for this provider");
+        }
+
+        if (allowTestTokens && environment == OtaEnvironment.TEST
+                && (signature.startsWith("test-") || signature.startsWith("test-sig:"))) {
             return;
         }
 
         Optional<OtaChannelConnection> connOpt = connectionRepository
                 .findByProviderCodeAndEnvironment(provider, environment);
 
-        if (connOpt.isEmpty()) {
+        if (connOpt.isEmpty() || !"ACTIVE".equalsIgnoreCase(connOpt.get().getStatus())) {
             throw new OtaUnauthorizedException("No active OTA connection found for provider " + provider);
         }
 
         String expectedCredentialRef = connOpt.get().getCredentialReference();
-        if (expectedCredentialRef == null || !expectedCredentialRef.equals(signature.trim())) {
+        if (expectedCredentialRef == null || !java.security.MessageDigest.isEqual(
+                expectedCredentialRef.getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                signature.trim().getBytes(java.nio.charset.StandardCharsets.UTF_8))) {
             throw new OtaUnauthorizedException("Invalid provider signature or credentials");
         }
+    }
+
+    private java.util.Set<String> approvedProductionProviders() {
+        if (approvedProductionProviders == null || approvedProductionProviders.isBlank()) return java.util.Set.of();
+        java.util.Set<String> names = new java.util.HashSet<>();
+        for (String name : approvedProductionProviders.split(",")) {
+            if (!name.isBlank()) names.add(name.trim().toUpperCase(java.util.Locale.ROOT));
+        }
+        return names;
     }
 }
 

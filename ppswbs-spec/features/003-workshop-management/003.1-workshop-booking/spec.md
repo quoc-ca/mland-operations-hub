@@ -96,6 +96,177 @@ verified payment evidence:
 - Loyalty contract: a verified deposit continues to emit
   `WORKSHOP_DEPOSIT_ACCEPTED` (the event is not renamed).
 
+> **Superseded in part 2026-11-12:** the 50% deposit rule above is replaced by
+> the per-ticket booking-time collection of FR-035; see
+> "Multi-ticket cart, per-ticket booking and booking-time collection" below.
+
+## Multi-ticket cart, per-ticket booking and booking-time collection (decision 2026-11-12)
+
+**Source:** owner decisions recorded 2026-11-11/12 in
+`artifacts/workshop-changes-to-implement.md`. **Status:** specified, not yet
+implemented (tasks Phase 8). Cancellation, rescheduling, refunds and counter
+collection for these tickets are specified in 003.3; per-ticket capacity,
+attendance and reschedule quota in 003.2.
+
+**Supersedes:** the 50% deposit of FR-007a and of the 2026-11-05 policy above
+(existing confirmed bookings keep their snapshot); "V1 provides no cart"
+(Session 2026-10-25); one booking issuing `participant_count` tickets under one
+invoice (Session 2026-10-25); the 10-minute shared hold/link deadline and
+QueryDR at minutes 8 and 9 (Session 2026-10-31); and the rule that a Manager may
+not confirm a booking for a late payment (Session 2026-10-31). Superseded lines
+are kept for history and are read through this section.
+
+### Booking group and ticket bookings
+
+- **FR-030**: A customer cart MUST hold one or more lines, each a package, its
+  complete required-session set and a participant count. Confirming the cart
+  MUST create one **booking group** and one **ticket booking per person**. A
+  multi-session package (for example Wax Casting) is one ticket with one
+  entitlement per required session. The group holds the shared contact, the
+  buyer (Member account or Guest contact), the single booking-time payment and
+  the voucher use. Each ticket booking has its own QR, attendance, folio,
+  cancellation and change lifecycle; an action on one ticket MUST NOT cancel,
+  move or refund another ticket of the group implicitly.
+- **FR-031**: Cart confirmation MUST validate and hold every line in one
+  transaction, all or nothing. If any line lacks capacity or eligibility, the
+  system MUST report the failing lines, hold nothing and keep the cart editable.
+  Participant details of companions are not required to complete the cart.
+- **FR-032**: The group has one `holdExpiresAt` = 12 minutes after the whole
+  cart is held. The VNPay link expires at `holdExpiresAt − 2 minutes`
+  (minute 10); QueryDR runs at minutes 10 and 11. Editing the cart, recreating
+  or retrying the payment never extends the hold, and a pending/unknown result
+  never extends it. The customer sees only the 10-minute payment countdown;
+  when it ends the page shows "Đang xác nhận kết quả thanh toán…" until
+  `holdExpiresAt`, then the final outcome. Screens and emails use the same
+  10-minute figure and never show the 2-minute buffer.
+
+### Benefits per ticket
+
+- **FR-033**: One voucher use covers one group confirmation. Cart-level
+  conditions (minimum amount, participant count) are checked only when the
+  group is confirmed. Ticket-level scope (package, date, session, branch) is
+  checked per ticket; a ticket outside the scope gets no discount. The group
+  discount is allocated to in-scope tickets in proportion to ticket price using
+  largest remainder in whole VND (ties: higher price, then cart order), capped
+  at each ticket's price. The allocation is stored per ticket and never
+  recomputed. A 100% voucher and a 0 VND ticket are valid.
+- **FR-034**: The Member points cap follows the FE-06 point policy recorded at
+  acceptance (Manager-configurable above 0% up to 100%, default 10%), applied
+  to the cart total after voucher. Points are allocated as whole points in
+  proportion to each ticket's post-voucher price with the same largest-remainder
+  rule; a ticket already at 0 VND after voucher has weight 0. Ticket discount
+  from points = allocated points × point value of the recorded policy. Points
+  may bring a ticket or the whole cart to 0 VND.
+
+### Booking-time collection per ticket
+
+- **FR-035**: After FR-033 and FR-034, each ticket's booking-time collection is:
+
+  | Ticket final price | Collected at booking | Kind |
+  |---|---|---|
+  | 0 VND | 0 | `FREE` |
+  | 1–200,000 VND | full ticket price | `FULL` |
+  | above 200,000 VND | 200,000 | `DEPOSIT` |
+
+  That is `min(final price, 200,000)` per ticket (decision 2026-11-12, replacing
+  the 205,000 band). A 203,000 ticket collects 200,000 and keeps 3,000 as its
+  checkout balance; a customer cancel or no-show forfeits only the 200,000
+  collected, and the uncollected 3,000 creates no debt.
+
+  Remaining = ticket price − collected. It is not multiplied by the number of
+  sessions. The group collection is the sum over tickets. Each ticket MUST
+  snapshot its price, discount allocations, collected amount, kind and the
+  non-refundable condition disclosed at booking; later policy changes never
+  apply retroactively. This replaces `deposit = ceil(post/2)` (FR-007a) for new
+  bookings.
+- **FR-036**: The VNPay minimum of 5,000 VND applies to the group collection,
+  not to a ticket's price:
+  - group collection 0 → no VNPay; the group is confirmed internally
+    (FR-007a1 extended to groups);
+  - group collection 1–4,999 → no VNPay; every ticket's booking-time collection
+    becomes 0 with kind `DEFERRED_BELOW_VNPAY_MINIMUM`, the amount moves to the
+    ticket's checkout balance, and the group is confirmed internally;
+  - group collection ≥ 5,000 → one VNPay payment for the whole group.
+  A cart with ticket A at 3,000 and ticket B at 500,000 is valid and collects
+  203,000. The quote MUST show how each ticket is paid, and the backend MUST
+  recheck the amount immediately before creating a VNPay attempt. The system
+  MUST NOT raise an amount to 5,000, waive a remainder or silently change a
+  benefit to pass the check.
+- **FR-037**: Before confirmation the screen MUST label each ticket "Thanh toán
+  toàn bộ", "Cọc", "Miễn phí" or "Thanh toán tại quầy" and state that the
+  booking-time payment is not refunded on customer self-cancellation or
+  no-show. A deferred group shows "Không cần thanh toán online, thanh toán [số
+  tiền] tại quầy khi checkout" and no non-refundable notice.
+
+### Group confirmation and expiry
+
+- **FR-038**: The whole group is confirmed together: on verified VNPay evidence
+  for the group amount, or internally for a 0 VND or deferred group. Confirmation
+  commits every hold, settles the Loyalty benefits, issues each ticket's QR and
+  Magic-Link access, and publishes one confirmation per ticket booking so that
+  Settlement opens one OPEN folio per ticket (base = ticket price, collected =
+  the ticket's allocated collection, balance = remainder). Free tickets in a
+  paid group wait for the group payment and are never confirmed early or split
+  off. Replays MUST NOT create tickets, consume capacity or benefits twice.
+- **FR-039**: When the hold expires without verified payment the whole group is
+  released, free tickets included, and held benefits are released under
+  FR-017k. Money arriving later follows FR-040; it never revives the old hold.
+
+### Late payment after the hold expired
+
+- **FR-040**: On signed VNPay evidence (IPN or matching QueryDR) for an expired
+  group, the system MUST re-confirm the group automatically only when all of
+  these hold: (1) every ticket still has capacity and channel quota, held
+  atomically for the whole group; (2) no session has started and the earliest
+  starts at least 2 hours later; (3) recomputing price, voucher and points under
+  the recorded policy gives exactly the collected amount (voucher use and points
+  still available); (4) the evidence arrived within 60 minutes after
+  `holdExpiresAt`; (5) the buyer has no other active booking for the same
+  sessions. Re-confirmation is a new acceptance (not a revived hold), audited
+  as `LATE_PAYMENT_RECONFIRMED`, idempotent when IPN and QueryDR both arrive,
+  and never partial. Otherwise the evidence and the failed conditions are
+  recorded, the payer is emailed that the payment arrived late and is being
+  handled, and a Manager either confirms manually (only when only condition 4
+  or 5 failed, the buyer still wants to attend, and 1–3 hold at that moment)
+  or opens a 100% bank refund under 003.3. Money is never moved to a new
+  booking.
+- **FR-040a** *(2026-11-12)*: A late payment waiting for a Manager MUST reach
+  the buyer with a result within 24 hours of the evidence, or before the
+  earliest session of the group starts if that is sooner. The result is the
+  confirmation email or the refund-account request email (003.3 FR-040); a
+  "being processed" message does not count. When the review enters the Manager
+  queue the system MUST alert Managers at once (in the management screen and by
+  internal email) and order the queue by the earliest session start, so groups
+  whose session starts within 24 hours come first. The payer's "payment arrived
+  late" email states this deadline.
+
+### Ticket recipients
+
+- **FR-041**: After confirmation the buyer MAY send any ticket to a recipient
+  email; this is optional and never required to finish the cart. By default
+  the buyer's confirmation email carries every ticket. Changing a ticket's
+  recipient email revokes its old QR immediately and issues a new QR to the new
+  email; resending to the same email keeps the QR. A recipient cannot be changed
+  after check-in, and at most 3 recipient changes per ticket are allowed online;
+  more need Staff at the shop. Only the buyer, or Staff after verifying the
+  buyer, may change a recipient. A recipient gets ticket access only, not the
+  buyer's management rights; a change requested by a recipient goes through the
+  buyer or the shop. Audit masks the old and new emails.
+- **FR-042**: The Member booking list (FR-021a), Guest lookup and Magic Link
+  show the group with its tickets; each ticket shows its own status, recipient
+  (masked), attendance and payment kind.
+
+### Data and rollout
+
+- **FR-043**: Only dev/test data exists (confirmed 2026-11-12), so the change is
+  a schema migration and reseed with no conversion of old bookings. A
+  single-person booking is a group with one ticket.
+
+**Email content approved 2026-11-12:** the buyer, recipient, resend/replace,
+expiry and late-payment templates are recorded in
+`artifacts/workshop-email-templates-draft.md`. The filename is retained for
+existing references; its content is approved, not yet implemented.
+
 ## Scope and source alignment
 
 This feature defines the first customer-facing Workshop Booking slice for Guests
@@ -233,7 +404,7 @@ are read through this note.
 - Q: May a Member retry payment for a pending booking? → A: Yes. An authenticated Member may resume or retry payment for a booking owned by that Member; the state-specific projection is the same as for a Guest.
 - Q: Which contact fields are required when creating a booking? → A: Guests must provide both email and phone. Members receive both fields auto-filled from their profile and may edit them when booking for another person; the booking stores the submitted contact snapshot.
 - Q: Who receives the post-payment Magic Link? → A: Both Guest and Member bookings send the Magic Link to the submitted contact email snapshot, including when a Member books for another person.
-- Q: How are tickets issued for a multi-participant booking? → A: One booking has one aggregate invoice and one deposit payment, but successful confirmation issues exactly `participant_count` independent QR tickets. Until a later participant-registration feature exists, the submitted booking contact receives the ticket set and may distribute it to the group.
+- Q: How are tickets issued for a multi-participant booking? → A: One booking has one aggregate invoice and one deposit payment, but successful confirmation issues exactly `participant_count` independent QR tickets. Until a later participant-registration feature exists, the submitted booking contact receives the ticket set and may distribute it to the group. **Superseded 2026-11-12 by FR-030 (one ticket booking per person under a booking group, each with its own folio) and FR-041 (optional per-ticket recipient email); the buyer still receives every ticket by default.**
 - Q: Does V1 collect an identity or contact method for every ticket holder? → A: No. V1 uses `BOOKING_CONTACT_RECEIVES_ALL_TICKETS`: it collects only the booking contact and `participant_count`, then delivers the full ticket set and Magic Link to that contact. Each ticket is independently usable at later check-in but is not assigned to a participant identity. `EACH_PARTICIPANT_RECEIVES_TICKET`, participant email delivery/claim, and ticket-transfer workflows are explicitly deferred to a separate feature.
 - Q: What should the confirmation email contain? → A: It contains the complete QR Check-in ticket set directly and a Magic Link to the read-only booking details.
 - Q: What should the QR Check-in payload contain? → A: It contains only a signed opaque token/reference; it contains no PII, payment data, raw Magic Link token, or other sensitive payload.
@@ -274,7 +445,8 @@ seat and receives one independent ticket after valid payment confirmation.
   request for several people to make one physical item is handled manually by
   Staff outside the V1 customer booking flow.
 - Q: Does V1 provide a cart for unrelated workshop packages? → A: No. One
-  booking purchases one package/course only. A package may contain one or more
+  booking purchases one package/course only. **Superseded 2026-11-12 by
+  FR-030–FR-031 (multi-ticket cart).** A package may contain one or more
   required sessions; a Wax Casting two-session package is one purchase, not two
   cart items or two independent bookings.
 - Q: Which packages are available through an OTA in V1? → A: Only basic ring
@@ -399,9 +571,11 @@ seat and receives one independent ticket after valid payment confirmation.
   → A: No. They share the same absolute deadline, at most 10 minutes after
   hold creation. The payment attempt and VNPay `vnp_ExpireDate` use the stored
   `holdExpiresAt`; creating or retrying a payment attempt never extends it.
+  **Superseded 2026-11-12 by FR-032:** hold 12 minutes, link expires 2 minutes
+  earlier (minute 10).
 - Q: When should QueryDR run under the shared 10-minute deadline? → A: For an
   attempt without a terminal IPN outcome, run at minutes 8 and 9 from hold
-  creation. Pending/unknown results do not extend the hold. Late verified
+  creation. **Superseded 2026-11-12 by FR-032:** minutes 10 and 11. Pending/unknown results do not extend the hold. Late verified
   payment evidence after expiry does not confirm a booking whose capacity has
   been released and requires operational follow-up.
 
@@ -467,6 +641,8 @@ seat and receives one independent ticket after valid payment confirmation.
   Any active Manager globally may view the safe evidence
   and record or escalate follow-up. The Manager may not confirm or reactivate
   the booking, restore hold/capacity, issue tickets, or create a payment link.
+  **Superseded 2026-11-12 by FR-040:** automatic re-confirmation under five
+  conditions, otherwise Manager manual confirmation (limited) or bank refund.
   Refund, reschedule, and final settlement remain in 003.3.
 
 - Q: What happens if an internal actor is locked, inactive, lacks required action authorization,
@@ -802,12 +978,23 @@ appropriate booking summary without exposing another customer's booking.
 - **FR-006**: The system MUST create at most one customer-facing pending booking
   for a single accepted booking submission and must not leave an incomplete
   booking when creation fails.
+- **FR-006a** *(backfilled 2026-11-12 from 46e72c0, 78d79a3, 0b78d86)*: On the
+  booking page a signed-in Member picks a voucher from the Member's own voucher
+  wallet ("Kho Voucher") instead of typing a code, and sees the Member's
+  available points. The page requests a quote automatically when the selection
+  changes. `benefitSelection.voucherCode` is sent only for `choice = VOUCHER`
+  and is omitted for `NONE`.
+- **FR-006b** *(backfilled 2026-11-12 from 78d79a3)*: The quote response MUST
+  return, alongside `reasons`, `reasonDetails` with a stable reason code and a
+  Vietnamese customer message for each reason; the message falls back to the
+  original reason text when no translation exists.
 - **FR-007**: The system MUST create one payment-pending package invoice per
   booking and freeze the package total, post-promotion amount, deposit, and
   remaining amount together. The package total is the selected participant count
   multiplied by the selected package's price per participant; deposit and
   remaining amount follow FR-007a.
-- **FR-007a**: The system MUST freeze the post-promotion booking amount,
+- **FR-007a** *(superseded for new bookings 2026-11-12 by FR-035/FR-036;
+  existing confirmed bookings keep this snapshot)*: The system MUST freeze the post-promotion booking amount,
   deposit, and remaining amount together at acceptance:
   `deposit = ceil(postPromotionAmount / 2)` whole VND and
   `remainingAmount = postPromotionAmount − deposit`. The deposit is the only
@@ -816,6 +1003,24 @@ appropriate booking summary without exposing another customer's booking.
   immutable after acceptance. The system MUST preserve these snapshots and MUST
   NOT reject an otherwise valid booking merely because the post-promotion
   amount is odd VND.
+- **FR-007a1** *(2026-11-12, aligns with 006 "booking 0đ")*: A Member booking
+  whose accepted post-promotion amount is exactly 0 VND MUST be accepted and
+  confirmed inside the acceptance transaction without the payment gateway:
+  invoice post-promotion, deposit and remaining amounts are 0; Operations holds
+  are committed; the booking becomes `CONFIRMED` with financial status
+  `DEPOSIT_PAID` (the 0 VND deposit requirement is met); tickets, Magic Link,
+  confirmation notification and `MlandBookingConfirmedEvent` are issued as for
+  a paid deposit; and the held Loyalty benefits are settled in the same
+  transaction with outcome `WORKSHOP_DEPOSIT_ACCEPTED` keyed by the internal
+  reference `ZERO-AMOUNT-<bookingCode>`. No payment attempt, VNPay call or
+  payment receipt is created, and payment evidence MUST NOT be used to confirm
+  a 0 VND booking. The create response returns `CONFIRMED` without
+  `holdExpiresAt`. Only a negative accepted amount is refused
+  (`WORKSHOP_NET_AMOUNT_INVALID`). Replay of the same accepted command is
+  idempotent through the booking idempotency record and the Loyalty settle key.
+  The per-ticket booking-time collection table and multi-ticket cart in
+  `artifacts/workshop-changes-to-implement.md` are not implemented yet; this
+  requirement covers the single-booking 0 VND case only.
 - **FR-007b**: A direct Guest/Member booking MUST have exactly one OPEN folio
   from deposit confirmation until checkout or terminal cancellation/no-show
   closure. Settlement (003.3) creates it when it consumes the post-commit
@@ -1145,6 +1350,42 @@ appropriate booking summary without exposing another customer's booking.
   and MUST NOT be implemented here.
 - **FR-021**: The system MUST restore the held participant capacity when a
   pending booking expires, exactly once.
+- **FR-021a** *(backfilled 2026-11-12 from b662e42, 6987155)*: An authenticated
+  Member MUST be able to list their own workshop bookings through
+  `GET /api/v1/members/me/workshop-bookings`: at most 30 bookings, newest
+  creation first. An `EXPIRED` booking is listed only while its
+  `holdExpiresAt` is within the last 24 hours, so the customer sees what
+  happened; older expired holds are left out. A booking that cannot be
+  projected is skipped without failing the list. A signed-in Member opens a
+  booking from this list ("Đặt chỗ của tôi") instead of typing a booking code.
+- **FR-021b** *(backfilled 2026-11-12 from b662e42)*: The booking projection MUST
+  expose a display-only `attendanceStatus`: null before attendance is
+  finalized, `ATTENDED`, `NO_SHOW_PENDING` while a recorded no-show is inside
+  the 24-hour attendance-correction window, or `NO_SHOW` when final. It does
+  not change `bookingStatus`, which still changes only on the 003.3 conclusion
+  (FR-020).
+- **FR-021c** *(backfilled 2026-11-12 from b662e42, c60056e, 12e7b76)*: Only the
+  booking's own Member projection (list and detail) MUST include opaque
+  `ticketReferences`; Guest lookup and Magic Link projections MUST NOT. A
+  screen uses them to match a Feature-011 review source (one ticket) to the
+  right booking and offers a review only for an attended ticket that Feature
+  011 reports eligible. 003.1 does not decide review eligibility.
+- **FR-017j** *(backfilled 2026-11-12 from f707cbe)*: When a Guest or Member
+  releases an active pending hold and no payment attempt and no late-payment
+  evidence exists for the booking, the release MUST also give back the points
+  and voucher held by the Member quote, exactly as an unpaid expiry does. When a
+  payment attempt was already started, the release MUST NOT release those
+  benefits; the verified payment outcome decides them.
+- **FR-017k** *(2026-11-12, fixes E1)*: Deposit reconciliation MUST give back
+  the Member quote's held points and voucher, exactly once, when every payment
+  attempt of a booking whose hold ended unpaid has a verified no-money outcome.
+  "Ended unpaid" means `EXPIRED`, or `CANCELLED` by a pending-hold release with
+  financial status `UNPAID`. A verified no-money outcome is either a signed
+  VNPay failure (`vnp_TransactionStatus = 02`, from IPN or QueryDR) or a signed
+  QueryDR answer `vnp_ResponseCode = 91` (no transaction) for an attempt whose
+  link has already expired, meaning the link was opened but never paid. Late
+  payment evidence for the booking keeps the benefits for the late-payment
+  flow; an unverified or still-pending answer keeps them held.
 - **FR-022**: The system MUST preserve the financial-status vocabulary needed by
   later workshop lifecycle features, including `FULLY_PAID`, without implementing
   final-payment settlement in this feature.

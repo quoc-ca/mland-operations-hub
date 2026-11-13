@@ -118,11 +118,18 @@ public class ProductImportService {
      */
     public CatalogueCommandExecutor.Outcome validate(String actorId, UUID commandId, String fileName, byte[] file,
                                                      List<String> locationIds) {
-        List<String> branchIds = chosenBranches(locationIds);
-        List<String> branchHeaders = branchHeaders(branchIds);
+        List<String> branchIds;
+        List<String> branchHeaders;
         List<ProductImportParser.RawRow> rows;
         try {
+            // FR-045: a file refused for its branch choice is audited like a file refused for its content (T138).
+            branchIds = chosenBranches(locationIds);
+            branchHeaders = branchHeaders(branchIds);
             rows = ProductImportParser.parse(fileName, file, branchHeaders);
+            if (branchIds.isEmpty()) {
+                // FR-048/FR-050: a Staff member must choose branches; the old template without them is Manager-only.
+                branchScope.requireNoBranchAllowed();
+            }
         } catch (CatalogueException rejected) {
             recordRejectedFile(actorId, commandId, fileName, file, rejected);
             throw rejected;
@@ -281,7 +288,7 @@ public class ProductImportService {
     }
 
     /**
-     * FR-045: a file refused before any batch exists (wrong type, broken, macro, header, row limit) is audited on its
+     * FR-045: a file refused before any batch exists (wrong type, broken, macro, header, row limit, branch choice) is audited on its
      * own — actor, file name, byte count and error code; no cell value or file content is stored.
      */
     private void recordRejectedFile(String actorId, UUID commandId, String fileName, byte[] file,

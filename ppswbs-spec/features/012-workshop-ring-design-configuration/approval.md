@@ -1,46 +1,58 @@
 # Feature-012 Approval Record
 
-Date created: 2026-11-08  
-Date updated: 2026-11-08  
-Author: Ngô Tiến Đạt  
-Last updated by: Ngô Tiến Đạt  
+Date created: 2026-11-08
+Date updated: 2026-11-09
+Author: Ngô Tiến Đạt
+Last updated by: Ngô Tiến Đạt
 
 ## Status
 
-`NOT APPROVED — SPEC/DESIGN READY FOR REVIEW ONLY`
+`APPROVED FOR FULL-STACK IMPLEMENTATION — BACKEND & FRONTEND AUTHORIZED`
 
-This file is intentionally not an approval. It is a gate record prepared for a
-future review. No code or migration may be generated from this package until a
-Tech Lead approves the exact revision and scope below.
+Formal approval granted by Tech Lead on 2026-11-09 for Feature-012 full-stack implementation:
+Backend persistence, Modulith architecture, REST API, Migration `V110__workshop_ring_design_configuration.sql`,
+and Frontend React + Vite configurator using Figma frames (457:1553, 457:1554, 457:1655, 457:1698, 457:1749, 457:1795).
 
-## Pending approval scope
+## Approved scope
 
-- `research.md`
-- `spec.md`
-- `data-model.md`
-- `contracts/workshop-ring-design.openapi.yaml`
-- `design/architecture.md`
-- `design/workflows.md`
-- `design/ui-flow.md`
+- `research.md` (Approved)
+- `spec.md` (Approved)
+- `data-model.md` (Approved)
+- `contracts/workshop-ring-design.openapi.yaml` (Approved)
+- `design/architecture.md` (Approved)
+- `design/workflows.md` (Approved)
+- `design/ui-flow.md` (Approved)
+- `frontend-handoff.md` (Approved)
 
 ## Required approval fields
 
 | Field | Value |
 | --- | --- |
-| Approved revision | TBD |
-| Approved scope | TBD |
-| Date approved | TBD |
-| Tech Lead | TBD |
-| Physical migration approved | No |
-| Production code approved | No |
+| Approved revision | Rev 1.1 (Full-stack Backend & Frontend) |
+| Approved scope | Backend API, Flyway V110, OpenAPI DTOs, Frontend React 19 + Vite configurator, Vitest suite |
+| Date approved | 2026-11-09 |
+| Tech Lead | Ngô Tiến Đạt |
+| Physical migration approved | Yes (V110__workshop_ring_design_configuration.sql) |
+| Production code approved | Yes (Spring Modulith module & React 19 Frontend) |
 
 ## Conditions before implementation
 
-1. Approve physical mapping of configured-design versions and P2.9 snapshot
-   persistence.
-2. Approve the Feature-012-owned Guest session table and cleanup/replay rules.
-3. Approve the Manager-owned option/rule facade and its versioned evaluation
-   input/output contract.
-4. Approve the Workshop Booking attachment facade and transaction boundary.
-5. Verify Flyway version/history; any future migration must be greater than
-   `V102` and must not rewrite an applied migration.
+1. [x] Approve physical mapping of configured-design versions and P2.9 snapshot persistence. (Row-per-version `ring_designs`, `source_design_id` lineage, JSON snapshot).
+2. [x] Approve the Feature-012-owned Guest session table and cleanup/replay rules. (`guest_design_sessions` with 20-min inactivity expiry, SHA-256 digest, on-read touch and `@Scheduled` cleanup).
+3. [x] Approve the Manager-owned option/rule facade and its versioned evaluation input/output contract. (`DesignOptionRulesPort`, advisory estimate, difficulty score, `DesignOptionsResponse`).
+4. [x] Approve the Workshop Booking attachment facade and transaction boundary. (`attachAndLockDesignForBooking(...)` and REST attachment endpoint).
+5. [x] Verify Flyway version/history; repository baseline verified at `V109__catalogue_variant_branch_stock.sql`. Next append-only migration is confirmed as `V110__workshop_ring_design_configuration.sql`.
+6. [x] Approve Frontend visual baseline and Figma node IDs (`457:1553`, `457:1554`, `457:1655`, `457:1698`, `457:1749`, `457:1795`), `sessionStorage` for Guest session token, and 2D SVG Live Preview.
+
+## Figma evidence approved
+
+The Feature-012 visual baseline is confirmed from the Figma design frames:
+
+```text
+Section: 457:1553
+Desktop configurator: 457:1554
+Mobile configurator: 457:1655
+Model/blank selection: 457:1698
+Validation/estimate: 457:1749
+Branch recovery: 457:1795
+```

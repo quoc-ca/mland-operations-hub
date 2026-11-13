@@ -3,6 +3,7 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.service;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.LoyaltyErrorCode;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.LoyaltyException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.PromotionTargetPort;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.TargetDimension;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.TargetFact;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.TargetRef;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.TargetScope;
@@ -71,6 +72,10 @@ public class PromotionTargetValidationService {
                 issues.add(new LoyaltyException.FieldIssue(field, "This target has been deleted."));
             } else if (!fact.belongsToParent()) {
                 issues.add(new LoyaltyException.FieldIssue(field, "This size does not belong to the selected products."));
+            } else if (scope == TargetScope.PRODUCT && target.dimension() == TargetDimension.BRANCH
+                    && !fact.purchasable()) {
+                // Session 2026-11-09: a product voucher may only be limited to branches that sell now.
+                issues.add(new LoyaltyException.FieldIssue(field, "This branch does not exist or is not active."));
             }
         }
         if (!issues.isEmpty()) {

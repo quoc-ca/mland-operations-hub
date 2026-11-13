@@ -19,6 +19,9 @@ public interface WorkshopBookingFacade {
     /** Returns the minimal accepted Member source context required for terminal Loyalty outcomes; null for Guest or legacy bookings. */
     WorkshopBookingLoyaltyOutcomeSource getLoyaltyOutcomeSource(WorkshopBookingLoyaltyOutcomeSourceQuery query);
 
+    /** The one Loyalty context of a booking group, with its ticket identities (003.3 FR-030). */
+    BookingGroupLoyaltyOutcomeSource getGroupLoyaltyOutcomeSource(String groupReference);
+
     /** Returns only an authorization decision; contact proof is neither returned nor logged. */
     CustomerBookingAccessDecision verifyCustomerBookingAccess(CustomerBookingAccessQuery query);
 

@@ -7,6 +7,8 @@ import edu.fpt.sep490_g22.ppswbs_backend.common.ErrorResponse;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.dto.LoyaltyErrorDtos;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.LoyaltyErrorCode;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.LoyaltyException;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.service.LoyaltyRefusalAudit;
+import org.springframework.beans.factory.annotation.Autowired;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,6 +48,18 @@ import java.util.stream.Collectors;
 class LoyaltyExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(LoyaltyExceptionHandler.class);
+
+    /** Null only in plain unit tests of the mapping. */
+    private final LoyaltyRefusalAudit refusals;
+
+    @Autowired
+    LoyaltyExceptionHandler(LoyaltyRefusalAudit refusals) {
+        this.refusals = refusals;
+    }
+
+    LoyaltyExceptionHandler() {
+        this(null);
+    }
 
     @ExceptionHandler(LoyaltyException.class)
     ResponseEntity<ErrorResponse> handleLoyalty(LoyaltyException error, HttpServletRequest request) {
@@ -134,8 +148,13 @@ class LoyaltyExceptionHandler {
         return respond(LoyaltyErrorCode.DEPENDENCY_UNAVAILABLE, List.of(), request);
     }
 
-    private static ResponseEntity<ErrorResponse> respond(LoyaltyErrorCode code, List<ErrorResponse.FieldError> fields,
-                                                         HttpServletRequest request) {
+    private ResponseEntity<ErrorResponse> respond(LoyaltyErrorCode code, List<ErrorResponse.FieldError> fields,
+                                                  HttpServletRequest request) {
+        if (refusals != null) {
+            // A refused write is audited in its own transaction (review 2026-11-10, M3); reads are not.
+            refusals.record(request.getMethod(), request.getRequestURI(), code,
+                    fields.stream().map(ErrorResponse.FieldError::field).toList());
+        }
         ErrorResponse body = new ErrorResponse(code.name(), LoyaltyErrorDtos.defaultMessage(code),
                 CorrelationIdFilter.current(request), Instant.now(), fields);
         return ResponseEntity.status(LoyaltyErrorDtos.status(code))

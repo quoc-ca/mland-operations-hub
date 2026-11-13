@@ -61,6 +61,13 @@ public class SavedVoucherService {
         CommandKey key = new CommandKey("member:" + memberId, ACTION, commandId,
                 LoyaltyCommandService.digest(Map.of("programId", programId)));
         commands.execute(key, () -> {
+            // Checked before the loyalty locks (the product facts are read from 002). A voucher already saved stays
+            // saveable, so a repeated save after it was paused still answers as before.
+            boolean alreadySaved = memberPrograms.findByProgramIdAndMemberId(programId, memberId)
+                    .map(MemberProgram::isSaved).orElse(false);
+            if (!alreadySaved) {
+                cards.requirePublic(programId);
+            }
             locks.readRegistry();
             PromotionProgram program = locks.lockPrograms(Set.of(programId)).get(programId);
             if (!program.isVoucher()) {
@@ -119,6 +126,11 @@ public class SavedVoucherService {
             availability = "EXPIRED";
         } else if (!projection.hasPublicTarget()) {
             availability = "NO_PUBLIC_TARGET";
+        } else if (program.availableTotal() < 1) {
+            // US3.5 (review 2026-11-10, L2): no use left in total; held uses count until released.
+            availability = "NO_USES_LEFT";
+        } else if (row.getHeldCount() + row.getConsumedCount() >= program.getMemberLimit()) {
+            availability = "MEMBER_LIMIT_REACHED";
         } else {
             availability = "ACTIVE";
         }

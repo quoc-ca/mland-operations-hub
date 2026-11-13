@@ -5,6 +5,7 @@ import { accountManagementRoutes } from '../features/accountmanagement';
 import { designReviewRoutes } from '../features/designreview/routes';
 import { readyRingSalesRoutes } from '../features/retail-order';
 import { reviewManagementRoutes } from '../features/reviewmanagement/routes';
+import { ringDesignConfigurationRoutes } from '../features/ringdesignconfiguration/routes';
 import { loyaltyPromotionRoutes } from '../features/loyalty-promotion';
 import { productManagementRoutes } from '../features/product-management';
 import { workshopRoutes } from '../workshops/routes';
@@ -34,6 +35,7 @@ export const routes = [
           ...operatorHomeRoutes,
           ...designReviewRoutes,
           ...reviewManagementRoutes,
+          ...ringDesignConfigurationRoutes,
           ...productManagementRoutes,
           ...loyaltyPromotionRoutes,
           { path: '*', element: <NotImplementedPage /> },

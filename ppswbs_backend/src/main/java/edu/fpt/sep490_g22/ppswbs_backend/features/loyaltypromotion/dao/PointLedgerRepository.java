@@ -14,7 +14,12 @@ import java.util.Optional;
 /** Append-only: only inserts and reads. */
 public interface PointLedgerRepository extends JpaRepository<PointLedger, Long> {
 
-    Optional<PointLedger> findByAcceptedBenefitIdAndEntryKind(Long acceptedBenefitId, LedgerEntryKind entryKind);
+    /** The whole-transaction entry of a kind (part 0); part entries (Session 2026-11-12) are not returned. */
+    @Query("""
+            select l from PointLedger l
+            where l.acceptedBenefitId = :acceptedBenefitId and l.entryKind = :entryKind and l.partSeq = 0""")
+    Optional<PointLedger> findByAcceptedBenefitIdAndEntryKind(@Param("acceptedBenefitId") Long acceptedBenefitId,
+                                                             @Param("entryKind") LedgerEntryKind entryKind);
 
     List<PointLedger> findByAcceptedBenefitIdOrderByIdAsc(Long acceptedBenefitId);
 

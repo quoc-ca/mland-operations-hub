@@ -40,12 +40,12 @@ public class CartService {
             .findFirst()
             .orElse(null);
 
-        int existingVariantTotal = totalForVariant(cart, request.variantId());
+        int existingVariantTotal = totalForVariantAtLocation(cart, request.variantId(), request.locationId());
         int requestedTotal = existingVariantTotal + request.quantity();
         if (requestedTotal > MAX_VARIANT_QUANTITY) {
-            throw new RetailConflictException("Variant quantity cannot exceed 99 across cart locations");
+            throw new RetailConflictException("Variant quantity cannot exceed 99 for the selected location");
         }
-        ensureAvailable(request.variantId(), requestedTotal);
+        ensureAvailable(request.variantId(), request.locationId(), requestedTotal);
 
         if (existingLine == null) {
             if (cart.getLines().size() >= MAX_CART_LINES) {
@@ -63,11 +63,12 @@ public class CartService {
     public CartDtos.RetailCartView updateLine(Long memberAccountId, String lineId, CartDtos.UpdateCartLineRequest request) {
         RetailCart cart = requireCart(memberAccountId);
         CartLine line = findOwnedLine(cart, lineId);
-        int totalAfterUpdate = totalForVariant(cart, line.getVariantId()) - line.getQuantity() + request.quantity();
+        int totalAfterUpdate = totalForVariantAtLocation(cart, line.getVariantId(), line.getLocationId())
+            - line.getQuantity() + request.quantity();
         if (totalAfterUpdate > MAX_VARIANT_QUANTITY) {
-            throw new RetailConflictException("Variant quantity cannot exceed 99 across cart locations");
+            throw new RetailConflictException("Variant quantity cannot exceed 99 for the selected location");
         }
-        ensureAvailable(line.getVariantId(), totalAfterUpdate);
+        ensureAvailable(line.getVariantId(), line.getLocationId(), totalAfterUpdate);
         line.changeQuantity(request.quantity());
         cart.touch();
         return toView(cartRepository.save(cart));
@@ -92,9 +93,9 @@ public class CartService {
             .orElseThrow(() -> new RetailNotFoundException("Cart line does not exist"));
     }
 
-    private int totalForVariant(RetailCart cart, Long variantId) {
+    private int totalForVariantAtLocation(RetailCart cart, Long variantId, Long locationId) {
         return cart.getLines().stream()
-            .filter(line -> line.getVariantId().equals(variantId))
+            .filter(line -> line.getVariantId().equals(variantId) && line.getLocationId().equals(locationId))
             .mapToInt(CartLine::getQuantity)
             .sum();
     }
@@ -105,8 +106,8 @@ public class CartService {
         }
     }
 
-    private void ensureAvailable(Long variantId, int totalQuantity) {
-        var fact = cataloguePort.readCartProduct(variantId);
+    private void ensureAvailable(Long variantId, Long locationId, int totalQuantity) {
+        var fact = cataloguePort.readCartProduct(variantId, locationId);
         if (fact == null) {
             throw new RetailIntegrationUnavailableException("Catalogue returned no variant facts");
         }
@@ -130,10 +131,11 @@ public class CartService {
     }
 
     private CartDtos.RetailCartView toView(RetailCart cart) {
-        var facts = new java.util.HashMap<Long, RetailCataloguePort.CartProductFact>();
+        var facts = new java.util.HashMap<VariantLocationKey, RetailCataloguePort.CartProductFact>();
         List<CartDtos.CartLineView> lines = cart.getLines().stream()
             .map(line -> {
-                var fact = facts.computeIfAbsent(line.getVariantId(), cataloguePort::readCartProduct);
+                var key = new VariantLocationKey(line.getVariantId(), line.getLocationId());
+                var fact = facts.computeIfAbsent(key, selected -> cataloguePort.readCartProduct(selected.variantId(), selected.locationId()));
                 if (fact == null) {
                     throw new RetailIntegrationUnavailableException("Catalogue returned no variant facts");
                 }
@@ -144,4 +146,6 @@ public class CartService {
             .toList();
         return new CartDtos.RetailCartView(cart.getVersion() == null ? 0L : cart.getVersion(), lines);
     }
+
+    private record VariantLocationKey(Long variantId, Long locationId) {}
 }

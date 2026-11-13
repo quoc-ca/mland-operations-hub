@@ -82,7 +82,7 @@ public class LoyaltyQuoteService {
                 result.pointsUsed(), result.pointDiscount(), result.earnBase(), result.earnBase(),
                 chosen == null ? null : chosen.programId(), chosen == null ? null : chosen.revisionNo(),
                 chosen == null ? null : chosen.normalizedCode(), policy.getRevisionNo(), result.pointsAllowed(),
-                result.reasons(), evaluation.termsDigest(), result.reasonDetails());
+                result.reasons(), evaluation.termsDigest(), result.reasonDetails(), result.eligibleLines());
     }
 
     /**
@@ -91,6 +91,15 @@ public class LoyaltyQuoteService {
      * rows.
      */
     public Evaluation evaluate(TrustedSourceContext context, BenefitSelection selection, boolean strict) {
+        return evaluate(context, selection, strict, null);
+    }
+
+    /**
+     * {@code lockedAutos}: the automatic discounts the accept read under a shared lock (L4); {@code null} reads them
+     * here without a lock (preview).
+     */
+    public Evaluation evaluate(TrustedSourceContext context, BenefitSelection selection, boolean strict,
+                               List<PromotionProgram> lockedAutos) {
         LoyaltyPolicy policy = policies.current();
         BigInteger available = wallets.findById(context.memberId()).map(LoyaltyWallet::availablePoints)
                 .orElse(BigInteger.ZERO);
@@ -103,7 +112,7 @@ public class LoyaltyQuoteService {
             voucher = programs.findByCodeKey(key).map(program -> candidate(program, context, TargetScope.PRODUCT)).orElse(null);
         }
         List<RetailQuote.Candidate> autos = selection.choice() == SelectionChoice.AUTO
-                ? eligibility.findActiveAutoDiscounts(context.at()).stream().map(p -> candidate(p, context, TargetScope.PRODUCT)).toList()
+                ? (lockedAutos != null ? lockedAutos : eligibility.findActiveAutoDiscounts(context.at())).stream().map(p -> candidate(p, context, TargetScope.PRODUCT)).toList()
                 : List.of();
         RetailQuote.Result result = RetailQuote.compute(context.lines(), selection, voucher, autos, policy.terms(),
                 available, strict);
@@ -133,6 +142,17 @@ public class LoyaltyQuoteService {
         booking.sessions().forEach(session -> bound.append("|session=").append(session.sessionRef())
                 .append('@').append(session.branchId()).append('@').append(session.workshopDate()));
         bound.append("|people=").append(booking.participantCount());
+        // A cart (Session 2026-11-12) also binds every ticket in cart order and which tickets the voucher covers, so
+        // an accept with other tickets, prices or order than the preview is QUOTE_CHANGED. The single-package shape
+        // appends nothing here and keeps its digest.
+        booking.tickets().forEach(ticket -> {
+            bound.append("|ticket=").append(ticket.ticketRef()).append('#').append(ticket.packageId())
+                    .append('$').append(ticket.ticketPrice());
+            ticket.sessions().forEach(session -> bound.append('/').append(session.sessionRef()));
+        });
+        if (booking.isCart()) {
+            bound.append("|inScope=").append(result.eligibleLines());
+        }
         return new Evaluation(result, policy, LoyaltyCommandService.digest(bound.toString()));
     }
 
@@ -147,7 +167,10 @@ public class LoyaltyQuoteService {
         List<PromotionTarget> rows = targets.findByRevisionIdOrderByDimensionAscTargetKeyAsc(revision.getId());
         return new RetailQuote.Candidate(program.getId(), revision.getId(), revision.getRevisionNo(), program.getKind(),
                 program.getCreatedAt(), revision.terms(), revision.isAllowPoints(),
-                ids(rows, TargetDimension.PRODUCT), ids(rows, TargetDimension.VARIANT), program.getCodeOriginal(),
+                ids(rows, TargetDimension.PRODUCT), ids(rows, TargetDimension.VARIANT),
+                // A workshop programme's branches are matched per session by WorkshopBenefitEvaluator instead.
+                expected == TargetScope.PRODUCT ? ids(rows, TargetDimension.BRANCH) : Set.of(),
+                program.getCodeOriginal(),
                 unavailableReason(program, revision, context.memberId(), context.at(), expected));
     }
 

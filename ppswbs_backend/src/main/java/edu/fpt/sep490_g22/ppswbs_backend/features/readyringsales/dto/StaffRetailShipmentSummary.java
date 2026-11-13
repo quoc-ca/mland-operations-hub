@@ -24,8 +24,21 @@ public record StaffRetailShipmentSummary(
     String districtName,
     String wardName,
     Instant createdAt,
-    Instant updatedAt
+    Instant updatedAt,
+    String orderCode,
+    String payableAmount,
+    int itemQuantity
 ) {
+    /** Summary without the order display facts (code, amount, item count). */
+    public StaffRetailShipmentSummary(String id, String branchOrderId, String branchOrderIdentifier, Long locationId,
+                                      String mockTrackingNumber, RetailShipmentStatus status, int version,
+                                      String recipientName, String provinceName, String districtName, String wardName,
+                                      Instant createdAt, Instant updatedAt) {
+        this(id, branchOrderId, branchOrderIdentifier, locationId, mockTrackingNumber, status, version, recipientName,
+            provinceName, districtName, wardName, createdAt, updatedAt,
+            edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailOrderCodes.of(branchOrderId, null),
+            null, 0);
+    }
     /** Bound query parameters for the staff list endpoint. */
     public record ListQuery(
         @Min(0) int page,

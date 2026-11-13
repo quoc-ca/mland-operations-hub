@@ -1259,8 +1259,8 @@ Feature này gồm quản lí chương trình voucher/giảm giá và điểm th
 2. Frontend hiển thị các voucher workshop phù hợp. Member chọn mã đã lưu hoặc nhập mã trực tiếp.
 3. Backend kiểm tra phạm vi workshop, thời gian được đặt bằng mã, chi nhánh, gói/ngày/phiên, tổng phí gói tối thiểu và hạn mức sử dụng; trả mức giảm hợp lệ. Mỗi booking dùng tối đa một voucher, trần giảm áp dụng cho cả booking và không nhân theo số người.
 4. Voucher được trừ trên tổng phí gói trước khi tính cọc. Nếu chính sách cho phép dùng thêm điểm, Backend tính số điểm tối đa hợp lệ theo điểm khả dụng, với trần giảm bằng điểm là 10% phí gói sau voucher, trước khi trừ điểm. Mỗi điểm giảm 100đ, dùng tối thiểu 10 điểm/lần. Frontend hiển thị điểm khả dụng, số điểm tối đa được dùng và số tiền giảm tương ứng để Member lựa chọn; nếu voucher không cho kết hợp điểm hoặc số điểm tối đa nhỏ hơn mức tối thiểu thì không cho chọn dùng điểm và nêu lý do. Giá trị quy đổi của điểm đã chọn được trừ sau voucher và trước khi tính cọc.
-5. Frontend hiển thị phí gói ban đầu, giảm voucher, giảm bằng điểm, phí gói sau giảm, tiền cọc và phần còn phải thu để Member xác nhận. Tiền cọc được tính theo chính sách booking tại FE-03 trên phí gói sau voucher và điểm. Phiên bản đầu chưa hỗ trợ workshop miễn phí: phí gói sau giảm phải lớn hơn 0; nghĩa vụ cọc/thanh toán phải đáp ứng điều kiện thanh toán của FE-03.
-6. Khi Member xác nhận booking, Backend kiểm tra lại điều kiện và tạm giữ lượt voucher, điểm cần dùng cùng việc ghi nhận booking, lưu điều kiện ưu đãi, khoản giảm, điểm dùng, giá trị quy đổi và tỷ lệ tích điểm áp dụng. Xác minh cọc thành công thì chốt lượt voucher và trừ điểm.
+5. Frontend hiển thị phí gói ban đầu, giảm voucher, giảm bằng điểm, phí gói sau giảm, tiền cọc và phần còn phải thu để Member xác nhận. Tiền cọc được tính theo chính sách booking tại FE-03 trên phí gói sau voucher và điểm. *(Quyết định 2026-11-12)* Phí gói sau giảm bằng 0đ là hợp lệ: FE-03 xác nhận booking không qua cổng thanh toán. Khoản dương nhỏ hơn mức tối thiểu của cổng thanh toán do FE-03 xử lý ở luồng thanh toán của mình.
+6. Khi Member xác nhận booking, Backend kiểm tra lại điều kiện và tạm giữ lượt voucher, điểm cần dùng cùng việc ghi nhận booking, lưu điều kiện ưu đãi, khoản giảm, điểm dùng, giá trị quy đổi và tỷ lệ tích điểm áp dụng. Xác minh cọc thành công, hoặc FE-03 xác nhận booking 0đ, thì chốt lượt voucher và trừ điểm.
 7. Khi thu phần còn lại, hệ thống dùng số tiền đã ghi nhận của booking; không áp dụng lại voucher hay trừ lại điểm. Chỉ cộng điểm mới sau khi Member đã hoàn thành workshop và thanh toán đủ; tạo booking, trả cọc hoặc mới check-in chưa được cộng điểm.
 
 ### Đặt workshop — Nhánh lỗi
@@ -1270,7 +1270,7 @@ Feature này gồm quản lí chương trình voucher/giảm giá và điểm th
 3. Voucher hết lượt hoặc điểm không còn đủ trước lúc xác nhận: Backend cập nhật ưu đãi hợp lệ và số điểm tối đa được dùng; Frontend yêu cầu chọn lại, tính lại phí gói/cọc và cho Member xác nhận lại.
 4. Booking hết hạn trước khi thanh toán được chấp nhận: giải phóng lượt voucher và điểm đang giữ; không ghi nhận là đã sử dụng.
 5. Khi booking được hủy hợp lệ trước khi hoàn thành workshop theo FE-03, xử lí điểm và lượt voucher theo phần **Hoàn điểm và lượt voucher khi hủy workshop** bên dưới. Không đến mà không có kết quả hủy hợp lệ thì không tự hoàn điểm hoặc lượt voucher đã dùng và không cộng điểm mới.
-6. Phí gói sau giảm bằng 0 hoặc âm, hoặc nghĩa vụ thanh toán không đáp ứng điều kiện FE-03: từ chối xác nhận, nêu lý do và cho Member điều chỉnh ưu đãi/booking; không tạo booking miễn phí hoặc để lại phần quyền lợi đang giữ dở dang.
+6. Phí gói sau giảm âm (chỉ xảy ra khi dữ liệu sai): từ chối xác nhận, nêu lý do và cho Member điều chỉnh ưu đãi/booking; không để lại phần quyền lợi đang giữ dở dang. Phí gói sau giảm bằng 0đ không phải nhánh lỗi (quyết định 2026-11-12).
 
 ## Điểm thưởng
 

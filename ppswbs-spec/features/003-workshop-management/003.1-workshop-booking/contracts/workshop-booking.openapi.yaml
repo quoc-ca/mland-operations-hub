@@ -29,7 +29,7 @@ paths:
       parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
       requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CreateBookingRequest'}}}}
       responses:
-        '201': {description: Pending booking and holds, content: {application/json: {schema: {$ref: '#/components/schemas/BookingSummary'}}}}
+        '201': {description: "Pending booking and holds; or, for a Member quote whose post-promotion amount is 0 VND, a booking already CONFIRMED with paymentStatus DEPOSIT_PAID and no holdExpiresAt, confirmed without the payment gateway (FR-007a1).", content: {application/json: {schema: {$ref: '#/components/schemas/BookingSummary'}}}}
         '400': {$ref: '#/components/responses/Problem'}
         '409': {description: Quote expired (`QUOTE_EXPIRED`) or selection/terms conflict, content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}}
   /api/v1/workshop-bookings/{bookingCode}/payment-attempts:
@@ -48,16 +48,31 @@ paths:
       summary: Exchange a protected Magic Link for a read-only booking projection
       requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/MagicLinkExchangeRequest'}}}}
       responses: {'200': {description: Authorized projection, content: {application/json: {schema: {$ref: '#/components/schemas/BookingSummary'}}}}, '404': {$ref: '#/components/responses/Problem'}}
+  /api/v1/members/me/workshop-bookings:
+    get:
+      summary: List the authenticated Member's own workshop bookings
+      description: >-
+        FR-021a (backfilled 2026-11-12 from b662e42, 6987155). Returns at most 30
+        of the Member's own bookings, newest createdAt first. An EXPIRED booking is
+        included only while holdExpiresAt is within the last 24 hours; older
+        expired holds are left out. A booking that cannot be projected is skipped
+        fail-soft instead of failing the whole list. Each item is the Member
+        projection, including ticketReferences.
+      security: [{bearerAuth: []}]
+      responses:
+        '200': {description: Member's bookings, content: {application/json: {schema: {type: array, maxItems: 30, items: {$ref: '#/components/schemas/BookingSummary'}}}}}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
   /api/v1/members/me/workshop-bookings/{bookingCode}:
     get:
       summary: Read an owned Member booking
       security: [{bearerAuth: []}]
       parameters: [{$ref: '#/components/parameters/BookingCode'}]
-      responses: {'200': {description: Authorized projection}, '401': {$ref: '#/components/responses/Problem'}, '403': {$ref: '#/components/responses/Problem'}}
+      responses: {'200': {description: Authorized Member projection, including ticketReferences, content: {application/json: {schema: {$ref: '#/components/schemas/BookingSummary'}}}}, '401': {$ref: '#/components/responses/Problem'}, '403': {$ref: '#/components/responses/Problem'}}
   /api/v1/workshop-bookings/{bookingCode}/pending-hold-release:
     post:
       summary: Release an active pending hold from Guest or Member lookup
-      description: Guest supplies exactly one stored contact proof. An authenticated Member supplies no contact proof; Booking verifies that the Member owns this booking. Both callers must provide an audit-safe reason.
+      description: Guest supplies exactly one stored contact proof. An authenticated Member supplies no contact proof; Booking verifies that the Member owns this booking. Both callers must provide an audit-safe reason. When no payment attempt and no late-payment evidence exists for the booking, the release also gives back the points and voucher held by the Member quote, as an unpaid expiry does (FR-017j). A body-less 204 replay is stored with a null idempotency payload.
       security: [{}, {bearerAuth: []}]
       parameters: [{$ref: '#/components/parameters/BookingCode'}, {$ref: '#/components/parameters/IdempotencyKey'}]
       requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/PendingHoldReleaseRequest'}}}}
@@ -148,7 +163,7 @@ components:
       required: [choice, requestedPoints]
       properties:
         choice: {type: string, enum: [NONE, VOUCHER]}
-        voucherCode: {type: string, maxLength: 128}
+        voucherCode: {type: string, maxLength: 128, description: Sent only when choice is VOUCHER; omitted for NONE.}
         requestedPoints: {type: string, pattern: '^(0|[1-9][0-9]*)$', maxLength: 19}
     WorkshopBookingQuote:
       type: object
@@ -167,6 +182,16 @@ components:
         earnBase: {type: string, pattern: '^(0|[1-9][0-9]*)$'}
         termsDigest: {type: string, minLength: 1, maxLength: 128}
         reasons: {type: array, items: {type: string}}
+        reasonDetails:
+          type: array
+          description: FR-006b (backfilled 2026-11-12 from 78d79a3). One entry per reason, with a stable code and a Vietnamese customer message; message falls back to the original reason text when no translation exists.
+          items: {$ref: '#/components/schemas/QuoteReasonDetail'}
+    QuoteReasonDetail:
+      type: object
+      required: [code, message]
+      properties:
+        code: {type: string}
+        message: {type: string}
     GuestLookupRequest:
       type: object
       required: [bookingCode]
@@ -227,6 +252,16 @@ components:
         holdExpiresAt: {type: string, format: date-time, nullable: true}
         sessions: {type: array, items: {$ref: '#/components/schemas/BookedSession'}}
         tickets: {type: array, items: {$ref: '#/components/schemas/BookingTicket'}}
+        attendanceStatus:
+          type: string
+          nullable: true
+          enum: [ATTENDED, NO_SHOW_PENDING, NO_SHOW]
+          description: FR-021b (backfilled 2026-11-12). Display only. Null before attendance is finalized; NO_SHOW_PENDING while a recorded no-show is still inside the 24-hour correction window; NO_SHOW when final. bookingStatus still changes only on the final 003.3 conclusion.
+        ticketReferences:
+          type: array
+          nullable: true
+          items: {type: string}
+          description: FR-021c (backfilled 2026-11-12). Opaque ticket references, returned only in the booking's own Member projection (null for Guest lookup and Magic Link). Used to match a Feature-011 review source (one ticket) to this booking; never displayed.
     BookedSession:
       type: object
       required: [sessionReference, locationId, ordinal, scheduledStart, scheduledEnd]

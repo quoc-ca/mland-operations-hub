@@ -21,6 +21,8 @@ public class RetailCheckoutQuoteBranch {
     @Column(name = "shipping_quote_id", length = 128) private String shippingQuoteId;
     @Column(name = "shipping_charge", nullable = false, precision = 19, scale = 0) private BigInteger shippingCharge;
     @Column(nullable = false, precision = 19, scale = 0) private BigInteger subtotal;
+    /** Voucher plus points share of this branch order; null for quotes made before V124. */
+    @Column(name = "discount_amount", precision = 19, scale = 0) private BigInteger discountAmount;
     @Column(name = "recipient_name", length = 255) private String recipientName;
     @Column(name = "recipient_phone", length = 32) private String recipientPhone;
     @Column(name = "recipient_address", length = 512) private String recipientAddress;
@@ -50,4 +52,5 @@ public class RetailCheckoutQuoteBranch {
             && Objects.equals(recipientWard, input.ward());
     }
     public void addItem(RetailCheckoutQuoteItem item) { items.add(item); }
+    public void allocateDiscount(BigInteger amount) { this.discountAmount = amount; }
 }

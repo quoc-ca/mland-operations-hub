@@ -67,6 +67,7 @@ class CatalogueApiIT {
     @Autowired private MockMvc mvc;
     @Autowired private ObjectMapper json;
     @Autowired private CatalogueFlowFixture fixture;
+    @Autowired private org.springframework.jdbc.core.JdbcTemplate jdbc;
 
     @BeforeEach
     void stubIdentity() {
@@ -238,6 +239,86 @@ class CatalogueApiIT {
                                 "expectedVersion", version + 1, "name", "X", "description", "Y",
                                 "categoryId", Long.toString(categoryId)))))
                 .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("PRODUCT_DELETED"));
+    }
+
+    @Test
+    void staffBranchScopeIsCheckedOverHttp() throws Exception {
+        // T137 (FR-021, FR-048, FR-050, T134): the real controllers and security chain decide the Staff branch scope.
+        String base = "/api/v1/catalogue-management";
+        long productId = fixture.draftProduct("9101"); // sold at the test branch, the Staff member's only branch
+        long variantId = fixture.proposalsOf(fixture.currentReview(productId).getId()).get(0).getVariantId();
+        jdbc.update("INSERT IGNORE INTO workshop_locations (code, display_name, address_snapshot, active) VALUES (?, ?, ?, 1)",
+                "PM-TEST-BRANCH-B", "Chi nhánh kiểm thử B", "Địa chỉ B");
+        jdbc.update("UPDATE workshop_locations SET active = 1 WHERE code = ?", "PM-TEST-BRANCH-B");
+        long other = jdbc.queryForObject("SELECT id FROM workshop_locations WHERE code = ?", Long.class, "PM-TEST-BRANCH-B");
+
+        // A Manager also sells it at a branch outside the Staff scope.
+        mvc.perform(as("manager", post(base + "/products/" + productId + "/branches")).header("Idempotency-Key", UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of(
+                                "expectedVersion", fixture.productVersion(productId), "locationId", Long.toString(other),
+                                "quantities", List.of()))))
+                .andExpect(status().isOk());
+
+        // The size-wide stop acts at every branch, so it is refused while one of them is not the Staff member's.
+        mvc.perform(as("staff", put(base + "/variants/" + variantId + "/sale-status")).header("Idempotency-Key", UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"expectedVersion\":0,\"saleEnabled\":false}"))
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("BRANCH_OUT_OF_SCOPE"));
+        mvc.perform(as("staff", put(base + "/variants/" + variantId + "/branches/" + other + "/quantity"))
+                        .header("Idempotency-Key", UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"expectedVersion\":0,\"quantity\":\"1\"}"))
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("BRANCH_OUT_OF_SCOPE"));
+        mvc.perform(as("staff", put(base + "/products/" + productId + "/branches/" + other + "/sale-status"))
+                        .header("Idempotency-Key", UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"saleEnabled\":false,\"expectedSaleEnabled\":true}"))
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("BRANCH_OUT_OF_SCOPE"));
+        // T142: the branch sale command needs the state the user saw.
+        mvc.perform(as("manager", put(base + "/products/" + productId + "/branches/" + other + "/sale-status"))
+                        .header("Idempotency-Key", UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"saleEnabled\":false,\"expectedSaleEnabled\":false}"))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("STALE_VERSION"));
+
+        // The old per-size quantity command no longer fits a size sold at two branches.
+        mvc.perform(as("manager", put(base + "/variants/" + variantId + "/quantity")).header("Idempotency-Key", UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"expectedVersion\":0,\"quantity\":\"9\"}"))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("BRANCH_REQUIRED"));
+
+        // A Staff member without any assigned branch changes no stock and creates nothing.
+        long single = fixture.draftProduct("9101");
+        long singleVariant = fixture.proposalsOf(fixture.currentReview(single).getId()).get(0).getVariantId();
+        when(accounts.getLocationScope(org.mockito.ArgumentMatchers.any())).thenReturn(List.of());
+        mvc.perform(as("staff", put(base + "/variants/" + singleVariant + "/quantity")).header("Idempotency-Key", UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"expectedVersion\":0,\"quantity\":\"9\"}"))
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("BRANCH_SCOPE_EMPTY"));
+        mvc.perform(as("staff", post(base + "/products")).header("Idempotency-Key", UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(productJson("Nhẫn phạm vi " + UUID.randomUUID(), fixture.activeCategory())))
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("BRANCH_SCOPE_EMPTY"));
+
+        // T144 (FR-027, SC-007): a shared-content command refused by the branch scope of the controller is audited as
+        // REJECTED (actor, action, command key, code) and changes nothing.
+        String nameBefore = jdbc.queryForObject("SELECT name FROM catalogue_products WHERE id = ?", String.class, productId);
+        UUID refusedEdit = UUID.randomUUID();
+        mvc.perform(as("staff", put(base + "/products/" + productId)).header("Idempotency-Key", refusedEdit)
+                        .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of(
+                                "expectedVersion", fixture.productVersion(productId), "name", "Tên không được lưu",
+                                "description", "Mô tả", "categoryId", Long.toString(fixture.activeCategory())))))
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("BRANCH_SCOPE_EMPTY"));
+        UUID refusedPrice = UUID.randomUUID();
+        mvc.perform(as("staff", post(base + "/variants/" + variantId + "/price-proposals")).header("Idempotency-Key", refusedPrice)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"expectedVersion\":0,\"proposedPrice\":\"500000\"}"))
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("BRANCH_SCOPE_EMPTY"));
+        assertThat(jdbc.queryForObject("SELECT name FROM catalogue_products WHERE id = ?", String.class, productId))
+                .isEqualTo(nameBefore);
+        for (Object[] refused : List.of(new Object[] {refusedEdit, "product.edit"}, new Object[] {refusedPrice, "price.propose"})) {
+            List<Map<String, Object>> rows = jdbc.queryForList(
+                    "SELECT actor_id, action, outcome, safe_changes FROM catalogue_audit_events WHERE resource_type = 'command' "
+                            + "AND resource_id = ?", refused[0].toString());
+            assertThat(rows).hasSize(1);
+            assertThat(rows.get(0)).containsEntry("actor_id", "9101").containsEntry("action", refused[1])
+                    .containsEntry("outcome", "REJECTED");
+            assertThat(String.valueOf(rows.get(0).get("safe_changes"))).contains("BRANCH_SCOPE_EMPTY")
+                    .doesNotContain("Tên không được lưu").doesNotContain("500000");
+        }
     }
 
     @Test

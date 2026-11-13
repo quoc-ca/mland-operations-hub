@@ -143,6 +143,10 @@ public class CreateProductService {
                         .toList();
             }
         }
+        if (branches.isEmpty()) {
+            // FR-048/FR-050: only a Manager (or an internal call) may still create a product without a branch.
+            branchStock.requireNoBranchAllowed();
+        }
         Product product = Product.draft(command.name(), command.description(), categoryId);
 
         ProductCategory category = locks.lock(new CatalogueLockCoordinator.LockRequest(

@@ -56,7 +56,7 @@ class CatalogueAcceptedPriceIT {
         long sizeId = sellableSize(5);
         Accepted old = retail.accept(sizeId, 1);
         long stalePreviewMember = retail.newMember();
-        carts.addLine(stalePreviewMember, new CartDtos.AddCartLineRequest(sizeId, RealRetailCheckout.LOCATION, 1));
+        carts.addLine(stalePreviewMember, new CartDtos.AddCartLineRequest(sizeId, retail.location(), 1));
         CheckoutDtos.BenefitPreviewView stalePreview = retail.preview(stalePreviewMember);
 
         applyPrice(sizeId, "170000");

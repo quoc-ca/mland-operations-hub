@@ -9,7 +9,9 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.enums
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.enums.AccountStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.service.TokenVerificationService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.service.VerifiedIdentity;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.dao.LoyaltyAuditRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.dao.MemberProgramRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.entity.LoyaltyAudit;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.dao.PromotionProgramRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.dao.PromotionRevisionRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.entity.MemberProgram;
@@ -36,6 +38,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -66,6 +69,7 @@ class PromotionManagementContractIT {
     @Autowired private PromotionProgramRepository programs;
     @Autowired private PromotionRevisionRepository revisions;
     @Autowired private MemberProgramRepository memberPrograms;
+    @Autowired private LoyaltyAuditRepository audits;
     @MockBean private TokenVerificationService tokens;
 
     private String manager;
@@ -348,5 +352,53 @@ class PromotionManagementContractIT {
         assertError(send(post(PROGRAMS + "/9223372036854775807/resumptions"), manager, UUID.randomUUID(),
                 "{\"expectedVersion\":\"0\"}"), 404, "PROMOTION_NOT_FOUND");
         assertError(send(get(PROGRAMS + "/9223372036854775807/usage"), manager, null, null), 404, "PROMOTION_NOT_FOUND");
+    }
+
+    // ----- refused writes are audited (review 2026-11-10, M3) -----
+
+    private String accountRef(String bearer) {
+        String uid = bearer.substring("Bearer token-".length());
+        return "account:" + accounts.findByFirebaseUid(uid).orElseThrow().getId();
+    }
+
+    private List<LoyaltyAudit> refusals(String objectRef) {
+        return audits.findByObjectRefOrderByIdAsc(objectRef).stream()
+                .filter(row -> row.getAction().equals("request.refused")).toList();
+    }
+
+    @Test
+    void aRefusedWriteLeavesAnAuditRowWithItsCodeAndFieldsButNoValues() throws Exception {
+        JsonNode created = createVoucher(10, 2);
+        String id = created.path("id").asText();
+        String path = "/api/v1/promotion-programs/" + id;
+        String staff = signIn(AccountRole.STAFF);
+        String body = "{\"expectedVersion\":\"" + created.path("version").asText() + "\",\"name\":\"Tên bí mật\"}";
+
+        // Wrong role, sent straight to the API.
+        assertError(send(patch(PROGRAMS + "/" + id), staff, UUID.randomUUID(), body), 403, "ACCESS_DENIED");
+        // A Manager's stale edit and a Manager's invalid value.
+        ok(update(created, ",\"name\":\"First edit\""), 200);
+        assertError(update(created, ",\"name\":\"Second edit\""), 409, "STALE_VERSION");
+        JsonNode latest = ok(send(get(PROGRAMS + "/" + id), manager, null, null), 200);
+        assertError(update(latest, ",\"totalLimit\":\"0\""), 400, "INVALID_INPUT");
+        // Reads are not audited, even when refused.
+        assertError(send(get(PROGRAMS + "/" + id + "/usage"), staff, null, null), 403, "ACCESS_DENIED");
+
+        List<LoyaltyAudit> rows = refusals("PATCH " + path);
+        assertThat(rows).hasSize(3);
+        assertThat(rows.get(0).getActorRef()).isEqualTo(accountRef(staff));
+        assertThat(rows.get(0).getDetail()).isEqualTo("{\"code\":\"ACCESS_DENIED\",\"fields\":[]}");
+        // A Manager is referenced as in their accepted commands (the account id), Staff as account:<id>.
+        assertThat(rows.get(1).getActorRef()).isEqualTo(accountRef(manager).substring("account:".length()));
+        assertThat(rows.get(1).getDetail()).contains("STALE_VERSION");
+        assertThat(rows.get(2).getDetail()).contains("INVALID_INPUT").contains("totalLimit");
+        assertThat(rows).allSatisfy(row -> {
+            assertThat(row.getDetail()).doesNotContain("Tên bí mật").doesNotContain("Second edit");
+            assertThat(row.getCommandId()).as("a refusal is no receipt: the same key can be sent again").isNull();
+        });
+        assertThat(refusals("GET " + path + "/usage")).isEmpty();
+        // The accepted edit is audited as before, the refused ones changed nothing.
+        assertThat(ok(send(get(PROGRAMS + "/" + id), manager, null, null), 200).path("name").asText())
+                .isEqualTo("First edit");
     }
 }

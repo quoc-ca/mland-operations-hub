@@ -22,6 +22,13 @@ export function retailApi(request) {
     getStaffShipment: shipmentId => request(`/api/v1/staff/retail-shipments/${id(shipmentId)}`),
     transitionStaffShipment: (shipmentId, body) => request(`/api/v1/staff/retail-shipments/${id(shipmentId)}/transitions`, { method: 'POST', body }),
 
+    listBranches: () => request('/api/v1/product-selling-locations', { auth: false }),
+    // Counter cash (FR-08-045..047): Staff pickup desk, cash confirmation, pickup milestones, Manager daily cash.
+    listStaffPickups: locationId => request('/api/v1/staff/retail-pickups', { query: locationId ? { locationId } : {} }),
+    confirmCashCollection: (orderId, amountReceived, key = newCommandId()) => request(`/api/v1/ready-ring-orders/${id(orderId)}/cash-collections`, { method: 'POST', body: { amountReceived }, idempotencyKey: key }),
+    prepareOrder: orderId => request(`/api/v1/ready-ring-orders/${id(orderId)}/preparation`, { method: 'POST' }),
+    handOverOrder: orderId => request(`/api/v1/ready-ring-orders/${id(orderId)}/pickup-confirmations`, { method: 'POST' }),
+    dailyCash: (locationId, businessDate) => request('/api/v1/manager/retail-cash-collections', { query: { locationId, businessDate } }),
     listSavedVouchers: () => request('/api/v1/members/me/saved-vouchers', { query: { limit: 100 } }),
     getLoyaltyAccount: () => request('/api/v1/members/me/loyalty-accounts/current'),
     previewBenefits: body => request('/api/v1/ready-ring-benefit-previews', { method: 'POST', body }),

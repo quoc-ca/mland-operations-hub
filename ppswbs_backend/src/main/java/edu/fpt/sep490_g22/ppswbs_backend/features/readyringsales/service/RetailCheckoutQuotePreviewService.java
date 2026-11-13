@@ -1,7 +1,8 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service;
 
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.*;
-import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.CartSaleFact;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.BranchCartSaleFact;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.BranchVariant;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.CatalogueSalesException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.CatalogueSalesFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.dao.RetailCartRepository;
@@ -19,7 +20,6 @@ import java.math.BigInteger;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /** Creates a durable, server-priced quote without reserving stock or benefits. */
@@ -37,12 +37,12 @@ public class RetailCheckoutQuotePreviewService {
     @Transactional(readOnly = true)
     public CheckoutDtos.ShippingQuoteView quoteShipping(Long memberId, CheckoutDtos.ShippingQuoteRequest request) {
         var cart = carts.findByMemberAccountId(memberId).orElseThrow(() -> new RetailConflictException("Retail cart is empty"));
-        var branch = cart.getLines().stream().filter(line -> request.locationId().equals(line.getLocationId())).toList();
+        var branch = RetailCartSelection.select(cart, request.cartLineIds()).stream()
+            .filter(line -> request.locationId().equals(line.getLocationId())).toList();
         if (branch.isEmpty()) throw new RetailConflictException("Cart has no line for this branch");
-        var facts = catalogue.readSaleFacts(branch.stream().map(CartLine::getVariantId).distinct().sorted().toList())
-            .stream().collect(Collectors.toMap(CartSaleFact::variantId, Function.identity()));
+        var facts = readBranchFacts(branch.stream().map(this::branchKey).distinct().sorted().toList());
         var lines = branch.stream().map(line -> {
-            var fact = facts.get(line.getVariantId());
+            var fact = facts.get(branchKey(line));
             if (fact == null || !fact.saleEligible() || fact.appliedPrice() == null || !"VND".equals(fact.currency()))
                 throw new RetailConflictException("Product terms changed");
             return new RetailCheckoutPorts.PricedLine(line.getVariantId(), line.getLocationId(), line.getQuantity(),
@@ -61,38 +61,34 @@ public class RetailCheckoutQuotePreviewService {
         RetailCart cart = carts.findByMemberAccountId(memberId)
             .orElseThrow(() -> new RetailConflictException("Retail cart is empty"));
         if (cart.getLines().isEmpty()) throw new RetailConflictException("Retail cart is empty");
+        // Only the lines the Member ticked are quoted; the quote items become the checkout's exact contents.
+        List<CartLine> selected = RetailCartSelection.select(cart, request.cartLineIds());
         Map<Long, CheckoutDtos.BranchOrderCheckoutInput> choices = choices(request.branchOrders());
-        Set<Long> locations = cart.getLines().stream().map(CartLine::getLocationId).collect(Collectors.toSet());
+        RetailPaymentMethod paymentMethod = RetailPaymentMethods.parse(request.paymentMethod());
+        RetailPaymentMethods.requireAllowed(paymentMethod, choices.values().stream()
+            .map(CheckoutDtos.BranchOrderCheckoutInput::method).toList());
+        Set<Long> locations = selected.stream().map(CartLine::getLocationId).collect(Collectors.toSet());
         if (!locations.equals(choices.keySet())) throw new RetailConflictException("Fulfilment choices must match cart locations");
 
-        List<Long> ids = cart.getLines().stream().map(CartLine::getVariantId).distinct().sorted().toList();
-        Map<Long, CartSaleFact> facts;
-        try {
-            facts = catalogue.readSaleFacts(ids).stream().collect(Collectors.toMap(CartSaleFact::variantId, Function.identity()));
-        } catch (CatalogueSalesException exception) {
-            if (exception.reason() == CatalogueSalesException.Reason.NOT_FOUND) {
-                throw new RetailConflictException("A cart product is no longer available");
-            }
-            throw new RetailIntegrationUnavailableException("Catalogue integration is unavailable");
-        }
-        if (facts.size() != ids.size() || !facts.keySet().containsAll(ids)) {
-            throw new RetailIntegrationUnavailableException("Catalogue returned incomplete variant facts");
-        }
-        Map<Long, Integer> quantities = new HashMap<>();
-        cart.getLines().forEach(line -> quantities.merge(line.getVariantId(), line.getQuantity(), Integer::sum));
-        for (Long id : ids) {
-            CartSaleFact fact = facts.get(id);
+        List<BranchVariant> keys = selected.stream().map(this::branchKey).distinct().sorted().toList();
+        Map<BranchVariant, BranchCartSaleFact> facts = readBranchFacts(keys);
+        Map<BranchVariant, Integer> quantities = new HashMap<>();
+        selected.forEach(line -> quantities.merge(branchKey(line), line.getQuantity(), Integer::sum));
+        for (BranchVariant key : keys) {
+            BranchCartSaleFact fact = facts.get(key);
             if (!fact.saleEligible() || fact.appliedPrice() == null || !"VND".equals(fact.currency())
-                || fact.availableQuantity().compareTo(BigInteger.valueOf(quantities.get(id))) < 0) {
+                || fact.availableQuantity().compareTo(BigInteger.valueOf(quantities.get(key))) < 0) {
                 throw new RetailConflictException("Cart contains an unavailable product or quantity");
             }
         }
 
         BenefitSelection selection = selection(request.selection());
         Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
-        List<SourceLine> sourceLines = cart.getLines().stream().map(line -> {
-            CartSaleFact fact = facts.get(line.getVariantId());
-            return new SourceLine(fact.productId(), fact.variantId(), line.getQuantity(), fact.appliedPrice());
+        List<SourceLine> sourceLines = selected.stream().map(line -> {
+            BranchCartSaleFact fact = facts.get(branchKey(line));
+            // The cart line's branch lets FE-06 match branch-limited product vouchers (006 T088).
+            return new SourceLine(fact.productId(), fact.variantId(), line.getQuantity(), fact.appliedPrice(),
+                line.getLocationId());
         }).toList();
         BigInteger subtotal = sourceLines.stream().map(SourceLine::lineAmount).reduce(BigInteger.ZERO, BigInteger::add);
         Map<Long, RetailCheckoutPorts.ShippingQuote> shipping = new HashMap<>();
@@ -101,9 +97,9 @@ public class RetailCheckoutQuotePreviewService {
         for (Long location : locations) {
             var choice = choices.get(location);
             if (!"GHTK".equalsIgnoreCase(choice.method())) continue;
-            var lines = cart.getLines().stream().filter(line -> location.equals(line.getLocationId()))
+            var lines = selected.stream().filter(line -> location.equals(line.getLocationId()))
                 .map(line -> new RetailCheckoutPorts.PricedLine(line.getVariantId(), location, line.getQuantity(),
-                    new java.math.BigDecimal(facts.get(line.getVariantId()).appliedPrice()))).toList();
+                    new java.math.BigDecimal(facts.get(branchKey(line)).appliedPrice()))).toList();
             var recipient = choice.recipient();
             var fee = shippingQuotes.requireValidQuote(memberId, location, choice.shippingQuoteId(), lines,
                 new RetailCheckoutPorts.RecipientAddress(recipient.address(), recipient.province(), recipient.district(),
@@ -144,9 +140,11 @@ public class RetailCheckoutQuotePreviewService {
         var quote = new RetailCheckoutQuote(memberId, cart.getId(), cart.getVersion(), selection.choice().name(),
             selection.voucherCode(), selection.requestedPoints(), result.termsDigest(), "VND", subtotal,
             shippingTotal, result.programDiscount(), result.pointDiscount(), result.postPromotionAmount().add(shippingTotal), now, expiresAt);
+        RetailPaymentMethods.requirePayableForCash(paymentMethod, new java.math.BigDecimal(quote.getPayableTotal()));
+        quote.usePaymentMethod(paymentMethod);
         for (Long location : locations.stream().sorted().toList()) {
-            var branchLines = cart.getLines().stream().filter(line -> line.getLocationId().equals(location)).toList();
-            BigInteger branchSubtotal = branchLines.stream().map(line -> facts.get(line.getVariantId()).appliedPrice()
+            var branchLines = selected.stream().filter(line -> line.getLocationId().equals(location)).toList();
+            BigInteger branchSubtotal = branchLines.stream().map(line -> facts.get(branchKey(line)).appliedPrice()
                 .multiply(BigInteger.valueOf(line.getQuantity()))).reduce(BigInteger.ZERO, BigInteger::add);
             var choice = choices.get(location);
             var fee = shipping.get(location);
@@ -158,15 +156,74 @@ public class RetailCheckoutQuotePreviewService {
                     recipient.province(), recipient.district(), recipient.ward());
             }
             branchLines.forEach(line -> {
-                CartSaleFact fact = facts.get(line.getVariantId());
+                BranchCartSaleFact fact = facts.get(branchKey(line));
                 branch.addItem(new RetailCheckoutQuoteItem(branch, fact.productId(), fact.variantId(), line.getQuantity(), fact.appliedPrice()));
             });
             quote.addBranch(branch);
         }
+        allocateDiscounts(quote, selected, sourceLines, result);
         quotes.saveAndFlush(quote);
         return new CheckoutDtos.BenefitPreviewView(quote.getId(), "VND", subtotal.toString(), true,
             result.programDiscount().toString(), result.pointDiscount().toString(), quote.getPayableTotal().toString(),
             expiresAt.toString(), shippingTotal.toString(), true, result.reasons(), result.maxPoints().toString(), result.minRedeemPoints().toString());
+    }
+
+    /**
+     * Spreads the benefits over branch orders: the programme (voucher) share only over branches holding the lines it
+     * discounts, in proportion to their amount; the points share in proportion to each branch's amount after that.
+     */
+    private static void allocateDiscounts(RetailCheckoutQuote quote, List<CartLine> selected, List<SourceLine> sourceLines,
+                                          BenefitPreview result) {
+        List<RetailCheckoutQuoteBranch> branches = quote.getBranches();
+        Set<Integer> eligible = new HashSet<>(result.eligibleLineIndexes());
+        List<BigInteger> eligibleAmounts = new ArrayList<>();
+        List<BigInteger> subtotals = new ArrayList<>();
+        for (RetailCheckoutQuoteBranch branch : branches) {
+            BigInteger amount = BigInteger.ZERO;
+            for (int index = 0; index < selected.size(); index++) {
+                if (eligible.contains(index) && selected.get(index).getLocationId().equals(branch.getLocationId())) {
+                    amount = amount.add(sourceLines.get(index).lineAmount());
+                }
+            }
+            eligibleAmounts.add(amount);
+            subtotals.add(branch.getSubtotal());
+        }
+        List<BigInteger> programShares = RetailDiscountAllocation.split(result.programDiscount(), eligibleAmounts, subtotals);
+        List<BigInteger> remaining = new ArrayList<>();
+        for (int index = 0; index < branches.size(); index++) remaining.add(subtotals.get(index).subtract(programShares.get(index)));
+        List<BigInteger> pointShares = RetailDiscountAllocation.split(result.pointDiscount(), remaining, remaining);
+        for (int index = 0; index < branches.size(); index++) {
+            branches.get(index).allocateDiscount(programShares.get(index).add(pointShares.get(index)));
+        }
+    }
+
+    private Map<BranchVariant, BranchCartSaleFact> readBranchFacts(Collection<BranchVariant> keys) {
+        List<BranchVariant> requested = keys.stream().distinct().sorted().toList();
+        try {
+            List<BranchCartSaleFact> returned = catalogue.readBranchSaleFacts(requested);
+            if (returned == null) {
+                throw new RetailIntegrationUnavailableException("Catalogue returned no branch sale facts");
+            }
+            Map<BranchVariant, BranchCartSaleFact> facts = new HashMap<>();
+            for (BranchCartSaleFact fact : returned) {
+                if (fact == null || !requested.contains(fact.key()) || facts.putIfAbsent(fact.key(), fact) != null) {
+                    throw new RetailIntegrationUnavailableException("Catalogue returned unverifiable branch sale facts");
+                }
+            }
+            if (facts.size() != requested.size()) {
+                throw new RetailIntegrationUnavailableException("Catalogue returned incomplete branch sale facts");
+            }
+            return facts;
+        } catch (CatalogueSalesException exception) {
+            if (exception.reason() == CatalogueSalesException.Reason.NOT_FOUND) {
+                throw new RetailConflictException("A cart product is no longer available at its selected branch");
+            }
+            throw new RetailIntegrationUnavailableException("Catalogue integration is unavailable");
+        }
+    }
+
+    private BranchVariant branchKey(CartLine line) {
+        return new BranchVariant(line.getVariantId(), line.getLocationId());
     }
 
     private Map<Long, CheckoutDtos.BranchOrderCheckoutInput> choices(List<CheckoutDtos.BranchOrderCheckoutInput> inputs) {

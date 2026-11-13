@@ -27,6 +27,9 @@ public class RetailPaymentService {
         if (checkout.getPaymentState() != PaymentState.ACCEPTED_UNPAID) {
             throw new RetailConflictException("Payment cannot be initiated in the current checkout state");
         }
+        if (checkout.isCounterCash()) {
+            throw new RetailConflictException("This checkout is paid in cash at the branch counter");
+        }
         var expiry = expiryService.getIfAvailable();
         if (expiry != null) expiry.requirePaymentBeforeDeadline(checkoutId);
         checkout.beginPayment();

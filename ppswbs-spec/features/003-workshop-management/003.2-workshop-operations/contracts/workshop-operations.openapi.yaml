@@ -541,7 +541,16 @@ components:
     ReasonedRequest:
       type: object
       required: [reasonCode]
-      properties: { reasonCode: { type: string }, reasonNote: { type: string }, evidenceReference: { type: string } }
+      description: >-
+        Fixed reason-code catalogue (backfilled 2026-11-12). Codes marked
+        note-required need reasonNote; TICKET_REDELIVERY_UNAVAILABLE also needs
+        evidenceReference (the failed-redelivery correlation reference).
+      properties:
+        reasonCode:
+          type: string
+          enum: [TICKET_REDELIVERY_UNAVAILABLE, CUSTOMER_DEVICE_UNAVAILABLE, EARLY_CHECKIN, PHYSICAL_VOUCHER_VERIFIED, INSTRUCTOR_UNAVAILABLE, FACILITY_ISSUE, WEATHER_EMERGENCY, RECORDING_ERROR, OTHER_REQUIRES_NOTE]
+        reasonNote: { type: string }
+        evidenceReference: { type: string }
     Ticket:
       type: object
       required: [ticketCode, sessionId, locationId, validityState, attendanceState]

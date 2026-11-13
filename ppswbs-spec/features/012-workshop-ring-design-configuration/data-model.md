@@ -1,9 +1,9 @@
 # Feature-012 Data Model — Workshop Ring Design Configuration
 
-Date created: 2026-11-08  
-Date updated: 2026-11-08  
-Author: Ngô Tiến Đạt  
-Last updated by: Ngô Tiến Đạt  
+Date created: 2026-11-08
+Date updated: 2026-11-09
+Author: Ngô Tiến Đạt
+Last updated by: Ngô Tiến Đạt
 
 **Status:** SPEC/DESIGN READY FOR REVIEW; physical mapping and migration remain
 implementation gates.

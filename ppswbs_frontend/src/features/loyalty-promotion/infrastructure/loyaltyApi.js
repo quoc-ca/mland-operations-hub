@@ -31,7 +31,8 @@ export function loyaltyApi(request) {
     listWorkshopSessions: ({ from } = {}) => request('/api/v1/workshop-sessions', { query: { from } }),
 
     // Product targets for the Manager picker: read-only use of 002 management reads (productmanagement REST).
-    searchCatalogueProducts: ({ q, page } = {}) => request('/api/v1/catalogue-management/products', { query: { q, page } }),
+    // locationId (002 US10, FR-051): only products sold at that branch.
+    searchCatalogueProducts: ({ q, page, locationId } = {}) => request('/api/v1/catalogue-management/products', { query: { q, page, locationId } }),
     getCatalogueProduct: productId => request(`/api/v1/catalogue-management/products/${id(productId)}`),
 
     // Names of product targets on public and Member pages: 002's public catalogue (published products only).

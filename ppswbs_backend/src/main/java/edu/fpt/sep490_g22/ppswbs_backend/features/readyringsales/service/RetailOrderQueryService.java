@@ -18,7 +18,7 @@ public class RetailOrderQueryService {
     private final RetailCataloguePort catalogue;
 
     public List<RetailOrderHistoryView> list(Long memberId) {
-        Map<Long, RetailCataloguePort.CartProductFact> facts = new HashMap<>();
+        Map<VariantLocationKey, RetailCataloguePort.CartProductFact> facts = new HashMap<>();
         return orders.findOwnedOrders(memberId).stream().map(order -> view(order, facts)).toList();
     }
 
@@ -27,26 +27,34 @@ public class RetailOrderQueryService {
             .orElseThrow(() -> new RetailNotFoundException("Retail order does not exist")), new HashMap<>());
     }
 
-    private RetailOrderHistoryView view(RetailOrder order, Map<Long, RetailCataloguePort.CartProductFact> facts) {
+    /** Member-safe view reused by the Staff pickup desk, which adds its own operational facts. */
+    RetailOrderHistoryView view(RetailOrder order) { return view(order, new HashMap<>()); }
+
+    private RetailOrderHistoryView view(RetailOrder order,
+                                        Map<VariantLocationKey, RetailCataloguePort.CartProductFact> facts) {
         var items = order.getItems().stream().map(item -> {
-            var current = facts.computeIfAbsent(item.getVariantId(), this::currentProduct);
+            var current = facts.computeIfAbsent(new VariantLocationKey(item.getVariantId(), order.getLocationId()), this::currentProduct);
             return new RetailOrderHistoryView.Item(item.getVariantId(), current.productName(), current.sku(), current.size(),
                 item.getQuantity(), money(item.getUnitPrice()), money(item.getLineTotal()));
         }).toList();
         // Current checkout creation assigns READY_FOR_PICKUP without a Staff handover; it is not evidence of readiness.
         String fulfilment = "READY_FOR_PICKUP".equals(order.getFulfilmentState()) && !order.isPickupReadyConfirmed()
             ? null : order.getFulfilmentState();
+        var checkout = order.getGroupedCheckout();
         return new RetailOrderHistoryView(order.getId(), order.getLocationId(), order.getFulfilmentMethod(),
             order.getPaymentState().name(), fulfilment, money(order.getSubtotal()),
-            money(order.getShippingCharge()), money(order.getPayableAmount()), order.getGroupedCheckout().getCreatedAt(), items);
+            money(order.getShippingCharge()), money(order.getPayableAmount()), checkout.getCreatedAt(), items,
+            checkout.getId(), checkout.getPaymentMethod(), checkout.getCounterPaymentDeadline());
     }
 
-    private RetailCataloguePort.CartProductFact currentProduct(Long variantId) {
-        try { return catalogue.readCartProduct(variantId); }
+    private RetailCataloguePort.CartProductFact currentProduct(VariantLocationKey key) {
+        try { return catalogue.readCartProduct(key.variantId(), key.locationId()); }
         catch (RetailIntegrationUnavailableException ex) {
             return new RetailCataloguePort.CartProductFact(null, null, null, null, null, null, false);
         }
     }
 
     private static String money(BigDecimal amount) { return amount.stripTrailingZeros().toPlainString(); }
+
+    private record VariantLocationKey(Long variantId, Long locationId) {}
 }

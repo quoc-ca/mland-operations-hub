@@ -710,7 +710,7 @@
             "$ref": "#/components/responses/DependencyUnavailable"
           }
         },
-        "description": "Save current voucher once; same resource is idempotent, no reservation/quota use. No memberId in input."
+        "description": "Save current voucher once; same resource is idempotent, no reservation/quota use. No memberId in input. Only a voucher listed publicly now (enabled, inside its window, with a public target) can be saved; any other programme answers 404 PROMOTION_NOT_FOUND so an ID never reveals a code. A voucher saved earlier stays saveable and listed with its availability (2026-11-10 review). A refused write is audited as request.refused (spec FR-043)."
       }
     },
     "/api/v1/members/me/loyalty-accounts/current": {
@@ -1152,6 +1152,15 @@
             },
             "minItems": 1,
             "uniqueItems": true
+          },
+          "branchIds": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PositiveId"
+            },
+            "minItems": 1,
+            "uniqueItems": true,
+            "description": "Session 2026-11-09: optional, VOUCHER only. Omitted = every branch. Each branch must exist and be active when saved. AUTO_DISCOUNT with branchIds is rejected (VALIDATION_FAILED). Immutable after create."
           }
         },
         "required": [],
@@ -1167,7 +1176,7 @@
             ]
           }
         ],
-        "description": "At least one product/variant set, no branch restriction."
+        "description": "At least one product/variant set; optional branchIds (voucher only) ANDed with the product/variant scope against each cart line's branch."
       },
       "WorkshopTargets": {
         "type": "object",
@@ -1736,9 +1745,11 @@
               "SCHEDULED",
               "PAUSED",
               "EXPIRED",
-              "NO_PUBLIC_TARGET"
+              "NO_PUBLIC_TARGET",
+              "NO_USES_LEFT",
+              "MEMBER_LIMIT_REACHED"
             ],
-            "description": "NO_PUBLIC_TARGET: product program whose targets are currently all hidden, unpublished or deleted (shown as \"Hiện không có sản phẩm áp dụng\")."
+            "description": "NO_PUBLIC_TARGET: product program whose targets are currently all hidden, unpublished or deleted, including a program whose size targets are all no longer public (shown as \"Hiện không có sản phẩm áp dụng\"). NO_USES_LEFT: used plus held uses reached the total limit. MEMBER_LIMIT_REACHED: this Member's used plus held uses reached the per-member limit. Added 2026-11-10 (review); held uses count until released."
           }
         },
         "required": [
@@ -2040,7 +2051,8 @@
             "type": "string",
             "enum": [
               "PRODUCT",
-              "VARIANT"
+              "VARIANT",
+              "BRANCH"
             ]
           },
           "targetKey": {
@@ -2051,9 +2063,10 @@
             "enum": [
               "DELETED",
               "NOT_PUBLIC",
-              "NOT_ON_SALE"
+              "NOT_ON_SALE",
+              "BRANCH_INACTIVE"
             ],
-            "description": "DELETED: soft-deleted or gone; NOT_PUBLIC: unpublished, hidden or its category inactive; NOT_ON_SALE: public but no size on sale."
+            "description": "DELETED: soft-deleted or gone; NOT_PUBLIC: unpublished, hidden or its category inactive; NOT_ON_SALE: public but no size on sale; BRANCH_INACTIVE (dimension BRANCH, Session 2026-11-09): the branch of a product voucher no longer exists or is no longer active."
           }
         },
         "required": [

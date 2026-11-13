@@ -8,6 +8,7 @@ import { useProductCommand } from '../ProductDetailPage';
 import { newCommandId } from '../../../../../shared/api/http';
 import { ApplyApproved, ApplyNowToggle, approvedRows, BulkPriceBar, PriceGap, SelectCell } from './BatchPrices';
 import { NoticeAt } from '../notices';
+import { useRole } from '../../../../../shared/auth/useRole';
 
 /**
  * T034 initial review, before the first publication: submit freezes the content and every size's proposal;
@@ -17,6 +18,7 @@ import { NoticeAt } from '../notices';
 export function ReviewSection({ product, api, reload, setNotice, deleted, missing = {}, flagMissing = () => {} }) {
   const t = useT(messages);
   const review = currentReview(product);
+  const isManager = useRole() === 'MANAGER'; // only a Manager decides (FR-002); a Staff member would get 403
   const submitCommand = useProductCommand({ reload, setNotice });
   const [confirmSubmit, setConfirmSubmit] = useState(false);
   const history = [...(product.reviews || [])].sort((a, b) => b.revision - a.revision);
@@ -63,7 +65,7 @@ export function ReviewSection({ product, api, reload, setNotice, deleted, missin
         <ErrorNotice error={submitCommand.error} messages={messages} onRetry={submitCommand.retry} />
       </ConfirmDialog>
 
-      {!deleted && review?.state === 'PENDING' && <ReviewDecision product={product} review={review} api={api} reload={reload} setNotice={setNotice} />}
+      {!deleted && review?.state === 'PENDING' && isManager && <ReviewDecision product={product} review={review} api={api} reload={reload} setNotice={setNotice} />}
 
       <NoticeAt at="review" />
 
@@ -188,7 +190,12 @@ function ReviewDecision({ product, review, api, reload, setNotice }) {
             </>
           ) : (
             <Field label={t('decision.reason')} error={errors.reason || serverErrors.reason}>
-              <textarea value={reason} maxLength={LIMITS.reasonMax} onChange={event => setReason(event.target.value)} />
+              {/* The error goes away as soon as the reason is valid (Session 2026-11-04: marks clear once fixed). */}
+              <textarea value={reason} maxLength={LIMITS.reasonMax} onChange={event => {
+                const next = event.target.value;
+                setReason(next);
+                if (!checkReason(next)) setErrors(current => (current.reason ? { ...current, reason: undefined } : current));
+              }} />
             </Field>
           )}
           {serverErrors.prices && <p className="field-error">{serverErrors.prices}</p>}

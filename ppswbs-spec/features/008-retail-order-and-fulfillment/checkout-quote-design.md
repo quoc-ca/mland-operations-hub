@@ -1,7 +1,7 @@
 # FE-08 Durable Checkout Quote Design
 
 **Date created**: 2026-10-30
-**Date updated**: 2026-10-30
+**Date updated**: 2026-11-12
 **Author**: Thinh
 **Last updated by**: Thinh
 
@@ -121,6 +121,18 @@ choices, invalid selection and untrusted fee input; re-preview on stale cart,
 shipping or changed FE-06 digest. On unavailable catalogue, loyalty or carrier
 inputs, fail without creating an accepted checkout. Existing cart data stays
 available to the Member after a rejected acceptance.
+
+### Ticked cart lines (2026-11-12)
+
+Thinh approved marketplace-style ticks: the Member may check out only some cart
+lines. The preview, shipping quote and checkout requests carry an optional
+`cartLineIds` list. The quote stores only the ticked lines as its items, and
+`branchOrders` must match the locations of those lines. At acceptance the
+validator requires every quoted line to still be in the cart with the same
+quantity and the cart version to be unchanged; other cart lines may remain.
+Acceptance removes only the purchased lines from the cart. A missing list keeps
+the earlier whole-cart behaviour; an empty, duplicated or unknown list is
+rejected with 409.
 
 ## Verification
 

@@ -27,6 +27,24 @@ public interface RetailVariantHoldRepository extends JpaRepository<RetailVariant
                                                  @Param("status") RetailVariantHoldStatus status,
                                                  @Param("asOf") Instant asOf);
 
+    interface BranchHeldQuantity {
+        Long getVariantId();
+        Long getLocationId();
+        Long getHeldQuantity();
+    }
+
+    /** Valid held quantity per size x branch (FR-053); location 0 rows are legacy size-level holds. */
+    @Query("select hold.variantId as variantId, hold.locationId as locationId, sum(hold.quantity) as heldQuantity "
+        + "from RetailVariantHold hold where hold.variantId in :variantIds and hold.status = :status "
+        + "and hold.createdAt <= :asOf group by hold.variantId, hold.locationId")
+    List<BranchHeldQuantity> sumValidHeldByVariantAndLocation(@Param("variantIds") List<Long> variantIds,
+                                                              @Param("status") RetailVariantHoldStatus status,
+                                                              @Param("asOf") Instant asOf);
+
+    Optional<RetailVariantHold> findByGroupedCheckoutIdAndVariantIdAndLocationId(String groupedCheckoutId, Long variantId,
+                                                                                Long locationId);
+
+    /** Legacy size-level lookup; ambiguous once a checkout holds the same size at several branches. */
     Optional<RetailVariantHold> findByGroupedCheckoutIdAndVariantId(String groupedCheckoutId, Long variantId);
     List<RetailVariantHold> findByGroupedCheckoutId(String groupedCheckoutId);
 

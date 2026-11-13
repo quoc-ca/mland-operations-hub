@@ -1,9 +1,9 @@
 # Feature Specification: Workshop Ring Design Configuration
 
-Date created: 2026-11-08  
-Date updated: 2026-11-08  
-Author: Ngô Tiến Đạt  
-Last updated by: Ngô Tiến Đạt  
+Date created: 2026-11-08
+Date updated: 2026-11-09
+Author: Ngô Tiến Đạt
+Last updated by: Ngô Tiến Đạt
 
 **Feature:** 012 — Workshop Ring Design Configuration  
 **Status:** SPEC/DESIGN READY FOR REVIEW — IMPLEMENTATION BLOCKED BY APPROVAL
@@ -65,6 +65,13 @@ The server supplies the current option schema and values for:
 - Gemstone/component selections and quantities.
 - Attachment selections, quantities and placement where supported.
 - Engraving content and placement where supported.
+
+The frontend renders these controls from the server-returned option schema. It
+must not hard-code available materials, sizes, components, placements,
+quantities or engraving limits. Each control shows its label, current value and
+a short explanation of its effect on the visual preview. Sliders are used only
+for numeric or ordered options; discrete catalogue choices use selectable cards,
+pills or equivalent accessible controls.
 
 The exact size taxonomy, placement vocabulary, quantity limits and engraving
 content rules are catalogue/rule data and remain a pre-implementation gate.
@@ -183,9 +190,11 @@ the existing `DB.md` proposal before migration or implementation.
 - Member history contains current design and prior version snapshots.
 - Member may archive an unsubmitted design but cannot hard-delete its history.
 
-The concrete server-session storage mechanism is a technical dependency and must
-reuse an approved shared session boundary or an explicitly approved feature-owned
-store. This spec does not silently create a global session policy.
+The server-session storage mechanism is the Feature-012-owned MySQL logical
+`guest_design_sessions` boundary. The frontend stores only the opaque session
+reference required by the approved transport and never persists raw identity,
+database IDs or design payloads in local storage. Session persistence and
+cleanup remain backend responsibilities.
 
 ## 8. Booking attachment
 
@@ -242,8 +251,8 @@ new key for the same user action. Versioned commands use `If-Match-Version`.
 - Do not store raw secrets or payment data in design records.
 - Guest session data is subject to the 20-minute inactivity expiry and approved
   cleanup policy.
-- Member design history follows the approved business-history retention policy;
-  the exact retention duration must be confirmed before implementation.
+- Member design history is retained for three years under the approved
+  business-history policy.
 - Save, evaluate, archive, attach, denied access, stale conflict and rule
   failures produce minimized audit evidence with actor scope, action, outcome,
   version and correlation ID.
@@ -307,3 +316,28 @@ The logical decisions below are now fixed for design review:
 Implementation remains blocked only by physical schema/migration approval,
 session-store implementation, rule-facade implementation, booking-facade
 implementation and formal Tech Lead approval.
+
+## 15. Frontend interaction contract from Figma
+
+The approved-for-review visual baseline is a spacious two-column desktop
+configurator and a stacked mobile configurator. The frontend must preserve these
+observable behaviors:
+
+- The preview updates immediately from local selected values; it must not wait
+  for Save/Evaluate to redraw.
+- Save/Evaluate remains the server-authoritative boundary. A local preview before
+  validation is clearly labelled as preview and is not a validated design or
+  payable price.
+- Material, gemstone, ring size and band-width controls show the active
+  selection/value. Helper text stays adjacent to the control.
+- The estimate is labelled `Indicative estimate`/`Tham khảo` and keeps the
+  warning that package price and deposit are unchanged.
+- Branch incompatibility offers correction actions while preserving the saved
+  design and safe unsaved form values.
+- Guest and Member share the customer UI; backend responses determine ownership,
+  session validity and authorization.
+- Loading, empty, validation, unavailable-service, session-expired and retry
+  states must be represented without exposing internal IDs or session values.
+
+Figma is a visual/layout source only. It does not authorize new API fields,
+catalogue values, pricing rules or business transitions.

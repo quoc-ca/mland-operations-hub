@@ -16,17 +16,19 @@ This use case includes the following sub-flows:
 
 - Submit New Product for Approval
 - Submit Price Proposal for an Existing Size
+- Submit Price Proposals for Several Sizes
 
 #### Preconditions
 
 1. The actor is signed in, the account is active, and the current role is Staff or Manager with product-management permission.
 2. The product exists and has not been deleted.
+3. A Staff can submit only for a product sold at one or more of the Staff's assigned branches.
 
 #### Normal Flow
 
 **Submit New Product for Approval**
 
-1. The actor opens a product that has never been published and whose review record is Draft or Rejected.
+1. A Staff opens a product that has never been published and whose review record is Draft or Rejected. A Manager does not use this step by hand: the Manager's create screen and Publish now send the submission automatically (UC-12, UC-17).
 2. The actor selects Submit for approval.
 3. The system checks the latest version, an active category, valid content, at least one usable image and a proposed price for every size.
 4. The system saves one Pending review record linked to the submitted version and to one proposal per size, records an audit entry and confirms (MSG20).
@@ -63,6 +65,10 @@ The system does not ask the actor to submit the same version twice and keeps the
 
 The system blocks a second independent proposal for the same size (MSG19). The actor edits the current proposal instead, which creates a new version, invalidates the previous version and is submitted again. Concurrent requests cannot create two pending proposals for one size.
 
+**All sub-flows — Product is sold only at branches outside the Staff's scope**
+
+The Staff can view the product but cannot submit (MSG01).
+
 **Price Proposal Step 2 — Invalid amount**
 
 The system rejects a zero, negative or non-whole amount (MSG08).
@@ -79,7 +85,7 @@ The system rejects the stale request (MSG03) or reports that the result is not c
 
 #### Business Rules
 
-BR-14-01, BR-14-02, BR-14-03, BR-14-04
+BR-14-01, BR-14-02, BR-14-03, BR-14-04, BR-14-05
 
 #### Business Rule Definitions
 
@@ -89,3 +95,4 @@ BR-14-01, BR-14-02, BR-14-03, BR-14-04
 | BR-14-02 | Each proposal keeps its own code, version, product, size, terms, amount, submitter and status, and a proposed price is never used as the selling price. |
 | BR-14-03 | Each size has at most one current pending proposal, including those submitted with a new product; editing it creates a new version and invalidates the old one. |
 | BR-14-04 | A rejected product version may be edited and submitted again as a new version; a rejected price cannot be applied. |
+| BR-14-05 | Submitting a new product by hand applies to Staff only, and only for a product sold at one or more of the Staff's assigned branches; a Manager's screens send the submission as a separate command. Prices are shared by all branches. |
