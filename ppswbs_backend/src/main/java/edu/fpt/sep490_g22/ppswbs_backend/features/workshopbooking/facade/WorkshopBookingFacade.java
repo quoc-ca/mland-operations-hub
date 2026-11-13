@@ -22,6 +22,12 @@ public interface WorkshopBookingFacade {
     /** The one Loyalty context of a booking group, with its ticket identities (003.3 FR-030). */
     BookingGroupLoyaltyOutcomeSource getGroupLoyaltyOutcomeSource(String groupReference);
 
+    /**
+     * Resolves a 003.2 ticket reference ({@code attendance_tickets.reference}) to the ticket booking that holds it,
+     * so 003.3 can find the ticket folio keyed by ticket code (decision 2026-11-13). Empty when unknown.
+     */
+    java.util.Optional<TicketBookingRef> findTicketBookingByOperationsReference(String ticketReference);
+
     /** Returns only an authorization decision; contact proof is neither returned nor logged. */
     CustomerBookingAccessDecision verifyCustomerBookingAccess(CustomerBookingAccessQuery query);
 

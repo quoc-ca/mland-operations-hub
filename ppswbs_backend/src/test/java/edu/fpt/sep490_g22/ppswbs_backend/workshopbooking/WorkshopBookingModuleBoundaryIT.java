@@ -226,12 +226,12 @@ class WorkshopBookingModuleBoundaryIT {
         // Booking owns only its own domain routes
         for (String route : bookingRoutes) {
             assertThat(route).satisfiesAnyOf(
-                    r -> assertThat(r).startsWith("/api/v1/workshop-bookings"),
-                    r -> assertThat(r).startsWith("/api/v1/workshop-booking-quotes"),
+                    // Decision 2026-11-13: a direct booking is only a booking group (003.1 FR-044..FR-048).
                     r -> assertThat(r).startsWith("/api/v1/workshop-cart-quotes"),
                     r -> assertThat(r).startsWith("/api/v1/workshop-booking-groups"),
-                    r -> assertThat(r).startsWith("/api/v1/booking-"),
-                    r -> assertThat(r).startsWith("/api/v1/members/me/workshop-bookings"),
+                    r -> assertThat(r).startsWith("/api/v1/workshop-booking-group-lookups"),
+                    r -> assertThat(r).startsWith("/api/v1/workshop-booking-group-magic-links/"),
+                    r -> assertThat(r).isEqualTo("/api/v1/members/me/workshop-booking-groups"),
                     // Cart contract (003.1 FR-040/FR-041): ticket recipients and the late-payment Manager queue.
                     r -> assertThat(r).startsWith("/api/v1/workshop-tickets/"),
                     r -> assertThat(r).isEqualTo("/api/v1/late-payment-reviews")

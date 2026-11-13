@@ -131,70 +131,25 @@ class WorkshopBookingDtoTests {
     }
 
     @Test
-    @DisplayName("T013-3: GuestLookupRequest validates that exactly one of contactEmail or contactPhone is provided")
-    void verifyGuestLookupRequestValidation() {
-        // Valid: with email only
-        GuestLookupRequest emailOnly = GuestLookupRequest.builder()
-                .bookingCode("BK-001")
-                .contactEmail("guest@example.com")
-                .build();
-        assertThat(validator.validate(emailOnly)).isEmpty();
+    @DisplayName("FR-048: group lookup needs a code; a Magic Link incident accepts only REVOKE or ROTATE with a reason")
+    void verifyGroupRecoveryRequestValidation() {
+        assertThat(validator.validate(new GroupRecoveryDtos.GroupLookupRequest("GRP-1", "guest@example.com", null)))
+                .isEmpty();
+        assertThat(validator.validate(new GroupRecoveryDtos.GroupLookupRequest(" ", "guest@example.com", null)))
+                .isNotEmpty();
+        assertThat(validator.validate(new GroupRecoveryDtos.GroupLookupRequest("GRP-1", "not-an-email", null)))
+                .isNotEmpty();
 
-        // Valid: with phone only
-        GuestLookupRequest phoneOnly = GuestLookupRequest.builder()
-                .bookingCode("BK-001")
-                .contactPhone("0912345678")
-                .build();
-        assertThat(validator.validate(phoneOnly)).isEmpty();
-
-        // Invalid: both email and phone provided
-        GuestLookupRequest both = GuestLookupRequest.builder()
-                .bookingCode("BK-001")
-                .contactEmail("guest@example.com")
-                .contactPhone("0912345678")
-                .build();
-        Set<ConstraintViolation<GuestLookupRequest>> vBoth = validator.validate(both);
-        assertThat(vBoth).anyMatch(v -> v.getMessage().contains("Exactly one of contactEmail or contactPhone"));
-
-        // Invalid: neither provided
-        GuestLookupRequest neither = GuestLookupRequest.builder()
-                .bookingCode("BK-001")
-                .build();
-        Set<ConstraintViolation<GuestLookupRequest>> vNeither = validator.validate(neither);
-        assertThat(vNeither).anyMatch(v -> v.getMessage().contains("Exactly one of contactEmail or contactPhone"));
+        assertThat(validator.validate(new GroupRecoveryDtos.GroupMagicLinkIncidentRequest("REVOKE",
+                "Customer reported lost email"))).isEmpty();
+        assertThat(validator.validate(new GroupRecoveryDtos.GroupMagicLinkIncidentRequest("DELETE", "x")))
+                .isNotEmpty();
+        assertThat(validator.validate(new GroupRecoveryDtos.GroupMagicLinkIncidentRequest("ROTATE", " ")))
+                .isNotEmpty();
+        assertThat(validator.validate(new GroupRecoveryDtos.GroupPendingHoldReleaseRequest(null, "0912345678", "")))
+                .isNotEmpty();
     }
 
-    @Test
-    @DisplayName("T013-3: MagicLinkIncidentRequest and LatePaymentFollowUpRequest validate action enums and reason length")
-    void verifyActionRequestsValidation() {
-        // MagicLinkIncidentRequest
-        MagicLinkIncidentRequest validMl = MagicLinkIncidentRequest.builder()
-                .action("REVOKE")
-                .reason("Customer reported lost email")
-                .build();
-        assertThat(validator.validate(validMl)).isEmpty();
-
-        MagicLinkIncidentRequest badAction = MagicLinkIncidentRequest.builder()
-                .action("DELETE")
-                .reason("Invalid action")
-                .build();
-        Set<ConstraintViolation<MagicLinkIncidentRequest>> vMl = validator.validate(badAction);
-        assertThat(vMl).anyMatch(v -> v.getMessage().contains("REVOKE or ROTATE"));
-
-        // LatePaymentFollowUpRequest
-        LatePaymentFollowUpRequest validLp = LatePaymentFollowUpRequest.builder()
-                .action("RECORD")
-                .reason("Contacted customer via telephone")
-                .build();
-        assertThat(validator.validate(validLp)).isEmpty();
-
-        LatePaymentFollowUpRequest badLpAction = LatePaymentFollowUpRequest.builder()
-                .action("CANCEL")
-                .reason("Invalid action")
-                .build();
-        Set<ConstraintViolation<LatePaymentFollowUpRequest>> vLp = validator.validate(badLpAction);
-        assertThat(vLp).anyMatch(v -> v.getMessage().contains("RECORD or ESCALATE"));
-    }
 
     @Test
     @DisplayName("T013-4: WorkshopBookingExceptionHandler maps exceptions into typed ProblemDetailResponse")

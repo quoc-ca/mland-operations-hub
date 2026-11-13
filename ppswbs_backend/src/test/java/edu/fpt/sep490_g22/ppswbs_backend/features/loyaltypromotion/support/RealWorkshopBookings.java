@@ -1,6 +1,5 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.support;
 
-import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountSummary;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.dao.LoyaltyWalletRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.dao.PromotionProgramRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.dao.PromotionRevisionRepository;
@@ -10,37 +9,30 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.entity.Progra
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.entity.PromotionProgram;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.entity.PromotionRevision;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.entity.PromotionTarget;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.AcceptedSourceContext;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.AcceptedBenefitRef;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.BenefitPreview;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.BenefitSelection;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.LoyaltyFacade;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.SelectionChoice;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.SourceKind;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.TargetDimension;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.TargetScope;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.TrustedSourceContext;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.WorkshopFact;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.WorkshopSessionFact;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.service.LoyaltyCalculator.DiscountTerms;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.BookingInvoiceRepository;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.BookingPaymentAttemptRepository;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.BookingPaymentAttempt;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.PaymentAttemptStatus;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.MemberWorkshopBookingQuoteRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.WorkshopBookingRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.BookingInvoice;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.BookingStatus;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.MemberWorkshopBookingQuote;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.WorkshopBooking;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.ApplyVerifiedDepositPaymentEvidenceCommand;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.DepositPaymentEvidenceOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.WorkshopBookingFacade;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.BookingDepositReconciliationService;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.CapacityCommitOutcome;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.CapacityReleaseOutcome;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.DeliverySafeTicket;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.DeliverySafeTicketSet;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.SessionEntitlementProjection;
-import java.util.ArrayList;
-import java.util.concurrent.Callable;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.WorkshopBookingRepository;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dto.CreateBookingRequest;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dto.WorkshopBookingQuoteRequest;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dto.WorkshopBookingQuoteResponse;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.BookingInvoice;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.WorkshopBooking;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.WorkshopOperationsAdapter;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.MemberQuoteBookingAcceptanceService;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.WorkshopBookingAuthorizationService;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.WorkshopBookingQuoteService;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.CapacityHoldOutcome;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.PublishedPackageSelectionSnapshot;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.SaleEligibilitySnapshot;
+import edu.fpt.sep490_g22.ppswbs_backend.support.legacybooking.LegacyDirectBookings;
 import org.springframework.boot.test.context.TestComponent;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -49,22 +41,18 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.Mockito.when;
-
 /**
- * Plays a Member booking a workshop through FE-03's REAL quote and acceptance services. The test class declares
- * {@code @MockitoBean} for the two boundaries owned by other features, {@link WorkshopOperationsAdapter} (003.2:
- * package, sessions, capacity) and {@link WorkshopBookingAuthorizationService} (001 identity); this helper only
- * gives them a published package with one open session. Everything else is FE-03's and FE-06's own code.
+ * Plays a Member's single workshop booking against FE-06's REAL Loyalty facade. Since the 003.1 decision of
+ * 2026-11-13 a direct booking can only be created as a booking group, so the single booking is seeded with
+ * {@link LegacyDirectBookings}; the Loyalty side (preview, reservation, deposit settlement, unpaid expiry) runs
+ * exactly as the removed single-booking services drove it. The single-booking source stays only as long as the
+ * 003.3 booking-wide settlement it serves (open 003.3 decision of 2026-11-13).
  */
 @TestComponent
 public class RealWorkshopBookings {
@@ -72,39 +60,40 @@ public class RealWorkshopBookings {
     public static final long PACKAGE_ID = 9_772L;
     private static final long BRANCH_ID = 3L;
 
-    private final WorkshopBookingQuoteService quotes;
-    private final MemberQuoteBookingAcceptanceService acceptance;
-    private final WorkshopOperationsAdapter operations;
-    private final WorkshopBookingAuthorizationService authorization;
+    /** The persisted quote reference a test confirms with {@link #accept}. */
+    public record Quote(String quoteRef, BenefitPreview preview) {
+    }
+
+    private record PendingQuote(long member, UUID session, int participants, BenefitSelection selection,
+                                TrustedSourceContext source, BenefitPreview preview) {
+    }
+
+    private final LoyaltyFacade loyalty;
+    private final LegacyDirectBookings legacy;
+    private final WorkshopBookingFacade bookingFacade;
     private final WorkshopBookingRepository bookings;
     private final BookingInvoiceRepository invoices;
+    private final MemberWorkshopBookingQuoteRepository memberQuotes;
     private final LoyaltyWalletRepository wallets;
     private final PromotionProgramRepository programs;
     private final PromotionRevisionRepository revisions;
     private final PromotionTargetRepository targets;
     private final TransactionTemplate transaction;
-    private final WorkshopBookingFacade bookingFacade;
-    private final BookingPaymentAttemptRepository attempts;
-    private final BookingDepositReconciliationService reconciliation;
-    private UUID session;
+    private final Map<String, PendingQuote> openQuotes = new ConcurrentHashMap<>();
+    private long pricePerParticipant;
     private Instant sessionStart;
 
-    public RealWorkshopBookings(WorkshopBookingQuoteService quotes, MemberQuoteBookingAcceptanceService acceptance,
-                                WorkshopOperationsAdapter operations, WorkshopBookingAuthorizationService authorization,
+    public RealWorkshopBookings(LoyaltyFacade loyalty, LegacyDirectBookings legacy, WorkshopBookingFacade bookingFacade,
                                 WorkshopBookingRepository bookings, BookingInvoiceRepository invoices,
-                                LoyaltyWalletRepository wallets, PromotionProgramRepository programs,
-                                PromotionRevisionRepository revisions, PromotionTargetRepository targets,
-                                TransactionTemplate transaction, WorkshopBookingFacade bookingFacade,
-                                BookingPaymentAttemptRepository attempts, BookingDepositReconciliationService reconciliation) {
+                                MemberWorkshopBookingQuoteRepository memberQuotes, LoyaltyWalletRepository wallets,
+                                PromotionProgramRepository programs, PromotionRevisionRepository revisions,
+                                PromotionTargetRepository targets, TransactionTemplate transaction) {
+        this.loyalty = loyalty;
+        this.legacy = legacy;
         this.bookingFacade = bookingFacade;
-        this.attempts = attempts;
-        this.reconciliation = reconciliation;
-        this.quotes = quotes;
-        this.acceptance = acceptance;
-        this.operations = operations;
-        this.authorization = authorization;
         this.bookings = bookings;
         this.invoices = invoices;
+        this.memberQuotes = memberQuotes;
         this.wallets = wallets;
         this.programs = programs;
         this.revisions = revisions;
@@ -112,11 +101,56 @@ public class RealWorkshopBookings {
         this.transaction = transaction;
     }
 
-    /**
-     * Pays the deposit through FE-03's REAL {@link WorkshopBookingFacade#applyVerifiedDepositPaymentEvidence}: the
-     * booking is confirmed, the holds committed and loyalty settled by FE-03. The payment attempt row stands for the
-     * payment-gateway feature (it is created there in production); 003.2 commits the holds and issues the tickets.
-     */
+    /** A package at the given price per participant with one session 20 days ahead; returns the session. */
+    public UUID openSession(long pricePerParticipant) {
+        this.pricePerParticipant = pricePerParticipant;
+        this.sessionStart = Instant.now().plus(20, ChronoUnit.DAYS);
+        return UUID.randomUUID();
+    }
+
+    /** FE-06's real preview for the Member's selection; nothing is reserved yet. */
+    public Quote quote(long member, UUID session, int participants, String choice, String code, String points) {
+        BenefitSelection selection = new BenefitSelection(SelectionChoice.valueOf(choice), code, new BigInteger(points));
+        TrustedSourceContext source = new TrustedSourceContext(SourceKind.WORKSHOP, member, Instant.now(), List.of(),
+                new WorkshopFact(PACKAGE_ID, participants,
+                        BigInteger.valueOf(Math.multiplyExact((long) participants, pricePerParticipant)),
+                        List.of(WorkshopSessionFact.of(session.toString(), BRANCH_ID, LocalDate.now().plusDays(20)))),
+                BigInteger.ZERO);
+        BenefitPreview preview = loyalty.previewBenefits(source, selection);
+        String quoteRef = UUID.randomUUID().toString();
+        openQuotes.put(quoteRef, new PendingQuote(member, session, participants, selection, source, preview));
+        return new Quote(quoteRef, preview);
+    }
+
+    /** Reserves the quote's benefits with FE-06 and stores the single booking it belongs to (PENDING_PAYMENT). */
+    public WorkshopBooking accept(long member, String quoteRef) {
+        PendingQuote quote = openQuotes.remove(quoteRef);
+        if (quote == null || quote.member() != member) throw new IllegalArgumentException("Unknown quote " + quoteRef);
+        String bookingCode = "BK-LY-" + UUID.randomUUID().toString().substring(0, 12);
+        Instant acceptedAt = Instant.now();
+        AcceptedBenefitRef accepted = transaction.execute(status -> loyalty.reserveAcceptedTransaction(
+                new AcceptedSourceContext(quote.source(), bookingCode, 1L, true, acceptedAt, acceptedAt.plusSeconds(600),
+                        quoteRef, quote.preview().termsDigest()),
+                quote.selection(), "create-" + bookingCode));
+        long post = accepted.postPromotionAmount().longValueExact();
+        legacy.pending(bookingCode, PACKAGE_ID, "Workshop nhẫn bạc", "member@example.test", "0900000000", member,
+                quote.participants(), List.of(quote.session()), BRANCH_ID, pricePerParticipant, post);
+        BenefitPreview preview = quote.preview();
+        transaction.executeWithoutResult(status -> memberQuotes.saveAndFlush(MemberWorkshopBookingQuote.builder()
+                .quoteRef(quoteRef).memberAccountId(member).packageId(PACKAGE_ID)
+                .packageNameSnapshot("Workshop nhẫn bạc").pricePerParticipant(pricePerParticipant)
+                .participantCount(quote.participants()).sessionFactsJson("[]")
+                .benefitSelectionJson("{\"choice\":\"" + quote.selection().choice() + "\"}")
+                .grossAmount(preview.grossAmount().longValueExact())
+                .programDiscount(preview.programDiscount().longValueExact())
+                .pointsUsed(preview.pointsUsed().longValueExact())
+                .pointDiscount(preview.pointDiscount().longValueExact())
+                .postPromotionAmount(post).earnBase(preview.earnBase().longValueExact())
+                .termsDigest(preview.termsDigest()).quoteState("ACCEPTED").acceptedBookingCode(bookingCode)
+                .createdAt(acceptedAt).expiresAt(acceptedAt.plusSeconds(1_800)).build()));
+        return reload(bookingCode);
+    }
+
     public DepositPaymentEvidenceOutcome payDeposit(WorkshopBooking booking) {
         try {
             return prepareDeposit(booking).call();
@@ -125,86 +159,34 @@ public class RealWorkshopBookings {
         }
     }
 
-    /** Creates the payment attempt now and returns the verified-evidence call, to be run (also concurrently) later. */
+    /**
+     * Creates the deposit attempt now and returns the verified-evidence call, to be run (also concurrently) later.
+     * A booking that is no longer pending or confirmed goes to the REAL facade, which refuses evidence for any
+     * reference that is not a booking group.
+     */
     public Callable<DepositPaymentEvidenceOutcome> prepareDeposit(WorkshopBooking booking) {
-        BookingInvoice invoice = invoice(booking.getBookingCode());
-        String merchantReference = "M-" + UUID.randomUUID();
-        transaction.executeWithoutResult(status -> attempts.saveAndFlush(BookingPaymentAttempt.builder()
-                .booking(bookings.findByBookingCode(booking.getBookingCode()).orElseThrow())
-                .invoice(invoices.findById(invoice.getId()).orElseThrow())
-                .attemptReference(UUID.randomUUID().toString()).merchantReference(merchantReference)
-                .providerCreateDate("20261101000000").attemptAmount(invoice.getDepositAmount())
-                .status(PaymentAttemptStatus.PENDING).paymentUrlSnapshot("https://sandbox.example.test/pay")
-                .expiresAt(Instant.now().plusSeconds(600)).createdAt(Instant.now()).updatedAt(Instant.now()).build()));
-        when(operations.commitBookingHolds(eq(booking.getBookingCode()), anyList(), anyString(), any()))
-                .thenReturn(CapacityCommitOutcome.accepted());
-        when(operations.getBookingTicketProjection(booking.getBookingCode())).thenAnswer(call -> {
-            List<DeliverySafeTicket> tickets = new ArrayList<>();
-            for (int i = 0; i < booking.getParticipantCount(); i++) {
-                tickets.add(new DeliverySafeTicket(UUID.randomUUID(), "QR-" + UUID.randomUUID(), "TK-" + UUID.randomUUID(),
-                        List.of(new SessionEntitlementProjection(session, BRANCH_ID, sessionStart, sessionStart.plusSeconds(7_200)))));
-            }
-            return new DeliverySafeTicketSet(tickets);
-        });
-        return () -> bookingFacade.applyVerifiedDepositPaymentEvidence(new ApplyVerifiedDepositPaymentEvidenceCommand(
-                booking.getBookingCode(), "ipn-" + booking.getBookingCode(), merchantReference, invoice.getDepositAmount(), "VND",
-                "op-" + UUID.randomUUID(), "corr-" + UUID.randomUUID()));
+        String code = booking.getBookingCode();
+        BookingStatus current = reload(code).getBookingStatus();
+        if (current != BookingStatus.PENDING_PAYMENT && current != BookingStatus.CONFIRMED) {
+            BookingInvoice invoice = invoice(code);
+            return () -> bookingFacade.applyVerifiedDepositPaymentEvidence(new ApplyVerifiedDepositPaymentEvidenceCommand(
+                    code, "ipn-" + code, "M-" + UUID.randomUUID(), invoice.getDepositAmount(), "VND",
+                    "op-" + UUID.randomUUID(), "corr-" + UUID.randomUUID()));
+        }
+        String merchant = legacy.depositAttempt(code, "20261101000000");
+        String transactionNumber = Long.toString(ThreadLocalRandom.current().nextLong(10_000_000L, 99_999_999L));
+        return () -> legacy.confirmDeposit(code, merchant, transactionNumber)
+                ? DepositPaymentEvidenceOutcome.accepted()
+                : DepositPaymentEvidenceOutcome.rejected(edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingRejectionReason.INVALID_STATE);
     }
 
-    /** Lets the hold run out and runs FE-03's REAL expiry reconciliation. */
+    /** The hold runs out with no verified payment: the booking expires and the held benefits are released. */
     public void expireUnpaid(WorkshopBooking booking) {
-        holdRunsOut(booking);
-        reconciliation.reconcileDue();
-    }
-
-    /** Moves the capacity hold into the past; 003.2 accepts the release. */
-    public void holdRunsOut(WorkshopBooking booking) {
-        transaction.executeWithoutResult(status -> {
-            WorkshopBooking locked = bookings.findByBookingCode(booking.getBookingCode()).orElseThrow();
-            locked.setHoldExpiresAt(Instant.now().minusSeconds(60));
-        });
-        when(operations.releaseBookingHolds(eq(booking.getBookingCode()), anyList(), anyString(), any()))
-                .thenReturn(CapacityReleaseOutcome.accepted());
-    }
-
-    /** FE-03's scheduled expiry/reconciliation pass, run once now. */
-    public void runExpiryReconciliation() {
-        reconciliation.reconcileDue();
-    }
-
-    /** A published package at the given price per participant with one open session; returns the session. */
-    public UUID openSession(long pricePerParticipant) {
-        UUID session = UUID.randomUUID();
-        Instant start = Instant.now().plus(20, ChronoUnit.DAYS);
-        this.session = session;
-        this.sessionStart = start;
-        when(operations.getPublishedPackageSelection(Long.toString(PACKAGE_ID))).thenReturn(new PublishedPackageSelectionSnapshot(
-                Long.toString(PACKAGE_ID), pricePerParticipant, 1, 4, 1, false, 0, "Workshop nhẫn bạc"));
-        when(operations.getSaleEligibility(session)).thenReturn(new SaleEligibilitySnapshot(session, true, "OPEN", BRANCH_ID,
-                start, start.plusSeconds(7_200), 10, LocalDate.now().plusDays(20)));
-        when(operations.reserveBookingCapacity(anyString(), eq(Long.toString(PACKAGE_ID)), anyList(), anyInt(), anyString(), any()))
-                .thenAnswer(call -> CapacityHoldOutcome.accepted(List.of(UUID.randomUUID()), Instant.now().plusSeconds(900)));
-        return session;
-    }
-
-    public WorkshopBookingQuoteResponse quote(long member, UUID session, int participants, String choice, String code, String points) {
-        when(authorization.requireMemberOwnership(anyString(), isNull())).thenReturn(
-                new AccountSummary(member, null, null, "member@example.test", Instant.now(), Instant.now()));
-        return quotes.preview("Bearer test", new WorkshopBookingQuoteRequest(PACKAGE_ID, List.of(session.toString()), participants,
-                new WorkshopBookingQuoteRequest.BenefitSelectionRequest(
-                        WorkshopBookingQuoteRequest.BenefitSelectionRequest.Choice.valueOf(choice), code, points)));
-    }
-
-    /** Accepts the quote as the Member; returns the booking FE-03 stored. */
-    public WorkshopBooking accept(long member, String quoteRef) {
-        CreateBookingRequest request = CreateBookingRequest.builder().quoteRef(quoteRef)
-                .contactEmail("member@example.test").contactPhone("0900000000").build();
-        String code = acceptance.accept(request, member, "corr-" + UUID.randomUUID(), null).getBookingCode();
-        return transaction.execute(status -> bookings.findByBookingCode(code).orElseThrow());
+        legacy.expireUnpaid(booking.getBookingCode());
     }
 
     public WorkshopBooking reload(String bookingCode) {
-        return transaction.execute(status -> bookings.findByBookingCode(bookingCode).orElseThrow());
+        return legacy.reload(bookingCode);
     }
 
     public BookingInvoice invoice(String bookingCode) {

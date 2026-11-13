@@ -15,14 +15,10 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.UUID;
 
@@ -133,6 +129,35 @@ public class GroupConfirmationService {
         if (group.getHoldExpiresAt() == null || group.getHoldExpiresAt().isAfter(Instant.now())) {
             return false;
         }
+        releaseWholeGroup(group, BookingStatus.EXPIRED, operationReference, correlationReference);
+        log.info("Released the whole booking group {} after its hold expired", groupCode);
+        return true;
+    }
+
+    /**
+     * FR-048 pending-hold release by the buyer: only a PENDING_PAYMENT group whose hold is still running and that
+     * has no gateway payment attempt (decision 2026-11-13), so a payment in flight is never orphaned. The whole
+     * group is released with its held voucher and points, and becomes CANCELLED. The caller has already proved the
+     * buyer; this runs in the caller's transaction.
+     */
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public void releasePendingGroupByBuyer(BookingGroup lockedGroup, boolean paymentAttemptExists,
+                                           String operationReference, String correlationReference) {
+        if (lockedGroup.getGroupStatus() != BookingStatus.PENDING_PAYMENT || lockedGroup.getHoldExpiresAt() == null
+                || !lockedGroup.getHoldExpiresAt().isAfter(Instant.now())) {
+            throw new WorkshopBookingProblemException(org.springframework.http.HttpStatus.CONFLICT, "INVALID_STATE",
+                    "The group no longer has an active unpaid hold");
+        }
+        if (paymentAttemptExists) {
+            throw new WorkshopBookingProblemException(org.springframework.http.HttpStatus.CONFLICT,
+                    "PAYMENT_ATTEMPT_EXISTS", "A payment was already started; the hold ends by itself");
+        }
+        releaseWholeGroup(lockedGroup, BookingStatus.CANCELLED, operationReference, correlationReference);
+        log.info("Released booking group {} at the buyer's request", lockedGroup.getGroupCode());
+    }
+
+    private void releaseWholeGroup(BookingGroup group, BookingStatus terminalStatus, String operationReference,
+                                   String correlationReference) {
         for (BookingGroupLine line : lines.findByGroupIdOrderByLineIndexAsc(group.getId())) {
             List<UUID> holdReferences = holdReferencesOf(line);
             if (!holdReferences.isEmpty()) {
@@ -146,15 +171,13 @@ public class GroupConfirmationService {
             line.getSessions().forEach(session -> session.setHoldStatus(LineHoldStatus.RELEASED));
             lines.save(line);
         }
-        group.setGroupStatus(BookingStatus.EXPIRED);
+        group.setGroupStatus(terminalStatus);
         groups.save(group);
         loyaltyOutcome.releaseExpiredGroup(group);
         for (TicketBooking ticket : tickets.findByGroupIdOrderByLineIndexAscParticipantOrdinalAsc(group.getId())) {
-            ticket.setTicketStatus(BookingStatus.EXPIRED);
+            ticket.setTicketStatus(terminalStatus);
             tickets.save(ticket);
         }
-        log.info("Released the whole booking group {} after its hold expired", groupCode);
-        return true;
     }
 
     private GroupConfirmation confirm(BookingGroup group, String auditAction, String evidenceReference,
@@ -250,7 +273,8 @@ public class GroupConfirmationService {
                 .build());
 
         // 2b. Email 1 to the buyer with every ticket (6a adds one line for a late payment re-confirmed automatically).
-        queueConfirmationEmail(group, groupLines, confirmedEntities, auditAction, correlationReference);
+        queueConfirmationEmail(group, groupLines, confirmedEntities, auditAction,
+                GroupMagicLinkTokens.accessLink(rawMagicToken), correlationReference);
 
         // 3. One voucher use and one points hold per group, settled once now that the group is real.
         loyaltyOutcome.settleConfirmedGroup(group, evidenceReference);
@@ -274,12 +298,32 @@ public class GroupConfirmationService {
 
     /**
      * Template 1 (approved 2026-11-12) to the buyer's contact email, with every ticket and its QR; template 6a's line
-     * is added when a late payment was re-confirmed automatically. The group Magic Link has no exchange route yet,
-     * so the email carries no link and never stores the raw token.
+     * is added when a late payment was re-confirmed automatically. The group Magic Link (FR-042, FR-048) is carried
+     * in the protected snapshot only; it is never logged and is scrubbed once the link is revoked or expires.
      */
     private void queueConfirmationEmail(BookingGroup group, List<BookingGroupLine> groupLines,
-                                        List<TicketBooking> confirmedTickets, String auditAction,
+                                        List<TicketBooking> confirmedTickets, String auditAction, String accessLink,
                                         String correlationReference) {
+        queueConfirmationEmail(group, groupLines, confirmedTickets, auditAction, accessLink,
+                GroupNotificationService.KIND_GROUP_CONFIRMATION, correlationReference);
+    }
+
+    /**
+     * Sends the buyer confirmation of a confirmed group again to the stored contact email only, with the active
+     * Magic Link when one is given (FR-048 confirmation resend). Runs in the caller's transaction.
+     */
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public void resendConfirmationEmail(BookingGroup group, String accessLink, String correlationReference) {
+        List<TicketBooking> confirmedTickets = tickets.findByGroupIdOrderByLineIndexAscParticipantOrdinalAsc(group.getId())
+                .stream().filter(ticket -> ticket.getTicketStatus() == BookingStatus.CONFIRMED).toList();
+        queueConfirmationEmail(group, lines.findByGroupIdOrderByLineIndexAsc(group.getId()), confirmedTickets,
+                "CONFIRMATION_RESEND", accessLink, GroupNotificationService.KIND_GROUP_CONFIRMATION_RESEND,
+                correlationReference);
+    }
+
+    private void queueConfirmationEmail(BookingGroup group, List<BookingGroupLine> groupLines,
+                                        List<TicketBooking> confirmedTickets, String auditAction, String accessLink,
+                                        String notificationKind, String correlationReference) {
         if (group.getContactEmail() == null || group.getContactEmail().isBlank()) {
             return;
         }
@@ -320,9 +364,13 @@ public class GroupConfirmationService {
         body.append("\n\nXuất trình mã vé hoặc QR khi check-in. Bạn có thể gửi từng vé cho người đi cùng trong trang "
                 + "đặt chỗ.\n\nLưu ý: khoản đã thanh toán lúc đặt không được hoàn khi bạn tự hủy hoặc không tham dự. "
                 + "Hủy trước giờ bắt đầu buổi đầu tiên của vé ít nhất 24 giờ thì điểm thưởng đã dùng được trả lại.");
-        notifications.queue(group, null, GroupNotificationService.KIND_GROUP_CONFIRMATION, group.getContactEmail(),
+        if (accessLink != null) {
+            body.append("\n\nXem đặt chỗ và gửi vé cho người đi cùng qua liên kết riêng trong email này; "
+                    + "không chia sẻ liên kết cho người khác.");
+        }
+        notifications.queue(group, null, notificationKind, group.getContactEmail(),
                 "MLAND – Xác nhận đặt chỗ workshop " + group.getGroupCode(), body.toString(), artifacts, null,
-                correlationReference);
+                accessLink, correlationReference);
     }
 
     private static String collectionLabel(TicketCollectionKind kind) {
@@ -385,11 +433,6 @@ public class GroupConfirmationService {
     }
 
     private static String hashToken(String rawToken) {
-        try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
-                    .digest(rawToken.getBytes(StandardCharsets.UTF_8)));
-        } catch (NoSuchAlgorithmException ex) {
-            throw new IllegalStateException("SHA-256 is unavailable", ex);
-        }
+        return GroupMagicLinkTokens.hash(rawToken);
     }
 }

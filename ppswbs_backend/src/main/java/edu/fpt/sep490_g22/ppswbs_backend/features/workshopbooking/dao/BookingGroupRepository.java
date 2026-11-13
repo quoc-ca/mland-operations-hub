@@ -40,4 +40,8 @@ public interface BookingGroupRepository extends JpaRepository<BookingGroup, Long
     java.util.List<BookingGroup> findExpiredPending(
             @org.springframework.data.repository.query.Param("now") java.time.Instant now,
             org.springframework.data.domain.Pageable pageable);
+
+    /** A Member's own groups, newest first (003.1 FR-048, the Member list). */
+    java.util.List<BookingGroup> findByBuyerMemberAccountIdOrderByCreatedAtDesc(Long buyerMemberAccountId,
+                                                                                org.springframework.data.domain.Pageable pageable);
 }

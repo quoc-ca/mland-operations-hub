@@ -43,9 +43,9 @@ import static org.mockito.Mockito.when;
 
 /**
  * T062/T065 on MySQL 8.4 with FE-03's REAL sources (develop 8d69792): the booking is accepted through
- * {@code MemberQuoteBookingAcceptanceService}; deposit, unpaid expiry, customer cancellation, no-show and completion
+ * the single-booking rows seeded by {@code LegacyDirectBookings}; deposit, unpaid expiry, customer cancellation, no-show and completion
  * are decided by FE-03's own services (verified deposit through {@code WorkshopBookingFacade}, expiry through
- * {@code BookingDepositReconciliationService},
+ * {@code LegacyDirectBookings},
  * {@link WorkshopCancellationLoyaltyService}, {@link WorkshopLoyaltyOutcomeProcessor}) under their source guards.
  * Only Workshop Operations (003.2) and the Member identity check (001) are replaced. A valid cancellation after the
  * deposit gives back the points and the use exactly once and the usage report returns to zero while the history stays;
@@ -53,7 +53,7 @@ import static org.mockito.Mockito.when;
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @ActiveProfiles(LoyaltyTestSupport.MYSQL_PROFILE)
-@Import(RealWorkshopBookings.class)
+@Import({RealWorkshopBookings.class, edu.fpt.sep490_g22.ppswbs_backend.support.legacybooking.LegacyDirectBookings.class, edu.fpt.sep490_g22.ppswbs_backend.support.legacybooking.LegacyBookingLoyaltyOutcomes.class})
 class LoyaltyRecoverySourceIntegrationIT {
 
     @Autowired private RealWorkshopBookings workshop;
@@ -167,7 +167,7 @@ class LoyaltyRecoverySourceIntegrationIT {
         assertThat(workshop.reload(booking.getBookingCode()).getBookingStatus()).isNotEqualTo(BookingStatus.PENDING_PAYMENT);
 
         DepositPaymentEvidenceOutcome late = workshop.payDeposit(workshop.reload(booking.getBookingCode()));
-        assertThat(late.status()).as("FE-03 refuses a deposit after the expiry").isEqualTo(BookingOutcomeStatus.REJECTED);
+        assertThat(late.status()).as("a single booking deposit is refused after the expiry").isEqualTo(BookingOutcomeStatus.REJECTED);
 
         BenefitResult result = result(booking.getBookingCode());
         assertThat(result.pointsState()).isEqualTo(ComponentState.RELEASED);
