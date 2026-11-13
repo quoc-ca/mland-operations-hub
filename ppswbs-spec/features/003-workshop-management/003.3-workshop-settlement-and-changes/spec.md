@@ -1,7 +1,7 @@
 # Feature Specification: Workshop Settlement and Changes
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-06
+**Date updated**: 2026-11-13
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -253,9 +253,13 @@ self-service (FR-018 and Scope); whole-booking Mland remedy (FR-020, FR-021).
 - **FR-040**: The system MUST collect the recipient account through a single-use
   link sent to the payer (valid 7 days, resendable, a resend revokes the old
   link) or Staff entry at the counter (recording actor, channel and time): bank,
-  account number and holder name. A holder name different from the payer needs
-  the payer's confirmation; the transferring actor checks the name shown by the
-  bank and stops on a mismatch. Account numbers are encrypted, shown in full
+  account number and holder name. The system does not compare the holder with the payer
+  *(decision 2026-11-13: no trustworthy payer name or source account exists —
+  VNPay returns neither — and name matching misjudges namesakes and spelling)*;
+  the approving Manager approves the amount, reason and order, and the
+  transferring actor compares the holder name the bank shows for the account
+  number with the name entered and stops on a mismatch (a mistyped account
+  number), then contacts the customer. Account numbers are encrypted, shown in full
   only to the approving Manager and the transferring actor, masked
   (`****1234`) elsewhere, never written to email, logs or audit, and only the
   masked form is kept after `REFUNDED`. Without a reply the request stays
