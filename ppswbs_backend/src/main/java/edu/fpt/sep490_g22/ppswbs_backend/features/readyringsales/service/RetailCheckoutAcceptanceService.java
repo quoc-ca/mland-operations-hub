@@ -91,9 +91,21 @@ public class RetailCheckoutAcceptanceService {
         var checkout = new GroupedCheckout(memberId, key, quote.getCartVersion(), decimal(quote.getMerchandiseSubtotal()),
             decimal(quote.getShippingTotal()), decimal(quote.getProgramDiscount().add(quote.getPointsDiscount())));
         BigInteger remainingDiscount = quote.getProgramDiscount().add(quote.getPointsDiscount());
+        List<RetailCheckoutQuoteBranch> sortedBranches = quote.getBranches().stream()
+            .sorted(Comparator.comparing(RetailCheckoutQuoteBranch::getLocationId)).toList();
+        // Shares decided at preview (voucher only on its branches); quotes made before V124 split by branch amount.
+        boolean allocated = sortedBranches.stream().allMatch(branch -> branch.getDiscountAmount() != null)
+            && sortedBranches.stream().map(RetailCheckoutQuoteBranch::getDiscountAmount).reduce(BigInteger.ZERO, BigInteger::add)
+                .equals(remainingDiscount);
+        List<BigInteger> subtotals = sortedBranches.stream().map(RetailCheckoutQuoteBranch::getSubtotal).toList();
+        List<BigInteger> shares = allocated
+            ? sortedBranches.stream().map(RetailCheckoutQuoteBranch::getDiscountAmount).toList()
+            : RetailDiscountAllocation.split(remainingDiscount, subtotals, subtotals);
         List<OrderItem> items = new ArrayList<>();
-        for (var branch : quote.getBranches().stream().sorted(Comparator.comparing(RetailCheckoutQuoteBranch::getLocationId)).toList()) {
-            BigInteger branchDiscount = remainingDiscount.min(branch.getSubtotal());
+        int branchIndex = 0;
+        for (var branch : sortedBranches) {
+            BigInteger branchDiscount = shares.get(branchIndex++);
+            if (branchDiscount.compareTo(branch.getSubtotal()) > 0) throw new RetailConflictException("Quote discount is invalid");
             remainingDiscount = remainingDiscount.subtract(branchDiscount);
             var order = new RetailOrder(checkout, branch.getLocationId(), branch.getFulfilmentMethod(), decimal(branch.getSubtotal()),
                 decimal(branch.getShippingCharge()), decimal(branchDiscount));

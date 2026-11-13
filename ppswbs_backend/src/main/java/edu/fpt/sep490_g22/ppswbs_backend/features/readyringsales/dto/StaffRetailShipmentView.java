@@ -30,8 +30,19 @@ public record StaffRetailShipmentView(
     String wardName,
     Instant createdAt,
     Instant updatedAt,
-    List<HistoryEntry> history
+    List<HistoryEntry> history,
+    String orderCode
 ) {
+    /** View without the order display code. */
+    public StaffRetailShipmentView(String id, String branchOrderId, String branchOrderIdentifier, Long locationId,
+                                   String fulfilmentMethod, String mockTrackingNumber, RetailShipmentStatus status,
+                                   int version, String recipientName, String recipientPhone, String recipientAddress,
+                                   String provinceName, String districtName, String wardName, Instant createdAt,
+                                   Instant updatedAt, List<HistoryEntry> history) {
+        this(id, branchOrderId, branchOrderIdentifier, locationId, fulfilmentMethod, mockTrackingNumber, status, version,
+            recipientName, recipientPhone, recipientAddress, provinceName, districtName, wardName, createdAt, updatedAt,
+            history, edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailOrderCodes.of(branchOrderId, null));
+    }
     public record HistoryEntry(
         RetailShipmentStatus status,
         Long actorId,

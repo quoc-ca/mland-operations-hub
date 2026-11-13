@@ -161,10 +161,40 @@ public class RetailCheckoutQuotePreviewService {
             });
             quote.addBranch(branch);
         }
+        allocateDiscounts(quote, selected, sourceLines, result);
         quotes.saveAndFlush(quote);
         return new CheckoutDtos.BenefitPreviewView(quote.getId(), "VND", subtotal.toString(), true,
             result.programDiscount().toString(), result.pointDiscount().toString(), quote.getPayableTotal().toString(),
             expiresAt.toString(), shippingTotal.toString(), true, result.reasons(), result.maxPoints().toString(), result.minRedeemPoints().toString());
+    }
+
+    /**
+     * Spreads the benefits over branch orders: the programme (voucher) share only over branches holding the lines it
+     * discounts, in proportion to their amount; the points share in proportion to each branch's amount after that.
+     */
+    private static void allocateDiscounts(RetailCheckoutQuote quote, List<CartLine> selected, List<SourceLine> sourceLines,
+                                          BenefitPreview result) {
+        List<RetailCheckoutQuoteBranch> branches = quote.getBranches();
+        Set<Integer> eligible = new HashSet<>(result.eligibleLineIndexes());
+        List<BigInteger> eligibleAmounts = new ArrayList<>();
+        List<BigInteger> subtotals = new ArrayList<>();
+        for (RetailCheckoutQuoteBranch branch : branches) {
+            BigInteger amount = BigInteger.ZERO;
+            for (int index = 0; index < selected.size(); index++) {
+                if (eligible.contains(index) && selected.get(index).getLocationId().equals(branch.getLocationId())) {
+                    amount = amount.add(sourceLines.get(index).lineAmount());
+                }
+            }
+            eligibleAmounts.add(amount);
+            subtotals.add(branch.getSubtotal());
+        }
+        List<BigInteger> programShares = RetailDiscountAllocation.split(result.programDiscount(), eligibleAmounts, subtotals);
+        List<BigInteger> remaining = new ArrayList<>();
+        for (int index = 0; index < branches.size(); index++) remaining.add(subtotals.get(index).subtract(programShares.get(index)));
+        List<BigInteger> pointShares = RetailDiscountAllocation.split(result.pointDiscount(), remaining, remaining);
+        for (int index = 0; index < branches.size(); index++) {
+            branches.get(index).allocateDiscount(programShares.get(index).add(pointShares.get(index)));
+        }
     }
 
     private Map<BranchVariant, BranchCartSaleFact> readBranchFacts(Collection<BranchVariant> keys) {

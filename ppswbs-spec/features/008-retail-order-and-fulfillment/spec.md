@@ -232,6 +232,65 @@ configuration, accounting, or executive reporting in FE-10.
   calendar day. Counting the cash drawer and closing the day belong to a
   future branch cash book shared with workshop (003.3 FR-036) and are out of
   FE-08 V1 scope.
+- Q: Which recipient address does checkout use? → A: The Member's saved
+  addresses (account address book), marketplace style. Opening checkout shows
+  the default saved address (or the first one when none is default); a
+  "Change" action lists every saved address to pick another. The Member can
+  add a new address or update one in a form inside checkout without leaving
+  the page; a newly added address is saved to the address book and selected
+  at once. Changing the address re-quotes the GHTK fee of every GHTK branch
+  automatically. The chosen address is copied into the order's
+  recipient snapshot only at acceptance.
+- Q: Must the Member press "recalculate" and tick "I have reviewed the total"?
+  → A: No. Checkout recalculates the complete total automatically whenever
+  the selected lines, address, fulfilment, shipping fee, benefit, points, or
+  payment method change, and shows the new total. Any change still
+  invalidates the previous preview; "Place order" is enabled only while the
+  displayed total belongs to the latest preview, and pressing it is the
+  Member's acceptance of that displayed total.
+- Q: How are GHTK fee validity and benefit lines shown at checkout? → A:
+  Marketplace style: the GHTK option shows "Nhanh" and its fee, without the
+  quote expiry time or a manual "refresh fee" link. Voucher, points, and
+  shipping lines appear in the payment details only when they are non-zero.
+  When "Place order" is pressed after a fee or preview has expired, checkout
+  re-quotes quietly; if the fee or total is unchanged the order is placed,
+  otherwise a short notice (about 3 seconds) states the old and new fee or
+  the new total, and the Member presses "Place order" again (FR-08-033).
+- Q: How are vouchers chosen in the cart and at checkout? → A: Marketplace
+  style. The cart applies by itself the saved voucher with the largest
+  estimated saving among those usable for the ticked lines (active, minimum
+  reached, not refused by FE-06) and shows each ticked line's price after its
+  proportional share of that discount, marked "Đã áp dụng mã giảm giá". The
+  Member may pick another voucher or none; the choice, and the points switch,
+  carry over to checkout. The voucher sheet lists usable vouchers first with a
+  radio and marks the best one; vouchers that cannot apply are dimmed below
+  with the reason; a choice takes effect only after "Đồng ý". A voucher FE-06
+  refuses is removed with a short notice instead of an error box. FE-06 still
+  calculates the binding discount at checkout.
+- Q: How is one checkout's discount split between its branch orders? → A: In
+  proportion, not all on the first branch. When the quote is previewed, the
+  voucher discount is spread only over the branch orders holding the lines the
+  voucher discounts (FE-06 eligible lines), in proportion to those lines'
+  amounts; the points discount is spread over all branch orders in proportion
+  to each one's amount after the voucher. Shares are floored and the rounding
+  remainder goes to the largest branch, so they add up to the checkout total
+  and no branch is discounted below zero. This share is each branch order's
+  discount and therefore its cash amount at the counter.
+- Q: How are the Member's orders organised? → A: Like a marketplace "My
+  purchases" page, one card per branch order, grouped into tabs with counts:
+  All, Awaiting payment (VNPay not yet paid), Awaiting store pickup (pickup
+  orders not yet collected, paid by VNPay or awaiting counter cash), Shipping
+  (paid GHTK orders not yet delivered, with the shipment step shown on the
+  card), Completed (collected or delivered), and Cancelled (cancelled or
+  expired). There is no return/refund tab because returns are out of scope.
+- Q: How are the Staff's retail tasks organised? → A: One "Branch retail
+  orders" page for the actor's branches, replacing the separate pickup-desk
+  and shipment pages (their old addresses open the matching tab). Tabs follow
+  the day's work with counts: Awaiting counter cash (soonest hold deadline
+  first, highlighted when under 24 hours), Awaiting customer collection,
+  To hand to GHTK, Shipping, and History (collected or delivered). A summary
+  shows today's confirmed cash, orders whose hold expires within 24 hours, and
+  open tasks. Each card offers only the one action of its tab.
 
 ### Session 2026-10-25
 
@@ -616,8 +675,9 @@ including frozen items, amounts, payment state, and fulfilment evidence.
   domestic mobile phone MUST use 10 digits beginning with `0` or the equivalent
   `+84` form, address MUST contain 10–500 Unicode characters, and the optional
   note MUST contain at most 500 characters after trimming leading/trailing
-  whitespace. The system MUST not assume an address book or copy a profile
-  address automatically.
+  whitespace. The recipient is chosen from the Member's saved addresses: the
+  default saved address is preselected when checkout opens and the Member may
+  change it to any other saved address before acceptance.
 - **FR-08-014**: The system MUST freeze the fulfilment method, recipient
   snapshot, and shipping fee after checkout acceptance. A Member needing a
   different fulfilment choice for an unpaid checkout MUST cancel it and create a
@@ -697,7 +757,8 @@ including frozen items, amounts, payment state, and fulfilment evidence.
   excluded from the discount and point-earning base. A cart, selected-benefit,
   fulfilment, or shipping-quote/fee change MUST invalidate the prior
   preview/acceptance and require the Member to accept the recalculated complete
-  total again.
+  total again. The recalculation runs automatically; pressing "Place order"
+  while the latest recalculated total is displayed is that acceptance.
 - **FR-08-036**: When the Member accepts a grouped checkout, FE-08 MUST call
   `reserveAcceptedTransaction` in the same source transaction that creates all
   branch orders, inventory holds, immutable price snapshots, and benefit holds;
@@ -781,6 +842,28 @@ including frozen items, amounts, payment state, and fulfilment evidence.
   verified retail payment whose payment time is the Staff confirmation time
   and whose revenue is its product value after the allocated discount. An
   unconfirmed, cancelled, or expired cash order MUST NOT be exposed as paid.
+- **FR-08-050**: The Member order page MUST group the Member's branch orders
+  into the tabs All, Awaiting payment, Awaiting store pickup, Shipping,
+  Completed, and Cancelled, each with its count, and MUST offer per card only
+  the actions valid in that state: pay or cancel an unpaid VNPay checkout,
+  cancel an unconfirmed cash order, and buy again a completed order by adding
+  its lines back to the cart. Paying an unpaid VNPay checkout pays all branch
+  orders accepted together in it.
+- **FR-08-051**: The Staff retail order page MUST show, only for the actor's
+  branches, the tabs Awaiting counter cash, Awaiting customer collection, To
+  hand to GHTK, Shipping, and History with counts, a search by order code or
+  recipient, and a summary of today's confirmed cash, holds expiring within 24
+  hours, and open tasks. The former pickup-desk and shipment addresses MUST
+  open the corresponding tab. The page MUST sit in the operations workspace
+  (sidebar navigation, link back to the Staff/Manager home) and be listed on
+  the Staff home.
+- **FR-08-052**: Every branch order MUST show the same display code to Member
+  and Staff: "ML" + order date (yyMMdd, Vietnam time) + the first eight
+  characters of the order id (e.g. ML26111213B6C582). The code is derived, not
+  stored, and is searchable on both pages. Clicking an order card MUST expand
+  its details in place (Member: code, time, branch, fulfilment, payment and
+  amount breakdown; Staff: code, time, payment or cash record, recipient
+  contact and shipment history).
 
 ### Logical Data Ownership
 
