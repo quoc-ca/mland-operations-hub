@@ -52,7 +52,9 @@ public class RetailCheckoutService {
         BigDecimal payable = subtotal.subtract(preview.discountAmount()).subtract(preview.pointsDiscountAmount()).add(shipping);
         return new CheckoutDtos.BenefitPreviewView(preview.previewId(), "VND", money(subtotal), true,
             money(preview.discountAmount()), money(preview.pointsDiscountAmount()),
-            money(payable), preview.expiresAt().toString(), money(shipping));
+            money(payable), preview.expiresAt().toString(), money(shipping), preview.eligible(), preview.reasons(),
+            preview.maxPoints() == null ? null : preview.maxPoints().toString(),
+            preview.minRedeemPoints() == null ? null : preview.minRedeemPoints().toString());
     }
 
     @Transactional(readOnly = true)
@@ -98,11 +100,15 @@ public class RetailCheckoutService {
 
         GroupedCheckout checkout = new GroupedCheckout(memberAccountId, idempotencyKey, cart.getVersion() == null ? 0L : cart.getVersion(), subtotal, shipping, discount);
         List<Long> locations = cartLocations.stream().sorted().toList();
+        // The discount is spread over branch orders in proportion to their amount (the local path has no FE-06 line facts).
+        List<java.math.BigInteger> branchSubtotals = locations.stream().map(locationId -> subtotal(priced.stream()
+            .filter(line -> line.locationId().equals(locationId)).toList()).toBigIntegerExact()).toList();
+        List<java.math.BigInteger> branchDiscounts = RetailDiscountAllocation.split(discount.toBigIntegerExact(), branchSubtotals, branchSubtotals);
         for (int index = 0; index < locations.size(); index++) {
             Long locationId = locations.get(index);
             List<RetailCheckoutPorts.PricedLine> branchLines = priced.stream().filter(line -> line.locationId().equals(locationId)).toList();
             BigDecimal branchSubtotal = subtotal(branchLines);
-            BigDecimal branchDiscount = index == 0 ? discount : BigDecimal.ZERO;
+            BigDecimal branchDiscount = new BigDecimal(branchDiscounts.get(index));
             RetailOrder order = new RetailOrder(checkout, locationId, choices.get(locationId).method().toUpperCase(), branchSubtotal,
                 shippingByLocation.get(locationId), branchDiscount);
             var recipientInput = choices.get(locationId).recipient();

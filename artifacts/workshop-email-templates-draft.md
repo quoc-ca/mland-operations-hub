@@ -76,13 +76,15 @@ Dùng lại nội dung email 1 (người mua) hoặc email 2 (người nhận), 
 
 **Tiêu đề:** MLAND – Cung cấp tài khoản để nhận hoàn {sốTiền} (đơn {mãNhóm})
 
-> MLAND sẽ hoàn {sốTiền} cho vé {mãVé} với lý do: {lýDo}. Vui lòng nhập ngân hàng, số tài khoản và tên chủ tài khoản tại liên kết dưới đây trong 7 ngày. Nếu tên chủ tài khoản khác tên người đã thanh toán, chúng tôi sẽ cần bạn xác nhận thêm.
+> MLAND sẽ hoàn {sốTiền} cho vé {mãVé} với lý do: {lýDo}. Vui lòng nhập ngân hàng, số tài khoản và tên chủ tài khoản tại liên kết dưới đây trong 7 ngày. Vui lòng nhập tài khoản của chính người đã thanh toán và ghi đúng tên chủ tài khoản như ngân hàng hiển thị. MLAND đối chiếu tên trước khi chuyển; nếu không khớp, chúng tôi sẽ dừng lại và liên hệ với bạn.
 >
 > [Nhập tài khoản nhận hoàn]
 >
 > Bạn cũng có thể cung cấp tại quầy MLAND.
 
-Email nhắc ngày 3 và ngày 7 dùng cùng nội dung, tiêu đề thêm "(nhắc lại)".
+Email nhắc ngày 3 và ngày 7 dùng cùng nội dung, tiêu đề thêm "(nhắc lại)" và kèm liên kết mới (liên kết cũ hết hiệu lực).
+
+**Cập nhật 13/11/2026 (owner 003 duyệt):** hệ thống không so tên chủ tài khoản với người thanh toán (không có nguồn tên hay số tài khoản thanh toán đáng tin). Manager duyệt số tiền, lý do và đơn hàng; người chuyển khoản so tên ngân hàng hiển thị cho số tài khoản với tên khách nhập, không khớp thì dừng và liên hệ khách. Staff vẫn có thể nhập tài khoản giúp khách tại quầy. Màn hình nhập tài khoản hiện chỉ dẫn như câu trong email trước các ô nhập.
 
 ## 8. Đã hoàn tiền
 
@@ -117,3 +119,37 @@ Trước khi xác nhận, màn hình (không phải email) hiển thị lịch m
 **Tiêu đề:** MLAND – Đã hủy vé {mãVé}
 
 > Vé {mãVé} ({tênGói}, {lịch}) đã được hủy lúc {thờiĐiểm}. {Nếu ≥ 24 giờ: "{sốĐiểm} điểm thưởng đã được trả lại."} {Nếu < 24 giờ: "Do hủy trong vòng 24 giờ trước giờ bắt đầu, điểm thưởng đã dùng không được trả lại."} Khoản đã thanh toán lúc đặt không được hoàn theo điều kiện đã công bố khi đặt.
+
+## 12. Mã xác minh người mua (đã duyệt 13/11/2026)
+
+Gửi tới email liên hệ ban đầu của đặt chỗ, không bao giờ gửi tới email người nhận vé. Dùng khi khách vãng lai (hoặc nhân viên tại quầy thay khách) đổi người nhận vé (003.1 FR-041).
+
+**Tiêu đề:** MLAND – Mã xác minh đặt chỗ {mãNhóm}
+
+> Xin chào,
+>
+> Mã xác minh để quản lý người nhận vé của đặt chỗ {mãNhóm} là:
+>
+> **{mãOTP}**
+>
+> Mã có hiệu lực trong 10 phút và chỉ dùng được một lần. Mã này là riêng của bạn, đừng chia sẻ cho người khác; nhân viên MLAND chỉ hỏi mã khi bạn đang ở quầy.
+>
+> Nếu bạn không yêu cầu mã, hãy bỏ qua email này; đặt chỗ của bạn không thay đổi.
+
+## 13. Cảnh báo Manager: tiền về sau khi hết giữ chỗ (NHÁP 13/11/2026 — chờ owner 003 duyệt nội dung)
+
+Email nội bộ, gửi ngay khi một late-payment review vào hàng chờ Manager (003.1 FR-040a). Không ghi email, số điện thoại hay tên của khách, không ghi dữ liệu thanh toán; Manager xem chi tiết trong màn hình quản lý.
+
+**Tiêu đề:** MLAND – [Cần xử lý trước {hạnPhảnHồi}] Tiền về sau hạn, đơn {mãNhóm}
+
+> Đơn {mãNhóm} vừa nhận {sốTiền} sau khi thời gian giữ chỗ kết thúc và hệ thống không tự xác nhận lại được.
+>
+> **Lý do:** {danhSáchĐiềuKiệnKhôngĐạt}
+> **Buổi sớm nhất:** {ngày, giờ buổi sớm nhất} tại {chiNhánh}
+> **Hạn gửi kết quả cho khách:** {hạnPhảnHồi} (24 giờ kể từ khi tiền về, hoặc trước giờ bắt đầu buổi sớm nhất nếu sớm hơn)
+>
+> {Nếu được phép xác nhận: "Có thể xác nhận chỗ nếu khách vẫn muốn tham gia và còn chỗ tại thời điểm duyệt."} {Nếu không: "Chỉ có thể hoàn tiền 100% qua chuyển khoản ngân hàng."}
+>
+> [Mở hàng chờ xử lý]
+
+Tên điều kiện hiển thị: CAPACITY = "Hết chỗ", START_TIME = "Còn dưới 2 giờ trước buổi đầu", AMOUNT = "Số tiền không khớp giá đã ghi nhận", ARRIVAL_WINDOW = "Tiền về sau hơn 60 phút", DUPLICATE_BOOKING = "Khách đã có đặt chỗ khác trùng buổi".

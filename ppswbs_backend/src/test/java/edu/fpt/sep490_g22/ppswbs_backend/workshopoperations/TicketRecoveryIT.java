@@ -3,6 +3,7 @@ package edu.fpt.sep490_g22.ppswbs_backend.workshopoperations;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.*;
 import edu.fpt.sep490_g22.ppswbs_backend.common.booking.BookingTicketRedeliveryPort;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.*;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.notificationfacade.WorkshopBookingNotificationFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.CheckInOverrideRequest;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.TicketResendRequest;
@@ -57,6 +58,7 @@ class TicketRecoveryIT {
 
     @MockBean AccountFacade accountFacade;
     @MockBean WorkshopBookingFacade workshopBookingFacade;
+    @MockBean WorkshopBookingNotificationFacade workshopBookingNotificationFacade;
 
     private WorkshopLocation location;
     private WorkshopLocation otherLocation;

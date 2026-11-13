@@ -584,7 +584,7 @@ class LoyaltyMySqlConcurrencyIT {
     private long bigAutoDiscount() {
         Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
         return transaction.execute(status -> {
-            PromotionProgram program = programs.saveAndFlush(PromotionProgram.autoDiscount(now, 1L));
+            PromotionProgram program = programs.saveAndFlush(PromotionProgram.autoDiscount(TargetScope.PRODUCT, now, 1L));
             PromotionRevision revision = revisions.saveAndFlush(PromotionRevision.create(program.getId(), 1,
                     ProgramKind.AUTO_DISCOUNT, "Concurrency IT auto", now.minus(1, ChronoUnit.DAYS),
                     now.plus(1, ChronoUnit.DAYS), DiscountTerms.fixed(n(450_000), n(450_000), BigInteger.ZERO), true,

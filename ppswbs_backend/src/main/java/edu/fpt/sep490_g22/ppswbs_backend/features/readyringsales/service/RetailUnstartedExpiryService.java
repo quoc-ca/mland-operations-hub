@@ -32,6 +32,7 @@ public class RetailUnstartedExpiryService {
     private final CatalogueSalesFacade catalogue;
     private final AvailabilityGuardPort guard;
     private final LoyaltyFacade loyalty;
+    private final RetailBranchPartService branchParts;
 
     /** Caller must already hold the checkout lock; do not start a payment after its hold deadline. */
     public void requirePaymentBeforeDeadline(String checkoutId) {
@@ -49,6 +50,15 @@ public class RetailUnstartedExpiryService {
         var checkout = checkouts.lockOwned(checkoutId, memberId)
             .orElseThrow(() -> new RetailNotFoundException("Checkout does not exist"));
         if (checkout.getPaymentState() != PaymentState.ACCEPTED_UNPAID || checkout.getPaymentInitiatedAt() != null) return false;
+        if (branchParts.acceptedWithParts(checkout)) {
+            // Cash with per-branch parts: only branch orders still unpaid at the deadline expire (D-011).
+            Instant now = Instant.now();
+            boolean expired = false;
+            for (var order : checkout.getOrders().stream().filter(order -> order.getPaymentState() == PaymentState.ACCEPTED_UNPAID).toList()) {
+                expired |= branchParts.endUnpaid(checkout, order, cart, true, now) >= 0;
+            }
+            return expired;
+        }
         var quantities = RetailBranchOrderKeys.quantities(checkout);
         List<BranchVariant> branchKeys = quantities.keySet().stream().sorted().toList();
         List<Long> ids = RetailBranchOrderKeys.variantIds(quantities);

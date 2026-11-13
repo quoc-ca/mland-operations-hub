@@ -91,7 +91,19 @@ public class IdentityGateFilter extends OncePerRequestFilter {
                 && "/api/v1/booking-lookups".equals(path)) {
             return true;
         }
-        boolean customerBillRoute = ("GET".equalsIgnoreCase(request.getMethod())
+        // 003.1 FR-041 (decision 2026-11-13): a Guest buyer proves authority with an OTP sent to the booking's
+        // contact email, not a bearer. Booking authorizes each request; a request with a bearer is still verified.
+        boolean guestRecipientRoute = ("POST".equalsIgnoreCase(request.getMethod())
+                && path.matches("/api/v1/workshop-booking-groups/[^/]+/buyer-verifications(/[^/]+/confirmations)?"))
+                || ("PUT".equalsIgnoreCase(request.getMethod())
+                && path.matches("/api/v1/workshop-tickets/[^/]+/recipient"));
+        if (guestRecipientRoute && request.getHeader(HttpHeaders.AUTHORIZATION) == null) return true;
+        // 003.3 FR-040: the refund-account link token is the credential; the service checks it, its state and expiry.
+        if ("POST".equalsIgnoreCase(request.getMethod()) && path.matches("/api/v1/refund-account-links/[^/]+")
+                && request.getHeader(HttpHeaders.AUTHORIZATION) == null) {
+            return true;
+        }
+        boolean customerBillRoute =("GET".equalsIgnoreCase(request.getMethod())
                 && path.matches("/api/v1/workshop-bookings/[^/]+/final-bill"))
                 || ("POST".equalsIgnoreCase(request.getMethod())
                 && path.matches("/api/v1/workshop-bookings/[^/]+/final-bill/charges"));

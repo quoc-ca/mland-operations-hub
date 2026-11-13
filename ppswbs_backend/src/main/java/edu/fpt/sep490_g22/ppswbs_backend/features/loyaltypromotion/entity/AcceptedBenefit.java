@@ -59,7 +59,13 @@ public class AcceptedBenefit {
     @Column(name = "source_ref", nullable = false, updatable = false, length = 128)
     private String sourceRef;
 
-    @Column(name = "member_id", nullable = false, updatable = false)
+    /**
+     * The Member who accepted, or {@code null} for a Guest workshop booking (Session 2026-11-14, D-014): a workshop
+     * automatic discount applies to every direct customer, and the Guest's snapshot is identified by its source
+     * reference (the booking group code), which is already unique. Such a snapshot never holds points or a voucher
+     * and never earns points; V135 enforces that in the database.
+     */
+    @Column(name = "member_id", updatable = false)
     private Long memberId;
 
     @Column(name = "member_origin_eligible", nullable = false, updatable = false)
@@ -152,7 +158,7 @@ public class AcceptedBenefit {
     private long version;
 
     /** Amounts and revisions captured at acceptance; the caller already held quota and points. */
-    public record Snapshot(SourceKind sourceKind, String sourceRef, long memberId, Instant acceptedAt,
+    public record Snapshot(SourceKind sourceKind, String sourceRef, Long memberId, Instant acceptedAt,
                            Instant originalDeadline, long sourceRevision, String acceptedTermsDigest, long policyId,
                            Long programId, Long revisionId, BigInteger grossAmount, BigInteger programDiscount,
                            BigInteger requestedPoints, BigInteger pointDiscount, BigInteger earnBase,
@@ -169,6 +175,12 @@ public class AcceptedBenefit {
         if (workshop != (snapshot.postPromotionAmount() != null)) {
             throw LoyaltyException.invalidField("postPromotionAmount",
                     "Only a workshop snapshot carries the post-promotion amount, and it must carry it.");
+        }
+        if (snapshot.memberId() == null && (!workshop || snapshot.requestedPoints().signum() != 0
+                || snapshot.pointDiscount().signum() != 0 || snapshot.voucherHeld())) {
+            // D-014: a Guest snapshot exists only for a workshop booking with an automatic discount (or none).
+            throw new LoyaltyException(LoyaltyErrorCode.PROMOTION_INELIGIBLE,
+                    "Only a signed-in Member can use points or a voucher.");
         }
         AcceptedBenefit benefit = new AcceptedBenefit();
         benefit.sourceKind = snapshot.sourceKind();

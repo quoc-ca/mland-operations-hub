@@ -18,6 +18,13 @@ final class RetailBranchOrderKeys {
         return quantities;
     }
 
+    static Map<BranchVariant, Integer> quantities(edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.entity.RetailOrder order) {
+        Map<BranchVariant, Integer> quantities = new HashMap<>();
+        order.getItems().forEach(item -> quantities.merge(new BranchVariant(item.getVariantId(), order.getLocationId()),
+            item.getQuantity(), Integer::sum));
+        return quantities;
+    }
+
     static List<BranchVariant> keys(GroupedCheckout checkout) {
         return quantities(checkout).keySet().stream().sorted().toList();
     }

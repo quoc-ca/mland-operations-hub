@@ -3,6 +3,8 @@ import { RequireSession } from '../../../../shared/auth/RequireSession';
 import { useFormat } from '../../../../shared/i18n/I18nProvider';
 import { ErrorNotice, Loading, useResource } from '../../../../shared/ui/components';
 import { useRetailApi } from '../../application/useRetailApi';
+import { Link } from 'react-router';
+import { OperationsSidebar } from '../../../../shared/ui/OperationsSidebar';
 
 const reasons = {
   QUERY_UNRESOLVED: 'Chưa xác định được kết quả thanh toán',
@@ -18,10 +20,14 @@ function displayTime(value) {
 }
 
 export default function ManagerPaymentReconciliationPage() {
-  return <main className="container public-page retail-page payment-reconciliation">
-    <header className="payment-reconciliation-heading"><div><p className="retail-kicker">FE-08 · MANAGER</p><h1>Đối soát thanh toán</h1><p>Kiểm tra các giao dịch mua hàng cần xử lý thủ công.</p></div></header>
-    <RequireSession requiredText="Đăng nhập bằng tài khoản Manager để xem đối soát."><ManagerPaymentTabs /></RequireSession>
-  </main>;
+  return <div className="ota-workspace">
+    <OperationsSidebar />
+    <main className="ota-main payment-reconciliation">
+      <div className="ota-topline"><span className="retail-staff-crumb"><Link to="/home">← Trang chủ</Link> MLAND / ĐỐI SOÁT BÁN LẺ</span><span>● Backend-authorized</span></div>
+      <div className="ota-page-heading"><div><p className="ota-eyebrow">FE-08 · Manager</p><h1>Đối soát thanh toán</h1><p>Kiểm tra các giao dịch mua hàng cần xử lý thủ công.</p></div></div>
+      <RequireSession requiredText="Đăng nhập bằng tài khoản Manager để xem đối soát."><ManagerPaymentTabs /></RequireSession>
+    </main>
+  </div>;
 }
 
 function ManagerPaymentTabs() {

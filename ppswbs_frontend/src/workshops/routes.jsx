@@ -2,6 +2,7 @@ import React from 'react';
 import { useParams, useSearchParams } from 'react-router';
 import { WorkshopAccessPage } from './WorkshopAccessPage';
 import { WorkshopBookingPage } from './WorkshopBookingPage';
+import { WorkshopCartPage } from './WorkshopCartPage';
 import { WorkshopDetailPage } from './WorkshopDetailPage';
 import { WorkshopListPage } from './WorkshopListPage';
 import { WorkshopLookupPage } from './WorkshopLookupPage';
@@ -24,8 +25,8 @@ function WorkshopBookingQueryRoute() {
 }
 
 function WorkshopPaymentReturnRoute() {
-  const { bookingCode } = useParams();
-  return <WorkshopPaymentReturnPage bookingCode={bookingCode} />;
+  const { groupCode } = useParams();
+  return <WorkshopPaymentReturnPage groupCode={groupCode} />;
 }
 
 // Workshop route ownership stays local to the workshop flow. The app router
@@ -35,7 +36,8 @@ export const workshopRoutes = [
   { path: '/workshops/:packageId', element: <WorkshopDetailRoute /> },
   { path: '/workshops/:packageId/book', element: <WorkshopBookingRoute /> },
   { path: '/workshops/booking', element: <WorkshopBookingQueryRoute /> },
+  { path: '/workshop-booking/cart', element: <WorkshopCartPage /> },
   { path: '/workshop-booking/lookup', element: <WorkshopLookupPage /> },
   { path: '/workshop-booking/access', element: <WorkshopAccessPage /> },
-  { path: '/workshop-booking/:bookingCode/payment-return', element: <WorkshopPaymentReturnRoute /> },
+  { path: '/workshop-booking/:groupCode/payment-return', element: <WorkshopPaymentReturnRoute /> },
 ];

@@ -38,7 +38,8 @@ import java.util.Set;
  * transaction (MANDATORY), so the owner's order rows and the loyalty holds commit or roll back together.
  *
  * <ol>
- *   <li>Only a Member's direct website transaction qualifies; a guest-import origin is refused.</li>
+ *   <li>Only a direct website transaction qualifies; a guest-import origin is refused. A Guest who books a
+ *       workshop directly is accepted without a Member (D-014): automatic discount only, no wallet, no earn.</li>
  *   <li>The same source reference with the same acknowledged terms returns the existing snapshot and holds nothing
  *       more; different terms are a conflict.</li>
  *   <li>Locks in order: registry READ, the selected voucher programme, the wallet, the Member counters. The quote is
@@ -82,6 +83,11 @@ public class LoyaltyReservationService {
                     "Only a Member's direct website transaction can use these benefits.");
         }
         TrustedSourceContext trusted = context.trusted();
+        // Session 2026-11-14 (D-014): a Guest workshop booking is accepted too, so 006 keeps the snapshot of every
+        // automatic discount it gave. The snapshot has no Member (member_id NULL) and is identified by the source
+        // reference; the quote already refused a voucher or points for a Guest, so no wallet or Member counter is
+        // locked, and the Guest earns nothing.
+        boolean guest = trusted.isGuest();
         Optional<AcceptedBenefit> existing = benefits.findBySourceKindAndSourceRef(trusted.sourceKind(), context.sourceRef());
         if (existing.isPresent()) {
             return replay(existing.get(), context);
@@ -91,13 +97,20 @@ public class LoyaltyReservationService {
                 ? programs.findIdByCodeKey(LoyaltyValues.normalizeCode("voucherCode", selection.voucherCode()).key())
                         .orElse(null)
                 : null;
-        long memberId = trusted.memberId();
+        Long memberId = guest ? null : trusted.memberId();
+        if (guest && (voucherProgramId != null || selection.choice() == SelectionChoice.VOUCHER
+                || selection.requestedPoints().signum() > 0)) {
+            throw new LoyaltyException(LoyaltyErrorCode.PROMOTION_INELIGIBLE,
+                    "Only a signed-in Member can use points or a voucher.");
+        }
         locks.readRegistry();
         PromotionProgram voucher = voucherProgramId == null ? null
                 : locks.lockPrograms(Set.of(voucherProgramId)).get(voucherProgramId);
-        List<PromotionProgram> autos = selection.choice() == SelectionChoice.AUTO
-                ? locks.shareActiveAutoDiscounts(trusted.at()) : null;
-        LoyaltyWallet wallet = selection.requestedPoints().signum() > 0
+        List<PromotionProgram> autos = selection.choice() != SelectionChoice.AUTO ? null
+                : trusted.sourceKind() == SourceKind.WORKSHOP
+                        ? locks.shareActiveWorkshopAutoDiscounts(trusted.at())
+                        : locks.shareActiveAutoDiscounts(trusted.at());
+        LoyaltyWallet wallet = guest ? null : selection.requestedPoints().signum() > 0
                 ? locks.lockOrOpenWallet(memberId) : locks.lockWallet(memberId).orElse(null);
         MemberProgram counters = voucher == null || voucher.getKind() != ProgramKind.VOUCHER ? null
                 : locks.lockOrCreateMemberProgram(voucher.getId(), memberId);
@@ -139,7 +152,8 @@ public class LoyaltyReservationService {
                 "{\"program\":" + (chosen == null ? "null" : chosen.programId()) + ",\"points\":\"" + points
                         + "\",\"discount\":\"" + result.programDiscount() + "\"}");
         List<AcceptedBenefitPart.Share> shares = List.of();
-        BigInteger earned = LoyaltyCalculator.earnedPoints(evaluation.policy().terms(), result.earnBase());
+        BigInteger earned = guest ? BigInteger.ZERO
+                : LoyaltyCalculator.earnedPoints(evaluation.policy().terms(), result.earnBase());
         if (!context.parts().isEmpty()) {
             // Session 2026-11-12 (D-011): each branch order's share, fixed now with the policy of acceptance.
             shares = BenefitPartAllocator.allocate(trusted.lines(), context.parts(),

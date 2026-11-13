@@ -3,6 +3,9 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.notificationmanagement;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.notificationfacade.BookingNotificationDeliveryPayload;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.notificationfacade.BookingNotificationDeliveryPayloadQuery;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.notificationfacade.WorkshopBookingNotificationFacade;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.SettlementNotificationDeliveryPayload;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.SettlementNotificationDeliveryPayloadQuery;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.WorkshopSettlementFacade;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -27,15 +30,30 @@ class BookingMailDeliveryService {
     private final WorkshopBookingNotificationFacade bookings;
     private final MailAdapter mail;
     private final String frontendBaseUrl;
+    /** Settlement customer emails (003.3, e.g. the refund-account request); null in booking-only unit tests. */
+    private final WorkshopSettlementFacade settlements;
 
+    BookingMailDeliveryService(NotificationDeliveryRepository deliveries, WorkshopBookingNotificationFacade bookings,
+                               MailAdapter mail, String frontendBaseUrl) {
+        this(deliveries, bookings, mail, frontendBaseUrl, null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
     BookingMailDeliveryService(NotificationDeliveryRepository deliveries, WorkshopBookingNotificationFacade bookings,
                                MailAdapter mail,
                                @org.springframework.beans.factory.annotation.Value("${app.frontend-base-url:http://localhost:5173}")
-                               String frontendBaseUrl) {
+                               String frontendBaseUrl,
+                               @org.springframework.context.annotation.Lazy WorkshopSettlementFacade settlements) {
         this.deliveries = deliveries;
         this.bookings = bookings;
         this.mail = mail;
         this.frontendBaseUrl = frontendBaseUrl;
+        this.settlements = settlements;
+    }
+
+    /** Settlement handoffs are referenced {@code SETTLE-NOTIF-…}; everything else is a Booking handoff. */
+    static boolean isSettlementNotification(String notificationReference) {
+        return notificationReference != null && notificationReference.startsWith("SETTLE-NOTIF-");
     }
 
     /** Handles a new handoff. Never throws: a delivery problem must not touch the confirmed booking. */
@@ -86,10 +104,22 @@ class BookingMailDeliveryService {
         String status;
         String error = null;
         try {
-            BookingNotificationDeliveryPayload payload = bookings.getBookingNotificationDeliveryPayload(
-                    new BookingNotificationDeliveryPayloadQuery(row.getNotificationReference()));
-            MailMessage message = payload == null ? null
-                    : BookingMailComposer.compose(row.getNotificationKind(), row.getBookingReference(), payload, frontendBaseUrl);
+            Object payload;
+            MailMessage message;
+            if (isSettlementNotification(row.getNotificationReference())) {
+                SettlementNotificationDeliveryPayload settlement = settlements == null ? null
+                        : settlements.getSettlementNotificationDeliveryPayload(
+                                new SettlementNotificationDeliveryPayloadQuery(row.getNotificationReference()));
+                payload = settlement;
+                message = settlement == null ? null
+                        : SettlementMailComposer.compose(row.getBookingReference(), settlement, frontendBaseUrl);
+            } else {
+                BookingNotificationDeliveryPayload booking = bookings.getBookingNotificationDeliveryPayload(
+                        new BookingNotificationDeliveryPayloadQuery(row.getNotificationReference()));
+                payload = booking;
+                message = booking == null ? null
+                        : BookingMailComposer.compose(row.getNotificationKind(), row.getBookingReference(), booking, frontendBaseUrl);
+            }
             if (message == null) {
                 status = NotificationDelivery.SKIPPED;
                 error = payload == null ? "NO_PAYLOAD" : "KIND_NOT_MAILED";

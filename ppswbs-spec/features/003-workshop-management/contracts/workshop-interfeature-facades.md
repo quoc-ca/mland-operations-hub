@@ -1,7 +1,7 @@
 # 003 Workshop Management — Internal Facade Contract
 
 **Date created**: 2026-10-25
-**Date updated**: 2026-11-05
+**Date updated**: 2026-11-13
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -85,7 +85,9 @@ check that state without depending on the `paymentintegration` module. For a
 verified successful deposit that arrives after its hold is released, Booking
 stores a deduplicated `BookingLatePaymentEvidence` record through its facade;
 that record is reconciliation evidence for Manager `RECORD`/`ESCALATE` only
-and never restores the hold or confirms the booking.
+and never restores the hold or confirms the booking. This applies to the
+single-booking model only. For a booking group, FR-040 (`CONFIRM`/`REFUND`)
+supersedes it: see "Late-payment review and bank refund (decision 2026-11-13)".
 
 ## Final-payment checkout boundary
 
@@ -174,7 +176,7 @@ configuration preflight is approved.
 | Commit holds after valid deposit evidence | `CommitBookingHoldsCommand(bookingReference, expectedHoldReferences, operationReference, correlationReference)` | `CapacityCommitOutcome(ACCEPTED, or REJECTED reason)` | Commits all active expected holds or none. |
 | Release pending holds | `ReleaseBookingHoldsCommand(bookingReference, expectedHoldReferences, operationReference, correlationReference)` | `CapacityReleaseOutcome(ACCEPTED or prior equivalent outcome)` | Releases active holds once only; late/repeated release is idempotent. |
 | Read current delivery-safe ticket set | `BookingTicketProjectionQuery(bookingReference)` | `DeliverySafeTicketSet(ticketReference, qrReference, ticketCode, sessionEntitlements(sessionReference, locationReference, scheduledStart, scheduledEnd))` | Each entitlement carries the opaque UUID session reference and current schedule for unambiguous customer projection after replacement/refund. `qrReference` is the Operations-issued opaque bearer scan value, returned only through this authorized projection; no attendance, Staff/audit or PII. |
-| Read booking attendance outcome (approved 2026-11-05) | `BookingAttendanceOutcomeQuery(bookingReference)` | `BookingAttendanceOutcome(terminal, outcome: ATTENDED, NO_SHOW or PARTIAL)` | `NO_SHOW` only when every ticket on every required session is a final `NO_SHOW`. Paired with the post-commit `BookingAttendanceFinalizedEvent(bookingReference, finalizedAt)` trigger; see "Direct-booking open-folio lifecycle". No ticket/participant payload. |
+| Read booking attendance outcome (approved 2026-11-05; removed by decision 2026-11-13, see "Direct booking is only a booking group") | `BookingAttendanceOutcomeQuery(bookingReference)` | `BookingAttendanceOutcome(terminal, outcome: ATTENDED, NO_SHOW or PARTIAL)` | `NO_SHOW` only when every ticket on every required session is a final `NO_SHOW`. Paired with the post-commit `BookingAttendanceFinalizedEvent(bookingReference, finalizedAt)` trigger; see "Direct-booking open-folio lifecycle". No ticket/participant payload. |
 | Read settlement readiness | `BookingSettlementReadinessQuery(bookingReference)` | `SettlementReadiness(ready)` | `ready` is true only if every required session is `ATTENDANCE_FINALIZED`; no underlying attendance detail. It gates finalization only; terminal attendance outcome (correction window closed, `ATTENDED`/`NO_SHOW`/`PARTIAL`) comes from `BookingAttendanceOutcomeQuery`. |
 | Read customer-cancellation eligibility | `BookingCancellationEligibilityQuery(bookingReference)` | `BookingCancellationEligibilitySnapshot(eligible, reason, earliestRequiredSessionReference, earliestRequiredSessionStart, hasCheckedInTicket, hasNoShow)` | Operations derives the complete current required-session set from its active booking entitlements, including Manager replacements; it is authoritative for the earliest scheduled session reference/start, check-in and no-show facts. Settlement must not supply a potentially stale Booking-time session set and receives no ticket/participant payload. |
 | Verify customer access to a booking | `CustomerBookingAccessQuery(bookingReference, memberAccountId, contactEmail, contactPhone)` | `CustomerBookingAccessDecision(authorized)` | Exactly one proof mode is supplied: a Member account ID or one Guest contact value. Booking compares it to its own stored owner/contact and returns only a boolean decision; it does not return contact PII or log the submitted proof. |
@@ -325,7 +327,7 @@ immutable.
 | Open at deposit confirmation (P1) | Existing `MlandBookingConfirmedEvent(bookingReference, confirmedAt)` consumed by 003.3 after commit; 003.3 then reads `ConfirmedBookingFinancialProjectionQuery` and `VerifiedBookingDepositPaymentsQuery`. | Idempotent per `bookingReference`: one OPEN folio with the immutable base line (frozen post-promotion amount) and the verified deposit appended as the first collection. Replay returns the existing folio. No new 003.1 operation. |
 | Attendance-finalized signal (P2) | New 003.2 post-commit, reference-only `BookingAttendanceFinalizedEvent(bookingReference, finalizedAt)`, published once per booking when booking-wide attendance becomes terminal: every required session `ATTENDANCE_FINALIZED` and the 24-hour Manager correction window closed. | Trigger only; it carries no attendance facts and never decides a financial outcome. |
 | Read booking attendance outcome (P2) | New `WorkshopOperationsFacade` query `BookingAttendanceOutcomeQuery(bookingReference)` → `BookingAttendanceOutcome(terminal, outcome)`; `outcome` ∈ `ATTENDED`, `NO_SHOW`, `PARTIAL`. | `terminal` is true only when every required session is `ATTENDANCE_FINALIZED` and the 24-hour correction window has closed, so no later correction can change the outcome. `NO_SHOW` only when every ticket on every required session is a final `NO_SHOW`; `PARTIAL` when some but not all tickets attended; no ticket, participant, or PII payload. |
-| Close on final no-show (P2) | 003.3 consumer of `BookingAttendanceFinalizedEvent` reads the query. | When `terminal` and `NO_SHOW`, close the OPEN folio as `CLOSED` at the verified collected amount, idempotently: no refund, no VNPay QueryDR/refund, no receivable. `ATTENDED`/`PARTIAL` proceed to normal checkout. |
+| Close on final no-show (P2; superseded 2026-11-13 by per-ticket closing) | 003.3 consumer of `BookingAttendanceFinalizedEvent` reads the query. | When `terminal` and `NO_SHOW`, close the OPEN folio as `CLOSED` at the verified collected amount, idempotently: no refund, no VNPay QueryDR/refund, no receivable. `ATTENDED`/`PARTIAL` proceed to normal checkout. |
 | Close on ordinary cancellation (P3) | Existing customer-cancellation flow (003.3 FR-015). | In the same Settlement transaction that resolves the case after Operations accepts, close the folio as `CLOSED` at the verified collected amount. Mland-caused remedy keeps its separate refund flow. |
 | Close after Mland-caused remedy (D11) | Existing Mland-caused remedy flow (003.3 FR-020/FR-021). | When every refund allocation has signed matching QueryDR evidence, close the folio as `CLOSED` in the Settlement transaction that records the final allocation; pending/unknown refunds keep it `OPEN`. |
 | Legacy confirmed bookings (D5) | Append-only Flyway backfill, not a facade operation. | Creates one OPEN folio for each existing confirmed direct booking from its frozen amounts and verified deposit receipts; must be idempotent with the P1 consumer. |
@@ -342,14 +344,80 @@ chosen at implementation.
 | Owner | Operation | Change |
 | --- | --- | --- |
 | 003.2 | Reserve/commit/release capacity | Accept a booking-group reference with lines (package, session set, ticket count); one seat per ticket per session; all or none for the group before confirmation, per ticket afterwards. |
-| 003.2 | Cancel ticket entitlements | New per-ticket command releasing the ticket's future seats and revoking its future entitlements; replaces whole-booking `CancelBookingCommand` for new bookings. |
-| 003.2 | Revoke and reissue ticket QR | New command for a recipient change; old QR refused at check-in; refused after any check-in. |
-| 003.2 | Replace ticket sessions | Per-ticket replacement for the selected tickets, all or none, with capacity, reschedule quota and the late-arrival window; type `CUSTOMER_ADVANCE`, `CUSTOMER_LATE_ARRIVAL` or `MLAND`. |
+| 003.2 | Cancel ticket entitlements | Implemented 2026-11-13 as `WorkshopOperationsFacade.cancelTicket(CancelTicketCommand(ticketReference, cancellationCaseReference, operationReference, correlationReference)) → TicketCancellationOutcome(status, ticketReference, releasedSessionReferences, reason)`. Releases the ticket's seats in every future session and deletes those entitlements, keeping a `ticket_entitlement_releases` row each; a session already started, finalized, cancelled or with attendance keeps its record and is not listed. The booking line's confirmed hold loses one seat (released at zero), so the seat is really free. Idempotent per `operationReference` (a replay re-reads the release rows); `REJECTED` with `TICKET_NOT_FOUND` or `INVALID_STATE`. No other ticket of the group is touched. |
+| 003.2 | Revoke and reissue ticket QR | Implemented 2026-11-13 as `WorkshopOperationsFacade.reissueTicketQr(ReissueTicketQrCommand(ticketReference, QrRevokeReason.RECIPIENT_CHANGED, operationReference, correlationReference)) → TicketQrReissueOutcome(status, ticketReference, qrGeneration, qrReference, reason)`. Idempotent per `operationReference` (replay re-reads the QR, the ledger never stores it); `REJECTED` with `TICKET_NOT_FOUND`, `INVALID_STATE` (not ACTIVE) or `TICKET_ALREADY_CHECKED_IN`. Joins the caller's transaction. The revoked QR is kept in `ticket_qr_generations`; check-in answers 409 `TICKET_QR_REVOKED`. |
+| 003.2 | Replace ticket sessions | Implemented 2026-11-13 as `WorkshopOperationsFacade.replaceTicketSessions(ReplaceTicketSessionsCommand(lines[(ticketReference, targetSessionReferences)], type, operationReference, correlationReference)) → TicketSessionReplacementOutcome(status, failingLineIndexes, reason)`. All or none across the lines; one seat per ticket per target; the QR, the ticket and past attendance are kept. Sources and targets are paired in start order, so the missed session's own replacement carries the 7-day `CUSTOMER_LATE_ARRIVAL` window (`LATE_ARRIVAL_WINDOW_EXPIRED`) while a following session may fall outside it. `CUSTOMER_ADVANCE` needs a future, untouched source; `MLAND` accepts a cancelled or running source and neither checks nor consumes quota. Refusals: `INVALID_REPLACEMENT`, `INVALID_STATE`, `TICKET_NOT_FOUND`, `INSUFFICIENT_CAPACITY`, `RESCHEDULE_QUOTA_EXHAUSTED`, each naming the failing lines. |
 | 003.2 | Attendance outcome / readiness / `BookingAttendanceFinalizedEvent` | Keyed by ticket booking instead of booking. |
 | 003.1 | `MlandBookingConfirmedEvent` and `ConfirmedBookingFinancialProjection` | One per ticket booking; the projection gives the ticket's final price, allocated booking-time collection and kind (`FREE`, `FULL`, `DEPOSIT`, `DEFERRED_BELOW_VNPAY_MINIMUM`) so 003.3 opens the ticket folio. |
 | 003.1 | Verified booking-time payments | Group payment evidence plus each ticket's allocated share. |
 | 003.3 → 003.1 | Booking status conclusions | Per ticket booking; refund status set only at `REFUNDED` after bank reconciliation. |
 | 003.3 → paymentintegration | Refund adapter | No longer used for direct Mland money (bank refunds); VNPay collection unchanged. |
+
+## Direct booking is only a booking group; attendance per ticket only (decision 2026-11-13)
+
+Owner instruction of Hồ Hoàng Quốc, 2026-11-13 (003.1 FR-044–FR-051, 003.3
+FR-046/FR-047). Approved by the owner in session 2026-11-13; not
+implemented. Every direct booking is a booking group with one ticket booking
+per person; the single direct `WorkshopBooking` flow is removed. OTA bookings
+keep `WorkshopBooking` and have no Mland folio.
+
+| Owner | Operation | Change |
+| --- | --- | --- |
+| 003.2 | `BookingAttendanceFinalizedEvent`, its outbox, `BookingAttendanceOutcomeQuery` | **Removed** once 003.2 T092 publishes `TicketAttendanceFinalizedEvent` per ticket (keyed by the 003.2 ticket reference, `attendance_tickets.reference`). Per-ticket outcome: existing `getTicketAttendanceOutcome(TicketAttendanceOutcomeQuery(ticketReference))`. Event shape, outbox and per-ticket readiness are chosen by T092, not here. |
+| 003.3 | `BookingAttendanceFinalizedEventConsumer` | **Removed**; replaced by a consumer of `TicketAttendanceFinalizedEvent` that closes only that ticket's folio on terminal `NO_SHOW` (003.3 FR-046). |
+| 003.1 | Resolve a 003.2 ticket reference to its ticket booking | **Missing, proposed:** `findTicketBookingByOperationsReference(ticketReference) → TicketBookingRef(ticketCode, groupCode)` or none, read-only from `ticket_bookings.operations_ticket_reference`; no contact or payment data. Needed because ticket folios are keyed by `ticketCode`. |
+| 003.1 | `ConfirmedBookingFinancialProjectionQuery`, `VerifiedBookingDepositPaymentsQuery`, `RecordLateDepositEvidenceCommand` (looks up a `WorkshopBooking` only), `RecordFinalBalanceResolvedCommand`, `CancelConfirmedBookingCommand`, `MlandBookingConfirmedEvent` (per booking) | Serve only the removed direct single-booking deposit/folio flow. **Removed** with it when no remaining caller exists (the backend step checks each against OTA and the per-ticket flow); the per-ticket equivalents are those of "Per-ticket boundary changes". |
+| 003.1 | `ApplyVerifiedDepositPaymentEvidenceCommand` | **Kept:** `paymentintegration` delivers group VNPay evidence through it (003.1 T093 routes by the group attempt's merchant reference). Only its single-booking branch is removed; renaming is out of scope. |
+| 003.2 | `BookingSettlementReadinessQuery`, `BookingCancellationEligibilityQuery`, `ReplaceRequiredSessionsCommand`, `CancelBookingCommand` (booking-wide) | Not changed by this decision. They lose their direct subject together with the booking-wide 003.3 routes; their removal waits for the open 003.3 decision on per-ticket replacements (003.3 spec, decision 2026-11-13, "Open"). |
+
+The "Direct-booking open-folio lifecycle" rows P2 (attendance signal, outcome
+query, close on final no-show) and D5 (legacy backfill) are superseded by this
+section for direct bookings.
+
+## Late-payment review and bank refund (decision 2026-11-13)
+
+Approved by the Feature 003 owner on 2026-11-13 for 003.1 FR-040/FR-040a.
+
+- **Direction.** Booking may not depend on Settlement (Settlement already
+  depends on `workshopbooking :: facade`). Booking therefore declares the port
+  `LatePaymentRefundPort` in `workshopbooking.facade`, and Settlement implements
+  it. Booking never references Settlement types.
+- **Command.** `OpenLatePaymentRefundCommand(groupCode, reviewReference,
+  evidenceReference, amountVnd, operationReference, correlationReference)`.
+- **Amount source.** The verified late evidence amount recorded on the review.
+  No ticket was confirmed, so there is no folio and no per-ticket allocation:
+  one group-level bank-refund request per review, reason
+  `LATE_PAYMENT_NOT_RECONFIRMED`, source reference = `reviewReference`.
+  Settlement rechecks the amount against Booking's verified late evidence
+  through the Booking facade before opening the request.
+- **Result.** `LatePaymentRefundOutcome(status, refundRequestReference,
+  refundStatus, reason)` with status `ACCEPTED`, `PRIOR_EQUIVALENT` (same source
+  and amount already opened) or `REJECTED` with a safe reason (for example
+  `AMOUNT_MISMATCH`, `EVIDENCE_NOT_FOUND`, `SOURCE_CONFLICT`).
+- **Idempotency.** Unique `(reason, source_reference)` in
+  `settlement_refund_requests`; a repeated command returns `PRIOR_EQUIVALENT`.
+- **Transaction.** The port runs with propagation `MANDATORY` inside the
+  Manager decision transaction. A failure rolls back both, so a review becomes
+  `REFUND_REQUESTED` only once the durable refund request exists.
+- **Missing account.** Still `ACCEPTED`; the request starts in
+  `PENDING_ACCOUNT` and the refund-account email (template 7, 003.3 FR-040)
+  counts as the FR-040a result. VNPay Refund is never called.
+- **Conditions.** Condition 1 checks session capacity through
+  `reserveGroupCapacity` only (no channel quota exists in V1). Condition 3
+  holds only when the current loyalty revision equals the recorded revision,
+  the voucher and points can be held again and the recomputed total equals
+  the collected amount.
+- **Manager queue.** `GET /api/v1/late-payment-reviews` ordered by earliest
+  session start. Booking publishes `LatePaymentReviewQueued(reviewReference,
+  groupReference, earliestSessionAt, resultDueAt, correlationReference)` with
+  references only. Internal Manager email (template 13) goes to every active Manager through
+  `ManagerAlertRecipientSource`, to be backed by FE-001 `AccountFacade.listActiveManagerEmails()` once FE-001
+  agrees; until then no alert email is sent.
+- **Customer emails.** Booking-group emails (templates 1/6a, 2, 3, 4, 6b, 12) are `booking_group_notification_intents`
+  pulled through `WorkshopBookingNotificationFacade`. Settlement emails, including template 7 with the private
+  `/refund-account#{token}` link, are `settlement_notification_handoffs` pulled through
+  `WorkshopSettlementFacade.getSettlementNotificationDeliveryPayload`; Feature 007 now consumes both
+  `BookingNotificationReady` and `SettlementNotificationReady` (decision 2026-11-13).
 
 ## Explicitly not decided here
 

@@ -42,4 +42,29 @@ public interface PromotionEligibilityRepository extends JpaRepository<PromotionP
               and r.startAt <= :at and r.endAt > :at
             order by p.createdAt asc, p.id asc""")
     List<PromotionProgram> lockActiveAutoDiscounts(@Param("at") Instant at);
+
+    /**
+     * The same two reads for workshop automatic discounts (Session 2026-11-14, FR-044). They are a separate scope,
+     * so a workshop booking never sees a product programme and the retail reads keep their own plan.
+     */
+    @Query("""
+            select p from PromotionProgram p, PromotionRevision r
+            where r.id = p.currentRevisionId
+              and p.kind = edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.entity.ProgramKind.AUTO_DISCOUNT
+              and p.scope = edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.TargetScope.WORKSHOP
+              and p.status = edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.entity.ProgramStatus.ENABLED
+              and r.startAt <= :at and r.endAt > :at
+            order by p.createdAt asc, p.id asc""")
+    List<PromotionProgram> findActiveWorkshopAutoDiscounts(@Param("at") Instant at);
+
+    @Lock(LockModeType.PESSIMISTIC_READ)
+    @Query("""
+            select p from PromotionProgram p, PromotionRevision r
+            where r.id = p.currentRevisionId
+              and p.kind = edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.entity.ProgramKind.AUTO_DISCOUNT
+              and p.scope = edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.TargetScope.WORKSHOP
+              and p.status = edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.entity.ProgramStatus.ENABLED
+              and r.startAt <= :at and r.endAt > :at
+            order by p.createdAt asc, p.id asc""")
+    List<PromotionProgram> lockActiveWorkshopAutoDiscounts(@Param("at") Instant at);
 }

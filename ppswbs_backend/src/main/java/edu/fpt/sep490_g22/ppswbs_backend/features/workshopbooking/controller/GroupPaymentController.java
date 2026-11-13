@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.*;
 
 /** Starts the single gateway payment of a booking group (003.1 FR-038). */
 @RestController
-@RequestMapping("/api/v1/workshop-booking-groups/{groupCode}/payment")
+@RequestMapping("/api/v1/workshop-booking-groups/{groupCode}/payment-attempts")
 @RequiredArgsConstructor
 public class GroupPaymentController {
 

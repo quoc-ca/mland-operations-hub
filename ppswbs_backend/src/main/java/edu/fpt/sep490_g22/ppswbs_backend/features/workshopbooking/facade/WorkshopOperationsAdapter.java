@@ -140,6 +140,24 @@ public class WorkshopOperationsAdapter {
         return workshopOperationsFacade.getBookingTicketProjection(new BookingTicketProjectionQuery(bookingReference));
     }
 
+    /** Revokes the ticket's QR and issues a new one (003.2 FR-033); joins the caller's transaction. */
+    public edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.TicketQrReissueOutcome reissueTicketQr(
+            java.util.UUID ticketReference, String operationReference, String correlationReference) {
+        return workshopOperationsFacade.reissueTicketQr(
+                new edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.ReissueTicketQrCommand(
+                        ticketReference,
+                        edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.QrRevokeReason.RECIPIENT_CHANGED,
+                        operationReference, correlationReference));
+    }
+
+    /** The attendance outcome of one ticket, keyed by its 003.2 ticket reference (003.2 FR-032). */
+    public edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.BookingAttendanceOutcome
+            getTicketAttendanceOutcome(String ticketReference) {
+        return workshopOperationsFacade.getTicketAttendanceOutcome(
+                new edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.TicketAttendanceOutcomeQuery(
+                        ticketReference));
+    }
+
     public DeliverySafeTicketSet getCurrentEntitlementProjection(String bookingReference) {
         log.debug("WorkshopOperationsAdapter.getCurrentEntitlementProjection: bookingRef={}", bookingReference);
         return workshopOperationsFacade.getBookingTicketProjection(new BookingTicketProjectionQuery(bookingReference));

@@ -42,6 +42,9 @@ public class WorkshopOperationsFacadeImpl implements WorkshopOperationsFacade {
     private final ObjectMapper objectMapper;
     private final CapacityHoldService capacityHoldService;
     private final GroupCapacityService groupCapacityService;
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.TicketQrReissueService ticketQrReissueService;
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.TicketCancellationService ticketCancellationService;
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.TicketSessionReplacementService ticketSessionReplacementService;
     private final AttendanceTicketService attendanceTicketService;
     private final WorkshopOtaSnapshotService otaSnapshotService;
     private final WorkshopPackageReservationPolicy packageReservationPolicy;
@@ -115,6 +118,21 @@ public class WorkshopOperationsFacadeImpl implements WorkshopOperationsFacade {
     @Transactional
     public GroupCapacityOutcome reserveGroupCapacity(ReserveGroupCapacityCommand command) {
         return groupCapacityService.reserveGroupCapacity(command);
+    }
+
+    @Override
+    public TicketQrReissueOutcome reissueTicketQr(ReissueTicketQrCommand command) {
+        return ticketQrReissueService.reissue(command);
+    }
+
+    @Override
+    public TicketCancellationOutcome cancelTicket(CancelTicketCommand command) {
+        return ticketCancellationService.cancelTicket(command);
+    }
+
+    @Override
+    public TicketSessionReplacementOutcome replaceTicketSessions(ReplaceTicketSessionsCommand command) {
+        return ticketSessionReplacementService.replace(command);
     }
 
     @Override

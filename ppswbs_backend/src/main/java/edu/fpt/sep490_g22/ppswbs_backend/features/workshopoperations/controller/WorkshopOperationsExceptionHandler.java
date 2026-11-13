@@ -142,6 +142,14 @@ public class WorkshopOperationsExceptionHandler {
         return buildResponse(HttpStatus.CONFLICT, "TICKET_CONFLICT", "Ticket Conflict", ex.getMessage(), correlationId);
     }
 
+    @ExceptionHandler(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopTicketQrRevokedException.class)
+    public ResponseEntity<ProblemDetailResponse> handleTicketQrRevoked(
+            edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopTicketQrRevokedException ex,
+            HttpServletRequest request) {
+        String correlationId = resolveCorrelationId(request);
+        return buildResponse(HttpStatus.CONFLICT, "TICKET_QR_REVOKED", "Ticket QR Revoked", ex.getMessage(), correlationId);
+    }
+
     @ExceptionHandler(WorkshopSlotConflictException.class)
     public ResponseEntity<ProblemDetailResponse> handleSlotConflict(
             WorkshopSlotConflictException ex, HttpServletRequest request) {

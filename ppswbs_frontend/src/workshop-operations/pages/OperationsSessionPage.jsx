@@ -8,7 +8,7 @@ import { OperationsSidebar } from '../../shared/ui/OperationsSidebar';
 import { OperationsAuthWorkspace } from '../../shared/ui/OperationsAuthWorkspace';
 import { createOperationsApi } from '../api/operationsApi';
 import { useOtaConnectivityApi } from '../../ota-connectivity/api/useOtaConnectivityApi';
-import { submitLatePaymentFollowUp, submitMagicLinkIncident } from '../../api/workshops';
+import { decideLatePaymentReview, listLatePaymentReviews, submitGroupMagicLinkIncident } from '../../api/workshops';
 import StaffWorkshopAddonPanel from '../components/StaffWorkshopAddonPanel';
 import '../../ota-connectivity/ota-connectivity.css';
 import '../workshop-operations.css';
@@ -136,6 +136,10 @@ export default function OperationsSessionPage() {
   const [recoveryReasonCode, setRecoveryReasonCode] = useState('PROVIDER_CONFIRMED_LATE_DEPOSIT');
   const [incidentNote, setIncidentNote] = useState('');
   const [incidentResult, setIncidentResult] = useState(null);
+  // Late payments that need a Manager are a queue of their own (003.1 FR-040a), not a per-booking follow-up command.
+  const [lateReviews, setLateReviews] = useState(null);
+  const [lateReviewsError, setLateReviewsError] = useState('');
+  const [lateReviewsLoading, setLateReviewsLoading] = useState(false);
 
   React.useEffect(() => {
     if (status !== 'signed-in') return;
@@ -198,6 +202,30 @@ export default function OperationsSessionPage() {
     setIncidentResult(null);
     const result = await command.run(key => action(key));
     if (result.ok) setIncidentResult(result.data || { status: 'accepted' });
+  }
+
+  async function loadLateReviews() {
+    setLateReviewsLoading(true);
+    setLateReviewsError('');
+    try {
+      setLateReviews(await listLatePaymentReviews({ status: 'PENDING_MANAGER', authorization }));
+    } catch (error) {
+      setLateReviews(null);
+      setLateReviewsError(error?.detail || error?.message || 'Không tải được hàng đợi thanh toán về trễ.');
+    } finally {
+      setLateReviewsLoading(false);
+    }
+  }
+
+  async function decideLateReview(review, decision) {
+    setMessage('');
+    const result = await command.run(key => decideLatePaymentReview(review.groupCode, review.reviewId, {
+      decision, reason: getFullIncidentReason(), authorization, idempotencyKey: key,
+    }));
+    if (result.ok) {
+      setMessage(decision === 'CONFIRM' ? 'Late payment confirmed.' : 'Refund request opened.');
+      loadLateReviews();
+    }
   }
 
   const reasonPayload = () => ({ reasonCode: reasonCode.trim(), reasonNote: reasonNote.trim() || undefined, evidenceReference: evidenceReference.trim() || undefined });
@@ -499,14 +527,14 @@ export default function OperationsSessionPage() {
       {isManager && (<>
       <article className="ota-panel">
         <div className="ota-panel-head"><h2>Manager booking recovery</h2></div>
-        <p className="muted">Quy trình can thiệp sự cố đặc biệt của Manager (thu hồi/đổi magic link truy cập, ghi nhận thanh toán tiền về trễ từ ngân hàng).</p>
+        <p className="muted">Thu hồi hoặc đổi magic link truy cập của một nhóm đặt chỗ (003.1 FR-048). Thanh toán về trễ được xử lý ở hàng đợi bên dưới.</p>
         <div className="ota-form-grid" style={{ marginBottom: '16px' }}>
           <label className="full-width">
-            Recovery booking code *
+            Recovery group code *
             <input
               value={bookingCode}
               onChange={e => setBookingCode(e.target.value)}
-              placeholder="BK-... (Mã đặt chỗ cần xử lý)"
+              placeholder="WG-... (Mã nhóm đặt chỗ cần xử lý)"
               required
             />
           </label>
@@ -535,33 +563,65 @@ export default function OperationsSessionPage() {
           <button
             className="button outline"
             disabled={command.pending || !bookingCode.trim() || (recoveryReasonCode === 'OTHER_REQUIRES_NOTE' && !incidentNote.trim())}
-            onClick={() => runBookingAction(key => submitMagicLinkIncident(bookingCode, { action: 'REVOKE', reason: getFullIncidentReason(), authorization, idempotencyKey: key }))}
+            onClick={() => runBookingAction(key => submitGroupMagicLinkIncident(bookingCode, { action: 'REVOKE', reason: getFullIncidentReason(), authorization, idempotencyKey: key }))}
           >
             Revoke magic link
           </button>
           <button
             className="button outline"
             disabled={command.pending || !bookingCode.trim() || (recoveryReasonCode === 'OTHER_REQUIRES_NOTE' && !incidentNote.trim())}
-            onClick={() => runBookingAction(key => submitMagicLinkIncident(bookingCode, { action: 'ROTATE', reason: getFullIncidentReason(), authorization, idempotencyKey: key }))}
+            onClick={() => runBookingAction(key => submitGroupMagicLinkIncident(bookingCode, { action: 'ROTATE', reason: getFullIncidentReason(), authorization, idempotencyKey: key }))}
           >
             Rotate magic link
           </button>
-          <button
-            className="button outline"
-            disabled={command.pending || !bookingCode.trim() || (recoveryReasonCode === 'OTHER_REQUIRES_NOTE' && !incidentNote.trim())}
-            onClick={() => runBookingAction(key => submitLatePaymentFollowUp(bookingCode, { action: 'RECORD', reason: getFullIncidentReason(), authorization, idempotencyKey: key }))}
-          >
-            Record late payment
-          </button>
-          <button
-            className="button warning"
-            disabled={command.pending || !bookingCode.trim() || (recoveryReasonCode === 'OTHER_REQUIRES_NOTE' && !incidentNote.trim())}
-            onClick={() => runBookingAction(key => submitLatePaymentFollowUp(bookingCode, { action: 'ESCALATE', reason: getFullIncidentReason(), authorization, idempotencyKey: key }))}
-          >
-            Escalate late payment
-          </button>
         </div>
         {incidentResult && <pre className="ops-result">{JSON.stringify(incidentResult, null, 2)}</pre>}
+      </article>
+      <article className="ota-panel">
+        <div className="ota-panel-head"><h2>Late payment reviews</h2></div>
+        <p className="muted">
+          Thanh toán về trễ không tự xác nhận lại sẽ chờ Manager (003.1 FR-040a). Hàng đợi xếp theo ca bắt đầu sớm nhất;
+          mỗi quyết định dùng lý do đã chuẩn hóa ở trên. CONFIRM chỉ khả dụng khi điều kiện cho phép, còn lại là REFUND
+          hoàn 100% qua 003.3.
+        </p>
+        <div className="ops-actions">
+          <button className="button outline" disabled={lateReviewsLoading} onClick={loadLateReviews}>
+            {lateReviewsLoading ? 'Đang tải...' : 'Tải hàng đợi'}
+          </button>
+        </div>
+        {lateReviewsError && <p role="alert" style={{ color: '#b00' }}>{lateReviewsError}</p>}
+        {Array.isArray(lateReviews) && lateReviews.length === 0 && (
+          <p className="muted">Không có thanh toán về trễ nào đang chờ Manager.</p>
+        )}
+        {Array.isArray(lateReviews) && lateReviews.length > 0 && (
+          <ul style={{ listStyle: 'none', margin: '12px 0 0', padding: 0, display: 'grid', gap: '10px' }}>
+            {lateReviews.map(review => (
+              <li key={review.reviewId} style={{ border: '1px solid #dcdfe6', padding: '12px' }}>
+                <strong>{review.groupCode}</strong>
+                <p className="muted" style={{ margin: '4px 0', fontSize: '13px' }}>
+                  Số tiền: {review.amount} · Điều kiện không đạt: {(review.failedConditions || []).join(', ') || '—'}
+                  {review.resultDueAt ? ` · Phải trả lời trước: ${new Date(review.resultDueAt).toLocaleString('vi-VN')}` : ''}
+                </p>
+                <div className="ops-actions">
+                  <button
+                    className="button outline"
+                    disabled={command.pending || !review.confirmAllowed || (recoveryReasonCode === 'OTHER_REQUIRES_NOTE' && !incidentNote.trim())}
+                    onClick={() => decideLateReview(review, 'CONFIRM')}
+                  >
+                    Confirm late payment
+                  </button>
+                  <button
+                    className="button warning"
+                    disabled={command.pending || (recoveryReasonCode === 'OTHER_REQUIRES_NOTE' && !incidentNote.trim())}
+                    onClick={() => decideLateReview(review, 'REFUND')}
+                  >
+                    Open 100% refund
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
       </article>
       <article className="ota-panel">
         <div className="ota-panel-head"><h2>Cancellation handoff</h2></div>

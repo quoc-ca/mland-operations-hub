@@ -76,6 +76,13 @@ public class SecurityConfiguration {
                 .requestMatchers(HttpMethod.POST, "/api/v1/workshop-bookings").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/booking-magic-links/exchanges").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/booking-lookups").permitAll()
+                // 003.1 FR-041 (decision 2026-11-13): a Guest buyer proves authority by OTP; the services
+                // authorize every request server-side (bearer optional).
+                .requestMatchers(HttpMethod.POST, "/api/v1/workshop-booking-groups/*/buyer-verifications").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/workshop-booking-groups/*/buyer-verifications/*/confirmations").permitAll()
+                .requestMatchers(HttpMethod.PUT, "/api/v1/workshop-tickets/*/recipient").permitAll()
+                // 003.3 FR-040: the single-use refund-account link from email 7 is the credential.
+                .requestMatchers(HttpMethod.POST, "/api/v1/refund-account-links/*").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/workshop-bookings/*/pending-hold-release").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/workshop-bookings/*/confirmation-deliveries").permitAll()
                 // VNPay calls the signed IPN server-to-server without a Mland bearer token.

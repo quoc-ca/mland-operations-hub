@@ -99,6 +99,32 @@ class LoyaltyWorkshopFacadeIT {
         return code;
     }
 
+    /**
+     * A workshop automatic discount on the package (Session 2026-11-14, FR-044): no code, no quota, points always
+     * combinable, packages as the only target dimension. Saved through the repositories, so the row also has to
+     * satisfy the database rule V134 relaxed.
+     */
+    private long workshopAutoDiscount(long packageId, long amount, Instant createdAt) {
+        return transaction.execute(status -> {
+            PromotionProgram program = programs.saveAndFlush(
+                    PromotionProgram.autoDiscount(TargetScope.WORKSHOP, createdAt, 1L));
+            PromotionRevision revision = revisions.saveAndFlush(PromotionRevision.create(program.getId(), 1,
+                    ProgramKind.AUTO_DISCOUNT, "Workshop auto IT", createdAt.minus(1, ChronoUnit.DAYS),
+                    createdAt.plus(30, ChronoUnit.DAYS), DiscountTerms.fixed(n(amount), n(amount), BigInteger.ZERO),
+                    true, createdAt, 1L));
+            targets.save(PromotionTarget.create(revision.getId(), TargetScope.WORKSHOP, TargetDimension.PACKAGE,
+                    Long.toString(packageId)));
+            program.pointToRevision(revision.getId());
+            return program.getId();
+        });
+    }
+
+    private static TrustedSourceContext guestBooking(long packageId, LocalDate day) {
+        return new TrustedSourceContext(SourceKind.WORKSHOP, TrustedSourceContext.GUEST, Instant.now(), List.of(),
+                WorkshopFact.singleSession(packageId, 2, n(1_000_000), WorkshopSessionFact.of(SESSION_1, 2L, day)),
+                BigInteger.ZERO);
+    }
+
     private long member(long points) {
         long memberId = ThreadLocalRandom.current().nextLong(100_000_000L, 900_000_000L);
         transaction.executeWithoutResult(status -> {
@@ -450,11 +476,128 @@ class LoyaltyWorkshopFacadeIT {
     }
 
     @Test
-    void anAutomaticSelectionIsRefusedForWorkshops() {
+    void anAutomaticSelectionWithoutAWorkshopProgrammeGivesNoDiscount() {
         long memberId = member(1);
         BenefitPreview preview = loyalty.previewBenefits(booking(memberId, 1L, DAY),
                 new BenefitSelection(SelectionChoice.AUTO, null, BigInteger.ZERO));
         assertThat(preview.programId()).isNull();
         assertThat(preview.reasons()).isNotEmpty();
+    }
+
+    @Test
+    void theLargestWorkshopAutomaticDiscountIsAppliedToAMemberAndToAGuestAlike() {
+        // FR-044: the discount is the same number for everyone, which is why it may be shown publicly (FR-045).
+        long packageId = ThreadLocalRandom.current().nextLong(500_000L, 900_000L);
+        Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
+        workshopAutoDiscount(packageId, 60_000, now.minus(2, ChronoUnit.DAYS));
+        long larger = workshopAutoDiscount(packageId, 150_000, now.minus(1, ChronoUnit.DAYS));
+        BenefitSelection auto = new BenefitSelection(SelectionChoice.AUTO, null, BigInteger.ZERO);
+
+        BenefitPreview forMember = loyalty.previewBenefits(booking(member(1_000), packageId, DAY), auto);
+        assertThat(forMember.programId()).isEqualTo(larger);
+        assertThat(forMember.programDiscount()).isEqualTo(n(150_000));
+        assertThat(forMember.netBeforePoints()).isEqualTo(n(850_000));
+        assertThat(forMember.pointsAllowed()).isTrue();
+
+        BenefitPreview forGuest = loyalty.previewBenefits(guestBooking(packageId, DAY), auto);
+        assertThat(forGuest.programId()).isEqualTo(larger);
+        assertThat(forGuest.programDiscount()).isEqualTo(n(150_000));
+        assertThat(forGuest.netBeforePoints()).isEqualTo(n(850_000));
+        assertThat(forGuest.pointsUsed()).isZero();
+        assertThat(forGuest.maxPoints()).isZero();
+    }
+
+    @Test
+    void aGuestGetsNoVoucherAndNoPoints() {
+        long packageId = ThreadLocalRandom.current().nextLong(500_000L, 900_000L);
+        workshopAutoDiscount(packageId, 50_000, Instant.now().truncatedTo(ChronoUnit.MICROS));
+        String code = workshopVoucher(packageId);
+        assertThatThrownBy(() -> loyalty.previewBenefits(guestBooking(packageId, DAY),
+                new BenefitSelection(SelectionChoice.VOUCHER, code, BigInteger.ZERO)))
+                .isInstanceOfSatisfying(LoyaltyException.class,
+                        e -> assertThat(e.code()).isEqualTo(LoyaltyErrorCode.PROMOTION_INELIGIBLE));
+        assertThatThrownBy(() -> loyalty.previewBenefits(guestBooking(packageId, DAY),
+                new BenefitSelection(SelectionChoice.AUTO, null, n(100))))
+                .isInstanceOfSatisfying(LoyaltyException.class,
+                        e -> assertThat(e.code()).isEqualTo(LoyaltyErrorCode.PROMOTION_INELIGIBLE));
+    }
+
+    /**
+     * Session 2026-11-14 (D-014): a Guest accepts the workshop automatic discount. The snapshot has no Member, the
+     * deposit settles it, the completion closes the earn as a zero grant, and no wallet is ever touched.
+     */
+    @Test
+    void aGuestAcceptsTheAutomaticDiscountWithoutAMemberAndEarnsNothing() {
+        long packageId = ThreadLocalRandom.current().nextLong(500_000L, 900_000L);
+        long autoId = workshopAutoDiscount(packageId, 50_000, Instant.now().truncatedTo(ChronoUnit.MICROS));
+        TrustedSourceContext guest = guestBooking(packageId, DAY);
+        BenefitSelection auto = new BenefitSelection(SelectionChoice.AUTO, null, BigInteger.ZERO);
+        BenefitPreview preview = loyalty.previewBenefits(guest, auto);
+        String ref = "BK-GUEST-" + UUID.randomUUID();
+
+        AcceptedBenefitRef held = transaction.execute(status -> loyalty.reserveAcceptedTransaction(
+                accept(guest, ref, preview.termsDigest()), auto, "create-guest"));
+        assertThat(held.programDiscount()).isEqualTo(n(50_000));
+        assertThat(held.postPromotionAmount()).isEqualTo(n(950_000));
+        AcceptedBenefit stored = benefits.findBySourceKindAndSourceRef(SourceKind.WORKSHOP, ref).orElseThrow();
+        assertThat(stored.getMemberId()).isNull();
+        assertThat(stored.getProgramId()).isEqualTo(autoId);
+        assertThat(stored.getPointsState()).isEqualTo(ComponentState.NONE);
+        assertThat(stored.getVoucherState()).isEqualTo(ComponentState.NONE);
+        // The same booking accepted again replays the snapshot.
+        AcceptedBenefitRef again = transaction.execute(status -> loyalty.reserveAcceptedTransaction(
+                accept(guest, ref, preview.termsDigest()), auto, "create-guest"));
+        assertThat(again.acceptedBenefitId()).isEqualTo(held.acceptedBenefitId());
+
+        transaction.executeWithoutResult(status -> loyalty.settleAcceptedBenefits(
+                outcome(ref, OutcomeKind.WORKSHOP_DEPOSIT_ACCEPTED, "dep-" + ref, 2)));
+        AuthoritativeOutcome completed = outcome(ref, OutcomeKind.WORKSHOP_COMPLETED_AND_FULLY_PAID, "done-" + ref, 3);
+        BenefitResult earned = transaction.execute(status -> loyalty.grantEarnedPoints(completed));
+        assertThat(earned.earnState()).isEqualTo(EarnState.GRANTED);
+        AcceptedBenefit done = benefits.findBySourceKindAndSourceRef(SourceKind.WORKSHOP, ref).orElseThrow();
+        assertThat(done.getSettledAt()).isNotNull();
+        assertThat(done.getEarnedPoints()).isZero();
+    }
+
+    @Test
+    void aGuestCannotHoldAVoucherOrPointsAtAcceptance() {
+        long packageId = ThreadLocalRandom.current().nextLong(500_000L, 900_000L);
+        workshopAutoDiscount(packageId, 50_000, Instant.now().truncatedTo(ChronoUnit.MICROS));
+        String code = workshopVoucher(packageId);
+        TrustedSourceContext guest = guestBooking(packageId, DAY);
+        for (BenefitSelection selection : List.of(new BenefitSelection(SelectionChoice.VOUCHER, code, BigInteger.ZERO),
+                new BenefitSelection(SelectionChoice.AUTO, null, n(100)))) {
+            assertThatThrownBy(() -> transaction.execute(status -> loyalty.reserveAcceptedTransaction(
+                    accept(guest, "BK-GUEST-" + UUID.randomUUID(), "digest"), selection, "create-guest")))
+                    .isInstanceOfSatisfying(LoyaltyException.class,
+                            e -> assertThat(e.code()).isEqualTo(LoyaltyErrorCode.PROMOTION_INELIGIBLE));
+        }
+    }
+
+    /** A Guest cart: per-ticket shares exist (D-012), carry no points and earn nothing; ticket outcomes still apply. */
+    @Test
+    void aGuestCartKeepsPerTicketSharesWithoutPoints() {
+        long packageId = ThreadLocalRandom.current().nextLong(500_000L, 900_000L);
+        workshopAutoDiscount(packageId, 100_000, Instant.now().truncatedTo(ChronoUnit.MICROS));
+        TrustedSourceContext guest = cart(TrustedSourceContext.GUEST, packageId, 300_000);
+        BenefitSelection auto = new BenefitSelection(SelectionChoice.AUTO, null, BigInteger.ZERO);
+        BenefitPreview preview = loyalty.previewBenefits(guest, auto);
+        String ref = "BK-GUEST-" + UUID.randomUUID();
+        AcceptedBenefitRef held = transaction.execute(status -> loyalty.reserveAcceptedTransaction(
+                accept(guest, ref, preview.termsDigest()), auto, "create-guest-cart"));
+        assertThat(held.programDiscount()).isEqualTo(n(100_000));
+        assertThat(held.parts()).hasSize(3).allSatisfy(part -> {
+            assertThat(part.pointsHeld()).isZero();
+            assertThat(part.earnPoints()).isZero();
+        });
+
+        transaction.executeWithoutResult(status -> loyalty.settleAcceptedBenefits(
+                outcome(ref, OutcomeKind.WORKSHOP_DEPOSIT_ACCEPTED, "dep-" + ref, 2)));
+        transaction.executeWithoutResult(status -> loyalty.restoreCancelledWorkshopBenefits(
+                ticketOutcome(ref, OutcomeKind.WORKSHOP_TICKET_VALID_CANCELLATION, "cancel-2", "t-2")));
+        BenefitResult result = transaction.execute(status -> loyalty.grantEarnedPoints(
+                ticketOutcome(ref, OutcomeKind.WORKSHOP_TICKET_COMPLETED_AND_FULLY_PAID, "done-1", "t-1")));
+        assertThat(result.voucherState()).isEqualTo(ComponentState.NONE);
+        assertThat(benefits.findBySourceKindAndSourceRef(SourceKind.WORKSHOP, ref).orElseThrow().getMemberId()).isNull();
     }
 }

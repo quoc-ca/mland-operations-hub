@@ -58,6 +58,13 @@ public class RetailOrder {
         this.recipientProvince = province; this.recipientDistrict = district; this.recipientWard = ward;
     }
     public void markPaid() { paymentState = PaymentState.PAID; }
+    /** Sets this branch order's benefit share as fixed by FE-06 at acceptance (Session 2026-11-13, D-011). */
+    public void applyDiscount(BigDecimal discountAmount) {
+        BigDecimal payable = subtotal.add(shippingCharge).subtract(discountAmount);
+        if (discountAmount.signum() < 0 || payable.signum() < 0) throw new IllegalArgumentException("Invalid branch discount");
+        this.payableAmount = payable;
+    }
+    public BigDecimal getDiscountAmount() { return subtotal.add(shippingCharge).subtract(payableAmount); }
     public void markPickupReady() { fulfilmentState = "READY_FOR_PICKUP"; pickupReadyConfirmed = true; }
     public void markPickedUp() { fulfilmentState = "PICKED_UP"; }
     /**

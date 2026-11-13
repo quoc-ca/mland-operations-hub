@@ -98,6 +98,21 @@ public class WorkshopSessionController {
         return ResponseEntity.ok(response);
     }
 
+    /** 003.2 FR-035 / T095: Manager sets or clears one session's reschedule quota. */
+    @PutMapping("/workshop-sessions/{sessionId}/reschedule-quota")
+    public ResponseEntity<SessionResponse> setRescheduleQuota(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @PathVariable("sessionId") String sessionId,
+            @RequestHeader(value = "Idempotency-Key", required = true) String idempotencyKey,
+            @Valid @RequestBody RescheduleQuotaRequest request) {
+        SessionResponse response = restIdempotency.execute(idempotencyKey,
+                "REST:PUT:/api/v1/workshop-sessions/{sessionId}/reschedule-quota",
+                "session:reschedule-quota:" + sessionId,
+                request, SessionResponse.class,
+                () -> sessionService.setRescheduleQuota(authHeader, sessionId, request));
+        return ResponseEntity.ok(response);
+    }
+
     @PostMapping("/workshop-sessions/{sessionId}/state-transitions")
     public ResponseEntity<SessionResponse> applyStateTransition(
             @RequestHeader(value = "Authorization", required = false) String authHeader,
