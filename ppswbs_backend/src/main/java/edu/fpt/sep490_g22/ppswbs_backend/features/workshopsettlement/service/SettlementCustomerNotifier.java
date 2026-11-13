@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementRefundRequest;
 import java.text.NumberFormat;
 import java.util.Locale;
 
@@ -32,6 +33,59 @@ public class SettlementCustomerNotifier {
                                             String correlationReference) {
         return notifyVerified(bookingReference, REFUND_ACCOUNT_REMINDER, amountVnd, refundReference,
                 correlationReference);
+    }
+
+    static final String REFUND_ACCOUNT_REQUEST = "REFUND_ACCOUNT_REQUEST";
+    /** Frontend path that reads the token from the fragment, so it never reaches server or referrer logs. */
+    static final String REFUND_ACCOUNT_PATH = "/refund-account#";
+
+    /**
+     * Template 7 (approved 2026-11-12): asks the payer for the refund account with a fresh 7-day link; a reminder on
+     * day 3 or 7 uses the same content with "(nhắc lại)". The link is stored only in the email snapshot until it
+     * expires, never in events, audit or logs.
+     *
+     * @return the notification reference, or null when the booking has no contact email
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public String notifyRefundAccountRequest(SettlementRefundRequest request, String rawLinkToken,
+                                             java.time.Instant linkExpiresAt, boolean reminder,
+                                             String correlationReference) {
+        String recipient;
+        try {
+            recipient = booking.notificationRecipient(request.getBookingReference());
+        } catch (RuntimeException failure) {
+            log.warn("Refund-account email skipped, recipient lookup failed: refund={} exceptionType={}",
+                    request.getRequestReference(), failure.getClass().getSimpleName());
+            return null;
+        }
+        if (recipient == null || recipient.isBlank()) {
+            log.info("Refund-account email skipped, booking has no contact email: refund={}",
+                    request.getRequestReference());
+            return null;
+        }
+        String amount = NumberFormat.getIntegerInstance(Locale.forLanguageTag("vi-VN")).format(request.getAmountVnd())
+                + " VND";
+        String order = request.getGroupReference() != null ? request.getGroupReference() : request.getBookingReference();
+        String subject = "MLAND – Cung cấp tài khoản để nhận hoàn " + amount + " (đơn " + order + ")"
+                + (reminder ? " (nhắc lại)" : "");
+        String target = request.getBookingReference().equals(order) ? "đơn " + order : "vé " + request.getBookingReference();
+        String body = "MLAND sẽ hoàn " + amount + " cho " + target + " với lý do: " + reasonLabel(request.getReason())
+                + ". Vui lòng nhập ngân hàng, số tài khoản và tên chủ tài khoản tại liên kết dưới đây trong 7 ngày. "
+                + "Vui lòng nhập tài khoản của chính người đã thanh toán và ghi đúng tên chủ tài khoản như ngân hàng hiển thị. MLAND đối chiếu tên trước khi chuyển; nếu không khớp, chúng tôi sẽ dừng lại và liên hệ với bạn.\n\n"
+                + "Bạn cũng có thể cung cấp tại quầy MLAND.";
+        return handoffs.create(request.getRequestReference(), REFUND_ACCOUNT_REQUEST, correlationReference, recipient,
+                body, subject, REFUND_ACCOUNT_PATH + rawLinkToken, linkExpiresAt);
+    }
+
+    private static String reasonLabel(edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.RefundReason reason) {
+        if (reason == null) return "hoàn tiền";
+        return switch (reason) {
+            case MLAND_CANCELLATION -> "MLAND hủy buổi workshop";
+            case LATE_PAYMENT_NOT_RECONFIRMED -> "thanh toán đến sau thời hạn giữ chỗ và không thể xác nhận chỗ";
+            case OVERCHARGE_AFTER_FINALIZED -> "điều chỉnh khoản thu sau khi chốt hóa đơn";
+            case EXCESS_OR_DUPLICATE_MONEY -> "thanh toán thừa hoặc trùng";
+            case OTA_ADDON_OVERCHARGE -> "điều chỉnh khoản dịch vụ thêm";
+        };
     }
 
     /** @return the notification reference, or null when no notification was created. */

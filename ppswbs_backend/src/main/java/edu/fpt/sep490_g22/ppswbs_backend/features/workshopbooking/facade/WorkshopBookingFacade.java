@@ -64,4 +64,7 @@ public interface WorkshopBookingFacade {
      * unknown or has no email. The value is for the caller's transaction only: never an event, audit or log field.
      */
     String getSettlementNotificationRecipient(SettlementNotificationRecipientQuery query);
+
+    /** The PII-free facts of one late-payment review, so 003.3 can recheck a refund amount (FR-040). */
+    java.util.Optional<LatePaymentReviewSnapshot> findLatePaymentReview(String reviewReference);
 }

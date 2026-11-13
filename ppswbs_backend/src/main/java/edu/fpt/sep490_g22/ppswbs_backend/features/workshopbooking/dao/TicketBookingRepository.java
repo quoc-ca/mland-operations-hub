@@ -9,5 +9,10 @@ import java.util.Optional;
 public interface TicketBookingRepository extends JpaRepository<TicketBooking, Long> {
     Optional<TicketBooking> findByTicketCode(String ticketCode);
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("select t from TicketBooking t where t.ticketCode = :ticketCode")
+    Optional<TicketBooking> findByTicketCodeForUpdate(
+            @org.springframework.data.repository.query.Param("ticketCode") String ticketCode);
+
     List<TicketBooking> findByGroupIdOrderByLineIndexAscParticipantOrdinalAsc(Long groupId);
 }

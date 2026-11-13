@@ -27,6 +27,8 @@ public class GroupPaymentEvidenceService {
 
     private final GroupPaymentAttemptRepository attempts;
     private final GroupConfirmationService confirmation;
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.BookingGroupRepository groupRepository;
+    private final LatePaymentReviewService lateReviews;
 
     /** Whether this merchant reference belongs to a group payment at all. */
     public boolean owns(String merchantReference) {
@@ -50,6 +52,18 @@ public class GroupPaymentEvidenceService {
         if (attempt.getAttemptStatus() == PaymentAttemptStatus.SUCCESS
                 && attempt.getGroup().getGroupStatus() == BookingStatus.CONFIRMED) {
             return DepositPaymentEvidenceOutcome.accepted();
+        }
+        // FR-040 (T094): decide lateness under the group lock, before trying to confirm, so a late payment never
+        // reaches the confirmation path (whose refusal would mark this transaction rollback-only).
+        var lockedGroup = groupRepository.findByGroupCodeForUpdate(groupCode).orElseThrow();
+        if (lateReviews.isLate(lockedGroup, java.time.Instant.now())) {
+            attempt.setAttemptStatus(PaymentAttemptStatus.SUCCESS);
+            attempts.save(attempt);
+            var review = lateReviews.receive(groupCode, merchantReference, amountVnd, correlationReference);
+            return edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.LatePaymentReview.AUTO_RECONFIRMED
+                    .equals(review.getOutcome())
+                    ? DepositPaymentEvidenceOutcome.accepted()
+                    : DepositPaymentEvidenceOutcome.rejected(BookingRejectionReason.NOT_READY);
         }
         try {
             confirmation.confirmPaidGroup(groupCode, amountVnd, evidenceReference, operationReference,

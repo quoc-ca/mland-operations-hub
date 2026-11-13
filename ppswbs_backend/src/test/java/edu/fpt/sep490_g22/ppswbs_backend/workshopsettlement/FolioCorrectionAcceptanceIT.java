@@ -298,7 +298,7 @@ class FolioCorrectionAcceptanceIT {
     private void completeBankRefunds(String bookingReference) {
         for (var refund : bankRefunds.listForBooking(bookingReference)) {
             String reference = refund.getRequestReference();
-            bankRefunds.submitAccountAtCounter(reference, "BIDV", "8608150999", "Buyer", false,
+            bankRefunds.submitAccountAtCounter(reference, "BIDV", "8608150999", "Buyer",
                     staff.accountId(), "CORR-ACCOUNT-" + reference);
             bankRefunds.approve(reference, manager.accountId(), "Approved correction refund",
                     "CORR-APPROVE-" + reference);

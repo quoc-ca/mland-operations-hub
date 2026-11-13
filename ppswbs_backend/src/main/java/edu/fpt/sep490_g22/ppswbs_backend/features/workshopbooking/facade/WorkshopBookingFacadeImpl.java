@@ -63,6 +63,10 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade, Worksho
             cartQuoteRepository;
     private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.TicketBookingRepository
             ticketBookingRepository;
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.GroupNotificationService
+            groupNotificationService;
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.LatePaymentReviewRepository
+            latePaymentReviewRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -198,9 +202,15 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade, Worksho
     @Override
     @Transactional(readOnly = true)
     public String getSettlementNotificationRecipient(SettlementNotificationRecipientQuery query) {
-        if (query == null) return null;
-        String email = bookingRepository.findByBookingCode(query.bookingReference())
-                .map(WorkshopBooking::getContactEmail).orElse(null);
+        if (query == null || query.bookingReference() == null) return null;
+        String reference = query.bookingReference().trim();
+        // A single booking, a booking group (late-payment refund) or one ticket of a group.
+        String email = bookingRepository.findByBookingCode(reference).map(WorkshopBooking::getContactEmail)
+                .or(() -> bookingGroupRepository.findByGroupCode(reference)
+                        .map(edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.BookingGroup::getContactEmail))
+                .or(() -> ticketBookingRepository.findByTicketCode(reference)
+                        .map(ticket -> ticket.getGroup().getContactEmail()))
+                .orElse(null);
         return email == null || email.isBlank() ? null : email.trim();
     }
 
@@ -520,7 +530,8 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade, Worksho
 
         Optional<BookingNotificationIntent> optIntent = notificationIntentRepository.findByNotificationReference(query.notificationReference());
         if (optIntent.isEmpty()) {
-            return null;
+            // Booking-group emails (003.1 FR-041/FR-040) keep their own snapshots.
+            return groupNotificationService.readPayload(query.notificationReference());
         }
 
         BookingNotificationIntent intent = optIntent.get();
@@ -656,5 +667,15 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade, Worksho
         } catch (NoSuchAlgorithmException ex) {
             throw new IllegalStateException("SHA-256 algorithm is unavailable", ex);
         }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<LatePaymentReviewSnapshot> findLatePaymentReview(String reviewReference) {
+        if (reviewReference == null || reviewReference.isBlank()) return Optional.empty();
+        return latePaymentReviewRepository.findByReviewReference(reviewReference.trim())
+                .map(review -> new LatePaymentReviewSnapshot(review.getReviewReference(),
+                        review.getGroup().getGroupCode(), review.getVerifiedEvidenceReference(),
+                        review.getAmountVnd(), review.getOutcome()));
     }
 }

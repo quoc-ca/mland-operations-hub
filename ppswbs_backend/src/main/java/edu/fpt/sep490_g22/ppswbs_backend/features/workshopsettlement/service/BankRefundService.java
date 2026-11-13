@@ -21,7 +21,7 @@ import java.util.UUID;
  *
  * <p>Mland money goes back only by bank transfer outside the system. This service calculates, records,
  * tracks and reconciles it, and never calls a gateway. The states are
- * {@code PENDING_ACCOUNT → PENDING_APPROVAL → PENDING_TRANSFER → PENDING_RECONCILIATION → REFUNDED}, with
+ * {@code PENDING_ACCOUNT â PENDING_APPROVAL â PENDING_TRANSFER â PENDING_RECONCILIATION â REFUNDED}, with
  * {@code CLOSED_UNREACHABLE} for a customer who never answers, which a Manager may reopen.
  *
  * <p>Who does what: a Manager approves the reason, amount and recipient; an actor holding
@@ -53,6 +53,7 @@ public class BankRefundService {
     private final SettlementEvidenceConclusionRepository evidence;
     private final SettlementBusinessAuditRepository audits;
     private final org.springframework.context.ApplicationEventPublisher events;
+    private final SettlementCustomerNotifier notifier;
 
     /** A newly opened request, with the raw link value when one was created for it. */
     public record OpenedRefund(SettlementRefundRequest request, String rawAccountLinkToken) {
@@ -61,12 +62,11 @@ public class BankRefundService {
     // ---- opening ----
 
     /**
-     * Opens a refund for one ticket, or returns the existing one for the same money (FR-039). The default
-     * recipient is the payer of the refunded money, so the request starts out addressed to them.
+     * Opens a refund for one ticket, or returns the existing one for the same money (FR-039).
      */
     @Transactional
     public OpenedRefund open(String bookingReference, String groupReference, RefundReason reason,
-                             String sourceReference, long amountVnd, String payerLabel,
+                             String sourceReference, long amountVnd,
                              String correlationReference) {
         if (bookingReference == null || bookingReference.isBlank() || sourceReference == null
                 || sourceReference.isBlank()) {
@@ -81,7 +81,39 @@ public class BankRefundService {
             return new OpenedRefund(existing.get(), null);
         }
         requireWithinCollected(bookingReference, amountVnd);
+        return createRequest(bookingReference, groupReference, reason, sourceReference, amountVnd,
+                correlationReference);
+    }
 
+    /**
+     * 003.1 FR-040 (decision 2026-11-13): a 100% bank refund of a late group payment that was never re-confirmed.
+     * No ticket was confirmed, so there is no folio: the request is opened for the group itself and capped by the
+     * verified late payment that Booking recorded, not by ticket collections. Idempotent per review reference.
+     * Returns null, without throwing, when the amount would exceed that payment.
+     */
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public OpenedRefund openLatePaymentRefund(String groupReference, String reviewReference, long amountVnd,
+                                              long verifiedLatePaymentVnd, String correlationReference) {
+        if (groupReference == null || groupReference.isBlank() || reviewReference == null || reviewReference.isBlank()) {
+            throw new WorkshopSettlementValidationException("REFUND_REFERENCES_REQUIRED");
+        }
+        if (amountVnd <= 0) {
+            throw new WorkshopSettlementValidationException("REFUND_AMOUNT_INVALID");
+        }
+        var existing = requests.findByReasonAndSourceReference(RefundReason.LATE_PAYMENT_NOT_RECONFIRMED, reviewReference);
+        if (existing.isPresent()) {
+            return new OpenedRefund(existing.get(), null);
+        }
+        if (amountVnd > verifiedLatePaymentVnd) {
+            return null; // over the verified late payment: the caller refuses without touching the transaction
+        }
+        return createRequest(groupReference, groupReference, RefundReason.LATE_PAYMENT_NOT_RECONFIRMED,
+                reviewReference, amountVnd, correlationReference);
+    }
+
+    private OpenedRefund createRequest(String bookingReference, String groupReference, RefundReason reason,
+                                       String sourceReference, long amountVnd,
+                                       String correlationReference) {
         SettlementRefundRequest request = requests.saveAndFlush(SettlementRefundRequest.builder()
                 .requestReference("REFUND-" + UUID.randomUUID())
                 .bookingReference(bookingReference.trim())
@@ -91,11 +123,9 @@ public class BankRefundService {
                 .amountVnd(amountVnd)
                 .currencyCode("VND")
                 .status(RefundRequestStatus.PENDING_ACCOUNT)
-                .payerLabel(payerLabel)
-                .recipientIsPayer(true)
-                .payerConfirmedOtherRecipient(false)
                 .build());
         String token = issueLink(request);
+        notifier.notifyRefundAccountRequest(request, token, Instant.now().plus(LINK_LIFETIME), false, correlationReference);
         audit(request, "REFUND_REQUEST_OPENED", null, reason.name(), correlationReference);
         log.info("Opened bank refund {} for {} of {} VND", request.getRequestReference(), bookingReference,
                 amountVnd);
@@ -110,8 +140,23 @@ public class BankRefundService {
             throw new WorkshopSettlementConflictException("REFUND_ACCOUNT_ALREADY_ON_FILE");
         }
         String token = issueLink(request);
+        notifier.notifyRefundAccountRequest(request, token, Instant.now().plus(LINK_LIFETIME), false, correlationReference);
         audit(request, "REFUND_ACCOUNT_LINK_RESENT", actorAccountId, null, correlationReference);
         return token;
+    }
+
+    /**
+     * Day-3 / day-7 reminder (template 7, "(nhắc lại)"): a fresh link replaces the previous one, so the reminder
+     * always carries a usable link. Runs in the scheduler transaction.
+     */
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public void remindAccountNeeded(SettlementRefundRequest request, String correlationReference) {
+        if (request.getStatus() != RefundRequestStatus.PENDING_ACCOUNT) {
+            return;
+        }
+        String token = issueLink(request);
+        notifier.notifyRefundAccountRequest(request, token, Instant.now().plus(LINK_LIFETIME), true, correlationReference);
+        audit(request, "REFUND_ACCOUNT_REMINDED", null, null, correlationReference);
     }
 
     // ---- the recipient account ----
@@ -119,8 +164,7 @@ public class BankRefundService {
     /** The customer answers the link. One use only: the link is spent whether or not it is used again. */
     @Transactional
     public SettlementRefundRequest submitAccountByLink(String rawToken, String bankCode, String accountNumber,
-                                                       String holderName, boolean payerConfirmedOtherRecipient,
-                                                       String correlationReference) {
+                                                       String holderName, String correlationReference) {
         SettlementRefundAccountLink link = links.findByTokenHash(hash(rawToken))
                 .orElseThrow(WorkshopSettlementNotFoundException::new);
         Instant now = Instant.now();
@@ -129,7 +173,7 @@ public class BankRefundService {
         }
         SettlementRefundRequest request = requests.findById(link.getRequestId())
                 .orElseThrow(WorkshopSettlementNotFoundException::new);
-        applyAccount(request, bankCode, accountNumber, holderName, payerConfirmedOtherRecipient,
+        applyAccount(request, bankCode, accountNumber, holderName,
                 RefundAccountEntryChannel.LINK, null, correlationReference);
         link.setLifecycleStatus(RefundAccountLinkStatus.USED);
         link.setUsedAt(now);
@@ -141,10 +185,9 @@ public class BankRefundService {
     @Transactional
     public SettlementRefundRequest submitAccountAtCounter(String requestReference, String bankCode,
                                                           String accountNumber, String holderName,
-                                                          boolean payerConfirmedOtherRecipient,
                                                           Long actorAccountId, String correlationReference) {
         SettlementRefundRequest request = lock(requestReference);
-        applyAccount(request, bankCode, accountNumber, holderName, payerConfirmedOtherRecipient,
+        applyAccount(request, bankCode, accountNumber, holderName,
                 RefundAccountEntryChannel.COUNTER, actorAccountId, correlationReference);
         revokeActiveLinks(request, Instant.now());
         return request;
@@ -278,6 +321,7 @@ public class BankRefundService {
         request.setReminderDay7At(null);
         SettlementRefundRequest saved = requests.saveAndFlush(request);
         String token = issueLink(saved);
+        notifier.notifyRefundAccountRequest(saved, token, Instant.now().plus(LINK_LIFETIME), false, correlationReference);
         audit(saved, "REFUND_REOPENED", managerAccountId, null, correlationReference);
         return new OpenedRefund(saved, token);
     }
@@ -290,7 +334,7 @@ public class BankRefundService {
     // ---- internals ----
 
     private void applyAccount(SettlementRefundRequest request, String bankCode, String accountNumber,
-                              String holderName, boolean payerConfirmedOtherRecipient,
+                              String holderName,
                               RefundAccountEntryChannel channel, Long actorAccountId,
                               String correlationReference) {
         if (request.getStatus() != RefundRequestStatus.PENDING_ACCOUNT) {
@@ -300,18 +344,10 @@ public class BankRefundService {
                 || holderName == null || holderName.isBlank()) {
             throw new WorkshopSettlementValidationException("REFUND_ACCOUNT_INCOMPLETE");
         }
-        boolean recipientIsPayer = request.getPayerLabel() == null
-                || holderName.trim().equalsIgnoreCase(request.getPayerLabel().trim());
-        if (!recipientIsPayer && !payerConfirmedOtherRecipient) {
-            // FR-040: a holder name other than the payer needs the payer's recorded confirmation.
-            throw new WorkshopSettlementConflictException("REFUND_RECIPIENT_NEEDS_PAYER_CONFIRMATION");
-        }
         request.setRecipientBankCode(bankCode.trim());
         request.setRecipientAccountEncrypted(RefundAccountCipher.encrypt(accountNumber.trim()));
         request.setRecipientAccountMasked(RefundAccountCipher.mask(accountNumber.trim()));
         request.setRecipientHolderName(holderName.trim());
-        request.setRecipientIsPayer(recipientIsPayer);
-        request.setPayerConfirmedOtherRecipient(payerConfirmedOtherRecipient);
         request.setAccountEntryChannel(channel);
         request.setAccountEnteredByAccountId(actorAccountId);
         request.setAccountEnteredAt(Instant.now());

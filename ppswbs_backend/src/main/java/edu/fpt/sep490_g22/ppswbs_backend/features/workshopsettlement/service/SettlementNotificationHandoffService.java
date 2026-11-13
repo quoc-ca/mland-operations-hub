@@ -27,6 +27,15 @@ public class SettlementNotificationHandoffService {
     @Transactional(propagation = Propagation.MANDATORY)
     public String create(String settlementReference, String notificationKind, String correlationReference,
                          String storedRecipient, String renderedContent) {
+        return create(settlementReference, notificationKind, correlationReference, storedRecipient, renderedContent,
+                null, null, null);
+    }
+
+    /** As above, with a rendered subject and a private link (kept no longer than the link's own expiry). */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public String create(String settlementReference, String notificationKind, String correlationReference,
+                         String storedRecipient, String renderedContent, String renderedSubject,
+                         String actionLink, Instant actionLinkExpiresAt) {
         require(settlementReference, "settlementReference");
         require(notificationKind, "notificationKind");
         require(correlationReference, "correlationReference");
@@ -45,6 +54,9 @@ public class SettlementNotificationHandoffService {
                 .correlationReference(correlationReference.trim())
                 .storedRecipient(storedRecipient.trim())
                 .renderedSettlementContent(renderedContent)
+                .renderedSubject(renderedSubject)
+                .actionLink(actionLink)
+                .actionLinkExpiresAt(actionLinkExpiresAt)
                 .payloadExpiresAt(payloadExpiresAt)
                 .createdAt(createdAt)
                 .build());

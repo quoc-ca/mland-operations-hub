@@ -151,7 +151,7 @@ public class WorkshopRefundService {
             default -> RefundReason.MLAND_CANCELLATION;
         };
         var opened = bankRefunds.open(settlementCase.getBookingReference(), null, reason,
-                allocation.getAllocationReference(), allocation.getAllocatedAmountVnd(), null,
+                allocation.getAllocationReference(), allocation.getAllocatedAmountVnd(),
                 settlementCase.getCorrelationReference());
         allocation.setLifecycleStatus(PENDING_BANK_REFUND);
         allocation.setBankRefundReference(opened.request().getRequestReference());

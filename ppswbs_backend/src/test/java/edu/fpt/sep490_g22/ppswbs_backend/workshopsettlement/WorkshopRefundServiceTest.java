@@ -329,7 +329,7 @@ class WorkshopRefundServiceTest {
     private void givenBankRefundOpens(String requestReference) {
         var request = edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementRefundRequest
                 .builder().requestReference(requestReference).build();
-        when(bankRefunds.open(anyString(), any(), any(), anyString(), anyLong(), any(), anyString()))
+        when(bankRefunds.open(anyString(), any(), any(), anyString(), anyLong(), anyString()))
                 .thenReturn(new edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service
                         .BankRefundService.OpenedRefund(request, "token"));
     }
