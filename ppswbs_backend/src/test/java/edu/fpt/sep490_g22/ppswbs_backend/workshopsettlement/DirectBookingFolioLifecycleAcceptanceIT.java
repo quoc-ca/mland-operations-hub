@@ -8,7 +8,6 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.ApplyVe
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingOutcomeStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.RecordBookingServiceOutcomeCommand;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.WorkshopBookingFacade;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.BookingLifecycleService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementBusinessAuditRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementEvidenceConclusionRepository;
@@ -48,6 +47,7 @@ import static org.mockito.Mockito.when;
  * conclusion never rolls back the Settlement transition.
  */
 @SpringBootTest
+@org.springframework.context.annotation.Import({edu.fpt.sep490_g22.ppswbs_backend.support.legacybooking.LegacyDirectBookings.class, edu.fpt.sep490_g22.ppswbs_backend.support.legacybooking.LegacyBookingLoyaltyOutcomes.class})
 @ActiveProfiles({"test", "workshopoperations-mysql-test"})
 class DirectBookingFolioLifecycleAcceptanceIT {
 
@@ -55,7 +55,7 @@ class DirectBookingFolioLifecycleAcceptanceIT {
     private static final long DEPOSIT = 50_001L;
     private static final long BALANCE = POST_PROMOTION - DEPOSIT;
 
-    @Autowired private BookingLifecycleService lifecycleService;
+    @Autowired private edu.fpt.sep490_g22.ppswbs_backend.support.legacybooking.LegacyDirectBookings legacy;
     @Autowired private BookingInvoiceRepository invoices;
     @Autowired private BookingPaymentAttemptRepository attempts;
     @Autowired private WorkshopBookingRepository bookings;
@@ -181,23 +181,11 @@ class DirectBookingFolioLifecycleAcceptanceIT {
     private String confirmDirectBooking() {
         String bookingCode = "BK-FOLIO-" + UUID.randomUUID().toString().substring(0, 8);
         currentSession = UUID.randomUUID();
-        WorkshopBooking booking = lifecycleService.createPendingBookingReservation(
-                bookingCode, 1L, "Test package", "buyer@example.test", "0900000000", null,
-                1, List.of(currentSession), POST_PROMOTION, POST_PROMOTION,
-                "OP-RES-" + bookingCode, "CORR-RES-" + bookingCode);
-        BookingInvoice invoice = invoices.findByBookingId(booking.getId()).orElseThrow();
-        BookingPaymentAttempt attempt = attempts.save(BookingPaymentAttempt.builder()
-                .booking(booking).invoice(invoice)
-                .attemptReference("ATT-" + UUID.randomUUID())
-                .merchantReference("DEP-" + bookingCode + "-" + UUID.randomUUID())
-                .attemptAmount(invoice.getDepositAmount())
-                .status(PaymentAttemptStatus.PENDING)
-                .expiresAt(booking.getHoldExpiresAt())
-                .build());
-        String evidenceRef = "VNPAY-" + Math.abs(UUID.randomUUID().getMostSignificantBits() % 1_000_000_000L);
-        assertThat(bookingFacade.applyVerifiedDepositPaymentEvidence(new ApplyVerifiedDepositPaymentEvidenceCommand(
-                bookingCode, evidenceRef, attempt.getMerchantReference(), DEPOSIT, "VND",
-                "OP-" + evidenceRef, "CORR-" + bookingCode)).status()).isEqualTo(BookingOutcomeStatus.ACCEPTED);
+        legacy.pending(bookingCode, 1L, "Test package", "buyer@example.test", "0900000000", null,
+                1, List.of(currentSession), 1L, POST_PROMOTION, POST_PROMOTION);
+        String merchant = legacy.depositAttempt(bookingCode, null);
+        String transactionNumber = String.valueOf(Math.abs(UUID.randomUUID().getMostSignificantBits() % 1_000_000_000L));
+        assertThat(legacy.confirmDeposit(bookingCode, merchant, transactionNumber)).isTrue();
         return bookingCode;
     }
 

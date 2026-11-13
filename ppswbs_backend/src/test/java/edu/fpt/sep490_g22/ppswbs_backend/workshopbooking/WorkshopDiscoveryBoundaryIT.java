@@ -1,6 +1,6 @@
 package edu.fpt.sep490_g22.ppswbs_backend.workshopbooking;
 
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.controller.WorkshopBookingQuoteController;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.controller.WorkshopCartQuoteController;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.controller.WorkshopPackageController;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.lang.syntax.ArchRuleDefinition;
@@ -44,7 +44,7 @@ class WorkshopDiscoveryBoundaryIT {
                 "/api/v1/workshop-packages",
                 "/api/v1/workshop-packages/{packageId}/sessions");
         assertThat(restControllerTypes(BOOKING_CONTROLLERS))
-                .contains(WorkshopBookingQuoteController.class);
+                .contains(WorkshopCartQuoteController.class);
     }
 
     @Test

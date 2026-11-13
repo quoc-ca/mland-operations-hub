@@ -11,5 +11,9 @@ public enum RejectionReason {
     PACKAGE_NOT_PUBLISHED,
     PACKAGE_SELECTION_INVALID,
     TICKET_NOT_FOUND,
-    TICKET_ALREADY_CHECKED_IN
+    TICKET_ALREADY_CHECKED_IN,
+    /** 003.2 FR-035: a target session has no reschedule quota left for a customer change. */
+    RESCHEDULE_QUOTA_EXHAUSTED,
+    /** 003.2 FR-034: the replacement of a missed session starts after the old session's end plus 7 days. */
+    LATE_ARRIVAL_WINDOW_EXPIRED
 }

@@ -14,7 +14,6 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.ApplyVerifiedDepositPaymentEvidenceCommand;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingOutcomeStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.WorkshopBookingFacade;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.BookingLifecycleService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementCaseRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementEvidenceConclusionRepository;
@@ -63,6 +62,7 @@ import static org.mockito.Mockito.*;
  * the booking, tickets or capacity, and two concurrent corrections can never refund the same money twice.
  */
 @SpringBootTest
+@org.springframework.context.annotation.Import({edu.fpt.sep490_g22.ppswbs_backend.support.legacybooking.LegacyDirectBookings.class, edu.fpt.sep490_g22.ppswbs_backend.support.legacybooking.LegacyBookingLoyaltyOutcomes.class})
 @ActiveProfiles({"test", "workshopoperations-mysql-test"})
 @TestPropertySource(properties = {
         "vnpay.merchant-api-ip-address=127.0.0.1",
@@ -76,7 +76,7 @@ class FolioCorrectionAcceptanceIT {
     private static final String DEPOSIT_CREATED = "20261105100000";
     private static final String FINAL_CREATED = "20261105110000";
 
-    @Autowired private BookingLifecycleService lifecycleService;
+    @Autowired private edu.fpt.sep490_g22.ppswbs_backend.support.legacybooking.LegacyDirectBookings legacy;
     @Autowired private BookingInvoiceRepository invoices;
     @Autowired private BookingPaymentAttemptRepository attempts;
     @Autowired private WorkshopBookingRepository bookings;
@@ -312,24 +312,11 @@ class FolioCorrectionAcceptanceIT {
     private Folio finalizedFolio() throws InterruptedException {
         String bookingCode = "BK-FC-" + UUID.randomUUID().toString().substring(0, 8);
         currentSession = UUID.randomUUID();
-        WorkshopBooking booking = lifecycleService.createPendingBookingReservation(
-                bookingCode, 1L, "Test package", "buyer@example.test", "0900000000", null,
-                1, List.of(currentSession), POST_PROMOTION, POST_PROMOTION,
-                "OP-RES-" + bookingCode, "CORR-RES-" + bookingCode);
-        BookingInvoice invoice = invoices.findByBookingId(booking.getId()).orElseThrow();
-        BookingPaymentAttempt attempt = attempts.save(BookingPaymentAttempt.builder()
-                .booking(booking).invoice(invoice)
-                .attemptReference("ATT-" + UUID.randomUUID())
-                .merchantReference("DEP-" + bookingCode + "-" + UUID.randomUUID())
-                .attemptAmount(invoice.getDepositAmount())
-                .status(PaymentAttemptStatus.PENDING)
-                .providerCreateDate(DEPOSIT_CREATED)
-                .expiresAt(booking.getHoldExpiresAt())
-                .build());
+        legacy.pending(bookingCode, 1L, "Test package", "buyer@example.test", "0900000000", null,
+                1, List.of(currentSession), 1L, POST_PROMOTION, POST_PROMOTION);
+        String merchant = legacy.depositAttempt(bookingCode, DEPOSIT_CREATED);
         String depositTransaction = String.valueOf(Math.abs(UUID.randomUUID().getMostSignificantBits() % 1_000_000_000L) + 1);
-        assertThat(bookingFacade.applyVerifiedDepositPaymentEvidence(new ApplyVerifiedDepositPaymentEvidenceCommand(
-                bookingCode, "VNPAY-" + depositTransaction, attempt.getMerchantReference(), DEPOSIT, "VND",
-                "OP-" + depositTransaction, "CORR-" + bookingCode)).status()).isEqualTo(BookingOutcomeStatus.ACCEPTED);
+        assertThat(legacy.confirmDeposit(bookingCode, merchant, depositTransaction)).isTrue();
         awaitFolio(bookingCode);
 
         String finalReference = "FIN-" + UUID.randomUUID();
@@ -342,7 +329,7 @@ class FolioCorrectionAcceptanceIT {
                 .operationReference("OP-" + finalReference).createdAt(Instant.now()).build());
         assertThat(finalBills.finalizeAuthorized(bookingCode, 0L, "OP-FIN-" + bookingCode, "CORR-FIN").getLifecycleStatus())
                 .isEqualTo("FINALIZED");
-        return new Folio(bookingCode, attempt.getMerchantReference(), finalReference);
+        return new Folio(bookingCode, merchant, finalReference);
     }
 
     /** The confirmation event reaches the folio listener asynchronously after commit. */

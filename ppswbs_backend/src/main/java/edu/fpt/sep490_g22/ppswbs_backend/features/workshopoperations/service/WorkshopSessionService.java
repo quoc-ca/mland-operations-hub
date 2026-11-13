@@ -281,6 +281,36 @@ public class WorkshopSessionService {
         return toSessionResponse(updated);
     }
 
+    /**
+     * 003.2 FR-035 / T095: a Manager sets this session's reschedule quota, or clears it (null) so the session
+     * follows the default again. 0 closes the session to customer changes. The used count is never reset here,
+     * because the tickets already moved in keep their seat.
+     */
+    @Transactional
+    public SessionResponse setRescheduleQuota(String authHeader, String sessionReference,
+                                              RescheduleQuotaRequest request) {
+        AccountSummary actor = authorizationService.requireGlobalManager(authHeader);
+        if (request == null || request.getReason() == null || request.getReason().isBlank()) {
+            throw new WorkshopValidationException("A reason is required to change the reschedule quota");
+        }
+        if (request.getQuota() != null && request.getQuota() < 0) {
+            throw new WorkshopValidationException("quota must not be negative");
+        }
+        WorkshopSession session = sessionRepository.findByReference(sessionReference)
+                .orElseThrow(() -> new WorkshopNotFoundException(
+                        "Workshop session not found with reference " + sessionReference));
+        if (session.getState() == SessionState.ATTENDANCE_FINALIZED
+                || session.getState() == SessionState.CANCELLED) {
+            throw new WorkshopValidationException(
+                    "The reschedule quota cannot be changed once the session is finalized or cancelled");
+        }
+        session.setRescheduleQuotaOverride(request.getQuota());
+        WorkshopSession saved = sessionRepository.save(session);
+        recordAudit(saved.getId(), actor.accountId(), "RESCHEDULE_QUOTA_SET", "SUCCESS",
+                "{\"quota\":" + request.getQuota() + ",\"effective\":" + saved.effectiveRescheduleQuota() + "}");
+        return toSessionResponse(saved);
+    }
+
     @Transactional(readOnly = true)
     public WorkshopSession requireSessionEntityInScope(String authHeader, String sessionReference) {
         WorkshopSession session = sessionRepository.findByReference(sessionReference)
@@ -362,6 +392,9 @@ public class WorkshopSessionService {
                 .checkInOpeningSource(session.getCheckInOpeningSource())
                 .capacity(session.getCapacity())
                 .state(session.getState())
+                .rescheduleQuota(session.effectiveRescheduleQuota())
+                .rescheduleQuotaOverridden(session.getRescheduleQuotaOverride() != null)
+                .rescheduleQuotaUsed(session.getRescheduleQuotaUsed() == null ? 0 : session.getRescheduleQuotaUsed())
                 .operationalLeadAccountId(null)
                 .assignedStaffAccountIds(staffAssignmentRepository.findBySessionIdAndActiveTrue(session.getId()).stream().map(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.SessionStaffAssignment::getAccountId).sorted().toList())
                 .build();

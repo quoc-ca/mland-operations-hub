@@ -29,6 +29,11 @@ public interface SettlementRefundRequestRepository extends JpaRepository<Settlem
     /** Requests still waiting for an account, oldest first, for the day 3 and day 7 reminders. */
     List<SettlementRefundRequest> findByStatusOrderByCreatedAtAsc(RefundRequestStatus status);
 
+    /** FR-039 queue: the newest requests first, for the Manager and transfer-actor lists. */
+    List<SettlementRefundRequest> findByOrderByCreatedAtDesc();
+
+    List<SettlementRefundRequest> findByStatusOrderByCreatedAtDesc(RefundRequestStatus status);
+
     @Query("""
             select coalesce(sum(r.amountVnd), 0) from SettlementRefundRequest r
             where r.bookingReference = :bookingReference

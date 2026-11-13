@@ -21,6 +21,12 @@ public interface WorkshopOperationsFacade {
     /** Revokes a ticket's active QR and issues a new opaque QR for the same entitlements (003.2 FR-033). */
     TicketQrReissueOutcome reissueTicketQr(ReissueTicketQrCommand command);
 
+    /** Releases one ticket's future seats and revokes its future entitlements (003.2 FR-031). */
+    TicketCancellationOutcome cancelTicket(CancelTicketCommand command);
+
+    /** Replaces the sessions of the selected tickets, all or none (003.2 FR-034, quota FR-035). */
+    TicketSessionReplacementOutcome replaceTicketSessions(ReplaceTicketSessionsCommand command);
+
     CapacityCommitOutcome commitBookingHolds(CommitBookingHoldsCommand command);
 
     OtaBookingCapacityOutcome acceptOtaBooking(AcceptOtaBookingCommand command);

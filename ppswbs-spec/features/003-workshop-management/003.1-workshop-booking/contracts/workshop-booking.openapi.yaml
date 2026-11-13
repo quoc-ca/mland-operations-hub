@@ -1,81 +1,148 @@
 openapi: 3.0.3
 info:
   title: Workshop Booking API
-  version: 1.0.0-draft
+  version: 2.0.0
   description: >-
-    Draft direct-Mland booking contract; requires owner approval before
-    implementation. Shared VNPay provider ingress is documented in
+    Direct-Mland booking contract. Decision 2026-11-13 (spec FR-044–FR-051): a
+    booking group is the only direct booking, so every route below is a group
+    route and every single-`WorkshopBooking` route of FR-046 is deleted, not
+    deprecated. T104 (2026-11-14) moved the implemented group routes here from
+    workshop-booking-cart.openapi.yaml and aligned the field names with the
+    controllers and DTOs that serve them, as T098 decided: the money fields end
+    in `Vnd` and are whole-VND integers, the group status field is `groupStatus`,
+    and a cart quote nests its tickets under `lines[].tickets[]` instead of one
+    flat ticket list. Shared VNPay provider ingress is documented in
     ../../contracts/vnpay-payment-ingress.openapi.yaml.
+    OTA bookings (003.4) keep `WorkshopBooking` and are not described here.
 paths:
-  /api/v1/workshop-booking-quotes:
+  /api/v1/workshop-cart-quotes:
     post:
-      summary: Preview and persist a Member's workshop quote
-      description: Requires an active Member bearer. Quote amounts and terms are computed server-side by Loyalty; the server returns a source-owned quoteRef that the Member confirms when creating the booking.
-      security: [{bearerAuth: []}]
-      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/WorkshopBookingQuoteRequest'}}}}
-      responses:
-        '201': {description: Persisted quote preview, content: {application/json: {schema: {$ref: '#/components/schemas/WorkshopBookingQuote'}}}}
-        '400': {$ref: '#/components/responses/Problem'}
-        '401': {$ref: '#/components/responses/Problem'}
-        '403': {$ref: '#/components/responses/Problem'}
-        '409': {$ref: '#/components/responses/Problem'}
-        '422': {$ref: '#/components/responses/Problem'}
-        '503': {$ref: '#/components/responses/Problem'}
-  /api/v1/workshop-bookings:
-    post:
-      summary: Confirm a Member quote or create one Guest booking for one package
-      description: A Member confirms with quoteRef only; package, session and price facts are loaded from the stored quote and authoritative 003.2 data. A Guest may use the no-benefit package/session request. A Member may create a no-benefit quote by selecting NONE.
-      security: [{}, {bearerAuth: []}]
-      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
-      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CreateBookingRequest'}}}}
-      responses:
-        '201': {description: "Pending booking and holds; or, for a Member quote whose post-promotion amount is 0 VND, a booking already CONFIRMED with paymentStatus DEPOSIT_PAID and no holdExpiresAt, confirmed without the payment gateway (FR-007a1).", content: {application/json: {schema: {$ref: '#/components/schemas/BookingSummary'}}}}
-        '400': {$ref: '#/components/responses/Problem'}
-        '409': {description: Quote expired (`QUOTE_EXPIRED`) or selection/terms conflict, content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}}
-  /api/v1/workshop-bookings/{bookingCode}/payment-attempts:
-    post:
-      summary: Start or retry the 50 percent deposit while the hold is active
-      description: The payment attempt and VNPay link expire at the booking's holdExpiresAt, which is at most 10 minutes after hold creation. Retrying never extends the hold deadline.
-      parameters: [{$ref: '#/components/parameters/BookingCode'}, {$ref: '#/components/parameters/IdempotencyKey'}]
-      responses: {'200': {description: Payment initiation}, '409': {$ref: '#/components/responses/Problem'}}
-  /api/v1/booking-lookups:
-    post:
-      summary: Look up a Guest booking using booking code and one contact proof
-      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/GuestLookupRequest'}}}}
-      responses: {'200': {description: Authorized projection, content: {application/json: {schema: {$ref: '#/components/schemas/BookingSummary'}}}}, '404': {$ref: '#/components/responses/Problem'}}
-  /api/v1/booking-magic-links/exchanges:
-    post:
-      summary: Exchange a protected Magic Link for a read-only booking projection
-      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/MagicLinkExchangeRequest'}}}}
-      responses: {'200': {description: Authorized projection, content: {application/json: {schema: {$ref: '#/components/schemas/BookingSummary'}}}}, '404': {$ref: '#/components/responses/Problem'}}
-  /api/v1/members/me/workshop-bookings:
-    get:
-      summary: List the authenticated Member's own workshop bookings
+      summary: Quote a cart of one or more package lines
       description: >-
-        FR-021a (backfilled 2026-11-12 from b662e42, 6987155). Returns at most 30
-        of the Member's own bookings, newest createdAt first. An EXPIRED booking is
-        included only while holdExpiresAt is within the last 24 hours; older
-        expired holds are left out. A booking that cannot be projected is skipped
-        fail-soft instead of failing the whole list. Each item is the Member
-        projection, including ticketReferences.
+        Guest (no `Authorization`) or Member (bearer). Computes the per-ticket
+        voucher and point allocation (FR-033, FR-034), the booking-time
+        collection per ticket (FR-035) and the group payment mode (FR-036).
+        Reserves no capacity and holds no benefit. A Member quote is bound to
+        the Member and expires 30 minutes after creation. A Member cart always
+        previews the FE-06 point limits, so `maxPoints`, `minRedeemPoints` and
+        `pointValueVnd` are reported even when nothing is selected (FR-034); a
+        Guest cart has no benefits and reports zeros. A Guest cart that asks for
+        a voucher or points is refused with 409 `CART_BENEFITS_NEED_A_MEMBER`.
+      security: [{}, {bearerAuth: []}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CartQuoteRequest'}}}}
+      responses:
+        '201': {description: Cart quote, content: {application/json: {schema: {$ref: '#/components/schemas/CartQuote'}}}}
+        '400': {$ref: '#/components/responses/Problem'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-booking-groups:
+    post:
+      summary: Confirm a cart quote and hold every line atomically
+      description: >-
+        Holds all lines all-or-nothing (FR-031). Returns `PENDING_PAYMENT` with
+        `holdExpiresAt` (12 minutes) and `paymentDeadlineAt` (10 minutes, the
+        only deadline a customer is shown) when the group collection is at least
+        5,000 VND; returns `CONFIRMED` when the group is 0 VND or deferred below
+        5,000 VND (FR-036, FR-038). A capacity failure returns 409 with
+        `failingLines` and holds nothing. The quote is accepted once under a row
+        lock: `QUOTE_EXPIRED`, `QUOTE_ALREADY_ACCEPTED` and `QUOTE_CHANGED` are
+        409. A replay with the same `Idempotency-Key` returns the stored 201.
+      security: [{}, {bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/CreateIdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CreateGroupRequest'}}}}
+      responses:
+        '201': {description: Group created, content: {application/json: {schema: {$ref: '#/components/schemas/BookingGroup'}}}}
+        '400': {$ref: '#/components/responses/Problem'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '409': {description: "Quote or capacity refusal; a capacity refusal carries failingLines.", content: {application/json: {schema: {$ref: '#/components/schemas/CartHoldRejection'}}}}
+  /api/v1/workshop-booking-groups/{groupCode}/payment-attempts:
+    post:
+      summary: Start or retry the single VNPay payment of the group
+      description: >-
+        Only for a group collection of at least 5,000 VND; the amount is
+        rechecked immediately before the attempt is created (FR-036).
+        `expiresAt` is the group's payment deadline, two minutes before the hold
+        ends; a retry never extends the hold (FR-032).
+      security: [{}, {bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/GroupCode'}, {$ref: '#/components/parameters/IdempotencyKey'}]
+      responses:
+        '200': {description: Payment initiation, content: {application/json: {schema: {$ref: '#/components/schemas/GroupPaymentAttempt'}}}}
+        '400': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-booking-groups/{groupCode}:
+    get:
+      summary: Read an owned group with its tickets (Member buyer view)
+      description: >-
+        Owning Member bearer only (FR-048). A Guest reads the group through
+        POST /workshop-booking-group-lookups or the Magic-Link exchange, so
+        contact proof never travels in a URL. A group the Member does not own
+        answers 404, never 403. Served `Cache-Control: no-store`.
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/GroupCode'}]
+      responses:
+        '200': {description: Group projection with ticketReference per ticket, content: {application/json: {schema: {$ref: '#/components/schemas/BookingGroupView'}}}}
+        '401': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+  /api/v1/members/me/workshop-booking-groups:
+    get:
+      summary: List the authenticated Member's own booking groups
+      description: >-
+        Replaces GET /members/me/workshop-bookings (FR-046, FR-048). At most 30
+        groups, newest `createdAt` first; an `EXPIRED` group only while
+        `holdExpiresAt` is within the last 24 hours. A group that cannot be
+        projected is skipped fail-soft. Served `Cache-Control: no-store`.
       security: [{bearerAuth: []}]
       responses:
-        '200': {description: Member's bookings, content: {application/json: {schema: {type: array, maxItems: 30, items: {$ref: '#/components/schemas/BookingSummary'}}}}}
+        '200': {description: Member's groups, content: {application/json: {schema: {type: array, maxItems: 30, items: {$ref: '#/components/schemas/BookingGroupView'}}}}}
         '401': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
-  /api/v1/members/me/workshop-bookings/{bookingCode}:
-    get:
-      summary: Read an owned Member booking
-      security: [{bearerAuth: []}]
-      parameters: [{$ref: '#/components/parameters/BookingCode'}]
-      responses: {'200': {description: Authorized Member projection, including ticketReferences, content: {application/json: {schema: {$ref: '#/components/schemas/BookingSummary'}}}}, '401': {$ref: '#/components/responses/Problem'}, '403': {$ref: '#/components/responses/Problem'}}
-  /api/v1/workshop-bookings/{bookingCode}/pending-hold-release:
+  /api/v1/workshop-booking-group-lookups:
     post:
-      summary: Release an active pending hold from Guest or Member lookup
-      description: Guest supplies exactly one stored contact proof. An authenticated Member supplies no contact proof; Booking verifies that the Member owns this booking. Both callers must provide an audit-safe reason. When no payment attempt and no late-payment evidence exists for the booking, the release also gives back the points and voucher held by the Member quote, as an unpaid expiry does (FR-017j). A body-less 204 replay is stored with a null idempotency payload.
+      summary: Guest lookup of a group by group code and one contact proof
+      description: >-
+        Replaces POST /booking-lookups (FR-048). Exactly one of `contactEmail`
+        or `contactPhone`. A wrong code or a wrong proof answers the same 404
+        and never says which part failed; rate limits follow the single-booking
+        lookup. The projection omits `qrReference`'s Member-only companion
+        `ticketReference`. Served `Cache-Control: no-store`.
+      security: [{}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/GroupLookupRequest'}}}}
+      responses:
+        '200': {description: Group projection, content: {application/json: {schema: {$ref: '#/components/schemas/BookingGroupView'}}}}
+        '400': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '429': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-booking-group-magic-links/exchanges:
+    post:
+      summary: Exchange the group Magic Link for a read-only group projection
+      description: >-
+        Replaces POST /booking-magic-links/exchanges (FR-048). The token comes
+        from the URL fragment and is never persisted or logged. An expired,
+        revoked or unknown token answers the same 404. The projection omits
+        `ticketReference`. Served `Cache-Control: no-store`.
+      security: [{}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/MagicLinkExchangeRequest'}}}}
+      responses:
+        '200': {description: Group projection, content: {application/json: {schema: {$ref: '#/components/schemas/BookingGroupView'}}}}
+        '400': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-booking-groups/{groupCode}/pending-hold-release:
+    post:
+      summary: Release a PENDING_PAYMENT group's holds before payment
+      description: >-
+        Guest with exactly one stored contact proof and no bearer, or the owning
+        Member with no proof; both give a reason (FR-048). Releases every line's
+        hold and ends the group `CANCELLED`; with no payment attempt and no late
+        evidence it also releases the held voucher and points (FR-017j). Refused
+        with 409 `PAYMENT_ATTEMPT_EXISTS` once a group payment attempt exists,
+        and 409 `INVALID_STATE` when the group is not `PENDING_PAYMENT`. A
+        replay with the same `Idempotency-Key` returns 204.
       security: [{}, {bearerAuth: []}]
-      parameters: [{$ref: '#/components/parameters/BookingCode'}, {$ref: '#/components/parameters/IdempotencyKey'}]
-      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/PendingHoldReleaseRequest'}}}}
+      parameters: [{$ref: '#/components/parameters/GroupCode'}, {$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/GroupPendingHoldReleaseRequest'}}}}
       responses:
         '204': {description: Released}
         '400': {$ref: '#/components/responses/Problem'}
@@ -83,206 +150,521 @@ paths:
         '403': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
-  /api/v1/workshop-bookings/{bookingCode}/confirmation-deliveries:
+  /api/v1/workshop-booking-groups/{groupCode}/confirmation-deliveries:
     post:
-      summary: Resend booking confirmation only to the stored booking contact
-      description: Guest supplies exactly one stored contact proof; Member uses ownership; Staff may act only within active location scope, while any active Manager may act globally without customer proof. Rolling limits are 3 accepted self-service resends per booking per hour and 5 accepted internal resends per booking per 15 minutes; a rejected request queues no delivery.
+      summary: Resend a CONFIRMED group's buyer confirmation to the stored contact email
+      description: >-
+        Guest supplies exactly one stored contact proof; the owning Member none;
+        Staff within the active location scope of a group session; any active
+        Manager globally. Sends every ticket again to the stored contact only,
+        never to a recipient, and reuses the active group Magic Link (409
+        `ACCESS_LINK_UNAVAILABLE` when none is active). Rolling limits: 3
+        accepted self-service resends per group per hour and 5 accepted internal
+        resends per group per 15 minutes; a rejected request queues nothing.
       security: [{}, {bearerAuth: []}]
-      parameters: [{$ref: '#/components/parameters/BookingCode'}, {$ref: '#/components/parameters/IdempotencyKey'}]
-      requestBody: {required: false, content: {application/json: {schema: {$ref: '#/components/schemas/ConfirmationDeliveryRequest'}}}}
+      parameters: [{$ref: '#/components/parameters/GroupCode'}, {$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: false, content: {application/json: {schema: {$ref: '#/components/schemas/ContactProof'}}}}
       responses:
-        '202': {description: Accepted delivery request, content: {application/json: {schema: {$ref: '#/components/schemas/BookingActionOutcome'}}}}
+        '202': {description: Accepted, content: {application/json: {schema: {$ref: '#/components/schemas/GroupActionOutcome'}}}}
         '400': {$ref: '#/components/responses/Problem'}
         '401': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
         '429': {$ref: '#/components/responses/Problem'}
-  /api/v1/workshop-bookings/{bookingCode}/magic-link-incidents:
+  /api/v1/workshop-booking-groups/{groupCode}/magic-link-incidents:
     post:
-      summary: Revoke or rotate a Magic Link
-      description: Any active Manager globally.
+      summary: Revoke or rotate the group Magic Link
+      description: >-
+        Any active Manager globally. `ROTATE` revokes the active link and sends
+        a new one to the stored contact email; `REVOKE` only revokes. The reason
+        must not contain URLs, link fragments or credentials.
       security: [{bearerAuth: []}]
-      parameters: [{$ref: '#/components/parameters/BookingCode'}, {$ref: '#/components/parameters/IdempotencyKey'}]
+      parameters: [{$ref: '#/components/parameters/GroupCode'}, {$ref: '#/components/parameters/IdempotencyKey'}]
       requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/MagicLinkIncidentRequest'}}}}
       responses:
-        '200': {description: Safe incident outcome, content: {application/json: {schema: {$ref: '#/components/schemas/BookingActionOutcome'}}}}
+        '200': {description: Safe outcome, content: {application/json: {schema: {$ref: '#/components/schemas/GroupActionOutcome'}}}}
         '400': {$ref: '#/components/responses/Problem'}
         '401': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
-        '409': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
-  /api/v1/workshop-bookings/{bookingCode}/late-payment-follow-ups:
+        '409': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-booking-groups/{groupCode}/buyer-verifications:
     post:
-      summary: Record or escalate a late-payment follow-up
-      description: Any active Manager globally; this command never changes booking, capacity, ticket, or payment-link state.
-      security: [{bearerAuth: []}]
-      parameters: [{$ref: '#/components/parameters/BookingCode'}, {$ref: '#/components/parameters/IdempotencyKey'}]
-      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/LatePaymentFollowUpRequest'}}}}
+      summary: Send a buyer-verification OTP to the group's original contact email
+      description: >-
+        Guest buyer, or Staff at the shop on the buyer's behalf (FR-041,
+        decision 2026-11-13). The caller proves the booking with exactly one of
+        the stored contact email or phone (the same proof as the guest lookup);
+        the OTP always goes to the original contact email, never to a ticket
+        recipient. 6 digits, valid 10 minutes, at most 5 wrong attempts; only a
+        hash is stored. A new request supersedes the group's active challenge;
+        requests are at least 60 seconds apart and at most 5 per hour per group
+        (429 `BUYER_VERIFICATION_RATE_LIMITED`). The response never reveals
+        whether the contact matched; a mismatch sends nothing.
+      security: [{}, {bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/GroupCode'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/BuyerVerificationRequest'}}}}
       responses:
-        '200': {description: Safe follow-up outcome, content: {application/json: {schema: {$ref: '#/components/schemas/BookingActionOutcome'}}}}
+        '202': {description: Challenge accepted, content: {application/json: {schema: {$ref: '#/components/schemas/BuyerVerificationChallenge'}}}}
+        '400': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '429': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-booking-groups/{groupCode}/buyer-verifications/{verificationId}/confirmations:
+    post:
+      summary: Confirm the OTP and receive a single-use buyerVerificationReference
+      description: >-
+        On success returns a `buyerVerificationReference` scoped to the group,
+        valid 15 minutes and consumed by one recipient change. Errors: 400
+        `BUYER_VERIFICATION_FAILED` (wrong code, attempts remain), 409
+        `BUYER_VERIFICATION_LOCKED` (5 wrong attempts), 409
+        `BUYER_VERIFICATION_EXPIRED` (expired or superseded). An unknown
+        `verificationId` is answered like a wrong code.
+      security: [{}, {bearerAuth: []}]
+      parameters:
+        - {$ref: '#/components/parameters/GroupCode'}
+        - {name: verificationId, in: path, required: true, schema: {type: string, format: uuid}}
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/BuyerVerificationConfirmation'}}}}
+      responses:
+        '200': {description: Buyer verified, content: {application/json: {schema: {$ref: '#/components/schemas/BuyerVerificationResult'}}}}
+        '400': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-tickets/{ticketCode}/recipient:
+    put:
+      summary: Send a ticket to a recipient email, or change its recipient
+      description: >-
+        Buyer only, or Staff after verifying the buyer (FR-041, decision
+        2026-11-13). Proof: a Member buyer sends a Firebase bearer and must own
+        the group; a Guest buyer sends `buyerVerificationReference`; Staff or
+        Manager sends a bearer with location scope plus
+        `buyerVerificationReference` and `reason`. A recipient has no management
+        right. The first send keeps the current QR and is not counted. Changing
+        to a different email revokes the old QR at once, issues a new opaque QR
+        for the same entitlements (003.2 FR-033), emails the new recipient and
+        tells the previous recipient the old QR is void; it counts as one online
+        change (at most 3 per ticket). Staff changes are not counted. The same
+        email resends with the same QR. Errors: 401
+        `BUYER_VERIFICATION_REQUIRED`, 403 `RECIPIENT_CHANGE_FORBIDDEN`, 404
+        `TICKET_NOT_FOUND`, 409 `TICKET_NOT_CONFIRMED`, 409
+        `TICKET_ALREADY_CHECKED_IN`, 409 `TICKET_QR_REVOKED`, 409
+        `RECIPIENT_CHANGE_LIMIT_REACHED` (go to the shop), 409
+        `BUYER_VERIFICATION_EXPIRED`, 409 `IDEMPOTENCY_KEY_REUSED`. A refused
+        request changes nothing. Audit keeps the masked old and new email, the
+        actor, the channel, the time and the correlation only.
+      security: [{}, {bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/TicketCode'}, {$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/RecipientRequest'}}}}
+      responses:
+        '200': {description: Recipient updated, content: {application/json: {schema: {$ref: '#/components/schemas/TicketRecipient'}}}}
+        '400': {$ref: '#/components/responses/Problem'}
         '401': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+  /api/v1/late-payment-reviews:
+    get:
+      summary: Manager queue of late-payment reviews
+      description: >-
+        Manager only (FR-040a, decision 2026-11-13). Ordered by earliest session
+        start, then `resultDueAt`. Carries no buyer contact data. An unknown
+        `status` is 400.
+      security: [{bearerAuth: []}]
+      parameters:
+        - {name: status, in: query, required: false, schema: {type: string, enum: [AUTO_RECONFIRMED, PENDING_MANAGER, MANAGER_CONFIRMED, REFUND_REQUESTED], default: PENDING_MANAGER}}
+      responses:
+        '200': {description: Queue, content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/LatePaymentReview'}}}}}
+        '400': {$ref: '#/components/responses/Problem'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-booking-groups/{groupCode}/late-payment-reviews/{reviewId}/decisions:
+    post:
+      summary: Manager decision on a late payment that was not re-confirmed automatically
+      description: >-
+        `CONFIRM` only when the failed conditions are limited to the 60-minute
+        window or a duplicate booking, the buyer still wants to attend, and
+        capacity, start time and the recomputed amount still hold; `REFUND`
+        opens a 100% bank refund in 003.3 (FR-040). Only a `PENDING_MANAGER`
+        review is decided. `CONFIRM` rechecks conditions 1–3 at decision time
+        and holds capacity for the whole group atomically; it is refused with
+        409 `LATE_PAYMENT_CONFIRM_NOT_ALLOWED` when any of conditions 1–3 failed
+        on arrival or fails now. `REFUND` asks 003.3 through
+        `LatePaymentRefundPort` in the same transaction and is recorded only
+        once a durable bank-refund request exists (`PENDING_ACCOUNT` when the
+        refund account is still missing); it never calls VNPay Refund. A
+        repeated decision with the same `Idempotency-Key` replays the result; a
+        decided review returns 409 `LATE_PAYMENT_REVIEW_ALREADY_DECIDED`.
+      security: [{bearerAuth: []}]
+      parameters:
+        - {$ref: '#/components/parameters/GroupCode'}
+        - {name: reviewId, in: path, required: true, schema: {type: string, format: uuid}, description: LatePaymentReview.reviewId}
+        - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/LatePaymentDecisionRequest'}}}}
+      responses:
+        '200': {description: Decision recorded, content: {application/json: {schema: {$ref: '#/components/schemas/LatePaymentReview'}}}}
+        '400': {$ref: '#/components/responses/Problem'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
 components:
   securitySchemes:
     bearerAuth: {type: http, scheme: bearer, bearerFormat: Firebase-ID-Token}
   parameters:
-    BookingCode: {name: bookingCode, in: path, required: true, schema: {type: string}}
+    GroupCode: {name: groupCode, in: path, required: true, schema: {type: string}}
+    TicketCode: {name: ticketCode, in: path, required: true, schema: {type: string}}
     IdempotencyKey: {name: Idempotency-Key, in: header, required: true, schema: {type: string, minLength: 16, maxLength: 128}}
+    CreateIdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: {type: string, minLength: 1, maxLength: 128}
+      description: >-
+        Group creation accepts 1 to 128 characters, as the implemented
+        controller does; every other command here requires 16 to 128.
+  responses:
+    Problem:
+      description: Safe typed error (RFC 7807)
+      content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}
   schemas:
-    CreateBookingRequest:
-      oneOf:
-        - {$ref: '#/components/schemas/MemberQuoteBookingRequest'}
-        - {$ref: '#/components/schemas/GuestBookingRequest'}
-    MemberQuoteBookingRequest:
+    BookingStatus:
+      type: string
+      enum: [PENDING_PAYMENT, CONFIRMED, EXPIRED, CANCELLED, COMPLETED, NO_SHOW]
+      description: "COMPLETED, NO_SHOW and post-confirmation CANCELLED are set only from 003.3 conclusions (D13)."
+    PaymentStatus:
+      type: string
+      enum: [UNPAID, DEPOSIT_PAID, FULLY_PAID, REFUND_PENDING, REFUNDED]
+      description: "REFUND_PENDING and REFUNDED occur only during a Mland-caused remedy (D14)."
+    PaymentMode:
+      type: string
+      enum: [VNPAY, INTERNAL_FREE, INTERNAL_DEFERRED]
+    CollectionKind:
+      type: string
+      enum: [FREE, FULL, DEPOSIT, DEFERRED_BELOW_VNPAY_MINIMUM]
+    Vnd:
+      type: integer
+      format: int64
+      minimum: 0
+      description: Whole VND.
+    CartLine:
+      type: object
+      required: [packageId, sessionReferences, participantCount]
+      properties:
+        packageId: {type: integer, format: int64, minimum: 1}
+        sessionReferences: {type: array, minItems: 1, maxItems: 4, items: {type: string, format: uuid, description: Canonical lower-case UUID.}}
+        participantCount: {type: integer, minimum: 1, maximum: 20}
+    BenefitSelection:
+      type: object
+      required: [choice]
+      properties:
+        choice: {type: string, enum: [NONE, VOUCHER]}
+        voucherCode: {type: string, maxLength: 128, description: Sent only when choice is VOUCHER.}
+        requestedPoints: {type: string, pattern: '^(0|[1-9][0-9]*)$', maxLength: 19}
+    CartQuoteRequest:
+      type: object
+      required: [lines]
+      properties:
+        lines: {type: array, minItems: 1, maxItems: 10, items: {$ref: '#/components/schemas/CartLine'}}
+        benefitSelection:
+          allOf: [{$ref: '#/components/schemas/BenefitSelection'}]
+          description: Optional. A Guest cart asking for a voucher or points is refused with CART_BENEFITS_NEED_A_MEMBER.
+    CartQuote:
+      type: object
+      required: [quoteRef, expiresAt, lines, grossVnd, voucherDiscountVnd, pointsUsed, pointDiscountVnd, finalTotalVnd, maxPoints, minRedeemPoints, pointValueVnd, groupCollectionVnd, remainingAtCheckoutVnd, paymentMode, reasons]
+      properties:
+        quoteRef: {type: string, format: uuid}
+        expiresAt: {type: string, format: date-time, description: 30 minutes after the quote was created.}
+        lines: {type: array, items: {$ref: '#/components/schemas/QuotedLine'}}
+        grossVnd: {$ref: '#/components/schemas/Vnd'}
+        voucherDiscountVnd: {$ref: '#/components/schemas/Vnd'}
+        pointsUsed: {type: integer, format: int64, minimum: 0}
+        pointDiscountVnd: {$ref: '#/components/schemas/Vnd'}
+        finalTotalVnd: {$ref: '#/components/schemas/Vnd'}
+        maxPoints:
+          type: integer
+          format: int64
+          minimum: 0
+          description: >-
+            FR-034. The most points the Member may apply to this cart under the
+            FE-06 point policy. Reported for every Member cart, including one
+            that selected nothing, so the screen can show the cap before the
+            Member types an amount; 0 for a Guest cart. A requested amount above
+            it is refused, never trimmed, and the reason appears in `reasons`.
+        minRedeemPoints: {type: integer, format: int64, minimum: 0, description: "FR-034. The smallest redeemable amount of the recorded point policy; 0 for a Guest cart."}
+        pointValueVnd: {$ref: '#/components/schemas/Vnd'}
+        groupCollectionVnd: {$ref: '#/components/schemas/Vnd'}
+        remainingAtCheckoutVnd: {$ref: '#/components/schemas/Vnd'}
+        paymentMode: {$ref: '#/components/schemas/PaymentMode'}
+        reasons:
+          type: array
+          items: {type: string}
+          description: >-
+            Every voucher or point reason 006 reported for this cart, so a
+            refused voucher or point amount says why. Empty when nothing was
+            refused and for a Guest cart.
+    QuotedLine:
+      type: object
+      required: [lineIndex, packageId, packageName, pricePerParticipantVnd, participantCount, sessions, tickets]
+      properties:
+        lineIndex: {type: integer, minimum: 0, description: Zero-based position of the line in the cart.}
+        packageId: {type: integer, format: int64}
+        packageName: {type: string}
+        pricePerParticipantVnd: {$ref: '#/components/schemas/Vnd'}
+        participantCount: {type: integer, minimum: 1}
+        sessions: {type: array, items: {$ref: '#/components/schemas/QuotedSession'}}
+        tickets: {type: array, items: {$ref: '#/components/schemas/QuotedTicket'}}
+    QuotedSession:
+      type: object
+      required: [sessionReference, ordinal, scheduledStart, scheduledEnd]
+      properties:
+        sessionReference: {type: string, format: uuid}
+        locationReference: {type: integer, format: int64, nullable: true}
+        ordinal: {type: integer, minimum: 1}
+        scheduledStart: {type: string, format: date-time}
+        scheduledEnd: {type: string, format: date-time}
+    QuotedTicket:
+      type: object
+      required: [participantOrdinal, packagePriceVnd, voucherDiscountVnd, pointsUsed, pointDiscountVnd, finalPriceVnd, collectedAtBookingVnd, collectionKind, remainingVnd]
+      properties:
+        participantOrdinal: {type: integer, minimum: 1, description: One-based position of the person inside the line.}
+        packagePriceVnd: {$ref: '#/components/schemas/Vnd'}
+        voucherDiscountVnd: {$ref: '#/components/schemas/Vnd'}
+        pointsUsed: {type: integer, format: int64, minimum: 0}
+        pointDiscountVnd: {$ref: '#/components/schemas/Vnd'}
+        finalPriceVnd: {$ref: '#/components/schemas/Vnd'}
+        collectedAtBookingVnd: {$ref: '#/components/schemas/Vnd'}
+        collectionKind: {$ref: '#/components/schemas/CollectionKind'}
+        remainingVnd: {$ref: '#/components/schemas/Vnd'}
+    CreateGroupRequest:
       type: object
       required: [quoteRef, contactEmail, contactPhone]
       properties:
-        quoteRef: {type: string, format: uuid}
+        quoteRef: {type: string, maxLength: 36}
         contactEmail: {type: string, format: email, maxLength: 254}
         contactPhone: {type: string, minLength: 7, maxLength: 32}
-    GuestBookingRequest:
+      description: The contact is shared by the whole group; companion details are not required (FR-031).
+    GroupLine:
       type: object
-      required: [packageId, sessionReferences, participantCount, contactEmail, contactPhone]
+      required: [lineIndex, packageId, packageName, pricePerParticipantVnd, ticketCount, sessionReferences]
       properties:
+        lineIndex: {type: integer, minimum: 0}
         packageId: {type: integer, format: int64}
-        sessionReferences: {type: array, minItems: 1, uniqueItems: true, items: {type: string, format: uuid}}
-        participantCount: {type: integer, minimum: 1}
-        contactEmail: {type: string, format: email, maxLength: 254}
-        contactPhone: {type: string, minLength: 7, maxLength: 32}
-    WorkshopBookingQuoteRequest:
+        packageName: {type: string}
+        pricePerParticipantVnd: {$ref: '#/components/schemas/Vnd'}
+        ticketCount: {type: integer, minimum: 1}
+        sessionReferences: {type: array, items: {type: string, format: uuid}}
+    BookingGroup:
       type: object
-      required: [packageId, sessionReferences, participantCount, benefitSelection]
+      required: [groupCode, groupStatus, paymentMode, groupCollectionVnd, lines, tickets]
+      description: The group as group creation returns it (FR-030..FR-032, FR-036).
       properties:
-        packageId: {type: integer, format: int64, minimum: 1}
-        sessionReferences: {type: array, minItems: 1, maxItems: 2, uniqueItems: true, items: {type: string, format: uuid}}
-        participantCount: {type: integer, minimum: 1}
-        benefitSelection: {$ref: '#/components/schemas/BenefitSelection'}
-    BenefitSelection:
+        groupCode: {type: string}
+        groupStatus: {$ref: '#/components/schemas/BookingStatus'}
+        paymentMode: {$ref: '#/components/schemas/PaymentMode'}
+        groupCollectionVnd: {$ref: '#/components/schemas/Vnd'}
+        holdExpiresAt: {type: string, format: date-time, nullable: true, description: Internal hold end (12 minutes); never shown to customers.}
+        paymentDeadlineAt: {type: string, format: date-time, nullable: true, description: Customer-visible deadline (10 minutes), two minutes before the hold ends.}
+        lines: {type: array, items: {$ref: '#/components/schemas/GroupLine'}}
+        tickets: {type: array, items: {$ref: '#/components/schemas/GroupTicket'}}
+    GroupTicket:
       type: object
-      required: [choice, requestedPoints]
+      required: [ticketCode, lineIndex, participantOrdinal, packageId, packageName, ticketStatus, financialStatus, finalPriceVnd, collectedAtBookingVnd, collectionKind, remainingVnd]
       properties:
-        choice: {type: string, enum: [NONE, VOUCHER]}
-        voucherCode: {type: string, maxLength: 128, description: Sent only when choice is VOUCHER; omitted for NONE.}
-        requestedPoints: {type: string, pattern: '^(0|[1-9][0-9]*)$', maxLength: 19}
-    WorkshopBookingQuote:
+        ticketCode: {type: string}
+        lineIndex: {type: integer, minimum: 0}
+        participantOrdinal: {type: integer, minimum: 1}
+        packageId: {type: integer, format: int64}
+        packageName: {type: string}
+        ticketStatus: {$ref: '#/components/schemas/BookingStatus'}
+        financialStatus: {$ref: '#/components/schemas/PaymentStatus'}
+        finalPriceVnd: {$ref: '#/components/schemas/Vnd'}
+        collectedAtBookingVnd: {$ref: '#/components/schemas/Vnd'}
+        collectionKind: {$ref: '#/components/schemas/CollectionKind'}
+        remainingVnd: {$ref: '#/components/schemas/Vnd'}
+    BookingGroupView:
       type: object
-      required: [quoteRef, expiresAt, grossAmount, programDiscount, pointsUsed, maxPoints, pointDiscount, postPromotionAmount, depositAmount, remainingAmount, earnBase, termsDigest, reasons]
+      required: [groupCode, groupStatus, paymentMode, groupCollectionVnd, lines, tickets]
+      description: >-
+        The buyer's read-only view of a group (FR-042, FR-049): every ticket
+        with its own status, price breakdown, schedule, masked recipient and
+        attendance.
       properties:
-        quoteRef: {type: string, format: uuid}
-        expiresAt: {type: string, format: date-time, description: Exactly 30 minutes after quote preview creation.}
-        grossAmount: {type: string, pattern: '^(0|[1-9][0-9]*)$'}
-        programDiscount: {type: string, pattern: '^(0|[1-9][0-9]*)$'}
-        pointsUsed: {type: string, pattern: '^(0|[1-9][0-9]*)$'}
-        maxPoints: {type: string, pattern: '^(0|[1-9][0-9]*)$', description: Maximum loyalty points the Member may apply to this workshop quote.}
-        pointDiscount: {type: string, pattern: '^(0|[1-9][0-9]*)$'}
-        postPromotionAmount: {type: string, pattern: '^(0|[1-9][0-9]*)$'}
-        depositAmount: {type: string, pattern: '^(0|[1-9][0-9]*)$'}
-        remainingAmount: {type: string, pattern: '^(0|[1-9][0-9]*)$'}
-        earnBase: {type: string, pattern: '^(0|[1-9][0-9]*)$'}
-        termsDigest: {type: string, minLength: 1, maxLength: 128}
-        reasons: {type: array, items: {type: string}}
-        reasonDetails:
-          type: array
-          description: FR-006b (backfilled 2026-11-12 from 78d79a3). One entry per reason, with a stable code and a Vietnamese customer message; message falls back to the original reason text when no translation exists.
-          items: {$ref: '#/components/schemas/QuoteReasonDetail'}
-    QuoteReasonDetail:
+        groupCode: {type: string}
+        groupStatus: {$ref: '#/components/schemas/BookingStatus'}
+        paymentMode: {$ref: '#/components/schemas/PaymentMode'}
+        groupCollectionVnd: {$ref: '#/components/schemas/Vnd'}
+        holdExpiresAt: {type: string, format: date-time, nullable: true}
+        paymentDeadlineAt: {type: string, format: date-time, nullable: true}
+        createdAt: {type: string, format: date-time, nullable: true, description: List ordering, newest first.}
+        confirmedAt: {type: string, format: date-time, nullable: true}
+        lines: {type: array, items: {$ref: '#/components/schemas/GroupLine'}}
+        tickets: {type: array, items: {$ref: '#/components/schemas/TicketView'}}
+    TicketView:
       type: object
-      required: [code, message]
+      required: [ticketCode, lineIndex, participantOrdinal, packageId, packageName, ticketStatus, financialStatus, finalPriceVnd, collectedAtBookingVnd, collectionKind, remainingVnd, sessions]
       properties:
-        code: {type: string}
-        message: {type: string}
-    GuestLookupRequest:
+        ticketCode: {type: string}
+        lineIndex: {type: integer, minimum: 0}
+        participantOrdinal: {type: integer, minimum: 1}
+        packageId: {type: integer, format: int64}
+        packageName: {type: string}
+        ticketStatus: {$ref: '#/components/schemas/BookingStatus'}
+        financialStatus: {$ref: '#/components/schemas/PaymentStatus'}
+        finalPriceVnd: {$ref: '#/components/schemas/Vnd'}
+        collectedAtBookingVnd: {$ref: '#/components/schemas/Vnd'}
+        collectionKind: {$ref: '#/components/schemas/CollectionKind'}
+        remainingVnd: {$ref: '#/components/schemas/Vnd'}
+        recipientEmailMasked: {type: string, nullable: true}
+        onlineRecipientChangesRemaining: {type: integer, minimum: 0, maximum: 3, nullable: true}
+        attendanceStatus:
+          type: string
+          nullable: true
+          enum: [ATTENDED, NO_SHOW_PENDING, NO_SHOW]
+          description: Display only. Null before attendance is finalized; NO_SHOW_PENDING while a recorded no-show is still inside the 24-hour correction window. ticketStatus still changes only on the final 003.3 conclusion.
+        qrReference: {type: string, nullable: true, description: "FR-049. Opaque scan reference issued by Workshop Operations; returned in the buyer projection (Member owner, Guest lookup, Magic Link) only while the ticket is active."}
+        ticketReference: {type: string, nullable: true, description: "FR-049 (FR-021c carried over). Opaque; only in the owning Member's projection, for Feature 011 review matching; never displayed."}
+        sessions: {type: array, items: {$ref: '#/components/schemas/TicketSession'}}
+    TicketSession:
       type: object
-      required: [bookingCode]
+      required: [sessionReference, ordinal, scheduledStart, scheduledEnd]
       properties:
-        bookingCode: {type: string}
-        contactEmail: {type: string, format: email}
-        contactPhone: {type: string}
-      description: Exactly one of contactEmail or contactPhone is required.
+        sessionReference: {type: string, format: uuid}
+        locationId: {type: integer, format: int64, nullable: true}
+        ordinal: {type: integer, minimum: 1}
+        scheduledStart: {type: string, format: date-time}
+        scheduledEnd: {type: string, format: date-time}
+    GroupPaymentAttempt:
+      type: object
+      required: [attemptReference, merchantReference, amountVnd, currency, paymentUrl, expiresAt, status]
+      properties:
+        attemptReference: {type: string}
+        merchantReference: {type: string}
+        amountVnd: {$ref: '#/components/schemas/Vnd'}
+        currency: {type: string}
+        paymentUrl: {type: string}
+        expiresAt: {type: string, format: date-time, description: The group's payment deadline, two minutes before the hold ends (FR-032).}
+        status: {type: string}
+    GroupLookupRequest:
+      type: object
+      required: [groupCode]
+      description: Exactly one of contactEmail or contactPhone.
+      properties:
+        groupCode: {type: string, maxLength: 32}
+        contactEmail: {type: string, format: email, maxLength: 254, writeOnly: true}
+        contactPhone: {type: string, minLength: 7, maxLength: 32, writeOnly: true}
     MagicLinkExchangeRequest:
       type: object
       required: [token]
       properties:
-        token: {type: string, writeOnly: true, description: Opaque bearer value extracted by the React client from the Magic Link URL fragment; never persist or log it.}
-    ConfirmationDeliveryRequest:
+        token: {type: string, maxLength: 128, writeOnly: true, description: Opaque value from the Magic Link URL fragment; never persist or log it.}
+    ContactProof:
       type: object
+      description: Guest sends exactly one stored contact value; a Member or authorized internal caller sends none.
       properties:
-        contactEmail: {type: string, format: email, writeOnly: true}
-        contactPhone: {type: string, writeOnly: true}
-      description: Guest submits exactly one stored contact value. Member and authorized internal callers submit no proof in the body.
-    PendingHoldReleaseRequest:
+        contactEmail: {type: string, format: email, maxLength: 254, writeOnly: true}
+        contactPhone: {type: string, minLength: 7, maxLength: 32, writeOnly: true}
+    GroupPendingHoldReleaseRequest:
       type: object
       required: [reason]
       properties:
-        contactEmail: {type: string, format: email, writeOnly: true}
-        contactPhone: {type: string, writeOnly: true}
-        reason: {type: string, minLength: 1, maxLength: 1000, description: Required audit reason. Contact proofs are not copied to audit.}
-      description: Guest must provide exactly one stored contact proof and no bearer token. An authenticated Member must omit both contact proofs; the server verifies ownership from the bearer identity. Both require a reason.
+        contactEmail: {type: string, format: email, maxLength: 254, writeOnly: true}
+        contactPhone: {type: string, minLength: 7, maxLength: 32, writeOnly: true}
+        reason: {type: string, minLength: 1, maxLength: 1000, description: Audit reason; contact proof is never copied to audit.}
     MagicLinkIncidentRequest:
       type: object
       required: [action, reason]
       properties:
         action: {type: string, enum: [REVOKE, ROTATE]}
-        reason: {type: string, minLength: 1, maxLength: 1000, description: Required business reason; must not contain URLs, link fragments, or credentials.}
-    LatePaymentFollowUpRequest:
+        reason: {type: string, minLength: 1, maxLength: 1000, description: Must not contain URLs, link fragments or credentials.}
+    GroupActionOutcome:
       type: object
-      required: [action, reason]
+      required: [groupCode, action, outcome, correlationId]
       properties:
-        action: {type: string, enum: [RECORD, ESCALATE]}
-        reason: {type: string, minLength: 1, maxLength: 1000}
-    BookingActionOutcome:
-      type: object
-      required: [bookingCode, action, outcome, correlationId]
-      properties:
-        bookingCode: {type: string}
+        groupCode: {type: string}
         action: {type: string}
         outcome: {type: string}
         correlationId: {type: string}
-    BookingSummary:
+    BuyerVerificationRequest:
       type: object
-      required: [bookingCode, bookingStatus, paymentStatus, packageId, packageName, participantCount, sessions]
+      description: Exactly one of contactEmail or contactPhone.
       properties:
-        bookingCode: {type: string}
-        bookingStatus: {type: string, enum: [PENDING_PAYMENT, CONFIRMED, EXPIRED, CANCELLED, COMPLETED, NO_SHOW], description: "COMPLETED, NO_SHOW and post-confirmation CANCELLED are set only from 003.3 conclusions (D13)."}
-        paymentStatus: {type: string, enum: [UNPAID, DEPOSIT_PAID, FULLY_PAID, REFUND_PENDING, REFUNDED], description: "REFUND_PENDING and REFUNDED occur only during a Mland-caused remedy (D14)."}
-        packageId: {type: integer, format: int64}
-        packageName: {type: string}
-        participantCount: {type: integer}
-        holdExpiresAt: {type: string, format: date-time, nullable: true}
-        sessions: {type: array, items: {$ref: '#/components/schemas/BookedSession'}}
-        tickets: {type: array, items: {$ref: '#/components/schemas/BookingTicket'}}
-        attendanceStatus:
-          type: string
-          nullable: true
-          enum: [ATTENDED, NO_SHOW_PENDING, NO_SHOW]
-          description: FR-021b (backfilled 2026-11-12). Display only. Null before attendance is finalized; NO_SHOW_PENDING while a recorded no-show is still inside the 24-hour correction window; NO_SHOW when final. bookingStatus still changes only on the final 003.3 conclusion.
-        ticketReferences:
-          type: array
-          nullable: true
-          items: {type: string}
-          description: FR-021c (backfilled 2026-11-12). Opaque ticket references, returned only in the booking's own Member projection (null for Guest lookup and Magic Link). Used to match a Feature-011 review source (one ticket) to this booking; never displayed.
-    BookedSession:
+        contactEmail: {type: string, format: email, maxLength: 254}
+        contactPhone: {type: string, minLength: 7, maxLength: 32}
+    BuyerVerificationChallenge:
       type: object
-      required: [sessionReference, locationId, ordinal, scheduledStart, scheduledEnd]
+      required: [verificationId, expiresAt]
       properties:
-        sessionReference: {type: string, format: uuid}
-        locationId: {type: integer, format: int64}
-        ordinal: {type: integer, minimum: 1}
-        scheduledStart: {type: string, format: date-time}
-        scheduledEnd: {type: string, format: date-time}
-    BookingTicket:
+        verificationId: {type: string, format: uuid}
+        expiresAt: {type: string, format: date-time}
+    BuyerVerificationConfirmation:
       type: object
-      required: [ticketCode, qrReference, sessionReferences]
+      required: [otp]
+      properties:
+        otp: {type: string, pattern: '^[0-9]{6}$'}
+    BuyerVerificationResult:
+      type: object
+      required: [buyerVerificationReference, expiresAt]
+      properties:
+        buyerVerificationReference: {type: string, format: uuid}
+        expiresAt: {type: string, format: date-time}
+    RecipientRequest:
+      type: object
+      required: [recipientEmail]
+      properties:
+        recipientEmail: {type: string, format: email, maxLength: 254}
+        buyerVerificationReference: {type: string, format: uuid, description: Required for a Guest buyer and for Staff/Manager; ignored for the owning Member.}
+        reason: {type: string, minLength: 1, maxLength: 500, description: Required for Staff/Manager.}
+    TicketRecipient:
+      type: object
+      required: [ticketCode, status, collectionKind]
+      description: The ticket after a recipient command; carries the masked recipient email only.
       properties:
         ticketCode: {type: string}
-        qrReference: {type: string, writeOnly: false, description: Opaque bearer scan reference issued by Workshop Operations; it is used as the QR value and is accepted by Operations check-in. Return only in an authorized booking projection.}
+        status: {$ref: '#/components/schemas/BookingStatus'}
+        collectionKind: {$ref: '#/components/schemas/CollectionKind'}
+        recipientEmailMasked: {type: string, nullable: true}
+        attendanceStatus: {type: string, nullable: true}
         sessionReferences: {type: array, items: {type: string, format: uuid}}
+        onlineRecipientChangesRemaining: {type: integer, minimum: 0, maximum: 3, nullable: true}
+    LatePaymentDecisionRequest:
+      type: object
+      required: [decision, reason]
+      properties:
+        decision: {type: string, enum: [CONFIRM, REFUND]}
+        reason: {type: string, minLength: 1, maxLength: 1000}
+    LatePaymentReview:
+      type: object
+      required: [reviewId, groupCode, outcome, amount, arrivedAt, failedConditions, confirmAllowed]
+      properties:
+        reviewId: {type: string, format: uuid}
+        groupCode: {type: string}
+        outcome: {type: string, enum: [AUTO_RECONFIRMED, PENDING_MANAGER, MANAGER_CONFIRMED, REFUND_REQUESTED]}
+        amount: {type: string, pattern: '^(0|[1-9][0-9]*)$', description: Whole VND as a string, as the implemented response returns it.}
+        arrivedAt: {type: string, format: date-time}
+        failedConditions:
+          type: array
+          items: {type: string, enum: [CAPACITY, START_TIME, AMOUNT, ARRIVAL_WINDOW, DUPLICATE_BOOKING]}
+        confirmAllowed: {type: boolean, description: True when only ARRIVAL_WINDOW and/or DUPLICATE_BOOKING failed.}
+        earliestSessionAt: {type: string, format: date-time, nullable: true}
+        resultDueAt: {type: string, format: date-time, nullable: true}
+        decidedAt: {type: string, format: date-time, nullable: true}
+        refundRequestReference: {type: string, nullable: true}
     Problem:
       type: object
-      required: [code, correlationId]
+      required: [status, code, correlationId]
+      description: RFC 7807 problem detail as the Workshop Booking exception handler returns it.
       properties:
+        type: {type: string, format: uri}
+        title: {type: string}
+        status: {type: integer}
         code: {type: string}
+        detail: {type: string}
         correlationId: {type: string}
-  responses:
-    Problem: {description: Safe typed error, content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}}
+    CartHoldRejection:
+      allOf:
+        - {$ref: '#/components/schemas/Problem'}
+        - type: object
+          properties:
+            failingLines:
+              type: array
+              items: {type: integer, minimum: 0}
+              description: Zero-based cart positions that could not be held (FR-031); present only on a capacity refusal.

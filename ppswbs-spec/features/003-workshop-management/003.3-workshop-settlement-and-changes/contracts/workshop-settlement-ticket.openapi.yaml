@@ -99,10 +99,11 @@ paths:
     post:
       summary: Approve, record the transfer, confirm REFUNDED, close or reopen a refund (FR-039)
       description: >-
-        APPROVE and CONFIRM_REFUNDED are Manager-only; RECORD_TRANSFER needs
-        workshop.refund.execute and a bank reference and proof; CLOSE_UNREACHABLE
-        needs 30 days in PENDING_ACCOUNT and a reason; REOPEN restores
-        PENDING_ACCOUNT.
+        Implemented 2026-11-13. Every transition is Manager-only in V1: the codebase has roles, not named
+        permissions, so a Manager is the actor who holds workshop.refund.execute until it can be granted per
+        person (owner decision 2026-11-13, needs FE-001). RECORD_TRANSFER needs both a bank reference and a
+        proof reference (422 TRANSFER_PROOF_REQUIRED without the proof); CLOSE_UNREACHABLE needs 30 days in
+        PENDING_ACCOUNT and a reason; REOPEN restores PENDING_ACCOUNT with a fresh account link.
       security: [{bearerAuth: []}]
       parameters:
         - {name: refundId, in: path, required: true, schema: {type: string}}
@@ -122,6 +123,70 @@ paths:
       responses:
         '200': {description: Transition applied, content: {application/json: {schema: {$ref: '#/components/schemas/RefundRequest'}}}}
         '403': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-refund-requests/{refundId}/account:
+    put:
+      summary: Staff or Manager enters the recipient account at the counter (FR-038a, FR-040)
+      description: >-
+        Implemented 2026-11-13. The payer is at the counter, so any active Staff member or a Manager may record
+        what they hand over; the entry records actor, channel and time and revokes any active link. The
+        response never echoes the account number, only the stored mask.
+      security: [{bearerAuth: []}]
+      parameters: [{name: refundId, in: path, required: true, schema: {type: string}}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [bankCode, accountNumber, holderName]
+              properties:
+                bankCode: {type: string, maxLength: 32}
+                accountNumber: {type: string, maxLength: 32}
+                holderName: {type: string, maxLength: 128}
+      responses:
+        '200': {description: Account recorded, content: {application/json: {schema: {$ref: '#/components/schemas/RefundRequest'}}}}
+        '403': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-refund-requests/{refundId}/account-link-resends:
+    post:
+      summary: Send a fresh single-use account link, revoking the previous one (FR-040)
+      description: >-
+        Implemented 2026-11-13. Staff or Manager; only possible while the request is PENDING_ACCOUNT
+        (409 REFUND_ACCOUNT_ALREADY_ON_FILE otherwise). The token never appears in the response, only in email 7.
+      security: [{bearerAuth: []}]
+      parameters: [{name: refundId, in: path, required: true, schema: {type: string}}]
+      responses:
+        '204': {description: A fresh link was sent}
+        '403': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-refund-requests/{refundId}/account-number:
+    get:
+      summary: The full recipient account number, for the approving and transferring Manager (FR-040)
+      description: >-
+        Implemented 2026-11-13. Manager only, audited on every read (REFUND_ACCOUNT_REVEALED) and answered
+        with Cache-Control no-store, because this is the one route where the number leaves the database in
+        clear. 409 REFUND_ACCOUNT_NOT_ON_FILE while no account was given; after REFUNDED the ciphertext is
+        dropped, so only the mask remains.
+      security: [{bearerAuth: []}]
+      parameters: [{name: refundId, in: path, required: true, schema: {type: string}}]
+      responses:
+        '200':
+          description: The account, in clear
+          headers:
+            Cache-Control: {schema: {type: string, enum: [no-store]}}
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [refundId, accountNumber]
+                properties:
+                  refundId: {type: string}
+                  bankCode: {type: string, nullable: true}
+                  accountNumber: {type: string}
+                  holderName: {type: string, nullable: true}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
   /api/v1/refund-account-links/{token}:
     post:
@@ -250,11 +315,20 @@ components:
     RefundStatus: {type: string, enum: [PENDING_ACCOUNT, PENDING_APPROVAL, PENDING_TRANSFER, PENDING_RECONCILIATION, REFUNDED, CLOSED_UNREACHABLE]}
     RefundRequest:
       type: object
-      required: [refundId, ticketCode, source, amount, status]
+      required: [refundId, source, amount, status]
       properties:
         refundId: {type: string}
-        ticketCode: {type: string}
-        source: {type: string, enum: [MLAND_CANCELLATION, LATE_PAYMENT, OVERCHARGE, EXCESS_OR_DUPLICATE]}
+        ticketCode:
+          type: string
+          nullable: true
+          description: >-
+            Null for a group-level refund: a late payment that was never re-confirmed has no confirmed ticket
+            and no folio, so the request belongs to the group (decision 2026-11-13).
+        groupCode: {type: string, nullable: true}
+        source:
+          type: string
+          description: The stored refund reason (decision 2026-11-13; the five values the backend persists).
+          enum: [MLAND_CANCELLATION, LATE_PAYMENT_NOT_RECONFIRMED, OVERCHARGE_AFTER_FINALIZED, EXCESS_OR_DUPLICATE_MONEY, OTA_ADDON_OVERCHARGE]
         amount: {$ref: '#/components/schemas/Vnd'}
         status: {$ref: '#/components/schemas/RefundStatus'}
         accountNumberMasked: {type: string, nullable: true}

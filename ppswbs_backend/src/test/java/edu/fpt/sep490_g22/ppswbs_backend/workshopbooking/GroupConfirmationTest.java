@@ -362,10 +362,11 @@ class GroupConfirmationTest {
         assertThat(attempt.getAttemptStatus()).isEqualTo(PaymentAttemptStatus.SUCCESS);
         assertThat(group.getGroupStatus()).isEqualTo(BookingStatus.CONFIRMED);
         verify(magicLinks, times(1)).save(any());
-        // Email 1 once, to the buyer, with the ticket and its QR; a replay sends nothing more.
+        // Email 1 once, to the buyer, with the ticket, its QR and the group Magic Link (FR-048); a replay sends nothing more.
         verify(notifications, times(1)).queue(eq(group), isNull(), eq("GROUP_CONFIRMATION"), eq("buyer@example.com"),
                 eq("MLAND – Xác nhận đặt chỗ workshop " + GROUP), argThat(body -> !body.contains("Thanh toán của bạn đến sau")),
-                argThat(items -> items.size() == 1 && items.getFirst().contains("QR: ")), isNull(), eq("corr-1"));
+                argThat(items -> items.size() == 1 && items.getFirst().contains("QR: ")), isNull(),
+                startsWith("/workshop-booking/access#"), eq("corr-1"));
     }
 
     @Test

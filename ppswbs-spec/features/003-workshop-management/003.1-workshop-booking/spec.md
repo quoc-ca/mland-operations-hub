@@ -1,7 +1,7 @@
 # Feature Specification: Customer Workshop Booking Core
 
 **Date created**: 2026-10-06
-**Date updated**: 2026-11-05
+**Date updated**: 2026-11-13
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -267,7 +267,112 @@ expiry and late-payment templates are recorded in
 `artifacts/workshop-email-templates-draft.md`. The filename is retained for
 existing references; its content is approved, not yet implemented.
 
+## Direct booking is only a booking group (decision 2026-11-13)
+
+**Source:** in-session instruction of Hồ Hoàng Quốc (owner Feature 003),
+2026-11-13: normalize now, because old direct bookings exist only in dev/test.
+**Status:** approved 2026-11-13 by Hồ Hoàng Quốc (owner Feature 003) in session, including the items marked "decided 2026-11-13"; not implemented
+(tasks T098–T104).
+
+**Supersedes** for every direct (Guest or Member) booking (superseded lines are
+kept for history and read through this section): the single `WorkshopBooking`
+flow — FR-003 ("no generic cart"), FR-004, FR-006, the Member quote FR-006a/b,
+FR-007–FR-007d, FR-008/FR-009, FR-010–FR-013d, FR-014h, FR-016–FR-017k,
+FR-020, FR-021a–c, FR-022a, FR-024, user stories US2–US4, the Scope paragraph
+below and the Key Entities "Workshop Booking"/"Booking Ticket" as applied to
+direct bookings. Each still-wanted behaviour is restated for groups in
+FR-030–FR-043 or below. **Not changed:** OTA bookings (003.4) keep
+`WorkshopBooking`, have no Mland folio and no customer lookup.
+
+- **FR-044**: A booking group (FR-030) MUST be the only way to create a direct
+  booking; one person is a group with one ticket (FR-043). The system MUST NOT
+  keep a second direct creation path, Member quote type or 50% deposit path.
+- **FR-045 — "Đặt ngay" and "Thêm vào giỏ"**: The package page offers both.
+  "Đặt ngay" is a one-line cart created on the spot: it calls
+  `POST /workshop-cart-quotes` with that single line, shows the quote on the
+  same booking screen and, on confirmation, calls
+  `POST /workshop-booking-groups`; no cart page is shown. "Thêm vào giỏ" adds
+  the line to the cart; the cart page confirms with the same two calls. Both
+  paths produce the same quote, hold, payment, confirmation and tickets.
+  *Decided 2026-11-13:* the unquoted cart lives in the browser (per device, cleared after
+  a group is created); there is no server cart resource.
+- **FR-046 — removed routes.** These are deleted, not deprecated; their code,
+  tests and frontend calls are removed:
+  `POST /api/v1/workshop-booking-quotes`, `POST /api/v1/workshop-bookings`,
+  `POST /api/v1/workshop-bookings/{bookingCode}/payment-attempts`,
+  `…/pending-hold-release`, `…/confirmation-deliveries`,
+  `…/magic-link-incidents`, `…/late-payment-follow-ups`,
+  `GET /api/v1/members/me/workshop-bookings` and
+  `GET /api/v1/members/me/workshop-bookings/{bookingCode}`. *Decided 2026-11-13:*
+  `POST /api/v1/booking-lookups` and `POST /api/v1/booking-magic-links/exchanges`
+  are removed too, because they project only a direct `WorkshopBooking` and an
+  OTA booking has no customer lookup.
+- **FR-047 — group routes that replace them** (contract:
+  `contracts/workshop-booking.openapi.yaml`, where T104 moved them on 2026-11-14):
+
+  | Removed | Replacement | State on `quoc` @ 85eedfd6 |
+  |---|---|---|
+  | `POST /workshop-booking-quotes` | `POST /workshop-cart-quotes` (Guest or Member) | exists |
+  | `POST /workshop-bookings` | `POST /workshop-booking-groups` | exists |
+  | `POST /workshop-bookings/{code}/payment-attempts` | `POST /workshop-booking-groups/{groupCode}/payment-attempts` | **mismatch:** code maps `…/payment`; the code moves to the contract path |
+  | `GET /members/me/workshop-bookings/{code}` | `GET /workshop-booking-groups/{groupCode}` (owning Member bearer) | **missing** in code |
+  | `GET /members/me/workshop-bookings` | `GET /members/me/workshop-booking-groups` | **missing** |
+  | `POST /booking-lookups` | `POST /workshop-booking-group-lookups` | **missing** |
+  | `POST /booking-magic-links/exchanges` | `POST /workshop-booking-group-magic-links/exchanges` | **missing**; the group link is already issued by `GroupConfirmationService` but cannot be exchanged |
+  | `…/pending-hold-release` | `POST /workshop-booking-groups/{groupCode}/pending-hold-release` | **missing** |
+  | `…/confirmation-deliveries` | `POST /workshop-booking-groups/{groupCode}/confirmation-deliveries` | **missing** |
+  | `…/magic-link-incidents` | `POST /workshop-booking-groups/{groupCode}/magic-link-incidents` | **missing** |
+  | `…/late-payment-follow-ups` | `GET /late-payment-reviews` + `POST /workshop-booking-groups/{groupCode}/late-payment-reviews/{reviewId}/decisions` (FR-040a) | exists; no new route |
+
+- **FR-048 — group recovery rules** (carry the single-booking rules over
+  unchanged unless stated):
+  - Guest lookup proves the group with `groupCode` and exactly one stored
+    contact value (FR-016/017 proof rule and rate limit); the answer never
+    says which part failed.
+  - The group Magic Link (one per group, FR-042) is exchanged for the same
+    read-only group projection; expiry, revoke/rotate and URL scrubbing follow
+    FR-017b–FR-017b9a. A ticket recipient's QR email is not a Magic Link and
+    gives no group view.
+  - `GET /workshop-booking-groups/{groupCode}` is for the owning Member only.
+    A Guest reads the group through the lookup or Magic-Link POST, so contact
+    proof never travels in a URL.
+  - The Member list returns at most 30 of the Member's groups, newest first;
+    an `EXPIRED` group is listed only within 24 hours of `holdExpiresAt`
+    (FR-021a carried over).
+  - Pending-hold release: Guest with one contact proof, or owning Member, plus
+    a reason; releases every line's hold and, when the group has no payment
+    attempt and no late evidence, its held voucher/points (FR-017j).
+    *Decided 2026-11-13 (new rule):* it is refused once a group payment attempt exists,
+    so a payment in flight is never orphaned; the hold then ends by expiry.
+  - Confirmation resend: sends the buyer confirmation (every ticket) again to
+    the stored contact email only; Guest proof, Member ownership, scoped Staff
+    or any Manager; limits as FR-014h. One ticket to its recipient is resent by
+    `PUT /workshop-tickets/{ticketCode}/recipient` with the same email.
+  - Magic-Link incident: any active Manager revokes or rotates the group link.
+- **FR-049 — group projection.** The buyer projection MUST give, per ticket:
+  package name, session schedule, final price, collected amount, collection
+  kind, remaining balance, status, attendance, masked recipient and, for the
+  buyer only, the QR reference. The owning Member's projection also carries
+  each ticket's opaque `ticketReference` so Feature 011 keeps matching one
+  review source to one ticket (FR-021c carried over).
+- **FR-050 — attendance per ticket.** 003.2 publishes
+  `TicketAttendanceFinalizedEvent` per ticket (003.2 FR-032, T092); the
+  booking-wide `BookingAttendanceFinalizedEvent`, its outbox and query are
+  removed (003.3 decision 2026-11-13). Booking-wide status FR-020 does not
+  apply to a group; each ticket has its own status.
+- **FR-051 — data.** A new append-only migration deletes direct
+  `WorkshopBooking` rows and their dependent rows (dev/test only, FR-043), then
+  drops tables used only by the removed flow. Candidates: Member quotes,
+  single-booking deposit attempts and reconciliation, single-booking Magic
+  Links; the backend step confirms each against code still used by groups and
+  OTA and lists the result in `data-model.md`. Applied migrations are not edited.
+  Tables still used by OTA bookings stay. Environments are reseeded.
+
 ## Scope and source alignment
+
+> **Superseded 2026-11-13** for direct bookings by FR-044–FR-051: a direct
+> booking is a booking group; the "one booking, no cart" scope below now
+> applies only to OTA bookings received through 003.4.
 
 This feature defines the first customer-facing Workshop Booking slice for Guests
 and Members. It owns one booking for one selected workshop package/course,
