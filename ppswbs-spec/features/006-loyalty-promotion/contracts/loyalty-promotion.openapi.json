@@ -1219,7 +1219,25 @@
             "uniqueItems": true
           }
         },
-        "description": "Every dimension is optional; an omitted dimension is not restricted, so an empty object covers all workshops (decision 2026-11-06). Booking window separate from workshop dates."
+        "description": "Workshop VOUCHER targets. Every dimension is optional; an omitted dimension is not restricted, so an empty object covers all workshops (decision 2026-11-06). Booking window separate from workshop dates. A workshop AUTO_DISCOUNT uses WorkshopAutoTargets instead."
+      },
+      "WorkshopAutoTargets": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "packageIds": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PositiveId"
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "packageIds"
+        ],
+        "description": "Session 2026-11-14 (FR-044): a workshop automatic discount is targeted by package only, because its discounted price is shown publicly (FR-045) before the customer picks a branch and a session. Sending branchIds, workshopDates or sessionIds is rejected with VALIDATION_FAILED and the field path (targets.branchIds, ...); an empty or missing packageIds is rejected at targets.packageIds."
       },
       "ProductVoucherCreate": {
         "type": "object",
@@ -1387,11 +1405,21 @@
           "scope": {
             "type": "string",
             "enum": [
-              "PRODUCT"
-            ]
+              "PRODUCT",
+              "WORKSHOP"
+            ],
+            "description": "Session 2026-11-14 (FR-044): WORKSHOP is allowed for an automatic discount; before that it was PRODUCT only."
           },
           "targets": {
-            "$ref": "#/components/schemas/ProductTargets"
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ProductTargets"
+              },
+              {
+                "$ref": "#/components/schemas/WorkshopAutoTargets"
+              }
+            ],
+            "description": "PRODUCT scope uses ProductTargets (branchIds rejected for an automatic discount). WORKSHOP scope uses WorkshopAutoTargets: packageIds only, at least one."
           }
         },
         "required": [
@@ -1417,7 +1445,7 @@
             "$ref": "#/components/schemas/AutoDiscountCreate"
           }
         ],
-        "description": "startAt<endAt; source target validation required. Voucher quota required; auto has no code/quota."
+        "description": "startAt<endAt; source target validation required. Voucher quota required; auto has no code/quota. Auto may have PRODUCT or WORKSHOP scope (Session 2026-11-14, FR-044); a workshop auto takes packageIds only."
       },
       "ProgramUpdate": {
         "type": "object",

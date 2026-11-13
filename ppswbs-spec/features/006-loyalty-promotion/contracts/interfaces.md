@@ -67,7 +67,7 @@ Tên interface là thiết kế public của module; không phải entity/HTTP D
 `AcceptedSourceContext`:
 
 - sourceKind RETAIL/WORKSHOP, sourceRef, sourceRevision, memberId từ identity owner.
-- `originEligibility` MEMBER_WEBSITE_AT_ACCEPTANCE; không retrofit từ guest-import memberId.
+- `originEligibility` MEMBER_WEBSITE_AT_ACCEPTANCE; không retrofit từ guest-import memberId. Từ D-014, cờ `memberOrigin` nghĩa là "giao dịch trực tiếp trên website": Guest đặt workshop trực tiếp cũng gửi `true` (memberId = `TrustedSourceContext.GUEST`).
 - acceptedAt, originalDeadline, currency VND.
 - server-priced line facts productId/variantId/quantity/unitAmount và `locationId` (Session 2026-11-09: chi nhánh ghi trên dòng giỏ FE-08, cùng `locationId` của contract FR-053 bên 002; nullable để FE-08 chưa chuyển vẫn chạy), hoặc workshop `WorkshopFact(packageId, participantCount, grossPackageAmount, sessions)` do owner tạo. `sessions` là danh sách `WorkshopSessionFact(sessionRef, branchId, workshopDate)`, mỗi phiên khách đã chọn một phần tử (gói Silverclay 2 phiên → 2 phần tử), `sessionRef` = `workshop_sessions.reference` dạng UUID chữ thường. `grossPackageAmount` là phí của cả gói, không theo từng phiên. Gói một phiên dùng `WorkshopFact.singleSession(...)` (chốt 2026-10-29).
 - Voucher workshop: package phải nằm trong target (nếu có), và **mọi** phiên phải khớp branch/workshopDate/session target (nếu có); một phiên ngoài phạm vi → `PROMOTION_INELIGIBLE` (chốt 2026-10-29).
@@ -79,7 +79,9 @@ Tên interface là thiết kế public của module; không phải entity/HTTP D
 `BenefitSelection`:
 
 - choice NONE/AUTO/VOUCHER, voucherCode chỉ khi VOUCHER, requestedPoints.
-- AUTO retail chọn server candidate tối ưu theo khoản giảm; workshop không AUTO. AUTO luôn cho requestedPoints (allowPoints=true cố định).
+- AUTO chọn server candidate tối ưu theo khoản giảm, với cả retail và workshop (Session 2026-11-14, FR-044; trước đó workshop không có AUTO). Nhiều giảm tự động hợp lệ thì lấy khoản giảm lớn nhất, bằng nhau ưu tiên chương trình tạo trước (FR-015). AUTO luôn cho requestedPoints (allowPoints=true cố định).
+- AUTO workshop: phạm vi chỉ theo gói (`packageIds`, ít nhất một), không theo chi nhánh/ngày/phiên. Với giỏ nhiều vé, chỉ các vé thuộc gói trong phạm vi được tính (phí tối thiểu và khoản giảm trên tổng các vé đó, trần áp một lần cho cả booking); `eligibleLineIndexes` trả các vé đó giống voucher. Không có giảm tự động nào áp dụng thì preview không lỗi, chỉ trả lý do `WORKSHOP_NO_AUTO_DISCOUNT_APPLIES` (thay mã cũ `WORKSHOP_NO_AUTO_DISCOUNT`, đã bỏ).
+- Guest (`TrustedSourceContext.GUEST`, chỉ WORKSHOP): `previewBenefits` được xem giảm tự động, còn VOUCHER và điểm bị từ chối. Từ D-014 (2026-11-14), `reserveAcceptedTransaction` của Guest **được nhận**: snapshot có `member_id` NULL (V135), danh tính là `sourceRef` (mã nhóm đặt), không giữ điểm hay voucher. 003 gửi `AcceptedSourceContext` với context Guest, `memberOrigin = true` (nghĩa: giao dịch trực tiếp trên website, không phải guest-import), lựa chọn AUTO hoặc NONE. Guest gửi VOUCHER hoặc `requestedPoints` > 0 → `PROMOTION_INELIGIBLE`. Các outcome (settle, release, restore, outcome theo vé) gửi như với Member; tích điểm đóng thành cấp 0 điểm, không mở ví.
 - `NONE` cho phép không chọn chương trình; điểm vẫn được dùng theo policy, trừ khi có chương trình được chọn cấm kết hợp.
 
 `AuthoritativeOutcome`:

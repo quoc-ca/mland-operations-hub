@@ -61,14 +61,17 @@ class BenefitEffectSupport {
         PromotionProgram program = references.getProgramId() == null ? null
                 : locks.lockPrograms(Set.of(references.getProgramId())).get(references.getProgramId());
         LoyaltyWallet wallet;
-        if (openWallet) {
+        if (references.getMemberId() == null) {
+            // A Guest workshop snapshot (D-014) has no wallet: it never holds points and never earns.
+            wallet = null;
+        } else if (openWallet) {
             wallet = locks.lockOrOpenWallet(references.getMemberId());
         } else {
             wallet = references.getRequestedPoints().signum() == 0 ? null
                     : locks.lockWallet(references.getMemberId()).orElseThrow(() -> new LoyaltyException(
                             LoyaltyErrorCode.BENEFIT_STATE_CONFLICT, "The wallet of this benefit is missing."));
         }
-        MemberProgram memberProgram = program == null || !program.isVoucher() ? null
+        MemberProgram memberProgram = program == null || !program.isVoucher() || references.getMemberId() == null ? null
                 : locks.lockOrCreateMemberProgram(program.getId(), references.getMemberId());
         AcceptedBenefit benefit = locks.lockBenefit(outcome.sourceKind(), outcome.sourceRef())
                 .orElseThrow(() -> new LoyaltyException(LoyaltyErrorCode.BENEFIT_STATE_CONFLICT,
