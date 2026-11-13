@@ -7,7 +7,7 @@
 
 **Branch**: `son` | **Spec**: [spec.md](spec.md)
 
-**Input**: Historical approved design artifacts plus the 2026-11-14 Manager-global authorization revision in spec.md, data-model.md, contracts/interfaces.md, design/architecture.md, design/workflows.md, and design/ui-flow.md. The revision is proposed and pending Tech Lead approval; it supersedes no approval record. This plan otherwise supersedes the legacy Member Profile plan entirely.
+**Input**: Historical approved design artifacts plus the 2026-11-14 Manager-global authorization revision in spec.md, data-model.md, contracts/interfaces.md, design/architecture.md, design/workflows.md, and design/ui-flow.md. Revision R-MGA in `approval.md` approves this revision for T078–T081; it supersedes no other approval record. This plan otherwise supersedes the legacy Member Profile plan entirely.
 
 ---
 

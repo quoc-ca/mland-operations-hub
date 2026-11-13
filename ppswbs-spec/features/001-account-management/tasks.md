@@ -7,7 +7,7 @@
 
 **Input**: Design documents from `ppswbs-spec/features/001-account-management/`
 
-**Prerequisites**: Historical baseline artifacts exist. The 2026-11-14 Manager-global authorization revision in plan/spec/research/data-model/interfaces/design is **pending Tech Lead approval**; T078–T081 must not be implemented until that revision is approved.
+**Prerequisites**: Historical baseline artifacts exist. Revision R-MGA in `approval.md` approves the 2026-11-14 Manager-global authorization revision in plan/spec/research/data-model/interfaces/design for T078–T081. Execute those tasks only within that approved scope.
 
 **Tests**: Not requested in spec. Only integration evidence items from quickstart.md are required before handoff; no TDD task sequence included.
 
@@ -359,28 +359,28 @@
 
 ---
 
-## Phase 11: Manager-global authorization alignment (UNSTARTED)
+## Phase 11: Manager-global authorization alignment (COMPLETED)
 
 **Scope guard**: This phase implements the 2026-11-14 Manager authorization
 baseline in `spec-general.md` and FE-001. It does not create a new role,
 dynamic RBAC, a new REST endpoint, or a Manager ability to perform an
 Admin-only, ownership-only, or public action.
 
-- [ ] T078 Revise the Account facade boundary and its callers so an active
+- [x] T078 Revise the Account facade boundary and its callers so an active
   Manager requester is authorized from `CurrentAccountActor` without resolving
   effective Workshop Location scope. Keep `findTargetFacts` for target and
   Staff location-scoped use, and revise `findEligibleRoster(workshopLocationId)`
   to return only active Staff candidates.
-- [ ] T079 Revise FE-003 consumer authorization and focused module/integration
+- [x] T079 Revise FE-003 consumer authorization and focused module/integration
   coverage: an active Manager assigned to Location A can perform an explicitly
   Manager-authorized action on Location B and while the Location-scope
   dependency is unavailable; an active Staff remains denied outside its scope
   and receives retryable unavailability when scope cannot be resolved.
-- [ ] T080 Revise Admin account create/detail/edit and role-catalogue UI with
+- [x] T080 Revise Admin account create/detail/edit and role-catalogue UI with
   the approved wording: Manager Location assignments are organizational while
   Staff assignments limit Staff access. Add UI coverage for role transition,
   committed-state messaging, and conflict recovery.
-- [ ] T081 Record fresh V-04, V-06 and V-07 evidence for T078–T080; do not
+- [x] T081 Record fresh V-04, V-06 and V-07 evidence for T078–T080; do not
   relabel historical evidence as coverage for the Manager-global behavior.
 
 **Checkpoint**: An active Manager's explicitly Manager-authorized operational

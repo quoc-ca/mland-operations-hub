@@ -5,7 +5,7 @@
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
-**Design status**: Draft revision — the 2026-11-14 Manager-global authorization flow is proposed and pending Tech Lead approval. Historical approval, including Revision R-SL, remains limited to the scopes recorded in `approval.md`.
+**Design status**: Approved for T078–T081 — the 2026-11-14 Manager-global authorization flow is approved by Revision R-MGA in `approval.md`. Historical approvals, including Revision R-SL, remain limited to their recorded scopes.
 
 ## Scope and source map
 

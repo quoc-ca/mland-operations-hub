@@ -5,7 +5,7 @@
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
-**Design status**: Draft revision — the 2026-11-14 Manager-global workflow is proposed and pending Tech Lead approval. Historical approval in `approval.md` remains limited to its recorded scope.
+**Design status**: Approved for T078–T081 — the 2026-11-14 Manager-global workflow is approved by Revision R-MGA in `approval.md`. Historical approval remains limited to its recorded scope.
 
 ## Workflow index
 

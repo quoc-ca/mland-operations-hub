@@ -7,7 +7,7 @@
 
 **Feature Branch**: `son`
 
-**Status**: Draft revision — the 2026-11-14 Manager-global authorization changes are proposed and pending Tech Lead approval. Historical approval in `approval.md` remains limited to its recorded scope.
+**Status**: Approved — the 2026-11-14 Manager-global authorization revision is approved for T078–T081 by Tech Lead Phan Sơn; see Revision R-MGA in `approval.md`. Historical approvals remain limited to their recorded scopes.
 
 **Input**: Replace the obsolete Member Profile scope with FE-001 Account Management, using `research.md` and the decisions recorded during the 2026-10-24–2026-10-25 clarification.
 

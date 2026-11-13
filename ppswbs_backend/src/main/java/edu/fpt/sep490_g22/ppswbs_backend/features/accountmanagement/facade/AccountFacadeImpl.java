@@ -131,8 +131,8 @@ public class AccountFacadeImpl implements AccountFacade {
 
     @Override
     @Transactional(readOnly = true)
-    public RosterOutcome findEligibleRoster(Long workshopLocationId, AccountRole role) {
-        if (workshopLocationId == null || role == null || (role != AccountRole.STAFF && role != AccountRole.MANAGER)) {
+    public RosterOutcome findEligibleRoster(Long workshopLocationId) {
+        if (workshopLocationId == null) {
             return RosterOutcome.available(List.of());
         }
         List<AccountLocationAssignment> assignments = locationAssignmentRepository.findByLocationIdAndActiveTrue(workshopLocationId);
@@ -141,7 +141,7 @@ public class AccountFacadeImpl implements AccountFacade {
             Optional<Account> accountOpt = accountRepository.findById(assignment.getAccountId());
             if (accountOpt.isPresent()) {
                 Account account = accountOpt.get();
-                if (account.getStatus() == AccountStatus.ACTIVE && account.getRole() == role) {
+                if (account.getStatus() == AccountStatus.ACTIVE && account.getRole() == AccountRole.STAFF) {
                     String displayName = profileRepository.findByAccountId(account.getId())
                         .map(AccountProfile::getFullName)
                         .filter(name -> name != null && !name.isBlank())
@@ -155,6 +155,15 @@ public class AccountFacadeImpl implements AccountFacade {
             }
         }
         return RosterOutcome.available(roster);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public RosterOutcome findEligibleRoster(Long workshopLocationId, AccountRole role) {
+        if (role != AccountRole.STAFF) {
+            return RosterOutcome.available(List.of());
+        }
+        return findEligibleRoster(workshopLocationId);
     }
 
     private ActorRole mapRole(AccountRole role) {
