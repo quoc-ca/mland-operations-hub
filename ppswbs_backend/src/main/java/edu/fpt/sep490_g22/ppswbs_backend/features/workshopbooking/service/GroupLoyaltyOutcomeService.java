@@ -22,8 +22,9 @@ import java.util.Optional;
  * of that decision; 006 never reads a gateway callback. Both calls are keyed on the group, so a replayed
  * confirmation or a second expiry sweep reaches the same stored result instead of consuming twice.
  *
- * <p>A group with no reservation — a Guest cart, or a Member cart that asked for nothing — is skipped, since
- * there is no component to settle.
+ * <p>A group with no reservation — a cart that got no automatic discount and asked for nothing — is skipped, since
+ * there is no component to settle. A Guest group with an automatic discount is reserved (006 D-014) and is settled
+ * or released like a Member's.
  */
 @Service
 @RequiredArgsConstructor
