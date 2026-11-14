@@ -1,112 +1,153 @@
 # Feature 003 — thống kê đầu việc
 
-> **Snapshot 2026-11-14**, nhánh `quoc` tại `dd9a6e01`. Số liệu đếm từ các dòng task `- [ ] Txxx` / `- [x] Txxx`
+> **Snapshot 2026-11-14**, nhánh `quoc` tại `c91c4db7`. Số liệu đếm từ các dòng task `- [ ] Txxx` / `- [x] Txxx`
 > trong `tasks.md` của từng sub-feature; `tasks.md` vẫn là nguồn sự thật, file này chỉ là bản tổng hợp.
 > Task bị thay thế (superseded) được tính là đã đóng. Cập nhật lại file này khi tick hoặc mở lại task.
+> "Convergence" là các task do `$speckit-converge` chạy ngày 2026-11-14 thêm vào cuối `tasks.md` (47 task, 4 đã xong).
 
-## Tổng quan
+## 1. Tổng quan
 
-| Sub-feature | Tổng | Đã xong | Còn mở | Làm được ngay | Bị chặn |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| 003.1 Workshop booking | 75 | 70 | 5 | 3 | 2 |
-| 003.2 Workshop operations | 97 | 95 | 2 | 2 | 0 |
-| 003.3 Settlement and changes | 59 | 55 | 4 | 2 | 2 |
-| 003.4 OTA connectivity | 63 | 57 | 6 | 2 | 4 |
-| **Tổng** | **294** | **277** | **17** | **9** | **8** |
+| Sub-feature | Tổng | Đã xong | Còn mở | Tỷ lệ xong |
+| --- | ---: | ---: | ---: | ---: |
+| 003.1 Workshop booking | 82 | 72 | 10 | 87,8% |
+| 003.2 Workshop operations | 104 | 95 | 9 | 91,3% |
+| 003.3 Settlement and changes | 77 | 56 | 21 | 72,7% |
+| 003.4 OTA connectivity | 78 | 58 | 20 | 74,4% |
+| **Tổng** | **341** | **281** | **60** | **82,4%** |
 
-Tỷ lệ hoàn thành theo số task: **94,2%** (277/294). Đây là tỷ lệ theo số dòng task, không theo effort.
+Tỷ lệ tính theo số dòng task, không theo effort.
 
-## Còn mở — làm được ngay (9)
+### Còn mở: task cũ và task convergence
 
-| Task | Loại | Việc | Phụ thuộc / ghi chú |
-| --- | --- | --- | --- |
-| 003.2 T097 | Backend | Xoá `BookingSettlementReadinessQuery`, `BookingCancellationEligibilityQuery`, `ReplaceRequiredSessionsCommand`, `CancelBookingCommand` theo cả booking | Gỡ được sau 003.3 T106 (đã xong); giữ phần OTA còn dùng |
-| 003.1 T100 | Backend | Xoá phần còn lại của luồng đặt lẻ trực tiếp và facade legacy (`recordFinalBalanceResolved`, `getConfirmedBookingFinancialProjection`, …) | 7 controller đã xoá 2026-11-13; nên làm cùng 003.2 T097 |
-| 003.2 T096 | Backend + test | MySQL IT còn lại; **thêm code** chặn huỷ, đổi ca, cấp lại QR cho vé OTA (FR-036) trong 3 service | Chặn OTA chưa có trong code |
-| 003.1 T097 | Test | MySQL IT cho toàn luồng đặt theo nhóm, gồm giảm giá tự động | — |
-| 003.3 T103 | Test | MySQL IT settlement: thu tiền hỗn hợp, chốt sổ, hoàn tiền, huỷ 24h, đổi ca | — |
-| 003.1 T106 | Frontend | Hiện giá sau giảm tự động trên 5 màn hình công khai (FR-052) | Gate 006 T105 đã đạt |
-| 003.3 T102 | Frontend | Màn Staff/Manager: folio, chốt sổ, hàng đợi hoàn tiền, huỷ/đổi vé | Backend các route đã xong |
-| 003.4 T057 | Bằng chứng | Phân quyền Staff theo booking trên bề mặt add-on OTA | Chạy test và ghi evidence |
-| 003.4 T058 | Bằng chứng | Ingress fail-closed tạm thời của `POST /api/v1/ota-provider/booking-events` | Chạy test và ghi evidence |
+| Sub-feature | Task cũ | Convergence | Tổng mở |
+| --- | ---: | ---: | ---: |
+| 003.1 | 5 | 5 | 10 |
+| 003.2 | 2 | 7 | 9 |
+| 003.3 | 4 | 17 | 21 |
+| 003.4 | 6 | 14 | 20 |
+| **Tổng** | **17** | **43** | **60** |
 
-## Còn mở — bị chặn bởi bên ngoài (8)
+Convergence đã đóng trong ngày: 003.1 T108, T113; 003.3 T107; 003.4 T105 (4 task, đều CRITICAL).
 
-| Task | Chặn bởi | Việc |
-| --- | --- | --- |
-| 003.1 T005 | Cấu hình VNPay thật | Merchant identity, secret HMAC, IPN HTTPS, quyền QueryDR/refund, evidence sandbox |
-| 003.1 T046 | 003.1 T005 | Review evidence cấu hình trước khi bật VNPay thật |
-| 003.3 T005 | Cấu hình VNPay thật | Như 003.1 T005, phía settlement |
-| 003.3 T035 | 003.3 T005 | Review evidence cấu hình trước khi bật VNPay thật |
-| 003.4 T004 | Readiness của provider OTA | Ghi evidence Klook/GetYourGuide đã duyệt trước khi bật `BOOKING_ENABLED` |
-| 003.4 T038b | 003.4 T004 | Map sự kiện huỷ/hoàn thật của từng provider; V1 chỉ huỷ cả booking |
-| 003.4 T051 | Onboarding provider | Booking, gửi vé/QR và quét trên sandbox của provider |
-| 003.4 T054 | T004, T051 | Go-live review theo từng provider |
+## 2. Còn mở theo nhóm làm việc (60)
 
-## Theo phase
+| Nhóm | Nội dung | Số task | Ghi chú |
+| --- | --- | ---: | --- |
+| A | Settlement: tiền, quyền, MySQL IT (003.3) | 12 | Làm trước vì liên quan tiền |
+| B | OTA lõi nghiệp vụ và bằng chứng (003.4) | 11 | T108, T109 cùng file, làm tuần tự |
+| C | Vận hành và đặt chỗ, backend + dọn legacy (003.1, 003.2) | 12 | Gồm các task cũ 003.1 T097, T100; 003.2 T096, T097 |
+| D | Frontend (003.1, 003.2, 003.3, 003.4) | 8 | Chờ API của A, C ổn định |
+| E | Contract và tài liệu | 3 | Làm cuối |
+| F | Cần chủ sở hữu chốt thiết kế trước khi code | 6 | Xem mục 4 |
+| X | Bị chặn bởi bên ngoài (VNPay, provider OTA) | 8 | Không làm được trong repo |
+| | **Tổng** | **60** | |
 
-### 003.1 Workshop booking
+## 3. Toàn bộ 60 task còn mở
 
-| Phase | Xong / tổng | Còn mở |
-| --- | ---: | --- |
-| 1 Setup and shared boundaries | 7/8 | T005 |
-| 2 Foundational booking integrity | 6/6 | |
-| 3 US1 Discover a workshop package | 4/4 | |
-| 4 US2 Create a pending workshop booking | 8/8 | |
-| 5 US3 Pay the workshop deposit | 9/9 | |
-| 6 US4 Look up and recover a booking | 7/7 | |
-| 7 Cross-cutting verification and handoff | 13/14 | T046 |
-| 8 Multi-ticket cart, per-ticket booking | 8/9 | T097 |
-| 9 Direct booking is only a booking group | 6/7 | T100 |
-| 10 Public package price shows the automatic discount | 1/2 | T106 |
-| 11 Per-ticket facts for 003.3 | 1/1 | |
+Loại: BE = backend, FE = frontend, IT = test MySQL, DOC = tài liệu/contract, EVD = ghi bằng chứng.
+Mức: **C** = CRITICAL, **H** = HIGH, **M** = MEDIUM, **L** = LOW (chỉ có ở task convergence; task cũ ghi "–").
 
-### 003.2 Workshop operations
+### 003.1 Workshop booking (10)
 
-| Phase | Xong / tổng | Còn mở |
-| --- | ---: | --- |
-| 1 Setup and architecture rebase | 4/4 | |
-| 2 Foundational boundaries, persistence and security | 15/15 | |
-| 3 US1 Manager configures slots and future sessions | 7/7 | |
-| 4 US2 Authorized actor starts and operates a session | 6/6 | |
-| 5 US3 Staff checks in one attendance ticket | 8/8 | |
-| 6 US4 Recovery from lost ticket access | 7/7 | |
-| 7 US5 Manager finalizes attendance and cancels safely | 7/7 | |
-| 8 Polish, cut-over safety and verification | 8/8 | |
-| 9 Settlement and required-session-change handoff | 5/5 | |
-| 10 Workshop package master and public discovery | 16/16 | |
-| 11 Wax casting foundry calendar rule | 3/3 | |
-| 12 Manager REST command idempotency | 1/1 | |
-| 13 Direct-booking open-folio attendance outcome | 2/2 | |
-| 14 Per-ticket capacity, attendance, QR and changes | 6/8 | T096, T097 |
+| Task | Gốc | Loại | Mức | Nhóm | Việc |
+| --- | --- | --- | --- | --- | --- |
+| T005 | cũ | ngoài | – | X | Cấu hình VNPay thật (merchant, secret, IPN, QueryDR/refund) |
+| T046 | cũ | ngoài | – | X | Review evidence cấu hình T005 trước khi bật VNPay thật |
+| T097 | cũ | IT | – | C | MySQL IT cho toàn luồng đặt theo nhóm, gồm giảm giá tự động |
+| T100 | cũ | BE | – | C | Xoá luồng đặt lẻ còn lại và các facade legacy |
+| T106 | cũ | FE | – | D | Giá sau giảm trên 5 màn hình công khai (FR-052) |
+| T109 | converge | BE | M | C | Tính lại số tiền thu từ snapshot vé trước khi tạo URL VNPay, lệch hoặc dưới 5.000 thì 409 |
+| T110 | converge | BE | M | C | Giới hạn tần suất tra cứu Guest, nhả giữ chỗ, gửi lại (429) |
+| T111 | converge | BE | M | C | Gửi email mẫu 5 khi giữ chỗ hết hạn (`GROUP_HOLD_EXPIRED`) |
+| T112 | converge | BE | L | C | Chuẩn hoá số điện thoại khi lưu và so chứng minh |
+| T114 | converge | DOC | L | E | Sửa tài liệu lệch: plan.md, `CreateIdempotencyKey`, ca test trong T097 |
 
-### 003.3 Settlement and changes
+### 003.2 Workshop operations (9)
 
-| Phase | Xong / tổng | Còn mở |
-| --- | ---: | --- |
-| 1 Setup and shared boundaries | 5/6 | T005 |
-| 2 Foundational settlement integrity | 6/6 | |
-| 3 US1 Staff settles a completed booking | 8/8 | |
-| 4 US2 Customer cancels a whole booking | 4/4 | |
-| 5 US3 Manager changes future required sessions | 3/3 | |
-| 6 US4 Manager remedies Mland-caused disruption | 4/4 | |
-| 7 Cross-cutting verification and handoff | 13/14 | T035 |
-| 8 Per-ticket settlement, bank refunds, counter collection and changes | 12/14 | T102, T103 |
+| Task | Gốc | Loại | Mức | Nhóm | Việc |
+| --- | --- | --- | --- | --- | --- |
+| T096 | cũ | IT+BE | – | C | MySQL IT còn lại; thêm chặn vé OTA trong 3 service (FR-036) |
+| T097 | cũ | BE | – | C | Xoá query/command theo cả booking của 003.2 |
+| T107 | converge | BE | H | C | Cửa sổ sửa điểm danh tính theo từng vé |
+| T108 | converge | FE | H | D | Form Manager tạo phiên hàng loạt |
+| T109 | converge | BE | M | C | Chuyển loyalty outcome sang điểm danh theo vé, xoá `BookingAttendanceOutcome` |
+| T110 | converge | BE | M | C | Giữ danh sách dòng lỗi khi replay đổi phiên bị từ chối |
+| T111 | converge | BE | M | C | `initialState` cho tạo phiên đơn lẻ |
+| T112 | converge | FE | M | D | Sửa phiên (sức chứa, mở check-in) với xung đột phiên bản |
+| T113 | converge | FE | M | D | Chỉnh quota đổi lịch theo phiên |
 
-### 003.4 OTA connectivity
+### 003.3 Settlement and changes (21)
 
-| Phase | Xong / tổng | Còn mở |
-| --- | ---: | --- |
-| 1 Setup and design-gate evidence | 4/5 | T004 |
-| 2 Foundational safety and persistence | 10/10 | |
-| 3 US2 Manager publishes eligible channel inventory | 10/10 | |
-| 4 US1 OTA guest secures workshop places | 8/9 | T058 |
-| 5 US3 OTA cancellation/refund protects inventory | 6/7 | T038b |
-| 6 US4 Finance reconciles channel revenue | 6/6 | |
-| 7 US5 Staff records a shop add-on | 7/8 | T057 |
-| 8 Polish, verification and go-live control | 6/8 | T051, T054 |
+| Task | Gốc | Loại | Mức | Nhóm | Việc |
+| --- | --- | --- | --- | --- | --- |
+| T005 | cũ | ngoài | – | X | Cấu hình VNPay thật, phía settlement |
+| T035 | cũ | ngoài | – | X | Review evidence cấu hình T005 |
+| T102 | cũ | FE | – | D | Màn Staff/Manager: folio, chốt sổ, hàng đợi hoàn tiền, huỷ/đổi vé |
+| T103 | cũ | IT | – | A | MySQL IT settlement (làm sau các task A) |
+| T108 | converge | BE | H | A | Tạo merchant reference và URL thanh toán VNPay phía server cho folio vé |
+| T109 | converge | BE | H | A | Route đánh dấu khoản chờ là thất bại (`failures`) và đường QueryDR/IPN-failure |
+| T110 | converge | BE | H | A | Tiền VNPay đến muộn: ghi thành tiền thừa và mở hoàn tiền |
+| T111 | converge | BE | H | A | Thu tiền phải kiểm Staff được phân công, lấy chi nhánh từ ticket |
+| T112 | converge | BE | H | F | Nối huỷ/dời phiên từ 003.2 sang đề nghị remedy theo vé |
+| T113 | converge | BE | H | A | Chỉ đóng folio của remedy khi hoàn tiền tới `REFUNDED` |
+| T114 | converge | BE | H | A | Bỏ thông tin liên hệ khỏi URL của route đọc correction |
+| T115 | converge | BE | H | A | Trần correction dùng tiền thật đã thu, bỏ số giao dịch bịa |
+| T116 | converge | BE | M | A | Kiểm trạng thái và địa điểm của Staff khi thao tác thay khách |
+| T117 | converge | BE | M | F | Hàng đợi yêu cầu đổi cần Manager cho phép |
+| T118 | converge | BE | M | F | Route đổi nhiều vé cùng nhóm, tất cả hoặc không |
+| T119 | converge | BE | M | A | Xác nhận chuyển khoản gắn đúng folio, có Idempotency-Key |
+| T120 | converge | BE | M | A | Bỏ route `/workshop-cash-days/*`, bắt buộc Idempotency-Key cho `/workshop-cash-closes` |
+| T121 | converge | BE | M | A | Xoá nhánh thanh toán theo cả booking cũ trong `FinalPaymentService` |
+| T122 | converge | FE | M | D | Trang khách trả lời remedy và xem folio |
+| T123 | converge | DOC | L | E | Cập nhật `workshop-settlement-ticket.openapi.yaml` |
+| T124 | converge | FE | L | D | Bỏ gọi các route booking-wide cũ trong `settlementApi.js` |
 
-## Đã đóng trong ngày 2026-11-14
+### 003.4 OTA connectivity (20)
 
-003.1 T094 (email cảnh báo Manager qua FE-001), T107; 003.2 T092; 003.3 T093, T094, T096, T097, T099, T100,
-T101 (phạm vi voucher do 006 quyết), T105, T106; 003.4 T059, T060, T061, T038 (superseded bởi T038a/T038b).
+| Task | Gốc | Loại | Mức | Nhóm | Việc |
+| --- | --- | --- | --- | --- | --- |
+| T004 | cũ | ngoài | – | X | Evidence readiness của provider OTA đã duyệt |
+| T038b | cũ | ngoài | – | X | Map sự kiện huỷ/hoàn thật của provider (V1 huỷ cả booking) |
+| T051 | cũ | ngoài | – | X | Booking, vé/QR, quét trên sandbox provider |
+| T054 | cũ | ngoài | – | X | Go-live review theo từng provider |
+| T057 | cũ | EVD | – | B | Evidence phân quyền Staff theo booking trên bề mặt add-on OTA |
+| T058 | cũ | EVD | – | B | Evidence ingress fail-closed tạm thời |
+| T106 | converge | BE | H | B | Booking callback gửi lặp trả lại kết quả đã lưu |
+| T107 | converge | BE | H | B | Huỷ gửi lặp trả lại kết quả đã lưu |
+| T108 | converge | BE | H | B | Trạng thái huỷ không đi ngược (REQUESTED muộn sau CANCELLED) |
+| T109 | converge | BE | H | F | Chỉ ghi hoàn tiền từ sự kiện hoàn tiền, hoàn một phần thì mở việc đối soát |
+| T110 | converge | BE | H | B | Tạo `OtaPayoutPosition` khi xác nhận booking |
+| T111 | converge | BE | M | B | Snapshot chính sách huỷ, giờ chốt, phí thay cho giá trị gán cứng |
+| T112 | converge | BE | M | B | Từ chối khi điều khoản giá hết hạn (`effectiveTo`) |
+| T113 | converge | BE | M | F | Giá `PER_PERSON` theo số người |
+| T114 | converge | BE | M | B | Ghi sổ cái `GROSS_SALE`, `COMMISSION_FEE`, `CUSTOMER_REFUND` |
+| T115 | converge | BE | M | B | Việc đối soát cho callback không có mapping |
+| T116 | converge | BE | M | B | Gắn việc đối soát huỷ vào sự kiện để `/resolve` chạy được |
+| T117 | converge | BE+FE | M | F | Endpoint và nút cho luồng dự phòng voucher dùng chung |
+| T118 | converge | DOC | L | E | Sửa mô tả `X-Ota-Signature` trong OpenAPI và contract |
+| T119 | converge | FE | L | D | Lọc theo loại trên trang đối soát |
+
+## 4. Cần chủ sở hữu chốt trước khi code (nhóm F, 6 task)
+
+| Task | Câu hỏi cần chốt |
+| --- | --- |
+| 003.3 T112 | Khi 003.2 huỷ hoặc dời phiên, ai tạo offer remedy theo vé và gửi thông báo nào |
+| 003.3 T117 | Trạng thái và quyền của hàng đợi yêu cầu đổi vé cần Manager cho phép |
+| 003.3 T118 | Đường dẫn, quyền và contract của route đổi nhiều vé cùng nhóm |
+| 003.4 T109 | Hoàn một phần chỉ ghi `PARTIALLY_REFUNDED` và mở việc đối soát, không thu hồi vé |
+| 003.4 T113 | Giá OTA "theo từng người": giá lẻ trong snapshot là giá một người, tối thiểu = giá × số người |
+| 003.4 T117 | Ai được gọi endpoint dự phòng voucher dùng chung, cần lý do và audit thế nào |
+
+## 5. Thống kê theo mức độ (task convergence còn mở, 43)
+
+| Mức | Số task |
+| --- | ---: |
+| CRITICAL | 0 (4 đã đóng) |
+| HIGH | 15 |
+| MEDIUM | 22 |
+| LOW | 6 |
+
+## 6. Đã đóng trong ngày 2026-11-14
+
+003.1 T094 (email cảnh báo Manager qua FE-001), T107, T108, T113; 003.2 T092; 003.3 T093, T094, T096, T097, T099,
+T100, T101 (phạm vi voucher do 006 quyết), T105, T106, T107; 003.4 T059, T060, T061, T038 (superseded), T105.
