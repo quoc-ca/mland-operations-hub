@@ -36,7 +36,7 @@ public class SettlementTicketMlandRemedy {
     @Column(name = "replacement_session_references", nullable = false, columnDefinition = "TEXT")
     private String replacementSessionReferences;
 
-    /** Every offered session as {@code reference|startIso|endIso} joined by ';' (T112); null on offers made before V147. */
+    /** Every offered session as {@code reference|startIso|endIso} joined by ';' (T112); null on offers made before V152. */
     @Column(name = "replacement_options", columnDefinition = "TEXT")
     private String replacementOptions;
 

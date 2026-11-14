@@ -1,4 +1,4 @@
--- V148: 003.3 T117 (FR-045a, decided 2026-11-14). An online change that fails only on a rule a Manager may lift
+-- V153: 003.3 T117 (FR-045a, decided 2026-11-14). An online change that fails only on a rule a Manager may lift
 -- (reschedule quota, the used allowance, the 24 h window) is stored as a request in the Staff/Manager queue instead of
 -- being refused. PENDING moves to APPROVED, REJECTED or EXPIRED; approval equals a Manager-granted allowance (FR-054)
 -- followed by one counted change. The buyer proof is consumed when the request is stored and kept for audit.

@@ -317,10 +317,10 @@ class WorkshopSettlementMysqlIT {
         assertThat(status(ticket)).isEqualTo("CLOSED");
     }
 
-    // ---- correction cap (V146) ---------------------------------------------------------------------------
+    // ---- correction cap (V151) ---------------------------------------------------------------------------
 
     @Test
-    @DisplayName("a correction is capped by the money really collected, and cash/booking-time allocations carry no provider facts (V146)")
+    @DisplayName("a correction is capped by the money really collected, and cash/booking-time allocations carry no provider facts (V151)")
     void correctionIsCappedByRealMoney() {
         String ticket = unique("T-COR-");
         folio(ticket, "G-COR", 100_000, 0, "FINALIZED");
