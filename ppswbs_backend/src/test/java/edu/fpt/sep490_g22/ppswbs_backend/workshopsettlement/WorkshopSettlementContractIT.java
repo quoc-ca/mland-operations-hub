@@ -56,6 +56,7 @@ class WorkshopSettlementContractIT {
                 "GET /api/v1/workshop-tickets/{ticketCode}/folio/corrections/{correctionReference}",
                 "POST /api/v1/workshop-tickets/{ticketCode}/folio/collections",
                 "POST /api/v1/workshop-tickets/{ticketCode}/folio/collections/{collectionId}/confirmations",
+                "POST /api/v1/workshop-tickets/{ticketCode}/folio/collections/{collectionId}/failures",
                 "POST /api/v1/workshop-tickets/{ticketCode}/folio/handover-exceptions",
                 "POST /api/v1/workshop-tickets/{ticketCode}/folio/lines/{lineId}/voids",
                 "POST /api/v1/workshop-tickets/{ticketCode}/folio/collections/{collectionId}/voids",

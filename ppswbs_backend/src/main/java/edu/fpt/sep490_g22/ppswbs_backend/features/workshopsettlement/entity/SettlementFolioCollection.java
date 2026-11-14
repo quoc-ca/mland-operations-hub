@@ -79,6 +79,18 @@ public class SettlementFolioCollection {
     @Column(name = "currency_code", nullable = false, length = 3)
     private String currencyCode;
 
+    /** VNPay checkout URL of a pending VNPAY part; cleared once the part is confirmed or failed (T108). */
+    @Column(name = "payment_url_snapshot", length = 2048)
+    private String paymentUrlSnapshot;
+
+    /** When the VNPay checkout URL stops accepting payment (T108). */
+    @Column(name = "payment_expires_at")
+    private Instant paymentExpiresAt;
+
+    /** Immutable VNPay {@code vnp_CreateDate} of the checkout, used by QueryDR (T109). */
+    @Column(name = "provider_create_date", length = 14, updatable = false)
+    private String providerCreateDate;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 

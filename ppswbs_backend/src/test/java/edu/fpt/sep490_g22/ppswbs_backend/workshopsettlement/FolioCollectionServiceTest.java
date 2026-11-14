@@ -1,5 +1,6 @@
 package edu.fpt.sep490_g22.ppswbs_backend.workshopsettlement;
 
+import edu.fpt.sep490_g22.ppswbs_backend.common.payment.PaymentGatewayCheckoutPort;
 import edu.fpt.sep490_g22.ppswbs_backend.common.payment.PaymentOwnerRegistrationPort;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingRejectionReason;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.FinalBalanceResolutionOutcome;
@@ -11,6 +12,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -19,6 +22,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
@@ -43,6 +47,7 @@ class FolioCollectionServiceTest {
     private FolioFinalizationService finalization;
     private BankRefundService bankRefunds;
     private PaymentOwnerRegistrationPort paymentOwners;
+    private PaymentGatewayCheckoutPort checkout;
     private SettlementBusinessAuditRepository audits;
     private WorkshopBookingSettlementAdapter booking;
     private SettlementFinalBill folio;
@@ -88,8 +93,16 @@ class FolioCollectionServiceTest {
 
         FolioBalanceService balances = new FolioBalanceService(charges, evidence, collections);
         finalization = new FolioFinalizationService(bills, audits, balances, booking);
+        checkout = mock(PaymentGatewayCheckoutPort.class);
+        when(checkout.createFinalPaymentUrl(anyString(), anyString(), anyLong(), any(), any(), anyString()))
+                .thenAnswer(invocation -> "https://pay.example/" + invocation.getArgument(0));
         service = new FolioCollectionService(bills, collections, cashCloses, audits, balances, finalization,
-                bankRefunds, paymentOwners);
+                bankRefunds, paymentOwners, checkout);
+    }
+
+    private SettlementFolioCollection row(String collectionReference) {
+        return rows.stream().filter(row -> collectionReference.equals(row.getCollectionReference())).findFirst()
+                .orElseThrow();
     }
 
     // ---- FR-008 per ticket: 003.1 hears the ticket is settled when its folio finalizes (BE-DESIGN-0006) ----
@@ -254,44 +267,153 @@ class FolioCollectionServiceTest {
 
     @Test
     void aGatewayPartUnderFiveThousandIsRefusedInsteadOfRounded() {
-        assertThatThrownBy(() -> service.recordGatewayAttempt(TICKET, 4_999, "VNP-1", STAFF, "corr"))
+        assertThatThrownBy(() -> service.recordGatewayAttempt(TICKET, 4_999, "10.0.0.1", STAFF, "corr"))
                 .isInstanceOf(WorkshopSettlementValidationException.class);
+        verifyNoInteractions(checkout, paymentOwners);
+    }
+
+    // ---- T108: the server creates the merchant reference and the VNPay checkout ----
+
+    @Test
+    void theServerCreatesTheMerchantReferenceAndATenMinuteCheckoutForAVnpayPart() {
+        Instant before = Instant.now();
+
+        var attempt = service.recordGatewayAttempt(TICKET, 300_000, "10.0.0.1", STAFF, "corr");
+
+        SettlementFolioCollection part = row(attempt.collectionReference());
+        String merchant = part.getExternalReference();
+        assertThat(merchant).matches("FOL[0-9A-F]{32}");
+        assertThat(part.getPaymentUrlSnapshot()).isEqualTo("https://pay.example/" + merchant);
+        assertThat(part.getPaymentExpiresAt()).isBetween(before.plus(Duration.ofMinutes(10)),
+                Instant.now().plus(Duration.ofMinutes(10)));
+        assertThat(part.getProviderCreateDate()).matches("[0-9]{14}");
+        assertThat(part.getStatus()).isEqualTo(FolioCollectionStatus.PENDING_VERIFICATION);
+        ArgumentCaptor<Instant> created = ArgumentCaptor.forClass(Instant.class);
+        verify(checkout).createFinalPaymentUrl(eq(merchant), eq(TICKET), eq(300_000L), created.capture(),
+                eq(part.getPaymentExpiresAt()), eq("10.0.0.1"));
+        assertThat(Duration.between(created.getValue(), part.getPaymentExpiresAt())).isEqualTo(Duration.ofMinutes(10));
+        verify(paymentOwners).registerOwner(merchant, TICKET, "FINAL_PAYMENT", 300_000L, "VND",
+                part.getProviderCreateDate());
     }
 
     @Test
+    void twoVnpayPartsNeverShareAMerchantReference() {
+        var first = service.recordGatewayAttempt(TICKET, 100_000, null, STAFF, "corr");
+        service.markPendingFailed(first.collectionReference(), MANAGER, "Khach doi phuong thuc", "corr");
+        var second = service.recordGatewayAttempt(TICKET, 100_000, null, STAFF, "corr");
+
+        assertThat(row(first.collectionReference()).getExternalReference())
+                .isNotEqualTo(row(second.collectionReference()).getExternalReference());
+        verify(checkout, times(2)).createFinalPaymentUrl(anyString(), eq(TICKET), eq(100_000L), any(), any(),
+                eq("127.0.0.1"));
+    }
+
+    // ---- T109: a stuck pending part is failed by a Manager with a reason, or by VNPay's own answer ----
+
+    @Test
     void anotherMethodWaitsUntilAPendingGatewayPartIsReconciled() {
-        var attempt = service.recordGatewayAttempt(TICKET, 300_000, "VNP-2", STAFF, "corr");
+        var attempt = service.recordGatewayAttempt(TICKET, 300_000, null, STAFF, "corr");
 
         assertThatThrownBy(() -> service.collectCash(TICKET, 300_000, 300_000, "RECEIPT-6", null, BRANCH, STAFF, "c"))
                 .isInstanceOf(WorkshopSettlementConflictException.class)
                 .hasMessageContaining("PENDING_GATEWAY_PART_MUST_BE_RECONCILED");
 
         // Reconciled as not paid, and only then is the balance free again.
-        service.markPendingFailed(attempt.collectionReference(), MANAGER, "corr");
+        var failed = service.markPendingFailed(attempt.collectionReference(), MANAGER, "Khach khong thanh toan", "corr");
+        assertThat(failed.status()).isEqualTo(FolioCollectionStatus.FAILED);
+        assertThat(row(attempt.collectionReference()).getPaymentUrlSnapshot()).isNull();
+        ArgumentCaptor<SettlementBusinessAudit> saved = ArgumentCaptor.forClass(SettlementBusinessAudit.class);
+        verify(audits, atLeastOnce()).save(saved.capture());
+        assertThat(saved.getAllValues()).anySatisfy(audit -> {
+            assertThat(audit.getActionCode()).isEqualTo("FOLIO_COLLECTION_FAILED");
+            assertThat(audit.getActorReference()).isEqualTo("account:" + MANAGER);
+            assertThat(audit.getReasonReference()).isEqualTo("Khach khong thanh toan");
+        });
         var cash = service.collectCash(TICKET, 300_000, 300_000, "RECEIPT-7", null, BRANCH, STAFF, "corr");
         assertThat(cash.balanceDue()).isZero();
     }
 
     @Test
-    void signedGatewayEvidenceConfirmsItsOwnPartAndIsSafeToReplay() {
-        var attempt = service.recordGatewayAttempt(TICKET, 300_000, "VNP-3", STAFF, "corr");
+    void aPendingTransferMayAlsoBeFailedAndAFailedPartCannotBeFailedAgain() {
+        var transfer = service.recordBankTransfer(TICKET, 300_000, "BANK-TX-9", null, STAFF, "corr");
 
-        var first = service.confirmGatewayCollection("VNP-3", 300_000, "corr");
-        var second = service.confirmGatewayCollection("VNP-3", 300_000, "corr");
+        service.markPendingFailed(transfer.collectionReference(), MANAGER, "Khong thay tien ve", "corr");
+
+        assertThat(row(transfer.collectionReference()).getStatus()).isEqualTo(FolioCollectionStatus.FAILED);
+        assertThatThrownBy(() -> service.markPendingFailed(transfer.collectionReference(), MANAGER, "Lan hai", "c"))
+                .isInstanceOf(WorkshopSettlementConflictException.class)
+                .hasMessageContaining("COLLECTION_NOT_PENDING");
+    }
+
+    @Test
+    void failingAPartNeedsAReason() {
+        var attempt = service.recordGatewayAttempt(TICKET, 300_000, null, STAFF, "corr");
+
+        assertThatThrownBy(() -> service.markPendingFailed(attempt.collectionReference(), MANAGER, "  ", "corr"))
+                .isInstanceOf(WorkshopSettlementValidationException.class);
+        assertThat(row(attempt.collectionReference()).getStatus()).isEqualTo(FolioCollectionStatus.PENDING_VERIFICATION);
+    }
+
+    @Test
+    void vnpaysOwnFailureFailsOnlyAPendingPartAsTheSystem() {
+        var attempt = service.recordGatewayAttempt(TICKET, 300_000, null, STAFF, "corr");
+        String merchant = row(attempt.collectionReference()).getExternalReference();
+
+        assertThat(service.failGatewayCollectionFromProvider(merchant, "VNPAY_IPN_TRANSACTION_STATUS_02", "IPN-1"))
+                .isTrue();
+        assertThat(service.failGatewayCollectionFromProvider(merchant, "VNPAY_IPN_TRANSACTION_STATUS_02", "IPN-1"))
+                .isFalse();
+        assertThat(service.failGatewayCollectionFromProvider("UNKNOWN-REF", "x", "c")).isFalse();
+
+        assertThat(row(attempt.collectionReference()).getStatus()).isEqualTo(FolioCollectionStatus.FAILED);
+        ArgumentCaptor<SettlementBusinessAudit> saved = ArgumentCaptor.forClass(SettlementBusinessAudit.class);
+        verify(audits, atLeastOnce()).save(saved.capture());
+        assertThat(saved.getAllValues()).filteredOn(a -> "FOLIO_GATEWAY_COLLECTION_FAILED".equals(a.getActionCode()))
+                .singleElement().satisfies(audit -> {
+                    assertThat(audit.getActorReference()).isEqualTo("SYSTEM");
+                    assertThat(audit.getReasonReference()).isEqualTo("VNPAY_IPN_TRANSACTION_STATUS_02");
+                });
+    }
+
+    @Test
+    void signedGatewayEvidenceConfirmsItsOwnPartAndIsSafeToReplay() {
+        var attempt = service.recordGatewayAttempt(TICKET, 300_000, null, STAFF, "corr");
+        String merchant = row(attempt.collectionReference()).getExternalReference();
+
+        var first = service.confirmGatewayCollection(merchant, 300_000, "corr");
+        var second = service.confirmGatewayCollection(merchant, 300_000, "corr");
 
         assertThat(attempt.collectionReference()).isEqualTo(first.collectionReference());
         assertThat(first.balanceDue()).isZero();
         assertThat(second.status()).isEqualTo(FolioCollectionStatus.CONFIRMED);
+        assertThat(row(attempt.collectionReference()).getPaymentUrlSnapshot()).isNull();
         verify(bills, atLeastOnce()).saveAndFlush(any());
-        verify(paymentOwners).registerOwner(eq("VNP-3"), eq(TICKET), eq("FINAL_PAYMENT"), eq(300_000L), eq("VND"), any());
     }
 
     @Test
     void gatewayEvidenceForAnotherAmountIsRefused() {
-        service.recordGatewayAttempt(TICKET, 300_000, "VNP-4", STAFF, "corr");
+        var attempt = service.recordGatewayAttempt(TICKET, 300_000, null, STAFF, "corr");
+        String merchant = row(attempt.collectionReference()).getExternalReference();
 
-        assertThatThrownBy(() -> service.confirmGatewayCollection("VNP-4", 299_000, "corr"))
+        assertThatThrownBy(() -> service.confirmGatewayCollection(merchant, 299_000, "corr"))
                 .isInstanceOf(WorkshopSettlementConflictException.class);
+    }
+
+    // ---- T110: verified money that settles no part is owed back in full ----
+
+    @Test
+    void unappliedGatewayMoneyOpensAnExcessBankRefundForTheWholeAmountWithAnAudit() {
+        folio.setGroupReference("GRP-TEST0001");
+
+        service.routeUnappliedGatewayMoney(folio, "FOL-REF", "VNPAY-999", 300_000, "FOLIO_NOT_OPEN", "corr");
+
+        verify(bankRefunds).open(TICKET, "GRP-TEST0001", RefundReason.EXCESS_OR_DUPLICATE_MONEY, "VNPAY-999",
+                300_000, "corr");
+        ArgumentCaptor<SettlementBusinessAudit> saved = ArgumentCaptor.forClass(SettlementBusinessAudit.class);
+        verify(audits).save(saved.capture());
+        assertThat(saved.getValue().getActionCode()).isEqualTo("FOLIO_GATEWAY_MONEY_EXCESS_OWED");
+        assertThat(saved.getValue().getReasonReference()).isEqualTo("FOLIO_NOT_OPEN");
+        assertThat(saved.getValue().getEvidenceReference()).isEqualTo("FOL-REF");
     }
 
     // ---- folio state ----

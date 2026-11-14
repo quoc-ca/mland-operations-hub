@@ -394,7 +394,9 @@ public class BankRefundService {
         long bookingTimeCollection = bills.findByBookingReference(bookingReference)
                 .map(SettlementFinalBill::getAcceptedDepositAmountVnd)
                 .orElse(0L);
-        long verifiedGatewayCollections = java.util.stream.Stream.of("FINAL_PAYMENT_VERIFIED", "SHOP_ADDON_VERIFIED")
+        // FOLIO_VNPAY_EXCESS (T110): signed money that settled no part is still money collected for this ticket.
+        long verifiedGatewayCollections = java.util.stream.Stream.of("FINAL_PAYMENT_VERIFIED", "SHOP_ADDON_VERIFIED",
+                        FinalPaymentService.FOLIO_VNPAY_EXCESS)
                 .flatMap(conclusion -> evidence.findByBookingReferenceAndConclusion(bookingReference, conclusion).stream())
                 .mapToLong(item -> item.getAmountVnd() == null ? 0L : item.getAmountVnd())
                 .sum();

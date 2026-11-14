@@ -40,24 +40,11 @@ public class FolioCollectionApiService {
                 request.transactionReference(), request.payerLabel(), staff.accountId(), correlation));
     }
 
-    public CollectionResponse recordGatewayAttempt(String bookingReference, GatewayAttemptRequest request,
-                                                   String correlation, CurrentAccountActor actor) {
-        CurrentAccountActor staff = authorization.requireManagerOrStaff(actor, request.branchId());
-        return response(collections.recordGatewayAttempt(bookingReference, request.amountVnd(),
-                request.merchantReference(), staff.accountId(), correlation));
-    }
-
     /** FR-032: only an actor who can see the shop bank account confirms a transfer; remote is fine. */
     public CollectionResponse confirmBankTransfer(String collectionReference, String correlation,
                                                   CurrentAccountActor actor) {
         CurrentAccountActor manager = authorization.requireManager(actor);
         return response(collections.confirmBankTransfer(collectionReference, manager.accountId(), correlation));
-    }
-
-    public CollectionResponse markPendingFailed(String collectionReference, String correlation,
-                                                CurrentAccountActor actor) {
-        CurrentAccountActor manager = authorization.requireManager(actor);
-        return response(collections.markPendingFailed(collectionReference, manager.accountId(), correlation));
     }
 
     public void approveHandover(String bookingReference, ManagerReasonRequest request, String correlation,
