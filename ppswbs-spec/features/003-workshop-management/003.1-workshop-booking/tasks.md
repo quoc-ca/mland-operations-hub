@@ -287,3 +287,15 @@ Member ownership/benefit flow. The UI no longer renders a manual Guest/Member
 switch or asks Members to paste a bearer token. A signed-in account whose profile
 cannot be loaded or whose canonical role is not `MEMBER` is fail-closed with the
 form disabled. Verified with `npm run build` and `npm test -- --run` (189/189).
+
+## Phase 12: Convergence
+
+*Appended 2026-11-14 by `$speckit-converge` (responsible member: Hồ Hoàng Quốc). Each task traces to its source; evidence paths are as observed on `quoc` at `1d49ee05`.*
+
+- [x] T108 **CRITICAL — done 2026-11-14** (`GuestGroupRouteSecurityIT` 12/12 on MySQL: the 7 routes answer without `Authorization` and never 401/403, the owner read stays 401, the FR-046 routes are closed; `IdentityGateFilterTest` 11/11) Make the seven Guest-capable group routes public as the contract declares (`security: [{}]`): `POST /workshop-cart-quotes`, `POST /workshop-booking-groups`, `…/{groupCode}/payment-attempts`, `/workshop-booking-group-lookups`, `/workshop-booking-group-magic-links/exchanges`, `…/pending-hold-release`, `…/confirmation-deliveries` — explicit rules in `SecurityConfiguration` and matching anonymous bypasses in `IdentityGateFilter` (bearer still verified when sent), plus a MockMvc security test running the Guest flow with no `Authorization` header per FR-031, FR-045, FR-047, FR-048, Constitution III (contradicts)
+- [ ] T109 Recompute the group collection from the tickets' `TicketPriceSnapshot.collectedAtBookingVnd` in `GroupPaymentService.initiate` right before creating the VNPay URL; refuse with a typed 409 when it differs from `groupCollectionVnd` or is below 5,000 VND, with narrow tests per FR-036 (partial)
+- [ ] T110 Rate-limit Guest group lookup and proof-based release/resend per group code and client (configurable), answering 429 `BookingRateLimitException`, with a narrow test per FR-048 (partial)
+- [ ] T111 Add a `GROUP_HOLD_EXPIRED` notification kind and queue approved template 5 to the group contact email after commit on hold expiry (not on buyer release); a replayed expiry queues nothing per FR-039, US6/AC7 (missing)
+- [ ] T112 Normalize the contact phone to one canonical form when stored (`BookingGroupCreationService`) and when compared for lookup, release and resend proofs (`BookingGroupRecoveryService`), with a differently formatted phone test per FR-017a via FR-048 (partial)
+- [x] T113 **Done 2026-11-14 with T108** (same evidence) Remove the public security rules and identity-gate bypasses left for the removed single-booking routes (`POST /workshop-bookings`, `/booking-lookups`, `/booking-magic-links/exchanges`, `/workshop-bookings/*/{payment-attempts,pending-hold-release,confirmation-deliveries}`), together with T108, per FR-046, Constitution III (unrequested)
+- [ ] T114 Align stale documents with the implemented behaviour: plan.md design risks 1–2 and its idempotency note, the `CreateIdempotencyKey` description (16–128) in the 003.1 OpenAPI, and T097's automatic-discount case (condition 3 now passes on recompute) per plan: design risks, FR-040 (contradicts)
