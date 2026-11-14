@@ -16,7 +16,8 @@ import java.util.Optional;
  * Requires:
  * - Mapping must be in BOOKING_ENABLED status.
  * - Active commercial terms/price snapshot must exist for the current instant.
- * - Authenticated provider outcome must establish full accepted customer payment (amount >= retail/target net and matching currency).
+ * - Authenticated provider outcome must carry payment evidence (a positive collected amount); the amount and currency are
+ *   the OTA's own and are not compared with Mland's retail price.
  * - Provider must not be booking on disabled or suspended mappings.
  */
 @Service
@@ -42,7 +43,6 @@ public class OtaBookingReadinessService {
     public ReadinessValidationResult evaluateBookingReadiness(
             OtaChannelMapping mapping,
             Long acceptedAmountMinor,
-            String currencyCode,
             Instant transactionInstant
     ) {
         if (mapping == null) {
@@ -57,24 +57,18 @@ public class OtaBookingReadinessService {
         Optional<OtaChannelPriceSnapshot> priceOpt = priceSnapshotRepository
                 .findFirstByMapping_IdAndEffectiveFromLessThanEqualOrderByEffectiveFromDesc(mapping.getId(), effectiveTime);
 
-        if (priceOpt.isEmpty()) {
+        // T112: terms whose window ended at or before the transaction are not active terms.
+        if (priceOpt.isEmpty()
+                || (priceOpt.get().getEffectiveTo() != null && !priceOpt.get().getEffectiveTo().isAfter(effectiveTime))) {
             return ReadinessValidationResult.rejected("NO_ACTIVE_COMMERCIAL_TERMS");
         }
 
-        OtaChannelPriceSnapshot price = priceOpt.get();
-
-        if (currencyCode == null || !currencyCode.equalsIgnoreCase(price.getCurrencyCode())) {
-            return ReadinessValidationResult.rejected("CURRENCY_MISMATCH");
-        }
-
+        // T113: the OTA collects its own price (platform fee, other currency); Mland does not compare it with its
+        // retail price or currency. Only the absence of payment evidence blocks the booking.
         if (acceptedAmountMinor == null || acceptedAmountMinor <= 0) {
             return ReadinessValidationResult.rejected("MISSING_PAYMENT_EVIDENCE");
         }
 
-        if (acceptedAmountMinor < price.getRetailAmountMinor()) {
-            return ReadinessValidationResult.rejected("PARTIAL_PAYMENT_REJECTED");
-        }
-
-        return ReadinessValidationResult.approved(price);
+        return ReadinessValidationResult.approved(priceOpt.get());
     }
 }

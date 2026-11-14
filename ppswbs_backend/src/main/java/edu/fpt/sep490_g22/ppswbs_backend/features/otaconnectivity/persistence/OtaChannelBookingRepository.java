@@ -13,6 +13,9 @@ public interface OtaChannelBookingRepository extends JpaRepository<OtaChannelBoo
 
     Optional<OtaChannelBooking> findByMlandBookingReference(String mlandBookingReference);
 
+    Optional<OtaChannelBooking> findByMapping_Connection_IdAndExternalBookingReference(
+            Long connectionId, String externalBookingReference);
+
     Optional<OtaChannelBooking> findByMappingIdAndExternalBookingReference(
             Long mappingId, String externalBookingReference);
 

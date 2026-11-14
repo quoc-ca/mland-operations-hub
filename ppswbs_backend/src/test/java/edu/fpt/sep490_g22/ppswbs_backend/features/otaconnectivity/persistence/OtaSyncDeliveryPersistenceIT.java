@@ -475,8 +475,9 @@ class OtaSyncDeliveryPersistenceIT {
                         1, 10, 1, true, 0, "Test workshop"));
         when(workshopOperationsFacade.getSaleEligibility(any()))
                 .thenReturn(new SaleEligibilitySnapshot(UUID.fromString(mapping.getSessionReference()), true,
-                        "PUBLISHED", 42L, Instant.parse("2026-11-01T10:00:00Z"),
-                        Instant.parse("2026-11-01T11:00:00Z"), 10, LocalDate.parse("2026-11-01")));
+                        "PUBLISHED", 42L, Instant.now().plus(java.time.Duration.ofDays(30)),
+                        Instant.now().plus(java.time.Duration.ofDays(30)).plus(java.time.Duration.ofHours(1)), 10,
+                        LocalDate.now().plusDays(30)));
     }
 
     private static Optional<TestDatabase> initializeDatabase() {

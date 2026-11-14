@@ -2,6 +2,7 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.integration;
 
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.application.OtaBookingReadinessService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.application.OtaBookingReadinessService.ReadinessValidationResult;
+import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.application.OtaPayoutLedgerRecorder;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.application.OtaInboundEventOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.application.OtaInboundEventReceipt;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.persistence.OtaBookingTicketLink;
@@ -28,7 +29,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.DateTimeException;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -58,6 +61,7 @@ public class OtaProviderEventHandler {
     private final OtaInboundEventService inboundEventService;
     private final OtaBookingReadinessService readinessService;
     private final WorkshopBookingFacade workshopBookingFacade;
+    private final OtaPayoutLedgerRecorder payoutLedgerRecorder;
 
     public record OtaBookingEventCommand(
             OtaProvider provider,
@@ -70,7 +74,12 @@ public class OtaProviderEventHandler {
             Long acceptedAmountMinor,
             String currencyCode,
             String externalPaymentEvidenceReference,
-            String correlationReference
+            String correlationReference,
+            String displayedPolicyReference,
+            String displayedPolicyVersion,
+            Instant bookingCutoffAt,
+            String bookingCutoffTimezone,
+            Long feeAmountMinor
     ) {
         public OtaBookingEventCommand {
             Objects.requireNonNull(provider, "provider must not be null");
@@ -79,6 +88,17 @@ public class OtaProviderEventHandler {
             Objects.requireNonNull(providerProductReference, "providerProductReference must not be null");
             Objects.requireNonNull(providerOptionReference, "providerOptionReference must not be null");
             Objects.requireNonNull(currencyCode, "currencyCode must not be null");
+        }
+
+        /** Callback without the optional policy/cutoff/fee facts; they then come from the mapping's price terms. */
+        public OtaBookingEventCommand(OtaProvider provider, OtaEnvironment environment, String externalEventReference,
+                                      String externalBookingReference, String providerProductReference,
+                                      String providerOptionReference, int participantCount, Long acceptedAmountMinor,
+                                      String currencyCode, String externalPaymentEvidenceReference,
+                                      String correlationReference) {
+            this(provider, environment, externalEventReference, externalBookingReference, providerProductReference,
+                    providerOptionReference, participantCount, acceptedAmountMinor, currencyCode,
+                    externalPaymentEvidenceReference, correlationReference, null, null, null, null, null);
         }
     }
 
@@ -147,6 +167,11 @@ public class OtaProviderEventHandler {
 
         OtaInboundEventReceipt receipt = inboundEventService.receive(authEvent);
 
+        // T106: a replay returns the stored outcome; readiness, work items and the Booking facade run once only.
+        if (receipt.duplicate() && receipt.outcomeReference() != null) {
+            return storedOutcome(receipt);
+        }
+
         Optional<OtaChannelMapping> mappingOpt = mappingRepository
                 .findByConnectionIdAndExternalProductIdAndExternalOptionId(
                         connection.getId(),
@@ -155,9 +180,23 @@ public class OtaProviderEventHandler {
                 );
 
         if (mappingOpt.isEmpty()) {
+            // T115: one INBOUND_EVENT work item per inbound event (a replay returns above, before this point).
+            String workItemReference = null;
+            if (!reconciliationRepository.existsByInboundEvent_IdAndCategory(receipt.eventId(), "INBOUND_EVENT")) {
+                OtaReconciliationWorkItem workItem = OtaReconciliationWorkItem.builder()
+                        .publicReference(UUID.randomUUID().toString())
+                        .inboundEvent(inboundEventService.referenceFor(receipt.eventId()))
+                        .locationReference("GLOBAL")
+                        .category("INBOUND_EVENT")
+                        .status("OPEN")
+                        .decision("MAPPING_NOT_FOUND")
+                        .build();
+                reconciliationRepository.save(workItem);
+                workItemReference = workItem.getPublicReference();
+            }
             inboundEventService.recordOutcome(receipt.eventId(),
                     new OtaInboundEventOutcome(OtaInboundEventOutcome.Status.REJECTED, "MAPPING_NOT_FOUND"));
-            return OtaBookingEventResult.rejected("MAPPING_NOT_FOUND", null);
+            return OtaBookingEventResult.rejected("MAPPING_NOT_FOUND", workItemReference);
         }
 
         OtaChannelMapping mapping = mappingOpt.get();
@@ -167,45 +206,34 @@ public class OtaProviderEventHandler {
 
         if (existingBooking.isPresent()) {
             OtaChannelBooking booking = existingBooking.get();
-            List<String> tickets = ticketLinkRepository
-                    .findAllByChannelBookingIdOrderByParticipantOrdinalAsc(booking.getId())
-                    .stream()
-                    .map(OtaBookingTicketLink::getOperationsTicketReference)
-                    .toList();
-
-            return OtaBookingEventResult.confirmed(
-                    booking.getPublicReference(),
-                    booking.getMlandBookingReference(),
-                    booking.getParticipantCount(),
-                    tickets
-            );
+            inboundEventService.recordOutcome(receipt.eventId(),
+                    new OtaInboundEventOutcome(OtaInboundEventOutcome.Status.ACCEPTED, booking.getPublicReference()));
+            return confirmedResult(booking);
         }
 
         ReadinessValidationResult readiness = readinessService.evaluateBookingReadiness(
                 mapping,
                 command.acceptedAmountMinor(),
-                command.currencyCode(),
                 Instant.now()
         );
 
         if (!readiness.ready()) {
-            OtaReconciliationWorkItem workItem = OtaReconciliationWorkItem.builder()
-                    .publicReference(UUID.randomUUID().toString())
-                    .mapping(mapping)
-                    .locationReference(mapping.getLocationReference())
-                    .category("INBOUND_EVENT")
-                    .status("OPEN")
-                    .decision(readiness.rejectionReason())
-                    .build();
-            reconciliationRepository.save(workItem);
-
-            inboundEventService.recordOutcome(receipt.eventId(),
-                    new OtaInboundEventOutcome(OtaInboundEventOutcome.Status.REJECTED, readiness.rejectionReason()));
-
-            return OtaBookingEventResult.rejected(readiness.rejectionReason(), workItem.getPublicReference());
+            return rejectWithWorkItem(receipt, mapping, readiness.rejectionReason());
         }
 
         OtaChannelPriceSnapshot priceSnapshot = readiness.priceSnapshot();
+
+        // T111: the policy/cutoff/fee facts are fixed before capacity is taken, from the callback or the mapping's terms.
+        String policyReference = firstNonBlank(command.displayedPolicyReference(), priceSnapshot.getTermsReference());
+        String policyVersion = firstNonBlank(command.displayedPolicyVersion(), priceSnapshot.getPublicReference());
+        String cutoffZone = blankToNull(command.bookingCutoffTimezone());
+        if (policyReference == null || policyVersion == null) {
+            return rejectWithWorkItem(receipt, mapping, "MISSING_POLICY_SNAPSHOT");
+        }
+        if (policyReference.length() > 128 || policyVersion.length() > 64 || !validZone(cutoffZone)
+                || (command.feeAmountMinor() != null && command.feeAmountMinor() < 0)) {
+            return rejectWithWorkItem(receipt, mapping, "INVALID_POLICY_SNAPSHOT");
+        }
 
         String operationRef = "ota-book-" + UUID.randomUUID();
         String correlationRef = command.correlationReference() != null
@@ -237,14 +265,14 @@ public class OtaProviderEventHandler {
                 command.participantCount(),
                 bookingOutcome.bookingReference(),
                 command.provider().name(),
-                "POLICY_DEFAULT",
-                "1.0",
-                null,
-                "Asia/Ho_Chi_Minh",
+                policyReference,
+                policyVersion,
+                command.bookingCutoffAt(),
+                cutoffZone,
                 retailAmount,
                 targetNetAmount,
                 commissionAmount,
-                0L,
+                command.feeAmountMinor(),
                 command.acceptedAmountMinor(),
                 command.currencyCode()
         );
@@ -255,6 +283,7 @@ public class OtaProviderEventHandler {
                 ? command.externalPaymentEvidenceReference()
                 : "PAY-" + UUID.randomUUID();
 
+        Instant confirmedAt = Instant.now();
         OtaCustomerPaymentEvidence paymentEvidence = OtaCustomerPaymentEvidence.record(
                 channelBooking.getId(),
                 paymentEvidenceRef,
@@ -262,10 +291,14 @@ public class OtaProviderEventHandler {
                 OtaCustomerPaymentState.PAID_ON_CHANNEL,
                 command.acceptedAmountMinor(),
                 command.currencyCode(),
-                Instant.now(),
+                confirmedAt,
                 correlationRef
         );
         customerPaymentRepository.save(paymentEvidence);
+
+        // T110 / T114: payout position and sale facts are created with the confirmation, in this transaction.
+        payoutLedgerRecorder.openPositionWithSaleFacts(channelBooking, priceSnapshot, paymentEvidenceRef,
+                confirmedAt, correlationRef);
 
         List<UUID> ticketRefs = bookingOutcome.ticketReferences();
         for (int i = 0; i < ticketRefs.size(); i++) {
@@ -290,5 +323,66 @@ public class OtaProviderEventHandler {
                 channelBooking.getParticipantCount(),
                 ticketReferenceStrings
         );
+    }
+
+    private OtaBookingEventResult rejectWithWorkItem(OtaInboundEventReceipt receipt, OtaChannelMapping mapping,
+                                                     String reason) {
+        OtaReconciliationWorkItem workItem = OtaReconciliationWorkItem.builder()
+                .publicReference(UUID.randomUUID().toString())
+                .mapping(mapping)
+                .inboundEvent(inboundEventService.referenceFor(receipt.eventId()))
+                .locationReference(mapping.getLocationReference())
+                .category("INBOUND_EVENT")
+                .status("OPEN")
+                .decision(reason)
+                .build();
+        reconciliationRepository.save(workItem);
+        inboundEventService.recordOutcome(receipt.eventId(),
+                new OtaInboundEventOutcome(OtaInboundEventOutcome.Status.REJECTED, reason));
+        return OtaBookingEventResult.rejected(reason, workItem.getPublicReference());
+    }
+
+    /** Rebuilds the acknowledgement of a first delivery from the safe outcome stored with its inbound event. */
+    private OtaBookingEventResult storedOutcome(OtaInboundEventReceipt receipt) {
+        if ("ACCEPTED".equals(receipt.processingStatus())) {
+            Optional<OtaChannelBooking> stored = bookingRepository.findByPublicReference(receipt.outcomeReference());
+            if (stored.isPresent()) {
+                return confirmedResult(stored.get());
+            }
+        }
+        return OtaBookingEventResult.rejected(receipt.outcomeReference(), null);
+    }
+
+    private OtaBookingEventResult confirmedResult(OtaChannelBooking booking) {
+        List<String> tickets = ticketLinkRepository
+                .findAllByChannelBookingIdOrderByParticipantOrdinalAsc(booking.getId())
+                .stream()
+                .map(OtaBookingTicketLink::getOperationsTicketReference)
+                .toList();
+        return OtaBookingEventResult.confirmed(
+                booking.getPublicReference(),
+                booking.getMlandBookingReference(),
+                booking.getParticipantCount(),
+                tickets
+        );
+    }
+
+    private static String firstNonBlank(String preferred, String fallback) {
+        String value = blankToNull(preferred);
+        return value != null ? value : blankToNull(fallback);
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    private static boolean validZone(String zone) {
+        if (zone == null) return true;
+        try {
+            ZoneId.of(zone);
+            return true;
+        } catch (DateTimeException exception) {
+            return false;
+        }
     }
 }

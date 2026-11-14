@@ -52,6 +52,7 @@ public class OtaFinancialEvidenceController {
         boolean valid = switch (evidenceType) {
             case "ELIGIBILITY", "INVOICE", "REMITTANCE", "BANK_RECEIPT" -> "PAYOUT".equals(kind);
             case "ADJUSTMENT" -> "ADJUSTMENT".equals(kind);
+            case "COMPENSATION" -> "COMPENSATION".equals(kind);
             case "REVERSAL" -> "REVERSAL".equals(kind);
             case "VARIANCE" -> "VARIANCE".equals(kind);
             case "DISPUTE" -> "DISPUTE".equals(kind);

@@ -167,3 +167,15 @@
   - Missing external booking reference fails closed with `VALIDATION_ERROR`.
   - Unmapped or unknown provider event actions return `Unmapped` without guessing semantics and route safely to `INBOUND_EVENT` reconciliation work items, without executing automatic cancellation or refund side-effects.
   - Direct customer cancellation policy in 003.3 remains non-refundable, isolated, and untouched.
+
+## 10. Convergence Verification (T057, T058, T106–T116)
+
+- **Date**: 2026-11-14
+- **Command** (MySQL variables from `ppswbs_backend/.env` exported into the shell):
+  ```bash
+  ./mvnw -o test "-Dtest=**/otaconnectivity/**/*Test,**/otaconnectivity/**/*IT,ModulithArchitectureTests"
+  ```
+- **Result**: 289 tests, 286 passed, 3 failed. The three failures are the known `OtaSyncDeliveryPersistenceIT` readiness tests (`incompleteAdminReadinessDecisionIsRetainedAndKeepsMappingSalesClosed`, `salesClosedMappingWithoutConfirmedPriceCannotBeEnabled`, `completeAdminReadinessDecisionPersistsImmutableEvidenceAndEnablesSalesClosedMapping`); they fail inside `OtaChannelMappingService.recordBookingEnableDecision` ("Mapping is not an eligible initial per-person workshop offer"), before booking readiness is reached, so they are not caused by T112/T113. `ModulithArchitectureTests` 5/5.
+- **T057**: `OtaAddonControllerIT` 33/33. Unassigned in-scope Staff: quote 403 (existing), acceptance 403 (quote stays `QUOTED`), direct bill 403 (no bill requested), lookup 404 identical to a missing booking; a Manager is unaffected by the missing assignment.
+- **T058**: `OtaProviderEventControllerIT` 11/11, including `productionCallback_withoutApprovedProvider_returns403`, `productionCallback_approvedProvider_ignoresTestToken`, `inactiveConnection_returns401`, `invalidSignature_returns401`. This does not approve the interim scheme for production (T059).
+- **T106–T116**: `OtaBookingIT` 11, `OtaBookingReadinessServiceTest` 7, `OtaCancellationIT` 13, `OtaCancellationCallbackSecurityIT` 3, `OtaCancellationAdapterContractTest` 14, and `OtaBookingConvergenceMySqlIT` 6 (MySQL: callback to `PAID_OUT`, replays, expired terms, unmapped product, cancellation/refund, work-item linkage), all passing.

@@ -358,6 +358,11 @@ paths:
                 currencyCode: { type: string, pattern: '^[A-Za-z]{3}$' }
                 externalPaymentEvidenceReference: { type: string }
                 correlationReference: { type: string }
+                displayedPolicyReference: { type: string, maxLength: 128, description: "Cancellation policy shown to the customer; absent means the mapping price terms reference is snapshotted (T111)." }
+                displayedPolicyVersion: { type: string, maxLength: 64 }
+                bookingCutoffAt: { type: string, format: date-time }
+                bookingCutoffTimezone: { type: string, maxLength: 64, description: "IANA zone id; unknown zones are refused with INVALID_POLICY_SNAPSHOT." }
+                feeAmountMinor: { type: integer, format: int64, minimum: 0 }
       responses:
         '201': { $ref: '#/components/responses/ProviderEventAcknowledgement' }
         '401': { $ref: '#/components/responses/Unauthorized' }
@@ -569,10 +574,10 @@ components:
       additionalProperties: false
       required: [kind, evidenceType, amount, reference, reason, occurredAt]
       properties:
-        kind: { type: string, enum: [PAYOUT, VARIANCE, DISPUTE, ADJUSTMENT, REVERSAL] }
+        kind: { type: string, enum: [PAYOUT, VARIANCE, DISPUTE, ADJUSTMENT, COMPENSATION, REVERSAL] }
         evidenceType:
           type: string
-          enum: [ELIGIBILITY, INVOICE, REMITTANCE, BANK_RECEIPT, ADJUSTMENT, REVERSAL, VARIANCE, DISPUTE]
+          enum: [ELIGIBILITY, INVOICE, REMITTANCE, BANK_RECEIPT, ADJUSTMENT, COMPENSATION, REVERSAL, VARIANCE, DISPUTE]
           description: Stage or correction evidence checked by an active Manager; BANK_RECEIPT requires a booking-specific allocation and payout reference matching the remittance before PAID_OUT.
         amount: { $ref: '#/components/schemas/Money' }
         reference: { type: string, minLength: 1, maxLength: 200 }

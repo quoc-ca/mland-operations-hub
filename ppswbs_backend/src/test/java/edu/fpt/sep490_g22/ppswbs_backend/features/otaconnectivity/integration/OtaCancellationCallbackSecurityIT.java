@@ -1,5 +1,6 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.integration;
 
+import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.application.OtaPayoutLedgerRecorder;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.application.OtaCancellationConsequenceService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.application.OtaCancellationService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.application.OtaCancellationService.OtaCancellationEventCommand;
@@ -47,6 +48,7 @@ class OtaCancellationCallbackSecurityIT {
     @Mock private OtaReconciliationWorkItemRepository reconciliationRepository;
     @Mock private OtaInboundEventService inboundEventService;
     @Mock private OtaCancellationConsequenceService consequenceService;
+    @Mock private OtaPayoutLedgerRecorder payoutLedgerRecorder;
 
     private OtaCancellationService cancellationService;
     private OtaChannelConnection connection;
@@ -60,7 +62,9 @@ class OtaCancellationCallbackSecurityIT {
                 customerPaymentRepository,
                 reconciliationRepository,
                 inboundEventService,
-                consequenceService
+                consequenceService,
+                null,
+                payoutLedgerRecorder
         );
 
         connection = OtaChannelConnection.builder()
@@ -108,7 +112,7 @@ class OtaCancellationCallbackSecurityIT {
     @Test
     @DisplayName("Invalid event with unknown booking reference routes to reconciliation queue and preserves audit")
     void unknownBooking_recordsReconciliationItem() {
-        when(bookingRepository.findAll()).thenReturn(List.of());
+        when(bookingRepository.findByMapping_Connection_IdAndExternalBookingReference(any(), any())).thenReturn(Optional.empty());
 
         OtaCancellationEventCommand cmd = new OtaCancellationEventCommand(
                 OtaProvider.KLOOK,

@@ -1,5 +1,6 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.adapter;
 
+import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.application.OtaPayoutLedgerRecorder;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.application.OtaCancellationConsequenceService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.application.OtaCancellationService;
@@ -51,6 +52,7 @@ class OtaCancellationAdapterContractTest {
     @Mock private OtaReconciliationWorkItemRepository reconciliationRepository;
     @Mock private OtaInboundEventService inboundEventService;
     @Mock private OtaCancellationConsequenceService consequenceService;
+    @Mock private OtaPayoutLedgerRecorder payoutLedgerRecorder;
 
     private KlookCancellationAdapter klookAdapter;
     private GetYourGuideCancellationAdapter gygAdapter;
@@ -74,7 +76,8 @@ class OtaCancellationAdapterContractTest {
                 reconciliationRepository,
                 inboundEventService,
                 consequenceService,
-                adapterRegistry
+                adapterRegistry,
+                payoutLedgerRecorder
         );
 
         klookConnection = OtaChannelConnection.builder()

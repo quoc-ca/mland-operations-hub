@@ -25,6 +25,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -52,6 +53,9 @@ public class OtaCancellationService {
     private final OtaInboundEventService inboundEventService;
     private final OtaCancellationConsequenceService consequenceService;
     private final OtaCancellationAdapterRegistry cancellationAdapterRegistry;
+    private final OtaPayoutLedgerRecorder payoutLedgerRecorder;
+
+    private static final String LATE_REQUEST = "LATE_REQUEST_AFTER_CANCELLATION";
 
     @Autowired
     public OtaCancellationService(
@@ -62,7 +66,8 @@ public class OtaCancellationService {
             OtaReconciliationWorkItemRepository reconciliationRepository,
             OtaInboundEventService inboundEventService,
             OtaCancellationConsequenceService consequenceService,
-            OtaCancellationAdapterRegistry cancellationAdapterRegistry
+            OtaCancellationAdapterRegistry cancellationAdapterRegistry,
+            OtaPayoutLedgerRecorder payoutLedgerRecorder
     ) {
         this.connectionRepository = connectionRepository;
         this.mappingRepository = mappingRepository;
@@ -72,20 +77,7 @@ public class OtaCancellationService {
         this.inboundEventService = inboundEventService;
         this.consequenceService = consequenceService;
         this.cancellationAdapterRegistry = cancellationAdapterRegistry;
-    }
-
-    public OtaCancellationService(
-            OtaChannelConnectionRepository connectionRepository,
-            OtaChannelMappingRepository mappingRepository,
-            OtaChannelBookingRepository bookingRepository,
-            OtaCustomerPaymentEvidenceRepository customerPaymentRepository,
-            OtaReconciliationWorkItemRepository reconciliationRepository,
-            OtaInboundEventService inboundEventService,
-            OtaCancellationConsequenceService consequenceService
-    ) {
-        this(connectionRepository, mappingRepository, bookingRepository,
-                customerPaymentRepository, reconciliationRepository,
-                inboundEventService, consequenceService, null);
+        this.payoutLedgerRecorder = payoutLedgerRecorder;
     }
 
     public record OtaCancellationEventCommand(
@@ -171,20 +163,23 @@ public class OtaCancellationService {
 
         OtaInboundEventReceipt receipt = inboundEventService.receive(authEvent);
 
+        // T107: a replay returns the stored outcome and runs no evidence, state change or work item.
+        if (receipt.duplicate() && receipt.outcomeReference() != null) {
+            return storedOutcome(command, receipt);
+        }
+
         Optional<OtaChannelBooking> bookingOpt = bookingRepository
-                .findAll()
-                .stream()
-                .filter(b -> b.getMapping().getConnection().getId().equals(connection.getId())
-                        && b.getExternalBookingReference().equals(command.externalBookingReference()))
-                .findFirst();
+                .findByMapping_Connection_IdAndExternalBookingReference(
+                        connection.getId(), command.externalBookingReference());
 
         if (bookingOpt.isEmpty()) {
             OtaReconciliationWorkItem workItem = OtaReconciliationWorkItem.builder()
                     .publicReference(UUID.randomUUID().toString())
+                    .inboundEvent(inboundEventService.referenceFor(receipt.eventId()))
                     .locationReference("GLOBAL")
                     .category("INBOUND_EVENT")
                     .status("OPEN")
-                    .decision("UNKNOWN_BOOKING_REFERENCE: " + command.externalBookingReference())
+                    .decision("UNKNOWN_BOOKING_REFERENCE")
                     .build();
             reconciliationRepository.save(workItem);
 
@@ -202,30 +197,34 @@ public class OtaCancellationService {
         String correlation = command.correlationReference() != null && !command.correlationReference().isBlank()
                 ? command.correlationReference()
                 : UUID.randomUUID().toString();
-
-        long refundAmount = command.refundAmountMinor() != null && command.refundAmountMinor() > 0
-                ? command.refundAmountMinor()
-                : booking.getAcceptedAmountMinor();
         String currency = command.currencyCode() != null && !command.currencyCode().isBlank()
-                ? command.currencyCode()
+                ? command.currencyCode().trim().toUpperCase(Locale.ROOT)
                 : booking.getCurrencyCode();
+        // Refund facts come from the OTA only: no amount reported means no refund evidence (T109).
+        boolean refundReported = command.refundAmountMinor() != null && command.refundAmountMinor() > 0;
 
         if ("REQUESTED".equalsIgnoreCase(command.cancellationKind())) {
-            booking.markCancellationRequested();
-            bookingRepository.save(booking);
-
-            String evidenceRef = "PAY-REF-REQ-" + UUID.randomUUID();
-            OtaCustomerPaymentEvidence evidence = OtaCustomerPaymentEvidence.record(
-                    booking.getId(),
-                    evidenceRef,
-                    "CUSTOMER_REFUND",
-                    OtaCustomerPaymentState.REFUND_REQUESTED,
-                    refundAmount,
-                    currency,
-                    Instant.now(),
-                    correlation
-            );
-            customerPaymentRepository.save(evidence);
+            if (isFinal(booking)) {
+                // T108: status never goes backwards; a late request has no consequence.
+                inboundEventService.recordOutcome(receipt.eventId(),
+                        new OtaInboundEventOutcome(OtaInboundEventOutcome.Status.REJECTED, LATE_REQUEST));
+                return OtaCancellationEventResult.rejected(command.externalBookingReference(), LATE_REQUEST, null);
+            }
+            if (!"CANCELLATION_REQUESTED".equals(booking.getProviderStatus())) {
+                booking.markCancellationRequested();
+                bookingRepository.save(booking);
+                if (refundReported) {
+                    customerPaymentRepository.save(OtaCustomerPaymentEvidence.record(
+                            booking.getId(),
+                            "REQ-" + receipt.eventId(),
+                            "CUSTOMER_REFUND",
+                            OtaCustomerPaymentState.REFUND_REQUESTED,
+                            command.refundAmountMinor(),
+                            currency,
+                            Instant.now(),
+                            correlation));
+                }
+            }
 
             inboundEventService.recordOutcome(receipt.eventId(),
                     new OtaInboundEventOutcome(OtaInboundEventOutcome.Status.ACCEPTED, booking.getPublicReference()));
@@ -238,58 +237,56 @@ public class OtaCancellationService {
             );
         }
 
-        if ("CONFIRMED_CANCELLED".equalsIgnoreCase(command.cancellationKind())
-                || "REFUNDED".equalsIgnoreCase(command.cancellationKind())) {
+        boolean refundEvent = "REFUNDED".equalsIgnoreCase(command.cancellationKind());
+        if ("CONFIRMED_CANCELLED".equalsIgnoreCase(command.cancellationKind()) || refundEvent) {
+            if (!isFinal(booking)) {
+                // Seats are released exactly once, before the booking leaves its open state.
+                CancellationConsequenceResult consequenceResult = consequenceService
+                        .applyConfirmedConsequence(booking, "ota-cancel-" + receipt.eventId(), correlation);
 
-            if ("CANCELLED".equals(booking.getProviderStatus()) || "REFUNDED".equals(booking.getProviderStatus())) {
-                return OtaCancellationEventResult.success(
-                        "CONFIRMED",
-                        command.externalBookingReference(),
-                        booking.getPublicReference(),
-                        booking.getProviderStatus()
-                );
+                if (!consequenceResult.successful()) {
+                    OtaReconciliationWorkItem workItem = OtaReconciliationWorkItem.builder()
+                            .publicReference(UUID.randomUUID().toString())
+                            .mapping(booking.getMapping())
+                            .inboundEvent(inboundEventService.referenceFor(receipt.eventId()))
+                            .locationReference(booking.getMapping().getLocationReference())
+                            .channelBookingId(booking.getId())
+                            .category("INBOUND_EVENT")
+                            .status("OPEN")
+                            .decision("CONSEQUENCE_REJECTED: " + consequenceResult.rejectionReason())
+                            .build();
+                    reconciliationRepository.save(workItem);
+
+                    inboundEventService.recordOutcome(receipt.eventId(),
+                            new OtaInboundEventOutcome(OtaInboundEventOutcome.Status.REJECTED, consequenceResult.rejectionReason()));
+
+                    return OtaCancellationEventResult.rejected(
+                            command.externalBookingReference(),
+                            consequenceResult.rejectionReason(),
+                            workItem.getPublicReference()
+                    );
+                }
+                booking.markCancelled();
             }
 
-            booking.markCancelled();
+            if (refundEvent && !"REFUNDED".equals(booking.getProviderStatus())) {
+                booking.markRefunded();
+                if (refundReported) {
+                    String evidenceRef = "REF-" + receipt.eventId();
+                    customerPaymentRepository.save(OtaCustomerPaymentEvidence.record(
+                            booking.getId(),
+                            evidenceRef,
+                            "CUSTOMER_REFUND",
+                            OtaCustomerPaymentState.REFUNDED,
+                            command.refundAmountMinor(),
+                            currency,
+                            Instant.now(),
+                            correlation));
+                    payoutLedgerRecorder.recordCustomerRefund(booking, evidenceRef, command.refundAmountMinor(),
+                            currency, correlation);
+                }
+            }
             bookingRepository.save(booking);
-
-            String evidenceRef = "PAY-REF-" + UUID.randomUUID();
-            OtaCustomerPaymentEvidence evidence = OtaCustomerPaymentEvidence.record(
-                    booking.getId(),
-                    evidenceRef,
-                    "CUSTOMER_REFUND",
-                    OtaCustomerPaymentState.REFUNDED,
-                    refundAmount,
-                    currency,
-                    Instant.now(),
-                    correlation
-            );
-            customerPaymentRepository.save(evidence);
-
-            CancellationConsequenceResult consequenceResult = consequenceService
-                    .applyConfirmedConsequence(booking, evidenceRef, correlation);
-
-            if (!consequenceResult.successful()) {
-                OtaReconciliationWorkItem workItem = OtaReconciliationWorkItem.builder()
-                        .publicReference(UUID.randomUUID().toString())
-                        .mapping(booking.getMapping())
-                        .locationReference(booking.getMapping().getLocationReference())
-                        .channelBookingId(booking.getId())
-                        .category("INBOUND_EVENT")
-                        .status("OPEN")
-                        .decision("CONSEQUENCE_REJECTED: " + consequenceResult.rejectionReason())
-                        .build();
-                reconciliationRepository.save(workItem);
-
-                inboundEventService.recordOutcome(receipt.eventId(),
-                        new OtaInboundEventOutcome(OtaInboundEventOutcome.Status.REJECTED, consequenceResult.rejectionReason()));
-
-                return OtaCancellationEventResult.rejected(
-                        command.externalBookingReference(),
-                        consequenceResult.rejectionReason(),
-                        workItem.getPublicReference()
-                );
-            }
 
             inboundEventService.recordOutcome(receipt.eventId(),
                     new OtaInboundEventOutcome(OtaInboundEventOutcome.Status.ACCEPTED, booking.getPublicReference()));
@@ -312,6 +309,25 @@ public class OtaCancellationService {
         );
     }
 
+    private static boolean isFinal(OtaChannelBooking booking) {
+        return "CANCELLED".equals(booking.getProviderStatus()) || "REFUNDED".equals(booking.getProviderStatus());
+    }
+
+    /** Rebuilds the acknowledgement of a first delivery from the safe outcome stored with its inbound event. */
+    private OtaCancellationEventResult storedOutcome(OtaCancellationEventCommand command, OtaInboundEventReceipt receipt) {
+        if ("ACCEPTED".equals(receipt.processingStatus())) {
+            Optional<OtaChannelBooking> stored = bookingRepository.findByPublicReference(receipt.outcomeReference());
+            if (stored.isPresent()) {
+                String status = "REQUESTED".equalsIgnoreCase(command.cancellationKind())
+                        ? "REQUEST_RECORDED" : "CONFIRMED";
+                return OtaCancellationEventResult.success(status, command.externalBookingReference(),
+                        stored.get().getPublicReference(), stored.get().getProviderStatus());
+            }
+        }
+        return OtaCancellationEventResult.rejected(command.externalBookingReference(),
+                receipt.outcomeReference(), null);
+    }
+
     @Transactional
     public OtaCancellationEventResult handleRawProviderCancellation(
             OtaProvider provider,
@@ -330,15 +346,8 @@ public class OtaCancellationService {
 
         Optional<OtaCancellationAdapter> adapterOpt = cancellationAdapterRegistry.findAdapter(provider);
         if (adapterOpt.isEmpty()) {
-            OtaReconciliationWorkItem workItem = OtaReconciliationWorkItem.builder()
-                    .publicReference(UUID.randomUUID().toString())
-                    .locationReference("GLOBAL")
-                    .category("INBOUND_EVENT")
-                    .status("OPEN")
-                    .decision("UNSUPPORTED_PROVIDER: " + provider)
-                    .build();
-            reconciliationRepository.save(workItem);
-            return OtaCancellationEventResult.rejected(null, "UNSUPPORTED_PROVIDER", workItem.getPublicReference());
+            return routeRawFailure(provider, environment, rawJsonPayload, "UNSUPPORTED_PROVIDER",
+                    "UNSUPPORTED_PROVIDER: " + provider);
         }
 
         OtaCancellationAdapter adapter = adapterOpt.get();
@@ -346,29 +355,45 @@ public class OtaCancellationService {
 
         return switch (mappingResult) {
             case OtaCancellationMappingResult.Mapped mapped -> handleCancellationEvent(mapped.command());
-            case OtaCancellationMappingResult.Rejected rejected -> {
-                OtaReconciliationWorkItem workItem = OtaReconciliationWorkItem.builder()
-                        .publicReference(UUID.randomUUID().toString())
-                        .locationReference("GLOBAL")
-                        .category("INBOUND_EVENT")
-                        .status("OPEN")
-                        .decision("ADAPTER_REJECTED: " + rejected.failureCategory() + " - " + rejected.reason())
-                        .build();
-                reconciliationRepository.save(workItem);
-                yield OtaCancellationEventResult.rejected(null, rejected.failureCategory() + ": " + rejected.reason(), workItem.getPublicReference());
-            }
-            case OtaCancellationMappingResult.Unmapped unmapped -> {
-                OtaReconciliationWorkItem workItem = OtaReconciliationWorkItem.builder()
-                        .publicReference(UUID.randomUUID().toString())
-                        .locationReference("GLOBAL")
-                        .category("INBOUND_EVENT")
-                        .status("OPEN")
-                        .decision("UNMAPPED_PROVIDER_EVENT: " + unmapped.eventType() + " - " + unmapped.reason())
-                        .build();
-                reconciliationRepository.save(workItem);
-                yield OtaCancellationEventResult.rejected(null, "UNMAPPED_PROVIDER_EVENT: " + unmapped.reason(), workItem.getPublicReference());
-            }
+            case OtaCancellationMappingResult.Rejected rejected -> routeRawFailure(provider, environment,
+                    rawJsonPayload, rejected.failureCategory() + ": " + rejected.reason(),
+                    "ADAPTER_REJECTED: " + rejected.failureCategory() + " - " + rejected.reason());
+            case OtaCancellationMappingResult.Unmapped unmapped -> routeRawFailure(provider, environment,
+                    rawJsonPayload, "UNMAPPED_PROVIDER_EVENT: " + unmapped.reason(),
+                    "UNMAPPED_PROVIDER_EVENT: " + unmapped.eventType() + " - " + unmapped.reason());
         };
     }
-}
 
+    /**
+     * A raw event that cannot become a command still gets an inbound-event receipt (keyed by the fingerprint of the
+     * payload, which is not retained), so a replay opens no second work item and the work item can name its provider.
+     */
+    private OtaCancellationEventResult routeRawFailure(OtaProvider provider, OtaEnvironment environment,
+                                                       String rawJsonPayload, String rejectionReason,
+                                                       String decision) {
+        String fingerprint = inboundEventService.fingerprintCanonicalAllowlistedPayload(
+                rawJsonPayload == null || rawJsonPayload.isBlank() ? "{}" : rawJsonPayload);
+        OtaInboundEventReceipt receipt = inboundEventService.receive(new AuthenticatedOtaInboundEvent(
+                provider, environment, null, fingerprint, "CANCELLATION"));
+        if (receipt.duplicate() && receipt.outcomeReference() != null) {
+            return OtaCancellationEventResult.rejected(null, rejectionReason, null);
+        }
+        OtaReconciliationWorkItem workItem = OtaReconciliationWorkItem.builder()
+                .publicReference(UUID.randomUUID().toString())
+                .inboundEvent(inboundEventService.referenceFor(receipt.eventId()))
+                .locationReference("GLOBAL")
+                .category("INBOUND_EVENT")
+                .status("OPEN")
+                .decision(decision.length() > 64 ? decision.substring(0, 64) : decision)
+                .build();
+        reconciliationRepository.save(workItem);
+        inboundEventService.recordOutcome(receipt.eventId(), new OtaInboundEventOutcome(
+                OtaInboundEventOutcome.Status.REJECTED, safeReason(rejectionReason)));
+        return OtaCancellationEventResult.rejected(null, rejectionReason, workItem.getPublicReference());
+    }
+
+    private static String safeReason(String reason) {
+        String safe = reason.replaceAll("[^A-Za-z0-9._:-]", "_");
+        return safe.length() > 128 ? safe.substring(0, 128) : safe;
+    }
+}

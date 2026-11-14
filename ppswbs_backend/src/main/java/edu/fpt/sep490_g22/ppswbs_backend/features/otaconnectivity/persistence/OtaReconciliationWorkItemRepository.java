@@ -29,6 +29,8 @@ public interface OtaReconciliationWorkItemRepository extends JpaRepository<OtaRe
 
     boolean existsByMapping_IdAndCategoryAndStatus(Long mappingId, String category, String status);
 
+    boolean existsByInboundEvent_IdAndCategory(Long inboundEventId, String category);
+
     List<OtaReconciliationWorkItem> findAllByOrderByCreatedAtAsc();
 
     List<OtaReconciliationWorkItem> findByStatusOrderByCreatedAtAsc(String status);
