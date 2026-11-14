@@ -1,11 +1,14 @@
 openapi: 3.1.0
 info:
   title: Mland OTA Connectivity API
-  version: 0.1.0-proposed
+  version: 0.2.0
   description: >-
-    Proposed Mland-owned operations API. Provider-specific callbacks, signatures,
-    credentials, payloads, and transport details are intentionally excluded until
-    the individual provider onboarding contract is approved.
+    Mland-owned operations API; version 0.2.0 (2026-11-14) reflects the implemented
+    routes (previously 0.1.0-proposed). It includes the interim provider-neutral
+    booking ingress, which fails closed for PRODUCTION. Each provider's approved
+    callback transport, signatures, credentials, payloads, and transport details
+    stay excluded until that provider's onboarding contract is approved. Provider
+    go-live (booking enablement) remains gated by provider-readiness evidence.
 servers:
   - url: /api/v1
 paths:
@@ -227,9 +230,10 @@ paths:
       operationId: lookupOtaChannelBookingByMlandReference
       summary: At the check-in desk, resolve the OTA channel booking behind a Mland booking reference so the shop add-on flow can start from the ticket.
       description: >-
-        Read-only; for in-scope Staff or an active Manager. A reference that is not an OTA booking and one outside the
-        caller's location scope both answer 404 with the same body, so the endpoint cannot be used to learn which Mland
-        bookings came through an OTA. It lives in OTA Connectivity so Workshop Operations never calls OTA; the check-in
+        Read-only; for an active Manager, or for Staff with location scope AND an active assignment to a session the
+        Mland booking holds a valid ticket for (amendment 2026-11-06). A reference that is not an OTA booking, one outside
+        the caller's location scope, and one whose sessions the Staff member is not assigned to all answer 404 with the
+        same body, so the endpoint cannot be used to learn which Mland bookings came through an OTA. It lives in OTA Connectivity so Workshop Operations never calls OTA; the check-in
         screen joins the two answers.
       parameters:
         - { name: mlandBookingReference, in: query, required: true, schema: { type: string, minLength: 1, maxLength: 128 } }
@@ -306,8 +310,24 @@ paths:
         ota.provider-callbacks.approved-production-providers (empty by default, set only
         after that provider's signed callback is approved and implemented); test-prefixed
         values are accepted only for TEST connections and only when
-        ota.auth.allow-test-tokens is enabled. Replays are deduplicated by external
-        event reference and payload fingerprint. A CONFIRMED outcome returns 201 with
+        ota.auth.allow-test-tokens is enabled. Replays are deduplicated per connection
+        by a key derived from the provider and the external event reference (the
+        external booking reference when no event reference is sent); the payload
+        fingerprint is used only when no reference exists, and a replay with the same
+        reference returns the stored outcome. Decided 2026-11-14: the same reference
+        with a DIFFERENT payload fingerprint is refused as a conflict and opens an
+        INBOUND_EVENT reconciliation work item instead of returning the stored
+        outcome, and an adapter never invents an event reference, so a provider that
+        sends none falls back to the payload fingerprint (T060). Still open (blocks
+        provider go-live and any approved-production-providers
+        entry): the compared credential reference is stored in MySQL and acts as a
+        bearer secret, against Constitution II; resolve it to a secret held in the
+        approved secret channel (decided 2026-11-14): credential_reference stays
+        a non-secret lookup name, the backend reads the secret for that name from
+        the approved environment/secret channel and compares against it; an
+        unresolvable reference fails closed in every environment, TEST included.
+        Implemented by T059.
+        A CONFIRMED outcome returns 201 with
         the Mland booking and ticket references; any other outcome returns 422 with a
         rejection reason. Missing or wrong signature, or an inactive connection,
         returns 401.
