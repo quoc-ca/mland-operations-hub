@@ -249,3 +249,5 @@
 .lp-theme .card-head .chips .badge{font-size:13px;padding:5px 12px}
 .lp-theme .workspace-card>.detail-meta{margin:20px 0 0}
 .lp-public .workspace-card>.card-head .badge{font-size:12px;padding:5px 12px}
+.package-checks{border:0;padding:0;margin:0 0 8px}
+.package-checks legend{font-size:14px;font-weight:600;margin-bottom:4px}

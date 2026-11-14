@@ -4,5 +4,9 @@
 // but it still carries the vi/en reason texts of T081 and stays available for them.
 export { loyaltyPromotionRoutes } from './routes/loyaltyPromotionRoutes';
 export { BenefitSelector } from './ui/checkout/BenefitSelector';
-// Public offers for other features' product pages (002 catalogue, FR-058 / 006 FR-042): display only.
-export { OfferBadges, OfferPrice, offersForProduct, ProductOfferList, SizeOfferPrice, usePublicProductPrograms } from './publicOffers';
+// Public offers for other features' pages: 002 product pages (FR-058 / 006 FR-042) and 003.1 workshop package
+// surfaces (003.1 FR-052 / 006 FR-045). Display only.
+export {
+  OfferBadges, OfferPrice, offersForPackage, offersForProduct, ProductOfferList, SizeOfferPrice, usePublicProductPrograms,
+  usePublicWorkshopPrograms, WorkshopOfferBadges, WorkshopOfferList, WorkshopOfferPrice,
+} from './publicOffers';

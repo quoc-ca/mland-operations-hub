@@ -10,7 +10,7 @@
  * with its minimum instead. Vouchers are never taken off: they need a code at checkout, so they are badges.
  */
 
-const big = value => {
+export const big = value => {
   try { return value === null || value === undefined || value === '' ? null : BigInt(String(value)); } catch { return null; }
 };
 
@@ -63,7 +63,7 @@ export function unitDiscount(program, price) {
 }
 
 /** Created first, then the lower ID. The public card has no createdAt, so a missing one falls back to the ID. */
-function createdFirst(a, b) {
+export function createdFirst(a, b) {
   const at = (a.createdAt || '').localeCompare(b.createdAt || '');
   if (at !== 0 && a.createdAt && b.createdAt) return at;
   const left = big(a.id) ?? 0n;
