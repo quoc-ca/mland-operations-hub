@@ -78,6 +78,53 @@ class OtaInventoryAdapterContractTest {
     }
 
     @Nested
+    @DisplayName("T120: Manager sales-close command delivery")
+    class SalesCloseCommandContracts {
+
+        @Test
+        @DisplayName("Sales close sends only the mapping identity and the closed state to the sales-state endpoint")
+        void salesClose_sendsMinimalClosedState() {
+            KlookInventoryAdapter adapter = new KlookInventoryAdapter(transport, objectMapper, 3);
+            OtaChannelMapping mapping = createMapping(OtaProvider.KLOOK, OtaMappingStatus.SALES_CLOSED);
+
+            OtaDeliveryResult result = adapter.deliverSalesClose(mapping, "op-ref-1", 1);
+
+            assertThat(result.outcome()).isEqualTo(OtaDeliveryOutcome.DELIVERED);
+            OtaTransportRequest request = capturedRequest.get();
+            assertThat(request.endpointUrl()).contains("/sales-state");
+            assertThat(request.bodyPayload()).contains("ext-prod-999", "ext-opt-111", "SALES_CLOSE", "CLOSED",
+                    "op-ref-1");
+            assertThat(request.bodyPayload()).doesNotContain("Venue", "reason", "session-ref-001");
+        }
+
+        @Test
+        @DisplayName("A provider 5xx on sales close is retryable below the cap and exhausted at it")
+        void salesClose_5xxRetryableThenExhausted() {
+            KlookInventoryAdapter adapter = new KlookInventoryAdapter(transport, objectMapper, 3);
+            OtaChannelMapping mapping = createMapping(OtaProvider.KLOOK, OtaMappingStatus.SALES_CLOSED);
+            stubbedResponse.set(new OtaTransportResponse(503, "{}", Map.of()));
+
+            assertThat(adapter.deliverSalesClose(mapping, "op-ref-1", 1).outcome())
+                    .isEqualTo(OtaDeliveryOutcome.RETRYABLE);
+            assertThat(adapter.deliverSalesClose(mapping, "op-ref-1", 3).outcome())
+                    .isEqualTo(OtaDeliveryOutcome.EXHAUSTED);
+        }
+
+        @Test
+        @DisplayName("Sales close for another provider's mapping is refused without a call")
+        void salesClose_wrongProviderExhaustedWithoutCall() {
+            KlookInventoryAdapter adapter = new KlookInventoryAdapter(transport, objectMapper, 3);
+            OtaChannelMapping mapping = createMapping(OtaProvider.GETYOURGUIDE, OtaMappingStatus.SALES_CLOSED);
+
+            OtaDeliveryResult result = adapter.deliverSalesClose(mapping, "op-ref-1", 1);
+
+            assertThat(result.outcome()).isEqualTo(OtaDeliveryOutcome.EXHAUSTED);
+            assertThat(result.failureCategory()).isEqualTo("UNSUPPORTED_PROVIDER");
+            assertThat(capturedRequest.get()).isNull();
+        }
+    }
+
+    @Nested
     @DisplayName("Contract: Schedule, Availability, and Sales-Close publication")
     class PublicationContracts {
 

@@ -29,7 +29,10 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -43,11 +46,13 @@ class OtaSyncDeliveryServiceTest {
 
     private OtaSyncDeliveryService service;
     private OtaChannelMapping mapping;
+    private OtaAuditCorrelationService auditCorrelationService;
 
     @BeforeEach
     void setUp() {
+        auditCorrelationService = spy(new OtaAuditCorrelationService());
         service = new OtaSyncDeliveryService(mappingRepository, outboundRepository, attemptRepository,
-                workItemRepository, new OtaAuditCorrelationService());
+                workItemRepository, auditCorrelationService);
         mapping = OtaChannelMapping.builder()
                 .id(71L)
                 .connection(OtaChannelConnection.builder().providerCode(OtaProvider.KLOOK).build())
@@ -214,6 +219,34 @@ class OtaSyncDeliveryServiceTest {
         assertThat(workItem.getValue().getStatus()).isEqualTo("OPEN");
         assertThat(workItem.getValue().getLocationReference()).isEqualTo("location-ref-1");
         verify(mappingRepository).save(mapping);
+        verify(auditCorrelationService).record(eq(OtaAuditCorrelationService.IntegrationAction.RECONCILIATION_REQUIRED),
+                eq(OtaProvider.KLOOK), eq(71L), anyString(),
+                eq(OtaAuditCorrelationService.IntegrationOutcome.REJECTED));
+    }
+
+    @Test
+    void secondExhaustedChangeOnSameMappingAuditsButDoesNotOpenAnotherWorkItem() {
+        OtaOutboundChange change = OtaOutboundChange.builder()
+                .id(102L)
+                .mapping(mapping)
+                .sourceVersion(4L)
+                .changeKind(OtaChangeKind.SCHEDULE)
+                .canonicalSnapshot(JsonNodeFactory.instance.objectNode())
+                .status("QUEUED")
+                .build();
+        when(outboundRepository.findById(102L)).thenReturn(Optional.of(change));
+        when(attemptRepository.findByOutboundChangeIdAndAttemptNumber(102L, 3)).thenReturn(Optional.empty());
+        when(workItemRepository.existsByMapping_IdAndCategoryAndStatus(71L, "INVENTORY_DELIVERY_FAILURE", "OPEN"))
+                .thenReturn(true);
+
+        service.recordDeliveryResult(102L, new OtaDeliveryResult(3, at("2026-10-29T10:00:00Z"),
+                at("2026-10-29T10:00:01Z"), OtaDeliveryOutcome.EXHAUSTED, "corr-2", "TIMEOUT"));
+
+        assertThat(mapping.getStatus()).isEqualTo(OtaMappingStatus.SYNC_SUSPENDED);
+        verify(workItemRepository, never()).save(any());
+        verify(auditCorrelationService).record(eq(OtaAuditCorrelationService.IntegrationAction.RECONCILIATION_REQUIRED),
+                eq(OtaProvider.KLOOK), eq(71L), anyString(),
+                eq(OtaAuditCorrelationService.IntegrationOutcome.REJECTED));
     }
 
     private static WorkshopSessionOtaSnapshot snapshot(long version) {

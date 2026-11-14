@@ -43,6 +43,28 @@ describe('Manager folio correction operations screen', () => {
     expect(screen.getByText(/paid by bank transfer after a Manager approves it/)).toBeInTheDocument();
   });
 
+  it('opens the read-only view of the correction just created (T127)', async () => {
+    const calls = asManager({
+      'GET /api/v1/workshop-sessions/session-1': session('session-1'),
+      'POST /api/v1/workshop-tickets/TK-100/folio/corrections': json(201, {
+        correctionReference: 'CORR-1', ticketCode: 'TK-100', overchargeAmount: '50000', status: 'PENDING_PROVIDER',
+      }),
+      'GET /api/v1/workshop-tickets/TK-100/folio/corrections/CORR-1': json(200, {
+        correctionReference: 'CORR-1', ticketCode: 'TK-100', overchargeAmount: '50000', refundId: 'R-1',
+        status: 'PENDING_PROVIDER', refundStatus: 'PENDING_ACCOUNT',
+      }),
+    });
+    const user = userEvent.setup();
+    renderRoutes(operationsRoutes, { path: '/operations/sessions/session-1' });
+    await screen.findByRole('heading', { name: 'Manager folio correction' });
+    await fillForm(user, 'TK-100', '50000', 'Counter overcharge');
+    await user.click(screen.getByRole('button', { name: 'Submit folio correction' }));
+    await user.click(await screen.findByRole('button', { name: 'View correction' }));
+
+    expect(await screen.findByLabelText('Folio correction')).toHaveTextContent('PENDING_ACCOUNT');
+    expect(calls.some(call => call.method === 'GET' && call.path.endsWith('/folio/corrections/CORR-1'))).toBe(true);
+  });
+
   it('does not fabricate success when backend rejects the command', async () => {
     asManager({
       'GET /api/v1/workshop-sessions/session-2': session('session-2'),

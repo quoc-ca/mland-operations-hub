@@ -4,6 +4,7 @@ import { useAuth } from '../../shared/auth/AuthProvider';
 import { useHttp } from '../../shared/api/useHttp';
 import { Loading, useCommand, useResource } from '../../shared/ui/components';
 import { createSettlementApi } from '../api/settlementApi';
+import FolioCorrectionLookup from '../FolioCorrectionLookup';
 import { CustomerPage } from '../OpsPage';
 import { ProblemNotice, money } from '../ui';
 
@@ -58,7 +59,13 @@ export default function CustomerFolioPage() {
   if (member) {
     return (
       <CustomerPage title="Ticket payment">
-        {own.loading ? <Loading /> : own.data ? <FolioView folio={own.data} />
+        {own.loading ? <Loading /> : own.data ? (
+          <>
+            <FolioView folio={own.data} />
+            {/* T127 (FR-050): the owning Member reads a posted correction with the bearer; a Guest never gets this view. */}
+            <section className="ota-panel"><FolioCorrectionLookup api={api} ticketCode={ticketCode} /></section>
+          </>
+        )
           : own.error && (own.error.status === 404 || own.error.status === 403)
             ? <div className="notice error" role="alert"><p>We could not find this ticket for your account.</p></div>
             : <ProblemNotice error={own.error} onRetry={own.reload} onReload={own.reload} />}
