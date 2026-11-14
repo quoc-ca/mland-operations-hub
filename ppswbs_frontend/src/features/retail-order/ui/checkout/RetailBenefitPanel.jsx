@@ -6,7 +6,7 @@ import { VoucherPicker } from './VoucherPicker';
  * FE-08 presentation for FE-06 data: a Shopee-like voucher picker and all-eligible-points switch.
  * With autoQuote the page recalculates totals by itself, so no recalculate hint or acknowledgement is shown.
  */
-export function RetailBenefitPanel({ selection, onChange, savedVouchers, maxPoints, minRedeemPoints, quote, quoteMatches, acknowledged, onAcknowledge, onRecalculate, onConfirm, pending, hideActions = false, autoQuote = false, voucherSubtotal = null, rejectedCodes = null }) {
+export function RetailBenefitPanel({ selection, onChange, savedVouchers, maxPoints, minRedeemPoints, quote, quoteMatches, acknowledged, onAcknowledge, onRecalculate, onConfirm, pending, hideActions = false, autoQuote = false, voucherSubtotal = null, rejectedCodes = null, voucherOptions = null }) {
   const format = useFormat();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [typedCode, setTypedCode] = useState('');
@@ -43,7 +43,7 @@ export function RetailBenefitPanel({ selection, onChange, savedVouchers, maxPoin
     </div>}
     {!hideActions && <div className="retail-benefit-actions"><button type="button" className="button outline" disabled={pending} onClick={onRecalculate}>Tính lại ưu đãi</button><button type="button" className="button primary" disabled={!canConfirm} onClick={onConfirm}>Tạo đơn</button></div>}
     {pickerOpen && autoQuote && <VoucherPicker vouchers={savedVouchers.filter(item => item.availability !== 'EXPIRED')} selectedCode={selection.choice === 'VOUCHER' ? selection.voucherCode : null}
-      subtotal={voucherSubtotal} rejectedCodes={rejectedCodes} onClose={() => setPickerOpen(false)}
+      subtotal={voucherSubtotal} rejectedCodes={rejectedCodes} options={voucherOptions} onClose={() => setPickerOpen(false)}
       onConfirm={code => { setPickerOpen(false); if ((code || '') !== (selection.choice === 'VOUCHER' ? selection.voucherCode : '')) onChange({ ...selection, choice: code ? 'VOUCHER' : 'NONE', voucherCode: code || '', requestedPoints: '0' }); }} />}
     {pickerOpen && !autoQuote && <div className="benefit-picker-backdrop" role="presentation"><section className="benefit-picker" role="dialog" aria-modal="true" aria-label="Chọn voucher">
       <div className="card-head"><h2>Chọn voucher MLAND</h2><button type="button" className="text-link" onClick={() => setPickerOpen(false)}>Đóng</button></div>

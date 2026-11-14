@@ -252,8 +252,12 @@ catalogue/rule set (`ManagerDesignRuleAdapter`). They are advisory context only:
 - **Estimated Price Formula**:
   $$\text{Total Estimate} = \text{MaterialCost}(M) + \text{ShapeAdjustment} + \sum (\text{GemstoneUnitPrice}_i \times \text{Qty}_i) + \sum (\text{AttachmentUnitPrice}_j \times \text{Qty}_j) + \text{EngravingPrice}$$
   where:
-  $$\text{MaterialCost}(M) = \text{BaseUnitPrice} + \max(0, M - 3.0\text{g}) \times \text{ExcessRatePerGram}$$
-  with $M = \frac{(P + \pi T) \cdot T \cdot W}{1000} \cdot D$, baseline threshold $M_0 = 3.0\text{g}$, and excess silver rate $= 120.000\text{ ₫/g}$.
+  - $\text{MaterialCost}(M) = \text{BaseUnitPrice} + \max(0, M - 3.0\text{g}) \times \text{ExcessRatePerGram}$
+    with $M = \frac{(P + \pi T) \cdot T \cdot W}{1000} \cdot D$, baseline threshold $M_0 = 3.0\text{g}$, and excess silver rate $= 120.000\text{ ₫/g}$.
+  - **Mẫu thiết kế đai nhẫn (Shape Adjustment)**: **$0.00\text{ ₫}$ (Miễn phí toàn bộ các mẫu dáng thiết kế)**. Khách hàng tự do chọn bất kỳ mẫu thiết kế nào (Tròn cổ điển, Comfort Fit, Xoắn vô cực, Búa gõ, Xoắn đơn, Lượn sóng, Búa bi, Đai phẳng) mà không bị phụ thu thêm chi phí mẫu.
+  - **Đá quý (Gemstones)**: **Đồng giá $50.000\text{ ₫/viên}$ cho tất cả các loại đá quý** (CZ Trắng, CZ Lam Biển, CZ Đỏ Ruby, Moissanite). Phí đá tính theo số lượng: $\sum (50.000\text{ ₫} \times \text{Qty}_i)$.
+  - **Họa tiết trang trí (Attachments)**: **Đồng giá $100.000\text{ ₫/họa tiết}$ cho tất cả các loại họa tiết** (Hàng viền bi Milgrain, Phay xước Satin mờ, Dập chìm họa tiết Trái Tim).
+  - **Phí khắc (Engraving Price)**: Khắc tiêu chuẩn 1 lần trả phí $80.000\text{ ₫}$ (khắc không giới hạn chữ/ký hiệu cả trong và ngoài); Upload ảnh khắc theo yêu cầu $100.000\text{ ₫/ảnh}$.
 - They do not change the workshop package price.
 - They do not change the 50% package deposit.
 - They are not an invoice, quote acceptance or final manufacturing amount.

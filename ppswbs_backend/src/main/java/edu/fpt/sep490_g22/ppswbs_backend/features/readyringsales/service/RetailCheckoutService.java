@@ -45,8 +45,13 @@ public class RetailCheckoutService {
             RetailPaymentMethods.requireAllowed(paymentMethod, request.branchOrders().stream()
                 .map(CheckoutDtos.BranchOrderCheckoutInput::method).toList());
         }
-        List<RetailCheckoutPorts.PricedLine> lines = pricingPort.price(RetailCartSelection.select(cart, request.cartLineIds()));
+        List<CartLine> selectedLines = RetailCartSelection.select(cart, request.cartLineIds());
+        List<RetailCheckoutPorts.PricedLine> lines = pricingPort.price(selectedLines);
         RetailCheckoutPorts.BenefitPreview preview = benefitPort.preview(memberAccountId, lines, toSelection(request.selection()));
+        // The programme discount covers only these cart lines (an automatic discount may target some products only).
+        List<String> discountedLineIds = preview.eligibleLineIndexes().stream()
+            .filter(index -> index >= 0 && index < selectedLines.size())
+            .map(index -> selectedLines.get(index).getId()).toList();
         BigDecimal subtotal = subtotal(lines);
         BigDecimal shipping = previewShipping(memberAccountId, request.branchOrders(), lines);
         BigDecimal payable = subtotal.subtract(preview.discountAmount()).subtract(preview.pointsDiscountAmount()).add(shipping);
@@ -54,7 +59,8 @@ public class RetailCheckoutService {
             money(preview.discountAmount()), money(preview.pointsDiscountAmount()),
             money(payable), preview.expiresAt().toString(), money(shipping), preview.eligible(), preview.reasons(),
             preview.maxPoints() == null ? null : preview.maxPoints().toString(),
-            preview.minRedeemPoints() == null ? null : preview.minRedeemPoints().toString());
+            preview.minRedeemPoints() == null ? null : preview.minRedeemPoints().toString(),
+            discountedLineIds, preview.appliedVoucherCode());
     }
 
     @Transactional(readOnly = true)

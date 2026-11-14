@@ -64,6 +64,37 @@ export function serverFieldErrors(error) {
   return byField;
 }
 
+/**
+ * `discount` of a create/update body. Session 2026-11-14: only a percentage has a cap the Manager enters; a fixed
+ * amount is sent alone and the server stores its cap equal to the amount.
+ */
+export function discountBody(form) {
+  return form.discountKind === 'PERCENT'
+    ? { kind: 'PERCENT', percentage: form.percentage.trim(), maxDiscountAmount: form.maxDiscountAmount.trim() }
+    : { kind: 'FIXED', amount: form.amount.trim() };
+}
+
+/** Hints (i18n keys) for the discount fields of a create/update form. */
+export function checkDiscount(form, errors) {
+  if (form.discountKind === 'PERCENT') {
+    if (!isPercent(form.percentage.trim())) errors['discount.percentage'] = 'validation.percent';
+    if (!isPositive(form.maxDiscountAmount.trim())) errors['discount.maxDiscountAmount'] = 'validation.positive';
+  } else if (!isPositive(form.amount.trim())) {
+    errors['discount.amount'] = 'validation.positive';
+  }
+}
+
+/**
+ * What a fixed discount actually takes off: an older FIXED revision may still hold a cap below its amount
+ * (before Session 2026-11-14), and the quote uses min(amount, cap).
+ */
+export function effectiveFixedAmount(discount) {
+  const amount = BigInt(discount.amount);
+  if (!discount.maxDiscountAmount) return amount;
+  const cap = BigInt(discount.maxDiscountAmount);
+  return cap < amount ? cap : amount;
+}
+
 /** Request body of createPromotionProgram from the form. */
 export function createBody(form) {
   const body = {
@@ -72,9 +103,7 @@ export function createBody(form) {
     name: form.name.trim(),
     startAt: toInstant(form.startAt),
     endAt: toInstant(form.endAt),
-    discount: form.discountKind === 'PERCENT'
-      ? { kind: 'PERCENT', percentage: form.percentage.trim(), maxDiscountAmount: form.maxDiscountAmount.trim() }
-      : { kind: 'FIXED', amount: form.amount.trim(), maxDiscountAmount: form.maxDiscountAmount.trim() },
+    discount: discountBody(form),
     minimumEligibleAmount: form.minimumEligibleAmount.trim(),
     targets: {},
   };
@@ -147,9 +176,7 @@ export function checkCreate(form) {
   if (!form.startAt) errors.startAt = 'validation.required';
   if (!form.endAt) errors.endAt = 'validation.required';
   if (form.startAt && form.endAt && new Date(form.startAt) >= new Date(form.endAt)) errors.endAt = 'validation.endAfterStart';
-  if (form.discountKind === 'PERCENT' && !isPercent(form.percentage.trim())) errors['discount.percentage'] = 'validation.percent';
-  if (form.discountKind === 'FIXED' && !isPositive(form.amount.trim())) errors['discount.amount'] = 'validation.positive';
-  if (!isPositive(form.maxDiscountAmount.trim())) errors['discount.maxDiscountAmount'] = 'validation.positive';
+  checkDiscount(form, errors);
   if (!isAmount(form.minimumEligibleAmount.trim())) errors.minimumEligibleAmount = 'validation.amount';
   if (form.kind === 'VOUCHER') {
     if (!form.code.trim()) errors.code = 'validation.required';

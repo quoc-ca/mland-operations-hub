@@ -88,6 +88,10 @@ Nguồn chính là FE-06 hiện tại và quyết định trực tiếp trong h�
 - Q: Giảm tự động workshop có bắt buộc ít nhất một gói không, hay để trống là áp mọi gói như voucher workshop? → A: **Bắt buộc ít nhất một gói**, như giảm tự động sản phẩm bắt buộc ít nhất một sản phẩm/size (FR-005) và đúng US2 kịch bản 3a ("một hoặc nhiều gói"). Ghi vào FR-044.
 - Q: Guest xác nhận nhóm đặt có giảm tự động thì 006 lưu snapshot thế nào, khi snapshot đang bắt buộc `member_id` (ERROR-LOG BE-DESIGN-0005)? → A: **Phương án (a)**: 006 vẫn lưu snapshot cho Guest, `member_id` để trống (NULL); danh tính là `sourceRef` (mã nhóm đặt của 003.1), vốn đã duy nhất theo `(source_kind, source_ref)`, nên không thêm cột mới. Snapshot không có Member chỉ là của workshop, không giữ điểm hay voucher và không tích điểm. Phương án (b) — 003.1 tự ghi khoản giảm vào vé, 006 chỉ tính — bị loại vì 006 mất đường đối soát số tiền đã giảm cho Guest. Chi tiết ở D-014.
 
+### Session 2026-11-14 (trần giảm của giảm cố định)
+
+- Q: Kiểu giảm số tiền cố định (FIXED) vẫn bắt Manager nhập "Giảm tối đa", trong khi `D = min(E, maxDiscountAmount, fixedAmount)`: nhập trần nhỏ hơn số tiền giảm (giảm 200.000đ, tối đa 150.000đ) thì con số 200.000đ vô nghĩa, nhập trần lớn hơn hoặc bằng thì ô này không có tác dụng. Giữ hay bỏ? → A (Đặng Thị Khương, owner FE-06, ngày 2026-11-14): **Bỏ ô trần với FIXED.** Trần giảm chỉ do Manager nhập với kiểu PERCENT. Với FIXED, form không hiện ô trần; API không bắt buộc `discount.maxDiscountAmount`, nếu gửi thì MUST bằng `discount.amount` (giữ tương thích với seed/client cũ vốn gửi hai giá trị bằng nhau), khác thì từ chối ở `discount.maxDiscountAmount`. Hệ thống lưu trần bằng số tiền giảm nên công thức, cột DB và báo giá không đổi. Chương trình FIXED cũ có trần nhỏ hơn số tiền giảm vẫn tính như cũ; màn hình hiện số tiền thực giảm `min(amount, maxDiscountAmount)`, và khi Manager sửa mức giảm thì trần lấy lại bằng số tiền mới. Phương án "giữ ô nhưng chặn amount > trần" bị loại vì Manager vẫn phải nhập một ô không có tác dụng.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Tạo chương trình ưu đãi (Priority: P1)

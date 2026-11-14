@@ -6,7 +6,7 @@ import { useLoyaltyApi } from '../../application/useLoyaltyApi';
 import { DiscountText, ScopeBadge, Terms, useDateTime } from '../display';
 import { sharedMessages } from '../../../../shared/ui/messages';
 import { messages } from '../messages';
-import { errorFieldsOf, isAmount, isPercent, isPositive, LIMITS, toInstant, toLocalInput } from '../../domain/promotionRules';
+import { checkDiscount, discountBody, effectiveFixedAmount, errorFieldsOf, isAmount, isPositive, LIMITS, toInstant, toLocalInput } from '../../domain/promotionRules';
 import { useFieldErrors } from '../../application/useFieldErrors';
 import { PageTop } from './PromotionManagementLayout';
 import { useTargetLabels } from '../../application/useTargetLabels';
@@ -147,7 +147,8 @@ function initialForm(program) {
     endAt: toLocalInput(program.endAt),
     discountKind: program.discount?.kind || 'PERCENT',
     percentage: program.discount?.percentage || '',
-    amount: program.discount?.amount || '',
+    // An older FIXED revision may hold a cap below its amount: show what it actually takes off (Session 2026-11-14).
+    amount: program.discount?.kind === 'FIXED' ? effectiveFixedAmount(program.discount).toString() : program.discount?.amount || '',
     maxDiscountAmount: program.discount?.maxDiscountAmount || '',
     minimumEligibleAmount: program.minimumEligibleAmount || '0',
     allowPoints: program.allowPoints,
@@ -183,12 +184,8 @@ function EditForm({ program, api, onDone, onCancel, onReload }) {
     if (!form.startAt || !form.endAt || new Date(form.startAt) >= new Date(form.endAt)) found.endAt = 'validation.endAfterStart';
     const discountChanged = ['discountKind', 'percentage', 'amount', 'maxDiscountAmount'].some(key => form[key] !== before[key]);
     if (discountChanged) {
-      if (form.discountKind === 'PERCENT' && !isPercent(form.percentage.trim())) found['discount.percentage'] = 'validation.percent';
-      if (form.discountKind === 'FIXED' && !isPositive(form.amount.trim())) found['discount.amount'] = 'validation.positive';
-      if (!isPositive(form.maxDiscountAmount.trim())) found['discount.maxDiscountAmount'] = 'validation.positive';
-      body.discount = form.discountKind === 'PERCENT'
-        ? { kind: 'PERCENT', percentage: form.percentage.trim(), maxDiscountAmount: form.maxDiscountAmount.trim() }
-        : { kind: 'FIXED', amount: form.amount.trim(), maxDiscountAmount: form.maxDiscountAmount.trim() };
+      checkDiscount(form, found);
+      body.discount = discountBody(form);
     }
     if (form.minimumEligibleAmount !== before.minimumEligibleAmount) {
       if (!isAmount(form.minimumEligibleAmount.trim())) found.minimumEligibleAmount = 'validation.amount';
@@ -229,7 +226,7 @@ function EditForm({ program, api, onDone, onCancel, onReload }) {
         {form.discountKind === 'PERCENT'
           ? <Field label={t('field.percentage')} error={errorOf('discount.percentage')}><input inputMode="decimal" value={form.percentage} onChange={set('percentage')} /></Field>
           : <Field label={t('field.amount')} error={errorOf('discount.amount')}><input inputMode="numeric" value={form.amount} onChange={set('amount')} /></Field>}
-        <Field label={t('field.maxDiscountAmount')} error={errorOf('discount.maxDiscountAmount')}><input inputMode="numeric" value={form.maxDiscountAmount} onChange={set('maxDiscountAmount')} /></Field>
+        {form.discountKind === 'PERCENT' && <Field label={t('field.maxDiscountAmount')} error={errorOf('discount.maxDiscountAmount')}><input inputMode="numeric" value={form.maxDiscountAmount} onChange={set('maxDiscountAmount')} /></Field>}
         <Field label={t('field.minimumEligibleAmount')} error={errorOf('minimumEligibleAmount')}><input inputMode="numeric" value={form.minimumEligibleAmount} onChange={set('minimumEligibleAmount')} /></Field>
         {voucher && <Field label={t('field.totalLimit')} error={errorOf('totalLimit')} hint={t('edit.limitHint')}><input inputMode="numeric" value={form.totalLimit} onChange={set('totalLimit')} /></Field>}
         {voucher && <Field label={t('field.perMemberLimit')} error={errorOf('perMemberLimit')}><input inputMode="numeric" value={form.perMemberLimit} onChange={set('perMemberLimit')} /></Field>}

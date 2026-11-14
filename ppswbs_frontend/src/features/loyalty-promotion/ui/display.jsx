@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { useFormat, useLanguage, useT } from '../../../shared/i18n/I18nProvider';
 import { messages } from './messages';
+import { effectiveFixedAmount } from '../domain/promotionRules';
 
 /**
  * Date before time, "3 thg 11, 2026, 12:45" (en "Nov 3, 2026, 12:45 PM"), as in frames 006-10…17. The shared
@@ -20,13 +21,13 @@ export function useDateTime() {
   }, [language]);
 }
 
-/** "10% (tối đa 50.000 ₫)" or "50.000 ₫ (tối đa …)". */
+/** "Giảm 10% (tối đa 50.000 ₫)", or "Giảm 50.000 ₫" for a fixed amount, which has no cap of its own (Session 2026-11-14). */
 export function DiscountText({ discount }) {
   const t = useT(messages);
   const format = useFormat();
   if (!discount) return <>—</>;
-  const value = discount.kind === 'PERCENT' ? `${discount.percentage}%` : format.money(discount.amount);
-  return <>{t('discount.text', { value, max: format.money(discount.maxDiscountAmount) })}</>;
+  if (discount.kind !== 'PERCENT') return <>{t('discount.fixedText', { value: format.money(effectiveFixedAmount(discount).toString()) })}</>;
+  return <>{t('discount.text', { value: `${discount.percentage}%`, max: format.money(discount.maxDiscountAmount) })}</>;
 }
 
 /** Workshop targets shown by name on cards and details (the create form still asks for their IDs). */
