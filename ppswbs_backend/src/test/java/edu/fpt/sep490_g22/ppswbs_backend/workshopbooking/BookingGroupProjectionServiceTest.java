@@ -8,7 +8,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dto.BookingGro
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.WorkshopOperationsAdapter;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.BookingGroupProjectionService;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.BookingAttendanceOutcome;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.TicketAttendanceOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.DeliverySafeTicket;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.DeliverySafeTicketSet;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.SessionEntitlementProjection;
@@ -73,7 +73,7 @@ class BookingGroupProjectionServiceTest {
                 new DeliverySafeTicket(TICKET_REF, "QR-1", "TK-1", List.of(new SessionEntitlementProjection(
                         REPLACED_SESSION, 4L, START.plusSeconds(86_400), START.plusSeconds(90_000)))))));
         when(operations.getTicketAttendanceOutcome(TICKET_REF.toString()))
-                .thenReturn(new BookingAttendanceOutcome(true, BookingAttendanceOutcome.Outcome.ATTENDED));
+                .thenReturn(new TicketAttendanceOutcome(true, TicketAttendanceOutcome.Outcome.ATTENDED));
     }
 
     @Test

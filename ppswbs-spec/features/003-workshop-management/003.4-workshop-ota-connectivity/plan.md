@@ -1,7 +1,7 @@
 # Implementation Plan: Workshop OTA Connectivity
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-29
+**Date updated**: 2026-11-14
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -39,7 +39,7 @@ provider delivery failure suspends the mapping.
 
 ## Technical Context
 
-**Language/Version**: Java 21 backend; TypeScript React/Vite client when the frontend is implemented.
+**Language/Version**: Java 21 backend; ~~TypeScript React/Vite client when the frontend is implemented~~ *(corrected 2026-11-14)* JavaScript/JSX React 19 + Vite 7 client: the OTA UI lives in `ppswbs_frontend/src/ota-connectivity/` (`api/*.js`, `pages/*.jsx`, `components/*.jsx`, `routes.jsx`), plus the check-in lookup in `src/workshop-operations/pages/OperationsSessionPage.jsx`. Other features of the same frontend use TypeScript; the OTA module does not.
 
 **Primary Dependencies**: Spring Boot 3.4.1, Spring Modulith 1.3.1, Spring Data JPA, Flyway, Spring Security, Firebase Admin; provider HTTP clients and OpenAPI generation are implementation decisions after contract approval.
 
@@ -47,7 +47,7 @@ provider delivery failure suspends the mapping.
 
 **Testing**: JUnit/Spring Boot, Spring Modulith module verification, JPA/Flyway migration tests, authorization tests, adapter-contract tests with provider simulators, idempotency/replay/out-of-order tests, and end-to-end quickstart evidence. Production-provider tests require approved sandbox credentials.
 
-**Target Platform**: Versioned REST API and a separate React/Vite operations client. The current frontend repository has no application baseline; UI delivery is explicitly deferred until that baseline is approved rather than scaffolded implicitly by this feature.
+**Target Platform**: Versioned REST API and a separate React/Vite operations client. ~~The current frontend repository has no application baseline; UI delivery is explicitly deferred until that baseline is approved rather than scaffolded implicitly by this feature.~~ *(Superseded 2026-11-14: the React/Vite frontend baseline exists and the OTA pages are implemented in JSX; see T025, T044, T049, T056.)*
 
 **Project Type**: Modular-monolith web application with external OTA adapters.
 
@@ -67,14 +67,14 @@ idempotent; a failed mapping closes OTA sales until confirmed re-sync.
 | Gate | Pre-design | Post-design | Evidence / condition |
 | --- | --- | --- | --- |
 | Module integrity | PASS | PASS | A dedicated OTA facade owns channel state and calls Booking, Operations, Settlement, and Account/Personnel only through their facades. |
-| Identity and data | PASS | PASS | Firebase establishes Mland user identity; Account Management supplies canonical role/status/location facts. OTA Connectivity applies action rules from canonical role/status; active Managers have global OTA business-action scope without `activeLocationIds` filtering, while location-scoped Staff rules (where specified) use canonical location facts. Provider callback identity is separate from a user identity. |
+| Identity and data | PASS | PASS | Firebase establishes Mland user identity; Account Management supplies canonical role/status/location facts. OTA Connectivity applies action rules from canonical role/status; active Managers have global OTA business-action scope without `activeLocationIds` filtering, while location-scoped Staff rules (where specified) use canonical location facts. *(Amended 2026-11-06: Staff OTA add-on actions need location scope AND an active assignment to a session the Mland booking holds a valid ticket for, checked through `WorkshopOperationsFacade.isStaffAssignedToBooking`; the lookup answers an unassigned Staff member `404` like a missing booking.)* Provider callback identity is separate from a user identity. **Open (D1, 2026-11-14):** the interim ingress keeps the callback bearer value in `credential_reference` (MySQL), which conflicts with Constitution II; see below. |
 | REST and frontend separation | PASS | PASS | Proposed REST paths are versioned/plural; a separate React/Vite client consumes API contracts only. |
 | Persistence and migration safety | PASS | PASS | JPA-owned records and append-only Flyway migrations; uniqueness and state invariants are tested. No raw SQL persistence design is required. |
 | Verification | PASS | PASS | Module, migration, contract, authorization, replay, failure-recovery, and reconciliation scenarios are specified below. |
 | State and security simplicity | PASS | PASS | Durable business state is limited to mappings, changes, deliveries, inbound events, bookings, financial positions, and reconciliation work. No new session/JWT/stateful frontend mechanism is introduced. |
 | Provider readiness | CONDITIONAL | CONDITIONAL | Public documentation proves possible API capabilities only. It cannot approve commercial terms, production credentials, ticket proof, or late-booking responsibility; those remain explicit release gates. |
 
-No constitution exception is requested. The conditional provider gate constrains release behavior, not the documentation plan: the only permitted pre-gate mode is sales-closed/preparation synchronization.
+No constitution exception is requested. *(Note 2026-11-14, decided by Hồ Hoàng Quốc — resolve the reference to a secret in the approved secret channel (T059; blocks T054 until implemented): the interim ingress `POST /api/v1/ota-provider/booking-events` compares `X-Ota-Signature` with `credential_reference` stored in MySQL, i.e. a bearer secret in the database, against Constitution II. `credential_reference` stays a non-secret lookup name and the backend resolves it to a secret held in the approved secret channel; an unresolvable reference fails closed in every environment, `TEST` included, and no exception is recorded. Tracked by T059.)* The conditional provider gate constrains release behavior, not the documentation plan: the only permitted pre-gate mode is sales-closed/preparation synchronization.
 
 ## Project Structure
 
@@ -107,12 +107,13 @@ ppswbs_backend/src/main/java/.../features/otaconnectivity/
 ├── api/                    # versioned REST controllers and DTOs
 └── integration/            # authenticated callback endpoint and delivery workers
 
-ppswbs_frontend/src/.../ota-connectivity/  # Deferred until a React/Vite baseline exists
-├── pages/                  # channel configuration and reconciliation views
-└── api/                    # generated/typed API client only
+ppswbs_frontend/src/ota-connectivity/      # implemented (JSX); was "deferred until a React/Vite baseline exists"
+├── pages/                  # *.jsx channel configuration, reconciliation, finance, add-on views
+├── components/             # *.jsx mapping, price-terms, booking-enable, resolve dialogs
+└── api/                    # otaConnectivityApi.js / useOtaConnectivityApi.js
 ```
 
-The source tree is a proposed boundary, not an instruction to create it before the next implementation phase. The current frontend has no application source tree to extend, so feature UI tasks are blocked by the approved frontend baseline. OTA owns only its channel records and delivery/reconciliation state; workshop capacity/tickets remain Operations, workshop booking remains Booking, and direct-Mland bills remain Settlement.
+The source tree is a proposed boundary, not an instruction to create it before the next implementation phase. ~~The current frontend has no application source tree to extend, so feature UI tasks are blocked by the approved frontend baseline.~~ *(Superseded 2026-11-14: the frontend baseline exists and the tree above is implemented.)* OTA owns only its channel records and delivery/reconciliation state; workshop capacity/tickets remain Operations, workshop booking remains Booking, and direct-Mland bills remain Settlement.
 
 ## Phase 0: Research
 
@@ -142,7 +143,7 @@ The source tree is a proposed boundary, not an instruction to create it before t
   call or mutate a mapping from an update that has not been accepted as current.
   Publish `SALES_PAUSED` as normal closed/zero availability while retaining the
   mapping.
-- Deduplicate inbound callbacks by provider, provider event reference, and safe payload fingerprint before invoking Mland booking/ticket effects. A duplicate therefore returns the prior outcome and never consumes additional capacity.
+- Deduplicate inbound callbacks by provider, provider event reference, and safe payload fingerprint before invoking Mland booking/ticket effects. A duplicate therefore returns the prior outcome and never consumes additional capacity. *(Aligned 2026-11-14 to the implemented key in `OtaInboundEventService`: unique per connection, SHA-256 of `EVENT:<provider>:<external event reference, or the external booking reference for a booking callback without one>`, and `PAYLOAD:<fingerprint>` only when no reference exists. Same reference with a different fingerprint returns the prior outcome. Decided 2026-11-14 (Hồ Hoàng Quốc): this key is confirmed; same reference with a different fingerprint is refused as a conflict and opens an `INBOUND_EVENT` work item, and an adapter never invents an event reference (T060); see spec.md A1.)*
 - Permit only `PER_PERSON` sale and require one successful Mland ticket for each participant. A provider booking cannot become confirmed until the Operations facade atomically reserves capacity and returns those tickets.
 - Separate OTA guest payment evidence, OTA payout owed to Mland, and any direct Mland add-on bill. None is derived from a browser redirect or from another ledger.
 - Treat provider-specific timeout, retries, idempotency header, cancellation,
@@ -151,7 +152,7 @@ The source tree is a proposed boundary, not an instruction to create it before t
   reject/not confirm after mapping sales-close or suspension, reserve no
   capacity, issue no ticket, and create reconciliation; provider acknowledgement
   and retry behavior must evidence compatibility before booking enablement.
-- Treat Mland REST API details as an explicit contract now, but keep provider callback wire formats out of shared OpenAPI until each adapter's onboarding material is approved.
+- Treat Mland REST API details as an explicit contract now, but keep provider callback wire formats out of shared OpenAPI until each adapter's onboarding material is approved. *(Narrowed 2026-11-14: the interim provider-neutral ingress `POST /api/v1/ota-provider/booking-events` is declared in the shared OpenAPI and fails closed for `PRODUCTION`; only each provider's approved transport stays out.)*
 - Gate booking/cancellation/add-on integration on verified upstream facades: OTA records/replays correlations, while the owning module provides atomic capacity/ticket or direct-bill effects.
 
 ## Risk Review: shortcuts rejected

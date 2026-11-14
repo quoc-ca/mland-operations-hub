@@ -1,7 +1,7 @@
 # Implementation Plan: Workshop Settlement and Changes
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-05
+**Date updated**: 2026-11-14
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -34,8 +34,8 @@ OTA payment system, capacity owner, or normal check-in system.
 | Module | Spring Modulith; only explicit owner facades cross business modules. |
 | Persistence | MySQL/JPA and append-only Flyway migrations when implementation is authorized. |
 | Identity | Firebase bearer token proves identity; Account Management supplies canonical role/status, ownership and location facts. Active Manager authority is global for Manager actions; Staff actions use canonical `workshop_location.id` and `activeLocationIds`. |
-| Payment | VNPay only. Shared `paymentintegration` owns provider credentials, checkout URL generation, provider attempt expiry and payment/IPN evidence. Direct customer-deposit cancellation never calls the refund/QueryDR protocol; OTA refunds remain external to this flow. Final-payment checkout uses the server-derived outstanding VND amount and expires after 10 minutes. Browser Return URL is display-only. |
-| Contract | Versioned `/api/v1` REST contract in `contracts/workshop-settlement.openapi.yaml`. |
+| Payment | VNPay only. Shared `paymentintegration` owns provider credentials, checkout URL generation, provider attempt expiry and payment/IPN evidence. Direct customer-deposit cancellation never calls the refund/QueryDR protocol; OTA refunds remain external to this flow. Final-payment checkout uses the server-derived outstanding VND amount and expires after 10 minutes. Browser Return URL is display-only. *(Superseded 2026-11-12/14, see "Per-ticket settlement": the booking-wide 10-minute final-payment checkout gives way to a `VNPAY` folio collection per ticket (FR-049); payment is also by cash or direct transfer (FR-031); no VNPay Refund or refund-QueryDR is used for Mland money (FR-038).)* |
+| Contract | Versioned `/api/v1` REST contract in `contracts/workshop-settlement.openapi.yaml`. *(Superseded 2026-11-12/14: per-ticket routes are in `contracts/workshop-settlement-ticket.openapi.yaml`; see "Per-ticket settlement" and "Public REST Design".)* |
 | Validation | Module-boundary, authorization, lifecycle, idempotency, facade, contract, migration-upgrade and recovery evidence. |
 
 ## Constitution Check
@@ -46,6 +46,10 @@ OTA payment system, capacity owner, or normal check-in system.
 | Identity and sensitive data | PASS with FE-001 dependency | Firebase is identity-only; server rechecks canonical account facts plus Settlement's location/resource action rules. No contact proof, raw token, QR payload, provider secret or raw callback is retained in audit. |
 | REST and frontend | PASS | The OpenAPI contract defines resource routes, authorization alternatives, idempotency, safe projections and typed errors. React consumes REST only. |
 | State, failure and idempotency | PASS | Client commands retain idempotent outcomes; verified provider transaction/reference deduplicates IPN/QueryDR. Cases have explicit lifecycle and correlation. |
+| Refund account numbers at rest (FR-040, T097) | PASS (code, 2026-11-13) | `RefundAccountCipher` encrypts each number with AES-GCM and a fresh nonce; only the mask `****1234` is stored beside it and kept after `REFUNDED` (ciphertext dropped). The number never goes to email, logs or audit. |
+| Refund account key secret channel | PASS with deployment condition | The 256-bit key comes only from the environment variable `WORKSHOP_REFUND_ACCOUNT_KEY` (base64); it is never committed, logged or kept in `.env` under version control. Each environment must supply it through its approved secret channel; key rotation is not designed (Open). |
+| Audited account-number reveal | PASS (code, 2026-11-13) | `GET /api/v1/workshop-refund-requests/{refundId}/account-number` is Manager-only, audited on every read (`REFUND_ACCOUNT_REVEALED`) and served `Cache-Control: no-store`; it is the one route that returns the number in clear. |
+| Anonymous refund-account link route | PASS (code, 2026-11-13) | `POST /api/v1/refund-account-links/{token}` is `permitAll` in `SecurityConfiguration` and allow-listed in `IdentityGateFilter`; the single-use token (7 days, resend revokes) is the credential, kept in the URL fragment of the frontend page, stored only as a hash, never returned or logged; 404 unknown, 410 used/revoked/expired; the response never echoes the number. |
 | Data evolution | PASS with rollout condition | Only dev/test without retained booking/customer data may reset after preflight. Data-bearing environments require append-only preservation migration, upgrade test, recovery/rollback evidence. |
 
 ## Ownership and Internal Boundaries
@@ -183,10 +187,53 @@ a signature-verified QueryDR result can be presented as reconciliation evidence
 to 003.3. Its original `vnp_CreateDate` is supplied as the transaction date;
 unknown outcomes never cause an automatic second refund.
 
+## Per-ticket settlement (Phase 8; decisions 2026-11-12, 2026-11-13, 2026-11-14)
+
+Every direct booking is now a 003.1 booking group with one ticket booking per
+person (003.1 FR-044–FR-051, 003.1 numbering), and V132 removed every direct
+`WorkshopBooking`. Settlement therefore works per ticket (spec FR-030–FR-051):
+
+- **Folio:** one OPEN folio per ticket, opened from `MlandTicketConfirmedEvent`
+  and stored in `settlement_final_bills` with the ticket code as its reference
+  (T093). Balance is computed in one place (`FolioBalanceService`); counter
+  collections, finalization, handover exception, debt and cash day close are
+  T094–T096.
+- **Routes (FR-048–FR-051, T106):** `/api/v1/workshop-tickets/{ticketCode}/folio*`
+  in [`contracts/workshop-settlement-ticket.openapi.yaml`](./contracts/workshop-settlement-ticket.openapi.yaml)
+  replace the booking-wide `final-bill*`, `folio-corrections*` and the code
+  routes `/workshop-folios/*`. The checkout VNPay payment is a `VNPAY` folio
+  collection. The booking-wide routes are removed only after T099–T101, T105
+  and T106 land; then 003.1 T100 removes its legacy facade operations.
+- **Owner boundaries:** ticket context from 003.1 `getTicketFolioContext`;
+  buyer proof for changes through 003.1 `consumeBuyerProof` (MANDATORY);
+  ticket reference resolution through `findTicketBookingByOperationsReference`;
+  attendance through 003.2 `TicketAttendanceFinalizedEvent` and
+  `getTicketAttendanceOutcome` (see `../contracts/workshop-interfeature-facades.md`).
+- **Authority and proof:** Manager global; Staff by the session assignment of
+  the ticket's group line; Member by bearer and group ownership; a Guest reads
+  with one contact proof in a request body and changes with the single-use
+  `buyerVerificationReference`. *(V1, owner decisions 2026-11-12/13: the
+  codebase has roles, not named permissions, so `workshop.payment.transfer.confirm`
+  and `workshop.refund.execute` are held by a Manager; transfer confirmation
+  and every refund transition are Manager-only until FE-001 grants them per
+  person.)*
+- **Money out:** every Mland refund (Mland remedy, overcharge correction, late
+  payment, excess money, OTA add-on overcharge) goes through the bank refund
+  lifecycle (FR-038–FR-040, T097/T098/T104); no VNPay refund is used for Mland
+  money. No add-on and no reopening after `FINALIZED`; a closed cash day stays
+  locked (FR-050).
+- **Loyalty:** earn, cancellation restore and no-show are sent per ticket as
+  006 `WORKSHOP_TICKET_*` outcomes with `partRef` = the 003.1 ticket reference
+  (BE-DESIGN-0002, T093/T105).
+
 ## Public REST Design
 
 The contract is the normative transport detail in
-[`contracts/workshop-settlement.openapi.yaml`](./contracts/workshop-settlement.openapi.yaml).
+[`contracts/workshop-settlement.openapi.yaml`](./contracts/workshop-settlement.openapi.yaml)
+for the routes still served booking-wide (OTA add-on bills, refund policies,
+settlement case list, and the booking-wide routes until T106 removes them) and
+[`contracts/workshop-settlement-ticket.openapi.yaml`](./contracts/workshop-settlement-ticket.openapi.yaml)
+for every per-ticket route (see "Per-ticket settlement" above).
 
 | Resource group | Public route family | Authority / proof |
 | --- | --- | --- |
@@ -210,6 +257,14 @@ with dedicated cancellation-snapshot and refund-allocation tables; allow one
 customer-cancellation case per booking using a unique booking reference; link
 each snapshot to its settlement case; enforce one allocation per case plus
 original merchant payment reference and a unique provider operation reference.
+*(Superseded for direct Mland money 2026-11-12 by "Per-ticket settlement"
+above (spec FR-038–FR-040, T098/T104): the VNPay refund allocation dispatch,
+the immediate and every-five-minutes-for-24-hours refund QueryDR and the
+Merchant Admin investigation below no longer run for Mland money; an
+allocation is routed to a bank refund request (`PENDING_BANK_REFUND`) and is
+verified only by the Manager's confirmed transfer. Only an unreconciled legacy
+gateway refund (code `99`) is still reconciled first. The original text is
+kept for history.)*
 Persist all allocations before dispatch, call paymentintegration only after the
 Settlement transaction commits, and use its operation journal as the provider
 idempotency boundary. QueryDR runs immediately after a refund is accepted and
@@ -265,3 +320,12 @@ This design is ready for `$speckit-tasks`. The resulting task set must replace
 legacy item/session-bill and browser-confirmation work, mark the provider/
 notification configuration dependencies blocked, and implement the shared VNPay
 ingress before either business facade consumes payment evidence.
+
+**Re-check 2026-11-14 (re-approved the same day by Hồ Hoàng Quốc, owner Feature 003, in session):** the State and Data
+Design, Technical Context and Constitution Check were annotated for the
+per-ticket model (superseded VNPay refund dispatch and QueryDR, 10-minute
+final-payment checkout and single-contract statements; new rows for the
+encrypted refund account, its key, the audited reveal and the anonymous link
+route). These notes do not approve the plan; the open owner decisions listed
+in spec (FR-022b1 `PENDING_PROVIDER`, FR-039 different recipient, the missing
+operations after FR-045) remain open.

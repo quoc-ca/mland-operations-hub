@@ -2,7 +2,7 @@ package edu.fpt.sep490_g22.ppswbs_backend.workshopsettlement;
 
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingGroupLoyaltyOutcomeSource;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.BookingAttendanceOutcome;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.TicketAttendanceOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementFinalBill;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementFinalBillLifecycleStatus;
@@ -14,6 +14,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
+import java.math.BigInteger;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -25,8 +26,8 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 /**
- * 003.3 FR-030: the Loyalty earn of a booking group. The group holds one accepted transaction, so the earn
- * is one decision for the whole group, taken from each ticket's own attendance.
+ * 003.3 FR-030 & BE-DESIGN-0002: Member Loyalty earn of a booking group.
+ * The earn is decided per ticket with WORKSHOP_TICKET_* outcomes and partRef (L{line}-T{ordinal}).
  */
 class GroupTicketLoyaltyOutcomeTest {
 
@@ -69,56 +70,65 @@ class GroupTicketLoyaltyOutcomeTest {
         }
         when(booking.groupLoyaltyOutcomeSource(GROUP)).thenReturn(new BookingGroupLoyaltyOutcomeSource(true,
                 "quote-1", 3L, Instant.parse("2026-11-12T10:12:00Z"),
-                List.of(new BookingGroupLoyaltyOutcomeSource.GroupTicket(TICKET_A, OPS_A),
-                        new BookingGroupLoyaltyOutcomeSource.GroupTicket(TICKET_B, OPS_B))));
+                List.of(new BookingGroupLoyaltyOutcomeSource.GroupTicket(TICKET_A, OPS_A, "L0-T1"),
+                        new BookingGroupLoyaltyOutcomeSource.GroupTicket(TICKET_B, OPS_B, "L0-T2"))));
         when(loyalty.findBenefitResult(SourceKind.WORKSHOP, GROUP)).thenReturn(result(EarnState.PENDING));
     }
 
     @Test
-    void theWholeGroupAttendedAndSettledGrantsItsPointsOnce() {
-        givenAttendance(OPS_A, BookingAttendanceOutcome.Outcome.ATTENDED);
-        givenAttendance(OPS_B, BookingAttendanceOutcome.Outcome.PARTIAL);
+    void ticketAttendedAndSettledGrantsItsPoints() {
+        givenAttendance(OPS_A, TicketAttendanceOutcome.Outcome.ATTENDED);
 
         processor.process(TICKET_A);
 
         ArgumentCaptor<AuthoritativeOutcome> granted = ArgumentCaptor.forClass(AuthoritativeOutcome.class);
         verify(loyalty).grantEarnedPoints(granted.capture());
         assertThat(granted.getValue().sourceRef()).isEqualTo(GROUP);
-        assertThat(granted.getValue().outcome()).isEqualTo(OutcomeKind.WORKSHOP_COMPLETED_AND_FULLY_PAID);
-        assertThat(granted.getValue().sourceOutcomeKey()).isEqualTo("group-completed-" + GROUP);
+        assertThat(granted.getValue().outcome()).isEqualTo(OutcomeKind.WORKSHOP_TICKET_COMPLETED_AND_FULLY_PAID);
+        assertThat(granted.getValue().sourceOutcomeKey()).isEqualTo("ticket-completed-" + TICKET_A);
+        assertThat(granted.getValue().partRef()).isEqualTo("L0-T1");
         assertThat(granted.getValue().snapshotRef()).isEqualTo("quote-1");
         assertThat(folios.get(0).getLoyaltyProcessedAt()).isNotNull();
     }
 
     @Test
-    void everyTicketAnUltimateNoShowClosesTheEarnInsteadOfGranting() {
-        givenAttendance(OPS_A, BookingAttendanceOutcome.Outcome.NO_SHOW);
-        givenAttendance(OPS_B, BookingAttendanceOutcome.Outcome.NO_SHOW);
+    void ticketAnUltimateNoShowClosesItsEarnInsteadOfGranting() {
+        givenAttendance(OPS_A, TicketAttendanceOutcome.Outcome.NO_SHOW);
 
         processor.process(TICKET_A);
 
         ArgumentCaptor<AuthoritativeOutcome> closed = ArgumentCaptor.forClass(AuthoritativeOutcome.class);
         verify(loyalty).finishIneligibleEarn(closed.capture());
-        assertThat(closed.getValue().outcome()).isEqualTo(OutcomeKind.WORKSHOP_NO_SHOW_FINAL);
-        assertThat(closed.getValue().sourceOutcomeKey()).isEqualTo("group-no-show-" + GROUP);
+        assertThat(closed.getValue().sourceRef()).isEqualTo(GROUP);
+        assertThat(closed.getValue().outcome()).isEqualTo(OutcomeKind.WORKSHOP_TICKET_NO_SHOW_FINAL);
+        assertThat(closed.getValue().sourceOutcomeKey()).isEqualTo("ticket-no-show-" + TICKET_A);
+        assertThat(closed.getValue().partRef()).isEqualTo("L0-T1");
+        assertThat(closed.getValue().snapshotRef()).isEqualTo("quote-1");
         verify(loyalty, never()).grantEarnedPoints(any());
+        assertThat(folios.get(0).getLoyaltyProcessedAt()).isNotNull();
     }
 
     @Test
-    void oneTicketThatShowedUpKeepsTheGroupsEarn() {
-        givenAttendance(OPS_A, BookingAttendanceOutcome.Outcome.NO_SHOW);
-        givenAttendance(OPS_B, BookingAttendanceOutcome.Outcome.ATTENDED);
+    void ticketsInSameGroupAreDecidedIndependentlyPerTicket() {
+        givenAttendance(OPS_A, TicketAttendanceOutcome.Outcome.NO_SHOW);
+        givenAttendance(OPS_B, TicketAttendanceOutcome.Outcome.ATTENDED);
 
         processor.process(TICKET_A);
+        processor.process(TICKET_B);
 
-        verify(loyalty, never()).finishIneligibleEarn(any());
-        verify(loyalty).grantEarnedPoints(any());
+        verify(loyalty).finishIneligibleEarn(argThat(outcome ->
+                outcome.outcome() == OutcomeKind.WORKSHOP_TICKET_NO_SHOW_FINAL
+                        && "L0-T1".equals(outcome.partRef())));
+        verify(loyalty).grantEarnedPoints(argThat(outcome ->
+                outcome.outcome() == OutcomeKind.WORKSHOP_TICKET_COMPLETED_AND_FULLY_PAID
+                        && "L0-T2".equals(outcome.partRef())));
+        assertThat(folios.get(0).getLoyaltyProcessedAt()).isNotNull();
+        assertThat(folios.get(1).getLoyaltyProcessedAt()).isNotNull();
     }
 
     @Test
     void aTicketStillInsideTheCorrectionWindowDecidesNothing() {
-        givenAttendance(OPS_A, BookingAttendanceOutcome.Outcome.ATTENDED);
-        when(operations.ticketAttendanceOutcome(OPS_B)).thenReturn(BookingAttendanceOutcome.pending());
+        when(operations.ticketAttendanceOutcome(OPS_A)).thenReturn(TicketAttendanceOutcome.pending());
 
         processor.process(TICKET_A);
 
@@ -127,11 +137,10 @@ class GroupTicketLoyaltyOutcomeTest {
     }
 
     @Test
-    void aGroupWithAnUnsettledFolioGrantsNothingYet() {
-        givenAttendance(OPS_A, BookingAttendanceOutcome.Outcome.ATTENDED);
-        givenAttendance(OPS_B, BookingAttendanceOutcome.Outcome.ATTENDED);
-        folios.get(1).setLifecycleStatus(SettlementFinalBillLifecycleStatus.OPEN.name());
-        folios.get(1).setRemainingAmountVnd(300_000L);
+    void aTicketWithAnUnsettledFolioGrantsNothingYet() {
+        givenAttendance(OPS_A, TicketAttendanceOutcome.Outcome.ATTENDED);
+        folios.get(0).setLifecycleStatus(SettlementFinalBillLifecycleStatus.OPEN.name());
+        folios.get(0).setRemainingAmountVnd(300_000L);
 
         processor.process(TICKET_A);
 
@@ -140,7 +149,7 @@ class GroupTicketLoyaltyOutcomeTest {
     }
 
     @Test
-    void theSecondTicketFolioFindsTheEarnAlreadyDecided() {
+    void theTicketFolioFindsTheWholeGroupEarnAlreadyDecided() {
         when(loyalty.findBenefitResult(SourceKind.WORKSHOP, GROUP)).thenReturn(result(EarnState.GRANTED));
 
         processor.process(TICKET_B);
@@ -148,6 +157,23 @@ class GroupTicketLoyaltyOutcomeTest {
         verify(loyalty, never()).grantEarnedPoints(any());
         verify(loyalty, never()).finishIneligibleEarn(any());
         assertThat(folios.get(1).getLoyaltyProcessedAt()).isNotNull();
+    }
+
+    @Test
+    void aTicketWhosePartIsAlreadyClosedFindsItsPartDecided() {
+        BenefitPartRef partA = new BenefitPartRef("L0-T1", BigInteger.valueOf(300_000),
+                BigInteger.ZERO, BigInteger.ZERO, BigInteger.ZERO,
+                BigInteger.valueOf(300_000), BigInteger.valueOf(30),
+                ComponentState.NONE, EarnState.GRANTED, "COMPLETED");
+        BenefitResult resultWithParts = new BenefitResult(SourceKind.WORKSHOP, GROUP, ComponentState.CONSUMED,
+                ComponentState.CONSUMED, EarnState.PENDING, Instant.now(), List.of(partA));
+        when(loyalty.findBenefitResult(SourceKind.WORKSHOP, GROUP)).thenReturn(resultWithParts);
+
+        processor.process(TICKET_A);
+
+        verify(loyalty, never()).grantEarnedPoints(any());
+        verify(loyalty, never()).finishIneligibleEarn(any());
+        assertThat(folios.get(0).getLoyaltyProcessedAt()).isNotNull();
     }
 
     @Test
@@ -164,7 +190,7 @@ class GroupTicketLoyaltyOutcomeTest {
     void aTicketWithoutItsOperationsIdentityDecidesNothing() {
         when(booking.groupLoyaltyOutcomeSource(GROUP)).thenReturn(new BookingGroupLoyaltyOutcomeSource(true,
                 "quote-1", 3L, Instant.parse("2026-11-12T10:12:00Z"),
-                List.of(new BookingGroupLoyaltyOutcomeSource.GroupTicket(TICKET_A, null))));
+                List.of(new BookingGroupLoyaltyOutcomeSource.GroupTicket(TICKET_A, null, "L0-T1"))));
 
         processor.process(TICKET_A);
 
@@ -174,9 +200,9 @@ class GroupTicketLoyaltyOutcomeTest {
 
     // ---- helpers ----
 
-    private void givenAttendance(String operationsTicketReference, BookingAttendanceOutcome.Outcome outcome) {
+    private void givenAttendance(String operationsTicketReference, TicketAttendanceOutcome.Outcome outcome) {
         when(operations.ticketAttendanceOutcome(operationsTicketReference))
-                .thenReturn(new BookingAttendanceOutcome(true, outcome));
+                .thenReturn(new TicketAttendanceOutcome(true, outcome, null));
     }
 
     private static SettlementFinalBill folio(String ticketCode) {

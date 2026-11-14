@@ -3,6 +3,8 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountSummary;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.BenefitSelection;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.SelectionChoice;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dto.LatePaymentReviewResponse;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.*;
@@ -13,6 +15,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.LatePay
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.WorkshopOperationsAdapter;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.GroupCapacityOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.OutcomeStatus;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.PublishedPackageSelectionSnapshot;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.ReserveGroupCapacityCommand;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.SaleEligibilitySnapshot;
 import lombok.RequiredArgsConstructor;
@@ -25,8 +28,11 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.math.BigInteger;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 
@@ -70,6 +76,8 @@ public class LatePaymentReviewService {
     private final ApplicationEventPublisher events;
     private final ObjectMapper mapper;
     private final ManagerAlertRecipientSource managerRecipients;
+    private final WorkshopCartQuoteRepository quotes;
+    private final WorkshopCartBenefitService benefits;
 
     private static final Map<String, String> CONDITION_LABELS = Map.of(
             CAPACITY, "Hết chỗ",
@@ -178,16 +186,24 @@ public class LatePaymentReviewService {
         alertManagers(group, groupLines, review, correlationReference);
         LatePaymentReviewQueued queued = new LatePaymentReviewQueued(review.getReviewReference(), group.getGroupCode(),
                 review.getEarliestSessionAt(), review.getResultDueAt(), correlationReference);
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                try {
-                    events.publishEvent(queued);
-                } catch (RuntimeException ex) {
-                    log.warn("Late-payment queue event {} failed: {}", queued.reviewReference(), ex.getClass().getSimpleName());
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    try {
+                        events.publishEvent(queued);
+                    } catch (RuntimeException ex) {
+                        log.warn("Late-payment queue event {} failed: {}", queued.reviewReference(), ex.getClass().getSimpleName());
+                    }
                 }
+            });
+        } else {
+            try {
+                events.publishEvent(queued);
+            } catch (RuntimeException ex) {
+                log.warn("Late-payment queue event {} failed: {}", queued.reviewReference(), ex.getClass().getSimpleName());
             }
-        });
+        }
         log.info("Late payment for group {} queued for a Manager: {}", groupCode, review.getFailedConditions());
         return review;
     }
@@ -312,7 +328,7 @@ public class LatePaymentReviewService {
                 earliest = start;
             }
         }
-        if (!amountMatches(group, amountVnd)) {
+        if (!amountMatches(group, groupLines, amountVnd)) {
             failed.add(AMOUNT);
         }
         if (includeArrivalAndDuplicate) {
@@ -331,24 +347,147 @@ public class LatePaymentReviewService {
     }
 
     /**
-     * Condition 3 (decision 2026-11-13): the recorded per-ticket prices add up to exactly the collected amount, and
-     * the group used no voucher or points. A group with a benefit cannot be re-held through the 006 contract in V1,
-     * so it fails conservatively instead of being re-priced.
+     * Condition 3 (decision 2026-11-14): recomputes the automatic workshop discount. Condition 3 passes when:
+     * (1) the recalculated automatic discount equals the snapshot discount,
+     * (2) every ticket/package price is unchanged,
+     * (3) and the collected amount matches the expected amount.
+     * Vouchers and points still fail condition 3 (decision 2026-11-13).
      */
-    private boolean amountMatches(BookingGroup group, long amountVnd) {
-        if (amountVnd != group.getGroupCollectionVnd() || group.getVoucherUseReference() != null) {
+    private boolean amountMatches(BookingGroup group, List<BookingGroupLine> groupLines, long amountVnd) {
+        if (amountVnd != group.getGroupCollectionVnd()) {
             return false;
         }
+
+        List<TicketBooking> groupTickets = tickets.findByGroupIdOrderByLineIndexAscParticipantOrdinalAsc(group.getId());
+        if (groupTickets.isEmpty() || groupLines == null || groupLines.isEmpty()) {
+            return false;
+        }
+
         long collected = 0;
-        for (TicketBooking ticket : tickets.findByGroupIdOrderByLineIndexAscParticipantOrdinalAsc(group.getId())) {
+        long snapshotDiscountTotal = 0;
+        for (TicketBooking ticket : groupTickets) {
             TicketPriceSnapshot snapshot = snapshots.findByTicketId(ticket.getId()).orElse(null);
-            if (snapshot == null || snapshot.getPointsUsed() != 0 || snapshot.getVoucherDiscountVnd() != 0
-                    || snapshot.getPointDiscountVnd() != 0) {
+            if (snapshot == null || snapshot.getPointsUsed() != 0 || snapshot.getPointDiscountVnd() != 0) {
                 return false;
             }
             collected = Math.addExact(collected, snapshot.getCollectedAtBookingVnd());
+            snapshotDiscountTotal = Math.addExact(snapshotDiscountTotal, snapshot.getVoucherDiscountVnd());
         }
-        return collected == amountVnd;
+
+        if (collected != amountVnd) {
+            return false;
+        }
+
+        // Voucher check: a group that used a voucher still fails condition 3 (decision 2026-11-13)
+        Optional<WorkshopCartQuote> quoteOpt = quotes.findByAcceptedGroupCode(group.getGroupCode());
+        if (quoteOpt.isPresent()) {
+            WorkshopCartQuote quote = quoteOpt.get();
+            if (quote.getPointsUsed() != 0 || quote.getPointDiscountVnd() != 0) {
+                return false;
+            }
+            if (quote.getBenefitSelectionJson() != null) {
+                BenefitSelection selection = readSelection(quote.getBenefitSelectionJson());
+                if (selection != null) {
+                    if (selection.choice() == SelectionChoice.VOUCHER
+                            || selection.voucherCode() != null
+                            || (selection.requestedPoints() != null && selection.requestedPoints().signum() > 0)) {
+                        return false;
+                    }
+                }
+            }
+            if (quote.getVoucherDiscountVnd() != snapshotDiscountTotal) {
+                return false;
+            }
+        } else if (group.getVoucherUseReference() != null) {
+            // Cannot verify whether voucherUseReference was a voucher or auto-discount without the quote
+            return false;
+        }
+
+        // Check package / ticket prices unchanged
+        List<WorkshopCartPricingService.PricedLine> pricedLines = new ArrayList<>();
+        for (BookingGroupLine line : groupLines) {
+            PublishedPackageSelectionSnapshot pkg;
+            try {
+                pkg = operations.getPublishedPackageSelection(Long.toString(line.getPackageId()));
+            } catch (RuntimeException ex) {
+                log.warn("Could not read published package {} for group {}: {}", line.getPackageId(), group.getGroupCode(), ex.getMessage());
+                return false;
+            }
+            if (pkg == null || pkg.publicPerParticipantPrice() != line.getPricePerParticipantVnd()) {
+                return false;
+            }
+
+            List<WorkshopCartPricingService.PricedSession> pricedSessions = new ArrayList<>();
+            List<BookingGroupLineSession> orderedSessions = line.getSessions().stream()
+                    .sorted(Comparator.comparingInt(BookingGroupLineSession::getOrdinal)).toList();
+            for (BookingGroupLineSession session : orderedSessions) {
+                UUID sessionRef;
+                try {
+                    sessionRef = UUID.fromString(session.getSessionReference());
+                } catch (IllegalArgumentException ex) {
+                    return false;
+                }
+                SaleEligibilitySnapshot sale;
+                try {
+                    sale = operations.getSaleEligibility(sessionRef);
+                } catch (RuntimeException ex) {
+                    sale = null;
+                }
+                LocalDate workshopDate = sale != null && sale.workshopDate() != null
+                        ? sale.workshopDate()
+                        : (session.getScheduledStart() != null
+                                ? session.getScheduledStart().atZone(ZoneId.of("Asia/Ho_Chi_Minh")).toLocalDate()
+                                : null);
+                Long locationRef = session.getLocationReference() != null
+                        ? session.getLocationReference()
+                        : (sale != null ? sale.locationReference() : null);
+                if (locationRef == null || locationRef <= 0 || workshopDate == null) {
+                    return false;
+                }
+                pricedSessions.add(new WorkshopCartPricingService.PricedSession(
+                        sessionRef, locationRef, session.getOrdinal(), session.getScheduledStart(),
+                        sale != null ? sale.scheduledEnd() : null, workshopDate));
+            }
+            pricedLines.add(new WorkshopCartPricingService.PricedLine(
+                    line.getLineIndex(), line.getPackageId(), line.getPackageNameSnapshot(),
+                    line.getPricePerParticipantVnd(), line.getTicketCount(), pricedSessions));
+        }
+
+        // Check each ticket's packagePriceVnd matches the line price
+        for (TicketBooking ticket : groupTickets) {
+            TicketPriceSnapshot snapshot = snapshots.findByTicketId(ticket.getId()).orElse(null);
+            BookingGroupLine line = groupLines.stream().filter(l -> l.getLineIndex() == ticket.getLineIndex()).findFirst().orElse(null);
+            if (snapshot == null || line == null || snapshot.getPackagePriceVnd() != line.getPricePerParticipantVnd()) {
+                return false;
+            }
+        }
+
+        // Recalculate automatic discount as of review time
+        WorkshopCartPricingService.PricedCart cart = new WorkshopCartPricingService.PricedCart(pricedLines, null, 0L);
+        long recalculatedDiscount;
+        try {
+            WorkshopCartBenefitService.CartBenefits recalculated = benefits.preview(
+                    group.getBuyerMemberAccountId(), cart,
+                    new BenefitSelection(SelectionChoice.AUTO, null, BigInteger.ZERO));
+            recalculatedDiscount = recalculated.voucherDiscountVnd();
+        } catch (RuntimeException ex) {
+            log.warn("Could not recalculate automatic discount for group {}: {}", group.getGroupCode(), ex.getMessage());
+            return false;
+        }
+
+        return recalculatedDiscount == snapshotDiscountTotal;
+    }
+
+    private BenefitSelection readSelection(String json) {
+        if (json == null || json.isBlank()) {
+            return null;
+        }
+        try {
+            return mapper.readValue(json, BenefitSelection.class);
+        } catch (JsonProcessingException ex) {
+            log.warn("Could not read benefit selection json: {}", ex.getMessage());
+            return null;
+        }
     }
 
     /** Holds fresh capacity for every line (all or none), then confirms the group as a new acceptance. */

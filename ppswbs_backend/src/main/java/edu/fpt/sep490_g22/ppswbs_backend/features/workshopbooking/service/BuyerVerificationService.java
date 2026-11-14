@@ -5,6 +5,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.BookingGro
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.BookingBuyerVerification;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.BookingGroup;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.BookingStatus;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.ConsumeBuyerProofResult;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -164,6 +165,46 @@ public class BuyerVerificationService {
         verification.setStatus(BookingBuyerVerification.CONSUMED);
         verification.setConsumedAt(now);
         return new ConsumedProof(verification.getId());
+    }
+
+    /**
+     * Verifies and consumes buyer proof for group operations (003.1 T107 for 003.3 T099, T100, T101).
+     * A Member is accepted when they own the group; otherwise the single-use buyerVerificationReference
+     * must be valid and is marked CONSUMED. Never reveals whether the group exists to a stranger.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public ConsumeBuyerProofResult consumeProof(String groupCode, Long memberAccountId, String buyerVerificationReference) {
+        if (groupCode == null || groupCode.isBlank()) {
+            return ConsumeBuyerProofResult.refused(ConsumeBuyerProofResult.CODE_REQUIRED);
+        }
+        BookingGroup group = groups.findByGroupCodeForUpdate(groupCode.trim()).orElse(null);
+        if (group == null) {
+            return ConsumeBuyerProofResult.refused(ConsumeBuyerProofResult.CODE_REQUIRED);
+        }
+        if (memberAccountId != null && group.getBuyerMemberAccountId() != null
+                && group.getBuyerMemberAccountId().equals(memberAccountId)) {
+            return ConsumeBuyerProofResult.accepted();
+        }
+        if (buyerVerificationReference == null || buyerVerificationReference.isBlank()) {
+            return ConsumeBuyerProofResult.refused(ConsumeBuyerProofResult.CODE_REQUIRED);
+        }
+        BookingBuyerVerification verification = verifications
+                .findByBuyerVerificationReferenceForUpdate(buyerVerificationReference.trim()).orElse(null);
+        if (verification == null || !verification.getGroup().getId().equals(group.getId())) {
+            return ConsumeBuyerProofResult.refused(ConsumeBuyerProofResult.CODE_REQUIRED);
+        }
+        if (BookingBuyerVerification.LOCKED.equals(verification.getStatus())) {
+            return ConsumeBuyerProofResult.refused(ConsumeBuyerProofResult.CODE_FAILED);
+        }
+        Instant now = Instant.now();
+        if (!BookingBuyerVerification.VERIFIED.equals(verification.getStatus())
+                || verification.getReferenceExpiresAt() == null || !verification.getReferenceExpiresAt().isAfter(now)) {
+            return ConsumeBuyerProofResult.refused(ConsumeBuyerProofResult.CODE_EXPIRED);
+        }
+        verification.setStatus(BookingBuyerVerification.CONSUMED);
+        verification.setConsumedAt(now);
+        verifications.save(verification);
+        return ConsumeBuyerProofResult.accepted();
     }
 
     public record ConfirmResult(String errorCode, VerifiedReference reference) {

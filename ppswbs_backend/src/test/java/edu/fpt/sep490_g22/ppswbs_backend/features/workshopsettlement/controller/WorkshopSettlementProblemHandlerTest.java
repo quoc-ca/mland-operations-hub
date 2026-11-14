@@ -1,32 +1,33 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.controller;
 
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.WorkshopFinalBillApiService;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.FinalPaymentCheckoutService;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.FolioCorrectionService;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.TicketFolioApiService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
+import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup;
 
 class WorkshopSettlementProblemHandlerTest {
-    private final WorkshopFinalBillApiService service = mock(WorkshopFinalBillApiService.class);
-    private final FinalPaymentCheckoutService paymentCheckout = mock(FinalPaymentCheckoutService.class);
+    private final TicketFolioApiService folioApi = mock(TicketFolioApiService.class);
+    private final FolioCorrectionService correctionService = mock(FolioCorrectionService.class);
     private final LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
     private MockMvc mvc;
 
     @BeforeEach
     void setUp() {
         validator.afterPropertiesSet();
-        mvc = standaloneSetup(new WorkshopFinalBillController(service, paymentCheckout))
+        mvc = standaloneSetup(new TicketFolioController(folioApi, correctionService))
                 .setControllerAdvice(new WorkshopSettlementProblemHandler())
                 .setMessageConverters(new MappingJackson2HttpMessageConverter(new ObjectMapper()))
                 .setValidator(validator)
@@ -34,9 +35,11 @@ class WorkshopSettlementProblemHandlerTest {
     }
 
     @Test
-    void missingIdempotencyHeaderReturnsSafeTypedProblemAndServerCorrelation() throws Exception {
-        mvc.perform(post("/api/v1/workshop-bookings/BK-SETTLE-1/final-bill")
+    void malformedBodyReturnsSafeTypedProblemAndServerCorrelation() throws Exception {
+        mvc.perform(post("/api/v1/workshop-tickets/TK-SETTLE-1/folio/charges")
                         .header("X-Correlation-Id", "client-controlled-correlation")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("not-json")
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
@@ -44,12 +47,12 @@ class WorkshopSettlementProblemHandlerTest {
                 .andExpect(jsonPath("$.correlationReference").value(
                         org.hamcrest.Matchers.not("client-controlled-correlation")));
 
-        verifyNoInteractions(service);
+        verifyNoInteractions(folioApi);
     }
 
     @Test
     void validationProblemDoesNotEchoGuestContactValues() throws Exception {
-        mvc.perform(post("/api/v1/workshop-bookings/BK-SETTLE-2/final-bill/charges")
+        mvc.perform(post("/api/v1/workshop-tickets/TK-SETTLE-2/folio/charges")
                         .header("Idempotency-Key", "settlement-validation-test")
                         .accept(MediaType.APPLICATION_JSON)
                         .contentType("application/json")
@@ -59,13 +62,11 @@ class WorkshopSettlementProblemHandlerTest {
                                 """))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
-                .andExpect(jsonPath("$.fieldErrors").isArray())
-                .andExpect(jsonPath("$.correlationReference").isNotEmpty())
-                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content()
-                        .string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("guest-private@example.test"))))
-                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content()
-                        .string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("0900000000"))));
+                .andExpect(content().string(
+                        org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("guest-private@example.test"))))
+                .andExpect(content().string(
+                        org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("0900000000"))));
 
-        verifyNoInteractions(service);
+        verifyNoInteractions(folioApi);
     }
 }

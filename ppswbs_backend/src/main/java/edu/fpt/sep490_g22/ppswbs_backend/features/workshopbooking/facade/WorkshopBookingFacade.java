@@ -36,6 +36,14 @@ public interface WorkshopBookingFacade {
      */
     FinalBalanceResolutionOutcome recordFinalBalanceResolved(RecordFinalBalanceResolvedCommand command);
 
+    /**
+     * 003.3 concludes that one ticket's folio is settled (FINALIZED with a zero balance): the ticket becomes
+     * {@code FULLY_PAID}. MANDATORY, inside the caller's finalization transaction. Idempotent: a ticket already
+     * {@code FULLY_PAID} is accepted without a second audit. {@code BOOKING_NOT_FOUND} for an unknown ticket;
+     * {@code INVALID_STATE} for a ticket that is not confirmed or completed, or is in a refund state.
+     */
+    FinalBalanceResolutionOutcome recordTicketFinalBalanceResolved(RecordTicketFinalBalanceResolvedCommand command);
+
     /** Records one terminal service outcome concluded by Settlement. */
     BookingServiceOutcomeResult recordBookingServiceOutcome(RecordBookingServiceOutcomeCommand command);
 
@@ -73,4 +81,16 @@ public interface WorkshopBookingFacade {
 
     /** The PII-free facts of one late-payment review, so 003.3 can recheck a refund amount (FR-040). */
     java.util.Optional<LatePaymentReviewSnapshot> findLatePaymentReview(String reviewReference);
+
+    /**
+     * Read-only folio context of one ticket inside a booking group (003.1 T107 for 003.3 T106).
+     * Empty when unknown.
+     */
+    java.util.Optional<TicketFolioContext> getTicketFolioContext(String ticketCode);
+
+    /**
+     * Verifies and consumes buyer proof inside the caller's transaction (003.1 T107 for 003.3 T099, T100, T101).
+     * Must be called within an active transaction (MANDATORY).
+     */
+    ConsumeBuyerProofResult consumeBuyerProof(ConsumeBuyerProofCommand command);
 }

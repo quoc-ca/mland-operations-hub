@@ -8,6 +8,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.persistence.Ot
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.persistence.OtaChannelMapping;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.persistence.OtaChannelMappingRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.persistence.OtaChangeKind;
+import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.persistence.OtaInboundEvent;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.persistence.OtaMappingStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.persistence.OtaOutboundChange;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.persistence.OtaOutboundChangeRepository;
@@ -59,7 +60,7 @@ class OtaReconciliationServiceTest {
         mapping = mapping(OtaMappingStatus.DRAFT);
         workItem = OtaReconciliationWorkItem.builder().id(91L).publicReference("00000000-0000-4000-8000-000000000091").mapping(mapping)
                 .locationReference("location-ref-1").category("SOURCE_VERSION_GAP").status("OPEN").build();
-        when(decisionRepository.findByActorAccountReferenceAndIdempotencyKeyHash(any(), any()))
+        org.mockito.Mockito.lenient().when(decisionRepository.findByActorAccountReferenceAndIdempotencyKeyHash(any(), any()))
                 .thenAnswer(call -> Optional.ofNullable(latestDecision.get()));
     }
 
@@ -160,6 +161,46 @@ class OtaReconciliationServiceTest {
         assertThat(result.status()).isEqualTo("RESOLVED");
         assertThat(mapping.getStatus()).isEqualTo(OtaMappingStatus.SALES_CLOSED);
         assertThat(workItem.getDecision()).isEqualTo("ACCEPTED");
+    }
+
+    @Test
+    void listWorkItems_withCategoryFilter_returnsItems() {
+        OtaInboundEvent event = OtaInboundEvent.builder().id(20L)
+                .connection(OtaChannelConnection.builder().providerCode(OtaProvider.KLOOK).status("ACTIVE").build()).build();
+        OtaReconciliationWorkItem unmapped = OtaReconciliationWorkItem.builder().id(92L)
+                .publicReference("00000000-0000-4000-8000-000000000092")
+                .mapping(null).inboundEvent(event).status("OPEN").category("INBOUND_EVENT")
+                .locationReference("GLOBAL").auditReference("00000000-0000-4000-8000-000000000099").build();
+
+        when(workItemRepository.findByCategoryOrderByCreatedAtAsc("INBOUND_EVENT")).thenReturn(List.of(unmapped));
+
+        List<OtaReconciliationWorkItemView> result = service.listWorkItems(null, "INBOUND_EVENT", actor(ActorRole.MANAGER, 1L));
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).mappingId()).isNull();
+        assertThat(result.get(0).workItemId()).hasToString("00000000-0000-4000-8000-000000000092");
+        assertThat(result.get(0).safeSummary()).isEqualTo("INBOUND_EVENT");
+    }
+
+    @Test
+    void resolve_inboundEventWithoutMapping_resolvesSuccessfully() {
+        stubDecisionSave();
+        OtaInboundEvent event = OtaInboundEvent.builder().id(20L)
+                .connection(OtaChannelConnection.builder().providerCode(OtaProvider.KLOOK).status("ACTIVE").build()).build();
+        OtaReconciliationWorkItem unmapped = OtaReconciliationWorkItem.builder().id(93L)
+                .publicReference("00000000-0000-4000-8000-000000000093")
+                .mapping(null).inboundEvent(event).status("OPEN").category("INBOUND_EVENT")
+                .locationReference("GLOBAL").auditReference("00000000-0000-4000-8000-000000000099").build();
+
+        when(workItemRepository.findByIdForUpdate(93L)).thenReturn(Optional.of(unmapped));
+
+        OtaReconciliationActionResult result = service.resolve(93L, "ACCEPTED", "operator cleared conflict",
+                "idem-key-0093", actor(ActorRole.MANAGER, 5L));
+
+        assertThat(result.status()).isEqualTo("RESOLVED");
+        assertThat(result.mappingId()).isNull();
+        assertThat(unmapped.getDecision()).isEqualTo("ACCEPTED");
+        assertThat(unmapped.getStatus()).isEqualTo("RESOLVED");
     }
 
     private OtaOutboundChange outbound(OtaChangeKind kind, String status) {

@@ -91,6 +91,12 @@ public class FolioCollectionApiService {
         return response(cashCloses.confirmDifference(branchId, businessDay, manager.accountId(), correlation));
     }
 
+    public CashCloseResponse confirmDifferenceById(String cashCloseId, String reason, String correlation,
+                                                   CurrentAccountActor actor) {
+        CurrentAccountActor manager = authorization.requireManager(actor);
+        return response(cashCloses.confirmDifferenceById(cashCloseId, reason, manager.accountId(), correlation));
+    }
+
     public long expectedCash(Long branchId, LocalDate businessDay, CurrentAccountActor actor) {
         authorization.requireManagerOrStaff(actor, branchId);
         return cashCloses.expectedCash(branchId, businessDay);

@@ -25,24 +25,42 @@ public final class FolioCorrectionDtos {
 
     public record Response(
             String correctionReference,
+            String ticketCode,
             String bookingReference,
             String billReference,
             Long amountVnd,
+            String overchargeAmount,
             String currency,
             String reason,
+            String status,
             String lifecycleStatus,
+            String refundId,
+            String refundStatus,
             Instant createdAt,
             Instant updatedAt
     ) {
         public static Response from(SettlementFolioCorrection correction, SettlementCase settlementCase) {
+            return from(correction, settlementCase, null, null);
+        }
+
+        public static Response from(SettlementFolioCorrection correction, SettlementCase settlementCase,
+                                   String refundId, String refundStatus) {
+            String ticketCode = correction.getBookingReference();
+            String overcharge = correction.getAmountVnd() != null ? String.valueOf(correction.getAmountVnd()) : null;
+            String st = settlementCase != null ? settlementCase.getLifecycleStatus() : null;
             return new Response(
                     correction.getCorrectionReference(),
+                    ticketCode,
                     correction.getBookingReference(),
                     correction.getBillReference(),
                     correction.getAmountVnd(),
+                    overcharge,
                     correction.getCurrencyCode(),
                     correction.getReason(),
-                    settlementCase.getLifecycleStatus(),
+                    st,
+                    st,
+                    refundId,
+                    refundStatus,
                     correction.getCreatedAt(),
                     correction.getUpdatedAt()
             );

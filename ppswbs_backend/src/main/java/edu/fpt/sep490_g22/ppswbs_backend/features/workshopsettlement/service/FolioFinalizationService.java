@@ -1,10 +1,14 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service;
 
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingOutcomeStatus;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingRejectionReason;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.FinalBalanceResolutionOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementBusinessAuditRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementFinalBillRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementBusinessAudit;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementFinalBill;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementFinalBillLifecycleStatus;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.WorkshopBookingSettlementAdapter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -32,6 +36,7 @@ public class FolioFinalizationService {
     private final SettlementFinalBillRepository bills;
     private final SettlementBusinessAuditRepository audits;
     private final FolioBalanceService balances;
+    private final WorkshopBookingSettlementAdapter booking;
 
     /** Finalizes the folio when nothing is owed and nothing is unproven; otherwise leaves it OPEN. */
     @Transactional
@@ -47,7 +52,40 @@ public class FolioFinalizationService {
         SettlementFinalBill saved = bills.saveAndFlush(folio);
         audit(saved, "FOLIO_FINALIZED", null, null, correlationReference);
         log.info("Folio {} finalized: balance cleared and no collection pending", saved.getBookingReference());
+        concludeTicketSettled(saved, correlationReference);
         return saved;
+    }
+
+    /**
+     * FR-008 per ticket (BE-DESIGN-0006, decided 2026-11-14 by Hồ Hoàng Quốc): once a ticket folio is
+     * {@code FINALIZED} — zero balance, nothing awaiting verification, and nothing can change it afterwards —
+     * 003.1 is told the ticket is settled, in the same transaction. Called from every path that finalizes.
+     *
+     * <p>A folio that is not a ticket's (an older booking-wide bill) is unknown to 003.1 and is skipped. A ticket
+     * 003.1 refuses keeps its finalized folio: the money is verified and Settlement's fact stands; the refusal is
+     * audited for a Manager to follow up.
+     */
+    @Transactional
+    public void concludeTicketSettled(SettlementFinalBill folio, String correlationReference) {
+        if (!SettlementFinalBillLifecycleStatus.FINALIZED.name().equals(folio.getLifecycleStatus())) {
+            return;
+        }
+        String correlation = correlationReference == null || correlationReference.isBlank()
+                ? "CORR-" + UUID.randomUUID() : correlationReference;
+        FinalBalanceResolutionOutcome outcome = booking.recordTicketFinalBalanceResolved(
+                folio.getBookingReference(), folio.getBillReference(),
+                "TICKET-SETTLED:" + folio.getBillReference(), correlation);
+        if (outcome != null && outcome.status() == BookingOutcomeStatus.ACCEPTED) {
+            return;
+        }
+        BookingRejectionReason reason = outcome == null ? null : outcome.reason();
+        if (reason == BookingRejectionReason.BOOKING_NOT_FOUND) {
+            log.debug("Folio {} is not a ticket folio; no per-ticket conclusion sent", folio.getBookingReference());
+            return;
+        }
+        log.warn("003.1 refused the settled conclusion of ticket folio {}: {}", folio.getBookingReference(), reason);
+        audit(folio, "TICKET_BALANCE_CONCLUSION_REJECTED", null,
+                reason == null ? "UNKNOWN" : reason.name(), correlation);
     }
 
     /** Whether the product may be handed over: finalized, or a Manager approved the exception (FR-035). */

@@ -4,6 +4,8 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.Curre
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.RefundRequestStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementRefundRequest;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.BankRefundService;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.SettlementIdempotencyResult;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.SettlementIdempotencyService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.WorkshopSettlementAuthorizationException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.WorkshopSettlementAuthorizationService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.WorkshopSettlementValidationException;
@@ -11,12 +13,15 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.UUID;
 
@@ -29,11 +34,25 @@ import java.util.UUID;
  * (owner decision 2026-11-13).
  */
 @RestController
-@RequiredArgsConstructor
 public class RefundRequestController {
 
     private final BankRefundService bankRefunds;
     private final WorkshopSettlementAuthorizationService authorization;
+    private final SettlementIdempotencyService idempotency;
+
+    @Autowired
+    public RefundRequestController(BankRefundService bankRefunds,
+                                   WorkshopSettlementAuthorizationService authorization,
+                                   @Autowired(required = false) SettlementIdempotencyService idempotency) {
+        this.bankRefunds = bankRefunds;
+        this.authorization = authorization;
+        this.idempotency = idempotency;
+    }
+
+    public RefundRequestController(BankRefundService bankRefunds,
+                                   WorkshopSettlementAuthorizationService authorization) {
+        this(bankRefunds, authorization, null);
+    }
 
     public enum RefundTransition {APPROVE, RECORD_TRANSFER, CONFIRM_REFUNDED, CLOSE_UNREACHABLE, REOPEN}
 
@@ -114,26 +133,52 @@ public class RefundRequestController {
         return RefundRequestResponse.of(result);
     }
 
-    /** FR-038a: the payer is at the counter, so Staff may enter the account instead of sending the link. */
+    /** FR-038a, FR-022d: Staff enters account at the counter; Idempotency-Key required. */
     @PutMapping("/api/v1/workshop-refund-requests/{refundId}/account")
     public RefundRequestResponse recordAccountAtCounter(
             @PathVariable String refundId,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId,
             @Valid @RequestBody CounterAccountRequest request,
             Authentication authentication) {
+        requireIdempotencyKey(idempotencyKey);
         CurrentAccountActor actor = authorization.requireManagerOrAnyStaff(actor(authentication));
-        return RefundRequestResponse.of(bankRefunds.submitAccountAtCounter(refundId, request.bankCode(),
-                request.accountNumber(), request.holderName(), actor.accountId(), correlation(correlationId)));
+        String correlation = correlation(correlationId);
+        if (idempotency == null) {
+            return RefundRequestResponse.of(bankRefunds.submitAccountAtCounter(refundId, request.bankCode(),
+                    request.accountNumber(), request.holderName(), actor.accountId(), correlation));
+        }
+        String opRef = "REFUND-ACC-" + digest(refundId + "|" + idempotencyKey.trim());
+        String fingerprint = digest(refundId + "|" + request.bankCode().trim() + "|"
+                + request.accountNumber().trim() + "|" + request.holderName().trim());
+        SettlementIdempotencyResult result = idempotency.execute(opRef, fingerprint, () -> {
+            SettlementRefundRequest submitted = bankRefunds.submitAccountAtCounter(refundId, request.bankCode(),
+                    request.accountNumber(), request.holderName(), actor.accountId(), correlation);
+            return submitted.getRequestReference();
+        });
+        return RefundRequestResponse.of(bankRefunds.require(result.outcomeReference()));
     }
 
-    /** FR-040: a resend revokes the previous link, so only the newest one works. The token is never returned. */
+    /** FR-040, FR-022d: a resend revokes the previous link; Idempotency-Key required. Replay returns 204. */
     @PostMapping("/api/v1/workshop-refund-requests/{refundId}/account-link-resends")
     public ResponseEntity<Void> resendAccountLink(
             @PathVariable String refundId,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId,
             Authentication authentication) {
+        requireIdempotencyKey(idempotencyKey);
         CurrentAccountActor actor = authorization.requireManagerOrAnyStaff(actor(authentication));
-        bankRefunds.resendAccountLink(refundId, actor.accountId(), correlation(correlationId));
+        String correlation = correlation(correlationId);
+        if (idempotency == null) {
+            bankRefunds.resendAccountLink(refundId, actor.accountId(), correlation);
+            return ResponseEntity.noContent().build();
+        }
+        String opRef = "REFUND-RESEND-" + digest(refundId + "|" + idempotencyKey.trim());
+        String fingerprint = digest(refundId);
+        idempotency.execute(opRef, fingerprint, () -> {
+            bankRefunds.resendAccountLink(refundId, actor.accountId(), correlation);
+            return refundId;
+        });
         return ResponseEntity.noContent().build();
     }
 
@@ -156,6 +201,21 @@ public class RefundRequestController {
     }
 
     public record AccountNumberResponse(String refundId, String bankCode, String accountNumber, String holderName) {
+    }
+
+    private void requireIdempotencyKey(String key) {
+        if (key == null || key.trim().length() < 16 || key.trim().length() > 128) {
+            throw new WorkshopSettlementValidationException("IDEMPOTENCY_KEY_REQUIRED");
+        }
+    }
+
+    private static String digest(String value) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+                    .digest(value.getBytes(StandardCharsets.UTF_8)));
+        } catch (Exception impossible) {
+            throw new IllegalStateException("SHA-256 unavailable", impossible);
+        }
     }
 
     private static String correlation(String correlationId) {
