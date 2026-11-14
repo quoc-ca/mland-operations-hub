@@ -1,0 +1,46 @@
+/* Shared UI pieces of the frontend foundation; colours and square buttons follow the prototype style.css. */
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
+.small{font-size:13px}
+.notice{border:1px solid #e3e3e3;background:#fff;padding:14px 16px;margin:16px 0;font-size:14px}
+.notice p{margin:0 0 6px}
+.notice.error{border-color:#a1260d;color:#7a1c0a;background:#fff6f4}
+.notice.success{border-color:#0b5c34;color:#0b5c34;background:#f2fbf6}
+.notice-actions{display:flex;gap:10px;flex-wrap:wrap}
+.notice-actions:empty{display:none}
+.field{display:flex;flex-direction:column;gap:6px;font-size:14px}
+.field label{font-weight:700}
+.field input,.field select,.field textarea{padding:11px 12px;border:1px solid #b8b8b8;background:#fff;border-radius:0;font:inherit}
+.field textarea{min-height:110px;resize:vertical}
+.field [aria-invalid=true]{border-color:#a1260d}
+.field-error{color:#a1260d;font-size:13px}
+.button:disabled{opacity:.55;cursor:not-allowed}
+.button.danger{background:#a1260d;border-color:#a1260d;color:#fff}
+.button.small{min-height:34px;padding:0 12px;font-size:13px}
+.dialog-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;padding:16px;z-index:20}
+.dialog{background:#fff;max-width:560px;width:100%;padding:24px;border:1px solid #e3e3e3;max-height:90vh;overflow:auto}
+.dialog h2{margin:0 0 14px;font-size:20px}
+.dialog-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}
+.language-switch select{padding:6px 8px;border:1px solid #b8b8b8;background:#fff;border-radius:0}
+.app-header{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:16px 32px;background:#fff;border-bottom:1px solid #e3e3e3}
+.app-header nav{display:flex;gap:20px;flex-wrap:wrap;font-size:14px}
+.app-header .header-tools{display:flex;align-items:center;gap:12px}
+@media(max-width:600px){.app-header{padding:12px 16px}}
+/* Generic layout pieces shared by feature screens (moved from 002). */
+.pager{display:flex;align-items:center;justify-content:center;gap:14px;margin-top:22px;font-size:14px}
+.pre-line{white-space:pre-line}
+.mono{font-family:ui-monospace,Consolas,monospace;font-size:13px}
+.section-title{font-size:18px;margin:26px 0 12px}
+.form-actions{margin-top:20px}
+.text-button{background:none;border:0;color:#002967;font-weight:700;cursor:pointer;padding:0 0 0 8px;font-size:13px;text-decoration:underline}
+.text-button:disabled{opacity:.5;cursor:not-allowed}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px 24px;margin:0}
+.facts div{min-width:0}.facts .wide{grid-column:1/-1}
+.facts dt{font-size:12px;color:#595959;text-transform:uppercase;letter-spacing:.04em}
+.facts dd{margin:4px 0 0;overflow-wrap:anywhere}
+.data-table{border-top:1px solid #e3e3e3;overflow-x:auto}
+.data-row{display:grid;grid-template-columns:minmax(180px,2fr) 1fr 1fr 1fr;gap:12px;padding:12px 0;border-bottom:1px solid #e3e3e3;font-size:14px;align-items:center;min-width:560px}
+.data-row.head{font-weight:700;color:#595959;font-size:13px}
+.data-row.current{background:#f5f8ff}
+.data-row span{overflow-wrap:anywhere}
+.row-messages{padding:6px 0 12px;border-bottom:1px solid #e3e3e3}
+@media(max-width:820px){.feature-shell{grid-template-columns:1fr;grid-template-rows:auto 1fr}.feature-shell .side-nav{display:flex;flex-direction:row;flex-wrap:wrap;align-items:center;gap:6px;padding:12px 16px}.feature-shell .side-nav .eyebrow,.feature-shell .side-nav strong{display:none}}

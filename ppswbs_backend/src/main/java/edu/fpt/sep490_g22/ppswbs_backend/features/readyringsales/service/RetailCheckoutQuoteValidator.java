@@ -1,0 +1,107 @@
+package edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service;
+
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.SaleContext;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.SaleVariantFact;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.BranchStockFact;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.BranchVariant;
+import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.dto.CheckoutDtos;
+import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.entity.CartLine;
+import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.entity.RetailCart;
+import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.entity.RetailCheckoutQuote;
+import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.entity.RetailCheckoutQuoteBranch;
+import org.springframework.stereotype.Component;
+
+import java.math.BigInteger;
+import java.time.Instant;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
+
+/** Validates an owned, locked quote against the locked cart and FE-02 locked sale facts. */
+@Component
+public class RetailCheckoutQuoteValidator {
+    public void validate(RetailCheckoutQuote quote, RetailCart cart, CheckoutDtos.CreateGroupedCheckoutRequest request,
+                         SaleContext context, Instant now) {
+        if (quote == null || cart == null || request == null || context == null || now == null
+            || !Boolean.TRUE.equals(request.benefitTermsAccepted()) || !"OPEN".equals(quote.getStatus())
+            || !now.isBefore(quote.getExpiresAt()) || !Objects.equals(request.benefitPreviewId(), quote.getId())
+            || !Objects.equals(cart.getId(), quote.getCartId()) || !Objects.equals(cart.getMemberAccountId(), quote.getMemberAccountId())
+            || cart.getVersion() == null || cart.getVersion() != quote.getCartVersion()) {
+            throw stale();
+        }
+        if (!Objects.equals(RetailPaymentMethods.parse(request.paymentMethod()).name(), quote.getPaymentMethod())) {
+            throw stale();
+        }
+        var selected = request.benefitSelection();
+        if (selected == null || !Objects.equals(selected.choice(), quote.getSelectionChoice())
+            || !Objects.equals(selected.voucherCode(), quote.getVoucherCode()) || selected.requestedPoints() == null
+            || !selected.requestedPoints().matches("^(0|[1-9][0-9]{0,18})$")
+            || !new BigInteger(selected.requestedPoints()).equals(quote.getRequestedPoints())) {
+            throw stale();
+        }
+        Map<Long, CheckoutDtos.BranchOrderCheckoutInput> choices = new HashMap<>();
+        if (request.branchOrders() == null) throw stale();
+        for (var choice : request.branchOrders()) {
+            if (choice == null || choice.locationId() == null || choices.putIfAbsent(choice.locationId(), choice) != null) throw stale();
+        }
+        Map<LineKey, Integer> currentLines = new HashMap<>();
+        for (CartLine line : cart.getLines()) {
+            if (currentLines.put(new LineKey(line.getLocationId(), line.getVariantId()), line.getQuantity()) != null) throw stale();
+        }
+        Map<Long, SaleVariantFact> saleFacts = new HashMap<>();
+        for (var fact : context.variants()) {
+            if (saleFacts.put(fact.variantId(), fact) != null) throw stale();
+        }
+        Map<BranchVariant, BranchStockFact> branchFacts = new HashMap<>();
+        for (var fact : context.branchStocks()) {
+            if (branchFacts.put(fact.key(), fact) != null) throw stale();
+        }
+        Map<LineKey, Integer> quotedLines = new HashMap<>();
+        for (RetailCheckoutQuoteBranch branch : quote.getBranches()) {
+            var choice = choices.remove(branch.getLocationId());
+            if (choice == null || !Objects.equals(choice.method(), branch.getFulfilmentMethod())
+                || !Objects.equals(choice.shippingQuoteId(), branch.getShippingQuoteId())
+                || !branch.matchesRecipient(choice.recipient())) throw stale();
+            if ("GHTK".equals(branch.getFulfilmentMethod()) && !validRecipient(choice.recipient())) throw stale();
+            for (var item : branch.getItems()) {
+                var key = new LineKey(branch.getLocationId(), item.getVariantId());
+                if (quotedLines.put(key, item.getQuantity()) != null) throw stale();
+                SaleVariantFact fact = saleFacts.get(item.getVariantId());
+                BranchStockFact branchFact = branchFacts.get(new BranchVariant(item.getVariantId(), branch.getLocationId()));
+                if (fact == null || fact.productId() != item.getProductId() || fact.productDeleted()
+                    || !fact.publiclyEligible() || !fact.saleEnabled() || !Objects.equals(fact.appliedPrice(), item.getUnitPrice())
+                    || !Objects.equals(fact.currency(), quote.getCurrency()) || branchFact == null
+                    || !branchFact.saleEnabled() || !branchFact.branchActive() || !branchFact.assignedToBranches()) throw stale();
+            }
+        }
+        // The quote may cover only the lines the Member selected; each quoted line must still be in the
+        // cart with the same quantity, while unselected cart lines are allowed to remain.
+        boolean quotedLinesUnchanged = quotedLines.entrySet().stream()
+            .allMatch(entry -> entry.getValue().equals(currentLines.get(entry.getKey())));
+        if (!choices.isEmpty() || quotedLines.isEmpty() || !quotedLinesUnchanged
+            || !saleFacts.keySet().equals(quotedLines.keySet().stream().map(LineKey::variantId).collect(java.util.stream.Collectors.toSet()))
+            || !branchFacts.keySet().equals(quotedLines.keySet().stream()
+                .map(key -> new BranchVariant(key.variantId(), key.locationId())).collect(java.util.stream.Collectors.toSet()))) {
+            throw stale();
+        }
+    }
+
+    /**
+     * Optional at quote time; required when the Member accepts a GHTK branch order. Same rule as the preview
+     * (Session 2026-11-14, two-level address): province and ward/commune required, district optional, and a short
+     * street address such as "nhà số 3" is valid.
+     */
+    private boolean validRecipient(CheckoutDtos.RecipientAddressInput recipient) {
+        return recipient != null
+            && recipient.recipientName() != null && recipient.recipientName().trim().matches("(?s).{1,100}")
+            && recipient.recipientPhone() != null && recipient.recipientPhone().replace(" ", "").matches("^(?:0|\\+84)\\d{9}$")
+            && recipient.province() != null && !recipient.province().isBlank()
+            && recipient.ward() != null && !recipient.ward().isBlank()
+            && recipient.address() != null && recipient.address().trim().matches("(?s).{1,500}");
+    }
+
+    private RetailConflictException stale() {
+        return new RetailConflictException("Checkout quote changed or expired; review a new quote");
+    }
+    private record LineKey(Long locationId, Long variantId) { }
+}

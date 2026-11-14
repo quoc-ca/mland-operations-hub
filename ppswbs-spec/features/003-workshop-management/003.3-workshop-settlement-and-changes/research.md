@@ -1,0 +1,130 @@
+# Research: Workshop Settlement and Changes
+
+**Date created**: 2026-10-24
+**Date updated**: 2026-11-05
+**Author**: Hồ Hoàng Quốc
+**Last updated by**: Hồ Hoàng Quốc
+
+## Purpose and inherited baseline
+
+This self-contained research translates confirmed 003.3 decisions into design
+constraints. It is not an API, database, migration, or implementation instruction.
+
+| Source                    | Inherited decision                                                                                                                                                                                                                                       |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 003.1 Booking             | One direct booking buys one package; required sessions may be one or more. Package price and deposit evidence freeze at confirmation.                                                                                                                    |
+| 003.2 Operations          | Owns sessions, capacity, ticket entitlement and attendance. 003.3 uses its facade only. For Wax Casting it also owns the date rule: at least two Monday–Friday local dates strictly between the two chronological sessions; Saturday/Sunday are excluded. |
+| 003.3 `spec.md`           | One final bill covers the whole booking/package, never a session, participant or legacy workshop item.                                                                                                                                                   |
+| FE-001 deferred decisions | Firebase proves identity only; Mland decides account status, role and scope. Vocabulary: `MEMBER`, `STAFF`, `MANAGER`, `ADMIN`.                                                                                                                          |
+
+## Confirmed decisions
+
+### Settlement and charges
+
+One final bill is issued after the final required session. Its balance is frozen
+package price plus accepted charges less accepted deposit. A future internal
+per-session allocation cannot change V1 checkout, final bill, or refund.
+
+Customers may view allowed fixed-price catalogue add-ons for the package/location,
+but selection and consent are recorded by Staff/Manager at the workshop. A
+variable material/service charge enters the bill only after Staff/Manager
+confirmation. Customers cannot enter arbitrary price or create a bill line. This
+keeps the controlled-option / merchant-confirmed pattern seen in [Square modifiers](https://squareup.com/help/us/en/article/5119-create-and-manage-item-modifiers)
+and [Shopify draft orders](https://help.shopify.com/en/manual/fulfillment/managing-orders/create-orders/create-draft).
+
+### Final payment
+
+VNPay is V1's only final-payment channel. Settlement accepts only valid signed
+VNPay IPN or QueryDR evidence matching final-bill reference, amount and currency.
+Browser return and manually recorded counter payment are not settlement evidence;
+an in-store customer may still use a VNPay link/QR. Results are idempotent and
+retain safe reconciliation references only, never raw signed payloads/secrets.
+See [VNPay integration](https://sandbox.vnpayment.vn/apis/docs/thanh-toan-pay/pay.html)
+and its [FAQ](https://sandbox.vnpayment.vn/apis/docs/faqs/).
+
+### Required-session changes
+
+There is no customer self-service reschedule. An authorized Manager requests one
+complete booking-level replacement set (one or both future sessions); 003.2 must
+validate capacity and entitlement and apply all changes or none. Persistent QR is
+kept. A multi-session result (currently Wax Casting) remains same-location,
+distinct and chronological. It must have at least two Monday–Friday local dates
+strictly between the sessions, excluding Saturday/Sunday; it must not inherit
+the retired Silverclay same-day-slot rule.
+
+The approved `WorkshopOperationsFacade` now exposes the semantic complete-set
+replacement operation. It remains an in-process named-interface boundary, not a
+REST endpoint; concrete Java type details, locks and transaction protocol remain
+implementation-owned.
+
+### Refund and cancellation policy
+
+Customer cancellation is whole-booking, non-refundable, and subject to the
+existing timing and attendance rules. For Mland-caused cancellation, offer replacement first; if it
+is unavailable/declined, refund the whole package under its confirmation-time
+policy snapshot. The current default is 100% of every collected payment,
+including deposit/final payment, even if an earlier session was attended.
+
+Any active Manager may change this policy prospectively or resolve an individual
+case globally. Existing booking snapshots stay immutable. This is business
+authority, not a new role mapping. Booking-level handling matches course-booking
+patterns such as [Bookwhen cancellation guidance](https://support.bookwhen.com/en/articles/3790128-cancelling-an-event).
+
+## Owner decision — direct-booking open folio (2026-11-05)
+
+The canonical policy is
+[Direct Booking Open Folio and OTA Financial Separation](../direct-booking-open-folio-policy.md).
+
+Normal add-ons extend the OPEN folio and are settled at checkout. T040 only covers an exceptional post-finalized correction/remedy case.
+
+This supersedes the "Settlement and charges" text above where it differs:
+
+- The folio opens at 003.1 deposit confirmation (`MlandBookingConfirmedEvent`), not after the final session. Its base line is the frozen `postPromotionAmount`; the first verified collection is the 003.1 deposit `ceil(postPromotionAmount / 2)`, immutable after acceptance. A full-amount payment at booking time is not offered.
+- `totalAmount = base + accepted add-ons`, `paidAmount = Σ verified collections` (append-only), `balanceDue = totalAmount − paidAmount`. Checkout collects only when `balanceDue > 0`; finalization requires `balanceDue = 0`.
+- After `FINALIZED` no add-on may be added, changed or removed; there is no separate direct add-on bill after finalization.
+- Ordinary cancellation/no-show closes the folio at the verified collected amount: no refund, no VNPay QueryDR/refund, no artificial receivable. Operations owns eligibility/no-show facts; Settlement owns closure.
+- OTA: the OTA collects 100% of the ticket price; Mland shop add-ons are a separate Mland bill; free laser engraving is OTA-only and creates no bill.
+
+Research is not task-completion evidence.
+
+## Ownership and audit
+
+| Concern                                           | Owner       | Rule                                                                                                                                                                                                                                                     |
+| ------------------------------------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Booking, package price, deposit                   | 003.1       | 003.3 consumes projection only.                                                                                                                                                                                                                          |
+| Sessions, capacity, ticket, attendance            | 003.2       | Semantic facade only.                                                                                                                                                                                                                                    |
+| Final bill, charge, settlement/refund/change case | 003.3       | Authoritative owner.                                                                                                                                                                                                                                     |
+| Identity and authorization                        | FE-001      | Query at command time.                                                                                                                                                                                                                                   |
+| Delivery                                          | Feature 007 | 003.3 persists an immutable handoff with accepted Settlement state, then publishes a reference-only post-commit event. Feature 007 deduplicates and reads an immutable payload only through `WorkshopSettlementFacade`; delivery is not financial truth. |
+
+Audit protected financial/change commands with actor reference when available,
+booking reference, applicable canonical location, action, outcome, required reason,
+correlation and time. Exclude raw provider payload/signature/secret, Firebase
+token, card data, OTP and unnecessary PII. Operational retries are separate.
+
+## Public REST decision
+
+The approved public contract is resource-oriented: one booking-scoped final bill
+with nested charges/finalization, and auditable booking-scoped cancellation,
+required-session-change and Mland-remedy cases. Final balance must be verified
+as paid before package-output handover; no credit/deferred-payment workflow is
+part of V1. Prospective
+Mland cancellation refund policy is a central resource because it applies across
+locations only to later-confirmed bookings. Client commands use an
+`Idempotency-Key`; VNPay IPN remains signed provider evidence replay-protected by
+its provider transaction reference. This separates a browser/client retry from a
+gateway callback and preserves the rule that browser return is never payment
+truth.
+
+## Implementation dependencies
+
+1. 003.2 must expose semantic all-or-none replacement of a complete required-session set.
+2. FE-001 must expose current canonical role/status, ownership and location-scope
+   facts; 003.3 applies its own approved location/resource action rules and
+   central-policy-editor rule.
+3. VNPay merchant, IPN/QueryDR and refund configuration must be provider-approved.
+4. Notification owner provides the post-commit verified-outcome handoff; it
+   carries no payment link or collection action. There is no reminder/reissue
+   workflow because unpaid balances are not deferred.
+
+None authorizes endpoints, schema, role mapping or provider policy to be invented.

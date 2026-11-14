@@ -1,0 +1,215 @@
+// Client-side hints mirroring LoyaltyValues / LoyaltyScalarCodec; the backend stays the authority.
+export const LIMITS = { nameMax: 200, codeMax: 128 };
+
+const NONNEGATIVE = /^(0|[1-9][0-9]{0,18})$/;
+const POSITIVE = /^[1-9][0-9]{0,18}$/;
+const PERCENT = /^(0|[1-9][0-9]{0,2})(\.[0-9]{1,6})?$/;
+
+export const isAmount = value => NONNEGATIVE.test(String(value ?? ''));
+export const isPositive = value => POSITIVE.test(String(value ?? ''));
+export const isPercent = value => PERCENT.test(String(value ?? '')) && Number(value) > 0 && Number(value) <= 100;
+
+/** A value of <input type="datetime-local"> (local time) as the UTC instant the API expects ("…Z"). */
+export function toInstant(local) {
+  if (!local) return '';
+  const date = new Date(local);
+  return Number.isNaN(date.getTime()) ? '' : date.toISOString();
+}
+
+/** An API instant shown in <input type="datetime-local"> (local time, minutes). */
+export function toLocalInput(instant) {
+  if (!instant) return '';
+  const date = new Date(instant);
+  if (Number.isNaN(date.getTime())) return '';
+  const pad = number => String(number).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+// No 0/O, 1/I/L: a code is read aloud and typed by customers.
+const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+
+/**
+ * A new voucher code, "ML" + 8 random characters from a browser CSPRNG (31^8 ≈ 8.5·10^11 values). Uniqueness is still
+ * decided by the backend (CODE_EXISTS); the create form draws a new code and sends again when that happens.
+ */
+export function generateVoucherCode(random = values => crypto.getRandomValues(values)) {
+  const bytes = random(new Uint32Array(8));
+  return 'ML' + Array.from(bytes, value => CODE_ALPHABET[value % CODE_ALPHABET.length]).join('');
+}
+
+/** Default window of a new programme: from the next full quarter hour, for 30 days (local time). */
+export function defaultWindow(now = new Date()) {
+  const start = new Date(now);
+  start.setSeconds(0, 0);
+  start.setMinutes(Math.ceil((start.getMinutes() + 1) / 15) * 15);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 30);
+  return { startAt: toLocalInput(start.toISOString()), endAt: toLocalInput(end.toISOString()) };
+}
+
+/** "a, b , c" → ['a','b','c'] (empty items dropped, duplicates kept so the backend reports them). */
+export function splitList(text) {
+  return String(text || '').split(',').map(item => item.trim()).filter(Boolean);
+}
+
+/** Server field errors by form field; "targets.variantIds[16]" is shown on its list field, prefixed by the item. */
+export function serverFieldErrors(error) {
+  const byField = {};
+  (error?.fieldErrors || []).forEach(({ field, message }) => {
+    const item = /^(.*)\[([^\]]*)\]$/.exec(field);
+    const key = item ? item[1] : field;
+    const text = item ? `${item[2]}: ${message}` : message;
+    byField[key] = byField[key] ? `${byField[key]} ${text}` : text;
+  });
+  return byField;
+}
+
+/**
+ * `discount` of a create/update body. Session 2026-11-14: only a percentage has a cap the Manager enters; a fixed
+ * amount is sent alone and the server stores its cap equal to the amount.
+ */
+export function discountBody(form) {
+  return form.discountKind === 'PERCENT'
+    ? { kind: 'PERCENT', percentage: form.percentage.trim(), maxDiscountAmount: form.maxDiscountAmount.trim() }
+    : { kind: 'FIXED', amount: form.amount.trim() };
+}
+
+/** Hints (i18n keys) for the discount fields of a create/update form. */
+export function checkDiscount(form, errors) {
+  if (form.discountKind === 'PERCENT') {
+    if (!isPercent(form.percentage.trim())) errors['discount.percentage'] = 'validation.percent';
+    if (!isPositive(form.maxDiscountAmount.trim())) errors['discount.maxDiscountAmount'] = 'validation.positive';
+  } else if (!isPositive(form.amount.trim())) {
+    errors['discount.amount'] = 'validation.positive';
+  }
+}
+
+/**
+ * What a fixed discount actually takes off: an older FIXED revision may still hold a cap below its amount
+ * (before Session 2026-11-14), and the quote uses min(amount, cap).
+ */
+export function effectiveFixedAmount(discount) {
+  const amount = BigInt(discount.amount);
+  if (!discount.maxDiscountAmount) return amount;
+  const cap = BigInt(discount.maxDiscountAmount);
+  return cap < amount ? cap : amount;
+}
+
+/** Request body of createPromotionProgram from the form. */
+export function createBody(form) {
+  const body = {
+    kind: form.kind,
+    scope: form.scope,
+    name: form.name.trim(),
+    startAt: toInstant(form.startAt),
+    endAt: toInstant(form.endAt),
+    discount: discountBody(form),
+    minimumEligibleAmount: form.minimumEligibleAmount.trim(),
+    targets: {},
+  };
+  if (form.kind === 'VOUCHER') {
+    body.allowPoints = form.allowPoints;
+    body.code = form.code.trim();
+    body.totalLimit = form.totalLimit.trim();
+    body.perMemberLimit = form.perMemberLimit.trim();
+  }
+  const lists = form.scope === 'PRODUCT'
+    ? { productIds: form.productIds, variantIds: form.variantIds }
+    : workshopAuto(form)
+      // Session 2026-11-14 (FR-044): a workshop automatic discount is targeted by package only.
+      ? { packageIds: form.packageIds }
+      : { packageIds: form.packageIds, branchIds: form.branchIds, sessionIds: form.sessionIds };
+  Object.entries(lists).forEach(([key, text]) => { const items = splitList(text); if (items.length) body.targets[key] = items; });
+  // Session 2026-11-09: a product voucher may be limited to branches; none (or "all") = every branch.
+  const branches = productBranchIds(form);
+  if (branches.length) body.targets.branchIds = branches;
+  return body;
+}
+
+/** A workshop automatic discount (FR-044): packages only, at least one; no branch, date or session. */
+export function workshopAuto(form) {
+  return form.scope === 'WORKSHOP' && form.kind === 'AUTO_DISCOUNT';
+}
+
+/** Branches a product voucher is limited to, from the form; [] = every branch (and always for an automatic discount). */
+export function productBranchIds(form) {
+  if (form.scope !== 'PRODUCT' || form.kind !== 'VOUCHER' || form.branchMode !== 'SOME') return [];
+  return [...new Set((form.productBranchIds || []).map(String))];
+}
+
+/**
+ * Sale facts of a 002 management product at the chosen branches (US10 data): whether the product is sold at one of
+ * them, and the sizes that are not. No branch chosen → everything counts as sold.
+ */
+export function branchSale(product, branchIds) {
+  if (!branchIds?.length) return { atBranch: true, offSizes: new Set() };
+  const chosen = new Set(branchIds.map(String));
+  const atBranch = (product.branches || []).some(branch => chosen.has(String(branch.locationId)));
+  const offSizes = new Set((product.variants || [])
+    .filter(variant => !(variant.branchStocks || []).some(stock => chosen.has(String(stock.locationId)) && stock.saleEnabled !== false))
+    .map(variant => String(variant.id)));
+  return { atBranch, offSizes };
+}
+
+/**
+ * Error keys a form value feeds, so that changing the value clears them: a discount value is checked as
+ * `discount.*`, a picked target as `targets.*`, and start/end are checked together.
+ */
+export function errorFieldsOf(name) {
+  if (['discountKind', 'percentage', 'amount', 'maxDiscountAmount'].includes(name)) {
+    return ['discount.kind', 'discount.percentage', 'discount.amount', 'discount.maxDiscountAmount', 'discount', 'body'];
+  }
+  if (name === 'startAt' || name === 'endAt') return ['startAt', 'endAt', 'body'];
+  if (['productIds', 'variantIds', 'packageIds', 'branchIds', 'sessionIds', 'workshopDates'].includes(name)) {
+    return ['targets', `targets.${name}`, 'body'];
+  }
+  // Branches do not answer "pick a product or size" (`targets`), so that error stays until a product is picked.
+  if (name === 'productBranchIds') return ['targets.branchIds', 'body'];
+  return [name, 'body'];
+}
+
+/** Hints (i18n keys) for the create form. */
+export function checkCreate(form) {
+  const errors = {};
+  if (!form.name.trim()) errors.name = 'validation.required';
+  else if ([...form.name.trim()].length > LIMITS.nameMax) errors.name = 'validation.nameTooLong';
+  if (!form.startAt) errors.startAt = 'validation.required';
+  if (!form.endAt) errors.endAt = 'validation.required';
+  if (form.startAt && form.endAt && new Date(form.startAt) >= new Date(form.endAt)) errors.endAt = 'validation.endAfterStart';
+  checkDiscount(form, errors);
+  if (!isAmount(form.minimumEligibleAmount.trim())) errors.minimumEligibleAmount = 'validation.amount';
+  if (form.kind === 'VOUCHER') {
+    if (!form.code.trim()) errors.code = 'validation.required';
+    if (!isPositive(form.totalLimit.trim())) errors.totalLimit = 'validation.positive';
+    if (!isPositive(form.perMemberLimit.trim())) errors.perMemberLimit = 'validation.positive';
+  }
+  if (form.scope === 'PRODUCT' && !splitList(form.productIds).length && !splitList(form.variantIds).length) errors.targets = 'validation.productTarget';
+  if (form.scope === 'PRODUCT' && form.kind === 'VOUCHER' && form.branchMode === 'SOME' && !productBranchIds(form).length) {
+    errors['targets.branchIds'] = 'branch.pickOne';
+  }
+  if (workshopAuto(form) && !splitList(form.packageIds).length) errors['targets.packageIds'] = 'validation.packageTarget';
+  return errors;
+}
+
+/**
+ * Target lists sent for the picker's selection. The backend combines product and size targets with AND and
+ * refuses a size whose product is not also a product target, so "whole product A" + "size of product B" can never
+ * be sent as is. When whole products and single sizes are mixed, each whole product is sent as every one of its
+ * sizes instead (a product's sizes are fixed at creation in 002, so this covers exactly the same lines).
+ *
+ * @param picked { products: {id: label}, variants: {id: label}, sizesOf: {productId: [variantId]} }
+ */
+export function productTargets(picked) {
+  const products = Object.keys(picked.products || {});
+  const variants = Object.keys(picked.variants || {});
+  if (!products.length || !variants.length) return { productIds: products, variantIds: variants };
+  const expanded = products.flatMap(id => picked.sizesOf?.[id] || []);
+  return { productIds: [], variantIds: [...new Set([...expanded, ...variants])] };
+}
+
+/** Label of a whole product or of one size, shown in the target picker, its selection and the programme detail. */
+export const productLabel = product => `${product.name} (#${product.id})`;
+export const sizeLabel = (product, variant) => `${product.name} · size ${variant.size} · ${variant.sku}`;
+/** Public pages show no internal product number: the name, or the name and size. */
+export const publicProductLabel = product => product.name;
+export const publicSizeLabel = (product, variant) => `${product.name} · size ${variant.size}`;

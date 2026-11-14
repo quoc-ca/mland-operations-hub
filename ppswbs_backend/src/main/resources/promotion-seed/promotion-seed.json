@@ -1,0 +1,75 @@
+{
+  "_comment": "Chương trình ưu đãi mẫu của 006 (2026-11-13), tạo qua PromotionSeedRunner sau dữ liệu sản phẩm mẫu của 002. Cùng dạng body của POST /api/v1/promotion-programs, trừ: thời gian là số ngày tính từ lúc tạo (startOffsetDays, durationDays) và đối tượng ghi bằng tên danh mục / tên sản phẩm / mã chi nhánh (seedTargets) thay cho id. Voucher đã có (cùng mã) hoặc giảm tự động đã có (cùng tên) thì bỏ qua.",
+  "programs": [
+    {
+      "kind": "VOUCHER", "scope": "PRODUCT", "name": "Chào thành viên mới – giảm 10%", "code": "MLCHAO10",
+      "startOffsetDays": 0, "durationDays": 120,
+      "discount": { "kind": "PERCENT", "percentage": "10", "maxDiscountAmount": "60000" },
+      "minimumEligibleAmount": "300000", "allowPoints": true, "totalLimit": "200", "perMemberLimit": "1",
+      "seedTargets": { "categories": ["Nhẫn bạc trơn", "Nhẫn đá quý", "Nhẫn mã não", "Nhẫn đá thô"] }
+    },
+    {
+      "kind": "VOUCHER", "scope": "PRODUCT", "name": "Giảm 50.000 ₫ cho đơn từ 500.000 ₫", "code": "MLGIAM50K",
+      "startOffsetDays": 0, "durationDays": 90,
+      "discount": { "kind": "FIXED", "amount": "50000", "maxDiscountAmount": "50000" },
+      "minimumEligibleAmount": "500000", "allowPoints": true, "totalLimit": "100", "perMemberLimit": "2",
+      "seedTargets": { "categories": ["Nhẫn bạc trơn", "Nhẫn đá quý", "Nhẫn mã não", "Nhẫn đá thô"] }
+    },
+    {
+      "kind": "VOUCHER", "scope": "PRODUCT", "name": "Mùa mã não – giảm 15%", "code": "MLMANAO15",
+      "startOffsetDays": 0, "durationDays": 60,
+      "discount": { "kind": "PERCENT", "percentage": "15", "maxDiscountAmount": "120000" },
+      "minimumEligibleAmount": "0", "allowPoints": true, "totalLimit": "50", "perMemberLimit": "1",
+      "seedTargets": { "categories": ["Nhẫn mã não"] }
+    },
+    {
+      "kind": "VOUCHER", "scope": "PRODUCT", "name": "Đá thô Tây Hồ – giảm 80.000 ₫", "code": "MLTAYHO80",
+      "startOffsetDays": 0, "durationDays": 45,
+      "discount": { "kind": "FIXED", "amount": "80000", "maxDiscountAmount": "80000" },
+      "minimumEligibleAmount": "450000", "allowPoints": false, "totalLimit": "30", "perMemberLimit": "1",
+      "seedTargets": { "categories": ["Nhẫn đá thô"], "branchCodes": ["HN-TAYHO"] }
+    },
+    {
+      "kind": "VOUCHER", "scope": "PRODUCT", "name": "Hoàn Kiếm – nhẫn đá quý giảm 12%", "code": "MLHK12",
+      "startOffsetDays": 0, "durationDays": 60,
+      "discount": { "kind": "PERCENT", "percentage": "12", "maxDiscountAmount": "90000" },
+      "minimumEligibleAmount": "0", "allowPoints": true, "totalLimit": "60", "perMemberLimit": "1",
+      "seedTargets": { "categories": ["Nhẫn đá quý"], "branchCodes": ["HN-HOANKIEM"] }
+    },
+    {
+      "kind": "AUTO_DISCOUNT", "scope": "PRODUCT", "name": "Tuần lễ nhẫn bạc trơn – giảm 10%",
+      "startOffsetDays": 0, "durationDays": 30,
+      "discount": { "kind": "PERCENT", "percentage": "10", "maxDiscountAmount": "50000" },
+      "minimumEligibleAmount": "0",
+      "seedTargets": { "categories": ["Nhẫn bạc trơn"] }
+    },
+    {
+      "kind": "AUTO_DISCOUNT", "scope": "PRODUCT", "name": "Giảm ngay 30.000 ₫ nhẫn citrine và peridot",
+      "startOffsetDays": 0, "durationDays": 45,
+      "discount": { "kind": "FIXED", "amount": "30000", "maxDiscountAmount": "30000" },
+      "minimumEligibleAmount": "500000",
+      "seedTargets": { "products": ["Nhẫn bạc xoáy citrine", "Nhẫn bạc cành lá citrine", "Nhẫn bạc sóng nước peridot", "Nhẫn bạc peridot oval"] }
+    },
+    {
+      "kind": "VOUCHER", "scope": "WORKSHOP", "name": "Workshop – giảm 100.000 ₫", "code": "MLWS100",
+      "startOffsetDays": 0, "durationDays": 90,
+      "discount": { "kind": "FIXED", "amount": "100000", "maxDiscountAmount": "100000" },
+      "minimumEligibleAmount": "0", "allowPoints": true, "totalLimit": "100", "perMemberLimit": "1",
+      "seedTargets": {}
+    },
+    {
+      "kind": "VOUCHER", "scope": "WORKSHOP", "name": "Rủ bạn đi workshop – giảm 15%", "code": "MLWS15",
+      "startOffsetDays": 0, "durationDays": 60,
+      "discount": { "kind": "PERCENT", "percentage": "15", "maxDiscountAmount": "200000" },
+      "minimumEligibleAmount": "1000000", "allowPoints": true, "totalLimit": "50", "perMemberLimit": "1",
+      "seedTargets": {}
+    },
+    {
+      "kind": "VOUCHER", "scope": "WORKSHOP", "name": "Workshop Hoàn Kiếm – giảm 50.000 ₫", "code": "MLWSHK50",
+      "startOffsetDays": 0, "durationDays": 60,
+      "discount": { "kind": "FIXED", "amount": "50000", "maxDiscountAmount": "50000" },
+      "minimumEligibleAmount": "0", "allowPoints": false, "totalLimit": "80", "perMemberLimit": "2",
+      "seedTargets": { "branchCodes": ["HN-HOANKIEM"] }
+    }
+  ]
+}

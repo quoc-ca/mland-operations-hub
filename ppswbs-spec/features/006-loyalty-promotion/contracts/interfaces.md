@@ -1,0 +1,226 @@
+# Interface Contracts: Loyalty & Promotion
+
+**Date created**: 2026-10-24
+**Date updated**: 2026-11-12 (T103, D-012: phần theo vé cho giỏ workshop, 4 outcome `WORKSHOP_TICKET_*`, `BenefitPartRef.closure`, mục "Cách 003 dùng outcome theo vé"; trước đó cùng ngày: T101: reserveAcceptedTransaction bỏ công thức cọc cũ; trước đó cùng ngày: Session 2026-11-12, D-011: `SettlementPart`, `AcceptedSourceContext.parts`, `AuthoritativeOutcome.partRef`, 3 outcome RETAIL_BRANCH_*, `BenefitPartRef` trong `AcceptedBenefitRef`/`BenefitResult`, mục "Cách FE-08 dùng ưu đãi khi trả tại quầy theo chi nhánh"; trước đó cùng ngày: D-010: giỏ workshop nhiều vé — `WorkshopTicketFact`, `WorkshopFact.cart`, `eligibleLineIndexes` cho giỏ workshop, mục "Cách 003.1 dùng voucher cho giỏ nhiều vé"; trước đó: 2026-11-10 (rà soát spec ↔ code: audit yêu cầu ghi bị từ chối FR-043, `saveOwnVoucher` chỉ nhận voucher đang công khai, trạng thái `NO_USES_LEFT`/`MEMBER_LIMIT_REACHED`, accept đọc giảm tự động bằng khóa chia sẻ; trước đó cùng ngày: T088: FE-08 đồng ý nhận contract chi nhánh — `SourceLine.locationId`, `BenefitPreview.eligibleLineIndexes`; thêm mục "Cách FE-08 dùng voucher theo chi nhánh"; trước đó: 2026-11-05 (previewBenefits thêm `reasonDetails` mã lý do, T081; trước đó: 2026-11-03 (`getPromotionProgram` thêm `targetCheck`/`targetWarnings`; khôi phục lệnh tạo mất phản hồi; trước đó: 2026-11-01 (mã voucher tự sinh, thời gian hiện bằng chữ; bộ chọn đối tượng sản phẩm trên form tạo chương trình; T076 — frontend đã khởi tạo, quy tắc gửi lặp outcome, maxPoints cho component checkout; trước đó: 2026-10-30)))
+**Author**: Đặng Thị Khương
+**Last updated by**: Đặng Thị Khương
+
+**Status**: Approved — duyệt bởi Đặng Thị Khương ngày 2026-10-24; contract là baseline, các facade/routes dưới đây chưa tồn tại trong code.  
+**Sources**: [spec](../spec.md), [data model](../data-model.md), [research](../research.md), [OpenAPI](loyalty-promotion.openapi.json).
+
+## 1. Module boundaries
+
+- `loyaltypromotion::facade` là named interface duy nhất public của module; controller/dto/dao/entity/service đóng.
+- `readyringsales → loyaltypromotion::facade` và `workshopbooking → loyaltypromotion::facade`. Loyalty không import nguồn order/booking/productmanagement/payment.
+- `loyaltypromotion → members::facade` cho verified actor/capabilities/authorization guard. Identity owner phải cung cấp contract này, không suy quyền từ MemberDto/email/ROLE_MEMBER.
+- `PromotionTargetPort` thuộc loyaltypromotion facade, productmanagement/workshop triển khai trong adapter component độc lập; chỉ trả immutable scope facts/guard để kiểm tra cấu hình. Không inject service booking của FE-03 vào port này để tránh vòng phụ thuộc.
+- Không đọc repository/entity nguồn, không chuyển business entity vào common. Technical common chỉ correlation/error conventions.
+- DAG thực tế được kiểm chứng bằng ApplicationModules.verify(); một allowedDependencies declaration không chứng minh dependency đã được triển khai.
+
+## 2. Public REST
+
+Xem schemas/status/security đầy đủ trong [OpenAPI](loyalty-promotion.openapi.json).
+
+| Route | Methods | Actor | Meaning |
+| --- | --- | --- | --- |
+| /api/v1/promotions | GET | Public | Thẻ chương trình đang hiệu lực, lọc scope; không quyền quản trị hoặc danh sách Member. |
+| /api/v1/promotions/{promotionId} | GET | Public | Điều kiện công khai; hết hạn/dừng không hiện như mã đang dùng được. Không xác nhận eligibility của đơn cụ thể. |
+| /api/v1/promotion-programs | GET, POST | Manager | Quản lí danh sách/tạo ba loại chương trình. |
+| /api/v1/promotion-programs/{programId} | GET, PATCH | Manager | Xem/sửa điều kiện, versioned; không đổi code/kind/scope. |
+| /api/v1/promotion-programs/{programId}/pauses | POST | Manager | Tạm dừng chương trình mới, không hủy accepted holds. |
+| /api/v1/promotion-programs/{programId}/resumptions | POST | Manager | Mở lại cùng chương trình/mã đang PAUSED, giữ quota/history; không tự gia hạn hoặc bảo đảm dùng được. |
+| /api/v1/promotion-programs/{programId}/usage | GET | Manager | Hạn mức, held/consumed và tiền giảm hiện tại của chương trình; không tính preview/held hoặc booking đã ghi nhận hủy hợp lệ vào số tổng. Giữ lịch sử dùng/hoàn để tra cứu. |
+| /api/v1/members/me/saved-vouchers | GET | Member | Kho chính mình, gồm tình trạng hiện tại. |
+| /api/v1/members/me/saved-vouchers/{programId} | PUT | Member | Lưu idempotent; không giữ hạn mức. |
+| /api/v1/members/me/loyalty-accounts/current | GET | Member | Balance/held/available và policy quy đổi hiện hành. |
+| /api/v1/members/me/loyalty-transactions | GET | Member | Lịch sử cộng/dùng/hoàn và giữ/giải phóng liên quan chính mình. |
+| /api/v1/loyalty-policies/current | GET, PUT | Manager | Xem/thay policy version; Admin bị từ chối. |
+
+Không có public HTTP endpoint để reserve/consume/release/earn/restore, không nhận paid/completed/cancelled proof từ browser. Checkout quote/accept endpoints thuộc source owners FE-03/FE-08, contract loyalty cung cấp facade cho họ gọi.
+
+### Wire rules
+
+- ID/money/points/quota/version: decimal string, không scientific notation/negative/leading plus, max 19 digits cho money/points; BIGINT-range check cho ID/quota/version. Zero được phép theo từng field.
+- Percentage string tối đa 6 decimals, (0,100]. Timestamps ISO-8601 UTC; local workshop dates YYYY-MM-DD.
+- Program name 1–200, code 1–128 sau trim, không control characters; lengths theo code point. Name thay đổi được; code/scope/kind immutable.
+- Strict write schemas reject unknown fields, client owner/role/counter/balance/payment facts. Limits và targets được kiểm tra tại owner boundaries.
+- Public card không phải quote hoặc guarantee. Private responses Cache-Control: no-store; không dùng cache policy cho số dư/entitlement.
+- Pagination default20/max100, stable order createdAt desc/id desc cho quản trị/lịch sử, savedAt desc/programId desc cho kho; opaque cursor không chứa PII. Public order createdAt desc/id desc.
+- Mutation có UUID `Idempotency-Key`; updates/pause/resume/policy có `expectedVersion`. Resume chỉ chuyển PAUSED→ENABLED, không reset counters/history hoặc gia hạn; trạng thái/version không phù hợp trả409, cùng command đã commit trả receipt. PUT save lặp cùng resource không tạo thêm row/quyền lợi.
+
+## 3. Auth/session/error
+
+- REST API (kể cả gọi từ React): bearer Firebase token được backend xác minh, kiểm tra revocation và local identity state/capabilities hiện tại. API không chấp nhận web cookie thay bearer.
+- Frontend React gửi cùng bearer; phiên theo contract FE-01/001; role/ownership kiểm mỗi thao tác. API không dùng cookie thay bearer theo [001](../../001-account-management/plan.md); loyaltypromotion không tạo cookie auth mới.
+- Manager quản lí programs và chính sách điểm; Admin không có capability FE-06 (chỉ quản lí tài khoản/cấp quyền); Member own resources. Một vai trò không tự suy là vai trò kia. V1 không yêu cầu MFA hay tầng xác thực bổ sung cho vai trò nội bộ (theo 001, chốt 2026-10-27); thiếu identity hợp lệ thì 401, không fallback permitAll.
+- Trusted lifecycle continuation không đòi Member còn đang active tại callback để xử lí cam kết đã chấp nhận; chỉ source component nội bộ có quyền gọi, không credential của browser.
+- 400 INVALID_INPUT cho malformed/type/bounds; 401 INVALID_TOKEN và mã hết phiên theo contract của 001; 403 ACCESS_DENIED; 404 PROMOTION_NOT_FOUND; 409 CODE_EXISTS, STALE_VERSION, IDEMPOTENCY_CONFLICT, QUOTA_LIMIT_CONFLICT, BENEFIT_STATE_CONFLICT, QUOTE_CHANGED, POINTS_LIMIT_CHANGED; 422 PROMOTION_INELIGIBLE, POINTS_USE_NOT_ALLOWED, WORKSHOP_NET_AMOUNT_INVALID; 503 DEPENDENCY_UNAVAILABLE hoặc RETRYABLE_CONTENTION.
+- Error envelope `code,message,correlationId,timestamp,fieldErrors` theo common convention; không stack trace, token, member data hoặc raw source proof. Retryable contention không tự đổi key hoặc total; client kiểm tra/retry cùng intent.
+- Frontend hiển thị lỗi theo trường và giữ dữ liệu hợp lệ đã nhập; stale/quote changed hiển thị latest để khách xác nhận lại; 401 đưa về đăng nhập Firebase của owner; sau thành công điều hướng client.
+
+## 4. Internal facade records and operations
+
+Tên interface là thiết kế public của module; không phải entity/HTTP DTO. Synchronous mutation bắt buộc transaction nguồn cùng DataSource/JPA transaction manager.
+
+### Trusted inputs
+
+`AcceptedSourceContext`:
+
+- sourceKind RETAIL/WORKSHOP, sourceRef, sourceRevision, memberId từ identity owner.
+- `originEligibility` MEMBER_WEBSITE_AT_ACCEPTANCE; không retrofit từ guest-import memberId. Từ D-014, cờ `memberOrigin` nghĩa là "giao dịch trực tiếp trên website": Guest đặt workshop trực tiếp cũng gửi `true` (memberId = `TrustedSourceContext.GUEST`).
+- acceptedAt, originalDeadline, currency VND.
+- server-priced line facts productId/variantId/quantity/unitAmount và `locationId` (Session 2026-11-09: chi nhánh ghi trên dòng giỏ FE-08, cùng `locationId` của contract FR-053 bên 002; nullable để FE-08 chưa chuyển vẫn chạy), hoặc workshop `WorkshopFact(packageId, participantCount, grossPackageAmount, sessions)` do owner tạo. `sessions` là danh sách `WorkshopSessionFact(sessionRef, branchId, workshopDate)`, mỗi phiên khách đã chọn một phần tử (gói Silverclay 2 phiên → 2 phần tử), `sessionRef` = `workshop_sessions.reference` dạng UUID chữ thường. `grossPackageAmount` là phí của cả gói, không theo từng phiên. Gói một phiên dùng `WorkshopFact.singleSession(...)` (chốt 2026-10-29).
+- Voucher workshop: package phải nằm trong target (nếu có), và **mọi** phiên phải khớp branch/workshopDate/session target (nếu có); một phiên ngoài phạm vi → `PROMOTION_INELIGIBLE` (chốt 2026-10-29).
+- Voucher sản phẩm có target BRANCH (Session 2026-11-09): dòng chỉ thuộc eligible subtotal khi khớp PRODUCT/VARIANT **và** `locationId` thuộc tập BRANCH; `locationId` null → dòng không khớp. Không còn dòng khớp → lý do `BRANCH_NOT_COVERED` trong `reasonDetails` (khác `NO_COVERED_ITEM` để khách biết do chi nhánh). Voucher không có BRANCH và AUTO bỏ qua `locationId`. `BenefitPreview.eligibleLineIndexes` (chỉ số 0-based của các dòng trong `lines` được chương trình đã chọn giảm; rỗng với workshop hoặc khi không có chương trình) để FE-08 chỉ phân bổ khoản giảm cho đơn chi nhánh có dòng đủ điều kiện. Khi voucher có BRANCH, terms digest retail gắn thêm danh sách chỉ số dòng đủ điều kiện (cùng eligible subtotal đã có), nên đổi chi nhánh dòng giữa preview và accept làm đổi tập dòng được giảm → `QUOTE_CHANGED`; voucher không có BRANCH giữ digest như cũ. **Cần owner FE-08 đồng ý** trước khi FE-08 truyền trường này (spec D-009).
+- shippingAmount riêng retail; không tham gia discount/earn points.
+- source-owned accepted quote reference + terms digest + expected quote acknowledgement; không dùng browser amount làm proof.
+- `quoteRef` do owner tạo và lưu (ví dụ ID bản ghi quote của booking); loyalty chỉ kiểm tra non-blank và không lưu. Owner lưu cùng quote: member, package, các sessionRef, participantCount, fee, BenefitSelection, `termsDigest` từ preview, post-promotion amount/cọc/còn lại đã hiển thị và hạn quote. Khi accept, owner dựng lại `TrustedSourceContext` từ dữ liệu authoritative và truyền `termsDigest` của quote; loyalty tính lại ở strict mode, digest khác → `QUOTE_CHANGED` (khách xác nhận lại). Với WORKSHOP digest gắn package, từng phiên (ref@branch@date) và số người, nên accept với phiên khác phiên đã quote cũng là `QUOTE_CHANGED`.
+
+`BenefitSelection`:
+
+- choice NONE/AUTO/VOUCHER, voucherCode chỉ khi VOUCHER, requestedPoints.
+- AUTO chọn server candidate tối ưu theo khoản giảm, với cả retail và workshop (Session 2026-11-14, FR-044; trước đó workshop không có AUTO). Nhiều giảm tự động hợp lệ thì lấy khoản giảm lớn nhất, bằng nhau ưu tiên chương trình tạo trước (FR-015). AUTO luôn cho requestedPoints (allowPoints=true cố định).
+- AUTO workshop: phạm vi chỉ theo gói (`packageIds`, ít nhất một), không theo chi nhánh/ngày/phiên. Với giỏ nhiều vé, chỉ các vé thuộc gói trong phạm vi được tính (phí tối thiểu và khoản giảm trên tổng các vé đó, trần áp một lần cho cả booking); `eligibleLineIndexes` trả các vé đó giống voucher. Không có giảm tự động nào áp dụng thì preview không lỗi, chỉ trả lý do `WORKSHOP_NO_AUTO_DISCOUNT_APPLIES` (thay mã cũ `WORKSHOP_NO_AUTO_DISCOUNT`, đã bỏ).
+- Guest (`TrustedSourceContext.GUEST`, chỉ WORKSHOP): `previewBenefits` được xem giảm tự động, còn VOUCHER và điểm bị từ chối. Từ D-014 (2026-11-14), `reserveAcceptedTransaction` của Guest **được nhận**: snapshot có `member_id` NULL (V135), danh tính là `sourceRef` (mã nhóm đặt), không giữ điểm hay voucher. 003 gửi `AcceptedSourceContext` với context Guest, `memberOrigin = true` (nghĩa: giao dịch trực tiếp trên website, không phải guest-import), lựa chọn AUTO hoặc NONE. Guest gửi VOUCHER hoặc `requestedPoints` > 0 → `PROMOTION_INELIGIBLE`. Các outcome (settle, release, restore, outcome theo vé) gửi như với Member; tích điểm đóng thành cấp 0 điểm, không mở ví.
+- `NONE` cho phép không chọn chương trình; điểm vẫn được dùng theo policy, trừ khi có chương trình được chọn cấm kết hợp.
+
+`AuthoritativeOutcome`:
+
+- sourceKind/sourceRef, ownerModule, sourceOutcomeKey, monotonic sourceOutcomeVersion.
+- outcome RETAIL_FULLY_PAID / RETAIL_ZERO_ACCEPTED / RETAIL_CANCELLED_BEFORE_PAYMENT / WORKSHOP_DEPOSIT_ACCEPTED / WORKSHOP_COMPLETED_AND_FULLY_PAID / UNPAID_EXPIRY_CONFIRMED / VALID_WORKSHOP_CANCELLATION / WORKSHOP_NO_SHOW_FINAL / RETAIL_BRANCH_PAID / RETAIL_BRANCH_CANCELLED_BEFORE_PAYMENT / RETAIL_BRANCH_UNPAID_EXPIRY (ba outcome cuối theo phần, bắt buộc `partRef`; Session 2026-11-12, D-011).
+- decisionAt, originalDeadline, snapshotRef, member-origin flag, minimal proof reference (không gateway raw payload).
+- Source đã serialize trạng thái nguồn và chứng minh outcome; loyalty đối chiếu nguồn/ref/member/snapshot và effect history, không tự diễn giải callback provider.
+
+### Operations
+
+| Operation | Input | Result / semantics |
+| --- | --- | --- |
+| previewBenefits | TrustedSourceContext, BenefitSelection, verified actor | Breakdown, normalized code/selected revision, policy revision, eligible subtotal, max points, display reasons and terms digest. Reasons có hai dạng cùng thứ tự: `reasons` (chuỗi tiếng Anh, giữ cho owner cũ) và `reasonDetails` (`BenefitReason{code: BenefitReasonCode, params}` với tham số là chuỗi số, ví dụ `POINTS_OUT_OF_RANGE{min,max}`); owner nên chuyển `reasonDetails` sang quote của mình để `BenefitSelector` hiện theo vi/en (T081). Retail còn trả `eligibleLineIndexes` (chỉ số 0-based trong `lines` mà chương trình đã chọn giảm; Session 2026-11-09, xem "Cách FE-08 dùng voucher theo chi nhánh"); giỏ workshop trả chỉ số các vé trong phạm vi (Session 2026-11-12, xem "Cách 003.1 dùng voucher cho giỏ nhiều vé"). Read-only; không giữ quota/điểm, không tạo accepted benefit. |
+| reserveAcceptedTransaction | AcceptedSourceContext, selection, accepted terms proof, source command key | Kiểm tra lại current program/policy/availability, so với terms khách đã đồng ý; AcceptedBenefitRef + exact money/points/policy snapshot. Với WORKSHOP, snapshot chỉ gồm `postPromotionAmount` (= phí sau voucher và điểm). 003.1 tính tiền thu khi đặt và phần còn lại từ giá trị này theo luật của mình (hiện là 003.1 FR-035; sửa T101 2026-11-12, thay `ceil(post / 2)` cũ); giá trị này ≥ 0 (0đ hợp lệ, V120), và 003.1 → 003.3 chuyển `frozenPostPromotionAmount`/`frozenRemainingAmount`; FE-06 không tính, không làm tròn và không lưu cọc hay còn lại. Phí sau giảm lẻ vẫn hợp lệ. MANDATORY transaction, giữ cùng source accept. Nếu khác điều khoản hoặc không đủ quota/điểm thì rollback, không silently choose lại. Retail với voucher có BRANCH: các dòng (kèm `locationId`) phải là các dòng đã preview; tập dòng được giảm đổi → `QUOTE_CHANGED`. |
+| settleAcceptedBenefits | AuthoritativeOutcome paid/deposit/zero | Consume từng component đang HELD đúng lượng gốc; ghi settlement fact/outcome key một lần cả khi các component đều NONE để thống kê giảm tự động. Cùng result replay; expired/released/conflicting outcome không tự consume lại. |
+| grantEarnedPoints | AuthoritativeOutcome RETAIL_FULLY_PAID/RETAIL_ZERO_ACCEPTED hoặc WORKSHOP_COMPLETED_AND_FULLY_PAID | Policy acceptance + earnBase snapshot; một grant/giao dịch. Các component đã dùng phải CONSUMED hoặc NONE trước grant; không cấp điểm khi debit còn HELD. Workshop deposit không được gọi để grant. Zero earn ghi result0, không ledger giả. |
+| releaseHeldBenefits | AuthoritativeOutcome UNPAID_EXPIRY_CONFIRMED, RETAIL_CANCELLED_BEFORE_PAYMENT (Member hủy đơn sản phẩm trước thanh toán, FE-08 xác nhận, thêm 2026-10-30) hoặc valid cancel | Chỉ HELD→RELEASED; không suy failure từ originalDeadline. Thành phần đã CONSUMED (đơn đã thanh toán) → BENEFIT_STATE_CONFLICT. |
+| restoreCancelledWorkshopBenefits | AuthoritativeOutcome VALID_WORKSHOP_CANCELLATION | HELD thì release, CONSUMED thì restore từng component; trả points gốc và cả hai quota. Không đổi tiền hoặc grant; receipt theo component để retry phần thiếu. |
+| finishIneligibleEarn | AuthoritativeOutcome unpaid expiry/retail cancel trước thanh toán/valid cancel/no-show final | PENDING→INELIGIBLE, không tự hoàn CONSUMED nếu no-show. |
+| findBenefitResult | Source reference + trusted owner context | Current component/earn result để source reconciliation; không trả dữ liệu giao dịch khác. |
+| checkTicketVoucherScope *(thêm 2026-11-14, quyết định Hồ Hoàng Quốc, ERROR-LOG BE-DESIGN-0007; yêu cầu `003.3 ticket-change-voucher-scope-request.md`)* | `TicketVoucherScopeQuery(sourceKind = WORKSHOP, sourceRef = groupCode, ticketRef = L{line}-T{ordinal}, packageId, proposedSessions: List<WorkshopSessionFact>)` | `TicketVoucherScope(voucherApplied, inScope, lostDiscount)`. Read-only, không giữ quota, không đổi snapshot; hỏi lại cho cùng tập phiên trả cùng kết quả. Chỉ voucher còn `HELD`/`CONSUMED` mới có thể mất; giảm tự động, điểm, voucher đã trả lại hoặc giao dịch không có accepted benefit → `voucherApplied = false`, mất 0. Phạm vi xét lại bằng đúng luật của giỏ (`WorkshopBenefitEvaluator.matches`: gói và mọi phiên phải khớp chi nhánh/ngày/phiên) trên target của **revision đã accept**, không phải điều khoản hiện tại. Ra ngoài phạm vi → `lostDiscount` = `programDiscount` của part vé đó (D-012), không tính lại; vé vốn không được giảm thì mất 0 và vào phạm vi cũng không được thêm. `ticketRef` không thuộc giao dịch → `INVALID_INPUT`. Người gọi duy nhất: 003.3 `TicketChangeService` (FR-045). |
+
+Accept với lựa chọn AUTO đọc các giảm tự động đang hiệu lực bằng khóa chia sẻ (FOR SHARE) ở bước programmes, sau khóa registry READ, để không dùng snapshot REPEATABLE READ cũ của transaction owner (giảm tự động vừa bị tạm dừng/sửa → `QUOTE_CHANGED`, rà soát 2026-11-10).
+
+Facade mutation MANDATORY, không REQUIRES_NEW. Nontransactional call bị từ chối trước ghi. Method validation không thay source ownership checks. Mọi interface failure typed, không expose entity.
+
+#### Cách FE-08 dùng voucher theo chi nhánh (T088, D-009)
+
+Contract chỉ thêm trường, không đổi trường cũ. FE-08 chưa chuyển vẫn chạy như trước; chỉ voucher giới hạn chi nhánh bị từ chối kèm `BRANCH_NOT_COVERED`.
+
+1. **Preview** (`previewBenefits`) và **accept** (`reserveAcceptedTransaction`): mỗi `SourceLine` dùng constructor 5 tham số `new SourceLine(productId, variantId, quantity, unitAmount, locationId)`. `locationId` là chi nhánh ghi trên dòng giỏ lúc Member thêm sản phẩm (cùng `locationId` của 002 FR-053), không phải chi nhánh điều phối đơn. `locationId` null, hoặc constructor 4 tham số cũ, → dòng không khớp voucher có BRANCH; mọi chương trình khác bỏ qua trường này. `locationId` ≤ 0 → `INVALID_INPUT` (field `lines`).
+2. **Thứ tự dòng**: accept gửi cùng các dòng, cùng thứ tự và cùng `locationId` như lúc preview (dựng lại từ quote đã lưu). Với voucher có BRANCH, terms digest gắn danh sách chỉ số dòng được giảm, nên đổi chi nhánh hoặc thứ tự dòng → `QUOTE_CHANGED`. Voucher không có BRANCH và giảm tự động giữ digest như cũ, nên thêm `locationId` không làm hỏng quote đã lưu.
+3. **Phân bổ khoản giảm**: `BenefitPreview.eligibleLineIndexes` là các chỉ số (0-based, tăng dần) trong `TrustedSourceContext.lines` mà chương trình đã chọn giảm; tổng `lineAmount` của các dòng này bằng `eligibleSubtotal`. FE-08 chỉ chia `programDiscount` cho đơn chi nhánh chứa các dòng này (ví dụ theo tỷ lệ `lineAmount` trên `eligibleSubtotal`); đơn chi nhánh không có dòng nào trong danh sách không nhận phần giảm của chương trình. Danh sách rỗng khi không có chương trình được áp dụng, và luôn rỗng với workshop dạng một gói (giỏ workshop: xem mục dưới). Cách phân bổ giảm điểm (`pointDiscount`) của FE-08 không đổi.
+4. **Lý do**: không còn dòng nào ở chi nhánh của voucher → `reasonDetails` có `BRANCH_NOT_COVERED` khi preview, `PROMOTION_INELIGIBLE` khi accept (strict). FE-08 chuyển `reasonDetails` như T081 để `RetailBenefitPanel` hiện theo vi/en.
+
+Bằng chứng: `LoyaltyRetailQuoteTest` (US4.11, `locationId` null, digest) và `LoyaltyBranchVoucherFacadeIT` (MySQL, qua `LoyaltyFacade`), verification mục 51.
+
+#### Cách 003.1 dùng voucher cho giỏ nhiều vé (T098, D-010, Session 2026-11-12)
+
+Contract chỉ thêm, không đổi trường cũ. `new WorkshopFact(packageId, participantCount, grossPackageAmount, sessions)` và `WorkshopFact.singleSession(...)` vẫn chạy như trước, digest không đổi, `eligibleLineIndexes` rỗng.
+
+1. **Dựng giỏ**: `WorkshopFact.cart(List<WorkshopTicketFact>)`, mỗi người một `WorkshopTicketFact(ticketRef, packageId, ticketPrice, sessions)`, theo đúng thứ tự giỏ (thứ tự này cũng là tie-break của 003.1 FR-033). `ticketRef` là chuỗi do 003.1 sở hữu, không rỗng, tối đa 64 ký tự, không trùng trong giỏ. `ticketPrice` là giá vé trước ưu đãi (≥ 0, vé 0đ hợp lệ). `sessions` là mọi phiên bắt buộc của gói của vé đó (gói nhiều phiên vẫn là một vé). Một phiên xuất hiện ở nhiều vé phải cùng branch/date. Sai → `INVALID_INPUT` (field `workshop.tickets`).
+2. **Trường tổng hợp**: với giỏ, `participantCount` = số vé, `grossPackageAmount` = tổng giá vé, `packageId` = gói của vé đầu, `sessions` = hợp các phiên (không trùng). 003.1 dùng `tickets()` cho mọi thứ theo vé; `isCart()` phân biệt hai dạng.
+3. **Phạm vi**: từng vé được xét riêng: gói của vé thuộc target PACKAGE (nếu có) **và mọi phiên của vé** khớp BRANCH/WORKSHOP_DATE/SESSION (nếu có). Phí tối thiểu và khoản giảm tính trên tổng giá các vé trong phạm vi (`eligibleSubtotal`); trần áp một lần cho cả nhóm. Không vé nào trong phạm vi → `WORKSHOP_NOT_COVERED` khi preview, `PROMOTION_INELIGIBLE` khi accept. Điểm: trần tính trên `grossAmount − programDiscount` của cả giỏ.
+4. **Phân bổ**: `BenefitPreview.eligibleLineIndexes` là chỉ số 0-based (tăng dần) trong `tickets` mà voucher giảm; tổng `ticketPrice` của các vé này bằng `eligibleSubtotal`. 003.1 chia `programDiscount` chỉ cho các vé này (largest remainder, 003.1 FR-033) và chia điểm theo giá sau voucher (003.1 FR-034). 006 không phân bổ, không tính tiền thu khi đặt; snapshot accept vẫn chỉ có tổng (`postPromotionAmount`, điểm, giảm).
+5. **Digest**: với giỏ, terms digest gắn thêm từng vé theo thứ tự (`ticketRef`, gói, giá, các phiên) và danh sách vé trong phạm vi. Accept phải dựng lại cùng các vé, cùng thứ tự, cùng giá như lúc preview; khác → `QUOTE_CHANGED`.
+6. **Guest**: giỏ Guest không gọi Loyalty (`TrustedSourceContext` bắt buộc `memberId > 0`, US5.8).
+
+Bằng chứng: `LoyaltyWorkshopCartQuoteTest` (10 test: vé ngoài phạm vi, trần một lần, phí tối thiểu trên phần trong phạm vi, mọi phiên của vé, điểm trên cả giỏ, voucher 100% và vé 0đ, dạng một gói không đổi, kiểm tra đầu vào) và `LoyaltyWorkshopFacadeIT.aCartDiscountsOnlyInScopeTicketsAndBindsTheTickets` (MySQL, qua `LoyaltyFacade`), verification mục 53.
+
+#### Cách FE-08 dùng ưu đãi khi trả tại quầy theo chi nhánh (T099, D-011, Session 2026-11-12)
+
+Contract chỉ thêm. Checkout không truyền `parts` chạy như cũ; checkout một chi nhánh trả tiền mặt cũng có thể dùng hàm cũ.
+
+1. **Accept**: `new AcceptedSourceContext(trusted, sourceRef, sourceRevision, memberOrigin, acceptedAt, originalDeadline, quoteRef, termsDigest, parts)`, `parts` = mỗi đơn chi nhánh một `SettlementPart(partRef, lineIndexes)`. `partRef` = mã đơn chi nhánh của FE-08 (≤ 64 ký tự, không trùng). `lineIndexes` = chỉ số 0-based trong `trusted.lines()`; mỗi dòng thuộc đúng một phần. Chỉ RETAIL, tối đa 50 phần. Sai → `INVALID_INPUT` (field `parts`). `originalDeadline` có thể là 72 giờ; 006 không đặt giới hạn trên. `parts` không thay đổi giá nên không tham gia terms digest; preview không đổi.
+2. **Phần chia**: `AcceptedBenefitRef.parts` (cùng thứ tự gửi) là `BenefitPartRef(partRef, grossAmount, programDiscount, pointsHeld, pointDiscount, earnBase, earnPoints, pointsState, earnState)`:
+   - `programDiscount` chia theo các dòng được giảm (`eligibleLineIndexes`) của phần đó; phần không có dòng được giảm nhận 0.
+   - `pointsHeld` và `pointDiscount` chia theo tiền sau voucher của từng phần; `earnPoints` chia theo `earnBase` của từng phần (chính sách lúc accept).
+   - Largest remainder theo đơn vị nguyên (VND hoặc điểm), hòa thì phần có trọng số lớn hơn rồi phần đứng trước. Tổng mỗi cột bằng đúng tổng checkout; `grossAmount − programDiscount − pointDiscount = earnBase ≥ 0`.
+   - FE-08 dùng `grossAmount − programDiscount − pointDiscount` của từng phần làm tiền hàng phải thu của đơn chi nhánh (phí giao hàng là của FE-08). Accept lặp với cùng `sourceRef` phải gửi cùng các `partRef` theo cùng thứ tự; khác → `IDEMPOTENCY_CONFLICT`.
+3. **Outcome theo phần**: `AuthoritativeOutcome` constructor 12 tham số, `partRef` là tham số cuối. `sourceOutcomeKey` nên riêng cho từng đơn chi nhánh. Thiếu `partRef` ở outcome theo phần hoặc có `partRef` ở outcome khác → `INVALID_INPUT`.
+   - Staff xác nhận đã thu đơn chi nhánh X: trong cùng transaction gọi `settleAcceptedBenefits` rồi `grantEarnedPoints` với `RETAIL_BRANCH_PAID`, `partRef = X`. Trừ điểm giữ của X, cộng `earnPoints` của X.
+   - Đơn X bị hủy trước khi thu: `releaseHeldBenefits` với `RETAIL_BRANCH_CANCELLED_BEFORE_PAYMENT`. Quá hạn chưa thu: `RETAIL_BRANCH_UNPAID_EXPIRY`. Trả điểm giữ của X, phần tích điểm của X thành INELIGIBLE (không cần gọi thêm `finishIneligibleEarn`, gọi cũng không lỗi).
+   - Gửi lại cùng outcome key là no-op. Đơn đã thu thì không giải phóng được, đơn đã giải phóng thì không thu được, `partRef` lạ → `BENEFIT_STATE_CONFLICT`.
+4. **Voucher**: tính đã dùng khi đơn chi nhánh đầu tiên **có `programDiscount > 0`** được thu; trả lại khi mọi đơn chi nhánh có `programDiscount > 0` bị hủy/hết hạn mà voucher còn đang giữ (kể cả khi đơn không có phần giảm đã thu). Không đơn nào có phần giảm → mọi đơn coi là có voucher. Voucher đã dùng không trả lại theo phần.
+5. **Cả checkout một lần** (ví dụ VNPay): vẫn gửi outcome cũ (`RETAIL_FULLY_PAID`, `RETAIL_ZERO_ACCEPTED`, `UNPAID_EXPIRY_CONFIRMED`, `RETAIL_CANCELLED_BEFORE_PAYMENT`); mọi phần nhận cùng kết quả. Đã có outcome theo phần thì outcome cả checkout bị từ chối, và ngược lại (`BENEFIT_STATE_CONFLICT`).
+6. **Đối soát**: `findBenefitResult` và kết quả của mỗi lệnh trả `BenefitResult.parts` (trạng thái hiện tại của từng phần). Trạng thái cả checkout: điểm HELD khi còn phần đang giữ, sau đó CONSUMED nếu có phần đã trừ, ngược lại RELEASED; earn PENDING khi còn phần chờ, sau đó GRANTED (tổng điểm đã cộng) nếu có phần đã cộng, ngược lại INELIGIBLE.
+7. **Ledger**: mỗi phần có dòng CONSUME/RELEASE/EARN riêng (`part_seq` = thứ tự phần, từ 1); dòng HOLD lúc accept vẫn là một dòng cho cả checkout (`part_seq` 0).
+
+Bằng chứng: `LoyaltyBranchSettlementTest` (8 test: largest remainder, chia phần, phần 0đ, trạng thái phần, luật voucher, kiểm tra đầu vào) và `LoyaltyBranchSettlementFacadeIT` (MySQL, qua `LoyaltyFacade`), verification mục 54.
+
+#### Cách 003 dùng outcome theo vé (T103, D-012, Session 2026-11-12)
+
+Contract chỉ thêm. Booking một gói (`new WorkshopFact(...)`, `singleSession`) không có phần và chạy như cũ.
+
+1. **Accept giỏ**: `WorkshopFact.cart(tickets)` (D-010) tự tạo một phần cho mỗi vé, `partRef` = `ticketRef`, theo thứ tự giỏ; 003 không truyền `parts`. `AcceptedBenefitRef.parts` trả phần của từng vé: `programDiscount` (theo giá vé trong phạm vi), `pointsHeld` (điểm theo giá sau voucher, không vượt số điểm vé trả được), `pointDiscount` = `pointsHeld` × giá trị điểm của chính sách ghi nhận, `earnBase`, `earnPoints` (tổng điểm nhóm theo chính sách ghi nhận, chia theo `earnBase` của vé). Largest remainder, hòa thì giá lớn hơn rồi thứ tự giỏ — cùng luật 003.1 FR-033/FR-034, nên 003 có thể lấy số tiền của từng vé từ đây thay vì tự chia.
+2. **Cọc nhóm**: `settleAcceptedBenefits` với `WORKSHOP_DEPOSIT_ACCEPTED` (cả nhóm, không `partRef`) như cũ; gửi lại là no-op kể cả sau khi đã có outcome theo vé.
+3. **Outcome theo vé** (`AuthoritativeOutcome` 12 tham số, `partRef` = mã vé; `sourceOutcomeKey` riêng cho từng vé):
+   - Vé checkout xong, trả đủ, hết 24 giờ chỉnh điểm danh: `grantEarnedPoints(WORKSHOP_TICKET_COMPLETED_AND_FULLY_PAID)` → cộng `earnPoints` của vé, một lần. Cần cọc nhóm đã chốt.
+   - Hủy hợp lệ (≥ 24 giờ): `restoreCancelledWorkshopBenefits(WORKSHOP_TICKET_VALID_CANCELLATION)` → trả `pointsHeld` của vé (đã chốt thì RESTORE, ledger trỏ về dòng CONSUME của nhóm; còn giữ thì RELEASE).
+   - Mland hủy: `restoreCancelledWorkshopBenefits(WORKSHOP_TICKET_MLAND_CANCELLATION)` → như trên, và trả lượt voucher của nhóm ngay (một lần).
+   - Không đến hoặc hủy muộn: `finishIneligibleEarn(WORKSHOP_TICKET_NO_SHOW_FINAL)` → không trả gì, vé không tích.
+   - Lượt voucher của nhóm trả lại khi mọi vé kết thúc bằng hủy hợp lệ/Mland hủy (hoặc ngay khi Mland hủy); vé không đến chặn việc trả theo hủy hợp lệ. Voucher đã trả không trả lần hai.
+4. **Kết quả**: `BenefitPartRef.closure` = `COMPLETED` / `VALID_CANCELLATION` / `MLAND_CANCELLATION` / `NO_SHOW` (null khi vé chưa kết thúc). Trạng thái cả booking: điểm CONSUMED nếu còn vé đã trừ, RESTORED nếu mọi phần có điểm đều đã trả; earn PENDING khi còn vé chưa kết thúc, sau đó GRANTED (tổng điểm các vé đã cộng) hoặc INELIGIBLE.
+5. **Xung đột**: vé đã có outcome khác, vé đã hoàn thành rồi hủy, `partRef` lạ, hoặc outcome kết thúc cả booking sau khi đã có outcome theo vé → `BENEFIT_STATE_CONFLICT`. Gửi lại cùng outcome key là no-op.
+6. **Cả booking một lần**: khi chưa vé nào có outcome riêng, `WORKSHOP_COMPLETED_AND_FULLY_PAID`, `VALID_WORKSHOP_CANCELLATION`, `WORKSHOP_NO_SHOW_FINAL` vẫn chạy như cũ và mọi vé nhận cùng kết quả.
+
+Bằng chứng: `LoyaltyBranchSettlementTest` (thêm 5 test theo vé), `LoyaltyWorkshopFacadeIT` (thêm 4 test: chia theo vé; vé tích lần lượt, vé hủy trả điểm, vé không đến; Mland hủy trả voucher một lần; mọi vé hủy hợp lệ trả voucher ở vé cuối), verification mục 57.
+
+### Target port
+
+`PromotionTargetPort.validateAndGuard(scope, targets)` được gọi trước registry lock, trong transaction Manager khi cần kiểm tra target tồn tại/hợp lệ. PRODUCT provider trả cho mỗi target: tồn tại, đã xóa mềm, đang công khai, đang bán; loyalty chỉ từ chối cấu hình khi target không tồn tại, variant không thuộc product hoặc đã xóa mềm, không từ chối vì chưa công khai/đang ẩn/ngừng bán (spec Clarification 2026-10-26). Danh sách ưu đãi công khai dùng facts này để chỉ liệt kê sản phẩm đang công khai và ẩn chương trình sản phẩm không còn target công khai. PRODUCT provider ở productmanagement; từ Session 2026-11-09 provider này cũng nhận `TargetRef` BRANCH (ID số) cho voucher sản phẩm, trả `exists`/`active` theo `SellingLocationPort`, và loyalty từ chối cấu hình khi chi nhánh không tồn tại hoặc ngừng hoạt động lúc lưu (chi nhánh ngừng hoạt động sau đó chỉ sinh cảnh báo `BRANCH_INACTIVE` ở `targetWarnings`, T079); WORKSHOP provider ở `workshopoperations` (chủ dữ liệu package/session/branch, theo BE-DESIGN-0008), phụ thuộc một chiều `workshopoperations → loyaltypromotion::facade`. Với SESSION, `targetKey` là `workshop_sessions.reference` (UUID chữ thường); PACKAGE/BRANCH là ID số, WORKSHOP_DATE là `YYYY-MM-DD`. Với scope PRODUCT, `targetKey` là ID dạng số thập phân: PRODUCT là ID sản phẩm, VARIANT là ID một size cụ thể của một sản phẩm (một SKU), không phải con số size dùng chung. `belongsToParent` (chốt 2026-10-26): PRODUCT luôn true; VARIANT true khi sản phẩm của nó nằm trong các target PRODUCT của cùng yêu cầu, hoặc khi yêu cầu không có target PRODUCT nào; false thì loyalty từ chối cấu hình. Khóa sai định dạng hoặc không tìm thấy được báo `exists=false`. `purchasable` dựa trên trạng thái bật bán, không dùng số lượng/giữ hàng FE-08. Provider trả guard/immutable references, không remote call dưới khóa. Không có provider thì DEPENDENCY_UNAVAILABLE; không bỏ qua phạm vi hoặc dùng list giả.
+
+Loyalty không gọi target port trong reserve sau khi giữ registry: source owner đã giữ business guards và cung cấp authoritative line/session facts. Cần test owner serialize product deletion/schedule change với accept để không tạo quyền lợi trên nguồn không còn hợp lệ.
+
+## Transaction and lock order
+
+1. Identity resolve/guard (nếu tương tác người dùng), kiểm tra ownership/capability; không giữ registry rồi gọi identity.
+2. Source resource guards theo contracts của productmanagement/workshop/retail; callbacks khóa source lifecycle record để phân xử payment/expiry/cancel.
+3. Registry READ cho accept, WRITE cho program/policy mutation.
+4. Program rows tăng ID; selected voucher quota serialized bằng program lock.
+5. Wallet Member, sau đó MemberProgram (quota Member) tăng program ID.
+6. AcceptedBenefit/effects/receipts/ledger/audit; unique business keys và version kiểm tra lại trước commit.
+7. Commit toàn bộ; remote gateway/email không trong transaction dưới khóa.
+
+Terminal effects có thể bắt đầu ở source lifecycle guard rồi đến registry/program/wallet; không cần active Member guard để hoàn tất cam kết cũ. Không có code path lấy wallet rồi quay lại registry/program/source.
+
+- Manager quota edit dùng registry WRITE/program lock, đọc tất cả member counts dưới cùng exclusion; giảm limit dưới bất kỳ count nào thì reject.
+- Insert race wallet được serialize qua identity Member guard; counters mới qua program guard; sourceRef uniqueness/receipt constraints vẫn bắt buộc.
+- JPA unique violation rollback trước khi read lại receipt ở transaction mới. Không catch rồi tiếp tục save trong transaction rollback-only.
+- Same actor/action/command key + same canonical payload returns committed minimal result sau auth; khác payload 409. Canonical digest chứa normalized selection, refs/versions và amounts đã xác minh, không token/correlation.
+- Owner accepted source row, loyalty reserve và source invoice/quantity/capacity holds commit cùng transaction; same sourceRef repeat trả đúng accepted snapshot, không giữ thêm.
+- Atomic path là mặc định. Nếu owner cần bridge outcome legacy đã commit, owner phải ghi durable delivery receipt trong chính transaction nguồn và retry vào loyalty với cùng proof. Không dùng event in-memory, không cho loyalty tự polling source repo; route bridge chỉ enable sau contract/integration tests của owner.
+- Delivery của một sourceRef phải được owner serialize theo sourceOutcomeVersion; paid outcome xử lí settle rồi grant trong cùng transaction delivery. Outcome cũ đã áp dụng thì replay receipt — outcome cùng key đã áp dụng đúng chuyển trạng thái là "không đổi" kể cả khi nguồn đã áp dụng outcome version mới hơn (ví dụ restore ở v được gửi lại sau finish ở v+1); outcome khác key với version cũ hơn vẫn bị từ chối, outcome mâu thuẫn trạng thái terminal thì conflict để owner đối soát, không cưỡng ép state hoặc bỏ qua debit để grant trước.
+- Timeout/deadlock rollback; không external side effect trước commit. Expiry/payment unresolved do source giữ trạng thái cần đối soát, không tự release và không gia hạn.
+
+## 5. Frontend contracts (React + Vite, REST-only)
+
+Frontend là ứng dụng React + Vite tách riêng (`ppswbs_frontend/`, đã khởi tạo bởi 002 T088/T089; FE-06 ở `src/features/loyalty-promotion/` theo FRONTEND-ARCHITECTURE; màn hình khác chỉ import qua cổng công khai `features/loyalty-promotion` (index.js), ví dụ `import { BenefitSelector } from '…/features/loyalty-promotion'`), render phía client và chỉ gọi REST. Backend không render UI hoặc HTML form. Router (react-router), i18n vi/en và REST client dùng chung theo [đề xuất nền frontend](../../002-product-management/frontend-foundation-proposal.md). Component `BenefitSelector` (checkout/workshop) do owner FE-08/FE-03 nhúng; quote của owner MUST trả `maxPoints` (FE-08 `BenefitPreviewView`, FE-03 `WorkshopBookingQuoteResponse`) để hiện điểm tối đa theo FR-016. Mọi lệnh ghi gửi UUID `Idempotency-Key`; update/pause/resume/policy gửi `expectedVersion`.
+
+| Màn hình / thành phần | Actor | REST operations | Core behavior |
+| --- | --- | --- | --- |
+| Danh sách / chi tiết ưu đãi công khai | Public | `listPublicPromotions`, `getPublicPromotion` | Scope-labelled cards và điều kiện; login trước khi lưu. |
+| Kho Voucher | Member | `listOwnSavedVouchers`, `saveOwnVoucher` | Kho chính mình, status/lý do không dùng, save không quota hold. |
+| My Loyalty | Member | `getOwnLoyaltyAccount`, `listOwnLoyaltyTransactions` | Balance, held, available, conversion/history; lỗi tải không hiện số cũ như confirmed. |
+| Danh sách & tạo chương trình | Manager | `listPromotionPrograms`, `createPromotionProgram`; đọc `GET /api/v1/catalogue-management/products` của 002 cho bộ chọn | List/filter và form tạo theo kind/scope; lỗi theo trường, giữ input. Đối tượng phạm vi sản phẩm chọn bằng bộ chọn (tìm theo tên/mã/SKU, chọn cả sản phẩm hoặc từng size; vẫn gửi `productIds`/`variantIds`); phạm vi workshop vẫn nhập mã. Trang chi tiết hiện tên sản phẩm/size đọc từ 002, đọc không được thì giữ mã (2026-11-01). Mã voucher do frontend sinh (`ML` + 8 ký tự ngẫu nhiên, bỏ ký tự dễ nhầm), Manager không gõ; backend vẫn là nơi quyết định duy nhất theo FR-006, gặp `CODE_EXISTS` thì sinh mã mới và gửi lại (tối đa 3 lần, khóa lệnh mới). Thời gian mặc định từ mốc 15 phút kế tiếp, 30 ngày; dưới mỗi ô thời gian hiện lại bằng chữ theo ngôn ngữ đang chọn. |
+| Sửa / dừng / mở lại chương trình | Manager | `getPromotionProgram`, `updatePromotionProgram`, `pausePromotionProgram`, `resumePromotionProgram`, `getPromotionUsage` | expectedVersion, UUID command, không đổi immutable fields; nút Mở lại cho PAUSED, giữ history/quota và xem current nếu stale. |
+| Chính sách điểm | Manager | `getCurrentLoyaltyPolicy`, `updateCurrentLoyaltyPolicy` | Form có version, ảnh hưởng tương lai. |
+| Thành phần chọn ưu đãi trong checkout FE-03/FE-08 | Member | Dữ liệu quote/breakdown từ API của owner FE-03/FE-08; không thêm endpoint public mới | FE-06 cung cấp component chọn mã/điểm và breakdown để màn hình của owner nhúng; owner gửi accept, FE-06 không tự tạo booking/order. |
+
+Hành vi chung: UI không tự gửi lệnh khi đổi lựa chọn; có nút Tính lại và Xác nhận. Chọn ưu đãi có thể không dùng, nhập mã hoặc chọn đã lưu. Khách phải thấy max usable points; lý do chặn kết hợp/minimum rõ ràng. Mỗi màn hình có loading, empty, validation, success và failure/recovery; không hiển thị thành công trước khi response xác nhận. Ẩn nút hoặc route guard phía client không thay authorization phía server.
+
+Empty states: chưa lưu mã, chưa có lịch sử/điểm; không đồng nhất empty với dependency error. Accessibility: label/input association, field errors và summary, keyboard operability; money/points bằng text đọc được.
+
+## 6. Compatibility and retention
+
+- Không đổi API/contract đã triển khai của 001/003 trong tài liệu này. Source integration cần owner review và additive contract versioning.
+- Không retrofit loyalty cho booking/đơn cũ không có snapshot Member-origin và accepted policy.
+- Command/audit/effect evidence tối thiểu5 năm, protected references/unfinished source; code/source-effect tombstones tồn tại để giữ uniqueness. Không log full payload/raw tokens/PII.
+- Operation schema/private output là proposed; runtime, migration, authorization và owner adapters phải được kiểm chứng trước activate.
+

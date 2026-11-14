@@ -1,0 +1,37 @@
+@startuml
+!pragma charset UTF-8
+title Member-only Use Cases
+left to right direction
+skinparam shadowing false
+skinparam usecase {
+  BackgroundColor #FCF9F8
+  BorderColor #807663
+  ArrowColor #5B5E67
+}
+
+actor Member
+
+rectangle "Personalized Product Sales and Workshop Booking System" {
+  usecase "Register / sign in" as Account
+  usecase "View participation,\ntransaction and upcoming-event history" as History
+  usecase "Browse ready rings" as Browse
+  usecase "Purchase ready ring" as Purchase
+  usecase "Review retail order\nand full amount due" as OrderSummary
+  usecase "Initiate full retail payment" as RetailPayment
+  usecase "Choose pickup or\nthird-party handoff" as Delivery
+}
+
+Member --> Account
+Member --> History
+Member --> Browse
+Member --> Purchase
+Member --> Delivery
+Purchase .> OrderSummary : <<include>>
+Purchase .> RetailPayment : <<include>>
+Purchase .> Delivery : <<extend>>\n[full payment confirmed]
+
+note bottom of Purchase
+Only a Member may purchase a ready ring.
+end note
+@enduml
+

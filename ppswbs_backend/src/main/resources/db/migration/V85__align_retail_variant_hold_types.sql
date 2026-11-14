@@ -1,0 +1,3 @@
+ALTER TABLE retail_variant_holds
+    MODIFY COLUMN id VARCHAR(36) NOT NULL,
+    MODIFY COLUMN quantity INT NOT NULL;

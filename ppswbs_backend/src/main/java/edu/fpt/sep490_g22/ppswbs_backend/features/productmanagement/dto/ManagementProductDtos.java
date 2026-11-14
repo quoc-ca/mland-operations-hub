@@ -1,0 +1,70 @@
+package edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dto;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
+
+/**
+ * Response shapes of {@code listManagementProducts} / {@code getManagementProduct}
+ * (OpenAPI {@code ManagementProductPage}, {@code ManagementProduct}). IDs, amounts and quantities
+ * are decimal strings. Required-but-nullable fields are serialized as {@code null}; optional fields
+ * are omitted when absent.
+ */
+public final class ManagementProductDtos {
+
+    public static final int PAGE_SIZE = 20;
+
+    private ManagementProductDtos() {
+    }
+
+    public record ManagementProductPage(List<ManagementProduct> items, int page, int pageSize, String totalElements) {
+    }
+
+    public record ManagementProduct(String id, String name, String description, Category category, boolean published,
+                                    Instant firstPublishedAt, Instant deletedAt, long contentVersion, long version,
+                                    List<ImageReference> images, List<ManagementVariant> variants,
+                                    List<Review> reviews, List<Branch> branches) {
+    }
+
+    /**
+     * A branch where the product is sold (US10). {@code name} is null when the branch is no longer active in the
+     * canonical list; {@code saleEnabled} is false when selling is stopped there for every size.
+     */
+    public record Branch(String locationId, String name, boolean active, boolean saleEnabled) {
+    }
+
+    /**
+     * Quantity of a size at one branch (US10); {@code version} is the row version for the branch quantity command.
+     * {@code validHeldQuantity}/{@code availableQuantity} (FR-051): holds and availability at this branch, null while the
+     * FE-08 source keeps holds per size only (the size's {@code validHeldQuantity} then applies at every branch).
+     */
+    public record BranchStock(String locationId, String remainingUnsold, boolean saleEnabled, long version,
+                              String validHeldQuantity, String availableQuantity) {
+    }
+
+    public record Category(String id, String name, String description, boolean active, long version) {
+    }
+
+    public record ImageReference(UUID mediaId, String altText, int position) {
+    }
+
+    public record ManagementVariant(String id, int size, String sku, String remainingUnsold, String validHeldQuantity,
+                                    String availableQuantity, boolean saleEnabled,
+                                    @JsonInclude(JsonInclude.Include.NON_NULL) String appliedPrice,
+                                    long appliedSequence, long version, List<Proposal> proposals,
+                                    List<BranchStock> branchStocks) {
+    }
+
+    public record Proposal(String id, String variantId, long revision, long version, String state, boolean effective,
+                           String proposedPrice,
+                           @JsonInclude(JsonInclude.Include.NON_NULL) String approvedPrice,
+                           long baseAppliedSequence, boolean applied,
+                           @JsonInclude(JsonInclude.Include.NON_NULL) String reason) {
+    }
+
+    public record Review(String id, long revision, long contentVersion, String state, boolean effective,
+                         @JsonInclude(JsonInclude.Include.NON_NULL) String reason) {
+    }
+}

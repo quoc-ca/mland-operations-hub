@@ -1,0 +1,184 @@
+package edu.fpt.sep490_g22.ppswbs_backend.configuration;
+
+import jakarta.servlet.Filter;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.io.IOException;
+import java.time.Instant;
+import java.util.Arrays;
+import java.util.List;
+import java.util.UUID;
+
+@Configuration
+@EnableWebSecurity
+public class SecurityConfiguration {
+
+    private final ObjectProvider<Filter> identityGateFilterProvider;
+    private final List<String> allowedOrigins;
+
+    public SecurityConfiguration(
+            @Qualifier("identityGateFilter") ObjectProvider<Filter> identityGateFilterProvider,
+            @Value("${app.cors.allowed-origins:http://localhost:5173}") String allowedOriginsStr) {
+        this.identityGateFilterProvider = identityGateFilterProvider;
+        this.allowedOrigins = Arrays.stream(allowedOriginsStr.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .toList();
+    }
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .csrf(csrf -> csrf.ignoringRequestMatchers("/api/**"))
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(exceptions -> exceptions
+                        .authenticationEntryPoint((request, response, authException) -> {
+                            String correlationId = resolveCorrelationId(request);
+                            writeError(response, HttpStatus.UNAUTHORIZED.value(), "UNAUTHORIZED",
+                                    "Authentication required", correlationId);
+                        })
+                        .accessDeniedHandler((request, response, accessDeniedException) -> {
+                            String correlationId = resolveCorrelationId(request);
+                            writeError(response, HttpStatus.FORBIDDEN.value(), "FORBIDDEN", "Access denied",
+                                    correlationId);
+                        }))
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers("/error").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/addresses/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/administrative-divisions/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/workshop-packages/*/locations").permitAll()
+                        // Public session discovery for guest/member booking flow (no PII or ticket data
+                        // exposed)
+                        .requestMatchers(HttpMethod.GET, "/api/v1/workshop-packages/*/sessions").permitAll()
+                        // Public package list and detail for booking discovery
+                        .requestMatchers(HttpMethod.GET, "/api/v1/workshop-packages").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/workshop-packages/*").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/ai-support/messages").permitAll()
+                        // 003.1 FR-031, FR-045, FR-047, FR-048: the group booking journey is open to a
+                        // Guest (contract
+                        // `security: [{}]`); each service authorizes server-side and a bearer, when
+                        // sent, is still verified.
+                        .requestMatchers(HttpMethod.POST, "/api/v1/workshop-cart-quotes").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/workshop-booking-groups").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/workshop-booking-groups/*/payment-attempts")
+                        .permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/workshop-booking-group-lookups").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/workshop-booking-group-magic-links/exchanges")
+                        .permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/workshop-booking-groups/*/pending-hold-release")
+                        .permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/workshop-booking-groups/*/confirmation-deliveries")
+                        .permitAll()
+                        // 003.1 FR-041 (decision 2026-11-13): a Guest buyer proves authority by OTP;
+                        // the services
+                        // authorize every request server-side (bearer optional).
+                        .requestMatchers(HttpMethod.POST, "/api/v1/workshop-booking-groups/*/buyer-verifications")
+                        .permitAll()
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/v1/workshop-booking-groups/*/buyer-verifications/*/confirmations")
+                        .permitAll()
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/workshop-tickets/*/recipient").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/workshop-tickets/*/cancellations").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/workshop-booking-groups/*/cancellations").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/workshop-tickets/*/mland-remedy/answers").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/workshop-tickets/*/changes").permitAll()
+                        // 003.3 FR-040: the single-use refund-account link from email 7 is the
+                        // credential.
+                        .requestMatchers(HttpMethod.POST, "/api/v1/refund-account-links/*").permitAll()
+                        // VNPay calls the signed IPN server-to-server without a Mland bearer token.
+                        // PaymentIngressService performs checksum, owner, amount and deduplication
+                        // checks.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/integrations/payments/vnpay/events").permitAll()
+                        // Browser return is display-only. It only redirects to the React result page;
+                        // no payment state is accepted from this request.
+                        .requestMatchers(HttpMethod.GET, "/payment/vnpay/return").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/workshop-tickets/*/folio-lookups").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/review-eligibility/lookup").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/reviews/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/reviews").permitAll()
+                        .requestMatchers(HttpMethod.PATCH, "/api/v1/reviews/*").permitAll()
+                        // Feature-012 Workshop Ring Design Configuration endpoints (Guest & Member
+                        // access)
+                        .requestMatchers(HttpMethod.GET, "/api/v1/workshop-design-options/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/workshop-designs").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/workshop-designs/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/workshop-designs").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/workshop-designs/evaluate").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/workshop-designs/*/versions").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/workshop-designs/*/evaluate").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/workshop-designs/*/archive").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/workshop-designs/*/attach-to-booking").permitAll()
+                        .requestMatchers("/api/**").authenticated()
+                        .anyRequest().denyAll());
+
+        identityGateFilterProvider.ifAvailable(filter -> {
+            http.addFilterBefore(filter, UsernamePasswordAuthenticationFilter.class);
+        });
+
+        return http.build();
+    }
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        configuration.setAllowedOrigins(allowedOrigins);
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Correlation-Id", "Idempotency-Key",
+                "If-Match-Version", "X-Guest-Design-Session", "X-Guest-Session-Id"));
+        configuration.setExposedHeaders(List.of("X-Correlation-Id"));
+        configuration.setAllowCredentials(false);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
+    }
+
+    @Bean
+    public UserDetailsService noopUserDetailsService() {
+        return username -> {
+            throw new UsernameNotFoundException("Local username/password authentication is not supported");
+        };
+    }
+
+    private String resolveCorrelationId(HttpServletRequest request) {
+        String correlationId = request.getHeader("X-Correlation-Id");
+        return (correlationId != null && !correlationId.isBlank()) ? correlationId.trim()
+                : UUID.randomUUID().toString();
+    }
+
+    private void writeError(
+            HttpServletResponse response,
+            int status,
+            String code,
+            String message,
+            String correlationId) throws IOException {
+        response.setStatus(status);
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        response.setCharacterEncoding("UTF-8");
+        String json = String.format(
+                "{\"code\":\"%s\",\"message\":\"%s\",\"correlationId\":\"%s\",\"timestamp\":\"%s\"}",
+                code, message, correlationId, Instant.now());
+        response.getWriter().write(json);
+    }
+}

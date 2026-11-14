@@ -1,0 +1,14 @@
+/* 006 offers on 002's public product card and detail: red price after the automatic discount, struck original,
+   pink badge for an automatic discount, outlined badge for a voucher code. */
+.offer-price{display:inline-flex;flex-wrap:wrap;align-items:baseline;gap:4px 8px}
+.offer-price .offer-now,.pm-public .offer-price .price.offer-now{color:#e11d48;font-weight:700}
+.offer-was{color:#9ca3af;font-size:12px;font-weight:400}
+.offer-badges{display:flex;flex-wrap:wrap;gap:6px}
+.offer-badge{display:inline-flex;align-items:center;min-height:22px;padding:0 8px;border-radius:6px;font-size:11px;font-weight:600;white-space:nowrap}
+.offer-badge.auto{background:#ffe4ec;color:#e11d48}
+.offer-badge.voucher{background:#fff;color:#b45309;border:1px dashed #f59e0b}
+.offer-list{margin:16px 0}
+.offer-list ul{list-style:none;margin:0 0 8px;padding:0;display:flex;flex-direction:column;gap:10px}
+.offer-list li{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:13px}
+.offer-applies{font-size:12px;font-weight:600;color:#b45309}
+.offer-list .text-link{font-size:12px;font-weight:600}

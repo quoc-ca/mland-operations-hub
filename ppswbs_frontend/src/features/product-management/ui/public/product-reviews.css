@@ -1,0 +1,118 @@
+/* Product Review Section Styles */
+.product-reviews-section {
+  margin-top: 3.5rem;
+  padding-top: 2.5rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.product-reviews-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.product-reviews-score-card {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 1rem 1.5rem;
+  border-radius: 12px;
+}
+
+.product-score-number {
+  font-size: 2.25rem;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1;
+}
+
+.product-score-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.product-reviews-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  background: #fdfdfd;
+  border: 1px solid #f1f5f9;
+  border-radius: 8px;
+  margin-bottom: 1.75rem;
+}
+
+.sort-group {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.review-sort-select {
+  padding: 0.5rem 0.85rem;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #1e293b;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  outline: none;
+}
+
+.review-sort-select:focus {
+  border-color: #d97706;
+}
+
+.filter-stars-pills {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.filter-pill {
+  padding: 0.4rem 0.85rem;
+  border-radius: 9999px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #475569;
+  font-size: 0.825rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.filter-pill:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.filter-pill.active {
+  background: #0f172a;
+  color: #ffffff;
+  border-color: #0f172a;
+}
+
+.product-reviews-empty {
+  text-align: center;
+  padding: 3.5rem 1rem;
+  background: #f8fafc;
+  border-radius: 12px;
+  border: 1px dashed #cbd5e1;
+  margin-top: 1rem;
+}
+
+.product-reviews-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}

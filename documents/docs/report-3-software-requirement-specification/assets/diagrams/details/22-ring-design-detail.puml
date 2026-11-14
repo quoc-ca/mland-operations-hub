@@ -1,0 +1,68 @@
+@startuml
+!pragma charset UTF-8
+title UC-Ring Design — Select, Configure or Submit Reference Image
+skinparam shadowing false
+skinparam activity {
+  BackgroundColor #FCF9F8
+  BorderColor #807663
+  ArrowColor #5B5E67
+}
+
+|Guest or Member|
+start
+:Choose design approach;
+if (Approved ring model?) then (yes)
+  |System|
+  :Load Manager-approved model;
+  :Mark route as catalogue design;
+  stop
+elseif (Component configurator?) then (yes)
+  |Member|
+  :Choose available component options;
+  |System|
+  :Validate against approved components\nand hard constraints;
+  if (Selection valid?) then (yes)
+    :Mark route as configured design;
+  else (no)
+    :Explain constraint and require a valid selection;
+  endif
+  stop
+else (Reference image)
+  if (Member with eligible booking context?) then (yes)
+    :Read consent wording and give explicit consent;
+    :Submit reference image;
+    |System|
+    :Validate request, consent and rate limit;
+  if (Request accepted?) then (yes)
+    |AI Vision API|
+    :Assess image quality;
+    :Return candidate features only;
+    |System|
+    :Evaluate candidate features with approved\nhard constraints, scores and thresholds;
+    :Create pending human-review request;
+    if (Estimated value <= 3,000,000 VND?) then (Staff)
+      |Staff|
+      :Review candidate features and estimate context;
+    else (Manager)
+      |Manager|
+      :Review candidate features and estimate context;
+    endif
+    |System|
+    :Record Accepted, Rejected or Clarification Required\nwith actor, reason and design version;
+    :Show reviewed result or required next action;
+  else (no)
+    :Do not send image to AI;
+    :Show consent, quality or rate-limit error;
+  endif
+  else (Guest / not eligible)
+    :Do not send an image;
+    :Show Member-only requirement;
+  endif
+endif
+
+note right
+Guest cannot enter the image branch. AI only returns image quality and candidate features.
+Human review is mandatory; AI cannot decide feasibility, price, acceptance or rejection.
+end note
+stop
+@enduml
