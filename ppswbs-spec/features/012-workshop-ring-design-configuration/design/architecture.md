@@ -1,12 +1,11 @@
 # Feature-012 Architecture Design — Workshop Ring Design Configuration
 
 Date created: 2026-11-08
-Date updated: 2026-11-09
+Date updated: 2026-11-14
 Author: Ngô Tiến Đạt
 Last updated by: Ngô Tiến Đạt
 
-**Status:** Frontend design handoff ready for review; implementation requires approval of the spec, data
-model, API contract, Guest session boundary and Workshop Booking facade.
+**Status:** Implementation completed and verified; Spring Modulith module `features.ringdesignconfiguration` and React frontend verified.
 
 ## 1. Design objective and boundaries
 

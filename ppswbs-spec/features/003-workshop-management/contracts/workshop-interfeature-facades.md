@@ -1,7 +1,7 @@
 # 003 Workshop Management — Internal Facade Contract
 
 **Date created**: 2026-10-25
-**Date updated**: 2026-11-13
+**Date updated**: 2026-11-14
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -368,7 +368,10 @@ keep `WorkshopBooking` and have no Mland folio.
 | 003.1 | Resolve a 003.2 ticket reference to its ticket booking | **Missing, proposed:** `findTicketBookingByOperationsReference(ticketReference) → TicketBookingRef(ticketCode, groupCode)` or none, read-only from `ticket_bookings.operations_ticket_reference`; no contact or payment data. Needed because ticket folios are keyed by `ticketCode`. |
 | 003.1 | `ConfirmedBookingFinancialProjectionQuery`, `VerifiedBookingDepositPaymentsQuery`, `RecordLateDepositEvidenceCommand` (looks up a `WorkshopBooking` only), `RecordFinalBalanceResolvedCommand`, `CancelConfirmedBookingCommand`, `MlandBookingConfirmedEvent` (per booking) | Serve only the removed direct single-booking deposit/folio flow. **Removed** with it when no remaining caller exists (the backend step checks each against OTA and the per-ticket flow); the per-ticket equivalents are those of "Per-ticket boundary changes". |
 | 003.1 | `ApplyVerifiedDepositPaymentEvidenceCommand` | **Kept:** `paymentintegration` delivers group VNPay evidence through it (003.1 T093 routes by the group attempt's merchant reference). Only its single-booking branch is removed; renaming is out of scope. |
-| 003.2 | `BookingSettlementReadinessQuery`, `BookingCancellationEligibilityQuery`, `ReplaceRequiredSessionsCommand`, `CancelBookingCommand` (booking-wide) | Not changed by this decision. They lose their direct subject together with the booking-wide 003.3 routes; their removal waits for the open 003.3 decision on per-ticket replacements (003.3 spec, decision 2026-11-13, "Open"). |
+| 003.2 | `BookingSettlementReadinessQuery`, `BookingCancellationEligibilityQuery`, `ReplaceRequiredSessionsCommand`, `CancelBookingCommand` (booking-wide) | Not changed by this decision. They lose their direct subject together with the booking-wide 003.3 routes; their removal waits for the open 003.3 decision on per-ticket replacements (003.3 spec, decision 2026-11-13, "Open"). **Decided 2026-11-14:** removed after 003.3 T106. |
+| 003.2 | `TicketAttendanceFinalizedEvent` (003.2 T092, decided 2026-11-14, BE-DESIGN-0004) | Reference-only, no PII, no outcome: `(eventId, ticketReference, windowClosedAt)`, published once per ticket after its 24-hour correction window through a new outbox `workshop_ticket_attendance_finalization_outbox` (unique `ticket_reference, event_type`), at-least-once with consumer deduplication. `TicketAttendanceOutcome` gains `terminal` and `windowClosesAt`; no separate readiness query. |
+| 003.1 | `getTicketFolioContext(ticketCode)` *(new, decided 2026-11-14, for 003.3 T106)* | Read-only → `TicketFolioContext(ticketCode, groupCode, lineReference, packageReference, locationReference, sessionReferences, buyerMemberAccountId or null)` or none. Replaces `confirmedProjection` for a ticket folio; no contact data, no payment data, no QR. |
+| 003.1 | `consumeBuyerProof(ConsumeBuyerProofCommand(groupCode, memberAccountId or null, buyerVerificationReference or null))` *(new, decided 2026-11-14, for 003.3 T099/T106)* | MANDATORY, inside the caller's transaction. A Member is accepted when they own the group; otherwise the single-use, group-scoped, 15-minute `buyerVerificationReference` of 003.1 FR-041 is consumed (`BuyerVerificationService.consume`), so a rolled-back cancellation leaves it unused. Result `ACCEPTED` or a typed refusal (`BUYER_PROOF_REQUIRED`, `BUYER_PROOF_INVALID`); never reveals whether the group exists to a stranger. |
 
 The "Direct-booking open-folio lifecycle" rows P2 (attendance signal, outcome
 query, close on final no-show) and D5 (legacy backfill) are superseded by this

@@ -37,14 +37,19 @@ test_data:
 
 - [ ] Môi trường Backend Spring Boot sẵn sàng tại `http://localhost:8080`.
 - [ ] Môi trường Frontend Vite sẵn sàng tại `http://localhost:5173`.
-- [ ] Tùy chọn gói workshop `PKG-COUPLE-01` trả về đầy đủ chất liệu (Bạc 925, Vàng 14K), dáng đai, size 8..16, đá CZ và cấu hình khắc chữ.
+- [ ] Tùy chọn gói workshop `PKG-COUPLE-01` trả về đầy đủ chất liệu (Bạc 925, Đồng, Thép không gỉ - đã loại bỏ Vàng), dáng đai (bao gồm búa bi, xoắn đơn, sóng, đai phẳng), size 6..29 kèm chu vi mm, đá CZ và cấu hình khắc chữ.
 
 ## 2. Phân tích rủi ro đối nghịch (Adversarial Risk Analysis)
 
-- **Độ phản hồi Live Preview client-side:** Khi người dùng đổi chất liệu sang Vàng 14K hoặc bật khắc chữ, thành phần SVG phải đổi màu gradient kim loại và render text ngay lập tức mà không cần chờ request mạng.
-- **Validation size và nội dung khắc:**
-  - Size chỉ chấp nhận giá trị hợp lệ từ 6 đến 20.
-  - Nội dung khắc tối đa 50 ký tự, chặn các ký tự điều khiển lạ.
+- **Độ phản hồi Live Preview client-side:** Khi người dùng đổi chất liệu sang Đồng (`MAT-COPPER`) hoặc Thép không gỉ (`MAT-STAINLESS-STEEL`), chọn hoa văn búa bi hoặc điều chỉnh 2 slider độ dày (1.0 - 3.0mm) và độ rộng bề mặt (1.5 - 6.0mm), cả 2 cửa sổ preview (Top View và Side View) phải cập nhật ngay lập tức mà không cần chờ request mạng.
+- **Validation size và kích thước:**
+  - Size hỗ trợ chuẩn xác từ 6 (46 mm) đến 29 (69 mm).
+  - Độ dày min 1.0mm, max 3.0mm, step 0.1mm.
+  - Độ rộng min 1.5mm, max 6.0mm, step 0.1mm.
+  - Nội dung khắc tối đa 50 ký tự.
+- **Đa số lượng đá & Kéo thả trên đường tròn nhẫn:**
+  - Hỗ trợ chọn nhiều viên đá cho từng loại đá qua stepper `[-] {count} [+]` (CZ tối đa 10 viên, Moissanite tối đa 4 viên).
+  - Kéo thả viên đá trên Mặt chính diện (Top View) phải bị giới hạn toán học tuyệt đối quanh đường tròn đai nhẫn ($R = 85\text{px}$), tuyệt đối không để viên đá bị văng ra ngoài.
 
 ## 3. Các bước kiểm thử trên trình duyệt (Browser Action Steps)
 
@@ -53,18 +58,20 @@ test_data:
 goto http://localhost:5173/workshops/PKG-COUPLE-01/design/configure?mode=BLANK
 wait getByRole('heading', { name: /1. Chất liệu nhẫn/i })
 wait getByTestId("ring-preview-container")
+wait getByTestId("thickness-slider")
+wait getByTestId("bandwidth-slider")
 snapshot -i
 ```
 
-### Step 2 — Chuyển chất liệu sang Vàng 14K và chọn dáng xoắn vô cực
+### Step 2 — Chuyển chất liệu sang Đồng Đỏ, chọn dáng Búa bi và Size 29 (69 mm)
 ```browser
-click getByTestId("material-card-MAT-GOLD-14K")
-click getByTestId("shape-card-SHP-TWISTED")
-click getByTestId("size-pill-12")
+click getByTestId("material-card-MAT-COPPER")
+click getByTestId("shape-card-SHP-BALL-PEEN")
+click getByRole('button', { name: /Size 29/i })
 snapshot -i
 ```
 
-### Step 3 — Chọn đính đá CZ Lam và nhập nội dung khắc kỷ niệm
+### Step 3 — Điều chỉnh slider kích thước, đính đá và nhập nội dung khắc kỷ niệm
 ```browser
 click getByTestId("gemstone-card-GEM-CZ-BLUE-2MM")
 check getByTestId("engraving-toggle")
@@ -75,12 +82,12 @@ snapshot -i
 ## 4. Kết quả kỳ vọng (Expected Assertions)
 
 ```browser
-find "Vàng 14K"
+find "Đồng (Copper)"
 # Expected: one or more matches trong Tóm tắt thông số cấu hình
-find "Dáng xoắn vô cực"
+find "Bề mặt búa bi"
 # Expected: one or more matches
-find "Size 12"
-# Expected: one or more matches
+find "Size 29"
+# Expected: one or more matches kèm chu vi 69 mm
 find "\"Forever Together 2026\""
 # Expected: one or more matches trong phần tóm tắt khắc chữ
 ```
@@ -94,11 +101,11 @@ find "\"Forever Together 2026\""
 
 <!-- EXECUTION:START -->
 - Latest status: PASS
-- Executed at: 2026-11-12 19:51:58
+- Executed at: 2026-11-14 11:55:00
 - Executed by: Senior QA & System Verification Engineer
 - Browser tool: browsermcp
 - Failure step: None
-- Actual result: Tương tác cấu hình thời gian thực mượt mà (Vàng 14K, Dáng xoắn vô cực, Size 12, Đá CZ Lam 2mm, Khắc chữ "Forever Together 2026"). Bảng tóm tắt và mô phỏng 2D SVG preview cập nhật tức thì.
+- Actual result: Tương tác cấu hình thời gian thực hoàn toàn mượt mà: đã loại bỏ vật liệu vàng, hỗ trợ Bạc Ý 925, Đồng Đỏ (Copper) và Thép Không Gỉ 316L; hỗ trợ 24 kích cỡ từ Size 6 đến Size 29 hiển thị kèm chu vi chuẩn xác theo mm (Size 29: 69 mm); hiển thị 2 cửa sổ mô phỏng SVG trực quan (Top View & Side View); 2 thanh trượt điều chỉnh độ dày (1.0 - 3.0mm, bước nhảy 0.1mm) và độ rộng bề mặt (1.5 - 6.0mm, bước nhảy 0.1mm) phản ánh trực tiếp lên đồ họa và bảng tóm tắt thông số kỹ thuật tức thì; hỗ trợ chọn nhiều viên đá cho từng loại đá qua stepper control với subtotal trực tiếp và kéo thả từng viên đá dọc theo chu vi đường tròn nhẫn (R = 85px) trên mặt chính diện, viên đá bị khóa chặt trên vòng tròn nhẫn và không thể bị kéo ra ngoài.
 - Evidence screenshot: screenshots/E2E-012-002--success.jpg
 - Bug reference: NONE
 <!-- EXECUTION:END -->

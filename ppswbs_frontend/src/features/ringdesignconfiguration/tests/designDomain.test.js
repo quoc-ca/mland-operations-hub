@@ -124,6 +124,43 @@ describe('Design Draft Domain Logic', () => {
     expect(normalizedDisabled.engraving.text).toBeNull();
     expect(normalizedDisabled.engraving.placement).toBeNull();
   });
+
+  it('handles multi-item engraving and custom images in draft normalization and pricing', () => {
+    const draft = {
+      packageReference: 'PKG-TEST',
+      materialReference: 'MAT-SILVER-925',
+      shapeReference: 'SHP-BALL-PEEN',
+      ringSize: '8',
+      thicknessMm: 1.8,
+      bandWidthMm: 3.5,
+      components: [],
+      attachments: [],
+      engraving: {
+        enabled: true,
+        items: [
+          { id: '1', content: 'Forever', placement: 'INNER_BAND' },
+          { id: '2', content: '2026', placement: 'OUTER_BAND' },
+        ],
+        customImages: [
+          { id: 'img-1', imageUrl: 'data:image/png;base64,...', cropX: 10, cropY: 20, placement: 'OUTER_BAND' },
+        ],
+      },
+    };
+
+    const normalized = normalizeDraftForSave(draft);
+    expect(normalized.engraving.enabled).toBe(true);
+    expect(normalized.engraving.items).toHaveLength(2);
+    expect(normalized.engraving.customImages).toHaveLength(1);
+    expect(normalized.engraving.text).toBe('Forever | 2026');
+
+    const preview = derivePreviewModel(draft);
+    expect(preview.standardEngravingCost).toBe(80000);
+    expect(preview.customImagesCost).toBe(100000);
+    expect(preview.totalEngravingCost).toBe(180000);
+    expect(preview.isTexturedSurface).toBe(true);
+    expect(preview.hasOuterEngraving).toBe(true);
+    expect(preview.showSurfaceTextureWarning).toBe(true);
+  });
 });
 
 describe('Design Preview Model Derivation', () => {

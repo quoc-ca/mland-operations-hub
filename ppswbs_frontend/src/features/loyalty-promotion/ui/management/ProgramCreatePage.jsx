@@ -38,8 +38,8 @@ const emptyForm = () => ({
 });
 
 /**
- * T030 create: fields follow kind and scope (an automatic discount is product-only and always allows points; only a
- * voucher has a code and limits). Product targets are picked from 002's product list (whole product or single sizes);
+ * T030 create: fields follow kind and scope (an automatic discount always allows points and, for workshops, is
+ * targeted by packages only — Session 2026-11-14, FR-044; only a voucher has a code and limits). Product targets are picked from 002's product list (whole product or single sizes);
  * workshop targets are still entered as IDs because 003 offers no picker read yet. Errors keep every value; success
  * opens the created programme. The voucher code is generated (never typed); if the backend reports it as already
  * issued, a new code is drawn and the request sent again, at most MAX_CODE_DRAWS times. The window starts filled in
@@ -67,7 +67,11 @@ export default function ProgramCreatePage() {
     clear(...errorFieldsOf(name));
     setForm(current => {
       const next = { ...current, [name]: value };
-      if (name === 'kind' && value === 'AUTO_DISCOUNT') next.scope = 'PRODUCT';
+      // Kind or scope changed: the workshop package choice is single for a voucher and multiple for an automatic
+      // discount (FR-044, packages only), so the picked workshop targets start again.
+      if ((name === 'kind' || name === 'scope') && value !== current[name]) {
+        next.packageIds = ''; next.branchIds = ''; next.sessionIds = '';
+      }
       return next;
     });
   };
@@ -127,8 +131,8 @@ export default function ProgramCreatePage() {
               <option value="AUTO_DISCOUNT">{t('kind.AUTO_DISCOUNT')}</option>
             </select>
           </Field>
-          <Field label={t('field.scope')} error={errorOf('scope')} hint={voucher ? null : t('create.autoProductOnly')}>
-            <select value={form.scope} onChange={set('scope')} disabled={!voucher}>
+          <Field label={t('field.scope')} error={errorOf('scope')} hint={voucher || form.scope !== 'WORKSHOP' ? null : t('create.autoWorkshopPackagesOnly')}>
+            <select value={form.scope} onChange={set('scope')}>
               <option value="PRODUCT">{t('scope.PRODUCT')}</option>
               <option value="WORKSHOP">{t('scope.WORKSHOP')}</option>
             </select>
@@ -175,7 +179,7 @@ export default function ProgramCreatePage() {
         )}
 
         <h2 className="section-title">{t('create.targets')}</h2>
-        <p className="muted small">{t(form.scope === 'PRODUCT' ? 'create.productTargetsHint' : 'create.workshopTargetsHint')}</p>
+        <p className="muted small">{t(form.scope === 'PRODUCT' ? 'create.productTargetsHint' : voucher ? 'create.workshopTargetsHint' : 'create.workshopAutoTargetsHint')}</p>
         {errorOf('targets') && <p className="field-error">{errorOf('targets')}</p>}
         {form.scope === 'PRODUCT' ? (
           <>
@@ -187,7 +191,7 @@ export default function ProgramCreatePage() {
               errors={{ productIds: errorOf('targets.productIds'), variantIds: errorOf('targets.variantIds') }} />
           </>
         ) : (
-          <WorkshopTargetPicker api={api} form={form} setField={setField}
+          <WorkshopTargetPicker api={api} form={form} setField={setField} packagesOnly={!voucher}
             errors={{ packageIds: errorOf('targets.packageIds'), branchIds: errorOf('targets.branchIds'), sessionIds: errorOf('targets.sessionIds') }} />
         )}
 

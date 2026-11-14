@@ -178,7 +178,7 @@ export function WorkshopDetailPage({ packageId }) {
 
           {/* Reviews are written by people who attended a session, so a session still open for booking has none. What helps
               someone choosing a package is the reviews of the package, gathered from the sessions already held. */}
-          <p style={{ margin: '0 0 20px' }}>
+          <p style={{ margin: '0 0 20px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
             <button
               type="button"
               className="button outline"
@@ -186,6 +186,12 @@ export function WorkshopDetailPage({ packageId }) {
             >
               Xem đánh giá của gói này ↓
             </button>
+            <a
+              href={`/workshops/${pkg.packageReference || 'PKG-COUPLE-SILVER'}/design`}
+              className="button outline"
+            >
+              💍 Cấu hình mẫu nhẫn
+            </a>
           </p>
 
           <div className="workspace-card" style={{ padding: '18px', backgroundColor: '#fafafa' }}>

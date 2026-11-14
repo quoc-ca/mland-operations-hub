@@ -6,9 +6,10 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Trusted input of the accept transaction. {@code memberOrigin} is {@code true} only for a Member
- * booking/order made directly on the website; guest-import identities never qualify and are not
- * retrofitted. {@code quoteRef} and {@code termsDigest} are source-owned acknowledgement proofs.
+ * Trusted input of the accept transaction. {@code memberOrigin} is {@code true} only for a booking/order made
+ * directly on the website; guest-import identities never qualify and are not retrofitted. Since D-014
+ * (Session 2026-11-14) that includes a Guest's direct workshop booking: its trusted context carries
+ * {@link TrustedSourceContext#GUEST}, and the snapshot is kept without a Member (automatic discount only). {@code quoteRef} and {@code termsDigest} are source-owned acknowledgement proofs.
  * {@code originalDeadline} is the owner's hold deadline; loyalty sets no upper bound on it (FE-08 uses 15 minutes for
  * VNPay and 72 hours for cash at the counter).
  * {@code parts} (Session 2026-11-12, D-011, retail only, optional) split the checkout into branch orders that are

@@ -7,8 +7,9 @@ import java.util.List;
 
 /**
  * A cart to quote (003.1 FR-030): one or more lines, each a package with its complete required-session set
- * and a participant count. {@code benefitSelection} is optional; a voucher or points are refused until the
- * 006 cart contract lands (see 003.1 cart-benefit-contract-request.md).
+ * and a participant count. {@code benefitSelection} is optional: without one, or with {@code NONE}, the cart gets
+ * the automatic workshop discount (006 FR-044); {@code VOUCHER} replaces it (006 FR-015). A voucher or points need a
+ * signed-in Member.
  */
 public record WorkshopCartQuoteRequest(
         @NotEmpty @Size(max = 10) List<@NotNull @Valid Line> lines,
@@ -28,7 +29,7 @@ public record WorkshopCartQuoteRequest(
 
         public enum Choice { NONE, VOUCHER }
 
-        /** Whether this selection asks for anything 003.1 cannot allocate without the 006 cart contract. */
+        /** Whether this selection asks for a Member-only benefit: a voucher or points. */
         public boolean requestsBenefit() {
             boolean points = requestedPoints != null && !requestedPoints.isBlank() && !"0".equals(requestedPoints);
             return choice == Choice.VOUCHER || points;

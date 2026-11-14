@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { useWorkshopRingDesignApi } from '../api/useWorkshopRingDesignApi';
-import { setStoredGuestSession, getStoredGuestSession } from '../api/workshopRingDesignApi';
+import { setStoredGuestSession, getStoredGuestSession, clearStoredGuestSession } from '../api/workshopRingDesignApi';
 import { newCommandId } from '../../../shared/api/http';
 import { getErrorMessage } from '../domain/designErrors';
 
@@ -34,6 +34,9 @@ export function useWorkshopDesignCommand(isAuthenticated = false) {
       resetCommandKey();
       return res;
     } catch (err) {
+      if (err?.status === 401) {
+        clearStoredGuestSession();
+      }
       setError(getErrorMessage(err));
       throw err;
     } finally {
@@ -51,6 +54,9 @@ export function useWorkshopDesignCommand(isAuthenticated = false) {
       resetCommandKey();
       return res;
     } catch (err) {
+      if (err?.status === 401) {
+        clearStoredGuestSession();
+      }
       setError(getErrorMessage(err));
       throw err;
     } finally {
@@ -68,6 +74,9 @@ export function useWorkshopDesignCommand(isAuthenticated = false) {
       resetCommandKey();
       return res;
     } catch (err) {
+      if (err?.status === 401) {
+        clearStoredGuestSession();
+      }
       setError(getErrorMessage(err));
       throw err;
     } finally {
@@ -85,6 +94,9 @@ export function useWorkshopDesignCommand(isAuthenticated = false) {
       resetCommandKey();
       return res;
     } catch (err) {
+      if (err?.status === 401) {
+        clearStoredGuestSession();
+      }
       setError(getErrorMessage(err));
       throw err;
     } finally {
@@ -102,6 +114,9 @@ export function useWorkshopDesignCommand(isAuthenticated = false) {
       resetCommandKey();
       return res;
     } catch (err) {
+      if (err?.status === 401) {
+        clearStoredGuestSession();
+      }
       setError(getErrorMessage(err));
       throw err;
     } finally {

@@ -12,7 +12,7 @@ import { MemoryRouter } from 'react-router';
 describe('WF-08 / T051 / T052 Verified Email Gate & Profile Integration', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
-    localStorage.clear();
+    window.localStorage.clear();
   });
 
   afterEach(() => {

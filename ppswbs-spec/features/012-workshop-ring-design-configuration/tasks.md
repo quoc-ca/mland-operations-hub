@@ -1,7 +1,7 @@
 # Feature-012 Tasks: Workshop Ring Design Configuration
 
 Date created: 2026-11-08  
-Date updated: 2026-11-12  
+Date updated: 2026-11-14  
 Author: Ngô Tiến Đạt  
 Last updated by: Ngô Tiến Đạt  
 
@@ -59,7 +59,25 @@ Last updated by: Ngô Tiến Đạt
 - [x] E2E-012-005 (Guest Expiry 20-min branch): PASS with JPEG screenshot evidence (HTTP 401 `DESIGN_SESSION_EXPIRED`).
 - [x] BUG-E2E-0004 resolved and closed in `ppswbs-testing/BUG-LOG.md`.
 
-## Phase 5 — Release Gates
+## Phase 6 — Materials, Sizes 6-29, Catalogue Models & Dual-View Sliders
+
+- [x] T014 Implement migration `V120__ring_design_copper_steel_and_models.sql` (Deactivate Gold, add Copper & Stainless Steel 316L, expand models to 12).
+- [x] T015 Expand backend size range to sizes 6-29 in `ManagerDesignRuleAdapter.java`.
+- [x] T016 Add perimeter calculation in mm ($P = \text{size} + 40\text{mm}$) and update UI size selector pills.
+- [x] T017 Implement Dual View SVG (Top View and Side View) in `RingPreview.jsx`.
+- [x] T018 Add thickness slider (1.0 - 3.0mm) and band width slider (1.5 - 6.0mm) with synchronized preview update.
+- [x] T019 Update Navbar with direct link for workshop ring design discoverability.
+
+## Phase 7 — Multi-Gemstone Stepper & Constrained Circular Drag-and-Drop
+
+- [x] T020 Implement stepper controls `[-] {count} [+]` on gemstone cards with unit price & subtotal.
+- [x] T021 Support multiple gemstone instances per type up to `maxQuantity`.
+- [x] T022 Implement drag-and-drop on Top View SVG preview strictly constrained to ring circle band ($R = 85\text{px}$) via polar projection $\theta = \text{atan2}(y - 135, x - 150)$.
+- [x] T023 Synchronize prong settings and gemstone silhouettes on Side View SVG.
+- [x] T024 Update design evaluation summary to format `${quantity}x ${label}`.
+- [x] T025 Verify full Vitest suite (88/88 tests passed) and browser E2E test verification.
+
+## Phase 8 — Release Gates
 
 - [ ] Giai đoạn 1: Quản trị danh mục động cho Manager (FE-09) — Xây dựng màn hình quản lý danh mục nhẫn cho Manager để cập nhật động các mẫu đá quý, chất liệu và phụ kiện thay vì sử dụng seed ban đầu.
 - [ ] Giai đoạn 2: Phê duyệt chính thức Revision Figma — Cập nhật mã revision Figma chính thức khi Tech Lead và UI Designer hoàn thiện rà soát giao diện visual.

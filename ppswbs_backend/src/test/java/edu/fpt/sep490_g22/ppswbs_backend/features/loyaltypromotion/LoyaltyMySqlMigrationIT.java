@@ -143,7 +143,7 @@ class LoyaltyMySqlMigrationIT {
         List<String> versions = jdbc.queryForList(
                 "SELECT version FROM flyway_schema_history WHERE success = 1 ORDER BY installed_rank", String.class);
         assertThat(versions).containsSubsequence("5", "10", "11", "12");
-        assertThat(versions).contains("119", "120", "121");
+        assertThat(versions).contains("119", "120", "121", "134", "135");
         List<String> tables = jdbc.queryForList("SELECT table_name FROM information_schema.tables "
                 + "WHERE table_schema = DATABASE() AND (table_name LIKE 'loyalty\\_%' OR table_name LIKE 'promotion\\_%') "
                 + "ORDER BY table_name", String.class);
@@ -406,6 +406,28 @@ class LoyaltyMySqlMigrationIT {
                     .satisfies(LoyaltyMySqlMigrationIT::requireConstraintViolation);
         });
         assertRejected(sql -> insertBenefit(sql, "RETAIL", unique("guest-"), null, 0, "PENDING", null));
+    }
+
+    /** V135 (D-014): a snapshot without a Member is a workshop one with no points, no voucher and no earn. */
+    @Test
+    void aSnapshotWithoutAMemberIsAWorkshopOneWithoutPointsVoucherOrEarn() {
+        rolledBack(sql -> insertGuestBenefit(sql, "WORKSHOP", 0, "NONE", "NONE", "GRANTED", "0"));
+        assertRejected(sql -> insertGuestBenefit(sql, "RETAIL", 0, "NONE", "NONE", "PENDING", null));
+        assertRejected(sql -> insertGuestBenefit(sql, "WORKSHOP", 10, "HELD", "NONE", "PENDING", null));
+        assertRejected(sql -> insertGuestBenefit(sql, "WORKSHOP", 0, "NONE", "HELD", "PENDING", null));
+        assertRejected(sql -> insertGuestBenefit(sql, "WORKSHOP", 0, "NONE", "NONE", "GRANTED", "5"));
+    }
+
+    private void insertGuestBenefit(JdbcTemplate sql, String sourceKind, long points, String pointsState,
+                                    String voucherState, String earnState, String earned) {
+        sql.update("INSERT INTO loyalty_accepted_benefit (source_kind, source_ref, member_id, member_origin_eligible, "
+                + "accepted_at, original_deadline, source_revision, accepted_terms_digest, policy_id, gross_amount, "
+                + "program_discount, requested_points, point_discount, earn_base, post_promotion_amount, "
+                + "points_state, voucher_state, earn_state, earned_points, source_outcome_version, version) "
+                + "VALUES (?,?,NULL,1,?,?,1,'digest',?,1000000,0,?,?,1000000,?,?,?,?,?,0,0)",
+                sourceKind, unique("guest-"), java.sql.Timestamp.from(NOW), java.sql.Timestamp.from(LATER),
+                currentPolicyId(sql), points, points, "WORKSHOP".equals(sourceKind) ? new BigInteger("1000000") : null,
+                pointsState, voucherState, earnState, earned == null ? null : new BigInteger(earned));
     }
 
     @Test

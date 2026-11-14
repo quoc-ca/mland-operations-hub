@@ -1,7 +1,7 @@
 # Feature Specification: Workshop Settlement and Changes
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-13
+**Date updated**: 2026-11-14
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -275,7 +275,18 @@ self-service (FR-018 and Scope); whole-booking Mland remedy (FR-020, FR-021).
   unused and before its first session starts; there is no earlier deadline.
   Cancellation releases the capacity of every future session of the ticket and
   changes no other ticket. The booking-time collection is not refunded; a
-  `FREE` or deferred ticket's folio closes without debt.
+  `FREE` or deferred ticket's folio closes without debt. *(Decision 2026-11-14,
+  owner Hồ Hoàng Quốc.)* The buyer MAY cancel one ticket or several tickets of
+  the same group in one request; a request for several tickets is all or none:
+  every ticket is checked first, and if any cannot be cancelled none is and the
+  failing tickets are reported. Each ticket keeps its own FR-042 outcome.
+  *(Decision 2026-11-14.)* Proof of the buyer: a Member by the bearer token and
+  ownership of the group; a Guest, and Staff at the counter on the buyer's
+  behalf (reason required, channel STAFF), by the single-use, group-scoped
+  `buyerVerificationReference` of 003.1 FR-041 (OTP to the group's original
+  contact email). Settlement asks 003.1 to consume the proof inside the
+  cancellation transaction, so a failed cancellation does not use it up. A
+  recipient cannot cancel.
 - **FR-042**: The 24-hour mark before the ticket's first session decides
   benefits: cancelling at least 24 hours before is a **valid cancellation** and
   returns the ticket's used points; cancelling later still releases capacity
@@ -367,17 +378,40 @@ for history and read through this section.
   `BookingAttendanceOutcomeQuery` are removed once T092 publishes the ticket
   event. The Loyalty no-show outcome (D6, T089) is taken per ticket from the
   same per-ticket outcome, consistent with T093.
-- **Open (owner decision needed, not decided here):** after FR-044–FR-051 of
-  003.1 no direct `WorkshopBooking` remains and OTA bookings have no Mland
-  folio, so the booking-wide routes of `workshop-settlement.openapi.yaml`
-  (`/workshop-bookings/{bookingCode}/final-bill*`, `…/folio-corrections*`,
-  `…/cancellation-cases*`, `…/required-session-change-cases*`,
-  `…/mland-cancellation-remedy-cases*`) have no direct subject. The per-ticket
-  contract still lacks add-on charges, the operator/add-on read views,
-  explicit finalization, the final-balance VNPay attempt and the
-  post-`FINALIZED` folio correction for a ticket folio. Recommended: a separate
-  003.3 task decides which per-ticket routes replace them before the
-  booking-wide ones are removed; this decision does not remove them.
+- **Open** *(decided 2026-11-14 by Hồ Hoàng Quốc, owner Feature 003; task
+  T106)*: after FR-044–FR-051 of 003.1 no direct `WorkshopBooking` remains and
+  OTA bookings have no Mland folio, so the booking-wide routes of
+  `workshop-settlement.openapi.yaml` (`/workshop-bookings/{bookingCode}/final-bill*`,
+  `…/folio-corrections*`, `…/cancellation-cases*`,
+  `…/required-session-change-cases*`, `…/mland-cancellation-remedy-cases*`)
+  and the code routes `/workshop-folios/{bookingReference}/*` have no direct
+  subject. They are replaced by per-ticket routes under
+  `/workshop-tickets/{ticketCode}/folio` (`workshop-settlement-ticket.openapi.yaml`):
+  - **FR-048**: Read (customer and operator view), catalogue add-ons, charges,
+    collections, handover exception, debt record/close, explicit finalization
+    and the post-`FINALIZED` correction MUST each have a per-ticket route with
+    the rules of the booking-wide one: add-ons and charges only while the folio
+    is OPEN and a session of the ticket has started, server-priced catalogue
+    add-ons (D17–D18), at least 5,000 VND (FR-037); explicit finalization runs
+    the FR-035 rule and is idempotent.
+  - **FR-049**: The checkout VNPay payment of a ticket folio is a folio
+    collection with method `VNPAY`, confirmed only through signed evidence
+    (`FolioCollectionService.confirmGatewayCollection`); the booking-wide
+    `final-bill/payment-attempts` is removed.
+  - **FR-050**: The post-`FINALIZED` correction keeps D7–D10 (overcharge only,
+    Manager only, reason required, undercharge absorbed) but refunds through
+    the bank refund flow (FR-038–FR-040), never VNPay. After `FINALIZED` no
+    add-on is added, changed or removed and the folio is never reopened, even
+    by a Manager (confirmed 2026-11-14). A purchase after checkout is a separate
+    retail sale (FE-08), not a folio line.
+  - **FR-051**: The ticket's package, branch, sessions, group and buyer come
+    from 003.1 (`getTicketFolioContext`), and Staff authorization reuses the
+    session assignment of the ticket's group line (`staffAssignedToBooking`
+    with the line reference); Manager is global.
+  - Cancellation, ticket changes and Mland remedy are already per ticket
+    (FR-041–FR-045, T099–T101). The booking-wide routes, 003.1 T100's legacy
+    facade operations and the booking-wide 003.2 queries are removed only after
+    T106 lands.
 
 ## Scope
 

@@ -36,8 +36,9 @@ import java.util.UUID;
  * one ticket per person, and each ticket's immutable price snapshot. The group hold lasts 12 minutes and the
  * customer's payment deadline is 2 minutes earlier (FR-032); the payment itself is T093.
  *
- * <p>No Loyalty reservation is made yet: a cart with benefits is refused at quote time while the 006 cart
- * contract is pending, so every group created here has a zero discount and zero points.
+ * <p>A quote that stored a benefit selection (an automatic discount, a voucher or points) holds one Loyalty
+ * reservation for the whole group; a Guest group is reserved without a Member (006 D-014). A quote with no
+ * selection never touches Loyalty.
  */
 @Service
 @RequiredArgsConstructor

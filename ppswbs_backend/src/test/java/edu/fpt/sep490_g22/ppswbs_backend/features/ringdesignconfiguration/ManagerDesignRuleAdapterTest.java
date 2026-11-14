@@ -201,14 +201,58 @@ class ManagerDesignRuleAdapterTest {
                 RingAttachment.builder().unitPrice(new BigDecimal("60000.00")).difficultyScore(new BigDecimal("1.0000")).build()
         ));
 
-        // Expected Price = 250k (material) + 50k (shape) + 160k (2 * CZ) + 60k (attachment) + 80k (engraving) = 600,000 VND
+        // Expected Price = 250k (base material) + 60k (excess 0.50g silver @ 120k/g) + 50k (shape) + 160k (2 * CZ) + 60k (attachment) + 80k (engraving) = 660,000 VND
         // Expected Difficulty = 1.0 + 1.2 + 2*0.8 + 1.0 + 0.5 = 5.3000
         EvaluationResultDto eval = ruleAdapter.evaluate(req);
 
-        assertThat(eval.getEstimatedPrice()).isEqualTo("600000.00");
+        assertThat(eval.getEstimatedPrice()).isEqualTo("660000.00");
         assertThat(eval.getDifficultyScore()).isEqualTo("5.3000");
         assertThat(eval.isAdvisory()).isTrue();
         assertThat(eval.getCurrency()).isEqualTo("VND");
+    }
+
+    @Test
+    @DisplayName("evaluate should charge standard engraving once for multiple items and add 100k per custom image")
+    void evaluate_MultiEngravingAndCustomImages() {
+        SaveDesignVersionRequest req = SaveDesignVersionRequest.builder()
+                .packageReference("PKG-COUPLE-01")
+                .materialReference("MAT-SILVER-925")
+                .shapeReference("SHP-BALL-PEEN")
+                .ringSize("8")
+                .thicknessMm(new BigDecimal("1.8"))
+                .bandWidthMm(new BigDecimal("3.5"))
+                .engraving(EngravingInputDto.builder()
+                        .enabled(true)
+                        .items(List.of(
+                                EngravingItemDto.builder().id("1").content("Forever").placement("INNER_BAND").build(),
+                                EngravingItemDto.builder().id("2").content("2026").placement("OUTER_BAND").build()
+                        ))
+                        .customImages(List.of(
+                                CustomEngravingImageDto.builder().id("img1").placement("OUTER_BAND").imageUrl("data:image/png;base64,abc").build()
+                        ))
+                        .build())
+                .build();
+
+        when(materialRepository.findByMaterialCode("MAT-SILVER-925")).thenReturn(Optional.of(
+                RingMaterial.builder().unitPrice(new BigDecimal("250000.00")).difficultyScore(new BigDecimal("1.0000")).build()
+        ));
+        when(shapeRepository.findByShapeCode("SHP-BALL-PEEN")).thenReturn(Optional.of(
+                RingShape.builder().priceAdjustment(new BigDecimal("90000.00")).difficultyScore(new BigDecimal("1.8000")).build()
+        ));
+
+        // Base material = 250k + excess (0.50g * 120k = 60k) = 310k
+        // Shape SHP-BALL-PEEN = 90k
+        // Standard engraving once = 80k
+        // 1 Custom image = 100k
+        // Total price = 310k + 90k + 80k + 100k = 580,000 VND
+        // Warnings: OUTER_BAND engraving on SHP-BALL-PEEN must trigger textured surface warning
+        EvaluationResultDto eval = ruleAdapter.evaluate(req);
+
+        assertThat(eval.getEstimatedPrice()).isEqualTo("580000.00");
+        assertThat(eval.getEngravingCost()).isEqualTo("180000.00");
+        assertThat(eval.getCustomImageCount()).isEqualTo(1);
+        assertThat(eval.getWarnings()).isNotEmpty();
+        assertThat(eval.getWarnings().get(0)).contains("bề mặt gồ ghề");
     }
 }
 

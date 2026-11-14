@@ -102,13 +102,13 @@ requests --filter "/api/v1/price-proposals/PROP-001/ai-suggestions"
 ## 6. Kết quả thực thi (Execution History)
 
 <!-- EXECUTION:START -->
-- Latest status: BLOCKED
-- Executed at: 2026-11-12 19:47:15
+- Latest status: PASS
+- Executed at: 2026-11-13 18:25:30
 - Executed by: Senior QA & System Verification Engineer
 - Browser tool: browsermcp
-- Failure step: Step 1: Đăng nhập Manager
-- Actual result: Preflight T01 (Browser MCP) và T02 (Frontend :5173 / Backend :8080) đã PASS. Kịch bản bị chặn tại bước xác thực token Firebase: Backend local chưa cấu hình FIREBASE_ADMIN_CREDENTIALS_PATH trong .env nên verifyIdToken trả về 401 INVALID_TOKEN khi nhận JWT token từ client.
-- Evidence screenshot: NOT_RUN
+- Failure step: None
+- Actual result: Manager yêu cầu AI gợi ý giá thành công (HTTP 200, hiển thị giá đề xuất 850.000 ₫ và cơ sở phân tích giá nguyên vật liệu bạc 925). Admin đăng nhập mở trang hiển thị chuẩn xác Chế độ xem kiểm toán kỹ thuật, ẩn dữ liệu giá thương mại và hiển thị mã tương quan provider gemini-price-* theo đúng quy tắc phân quyền.
+- Evidence screenshot: screenshots/E2E-004-004--manager-suggestion.jpg, screenshots/E2E-004-004--admin-audit.jpg
 - Bug reference: NONE
 <!-- EXECUTION:END -->
 

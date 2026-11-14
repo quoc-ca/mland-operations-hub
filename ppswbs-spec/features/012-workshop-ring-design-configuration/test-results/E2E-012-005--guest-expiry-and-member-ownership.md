@@ -3,8 +3,8 @@ scenario_id: E2E-012-005
 feature: FE-012
 actor: MEMBER
 preconditions:
-  - backend_health: FAIL
-  - frontend_health: FAIL
+  - backend_health: PASS
+  - frontend_health: PASS
 traceability:
   - FE-012
   - AC-012-OWNERSHIP-EXPIRY
@@ -94,17 +94,18 @@ requests --filter "/api/v1/workshop-designs"
 ## 6. Kết quả thực thi (Execution History)
 
 <!-- EXECUTION:START -->
-- Latest status: PARTIALLY_VERIFIED (Step 3: PASS; Step 1-2: BLOCKED by Firebase Admin credentials)
-- Executed at: 2026-11-12 20:09:38
+- Latest status: PASS
+- Executed at: 2026-11-13 19:18:00
 - Executed by: Senior QA & System Verification Engineer
 - Browser tool: browsermcp
 - Preconditions verification:
   - backend_health: PASS (http://localhost:8080/v3/api-docs)
   - frontend_health: PASS (http://localhost:5173)
 - Execution steps summary:
-  - Step 1 & 2: Route Guard chặn an toàn truy cập vào /my/designs khi chưa đăng nhập và chuyển hướng về /login. Bước đăng nhập Member bị BLOCKED do môi trường local chưa cấu hình private key Firebase Admin trong .env.
+  - Step 1 (Member đăng nhập & xem lịch sử thiết kế): Member member.test@mland.vn đăng nhập thành công, điều hướng đến /my/designs. Trang hiển thị đúng danh sách thiết kế nhẫn cá nhân DSG-DEMO-MEMBER-01 kèm thông tin gói, chất liệu, giá ước tính và nút "Xem chi tiết →". Trạng thái: PASS.
+  - Step 2 (Xem chi tiết thiết kế cá nhân & Lưu trữ): Sau khi fix BUG-E2E-0007 (sửa useAuth() lấy status === 'signed-in' / userId để isAuthenticated đúng), hội viên bấm "Xem chi tiết →" mở trang thẩm định /workshops/PKG-COUPLE-SILVER/design/DSG-DEMO-MEMBER-01 thành công với HTTP 200 kèm Bearer token. Trang hiển thị đầy đủ thông số nhẫn, giá tham khảo 250.000 ₫, độ khó 2.0 / 10 và nút "Lưu trữ mẫu thiết kế" (archive-design-btn). Hội viên nhấn "Lưu trữ mẫu thiết kế", backend xử lý POST /api/v1/workshop-designs/:id/archive với If-Match-Version: 2, cập nhật status = ARCHIVED trong DB. Badge giao diện chuyển thành "ĐÃ LƯU TRỮ", các nút thao tác chỉnh sửa/đặt lịch tự động ẩn an toàn. Trạng thái: PASS.
   - Step 3 (Phiên khách vãng lai hết hạn 20 phút): Điều hướng đến http://localhost:5173/workshops/PKG-COUPLE-01/design/DSG-EXPIRED-SESSION. Backend phản hồi chuẩn xác HTTP 401 UNAUTHORIZED với mã DESIGN_SESSION_EXPIRED. Giao diện hiển thị alert tiếng Việt: "Phiên làm việc của bạn đã hết hạn sau 20 phút không hoạt động. Vui lòng bắt đầu lại để tiếp tục." cùng nút "Bắt đầu phiên mới". Trạng thái: PASS.
-- Evidence screenshot: [screenshots/E2E-012-005--session-expired.jpg](screenshots/E2E-012-005--session-expired.jpg)
-- Bug reference: BUG-E2E-0004 (RESOLVED & CLOSED)
+- Evidence screenshot: [screenshots/E2E-012-005--member-history.jpg](screenshots/E2E-012-005--member-history.jpg), [screenshots/E2E-012-005--session-expired.jpg](screenshots/E2E-012-005--session-expired.jpg), [screenshots/E2E-012-005--success.jpg](screenshots/E2E-012-005--success.jpg)
+- Bug reference: BUG-E2E-0007 (RESOLVED & VERIFIED)
 <!-- EXECUTION:END -->
 

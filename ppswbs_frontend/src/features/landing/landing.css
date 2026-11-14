@@ -20,7 +20,7 @@
   --ml-dark: #1a1a1a;
 
   --ml-font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --ml-font-heading: 'Oswald', 'Barlow Condensed', var(--ml-font-sans);
+  --ml-font-heading: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 .landing-page-root {
