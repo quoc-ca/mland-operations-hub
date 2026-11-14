@@ -86,12 +86,20 @@ export function createBody(form) {
   }
   const lists = form.scope === 'PRODUCT'
     ? { productIds: form.productIds, variantIds: form.variantIds }
-    : { packageIds: form.packageIds, branchIds: form.branchIds, sessionIds: form.sessionIds };
+    : workshopAuto(form)
+      // Session 2026-11-14 (FR-044): a workshop automatic discount is targeted by package only.
+      ? { packageIds: form.packageIds }
+      : { packageIds: form.packageIds, branchIds: form.branchIds, sessionIds: form.sessionIds };
   Object.entries(lists).forEach(([key, text]) => { const items = splitList(text); if (items.length) body.targets[key] = items; });
   // Session 2026-11-09: a product voucher may be limited to branches; none (or "all") = every branch.
   const branches = productBranchIds(form);
   if (branches.length) body.targets.branchIds = branches;
   return body;
+}
+
+/** A workshop automatic discount (FR-044): packages only, at least one; no branch, date or session. */
+export function workshopAuto(form) {
+  return form.scope === 'WORKSHOP' && form.kind === 'AUTO_DISCOUNT';
 }
 
 /** Branches a product voucher is limited to, from the form; [] = every branch (and always for an automatic discount). */
@@ -152,6 +160,7 @@ export function checkCreate(form) {
   if (form.scope === 'PRODUCT' && form.kind === 'VOUCHER' && form.branchMode === 'SOME' && !productBranchIds(form).length) {
     errors['targets.branchIds'] = 'branch.pickOne';
   }
+  if (workshopAuto(form) && !splitList(form.packageIds).length) errors['targets.packageIds'] = 'validation.packageTarget';
   return errors;
 }
 

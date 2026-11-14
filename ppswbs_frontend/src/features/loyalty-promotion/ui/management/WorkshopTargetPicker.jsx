@@ -15,8 +15,9 @@ export const sessionLabel = (session, branchNames) =>
  * "All" (no restriction) or exactly one item. The form keeps the chosen id as text ('' = all), so the request body is
  * unchanged: an unrestricted dimension is simply left out. Sessions shown are upcoming ones; a session can be narrowed
  * to the chosen branch. The workshop date is not asked here: the booking period is the programme's validity window.
+ * With `packagesOnly` (an automatic discount) only packages are offered, as checkboxes, one or more.
  */
-export function WorkshopTargetPicker({ api, form, setField, errors = {} }) {
+export function WorkshopTargetPicker({ api, form, setField, packagesOnly = false, errors = {} }) {
   const t = useT(messages);
   const [lists, setLists] = useState(null);
   const [failed, setFailed] = useState(false);
@@ -49,6 +50,28 @@ export function WorkshopTargetPicker({ api, form, setField, errors = {} }) {
     const chosen = lists.sessions.find(session => String(session.id) === form.sessionIds);
     if (chosen && branchId && String(chosen.locationId) !== branchId) setField('sessionIds', '');
   };
+
+  if (packagesOnly) {
+    // Session 2026-11-14 (FR-044): a workshop automatic discount covers one or more packages, never a branch,
+    // date or session, because its price is shown before the customer picks them.
+    const chosen = new Set(String(form.packageIds || '').split(',').filter(Boolean));
+    const toggle = packageId => event => {
+      const next = new Set(chosen);
+      if (event.target.checked) next.add(packageId); else next.delete(packageId);
+      setField('packageIds', lists.packages.map(item => String(item.packageId)).filter(item => next.has(item)).join(','));
+    };
+    return (
+      <fieldset className="package-checks">
+        <legend>{t('target.packageIds')}</legend>
+        {lists.packages.map(item => (
+          <label key={item.packageId} className="check-row">
+            <input type="checkbox" checked={chosen.has(String(item.packageId))} onChange={toggle(String(item.packageId))} /> {item.name}
+          </label>
+        ))}
+        {errors.packageIds && <p className="field-error">{errors.packageIds}</p>}
+      </fieldset>
+    );
+  }
 
   return (
     <div className="form-grid">
