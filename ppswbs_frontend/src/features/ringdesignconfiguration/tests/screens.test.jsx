@@ -34,10 +34,18 @@ describe('Feature-012 Workshop Ring Design Configuration Screens', () => {
         available: true,
       },
       {
-        reference: 'MAT-GOLD-14K',
-        name: 'Vàng 14K',
-        description: 'Vàng tây 58.5% sang trọng quý phái',
-        unitPrice: 1500000,
+        reference: 'MAT-COPPER',
+        name: 'Đồng Đỏ / Đồng Thau',
+        description: 'Đồng nguyên chất vintage',
+        unitPrice: 150000,
+        currency: 'VND',
+        available: true,
+      },
+      {
+        reference: 'MAT-STAINLESS-STEEL',
+        name: 'Thép Không Gỉ 316L',
+        description: 'Thép y tế 316L siêu bền',
+        unitPrice: 180000,
         currency: 'VND',
         available: true,
       },
@@ -58,7 +66,7 @@ describe('Feature-012 Workshop Ring Design Configuration Screens', () => {
         available: true,
       },
     ],
-    sizes: ['8', '9', '10', '11', '12', '14', '16'],
+    sizes: Array.from({ length: 24 }, (_, i) => String(i + 6)),
     components: [
       {
         reference: 'GEM-CZ-WHITE-2MM',
@@ -172,9 +180,16 @@ describe('Feature-012 Workshop Ring Design Configuration Screens', () => {
 
       expect(await screen.findByTestId('ring-configuration-page')).toBeInTheDocument();
       expect(screen.getByTestId('ring-preview-container')).toBeInTheDocument();
+      expect(screen.getByTestId('ring-side-view-card')).toBeInTheDocument();
       expect(screen.getByTestId('material-card-MAT-SILVER-925')).toBeInTheDocument();
-      expect(screen.getByTestId('material-card-MAT-GOLD-14K')).toBeInTheDocument();
+      expect(screen.getByTestId('material-card-MAT-COPPER')).toBeInTheDocument();
+      expect(screen.getByTestId('material-card-MAT-STAINLESS-STEEL')).toBeInTheDocument();
+      expect(screen.queryByTestId('material-card-MAT-GOLD-14K')).not.toBeInTheDocument();
       expect(screen.getByTestId('shape-card-SHP-CLASSIC-ROUND')).toBeInTheDocument();
+      expect(screen.getByTestId('size-pill-29')).toBeInTheDocument();
+      expect(screen.getByTestId('size-pill-29')).toHaveTextContent('69 mm');
+      expect(screen.getByTestId('thickness-slider')).toBeInTheDocument();
+      expect(screen.getByTestId('bandwidth-slider')).toBeInTheDocument();
     });
 
     it('updates size, toggles engraving, and executes create and save commands', async () => {
@@ -222,6 +237,60 @@ describe('Feature-012 Workshop Ring Design Configuration Screens', () => {
 
       // Guest session should be preserved in sessionStorage
       expect(sessionStorage.getItem('mland_guest_design_session')).toBe('guest-sess-abc');
+    });
+
+    it('shows surface texture warning when outer engraving is selected on a textured shape', async () => {
+      mockFetch({
+        'GET /api/v1/workshop-design-options': json(200, mockOptionsData),
+      });
+
+      const user = userEvent.setup();
+      open('/workshops/PKG-COUPLE-01/design/configure?mode=BLANK', {
+        session: fakeSession('signed-out'),
+      });
+
+      expect(await screen.findByTestId('ring-configuration-page')).toBeInTheDocument();
+
+      // Select Twisted shape (SHP-TWISTED)
+      const twistedShape = screen.getByTestId('shape-card-SHP-TWISTED');
+      await user.click(twistedShape);
+
+      // Enable engraving
+      const engravingToggle = screen.getByTestId('engraving-toggle');
+      await user.click(engravingToggle);
+
+      // Select OUTER_BAND
+      const outerBtn = await screen.findByTestId('placement-outer');
+      await user.click(outerBtn);
+
+      // Surface texture warning must be visible
+      expect(await screen.findByTestId('surface-texture-warning')).toBeInTheDocument();
+      expect(screen.getByTestId('surface-texture-warning')).toHaveTextContent(/kết cấu bề mặt gồ ghề/);
+    });
+
+    it('allows adding multiple engraving items and custom image cropper', async () => {
+      mockFetch({
+        'GET /api/v1/workshop-design-options': json(200, mockOptionsData),
+      });
+
+      const user = userEvent.setup();
+      open('/workshops/PKG-COUPLE-01/design/configure?mode=BLANK', {
+        session: fakeSession('signed-out'),
+      });
+
+      expect(await screen.findByTestId('ring-configuration-page')).toBeInTheDocument();
+
+      // Enable engraving
+      const engravingToggle = screen.getByTestId('engraving-toggle');
+      await user.click(engravingToggle);
+
+      // Add a second item
+      const addBtn = await screen.findByTestId('add-engraving-item-btn');
+      await user.click(addBtn);
+
+      expect(screen.getByTestId('engraving-item-0')).toBeInTheDocument();
+      expect(screen.getByTestId('engraving-item-1')).toBeInTheDocument();
+      expect(screen.getByTestId('upload-engraving-image-btn')).toBeInTheDocument();
     });
   });
 

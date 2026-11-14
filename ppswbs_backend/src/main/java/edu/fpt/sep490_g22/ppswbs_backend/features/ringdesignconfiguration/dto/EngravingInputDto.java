@@ -4,6 +4,9 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.*;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -18,5 +21,10 @@ public class EngravingInputDto {
 
     @Size(max = 100)
     private String placement;
-}
 
+    @Builder.Default
+    private List<EngravingItemDto> items = new ArrayList<>();
+
+    @Builder.Default
+    private List<CustomEngravingImageDto> customImages = new ArrayList<>();
+}

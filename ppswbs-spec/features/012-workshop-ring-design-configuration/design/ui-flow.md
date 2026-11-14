@@ -1,25 +1,24 @@
 # Feature-012 UI Flow — Workshop Ring Design Configuration
 
 Date created: 2026-11-08
-Date updated: 2026-11-09
+Date updated: 2026-11-14
 Author: Ngô Tiến Đạt
 Last updated by: Ngô Tiến Đạt
 
-**Status:** Frontend UI handoff ready for review; Figma revision and feature
-approval are still pending.
+**Status:** Implementation completed and verified across all 5 E2E test scenarios.
 
 ## 1. Routes and screens
 
 | Screen | Proposed route | Actor | Required behavior |
 | --- | --- | --- | --- |
-| Ring Design Entry | `/workshops/:packageReference/design` | Guest/Member | Explain workshop-only scope and choose model/blank. |
-| Model Selection | `/workshops/:packageReference/design/models` | Guest/Member | Show published models only; selecting one creates a new lineage. |
+| Ring Design Entry | `/workshops/:packageReference/design` | Guest/Member | Explain workshop-only scope and choose model (12 models) or blank canvas. |
+| Model Selection | `/workshops/:packageReference/design/models` | Guest/Member | Show published models only (minimum 10 models); selecting one creates a new lineage. |
 | Blank Design Setup | `/workshops/:packageReference/design/blank` | Guest/Member | Load package-scoped defaults from server. |
-| Parameter Configuration | `/workshops/:packageReference/design/configure` | Guest/Member | Edit shape, material, size and supported details. |
-| Component Selection | Same design context | Guest/Member | Select compatible gemstone/components and quantities. |
+| Parameter Configuration | `/workshops/:packageReference/design/configure` | Guest/Member | Edit shape (6 profiles/textures), material (Silver, Copper, Steel), size (6-29 with mm perimeter), thickness slider (1.0-3.0mm), and band width slider (1.5-6.0mm). Synchronously updates Dual View SVG (Top View and Side View). |
+| Component Selection | Same design context | Guest/Member | Select gemstone types with steppers `[-] {count} [+]` up to `maxQuantity`, subtotal calculations, and interactive drag-and-drop placement along the ring circle ($R = 85\text{px}$) on the Top View SVG without escaping. |
 | Attachment Selection | Same design context | Guest/Member | Select supported attachments and placement. |
 | Engraving Configuration | Same design context | Guest/Member | Enter only server-supported engraving content/placement. |
-| Evaluation and Summary | `/workshops/:packageReference/design/:designId` | Guest/Member | Show validation, estimate/difficulty as advisory and current version. |
+| Evaluation and Summary | `/workshops/:packageReference/design/:designId` | Guest/Member | Show validation, estimate/difficulty as advisory, summary of stones `${quantity}x ${label}`, and current version. |
 | Member Design History | `/my/designs` | Member | Show own current and historical versions; archive unsubmitted designs. |
 | Guest Session Expired | Same design context | Guest | Explain expiry without exposing internal design data. |
 | Branch Compatibility Recovery | Booking transition state | Guest/Member | Explain unsupported option and return to editable design. |

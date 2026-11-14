@@ -24,7 +24,7 @@ describe('anonymous option when writing a review', () => {
   it('sends anonymous: true when the reviewer ticks it', async () => {
     const user = userEvent.setup();
     const calls = openCreate();
-    await screen.findByText('Share your experience');
+    await screen.findByText('Chia sẻ trải nghiệm của bạn');
 
     expect(screen.getByText('Tên của bạn sẽ không hiện công khai. Lựa chọn này không đổi được sau khi gửi.')).toBeInTheDocument();
     await user.click(screen.getByRole('checkbox', { name: 'Đánh giá ẩn danh' }));
@@ -36,7 +36,7 @@ describe('anonymous option when writing a review', () => {
   it('sends no anonymous flag by default, so the masked account name is shown', async () => {
     const user = userEvent.setup();
     const calls = openCreate();
-    await screen.findByText('Share your experience');
+    await screen.findByText('Chia sẻ trải nghiệm của bạn');
 
     expect(screen.getByRole('checkbox', { name: 'Đánh giá ẩn danh' })).not.toBeChecked();
     await user.click(screen.getByRole('button', { name: 'Đăng đánh giá' }));

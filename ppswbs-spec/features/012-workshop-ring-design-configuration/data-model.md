@@ -1,12 +1,11 @@
 # Feature-012 Data Model — Workshop Ring Design Configuration
 
 Date created: 2026-11-08
-Date updated: 2026-11-09
+Date updated: 2026-11-14
 Author: Ngô Tiến Đạt
 Last updated by: Ngô Tiến Đạt
 
-**Status:** SPEC/DESIGN READY FOR REVIEW; physical mapping and migration remain
-implementation gates.
+**Status:** IMPLEMENTED AND VERIFIED; Flyway migrations `V110` and `V120` applied and tested.
 
 ## 1. Ownership boundary
 
@@ -50,10 +49,10 @@ Logical name: `configured_design_version`
 | `design_reference` | Yes | Parent configured-design reference. |
 | `design_version` | Yes | Monotonic version within the design aggregate. |
 | `package_reference` | Yes | Package context used for validation. |
-| `material_reference` | Yes | Selected base material. |
-| `shape_reference` | Yes | Selected base shape. |
-| `ring_size` | Yes/TBD | Validated size value; taxonomy is Manager-owned rule data. |
-| `component_snapshot` | Yes | Closed, bounded snapshot of selected inputs and evaluation context. |
+| `material_reference` | Yes | Selected base material (`MAT-SILVER-925`, `MAT-COPPER`, `MAT-STAINLESS-STEEL`). |
+| `shape_reference` | Yes | Selected base shape (`SHP-CLASSIC-ROUND`, `SHP-BEVELED`, `SHP-SINGLE-TWIST`, `SHP-WAVE`, `SHP-BALL-PEEN`, `SHP-FLAT-BAND`). |
+| `ring_size` | Yes | Validated size value (`6` through `29`); millimeter perimeter = `size + 40mm`. |
+| `component_snapshot` | Yes | Closed JSON snapshot containing component list, attachments, engraving, dimensions (`thicknessMm`, `bandWidthMm`), and polar `gemstonePositions` (angle, coordinates). |
 | `evaluation_snapshot` | Yes after evaluate | Estimate, difficulty, currency, rules version and validation result. |
 | `lifecycle_status` | Yes | Version state and attach/lock state. |
 | `created_at` | Yes | Immutable creation timestamp. |
@@ -66,13 +65,12 @@ be rewritten after persistence.
 Logical relation: `configured_design_gemstone`
 
 - Parent design/version reference.
-- Opaque gemstone/component reference.
-- Positive quantity.
-- Optional validated variant and placement.
+- Opaque gemstone/component reference (e.g., `CMP-CZ-WHITE-2MM`, `CMP-CZ-BLUE-2MM`, `CMP-MOISSANITE-1CT`).
+- Positive quantity (clamped to `maxQuantity`: 10 for CZ, 4 for Moissanite).
+- Optional validated variant, semantic placement (`CENTER`, `ACCENT_LEFT`, `ACCENT_RIGHT`, `HALO`), and visual polar coordinates ($\theta \in [0, 360)$ degrees, radius $R = 85\text{px}$).
 - Source catalogue version.
 
-The physical mapping may reuse `ring_design_gemstones` from `DB.md`, but the
-version ownership and historical snapshot behavior must be explicitly approved.
+In physical storage, individual gemstone instances and their visual angles are preserved in the JSON `component_snapshot` (`gemstonePositions: [{ id, stoneIndex, reference, angleDeg }]`).
 
 ### 2.4 Attachment selection
 
@@ -84,21 +82,27 @@ Logical relation: `configured_design_attachment`
 - Optional validated variant and placement.
 - Source catalogue version.
 
-The physical mapping may reuse `ring_design_attachments` from `DB.md` only after
-version/frozen-selection behavior is settled.
+### 2.4.1 Physical dimensions
 
-### 2.5 Engraving configuration
+- `thickness_mm`: Thickness of ring band, constrained between 1.0mm and 3.0mm (step 0.1mm, default 1.8mm).
+- `band_width_mm`: Width of ring band surface, constrained between 1.5mm and 6.0mm (step 0.1mm, default 3.5mm).
+- Stored directly in `component_snapshot.dimensions` and evaluated by the rules adapter.
+
+### 2.5 Engraving & Custom Image Upload Model
 
 Logical fields:
 
-- `enabled`.
-- Validated engraving text or a safe reference to the text snapshot.
-- Placement code.
-- Validation/rule version.
-
-The exact character set, maximum length, prohibited content and placement values
-are TBD Manager-owned rule data. Raw unvalidated text must not be used in a
-validated design snapshot.
+- `enabled`: Boolean toggle for standard text/symbol engraving.
+- `items`: List of standard engraving items `[{ id, type, content, placement }]`.
+  - Type: `TEXT` or `SYMBOL`.
+  - Placement: `INNER_BAND` (Mặt trong) or `OUTER_BAND` (Mặt ngoài).
+  - Pricing: Flat one-time standard engraving fee (80.000 ₫) regardless of item count or placement.
+- `custom_images`: List of uploaded custom images `[{ id, placement, image_url, crop_x, crop_y, crop_width, crop_height, price }]`.
+  - Placement: `INNER_BAND` or `OUTER_BAND`.
+  - Frame constraint: Exactly 160px x 160px crop window with thresholded monochrome black & white laser simulation.
+  - Pricing: 100.000 ₫ per uploaded image (`100,000 VND / image`).
+- Text/placement backward compatibility: `text` and `placement` fields are maintained for legacy consumers.
+- Surface Texture Warning Invariant (Invariant 22): When any engraving item or custom image is placed on `OUTER_BAND` of a textured/hammered shape (`SHP-HAMMERED`, `SHP-BALL-PEEN`, `SHP-SINGLE-TWIST`, `SHP-TWISTED`, `SHP-WAVE`), the evaluation snapshot must record an advisory technical warning.
 
 ### 2.6 Guest design session
 
@@ -126,6 +130,7 @@ Logical name: `design_evaluation_snapshot`
 - `design_reference` and `design_version`.
 - Server-derived `estimated_price` and `currency`.
 - Server-derived `difficulty_score`.
+- Volumetric mass `estimated_weight_grams`, `base_weight_limit_grams` (3.0g), `material_cost`, and `excess_material_cost`.
 - `rules_version`.
 - Validation result and safe reason codes.
 - Calculation timestamp.
@@ -172,6 +177,11 @@ data or unnecessary personal data.
 14. Booking validates and attaches only a current `VALIDATED` version.
 15. Feature-003 never queries Feature-012 repositories directly.
 16. Configured designs have no direct FK to Feature-004 image requests.
+17. Ring size must be a recognized standard size in `["6", ..., "29"]` with millimeter perimeter $P = \text{size} + 40\text{mm}$.
+18. Workshop materials are restricted to Silver 925 (`MAT-SILVER-925`), Copper (`MAT-COPPER`), and Stainless Steel 316L (`MAT-STAINLESS-STEEL`); Gold variants are rejected as inactive options.
+19. Physical dimensions must stay within limits: $1.0\text{mm} \le \text{thickness} \le 3.0\text{mm}$ and $1.5\text{mm} \le \text{band width} \le 6.0\text{mm}$.
+20. Component quantities must satisfy $1 \le \text{quantity} \le \text{maxQuantity}$ per type. On the 2D Top View preview, individual gemstone coordinates are mathematically locked to circle radius $R = 85\text{px}$ from center $(150, 135)$ and cannot be dragged outside or away from the ring band.
+21. Material cost calculates mass $M = \frac{(P + \pi T) \cdot T \cdot W}{1000} \cdot D$. Rings with $M \le 3.0\text{g}$ use base unit price; every 1 gram exceeding 3.0g incurs an excess surcharge (120.000 ₫/g for Silver).
 
 ## 4. Keys, uniqueness and concurrency
 

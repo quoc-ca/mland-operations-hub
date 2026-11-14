@@ -1,12 +1,11 @@
 # Feature-012 Frontend Handoff
 
 Date created: 2026-11-09  
-Date updated: 2026-11-09  
+Date updated: 2026-11-14  
 Author: Ngô Tiến Đạt  
 Last updated by: Ngô Tiến Đạt  
 
-**Status:** Frontend implementation plan ready for review; not an approval to
-change backend contract or start production implementation.
+**Status:** Frontend implementation completed and verified across desktop and mobile; all 5 E2E test scenarios PASS.
 
 ## 1. Handoff objective
 
@@ -134,8 +133,15 @@ PreviewModel {
   shapeReference?
   materialReference?
   ringSize?
-  bandWidth?
-  gemstoneReference?
+  perimeterMm?
+  innerDiameterMm?
+  thicknessMm: number (1.0 - 3.0)
+  bandWidthMm: number (1.5 - 6.0)
+  estimatedWeightGrams: number
+  excessWeightGrams: number
+  excessMaterialCost: number
+  gemstones: [] // 1-to-1 component summary
+  stones: [{ id, stoneIndex, reference, color, angleDeg, cx, cy }] // individual stone instances
   attachmentReferences[]
   engravingPreview?
 }
@@ -212,11 +218,19 @@ Rules:
 
 ### 7.2 Parameter configuration
 
-- Group controls into material, shape/size, gemstone/component, attachments and
+- Group controls into material, shape/size, dimensions, gemstone/component, attachments and
   engraving sections according to the returned schema.
+- **Material Choices**: Render selectable cards for Silver 925 (`MAT-SILVER-925`), Copper (`MAT-COPPER`), and Stainless Steel 316L (`MAT-STAINLESS-STEEL`). Gold options are deactivated and not displayed.
+- **Ring Size & Millimeter Perimeter**: Render accessible pills for sizes `6` through `29`. Each pill displays its number and corresponding perimeter: e.g., `Size 10 (50 mm)` and `Size 29 (69 mm)` ($P = \text{size} + 40\text{mm}$).
+- **Interactive Dimension Sliders**:
+  - Ring thickness slider: min 1.0mm, max 3.0mm, step 0.1mm, default 1.8mm.
+  - Ring band width slider: min 1.5mm, max 6.0mm, step 0.1mm, default 3.5mm.
+  - Numeric values and units ("mm") update synchronously beside each slider.
+- **Multi-Gemstone Quantities**:
+  - Each gemstone card provides stepper buttons `[-] {count} [+]` permitting selection of multiple stones per type up to `maxQuantity` (10 for CZ, 4 for Moissanite).
+  - Displays unit price, current count, and calculated subtotal.
+  - Header badge indicates total stones selected across all types.
 - Put the explanation directly beneath the control label.
-- Show current value and unit beside every slider.
-- Use a discrete card/pill control for material and gemstone choices.
 - Preserve unrelated selections when one field becomes invalid.
 - Update the preview immediately on every local change.
 - Show an unsaved indicator after local edits; do not claim `VALIDATED` until
@@ -224,6 +238,13 @@ Rules:
 
 ### 7.3 Preview and estimate
 
+- **Dual View SVG Preview**:
+  - **Top View (Mặt chính diện)**: Dynamic circular ring band with stroke thickness scaling to `thicknessMm`, rendering surface textures (hammered ball-peen indentations, single twist, wavy curves, comfort beveled), size watermark, and draggable gemstones.
+  - **Side View (Mặt cạnh / Tiết diện ngang)**: Dynamic cylindrical profile with height scaling to `bandWidthMm` (1.5mm - 6.0mm) and wall thickness scaling to `thicknessMm` (1.0mm - 3.0mm), displaying prong mounts and stone silhouettes.
+- **Constrained Circular Drag-and-Drop**:
+  - Individual gemstones rendered on Top View can be clicked and dragged along the ring circle band ($R = 85\text{px}$, center $(150, 135)$).
+  - Pointer movement is projected onto the polar angle $\theta = \text{atan2}(y - 135, x - 150)$ so stones are mathematically constrained strictly to the ring circumference and **cannot be dragged outside or away from the ring band**.
+  - Visual feedback: dashed guide track and pulsing drag halo appear during dragging.
 - Desktop: controls occupy the left panel and preview/summary occupy the right.
 - Mobile: preview is above controls, with the primary action below the controls.
 - Preview labels show selected material, gemstone and size in plain language.
@@ -242,6 +263,17 @@ Rules:
 - On `DESIGN_BRANCH_INCOMPATIBLE`, show the recovery layout from node `457:1795`.
 - On Guest expiry, remove unusable session state and offer restart/login without
   revealing internal data.
+
+### 7.5 Multi-Item Engraving, 160x160 Laser Cropper & Surface Texture Alert
+
+- **Flat Standard Engraving Fee**: Standard engraving is charged once (+80.000 ₫) regardless of how many text/symbol items the customer adds.
+- **Multiple Engraving Placements**: Customers can add multiple text lines or symbol shortcuts (♥, ∞, ★, ✿, 💍), configuring each item's placement as `INNER_BAND` (Mặt trong) or `OUTER_BAND` (Mặt ngoài).
+- **Surface Texture Warning Banner**: If any engraving item or uploaded image is placed on `OUTER_BAND` while a textured ring shape (`SHP-HAMMERED`, `SHP-BALL-PEEN`, `SHP-SINGLE-TWIST`, `SHP-TWISTED`, `SHP-WAVE`) is active, the UI displays a prominent warning card alerting that outer engraving may appear distorted or lack definition.
+- **Custom Laser Image Cropper (`LaserEngravingImageCropper`)**:
+  - Lets customers upload artwork/signatures (+100.000 ₫ per image).
+  - Provides a draggable red framing box constrained to 160px × 160px.
+  - Generates a live monochrome (B&W) laser simulation preview via HTML5 Canvas grayscale thresholding.
+  - Updates technical configuration summary and estimated price in real time.
 - On read failure, keep navigation context and offer retry.
 - On write retry, reuse the original idempotency key and preserve form data.
 

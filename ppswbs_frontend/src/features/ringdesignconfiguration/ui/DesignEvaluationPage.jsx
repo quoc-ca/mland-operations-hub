@@ -116,13 +116,32 @@ export default function DesignEvaluationPage() {
         </div>
       )}
 
+      {/* Surface Texture Warning */}
+      {(evalData.warnings?.length > 0 || previewModel.showSurfaceTextureWarning) && (
+        <div
+          style={{
+            marginBottom: '1rem',
+            padding: '0.85rem 1rem',
+            borderRadius: '8px',
+            background: '#fffbeb',
+            border: '1.5px solid #f59e0b',
+            color: '#92400e',
+            fontSize: '0.875rem',
+            lineHeight: 1.5,
+          }}
+          data-testid="evaluation-surface-texture-warning"
+        >
+          {evalData.warnings?.[0] || t.surfaceTextureWarning}
+        </div>
+      )}
+
       <div className="ring-configurator-layout">
         {/* Left Column: Evaluation Metrics & Details */}
         <div className="ring-controls-panel">
           {/* Card: Advisory Price & Difficulty */}
           <div className="ring-section-card">
             <h2 className="ring-section-title">Chỉ số ước tính kỹ thuật</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginTop: '1rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginTop: '1rem' }}>
               <div style={{ background: '#f8fafc', padding: '1.25rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
                 <div style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '0.35rem' }}>
                   {t.estimatedPriceLabel}
@@ -134,6 +153,22 @@ export default function DesignEvaluationPage() {
                 </div>
                 <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.25rem' }}>
                   {t.advisoryBadge} (Không đổi cọc gói)
+                </div>
+              </div>
+
+              <div style={{ background: '#f8fafc', padding: '1.25rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                <div style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '0.35rem' }}>
+                  Khối lượng ước tính
+                </div>
+                <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a' }}>
+                  {evalData.estimatedWeightGrams
+                    ? `${evalData.estimatedWeightGrams} g`
+                    : `${previewModel.estimatedWeightGrams?.toFixed(2) || '3.00'} g`}
+                </div>
+                <div style={{ fontSize: '0.75rem', color: evalData.excessMaterialCost && Number(evalData.excessMaterialCost) > 0 ? '#b45309' : '#166534', marginTop: '0.25rem' }}>
+                  {evalData.excessMaterialCost && Number(evalData.excessMaterialCost) > 0
+                    ? `Vượt mức (+${Number(evalData.excessMaterialCost).toLocaleString('vi-VN')} đ)`
+                    : 'Trong định mức chuẩn (≤ 3.0g)'}
                 </div>
               </div>
 
@@ -165,14 +200,35 @@ export default function DesignEvaluationPage() {
               </div>
               <div className="ring-summary-item">
                 <span className="ring-summary-label">{t.sizeSummary}</span>
-                <span className="ring-summary-value">Size {previewModel.ringSize}</span>
+                <span className="ring-summary-value">Size {previewModel.ringSize} ({previewModel.circumferenceMm} mm)</span>
+              </div>
+              <div className="ring-summary-item">
+                <span className="ring-summary-label">{t.thicknessSummary}</span>
+                <span className="ring-summary-value">{previewModel.thicknessMm?.toFixed(1)} mm</span>
+              </div>
+              <div className="ring-summary-item">
+                <span className="ring-summary-label">{t.bandWidthSummary}</span>
+                <span className="ring-summary-value">{previewModel.bandWidthMm?.toFixed(1)} mm</span>
+              </div>
+              <div className="ring-summary-item">
+                <span className="ring-summary-label">{t.weightSummary}</span>
+                <span className="ring-summary-value">
+                  {evalData.estimatedWeightGrams || previewModel.estimatedWeightGrams?.toFixed(2)} g
+                  {evalData.excessMaterialCost && Number(evalData.excessMaterialCost) > 0 && (
+                    <span style={{ fontSize: '0.8rem', color: '#b45309', display: 'block' }}>
+                      (Phụ phí khối lượng: +{Number(evalData.excessMaterialCost).toLocaleString('vi-VN')} đ)
+                    </span>
+                  )}
+                </span>
               </div>
               <div className="ring-summary-item">
                 <span className="ring-summary-label">{t.gemstonesSummary}</span>
                 <span className="ring-summary-value">
-                  {previewModel.gemstones.length > 0
-                    ? previewModel.gemstones.map((g) => `${g.quantity}x ${g.label}`).join(', ')
-                    : t.none}
+                  {previewModel.gemstoneGroups?.length > 0
+                    ? previewModel.gemstoneGroups.map((g) => `${g.quantity}x ${g.label}`).join(', ')
+                    : previewModel.gemstones?.length > 0
+                      ? previewModel.gemstones.map((g) => `${g.quantity || 1}x ${g.label}`).join(', ')
+                      : t.none}
                 </span>
               </div>
               <div className="ring-summary-item">
@@ -187,15 +243,31 @@ export default function DesignEvaluationPage() {
                 <span className="ring-summary-label">{t.engravingSummary}</span>
                 <span className="ring-summary-value">
                   {previewModel.engravingText ? `"${previewModel.engravingText}"` : t.none}
+                  {previewModel.standardEngravingCost > 0 && (
+                    <span style={{ fontSize: '0.8rem', color: '#0369a1', display: 'block', fontWeight: 500 }}>
+                      (+80.000 đ)
+                    </span>
+                  )}
                 </span>
               </div>
+              {previewModel.customImages?.length > 0 && (
+                <div className="ring-summary-item" data-testid="eval-custom-images">
+                  <span className="ring-summary-label">Ảnh khắc laser</span>
+                  <span className="ring-summary-value">
+                    {previewModel.customImages.length} ảnh
+                    <span style={{ fontSize: '0.8rem', color: '#0369a1', display: 'block', fontWeight: 500 }}>
+                      (+{(previewModel.customImages.length * 100000).toLocaleString('vi-VN')} đ)
+                    </span>
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         </div>
 
         {/* Right Column: Preview & Final Actions */}
         <div className="ring-preview-panel">
-          <RingPreview previewModel={previewModel} />
+          <RingPreview previewModel={previewModel} readOnly={true} />
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1rem' }}>
             {design?.status !== 'ARCHIVED' && design?.status !== 'LOCKED' && (

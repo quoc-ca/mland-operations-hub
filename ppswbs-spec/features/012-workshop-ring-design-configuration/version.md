@@ -424,7 +424,104 @@ Toàn bộ 5 kịch bản E2E của Feature 012 đã được thực thi và ngh
    - Step 3 (Phiên khách vãng lai hết hạn 20 phút không hoạt động): **PASS**, truy cập thiết kế hết hạn `/workshops/PKG-COUPLE-01/design/DSG-EXPIRED-SESSION`, backend phản hồi chuẩn xác HTTP 401 `DESIGN_SESSION_EXPIRED`. Giao diện hiển thị cảnh báo tiếng Việt "Phiên làm việc của bạn đã hết hạn sau 20 phút không hoạt động." ([`screenshots/E2E-012-005--session-expired.jpg`](test-results/screenshots/E2E-012-005--session-expired.jpg)).
    - Bằng chứng ảnh thành công: [`screenshots/E2E-012-005--success.jpg`](test-results/screenshots/E2E-012-005--success.jpg).
 
+### Phase H — Nâng cấp danh mục vật liệu (Đồng/Thép), Mở rộng Size 29 kèm chu vi mm, Dual View SVG & Sliders kích thước (2026-11-14)
+
+1. **Loại bỏ chất liệu Vàng, Bổ sung Đồng & Thép không gỉ:**
+   - Tạo Flyway migration `V120__ring_design_copper_steel_and_models.sql`: Chuyển `is_active = FALSE` cho toàn bộ các chất liệu vàng (`MAT-GOLD-14K`, `MAT-ROSE-GOLD-14K`, `MAT-WHITE-GOLD-14K`).
+   - Bổ sung vật liệu Đồng Đỏ / Đồng Thau (`MAT-COPPER`, 150.000 ₫) và Thép Không Gỉ 316L (`MAT-STAINLESS-STEEL`, 180.000 ₫).
+   - Bổ sung các phom dáng chế tác workshop mới: `SHP-SINGLE-TWIST` (Dáng xoắn đơn), `SHP-WAVE` (Dáng lượn sóng), `SHP-BALL-PEEN` (Bề mặt búa bi gõ lõm li ti), `SHP-FLAT-BAND` (Đai phẳng công thái học).
+   - Nâng tổng số mẫu thiết kế gợi ý (Catalogue Models) lên **12 mẫu** (vượt yêu cầu tối thiểu 10 mẫu), bao gồm mẫu xoắn đơn, lượn sóng, búa bi, giác búa, đồng vintage, thép phay xước, milgrain, và búa gõ khắc tim.
+2. **Mở rộng kích cỡ đến Size 29 kèm hiển thị chu vi chuẩn xác theo mm:**
+   - Cập nhật `ManagerDesignRuleAdapter.java`: Mở rộng `STANDARD_SIZES` từ `"6"` đến `"29"` (gồm 24 kích cỡ chuẩn).
+   - Frontend hiển thị chu vi chuẩn Việt Nam (`Chu vi mm = Size + 40`) trực quan trên từng pill kích thước (ví dụ `Size 29 (69 mm)`) và dòng mô tả chi tiết đường kính lòng trong.
+3. **Cửa sổ hiển thị kép (Dual View SVG) & 2 Sliders điều chỉnh kích thước:**
+   - **Mặt chính diện (Top View):** Vòng nhẫn tròn động co giãn độ dày nét đai theo slider `thicknessMm`, hiển thị họa tiết búa bi hạt tròn li ti, xoắn, lượn sóng, đính đá và watermark chu vi/đường kính.
+   - **Mặt cạnh / Tiết diện (Side View):** Cửa sổ mô phỏng hình trụ đai nhẫn nhìn ngang; chiều cao đai co giãn theo slider `bandWidthMm` (1.5mm - 6.0mm); độ dày thành nhẫn co giãn theo `thicknessMm` (1.0mm - 3.0mm); hiển thị kết cấu búa bi gõ lõm, phay xước mờ, giác búa, sóng mềm mại.
+   - **2 Thanh trượt kích thước:**
+     - Thanh trượt Độ dày nhẫn: min 1.0mm, max 3.0mm, bước nhảy 0.1mm (mặc định 1.8mm).
+     - Thanh trượt Độ rộng bề mặt: min 1.5mm, max 6.0mm, bước nhảy 0.1mm (mặc định 3.5mm).
+     - Phản ánh trực tiếp lên đồ họa SVG và bảng tóm tắt thông số kỹ thuật tức thì.
+4. **Kết quả tái kiểm thử tự động & E2E:**
+   - Backend Unit & Controller tests: **12/12 PASS (100%)**.
+   - Frontend Vitest suites: **88/88 tests PASS (100%)**.
+   - Kịch bản kiểm thử E2E trên trình duyệt thực qua `browsermcp`:
+     * `E2E-012-001` (Catalogue Models 12 mẫu & Blank Configurator): **PASS**
+     * `E2E-012-002` (Vật liệu Đồng/Thép, Size 29 kèm mm, Dual View SVG, Sliders kích thước): **PASS**
+     * `E2E-012-003` (Lưu & Thẩm định, chuyển tiếp booking): **PASS**
+     * `E2E-012-004` (Khôi phục tương thích chi nhánh): **PASS**
+     * `E2E-012-005` (Hết hạn 20 phút & Phân quyền Member): **PASS**
+     * Hồi quy chéo Feature 004 (`E2E-004-001`..`004`) và Feature 011 (`E2E-011-001`..`005`): **PASS 100%**.
+
 **Tổng kết Feature 012**: Đạt **5/5 kịch bản E2E PASS (100%)**, toàn bộ blocker phân quyền hội viên và defect `BUG-E2E-0007` đã được đóng hoàn toàn.
+
+### Phase I — Tùy biến số lượng đá đính kèm & Kéo thả phân bố đá trên đường tròn nhẫn (2026-11-14)
+
+1. **Lựa chọn số lượng đá linh hoạt cho từng loại đá:**
+   - Thay vì chỉ cho phép chọn duy nhất 1 viên / 1 loại, giao diện bổ sung bộ điều khiển số lượng (stepper `[-] {count} [+]`) ngay trên thẻ đá quý.
+   - Giới hạn số lượng tối đa theo quy tắc nghiệp vụ (`maxQuantity = 10` cho CZ, `maxQuantity = 4` cho Moissanite).
+   - Tự động tính giá thành phần theo số lượng thực tế: `Đơn giá x Số lượng`, hiển thị chi tiết số viên và tổng tiền trên từng thẻ.
+   - Header danh mục hiển thị tổng số viên đá đã chọn trên toàn bộ thiết kế kèm huy hiệu và thanh hướng dẫn thao tác kéo thả.
+2. **Kéo thả viên đá tương tác trực tiếp trên mặt chính diện (Top View Preview):**
+   - Từng viên đá được hiển thị độc lập trên bản vẽ kỹ thuật SVG mặt chính diện kèm nhãn số thứ tự, màu sắc và hiệu ứng ánh sáng.
+   - Cơ chế kéo thả toán học ràng buộc tuyệt đối trên đường tròn đai nhẫn ($R = 85\text{px}$, tâm $C(150, 135)$):
+     - $\theta = \text{atan2}(y - 135, x - 150)$
+     - $cx = 150 + 85 \cdot \cos(\theta), \quad cy = 135 + 85 \cdot \sin(\theta)$
+   - Người dùng có thể kéo thả tự do để sắp xếp bố cục các viên đá xung quanh toàn bộ chu vi đai nhẫn (đối xứng, so le, đính đá trung tâm hay đính đá hông), nhưng viên đá **tuyệt đối không bị văng hoặc kéo ra ngoài đường tròn nhẫn**.
+   - Khi di chuột/kéo thả, hiển thị đường viền quỹ đạo đai nhẫn (dashed guide track) và quầng sáng định vị (drag halo) trực quan sinh động.
+3. **Đồng bộ hiển thị tiết diện ngang (Side View) & Bảng thẩm định giá:**
+   - Cửa sổ Side View tự động vẽ chấu gắn và bóng chiếu của các viên đá đính trên bề mặt nhẫn tương ứng với số lượng đã chọn.
+   - Trang Thẩm định thiết kế hiển thị chi tiết số lượng từng loại đá dạng `${quantity}x ${label}` (ví dụ: `2x Đá CZ Trắng 2.0mm`, `1x Đá CZ Xanh Lam 2.0mm`) và tính tổng chi phí kỹ thuật chính xác.
+4. **Kết quả kiểm thử & Nghiệm thu:**
+   - Frontend Vitest suite: **88/88 tests PASS (100%)**.
+   - Kiểm thử tích hợp trình duyệt thực tế qua `browsermcp`:
+     * Thêm nhiều viên đá khác nhau (2 viên CZ Trắng + 1 viên CZ Lam).
+     * Kéo thả viên đá sang góc $0^\circ$ (hướng 3 giờ) và $180^\circ$ (hướng 9 giờ). Tọa độ luôn cố định trên đường tròn đai nhẫn $R=85\text{px}$.
+     * Lưu và thẩm định thành công với HTTP 200 OK, mã thiết kế chuyển sang trạng thái `VALIDATED`, độ khó và ước tính giá phản ánh chính xác.
+
+### Phase J — Tính chi phí vật liệu theo khối lượng gam & Ước lượng thể tích hình học (2026-11-14)
+
+1. **Mô hình thể tích hình học (Hollow Cylinder / Torus) từ các số đo khách hàng**:
+   - Chu vi đai trong: $P = \text{Size} + 40\text{ mm}$ (với $\text{Size} \in [6, 29]$).
+   - Độ dày nhẫn $T$ (`thicknessMm`: 1.0 - 3.0 mm) và Độ rộng bề mặt $W$ (`bandWidthMm`: 1.5 - 6.0 mm).
+   - Thể tích đai nhẫn:
+     $$V = (P + \pi T) \times T \times W \quad (\text{mm}^3), \quad V_{\text{cm}^3} = \frac{V}{1000}$$
+2. **Khối lượng vật liệu ước tính theo khối lượng riêng ($D$)**:
+   $$M = V_{\text{cm}^3} \times D$$
+   - Bạc Ý 925: $D = 10.36\text{ g/cm}^3$.
+   - Đồng Đỏ / Đồng Thau: $D = 8.96\text{ g/cm}^3$.
+   - Thép Không Gỉ 316L: $D = 7.99\text{ g/cm}^3$.
+3. **Quy tắc tính giá vật liệu theo gam**:
+   - **Định mức chuẩn**: Nhẫn có khối lượng từ 3.0 gam bạc trở xuống ($M \le 3.0\text{g}$) được tính giá cơ sở bình thường (**250.000 ₫** cho Bạc 925).
+   - **Phụ phí vượt mức**: Mỗi 1 gam bạc vượt quá 3.0 gam tính thêm **120.000 ₫/gam**:
+     $$\text{Chi phí Bạc} = 250.000\text{ ₫} + \max(0, M - 3.0) \times 120.000\text{ ₫/gam}$$
+   - Đối với Đồng Đỏ và Thép: Áp dụng định mức 3.0g, phần vượt tính phụ phí tương ứng (Đồng: 40.000 ₫/g, Thép: 50.000 ₫/g).
+4. **Hiển thị giao diện & Bóc tách chi phí**:
+   - Bảng tóm tắt thông số cấu hình hiển thị trực tiếp `Khối lượng ước tính: ~X.XX g` kèm ghi chú vượt mức hoặc trong định mức chuẩn.
+   - Trang Thẩm định thiết kế hiển thị thẻ chỉ số `Khối lượng ước tính: X.XX g` và bóc tách phụ phí nguyên liệu minh bạch.
+5. **Kiểm thử tự động & Nghiệm thu**:
+   - Backend unit & integration tests: **16/16 tests PASS (100%)**.
+   - Frontend Vitest suite: **88/88 tests PASS (100%)**.
+
+### Phase K — Khắc nhiều vị trí tính phí 1 lần, Upload ảnh khắc riêng (100k) & Cảnh báo bề mặt gồ ghề (2026-11-14)
+
+1. **Khắc chữ & biểu tượng tiêu chuẩn (Phí 1 lần duy nhất 80.000 ₫)**:
+   - Khách hàng trả tiền khắc tiêu chuẩn 1 lần duy nhất, được khắc nhiều nội dung và biểu tượng cả ở **mặt trong (`INNER_BAND`)** và **mặt ngoài (`OUTER_BAND`)**.
+   - Hỗ trợ thêm/xóa nhiều mục khắc, cung cấp nút shortcut chèn nhanh ký hiệu (♥, ∞, ★, ✿, 💍).
+2. **Cảnh báo kết cấu bề mặt gồ ghề (Surface Texture Collision Warning)**:
+   - Khi có bất kỳ mục khắc nào (chữ hoặc ảnh) đặt tại mặt ngoài (`OUTER_BAND`) của các mẫu nhẫn có kết cấu gồ ghề (`SHP-HAMMERED`, `SHP-BALL-PEEN`, `SHP-SINGLE-TWIST`, `SHP-TWISTED`, `SHP-WAVE`), hệ thống hiển thị banner cảnh báo kỹ thuật nổi bật:
+     > *"⚠️ Lưu ý: Đai nhẫn đang chọn có kết cấu bề mặt gồ ghề (đập búa / búa bi / xoắn / lượn sóng). Hình khắc ở mặt ngoài có thể bị biến dạng hoặc không hiển thị sắc nét như mong muốn trên bề mặt thực tế. Bạn nên ưu tiên chọn khắc ở mặt trong để đảm bảo chất lượng tinh xảo."*
+   - Cảnh báo được quản lý đồng bộ từ backend rules (`EvaluationResultDto.warnings`) và hiển thị cả ở bước cấu hình lẫn trang thẩm định.
+3. **Khắc hình ảnh cá nhân hóa tải lên (+100.000 ₫ / ảnh)**:
+   - Cho phép khách hàng tải file hình ảnh lên để khắc (chữ ký, logo, hình vẽ tay).
+   - Mỗi ảnh upload được tính thêm phụ phí riêng là **100.000 ₫ / ảnh** (tùy chọn vị trí mặt trong hoặc mặt ngoài).
+   - **Xử lý hình ảnh trắng đen laser (B&W Thresholding)**: Chuyển đổi vùng ảnh sang màu đơn sắc tương phản cao qua Canvas mô phỏng chính xác tia laser khắc trên kim loại.
+   - **Khung chọn vị trí 160px x 160px**: Giới hạn khung 160x160 tương tác, cho phép người dùng kéo thả trực tiếp để chọn góc/vùng ảnh muốn khắc và cập nhật ô xem trước tức thì.
+4. **Kiểm thử & Nghiệm thu**:
+   - Backend unit tests (`ManagerDesignRuleAdapterTest`, `WorkshopRingDesign*Test`): **21/21 tests PASS (100%)**.
+   - Frontend Vitest suite (`designDomain`, `screens`, `workshopRingDesignApi`): **35/35 tests PASS (100%)**.
+   - Kiểm thử E2E chi tiết trên trình duyệt thực tế ghi lại trong tài liệu kiểm thử.
+
+
 
 
 ## 5. Incomplete / Next Steps (Release Gates)
