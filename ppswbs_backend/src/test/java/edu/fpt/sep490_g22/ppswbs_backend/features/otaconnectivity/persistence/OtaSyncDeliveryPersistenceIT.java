@@ -10,6 +10,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.application.Ot
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.application.exception.OtaMappingLifecycleException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.integration.AuthenticatedOtaInboundEvent;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.integration.OtaAuditCorrelationService;
+import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.integration.OtaInboundConflictRecorder;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.integration.OtaInboundEventService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.WorkshopSessionOtaSnapshot;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.PublishedPackageSelectionSnapshot;
@@ -47,7 +48,7 @@ import static org.mockito.Mockito.when;
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @ActiveProfiles("test")
 @Import({OtaSyncDeliveryService.class, OtaInboundEventService.class, OtaAuditCorrelationService.class,
-        OtaChannelMappingService.class})
+        OtaInboundConflictRecorder.class, OtaChannelMappingService.class})
 class OtaSyncDeliveryPersistenceIT {
 
     private static final Optional<TestDatabase> TEST_DATABASE = initializeDatabase();

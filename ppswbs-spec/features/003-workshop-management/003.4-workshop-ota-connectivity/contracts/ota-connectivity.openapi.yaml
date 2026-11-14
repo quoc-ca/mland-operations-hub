@@ -152,16 +152,18 @@ paths:
   /ota-reconciliation-work-items:
     get:
       operationId: listOtaReconciliationWorkItems
-      summary: List authorized mapping sync and recovery work items.
+      summary: List authorized sync, recovery, and inbound-event work items.
       description: >-
         Requires an active canonical MANAGER or Admin with global access. This endpoint
-        lists only synchronization and recovery work items linked to a channel mapping.
-        Inbound-event and payout/financial work items are outside this list and are
-        surfaced through their owning API when those API contracts are available.
+        lists synchronization, recovery, and inbound-event work items.
       parameters:
         - name: status
           in: query
           schema: { type: string, enum: [OPEN, IN_PROGRESS, RESOLVED, ESCALATED] }
+        - name: category
+          in: query
+          schema: { type: string }
+          description: Optional filter by work item category (e.g. INBOUND_EVENT).
       responses:
         '200': { $ref: '#/components/responses/ReconciliationWorkItemList' }
         '400': { $ref: '#/components/responses/ValidationError' }
@@ -542,10 +544,12 @@ components:
     ReconciliationWorkItem:
       type: object
       additionalProperties: false
-      required: [workItemId, mappingId, status, correlationId]
+      required: [workItemId, status, correlationId]
       properties:
         workItemId: { type: string, format: uuid }
-        mappingId: { type: string, format: uuid }
+        mappingId:
+          type: [string, 'null']
+          format: uuid
         status: { type: string, enum: [OPEN, IN_PROGRESS, RESOLVED, ESCALATED] }
         correlationId:
           type: string
