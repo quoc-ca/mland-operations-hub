@@ -4,4 +4,4 @@ import java.util.UUID;
 
 /** Safe acknowledgement snapshot for a reconciliation action or its idempotent replay. */
 public record OtaReconciliationActionResult(UUID workItemId, UUID mappingId, String status,
-                                             UUID correlationId, String safeSummary) {}
+                                             UUID correlationId, String safeSummary, String category) {}

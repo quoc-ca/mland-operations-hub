@@ -49,6 +49,6 @@ public class OtaReconciliationController {
         OtaReconciliationActionResult result = reconciliationService.resolveByPublicReference(workItemId,
                 request.resolution(), request.reason(), idempotencyKey, actor);
         return ResponseEntity.ok(new OtaReconciliationWorkItemViewResponse(result.workItemId(), result.mappingId(),
-                result.status(), result.correlationId(), result.safeSummary()));
+                result.status(), result.correlationId(), result.safeSummary(), result.category()));
     }
 }

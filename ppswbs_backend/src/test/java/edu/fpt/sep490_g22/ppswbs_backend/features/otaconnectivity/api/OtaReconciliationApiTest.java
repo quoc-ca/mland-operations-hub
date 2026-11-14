@@ -167,7 +167,8 @@ class OtaReconciliationApiTest {
                 .andExpect(jsonPath("$.items[0].workItemId").value(inboundItem.getPublicReference()))
                 .andExpect(jsonPath("$.items[0].mappingId").value(nullValue()))
                 .andExpect(jsonPath("$.items[0].status").value("OPEN"))
-                .andExpect(jsonPath("$.items[0].safeSummary").value("INBOUND_EVENT"));
+                .andExpect(jsonPath("$.items[0].safeSummary").value("INBOUND_EVENT"))
+                .andExpect(jsonPath("$.items[0].category").value("INBOUND_EVENT"));
     }
 
     @Test

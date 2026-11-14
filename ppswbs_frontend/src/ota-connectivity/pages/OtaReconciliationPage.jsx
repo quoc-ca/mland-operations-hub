@@ -127,8 +127,7 @@ export default function OtaReconciliationPage() {
             </button>
           ))}
         </div>
-        {/* The contract does not list the categories yet (ERROR-LOG FE-DESIGN-0005), so the filter is free text plus
-            the one value it names; no "category" column until the work item carries the field. */}
+        {/* Each work item now carries category (contract enum). The filter stays free text plus the INBOUND_EVENT shortcut. */}
         <form
           className="filter-group"
           aria-label="Filter by category"
@@ -198,6 +197,10 @@ export default function OtaReconciliationPage() {
               </div>
 
               <div className="mapping-grid">
+                <div className="mapping-field">
+                  <span className="mapping-label">Type</span>
+                  <span className="mapping-value mono">{item.category || '—'}</span>
+                </div>
                 <div className="mapping-field">
                   <span className="mapping-label">Linked Mapping ID</span>
                   <span className="mapping-value mono">{item.mappingId || 'None (Global)'}</span>

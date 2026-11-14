@@ -227,7 +227,11 @@ paths:
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
     patch:
-      summary: Update allowed session fields and return any schedule warning
+      summary: Update the capacity and the check-in opening override of a session.
+      description: >-
+        V1 (decided 2026-11-14): only capacity and checkInOpensAt change. slotId, locationId and workshopDate may be
+        sent only with the session's own current values; a different value is refused with 400 instead of being
+        ignored. To move a session, create a new one.
       parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/SessionWrite' } } } }
       responses:

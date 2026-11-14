@@ -260,6 +260,15 @@ public class WorkshopSessionService {
             throw new WorkshopValidationException("Session update request must not be null");
         }
 
+        // T112 (decided 2026-11-14): V1 edits only capacity and the check-in override. Moving a session to another
+        // slot, location or date is refused, never silently ignored; echoing the current values is accepted.
+        if ((request.getLocationId() != null && !request.getLocationId().equals(session.getLocation().getId()))
+                || (request.getSlotId() != null && !request.getSlotId().equals(session.getSlot().getReference()))
+                || (request.getWorkshopDate() != null && !request.getWorkshopDate().equals(session.getWorkshopDate()))) {
+            throw new WorkshopValidationException(
+                    "Slot, location and date of an existing session cannot be changed; create a new session instead");
+        }
+
         if (request.getCapacity() != null) {
             if (request.getCapacity() < 1) {
                 throw new WorkshopValidationException("Capacity must be at least 1");

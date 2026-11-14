@@ -561,6 +561,10 @@ components:
           format: uuid
           description: Persisted audit correlation for this item; reads do not regenerate it. An audited resolution returns its decision correlation. Development records repaired by V29 receive a tracking UUID without reconstructing historical log evidence.
         safeSummary: { type: string, maxLength: 500 }
+        category:
+          type: string
+          enum: [INBOUND_EVENT, PAYOUT_DISPUTE, SHARED_VOUCHER_INCIDENT, INVENTORY_DELIVERY_FAILURE, SOURCE_VERSION_GAP, SOURCE_ORDER_UNCERTAIN, MANUAL_FULL_RESYNC]
+          description: Kind of work item; the same value the category filter of the list endpoint accepts. Equals safeSummary today.
     ReconciliationWorkItemList:
       type: object
       additionalProperties: false

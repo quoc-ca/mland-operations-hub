@@ -4,4 +4,4 @@ import java.util.UUID;
 
 /** Public-reference-only representation of a mapping-linked sync/recovery item. */
 public record OtaReconciliationWorkItemView(UUID workItemId, UUID mappingId, String status,
-                                             UUID correlationId, String safeSummary) {}
+                                             UUID correlationId, String safeSummary, String category) {}

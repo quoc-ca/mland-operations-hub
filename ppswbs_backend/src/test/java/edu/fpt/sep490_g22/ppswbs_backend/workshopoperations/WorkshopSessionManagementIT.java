@@ -460,4 +460,43 @@ public class WorkshopSessionManagementIT {
             }
         }
     }
+
+    @Test
+    @DisplayName("T112: PATCH edits capacity, accepts the session's own slot/location/date, and refuses a move instead of ignoring it")
+    void patchRefusesSlotLocationAndDateChanges() throws Exception {
+        LocalDate date = LocalDate.now().plusDays(15);
+        String created = mockMvc.perform(post("/api/v1/workshop-sessions")
+                        .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
+                        .header("Authorization", MGR_A_TOKEN)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(SessionRequest.builder()
+                                .locationId(locationA.getId()).slotId(slotMorning.getReference())
+                                .workshopDate(date).capacity(12).build())))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        String id = objectMapper.readTree(created).get("id").asText();
+
+        // Own slot, location and date echoed back: only the capacity changes.
+        mockMvc.perform(patch("/api/v1/workshop-sessions/" + id)
+                        .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
+                        .header("Authorization", MGR_A_TOKEN)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(SessionRequest.builder()
+                                .locationId(locationA.getId()).slotId(slotMorning.getReference())
+                                .workshopDate(date).capacity(14).build())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.capacity").value(14));
+
+        // A different date is refused (400), and the capacity sent with it is not applied either.
+        mockMvc.perform(patch("/api/v1/workshop-sessions/" + id)
+                        .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
+                        .header("Authorization", MGR_A_TOKEN)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(SessionRequest.builder()
+                                .locationId(locationA.getId()).slotId(slotMorning.getReference())
+                                .workshopDate(date.plusDays(1)).capacity(20).build())))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(get("/api/v1/workshop-sessions/" + id).header("Authorization", MGR_A_TOKEN))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.capacity").value(14));
+    }
 }
