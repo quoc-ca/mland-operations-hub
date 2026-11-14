@@ -11,12 +11,9 @@ ppswbs-spec/features/**/test-results/**/screenshots/
 
 node_modules/
 
-# Local Docker and database initialization artifacts; do not commit machine-local setup.
+# Machine-local environment configuration; do not commit credentials or local port overrides.
 /.env
 /.env.local
-/docker-compose.yml
-/docker/
-/ppswbs_backend/docker-compose.yml
-/ppswbs_backend/docker/
+/.env.*.local
 /scripts/start-mysql.ps1
 /scripts/stop-mysql.ps1
