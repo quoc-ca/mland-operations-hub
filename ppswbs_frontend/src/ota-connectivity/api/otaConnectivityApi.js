@@ -146,8 +146,11 @@ export function createOtaConnectivityClient(httpClient) {
      * 8. GET /api/v1/ota-reconciliation-work-items
      * List authorized mapping sync and recovery work items.
      */
-    async listReconciliationWorkItems(status = null) {
+    async listReconciliationWorkItems(status = null, category = null) {
       const query = status && status !== 'ALL' ? { status } : {};
+      // 003.4 T119 / C2: optional category filter; the contract types it as a free string (INBOUND_EVENT is its example).
+      const trimmedCategory = typeof category === 'string' ? category.trim() : '';
+      if (trimmedCategory) query.category = trimmedCategory;
       const response = await httpClient('/api/v1/ota-reconciliation-work-items', { query });
       return response?.items || [];
     },
