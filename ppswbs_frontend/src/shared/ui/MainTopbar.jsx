@@ -174,6 +174,12 @@ export default function MainTopbar() {
             Custom
           </Link>
           <Link
+            to="/promotions"
+            className={`main-topbar-link ${location.pathname.startsWith('/promotions') ? 'active' : ''}`}
+          >
+            Kho Voucher
+          </Link>
+          <Link
             to="/workshop-booking/lookup"
             className={`main-topbar-link ${location.pathname.startsWith('/workshop-booking') ? 'active' : ''}`}
           >
@@ -243,6 +249,9 @@ export default function MainTopbar() {
                   </Link>
                   <Link to="/me/loyalty" className="main-topbar-dropdown-item" role="menuitem">
                     <span>💎</span> Điểm thưởng tích lũy
+                  </Link>
+                  <Link to="/me/saved-vouchers" className="main-topbar-dropdown-item" role="menuitem">
+                    <span>🎟️</span> Voucher của tôi
                   </Link>
                   <Link
                     to="/workshop-booking/lookup"

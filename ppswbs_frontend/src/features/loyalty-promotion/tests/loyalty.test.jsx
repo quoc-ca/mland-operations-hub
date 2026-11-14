@@ -503,27 +503,27 @@ describe('T070 public offers and voucher wallet', () => {
     expect(screen.getByRole('link', { name: 'Đăng nhập để lưu' })).toHaveAttribute('href', '/login?returnTo=%2Fpromotions');
   });
 
-  it('names product targets from the public catalogue, without signing in; a target not found keeps its ID', async () => {
+  it('the Điều kiện page names product targets from the public catalogue, without signing in; a target not found keeps its ID', async () => {
     const calls = mockFetch({
-      'GET /api/v1/promotions': json(200, { items: [publicPromotion({ targets: { productIds: ['6', '99'], variantIds: ['23'] } })], nextCursor: null }),
+      'GET /api/v1/promotions/5': json(200, publicPromotion({ targets: { productIds: ['6', '99'], variantIds: ['23'] } })),
       'GET /api/v1/products/6': json(200, { id: '6', name: 'Nhẫn kiểm thử', variants: [] }),
       'GET /api/v1/products/99': json(404, { code: 'PRODUCT_NOT_FOUND', message: 'Not found.' }),
       'GET /api/v1/products': json(200, { items: [{ id: '6', name: 'Nhẫn kiểm thử', variants: [{ id: '23', size: 14, sku: 'SP000006-S14' }] }], page: 0, pageSize: 20, totalElements: '1' }),
     });
-    open('/promotions', { session: fakeSession('signed-out') });
+    open('/promotions/5', { session: fakeSession('signed-out') });
     expect(await screen.findByText('Nhẫn kiểm thử; 99')).toBeInTheDocument();
     expect(await screen.findByText('Nhẫn kiểm thử · size 14')).toBeInTheDocument();
     expect(calls.filter(call => call.path.startsWith('/api/v1/products')).every(call => !call.headers.Authorization)).toBe(true);
   });
 
-  it('names workshop packages and branches without signing in; one that cannot be read shows "Gói #id" / "Chi nhánh #id"', async () => {
+  it('the Điều kiện page names workshop packages and branches without signing in; one that cannot be read shows "Gói #id" / "Chi nhánh #id"', async () => {
     const calls = mockFetch({
-      'GET /api/v1/promotions': json(200, { items: [publicPromotion({ scope: 'WORKSHOP', targets: { packageIds: ['2', '7'], branchIds: ['1', '3'] } })], nextCursor: null }),
+      'GET /api/v1/promotions/5': json(200, publicPromotion({ scope: 'WORKSHOP', targets: { packageIds: ['2', '7'], branchIds: ['1', '3'] } })),
       'GET /api/v1/workshop-packages/2': json(200, { packageId: 2, name: 'Workshop nhẫn bạc', state: 'PUBLISHED' }),
       'GET /api/v1/workshop-packages/7': json(404, { code: 'PACKAGE_NOT_FOUND', message: 'Not found.' }),
       'GET /api/v1/product-selling-locations': json(200, { items: [{ id: '1', name: 'Mland Hà Nội – Hoàn Kiếm', address: '12 Hàng Bạc' }] }),
     });
-    open('/promotions', { session: fakeSession('signed-out') });
+    open('/promotions/5', { session: fakeSession('signed-out') });
     expect(await screen.findByText('Workshop nhẫn bạc; Gói #7')).toBeInTheDocument();
     expect(await screen.findByText('Mland Hà Nội – Hoàn Kiếm; Chi nhánh #3')).toBeInTheDocument();
     expect(screen.getByText('Gói workshop')).toBeInTheDocument();
@@ -541,7 +541,7 @@ describe('T070 public offers and voucher wallet', () => {
       'PUT /api/v1/members/me/saved-vouchers/5': json(200, { promotion: publicPromotion(), savedAt: '2026-11-01T00:00:00Z', availability: 'ACTIVE' }),
     });
     open('/promotions');
-    await user.click(await screen.findByRole('button', { name: 'Lưu vào Kho Voucher' }));
+    await user.click(await screen.findByRole('button', { name: 'Lưu voucher' }));
     expect(await screen.findByText('Đã lưu.')).toBeInTheDocument();
     expect(calls.find(call => call.method === 'PUT').headers['Idempotency-Key']).toMatch(/^[0-9a-f-]{36}$/);
     expect(calls.filter(call => call.path === '/api/v1/promotions').every(call => !call.headers.Authorization)).toBe(true);
@@ -641,7 +641,7 @@ describe('T055 offer picker for checkout', () => {
 
     await user.click(screen.getByLabelText('Dùng voucher'));
     expect(screen.getAllByRole('option').map(option => option.textContent)).toEqual(['Chọn voucher đã lưu', 'Giảm 10% (MLAND10)']);
-    await user.selectOptions(screen.getByLabelText('Chọn từ Kho Voucher'), 'MLAND10');
+    await user.selectOptions(screen.getByLabelText('Chọn từ Voucher của tôi'), 'MLAND10');
     expect(screen.getByLabelText('Mã voucher')).toHaveValue('MLAND10');
     expect(onRecalculate).not.toHaveBeenCalled();
     expect(screen.getByRole('button', { name: 'Xác nhận' })).toBeDisabled();
@@ -882,4 +882,107 @@ describe('workshop target picker', () => {
     expect(body).toMatchObject({ kind: 'AUTO_DISCOUNT', scope: 'WORKSHOP', targets: { packageIds: ['7', '8'] } });
     expect(body.code).toBeUndefined();
   }, 20000);
+});
+
+describe('Kho Voucher and Voucher của tôi: saved state and tabs', () => {
+  it('a voucher saved earlier reads "Đã lưu" after a reload, without saving again', async () => {
+    const calls = mockFetch({
+      'GET /api/v1/promotions': json(200, { items: [publicPromotion()], nextCursor: null }),
+      'GET /api/v1/members/me/saved-vouchers': json(200, { items: [{ promotion: publicPromotion(), savedAt: '2026-11-01T00:00:00Z', availability: 'ACTIVE' }], nextCursor: null }),
+    });
+    open('/promotions');
+    expect(await screen.findByText('Đã lưu.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Lưu voucher' })).not.toBeInTheDocument();
+    expect(calls.some(call => call.method === 'PUT')).toBe(false);
+  });
+
+  it('a Guest does not read the wallet', async () => {
+    const calls = mockFetch({ 'GET /api/v1/promotions': json(200, { items: [publicPromotion()], nextCursor: null }) });
+    open('/promotions', { session: fakeSession('signed-out') });
+    expect(await screen.findByRole('link', { name: 'Đăng nhập để lưu' })).toBeInTheDocument();
+    expect(calls.some(call => call.path === '/api/v1/members/me/saved-vouchers')).toBe(false);
+  });
+
+  it('the wallet splits valid from expired or unusable vouchers, with counts', async () => {
+    const user = userEvent.setup();
+    mockFetch({ 'GET /api/v1/members/me/saved-vouchers': json(200, { items: [
+      { promotion: publicPromotion({ id: '5', name: 'Còn dùng' }), savedAt: '2026-11-01T00:00:00Z', availability: 'ACTIVE' },
+      { promotion: publicPromotion({ id: '6', name: 'Sắp mở', code: 'SOON' }), savedAt: '2026-11-02T00:00:00Z', availability: 'SCHEDULED' },
+      { promotion: publicPromotion({ id: '7', name: 'Đã hết', code: 'OLD' }), savedAt: '2026-11-03T00:00:00Z', availability: 'EXPIRED' },
+    ], nextCursor: null }) });
+    open('/me/saved-vouchers');
+    const valid = await screen.findByRole('tab', { name: /Còn hiệu lực/ });
+    expect(valid).toHaveAttribute('aria-selected', 'true');
+    expect(within(valid).getByText('2')).toBeInTheDocument();
+    expect(screen.getByText('Còn dùng')).toBeInTheDocument();
+    expect(screen.getByText('Sắp mở')).toBeInTheDocument();
+    expect(screen.queryByText('Đã hết')).not.toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: 'Dùng ngay' })).toHaveLength(1);
+    expect(screen.getByRole('link', { name: 'Dùng ngay' })).toHaveAttribute('href', '/products');
+
+    await user.click(screen.getByRole('tab', { name: /Hết hạn \/ Không dùng được/ }));
+    expect(screen.getByText('Đã hết')).toBeInTheDocument();
+    expect(screen.queryByText('Còn dùng')).not.toBeInTheDocument();
+  });
+
+  it('Kho Voucher filters by scope with tabs and links to Voucher của tôi', async () => {
+    const user = userEvent.setup();
+    const calls = mockFetch({ 'GET /api/v1/promotions': json(200, { items: [publicPromotion()], nextCursor: null }) });
+    open('/promotions', { session: fakeSession('signed-out') });
+    expect(await screen.findByRole('heading', { name: 'Kho Voucher' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Tất cả' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('link', { name: 'Voucher của tôi' })).toHaveAttribute('href', '/me/saved-vouchers');
+
+    await user.click(screen.getByRole('tab', { name: 'Workshop' }));
+    await waitFor(() => expect(calls.filter(call => call.path === '/api/v1/promotions').at(-1).query.scope).toBe('WORKSHOP'));
+    expect(screen.getByRole('tab', { name: 'Workshop' })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('Kho Voucher shows vouchers as tickets with their terms and a Điều kiện link, without automatic discounts', async () => {
+    mockFetch({
+      'GET /api/v1/promotions': json(200, { items: [
+        publicPromotion({ id: '5', minimumEligibleAmount: '200000', allowPoints: false, targets: { productIds: ['6'], branchIds: ['1'] } }),
+        publicPromotion({ id: '8', name: 'Giảm tự động', kind: 'AUTO_DISCOUNT', code: null }),
+      ], nextCursor: null }),
+      'GET /api/v1/product-selling-locations': json(200, { items: [{ id: '1', name: 'Mland Hoàn Kiếm', address: '12 Hàng Bạc' }] }),
+    });
+    open('/promotions', { session: fakeSession('signed-out') });
+    expect(await screen.findByText('MLAND10')).toBeInTheDocument();
+    expect(screen.queryByText('Giảm tự động')).not.toBeInTheDocument();
+    expect(screen.getByText('Đơn tối thiểu 200.000 ₫')).toBeInTheDocument();
+    expect(await screen.findByText('Áp dụng tại: Mland Hoàn Kiếm.')).toBeInTheDocument();
+    expect(screen.getByText('Không dùng cùng điểm')).toBeInTheDocument();
+    expect(screen.getByText(/^HSD: /)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Điều kiện' })).toHaveAttribute('href', '/promotions/5');
+  });
+
+  it('a saved voucher with no use left reads "Đã hết mã" and cannot be saved again', async () => {
+    mockFetch({
+      'GET /api/v1/promotions': json(200, { items: [publicPromotion({ id: '5' }), publicPromotion({ id: '6', code: 'MLAND20' })], nextCursor: null }),
+      'GET /api/v1/members/me/saved-vouchers': json(200, { items: [
+        { promotion: publicPromotion({ id: '5' }), savedAt: '2026-11-01T00:00:00Z', availability: 'NO_USES_LEFT' },
+        { promotion: publicPromotion({ id: '6', code: 'MLAND20' }), savedAt: '2026-11-01T00:00:00Z', availability: 'MEMBER_LIMIT_REACHED' },
+      ], nextCursor: null }),
+    });
+    open('/promotions');
+    expect(await screen.findAllByText('Đã hết mã')).not.toHaveLength(0);
+    expect(screen.getAllByText('Bạn đã dùng hết lượt')).not.toHaveLength(0);
+    expect(screen.queryByRole('button', { name: 'Lưu voucher' })).not.toBeInTheDocument();
+  });
+
+  it('a voucher with no use left in total reads "Đã hết mã" for a Guest too (public availability)', async () => {
+    mockFetch({ 'GET /api/v1/promotions': json(200, { items: [
+      publicPromotion({ id: '5', availability: 'NO_USES_LEFT' }),
+      publicPromotion({ id: '6', code: 'MLAND20' }),
+    ], nextCursor: null }) });
+    open('/promotions', { session: fakeSession('signed-out') });
+    expect(await screen.findAllByText('Đã hết mã')).not.toHaveLength(0);
+    expect(screen.getAllByRole('link', { name: 'Đăng nhập để lưu' })).toHaveLength(1);
+  });
+
+  it('the saved-voucher page is titled Voucher của tôi', async () => {
+    mockFetch({ 'GET /api/v1/members/me/saved-vouchers': json(200, { items: [], nextCursor: null }) });
+    open('/me/saved-vouchers');
+    expect(await screen.findByRole('heading', { name: 'Voucher của tôi' })).toBeInTheDocument();
+  });
 });
