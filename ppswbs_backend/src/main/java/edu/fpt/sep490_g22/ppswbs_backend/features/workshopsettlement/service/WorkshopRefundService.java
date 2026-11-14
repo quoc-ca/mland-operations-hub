@@ -2,7 +2,6 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service;
 
 import edu.fpt.sep490_g22.ppswbs_backend.common.payment.VnpayMerchantOperationResult;
 import edu.fpt.sep490_g22.ppswbs_backend.common.payment.VnpayMerchantOperationsPort;
-import edu.fpt.sep490_g22.ppswbs_backend.common.payment.VnpayRefundCommand;
 import edu.fpt.sep490_g22.ppswbs_backend.common.payment.VnpayRefundReconciliationCommand;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingRefundStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingServiceOutcome;
@@ -209,68 +208,22 @@ public class WorkshopRefundService {
             return;
         }
 
-        String expectedType = expectedRefundType(allocation);
-        String orderInfo = "FOLIO_CORRECTION".equals(settlementCase.getCaseType())
-                ? "Workshop folio correction " + settlementCase.getCaseReference()
-                : "ADDON_REFUND".equals(settlementCase.getCaseType())
-                ? "Workshop add-on refund " + settlementCase.getCaseReference()
-                : "Workshop cancellation " + settlementCase.getCaseReference();
-        VnpayMerchantOperationResult result;
-        try {
-            result = provider.requestRefund(new VnpayRefundCommand(
-                    allocation.getOperationReference(), allocation.getOriginalPaymentReference(),
-                    allocation.getOriginalProviderTransactionNumber(), allocation.getOriginalProviderCreateDate(),
-                    allocation.getAllocatedAmountVnd(), orderInfo, merchantApiCreatedBy, merchantApiIpAddress));
-        } catch (RuntimeException uncertainProviderFailure) {
-            updateAllocation(allocationReference, current -> {
-                current.setLifecycleStatus("UNKNOWN");
-                current.setUpdatedAt(Instant.now());
-            }, "REFUND_REQUEST_UNKNOWN");
-            log.warn("Refund request outcome is unknown; allocationReference={} exceptionType={}",
-                    allocationReference, uncertainProviderFailure.getClass().getSimpleName());
+        // T099 (FR-038, FR-041): a customer self-cancellation never refunds the booking-time collection.
+        if ("CUSTOMER_CANCELLATION".equals(settlementCase.getCaseType())) {
+            log.warn("Customer cancellation is not refundable; caseReference={}", settlementCase.getCaseReference());
+            updateCase(settlementCase, CASE_REJECTED, "CUSTOMER_CANCELLATION_NON_REFUNDABLE");
             return;
         }
 
-        if (!matchesRefundResponse(result, allocation, expectedType)) {
-            updateAllocation(allocationReference, current -> {
-                current.setLifecycleStatus("UNKNOWN");
-                current.setProviderResponseCode(safeCode(result));
-                current.setUpdatedAt(Instant.now());
-            }, "REFUND_RESPONSE_UNVERIFIED");
-            return;
-        }
-
-        if ("REJECTED".equals(result.status())) {
-            rejectAllocation(allocationReference, safeCode(result));
-            return;
-        }
-        if (!"ACCEPTED".equals(result.status()) || !"00".equals(result.providerResponseCode())
-                || !isProviderTransactionNumber(result.providerTransactionNumber())) {
-            updateAllocation(allocationReference, current -> {
-                current.setLifecycleStatus("UNKNOWN");
-                current.setProviderResponseCode(safeCode(result));
-                current.setProviderTransactionType(result.transactionType());
-                current.setProviderTransactionStatus(result.transactionStatus());
-                current.setProviderRefundTransactionNumber(isProviderTransactionNumber(result.providerTransactionNumber())
-                        ? result.providerTransactionNumber() : null);
-                current.setProviderAcceptedAt("00".equals(result.providerResponseCode()) ? Instant.now() : null);
-                current.setUpdatedAt(Instant.now());
-            }, "REFUND_REQUEST_PENDING_OR_UNKNOWN");
-            if (isProviderTransactionNumber(result.providerTransactionNumber()))
-                reconcileAllocation(allocationReference);
-            return;
-        }
-
-        updateAllocation(allocationReference, current -> {
-            current.setLifecycleStatus("ACCEPTED");
-            current.setProviderResponseCode(result.providerResponseCode());
-            current.setProviderTransactionType(result.transactionType());
-            current.setProviderTransactionStatus(result.transactionStatus());
-            current.setProviderRefundTransactionNumber(result.providerTransactionNumber());
-            current.setProviderAcceptedAt(Instant.now());
-            current.setUpdatedAt(Instant.now());
-        }, "REFUND_REQUEST_ACCEPTED");
-        reconcileAllocation(allocationReference);
+        // Removed 2026-11-14 (owner decision): no case type asks VNPay for a refund any more. Every Mland refund
+        // goes through the bank refund lifecycle of FR-038/FR-039/FR-040 (T097/T098/T104) and a customer
+        // self-cancellation is refused above, so the outbound request, its response matching and its retry states
+        // had become unreachable. Reconciliation of refunds VNPay already accepted before that change is kept
+        // below (reconcileAllocation and the scheduler): those allocations are real money in flight and still
+        // need their signed QueryDR conclusion.
+        log.error("No refund route for case type {}; caseReference={} is left for a Manager",
+                settlementCase.getCaseType(), settlementCase.getCaseReference());
+        updateCase(settlementCase, CASE_PENDING, "REFUND_ROUTE_UNAVAILABLE");
     }
 
     private void reconcileAllocation(String allocationReference) {
@@ -563,15 +516,8 @@ public class WorkshopRefundService {
         return allocations.findByAllocationReference(reference).orElse(null);
     }
 
-    private static boolean matchesRefundResponse(VnpayMerchantOperationResult result,
-            SettlementRefundAllocation allocation, String expectedType) {
-        return result != null && "REFUND".equals(result.operationKind())
-                && result.responseSignatureVerified()
-                && allocation.getOriginalPaymentReference().equals(result.merchantReference())
-                && Objects.equals(result.amountVnd(), allocation.getAllocatedAmountVnd())
-                && expectedType.equals(result.transactionType());
-    }
-
+    // matchesRefundResponse was removed 2026-11-14 with the outbound refund request: only the QueryDR
+    // conclusion of refunds VNPay already accepted is still matched.
     private static boolean matchesRefundQuery(VnpayMerchantOperationResult result,
             SettlementRefundAllocation allocation, String expectedType) {
         return result != null && "REFUND_QUERYDR".equals(result.operationKind())

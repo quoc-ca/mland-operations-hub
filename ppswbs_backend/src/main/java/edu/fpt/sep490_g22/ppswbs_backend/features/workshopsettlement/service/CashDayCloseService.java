@@ -105,6 +105,36 @@ public class CashDayCloseService {
         return saved;
     }
 
+    /** FR-052: Manager confirms difference by close id or close reference with required reason and Idempotency-Key. */
+    @Transactional
+    public SettlementCashDayClose confirmDifferenceById(String cashCloseId, String reason, Long managerAccountId,
+                                                        String correlationReference) {
+        if (cashCloseId == null || cashCloseId.isBlank()) {
+            throw new WorkshopSettlementValidationException("CASH_CLOSE_ID_REQUIRED");
+        }
+        if (reason == null || reason.isBlank()) {
+            throw new WorkshopSettlementValidationException("DIFFERENCE_CONFIRMATION_REASON_REQUIRED");
+        }
+        SettlementCashDayClose close = null;
+        try {
+            Long id = Long.parseLong(cashCloseId.trim());
+            close = closes.findById(id).orElse(null);
+        } catch (NumberFormatException ignored) {}
+        if (close == null) {
+            close = closes.findByCloseReference(cashCloseId.trim())
+                    .orElseThrow(WorkshopSettlementNotFoundException::new);
+        }
+        if (close.getStatus() == CashDayCloseStatus.CLOSED) {
+            return close;
+        }
+        close.setStatus(CashDayCloseStatus.CLOSED);
+        close.setConfirmedByAccountId(managerAccountId);
+        close.setConfirmedAt(Instant.now());
+        SettlementCashDayClose saved = closes.saveAndFlush(close);
+        audit(saved, "CASH_DAY_DIFFERENCE_CONFIRMED", managerAccountId, reason.trim(), correlationReference);
+        return saved;
+    }
+
     @Transactional(readOnly = true)
     public SettlementCashDayClose find(Long branchId, LocalDate businessDay) {
         return closes.findByBranchIdAndBusinessDay(branchId, dayOrToday(businessDay))

@@ -118,4 +118,35 @@ public class SettlementCustomerNotifier {
                 ? "Mland đã hoàn " + amount + " cho đơn " + bookingReference + ". Số tiền sẽ về phương thức thanh toán ban đầu theo thời gian của ngân hàng."
                 : "Mland đã nhận thanh toán " + amount + " cho đơn " + bookingReference + ". Cảm ơn bạn.";
     }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public String notifyMlandRemedyOffer(String ticketCode, String cancelledSession, String replacementSession,
+                                         java.time.Instant deadline, String correlationReference) {
+        String recipient;
+        try {
+            recipient = booking.notificationRecipient(ticketCode);
+        } catch (RuntimeException failure) {
+            log.warn("Mland remedy offer email skipped, recipient lookup failed: ticketCode={} ({})",
+                    ticketCode, failure.getClass().getSimpleName());
+            return null;
+        }
+        if (recipient == null || recipient.isBlank()) {
+            return null;
+        }
+        String subject = "MLAND – Buổi workshop bị hủy, vui lòng chọn ca thay thế hoặc hoàn tiền";
+        String body = "Rất tiếc, buổi workshop của vé " + ticketCode + " bị hủy. Chúng tôi đề xuất ca thay thế: "
+                + replacementSession + ". Vui lòng trả lời trước hạn 24 giờ: " + deadline + ".\n"
+                + "Nếu không trả lời trước hạn, MLAND sẽ hoàn 100% số tiền đã thanh toán cho vé này.";
+        return handoffs.create(ticketCode, "MLAND_REMEDY_OFFER", correlationReference, recipient, body, subject,
+                null, null);
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public String notifyMlandRemedyRecipient(String ticketCode, String recipientEmail, String correlationReference) {
+        if (recipientEmail == null || recipientEmail.isBlank()) return null;
+        String subject = "MLAND – Thông báo buổi workshop bị hủy";
+        String body = "Buổi workshop của vé " + ticketCode + " đã bị hủy. Người mua vé sẽ chọn ca thay thế hoặc nhận hoàn tiền.";
+        return handoffs.create(ticketCode, "MLAND_REMEDY_RECIPIENT", correlationReference, recipientEmail.trim(),
+                body, subject, null, null);
+    }
 }

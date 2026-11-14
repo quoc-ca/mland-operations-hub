@@ -41,6 +41,8 @@ class FolioCorrectionServiceTest {
     @Mock private WorkshopSettlementAuthorizationService authorization;
     @Mock private WorkshopBookingSettlementAdapter booking;
     @Mock private WorkshopRefundService refunds;
+    @Mock private SettlementRefundRequestRepository refundRequests;
+    @Mock private SettlementFolioCollectionRepository collections;
 
     private FolioCorrectionService service;
 
@@ -52,7 +54,9 @@ class FolioCorrectionServiceTest {
     void setUp() {
         service = new FolioCorrectionService(
                 corrections, cases, allocations, bills, evidence, audits,
-                idempotency, authorization, booking, refunds, mock(org.springframework.transaction.PlatformTransactionManager.class));
+                idempotency, authorization, booking, refunds,
+                mock(org.springframework.transaction.PlatformTransactionManager.class),
+                refundRequests, collections);
 
         when(authorization.requireManager(manager)).thenReturn(manager);
         when(authorization.requireManager(staff))
@@ -419,6 +423,10 @@ class FolioCorrectionServiceTest {
         verify(bills).findByBookingReferenceForUpdate("BK-LOCK");
         verify(bills, never()).findByBookingReference(any());
     }
+
+    // FR-050 (closed cash day stays locked) is NOT asserted here: this service never reads or writes a folio
+    // collection, so it cannot alter a closed day's cash. The protection belongs to the operations that do touch
+    // collections — the Manager voids of spec FR-053 — and is verified in 003.3 T106.
 
     private void singlePaymentFolio(String bookingRef, long depositVnd) {
         SettlementFinalBill bill = SettlementFinalBill.builder().billReference("BILL-" + bookingRef)

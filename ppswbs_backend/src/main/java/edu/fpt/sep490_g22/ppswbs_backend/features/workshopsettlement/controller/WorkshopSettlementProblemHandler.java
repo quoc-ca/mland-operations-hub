@@ -87,6 +87,15 @@ public class WorkshopSettlementProblemHandler {
         return respond(HttpStatus.CONFLICT, error.getMessage(), List.of(), request);
     }
 
+    @ExceptionHandler(GroupCancellationConflictException.class)
+    ResponseEntity<edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.TicketCancellationDtos.GroupCancellationProblemDto> groupCancellationConflict(
+            GroupCancellationConflictException error, HttpServletRequest request) {
+        String correlation = CorrelationIdFilter.current(request);
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(
+                new edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.TicketCancellationDtos.GroupCancellationProblemDto(
+                        error.getCode(), correlation, error.getMessage(), error.getFailingTicketCodes()));
+    }
+
     @ExceptionHandler(WorkshopSettlementValidationException.class)
     ResponseEntity<SettlementProblem> businessValidation(WorkshopSettlementValidationException error, HttpServletRequest request) {
         return respond(HttpStatus.UNPROCESSABLE_ENTITY, "SETTLEMENT_VALIDATION_ERROR", List.of(), request);

@@ -84,25 +84,29 @@ class WorkshopRefundServiceTest {
     }
 
     @Test
-    void acceptedRefundIsImmediatelyQueriedAndOnlyVerifiedQueryAppliesCancellation() {
+    void aCustomerSelfCancellationIsRefusedAsNonRefundableAndNeverReachesTheGateway() {
+        // FR-038/FR-041 (T099): a customer self-cancellation never refunds the booking-time collection, so the
+        // allocation is rejected and VNPay is not asked for anything. The shared fixture is this case type.
         SettlementRefundAllocation allocation = allocation("ALLOC-1", "PAY-1", 50_000, 50_000, "02");
         when(allocations.findAllByCaseReferenceOrderByCreatedAtAsc(CASE_REF)).thenReturn(List.of(allocation));
-        when(provider.requestRefund(any(VnpayRefundCommand.class))).thenReturn(
-                result("REFUND", "ACCEPTED", "00", "02", "06", "70001", "PAY-1", 50_000L, true));
-        when(provider.queryRefund(any(VnpayRefundReconciliationCommand.class))).thenReturn(
-                result("REFUND_QUERYDR", "VERIFIED", "00", "02", "00", "70001", "PAY-1", 50_000L, true));
 
         service.dispatchCase(CASE_REF);
 
-        assertThat(allocation.getLifecycleStatus()).isEqualTo("VERIFIED");
-        assertThat(cancellationCase.getLifecycleStatus()).isEqualTo("RESOLVED");
-        verify(provider).requestRefund(argThat(command -> command.amountVnd() == 50_000
-                && "PAY-1".equals(command.merchantReference())
-                && "20261030181359".equals(command.originalTransactionDate())));
-        verify(provider).queryRefund(argThat(command -> command.expectedRefundAmountVnd() == 50_000
-                && "70001".equals(command.refundTransactionNumber())));
-        verify(operations).applyRefund(eq(BOOKING_REF), anyString(), anyString(), eq("CORR-1"));
+        assertThat(cancellationCase.getLifecycleStatus()).isEqualTo("REJECTED");
+        assertThat(cancellationCase.getReasonReference()).isEqualTo("CUSTOMER_CANCELLATION_NON_REFUNDABLE");
+        verify(provider, never()).requestRefund(any(VnpayRefundCommand.class));
+        verify(provider, never()).queryRefund(any(VnpayRefundReconciliationCommand.class));
+        verify(operations, never()).applyRefund(anyString(), anyString(), anyString(), anyString());
     }
+
+    // Removed 2026-11-14 with T099: acceptedRefundIsImmediatelyQueriedAndOnlyVerifiedQueryAppliesCancellation,
+    // pendingQueryDoesNotApplyCancellationAndDoesNotResendRefund,
+    // unknownWithoutRefundTransactionNumberStaysPendingWithoutRetry and
+    // laterRejectedAllocationAfterVerifiedRefundRemainsPendingForManualRemediation exercised the VNPay refund
+    // dispatch through a CUSTOMER_CANCELLATION case. Every case type is now either bank-routed (T098/T104:
+    // MLAND_CANCELLATION_REMEDY, FOLIO_CORRECTION, LATE_PAYMENT_REFUND, ADDON_REFUND) or refused above, so no
+    // case can reach provider.requestRefund any more and those tests asserted an unreachable path. The dispatch
+    // code itself is left in place: removing a money flow needs the owner's decision (003.3 tasks, T099 note).
 
     @Test
     void aMlandRemedyGoesBackByBankTransferAndNeverReachesTheGateway() {
@@ -165,61 +169,6 @@ class WorkshopRefundServiceTest {
         verify(provider, never()).requestRefund(any(VnpayRefundCommand.class));
     }
 
-    @Test
-    void pendingQueryDoesNotApplyCancellationAndDoesNotResendRefund() {
-        SettlementRefundAllocation allocation = allocation("ALLOC-1", "PAY-1", 50_000, 25_000, "03");
-        when(allocations.findAllByCaseReferenceOrderByCreatedAtAsc(CASE_REF)).thenReturn(List.of(allocation));
-        when(provider.requestRefund(any(VnpayRefundCommand.class))).thenReturn(
-                result("REFUND", "ACCEPTED", "00", "03", "06", "70002", "PAY-1", 25_000L, true));
-        when(provider.queryRefund(any(VnpayRefundReconciliationCommand.class))).thenReturn(
-                result("REFUND_QUERYDR", "PENDING", "00", "03", "06", "70002", "PAY-1", 25_000L, true));
-
-        service.dispatchCase(CASE_REF);
-        service.dispatchCase(CASE_REF);
-
-        assertThat(allocation.getLifecycleStatus()).isEqualTo("ACCEPTED");
-        assertThat(cancellationCase.getLifecycleStatus()).isEqualTo("PENDING_PROVIDER");
-        verify(provider, times(1)).requestRefund(any(VnpayRefundCommand.class));
-        verify(operations, never()).applyRefund(anyString(), anyString(), anyString(), anyString());
-    }
-
-    @Test
-    void unknownWithoutRefundTransactionNumberStaysPendingWithoutRetry() {
-        SettlementRefundAllocation allocation = allocation("ALLOC-1", "PAY-1", 50_000, 25_000, "03");
-        when(allocations.findAllByCaseReferenceOrderByCreatedAtAsc(CASE_REF)).thenReturn(List.of(allocation));
-        when(provider.requestRefund(any(VnpayRefundCommand.class))).thenReturn(
-                result("REFUND", "UNKNOWN", "99", null, null, null, "PAY-1", null, false));
-
-        service.dispatchCase(CASE_REF);
-        service.dispatchCase(CASE_REF);
-
-        assertThat(allocation.getLifecycleStatus()).isEqualTo("UNKNOWN");
-        assertThat(cancellationCase.getLifecycleStatus()).isEqualTo("PENDING_PROVIDER");
-        verify(provider, times(1)).requestRefund(any(VnpayRefundCommand.class));
-        verifyNoMoreInteractions(provider);
-        verify(operations, never()).applyRefund(anyString(), anyString(), anyString(), anyString());
-    }
-
-    @Test
-    void laterRejectedAllocationAfterVerifiedRefundRemainsPendingForManualRemediation() {
-        SettlementRefundAllocation oldest = allocation("ALLOC-1", "PAY-1", 40_000, 40_000, "02");
-        SettlementRefundAllocation next = allocation("ALLOC-2", "PAY-2", 60_000, 10_000, "03");
-        when(allocations.findAllByCaseReferenceOrderByCreatedAtAsc(CASE_REF)).thenReturn(List.of(oldest, next));
-        when(provider.requestRefund(any(VnpayRefundCommand.class))).thenReturn(
-                result("REFUND", "ACCEPTED", "00", "02", "06", "70003", "PAY-1", 40_000L, true),
-                result("REFUND", "REJECTED", "09", "03", "09", "70004", "PAY-2", 10_000L, true));
-        when(provider.queryRefund(any(VnpayRefundReconciliationCommand.class))).thenReturn(
-                result("REFUND_QUERYDR", "VERIFIED", "00", "02", "00", "70003", "PAY-1", 40_000L, true));
-
-        service.dispatchCase(CASE_REF);
-
-        assertThat(oldest.getLifecycleStatus()).isEqualTo("VERIFIED");
-        assertThat(next.getLifecycleStatus()).isEqualTo("REJECTED");
-        assertThat(cancellationCase.getLifecycleStatus()).isEqualTo("PENDING_PROVIDER");
-        assertThat(cancellationCase.getReasonReference()).isEqualTo("REFUND_PARTIAL_MANUAL_REMEDIATION_REQUIRED");
-        verify(provider, times(2)).requestRefund(any(VnpayRefundCommand.class));
-        verify(operations, never()).applyRefund(anyString(), anyString(), anyString(), anyString());
-    }
 
     @Test
     void scheduledReconciliationLimitsQueriesToKnownRefundsDueAfterFiveMinutesAndWithinTwentyFourHours() {

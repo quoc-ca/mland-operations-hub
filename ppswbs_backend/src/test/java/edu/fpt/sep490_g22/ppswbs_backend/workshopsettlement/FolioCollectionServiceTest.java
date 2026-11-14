@@ -1,5 +1,6 @@
 package edu.fpt.sep490_g22.ppswbs_backend.workshopsettlement;
 
+import edu.fpt.sep490_g22.ppswbs_backend.common.payment.PaymentOwnerRegistrationPort;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.*;
@@ -36,6 +37,8 @@ class FolioCollectionServiceTest {
     private SettlementEvidenceConclusionRepository evidence;
     private FolioCollectionService service;
     private FolioFinalizationService finalization;
+    private BankRefundService bankRefunds;
+    private PaymentOwnerRegistrationPort paymentOwners;
     private SettlementFinalBill folio;
     private final List<SettlementFolioCollection> rows = new ArrayList<>();
 
@@ -47,6 +50,8 @@ class FolioCollectionServiceTest {
         charges = mock(SettlementChargeRepository.class);
         evidence = mock(SettlementEvidenceConclusionRepository.class);
         SettlementBusinessAuditRepository audits = mock(SettlementBusinessAuditRepository.class);
+        bankRefunds = mock(BankRefundService.class);
+        paymentOwners = mock(PaymentOwnerRegistrationPort.class);
 
         folio = SettlementFinalBill.builder().billReference(BILL).bookingReference(TICKET)
                 .postPromotionAmountVnd(500_000L).acceptedDepositAmountVnd(200_000L).remainingAmountVnd(300_000L)
@@ -74,7 +79,8 @@ class FolioCollectionServiceTest {
 
         FolioBalanceService balances = new FolioBalanceService(charges, evidence, collections);
         finalization = new FolioFinalizationService(bills, audits, balances);
-        service = new FolioCollectionService(bills, collections, cashCloses, audits, balances, finalization);
+        service = new FolioCollectionService(bills, collections, cashCloses, audits, balances, finalization,
+                bankRefunds, paymentOwners);
     }
 
     // ---- cash ----
@@ -141,6 +147,8 @@ class FolioCollectionServiceTest {
         assertThat(outcome.amountVnd()).isEqualTo(350_000);
         assertThat(outcome.excessVnd()).isEqualTo(50_000);
         assertThat(outcome.balanceDue()).isZero();
+        verify(bankRefunds).open(eq(TICKET), any(), eq(RefundReason.EXCESS_OR_DUPLICATE_MONEY),
+                eq(outcome.collectionReference()), eq(50_000L), eq("corr"));
     }
 
     // ---- several parts and mixed methods ----
@@ -219,6 +227,7 @@ class FolioCollectionServiceTest {
         assertThat(first.balanceDue()).isZero();
         assertThat(second.status()).isEqualTo(FolioCollectionStatus.CONFIRMED);
         verify(bills, atLeastOnce()).saveAndFlush(any());
+        verify(paymentOwners).registerOwner(eq("VNP-3"), eq(TICKET), eq("FINAL_PAYMENT"), eq(300_000L), eq("VND"), any());
     }
 
     @Test

@@ -45,6 +45,12 @@ public class WorkshopBookingSettlementAdapter {
         return booking.getGroupLoyaltyOutcomeSource(groupReference);
     }
 
+    /** Resolves a 003.2 operations ticket reference to its booking ticketCode and groupCode (003.1 T099). */
+    public java.util.Optional<edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.TicketBookingRef>
+            findTicketBookingByOperationsReference(String operationsTicketReference) {
+        return booking.findTicketBookingByOperationsReference(operationsTicketReference);
+    }
+
     public WorkshopBookingLoyaltyOutcomeSource loyaltyOutcomeSource(String bookingReference) {
         return booking.getLoyaltyOutcomeSource(new WorkshopBookingLoyaltyOutcomeSourceQuery(bookingReference));
     }
@@ -95,5 +101,15 @@ public class WorkshopBookingSettlementAdapter {
             String operationReference, String correlationReference) {
         return booking.cancelConfirmedBooking(new CancelConfirmedBookingCommand(
                 bookingReference, cancellationCaseReference, operationReference, correlationReference));
+    }
+
+    public java.util.Optional<edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.TicketFolioContext>
+            getTicketFolioContext(String ticketCode) {
+        return booking.getTicketFolioContext(ticketCode);
+    }
+
+    public edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.ConsumeBuyerProofResult
+            consumeBuyerProof(edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.ConsumeBuyerProofCommand command) {
+        return booking.consumeBuyerProof(command);
     }
 }

@@ -539,6 +539,56 @@ components:
         - type: object
           required: [policyReference]
           properties: {policyReference: {type: string}}
+    OtaAddonPaymentAttemptResponse:
+      type: object
+      required: [attemptReference, billReference, merchantReference, amountVnd, currency, expiresAt, status]
+      properties:
+        attemptReference: {type: string}
+        billReference: {type: string}
+        merchantReference: {type: string}
+        amountVnd: {type: integer, format: int64, minimum: 1}
+        currency: {type: string}
+        paymentUrl: {type: string, nullable: true}
+        expiresAt: {type: string, format: date-time}
+        status: {type: string}
+    OtaAddonRefundCommand:
+      type: object
+      required: [amountVnd, reason]
+      properties:
+        amountVnd: {type: integer, format: int64, minimum: 1}
+        reason: {type: string}
+    OtaAddonRefundProjection:
+      type: object
+      required: [refundReference, caseReference, billReference, channelBookingReference, amountVnd, currency, reason, lifecycleStatus, createdAt, updatedAt]
+      properties:
+        refundReference: {type: string}
+        caseReference: {type: string}
+        billReference: {type: string}
+        channelBookingReference: {type: string}
+        amountVnd: {type: integer, format: int64, minimum: 1}
+        currency: {type: string}
+        reason: {type: string}
+        lifecycleStatus: {type: string}
+        createdAt: {type: string, format: date-time}
+        updatedAt: {type: string, format: date-time}
+    OtaAddonBillProjection:
+      type: object
+      required: [billReference, channelBookingReference, quoteReference, itemCode, itemDescription, amountVnd, currency, lifecycleStatus, locationId, createdAt, refunds]
+      properties:
+        billReference: {type: string}
+        channelBookingReference: {type: string}
+        quoteReference: {type: string}
+        itemCode: {type: string}
+        itemDescription: {type: string}
+        amountVnd: {type: integer, format: int64, minimum: 1}
+        currency: {type: string}
+        lifecycleStatus: {type: string}
+        locationId: {type: string}
+        createdAt: {type: string, format: date-time}
+        latestPaymentAttempt: {$ref: '#/components/schemas/OtaAddonPaymentAttemptResponse'}
+        refunds:
+          type: array
+          items: {$ref: '#/components/schemas/OtaAddonRefundProjection'}
     Problem:
       type: object
       required: [code, correlationReference]
@@ -567,6 +617,15 @@ components:
     SettlementCase:
       description: Safe settlement case projection
       content: {application/json: {schema: {$ref: '#/components/schemas/SettlementCaseProjection'}}}
+    OtaAddonBill:
+      description: OTA add-on bill projection
+      content: {application/json: {schema: {$ref: '#/components/schemas/OtaAddonBillProjection'}}}
+    OtaAddonPaymentAttempt:
+      description: Short-lived payment checkout attempt for OTA add-on bill
+      content: {application/json: {schema: {$ref: '#/components/schemas/OtaAddonPaymentAttemptResponse'}}}
+    OtaAddonRefund:
+      description: Overcharge refund projection for OTA add-on bill
+      content: {application/json: {schema: {$ref: '#/components/schemas/OtaAddonRefundProjection'}}}
     Problem:
       description: Safe typed error
       content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}
