@@ -100,7 +100,7 @@ export function PublicProductCard({ product, programs, onAdded }) {
           <CartIcon />
         </button>
       </div>
-      {adding && <QuickAddDialog product={product} price={price} onClose={() => setAdding(false)} onAdded={() => { setAdding(false); onAdded?.(product); }} />}
+      {adding && <QuickAddDialog product={product} price={price} offers={offers} onClose={() => setAdding(false)} onAdded={() => { setAdding(false); onAdded?.(product); }} />}
     </article>
   );
 }
