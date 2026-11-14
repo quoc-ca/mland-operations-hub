@@ -106,10 +106,8 @@ public class TicketFolioController {
     public ResponseEntity<FolioCorrectionDtos.Response> readCorrection(
             @PathVariable String ticketCode,
             @PathVariable String correctionReference,
-            @RequestParam(required = false) String contactEmail,
-            @RequestParam(required = false) String contactPhone,
             Authentication authentication) {
-        return ResponseEntity.ok(correctionService.read(ticketCode, correctionReference, contactEmail, contactPhone, actor(authentication)));
+        return ResponseEntity.ok(correctionService.read(ticketCode, correctionReference, actor(authentication)));
     }
 
     @PostMapping("/folio/collections")

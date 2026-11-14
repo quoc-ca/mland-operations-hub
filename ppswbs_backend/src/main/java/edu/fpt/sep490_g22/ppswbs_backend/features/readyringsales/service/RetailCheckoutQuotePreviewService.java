@@ -249,9 +249,11 @@ public class RetailCheckoutQuotePreviewService {
                 throw new RetailConflictException("Invalid fulfilment choices");
             }
             if ("GHTK".equalsIgnoreCase(input.method())) {
-                if (input.shippingQuoteId() == null || input.shippingQuoteId().isBlank() || !validRecipient(input.recipient())) {
-                    throw new RetailConflictException("GHTK requires a server-issued shipping quote and recipient details");
+                if (input.shippingQuoteId() == null || input.shippingQuoteId().isBlank()) {
+                    throw new RetailConflictException("Chưa có phí giao hàng GHTK cho địa chỉ này. Vui lòng chọn lại địa chỉ hoặc nhận tại cửa hàng.");
                 }
+                String problem = recipientProblem(input.recipient());
+                if (problem != null) throw new RetailConflictException(problem);
                 continue;
             }
             if (!"PICKUP".equalsIgnoreCase(input.method()) || input.shippingQuoteId() != null) {
@@ -262,11 +264,27 @@ public class RetailCheckoutQuotePreviewService {
     }
 
     /** Optional at quote time; required when the Member accepts a GHTK branch order. */
-    private boolean validRecipient(CheckoutDtos.RecipientAddressInput recipient) {
-        return recipient != null
-            && recipient.recipientName() != null && recipient.recipientName().trim().matches("(?s).{1,100}")
-            && recipient.recipientPhone() != null && PHONE.matcher(recipient.recipientPhone()).matches()
-            && recipient.address() != null && recipient.address().matches("(?s).{10,500}");
+    /**
+     * What is missing from a GHTK recipient, in words the Member can act on, or null when complete. Two-level address
+     * (FE-001 V150): province and ward/commune are required, the district is not; a short street address such as
+     * "Số 3" is valid.
+     */
+    private String recipientProblem(CheckoutDtos.RecipientAddressInput recipient) {
+        if (recipient == null) return "Vui lòng chọn địa chỉ nhận hàng cho đơn giao GHTK.";
+        if (recipient.recipientName() == null || !recipient.recipientName().trim().matches("(?s).{1,100}")) {
+            return "Địa chỉ nhận hàng thiếu tên người nhận.";
+        }
+        if (recipient.recipientPhone() == null || !PHONE.matcher(recipient.recipientPhone().replace(" ", "")).matches()) {
+            return "Số điện thoại người nhận không hợp lệ (cần 10 số, ví dụ 0901234567).";
+        }
+        if (recipient.province() == null || recipient.province().isBlank()
+            || recipient.ward() == null || recipient.ward().isBlank()) {
+            return "Địa chỉ nhận hàng cần có Tỉnh/Thành phố và Phường/Xã.";
+        }
+        if (recipient.address() == null || !recipient.address().trim().matches("(?s).{1,500}")) {
+            return "Địa chỉ nhận hàng thiếu số nhà, tên đường.";
+        }
+        return null;
     }
 
     private BenefitSelection selection(CheckoutDtos.BenefitSelection input) {

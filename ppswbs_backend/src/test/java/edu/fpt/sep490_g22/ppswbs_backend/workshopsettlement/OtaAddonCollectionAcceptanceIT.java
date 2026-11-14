@@ -149,7 +149,7 @@ class OtaAddonCollectionAcceptanceIT {
                 || bill.channelReference().equals(h.getSettlementReference()))).isEmpty();
         verify(bookingFacade, never()).recordBookingServiceOutcome(any());
         verify(bookingFacade, never()).recordBookingRefundStatus(any());
-        verify(bookingFacade, never()).recordFinalBalanceResolved(any());
+        verify(bookingFacade, never()).recordTicketFinalBalanceResolved(any());
         verify(operations, never()).applyVerifiedRefundConsequence(any());
         // Scoped to this bill: the shared test DB may hold other bookings the Loyalty scheduler legitimately processes.
         verify(loyalty, never()).findBenefitResult(any(), org.mockito.ArgumentMatchers.eq(bill.channelReference()));

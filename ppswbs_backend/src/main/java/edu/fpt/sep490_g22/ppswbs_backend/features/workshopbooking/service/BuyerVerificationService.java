@@ -79,7 +79,7 @@ public class BuyerVerificationService {
         }
         boolean matches = group.getGroupStatus() == BookingStatus.CONFIRMED && (hasEmail
                 ? EmailMasking.normalize(contactEmail).equals(EmailMasking.normalize(group.getContactEmail()))
-                : contactPhone.trim().equals(group.getContactPhone() == null ? null : group.getContactPhone().trim()));
+                : ContactPhones.sameContact(contactPhone, group.getContactPhone()));
         if (!matches) {
             verifications.save(BookingBuyerVerification.builder()
                     .verificationReference(verificationId).group(group)

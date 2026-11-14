@@ -16,6 +16,7 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -98,7 +99,12 @@ public class OtaProviderEventController {
             String currencyCode,
 
             String externalPaymentEvidenceReference,
-            String correlationReference
+            String correlationReference,
+            @Size(max = 128) String displayedPolicyReference,
+            @Size(max = 64) String displayedPolicyVersion,
+            Instant bookingCutoffAt,
+            @Size(max = 64) String bookingCutoffTimezone,
+            @Min(value = 0, message = "Fee must not be negative") Long feeAmountMinor
     ) {}
 
     public record ProviderEventAcknowledgement(
@@ -136,7 +142,12 @@ public class OtaProviderEventController {
                 request.acceptedAmountMinor(),
                 request.currencyCode().toUpperCase(),
                 request.externalPaymentEvidenceReference(),
-                correlation
+                correlation,
+                request.displayedPolicyReference(),
+                request.displayedPolicyVersion(),
+                request.bookingCutoffAt(),
+                request.bookingCutoffTimezone(),
+                request.feeAmountMinor()
         );
 
         OtaBookingEventResult result = eventHandler.handleBookingEvent(command);

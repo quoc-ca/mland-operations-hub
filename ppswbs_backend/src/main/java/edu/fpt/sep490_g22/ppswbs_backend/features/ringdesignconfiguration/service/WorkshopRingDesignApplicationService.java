@@ -113,6 +113,58 @@ public class WorkshopRingDesignApplicationService {
         return response;
     }
 
+    @Transactional(readOnly = true)
+    public List<DesignResponseDto> listMyDesigns(Long memberAccountId, String guestSessionHeader) {
+        RingDesignOwnerType ownerType;
+        String ownerReference;
+
+        if (memberAccountId != null) {
+            ownerType = RingDesignOwnerType.MEMBER;
+            ownerReference = String.valueOf(memberAccountId);
+        } else if (guestSessionHeader != null && !guestSessionHeader.isBlank()) {
+            GuestDesignSession guestSession = guestSessionService.resolveAndTouchSession(guestSessionHeader);
+            ownerType = RingDesignOwnerType.GUEST_SESSION;
+            ownerReference = guestSession.getSessionDigest();
+        } else {
+            return Collections.emptyList();
+        }
+
+        List<RingDesign> allDesigns = designRepository.findAllByOwner(ownerType, ownerReference);
+        if (allDesigns.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        // Group by designReference and pick the latest version for each design
+        Map<String, RingDesign> latestByRef = new LinkedHashMap<>();
+        for (RingDesign d : allDesigns) {
+            RingDesign existing = latestByRef.get(d.getDesignReference());
+            if (existing == null || d.getDesignVersion() > existing.getDesignVersion()) {
+                latestByRef.put(d.getDesignReference(), d);
+            }
+        }
+
+        List<RingDesign> latestList = new ArrayList<>(latestByRef.values());
+        latestList.sort((a, b) -> {
+            if (b.getCreatedAt() != null && a.getCreatedAt() != null) {
+                return b.getCreatedAt().compareTo(a.getCreatedAt());
+            }
+            return Long.compare(b.getId() != null ? b.getId() : 0L, a.getId() != null ? a.getId() : 0L);
+        });
+
+        return latestList.stream().map(d -> {
+            Map<String, Object> snapshot = deserializeSnapshot(d.getComponentSnapshot());
+            EvaluationResultDto eval = EvaluationResultDto.builder()
+                    .estimatedPrice(d.getEstimatedPrice() != null ? d.getEstimatedPrice().toPlainString() : "0.00")
+                    .difficultyScore(d.getDifficultyScore() != null ? d.getDifficultyScore().toPlainString() : "1.0000")
+                    .rulesVersion(d.getRulesVersion() != null ? d.getRulesVersion() : "2026.11-v1.0")
+                    .currency(d.getCurrency() != null ? d.getCurrency() : "VND")
+                    .advisory(true)
+                    .build();
+            ValidationResultDto val = ValidationResultDto.builder().valid(true).reasons(Collections.emptyList()).build();
+            return mapToResponse(d, val, eval, snapshot);
+        }).toList();
+    }
+
     @Transactional
     public DesignResponseDto getDesign(String designId, Long memberAccountId, String guestSessionHeader) {
         RingDesign latest = designRepository.findLatestByDesignReference(designId)
@@ -124,6 +176,14 @@ public class WorkshopRingDesignApplicationService {
         SaveDesignVersionRequest mockReq = buildRequestFromDesign(latest, snapshot);
         ValidationResultDto val = rulesPort.validateCompatibility(mockReq, null);
         EvaluationResultDto eval = rulesPort.evaluate(mockReq);
+
+        // Preserve actual persisted estimated price and difficulty from record to prevent arbitrary fallback
+        if (latest.getEstimatedPrice() != null && latest.getEstimatedPrice().compareTo(BigDecimal.ZERO) > 0) {
+            eval.setEstimatedPrice(latest.getEstimatedPrice().toPlainString());
+        }
+        if (latest.getDifficultyScore() != null && latest.getDifficultyScore().compareTo(BigDecimal.ZERO) > 0) {
+            eval.setDifficultyScore(latest.getDifficultyScore().toPlainString());
+        }
 
         return mapToResponse(latest, val, eval, snapshot);
     }
@@ -173,6 +233,7 @@ public class WorkshopRingDesignApplicationService {
         snapshotMap.put("components", request.getComponents());
         snapshotMap.put("attachments", request.getAttachments());
         snapshotMap.put("engraving", request.getEngraving());
+        snapshotMap.put("gemstonePositions", request.getGemstonePositions());
 
         RingDesign newVersion = RingDesign.builder()
                 .designReference(latest.getDesignReference())
@@ -421,6 +482,13 @@ public class WorkshopRingDesignApplicationService {
             } catch (Exception ignored) {}
         }
 
+        List<GemstonePositionDto> gemstonePositions = new ArrayList<>();
+        if (snapshot.get("gemstonePositions") instanceof List<?> list) {
+            try {
+                gemstonePositions = objectMapper.convertValue(list, new TypeReference<>() {});
+            } catch (Exception ignored) {}
+        }
+
         return SaveDesignVersionRequest.builder()
                 .packageReference(design.getPackageReference())
                 .materialReference(design.getMaterialReference())
@@ -431,6 +499,7 @@ public class WorkshopRingDesignApplicationService {
                 .components(components)
                 .attachments(attachments)
                 .engraving(engraving)
+                .gemstonePositions(gemstonePositions)
                 .build();
     }
 }

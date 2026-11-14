@@ -26,6 +26,9 @@ public class SessionResponse {
 
     private Integer capacity;
 
+    /** Optimistic-lock version; send it back on PATCH so a stale edit is refused (T112). */
+    private Long version;
+
     @JsonFormat(shape = JsonFormat.Shape.STRING)
     private Instant checkInOpensAt;
 

@@ -208,8 +208,8 @@ pointer. The shared VNPay ingress is documented separately.
 - Late-payment review outcome: `AUTO_RECONFIRMED`, `PENDING_MANAGER`,
   `MANAGER_CONFIRMED`, `REFUND_REQUESTED`; decision `CONFIRM`/`REFUND` (V128).
 - `Idempotency-Key` protects every command (16–128 characters; group creation
-  is aligned to 16–128 by the decision of 2026-11-14, tightened in T107 —
-  the controller still accepts 1–128 today).
+  was aligned to 16–128 by the decision of 2026-11-14 and the controller now
+  refuses anything outside it, T107).
 
 The group Magic Link (one per group) follows the single-booking rules carried
 over by FR-048: hash persisted, raw URL only in the protected notification
@@ -251,12 +251,13 @@ remaining verification:
 
 ## Design risks and handoff conditions
 
-1. **Manager alert recipients (T094):** no alert email is sent until FE-001
-   provides `AccountFacade.listActiveManagerEmails()`; the in-app queue works.
-   Interim fallback not decided.
-2. **Late-payment condition 3 and automatic discounts:** a group whose price
-   included an automatic discount always goes to the Manager queue. Whether to
-   recompute it instead is an owner decision (spec FR-040).
+1. **Manager alert recipients (T094) — closed 2026-11-14:** FE-001 provides
+   `AccountFacade.listActiveManagerEmails()` and `AccountManagerAlertRecipientSource`
+   reads it, so the Manager alert email is sent as well as queued in-app.
+2. **Late-payment condition 3 and automatic discounts — decided 2026-11-14:**
+   condition 3 recomputes the automatic workshop discount at review time and
+   passes when it still applies; a group that used a voucher or points still
+   fails it (spec FR-040, `LatePaymentReviewService`).
 3. **Legacy facade operations (T100 remainder):** removal waits for 003.3 T106,
    which itself follows 003.3 T099–T101 and T105; T107 provides the facade
    operations 003.3 T099/T106 need.

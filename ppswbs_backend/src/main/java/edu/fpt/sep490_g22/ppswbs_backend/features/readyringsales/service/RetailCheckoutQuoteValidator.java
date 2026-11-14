@@ -86,12 +86,18 @@ public class RetailCheckoutQuoteValidator {
         }
     }
 
-    /** Optional at quote time; required when the Member accepts a GHTK branch order. */
+    /**
+     * Optional at quote time; required when the Member accepts a GHTK branch order. Same rule as the preview
+     * (Session 2026-11-14, two-level address): province and ward/commune required, district optional, and a short
+     * street address such as "nhà số 3" is valid.
+     */
     private boolean validRecipient(CheckoutDtos.RecipientAddressInput recipient) {
         return recipient != null
-            && recipient.recipientName() != null && recipient.recipientName().matches("(?s).{1,100}")
-            && recipient.recipientPhone() != null && recipient.recipientPhone().matches("^(?:0|\\+84)\\d{9}$")
-            && recipient.address() != null && recipient.address().matches("(?s).{10,500}");
+            && recipient.recipientName() != null && recipient.recipientName().trim().matches("(?s).{1,100}")
+            && recipient.recipientPhone() != null && recipient.recipientPhone().replace(" ", "").matches("^(?:0|\\+84)\\d{9}$")
+            && recipient.province() != null && !recipient.province().isBlank()
+            && recipient.ward() != null && !recipient.ward().isBlank()
+            && recipient.address() != null && recipient.address().trim().matches("(?s).{1,500}");
     }
 
     private RetailConflictException stale() {

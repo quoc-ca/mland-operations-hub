@@ -184,13 +184,22 @@ export function useWorkshopDesignDraft(packageReference, initialModel = null) {
     const snapshot = designResponse.componentSnapshot || {};
     setDraft({
       packageReference: designResponse.packageReference,
+      sourceModelReference: snapshot.sourceModelReference || designResponse.sourceModelReference || null,
       materialReference: snapshot.materialReference || 'MAT-SILVER-925',
       shapeReference: snapshot.shapeReference || 'SHP-CLASSIC-ROUND',
       ringSize: String(snapshot.ringSize || '8'),
+      thicknessMm: Number(snapshot.thicknessMm) || 1.8,
+      bandWidthMm: Number(snapshot.bandWidthMm) || 3.5,
       components: snapshot.components || [],
       attachments: snapshot.attachments || [],
       gemstonePositions: snapshot.gemstonePositions || [],
-      engraving: snapshot.engraving || { enabled: false, text: '', placement: 'INNER_BAND' },
+      engraving: {
+        enabled: Boolean(snapshot.engraving?.enabled),
+        text: snapshot.engraving?.text || '',
+        placement: snapshot.engraving?.placement || 'INNER_BAND',
+        items: snapshot.engraving?.items || [],
+        customImages: snapshot.engraving?.customImages || [],
+      },
     });
     setIsDirty(false);
   }, []);

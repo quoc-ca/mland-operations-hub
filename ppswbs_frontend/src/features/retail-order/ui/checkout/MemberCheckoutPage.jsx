@@ -17,12 +17,15 @@ const hasAmount = value => /^[0-9]+$/.test(String(value ?? '')) && BigInt(value)
 const isExpired = at => !at || new Date(at).getTime() - Date.now() < EXPIRY_MARGIN_MS;
 const newIdempotencyKey = () => (globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`);
 
-const fullAddress = address => [address.detailAddress, address.hamletName, address.wardName, address.districtName, address.provinceName].filter(Boolean).join(', ');
+// FE-001 V150: two-level address after the 2025 merger (province -> ward/commune, no district). Older
+// three-level fields are read only as a fallback.
+const wardOf = address => address.communeName || address.wardName || '';
+const fullAddress = address => [address.detailAddress, address.hamletName, wardOf(address), address.districtName, address.provinceName].filter(Boolean).join(', ');
 const recipientOf = address => address ? {
   address: [address.detailAddress, address.hamletName].filter(Boolean).join(', '),
   province: address.provinceName,
-  district: address.districtName,
-  ward: address.wardName,
+  district: address.districtName || null,
+  ward: wardOf(address),
   recipientName: address.recipientName,
   recipientPhone: address.phoneNumber,
 } : null;
@@ -226,7 +229,8 @@ function CheckoutContent() {
         if (methodFor(group.locationId) === 'GHTK') await quoteDelivery(group.locationId); // eslint-disable-line no-await-in-loop
       }
       setQuotedKey(null); setRefreshTick(tick => tick + 1);
-      setToast('Thông tin đơn hàng vừa được cập nhật. Kiểm tra lại tổng tiền rồi bấm Đặt hàng.');
+      const reason = result.error?.message ? ` (${result.error.message})` : '';
+      setToast(`Thông tin đơn hàng vừa được cập nhật${reason}. Kiểm tra lại tổng tiền rồi bấm Đặt hàng.`);
     }
   };
   const create = async () => {
@@ -281,7 +285,7 @@ function CheckoutContent() {
         <span className="retail-address-pin" aria-hidden="true">📍</span>
         <span className="retail-address-lines">
           <span className="retail-address-who"><strong>{selectedAddress.recipientName}</strong><span>{selectedAddress.phoneNumber}</span>{selectedAddress.isDefault && <span className="retail-address-default">Mặc định</span>}</span>
-          <span>{[selectedAddress.wardName, selectedAddress.districtName, selectedAddress.provinceName].filter(Boolean).join(', ')}</span>
+          <span>{[wardOf(selectedAddress), selectedAddress.districtName, selectedAddress.provinceName].filter(Boolean).join(', ')}</span>
           <span>{[selectedAddress.detailAddress, selectedAddress.hamletName].filter(Boolean).join(', ')}</span>
         </span>
         <span className="retail-address-chevron" aria-hidden="true">›</span>

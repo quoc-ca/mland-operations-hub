@@ -319,8 +319,11 @@ self-service (FR-018 and Scope); whole-booking Mland remedy (FR-020, FR-021).
 
 - **FR-043**: When Mland cancels or moves a session, only tickets with that
   session are affected; a two-session ticket losing one session is handled as a
-  whole ticket. Mland first offers an equivalent replacement (not counted as the
-  customer's change, no extra charge, same capacity/quota/package-order checks).
+  whole ticket. Mland first offers every valid equivalent replacement (same package and
+  branch, starting after the cancellation, with capacity and quota left, package
+  session order kept; not counted as the customer's change, no extra charge) and
+  the buyer chooses one; with none, the 100% bank refund opens at once
+  (decided 2026-11-14).
   The buyer answers at least 24 hours before the replacement starts; no answer
   means refund, never an automatic move. If declined or unavailable, 100% of the
   money collected for the ticket (booking-time and counter) is refunded by bank
@@ -379,6 +382,12 @@ self-service (FR-018 and Scope); whole-booking Mland remedy (FR-020, FR-021).
   reason, and a request that only a Manager could allow (quota exhausted, the
   allowance used, outside the window) goes to the Staff/Manager queue instead.
   Mland-caused changes are not customer changes and never take this path.
+  *(Queue and group change decided 2026-11-14, T117/T118)*: a request that only a
+  Manager could allow is stored as `settlement_ticket_change_requests` and
+  answered 202; a Manager approves (equal to an FR-054 grant followed by one
+  counted change) or rejects it with a reason; it expires when it can no longer
+  be carried out. Several tickets of one group change together, all or none,
+  through `POST /workshop-booking-groups/{groupCode}/ticket-changes`.
 
 *(Superseded 2026-11-14 by FR-045a.)* **Open before implementation:** the exact
 auto-approval conditions for online

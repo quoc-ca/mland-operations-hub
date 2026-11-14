@@ -6,6 +6,7 @@ public enum OtaPayoutEvidenceType {
     REMITTANCE,
     BANK_RECEIPT,
     ADJUSTMENT,
+    COMPENSATION,
     REVERSAL,
     VARIANCE,
     DISPUTE

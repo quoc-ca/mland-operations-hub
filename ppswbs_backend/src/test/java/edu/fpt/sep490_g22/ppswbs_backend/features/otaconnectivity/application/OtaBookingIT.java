@@ -28,6 +28,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.OtaBook
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.WorkshopBookingFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.RejectionReason;
 import org.junit.jupiter.api.BeforeEach;
+import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.persistence.OtaInboundEvent;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -69,6 +70,7 @@ class OtaBookingIT {
     @Mock private OtaInboundEventService inboundEventService;
     @Mock private OtaBookingReadinessService readinessService;
     @Mock private WorkshopBookingFacade workshopBookingFacade;
+    @Mock private OtaPayoutLedgerRecorder payoutLedgerRecorder;
 
     private OtaProviderEventHandler eventHandler;
 
@@ -95,7 +97,8 @@ class OtaBookingIT {
                 reconciliationRepository,
                 inboundEventService,
                 readinessService,
-                workshopBookingFacade
+                workshopBookingFacade,
+                payoutLedgerRecorder
         );
 
         connection = OtaChannelConnection.builder()
@@ -172,7 +175,7 @@ class OtaBookingIT {
         @Test
         @DisplayName("Valid full-payment booking for 3 participants reserves capacity, captures booking, and issues 3 tickets")
         void fullPayment_issuesNTicketsAndCapturesBooking() {
-            when(readinessService.evaluateBookingReadiness(eq(mapping), eq(150_000L), eq("VND"), any()))
+            when(readinessService.evaluateBookingReadiness(eq(mapping), eq(150_000L), any()))
                     .thenReturn(ReadinessValidationResult.approved(priceSnapshot));
 
             List<UUID> operationsTickets = List.of(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
@@ -219,7 +222,7 @@ class OtaBookingIT {
         @Test
         @DisplayName("Duplicate external booking reference returns original booking and tickets without duplicate Mland booking")
         void duplicateExternalReference_returnsOriginalBookingAndTickets() {
-            when(readinessService.evaluateBookingReadiness(eq(mapping), eq(150_000L), eq("VND"), any()))
+            when(readinessService.evaluateBookingReadiness(eq(mapping), eq(150_000L), any()))
                     .thenReturn(ReadinessValidationResult.approved(priceSnapshot));
 
             List<UUID> operationsTickets = List.of(UUID.randomUUID(), UUID.randomUUID());
@@ -259,33 +262,46 @@ class OtaBookingIT {
     }
 
     @Nested
-    @DisplayName("Payment Evidence: Missing, Partial, and Currency Mismatch")
+    @DisplayName("Payment Evidence: OTA amount and currency are kept as reported (T113)")
     class PaymentEvidenceValidationTests {
 
         @Test
-        @DisplayName("Partial payment (accepted amount < retail amount) is rejected with ZERO tickets and reconciliation work item")
-        void partialPayment_isRejected() {
-            when(readinessService.evaluateBookingReadiness(eq(mapping), eq(50_000L), eq("VND"), any()))
-                    .thenReturn(ReadinessValidationResult.rejected("PARTIAL_PAYMENT_REJECTED"));
+        @DisplayName("An amount below Mland's retail price, in another currency, still confirms; amount and currency are stored as reported")
+        void amountAndCurrencyDifferingFromRetail_areKeptAsReported() {
+            when(readinessService.evaluateBookingReadiness(eq(mapping), eq(50_000L), any()))
+                    .thenReturn(ReadinessValidationResult.approved(priceSnapshot));
+            List<UUID> operationsTickets = List.of(UUID.randomUUID(), UUID.randomUUID());
+            when(workshopBookingFacade.createOrReturnOtaBooking(any()))
+                    .thenReturn(OtaBookingOutcome.accepted("OTA-BOOKING-REF", operationsTickets));
 
-            OtaBookingEventCommand cmd = new OtaBookingEventCommand(
-                    OtaProvider.KLOOK,
-                    OtaEnvironment.TEST,
-                    "event-002",
-                    "ext-book-partial",
-                    "klook-ring-001",
-                    "opt-single",
-                    2,
-                    50_000L,
-                    "VND",
-                    "pay-ext-002",
-                    "cor-002"
-            );
+            OtaBookingEventResult result = eventHandler.handleBookingEvent(new OtaBookingEventCommand(
+                    OtaProvider.KLOOK, OtaEnvironment.TEST, "event-002", "ext-book-other-currency",
+                    "klook-ring-001", "opt-single", 2, 50_000L, "USD", "pay-ext-002", "cor-002"));
 
-            OtaBookingEventResult result = eventHandler.handleBookingEvent(cmd);
+            assertThat(result.status()).isEqualTo("CONFIRMED");
+            assertThat(result.ticketReferences()).hasSize(2);
+            assertThat(paymentStore).hasSize(1);
+            assertThat(paymentStore.get(0).getAmountMinor()).isEqualTo(50_000L);
+            assertThat(paymentStore.get(0).getCurrencyCode()).isEqualTo("USD");
+            OtaChannelBooking stored = bookingStore.get("ext-book-other-currency");
+            assertThat(stored.getAcceptedAmountMinor()).isEqualTo(50_000L);
+            assertThat(stored.getCurrencyCode()).isEqualTo("USD");
+            verify(payoutLedgerRecorder).openPositionWithSaleFacts(eq(stored), eq(priceSnapshot), eq("pay-ext-002"),
+                    any(), any());
+        }
+
+        @Test
+        @DisplayName("Missing payment evidence is rejected with ZERO tickets and a reconciliation work item")
+        void missingPaymentEvidence_isRejected() {
+            when(readinessService.evaluateBookingReadiness(eq(mapping), any(), any()))
+                    .thenReturn(ReadinessValidationResult.rejected("MISSING_PAYMENT_EVIDENCE"));
+
+            OtaBookingEventResult result = eventHandler.handleBookingEvent(new OtaBookingEventCommand(
+                    OtaProvider.KLOOK, OtaEnvironment.TEST, "event-003", "ext-book-no-payment",
+                    "klook-ring-001", "opt-single", 2, null, "VND", null, "cor-003"));
 
             assertThat(result.status()).isEqualTo("REJECTED");
-            assertThat(result.rejectionReason()).isEqualTo("PARTIAL_PAYMENT_REJECTED");
+            assertThat(result.rejectionReason()).isEqualTo("MISSING_PAYMENT_EVIDENCE");
             assertThat(result.ticketReferences()).isEmpty();
 
             verify(workshopBookingFacade, never()).createOrReturnOtaBooking(any());
@@ -293,35 +309,116 @@ class OtaBookingIT {
             verify(customerPaymentRepository, never()).save(any());
             verify(reconciliationRepository, times(1)).save(any(OtaReconciliationWorkItem.class));
         }
+    }
+
+    @Nested
+    @DisplayName("T106 / T110 / T111 / T114 / T115: replay, payout position, snapshot, unknown mapping")
+    class ConvergenceTests {
 
         @Test
-        @DisplayName("Currency mismatch (e.g. USD vs expected VND) is rejected with ZERO tickets")
-        void currencyMismatch_isRejected() {
-            when(readinessService.evaluateBookingReadiness(eq(mapping), eq(150_000L), eq("USD"), any()))
-                    .thenReturn(ReadinessValidationResult.rejected("CURRENCY_MISMATCH"));
+        @DisplayName("T106: a replayed callback returns the stored confirmation and re-runs nothing")
+        void replayedCallback_returnsStoredOutcomeWithoutReprocessing() {
+            OtaChannelBooking stored = OtaChannelBooking.capture(mapping, "ext-book-replay", "CONFIRMED", 2,
+                    "OTA-BOOKING-REF", "KLOOK", "policy-1", "v1", null, null, 150_000L, 120_000L, 30_000L, null,
+                    150_000L, "VND");
+            ReflectionTestUtils.setField(stored, "id", 55L);
+            when(bookingRepository.findByPublicReference(stored.getPublicReference())).thenReturn(Optional.of(stored));
+            when(inboundEventService.receive(any(AuthenticatedOtaInboundEvent.class)))
+                    .thenReturn(new OtaInboundEventReceipt(100L, true, "ACCEPTED", stored.getPublicReference()));
 
-            OtaBookingEventCommand cmd = new OtaBookingEventCommand(
-                    OtaProvider.KLOOK,
-                    OtaEnvironment.TEST,
-                    "event-003",
-                    "ext-book-currency-mismatch",
-                    "klook-ring-001",
-                    "opt-single",
-                    2,
-                    150_000L,
-                    "USD",
-                    "pay-ext-003",
-                    "cor-003"
-            );
+            OtaBookingEventResult result = eventHandler.handleBookingEvent(new OtaBookingEventCommand(
+                    OtaProvider.KLOOK, OtaEnvironment.TEST, "event-001", "ext-book-replay",
+                    "klook-ring-001", "opt-single", 2, 150_000L, "VND", "pay-1", "cor-1"));
 
-            OtaBookingEventResult result = eventHandler.handleBookingEvent(cmd);
+            assertThat(result.status()).isEqualTo("CONFIRMED");
+            assertThat(result.channelBookingReference()).isEqualTo(stored.getPublicReference());
+            verify(readinessService, never()).evaluateBookingReadiness(any(), any(), any());
+            verify(workshopBookingFacade, never()).createOrReturnOtaBooking(any());
+            verify(reconciliationRepository, never()).save(any(OtaReconciliationWorkItem.class));
+            verify(bookingRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("T106: a replayed rejection returns the stored reason without readiness, work item or booking")
+        void replayedRejection_returnsStoredReason() {
+            when(inboundEventService.receive(any(AuthenticatedOtaInboundEvent.class)))
+                    .thenReturn(new OtaInboundEventReceipt(100L, true, "REJECTED", "NO_ACTIVE_COMMERCIAL_TERMS"));
+
+            OtaBookingEventResult result = eventHandler.handleBookingEvent(new OtaBookingEventCommand(
+                    OtaProvider.KLOOK, OtaEnvironment.TEST, "event-001", "ext-book-replay-rejected",
+                    "klook-ring-001", "opt-single", 2, 150_000L, "VND", "pay-1", "cor-1"));
 
             assertThat(result.status()).isEqualTo("REJECTED");
-            assertThat(result.rejectionReason()).isEqualTo("CURRENCY_MISMATCH");
-            assertThat(result.ticketReferences()).isEmpty();
-
+            assertThat(result.rejectionReason()).isEqualTo("NO_ACTIVE_COMMERCIAL_TERMS");
+            verify(readinessService, never()).evaluateBookingReadiness(any(), any(), any());
             verify(workshopBookingFacade, never()).createOrReturnOtaBooking(any());
-            verify(bookingRepository, never()).save(any());
+            verify(reconciliationRepository, never()).save(any(OtaReconciliationWorkItem.class));
+        }
+
+        @Test
+        @DisplayName("T111: the callback's policy, cutoff and fee are snapshotted; absent ones come from the mapping's terms, never hard-coded")
+        void policyCutoffAndFee_areSnapshotted() {
+            when(readinessService.evaluateBookingReadiness(eq(mapping), any(), any()))
+                    .thenReturn(ReadinessValidationResult.approved(priceSnapshot));
+            when(workshopBookingFacade.createOrReturnOtaBooking(any()))
+                    .thenReturn(OtaBookingOutcome.accepted("OTA-BOOKING-REF", List.of(UUID.randomUUID())));
+            Instant cutoff = Instant.parse("2027-01-01T01:00:00Z");
+
+            eventHandler.handleBookingEvent(new OtaBookingEventCommand(
+                    OtaProvider.KLOOK, OtaEnvironment.TEST, "event-p1", "ext-book-policy", "klook-ring-001",
+                    "opt-single", 1, 150_000L, "VND", "pay-p1", "cor-p1",
+                    "policy-free-cancel", "2026-11", cutoff, "Asia/Bangkok", 7_000L));
+            OtaChannelBooking withCallbackFacts = bookingStore.get("ext-book-policy");
+            assertThat(withCallbackFacts.getDisplayedPolicyReference()).isEqualTo("policy-free-cancel");
+            assertThat(withCallbackFacts.getDisplayedPolicyVersion()).isEqualTo("2026-11");
+            assertThat(withCallbackFacts.getBookingCutoffAt()).isEqualTo(cutoff);
+            assertThat(withCallbackFacts.getBookingCutoffTimezone()).isEqualTo("Asia/Bangkok");
+            assertThat(withCallbackFacts.getFeeAmountMinor()).isEqualTo(7_000L);
+
+            eventHandler.handleBookingEvent(new OtaBookingEventCommand(
+                    OtaProvider.KLOOK, OtaEnvironment.TEST, "event-p2", "ext-book-terms", "klook-ring-001",
+                    "opt-single", 1, 150_000L, "VND", "pay-p2", "cor-p2"));
+            OtaChannelBooking fromTerms = bookingStore.get("ext-book-terms");
+            assertThat(fromTerms.getDisplayedPolicyReference()).isEqualTo("evidence-price-klook-001");
+            assertThat(fromTerms.getDisplayedPolicyVersion()).isEqualTo(priceSnapshot.getPublicReference());
+            assertThat(fromTerms.getBookingCutoffAt()).isNull();
+            assertThat(fromTerms.getBookingCutoffTimezone()).isNull();
+            assertThat(fromTerms.getFeeAmountMinor()).isNull();
+        }
+
+        @Test
+        @DisplayName("T111: an unknown cutoff timezone is rejected before any capacity is taken")
+        void invalidCutoffTimezone_isRejectedBeforeCapacity() {
+            when(readinessService.evaluateBookingReadiness(eq(mapping), any(), any()))
+                    .thenReturn(ReadinessValidationResult.approved(priceSnapshot));
+
+            OtaBookingEventResult result = eventHandler.handleBookingEvent(new OtaBookingEventCommand(
+                    OtaProvider.KLOOK, OtaEnvironment.TEST, "event-p3", "ext-book-bad-zone", "klook-ring-001",
+                    "opt-single", 1, 150_000L, "VND", "pay-p3", "cor-p3",
+                    "policy", "v1", null, "Mars/Olympus", null));
+
+            assertThat(result.status()).isEqualTo("REJECTED");
+            assertThat(result.rejectionReason()).isEqualTo("INVALID_POLICY_SNAPSHOT");
+            verify(workshopBookingFacade, never()).createOrReturnOtaBooking(any());
+        }
+
+        @Test
+        @DisplayName("T115: an unmapped product opens one INBOUND_EVENT work item linked to the inbound event")
+        void unmappedProduct_opensInboundEventWorkItem() {
+            OtaInboundEvent event = OtaInboundEvent.builder().id(100L).connection(connection).build();
+            when(inboundEventService.referenceFor(100L)).thenReturn(event);
+            when(reconciliationRepository.save(any(OtaReconciliationWorkItem.class))).thenAnswer(i -> i.getArgument(0));
+
+            OtaBookingEventResult result = eventHandler.handleBookingEvent(new OtaBookingEventCommand(
+                    OtaProvider.KLOOK, OtaEnvironment.TEST, "event-unmapped", "ext-book-unmapped",
+                    "unknown-product", "unknown-option", 1, 150_000L, "VND", "pay-u", "cor-u"));
+
+            assertThat(result.rejectionReason()).isEqualTo("MAPPING_NOT_FOUND");
+            assertThat(result.reconciliationWorkItemReference()).isNotNull();
+            ArgumentCaptor<OtaReconciliationWorkItem> saved = ArgumentCaptor.forClass(OtaReconciliationWorkItem.class);
+            verify(reconciliationRepository).save(saved.capture());
+            assertThat(saved.getValue().getCategory()).isEqualTo("INBOUND_EVENT");
+            assertThat(saved.getValue().getInboundEvent()).isSameAs(event);
         }
     }
 
@@ -332,7 +429,7 @@ class OtaBookingIT {
         @Test
         @DisplayName("Booking on disabled or non-booking-enabled mapping is rejected")
         void disabledMapping_isRejected() {
-            when(readinessService.evaluateBookingReadiness(eq(mapping), eq(150_000L), eq("VND"), any()))
+            when(readinessService.evaluateBookingReadiness(eq(mapping), eq(150_000L), any()))
                     .thenReturn(ReadinessValidationResult.rejected("MAPPING_DISABLED"));
 
             OtaBookingEventCommand cmd = new OtaBookingEventCommand(
@@ -361,7 +458,7 @@ class OtaBookingIT {
         @Test
         @DisplayName("Competing capacity rejection from Operations returns REJECTED with ZERO tickets and no orphaned booking")
         void competingCapacityRejection_returnsRejectedWithZeroTickets() {
-            when(readinessService.evaluateBookingReadiness(eq(mapping), eq(150_000L), eq("VND"), any()))
+            when(readinessService.evaluateBookingReadiness(eq(mapping), eq(150_000L), any()))
                     .thenReturn(ReadinessValidationResult.approved(priceSnapshot));
 
             when(workshopBookingFacade.createOrReturnOtaBooking(any()))

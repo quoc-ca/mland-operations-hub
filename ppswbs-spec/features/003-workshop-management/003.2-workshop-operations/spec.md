@@ -1,7 +1,7 @@
 # Feature Specification: Workshop Operations
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-14
+**Date updated**: 2026-11-15
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -1107,6 +1107,10 @@ correction, with before/after audit evidence.
   override, it MUST preserve the value and display the old check-in time plus a
   warning before saving, allowing Manager to keep or adjust it; it MUST audit
   the Manager acknowledgement and resulting values.
+  *(Decided 2026-11-15, Hồ Hoàng Quốc: V1 does not change the slot, location or
+  date of an existing session (T112), so the slot-change recompute, warning and
+  acknowledgement are deferred with that capability and `SessionWrite` carries
+  no acknowledgement field in V1.)*
 - **FR-006**: The system MUST allow authorized finalization to assign `NO_SHOW`
   only to unchecked tickets of that session; finalization is allowed to an
   active Staff member whose `activeLocationIds` contains the session location

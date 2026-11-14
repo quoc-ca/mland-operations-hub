@@ -53,7 +53,6 @@ public class WorkshopRefundService {
     private final SettlementCaseRepository cases;
     private final SettlementBusinessAuditRepository audits;
     private final WorkshopOperationsSettlementAdapter operations;
-    private final WorkshopCancellationLoyaltyService cancellationLoyalty;
     private final WorkshopBookingSettlementAdapter booking;
     private final SettlementFinalBillRepository bills;
     private final SettlementCustomerNotifier notifier;
@@ -68,7 +67,6 @@ public class WorkshopRefundService {
             SettlementCaseRepository cases,
             SettlementBusinessAuditRepository audits,
             WorkshopOperationsSettlementAdapter operations,
-            WorkshopCancellationLoyaltyService cancellationLoyalty,
             WorkshopBookingSettlementAdapter booking,
             SettlementFinalBillRepository bills,
             SettlementCustomerNotifier notifier,
@@ -81,7 +79,6 @@ public class WorkshopRefundService {
         this.cases = cases;
         this.audits = audits;
         this.operations = operations;
-        this.cancellationLoyalty = cancellationLoyalty;
         this.booking = booking;
         this.bills = bills;
         this.notifier = notifier;
@@ -419,7 +416,6 @@ public class WorkshopRefundService {
                 transaction.executeWithoutResult(status -> {
                     SettlementCase latest = cases.findByCaseReferenceForUpdate(caseReference).orElse(null);
                     if (!isPendingRefundCase(latest)) return;
-                    cancellationLoyalty.restoreVerifiedCancellation(latest, evidenceReference);
                     latest.setLifecycleStatus(CASE_RESOLVED);
                     latest.setReasonReference(null);
                     latest.setUpdatedAt(Instant.now());

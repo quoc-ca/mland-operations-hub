@@ -30,6 +30,7 @@ import java.util.UUID;
 @Order(Ordered.HIGHEST_PRECEDENCE)
 @RestControllerAdvice(basePackages = "edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales")
 public class RetailExceptionHandler {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(RetailExceptionHandler.class);
 
     @ExceptionHandler(RetailUnauthorizedException.class)
     ResponseEntity<RetailErrorResponse> unauthorized(RetailUnauthorizedException exception, HttpServletRequest request) {
@@ -48,6 +49,7 @@ public class RetailExceptionHandler {
 
     @ExceptionHandler(RetailConflictException.class)
     ResponseEntity<RetailErrorResponse> conflict(RetailConflictException exception, HttpServletRequest request) {
+        log.warn("Retail conflict on {} {}: {}", request.getMethod(), request.getRequestURI(), exception.getMessage());
         return response(HttpStatus.CONFLICT, "RETAIL_CONFLICT", exception.getMessage(), request);
     }
 
@@ -58,6 +60,8 @@ public class RetailExceptionHandler {
 
     @ExceptionHandler(RetailIntegrationUnavailableException.class)
     ResponseEntity<RetailErrorResponse> unavailable(RetailIntegrationUnavailableException exception, HttpServletRequest request) {
+        // The client gets a generic message; the reason stays in the server log for diagnosis.
+        log.warn("Retail integration unavailable on {} {}: {}", request.getMethod(), request.getRequestURI(), exception.getMessage());
         return response(HttpStatus.SERVICE_UNAVAILABLE, "RETAIL_INTEGRATION_UNAVAILABLE", "Retail integration is unavailable", request);
     }
 

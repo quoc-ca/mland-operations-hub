@@ -7,6 +7,11 @@ info:
     003.2 and 003.3 are not HTTP APIs. Shared VNPay ingress is documented in
     ../../contracts/vnpay-payment-ingress.openapi.yaml. Browser return URLs never
     settle payment.
+    T123 (2026-11-15): every /workshop-bookings/{bookingCode}/... path below that
+    carries x-removed is no longer served and is kept only as history; use
+    workshop-settlement-ticket.openapi.yaml. Still served from this file:
+    /workshop-settlement-cases, /workshop-refund-policies and the OTA add-on
+    bill routes.
 paths:
   /api/v1/workshop-settlement-cases:
     get:
@@ -42,6 +47,7 @@ paths:
         '403': {$ref: '#/components/responses/Problem'}
         '422': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-bookings/{bookingCode}/final-bill:
+    x-removed: 'Not served since T106 (2026-11-14); replaced by the per-ticket routes of workshop-settlement-ticket.openapi.yaml (T123, 2026-11-15).'
     parameters:
       - $ref: '#/components/parameters/BookingCode'
       - $ref: '#/components/parameters/GuestContactEmail'
@@ -75,6 +81,7 @@ paths:
         '409': {$ref: '#/components/responses/Problem'}
         '422': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-bookings/{bookingCode}/final-bill/operator:
+    x-removed: 'Not served since T106 (2026-11-14); replaced by the per-ticket routes of workshop-settlement-ticket.openapi.yaml (T123, 2026-11-15).'
     parameters: [{$ref: '#/components/parameters/BookingCode'}]
     get:
       summary: Read the booking's folio as an operator
@@ -90,6 +97,7 @@ paths:
         '403': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-bookings/{bookingCode}/final-bill/add-ons:
+    x-removed: 'Not served since T106 (2026-11-14); replaced by the per-ticket routes of workshop-settlement-ticket.openapi.yaml (T123, 2026-11-15).'
     parameters: [{$ref: '#/components/parameters/BookingCode'}]
     get:
       summary: List catalogue add-ons an operator may add to the booking's OPEN folio
@@ -116,6 +124,7 @@ paths:
         '403': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-bookings/{bookingCode}/final-bill/charges:
+    x-removed: 'Not served since T106 (2026-11-14); replaced by the per-ticket routes of workshop-settlement-ticket.openapi.yaml (T123, 2026-11-15).'
     parameters: [{$ref: '#/components/parameters/BookingCode'}]
     post:
       summary: Record a Staff-confirmed catalogue add-on or variable charge
@@ -145,6 +154,7 @@ paths:
         '409': {$ref: '#/components/responses/Problem'}
         '422': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-bookings/{bookingCode}/final-bill/payment-attempts:
+    x-removed: 'Not served since T106 (2026-11-14); replaced by the per-ticket routes of workshop-settlement-ticket.openapi.yaml (T123, 2026-11-15).'
     parameters: [{$ref: '#/components/parameters/BookingCode'}]
     post:
       summary: Start or return the active final-balance payment attempt
@@ -168,6 +178,7 @@ paths:
         '409': {$ref: '#/components/responses/Problem'}
         '422': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-bookings/{bookingCode}/folio-corrections:
+    x-removed: 'Not served since T106 (2026-11-14); replaced by the per-ticket routes of workshop-settlement-ticket.openapi.yaml (T123, 2026-11-15).'
     parameters: [{$ref: '#/components/parameters/BookingCode'}]
     post:
       summary: Open a Manager-only post-FINALIZED folio correction (FR-004c, D7-D10)
@@ -197,6 +208,7 @@ paths:
         '409': {$ref: '#/components/responses/Problem'}
         '422': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-bookings/{bookingCode}/folio-corrections/{correctionReference}:
+    x-removed: 'Not served since T106 (2026-11-14); replaced by the per-ticket routes of workshop-settlement-ticket.openapi.yaml (T123, 2026-11-15).'
     parameters:
       - $ref: '#/components/parameters/BookingCode'
       - name: correctionReference
@@ -218,6 +230,7 @@ paths:
         '403': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-bookings/{bookingCode}/final-bill/finalizations:
+    x-removed: 'Not served since T106 (2026-11-14); replaced by the per-ticket routes of workshop-settlement-ticket.openapi.yaml (T123, 2026-11-15).'
     parameters: [{$ref: '#/components/parameters/BookingCode'}]
     post:
       summary: Finalize an eligible final bill
@@ -238,6 +251,7 @@ paths:
         '409': {$ref: '#/components/responses/Problem'}
         '422': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-bookings/{bookingCode}/cancellation-cases:
+    x-removed: 'Not served since T106 (2026-11-14); replaced by the per-ticket routes of workshop-settlement-ticket.openapi.yaml (T123, 2026-11-15).'
     parameters: [{$ref: '#/components/parameters/BookingCode'}]
     post:
       summary: Open a whole-booking customer cancellation case
@@ -259,6 +273,7 @@ paths:
         '409': {$ref: '#/components/responses/Problem'}
         '422': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-bookings/{bookingCode}/required-session-change-cases:
+    x-removed: 'Not served since T106 (2026-11-14); replaced by the per-ticket routes of workshop-settlement-ticket.openapi.yaml (T123, 2026-11-15).'
     parameters: [{$ref: '#/components/parameters/BookingCode'}]
     post:
       summary: Open a Manager-mediated complete required-session change case
@@ -277,6 +292,7 @@ paths:
         '409': {$ref: '#/components/responses/Problem'}
         '422': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-bookings/{bookingCode}/mland-cancellation-remedy-cases:
+    x-removed: 'Not served since T106 (2026-11-14); replaced by the per-ticket routes of workshop-settlement-ticket.openapi.yaml (T123, 2026-11-15).'
     parameters: [{$ref: '#/components/parameters/BookingCode'}]
     post:
       summary: Open a Manager remedy for an Mland-caused cancellation
@@ -295,6 +311,7 @@ paths:
         '409': {$ref: '#/components/responses/Problem'}
         '422': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-bookings/{bookingCode}/cancellation-cases/{caseReference}:
+    x-removed: 'Not served since T106 (2026-11-14); replaced by the per-ticket routes of workshop-settlement-ticket.openapi.yaml (T123, 2026-11-15).'
     parameters: &settlementCaseReadParameters
       - $ref: '#/components/parameters/BookingCode'
       - $ref: '#/components/parameters/CaseReference'
@@ -309,9 +326,11 @@ paths:
         '403': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-bookings/{bookingCode}/required-session-change-cases/{caseReference}:
+    x-removed: 'Not served since T106 (2026-11-14); replaced by the per-ticket routes of workshop-settlement-ticket.openapi.yaml (T123, 2026-11-15).'
     parameters: *settlementCaseReadParameters
     get: *settlementCaseReadGet
   /api/v1/workshop-bookings/{bookingCode}/mland-cancellation-remedy-cases/{caseReference}:
+    x-removed: 'Not served since T106 (2026-11-14); replaced by the per-ticket routes of workshop-settlement-ticket.openapi.yaml (T123, 2026-11-15).'
     parameters: *settlementCaseReadParameters
     get: *settlementCaseReadGet
   /api/v1/workshop-refund-policies:

@@ -1,6 +1,6 @@
 # Feature 003 — thống kê đầu việc
 
-> **Snapshot 2026-11-14**, nhánh `quoc` tại `c91c4db7`. Số liệu đếm từ các dòng task `- [ ] Txxx` / `- [x] Txxx`
+> **Snapshot 2026-11-14 (cập nhật cuối phiên nhóm C)**, nhánh `quoc`. Số liệu đếm từ các dòng task `- [ ] Txxx` / `- [x] Txxx`
 > trong `tasks.md` của từng sub-feature; `tasks.md` vẫn là nguồn sự thật, file này chỉ là bản tổng hợp.
 > Task bị thay thế (superseded) được tính là đã đóng. Cập nhật lại file này khi tick hoặc mở lại task.
 > "Convergence" là các task do `$speckit-converge` chạy ngày 2026-11-14 thêm vào cuối `tasks.md` (47 task, 5 đã đóng).
@@ -9,11 +9,11 @@
 
 | Sub-feature | Tổng | Đã xong | Còn mở | Tỷ lệ xong |
 | --- | ---: | ---: | ---: | ---: |
-| 003.1 Workshop booking | 82 | 72 | 10 | 87,8% |
-| 003.2 Workshop operations | 104 | 95 | 9 | 91,3% |
-| 003.3 Settlement and changes | 77 | 56 | 21 | 72,7% |
+| 003.1 Workshop booking | 82 | 79 | 3 | 96,3% |
+| 003.2 Workshop operations | 104 | 101 | 3 | 97,1% |
+| 003.3 Settlement and changes | 77 | 71 | 6 | 92,2% |
 | 003.4 OTA connectivity | 78 | 59 | 19 | 75,6% |
-| **Tổng** | **341** | **282** | **59** | **82,7%** |
+| **Tổng** | **341** | **310** | **31** | **90,9%** |
 
 Tỷ lệ tính theo số dòng task, không theo effort.
 
@@ -21,23 +21,23 @@ Tỷ lệ tính theo số dòng task, không theo effort.
 
 | Sub-feature | Task cũ | Convergence | Tổng mở |
 | --- | ---: | ---: | ---: |
-| 003.1 | 5 | 5 | 10 |
-| 003.2 | 2 | 7 | 9 |
-| 003.3 | 4 | 17 | 21 |
+| 003.1 | 3 | 0 | 3 |
+| 003.2 | 1 | 2 | 3 |
+| 003.3 | 3 | 3 | 6 |
 | 003.4 | 6 | 13 | 19 |
-| **Tổng** | **17** | **42** | **59** |
+| **Tổng** | **13** | **18** | **31** |
 
 Convergence đã đóng trong ngày: 003.1 T108, T113; 003.3 T107; 003.4 T105 (4 task CRITICAL); 003.4 T117 (owner quyết bỏ).
 
-## 2. Còn mở theo nhóm làm việc (59)
+## 2. Còn mở theo nhóm làm việc (31)
 
 | Nhóm | Nội dung | Số task | Ghi chú |
 | --- | --- | ---: | --- |
-| A | Settlement: tiền, quyền, MySQL IT (003.3) | 15 | Làm trước vì liên quan tiền |
+| A | Settlement: tiền, quyền, MySQL IT (003.3) | 0 | Đã xong 2026-11-14 (T103, T108–T121) |
 | B | OTA lõi nghiệp vụ và bằng chứng (003.4) | 13 | T108, T109 cùng file, làm tuần tự |
-| C | Vận hành và đặt chỗ, backend + dọn legacy (003.1, 003.2) | 12 | Gồm các task cũ 003.1 T097, T100; 003.2 T096, T097 |
+| C | Vận hành và đặt chỗ, backend + dọn legacy (003.1, 003.2) | 0 | Nhóm C xong 2026-11-14: 003.1 T097, T100, T109–T112, T114; 003.2 T096, T097, T107, T109–T111 |
 | D | Frontend (003.1, 003.2, 003.3, 003.4) | 8 | Chờ API của A, C ổn định |
-| E | Contract và tài liệu | 3 | Làm cuối |
+| E | Contract và tài liệu | 2 | Làm cuối |
 | F | Còn chờ chủ sở hữu chốt | 0 | Xem mục 4 |
 | X | Bị chặn bởi bên ngoài (VNPay, provider OTA) | 8 | Không làm được trong repo |
 | | **Tổng** | **59** | |
@@ -47,57 +47,29 @@ Convergence đã đóng trong ngày: 003.1 T108, T113; 003.3 T107; 003.4 T105 (4
 Loại: BE = backend, FE = frontend, IT = test MySQL, DOC = tài liệu/contract, EVD = ghi bằng chứng.
 Mức: **C** = CRITICAL, **H** = HIGH, **M** = MEDIUM, **L** = LOW (chỉ có ở task convergence; task cũ ghi "–").
 
-### 003.1 Workshop booking (10)
+### 003.1 Workshop booking (3)
 
 | Task | Gốc | Loại | Mức | Nhóm | Việc |
 | --- | --- | --- | --- | --- | --- |
 | T005 | cũ | ngoài | – | X | Cấu hình VNPay thật (merchant, secret, IPN, QueryDR/refund) |
 | T046 | cũ | ngoài | – | X | Review evidence cấu hình T005 trước khi bật VNPay thật |
-| T097 | cũ | IT | – | C | MySQL IT cho toàn luồng đặt theo nhóm, gồm giảm giá tự động |
-| T100 | cũ | BE | – | C | Xoá luồng đặt lẻ còn lại và các facade legacy |
 | T106 | cũ | FE | – | D | Giá sau giảm trên 5 màn hình công khai (FR-052) |
-| T109 | converge | BE | M | C | Tính lại số tiền thu từ snapshot vé trước khi tạo URL VNPay, lệch hoặc dưới 5.000 thì 409 |
-| T110 | converge | BE | M | C | Giới hạn tần suất tra cứu Guest, nhả giữ chỗ, gửi lại (429) |
-| T111 | converge | BE | M | C | Gửi email mẫu 5 khi giữ chỗ hết hạn (`GROUP_HOLD_EXPIRED`) |
-| T112 | converge | BE | L | C | Chuẩn hoá số điện thoại khi lưu và so chứng minh |
-| T114 | converge | DOC | L | E | Sửa tài liệu lệch: plan.md, `CreateIdempotencyKey`, ca test trong T097 |
 
-### 003.2 Workshop operations (9)
+### 003.2 Workshop operations (3)
 
 | Task | Gốc | Loại | Mức | Nhóm | Việc |
 | --- | --- | --- | --- | --- | --- |
-| T096 | cũ | IT+BE | – | C | MySQL IT còn lại; thêm chặn vé OTA trong 3 service (FR-036) |
-| T097 | cũ | BE | – | C | Xoá query/command theo cả booking của 003.2 |
-| T107 | converge | BE | H | C | Cửa sổ sửa điểm danh tính theo từng vé |
 | T108 | converge | FE | H | D | Form Manager tạo phiên hàng loạt |
-| T109 | converge | BE | M | C | Chuyển loyalty outcome sang điểm danh theo vé, xoá `BookingAttendanceOutcome` |
-| T110 | converge | BE | M | C | Giữ danh sách dòng lỗi khi replay đổi phiên bị từ chối |
-| T111 | converge | BE | M | C | `initialState` cho tạo phiên đơn lẻ |
 | T112 | converge | FE | M | D | Sửa phiên (sức chứa, mở check-in) với xung đột phiên bản |
 | T113 | converge | FE | M | D | Chỉnh quota đổi lịch theo phiên |
 
-### 003.3 Settlement and changes (21)
+### 003.3 Settlement and changes (6)
 
 | Task | Gốc | Loại | Mức | Nhóm | Việc |
 | --- | --- | --- | --- | --- | --- |
 | T005 | cũ | ngoài | – | X | Cấu hình VNPay thật, phía settlement |
 | T035 | cũ | ngoài | – | X | Review evidence cấu hình T005 |
 | T102 | cũ | FE | – | D | Màn Staff/Manager: folio, chốt sổ, hàng đợi hoàn tiền, huỷ/đổi vé |
-| T103 | cũ | IT | – | A | MySQL IT settlement (làm sau các task A) |
-| T108 | converge | BE | H | A | Tạo merchant reference và URL thanh toán VNPay phía server cho folio vé |
-| T109 | converge | BE | H | A | Route đánh dấu khoản chờ là thất bại (`failures`) và đường QueryDR/IPN-failure |
-| T110 | converge | BE | H | A | Tiền VNPay đến muộn: ghi thành tiền thừa và mở hoàn tiền |
-| T111 | converge | BE | H | A | Thu tiền phải kiểm Staff được phân công, lấy chi nhánh từ ticket |
-| T112 | converge | BE | H | A | Nối huỷ/dời phiên từ 003.2 sang đề nghị remedy theo vé |
-| T113 | converge | BE | H | A | Chỉ đóng folio của remedy khi hoàn tiền tới `REFUNDED` |
-| T114 | converge | BE | H | A | Bỏ thông tin liên hệ khỏi URL của route đọc correction |
-| T115 | converge | BE | H | A | Trần correction dùng tiền thật đã thu, bỏ số giao dịch bịa |
-| T116 | converge | BE | M | A | Kiểm trạng thái và địa điểm của Staff khi thao tác thay khách |
-| T117 | converge | BE | M | A | Hàng đợi yêu cầu đổi cần Manager cho phép |
-| T118 | converge | BE | M | A | Route đổi nhiều vé cùng nhóm, tất cả hoặc không |
-| T119 | converge | BE | M | A | Xác nhận chuyển khoản gắn đúng folio, có Idempotency-Key |
-| T120 | converge | BE | M | A | Bỏ route `/workshop-cash-days/*`, bắt buộc Idempotency-Key cho `/workshop-cash-closes` |
-| T121 | converge | BE | M | A | Xoá nhánh thanh toán theo cả booking cũ trong `FinalPaymentService` |
 | T122 | converge | FE | M | D | Trang khách trả lời remedy và xem folio |
 | T123 | converge | DOC | L | E | Cập nhật `workshop-settlement-ticket.openapi.yaml` |
 | T124 | converge | FE | L | D | Bỏ gọi các route booking-wide cũ trong `settlementApi.js` |
