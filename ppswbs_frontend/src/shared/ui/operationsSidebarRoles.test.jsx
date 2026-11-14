@@ -23,7 +23,7 @@ describe('Operations sidebar by role', () => {
     open('STAFF');
 
     expect(await sidebar().findByRole('link', { name: 'Ca của tôi' })).toBeInTheDocument();
-    expect(sidebar().getByRole('link', { name: 'Hóa đơn quyết toán (Bills)' })).toBeInTheDocument();
+    expect(sidebar().getByRole('link', { name: 'Folio vé (Ticket folio)' })).toBeInTheDocument();
     expect(sidebar().getByRole('link', { name: 'Add-on tại xưởng (Shop)' })).toBeInTheDocument();
     expect(sidebar().getByRole('link', { name: 'Trang chủ' })).toHaveAttribute('href', '/home');
     // Staff and Manager both manage products; promotions and the rest stay with the Manager.
