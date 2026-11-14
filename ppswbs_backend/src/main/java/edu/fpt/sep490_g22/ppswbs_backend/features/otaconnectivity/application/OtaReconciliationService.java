@@ -85,7 +85,7 @@ public class OtaReconciliationService {
                         ? UUID.fromString(item.getMapping().getPublicReference()) : null,
                 item.getStatus(),
                 item.getAuditReference() != null ? UUID.fromString(item.getAuditReference()) : null,
-                item.getCategory())).toList();
+                item.getCategory(), item.getCategory())).toList();
     }
 
     @Transactional
@@ -256,7 +256,7 @@ public class OtaReconciliationService {
                 item.getMapping() != null && item.getMapping().getPublicReference() != null
                         ? UUID.fromString(item.getMapping().getPublicReference()) : null,
                 status,
-                UUID.fromString(correlationReference), item.getCategory());
+                UUID.fromString(correlationReference), item.getCategory(), item.getCategory());
     }
 
     private void confirmDeliveredResync(OtaReconciliationWorkItem item, OtaChannelMapping mapping,

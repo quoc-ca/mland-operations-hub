@@ -89,7 +89,10 @@ public class WorkshopSessionService {
             openingSource = CheckInOpeningSource.DEFAULT;
         }
 
-        SessionState state = SessionState.DRAFT;
+        SessionState state = request.getInitialState() != null ? request.getInitialState() : SessionState.DRAFT;
+        if (state != SessionState.DRAFT && state != SessionState.PUBLISHED) {
+            throw new WorkshopValidationException("Initial state must be DRAFT or PUBLISHED");
+        }
 
         WorkshopSession session = WorkshopSession.builder()
                 .reference(UUID.randomUUID().toString())
@@ -111,6 +114,10 @@ public class WorkshopSessionService {
         if (openingSource == CheckInOpeningSource.MANAGER_SET) {
             recordAudit(saved.getId(), actor.accountId(), "CHECK_IN_OVERRIDE_CONFIGURED", "SUCCESS",
                     "{\"checkInOpensAt\":\"" + checkInOpensAt + "\"}");
+        }
+        if (saved.getState() == SessionState.PUBLISHED) {
+            // Same observable change as publishing through bulk generation.
+            otaSnapshotService.publishForObservableChange(saved, "SESSION_PUBLISHED", Instant.now());
         }
 
         return toSessionResponse(saved);
@@ -253,6 +260,21 @@ public class WorkshopSessionService {
             throw new WorkshopValidationException("Session update request must not be null");
         }
 
+        // T112 (2026-11-15): compare the client's version with the stored one before applying anything.
+        if (request.getVersion() != null && !request.getVersion().equals(session.getVersion())) {
+            throw new org.springframework.orm.ObjectOptimisticLockingFailureException(
+                    WorkshopSession.class, session.getReference());
+        }
+
+        // T112 (decided 2026-11-14): V1 edits only capacity and the check-in override. Moving a session to another
+        // slot, location or date is refused, never silently ignored; echoing the current values is accepted.
+        if ((request.getLocationId() != null && !request.getLocationId().equals(session.getLocation().getId()))
+                || (request.getSlotId() != null && !request.getSlotId().equals(session.getSlot().getReference()))
+                || (request.getWorkshopDate() != null && !request.getWorkshopDate().equals(session.getWorkshopDate()))) {
+            throw new WorkshopValidationException(
+                    "Slot, location and date of an existing session cannot be changed; create a new session instead");
+        }
+
         if (request.getCapacity() != null) {
             if (request.getCapacity() < 1) {
                 throw new WorkshopValidationException("Capacity must be at least 1");
@@ -274,7 +296,7 @@ public class WorkshopSessionService {
                     "{\"checkInOpensAt\":\"" + request.getCheckInOpensAt() + "\"}");
         }
 
-        WorkshopSession updated = sessionRepository.save(session);
+        WorkshopSession updated = sessionRepository.saveAndFlush(session);
         if (updated.getState() != SessionState.DRAFT) {
             otaSnapshotService.publishForObservableChange(updated, "SESSION_UPDATED", Instant.now());
         }
@@ -391,6 +413,7 @@ public class WorkshopSessionService {
                 .checkInOpensAt(session.getCheckInOpensAt())
                 .checkInOpeningSource(session.getCheckInOpeningSource())
                 .capacity(session.getCapacity())
+                .version(session.getVersion())
                 .state(session.getState())
                 .rescheduleQuota(session.effectiveRescheduleQuota())
                 .rescheduleQuotaOverridden(session.getRescheduleQuotaOverride() != null)

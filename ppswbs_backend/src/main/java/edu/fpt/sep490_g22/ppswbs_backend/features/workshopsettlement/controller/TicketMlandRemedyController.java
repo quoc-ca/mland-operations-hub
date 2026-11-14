@@ -1,6 +1,7 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.controller;
 
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.CurrentAccountActor;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.TicketRemedyDtos;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.TicketRemedyDtos.TicketRemedyAnswerRequestDto;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.TicketRemedyDtos.TicketRemedyAnswerResponseDto;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.TicketMlandRemedyService;
@@ -16,6 +17,14 @@ import org.springframework.web.bind.annotation.*;
 public class TicketMlandRemedyController {
 
     private final TicketMlandRemedyService remedyService;
+
+    /** The current Mland offer with every offered session, so the buyer can choose one (T112, FR-043). */
+    @GetMapping("/api/v1/workshop-tickets/{ticketCode}/mland-remedy")
+    public ResponseEntity<TicketRemedyDtos.TicketRemedyOfferDto> getOffer(
+            @PathVariable("ticketCode") String ticketCode,
+            Authentication authentication) {
+        return ResponseEntity.ok(remedyService.getOffer(ticketCode, actor(authentication)));
+    }
 
     @PostMapping("/api/v1/workshop-tickets/{ticketCode}/mland-remedy/answers")
     public ResponseEntity<TicketRemedyAnswerResponseDto> answerOffer(

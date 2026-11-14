@@ -130,6 +130,14 @@ public class GroupConfirmationService {
             return false;
         }
         releaseWholeGroup(group, BookingStatus.EXPIRED, operationReference, correlationReference);
+        // Approved template 5 (FR-039). Queued in this transaction and handed off after commit; a replayed expiry
+        // returns above because the group is no longer PENDING_PAYMENT, so it can never queue a second email.
+        notifications.queue(group, null, GroupNotificationService.KIND_GROUP_HOLD_EXPIRED, group.getContactEmail(),
+                "MLAND – Đặt chỗ " + group.getGroupCode() + " đã hết thời gian thanh toán",
+                "Chỗ giữ cho đơn " + group.getGroupCode() + " đã được nhả vì chưa nhận được thanh toán trong 10 "
+                        + "phút. Nếu bạn đã bị trừ tiền, chúng tôi sẽ xử lý và liên hệ với bạn. Bạn có thể đặt lại "
+                        + "workshop trên website MLAND.",
+                List.of(), null, correlationReference);
         log.info("Released the whole booking group {} after its hold expired", groupCode);
         return true;
     }

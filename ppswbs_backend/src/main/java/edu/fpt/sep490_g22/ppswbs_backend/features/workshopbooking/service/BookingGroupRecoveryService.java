@@ -302,7 +302,7 @@ public class BookingGroupRecoveryService {
             return group.getContactEmail() != null
                     && EmailMasking.normalize(contactEmail).equals(EmailMasking.normalize(group.getContactEmail()));
         }
-        return group.getContactPhone() != null && contactPhone.trim().equals(group.getContactPhone().trim());
+        return ContactPhones.sameContact(contactPhone, group.getContactPhone());
     }
 
     private BookingGroup findGroup(String groupCode) {

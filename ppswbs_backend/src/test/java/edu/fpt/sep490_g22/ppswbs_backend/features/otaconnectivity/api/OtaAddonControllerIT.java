@@ -466,6 +466,36 @@ class OtaAddonControllerIT {
         }
 
         @Test
+        @DisplayName("T057: Staff in the location scope but not assigned to the booking cannot accept a quote (403), the quote stays QUOTED")
+        void unassignedStaff_cannotAcceptQuote() throws Exception {
+            org.mockito.Mockito.doReturn(false).when(workshopOperationsFacade).isStaffAssignedToBooking(any());
+
+            mvc.perform(post("/api/v1/ota-addon-quotes/" + paidQuoteId + "/acceptance")
+                            .header("Authorization", STAFF_AUTH)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                { "acceptedAt": "2026-11-01T12:00:00Z", "acceptanceReference": "consent-unassigned-001" }
+                                """))
+                    .andExpect(status().isForbidden());
+
+            assertThat(linkStore.get(paidQuoteId).getStatus()).isEqualTo("QUOTED");
+        }
+
+        @Test
+        @DisplayName("T057: a Manager stays global even when no assignment exists")
+        void manager_acceptsQuoteWithoutAnyAssignment() throws Exception {
+            org.mockito.Mockito.doReturn(false).when(workshopOperationsFacade).isStaffAssignedToBooking(any());
+
+            mvc.perform(post("/api/v1/ota-addon-quotes/" + paidQuoteId + "/acceptance")
+                            .header("Authorization", MANAGER_AUTH)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                { "acceptedAt": "2026-11-01T12:00:00Z", "acceptanceReference": "consent-manager-002" }
+                                """))
+                    .andExpect(status().isOk());
+        }
+
+        @Test
         @DisplayName("Customer acceptance succeeds with 200 OK and status ACCEPTED")
         void acceptQuote_succeeds200() throws Exception {
             String requestJson = """
@@ -620,6 +650,19 @@ class OtaAddonControllerIT {
         }
 
         @Test
+        @DisplayName("T057: Staff in the location scope but not assigned to the booking cannot create the direct bill (403) and no bill is requested")
+        void unassignedStaff_cannotCreateDirectBill() throws Exception {
+            org.mockito.Mockito.doReturn(false).when(workshopOperationsFacade).isStaffAssignedToBooking(any());
+
+            mvc.perform(post("/api/v1/ota-addon-quotes/" + acceptedQuoteId + "/direct-bill")
+                            .header("Authorization", STAFF_AUTH))
+                    .andExpect(status().isForbidden());
+
+            org.mockito.Mockito.verify(settlementPort, org.mockito.Mockito.never()).createDirectBill(any());
+            assertThat(linkStore.get(acceptedQuoteId).getStatus()).isEqualTo("ACCEPTED");
+        }
+
+        @Test
         @DisplayName("Valid accepted quote creates direct bill with 201 Created")
         void acceptedQuote_createsDirectBill_succeeds201() throws Exception {
             when(settlementPort.createDirectBill(any())).thenReturn(
@@ -759,6 +802,32 @@ class OtaAddonControllerIT {
                     .andExpect(jsonPath("$.locationId").value(locationId.toString()))
                     .andExpect(jsonPath("$.mlandBookingReference").value("mland-bk-42"))
                     .andExpect(jsonPath("$.canSellAddon").value(true));
+        }
+
+        @Test
+        @DisplayName("T057: unassigned in-scope Staff gets the same 404 as for a missing booking; a Manager still sees it")
+        void lookup_unassignedStaff_isIndistinguishableFromMissing() throws Exception {
+            org.mockito.Mockito.doReturn(false).when(workshopOperationsFacade).isStaffAssignedToBooking(any());
+            when(bookingRepository.findByMlandBookingReference("mland-bk-42")).thenReturn(Optional.of(booking));
+            when(bookingRepository.findByMlandBookingReference("mland-bk-missing")).thenReturn(Optional.empty());
+
+            String unassigned = mvc.perform(get("/api/v1/ota-channel-bookings/lookups")
+                            .param("mlandBookingReference", "mland-bk-42")
+                            .header("Authorization", STAFF_AUTH))
+                    .andExpect(status().isNotFound()).andReturn().getResponse().getContentAsString();
+            String missing = mvc.perform(get("/api/v1/ota-channel-bookings/lookups")
+                            .param("mlandBookingReference", "mland-bk-missing")
+                            .header("Authorization", STAFF_AUTH))
+                    .andExpect(status().isNotFound()).andReturn().getResponse().getContentAsString();
+
+            org.assertj.core.api.Assertions.assertThat(unassigned.replaceAll("\"correlationId\":\"[^\"]*\"", ""))
+                    .isEqualTo(missing.replaceAll("\"correlationId\":\"[^\"]*\"", ""))
+                    .doesNotContain("mland-bk-42");
+
+            mvc.perform(get("/api/v1/ota-channel-bookings/lookups")
+                            .param("mlandBookingReference", "mland-bk-42")
+                            .header("Authorization", MANAGER_AUTH))
+                    .andExpect(status().isOk());
         }
 
         @Test

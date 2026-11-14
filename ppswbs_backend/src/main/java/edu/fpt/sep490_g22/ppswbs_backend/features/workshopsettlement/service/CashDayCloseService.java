@@ -148,7 +148,13 @@ public class CashDayCloseService {
                 && closes.findByBranchIdAndBusinessDay(branchId, businessDay).isPresent();
     }
 
-    private static LocalDate dayOrToday(LocalDate businessDay) {
+    /** T120: a close by its reference, for an idempotent replay of {@code POST /workshop-cash-closes}. */
+    @Transactional(readOnly = true)
+    public SettlementCashDayClose findByReference(String closeReference) {
+        return closes.findByCloseReference(closeReference).orElseThrow(WorkshopSettlementNotFoundException::new);
+    }
+
+    static LocalDate dayOrToday(LocalDate businessDay) {
         return businessDay != null ? businessDay : LocalDate.now(VIETNAM);
     }
 

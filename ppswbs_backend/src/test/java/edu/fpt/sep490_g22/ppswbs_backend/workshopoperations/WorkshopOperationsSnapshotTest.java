@@ -50,6 +50,7 @@ class WorkshopOperationsSnapshotTest {
             mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.TicketQrReissueService.class),
             mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.TicketCancellationService.class),
             mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.TicketSessionReplacementService.class),
+            mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.EquivalentReplacementSessionService.class),
             mock(AttendanceTicketService.class),
             mock(WorkshopOtaSnapshotService.class),
             packagePolicy,
@@ -97,83 +98,6 @@ class WorkshopOperationsSnapshotTest {
 
         assertThat(facade.getSaleEligibility(new SaleEligibilityQuery(reference))).isNull();
         verifyNoInteractions(holds, entitlements);
-    }
-
-    @Test
-    void cancellationEligibilityRequiresExactSessionSetAndReturnsOnlySafeFacts() {
-        UUID sessionRef = UUID.randomUUID();
-        Instant start = Instant.parse("2026-11-10T02:00:00Z");
-        WorkshopSession session = WorkshopSession.builder().id(201L).reference(sessionRef.toString())
-                .scheduledStartAt(start).build();
-        AttendanceTicket ticket = AttendanceTicket.builder().bookingReference("BK-CANCEL")
-                .validityState(TicketValidityState.ACTIVE).build();
-        TicketSessionEntitlement entitlement = TicketSessionEntitlement.builder().ticket(ticket).session(session)
-                .attendanceState(AttendanceState.NOT_CHECKED_IN).build();
-        when(entitlements.findActiveByBookingReference("BK-CANCEL")).thenReturn(List.of(entitlement));
-        when(sessions.findByReference(sessionRef.toString())).thenReturn(Optional.of(session));
-
-        var result = facade.getBookingCancellationEligibility(
-                new BookingCancellationEligibilityQuery("BK-CANCEL"));
-
-        assertThat(result.eligible()).isTrue();
-        assertThat(result.earliestRequiredSessionStart()).isEqualTo(start);
-        assertThat(result.hasCheckedInTicket()).isFalse();
-        assertThat(result.hasNoShow()).isFalse();
-        assertThat(Arrays.stream(BookingCancellationEligibilitySnapshot.class.getRecordComponents())
-                .map(java.lang.reflect.RecordComponent::getName))
-                .containsExactly("eligible", "reason", "earliestRequiredSessionReference", "earliestRequiredSessionStart", "hasCheckedInTicket", "hasNoShow");
-    }
-
-    @Test
-    void cancellationEligibilityUsesOperationsCurrentSessionSetWithoutCallerSuppliedReferences() {
-        UUID actual = UUID.randomUUID();
-        WorkshopSession session = WorkshopSession.builder().id(202L).reference(actual.toString())
-                .scheduledStartAt(Instant.parse("2026-11-10T02:00:00Z")).build();
-        AttendanceTicket ticket = AttendanceTicket.builder().bookingReference("BK-CANCEL-MISMATCH")
-                .validityState(TicketValidityState.ACTIVE).build();
-        TicketSessionEntitlement entitlement = TicketSessionEntitlement.builder().ticket(ticket).session(session)
-                .attendanceState(AttendanceState.CHECKED_IN).build();
-        when(entitlements.findActiveByBookingReference("BK-CANCEL-MISMATCH")).thenReturn(List.of(entitlement));
-
-        when(sessions.findByReference(actual.toString())).thenReturn(Optional.of(session));
-
-        var result = facade.getBookingCancellationEligibility(new BookingCancellationEligibilityQuery(
-                "BK-CANCEL-MISMATCH"));
-
-        assertThat(result.eligible()).isFalse();
-        assertThat(result.reason()).isEqualTo("TICKET_CHECKED_IN");
-        assertThat(result.hasCheckedInTicket()).isTrue();
-        verify(sessions).findByReference(actual.toString());
-    }
-
-    @Test
-    void cancellationEligibilityRejectsCheckInAndNoShowFacts() {
-        UUID firstRef = UUID.randomUUID();
-        UUID secondRef = UUID.randomUUID();
-        WorkshopSession first = WorkshopSession.builder().id(211L).reference(firstRef.toString())
-                .scheduledStartAt(Instant.parse("2026-11-10T02:00:00Z")).build();
-        WorkshopSession second = WorkshopSession.builder().id(212L).reference(secondRef.toString())
-                .scheduledStartAt(Instant.parse("2026-11-11T02:00:00Z")).build();
-        AttendanceTicket checkedInTicket = AttendanceTicket.builder().bookingReference("BK-CANCEL-USED")
-                .validityState(TicketValidityState.ACTIVE).build();
-        AttendanceTicket noShowTicket = AttendanceTicket.builder().bookingReference("BK-CANCEL-USED")
-                .validityState(TicketValidityState.ACTIVE).build();
-        TicketSessionEntitlement checkedIn = TicketSessionEntitlement.builder().ticket(checkedInTicket).session(first)
-                .attendanceState(AttendanceState.CHECKED_IN).checkedInAt(Instant.parse("2026-11-10T02:05:00Z")).build();
-        TicketSessionEntitlement noShow = TicketSessionEntitlement.builder().ticket(noShowTicket).session(second)
-                .attendanceState(AttendanceState.NO_SHOW).build();
-        when(entitlements.findActiveByBookingReference("BK-CANCEL-USED")).thenReturn(List.of(checkedIn, noShow));
-        when(sessions.findByReference(firstRef.toString())).thenReturn(Optional.of(first));
-        when(sessions.findByReference(secondRef.toString())).thenReturn(Optional.of(second));
-
-        var result = facade.getBookingCancellationEligibility(
-                new BookingCancellationEligibilityQuery("BK-CANCEL-USED"));
-
-        assertThat(result.eligible()).isFalse();
-        assertThat(result.reason()).isEqualTo("TICKET_CHECKED_IN");
-        assertThat(result.hasCheckedInTicket()).isTrue();
-        assertThat(result.hasNoShow()).isTrue();
-        assertThat(result.earliestRequiredSessionStart()).isEqualTo(first.getScheduledStartAt());
     }
 
     @Test

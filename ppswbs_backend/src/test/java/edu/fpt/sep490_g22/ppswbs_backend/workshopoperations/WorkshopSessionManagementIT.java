@@ -436,4 +436,112 @@ public class WorkshopSessionManagementIT {
         List<OperationsAuditEvent> auditEvents = auditEventRepository.findAll();
         assertThat(auditEvents.stream().anyMatch(e -> "CHECK_IN_OVERRIDE_CONFIGURED".equals(e.getAction()))).isTrue();
     }
+
+    @Test
+    @DisplayName("T111: a single session is DRAFT by default, PUBLISHED when asked, and CANCELLED is refused")
+    void singleSessionInitialState() throws Exception {
+        record Case(int daysAhead, SessionState initial, int expectedStatus, String expectedState) { }
+        for (Case c : List.of(
+                new Case(11, null, 201, "DRAFT"),
+                new Case(12, SessionState.PUBLISHED, 201, "PUBLISHED"),
+                new Case(13, SessionState.CANCELLED, 400, null))) {
+            SessionRequest.SessionRequestBuilder builder = SessionRequest.builder()
+                    .locationId(locationA.getId()).slotId(slotMorning.getReference())
+                    .workshopDate(LocalDate.now().plusDays(c.daysAhead())).capacity(12);
+            if (c.initial() != null) builder.initialState(c.initial());
+            var result = mockMvc.perform(post("/api/v1/workshop-sessions")
+                    .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
+                    .header("Authorization", MGR_A_TOKEN)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(builder.build())))
+                    .andExpect(status().is(c.expectedStatus()));
+            if (c.expectedState() != null) {
+                result.andExpect(jsonPath("$.state").value(c.expectedState()));
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("T112: PATCH edits capacity, accepts the session's own slot/location/date, and refuses a move instead of ignoring it")
+    void patchRefusesSlotLocationAndDateChanges() throws Exception {
+        LocalDate date = LocalDate.now().plusDays(15);
+        String created = mockMvc.perform(post("/api/v1/workshop-sessions")
+                        .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
+                        .header("Authorization", MGR_A_TOKEN)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(SessionRequest.builder()
+                                .locationId(locationA.getId()).slotId(slotMorning.getReference())
+                                .workshopDate(date).capacity(12).build())))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        String id = objectMapper.readTree(created).get("id").asText();
+
+        // Own slot, location and date echoed back: only the capacity changes.
+        mockMvc.perform(patch("/api/v1/workshop-sessions/" + id)
+                        .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
+                        .header("Authorization", MGR_A_TOKEN)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(SessionRequest.builder()
+                                .locationId(locationA.getId()).slotId(slotMorning.getReference())
+                                .workshopDate(date).capacity(14).build())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.capacity").value(14));
+
+        // A different date is refused (400), and the capacity sent with it is not applied either.
+        mockMvc.perform(patch("/api/v1/workshop-sessions/" + id)
+                        .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
+                        .header("Authorization", MGR_A_TOKEN)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(SessionRequest.builder()
+                                .locationId(locationA.getId()).slotId(slotMorning.getReference())
+                                .workshopDate(date.plusDays(1)).capacity(20).build())))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(get("/api/v1/workshop-sessions/" + id).header("Authorization", MGR_A_TOKEN))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.capacity").value(14));
+    }
+
+    @Test
+    @DisplayName("T112: PATCH returns version, applies a matching version and refuses a stale one with 409 before applying")
+    void patchComparesVersionBeforeApplying() throws Exception {
+        LocalDate date = LocalDate.now().plusDays(16);
+        String created = mockMvc.perform(post("/api/v1/workshop-sessions")
+                        .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
+                        .header("Authorization", MGR_A_TOKEN)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(SessionRequest.builder()
+                                .locationId(locationA.getId()).slotId(slotMorning.getReference())
+                                .workshopDate(date).capacity(12).build())))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.version").isNumber())
+                .andReturn().getResponse().getContentAsString();
+        String id = objectMapper.readTree(created).get("id").asText();
+        long version = objectMapper.readTree(created).get("version").asLong();
+
+        String first = mockMvc.perform(patch("/api/v1/workshop-sessions/" + id)
+                        .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
+                        .header("Authorization", MGR_A_TOKEN)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(SessionRequest.builder()
+                                .locationId(locationA.getId()).slotId(slotMorning.getReference())
+                                .workshopDate(date).capacity(13).version(version).build())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.capacity").value(13))
+                .andReturn().getResponse().getContentAsString();
+        long next = objectMapper.readTree(first).get("version").asLong();
+        org.junit.jupiter.api.Assertions.assertTrue(next > version, "version must advance after an applied edit");
+
+        // The old version is now stale: 409, and the capacity sent with it is not applied.
+        mockMvc.perform(patch("/api/v1/workshop-sessions/" + id)
+                        .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
+                        .header("Authorization", MGR_A_TOKEN)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(SessionRequest.builder()
+                                .locationId(locationA.getId()).slotId(slotMorning.getReference())
+                                .workshopDate(date).capacity(20).version(version).build())))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("OPTIMISTIC_LOCK_CONFLICT"));
+        mockMvc.perform(get("/api/v1/workshop-sessions/" + id).header("Authorization", MGR_A_TOKEN))
+                .andExpect(jsonPath("$.capacity").value(13))
+                .andExpect(jsonPath("$.version").value(next));
+    }
 }

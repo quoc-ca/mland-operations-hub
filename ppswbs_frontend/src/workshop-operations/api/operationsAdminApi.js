@@ -15,6 +15,8 @@ export function createOperationsAdminApi(http) {
     updateSlot: (slotId, body, key) => command(`/api/v1/workshop-slots/${encodeURIComponent(slotId)}`, 'PATCH', body, key),
     listSessions: query => http('/api/v1/workshop-sessions', { query }),
     createSession: (body, key) => command('/api/v1/workshop-sessions', 'POST', body, key),
+    // 003.2 T108: BulkSessionRequest → BulkGenerationResult { createdSessionIds, skippedDuplicates }.
+    bulkCreateSessions: (body, key) => command('/api/v1/workshop-sessions/bulk', 'POST', body, key),
     updateSession: (sessionId, body, key) => command(`/api/v1/workshop-sessions/${encodeURIComponent(sessionId)}`, 'PATCH', body, key),
     transitionSession: (sessionId, targetState, key) => command(`/api/v1/workshop-sessions/${encodeURIComponent(sessionId)}/state-transitions`, 'POST', { targetState }, key),
   };

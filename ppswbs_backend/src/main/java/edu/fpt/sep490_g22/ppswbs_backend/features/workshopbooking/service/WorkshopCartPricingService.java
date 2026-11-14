@@ -78,10 +78,20 @@ public class WorkshopCartPricingService {
         }
         List<PricedLine> priced = new ArrayList<>();
         List<TicketBenefitAllocator.TicketInput> tickets = new ArrayList<>();
+        List<Integer> unavailable = new ArrayList<>();
+        String firstUnavailable = null;
         long gross = 0;
         for (int index = 0; index < lines.size(); index++) {
             LineInput line = lines.get(index);
-            PricedLine pricedLine = priceLine(index, line);
+            PricedLine pricedLine;
+            try {
+                pricedLine = priceLine(index, line);
+            } catch (BookingConflictException ex) {
+                // FR-031: a line that cannot be sold is named, and every such line is reported at once.
+                unavailable.add(index);
+                if (firstUnavailable == null) firstUnavailable = ex.getMessage();
+                continue;
+            }
             priced.add(pricedLine);
             for (int ordinal = 1; ordinal <= pricedLine.participantCount(); ordinal++) {
                 // No voucher scope to honour yet, so every ticket is quoted at its package price.
@@ -93,6 +103,9 @@ public class WorkshopCartPricingService {
             } catch (ArithmeticException ex) {
                 throw new BookingValidationException("The cart total is outside the supported VND range");
             }
+        }
+        if (!unavailable.isEmpty()) {
+            throw new CartHoldRejectedException("CART_LINE_UNAVAILABLE", firstUnavailable, unavailable);
         }
         return new PricedCart(List.copyOf(priced), TicketBenefitAllocator.allocate(tickets, 0, 0, 0), gross);
     }
