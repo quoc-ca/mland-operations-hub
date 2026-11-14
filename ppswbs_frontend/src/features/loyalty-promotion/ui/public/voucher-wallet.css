@@ -1,0 +1,39 @@
+/* Tabs of Kho Voucher (/promotions, by scope) and Voucher của tôi (/me/saved-vouchers, by availability). */
+.voucher-tabs{display:flex;align-items:center;flex-wrap:wrap;gap:4px;margin:16px 0 20px;border-bottom:1px solid #e5e7eb}
+.voucher-tabs button{padding:12px 16px;border:0;border-bottom:3px solid transparent;background:transparent;color:#4b5563;font:inherit;font-size:14px;cursor:pointer;white-space:nowrap}
+.voucher-tabs button:hover{color:#1a1a1a}
+.voucher-tabs button.active{color:#1a1a1a;border-bottom-color:#1a1a1a;font-weight:600}
+.voucher-tab-count{display:inline-block;min-width:20px;margin-left:4px;padding:1px 7px;border-radius:10px;background:#eef1f5;color:#1a1a1a;font-size:12px;text-align:center}
+.voucher-tabs button.active .voucher-tab-count{background:#1a1a1a;color:#fff}
+.voucher-tabs-more{margin-left:auto;padding:8px 4px;font-size:14px}
+.voucher-use-now{align-self:flex-start}
+@media(max-width:600px){.voucher-tabs button{flex:1 1 auto;padding:10px 8px}.voucher-tabs-more{margin-left:0}}
+
+/* Voucher ticket (Kho Voucher list, voucher detail). */
+.voucher-ticket-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px}
+.voucher-ticket{position:relative;display:flex;min-height:150px;background:#fff;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden}
+.voucher-ticket-stub{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;flex:none;width:104px;padding:12px 8px;background:#1a1a1a;color:#fff;text-align:center}
+.voucher-ticket-stub::before{content:"";position:absolute;left:-6px;top:0;bottom:0;width:12px;background:radial-gradient(circle at 0 8px,#f4f5f7 5px,transparent 6px) 0 0/12px 16px repeat-y}
+.voucher-ticket-brand{color:#eedc35;font-size:16px;font-weight:800;letter-spacing:.08em}
+.voucher-ticket-scope{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.voucher-ticket-body{display:flex;flex-direction:column;gap:4px;min-width:0;flex:1;padding:14px 16px}
+.voucher-ticket-discount{margin:0;font-size:18px;font-weight:700;color:#1a1a1a}
+.voucher-ticket-line{margin:0;font-size:14px;color:#1e1e1e}
+.voucher-ticket-name{margin:2px 0 0;font-size:13px;color:#6b7280;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.voucher-ticket-meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;font-size:12px;color:#6b7280}
+.voucher-ticket-code{padding:1px 8px;border:1px dashed #1a1a1a;border-radius:6px;color:#1a1a1a;font-weight:600}
+.voucher-ticket-actions{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-top:auto;padding-top:8px}
+.voucher-ticket .voucher-ticket-actions .status{display:inline-flex;align-items:center;gap:6px;min-width:0;min-height:28px;margin:0;padding:0 12px;border-radius:14px;font-size:13px;font-weight:600;line-height:1}
+.voucher-ticket .voucher-ticket-actions .status .text-link{font-size:13px;font-weight:600;color:inherit;text-decoration:underline;text-underline-offset:2px}
+.voucher-ticket-actions .button{margin:0}
+.voucher-ticket .voucher-ticket-conditions{font-size:13px;font-weight:600;color:#1a1a1a;margin-left:auto;white-space:nowrap}
+.voucher-ticket-out{display:inline-block;padding:6px 14px;border-radius:6px;background:#e5e7eb;color:#6b7280;font-size:13px;font-weight:600}
+.voucher-ticket.is-out .voucher-ticket-stub{background:#9ca3af}
+.voucher-ticket.is-out .voucher-ticket-discount,.voucher-ticket.is-out .voucher-ticket-line{color:#9ca3af}
+.voucher-ticket-stamp{position:absolute;right:14px;top:14px;padding:6px 10px;border:2px solid #d1d5db;border-radius:50%;color:#d1d5db;font-size:12px;font-weight:700;transform:rotate(-18deg);pointer-events:none}
+.voucher-detail{max-width:760px}
+.voucher-detail .voucher-ticket{margin-bottom:20px}
+.voucher-detail-section{padding:20px 0;border-top:1px solid #e5e7eb}
+.voucher-detail-section h2{margin:0 0 8px;font-size:16px;font-weight:600}
+.voucher-detail-section p{margin:0}
+@media(max-width:600px){.voucher-ticket-grid{grid-template-columns:1fr}.voucher-ticket-stub{width:80px}.voucher-ticket-discount{font-size:16px}}

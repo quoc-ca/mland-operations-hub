@@ -387,4 +387,26 @@ class SavedVoucherContractIT {
                 item.path("promotion").path("id").asLong(), item.path("availability").asText()));
         assertThat(availability).containsEntry(full, "NO_USES_LEFT").containsEntry(mine, "MEMBER_LIMIT_REACHED");
     }
+
+    @Test
+    void publicCardsSayWhenAVoucherHasNoUseLeft() throws Exception {
+        // Session 2026-11-14 (FR-011): Kho Voucher shows "Đã hết mã" to everyone, Guests included; held uses count.
+        long full = program(ProgramKind.VOUCHER, TargetScope.PRODUCT, -1, 1, publicProduct);
+        long open = program(ProgramKind.VOUCHER, TargetScope.PRODUCT, -1, 1, publicProduct);
+        long auto = program(ProgramKind.AUTO_DISCOUNT, TargetScope.PRODUCT, -1, 1, publicProduct);
+        transaction.executeWithoutResult(status -> {
+            PromotionProgram program = programs.findById(full).orElseThrow();
+            for (int i = 0; i < 10; i++) {
+                program.hold();
+            }
+            programs.findById(open).orElseThrow().hold();
+        });
+        assertThat(ok(call(get(PUBLIC + "/" + full), null)).path("availability").asText()).isEqualTo("NO_USES_LEFT");
+        assertThat(ok(call(get(PUBLIC + "/" + open), null)).path("availability").asText()).isEqualTo("ACTIVE");
+        assertThat(ok(call(get(PUBLIC + "/" + auto), null)).path("availability").asText()).isEqualTo("ACTIVE");
+        java.util.Map<Long, String> listed = new java.util.HashMap<>();
+        ok(call(get(PUBLIC).param("limit", "100"), null)).path("items").forEach(item ->
+                listed.put(item.path("id").asLong(), item.path("availability").asText()));
+        assertThat(listed).containsEntry(full, "NO_USES_LEFT").containsEntry(open, "ACTIVE");
+    }
 }
