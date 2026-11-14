@@ -17,5 +17,6 @@ WORKDIR /app
 COPY --from=builder /app/target/*.jar app.jar
 COPY firebase-service-account.json* ./
 
+ENV JAVA_OPTS="-XX:+UseG1GC -XX:MaxRAMPercentage=75.0"
 EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]

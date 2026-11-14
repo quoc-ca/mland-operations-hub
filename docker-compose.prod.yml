@@ -1,0 +1,22 @@
+# ==============================================================================
+# Production Docker Compose Override for Deployment
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+# ==============================================================================
+services:
+  backend:
+    restart: always
+    environment:
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+
+  frontend:
+    build:
+      context: ./ppswbs_frontend
+      dockerfile: Dockerfile
+      target: prod
+      args:
+        VITE_API_BASE_URL: ${PROD_API_BASE_URL:-http://localhost:8080}
+    restart: always
+    ports: !override
+      - "${HOST_FE_PORT:-80}:80"
+    volumes: !override []
