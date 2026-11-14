@@ -1,5 +1,11 @@
 # Voucher scope after a ticket change: what 003.3 needs from 006 (FE-06)
 
+> **Status 2026-11-14: implemented.** Owner Feature 003 (Hồ Hoàng Quốc) was authorised to make the 006 change
+> directly. 006 now exposes `LoyaltyFacade.checkTicketVoucherScope(TicketVoucherScopeQuery) → TicketVoucherScope`
+> (contract: `006-loyalty-promotion/contracts/interfaces.md`, Operations). 003.3 `TicketChangeService` uses it
+> instead of its own branch comparison and adds the lost share only to `remainingAmountVnd`. Cases 1–9 below are
+> covered by `TicketVoucherScopeServiceTest`; ERROR-LOG BE-DESIGN-0007 is resolved.
+
 **Raised by:** owner Feature 003 (Hồ Hoàng Quốc), 2026-11-14. **Owner of the
 change:** 006 Loyalty & Promotion (Đặng Thị Khương). **Blocks:** 003.3 T101
 (ticket changes). **Record of the block:** `ppswbs_backend/ERROR-LOG.md`,

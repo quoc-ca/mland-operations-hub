@@ -306,8 +306,12 @@ public class FolioCorrectionService {
                         payment.originalProviderCreateDate(), payment.amountVnd(), payment.currencyCode()));
             }
         }
-        for (SettlementEvidenceConclusion payment : evidence.findByBookingReferenceAndConclusion(
-                bookingReference, "FINAL_PAYMENT_VERIFIED")) {
+        // A ticket folio's VNPay part carries FOLIO_VNPAY_VERIFIED (counted once through its collection); it is
+        // still a real provider payment for this list.
+        for (SettlementEvidenceConclusion payment : java.util.stream.Stream.of("FINAL_PAYMENT_VERIFIED",
+                        FinalPaymentService.FOLIO_VNPAY_VERIFIED)
+                .flatMap(conclusion -> evidence.findByBookingReferenceAndConclusion(bookingReference, conclusion).stream())
+                .toList()) {
             payments.add(new RefundablePayment(payment.getProviderTransactionReference(),
                     payment.getProviderTransactionNumber(), payment.getOriginalProviderCreateDate(),
                     payment.getAmountVnd(), payment.getCurrencyCode()));

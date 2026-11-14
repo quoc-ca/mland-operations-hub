@@ -418,3 +418,15 @@ Task: "T029 Implement AttendanceTicketService.java"
 - The known legacy model is deliberately not a shortcut. The critical review
   found that retaining Booking-owned session/ticket state would recreate a
   circular dependency and allow capacity/attendance divergence.
+
+## Phase 15: Convergence
+
+*Appended 2026-11-14 by `$speckit-converge` (responsible member: Hồ Hoàng Quốc). Each task traces to its source; evidence paths are as observed on `quoc` at `1d49ee05`.*
+
+- [ ] T107 Anchor the attendance-correction window per ticket: `AttendanceCorrectionService.ensureCorrectionWindowOpen` evaluates the ticket's own sessions (`findActiveByTicketReference`) instead of the booking, so no correction is accepted after that ticket's `TicketAttendanceFinalizedEvent`; fix the "booking-wide" comment in `AttendanceCorrectionWindowPolicy`; MySQL IT with two tickets of one line per FR-032 (contradicts)
+- [ ] T108 Add a Manager bulk session generation form to `OperationsAdministrationPage` (location, slots, date range, weekdays, initial state) calling `POST /api/v1/workshop-sessions/bulk` and showing created and skipped combinations per US1, FR-001f (missing)
+- [ ] T109 Move `WorkshopLoyaltyOutcomeProcessor` (003.3) off the deprecated `BookingAttendanceOutcome` — its adapter always returns `pending()` — onto the per-ticket `getTicketAttendanceOutcome`, then delete `BookingAttendanceOutcome` from the 003.2 facade; evidence: compile, Modulith, `WorkshopLoyaltyOutcomeProcessorTest` per FR-032 removal (contradicts)
+- [ ] T110 Keep the failing line indexes when a rejected ticket session replacement is replayed: store them in the idempotency `responsePayload` in `TicketSessionReplacementService.finish` and restore them in `reconstruct`, with a replay test per FR-010kb (partial)
+- [ ] T111 Add optional `initialState` (DRAFT/PUBLISHED, default DRAFT) to individual session creation (`SessionRequest`, OpenAPI, `WorkshopSessionService`), validated as in bulk creation per FR-001i (partial)
+- [ ] T112 Add a Manager session-edit action (capacity, check-in opening override, slot/location while uncommitted) calling `PATCH /api/v1/workshop-sessions/{id}`, showing the capacity-below-commitments refusal and the stale-version conflict with reload per US1, FR-001a, FR-005b (missing)
+- [ ] T113 Add a Manager reschedule-quota control to `OperationsSessionPage` showing effective, overridden and used values and calling `PUT /api/v1/workshop-sessions/{id}/reschedule-quota` (null restores the default, 0 closes it; reason and Idempotency-Key required) per FR-035 (missing)

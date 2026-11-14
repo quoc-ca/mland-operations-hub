@@ -2,6 +2,11 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service;
 
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorRole;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.CurrentAccountActor;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.LoyaltyFacade;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.SourceKind;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.TicketVoucherScope;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.TicketVoucherScopeQuery;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.WorkshopSessionFact;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.ConsumeBuyerProofCommand;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.ConsumeBuyerProofResult;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.TicketFolioContext;
@@ -52,6 +57,7 @@ public class TicketChangeService {
     private final SettlementTicketChangeRepository changeRepository;
     private final FolioBalanceService folioBalanceService;
     private final SettlementBusinessAuditRepository auditRepository;
+    private final LoyaltyFacade loyalty;
 
     @Transactional
     public ChangeResultDto changeTicketSessions(String ticketCode,
@@ -160,22 +166,7 @@ public class TicketChangeService {
         }
 
         // 7. Price effect evaluation (FR-045)
-        long priceIncreaseAmount = 0L;
-        if (ctx.voucherDiscountVnd() > 0) {
-            boolean outsideVoucherScope = false;
-            for (UUID targetRef : request.targetSessionReferences()) {
-                SaleEligibilitySnapshot snap = operations.saleEligibility(targetRef);
-                if (snap != null && snap.locationReference() != null
-                        && ctx.locationReference() != null
-                        && !snap.locationReference().equals(ctx.locationReference())) {
-                    outsideVoucherScope = true;
-                    break;
-                }
-            }
-            if (outsideVoucherScope) {
-                priceIncreaseAmount = ctx.voucherDiscountVnd();
-            }
-        }
+        long priceIncreaseAmount = lostVoucherShare(ticket, ctx, request.targetSessionReferences());
 
         FolioBalanceService.FolioBalance currentBalance = folioBalanceService.balanceOf(folio);
 
@@ -225,8 +216,9 @@ public class TicketChangeService {
 
         // 10. Apply price increase to folio if confirmed
         if (priceIncreaseAmount > 0) {
+            // FR-045 + FR-030: the increase goes to the ticket's checkout balance only; the folio's base and
+            // post-promotion amounts stay as 003.1 snapshotted them.
             folio.setRemainingAmountVnd(Math.addExact(folio.getRemainingAmountVnd(), priceIncreaseAmount));
-            folio.setPostPromotionAmountVnd(Math.addExact(folio.getPostPromotionAmountVnd(), priceIncreaseAmount));
             finalBills.save(folio);
             recordAudit(ticket, "TICKET_CHANGE_PRICE_INCREASE", correlation, requesterAccountId, requesterRole);
         }
@@ -352,6 +344,29 @@ public class TicketChangeService {
                 .actorReference(actorId != null ? String.valueOf(actorId) : role)
                 .correlationReference(correlation)
                 .build());
+    }
+
+    /**
+     * FR-045 (BE-DESIGN-0007, decided 2026-11-14): 006 decides whether the ticket with its proposed sessions leaves the
+     * accepted voucher's scope (package, branch, date, session; every session must match) and returns the ticket's
+     * allocated share it then loses. 003.3 neither reads voucher targets nor recomputes the share. A ticket with no
+     * programme discount has nothing to lose; an automatic discount is never lost (006 answers no voucher).
+     */
+    private long lostVoucherShare(String ticketCode, TicketFolioContext ctx, List<UUID> targetSessions) {
+        if (ctx.voucherDiscountVnd() <= 0) {
+            return 0L;
+        }
+        List<WorkshopSessionFact> proposed = targetSessions.stream().map(reference -> {
+            SaleEligibilitySnapshot snap = operations.saleEligibility(reference);
+            if (snap == null || snap.locationReference() == null || snap.workshopDate() == null) {
+                throw new WorkshopSettlementConflictException("INVALID_REPLACEMENT");
+            }
+            return WorkshopSessionFact.of(reference.toString(), snap.locationReference(), snap.workshopDate());
+        }).toList();
+        String partRef = ctx.partRef() != null ? ctx.partRef() : ticketCode;
+        TicketVoucherScope scope = loyalty.checkTicketVoucherScope(new TicketVoucherScopeQuery(SourceKind.WORKSHOP,
+                ctx.groupCode(), partRef, Long.parseLong(ctx.packageReference()), proposed));
+        return scope.lostDiscount().longValueExact();
     }
 }
 

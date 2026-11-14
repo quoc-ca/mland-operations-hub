@@ -3,6 +3,10 @@ package edu.fpt.sep490_g22.ppswbs_backend.workshopsettlement;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorRole;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.CurrentAccountActor;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.LoyaltyFacade;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.SourceKind;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.TicketVoucherScope;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.TicketVoucherScopeQuery;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.ConsumeBuyerProofResult;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.TicketFolioContext;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.WorkshopBookingFacade;
@@ -37,6 +41,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Instant;
+import java.math.BigInteger;
+import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
@@ -63,6 +69,8 @@ class TicketChangeServiceTest {
     private FolioBalanceService folioBalanceService;
     @Mock
     private SettlementBusinessAuditRepository auditRepository;
+    @Mock
+    private LoyaltyFacade loyalty;
 
     private TicketChangeService service;
 
@@ -85,7 +93,8 @@ class TicketChangeServiceTest {
                 finalBills,
                 changeRepository,
                 folioBalanceService,
-                auditRepository
+                auditRepository,
+                loyalty
         );
     }
 
@@ -94,7 +103,7 @@ class TicketChangeServiceTest {
                 TICKET_CODE,
                 GROUP_CODE,
                 "L1",
-                "PKG-01",
+                "7",
                 10L,
                 List.of("session-1", "session-2"),
                 BUYER_ACCOUNT_ID,
@@ -306,9 +315,11 @@ class TicketChangeServiceTest {
         // Target session is at location 20L (different branch -> out of voucher scope)
         SaleEligibilitySnapshot targetSessionSnap = new SaleEligibilitySnapshot(
                 TARGET_SESSION_1, true, "ACTIVE", 20L, Instant.now().plus(48, ChronoUnit.HOURS),
-                Instant.now().plus(50, ChronoUnit.HOURS), 5, null
+                Instant.now().plus(50, ChronoUnit.HOURS), 5, LocalDate.now().plusDays(2)
         );
         when(operations.saleEligibility(TARGET_SESSION_1)).thenReturn(targetSessionSnap);
+        // 006 decides scope (BE-DESIGN-0007): the ticket leaves the voucher's scope and loses its 50,000 share.
+        when(loyalty.checkTicketVoucherScope(any())).thenReturn(new TicketVoucherScope(true, false, BigInteger.valueOf(50_000L)));
 
         when(folioBalanceService.balanceOf(folio)).thenReturn(new FolioBalanceService.FolioBalance(100_000L, 0L, 100_000L));
 
@@ -348,9 +359,11 @@ class TicketChangeServiceTest {
 
         SaleEligibilitySnapshot targetSessionSnap = new SaleEligibilitySnapshot(
                 TARGET_SESSION_1, true, "ACTIVE", 20L, Instant.now().plus(48, ChronoUnit.HOURS),
-                Instant.now().plus(50, ChronoUnit.HOURS), 5, null
+                Instant.now().plus(50, ChronoUnit.HOURS), 5, LocalDate.now().plusDays(2)
         );
         when(operations.saleEligibility(TARGET_SESSION_1)).thenReturn(targetSessionSnap);
+        // 006 decides scope (BE-DESIGN-0007): the ticket leaves the voucher's scope and loses its 50,000 share.
+        when(loyalty.checkTicketVoucherScope(any())).thenReturn(new TicketVoucherScope(true, false, BigInteger.valueOf(50_000L)));
 
         when(folioBalanceService.balanceOf(any())).thenReturn(
                 new FolioBalanceService.FolioBalance(100_000L, 0L, 100_000L), // before
@@ -375,13 +388,68 @@ class TicketChangeServiceTest {
         assertThat(result.balanceDue()).isEqualTo("150000");
         assertThat(result.countedChange()).isTrue();
 
-        // 50,000 VND added to folio remaining and postPromotion amount
+        // FR-045 + FR-030: 50,000 VND goes to the checkout balance only; the snapshot amount is untouched.
         assertThat(folio.getRemainingAmountVnd()).isEqualTo(150_000L);
-        assertThat(folio.getPostPromotionAmountVnd()).isEqualTo(250_000L);
+        assertThat(folio.getPostPromotionAmountVnd()).isEqualTo(200_000L);
         verify(finalBills).save(folio);
 
         verify(operations).replaceTicketSessions(any());
         verify(changeRepository).save(argThat(c -> c.getPriceIncreaseAmountVnd() == 50_000L && c.isBuyerConfirmedIncrease()));
+    }
+
+    @Test
+    @DisplayName("changeTicketSessions: 006 says the ticket stays in scope (e.g. a branch-free voucher moved to another branch) -> no increase")
+    void voucherStaysInScope_perLoyalty_noIncreaseAndQueryCarriesTheTicket() {
+        TicketFolioContext ctx = createDefaultContext(50_000L, Instant.now().plus(48, ChronoUnit.HOURS));
+        when(booking.getTicketFolioContext(TICKET_CODE)).thenReturn(Optional.of(ctx));
+        SettlementFinalBill folio = createDefaultFolio(100_000L);
+        when(finalBills.findByBookingReference(TICKET_CODE)).thenReturn(Optional.of(folio));
+        when(changeRepository.countByTicketCodeAndCountedTrueAndAppliedTrue(TICKET_CODE)).thenReturn(0L);
+        when(changeRepository.countByTicketCodeAndChangeTypeAndAppliedTrue(TICKET_CODE, "MANAGER_GRANTED")).thenReturn(0L);
+        LocalDate day = LocalDate.now().plusDays(2);
+        when(operations.saleEligibility(TARGET_SESSION_1)).thenReturn(new SaleEligibilitySnapshot(
+                TARGET_SESSION_1, true, "ACTIVE", 20L, Instant.now().plus(48, ChronoUnit.HOURS),
+                Instant.now().plus(50, ChronoUnit.HOURS), 5, day));
+        when(loyalty.checkTicketVoucherScope(any())).thenReturn(new TicketVoucherScope(true, true, BigInteger.ZERO));
+        when(folioBalanceService.balanceOf(any())).thenReturn(new FolioBalanceService.FolioBalance(100_000L, 0L, 100_000L));
+        when(operations.replaceTicketSessions(any())).thenReturn(TicketSessionReplacementOutcome.accepted());
+
+        CurrentAccountActor memberActor = new CurrentAccountActor(BUYER_ACCOUNT_ID, ActorRole.MEMBER, ActorStatus.ACTIVE, false, List.of(10L));
+        ChangeResultDto result = service.changeTicketSessions(TICKET_CODE, new TicketChangeRequestDto(
+                TicketChangeType.ADVANCE, List.of(TARGET_SESSION_1), null, null, null), IDEMPOTENCY_KEY, "CORR-SCOPE", memberActor);
+
+        assertThat(result.applied()).isTrue();
+        assertThat(result.priceIncreaseAmount()).isEqualTo("0");
+        assertThat(folio.getRemainingAmountVnd()).isEqualTo(100_000L);
+        ArgumentCaptor<TicketVoucherScopeQuery> query = ArgumentCaptor.forClass(TicketVoucherScopeQuery.class);
+        verify(loyalty).checkTicketVoucherScope(query.capture());
+        assertThat(query.getValue().sourceKind()).isEqualTo(SourceKind.WORKSHOP);
+        assertThat(query.getValue().sourceRef()).isEqualTo(GROUP_CODE);
+        assertThat(query.getValue().ticketRef()).isEqualTo("L1-T1");
+        assertThat(query.getValue().packageId()).isEqualTo(7L);
+        assertThat(query.getValue().proposedSessions()).singleElement().satisfies(session -> {
+            assertThat(session.sessionRef()).isEqualTo(TARGET_SESSION_1.toString());
+            assertThat(session.branchId()).isEqualTo(20L);
+            assertThat(session.workshopDate()).isEqualTo(day);
+        });
+    }
+
+    @Test
+    @DisplayName("changeTicketSessions: a ticket with no programme discount never asks 006")
+    void noProgrammeDiscount_doesNotAskLoyalty() {
+        TicketFolioContext ctx = createDefaultContext(0L, Instant.now().plus(48, ChronoUnit.HOURS));
+        when(booking.getTicketFolioContext(TICKET_CODE)).thenReturn(Optional.of(ctx));
+        when(finalBills.findByBookingReference(TICKET_CODE)).thenReturn(Optional.of(createDefaultFolio(100_000L)));
+        when(changeRepository.countByTicketCodeAndCountedTrueAndAppliedTrue(TICKET_CODE)).thenReturn(0L);
+        when(changeRepository.countByTicketCodeAndChangeTypeAndAppliedTrue(TICKET_CODE, "MANAGER_GRANTED")).thenReturn(0L);
+        when(folioBalanceService.balanceOf(any())).thenReturn(new FolioBalanceService.FolioBalance(100_000L, 0L, 100_000L));
+        when(operations.replaceTicketSessions(any())).thenReturn(TicketSessionReplacementOutcome.accepted());
+
+        CurrentAccountActor memberActor = new CurrentAccountActor(BUYER_ACCOUNT_ID, ActorRole.MEMBER, ActorStatus.ACTIVE, false, List.of(10L));
+        service.changeTicketSessions(TICKET_CODE, new TicketChangeRequestDto(
+                TicketChangeType.ADVANCE, List.of(TARGET_SESSION_1), null, null, null), IDEMPOTENCY_KEY, "CORR-NOV", memberActor);
+
+        verifyNoInteractions(loyalty);
     }
 
     @Test

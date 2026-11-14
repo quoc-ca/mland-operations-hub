@@ -89,7 +89,6 @@ class LatePaymentReviewIT {
     @MockBean private AccountFacade accountFacade;
     @MockBean private TokenVerificationService tokenVerificationService;
     @MockBean private VnpayMerchantOperationsPort vnpay;
-    @MockBean private edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.ManagerAlertRecipientSource managerRecipients;
 
     private WorkshopLocation location;
     private Long packageId;
@@ -172,7 +171,8 @@ class LatePaymentReviewIT {
     void lateBeyondWindow_queuesForManager_withAlertAndDeadline() throws Exception {
         WorkshopSession session = session(Duration.ofHours(10), 10);
         Fixture group = pendingGroup(session, 1, Duration.ofMinutes(90), BUYER_EMAIL);
-        when(managerRecipients.activeManagerEmails()).thenReturn(List.of("m1@mland.test", " M1@mland.test", "m2@mland.test"));
+        // FE-001 AccountFacade.listActiveManagerEmails() reaches the review through the real recipient source.
+        when(accountFacade.listActiveManagerEmails()).thenReturn(List.of("m1@mland.test", " M1@mland.test", "m2@mland.test"));
 
         apply(group);
 
@@ -391,6 +391,22 @@ class LatePaymentReviewIT {
         LatePaymentReview review = onlyReview();
         assertThat(review.getOutcome()).isEqualTo(LatePaymentReview.PENDING_MANAGER);
         assertThat(review.getFailedConditions()).contains("AMOUNT");
+    }
+
+    @Test
+    @DisplayName("T094-10: no active Manager in FE-001 -> review queued, payer email sent, no alert email, no error")
+    void noActiveManager_queuesWithoutAlertEmail() {
+        WorkshopSession session = session(Duration.ofHours(10), 10);
+        Fixture group = pendingGroup(session, 1, Duration.ofMinutes(90), BUYER_EMAIL);
+        when(accountFacade.listActiveManagerEmails()).thenReturn(List.of());
+
+        apply(group);
+
+        assertThat(onlyReview().getOutcome()).isEqualTo(LatePaymentReview.PENDING_MANAGER);
+        assertThat(intents.findByGroupIdOrderByCreatedAtAsc(group.id()))
+                .extracting(BookingGroupNotificationIntent::getNotificationKind)
+                .containsExactly(GroupNotificationService.KIND_LATE_PAYMENT_PENDING);
+        assertThat(events.stream(LatePaymentReviewQueued.class)).hasSize(1);
     }
 
     // ------------------------------------------------------------------ helpers

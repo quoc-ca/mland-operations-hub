@@ -143,6 +143,50 @@ class WorkshopSettlementEvidenceConsumerTest {
 
         assertThat(result.status()).isEqualTo(SettlementPaymentEvidenceOutcome.Status.ACCEPTED);
         verify(folioCollections).confirmGatewayCollection("FINAL-BK-1-1", 75_000L, "CORR-1");
+        // 003.3 T107: the folio's VNPay money is counted through the collection only, so its evidence row must not
+        // carry FINAL_PAYMENT_VERIFIED, which FolioBalanceService and the refund caps would add a second time.
+        verify(evidence).saveAndFlush(argThat(row -> FinalPaymentService.FOLIO_VNPAY_VERIFIED.equals(row.getConclusion())));
+    }
+
+    @Test void exactReplayOfAFolioVnpayEvidenceIsIdempotentlyAccepted() {
+        var existing = edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementEvidenceConclusion.builder()
+                .evidenceReference("EV-1").bookingReference("BK-1").providerTransactionReference("FINAL-BK-1-1")
+                .conclusion(FinalPaymentService.FOLIO_VNPAY_VERIFIED).amountVnd(75_000L).currencyCode("VND")
+                .operationReference("OP-1").build();
+        when(evidence.findByOperationReference("OP-1")).thenReturn(Optional.of(existing));
+
+        SettlementPaymentEvidenceOutcome result = facade.applyVerifiedSettlementPaymentEvidence(command("FINAL_PAYMENT", 75_000L));
+
+        assertThat(result.status()).isEqualTo(SettlementPaymentEvidenceOutcome.Status.ACCEPTED);
+        verify(folioCollections, never()).confirmGatewayCollection(any(), anyLong(), any());
+        verify(evidence, never()).saveAndFlush(any());
+    }
+
+    @Test void aPartialVnpayPartPlusCashClearsTheFolioOnlyAtTheFullAmount() {
+        var balances = new edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.FolioBalanceService(
+                charges, evidence, collections);
+        SettlementFinalBill folio = openBill(); // 75,000 VND left at checkout
+        var vnpay = SettlementFolioCollection.builder().collectionReference("COL-V").billReference("BILL-1")
+                .method(FolioCollectionMethod.VNPAY).externalReference("FINAL-BK-1-1").amountVnd(40_000L)
+                .status(edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.FolioCollectionStatus.CONFIRMED)
+                .build();
+        var vnpayEvidence = edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementEvidenceConclusion.builder()
+                .bookingReference("BK-1").conclusion(FinalPaymentService.FOLIO_VNPAY_VERIFIED).amountVnd(40_000L).build();
+        when(charges.findByBillReferenceAndLifecycleStatusOrderByIdAsc("BILL-1", "CONFIRMED")).thenReturn(List.of());
+        when(evidence.findByBookingReferenceAndConclusion("BK-1", "FINAL_PAYMENT_VERIFIED")).thenReturn(List.of());
+        when(evidence.findByBookingReferenceAndConclusion("BK-1", FinalPaymentService.FOLIO_VNPAY_VERIFIED))
+                .thenReturn(List.of(vnpayEvidence));
+        when(collections.findByBillReferenceOrderByIdAsc("BILL-1")).thenReturn(List.of(vnpay));
+
+        assertThat(balances.balanceOf(folio).balanceDue()).isEqualTo(35_000L);
+
+        var cash = SettlementFolioCollection.builder().collectionReference("COL-C").billReference("BILL-1")
+                .method(FolioCollectionMethod.CASH).amountVnd(35_000L)
+                .status(edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.FolioCollectionStatus.CONFIRMED)
+                .build();
+        when(collections.findByBillReferenceOrderByIdAsc("BILL-1")).thenReturn(List.of(vnpay, cash));
+
+        assertThat(balances.balanceOf(folio).balanceDue()).isZero();
     }
 
     private static SettlementFinalBill openBill() {
