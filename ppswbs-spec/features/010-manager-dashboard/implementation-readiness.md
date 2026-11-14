@@ -31,8 +31,8 @@ every profile and reads committed facts through the reporting-owned read-only
 
 | Source | Fact | Period key |
 | --- | --- | --- |
-| RETAIL | `retail_orders` `PAID`; revenue = payable − shipping; count of branch orders | `retail_orders.paid_at` (FE-08 V131) |
+| RETAIL | `retail_orders` `PAID`; revenue = payable − shipping; count of branch orders | `retail_orders.paid_at` (FE-08 V136) |
 | WORKSHOP_REVENUE | `settlement_final_bills` `FINALIZED`; post-promotion + confirmed charges | `FOLIO_FINALIZED` audit, else latest confirmed payment |
 | WORKSHOP_CAPACITY / ATTENDANCE | `workshop_sessions` `ATTENDANCE_FINALIZED`; capacity and `CHECKED_IN` entitlements | session scheduled start |
 
-FE-10 adds no migration of its own. V131 belongs to FE-08 (retail).
+FE-10 adds no migration of its own. V136 belongs to FE-08 (retail).

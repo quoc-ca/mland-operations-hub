@@ -30,7 +30,7 @@ earlier). The code differs from the planned file names, as follows:
   modules, reporting owns `reporting/source/ReportingSourcePort.java` with the
   read-only `JdbcReportingSourceAdapter.java`. This follows the FE-11
   review-eligibility precedent. Each query aggregates per branch in MySQL. The
-  FE-08 owner adds `retail_orders.paid_at` (V131). FE-03 (Quoc) reviews the
+  FE-08 owner adds `retail_orders.paid_at` (V136). FE-03 (Quoc) reviews the
   workshop queries.
 - Composition and quality (T029, T036–T040): `reporting/service/ExecutiveReportService.java`
   and `ReportSourceQuality.java`. Errors go through `ReportingException.java`
