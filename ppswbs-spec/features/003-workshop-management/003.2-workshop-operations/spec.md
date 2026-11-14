@@ -247,7 +247,7 @@ answers are marked inline.)*
 
 - Q: Which operational states does a session use? → A: The lifecycle is `DRAFT → PUBLISHED → SALES_PAUSED → IN_PROGRESS → ATTENDANCE_FINALIZED`; sales may resume from `SALES_PAUSED`, and `CANCELLATION_REQUESTED` is a pre-finalization cancellation branch.
 - Q: When may a customer check in? → A: A valid ticket may be checked in only at or after the Manager-configured `check_in_opens_at`, whose default is 60 minutes before the session start, while the session is `PUBLISHED` or `IN_PROGRESS`. There is no automatic check-in closing time; check-in ends when attendance is finalized.
-- Q: May Manager directly change the slot or branch of a session with confirmed tickets or unexpired payment holds? → A: No. Direct slot/branch changes are allowed only when neither exists. Otherwise Manager uses `CANCELLATION_REQUESTED`, and feature 003.3 resolves customer notification, reschedule/refund and ticket consequences with audit.
+- Q: May Manager directly change the slot or branch of a session with confirmed tickets or unexpired payment holds? → A: No. Direct slot/branch changes are allowed only when neither exists. Otherwise Manager uses `CANCELLATION_REQUESTED`, and feature 003.3 resolves customer notification, reschedule/refund and ticket consequences with audit. *(Deferred in V1, 2026-11-15, see T112: direct slot/branch change of an existing session is not offered; it is refused with 400.)*
 - Q: How must exceptional operational actions record their audit reason? → A: Check-in override, finalized-attendance correction and session cancellation request require a standardized reason code. A short note or evidence reference is optional or required by the chosen reason code.
 - Q: What customer information may Staff see during ticket or booking lookup? → A: Check-in displays only ticket code, session/branch, ticket status and check-in result. Booking lookup displays its tickets and their used/unused status; it does not expose the booking contact's full email or phone number.
 
@@ -275,7 +275,7 @@ answers are marked inline.)*
 
 ### Session 2026-10-24
 
-- Q: What happens to `check_in_opens_at` when Manager changes a session's configured slot? → A: A default value becomes 60 minutes before the new slot start time. A Manager-set override remains unchanged, but the system must show its old check-in time and a warning before saving the slot change so Manager can keep it or adjust it; the acknowledgement is audited.
+- Q: What happens to `check_in_opens_at` when Manager changes a session's configured slot? → A: A default value becomes 60 minutes before the new slot start time. A Manager-set override remains unchanged, but the system must show its old check-in time and a warning before saving the slot change so Manager can keep it or adjust it; the acknowledgement is audited. *(Deferred in V1, 2026-11-15, see FR-005b and T112: the slot change itself is out of V1, so this recompute and acknowledgement are not live behaviour.)*
 - Q: Is there a session operational-lead role? → A: No. V1 gives every active Manager global Workshop Operations authority; no lead assignment or handover is required.
 - Q: How is a session cancelled when it has no confirmed ticket or unexpired payment hold? → A: Manager transitions it directly to terminal `CANCELLED` with audit. Only a session with either commitment enters `CANCELLATION_REQUESTED` and the feature-003.3 handoff.
 
@@ -735,7 +735,10 @@ auto-starts the eligible published session and records a system audit event. An 
 location or any active Manager may issue an explicit early-start/recovery
 command. The Manager may directly change a session's slot or location only
 when it has neither confirmed tickets nor unexpired payment capacity holds;
-otherwise the Manager must use the `CANCELLATION_REQUESTED` handoff. During
+otherwise the Manager must use the `CANCELLATION_REQUESTED` handoff.
+*(Deferred in V1, 2026-11-15, Hồ Hoàng Quốc, see T112: slot, location and date
+of an existing session are not changed at all; the PATCH refuses them with 400.)*
+During
 `IN_PROGRESS`, optional Staff roster changes are informational/audited only and
 do not grant or revoke authority.
 
@@ -1022,6 +1025,9 @@ correction, with before/after audit evidence.
   default the chosen state to `DRAFT` when none is supplied.
 - **FR-001a**: The system MUST reject a capacity reduction below confirmed
   attendance tickets plus unexpired payment capacity holds for that session.
+  *(Decided 2026-11-15, Hồ Hoàng Quốc, T112: `PATCH /workshop-sessions/{id}`
+  carries and checks `version`; a mismatch returns 409
+  `OPTIMISTIC_LOCK_CONFLICT`.)*
 - **FR-002**: The system MUST create exactly one check-in record per ticket per
   session and MUST NOT create a second check-in record/action for a repeated
   normal scan.
@@ -1100,13 +1106,16 @@ correction, with before/after audit evidence.
 - **FR-005a**: The system MUST default `check_in_opens_at` to 60 minutes before
   session start and allow Manager to configure it per session only while the
   session is `DRAFT`, `PUBLISHED` or `SALES_PAUSED`; it MUST lock the value when
-  the session enters `IN_PROGRESS`.
+  the session enters `IN_PROGRESS`. *(Note 2026-11-15: with the FR-005b slot
+  change deferred in V1, recording default versus override is the only
+  remaining FR-005a/FR-005b behaviour.)*
 - **FR-005b**: The system MUST record whether `check_in_opens_at` is default or
   Manager-overridden. When Manager changes a session's configured slot, it MUST
   recompute a default value to 60 minutes before the new slot start time. For an
   override, it MUST preserve the value and display the old check-in time plus a
-  warning before saving, allowing Manager to keep or adjust it; it MUST audit
-  the Manager acknowledgement and resulting values.
+  warning before saving, allowing Manager to keep or adjust it; [it MUST audit
+  the Manager acknowledgement and resulting values *(deferred in V1, not V1
+  scope, 2026-11-15)*].
   *(Decided 2026-11-15, Hồ Hoàng Quốc: V1 does not change the slot, location or
   date of an existing session (T112), so the slot-change recompute, warning and
   acknowledgement are deferred with that capability and `SessionWrite` carries
@@ -1282,7 +1291,10 @@ correction, with before/after audit evidence.
   *(Superseded part, 2026-11-12/14: "a booking/package context" and "every
   required session" now mean one ticket and that ticket's sessions (FR-032);
   the booking-wide `BookingSettlementReadinessQuery` remains only until 003.3
-  T106 leaves no caller (T097). The no-detail and no-derivation rules still
+  T106 leaves no caller (T097). *(Updated 2026-11-15: T097 is complete and
+  removed the booking-wide types except `BookingSettlementReadinessQuery`,
+  kept only for `hasBookingServiceStarted` and `isStaffAssignedToBooking`.)*
+  The no-detail and no-derivation rules still
   hold.)*
 - **FR-010x** *(superseded in part 2026-11-12 by FR-034)*: For a 003.3-requested complete required-session replacement,
   every target session MUST be future, `PUBLISHED`, customer-selectable and
@@ -1297,7 +1309,8 @@ correction, with before/after audit evidence.
   quota check for customer changes (FR-034/FR-035, T094/T095). The all-or-none
   rule, target eligibility and the `SALES_PAUSED` rule still hold. The
   booking-wide `ReplaceRequiredSessionsCommand` remains only until no caller is
-  left (T097).)*
+  left (T097).)* *(Updated 2026-11-15: T097 is complete and the booking-wide
+  `ReplaceRequiredSessionsCommand` is removed.)*
 - **FR-010y** *(superseded in part 2026-11-12 by FR-034 (late-arrival exception))*: An ordinary 003.3-requested customer session change MUST accept
   a source required session only while it is future and not `IN_PROGRESS`,
   `ATTENDANCE_FINALIZED`, `CANCELLATION_REQUESTED` or `CANCELLED`. It MUST NOT
@@ -1308,13 +1321,17 @@ correction, with before/after audit evidence.
   replaced when the replacement starts no later than the old end + 7 days
   (T094, `CUSTOMER_LATE_ARRIVAL`). The other source states and the
   no-history-rewrite rule still hold.)*
-- **FR-010z**: When a complete required-session replacement succeeds, this
+- **FR-010z** *(superseded in part 2026-11-12 by FR-034, noted 2026-11-15)*: When a complete required-session replacement succeeds, this
   feature MUST update every affected ticket's entitlement to the resulting
   required-session set and transfer the booking's complete participant capacity
   from replaced sessions to replacement sessions as the same all-or-none result.
   The persistent ticket QR MUST remain unchanged; this feature MUST NOT issue a
   replacement ticket or retain entitlement/capacity in a replaced session.
-- **FR-010aa**: This feature MUST provide 003.1 an authorized, read-only,
+  *(Superseded part, 2026-11-12: "complete required-session replacement" and
+  "the booking's complete participant capacity" become per-ticket replacement of
+  the selected tickets, one seat per ticket per target (FR-034, T094). The
+  unchanged QR and no-replacement-ticket rules still hold.)*
+- **FR-010aa** *(superseded in part 2026-11-12 by FR-034, noted 2026-11-15)*: This feature MUST provide 003.1 an authorized, read-only,
   current delivery-safe ticket/session-entitlement projection for booking and
   Magic-Link reads. Following a successful required-session replacement or a
   verified-refund consequence, that projection MUST reflect the resulting
@@ -1329,6 +1346,9 @@ correction, with before/after audit evidence.
 - **FR-011**: The system MUST reject a direct session slot or location change
   whenever confirmed tickets or unexpired payment capacity holds exist; Manager
   MUST use the audited `CANCELLATION_REQUESTED` handoff instead.
+  *(Deferred in V1, 2026-11-15, see T112: a direct slot, location or date change
+  of an existing session is refused unconditionally with 400, with or without
+  tickets or holds.)*
 - **FR-012**: The system MUST grant an active Manager global Workshop Operations
   authority across all locations and sessions. Staff authority MUST remain
   limited to sessions whose location is in the Staff actor's active location

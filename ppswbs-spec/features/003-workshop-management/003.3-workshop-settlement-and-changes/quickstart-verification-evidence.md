@@ -1,9 +1,14 @@
 # Quickstart Verification Evidence: Workshop Settlement and Changes
 
 **Date created**: 2026-11-01
-**Date updated**: 2026-11-01
+**Date updated**: 2026-11-15
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
+
+> **Historical evidence (2026-11-15):** recorded 2026-11-01 for the booking-wide
+> suites on an early schema (through V53). Those classes and routes were
+> replaced by the per-ticket model (T097–T125). Credentials were redacted on
+> 2026-11-15; set them from `.env`, never in this document.
 
 This document records the actual non-production verification results for
 [quickstart.md](./quickstart.md) on the dedicated MySQL test database
@@ -23,7 +28,7 @@ or data deletion, adhering to the project integrity policies.
 ```powershell
 $env:WORKSHOP_OPERATIONS_TEST_JDBC_URL = 'jdbc:mysql://localhost:3306/ppswbs_workshop_test_20261029?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC'
 $env:WORKSHOP_OPERATIONS_TEST_JDBC_USER = 'root'
-$env:WORKSHOP_OPERATIONS_TEST_JDBC_PASSWORD = 'sa123456'
+$env:WORKSHOP_OPERATIONS_TEST_JDBC_PASSWORD = '<set in .env>'
 mvn -f ppswbs_backend/pom.xml test "-Dtest=WorkshopSettlementContractIT,SettlementPaymentEvidenceIT,MlandCancellationRemedyIT,CustomerCancellationIT,RequiredSessionChangeIT,WorkshopSettlementModuleTest,WorkshopSettlementEvidenceConsumerTest,CustomerBookingCancellationServiceTest,FinalBookingBillServiceTest,MlandCancellationRemedyServiceTest,RequiredSessionChangeServiceTest,SettlementDtoValidationTest,SettlementIdempotencyServiceTest,SettlementNotificationEventDispatcherTest,SettlementNotificationHandoffServiceTest,SettlementNotificationPayloadFacadeTest,VariableChargeServiceTest,WorkshopRefundServiceTest,WorkshopSettlementAuthorizationServiceTest"
 ```
 

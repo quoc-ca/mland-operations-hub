@@ -1,7 +1,7 @@
 # Data Model: Workshop Operations
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-14
+**Date updated**: 2026-11-15
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -107,7 +107,9 @@ Constraints:
 - unique `(location_id, workshop_date, slot_id)`;
 - capacity is at least one;
 - start must precede end;
-- no direct location/slot change once confirmed tickets or unexpired holds exist;
+- no direct location/slot change once confirmed tickets or unexpired holds exist
+  *(deferred in V1, see T112, 2026-11-15: a slot, location or date change of an
+  existing session is refused unconditionally with 400)*;
 - only `PUBLISHED` accepts new holds; state rules are in the specification.
 
 ### Optional SessionStaffRoster
@@ -188,7 +190,7 @@ the persistent QR remains the same. Failure changes neither capacity nor
 entitlement. Individual attendance detail, ticket detail, Staff/audit and PII
 are never returned for this purpose.
 
-**Booking attendance outcome (FR-014, owner decisions D2/D3, 2026-11-05):**
+**Booking attendance outcome (FR-014, owner decisions D2/D3, 2026-11-05) *(superseded 2026-11-14 by FR-032, BE-DESIGN-0004, V140; see the note below)*:**
 Operations also owns a booking-level attendance outcome
 (`terminal`, `outcome` = `ATTENDED`, `NO_SHOW` or `PARTIAL`) exposed by
 `BookingAttendanceOutcomeQuery`, and a durable reference-only post-commit

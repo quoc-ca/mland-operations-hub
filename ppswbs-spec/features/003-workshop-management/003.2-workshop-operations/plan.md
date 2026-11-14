@@ -1,7 +1,7 @@
 # Implementation Plan: Workshop Operations
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-14
+**Date updated**: 2026-11-15
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -515,6 +515,10 @@ verifies it.
 `BookingCancellationEligibilityQuery`, `ReplaceRequiredSessionsCommand` and
 `CancelBookingCommand` stay on `WorkshopOperationsFacade` until 003.3 T106
 leaves no caller; their removal is T097 and keeps whatever OTA users remain.
+*(Updated 2026-11-15: T097 is done. It removed `BookingCancellationEligibilityQuery`,
+`ReplaceRequiredSessionsCommand`, `CancelBookingCommand` and the booking-wide
+settlement/attendance facade methods. Only `BookingSettlementReadinessQuery`
+remains, kept for `hasBookingServiceStarted` and `isStaffAssignedToBooking`.)*
 
 ## Validation Strategy
 

@@ -1,16 +1,16 @@
 openapi: 3.0.3
 info:
-  title: Workshop Settlement per Ticket API (planned)
-  version: 0.1.0-planned
+  title: Workshop Settlement per Ticket API
+  version: 0.2.0
   description: >-
-    Planned contract for spec FR-030–FR-051 (decision 2026-11-12): per-ticket
+    Contract for spec FR-030–FR-051 (decision 2026-11-12): per-ticket
     folio, counter collection, cash day close, bank refunds, per-ticket
-    cancellation, Mland remedy and changes. Not implemented yet (tasks Phase 8).
+    cancellation, Mland remedy and changes. Implemented and served by the code (tasks T093–T125).
     Decision 2026-11-14 (T106): the per-ticket folio routes below (add-ons,
     charges, finalizations, debts, corrections, and collections at their
     contract path) replace every /workshop-bookings/{bookingCode}/final-bill*,
     /folio-corrections* and /workshop-folios/{bookingReference}/* route; the
-    booking-wide routes are removed only after T106.
+    booking-wide routes are removed (T106, T123, T124).
     Routes move into workshop-settlement.openapi.yaml as they are implemented.
     Money values are whole VND strings.
     Decided 2026-11-14 (spec FR-052–FR-055), added by T106: Manager-only public
