@@ -141,6 +141,13 @@ public class CashDayCloseService {
                 .orElseThrow(WorkshopSettlementNotFoundException::new);
     }
 
+    /** FR-036: a branch's working day is closed once a close exists for it, confirmed or not. */
+    @Transactional(readOnly = true)
+    public boolean isClosed(Long branchId, LocalDate businessDay) {
+        return branchId != null && businessDay != null
+                && closes.findByBranchIdAndBusinessDay(branchId, businessDay).isPresent();
+    }
+
     private static LocalDate dayOrToday(LocalDate businessDay) {
         return businessDay != null ? businessDay : LocalDate.now(VIETNAM);
     }

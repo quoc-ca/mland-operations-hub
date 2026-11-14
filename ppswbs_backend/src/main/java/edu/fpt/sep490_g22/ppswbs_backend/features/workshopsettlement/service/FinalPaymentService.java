@@ -88,9 +88,9 @@ public class FinalPaymentService {
                     }
                     return SettlementPaymentEvidenceOutcome.rejected(ex.getMessage());
                 }
-                // Open: a ticket folio sends 003.1 no "balance settled" conclusion. The booking-wide
-                // recordFinalBalanceResolved of FR-008 does not fit one ticket of a group, and the per-ticket
-                // conclusion is not designed yet (ERROR-LOG, 2026-11-14; to be settled in T106).
+                // FR-008 per ticket (BE-DESIGN-0006, decided 2026-11-14): no conclusion here. If this collection
+                // clears the balance, confirmGatewayCollection finalizes the folio and FolioFinalizationService
+                // sends 003.1 recordTicketFinalBalanceResolved in the same transaction.
                 conclusion = "FINAL_PAYMENT_VERIFIED";
             } else {
                 if (!"OPEN".equals(bill.getLifecycleStatus())) return SettlementPaymentEvidenceOutcome.rejected("BILL_NOT_OPEN");

@@ -185,10 +185,37 @@ class TicketFolioApiServiceTest {
         assertThatThrownBy(() -> service.finalizeFolio("TK-1", "key-1234567890123456", null, manager))
                 .isInstanceOf(WorkshopSettlementConflictException.class)
                 .hasMessageContaining("OUTSTANDING_BALANCE");
+        verify(folioFinalizationService, never()).concludeTicketSettled(any(), any());
     }
 
     @Test
-    void voidCollection_fromClosedCashDay_throwsConflictAndRecordsAudit() {
+    void finalizeFolio_settled_finalizesAndTellsBookingTheTicketIsSettled() {
+        TicketFolioContext ctx = new TicketFolioContext(
+                "TK-1", "GRP-1", "LINE-1", "PKG-1", 1L, List.of("SES-1"), null
+        );
+        SettlementFinalBill folio = SettlementFinalBill.builder()
+                .billReference("BILL-1")
+                .bookingReference("TK-1")
+                .lifecycleStatus("OPEN")
+                .postPromotionAmountVnd(100_000L)
+                .acceptedDepositAmountVnd(100_000L)
+                .remainingAmountVnd(0L)
+                .build();
+
+        when(booking.getTicketFolioContext("TK-1")).thenReturn(Optional.of(ctx));
+        when(bills.findByBookingReferenceForUpdate("TK-1")).thenReturn(Optional.of(folio));
+        when(folioBalances.balanceOf(folio)).thenReturn(new FolioBalanceService.FolioBalance(
+                0L, 0L, 0L
+        ));
+
+        service.finalizeFolio("TK-1", "key-1234567890123456", "CORR-F", manager);
+
+        assertThat(folio.getLifecycleStatus()).isEqualTo("FINALIZED");
+        verify(folioFinalizationService).concludeTicketSettled(folio, "CORR-F");
+    }
+
+    @Test
+    void voidCollection_fromClosedCashDay_isRefusedAndWritesNothing() {
         SettlementFinalBill folio = SettlementFinalBill.builder()
                 .billReference("BILL-1")
                 .bookingReference("TK-1")
@@ -208,15 +235,9 @@ class TicketFolioApiServiceTest {
                 .amountVnd(50_000L)
                 .cashBusinessDay(yesterday)
                 .build();
-        SettlementCashDayClose closedDay = SettlementCashDayClose.builder()
-                .branchId(1L)
-                .businessDay(yesterday)
-                .status(CashDayCloseStatus.CLOSED)
-                .build();
-
         when(bills.findByBookingReferenceForUpdate("TK-1")).thenReturn(Optional.of(folio));
         when(collections.findByCollectionReference("COL-1")).thenReturn(Optional.of(col));
-        when(cashCloses.find(1L, yesterday)).thenReturn(closedDay);
+        when(cashCloses.isClosed(1L, yesterday)).thenReturn(true);
 
         FolioCollectionDtos.ManagerReasonRequest req = new FolioCollectionDtos.ManagerReasonRequest("Refund cash mistake");
 
@@ -224,10 +245,10 @@ class TicketFolioApiServiceTest {
                 .isInstanceOf(WorkshopSettlementConflictException.class)
                 .hasMessageContaining("CASH_DAY_ALREADY_CLOSED");
 
-        ArgumentCaptor<SettlementBusinessAudit> auditCaptor = ArgumentCaptor.forClass(SettlementBusinessAudit.class);
-        verify(audits).save(auditCaptor.capture());
-        assertThat(auditCaptor.getValue().getActionCode()).isEqualTo("CASH_DAY_ADJUSTMENT_CURRENT_DAY");
-        assertThat(col.getStatus()).isEqualTo(FolioCollectionStatus.CONFIRMED); // Not modified
+        // FR-050: the closed day stays locked and nothing is written for it.
+        verify(audits, never()).save(any());
+        verify(collections, never()).saveAndFlush(any());
+        assertThat(col.getStatus()).isEqualTo(FolioCollectionStatus.CONFIRMED);
     }
 
     @Test
@@ -254,7 +275,7 @@ class TicketFolioApiServiceTest {
 
         when(bills.findByBookingReferenceForUpdate("TK-1")).thenReturn(Optional.of(folio));
         when(collections.findByCollectionReference("COL-2")).thenReturn(Optional.of(col));
-        when(cashCloses.find(1L, today)).thenReturn(null); // Not closed
+        when(cashCloses.isClosed(1L, today)).thenReturn(false);
         when(folioBalances.balanceOf(folio)).thenReturn(new FolioBalanceService.FolioBalance(
                 100_000L, 0L, 100_000L
         ));

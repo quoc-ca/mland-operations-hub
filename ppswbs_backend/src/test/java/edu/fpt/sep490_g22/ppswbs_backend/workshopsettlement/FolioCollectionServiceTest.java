@@ -1,11 +1,15 @@
 package edu.fpt.sep490_g22.ppswbs_backend.workshopsettlement;
 
 import edu.fpt.sep490_g22.ppswbs_backend.common.payment.PaymentOwnerRegistrationPort;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingRejectionReason;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.FinalBalanceResolutionOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.*;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.WorkshopBookingSettlementAdapter;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -39,6 +43,8 @@ class FolioCollectionServiceTest {
     private FolioFinalizationService finalization;
     private BankRefundService bankRefunds;
     private PaymentOwnerRegistrationPort paymentOwners;
+    private SettlementBusinessAuditRepository audits;
+    private WorkshopBookingSettlementAdapter booking;
     private SettlementFinalBill folio;
     private final List<SettlementFolioCollection> rows = new ArrayList<>();
 
@@ -49,7 +55,10 @@ class FolioCollectionServiceTest {
         cashCloses = mock(SettlementCashDayCloseRepository.class);
         charges = mock(SettlementChargeRepository.class);
         evidence = mock(SettlementEvidenceConclusionRepository.class);
-        SettlementBusinessAuditRepository audits = mock(SettlementBusinessAuditRepository.class);
+        audits = mock(SettlementBusinessAuditRepository.class);
+        booking = mock(WorkshopBookingSettlementAdapter.class);
+        when(booking.recordTicketFinalBalanceResolved(anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(FinalBalanceResolutionOutcome.accepted());
         bankRefunds = mock(BankRefundService.class);
         paymentOwners = mock(PaymentOwnerRegistrationPort.class);
 
@@ -78,9 +87,56 @@ class FolioCollectionServiceTest {
                         .findFirst());
 
         FolioBalanceService balances = new FolioBalanceService(charges, evidence, collections);
-        finalization = new FolioFinalizationService(bills, audits, balances);
+        finalization = new FolioFinalizationService(bills, audits, balances, booking);
         service = new FolioCollectionService(bills, collections, cashCloses, audits, balances, finalization,
                 bankRefunds, paymentOwners);
+    }
+
+    // ---- FR-008 per ticket: 003.1 hears the ticket is settled when its folio finalizes (BE-DESIGN-0006) ----
+
+    @Test
+    void finalizingATicketFolioTellsBookingTheTicketIsSettledOnce() {
+        service.collectCash(TICKET, 300_000, 300_000, "RECEIPT-1", null, BRANCH, STAFF, "corr-final");
+
+        assertThat(folio.getLifecycleStatus()).isEqualTo(SettlementFinalBillLifecycleStatus.FINALIZED.name());
+        verify(booking, times(1)).recordTicketFinalBalanceResolved(TICKET, BILL, "TICKET-SETTLED:" + BILL, "corr-final");
+    }
+
+    @Test
+    void aFolioThatIsNotSettledSendsNothing() {
+        service.collectCash(TICKET, 100_000, 100_000, "RECEIPT-1", null, BRANCH, STAFF, "corr");
+
+        assertThat(folio.getLifecycleStatus()).isEqualTo(SettlementFinalBillLifecycleStatus.OPEN.name());
+        verify(booking, never()).recordTicketFinalBalanceResolved(anyString(), anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void aRefusalByBookingKeepsTheFinalizedFolioAndIsAudited() {
+        when(booking.recordTicketFinalBalanceResolved(anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(FinalBalanceResolutionOutcome.rejected(BookingRejectionReason.INVALID_STATE));
+
+        service.collectCash(TICKET, 300_000, 300_000, "RECEIPT-1", null, BRANCH, STAFF, "corr");
+
+        assertThat(folio.getLifecycleStatus()).isEqualTo(SettlementFinalBillLifecycleStatus.FINALIZED.name());
+        ArgumentCaptor<SettlementBusinessAudit> saved = ArgumentCaptor.forClass(SettlementBusinessAudit.class);
+        verify(audits, atLeastOnce()).save(saved.capture());
+        assertThat(saved.getAllValues()).anySatisfy(audit -> {
+            assertThat(audit.getActionCode()).isEqualTo("TICKET_BALANCE_CONCLUSION_REJECTED");
+            assertThat(audit.getReasonReference()).isEqualTo("INVALID_STATE");
+        });
+    }
+
+    @Test
+    void aFolioBookingDoesNotKnowAsATicketIsSkippedWithoutARefusalAudit() {
+        when(booking.recordTicketFinalBalanceResolved(anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(FinalBalanceResolutionOutcome.rejected(BookingRejectionReason.BOOKING_NOT_FOUND));
+
+        service.collectCash(TICKET, 300_000, 300_000, "RECEIPT-1", null, BRANCH, STAFF, "corr");
+
+        ArgumentCaptor<SettlementBusinessAudit> saved = ArgumentCaptor.forClass(SettlementBusinessAudit.class);
+        verify(audits, atLeastOnce()).save(saved.capture());
+        assertThat(saved.getAllValues())
+                .noneMatch(audit -> "TICKET_BALANCE_CONCLUSION_REJECTED".equals(audit.getActionCode()));
     }
 
     // ---- cash ----

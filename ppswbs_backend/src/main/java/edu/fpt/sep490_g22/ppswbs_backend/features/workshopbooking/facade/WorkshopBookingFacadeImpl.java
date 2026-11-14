@@ -305,6 +305,43 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade, Worksho
     }
 
     @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public FinalBalanceResolutionOutcome recordTicketFinalBalanceResolved(RecordTicketFinalBalanceResolvedCommand command) {
+        Optional<TicketBooking> optTicket = ticketBookingRepository.findByTicketCodeForUpdate(command.ticketCode().trim());
+        if (optTicket.isEmpty()) {
+            return FinalBalanceResolutionOutcome.rejected(BookingRejectionReason.BOOKING_NOT_FOUND);
+        }
+        TicketBooking ticket = optTicket.get();
+        if (ticket.getFinancialStatus() == PaymentStatus.FULLY_PAID) {
+            return FinalBalanceResolutionOutcome.accepted();
+        }
+        boolean serviceable = ticket.getTicketStatus() == BookingStatus.CONFIRMED
+                || ticket.getTicketStatus() == BookingStatus.COMPLETED;
+        boolean refunding = ticket.getFinancialStatus() == PaymentStatus.REFUND_PENDING
+                || ticket.getFinancialStatus() == PaymentStatus.REFUNDED;
+        if (!serviceable || refunding) {
+            return FinalBalanceResolutionOutcome.rejected(BookingRejectionReason.INVALID_STATE);
+        }
+        ticket.setFinancialStatus(PaymentStatus.FULLY_PAID);
+        ticketBookingRepository.save(ticket);
+
+        BookingGroup group = ticket.getGroup();
+        Long locationId = getTicketFolioContext(ticket.getTicketCode())
+                .map(TicketFolioContext::locationReference).orElse(null);
+        auditEvidenceRepository.save(BookingAuditEvidence.builder()
+                .bookingCode(group != null ? group.getGroupCode() : ticket.getTicketCode())
+                .locationId(locationId != null ? locationId : 0L)
+                .actorType("SETTLEMENT")
+                .action("TICKET_FINAL_BALANCE_RESOLVED")
+                .outcome("ACCEPTED")
+                .correlationReference(command.correlationReference().trim())
+                .actionReason("ticket=" + ticket.getTicketCode() + " settlement=" + command.settlementReference().trim())
+                .occurredAt(Instant.now())
+                .build());
+        return FinalBalanceResolutionOutcome.accepted();
+    }
+
+    @Override
     @Transactional
     public BookingServiceOutcomeResult recordBookingServiceOutcome(RecordBookingServiceOutcomeCommand command) {
         WorkshopBooking booking = bookingRepository.findLockedByBookingCode(command.bookingReference().trim()).orElse(null);

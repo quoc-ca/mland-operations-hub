@@ -1114,6 +1114,7 @@ none, with a buyer-confirmed price effect.
   conclusion only when the folio's final balance is settled through matching
   verified payment evidence; 003.1 alone then changes the booking to
   `FULLY_PAID`. Settlement MUST NOT change Booking state directly.
+  *(Per ticket, decided 2026-11-14 by Hồ Hoàng Quốc, BE-DESIGN-0006: for a ticket folio the conclusion is `recordTicketFinalBalanceResolved(ticketCode, …)`, sent when the ticket folio becomes `FINALIZED`; 003.1 then sets that ticket's `financialStatus` to `FULLY_PAID`. See `../contracts/workshop-interfeature-facades.md`, "Per-ticket boundary changes".)*
 - **FR-009** *(superseded 2026-11-12 by FR-031–FR-034 (counter collection))*: The system MUST accept final-payment evidence only from valid
   signed VNPay IPN or QueryDR, matched to the final bill's reference, amount and
   currency. It MUST process that evidence idempotently and reject invalid,

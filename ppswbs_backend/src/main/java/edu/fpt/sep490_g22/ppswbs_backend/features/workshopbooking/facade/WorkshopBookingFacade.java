@@ -36,6 +36,14 @@ public interface WorkshopBookingFacade {
      */
     FinalBalanceResolutionOutcome recordFinalBalanceResolved(RecordFinalBalanceResolvedCommand command);
 
+    /**
+     * 003.3 concludes that one ticket's folio is settled (FINALIZED with a zero balance): the ticket becomes
+     * {@code FULLY_PAID}. MANDATORY, inside the caller's finalization transaction. Idempotent: a ticket already
+     * {@code FULLY_PAID} is accepted without a second audit. {@code BOOKING_NOT_FOUND} for an unknown ticket;
+     * {@code INVALID_STATE} for a ticket that is not confirmed or completed, or is in a refund state.
+     */
+    FinalBalanceResolutionOutcome recordTicketFinalBalanceResolved(RecordTicketFinalBalanceResolvedCommand command);
+
     /** Records one terminal service outcome concluded by Settlement. */
     BookingServiceOutcomeResult recordBookingServiceOutcome(RecordBookingServiceOutcomeCommand command);
 

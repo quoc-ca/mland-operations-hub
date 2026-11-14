@@ -227,6 +227,7 @@ public class TicketFolioApiService {
                     .correlationReference(correlation)
                     .createdAt(Instant.now())
                     .build());
+            folioFinalizationService.concludeTicketSettled(folio, correlation);
             return folio.getBillReference();
         });
         return toDto(folio, true);
@@ -401,23 +402,13 @@ public class TicketFolioApiService {
         String fp = "VOID_COLL:" + code + ":" + collectionId.trim() + ":" + request.reason().trim();
         idempotency.execute(op, fp, () -> {
             if (col.getStatus() != FolioCollectionStatus.VOIDED) {
-                if (col.getMethod() == FolioCollectionMethod.CASH && col.getCashBusinessDay() != null) {
-                    try {
-                        var close = cashCloses.find(col.getBranchId(), col.getCashBusinessDay());
-                        if (close != null && close.getStatus() == CashDayCloseStatus.CLOSED) {
-                            audits.save(SettlementBusinessAudit.builder()
-                                    .auditReference("AUDIT-" + UUID.randomUUID())
-                                    .aggregateType("SETTLEMENT_FOLIO_COLLECTION")
-                                    .aggregateReference(col.getCollectionReference())
-                                    .actionCode("CASH_DAY_ADJUSTMENT_CURRENT_DAY")
-                                    .actorReference("account:" + manager.accountId())
-                                    .reasonReference("Cannot void cash from closed day " + col.getCashBusinessDay() + ": " + request.reason().trim())
-                                    .correlationReference(correlation)
-                                    .createdAt(Instant.now())
-                                    .build());
-                            throw new WorkshopSettlementConflictException("CASH_DAY_ALREADY_CLOSED");
-                        }
-                    } catch (WorkshopSettlementNotFoundException ignored) {}
+                // FR-053/FR-050: cash already counted into a branch's close is refused, whatever the
+                // close's confirmation status (the same rule FolioCollectionService uses to send
+                // later cash to the next day). The closed day stays locked; nothing is written here,
+                // because any cash effect is recorded by the Manager on the current working day.
+                if (col.getMethod() == FolioCollectionMethod.CASH && col.getCashBusinessDay() != null
+                        && cashCloses.isClosed(col.getBranchId(), col.getCashBusinessDay())) {
+                    throw new WorkshopSettlementConflictException("CASH_DAY_ALREADY_CLOSED");
                 }
                 col.setStatus(FolioCollectionStatus.VOIDED);
                 collections.saveAndFlush(col);
