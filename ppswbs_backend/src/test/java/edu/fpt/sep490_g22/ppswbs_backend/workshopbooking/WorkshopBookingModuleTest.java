@@ -10,6 +10,9 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.Accou
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorRole;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.ApplyVerifiedDepositPaymentEvidenceCommand;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.ConsumeBuyerProofCommand;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.ConsumeBuyerProofResult;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.TicketFolioContext;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.notificationfacade.BookingNotificationDeliveryPayload;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.notificationfacade.BookingNotificationDeliveryPayloadQuery;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.notificationfacade.WorkshopBookingNotificationFacade;
@@ -194,7 +197,10 @@ class WorkshopBookingModuleTest {
                 RecordFinalBalanceResolvedCommand.class,
                 ApplyVerifiedDepositPaymentEvidenceCommand.class,
                 RequestBookingTicketRedeliveryCommand.class,
-                BookingNotificationDeliveryPayload.class
+                BookingNotificationDeliveryPayload.class,
+                TicketFolioContext.class,
+                ConsumeBuyerProofCommand.class,
+                ConsumeBuyerProofResult.class
         };
 
         for (Class<?> type : facadeTypes) {

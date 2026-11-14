@@ -375,6 +375,24 @@ class LatePaymentReviewIT {
         assertThat(review.getFailedConditions()).isEqualTo("DUPLICATE_BOOKING");
     }
 
+    @Test
+    @DisplayName("T094-9: package price changed -> condition 3 AMOUNT fails, queued for Manager")
+    void packagePriceChanged_failsCondition3Amount() {
+        WorkshopSession session = session(Duration.ofDays(3), 10);
+        Fixture group = pendingGroup(session, 1, Duration.ofMinutes(10), BUYER_EMAIL);
+
+        // Change package price in Operations
+        WorkshopPackage pkg = packages.findById(packageId).orElseThrow();
+        pkg.setPublicPrice(AMOUNT + 50_000L);
+        packages.save(pkg);
+
+        apply(group);
+
+        LatePaymentReview review = onlyReview();
+        assertThat(review.getOutcome()).isEqualTo(LatePaymentReview.PENDING_MANAGER);
+        assertThat(review.getFailedConditions()).contains("AMOUNT");
+    }
+
     // ------------------------------------------------------------------ helpers
 
     record Fixture(Long id, String code, String merchant) { }
@@ -447,17 +465,24 @@ class LatePaymentReviewIT {
      */
     private Fixture pendingGroup(List<WorkshopSession> lineSessions, int ticketCount, Duration paidAfterExpiry,
                                  String email) {
+        long collection = AMOUNT;
+        long perTicket = collection / ((long) ticketCount * lineSessions.size());
+        Long linePackageId = packageId;
+        if (perTicket != AMOUNT) {
+            linePackageId = packages.save(WorkshopPackage.builder().name("Late package " + perTicket)
+                    .description("fixture").publicPrice(perTicket).minParticipants(1).maxParticipants(10)
+                    .requiredSessionCount(1).sameLocationRequired(true).minimumSameDaySlotGap(0)
+                    .state(WorkshopPackageState.PUBLISHED).build()).getId();
+        }
         String code = "GRP-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase(Locale.ROOT);
         List<ReserveGroupCapacityCommand.Line> commandLines = new ArrayList<>();
         for (int i = 0; i < lineSessions.size(); i++) {
-            commandLines.add(new ReserveGroupCapacityCommand.Line(code + "-L" + i, String.valueOf(packageId),
+            commandLines.add(new ReserveGroupCapacityCommand.Line(code + "-L" + i, String.valueOf(linePackageId),
                     List.of(UUID.fromString(lineSessions.get(i).getReference())), ticketCount));
         }
         GroupCapacityOutcome held = operations.reserveGroupCapacity(new ReserveGroupCapacityCommand(code, commandLines,
                 "CREATE-" + code, "corr"));
         assertThat(held.status()).isEqualTo(OutcomeStatus.ACCEPTED);
-        long collection = AMOUNT;
-        long perTicket = collection / ((long) ticketCount * lineSessions.size());
         BookingGroup group = groups.save(BookingGroup.builder().groupCode(code).contactEmail(email)
                 .contactPhone("0900000000").groupStatus(BookingStatus.PENDING_PAYMENT).paymentMode(GroupPaymentMode.VNPAY)
                 .groupCollectionVnd(collection).holdExpiresAt(Instant.now().minus(paidAfterExpiry))
@@ -468,7 +493,7 @@ class LatePaymentReviewIT {
         for (int i = 0; i < lineSessions.size(); i++) {
             WorkshopSession session = lineSessions.get(i);
             BookingGroupLine line = BookingGroupLine.builder().group(group).lineIndex(i).lineReference(code + "-L" + i)
-                    .packageId(packageId).packageNameSnapshot("Late package").pricePerParticipantVnd(perTicket)
+                    .packageId(linePackageId).packageNameSnapshot("Late package").pricePerParticipantVnd(perTicket)
                     .ticketCount(ticketCount).build();
             line.getSessions().add(BookingGroupLineSession.builder().line(line).ordinal(1)
                     .sessionReference(session.getReference()).locationReference(location.getId())
@@ -481,7 +506,7 @@ class LatePaymentReviewIT {
                 long price = ticketIndex == totalTickets ? collection - allocated : perTicket;
                 allocated += price;
                 TicketBooking ticket = tickets.save(TicketBooking.builder().ticketCode(code + "-T" + ticketIndex)
-                        .group(group).lineIndex(i).participantOrdinal(p).packageId(packageId)
+                        .group(group).lineIndex(i).participantOrdinal(p).packageId(linePackageId)
                         .packageNameSnapshot("Late package").build());
                 priceSnapshots.save(TicketPriceSnapshot.builder().ticket(ticket).packagePriceVnd(price)
                         .voucherDiscountVnd(0).pointsUsed(0).pointDiscountVnd(0).finalPriceVnd(price)

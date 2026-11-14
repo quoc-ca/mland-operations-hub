@@ -17,6 +17,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
@@ -59,6 +60,12 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade, Worksho
             groupNotificationService;
     private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.LatePaymentReviewRepository
             latePaymentReviewRepository;
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.BookingGroupLineRepository
+            bookingGroupLineRepository;
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.BuyerVerificationService
+            buyerVerificationService;
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.TicketPriceSnapshotRepository
+            ticketPriceSnapshotRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -183,7 +190,8 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade, Worksho
         var tickets = ticketBookingRepository.findByGroupIdOrderByLineIndexAscParticipantOrdinalAsc(group.getId())
                 .stream()
                 .map(ticket -> new BookingGroupLoyaltyOutcomeSource.GroupTicket(ticket.getTicketCode(),
-                        ticket.getOperationsTicketReference()))
+                        ticket.getOperationsTicketReference(),
+                        "L" + ticket.getLineIndex() + "-T" + ticket.getParticipantOrdinal()))
                 .toList();
         return new BookingGroupLoyaltyOutcomeSource(true, quote.getQuoteRef(),
                 Math.addExact(group.getVersion() == null ? 0L : group.getVersion(), 1L),
@@ -227,14 +235,36 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade, Worksho
         if ((memberMode ? 1 : 0) + (emailMode ? 1 : 0) + (phoneMode ? 1 : 0) != 1) {
             return new CustomerBookingAccessDecision(false);
         }
-        WorkshopBooking booking = bookingRepository.findByBookingCode(query.bookingReference().trim()).orElse(null);
-        if (booking == null) return new CustomerBookingAccessDecision(false);
-        boolean authorized = memberMode
-                ? query.memberAccountId().equals(booking.getMemberAccountId())
-                : emailMode
-                    ? query.contactEmail().trim().equalsIgnoreCase(booking.getContactEmail())
-                    : query.contactPhone().trim().equals(booking.getContactPhone());
-        return new CustomerBookingAccessDecision(authorized);
+        String ref = query.bookingReference().trim();
+        WorkshopBooking booking = bookingRepository.findByBookingCode(ref).orElse(null);
+        if (booking != null) {
+            boolean authorized = memberMode
+                    ? query.memberAccountId().equals(booking.getMemberAccountId())
+                    : emailMode
+                        ? query.contactEmail().trim().equalsIgnoreCase(booking.getContactEmail())
+                        : query.contactPhone().trim().equals(booking.getContactPhone());
+            return new CustomerBookingAccessDecision(authorized);
+        }
+        var ticket = ticketBookingRepository.findByTicketCode(ref).orElse(null);
+        if (ticket != null && ticket.getGroup() != null) {
+            var group = ticket.getGroup();
+            boolean authorized = memberMode
+                    ? java.util.Objects.equals(query.memberAccountId(), group.getBuyerMemberAccountId())
+                    : emailMode
+                        ? query.contactEmail().trim().equalsIgnoreCase(group.getContactEmail())
+                        : query.contactPhone().trim().equals(group.getContactPhone());
+            return new CustomerBookingAccessDecision(authorized);
+        }
+        var group = bookingGroupRepository.findByGroupCode(ref).orElse(null);
+        if (group != null) {
+            boolean authorized = memberMode
+                    ? java.util.Objects.equals(query.memberAccountId(), group.getBuyerMemberAccountId())
+                    : emailMode
+                        ? query.contactEmail().trim().equalsIgnoreCase(group.getContactEmail())
+                        : query.contactPhone().trim().equals(group.getContactPhone());
+            return new CustomerBookingAccessDecision(authorized);
+        }
+        return new CustomerBookingAccessDecision(false);
     }
 
     @Override
@@ -507,5 +537,80 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade, Worksho
                 .map(review -> new LatePaymentReviewSnapshot(review.getReviewReference(),
                         review.getGroup().getGroupCode(), review.getVerifiedEvidenceReference(),
                         review.getAmountVnd(), review.getOutcome()));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<TicketFolioContext> getTicketFolioContext(String ticketCode) {
+        if (ticketCode == null || ticketCode.isBlank()) {
+            return Optional.empty();
+        }
+        Optional<TicketBooking> optTicket = ticketBookingRepository.findByTicketCode(ticketCode.trim());
+        if (optTicket.isEmpty()) {
+            return Optional.empty();
+        }
+        TicketBooking ticket = optTicket.get();
+        BookingGroup group = ticket.getGroup();
+        if (group == null) {
+            return Optional.empty();
+        }
+        List<BookingGroupLine> lines = bookingGroupLineRepository.findByGroupIdOrderByLineIndexAsc(group.getId());
+        BookingGroupLine line = lines.stream()
+                .filter(l -> l.getLineIndex() == ticket.getLineIndex())
+                .findFirst()
+                .orElse(null);
+        if (line == null) {
+            return Optional.empty();
+        }
+        String packageReference = String.valueOf(line.getPackageId());
+        List<BookingGroupLineSession> sessions = line.getSessions() != null
+                ? line.getSessions().stream()
+                        .sorted(java.util.Comparator.comparingInt(BookingGroupLineSession::getOrdinal))
+                        .toList()
+                : List.of();
+        Long locationReference = sessions.isEmpty() ? null : sessions.getFirst().getLocationReference();
+        List<String> sessionReferences = sessions.stream()
+                .map(BookingGroupLineSession::getSessionReference)
+                .toList();
+        Long buyerMemberAccountId = group.getBuyerMemberAccountId();
+        Instant firstSessionStart = sessions.isEmpty() ? null : sessions.getFirst().getScheduledStart();
+        long pointsUsed = 0L;
+        long voucherDiscountVnd = 0L;
+        if (ticketPriceSnapshotRepository != null && ticket.getId() != null) {
+            TicketPriceSnapshot snap = ticketPriceSnapshotRepository.findByTicketId(ticket.getId()).orElse(null);
+            if (snap != null) {
+                pointsUsed = snap.getPointsUsed();
+                voucherDiscountVnd = snap.getVoucherDiscountVnd();
+            }
+        }
+        String partRef = "L" + ticket.getLineIndex() + "-T" + ticket.getParticipantOrdinal();
+
+        return Optional.of(new TicketFolioContext(
+                ticket.getTicketCode(),
+                group.getGroupCode(),
+                line.getLineReference(),
+                packageReference,
+                locationReference,
+                sessionReferences,
+                buyerMemberAccountId,
+                ticket.getOperationsTicketReference(),
+                firstSessionStart,
+                pointsUsed,
+                partRef,
+                voucherDiscountVnd
+        ));
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public ConsumeBuyerProofResult consumeBuyerProof(ConsumeBuyerProofCommand command) {
+        if (command == null) {
+            return ConsumeBuyerProofResult.refused(ConsumeBuyerProofResult.CODE_REQUIRED);
+        }
+        return buyerVerificationService.consumeProof(
+                command.groupCode(),
+                command.memberAccountId(),
+                command.buyerVerificationReference()
+        );
     }
 }

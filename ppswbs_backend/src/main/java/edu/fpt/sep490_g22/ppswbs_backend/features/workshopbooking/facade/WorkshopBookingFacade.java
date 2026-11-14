@@ -73,4 +73,16 @@ public interface WorkshopBookingFacade {
 
     /** The PII-free facts of one late-payment review, so 003.3 can recheck a refund amount (FR-040). */
     java.util.Optional<LatePaymentReviewSnapshot> findLatePaymentReview(String reviewReference);
+
+    /**
+     * Read-only folio context of one ticket inside a booking group (003.1 T107 for 003.3 T106).
+     * Empty when unknown.
+     */
+    java.util.Optional<TicketFolioContext> getTicketFolioContext(String ticketCode);
+
+    /**
+     * Verifies and consumes buyer proof inside the caller's transaction (003.1 T107 for 003.3 T099, T100, T101).
+     * Must be called within an active transaction (MANDATORY).
+     */
+    ConsumeBuyerProofResult consumeBuyerProof(ConsumeBuyerProofCommand command);
 }
