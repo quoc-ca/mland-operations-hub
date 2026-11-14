@@ -16,6 +16,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
@@ -126,5 +127,46 @@ class AccountFacadeImplTest {
         assertThat(actor.role()).isEqualTo(ActorRole.MANAGER);
         assertThat(actor.status()).isEqualTo(ActorStatus.ACTIVE);
         assertThat(actor.activeWorkshopLocationIds()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("UTC-001-003: listActiveManagerEmails returns de-duplicated, trimmed and sorted emails")
+    void testListActiveManagerEmails_ReturnsSortedAndDeduplicated() {
+        when(accountRepository.findLoginEmailsByRoleAndStatus(AccountRole.MANAGER, AccountStatus.ACTIVE))
+            .thenReturn(List.of("beta@mland.vn", "alpha@mland.vn", "beta@mland.vn", "  gamma@mland.vn  "));
+
+        List<String> emails = accountFacade.listActiveManagerEmails();
+
+        assertThat(emails).containsExactly("alpha@mland.vn", "beta@mland.vn", "gamma@mland.vn");
+        verify(accountRepository).findLoginEmailsByRoleAndStatus(AccountRole.MANAGER, AccountStatus.ACTIVE);
+    }
+
+    @Test
+    @DisplayName("UTC-001-004: listActiveManagerEmails returns empty list when repository returns empty or null")
+    void testListActiveManagerEmails_WhenEmptyOrNull_ReturnsEmptyList() {
+        when(accountRepository.findLoginEmailsByRoleAndStatus(AccountRole.MANAGER, AccountStatus.ACTIVE))
+            .thenReturn(List.of());
+
+        List<String> emails = accountFacade.listActiveManagerEmails();
+
+        assertThat(emails).isEmpty();
+
+        when(accountRepository.findLoginEmailsByRoleAndStatus(AccountRole.MANAGER, AccountStatus.ACTIVE))
+            .thenReturn(null);
+
+        List<String> nullCaseEmails = accountFacade.listActiveManagerEmails();
+
+        assertThat(nullCaseEmails).isEmpty();
+    }
+
+    @Test
+    @DisplayName("UTC-001-005: listActiveManagerEmails filters out blank or empty email strings")
+    void testListActiveManagerEmails_FiltersBlankStrings() {
+        when(accountRepository.findLoginEmailsByRoleAndStatus(AccountRole.MANAGER, AccountStatus.ACTIVE))
+            .thenReturn(Arrays.asList("   ", "", null, "manager@mland.vn"));
+
+        List<String> emails = accountFacade.listActiveManagerEmails();
+
+        assertThat(emails).containsExactly("manager@mland.vn");
     }
 }

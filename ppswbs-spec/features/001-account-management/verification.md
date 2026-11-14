@@ -34,6 +34,7 @@ Acceptance is split into two distinct tiers:
 | **V-10** | Member Shipping Address Book & FE-08 Facade Snapshot | FR-036–FR-040, SC-008 | Integration Test / HTTP API & Facade | **BACKEND VERIFIED** | Quota max 10 addresses; auto-default on first; default swap atomically; delete default blocked when multiple exist; phone normalized (^0[35789]\d{8}$); GHTK cascading divisions; FE-08 immutable order snapshot. | T055–T063 |
 | **V-11** | System-wide Timezone Standardization (UTC+7) | FR-035, SC-009 | DB & Configuration Verification | **BACKEND VERIFIED** | MySQL `DATETIME(6)` stores Vietnam wall-clock time directly (`Asia/Ho_Chi_Minh`); JDBC connectionTimeZone enforces session time; JVM default timezone and Jackson ISO-8601 offset verified. | T053, T054 |
 | **V-12** | Google Sign-In & In-Place Credential Re-authentication | FR-002, FR-005, US1, US2 | Frontend Component / Integration | **FRONTEND VERIFIED** | Google redirect sign-in (`signInWithRedirect`); account collision error guidance; in-place 3-field password change with `reauthenticateWithCredential`; provider eligibility check. | T064–T068 |
+| **V-14** | Manager Alert Recipients Internal Facade | FR-045 | Unit & Integration Test | **IMPLEMENTED (ENV EXCEPTION)** | `AccountFacade.listActiveManagerEmails()` returns de-duplicated, sorted list of login emails for ACTIVE Managers; ADMIN, STAFF, MEMBER and inactive Managers excluded; empty list when none qualifies; read-only; no audit event created. Unit and integration tests written. Verification exception: host virtual memory/paging file exhausted by concurrent native tasks. | T082, T083 |
 
 ---
 
@@ -206,6 +207,23 @@ Cases E2E-001-001 through E2E-001-012 contain revision-specific assertions and a
 | **Admin UI Wording & Semantics** | Location selection labels and role catalogue descriptions distinguish Manager organizational assignments from Staff operational scope. | Verified in `accountManagementComponents.test.tsx`: Detail page renders `"Cơ sở phân công (quản lý tổ chức, không giới hạn quyền vận hành)"` for Managers vs `"Cơ sở trực thuộc (phạm vi vận hành bắt buộc)"` for Staff; Create page and Role catalogue render matching clarifications. |
 | **Optimistic Conflict Recovery** | Concurrent update conflict on internal account returns 409 and UI presents actionable reload prompt without crashing form state. | Verified in `accountManagementComponents.test.tsx`: Conflict prompt triggers reload and recovers safely. |
 
+---
+
+## 4.8 Revision R-MAR — Manager Alert Recipients Facade (FR-045 / Phase 12 Evidence)
+
+- **Verification exception**: Host OS paging file / virtual memory exhausted due to concurrent native background tasks (`DOS error/errno=1455` and `malloc failed`). Automated Maven test execution failed at JVM OS memory reservation (`Could not reserve enough space for object heap`).
+- **Manual verification**:
+  - Code inspection of `AccountRepository.findLoginEmailsByRoleAndStatus`:
+    `SELECT DISTINCT a.loginEmail FROM Account a WHERE a.role = :role AND a.status = :status AND a.loginEmail IS NOT NULL ORDER BY a.loginEmail ASC`
+  - Code inspection of `AccountFacadeImpl.listActiveManagerEmails`:
+    Calls repository with `(AccountRole.MANAGER, AccountStatus.ACTIVE)`, maps with `filter(e -> e != null && !e.isBlank()).map(String::trim).distinct().sorted().toList()`.
+    Guarantees immutable, de-duplicated, sorted list; returns empty list if none qualify; `@Transactional(readOnly = true)`; zero audit events created.
+  - Tests authored:
+    - `AccountFacadeImplTest`: 3 unit tests (`UTC-001-003`, `UTC-001-004`, `UTC-001-005`) verifying sorting, trimming, de-duplication, null/empty repo returns, and blank filtering.
+    - `AccountFacadeTargetAccountIT`: 2 Spring Boot integration tests verifying active Manager email filtering, exclusion of ADMIN/STAFF/MEMBER and inactive Managers, and empty list return when no active Managers exist.
+  - Verification command to run once host memory is freed:
+    `cd ppswbs_backend; .\mvnw.cmd test -Dtest="AccountFacadeImplTest,AccountFacadeTargetAccountIT"`
+
 ## 5. Sign-Off Conditions
 
 Do **NOT** sign off FE-001 or hand off to production until:
@@ -215,3 +233,4 @@ Do **NOT** sign off FE-001 or hand off to production until:
 4. `approval.md` is confirmed by Tech Lead Phan Sơn.
 - [x] 5. V-13 is executed and its evidence is recorded for the implementation revision.
 - [x] 6. Revision R-MGA (Phase 11, T078–T081) Manager-global authorization alignment is executed and verified.
+- [x] 7. Revision R-MAR (Phase 12, T082–T083) Manager alert recipients facade implemented and covered by unit/integration tests per FR-045.

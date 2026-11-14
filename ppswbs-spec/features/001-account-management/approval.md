@@ -1,5 +1,22 @@
 # Tech Lead Approval Record: Account Management (FE-001)
 
+## Revision R-MAR — Internal Alert Recipients Facade (FR-045)
+
+**Revision date**: 2026-11-14
+**Approved by (Tech Lead)**: **Phan Sơn**
+**Authority/evidence**: explicit Tech Lead update in commit `6c3a2985` and session prompt on 2026-11-14 adding requirement FR-045 and its facade contract in `contracts/interfaces.md`.
+**Decision**: **APPROVED FOR IMPLEMENTATION OF T082–T083 ONLY**.
+
+This approval covers the addition of `AccountFacade.listActiveManagerEmails()` per FR-045, serving consumer Feature 003.1 (FR-040a internal late-payment alert recipients).
+
+**Approved behavior and boundary**:
+- Internal read-only facade method returning de-duplicated, sorted list of login emails for Accounts with `role = MANAGER` and `status = ACTIVE`.
+- `ADMIN` accounts are excluded. Returns empty list when none qualifies.
+- Read-only; creates no Account audit event.
+- Approved PII exception: caller MUST use only inside own transaction to address internal alerts; MUST NOT appear in domain events, audit records, logs, or consumer persistence.
+
+---
+
 ## Revision R-MGA — Manager-global authorization alignment
 
 **Revision date**: 2026-11-14
