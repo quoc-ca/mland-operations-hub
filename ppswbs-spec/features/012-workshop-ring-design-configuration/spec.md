@@ -313,6 +313,28 @@ the existing `DB.md` proposal before migration or implementation.
 - Member history contains current design and prior version snapshots.
 - Member may archive an unsubmitted design but cannot hard-delete its history.
 
+### 7.3 Multi-Design Storage, Full-Fidelity Restoration & Price Preservation
+
+To resolve historical discrepancies in design persistence, the following rules are strictly enforced:
+
+1. **Multi-Design Persistence (`GET /api/v1/workshop-designs`)**:
+   - Members can create and persist an unlimited number of custom ring designs. Each design is identified by an immutable `design_reference` (`DSG-...`).
+   - The backend provides a dedicated endpoint `GET /api/v1/workshop-designs` returning the latest active version of all designs owned by the caller (authenticated Member or active Guest session).
+   - The Member Design History page (`/my/designs`) dynamically binds to this API, displaying real cards for each saved design with accurate prices, materials, and thumbnail previews, completely replacing legacy hardcoded mock entries.
+
+2. **Full-Fidelity Snapshot & Restoration**:
+   - The design snapshot (`component_snapshot`) and persistence payloads (`SaveDesignVersionRequest`) must capture 100% of the customer's design parameters:
+     - Material (`materialReference`), Shape (`shapeReference`), Ring size (`ringSize`).
+     - Real-time dimensions: `thicknessMm` (1.0 - 3.0 mm) and `bandWidthMm` (1.5 - 6.0 mm).
+     - Gemstones and drag positions: `components` (quantities) and `gemstonePositions` (`[{ id, reference, index, angleDeg }]`).
+     - Attachments: `attachments` (`[{ reference, quantity, placement }]`).
+     - Engraving: `engraving` (`enabled`, `text`, `placement`, `items`, `customImages`).
+   - When reopening a saved design in edit mode (`/design/configure?mode=EDIT&designId=...`), the configurator fetches the design via `GET /api/v1/workshop-designs/{designId}` and restores all dimensions, slider positions, gemstone polar angles, and custom images without resetting to blank defaults.
+
+3. **Estimated Price & Metric Preservation**:
+   - Viewing or re-fetching a saved design via `GET /api/v1/workshop-designs/{designId}` preserves the server-evaluated `estimatedPrice` and `difficultyScore` persisted on that design version row in MySQL (`ring_designs.estimated_price`).
+   - The evaluation response must never arbitrarily revert or default to the baseline silver material cost (250.000 ₫) when custom gemstones, attachments, dimensional mass excess, or engravings are present.
+
 The server-session storage mechanism is the Feature-012-owned MySQL logical
 `guest_design_sessions` boundary. The frontend stores only the opaque session
 reference required by the approved transport and never persists raw identity,

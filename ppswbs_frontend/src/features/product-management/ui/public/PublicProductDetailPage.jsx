@@ -8,6 +8,7 @@ import { messages } from '../messages';
 import { AddToCartPanel } from './AddToCartPanel';
 import { PriceRange } from './PriceRange';
 import { OfferBadges, OfferPrice, offersForProduct, ProductOfferList, SizeOfferPrice, usePublicProductPrograms } from '../../../loyalty-promotion';
+import ProductReviewSection from './ProductReviewSection';
 
 /**
  * T071: public detail. Reading creates no cart, hold or order; only "Add to cart" (T072, {@link AddToCartPanel})
@@ -71,6 +72,7 @@ export default function PublicProductDetailPage() {
           <p className="muted small">{t('public.priceNotice')}</p>
         </div>
       </div>
+      <ProductReviewSection productId={data.id} productName={data.name} />
     </main>
   );
 }

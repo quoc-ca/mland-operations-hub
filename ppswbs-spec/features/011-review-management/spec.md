@@ -85,6 +85,24 @@ Display name (decision 2026-11-06): a Member's public review shows the account n
 
 Public listing supports target filtering, package filtering, rating filtering and stable pagination. A workshop review carries the package of the attended booking (id and the name at that time, decision 2026-11-06), so the list shows which package each review is about and a package page can show its reviews across all of that package's sessions; the review's target stays the session. A retail review has no package. Homepage, Product Details and Workshop Details may feature the newest five-star reviews first, while the general list remains filterable. Aggregate average/count is calculated or projected from `PUBLIC` rows only. Hidden and removed reviews are excluded from public output and aggregates.
 
+### 7.1 Retail Product Detail Review Integration & Scoped Filtering
+
+To provide seamless feedback directly on retail catalogue products, a dedicated Product Review Section is integrated at the bottom of the public Product Detail Page (`PublicProductDetailPage.jsx`).
+
+1. **Strict Product Review Isolation (Không lẫn lộn đánh giá)**:
+   - When viewing a product detail page, the review list is strictly queried by `targetType = RETAIL_PRODUCT` and `targetReference = String(productId)`.
+   - The backend query enforces `cb.equal(root.get("targetType"), TargetType.RETAIL_PRODUCT)` and `cb.equal(root.get("targetReference"), targetReference)`.
+   - Reviews belonging to other retail products or workshop sessions must never be returned or displayed on a product's detail page.
+   - If a product currently has no public reviews, the section displays an inviting empty state notice ("Sản phẩm này chưa có đánh giá nào...") rather than pulling reviews from adjacent catalogue items.
+
+2. **Sorting and Filtering Options**:
+   - Customers viewing product reviews can filter and order feedback through interactive controls:
+     - **Recent reviews (Mới nhất)**: Sorts reviews in descending chronological order (`createdAt DESC`). This is the default view.
+     - **Best to worse (Đánh giá cao nhất)**: Sorts reviews by star rating from highest to lowest (5 stars down to 1 star), with secondary sorting by `createdAt DESC`.
+     - **Worse to best (Đánh giá thấp nhất)**: Sorts reviews by star rating from lowest to highest (1 star up to 5 stars), with secondary sorting by `createdAt DESC`.
+     - **Star Filter (Lọc theo số sao)**: Allows filtering to display only reviews matching a specific star rating (All, 5★, 4★, 3★, 2★, 1★).
+   - Real-time rating summary (aggregate) displays the overall average score (e.g. `4.8 / 5.0`), total count of verified public reviews, and star distribution breakdown.
+
 ## 8. Moderation and reply
 
 Staff may transition any `PUBLIC` or `HIDDEN` review to `HIDDEN` within the moderation operation permitted to Staff. Staff may not remove or reply. Manager may hide, remove, restore where allowed by the approved transition policy, create one reply and edit that reply. Each decision records actor, role, reason, time, previous status, new status and correlation/idempotency data. Admin has no business moderation authority.

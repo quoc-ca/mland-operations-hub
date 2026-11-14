@@ -51,9 +51,10 @@ public class ReviewController {
             @RequestParam(required = false) Long packageId,
             @RequestParam(required = false) Integer rating,
             @RequestParam(required = false) String cursor,
-            @RequestParam(required = false) Integer limit) {
+            @RequestParam(required = false) Integer limit,
+            @RequestParam(required = false, defaultValue = "recent") String sort) {
         PublicReviewPageDto page = publicReadFacade.getPublicReviews(
-                new PublicReviewQuery(targetType, targetReference, packageId, rating, cursor, limit));
+                new PublicReviewQuery(targetType, targetReference, packageId, rating, cursor, limit, sort));
         return ResponseEntity.ok(page);
     }
 

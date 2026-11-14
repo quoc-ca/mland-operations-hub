@@ -63,6 +63,14 @@ export function workshopRingDesignApi(request) {
       });
     },
 
+    listMyDesigns(guestSession, isAuthenticated = false) {
+      return request('/api/v1/workshop-designs', {
+        method: 'GET',
+        headers: buildHeaders(guestSession),
+        auth: isAuthenticated,
+      });
+    },
+
     getDesign(designId, guestSession, isAuthenticated = false) {
       return request(`/api/v1/workshop-designs/${encodeURIComponent(designId)}`, {
         method: 'GET',

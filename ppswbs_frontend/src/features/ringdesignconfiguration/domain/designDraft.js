@@ -136,5 +136,11 @@ export function normalizeDraftForSave(draft) {
       items: draft.engraving?.enabled ? engravingItems : [],
       customImages,
     },
+    gemstonePositions: (draft.gemstonePositions || []).map((p) => ({
+      id: p.id,
+      reference: p.reference,
+      index: Number(p.index) || 0,
+      angleDeg: Number(p.angleDeg) || 270,
+    })),
   };
 }

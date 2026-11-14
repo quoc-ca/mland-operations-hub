@@ -57,5 +57,8 @@ public class SaveDesignVersionRequest {
     @NotNull
     @Valid
     private EngravingInputDto engraving;
+
+    @Builder.Default
+    private List<GemstonePositionDto> gemstonePositions = new ArrayList<>();
 }
 

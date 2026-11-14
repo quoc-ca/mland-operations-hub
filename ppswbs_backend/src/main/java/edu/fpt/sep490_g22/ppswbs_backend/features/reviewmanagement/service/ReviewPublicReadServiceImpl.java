@@ -60,10 +60,19 @@ public class ReviewPublicReadServiceImpl implements ReviewPublicReadFacade {
         Specification<Review> filtered = scope(q.targetType(), targetRef, q.packageId(), q.rating());
         long total = reviewRepository.count(filtered);
 
+        final Sort finalSort;
+        if ("best_to_worse".equalsIgnoreCase(q.sort())) {
+            finalSort = Sort.by(Sort.Order.desc("rating"), Sort.Order.desc("createdAt"), Sort.Order.desc("id"));
+        } else if ("worse_to_best".equalsIgnoreCase(q.sort())) {
+            finalSort = Sort.by(Sort.Order.asc("rating"), Sort.Order.desc("createdAt"), Sort.Order.desc("id"));
+        } else {
+            finalSort = NEWEST_FIRST;
+        }
+
         // Keyset paging on (createdAt, id): a review published while the customer scrolls cannot repeat or skip a row.
         Specification<Review> pageSpec = cursor == null ? filtered : filtered.and(after(cursor));
         List<Review> rows = reviewRepository.findBy(pageSpec,
-                fluent -> fluent.sortBy(NEWEST_FIRST).limit(limit + 1).all());
+                fluent -> fluent.sortBy(finalSort).limit(limit + 1).all());
         boolean hasNext = rows.size() > limit;
         List<Review> pageRows = hasNext ? rows.subList(0, limit) : rows;
 

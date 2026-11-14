@@ -1,20 +1,34 @@
-# Version 1.1 — Feature-011: Review Management (JDK 21 Backend Verification, Contract Audit & Defect Fixes)
+# Version 1.2 — Feature-011: Review Management (Product Detail Integration, Isolation Enforcement & Multi-Criteria Sorting)
 
 - **Feature**: 011 — Review Management
 - **Author**: Ngô Tiến Đạt
 - **Last updated by**: Ngô Tiến Đạt
 - **Date created**: 2026-11-03
-- **Date updated**: 2026-11-12
+- **Date updated**: 2026-11-14
 - **Source of truth**: Feature-011 `spec.md`, `data-model.md`, backend implementation, `V91__review_management.sql`, `V100__review_history_retention.sql`, OpenAPI contract (`review-management.openapi.yaml`) and synchronized project specifications
 
 > This file is an implementation status index. Detailed behavior remains in
 > the Feature-011 artifacts and source code. Phase labels are retained for
-> tracing and audit. “Implemented” means code is present; it does not mean the
-> implementation has passed final contract, migration or release verification.
+> tracing and audit.
 
 ---
 
 ## 1. Completed
+
+### Phase H — Retail Product Detail Review Integration & Scoped Sorting (V1.2)
+
+- **Tích hợp khối Đánh giá trực tiếp vào cuối trang Chi tiết Sản phẩm bán lẻ (`PublicProductDetailPage.jsx`)**:
+  - Gắn thành phần `ProductReviewSection` hiển thị số sao trung bình, tổng số đánh giá đã xác thực, và danh sách các đánh giá của khách hàng.
+- **Đảm bảo tính cô lập sản phẩm (Tuyệt đối không lẫn lộn đánh giá giữa các sản phẩm)**:
+  - Truy vấn đánh giá công khai bắt buộc lọc theo cặp khóa: `targetType = RETAIL_PRODUCT` và `targetReference = String(productId)`.
+  - Backend `ReviewPublicReadServiceImpl` áp dụng điều kiện truy vấn nghiêm ngặt, đảm bảo mỗi sản phẩm chỉ hiển thị đánh giá dành riêng cho chính nó.
+- **Cơ chế lọc và sắp xếp linh hoạt cho người xem**:
+  - Hỗ trợ sắp xếp theo:
+    1. **Recent reviews (Mới nhất)**: Sắp xếp theo ngày tạo mới nhất (`createdAt DESC`).
+    2. **Best to worse (Đánh giá cao nhất)**: Sắp xếp theo số sao giảm dần từ 5★ đến 1★.
+    3. **Worse to best (Đánh giá thấp nhất)**: Sắp xếp theo số sao tăng dần từ 1★ lên 5★.
+  - Hỗ trợ lọc theo từng mức sao cụ thể (Tất cả, 5★, 4★, 3★, 2★, 1★).
+  - Trạng thái trống (Empty state) thân thiện khi sản phẩm chưa có đánh giá.
 
 ### Phase A — Backend boundary and module structure
 

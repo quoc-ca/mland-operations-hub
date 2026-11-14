@@ -1,11 +1,11 @@
-# Version 1.1 — Feature 012: Workshop Ring Design Configuration (Full-Stack Implementation & Test Verification)
+# Version 1.2 — Feature 012: Workshop Ring Design Configuration (Multi-Design Storage, Full-Fidelity Restoration & Price Preservation)
 
 - **Feature**: 012 — Workshop Ring Design Configuration
 - **Author**: Ngô Tiến Đạt
 - **Last updated by**: Ngô Tiến Đạt
 - **Date created**: 2026-11-08
-- **Date updated**: 2026-11-12
-- **Source of truth**: Feature-012 `spec.md`, `data-model.md`, `contracts/workshop-ring-design.openapi.yaml`, `V110__workshop_ring_design_configuration.sql`, backend Spring Boot implementation, frontend React 19 + Vite implementation, and synchronized project specifications
+- **Date updated**: 2026-11-14
+- **Source of truth**: Feature-012 `spec.md`, `data-model.md`, `contracts/workshop-ring-design.openapi.yaml`, `V110__workshop_ring_design_configuration.sql`, `V143__ring_design_uniform_pricing.sql`, backend Spring Boot implementation, frontend React 19 + Vite implementation, and synchronized project specifications
 
 > This file is an implementation status index. Detailed behavior remains in
 > the Feature-012 artifacts and source code. Phase labels are retained for
@@ -14,6 +14,18 @@
 ---
 
 ## 1. Completed
+
+### Phase G — Multi-Design Storage, Full-Fidelity Restoration & Price Preservation (V1.2)
+
+- **Vấn đề 1.1: Khắc phục lỗi giá ước lượng nhảy về 250.000 ₫ khi view lại thiết kế:**
+  - *Nguyên nhân:* Trang Lịch sử thiết kế (`MemberDesignHistoryPage.jsx`) hardcode mẫu mock `DSG-DEMO-MEMBER-01` với giá cố định `250000.00`. Đồng thời, backend `getDesign` trước đây tái thẩm định qua `rulesPort.evaluate` nhưng bỏ sót các trường kích thước/chi tiết trong snapshot dẫn đến giá bị trả về mức cơ bản.
+  - *Giải pháp:* Bảo toàn trường `estimated_price` thực tế đã lưu trên row `ring_designs` trong MySQL; trả về đúng giá đã thẩm định của phiên bản thiết kế (ví dụ 500k, 1M, 3.5M).
+- **Vấn đề 1.2: Khắc phục lỗi mẫu thiết kế lưu trữ không khớp với thiết kế đã tạo:**
+  - *Nguyên nhân:* `SaveDesignVersionRequest` và payload lưu trữ thiếu trường `gemstonePositions` (tọa độ/góc xoay quanh đai nhẫn). Hàm `resetFromSavedDesign` trong `useWorkshopDesignDraft.js` bỏ sót không restore `thicknessMm`, `bandWidthMm`, `gemstonePositions`, `customImages`. Trang cấu hình khi ở chế độ `mode=EDIT&designId=...` không tải lại dữ liệu thiết kế từ backend.
+  - *Giải pháp:* Mở rộng DTO và snapshot để lưu trữ 100% chi tiết: chất liệu, dáng nhẫn, size, độ dày `thicknessMm`, độ rộng `bandWidthMm`, danh sách đá quý kèm mảng tọa độ góc xoay `gemstonePositions`, họa tiết trang trí, khắc chữ và ảnh khắc laser tùy chỉnh. Khi mở lại thiết kế để xem/sửa, nạp và phục hồi chính xác toàn bộ tham số.
+- **Vấn đề 1.3: Khắc phục lỗi không lưu trữ được nhiều thiết kế:**
+  - *Nguyên nhân:* Thiếu endpoint API liệt kê danh sách thiết kế của người dùng (`GET /api/v1/workshop-designs`). Giao diện `/my/designs` chỉ render 1 item mock.
+  - *Giải pháp:* Xây dựng endpoint `GET /api/v1/workshop-designs` trả về danh sách phiên bản mới nhất của tất cả các mẫu thiết kế thuộc quyền sở hữu của Member (hoặc Guest qua session). Giao diện `/my/designs` kết nối trực tiếp với API backend, hiển thị danh sách thẻ thiết kế động, cho phép xem chi tiết, sửa tiếp hoặc lưu trữ không giới hạn số lượng thiết kế.
 
 ### Phase A — Contract and OpenAPI Gap Resolution
 
