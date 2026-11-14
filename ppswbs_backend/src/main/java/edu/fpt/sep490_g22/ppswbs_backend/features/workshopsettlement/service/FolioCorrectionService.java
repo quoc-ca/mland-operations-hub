@@ -2,7 +2,6 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service;
 
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorRole;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.CurrentAccountActor;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.VerifiedBookingPayment;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.FolioCorrectionDtos;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.*;
@@ -119,8 +118,7 @@ public class FolioCorrectionService {
         SettlementFinalBill bill = bills.findByBookingReferenceForUpdate(bookingRef)
                 .orElseThrow(WorkshopSettlementNotFoundException::new);
         var ticketCtx = booking.getTicketFolioContext(bookingRef).orElse(null);
-        var projection = ticketCtx == null ? booking.confirmedProjection(bookingRef) : null;
-        if (ticketCtx == null && projection == null) throw new WorkshopSettlementNotFoundException();
+        if (ticketCtx == null) throw new WorkshopSettlementNotFoundException();
         if (!"FINALIZED".equals(bill.getLifecycleStatus())) {
             if ("OPEN".equals(bill.getLifecycleStatus())) {
                 throw new WorkshopSettlementConflictException("FOLIO_NOT_FINALIZED");
@@ -141,7 +139,9 @@ public class FolioCorrectionService {
                 throw new WorkshopSettlementConflictException("FOLIO_CORRECTION_ALREADY_IN_PROGRESS");
             }
 
-            List<RefundablePayment> payments = verifiedPayments(bookingRef);
+            // T115, FR-038/FR-050: a ticket folio is capped by the ticket's real collected money and refunded by
+            // bank transfer, so no provider transaction number is needed or invented.
+            List<RefundablePayment> payments = ticketCollectedMoney(bill);
             Map<String, Long> unrefundedByPayment = new LinkedHashMap<>();
             long totalUnrefunded = 0L;
             for (RefundablePayment p : payments) {
@@ -181,7 +181,8 @@ public class FolioCorrectionService {
                         .originalAmountVnd(p.amountVnd())
                         .allocatedAmountVnd(alloc)
                         .currencyCode("VND")
-                        .operationReference("VNPAY-REFUND-" + UUID.randomUUID())
+                        // T098/T115: every correction is refunded through the bank refund lifecycle.
+                        .operationReference("BANK-REFUND-" + UUID.randomUUID())
                         .lifecycleStatus("PREPARED")
                         .createdAt(now)
                         .updatedAt(now)
@@ -246,29 +247,26 @@ public class FolioCorrectionService {
 
     @Transactional(readOnly = true)
     public FolioCorrectionDtos.Response read(String bookingReference, String correctionReference,
-                                             String contactEmail, String contactPhone,
                                              CurrentAccountActor actor) {
         String bookingRef = required(bookingReference, "bookingReference");
         String corrRef = required(correctionReference, "correctionReference");
 
         var ticketCtx = booking.getTicketFolioContext(bookingRef).orElse(null);
-        var projection = ticketCtx == null ? booking.confirmedProjection(bookingRef) : null;
-        if (ticketCtx == null && projection == null) throw new WorkshopSettlementNotFoundException();
+        if (ticketCtx == null) throw new WorkshopSettlementNotFoundException();
 
-        Long locationId = ticketCtx != null ? ticketCtx.locationReference() : projection.bookingLocationReference();
+        // T114, FR-048 / Constitution II: no contact proof in a URL. The owning Member, a Manager or the assigned
+        // Staff read here; a Guest reads through POST …/folio-lookups with the proof in the body.
+        Long locationId = ticketCtx.locationReference();
         if (actor == null) {
-            if ((contactEmail == null || contactEmail.isBlank()) == (contactPhone == null || contactPhone.isBlank())) {
+            throw new WorkshopSettlementNotFoundException();
+        } else if (actor.role() == ActorRole.MEMBER) {
+            if (!Objects.equals(actor.accountId(), ticketCtx.buyerMemberAccountId())) {
                 throw new WorkshopSettlementNotFoundException();
             }
-            var access = booking.verifyCustomerAccess(bookingRef, null, contactEmail, contactPhone);
-            if (access == null || !access.authorized()) throw new WorkshopSettlementNotFoundException();
-        } else if (actor.role() == ActorRole.MEMBER) {
-            var access = booking.verifyCustomerAccess(bookingRef, actor.accountId(), null, null);
-            if (access == null || !access.authorized()) throw new WorkshopSettlementNotFoundException();
         } else if (actor.role() == ActorRole.MANAGER) {
             authorization.requireManager(actor);
         } else if (actor.role() == ActorRole.STAFF) {
-            authorization.requireManagerOrStaff(actor, locationId);
+            authorization.requireManagerOrAssignedStaff(actor, locationId, ticketCtx.lineReference());
         } else {
             throw new WorkshopSettlementNotFoundException();
         }
@@ -296,55 +294,27 @@ public class FolioCorrectionService {
         return FolioCorrectionDtos.Response.from(correction, settlementCase, refundId, refundStatus);
     }
 
-    private List<RefundablePayment> verifiedPayments(String bookingReference) {
-        var deposits = booking.verifiedDepositPayments(bookingReference);
+    /**
+     * T115: the money really collected for one ticket, oldest first — its share of the group's booking-time payment
+     * (the folio's first collection, from 003.1's immutable snapshot) and then every CONFIRMED folio collection,
+     * whatever its method. A VNPay part counts once, through its collection (T107). These go back by bank
+     * transfer, so no provider transaction number or create date is attached.
+     */
+    private List<RefundablePayment> ticketCollectedMoney(SettlementFinalBill bill) {
         List<RefundablePayment> payments = new ArrayList<>();
-        if (deposits != null && deposits.payments() != null) {
-            for (VerifiedBookingPayment payment : deposits.payments()) {
-                if (!payment.verified()) continue;
-                payments.add(new RefundablePayment(payment.reference(), payment.providerTransactionNumber(),
-                        payment.originalProviderCreateDate(), payment.amountVnd(), payment.currencyCode()));
-            }
+        if (bill.getAcceptedDepositAmountVnd() != null && bill.getAcceptedDepositAmountVnd() > 0) {
+            payments.add(new RefundablePayment("BOOKING_TIME:" + bill.getBookingReference(), null, null,
+                    bill.getAcceptedDepositAmountVnd(), "VND"));
         }
-        // A ticket folio's VNPay part carries FOLIO_VNPAY_VERIFIED (counted once through its collection); it is
-        // still a real provider payment for this list.
-        for (SettlementEvidenceConclusion payment : java.util.stream.Stream.of("FINAL_PAYMENT_VERIFIED",
-                        FinalPaymentService.FOLIO_VNPAY_VERIFIED)
-                .flatMap(conclusion -> evidence.findByBookingReferenceAndConclusion(bookingReference, conclusion).stream())
-                .toList()) {
-            payments.add(new RefundablePayment(payment.getProviderTransactionReference(),
-                    payment.getProviderTransactionNumber(), payment.getOriginalProviderCreateDate(),
-                    payment.getAmountVnd(), payment.getCurrencyCode()));
-        }
-        if (payments.isEmpty()) {
-            var billOpt = bills.findByBookingReference(bookingReference);
-            if (billOpt.isPresent()) {
-                var bill = billOpt.get();
-                if (bill.getAcceptedDepositAmountVnd() != null && bill.getAcceptedDepositAmountVnd() > 0) {
-                    payments.add(new RefundablePayment("DEPOSIT:" + bill.getBookingReference(),
-                            "100000000000001", "20261114000000", bill.getAcceptedDepositAmountVnd(), "VND"));
-                }
-                for (var col : collections.findByBillReferenceOrderByIdAsc(bill.getBillReference())) {
-                    if (col.getStatus() == FolioCollectionStatus.CONFIRMED && col.getAmountVnd() > 0) {
-                        payments.add(new RefundablePayment("COLLECTION:" + col.getCollectionReference(),
-                                "100000000000002", "20261114000000", col.getAmountVnd(), "VND"));
-                    }
-                }
+        for (var col : collections.findByBillReferenceOrderByIdAsc(bill.getBillReference())) {
+            if (col.getStatus() == FolioCollectionStatus.CONFIRMED && col.getAmountVnd() > 0) {
+                payments.add(new RefundablePayment("COLLECTION:" + col.getCollectionReference(), null, null,
+                        col.getAmountVnd(), "VND"));
             }
         }
         if (payments.isEmpty()) {
-            throw new WorkshopSettlementConflictException("VERIFIED_PAYMENT_EVIDENCE_UNAVAILABLE");
+            throw new WorkshopSettlementConflictException("COLLECTED_MONEY_UNAVAILABLE");
         }
-        payments.sort(Comparator.comparing(RefundablePayment::providerCreateDate)
-                .thenComparing(RefundablePayment::paymentReference));
-        boolean valid = !payments.isEmpty() && payments.stream().allMatch(payment ->
-                payment.paymentReference() != null && !payment.paymentReference().isBlank()
-                        && payment.providerTransactionNumber() != null
-                        && payment.providerTransactionNumber().matches("[0-9]{1,15}")
-                        && payment.providerCreateDate() != null && payment.providerCreateDate().matches("[0-9]{14}")
-                        && payment.amountVnd() != null && payment.amountVnd() > 0
-                        && "VND".equals(payment.currencyCode()));
-        if (!valid) throw new WorkshopSettlementConflictException("VERIFIED_PAYMENT_EVIDENCE_INVALID");
         return List.copyOf(payments);
     }
 

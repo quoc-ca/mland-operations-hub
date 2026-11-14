@@ -333,7 +333,7 @@ class TicketFolioApiServiceTest {
     void recordCollection_vnpay_ignoresClientReferenceAndReturnsTheCheckoutWhilePayable() {
         TicketFolioContext ctx = new TicketFolioContext("TK-1", "GRP-1", "LINE-1", "PKG-1", 1L, List.of("SES-1"), 30L);
         when(booking.getTicketFolioContext("TK-1")).thenReturn(Optional.of(ctx));
-        when(authorization.requireManagerOrStaff(staff, 1L)).thenReturn(staff);
+        when(authorization.requireManagerOrAssignedStaff(staff, 1L, "LINE-1")).thenReturn(staff);
         Instant expiresAt = Instant.now().plusSeconds(600);
         SettlementFolioCollection part = SettlementFolioCollection.builder().collectionReference("COLL-V")
                 .billReference("BILL-1").bookingReference("TK-1").method(FolioCollectionMethod.VNPAY)
@@ -429,5 +429,102 @@ class TicketFolioApiServiceTest {
                 new FolioCollectionDtos.ManagerReasonRequest("x"), manager))
                 .isInstanceOf(WorkshopSettlementValidationException.class);
         verifyNoInteractions(folioCollectionService);
+    }
+
+    // ---- T111: collection authority and branch come from the ticket ----
+
+    @Test
+    void recordCollection_cash_usesTheTicketBranchAndRequiresAssignedStaff() {
+        TicketFolioContext ctx = new TicketFolioContext("TK-1", "GRP-1", "LINE-1", "PKG-1", 1L, List.of("SES-1"), 30L);
+        when(booking.getTicketFolioContext("TK-1")).thenReturn(Optional.of(ctx));
+        when(authorization.requireManagerOrAssignedStaff(staff, 1L, "LINE-1")).thenReturn(staff);
+        when(folioCollectionService.collectCash(eq("TK-1"), eq(50_000L), eq(50_000L), any(), any(), eq(1L), eq(20L), eq("corr")))
+                .thenReturn(new FolioCollectionService.CollectionOutcome("COLL-C", FolioCollectionMethod.CASH,
+                        50_000L, 0L, FolioCollectionStatus.CONFIRMED, 0L, 0L, "OPEN"));
+        when(collections.findByCollectionReference("COLL-C")).thenReturn(Optional.of(SettlementFolioCollection.builder()
+                .collectionReference("COLL-C").method(FolioCollectionMethod.CASH).amountVnd(50_000L)
+                .status(FolioCollectionStatus.CONFIRMED).build()));
+
+        // The client claims branch 99; the ticket's branch 1 is used.
+        service.recordCollection("TK-1", "KEY-1234567890123456", "corr",
+                new TicketCollectionRequest("CASH", null, 50_000L, null, 50_000L, null, null, 99L), staff);
+
+        verify(authorization).requireManagerOrAssignedStaff(staff, 1L, "LINE-1");
+        verify(authorization, never()).requireManagerOrStaff(any(CurrentAccountActor.class), any());
+        verify(folioCollectionService).collectCash(eq("TK-1"), eq(50_000L), eq(50_000L), any(), any(), eq(1L), eq(20L), eq("corr"));
+    }
+
+    @Test
+    void recordCollection_byStaffNotAssigned_isRefusedWithoutWriting() {
+        TicketFolioContext ctx = new TicketFolioContext("TK-1", "GRP-1", "LINE-1", "PKG-1", 1L, List.of("SES-1"), 30L);
+        when(booking.getTicketFolioContext("TK-1")).thenReturn(Optional.of(ctx));
+        when(authorization.requireManagerOrAssignedStaff(staff, 1L, "LINE-1"))
+                .thenThrow(new WorkshopSettlementAuthorizationException("SESSION_ASSIGNMENT_REQUIRED"));
+
+        assertThatThrownBy(() -> service.recordCollection("TK-1", "KEY-1234567890123456", "corr",
+                new TicketCollectionRequest("CASH", null, 50_000L, null, 50_000L, null, null, 1L), staff))
+                .isInstanceOf(WorkshopSettlementAuthorizationException.class);
+        verifyNoInteractions(folioCollectionService, idempotency);
+    }
+
+    // ---- T119: transfer confirmation scoped to the ticket, idempotent; handover exception idempotent ----
+
+    @Test
+    void confirmCollection_ofThisTicketsPart_runsThroughIdempotency() {
+        when(bills.findByBookingReference("TK-1")).thenReturn(Optional.of(SettlementFinalBill.builder()
+                .billReference("BILL-1").bookingReference("TK-1").lifecycleStatus("OPEN").build()));
+        SettlementFolioCollection part = SettlementFolioCollection.builder().collectionReference("COLL-T")
+                .billReference("BILL-1").method(FolioCollectionMethod.BANK_TRANSFER).amountVnd(30_000L)
+                .status(FolioCollectionStatus.PENDING_VERIFICATION).build();
+        when(collections.findByCollectionReference("COLL-T")).thenReturn(Optional.of(part));
+        when(folioCollectionService.confirmBankTransfer("COLL-T", 10L, "corr")).thenAnswer(inv -> {
+            part.setStatus(FolioCollectionStatus.CONFIRMED);
+            return new FolioCollectionService.CollectionOutcome("COLL-T", FolioCollectionMethod.BANK_TRANSFER,
+                    30_000L, 0L, FolioCollectionStatus.CONFIRMED, 0L, 0L, "OPEN");
+        });
+
+        CollectionDto dto = service.confirmCollection("TK-1", "COLL-T", "KEY-1234567890123456", "corr",
+                new ConfirmBankTransferRequest("FT123"), manager);
+
+        assertThat(dto.status()).isEqualTo("CONFIRMED");
+        verify(idempotency).execute(eq("CONFIRM_COLL:TK-1:COLL-T:KEY-1234567890123456"),
+                eq("CONFIRM_COLL:TK-1:COLL-T"), any());
+    }
+
+    @Test
+    void confirmCollection_ofAnotherTicketsPart_isNotFound() {
+        when(bills.findByBookingReference("TK-1")).thenReturn(Optional.of(SettlementFinalBill.builder()
+                .billReference("BILL-1").bookingReference("TK-1").lifecycleStatus("OPEN").build()));
+        when(collections.findByCollectionReference("COLL-X")).thenReturn(Optional.of(SettlementFolioCollection.builder()
+                .collectionReference("COLL-X").billReference("BILL-OTHER").method(FolioCollectionMethod.BANK_TRANSFER)
+                .status(FolioCollectionStatus.PENDING_VERIFICATION).build()));
+
+        assertThatThrownBy(() -> service.confirmCollection("TK-1", "COLL-X", "KEY-1234567890123456", "corr",
+                new ConfirmBankTransferRequest("FT123"), manager))
+                .isInstanceOf(WorkshopSettlementNotFoundException.class);
+        verify(folioCollectionService, never()).confirmBankTransfer(any(), any(), any());
+    }
+
+    @Test
+    void confirmCollection_withoutKey_isRefused() {
+        assertThatThrownBy(() -> service.confirmCollection("TK-1", "COLL-T", null, "corr",
+                new ConfirmBankTransferRequest("FT123"), manager))
+                .isInstanceOf(WorkshopSettlementValidationException.class);
+        verifyNoInteractions(folioCollectionService);
+    }
+
+    @Test
+    void approveHandoverException_runsThroughIdempotencyWithReason() {
+        when(folioFinalizationService.approveHandoverException("TK-1", 10L, "Khach can gap", "corr"))
+                .thenReturn(SettlementFinalBill.builder().billReference("BILL-1").bookingReference("TK-1").build());
+
+        service.approveHandoverException("TK-1", "KEY-1234567890123456", "corr",
+                new FolioCollectionDtos.ManagerReasonRequest("Khach can gap"), manager);
+
+        verify(idempotency).execute(eq("HANDOVER_EXC:TK-1:KEY-1234567890123456"),
+                eq("HANDOVER_EXC:TK-1:Khach can gap"), any());
+        assertThatThrownBy(() -> service.approveHandoverException("TK-1", "short", "corr",
+                new FolioCollectionDtos.ManagerReasonRequest("x"), manager))
+                .isInstanceOf(WorkshopSettlementValidationException.class);
     }
 }

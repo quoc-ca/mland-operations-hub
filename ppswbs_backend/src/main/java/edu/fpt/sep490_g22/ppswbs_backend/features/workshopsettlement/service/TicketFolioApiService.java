@@ -278,8 +278,9 @@ public class TicketFolioApiService {
         String code = required(ticketCode, "ticketCode");
         TicketFolioContext ctx = booking.getTicketFolioContext(code)
                 .orElseThrow(WorkshopSettlementNotFoundException::new);
-        Long branchId = request.branchId() != null ? request.branchId() : ctx.locationReference();
-        CurrentAccountActor staff = authorization.requireManagerOrStaff(actor, branchId);
+        // T111, FR-051/FR-002: the cash branch is the ticket's own location; a client-sent branchId is ignored.
+        Long branchId = ctx.locationReference();
+        CurrentAccountActor staff = authorization.requireManagerOrAssignedStaff(actor, branchId, ctx.lineReference());
 
         long amt = request.amountVnd() != null ? request.amountVnd() : Long.parseLong(request.amount().trim());
         String correlation = correlation(correlationId);
@@ -322,11 +323,22 @@ public class TicketFolioApiService {
                                            CurrentAccountActor actor) {
         requireKey(idempotencyKey);
         CurrentAccountActor manager = authorization.requireManager(actor);
-        String correlation = correlation(correlationId);
-        var outcome = folioCollectionService.confirmBankTransfer(collectionId.trim(), manager.accountId(), correlation);
-        SettlementFolioCollection col = collections.findByCollectionReference(outcome.collectionReference())
+        String code = required(ticketCode, "ticketCode");
+        // T119, FR-031: the part must belong to this ticket's own folio, otherwise it is not found.
+        SettlementFinalBill folio = bills.findByBookingReference(code)
                 .orElseThrow(WorkshopSettlementNotFoundException::new);
-        return toCollectionDto(col);
+        SettlementFolioCollection col = findCollection(required(collectionId, "collectionId"));
+        if (!folio.getBillReference().equals(col.getBillReference())) {
+            throw new WorkshopSettlementNotFoundException();
+        }
+        String correlation = correlation(correlationId);
+        String op = "CONFIRM_COLL:" + code + ":" + col.getCollectionReference() + ":" + idempotencyKey.trim();
+        String fp = "CONFIRM_COLL:" + code + ":" + col.getCollectionReference();
+        var outcome = idempotency.execute(op, fp, () -> folioCollectionService.confirmBankTransfer(
+                col.getCollectionReference(), manager.accountId(), correlation).collectionReference());
+        SettlementFolioCollection confirmed = collections.findByCollectionReference(outcome.outcomeReference())
+                .orElseThrow(WorkshopSettlementNotFoundException::new);
+        return toCollectionDto(confirmed);
     }
 
     /**
@@ -365,9 +377,16 @@ public class TicketFolioApiService {
                                          CurrentAccountActor actor) {
         requireKey(idempotencyKey);
         CurrentAccountActor manager = authorization.requireManager(actor);
+        if (request == null || request.reason() == null || request.reason().isBlank()) {
+            throw new WorkshopSettlementValidationException("HANDOVER_REASON_REQUIRED");
+        }
         String code = required(ticketCode, "ticketCode");
         String correlation = correlation(correlationId);
-        folioFinalizationService.approveHandoverException(code, manager.accountId(), request.reason(), correlation);
+        // T119, FR-022d: replay with the same key returns the recorded exception without a second audit row.
+        String op = "HANDOVER_EXC:" + code + ":" + idempotencyKey.trim();
+        String fp = "HANDOVER_EXC:" + code + ":" + request.reason().trim();
+        idempotency.execute(op, fp, () -> folioFinalizationService.approveHandoverException(code,
+                manager.accountId(), request.reason(), correlation).getBillReference());
     }
 
     @Transactional

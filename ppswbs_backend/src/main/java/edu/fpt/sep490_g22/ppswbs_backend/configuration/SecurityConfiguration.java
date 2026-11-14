@@ -90,6 +90,8 @@ public class SecurityConfiguration {
                 .requestMatchers(HttpMethod.POST, "/api/v1/workshop-tickets/*/cancellations").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/workshop-booking-groups/*/cancellations").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/workshop-tickets/*/mland-remedy/answers").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/workshop-tickets/*/mland-remedy").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/workshop-booking-groups/*/ticket-changes").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/workshop-tickets/*/changes").permitAll()
                 // 003.3 FR-040: the single-use refund-account link from email 7 is the credential.
                 .requestMatchers(HttpMethod.POST, "/api/v1/refund-account-links/*").permitAll()

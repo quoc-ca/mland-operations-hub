@@ -53,6 +53,10 @@ public final class FolioCollectionDtos {
             @Size(max = 1000) String reason) {
     }
 
+    /** T120: what the system expects in a branch's drawer for one Vietnam working day, before anyone counts. */
+    public record ExpectedCashResponse(Long branchId, LocalDate businessDay, long expectedCashVnd) {
+    }
+
     public record CashCloseResponse(
             String closeReference,
             Long branchId,

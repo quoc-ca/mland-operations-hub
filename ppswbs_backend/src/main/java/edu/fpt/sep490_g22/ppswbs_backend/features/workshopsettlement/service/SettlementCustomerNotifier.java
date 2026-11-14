@@ -134,11 +134,51 @@ public class SettlementCustomerNotifier {
             return null;
         }
         String subject = "MLAND – Buổi workshop bị hủy, vui lòng chọn ca thay thế hoặc hoàn tiền";
-        String body = "Rất tiếc, buổi workshop của vé " + ticketCode + " bị hủy. Chúng tôi đề xuất ca thay thế: "
-                + replacementSession + ". Vui lòng trả lời trước hạn 24 giờ: " + deadline + ".\n"
-                + "Nếu không trả lời trước hạn, MLAND sẽ hoàn 100% số tiền đã thanh toán cho vé này.";
+        // Template 9 (T112): every valid equivalent session is listed and the buyer chooses ONE of them.
+        String body = "Rất tiếc, buổi workshop của vé " + ticketCode + " bị hủy. Chúng tôi đề xuất các ca thay thế "
+                + "(chọn một ca, ca phải bắt đầu ít nhất 24 giờ sau khi bạn trả lời):\n"
+                + replacementSession + "\n"
+                + "Vui lòng trả lời trước " + deadline + " để nhận ca thay thế hoặc chọn hoàn tiền.\n"
+                + "Nếu không trả lời trước hạn hoặc không còn ca nào chọn được, MLAND sẽ hoàn 100% số tiền đã thanh toán "
+                + "cho vé này. Điểm thưởng đã dùng và lượt voucher sẽ được trả lại.";
         return handoffs.create(ticketCode, "MLAND_REMEDY_OFFER", correlationReference, recipient, body, subject,
                 null, null);
+    }
+
+    /** Template 9 without a replacement (T112): no equivalent session exists, so the 100% bank refund opens at once. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public String notifyMlandDirectRefund(String ticketCode, String cancelledSession, String correlationReference) {
+        String recipient;
+        try {
+            recipient = booking.notificationRecipient(ticketCode);
+        } catch (RuntimeException failure) {
+            log.warn("Mland direct refund email skipped, recipient lookup failed: ticketCode={} ({})",
+                    ticketCode, failure.getClass().getSimpleName());
+            return null;
+        }
+        if (recipient == null || recipient.isBlank()) {
+            return null;
+        }
+        String subject = "MLAND – Buổi workshop bị hủy, MLAND hoàn tiền vé " + ticketCode;
+        String body = "Rất tiếc, buổi workshop của vé " + ticketCode + " bị hủy và hiện chưa có ca thay thế phù hợp. "
+                + "MLAND sẽ hoàn 100% số tiền đã thanh toán cho vé này bằng chuyển khoản ngân hàng. "
+                + "Điểm thưởng đã dùng và lượt voucher sẽ được trả lại.";
+        return handoffs.create(ticketCode, "MLAND_DIRECT_REFUND", correlationReference, recipient, body, subject,
+                null, null);
+    }
+
+    /** T112, FR-043: tells the ticket's recipient (if any) the session was cancelled; only the buyer chooses. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public String notifyMlandRemedyRecipientOf(String ticketCode, String correlationReference) {
+        String recipient;
+        try {
+            recipient = booking.ticketRecipientEmail(ticketCode);
+        } catch (RuntimeException failure) {
+            log.warn("Mland remedy recipient email skipped, recipient lookup failed: ticketCode={} ({})",
+                    ticketCode, failure.getClass().getSimpleName());
+            return null;
+        }
+        return notifyMlandRemedyRecipient(ticketCode, recipient, correlationReference);
     }
 
     @Transactional(propagation = Propagation.MANDATORY)

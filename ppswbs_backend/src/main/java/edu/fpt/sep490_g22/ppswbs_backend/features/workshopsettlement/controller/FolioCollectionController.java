@@ -4,7 +4,6 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.Curre
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.FolioCollectionDtos.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.FolioCollectionApiService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.WorkshopSettlementAuthorizationException;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.WorkshopSettlementValidationException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -16,7 +15,11 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDate;
 
 /**
- * Branch cash close and difference confirmation (003.3 T094-T096, T106).
+ * Branch cash close and difference confirmation (003.3 T094-T096, T106, T120).
+ *
+ * <p>T120 (FR-052, FR-022d): the cash-close resource is the only public family. The former
+ * {@code /workshop-cash-days/expected} and {@code /workshop-cash-days/close} routes are retired; the close requires
+ * and stores an {@code Idempotency-Key}, and the expected cash is read under the cash-close resource.
  */
 @RestController
 @RequiredArgsConstructor
@@ -24,21 +27,12 @@ public class FolioCollectionController {
 
     private final FolioCollectionApiService service;
 
-    @GetMapping("/api/v1/workshop-cash-days/expected")
-    public long expectedCash(
+    @GetMapping("/api/v1/workshop-cash-closes/expected-cash")
+    public ExpectedCashResponse expectedCash(
             @RequestParam Long branchId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate businessDay,
             Authentication authentication) {
         return service.expectedCash(branchId, businessDay, actor(authentication));
-    }
-
-    @PostMapping("/api/v1/workshop-cash-days/close")
-    public ResponseEntity<CashCloseResponse> closeCashDay(
-            @RequestHeader(value = "X-Correlation-Id", required = false) String correlation,
-            @Valid @RequestBody CashCloseRequest request,
-            Authentication authentication) {
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(service.closeCashDay(request, correlation, actor(authentication)));
     }
 
     @PostMapping("/api/v1/workshop-cash-closes")
@@ -48,7 +42,7 @@ public class FolioCollectionController {
             @Valid @RequestBody CashCloseRequest request,
             Authentication authentication) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(service.closeCashDay(request, correlation, actor(authentication)));
+                .body(service.closeCashDay(request, idempotencyKey, correlation, actor(authentication)));
     }
 
     @PostMapping("/api/v1/workshop-cash-closes/{cashCloseId}/difference-confirmations")
@@ -58,10 +52,8 @@ public class FolioCollectionController {
             @RequestHeader(value = "X-Correlation-Id", required = false) String correlation,
             @Valid @RequestBody ManagerReasonRequest request,
             Authentication authentication) {
-        if (idempotencyKey == null || idempotencyKey.length() < 16 || idempotencyKey.length() > 128) {
-            throw new WorkshopSettlementValidationException("Idempotency-Key must contain 16 to 128 characters");
-        }
-        return service.confirmDifferenceById(cashCloseId, request.reason(), correlation, actor(authentication));
+        return service.confirmDifferenceById(cashCloseId, request.reason(), idempotencyKey, correlation,
+                actor(authentication));
     }
 
     private static CurrentAccountActor actor(Authentication authentication) {

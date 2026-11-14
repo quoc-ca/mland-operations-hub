@@ -17,6 +17,9 @@ public interface SettlementTicketMlandRemedyRepository extends JpaRepository<Set
 
     List<SettlementTicketMlandRemedy> findByOutcomeAndAnswerDeadlineAtLessThanEqual(String outcome, Instant deadline);
 
+    Optional<SettlementTicketMlandRemedy> findFirstByTicketCodeAndCancelledSessionReferenceOrderByCreatedAtDesc(
+            String ticketCode, String cancelledSessionReference);
+
     boolean existsByTicketCodeAndOutcome(String ticketCode, String outcome);
 }
 

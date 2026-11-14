@@ -6,21 +6,13 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.Settlem
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingRefundStatusResult;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingServiceOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingServiceOutcomeResult;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.CancelConfirmedBookingCommand;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.ConfirmedBookingFinancialProjection;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.ConfirmedBookingFinancialProjectionQuery;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.CustomerBookingAccessDecision;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.CustomerBookingAccessQuery;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.FinalBalanceResolutionOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.RecordBookingRefundStatusCommand;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.RecordBookingServiceOutcomeCommand;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.RecordFinalBalanceResolvedCommand;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.RecordTicketFinalBalanceResolvedCommand;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.VerifiedBookingDepositPaymentsProjection;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.VerifiedBookingDepositPaymentsQuery;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.WorkshopBookingFacade;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.WorkshopBookingLoyaltyOutcomeSource;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.WorkshopBookingLoyaltyOutcomeSourceQuery;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
@@ -31,14 +23,6 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class WorkshopBookingSettlementAdapter {
     private final WorkshopBookingFacade booking;
-
-    public ConfirmedBookingFinancialProjection confirmedProjection(String bookingReference) {
-        return booking.getConfirmedBookingFinancialProjection(new ConfirmedBookingFinancialProjectionQuery(bookingReference));
-    }
-
-    public VerifiedBookingDepositPaymentsProjection verifiedDepositPayments(String bookingReference) {
-        return booking.getVerifiedDepositPayments(new VerifiedBookingDepositPaymentsQuery(bookingReference));
-    }
 
     /** The one Loyalty context of a booking group, with its ticket identities. */
     public edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingGroupLoyaltyOutcomeSource
@@ -52,10 +36,6 @@ public class WorkshopBookingSettlementAdapter {
         return booking.findTicketBookingByOperationsReference(operationsTicketReference);
     }
 
-    public WorkshopBookingLoyaltyOutcomeSource loyaltyOutcomeSource(String bookingReference) {
-        return booking.getLoyaltyOutcomeSource(new WorkshopBookingLoyaltyOutcomeSourceQuery(bookingReference));
-    }
-
     /**
      * Own transaction so that a Booking failure cannot mark the Settlement transaction rollback-only; the caller
      * treats a failure or a missing email as "no notification".
@@ -65,6 +45,12 @@ public class WorkshopBookingSettlementAdapter {
         return booking.getSettlementNotificationRecipient(new SettlementNotificationRecipientQuery(bookingReference));
     }
 
+    /** The ticket recipient's email for the cancellation notice; own transaction so a failure never poisons the caller. */
+    @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
+    public String ticketRecipientEmail(String ticketCode) {
+        return booking.getTicketRecipientEmail(ticketCode);
+    }
+
     public CustomerBookingAccessDecision verifyCustomerAccess(String bookingReference, Long memberAccountId,
                                                                String contactEmail, String contactPhone) {
         return booking.verifyCustomerBookingAccess(new CustomerBookingAccessQuery(
@@ -72,18 +58,11 @@ public class WorkshopBookingSettlementAdapter {
     }
 
     /*
-     * The three Settlement conclusions below run in their own transaction. Booking may
+     * The Settlement conclusions below run in their own transaction. Booking may
      * reject or throw; with a joined transaction a thrown exception would mark the
      * Settlement transaction rollback-only and lose the folio transition even though the
      * caller catches it. Every Booking conclusion is idempotent, so a retry is safe.
      */
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public FinalBalanceResolutionOutcome recordFinalBalanceResolved(String bookingReference,
-            String settlementReference, String operationReference, String correlationReference) {
-        return booking.recordFinalBalanceResolved(new RecordFinalBalanceResolvedCommand(
-                bookingReference, settlementReference, operationReference, correlationReference));
-    }
-
     /**
      * FR-008 per ticket (BE-DESIGN-0006, decided 2026-11-14): tells 003.1 that one ticket folio is settled.
      * Joins the caller's finalization transaction, so the ticket and its folio change together or not at all.
@@ -107,12 +86,6 @@ public class WorkshopBookingSettlementAdapter {
             BookingRefundStatus status, String settlementReference, String operationReference, String correlationReference) {
         return booking.recordBookingRefundStatus(new RecordBookingRefundStatusCommand(
                 bookingReference, status, settlementReference, operationReference, correlationReference));
-    }
-
-    public BookingCancellationOutcome cancelConfirmedBooking(String bookingReference, String cancellationCaseReference,
-            String operationReference, String correlationReference) {
-        return booking.cancelConfirmedBooking(new CancelConfirmedBookingCommand(
-                bookingReference, cancellationCaseReference, operationReference, correlationReference));
     }
 
     public java.util.Optional<edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.TicketFolioContext>

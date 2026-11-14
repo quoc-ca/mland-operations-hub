@@ -33,8 +33,16 @@ public class SettlementTicketMlandRemedy {
     @Column(name = "cancelled_session_reference", nullable = false, length = 64)
     private String cancelledSessionReference;
 
-    @Column(name = "replacement_session_references", nullable = false, length = 512)
+    @Column(name = "replacement_session_references", nullable = false, columnDefinition = "TEXT")
     private String replacementSessionReferences;
+
+    /** Every offered session as {@code reference|startIso|endIso} joined by ';' (T112); null on offers made before V147. */
+    @Column(name = "replacement_options", columnDefinition = "TEXT")
+    private String replacementOptions;
+
+    /** The one session the buyer chose when accepting the replacement (T112). */
+    @Column(name = "selected_replacement_session_reference", length = 64)
+    private String selectedReplacementSessionReference;
 
     @Column(name = "replacement_start_at", nullable = false)
     private Instant replacementStartAt;

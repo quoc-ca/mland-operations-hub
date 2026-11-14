@@ -27,6 +27,9 @@ public interface WorkshopOperationsFacade {
     /** Replaces the sessions of the selected tickets, all or none (003.2 FR-034, quota FR-035). */
     TicketSessionReplacementOutcome replaceTicketSessions(ReplaceTicketSessionsCommand command);
 
+    /** Every valid equivalent replacement for one cancelled session of a ticket; read only, no seat held (003.3 T112, FR-043). */
+    EquivalentReplacementSessions findEquivalentReplacementSessions(FindEquivalentReplacementSessionsQuery query);
+
     CapacityCommitOutcome commitBookingHolds(CommitBookingHoldsCommand command);
 
     OtaBookingCapacityOutcome acceptOtaBooking(AcceptOtaBookingCommand command);
@@ -34,11 +37,6 @@ public interface WorkshopOperationsFacade {
     CapacityReleaseOutcome releaseBookingHolds(ReleaseBookingHoldsCommand command);
 
     DeliverySafeTicketSet getBookingTicketProjection(BookingTicketProjectionQuery query);
-
-    SettlementReadiness getSettlementReadiness(BookingSettlementReadinessQuery query);
-
-    /** Attendance of the booking for display to the customer; reads only, takes no lock. */
-    BookingAttendanceSummary getBookingAttendanceSummary(BookingSettlementReadinessQuery query);
 
     /** True once at least one of the booking's active sessions is running or its attendance is finalized (the customer is at the workshop). */
     boolean hasBookingServiceStarted(BookingSettlementReadinessQuery query);
@@ -49,15 +47,8 @@ public interface WorkshopOperationsFacade {
     /** The terminal attendance outcome of one ticket of a booking group (003.2 T092, 003.3 FR-032). */
     TicketAttendanceOutcome getTicketAttendanceOutcome(TicketAttendanceOutcomeQuery query);
 
-    /** Authoritative, PII-free session and attendance facts used by cancellation policy. */
-    BookingCancellationEligibilitySnapshot getBookingCancellationEligibility(BookingCancellationEligibilityQuery query);
-
-    RequiredSessionReplacementOutcome replaceRequiredSessions(ReplaceRequiredSessionsCommand command);
-
     RefundConsequenceOutcome applyVerifiedRefundConsequence(ApplyVerifiedRefundConsequenceCommand command);
 
     CancellationCompletionOutcome completeCancellationHandoff(CompleteCancellationHandoffCommand command);
 
-    /** Cancels every active session and ticket belonging to one booking atomically. */
-    CancellationCompletionOutcome cancelBooking(CancelBookingCommand command);
 }

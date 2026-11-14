@@ -5,6 +5,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.FolioCo
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementCashDayClose;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 
@@ -24,6 +25,7 @@ public class FolioCollectionApiService {
     private final FolioCollectionService collections;
     private final FolioFinalizationService finalization;
     private final CashDayCloseService cashCloses;
+    private final SettlementIdempotencyService idempotency;
 
     public CollectionResponse collectCash(String bookingReference, CashCollectionRequest request,
                                           String correlation, CurrentAccountActor actor) {
@@ -66,10 +68,22 @@ public class FolioCollectionApiService {
         finalization.closeDebt(bookingReference, manager.accountId(), request.reason(), correlation);
     }
 
-    public CashCloseResponse closeCashDay(CashCloseRequest request, String correlation, CurrentAccountActor actor) {
+    /**
+     * T120 (FR-036, FR-022d): closes a branch's cash day once. The {@code Idempotency-Key} is required and stored;
+     * a replay with the same key and content returns the stored close, a changed reuse is a conflict.
+     */
+    @Transactional
+    public CashCloseResponse closeCashDay(CashCloseRequest request, String idempotencyKey, String correlation,
+                                          CurrentAccountActor actor) {
+        requireKey(idempotencyKey);
         CurrentAccountActor closer = authorization.requireManagerOrStaff(actor, request.branchId());
-        return response(cashCloses.close(request.branchId(), request.businessDay(), request.countedCashVnd(),
-                request.reason(), closer.accountId(), correlation));
+        LocalDate day = CashDayCloseService.dayOrToday(request.businessDay());
+        String reason = request.reason() == null ? "" : request.reason().trim();
+        String op = "CASH_CLOSE:" + request.branchId() + ":" + idempotencyKey.trim();
+        String fp = "CASH_CLOSE:" + request.branchId() + ":" + day + ":" + request.countedCashVnd() + ":" + reason;
+        var outcome = idempotency.execute(op, fp, () -> cashCloses.close(request.branchId(), day,
+                request.countedCashVnd(), request.reason(), closer.accountId(), correlation).getCloseReference());
+        return response(cashCloses.findByReference(outcome.outcomeReference()));
     }
 
     public CashCloseResponse confirmCashDifference(Long branchId, LocalDate businessDay, String correlation,
@@ -78,15 +92,33 @@ public class FolioCollectionApiService {
         return response(cashCloses.confirmDifference(branchId, businessDay, manager.accountId(), correlation));
     }
 
-    public CashCloseResponse confirmDifferenceById(String cashCloseId, String reason, String correlation,
-                                                   CurrentAccountActor actor) {
+    /** FR-052: Manager only, reason and {@code Idempotency-Key} required; a replay returns the stored close. */
+    @Transactional
+    public CashCloseResponse confirmDifferenceById(String cashCloseId, String reason, String idempotencyKey,
+                                                   String correlation, CurrentAccountActor actor) {
+        requireKey(idempotencyKey);
         CurrentAccountActor manager = authorization.requireManager(actor);
-        return response(cashCloses.confirmDifferenceById(cashCloseId, reason, manager.accountId(), correlation));
+        if (cashCloseId == null || cashCloseId.isBlank()) {
+            throw new WorkshopSettlementValidationException("CASH_CLOSE_ID_REQUIRED");
+        }
+        String op = "CASH_DIFF:" + cashCloseId.trim() + ":" + idempotencyKey.trim();
+        String fp = "CASH_DIFF:" + cashCloseId.trim() + ":" + (reason == null ? "" : reason.trim());
+        var outcome = idempotency.execute(op, fp, () -> cashCloses.confirmDifferenceById(cashCloseId, reason,
+                manager.accountId(), correlation).getCloseReference());
+        return response(cashCloses.findByReference(outcome.outcomeReference()));
     }
 
-    public long expectedCash(Long branchId, LocalDate businessDay, CurrentAccountActor actor) {
+    /** T120: the expected cash is read under the cash-close resource (Manager, or Staff of that branch). */
+    public ExpectedCashResponse expectedCash(Long branchId, LocalDate businessDay, CurrentAccountActor actor) {
         authorization.requireManagerOrStaff(actor, branchId);
-        return cashCloses.expectedCash(branchId, businessDay);
+        LocalDate day = CashDayCloseService.dayOrToday(businessDay);
+        return new ExpectedCashResponse(branchId, day, cashCloses.expectedCash(branchId, day));
+    }
+
+    private static void requireKey(String idempotencyKey) {
+        if (idempotencyKey == null || idempotencyKey.trim().length() < 16 || idempotencyKey.trim().length() > 128) {
+            throw new WorkshopSettlementValidationException("Idempotency-Key must contain 16 to 128 characters");
+        }
     }
 
     private static CollectionResponse response(FolioCollectionService.CollectionOutcome outcome) {

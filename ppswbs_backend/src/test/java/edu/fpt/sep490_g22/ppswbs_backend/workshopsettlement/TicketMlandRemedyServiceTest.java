@@ -62,6 +62,7 @@ class TicketMlandRemedyServiceTest {
     private static final UUID OPS_TICKET_REF = UUID.randomUUID();
     private static final Long BUYER_ACCOUNT_ID = 200L;
     private static final String IDEMPOTENCY_KEY = "idempotency-key-mland-remedy-123";
+    private static final String OFFERED_SESSION = "11111111-1111-4111-8111-111111111111";
 
     @BeforeEach
     void setUp() {
@@ -76,7 +77,10 @@ class TicketMlandRemedyServiceTest {
                 bankRefunds,
                 loyalty,
                 notifier,
-                idempotency
+                idempotency,
+                new WorkshopSettlementAuthorizationService(
+                        mock(edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountFacade.class),
+                        audits, operations)
         );
         lenient().when(idempotency.findOutcomeReference(anyString(), anyString())).thenReturn(Optional.empty());
         lenient().when(idempotency.execute(anyString(), anyString(), any())).thenAnswer(invocation -> {
@@ -121,7 +125,7 @@ class TicketMlandRemedyServiceTest {
                 .ticketCode(ticketCode)
                 .groupCode(GROUP_CODE)
                 .cancelledSessionReference(UUID.randomUUID().toString())
-                .replacementSessionReferences(UUID.randomUUID().toString())
+                .replacementSessionReferences(OFFERED_SESSION)
                 .replacementStartAt(replacementStartAt)
                 .answerDeadlineAt(deadline)
                 .outcome("PENDING_ANSWER")
@@ -198,7 +202,7 @@ class TicketMlandRemedyServiceTest {
         when(remedyRepository.save(any())).thenAnswer(i -> i.getArgument(0));
 
         CurrentAccountActor memberActor = new CurrentAccountActor(BUYER_ACCOUNT_ID, ActorRole.MEMBER, ActorStatus.ACTIVE, true, List.of());
-        TicketRemedyAnswerRequestDto request = new TicketRemedyAnswerRequestDto(TicketRemedyAnswer.ACCEPT_REPLACEMENT, null);
+        TicketRemedyAnswerRequestDto request = new TicketRemedyAnswerRequestDto(TicketRemedyAnswer.ACCEPT_REPLACEMENT, null, OFFERED_SESSION);
 
         TicketRemedyAnswerResponseDto response = service.answerOffer(
                 TICKET_CODE,
@@ -218,7 +222,9 @@ class TicketMlandRemedyServiceTest {
         verify(operations).replaceTicketSessions(argThat(cmd ->
                 cmd.type() == TicketReplacementType.MLAND
                         && cmd.lines().getFirst().ticketReference().equals(OPS_TICKET_REF)
+                        && cmd.lines().getFirst().targetSessionReferences().equals(List.of(UUID.fromString(OFFERED_SESSION)))
         ));
+        assertThat(response.selectedReplacementSessionReference()).isEqualTo(OFFERED_SESSION);
         verifyNoInteractions(bankRefunds);
         verify(audits).save(argThat(a -> "MLAND_REMEDY_ACCEPTED_REPLACEMENT".equals(a.getActionCode())));
     }
@@ -236,7 +242,7 @@ class TicketMlandRemedyServiceTest {
 
         // Collections: 50,000 deposit + 20,000 counter confirmed = 70,000 VND
         when(bills.findByBookingReference(TICKET_CODE)).thenReturn(Optional.of(createBill(TICKET_CODE, 50_000L)));
-        when(bills.findByBookingReferenceForUpdate(TICKET_CODE)).thenReturn(Optional.of(createBill(TICKET_CODE, 50_000L)));
+        lenient().when(bills.findByBookingReferenceForUpdate(TICKET_CODE)).thenReturn(Optional.of(createBill(TICKET_CODE, 50_000L)));
         when(collections.findByBookingReferenceOrderByIdAsc(TICKET_CODE)).thenReturn(List.of(
                 SettlementFolioCollection.builder().amountVnd(20_000L).status(FolioCollectionStatus.CONFIRMED).build()
         ));
@@ -290,7 +296,8 @@ class TicketMlandRemedyServiceTest {
                 auth.outcome() == OutcomeKind.WORKSHOP_TICKET_MLAND_CANCELLATION
                         && "L1-T1".equals(auth.partRef())
         ));
-        verify(bills).save(argThat(b -> SettlementFinalBillLifecycleStatus.CLOSED.name().equals(b.getLifecycleStatus())));
+        // T113: money goes back, so the folio stays open until the bank refund is REFUNDED.
+        verify(bills, never()).save(argThat(b -> SettlementFinalBillLifecycleStatus.CLOSED.name().equals(b.getLifecycleStatus())));
         verify(audits).save(argThat(a -> "MLAND_REMEDY_CHOSEN_REFUND".equals(a.getActionCode())));
     }
 
@@ -306,7 +313,7 @@ class TicketMlandRemedyServiceTest {
         when(booking.consumeBuyerProof(any())).thenReturn(ConsumeBuyerProofResult.accepted());
 
         when(bills.findByBookingReference(TICKET_CODE)).thenReturn(Optional.of(createBill(TICKET_CODE, 50_000L)));
-        when(bills.findByBookingReferenceForUpdate(TICKET_CODE)).thenReturn(Optional.of(createBill(TICKET_CODE, 50_000L)));
+        lenient().when(bills.findByBookingReferenceForUpdate(TICKET_CODE)).thenReturn(Optional.of(createBill(TICKET_CODE, 50_000L)));
         when(collections.findByBookingReferenceOrderByIdAsc(TICKET_CODE)).thenReturn(List.of());
         when(evidence.findByBookingReferenceAndConclusion(eq(TICKET_CODE), anyString())).thenReturn(List.of());
 
@@ -351,7 +358,7 @@ class TicketMlandRemedyServiceTest {
         when(booking.consumeBuyerProof(any())).thenReturn(ConsumeBuyerProofResult.accepted());
 
         when(bills.findByBookingReference(TICKET_CODE)).thenReturn(Optional.of(createBill(TICKET_CODE, 50_000L)));
-        when(bills.findByBookingReferenceForUpdate(TICKET_CODE)).thenReturn(Optional.of(createBill(TICKET_CODE, 50_000L)));
+        lenient().when(bills.findByBookingReferenceForUpdate(TICKET_CODE)).thenReturn(Optional.of(createBill(TICKET_CODE, 50_000L)));
         when(collections.findByBookingReferenceOrderByIdAsc(TICKET_CODE)).thenReturn(List.of());
         when(evidence.findByBookingReferenceAndConclusion(eq(TICKET_CODE), anyString())).thenReturn(List.of());
 
@@ -368,7 +375,7 @@ class TicketMlandRemedyServiceTest {
         when(remedyRepository.save(any())).thenAnswer(i -> i.getArgument(0));
 
         String bvr = "bvr-" + "b".repeat(20);
-        CurrentAccountActor staffActor = new CurrentAccountActor(888L, ActorRole.STAFF, ActorStatus.ACTIVE, true, List.of());
+        CurrentAccountActor staffActor = new CurrentAccountActor(888L, ActorRole.STAFF, ActorStatus.ACTIVE, true, List.of(1L));
         TicketRemedyAnswerRequestDto request = new TicketRemedyAnswerRequestDto(TicketRemedyAnswer.REFUND, bvr);
 
         TicketRemedyAnswerResponseDto response = service.answerOffer(
@@ -400,6 +407,26 @@ class TicketMlandRemedyServiceTest {
         assertThatThrownBy(() -> service.answerOffer(TICKET_CODE, request, IDEMPOTENCY_KEY, "CORR", strangerMember))
                 .isInstanceOf(WorkshopSettlementAuthorizationException.class)
                 .hasMessageContaining("NOT_GROUP_OWNER");
+    }
+
+    @Test
+    @DisplayName("T116: answerOffer by Staff outside the ticket's location, or suspended, is refused before the proof")
+    void answerOffer_staffOutOfScopeOrInactive_isRefused() {
+        TicketFolioContext ctx = createContext(TICKET_CODE, OPS_TICKET_REF, 0L, "L1-T1");
+        when(booking.getTicketFolioContext(TICKET_CODE)).thenReturn(Optional.of(ctx));
+        SettlementTicketMlandRemedy offer = createPendingRemedy(TICKET_CODE, Instant.now().plus(48, ChronoUnit.HOURS));
+        when(remedyRepository.findByTicketCodeAndOutcome(TICKET_CODE, "PENDING_ANSWER")).thenReturn(Optional.of(offer));
+        TicketRemedyAnswerRequestDto request = new TicketRemedyAnswerRequestDto(TicketRemedyAnswer.REFUND, "bvr-" + "c".repeat(20));
+
+        CurrentAccountActor otherBranch = new CurrentAccountActor(888L, ActorRole.STAFF, ActorStatus.ACTIVE, true, List.of(5L));
+        assertThatThrownBy(() -> service.answerOffer(TICKET_CODE, request, IDEMPOTENCY_KEY, "CORR", otherBranch))
+                .isInstanceOf(WorkshopSettlementAuthorizationException.class);
+        CurrentAccountActor suspended = new CurrentAccountActor(888L, ActorRole.STAFF, ActorStatus.SUSPENDED, true, List.of(1L));
+        assertThatThrownBy(() -> service.answerOffer(TICKET_CODE, request, IDEMPOTENCY_KEY, "CORR", suspended))
+                .isInstanceOf(WorkshopSettlementAuthorizationException.class);
+
+        verify(booking, never()).consumeBuyerProof(any());
+        verify(bankRefunds, never()).open(any(), any(), any(), any(), anyLong(), any());
     }
 
     @Test
@@ -448,14 +475,14 @@ class TicketMlandRemedyServiceTest {
         Instant replacementStart = Instant.now().plus(10, ChronoUnit.HOURS);
         SettlementTicketMlandRemedy offer = createPendingRemedy(TICKET_CODE, replacementStart);
         when(remedyRepository.findByTicketCodeAndOutcome(TICKET_CODE, "PENDING_ANSWER")).thenReturn(Optional.of(offer));
-        when(booking.consumeBuyerProof(any())).thenReturn(ConsumeBuyerProofResult.accepted());
 
         CurrentAccountActor memberActor = new CurrentAccountActor(BUYER_ACCOUNT_ID, ActorRole.MEMBER, ActorStatus.ACTIVE, true, List.of());
-        TicketRemedyAnswerRequestDto request = new TicketRemedyAnswerRequestDto(TicketRemedyAnswer.ACCEPT_REPLACEMENT, null);
+        TicketRemedyAnswerRequestDto request = new TicketRemedyAnswerRequestDto(TicketRemedyAnswer.ACCEPT_REPLACEMENT, null, OFFERED_SESSION);
 
         assertThatThrownBy(() -> service.answerOffer(TICKET_CODE, request, IDEMPOTENCY_KEY, "CORR", memberActor))
                 .isInstanceOf(WorkshopSettlementConflictException.class)
                 .hasMessageContaining("ANSWER_DEADLINE_EXPIRED");
+        verify(booking, never()).consumeBuyerProof(any());
     }
 
     @Test
@@ -471,7 +498,7 @@ class TicketMlandRemedyServiceTest {
                 .thenReturn(List.of(offer));
 
         when(bills.findByBookingReference(TICKET_CODE)).thenReturn(Optional.of(createBill(TICKET_CODE, 100_000L)));
-        when(bills.findByBookingReferenceForUpdate(TICKET_CODE)).thenReturn(Optional.of(createBill(TICKET_CODE, 100_000L)));
+        lenient().when(bills.findByBookingReferenceForUpdate(TICKET_CODE)).thenReturn(Optional.of(createBill(TICKET_CODE, 100_000L)));
         when(collections.findByBookingReferenceOrderByIdAsc(TICKET_CODE)).thenReturn(List.of());
         when(evidence.findByBookingReferenceAndConclusion(eq(TICKET_CODE), anyString())).thenReturn(List.of());
 
@@ -512,7 +539,8 @@ class TicketMlandRemedyServiceTest {
         verify(loyalty).restoreCancelledWorkshopBenefits(argThat(auth ->
                 auth.outcome() == OutcomeKind.WORKSHOP_TICKET_MLAND_CANCELLATION
         ));
-        verify(bills).save(argThat(b -> SettlementFinalBillLifecycleStatus.CLOSED.name().equals(b.getLifecycleStatus())));
+        // T113: money goes back, so the folio stays open until the bank refund is REFUNDED.
+        verify(bills, never()).save(argThat(b -> SettlementFinalBillLifecycleStatus.CLOSED.name().equals(b.getLifecycleStatus())));
         verify(audits).save(argThat(a -> "MLAND_REMEDY_DEFAULTED_TO_REFUND".equals(a.getActionCode())));
     }
 
@@ -529,7 +557,7 @@ class TicketMlandRemedyServiceTest {
         when(remedyRepository.findByRemedyReference(stored.getRemedyReference())).thenReturn(Optional.of(stored));
 
         CurrentAccountActor memberActor = new CurrentAccountActor(BUYER_ACCOUNT_ID, ActorRole.MEMBER, ActorStatus.ACTIVE, true, List.of());
-        TicketRemedyAnswerRequestDto request = new TicketRemedyAnswerRequestDto(TicketRemedyAnswer.ACCEPT_REPLACEMENT, null);
+        TicketRemedyAnswerRequestDto request = new TicketRemedyAnswerRequestDto(TicketRemedyAnswer.ACCEPT_REPLACEMENT, null, OFFERED_SESSION);
 
         TicketRemedyAnswerResponseDto response = service.answerOffer(
                 TICKET_CODE,
@@ -544,5 +572,244 @@ class TicketMlandRemedyServiceTest {
         verifyNoInteractions(operations);
         verifyNoInteractions(bankRefunds);
     }
-}
 
+    // ---- T113: the folio closes only when the bank refund is REFUNDED ----
+
+    @Test
+    @DisplayName("T113: MlandBankRefundConfirmedEvent closes the remedy's folio once; other refunds change nothing")
+    void bankRefundConfirmed_closesTheRemedyFolioOnce() {
+        SettlementTicketMlandRemedy remedy = createPendingRemedy(TICKET_CODE, Instant.now().plus(48, ChronoUnit.HOURS));
+        remedy.setOutcome("REFUND");
+        remedy.setRefundRequestReference("REFUND-M-01");
+        when(remedyRepository.findByRemedyReference(remedy.getRemedyReference())).thenReturn(Optional.of(remedy));
+        SettlementFinalBill bill = createBill(TICKET_CODE, 50_000L);
+        lenient().when(bills.findByBookingReferenceForUpdate(TICKET_CODE)).thenReturn(Optional.of(bill));
+
+        // A confirmation of a different refund request with the same source is ignored.
+        service.onBankRefundConfirmed(new edu.fpt.sep490_g22.ppswbs_backend.common.booking.MlandBankRefundConfirmedEvent(
+                "REFUND-OTHER", TICKET_CODE, remedy.getRemedyReference(), 50_000L, Instant.now()));
+        verify(bills, never()).save(any());
+
+        service.onBankRefundConfirmed(new edu.fpt.sep490_g22.ppswbs_backend.common.booking.MlandBankRefundConfirmedEvent(
+                "REFUND-M-01", TICKET_CODE, remedy.getRemedyReference(), 50_000L, Instant.now()));
+        assertThat(bill.getLifecycleStatus()).isEqualTo(SettlementFinalBillLifecycleStatus.CLOSED.name());
+        verify(audits).save(argThat(a -> "TICKET_FOLIO_CLOSED_MLAND_REMEDY".equals(a.getActionCode())));
+
+        // Replay: already closed, nothing more is written.
+        service.onBankRefundConfirmed(new edu.fpt.sep490_g22.ppswbs_backend.common.booking.MlandBankRefundConfirmedEvent(
+                "REFUND-M-01", TICKET_CODE, remedy.getRemedyReference(), 50_000L, Instant.now()));
+        verify(bills, times(1)).save(any());
+    }
+
+    // ---- T112: several sessions offered, the buyer chooses one (decided 2026-11-14) -------------------------
+
+    private static final String SESSION_EARLY = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    private static final String SESSION_LATE = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+
+    private SettlementTicketMlandRemedy twoSessionOffer(Instant earlyStart, Instant lateStart) {
+        SettlementTicketMlandRemedy offer = createPendingRemedy(TICKET_CODE, lateStart);
+        offer.setReplacementSessionReferences(SESSION_EARLY + "," + SESSION_LATE);
+        offer.setReplacementOptions(SESSION_EARLY + "|" + earlyStart + "|" + earlyStart.plus(2, ChronoUnit.HOURS)
+                + ";" + SESSION_LATE + "|" + lateStart + "|");
+        return offer;
+    }
+
+    @Test
+    @DisplayName("createOffer: stores every session, the deadline is 24 h before the LATEST one and the email lists them all")
+    void createOffer_manySessions_deadlineFromLatest() {
+        TicketFolioContext ctx = createContext(TICKET_CODE, OPS_TICKET_REF, 0L, "L1-T1");
+        when(booking.getTicketFolioContext(TICKET_CODE)).thenReturn(Optional.of(ctx));
+        when(bills.findByBookingReference(TICKET_CODE)).thenReturn(Optional.of(createBill(TICKET_CODE, 100_000L)));
+        when(remedyRepository.save(any(SettlementTicketMlandRemedy.class))).thenAnswer(i -> i.getArgument(0));
+
+        Instant early = Instant.now().plus(50, ChronoUnit.HOURS).truncatedTo(ChronoUnit.MICROS);
+        Instant late = Instant.now().plus(120, ChronoUnit.HOURS).truncatedTo(ChronoUnit.MICROS);
+        SettlementTicketMlandRemedy result = service.createOffer(TICKET_CODE, "cancelled-1", List.of(
+                new TicketMlandRemedyService.ReplacementOption(SESSION_LATE, late, null),
+                new TicketMlandRemedyService.ReplacementOption(SESSION_EARLY, early, early.plus(2, ChronoUnit.HOURS))),
+                "CORR-MANY");
+
+        assertThat(result.getAnswerDeadlineAt()).isEqualTo(late.minus(24, ChronoUnit.HOURS));
+        assertThat(result.getReplacementSessionReferences()).isEqualTo(SESSION_EARLY + "," + SESSION_LATE);
+        ArgumentCaptor<String> listed = ArgumentCaptor.forClass(String.class);
+        verify(notifier).notifyMlandRemedyOffer(eq(TICKET_CODE), eq("cancelled-1"), listed.capture(),
+                eq(result.getAnswerDeadlineAt()), eq("CORR-MANY"));
+        assertThat(listed.getValue()).contains(SESSION_EARLY).contains(SESSION_LATE);
+    }
+
+    @Test
+    @DisplayName("createOffer: a replay for the same ticket and cancelled session returns the stored remedy")
+    void createOffer_replay_isIdempotent() {
+        TicketFolioContext ctx = createContext(TICKET_CODE, OPS_TICKET_REF, 0L, "L1-T1");
+        when(booking.getTicketFolioContext(TICKET_CODE)).thenReturn(Optional.of(ctx));
+        SettlementTicketMlandRemedy stored = createPendingRemedy(TICKET_CODE, Instant.now().plus(72, ChronoUnit.HOURS));
+        when(remedyRepository.findFirstByTicketCodeAndCancelledSessionReferenceOrderByCreatedAtDesc(TICKET_CODE, "cancelled-1"))
+                .thenReturn(Optional.of(stored));
+
+        SettlementTicketMlandRemedy result = service.createOffer(TICKET_CODE, "cancelled-1", List.of(
+                new TicketMlandRemedyService.ReplacementOption(SESSION_EARLY, Instant.now().plus(72, ChronoUnit.HOURS), null)),
+                "CORR");
+
+        assertThat(result).isSameAs(stored);
+        verify(remedyRepository, never()).save(any());
+        verifyNoInteractions(notifier);
+    }
+
+    @Test
+    @DisplayName("answerOffer: choosing a session that was not offered -> 409 REPLACEMENT_SESSION_NOT_OFFERED, buyer proof not spent")
+    void answerOffer_sessionNotOffered_throws409() {
+        TicketFolioContext ctx = createContext(TICKET_CODE, OPS_TICKET_REF, 0L, "L1-T1");
+        when(booking.getTicketFolioContext(TICKET_CODE)).thenReturn(Optional.of(ctx));
+        SettlementTicketMlandRemedy offer = twoSessionOffer(Instant.now().plus(60, ChronoUnit.HOURS),
+                Instant.now().plus(100, ChronoUnit.HOURS));
+        when(remedyRepository.findByTicketCodeAndOutcome(TICKET_CODE, "PENDING_ANSWER")).thenReturn(Optional.of(offer));
+
+        CurrentAccountActor memberActor = new CurrentAccountActor(BUYER_ACCOUNT_ID, ActorRole.MEMBER, ActorStatus.ACTIVE, true, List.of());
+        TicketRemedyAnswerRequestDto request = new TicketRemedyAnswerRequestDto(TicketRemedyAnswer.ACCEPT_REPLACEMENT, null,
+                "cccccccc-cccc-4ccc-8ccc-cccccccccccc");
+
+        assertThatThrownBy(() -> service.answerOffer(TICKET_CODE, request, IDEMPOTENCY_KEY, "CORR", memberActor))
+                .isInstanceOf(WorkshopSettlementConflictException.class)
+                .hasMessageContaining("REPLACEMENT_SESSION_NOT_OFFERED");
+        verify(booking, never()).consumeBuyerProof(any());
+        verifyNoInteractions(bankRefunds);
+    }
+
+    @Test
+    @DisplayName("answerOffer: accepting without naming a session -> validation REPLACEMENT_SESSION_REQUIRED")
+    void answerOffer_sessionRequired() {
+        TicketFolioContext ctx = createContext(TICKET_CODE, OPS_TICKET_REF, 0L, "L1-T1");
+        when(booking.getTicketFolioContext(TICKET_CODE)).thenReturn(Optional.of(ctx));
+        SettlementTicketMlandRemedy offer = twoSessionOffer(Instant.now().plus(60, ChronoUnit.HOURS),
+                Instant.now().plus(100, ChronoUnit.HOURS));
+        when(remedyRepository.findByTicketCodeAndOutcome(TICKET_CODE, "PENDING_ANSWER")).thenReturn(Optional.of(offer));
+
+        CurrentAccountActor memberActor = new CurrentAccountActor(BUYER_ACCOUNT_ID, ActorRole.MEMBER, ActorStatus.ACTIVE, true, List.of());
+        assertThatThrownBy(() -> service.answerOffer(TICKET_CODE,
+                new TicketRemedyAnswerRequestDto(TicketRemedyAnswer.ACCEPT_REPLACEMENT, null), IDEMPOTENCY_KEY, "CORR", memberActor))
+                .isInstanceOf(WorkshopSettlementValidationException.class)
+                .hasMessageContaining("REPLACEMENT_SESSION_REQUIRED");
+    }
+
+    @Test
+    @DisplayName("answerOffer: the early session is within 24 h but the late one is not -> only the late one can be chosen")
+    void answerOffer_earlySessionTooSoon_lateOneChosen() {
+        TicketFolioContext ctx = createContext(TICKET_CODE, OPS_TICKET_REF, 0L, "L1-T1");
+        when(booking.getTicketFolioContext(TICKET_CODE)).thenReturn(Optional.of(ctx));
+        SettlementTicketMlandRemedy offer = twoSessionOffer(Instant.now().plus(10, ChronoUnit.HOURS),
+                Instant.now().plus(100, ChronoUnit.HOURS));
+        when(remedyRepository.findByTicketCodeAndOutcome(TICKET_CODE, "PENDING_ANSWER")).thenReturn(Optional.of(offer));
+        CurrentAccountActor memberActor = new CurrentAccountActor(BUYER_ACCOUNT_ID, ActorRole.MEMBER, ActorStatus.ACTIVE, true, List.of());
+
+        assertThatThrownBy(() -> service.answerOffer(TICKET_CODE,
+                new TicketRemedyAnswerRequestDto(TicketRemedyAnswer.ACCEPT_REPLACEMENT, null, SESSION_EARLY),
+                IDEMPOTENCY_KEY, "CORR", memberActor))
+                .isInstanceOf(WorkshopSettlementConflictException.class)
+                .hasMessageContaining("ANSWER_DEADLINE_EXPIRED");
+
+        when(booking.consumeBuyerProof(any())).thenReturn(ConsumeBuyerProofResult.accepted());
+        when(operations.replaceTicketSessions(any())).thenReturn(TicketSessionReplacementOutcome.accepted());
+        when(remedyRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+        TicketRemedyAnswerResponseDto response = service.answerOffer(TICKET_CODE,
+                new TicketRemedyAnswerRequestDto(TicketRemedyAnswer.ACCEPT_REPLACEMENT, null, SESSION_LATE),
+                IDEMPOTENCY_KEY, "CORR", memberActor);
+
+        assertThat(response.outcome()).isEqualTo("MOVED");
+        assertThat(response.selectedReplacementSessionReference()).isEqualTo(SESSION_LATE);
+    }
+
+    @Test
+    @DisplayName("answerOffer: the chosen session filled up -> 409 REPLACEMENT_SESSION_UNAVAILABLE and the offer stays open")
+    void answerOffer_chosenSessionFull_throws409() {
+        TicketFolioContext ctx = createContext(TICKET_CODE, OPS_TICKET_REF, 0L, "L1-T1");
+        when(booking.getTicketFolioContext(TICKET_CODE)).thenReturn(Optional.of(ctx));
+        SettlementTicketMlandRemedy offer = twoSessionOffer(Instant.now().plus(60, ChronoUnit.HOURS),
+                Instant.now().plus(100, ChronoUnit.HOURS));
+        when(remedyRepository.findByTicketCodeAndOutcome(TICKET_CODE, "PENDING_ANSWER")).thenReturn(Optional.of(offer));
+        when(booking.consumeBuyerProof(any())).thenReturn(ConsumeBuyerProofResult.accepted());
+        when(operations.replaceTicketSessions(any())).thenReturn(
+                TicketSessionReplacementOutcome.rejected(RejectionReason.INSUFFICIENT_CAPACITY, List.of(0)));
+        CurrentAccountActor memberActor = new CurrentAccountActor(BUYER_ACCOUNT_ID, ActorRole.MEMBER, ActorStatus.ACTIVE, true, List.of());
+
+        assertThatThrownBy(() -> service.answerOffer(TICKET_CODE,
+                new TicketRemedyAnswerRequestDto(TicketRemedyAnswer.ACCEPT_REPLACEMENT, null, SESSION_EARLY),
+                IDEMPOTENCY_KEY, "CORR", memberActor))
+                .isInstanceOf(WorkshopSettlementConflictException.class)
+                .hasMessageContaining("REPLACEMENT_SESSION_UNAVAILABLE");
+        assertThat(offer.getOutcome()).isEqualTo("PENDING_ANSWER");
+        verify(remedyRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("answerOffer: a two-session ticket moves only the cancelled session, the other keeps its place")
+    void answerOffer_twoSessionTicket_replacesOnlyCancelledSession() {
+        String kept = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+        String cancelled = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
+        TicketFolioContext ctx = new TicketFolioContext(TICKET_CODE, GROUP_CODE, "LINE-1", "PKG-01", 1L,
+                List.of(kept, cancelled), BUYER_ACCOUNT_ID, OPS_TICKET_REF.toString(),
+                Instant.now().plus(48, ChronoUnit.HOURS), 0L, "L1-T1");
+        when(booking.getTicketFolioContext(TICKET_CODE)).thenReturn(Optional.of(ctx));
+        SettlementTicketMlandRemedy offer = twoSessionOffer(Instant.now().plus(60, ChronoUnit.HOURS),
+                Instant.now().plus(100, ChronoUnit.HOURS));
+        offer.setCancelledSessionReference(cancelled);
+        when(remedyRepository.findByTicketCodeAndOutcome(TICKET_CODE, "PENDING_ANSWER")).thenReturn(Optional.of(offer));
+        when(booking.consumeBuyerProof(any())).thenReturn(ConsumeBuyerProofResult.accepted());
+        when(operations.replaceTicketSessions(any())).thenReturn(TicketSessionReplacementOutcome.accepted());
+        when(remedyRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+        CurrentAccountActor memberActor = new CurrentAccountActor(BUYER_ACCOUNT_ID, ActorRole.MEMBER, ActorStatus.ACTIVE, true, List.of());
+
+        service.answerOffer(TICKET_CODE,
+                new TicketRemedyAnswerRequestDto(TicketRemedyAnswer.ACCEPT_REPLACEMENT, null, SESSION_LATE),
+                IDEMPOTENCY_KEY, "CORR", memberActor);
+
+        verify(operations).replaceTicketSessions(argThat(cmd -> cmd.lines().getFirst().targetSessionReferences()
+                .equals(List.of(UUID.fromString(kept), UUID.fromString(SESSION_LATE)))));
+    }
+
+    @Test
+    @DisplayName("openDirectRefund: no equivalent session -> the remedy is created and defaults to the 100% bank refund at once")
+    void openDirectRefund_refundsAtOnce() {
+        TicketFolioContext ctx = createContext(TICKET_CODE, OPS_TICKET_REF, 0L, "L1-T1");
+        when(booking.getTicketFolioContext(TICKET_CODE)).thenReturn(Optional.of(ctx));
+        when(bills.findByBookingReference(TICKET_CODE)).thenReturn(Optional.of(createBill(TICKET_CODE, 80_000L)));
+        lenient().when(bills.findByBookingReferenceForUpdate(TICKET_CODE)).thenReturn(Optional.of(createBill(TICKET_CODE, 80_000L)));
+        when(collections.findByBookingReferenceOrderByIdAsc(TICKET_CODE)).thenReturn(List.of());
+        when(evidence.findByBookingReferenceAndConclusion(eq(TICKET_CODE), anyString())).thenReturn(List.of());
+        when(remedyRepository.save(any(SettlementTicketMlandRemedy.class))).thenAnswer(i -> i.getArgument(0));
+        SettlementRefundRequest refundReq = SettlementRefundRequest.builder().requestReference("REFUND-DIRECT-01")
+                .amountVnd(80_000L).status(RefundRequestStatus.PENDING_ACCOUNT).build();
+        when(bankRefunds.open(eq(TICKET_CODE), eq(GROUP_CODE), eq(RefundReason.MLAND_CANCELLATION), anyString(), eq(80_000L), anyString()))
+                .thenReturn(new BankRefundService.OpenedRefund(refundReq, "token-direct"));
+        when(operations.cancelTicket(eq(OPS_TICKET_REF), anyString(), anyString(), anyString()))
+                .thenReturn(TicketCancellationOutcome.accepted(OPS_TICKET_REF, List.of()));
+        when(booking.groupLoyaltyOutcomeSource(GROUP_CODE)).thenReturn(BookingGroupLoyaltyOutcomeSource.none());
+
+        SettlementTicketMlandRemedy result = service.openDirectRefund(TICKET_CODE, "cancelled-1", "CORR-DIRECT");
+
+        assertThat(result.getOutcome()).isEqualTo("REFUND");
+        assertThat(result.getRefundRequestReference()).isEqualTo("REFUND-DIRECT-01");
+        verify(notifier).notifyMlandDirectRefund(TICKET_CODE, "cancelled-1", "CORR-DIRECT");
+        verify(notifier, never()).notifyMlandRemedyOffer(any(), any(), any(), any(), any());
+        verify(audits).save(argThat(a -> "MLAND_REMEDY_DIRECT_REFUND_OPENED".equals(a.getActionCode())));
+    }
+
+    @Test
+    @DisplayName("getOffer: lists every session; one inside 24 h or no longer free is not selectable")
+    void getOffer_marksSelectableSessions() {
+        TicketFolioContext ctx = createContext(TICKET_CODE, OPS_TICKET_REF, 0L, "L1-T1");
+        when(booking.getTicketFolioContext(TICKET_CODE)).thenReturn(Optional.of(ctx));
+        SettlementTicketMlandRemedy offer = twoSessionOffer(Instant.now().plus(10, ChronoUnit.HOURS),
+                Instant.now().plus(100, ChronoUnit.HOURS));
+        when(remedyRepository.findByTicketCodeAndOutcome(TICKET_CODE, "PENDING_ANSWER")).thenReturn(Optional.of(offer));
+        when(operations.equivalentReplacementSessions(eq(OPS_TICKET_REF), any())).thenReturn(
+                new EquivalentReplacementSessions(List.of(new EquivalentReplacementSessions.Candidate(
+                        UUID.fromString(SESSION_LATE), Instant.now().plus(100, ChronoUnit.HOURS), null))));
+        CurrentAccountActor memberActor = new CurrentAccountActor(BUYER_ACCOUNT_ID, ActorRole.MEMBER, ActorStatus.ACTIVE, true, List.of());
+
+        TicketRemedyOfferDto dto = service.getOffer(TICKET_CODE, memberActor);
+
+        assertThat(dto.offeredSessions()).extracting(OfferedSessionDto::sessionReference)
+                .containsExactly(SESSION_EARLY, SESSION_LATE);
+        assertThat(dto.offeredSessions()).extracting(OfferedSessionDto::selectable).containsExactly(false, true);
+    }
+}
