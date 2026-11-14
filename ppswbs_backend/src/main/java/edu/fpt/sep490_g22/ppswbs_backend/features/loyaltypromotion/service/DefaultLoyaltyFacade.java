@@ -6,6 +6,8 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.Accept
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.AuthoritativeOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.BenefitPreview;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.BenefitResult;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.TicketVoucherScope;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.TicketVoucherScopeQuery;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.BenefitSelection;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.LoyaltyErrorCode;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.LoyaltyException;
@@ -43,12 +45,14 @@ public class DefaultLoyaltyFacade implements LoyaltyFacade {
     private final AcceptedBenefitRepository benefits;
     private final LoyaltyPartLifecycleService partLifecycle;
     private final BenefitPartSupport partSupport;
+    private final TicketVoucherScopeService ticketScopes;
 
     public DefaultLoyaltyFacade(LoyaltyQuoteService quotes, LoyaltyReservationService reservations,
                                 LoyaltySettlementService settlements, LoyaltyEarnService earn,
                                 LoyaltyReleaseService releases, LoyaltyRestorationService restorations,
                                 AcceptedBenefitRepository benefits, LoyaltyPartLifecycleService partLifecycle,
-                                BenefitPartSupport partSupport) {
+                                BenefitPartSupport partSupport, TicketVoucherScopeService ticketScopes) {
+        this.ticketScopes = ticketScopes;
         this.partLifecycle = partLifecycle;
         this.partSupport = partSupport;
         this.quotes = quotes;
@@ -123,6 +127,12 @@ public class DefaultLoyaltyFacade implements LoyaltyFacade {
         return benefits.findBySourceKindAndSourceRef(sourceKind, sourceRef).map(partSupport::result)
                 .orElseThrow(() -> new LoyaltyException(LoyaltyErrorCode.BENEFIT_STATE_CONFLICT,
                         "No accepted benefit exists for this source transaction."));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public TicketVoucherScope checkTicketVoucherScope(TicketVoucherScopeQuery query) {
+        return ticketScopes.check(query);
     }
 
     private static boolean isDuplicateSource(DataIntegrityViolationException e) {

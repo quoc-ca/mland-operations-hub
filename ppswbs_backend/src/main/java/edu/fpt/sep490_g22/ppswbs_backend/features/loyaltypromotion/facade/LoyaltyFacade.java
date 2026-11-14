@@ -31,4 +31,11 @@ public interface LoyaltyFacade {
 
     /** Current result for the owner's reconciliation; never returns another owner's transaction. */
     BenefitResult findBenefitResult(SourceKind sourceKind, String sourceRef);
+
+    /**
+     * Read-only per-ticket voucher scope for a proposed session set (003.3 FR-045, BE-DESIGN-0007): whether the ticket
+     * would stay inside the ACCEPTED voucher revision's targets and, if not, the allocated share it would lose. An
+     * automatic discount or points are never lost. Holds nothing and changes no snapshot; asking twice answers the same.
+     */
+    TicketVoucherScope checkTicketVoucherScope(TicketVoucherScopeQuery query);
 }
