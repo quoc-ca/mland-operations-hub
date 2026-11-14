@@ -36,9 +36,19 @@ public final class CheckoutDtos {
     public record BenefitPreviewView(String previewId, String currency, String merchandiseSubtotal,
                                      boolean shippingExcluded, String discountAmount, String pointsDiscountAmount,
                                      String payableAmount, String expiresAt, String shippingTotal,
-                                     boolean eligible, List<String> reasons, String maxPoints, String minRedeemPoints) {
+                                     boolean eligible, List<String> reasons, String maxPoints, String minRedeemPoints,
+                                     List<String> eligibleCartLineIds, String appliedVoucherCode) {
         public BenefitPreviewView {
             reasons = reasons == null ? List.of() : List.copyOf(reasons);
+            eligibleCartLineIds = eligibleCartLineIds == null ? List.of() : List.copyOf(eligibleCartLineIds);
+        }
+        /** View without the discounted cart lines and voucher code (the discount then covers every line). */
+        public BenefitPreviewView(String previewId, String currency, String merchandiseSubtotal,
+                                  boolean shippingExcluded, String discountAmount, String pointsDiscountAmount,
+                                  String payableAmount, String expiresAt, String shippingTotal,
+                                  boolean eligible, List<String> reasons, String maxPoints, String minRedeemPoints) {
+            this(previewId, currency, merchandiseSubtotal, shippingExcluded, discountAmount, pointsDiscountAmount,
+                payableAmount, expiresAt, shippingTotal, eligible, reasons, maxPoints, minRedeemPoints, List.of(), null);
         }
         public BenefitPreviewView(String previewId, String currency, String merchandiseSubtotal,
                                   boolean shippingExcluded, String discountAmount, String pointsDiscountAmount,

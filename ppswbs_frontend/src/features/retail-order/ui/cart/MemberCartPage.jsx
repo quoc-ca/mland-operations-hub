@@ -4,7 +4,8 @@ import { RequireSession } from '../../../../shared/auth/RequireSession';
 import { useFormat } from '../../../../shared/i18n/I18nProvider';
 import { ErrorNotice, Loading, useCommand, useResource } from '../../../../shared/ui/components';
 import { useRetailApi } from '../../application/useRetailApi';
-import { VoucherPicker, voucherSaving } from '../checkout/VoucherPicker';
+import { VoucherPicker } from '../checkout/VoucherPicker';
+import { bestVoucherCode as bestOf, useVoucherOptions, voucherCheckBase } from '../checkout/voucherOptions';
 
 const MAX_QUANTITY = 99;
 const initialSelection = { choice: 'AUTO', voucherCode: '', requestedPoints: '0' };
@@ -91,26 +92,16 @@ function CartContent() {
     .map(item => ({ code: item.promotion?.code || item.code, name: item.promotion?.name || item.name || item.promotion?.code || item.code, availability: item.availability,
       discount: item.promotion?.discount || null, minimumEligibleAmount: item.promotion?.minimumEligibleAmount || '0', endAt: item.promotion?.endAt || null }))
     .filter(item => item.code);
-  // Best usable saved voucher for the ticked lines: active, minimum reached, not refused by FE-06, largest saving.
-  const bestVoucherCode = useMemo(() => {
-    const base = BigInt(subtotal);
-    let best = null;
-    let bestSaving = 0n;
-    savedVouchers.forEach(voucher => {
-      if (voucher.availability !== 'ACTIVE' || rejectedCodes.has(voucher.code)) return;
-      if (/^[0-9]+$/.test(voucher.minimumEligibleAmount) && base < BigInt(voucher.minimumEligibleAmount)) return;
-      const saving = voucherSaving(voucher, subtotal) ?? 0n;
-      if (saving > bestSaving) { best = voucher.code; bestSaving = saving; }
-    });
-    return best;
-  }, [subtotal, savedVoucherResource.data, rejectedCodes]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Best saved voucher for the ticked lines by its real FE-06 saving (products, branches and minimum included).
+  const voucherOptions = useVoucherOptions(api, savedVouchers, voucherCheckBase(selectedLines));
+  const bestVoucherCode = bestOf(voucherOptions);
   useEffect(() => {
-    if (voucherMode !== 'auto') return;
+    if (voucherMode !== 'auto' || voucherOptions == null) return;
     const wanted = bestVoucherCode ? { choice: 'VOUCHER', voucherCode: bestVoucherCode } : { choice: 'AUTO', voucherCode: '' };
     if (wanted.choice !== selection.choice || wanted.voucherCode !== selection.voucherCode) {
       setSelection(current => ({ ...current, ...wanted, requestedPoints: '0' }));
     }
-  }, [voucherMode, bestVoucherCode]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [voucherMode, bestVoucherCode, voucherOptions]); // eslint-disable-line react-hooks/exhaustive-deps
   const selectedVoucher = savedVouchers.find(item => item.code === selection.voucherCode);
 
   // Estimate benefits for the ticked lines with in-store pickup; re-run whenever cart, ticks or benefits change.
@@ -160,20 +151,25 @@ function CartContent() {
   const pointsBelowMinimum = isPositive(maxPoints) && isPositive(quote?.minRedeemPoints) && BigInt(maxPoints) < BigInt(quote.minRedeemPoints);
   const canUsePoints = isPositive(maxPoints) && !pointsBelowMinimum;
   const discount = quote?.eligible ? BigInt(quote.discountAmount || '0') : 0n;
-  // Voucher discount spread over the ticked lines in proportion to their amount, shown on each line like Shopee.
+  // Programme discount spread, in proportion to amount, over only the lines FE-06 says it covers, shown on each line
+  // like Shopee. An automatic discount for some products must not lower the price of the other lines.
+  const discountedIds = quote?.eligibleCartLineIds?.length ? new Set(quote.eligibleCartLineIds) : null;
   const lineDiscounts = useMemo(() => {
     const result = new Map();
-    const base = BigInt(subtotal);
+    const covered = discountedIds ? selectedLines.filter(line => discountedIds.has(line.id)) : selectedLines;
+    const base = covered.reduce((sum, line) => sum + BigInt(lineTotal(line) || '0'), 0n);
     if (discount <= 0n || base <= 0n) return result;
     let left = discount;
-    selectedLines.forEach((line, index) => {
+    covered.forEach((line, index) => {
       const amount = BigInt(lineTotal(line) || '0');
-      const share = index === selectedLines.length - 1 ? left : (discount * amount) / base;
+      const share = index === covered.length - 1 ? left : (discount * amount) / base;
       left -= share;
       result.set(line.id, share);
     });
     return result;
-  }, [discount, subtotal, previewKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [discount, quote, previewKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  // A voucher says so; an automatic programme is a plain sale price.
+  const discountTag = quote?.appliedVoucherCode ? 'Đã áp dụng mã giảm giá' : 'Đang giảm giá';
   const pointsDiscount = quote?.eligible ? BigInt(quote.pointsDiscountAmount || '0') : 0n;
   const savings = (discount + pointsDiscount).toString();
   const total = quote?.payableAmount ?? subtotal;
@@ -259,7 +255,7 @@ function CartContent() {
               <div className="cart-sp-price"><span className="cart-sp-label">Đơn giá</span>{line.indicativePrice == null ? 'Chưa có giá' : lineDiscounts.get(line.id) > 0n ? <>
                 <s className="cart-sp-was">{format.money(line.indicativePrice)}</s>
                 <b className="cart-sp-now">{format.money(((BigInt(lineTotal(line)) - lineDiscounts.get(line.id)) / BigInt(line.quantity || 1)).toString())}</b>
-                <small className="cart-sp-voucher-tag">Đã áp dụng mã giảm giá</small>
+                <small className="cart-sp-voucher-tag">{discountTag}</small>
               </> : format.money(line.indicativePrice)}</div>
               <div className="cart-sp-qty" role="group" aria-label={`Số lượng ${line.productName || ''}`}>
                 <button type="button" aria-label="Giảm số lượng" disabled={command.pending || line.quantity <= 1} onClick={() => changeQuantity(line, line.quantity - 1)}>−</button>
@@ -318,7 +314,7 @@ function CartContent() {
       </section>
 
       {pickerOpen && <VoucherPicker vouchers={savedVouchers.filter(item => item.availability !== 'EXPIRED')} selectedCode={selection.choice === 'VOUCHER' ? selection.voucherCode : null}
-        subtotal={subtotal} rejectedCodes={rejectedCodes} onConfirm={confirmVoucher} onClose={() => setPickerOpen(false)} />}
+        subtotal={subtotal} rejectedCodes={rejectedCodes} options={voucherOptions} onConfirm={confirmVoucher} onClose={() => setPickerOpen(false)} />}
     </section>
   );
 }
