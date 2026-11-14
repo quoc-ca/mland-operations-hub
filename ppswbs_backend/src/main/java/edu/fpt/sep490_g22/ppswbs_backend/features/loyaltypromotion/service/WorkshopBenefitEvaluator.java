@@ -195,8 +195,11 @@ public final class WorkshopBenefitEvaluator {
      * restrictions (decision 2026-10-29): the discount covers the whole package, so a voucher limited to a day or a
      * session cannot discount a ticket whose other session falls outside it. Other tickets of a cart are judged on
      * their own (Session 2026-11-12).
+     *
+     * <p>Public so the per-ticket scope check of a ticket change (003.3 FR-045, BE-DESIGN-0007) applies exactly this
+     * rule to the accepted revision's targets and a proposed session set; only the target sets are read.
      */
-    private static boolean matches(WorkshopCandidate voucher, WorkshopTicketFact ticket) {
+    public static boolean matches(WorkshopCandidate voucher, WorkshopTicketFact ticket) {
         return (voucher.packages().isEmpty() || voucher.packages().contains(ticket.packageId()))
                 && ticket.sessions().stream().allMatch(session ->
                         (voucher.branches().isEmpty() || voucher.branches().contains(session.branchId()))

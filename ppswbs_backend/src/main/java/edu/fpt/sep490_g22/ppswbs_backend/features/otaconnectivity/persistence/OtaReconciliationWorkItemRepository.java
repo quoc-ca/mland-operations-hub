@@ -17,13 +17,25 @@ public interface OtaReconciliationWorkItemRepository extends JpaRepository<OtaRe
             + "join fetch mapping.connection where item.publicReference = :publicReference")
     java.util.Optional<OtaReconciliationWorkItem> findMappingLinkedByPublicReferenceForUpdate(
             @Param("publicReference") String publicReference);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select item from OtaReconciliationWorkItem item left join fetch item.mapping mapping "
+            + "left join fetch mapping.connection where item.publicReference = :publicReference")
+    java.util.Optional<OtaReconciliationWorkItem> findByPublicReferenceForUpdate(
+            @Param("publicReference") String publicReference);
     List<OtaReconciliationWorkItem> findByLocationReferenceAndStatusOrderByCreatedAtAsc(String locationReference, String status);
 
     List<OtaReconciliationWorkItem> findByAssignedManagerReferenceAndStatusOrderByCreatedAtAsc(String managerReference, String status);
 
     boolean existsByMapping_IdAndCategoryAndStatus(Long mappingId, String category, String status);
 
+    List<OtaReconciliationWorkItem> findAllByOrderByCreatedAtAsc();
+
     List<OtaReconciliationWorkItem> findByStatusOrderByCreatedAtAsc(String status);
+
+    List<OtaReconciliationWorkItem> findByCategoryOrderByCreatedAtAsc(String category);
+
+    List<OtaReconciliationWorkItem> findByStatusAndCategoryOrderByCreatedAtAsc(String status, String category);
 
     @Query("select item from OtaReconciliationWorkItem item join fetch item.mapping mapping "
             + "join fetch mapping.connection where item.mapping is not null order by item.createdAt asc")

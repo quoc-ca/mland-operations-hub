@@ -55,8 +55,9 @@ public class KlookCancellationAdapter extends BaseOtaCancellationAdapter {
             eventRef = rootNode.get("eventId").asText().trim();
         } else if (rootNode.hasNonNull("externalEventReference")) {
             eventRef = rootNode.get("externalEventReference").asText().trim();
-        } else {
-            eventRef = "klk-ccl-ev-" + UUID.randomUUID().toString().substring(0, 8);
+        }
+        if (eventRef != null && eventRef.isBlank()) {
+            eventRef = null;
         }
 
         String action = null;

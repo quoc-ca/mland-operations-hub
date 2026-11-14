@@ -11,7 +11,7 @@ export default function ModerationDetailPage() {
   const { reviewId } = useParams();
   const api = useReviewManagementApi();
 
-  const resource = useResource(() => api.getReview(reviewId), [reviewId]);
+  const resource = useResource(() => api.getReview(reviewId, true), [reviewId]);
   const command = useCommand();
   const replyCommand = useCommand();
 

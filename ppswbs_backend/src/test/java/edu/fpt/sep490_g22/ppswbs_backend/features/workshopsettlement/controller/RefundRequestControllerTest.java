@@ -7,9 +7,12 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.Refu
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.RefundRequestStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementRefundRequest;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.BankRefundService;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.SettlementIdempotencyResult;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.SettlementIdempotencyService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.WorkshopSettlementAuthorizationException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.WorkshopSettlementAuthorizationService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.WorkshopSettlementValidationException;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -34,12 +37,22 @@ class RefundRequestControllerTest {
     private final BankRefundService bankRefunds = mock(BankRefundService.class);
     private final WorkshopSettlementAuthorizationService authorization =
             mock(WorkshopSettlementAuthorizationService.class);
-    private final RefundRequestController controller = new RefundRequestController(bankRefunds, authorization);
+    private final SettlementIdempotencyService idempotency = mock(SettlementIdempotencyService.class);
+    private final RefundRequestController controller = new RefundRequestController(bankRefunds, authorization, idempotency);
 
     private static final CurrentAccountActor MANAGER =
             new CurrentAccountActor(22L, ActorRole.MANAGER, ActorStatus.ACTIVE, true, List.of(1L));
     private static final CurrentAccountActor STAFF =
             new CurrentAccountActor(11L, ActorRole.STAFF, ActorStatus.ACTIVE, true, List.of(1L));
+
+    @BeforeEach
+    void setUp() {
+        when(idempotency.execute(any(), any(), any())).thenAnswer(invocation -> {
+            java.util.function.Supplier<String> supplier = invocation.getArgument(2);
+            String ref = supplier != null ? supplier.get() : null;
+            return new SettlementIdempotencyResult(false, ref);
+        });
+    }
 
     @Test
     void listsOnlyForAManagerAndFiltersByStatus() {
@@ -131,17 +144,62 @@ class RefundRequestControllerTest {
         when(authorization.requireManagerOrAnyStaff(STAFF)).thenReturn(STAFF);
         when(bankRefunds.submitAccountAtCounter(eq("REFUND-1"), eq("VCB"), eq("0123456789"), eq("NGUYEN VAN A"),
                 eq(11L), anyString())).thenReturn(ticketRefund(RefundRequestStatus.PENDING_APPROVAL));
+        when(bankRefunds.require("REFUND-1")).thenReturn(ticketRefund(RefundRequestStatus.PENDING_APPROVAL));
 
-        var response = controller.recordAccountAtCounter("REFUND-1", "corr-1",
+        var response = controller.recordAccountAtCounter("REFUND-1", "idemp-key-12345678", "corr-1",
                 new RefundRequestController.CounterAccountRequest("VCB", "0123456789", "NGUYEN VAN A"), auth(STAFF));
 
         assertThat(response.status()).isEqualTo("PENDING_APPROVAL");
         // The response carries the mask only, never what was just entered.
         assertThat(response.accountNumberMasked()).isEqualTo("****1234");
 
-        assertThat(controller.resendAccountLink("REFUND-1", "corr-1", auth(STAFF)).getStatusCode().value())
+        assertThat(controller.resendAccountLink("REFUND-1", "idemp-key-12345678", "corr-1", auth(STAFF)).getStatusCode().value())
                 .isEqualTo(204);
         verify(bankRefunds).resendAccountLink(eq("REFUND-1"), eq(11L), anyString());
+    }
+
+    @Test
+    void recordAccountAndResendLinkRequireValidIdempotencyKey() {
+        when(authorization.requireManagerOrAnyStaff(STAFF)).thenReturn(STAFF);
+        var body = new RefundRequestController.CounterAccountRequest("VCB", "0123456789", "NGUYEN VAN A");
+
+        assertThatThrownBy(() -> controller.recordAccountAtCounter("REFUND-1", null, "corr-1", body, auth(STAFF)))
+                .isInstanceOf(WorkshopSettlementValidationException.class)
+                .hasMessage("IDEMPOTENCY_KEY_REQUIRED");
+        assertThatThrownBy(() -> controller.recordAccountAtCounter("REFUND-1", "short-key", "corr-1", body, auth(STAFF)))
+                .isInstanceOf(WorkshopSettlementValidationException.class)
+                .hasMessage("IDEMPOTENCY_KEY_REQUIRED");
+
+        assertThatThrownBy(() -> controller.resendAccountLink("REFUND-1", null, "corr-1", auth(STAFF)))
+                .isInstanceOf(WorkshopSettlementValidationException.class)
+                .hasMessage("IDEMPOTENCY_KEY_REQUIRED");
+        assertThatThrownBy(() -> controller.resendAccountLink("REFUND-1", "short-key", "corr-1", auth(STAFF)))
+                .isInstanceOf(WorkshopSettlementValidationException.class)
+                .hasMessage("IDEMPOTENCY_KEY_REQUIRED");
+    }
+
+    @Test
+    void replayingAccountAtCounterReturnsStoredResultWithoutSubmittingTwice() {
+        when(authorization.requireManagerOrAnyStaff(STAFF)).thenReturn(STAFF);
+        when(bankRefunds.require("REFUND-1")).thenReturn(ticketRefund(RefundRequestStatus.PENDING_APPROVAL));
+        doReturn(new SettlementIdempotencyResult(true, "REFUND-1")).when(idempotency).execute(any(), any(), any());
+
+        var response = controller.recordAccountAtCounter("REFUND-1", "idemp-key-12345678", "corr-1",
+                new RefundRequestController.CounterAccountRequest("VCB", "0123456789", "NGUYEN VAN A"), auth(STAFF));
+
+        assertThat(response.status()).isEqualTo("PENDING_APPROVAL");
+        verify(bankRefunds, never()).submitAccountAtCounter(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void replayingResendAccountLinkReturns204WithoutResendingTwice() {
+        when(authorization.requireManagerOrAnyStaff(STAFF)).thenReturn(STAFF);
+        doReturn(new SettlementIdempotencyResult(true, "REFUND-1")).when(idempotency).execute(any(), any(), any());
+
+        var response = controller.resendAccountLink("REFUND-1", "idemp-key-12345678", "corr-1", auth(STAFF));
+
+        assertThat(response.getStatusCode().value()).isEqualTo(204);
+        verify(bankRefunds, never()).resendAccountLink(any(), any(), any());
     }
 
     @Test

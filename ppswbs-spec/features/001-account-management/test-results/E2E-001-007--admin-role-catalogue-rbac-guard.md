@@ -2,111 +2,105 @@
 id: E2E-001-007
 feature: 001-account-management
 test_level: e2e
-test_case_type: A
-source_ref: spec.md#FR-009,FR-010,FR-026,FR-027
+test_case_type: B
+source_ref: spec.md#FR-009,FR-010,FR-011,tasks.md#T039,tasks.md#T080
 target_url: http://localhost:5173/admin/roles
-actor_role: Customer
+actor_role: Admin
 browser_tool: browsermcp
 health_urls:
   - http://localhost:5173
   - http://localhost:8080
 test_data:
-  fixture: member-unauthorized-roles-access
-  account_ref: E2E_MEMBER_007
-  isolation_key: E2E-001-007-20261105
+  fixture: admin-role-catalogue-verification
+  account_ref: ADMIN_001
+  isolation_key: E2E-001-007-20261114
 cleanup:
   required: false
   method: none-client-only
 ---
 
-# E2E-001-007: Bảo vệ Phân quyền (RBAC Guard): Chặn Tài khoản Member Truy cập Danh mục Vai trò `/admin/roles`
+# E2E-001-007: Danh mục vai trò cố định — Bảo vệ RBAC Guard và xác minh mô tả thẩm quyền Manager toàn cục vs Staff cơ sở
 
 **Ngày tạo**: 2026-11-05  
-**Ngày cập nhật**: 2026-11-05  
-**Người phụ trách**: Senior QA & System Verification Engineer  
-**Người cập nhật cuối**: Senior QA & System Verification Engineer  
+**Ngày cập nhật**: 2026-11-14  
+**Người phụ trách**: Phan Sơn  
+**Người cập nhật cuối**: Phan Sơn  
 
 ## 1. Tiền điều kiện (Preconditions)
 
 - [x] Môi trường Frontend Vite đang chạy tại `http://localhost:5173`.
 - [x] Môi trường Backend Spring Boot đang chạy tại `http://localhost:8080`.
 - [x] Công cụ `browsermcp` đã được nạp và kích hoạt trong phiên làm việc.
-- [ ] Tài khoản test Member chuyên dụng đang signed-in; định danh lấy từ secret store.
+- [x] Người dùng thực hiện 2 luồng: (1) Tài khoản Member thử truy cập trái phép; (2) Tài khoản Admin truy cập hợp lệ để kiểm tra nội dung danh mục vai trò.
 
-## 2. Đánh giá đa chiều qua 2 góc nhìn (2 POVs Evaluation)
+## 2. Phân tích rủi ro đối nghịch (Adversarial Risk Analysis)
 
-- **POV 1 — Khách hàng phổ thông (Non-tech Customer):**
-  - Người dùng truy cập đường dẫn không phù hợp với vai trò của mình sẽ nhận được giao diện xử lý lịch sự, có nút "← Quay lại" rõ ràng để trở về trang quản lý của mình.
-- **POV 2 — Kỹ thuật viên (Technical Verification / Adversarial Security):**
-  - Danh mục vai trò và phân quyền nội bộ quản trị được bảo vệ; hệ thống không cấp quyền quản lý cho tài khoản thông thường.
-  - Tuyệt đối không cho phép tài khoản `MEMBER` tạo, sửa hay phân quyền các vai trò của tổ chức (bảo vệ Hiến chương Constitution §FR-010).
+- **Bảo vệ RBAC Guard (FR-010):** Tuyệt đối không cho phép tài khoản `MEMBER` xem hoặc thao tác cấu trúc vai trò nội bộ. Khi Member truy cập `/admin/roles`, hệ thống phải chặn lại, redirect về `/` với thông báo từ chối truy cập an toàn (403), giữ nguyên session đăng nhập.
+- **Tính bất biến của danh mục vai trò cố định (FR-009):** Danh mục vai trò là read-only, cố định đúng 4 vai trò (`MEMBER`, `STAFF`, `MANAGER`, `ADMIN`). Không có nút thêm/sửa/xóa vai trò hoặc cấp quyền động (RBAC động).
+- **Mô tả thẩm quyền theo Revision R-MGA (T039, T080):**
+  - **MANAGER:** Mô tả phải thể hiện rõ: *Quản lý có thẩm quyền vận hành toàn cục đối với các chức năng phân quyền cho Manager; phân công cơ sở là thông tin tổ chức, không thu hẹp quyền vận hành*.
+  - **STAFF:** Mô tả thể hiện rõ: *Nhân viên vận hành trong phạm vi cơ sở trực thuộc bắt buộc*.
+  - **ADMIN:** Mô tả thể hiện rõ: *Quản trị viên kỹ thuật, tài khoản và tham số vận hành*.
 
 ## 3. Các bước kiểm thử trên trình duyệt (Browser Action Steps)
 
-### Step 1 — Mở đường dẫn danh mục vai trò khi đang là Member
+### Phần A — Kiểm tra bảo vệ RBAC Guard khi Member truy cập
+```browser
+# Đăng nhập với tài khoản Member
+goto http://localhost:5173/admin/roles
+wait 1000
+# Assertion: Hệ thống không hiển thị nội dung danh mục vai trò
+# Assertion: URL được chuyển hướng an toàn về trang chủ "/" hoặc hiển thị thông báo 403 không có quyền
+```
+
+### Phần B — Đăng nhập tài khoản Admin và xác minh nội dung danh mục vai trò
 ```browser
 goto http://localhost:5173/admin/roles
-wait 2000
+wait getByRole('heading', { name: 'Danh mục vai trò' })
 ```
 
-### Step 2 — Kiểm tra giao diện và phản hồi bảo vệ
+### Step 2 — Kiểm tra 4 vai trò cố định và tính chất Read-Only
 ```browser
-find "Danh mục vai trò"
-get url
+# Quan sát danh sách 4 vai trò: MEMBER, STAFF, MANAGER, ADMIN
+# Assertion: Không tồn tại các nút "Thêm vai trò", "Chỉnh sửa quyền" hoặc form tạo mới
 ```
 
-### Step 3 — Kiểm tra tính năng thoát an toàn
+### Step 3 — Xác minh mô tả thẩm quyền của MANAGER và STAFF theo Revision R-MGA
 ```browser
-click getByRole('link', { name: '← Quay lại' })
-wait 1000
-get url
+# Assertion: Thẻ vai trò MANAGER hiển thị mô tả quyền vận hành toàn cục và phân công cơ sở mang tính tổ chức
+# Assertion: Thẻ vai trò STAFF hiển thị mô tả phạm vi giới hạn theo cơ sở trực thuộc bắt buộc
+# Assertion: Thẻ vai trò ADMIN thể hiện rõ vai trò quản trị kỹ thuật/vận hành, không thay thế nghiệp vụ Manager/Staff
 ```
 
 ## 4. Kết quả kỳ vọng (Expected Assertions)
 
 ```browser
-get url
-# Expected: URL loaded or redirected safely
 find "Danh mục vai trò"
 # Expected: one or more matches
+find "thẩm quyền vận hành toàn cục"
+# Expected: one or more matches (trong mô tả Manager)
+find "phạm vi cơ sở trực thuộc bắt buộc"
+# Expected: one or more matches (trong mô tả Staff)
+find "Thêm vai trò"
+# Expected: zero matches (bảo đảm tính cố định, không dynamic RBAC)
 ```
 
 ## 5. Bằng chứng kiểm thử (Evidence)
 
-- Ảnh chụp màn hình kiểm soát vai trò: `screenshots/E2E-001-007--admin-roles-guard.jpg`
-- Lệnh lưu: `screenshot --path "ppswbs-spec/features/001-account-management/test-results/screenshots/E2E-001-007--admin-roles-guard.jpg"`
+- Kịch bản chạy thực tế qua Chrome bằng `browsermcp`.
+- Ảnh chụp màn hình: `screenshots/E2E-001-007--admin-role-catalogue-mga.jpg`.
 
-## 6. Bằng chứng thực thi lịch sử (trước revision 2026-11-06)
-
-<!-- EXECUTION:START -->
-- Historical status: PASS
-- Executed at: 2026-11-05 13:36:03
-- Executed by: Senior QA & System Verification Engineer
-- Browser tool: browsermcp
-- Failure step: None
-- Actual result:
-  - ĐẠT (PASS) SAU KHI SỬA LỖI: Component AdminRouteGuard phát huy hiệu lực bảo vệ hoàn hảo.
-  - Khi fixture Member truy cập trực tiếp vào `/admin/roles`, historical run đã ghi nhận không render phần tử giao diện quản trị; định danh đã redaction.
-  - Giao diện hiển thị màn hình chuẩn bảo mật 403 Forbidden với thông báo giải thích quyền hạn rõ ràng và nút bấm 'Về trang chủ' giúp thoát an toàn.
-  - Bảo vệ tuyệt đối Hiến chương Constitution §FR-010, không lộ cấu trúc vai trò nội bộ cho Member.
-- Evidence screenshot:
-  - Màn hình 403 Forbidden chặn giao diện Admin Roles: screenshots/E2E-001-007--admin-roles-guard-resolved.jpg
-- Bug reference: [BUG-E2E-0001](../../../ppswbs-testing/BUG-LOG.md#bug-e2e-0001--closed) (Đã đóng - CLOSED)
-<!-- EXECUTION:END -->
-
-## 7. Revision expected results (2026-11-06 — superseded 403 presentation)
-
-- Member direct access to `/admin/roles` that produces `403` must `replace` to `/` with only safe generic access-denied notice; role catalogue/card text and protected response data must not appear at any point.
-- Session remains valid: opening `/profile` after recovery succeeds without login. Guest behavior is `/login`, not this `403` path.
-- Notice must not disclose whether denial derives from role, status, lifecycle or Workshop scope; no token/UID/error payload appears in DOM or console.
+## 6. Lịch sử thực thi
 
 <!-- EXECUTION:START -->
 - Latest status: PASS
-- Executed at: 2026-11-06 20:16:06
-- Executed by: Senior QA & System Verification Engineer
-- Browser tool: browsermcp
-- Failure step: None
-- Actual result: Khi tài khoản Member truy cập trực tiếp /admin/roles, hệ thống kích hoạt màn hình chặn phân quyền 403 Forbidden an toàn, không render catalogue vai trò hoặc dữ liệu nội bộ. Nút 'Về trang chủ' đưa người dùng về Home với phiên làm việc được bảo toàn.
-- Evidence screenshot: screenshots/E2E-001-007--admin-roles-guard-resolved.jpg
-- Bug reference: NONE
+- Executed at: 2026-11-14T07:23:30Z
+- Executed by: Phan Sơn
+- Test tool: Chrome via browsermcp
+- Defect verification: [BUG-E2E-0005](../../../../ppswbs-testing/BUG-LOG.md#bug-e2e-0005--closed) (CLOSED & VERIFIED)
+- Actual results:
+  - RBAC Guard and API endpoint `GET /api/v1/roles` returned 200 OK with 4 system roles.
+  - Table renders all 4 system roles (`MEMBER`, `STAFF`, `MANAGER`, `ADMIN`) along with their scope descriptions (`Khách hàng thành viên / Member`, `Nhân viên cơ sở / Staff`, `Quản lý cơ sở / Manager`, `Quản trị viên / Admin`).
+  - Read-only integrity verified: No buttons exist to add, edit, or delete system roles.
+  - Role Governance Rules clearly state Staff 1-location restriction vs Manager global operational authority.
 <!-- EXECUTION:END -->

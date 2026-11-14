@@ -1,12 +1,12 @@
 # Feature Specification: Workshop Ring Design Configuration
 
 Date created: 2026-11-08
-Date updated: 2026-11-09
+Date updated: 2026-11-14
 Author: Ngô Tiến Đạt
 Last updated by: Ngô Tiến Đạt
 
 **Feature:** 012 — Workshop Ring Design Configuration  
-**Status:** SPEC/DESIGN READY FOR REVIEW — IMPLEMENTATION BLOCKED BY APPROVAL
+**Status:** IMPLEMENTED AND VERIFIED (5/5 E2E PASS) — SPEC SYNCHRONIZED
 **Parent business scope:** FE-05 Personalized Design and Quote Workflow  
 **Source priority:** This feature contract, approved Feature-003 contracts,
 `spec-general.md`, `DB.md`, and approved Report 3 requirements. Existing code or
@@ -59,10 +59,11 @@ rechecked before booking acceptance.
 
 The server supplies the current option schema and values for:
 
-- Base shape.
-- Base material.
-- Ring size.
-- Gemstone/component selections and quantities.
+- Base shape and surface texture (`SHP-CLASSIC-ROUND`, `SHP-BEVELED`, `SHP-SINGLE-TWIST`, `SHP-WAVE`, `SHP-BALL-PEEN`, `SHP-FLAT-BAND`).
+- Base material (`MAT-SILVER-925`, `MAT-COPPER`, `MAT-STAINLESS-STEEL`).
+- Ring size (`6` through `29`, with explicit mm perimeter).
+- Dimensions: Ring thickness (`thicknessMm`) and band surface width (`bandWidthMm`).
+- Gemstone/component selections, quantities and positions.
 - Attachment selections, quantities and placement where supported.
 - Engraving content and placement where supported.
 
@@ -73,8 +74,121 @@ a short explanation of its effect on the visual preview. Sliders are used only
 for numeric or ordered options; discrete catalogue choices use selectable cards,
 pills or equivalent accessible controls.
 
-The exact size taxonomy, placement vocabulary, quantity limits and engraving
-content rules are catalogue/rule data and remain a pre-implementation gate.
+#### 3.2.1 Material Catalogue Updates
+
+- **Deactivated Materials**: All gold variants (`MAT-GOLD-14K`, `MAT-ROSE-GOLD-14K`, `MAT-WHITE-GOLD-14K`) are deactivated (`is_active = FALSE`) for workshop crafting to align with workshop feasibility and pricing constraints.
+- **Active Workshop Materials**:
+  - `MAT-SILVER-925`: Bạc Ý 925 tiêu chuẩn (độ sáng cao, dễ uốn dẻo, giá cơ sở 250.000 ₫ bao gồm tối đa 3.0 gam bạc).
+  - `MAT-COPPER`: Đồng Đỏ / Đồng Thau mộc mạc (phong cách vintage thô mộc, giá cơ sở 150.000 ₫).
+  - `MAT-STAINLESS-STEEL`: Thép Không Gỉ 316L (chống xước cao, độ cứng vượt trội, giá cơ sở 180.000 ₫).
+
+#### 3.2.1.1 Volumetric Mass & Gram-Based Material Pricing Formula
+
+Để phản ánh chính xác lượng kim loại quý tiêu hao theo kích cỡ thực tế của từng khách hàng, hệ thống tính toán khối lượng nhẫn từ các thông số hình học do khách hàng cấu hình:
+1. **Thông số hình học đầu vào**:
+   - Chu vi lòng trong: $P = \text{Size} + 40\text{ mm}$ (với $\text{Size} \in [6, 29]$).
+   - Bán kính lòng trong: $r_{\text{in}} = \frac{P}{2\pi}$.
+   - Độ dày nhẫn: $T$ (`thicknessMm`, phạm vi $1.0 - 3.0\text{ mm}$, mặc định $1.8\text{ mm}$).
+   - Độ rộng bề mặt đai: $W$ (`bandWidthMm`, phạm vi $1.5 - 6.0\text{ mm}$, mặc định $3.5\text{ mm}$).
+2. **Thể tích hình học đai nhẫn (Hollow Cylinder / Torus)**:
+   $$V = (P + \pi T) \times T \times W \quad (\text{đơn vị: mm}^3)$$
+   $$V_{\text{cm}^3} = \frac{V}{1000}$$
+3. **Khối lượng vật liệu ước tính ($M$ tính bằng gam)**:
+   $$M = V_{\text{cm}^3} \times D$$
+   Trong đó $D$ là khối lượng riêng tiêu chuẩn ($\text{g/cm}^3$):
+   - Bạc Ý 925: $D = 10.36\text{ g/cm}^3$.
+   - Đồng Đỏ / Đồng Thau: $D = 8.96\text{ g/cm}^3$.
+   - Thép Không Gỉ 316L: $D = 7.99\text{ g/cm}^3$.
+4. **Quy tắc định giá theo gam**:
+   - **Định mức chuẩn**: Một chiếc nhẫn từ **3.0 gam bạc trở xuống ($M \le 3.0\text{g}$)** được tính giá cơ sở bình thường (**250.000 ₫** đối với Bạc Ý 925).
+   - **Phụ phí vượt mức**: Mỗi 1 gam bạc vượt quá 3.0 gam ($\Delta M = M - 3.0\text{g}$) được tính thêm **120.000 ₫/gam**:
+     $$\text{Chi phí vật liệu Bạc} = 250.000\text{ ₫} + \max(0, M - 3.0) \times 120.000\text{ ₫/gam}$$
+   - Đối với Đồng Đỏ và Thép Không Gỉ: Tương tự áp dụng định mức chuẩn $3.0\text{g}$, phần vượt định mức tính phụ phí theo tỷ lệ nguyên liệu (Đồng: $40.000\text{ ₫/gam}$, Thép: $50.000\text{ ₫/gam}$).
+
+#### 3.2.2 Ring Size Taxonomy and Perimeter in Millimeters
+
+- Standard workshop ring sizes span from **Size 6** to **Size 29** (total of 24 sizes).
+- Each size option displays its corresponding circumference/perimeter in millimeters ($P = \text{Size} + 40\text{ mm}$), e.g.:
+  - Size 6: Chu vi 46 mm (Đường kính lòng trong ~14.6 mm).
+  - Size 10: Chu vi 50 mm (Đường kính lòng trong ~15.9 mm).
+  - Size 29: Chu vi 69 mm (Đường kính lòng trong ~22.0 mm).
+- Pills and selector controls display both the size number and millimeter perimeter (e.g., `Size 10 (50 mm)`), helping customers accurately gauge their fit.
+
+#### 3.2.3 Base Shapes and Surface Textures
+
+- In addition to standard classic profiles, the workshop supports specialized manual crafting textures:
+  - `SHP-CLASSIC-ROUND`: Phom tròn cổ điển, bề mặt đánh bóng gương.
+  - `SHP-BEVELED`: Phom vát cạnh công thái học, thoải mái khi đeo hàng ngày.
+  - `SHP-SINGLE-TWIST`: Phom xoắn đơn nghệ thuật, tạo điểm nhấn xoắn 180 độ tinh tế.
+  - `SHP-WAVE`: Phom lượn sóng mềm mại, mô phỏng sóng nước tự nhiên.
+  - `SHP-BALL-PEEN`: Bề mặt gõ búa bi tạo các vết lõm tròn li ti thủ công độc đáo.
+  - `SHP-FLAT-BAND`: Đai phẳng hiện đại, góc cạnh mạnh mẽ tối giản.
+
+#### 3.2.4 Dimensions & Dual View SVG Preview
+
+- **Two Synchronized Viewports**:
+  1. **Top View (Mặt chính diện)**: Circular ring band rendering band thickness, surface textures (ball-peen indentations, twist effect, wave curves, smooth sheen), mounted gemstones with dynamic angles, and center size watermark.
+  2. **Side View (Mặt cạnh / Tiết diện ngang)**: Cylindrical cross-section rendering ring band height scaled to `bandWidthMm`, wall thickness scaled to `thicknessMm`, surface texture profile, prong settings, and gemstone silhouettes.
+- **Two Real-Time Dimension Sliders**:
+  - **Độ dày nhẫn (`thicknessMm`)**: Range 1.0 mm to 3.0 mm, step 0.1 mm, default 1.8 mm.
+  - **Độ rộng bề mặt (`bandWidthMm`)**: Range 1.5 mm to 6.0 mm, step 0.1 mm, default 3.5 mm.
+  - Both sliders update the visual SVG in real time and are reflected in the technical summary.
+
+#### 3.2.5 Multi-Gemstone Selection & Constrained Ring-Band Drag-and-Drop
+
+- **Multi-Gemstone Quantities**:
+  - Each gemstone type card includes an interactive stepper (`[-] {count} [+]`), permitting customers to add multiple stones of that type rather than only a single stone.
+  - Quantities are validated against `maxQuantity` per component (`maxQuantity = 10` for CZ stones, `maxQuantity = 4` for Moissanite).
+  - Subtotal per component type is dynamically calculated as $\text{unitPrice} \times \text{quantity}$.
+- **Constrained Circular Drag-and-Drop**:
+  - Each selected gemstone instance is rendered on the Top View SVG preview with an index label, color tint, and highlight.
+  - Users can click/touch and drag any individual gemstone to position it anywhere around the 360-degree ring band.
+  - **Mathematical Constraint**: All coordinates are strictly constrained by polar projection around ring center $C(150, 135)$ with radius $R = 85\text{px}$:
+    $$\theta = \text{atan2}(y - 135, x - 150)$$
+    $$cx = 150 + 85 \cdot \cos(\theta), \quad cy = 135 + 85 \cdot \sin(\theta)$$
+  - Gemstones **cannot be dragged outside or away from the ring circle circumference**.
+  - A dashed guide track and dynamic drag halo display during the drag operation for accessibility and tactile feedback.
+
+#### 3.2.6 Published Catalogue Models
+
+- A minimum of 10 catalogue models (currently 12 published models) are maintained to inspire customers:
+  1. Nhẫn Bạc Cổ Điển Tối Giản (`MOD-CLASSIC-01`)
+  2. Nhẫn Bạc Trơn Đai Cong (`MOD-BEVEL-01`)
+  3. Nhẫn Bạc Đính Đá Đơn Sắc (`MOD-SOLITAIRE-01`)
+  4. Nhẫn Đôi Tình Nhân Bạc Ý (`MOD-COUPLE-01`)
+  5. Nhẫn Bạc Xoắn Đơn Tinh Tế (`MOD-TWIST-01`)
+  6. Nhẫn Bạc Lượn Sóng Tự Nhiên (`MOD-WAVE-01`)
+  7. Nhẫn Bạc Gõ Búa Bi Thủ Công (`MOD-BALLPEEN-01`)
+  8. Nhẫn Bạc Giác Búa Thô Mộc (`MOD-HAMMERED-01`)
+  9. Nhẫn Đồng Đỏ Vintage Rustic (`MOD-COPPER-VINTAGE`)
+  10. Nhẫn Thép Không Gỉ Phay Xước (`MOD-STEEL-BRUSHED`)
+  11. Nhẫn Bạc Milgrain Viền Hạt (`MOD-MILGRAIN-01`)
+  12. Nhẫn Bạc Gõ Búa Khắc Tim (`MOD-HAMMER-HEART`)
+
+#### 3.2.7 Customer Discovery and Navigation
+
+- A primary navigation shortcut ("Thiết kế nhẫn" / "Cấu hình nhẫn workshop") is exposed in the main navbar and workshop package detail views, enabling direct discovery without deep nested navigation.
+- Consistent Vietnamese UTF-8 typography is enforced across all configurator screens, evaluation views, disclaimers, and error dialogs.
+
+#### 3.2.8 Multi-Item Engraving, Custom Image Upload & Surface Texture Warning
+
+1. **One-Time Flat Standard Engraving Fee (Khắc chữ & biểu tượng tiêu chuẩn - Phí 1 lần 80.000 ₫)**:
+   - Khách hàng chỉ trả phí dịch vụ khắc tiêu chuẩn **1 lần duy nhất (+80.000 ₫)**.
+   - Khi đã bật tùy chọn khắc, khách hàng được phép thêm **nhiều vị trí và nội dung khắc** (chữ, ngày tháng, biểu tượng nhanh: ♥, ∞, ★, ✿, 💍).
+   - Mỗi mục khắc có thể chỉ định vị trí độc lập: **Mặt trong (`INNER_BAND`)** hoặc **Mặt ngoài (`OUTER_BAND`)**.
+2. **Cảnh báo kết cấu bề mặt gồ ghề (Surface Texture Collision Warning)**:
+   - Khi khách hàng cấu hình khắc (khắc chữ tiêu chuẩn hoặc hình ảnh) tại **Mặt ngoài (`OUTER_BAND`)** trên đai nhẫn có dáng hoặc kết cấu gồ ghề (`SHP-HAMMERED`, `SHP-BALL-PEEN`, `SHP-SINGLE-TWIST`, `SHP-TWISTED`, `SHP-WAVE`), hệ thống hiển thị banner cảnh báo kỹ thuật nổi bật:
+     > *"⚠️ Lưu ý: Đai nhẫn đang chọn có kết cấu bề mặt gồ ghề (đập búa / búa bi / xoắn / lượn sóng). Hình khắc ở mặt ngoài có thể bị biến dạng hoặc không hiển thị sắc nét như mong muốn trên bề mặt thực tế. Bạn nên ưu tiên chọn khắc ở mặt trong để đảm bảo chất lượng tinh xảo."*
+   - Cảnh báo được quản lý tập trung từ backend domain rules (`EvaluationResultDto.warnings`) và phản ánh tức thì trên UI configurator/evaluation.
+3. **Khắc hình ảnh cá nhân hóa tải lên (Custom Image Upload - 100.000 ₫ / ảnh)**:
+   - Khách hàng có thể upload file ảnh (chữ ký, logo, hình vẽ tay).
+   - Đơn giá: **100.000 ₫ / ảnh**. Khách hàng có thể tải lên một hoặc nhiều ảnh (+100.000 ₫ mỗi ảnh).
+   - Hỗ trợ chọn vị trí khắc cho từng ảnh: **Mặt trong (`INNER_BAND`)** hoặc **Mặt ngoài (`OUTER_BAND`)**.
+   - **Xử lý ảnh màu trắng đen laser (Monochrome B&W)**: Toàn bộ pixel trong vùng chọn được chuyển đổi sang màu đơn sắc trắng đen tương phản cao (Thresholding) mô phỏng chính xác vết khắc laser trên kim loại.
+   - **Khung chọn vị trí 160px x 160px (Interactive Framing Box)**:
+     - Giới hạn khung cắt chuẩn 160px x 160px.
+     - Cho phép người dùng kéo thả di chuyển khung chọn 160x160 trên ảnh để định vị chính xác vùng khắc mong muốn.
+     - Hiển thị trực tiếp bản xem trước laser trắng đen 160px x 160px và cập nhật vào giá ước tính thời gian thực.
 
 ### 3.3 Model-based and blank configuration
 
@@ -133,8 +247,17 @@ the design available for correction.
 ## 5. Estimate and difficulty
 
 Estimate and difficulty are derived server-side from the approved Manager-owned
-catalogue/rule set. They are advisory context only:
+catalogue/rule set (`ManagerDesignRuleAdapter`). They are advisory context only:
 
+- **Estimated Price Formula**:
+  $$\text{Total Estimate} = \text{MaterialCost}(M) + \text{ShapeAdjustment} + \sum (\text{GemstoneUnitPrice}_i \times \text{Qty}_i) + \sum (\text{AttachmentUnitPrice}_j \times \text{Qty}_j) + \text{EngravingPrice}$$
+  where:
+  - $\text{MaterialCost}(M) = \text{BaseUnitPrice} + \max(0, M - 3.0\text{g}) \times \text{ExcessRatePerGram}$
+    with $M = \frac{(P + \pi T) \cdot T \cdot W}{1000} \cdot D$, baseline threshold $M_0 = 3.0\text{g}$, and excess silver rate $= 120.000\text{ ₫/g}$.
+  - **Mẫu thiết kế đai nhẫn (Shape Adjustment)**: **$0.00\text{ ₫}$ (Miễn phí toàn bộ các mẫu dáng thiết kế)**. Khách hàng tự do chọn bất kỳ mẫu thiết kế nào (Tròn cổ điển, Comfort Fit, Xoắn vô cực, Búa gõ, Xoắn đơn, Lượn sóng, Búa bi, Đai phẳng) mà không bị phụ thu thêm chi phí mẫu.
+  - **Đá quý (Gemstones)**: **Đồng giá $50.000\text{ ₫/viên}$ cho tất cả các loại đá quý** (CZ Trắng, CZ Lam Biển, CZ Đỏ Ruby, Moissanite). Phí đá tính theo số lượng: $\sum (50.000\text{ ₫} \times \text{Qty}_i)$.
+  - **Họa tiết trang trí (Attachments)**: **Đồng giá $100.000\text{ ₫/họa tiết}$ cho tất cả các loại họa tiết** (Hàng viền bi Milgrain, Phay xước Satin mờ, Dập chìm họa tiết Trái Tim).
+  - **Phí khắc (Engraving Price)**: Khắc tiêu chuẩn 1 lần trả phí $80.000\text{ ₫}$ (khắc không giới hạn chữ/ký hiệu cả trong và ngoài); Upload ảnh khắc theo yêu cầu $100.000\text{ ₫/ảnh}$.
 - They do not change the workshop package price.
 - They do not change the 50% package deposit.
 - They are not an invoice, quote acceptance or final manufacturing amount.
@@ -296,6 +419,17 @@ new key for the same user action. Versioned commands use `If-Match-Version`.
     no physical deletion occurs.
 12. Given Feature-004 returns candidate features, no automatic Feature-012 design
     or booking mutation occurs.
+13. Given a customer selects materials, only Silver 925, Copper (`MAT-COPPER`), and
+    Stainless Steel 316L (`MAT-STAINLESS-STEEL`) are selectable, while Gold variants
+    are inactive and rejected by backend rule checks.
+14. Given a customer selects a size between 6 and 29, the interface displays the
+    perimeter in millimeters ($P = \text{Size} + 40\text{ mm}$) and verifies compatibility.
+15. Given a customer moves the thickness slider (1.0 - 3.0mm) or band width slider
+    (1.5 - 6.0mm), both the Top View and Side View SVG viewports redraw dynamically in
+    real time to reflect the physical dimensions.
+16. Given a customer selects multiple gemstones per type, steppers enforce `maxQuantity`
+    constraints, and individual stones can be dragged along the ring circle ($R = 85\text{px}$)
+    without ever escaping outside the circular band.
 
 ## 14. Blocker closure addendum
 
@@ -312,10 +446,8 @@ The logical decisions below are now fixed for design review:
    stores safe input/output snapshots and `rules_version`, but no hard-coded
    numerical pricing or difficulty formula.
 5. Member design history is retained for three years; archive is soft-delete.
-
-Implementation remains blocked only by physical schema/migration approval,
-session-store implementation, rule-facade implementation, booking-facade
-implementation and formal Tech Lead approval.
+6. Full implementation and integration verification completed across all 5 E2E
+   test scenarios (`E2E-012-001` through `E2E-012-005` PASS 100%).
 
 ## 15. Frontend interaction contract from Figma
 
@@ -328,6 +460,16 @@ observable behaviors:
 - Save/Evaluate remains the server-authoritative boundary. A local preview before
   validation is clearly labelled as preview and is not a validated design or
   payable price.
+- **Dual View SVG Preview**:
+  - **Top View (Mặt chính diện)**: Circular 2D band scaling with `thicknessMm`, rendering surface textures (hammered ball-peen, twisted, wavy, comfort), mounted gemstone markers with drag handles, and ring size watermark.
+  - **Side View (Mặt cạnh / Tiết diện ngang)**: Cylindrical profile scaling with `bandWidthMm` (height) and `thicknessMm` (wall thickness), displaying prong mounts, stone silhouettes, and textured edge profiles.
+- **Interactive Dimension Sliders**:
+  - Thickness slider: 1.0mm - 3.0mm, step 0.1mm.
+  - Band width slider: 1.5mm - 6.0mm, step 0.1mm.
+  - Sliders update the preview instantly without network calls.
+- **Multi-Gemstone & Drag-and-Drop Interaction**:
+  - Gemstone cards provide stepper buttons `[-]` and `[+]` allowing multiple stones up to `maxQuantity`.
+  - Individual gemstones rendered on Top View can be dragged along the ring circle band ($R = 85\text{px}$). Pointer angles are computed via $\text{atan2}$ to guarantee stones strictly follow the circumference and never stray outside the ring band.
 - Material, gemstone, ring size and band-width controls show the active
   selection/value. Helper text stays adjacent to the control.
 - The estimate is labelled `Indicative estimate`/`Tham khảo` and keeps the

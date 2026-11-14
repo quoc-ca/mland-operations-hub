@@ -32,7 +32,8 @@ import static org.mockito.Mockito.*;
 
 /**
  * 003.1 T092: quoting a multi-ticket cart and confirming it into one booking group.
- * Benefits are refused while the 006 cart contract is pending, so every cart here prices at package price.
+ * Loyalty is a mock: it answers the cart's programme discount, points and covered tickets, and 003.1 spreads them.
+ * T105: every cart, Guest included, asks for the automatic workshop discount unless a Member names a voucher.
  */
 class WorkshopCartBookingTest {
 
@@ -175,6 +176,8 @@ class WorkshopCartBookingTest {
     @Test
     void aGuestCartHasNoPointLimitsAndNoReasons() {
         UUID session = publishedLine("7", 150_000, 1, 6, 1, "Clay Workshop");
+        // Whatever the policy says, a Guest has no wallet, so the quote shows no point limits.
+        givenLimits(1_400, 100, 100, List.of());
 
         WorkshopCartQuoteResponse quote = quoteService.quote(null, cart(line(7L, session, 1)));
 
@@ -182,11 +185,130 @@ class WorkshopCartBookingTest {
         assertThat(quote.minRedeemPoints()).isZero();
         assertThat(quote.pointValueVnd()).isZero();
         assertThat(quote.reasons()).isEmpty();
-        verifyNoInteractions(loyalty);
+        assertThat(quote.appliedDiscount()).isEqualTo("NONE");
+    }
+
+    // ---- T105: the automatic workshop discount ----
+
+    @Test
+    void aGuestCartGetsTheAutomaticDiscountSpreadPerTicketAndReservedWithoutAMember() {
+        UUID clay = publishedLine("7", 300_000, 1, 6, 1, "Clay Workshop");
+        // 006 picks the largest automatic discount for the cart: 100,000 over both tickets.
+        givenPreview(100_000, 0, 0, 0, List.of(0, 1));
+
+        WorkshopCartQuoteResponse quote = quoteService.quote(null, cart(line(7L, clay, 2)));
+
+        ArgumentCaptor<TrustedSourceContext> context = ArgumentCaptor.forClass(TrustedSourceContext.class);
+        ArgumentCaptor<BenefitSelection> selection = ArgumentCaptor.forClass(BenefitSelection.class);
+        verify(loyalty).previewBenefits(context.capture(), selection.capture());
+        assertThat(context.getValue().isGuest()).isTrue();
+        assertThat(selection.getValue()).isEqualTo(new BenefitSelection(SelectionChoice.AUTO, null, BigInteger.ZERO));
+        assertThat(quote.appliedDiscount()).isEqualTo("AUTO");
+        assertThat(quote.voucherDiscountVnd()).isEqualTo(100_000);
+        assertThat(quote.lines().get(0).tickets()).extracting(WorkshopCartQuoteResponse.QuotedTicket::voucherDiscountVnd)
+                .containsExactly(50_000L, 50_000L);
+        assertThat(quote.finalTotalVnd()).isEqualTo(500_000);
+        assertThat(quote.maxPoints()).isZero();
+        assertThat(saved.get(0).getBuyerMemberAccountId()).isNull();
+        assertThat(saved.get(0).getTermsDigest()).isEqualTo("digest-1");
+
+        openQuote(quote.quoteRef());
+        when(operations.reserveGroupCapacity(anyString(), any(), anyString(), anyString()))
+                .thenReturn(GroupCapacityOutcome.accepted(List.of(List.of(UUID.randomUUID())), HOLD_EXPIRY));
+        when(loyalty.reserveAcceptedTransaction(any(), any(), anyString())).thenReturn(acceptedRef(100_000, 0));
+        var response = creationService.create(new CreateBookingGroupRequest(quote.quoteRef(),
+                "guest@example.com", "0901234567"), null, "corr-auto", null);
+
+        // One snapshot without a Member for the group (006 D-014), the same AUTO choice and the quoted digest.
+        ArgumentCaptor<AcceptedSourceContext> accepted = ArgumentCaptor.forClass(AcceptedSourceContext.class);
+        ArgumentCaptor<BenefitSelection> acceptedSelection = ArgumentCaptor.forClass(BenefitSelection.class);
+        verify(loyalty).reserveAcceptedTransaction(accepted.capture(), acceptedSelection.capture(), anyString());
+        assertThat(accepted.getValue().trusted().isGuest()).isTrue();
+        assertThat(accepted.getValue().memberOrigin()).isTrue();
+        assertThat(accepted.getValue().termsDigest()).isEqualTo("digest-1");
+        assertThat(acceptedSelection.getValue().choice()).isEqualTo(SelectionChoice.AUTO);
+        assertThat(response.tickets()).extracting(dto -> dto.finalPriceVnd()).containsExactly(250_000L, 250_000L);
     }
 
     @Test
-    void aCartAskingForAVoucherOrPointsIsRefusedWhileThe006ContractIsPending() {
+    void aMemberVoucherReplacesTheAutomaticDiscount() {
+        UUID clay = publishedLine("7", 300_000, 1, 6, 1, "Clay Workshop");
+        givenMember(42L);
+        givenPreview(60_000, 0, 0, 0, List.of(0));
+
+        WorkshopCartQuoteResponse quote = quoteService.quote("Bearer token", cartWithVoucher(line(7L, clay, 1)));
+
+        // 006 FR-015: the voucher is sent alone, so 006 never adds the automatic discount to it.
+        ArgumentCaptor<BenefitSelection> selection = ArgumentCaptor.forClass(BenefitSelection.class);
+        verify(loyalty).previewBenefits(any(), selection.capture());
+        assertThat(selection.getValue().choice()).isEqualTo(SelectionChoice.VOUCHER);
+        assertThat(selection.getValue().voucherCode()).isEqualTo("SUMMER");
+        assertThat(quote.appliedDiscount()).isEqualTo("VOUCHER");
+        assertThat(quote.voucherDiscountVnd()).isEqualTo(60_000);
+        assertThat(quote.finalTotalVnd()).isEqualTo(240_000);
+    }
+
+    @Test
+    void aMemberWhoChoosesNoVoucherGetsTheAutomaticDiscountAndCanStillSpendPoints() {
+        UUID clay = publishedLine("7", 300_000, 1, 6, 1, "Clay Workshop");
+        givenMember(42L);
+
+        quoteService.quote("Bearer token", cartWithPoints("100", line(7L, clay, 1)));
+
+        ArgumentCaptor<BenefitSelection> selection = ArgumentCaptor.forClass(BenefitSelection.class);
+        verify(loyalty).previewBenefits(any(), selection.capture());
+        assertThat(selection.getValue()).isEqualTo(
+                new BenefitSelection(SelectionChoice.AUTO, null, BigInteger.valueOf(100)));
+    }
+
+    @Test
+    void aCartBelowTheAutomaticDiscountMinimumKeepsThePlainPriceAndReservesNothing() {
+        UUID clay = publishedLine("7", 150_000, 1, 6, 1, "Clay Workshop");
+        // 006 finds no automatic discount whose minimum fee the cart meets: nothing off, only that reason.
+        when(loyalty.previewBenefits(any(), any())).thenReturn(new BenefitPreview(
+                BigInteger.valueOf(150_000), BigInteger.ZERO, BigInteger.ZERO, BigInteger.valueOf(150_000),
+                BigInteger.ZERO, BigInteger.ZERO, BigInteger.ZERO, BigInteger.ZERO, BigInteger.ZERO,
+                BigInteger.valueOf(150_000), BigInteger.valueOf(150_000), null, null, null, 3L, true,
+                List.of("No automatic workshop discount applies"), "digest-none",
+                List.of(BenefitReason.of(BenefitReasonCode.WORKSHOP_NO_AUTO_DISCOUNT_APPLIES)), List.of()));
+
+        WorkshopCartQuoteResponse quote = quoteService.quote(null, cart(line(7L, clay, 1)));
+
+        assertThat(quote.appliedDiscount()).isEqualTo("NONE");
+        assertThat(quote.voucherDiscountVnd()).isZero();
+        assertThat(quote.finalTotalVnd()).isEqualTo(150_000);
+        // appliedDiscount already says it; the reasons stay for vouchers and points.
+        assertThat(quote.reasons()).isEmpty();
+        assertThat(saved.get(0).getBenefitSelectionJson()).isNull();
+        assertThat(saved.get(0).getTermsDigest()).isNull();
+
+        openQuote(quote.quoteRef());
+        when(operations.reserveGroupCapacity(anyString(), any(), anyString(), anyString()))
+                .thenReturn(GroupCapacityOutcome.accepted(List.of(List.of(UUID.randomUUID())), HOLD_EXPIRY));
+        creationService.create(new CreateBookingGroupRequest(quote.quoteRef(), "guest@example.com", "0901234567"),
+                null, "corr-min", null);
+        verify(loyalty, never()).reserveAcceptedTransaction(any(), any(), anyString());
+    }
+
+    @Test
+    void theAutomaticDiscountIsSpreadByLargestRemainderAcrossTicketsOfDifferentPrices() {
+        UUID clay = publishedLine("7", 300_000, 1, 6, 1, "Clay Workshop");
+        UUID wax = publishedLine("9", 500_000, 1, 4, 1, "Wax Casting");
+        givenPreview(100_000, 0, 0, 0, List.of(0, 1, 2));
+
+        WorkshopCartQuoteResponse quote = quoteService.quote(null, cart(line(7L, clay, 2), line(9L, wax, 1)));
+
+        // 100,000 × 300/1,100 = 27,272.72… twice and × 500/1,100 = 45,454.54…: floors leave 2 VND, which go to the
+        // two largest remainders, the Clay tickets (FR-033).
+        assertThat(quote.lines().get(0).tickets()).extracting(WorkshopCartQuoteResponse.QuotedTicket::voucherDiscountVnd)
+                .containsExactly(27_273L, 27_273L);
+        assertThat(quote.lines().get(1).tickets().get(0).voucherDiscountVnd()).isEqualTo(45_454L);
+        assertThat(quote.finalTotalVnd()).isEqualTo(1_000_000);
+        assertThat(quote.appliedDiscount()).isEqualTo("AUTO");
+    }
+
+    @Test
+    void aGuestCartAskingForAVoucherOrPointsIsRefused() {
         UUID session = publishedLine("7", 150_000, 1, 6, 1, "Clay Workshop");
         WorkshopCartQuoteRequest withVoucher = new WorkshopCartQuoteRequest(List.of(line(7L, session, 1)),
                 new WorkshopCartQuoteRequest.BenefitSelectionRequest(
@@ -302,7 +424,7 @@ class WorkshopCartBookingTest {
     }
 
     @Test
-    void aCartWithNoBenefitNeverTouchesLoyalty() {
+    void aCartWithNoBenefitIsNeverReserved() {
         UUID clay = publishedLine("7", 300_000, 1, 6, 1, "Clay Workshop");
         WorkshopCartQuoteResponse quote = quoteService.quote(null, cart(line(7L, clay, 1)));
         openQuote(quote.quoteRef());
@@ -312,7 +434,8 @@ class WorkshopCartBookingTest {
         creationService.create(new CreateBookingGroupRequest(quote.quoteRef(), "buyer@example.com", "0901234567"),
                 null, "corr-11", null);
 
-        verifyNoInteractions(loyalty);
+        // The quote asked 006 for an automatic discount and got none, so confirmation holds nothing.
+        verify(loyalty, never()).reserveAcceptedTransaction(any(), any(), anyString());
     }
 
     @Test

@@ -35,6 +35,35 @@ export function WorkshopListPage() {
         Tự tay chế tác chiếc nhẫn mang đậm dấu ấn cá nhân cùng sự hướng dẫn tận tâm từ nghệ nhân MLAND.
       </p>
 
+      <div
+        style={{
+          margin: '20px 0 28px',
+          padding: '14px 20px',
+          backgroundColor: '#fefce8',
+          border: '1px solid #fde047',
+          borderRadius: '8px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '12px',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <span style={{ fontSize: '1.4rem' }}>💍</span>
+          <span style={{ fontSize: '14px', color: '#1e293b' }}>
+            Bạn muốn tùy chọn dáng nhẫn, chất liệu hoặc tự tay thiết kế mẫu trước khi đến lớp?
+          </span>
+        </div>
+        <a
+          href="/workshops/PKG-COUPLE-SILVER/design"
+          className="button outline"
+          style={{ height: '36px', fontSize: '13px', whiteSpace: 'nowrap' }}
+        >
+          Cấu hình mẫu nhẫn ngay →
+        </a>
+      </div>
+
       {loading && (
         <div className="empty-state">
           <p>Đang tải danh sách gói workshop...</p>
@@ -83,6 +112,13 @@ export function WorkshopListPage() {
                   </p>
                   <div className="wk-actions">
                     <a className="button outline" href={`/workshops/${pkg.packageId}`}>Xem lịch ca</a>
+                    <a
+                      className="button outline"
+                      href={`/workshops/${pkg.packageReference || 'PKG-COUPLE-SILVER'}/design`}
+                      title="Cấu hình mẫu nhẫn cho workshop này"
+                    >
+                      Cấu hình nhẫn
+                    </a>
                     <a className="button primary" href={`/workshops/${pkg.packageId}/book`}>Đặt ngay</a>
                   </div>
                 </div>

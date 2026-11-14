@@ -1,7 +1,7 @@
 # Account Management Internal Interfaces
 
 **Date created**: 2026-10-26
-**Date updated**: 2026-11-01
+**Date updated**: 2026-11-14
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
@@ -31,23 +31,51 @@ consumer must authorize its own actor and resource before invoking either method
 
 | Method | Inputs | Typed result | Contract |
 | --- | --- | --- | --- |
-| `findTargetFacts` | Canonical opaque `AccountId` | `TargetFactsOutcome` | `FOUND` contains only Account ID, fixed role, lifecycle status and effective `activeWorkshopLocationIds`; `NOT_FOUND` means conclusive absence; `UNAVAILABLE` means Account or required Workshop Location scope cannot be verified. |
-| `findEligibleRoster` | Canonical `workshopLocationId`; required role limited to `STAFF` or `MANAGER` | `RosterOutcome` | `AVAILABLE` contains zero or more entries, each limited to Account ID, current Account Profile full name and fixed role; `UNAVAILABLE` means effective scope cannot be verified. Empty `AVAILABLE` is not an error. |
+| `findTargetFacts` | Canonical opaque `AccountId` | `TargetFactsOutcome` | `FOUND` contains only Account ID, fixed role, lifecycle status and effective `activeWorkshopLocationIds`; `NOT_FOUND` means conclusive absence; `UNAVAILABLE` means Account or a required Workshop Location scope cannot be verified. It is for a target or a Staff location-scoped operation, never to establish the current Manager's global authority. |
+| `findEligibleRoster` | Canonical `workshopLocationId` | `RosterOutcome` | `AVAILABLE` contains zero or more active `STAFF` entries, each limited to Account ID, current Account Profile full name and fixed role; `UNAVAILABLE` means effective Staff scope cannot be verified. Empty `AVAILABLE` is not an error. It does not select or authorize Managers. |
 
 `activeWorkshopLocationIds` means active Account assignments intersected with
-currently active authoritative Workshop Locations. It is resolved only for the
-location-scoped facade operation, not when building `CurrentAccountActor`.
+currently active authoritative Workshop Locations. It is resolved only for a
+Staff location-scoped facade operation, not when building `CurrentAccountActor`
+or authorizing an active Manager action.
 
 `TargetFactsOutcome` and `RosterOutcome` are boundary types, not entities/DTOs.
 They expose neither email, phone, provider identity, repository/entity types,
 raw assignments, generic directory access nor a cross-feature permission
 decision. Both methods are read-only and create no Account audit event.
 
-A consumer rechecks `findTargetFacts` immediately before its dependent sensitive
-mutation. It maps `NOT_FOUND` or facts failing its own approved rule to generic
-`TARGET_NOT_ELIGIBLE`/`409`; it maps `UNAVAILABLE` to `503`, preserves safe
-unsaved input, and starts or commits no mutation. It must not use a cache,
-fallback scope, background retry or event-synchronized Account copy in V1.
+A consumer rechecks `findTargetFacts` immediately before its dependent target or
+Staff location-scoped mutation. It maps `NOT_FOUND` or facts failing its own
+approved rule to generic `TARGET_NOT_ELIGIBLE`/`409`; it maps `UNAVAILABLE` to
+`503`, preserves safe unsaved input, and starts or commits no mutation. An
+active Manager requester is authorized from `CurrentAccountActor` without this
+scope lookup. A consumer must not use a cache, fallback scope, background retry
+or event-synchronized Account copy in V1.
+
+## FE-003.1 internal alert recipients (FR-045, approved 2026-11-14)
+
+This method is an approved PII exception to the general facade principle that
+email is not exposed across feature boundaries. It exists solely for
+003.1 FR-040a: when a late payment enters the Manager review queue, the
+Workshop Booking feature must alert every active Manager by internal email.
+The exception is narrow and bounded by the contract below.
+
+| Method | Inputs | Typed result | Contract |
+| --- | --- | --- | --- |
+| `listActiveManagerEmails` | *(none)* | `List<String>` | Login emails of every Account with `role = MANAGER` and `status = ACTIVE`, de-duplicated and sorted. `ADMIN` is excluded. Empty list when none qualifies. Read-only; creates no Account audit event. |
+
+**PII usage constraint:** the caller MUST use the returned list only inside its
+own transaction to compose internal alert email recipients. The list MUST NOT
+appear in domain events, audit records, application or provider logs, or any
+consumer-owned persistence. The `LatePaymentReviewQueued` event published by
+003.1 contains only the opaque booking/payment reference, never recipient
+addresses.
+
+**Eligibility note:** no condition beyond `status = ACTIVE` is required.
+FR-013 guarantees that an `ACTIVE` internal Account has a verified email.
+FR-019/FR-020 guarantee that a suspended Account has `status = SUSPENDED`
+before restoration. `revocationPending` or unverified-email edge cases do not
+apply to `ACTIVE` Managers under the current specification.
 
 ## FE-008 shipping address facade
 

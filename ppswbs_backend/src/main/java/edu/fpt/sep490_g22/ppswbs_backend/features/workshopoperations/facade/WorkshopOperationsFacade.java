@@ -46,10 +46,8 @@ public interface WorkshopOperationsFacade {
     /** True when the Staff member is actively assigned to at least one session the booking holds a valid ticket for. */
     boolean isStaffAssignedToBooking(StaffBookingAssignmentQuery query);
 
-    BookingAttendanceOutcome getBookingAttendanceOutcome(BookingAttendanceOutcomeQuery query);
-
-    /** The terminal attendance outcome of one ticket of a booking group (003.3 FR-030). */
-    BookingAttendanceOutcome getTicketAttendanceOutcome(TicketAttendanceOutcomeQuery query);
+    /** The terminal attendance outcome of one ticket of a booking group (003.2 T092, 003.3 FR-032). */
+    TicketAttendanceOutcome getTicketAttendanceOutcome(TicketAttendanceOutcomeQuery query);
 
     /** Authoritative, PII-free session and attendance facts used by cancellation policy. */
     BookingCancellationEligibilitySnapshot getBookingCancellationEligibility(BookingCancellationEligibilityQuery query);

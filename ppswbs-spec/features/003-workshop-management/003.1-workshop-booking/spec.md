@@ -103,8 +103,10 @@ verified payment evidence:
 ## Multi-ticket cart, per-ticket booking and booking-time collection (decision 2026-11-12)
 
 **Source:** owner decisions recorded 2026-11-11/12 in
-`artifacts/workshop-changes-to-implement.md`. **Status:** specified, not yet
-implemented (tasks Phase 8). Cancellation, rescheduling, refunds and counter
+`artifacts/workshop-changes-to-implement.md`. **Status:** ~~specified, not yet
+implemented (tasks Phase 8)~~ *(updated 2026-11-14)* implemented by T089–T096
+(T094 except the FE-001 Manager alert recipient source); the full MySQL group
+flow test T097 is open. Cancellation, rescheduling, refunds and counter
 collection for these tickets are specified in 003.3; per-ticket capacity,
 attendance and reschedule quota in 003.2.
 
@@ -182,7 +184,10 @@ are kept for history and are read through this section.
 - **FR-036**: The VNPay minimum of 5,000 VND applies to the group collection,
   not to a ticket's price:
   - group collection 0 → no VNPay; the group is confirmed internally
-    (FR-007a1 extended to groups);
+    (payment mode `INTERNAL_FREE`; this carries over the internal 0 VND
+    confirmation idea of FR-007a1, which is itself superseded for direct
+    bookings by FR-044/FR-046 — read FR-007a1 only as history, the group rule
+    here is authoritative);
   - group collection 1–4,999 → no VNPay; every ticket's booking-time collection
     becomes 0 with kind `DEFERRED_BELOW_VNPAY_MINIMUM`, the amount moves to the
     ticket's checkout balance, and the group is confirmed internally;
@@ -230,6 +235,27 @@ are kept for history and are read through this section.
   or 5 failed, the buyer still wants to attend, and 1–3 hold at that moment)
   or opens a 100% bank refund under 003.3. Money is never moved to a new
   booking.
+  - *Condition 1 in V1 (decision 2026-11-13, tasks T094):* V1 checks session
+    capacity only; there is no channel quota, so "and channel quota" above is
+    not evaluated in V1.
+  - *Condition 3 in V1 (decision 2026-11-13, applied in
+    `LatePaymentReviewService.amountMatches`):* a group fails condition 3 when
+    it used any voucher, points or programme discount (any ticket snapshot with
+    a non-zero `voucherDiscountVnd`, `pointsUsed` or `pointDiscountVnd`, or a
+    voucher use reference), because the 006 contract cannot re-hold a benefit
+    in V1; it is not re-priced. Since T105 (2026-11-14) the automatic workshop
+    discount is carried in `voucherDiscountVnd`, so such a group also fails
+    condition 3 and goes to the Manager queue.
+  - **Decided 2026-11-14 (Hồ Hoàng Quốc, owner Feature 003):** an **automatic
+    workshop discount is recomputed, not failed**. Condition 3 passes when the
+    automatic discount recomputed at review time equals the amount recorded in
+    the group's snapshot, every ticket price is unchanged and the total equals
+    exactly what was collected; any difference fails it. A **voucher or points
+    still fail** condition 3 as decided 2026-11-13, because the 006 contract
+    cannot re-hold them in V1. The reason is that an automatic discount has no
+    quota and no code, so it cannot run out between the evidence and the review;
+    failing it would leave every discounted group, Guests included, with refund
+    as its only outcome even when the buyer paid the right amount.
 - **FR-040a** *(2026-11-12)*: A late payment waiting for a Manager MUST reach
   the buyer with a result within 24 hours of the evidence, or before the
   earliest session of the group starts if that is sooner. The result is the
@@ -265,14 +291,19 @@ are kept for history and are read through this section.
 **Email content approved 2026-11-12:** the buyer, recipient, resend/replace,
 expiry and late-payment templates are recorded in
 `artifacts/workshop-email-templates-draft.md`. The filename is retained for
-existing references; its content is approved, not yet implemented.
+existing references; its content is approved, ~~not yet implemented~~
+*(updated 2026-11-14)* and used by T093–T095 (group notification intents
+pulled by Feature 007). The Manager alert email (template 13) is still a draft
+and is not sent until the FE-001 recipient source exists (T094).
 
 ## Direct booking is only a booking group (decision 2026-11-13)
 
 **Source:** in-session instruction of Hồ Hoàng Quốc (owner Feature 003),
 2026-11-13: normalize now, because old direct bookings exist only in dev/test.
-**Status:** approved 2026-11-13 by Hồ Hoàng Quốc (owner Feature 003) in session, including the items marked "decided 2026-11-13"; not implemented
-(tasks T098–T104).
+**Status:** approved 2026-11-13 by Hồ Hoàng Quốc (owner Feature 003) in session, including the items marked "decided 2026-11-13"; ~~not implemented
+(tasks T098–T104)~~ *(updated 2026-11-14)* implemented by T098–T104 (commits
+9038ca7a, 164f510f, 721ebc46), except the T100 legacy remainder: the facade
+operations still serving the 003.3 booking-wide routes (see FR-046).
 
 **Supersedes** for every direct (Guest or Member) booking (superseded lines are
 kept for history and read through this section): the single `WorkshopBooking`
@@ -307,22 +338,35 @@ FR-030–FR-043 or below. **Not changed:** OTA bookings (003.4) keep
   `POST /api/v1/booking-lookups` and `POST /api/v1/booking-magic-links/exchanges`
   are removed too, because they project only a direct `WorkshopBooking` and an
   OTA booking has no customer lookup.
+  *State 2026-11-14:* every route above, its controller, its services and their
+  tests are removed (T100, T104), and no frontend file calls them (T103).
+  **Still pending:** the `WorkshopBookingFacade` operations that only the 003.3
+  booking-wide routes still call — `getLoyaltyOutcomeSource`,
+  `getConfirmedBookingFinancialProjection`, `getVerifiedDepositPayments`,
+  `verifyCustomerBookingAccess`, `recordFinalBalanceResolved`,
+  `cancelConfirmedBooking` and the Loyalty cancellation restore — and the
+  tables they read (data-model.md "Kept"). They are removed by 003.1 T100 once
+  003.3 T106 has landed; 003.3 T106 itself follows 003.3 T099–T101 and T105, and
+  needs 003.1 T107.
 - **FR-047 — group routes that replace them** (contract:
   `contracts/workshop-booking.openapi.yaml`, where T104 moved them on 2026-11-14):
 
-  | Removed | Replacement | State on `quoc` @ 85eedfd6 |
-  |---|---|---|
-  | `POST /workshop-booking-quotes` | `POST /workshop-cart-quotes` (Guest or Member) | exists |
-  | `POST /workshop-bookings` | `POST /workshop-booking-groups` | exists |
-  | `POST /workshop-bookings/{code}/payment-attempts` | `POST /workshop-booking-groups/{groupCode}/payment-attempts` | **mismatch:** code maps `…/payment`; the code moves to the contract path |
-  | `GET /members/me/workshop-bookings/{code}` | `GET /workshop-booking-groups/{groupCode}` (owning Member bearer) | **missing** in code |
-  | `GET /members/me/workshop-bookings` | `GET /members/me/workshop-booking-groups` | **missing** |
-  | `POST /booking-lookups` | `POST /workshop-booking-group-lookups` | **missing** |
-  | `POST /booking-magic-links/exchanges` | `POST /workshop-booking-group-magic-links/exchanges` | **missing**; the group link is already issued by `GroupConfirmationService` but cannot be exchanged |
-  | `…/pending-hold-release` | `POST /workshop-booking-groups/{groupCode}/pending-hold-release` | **missing** |
-  | `…/confirmation-deliveries` | `POST /workshop-booking-groups/{groupCode}/confirmation-deliveries` | **missing** |
-  | `…/magic-link-incidents` | `POST /workshop-booking-groups/{groupCode}/magic-link-incidents` | **missing** |
-  | `…/late-payment-follow-ups` | `GET /late-payment-reviews` + `POST /workshop-booking-groups/{groupCode}/late-payment-reviews/{reviewId}/decisions` (FR-040a) | exists; no new route |
+  | Removed | Replacement | State on `quoc` @ 85eedfd6 *(historical)* | State 2026-11-14 |
+  |---|---|---|---|
+  | `POST /workshop-booking-quotes` | `POST /workshop-cart-quotes` (Guest or Member) | exists | implemented (T092, T104) |
+  | `POST /workshop-bookings` | `POST /workshop-booking-groups` | exists | implemented (T092, T104) |
+  | `POST /workshop-bookings/{code}/payment-attempts` | `POST /workshop-booking-groups/{groupCode}/payment-attempts` | **mismatch:** code maps `…/payment`; the code moves to the contract path | implemented at the contract path (T098) |
+  | `GET /members/me/workshop-bookings/{code}` | `GET /workshop-booking-groups/{groupCode}` (owning Member bearer) | **missing** in code | implemented (T098) |
+  | `GET /members/me/workshop-bookings` | `GET /members/me/workshop-booking-groups` | **missing** | implemented (T098) |
+  | `POST /booking-lookups` | `POST /workshop-booking-group-lookups` | **missing** | implemented (T098) |
+  | `POST /booking-magic-links/exchanges` | `POST /workshop-booking-group-magic-links/exchanges` | **missing**; the group link is already issued by `GroupConfirmationService` but cannot be exchanged | implemented (T098) |
+  | `…/pending-hold-release` | `POST /workshop-booking-groups/{groupCode}/pending-hold-release` | **missing** | implemented (T098) |
+  | `…/confirmation-deliveries` | `POST /workshop-booking-groups/{groupCode}/confirmation-deliveries` | **missing** | implemented (T098) |
+  | `…/magic-link-incidents` | `POST /workshop-booking-groups/{groupCode}/magic-link-incidents` | **missing** | implemented (T098) |
+  | `…/late-payment-follow-ups` | `GET /late-payment-reviews` + `POST /workshop-booking-groups/{groupCode}/late-payment-reviews/{reviewId}/decisions` (FR-040a) | exists; no new route | implemented (T094) |
+
+  All replacement routes are in the contract and checked against the
+  controller mappings by `WorkshopBookingContractIT` (T104).
 
 - **FR-048 — group recovery rules** (carry the single-booking rules over
   unchanged unless stated):
@@ -374,8 +418,11 @@ FR-030–FR-043 or below. **Not changed:** OTA bookings (003.4) keep
 2026-11-14: a customer must see what a package can cost before entering any
 code, the way a marketplace shows it. **Status:** approved 2026-11-14 by Hồ
 Hoàng Quốc; the enabling requirement is 006 FR-044/FR-045 and D-013, whose
-FE-06 baseline still waits for Đặng Thị Khương to re-confirm. **Not
-implemented** (no task yet).
+FE-06 baseline ~~still waits for Đặng Thị Khương to re-confirm~~ was re-approved
+by Đặng Thị Khương on 2026-11-14 (006 spec status line, with D-014).
+~~**Not implemented** (no task yet).~~ *(updated 2026-11-14)* Backend done by
+T105 (commit 193d2f30: every cart gets the automatic discount, the quote reports
+`appliedDiscount`); the five public frontend surfaces are T106, still open.
 
 - **FR-052 — one discounted price, on every public surface.** Every customer
   surface that shows a package price MUST show the price after the largest
@@ -971,6 +1018,172 @@ appropriate booking summary without exposing another customer's booking.
    are displayed, **Then** the system shows the ticket set and booking/branch
    details without a payment countdown.
 
+> **US2–US4 superseded for direct bookings (2026-11-13, FR-044):** they are kept
+> for history and are restated for booking groups by US5–US9 below.
+
+---
+
+### User Story 5 - Quote a cart (Priority: P1) *(added 2026-11-14 from FR-030–FR-037, FR-045, FR-052a)*
+
+As a Guest or Member, I want to quote one or more package lines so that I see
+each ticket's price, discount and booking-time payment before anything is held.
+
+**Independent Test**: A one-line ("Đặt ngay") or multi-line ("Thêm vào giỏ")
+cart returns a quote with per-ticket figures and holds no capacity or benefit.
+
+**Acceptance Scenarios**:
+
+1. **Given** a cart of one or more lines, **When** the customer requests a
+   quote, **Then** the quote shows, per ticket, the price, discount allocation,
+   final price, booking-time collection and its kind, and the group payment
+   mode, and holds no capacity, voucher or points (FR-030, FR-035, FR-036).
+2. **Given** an automatic workshop discount applies to the cart, **When** a
+   Guest or a Member without a voucher requests a quote, **Then** the discount
+   is allocated per ticket by largest remainder and the quote reports it as the
+   applied programme (FR-033, FR-052a; 006 FR-044).
+3. **Given** a Member selects a voucher, **When** the quote is computed,
+   **Then** the voucher is the one programme applied, its discount goes only to
+   in-scope tickets capped at each ticket's price, and points apply after it
+   within the recorded FE-06 cap (FR-033, FR-034).
+4. **Given** a Guest asks for a voucher or points, **When** the quote is
+   requested, **Then** it is refused, because workshop vouchers and points are
+   Member-only (FR-052a).
+5. **Given** the group collection is 0, 1–4,999 or at least 5,000 VND, **When**
+   the quote is computed, **Then** the group is respectively confirmed
+   internally, deferred to checkout with every ticket's collection set to 0, or
+   paid by one VNPay payment; no amount is raised or waived (FR-036).
+6. **Given** the quote is shown, **When** the customer reviews it, **Then** each
+   ticket is labelled "Thanh toán toàn bộ", "Cọc", "Miễn phí" or "Thanh toán tại
+   quầy" with the non-refundable notice, or the deferred-group wording (FR-037).
+
+---
+
+### User Story 6 - Hold and pay a booking group (Priority: P1) *(added 2026-11-14 from FR-031, FR-032, FR-036, FR-038, FR-039)*
+
+As a buyer, I want to confirm my cart and pay once for the whole group so that
+every ticket is confirmed together.
+
+**Independent Test**: Confirming a quote holds every line or none, a verified
+group payment confirms every ticket once, and expiry releases the whole group.
+
+**Acceptance Scenarios**:
+
+1. **Given** a valid quote, **When** the buyer confirms it and one line lacks
+   capacity or eligibility, **Then** nothing is held, the failing lines are
+   reported and the cart stays editable (FR-031).
+2. **Given** every line can be held, **When** the buyer confirms, **Then** one
+   group with one ticket booking per person is created with one hold ending 12
+   minutes later, and the customer sees only the 10-minute payment countdown
+   followed by "Đang xác nhận kết quả thanh toán…" until the hold ends (FR-032).
+3. **Given** a `VNPAY` group, **When** verified VNPay evidence for the group
+   amount arrives before the hold ends, **Then** every hold is committed, the
+   Loyalty benefits are settled once, each ticket gets its QR, the group Magic
+   Link is issued and one confirmation per ticket is published so 003.3 opens
+   one folio per ticket (FR-038).
+4. **Given** a 0 VND or deferred group, **When** it is confirmed, **Then** it is
+   confirmed internally without VNPay (FR-036, FR-038).
+5. **Given** a paid group containing free tickets, **When** payment has not yet
+   been verified, **Then** the free tickets are not confirmed early or split off
+   (FR-038).
+6. **Given** a replayed confirmation or retried payment, **When** it is
+   processed, **Then** no ticket, capacity or benefit is used twice and the hold
+   is never extended (FR-032, FR-038).
+7. **Given** the hold expires without verified payment, **When** expiry runs,
+   **Then** the whole group is released, free tickets included, and held
+   benefits are released (FR-039).
+
+---
+
+### User Story 7 - Recover and look up a booking group (Priority: P2) *(added 2026-11-14 from FR-042, FR-047–FR-049)*
+
+As a buyer, I want to find my group again so that I can see every ticket,
+resume or release a pending hold, and resend my confirmation.
+
+**Independent Test**: The owning Member, a Guest with one stored contact value,
+or a valid group Magic Link reads only that group's projection.
+
+**Acceptance Scenarios**:
+
+1. **Given** a Guest with the group code and exactly one stored contact value,
+   **When** the Guest looks the group up, **Then** the group projection is
+   shown; a wrong value returns a safe outcome that never says which part
+   failed (FR-048).
+2. **Given** an authenticated Member, **When** the Member opens the group list
+   or one of their groups, **Then** at most 30 own groups are listed newest
+   first, an expired group only within 24 hours of `holdExpiresAt`, and another
+   Member's group is not shown (FR-048).
+3. **Given** a valid group Magic Link, **When** it is exchanged, **Then** the
+   same read-only group projection is shown; a ticket recipient's QR email gives
+   no group view (FR-048).
+4. **Given** a projection for the buyer, **When** it is displayed, **Then** each
+   ticket shows package, schedule, final price, collected amount, collection
+   kind, remaining balance, status, attendance and masked recipient, the QR only
+   for the buyer, and `ticketReference` only for the owning Member (FR-042,
+   FR-049).
+5. **Given** a pending group with no payment attempt, **When** the Guest (with
+   proof) or owning Member releases it with a reason, **Then** every line's hold
+   is released; **Given** a payment attempt exists, **Then** release is refused
+   and the hold ends by expiry (FR-048).
+6. **Given** a confirmed group, **When** an authorized actor requests a resend,
+   **Then** the buyer confirmation is sent again to the stored contact email
+   only, within the resend limits (FR-048).
+
+---
+
+### User Story 8 - Send a ticket to a recipient (Priority: P2) *(added 2026-11-14 from FR-041)*
+
+As a buyer, I want to send a ticket to the person who will attend so that they
+can check in with their own QR.
+
+**Independent Test**: A recipient change by the buyer revokes the old QR and
+issues a new one; a non-buyer cannot change it.
+
+**Acceptance Scenarios**:
+
+1. **Given** a confirmed ticket, **When** the buyer sets a new recipient email,
+   **Then** the old QR is revoked immediately and a new QR is sent to the new
+   email; the audit masks both emails.
+2. **Given** the same recipient email, **When** the buyer resends, **Then** the
+   QR is kept.
+3. **Given** a ticket that is checked in, or that already had 3 online
+   recipient changes, **When** a further online change is requested, **Then** it
+   is refused; more changes need Staff at the shop.
+4. **Given** a recipient (not the buyer), **When** the recipient asks to change
+   the ticket, **Then** the change is refused online and must go through the
+   buyer or the shop; only the buyer, or Staff after verifying the buyer, may
+   change it.
+
+---
+
+### User Story 9 - Review a late payment (Priority: P2) *(added 2026-11-14 from FR-040, FR-040a)*
+
+As the business, I want money that arrives after the hold expired to end in a
+confirmed group or a refund so that no payment is lost or left unanswered.
+
+**Independent Test**: Late signed evidence either re-confirms the group
+automatically when every condition holds or enters the Manager queue with a
+deadline.
+
+**Acceptance Scenarios**:
+
+1. **Given** signed evidence for an expired group and all five FR-040
+   conditions hold, **When** it is processed, **Then** the group is
+   re-confirmed as a new acceptance, all or none, audited as
+   `LATE_PAYMENT_RECONFIRMED`, and IPN plus QueryDR for the same payment
+   re-confirm it only once.
+2. **Given** any condition fails, **When** the evidence is processed, **Then**
+   the evidence and failed conditions are recorded, the payer is emailed that
+   the payment arrived late with the deadline, and Managers are alerted at once
+   with the queue ordered by earliest session start (FR-040a).
+3. **Given** only condition 4 or 5 failed and conditions 1–3 hold at decision
+   time, **When** a Manager confirms because the buyer still wants to attend,
+   **Then** the group is confirmed; otherwise the Manager opens a 100% bank
+   refund under 003.3, and money is never moved to a new booking.
+4. **Given** a review waiting for a Manager, **When** its deadline is reached
+   (24 hours after the evidence, or the start of the group's earliest session
+   if that is sooner), **Then** the buyer has already received the confirmation email or the refund-account
+   request email; a "being processed" message does not count (FR-040a).
+
 ### Edge Cases
 
 - A package becomes unpublished or unavailable while a visitor is completing a
@@ -1044,11 +1257,37 @@ appropriate booking summary without exposing another customer's booking.
 
 ### Functional Requirements
 
+> **How to read FR-001–FR-025 (legacy requirements, note added 2026-11-14).**
+> These were written for the single `WorkshopBooking` flow. Since FR-044 a
+> direct booking is only a booking group, so for direct bookings:
+>
+> - **Superseded for direct bookings** (exactly the list of the FR-044
+>   section, kept for history and for OTA `WorkshopBooking`): FR-003 ("no
+>   generic cart"), FR-004, FR-006, FR-006a/b, FR-007–FR-007d (incl. FR-007a
+>   and FR-007a1), FR-008/FR-009, FR-010–FR-013d (incl. QueryDR at minutes 8/9
+>   → FR-032, late payment → FR-040/FR-040a), FR-014h, FR-016–FR-017k, FR-020
+>   (→ FR-050), FR-021a–c, FR-022a, FR-024. Where FR-048 says a rule is
+>   "carried over" (proof rule and rate limit of FR-016/017, Magic-Link rules
+>   FR-017b–FR-017b9a, resend limits FR-014h, list rule FR-021a, FR-017j,
+>   FR-021c), it applies to groups **through FR-048**, not on its own.
+> - **Not listed as superseded, so they still apply to groups:** FR-001,
+>   FR-002 (price shown per FR-052), FR-002a, FR-003a, FR-003a1, FR-003b,
+>   FR-003c, FR-004a, FR-005 (per line, with FR-031), FR-014, FR-014a–FR-014g,
+>   FR-014i, FR-015/FR-015a/FR-015b, FR-018, FR-019, FR-019a, FR-021 (as
+>   FR-039 for a group), FR-022, FR-025.
+>
+> Where a requirement in the second list names "booking", read "booking group"
+> (group-level facts) or "ticket booking" (per-person facts). This note only
+> restates FR-044; it adds no new decision.
+
 - **FR-001**: The system MUST display only published and customer-selectable
-  workshop packages in the customer browsing journey.
+  workshop packages in the customer browsing journey. *(2026-11-14: applies to
+  groups unchanged.)*
 - **FR-002**: The system MUST display the selected package's current price,
   description, participant constraints, supported design/material information,
-  and booking availability information.
+  and booking availability information. *(2026-11-14: applies to groups
+  unchanged; the price shown on every public surface is the automatic-discount
+  price of FR-052/FR-052a.)*
 - **FR-002a**: 003.1 MUST consume 003.2-owned public discovery routes and MUST
   NOT expose competing Package/session discovery endpoints. Customer session
   discovery is `GET /api/v1/workshop-packages/{packageId}/sessions`, requiring
@@ -1109,7 +1348,8 @@ appropriate booking summary without exposing another customer's booking.
   package consumes one place from that pool.
 - **FR-005**: The system MUST reject a booking when any required session has no
   configured capacity or insufficient remaining capacity; it MUST leave no
-  partial booking or capacity hold.
+  partial booking or capacity hold. *(2026-11-14: applies to groups per line;
+  a refusal of any line holds nothing and reports `failingLines`, FR-031.)*
 - **FR-006**: The system MUST create at most one customer-facing pending booking
   for a single accepted booking submission and must not leave an incomplete
   booking when creation fails.
@@ -1461,11 +1701,13 @@ appropriate booking summary without exposing another customer's booking.
   for the cancelled booking.
 - **FR-018**: The system MUST validate all customer input and return safe,
   typed, correlation-linked errors without exposing stack traces, credentials,
-  raw payment payloads, secrets, or unnecessary PII.
+  raw payment payloads, secrets, or unnecessary PII. *(2026-11-14: applies to
+  groups unchanged.)*
 - **FR-019**: The system MUST preserve the ownership boundary of the workshop
   booking module; schedule configuration, capacity configuration, staff
   assignment, check-in processing, and external synchronization remain outside
-  this feature's customer-facing scope.
+  this feature's customer-facing scope. *(2026-11-14: applies to groups
+  unchanged.)*
 - **FR-019a**: For booking-critical integration with 003.2, the system MUST use
   its exposed synchronous boundary to read sale eligibility, reserve participant
   capacity across every required session all-or-nothing, commit the complete
@@ -1473,7 +1715,10 @@ appropriate booking summary without exposing another customer's booking.
   the delivery-safe ticket/session-entitlement projection after commit. It MUST
   NOT read 003.2 entities or repositories. Events MAY be used only after a
   local state transition for non-critical notification or downstream handoff and
-  MUST NOT decide capacity or booking-confirmation outcome.
+  MUST NOT decide capacity or booking-confirmation outcome. *(2026-11-14:
+  applies to groups; the implemented boundary is the group capacity command
+  `ReserveGroupCapacityCommand` with all-or-none commit/release per group, and
+  the per-ticket QR identity comes back from the commit.)*
 - **FR-020**: The system MUST represent service lifecycle status separately from
   financial payment status and MUST support transitions for pending payment,
   confirmation, expiry, and explicit release of a pending hold. **Updated
@@ -1523,7 +1768,8 @@ appropriate booking summary without exposing another customer's booking.
   flow; an unverified or still-pending answer keeps them held.
 - **FR-022**: The system MUST preserve the financial-status vocabulary needed by
   later workshop lifecycle features, including `FULLY_PAID`, without implementing
-  final-payment settlement in this feature.
+  final-payment settlement in this feature. *(2026-11-14: applies to groups;
+  the vocabulary lives on each ticket booking's `financial_status`, V113.)*
 - **FR-022a**: On an idempotent semantic final-balance-resolved conclusion from
   003.3, the Booking owner MUST change its financial status to `FULLY_PAID`
   exactly once and retain only a safe correlation/reference. It MUST NOT receive
@@ -1542,7 +1788,8 @@ appropriate booking summary without exposing another customer's booking.
   preflight. Staging, production, or any environment holding such data MUST use
   an append-only preservation migration with upgrade-test and recovery/rollback
   evidence; implementation MUST NOT edit an applied migration or reset that
-  environment as a shortcut.
+  environment as a shortcut. *(2026-11-14: applies unchanged; FR-043/FR-051
+  used it for the dev/test-only group migration V113–V133.)*
 
 ### Key Entities
 
@@ -1576,14 +1823,31 @@ appropriate booking summary without exposing another customer's booking.
 
 - **SC-001**: At least 95% of valid customer booking attempts reach a clear
   pending-payment or confirmed outcome without manual operator intervention.
-- **SC-002**: 100% of confirmed bookings have exactly one accepted deposit
+- **SC-002** *(restated 2026-11-14 for groups/tickets, FR-035, FR-036, FR-038)*:
+  100% of confirmed booking groups have a retrievable group code, exactly one
+  ticket booking with one active QR per person, and a booking-time collection
+  equal to the sum of their tickets' snapshotted collections: exactly one
+  accepted VNPay payment of that amount for a `VNPAY` group, and no payment
+  attempt for an `INTERNAL_FREE` or `INTERNAL_DEFERRED` group. Each ticket's
+  financial status matches its snapshot (`FULLY_PAID` for `FULL`/`FREE`,
+  `DEPOSIT_PAID` for `DEPOSIT`, `UNPAID` for `DEFERRED_BELOW_VNPAY_MINIMUM`).
+  ~~100% of confirmed bookings have exactly one accepted deposit
   transaction matching the frozen deposit, payment status `DEPOSIT_PAID`, a
   retrievable booking code, and
-  exactly one active ticket for each purchased participant seat.
+  exactly one active ticket for each purchased participant seat.~~
+  *(superseded by FR-035/FR-036/FR-038, 2026-11-12)*
 - **SC-003**: 100% of invalid, duplicate, mismatched, or unsigned payment
   notifications leave the booking unconfirmed and do not settle the invoice.
-- **SC-004**: 100% of expired pending bookings release their temporary capacity
-  within the defined expiry process and cannot be confirmed by a late payment.
+- **SC-004** *(restated 2026-11-14 for groups/tickets, FR-039, FR-040,
+  FR-040a)*: 100% of expired pending booking groups release every line's hold,
+  free tickets included, exactly once within the defined expiry process, and a
+  late payment never revives the old hold: it is either re-confirmed
+  automatically as a new, atomic, idempotent acceptance only when all five
+  FR-040 conditions hold, or recorded for a Manager whose result reaches the
+  buyer within the FR-040a deadline.
+  ~~100% of expired pending bookings release their temporary capacity
+  within the defined expiry process and cannot be confirmed by a late payment.~~
+  *(superseded by FR-040/FR-040a, 2026-11-12)*
 - **SC-005**: A visitor can browse a package and reach its booking entry point in
   no more than three primary interaction steps from the workshop listing.
 - **SC-006**: At least 90% of successful booking lookups return the correct
@@ -1619,3 +1883,36 @@ appropriate booking summary without exposing another customer's booking.
 - OTA payment and provider facts are never mutated by the direct-booking flow.
 - The exact database baseline and provider-specific contract details are selected
   in the implementation plan, not invented in this specification.
+
+## Dependencies
+
+*(Section added 2026-11-14.)*
+
+- **003.2 Workshop Operations** — `WorkshopOperationsFacade`: published-Package
+  snapshot, sale eligibility, group capacity reserve/commit/release, ticket
+  issuance and QR rotation (FR-019a, FR-031, FR-038, FR-041);
+  `TicketAttendanceFinalizedEvent` per ticket (FR-050).
+- **003.3 Workshop Settlement and Changes** — consumes `MlandTicketConfirmedEvent`
+  to open one folio per ticket (FR-038); bank refund for a late payment
+  (FR-040). 003.3 T099/T106 need the 003.1 facade operations
+  `getTicketFolioContext` and `consumeBuyerProof` (decided 2026-11-14,
+  [../contracts/workshop-interfeature-facades.md](../contracts/workshop-interfeature-facades.md);
+  tasks T107).
+- **006 Loyalty and Promotion (FE-06)** — cart benefit contract (006 T098,
+  D-010), automatic workshop discount (006 FR-044/FR-045, D-013, D-014; FE-06
+  baseline re-approved by Đặng Thị Khương 2026-11-14), FE-06 display component
+  for FR-052 (006 T105, needed by T106).
+- **FE-001 Account Management** — canonical role, status, ownership and
+  location scope (T004); **`AccountFacade.listActiveManagerEmails()`** as the
+  source of `ManagerAlertRecipientSource` for the FR-040a Manager alert email
+  (request `artifacts/001-manager-alert-recipients-request.md`).
+  **Decided 2026-11-14 (Hồ Hoàng Quốc):** wait for FE-001; **no interim
+  configured recipient list is introduced**. Until `listActiveManagerEmails()`
+  lands, the FR-040a Manager alert email is not sent and T094 stays open with
+  this as a known unmet MUST; the Manager queue
+  `GET /api/v1/late-payment-reviews?status=PENDING_MANAGER` and the management
+  screen remain the working path. FE-001's owner needs to know 003.1 waits on
+  this operation.
+- **Feature 007 Notifications** — pulls group notification snapshots through
+  `WorkshopBookingNotificationFacade`.
+- **VNPay** — environment-approved configuration (tasks T005/T046).

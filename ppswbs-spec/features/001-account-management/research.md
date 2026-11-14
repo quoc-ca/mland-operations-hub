@@ -1,7 +1,7 @@
 # Research: Account Management (FE-001)
 
 **Date created**: 2026-10-26
-**Date updated**: 2026-11-06
+**Date updated**: 2026-11-14
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
@@ -87,7 +87,7 @@
 
 **Decision**: FE-001 publishes exactly two methods at the Java module boundary for Workshop consumers:
 1. `findTargetFacts(AccountId)` → `TargetFactsOutcome` (FOUND | NOT_FOUND | UNAVAILABLE)
-2. `findEligibleRoster(workshopLocationId, requiredRole)` → `RosterOutcome` (AVAILABLE | UNAVAILABLE)
+2. `findEligibleRoster(workshopLocationId)` → Staff-only `RosterOutcome` (AVAILABLE | UNAVAILABLE)
 
 No REST endpoint, no generic Account directory, no cross-feature entity/DAO import.
 
@@ -272,6 +272,34 @@ No REST endpoint, no generic Account directory, no cross-feature entity/DAO impo
 **Rationale**: One redirect contract avoids divergent popup behavior and gives a testable local precondition without treating local success as production hosting approval.
 
 **Source**: User decisions, 2026-11-06; [Firebase redirect best practices](https://firebase.google.com/docs/auth/web/redirect-best-practices?hl=en); [Firebase Auth FAQ](https://firebase.google.com/docs/auth/faq-and-troubleshooting?authuser=3&hl=en); FR-002 and FR-041.
+
+---
+
+### D-23: Manager-global authorization and Staff-only roster
+
+**Decision**: An `ACTIVE` Manager has global operational scope for actions that
+the owning feature explicitly authorizes to Manager. Manager Location assignments
+remain mandatory organizational records and do not narrow that authority. The
+identity gate's `CurrentAccountActor` is sufficient for current-Manager
+authorization; no Location lookup occurs on that path. Staff remains
+Location-scoped. The narrow Workshop roster contains only eligible active Staff;
+it is not a Manager directory or Manager authorization mechanism.
+
+**Rationale**: Resolving Location scope for every Manager action would both
+contradict the global Manager rule and make Manager availability depend on a
+Location dependency that is irrelevant to that action. Keeping Manager selection
+out of the Staff roster prevents an organizational assignment from silently
+becoming a permission boundary.
+
+**Alternatives considered**:
+- Treat Manager assignment as Manager authorization scope — rejected: conflicts
+  with the global Manager decision and denies cross-Location operations.
+- Permit Manager action while using stale/cached Staff scope — rejected: would
+  weaken Staff scope revocation and violates the current-facts rule.
+- Expose a generic Manager directory — rejected: expands Account data exposure
+  without an approved Manager-target use case.
+
+**Source**: User decisions, 2026-11-14; `spec-general.md`; FR-012, FR-027–032.
 
 ## Open Research Items
 

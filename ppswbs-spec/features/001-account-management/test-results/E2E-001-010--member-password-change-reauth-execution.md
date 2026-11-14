@@ -132,12 +132,12 @@ console --errors
 
 <!-- EXECUTION:START -->
 - Latest status: PASS
-- Executed at: 2026-11-06 20:15:46
+- Executed at: 2026-11-09 16:35:27
 - Executed by: Senior QA & System Verification Engineer
 - Browser tool: browsermcp
 - Failure step: None
 - Actual result: Khi nhập sai mật khẩu hiện tại, Firebase Client reauthenticateWithCredential kích hoạt lỗi chuẩn xác và hiển thị thông báo inline 'Mật khẩu hiện tại không chính xác.'. Hệ thống tuân thủ nghiêm ngặt nguyên tắc UX Defense: chỉ xóa ô 'Mật khẩu hiện tại', giữ nguyên giá trị tại hai ô 'Mật khẩu mới' và 'Xác nhận mật khẩu mới' trong component state để người dùng không phải gõ lại. Phiên người dùng không bị văng.
-- Evidence screenshot: screenshots/E2E-001-010--change-password-reauth-fail.jpg
+- Evidence screenshot: screenshots/E2E-001-010--password-reauth-fail.jpg
 - Bug reference: NONE
 <!-- EXECUTION:END -->
 

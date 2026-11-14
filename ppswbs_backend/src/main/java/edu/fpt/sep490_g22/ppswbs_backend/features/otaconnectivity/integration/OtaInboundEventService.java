@@ -2,10 +2,10 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.integration;
 
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.application.OtaInboundEventOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.application.OtaInboundEventReceipt;
+import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.application.exception.OtaConflictException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.persistence.OtaChannelConnectionRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.persistence.OtaInboundEvent;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.persistence.OtaInboundEventRepository;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,7 +18,6 @@ import java.util.regex.Pattern;
 
 /** Persists authenticated, minimized callback receipts before downstream business effects. */
 @Service
-@RequiredArgsConstructor
 public class OtaInboundEventService {
 
     private static final Pattern SHA_256 = Pattern.compile("[a-fA-F0-9]{64}");
@@ -28,6 +27,17 @@ public class OtaInboundEventService {
     private final OtaChannelConnectionRepository connectionRepository;
     private final OtaInboundEventRepository inboundEventRepository;
     private final OtaAuditCorrelationService auditCorrelationService;
+    private final OtaInboundConflictRecorder conflictRecorder;
+
+    public OtaInboundEventService(OtaChannelConnectionRepository connectionRepository,
+                                  OtaInboundEventRepository inboundEventRepository,
+                                  OtaAuditCorrelationService auditCorrelationService,
+                                  OtaInboundConflictRecorder conflictRecorder) {
+        this.connectionRepository = connectionRepository;
+        this.inboundEventRepository = inboundEventRepository;
+        this.auditCorrelationService = auditCorrelationService;
+        this.conflictRecorder = conflictRecorder;
+    }
 
     @Transactional
     public OtaInboundEventReceipt receive(AuthenticatedOtaInboundEvent event) {
@@ -41,6 +51,16 @@ public class OtaInboundEventService {
         var existing = inboundEventRepository.findByConnectionIdAndDedupeKey(connection.getId(), dedupeKey);
         if (existing.isPresent()) {
             OtaInboundEvent prior = existing.orElseThrow();
+            // Spec A1 (decided 2026-11-14): the same reference with a different payload is a conflict, never a
+            // replay. A reference-less callback is keyed by its own fingerprint, so it can never reach this branch.
+            if (event.externalEventReference() != null
+                    && !prior.getPayloadFingerprint().equalsIgnoreCase(event.payloadFingerprint())) {
+                // Committed in its own transaction: the throw below rolls this one back.
+                conflictRecorder.recordDedupeConflict(prior);
+                auditCorrelationService.record(OtaAuditCorrelationService.IntegrationAction.INBOUND_EVENT_RECEIVED,
+                        event.provider(), null, null, OtaAuditCorrelationService.IntegrationOutcome.REJECTED);
+                throw new OtaConflictException("Conflicting payload fingerprint for event reference: " + event.externalEventReference());
+            }
             return receipt(prior, true);
         }
 

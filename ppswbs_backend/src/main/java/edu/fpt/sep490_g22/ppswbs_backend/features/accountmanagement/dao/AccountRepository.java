@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -31,5 +32,17 @@ public interface AccountRepository extends JpaRepository<Account, Long> {
         @Param("role") AccountRole role,
         @Param("status") AccountStatus status,
         Pageable pageable
+    );
+
+    @Query("""
+        SELECT DISTINCT a.loginEmail FROM Account a
+        WHERE a.role = :role
+          AND a.status = :status
+          AND a.loginEmail IS NOT NULL
+        ORDER BY a.loginEmail ASC
+    """)
+    List<String> findLoginEmailsByRoleAndStatus(
+        @Param("role") AccountRole role,
+        @Param("status") AccountStatus status
     );
 }

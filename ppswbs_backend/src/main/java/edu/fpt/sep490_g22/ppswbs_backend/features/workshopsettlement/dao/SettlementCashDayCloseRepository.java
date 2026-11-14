@@ -14,6 +14,8 @@ public interface SettlementCashDayCloseRepository extends JpaRepository<Settleme
 
     Optional<SettlementCashDayClose> findByBranchIdAndBusinessDay(Long branchId, LocalDate businessDay);
 
+    Optional<SettlementCashDayClose> findByCloseReference(String closeReference);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select c from SettlementCashDayClose c where c.branchId = :branchId and c.businessDay = :businessDay")
     Optional<SettlementCashDayClose> findForUpdate(@Param("branchId") Long branchId,

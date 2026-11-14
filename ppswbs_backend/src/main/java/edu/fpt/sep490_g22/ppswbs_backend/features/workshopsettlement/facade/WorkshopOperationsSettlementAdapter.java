@@ -23,15 +23,19 @@ public class WorkshopOperationsSettlementAdapter {
         return operations.hasBookingServiceStarted(new BookingSettlementReadinessQuery(bookingReference));
     }
 
-    /** The terminal attendance outcome of one ticket of a booking group (003.3 FR-030). */
-    public BookingAttendanceOutcome ticketAttendanceOutcome(String ticketReference) {
+    /** The terminal attendance outcome of one ticket of a booking group (003.3 FR-030, 003.2 T092). */
+    public TicketAttendanceOutcome ticketAttendanceOutcome(String ticketReference) {
         return operations.getTicketAttendanceOutcome(
                 new edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.TicketAttendanceOutcomeQuery(
                         ticketReference));
     }
 
+    /**
+     * @deprecated Booking-wide attendance is removed; use {@link #ticketAttendanceOutcome(String)}.
+     */
+    @Deprecated
     public BookingAttendanceOutcome attendanceOutcome(String bookingReference) {
-        return operations.getBookingAttendanceOutcome(new BookingAttendanceOutcomeQuery(bookingReference));
+        return BookingAttendanceOutcome.pending();
     }
 
     public BookingCancellationEligibilitySnapshot cancellationEligibility(String bookingReference) {
@@ -69,5 +73,19 @@ public class WorkshopOperationsSettlementAdapter {
             String cancellationCaseReference, String operationReference, String correlationReference) {
         return operations.cancelBooking(new CancelBookingCommand(
                 bookingReference, cancellationCaseReference, operationReference, correlationReference));
+    }
+
+    public TicketCancellationOutcome cancelTicket(java.util.UUID ticketReference,
+            String cancellationCaseReference, String operationReference, String correlationReference) {
+        return operations.cancelTicket(new CancelTicketCommand(
+                ticketReference, cancellationCaseReference, operationReference, correlationReference));
+    }
+
+    public TicketSessionReplacementOutcome replaceTicketSessions(ReplaceTicketSessionsCommand command) {
+        return operations.replaceTicketSessions(command);
+    }
+
+    public SaleEligibilitySnapshot saleEligibility(java.util.UUID sessionReference) {
+        return operations.getSaleEligibility(new SaleEligibilityQuery(sessionReference));
     }
 }

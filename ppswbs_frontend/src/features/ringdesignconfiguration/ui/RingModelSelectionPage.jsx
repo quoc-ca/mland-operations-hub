@@ -94,6 +94,20 @@ export default function RingModelSelectionPage() {
                   />
                 </div>
               )}
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
+                <span
+                  style={{
+                    fontSize: '0.72rem',
+                    fontWeight: 700,
+                    padding: '2px 8px',
+                    borderRadius: '4px',
+                    background: model.materialReference === 'MAT-COPPER' ? '#ffedd5' : model.materialReference === 'MAT-STAINLESS-STEEL' ? '#f1f5f9' : '#e0f2fe',
+                    color: model.materialReference === 'MAT-COPPER' ? '#c2410c' : model.materialReference === 'MAT-STAINLESS-STEEL' ? '#334155' : '#0369a1',
+                  }}
+                >
+                  {model.materialReference === 'MAT-COPPER' ? 'Đồng' : model.materialReference === 'MAT-STAINLESS-STEEL' ? 'Thép không gỉ' : 'Bạc Ý 925'}
+                </span>
+              </div>
               <h3 style={{ fontSize: '1.15rem', fontWeight: 600, color: '#0f172a', margin: '0 0 0.4rem' }}>
                 {model.name}
               </h3>

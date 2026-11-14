@@ -24,27 +24,131 @@ export function useWorkshopDesignDraft(packageReference, initialModel = null) {
     setIsDirty(true);
   }, []);
 
-  const toggleComponent = useCallback((componentReference, maxQuantity = 10) => {
+  const updateThickness = useCallback((thickness) => {
+    const clamped = Math.min(3.0, Math.max(1.0, Math.round(Number(thickness) * 10) / 10));
+    setDraft((prev) => ({ ...prev, thicknessMm: clamped }));
+    setIsDirty(true);
+  }, []);
+
+  const updateBandWidth = useCallback((bandWidth) => {
+    const clamped = Math.min(6.0, Math.max(1.5, Math.round(Number(bandWidth) * 10) / 10));
+    setDraft((prev) => ({ ...prev, bandWidthMm: clamped }));
+    setIsDirty(true);
+  }, []);
+
+  const setComponentQuantity = useCallback((componentReference, rawQuantity, maxQuantity = 10) => {
+    const qty = Math.max(0, Math.min(Number(maxQuantity) || 10, Number(rawQuantity) || 0));
     setDraft((prev) => {
+      let nextComponents;
       const existing = prev.components.find((c) => c.reference === componentReference);
-      let updated;
-      if (existing) {
-        updated = prev.components.filter((c) => c.reference !== componentReference);
+
+      if (qty <= 0) {
+        nextComponents = prev.components.filter((c) => c.reference !== componentReference);
+      } else if (existing) {
+        nextComponents = prev.components.map((c) =>
+          c.reference === componentReference ? { ...c, quantity: qty } : c
+        );
       } else {
-        updated = [...prev.components, { reference: componentReference, quantity: 1, placement: 'CENTER' }];
+        nextComponents = [...prev.components, { reference: componentReference, quantity: qty, placement: 'CENTER' }];
       }
-      return { ...prev, components: updated };
+
+      // Synchronize gemstone positions
+      let nextPositions = [...(prev.gemstonePositions || [])];
+      if (qty <= 0) {
+        nextPositions = nextPositions.filter((p) => p.reference !== componentReference);
+      } else {
+        const matching = nextPositions.filter((p) => p.reference === componentReference);
+        if (matching.length > qty) {
+          // Remove excess
+          let toRemove = matching.length - qty;
+          nextPositions = nextPositions.filter((p) => {
+            if (p.reference === componentReference && toRemove > 0) {
+              toRemove--;
+              return false;
+            }
+            return true;
+          });
+        } else if (matching.length < qty) {
+          // Add new stone positions around ring arc
+          const needed = qty - matching.length;
+          for (let i = 0; i < needed; i++) {
+            const stoneIndex = matching.length + i;
+            const stoneId = `gem-${componentReference}-${stoneIndex}`;
+            // Space slightly from top center (270)
+            const angleOffset = (stoneIndex % 2 === 0 ? 1 : -1) * Math.ceil((stoneIndex + 1) / 2) * 20;
+            const newAngle = (270 + angleOffset + 360) % 360;
+            nextPositions.push({
+              id: stoneId,
+              reference: componentReference,
+              index: stoneIndex,
+              angleDeg: newAngle,
+            });
+          }
+        }
+      }
+
+      return {
+        ...prev,
+        components: nextComponents,
+        gemstonePositions: nextPositions,
+      };
     });
     setIsDirty(true);
   }, []);
 
-  const updateComponentQuantity = useCallback((componentReference, quantity) => {
-    setDraft((prev) => ({
-      ...prev,
-      components: prev.components.map((c) =>
-        c.reference === componentReference ? { ...c, quantity: Math.max(1, Number(quantity) || 1) } : c
-      ),
-    }));
+  const toggleComponent = useCallback((componentReference, maxQuantity = 10) => {
+    setDraft((prev) => {
+      const existing = prev.components.find((c) => c.reference === componentReference);
+      if (existing) {
+        return {
+          ...prev,
+          components: prev.components.filter((c) => c.reference !== componentReference),
+          gemstonePositions: (prev.gemstonePositions || []).filter((p) => p.reference !== componentReference),
+        };
+      }
+      const stoneId = `gem-${componentReference}-0`;
+      return {
+        ...prev,
+        components: [...prev.components, { reference: componentReference, quantity: 1, placement: 'CENTER' }],
+        gemstonePositions: [
+          ...(prev.gemstonePositions || []),
+          { id: stoneId, reference: componentReference, index: 0, angleDeg: 270 },
+        ],
+      };
+    });
+    setIsDirty(true);
+  }, []);
+
+  const updateComponentQuantity = useCallback((componentReference, quantity, maxQuantity = 10) => {
+    setComponentQuantity(componentReference, quantity, maxQuantity);
+  }, [setComponentQuantity]);
+
+  const moveGemstone = useCallback((stoneId, newAngleDeg) => {
+    setDraft((prev) => {
+      const positions = prev.gemstonePositions ? [...prev.gemstonePositions] : [];
+      const normalizedAngle = (Math.round(newAngleDeg * 10) / 10 + 360) % 360;
+      const existingIndex = positions.findIndex((p) => p.id === stoneId);
+
+      if (existingIndex >= 0) {
+        positions[existingIndex] = { ...positions[existingIndex], angleDeg: normalizedAngle };
+      } else {
+        // If not yet in positions list, parse reference from id: gem-[ref]-[index]
+        const match = stoneId.match(/^gem-(.+)-(\d+)$/);
+        const ref = match ? match[1] : '';
+        const idx = match ? parseInt(match[2], 10) : 0;
+        positions.push({
+          id: stoneId,
+          reference: ref,
+          index: idx,
+          angleDeg: normalizedAngle,
+        });
+      }
+
+      return {
+        ...prev,
+        gemstonePositions: positions,
+      };
+    });
     setIsDirty(true);
   }, []);
 
@@ -85,6 +189,7 @@ export function useWorkshopDesignDraft(packageReference, initialModel = null) {
       ringSize: String(snapshot.ringSize || '8'),
       components: snapshot.components || [],
       attachments: snapshot.attachments || [],
+      gemstonePositions: snapshot.gemstonePositions || [],
       engraving: snapshot.engraving || { enabled: false, text: '', placement: 'INNER_BAND' },
     });
     setIsDirty(false);
@@ -98,8 +203,12 @@ export function useWorkshopDesignDraft(packageReference, initialModel = null) {
     updateMaterial,
     updateShape,
     updateRingSize,
+    updateThickness,
+    updateBandWidth,
     toggleComponent,
+    setComponentQuantity,
     updateComponentQuantity,
+    moveGemstone,
     toggleAttachment,
     updateEngraving,
     resetDraftFromModel,

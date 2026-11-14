@@ -1,5 +1,55 @@
 # Tech Lead Approval Record: Account Management (FE-001)
 
+## Revision R-MAR — Internal Alert Recipients Facade (FR-045)
+
+**Revision date**: 2026-11-14
+**Approved by (Tech Lead)**: **Phan Sơn**
+**Authority/evidence**: explicit Tech Lead update in commit `6c3a2985` and session prompt on 2026-11-14 adding requirement FR-045 and its facade contract in `contracts/interfaces.md`.
+**Decision**: **APPROVED FOR IMPLEMENTATION OF T082–T083 ONLY**.
+
+This approval covers the addition of `AccountFacade.listActiveManagerEmails()` per FR-045, serving consumer Feature 003.1 (FR-040a internal late-payment alert recipients).
+
+**Approved behavior and boundary**:
+- Internal read-only facade method returning de-duplicated, sorted list of login emails for Accounts with `role = MANAGER` and `status = ACTIVE`.
+- `ADMIN` accounts are excluded. Returns empty list when none qualifies.
+- Read-only; creates no Account audit event.
+- Approved PII exception: caller MUST use only inside own transaction to address internal alerts; MUST NOT appear in domain events, audit records, logs, or consumer persistence.
+
+---
+
+## Revision R-MGA — Manager-global authorization alignment
+
+**Revision date**: 2026-11-14
+**Approved by (Tech Lead)**: **Phan Sơn**
+**Authority/evidence**: explicit Tech Lead decisions in this specification session on 2026-11-14: (1) an active Manager has global operational authority for actions explicitly authorized to Manager; (2) Manager Location assignments are organizational while Staff remains Location-scoped; and (3) the Staff-only roster contract change is approved.
+**Decision**: **APPROVED FOR IMPLEMENTATION OF T078–T081 ONLY**.
+
+This approval covers the 2026-11-14 Manager-global authorization revision in
+`spec.md`, `plan.md`, `research.md` (D-23), `data-model.md`,
+`contracts/interfaces.md`, `design/{architecture,workflows,ui-flow}.md`,
+`tasks.md`, and `verification.md`.
+
+**Approved behavior and boundary**:
+
+- An `ACTIVE` Manager is authorized from `CurrentAccountActor` for an action
+  that the owning feature explicitly authorizes to Manager. The authorization
+  path neither resolves Location scope nor fails because that dependency is
+  unavailable.
+- A Manager retains one or more Location assignments as organizational data;
+  those assignments do not narrow Manager-authorized operations. Staff remains
+  Location-scoped and still depends on current effective Location scope.
+- `findEligibleRoster(workshopLocationId, role)` is replaced by
+  `findEligibleRoster(workshopLocationId)`. It returns only active eligible
+  Staff and is not a Manager directory or Manager authorization mechanism.
+
+**Implementation condition**: implementation may now execute T078–T081 in
+dependency order. It must create fresh V-04, V-06 and V-07 evidence; historical
+evidence is not evidence for this revision. This approval does not authorize a
+new role, dynamic RBAC, a REST endpoint, or Manager authority over Admin-only,
+ownership-only, or public actions.
+
+---
+
 ## Revision R-SL — Shared Session Lifecycle & Google Redirect
 
 **Revision date**: 2026-11-06

@@ -15,6 +15,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.FinalBa
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.RecordBookingRefundStatusCommand;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.RecordBookingServiceOutcomeCommand;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.RecordFinalBalanceResolvedCommand;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.RecordTicketFinalBalanceResolvedCommand;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.VerifiedBookingDepositPaymentsProjection;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.VerifiedBookingDepositPaymentsQuery;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.WorkshopBookingFacade;
@@ -43,6 +44,12 @@ public class WorkshopBookingSettlementAdapter {
     public edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingGroupLoyaltyOutcomeSource
             groupLoyaltyOutcomeSource(String groupReference) {
         return booking.getGroupLoyaltyOutcomeSource(groupReference);
+    }
+
+    /** Resolves a 003.2 operations ticket reference to its booking ticketCode and groupCode (003.1 T099). */
+    public java.util.Optional<edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.TicketBookingRef>
+            findTicketBookingByOperationsReference(String operationsTicketReference) {
+        return booking.findTicketBookingByOperationsReference(operationsTicketReference);
     }
 
     public WorkshopBookingLoyaltyOutcomeSource loyaltyOutcomeSource(String bookingReference) {
@@ -77,6 +84,17 @@ public class WorkshopBookingSettlementAdapter {
                 bookingReference, settlementReference, operationReference, correlationReference));
     }
 
+    /**
+     * FR-008 per ticket (BE-DESIGN-0006, decided 2026-11-14): tells 003.1 that one ticket folio is settled.
+     * Joins the caller's finalization transaction, so the ticket and its folio change together or not at all.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public FinalBalanceResolutionOutcome recordTicketFinalBalanceResolved(String ticketCode,
+            String settlementReference, String operationReference, String correlationReference) {
+        return booking.recordTicketFinalBalanceResolved(new RecordTicketFinalBalanceResolvedCommand(
+                ticketCode, settlementReference, operationReference, correlationReference));
+    }
+
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public BookingServiceOutcomeResult recordBookingServiceOutcome(String bookingReference,
             BookingServiceOutcome outcome, String settlementReference, String operationReference, String correlationReference) {
@@ -95,5 +113,15 @@ public class WorkshopBookingSettlementAdapter {
             String operationReference, String correlationReference) {
         return booking.cancelConfirmedBooking(new CancelConfirmedBookingCommand(
                 bookingReference, cancellationCaseReference, operationReference, correlationReference));
+    }
+
+    public java.util.Optional<edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.TicketFolioContext>
+            getTicketFolioContext(String ticketCode) {
+        return booking.getTicketFolioContext(ticketCode);
+    }
+
+    public edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.ConsumeBuyerProofResult
+            consumeBuyerProof(edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.ConsumeBuyerProofCommand command) {
+        return booking.consumeBuyerProof(command);
     }
 }

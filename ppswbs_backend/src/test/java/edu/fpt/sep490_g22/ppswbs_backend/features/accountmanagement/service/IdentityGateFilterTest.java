@@ -38,14 +38,34 @@ class IdentityGateFilterTest {
     }
 
     @Test
-    void guestCanOpenABookingFromItsMagicLinkWithoutBearerToken() {
-        assertThat(filter.skips("POST", "/api/v1/booking-magic-links/exchanges")).isTrue();
+    void guestCanOpenAGroupFromItsMagicLinkOrLookItUpWithoutBearerToken() {
+        assertThat(filter.skips("POST", "/api/v1/workshop-booking-group-magic-links/exchanges")).isTrue();
+        assertThat(filter.skips("POST", "/api/v1/workshop-booking-group-lookups")).isTrue();
     }
 
     @Test
-    void onlyTheMagicLinkExchangeIsOpen() {
-        assertThat(filter.skips("GET", "/api/v1/booking-magic-links/exchanges")).isFalse();
-        assertThat(filter.skips("POST", "/api/v1/booking-magic-links/other")).isFalse();
+    void guestCanQuoteBookPayReleaseAndResendWithoutBearerToken() {
+        assertThat(filter.skips("POST", "/api/v1/workshop-cart-quotes")).isTrue();
+        assertThat(filter.skips("POST", "/api/v1/workshop-booking-groups")).isTrue();
+        assertThat(filter.skips("POST", "/api/v1/workshop-booking-groups/GRP-1/payment-attempts")).isTrue();
+        assertThat(filter.skips("POST", "/api/v1/workshop-booking-groups/GRP-1/pending-hold-release")).isTrue();
+        assertThat(filter.skips("POST", "/api/v1/workshop-booking-groups/GRP-1/confirmation-deliveries")).isTrue();
+    }
+
+    @Test
+    void aMemberBearerOnAGroupRouteIsStillVerified() {
+        assertThat(filter.skipsWithBearer("POST", "/api/v1/workshop-booking-groups")).isFalse();
+        assertThat(filter.skipsWithBearer("POST", "/api/v1/workshop-cart-quotes")).isFalse();
+    }
+
+    @Test
+    void theRemovedSingleBookingRoutesAndOwnerReadsAreNotOpen() {
+        assertThat(filter.skips("POST", "/api/v1/workshop-bookings")).isFalse();
+        assertThat(filter.skips("POST", "/api/v1/booking-lookups")).isFalse();
+        assertThat(filter.skips("POST", "/api/v1/booking-magic-links/exchanges")).isFalse();
+        assertThat(filter.skips("POST", "/api/v1/workshop-bookings/WB-1/payment-attempts")).isFalse();
+        assertThat(filter.skips("GET", "/api/v1/workshop-booking-groups/GRP-1")).isFalse();
+        assertThat(filter.skips("GET", "/api/v1/workshop-booking-group-lookups")).isFalse();
     }
 
     @Test
@@ -67,6 +87,13 @@ class IdentityGateFilterTest {
 
         private boolean skips(String method, String uri) {
             return skips(method, uri, "");
+        }
+
+        private boolean skipsWithBearer(String method, String uri) {
+            MockHttpServletRequest request = new MockHttpServletRequest(method, uri);
+            request.setRequestURI(uri);
+            request.addHeader("Authorization", "Bearer member-token");
+            return shouldNotFilter(request);
         }
 
         private boolean skips(String method, String uri, String contextPath) {

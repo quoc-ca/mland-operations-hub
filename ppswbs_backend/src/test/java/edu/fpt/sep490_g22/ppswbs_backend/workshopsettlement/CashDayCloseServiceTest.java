@@ -141,4 +141,14 @@ class CashDayCloseServiceTest {
     void readingACloseThatDoesNotExistIsANotFound() {
         assertThatThrownBy(() -> service.find(BRANCH, DAY)).isInstanceOf(WorkshopSettlementNotFoundException.class);
     }
+
+    @Test
+    void aDayIsClosedOnceACloseExistsEvenBeforeManagerConfirmation() {
+        when(closes.findByBranchIdAndBusinessDay(BRANCH, DAY)).thenReturn(Optional.of(SettlementCashDayClose.builder()
+                .branchId(BRANCH).businessDay(DAY).status(CashDayCloseStatus.PENDING_MANAGER_CONFIRMATION).build()));
+
+        assertThat(service.isClosed(BRANCH, DAY)).isTrue();
+        assertThat(service.isClosed(BRANCH, DAY.plusDays(1))).isFalse();
+        assertThat(service.isClosed(null, DAY)).isFalse();
+    }
 }

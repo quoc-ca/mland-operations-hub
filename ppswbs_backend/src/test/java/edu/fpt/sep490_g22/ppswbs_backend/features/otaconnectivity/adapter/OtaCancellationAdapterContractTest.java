@@ -212,6 +212,24 @@ class OtaCancellationAdapterContractTest {
             assertThat(unmapped.eventType()).isEqualTo("DISPUTE_OPENED");
             assertThat(unmapped.reason()).contains("Unmapped Klook cancellation action");
         }
+
+        @Test
+        @DisplayName("T060: does not invent event reference when absent from payload")
+        void doesNotInventEventReferenceWhenAbsent() {
+            String payload = """
+                    {
+                        "bookingReference": "klk-bk-no-event-ref",
+                        "action": "CANCEL_CONFIRMED"
+                    }
+                    """;
+            Map<String, String> headers = Map.of("X-Ota-Signature", "klook-cred-ref-456");
+
+            OtaCancellationMappingResult result = klookAdapter.mapCancellationEvent(klookConnection, payload, headers);
+
+            assertThat(result).isInstanceOf(OtaCancellationMappingResult.Mapped.class);
+            var mapped = (OtaCancellationMappingResult.Mapped) result;
+            assertThat(mapped.command().externalEventReference()).isNull();
+        }
     }
 
     @Nested

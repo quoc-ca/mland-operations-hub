@@ -39,12 +39,27 @@ import java.util.Optional;
  */
 @RestController
 @RequestMapping(value = "/api/v1/ota-provider", produces = MediaType.APPLICATION_JSON_VALUE)
-@RequiredArgsConstructor
 @Slf4j
 public class OtaProviderEventController {
 
     private final OtaProviderEventHandler eventHandler;
     private final OtaChannelConnectionRepository connectionRepository;
+    private final org.springframework.core.env.Environment springEnvironment;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public OtaProviderEventController(OtaProviderEventHandler eventHandler,
+                                      OtaChannelConnectionRepository connectionRepository,
+                                      @org.springframework.beans.factory.annotation.Autowired(required = false)
+                                      org.springframework.core.env.Environment springEnvironment) {
+        this.eventHandler = eventHandler;
+        this.connectionRepository = connectionRepository;
+        this.springEnvironment = springEnvironment;
+    }
+
+    public OtaProviderEventController(OtaProviderEventHandler eventHandler,
+                                      OtaChannelConnectionRepository connectionRepository) {
+        this(eventHandler, connectionRepository, null);
+    }
 
     @Value("${ota.auth.allow-test-tokens:false}")
     private boolean allowTestTokens;
@@ -180,12 +195,37 @@ public class OtaProviderEventController {
             throw new OtaUnauthorizedException("No active OTA connection found for provider " + provider);
         }
 
-        String expectedCredentialRef = connOpt.get().getCredentialReference();
-        if (expectedCredentialRef == null || !java.security.MessageDigest.isEqual(
-                expectedCredentialRef.getBytes(java.nio.charset.StandardCharsets.UTF_8),
+        String credentialRef = connOpt.get().getCredentialReference();
+        String resolvedSecret = resolveSecret(credentialRef);
+        if (resolvedSecret == null || resolvedSecret.isBlank()) {
+            log.warn("Refused OTA callback: unresolvable credential reference for provider={}, environment={}",
+                    provider, environment);
+            throw new OtaUnauthorizedException("Invalid provider signature or credentials");
+        }
+
+        if (!java.security.MessageDigest.isEqual(
+                resolvedSecret.getBytes(java.nio.charset.StandardCharsets.UTF_8),
                 signature.trim().getBytes(java.nio.charset.StandardCharsets.UTF_8))) {
             throw new OtaUnauthorizedException("Invalid provider signature or credentials");
         }
+    }
+
+    private String resolveSecret(String credentialReference) {
+        if (credentialReference == null || credentialReference.isBlank()) {
+            return null;
+        }
+        String ref = credentialReference.trim();
+        if (springEnvironment != null) {
+            String val = springEnvironment.getProperty(ref);
+            if (val != null && !val.isBlank()) {
+                return val;
+            }
+        }
+        String envVal = System.getenv(ref);
+        if (envVal != null && !envVal.isBlank()) {
+            return envVal;
+        }
+        return null;
     }
 
     private java.util.Set<String> approvedProductionProviders() {

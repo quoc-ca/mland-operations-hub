@@ -317,10 +317,12 @@ components:
       name: Idempotency-Key
       in: header
       required: true
-      schema: {type: string, minLength: 1, maxLength: 128}
+      schema: {type: string, minLength: 16, maxLength: 128}
       description: >-
-        Group creation accepts 1 to 128 characters, as the implemented
-        controller does; every other command here requires 16 to 128.
+        16 to 128 characters, like every other command here (decided
+        2026-11-14). The implemented controller still accepts 1 to 128 and is
+        tightened in T107; the frontend already sends 16 to 128 (T102), so no
+        client changes.
   responses:
     Problem:
       description: Safe typed error (RFC 7807)
@@ -366,16 +368,34 @@ components:
         lines: {type: array, minItems: 1, maxItems: 10, items: {$ref: '#/components/schemas/CartLine'}}
         benefitSelection:
           allOf: [{$ref: '#/components/schemas/BenefitSelection'}]
-          description: Optional. A Guest cart asking for a voucher or points is refused with CART_BENEFITS_NEED_A_MEMBER.
+          description: >-
+            Optional. Absent or NONE, the cart still gets the largest automatic
+            workshop discount (006 FR-044), Guest included; VOUCHER replaces it
+            (006 FR-015). A Guest cart asking for a voucher or points is refused
+            with CART_BENEFITS_NEED_A_MEMBER.
     CartQuote:
       type: object
-      required: [quoteRef, expiresAt, lines, grossVnd, voucherDiscountVnd, pointsUsed, pointDiscountVnd, finalTotalVnd, maxPoints, minRedeemPoints, pointValueVnd, groupCollectionVnd, remainingAtCheckoutVnd, paymentMode, reasons]
+      required: [quoteRef, expiresAt, lines, grossVnd, voucherDiscountVnd, pointsUsed, pointDiscountVnd, finalTotalVnd, maxPoints, minRedeemPoints, pointValueVnd, groupCollectionVnd, remainingAtCheckoutVnd, paymentMode, reasons, appliedDiscount]
       properties:
         quoteRef: {type: string, format: uuid}
         expiresAt: {type: string, format: date-time, description: 30 minutes after the quote was created.}
         lines: {type: array, items: {$ref: '#/components/schemas/QuotedLine'}}
         grossVnd: {$ref: '#/components/schemas/Vnd'}
-        voucherDiscountVnd: {$ref: '#/components/schemas/Vnd'}
+        voucherDiscountVnd:
+          allOf: [{$ref: '#/components/schemas/Vnd'}]
+          description: >-
+            FR-033. The group's programme discount, whichever programme gave it:
+            the automatic workshop discount or the Member's voucher. Which one
+            is `appliedDiscount`; the field keeps its name for compatibility.
+        appliedDiscount:
+          type: string
+          enum: [NONE, AUTO, VOUCHER]
+          description: >-
+            T105, 006 FR-015. The one programme discount of this cart. AUTO is
+            the largest automatic workshop discount (006 FR-044), applied to
+            every cart that names no voucher, Guest included. VOUCHER means the
+            Member's voucher replaced it. NONE means no programme discounts the
+            cart.
         pointsUsed: {type: integer, format: int64, minimum: 0}
         pointDiscountVnd: {$ref: '#/components/schemas/Vnd'}
         finalTotalVnd: {$ref: '#/components/schemas/Vnd'}
@@ -400,7 +420,8 @@ components:
           description: >-
             Every voucher or point reason 006 reported for this cart, so a
             refused voucher or point amount says why. Empty when nothing was
-            refused and for a Guest cart.
+            refused and for a Guest cart. "No automatic discount applies" is
+            not repeated here; `appliedDiscount` says it.
     QuotedLine:
       type: object
       required: [lineIndex, packageId, packageName, pricePerParticipantVnd, participantCount, sessions, tickets]

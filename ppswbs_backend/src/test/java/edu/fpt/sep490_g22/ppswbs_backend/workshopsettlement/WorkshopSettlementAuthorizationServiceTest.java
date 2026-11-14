@@ -87,4 +87,27 @@ class WorkshopSettlementAuthorizationServiceTest {
                 .isInstanceOf(WorkshopSettlementAuthorizationException.class)
                 .hasMessage("LOCATION_SCOPE_DENIED");
     }
+
+    @Test void managerAssignedToLocationACanActOnLocationBAndWithUnavailableScope() {
+        WorkshopSettlementAuthorizationService service = new WorkshopSettlementAuthorizationService(accounts, audits, operations);
+        // Manager assigned to Location A (101L) can perform explicitly manager-authorized action on Location B (202L)
+        CurrentAccountActor managerLocationA = new CurrentAccountActor(42L, ActorRole.MANAGER, ActorStatus.ACTIVE, true, java.util.List.of(101L));
+        org.assertj.core.api.Assertions.assertThat(service.requireManagerOrStaff(managerLocationA, 202L)).isEqualTo(managerLocationA);
+
+        // Manager with empty/unavailable location scope dependency can still perform action on Location B
+        CurrentAccountActor managerUnavailableScope = new CurrentAccountActor(42L, ActorRole.MANAGER, ActorStatus.ACTIVE, true, java.util.List.of());
+        org.assertj.core.api.Assertions.assertThat(service.requireManagerOrStaff(managerUnavailableScope, 202L)).isEqualTo(managerUnavailableScope);
+
+        // Staff assigned to Location A (101L) is denied on Location B (202L)
+        CurrentAccountActor staffLocationA = new CurrentAccountActor(43L, ActorRole.STAFF, ActorStatus.ACTIVE, true, java.util.List.of(101L));
+        assertThatThrownBy(() -> service.requireManagerOrStaff(staffLocationA, 202L))
+                .isInstanceOf(WorkshopSettlementAuthorizationException.class)
+                .hasMessage("LOCATION_SCOPE_DENIED");
+
+        // Staff with unavailable/empty location scope is denied
+        CurrentAccountActor staffUnavailableScope = new CurrentAccountActor(43L, ActorRole.STAFF, ActorStatus.ACTIVE, true, java.util.List.of());
+        assertThatThrownBy(() -> service.requireManagerOrStaff(staffUnavailableScope, 101L))
+                .isInstanceOf(WorkshopSettlementAuthorizationException.class)
+                .hasMessage("LOCATION_SCOPE_DENIED");
+    }
 }

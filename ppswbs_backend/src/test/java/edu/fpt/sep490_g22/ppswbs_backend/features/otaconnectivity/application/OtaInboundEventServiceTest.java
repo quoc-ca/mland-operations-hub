@@ -1,7 +1,9 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.application;
 
+import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.application.exception.OtaConflictException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.integration.AuthenticatedOtaInboundEvent;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.integration.OtaAuditCorrelationService;
+import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.integration.OtaInboundConflictRecorder;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.integration.OtaInboundEventService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.persistence.OtaChannelConnection;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.persistence.OtaChannelConnectionRepository;
@@ -9,8 +11,11 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.persistence.Ot
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.persistence.OtaInboundEvent;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.persistence.OtaInboundEventRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.persistence.OtaProvider;
+import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.persistence.OtaReconciliationWorkItem;
+import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.persistence.OtaReconciliationWorkItemRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
@@ -30,12 +35,16 @@ class OtaInboundEventServiceTest {
 
     @Mock private OtaChannelConnectionRepository connectionRepository;
     @Mock private OtaInboundEventRepository inboundRepository;
+    @Mock private OtaReconciliationWorkItemRepository reconciliationRepository;
 
     private OtaInboundEventService service;
 
     @BeforeEach
     void setUp() {
-        service = new OtaInboundEventService(connectionRepository, inboundRepository, new OtaAuditCorrelationService());
+        // The real recorder over a mocked repository: the conflict work item is written by its own bean, in its
+        // own transaction, because the refusal rolls the caller's transaction back (T060).
+        service = new OtaInboundEventService(connectionRepository, inboundRepository,
+                new OtaAuditCorrelationService(), new OtaInboundConflictRecorder(reconciliationRepository));
     }
 
     @Test
@@ -102,6 +111,78 @@ class OtaInboundEventServiceTest {
 
         assertThat(first).hasSize(64).matches("[a-f0-9]{64}").isEqualTo(second)
                 .doesNotContain("booking", "participants");
+    }
+
+    @Test
+    @DisplayName("T060: same reference with changed payload is refused as conflict and opens INBOUND_EVENT work item")
+    void sameReferenceWithChangedPayload_refusedAsConflict_andOpensInboundEventWorkItem() {
+        OtaChannelConnection connection = OtaChannelConnection.builder().id(9L).providerCode(OtaProvider.KLOOK)
+                .environment(OtaEnvironment.TEST).status("ACTIVE").build();
+        OtaInboundEvent prior = OtaInboundEvent.builder().id(31L).connection(connection)
+                .payloadFingerprint("a".repeat(64)).dedupeKey("b".repeat(64)).eventKind("BOOKING")
+                .authenticationResult("VERIFIED").processingStatus("ACCEPTED")
+                .outcomeReference("BOOKING-REF-1").build();
+        when(connectionRepository.findByProviderCodeAndEnvironment(OtaProvider.KLOOK, OtaEnvironment.TEST))
+                .thenReturn(Optional.of(connection));
+        when(inboundRepository.findByConnectionIdAndDedupeKey(org.mockito.ArgumentMatchers.eq(9L), any()))
+                .thenReturn(Optional.of(prior));
+
+        when(reconciliationRepository.save(any(OtaReconciliationWorkItem.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        AuthenticatedOtaInboundEvent changedPayloadEvent = new AuthenticatedOtaInboundEvent(
+                OtaProvider.KLOOK, OtaEnvironment.TEST, "event-reference-1", "b".repeat(64), "BOOKING");
+
+        assertThatThrownBy(() -> service.receive(changedPayloadEvent))
+                .isInstanceOf(OtaConflictException.class)
+                .hasMessageContaining("Conflicting payload fingerprint");
+
+        ArgumentCaptor<OtaReconciliationWorkItem> captor = ArgumentCaptor.forClass(OtaReconciliationWorkItem.class);
+        verify(reconciliationRepository).save(captor.capture());
+        OtaReconciliationWorkItem workItem = captor.getValue();
+        assertThat(workItem.getCategory()).isEqualTo("INBOUND_EVENT");
+        assertThat(workItem.getStatus()).isEqualTo("OPEN");
+        assertThat(workItem.getLocationReference()).isEqualTo("GLOBAL");
+        assertThat(workItem.getInboundEvent()).isEqualTo(prior);
+        verify(inboundRepository, never()).save(any(OtaInboundEvent.class));
+    }
+
+    @Test
+    @DisplayName("T060: reference-less cancellation redelivered twice is deduplicated using payload branch")
+    void referencelessCancellationRedeliveredTwice_isDeduplicated() {
+        OtaChannelConnection connection = OtaChannelConnection.builder().id(9L).providerCode(OtaProvider.KLOOK)
+                .environment(OtaEnvironment.TEST).status("ACTIVE").build();
+        String payloadFingerprint = "c".repeat(64);
+        AuthenticatedOtaInboundEvent firstDelivery = new AuthenticatedOtaInboundEvent(
+                OtaProvider.KLOOK, OtaEnvironment.TEST, null, payloadFingerprint, "CANCELLATION");
+
+        when(connectionRepository.findByProviderCodeAndEnvironment(OtaProvider.KLOOK, OtaEnvironment.TEST))
+                .thenReturn(Optional.of(connection));
+        when(inboundRepository.findByConnectionIdAndDedupeKey(org.mockito.ArgumentMatchers.eq(9L), any()))
+                .thenReturn(Optional.empty());
+        when(inboundRepository.save(any(OtaInboundEvent.class))).thenAnswer(invocation -> {
+            OtaInboundEvent saved = invocation.getArgument(0);
+            saved.setId(55L);
+            return saved;
+        });
+
+        OtaInboundEventReceipt firstReceipt = service.receive(firstDelivery);
+        assertThat(firstReceipt.duplicate()).isFalse();
+        assertThat(firstReceipt.processingStatus()).isEqualTo("RECEIVED");
+
+        // Second delivery of same payload
+        OtaInboundEvent stored = OtaInboundEvent.builder().id(55L).connection(connection)
+                .externalEventReference(null).payloadFingerprint(payloadFingerprint)
+                .dedupeKey("dedupe-key-123").eventKind("CANCELLATION")
+                .authenticationResult("VERIFIED").processingStatus("ACCEPTED")
+                .outcomeReference("CANCELLED-55").build();
+        when(inboundRepository.findByConnectionIdAndDedupeKey(org.mockito.ArgumentMatchers.eq(9L), any()))
+                .thenReturn(Optional.of(stored));
+
+        OtaInboundEventReceipt secondReceipt = service.receive(firstDelivery);
+        assertThat(secondReceipt.duplicate()).isTrue();
+        assertThat(secondReceipt.processingStatus()).isEqualTo("ACCEPTED");
+        assertThat(secondReceipt.outcomeReference()).isEqualTo("CANCELLED-55");
     }
 
     private static AuthenticatedOtaInboundEvent event(String externalReference) {

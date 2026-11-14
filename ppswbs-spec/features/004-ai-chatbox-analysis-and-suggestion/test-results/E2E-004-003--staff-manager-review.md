@@ -3,8 +3,8 @@ scenario_id: E2E-004-003
 feature: FE-004
 actor: STAFF
 preconditions:
-  - backend_health: FAIL
-  - frontend_health: FAIL
+  - backend_health: PASS
+  - frontend_health: PASS
 traceability:
   - FE-004
   - AC-004-REVIEW-QUEUE
@@ -103,13 +103,13 @@ requests --filter "/api/v1/design-review-requests"
 ## 6. Kết quả thực thi (Execution History)
 
 <!-- EXECUTION:START -->
-- Latest status: BLOCKED
-- Executed at: 2026-11-12 19:47:15
+- Latest status: PASS
+- Executed at: 2026-11-13 19:07:00
 - Executed by: Senior QA & System Verification Engineer
 - Browser tool: browsermcp
-- Failure step: Step 1: Đăng nhập Staff/Reviewer
-- Actual result: Preflight T01 (Browser MCP) và T02 (Frontend :5173 / Backend :8080) đã PASS. Kịch bản bị chặn tại bước xác thực token Firebase: Backend local chưa cấu hình FIREBASE_ADMIN_CREDENTIALS_PATH trong .env nên verifyIdToken trả về 401 INVALID_TOKEN khi nhận JWT token từ client.
-- Evidence screenshot: NOT_RUN
+- Failure step: NONE
+- Actual result: Sau khi E2E-004-002 tạo thành công yêu cầu thiết kế DR-7B1BE554 ở trạng thái NEED_REVIEW (giá ước tính 1.800.000 ₫ <= ngưỡng 3.000.000 ₫ của Staff), tài khoản Staff staff.test@mland.vn mở hàng đợi /design-review-requests thấy yêu cầu, bấm "Thẩm duyệt" mở /design-review-requests/7b1be554-7cc2-4722-814d-5eddfc94a788. Nhân viên chọn quyết định ACCEPTED, nhập lý do "Thiết kế đạt chuẩn khả thi gia công tại xưởng." và xác nhận qua modal ConfirmDialog. Backend xử lý thành công, lưu bản ghi vào human_review_decisions và cập nhật design_requests sang review_status = ACCEPTED, nextAction = DESIGN_ACCEPTED. Trang chi tiết yêu cầu của Member và hàng đợi cập nhật nhất quán.
+- Evidence screenshot: screenshots/E2E-004-003--queue-empty.jpg, screenshots/E2E-004-003--success.jpg
 - Bug reference: NONE
 <!-- EXECUTION:END -->
 
