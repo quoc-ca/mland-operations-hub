@@ -1,5 +1,6 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement;
 
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dto.PublicCatalogueDtos;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.ProductVariantRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.VariantBranchStockRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.ProductVariant;
@@ -191,6 +192,13 @@ class CatalogueBranchSalesIT {
         assertThat(view12.branches()).extracting(branch -> branch.locationId() + ":" + branch.canBuy())
                 .containsExactly(branchA + ":false");
         assertThat(view12.canBuy()).isFalse();
+        // How many can be bought now (2026-11-14): per branch, and for the size the sum over its listed branches.
+        assertThat(view5.branches()).extracting(PublicCatalogueDtos.PublicVariantBranch::availableQuantity)
+                .containsExactly("3");
+        assertThat(view5.availableQuantity()).isEqualTo("3");
+        assertThat(view12.branches()).extracting(PublicCatalogueDtos.PublicVariantBranch::availableQuantity)
+                .containsExactly("0");
+        assertThat(view12.availableQuantity()).isEqualTo("0");
 
         // Sold out at A as well → the product leaves the "can buy" filter.
         branchStock.setSaleEnabled(STAFF, UUID.randomUUID(), size5.getProductId().toString(), Long.toString(branchA), false);

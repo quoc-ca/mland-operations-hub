@@ -63,18 +63,11 @@ export default function PublicProductDetailPage() {
           <OfferBadges offers={offers} />
           <p className="pre-line">{data.description}</p>
           <span className={data.canBuy ? 'status ok' : 'status'}>{data.canBuy ? t('public.canBuy') : t('public.cannotBuy')}</span>
-          <h2 className="section-title">{t('public.sizes')}</h2>
-          <ul className="size-list">
-            {(data.variants || []).map(variant => (
-              <li key={variant.id} className={variant.saleEnabled && variant.canBuy ? '' : 'unavailable'}>
-                <strong>{t('size', { size: variant.size })}</strong>
-                <SizeOfferPrice size={offers.sizes[variant.id]} fallback={<span>{format.money(variant.appliedPrice)}</span>} />
-                <span className="muted">{!variant.saleEnabled ? t('public.sizeDisabled') : variant.canBuy ? t('public.canBuy') : t('public.soldOut')}</span>
-              </li>
-            ))}
-          </ul>
           <ProductOfferList offers={offers} />
-          <AddToCartPanel product={data} />
+          {/* Sizes are boxes in the cart panel: in stock can be chosen, sold out or not on sale is faded. */}
+          <AddToCartPanel product={data} sizePrice={variant => (
+            <SizeOfferPrice size={offers.sizes[variant.id]} fallback={<span>{format.money(variant.appliedPrice)}</span>} />
+          )} />
           <p className="muted small">{t('public.priceNotice')}</p>
         </div>
       </div>

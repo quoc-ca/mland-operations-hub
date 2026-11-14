@@ -1,9 +1,9 @@
 # Mland V1 API Contract Catalog
 
 **Date created**: 2026-09-30
-**Date updated**: 2026-10-26
+**Date updated**: 2026-11-14 (dòng `productmanagement` GET products/{productId}: `availableQuantity`)
 **Author**: Ngô Tiến Đạt
-**Last updated by**: Thinh
+**Last updated by**: Đặng Thị Khương
 
 **Version**: 0.4
 
@@ -332,5 +332,5 @@ Nguồn chi tiết: `features/002-product-management/contracts/product-managemen
 | `productmanagement` | Protected client REST | `PUT /api/v1/catalogue-management/products/{productId}/branches/{locationId}/sale-status` | Staff (chi nhánh được gán) / Manager | Ngừng/mở bán tại một chi nhánh. | Implemented |
 | `productmanagement` | Protected client REST | `GET /api/v1/catalogue-management/products?locationId=` | Staff / Manager | Lọc danh sách theo chi nhánh. | Implemented |
 | `productmanagement` | Protected client REST | `GET /product-imports/template?locationIds=`, `POST /product-imports` (`locationIds`) | Staff (chi nhánh được gán) / Manager | Import Excel với một cột số lượng mỗi chi nhánh. | Implemented |
-| `productmanagement` | Public client REST | `GET /api/v1/products/{productId}` (mỗi size thêm `assignedToBranches`, `branches[{locationId, canBuy}]`) | Public | Trang sản phẩm chỉ cho chọn chi nhánh đang bán size, còn hàng. | Implemented 2026-11-09 |
+| `productmanagement` | Public client REST | `GET /api/v1/products/{productId}` (mỗi size thêm `assignedToBranches`, `branches[{locationId, canBuy, availableQuantity}]`, `availableQuantity` — số khả dụng từ 2026-11-14, FR-052) | Public | Trang sản phẩm cho chọn size còn hàng tại chi nhánh đang chọn, hiện "N sản phẩm có sẵn"; không lộ phần đang giữ. | Implemented 2026-11-09; sửa 2026-11-14 |
 | `productmanagement.facade` | Synchronous facade | `readyringsales` | `CatalogueSalesFacade.readBranchSaleFacts`, `withLockedBranchSaleContext`, `withLockedHistoricalBranchContext`, `recordAcceptedSale(op, variantId, locationId, qty)`; SPI `AvailabilityGuardPort.tracksHoldsPerBranch/readBranchSnapshots/withBranchGuard` (có cài đặt mặc định theo size). | Contract implemented by 002; FE-08 adoption pending (T124) |
