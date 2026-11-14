@@ -23,7 +23,7 @@ public class ReportingPeriodResolver {
             case "WEEK" -> anchor.with(DayOfWeek.MONDAY);
             case "MONTH" -> anchor.withDayOfMonth(1);
             case "YEAR" -> anchor.withDayOfYear(1);
-            default -> throw new ReportingConflictException("periodType must be DAY, WEEK, MONTH, or YEAR");
+            default -> throw ReportingException.invalidFilter("periodType must be DAY, WEEK, MONTH, or YEAR");
         };
         LocalDate next = switch (type) {
             case "DAY" -> start.plusDays(1);
@@ -33,7 +33,7 @@ public class ReportingPeriodResolver {
         };
         Instant startAt = start.atStartOfDay(BUSINESS_ZONE).toInstant();
         Instant endAt = next.atStartOfDay(BUSINESS_ZONE).toInstant();
-        if (!startAt.isBefore(now.toInstant())) throw new ReportingConflictException("Reporting period cannot be future-only");
+        if (!startAt.isBefore(now.toInstant())) throw ReportingException.invalidFilter("Reporting period cannot be future-only");
         return new ReportingPeriod(type, startAt, endAt.isAfter(now.toInstant()) ? now.toInstant() : endAt);
     }
     public record ReportingPeriod(String periodType, Instant startAt, Instant endAt) { }

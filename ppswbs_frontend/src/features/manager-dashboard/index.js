@@ -1,0 +1,1 @@
+export { managerDashboardRoutes } from './routes';

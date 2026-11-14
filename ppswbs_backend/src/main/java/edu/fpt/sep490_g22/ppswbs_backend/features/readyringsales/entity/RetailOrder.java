@@ -16,6 +16,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -32,6 +33,8 @@ public class RetailOrder {
     @Enumerated(EnumType.STRING) @Column(name = "payment_state", nullable = false, length = 32) private PaymentState paymentState = PaymentState.ACCEPTED_UNPAID;
     @Column(name = "fulfilment_state", nullable = false, length = 32) private String fulfilmentState;
     @Column(name = "pickup_ready_confirmed", nullable = false) private boolean pickupReadyConfirmed;
+    /** When this branch order became PAID (verified VNPay, zero total, or Staff cash confirmation); FE-10 period key. */
+    @Column(name = "paid_at") private Instant paidAt;
     @Column(nullable = false, precision = 19, scale = 2) private BigDecimal subtotal;
     @Column(name = "shipping_charge", nullable = false, precision = 19, scale = 2) private BigDecimal shippingCharge;
     @Column(name = "payable_amount", nullable = false, precision = 19, scale = 2) private BigDecimal payableAmount;
@@ -57,7 +60,10 @@ public class RetailOrder {
         this.recipientName = name; this.recipientPhone = phone; this.recipientAddress = address;
         this.recipientProvince = province; this.recipientDistrict = district; this.recipientWard = ward;
     }
-    public void markPaid() { paymentState = PaymentState.PAID; }
+    public void markPaid() {
+        paymentState = PaymentState.PAID;
+        if (paidAt == null) paidAt = Instant.now();
+    }
     /** Sets this branch order's benefit share as fixed by FE-06 at acceptance (Session 2026-11-13, D-011). */
     public void applyDiscount(BigDecimal discountAmount) {
         BigDecimal payable = subtotal.add(shippingCharge).subtract(discountAmount);

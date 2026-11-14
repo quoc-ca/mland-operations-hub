@@ -19,6 +19,36 @@ formulas, source quality, read-only behavior, and Modulith boundaries.
 **Path convention**: Backend and `documents/` paths are relative to the
 repository root. Feature-document paths are relative to `ppswbs-spec/`.
 
+**Status (2026-11-14)**: 36 of 50 tasks are done (T003 and T004 were done
+earlier). The code differs from the planned file names, as follows:
+
+- Authorization (T001, T012, T019–T021): the `REPORTING_EXECUTIVE_VIEW` capability
+  is held by an `ACTIVE` `MANAGER` with active location assignments
+  (spec Session 2026-11-14). Code:
+  `ppswbs_backend/.../features/reporting/service/ManagerReportingAccess.java`.
+- Sources (T006–T009, T013–T015): instead of new facades inside the source
+  modules, reporting owns `reporting/source/ReportingSourcePort.java` with the
+  read-only `JdbcReportingSourceAdapter.java`. This follows the FE-11
+  review-eligibility precedent. Each query aggregates per branch in MySQL. The
+  FE-08 owner adds `retail_orders.paid_at` (V131). FE-03 (Quoc) reviews the
+  workshop queries.
+- Composition and quality (T029, T036–T040): `reporting/service/ExecutiveReportService.java`
+  and `ReportSourceQuality.java`. Errors go through `ReportingException.java`
+  and `controller/ReportingExceptionHandler.java`.
+- Endpoint (T031): `reporting/controller/ExecutiveReportController.java`, all
+  profiles, `Cache-Control: no-store`. The local hard-coded demo service was removed.
+- Frontend (T018, T022, T023, T032, T037, T041): `ppswbs_frontend/src/features/manager-dashboard/`
+  `ManagerDashboardPage.jsx`, `managerDashboard.css` and `ManagerDashboardPage.test.jsx`,
+  route `/manager/dashboard`, a Manager-only sidebar link and a Manager home card.
+  The project uses JavaScript/JSX, not TypeScript.
+- Tests: `reporting/service/ExecutiveReportServiceTest.java`,
+  `reporting/service/ManagerReportingAccessTest.java` and the existing period tests.
+
+Open: MySQL source-query integration test (T026), contract and journey tests
+(T033–T035, T042, T043), Modulith boundary extension (T016, T047),
+English labels (T045), query-boundary evidence (T046), and the final
+security, verification and consistency reviews (T044, T048–T050).
+
 **Implementation gate**: Generating this task list does not implement approved
 capability/assignment enforcement, stable branch identity, or source lifecycles. T001 and T002 must be
 completed with approved evidence before production implementation starts.
@@ -28,8 +58,8 @@ completed with approved evidence before production implementation starts.
 **Purpose**: Resolve the two decisions that code must not invent and align the
 project baseline with the approved Manager-only FE-10 scope.
 
-- [ ] T001 Implement and evidence the approved `REPORTING_EXECUTIVE_VIEW` capability plus active MySQL `account_location_assignments` enforcement in the authorization owner; deny by default when either is missing, and do not grant the capability automatically to Admin parameter authority.
-- [ ] T002 Implement and evidence the approved immutable `locationId: Long` across active `account_location_assignments`, retail orders, workshop sessions/final invoices, and check-ins; current workshop location text is display-only and must not be used for authorization or aggregation.
+- [x] T001 Implement and evidence the approved `REPORTING_EXECUTIVE_VIEW` capability plus active MySQL `account_location_assignments` enforcement in the authorization owner; deny by default when either is missing, and do not grant the capability automatically to Admin parameter authority.
+- [x] T002 Implement and evidence the approved immutable `locationId: Long` across active `account_location_assignments`, retail orders, workshop sessions/final invoices, and check-ins; current workshop location text is display-only and must not be used for authorization or aggregation.
 - [x] T003 [P] Correct the `Executive dashboard` row and related footnotes in `documents/docs/report-3-software-requirement-specification/sections/03-i-overall-requirements/04-user-requirements/04-permission-matrix.md` to `No` for Guest, Member, Staff, and Admin and `Restricted` for branch-scoped Manager access, without removing FE-09 Admin parameter-impact evidence.
 - [x] T004 [P] Register the Manager-only `GET /api/v1/executive-reports` contract and its current implementation maturity in `ppswbs-spec/APIs.md`, referencing `ppswbs-spec/features/010-manager-dashboard/contracts/manager-dashboard.openapi.yaml` and distinguishing FE-10 from FE-09 parameter-impact reporting.
 
@@ -48,17 +78,17 @@ by every user story.
 phase and its source dependencies are complete. Test doubles may be used only
 for contract/unit work and must not be treated as production reporting data.
 
-- [ ] T005 Create the closed reporting module declaration with allowed dependencies limited to `accountmanagement::facade`, `readyringsales::facade`, `workshopbooking::facade`, and `operations::facade` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/reporting/package-info.java`.
-- [ ] T006 [P] Define `ManagerReportingAccessFacade` and immutable `ManagerReportingScope` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/accountmanagement/facade/ManagerReportingAccessFacade.java` and `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/accountmanagement/facade/ManagerReportingScope.java`, exposing only active Manager capability and authorized `locationId: Long` values for a verified UID.
-- [ ] T007 [P] Define `RetailReportingFacade` and immutable `RetailBranchAggregate` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/facade/RetailReportingFacade.java` and `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/facade/RetailBranchAggregate.java`; the contract must return product value after allocated discounts, exclude shipping, count each fully paid branch order once, and select by verified full-payment time.
-- [ ] T008 [P] Define `WorkshopReportingFacade`, `WorkshopRevenueAggregate`, and `WorkshopCapacityAggregate` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/facade/WorkshopReportingFacade.java`, `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/facade/WorkshopRevenueAggregate.java`, and `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/facade/WorkshopCapacityAggregate.java`; count the final invoice total once at `fullyPaidAt`, never add the deposit again, and include only completed-session capacity.
-- [ ] T009 [P] Define `AttendanceReportingFacade` and immutable `AttendanceAggregate` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/operations/facade/AttendanceReportingFacade.java` and `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/operations/facade/AttendanceAggregate.java`, exposing accepted idempotent check-ins for completed sessions rather than bookings or reservations.
-- [ ] T010 [P] Add an injectable UTC `Clock` and the fixed business zone `Asia/Ho_Chi_Minh` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/reporting/infrastructure/ReportingTimeConfiguration.java` without reading the server-default timezone.
-- [ ] T011 [P] Add reporting-specific typed exceptions and contract-compatible safe error mapping in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/reporting/web/ReportingExceptionHandler.java` and `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/reporting/web/ExecutiveReportErrorResponse.java`, preserving correlation IDs and exposing no stack trace, SQL detail, UID, branch assignment, or source payload.
-- [ ] T012 Implement `ManagerReportingAccessService` from the approved T001/T002 decisions in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/accountmanagement/application/ManagerReportingAccessService.java`; resolve active account, Manager capability, and authorized location IDs from MySQL after Firebase identity verification and never from Firebase/email/provider claims.
-- [ ] T013 Implement the FE-08-owned aggregate adapter behind `RetailReportingFacade` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/application/RetailReportingService.java` and `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/infrastructure/RetailReportingRepository.java` only after paid branch-order facts exist; use JPA projections and do not infer payment validity inside FE-10.
-- [ ] T014 Implement the workshop-owned aggregate adapter behind `WorkshopReportingFacade` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/application/WorkshopReportingService.java` and `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/infrastructure/WorkshopReportingRepository.java` only after the approved final-invoice/`fullyPaidAt` and stable-branch facts exist; do not reconstruct final revenue from deposit attempts.
-- [ ] T015 Implement the operations-owned aggregate adapter behind `AttendanceReportingFacade` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/operations/application/AttendanceReportingService.java` and `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/operations/infrastructure/AttendanceReportingRepository.java` only after accepted check-in facts exist; keep raw participant records inside `operations`.
+- [x] T005 Create the closed reporting module declaration with allowed dependencies limited to `accountmanagement::facade`, `readyringsales::facade`, `workshopbooking::facade`, and `operations::facade` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/reporting/package-info.java`.
+- [x] T006 [P] Define `ManagerReportingAccessFacade` and immutable `ManagerReportingScope` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/accountmanagement/facade/ManagerReportingAccessFacade.java` and `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/accountmanagement/facade/ManagerReportingScope.java`, exposing only active Manager capability and authorized `locationId: Long` values for a verified UID.
+- [x] T007 [P] Define `RetailReportingFacade` and immutable `RetailBranchAggregate` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/facade/RetailReportingFacade.java` and `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/facade/RetailBranchAggregate.java`; the contract must return product value after allocated discounts, exclude shipping, count each fully paid branch order once, and select by verified full-payment time.
+- [x] T008 [P] Define `WorkshopReportingFacade`, `WorkshopRevenueAggregate`, and `WorkshopCapacityAggregate` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/facade/WorkshopReportingFacade.java`, `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/facade/WorkshopRevenueAggregate.java`, and `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/facade/WorkshopCapacityAggregate.java`; count the final invoice total once at `fullyPaidAt`, never add the deposit again, and include only completed-session capacity.
+- [x] T009 [P] Define `AttendanceReportingFacade` and immutable `AttendanceAggregate` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/operations/facade/AttendanceReportingFacade.java` and `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/operations/facade/AttendanceAggregate.java`, exposing accepted idempotent check-ins for completed sessions rather than bookings or reservations.
+- [x] T010 [P] Add an injectable UTC `Clock` and the fixed business zone `Asia/Ho_Chi_Minh` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/reporting/infrastructure/ReportingTimeConfiguration.java` without reading the server-default timezone.
+- [x] T011 [P] Add reporting-specific typed exceptions and contract-compatible safe error mapping in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/reporting/web/ReportingExceptionHandler.java` and `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/reporting/web/ExecutiveReportErrorResponse.java`, preserving correlation IDs and exposing no stack trace, SQL detail, UID, branch assignment, or source payload.
+- [x] T012 Implement `ManagerReportingAccessService` from the approved T001/T002 decisions in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/accountmanagement/application/ManagerReportingAccessService.java`; resolve active account, Manager capability, and authorized location IDs from MySQL after Firebase identity verification and never from Firebase/email/provider claims.
+- [x] T013 Implement the FE-08-owned aggregate adapter behind `RetailReportingFacade` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/application/RetailReportingService.java` and `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/infrastructure/RetailReportingRepository.java` only after paid branch-order facts exist; use JPA projections and do not infer payment validity inside FE-10.
+- [x] T014 Implement the workshop-owned aggregate adapter behind `WorkshopReportingFacade` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/application/WorkshopReportingService.java` and `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/infrastructure/WorkshopReportingRepository.java` only after the approved final-invoice/`fullyPaidAt` and stable-branch facts exist; do not reconstruct final revenue from deposit attempts.
+- [x] T015 Implement the operations-owned aggregate adapter behind `AttendanceReportingFacade` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/operations/application/AttendanceReportingService.java` and `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/operations/infrastructure/AttendanceReportingRepository.java` only after accepted check-in facts exist; keep raw participant records inside `operations`.
 - [ ] T016 Extend module-boundary coverage for the new reporting dependencies and source named interfaces in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/ModulithArchitectureTests.java`, proving `reporting` cannot access source controllers, entities, repositories, or internal DTOs.
 
 **Checkpoint**: FE-10 can authorize a Manager and consume minimized aggregate
@@ -78,16 +108,16 @@ sees the dashboard and its five KPI cards while no business record changes.
 
 ### Tests for User Story 1
 
-- [ ] T017 [P] [US1] Write failing authorization and branch-scope tests for Manager allow, unauthenticated `401`, Member/Staff/Admin/locked-account `403`, and FE-09 parameter-impact permission denial in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/reporting/ManagerDashboardAccessTest.java`.
-- [ ] T018 [P] [US1] Write React UI tests for exactly five KPI cards, scope notices, filter entry, loading state, and the absence of operational-list navigation in `ppswbs_frontend/src/features/manager-dashboard/pages/ManagerDashboardPage.test.tsx`.
+- [x] T017 [P] [US1] Write failing authorization and branch-scope tests for Manager allow, unauthenticated `401`, Member/Staff/Admin/locked-account `403`, and FE-09 parameter-impact permission denial in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/reporting/ManagerDashboardAccessTest.java`.
+- [x] T018 [P] [US1] Write React UI tests for exactly five KPI cards, scope notices, filter entry, loading state, and the absence of operational-list navigation in `ppswbs_frontend/src/features/manager-dashboard/pages/ManagerDashboardPage.test.tsx`.
 
 ### Implementation for User Story 1
 
-- [ ] T019 [P] [US1] Create immutable `AuthorizedBranchScope` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/reporting/domain/AuthorizedBranchScope.java`, containing only the approved capability and stable authorized branch identifiers; KPI values remain in the dashboard projection from T027.
-- [ ] T020 [US1] Implement early capability and complete-set branch authorization in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/reporting/application/ManagerDashboardAccessService.java`, rejecting any explicitly requested unauthorized branch instead of silently removing it and calling no metric facade before authorization succeeds.
-- [ ] T021 [US1] Add authenticated protection for `/api/v1/executive-reports` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/configuration/SecurityConfiguration.java` and implement no rendered application route; business authorization must still be enforced through T020 rather than URL rules alone, and the API route's authentication entry point must emit the T011 contract-compatible safe `401` response.
-- [ ] T022 [US1] Implement the React dashboard shell in `ppswbs_frontend/src/features/manager-dashboard/pages/ManagerDashboardPage.tsx` and `components/ExecutiveKpiCards.tsx`, showing the five required KPI-card placeholders, Manager-only access, active branch scope, and no sample values or operational-list links.
-- [ ] T023 [US1] Add Manager-dashboard labels and safe access/scope messages in `ppswbs_frontend/src/features/manager-dashboard/` using the approved frontend localization approach, then complete T017-T018 with assertions that viewing/filtering leaves source records unchanged.
+- [x] T019 [P] [US1] Create immutable `AuthorizedBranchScope` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/reporting/domain/AuthorizedBranchScope.java`, containing only the approved capability and stable authorized branch identifiers; KPI values remain in the dashboard projection from T027.
+- [x] T020 [US1] Implement early capability and complete-set branch authorization in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/reporting/application/ManagerDashboardAccessService.java`, rejecting any explicitly requested unauthorized branch instead of silently removing it and calling no metric facade before authorization succeeds.
+- [x] T021 [US1] Add authenticated protection for `/api/v1/executive-reports` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/configuration/SecurityConfiguration.java` and implement no rendered application route; business authorization must still be enforced through T020 rather than URL rules alone, and the API route's authentication entry point must emit the T011 contract-compatible safe `401` response.
+- [x] T022 [US1] Implement the React dashboard shell in `ppswbs_frontend/src/features/manager-dashboard/pages/ManagerDashboardPage.tsx` and `components/ExecutiveKpiCards.tsx`, showing the five required KPI-card placeholders, Manager-only access, active branch scope, and no sample values or operational-list links.
+- [x] T023 [US1] Add Manager-dashboard labels and safe access/scope messages in `ppswbs_frontend/src/features/manager-dashboard/` using the approved frontend localization approach, then complete T017-T018 with assertions that viewing/filtering leaves source records unchanged.
 
 **Checkpoint**: The secure read-only shell proves the one-dashboard layout and
 authorization boundary. It does not claim KPI values until the source gates and
@@ -108,18 +138,18 @@ exclusion, deposit non-duplication, weighted utilization, and branch scope.
 
 ### Tests for User Story 1 continuation
 
-- [ ] T024 [P] [US1] Write failing fixed-clock tests for day/week/month/year ranges, Monday week start, adjacent half-open boundaries, current-period truncation, and default current-month-through-now behavior in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/reporting/ReportingPeriodResolverTest.java`.
-- [ ] T025 [P] [US1] Write failing KPI composition tests for retail net revenue, shipping exclusion, final workshop invoice/deposit non-duplication, VND-only revenue, non-VND partial results, paid branch-order count, weighted `sum(check-ins) / sum(capacity) * 100`, and zero capacity in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/reporting/KpiComposerTest.java`.
+- [x] T024 [P] [US1] Write failing fixed-clock tests for day/week/month/year ranges, Monday week start, adjacent half-open boundaries, current-period truncation, and default current-month-through-now behavior in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/reporting/ReportingPeriodResolverTest.java`.
+- [x] T025 [P] [US1] Write failing KPI composition tests for retail net revenue, shipping exclusion, final workshop invoice/deposit non-duplication, VND-only revenue, non-VND partial results, paid branch-order count, weighted `sum(check-ins) / sum(capacity) * 100`, and zero capacity in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/reporting/KpiComposerTest.java`.
 - [ ] T026 [P] [US1] Write failing source-facade integration tests for verified full-payment time, branch attribution after allocated discounts, final workshop `fullyPaidAt`, completed-session/cancelled-session filtering, and accepted check-ins in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/readyringsales/RetailReportingFacadeTest.java`, `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopbooking/WorkshopReportingFacadeTest.java`, and `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/operations/AttendanceReportingFacadeTest.java`.
 
 ### Implementation for User Story 1 continuation
 
-- [ ] T027 [P] [US1] Create `PeriodType`, `ReportingPeriod`, `KpiValues`, `BranchKpi`, and `DashboardSnapshot` immutable value objects in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/reporting/domain/PeriodType.java`, `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/reporting/domain/ReportingPeriod.java`, `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/reporting/domain/KpiValues.java`, `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/reporting/domain/BranchKpi.java`, and `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/reporting/domain/DashboardSnapshot.java`; monetary/count values are non-negative, API revenue fields serialize as decimal strings, unknown values remain nullable, and branch display names are never authorization keys.
-- [ ] T028 [US1] Implement `ReportingPeriodResolver` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/reporting/application/ReportingPeriodResolver.java`, converting `Asia/Ho_Chi_Minh` calendar periods to `[startInclusive, endExclusive)` instants and rejecting custom ranges, malformed dates, and future-only periods with `INVALID_REPORTING_PERIOD`.
-- [ ] T029 [US1] Implement source orchestration and KPI composition in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/reporting/application/ExecutiveReportQueryService.java` and `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/reporting/application/KpiComposer.java`; pass one authorized branch set and interval to every facade, accept VND monetary facts only, mark a non-VND source partial without conversion, and compute consolidated utilization from summed numerator/denominator rather than branch percentages.
-- [ ] T030 [P] [US1] Create explicit request/response DTOs and mapping for the OpenAPI fields in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/reporting/web/ExecutiveReportQuery.java`, `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/reporting/web/ExecutiveReportResponse.java`, and `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/reporting/web/ExecutiveReportMapper.java`, including decimal-string revenue values, and returning no source entity, customer/order/payment detail, or raw attendance data.
-- [ ] T031 [US1] Implement the Manager-only `GET /api/v1/executive-reports` endpoint from `ppswbs-spec/features/010-manager-dashboard/contracts/manager-dashboard.openapi.yaml` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/reporting/web/ExecutiveReportApiController.java`, with Bean Validation for `periodType`, `anchorDate`, and repeated unique `locationId` values.
-- [ ] T032 [US1] Implement the React period/branch filter and executive report components in `ppswbs_frontend/src/features/manager-dashboard/pages/ManagerDashboardPage.tsx`, `components/ExecutiveReportFilters.tsx`, and `components/ExecutiveReportView.tsx`, showing the active period, exact branch scope, currency, exactly five KPI cards, and separate branch rows.
+- [x] T027 [P] [US1] Create `PeriodType`, `ReportingPeriod`, `KpiValues`, `BranchKpi`, and `DashboardSnapshot` immutable value objects in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/reporting/domain/PeriodType.java`, `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/reporting/domain/ReportingPeriod.java`, `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/reporting/domain/KpiValues.java`, `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/reporting/domain/BranchKpi.java`, and `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/reporting/domain/DashboardSnapshot.java`; monetary/count values are non-negative, API revenue fields serialize as decimal strings, unknown values remain nullable, and branch display names are never authorization keys.
+- [x] T028 [US1] Implement `ReportingPeriodResolver` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/reporting/application/ReportingPeriodResolver.java`, converting `Asia/Ho_Chi_Minh` calendar periods to `[startInclusive, endExclusive)` instants and rejecting custom ranges, malformed dates, and future-only periods with `INVALID_REPORTING_PERIOD`.
+- [x] T029 [US1] Implement source orchestration and KPI composition in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/reporting/application/ExecutiveReportQueryService.java` and `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/reporting/application/KpiComposer.java`; pass one authorized branch set and interval to every facade, accept VND monetary facts only, mark a non-VND source partial without conversion, and compute consolidated utilization from summed numerator/denominator rather than branch percentages.
+- [x] T030 [P] [US1] Create explicit request/response DTOs and mapping for the OpenAPI fields in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/reporting/web/ExecutiveReportQuery.java`, `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/reporting/web/ExecutiveReportResponse.java`, and `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/reporting/web/ExecutiveReportMapper.java`, including decimal-string revenue values, and returning no source entity, customer/order/payment detail, or raw attendance data.
+- [x] T031 [US1] Implement the Manager-only `GET /api/v1/executive-reports` endpoint from `ppswbs-spec/features/010-manager-dashboard/contracts/manager-dashboard.openapi.yaml` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/reporting/web/ExecutiveReportApiController.java`, with Bean Validation for `periodType`, `anchorDate`, and repeated unique `locationId` values.
+- [x] T032 [US1] Implement the React period/branch filter and executive report components in `ppswbs_frontend/src/features/manager-dashboard/pages/ManagerDashboardPage.tsx`, `components/ExecutiveReportFilters.tsx`, and `components/ExecutiveReportView.tsx`, showing the active period, exact branch scope, currency, exactly five KPI cards, and separate branch rows.
 - [ ] T033 [US1] Complete contract/authorization tests for complete and empty `200`, invalid period `400`, unauthenticated `401`, Manager/branch `403`, response DTO shape, and correlation-linked errors in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/reporting/ExecutiveReportApiTest.java`.
 - [ ] T034 [US1] Complete end-to-end formula and boundary scenarios QS-05 through QS-11 from `quickstart.md` in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/reporting/ExecutiveRevenueJourneyTest.java`, including 120,000,000 + 45,000,000 = 165,000,000 VND, 12,000,000 final workshop revenue without adding its 5,000,000 deposit, 8,000,000 retail revenue after discount with shipping excluded, and weighted 28/50 = 56% utilization.
 - [ ] T035 [US1] Complete React filter/UI tests for all four period types, authorized branch subsets, active-scope display, exactly five KPI cards, absence of a custom date-range control, and loading/empty/validation/error states in `ppswbs_frontend/src/features/manager-dashboard/pages/ManagerDashboardPage.test.tsx`.
@@ -130,7 +160,7 @@ period and branch scope.
 
 ---
 
-## Phase 5: User Story 3 - Understand data quality and refresh results (Priority: P2)
+## Phase 5: User Story 2 - Understand data quality and refresh results (Priority: P2)
 
 **Goal**: A Manager can distinguish complete, empty, unavailable, and partial
 data, see the last successful update time, retry explicitly, and retain
@@ -141,19 +171,19 @@ known zero versus unknown null, partial totals, all-source `503`, safe notices,
 stable last-updated time without interaction, explicit refresh, no timer, and
 no business-data mutation.
 
-### Tests for User Story 3
+### Tests for User Story 2
 
-- [ ] T036 [P] [US3] Write failing unit tests for `COMPLETE`, `EMPTY`, and `UNAVAILABLE` source combinations, non-VND source facts, zero denominator, nullable affected values, partial total suppression, verified-payment refresh visibility, and all-required-source failure in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/reporting/ReportSourceFailurePolicyTest.java`.
-- [ ] T037 [P] [US3] Write React/API-state tests for last-valid-view preservation, explicit retry/refresh, unchanged last-updated time without interaction, rejected/unavailable response handling, and no timer-triggered endpoint call in `ppswbs_frontend/src/features/manager-dashboard/pages/ManagerDashboardRefresh.test.tsx`.
+- [x] T036 [P] [US2] Write failing unit tests for `COMPLETE`, `EMPTY`, and `UNAVAILABLE` source combinations, non-VND source facts, zero denominator, nullable affected values, partial total suppression, verified-payment refresh visibility, and all-required-source failure in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/reporting/ReportSourceFailurePolicyTest.java`.
+- [x] T037 [P] [US2] Write React/API-state tests for last-valid-view preservation, explicit retry/refresh, unchanged last-updated time without interaction, rejected/unavailable response handling, and no timer-triggered endpoint call in `ppswbs_frontend/src/features/manager-dashboard/pages/ManagerDashboardRefresh.test.tsx`.
 
-### Implementation for User Story 3
+### Implementation for User Story 2
 
-- [ ] T038 [P] [US3] Create `SourceName`, `SourceStatus`, and `SourceQuality` value objects in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/reporting/domain/SourceName.java`, `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/reporting/domain/SourceStatus.java`, and `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/reporting/domain/SourceQuality.java`; `EMPTY` means successfully evaluated with no facts, while `UNAVAILABLE` means unknown and must never become zero; dashboard refreshes read only committed verified source facts.
-- [ ] T039 [US3] Implement `ReportSourceFailurePolicy` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/reporting/application/ReportSourceFailurePolicy.java` and integrate it into `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/reporting/application/ExecutiveReportQueryService.java`, producing `PARTIAL` with null affected metrics and null consolidated revenue when a required revenue component is unknown, and throwing typed `REPORTING_SOURCES_UNAVAILABLE` only when all required sources are unavailable.
-- [ ] T040 [US3] Extend `ExecutiveReportResponse` and mapping with overall quality, four source-quality entries, safe reason codes, source `asOf`, and `lastUpdatedAt` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/reporting/web/ExecutiveReportResponse.java` and `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/reporting/web/ExecutiveReportMapper.java`, rendering update time in Vietnam time while preserving an instant in the REST contract.
-- [ ] T041 [US3] Implement safe quality notices, explicit Refresh, stable non-polling behavior, and failed-response preservation in `ppswbs_frontend/src/features/manager-dashboard/pages/ManagerDashboardPage.tsx` and `components/SourceQualityNotice.tsx`; every reload uses the REST response and re-authorizes any previous scope server-side.
-- [ ] T042 [US3] Complete partial/empty/unavailable/VND-quality API and UI scenarios QS-11 through QS-19 in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/reporting/ExecutiveReportDataQualityTest.java`, asserting that safe errors contain correlation IDs but no stack trace, SQL, UID, PII, or internal source payload.
-- [ ] T043 [US3] Verify read-only and refresh behavior across all source modules in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/reporting/ExecutiveReportReadOnlyTest.java`, proving initial load, filter, rejected filter, retry, and explicit refresh create or update no order, payment, workshop, check-in, configuration, or accounting record.
+- [x] T038 [P] [US2] Create `SourceName`, `SourceStatus`, and `SourceQuality` value objects in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/reporting/domain/SourceName.java`, `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/reporting/domain/SourceStatus.java`, and `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/reporting/domain/SourceQuality.java`; `EMPTY` means successfully evaluated with no facts, while `UNAVAILABLE` means unknown and must never become zero; dashboard refreshes read only committed verified source facts.
+- [x] T039 [US2] Implement `ReportSourceFailurePolicy` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/reporting/application/ReportSourceFailurePolicy.java` and integrate it into `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/reporting/application/ExecutiveReportQueryService.java`, producing `PARTIAL` with null affected metrics and null consolidated revenue when a required revenue component is unknown, and throwing typed `REPORTING_SOURCES_UNAVAILABLE` only when all required sources are unavailable.
+- [x] T040 [US2] Extend `ExecutiveReportResponse` and mapping with overall quality, four source-quality entries, safe reason codes, source `asOf`, and `lastUpdatedAt` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/reporting/web/ExecutiveReportResponse.java` and `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/reporting/web/ExecutiveReportMapper.java`, rendering update time in Vietnam time while preserving an instant in the REST contract.
+- [x] T041 [US2] Implement safe quality notices, explicit Refresh, stable non-polling behavior, and failed-response preservation in `ppswbs_frontend/src/features/manager-dashboard/pages/ManagerDashboardPage.tsx` and `components/SourceQualityNotice.tsx`; every reload uses the REST response and re-authorizes any previous scope server-side.
+- [ ] T042 [US2] Complete partial/empty/unavailable/VND-quality API and UI scenarios QS-11 through QS-19 in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/reporting/ExecutiveReportDataQualityTest.java`, asserting that safe errors contain correlation IDs but no stack trace, SQL, UID, PII, or internal source payload.
+- [ ] T043 [US2] Verify read-only and refresh behavior across all source modules in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/reporting/ExecutiveReportReadOnlyTest.java`, proving initial load, filter, rejected filter, retry, and explicit refresh create or update no order, payment, workshop, check-in, configuration, or accounting record.
 
 **Checkpoint**: All three stories are independently testable, and Managers can
 distinguish trustworthy zero values from incomplete or unavailable data.
@@ -189,7 +219,7 @@ scheduled aggregation, or Admin analytics.
   T007-T015 and must not use guessed deposits, booking counts, free-text
   locations, or unverified retail payments. Test doubles are permitted only for
   contract/unit work, never as production KPI evidence.
-- **US3**: Depends on the US1 snapshot and API/view paths; its tests can start
+- **US2**: Depends on the US1 snapshot and API/view paths; its tests can start
   once those interfaces are frozen.
 - **Polish**: Depends on every story selected for the release and all applicable
   source gates.
@@ -198,7 +228,7 @@ scheduled aggregation, or Admin analytics.
 
 - **US1 (P1)**: Requires the authorization foundation and all four source
   facades before it can claim complete business-value KPI results.
-- **US3 (P2)**: Requires the US1 query/response path but remains independently
+- **US2 (P2)**: Requires the US1 query/response path but remains independently
   testable by substituting source quality and failure states.
 
 ### Within each user story
@@ -244,7 +274,7 @@ T027 reporting domain values
 T030 REST DTOs and mapper
 ```
 
-### User Story 3
+### User Story 2
 
 ```text
 T036 data-quality policy tests
@@ -268,7 +298,7 @@ T038 source-quality value objects
 1. Complete all production source gates and T013-T015.
 2. Complete the remaining US1 period, formula, API, and view behavior.
 3. Validate each source formula and the consolidated branch/total results.
-4. Add US3 data-quality and refresh behavior before using the dashboard for
+4. Add US2 data-quality and refresh behavior before using the dashboard for
    business decisions.
 
 ### Parallel team strategy
