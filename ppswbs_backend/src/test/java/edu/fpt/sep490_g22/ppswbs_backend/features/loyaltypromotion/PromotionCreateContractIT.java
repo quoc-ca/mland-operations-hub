@@ -289,6 +289,21 @@ class PromotionCreateContractIT {
         assertError(create(manager, UUID.randomUUID(), "not json"), 400, "INVALID_INPUT");
     }
 
+    /** Session 2026-11-14: a fixed amount needs no cap; the cap is stored equal to the amount. */
+    @Test
+    void fixedAmountNeedsNoCapAndACapSentMustEqualTheAmount() throws Exception {
+        String withoutCap = autoDiscount("").replace(",\"maxDiscountAmount\":\"20000\"", "");
+        MvcResult created = create(manager, UUID.randomUUID(), withoutCap);
+        assertThat(created.getResponse().getStatus()).as(created.getResponse().getContentAsString()).isEqualTo(201);
+        assertThat(body(created).path("discount").path("amount").asText()).isEqualTo("20000");
+        assertThat(body(created).path("discount").path("maxDiscountAmount").asText()).isEqualTo("20000");
+
+        String differentCap = autoDiscount("").replace("\"maxDiscountAmount\":\"20000\"", "\"maxDiscountAmount\":\"15000\"");
+        MvcResult refused = create(manager, UUID.randomUUID(), differentCap);
+        assertError(refused, 400, "INVALID_INPUT");
+        assertThat(refused.getResponse().getContentAsString()).contains("discount.maxDiscountAmount");
+    }
+
     @Test
     void targetsMustExistBelongToTheirProductAndNotBeDeleted() throws Exception {
         String missing = productVoucher(code(), "").replace("\"productIds\":[\"" + productId + "\"]",
