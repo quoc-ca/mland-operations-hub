@@ -70,14 +70,57 @@ describe('US10 branches on the create form', () => {
 describe('US10 FR-046/FR-052 branches on the public product page', () => {
   beforeEach(() => clearRoleCache());
 
-  it('offers only the branches selling the chosen size and shows one without stock as sold out', async () => {
+  it('a size is chosen by its stock at the chosen branch; moving to a branch without it clears the size', async () => {
     const user = userEvent.setup();
     const product = publicProduct({
       variants: [
         { id: '101', size: 12, sku: 'SP000042-S12', appliedPrice: '1250000', currency: 'VND', saleEnabled: true, canBuy: true,
-          assignedToBranches: true, branches: [{ locationId: '1', canBuy: false }, { locationId: '2', canBuy: true }] },
+          assignedToBranches: true, availableQuantity: '4',
+          branches: [{ locationId: '1', canBuy: false, availableQuantity: '0' }, { locationId: '2', canBuy: true, availableQuantity: '4' }] },
         { id: '102', size: 14, sku: 'SP000042-S14', appliedPrice: '1300000', currency: 'VND', saleEnabled: true, canBuy: true,
-          assignedToBranches: false, branches: [] },
+          assignedToBranches: true, availableQuantity: '2', branches: [{ locationId: '1', canBuy: true, availableQuantity: '2' }] },
+      ],
+    });
+    const calls = mockFetch({
+      'GET /api/v1/products/42': json(200, product),
+      'GET /api/v1/product-selling-locations': json(200, { items: [
+        { id: '1', name: 'Hoàn Kiếm', address: '' }, { id: '2', name: 'Tây Hồ', address: '' }, { id: '3', name: 'Đà Nẵng', address: '' }] }),
+      'POST /api/v1/members/me/ready-ring-cart/lines': json(201, { id: 'cart' }),
+    });
+    renderRoutes([...productManagementRoutes, { path: '/member/cart', element: <p>FE-08 cart</p> }], { path: '/products/42' });
+
+    // Only the branches selling this product are offered (Đà Nẵng sells neither size).
+    const branch = await screen.findByLabelText('Chi nhánh');
+    await screen.findByRole('option', { name: /Tây Hồ/ });
+    expect(within(branch).getAllByRole('option').map(option => option.textContent)).toEqual(['Hoàn Kiếm', 'Tây Hồ']);
+
+    // Before a branch: a size with stock anywhere can be chosen; the line counts the chosen size.
+    await user.click(screen.getByRole('button', { name: 'Size 12' }));
+    expect(screen.getByText('4 sản phẩm có sẵn')).toBeInTheDocument();
+    // Hoàn Kiếm has no size 12: the size is cleared and its box is sold out there; size 14 can be bought there.
+    await user.selectOptions(branch, '1');
+    expect(screen.getByRole('button', { name: 'Size 12 (Hết hàng)' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Size 14' })).toHaveAttribute('aria-pressed', 'false');
+    // With the size cleared the line asks for a size again instead of showing another size's figure.
+    expect(screen.getByText('Chọn size để xem số lượng còn')).toBeInTheDocument();
+    // At Tây Hồ size 14 is sold out and size 12 has 4.
+    await user.selectOptions(branch, '2');
+    expect(screen.getByRole('button', { name: 'Size 14 (Hết hàng)' })).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Size 12' }));
+    expect(screen.getByText('4 sản phẩm có sẵn')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Thêm Vào Giỏ Hàng' }));
+    expect(await screen.findByText('FE-08 cart')).toBeInTheDocument();
+    expect(calls.find(call => call.method === 'POST').body).toEqual({ variantId: 101, locationId: 2, quantity: 1 });
+  });
+
+  it('a size not yet assigned to a branch keeps every selling location, sold from its total', async () => {
+    const user = userEvent.setup();
+    const product = publicProduct({
+      variants: [
+        { id: '101', size: 12, sku: 'SP000042-S12', appliedPrice: '1250000', currency: 'VND', saleEnabled: true, canBuy: true,
+          assignedToBranches: true, availableQuantity: '1', branches: [{ locationId: '1', canBuy: false, availableQuantity: '0' }, { locationId: '2', canBuy: true, availableQuantity: '1' }] },
+        { id: '102', size: 14, sku: 'SP000042-S14', appliedPrice: '1300000', currency: 'VND', saleEnabled: true, canBuy: true,
+          assignedToBranches: false, availableQuantity: '6', branches: [] },
       ],
     });
     const calls = mockFetch({
@@ -89,20 +132,34 @@ describe('US10 FR-046/FR-052 branches on the public product page', () => {
     renderRoutes([...productManagementRoutes, { path: '/member/cart', element: <p>FE-08 cart</p> }], { path: '/products/42' });
 
     const branch = await screen.findByLabelText('Chi nhánh');
-    await screen.findByRole('option', { name: /Tây Hồ/ });
-    const names = within(branch).getAllByRole('option').map(option => option.textContent);
-    expect(names).toEqual(['Chọn chi nhánh', 'Hoàn Kiếm (hết hàng)', 'Tây Hồ']);
-    expect(within(branch).getByRole('option', { name: /Hoàn Kiếm/ })).toBeDisabled();
+    await screen.findByRole('option', { name: /Đà Nẵng/ });
+    expect(within(branch).getAllByRole('option').map(option => option.textContent)).toEqual(['Hoàn Kiếm', 'Tây Hồ', 'Đà Nẵng']);
 
-    // A size not yet assigned to a branch offers every selling location.
-    await user.selectOptions(screen.getByLabelText('Size'), '102');
-    expect(within(screen.getByLabelText('Chi nhánh')).getAllByRole('option')).toHaveLength(4);
-
-    await user.selectOptions(screen.getByLabelText('Size'), '101');
-    await user.selectOptions(screen.getByLabelText('Chi nhánh'), '2');
-    await user.click(screen.getByRole('button', { name: 'Thêm vào giỏ' }));
+    await user.selectOptions(branch, '3');
+    expect(screen.getByRole('button', { name: 'Size 12 (Hết hàng)' })).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Size 14' }));
+    expect(screen.getByText('6 sản phẩm có sẵn')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Thêm Vào Giỏ Hàng' }));
     expect(await screen.findByText('FE-08 cart')).toBeInTheDocument();
-    expect(calls.find(call => call.method === 'POST').body).toEqual({ variantId: 101, locationId: 2, quantity: 1 });
+    expect(calls.find(call => call.method === 'POST').body).toEqual({ variantId: 102, locationId: 3, quantity: 1 });
+  });
+
+  it('a branch where no size can be bought is shown as sold out and cannot be chosen', async () => {
+    const product = publicProduct({
+      variants: [
+        { id: '101', size: 12, sku: 'SP000042-S12', appliedPrice: '1250000', currency: 'VND', saleEnabled: true, canBuy: true,
+          assignedToBranches: true, availableQuantity: '1', branches: [{ locationId: '1', canBuy: false, availableQuantity: '0' }, { locationId: '2', canBuy: true, availableQuantity: '1' }] },
+      ],
+    });
+    mockFetch({
+      'GET /api/v1/products/42': json(200, product),
+      'GET /api/v1/product-selling-locations': json(200, { items: [{ id: '1', name: 'Hoàn Kiếm', address: '' }, { id: '2', name: 'Tây Hồ', address: '' }] }),
+    });
+    renderRoutes(productManagementRoutes, { path: '/products/42' });
+    const branch = await screen.findByLabelText('Chi nhánh');
+    await screen.findByRole('option', { name: /Tây Hồ/ });
+    expect(within(branch).getAllByRole('option').map(option => option.textContent)).toEqual(['Hoàn Kiếm (hết hàng)', 'Tây Hồ']);
+    expect(within(branch).getByRole('option', { name: /Hoàn Kiếm/ })).toBeDisabled();
   });
 });
 

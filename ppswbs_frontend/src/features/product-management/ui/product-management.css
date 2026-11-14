@@ -200,9 +200,18 @@
 .pm-public .ring-card:hover{border-color:var(--pm-accent)}
 .pm-public .ring-card strong{font-size:15px;font-weight:600}
 /* Card with a cart button (quick add): image and name open the product, the round button adds to the cart. */
-.pm-public .product-card-link{display:flex;flex-direction:column;gap:12px;color:inherit}
-.pm-public .product-card-foot{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;margin-top:auto}
-.pm-public .product-card-info{display:flex;flex-direction:column;gap:8px;min-width:0}
+.pm-public .product-card{gap:8px}
+.pm-public .product-card-link{display:flex;flex-direction:column;gap:10px;color:inherit}
+/* Card layout (2026-11-14, after the owner's review): the price follows the name at a small fixed gap (the name
+   takes only the lines it needs, at most two); the struck original price has its own line so it shows in full;
+   price, original and offer badges are spaced evenly; the stock label and cart button stay at the bottom. */
+.pm-public .product-card-link strong{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:14px;line-height:1.35}
+.pm-public .product-card-info{display:flex;flex-direction:column;align-items:flex-start;gap:6px;min-width:0}
+.pm-public .product-card-info .price{font-size:15px;line-height:22px}
+.pm-public .product-card-info .offer-price{display:flex;flex-direction:column;align-items:flex-start;gap:2px}
+.pm-public .product-card-info .offer-was{line-height:16px}
+.pm-public .product-card-info .offer-badges{flex-wrap:wrap;gap:6px}
+.pm-public .product-card-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:auto;padding-top:4px}
 .pm-public .cart-button{flex:none;display:grid;place-items:center;width:38px;height:38px;border:0;border-radius:50%;background:var(--pm-accent);color:var(--pm-ink);cursor:pointer;transition:transform .12s}
 .pm-public .cart-button:hover:not(:disabled){transform:scale(1.08)}
 .pm-public .cart-button:disabled{background:var(--pm-bg);color:#b8bcc4;cursor:not-allowed}
@@ -242,7 +251,7 @@
 .pm-public .price{font-size:13px;font-weight:600;color:var(--pm-ink)}
 .pm-public .status{align-self:flex-start;min-width:0}
 .pm-public .pager{justify-content:center}
-.pm-public .detail-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:32px;align-items:start;margin-top:0}
+.pm-public .detail-grid{grid-template-columns:minmax(0,2fr) minmax(0,3fr);gap:32px;align-items:start;margin-top:0}
 .pm-public .detail-grid>.ring-visual,.pm-public .detail-grid .ring-visual,.pm-public .detail-image{height:auto;aspect-ratio:1/1}
 .pm-public .detail-grid .price{font-size:22px;font-weight:700;margin:0 0 16px}
 .pm-public .detail-grid p{font-size:12px;line-height:1.6;margin:0 0 16px}
@@ -378,3 +387,60 @@
 .pm-theme .branch-bar .text-button:disabled{opacity:.45}
 /* A section heading opened by link (#review-title …) lands below the sticky main top bar (72px). */
 .pm-theme .workspace-card h2[id]{scroll-margin-top:88px}
+/* Public detail buy panel (2026-11-14, after the shop's sample): label column, 5-per-row size boxes, − / + quantity,
+   two equal buttons. One red for the panel, --pm-buy-red. */
+.add-to-cart{--pm-buy-red:#d0011b;--pm-buy-red-soft:#fdeeef;--pm-buy-line:#e5e5e5}
+.add-to-cart .buy-row{display:grid;grid-template-columns:90px minmax(0,1fr);align-items:center;column-gap:12px}
+.add-to-cart .buy-row-top{align-items:start}
+.add-to-cart .buy-row-top>.buy-label{line-height:50px}
+.add-to-cart .buy-label{color:#757575;font-size:14px;font-weight:400}
+.add-to-cart .buy-sizes{display:flex;flex-direction:column;align-items:flex-start;gap:12px;min-width:0}
+.add-to-cart .buy-size-list{display:grid;grid-template-columns:repeat(5,minmax(0,100px));gap:10px;width:100%}
+.add-to-cart .buy-size{position:relative;overflow:hidden;height:50px;padding:0 4px;border:1px solid var(--pm-buy-line);border-radius:2px;background:#fff;color:#222;font:inherit;font-size:15px;font-weight:400;cursor:pointer}
+.add-to-cart .buy-size:hover:not(:disabled){border-color:var(--pm-buy-red);color:var(--pm-buy-red)}
+.add-to-cart .buy-size:focus-visible{outline:2px solid var(--pm-buy-red);outline-offset:2px}
+.add-to-cart .buy-size:disabled{background:#fafafa;color:#bdbdbd;cursor:not-allowed}
+.add-to-cart .buy-size.active{border-color:var(--pm-buy-red);color:var(--pm-buy-red)}
+/* Chosen size: red triangle in the bottom-right corner with a white tick. */
+.add-to-cart .buy-size.active::after{content:"";position:absolute;right:0;bottom:0;border-style:solid;border-width:0 0 15px 15px;border-color:transparent transparent var(--pm-buy-red) transparent}
+.add-to-cart .buy-size.active::before{content:"";position:absolute;z-index:1;right:2px;bottom:3px;width:3px;height:6px;border:solid #fff;border-width:0 1.5px 1.5px 0;transform:rotate(45deg)}
+.add-to-cart .buy-sizes-price{font-size:15px}
+.add-to-cart .size-guide-link{padding:0;border:0;background:none;color:#05a;font:inherit;font-size:14px;cursor:pointer}
+.add-to-cart .size-guide-link span{margin-left:4px}
+.add-to-cart .size-guide-link:hover{text-decoration:underline}
+.add-to-cart .buy-branch{width:100%;max-width:400px;height:40px}
+.add-to-cart .buy-quantity{display:flex;align-items:center;flex-wrap:wrap;gap:8px 16px}
+.add-to-cart .qty-stepper{display:inline-flex;height:40px;border:1px solid var(--pm-buy-line);border-radius:2px;background:#fff}
+.add-to-cart .qty-stepper button{width:40px;border:0;background:#fff;color:#555;font-size:20px;line-height:1;cursor:pointer}
+.add-to-cart .qty-stepper button:disabled{color:#ccc;cursor:not-allowed}
+.add-to-cart .qty-stepper input{width:60px;min-width:0;height:100%;padding:0;border:0;border-left:1px solid var(--pm-buy-line);border-right:1px solid var(--pm-buy-line);border-radius:0;background:#fff;color:var(--pm-buy-red);font:inherit;font-size:16px;text-align:center;pointer-events:none}
+.add-to-cart .qty-stock{color:#757575;font-size:14px}
+.add-to-cart .buy-prompt{margin:0;color:var(--pm-buy-red);font-size:14px}
+.add-to-cart .buy-actions{display:flex;flex-wrap:wrap;gap:16px;margin-top:4px}
+.add-to-cart .buy-add,.add-to-cart .buy-now{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-width:200px;height:48px;padding:0 20px;border:1px solid var(--pm-buy-red);border-radius:2px;font:inherit;font-size:15px;cursor:pointer}
+.add-to-cart .buy-add{background:var(--pm-buy-red-soft);color:var(--pm-buy-red)}
+.add-to-cart .buy-add:hover:not(:disabled){background:#fbdfe2}
+.add-to-cart .buy-now{background:var(--pm-buy-red);color:#fff}
+.add-to-cart .buy-now:hover:not(:disabled){background:#b80018}
+.add-to-cart .buy-add:disabled,.add-to-cart .buy-now:disabled{opacity:.55;cursor:not-allowed}
+@media(max-width:600px){
+  .add-to-cart .buy-row{grid-template-columns:72px minmax(0,1fr);column-gap:10px}
+  .add-to-cart .buy-size-list{gap:8px}
+  .add-to-cart .buy-size{height:44px}
+  .add-to-cart .buy-row-top>.buy-label{line-height:44px}
+  .add-to-cart .buy-actions{gap:10px}
+  .add-to-cart .buy-add,.add-to-cart .buy-now{flex:1 1 0;min-width:0;gap:6px;padding:0 8px;font-size:14px;white-space:nowrap}
+  .add-to-cart .qty-stepper button{width:32px}
+  .add-to-cart .qty-stepper input{width:44px}
+  .add-to-cart .buy-quantity{column-gap:10px}
+}
+/* Size conversion dialog. */
+.size-guide-backdrop{z-index:30}
+.dialog.size-guide{max-width:640px}
+.size-guide-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.size-guide-head h2{margin:0;font-size:20px}
+.size-guide-description{margin:8px 0 16px;color:#555}
+.size-guide-image{display:block;width:auto;max-width:100%;height:auto;margin:0 auto 16px}
+.size-guide-method+.size-guide-method{margin-top:16px}
+.size-guide h3{margin:0 0 8px;font-size:16px}
+.size-guide-steps{margin:0;padding-left:20px;display:grid;gap:6px;line-height:1.5}
