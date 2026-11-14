@@ -36,8 +36,9 @@ public class ReviewController {
         var actor = ActorContext.getCurrentActor().orElse(null);
         Long memberAccountId = actor != null && actor.role() == ActorRole.MEMBER ? actor.accountId() : null;
         if (actor != null && actor.role() != ActorRole.MEMBER) {
-            throw edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.service.ReviewManagementException.forbidden(
-                    "REVIEW_NOT_AUTHORIZED", "Chỉ Member mới được tạo review.");
+            throw edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.service.ReviewManagementException
+                    .forbidden(
+                            "REVIEW_NOT_AUTHORIZED", "Chỉ Member mới được tạo review.");
         }
         ReviewDto dto = applicationService.createReview(request, memberAccountId, idempotencyKey);
         return ResponseEntity.status(HttpStatus.CREATED).body(dto);
@@ -73,12 +74,13 @@ public class ReviewController {
             @Valid @RequestBody EditReviewRequest request) {
         var actor = ActorContext.getCurrentActor().orElse(null);
         if (actor != null && actor.role() != ActorRole.MEMBER) {
-            throw edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.service.ReviewManagementException.forbidden(
-                    "REVIEW_NOT_AUTHORIZED", "Chỉ Member mới được chỉnh sửa review sở hữu.");
+            throw edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.service.ReviewManagementException
+                    .forbidden(
+                            "REVIEW_NOT_AUTHORIZED", "Chỉ Member mới được chỉnh sửa review sở hữu.");
         }
         Long memberAccountId = actor != null ? actor.accountId() : null;
-        ReviewDto dto = applicationService.editReview(reviewId, request, memberAccountId, guestHandle, expectedVersion, idempotencyKey);
+        ReviewDto dto = applicationService.editReview(reviewId, request, memberAccountId, guestHandle, expectedVersion,
+                idempotencyKey);
         return ResponseEntity.ok(dto);
     }
 }
-

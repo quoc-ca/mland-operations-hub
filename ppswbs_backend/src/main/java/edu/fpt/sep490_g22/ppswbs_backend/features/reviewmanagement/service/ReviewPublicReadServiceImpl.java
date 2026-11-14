@@ -97,7 +97,8 @@ public class ReviewPublicReadServiceImpl implements ReviewPublicReadFacade {
     }
 
     private ReviewAggregateDto aggregate(TargetType targetType, String targetRef, Long packageId) {
-        ReviewAggregateProjection proj = reviewRepository.getAggregateByOptionalTarget(targetType, targetRef, packageId, ReviewStatus.PUBLIC);
+        ReviewAggregateProjection proj = reviewRepository.getAggregateByOptionalTarget(targetType, targetRef, packageId,
+                ReviewStatus.PUBLIC);
         long count = proj != null && proj.getTotalCount() != null ? proj.getTotalCount() : 0L;
         double avg = 0.0;
         if (proj != null && proj.getAverageRating() != null && count > 0) {
@@ -112,7 +113,8 @@ public class ReviewPublicReadServiceImpl implements ReviewPublicReadFacade {
     }
 
     private List<ReviewDto> toDtos(List<Review> reviews) {
-        if (reviews.isEmpty()) return Collections.emptyList();
+        if (reviews.isEmpty())
+            return Collections.emptyList();
         List<String> reviewIds = reviews.stream().map(Review::getId).toList();
         List<ReviewReply> replies = replyRepository.findByReviewIdIn(reviewIds);
         Map<String, ReplyDto> replyMap = replies.stream()
@@ -123,15 +125,23 @@ public class ReviewPublicReadServiceImpl implements ReviewPublicReadFacade {
                 .collect(Collectors.toList());
     }
 
-    /** Only PUBLIC reviews, and only those matching the optional target and rating filters. */
-    private static Specification<Review> scope(TargetType targetType, String targetReference, Long packageId, Integer rating) {
+    /**
+     * Only PUBLIC reviews, and only those matching the optional target and rating
+     * filters.
+     */
+    private static Specification<Review> scope(TargetType targetType, String targetReference, Long packageId,
+            Integer rating) {
         return (root, query, cb) -> {
             List<Predicate> all = new ArrayList<>();
             all.add(cb.equal(root.get("status"), ReviewStatus.PUBLIC));
-            if (targetType != null) all.add(cb.equal(root.get("targetType"), targetType));
-            if (targetReference != null) all.add(cb.equal(root.get("targetReference"), targetReference));
-            if (packageId != null) all.add(cb.equal(root.get("packageId"), packageId));
-            if (rating != null) all.add(cb.equal(root.get("rating"), rating));
+            if (targetType != null)
+                all.add(cb.equal(root.get("targetType"), targetType));
+            if (targetReference != null)
+                all.add(cb.equal(root.get("targetReference"), targetReference));
+            if (packageId != null)
+                all.add(cb.equal(root.get("packageId"), packageId));
+            if (rating != null)
+                all.add(cb.equal(root.get("rating"), rating));
             return cb.and(all.toArray(new Predicate[0]));
         };
     }
@@ -153,11 +163,13 @@ public class ReviewPublicReadServiceImpl implements ReviewPublicReadFacade {
     }
 
     private static Cursor decodeCursor(String value) {
-        if (value == null || value.isBlank()) return null;
+        if (value == null || value.isBlank())
+            return null;
         try {
             String raw = new String(Base64.getUrlDecoder().decode(value.trim()), StandardCharsets.UTF_8);
             int bar = raw.indexOf('|');
-            if (bar <= 0 || bar == raw.length() - 1) throw new IllegalArgumentException("malformed");
+            if (bar <= 0 || bar == raw.length() - 1)
+                throw new IllegalArgumentException("malformed");
             return new Cursor(Instant.parse(raw.substring(0, bar)), raw.substring(bar + 1));
         } catch (IllegalArgumentException | DateTimeParseException invalid) {
             throw ReviewManagementException.badRequest("REVIEW_INPUT_INVALID", "cursor không hợp lệ.");
