@@ -52,6 +52,31 @@ active Manager requester is authorized from `CurrentAccountActor` without this
 scope lookup. A consumer must not use a cache, fallback scope, background retry
 or event-synchronized Account copy in V1.
 
+## FE-003.1 internal alert recipients (FR-045, approved 2026-11-14)
+
+This method is an approved PII exception to the general facade principle that
+email is not exposed across feature boundaries. It exists solely for
+003.1 FR-040a: when a late payment enters the Manager review queue, the
+Workshop Booking feature must alert every active Manager by internal email.
+The exception is narrow and bounded by the contract below.
+
+| Method | Inputs | Typed result | Contract |
+| --- | --- | --- | --- |
+| `listActiveManagerEmails` | *(none)* | `List<String>` | Login emails of every Account with `role = MANAGER` and `status = ACTIVE`, de-duplicated and sorted. `ADMIN` is excluded. Empty list when none qualifies. Read-only; creates no Account audit event. |
+
+**PII usage constraint:** the caller MUST use the returned list only inside its
+own transaction to compose internal alert email recipients. The list MUST NOT
+appear in domain events, audit records, application or provider logs, or any
+consumer-owned persistence. The `LatePaymentReviewQueued` event published by
+003.1 contains only the opaque booking/payment reference, never recipient
+addresses.
+
+**Eligibility note:** no condition beyond `status = ACTIVE` is required.
+FR-013 guarantees that an `ACTIVE` internal Account has a verified email.
+FR-019/FR-020 guarantee that a suspended Account has `status = SUSPENDED`
+before restoration. `revocationPending` or unverified-email edge cases do not
+apply to `ACTIVE` Managers under the current specification.
+
 ## FE-008 shipping address facade
 
 These methods provide shipping address lookups to approved order/fulfillment consumers (e.g. FE-008). They are module-boundary Java methods, returning immutable snapshots.
