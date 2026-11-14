@@ -297,4 +297,95 @@ class AccountFacadeTargetAccountIT {
         // Manager assignments are organizational; operational authorization in FE-003 is global
         assertThat(actor.role()).isEqualTo(ActorRole.MANAGER);
     }
+
+    @Test
+    @DisplayName("FR-045: listActiveManagerEmails returns only ACTIVE Manager emails sorted and de-duplicated")
+    void listActiveManagerEmails_ReturnsOnlyActiveManagers_Sorted() {
+        // Active Managers
+        accountRepository.save(Account.builder()
+                .firebaseUid("uid-mgr-b")
+                .loginEmail("manager.b@mland.vn")
+                .role(AccountRole.MANAGER)
+                .status(AccountStatus.ACTIVE)
+                .build());
+
+        accountRepository.save(Account.builder()
+                .firebaseUid("uid-mgr-a")
+                .loginEmail("manager.a@mland.vn")
+                .role(AccountRole.MANAGER)
+                .status(AccountStatus.ACTIVE)
+                .build());
+
+        // Inactive Managers
+        accountRepository.save(Account.builder()
+                .firebaseUid("uid-mgr-suspended")
+                .loginEmail("manager.suspended@mland.vn")
+                .role(AccountRole.MANAGER)
+                .status(AccountStatus.SUSPENDED)
+                .build());
+
+        accountRepository.save(Account.builder()
+                .firebaseUid("uid-mgr-pending")
+                .loginEmail("manager.pending@mland.vn")
+                .role(AccountRole.MANAGER)
+                .status(AccountStatus.PENDING_SETUP)
+                .build());
+
+        // Non-Manager roles (ACTIVE)
+        accountRepository.save(Account.builder()
+                .firebaseUid("uid-admin")
+                .loginEmail("admin@mland.vn")
+                .role(AccountRole.ADMIN)
+                .status(AccountStatus.ACTIVE)
+                .build());
+
+        accountRepository.save(Account.builder()
+                .firebaseUid("uid-staff")
+                .loginEmail("staff@mland.vn")
+                .role(AccountRole.STAFF)
+                .status(AccountStatus.ACTIVE)
+                .build());
+
+        accountRepository.save(Account.builder()
+                .firebaseUid("uid-member")
+                .loginEmail("member@mland.vn")
+                .role(AccountRole.MEMBER)
+                .status(AccountStatus.ACTIVE)
+                .build());
+
+        List<String> emails = accountFacade.listActiveManagerEmails();
+
+        assertThat(emails).isNotNull();
+        assertThat(emails).containsExactly("manager.a@mland.vn", "manager.b@mland.vn");
+    }
+
+    @Test
+    @DisplayName("FR-045: listActiveManagerEmails returns empty list when no ACTIVE Managers exist")
+    void listActiveManagerEmails_WhenNoActiveManagers_ReturnsEmptyList() {
+        accountRepository.save(Account.builder()
+                .firebaseUid("uid-admin-only")
+                .loginEmail("admin@mland.vn")
+                .role(AccountRole.ADMIN)
+                .status(AccountStatus.ACTIVE)
+                .build());
+
+        accountRepository.save(Account.builder()
+                .firebaseUid("uid-staff-only")
+                .loginEmail("staff@mland.vn")
+                .role(AccountRole.STAFF)
+                .status(AccountStatus.ACTIVE)
+                .build());
+
+        accountRepository.save(Account.builder()
+                .firebaseUid("uid-suspended-mgr")
+                .loginEmail("manager.suspended@mland.vn")
+                .role(AccountRole.MANAGER)
+                .status(AccountStatus.SUSPENDED)
+                .build());
+
+        List<String> emails = accountFacade.listActiveManagerEmails();
+
+        assertThat(emails).isNotNull();
+        assertThat(emails).isEmpty();
+    }
 }
