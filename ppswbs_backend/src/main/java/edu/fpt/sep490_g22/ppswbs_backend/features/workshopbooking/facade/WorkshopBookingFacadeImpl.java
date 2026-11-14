@@ -171,8 +171,9 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade, Worksho
             return BookingGroupLoyaltyOutcomeSource.none();
         }
         BookingGroup group = bookingGroupRepository.findByGroupCode(groupReference).orElse(null);
-        // A Guest group never had a benefit, and a Member group that reserved none has no earn to decide.
-        if (group == null || group.getBuyerMemberAccountId() == null || group.getVoucherUseReference() == null) {
+        // A group that reserved nothing has no earn to decide. A Guest group with an automatic discount has a snapshot
+        // without a Member (006 D-014), and its earn must still be closed — 006 closes it as a zero grant.
+        if (group == null || group.getVoucherUseReference() == null) {
             return BookingGroupLoyaltyOutcomeSource.none();
         }
         var quote = cartQuoteRepository.findByAcceptedGroupCode(groupReference).orElse(null);

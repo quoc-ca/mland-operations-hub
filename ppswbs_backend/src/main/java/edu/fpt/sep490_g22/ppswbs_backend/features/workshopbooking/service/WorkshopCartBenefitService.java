@@ -28,7 +28,9 @@ public class WorkshopCartBenefitService {
     private final LoyaltyFacade loyalty;
 
     /**
-     * @param eligibleTicketIndexes 0-based positions, in cart order, of the tickets the voucher covers
+     * @param voucherDiscountVnd the programme discount of the whole group: the voucher's, or the automatic
+     *                           discount's when no voucher was chosen (006 FR-015 allows only one of them)
+     * @param eligibleTicketIndexes 0-based positions, in cart order, of the tickets that programme covers
      * @param maxPoints the most points 006 lets this Member spend on this cart (FR-034); 0 when none may be spent
      * @param minRedeemPoints the smallest redeemable amount of the recorded point policy
      */
@@ -42,6 +44,12 @@ public class WorkshopCartBenefitService {
 
         public boolean isEmpty() {
             return voucherDiscountVnd == 0 && pointsUsed == 0;
+        }
+
+        /** A Guest has no wallet: the quote reports no point limits for them, whatever the policy says. */
+        public CartBenefits withoutPointLimits() {
+            return new CartBenefits(voucherDiscountVnd, pointsUsed, 0, pointDiscountVnd, eligibleTicketIndexes,
+                    termsDigest, policyRevision, reasons, 0, 0);
         }
     }
 
@@ -61,22 +69,49 @@ public class WorkshopCartBenefitService {
         return List.copyOf(tickets);
     }
 
-    /** Read-only breakdown of the whole cart; holds no quota and no points. */
-    public CartBenefits preview(long memberAccountId, WorkshopCartPricingService.PricedCart cart,
+    /**
+     * Read-only breakdown of the whole cart; holds no quota and no points.
+     *
+     * @param memberAccountId the buyer, or {@code null} for a Guest, who can only receive an automatic discount
+     *                        (006 FR-044) and is sent to 006 as {@link TrustedSourceContext#GUEST}
+     */
+    public CartBenefits preview(Long memberAccountId, WorkshopCartPricingService.PricedCart cart,
                                 BenefitSelection selection) {
         BenefitPreview preview = loyalty.previewBenefits(trusted(memberAccountId, cart, Instant.now()), selection);
         return new CartBenefits(exact(preview.programDiscount()), exact(preview.pointsUsed()),
                 exact(preview.pointValue()), exact(preview.pointDiscount()), preview.eligibleLineIndexes(),
-                preview.termsDigest(), preview.policyRevisionNo(), preview.reasons(),
+                preview.termsDigest(), preview.policyRevisionNo(), customerReasons(preview),
                 exact(preview.maxPoints()), exact(preview.minRedeemPoints()));
     }
 
     /**
-     * Holds the voucher use and the points for the whole group, inside the caller's transaction. The cart is
-     * rebuilt in the same order as the quote, so a changed cart or changed terms surface as a typed failure
-     * instead of a silently different discount.
+     * 006's reasons without "no automatic discount applies": every cart now asks for the automatic discount, so that
+     * reason only says the customer pays the plain price, which {@code appliedDiscount = NONE} already says. The quote
+     * reports voucher and point reasons only. The text and detail lists share order and length when the preview comes
+     * from Loyalty; when they do not, the text is kept as it is.
      */
-    public AcceptedBenefitRef accept(long memberAccountId, WorkshopCartPricingService.PricedCart cart,
+    private static List<String> customerReasons(BenefitPreview preview) {
+        List<String> text = preview.reasons();
+        List<BenefitReason> details = preview.reasonDetails();
+        if (details.size() != text.size()) {
+            return text;
+        }
+        List<String> kept = new ArrayList<>();
+        for (int i = 0; i < text.size(); i++) {
+            if (details.get(i).code() != BenefitReasonCode.WORKSHOP_NO_AUTO_DISCOUNT_APPLIES) {
+                kept.add(text.get(i));
+            }
+        }
+        return List.copyOf(kept);
+    }
+
+    /**
+     * Holds the programme discount and the points for the whole group, inside the caller's transaction. A Guest
+     * group ({@code memberAccountId == null}) is accepted too (006 D-014): 006 keeps a snapshot without a Member
+     * for its automatic discount, holding no voucher and no points. The cart is rebuilt in the same order as the
+     * quote, so a changed cart or changed terms surface as a typed failure instead of a silently different discount.
+     */
+    public AcceptedBenefitRef accept(Long memberAccountId, WorkshopCartPricingService.PricedCart cart,
                                      BenefitSelection selection, String groupCode, String quoteRef,
                                      String termsDigest, Instant acceptedAt, Instant holdExpiresAt) {
         AcceptedSourceContext accepted = new AcceptedSourceContext(trusted(memberAccountId, cart, acceptedAt),
@@ -100,9 +135,10 @@ public class WorkshopCartBenefitService {
         return inputs;
     }
 
-    private TrustedSourceContext trusted(long memberAccountId, WorkshopCartPricingService.PricedCart cart,
+    private TrustedSourceContext trusted(Long memberAccountId, WorkshopCartPricingService.PricedCart cart,
                                          Instant at) {
-        return new TrustedSourceContext(SourceKind.WORKSHOP, memberAccountId, at, List.of(),
+        long member = memberAccountId == null ? TrustedSourceContext.GUEST : memberAccountId;
+        return new TrustedSourceContext(SourceKind.WORKSHOP, member, at, List.of(),
                 WorkshopFact.cart(ticketFacts(cart)), BigInteger.ZERO);
     }
 
