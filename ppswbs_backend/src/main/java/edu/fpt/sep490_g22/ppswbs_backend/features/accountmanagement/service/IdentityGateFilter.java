@@ -96,18 +96,23 @@ public class IdentityGateFilter extends OncePerRequestFilter {
         boolean guestRecipientRoute = ("POST".equalsIgnoreCase(request.getMethod())
                 && path.matches("/api/v1/workshop-booking-groups/[^/]+/buyer-verifications(/[^/]+/confirmations)?"))
                 || ("PUT".equalsIgnoreCase(request.getMethod())
-                && path.matches("/api/v1/workshop-tickets/[^/]+/recipient"));
+                && path.matches("/api/v1/workshop-tickets/[^/]+/recipient"))
+                || ("POST".equalsIgnoreCase(request.getMethod())
+                && path.matches("/api/v1/workshop-tickets/[^/]+/cancellations"))
+                || ("POST".equalsIgnoreCase(request.getMethod())
+                && path.matches("/api/v1/workshop-booking-groups/[^/]+/cancellations"))
+                || ("POST".equalsIgnoreCase(request.getMethod())
+                && path.matches("/api/v1/workshop-tickets/[^/]+/mland-remedy/answers"))
+                || ("POST".equalsIgnoreCase(request.getMethod())
+                && path.matches("/api/v1/workshop-tickets/[^/]+/changes"))
+                || ("POST".equalsIgnoreCase(request.getMethod())
+                && path.matches("/api/v1/workshop-tickets/[^/]+/folio-lookups"));
         if (guestRecipientRoute && request.getHeader(HttpHeaders.AUTHORIZATION) == null) return true;
         // 003.3 FR-040: the refund-account link token is the credential; the service checks it, its state and expiry.
         if ("POST".equalsIgnoreCase(request.getMethod()) && path.matches("/api/v1/refund-account-links/[^/]+")
                 && request.getHeader(HttpHeaders.AUTHORIZATION) == null) {
             return true;
         }
-        boolean customerBillRoute =("GET".equalsIgnoreCase(request.getMethod())
-                && path.matches("/api/v1/workshop-bookings/[^/]+/final-bill"))
-                || ("POST".equalsIgnoreCase(request.getMethod())
-                && path.matches("/api/v1/workshop-bookings/[^/]+/final-bill/charges"));
-        if (customerBillRoute && request.getHeader(HttpHeaders.AUTHORIZATION) == null) return true;
         if ("POST".equalsIgnoreCase(request.getMethod())
                 && "/api/v1/review-eligibility/lookup".equals(path)) {
             return true;
