@@ -3,8 +3,10 @@ import './workshopList.css';
 import { listWorkshopPackages } from '../api/workshops';
 import { Paginator, usePaged } from '../shared/ui/Paginator';
 import PackageReviewSummary from '../features/reviewmanagement/ui/PackageReviewSummary';
+import { offersForPackage, usePublicWorkshopPrograms, WorkshopOfferBadges, WorkshopOfferPrice } from '../features/loyalty-promotion/publicOffers';
 
 export function WorkshopListPage() {
+  const programs = usePublicWorkshopPrograms();
   const [packages, setPackages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -93,6 +95,7 @@ export function WorkshopListPage() {
         <div className="wk-grid">
           {paged.pageItems.map((pkg, idx) => {
             const sessionCount = pkg.requiredSessionCount || 1;
+            const offers = offersForPackage(pkg, programs);
             return (
               <article className="wk-card" key={pkg.packageId}>
                 <div className={`ring-visual ${idx % 2 === 0 ? 'gold' : 'pair'}`} aria-label="Minh họa workshop">
@@ -107,9 +110,14 @@ export function WorkshopListPage() {
                     {/* Only worth saying on the card when the package spans several sessions; the package page has the full rules. */}
                     {sessionCount > 1 && pkg.sameLocationRequired && <span className="wk-chip">📍 Cùng một chi nhánh</span>}
                   </div>
+                  {/* FR-052: price after the best automatic discount, from 006's public gate; plain price when none. */}
                   <p className="wk-price">
-                    {Number(pkg.publicPrice || 0).toLocaleString('vi-VN')} ₫ <small>/ người</small>
+                    <WorkshopOfferPrice
+                      offers={offers}
+                      fallback={`${Number(pkg.publicPrice || 0).toLocaleString('vi-VN')} ₫`}
+                    /> <small>/ người</small>
                   </p>
+                  <WorkshopOfferBadges offers={offers} />
                   <div className="wk-actions">
                     <a className="button outline" href={`/workshops/${pkg.packageId}`}>Xem lịch ca</a>
                     <a
