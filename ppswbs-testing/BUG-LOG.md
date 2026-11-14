@@ -182,15 +182,19 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
   - Kịch bản `E2E-012-003` tái kiểm tra trên Chrome thực tế: Bấm "Lưu & Thẩm định" thành công chuyển sang `/design/{designId}`, hiển thị đầy đủ bảng chỉ số kỹ thuật và chi phí tham khảo ước tính (HTTP 201 + 200). Chuyển tiếp sang `/workshops/booking?...` đạt yêu cầu. Trạng thái: **PASS**. Bằng chứng JPEG: ![Thành công](../ppswbs-spec/features/012-workshop-ring-design-configuration/test-results/screenshots/E2E-012-003--success.jpg).
   - Kịch bản `E2E-012-005` (nhánh phiên hết hạn): Truy cập thiết kế với phiên hết hạn trả về HTTP 401 `DESIGN_SESSION_EXPIRED` và hiển thị alert tiếng Việt: *"Phiên làm việc của bạn đã hết hạn sau 20 phút không hoạt động. Vui lòng bắt đầu lại để tiếp tục."*. Trạng thái: **PASS**. Bằng chứng JPEG: ![Phiên hết hạn](../ppswbs-spec/features/012-workshop-ring-design-configuration/test-results/screenshots/E2E-012-005--session-expired.jpg).
 
-## BUG-E2E-0004 — OPEN
+## BUG-E2E-0004 — CLOSED
 
-- Ngày phát hiện: 2026-11-14
+- Ngày mở: 2026-11-14
+- Ngày khắc phục: 2026-11-14
+- Ngày đóng / nghiệm thu: 2026-11-14
 - Phát hiện bởi: Senior QA & System Verification Engineer
+- Khắc phục bởi: Senior Java/Spring Backend Implementation Engineer & Database Architect
+- Xác minh đóng lỗi bởi: Senior QA & System Verification Engineer
 - Feature: 007-notification-management
 - Kịch bản liên quan: [E2E-007-011](../ppswbs-spec/features/007-notification-management/test-results/e2e/E2E-007-011--redeliver-with-refreshed-credential.md)
 - Mức độ nghiêm trọng: MAJOR
 - Phân loại / Gán cho: Backend / Database Schema
-- Mô tả lỗi: 
+- Mô tả lỗi ban đầu: 
   Endpoint `POST /api/v1/notification-requests/{id}/redeliver` trả về lỗi HTTP 500 (Internal Server Error) do xung đột ràng buộc toàn vẹn cơ sở dữ liệu `DataIntegrityViolationException`.
   Khi một yêu cầu gửi thông báo gốc (`original_request_id`) đã từng phát sinh một yêu cầu gửi lại (resend hoặc redeliver trước đó, ví dụ tạo request #1005 từ request gốc #1001), việc thực hiện thao tác redeliver (hoặc resend lần thứ 2) trên cùng request gốc #1001 sẽ cố gắng chèn một bản ghi mới với cùng bộ giá trị:
   `(business_event_reference, template_code, recipient_role, recipient_address_fingerprint, original_request_id = 1001)`.
@@ -199,18 +203,24 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
   UNIQUE KEY uq_nr_idempotency (business_event_reference, template_code, recipient_role, recipient_address_fingerprint, original_request_id)
   ```
   từ chối bản ghi thứ 2, dẫn tới Crash 500 ở backend thay vì xử lý mượt mà hoặc cấp định danh/chu kỳ phân biệt.
-- Các bước tái hiện:
-  1. Đăng nhập hệ thống với tài khoản Quản trị / Quản lý có quyền (`ADMIN` hoặc `MANAGER`).
-  2. Truy cập màn hình Quản lý Yêu cầu gửi thông báo: `http://localhost:5173/admin/notifications/requests`.
-  3. Mở chi tiết request #1001 (đã có request con gửi lại #1005).
-  4. Bấm "Gửi lại với link/vé mới".
-  5. Nhập lý do: "Khách hàng liên hệ xin link mới do link 24h đã hết hạn" và bấm "Xác nhận cấp lại và gửi".
-- Kết quả mong đợi: Hệ thống tạo yêu cầu gửi lại thành công với mã liên kết mới (HTTP 201 Created) hoặc thông báo rõ ràng về giới hạn số lần gửi lại.
-- Thực tế quan sát: Backend throw `DataIntegrityViolationException: Duplicate entry 'BK-20261106-001-BOOKING_CONFIRMED-CUSTOMER-fp1001-1001' for key 'notification_request.uq_nr_idempotency'`, Frontend hiển thị lỗi 500.
-- Bằng chứng:
-  - Screenshot: ![Lỗi Redeliver 500](../ppswbs-spec/features/007-notification-management/test-results/e2e/screenshots/E2E-007-011--redeliver-with-refreshed-credential.jpg)
-- Đề xuất khắc phục (Backend / Database):
-  - Xem xét lại thiết kế ràng buộc `uq_nr_idempotency`: Nếu cho phép nhiều lần gửi lại hoặc redelivery trên cùng một request gốc, cần bổ sung cột version / attempt_number hoặc sequence id vào unique constraint, hoặc chỉ áp dụng idempotency cho initial requests (`original_request_id IS NULL`), còn requests con (`original_request_id IS NOT NULL`) cần có idempotency key riêng (ví dụ `client_token` hoặc `resend_cycle`).
+- Biện pháp khắc phục đã triển khai:
+  1. Flyway migration `V140__notification_original_request_idempotency.sql`:
+     - Chuẩn hóa các chuỗi phả hệ derived request trỏ trực tiếp về root request.
+     - Drop chỉ mục unique `uq_nr_idempotency`.
+     - Bổ sung cột sinh `original_idempotency_scope TINYINT GENERATED ALWAYS AS (CASE WHEN original_request_id IS NULL THEN 1 ELSE NULL END) STORED`.
+     - Tạo unique constraint mới `uq_nr_original_idempotency (business_event_reference, template_code, recipient_role, recipient_address_fingerprint, original_idempotency_scope)`. Do SQL bỏ qua duplicate NULLs, constraint chỉ bảo vệ tính duy nhất của request gốc và cho phép tạo không giới hạn derived requests.
+  2. JPA Entity `NotificationRequest.java`: Bổ sung mapping cột sinh `@Column(name = "original_idempotency_scope", insertable = false, updatable = false)`.
+  3. Bổ sung test tích hợp `NotificationManagementIT#verifyMultipleResendAndRedeliverOnSameRootSucceeds` (Task T034).
+- Kết quả kiểm chứng lại (QA Re-test 2026-11-14 qua Browser MCP trên live Docker environment):
+  - Kịch bản `E2E-007-011` được thực thi lại trên môi trường Docker cục bộ (`http://localhost:5174` và backend `http://localhost:8081`):
+    + Quản lý mở chi tiết yêu cầu gốc #1001 (đã có request gửi lại trước đó).
+    + Bấm "Gửi lại với link/vé mới", nhập lý do "Khách hàng liên hệ xin link mới do link 24h đã hết hạn" và xác nhận.
+    + Backend xử lý thành công, trả về HTTP 201 Created và sinh request mới #1009 với `original_request_id = 1001`.
+    + Không còn lỗi HTTP 500 hay `DataIntegrityViolationException`.
+    + Bảng `notification_operational_audit` lưu vết chính xác hành động `REDELIVER_REFRESHED_CREDENTIAL`.
+  - Trạng thái kiểm chứng: **PASS 100%**.
+  - Bằng chứng screenshot: [E2E-007-011--redeliver-success.jpg](../ppswbs-spec/features/007-notification-management/test-results/e2e/screenshots/E2E-007-011--redeliver-success.jpg).
+- Trạng thái xử lý: **CLOSED**
 
 
 <!--
