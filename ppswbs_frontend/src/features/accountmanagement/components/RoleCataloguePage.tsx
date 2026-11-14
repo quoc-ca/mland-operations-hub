@@ -89,16 +89,20 @@ export const RoleCataloguePage: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {roles.map(r => (
-                <tr key={r.role}>
-                  <td>
-                    <span className="account-badge account-badge-readonly" style={{ fontSize: '0.85rem' }}>
-                      {r.role}
-                    </span>
-                  </td>
-                  <td style={{ lineHeight: 1.6 }}>{r.description}</td>
-                </tr>
-              ))}
+              {roles.map(r => {
+                const roleCode = r.code || r.role;
+                const roleDesc = r.displayName || r.description;
+                return (
+                  <tr key={roleCode}>
+                    <td>
+                      <span className="account-badge account-badge-readonly" style={{ fontSize: '0.85rem' }}>
+                        {roleCode}
+                      </span>
+                    </td>
+                    <td style={{ lineHeight: 1.6 }}>{roleDesc}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
 

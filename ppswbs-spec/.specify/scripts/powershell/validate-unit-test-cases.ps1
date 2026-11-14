@@ -41,7 +41,7 @@ if (-not (Test-Path -LiteralPath $featurePath -PathType Container)) {
 }
 
 $cases = if (Test-Path -LiteralPath $casesPath -PathType Container) {
-    @(Get-ChildItem -LiteralPath $casesPath -Filter '*.md' -File | Sort-Object Name)
+    @(Get-ChildItem -LiteralPath $casesPath -Filter 'UTC-*.md' -File | Sort-Object Name)
 } else { @() }
 
 if ($cases.Count -eq 0 -and $issues.Count -eq 0) {

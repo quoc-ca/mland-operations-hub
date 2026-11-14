@@ -460,5 +460,35 @@ describe('FE-001 Account Management Components & Hooks', () => {
         screen.getByText(/ADMIN là vai trò quản trị hệ thống cao nhất/i)
       ).toBeInTheDocument();
     });
+
+    it('renders OpenAPI standard response with code and displayName properties (BUG-E2E-0005)', async () => {
+      const mockRoles = {
+        roles: [
+          { code: 'MEMBER' as const, displayName: 'Khách hàng thành viên / Member' },
+          { code: 'STAFF' as const, displayName: 'Nhân viên cơ sở / Staff' },
+          { code: 'MANAGER' as const, displayName: 'Quản lý cơ sở / Manager' },
+          { code: 'ADMIN' as const, displayName: 'Quản trị viên / Admin' },
+        ],
+      };
+
+      vi.spyOn(accountManagementApiClient, 'listRoles').mockResolvedValue(mockRoles);
+
+      render(
+        <MemoryRouter>
+          <RoleCataloguePage />
+        </MemoryRouter>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText('MEMBER')).toBeInTheDocument();
+        expect(screen.getByText('Khách hàng thành viên / Member')).toBeInTheDocument();
+        expect(screen.getByText('STAFF')).toBeInTheDocument();
+        expect(screen.getByText('Nhân viên cơ sở / Staff')).toBeInTheDocument();
+        expect(screen.getByText('MANAGER')).toBeInTheDocument();
+        expect(screen.getByText('Quản lý cơ sở / Manager')).toBeInTheDocument();
+        expect(screen.getByText('ADMIN')).toBeInTheDocument();
+        expect(screen.getByText('Quản trị viên / Admin')).toBeInTheDocument();
+      });
+    });
   });
 });

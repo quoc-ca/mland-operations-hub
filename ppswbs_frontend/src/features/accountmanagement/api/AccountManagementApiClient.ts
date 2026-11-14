@@ -90,8 +90,10 @@ export interface InternalAccountSummaryResponse {
 }
 
 export interface RoleCatalogueEntry {
-  role: 'MEMBER' | 'STAFF' | 'MANAGER' | 'ADMIN';
-  description: string;
+  code?: 'MEMBER' | 'STAFF' | 'MANAGER' | 'ADMIN';
+  displayName?: string;
+  role?: 'MEMBER' | 'STAFF' | 'MANAGER' | 'ADMIN';
+  description?: string;
 }
 
 export interface RoleCatalogueResponse {

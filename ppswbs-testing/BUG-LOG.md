@@ -9,6 +9,60 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
 
 <!-- Ghi nhận lỗi mới nhất lên trên đầu theo mẫu dưới đây -->
 
+## BUG-E2E-0005 — CLOSED
+
+- Ngày mở: 2026-11-14
+- Ngày khắc phục: 2026-11-14
+- Ngày đóng / nghiệm thu: 2026-11-14
+- Phát hiện bởi: Senior QA & System Verification Engineer
+- Khắc phục bởi: Senior React Frontend Implementation Engineer
+- Xác minh đóng lỗi bởi: Senior QA & System Verification Engineer (Phan Sơn)
+- Feature: 001-account-management
+- Kịch bản liên quan: [E2E-001-007](../ppswbs-spec/features/001-account-management/test-results/E2E-001-007--admin-role-catalogue-rbac-guard.md)
+- Mức độ nghiêm trọng: MAJOR
+- Phân loại / Gán cho: Frontend
+- Mô tả lỗi ban đầu: Lệch trường dữ liệu hợp đồng (Contract Misalignment) giữa Frontend và Backend tại API `/api/v1/roles`. Backend trả về `{ code, displayName }` theo đúng đặc tả OpenAPI (`RoleEntryResponse`), nhưng Frontend `RoleCataloguePage.tsx` và `AccountManagementApiClient.ts` lại truy xuất `{ r.role, r.description }`. Kết quả là bảng danh mục 4 vai trò trên `/admin/roles` bị rỗng toàn bộ nội dung tên vai trò và mô tả quyền hạn.
+- Các bước tái hiện:
+  1. Đăng nhập tài khoản có quyền Admin (ví dụ: `qa-e2e-feat007@test.com`).
+  2. Truy cập đường dẫn: `http://localhost:5173/admin/roles`.
+  3. Quan sát bảng "Danh mục vai trò hệ thống (Fixed Roles)".
+- Kết quả mong đợi: Bảng hiển thị 4 vai trò (MEMBER, STAFF, MANAGER, ADMIN) cùng mô tả phạm vi và quyền hạn tương ứng.
+- Thực tế quan sát trước khi sửa: Bảng hiển thị 4 dòng nhưng cả cột "Vai trò" (badge rỗng) và cột "Mô tả phạm vi và quyền hạn" đều trắng tinh.
+- Bằng chứng lỗi ban đầu:
+  - API response từ `GET /api/v1/roles`: `{"roles":[{"code":"MEMBER","displayName":"Khách hàng thành viên / Member"},{"code":"STAFF","displayName":"Nhân viên cơ sở / Staff"},{"code":"MANAGER","displayName":"Quản lý cơ sở / Manager"},{"code":"ADMIN","displayName":"Quản trị viên / Admin"}]}`
+  - DOM Table quan sát được: `<tr><td><span class="account-badge account-badge-readonly"></span></td><td></td></tr>`
+- Nguyên nhân gốc rễ (Root Cause):
+  - Đặc tả OpenAPI `account-management.openapi.yaml` định nghĩa `RoleEntryResponse` gồm 2 thuộc tính bắt buộc: `code` (chuỗi enum vai trò) và `displayName` (tên hiển thị vai trò).
+  - Backend Spring Boot (`RoleCatalogueController.java`) trả về DTO chuẩn `{ roles: [{ code, displayName }] }`.
+  - Frontend `RoleCataloguePage.tsx` và interface `RoleCatalogueEntry` trong `AccountManagementApiClient.ts` trước đó định nghĩa và bóc tách các trường phi tiêu chuẩn `{ role, description }`, dẫn đến `r.role` và `r.description` nhận giá trị `undefined` khi nhận payload thật từ Backend.
+- Biện pháp khắc phục đã triển khai (Frontend Dev):
+  1. `ppswbs_frontend/src/features/accountmanagement/api/AccountManagementApiClient.ts`:
+     - Cập nhật interface `RoleCatalogueEntry` bổ sung đầy đủ trường OpenAPI chuẩn `code?: 'MEMBER' | 'STAFF' | 'MANAGER' | 'ADMIN'` và `displayName?: string`, đồng thời duy trì fallback tương thích ngược.
+  2. `ppswbs_frontend/src/features/accountmanagement/components/RoleCataloguePage.tsx`:
+     - Cập nhật rendering JSX bóc tách an toàn theo chuẩn hợp đồng: `const roleCode = r.code || r.role;` và `const roleDesc = r.displayName || r.description;`.
+     - Hiển thị badge vai trò với `roleCode` và cột mô tả với `roleDesc`.
+  3. `ppswbs_frontend/src/features/accountmanagement/tests/accountManagementComponents.test.tsx`:
+     - Bổ sung unit/component test ca: `renders OpenAPI standard response with code and displayName properties (BUG-E2E-0005)`.
+     - Toàn bộ 12 test trong suite component test và 92/92 test trong toàn feature `accountmanagement` đều PASS.
+- Kết quả nghiệm thu thực tế của QA (QA Verification):
+  - **Trình duyệt**: Live Chrome qua `browsermcp` tại `http://localhost:5173/admin/roles`.
+  - **DOM Table trích xuất**:
+    ```html
+    <table class="account-table">
+      <thead><tr><th style="width: 180px;">Vai trò</th><th>Mô tả phạm vi và quyền hạn</th></tr></thead>
+      <tbody>
+        <tr><td><span class="account-badge account-badge-readonly" style="font-size: 0.85rem;">MEMBER</span></td><td style="line-height: 1.6;">Khách hàng thành viên / Member</td></tr>
+        <tr><td><span class="account-badge account-badge-readonly" style="font-size: 0.85rem;">STAFF</span></td><td style="line-height: 1.6;">Nhân viên cơ sở / Staff</td></tr>
+        <tr><td><span class="account-badge account-badge-readonly" style="font-size: 0.85rem;">MANAGER</span></td><td style="line-height: 1.6;">Quản lý cơ sở / Manager</td></tr>
+        <tr><td><span class="account-badge account-badge-readonly" style="font-size: 0.85rem;">ADMIN</span></td><td style="line-height: 1.6;">Quản trị viên / Admin</td></tr>
+      </tbody>
+    </table>
+    ```
+  - **Đánh giá**: Tất cả 4 vai trò cố định và mô tả hiển thị chính xác theo hợp đồng OpenAPI và Revision R-MGA.
+- Trạng thái xử lý: **CLOSED**
+
+---
+
 ## BUG-E2E-0004 — CLOSED
 
 - Ngày mở: 2026-11-12
