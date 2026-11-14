@@ -45,6 +45,7 @@ public class GroupNotificationService {
     public static final String KIND_GROUP_CONFIRMATION = "GROUP_CONFIRMATION";
     public static final String KIND_GROUP_CONFIRMATION_RESEND = "GROUP_CONFIRMATION_RESEND";
     public static final String KIND_GROUP_MAGIC_LINK_ROTATED = "GROUP_MAGIC_LINK_ROTATED";
+    public static final String KIND_GROUP_HOLD_EXPIRED = "GROUP_HOLD_EXPIRED";
     private static final String ACCESS_LINK_FIELD = "bookingAccessLink";
 
     private final BookingGroupNotificationIntentRepository intents;

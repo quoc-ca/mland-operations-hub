@@ -6,7 +6,7 @@ import java.util.Collection;
 import java.util.Objects;
 import java.util.Optional;
 
-/** Shared time rule for the automatic booking-wide attendance-correction closure. */
+/** Shared time rule for the per-ticket attendance-correction closure (003.2 FR-032): the latest finalization among one ticket's own sessions plus 24 hours. */
 public final class AttendanceCorrectionWindowPolicy {
     public static final Duration WINDOW = Duration.ofHours(24);
 

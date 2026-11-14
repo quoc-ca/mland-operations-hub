@@ -89,7 +89,10 @@ public class WorkshopSessionService {
             openingSource = CheckInOpeningSource.DEFAULT;
         }
 
-        SessionState state = SessionState.DRAFT;
+        SessionState state = request.getInitialState() != null ? request.getInitialState() : SessionState.DRAFT;
+        if (state != SessionState.DRAFT && state != SessionState.PUBLISHED) {
+            throw new WorkshopValidationException("Initial state must be DRAFT or PUBLISHED");
+        }
 
         WorkshopSession session = WorkshopSession.builder()
                 .reference(UUID.randomUUID().toString())
@@ -111,6 +114,10 @@ public class WorkshopSessionService {
         if (openingSource == CheckInOpeningSource.MANAGER_SET) {
             recordAudit(saved.getId(), actor.accountId(), "CHECK_IN_OVERRIDE_CONFIGURED", "SUCCESS",
                     "{\"checkInOpensAt\":\"" + checkInOpensAt + "\"}");
+        }
+        if (saved.getState() == SessionState.PUBLISHED) {
+            // Same observable change as publishing through bulk generation.
+            otaSnapshotService.publishForObservableChange(saved, "SESSION_PUBLISHED", Instant.now());
         }
 
         return toSessionResponse(saved);

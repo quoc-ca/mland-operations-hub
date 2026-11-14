@@ -35,7 +35,7 @@ paths:
         '400': {$ref: '#/components/responses/Problem'}
         '401': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
-        '409': {$ref: '#/components/responses/Problem'}
+        '409': {description: "A line cannot be sold now; failingLines names the zero-based cart positions (FR-031).", content: {application/json: {schema: {$ref: '#/components/schemas/CartHoldRejection'}}}}
   /api/v1/workshop-booking-groups:
     post:
       summary: Confirm a cart quote and hold every line atomically
@@ -150,6 +150,7 @@ paths:
         '403': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
+        '429': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-booking-groups/{groupCode}/confirmation-deliveries:
     post:
       summary: Resend a CONFIRMED group's buyer confirmation to the stored contact email
@@ -320,9 +321,8 @@ components:
       schema: {type: string, minLength: 16, maxLength: 128}
       description: >-
         16 to 128 characters, like every other command here (decided
-        2026-11-14). The implemented controller still accepts 1 to 128 and is
-        tightened in T107; the frontend already sends 16 to 128 (T102), so no
-        client changes.
+        2026-11-14). The controller refuses a shorter or longer key with 400
+        (T107); the frontend already sends 16 to 128 (T102).
   responses:
     Problem:
       description: Safe typed error (RFC 7807)

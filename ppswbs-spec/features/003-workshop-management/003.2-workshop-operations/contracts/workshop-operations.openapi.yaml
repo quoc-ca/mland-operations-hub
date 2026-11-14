@@ -204,7 +204,7 @@ paths:
     post:
       summary: Create one future session in DRAFT by default
       parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
-      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/SessionWrite' } } } }
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/SessionCreate' } } } }
       responses:
         '201': { $ref: '#/components/responses/Session' }
         '400': { $ref: '#/components/responses/Problem' }
@@ -496,6 +496,12 @@ components:
         workshopDate: { type: string, format: date }
         capacity: { type: integer, minimum: 1 }
         checkInOpensAt: { type: string, format: date-time, nullable: true }
+    SessionCreate:
+      allOf:
+        - { $ref: '#/components/schemas/SessionWrite' }
+        - type: object
+          properties:
+            initialState: { type: string, enum: [DRAFT, PUBLISHED], default: DRAFT, description: 'Creation only; PUBLISHED publishes the session at once, as in bulk generation (FR-001i).' }
     Session:
       allOf:
         - { $ref: '#/components/schemas/SessionWrite' }

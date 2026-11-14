@@ -152,7 +152,7 @@ public class BookingGroupCreationService {
                 .groupCode(groupCode)
                 .buyerMemberAccountId(quote.getBuyerMemberAccountId())
                 .contactEmail(request.contactEmail().trim())
-                .contactPhone(request.contactPhone().trim())
+                .contactPhone(ContactPhones.canonical(request.contactPhone().trim()))
                 .groupStatus(BookingStatus.PENDING_PAYMENT)
                 .paymentMode(cart.allocation().paymentMode())
                 .groupCollectionVnd(cart.allocation().groupCollectionVnd())

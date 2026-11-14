@@ -181,6 +181,21 @@ class WorkshopOperationsDtoTests {
     }
 
     @Test
+    @DisplayName("T111: SessionRequest.initialState defaults to DRAFT and accepts only DRAFT or PUBLISHED")
+    void sessionRequestInitialState() {
+        edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.SessionRequest.SessionRequestBuilder base =
+                edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.SessionRequest.builder()
+                        .locationId(10L).slotId(UUID.randomUUID().toString())
+                        .workshopDate(LocalDate.now().plusDays(3)).capacity(10);
+
+        assertThat(base.build().getInitialState()).isEqualTo(SessionState.DRAFT);
+        assertThat(validator.validate(base.build())).isEmpty();
+        assertThat(validator.validate(base.initialState(SessionState.PUBLISHED).build())).isEmpty();
+        assertThat(validator.validate(base.initialState(SessionState.CANCELLED).build())).isNotEmpty();
+        assertThat(validator.validate(base.initialState(SessionState.IN_PROGRESS).build())).isNotEmpty();
+    }
+
+    @Test
     @DisplayName("T013-4: LocationRequest validates required code and name")
     void locationRequestValidation() {
         LocationRequest valid = LocationRequest.builder()

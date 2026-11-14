@@ -320,6 +320,23 @@ class GroupConfirmationTest {
         verify(operations).releaseBookingHolds(eq(GROUP + "-L1"), anyList(), anyString(), anyString());
     }
 
+    /** T111 / FR-039: template 5 goes to the contact email once; a replayed expiry queues nothing. */
+    @Test
+    void anExpiredHoldQueuesTemplate5OnceAndAReplayQueuesNothing() {
+        givenGroup(GroupPaymentMode.VNPAY, 400_000);
+        group.setHoldExpiresAt(Instant.now().minusSeconds(30));
+        givenLine(0, "Clay Workshop", 1, 203_000, 200_000, TicketCollectionKind.DEPOSIT, 3_000);
+        when(operations.releaseBookingHolds(anyString(), anyList(), anyString(), anyString()))
+                .thenReturn(CapacityReleaseOutcome.accepted());
+
+        assertThat(service.releaseExpiredGroup(GROUP, "op-1", "corr-1")).isTrue();
+        assertThat(service.releaseExpiredGroup(GROUP, "op-1", "corr-1")).isFalse();
+
+        verify(notifications, times(1)).queue(eq(group), isNull(), eq("GROUP_HOLD_EXPIRED"), any(),
+                eq("MLAND – Đặt chỗ " + GROUP + " đã hết thời gian thanh toán"), contains("10 phút"),
+                eq(java.util.List.of()), isNull(), eq("corr-1"));
+    }
+
     @Test
     void aGroupStillInsideItsHoldIsLeftAlone() {
         givenGroup(GroupPaymentMode.VNPAY, 400_000);

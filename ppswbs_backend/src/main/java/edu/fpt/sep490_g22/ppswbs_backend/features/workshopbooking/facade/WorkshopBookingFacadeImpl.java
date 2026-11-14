@@ -66,102 +66,13 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade, Worksho
             buyerVerificationService;
     private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.TicketPriceSnapshotRepository
             ticketPriceSnapshotRepository;
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.TicketRecipientRepository
+            ticketRecipientRepository;
 
-    @Override
-    @Transactional(readOnly = true)
-    public ConfirmedBookingFinancialProjection getConfirmedBookingFinancialProjection(ConfirmedBookingFinancialProjectionQuery query) {
-        log.info("WorkshopBookingFacade.getConfirmedBookingFinancialProjection: bookingReference={}", query.bookingReference());
-        Optional<WorkshopBooking> optBooking = bookingRepository.findByBookingCode(query.bookingReference());
-        if (optBooking.isEmpty()) {
-            return null;
-        }
 
-        WorkshopBooking booking = optBooking.get();
-        // A booking Settlement has concluded as COMPLETED keeps its frozen invoice for the Manager folio correction
-        // (003.3 T040); any other state (pending, cancelled, expired, no-show) has no folio to correct.
-        if (booking.getBookingStatus() != BookingStatus.CONFIRMED && booking.getBookingStatus() != BookingStatus.COMPLETED) {
-            return null;
-        }
 
-        Optional<BookingInvoice> optInvoice = invoiceRepository.findByBookingId(booking.getId());
-        if (optInvoice.isEmpty()) {
-            return null;
-        }
-        BookingInvoice invoice = optInvoice.get();
 
-        List<BookingSessionCommitment> commitments = commitmentRepository.findByBookingIdOrderByOrdinalAsc(booking.getId());
-        List<String> sessionRefs = commitments.stream()
-                .map(BookingSessionCommitment::getSessionReference)
-                .toList();
 
-        Long locationId = commitments.isEmpty() ? 1L : commitments.get(0).getLocationId();
-
-        return new ConfirmedBookingFinancialProjection(
-                String.valueOf(booking.getPackageId()),
-                invoice.getPricePerParticipant() != null ? invoice.getPricePerParticipant() * booking.getParticipantCount() : invoice.getPackageTotal(),
-                invoice.getPostPromotionAmount(),
-                invoice.getDepositAmount(),
-                invoice.getRemainingAmount(),
-                booking.getParticipantCount(),
-                sessionRefs,
-                locationId
-        );
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public VerifiedBookingDepositPaymentsProjection getVerifiedDepositPayments(VerifiedBookingDepositPaymentsQuery query) {
-        WorkshopBooking booking = bookingRepository.findByBookingCode(query.bookingReference().trim()).orElse(null);
-        if (booking == null) return new VerifiedBookingDepositPaymentsProjection(List.of());
-        java.util.Map<String, VerifiedBookingPayment> facts = new java.util.TreeMap<>();
-        for (BookingPaymentReceipt receipt : paymentReceiptRepository.findByBookingId(booking.getId())) {
-            // "VERIFIED_EVIDENCE" is how receipts written before 2026-11-05 recorded the same VNPay evidence.
-            if (!VERIFIED_VNPAY_RECEIPT_PROVIDERS.contains(receipt.getProviderName()) || receipt.getPaymentAttempt() == null
-                    || receipt.getAmountReceived() == null || receipt.getAmountReceived() <= 0) continue;
-            BookingPaymentAttempt attempt = receipt.getPaymentAttempt();
-            String txn = providerTransactionNumber(receipt.getProviderEventId());
-            facts.put(attempt.getMerchantReference(), new VerifiedBookingPayment(attempt.getMerchantReference(), txn,
-                    attempt.getProviderCreateDate(), receipt.getAmountReceived(), "VND", true));
-        }
-        for (BookingLatePaymentEvidence late : latePaymentEvidenceRepository.findByBookingCode(booking.getBookingCode())) {
-            BookingPaymentAttempt attempt = paymentAttemptRepository.findByMerchantReference(late.getMerchantReference()).orElse(null);
-            if (attempt == null || late.getAmountVnd() == null || late.getAmountVnd() <= 0) continue;
-            facts.putIfAbsent(attempt.getMerchantReference(), new VerifiedBookingPayment(attempt.getMerchantReference(),
-                    late.getProviderTransactionReference(), attempt.getProviderCreateDate(), late.getAmountVnd(),
-                    late.getCurrencyCode(), true));
-        }
-        List<VerifiedBookingPayment> ordered = facts.values().stream()
-                .sorted(java.util.Comparator.comparing(VerifiedBookingPayment::originalProviderCreateDate,
-                                java.util.Comparator.nullsLast(String::compareTo))
-                        .thenComparing(VerifiedBookingPayment::reference)).toList();
-        return new VerifiedBookingDepositPaymentsProjection(ordered);
-    }
-
-    private static final java.util.Set<String> VERIFIED_VNPAY_RECEIPT_PROVIDERS = java.util.Set.of("VNPAY", "VERIFIED_EVIDENCE");
-
-    /** IPN evidence is {@code VNPAY-<txn>}; QueryDR recovery evidence is {@code VNPAY-QDR-<txn>}. */
-    static String providerTransactionNumber(String eventReference) {
-        if (eventReference == null) return null;
-        if (eventReference.startsWith("VNPAY-QDR-")) return eventReference.substring("VNPAY-QDR-".length());
-        if (eventReference.startsWith("VNPAY-")) return eventReference.substring("VNPAY-".length());
-        return null;
-    }
-
-    @Override
-    @Transactional
-    public WorkshopBookingLoyaltyOutcomeSource getLoyaltyOutcomeSource(WorkshopBookingLoyaltyOutcomeSourceQuery query) {
-        WorkshopBooking booking = bookingRepository.findLockedByBookingCode(query.bookingReference()).orElse(null);
-        if (booking == null || !carriesLoyaltyOutcome(booking.getBookingStatus())
-                || booking.getMemberAccountId() == null) {
-            return null;
-        }
-        var quote = memberQuoteRepository.findByAcceptedBookingCode(booking.getBookingCode()).orElse(null);
-        if (quote == null || !booking.getMemberAccountId().equals(quote.getMemberAccountId())) {
-            return null;
-        }
-        return new WorkshopBookingLoyaltyOutcomeSource(true, quote.getQuoteRef(),
-                Math.addExact(booking.getVersion(), 1L), booking.getHoldExpiresAt());
-    }
 
     @Override
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
@@ -203,10 +114,6 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade, Worksho
      * decided after the booking has moved on (completed or no-show by attendance, cancelled by Settlement), so asking only
      * while it is still CONFIRMED made a completed Member booking look like a Guest one and its earn was never granted.
      */
-    private static boolean carriesLoyaltyOutcome(BookingStatus status) {
-        return status == BookingStatus.CONFIRMED || status == BookingStatus.COMPLETED
-                || status == BookingStatus.NO_SHOW || status == BookingStatus.CANCELLED;
-    }
 
     @Override
     @Transactional(readOnly = true)
@@ -221,6 +128,20 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade, Worksho
                         .map(ticket -> ticket.getGroup().getContactEmail()))
                 .orElse(null);
         return email == null || email.isBlank() ? null : email.trim();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public String getTicketRecipientEmail(String ticketCode) {
+        if (ticketCode == null || ticketCode.isBlank()) return null;
+        return ticketBookingRepository.findByTicketCode(ticketCode.trim())
+                .flatMap(ticket -> ticketRecipientRepository.findByTicketId(ticket.getId())
+                        .map(recipient -> recipient.getRecipientEmail())
+                        .filter(email -> email != null && !email.isBlank())
+                        .filter(email -> !email.trim().equalsIgnoreCase(
+                                ticket.getGroup().getContactEmail() == null ? "" : ticket.getGroup().getContactEmail().trim())))
+                .map(String::trim)
+                .orElse(null);
     }
 
     @Override
@@ -267,42 +188,6 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade, Worksho
         return new CustomerBookingAccessDecision(false);
     }
 
-    @Override
-    @Transactional
-    public FinalBalanceResolutionOutcome recordFinalBalanceResolved(RecordFinalBalanceResolvedCommand command) {
-        log.info("WorkshopBookingFacade.recordFinalBalanceResolved: bookingReference={}, settlementReference={}, opRef={}",
-                command.bookingReference(), command.settlementReference(), command.operationReference());
-
-        Optional<WorkshopBooking> optBooking = bookingRepository.findByBookingCode(command.bookingReference());
-        if (optBooking.isEmpty()) {
-            return FinalBalanceResolutionOutcome.rejected(BookingRejectionReason.NOT_READY);
-        }
-
-        WorkshopBooking booking = optBooking.get();
-        if (booking.getPaymentStatus() == PaymentStatus.FULLY_PAID) {
-            return FinalBalanceResolutionOutcome.accepted();
-        }
-
-        if (booking.getBookingStatus() != BookingStatus.CONFIRMED) {
-            return FinalBalanceResolutionOutcome.rejected(BookingRejectionReason.INVALID_STATE);
-        }
-
-        booking.setPaymentStatus(PaymentStatus.FULLY_PAID);
-        bookingRepository.save(booking);
-
-        BookingAuditEvidence audit = BookingAuditEvidence.builder()
-                .bookingCode(booking.getBookingCode())
-                .locationId(1L)
-                .actorType("SETTLEMENT")
-                .action("FINAL_BALANCE_RESOLVED")
-                .outcome("ACCEPTED")
-                .correlationReference(command.correlationReference())
-                .occurredAt(Instant.now())
-                .build();
-        auditEvidenceRepository.save(audit);
-
-        return FinalBalanceResolutionOutcome.accepted();
-    }
 
     @Override
     @Transactional(propagation = Propagation.MANDATORY)
@@ -437,33 +322,6 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade, Worksho
         return DepositPaymentEvidenceOutcome.accepted();
     }
 
-    @Override
-    @Transactional
-    public BookingCancellationOutcome cancelConfirmedBooking(CancelConfirmedBookingCommand command) {
-        if (command == null || command.bookingReference() == null || command.bookingReference().isBlank()) {
-            return BookingCancellationOutcome.rejected(BookingRejectionReason.NOT_READY);
-        }
-        WorkshopBooking booking = bookingRepository.findLockedByBookingCode(command.bookingReference().trim()).orElse(null);
-        if (booking == null) return BookingCancellationOutcome.rejected(BookingRejectionReason.NOT_READY);
-        if (booking.getBookingStatus() == BookingStatus.CANCELLED) return BookingCancellationOutcome.accepted();
-        if (booking.getBookingStatus() != BookingStatus.CONFIRMED) {
-            return BookingCancellationOutcome.rejected(BookingRejectionReason.INVALID_STATE);
-        }
-        booking.setBookingStatus(BookingStatus.CANCELLED);
-        booking.setCancelledAt(Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MICROS));
-        bookingRepository.save(booking);
-        auditEvidenceRepository.save(BookingAuditEvidence.builder()
-                .bookingCode(booking.getBookingCode())
-                .locationId(1L)
-                .actorType("CUSTOMER")
-                .action("CUSTOMER_CANCELLATION_NO_REFUND")
-                .outcome("ACCEPTED")
-                .correlationReference(command.correlationReference() == null ? "BOOKING-CANCEL" : command.correlationReference())
-                .actionReason("DIRECT_DEPOSIT_FORFEITED")
-                .occurredAt(Instant.now())
-                .build());
-        return BookingCancellationOutcome.accepted();
-    }
 
     @Override
     @Transactional

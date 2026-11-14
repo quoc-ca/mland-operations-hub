@@ -1,7 +1,6 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade;
 
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.ApplyVerifiedRefundConsequenceCommand;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.BookingAttendanceSummary;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.BookingSettlementReadinessQuery;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.BookingTicketProjectionQuery;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.CapacityCommitOutcome;
@@ -11,14 +10,11 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.Comm
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.DeliverySafeTicketSet;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.RefundConsequenceOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.ReleaseBookingHoldsCommand;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.ReplaceRequiredSessionsCommand;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.RequiredSessionReplacementOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.ReserveBookingCapacityCommand;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.PublishedPackageSelectionQuery;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.PublishedPackageSelectionSnapshot;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.SaleEligibilityQuery;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.SaleEligibilitySnapshot;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.SettlementReadiness;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.WorkshopOperationsFacade;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -176,33 +172,6 @@ public class WorkshopOperationsAdapter {
                 log.debug("WorkshopOperationsAdapter.getCurrentEntitlementProjection: bookingRef={}", bookingReference);
                 return workshopOperationsFacade
                                 .getBookingTicketProjection(new BookingTicketProjectionQuery(bookingReference));
-        }
-
-        public BookingAttendanceSummary getBookingAttendanceSummary(String bookingReference) {
-                log.debug("WorkshopOperationsAdapter.getBookingAttendanceSummary: bookingRef={}", bookingReference);
-                return workshopOperationsFacade
-                                .getBookingAttendanceSummary(new BookingSettlementReadinessQuery(bookingReference));
-        }
-
-        public SettlementReadiness getSettlementReadiness(String bookingReference) {
-                log.debug("WorkshopOperationsAdapter.getSettlementReadiness: bookingRef={}", bookingReference);
-                return workshopOperationsFacade
-                                .getSettlementReadiness(new BookingSettlementReadinessQuery(bookingReference));
-        }
-
-        public RequiredSessionReplacementOutcome replaceRequiredSessions(
-                        String bookingReference,
-                        List<UUID> completeTargetSessionReferences,
-                        String operationReference,
-                        String correlationReference) {
-                log.info("WorkshopOperationsAdapter.replaceRequiredSessions: bookingRef={}, targetSessions={}, opRef={}",
-                                bookingReference, completeTargetSessionReferences, operationReference);
-                return workshopOperationsFacade.replaceRequiredSessions(
-                                new ReplaceRequiredSessionsCommand(
-                                                bookingReference,
-                                                completeTargetSessionReferences,
-                                                operationReference,
-                                                correlationReference));
         }
 
         public RefundConsequenceOutcome applyVerifiedRefundConsequence(

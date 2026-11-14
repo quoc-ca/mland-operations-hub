@@ -458,7 +458,10 @@ class WorkshopCartBookingTest {
                 java.time.LocalDate.parse("2026-11-20")));
 
         assertThatThrownBy(() -> quoteService.quote(null, cart(line(7L, session, 3))))
-                .isInstanceOf(BookingConflictException.class);
+                .isInstanceOfSatisfying(CartHoldRejectedException.class, e -> {
+                    assertThat(e.getCode()).isEqualTo("CART_LINE_UNAVAILABLE");
+                    assertThat(e.getFailingLines()).containsExactly(0);
+                });
     }
 
     @Test

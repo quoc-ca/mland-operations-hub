@@ -12,6 +12,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.Faca
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.OperationsAuditEvent;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.TicketQrGeneration;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.TicketValidityState;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.TicketSalesChannel;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.OutcomeStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.RejectionReason;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.ReissueTicketQrCommand;
@@ -70,6 +71,10 @@ public class TicketQrReissueService {
         AttendanceTicket ticket = ticketRepository.findByReferenceWithLock(ticketRef.toString()).orElse(null);
         if (ticket == null) {
             return finish(claim, TicketQrReissueOutcome.rejected(ticketRef, RejectionReason.TICKET_NOT_FOUND));
+        }
+        if (ticket.getSalesChannel() == TicketSalesChannel.OTA) {
+            return finish(claim, TicketQrReissueOutcome.rejected(ticketRef,
+                    RejectionReason.OTA_TICKET_NOT_SUPPORTED));
         }
         if (ticket.getValidityState() != TicketValidityState.ACTIVE) {
             return finish(claim, TicketQrReissueOutcome.rejected(ticketRef, RejectionReason.INVALID_STATE));

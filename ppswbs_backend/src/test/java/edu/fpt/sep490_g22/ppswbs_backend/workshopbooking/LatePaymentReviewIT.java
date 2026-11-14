@@ -159,8 +159,8 @@ class LatePaymentReviewIT {
         assertThat(events.stream(LatePaymentReviewQueued.class)).isEmpty();
         List<BookingGroupNotificationIntent> sent = intents.findByGroupIdOrderByCreatedAtAsc(group.id());
         assertThat(sent).extracting(BookingGroupNotificationIntent::getNotificationKind)
-                .containsExactly(GroupNotificationService.KIND_GROUP_CONFIRMATION);
-        var confirmationEmail = notifications.readPayload(sent.getFirst().getNotificationReference());
+                .containsExactly(GroupNotificationService.KIND_GROUP_HOLD_EXPIRED, GroupNotificationService.KIND_GROUP_CONFIRMATION);
+        var confirmationEmail = notifications.readPayload(sent.get(1).getNotificationReference());
         assertThat(confirmationEmail.storedRecipient()).isEqualTo(BUYER_EMAIL);
         assertThat(confirmationEmail.renderedBookingContent()).contains("Thanh toán của bạn đến sau thời hạn");
         assertThat(confirmationEmail.renderedTicketArtifacts()).hasSize(2).allSatisfy(t -> assertThat(t).contains("QR: QR-"));
@@ -183,7 +183,7 @@ class LatePaymentReviewIT {
         assertThat(groups.findByGroupCode(group.code()).orElseThrow().getGroupStatus()).isEqualTo(BookingStatus.EXPIRED);
         assertThat(count("capacity_holds WHERE state = 'ACTIVE'")).isZero();
         assertThat(intents.findByGroupIdOrderByCreatedAtAsc(group.id())).extracting(BookingGroupNotificationIntent::getNotificationKind)
-                .containsExactlyInAnyOrder(GroupNotificationService.KIND_LATE_PAYMENT_PENDING,
+                .containsExactlyInAnyOrder(GroupNotificationService.KIND_GROUP_HOLD_EXPIRED, GroupNotificationService.KIND_LATE_PAYMENT_PENDING,
                         GroupNotificationService.KIND_LATE_PAYMENT_MANAGER_ALERT, GroupNotificationService.KIND_LATE_PAYMENT_MANAGER_ALERT);
         List<String> alertRecipients = new ArrayList<>();
         for (BookingGroupNotificationIntent intent : intents.findByGroupIdOrderByCreatedAtAsc(group.id())) {
@@ -228,7 +228,7 @@ class LatePaymentReviewIT {
                 .noneMatch(t -> t.getTicketStatus() == BookingStatus.CONFIRMED);
         // No Manager connected: no alert email, the review still waits in the queue.
         assertThat(intents.findByGroupIdOrderByCreatedAtAsc(group.id())).extracting(BookingGroupNotificationIntent::getNotificationKind)
-                .containsExactly(GroupNotificationService.KIND_LATE_PAYMENT_PENDING);
+                .containsExactly(GroupNotificationService.KIND_GROUP_HOLD_EXPIRED, GroupNotificationService.KIND_LATE_PAYMENT_PENDING);
     }
 
     @Test
@@ -405,7 +405,7 @@ class LatePaymentReviewIT {
         assertThat(onlyReview().getOutcome()).isEqualTo(LatePaymentReview.PENDING_MANAGER);
         assertThat(intents.findByGroupIdOrderByCreatedAtAsc(group.id()))
                 .extracting(BookingGroupNotificationIntent::getNotificationKind)
-                .containsExactly(GroupNotificationService.KIND_LATE_PAYMENT_PENDING);
+                .containsExactly(GroupNotificationService.KIND_GROUP_HOLD_EXPIRED, GroupNotificationService.KIND_LATE_PAYMENT_PENDING);
         assertThat(events.stream(LatePaymentReviewQueued.class)).hasSize(1);
     }
 

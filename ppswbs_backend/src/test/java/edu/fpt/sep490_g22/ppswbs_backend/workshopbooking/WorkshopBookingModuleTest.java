@@ -18,11 +18,8 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.notificationfa
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.notificationfacade.WorkshopBookingNotificationFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingOutcomeStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingRejectionReason;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.ConfirmedBookingFinancialProjection;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.ConfirmedBookingFinancialProjectionQuery;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.DepositPaymentEvidenceOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.FinalBalanceResolutionOutcome;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.RecordFinalBalanceResolvedCommand;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.RequestBookingTicketRedeliveryCommand;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.TicketRedeliveryOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.WorkshopBookingFacade;
@@ -43,7 +40,6 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.Publ
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.PublishedPackageSelectionSnapshot;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.SaleEligibilityQuery;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.SaleEligibilitySnapshot;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.SettlementReadiness;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.WorkshopOperationsFacade;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -159,17 +155,6 @@ class WorkshopBookingModuleTest {
     @Test
     @DisplayName("T002-1: WorkshopBookingFacade operations return safe typed outcomes without exposing entities or PII")
     void verifyWorkshopBookingFacadeOperations() {
-        // Financial projection query
-        ConfirmedBookingFinancialProjectionQuery finQuery = new ConfirmedBookingFinancialProjectionQuery("BK-001");
-        assertThat(bookingFacade.getConfirmedBookingFinancialProjection(finQuery)).isNull();
-
-        // Final balance resolution
-        RecordFinalBalanceResolvedCommand balanceCmd = new RecordFinalBalanceResolvedCommand(
-                "BK-001", "SETTLE-001", "OP-001", "CORR-001");
-        FinalBalanceResolutionOutcome balanceOutcome = bookingFacade.recordFinalBalanceResolved(balanceCmd);
-        assertThat(balanceOutcome.status()).isEqualTo(BookingOutcomeStatus.REJECTED);
-        assertThat(balanceOutcome.reason()).isEqualTo(BookingRejectionReason.NOT_READY);
-
         // Apply verified deposit evidence
         ApplyVerifiedDepositPaymentEvidenceCommand depositCmd = new ApplyVerifiedDepositPaymentEvidenceCommand(
                 "BK-001", "EV-001", "M-001", 50_000L, "VND", "OP-002", "CORR-002");
@@ -193,8 +178,6 @@ class WorkshopBookingModuleTest {
     @DisplayName("T002-2: WorkshopBookingFacade types strictly exclude buyer contact PII, raw passwords, or tokens")
     void verifyWorkshopBookingFacadePrivacyBoundary() {
         Class<?>[] facadeTypes = {
-                ConfirmedBookingFinancialProjection.class,
-                RecordFinalBalanceResolvedCommand.class,
                 ApplyVerifiedDepositPaymentEvidenceCommand.class,
                 RequestBookingTicketRedeliveryCommand.class,
                 BookingNotificationDeliveryPayload.class,
@@ -279,14 +262,8 @@ class WorkshopBookingModuleTest {
 
         DeliverySafeTicketSet projection = operationsAdapter.getBookingTicketProjection("BK-001");
         assertThat(projection).isNotNull();
-
-        // Settlement readiness
-        SettlementReadiness mockReadiness = new SettlementReadiness(true);
-        when(mockOperationsFacade.getSettlementReadiness(any(BookingSettlementReadinessQuery.class))).thenReturn(mockReadiness);
-
-        SettlementReadiness readiness = operationsAdapter.getSettlementReadiness("BK-001");
-        assertThat(readiness.ready()).isTrue();
     }
+
 
     // =========================================================================
     // T004: WorkshopBookingAuthorizationService

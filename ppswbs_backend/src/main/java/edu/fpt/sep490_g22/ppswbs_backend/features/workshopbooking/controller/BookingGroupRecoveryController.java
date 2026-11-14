@@ -13,6 +13,8 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.Bookin
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.BookingIdempotencyClaim;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.BookingIdempotencyService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.BookingValidationException;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.GroupRecoveryRateLimiter;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.CacheControl;
@@ -33,6 +35,7 @@ public class BookingGroupRecoveryController {
     private final BookingGroupRecoveryService recovery;
     private final BookingIdempotencyService idempotency;
     private final ObjectMapper mapper;
+    private final GroupRecoveryRateLimiter rateLimiter;
 
     @GetMapping("/workshop-booking-groups/{groupCode}")
     public ResponseEntity<BookingGroupView> readOwned(
@@ -48,7 +51,9 @@ public class BookingGroupRecoveryController {
     }
 
     @PostMapping("/workshop-booking-group-lookups")
-    public ResponseEntity<BookingGroupView> lookup(@Valid @RequestBody GroupLookupRequest request) {
+    public ResponseEntity<BookingGroupView> lookup(@Valid @RequestBody GroupLookupRequest request,
+                                                   HttpServletRequest http) {
+        rateLimiter.check("LOOKUP", request.groupCode(), http.getRemoteAddr());
         return noStore(recovery.lookupGuest(request.groupCode(), request.contactEmail(), request.contactPhone()));
     }
 
@@ -63,10 +68,12 @@ public class BookingGroupRecoveryController {
             @RequestHeader("Idempotency-Key") String idempotencyKey,
             @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId,
             @RequestHeader(value = "Authorization", required = false) String authorization,
-            @Valid @RequestBody GroupPendingHoldReleaseRequest request) {
+            @Valid @RequestBody GroupPendingHoldReleaseRequest request,
+            HttpServletRequest http) {
         requireKey(idempotencyKey);
         String correlation = correlation(correlationId);
         BookingGroupRecoveryService.Actor actor = recovery.resolveActor(authorization);
+        if (actor.anonymous()) rateLimiter.check("RELEASE", groupCode, http.getRemoteAddr());
         BookingIdempotencyClaim claim = idempotency.acquireClaim(idempotencyKey, "RELEASE_GROUP_PENDING_HOLD",
                 groupCode + "|" + proofKey(request.contactEmail(), request.contactPhone()) + "|"
                         + request.reason().trim() + "|" + actor.key(), correlation);
@@ -85,10 +92,12 @@ public class BookingGroupRecoveryController {
             @RequestHeader("Idempotency-Key") String idempotencyKey,
             @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId,
             @RequestHeader(value = "Authorization", required = false) String authorization,
-            @Valid @RequestBody(required = false) ContactProof request) {
+            @Valid @RequestBody(required = false) ContactProof request,
+            HttpServletRequest http) {
         requireKey(idempotencyKey);
         String correlation = correlation(correlationId);
         BookingGroupRecoveryService.Actor actor = recovery.resolveActor(authorization);
+        if (actor.anonymous()) rateLimiter.check("RESEND", groupCode, http.getRemoteAddr());
         String email = request == null ? null : request.contactEmail();
         String phone = request == null ? null : request.contactPhone();
         BookingIdempotencyClaim claim = idempotency.acquireClaim(idempotencyKey, "RESEND_GROUP_CONFIRMATION",

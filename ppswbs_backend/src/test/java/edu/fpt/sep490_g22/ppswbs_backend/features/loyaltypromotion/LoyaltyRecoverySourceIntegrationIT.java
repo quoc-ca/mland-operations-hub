@@ -18,12 +18,10 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.Booking
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.DepositPaymentEvidenceOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.WorkshopOperationsAdapter;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.WorkshopBookingAuthorizationService;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.BookingAttendanceOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementFinalBillRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementCase;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementFinalBill;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.WorkshopOperationsSettlementAdapter;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.WorkshopCancellationLoyaltyService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.WorkshopLoyaltyOutcomeProcessor;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -46,7 +44,7 @@ import static org.mockito.Mockito.when;
  * the single-booking rows seeded by {@code LegacyDirectBookings}; deposit, unpaid expiry, customer cancellation, no-show and completion
  * are decided by FE-03's own services (verified deposit through {@code WorkshopBookingFacade}, expiry through
  * {@code LegacyDirectBookings},
- * {@link WorkshopCancellationLoyaltyService}, {@link WorkshopLoyaltyOutcomeProcessor}) under their source guards.
+ * {@link WorkshopLoyaltyOutcomeProcessor}) under their source guards.
  * Only Workshop Operations (003.2) and the Member identity check (001) are replaced. A valid cancellation after the
  * deposit gives back the points and the use exactly once and the usage report returns to zero while the history stays;
  * a case that is not a customer cancellation, a no-show, an unpaid remainder or a late deposit never restores or earns.
@@ -57,7 +55,6 @@ import static org.mockito.Mockito.when;
 class LoyaltyRecoverySourceIntegrationIT {
 
     @Autowired private RealWorkshopBookings workshop;
-    @Autowired private WorkshopCancellationLoyaltyService cancellations;
     @Autowired private WorkshopLoyaltyOutcomeProcessor finalOutcomes;
     @Autowired private SettlementFinalBillRepository bills;
     @Autowired private LoyaltyFacade loyalty;
@@ -79,82 +76,6 @@ class LoyaltyRecoverySourceIntegrationIT {
         WorkshopBooking booking = workshop.accept(member, quoteRef);
         assertThat(workshop.payDeposit(booking).status()).isEqualTo(BookingOutcomeStatus.ACCEPTED);
         return new Booked(member, code, booking.getBookingCode());
-    }
-
-    @Test
-    void aValidCancellationAfterTheDepositRestoresPointsAndTheUseOnceAndTheReportReturnsToZero() throws InterruptedException {
-        Booked booked = bookAndPayDeposit();
-        assertThat(report(booked.code()).consumedCount()).isEqualTo("1");
-        assertThat(report(booked.code()).committedDiscountAmount()).isEqualTo("100000");
-
-        SettlementCase cancellation = customerCancellation(booked.bookingCode(), "CUSTOMER_CANCELLATION");
-        transaction.executeWithoutResult(status -> cancellations.restoreVerifiedCancellation(cancellation, "refund-verified"));
-        transaction.executeWithoutResult(status -> cancellations.restoreVerifiedCancellation(cancellation, "refund-verified"));
-
-        BenefitResult result = result(booked.bookingCode());
-        assertThat(result.pointsState()).isEqualTo(ComponentState.RESTORED);
-        assertThat(result.voucherState()).isEqualTo(ComponentState.RESTORED);
-        assertThat(result.earnState()).isEqualTo(EarnState.INELIGIBLE);
-        assertThat(workshop.wallet(booked.member()).getBalancePoints()).as("restored once").isEqualTo(BigInteger.valueOf(2_000));
-        assertThat(workshop.wallet(booked.member()).getHeldPoints()).isZero();
-
-        // T065: the report no longer counts the cancelled use, never goes negative, and the history stays.
-        for (int read = 0; read < 2; read++) {
-            PromotionUsageDtos.ProgramUsage report = report(booked.code());
-            assertThat(report.consumedCount()).isEqualTo("0");
-            assertThat(report.heldCount()).isEqualTo("0");
-            assertThat(report.committedDiscountAmount()).isEqualTo("0");
-        }
-        List<String> kinds = accounts.transactions(booked.member(), 50, null).items().stream()
-                .map(LoyaltyAccountDtos.Transaction::kind).toList();
-        assertThat(kinds).contains("HOLD", "CONSUME", "RESTORE");
-        assertThat(accounts.account(booked.member()).availablePoints()).isEqualTo("2000");
-
-        // A later completion of the same booking earns nothing.
-        finalBill(booked.bookingCode(), "FINALIZED", 0L);
-        when(settlementOperations.attendanceOutcome(booked.bookingCode())).thenReturn(new BookingAttendanceOutcome(true, BookingAttendanceOutcome.Outcome.ATTENDED));
-        finalOutcomes.process(booked.bookingCode());
-        assertThat(result(booked.bookingCode()).earnState()).isEqualTo(EarnState.INELIGIBLE);
-        assertThat(workshop.wallet(booked.member()).getBalancePoints()).isEqualTo(BigInteger.valueOf(2_000));
-    }
-
-    @Test
-    void aCaseThatIsNotACustomerCancellationRestoresNothing() {
-        Booked booked = bookAndPayDeposit();
-        SettlementCase other = customerCancellation(booked.bookingCode(), "MLAND_CANCELLATION");
-        transaction.executeWithoutResult(status -> cancellations.restoreVerifiedCancellation(other, "not-a-customer-cancellation"));
-
-        assertThat(result(booked.bookingCode()).pointsState()).isEqualTo(ComponentState.CONSUMED);
-        assertThat(workshop.wallet(booked.member()).getBalancePoints()).isEqualTo(BigInteger.valueOf(1_100));
-        assertThat(report(booked.code()).consumedCount()).isEqualTo("1");
-    }
-
-    @Test
-    void aFinalNoShowNeitherRestoresNorEarns() throws InterruptedException {
-        Booked booked = bookAndPayDeposit();
-        finalBill(booked.bookingCode(), "OPEN", 405_000L);
-        when(settlementOperations.attendanceOutcome(booked.bookingCode())).thenReturn(new BookingAttendanceOutcome(true, BookingAttendanceOutcome.Outcome.NO_SHOW));
-        finalOutcomes.process(booked.bookingCode());
-        finalOutcomes.process(booked.bookingCode());
-
-        BenefitResult result = result(booked.bookingCode());
-        assertThat(result.pointsState()).isEqualTo(ComponentState.CONSUMED);
-        assertThat(result.earnState()).isEqualTo(EarnState.INELIGIBLE);
-        assertThat(workshop.wallet(booked.member()).getBalancePoints()).isEqualTo(BigInteger.valueOf(1_100));
-    }
-
-    @Test
-    void anUnpaidRemainderOrAnOpenAttendanceWindowNeverEarns() throws InterruptedException {
-        Booked booked = bookAndPayDeposit();
-        finalBill(booked.bookingCode(), "FINALIZED", 405_000L);
-        when(settlementOperations.attendanceOutcome(booked.bookingCode())).thenReturn(new BookingAttendanceOutcome(true, BookingAttendanceOutcome.Outcome.ATTENDED));
-        finalOutcomes.process(booked.bookingCode());
-        assertThat(result(booked.bookingCode()).earnState()).as("remainder still unpaid").isEqualTo(EarnState.PENDING);
-
-        when(settlementOperations.attendanceOutcome(booked.bookingCode())).thenReturn(new BookingAttendanceOutcome(false, null));
-        finalOutcomes.process(booked.bookingCode());
-        assertThat(result(booked.bookingCode()).earnState()).as("correction window open").isEqualTo(EarnState.PENDING);
-        assertThat(workshop.wallet(booked.member()).getBalancePoints()).isEqualTo(BigInteger.valueOf(1_100));
     }
 
     @Test

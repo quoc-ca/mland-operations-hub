@@ -436,4 +436,28 @@ public class WorkshopSessionManagementIT {
         List<OperationsAuditEvent> auditEvents = auditEventRepository.findAll();
         assertThat(auditEvents.stream().anyMatch(e -> "CHECK_IN_OVERRIDE_CONFIGURED".equals(e.getAction()))).isTrue();
     }
+
+    @Test
+    @DisplayName("T111: a single session is DRAFT by default, PUBLISHED when asked, and CANCELLED is refused")
+    void singleSessionInitialState() throws Exception {
+        record Case(int daysAhead, SessionState initial, int expectedStatus, String expectedState) { }
+        for (Case c : List.of(
+                new Case(11, null, 201, "DRAFT"),
+                new Case(12, SessionState.PUBLISHED, 201, "PUBLISHED"),
+                new Case(13, SessionState.CANCELLED, 400, null))) {
+            SessionRequest.SessionRequestBuilder builder = SessionRequest.builder()
+                    .locationId(locationA.getId()).slotId(slotMorning.getReference())
+                    .workshopDate(LocalDate.now().plusDays(c.daysAhead())).capacity(12);
+            if (c.initial() != null) builder.initialState(c.initial());
+            var result = mockMvc.perform(post("/api/v1/workshop-sessions")
+                    .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
+                    .header("Authorization", MGR_A_TOKEN)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(builder.build())))
+                    .andExpect(status().is(c.expectedStatus()));
+            if (c.expectedState() != null) {
+                result.andExpect(jsonPath("$.state").value(c.expectedState()));
+            }
+        }
+    }
 }

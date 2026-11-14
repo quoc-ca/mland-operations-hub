@@ -212,7 +212,7 @@ public class AttendanceCorrectionService {
 
         AttendanceState previousState = entitlement.getAttendanceState();
         Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
-        ensureCorrectionWindowOpen(ticket.getBookingReference(), now);
+        ensureCorrectionWindowOpen(ticket.getReference(), now);
 
         // 1. Apply correction to entitlement
         entitlement.setAttendanceState(request.getCorrectedAttendanceState());
@@ -323,8 +323,8 @@ public class AttendanceCorrectionService {
                 .orElseThrow(() -> new WorkshopNotFoundException("Workshop session not found with reference or ID: " + sessionReference));
     }
 
-    private void ensureCorrectionWindowOpen(String bookingReference, Instant now) {
-        List<TicketSessionEntitlement> activeEntitlements = entitlementRepository.findActiveByBookingReference(bookingReference);
+    private void ensureCorrectionWindowOpen(String ticketReference, Instant now) {
+        List<TicketSessionEntitlement> activeEntitlements = entitlementRepository.findActiveByTicketReference(ticketReference);
         if (activeEntitlements.isEmpty() || activeEntitlements.stream()
                 .anyMatch(item -> item.getSession().getState() != SessionState.ATTENDANCE_FINALIZED)) {
             return;
@@ -334,8 +334,8 @@ public class AttendanceCorrectionService {
                 .toList();
         if (AttendanceCorrectionWindowPolicy.isClosed(finalizationTimes, now)
                 || AttendanceCorrectionWindowPolicy.closesAt(finalizationTimes).isEmpty()) {
-            log.warn("Attendance correction rejected: the 24-hour booking correction window has closed for booking {}", bookingReference);
-            throw new WorkshopLifecycleException("Attendance correction window has closed 24 hours after the last required session was finalized");
+            log.warn("Attendance correction rejected: the 24-hour ticket correction window has closed for ticket {}", ticketReference);
+            throw new WorkshopLifecycleException("Attendance correction window has closed 24 hours after the last session of this ticket was finalized");
         }
     }
 

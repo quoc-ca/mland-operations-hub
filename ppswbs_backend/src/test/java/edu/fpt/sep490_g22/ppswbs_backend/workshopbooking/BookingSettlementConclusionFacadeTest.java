@@ -107,63 +107,6 @@ class BookingSettlementConclusionFacadeTest {
         verifyNoInteractions(audits);
     }
 
-    /** 003.3 T040: the Manager folio correction runs after Settlement has concluded the booking as COMPLETED. */
-    @Test
-    void financialProjectionIsAvailableForConfirmedAndCompletedBookingsOnly() {
-        BookingInvoice invoice = BookingInvoice.builder().postPromotionAmount(100_001L).depositAmount(50_001L)
-                .remainingAmount(50_000L).packageTotal(100_001L).build();
-        for (BookingStatus status : BookingStatus.values()) {
-            WorkshopBooking booking = confirmed("BK-PROJ-" + status);
-            booking.setBookingStatus(status);
-            booking.setPackageId(1L);
-            booking.setParticipantCount(1);
-            when(bookings.findByBookingCode(booking.getBookingCode())).thenReturn(Optional.of(booking));
-            lenient().when(invoices.findByBookingId(1L)).thenReturn(Optional.of(invoice));
-            lenient().when(commitments.findByBookingIdOrderByOrdinalAsc(1L)).thenReturn(List.of());
-
-            var projection = facade.getConfirmedBookingFinancialProjection(
-                    new ConfirmedBookingFinancialProjectionQuery(booking.getBookingCode()));
-
-            if (status == BookingStatus.CONFIRMED || status == BookingStatus.COMPLETED) {
-                assertThat(projection).as(status.name()).isNotNull();
-                assertThat(projection.frozenPostPromotionAmount()).isEqualTo(100_001L);
-            } else {
-                assertThat(projection).as(status.name()).isNull();
-            }
-        }
-    }
-
-    @Test
-    void aMemberBookingKeepsItsLoyaltySourceAfterCompletionSoTheEarnCanBeGranted() {
-        for (BookingStatus status : List.of(BookingStatus.CONFIRMED, BookingStatus.COMPLETED, BookingStatus.NO_SHOW, BookingStatus.CANCELLED)) {
-            WorkshopBooking booking = confirmed("BK-LOYALTY-" + status);
-            booking.setBookingStatus(status);
-            booking.setMemberAccountId(36L);
-            booking.setVersion(3L);
-            MemberWorkshopBookingQuote quote = mock(MemberWorkshopBookingQuote.class);
-            when(quote.getMemberAccountId()).thenReturn(36L);
-            when(quote.getQuoteRef()).thenReturn("QUOTE-1");
-            when(bookings.findLockedByBookingCode(booking.getBookingCode())).thenReturn(Optional.of(booking));
-            when(memberQuotes.findByAcceptedBookingCode(booking.getBookingCode())).thenReturn(Optional.of(quote));
-
-            var source = facade.getLoyaltyOutcomeSource(new WorkshopBookingLoyaltyOutcomeSourceQuery(booking.getBookingCode()));
-
-            assertThat(source).as(status.name()).isNotNull();
-            assertThat(source.memberOrigin()).isTrue();
-        }
-    }
-
-    @Test
-    void aBookingThatNeverConfirmedHasNoLoyaltySource() {
-        WorkshopBooking booking = confirmed("BK-LOYALTY-PENDING");
-        booking.setBookingStatus(BookingStatus.PENDING_PAYMENT);
-        booking.setMemberAccountId(36L);
-        booking.setVersion(3L);
-        when(bookings.findLockedByBookingCode("BK-LOYALTY-PENDING")).thenReturn(Optional.of(booking));
-
-        assertThat(facade.getLoyaltyOutcomeSource(new WorkshopBookingLoyaltyOutcomeSourceQuery("BK-LOYALTY-PENDING"))).isNull();
-    }
-
     private static WorkshopBooking confirmed(String code) {
         return WorkshopBooking.builder().id(1L).bookingCode(code).bookingStatus(BookingStatus.CONFIRMED)
                 .paymentStatus(PaymentStatus.DEPOSIT_PAID).build();

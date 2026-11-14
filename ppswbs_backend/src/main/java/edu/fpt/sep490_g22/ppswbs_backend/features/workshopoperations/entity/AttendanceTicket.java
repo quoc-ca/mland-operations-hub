@@ -53,6 +53,12 @@ public class AttendanceTicket {
     @Builder.Default
     private TicketValidityState validityState = TicketValidityState.ACTIVE;
 
+    /** 003.2 FR-036: an OTA ticket is never cancelled, replaced or QR-reissued by Operations. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "sales_channel", nullable = false, length = 16)
+    @Builder.Default
+    private TicketSalesChannel salesChannel = TicketSalesChannel.DIRECT;
+
     @OneToMany(mappedBy = "ticket", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<TicketSessionEntitlement> sessionEntitlements = new ArrayList<>();

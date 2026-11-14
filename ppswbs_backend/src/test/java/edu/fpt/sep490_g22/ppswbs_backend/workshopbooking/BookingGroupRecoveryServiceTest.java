@@ -75,6 +75,22 @@ class BookingGroupRecoveryServiceTest {
         when(magicLinks.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
     }
 
+    /** T112 / FR-017a: a differently formatted phone is the same contact; another number still answers 404. */
+    @Test
+    void aDifferentlyFormattedPhoneProvesTheSameContact() {
+        for (String proof : List.of("+84 900 000 001", "84900000001", "0900-000-001", " 0900 000 001 ")) {
+            assertThat(service.lookupGuest(CODE, null, proof)).isSameAs(view);
+        }
+        assertThatThrownBy(() -> service.lookupGuest(CODE, null, "0900000002"))
+                .isInstanceOf(WorkshopBookingProblemException.class);
+    }
+
+    @Test
+    void aGroupStoredBeforeNormalisationStillMatches() {
+        group.setContactPhone("+84 900 000 001");
+        assertThat(service.lookupGuest(CODE, null, "0900000001")).isSameAs(view);
+    }
+
     private static AccountSummary account(long id, ActorRole role) {
         return new AccountSummary(id, role, ActorStatus.ACTIVE, "x@example.com", Instant.now(), Instant.now());
     }

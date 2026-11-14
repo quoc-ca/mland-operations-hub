@@ -39,6 +39,8 @@ public class GroupPaymentService {
 
     private final BookingGroupRepository groups;
     private final GroupPaymentAttemptRepository attempts;
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.TicketBookingRepository tickets;
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.TicketPriceSnapshotRepository priceSnapshots;
     private final PaymentGatewayCheckoutPort gateway;
     private final PaymentOwnerRegistrationPort owners;
     private final BookingIdempotencyService idempotency;
@@ -88,17 +90,18 @@ public class GroupPaymentService {
             attempts.save(current);
         }
 
+        long collection = recomputedCollectionVnd(group);
         // The link dies with the payment deadline, two minutes before the hold, never later.
         Instant expiresAt = group.getPaymentDeadlineAt();
         String merchantReference = "GRP-" + groupCode + "-" + UUID.randomUUID();
         String providerCreateDate = PROVIDER_DATE.format(now);
-        String url = gateway.createDepositUrl(merchantReference, groupCode, group.getGroupCollectionVnd(), now,
+        String url = gateway.createDepositUrl(merchantReference, groupCode, collection, now,
                 expiresAt, clientIp);
         GroupPaymentAttempt attempt = attempts.saveAndFlush(GroupPaymentAttempt.builder()
                 .group(group)
                 .attemptReference("GATT-" + UUID.randomUUID())
                 .merchantReference(merchantReference)
-                .amountVnd(group.getGroupCollectionVnd())
+                .amountVnd(collection)
                 .providerCreateDate(providerCreateDate)
                 .paymentUrlSnapshot(url)
                 .attemptStatus(PaymentAttemptStatus.PENDING)
@@ -108,6 +111,30 @@ public class GroupPaymentService {
         owners.registerOwner(merchantReference, groupCode, "DEPOSIT", attempt.getAmountVnd(), "VND",
                 providerCreateDate);
         return complete(claim, response(attempt));
+    }
+
+    /**
+     * FR-036: the money sent to the gateway is re-added from the tickets' own snapshots, never trusted from the
+     * stored group total. A total that differs, or one under the gateway minimum, is refused with a typed 409.
+     */
+    private long recomputedCollectionVnd(BookingGroup group) {
+        long sum = 0;
+        for (var ticket : tickets.findByGroupIdOrderByLineIndexAscParticipantOrdinalAsc(group.getId())) {
+            var snapshot = priceSnapshots.findByTicketId(ticket.getId()).orElseThrow(() ->
+                    new BookingCreationRejectedException("GROUP_COLLECTION_MISMATCH",
+                            "A ticket of this group has no price snapshot, so the payment cannot be created"));
+            sum = Math.addExact(sum, snapshot.getCollectedAtBookingVnd());
+        }
+        if (sum != group.getGroupCollectionVnd()) {
+            throw new BookingCreationRejectedException("GROUP_COLLECTION_MISMATCH",
+                    "The amount to collect no longer matches the tickets of this group");
+        }
+        if (sum < TicketBenefitAllocator.VNPAY_MINIMUM_VND) {
+            throw new BookingCreationRejectedException("GROUP_COLLECTION_BELOW_MINIMUM",
+                    "The amount to collect is below the gateway minimum of "
+                            + TicketBenefitAllocator.VNPAY_MINIMUM_VND + " VND");
+        }
+        return sum;
     }
 
     private GroupPaymentAttemptResponse complete(BookingIdempotencyClaim claim,
