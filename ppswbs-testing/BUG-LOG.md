@@ -7,7 +7,30 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
 
 ## Danh sách lỗi đang theo dõi (Active Defects)
 
-<!-- Không còn lỗi nào ở trạng thái OPEN. Tất cả 7 lỗi đã được khắc phục và nghiệm thu đóng hoàn toàn. -->
+## BUG-E2E-0008 — OPEN
+
+- Ngày mở: 2026-11-14
+- Phát hiện bởi: Senior QA & System Verification Engineer
+- Feature: 001-account-management
+- Kịch bản liên quan: [E2E-001-002](../ppswbs-spec/features/001-account-management/test-results/E2E-001-002--member-address-book-flow.md)
+- Mức độ nghiêm trọng: MAJOR
+- Phân loại / Gán cho: Frontend & Backend (Chưa triển khai cập nhật đặc tả sổ địa chỉ 2 cấp ngày 2026-11-14)
+- Mô tả lỗi: Biểu mẫu modal "Thêm địa chỉ nhận hàng mới" trên Frontend và API lưu trữ Backend đang hoạt động theo mô hình 4 cấp GHTK cũ (Tỉnh -> Huyện -> Xã -> Thôn/Ấp), tự động pre-fill họ tên từ Profile, không tuân thủ luồng nhập liệu tuần tự Shopee-style. Điều này mâu thuẫn trực tiếp với bản sửa đổi đặc tả ngày 2026-11-14 (FR-036, FR-037, FR-038, FR-041, FR-042) và OpenAPI schema `account-management.openapi.yaml`.
+- Các bước tái hiện:
+  1. Đăng nhập tài khoản Member (`qa-e2e-feat007@test.com`) trên hệ thống đang chạy Docker.
+  2. Điều hướng tới `http://localhost:5173/profile/addresses`.
+  3. Bấm nút `+ Thêm địa chỉ mới`.
+  4. Quan sát cấu trúc các trường nhập liệu trong modal.
+- Kết quả mong đợi (Theo spec.md sửa đổi ngày 2026-11-14):
+  - Giao diện địa giới 2 cấp: Tỉnh/Thành phố -> Phường/Xã/Khu vực đặc thù -> Địa chỉ chi tiết (Loại bỏ hoàn toàn trường Quận/Huyện và Thôn/Ấp).
+  - Form mở ra ở trạng thái trống hoàn toàn, KHÔNG prefill họ tên hay số điện thoại từ Hồ sơ cá nhân (FR-036).
+  - Nhập liệu tuần tự Shopee-style: Kích hoạt lần lượt Họ và tên -> Số điện thoại -> Tỉnh/Thành phố -> Phường/Xã -> Địa chỉ chi tiết (FR-037).
+- Thực tế quan sát:
+  - Form modal hiển thị đầy đủ 4 trường hành chính: Tỉnh / Thành phố, Quận / Huyện, Phường / Xã, Thôn / Ấp / Xóm / Bản (GHTK Cấp 4).
+  - Trường "Họ và tên người nhận *" bị tự động pre-fill giá trị `qa-e2e-feat007` từ Profile.
+  - Ô "Địa chỉ cụ thể (Số nhà, Tòa nhà, Tên đường)" hiển thị sẵn sàng cho nhập cùng lúc thay vì bị vô hiệu hóa chờ chọn Phường/Xã.
+- Bằng chứng:
+  - Screenshot: [BUG-E2E-0008--address-modal-spec-discrepancy.jpg](../ppswbs-spec/features/001-account-management/test-results/screenshots/BUG-E2E-0008--address-modal-spec-discrepancy.jpg)
 
 ---
 

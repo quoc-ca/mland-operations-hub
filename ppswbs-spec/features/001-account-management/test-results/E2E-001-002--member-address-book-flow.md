@@ -115,7 +115,13 @@ get url
 ## 6. Lịch sử thực thi
 
 <!-- EXECUTION:START -->
-- Latest status: NOT_RUN
-- Note: Cập nhật đặc tả ngày 2026-11-14 theo mô hình địa giới 2 cấp (Tỉnh -> Xã) và biểu mẫu tuần tự Shopee-style; kịch bản cần được chạy lại khi giao diện hoàn tất kết nối API danh mục mới.
+- Latest status: FAIL
+- Executed at: 2026-11-14 17:58:00
+- Executed by: Senior QA & System Verification Engineer
+- Browser tool: browsermcp
+- Failure step: Step 2 & Step 5 — Form structure mismatch with 2026-11-14 revision
+- Actual result: Form modal hiển thị mô hình 4 cấp GHTK cũ (Tỉnh/Thành phố, Quận/Huyện, Phường/Xã, Thôn/Ấp), tự động pre-fill họ tên từ Account Profile và không kích hoạt tuần tự theo chuẩn Shopee-style; vi phạm trực tiếp FR-036 & FR-037.
+- Evidence screenshot: screenshots/BUG-E2E-0008--address-modal-spec-discrepancy.jpg
+- Bug reference: BUG-E2E-0008
 - Previous execution: PASS (2026-11-09 trên mô hình 4 cấp cũ).
 <!-- EXECUTION:END -->

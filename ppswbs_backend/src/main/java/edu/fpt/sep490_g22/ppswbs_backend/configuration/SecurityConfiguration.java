@@ -66,6 +66,7 @@ public class SecurityConfiguration {
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers("/error").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/addresses/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/administrative-divisions/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/workshop-packages/*/locations").permitAll()
                 // Public session discovery for guest/member booking flow (no PII or ticket data exposed)
                 .requestMatchers(HttpMethod.GET, "/api/v1/workshop-packages/*/sessions").permitAll()

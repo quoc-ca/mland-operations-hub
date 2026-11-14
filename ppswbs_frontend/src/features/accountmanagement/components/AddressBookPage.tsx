@@ -211,7 +211,12 @@ export const AddressBookPage: React.FC = () => {
                 <div className="account-address-card-body">
                   <p className="account-address-detail">{addr.detailAddress}</p>
                   <p className="account-address-division">
-                    {[addr.hamletName, addr.wardName, addr.districtName, addr.provinceName]
+                    {[
+                      addr.hamletName,
+                      addr.communeName || addr.wardName,
+                      addr.districtName,
+                      addr.provinceName,
+                    ]
                       .filter(Boolean)
                       .join(', ')}
                   </p>

@@ -4,6 +4,8 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dao.MemberAd
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dto.request.AddressCreateRequest;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dto.request.AddressUpdateRequest;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dto.response.AddressResponse;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.AdministrativeCommune;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.AdministrativeProvince;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.MemberAddress;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,6 +22,7 @@ public class MemberAddressService {
     public static final int MAX_ADDRESS_LIMIT = 10;
 
     private final MemberAddressRepository addressRepository;
+    private final AdministrativeDivisionService divisionService;
 
     @Transactional(readOnly = true)
     public List<AddressResponse> getOwnAddresses(Long accountId) {
@@ -42,7 +45,18 @@ public class MemberAddressService {
             throw new AddressLimitExceededException("Cannot exceed maximum quota of " + MAX_ADDRESS_LIMIT + " shipping addresses");
         }
 
+        validateNoIsoControl(request.recipientName(), "Recipient name");
+        validateNoIsoControl(request.detailAddress(), "Detail address");
         String normalizedPhone = normalizePhoneNumber(request.phoneNumber());
+
+        String activeVersion = divisionService != null ? divisionService.getActiveDirectoryVersion() : AdministrativeDivisionService.DEFAULT_DIRECTORY_VERSION;
+        AdministrativeProvince province = divisionService != null
+            ? divisionService.resolveProvince(activeVersion, request.provinceCode())
+            : AdministrativeProvince.builder().code(request.provinceCode()).name(request.provinceCode()).build();
+        AdministrativeCommune commune = divisionService != null
+            ? divisionService.resolveCommune(activeVersion, request.provinceCode(), request.communeCode())
+            : AdministrativeCommune.builder().code(request.communeCode()).name(request.communeCode()).type(edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.CommuneType.WARD).build();
+
         boolean makeDefault = currentCount == 0 || request.resolvedIsDefault();
 
         if (makeDefault) {
@@ -56,17 +70,16 @@ public class MemberAddressService {
             .accountId(accountId)
             .recipientName(request.recipientName().trim())
             .phoneNumber(normalizedPhone)
-            .provinceId(request.provinceId() != null ? request.provinceId().trim() : null)
-            .provinceName(request.provinceName().trim())
-            .districtId(request.districtId() != null ? request.districtId().trim() : null)
-            .districtName(request.districtName().trim())
-            .wardId(request.wardId() != null ? request.wardId().trim() : null)
-            .wardName(request.wardName().trim())
-            .hamletId(request.hamletId() != null && !request.hamletId().isBlank() ? request.hamletId().trim() : null)
-            .hamletName(request.hamletName() != null && !request.hamletName().isBlank() ? request.hamletName().trim() : null)
+            .provinceCode(province.getCode())
+            .provinceName(province.getName())
+            .communeCode(commune.getCode())
+            .communeName(commune.getName())
+            .communeType(commune.getType())
             .detailAddress(request.detailAddress().trim())
+            .directoryVersion(activeVersion)
             .addressType(request.resolvedAddressType())
             .isDefault(makeDefault)
+            .version(0L)
             .build();
 
         MemberAddress saved = addressRepository.save(newAddress);
@@ -79,9 +92,23 @@ public class MemberAddressService {
         MemberAddress address = addressRepository.findByAccountIdAndId(accountId, addressId)
             .orElseThrow(() -> new AddressNotFoundException("Shipping address not found: " + addressId));
 
-        String normalizedPhone = normalizePhoneNumber(request.phoneNumber());
-        long currentCount = addressRepository.countByAccountId(accountId);
+        if (request.version() != null && !request.version().equals(address.getVersion())) {
+            throw new OptimisticLockConflictException("Stale optimistic lock version: expected " + request.version() + " but was " + address.getVersion());
+        }
 
+        validateNoIsoControl(request.recipientName(), "Recipient name");
+        validateNoIsoControl(request.detailAddress(), "Detail address");
+        String normalizedPhone = normalizePhoneNumber(request.phoneNumber());
+
+        String activeVersion = divisionService != null ? divisionService.getActiveDirectoryVersion() : address.getDirectoryVersion();
+        AdministrativeProvince province = divisionService != null
+            ? divisionService.resolveProvince(activeVersion, request.provinceCode())
+            : AdministrativeProvince.builder().code(request.provinceCode()).name(request.provinceCode()).build();
+        AdministrativeCommune commune = divisionService != null
+            ? divisionService.resolveCommune(activeVersion, request.provinceCode(), request.communeCode())
+            : AdministrativeCommune.builder().code(request.communeCode()).name(request.communeCode()).type(address.getCommuneType()).build();
+
+        long currentCount = addressRepository.countByAccountId(accountId);
         boolean wantsDefault = request.resolvedIsDefault();
         if (wantsDefault && !address.isDefault()) {
             addressRepository.findByAccountIdAndIsDefaultTrue(accountId).ifPresent(existingDefault -> {
@@ -98,15 +125,13 @@ public class MemberAddressService {
 
         address.setRecipientName(request.recipientName().trim());
         address.setPhoneNumber(normalizedPhone);
-        address.setProvinceId(request.provinceId() != null ? request.provinceId().trim() : null);
-        address.setProvinceName(request.provinceName().trim());
-        address.setDistrictId(request.districtId() != null ? request.districtId().trim() : null);
-        address.setDistrictName(request.districtName().trim());
-        address.setWardId(request.wardId() != null ? request.wardId().trim() : null);
-        address.setWardName(request.wardName().trim());
-        address.setHamletId(request.hamletId() != null && !request.hamletId().isBlank() ? request.hamletId().trim() : null);
-        address.setHamletName(request.hamletName() != null && !request.hamletName().isBlank() ? request.hamletName().trim() : null);
+        address.setProvinceCode(province.getCode());
+        address.setProvinceName(province.getName());
+        address.setCommuneCode(commune.getCode());
+        address.setCommuneName(commune.getName());
+        address.setCommuneType(commune.getType());
         address.setDetailAddress(request.detailAddress().trim());
+        address.setDirectoryVersion(activeVersion);
         if (request.addressType() != null) {
             address.setAddressType(request.addressType());
         }
@@ -164,25 +189,33 @@ public class MemberAddressService {
         return cleaned;
     }
 
+    private void validateNoIsoControl(String value, String fieldName) {
+        if (value != null) {
+            for (char c : value.toCharArray()) {
+                if (Character.isISOControl(c)) {
+                    throw new IllegalArgumentException(fieldName + " must not contain ISO control characters");
+                }
+            }
+        }
+    }
+
     private AddressResponse toResponse(MemberAddress entity) {
         return new AddressResponse(
             entity.getId(),
             entity.getRecipientName(),
             entity.getPhoneNumber(),
-            entity.getProvinceId(),
+            entity.getProvinceCode(),
             entity.getProvinceName(),
-            entity.getDistrictId(),
-            entity.getDistrictName(),
-            entity.getWardId(),
-            entity.getWardName(),
-            entity.getHamletId(),
-            entity.getHamletName(),
+            entity.getCommuneCode(),
+            entity.getCommuneName(),
+            entity.getCommuneType(),
             entity.getDetailAddress(),
+            entity.getDirectoryVersion(),
             entity.getAddressType(),
             entity.isDefault(),
+            entity.getVersion(),
             entity.getCreatedAt(),
             entity.getUpdatedAt()
         );
     }
 }
-

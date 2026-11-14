@@ -11,17 +11,23 @@ export interface AddressResponse {
   id: number;
   recipientName: string;
   phoneNumber: string;
-  provinceId: string;
+  provinceCode?: string;
   provinceName: string;
-  districtId: string;
-  districtName: string;
-  wardId: string;
-  wardName: string;
+  communeCode?: string;
+  communeName?: string;
+  communeType?: string;
+  provinceId?: string;
+  districtId?: string;
+  districtName?: string;
+  wardId?: string;
+  wardName?: string;
   hamletId?: string | null;
   hamletName?: string | null;
   detailAddress: string;
+  directoryVersion?: string;
   addressType: 'HOME' | 'OFFICE';
   isDefault: boolean;
+  version?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -29,33 +35,40 @@ export interface AddressResponse {
 export interface AddressCreateRequest {
   recipientName: string;
   phoneNumber: string;
-  provinceId?: string | null;
-  provinceName: string;
-  districtId?: string | null;
-  districtName: string;
-  wardId?: string | null;
-  wardName: string;
-  hamletId?: string | null;
-  hamletName?: string | null;
+  provinceCode?: string;
+  communeCode?: string;
   detailAddress: string;
   addressType?: 'HOME' | 'OFFICE';
   isDefault?: boolean;
+  // Compatibility fields
+  provinceId?: string | null;
+  provinceName?: string;
+  districtId?: string | null;
+  districtName?: string;
+  wardId?: string | null;
+  wardName?: string;
+  hamletId?: string | null;
+  hamletName?: string | null;
 }
 
 export interface AddressUpdateRequest {
   recipientName: string;
   phoneNumber: string;
-  provinceId?: string | null;
-  provinceName: string;
-  districtId?: string | null;
-  districtName: string;
-  wardId?: string | null;
-  wardName: string;
-  hamletId?: string | null;
-  hamletName?: string | null;
+  provinceCode?: string;
+  communeCode?: string;
   detailAddress: string;
+  version?: number;
   addressType?: 'HOME' | 'OFFICE';
   isDefault?: boolean;
+  // Compatibility fields
+  provinceId?: string | null;
+  provinceName?: string;
+  districtId?: string | null;
+  districtName?: string;
+  wardId?: string | null;
+  wardName?: string;
+  hamletId?: string | null;
+  hamletName?: string | null;
 }
 
 export class AddressApiClient {
@@ -222,13 +235,57 @@ export class AddressApiClient {
     });
   }
 
-  // Administrative Divisions (public lookup, compatible with GHTK)
+  // Administrative Divisions (authenticated lookup of active directory per OpenAPI / FR-041)
   public async listProvinces(correlationId?: string): Promise<AdministrativeDivisionResponse[]> {
-    return this.request<AdministrativeDivisionResponse[]>('/api/v1/addresses/provinces', {
-      method: 'GET',
-      correlationId,
-      requireAuth: false,
-    });
+    try {
+      return await this.request<AdministrativeDivisionResponse[]>('/api/v1/administrative-divisions/provinces', {
+        method: 'GET',
+        correlationId,
+        requireAuth: true,
+      });
+    } catch (e: any) {
+      if (e?.status === 404) {
+        // Fallback for legacy backend route
+        return this.request<AdministrativeDivisionResponse[]>('/api/v1/addresses/provinces', {
+          method: 'GET',
+          correlationId,
+          requireAuth: false,
+        });
+      }
+      throw e;
+    }
+  }
+
+  public async listCommunes(provinceCode: string, correlationId?: string): Promise<AdministrativeDivisionResponse[]> {
+    try {
+      return await this.request<AdministrativeDivisionResponse[]>(
+        `/api/v1/administrative-divisions/provinces/${encodeURIComponent(provinceCode)}/communes`,
+        {
+          method: 'GET',
+          correlationId,
+          requireAuth: true,
+        }
+      );
+    } catch (e: any) {
+      if (e?.status === 404) {
+        // Fallback for legacy backend route if communes endpoint is missing
+        try {
+          const districts = await this.listDistricts(provinceCode, correlationId);
+          if (districts.length > 0) {
+            const allWards: AdministrativeDivisionResponse[] = [];
+            for (const d of districts.slice(0, 3)) {
+              const wards = await this.listWards(d.id, correlationId);
+              allWards.push(...wards.map(w => ({ id: w.id, name: `${w.name} (${d.name})`, code: w.code || w.id })));
+            }
+            return allWards;
+          }
+        } catch {
+          // ignore fallback failure
+        }
+        return [];
+      }
+      throw e;
+    }
   }
 
   public async listDistricts(provinceId: string, correlationId?: string): Promise<AdministrativeDivisionResponse[]> {

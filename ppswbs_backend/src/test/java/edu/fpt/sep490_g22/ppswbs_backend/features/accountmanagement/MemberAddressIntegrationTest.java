@@ -12,6 +12,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.enums
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountId;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AddressType;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.CommuneType;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.MemberAddressSnapshot;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.service.TokenVerificationService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.service.VerifiedIdentity;
@@ -86,19 +87,13 @@ class MemberAddressIntegrationTest {
     }
 
     @Test
-    @DisplayName("US6: First address automatically becomes default, phone number normalized")
+    @DisplayName("US6: First address automatically becomes default, phone number normalized, 2-level directory resolved")
     void testFirstAddressAutoDefaultAndPhoneNormalization() throws Exception {
         AddressCreateRequest request = new AddressCreateRequest(
             "Nguyen Van A",
             "+84 901 234 567",
             "HCM",
-            "Thành phố Hồ Chí Minh",
-            "Q1",
-            "Quận 1",
             "PBN",
-            "Phường Bến Nghé",
-            null,
-            null,
             "123 Le Duan",
             AddressType.HOME,
             false // Even if false, first address becomes default
@@ -111,9 +106,11 @@ class MemberAddressIntegrationTest {
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.recipientName").value("Nguyen Van A"))
             .andExpect(jsonPath("$.phoneNumber").value("0901234567"))
+            .andExpect(jsonPath("$.provinceCode").value("HCM"))
             .andExpect(jsonPath("$.provinceName").value("Thành phố Hồ Chí Minh"))
-            .andExpect(jsonPath("$.districtName").value("Quận 1"))
-            .andExpect(jsonPath("$.wardName").value("Phường Bến Nghé"))
+            .andExpect(jsonPath("$.communeCode").value("PBN"))
+            .andExpect(jsonPath("$.communeName").value("Phường Bến Nghé"))
+            .andExpect(jsonPath("$.communeType").value("WARD"))
             .andExpect(jsonPath("$.isDefault").value(true))
             .andExpect(jsonPath("$.addressType").value("HOME"));
 
@@ -125,8 +122,7 @@ class MemberAddressIntegrationTest {
     void testDefaultSwappingOnAdd() throws Exception {
         // Address 1 (auto default)
         AddressCreateRequest req1 = new AddressCreateRequest(
-            "Nguyen Van A", "0901234567", "HCM", "TP HCM", "Q1", "Quận 1", "PBN", "Bến Nghé",
-            null, null, "123 Le Duan", AddressType.HOME, false
+            "Nguyen Van A", "0901234567", "HCM", "PBN", "123 Le Duan", AddressType.HOME, false
         );
         mockMvc.perform(post("/api/v1/accounts/me/addresses")
                 .header("Authorization", "Bearer " + token)
@@ -137,8 +133,7 @@ class MemberAddressIntegrationTest {
 
         // Address 2 (set default = true explicitly)
         AddressCreateRequest req2 = new AddressCreateRequest(
-            "Nguyen Van B", "0909888777", "HN", "Hà Nội", "HK", "Hoàn Kiếm", "PHB", "Hàng Bạc",
-            null, null, "456 Trang Tien", AddressType.OFFICE, true
+            "Nguyen Van B", "0909888777", "HN", "PHB", "456 Trang Tien", AddressType.OFFICE, true
         );
         mockMvc.perform(post("/api/v1/accounts/me/addresses")
                 .header("Authorization", "Bearer " + token)
@@ -169,13 +164,12 @@ class MemberAddressIntegrationTest {
     void testQuotaLimitRejection() throws Exception {
         for (int i = 1; i <= 10; i++) {
             AddressCreateRequest req = new AddressCreateRequest(
-                "Recipient " + i, "090123456" + (i % 10), "HCM", "TP HCM", "Q1", "Quận 1", "PBN", "Bến Nghé",
-                null, null, "Detail " + i, AddressType.HOME, false
+                "Recipient " + i, "090123456" + (i % 10), "HCM", "PBN", "Detail " + i, AddressType.HOME, false
             );
             mockMvc.perform(post("/api/v1/accounts/me/addresses")
-                    .header("Authorization", "Bearer " + token)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(objectMapper.writeValueAsString(req)))
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isCreated());
         }
 
@@ -183,8 +177,7 @@ class MemberAddressIntegrationTest {
 
         // 11th address should fail with 409
         AddressCreateRequest req11 = new AddressCreateRequest(
-            "Recipient 11", "0901234567", "HCM", "TP HCM", "Q1", "Quận 1", "PBN", "Bến Nghé",
-            null, null, "Detail 11", AddressType.HOME, false
+            "Recipient 11", "0901234567", "HCM", "PBN", "Detail 11", AddressType.HOME, false
         );
         mockMvc.perform(post("/api/v1/accounts/me/addresses")
                 .header("Authorization", "Bearer " + token)
@@ -199,8 +192,7 @@ class MemberAddressIntegrationTest {
     void testDeleteProtectionForDefaultAddress() throws Exception {
         // Create 2 addresses
         AddressCreateRequest req1 = new AddressCreateRequest(
-            "Address 1", "0901234567", "HCM", "TP HCM", "Q1", "Quận 1", "PBN", "Bến Nghé",
-            null, null, "Detail 1", AddressType.HOME, false
+            "Address 1", "0901234567", "HCM", "PBN", "Detail 1", AddressType.HOME, false
         );
         String res1Str = mockMvc.perform(post("/api/v1/accounts/me/addresses")
                 .header("Authorization", "Bearer " + token)
@@ -211,8 +203,7 @@ class MemberAddressIntegrationTest {
         long id1 = objectMapper.readTree(res1Str).get("id").asLong();
 
         AddressCreateRequest req2 = new AddressCreateRequest(
-            "Address 2", "0901234568", "HCM", "TP HCM", "Q1", "Quận 1", "PBN", "Bến Nghé",
-            null, null, "Detail 2", AddressType.OFFICE, false
+            "Address 2", "0901234568", "HCM", "PBN", "Detail 2", AddressType.OFFICE, false
         );
         String res2Str = mockMvc.perform(post("/api/v1/accounts/me/addresses")
                 .header("Authorization", "Bearer " + token)
@@ -247,8 +238,7 @@ class MemberAddressIntegrationTest {
     @DisplayName("US6: Set default address via PATCH /{addressId}/default")
     void testSetDefaultAddressViaPatch() throws Exception {
         AddressCreateRequest req1 = new AddressCreateRequest(
-            "Address 1", "0901234567", "HCM", "TP HCM", "Q1", "Quận 1", "PBN", "Bến Nghé",
-            null, null, "Detail 1", AddressType.HOME, false
+            "Address 1", "0901234567", "HCM", "PBN", "Detail 1", AddressType.HOME, false
         );
         String res1Str = mockMvc.perform(post("/api/v1/accounts/me/addresses")
                 .header("Authorization", "Bearer " + token)
@@ -259,8 +249,7 @@ class MemberAddressIntegrationTest {
         long id1 = objectMapper.readTree(res1Str).get("id").asLong();
 
         AddressCreateRequest req2 = new AddressCreateRequest(
-            "Address 2", "0901234568", "HCM", "TP HCM", "Q1", "Quận 1", "PBN", "Bến Nghé",
-            null, null, "Detail 2", AddressType.OFFICE, false
+            "Address 2", "0901234568", "HCM", "PBN", "Detail 2", AddressType.OFFICE, false
         );
         String res2Str = mockMvc.perform(post("/api/v1/accounts/me/addresses")
                 .header("Authorization", "Bearer " + token)
@@ -283,33 +272,37 @@ class MemberAddressIntegrationTest {
     }
 
     @Test
-    @DisplayName("US6: Public administrative division cascading lookup")
+    @DisplayName("US6: Public administrative division 2-level cascading lookup (Province -> Commune)")
     void testAdministrativeDivisionLookup() throws Exception {
-        // Provinces (no auth required)
-        mockMvc.perform(get("/api/v1/addresses/provinces"))
+        // Provinces
+        mockMvc.perform(get("/api/v1/administrative-divisions/provinces"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$[?(@.id == 'HCM')].name").value("Thành phố Hồ Chí Minh"))
             .andExpect(jsonPath("$[?(@.id == 'HN')].name").value("Thành phố Hà Nội"));
 
-        // Districts for HCM
-        mockMvc.perform(get("/api/v1/addresses/districts").param("provinceId", "HCM"))
+        // Communes for HN (includes Phường Hàng Trống from E2E-001-002)
+        mockMvc.perform(get("/api/v1/administrative-divisions/provinces/HN/communes"))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$[?(@.id == 'Q1')].name").value("Quận 1"))
-            .andExpect(jsonPath("$[?(@.id == 'TD')].name").value("Thành phố Thủ Đức"));
+            .andExpect(jsonPath("$[?(@.id == 'PHTR')].name").value("Phường Hàng Trống"))
+            .andExpect(jsonPath("$[?(@.id == 'PTT')].name").value("Phường Tràng Tiền"));
 
-        // Wards for Q1
-        mockMvc.perform(get("/api/v1/addresses/wards").param("districtId", "Q1"))
+        // Communes for HCM
+        mockMvc.perform(get("/api/v1/administrative-divisions/provinces/HCM/communes"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$[?(@.id == 'PBN')].name").value("Phường Bến Nghé"))
             .andExpect(jsonPath("$[?(@.id == 'PBT')].name").value("Phường Bến Thành"));
+
+        // Legacy compatibility alias
+        mockMvc.perform(get("/api/v1/addresses/provinces"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[?(@.id == 'HCM')].name").value("Thành phố Hồ Chí Minh"));
     }
 
     @Test
     @DisplayName("US6 / WF-10: AccountFacade shipping address snapshot for FE-008")
     void testAccountFacadeShippingAddressSnapshot() throws Exception {
         AddressCreateRequest req = new AddressCreateRequest(
-            "Le Thi C", "0987654321", "HCM", "Thành phố Hồ Chí Minh", "Q1", "Quận 1", "PBN", "Phường Bến Nghé",
-            null, null, "789 Dong Khoi", AddressType.OFFICE, true
+            "Le Thi C", "0987654321", "HCM", "PBN", "789 Dong Khoi", AddressType.OFFICE, true
         );
         String resStr = mockMvc.perform(post("/api/v1/accounts/me/addresses")
                 .header("Authorization", "Bearer " + token)
@@ -325,6 +318,11 @@ class MemberAddressIntegrationTest {
         MemberAddressSnapshot snapshot1 = defaultOpt.get();
         assertThat(snapshot1.recipientName()).isEqualTo("Le Thi C");
         assertThat(snapshot1.phoneNumber()).isEqualTo("0987654321");
+        assertThat(snapshot1.provinceCode()).isEqualTo("HCM");
+        assertThat(snapshot1.provinceName()).isEqualTo("Thành phố Hồ Chí Minh");
+        assertThat(snapshot1.communeCode()).isEqualTo("PBN");
+        assertThat(snapshot1.communeName()).isEqualTo("Phường Bến Nghé");
+        assertThat(snapshot1.communeType()).isEqualTo(CommuneType.WARD);
         assertThat(snapshot1.detailAddress()).isEqualTo("789 Dong Khoi");
         assertThat(snapshot1.addressType()).isEqualTo(AddressType.OFFICE);
 
@@ -335,8 +333,7 @@ class MemberAddressIntegrationTest {
 
         // 3. Immutability verification: mutate the address in DB/API
         AddressUpdateRequest updateReq = new AddressUpdateRequest(
-            "Le Thi C Updated", "0987654321", "HCM", "Thành phố Hồ Chí Minh", "Q1", "Quận 1", "PBN", "Phường Bến Nghé",
-            null, null, "New Street 999", AddressType.HOME, true
+            "Le Thi C Updated", "0987654321", "HCM", "PBN", "New Street 999", AddressType.HOME, true, 0L
         );
         mockMvc.perform(put("/api/v1/accounts/me/addresses/" + addressId)
                 .header("Authorization", "Bearer " + token)
@@ -350,4 +347,3 @@ class MemberAddressIntegrationTest {
         assertThat(snapshot1.addressType()).isEqualTo(AddressType.OFFICE);
     }
 }
-
