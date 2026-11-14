@@ -75,13 +75,13 @@ requests --filter "/resend"
 ## 5. Kết quả thực thi (Execution History)
 
 <!-- EXECUTION:START -->
-- Latest status: NOT_RUN
-- Executed at: NOT_RUN
-- Executed by: NOT_RUN
+- Latest status: PASS
+- Executed at: 2026-11-14 04:42:54
+- Executed by: Senior QA & System Verification Engineer
 - Browser tool: browsermcp
-- Failure step: NOT_RUN
-- Actual result: NOT_RUN
-- Evidence screenshot: NOT_RUN
+- Failure step: None
+- Actual result: Cổng phản biện đối kháng kiểm tra đúng hai tầng: Tài khoản vai trò MANAGER bị chặn hoàn toàn không cho phép gửi lại thư UNKNOWN_OUTCOME ("Từ chối quyền: Chỉ Quản trị viên (ADMIN) mới có quyền gửi lại"). Tài khoản ADMIN được hiển thị checkbox xác nhận chấp nhận rủi ro nhận thư trùng; sau khi tích chọn và nhập lý do, hệ thống cho phép tạo yêu cầu gửi lại (#1007) và ghi vết kiểm toán đầy đủ.
+- Evidence screenshot: screenshots/E2E-007-010--unknown-outcome-resend.jpg
 - Bug reference: NONE
 <!-- EXECUTION:END -->
 

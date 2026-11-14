@@ -61,13 +61,13 @@ console --errors
 ## 5. Kết quả thực thi (Execution History)
 
 <!-- EXECUTION:START -->
-- Latest status: NOT_RUN
-- Executed at: NOT_RUN
-- Executed by: NOT_RUN
+- Latest status: PASS
+- Executed at: 2026-11-14 04:40:13
+- Executed by: Senior QA & System Verification Engineer
 - Browser tool: browsermcp
-- Failure step: NOT_RUN
-- Actual result: NOT_RUN
-- Evidence screenshot: NOT_RUN
+- Failure step: None
+- Actual result: Drawer chi tiết yêu cầu #1001 mở trơn tru. Hiển thị đầy đủ thông tin chẩn đoán, masked recipient, nhật ký lần gửi (Attempts) và nhật ký kiểm toán (Audit Trail).
+- Evidence screenshot: screenshots/E2E-007-007--diagnostic-drawer.jpg
 - Bug reference: NONE
 <!-- EXECUTION:END -->
 

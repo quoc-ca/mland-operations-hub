@@ -159,6 +159,8 @@ public class OperationalService {
                     "Chỉ có thể gửi lại yêu cầu ở trạng thái SENT hoặc FAILED. Trạng thái hiện tại: " + state);
         }
 
+        NotificationRequest rootRequest = resolveRootRequest(original);
+
         // Clone NotificationRequest
         NotificationRequest newRequest = new NotificationRequest();
         newRequest.setBusinessEventReference(original.getBusinessEventReference());
@@ -170,17 +172,25 @@ public class OperationalService {
         newRequest.setRecipientSnapshot(original.getRecipientSnapshot());
         newRequest.setBusinessDataSnapshot(original.getBusinessDataSnapshot());
         newRequest.setArtifactReference(original.getArtifactReference());
-        newRequest.setCredentialReference(original.getCredentialReference());
-        newRequest.setCredentialExpiresAt(original.getCredentialExpiresAt());
+        if (original.getCredentialExpiresAt() == null || original.getCredentialExpiresAt().isAfter(Instant.now())) {
+            newRequest.setCredentialReference(original.getCredentialReference());
+            newRequest.setCredentialExpiresAt(original.getCredentialExpiresAt());
+        } else {
+            newRequest.setCredentialReference(null);
+            newRequest.setCredentialExpiresAt(null);
+        }
         newRequest.setDeliveryState("PENDING");
         newRequest.setAttemptCount(0);
         newRequest.setNextAttemptAt(Instant.now());
-        newRequest.setOriginalRequest(original);
+        newRequest.setOriginalRequest(rootRequest);
 
         NotificationRequest saved = notificationRequestRepository.save(newRequest);
 
         // Copy Rendition if exists
         Optional<Rendition> origRendition = renditionRepository.findByNotificationRequestId(original.getId());
+        if (origRendition.isEmpty() && !original.getId().equals(rootRequest.getId())) {
+            origRendition = renditionRepository.findByNotificationRequestId(rootRequest.getId());
+        }
         origRendition.ifPresent(r -> {
             Rendition newR = new Rendition();
             newR.setNotificationRequest(saved);
@@ -203,11 +213,12 @@ public class OperationalService {
         audit.setDuplicateRiskAccepted(Boolean.TRUE.equals(command.duplicateRiskAccepted()));
         operationalAuditRepository.save(audit);
 
-        log.info("Operational resend created new request {} from original request {}", saved.getId(), original.getId());
+        log.info("Operational resend created new request {} (root {}) from selected request {}",
+                saved.getId(), rootRequest.getId(), original.getId());
 
         return ResendResponse.builder()
                 .newRequestId(saved.getId())
-                .originalRequestId(original.getId())
+                .originalRequestId(rootRequest.getId())
                 .deliveryState("PENDING")
                 .createdAt(saved.getCreatedAt())
                 .message("Resend request enqueued successfully.")
@@ -275,6 +286,8 @@ public class OperationalService {
                 .orElseThrow(() -> NotificationManagementException.notFound("REQUEST_NOT_FOUND",
                         "Notification request not found with ID: " + id));
 
+        NotificationRequest rootRequest = resolveRootRequest(original);
+
         NotificationRequest newRequest = new NotificationRequest();
         newRequest.setBusinessEventReference(original.getBusinessEventReference());
         newRequest.setTemplateCode(original.getTemplateCode());
@@ -285,14 +298,30 @@ public class OperationalService {
         newRequest.setRecipientSnapshot(original.getRecipientSnapshot());
         newRequest.setBusinessDataSnapshot(original.getBusinessDataSnapshot());
         newRequest.setArtifactReference(original.getArtifactReference());
-        newRequest.setCredentialReference(original.getCredentialReference());
-        newRequest.setCredentialExpiresAt(original.getCredentialExpiresAt());
+        // FR-019: For expired or revoked credentials, MUST NOT copy the expired or revoked credential
+        newRequest.setCredentialReference(null);
+        newRequest.setCredentialExpiresAt(null);
         newRequest.setDeliveryState("PENDING");
         newRequest.setAttemptCount(0);
         newRequest.setNextAttemptAt(Instant.now());
-        newRequest.setOriginalRequest(original);
+        newRequest.setOriginalRequest(rootRequest);
 
         NotificationRequest saved = notificationRequestRepository.save(newRequest);
+
+        // Copy Rendition if exists from selected or root request
+        Optional<Rendition> origRendition = renditionRepository.findByNotificationRequestId(original.getId());
+        if (origRendition.isEmpty() && !original.getId().equals(rootRequest.getId())) {
+            origRendition = renditionRepository.findByNotificationRequestId(rootRequest.getId());
+        }
+        origRendition.ifPresent(r -> {
+            Rendition newR = new Rendition();
+            newR.setNotificationRequest(saved);
+            newR.setRenderedSubject(r.getRenderedSubject());
+            newR.setRenderedHtml(r.getRenderedHtml());
+            newR.setRenderedPlainText(r.getRenderedPlainText());
+            newR.setRenderedAt(Instant.now());
+            renditionRepository.save(newR);
+        });
 
         String actorId = actor.accountId() != null ? String.valueOf(actor.accountId()) : "system";
         String actorRole = actor.role() != null ? actor.role().name() : "";
@@ -308,15 +337,24 @@ public class OperationalService {
         audit.setDuplicateRiskAccepted(false);
         operationalAuditRepository.save(audit);
 
-        log.info("Redeliver with refreshed credential created new request {} from original {}", saved.getId(), original.getId());
+        log.info("Redeliver with refreshed credential created new request {} (root {}) from selected {}",
+                saved.getId(), rootRequest.getId(), original.getId());
 
         return RedeliverResponse.builder()
                 .newRequestId(saved.getId())
-                .originalRequestId(original.getId())
+                .originalRequestId(rootRequest.getId())
                 .deliveryState("PENDING")
                 .createdAt(saved.getCreatedAt())
                 .message("Redelivery request enqueued with replacement credential.")
                 .build();
+    }
+
+    private NotificationRequest resolveRootRequest(NotificationRequest request) {
+        NotificationRequest root = request;
+        while (root.getOriginalRequest() != null) {
+            root = root.getOriginalRequest();
+        }
+        return root;
     }
 }
 

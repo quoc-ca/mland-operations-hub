@@ -282,6 +282,8 @@ Inspect detailed diagnostics for a single request, including attempt history and
 ### 2.3. `POST /api/v1/notification-requests/{id}/resend`
 Manually resend an eligible sent or remediated failed request with an auditable reason.
 
+Repeated eligible manual resend actions are permitted in V1. This endpoint has no client-supplied idempotency-key contract; each accepted invocation creates one derived request.
+
 - **Actor**: `ADMIN`, `MANAGER`
 - **Eligibility**:
   - Request must be in `SENT` or `FAILED`.
@@ -338,6 +340,8 @@ Cancel a pending or scheduled delivery request with an auditable reason.
 
 ### 2.5. `POST /api/v1/notification-requests/{id}/redeliver`
 Request redelivery with a refreshed credential (when original credential/link expired or was revoked).
+
+The service resolves the root/original request for lineage, asks the owning source feature to authorize and supply a replacement credential/artifact, and creates the derived request only when that succeeds. It MUST NOT reuse the expired or revoked credential. Repeated eligible manual redelivery actions are permitted in V1; this endpoint has no client-supplied idempotency-key contract.
 
 - **Actor**: `ADMIN`, `MANAGER`
 - **Request Body**:

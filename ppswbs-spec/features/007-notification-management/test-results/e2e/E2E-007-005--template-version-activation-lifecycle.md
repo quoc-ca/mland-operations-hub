@@ -65,13 +65,13 @@ requests --filter "/activate"
 ## 5. Kết quả thực thi (Execution History)
 
 <!-- EXECUTION:START -->
-- Latest status: NOT_RUN
-- Executed at: NOT_RUN
-- Executed by: NOT_RUN
+- Latest status: PASS
+- Executed at: 2026-11-14 04:37:14
+- Executed by: Senior QA & System Verification Engineer
 - Browser tool: browsermcp
-- Failure step: NOT_RUN
-- Actual result: NOT_RUN
-- Evidence screenshot: NOT_RUN
+- Failure step: None
+- Actual result: Modal xác nhận kích hoạt phiên bản v2 hiển thị chính xác. Khi bấm 'Xác nhận kích hoạt', hệ thống kích hoạt Version 2 thành công ('Đang áp dụng') và chuyển Version 1 trước đó sang trạng thái 'Lưu trữ'.
+- Evidence screenshot: screenshots/E2E-007-005--version-activated.jpg
 - Bug reference: NONE
 <!-- EXECUTION:END -->
 

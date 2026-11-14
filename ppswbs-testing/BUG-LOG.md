@@ -9,6 +9,37 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
 
 <!-- Ghi nhận lỗi mới nhất lên trên đầu theo mẫu dưới đây -->
 
+## BUG-E2E-0004 — OPEN
+
+- Ngày phát hiện: 2026-11-14
+- Phát hiện bởi: Senior QA & System Verification Engineer
+- Feature: 007-notification-management
+- Kịch bản liên quan: [E2E-007-011](../ppswbs-spec/features/007-notification-management/test-results/e2e/E2E-007-011--redeliver-with-refreshed-credential.md)
+- Mức độ nghiêm trọng: MAJOR
+- Phân loại / Gán cho: Backend / Database Schema
+- Mô tả lỗi: 
+  Endpoint `POST /api/v1/notification-requests/{id}/redeliver` trả về lỗi HTTP 500 (Internal Server Error) do xung đột ràng buộc toàn vẹn cơ sở dữ liệu `DataIntegrityViolationException`.
+  Khi một yêu cầu gửi thông báo gốc (`original_request_id`) đã từng phát sinh một yêu cầu gửi lại (resend hoặc redeliver trước đó, ví dụ tạo request #1005 từ request gốc #1001), việc thực hiện thao tác redeliver (hoặc resend lần thứ 2) trên cùng request gốc #1001 sẽ cố gắng chèn một bản ghi mới với cùng bộ giá trị:
+  `(business_event_reference, template_code, recipient_role, recipient_address_fingerprint, original_request_id = 1001)`.
+  Ràng buộc `uq_nr_idempotency` trong Flyway migration `V111__notification_management.sql`:
+  ```sql
+  UNIQUE KEY uq_nr_idempotency (business_event_reference, template_code, recipient_role, recipient_address_fingerprint, original_request_id)
+  ```
+  từ chối bản ghi thứ 2, dẫn tới Crash 500 ở backend thay vì xử lý mượt mà hoặc cấp định danh/chu kỳ phân biệt.
+- Các bước tái hiện:
+  1. Đăng nhập hệ thống với tài khoản Quản trị / Quản lý có quyền (`ADMIN` hoặc `MANAGER`).
+  2. Truy cập màn hình Quản lý Yêu cầu gửi thông báo: `http://localhost:5173/admin/notifications/requests`.
+  3. Mở chi tiết request #1001 (đã có request con gửi lại #1005).
+  4. Bấm "Gửi lại với link/vé mới".
+  5. Nhập lý do: "Khách hàng liên hệ xin link mới do link 24h đã hết hạn" và bấm "Xác nhận cấp lại và gửi".
+- Kết quả mong đợi: Hệ thống tạo yêu cầu gửi lại thành công với mã liên kết mới (HTTP 201 Created) hoặc thông báo rõ ràng về giới hạn số lần gửi lại.
+- Thực tế quan sát: Backend throw `DataIntegrityViolationException: Duplicate entry 'BK-20261106-001-BOOKING_CONFIRMED-CUSTOMER-fp1001-1001' for key 'notification_request.uq_nr_idempotency'`, Frontend hiển thị lỗi 500.
+- Bằng chứng:
+  - Screenshot: ![Lỗi Redeliver 500](../ppswbs-spec/features/007-notification-management/test-results/e2e/screenshots/E2E-007-011--redeliver-with-refreshed-credential.jpg)
+- Đề xuất khắc phục (Backend / Database):
+  - Xem xét lại thiết kế ràng buộc `uq_nr_idempotency`: Nếu cho phép nhiều lần gửi lại hoặc redelivery trên cùng một request gốc, cần bổ sung cột version / attempt_number hoặc sequence id vào unique constraint, hoặc chỉ áp dụng idempotency cho initial requests (`original_request_id IS NULL`), còn requests con (`original_request_id IS NOT NULL`) cần có idempotency key riêng (ví dụ `client_token` hoặc `resend_cycle`).
+
+
 <!--
 ## BUG-E2E-0000 — OPEN
 

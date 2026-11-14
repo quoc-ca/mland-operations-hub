@@ -544,6 +544,62 @@ public class NotificationManagementIT {
         assertThat(audits).anyMatch(a -> "REDELIVER_REFRESHED_CREDENTIAL".equals(a.getActionType()));
     }
 
+    @Test
+    @DisplayName("T034: Multiple eligible resend and redelivery requests linked to same root succeed without unique constraint collision")
+    void verifyMultipleResendAndRedeliverOnSameRootSucceeds() {
+        NotificationRequest root = createTestRequest("SENT");
+        root.setBusinessDataSnapshot("{\"bookingCode\":\"BK-MULTI-001\"}");
+        root = notificationRequestRepository.save(root);
+
+        edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.CurrentAccountActor managerActor =
+                new edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.CurrentAccountActor(
+                        1L,
+                        edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorRole.MANAGER,
+                        edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorStatus.ACTIVE,
+                        true,
+                        List.of()
+                );
+
+        // 1. First resend from root
+        ResendRequestCommand resendCmd1 = ResendRequestCommand.builder()
+                .reason("First resend by manager")
+                .build();
+        var resend1 = operationalService.resendRequest(root.getId(), managerActor, resendCmd1);
+        assertThat(resend1.newRequestId()).isNotNull();
+        assertThat(resend1.originalRequestId()).isEqualTo(root.getId());
+
+        // 2. Second resend from root
+        ResendRequestCommand resendCmd2 = ResendRequestCommand.builder()
+                .reason("Second resend by manager")
+                .build();
+        var resend2 = operationalService.resendRequest(root.getId(), managerActor, resendCmd2);
+        assertThat(resend2.newRequestId()).isNotNull();
+        assertThat(resend2.originalRequestId()).isEqualTo(root.getId());
+
+        // 3. Redelivery from root
+        RedeliverRequestCommand redeliverCmd1 = RedeliverRequestCommand.builder()
+                .reason("First redeliver from root")
+                .build();
+        var redeliver1 = operationalService.redeliverWithRefreshedCredential(root.getId(), managerActor, redeliverCmd1);
+        assertThat(redeliver1.newRequestId()).isNotNull();
+        assertThat(redeliver1.originalRequestId()).isEqualTo(root.getId());
+
+        // 4. Redelivery triggered from derived request (resend1) -> flattens to root
+        RedeliverRequestCommand redeliverCmd2 = RedeliverRequestCommand.builder()
+                .reason("Second redeliver triggered on derived request")
+                .build();
+        var redeliver2 = operationalService.redeliverWithRefreshedCredential(resend1.newRequestId(), managerActor, redeliverCmd2);
+        assertThat(redeliver2.newRequestId()).isNotNull();
+        assertThat(redeliver2.originalRequestId()).isEqualTo(root.getId());
+
+        // Verify all 4 derived requests exist and reference the canonical root
+        for (Long derivedId : List.of(resend1.newRequestId(), resend2.newRequestId(), redeliver1.newRequestId(), redeliver2.newRequestId())) {
+            NotificationRequest derived = notificationRequestRepository.findById(derivedId).orElseThrow();
+            assertThat(derived.getOriginalRequest().getId()).isEqualTo(root.getId());
+            assertThat(derived.getDeliveryState()).isEqualTo("PENDING");
+        }
+    }
+
     private Account createOrGetAccount(String uid, String email, AccountRole role) {
         return accountRepository.findByFirebaseUid(uid).orElseGet(() -> {
             Account a = Account.builder()

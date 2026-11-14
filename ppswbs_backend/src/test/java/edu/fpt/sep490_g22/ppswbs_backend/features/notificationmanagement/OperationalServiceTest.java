@@ -214,12 +214,97 @@ class OperationalServiceTest {
         assertThat(created.getBusinessEventReference()).isEqualTo("BK-500");
         assertThat(created.getBusinessDataSnapshot()).isEqualTo("{\"bookingCode\":\"BK-500\"}");
         assertThat(created.getDeliveryState()).isEqualTo("PENDING");
+        assertThat(created.getCredentialReference()).isNull();
 
         ArgumentCaptor<OperationalAuditRecord> auditCaptor = ArgumentCaptor.forClass(OperationalAuditRecord.class);
         verify(operationalAuditRepository).save(auditCaptor.capture());
         OperationalAuditRecord audit = auditCaptor.getValue();
         assertThat(audit.getActionType()).isEqualTo("REDELIVER_REFRESHED_CREDENTIAL");
         assertThat(audit.getNotificationRequest()).isSameAs(original);
+    }
+
+    @Test
+    @DisplayName("Should flatten lineage to root request when resending a derived request")
+    void shouldFlattenLineageToRootWhenResendingDerivedRequest() {
+        NotificationRequest root = new NotificationRequest();
+        root.setId(100L);
+        root.setDeliveryState("SENT");
+        root.setBusinessEventReference("BK-100");
+        root.setTemplateCode("BOOKING_CONFIRMED");
+
+        NotificationRequest derived = new NotificationRequest();
+        derived.setId(105L);
+        derived.setDeliveryState("SENT");
+        derived.setBusinessEventReference("BK-100");
+        derived.setTemplateCode("BOOKING_CONFIRMED");
+        derived.setOriginalRequest(root);
+
+        Rendition rootRendition = new Rendition();
+        rootRendition.setRenderedSubject("Root Subject");
+        rootRendition.setRenderedHtml("<p>Root HTML</p>");
+        rootRendition.setRenderedPlainText("Root Text");
+
+        when(notificationRequestRepository.findById(105L)).thenReturn(Optional.of(derived));
+        when(renditionRepository.findByNotificationRequestId(105L)).thenReturn(Optional.empty());
+        when(renditionRepository.findByNotificationRequestId(100L)).thenReturn(Optional.of(rootRendition));
+        when(notificationRequestRepository.save(any(NotificationRequest.class))).thenAnswer(inv -> {
+            NotificationRequest r = inv.getArgument(0);
+            r.setId(110L);
+            return r;
+        });
+
+        CurrentAccountActor actor = new CurrentAccountActor(1L, ActorRole.MANAGER, ActorStatus.ACTIVE, true, List.of());
+        ResendRequestCommand command = ResendRequestCommand.builder()
+                .reason("Resending from derived request")
+                .build();
+
+        ResendResponse response = operationalService.resendRequest(105L, actor, command);
+
+        assertThat(response.newRequestId()).isEqualTo(110L);
+        assertThat(response.originalRequestId()).isEqualTo(100L);
+
+        ArgumentCaptor<NotificationRequest> captor = ArgumentCaptor.forClass(NotificationRequest.class);
+        verify(notificationRequestRepository).save(captor.capture());
+        assertThat(captor.getValue().getOriginalRequest()).isSameAs(root);
+    }
+
+    @Test
+    @DisplayName("Should flatten lineage to root request when redelivering from a derived request")
+    void shouldFlattenLineageToRootWhenRedeliveringDerivedRequest() {
+        NotificationRequest root = new NotificationRequest();
+        root.setId(200L);
+        root.setDeliveryState("SENT");
+        root.setBusinessEventReference("BK-200");
+        root.setTemplateCode("BOOKING_CONFIRMED");
+
+        NotificationRequest derived = new NotificationRequest();
+        derived.setId(205L);
+        derived.setDeliveryState("SENT");
+        derived.setBusinessEventReference("BK-200");
+        derived.setTemplateCode("BOOKING_CONFIRMED");
+        derived.setOriginalRequest(root);
+
+        when(notificationRequestRepository.findById(205L)).thenReturn(Optional.of(derived));
+        when(notificationRequestRepository.save(any(NotificationRequest.class))).thenAnswer(inv -> {
+            NotificationRequest r = inv.getArgument(0);
+            r.setId(210L);
+            return r;
+        });
+
+        CurrentAccountActor actor = new CurrentAccountActor(1L, ActorRole.MANAGER, ActorStatus.ACTIVE, true, List.of());
+        RedeliverRequestCommand command = RedeliverRequestCommand.builder()
+                .reason("Redelivering from derived request")
+                .build();
+
+        RedeliverResponse response = operationalService.redeliverWithRefreshedCredential(205L, actor, command);
+
+        assertThat(response.newRequestId()).isEqualTo(210L);
+        assertThat(response.originalRequestId()).isEqualTo(200L);
+
+        ArgumentCaptor<NotificationRequest> captor = ArgumentCaptor.forClass(NotificationRequest.class);
+        verify(notificationRequestRepository).save(captor.capture());
+        assertThat(captor.getValue().getOriginalRequest()).isSameAs(root);
+        assertThat(captor.getValue().getCredentialReference()).isNull();
     }
 }
 

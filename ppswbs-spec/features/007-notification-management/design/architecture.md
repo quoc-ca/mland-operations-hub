@@ -13,15 +13,15 @@
 
 | Requirement / Scenario | Authoritative Source | Architecture Response | Task | Verification |
 |---|---|---|---|---|
-| In-transaction durable request creation | spec.md FR-003, FR-006 | `NotificationFacadeImpl` called synchronously in caller transaction; persists `NotificationRequest` with unique idempotency constraint | T-BE-01 | quickstart.md Scenario 1, 2 |
+| In-transaction durable request creation | spec.md FR-003, FR-006 | `NotificationFacadeImpl` called synchronously in caller transaction; persists an original `NotificationRequest` protected by an original-only unique constraint | T-BE-01 | quickstart.md Scenario 1, 2 |
 | Safe failure on invalid/inactive template | spec.md FR-010, FR-024 | `NotificationRequestService.validateAndPrepareRequest()` persists `OperationalFailure` without rolling back business tx | T-BE-02 | quickstart.md Scenario 1 |
 | Poll-based delivery worker (30s) | spec.md FR-013, FR-028 | `DeliveryWorkerService.pollAndDeliver()` annotated with `@Scheduled(fixedDelay = 30000)` | T-BE-03 | quickstart.md Scenario 3 |
 | Max 3 SMTP attempts & retry (1m, 5m) | spec.md FR-013 | `DeliveryWorkerService` handles `MailException`, calculates `nextAttemptAt`, sets `RETRY_SCHEDULED` | T-BE-04 | quickstart.md Scenario 3 |
 | Unknown outcome & crash recovery | spec.md FR-014 | `RecoveryService.recoverInterruptedRequests()` scans on startup for uncommitted `smtpInvocationStartedAt` | T-BE-05 | quickstart.md Scenario 4 |
 | Template version management & immutability | spec.md FR-008, FR-009 | `NotificationTemplateController`, `TemplateManagementService` creates drafts; activating deactivates previous active | T-BE-06 | quickstart.md Scenario 5 |
 | Rendition generation on first attempt | spec.md FR-011 | `RenditionService.renderAndPersist()` saves `Rendition` on first attempt; retry/resend reuses it | T-BE-07 | quickstart.md Scenario 5 |
-| Operational resend, cancel, redelivery | spec.md FR-015 to FR-019 | `NotificationRequestController`, `OperationalService` executes audited state transitions | T-BE-08 | quickstart.md Scenario 4 |
-| Data retention scrub & tombstone | spec.md FR-025, FR-026 | `RetentionService.sweepExpiredData()` runs scheduled daily sweep | T-BE-09 | quickstart.md Scenario 7 |
+| Operational resend, cancel, redelivery | spec.md FR-015 to FR-019 | `NotificationRequestController`, `OperationalService` creates audited derived requests linked to their root; redelivery obtains a replacement credential from the owning feature | T-BE-08 | quickstart.md Scenarios 4, 8 |
+| Data retention scrub & tombstone | spec.md FR-025, FR-026 | `RetentionService.sweepExpiredData()` runs scheduled daily sweep | T-BE-09 | quickstart.md Scenario 8 |
 | Frontend Admin/Manager Dashboard | spec.md FR-009, FR-022, FR-027 | React components under `src/features/notification-management/` for templates and delivery diagnostics | T-FE-01..05 | quickstart.md Scenario 6 |
 
 ---
@@ -146,11 +146,13 @@ ppswbs_frontend/src/features/notification-management/                           
 SourceFeatureService 
   → NotificationFacade.submitNotificationIntent(cmd)
     → NotificationRequestService.enqueueRequest(cmd)
+      → finds existing original by business identity, if any
       → TemplateDefinitionRepository.findByCode(cmd.templateCode)
       → TemplateVersionRepository.findActiveByDefinitionId(def.id)
-      → NotificationRequestRepository.save(request [PENDING])
+      → NotificationRequestRepository.save(originalRequest [PENDING, original_request_id=NULL])
   → Transaction Commits
 ```
+*Concurrent duplicate branch*: if another transaction commits the same original first, the original-only unique constraint rejects this insert; `NotificationRequestService` re-reads that original and returns `DUPLICATE_IGNORED`.
 *Error Branch*: Inactive template / missing placeholder:
 ```text
 NotificationRequestService.validate() fails
@@ -191,8 +193,23 @@ Admin/Manager in UI
       → NotificationRequestController.resend(id, cmd)
         → OperationalService.resendRequest(id, actor, cmd.reason)
           → Verifies request is SENT or FAILED
+          → Resolves root request (selected request if original; otherwise selected.originalRequest)
           → OperationalAuditRepository.save(audit [RESEND])
-          → NotificationRequestRepository.save(newLinkedRequest [PENDING])
+          → NotificationRequestRepository.save(newLinkedRequest [PENDING, original_request_id=root.id])
           → returns newLinkedRequest ID
+```
+
+### Flow 4: Redelivery with Refreshed Credential
+```text
+Admin/Manager in UI
+  → notificationApiClient.redeliverRequest(id, reason)
+    → NotificationRequestController.redeliver(id, cmd)
+      → OperationalService.redeliverWithRefreshedCredential(id, actor, cmd.reason)
+        → Resolves root request
+        → Owning Booking/Retail facade authorizes and supplies replacement credential/artifact
+        → If denied or unavailable: returns safe 422; no child request is created
+        → NotificationRequestRepository.save(newLinkedRequest [PENDING, original_request_id=root.id])
+        → OperationalAuditRepository.save(audit [REDELIVER_REFRESHED_CREDENTIAL])
+        → returns newLinkedRequest ID
 ```
 

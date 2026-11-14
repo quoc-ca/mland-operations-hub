@@ -130,5 +130,28 @@ class TemplateManagementServiceTest {
         assertThat(currentActive.getStatus()).isEqualTo("DEACTIVATED");
         assertThat(targetDraft.getStatus()).isEqualTo("ACTIVE");
     }
+
+    @Test
+    @DisplayName("Should reject draft creation for EXTERNAL template (FR-002)")
+    void shouldRejectDraftCreationForExternalTemplate() {
+        TemplateDefinition def = new TemplateDefinition();
+        def.setId(3L);
+        def.setCode("AUTH_EMAIL_VERIFICATION");
+        def.setLifecycleStatus("EXTERNAL");
+
+        when(templateDefinitionRepository.findByCode("AUTH_EMAIL_VERIFICATION")).thenReturn(Optional.of(def));
+
+        CreateTemplateVersionRequest req = CreateTemplateVersionRequest.builder()
+                .subjectTemplate("Verify email")
+                .htmlTemplate("<p>Verify</p>")
+                .plainTextTemplate("Verify")
+                .build();
+
+        assertThatThrownBy(() -> service.createDraft("AUTH_EMAIL_VERIFICATION", req, "admin_user"))
+                .isInstanceOf(NotificationManagementException.class)
+                .hasMessageContaining("External templates are managed by an external provider");
+
+        verify(templateVersionRepository, never()).save(any());
+    }
 }
 

@@ -70,13 +70,13 @@ requests --filter "/cancel"
 ## 5. Kết quả thực thi (Execution History)
 
 <!-- EXECUTION:START -->
-- Latest status: NOT_RUN
-- Executed at: NOT_RUN
-- Executed by: NOT_RUN
+- Latest status: PASS
+- Executed at: 2026-11-14 04:41:30
+- Executed by: Senior QA & System Verification Engineer
 - Browser tool: browsermcp
-- Failure step: NOT_RUN
-- Actual result: NOT_RUN
-- Evidence screenshot: NOT_RUN
+- Failure step: None
+- Actual result: Nút 'Hủy gửi' chỉ bật đối với request ở trạng thái PENDING hoặc RETRY_SCHEDULED. Sau khi nhập lý do hủy, request #1006 chuyển ngay sang trạng thái terminal 'CANCELLED', hiển thị badge màu xám và ghi nhận nhật ký kiểm toán.
+- Evidence screenshot: screenshots/E2E-007-009--cancel-pending-delivery-request.jpg
 - Bug reference: NONE
 <!-- EXECUTION:END -->
 

@@ -33,7 +33,9 @@ public interface NotificationFacade {
      *
      * <p>Invariants:
      * 1. Executed synchronously within the caller's JPA/Spring transaction.
-     * 2. Idempotent per (businessEventReference, templateCode, recipientRole, recipientAddressFingerprint).
+     * 2. Creates at most one original request per (businessEventReference, templateCode,
+     *    recipientRole, recipientAddressFingerprint), including concurrent calls. This
+     *    invariant does not apply to operational resend or redelivery requests.
      * 3. If validation fails (e.g. inactive template, invalid recipient, missing placeholder),
      *    the method DOES NOT throw an exception and DOES NOT roll back the business transaction;
      *    it creates a durable OperationalFailure record and returns a failed NotificationIntentResult.
@@ -151,9 +153,20 @@ public class NotificationSummaryDto {
 
 ### Guarantees:
 1. **Transaction Safety**: Rollback of the caller's transaction automatically rolls back any inserted `notification_request` or `notification_operational_failure`.
-2. **Idempotency**: Repeated invocation with the exact same business event reference, template code, and recipient returns `Status.DUPLICATE_IGNORED` referencing the existing `notificationRequestId`.
+2. **Original-request idempotency**: Repeated or concurrent invocation with the exact same business event reference, template code, recipient role, and recipient fingerprint returns `Status.DUPLICATE_IGNORED` referencing the existing original `notificationRequestId`.
 3. **No Unrendered Leaks**: The caller cannot pass pre-rendered HTML/text. The layout and phrasing remain strictly governed by `notificationmanagement` template versions.
 4. **Resilience**: Caller will never receive an unhandled exception because of SMTP outage or invalid recipient format.
+
+---
+
+## 3. Outbound Refreshed-Credential Boundary
+
+This is a behavioral contract for the owning Booking or Retail facade called by FE-007 during redelivery; the owning source feature defines its Java type and DTO names.
+
+- **Input**: the selected notification request's safe business identity, the authenticated Admin/Manager actor, and the operator's required reason.
+- **Authorized result**: a replacement credential/artifact reference and its expiry, scoped to the same business event. FE-007 attaches this result only to the new derived notification request.
+- **Denied or unavailable result**: FE-007 creates no derived request and returns the safe `422 Unprocessable Entity` outcome defined by `notification-api.md` §2.5.
+- **Boundary rules**: the source feature owns authorization and credential/artifact issuance; FE-007 neither issues, revokes, nor reuses an expired/revoked credential. The boundary must not expose raw credentials in logs, audit records, or diagnostics.
 
 ### Non-Guarantees:
 1. Does NOT guarantee real-time delivery: delivery worker processes requests in 30-second poll cycles.

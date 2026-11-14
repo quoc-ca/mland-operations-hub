@@ -74,13 +74,13 @@ console --errors
 ## 5. Kết quả thực thi (Execution History)
 
 <!-- EXECUTION:START -->
-- Latest status: NOT_RUN
-- Executed at: NOT_RUN
-- Executed by: NOT_RUN
+- Latest status: PASS
+- Executed at: 2026-11-14 04:36:51
+- Executed by: Senior QA & System Verification Engineer
 - Browser tool: browsermcp
-- Failure step: NOT_RUN
-- Actual result: NOT_RUN
-- Evidence screenshot: NOT_RUN
+- Failure step: None
+- Actual result: Modal soạn thảo bản nháp mới hoạt động chính xác. Lưu bản nháp với placeholder hợp lệ thành công; thông báo "Đã tạo bản nháp mới v2" hiển thị và badge "Bản nháp" xuất hiện trong bảng lịch sử phiên bản.
+- Evidence screenshot: screenshots/E2E-007-004--draft-created.jpg
 - Bug reference: NONE
 <!-- EXECUTION:END -->
 

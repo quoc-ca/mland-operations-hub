@@ -78,13 +78,13 @@ find "Xác nhận đặt lịch"
 ## 5. Kết quả thực thi (Execution History)
 
 <!-- EXECUTION:START -->
-- Latest status: NOT_RUN
-- Executed at: NOT_RUN
-- Executed by: NOT_RUN
+- Latest status: PASS
+- Executed at: 2026-11-14 04:36:28
+- Executed by: Senior QA & System Verification Engineer
 - Browser tool: browsermcp
-- Failure step: NOT_RUN
-- Actual result: NOT_RUN
-- Evidence screenshot: NOT_RUN
+- Failure step: None
+- Actual result: Trang danh sách mẫu thông báo hiển thị đầy đủ các template hệ thống. Modal Xem trước mẫu thư hiển thị chính xác tiêu đề, nội dung rendered với dữ liệu fixture an toàn (BK-SAMPLE-2026), có cảnh báo "Dữ liệu mẫu an toàn - Không sử dụng dữ liệu khách hàng thật" và hỗ trợ chuyển đổi giữa HTML/Plain Text.
+- Evidence screenshot: screenshots/E2E-007-003--template-preview-safe.jpg
 - Bug reference: NONE
 <!-- EXECUTION:END -->
 

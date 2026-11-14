@@ -65,13 +65,13 @@ find "Yêu cầu gửi lại với liên kết mới đã được xếp hàng"
 ## 5. Kết quả thực thi (Execution History)
 
 <!-- EXECUTION:START -->
-- Latest status: NOT_RUN
-- Executed at: NOT_RUN
-- Executed by: NOT_RUN
+- Latest status: FAIL
+- Executed at: 2026-11-14 04:43:00
+- Executed by: Senior QA & System Verification Engineer
 - Browser tool: browsermcp
-- Failure step: NOT_RUN
-- Actual result: NOT_RUN
-- Evidence screenshot: NOT_RUN
-- Bug reference: NONE
+- Failure step: Step 2 — Nhập lý do cấp lại và xác nhận (bấm Xác nhận cấp lại và gửi)
+- Actual result: FAIL — Backend trả về HTTP 500 (Internal Server Error) với lỗi DataIntegrityViolationException: Duplicate entry 'BK-20261106-001-BOOKING_CONFIRMED-CUSTOMER-fp1001-1001' for key 'notification_request.uq_nr_idempotency'. Nguyên nhân: Ràng buộc unique composite uq_nr_idempotency trong DB (business_event_reference, template_code, recipient_role, recipient_address_fingerprint, original_request_id) bị trùng lặp do request 1001 đã có 1 request gửi lại trước đó (#1005). Thao tác redeliver tạo bản ghi mới với cùng original_request_id dẫn đến vi phạm unique constraint.
+- Evidence screenshot: screenshots/E2E-007-011--redeliver-with-refreshed-credential.jpg
+- Bug reference: BUG-E2E-0004
 <!-- EXECUTION:END -->
 

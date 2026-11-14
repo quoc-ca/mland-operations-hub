@@ -72,13 +72,13 @@ requests --filter "/api/v1/notification-requests"
 ## 5. Kết quả thực thi (Execution History)
 
 <!-- EXECUTION:START -->
-- Latest status: NOT_RUN
-- Executed at: NOT_RUN
-- Executed by: NOT_RUN
+- Latest status: PASS
+- Executed at: 2026-11-14 04:40:02
+- Executed by: Senior QA & System Verification Engineer
 - Browser tool: browsermcp
-- Failure step: NOT_RUN
-- Actual result: NOT_RUN
-- Evidence screenshot: NOT_RUN
+- Failure step: None
+- Actual result: Bộ lọc trạng thái 'SENT' hoạt động chính xác. Bảng nhật ký lọc đúng bản ghi đã gửi thành công, địa chỉ email người nhận được che PII hoàn toàn (dạng 'c***e@example.com'), đáp ứng đầy đủ yêu cầu bảo mật.
+- Evidence screenshot: screenshots/E2E-007-006--log-filtering-masked.jpg
 - Bug reference: NONE
 <!-- EXECUTION:END -->
 

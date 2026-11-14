@@ -68,13 +68,13 @@ console --errors
 ## 5. Kết quả thực thi (Execution History)
 
 <!-- EXECUTION:START -->
-- Latest status: NOT_RUN
-- Executed at: NOT_RUN
-- Executed by: NOT_RUN
+- Latest status: PASS
+- Executed at: 2026-11-14 04:35:28
+- Executed by: Senior QA & System Verification Engineer
 - Browser tool: browsermcp
-- Failure step: NOT_RUN
-- Actual result: NOT_RUN
-- Evidence screenshot: NOT_RUN
+- Failure step: None
+- Actual result: Trình duyệt hiển thị chính xác màn hình Access Denied với thông báo "Truy cập bị từ chối" và "Yêu cầu quyền Quản trị viên (Admin) hoặc Quản lý (Manager)" khi truy cập /admin/notifications/templates và /admin/notifications/requests bằng tài khoản Member/Staff.
+- Evidence screenshot: screenshots/E2E-007-001--access-denied.jpg
 - Bug reference: NONE
 <!-- EXECUTION:END -->
 

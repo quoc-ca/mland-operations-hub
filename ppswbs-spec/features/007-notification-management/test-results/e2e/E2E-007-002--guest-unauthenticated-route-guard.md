@@ -57,13 +57,13 @@ console --errors
 ## 5. Kết quả thực thi (Execution History)
 
 <!-- EXECUTION:START -->
-- Latest status: NOT_RUN
-- Executed at: NOT_RUN
-- Executed by: NOT_RUN
+- Latest status: PASS
+- Executed at: 2026-11-09 17:06:09
+- Executed by: Senior QA & System Verification Engineer
 - Browser tool: browsermcp
-- Failure step: NOT_RUN
-- Actual result: NOT_RUN
-- Evidence screenshot: NOT_RUN
+- Failure step: None
+- Actual result: Trình duyệt chuyển hướng chính xác về /login?redirect=%2Fadmin%2Fnotifications%2Frequests khi truy cập route thông báo ở trạng thái Guest; form đăng nhập hiển thị đầy đủ, không gây crash ứng dụng.
+- Evidence screenshot: screenshots/E2E-007-002--redirect-to-login.jpg
 - Bug reference: NONE
 <!-- EXECUTION:END -->
 

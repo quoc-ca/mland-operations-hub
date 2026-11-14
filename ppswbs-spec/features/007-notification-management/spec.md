@@ -89,7 +89,7 @@ When an email's access credential or ticket artifact has expired or been revoked
 - **FR-003**: A source feature MUST submit a structured notification intent in the same transaction as its accepted business result. The intent MUST identify the registered template, stable business event, safe business reference, approved recipient snapshot, frozen template-data snapshot, and any approved artifact reference.
 - **FR-004**: FE-007 MUST own template version selection, notification requests, delivery state, rendition, delivery attempts, resend history, and operational audit. It MUST NOT re-read Booking/Retail data, choose a recipient, or decide that a business event is valid.
 - **FR-005**: A source feature MUST NOT submit rendered subject, HTML, or plain-text email content as the notification intent.
-- **FR-006**: The system MUST create no more than one original request for the same business event, template, recipient role, and recipient fingerprint.
+- **FR-006**: The system MUST create no more than one original request for the same business event, template, recipient role, and recipient fingerprint, including when equivalent source intents arrive concurrently. This idempotency rule applies only to original requests; it MUST NOT prohibit eligible resend or refreshed-credential redelivery requests linked to that original request.
 - **FR-007**: A request MUST pin its template version, recipient snapshot, and business-data snapshot at creation. Changes to the source business record or recipient afterward MUST NOT alter that request.
 - **FR-008**: Editing a template MUST create a draft version. A version that is active or referenced by a request MUST remain immutable and MUST NOT be hard deleted.
 - **FR-009**: A globally shared template MUST have no more than one active version. Admins and Managers may manage its content, version lifecycle, activation, and deactivation across the system.
@@ -98,11 +98,11 @@ When an email's access credential or ticket artifact has expired or been revoked
 - **FR-012**: Delivery state MUST distinguish `PENDING`, `PROCESSING`, `RETRY_SCHEDULED`, `SENT`, `FAILED`, `UNKNOWN_OUTCOME`, and `CANCELLED`. `SENT` means the SMTP provider accepted the message, not that it entered an inbox or was read.
 - **FR-013**: The V1 single worker MUST retry only when it can determine that SMTP did not accept the message. It MUST make at most three SMTP attempts, waiting one minute before the second and five minutes before the third.
 - **FR-014**: The system MUST classify potential SMTP acceptance with lost confirmation, or a restart after SMTP invocation may have begun, as `UNKNOWN_OUTCOME` and MUST NOT retry it automatically.
-- **FR-015**: Admins and Managers MAY resend eligible sent or remediated failed requests in their authorized operational scope, with a required reason and audit. They MUST NOT resend a pending, processing, or scheduled-retry request.
+- **FR-015**: Admins and Managers MAY resend eligible sent or remediated failed requests in their authorized operational scope, with a required reason and audit. Each eligible manual resend creates a linked derived request and repeated eligible resends are permitted. They MUST NOT resend a pending, processing, or scheduled-retry request.
 - **FR-016**: Only an Admin MAY authorize a resend from `UNKNOWN_OUTCOME`, after provider evidence is reviewed and the risk of duplicate delivery is recorded.
 - **FR-017**: Admins and Managers MAY cancel only a pending or scheduled-retry request with a reason. A processing request MUST NOT be cancelled through normal operations.
 - **FR-018**: Ordinary resend MUST retain the original recipient, rendition, snapshot, and credential only while that credential remains valid. It MUST NOT change recipient, source data, template version, or credential.
-- **FR-019**: For expired or revoked credentials, an Admin or Manager MAY request redelivery with a refreshed credential. The owning source feature MUST authorize the request and create the replacement credential/artifact; FE-007 MUST neither create nor revoke credentials and MUST preserve the original delivery history.
+- **FR-019**: For expired or revoked credentials, an Admin or Manager MAY request redelivery with a refreshed credential. The owning source feature MUST authorize the request and supply the replacement credential/artifact; FE-007 MUST neither create nor revoke credentials, MUST NOT copy the expired or revoked credential into the new delivery, and MUST preserve the original delivery history. Repeated eligible redeliveries are permitted.
 - **FR-020**: `BOOKING_CONFIRMED` MUST use the Booking-approved contact email and may contain an approved ticket/QR artifact and booking access link. `RETAIL_ORDER_CONFIRMED` MUST use the Retail-approved order-notification email and may contain an authorized order-details link. The system MUST NOT infer either recipient from unrelated profile or shipping-address data.
 - **FR-021**: The system MUST never store in logs, business audit, dashboard preview, or normal operational diagnostics a password, raw token, raw Magic URL, QR payload, payment payload, or unnecessary internal note.
 - **FR-022**: Dashboard diagnostics MUST expose only the information required for support, including masked recipient, template, safe business reference, delivery state, attempt count, timestamps, safe error category, and correlation reference.
@@ -117,7 +117,7 @@ When an email's access credential or ticket artifact has expired or been revoked
 
 - **Template Definition**: A registered transactional email type, its ownership, allowed placeholders, and lifecycle eligibility.
 - **Template Version**: An immutable draft, active, or historical presentation revision for one template definition.
-- **Notification Request**: The durable, idempotent record of one requested business email, with frozen template, recipient, business-data, and safe artifact references.
+- **Notification Request**: The durable record of one requested business email, with frozen template, recipient, business-data, and safe artifact references. An original request is idempotent per FR-006; a resend or redelivery is a derived request linked to that original.
 - **Rendition**: The subject, HTML, and plain-text content rendered for a request's first delivery processing.
 - **Delivery Attempt**: One recorded SMTP attempt, including safe timing, outcome category, and provider evidence reference where available.
 - **Operational Failure**: A safe record that explains why a deliverable request could not be created or completed without changing the source business result.
@@ -158,3 +158,9 @@ When an email's access credential or ticket artifact has expired or been revoked
 - Q: Authorization scope for Admin/Manager — global or Workshop Location? → A: V1 uses global scope; Workshop Location scoping is out-of-scope V1. Added FR-027.
 - Q: Redelivery contract gap (Staff/Manager vs Admin/Manager, sync vs async) — block plan? → A: Spec (Admin or Manager) is authoritative; sync/async is design-pack detail. FR-019 sufficient.
 - Q: Worker trigger mechanism and delivery latency? → A: Poll-based, every 30 seconds. Added FR-028.
+
+### Session 2026-11-14
+
+- Q: Does idempotency apply to resend/redelivery? → A: No. FR-006 protects only original requests; eligible resend and redelivery actions may create multiple derived requests.
+- Q: What does `original_request_id` mean for a derived request? → A: It always references the root/original request, including when an operator acts on a previously derived request. No `parent_request_id` is introduced in V1.
+- Q: Is a separate client-operation idempotency mechanism needed? → A: No. V1 does not introduce an `Idempotency-Key` contract or an operation table for manual resend/redelivery.

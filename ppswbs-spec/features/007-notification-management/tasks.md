@@ -19,7 +19,7 @@
 
 - [ ] T001 Create backend module directory structure at `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/notificationmanagement/` with sub-packages `controller`, `dto`, `dao`, `entity`, `service`, and `facade`
 - [ ] T002 [P] Create frontend feature directory structure at `ppswbs_frontend/src/features/notification-management/` with sub-directories `ui`, `application`, `infrastructure`, and `routes`
-- [ ] T003 Create Flyway migration script `ppswbs_backend/src/main/resources/db/migration/V93__notification_management.sql` defining all 8 tables per `data-model.md` (§3.1 to §3.8) with constraints and indexes
+- [ ] T003 Create the initial Flyway migration defining all 8 tables per `data-model.md` (§3.1 to §3.8) with constraints and indexes
 
 ---
 
@@ -46,7 +46,7 @@
 ### Implementation for User Story 1
 
 - [ ] T009 [P] [US1] Implement `RenditionService` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/notificationmanagement/service/RenditionService.java` for variable substitution (`{{placeholder}}`) into subject, HTML, and plain-text
-- [ ] T010 [US1] Implement `NotificationRequestService` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/notificationmanagement/service/NotificationRequestService.java` handling in-transaction validation, idempotency check (SHA-256 fingerprint), template version pinning, and saving `NotificationRequest` or `OperationalFailure`
+- [ ] T010 [US1] Implement `NotificationRequestService` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/notificationmanagement/service/NotificationRequestService.java` handling in-transaction validation, original-request idempotency (including unique-constraint collision recovery for concurrent calls), template version pinning, and saving `NotificationRequest` or `OperationalFailure`
 - [ ] T011 [US1] Implement `NotificationFacadeImpl` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/notificationmanagement/service/NotificationFacadeImpl.java` delegating to `NotificationRequestService`
 - [ ] T012 [US1] Implement `DeliveryWorkerService` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/notificationmanagement/service/DeliveryWorkerService.java` with `@Scheduled(fixedDelay = 30000)` polling for `PENDING` or `RETRY_SCHEDULED` requests, recording `smtp_invocation_started_at`, calling `JavaMailSender.send()`, recording `DeliveryAttempt`, and scheduling retries (1m, 5m, max 3 attempts)
 - [ ] T013 [US1] Implement `RecoveryService` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/notificationmanagement/service/RecoveryService.java` with `@EventListener(ApplicationReadyEvent.class)` to transition interrupted `PROCESSING` requests with recorded SMTP invocation to `UNKNOWN_OUTCOME`
@@ -83,7 +83,7 @@
 
 ### Implementation for User Story 3
 
-- [ ] T021 [P] [US3] Implement `OperationalService` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/notificationmanagement/service/OperationalService.java` handling manual resend (cloning request, preserving snapshot/rendition), cancellation (`CANCELLED` terminal state), and writing `OperationalAuditRecord`
+- [ ] T021 [P] [US3] Implement `OperationalService` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/notificationmanagement/service/OperationalService.java` handling manual resend (cloning the selected request while linking the new request to its root and preserving valid snapshot/rendition/credential), cancellation (`CANCELLED` terminal state), and writing `OperationalAuditRecord`
 - [ ] T022 [US3] Implement `NotificationRequestController` in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/notificationmanagement/controller/NotificationRequestController.java` exposing `/api/v1/notification-requests` per `contracts/notification-api.md` §2
 - [ ] T023 [P] [US3] Create custom hooks `useNotificationRequests.js` and `useNotificationOperations.js` in `ppswbs_frontend/src/features/notification-management/application/`
 - [ ] T024 [US3] Build `NotificationRequestListPage.jsx` and `NotificationRequestDetailDrawer.jsx` in `ppswbs_frontend/src/features/notification-management/ui/` with state filters, masked recipients (`a***b@example.com`), and attempt logs
@@ -117,6 +117,8 @@
 - [ ] T030 Add Spring Modulith verification test `NotificationModuleTest.java` in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/features/notificationmanagement/` asserting that `ApplicationModules.of(PpswbsBackendApplication.class).verify()` passes without boundary violations
 - [ ] T031 [P] Register frontend routes in `ppswbs_frontend/src/app/App.jsx` pointing to `notificationRoutes.jsx` under `/admin/notifications/`
 - [ ] T032 Verify full end-to-end flow using scenarios in `quickstart.md`
+- [ ] T033 Add an append-only corrective Flyway migration that normalizes existing derived-request chains to their root, preserves historical audit/delivery records, replaces `uq_nr_idempotency` with the original-only constraint from `data-model.md`, and updates the mapped JPA entity accordingly
+- [ ] T034 Add integration coverage for concurrent original intents (one `ENQUEUED`, one `DUPLICATE_IGNORED`) and for multiple eligible resend/redelivery actions linked to the same root
 
 ---
 
@@ -129,7 +131,7 @@
 - **Phase 4 (User Story 2)**: Depends on Phase 2; can proceed in parallel with US1.
 - **Phase 5 (User Story 3)**: Depends on Phase 3 (needs notification request entity & states) and Phase 2.
 - **Phase 6 (User Story 4)**: Depends on Phase 5.
-- **Phase 7 (Polish)**: Depends on User Stories 1-3.
+- **Phase 7 (Polish)**: Depends on User Story 4 for the corrective lineage/redelivery verification tasks.
 
 ### Parallel Opportunities
 - Backend entities & repositories (T004, T005, T006, T007) can be developed in parallel.

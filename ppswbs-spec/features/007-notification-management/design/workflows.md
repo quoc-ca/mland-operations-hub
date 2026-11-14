@@ -44,13 +44,14 @@
    - If no active version: saves `OperationalFailure` (`NO_ACTIVE_VERSION`), returns `OPERATIONAL_FAILURE`.
 6. Validates all keys in `command.businessDataSnapshot` against `allowed_placeholders`.
    - If missing required placeholders: saves `OperationalFailure` (`REQUIRED_PLACEHOLDER_MISSING`), returns `OPERATIONAL_FAILURE`.
-7. Instantiates and saves `NotificationRequest` with `delivery_state = 'PENDING'`, `attempt_count = 0`, pinning `template_version_id`.
+7. Instantiates and saves the original `NotificationRequest` with `original_request_id = NULL`, `delivery_state = 'PENDING'`, `attempt_count = 0`, pinning `template_version_id`.
 8. Returns `NotificationIntentResult.builder().status(ENQUEUED).requestId(saved.id).build()`.
 9. Caller transaction commits; notification request is now durable.
 
 #### Failure, Recovery, and Integrity:
 - If caller transaction rolls back, all DB inserts in this workflow roll back automatically.
 - Operational failure records never throw runtime exceptions and never cause the caller's business transaction to roll back.
+- If concurrent source transactions both observe no original request, the DB original-only unique constraint permits one insert. The losing transaction re-reads the committed original and returns `DUPLICATE_IGNORED`; it does not create a second request.
 
 ---
 
@@ -153,9 +154,10 @@
 1. Operator submits `POST /api/v1/notification-requests/{id}/resend`.
 2. `OperationalService.resendRequest()` verifies actor role and state eligibility.
 3. If `UNKNOWN_OUTCOME` and actor is `MANAGER`, throws `403 Forbidden`.
-4. Clones original request into a new `NotificationRequest`:
+4. Resolves `rootRequest`: the selected request when it is original, otherwise its `original_request_id` target. Clones the **selected request** into a new `NotificationRequest`:
    - Same `business_event_reference`, `template_code`, `template_version_id`, `recipient_snapshot`, `business_data_snapshot`.
-   - `original_request_id = originalRequest.id`.
+   - Reuses the selected request's rendition and credential only while that credential remains valid.
+   - `original_request_id = rootRequest.id`.
    - `delivery_state = 'PENDING'`, `attempt_count = 0`.
 5. Persists new request and writes `OperationalAuditRecord` (`action_type = 'RESEND'`).
 6. Returns new request ID. Delivery worker will pick it up on next 30s cycle.
@@ -183,7 +185,7 @@
 1. Operator submits `POST /api/v1/notification-requests/{id}/redeliver`.
 2. `OperationalService` calls source feature facade (e.g. `BookingFacade` / `RetailFacade`) to authorize replacement credential issuance.
 3. If source feature denies or fails, returns `422 Unprocessable Entity`.
-4. On success: creates linked `NotificationRequest` with fresh credential reference, preserving original business snapshot.
+4. Resolves `rootRequest`: the selected request when it is original, otherwise its `original_request_id` target. On success, creates a linked `NotificationRequest` that uses the selected request's pinned recipient, rendition, and business snapshot, sets `original_request_id = rootRequest.id`, and attaches only the replacement credential/artifact returned by the source feature. It MUST NOT copy the expired or revoked credential.
 5. Persists `OperationalAuditRecord` (`action_type = 'REDELIVER_REFRESHED_CREDENTIAL'`).
 6. New request will be rendered with the fresh credential on delivery attempt.
 

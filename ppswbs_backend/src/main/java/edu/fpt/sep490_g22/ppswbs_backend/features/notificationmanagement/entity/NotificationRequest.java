@@ -12,8 +12,8 @@ import java.time.Instant;
     name = "notification_request",
     uniqueConstraints = {
         @UniqueConstraint(
-            name = "uq_nr_idempotency",
-            columnNames = {"business_event_reference", "template_code", "recipient_role", "recipient_address_fingerprint", "original_request_id"}
+            name = "uq_nr_original_idempotency",
+            columnNames = {"business_event_reference", "template_code", "recipient_role", "recipient_address_fingerprint", "original_idempotency_scope"}
         )
     },
     indexes = {
@@ -85,6 +85,9 @@ public class NotificationRequest {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "original_request_id")
     private NotificationRequest originalRequest;
+
+    @Column(name = "original_idempotency_scope", insertable = false, updatable = false)
+    private Byte originalIdempotencyScope;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

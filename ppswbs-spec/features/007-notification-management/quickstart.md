@@ -38,14 +38,13 @@ This guide defines end-to-end and integration verification procedures for Featur
 **Objective**: Verify that repeating the same business event callback creates exactly one original notification request.
 
 **Steps**:
-1. Execute `NotificationFacade.submitNotificationIntent(...)` with `businessEventReference = "BK-IDEM-001"` and commit.
-2. In a separate transaction, call `NotificationFacade.submitNotificationIntent(...)` with identical arguments.
-3. Check the return status of both invocations.
+1. Execute two `NotificationFacade.submitNotificationIntent(...)` calls concurrently with `businessEventReference = "BK-IDEM-001"` and otherwise identical arguments; commit both transactions.
+2. Check the return status of both invocations after they complete.
 
 **Expected Outcome**:
-- First call returns `Status.ENQUEUED`.
-- Second call returns `Status.DUPLICATE_IGNORED` with the same `notificationRequestId`.
-- `SELECT COUNT(*) FROM notification_request WHERE business_event_reference = 'BK-IDEM-001'` returns exactly `1`.
+- Exactly one call returns `Status.ENQUEUED`.
+- The other call returns `Status.DUPLICATE_IGNORED` with the winning `notificationRequestId`.
+- `SELECT COUNT(*) FROM notification_request WHERE business_event_reference = 'BK-IDEM-001' AND original_request_id IS NULL` returns exactly `1`.
 
 ---
 
@@ -119,7 +118,23 @@ This guide defines end-to-end and integration verification procedures for Featur
 
 ---
 
-### Scenario 7: Retention Scrub & Tombstone Creation (SC-007 / FR-025 / FR-026)
+### Scenario 7: Repeated Resend and Refreshed-Credential Redelivery (FR-015 / FR-018 / FR-019)
+**Objective**: Verify that eligible manual operations can create multiple derived requests for one original without altering original history or reusing an expired credential.
+
+**Steps**:
+1. Seed root request `#100` in `SENT` state with a valid credential and rendition.
+2. Call `POST /api/v1/notification-requests/100/resend` twice after each preceding derived request reaches a terminal state.
+3. Expire the root credential. Call `POST /api/v1/notification-requests/{derivedId}/redeliver`; configure the owning source feature to authorize the action and return a replacement credential reference.
+
+**Expected Outcome**:
+- Both resend actions create distinct `PENDING` requests whose `original_request_id` is `100`.
+- The redelivery creates another `PENDING` request whose `original_request_id` is `100`, even though the selected request was derived.
+- The redelivery uses the replacement credential reference and does not copy the expired credential.
+- The root request and all earlier delivery/audit records remain unchanged.
+
+---
+
+### Scenario 8: Retention Scrub & Tombstone Creation (SC-007 / FR-025 / FR-026)
 **Objective**: Verify that requests older than 90 days are scrubbed of PII and replaced with tombstones.
 
 **Steps**:

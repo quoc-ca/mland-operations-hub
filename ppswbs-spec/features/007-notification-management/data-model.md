@@ -102,16 +102,25 @@ Durable, idempotent record of one requested business email, pinning template ver
 | `processing_started_at` | DATETIME(6) | YES | | Timestamp worker picked up this request |
 | `smtp_invocation_started_at`| DATETIME(6) | YES | | Timestamp immediately before `JavaMailSender.send()` is called |
 | `terminal_at` | DATETIME(6) | YES | | Timestamp when request reached terminal state (`SENT`, `FAILED`, `CANCELLED`) |
-| `original_request_id` | BIGINT | YES | FK | Self-reference to root request if this is a resend/redelivery |
+| `original_request_id` | BIGINT | YES | FK | `NULL` only for an original request. Every resend/redelivery references the root/original request, even when the operator selected a derived request. |
+| `original_idempotency_scope` | TINYINT | YES | Generated stored | `1` when `original_request_id IS NULL`; otherwise `NULL`. Internal DB-only discriminator for original-request uniqueness. |
 | `created_at` | DATETIME(6) | NO | CURRENT_TIMESTAMP(6) | Request creation timestamp |
 | `updated_at` | DATETIME(6) | NO | CURRENT_TIMESTAMP(6) | State modification timestamp |
 
 **Indexes & Constraints**:
 - `fk_nr_version`: `FOREIGN KEY (template_version_id) REFERENCES notification_template_version(id)`
 - `fk_nr_original`: `FOREIGN KEY (original_request_id) REFERENCES notification_request(id)`
-- `uq_nr_idempotency`: `UNIQUE(business_event_reference, template_code, recipient_role, recipient_address_fingerprint, original_request_id)` (Null `original_request_id` enforces exactly one original request per business event/recipient).
+- `uq_nr_original_idempotency`: `UNIQUE(business_event_reference, template_code, recipient_role, recipient_address_fingerprint, original_idempotency_scope)`. It permits only one original request for the business identity because originals carry scope `1`; derived requests carry `NULL` and are intentionally not limited by this constraint.
 - `idx_nr_worker_poll`: `INDEX(delivery_state, next_attempt_at, id)` (Used by 30s poll-based worker query).
 - `idx_nr_retention`: `INDEX(terminal_at, delivery_state)` (Used by 90-day retention scrub job).
+
+**Original and derived request invariant**:
+- The business identity is `(business_event_reference, template_code, recipient_role, recipient_address_fingerprint)`.
+- An original request has `original_request_id IS NULL` and is the sole record for that business identity with `original_idempotency_scope = 1`.
+- A resend or redelivery is a derived request. It may share the root's business identity and there may be multiple derived requests for one root.
+- `original_request_id` on every derived request points directly to the root/original request; it never points to an intermediate derived request.
+
+**Migration compatibility**: The corrective Flyway migration is append-only. Before replacing the existing unique key, it must preserve audit/history and normalize any existing derived chain to its root. If historical duplicate originals exist for one business identity, the migration must retain the earliest request as the canonical root and link later duplicates to it before adding `uq_nr_original_idempotency`; it must not delete delivery or audit records.
 
 ---
 

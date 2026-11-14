@@ -70,13 +70,13 @@ find "Yêu cầu gửi lại đã được xếp hàng"
 ## 5. Kết quả thực thi (Execution History)
 
 <!-- EXECUTION:START -->
-- Latest status: NOT_RUN
-- Executed at: NOT_RUN
-- Executed by: NOT_RUN
+- Latest status: PASS
+- Executed at: 2026-11-14 04:40:35
+- Executed by: Senior QA & System Verification Engineer
 - Browser tool: browsermcp
-- Failure step: NOT_RUN
-- Actual result: NOT_RUN
-- Evidence screenshot: NOT_RUN
+- Failure step: None
+- Actual result: Modal Gửi lại thư yêu cầu nhập lý do tối thiểu 10 ký tự. Sau khi nhập lý do hợp lệ và xác nhận, hệ thống tạo bản ghi gửi lại thành công: "Yêu cầu gửi lại đã được xếp hàng (Mã yêu cầu mới: #1005)".
+- Evidence screenshot: screenshots/E2E-007-008--manual-resend-eligible-request.jpg
 - Bug reference: NONE
 <!-- EXECUTION:END -->
 
