@@ -44,7 +44,7 @@ The matrix covers the five platform roles defined in the Actors section. Externa
 
 #### Permission Matrix Footnotes
 
-1. `Restricted` means that the actor may perform the action only within an assigned branch, delegated threshold, own account/order, approved workflow state, or configured operational limit.
+1. `Restricted` means that the actor may perform the action only within a delegated threshold, own account/order, approved workflow state, or configured operational limit. For Manager, `Restricted` MUST NOT mean an assigned branch or Workshop Location: an active Manager has global operational scope for an action explicitly authorized to Manager. Staff may remain assigned-branch/Workshop-Location-scoped where the owning feature states that rule.
 2. Guests may book workshops and pay workshop deposits, but Feature-004 Guest Design Request access remains disabled until its ownership-proof policy is approved. Guests cannot complete retail checkout or create custom-manufacturing orders.
 3. Members may access and modify only their own profile, cart, orders, loyalty records, independent Design Requests, and custom-manufacturing orders.
 4. Staff and Managers review independent Design Requests only under the approved Feature-004 authority and scope policy. Managers, not AI, decide published package and product prices.

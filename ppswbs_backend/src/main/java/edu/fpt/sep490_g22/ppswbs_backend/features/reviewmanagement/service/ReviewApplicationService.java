@@ -290,12 +290,13 @@ public class ReviewApplicationService {
         boolean owner = actor != null && actor.role() == ActorRole.MEMBER
                 && review.getOwnerType() == OwnerType.MEMBER
                 && String.valueOf(actor.accountId()).equals(review.getOwnerReference());
-        if (review.getStatus() != ReviewStatus.PUBLIC && !owner) {
+        boolean isInternalModerator = actor != null && (actor.role() == ActorRole.STAFF || actor.role() == ActorRole.MANAGER);
+        if (review.getStatus() != ReviewStatus.PUBLIC && !owner && !isInternalModerator) {
             throw ReviewManagementException.notFound("REVIEW_NOT_FOUND", "Không tìm thấy review.");
         }
         ReplyDto replyDto = replyRepository.findByReviewId(reviewId)
-                .map(reply -> mapToReplyDto(reply, owner)).orElse(null);
-        return mapToReviewDto(review, replyDto, owner);
+                .map(reply -> mapToReplyDto(reply, owner || isInternalModerator)).orElse(null);
+        return mapToReviewDto(review, replyDto, owner || isInternalModerator);
     }
 
     @Deprecated

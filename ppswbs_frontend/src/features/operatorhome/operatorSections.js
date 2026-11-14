@@ -21,6 +21,13 @@ const dailyWork = {
 
 const managerOnly = [
   {
+    id: 'reporting', vi: 'Báo cáo', en: 'Reporting',
+    items: [
+      item('/manager/dashboard', 'Dashboard điều hành', 'Executive dashboard',
+        'Doanh thu bán lẻ, workshop và tỷ lệ lấp đầy theo chi nhánh.', 'Retail and workshop revenue and utilization by branch.'),
+    ],
+  },
+  {
     id: 'workshop', vi: 'Quản lý workshop', en: 'Workshop management',
     items: [
       item('/operations/packages', 'Gói workshop', 'Workshop packages', 'Tạo, xuất bản và ngừng bán gói.', 'Create, publish and retire packages.'),

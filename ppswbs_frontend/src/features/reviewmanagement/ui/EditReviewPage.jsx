@@ -12,7 +12,7 @@ export default function EditReviewPage() {
   const api = useReviewManagementApi();
   const navigate = useNavigate();
 
-  const resource = useResource(() => api.getReview(reviewId, true), [reviewId]);
+  const resource = useResource(() => api.getReview(reviewId), [reviewId]);
 
   if (resource.loading) {
     return (

@@ -144,7 +144,7 @@ describe('F11-CREATE-REVIEW Screen (/reviews/new)', () => {
   it('displays error notice when navigated to directly without a chosen source', async () => {
     mockFetch({});
     open('/reviews/new', { session: fakeSession('signed-in') });
-    expect(await screen.findByText('Select an eligible source first.')).toBeInTheDocument();
+    expect(await screen.findByText('Vui lòng chọn nguồn đủ điều kiện trước.')).toBeInTheDocument();
   });
 
   it('submits review successfully and validates 2000-char length limit', async () => {
@@ -187,7 +187,7 @@ describe('F11-CREATE-REVIEW Screen (/reviews/new)', () => {
       state: { source },
     });
 
-    expect(await screen.findByText('Share your experience')).toBeInTheDocument();
+    expect(await screen.findByText('Chia sẻ trải nghiệm của bạn')).toBeInTheDocument();
     expect(screen.getByText('Workshop làm nhẫn cơ bản')).toBeInTheDocument();
 
     const textarea = screen.getByPlaceholderText(/Viết đánh giá tối đa 2.000 ký tự/);
@@ -226,7 +226,7 @@ describe('F11-CREATE-REVIEW Screen (/reviews/new)', () => {
       state: { source },
     });
 
-    expect(await screen.findByText('Share your experience')).toBeInTheDocument();
+    expect(await screen.findByText('Chia sẻ trải nghiệm của bạn')).toBeInTheDocument();
 
     const textarea = screen.getByPlaceholderText(/Viết đánh giá tối đa 2.000 ký tự/);
     fireEvent.change(textarea, { target: { value: 'A'.repeat(2005) } });
@@ -263,7 +263,7 @@ describe('F11-EDIT-REVIEW Screen (/reviews/:id/edit)', () => {
 
     open('/reviews/rev-edit-01/edit', { session: fakeSession('signed-in') });
 
-    expect(await screen.findByText('Edit review')).toBeInTheDocument();
+    expect(await screen.findByText('Chỉnh sửa đánh giá')).toBeInTheDocument();
     const textarea = screen.getByPlaceholderText(/Viết đánh giá tối đa 2.000 ký tự/);
     expect(textarea).toHaveValue('Nội dung ban đầu');
 
@@ -301,7 +301,7 @@ describe('F11-EDIT-REVIEW Screen (/reviews/:id/edit)', () => {
     });
 
     open('/reviews/rev-edit-02/edit', { session: fakeSession('signed-in') });
-    expect(await screen.findByText('Edit review')).toBeInTheDocument();
+    expect(await screen.findByText('Chỉnh sửa đánh giá')).toBeInTheDocument();
 
     const saveBtn = screen.getByRole('button', { name: 'Lưu thay đổi' });
     await user.click(saveBtn);
@@ -331,10 +331,10 @@ describe('F11-REVIEW-DETAIL Screen (/reviews/:id)', () => {
 
     open('/reviews/rev-detail-01', { session: fakeSession('signed-in') });
 
-    expect(await screen.findByText('Review detail')).toBeInTheDocument();
+    expect(await screen.findByText('Chi tiết đánh giá')).toBeInTheDocument();
     expect(screen.getByText('Cảm ơn nghệ nhân đã hướng dẫn tận tình!')).toBeInTheDocument();
     expect(screen.getByText('Mland rất vui vì bạn hài lòng!')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Edit own review' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Chỉnh sửa đánh giá của bạn' })).toBeInTheDocument();
   });
 });
 
@@ -364,7 +364,7 @@ describe('F11-MODERATION-QUEUE Screen (/review-moderation)', () => {
 
     expect(await screen.findByText('Quản lý đánh giá')).toBeInTheDocument();
     expect(screen.getByText('Chất lượng không như quảng cáo.')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Open' })).toHaveAttribute('href', '/review-moderation/rev-mod-01');
+    expect(screen.getByRole('link', { name: 'Xem chi tiết' })).toHaveAttribute('href', '/review-moderation/rev-mod-01');
   });
 });
 

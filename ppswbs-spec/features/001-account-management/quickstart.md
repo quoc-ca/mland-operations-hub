@@ -1,7 +1,7 @@
 # Quickstart Validation Guide: Account Management (FE-001)
 
 **Date created**: 2026-10-26
-**Date updated**: 2026-11-04
+**Date updated**: 2026-11-14
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
@@ -228,7 +228,7 @@ Refer to [data-model.md](data-model.md) for entity invariants and [contracts/int
 
 ## Scenario V-07: Workshop facade — target facts and roster (FR-028–FR-032)
 
-**Covers**: FR-028–FR-032; requires FE-003 integration test
+**Covers**: FR-027–FR-032; requires FE-003 integration test
 
 > These are Java module-boundary calls, not REST endpoints. Validate via integration test or a controlled FE-003 stub.
 
@@ -248,8 +248,22 @@ RosterOutcome result = accountFacade.findEligibleRoster(
 TargetFactsOutcome result = accountFacade.findTargetFacts(AccountId.of(42L));
 // FOUND: {accountId, role, status, activeWorkshopLocationIds}
 // NOT_FOUND: account conclusively absent
-// UNAVAILABLE: Account or Workshop Location scope cannot be verified
+// UNAVAILABLE: Account or required Workshop Location scope cannot be verified
 ```
+
+**Manager authorization isolation**:
+
+1. Resolve an `ACTIVE` Manager through `CurrentAccountActor`; do not call either
+   scope facade method.
+2. Invoke an action that its owning Workshop feature explicitly authorizes to
+   Manager against a resource in a Location outside the Manager's assignments.
+3. Repeat while the Workshop Location scope dependency is unavailable.
+
+**Expected**: both Manager attempts are decided from current `MANAGER` role and
+status plus the owning feature's resource rule, not from Location assignment or
+Location availability. In contrast, an `ACTIVE` Staff account assigned only to
+a different Location is denied, and a Staff location-scoped action is retryable
+when effective scope is unavailable.
 **Expected on UNAVAILABLE**: consumer does not start/commit mutation; returns `503`; safe input preserved
 
 ---

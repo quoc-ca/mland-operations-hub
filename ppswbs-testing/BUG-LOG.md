@@ -7,7 +7,155 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
 
 ## Danh sách lỗi đang theo dõi (Active Defects)
 
-<!-- Ghi nhận lỗi mới nhất lên trên đầu theo mẫu dưới đây -->
+<!-- Không còn lỗi nào ở trạng thái OPEN. Tất cả 7 lỗi đã được khắc phục và nghiệm thu đóng hoàn toàn. -->
+
+---
+
+## Danh sách lỗi đã đóng / nghiệm thu (Resolved & Closed Defects)
+
+## BUG-E2E-0007 — CLOSED
+
+- Ngày mở: 2026-11-13
+- Ngày đóng / nghiệm thu: 2026-11-13
+- Phát hiện bởi: Senior QA & System Verification Engineer
+- Xác minh đóng lỗi bởi: Senior QA & System Verification Engineer
+- Feature: 012-workshop-ring-design-configuration
+- Kịch bản liên quan: [E2E-012-005](../ppswbs-spec/features/012-workshop-ring-design-configuration/test-results/E2E-012-005--guest-expiry-and-member-ownership.md)
+- Mức độ nghiêm trọng: MAJOR
+- Phân loại / Gán cho: Frontend (Auth Context Consumption in DesignEvaluationPage & RingConfigurationPage)
+- Mô tả lỗi ban đầu: Trong `DesignEvaluationPage.jsx` (dòng 15-16) và `RingConfigurationPage.jsx` (dòng 17-18), mã nguồn sử dụng `const { user } = useAuth(); const isAuthenticated = Boolean(user);`. Tuy nhiên, `AuthProvider.jsx` trả về AuthContext không chứa thuộc tính `user` mà chứa `{ status, userId, source, signOut, subscribeOutcome }`. Do đó, `user` luôn là `undefined` và `isAuthenticated` luôn là `false`. Khi hội viên đã đăng nhập truy cập vào trang thẩm định thiết kế cá nhân (`/workshops/:packageRef/design/:designId`), hàm `api.getDesign(designId, null, isAuthenticated)` được gọi với `isAuthenticated = false`, không đính kèm header `Authorization: Bearer <token>`. Backend `WorkshopRingDesignController` không xác định được actor hội viên (`resolveMemberAccountId() == null`), coi request là khách vãng lai và ném ngoại lệ HTTP 403 `DESIGN_ACCESS_DENIED`, khiến hội viên không thể xem chi tiết hoặc lưu trữ (archive) thiết kế nhẫn của mình.
+- Các bước tái hiện ban đầu:
+  1. Đăng nhập tài khoản Member (`member.test@mland.vn` / `Member@123456`) tại `http://localhost:5173/login`.
+  2. Điều hướng đến `http://localhost:5173/my/designs` (thấy danh sách thiết kế hợp lệ `DSG-DEMO-MEMBER-01`).
+  3. Bấm "Xem chi tiết →" để điều hướng đến `http://localhost:5173/workshops/PKG-COUPLE-SILVER/design/DSG-DEMO-MEMBER-01`.
+- Biện pháp khắc phục đã triển khai:
+  1. Sửa `ppswbs_frontend/src/features/ringcustomization/ui/DesignEvaluationPage.jsx` và `RingConfigurationPage.jsx`:
+     - Thay `const { user } = useAuth(); const isAuthenticated = Boolean(user);`
+     - Bằng `const { status, userId } = useAuth(); const isAuthenticated = status === 'signed-in' || Boolean(userId);`.
+  2. Đảm bảo khi hội viên đã đăng nhập, `isAuthenticated` là `true` và đính kèm header `Authorization: Bearer <token>` vào request `GET /api/v1/workshop-designs/:id`.
+- Kết quả kiểm chứng lại (QA Re-test 2026-11-13 qua Browser MCP):
+  - Kịch bản `E2E-012-005` được chạy lại trên Chrome thực tế bằng `browsermcp`:
+    + Member mở `/my/designs` thấy `DSG-DEMO-MEMBER-01`.
+    + Bấm "Xem chi tiết →" mở `/workshops/PKG-COUPLE-SILVER/design/DSG-DEMO-MEMBER-01` thành công (HTTP 200 kèm Bearer token), hiển thị đầy đủ thông số nhẫn, độ khó 2.0/10 và nút "Lưu trữ mẫu thiết kế" (`archive-design-btn`).
+    + Bấm "Lưu trữ mẫu thiết kế" gửi `POST /api/v1/workshop-designs/DSG-DEMO-MEMBER-01/archive` thành công với `If-Match-Version: 2`, status chuyển thành `ARCHIVED` trong DB và hiển thị badge "ĐÃ LƯU TRỮ".
+  - Trạng thái: **PASS 100%**.
+  - Bằng chứng screenshot: [E2E-012-005--success.jpg](../ppswbs-spec/features/012-workshop-ring-design-configuration/test-results/screenshots/E2E-012-005--success.jpg)
+- Trạng thái xử lý: **CLOSED**
+
+## BUG-E2E-0006 — CLOSED
+
+- Ngày mở: 2026-11-13
+- Ngày đóng / nghiệm thu: 2026-11-13
+- Phát hiện bởi: Senior QA & System Verification Engineer
+- Xác minh đóng lỗi bởi: Senior QA & System Verification Engineer
+- Feature: 011-review-management
+- Kịch bản liên quan: [E2E-011-004](../ppswbs-spec/features/011-review-management/test-results/E2E-011-004--staff-manager-moderation.md), [E2E-011-005](../ppswbs-spec/features/011-review-management/test-results/E2E-011-005--manager-reply-and-aggregate.md)
+- Mức độ nghiêm trọng: MAJOR
+- Phân loại / Gán cho: Backend & Frontend (Review Detail Authorization & Moderation Detail API)
+- Mô tả lỗi ban đầu: Trong `ReviewApplicationService.getReviewDetail`, logic kiểm tra `if (review.getStatus() != ReviewStatus.PUBLIC && !owner)` chỉ cho phép `owner` (Member tác giả) đọc chi tiết review khi review không ở trạng thái `PUBLIC`. Khi review đã được Staff/Manager chuyển sang `HIDDEN` hoặc `REMOVED`, màn hình kiểm duyệt `/review-moderation/:reviewId` gọi `GET /api/v1/reviews/:reviewId` bị backend ném lỗi HTTP 404 `REVIEW_NOT_FOUND` (đồng thời Frontend `reviewManagementApi.getReview` mặc định không truyền `auth: true` và `IdentityGateFilter` bypass không trích xuất actor). Dẫn đến việc Manager không thể mở chi tiết đánh giá đã ẩn để khôi phục (`RESTORE`) hay phản hồi (`createReply`).
+- Các bước tái hiện ban đầu:
+  1. Thực hiện ẩn một đánh giá (chuyển sang `status = 'HIDDEN'`).
+  2. Đăng nhập tài khoản Quản lý (`manager.test@mland.vn` / `ManagerTest@123456`).
+  3. Mở trang `/review-moderation`, lọc trạng thái "HIDDEN" và bấm "Open".
+- Biện pháp khắc phục đã triển khai:
+  1. Backend `IdentityGateFilter.java`: Bổ sung điều kiện chỉ bypass xác thực cho `/api/v1/reviews/*` khi request KHÔNG có header `Authorization: Bearer`. Khi có header xác thực, request vẫn đi qua `AccountTokenAuthenticationFilter` để khởi tạo `ActorContext`.
+  2. Backend `ReviewApplicationService.java`: Bổ sung điều kiện `isInternalModerator = actor != null && (actor.role() == AccountRole.STAFF || actor.role() == AccountRole.MANAGER)` cho phép nhân viên và quản lý nội bộ xem chi tiết review ngay cả khi review không ở trạng thái `PUBLIC`.
+  3. Frontend `ModerationDetailPage.jsx`: Cập nhật gọi `api.getReview(reviewId, true)` (truyền cờ `auth = true`) để gửi kèm token xác thực.
+- Kết quả kiểm chứng lại (QA Re-test 2026-11-13 qua Browser MCP):
+  - Kịch bản `E2E-011-004` được chạy lại trên Chrome thực tế bằng `browsermcp`:
+    + Staff ẩn review (`status = HIDDEN`) thành công (HTTP 200).
+    + Staff bấm Gỡ đánh giá bị từ chối chính xác với HTTP 403 Forbidden (PASS RBAC).
+    + Manager đăng nhập lọc "HIDDEN" và click "Open" mở trang `/review-moderation/:id` thành công (HTTP 200).
+    + Manager bấm "Khôi phục công khai" (RESTORE) với lý do hợp lệ, backend xử lý thành công, status cập nhật sang `PUBLIC` trong DB.
+  - Trạng thái: **PASS 100%**.
+  - Bằng chứng screenshot: [E2E-011-004--moderation-success.jpg](../ppswbs-spec/features/011-review-management/test-results/screenshots/E2E-011-004--moderation-success.jpg)
+- Trạng thái xử lý: **CLOSED**
+
+## BUG-E2E-0005 — CLOSED
+
+- Ngày mở: 2026-11-13
+- Ngày đóng / nghiệm thu: 2026-11-13
+- Phát hiện bởi: Senior QA & System Verification Engineer
+- Xác minh đóng lỗi bởi: Senior QA & System Verification Engineer
+- Feature: 004-ai-chatbox-analysis-and-suggestion
+- Kịch bản liên quan: [E2E-004-002](../ppswbs-spec/features/004-ai-chatbox-analysis-and-suggestion/test-results/E2E-004-002--member-design-request.md), [E2E-004-003](../ppswbs-spec/features/004-ai-chatbox-analysis-and-suggestion/test-results/E2E-004-003--staff-manager-review.md)
+- Mức độ nghiêm trọng: BLOCKER
+- Phân loại / Gán cho: Backend (Database Schema / Flyway Migration)
+- Mô tả lỗi ban đầu: Khi Member gửi yêu cầu phân tích thiết kế kèm ảnh và thỏa thuận xử lý ảnh (`POST /api/v1/design-requests`), Backend Spring Boot ném lỗi `DataIntegrityViolationException` và trả về HTTP 500. Bảng `temporary_image_references` (và các bảng phụ thuộc `design_analysis_results`, `human_review_decisions` từ `V4__ai_chatbox_and_design_review.sql`) vẫn giữ foreign key constraint cũ `fk_tir_request` tham chiếu tới bảng `booking_design_requests` thay vì bảng độc lập mới `design_requests` (được tạo ở `V62__independent_design_request.sql`).
+- Các bước tái hiện ban đầu:
+  1. Đăng nhập tài khoản Member (`member.test@mland.vn` / `Member@123456`) tại `http://localhost:5173/login`.
+  2. Điều hướng đến `http://localhost:5173/design-requests/new`.
+  3. Nhập mô tả ý tưởng, chọn tệp ảnh hợp lệ `ring-sample.png`, tích thỏa thuận consent và submit.
+- Biện pháp khắc phục đã triển khai:
+  1. Tạo append-only migration mới `ppswbs_backend/src/main/resources/db/migration/V119__independent_design_request_foreign_keys.sql`:
+     - Xóa các foreign key constraint cũ trỏ về `booking_design_requests`.
+     - Thêm các foreign key constraint mới `fk_tir_design_request`, `fk_dar_design_request`, `fk_hrd_design_request` trỏ về bảng độc lập `design_requests (id)`.
+  2. Khởi động lại Spring Boot backend, Flyway tự động migrate thành công `119 | independent design request foreign keys | success = 1`.
+- Kết quả kiểm chứng lại (QA Re-test 2026-11-13 qua Browser MCP):
+  - Kịch bản `E2E-004-002` chạy lại trên Chrome thực tế bằng `browsermcp`:
+    + Member tải ảnh `ring-sample.png`, tích consent, bấm "Gửi yêu cầu thiết kế".
+    + Backend xử lý `POST /api/v1/design-requests` trả về HTTP 202 Accepted.
+    + Giao diện chuyển hướng đến `/design-requests/:id`, hiển thị mã `DR-7B1BE554`, trạng thái `SUCCEEDED` / `NEED_REVIEW`, cùng toàn bộ candidate features và chỉ số chất lượng ảnh mà không để lộ raw provider payload.
+  - Kịch bản `E2E-004-003` được unblock hoàn toàn:
+    + Staff đăng nhập mở hàng đợi `/design-review-requests` thấy yêu cầu `DR-7B1BE554`.
+    + Staff chọn quyết định `ACCEPTED`, nhập lý do và bấm xác nhận, lưu thành công vào `human_review_decisions` và chuyển `design_requests` sang `ACCEPTED` / `DESIGN_ACCEPTED`.
+  - Trạng thái: **PASS 100%**.
+  - Bằng chứng screenshot: [E2E-004-002--success.jpg](../ppswbs-spec/features/004-ai-chatbox-analysis-and-suggestion/test-results/screenshots/E2E-004-002--success.jpg), [E2E-004-003--success.jpg](../ppswbs-spec/features/004-ai-chatbox-analysis-and-suggestion/test-results/screenshots/E2E-004-003--success.jpg)
+- Trạng thái xử lý: **CLOSED**
+
+## BUG-E2E-0005 — CLOSED
+
+- Ngày mở: 2026-11-14
+- Ngày khắc phục: 2026-11-14
+- Ngày đóng / nghiệm thu: 2026-11-14
+- Phát hiện bởi: Senior QA & System Verification Engineer
+- Khắc phục bởi: Senior React Frontend Implementation Engineer
+- Xác minh đóng lỗi bởi: Senior QA & System Verification Engineer (Phan Sơn)
+- Feature: 001-account-management
+- Kịch bản liên quan: [E2E-001-007](../ppswbs-spec/features/001-account-management/test-results/E2E-001-007--admin-role-catalogue-rbac-guard.md)
+- Mức độ nghiêm trọng: MAJOR
+- Phân loại / Gán cho: Frontend
+- Mô tả lỗi ban đầu: Lệch trường dữ liệu hợp đồng (Contract Misalignment) giữa Frontend và Backend tại API `/api/v1/roles`. Backend trả về `{ code, displayName }` theo đúng đặc tả OpenAPI (`RoleEntryResponse`), nhưng Frontend `RoleCataloguePage.tsx` và `AccountManagementApiClient.ts` lại truy xuất `{ r.role, r.description }`. Kết quả là bảng danh mục 4 vai trò trên `/admin/roles` bị rỗng toàn bộ nội dung tên vai trò và mô tả quyền hạn.
+- Các bước tái hiện:
+  1. Đăng nhập tài khoản có quyền Admin (ví dụ: `qa-e2e-feat007@test.com`).
+  2. Truy cập đường dẫn: `http://localhost:5173/admin/roles`.
+  3. Quan sát bảng "Danh mục vai trò hệ thống (Fixed Roles)".
+- Kết quả mong đợi: Bảng hiển thị 4 vai trò (MEMBER, STAFF, MANAGER, ADMIN) cùng mô tả phạm vi và quyền hạn tương ứng.
+- Thực tế quan sát trước khi sửa: Bảng hiển thị 4 dòng nhưng cả cột "Vai trò" (badge rỗng) và cột "Mô tả phạm vi và quyền hạn" đều trắng tinh.
+- Bằng chứng lỗi ban đầu:
+  - API response từ `GET /api/v1/roles`: `{"roles":[{"code":"MEMBER","displayName":"Khách hàng thành viên / Member"},{"code":"STAFF","displayName":"Nhân viên cơ sở / Staff"},{"code":"MANAGER","displayName":"Quản lý cơ sở / Manager"},{"code":"ADMIN","displayName":"Quản trị viên / Admin"}]}`
+  - DOM Table quan sát được: `<tr><td><span class="account-badge account-badge-readonly"></span></td><td></td></tr>`
+- Nguyên nhân gốc rễ (Root Cause):
+  - Đặc tả OpenAPI `account-management.openapi.yaml` định nghĩa `RoleEntryResponse` gồm 2 thuộc tính bắt buộc: `code` (chuỗi enum vai trò) và `displayName` (tên hiển thị vai trò).
+  - Backend Spring Boot (`RoleCatalogueController.java`) trả về DTO chuẩn `{ roles: [{ code, displayName }] }`.
+  - Frontend `RoleCataloguePage.tsx` và interface `RoleCatalogueEntry` trong `AccountManagementApiClient.ts` trước đó định nghĩa và bóc tách các trường phi tiêu chuẩn `{ role, description }`, dẫn đến `r.role` và `r.description` nhận giá trị `undefined` khi nhận payload thật từ Backend.
+- Biện pháp khắc phục đã triển khai (Frontend Dev):
+  1. `ppswbs_frontend/src/features/accountmanagement/api/AccountManagementApiClient.ts`:
+     - Cập nhật interface `RoleCatalogueEntry` bổ sung đầy đủ trường OpenAPI chuẩn `code?: 'MEMBER' | 'STAFF' | 'MANAGER' | 'ADMIN'` và `displayName?: string`, đồng thời duy trì fallback tương thích ngược.
+  2. `ppswbs_frontend/src/features/accountmanagement/components/RoleCataloguePage.tsx`:
+     - Cập nhật rendering JSX bóc tách an toàn theo chuẩn hợp đồng: `const roleCode = r.code || r.role;` và `const roleDesc = r.displayName || r.description;`.
+     - Hiển thị badge vai trò với `roleCode` và cột mô tả với `roleDesc`.
+  3. `ppswbs_frontend/src/features/accountmanagement/tests/accountManagementComponents.test.tsx`:
+     - Bổ sung unit/component test ca: `renders OpenAPI standard response with code and displayName properties (BUG-E2E-0005)`.
+     - Toàn bộ 12 test trong suite component test và 92/92 test trong toàn feature `accountmanagement` đều PASS.
+- Kết quả nghiệm thu thực tế của QA (QA Verification):
+  - **Trình duyệt**: Live Chrome qua `browsermcp` tại `http://localhost:5173/admin/roles`.
+  - **DOM Table trích xuất**:
+    ```html
+    <table class="account-table">
+      <thead><tr><th style="width: 180px;">Vai trò</th><th>Mô tả phạm vi và quyền hạn</th></tr></thead>
+      <tbody>
+        <tr><td><span class="account-badge account-badge-readonly" style="font-size: 0.85rem;">MEMBER</span></td><td style="line-height: 1.6;">Khách hàng thành viên / Member</td></tr>
+        <tr><td><span class="account-badge account-badge-readonly" style="font-size: 0.85rem;">STAFF</span></td><td style="line-height: 1.6;">Nhân viên cơ sở / Staff</td></tr>
+        <tr><td><span class="account-badge account-badge-readonly" style="font-size: 0.85rem;">MANAGER</span></td><td style="line-height: 1.6;">Quản lý cơ sở / Manager</td></tr>
+        <tr><td><span class="account-badge account-badge-readonly" style="font-size: 0.85rem;">ADMIN</span></td><td style="line-height: 1.6;">Quản trị viên / Admin</td></tr>
+      </tbody>
+    </table>
+    ```
+  - **Đánh giá**: Tất cả 4 vai trò cố định và mô tả hiển thị chính xác theo hợp đồng OpenAPI và Revision R-MGA.
+- Trạng thái xử lý: **CLOSED**
+
+---
 
 ## BUG-E2E-0004 — CLOSED
 

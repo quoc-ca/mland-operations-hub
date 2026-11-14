@@ -1,7 +1,7 @@
 # Account Management Data Model
 
 **Date created**: 2026-10-26
-**Date updated**: 2026-11-03
+**Date updated**: 2026-11-14
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
@@ -13,11 +13,14 @@
 | --- | --- | --- |
 | Account | `accountmanagement` | `id`, immutable unique `firebase_uid`, current `login_email`, `email_verified_at` nullable, role, status, `resume_status` nullable, `revocation_pending`, `version`, timestamps. Exactly one role; UID is never merged by email. |
 | AccountProfile | `accountmanagement` | PK/FK `account_id`; required `full_name`, nullable `phone`, timestamps. It is created atomically with bootstrap only when an unknown verified UID has a valid identity email; initial `full_name` is that email's local part before `@`. Phone is optional/non-unique. |
-| AccountLocationAssignment | `accountmanagement` | `account_id`, `location_id`, active flag/timestamps. No local location entity or FK to another module table. Staff has exactly one active assignment; Manager has one or more. |
+| AccountLocationAssignment | `accountmanagement` | `account_id`, `location_id`, active flag/timestamps. No local location entity or FK to another module table. Staff has exactly one active assignment, which defines Staff location scope. Manager has one or more organizational assignments; they do not narrow Manager-authorized actions. |
 | InternalAccountProvisioning | `accountmanagement` | Account creation request identity, idempotency key, normalized request digest, intended email/role/location snapshot, Firebase UID, Account ID, lifecycle/progress and retry diagnostics. Unique idempotency key; same key/different digest conflicts. |
 | AccountAuditEvent | `accountmanagement` | actor/target Account IDs nullable, action, outcome, correlation ID, safe metadata, occurred time. Retain five years; never store password, raw token/action-link, full name, phone. |
 | NotificationIntent | FE-07-owned delivery record | Account writes a referenceable intent in the same business commit for invitation, lock/unlock, or role change. No raw Firebase action link is persisted. |
-| MemberAddress | `accountmanagement` | `id`, FK `account_id`, `recipient_name`, `phone_number` (normalized 10-digit VN mobile), `province_id`, `province_name`, `district_id`, `district_name`, `ward_id`, `ward_name`, nullable `hamlet_id`, `hamlet_name` (GHTK Level 4), `detail_address`, `address_type` (`HOME`/`OFFICE`), `is_default`, timestamps. Hard delete; maximum 10 addresses per account; exactly one default address if address count > 0. |
+| AdministrativeDirectoryVersion | `accountmanagement` | Versioned reference-data set: `version` (unique), `source_url`, `effective_from`, `status` (`DRAFT`, `ACTIVE`, `ARCHIVED`), creator/time. Exactly one `ACTIVE` version. An active version is immutable; Admin creates a new draft by copying it. |
+| AdministrativeProvince | `accountmanagement` | Directory-version-scoped official `code` and resolved `name`. Code is unique within its directory version. |
+| AdministrativeCommune | `accountmanagement` | Directory-version-scoped official `code`, `name`, `type` (`WARD`, `COMMUNE`, `SPECIAL_ZONE`) and parent province. Commune code is unique within its directory version and must have a parent province in the same version. |
+| MemberAddress | `accountmanagement` | `id`, FK `account_id`, recipient contact, `province_code`/resolved `province_name`, `commune_code`/resolved `commune_name`/`commune_type`, `detail_address`, `directory_version`, `address_type` (`HOME`/`OFFICE`), `is_default`, optimistic-lock `version`, timestamps. Hard delete; maximum 10 addresses per account; exactly one default address if address count > 0. |
 
 ## Enumerations and lifecycle
 
@@ -55,7 +58,9 @@
   names are not an authority source. A missing-email identity creates no Account
   or Profile; an existing UID-owned Account is not overwritten from that absence.
 - Admin mutations use `version` and return conflict on stale write. Own profile
-  save is last-successful-commit wins.
+  save is last-successful-commit wins. Member address update, delete and default
+  mutations also use address `version`; address-book mutations serialize by
+  account to preserve the quota and single-default invariant.
 - Provisioning records persist enough non-secret progress to reconcile Firebase
   partial failure. Firebase create/revoke/action-link calls are outside the DB
   transaction and are idempotently retried/reconciled.
@@ -126,12 +131,21 @@ Account assignments intersected with currently active authoritative Workshop
 Locations. `UNAVAILABLE` is returned when that effective scope cannot be
 verified; only the dependent action fails closed.
 
-`MemberAddressSnapshot` is an immutable facade boundary record provided to approved
-consumer modules (e.g. FE-008 Retail Order & Fulfillment) at checkout:
-`id`, `recipientName`, `phoneNumber`, `provinceId`, `provinceName`, `districtId`,
-`districtName`, `wardId`, `wardName`, `hamletId`, `hamletName`, `detailAddress`, and `addressType`.
-Consumers copy this snapshot into order persistence so subsequent address changes in
-Account Management never alter existing orders.
+`MemberAddressSnapshot` is an immutable facade boundary record for a future approved
+consumer: `id`, `recipientName`, `phoneNumber`, `provinceCode`, `provinceName`,
+`communeCode`, `communeName`, `communeType`, `detailAddress`, `directoryVersion`,
+`addressType`, and address `version`. Consumers copy the snapshot into their own
+persistence so later Account Management changes never alter historical records.
+
+## Address-directory migration decision
+
+This development-stage revision may reset mock `member_addresses` rows. The next
+reserved Flyway migration replaces the legacy province/district/ward/hamlet shape
+with the two-level province/commune shape, adds `directory_version` and the
+optimistic-lock version, and creates the directory-version/province/commune tables.
+It must affect only FE-001-owned address/reference-data tables, never reset Account,
+cart, checkout, order or another feature's records. Production data-preservation
+policy is not selected by this development-only reset decision.
 
 ## Timezone storage contract — approved baseline
 

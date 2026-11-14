@@ -123,13 +123,7 @@ public class WorkshopRingDesignApplicationService {
         Map<String, Object> snapshot = deserializeSnapshot(latest.getComponentSnapshot());
         SaveDesignVersionRequest mockReq = buildRequestFromDesign(latest, snapshot);
         ValidationResultDto val = rulesPort.validateCompatibility(mockReq, null);
-        EvaluationResultDto eval = EvaluationResultDto.builder()
-                .estimatedPrice(latest.getEstimatedPrice() != null ? latest.getEstimatedPrice().toPlainString() : null)
-                .currency(latest.getCurrency())
-                .difficultyScore(latest.getDifficultyScore() != null ? latest.getDifficultyScore().toPlainString() : null)
-                .rulesVersion(latest.getRulesVersion())
-                .advisory(true)
-                .build();
+        EvaluationResultDto eval = rulesPort.evaluate(mockReq);
 
         return mapToResponse(latest, val, eval, snapshot);
     }
@@ -174,6 +168,8 @@ public class WorkshopRingDesignApplicationService {
         snapshotMap.put("materialReference", request.getMaterialReference());
         snapshotMap.put("shapeReference", request.getShapeReference());
         snapshotMap.put("ringSize", request.getRingSize());
+        snapshotMap.put("thicknessMm", request.getThicknessMm());
+        snapshotMap.put("bandWidthMm", request.getBandWidthMm());
         snapshotMap.put("components", request.getComponents());
         snapshotMap.put("attachments", request.getAttachments());
         snapshotMap.put("engraving", request.getEngraving());
@@ -412,11 +408,26 @@ public class WorkshopRingDesignApplicationService {
             } catch (Exception ignored) {}
         }
 
+        BigDecimal thickness = null;
+        if (snapshot.get("thicknessMm") != null) {
+            try {
+                thickness = new BigDecimal(snapshot.get("thicknessMm").toString());
+            } catch (Exception ignored) {}
+        }
+        BigDecimal bandWidth = null;
+        if (snapshot.get("bandWidthMm") != null) {
+            try {
+                bandWidth = new BigDecimal(snapshot.get("bandWidthMm").toString());
+            } catch (Exception ignored) {}
+        }
+
         return SaveDesignVersionRequest.builder()
                 .packageReference(design.getPackageReference())
                 .materialReference(design.getMaterialReference())
                 .shapeReference(design.getShapeReference())
                 .ringSize(design.getRingSize())
+                .thicknessMm(thickness)
+                .bandWidthMm(bandWidth)
                 .components(components)
                 .attachments(attachments)
                 .engraving(engraving)

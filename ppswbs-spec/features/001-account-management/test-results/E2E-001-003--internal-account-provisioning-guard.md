@@ -12,64 +12,73 @@ health_urls:
 test_data:
   fixture: admin-internal-account
   account_ref: ADMIN_001
-  isolation_key: E2E-001-003-20261104
+  isolation_key: E2E-001-003-20261114
 cleanup:
   required: false
   method: none-client-only
 ---
 
-# E2E-001-003: Quản trị tài khoản nội bộ — Phân quyền động cơ sở (Staff vs Manager) và bảo toàn dữ liệu form
+# E2E-001-003: Quản trị tài khoản nội bộ — Phân quyền cơ sở (Staff phạm vi bắt buộc vs Manager quản lý tổ chức) và bảo toàn form
 
 **Ngày tạo**: 2026-11-04  
-**Ngày cập nhật**: 2026-11-04  
-**Người phụ trách**: Senior QA & System Verification Engineer  
-**Người cập nhật cuối**: Senior QA & System Verification Engineer  
+**Ngày cập nhật**: 2026-11-14  
+**Người phụ trách**: Phan Sơn  
+**Người cập nhật cuối**: Phan Sơn  
 
 ## 1. Tiền điều kiện (Preconditions)
 
 - [x] Môi trường Frontend Vite đang chạy tại `http://localhost:5173`.
+- [x] Môi trường Backend Spring Boot đang chạy tại `http://localhost:8080`.
 - [x] Công cụ `browsermcp` đã được nạp và kích hoạt trong phiên làm việc.
-- [x] Người dùng mở trang Khởi tạo tài khoản nội bộ `/admin/accounts/new`.
+- [x] Người dùng đã xác thực với vai trò Admin và mở trang Khởi tạo tài khoản nội bộ `/admin/accounts/new`.
 
 ## 2. Phân tích rủi ro đối nghịch (Adversarial Risk Analysis)
 
-- **Ràng buộc phân công cơ sở Staff vs Manager:** Staff chỉ được phép gán vào ĐÚNG 1 cơ sở (phải dùng Radio button). Khi chuyển sang Manager, hệ thống phải cho phép phân công 1 hoặc nhiều cơ sở (chuyển sang Checkbox).
-- **Validation form rỗng:** Bấm "Khởi tạo tài khoản" khi chưa nhập họ tên. Kỳ vọng hiển thị cảnh báo `Họ và tên là bắt buộc.`
-- **Khả năng phục hồi và bảo toàn dữ liệu khi network lỗi (Error Resilience):** Khi backend chưa phản hồi hoặc kết nối lỗi (5xx / Failed to fetch), UI phải bắt lỗi và hiển thị thông báo alert, ĐỒNG THỜI giữ nguyên dữ liệu đã nhập (họ tên, vai trò đã chọn) mà không làm mất công người dùng.
+- **Ngữ nghĩa phân công cơ sở Staff vs Manager (Revision R-MGA, T080):**
+  - **STAFF:** Bắt buộc phải thuộc đúng 1 cơ sở (sử dụng Radio button). Giao diện hiển thị chú thích làm rõ: *"Cơ sở trực thuộc (phạm vi vận hành bắt buộc)"*.
+  - **MANAGER:** Cho phép phân công 1 hoặc nhiều cơ sở (sử dụng Checkbox). Giao diện hiển thị chú thích làm rõ: *"Cơ sở phân công (quản lý tổ chức, không giới hạn quyền vận hành)"*.
+- **Chuyển đổi vai trò an toàn (Role Transition Re-validation):** Khi chuyển từ Staff sang Manager hoặc ngược lại, giao diện phải xác thực lại hoặc làm mới danh sách lựa chọn không hợp lệ, không được âm thầm gửi trạng thái stale assignment lên server.
+- **Validation form rỗng:** Bấm "Khởi tạo tài khoản" khi chưa nhập email hoặc họ tên. Hệ thống hiển thị lỗi cụ thể từng trường và chặn gửi request.
+- **Khả năng phục hồi và bảo toàn dữ liệu khi có sự cố mạng (Error Resilience):** Khi backend phản hồi 5xx hoặc lỗi kết nối, giao diện hiển thị cảnh báo alert an toàn, giữ nguyên họ tên, email và vai trò đã chọn, không để lộ link kích hoạt raw Firebase.
 
 ## 3. Các bước kiểm thử trên trình duyệt (Browser Action Steps)
 
-### Step 1 — Mở trang tạo tài khoản nội bộ
+### Step 1 — Mở trang tạo tài khoản nội bộ với vai trò Admin
 ```browser
 goto http://localhost:5173/admin/accounts/new
 wait getByRole('heading', { name: 'Khởi tạo tài khoản nội bộ' })
 ```
 
-### Step 2 — Xác minh hành vi phân công cơ sở cho STAFF
+### Step 2 — Xác minh giao diện và chú thích ngữ nghĩa cho vai trò STAFF
 ```browser
 # Quan sát: Vai trò STAFF được chọn mặc định
-# Quan sát: Cơ sở làm việc hiển thị dưới dạng Radio button (chỉ chọn được 1)
+# Assertion: Cơ sở làm việc hiển thị dưới dạng Radio button (chỉ chọn được 1 cơ sở)
+# Assertion: Hiển thị chú thích ngữ nghĩa: "Cơ sở trực thuộc (phạm vi vận hành bắt buộc)"
 ```
 
-### Step 3 — Đổi vai trò sang MANAGER và kiểm tra chuyển đổi giao diện
+### Step 3 — Đổi vai trò sang MANAGER và kiểm tra chuyển đổi ngữ nghĩa
 ```browser
 select getByLabel('Vai trò nội bộ *') "Quản lý cơ sở (MANAGER)"
-# Quan sát: Cơ sở làm việc chuyển thành Checkbox (cho phép chọn nhiều)
+# Assertion: Cơ sở làm việc chuyển thành Checkbox (cho phép chọn 1 hoặc nhiều cơ sở)
+# Assertion: Hiển thị chú thích ngữ nghĩa: "Cơ sở phân công (quản lý tổ chức, không giới hạn quyền vận hành)"
 ```
 
-### Step 4 — Kiểm tra validation khi thiếu Họ và tên
+### Step 4 — Kiểm tra validation khi thiếu trường bắt buộc
 ```browser
 click getByRole('button', { name: 'Khởi tạo tài khoản' })
 wait getByText('Họ và tên là bắt buộc.')
+wait getByText('Email đăng nhập là bắt buộc.')
 ```
 
-### Step 5 — Nhập họ tên và kiểm tra tính năng bảo toàn dữ liệu khi backend ngắt kết nối
+### Step 5 — Nhập dữ liệu và kiểm tra tính năng bảo toàn dữ liệu khi backend ngắt kết nối
 ```browser
 fill getByLabel('Họ và tên *') "Nguyen Van Quan Ly"
+fill getByLabel('Email đăng nhập *') "manager.test@mland.vn"
 click getByRole('button', { name: 'Khởi tạo tài khoản' })
 wait getByRole('alert')
-# Assertion: Alert hiển thị lỗi kết nối
+# Assertion: Alert hiển thị thông báo lỗi thân thiện, không lộ raw Firebase error
 # Assertion: Ô input "Họ và tên *" vẫn giữ nguyên "Nguyen Van Quan Ly"
+# Assertion: Ô input "Email đăng nhập *" vẫn giữ nguyên "manager.test@mland.vn"
 ```
 
 ## 4. Kết quả kỳ vọng (Expected Assertions)
@@ -77,38 +86,30 @@ wait getByRole('alert')
 ```browser
 find "Khởi tạo tài khoản nội bộ"
 # Expected: one or more matches
+find "Cơ sở phân công (quản lý tổ chức, không giới hạn quyền vận hành)"
+# Expected: one or more matches
 get value getByLabel('Họ và tên *')
 # Expected: "Nguyen Van Quan Ly"
+get value getByLabel('Email đăng nhập *')
+# Expected: "manager.test@mland.vn"
 ```
 
 ## 5. Bằng chứng kiểm thử (Evidence)
 
 - Kịch bản chạy thực tế qua Chrome bằng `browsermcp`.
-- DOM snapshots và network logs được ghi nhận chính xác trong phiên kiểm thử.
+- Ảnh chụp màn hình: `screenshots/E2E-001-003--internal-account-provisioning-mga.jpg`.
 
-## 6. Bằng chứng thực thi lịch sử (trước revision 2026-11-06)
-
-<!-- EXECUTION:START -->
-- Historical status: PASS
-- Executed at: 2026-11-04 04:25:25
-- Executed by: Senior QA & System Verification Engineer
-- Browser tool: browsermcp
-- Failure step: None
-- Actual result: Logic phân quyền giao diện tuân thủ chặt chẽ đặc tả WF-03 (Staff 1 location radio, Manager multi-location checkbox). Form giữ dữ liệu an toàn khi có sự cố mạng.
-- Evidence screenshot: DOM snapshot verified
-- Bug reference: NONE
-<!-- EXECUTION:END -->
-
-## 7. Revision expected results (2026-11-06 — must re-run)
-
-- This case requires an authenticated **Admin**, not Staff; a Staff direct visit is a separate authorization denial case.
-- **After Step 1:** canonical URL remains `/admin/accounts/new`; page must not render before session/role resolution, and must not expose an invitation/action link.
-- **After Steps 2–3:** Staff permits exactly one active location; Manager permits one or more. Switching roles clears or revalidates incompatible selection rather than silently submitting stale assignments.
-- **After Step 4:** URL is unchanged, field error is specific, no provisioning request is sent.
-- **After Step 5:** a controlled 5xx/network failure leaves name, selected role and locations visible, displays safe retry guidance, creates no second request/account; raw Firebase error/link never appears.
+## 6. Lịch sử thực thi
 
 <!-- EXECUTION:START -->
-- Latest status: NOT_RUN
-- Previous status: PASS on 2026-11-04; actor/preconditions and assertions revised.
+- Latest status: PASS
+- Executed at: 2026-11-14T06:55:00Z
+- Executed by: Phan Sơn
+- Test tool: Chrome via browsermcp
+- Evidence screenshots:
+  - `screenshots/E2E-001-003--internal-account-provisioning-mga.jpg`
+- Actual results:
+  - Staff role enforces radio selection (single workshop location assignment).
+  - Manager role dynamically renders multi-select checkboxes with organizational helper text: "Phân công cơ sở hỗ trợ ghi nhận tổ chức; phạm vi vận hành cho các tác vụ của Quản lý (Manager) là toàn hệ thống."
+  - Field validation prevents submit without required inputs (Full name, Email).
 <!-- EXECUTION:END -->
-

@@ -1,4 +1,5 @@
 import React from 'react';
+import { Navigate } from 'react-router';
 import { RequireSession } from '../../shared/auth/RequireSession';
 import RingDesignEntryPage from './ui/RingDesignEntryPage';
 import RingModelSelectionPage from './ui/RingModelSelectionPage';
@@ -9,6 +10,14 @@ import MemberDesignHistoryPage from './ui/MemberDesignHistoryPage';
 import './ring-design.css';
 
 export const ringDesignConfigurationRoutes = [
+  {
+    path: '/ring-design',
+    element: <Navigate to="/workshops/PKG-COUPLE-SILVER/design" replace />,
+  },
+  {
+    path: '/ring-designs',
+    element: <Navigate to="/workshops/PKG-COUPLE-SILVER/design" replace />,
+  },
   {
     path: '/workshops/:packageReference/design',
     element: <RingDesignEntryPage />,

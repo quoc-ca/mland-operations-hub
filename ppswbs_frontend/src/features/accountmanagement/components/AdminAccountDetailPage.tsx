@@ -150,11 +150,11 @@ export const AdminAccountDetailPage: React.FC = () => {
         selectedAccount.version
       );
       if (result) {
-        setRoleActionSuccess('Phân quyền vai trò và cơ sở thành công.');
+        setRoleActionSuccess('Cập nhật vai trò và phân công cơ sở thành công. Thay đổi đã được máy chủ xác nhận và có hiệu lực trên hệ thống.');
       }
     } catch (err: any) {
       if (err instanceof ApiError && err.status === 409) {
-        setRoleActionError('Dữ liệu đã bị thay đổi bởi phiên khác. Đã tải lại thông tin mới nhất.');
+        setRoleActionError('Dữ liệu đã bị thay đổi bởi phiên khác (xung đột phiên bản). Đã tải lại thông tin mới nhất từ máy chủ, vui lòng kiểm tra và thử lại.');
       } else {
         setRoleActionError(err?.message || 'Không thể phân công vai trò/cơ sở.');
       }
@@ -291,6 +291,31 @@ export const AdminAccountDetailPage: React.FC = () => {
             <tr>
               <th>Trạng thái hoạt động:</th>
               <td>{selectedAccount.status}</td>
+            </tr>
+            <tr>
+              <th>{selectedAccount.role === 'MANAGER' ? 'Cơ sở phân công tổ chức:' : 'Cơ sở phân công:'}</th>
+              <td>
+                {selectedAccount.locationAssignments && selectedAccount.locationAssignments.filter(l => l.active).length > 0 ? (
+                  <div>
+                    <span>
+                      {selectedAccount.locationAssignments
+                        .filter(l => l.active)
+                        .map(l => {
+                          const locObj = AVAILABLE_LOCATIONS.find(loc => loc.id === l.locationId);
+                          return locObj ? locObj.name : `Cơ sở #${l.locationId}`;
+                        })
+                        .join(', ')}
+                    </span>
+                    <div style={{ fontSize: '0.8rem', color: '#6b717f', marginTop: '0.25rem' }}>
+                      {selectedAccount.role === 'MANAGER'
+                        ? 'Phân công cơ sở hỗ trợ ghi nhận tổ chức; phạm vi vận hành cho các tác vụ của Quản lý (Manager) là toàn hệ thống.'
+                        : 'Phân công cơ sở giới hạn phạm vi truy cập vận hành của Nhân viên (Staff).'}
+                    </div>
+                  </div>
+                ) : (
+                  <span style={{ color: '#6b717f' }}>Chưa phân công</span>
+                )}
+              </td>
             </tr>
             <tr>
               <th>Thu hồi phiên Firebase:</th>
@@ -468,10 +493,25 @@ export const AdminAccountDetailPage: React.FC = () => {
                 <option value="STAFF">Nhân viên cơ sở (STAFF)</option>
                 <option value="MANAGER">Quản lý cơ sở (MANAGER)</option>
               </select>
+              <span className="account-field-hint" data-testid="edit-role-scope-hint">
+                {editRole === 'MANAGER'
+                  ? 'Phân công cơ sở hỗ trợ ghi nhận tổ chức; phạm vi vận hành cho các tác vụ của Quản lý (Manager) là toàn hệ thống. Quản lý cần ít nhất một cơ sở.'
+                  : 'Phân công cơ sở giới hạn phạm vi truy cập vận hành của Nhân viên (Staff). Nhân viên phân công đúng một cơ sở.'}
+              </span>
             </div>
 
+            {editRole !== selectedAccount.role && (
+              <div className="account-alert account-alert-info" role="note" data-testid="role-transition-notice" style={{ marginTop: '0.5rem', marginBottom: '0.75rem' }}>
+                <span>
+                  Lưu ý khi đổi vai trò ({selectedAccount.role} → {editRole}): Quyền hạn chỉ thay đổi sau khi máy chủ xác nhận lưu thành công. Quản lý có phạm vi vận hành toàn hệ thống cho các tác vụ quản lý; Nhân viên bị giới hạn trong cơ sở phân công.
+                </span>
+              </div>
+            )}
+
             <div className="account-field">
-              <span className="account-label account-label-required">Cơ sở được phân công</span>
+              <span className="account-label account-label-required">
+                {editRole === 'MANAGER' ? 'Cơ sở phân công tổ chức' : 'Cơ sở làm việc (giới hạn quyền)'}
+              </span>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.25rem' }}>
                 {AVAILABLE_LOCATIONS.map(loc => (
                   <label

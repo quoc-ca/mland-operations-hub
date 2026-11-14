@@ -265,13 +265,17 @@ export const InternalAccountCreatePage: React.FC = () => {
                 <option value="STAFF">Nhân viên cơ sở (STAFF)</option>
                 <option value="MANAGER">Quản lý cơ sở (MANAGER)</option>
               </select>
-              <span className="account-field-hint">
-                Staff phân công đúng 1 cơ sở; Manager phân công 1 hoặc nhiều cơ sở.
+              <span className="account-field-hint" data-testid="role-scope-hint">
+                {role === 'MANAGER'
+                  ? 'Phân công cơ sở hỗ trợ ghi nhận tổ chức; phạm vi vận hành cho các tác vụ của Quản lý (Manager) là toàn hệ thống. Quản lý phân công 1 hoặc nhiều cơ sở.'
+                  : 'Phân công cơ sở giới hạn phạm vi truy cập vận hành của Nhân viên (Staff). Nhân viên phân công đúng 1 cơ sở.'}
               </span>
             </div>
 
             <div className="account-field">
-              <span className="account-label account-label-required">Địa điểm được phân công</span>
+              <span className="account-label account-label-required">
+                {role === 'MANAGER' ? 'Cơ sở phân công tổ chức' : 'Cơ sở làm việc (giới hạn quyền)'}
+              </span>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.25rem' }}>
                 {AVAILABLE_LOCATIONS.map(loc => {
                   const isChecked = selectedLocations.includes(loc.id);

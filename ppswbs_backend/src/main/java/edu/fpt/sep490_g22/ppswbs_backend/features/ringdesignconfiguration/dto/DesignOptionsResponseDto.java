@@ -111,6 +111,8 @@ public class DesignOptionsResponseDto {
         private Integer maxCharacters;
         private List<String> allowedPlacements;
         private String priceAdjustment;
+        private String customImagePrice;
+        private Integer imageFrameSizePx;
         private String currency;
     }
 

@@ -89,16 +89,20 @@ export const RoleCataloguePage: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {roles.map(r => (
-                <tr key={r.role}>
-                  <td>
-                    <span className="account-badge account-badge-readonly" style={{ fontSize: '0.85rem' }}>
-                      {r.role}
-                    </span>
-                  </td>
-                  <td style={{ lineHeight: 1.6 }}>{r.description}</td>
-                </tr>
-              ))}
+              {roles.map(r => {
+                const roleCode = r.code || r.role;
+                const roleDesc = r.displayName || r.description;
+                return (
+                  <tr key={roleCode}>
+                    <td>
+                      <span className="account-badge account-badge-readonly" style={{ fontSize: '0.85rem' }}>
+                        {roleCode}
+                      </span>
+                    </td>
+                    <td style={{ lineHeight: 1.6 }}>{roleDesc}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
 
@@ -109,11 +113,12 @@ export const RoleCataloguePage: React.FC = () => {
             <ul style={{ margin: 0, paddingLeft: '1.25rem', fontSize: '0.85rem', color: '#6b717f', lineHeight: 1.6 }}>
               <li>Vai trò được gán trực tiếp cho từng tài khoản; không áp dụng đa vai trò đồng thời.</li>
               <li>MEMBER được tạo tự động thông qua đăng ký cá nhân tự phục vụ.</li>
-              <li>STAFF và MANAGER được khởi tạo bởi Quản trị viên (Admin) và gắn với cơ sở làm việc.</li>
-              <li>ADMIN là vai trò quản trị hệ thống cao nhất, không thể bị tạm khóa hoặc sửa đổi từ giao diện này.</li>
+              <li>STAFF được phân công đúng 1 cơ sở (giới hạn quyền truy cập vận hành trong cơ sở đó).</li>
+              <li>MANAGER có một hoặc nhiều phân công cơ sở hỗ trợ tổ chức; phạm vi vận hành cho các tác vụ quản lý của Manager là toàn hệ thống.</li>
+              <li>ADMIN là vai trò quản trị hệ thống cao nhất, quản lý tài khoản nội bộ và danh mục vai trò; không thể bị tạm khóa hoặc sửa đổi từ giao diện này.</li>
             </ul>
             <p style={{ margin: '0.75rem 0 0 0', fontSize: '0.85rem', color: '#1a1a1a', fontWeight: 500 }}>
-              💡 Để phân công vai trò STAFF hoặc MANAGER, mở chi tiết tài khoản và chọn địa điểm phù hợp.
+              💡 Để phân công vai trò STAFF hoặc MANAGER, mở chi tiết tài khoản và chọn cơ sở phù hợp. Phân công cơ sở của Manager hỗ trợ tổ chức và không giới hạn quyền quản lý toàn hệ thống.
             </p>
           </div>
         </div>

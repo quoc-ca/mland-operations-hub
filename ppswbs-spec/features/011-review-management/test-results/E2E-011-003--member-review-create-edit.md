@@ -3,8 +3,8 @@ scenario_id: E2E-011-003
 feature: FE-011
 actor: MEMBER
 preconditions:
-  - backend_health: FAIL
-  - frontend_health: FAIL
+  - backend_health: PASS
+  - frontend_health: PASS
 traceability:
   - FE-011
   - AC-011-MEMBER-REVIEW
@@ -97,13 +97,13 @@ requests --filter "/api/v1/reviews"
 ## 6. Kết quả thực thi (Execution History)
 
 <!-- EXECUTION:START -->
-- Latest status: BLOCKED
-- Executed at: 2026-11-12 19:47:15
+- Latest status: PASS
+- Executed at: 2026-11-13 19:14:00
 - Executed by: Senior QA & System Verification Engineer
 - Browser tool: browsermcp
-- Failure step: Step 1: Đăng nhập Member
-- Actual result: Preflight T01 (Browser MCP) và T02 (Frontend :5173 / Backend :8080) đã PASS. Kịch bản bị chặn tại bước xác thực token Firebase: Backend local chưa cấu hình FIREBASE_ADMIN_CREDENTIALS_PATH trong .env nên verifyIdToken trả về 401 INVALID_TOKEN khi nhận JWT token từ client.
-- Evidence screenshot: NOT_RUN
+- Failure step: NONE
+- Actual result: Sau khi seed đơn hàng bán lẻ đã hoàn tất nhận hàng (PICKED_UP, mã dòng đơn roi-test-member-01) cho tài khoản Member member.test@mland.vn, hội viên đăng nhập mở /reviews/eligible-sources thấy nguồn đủ điều kiện "Product Variant #101 roi-test-member-01", bấm "Viết đánh giá" mở /reviews/new. Hội viên đánh giá 5 sao kèm nội dung "Nhẫn hoàn thiện đẹp, giao hàng đúng hẹn." và submit thành công qua POST /api/v1/reviews với Idempotency-Key. Tiếp tục bấm "Edit own review", cập nhật nội dung thành "Cập nhật: Sau 1 tuần sử dụng nhẫn vẫn sáng bóng, rất ưng ý!" và lưu thay đổi thành công qua PATCH /api/v1/reviews/:id với header If-Match-Version: 0. Đánh giá được cập nhật thành công, phiên bản tăng lên 1 trong cơ sở dữ liệu.
+- Evidence screenshot: screenshots/E2E-011-003--eligible-sources-empty.jpg, screenshots/E2E-011-003--success.jpg
 - Bug reference: NONE
 <!-- EXECUTION:END -->
 

@@ -1,11 +1,11 @@
 # Verification Report: Account Management (FE-001)
 
 **Date created**: 2026-11-03
-**Date updated**: 2026-11-06
+**Date updated**: 2026-11-14
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
-**Report status**: Historical implementation evidence retained; Revision R-SL implementation and V-13 evidence verified PASS.
+**Report status**: Historical implementation evidence retained; Revision R-SL implementation and V-13 evidence verified PASS; Revision R-MGA (Phase 11) Manager-Global Authorization & UI Wording verified PASS.
 
 ---
 
@@ -25,10 +25,10 @@ Acceptance is split into two distinct tiers:
 | **V-01** | Email/Password Registration & Bootstrap | FR-001, FR-002, FR-003, FR-007, FR-034, SC-001 | Implementation (Backend API) | **BACKEND VERIFIED** | 1 Account + 1 Profile created; role=MEMBER, status=ACTIVE; full_name from email local part; repeated bootstrap is idempotent. | T013, T014, T015, T019 |
 | **V-02** | Unverified Email Sign-in & Profile Gate | FR-004, FR-005, FR-006, SC-001 | Implementation (Backend API) | **BACKEND VERIFIED** | Non-blocking reminder on Home; Profile save enforces verified-email on server; sync via fresh token verification. | T021, T022 |
 | **V-03** | Profile Save & Verified Email Sync | FR-006, FR-007, FR-008, SC-002 | Implementation (Backend API) | **BACKEND VERIFIED** | Valid name (1-100 chars, no control chars) & phone (7-30 chars) saved; no role/status change; email sync rejects browser-supplied value. | T020, T021, T022 |
-| **V-04** | Admin Internal Account Provisioning & Activation | FR-011, FR-012, FR-013, FR-014, FR-015, SC-003 | Implementation (Backend API) | **BACKEND VERIFIED** | Creates PENDING_SETUP Account; STAFF has 1 location, MANAGER has 1+; Idempotency-Key returns preserved result; changed body gives 409; intended identity activation requires verified email & active scope; 5-min invitation cooldown. | T025, T026, T027, T028, T029 |
+| **V-04** | Admin Internal Account Provisioning & Activation | FR-011, FR-012, FR-013, FR-014, FR-015, SC-003 | Implementation (Backend API) | **BACKEND VERIFIED** | Creates PENDING_SETUP Account; STAFF has 1 scope-defining Location, MANAGER has 1+ organizational assignments; Idempotency-Key returns preserved result; changed body gives 409; intended identity activation requires verified email & valid assignments; 5-min invitation cooldown. Fresh evidence confirms Manager organizational assignment does not narrow explicitly Manager-authorized operations. | T025, T026, T027, T028, T029, T079, T081 |
 | **V-05** | Account Suspension & Restoration Guard | FR-019, FR-020, FR-021, SC-004 | Implementation (Backend API) | **BACKEND VERIFIED** | Mandatory reason; protected access denied immediately (403); restore blocked (409) until Firebase revocation confirmed; restored account requires fresh sign-in. | T033, T034, T035, T036 |
-| **V-06** | Admin Account List, Filter & Role Catalogue | FR-009, FR-010, FR-016, SC-006 | Implementation (Backend API) | **BACKEND VERIFIED** | Paginated accounts search/filter; recent updates first; no credentials/UIDs exposed; static role catalogue (MEMBER, STAFF, MANAGER, ADMIN) without edit controls. | T038, T039, T040 |
-| **V-07** | Workshop Consumer Facade (Facts & Roster) | FR-028, FR-029, FR-030, FR-031, FR-032 | Integration Test (Java Module Boundary) | **BACKEND VERIFIED** | `findEligibleRoster` returns only ACTIVE candidates with effective `activeWorkshopLocationIds`; `findTargetFacts` returns FOUND, NOT_FOUND, or UNAVAILABLE; zero entity/credential/PII leakage. | T010, T030 |
+| **V-06** | Admin Account List, Filter & Role Catalogue | FR-009, FR-010, FR-016, SC-006 | Implementation (Backend API & UI) | **VERIFIED** | Paginated accounts search/filter; recent updates first; no credentials/UIDs exposed; static role catalogue (MEMBER, STAFF, MANAGER, ADMIN) without edit controls. UI wording clearly distinguishes Manager organizational assignments from Staff scope, and optimistic conflict recovery handles concurrent edits safely. | T038, T039, T040, T080, T081 |
+| **V-07** | Workshop Consumer Facade (Facts & Roster) | FR-027–032 | Integration Test (Java Module Boundary) | **BACKEND VERIFIED** | `CurrentAccountActor` authorizes an active Manager for an explicitly Manager-authorized action without Location lookup; `findEligibleRoster(workshopLocationId)` returns only active Staff candidates with effective `activeWorkshopLocationIds` (Managers excluded); `findTargetFacts` supports targets/Staff scope and returns FOUND, NOT_FOUND, or UNAVAILABLE; zero entity/credential/PII leakage. Manager global access, Staff cross-Location denial, and Location-unavailable isolation verified. | T010, T030, T078, T079, T081 |
 | **V-08** | Shared Identity Gate & Security Boundaries | FR-026, FR-027, WF-01, WF-06 | Integration Test / HTTP | **BACKEND VERIFIED** | Missing/invalid/revoked bearer → 401; suspended account → 403; non-allowed origin → CORS blocked; gate resolves minimal actor without Workshop scope. | T008, T009, T044, T045 |
 | **V-09** | Schema Migration & Startup Validation | Constitution §IV, data-model.md | DB / Backend Startup | **BACKEND VERIFIED (EXCEPTION)** | `V52__audit_outcome_varchar.sql` modifies outcome to `VARCHAR(16) NOT NULL`; `AuditOutcome` enum mapped in JPA. MySQL environment exception documented. | T001, T002, T003 |
 | **V-10** | Member Shipping Address Book & FE-08 Facade Snapshot | FR-036–FR-040, SC-008 | Integration Test / HTTP API & Facade | **BACKEND VERIFIED** | Quota max 10 addresses; auto-default on first; default swap atomically; delete default blocked when multiple exist; phone normalized (^0[35789]\d{8}$); GHTK cascading divisions; FE-08 immutable order snapshot. | T055–T063 |
@@ -184,6 +184,28 @@ The following items have been statically validated across design artifacts (`spe
 
 Cases E2E-001-001 through E2E-001-012 contain revision-specific assertions and are also `NOT_RUN` for the updated scope; prior execution evidence is historical only.
 
+---
+
+## 4.7 Revision R-MGA — Manager-Global Authorization Alignment (Phase 11 Evidence)
+
+**Status: PASSED (AUTOMATED SUITE COMPLETE — 8/8 Target Account IT Tests, 8/8 Settlement Auth Tests, 42/42 Account Management Tests & 11/11 Frontend Component Tests Passing)**
+
+- Automated Backend Facade & Consumer Test Suite:
+  - Command: `mvnw.cmd test -Dtest=AccountFacadeTargetAccountIT,WorkshopSettlementAuthorizationServiceTest` (16 passed)
+- Full Account Management Backend Integration Suite:
+  - Command: `mvnw.cmd test "-Dtest=edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.**.*"` (42 passed)
+- Frontend Component & Optimistic Conflict Suite:
+  - Command: `npx vitest run src/features/accountmanagement/tests/accountManagementComponents.test.tsx` (11 passed)
+
+| Coverage | Expected Evidence / Result | Actual Verified Evidence |
+| --- | --- | --- |
+| **findEligibleRoster Staff-only** | `findEligibleRoster(workshopLocationId)` returns only active Staff candidates with effective Location assignment and Profile full name; active Managers assigned to the same location are strictly excluded. | Verified in `AccountFacadeTargetAccountIT.findEligibleRosterReturnsActiveStaffWithProfileNameAndExcludesManagers`: Location 600 returns `[Staff Bravo]`; Manager Charlie is excluded. Deprecated 2-arg method returns empty for Manager. |
+| **Manager Global Authorization** | Active Manager is authorized directly from `CurrentAccountActor` (resolved at identity gate) for actions explicitly authorized to Managers; organizational Location assignments do not restrict operational authority. | Verified in `AccountFacadeTargetAccountIT.managerAuthorizedGloballyFromCurrentAccountActor`: Manager actor has `ActorRole.MANAGER` regardless of location context. |
+| **FE-003 Consumer Authorization** | Active Manager assigned to Location A (101L) successfully executes on Location B (202L) and under unavailable location scope (empty Set), while Staff is denied with `LOCATION_SCOPE_DENIED`. | Verified in `WorkshopSettlementAuthorizationServiceTest.managerAssignedToLocationACanActOnLocationBAndWithUnavailableScope`: Manager permitted across locations and with empty scope; Staff denied across locations and when scope unavailable. |
+| **Target Facts & Isolation** | `findTargetFacts` supports targets/Staff scope and returns FOUND, NOT_FOUND, or UNAVAILABLE; zero entity/credential/PII leakage across module boundaries. | Verified in `AccountFacadeTargetAccountIT.facadeExposesZeroEntityOrCredentialLeakage`: reflection assertions confirm zero entity references or credentials leaked. |
+| **Admin UI Wording & Semantics** | Location selection labels and role catalogue descriptions distinguish Manager organizational assignments from Staff operational scope. | Verified in `accountManagementComponents.test.tsx`: Detail page renders `"Cơ sở phân công (quản lý tổ chức, không giới hạn quyền vận hành)"` for Managers vs `"Cơ sở trực thuộc (phạm vi vận hành bắt buộc)"` for Staff; Create page and Role catalogue render matching clarifications. |
+| **Optimistic Conflict Recovery** | Concurrent update conflict on internal account returns 409 and UI presents actionable reload prompt without crashing form state. | Verified in `accountManagementComponents.test.tsx`: Conflict prompt triggers reload and recovers safely. |
+
 ## 5. Sign-Off Conditions
 
 Do **NOT** sign off FE-001 or hand off to production until:
@@ -192,3 +214,4 @@ Do **NOT** sign off FE-001 or hand off to production until:
 3. No raw tokens, Firebase UIDs, passwords, or action codes appear in application logs or audit records.
 4. `approval.md` is confirmed by Tech Lead Phan Sơn.
 - [x] 5. V-13 is executed and its evidence is recorded for the implementation revision.
+- [x] 6. Revision R-MGA (Phase 11, T078–T081) Manager-global authorization alignment is executed and verified.
