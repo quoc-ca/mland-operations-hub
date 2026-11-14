@@ -9,7 +9,7 @@ import { operationsRoutes } from '../routes';
 const SLOT_A = '11111111-1111-1111-1111-111111111111';
 const SLOT_B = '22222222-2222-2222-2222-222222222222';
 const SESSION = {
-  id: 'session-1', locationId: 4, slotId: SLOT_A, workshopDate: '2026-12-05', capacity: 10, state: 'PUBLISHED',
+  id: 'session-1', version: 3, locationId: 4, slotId: SLOT_A, workshopDate: '2026-12-05', capacity: 10, state: 'PUBLISHED',
   scheduledStartAt: '2026-12-05T02:00:00Z', scheduledEndAt: '2026-12-05T05:00:00Z',
   checkInOpensAt: '2026-12-05T01:00:00Z', checkInOpeningSource: 'DEFAULT',
   rescheduleQuota: 2, rescheduleQuotaOverridden: false, rescheduleQuotaUsed: 1,
@@ -105,7 +105,7 @@ describe('003.2 T112 Manager session edit (capacity and check-in opening)', () =
 
     expect(await screen.findByText('Session updated.')).toBeInTheDocument();
     const patch = calls.find(call => call.method === 'PATCH');
-    expect(patch.body).toEqual({ locationId: 4, slotId: SLOT_A, workshopDate: '2026-12-05', capacity: 14 });
+    expect(patch.body).toEqual({ locationId: 4, slotId: SLOT_A, workshopDate: '2026-12-05', capacity: 14, version: 3 });
     expect(patch.headers['Idempotency-Key']).toBeTruthy();
   });
 

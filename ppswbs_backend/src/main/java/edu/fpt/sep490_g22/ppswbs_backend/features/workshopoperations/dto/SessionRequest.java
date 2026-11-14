@@ -36,6 +36,12 @@ public class SessionRequest {
     @JsonFormat(shape = JsonFormat.Shape.STRING)
     private Instant checkInOpensAt;
 
+    /**
+     * T112: the session version the client last read. PATCH compares it with the stored version before applying
+     * anything and answers 409 OPTIMISTIC_LOCK_CONFLICT on a mismatch; absent means no stale check. Ignored on create.
+     */
+    private Long version;
+
     /** FR-001i: DRAFT (default) or PUBLISHED, validated exactly as in bulk generation. */
     @Builder.Default
     private SessionState initialState = SessionState.DRAFT;

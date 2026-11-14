@@ -260,6 +260,12 @@ public class WorkshopSessionService {
             throw new WorkshopValidationException("Session update request must not be null");
         }
 
+        // T112 (2026-11-15): compare the client's version with the stored one before applying anything.
+        if (request.getVersion() != null && !request.getVersion().equals(session.getVersion())) {
+            throw new org.springframework.orm.ObjectOptimisticLockingFailureException(
+                    WorkshopSession.class, session.getReference());
+        }
+
         // T112 (decided 2026-11-14): V1 edits only capacity and the check-in override. Moving a session to another
         // slot, location or date is refused, never silently ignored; echoing the current values is accepted.
         if ((request.getLocationId() != null && !request.getLocationId().equals(session.getLocation().getId()))
@@ -290,7 +296,7 @@ public class WorkshopSessionService {
                     "{\"checkInOpensAt\":\"" + request.getCheckInOpensAt() + "\"}");
         }
 
-        WorkshopSession updated = sessionRepository.save(session);
+        WorkshopSession updated = sessionRepository.saveAndFlush(session);
         if (updated.getState() != SessionState.DRAFT) {
             otaSnapshotService.publishForObservableChange(updated, "SESSION_UPDATED", Instant.now());
         }
@@ -407,6 +413,7 @@ public class WorkshopSessionService {
                 .checkInOpensAt(session.getCheckInOpensAt())
                 .checkInOpeningSource(session.getCheckInOpeningSource())
                 .capacity(session.getCapacity())
+                .version(session.getVersion())
                 .state(session.getState())
                 .rescheduleQuota(session.effectiveRescheduleQuota())
                 .rescheduleQuotaOverridden(session.getRescheduleQuotaOverride() != null)

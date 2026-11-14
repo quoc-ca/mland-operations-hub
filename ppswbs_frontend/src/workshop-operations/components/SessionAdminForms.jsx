@@ -160,6 +160,7 @@ export function SessionEditForm({ api, session, onSaved, onReload, onClose }) {
     }
     setFormError('');
     const body = { locationId: session.locationId, slotId: session.slotId, workshopDate: session.workshopDate, capacity: value };
+    if (session.version != null) body.version = session.version;
     if (opening && opening !== originalOpening) body.checkInOpensAt = new Date(opening).toISOString();
     const outcome = await command.run(key => api.updateSession(session.id, body, key));
     if (outcome.ok) onSaved?.(outcome.result);

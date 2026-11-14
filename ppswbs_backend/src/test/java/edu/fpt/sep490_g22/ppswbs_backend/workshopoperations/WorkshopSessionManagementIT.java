@@ -499,4 +499,49 @@ public class WorkshopSessionManagementIT {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.capacity").value(14));
     }
+
+    @Test
+    @DisplayName("T112: PATCH returns version, applies a matching version and refuses a stale one with 409 before applying")
+    void patchComparesVersionBeforeApplying() throws Exception {
+        LocalDate date = LocalDate.now().plusDays(16);
+        String created = mockMvc.perform(post("/api/v1/workshop-sessions")
+                        .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
+                        .header("Authorization", MGR_A_TOKEN)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(SessionRequest.builder()
+                                .locationId(locationA.getId()).slotId(slotMorning.getReference())
+                                .workshopDate(date).capacity(12).build())))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.version").isNumber())
+                .andReturn().getResponse().getContentAsString();
+        String id = objectMapper.readTree(created).get("id").asText();
+        long version = objectMapper.readTree(created).get("version").asLong();
+
+        String first = mockMvc.perform(patch("/api/v1/workshop-sessions/" + id)
+                        .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
+                        .header("Authorization", MGR_A_TOKEN)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(SessionRequest.builder()
+                                .locationId(locationA.getId()).slotId(slotMorning.getReference())
+                                .workshopDate(date).capacity(13).version(version).build())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.capacity").value(13))
+                .andReturn().getResponse().getContentAsString();
+        long next = objectMapper.readTree(first).get("version").asLong();
+        org.junit.jupiter.api.Assertions.assertTrue(next > version, "version must advance after an applied edit");
+
+        // The old version is now stale: 409, and the capacity sent with it is not applied.
+        mockMvc.perform(patch("/api/v1/workshop-sessions/" + id)
+                        .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
+                        .header("Authorization", MGR_A_TOKEN)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(SessionRequest.builder()
+                                .locationId(locationA.getId()).slotId(slotMorning.getReference())
+                                .workshopDate(date).capacity(20).version(version).build())))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("OPTIMISTIC_LOCK_CONFLICT"));
+        mockMvc.perform(get("/api/v1/workshop-sessions/" + id).header("Authorization", MGR_A_TOKEN))
+                .andExpect(jsonPath("$.capacity").value(13))
+                .andExpect(jsonPath("$.version").value(next));
+    }
 }

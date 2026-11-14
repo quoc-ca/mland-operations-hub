@@ -231,13 +231,14 @@ paths:
       description: >-
         V1 (decided 2026-11-14): only capacity and checkInOpensAt change. slotId, locationId and workshopDate may be
         sent only with the session's own current values; a different value is refused with 400 instead of being
-        ignored. To move a session, create a new one.
+        ignored. To move a session, create a new one. Send the `version` last read; a different stored version is
+        refused with 409 OPTIMISTIC_LOCK_CONFLICT before any field is applied (T112, 2026-11-15).
       parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/SessionWrite' } } } }
       responses:
         '200': { $ref: '#/components/responses/Session' }
         '400': { $ref: '#/components/responses/Problem' }
-        '409': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }   # OPTIMISTIC_LOCK_CONFLICT (stale version) or INSUFFICIENT_CAPACITY
   /workshop-sessions/{sessionId}/reschedule-quota:
     parameters: [ { $ref: '#/components/parameters/SessionId' } ]
     put:
@@ -500,6 +501,13 @@ components:
         workshopDate: { type: string, format: date }
         capacity: { type: integer, minimum: 1 }
         checkInOpensAt: { type: string, format: date-time, nullable: true }
+        version:
+          type: integer
+          format: int64
+          description: >-
+            Version of the session the client last read (T112, 2026-11-15). On PATCH the server compares it with the
+            stored version before applying anything and answers 409 OPTIMISTIC_LOCK_CONFLICT on a mismatch; omitted
+            means no stale check. Ignored on create. Every Session response returns the current value.
     SessionCreate:
       allOf:
         - { $ref: '#/components/schemas/SessionWrite' }
@@ -510,7 +518,7 @@ components:
       allOf:
         - { $ref: '#/components/schemas/SessionWrite' }
         - type: object
-          required: [id, state, scheduledStartAt, scheduledEndAt, checkInOpeningSource]
+          required: [id, version, state, scheduledStartAt, scheduledEndAt, checkInOpeningSource]
           properties:
             id: { type: string, format: uuid }
             state: { $ref: '#/components/schemas/SessionState' }
