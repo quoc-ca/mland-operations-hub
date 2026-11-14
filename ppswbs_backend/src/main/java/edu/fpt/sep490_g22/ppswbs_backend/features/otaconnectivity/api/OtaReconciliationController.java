@@ -30,9 +30,10 @@ public class OtaReconciliationController {
     @GetMapping
     public OtaReconciliationWorkItemListResponse list(
             @RequestHeader(value = "Authorization", required = false) String authorization,
-            @RequestParam(value = "status", required = false) String status) {
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "category", required = false) String category) {
         var actor = authorizationService.requireManagerOrAdmin(authorization);
-        return new OtaReconciliationWorkItemListResponse(reconciliationService.listWorkItems(status, actor));
+        return new OtaReconciliationWorkItemListResponse(reconciliationService.listWorkItems(status, category, actor));
     }
 
     @PostMapping(value = "/{workItemId}/resolve", consumes = MediaType.APPLICATION_JSON_VALUE)

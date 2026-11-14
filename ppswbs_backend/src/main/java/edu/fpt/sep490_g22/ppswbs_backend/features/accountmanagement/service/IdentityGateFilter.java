@@ -70,25 +70,21 @@ public class IdentityGateFilter extends OncePerRequestFilter {
                 && "/api/v1/integrations/payments/vnpay/events".equals(path)) {
             return true;
         }
-        if ("POST".equalsIgnoreCase(request.getMethod())
-                && path.matches("/api/v1/workshop-bookings/[^/]+/payment-attempts")) {
+        // 003.1 FR-031, FR-045, FR-047, FR-048: the group booking journey is open to a Guest (contract
+        // `security: [{}, {bearerAuth: []}]`). Without a bearer the request skips the gate and each service
+        // authorizes it (contact proof, Magic-Link token); with a bearer the Member is still verified here.
+        boolean guestGroupRoute = "POST".equalsIgnoreCase(request.getMethod())
+                && ("/api/v1/workshop-cart-quotes".equals(path)
+                || "/api/v1/workshop-booking-groups".equals(path)
+                || path.matches("/api/v1/workshop-booking-groups/[^/]+/(payment-attempts|pending-hold-release|confirmation-deliveries)"));
+        if (guestGroupRoute && request.getHeader(HttpHeaders.AUTHORIZATION) == null) {
             return true;
         }
+        // Guest-only routes (contract `security: [{}]`): group lookup by group code and one contact proof, and the
+        // Magic-Link exchange whose single-use token is the credential.
         if ("POST".equalsIgnoreCase(request.getMethod())
-                && "/api/v1/workshop-bookings".equals(path)
-                && request.getHeader(HttpHeaders.AUTHORIZATION) == null) {
-            return true;
-        }
-        // Opening a booking from the Magic Link in its email: the link's secret token is the credential, so the
-        // exchange needs no sign-in (a guest has no account). The service checks the token, its state and expiry.
-        if ("POST".equalsIgnoreCase(request.getMethod())
-                && "/api/v1/booking-magic-links/exchanges".equals(path)) {
-            return true;
-        }
-        // Guest booking lookup is explicitly public and uses booking code plus
-        // one contact proof (email or phone) instead of a Bearer token.
-        if ("POST".equalsIgnoreCase(request.getMethod())
-                && "/api/v1/booking-lookups".equals(path)) {
+                && ("/api/v1/workshop-booking-group-lookups".equals(path)
+                || "/api/v1/workshop-booking-group-magic-links/exchanges".equals(path))) {
             return true;
         }
         // 003.1 FR-041 (decision 2026-11-13): a Guest buyer proves authority with an OTP sent to the booking's
@@ -96,18 +92,23 @@ public class IdentityGateFilter extends OncePerRequestFilter {
         boolean guestRecipientRoute = ("POST".equalsIgnoreCase(request.getMethod())
                 && path.matches("/api/v1/workshop-booking-groups/[^/]+/buyer-verifications(/[^/]+/confirmations)?"))
                 || ("PUT".equalsIgnoreCase(request.getMethod())
-                && path.matches("/api/v1/workshop-tickets/[^/]+/recipient"));
+                && path.matches("/api/v1/workshop-tickets/[^/]+/recipient"))
+                || ("POST".equalsIgnoreCase(request.getMethod())
+                && path.matches("/api/v1/workshop-tickets/[^/]+/cancellations"))
+                || ("POST".equalsIgnoreCase(request.getMethod())
+                && path.matches("/api/v1/workshop-booking-groups/[^/]+/cancellations"))
+                || ("POST".equalsIgnoreCase(request.getMethod())
+                && path.matches("/api/v1/workshop-tickets/[^/]+/mland-remedy/answers"))
+                || ("POST".equalsIgnoreCase(request.getMethod())
+                && path.matches("/api/v1/workshop-tickets/[^/]+/changes"))
+                || ("POST".equalsIgnoreCase(request.getMethod())
+                && path.matches("/api/v1/workshop-tickets/[^/]+/folio-lookups"));
         if (guestRecipientRoute && request.getHeader(HttpHeaders.AUTHORIZATION) == null) return true;
         // 003.3 FR-040: the refund-account link token is the credential; the service checks it, its state and expiry.
         if ("POST".equalsIgnoreCase(request.getMethod()) && path.matches("/api/v1/refund-account-links/[^/]+")
                 && request.getHeader(HttpHeaders.AUTHORIZATION) == null) {
             return true;
         }
-        boolean customerBillRoute =("GET".equalsIgnoreCase(request.getMethod())
-                && path.matches("/api/v1/workshop-bookings/[^/]+/final-bill"))
-                || ("POST".equalsIgnoreCase(request.getMethod())
-                && path.matches("/api/v1/workshop-bookings/[^/]+/final-bill/charges"));
-        if (customerBillRoute && request.getHeader(HttpHeaders.AUTHORIZATION) == null) return true;
         if ("POST".equalsIgnoreCase(request.getMethod())
                 && "/api/v1/review-eligibility/lookup".equals(path)) {
             return true;

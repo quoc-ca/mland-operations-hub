@@ -311,15 +311,10 @@ public class WorkshopOperationsFacadeImpl implements WorkshopOperationsFacade {
 
     @Override
     @Transactional(readOnly = true)
-    public BookingAttendanceOutcome getBookingAttendanceOutcome(BookingAttendanceOutcomeQuery query) {
-        if (query == null) return BookingAttendanceOutcome.pending();
-        return bookingAttendanceOutcomeService.evaluate(query.bookingReference(), Instant.now()).outcome();
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public BookingAttendanceOutcome getTicketAttendanceOutcome(TicketAttendanceOutcomeQuery query) {
-        if (query == null) return BookingAttendanceOutcome.pending();
+    public TicketAttendanceOutcome getTicketAttendanceOutcome(TicketAttendanceOutcomeQuery query) {
+        if (query == null || query.ticketReference() == null || query.ticketReference().isBlank()) {
+            return TicketAttendanceOutcome.pending();
+        }
         return bookingAttendanceOutcomeService.evaluateTicket(query.ticketReference(), Instant.now()).outcome();
     }
 

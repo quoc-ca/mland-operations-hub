@@ -34,8 +34,8 @@ public class WorkshopBookingGroupController {
             @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId,
             @RequestHeader(value = "Authorization", required = false) String authorization,
             @Valid @RequestBody CreateBookingGroupRequest request) {
-        if (idempotencyKey == null || idempotencyKey.isBlank() || idempotencyKey.length() > 128) {
-            throw new BookingValidationException("Idempotency-Key must contain 1 to 128 characters");
+        if (idempotencyKey == null || idempotencyKey.isBlank() || idempotencyKey.length() < 16 || idempotencyKey.length() > 128) {
+            throw new BookingValidationException("Idempotency-Key must contain 16 to 128 characters");
         }
         String correlation = correlationId == null || correlationId.isBlank()
                 ? UUID.randomUUID().toString() : correlationId;

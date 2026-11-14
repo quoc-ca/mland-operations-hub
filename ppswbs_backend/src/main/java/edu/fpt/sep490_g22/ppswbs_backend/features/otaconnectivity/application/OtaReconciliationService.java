@@ -56,19 +56,35 @@ public class OtaReconciliationService {
 
     @Transactional
     public List<OtaReconciliationWorkItemView> listWorkItems(String status, AccountSummary actor) {
+        return listWorkItems(status, null, actor);
+    }
+
+    @Transactional
+    public List<OtaReconciliationWorkItemView> listWorkItems(String status, String category, AccountSummary actor) {
         requireManagerOrAdmin(actor);
         String normalizedStatus = status == null || status.isBlank() ? null : status.trim();
         if (normalizedStatus != null && !List.of(OPEN, IN_PROGRESS, RESOLVED, ESCALATED).contains(normalizedStatus)) {
             throw new IllegalArgumentException("Unsupported reconciliation status");
         }
-        List<OtaReconciliationWorkItem> items = normalizedStatus == null
-                ? workItemRepository.findMappingLinkedOrderByCreatedAtAsc()
-                : workItemRepository.findMappingLinkedByStatusOrderByCreatedAtAsc(normalizedStatus);
+        String normalizedCategory = category == null || category.isBlank() ? null : category.trim();
+
+        List<OtaReconciliationWorkItem> items;
+        if (normalizedStatus != null && normalizedCategory != null) {
+            items = workItemRepository.findByStatusAndCategoryOrderByCreatedAtAsc(normalizedStatus, normalizedCategory);
+        } else if (normalizedStatus != null) {
+            items = workItemRepository.findByStatusOrderByCreatedAtAsc(normalizedStatus);
+        } else if (normalizedCategory != null) {
+            items = workItemRepository.findByCategoryOrderByCreatedAtAsc(normalizedCategory);
+        } else {
+            items = workItemRepository.findAllByOrderByCreatedAtAsc();
+        }
+
         return items.stream().map(item -> new OtaReconciliationWorkItemView(
                 UUID.fromString(item.getPublicReference()),
-                UUID.fromString(item.getMapping().getPublicReference()),
+                item.getMapping() != null && item.getMapping().getPublicReference() != null
+                        ? UUID.fromString(item.getMapping().getPublicReference()) : null,
                 item.getStatus(),
-                UUID.fromString(item.getAuditReference()),
+                item.getAuditReference() != null ? UUID.fromString(item.getAuditReference()) : null,
                 item.getCategory())).toList();
     }
 
@@ -145,7 +161,7 @@ public class OtaReconciliationService {
         }
         OtaReconciliationWorkItem item = workItemRepository.findByIdForUpdate(workItemId)
                 .orElseThrow(() -> new OtaMappingLifecycleException("Reconciliation work item was not found"));
-        if (item.getMapping() == null) {
+        if (RESYNC_REQUESTED.equals(resolution) && item.getMapping() == null) {
             throw new OtaMappingLifecycleException("This reconciliation action requires a mapping-linked work item");
         }
         if (RESOLVED.equals(item.getStatus()) || ESCALATED.equals(item.getStatus())) {
@@ -216,7 +232,8 @@ public class OtaReconciliationService {
             throw new IllegalArgumentException("Work item reference must be a UUID");
         }
         OtaReconciliationWorkItem item = workItemRepository
-                .findMappingLinkedByPublicReferenceForUpdate(reference.toString())
+                .findByPublicReferenceForUpdate(reference.toString())
+                .or(() -> workItemRepository.findMappingLinkedByPublicReferenceForUpdate(reference.toString()))
                 .orElseThrow(() -> new OtaResourceNotFoundException("Mapping-linked reconciliation item was not found"));
         return resolve(item.getId(), resolution, reason, idempotencyKey, actor);
     }
@@ -236,7 +253,9 @@ public class OtaReconciliationService {
             throw new OtaMappingLifecycleException("Reconciliation action result is unavailable");
         }
         return new OtaReconciliationActionResult(UUID.fromString(item.getPublicReference()),
-                UUID.fromString(item.getMapping().getPublicReference()), status,
+                item.getMapping() != null && item.getMapping().getPublicReference() != null
+                        ? UUID.fromString(item.getMapping().getPublicReference()) : null,
+                status,
                 UUID.fromString(correlationReference), item.getCategory());
     }
 

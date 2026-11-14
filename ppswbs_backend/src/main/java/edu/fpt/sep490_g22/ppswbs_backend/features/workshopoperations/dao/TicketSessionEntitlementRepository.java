@@ -37,12 +37,12 @@ public interface TicketSessionEntitlementRepository extends JpaRepository<Ticket
             + "ORDER BY tse.ticket.bookingReference, tse.ticket.ticketSequence, tse.id")
     List<TicketSessionEntitlement> findActiveBySessionIdOrdered(@Param("sessionId") Long sessionId);
 
-    /** Bookings with active tickets whose attendance-finalization publication is not yet recorded. */
-    @Query("SELECT DISTINCT tse.ticket.bookingReference FROM TicketSessionEntitlement tse "
+    /** Tickets with active status whose attendance-finalization publication is not yet recorded. */
+    @Query("SELECT DISTINCT tse.ticket.reference FROM TicketSessionEntitlement tse "
             + "WHERE tse.ticket.validityState = 'ACTIVE' AND NOT EXISTS ("
-            + "SELECT 1 FROM BookingAttendanceFinalizationOutboxEvent o "
-            + "WHERE o.bookingReference = tse.ticket.bookingReference)")
-    List<String> findDistinctActiveBookingReferences();
+            + "SELECT 1 FROM TicketAttendanceFinalizationOutboxEvent o "
+            + "WHERE o.ticketReference = tse.ticket.reference)")
+    List<String> findDistinctActiveTicketReferences();
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT tse FROM TicketSessionEntitlement tse WHERE tse.ticket.bookingReference = :bookingReference AND tse.ticket.validityState = 'ACTIVE' ORDER BY tse.id")

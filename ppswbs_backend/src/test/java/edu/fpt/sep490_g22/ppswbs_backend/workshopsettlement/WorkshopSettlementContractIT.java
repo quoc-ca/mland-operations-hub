@@ -1,29 +1,21 @@
 package edu.fpt.sep490_g22.ppswbs_backend.workshopsettlement;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.controller.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementCancellationCaseRepository;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementHandoffIdempotencyRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementChargeRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementEvidenceConclusionRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementFinalBillRepository;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementChargeRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementHandoffIdempotencyRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementNotificationHandoffRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.HandoffIdempotencyStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementHandoffIdempotency;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.CancellationHandoffOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.OpenCancellationHandoffCommand;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.WorkshopSettlementFacadeImpl;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.FinalPaymentService;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.controller.CustomerBookingCancellationController;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.controller.MlandCancellationRemedyController;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.controller.RequiredSessionChangeController;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.controller.WorkshopFinalBillController;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.controller.WorkshopRefundPolicyController;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.controller.SettlementCaseListController;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.controller.FolioCorrectionController;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.controller.OtaAddonPaymentController;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.WorkshopSettlementFacadeImpl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -33,10 +25,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -56,33 +45,37 @@ class WorkshopSettlementContractIT {
         Map<String, Method> actual = controllerOperations();
 
         assertThat(actual.keySet()).containsExactlyInAnyOrderElementsOf(Set.of(
-                "GET /api/v1/workshop-bookings/{bookingCode}/final-bill",
-                "GET /api/v1/workshop-bookings/{bookingCode}/final-bill/operator",
-                "GET /api/v1/workshop-bookings/{bookingCode}/final-bill/add-ons",
-                "POST /api/v1/workshop-bookings/{bookingCode}/final-bill",
-                "POST /api/v1/workshop-bookings/{bookingCode}/final-bill/charges",
-                "POST /api/v1/workshop-bookings/{bookingCode}/final-bill/payment-attempts",
-                "POST /api/v1/workshop-bookings/{bookingCode}/final-bill/finalizations",
-                "POST /api/v1/workshop-bookings/{bookingCode}/cancellation-cases",
-                "GET /api/v1/workshop-bookings/{bookingCode}/cancellation-cases/{caseReference}",
-                "POST /api/v1/workshop-bookings/{bookingCode}/required-session-change-cases",
-                "GET /api/v1/workshop-bookings/{bookingCode}/required-session-change-cases/{caseReference}",
-                "POST /api/v1/workshop-bookings/{bookingCode}/mland-cancellation-remedy-cases",
-                "GET /api/v1/workshop-bookings/{bookingCode}/mland-cancellation-remedy-cases/{caseReference}",
-                "GET /api/v1/workshop-settlement-cases",
+                "GET /api/v1/workshop-tickets/{ticketCode}/folio",
+                "POST /api/v1/workshop-tickets/{ticketCode}/folio-lookups",
+                "GET /api/v1/workshop-tickets/{ticketCode}/folio/add-ons",
+                "POST /api/v1/workshop-tickets/{ticketCode}/folio/charges",
+                "POST /api/v1/workshop-tickets/{ticketCode}/folio/finalizations",
+                "POST /api/v1/workshop-tickets/{ticketCode}/folio/debts",
+                "POST /api/v1/workshop-tickets/{ticketCode}/folio/debts/closures",
+                "POST /api/v1/workshop-tickets/{ticketCode}/folio/corrections",
+                "GET /api/v1/workshop-tickets/{ticketCode}/folio/corrections/{correctionReference}",
+                "POST /api/v1/workshop-tickets/{ticketCode}/folio/collections",
+                "POST /api/v1/workshop-tickets/{ticketCode}/folio/collections/{collectionId}/confirmations",
+                "POST /api/v1/workshop-tickets/{ticketCode}/folio/handover-exceptions",
+                "POST /api/v1/workshop-tickets/{ticketCode}/folio/lines/{lineId}/voids",
+                "POST /api/v1/workshop-tickets/{ticketCode}/folio/collections/{collectionId}/voids",
+                "POST /api/v1/workshop-tickets/{ticketCode}/cancellations",
+                "POST /api/v1/workshop-booking-groups/{groupCode}/cancellations",
+                "POST /api/v1/workshop-tickets/{ticketCode}/changes",
+                "POST /api/v1/workshop-tickets/{ticketCode}/change-allowances",
+                "POST /api/v1/workshop-tickets/{ticketCode}/mland-remedy/answers",
                 "GET /api/v1/workshop-refund-policies",
                 "POST /api/v1/workshop-refund-policies",
-                "POST /api/v1/workshop-bookings/{bookingCode}/folio-corrections",
-                "GET /api/v1/workshop-bookings/{bookingCode}/folio-corrections/{correctionReference}",
+                "GET /api/v1/workshop-settlement-cases",
                 "GET /api/v1/ota-addon-bills/{billReference}",
                 "POST /api/v1/ota-addon-bills/{billReference}/payment-attempts",
                 "POST /api/v1/ota-addon-bills/{billReference}/refunds"));
 
         actual.forEach((operation, method) -> {
-            if (operation.startsWith("POST ")) {
+            if (operation.startsWith("POST ") && !operation.endsWith("/folio-lookups")) {
                 assertThat(hasIdempotencyKey(method))
                         .as("OpenAPI Idempotency-Key parameter on %s", operation)
-                        .isTrue();
+                .isTrue();
             }
         });
     }
@@ -128,14 +121,14 @@ class WorkshopSettlementContractIT {
     }
 
     private static Map<String, Method> controllerOperations() {
-        List<Class<?>> controllers = List.of(WorkshopFinalBillController.class,
-                CustomerBookingCancellationController.class, RequiredSessionChangeController.class,
-                MlandCancellationRemedyController.class, WorkshopRefundPolicyController.class,
-                SettlementCaseListController.class, FolioCorrectionController.class,
-                OtaAddonPaymentController.class);
+        List<Class<?>> controllers = List.of(TicketFolioController.class,
+                TicketCancellationController.class, TicketChangeController.class,
+                TicketMlandRemedyController.class, WorkshopRefundPolicyController.class,
+                SettlementCaseListController.class, OtaAddonPaymentController.class);
         return controllers.stream()
                 .flatMap(controller -> {
-                    String basePath = controller.getAnnotation(RequestMapping.class).value()[0];
+                    RequestMapping mapping = controller.getAnnotation(RequestMapping.class);
+                    String basePath = mapping != null && mapping.value().length > 0 ? mapping.value()[0] : "";
                     return List.of(controller.getDeclaredMethods()).stream()
                             .flatMap(method -> {
                                 GetMapping get = method.getAnnotation(GetMapping.class);
@@ -162,7 +155,7 @@ class WorkshopSettlementContractIT {
     private static boolean hasIdempotencyKey(Method method) {
         for (Parameter parameter : method.getParameters()) {
             RequestHeader header = parameter.getAnnotation(RequestHeader.class);
-            if (header != null && "Idempotency-Key".equals(header.value())) {
+            if (header != null && ("Idempotency-Key".equals(header.value()) || "Idempotency-Key".equals(header.name()))) {
                 return true;
             }
         }

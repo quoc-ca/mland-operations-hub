@@ -60,7 +60,7 @@ public class LocalRetailBenefitAdapter implements RetailBenefitPort {
         String id = calculated.eligible() ? "local-benefit-" + UUID.randomUUID() : null;
         RetailCheckoutPorts.BenefitPreview preview = new RetailCheckoutPorts.BenefitPreview(id, calculated.discountAmount(),
             calculated.pointsDiscountAmount(), expiresAt, calculated.maxPoints(), calculated.minRedeemPoints(),
-            calculated.eligible(), calculated.reasons());
+            calculated.eligible(), calculated.reasons(), calculated.eligibleLineIndexes(), calculated.appliedVoucherCode());
         if (id != null) previews.put(id, new StoredPreview(memberAccountId, selection, subtotal, preview));
         return preview;
     }
@@ -97,7 +97,8 @@ public class LocalRetailBenefitAdapter implements RetailBenefitPort {
                 && points.equals(result.pointsUsed());
             return new RetailCheckoutPorts.BenefitPreview(null, new BigDecimal(result.programDiscount()),
                 new BigDecimal(result.pointDiscount()), expiresAt, result.maxPoints(), result.minRedeemPoints(),
-                eligible, result.reasons());
+                eligible, result.reasons(), result.eligibleLineIndexes(),
+                loyaltySelection.choice() == SelectionChoice.VOUCHER ? result.normalizedCode() : null);
         } catch (LoyaltyException invalidSelection) {
             return new RetailCheckoutPorts.BenefitPreview(null, BigDecimal.ZERO, BigDecimal.ZERO, expiresAt, null, null,
                 false, List.of(invalidSelection.getMessage() == null ? "Ưu đãi không hợp lệ." : invalidSelection.getMessage()));

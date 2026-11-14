@@ -1,5 +1,6 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service;
 
+import edu.fpt.sep490_g22.ppswbs_backend.common.payment.PaymentOwnerRegistrationPort;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementBusinessAuditRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementCashDayCloseRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementFinalBillRepository;
@@ -13,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
 
@@ -46,6 +48,7 @@ public class FolioCollectionService {
     /** The VNPay floor of a single collection (FR-033). Cash and transfer have no floor of their own. */
     public static final long VNPAY_MINIMUM_VND = 5_000;
     private static final ZoneId VIETNAM = ZoneId.of("Asia/Ho_Chi_Minh");
+    private static final DateTimeFormatter PROVIDER_DATE = DateTimeFormatter.ofPattern("uuuuMMddHHmmss").withZone(VIETNAM);
 
     private final SettlementFinalBillRepository bills;
     private final SettlementFolioCollectionRepository collections;
@@ -53,6 +56,9 @@ public class FolioCollectionService {
     private final SettlementBusinessAuditRepository audits;
     private final FolioBalanceService balances;
     private final FolioFinalizationService finalization;
+    /** Money owed back is opened as a bank refund at once (FR-038); a missing bean must fail at startup. */
+    private final BankRefundService bankRefunds;
+    private final PaymentOwnerRegistrationPort paymentOwners;
 
     public record CollectionOutcome(String collectionReference, FolioCollectionMethod method, long amountVnd,
                                     long excessVnd, FolioCollectionStatus status, long balanceDue, long pendingVnd,
@@ -161,6 +167,8 @@ public class FolioCollectionService {
                 .recordedByAccountId(actorAccountId)
                 .currencyCode("VND")
                 .build());
+        paymentOwners.registerOwner(merchantReference.trim(), folio.getBookingReference(), "FINAL_PAYMENT",
+                amountVnd, "VND", PROVIDER_DATE.format(Instant.now()));
         audit(folio, "FOLIO_GATEWAY_ATTEMPT_RECORDED", actorAccountId, collection, correlationReference);
         return outcome(folio, collection);
     }
@@ -318,6 +326,10 @@ public class FolioCollectionService {
         log.info("Collection {} of folio {} exceeds the balance by {} VND and is owed back",
                 collection.getCollectionReference(), folio.getBillReference(), collection.getExcessVnd());
         audit(folio, "FOLIO_COLLECTION_EXCESS_OWED", actorAccountId, collection, correlationReference);
+        // Deduplicated on (reason, source), so one collection opens at most one refund however often this runs.
+        bankRefunds.open(folio.getBookingReference(), folio.getGroupReference(),
+                RefundReason.EXCESS_OR_DUPLICATE_MONEY, collection.getCollectionReference(),
+                collection.getExcessVnd(), correlationReference);
     }
 
     /** FR-036: cash taken after a branch's close belongs to the next working day. */

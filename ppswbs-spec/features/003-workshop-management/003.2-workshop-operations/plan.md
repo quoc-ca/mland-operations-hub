@@ -1,7 +1,7 @@
 # Implementation Plan: Workshop Operations
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-05
+**Date updated**: 2026-11-14
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -15,6 +15,8 @@
 V1 uses canonical role/status/location data from the public Account facade.
 Staff authority is limited by `session.locationId ∈ activeLocationIds`; a
 session assignment is operational metadata, not an authorization prerequisite.
+*(Superseded 2026-11-06, spec "Staff session-assignment access": Staff also
+needs an active assignment to the session, checked at command time.)*
 An active Manager has global Workshop Operations authority and there is no
 operational-lead model in the target contract. The capability key
 `workshop.checkin.override` and `AccountFacade.can(...)` are not used.
@@ -25,9 +27,12 @@ scheduler transitions it to `IN_PROGRESS` and records a system audit event. The 
 be idempotent, timezone-aware and safe across restart/retry. A manual state
 transition remains only for explicit early start or recovery.
 
-**Status**: Design draft — internal capacity semantics and facade-command
-idempotency are clarified; implementation must rebase the affected task before
-changing persistence or code.
+**Status**: Approved — updated 2026-11-14 and re-approved the same day by Hồ Hoàng Quốc (owner Feature 003) in session. Tasks Phase 1–13 and
+Phase 14 T090, T091, T093–T095 are implemented (tasks.md evidence); T092
+(decided 2026-11-14, see "Per-ticket operations (Phase 14)") and T096 are open.
+*(Superseded 2026-11-14: "Design draft — internal capacity semantics and
+facade-command idempotency are clarified; implementation must rebase the
+affected task before changing persistence or code.")*
 
 ## Summary
 
@@ -200,6 +205,10 @@ exposes `BookingAttendanceOutcomeQuery` (`terminal`, `ATTENDED`/`NO_SHOW`/
 once per booking when the 24-hour correction window after the last required
 session's finalization closes. Readiness keeps gating only finalization;
 Settlement decides folio closure from the outcome query (003.2 T088).
+*(Superseded 2026-11-14, BE-DESIGN-0004: the booking-wide query, event and
+outbox are removed with T092 and replaced by the per-ticket
+`getTicketAttendanceOutcome` and `TicketAttendanceFinalizedEvent`; see
+"Per-ticket operations (Phase 14)".)*
 
 For a Manager-mediated customer change, 003.3 supplies the complete resulting
 required-session set. Operations accepts a source only while future and outside
@@ -444,6 +453,68 @@ boundary.
 10. **Migrate and verify.** Add a new Flyway migration after inspecting the
    deployed migration sequence, backfill only through an approved runbook, and
    exercise the flows in `quickstart.md` against MySQL.
+
+Step 8 annotation *(superseded 2026-11-06)*: a finalizing Staff member also
+needs an active assignment to the session.
+
+## Per-ticket operations (Phase 14)
+
+**Added 2026-11-14** (spec FR-030–FR-036, decision 2026-11-12; T092 decision
+2026-11-14). Names below were confirmed by read-only grep of
+`ppswbs_backend/src` on 2026-11-14; the evidence for each task is in tasks.md.
+Updated 2026-11-14 and re-approved the same day by Hồ Hoàng Quốc (owner
+Feature 003) in session.
+
+| Task | Status | Mechanism |
+| --- | --- | --- |
+| T090 group capacity (FR-030) | Implemented | `WorkshopOperationsFacade.reserveGroupCapacity` → `GroupCapacityService`. Locks every involved session once through `findByReferenceInWithLock` in sorted reference order, then counts holds and seats with locking reads (the caller may hold an older REPEATABLE READ snapshot). All lines or none, demand summed per session, one hold per line per session, 12-minute hold, failing line indexes on refusal, idempotent replay. Commit at confirmation is done by 003.1 `GroupConfirmationService`, which calls `commitBookingHolds` per line reference; release after confirmation is per ticket (T091). |
+| T091 per-ticket cancellation (FR-031) | Implemented | `cancelTicket` → `TicketCancellationService`. V131 `ticket_entitlement_releases` (unique `ticket_id`, `session_id`) keeps one row per released future seat; the entitlement row is removed, the line's confirmed hold is decremented, checked-in/no-show sessions are untouched. |
+| T093 QR reissue (FR-033) | Implemented | `reissueTicketQr` → `TicketQrReissueService`. V126 adds `attendance_tickets.qr_generation` and `ticket_qr_generations` (revoked QR values, reason `RECIPIENT_CHANGED`); check-in and override refuse a revoked QR with `TICKET_QR_REVOKED`; refused after any check-in. |
+| T094 per-ticket replacement (FR-034) | Implemented | `replaceTicketSessions` → `TicketSessionReplacementService`. V131 `ticket_session_replacements` (type `CUSTOMER_ADVANCE`, `CUSTOMER_LATE_ARRIVAL`, `MLAND`; `MLAND` never consumes quota). Lock order: every source and target session in sorted reference order, then each ticket, then its entitlements; all or none across the selected tickets. |
+| T095 reschedule quota (FR-035) | Implemented | V131 adds `workshop_sessions.reschedule_quota_override` and `reschedule_quota_used`; effective quota is the override or `max(1, capacity / 4)`. Route `PUT /api/v1/workshop-sessions/{sessionId}/reschedule-quota`. |
+| T092 per-ticket attendance event (FR-032) | Open, decided 2026-11-14 | See below. |
+| T096 MySQL evidence | Open | Remaining cases only; see tasks.md. |
+| T097 booking-wide cleanup | Open | See below. |
+
+**T092 decision (owner Hồ Hoàng Quốc, 2026-11-14, ERROR-LOG BE-DESIGN-0004):**
+
+1. Publish `TicketAttendanceFinalizedEvent(eventId, ticketReference,
+   windowClosedAt)` once per ticket when its outcome becomes terminal. It is
+   reference-only: no PII and no outcome; the consumer reads
+   `getTicketAttendanceOutcome`.
+2. The key is `attendance_tickets.reference`; 003.3 resolves it through 003.1
+   `findTicketBookingByOperationsReference`.
+3. A new append-only migration creates
+   `workshop_ticket_attendance_finalization_outbox`, unique (`ticket_reference`,
+   `event_type`). Same scheduler, conditional claim, lease and at-least-once
+   delivery with consumer deduplication by `eventId` as BE-DESIGN-0001.
+4. In the same change, remove `BookingAttendanceFinalizedEvent`, its outbox
+   `workshop_booking_attendance_finalization_outbox` (created by
+   `V107__booking_attendance_finalization_outbox.sql`; dropped only by a NEW
+   migration, V107 is not edited) and `BookingAttendanceOutcomeQuery`
+   (with `getBookingAttendanceOutcome`). 003.3 T105 replaces the consumer
+   (`BookingAttendanceFinalizedEventConsumer` today).
+5. No separate readiness query. `getTicketAttendanceOutcome` already exists and
+   returns `BookingAttendanceOutcome(terminal, outcome)` today; T092 adds
+   `windowClosesAt` and decides whether to rename the return type (the name is
+   not decided in this plan).
+
+**Decided 2026-11-14 (Hồ Hoàng Quốc):** the 24-hour correction window is
+anchored **per ticket** — 24 hours after the latest finalization among that
+ticket's own sessions, which is what `BookingAttendanceOutcomeService.evaluateTicket`
+already measures. The correction deadline follows the same anchor, so no
+correction can land after that ticket's terminal event (spec FR-032).
+
+**Decided 2026-11-14 (Hồ Hoàng Quốc): 003.2 enforces FR-036.**
+`cancelTicket`, `replaceTicketSessions` and `reissueTicketQr` refuse a ticket of
+an OTA-origin booking with one typed failure of their own, whatever the caller
+is; no such guard exists today, so it is part of the FR-036 work and T096
+verifies it.
+
+**Booking-wide types still present:** `BookingSettlementReadinessQuery`,
+`BookingCancellationEligibilityQuery`, `ReplaceRequiredSessionsCommand` and
+`CancelBookingCommand` stay on `WorkshopOperationsFacade` until 003.3 T106
+leaves no caller; their removal is T097 and keeps whatever OTA users remain.
 
 ## Validation Strategy
 

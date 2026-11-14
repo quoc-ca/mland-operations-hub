@@ -164,7 +164,7 @@ public class OtaCancellationService {
         AuthenticatedOtaInboundEvent authEvent = new AuthenticatedOtaInboundEvent(
                 command.provider(),
                 command.environment(),
-                command.externalEventReference() != null ? command.externalEventReference() : UUID.randomUUID().toString(),
+                command.externalEventReference(),
                 fingerprint,
                 "CANCELLATION"
         );

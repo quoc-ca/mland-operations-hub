@@ -14,7 +14,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.TicketB
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.TicketPriceSnapshot;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.TicketRecipient;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.WorkshopOperationsAdapter;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.BookingAttendanceOutcome;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.TicketAttendanceOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.DeliverySafeTicket;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.DeliverySafeTicketSet;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.SessionEntitlementProjection;
@@ -117,7 +117,7 @@ public class BookingGroupProjectionService {
     private String attendance(TicketBooking ticket) {
         if (ticket.getOperationsTicketReference() == null) return null;
         try {
-            BookingAttendanceOutcome outcome = operations.getTicketAttendanceOutcome(ticket.getOperationsTicketReference());
+            TicketAttendanceOutcome outcome = operations.getTicketAttendanceOutcome(ticket.getOperationsTicketReference());
             return outcome != null && outcome.terminal() && outcome.outcome() != null ? outcome.outcome().name() : null;
         } catch (RuntimeException failure) {
             log.warn("Attendance unavailable for ticket {}: {}", ticket.getTicketCode(), failure.getClass().getSimpleName());

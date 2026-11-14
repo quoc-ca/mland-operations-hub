@@ -45,7 +45,7 @@ const expiryLabel = value => value
  * Vouchers that cannot apply to this order (minimum not reached, not active, or rejected by FE-06) are dimmed at the
  * bottom with the reason; the best saving is marked.
  */
-export function VoucherPicker({ vouchers, selectedCode, subtotal, rejectedCodes, onConfirm, onClose }) {
+export function VoucherPicker({ vouchers, selectedCode, subtotal, rejectedCodes, options = null, onConfirm, onClose }) {
   const format = useFormat();
   const [draft, setDraft] = useState(selectedCode || null);
   const [typedCode, setTypedCode] = useState('');
@@ -57,14 +57,16 @@ export function VoucherPicker({ vouchers, selectedCode, subtotal, rejectedCodes,
       const minimum = toBig(voucher.minimumEligibleAmount) ?? 0n;
       let reason = null;
       if (voucher.availability && voucher.availability !== 'ACTIVE') reason = voucher.availability === 'SCHEDULED' ? 'Chưa đến thời gian sử dụng' : 'Voucher hiện không dùng được';
-      else if (rejectedCodes?.has(voucher.code)) reason = 'Không áp dụng cho sản phẩm hoặc chi nhánh trong đơn này';
       else if (base != null && base < minimum) reason = `Mua thêm ${format.money((minimum - base).toString())} để sử dụng`;
-      return { ...voucher, minimum, reason, saving: reason ? null : voucherSaving(voucher, subtotal) };
+      else if (options?.has(voucher.code) ? !options.get(voucher.code).eligible : rejectedCodes?.has(voucher.code)) reason = 'Không áp dụng cho sản phẩm hoặc chi nhánh trong đơn này';
+      // The saving FE-06 computed for these lines; an estimate only while that answer is not back yet.
+      const real = options?.get(voucher.code);
+      return { ...voucher, minimum, reason, saving: reason ? null : real ? real.saving : voucherSaving(voucher, subtotal) };
     });
     const usable = list.filter(item => !item.reason).sort((a, b) => (b.saving ?? 0n) > (a.saving ?? 0n) ? 1 : (b.saving ?? 0n) < (a.saving ?? 0n) ? -1 : 0);
     const blocked = list.filter(item => item.reason);
     return { usable, blocked, bestCode: usable[0]?.saving ? usable[0].code : null };
-  }, [vouchers, rejectedCodes, subtotal]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [vouchers, rejectedCodes, subtotal, options]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const typedIsNew = draft && !vouchers.some(item => item.code === draft);
   const toggle = code => setDraft(current => (current === code ? null : code));

@@ -203,13 +203,20 @@ public final class PromotionWriteDtos {
                         minimum);
             }
             case "FIXED" -> {
+                // Session 2026-11-14: the Manager does not enter a cap for a fixed amount; it is stored equal to
+                // the amount. A cap may still be sent (older clients and seeds) but only with the same value.
                 onlyFields(discount, Set.of("kind", "amount", "maxDiscountAmount"), "discount.");
-                yield DiscountTerms.fixed(
-                        LoyaltyScalarCodec.parsePositiveAmount("discount.amount",
-                                text(discount, "amount", "discount.amount")),
-                        LoyaltyScalarCodec.parsePositiveAmount("discount.maxDiscountAmount",
-                                text(discount, "maxDiscountAmount", "discount.maxDiscountAmount")),
-                        minimum);
+                BigInteger amount = LoyaltyScalarCodec.parsePositiveAmount("discount.amount",
+                        text(discount, "amount", "discount.amount"));
+                if (discount.has("maxDiscountAmount")) {
+                    BigInteger cap = LoyaltyScalarCodec.parsePositiveAmount("discount.maxDiscountAmount",
+                            text(discount, "maxDiscountAmount", "discount.maxDiscountAmount"));
+                    if (cap.compareTo(amount) != 0) {
+                        throw LoyaltyException.invalidField("discount.maxDiscountAmount",
+                                "A fixed discount has no separate cap; omit it or send the same value as amount.");
+                    }
+                }
+                yield DiscountTerms.fixed(amount, amount, minimum);
             }
             default -> throw LoyaltyException.invalidField("discount.kind", "Must be PERCENT or FIXED.");
         };

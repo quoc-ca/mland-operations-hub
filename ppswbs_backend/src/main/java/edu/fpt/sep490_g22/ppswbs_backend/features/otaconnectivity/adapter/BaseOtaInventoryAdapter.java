@@ -28,16 +28,18 @@ public abstract class BaseOtaInventoryAdapter implements OtaInventoryAdapter {
             "customer", "contact", "email", "phone", "ticket", "card", "payment", "token", "secret"
     );
 
+    // `effectiveAt` is the snapshot's effective time (FR-004a1), written into every canonical change by
+    // OtaSyncDeliveryService; without it every real change failed the allowlist and exhausted at once (T105).
     private static final Set<String> ALLOWED_SCHEDULE_FIELDS = Set.of(
-            "sourceVersion", "sourceChangeReference", "scheduledStart", "scheduledEnd", "locationReference"
+            "sourceVersion", "sourceChangeReference", "effectiveAt", "scheduledStart", "scheduledEnd", "locationReference"
     );
 
     private static final Set<String> ALLOWED_AVAILABILITY_FIELDS = Set.of(
-            "sourceVersion", "sourceChangeReference", "sellableAvailability"
+            "sourceVersion", "sourceChangeReference", "effectiveAt", "sellableAvailability"
     );
 
     private static final Set<String> ALLOWED_SALE_STATE_FIELDS = Set.of(
-            "sourceVersion", "sourceChangeReference", "saleState"
+            "sourceVersion", "sourceChangeReference", "effectiveAt", "saleState"
     );
 
     private final OtaProviderTransport transport;

@@ -10,6 +10,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.application.Ot
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.application.exception.OtaMappingLifecycleException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.integration.AuthenticatedOtaInboundEvent;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.integration.OtaAuditCorrelationService;
+import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.integration.OtaInboundConflictRecorder;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.integration.OtaInboundEventService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.WorkshopSessionOtaSnapshot;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.PublishedPackageSelectionSnapshot;
@@ -47,7 +48,13 @@ import static org.mockito.Mockito.when;
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @ActiveProfiles("test")
 @Import({OtaSyncDeliveryService.class, OtaInboundEventService.class, OtaAuditCorrelationService.class,
-        OtaChannelMappingService.class})
+        OtaInboundConflictRecorder.class, OtaChannelMappingService.class,
+        org.springframework.boot.autoconfigure.jackson.JacksonAutoConfiguration.class,
+        edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.adapter.OtaProviderTransportConfiguration.class,
+        edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.adapter.KlookInventoryAdapter.class,
+        edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.adapter.GetYourGuideInventoryAdapter.class,
+        edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.adapter.OtaInventoryAdapterRegistry.class,
+        edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.integration.OtaOutboundDeliveryWorker.class})
 class OtaSyncDeliveryPersistenceIT {
 
     private static final Optional<TestDatabase> TEST_DATABASE = initializeDatabase();
@@ -65,6 +72,7 @@ class OtaSyncDeliveryPersistenceIT {
     @Autowired private OtaSyncDeliveryService deliveryService;
     @Autowired private OtaInboundEventService inboundEventService;
     @Autowired private OtaChannelMappingService channelMappingService;
+    @Autowired private edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.integration.OtaOutboundDeliveryWorker deliveryWorker;
     @MockBean private WorkshopOperationsFacade workshopOperationsFacade;
 
     @DynamicPropertySource
@@ -131,6 +139,43 @@ class OtaSyncDeliveryPersistenceIT {
                 .singleElement().satisfies(attempt -> assertThat(attempt.getOutcome()).isEqualTo("EXHAUSTED"));
         assertThat(workItemRepository.findByLocationReferenceAndStatusOrderByCreatedAtAsc(
                 "ota-test-location", "OPEN"))
+                .anySatisfy(item -> assertThat(item.getMapping().getId()).isEqualTo(mapping.getId()));
+    }
+
+    /**
+     * 003.4 T105 (FR-004a, FR-004c, FR-017): the worker really sends queued changes. With the fail-closed default
+     * transport (503) each poll records one attempt; the third exhausts, which closes the mapping's sales and opens
+     * a reconciliation work item. A further poll sends nothing.
+     */
+    @Test
+    void theDeliveryWorkerRetriesThroughTheFailClosedTransportThenSuspendsTheMapping() {
+        String sessionReference = "ota-worker-" + UUID.randomUUID();
+        OtaChannelConnection connection = connectionRepository.saveAndFlush(OtaChannelConnection.builder()
+                .providerCode(OtaProvider.KLOOK).environment(OtaEnvironment.TEST).status("ACTIVE")
+                .credentialReference("test-only-reference").build());
+        OtaChannelMapping mapping = mappingRepository.saveAndFlush(OtaChannelMapping.builder()
+                .connection(connection).offerReference("ota-test-offer").sessionReference(sessionReference)
+                .locationReference("ota-worker-location").externalProductId("product-" + UUID.randomUUID())
+                .externalOptionId("option-" + UUID.randomUUID()).status(OtaMappingStatus.BOOKING_ENABLED).build());
+        deliveryService.acceptSnapshot(new WorkshopSessionOtaSnapshot(sessionReference, "ota-worker-location",
+                Instant.parse("2026-11-01T10:00:00Z"), Instant.parse("2026-11-01T11:00:00Z"), 7, "PUBLISHED", 1,
+                "change-" + UUID.randomUUID(), Instant.parse("2026-10-29T10:00:00Z")));
+        OtaOutboundChange availability = outboundRepository.findByMappingIdAndSourceVersionAndChangeKind(
+                mapping.getId(), 1L, OtaChangeKind.AVAILABILITY).orElseThrow();
+
+        deliveryWorker.deliverPending();
+        deliveryWorker.deliverPending();
+        assertThat(outboundRepository.findById(availability.getId()).orElseThrow().getStatus()).isEqualTo("RETRYABLE");
+        deliveryWorker.deliverPending();
+        deliveryWorker.deliverPending();
+
+        assertThat(attemptRepository.findByOutboundChangeIdOrderByAttemptNumberAsc(availability.getId()))
+                .extracting(OtaDeliveryAttempt::getOutcome)
+                .containsExactly("RETRYABLE", "RETRYABLE", "EXHAUSTED");
+        assertThat(outboundRepository.findById(availability.getId()).orElseThrow().getStatus()).isEqualTo("EXHAUSTED");
+        assertThat(mappingRepository.findById(mapping.getId()).orElseThrow().getStatus())
+                .isEqualTo(OtaMappingStatus.SYNC_SUSPENDED);
+        assertThat(workItemRepository.findByLocationReferenceAndStatusOrderByCreatedAtAsc("ota-worker-location", "OPEN"))
                 .anySatisfy(item -> assertThat(item.getMapping().getId()).isEqualTo(mapping.getId()));
     }
 

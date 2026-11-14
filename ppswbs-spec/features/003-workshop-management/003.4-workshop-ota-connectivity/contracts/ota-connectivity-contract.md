@@ -1,13 +1,13 @@
 # Contract Design: Workshop OTA Connectivity
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-05
+**Date updated**: 2026-11-14
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
 ## Contract status
 
-This document is a provider-neutral design contract for review. Mland-owned REST request/response schemas, validation, statuses, and safe errors are specified in [ota-connectivity.openapi.yaml](./ota-connectivity.openapi.yaml). Exact Klook/GetYourGuide routes, headers, signature checks, callback acknowledgements, timeouts, and error codes may be implemented only from the approved provider agreement/onboarding material.
+**Status (2026-11-14):** implemented except provider go-live items (T004, T038b, T051, T054, T059); the OpenAPI is `0.2.0`. ~~This document is a provider-neutral design contract for review.~~ This document is the provider-neutral contract. Mland-owned REST request/response schemas, validation, statuses, and safe errors are specified in [ota-connectivity.openapi.yaml](./ota-connectivity.openapi.yaml). Exact Klook/GetYourGuide routes, headers, signature checks, callback acknowledgements, timeouts, and error codes may be implemented only from the approved provider agreement/onboarding material.
 
 ## Internal OTA facade
 
@@ -39,6 +39,28 @@ repository, or service.
 | 003.2 Workshop Operations | Apply confirmed cancellation consequence. | Revoke only eligible unused tickets and release only eligible future capacity exactly once. | A cancellation request alone has no effect; duplicate/out-of-order confirmation is idempotent. |
 | 003.2 Workshop Operations | Supply OTA-observable session snapshot and authoritative resync. | For each Basic Ring session, supplies schedule as opaque session identity, canonical `workshop_location.id`, scheduled start/end, source change identity/version, effective time; or availability/sale state as opaque session identity, canonical location scope, sellable availability, sale state, source change identity/version, effective time. One monotonically increasing source-version sequence spans both snapshot kinds. Every source change is published through a persistent internal Spring Modulith publication in the same Operations local transaction; V1 uses no broker. No PII, Booking/payment/ticket detail, or OTA mapping is supplied. | Delivery is at-least-once. OTA ignores duplicates/older versions; a gap or uncertain order suspends only the affected mapping and requires authoritative resync. Resync returns the complete current session snapshot at its existing source version. `SALES_PAUSED` is normal closed/zero-availability publication, not suspension. |
 | 003.3 Workshop Settlement | Create a direct-Mland paid add-on bill from an accepted quote. | Returns direct bill/payment correlation while keeping OTA channel payment, price, commission, payout, and channel refund unchanged. | Missing consent/invalid quote rejects with no bill. Repeated correlation returns the original result. |
+
+### Upstream facade operations OTA calls (implemented, 2026-11-14)
+
+Read from `features/otaconnectivity` source. The 003.1/003.2 legacy-removal
+checks must keep these operations (or a compatible replacement agreed with the
+003.4 owner):
+
+| Upstream facade | Operation | OTA caller |
+| --- | --- | --- |
+| 003.1 `WorkshopBookingFacade` | `createOrReturnOtaBooking(OtaBookingCommand)` → `OtaBookingOutcome`; internally delegates to 003.2 `WorkshopOperationsFacade.acceptOtaBooking(AcceptOtaBookingCommand)` | `integration/OtaProviderEventHandler` |
+| 003.2 `WorkshopOperationsFacade` | `applyVerifiedRefundConsequence(ApplyVerifiedRefundConsequenceCommand)` | `application/OtaCancellationConsequenceService` |
+| 003.2 `WorkshopOperationsFacade` | `getSaleEligibility(SaleEligibilityQuery)` | `application/OtaChannelCatalogService`, `application/OtaChannelMappingService` |
+| 003.2 `WorkshopOperationsFacade` | `getPublishedPackageSelection(PublishedPackageSelectionQuery)` | `application/OtaChannelMappingService` |
+| 003.2 `WorkshopOperationsFacade` | `getWorkshopAddOnPrice(WorkshopAddOnPriceQuery)` (D17 catalogue price) | `application/OtaAddonService` |
+| 003.2 `WorkshopOperationsFacade` | `isStaffAssignedToBooking(StaffBookingAssignmentQuery)` (2026-11-06 amendment) | `application/OtaAddonService` (used by `api/OtaAddonController`) |
+| 003.2 `WorkshopOtaResyncFacade` | `resync(String sessionReference)` → `WorkshopSessionOtaSnapshot` | `application/OtaReconciliationService` |
+| 003.2 event `WorkshopSessionOtaSnapshotChanged` | `@ApplicationModuleListener` consumer | `integration/OtaOperationsSnapshotListener` |
+| 003.3 `WorkshopSettlementFacade` | `createDirectShopAddonBill(DirectShopAddonBillCommand)`, `findOtaAddonBill(String)` | `adapter/WorkshopSettlementOtaAddonAdapter` (behind `facade/OtaAddonSettlementPort`) |
+| Account Management `AccountFacade` | `resolveAccount`, `getLocationScope` | `application/OtaAuthorizationService` |
+
+003.2 `cancelTicket` is not called by OTA today; whether a partial OTA
+cancellation should use it is Open (spec.md U1, T038b).
 
 OTA persists authenticated inbound-event receipt and correlation before side
 effects. It invokes a facade with the same idempotency correlation. A provider
@@ -79,7 +101,7 @@ The adapter port has no universal provider SLA or field list. A provider cannot 
 
 ## Mland REST surface
 
-These paths are specified in the proposed OpenAPI contract. Responses expose safe correlation/status, never credentials, raw provider payloads, or unrestricted customer data.
+These paths are specified in the OpenAPI contract (`0.2.0`, implemented routes; was "proposed"). Responses expose safe correlation/status, never credentials, raw provider payloads, or unrestricted customer data.
 
 | Method and path | Intent | Actor boundary |
 | --- | --- | --- |
@@ -94,16 +116,27 @@ These paths are specified in the proposed OpenAPI contract. Responses expose saf
 | `POST /api/v1/ota-reconciliation-work-items/{id}/resolve` | Record a reviewed resolution; may queue re-sync. | Active Manager globally or Admin globally, subject to the action rule; immutable decision audit. |
 | `GET /api/v1/ota-channel-bookings/{channelBookingId}/financial-evidence` | Read separated channel-payment and payout evidence. | Active Manager globally. |
 | `POST /api/v1/ota-channel-bookings/{channelBookingId}/payout-reconciliation` | Append staged payout, variance, dispute, adjustment, or reversal evidence. A bank receipt needs a booking-specific allocation reference and the same payout reference as the accepted remittance; a correction links the original public ledger UUID. Only matched payout reference, net, and currency evidence advances to `PAID_OUT`. | Active Manager globally. |
-| `POST /api/v1/ota-channel-bookings/{channelBookingId}/add-on-quotes` | At the Mland shop, create a free engraving record or paid direct-Mland add-on quote outside OTA checkout. A paid quote references an active 003.2 catalogue add-on; the server derives its price (D17). | In-scope Staff or any active Manager (D18). |
-| `POST /api/v1/ota-addon-quotes/{quoteId}/acceptance` | Record acceptance for a paid quote. | In-scope Staff or any active Manager; no bill before acceptance. |
-| `POST /api/v1/ota-addon-quotes/{quoteId}/direct-bill` | Create the separate Settlement-owned direct-Mland bill. | In-scope Staff or any active Manager; quote must be accepted. |
+| `GET /api/v1/ota-channel-bookings/lookups?mlandBookingReference=…` | At check-in, resolve the OTA booking behind a Mland booking reference (T056). | Staff with location scope AND an active assignment to a session the Mland booking holds a valid ticket for, or any active Manager. Out-of-scope or unassigned Staff get `404` identical to a missing booking. |
+| `POST /api/v1/ota-channel-bookings/{channelBookingId}/add-on-quotes` | At the Mland shop, create a free engraving record or paid direct-Mland add-on quote outside OTA checkout. A paid quote references an active 003.2 catalogue add-on; the server derives its price (D17). | In-scope Staff or any active Manager (D18). *(Amended 2026-11-06: in-scope Staff = location scope AND active assignment to a session the Mland booking holds a valid ticket for; otherwise `403`.)* |
+| `POST /api/v1/ota-addon-quotes/{quoteId}/acceptance` | Record acceptance for a paid quote. | In-scope Staff or any active Manager; no bill before acceptance. *(Same 2026-11-06 assignment rule.)* |
+| `POST /api/v1/ota-addon-quotes/{quoteId}/direct-bill` | Create the separate Settlement-owned direct-Mland bill. | In-scope Staff or any active Manager; quote must be accepted. *(Same 2026-11-06 assignment rule.)* |
+| `POST /api/v1/ota-provider/booking-events` | **Interim** provider-neutral booking ingress (backfilled 2026-11-12) used before per-provider transports are approved. Not a Mland user-session endpoint; `X-Ota-Signature` is compared in constant time with the `ACTIVE` connection's `credential_reference`. | Provider caller only. **Fail closed in `PRODUCTION`:** `403` unless the provider is listed in `ota.provider-callbacks.approved-production-providers` (empty by default); test tokens only for `TEST` with `ota.auth.allow-test-tokens` on. Open D1 (T059): the stored value is a bearer secret in MySQL. |
 
-The provider callback entry point is intentionally excluded from the shared
+Payment of the resulting 003.3 add-on bill follows the same assignment rule
+through the Mland booking reference stored on the bill. A refund of that bill is
+the Manager-approved bank refund of 003.3 FR-038a; Staff may only enter the
+payer's account at the counter (003.3 T104).
+
+~~The provider callback entry point is intentionally excluded from the shared
 OpenAPI contract because its route, authentication, signature, body, response,
-and retry behavior are provider-specific onboarding facts. It is not a Mland
-user-session endpoint; each adapter publishes its approved contract separately.
+and retry behavior are provider-specific onboarding facts.~~ *(Narrowed
+2026-11-14: the interim ingress above is in the shared OpenAPI.)* Each
+provider's approved transport (route, authentication, signature, body,
+response, and retry behavior) is a provider-specific onboarding fact and stays
+excluded from the shared OpenAPI; it is not a Mland user-session endpoint, and
+each adapter publishes its approved contract separately.
 
-Account Management supplies canonical role/status/location facts; OTA Connectivity owns the exact action rules over its mappings and reconciliation resources. Every active Manager has global location scope for Manager-authorized OTA actions, including financial-evidence read and payout reconciliation; Manager authorization does not depend on `activeLocationIds`. Provider connection/credential operations and booking enablement remain Admin-only. Add-on quote operations are allowed to in-scope Staff (location-scoped) or any active Manager (global), per owner decision D18 (2026-11-05). The implementation must return standard safe errors without exposing mapping/booking existence to unauthorized actors, and must not authorize from a display role, Firebase claim or retired code.
+Account Management supplies canonical role/status/location facts; OTA Connectivity owns the exact action rules over its mappings and reconciliation resources. Every active Manager has global location scope for Manager-authorized OTA actions, including financial-evidence read and payout reconciliation; Manager authorization does not depend on `activeLocationIds`. Provider connection/credential operations and booking enablement remain Admin-only. Add-on quote operations are allowed to in-scope Staff (location-scoped) or any active Manager (global), per owner decision D18 (2026-11-05). *(Rebased 2026-11-14 to the 2026-11-06 amendment: Staff need location scope AND an active assignment to a session the Mland booking holds a valid ticket for, for the lookup, quote, acceptance and direct bill; the lookup answers unassigned Staff `404` like a missing booking.)* The implementation must return standard safe errors without exposing mapping/booking existence to unauthorized actors, and must not authorize from a display role, Firebase claim or retired code.
 
 ## Callback, error, and replay rules
 
@@ -112,7 +145,8 @@ Account Management supplies canonical role/status/location facts; OTA Connectivi
 3. Correlate every outbound delivery and inbound event with a safe opaque ID. Return an operator-safe message; detailed diagnostics belong in authorized reconciliation records.
 4. For an OTA-origin workshop base package, the customer owes the full accepted channel amount at OTA checkout. OTA MUST NOT confirm the Mland booking or trigger ticket issuance unless authenticated provider evidence matches that full amount and currency. Missing, partial, or mismatched payment evidence cannot confirm the booking or issue tickets and must create reconciliation evidence. If a provider cannot supply the required evidence, its mapping remains sales-closed and cannot pass readiness. Mland's later supplier payout is reconciled separately and cannot substitute for customer-payment evidence.
 5. If delivery retries are exhausted, close sale for the affected mapping and create reconciliation work. Do not claim that the OTA is synchronized.
-6. A late booking received while incident sales closure is active follows only the written provider rule approved at go-live. Until then the mapping cannot accept bookings.
+6. ~~A late booking received while incident sales closure is active follows only the written provider rule approved at go-live. Until then the mapping cannot accept bookings.~~ *(Superseded 2026-11-14 by the fixed Mland rule of spec FR-004d, plan and data-model.)* A booking received while the mapping is sales-closed or suspended is rejected/not confirmed, reserves no capacity, issues no ticket, and opens an audited reconciliation case; Mland never overbooks or moves the customer to another session. A provider must prove that its callback acknowledgement, timeout/retry and capacity responsibility can honour this rule before booking enablement.
+7. Inbound replay key (implemented): see spec.md A1. Open: confirm the key and the outcome for same reference + different fingerprint.
 
 ## Provider readiness record required before booking enablement
 

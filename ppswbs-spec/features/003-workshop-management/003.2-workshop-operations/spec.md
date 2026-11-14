@@ -1,7 +1,7 @@
 # Feature Specification: Workshop Operations
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-06
+**Date updated**: 2026-11-14
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -10,11 +10,17 @@
 all 003 subfeatures. `activeLocationIds` does not restrict Manager authority;
 Staff actions remain location-scoped, Member ownership remains enforced, and
 Admin-only technical actions remain Admin-only. The Central Manager distinction
-is removed.
+is removed. *(Staff wording superseded 2026-11-06: Staff actions need the
+session location in scope **and** an active assignment to the session; see
+"Staff session-assignment access".)*
 
 **Feature Branch**: `003.2-workshop-operations`
 
-**Status**: Draft — not implemented  
+**Status**: Implemented through tasks Phase 13; Phase 14 T090, T091 and
+T093–T095 implemented (tasks.md evidence 2026-11-13); T092 (per-ticket
+attendance finalization event, decided 2026-11-14) and T096 (remaining MySQL
+evidence) open. Updated 2026-11-14; owner re-approval pending.
+*(Superseded 2026-11-14: "Draft — not implemented".)*  
 
 **Input**: Confirmed Workshop Operations decisions from the responsible member,
 recorded in this document's Clarifications; implementation-design evidence is in
@@ -56,7 +62,9 @@ where they conflict with the following V1 decisions:
   rejects further corrections automatically; no Manager sealing action is
   required. Settlement may treat the booking-wide attendance projection as
   terminal only after every required session is finalized and this correction
-  window has closed.
+  window has closed. *(Superseded in part 2026-11-12/14 by FR-032: the outcome
+  is per ticket; the window anchor per ticket vs per booking line is an open
+  owner decision recorded in FR-032.)*
 
 Any older paragraph, example or scenario that requires a Staff assignment,
 Manager operational lead, capability key or manual scheduled start is legacy
@@ -104,8 +112,11 @@ assigned to that session** may …".
 ## Per-ticket capacity, attendance, QR and changes (decision 2026-11-12)
 
 **Source:** owner decisions recorded 2026-11-11/12 in
-`artifacts/workshop-changes-to-implement.md`. **Status:** specified, not yet
-implemented (tasks Phase 14, T090–T096). It serves 003.1 FR-030–FR-043 (booking group, one
+`artifacts/workshop-changes-to-implement.md`. **Status (updated 2026-11-14):**
+T090 (FR-030), T091 (FR-031), T093 (FR-033), T094 (FR-034) and T095 (FR-035)
+implemented with evidence in tasks.md; T092 (FR-032, decided 2026-11-14) and
+T096 (remaining MySQL cases) open; owner re-approval pending. *(Superseded
+2026-11-14: "specified, not yet implemented (tasks Phase 14, T090–T096)".)* It serves 003.1 FR-030–FR-043 (booking group, one
 ticket booking per person, ticket recipients) and 003.3 FR-030–FR-045
 (per-ticket folio, cancellation, Mland remedy and changes).
 
@@ -125,12 +136,47 @@ through this section.
   releases the ticket's seats in every future session of that ticket and
   revokes its future entitlements; it never touches another ticket of the group
   and never rewrites attendance history.
-- **FR-032**: Readiness and the attendance outcome are per ticket booking:
+- **FR-032** *(rewritten 2026-11-14, owner decision Hồ Hoàng Quốc, ERROR-LOG
+  BE-DESIGN-0004, task T092)*: Readiness and the attendance outcome are per
+  ticket. The ticket's outcome is read through the existing
+  `getTicketAttendanceOutcome(TicketAttendanceOutcomeQuery(ticketReference))`:
   `terminal` when every session of the ticket is `ATTENDANCE_FINALIZED` and the
   24-hour correction window has closed; outcome `ATTENDED`, `PARTIAL` or
-  `NO_SHOW` (every session of that ticket is a final `NO_SHOW`).
-  `BookingAttendanceFinalizedEvent` is published once per ticket booking. The
-  query and event still carry no participant or PII payload.
+  `NO_SHOW` (every session of that ticket is a final `NO_SHOW`). There is no
+  separate per-ticket readiness query: the per-ticket outcome carries `terminal`
+  and gains `windowClosesAt` (T092; today the method returns
+  `BookingAttendanceOutcome(terminal, outcome)`, and T092 decides whether the
+  return type is renamed — the name is not decided here).
+  - **Event**: Operations publishes
+    `TicketAttendanceFinalizedEvent(eventId, ticketReference, windowClosedAt)`
+    once per ticket when its outcome becomes terminal. It is reference-only: no
+    participant, PII or outcome payload; the consumer reads
+    `getTicketAttendanceOutcome`.
+  - **Key**: `ticketReference` is `attendance_tickets.reference`; 003.3
+    resolves it to its ticket booking through 003.1
+    `findTicketBookingByOperationsReference`.
+  - **Delivery**: a new append-only migration creates
+    `workshop_ticket_attendance_finalization_outbox`, unique
+    (`ticket_reference`, `event_type`), using the same scheduler, conditional
+    claim, lease and at-least-once delivery with consumer deduplication (by
+    `eventId`) as BE-DESIGN-0001.
+  - **Removal (same change as T092)**: the booking-wide
+    `BookingAttendanceFinalizedEvent`, its outbox
+    `workshop_booking_attendance_finalization_outbox` (dropped only by a NEW
+    migration; V107 is not edited) and `BookingAttendanceOutcomeQuery` are
+    removed; 003.3 T105 replaces the consumer.
+  - **Decided 2026-11-14 (Hồ Hoàng Quốc, owner Feature 003):** the 24-hour
+    correction window is anchored **per ticket** — 24 hours after the latest
+    finalization among that ticket's own sessions, which is what
+    `BookingAttendanceOutcomeService.evaluateTicket` already measures. The
+    correction deadline a Staff member is held to is therefore per ticket as
+    well, so a correction can never be accepted after that ticket's terminal
+    event has been published. A booking-line anchor is refused because a group
+    line is shared by several tickets, so its anchor can fall later than a
+    ticket's own.
+  - *(Superseded 2026-11-14: "`BookingAttendanceFinalizedEvent` is published
+    once per ticket booking. The query and event still carry no participant or
+    PII payload.")*
 - **FR-033**: To change a ticket's recipient (003.1 FR-041), Operations MUST
   revoke the ticket's current QR immediately and issue a new opaque QR for the
   same entitlements, idempotently; the revoked QR is refused at check-in. It is
@@ -161,6 +207,17 @@ through this section.
   The 25% default is a starting value to review after operating data exists.
 - **FR-036**: OTA tickets keep the OTA's policy; these customer change and
   cancellation rules do not apply to them.
+  **Decided 2026-11-14 (Hồ Hoàng Quốc, owner Feature 003): 003.2 refuses.**
+  `cancelTicket`, `replaceTicketSessions` and `reissueTicketQr` MUST refuse a
+  ticket of an OTA-origin booking with one typed failure of their own (one
+  code, for example `OTA_TICKET_NOT_SUPPORTED`), whatever the caller is.
+  Operations owns the ticket and its sales channel, so one guard there protects
+  every caller — 003.3, Staff screens and any later OTA path — instead of each
+  caller repeating the check. Today no such guard exists (read-only grep of
+  `ppswbs_backend/src`, 2026-11-14: the only OTA reference in the first two
+  services is `WorkshopOtaSnapshotService` publishing the observable snapshot,
+  not a refusal), so adding it is part of the FR-036 work and T096's "OTA
+  ticket refused" case verifies it.
 
 ## Scope
 
@@ -173,11 +230,17 @@ perform refunds or connect directly to external OTAs.
 
 ## Clarifications
 
+*(Note 2026-11-14: every clarification below that grants Staff authority by
+location scope alone is superseded by the 2026-11-06 "Staff session-assignment
+access" amendment: a Staff member needs the session location in
+`activeLocationIds` **and** an active assignment to the session. Affected
+answers are marked inline.)*
+
 ### Session 2026-10-23
 
 - Q: Who may finalize attendance for a session and correct it later? → A: A Staff member assigned to that session or a Manager may finalize attendance. Only a Manager may correct attendance after finalization, and the correction requires audit evidence.
 - Q: What happens when Manager cancels a session that already has valid tickets? → A: Manager marks the session `CANCELLATION_REQUESTED`, stops its operations and creates an audited handoff case. Feature 003.3 owns customer notification, manual reschedule, refund, QR replacement and capacity consequences.
-- Q: Which Staff may perform normal ticket check-in? → A: An active Staff member whose `activeLocationIds` contains the session location, or any active Manager, may perform normal check-in. No session assignment or capability key is required.
+- Q: Which Staff may perform normal ticket check-in? → A: An active Staff member whose `activeLocationIds` contains the session location, or any active Manager, may perform normal check-in. No session assignment or capability key is required. *(Superseded 2026-11-06: Staff also needs an active assignment to the session.)*
 - Q: Which commitments constrain a capacity reduction? → A: Manager may not reduce capacity below the total of confirmed attendance tickets and unexpired payment capacity holds. An expired hold no longer constrains capacity.
 - Q: May check-in override move a ticket to a different session or location? → A: No. Override is limited to verification exceptions for an unused valid ticket at its assigned session and location. A change of session or location is handled by feature 003.3.
 ### Session 2026-10-23
@@ -207,7 +270,7 @@ perform refunds or connect directly to external OTAs.
 - Q: May a session return to `PUBLISHED` or `SALES_PAUSED` after it enters `IN_PROGRESS`? → A: No. `IN_PROGRESS` is one-way: it may transition only to `ATTENDANCE_FINALIZED` or, for an interruption before finalization, `CANCELLATION_REQUESTED`. It must never reopen sales.
 - Q: When may a session with no checked-in ticket be finalized? → A: The same as any session: only while it is `IN_PROGRESS`, after an authorized Staff member in the location or any active Manager confirms it has actually ended. It may finish earlier or later than scheduled; finalization is not gated by `scheduled_end_at`, requires confirmation and audit, and marks every unchecked ticket `NO_SHOW`.
 - Q: Who may start onsite operation by moving a session to `IN_PROGRESS`? → A: A scheduler moves an eligible `PUBLISHED` session to `IN_PROGRESS` at `scheduledStartAt` and records a system audit event. An explicit state-transition command remains available to an active Staff in the session location or any active Manager for early start/recovery.
-- Q: May Manager change Staff roster records while a session is `IN_PROGRESS`? → A: Optional roster changes are informational/audited only and never change authorization; active Staff authority comes from role/status and location scope.
+- Q: May Manager change Staff roster records while a session is `IN_PROGRESS`? → A: Optional roster changes are informational/audited only and never change authorization; active Staff authority comes from role/status and location scope. *(Superseded 2026-11-06: Staff authority also needs an active session assignment, so a Manager assigning or revoking Staff does change access.)*
 - Q: Until when may Manager change `check_in_opens_at`? → A: Manager may configure it only while the session is `DRAFT`, `PUBLISHED` or `SALES_PAUSED`. It is locked once the session enters `IN_PROGRESS`.
 
 ### Session 2026-10-24
@@ -220,7 +283,7 @@ perform refunds or connect directly to external OTAs.
 
 - Q: Which tickets appear when Staff looks up a multi-session booking by `booking_code`? → A: Staff sees only tickets for the session and location they are operating; other tickets are not shown and cannot be checked in. Manager uses a separate audited management lookup to view the full ticket set when support requires it.
 - Q: Who may request ticket resend from the check-in flow? → A: Active Staff in the session location and any active Manager may request resend only to the booking contact's existing delivery channel. Ticket delivery remains owned by feature 003.1; the request is rate-limited and audited.
-- Q: Who may override check-in after ticket resend fails? → A: An active Staff whose location scope contains the session location or any active Manager may override each unused ticket only for its assigned session and location, using the standardized reason `TICKET_REDELIVERY_UNAVAILABLE`, a short note and audit linked to the failed resend outcome.
+- Q: Who may override check-in after ticket resend fails? → A: An active Staff whose location scope contains the session location or any active Manager may override each unused ticket only for its assigned session and location, using the standardized reason `TICKET_REDELIVERY_UNAVAILABLE`, a short note and audit linked to the failed resend outcome. *(Superseded 2026-11-06: the Staff member must also be actively assigned to the session.)*
 - Q: When is ticket resend unavailable for override purposes? → A: When delivery reports an error, or the customer confirms they did not receive or cannot access the ticket after resend. No fixed waiting period applies; Staff records a short note and the system audits the reason and outcome.
 - Q: Which tickets are included when Staff requests resend from the check-in flow? → A: The system resends the full ticket set in the booking to the booking contact's existing delivery channel, including tickets for other sessions or locations. Staff check-in authority remains limited to the current session and location.
 
@@ -229,7 +292,7 @@ perform refunds or connect directly to external OTAs.
 - Q: What resend limit applies from the check-in flow? → A: At most three resend requests per booking in 15 minutes. After the limit is reached, the system sends no further request; an authorized actor may use the documented override path if resend is unavailable.
 - Q: Which ticket states are included in a booking resend? → A: Only active, unused tickets. The system excludes tickets that are cancelled, revoked, refunded, `NO_SHOW` or already `CHECKED_IN`.
 - Q: In which session states may onsite staff request ticket resend? → A: `PUBLISHED`, `SALES_PAUSED` and `IN_PROGRESS`, regardless of `check_in_opens_at`. Resend is rejected in `CANCELLATION_REQUESTED`, `CANCELLED` and `ATTENDANCE_FINALIZED`.
-- Q: Which actors may override check-in for a session? → A: An active Staff member must have the session location in `activeLocationIds`; an active Manager has global authority. Neither role may override an invalid ticket or move it to a different session/location.
+- Q: Which actors may override check-in for a session? → A: An active Staff member must have the session location in `activeLocationIds`; an active Manager has global authority. Neither role may override an invalid ticket or move it to a different session/location. *(Superseded 2026-11-06: the Staff member must also be actively assigned to the session.)*
 - Q: What does Staff see when booking lookup has no eligible ticket for the current session and branch? → A: Only a generic no-eligible-ticket result. It does not reveal another ticket, session or branch; Manager uses the separate audited management lookup when support requires it.
 
 ### Session 2026-10-24
@@ -378,6 +441,9 @@ perform refunds or connect directly to external OTAs.
   2026-11-05 (D2/D3/D6):** readiness carries only `ready`; the terminal
   attendance outcome (24-hour correction window closed, `ATTENDED`/`NO_SHOW`/
   `PARTIAL`) is exposed by `BookingAttendanceOutcomeQuery` (FR-014).
+  *(Superseded 2026-11-14 by FR-032: the outcome is per ticket through
+  `getTicketAttendanceOutcome`; `BookingAttendanceOutcomeQuery` is removed with
+  T092.)*
   Settlement emits a terminal Loyalty outcome only after the correction window
   closes; a `PARTIAL` booking (some tickets `NO_SHOW`) still earns points, and
   only a full `NO_SHOW` blocks earn.
@@ -980,7 +1046,9 @@ correction, with before/after audit evidence.
   session, and location before normal check-in and MUST permit it to an active
   Staff member whose `activeLocationIds` contains the session location or any
   active Manager. A session assignment and operational-lead record are not
-  authorization prerequisites.
+  authorization prerequisites. *(Superseded 2026-11-06 by the Staff
+  session-assignment amendment: Staff needs location scope **and** an active
+  assignment to the session; the operational-lead record stays retired.)*
 - **FR-003a**: The system MUST limit ticket lookup/check-in results to ticket
   code, session/location, ticket status and check-in outcome; booking lookup may
   show ticket used/unused status but MUST NOT expose the booking contact's full
@@ -1001,7 +1069,8 @@ correction, with before/after audit evidence.
   attendance, Staff/audit data, or personally identifiable information in that
   projection.
 - **FR-003c**: The system MUST allow only an active Staff member whose
-  `activeLocationIds` contains the session location or any active Manager to
+  `activeLocationIds` contains the session location *(superseded 2026-11-06:
+  and who is actively assigned to the session)* or any active Manager to
   request resend of a booking's full
   set of active, unused tickets to the booking contact's existing delivery
   channel, including tickets for other sessions or locations. It MUST exclude
@@ -1015,7 +1084,8 @@ correction, with before/after audit evidence.
   or `ATTENDANCE_FINALIZED`.
 - **FR-004**: The system MUST require a reason and audit record for exceptional
   check-in. An overriding Staff member MUST be active and have the session
-  location in `activeLocationIds`; an overriding Manager MUST be active and has
+  location in `activeLocationIds` *(superseded 2026-11-06: and be actively
+  assigned to the session)*; an overriding Manager MUST be active and has
   global Workshop Operations authority. Entering an exact
   `ticket_code` is a normal fallback and MUST NOT require this permission when
   ticket, session and location validation succeeds. After ticket resend fails, it
@@ -1040,6 +1110,7 @@ correction, with before/after audit evidence.
 - **FR-006**: The system MUST allow authorized finalization to assign `NO_SHOW`
   only to unchecked tickets of that session; finalization is allowed to an
   active Staff member whose `activeLocationIds` contains the session location
+  *(superseded 2026-11-06: and who is actively assigned to the session)*
   or any active Manager, applies
   to the whole session in one action, and MUST NOT occur automatically at the
   scheduled end time. It MUST be allowed only while the session is
@@ -1204,6 +1275,11 @@ correction, with before/after audit evidence.
   when any required session is not finalized, including cancellation. It MUST
   not expose individual attendance, ticket, Staff, audit or PII detail, and
   003.3 MUST NOT derive readiness from scheduled end time or per-session state.
+  *(Superseded part, 2026-11-12/14: "a booking/package context" and "every
+  required session" now mean one ticket and that ticket's sessions (FR-032);
+  the booking-wide `BookingSettlementReadinessQuery` remains only until 003.3
+  T106 leaves no caller (T097). The no-detail and no-derivation rules still
+  hold.)*
 - **FR-010x** *(superseded in part 2026-11-12 by FR-034)*: For a 003.3-requested complete required-session replacement,
   every target session MUST be future, `PUBLISHED`, customer-selectable and
   have capacity for the booking's complete participant count. This feature MUST
@@ -1211,12 +1287,23 @@ correction, with before/after audit evidence.
   if any source/target eligibility or capacity condition fails, it MUST leave
   every existing required session, ticket entitlement and capacity unchanged.
   `SALES_PAUSED` MUST have no Manager reschedule exception in V1.
+  *(Superseded part, 2026-11-12: "complete required-session replacement" with
+  "the booking's complete participant count" becomes per-ticket replacement of
+  the selected tickets, one seat per ticket per target, plus the reschedule
+  quota check for customer changes (FR-034/FR-035, T094/T095). The all-or-none
+  rule, target eligibility and the `SALES_PAUSED` rule still hold. The
+  booking-wide `ReplaceRequiredSessionsCommand` remains only until no caller is
+  left (T097).)*
 - **FR-010y** *(superseded in part 2026-11-12 by FR-034 (late-arrival exception))*: An ordinary 003.3-requested customer session change MUST accept
   a source required session only while it is future and not `IN_PROGRESS`,
   `ATTENDANCE_FINALIZED`, `CANCELLATION_REQUESTED` or `CANCELLED`. It MUST NOT
   rewrite check-in or attendance history. A source in
   `CANCELLATION_REQUESTED` MUST use the separate Mland-caused cancellation
-  remedy instead.
+  remedy instead. *(Superseded part, 2026-11-12: "not `IN_PROGRESS`" gains the
+  FR-034 late-arrival exception — an `IN_PROGRESS`, not-yet-ended source may be
+  replaced when the replacement starts no later than the old end + 7 days
+  (T094, `CUSTOMER_LATE_ARRIVAL`). The other source states and the
+  no-history-rewrite rule still hold.)*
 - **FR-010z**: When a complete required-session replacement succeeds, this
   feature MUST update every affected ticket's entitlement to the resulting
   required-session set and transfer the booking's complete participant capacity
@@ -1241,11 +1328,16 @@ correction, with before/after audit evidence.
 - **FR-012**: The system MUST grant an active Manager global Workshop Operations
   authority across all locations and sessions. Staff authority MUST remain
   limited to sessions whose location is in the Staff actor's active location
-  scope.
+  scope. *(Superseded 2026-11-06 for Staff: also limited to sessions the Staff
+  member is actively assigned to.)*
 - **FR-012a**: The system MUST revoke workshop operational authority immediately
   when the actor becomes inactive. It MUST reject Staff operations outside the
   actor's location scope and MUST not depend on session assignment or an
-  operational-lead record.
+  operational-lead record. *(Superseded in part 2026-11-06 by the Staff
+  session-assignment amendment: Staff operations MUST also be rejected without
+  an active assignment to the session, and revoking the assignment removes
+  access immediately; "MUST not depend on session assignment" no longer holds.
+  The operational-lead record stays retired.)*
 - **FR-012b**: The system MUST consume, but MUST NOT create, modify or revoke,
   Manager-to-location assignments. Account/personnel management owns that
   assignment lifecycle.
@@ -1259,7 +1351,9 @@ correction, with before/after audit evidence.
   inventory route is read-only and MUST NOT be used as a second create/update
   contract. Frontend code MUST NOT fabricate missing lifecycle states when the
   management API returns an empty result.
-- **FR-014** *(superseded in part 2026-11-12 by FR-032 (per ticket))*: For the direct-booking open folio (owner decisions D2/D3,
+- **FR-014** *(superseded 2026-11-14 by FR-032; the booking-wide event, its
+  outbox and query are removed with T092 — earlier marker: "superseded in part
+  2026-11-12 by FR-032 (per ticket)")*: For the direct-booking open folio (owner decisions D2/D3,
   2026-11-05, see `../contracts/workshop-interfeature-facades.md`), this
   feature MUST publish a reference-only post-commit
   `BookingAttendanceFinalizedEvent(bookingReference, finalizedAt)` once per
@@ -1272,7 +1366,13 @@ correction, with before/after audit evidence.
   correction can change the outcome. `NO_SHOW` only when every ticket on every
   required session is a final `NO_SHOW`. The event and query carry no ticket,
   participant or PII payload and never decide a financial outcome; Settlement
-  (003.3) owns folio closure.
+  (003.3) owns folio closure. *(Superseded text above, kept for history:
+  `BookingAttendanceFinalizedEvent(bookingReference, finalizedAt)`,
+  `BookingAttendanceOutcomeQuery(bookingReference)` and the booking-wide
+  terminal rule are replaced by the per-ticket
+  `TicketAttendanceFinalizedEvent(eventId, ticketReference, windowClosedAt)` and
+  `getTicketAttendanceOutcome` (FR-032). Still in force: reference-only, no PII,
+  no financial decision in Operations; Settlement owns folio closure.)*
 
 ## Success Criteria
 

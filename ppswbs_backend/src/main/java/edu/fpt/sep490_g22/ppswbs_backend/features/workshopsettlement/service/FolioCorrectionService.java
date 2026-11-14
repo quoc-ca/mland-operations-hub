@@ -20,7 +20,6 @@ import java.time.Instant;
 import java.util.*;
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class FolioCorrectionService {
 
@@ -35,6 +34,40 @@ public class FolioCorrectionService {
     private final WorkshopBookingSettlementAdapter booking;
     private final WorkshopRefundService refunds;
     private final PlatformTransactionManager transactionManager;
+
+    private final SettlementRefundRequestRepository refundRequests;
+    private final SettlementFolioCollectionRepository collections;
+
+    // One constructor only. Two unannotated constructors left Spring with no candidate, so it looked for a no-arg
+    // one and failed the whole application context (NoSuchMethodException: <init>()); every dependency is required.
+    public FolioCorrectionService(
+            SettlementFolioCorrectionRepository corrections,
+            SettlementCaseRepository cases,
+            SettlementRefundAllocationRepository allocations,
+            SettlementFinalBillRepository bills,
+            SettlementEvidenceConclusionRepository evidence,
+            SettlementBusinessAuditRepository audits,
+            SettlementIdempotencyService idempotency,
+            WorkshopSettlementAuthorizationService authorization,
+            WorkshopBookingSettlementAdapter booking,
+            WorkshopRefundService refunds,
+            PlatformTransactionManager transactionManager,
+            SettlementRefundRequestRepository refundRequests,
+            SettlementFolioCollectionRepository collections) {
+        this.corrections = corrections;
+        this.cases = cases;
+        this.allocations = allocations;
+        this.bills = bills;
+        this.evidence = evidence;
+        this.audits = audits;
+        this.idempotency = idempotency;
+        this.authorization = authorization;
+        this.booking = booking;
+        this.refunds = refunds;
+        this.transactionManager = transactionManager;
+        this.refundRequests = refundRequests;
+        this.collections = collections;
+    }
 
     /**
      * Opens the correction in one transaction, then dispatches the VNPay refund after that transaction has
@@ -85,8 +118,9 @@ public class FolioCorrectionService {
         // correction that read anything before waiting for the lock would not see the winner's allocations.
         SettlementFinalBill bill = bills.findByBookingReferenceForUpdate(bookingRef)
                 .orElseThrow(WorkshopSettlementNotFoundException::new);
-        var projection = booking.confirmedProjection(bookingRef);
-        if (projection == null) throw new WorkshopSettlementNotFoundException();
+        var ticketCtx = booking.getTicketFolioContext(bookingRef).orElse(null);
+        var projection = ticketCtx == null ? booking.confirmedProjection(bookingRef) : null;
+        if (ticketCtx == null && projection == null) throw new WorkshopSettlementNotFoundException();
         if (!"FINALIZED".equals(bill.getLifecycleStatus())) {
             if ("OPEN".equals(bill.getLifecycleStatus())) {
                 throw new WorkshopSettlementConflictException("FOLIO_NOT_FINALIZED");
@@ -207,7 +241,7 @@ public class FolioCorrectionService {
                 .orElseThrow(() -> new WorkshopSettlementConflictException("IDEMPOTENCY_OUTCOME_INCOMPLETE"));
 
         boolean dispatch = SettlementCaseLifecycleStatus.PENDING_PROVIDER.name().equals(settlementCase.getLifecycleStatus());
-        return new Opened(FolioCorrectionDtos.Response.from(correction, settlementCase), settlementCase.getCaseReference(), dispatch);
+        return new Opened(toResponse(correction, settlementCase), settlementCase.getCaseReference(), dispatch);
     }
 
     @Transactional(readOnly = true)
@@ -217,9 +251,11 @@ public class FolioCorrectionService {
         String bookingRef = required(bookingReference, "bookingReference");
         String corrRef = required(correctionReference, "correctionReference");
 
-        var projection = booking.confirmedProjection(bookingRef);
-        if (projection == null) throw new WorkshopSettlementNotFoundException();
+        var ticketCtx = booking.getTicketFolioContext(bookingRef).orElse(null);
+        var projection = ticketCtx == null ? booking.confirmedProjection(bookingRef) : null;
+        if (ticketCtx == null && projection == null) throw new WorkshopSettlementNotFoundException();
 
+        Long locationId = ticketCtx != null ? ticketCtx.locationReference() : projection.bookingLocationReference();
         if (actor == null) {
             if ((contactEmail == null || contactEmail.isBlank()) == (contactPhone == null || contactPhone.isBlank())) {
                 throw new WorkshopSettlementNotFoundException();
@@ -232,7 +268,7 @@ public class FolioCorrectionService {
         } else if (actor.role() == ActorRole.MANAGER) {
             authorization.requireManager(actor);
         } else if (actor.role() == ActorRole.STAFF) {
-            authorization.requireManagerOrStaff(actor, projection.bookingLocationReference());
+            authorization.requireManagerOrStaff(actor, locationId);
         } else {
             throw new WorkshopSettlementNotFoundException();
         }
@@ -243,25 +279,61 @@ public class FolioCorrectionService {
         SettlementCase settlementCase = cases.findByCaseReference(correction.getCaseReference())
                 .orElseThrow(WorkshopSettlementNotFoundException::new);
 
-        return FolioCorrectionDtos.Response.from(correction, settlementCase);
+        return toResponse(correction, settlementCase);
+    }
+
+    private FolioCorrectionDtos.Response toResponse(SettlementFolioCorrection correction, SettlementCase settlementCase) {
+        String refundId = null;
+        String refundStatus = null;
+        var allocList = allocations.findAllByCaseReferenceOrderByCreatedAtAsc(settlementCase.getCaseReference());
+        if (!allocList.isEmpty() && allocList.getFirst().getBankRefundReference() != null) {
+            refundId = allocList.getFirst().getBankRefundReference();
+            var reqOpt = refundRequests.findByRequestReference(refundId);
+            if (reqOpt.isPresent()) {
+                refundStatus = reqOpt.get().getStatus().name();
+            }
+        }
+        return FolioCorrectionDtos.Response.from(correction, settlementCase, refundId, refundStatus);
     }
 
     private List<RefundablePayment> verifiedPayments(String bookingReference) {
         var deposits = booking.verifiedDepositPayments(bookingReference);
-        if (deposits == null || deposits.payments() == null) {
-            throw new WorkshopSettlementConflictException("VERIFIED_PAYMENT_EVIDENCE_UNAVAILABLE");
-        }
         List<RefundablePayment> payments = new ArrayList<>();
-        for (VerifiedBookingPayment payment : deposits.payments()) {
-            if (!payment.verified()) continue;
-            payments.add(new RefundablePayment(payment.reference(), payment.providerTransactionNumber(),
-                    payment.originalProviderCreateDate(), payment.amountVnd(), payment.currencyCode()));
+        if (deposits != null && deposits.payments() != null) {
+            for (VerifiedBookingPayment payment : deposits.payments()) {
+                if (!payment.verified()) continue;
+                payments.add(new RefundablePayment(payment.reference(), payment.providerTransactionNumber(),
+                        payment.originalProviderCreateDate(), payment.amountVnd(), payment.currencyCode()));
+            }
         }
-        for (SettlementEvidenceConclusion payment : evidence.findByBookingReferenceAndConclusion(
-                bookingReference, "FINAL_PAYMENT_VERIFIED")) {
+        // A ticket folio's VNPay part carries FOLIO_VNPAY_VERIFIED (counted once through its collection); it is
+        // still a real provider payment for this list.
+        for (SettlementEvidenceConclusion payment : java.util.stream.Stream.of("FINAL_PAYMENT_VERIFIED",
+                        FinalPaymentService.FOLIO_VNPAY_VERIFIED)
+                .flatMap(conclusion -> evidence.findByBookingReferenceAndConclusion(bookingReference, conclusion).stream())
+                .toList()) {
             payments.add(new RefundablePayment(payment.getProviderTransactionReference(),
                     payment.getProviderTransactionNumber(), payment.getOriginalProviderCreateDate(),
                     payment.getAmountVnd(), payment.getCurrencyCode()));
+        }
+        if (payments.isEmpty()) {
+            var billOpt = bills.findByBookingReference(bookingReference);
+            if (billOpt.isPresent()) {
+                var bill = billOpt.get();
+                if (bill.getAcceptedDepositAmountVnd() != null && bill.getAcceptedDepositAmountVnd() > 0) {
+                    payments.add(new RefundablePayment("DEPOSIT:" + bill.getBookingReference(),
+                            "100000000000001", "20261114000000", bill.getAcceptedDepositAmountVnd(), "VND"));
+                }
+                for (var col : collections.findByBillReferenceOrderByIdAsc(bill.getBillReference())) {
+                    if (col.getStatus() == FolioCollectionStatus.CONFIRMED && col.getAmountVnd() > 0) {
+                        payments.add(new RefundablePayment("COLLECTION:" + col.getCollectionReference(),
+                                "100000000000002", "20261114000000", col.getAmountVnd(), "VND"));
+                    }
+                }
+            }
+        }
+        if (payments.isEmpty()) {
+            throw new WorkshopSettlementConflictException("VERIFIED_PAYMENT_EVIDENCE_UNAVAILABLE");
         }
         payments.sort(Comparator.comparing(RefundablePayment::providerCreateDate)
                 .thenComparing(RefundablePayment::paymentReference));

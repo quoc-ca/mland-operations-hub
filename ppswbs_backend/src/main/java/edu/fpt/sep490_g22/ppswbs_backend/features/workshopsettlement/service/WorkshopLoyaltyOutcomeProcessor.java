@@ -6,6 +6,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.Loyalt
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.OutcomeKind;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.SourceKind;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.BookingAttendanceOutcome;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.TicketAttendanceOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementCaseRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementChargeRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementEvidenceConclusionRepository;
@@ -53,13 +54,16 @@ public class WorkshopLoyaltyOutcomeProcessor {
     private final LoyaltyFacade loyalty;
 
     /**
-     * A booking group holds exactly one accepted Loyalty transaction, so its earn is one decision for the
-     * whole group even though each ticket has its own folio (006 grants once per transaction). The decision
-     * still reads attendance per ticket, because a ticket is a no-show only when every session of that
-     * ticket is a final {@code NO_SHOW} (003.3 FR-030).
+     * Applies the Member Loyalty outcome of a ticket in a booking group (003.3 FR-030, BE-DESIGN-0002).
      *
-     * <p>Every ticket folio of the group reaches this method, and whichever gets here first decides; the
-     * others then find the earn already settled and are simply marked processed.
+     * <p>Under D-012/BE-DESIGN-0002, Loyalty earn is decided per checked-out ticket using part outcomes:
+     * <ul>
+     *   <li>A terminal {@code NO_SHOW} ticket closes that ticket's earn with {@code WORKSHOP_TICKET_NO_SHOW_FINAL}.</li>
+     *   <li>An {@code ATTENDED} or {@code PARTIAL} ticket whose folio is {@code FINALIZED} with zero balance
+     *       grants that ticket's share with {@code WORKSHOP_TICKET_COMPLETED_AND_FULLY_PAID}.</li>
+     *   <li>Points are earned into the buyer Member's wallet (one snapshot, one member_id); Guest groups
+     *       earn 0 points and are marked processed.</li>
+     * </ul>
      */
     private void processGroupTicket(SettlementFinalBill bill) {
         String groupReference = bill.getGroupReference();
@@ -80,43 +84,55 @@ public class WorkshopLoyaltyOutcomeProcessor {
             return;
         }
 
-        boolean everyTicketNoShow = true;
-        for (var ticket : source.tickets()) {
-            if (ticket.operationsTicketReference() == null) {
-                return; // The group is not fully issued yet; decide nothing.
+        String ticketCode = bill.getBookingReference();
+        var ticket = source.tickets().stream()
+                .filter(t -> ticketCode.equals(t.ticketCode()))
+                .findFirst()
+                .orElse(null);
+        if (ticket == null || ticket.operationsTicketReference() == null) {
+            return; // The group or ticket is not fully issued yet; decide nothing.
+        }
+
+        String partRef = ticket.ticketRef() != null && !ticket.ticketRef().isBlank()
+                ? ticket.ticketRef()
+                : ticketCode;
+
+        if (existing.parts() != null) {
+            for (var part : existing.parts()) {
+                if (partRef.equals(part.partRef())) {
+                    if (part.closure() != null || part.earnState() != EarnState.PENDING) {
+                        markProcessed(bill);
+                        return;
+                    }
+                }
             }
-            var attendance = operations.ticketAttendanceOutcome(ticket.operationsTicketReference());
-            if (attendance == null || !attendance.terminal()) {
-                return; // Still inside the attendance-correction window for at least one ticket.
-            }
-            everyTicketNoShow &= attendance.outcome() == BookingAttendanceOutcome.Outcome.NO_SHOW;
+        }
+
+        var attendance = operations.ticketAttendanceOutcome(ticket.operationsTicketReference());
+        if (attendance == null || !attendance.terminal()) {
+            return; // Still inside the attendance-correction window for this ticket.
         }
 
         Instant now = Instant.now();
-        if (everyTicketNoShow) {
+        if (attendance.outcome() == TicketAttendanceOutcome.Outcome.NO_SHOW) {
             loyalty.finishIneligibleEarn(new AuthoritativeOutcome(SourceKind.WORKSHOP, groupReference,
-                    "workshopsettlement", "group-no-show-" + groupReference, source.nextOutcomeVersion(),
-                    OutcomeKind.WORKSHOP_NO_SHOW_FINAL, now, source.originalDeadline(), source.snapshotRef(),
-                    true, "attendance-outcome:" + groupReference));
+                    "workshopsettlement", "ticket-no-show-" + ticketCode, source.nextOutcomeVersion(),
+                    OutcomeKind.WORKSHOP_TICKET_NO_SHOW_FINAL, now, source.originalDeadline(), source.snapshotRef(),
+                    true, "attendance-outcome:" + ticketCode, partRef));
             markProcessed(bill);
             return;
         }
 
-        // Points are granted only once the whole group is settled: every folio finalized with nothing owed.
-        var folios = bills.findByGroupReferenceOrderByIdAsc(groupReference);
-        if (folios.size() != source.tickets().size()) {
+        // Points are granted only once this ticket folio is finalized with nothing owed.
+        if (!SettlementFinalBillLifecycleStatus.FINALIZED.name().equals(bill.getLifecycleStatus())
+                || outstanding(bill) != 0L) {
             return;
         }
-        for (SettlementFinalBill folio : folios) {
-            if (!SettlementFinalBillLifecycleStatus.FINALIZED.name().equals(folio.getLifecycleStatus())
-                    || outstanding(folio) != 0L) {
-                return;
-            }
-        }
+
         loyalty.grantEarnedPoints(new AuthoritativeOutcome(SourceKind.WORKSHOP, groupReference,
-                "workshopsettlement", "group-completed-" + groupReference, source.nextOutcomeVersion(),
-                OutcomeKind.WORKSHOP_COMPLETED_AND_FULLY_PAID, now, source.originalDeadline(),
-                source.snapshotRef(), true, "booking-group:" + groupReference));
+                "workshopsettlement", "ticket-completed-" + ticketCode, source.nextOutcomeVersion(),
+                OutcomeKind.WORKSHOP_TICKET_COMPLETED_AND_FULLY_PAID, now, source.originalDeadline(),
+                source.snapshotRef(), true, "booking-group-ticket:" + ticketCode, partRef));
         markProcessed(bill);
     }
 

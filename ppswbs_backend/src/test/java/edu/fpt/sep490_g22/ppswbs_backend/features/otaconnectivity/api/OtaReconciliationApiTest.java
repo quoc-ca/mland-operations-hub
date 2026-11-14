@@ -26,6 +26,7 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -62,7 +63,7 @@ class OtaReconciliationApiTest {
     @EnumSource(value = ActorRole.class, names = {"MANAGER", "ADMIN"})
     void authorizedGlobalListReturnsPersistedCorrelationAndOnlyPublicIds(ActorRole role) throws Exception {
         authenticate(role, ActorStatus.ACTIVE);
-        when(items.findMappingLinkedByStatusOrderByCreatedAtAsc("OPEN")).thenReturn(List.of(item));
+        when(items.findByStatusOrderByCreatedAtAsc("OPEN")).thenReturn(List.of(item));
         for (int repeat = 0; repeat < 2; repeat++) {
             mvc.perform(get(PATH).param("status", "OPEN").header("Authorization", "Bearer test-uid:actor"))
                     .andExpect(status().isOk())
@@ -81,7 +82,7 @@ class OtaReconciliationApiTest {
     @Test
     void emptyListIsSuccessful() throws Exception {
         authenticate(ActorRole.MANAGER, ActorStatus.ACTIVE);
-        when(items.findMappingLinkedOrderByCreatedAtAsc()).thenReturn(List.of());
+        when(items.findAllByOrderByCreatedAtAsc()).thenReturn(List.of());
         mvc.perform(get(PATH).header("Authorization", "Bearer test-uid:actor"))
                 .andExpect(status().isOk()).andExpect(content().json("{\"items\":[]}"));
     }
@@ -139,12 +140,86 @@ class OtaReconciliationApiTest {
     @Test
     void resolveCannotAddressAnItemOutsideTheMappingLinkedQuery() throws Exception {
         authenticate(ActorRole.MANAGER, ActorStatus.ACTIVE);
+        when(items.findByPublicReferenceForUpdate(item.getPublicReference())).thenReturn(Optional.empty());
         when(items.findMappingLinkedByPublicReferenceForUpdate(item.getPublicReference())).thenReturn(Optional.empty());
         mvc.perform(post(PATH + "/" + item.getPublicReference() + "/resolve")
                         .header("Authorization", "Bearer test-uid:actor").header("Idempotency-Key", "test-resolution-2")
                         .contentType(MediaType.APPLICATION_JSON).content("{\"resolution\":\"ACCEPTED\",\"reason\":\"Review\"}"))
                 .andExpect(status().isNotFound());
         verifyNoInteractions(decisions);
+    }
+
+    @Test
+    void listWithCategoryFilter_returnsCategoryFilteredItems() throws Exception {
+        authenticate(ActorRole.MANAGER, ActorStatus.ACTIVE);
+        OtaInboundEvent event = OtaInboundEvent.builder().id(88L)
+                .connection(OtaChannelConnection.builder().providerCode(OtaProvider.KLOOK).build()).build();
+        OtaReconciliationWorkItem inboundItem = OtaReconciliationWorkItem.builder().id(50L)
+                .publicReference(UUID.randomUUID().toString())
+                .mapping(null).inboundEvent(event).status("OPEN").category("INBOUND_EVENT")
+                .locationReference("GLOBAL").auditReference(UUID.randomUUID().toString()).build();
+
+        when(items.findByCategoryOrderByCreatedAtAsc("INBOUND_EVENT")).thenReturn(List.of(inboundItem));
+
+        mvc.perform(get(PATH).param("category", "INBOUND_EVENT").header("Authorization", "Bearer test-uid:actor"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.items[0].workItemId").value(inboundItem.getPublicReference()))
+                .andExpect(jsonPath("$.items[0].mappingId").value(nullValue()))
+                .andExpect(jsonPath("$.items[0].status").value("OPEN"))
+                .andExpect(jsonPath("$.items[0].safeSummary").value("INBOUND_EVENT"));
+    }
+
+    @Test
+    void listWithStatusAndCategoryFilter_callsFindByStatusAndCategory() throws Exception {
+        authenticate(ActorRole.ADMIN, ActorStatus.ACTIVE);
+        OtaInboundEvent event = OtaInboundEvent.builder().id(88L)
+                .connection(OtaChannelConnection.builder().providerCode(OtaProvider.KLOOK).build()).build();
+        OtaReconciliationWorkItem inboundItem = OtaReconciliationWorkItem.builder().id(50L)
+                .publicReference(UUID.randomUUID().toString())
+                .mapping(null).inboundEvent(event).status("OPEN").category("INBOUND_EVENT")
+                .locationReference("GLOBAL").auditReference(UUID.randomUUID().toString()).build();
+
+        when(items.findByStatusAndCategoryOrderByCreatedAtAsc("OPEN", "INBOUND_EVENT")).thenReturn(List.of(inboundItem));
+
+        mvc.perform(get(PATH).param("status", "OPEN").param("category", "INBOUND_EVENT")
+                        .header("Authorization", "Bearer test-uid:actor"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.items[0].mappingId").value(nullValue()));
+    }
+
+    @Test
+    void resolveInboundEventItemWithoutMapping_succeeds() throws Exception {
+        authenticate(ActorRole.MANAGER, ActorStatus.ACTIVE);
+        OtaInboundEvent event = OtaInboundEvent.builder().id(88L)
+                .connection(OtaChannelConnection.builder().providerCode(OtaProvider.KLOOK).build()).build();
+        OtaReconciliationWorkItem inboundItem = OtaReconciliationWorkItem.builder().id(50L)
+                .publicReference(UUID.randomUUID().toString())
+                .mapping(null).inboundEvent(event).status("OPEN").category("INBOUND_EVENT")
+                .locationReference("GLOBAL").auditReference(UUID.randomUUID().toString()).build();
+
+        when(items.findByPublicReferenceForUpdate(inboundItem.getPublicReference())).thenReturn(Optional.of(inboundItem));
+        when(items.findByIdForUpdate(inboundItem.getId())).thenReturn(Optional.of(inboundItem));
+        AtomicReference<OtaReconciliationDecision> saved = new AtomicReference<>();
+        when(decisions.findByActorAccountReferenceAndIdempotencyKeyHash(any(), any()))
+                .thenAnswer(call -> Optional.ofNullable(saved.get()));
+        when(decisions.saveAndFlush(any())).thenAnswer(call -> {
+            OtaReconciliationDecision decision = call.getArgument(0);
+            saved.set(decision);
+            return decision;
+        });
+
+        mvc.perform(post(PATH + "/" + inboundItem.getPublicReference() + "/resolve")
+                        .header("Authorization", "Bearer test-uid:actor").header("Idempotency-Key", "test-inbound-res-1")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"resolution\":\"ACCEPTED\",\"reason\":\"Operator cleared conflict\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.workItemId").value(inboundItem.getPublicReference()))
+                .andExpect(jsonPath("$.mappingId").value(nullValue()))
+                .andExpect(jsonPath("$.status").value("RESOLVED"))
+                .andExpect(jsonPath("$.correlationId").value(saved.get().getCorrelationReference()));
+
+        verify(decisions, times(1)).saveAndFlush(any());
     }
 
     private void authenticate(ActorRole role, ActorStatus status) {

@@ -1,7 +1,7 @@
 # Feature Specification: Workshop OTA Connectivity
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-06
+**Date updated**: 2026-11-14
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -27,6 +27,11 @@ Payment and refund of the resulting add-on bill (003.3) follow the same rule
 through the Mland booking reference recorded on the bill; a bill without that
 reference is Manager-only for Staff. The free laser-engraving record, OTA
 checkout and channel settlement are unchanged.
+*(Restated 2026-11-14, superseding "and refund" above: payment of the OTA
+add-on bill follows this assignment rule. A refund of that bill is the
+Manager-approved bank refund of 003.3 FR-038a; Staff may only enter the
+payer's account at the counter (003.3 T104). There is no Staff-approved or
+gateway refund of the add-on bill.)*
 
 ## Scope
 
@@ -116,13 +121,32 @@ are evidenced.
   the provider's partner account and documentation. Test tokens are honoured
   only for `TEST` connections and only when `ota.auth.allow-test-tokens` is on
   (off by default). Replays are deduplicated by external event reference and
-  payload fingerprint.
+  payload fingerprint. *(Corrected 2026-11-14 to the implemented key, see A1
+  below: the dedupe key is per connection, SHA-256 of the provider plus the
+  external event reference, falling back to the external booking reference for
+  a booking callback; the payload fingerprint is used only when no reference
+  exists.)*
+  **Decided 2026-11-14 (Hồ Hoàng Quốc, owner Feature 003; D1, tracked by
+  T059):** the comparison above treats `credential_reference` stored in MySQL
+  as the bearer secret, which conflicts with Constitution II. The fix is to
+  **resolve the reference to a secret held in the approved secret channel**:
+  `credential_reference` MUST stay a non-secret lookup name (for example
+  `OTA_KLOOK_INGRESS_SECRET`), the backend MUST read the secret value for that
+  name from the approved environment or secret channel, and the comparison with
+  `X-Ota-Signature` MUST use that value, in constant time as before. A
+  connection whose reference resolves to nothing MUST fail closed in every
+  environment. No constitution exception is recorded, and `TEST` works the same
+  way, so a secret can never reach MySQL in any environment. The E3
+  production fail-closed rule stays as it is.
 - A booking for N participants creates exactly N active Mland tickets. The OTA
   must deliver each ticket/QR individually before the option can be sold.
 - A shared voucher/order code is only an authorized, audited post-go-live
   incident fallback; it cannot check in an entire booking automatically.
-- OTA customers pay and are refunded under the policy shown by the OTA. Mland
-  never uses its direct-payment gateway to refund OTA-collected money.
+- OTA customers pay and are refunded under the policy shown by the OTA.
+  ~~Mland never uses its direct-payment gateway to refund OTA-collected
+  money.~~ *(Superseded 2026-11-14: OTA bookings keep their WorkshopBooking
+  and have no Mland folio; 003.3 per-ticket settlement does not apply; only
+  the D12 add-on bill exists on the Mland side.)*
 - Customer channel payment, OTA payout owed to Mland, actual payout, and a
   direct Mland add-on bill are separate financial facts. Corrections append
   evidence rather than editing history.
@@ -144,7 +168,66 @@ are evidenced.
   in-scope Staff or any active Manager may handle it (D18). *(Amended
   2026-11-06: an in-scope Staff member may handle it only while actively
   assigned to a session the OTA booking's Mland booking holds a valid ticket
-  for; see "Staff booking-assignment access" below.)*
+  for; see "Staff booking-assignment access" above.)*
+
+## Open decisions and release notes (review 2026-11-14)
+
+- **D1 — Decided 2026-11-14 (Hồ Hoàng Quốc):** `credential_reference` stays a
+  non-secret lookup name and the backend resolves it to a secret held in the
+  approved secret channel before comparing `X-Ota-Signature`; an unresolvable
+  reference fails closed in every environment. No constitution exception is
+  recorded (see the interim ingress text above; implemented by T059, which
+  still blocks T054 and any `approved-production-providers` entry until done).
+- **A1 — inbound replay key (implemented behaviour, read from
+  `OtaInboundEventService`):** the key is unique per connection and equals
+  SHA-256 of `EVENT:<provider>:<reference>`, where the reference is the
+  external event reference or, for a booking callback without one, the
+  external booking reference; `PAYLOAD:<payload fingerprint>` is used only when
+  no reference is supplied. A cancellation callback without an event reference
+  currently gets a random reference, so it is not deduplicated at the
+  inbound-event layer (its idempotency rests on the channel booking state). A
+  second event with the same reference but a different payload fingerprint
+  returns the stored prior outcome; no conflict is raised.
+  **Decided 2026-11-14 (Hồ Hoàng Quốc, owner Feature 003):** the key above is
+  **confirmed as the one dedupe key**, and two gaps MUST be closed (T060):
+  1. **Conflict rule:** a second event carrying the same reference but a
+     different `payloadFingerprint` MUST be refused as a conflict and MUST open
+     an `INBOUND_EVENT` reconciliation work item; it MUST NOT overwrite or
+     silently reuse the stored outcome, which is what US4 already requires. A
+     true replay — same reference and same fingerprint — keeps returning the
+     stored outcome.
+  2. **No invented reference:** when a provider sends no event reference, the
+     adapter MUST leave it empty so the service falls back to
+     `PAYLOAD:<fingerprint>`, which is the branch meant for that case. The
+     Klook cancellation adapter currently invents `klk-ccl-ev-<random>`, so
+     every redelivery looks new and the inbound layer never deduplicates it.
+- **U1 — Decided 2026-11-14 (Hồ Hoàng Quốc):** OTA cancellation stays
+  **whole-booking only in V1**, and no ticket subset is ever revoked from an
+  OTA event. The reason is what the providers actually send: the Klook and
+  GetYourGuide cancellation adapters and `OtaCancellationEventCommand` carry
+  only the external booking and event references, a cancellation kind
+  (`REQUESTED`, `CONFIRMED_CANCELLED`, `REFUNDED`), a refund amount, currency
+  and reason — no participant or ticket count — so a partial cancellation
+  cannot be mapped to tickets without guessing which ticket to revoke
+  (`PARTIALLY_REFUNDED` is a payment state, not a ticket outcome). A provider
+  event that nonetheless indicates fewer participants MUST NOT revoke any
+  ticket: it opens a reconciliation work item for Staff or a Manager to settle
+  with the provider. Whether per-ticket OTA cancellation becomes possible is
+  decided in T038b from the real, contract-approved provider payloads (T004),
+  not here.
+- **C2 — Decided 2026-11-14 (Hồ Hoàng Quốc):** `INBOUND_EVENT` reconciliation
+  work items (unknown booking, unmapped event, and from T060 a dedupe conflict)
+  MUST be listed and resolved through the **existing**
+  `GET /api/v1/ota-reconciliation-work-items` and
+  `POST /api/v1/ota-reconciliation-work-items/{workItemId}/resolve`, not a new
+  API. The listing MUST stop restricting itself to mapping-linked items
+  (`OtaReconciliationService.listWorkItems` calls `findMappingLinked…` today,
+  so these items can never appear), MUST accept an optional `category` filter,
+  and MUST return `mappingId` as null for an item that has no mapping.
+  Authority is unchanged: Manager or Admin. Implemented by T061.
+- **G1 — release note:** every OTA mapping stays `SALES_CLOSED` (or earlier)
+  until T051 sandbox/ticket/scan evidence and the T054 go-live review are
+  recorded for that provider.
 
 ## User Scenarios & Testing
 
@@ -421,6 +504,8 @@ remains separate from OTA financial facts.
   catalogue add-on for the booking's package/location; the server derives its
   description and price, and the actor MUST NOT supply an amount. In-scope
   Staff or any active Manager may create, accept and bill the quote.
+  *(Amended 2026-11-06: "in-scope Staff" means location scope AND an active
+  assignment to a session the Mland booking holds a valid ticket for.)*
 - **FR-020**: The system MUST record an accepted paid add-on sold at the Mland
   shop as a separate Mland counter bill with immutable
   item/price/currency/consent/actor/payment evidence, without changing OTA
@@ -466,8 +551,11 @@ remains separate from OTA financial facts.
 
 - 003.1 supplies booking/ticket outcomes; 003.2 owns session capacity, check-in,
   and attendance. This feature consumes rather than duplicates them.
-- 003.3 owns direct-Mland final payment/refund. OTA money never uses its direct
-  deposit/refund gateway flow.
+- 003.3 owns direct-Mland final payment/refund. ~~OTA money never uses its
+  direct deposit/refund gateway flow.~~ *(Superseded 2026-11-14: OTA bookings
+  keep WorkshopBooking and have no Mland folio; 003.3 per-ticket settlement
+  does not apply; only the D12 add-on bill exists. Its refund is the 003.3
+  FR-038a bank refund.)*
 - Provider contracts, credentials, callback verification, quotas, commercial
   terms, and production onboarding remain per-OTA go-live gates. The fixed
   late-booking/capacity rule is rejection without capacity commitment; each

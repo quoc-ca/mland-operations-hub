@@ -74,31 +74,33 @@ public class SecurityConfiguration {
                 .requestMatchers(HttpMethod.GET, "/api/v1/workshop-packages").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/workshop-packages/*").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/ai-support/messages").permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/v1/workshop-bookings").permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/v1/booking-magic-links/exchanges").permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/v1/booking-lookups").permitAll()
+                // 003.1 FR-031, FR-045, FR-047, FR-048: the group booking journey is open to a Guest (contract
+                // `security: [{}]`); each service authorizes server-side and a bearer, when sent, is still verified.
+                .requestMatchers(HttpMethod.POST, "/api/v1/workshop-cart-quotes").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/workshop-booking-groups").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/workshop-booking-groups/*/payment-attempts").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/workshop-booking-group-lookups").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/workshop-booking-group-magic-links/exchanges").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/workshop-booking-groups/*/pending-hold-release").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/workshop-booking-groups/*/confirmation-deliveries").permitAll()
                 // 003.1 FR-041 (decision 2026-11-13): a Guest buyer proves authority by OTP; the services
                 // authorize every request server-side (bearer optional).
                 .requestMatchers(HttpMethod.POST, "/api/v1/workshop-booking-groups/*/buyer-verifications").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/workshop-booking-groups/*/buyer-verifications/*/confirmations").permitAll()
                 .requestMatchers(HttpMethod.PUT, "/api/v1/workshop-tickets/*/recipient").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/workshop-tickets/*/cancellations").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/workshop-booking-groups/*/cancellations").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/workshop-tickets/*/mland-remedy/answers").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/workshop-tickets/*/changes").permitAll()
                 // 003.3 FR-040: the single-use refund-account link from email 7 is the credential.
                 .requestMatchers(HttpMethod.POST, "/api/v1/refund-account-links/*").permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/v1/workshop-bookings/*/pending-hold-release").permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/v1/workshop-bookings/*/confirmation-deliveries").permitAll()
                 // VNPay calls the signed IPN server-to-server without a Mland bearer token.
                 // PaymentIngressService performs checksum, owner, amount and deduplication checks.
                 .requestMatchers(HttpMethod.GET, "/api/v1/integrations/payments/vnpay/events").permitAll()
                 // Browser return is display-only. It only redirects to the React result page;
                 // no payment state is accepted from this request.
                 .requestMatchers(HttpMethod.GET, "/payment/vnpay/return").permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/v1/workshop-bookings/*/payment-attempts").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/v1/workshop-bookings/*/final-bill").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/v1/workshop-bookings/*/final-bill/add-ons").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/v1/workshop-bookings/*/final-bill/operator").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/v1/workshop-bookings/*/required-session-change-cases/*").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/v1/workshop-bookings/*/mland-cancellation-remedy-cases/*").permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/v1/workshop-bookings/*/final-bill/charges").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/workshop-tickets/*/folio-lookups").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/review-eligibility/lookup").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/reviews/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/reviews").permitAll()

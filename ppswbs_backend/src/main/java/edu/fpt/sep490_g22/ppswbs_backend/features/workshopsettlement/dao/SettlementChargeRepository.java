@@ -5,4 +5,5 @@ import java.util.List;
 public interface SettlementChargeRepository extends JpaRepository<SettlementCharge, Long> {
  List<SettlementCharge> findByBillReference(String billReference);
  List<SettlementCharge> findByBillReferenceAndLifecycleStatusOrderByIdAsc(String billReference, String lifecycleStatus);
+ java.util.Optional<SettlementCharge> findByChargeReference(String chargeReference);
 }

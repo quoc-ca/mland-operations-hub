@@ -1,7 +1,7 @@
 # Data Model: Workshop OTA Connectivity
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-01
+**Date updated**: 2026-11-14
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -19,6 +19,16 @@ The Feature 003 owner approved the physical schema boundary recorded in this sec
 - One channel connection is allowed per provider and environment (`TEST` or
   `PRODUCTION`). A connection stores only an opaque credential reference; the
   secret itself remains in external configuration/credential storage.
+  *(Note 2026-11-14: the interim ingress contradicts this. It compares
+  `X-Ota-Signature` directly with `credential_reference`, so the stored value
+  acts as the bearer secret in MySQL, against Constitution II. **Decided
+  2026-11-14 (Hồ Hoàng Quốc): resolve the reference to a secret in the approved
+  secret channel.** `credential_reference` stays a non-secret lookup name, the
+  backend reads the secret value for that name from the approved environment or
+  secret channel and compares `X-Ota-Signature` against it; a reference that
+  resolves to nothing fails closed in every environment, `TEST` included, and
+  no constitution exception is recorded. Implemented by T059, which blocks T054
+  and any `approved-production-providers` entry until done.)*
 - Money is stored as signed `BIGINT` minor units with an ISO currency code. OTA API decimal values use the ISO 4217 minor-unit exponent exposed by the JDK `java.util.Currency` registry; unknown codes or currencies without a minor-unit exponent are rejected. Conversion is exact and rejects non-zero excess fractional digits without rounding.
 - Internal OTA relations retain numeric `BIGINT` primary/foreign keys. HTTP identifiers are separate immutable public UUID references for channel connections, mappings, price snapshots, and reconciliation work items.
   Currency exponent follows the JDK ISO currency registry; no floating-point
@@ -66,7 +76,7 @@ contract specifies a narrower stable representation. Provider references are
 | `ota_outbound_changes` | `id`; `mapping_id` FK; `source_version BIGINT`; `source_change_reference VARCHAR(128)`; `change_kind VARCHAR(32)`; `canonical_snapshot` containing only allowlisted session schedule/availability/sale-state values; `status VARCHAR(24)`; timestamps. Unique `(mapping_id, source_version, change_kind)`. |
 | `ota_control_outbox` | `id`; unique `operation_reference CHAR(36)`; `mapping_id` FK; `command_kind VARCHAR(32)`; `actor_account_reference VARCHAR(128)`; `reason VARCHAR(1000)`; `idempotency_key_hash CHAR(64)`; `request_fingerprint CHAR(64)`; `correlation_reference CHAR(36)`; `status VARCHAR(24)`; provider correlation/failure category; timestamps. Unique actor+idempotency key. Separately queues OTA-owned control commands and is never keyed by an Operations source version. The immutable Manager decision is also appended to `ota_reconciliation_decisions`. |
 | `ota_delivery_attempts` | `id`; `outbound_change_id` FK; `attempt_number INT`; `started_at DATETIME(6)`; `completed_at DATETIME(6) NULL`; `outcome VARCHAR(24)`; `provider_correlation_reference VARCHAR(255) NULL`; `failure_category VARCHAR(64) NULL`. Unique `(outbound_change_id, attempt_number)`. Append-only. |
-| `ota_inbound_events` | `id`; `connection_id` FK; `external_event_reference VARCHAR(255) NULL`; `payload_fingerprint CHAR(64)`; `dedupe_key CHAR(64)`; `event_kind VARCHAR(32)`; `authentication_result VARCHAR(24)`; `processing_status VARCHAR(24)`; `outcome_reference VARCHAR(128) NULL`; `received_at DATETIME(6)`; `processed_at DATETIME(6) NULL`. Unique `(connection_id, dedupe_key)`. The service hashes the external event reference when present, otherwise uses the canonical allowlisted payload fingerprint, so MySQL can enforce both cases with one non-null unique key. No raw payload. |
+| `ota_inbound_events` | `id`; `connection_id` FK; `external_event_reference VARCHAR(255) NULL`; `payload_fingerprint CHAR(64)`; `dedupe_key CHAR(64)`; `event_kind VARCHAR(32)`; `authentication_result VARCHAR(24)`; `processing_status VARCHAR(24)`; `outcome_reference VARCHAR(128) NULL`; `received_at DATETIME(6)`; `processed_at DATETIME(6) NULL`. Unique `(connection_id, dedupe_key)`. The service hashes the external event reference when present, otherwise uses the canonical allowlisted payload fingerprint, so MySQL can enforce both cases with one non-null unique key. No raw payload. *(Implemented key, 2026-11-14: `dedupe_key` = SHA-256 of `EVENT:<provider>:<reference>` or `PAYLOAD:<fingerprint>`; a booking callback without an event reference uses its external booking reference, a cancellation without one currently uses a random reference. Same reference + different fingerprint returns the stored prior outcome. Open: confirm this key and that outcome; spec.md A1.)* |
 | `ota_channel_bookings` | Internal `id BIGINT` PK; unique immutable `public_reference CHAR(36)` UUID for the OTA API/facade boundary, backfilled for existing rows by an append-only migration; `mapping_id` FK; `external_booking_reference VARCHAR(255)`; `provider_status VARCHAR(32)`; `participant_count INT`; `mland_booking_reference VARCHAR(128) NULL`; policy/version and booking-cutoff/timezone snapshot; retail/target-net/commission/fee/accepted amount snapshots as `BIGINT` minor units with currency; timestamps. Unique `(mapping_id, external_booking_reference)`. Internal FKs continue to use numeric IDs. |
 | `ota_booking_ticket_links` | `id`; `channel_booking_id` FK; `participant_ordinal INT`; `operations_ticket_reference VARCHAR(128)`; `linked_at DATETIME(6)`. Unique `(channel_booking_id, participant_ordinal)` and unique `operations_ticket_reference`. |
 | `ota_customer_payment_evidence` | `id`; `channel_booking_id` FK; `external_evidence_reference VARCHAR(255)`; `evidence_kind VARCHAR(24)`; `evidence_status VARCHAR(24)`; `amount_minor BIGINT`; `currency_code CHAR(3)`; `occurred_at DATETIME(6)`; `recorded_at DATETIME(6)`; `correlation_reference VARCHAR(128) NULL`. Append-only; unique provider-scoped external evidence reference. `PAID_ON_CHANNEL` is recorded only when authenticated provider evidence matches the full accepted amount and currency for that channel booking; it is not Mland collection or payout evidence. |
@@ -157,7 +167,7 @@ governed by the approved T021 adapter policy.
 | Channel price snapshot | Records the approved commercial terms used for a mapped offer. | A Manager creates it only after the provider has confirmed the terms outside Mland, and stores the safe confirmation reference in `terms_reference`. Stores retail/net/currency/fee-or-commission/effective window. The snapshot is immediately approved and immutable after creation and use by a booking/payout position. No unconfirmed price draft/submission is persisted. |
 | Outbound sync change | Durable consumer record to publish an accepted Operations schedule, availability/sale-state change, or permitted price data. | References mapping and the unified authoritative per-session source change identity/version. Same mapping + source version + change kind is unique. It contains a minimized/redacted canonical payload, never a credential; it does not recreate capacity arithmetic or retain Booking/payment/ticket detail. |
 | Delivery attempt | Append-only evidence for each adapter call. | References one outbound change; records safe outcome/correlation/time and sanitized failure category. It must not store raw provider headers/body if those can contain secrets or PII. |
-| Inbound channel event | Audit/deduplication record for a callback or provider poll result. | Unique provider + external event reference; safe fingerprint covers events without a stable reference. Authentication result is stored before side effects. |
+| Inbound channel event | Audit/deduplication record for a callback or provider poll result. | Unique provider + external event reference; safe fingerprint covers events without a stable reference. Authentication result is stored before side effects. (Exact key: see `ota_inbound_events` above.) |
 | Channel booking | Provider booking correlated to Mland booking/tickets. | Unique provider + external booking reference. It records provider booking status, idempotency correlation, and an immutable booking snapshot: sales channel, displayed policy/version, booking cutoff and timezone, retail/target-net amounts, commission/fee facts, currency, accepted amounts, and a Mland booking reference only after successful facade acceptance. Later mapping or price changes cannot rewrite this snapshot. |
 | Channel booking ticket link | Connects each OTA participant entitlement to one Mland-issued ticket. | A confirmed `PER_PERSON` channel booking requires exactly one Operations ticket per participant; no ticket may be linked twice. |
 | Customer payment evidence | Tracks OTA-reported guest payment/refund evidence. | References channel booking; it is evidence, not Mland card processing. State transitions are append-only/auditable and never infer a refund from a browser redirect. |
@@ -214,7 +224,9 @@ work; it cannot mutate Operations or direct-Mland booking behaviour.
 
 - A cancellation request is not a confirmed cancellation. Provider policy, redemption/check-in state, and the provider-approved workflow decide whether it can be confirmed; Operations effects occur only after that decision.
 - Customer payment/refund evidence and Mland payout position are separate streams. Both retain their original external reference and evidence history.
-- An accepted non-free add-on creates/links a direct-Mland Settlement bill; it never changes the OTA customer-payment record.
+- An accepted non-free add-on creates/links a direct-Mland Settlement bill; it never changes the OTA customer-payment record. Payment of that bill follows the 2026-11-06 Staff booking-assignment rule; its refund is the Manager-approved bank refund of 003.3 FR-038a with Staff account entry only (003.3 T104). OTA bookings have no Mland folio and 003.3 per-ticket settlement does not apply to them.
+- Decided 2026-11-14 (Hồ Hoàng Quốc): OTA cancellation stays whole-booking only in V1 — the provider adapters and `OtaCancellationEventCommand` carry no participant or ticket count, so no ticket subset is revoked; an event indicating fewer participants opens a reconciliation work item. Per-ticket OTA cancellation is decided in T038b from real provider payloads (T004).
+- Decided 2026-11-14 (Hồ Hoàng Quốc): `INBOUND_EVENT` work items are listed and resolved through the existing `/api/v1/ota-reconciliation-work-items` routes — `listWorkItems` stops filtering to mapping-linked items, takes an optional `category` filter and returns `mappingId` null when there is none; Manager/Admin as before, no new endpoint or table (T061).
 
 ## Cross-module boundary
 

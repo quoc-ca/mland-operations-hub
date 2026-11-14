@@ -40,13 +40,17 @@ class OtaProviderEventControllerIT {
     @Mock private OtaProviderEventHandler eventHandler;
     @Mock private OtaChannelConnectionRepository connectionRepository;
 
+    private final org.springframework.mock.env.MockEnvironment mockEnvironment = new org.springframework.mock.env.MockEnvironment();
     private MockMvc mvc;
     private final ObjectMapper json = new ObjectMapper().findAndRegisterModules()
             .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
     @BeforeEach
     void setUp() {
-        OtaProviderEventController controller = new OtaProviderEventController(eventHandler, connectionRepository);
+        mockEnvironment.setProperty("secret-klook-signature-123", "secret-klook-signature-123");
+        mockEnvironment.setProperty("prod-klook-credential", "prod-klook-credential");
+
+        OtaProviderEventController controller = new OtaProviderEventController(eventHandler, connectionRepository, mockEnvironment);
         ReflectionTestUtils.setField(controller, "allowTestTokens", true);
 
         mvc = MockMvcBuilders.standaloneSetup(controller)
@@ -103,7 +107,7 @@ class OtaProviderEventControllerIT {
         @Test
         @DisplayName("Invalid signature without test token bypass returns 401 Unauthorized")
         void invalidSignature_returns401() throws Exception {
-            OtaProviderEventController strictController = new OtaProviderEventController(eventHandler, connectionRepository);
+            OtaProviderEventController strictController = new OtaProviderEventController(eventHandler, connectionRepository, mockEnvironment);
             ReflectionTestUtils.setField(strictController, "allowTestTokens", false);
             MockMvc strictMvc = MockMvcBuilders.standaloneSetup(strictController)
                     .setControllerAdvice(new OtaExceptionHandler())
@@ -144,7 +148,7 @@ class OtaProviderEventControllerIT {
         @Test
         @DisplayName("E3: an approved PRODUCTION provider still needs its exact credential; test tokens are ignored there")
         void productionCallback_approvedProvider_ignoresTestToken() throws Exception {
-            OtaProviderEventController controller = new OtaProviderEventController(eventHandler, connectionRepository);
+            OtaProviderEventController controller = new OtaProviderEventController(eventHandler, connectionRepository, mockEnvironment);
             ReflectionTestUtils.setField(controller, "allowTestTokens", true);
             ReflectionTestUtils.setField(controller, "approvedProductionProviders", "klook");
             MockMvc approvedMvc = MockMvcBuilders.standaloneSetup(controller)
@@ -165,7 +169,7 @@ class OtaProviderEventControllerIT {
         @Test
         @DisplayName("E3: an inactive connection is refused even with its exact credential")
         void inactiveConnection_returns401() throws Exception {
-            OtaProviderEventController controller = new OtaProviderEventController(eventHandler, connectionRepository);
+            OtaProviderEventController controller = new OtaProviderEventController(eventHandler, connectionRepository, mockEnvironment);
             ReflectionTestUtils.setField(controller, "allowTestTokens", false);
             MockMvc strictMvc = MockMvcBuilders.standaloneSetup(controller)
                     .setControllerAdvice(new OtaExceptionHandler()).build();
@@ -179,6 +183,54 @@ class OtaProviderEventControllerIT {
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(callback("TEST")))
                     .andExpect(status().isUnauthorized());
+            verify(eventHandler, never()).handleBookingEvent(any());
+        }
+
+        @Test
+        @DisplayName("T059: resolved secret from environment is accepted when signature matches")
+        void resolvedSecretFromEnvironment_accepted() throws Exception {
+            mockEnvironment.setProperty("OTA_KLOOK_INGRESS_SECRET", "super-secret-token-xyz");
+            when(connectionRepository.findByProviderCodeAndEnvironment(OtaProvider.KLOOK, OtaEnvironment.TEST))
+                    .thenReturn(Optional.of(OtaChannelConnection.builder().id(1L).providerCode(OtaProvider.KLOOK)
+                            .environment(OtaEnvironment.TEST).credentialReference("OTA_KLOOK_INGRESS_SECRET")
+                            .status("ACTIVE").build()));
+
+            OtaProviderEventController strictController = new OtaProviderEventController(eventHandler, connectionRepository, mockEnvironment);
+            ReflectionTestUtils.setField(strictController, "allowTestTokens", false);
+            MockMvc strictMvc = MockMvcBuilders.standaloneSetup(strictController)
+                    .setControllerAdvice(new OtaExceptionHandler()).build();
+
+            when(eventHandler.handleBookingEvent(any())).thenReturn(
+                    new OtaProviderEventHandler.OtaBookingEventResult("CONFIRMED", "CH-1", "ML-1", 2,
+                            List.of("T1", "T2"), null, null));
+
+            strictMvc.perform(post("/api/v1/ota-provider/booking-events")
+                            .header("X-Ota-Signature", "super-secret-token-xyz")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(callback("TEST")))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.status").value("CONFIRMED"));
+        }
+
+        @Test
+        @DisplayName("T059: unresolvable credential reference fails closed even in TEST environment")
+        void unresolvableCredentialReference_failsClosedEvenInTest() throws Exception {
+            when(connectionRepository.findByProviderCodeAndEnvironment(OtaProvider.KLOOK, OtaEnvironment.TEST))
+                    .thenReturn(Optional.of(OtaChannelConnection.builder().id(1L).providerCode(OtaProvider.KLOOK)
+                            .environment(OtaEnvironment.TEST).credentialReference("NON_EXISTENT_ENV_VAR")
+                            .status("ACTIVE").build()));
+
+            OtaProviderEventController strictController = new OtaProviderEventController(eventHandler, connectionRepository, mockEnvironment);
+            ReflectionTestUtils.setField(strictController, "allowTestTokens", false);
+            MockMvc strictMvc = MockMvcBuilders.standaloneSetup(strictController)
+                    .setControllerAdvice(new OtaExceptionHandler()).build();
+
+            strictMvc.perform(post("/api/v1/ota-provider/booking-events")
+                            .header("X-Ota-Signature", "any-signature")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(callback("TEST")))
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
             verify(eventHandler, never()).handleBookingEvent(any());
         }
 

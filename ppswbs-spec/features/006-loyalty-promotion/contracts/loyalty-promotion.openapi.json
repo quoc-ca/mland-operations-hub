@@ -1122,13 +1122,17 @@
                 "$ref": "#/components/schemas/PositiveAmount"
               },
               "maxDiscountAmount": {
-                "$ref": "#/components/schemas/PositiveAmount"
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/PositiveAmount"
+                  }
+                ],
+                "description": "Session 2026-11-14: not entered by the Manager for FIXED. Optional in requests; when sent it must equal amount, otherwise 400 on discount.maxDiscountAmount. The server stores it equal to amount. Responses always carry it; an older FIXED revision may still hold a smaller cap, and the effective discount is min(amount, maxDiscountAmount)."
               }
             },
             "required": [
               "kind",
-              "amount",
-              "maxDiscountAmount"
+              "amount"
             ]
           }
         ]

@@ -17,8 +17,11 @@ public record BookingGroupLoyaltyOutcomeSource(boolean memberOrigin, String snap
         tickets = tickets == null ? List.of() : List.copyOf(tickets);
     }
 
-    /** One ticket of the group: its own code and the identity Workshop Operations issued for it. */
-    public record GroupTicket(String ticketCode, String operationsTicketReference) {
+    /** One ticket of the group: its own code, operations identity, and 003.1 ticketRef (L{line}-T{ordinal}). */
+    public record GroupTicket(String ticketCode, String operationsTicketReference, String ticketRef) {
+        public GroupTicket(String ticketCode, String operationsTicketReference) {
+            this(ticketCode, operationsTicketReference, null);
+        }
     }
 
     public static BookingGroupLoyaltyOutcomeSource none() {
