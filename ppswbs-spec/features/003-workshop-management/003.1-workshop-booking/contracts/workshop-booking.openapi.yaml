@@ -317,10 +317,12 @@ components:
       name: Idempotency-Key
       in: header
       required: true
-      schema: {type: string, minLength: 1, maxLength: 128}
+      schema: {type: string, minLength: 16, maxLength: 128}
       description: >-
-        Group creation accepts 1 to 128 characters, as the implemented
-        controller does; every other command here requires 16 to 128.
+        16 to 128 characters, like every other command here (decided
+        2026-11-14). The implemented controller still accepts 1 to 128 and is
+        tightened in T107; the frontend already sends 16 to 128 (T102), so no
+        client changes.
   responses:
     Problem:
       description: Safe typed error (RFC 7807)
