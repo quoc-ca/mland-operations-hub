@@ -213,4 +213,19 @@ public class AccountFacadeImpl implements AccountFacade {
             a.getAddressType()
         );
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<String> listActiveManagerEmails() {
+        List<String> emails = accountRepository.findLoginEmailsByRoleAndStatus(AccountRole.MANAGER, AccountStatus.ACTIVE);
+        if (emails == null || emails.isEmpty()) {
+            return List.of();
+        }
+        return emails.stream()
+            .filter(e -> e != null && !e.isBlank())
+            .map(String::trim)
+            .distinct()
+            .sorted()
+            .toList();
+    }
 }

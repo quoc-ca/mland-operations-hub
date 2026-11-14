@@ -388,6 +388,17 @@ action is independent of Location assignment and Location-scope availability;
 Staff scope, Admin-only boundaries, target privacy, and safe failure recovery
 remain enforced.
 
+---
+
+## Phase 12: Manager alert recipients internal facade (FR-045)
+
+**Scope guard**: This phase implements the internal read-only `AccountFacade.listActiveManagerEmails()` contract per FR-045 for consumer 003.1 (FR-040a). It does not create a REST endpoint, audit events, schema changes, or broader PII access.
+
+- [x] T082 [FR-045] Implement `listActiveManagerEmails()` in `AccountFacade`, `AccountFacadeImpl`, and `AccountRepository`, returning de-duplicated and sorted login emails for active Managers only.
+- [x] T083 [FR-045] Add unit and integration tests verifying active Managers returned, ADMIN/STAFF/MEMBER and inactive Managers excluded, and empty list when no active Manager exists.
+
+**Checkpoint**: `listActiveManagerEmails()` conforms to FR-045 and `interfaces.md`; unit and integration tests pass with zero PII exposure to logs, events, or audit records.
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
@@ -482,7 +493,7 @@ After Phase 2 completes:
 - Code refactoring prerequisite: code-level `activeLocationIds` must be renamed to canonical `activeWorkshopLocationIds` across entities, DTOs, and facade types during implementation.
 - OpenAPI contract: `contracts/account-management.openapi.yaml` has been regenerated to full OpenAPI 3.1.0 specification.
 
-**Total tasks**: 81 (including Phase 6 US6 shipping addresses, Phase 9 Google/re-auth tasks, and unstarted Manager-global alignment T078–T081)
+**Total tasks**: 83 (including Phase 6 US6 shipping addresses, Phase 9 Google/re-auth tasks, Manager-global alignment T078–T081, and Phase 12 alert recipients T082–T083)
 **By story**: Setup 5 | Foundational 7 | US1 7 | US2 7 | US3 8 | US4 5 | US5 6 | Polish 7
 **Parallel opportunities**: 32 tasks marked [P]
 **MVP scope**: Historical phases retain their original scope. Revision R-SL is a separate approved frontend handoff: T069–T077 and V-13 must be completed before this session/navigation revision is accepted. Phase 7 US5 (T038–T043) and WCAG scan (T047) remain deferred to full release.
