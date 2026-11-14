@@ -326,4 +326,108 @@ class TicketFolioApiServiceTest {
         verify(audits).save(auditCaptor.capture());
         assertThat(auditCaptor.getValue().getActionCode()).isEqualTo("CHARGE_VOIDED");
     }
+
+    // ---- T108: VNPAY collection checkout created by the server ----
+
+    @Test
+    void recordCollection_vnpay_ignoresClientReferenceAndReturnsTheCheckoutWhilePayable() {
+        TicketFolioContext ctx = new TicketFolioContext("TK-1", "GRP-1", "LINE-1", "PKG-1", 1L, List.of("SES-1"), 30L);
+        when(booking.getTicketFolioContext("TK-1")).thenReturn(Optional.of(ctx));
+        when(authorization.requireManagerOrStaff(staff, 1L)).thenReturn(staff);
+        Instant expiresAt = Instant.now().plusSeconds(600);
+        SettlementFolioCollection part = SettlementFolioCollection.builder().collectionReference("COLL-V")
+                .billReference("BILL-1").bookingReference("TK-1").method(FolioCollectionMethod.VNPAY)
+                .amountVnd(80_000L).status(FolioCollectionStatus.PENDING_VERIFICATION)
+                .externalReference("FOLABC").paymentUrlSnapshot("https://pay.example/FOLABC")
+                .paymentExpiresAt(expiresAt).build();
+        when(folioCollectionService.recordGatewayAttempt("TK-1", 80_000L, "10.0.0.7", 20L, "corr"))
+                .thenReturn(new FolioCollectionService.CollectionOutcome("COLL-V", FolioCollectionMethod.VNPAY,
+                        80_000L, 0L, FolioCollectionStatus.PENDING_VERIFICATION, 80_000L, 80_000L, "OPEN"));
+        when(collections.findByCollectionReference("COLL-V")).thenReturn(Optional.of(part));
+
+        CollectionDto dto = service.recordCollection("TK-1", "KEY-1234567890123456", "corr",
+                new TicketCollectionRequest("VNPAY", null, 80_000L, null, null, "CLIENT-CHOSEN-REF", null, null),
+                "10.0.0.7", staff);
+
+        verify(folioCollectionService).recordGatewayAttempt("TK-1", 80_000L, "10.0.0.7", 20L, "corr");
+        assertThat(dto.paymentUrl()).isEqualTo("https://pay.example/FOLABC");
+        assertThat(dto.paymentExpiresAt()).isEqualTo(expiresAt.toString());
+
+        // An expired or settled checkout is never shown again.
+        part.setPaymentExpiresAt(Instant.now().minusSeconds(1));
+        when(bills.findByBookingReference("TK-1")).thenReturn(Optional.of(SettlementFinalBill.builder()
+                .billReference("BILL-1").bookingReference("TK-1").lifecycleStatus("OPEN")
+                .postPromotionAmountVnd(100_000L).acceptedDepositAmountVnd(20_000L).remainingAmountVnd(80_000L).build()));
+        when(collections.findByBillReferenceOrderByIdAsc("BILL-1")).thenReturn(List.of(part));
+        when(folioBalances.balanceOf(any())).thenReturn(new FolioBalanceService.FolioBalance(80_000L, 80_000L, 0L));
+        TicketFolioDto folio = service.readFolio("TK-1", memberBuyer);
+        assertThat(folio.collections()).filteredOn(c -> "COLL-V".equals(c.collectionId()))
+                .singleElement().satisfies(c -> {
+                    assertThat(c.paymentUrl()).isNull();
+                    assertThat(c.paymentExpiresAt()).isNull();
+                });
+    }
+
+    // ---- T109: Manager fails a stuck pending part ----
+
+    private SettlementFinalBill openFolio() {
+        SettlementFinalBill folio = SettlementFinalBill.builder().billReference("BILL-1").bookingReference("TK-1")
+                .lifecycleStatus("OPEN").build();
+        when(bills.findByBookingReferenceForUpdate("TK-1")).thenReturn(Optional.of(folio));
+        return folio;
+    }
+
+    @Test
+    void failCollection_asManager_failsThePartOfThisTicketWithTheReason() {
+        openFolio();
+        SettlementFolioCollection part = SettlementFolioCollection.builder().collectionReference("COLL-1")
+                .billReference("BILL-1").bookingReference("TK-1").method(FolioCollectionMethod.VNPAY)
+                .amountVnd(80_000L).status(FolioCollectionStatus.PENDING_VERIFICATION).build();
+        when(collections.findByCollectionReference("COLL-1")).thenReturn(Optional.of(part));
+        when(folioCollectionService.markPendingFailed("COLL-1", 10L, "Khach khong tra", "corr")).thenAnswer(inv -> {
+            part.setStatus(FolioCollectionStatus.FAILED);
+            return new FolioCollectionService.CollectionOutcome("COLL-1", FolioCollectionMethod.VNPAY, 80_000L, 0L,
+                    FolioCollectionStatus.FAILED, 80_000L, 0L, "OPEN");
+        });
+
+        CollectionDto dto = service.failCollection("TK-1", "COLL-1", "KEY-1234567890123456", "corr",
+                new FolioCollectionDtos.ManagerReasonRequest(" Khach khong tra "), manager);
+
+        assertThat(dto.status()).isEqualTo("FAILED");
+        verify(folioCollectionService).markPendingFailed("COLL-1", 10L, "Khach khong tra", "corr");
+        verify(idempotency).execute(eq("FAIL_COLL:TK-1:COLL-1:KEY-1234567890123456"),
+                eq("FAIL_COLL:TK-1:COLL-1:Khach khong tra"), any());
+    }
+
+    @Test
+    void failCollection_asStaff_isRefusedBeforeAnything() {
+        assertThatThrownBy(() -> service.failCollection("TK-1", "COLL-1", "KEY-1234567890123456", "corr",
+                new FolioCollectionDtos.ManagerReasonRequest("x"), staff))
+                .isInstanceOf(WorkshopSettlementAuthorizationException.class);
+        verifyNoInteractions(folioCollectionService, bills);
+    }
+
+    @Test
+    void failCollection_ofAnotherTicketsPart_isNotFound() {
+        openFolio();
+        when(collections.findByCollectionReference("COLL-9")).thenReturn(Optional.of(SettlementFolioCollection.builder()
+                .collectionReference("COLL-9").billReference("BILL-OTHER").method(FolioCollectionMethod.VNPAY)
+                .status(FolioCollectionStatus.PENDING_VERIFICATION).build()));
+
+        assertThatThrownBy(() -> service.failCollection("TK-1", "COLL-9", "KEY-1234567890123456", "corr",
+                new FolioCollectionDtos.ManagerReasonRequest("x"), manager))
+                .isInstanceOf(WorkshopSettlementNotFoundException.class);
+        verify(folioCollectionService, never()).markPendingFailed(any(), any(), any(), any());
+    }
+
+    @Test
+    void failCollection_needsAReasonAndAKey() {
+        assertThatThrownBy(() -> service.failCollection("TK-1", "COLL-1", "KEY-1234567890123456", "corr",
+                new FolioCollectionDtos.ManagerReasonRequest("  "), manager))
+                .isInstanceOf(WorkshopSettlementValidationException.class);
+        assertThatThrownBy(() -> service.failCollection("TK-1", "COLL-1", "short", "corr",
+                new FolioCollectionDtos.ManagerReasonRequest("x"), manager))
+                .isInstanceOf(WorkshopSettlementValidationException.class);
+        verifyNoInteractions(folioCollectionService);
+    }
 }

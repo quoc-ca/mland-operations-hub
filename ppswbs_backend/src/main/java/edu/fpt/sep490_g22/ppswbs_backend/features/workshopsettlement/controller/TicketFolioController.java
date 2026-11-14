@@ -7,6 +7,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.FolioCo
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.TicketFolioDtos.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.FolioCorrectionService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.TicketFolioApiService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.CacheControl;
@@ -117,9 +118,24 @@ public class TicketFolioController {
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId,
             @Valid @RequestBody TicketCollectionRequest request,
+            HttpServletRequest httpRequest,
             Authentication authentication) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(folioApi.recordCollection(ticketCode, idempotencyKey, correlationId, request, actor(authentication)));
+                .cacheControl(CacheControl.noStore())
+                .body(folioApi.recordCollection(ticketCode, idempotencyKey, correlationId, request,
+                        httpRequest.getRemoteAddr(), actor(authentication)));
+    }
+
+    @PostMapping("/folio/collections/{collectionId}/failures")
+    public ResponseEntity<CollectionDto> failCollection(
+            @PathVariable String ticketCode,
+            @PathVariable String collectionId,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId,
+            @Valid @RequestBody FolioCollectionDtos.ManagerReasonRequest request,
+            Authentication authentication) {
+        return ResponseEntity.ok(folioApi.failCollection(ticketCode, collectionId, idempotencyKey, correlationId,
+                request, actor(authentication)));
     }
 
     @PostMapping("/folio/collections/{collectionId}/confirmations")

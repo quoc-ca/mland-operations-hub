@@ -27,13 +27,6 @@ public final class FolioCollectionDtos {
             @Size(max = 200) String payerLabel) {
     }
 
-    /** Reserves the part a gateway attempt is about; at least 5,000 VND (FR-033). */
-    public record GatewayAttemptRequest(
-            @NotNull Long branchId,
-            @NotNull @Min(5_000) Long amountVnd,
-            @NotBlank @Size(max = 128) String merchantReference) {
-    }
-
     public record CollectionResponse(
             String collectionReference,
             String method,

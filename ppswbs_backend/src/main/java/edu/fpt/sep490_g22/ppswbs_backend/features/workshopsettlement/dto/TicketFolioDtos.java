@@ -21,13 +21,24 @@ public final class TicketFolioDtos {
             List<ChargeDto> charges
     ) {}
 
+    /**
+     * One collection of a ticket folio. {@code paymentUrl} and {@code paymentExpiresAt} are set only for a VNPAY
+     * part that is still pending and whose checkout has not expired (T108); the merchant reference behind the
+     * URL is created by the server.
+     */
     public record CollectionDto(
             String collectionId,
             String method,
             String amount,
             String status,
-            String changeReturned
-    ) {}
+            String changeReturned,
+            String paymentUrl,
+            String paymentExpiresAt
+    ) {
+        public CollectionDto(String collectionId, String method, String amount, String status, String changeReturned) {
+            this(collectionId, method, amount, status, changeReturned, null, null);
+        }
+    }
 
     public record ChargeDto(
             String chargeReference,
@@ -47,6 +58,10 @@ public final class TicketFolioDtos {
         }
     }
 
+    /**
+     * {@code customerTransactionReference} is the customer's bank reference of a transfer or the cash receipt;
+     * it is ignored for VNPAY, whose merchant reference only the server creates (T108).
+     */
     public record TicketCollectionRequest(
             @NotBlank String method,
             String amount,

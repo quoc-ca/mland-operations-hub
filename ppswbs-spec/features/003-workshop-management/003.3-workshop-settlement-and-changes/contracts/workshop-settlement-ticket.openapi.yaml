@@ -75,6 +75,10 @@ paths:
         workshop.payment.transfer.confirm, which in V1 is a Manager (decision
         2026-11-12; per-person grants wait for FE-001). The folio is locked; a
         pending VNPay part must be reconciled before switching method.
+        T108 (2026-11-14): for VNPAY the server creates the merchant reference
+        and the checkout URL (valid 10 minutes) and returns them as paymentUrl
+        and paymentExpiresAt; any customerTransactionReference sent with VNPAY
+        is ignored.
       security: [{bearerAuth: []}]
       parameters: [{$ref: '#/components/parameters/TicketCode'}, {$ref: '#/components/parameters/IdempotencyKey'}]
       requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CollectionRequest'}}}}
@@ -103,6 +107,29 @@ paths:
       responses:
         '200': {description: Confirmed, content: {application/json: {schema: {$ref: '#/components/schemas/Collection'}}}}
         '403': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-tickets/{ticketCode}/folio/collections/{collectionId}/failures:
+    post:
+      summary: Manager reconciles a stuck pending VNPay or transfer part as not paid (T109, FR-031, FR-034)
+      description: >-
+        Manager only, reason required, audited. Sets a PENDING_VERIFICATION part
+        of this ticket's folio to FAILED so another method can take the balance;
+        a part of another folio is 404, a part that is no longer pending is 409.
+        Signed VNPay money that still arrives for a FAILED part is kept in full
+        and opened as an EXCESS_OR_DUPLICATE_MONEY bank refund (T110). The
+        system also fails a pending VNPay part by itself on a signed IPN or
+        QueryDR answer with transaction status 02.
+      security: [{bearerAuth: []}]
+      parameters:
+        - {$ref: '#/components/parameters/TicketCode'}
+        - {name: collectionId, in: path, required: true, schema: {type: string}}
+        - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ReasonRequest'}}}}
+      responses:
+        '200': {description: Part failed, content: {application/json: {schema: {$ref: '#/components/schemas/Collection'}}}}
+        '400': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-tickets/{ticketCode}/folio/handover-exceptions:
     post:
@@ -582,6 +609,15 @@ components:
         amount: {$ref: '#/components/schemas/Vnd'}
         status: {type: string, enum: [PENDING_VERIFICATION, CONFIRMED, FAILED, VOIDED]}
         changeReturned: {$ref: '#/components/schemas/Vnd'}
+        paymentUrl:
+          type: string
+          nullable: true
+          description: VNPay checkout of a pending VNPAY part, only until paymentExpiresAt (T108).
+        paymentExpiresAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the VNPay checkout stops accepting payment (T108).
     TicketFolio:
       type: object
       required: [ticketCode, status, totalAmount, paidAmount, balanceDue, collections]

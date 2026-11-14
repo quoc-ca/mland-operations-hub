@@ -1,5 +1,6 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service;
 
+import edu.fpt.sep490_g22.ppswbs_backend.common.payment.PaymentGatewayCheckoutPort;
 import edu.fpt.sep490_g22.ppswbs_backend.common.payment.PaymentOwnerRegistrationPort;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementBusinessAuditRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementCashDayCloseRepository;
@@ -11,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -47,6 +49,8 @@ public class FolioCollectionService {
 
     /** The VNPay floor of a single collection (FR-033). Cash and transfer have no floor of their own. */
     public static final long VNPAY_MINIMUM_VND = 5_000;
+    /** A folio VNPay checkout stops accepting payment 10 minutes after creation, as every final-payment attempt. */
+    public static final Duration VNPAY_CHECKOUT_LIFETIME = Duration.ofMinutes(10);
     private static final ZoneId VIETNAM = ZoneId.of("Asia/Ho_Chi_Minh");
     private static final DateTimeFormatter PROVIDER_DATE = DateTimeFormatter.ofPattern("uuuuMMddHHmmss").withZone(VIETNAM);
 
@@ -59,6 +63,7 @@ public class FolioCollectionService {
     /** Money owed back is opened as a bank refund at once (FR-038); a missing bean must fail at startup. */
     private final BankRefundService bankRefunds;
     private final PaymentOwnerRegistrationPort paymentOwners;
+    private final PaymentGatewayCheckoutPort checkout;
 
     public record CollectionOutcome(String collectionReference, FolioCollectionMethod method, long amountVnd,
                                     long excessVnd, FolioCollectionStatus status, long balanceDue, long pendingVnd,
@@ -140,13 +145,15 @@ public class FolioCollectionService {
         return outcome(folio, collection);
     }
 
-    /** Reserves the part a VNPay attempt is about, so no other method may take it meanwhile (FR-034). */
+    /**
+     * Reserves the part a VNPay attempt is about, so no other method may take it meanwhile (FR-034), and builds
+     * its checkout (T108, FR-031, FR-049). The merchant reference is created here, never taken from the client,
+     * and is the only key signed evidence can settle this part by. The checkout stops accepting payment
+     * {@link #VNPAY_CHECKOUT_LIFETIME} after creation.
+     */
     @Transactional
-    public CollectionOutcome recordGatewayAttempt(String bookingReference, long amountVnd, String merchantReference,
+    public CollectionOutcome recordGatewayAttempt(String bookingReference, long amountVnd, String clientIp,
                                                   Long actorAccountId, String correlationReference) {
-        if (merchantReference == null || merchantReference.isBlank()) {
-            throw new WorkshopSettlementValidationException("MERCHANT_REFERENCE_REQUIRED");
-        }
         if (amountVnd < VNPAY_MINIMUM_VND) {
             // FR-033: the screen must say so before collecting; the system never raises or waives an amount.
             throw new WorkshopSettlementValidationException("VNPAY_BELOW_MINIMUM");
@@ -154,7 +161,13 @@ public class FolioCollectionService {
         SettlementFinalBill folio = lockOpenFolio(bookingReference);
         requireNoPendingGatewayPart(folio);
         requireFreeAmount(folio, amountVnd, FolioCollectionMethod.VNPAY);
-        requireNotRecordedTwice(FolioCollectionMethod.VNPAY, merchantReference);
+
+        String merchantReference = merchantReference();
+        Instant createdAt = Instant.now();
+        Instant expiresAt = createdAt.plus(VNPAY_CHECKOUT_LIFETIME);
+        String providerCreateDate = PROVIDER_DATE.format(createdAt);
+        String paymentUrl = checkout.createFinalPaymentUrl(merchantReference, folio.getBookingReference(), amountVnd,
+                createdAt, expiresAt, clientIp == null || clientIp.isBlank() ? "127.0.0.1" : clientIp.trim());
 
         SettlementFolioCollection collection = collections.saveAndFlush(SettlementFolioCollection.builder()
                 .collectionReference(reference())
@@ -163,12 +176,15 @@ public class FolioCollectionService {
                 .method(FolioCollectionMethod.VNPAY)
                 .amountVnd(amountVnd)
                 .status(FolioCollectionStatus.PENDING_VERIFICATION)
-                .externalReference(merchantReference.trim())
+                .externalReference(merchantReference)
                 .recordedByAccountId(actorAccountId)
                 .currencyCode("VND")
+                .paymentUrlSnapshot(paymentUrl)
+                .paymentExpiresAt(expiresAt)
+                .providerCreateDate(providerCreateDate)
                 .build());
-        paymentOwners.registerOwner(merchantReference.trim(), folio.getBookingReference(), "FINAL_PAYMENT",
-                amountVnd, "VND", PROVIDER_DATE.format(Instant.now()));
+        paymentOwners.registerOwner(merchantReference, folio.getBookingReference(), "FINAL_PAYMENT",
+                amountVnd, "VND", providerCreateDate);
         audit(folio, "FOLIO_GATEWAY_ATTEMPT_RECORDED", actorAccountId, collection, correlationReference);
         return outcome(folio, collection);
     }
@@ -207,22 +223,66 @@ public class FolioCollectionService {
     }
 
     /**
-     * Reconciles a pending part as not paid, which is what frees the balance for another method. Closing the
-     * QR or the screen is not proof of failure, so only a reconciled outcome reaches here.
+     * T109, FR-031/FR-034: a Manager reconciles a pending VNPay or transfer part as not paid, with a reason,
+     * which is what frees the balance for another method. Closing the QR or the screen is not proof of failure,
+     * so only this reconciled decision or the provider's own failure reaches {@code FAILED}. Money that still
+     * arrives for the part afterwards is owed back in full (T110).
      */
     @Transactional
-    public CollectionOutcome markPendingFailed(String collectionReference, Long actorAccountId,
+    public CollectionOutcome markPendingFailed(String collectionReference, Long actorAccountId, String reason,
                                                String correlationReference) {
+        if (reason == null || reason.isBlank()) {
+            throw new WorkshopSettlementValidationException("REASON_REQUIRED");
+        }
         SettlementFolioCollection collection = collections.findByCollectionReference(collectionReference)
                 .orElseThrow(WorkshopSettlementNotFoundException::new);
-        if (!collection.isPending()) {
-            throw new WorkshopSettlementConflictException("COLLECTION_NOT_PENDING");
+        return fail(collection, actorAccountId, "FOLIO_COLLECTION_FAILED", reason.trim(), correlationReference);
+    }
+
+    /**
+     * T109, FR-032: VNPay itself reported the pending part as not paid — a signed IPN or a signed QueryDR answer
+     * with transaction status {@code 02}. The caller has already checked the signature and that the answer is
+     * about exactly this merchant reference and amount. A part that is no longer pending is left alone.
+     */
+    @Transactional
+    public boolean failGatewayCollectionFromProvider(String merchantReference, String providerOutcome,
+                                                     String correlationReference) {
+        SettlementFolioCollection collection = collections
+                .findByMethodAndExternalReference(FolioCollectionMethod.VNPAY, merchantReference)
+                .orElse(null);
+        if (collection == null || !collection.isPending()) {
+            return false;
         }
-        collection.setStatus(FolioCollectionStatus.FAILED);
-        collections.saveAndFlush(collection);
-        SettlementFinalBill folio = lockFolio(collection.getBookingReference());
-        audit(folio, "FOLIO_COLLECTION_FAILED", actorAccountId, collection, correlationReference);
-        return outcome(folio, collection);
+        fail(collection, null, "FOLIO_GATEWAY_COLLECTION_FAILED", providerOutcome, correlationReference);
+        return true;
+    }
+
+    /**
+     * T110/T121, FR-034: signed VNPay money that cannot settle a pending part of an OPEN folio — the folio is no
+     * longer OPEN, the part is no longer pending, or no VNPAY part has that merchant reference — is never
+     * rejected. The caller has already recorded the verified evidence; here it is kept in full as money owed
+     * back and opened as an {@code EXCESS_OR_DUPLICATE_MONEY} bank refund (FR-038), deduplicated on the evidence.
+     */
+    @Transactional
+    public void routeUnappliedGatewayMoney(SettlementFinalBill folio, String merchantReference,
+                                           String evidenceReference, long amountVnd, String cause,
+                                           String correlationReference) {
+        log.info("Verified VNPay money of {} VND for folio {} could not settle a pending part ({}) and is owed back",
+                amountVnd, folio.getBillReference(), cause);
+        audits.save(SettlementBusinessAudit.builder()
+                .auditReference("AUDIT-" + UUID.randomUUID())
+                .aggregateType("SETTLEMENT_FINAL_BILL")
+                .aggregateReference(folio.getBillReference())
+                .actionCode("FOLIO_GATEWAY_MONEY_EXCESS_OWED")
+                .actorReference("SYSTEM")
+                .correlationReference(correlationReference == null || correlationReference.isBlank()
+                        ? "CORR-" + UUID.randomUUID() : correlationReference)
+                .evidenceReference(merchantReference)
+                .reasonReference(cause)
+                .createdAt(Instant.now())
+                .build());
+        bankRefunds.open(folio.getBookingReference(), folio.getGroupReference(),
+                RefundReason.EXCESS_OR_DUPLICATE_MONEY, evidenceReference, amountVnd, correlationReference);
     }
 
     @Transactional(readOnly = true)
@@ -232,6 +292,19 @@ public class FolioCollectionService {
 
     // ---- internals ----
 
+    private CollectionOutcome fail(SettlementFolioCollection collection, Long actorAccountId, String action,
+                                   String reason, String correlationReference) {
+        SettlementFinalBill folio = lockFolio(collection.getBookingReference());
+        if (!collection.isPending()) {
+            throw new WorkshopSettlementConflictException("COLLECTION_NOT_PENDING");
+        }
+        collection.setStatus(FolioCollectionStatus.FAILED);
+        collection.setPaymentUrlSnapshot(null);
+        collections.saveAndFlush(collection);
+        audit(folio, action, actorAccountId, collection, reason, correlationReference);
+        return outcome(folio, collection);
+    }
+
     private CollectionOutcome confirmCollection(SettlementFolioCollection collection, Long confirmingAccountId,
                                                 String action, String correlationReference) {
         SettlementFinalBill folio = lockOpenFolio(collection.getBookingReference());
@@ -240,6 +313,7 @@ public class FolioCollectionService {
         collection.setConfirmedByAccountId(confirmingAccountId);
         collection.setConfirmedAt(Instant.now());
         collection.setExcessVnd(excess);
+        collection.setPaymentUrlSnapshot(null);
         collections.saveAndFlush(collection);
         audit(folio, action, confirmingAccountId, collection, correlationReference);
         flagExcess(folio, collection, confirmingAccountId, correlationReference);
@@ -359,6 +433,11 @@ public class FolioCollectionService {
 
     private void audit(SettlementFinalBill folio, String action, Long actorAccountId,
                        SettlementFolioCollection collection, String correlationReference) {
+        audit(folio, action, actorAccountId, collection, folio.getBookingReference(), correlationReference);
+    }
+
+    private void audit(SettlementFinalBill folio, String action, Long actorAccountId,
+                       SettlementFolioCollection collection, String reason, String correlationReference) {
         audits.save(SettlementBusinessAudit.builder()
                 .auditReference("AUDIT-" + UUID.randomUUID())
                 .aggregateType("SETTLEMENT_FOLIO_COLLECTION")
@@ -368,13 +447,18 @@ public class FolioCollectionService {
                 .correlationReference(correlationReference == null || correlationReference.isBlank()
                         ? "CORR-" + UUID.randomUUID() : correlationReference)
                 .evidenceReference(collection.getExternalReference())
-                .reasonReference(folio.getBookingReference())
+                .reasonReference(reason)
                 .createdAt(Instant.now())
                 .build());
     }
 
     private static String reference() {
         return "COLL-" + UUID.randomUUID();
+    }
+
+    /** VNPay {@code vnp_TxnRef}: letters and digits only, unique per checkout. */
+    private static String merchantReference() {
+        return "FOL" + UUID.randomUUID().toString().replace("-", "").toUpperCase(java.util.Locale.ROOT);
     }
 
     private static String blankToNull(String value) {

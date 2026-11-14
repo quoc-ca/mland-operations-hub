@@ -22,6 +22,10 @@ public interface SettlementFolioCollectionRepository extends JpaRepository<Settl
 
     List<SettlementFolioCollection> findByBookingReferenceOrderByIdAsc(String bookingReference);
 
+    /** Pending parts of one method, oldest first, for the gateway reconciliation sweep (T109). */
+    List<SettlementFolioCollection> findTop100ByMethodAndStatusOrderByIdAsc(FolioCollectionMethod method,
+                                                                          FolioCollectionStatus status);
+
     List<SettlementFolioCollection> findByBillReferenceAndStatusOrderByIdAsc(String billReference,
                                                                             FolioCollectionStatus status);
 

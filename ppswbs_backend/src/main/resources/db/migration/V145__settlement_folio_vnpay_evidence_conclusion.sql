@@ -1,4 +1,4 @@
--- 003.3 T107 (FR-034, FR-035, FR-049): signed VNPay evidence that settled a ticket-folio VNPAY collection was stored
+-- V145 (renumbered from V143, which clashed with V143__ring_design_uniform_pricing on develop). 003.3 T107 (FR-034, FR-035, FR-049): signed VNPay evidence that settled a ticket-folio VNPAY collection was stored
 -- as FINAL_PAYMENT_VERIFIED, so FolioBalanceService and the refund caps counted that money twice: once through the
 -- CONFIRMED collection and once through the evidence row. From now on such evidence is FOLIO_VNPAY_VERIFIED and is
 -- counted through its collection only. This moves the rows already written; legacy booking-wide evidence (no VNPAY

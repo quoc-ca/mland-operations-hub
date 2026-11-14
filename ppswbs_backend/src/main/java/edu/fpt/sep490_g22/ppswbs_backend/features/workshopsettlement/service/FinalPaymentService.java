@@ -1,12 +1,9 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service;
 
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingOutcomeStatus;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.FinalBalanceResolutionOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.ApplyVerifiedSettlementPaymentEvidenceCommand;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.SettlementPaymentEvidenceOutcome;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.WorkshopBookingSettlementAdapter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,11 +17,13 @@ public class FinalPaymentService {
 
     /** Signed VNPay evidence that settled a ticket-folio VNPAY collection; counted through the collection only. */
     public static final String FOLIO_VNPAY_VERIFIED = "FOLIO_VNPAY_VERIFIED";
+    /**
+     * Signed VNPay money that settled no pending folio part (T110/T121, FR-034): collected and owed back through an
+     * {@code EXCESS_OR_DUPLICATE_MONEY} bank refund; counted by the refund cap, never by a balance.
+     */
+    public static final String FOLIO_VNPAY_EXCESS = "FOLIO_VNPAY_EXCESS";
     private final SettlementEvidenceConclusionRepository evidence;
     private final SettlementFinalBillRepository bills;
-    private final SettlementChargeRepository charges;
-    private final SettlementFinalPaymentAttemptRepository attempts;
-    private final WorkshopBookingSettlementAdapter booking;
     private final SettlementAddonBillRepository addonBills;
     private final SettlementAddonPaymentAttemptRepository addonAttempts;
     private final SettlementCustomerNotifier notifier;
@@ -34,9 +33,6 @@ public class FinalPaymentService {
     @Autowired
     public FinalPaymentService(SettlementEvidenceConclusionRepository evidence,
             SettlementFinalBillRepository bills,
-            SettlementChargeRepository charges,
-            SettlementFinalPaymentAttemptRepository attempts,
-            WorkshopBookingSettlementAdapter booking,
             SettlementAddonBillRepository addonBills,
             SettlementAddonPaymentAttemptRepository addonAttempts,
             SettlementCustomerNotifier notifier,
@@ -44,9 +40,6 @@ public class FinalPaymentService {
             FolioCollectionService folioCollections) {
         this.evidence = evidence;
         this.bills = bills;
-        this.charges = charges;
-        this.attempts = attempts;
-        this.booking = booking;
         this.addonBills = addonBills;
         this.addonAttempts = addonAttempts;
         this.notifier = notifier;
@@ -75,16 +68,28 @@ public class FinalPaymentService {
         }
 
         String conclusion;
+        String unappliedCause = null;
         if ("FINAL_PAYMENT".equals(command.paymentKind())) {
             // FR-049: a ticket folio's checkout payment is a VNPAY folio collection, confirmed only from signed
-            // evidence. A booking with no such collection is the legacy booking-wide bill, kept until T106.
-            var folioCollection = collections.findByMethodAndExternalReference(
-                    FolioCollectionMethod.VNPAY, command.merchantReference().trim());
-            if (folioCollection.isPresent()) {
-                if (!"OPEN".equals(bill.getLifecycleStatus())) return SettlementPaymentEvidenceOutcome.rejected("BILL_NOT_OPEN");
+            // evidence. T121: the legacy booking-wide final-payment branch is gone, so FINAL_PAYMENT money settles
+            // only a pending VNPAY part of an OPEN folio; anything else is owed back in full (T110, FR-034).
+            String merchant = command.merchantReference().trim();
+            SettlementFolioCollection folioCollection = collections
+                    .findByMethodAndExternalReference(FolioCollectionMethod.VNPAY, merchant).orElse(null);
+            if (folioCollection == null || !bill.getBookingReference().equals(folioCollection.getBookingReference())) {
+                unappliedCause = "NO_MATCHING_VNPAY_COLLECTION";
+            } else if (!"OPEN".equals(bill.getLifecycleStatus())) {
+                unappliedCause = "FOLIO_NOT_OPEN";
+            } else if (folioCollection.getStatus() == FolioCollectionStatus.CONFIRMED
+                    && alreadyConfirmedBy(bill.getBookingReference(), merchant, command.providerTransactionNumber())) {
+                return SettlementPaymentEvidenceOutcome.accepted(); // the same VNPay payment under another reference
+            } else if (!folioCollection.isPending()) {
+                unappliedCause = "COLLECTION_" + folioCollection.getStatus().name();
+            }
+            if (unappliedCause == null) {
                 try {
-                    folioCollections.confirmGatewayCollection(command.merchantReference().trim(),
-                            command.amountVnd(), command.correlationReference().trim());
+                    folioCollections.confirmGatewayCollection(merchant, command.amountVnd(),
+                            command.correlationReference().trim());
                 } catch (WorkshopSettlementValidationException | WorkshopSettlementConflictException ex) {
                     if ("COLLECTION_AMOUNT_MISMATCH".equals(ex.getMessage())) {
                         return SettlementPaymentEvidenceOutcome.rejected("AMOUNT_MISMATCH");
@@ -98,32 +103,8 @@ public class FinalPaymentService {
                 // its own conclusion so balance and refund sums that read FINAL_PAYMENT_VERIFIED never add it again.
                 conclusion = FOLIO_VNPAY_VERIFIED;
             } else {
-                if (!"OPEN".equals(bill.getLifecycleStatus())) return SettlementPaymentEvidenceOutcome.rejected("BILL_NOT_OPEN");
-                long confirmedCharges = charges.findByBillReferenceAndLifecycleStatusOrderByIdAsc(
-                                bill.getBillReference(), "CONFIRMED").stream()
-                        .mapToLong(charge -> charge.getAmountVnd() == null ? 0L : charge.getAmountVnd()).sum();
-                long previousPayments = total(command.bookingReference(), "FINAL_PAYMENT_VERIFIED");
-                long outstanding;
-                try {
-                    outstanding = Math.subtractExact(Math.addExact(bill.getRemainingAmountVnd(), confirmedCharges),
-                            previousPayments);
-                } catch (ArithmeticException overflow) {
-                    return SettlementPaymentEvidenceOutcome.rejected("AMOUNT_MISMATCH");
-                }
-                if (outstanding <= 0 || command.amountVnd() > outstanding) {
-                    return SettlementPaymentEvidenceOutcome.rejected("AMOUNT_MISMATCH");
-                }
-
-                if (command.amountVnd() == outstanding) {
-                    FinalBalanceResolutionOutcome resolution = booking.recordFinalBalanceResolved(
-                            command.bookingReference().trim(), bill.getBillReference(),
-                            command.operationReference().trim(), command.correlationReference().trim());
-                    if (resolution == null || resolution.status() != BookingOutcomeStatus.ACCEPTED) {
-                        return SettlementPaymentEvidenceOutcome.rejected(resolution == null || resolution.reason() == null
-                                ? "BOOKING_FINAL_BALANCE_REJECTED" : resolution.reason().name());
-                    }
-                }
-                conclusion = "FINAL_PAYMENT_VERIFIED";
+                // T110: kept as collected money of this folio (the refund cap counts it) but never reduces a balance.
+                conclusion = FOLIO_VNPAY_EXCESS;
             }
         } else {
             long collected;
@@ -151,12 +132,12 @@ public class FinalPaymentService {
                 .currencyCode(command.currencyCode())
                 .operationReference(command.operationReference().trim())
                 .createdAt(Instant.now()).build());
-        if ("FINAL_PAYMENT".equals(command.paymentKind())) {
-            if (attempts != null) attempts.findByMerchantReference(command.merchantReference()).ifPresent(attempt -> {
-                attempt.setLifecycleStatus("VERIFIED_PAID");
-                attempt.setPaymentUrlSnapshot(null);
-            });
-            // Customer notice for a verified direct-booking payment; refunds are announced when their case resolves.
+        if (unappliedCause != null) {
+            folioCollections.routeUnappliedGatewayMoney(bill, command.merchantReference().trim(),
+                    command.verifiedEvidenceReference().trim(), command.amountVnd(), unappliedCause,
+                    command.correlationReference().trim());
+        } else if ("FINAL_PAYMENT".equals(command.paymentKind())) {
+            // Customer notice for a verified checkout payment; refunds are announced when their case resolves.
             notifier.notifyVerified(command.bookingReference().trim(), SettlementCustomerNotifier.FINAL_PAYMENT_VERIFIED,
                     command.amountVnd(), bill.getBillReference(), command.correlationReference().trim());
         }
@@ -213,6 +194,17 @@ public class FinalPaymentService {
         return SettlementPaymentEvidenceOutcome.accepted();
     }
 
+    /** A confirmed part already has evidence of this very VNPay transaction, delivered under another reference. */
+    private boolean alreadyConfirmedBy(String bookingReference, String merchantReference,
+                                       String providerTransactionNumber) {
+        if (providerTransactionNumber == null || providerTransactionNumber.isBlank()) {
+            return false;
+        }
+        return evidence.findByBookingReferenceAndConclusion(bookingReference, FOLIO_VNPAY_VERIFIED).stream()
+                .anyMatch(row -> merchantReference.equals(row.getProviderTransactionReference())
+                        && providerTransactionNumber.equals(row.getProviderTransactionNumber()));
+    }
+
     private long total(String bookingReference, String conclusion) {
         return evidence.findByBookingReferenceAndConclusion(bookingReference, conclusion).stream()
                 .mapToLong(item -> item.getAmountVnd() == null ? 0L : item.getAmountVnd()).sum();
@@ -231,7 +223,8 @@ public class FinalPaymentService {
                 && Objects.equals(existing.getCurrencyCode(), command.currencyCode())
                 && (Objects.equals(existing.getConclusion(), command.paymentKind() + "_VERIFIED")
                     || ("FINAL_PAYMENT".equals(command.paymentKind())
-                        && FOLIO_VNPAY_VERIFIED.equals(existing.getConclusion())));
+                        && (FOLIO_VNPAY_VERIFIED.equals(existing.getConclusion())
+                            || FOLIO_VNPAY_EXCESS.equals(existing.getConclusion()))));
         return same ? SettlementPaymentEvidenceOutcome.accepted()
                 : SettlementPaymentEvidenceOutcome.rejected("IDEMPOTENCY_CONFLICT");
     }

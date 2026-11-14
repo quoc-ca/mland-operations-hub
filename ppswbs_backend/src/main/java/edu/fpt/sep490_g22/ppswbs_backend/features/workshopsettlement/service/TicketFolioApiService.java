@@ -267,6 +267,13 @@ public class TicketFolioApiService {
     @Transactional
     public CollectionDto recordCollection(String ticketCode, String idempotencyKey, String correlationId,
                                           TicketCollectionRequest request, CurrentAccountActor actor) {
+        return recordCollection(ticketCode, idempotencyKey, correlationId, request, null, actor);
+    }
+
+    @Transactional
+    public CollectionDto recordCollection(String ticketCode, String idempotencyKey, String correlationId,
+                                          TicketCollectionRequest request, String clientIp,
+                                          CurrentAccountActor actor) {
         requireKey(idempotencyKey);
         String code = required(ticketCode, "ticketCode");
         TicketFolioContext ctx = booking.getTicketFolioContext(code)
@@ -296,9 +303,8 @@ public class TicketFolioApiService {
                 result = folioCollectionService.recordBankTransfer(code, amt, request.customerTransactionReference().trim(),
                         request.payerLabel(), staff.accountId(), correlation);
             } else if ("VNPAY".equals(method)) {
-                String merch = request.customerTransactionReference() != null && !request.customerTransactionReference().isBlank()
-                        ? request.customerTransactionReference().trim() : "VNPAY-" + UUID.randomUUID();
-                result = folioCollectionService.recordGatewayAttempt(code, amt, merch, staff.accountId(), correlation);
+                // T108: the merchant reference and checkout URL are created by the server; a client value is ignored.
+                result = folioCollectionService.recordGatewayAttempt(code, amt, clientIp, staff.accountId(), correlation);
             } else {
                 throw new WorkshopSettlementValidationException("UNSUPPORTED_METHOD: " + method);
             }
@@ -320,6 +326,36 @@ public class TicketFolioApiService {
         var outcome = folioCollectionService.confirmBankTransfer(collectionId.trim(), manager.accountId(), correlation);
         SettlementFolioCollection col = collections.findByCollectionReference(outcome.collectionReference())
                 .orElseThrow(WorkshopSettlementNotFoundException::new);
+        return toCollectionDto(col);
+    }
+
+    /**
+     * T109, FR-031/FR-034: a Manager reconciles a stuck pending part of this ticket's folio (VNPay or transfer) as
+     * not paid, with a reason, so another method can take the balance. Idempotent per key; the part must belong
+     * to this ticket's folio, otherwise it is not found.
+     */
+    @Transactional
+    public CollectionDto failCollection(String ticketCode, String collectionId, String idempotencyKey,
+                                        String correlationId, FolioCollectionDtos.ManagerReasonRequest request,
+                                        CurrentAccountActor actor) {
+        requireKey(idempotencyKey);
+        CurrentAccountActor manager = authorization.requireManager(actor);
+        if (request == null || request.reason() == null || request.reason().isBlank()) {
+            throw new WorkshopSettlementValidationException("REASON_REQUIRED");
+        }
+        String code = required(ticketCode, "ticketCode");
+        SettlementFinalBill folio = bills.findByBookingReferenceForUpdate(code)
+                .orElseThrow(WorkshopSettlementNotFoundException::new);
+        SettlementFolioCollection col = findCollection(required(collectionId, "collectionId"));
+        if (!folio.getBillReference().equals(col.getBillReference())) {
+            throw new WorkshopSettlementNotFoundException();
+        }
+
+        String correlation = correlation(correlationId);
+        String op = "FAIL_COLL:" + code + ":" + col.getCollectionReference() + ":" + idempotencyKey.trim();
+        String fp = "FAIL_COLL:" + code + ":" + col.getCollectionReference() + ":" + request.reason().trim();
+        idempotency.execute(op, fp, () -> folioCollectionService.markPendingFailed(col.getCollectionReference(),
+                manager.accountId(), request.reason().trim(), correlation).collectionReference());
         return toCollectionDto(col);
     }
 
@@ -465,12 +501,18 @@ public class TicketFolioApiService {
     }
 
     private static CollectionDto toCollectionDto(SettlementFolioCollection c) {
+        // T108: the checkout is shown only while the VNPay part can still be paid.
+        boolean payable = c.getMethod() == FolioCollectionMethod.VNPAY && c.isPending()
+                && c.getPaymentUrlSnapshot() != null && c.getPaymentExpiresAt() != null
+                && c.getPaymentExpiresAt().isAfter(Instant.now());
         return new CollectionDto(
                 c.getCollectionReference(),
                 c.getMethod().name(),
                 String.valueOf(c.getAmountVnd()),
                 c.getStatus().name(),
-                c.getCashChangeVnd() == null ? null : String.valueOf(c.getCashChangeVnd())
+                c.getCashChangeVnd() == null ? null : String.valueOf(c.getCashChangeVnd()),
+                payable ? c.getPaymentUrlSnapshot() : null,
+                payable ? c.getPaymentExpiresAt().toString() : null
         );
     }
 
