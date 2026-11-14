@@ -78,7 +78,9 @@ public final class CheckoutDtos {
      */
     public record RecipientAddressInput(@NotBlank @Size(max = 255) String address,
                                         @NotBlank @Size(max = 128) String province,
-                                        @NotBlank @Size(max = 128) String district,
+                                        // Two-level address after the 2025 merger (Province -> Ward/Commune, FE-001
+                                        // V150): district is optional, the ward/commune is required (GHTK fee API).
+                                        @Size(max = 128) String district,
                                         @NotBlank @Size(max = 128) String ward,
                                         @Size(max = 255) String recipientName,
                                         @Size(max = 32) String recipientPhone) {

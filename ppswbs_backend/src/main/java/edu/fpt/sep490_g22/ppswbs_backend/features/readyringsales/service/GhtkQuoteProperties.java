@@ -22,7 +22,7 @@ public class GhtkQuoteProperties {
 
     boolean hasRequiredConfiguration() {
         return hasText(token) && hasText(pickupAddress) && hasText(pickupProvince)
-            && hasText(pickupDistrict) && hasText(pickupWard) && timeoutSeconds > 0;
+            && hasText(pickupWard) && timeoutSeconds > 0; // pickup district is optional after the 2025 merger
     }
 
     private boolean hasText(String value) {

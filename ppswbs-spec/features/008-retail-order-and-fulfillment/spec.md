@@ -330,6 +330,23 @@ configuration, accounting, or executive reporting in FE-10.
 | VNPay | Receive payment initiation requests and return provider payment evidence for server-side verification. |
 | GHTK | Calculate shipping fees, accept shipment creation requests, return tracking identifiers, and notify Mland of shipment-status changes. |
 
+### Session 2026-11-14
+
+- Q: FE-001 moved Member addresses to the two-level model after the 2025
+  administrative merger (Province -> Ward/Commune, no district; migration V150).
+  What does a GHTK delivery need? → A: Province, ward/commune and the detailed
+  address. A district is optional and sent only when an older address still has
+  one; if GHTK does not match that old district, the quote is retried once with
+  the two-level address. This follows GHTK's fee API, where `province` and `ward`
+  are required and `district` is optional.
+- Q: Can a Member use a public voucher without saving it first? → A: Yes. The
+  voucher picker lists saved vouchers and the public active product vouchers.
+  Each one is checked with FE-06 for the chosen lines, and the best real saving
+  is suggested. FE-06 does not require saving a voucher before its code is used.
+- Q: Is a benefit re-checked when the order is placed? → A: Yes. A voucher that
+  ended, ran out or now gives a different discount since the preview is refused
+  at order time, and the Member reviews the new total.
+
 ## User Scenarios & Testing
 
 ### User Story 1 - Prepare a retail purchase (Priority: P1)

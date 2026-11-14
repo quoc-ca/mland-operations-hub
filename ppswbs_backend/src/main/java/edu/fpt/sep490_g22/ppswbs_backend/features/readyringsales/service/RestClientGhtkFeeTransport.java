@@ -31,16 +31,21 @@ class RestClientGhtkFeeTransport implements GhtkFeeTransport {
                 .path("/services/shipment/fee")
                 .queryParam("pick_address", request.pickupAddress())
                 .queryParam("pick_province", request.pickupProvince())
-                .queryParam("pick_district", request.pickupDistrict())
                 .queryParam("pick_ward", request.pickupWard())
                 .queryParam("address", request.address())
                 .queryParam("province", request.province())
-                .queryParam("district", request.district())
                 .queryParam("weight", request.weightGrams())
                 .queryParam("value", request.declaredValue().toPlainString())
                 .queryParam("transport", "road");
+            // GHTK fee API (two-level addresses): province and ward are required, districts are optional hints.
             if (request.ward() != null && !request.ward().isBlank()) {
                 endpointBuilder.queryParam("ward", request.ward());
+            }
+            if (request.pickupDistrict() != null && !request.pickupDistrict().isBlank()) {
+                endpointBuilder.queryParam("pick_district", request.pickupDistrict());
+            }
+            if (request.district() != null && !request.district().isBlank()) {
+                endpointBuilder.queryParam("district", request.district());
             }
             String endpoint = endpointBuilder.build()
                 .encode()

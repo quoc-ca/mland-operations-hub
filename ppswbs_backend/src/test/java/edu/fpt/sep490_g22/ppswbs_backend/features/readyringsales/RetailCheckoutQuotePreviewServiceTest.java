@@ -68,7 +68,7 @@ class RetailCheckoutQuotePreviewServiceTest {
         when(carts.findByMemberAccountId(1L)).thenReturn(Optional.of(cart()));
         assertThatThrownBy(() -> service.preview(1L, request("GHTK")))
             .isInstanceOf(RetailConflictException.class)
-            .hasMessage("GHTK requires a server-issued shipping quote and recipient details");
+            .hasMessageContaining("Chưa có phí giao hàng GHTK");
         verifyNoInteractions(quotes, catalogue, loyalty, shippingQuotes);
     }
 
