@@ -175,8 +175,11 @@ paths:
         Only an active Manager (global scope) may open a folio correction for an
         overcharge on a FINALIZED direct folio, with a required reason. Staff, Member,
         and Guest are rejected (403). Folio OPEN, CLOSED, or OTA bookings are rejected
-        (409/422). Overcharge amount is refunded via VNPay partial refund allocated
-        oldest verified payment first, capped by each payment's unrefunded amount.
+        (409/422). Overcharge amount is refunded by bank transfer (superseded 2026-11-12, FR-038, FR-039/FR-040,
+        T098: earlier wording "via VNPay partial refund"; no VNPay refund or QueryDR is used): the amount is allocated
+        oldest verified payment first, capped by each payment's unrefunded amount, and each allocation opens a
+        bank refund request (reason OVERCHARGE_AFTER_FINALIZED) that a Manager confirms as REFUNDED. Superseded by
+        POST /workshop-tickets/{ticketCode}/folio/corrections after T106.
         Undercharge is never collected. Idempotent on Idempotency-Key.
       security: [{bearerAuth: []}]
       parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
@@ -385,7 +388,12 @@ paths:
       description: >-
         Only an active Manager (global scope) may open a refund for an overcharge on a PAID OTA add-on bill,
         with a required reason. Refund amount must be <= unrefunded verified SHOP_ADDON collections.
-        Executed via VNPay partial refund adapter and completed upon signed QueryDR verification.
+        Superseded 2026-11-12 (FR-038a, T104): no VNPay partial refund or QueryDR is used. The refund
+        opens a bank refund request (reason OTA_ADDON_OVERCHARGE) that follows the FR-039/FR-040 lifecycle
+        (PENDING_ACCOUNT, PENDING_APPROVAL, PENDING_TRANSFER, PENDING_RECONCILIATION, REFUNDED, CLOSED_UNREACHABLE)
+        under /workshop-refund-requests; Staff may enter the account at the counter, and the case resolves only
+        when a Manager confirms REFUNDED. (Earlier wording: executed via VNPay partial refund adapter and
+        completed upon signed QueryDR verification.)
         Idempotent on Idempotency-Key.
       security: [{bearerAuth: []}]
       parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
