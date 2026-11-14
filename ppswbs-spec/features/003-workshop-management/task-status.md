@@ -135,7 +135,7 @@ Mức: **C** = CRITICAL, **H** = HIGH, **M** = MEDIUM, **L** = LOW (chỉ có �
 | 003.3 T118 | Duyệt: `POST /workshop-booking-groups/{groupCode}/ticket-changes`, tất cả hoặc không |
 | 003.4 T109 | Thu hẹp: chỉ cần nhận báo huỷ của OTA và nhả chỗ; điều kiện huỷ và việc hoàn đủ tiền là logic của OTA |
 | 003.4 T117 | Bỏ: vé OTA là vé đơn như vé Mland, voucher của OTA nằm ở hệ thống OTA (spec FR-009 để người phụ trách spec sửa) |
-| 003.4 T113 | Bỏ so sánh số tiền khách trả trên OTA với giá Mland (OTA luôn khác vì phí sàn và phí khác); số vé lấy từ số người, số tiền chỉ ghi lại để đối soát |
+| 003.4 T113 | Bỏ so sánh số tiền khách trả trên OTA với giá Mland (OTA luôn khác vì phí sàn và phí khác); số vé lấy từ số người, số tiền và tiền tệ chỉ ghi lại để đối soát (bỏ luôn kiểm tra tiền tệ; giữ kiểm tra thiếu bằng chứng thanh toán) |
 
 Không còn điểm nào chờ chốt. Spec FR-009 và FR-012 của 003.4 để người phụ trách spec sửa theo các quyết định trên.
 
