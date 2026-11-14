@@ -1,7 +1,7 @@
 # Data Model: Workshop Operations
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-05
+**Date updated**: 2026-11-14
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -198,6 +198,11 @@ per booking when the outcome becomes terminal: every required session
 `NO_SHOW` only when every ticket on every required session is a final
 `NO_SHOW`. The publication is a durable Modulith event, not a new business
 aggregate; physical shape and the window-close trigger are chosen in 003.2 T088.
+*(Superseded 2026-11-14, owner decision BE-DESIGN-0004 / spec FR-032: T088
+implemented this as `workshop_booking_attendance_finalization_outbox` (V107);
+the booking-wide query, event and outbox are removed in the T092 change, the
+table dropped by a new migration. The live model is the per-ticket outcome and
+`workshop_ticket_attendance_finalization_outbox` in "Per-ticket records".)*
 
 ### Fixed workshop add-on catalogue
 
@@ -424,19 +429,25 @@ finalization timestamps fail closed and do not establish terminal attendance.
 
 ## Per-ticket records (decision 2026-11-12, spec FR-030–FR-036)
 
-Planned, not yet implemented (tasks Phase 14).
+**Status (updated 2026-11-14):** group capacity hold (T090), ticket QR
+generation (T093, V126), per-ticket release (T091, V131), ticket replacement
+(T094, V131) and session reschedule quota (T095, V131) are implemented; the
+per-ticket attendance outcome event and outbox (T092) are decided but not
+implemented. Owner re-approval pending. *(Superseded 2026-11-14: "Planned, not
+yet implemented (tasks Phase 14).")*
 
 | Record | Key data | Invariants |
 | --- | --- | --- |
 | Group capacity hold | booking-group reference; one hold per ticket per session; hold set reference; expiry (12 min, from 003.1) | Reserved and committed/released all or none for the group before confirmation; per ticket after. One seat per ticket per session. |
 | Ticket QR generation | ticket reference; QR generation number; active opaque QR value; revoked QR values with revocation time and reason (`RECIPIENT_CHANGED`) | One active QR per ticket. Revocation is immediate and refused after any check-in of the ticket. Entitlements and attendance history are unchanged. |
-| Per-ticket attendance outcome | ticket booking reference; terminal flag; outcome (`ATTENDED`, `PARTIAL`, `NO_SHOW`); finalized-at; outbox row per ticket | Terminal only after every session of the ticket is finalized and the 24-hour correction window closed. |
+| Per-ticket attendance outcome (T092, decided 2026-11-14) | `ticketReference` = `attendance_tickets.reference` (003.3 resolves it via 003.1 `findTicketBookingByOperationsReference`); read model from `getTicketAttendanceOutcome`: `terminal`, outcome (`ATTENDED`, `PARTIAL`, `NO_SHOW`), `windowClosesAt` (added by T092; return-type name not decided); event `TicketAttendanceFinalizedEvent(eventId, ticketReference, windowClosedAt)`; outbox `workshop_ticket_attendance_finalization_outbox`, unique (`ticket_reference`, `event_type`), new append-only migration | Terminal only after every session of the ticket is finalized and the 24-hour correction window closed. One event per ticket key; reference-only (no PII, no outcome); at-least-once with consumer dedup by `eventId` (BE-DESIGN-0001 mechanics). **Decided 2026-11-14 (Hồ Hoàng Quốc):** window anchor **per ticket** — 24 hours after the latest finalization among the ticket's own sessions; the Staff correction deadline uses the same anchor. *(Superseded 2026-11-14: "ticket booking reference; terminal flag; outcome; finalized-at; outbox row per ticket".)* |
 | Ticket replacement | ticket; source/target sessions; type (`CUSTOMER_ADVANCE`, `CUSTOMER_LATE_ARRIVAL`, `MLAND`); quota consumed; operation reference | All or none across the selected tickets; late-arrival target ≤ old end + 7 days for the missed session; quota checked in addition to capacity; history and QR kept. |
 | Session reschedule quota | session; quota (tickets receivable by customer change); default or Manager-set flag; used count | One quota shared by advance and late-arrival changes; default floor(25% × capacity), at least 1; Manager may set any value including 0; Mland replacements exempt; counted per moved ticket. |
 
 `AttendanceTicket` keeps one record per ticket per session; under the group
 model each ticket belongs to one ticket booking instead of a booking with many
-tickets. Only dev/test data exists, so no ticket reissue run is needed.
+tickets. Only dev/test data exists, so no ticket reissue run is needed for the
+per-ticket model.
 
 ## Migration Rules
 
@@ -444,7 +455,10 @@ Select the next Flyway version only when implementation begins, after inspecting
 the live migration history. Do not edit prior migrations or use the legacy reset
 migration in production. Existing booking-level tickets require a separately
 approved mapping/reissue run; schema migration alone must preserve source IDs
-and must not silently revoke, split or email tickets.
+and must not silently revoke, split or email tickets. *(Scoped 2026-11-14: this
+rule applies only to a production cut-over from legacy booking-level tickets
+(plan "Legacy Baseline and Required Rebase"). For the dev/test data that exists
+today no mapping/reissue run is needed, as stated under "Per-ticket records".)*
 
 The append-only migration for the idempotency ledger must preserve existing
 Operations data, introduce the logical unique identity and fields needed for
