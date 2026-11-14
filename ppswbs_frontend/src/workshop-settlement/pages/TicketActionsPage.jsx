@@ -4,7 +4,8 @@ import { useHttp } from '../../shared/api/useHttp';
 import { ConfirmDialog, Field, SuccessNotice, useCommand } from '../../shared/ui/components';
 import { createSettlementApi } from '../api/settlementApi';
 import { OpsPage } from '../OpsPage';
-import { BuyerProof, ProblemNotice, money, splitList } from '../ui';
+import { useRole } from '../../shared/auth/useRole';
+import { BuyerProof, ProblemNotice, ReasonDialog, money, splitList } from '../ui';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -35,6 +36,10 @@ export default function TicketActionsPage() {
   const [reason, setReason] = useState('');
   const [proof, setProof] = useState(null);
   const [confirmCancel, setConfirmCancel] = useState(false);
+  const role = useRole();
+  const isManager = role === 'MANAGER' || role === 'ADMIN';
+  const [allowanceTicket, setAllowanceTicket] = useState('');
+  const [granting, setGranting] = useState(false);
   const [result, setResult] = useState(null);
   const [message, setMessage] = useState('');
   const command = useCommand();
@@ -71,7 +76,16 @@ export default function TicketActionsPage() {
     else if (data.changeRequestReference) { setProof(null); setMessage('Queued for a Manager decision.'); }
   };
 
-  const awaiting = result?.kind === 'change' && !result.data.applied && result.data.confirmIncreaseRequired;
+  const grant = async grantReason => {
+    setMessage(''); setResult(null);
+    const out = await command.run(key => api.grantChangeAllowance(allowanceTicket.trim(), { reason: grantReason }, key));
+    if (out.ok) {
+      setGranting(false); setAllowanceTicket('');
+      setMessage(`One extra change granted for ${out.result.ticketCode} (${out.result.allowanceReference}). The change itself is still to be made.`);
+    }
+  };
+
+  const awaiting =result?.kind === 'change' && !result.data.applied && result.data.confirmIncreaseRequired;
   const increase = result?.grouped ? result.data.totalPriceIncrease : result?.data?.priceIncreaseAmount;
   const cancelReady = tickets.length > 0 && reason.trim() && (tickets.length === 1 || groupReady);
   const changeReady = validChanges(changes) && reason.trim() && (changes.length === 1 || groupReady);
@@ -113,6 +127,16 @@ export default function TicketActionsPage() {
         </div>
       </section>
 
+      {tab === 'change' && isManager && (
+        <section className="ota-panel" aria-label="Extra change allowance">
+          <h2>Grant one extra change</h2>
+          <p className="muted small">Gives a ticket one more counted change (FR-054). It never performs the change; the buyer or Staff on the buyer's behalf still changes the ticket above.</p>
+          <div className="ota-inline-form">
+            <label>Ticket code<input value={allowanceTicket} onChange={event => setAllowanceTicket(event.target.value)} placeholder="TK-..." /></label>
+            <button className="button outline" type="button" disabled={command.pending || !allowanceTicket.trim()} onClick={() => setGranting(true)}>Grant extra change</button>
+          </div>
+        </section>
+      )}
       {awaiting && (
         <section className="ota-panel" role="status" aria-label="Price increase">
           <h2>Price increase to confirm</h2>
@@ -146,6 +170,9 @@ export default function TicketActionsPage() {
         </section>
       )}
 
+      <ReasonDialog open={granting} title="Grant one extra change" confirmLabel="Grant" pending={command.pending} onCancel={() => setGranting(false)} onConfirm={grant}>
+        <p>Ticket {allowanceTicket.trim()} gets one more counted change. This is audited.</p>
+      </ReasonDialog>
       <ConfirmDialog open={confirmCancel} title="Cancel these tickets" danger confirmLabel="Cancel tickets" pending={command.pending} onCancel={() => setConfirmCancel(false)} onConfirm={cancel}>
         <p>{tickets.length} ticket(s) will be cancelled{tickets.length > 1 ? ' all or none' : ''}. This cannot be undone. Any refund goes to the bank account the payer provides.</p>
       </ConfirmDialog>

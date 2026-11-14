@@ -45,6 +45,7 @@ export default function SettlementWorkspacePage() {
   const [checkout, setCheckout] = useState(null);
   const [failing, setFailing] = useState(null);
   const [dangerous, setDangerous] = useState(null); // { kind: 'debt' | 'closeDebt' }
+  const [voiding, setVoiding] = useState(null); // { kind: 'line' | 'collection', id, label }
   const [addOn, setAddOn] = useState('');
   const [consent, setConsent] = useState(false);
   const [charge, setCharge] = useState({ description: '', amount: '', reason: '' });
@@ -86,6 +87,10 @@ export default function SettlementWorkspacePage() {
     if (failing) {
       const out = await run(key => api.failCollection(ticketCode, failing.collectionId, { reason }, key), 'Collection marked as not paid.');
       if (out.ok) setFailing(null);
+    } else if (voiding) {
+      const send = voiding.kind === 'line' ? api.voidLine : api.voidCollection;
+      const out = await run(key => send(ticketCode, voiding.id, { reason }, key), voiding.kind === 'line' ? 'Line voided.' : 'Collection voided.');
+      if (out.ok) setVoiding(null);
     } else if (dangerous) {
       const send = dangerous.kind === 'debt' ? api.recordDebt : api.closeDebt;
       const out = await run(key => send(ticketCode, { reason }, key), dangerous.kind === 'debt' ? 'Debt recorded.' : 'Debt closed.');
@@ -103,8 +108,10 @@ export default function SettlementWorkspacePage() {
       'Charge added.', () => { setCharge({ description: '', amount: '', reason: '' }); setConsent(false); });
   };
 
-  const dialogOpen = Boolean(failing || dangerous);
-  const dialogTitle = failing ? 'Mark this collection as not paid' : dangerous?.kind === 'debt' ? 'Record a debt on this ticket' : 'Close this ticket’s debt';
+  const dialogOpen = Boolean(failing || dangerous || voiding);
+  const dialogTitle = failing ? 'Mark this collection as not paid'
+    : voiding ? `Void this ${voiding.kind === 'line' ? 'line' : 'collection'}`
+      : dangerous?.kind === 'debt' ? 'Record a debt on this ticket' : 'Close this ticket’s debt';
   const addOnOptions = asList(addOns.data);
 
   return (
@@ -162,6 +169,29 @@ export default function SettlementWorkspacePage() {
                           <button type="button" className="button danger" onClick={() => setFailing(item)}>Mark as failed</button>
                         )}
                         {item.status === 'PENDING_VERIFICATION' && !isManager && <small className="muted">Manager verifies</small>}
+                        {open && isManager && item.status === 'CONFIRMED' && (
+                          <button type="button" className="button outline" onClick={() => setVoiding({ kind: 'collection', id: item.collectionId })}>Void</button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            {(bill.charges || []).length > 0 && (
+              <table className="ops-table" aria-label="Folio lines">
+                <thead><tr><th>Line</th><th>Description</th><th>Amount</th><th>Status</th><th /></tr></thead>
+                <tbody>
+                  {bill.charges.map(line => (
+                    <tr key={line.chargeReference}>
+                      <td>{line.chargeReference}</td>
+                      <td>{line.description}</td>
+                      <td>{money(line.amount)}</td>
+                      <td><span className="ops-status">{line.status}</span></td>
+                      <td>
+                        {open && isManager && line.status !== 'VOIDED' && (
+                          <button type="button" className="button outline" onClick={() => setVoiding({ kind: 'line', id: line.chargeReference })}>Void line</button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -230,8 +260,8 @@ export default function SettlementWorkspacePage() {
       {ticketCode && !folio.loading && !bill && !folio.error ? <div className="empty-state"><p>No folio was found for this ticket.</p></div> : null}
 
       <ReasonDialog open={dialogOpen} title={dialogTitle} confirmLabel="Confirm" pending={command.pending}
-        onCancel={() => { setFailing(null); setDangerous(null); }} onConfirm={confirmDangerous}>
-        <p>{failing ? 'The part becomes FAILED so another method can take the balance. Signed VNPay money that still arrives is kept and refunded to the payer by bank transfer.' : 'This is audited and cannot be undone from this screen.'}</p>
+        onCancel={() => { setFailing(null); setDangerous(null); setVoiding(null); }} onConfirm={confirmDangerous}>
+        <p>{voiding ? 'The original row is kept as an audited reversal and the balance is recomputed by the server. A collection already counted into a closed cash day is refused.' : failing ?'The part becomes FAILED so another method can take the balance. Signed VNPay money that still arrives is kept and refunded to the payer by bank transfer.' : 'This is audited and cannot be undone from this screen.'}</p>
       </ReasonDialog>
     </OpsPage>
   );

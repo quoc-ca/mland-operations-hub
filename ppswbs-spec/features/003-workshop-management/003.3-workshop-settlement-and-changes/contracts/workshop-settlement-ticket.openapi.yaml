@@ -896,6 +896,17 @@ components:
         pendingAmount: {$ref: '#/components/schemas/Vnd'}
         balanceDue: {$ref: '#/components/schemas/Vnd'}
         collections: {type: array, items: {$ref: '#/components/schemas/Collection'}}
+        charges:
+          type: array
+          description: Add-on and variable lines of the folio (as TicketFolioDtos.ChargeDto serves them); chargeReference is the lineId of the line void route (FR-053).
+          items:
+            type: object
+            required: [chargeReference, description, amount, status]
+            properties:
+              chargeReference: {type: string}
+              description: {type: string}
+              amount: {$ref: '#/components/schemas/Vnd'}
+              status: {type: string, description: 'CONFIRMED or VOIDED'}
     RefundStatus: {type: string, enum: [PENDING_ACCOUNT, PENDING_APPROVAL, PENDING_TRANSFER, PENDING_RECONCILIATION, REFUNDED, CLOSED_UNREACHABLE]}
     RefundRequest:
       type: object
