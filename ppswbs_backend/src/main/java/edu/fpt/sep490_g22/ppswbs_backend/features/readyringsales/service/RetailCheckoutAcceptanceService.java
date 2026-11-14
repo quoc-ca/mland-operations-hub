@@ -54,11 +54,13 @@ public class RetailCheckoutAcceptanceService {
             return views.toView(existing.get());
         }
         if (!"OPEN".equals(quote.getStatus())) throw new RetailConflictException("Checkout quote is already accepted");
-        List<Long> variantIds = quote.getBranches().stream().flatMap(branch -> branch.getItems().stream())
-            .map(RetailCheckoutQuoteItem::getVariantId).distinct().sorted().toList();
-        if (variantIds.isEmpty()) throw new RetailConflictException("Checkout quote is empty");
+        List<BranchVariant> branchVariants = quote.getBranches().stream().flatMap(branch -> branch.getItems().stream()
+                .map(item -> new BranchVariant(item.getVariantId(), branch.getLocationId())))
+            .distinct().sorted().toList();
+        if (branchVariants.isEmpty()) throw new RetailConflictException("Checkout quote is empty");
         try {
-            return catalogue.withLockedSaleContext(variantIds, context -> acceptLocked(memberId, idempotencyKey, request, cart, quote, context, variantIds));
+            return catalogue.withLockedBranchSaleContext(branchVariants,
+                context -> acceptLocked(memberId, idempotencyKey, request, cart, quote, context, branchVariants));
         } catch (CatalogueSalesException exception) {
             if (exception.reason() == CatalogueSalesException.Reason.NOT_FOUND || exception.reason() == CatalogueSalesException.Reason.NOT_FOR_SALE) {
                 throw new RetailConflictException("Product terms changed; review a new quote");
@@ -73,18 +75,37 @@ public class RetailCheckoutAcceptanceService {
     }
 
     private CheckoutDtos.GroupedCheckoutView acceptLocked(Long memberId, String key, CheckoutDtos.CreateGroupedCheckoutRequest request,
-        RetailCart cart, RetailCheckoutQuote quote, SaleContext context, List<Long> variantIds) {
+        RetailCart cart, RetailCheckoutQuote quote, SaleContext context, List<BranchVariant> branchVariants) {
         Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
         validator.validate(quote, cart, request, context, now);
         Map<Long, SaleVariantFact> facts = context.variants().stream().collect(Collectors.toMap(SaleVariantFact::variantId, fact -> fact));
-        Map<Long, Integer> quantities = new HashMap<>();
-        quote.getBranches().forEach(branch -> branch.getItems().forEach(item -> quantities.merge(item.getVariantId(), item.getQuantity(), Integer::sum)));
+        Map<Long, Integer> quantitiesByVariant = new HashMap<>();
+        Map<BranchVariant, Integer> quantitiesByBranch = new HashMap<>();
+        quote.getBranches().forEach(branch -> branch.getItems().forEach(item -> {
+            quantitiesByVariant.merge(item.getVariantId(), item.getQuantity(), Integer::sum);
+            quantitiesByBranch.merge(new BranchVariant(item.getVariantId(), branch.getLocationId()), item.getQuantity(), Integer::sum);
+        }));
+        List<Long> variantIds = quantitiesByVariant.keySet().stream().sorted().toList();
+        Map<BranchVariant, BranchStockFact> branchStocks = context.branchStocks().stream()
+            .collect(Collectors.toMap(BranchStockFact::key, fact -> fact));
         var checkout = new GroupedCheckout(memberId, key, quote.getCartVersion(), decimal(quote.getMerchandiseSubtotal()),
             decimal(quote.getShippingTotal()), decimal(quote.getProgramDiscount().add(quote.getPointsDiscount())));
         BigInteger remainingDiscount = quote.getProgramDiscount().add(quote.getPointsDiscount());
+        List<RetailCheckoutQuoteBranch> sortedBranches = quote.getBranches().stream()
+            .sorted(Comparator.comparing(RetailCheckoutQuoteBranch::getLocationId)).toList();
+        // Shares decided at preview (voucher only on its branches); quotes made before V124 split by branch amount.
+        boolean allocated = sortedBranches.stream().allMatch(branch -> branch.getDiscountAmount() != null)
+            && sortedBranches.stream().map(RetailCheckoutQuoteBranch::getDiscountAmount).reduce(BigInteger.ZERO, BigInteger::add)
+                .equals(remainingDiscount);
+        List<BigInteger> subtotals = sortedBranches.stream().map(RetailCheckoutQuoteBranch::getSubtotal).toList();
+        List<BigInteger> shares = allocated
+            ? sortedBranches.stream().map(RetailCheckoutQuoteBranch::getDiscountAmount).toList()
+            : RetailDiscountAllocation.split(remainingDiscount, subtotals, subtotals);
         List<OrderItem> items = new ArrayList<>();
-        for (var branch : quote.getBranches().stream().sorted(Comparator.comparing(RetailCheckoutQuoteBranch::getLocationId)).toList()) {
-            BigInteger branchDiscount = remainingDiscount.min(branch.getSubtotal());
+        int branchIndex = 0;
+        for (var branch : sortedBranches) {
+            BigInteger branchDiscount = shares.get(branchIndex++);
+            if (branchDiscount.compareTo(branch.getSubtotal()) > 0) throw new RetailConflictException("Quote discount is invalid");
             remainingDiscount = remainingDiscount.subtract(branchDiscount);
             var order = new RetailOrder(checkout, branch.getLocationId(), branch.getFulfilmentMethod(), decimal(branch.getSubtotal()),
                 decimal(branch.getShippingCharge()), decimal(branchDiscount));
@@ -105,23 +126,40 @@ public class RetailCheckoutAcceptanceService {
         for (OrderItem item : items) {
             catalogue.retainMediaReferences(item.getId(), facts.get(item.getVariantId()).imageMediaIds());
         }
-        Instant deadline = now.plus(15, ChronoUnit.MINUTES);
+        RetailPaymentMethod paymentMethod = RetailPaymentMethods.parse(quote.getPaymentMethod());
+        Instant deadline = RetailPaymentMethods.holdDeadline(paymentMethod, now);
+        if (paymentMethod == RetailPaymentMethod.CASH_AT_COUNTER) {
+            // Cash is collected at the branch when the goods are picked up; no VNPay attempt is created.
+            checkout.useCounterCash(deadline);
+            checkouts.saveAndFlush(checkout);
+        }
         boolean zeroTotal = quote.getPayableTotal().signum() == 0;
-        CheckoutDtos.GroupedCheckoutView view = guard.withGuard(variantIds, context.asOf(), snapshots -> {
+        CheckoutDtos.GroupedCheckoutView view = guard.withBranchGuard(branchVariants, context.asOf(), snapshots -> {
             List<RetailVariantHold> createdHolds = new ArrayList<>();
-            for (Long id : variantIds) {
-                var available = facts.get(id).remainingUnsold().subtract(snapshots.get(id).heldQuantity());
-                if (available.compareTo(BigInteger.valueOf(quantities.get(id))) < 0) {
+            for (BranchVariant keyAtBranch : branchVariants) {
+                var stock = branchStocks.get(keyAtBranch);
+                var snapshot = snapshots.get(keyAtBranch);
+                if (stock == null || snapshot == null || !stock.saleEnabled() || !stock.branchActive()
+                    || !stock.assignedToBranches() || stock.remainingUnsold().subtract(snapshot.heldQuantity())
+                    .compareTo(BigInteger.valueOf(quantitiesByBranch.get(keyAtBranch))) < 0) {
                     throw new RetailConflictException("Product quantity is no longer available");
                 }
-                createdHolds.add(holds.createHeld(checkout, id, quantities.get(id), deadline));
             }
-            List<SourceLine> lines = quote.getBranches().stream().flatMap(branch -> branch.getItems().stream())
-                .map(item -> new SourceLine(item.getProductId(), item.getVariantId(), item.getQuantity(), item.getUnitPrice())).toList();
+            // One hold per size x branch (FR-053, T124): a hold at one branch never reduces another branch.
+            for (BranchVariant keyAtBranch : branchVariants) {
+                createdHolds.add(holds.createHeld(checkout, keyAtBranch.variantId(), keyAtBranch.locationId(),
+                    quantitiesByBranch.get(keyAtBranch), deadline));
+            }
+            // Each line carries its cart branch so FE-06 can match branch-limited product vouchers (006 T088).
+            List<SourceLine> lines = quote.getBranches().stream().flatMap(branch -> branch.getItems().stream()
+                .map(item -> new SourceLine(item.getProductId(), item.getVariantId(), item.getQuantity(), item.getUnitPrice(),
+                    branch.getLocationId()))).toList();
             var selection = new BenefitSelection(SelectionChoice.valueOf(quote.getSelectionChoice()), quote.getVoucherCode(), quote.getRequestedPoints());
             var trusted = new TrustedSourceContext(SourceKind.RETAIL, memberId, now, lines, null, quote.getShippingTotal());
+            // Cash: one FE-06 settlement part per branch order, paid, cancelled or expired on its own (D-011).
+            List<SettlementPart> parts = checkout.isCounterCash() && !zeroTotal ? settlementParts(checkout, quote) : List.of();
             var accepted = loyalty.reserveAcceptedTransaction(new AcceptedSourceContext(trusted, checkout.getId(), checkout.getVersion(),
-                true, now, deadline, quote.getId(), quote.getTermsDigest()), selection, key);
+                true, now, deadline, quote.getId(), quote.getTermsDigest(), parts), selection, key);
             if (!accepted.grossAmount().equals(quote.getMerchandiseSubtotal())
                 || !accepted.programDiscount().equals(quote.getProgramDiscount())
                 || !accepted.pointDiscount().equals(quote.getPointsDiscount())
@@ -129,6 +167,7 @@ public class RetailCheckoutAcceptanceService {
                     .add(quote.getShippingTotal()).equals(quote.getPayableTotal())) {
                 throw new RetailConflictException("Benefit terms changed; review a new quote");
             }
+            if (!parts.isEmpty()) applyPartShares(checkout, accepted.parts());
             if (zeroTotal) {
                 createdHolds.forEach(holds::settle);
                 checkout.markPaid();
@@ -141,18 +180,51 @@ public class RetailCheckoutAcceptanceService {
                 loyalty.grantEarnedPoints(outcome);
             }
             quote.accept(checkout.getId(), now);
-            cart.getLines().clear();
+            // Remove only the lines this checkout bought; unselected lines stay in the cart.
+            cart.getLines().removeIf(line -> quantitiesByBranch.containsKey(new BranchVariant(line.getVariantId(), line.getLocationId())));
             cart.touch();
             return views.toView(checkout);
         });
         if (zeroTotal) {
-            for (Long variantId : variantIds) {
-                UUID operationRef = UUID.nameUUIDFromBytes(("retail-zero:" + checkout.getId() + ":" + variantId)
+            for (BranchVariant branchVariant : branchVariants) {
+                UUID operationRef = UUID.nameUUIDFromBytes(("retail-zero:" + checkout.getId() + ":" + branchVariant.variantId()
+                    + ":" + branchVariant.locationId())
                     .getBytes(StandardCharsets.UTF_8));
-                catalogue.recordAcceptedSale(operationRef, variantId, BigInteger.valueOf(quantities.get(variantId)));
+                catalogue.recordAcceptedSale(operationRef, branchVariant.variantId(), branchVariant.locationId(),
+                    BigInteger.valueOf(quantitiesByBranch.get(branchVariant)));
             }
         }
         return view;
+    }
+
+    /** One part per branch order; its lines are the branch's quote items, in the order they are sent to FE-06. */
+    private static List<SettlementPart> settlementParts(GroupedCheckout checkout, RetailCheckoutQuote quote) {
+        Map<Long, String> orderByLocation = checkout.getOrders().stream()
+            .collect(Collectors.toMap(RetailOrder::getLocationId, RetailOrder::getId));
+        Map<Long, List<Integer>> indexes = new LinkedHashMap<>();
+        int index = 0;
+        for (var branch : quote.getBranches()) {
+            for (var ignored : branch.getItems()) indexes.computeIfAbsent(branch.getLocationId(), location -> new ArrayList<>()).add(index++);
+        }
+        return indexes.entrySet().stream().map(entry -> new SettlementPart(orderByLocation.get(entry.getKey()), entry.getValue())).toList();
+    }
+
+    /** The branch orders take the voucher and points shares FE-06 fixed for each part; the checkout total is unchanged. */
+    private void applyPartShares(GroupedCheckout checkout, List<BenefitPartRef> shares) {
+        BigDecimal before = checkout.getOrders().stream().map(RetailOrder::getDiscountAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal after = BigDecimal.ZERO;
+        for (BenefitPartRef share : shares) {
+            RetailOrder order = checkout.getOrders().stream().filter(candidate -> candidate.getId().equals(share.partRef()))
+                .findFirst().orElseThrow(() -> new RetailConflictException("Benefit part does not match a branch order"));
+            BigDecimal discount = decimal(share.programDiscount().add(share.pointDiscount()));
+            if (discount.compareTo(order.getSubtotal()) > 0) throw new RetailConflictException("Benefit part exceeds its branch order");
+            order.applyDiscount(discount);
+            after = after.add(discount);
+        }
+        if (shares.size() != checkout.getOrders().size() || before.compareTo(after) != 0) {
+            throw new RetailConflictException("Benefit parts do not add up to the checkout discount");
+        }
+        checkouts.saveAndFlush(checkout);
     }
 
     private boolean sameSelectionAndBranches(RetailCheckoutQuote quote, CheckoutDtos.CreateGroupedCheckoutRequest request) {

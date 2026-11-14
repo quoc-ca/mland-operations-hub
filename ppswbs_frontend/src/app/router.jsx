@@ -5,6 +5,7 @@ import { accountManagementRoutes } from '../features/accountmanagement';
 import { designReviewRoutes } from '../features/designreview/routes';
 import { readyRingSalesRoutes } from '../features/retail-order';
 import { reviewManagementRoutes } from '../features/reviewmanagement/routes';
+import { ringDesignConfigurationRoutes } from '../features/ringdesignconfiguration/routes';
 import { loyaltyPromotionRoutes } from '../features/loyalty-promotion';
 import { productManagementRoutes } from '../features/product-management';
 import { workshopRoutes } from '../workshops/routes';
@@ -12,6 +13,7 @@ import { otaConnectivityRoutes } from '../ota-connectivity/routes';
 import { operationsRoutes } from '../workshop-operations/routes';
 import { settlementRoutes } from '../workshop-settlement/routes';
 import { operatorHomeRoutes } from '../features/operatorhome/routes';
+import { managerDashboardRoutes } from '../features/manager-dashboard';
 import { notificationRoutes } from '../features/notification-management';
 import HomePage from '../features/landing/HomePage';
 import AppLayout from './AppLayout';
@@ -33,8 +35,10 @@ export const routes = [
           ...operationsRoutes,
           ...settlementRoutes,
           ...operatorHomeRoutes,
+          ...managerDashboardRoutes,
           ...designReviewRoutes,
           ...reviewManagementRoutes,
+          ...ringDesignConfigurationRoutes,
           ...productManagementRoutes,
           ...loyaltyPromotionRoutes,
           ...notificationRoutes,

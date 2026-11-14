@@ -422,6 +422,22 @@ finalization timestamps fail closed and do not establish terminal attendance.
 - Audit records use immutable identifiers, actor IDs and safe metadata only;
   no password, Firebase token or unnecessary participant PII is persisted.
 
+## Per-ticket records (decision 2026-11-12, spec FR-030–FR-036)
+
+Planned, not yet implemented (tasks Phase 14).
+
+| Record | Key data | Invariants |
+| --- | --- | --- |
+| Group capacity hold | booking-group reference; one hold per ticket per session; hold set reference; expiry (12 min, from 003.1) | Reserved and committed/released all or none for the group before confirmation; per ticket after. One seat per ticket per session. |
+| Ticket QR generation | ticket reference; QR generation number; active opaque QR value; revoked QR values with revocation time and reason (`RECIPIENT_CHANGED`) | One active QR per ticket. Revocation is immediate and refused after any check-in of the ticket. Entitlements and attendance history are unchanged. |
+| Per-ticket attendance outcome | ticket booking reference; terminal flag; outcome (`ATTENDED`, `PARTIAL`, `NO_SHOW`); finalized-at; outbox row per ticket | Terminal only after every session of the ticket is finalized and the 24-hour correction window closed. |
+| Ticket replacement | ticket; source/target sessions; type (`CUSTOMER_ADVANCE`, `CUSTOMER_LATE_ARRIVAL`, `MLAND`); quota consumed; operation reference | All or none across the selected tickets; late-arrival target ≤ old end + 7 days for the missed session; quota checked in addition to capacity; history and QR kept. |
+| Session reschedule quota | session; quota (tickets receivable by customer change); default or Manager-set flag; used count | One quota shared by advance and late-arrival changes; default floor(25% × capacity), at least 1; Manager may set any value including 0; Mland replacements exempt; counted per moved ticket. |
+
+`AttendanceTicket` keeps one record per ticket per session; under the group
+model each ticket belongs to one ticket booking instead of a booking with many
+tickets. Only dev/test data exists, so no ticket reissue run is needed.
+
 ## Migration Rules
 
 Select the next Flyway version only when implementation begins, after inspecting

@@ -21,6 +21,18 @@ public interface RetailOrderRepository extends JpaRepository<RetailOrder, String
         + "where c.memberAccountId = :memberId and o.id = :orderId")
     Optional<RetailOrder> findOwnedOrder(@Param("memberId") Long memberId, @Param("orderId") String orderId);
 
+    /** Store-pickup orders of the given branches created since {@code since}, newest first (Staff pickup desk). */
+    @Transactional(readOnly = true)
+    @Query("select distinct o from RetailOrder o join fetch o.groupedCheckout c left join fetch o.items "
+        + "where o.locationId in :locations and o.fulfilmentMethod = 'PICKUP' and c.createdAt >= :since "
+        + "order by c.createdAt desc, o.id asc")
+    List<RetailOrder> findBranchPickupOrders(@Param("locations") List<Long> locations, @Param("since") java.time.Instant since);
+
+    /** Number of branch orders created by one grouped checkout (shown so a split discount is not mistaken). */
+    @Transactional(readOnly = true)
+    @Query("select count(o) from RetailOrder o where o.groupedCheckout.id = :checkoutId")
+    long countByCheckout(@Param("checkoutId") String checkoutId);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select o from RetailOrder o join fetch o.groupedCheckout where o.id = :orderId")
     Optional<RetailOrder> lockOrder(@Param("orderId") String orderId);

@@ -101,10 +101,12 @@ class CatalogueMySqlIT {
                     select constraint_name, delete_rule, update_rule, referenced_table_name
                     from information_schema.referential_constraints
                     where constraint_schema = ? and table_name like 'catalogue\\_%'""", database, 4);
-            assertThat(foreignKeys).hasSize(13);
+            // 13 from V15 + fk_catalogue_branch_stock_variant (V109, US10). V109 states no rule, which MySQL reports as
+            // NO ACTION; InnoDB enforces NO ACTION exactly like RESTRICT (checked immediately), so both are accepted.
+            assertThat(foreignKeys).hasSize(14).containsKey("fk_catalogue_branch_stock_variant");
             assertThat(foreignKeys.values()).allSatisfy(fk -> {
-                assertThat(fk[1]).as("delete rule of %s", fk[0]).isEqualTo("RESTRICT");
-                assertThat(fk[2]).as("update rule of %s", fk[0]).isEqualTo("RESTRICT");
+                assertThat(fk[1]).as("delete rule of %s", fk[0]).isIn("RESTRICT", "NO ACTION");
+                assertThat(fk[2]).as("update rule of %s", fk[0]).isIn("RESTRICT", "NO ACTION");
             });
 
             // The circular variant → proposal references (pending/applied pointers) exist besides proposal → variant.
@@ -119,7 +121,8 @@ class CatalogueMySqlIT {
             Map<String, String[]> checks = rows(connection, """
                     select constraint_name, enforced from information_schema.table_constraints
                     where table_schema = ? and constraint_type = 'CHECK' and table_name like 'catalogue\\_%'""", database, 2);
-            assertThat(checks).hasSize(30);
+            // 30 from V15 + chk_catalogue_branch_stock_quantity (V109).
+            assertThat(checks).hasSize(31).containsKey("chk_catalogue_branch_stock_quantity");
             assertThat(checks.values()).allSatisfy(check -> assertThat(check[1]).isEqualTo("YES"));
 
             Map<String, String[]> uniques = rows(connection, """
@@ -128,7 +131,7 @@ class CatalogueMySqlIT {
             assertThat(uniques).containsKeys("uk_catalogue_categories_name_key", "uk_catalogue_variants_sku",
                     "uk_catalogue_variants_size", "uk_catalogue_product_images_position",
                     "uk_catalogue_media_objects_storage_key", "uk_catalogue_import_batches_created_command",
-                    "uk_catalogue_import_batches_confirm_command");
+                    "uk_catalogue_import_batches_confirm_command", "uk_catalogue_branch_stock");
         }
     }
 
@@ -170,7 +173,7 @@ class CatalogueMySqlIT {
             Map<String, String[]> tables = rows(connection, """
                     select table_name, table_type from information_schema.tables
                     where table_schema = ? and table_name like 'catalogue\\_%'""", database, 2);
-            assertThat(tables).hasSize(12);
+            assertThat(tables.keySet()).containsExactlyInAnyOrderElementsOf(CATALOGUE_TABLES);
         }
     }
 

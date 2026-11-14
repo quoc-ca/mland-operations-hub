@@ -76,6 +76,13 @@ public class SecurityConfiguration {
                 .requestMatchers(HttpMethod.POST, "/api/v1/workshop-bookings").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/booking-magic-links/exchanges").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/booking-lookups").permitAll()
+                // 003.1 FR-041 (decision 2026-11-13): a Guest buyer proves authority by OTP; the services
+                // authorize every request server-side (bearer optional).
+                .requestMatchers(HttpMethod.POST, "/api/v1/workshop-booking-groups/*/buyer-verifications").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/workshop-booking-groups/*/buyer-verifications/*/confirmations").permitAll()
+                .requestMatchers(HttpMethod.PUT, "/api/v1/workshop-tickets/*/recipient").permitAll()
+                // 003.3 FR-040: the single-use refund-account link from email 7 is the credential.
+                .requestMatchers(HttpMethod.POST, "/api/v1/refund-account-links/*").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/workshop-bookings/*/pending-hold-release").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/workshop-bookings/*/confirmation-deliveries").permitAll()
                 // VNPay calls the signed IPN server-to-server without a Mland bearer token.
@@ -95,6 +102,14 @@ public class SecurityConfiguration {
                 .requestMatchers(HttpMethod.GET, "/api/v1/reviews/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/reviews").permitAll()
                 .requestMatchers(HttpMethod.PATCH, "/api/v1/reviews/*").permitAll()
+                // Feature-012 Workshop Ring Design Configuration endpoints (Guest & Member access)
+                .requestMatchers(HttpMethod.GET, "/api/v1/workshop-design-options/**").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/workshop-designs").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/workshop-designs/*").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/workshop-designs/*/versions").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/workshop-designs/*/evaluate").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/workshop-designs/*/archive").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/workshop-designs/*/attach-to-booking").permitAll()
                 .requestMatchers("/api/**").authenticated()
                 .anyRequest().denyAll()
             );
@@ -111,7 +126,7 @@ public class SecurityConfiguration {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(allowedOrigins);
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Correlation-Id", "Idempotency-Key"));
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Correlation-Id", "Idempotency-Key", "If-Match-Version", "X-Guest-Design-Session"));
         configuration.setExposedHeaders(List.of("X-Correlation-Id"));
         configuration.setAllowCredentials(false);
 

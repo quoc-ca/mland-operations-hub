@@ -40,8 +40,17 @@ export function BatchQuantities({ product, api, reload, setNotice, branch = null
   const remainingOf = variant => (branch ? (stockOf(variant)?.remainingUnsold ?? "0") : variant.remainingUnsold);
   const valueOf = ({ variant }) => values[variant.id] ?? String(remainingOf(variant));
   const changed = row => valueOf(row).trim() !== String(remainingOf(row.variant));
-  // Holds are still per size (FE-08), so the size total after the change must stay at least the held quantity.
+  // FR-051/FR-053: once FE-08 keeps holds per branch (validHeldQuantity on the branch row), the new number at the branch
+  // must stay at least what is held there; before that, the size total after the change must stay at least the size's holds.
   const newTotalOf = (row, value) => BigInt(row.variant.remainingUnsold) - BigInt(remainingOf(row.variant)) + BigInt(value);
+  const heldAtBranch = variant => (branch ? stockOf(variant)?.validHeldQuantity ?? null : null);
+  const belowHeld = (row, value) => {
+    const atBranch = heldAtBranch(row.variant);
+    return atBranch !== null
+      ? BigInt(value) < BigInt(atBranch)
+      : newTotalOf(row, value) < BigInt(row.variant.validHeldQuantity || '0');
+  };
+  const heldShown = variant => heldAtBranch(variant) ?? variant.validHeldQuantity;
   const chosen = selectionOf(selected, rows);
   const toSave = chosen.filter(changed);
   const setAll = checked => setSelected(Object.fromEntries(rows.map(row => [row.variant.id, checked])));
@@ -67,7 +76,7 @@ export function BatchQuantities({ product, api, reload, setNotice, branch = null
     toSave.forEach(row => {
       const value = valueOf(row).trim();
       if (!isQuantity(value)) found[row.variant.id] = t('validation.quantity');
-      else if (newTotalOf(row, value) < BigInt(row.variant.validHeldQuantity || '0')) found[row.variant.id] = t('qty.belowHeld', { held: row.variant.validHeldQuantity });
+      else if (belowHeld(row, value)) found[row.variant.id] = t('qty.belowHeld', { held: heldShown(row.variant) });
     });
     setErrors(found);
     if (Object.keys(found).length) return;
@@ -125,7 +134,7 @@ export function BatchQuantities({ product, api, reload, setNotice, branch = null
               onChange={checked => setSelected(current => ({ ...current, [row.variant.id]: checked }))} />
             <span role="cell"><strong>{t('size', { size: row.variant.size })}</strong></span>
             <span role="cell">{remainingOf(row.variant)}</span>
-            <span role="cell">{row.variant.validHeldQuantity}</span>
+            <span role="cell">{heldShown(row.variant)}</span>
             <span role="cell">
               <QuantityStepper label={t('qty.newFor', { size: row.variant.size })} value={valueOf(row)} invalid={Boolean(errors[row.variant.id])}
                 onChange={value => setValues(current => ({ ...current, [row.variant.id]: value }))} />

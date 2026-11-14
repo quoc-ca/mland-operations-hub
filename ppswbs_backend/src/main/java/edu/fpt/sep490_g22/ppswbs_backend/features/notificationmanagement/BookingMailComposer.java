@@ -13,6 +13,9 @@ final class BookingMailComposer {
     /** The email for this notification kind, or null when the kind has no booking email. */
     static MailMessage compose(String kind, String bookingReference, BookingNotificationDeliveryPayload payload,
                                String frontendBaseUrl) {
+        if (kind != null && kind.startsWith("GROUP_")) {
+            return composeGroup(payload);
+        }
         String subject = subject(kind, bookingReference);
         if (subject == null) return null;
         List<String> tickets = payload.renderedTicketArtifacts() == null ? List.of() : payload.renderedTicketArtifacts();
@@ -52,6 +55,30 @@ final class BookingMailComposer {
         }
         html.append("<p>Cảm ơn bạn đã chọn MLAND.</p></div>");
         return new MailMessage(payload.storedRecipient(), subject, text.toString(), html.toString());
+    }
+
+    /**
+     * Booking-group emails (003.1 FR-040/FR-041): Booking renders the approved subject and body; this only lays
+     * them out. Returns null when the snapshot has no subject.
+     */
+    private static MailMessage composeGroup(BookingNotificationDeliveryPayload payload) {
+        if (payload.renderedSubject() == null || payload.renderedSubject().isBlank()) return null;
+        String body = payload.renderedBookingContent() == null ? "" : payload.renderedBookingContent();
+        List<String> artifacts = payload.renderedTicketArtifacts() == null ? List.of() : payload.renderedTicketArtifacts();
+        StringBuilder text = new StringBuilder(body).append("\n");
+        artifacts.forEach(item -> text.append("\n").append(item));
+        text.append("\n\nCảm ơn bạn đã chọn MLAND.\n");
+        StringBuilder html = new StringBuilder("<div style=\"font-family:Arial,sans-serif;color:#1a1a1a;line-height:1.55\">");
+        for (String paragraph : body.split("\n\n")) {
+            html.append("<p>").append(escape(paragraph).replace("\n", "<br>")).append("</p>");
+        }
+        if (!artifacts.isEmpty()) {
+            html.append("<ul>");
+            artifacts.forEach(item -> html.append("<li><strong>").append(escape(item)).append("</strong></li>"));
+            html.append("</ul>");
+        }
+        html.append("<p>Cảm ơn bạn đã chọn MLAND.</p></div>");
+        return new MailMessage(payload.storedRecipient(), payload.renderedSubject(), text.toString(), html.toString());
     }
 
     /**

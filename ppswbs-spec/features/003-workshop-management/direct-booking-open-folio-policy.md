@@ -16,6 +16,26 @@ This document records the approved business policy. It does not by itself
 claim that all backend, frontend, migrations, or acceptance tests have already
 been aligned.
 
+## Update 2026-11-12 (owner decisions) — read before the sections below
+
+These decisions replace the matching rules below for new bookings; the older
+text is kept for history. Details: 003.1 FR-030–FR-043 and 003.3 FR-030–FR-045.
+
+| Topic | Rule below | Now |
+| --- | --- | --- |
+| Folio granularity | One folio per booking | One OPEN folio per ticket booking (one person) inside a booking group. |
+| Booking-time collection | Deposit `ceil(post/2)` | Per ticket: 0 → free; 1–200,000 → full price; > 200,000 → 200,000; group total 1–4,999 → deferred to checkout. One VNPay payment per group. |
+| Verified collection | Only signed VNPay IPN/QueryDR; counter payments not accepted | VNPay (signed evidence), cash confirmed by Staff, or direct transfer confirmed by `workshop.payment.transfer.confirm` after seeing the money; several collections and mixed methods per folio; pending collections do not count. |
+| Refunds | VNPay full/partial refund verified by QueryDR (Mland remedy, overcharge correction) | Bank transfer outside the system only: account collection link, Manager approval, transfer by `workshop.refund.execute`, Manager confirms `REFUNDED` after reconciliation. No VNPay Refund call. |
+| Customer cancellation | Whole booking | Per ticket; no refund of the booking-time collection; points returned only when cancelled ≥ 24 h before the ticket's first session; voucher use restored once when the whole group ended by valid or Mland cancellation. |
+| Mland remedy | Whole booking | Per affected ticket; 100% of the ticket's collected money by bank refund; voucher use restored once even for a partial Mland cancellation. |
+| Late payment | Never confirms | Automatic re-confirmation under five conditions, otherwise Manager decision or bank refund (003.1 FR-040). |
+
+Unchanged: booking-time money is non-refundable on customer self-cancellation
+or no-show; add-ons only while the folio is OPEN; nothing changes after
+`FINALIZED` except the Manager overcharge correction (now refunded by bank); OTA
+financial isolation.
+
 ## Definitions
 
 | Term | Meaning |

@@ -35,7 +35,9 @@ class WorkshopFinalBillCustomerAccessTest {
     @BeforeEach
     void setUp() {
         service = new WorkshopFinalBillApiService(bills, charges, evidence, booking, operations,
-                authorization, idempotency, billService, variableChargeService, catalogueAddOnService);
+                authorization, idempotency, billService, variableChargeService, catalogueAddOnService,
+                new FolioBalanceService(charges, evidence,
+                        mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementFolioCollectionRepository.class)));
     }
 
     @Test

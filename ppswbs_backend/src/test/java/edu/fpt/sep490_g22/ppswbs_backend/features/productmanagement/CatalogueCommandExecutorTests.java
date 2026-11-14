@@ -186,6 +186,44 @@ class CatalogueCommandExecutorTests {
     }
 
     @Test
+    void precheckRejectionIsAuditedLikeACommandRejection() {
+        // T144: the branch scope check of the management API runs before execute and must still leave a REJECTED entry.
+        assertThatThrownBy(() -> executor.precheck("staff-1", "product.edit", commandId, () -> {
+            throw new CatalogueException(CatalogueErrorCode.BRANCH_OUT_OF_SCOPE);
+        })).isInstanceOfSatisfying(CatalogueException.class,
+                error -> assertThat(error.code()).isEqualTo(CatalogueErrorCode.BRANCH_OUT_OF_SCOPE));
+
+        ArgumentCaptor<CatalogueAuditWriter.Entry> entry = ArgumentCaptor.forClass(CatalogueAuditWriter.Entry.class);
+        verify(audit).recordRejection(entry.capture());
+        assertThat(entry.getValue().actorId()).isEqualTo("staff-1");
+        assertThat(entry.getValue().action()).isEqualTo("product.edit");
+        assertThat(entry.getValue().resourceType()).isEqualTo(CatalogueCommandExecutor.REJECTED_RESOURCE_TYPE);
+        assertThat(entry.getValue().resourceId()).isEqualTo(commandId.toString());
+        assertThat(entry.getValue().safeChanges()).containsEntry("code", "BRANCH_OUT_OF_SCOPE");
+        verify(receipts, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void passingPrecheckWritesNothing() {
+        AtomicInteger runs = new AtomicInteger();
+        executor.precheck("manager-1", "product.edit", commandId, runs::incrementAndGet);
+        assertThat(runs).hasValue(1);
+        verify(audit, never()).recordRejection(any());
+        assertThat(transactions.rollbacks).isZero();
+    }
+
+    @Test
+    void precheckRefusesToRunInsideATransaction() {
+        TransactionSynchronizationManager.setActualTransactionActive(true);
+        try {
+            assertThatThrownBy(() -> executor.precheck("staff-1", "product.edit", commandId, () -> { }))
+                    .isInstanceOf(IllegalStateException.class);
+        } finally {
+            TransactionSynchronizationManager.setActualTransactionActive(false);
+        }
+    }
+
+    @Test
     void refusesToJoinAnOuterTransaction() {
         TransactionSynchronizationManager.setActualTransactionActive(true);
         try {

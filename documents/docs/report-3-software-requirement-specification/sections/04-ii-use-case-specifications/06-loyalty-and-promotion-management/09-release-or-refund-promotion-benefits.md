@@ -2,22 +2,22 @@
 
 #### Primary Actors
 
-- System
+System.
 
 #### Secondary Actors
 
-- Order Management and Fulfillment, which reports expiry or cancellation before payment
-- Workshop Management, which reports expiry or a confirmed valid cancellation
-- Member, whose points and voucher uses are returned
+Order Management and Fulfillment, which reports expiry or cancellation before payment of an order or branch order; Workshop Management, which reports expiry, a confirmed valid cancellation or a cancellation by Mland of a booking or ticket; Member, whose points and voucher uses are returned.
 
 #### Description
 
-This use case returns a Member's points and voucher uses when a transaction does not complete. Held benefits are released when an order or booking expires or a retail order is cancelled before payment; benefits already finalized are refunded when a workshop booking is validly cancelled before completion. Each benefit is returned exactly once.
+This use case returns a Member's points and voucher uses when a transaction does not complete. Held benefits are released when an order or booking expires or a retail order is cancelled before payment; benefits already finalized are refunded when a workshop booking or ticket is validly cancelled before completion or cancelled by Mland. Each benefit is returned exactly once.
 
 This use case includes the following sub-flows:
 
 - Release Held Benefits
+- Release Benefits of a Branch Order
 - Refund Finalized Workshop Benefits
+- Refund Benefits of a Workshop Ticket
 
 #### Preconditions
 
@@ -32,6 +32,12 @@ This use case includes the following sub-flows:
 2. The system returns the held points to the available balance and the held voucher use to the Member and the program.
 3. The system records a released entry linked to the transaction. Nothing is recorded as used and no extra points are added.
 
+**Release Benefits of a Branch Order**
+
+1. The system receives a confirmed result that a branch order of a split retail checkout was cancelled or expired before payment.
+2. The system returns the points held for that branch order to the available balance and closes that branch order's earning share. Other branch orders are not affected; a paid branch order cannot be released.
+3. The system releases the voucher use only when every branch order with a share of the voucher discount has ended unpaid and the use is still held, even if a branch order without a share has been paid. A voucher use already finalized is not returned when another branch order is cancelled.
+
 **Refund Finalized Workshop Benefits**
 
 1. The system receives a confirmed valid cancellation of a workshop booking before completion.
@@ -39,6 +45,12 @@ This use case includes the following sub-flows:
 3. If points were deducted, the system returns exactly the same number of points, even if the point value has changed, linked to the original deduction.
 4. If a voucher use was finalized, the system returns one use to the Member and one to the program, even if no points were used. An expired or paused voucher is not extended or reactivated.
 5. The program's used count and total discount no longer include the cancelled booking; history is kept.
+
+**Refund Benefits of a Workshop Ticket**
+
+1. The system receives a confirmed result for one ticket of a multi-ticket booking: a valid cancellation (at least 24 hours before the first session) or a cancellation by Mland.
+2. The system returns exactly the points used by that ticket, linked to the original deduction; other tickets are not affected.
+3. The system returns the group's voucher use once: as soon as any ticket is cancelled by Mland, or when every ticket has ended in a valid cancellation or a cancellation by Mland.
 
 #### Alternative Flows
 
@@ -48,7 +60,11 @@ The system completes only the missing part. It never returns a benefit twice, ne
 
 **Step 1 — No-show, unconfirmed or invalid cancellation**
 
-No benefit is returned and no points are earned. If the result is unclear, the system waits for a confirmed result.
+No benefit is returned and no points are earned. If the result is unclear, the system waits for a confirmed result. A ticket that is a no-show or cancelled late returns no points and prevents the group's voucher use from being returned through valid cancellations.
+
+**Step 1 — Whole-booking or whole-checkout result after per-ticket or per-branch-order results**
+
+Once a ticket or branch order has its own result, a result for the whole booking or checkout is rejected, and the reverse; one transaction follows only one of the two paths.
 
 **Step 1 — Payment and expiry or cancellation happen close together**
 
@@ -65,10 +81,7 @@ This version has no cancellation of completed workshops, no retail returns or re
 
 #### Business Rules
 
-- BR-50-01
-- BR-50-02
-- BR-50-03
-- BR-50-04
+BR-50-01, BR-50-02, BR-50-03, BR-50-04, BR-50-05
 
 #### Business Rule Definitions
 
@@ -78,3 +91,4 @@ This version has no cancellation of completed workshops, no retail returns or re
 | BR-50-02 | A confirmed valid workshop cancellation before completion refunds exactly the points deducted and one voucher use to the Member and the program; it does not convert points to money or extend vouchers. |
 | BR-50-03 | Release and refund results are tracked per benefit so that retries complete only the missing part and never return a benefit twice. |
 | BR-50-04 | No-shows, unconfirmed or invalid cancellations and completed transactions return no benefits; the outcome is decided only by the confirmed result from the owning feature. |
+| BR-50-05 | For a split retail checkout or a multi-ticket booking, points are released or refunded per branch order or per ticket. The voucher use returns once: for a checkout, when every branch order with a share of the discount ends unpaid; for a booking, when any ticket is cancelled by Mland or every ticket ends in a valid or Mland cancellation. |

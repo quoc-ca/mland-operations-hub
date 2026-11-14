@@ -35,7 +35,11 @@ The actor selects Apply approved prices of N sizes. The system applies each size
 
 **Step 1 — Applied right after approval**
 
-When the Manager kept "Apply price right after approval" selected in UC-15, steps 1–3 are skipped and the system applies the version that was just approved.
+When the Manager kept "Apply price right after approval" selected in UC-15, or when the Manager's create screen or Publish now runs (UC-12, UC-17), steps 1–3 are skipped and the system applies the version that was just approved.
+
+**Step 1 — Review approved but some prices not applied yet**
+
+When the review of a new product is approved and some sizes still have no applied price, the Initial review section offers a button that applies the approved prices of those sizes only.
 
 **Step 4 — Decision is no longer valid**
 

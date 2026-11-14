@@ -48,7 +48,27 @@ public interface AccountFacade {
 
     TargetFactsOutcome findTargetFacts(AccountId accountId);
 
-    RosterOutcome findEligibleRoster(Long workshopLocationId, AccountRole role);
+    /**
+     * Scope-filtered roster query returning ACTIVE STAFF candidates for a Workshop Location.
+     * Manager selection is outside this roster contract.
+     *
+     * @param workshopLocationId authoritative Workshop Location ID
+     * @return RosterOutcome containing eligible active Staff entries
+     */
+    RosterOutcome findEligibleRoster(Long workshopLocationId);
+
+    /**
+     * Backward compatibility overload for legacy callers.
+     *
+     * @deprecated Replaced by {@link #findEligibleRoster(Long)}. Roster returns only active STAFF candidates.
+     */
+    @Deprecated
+    default RosterOutcome findEligibleRoster(Long workshopLocationId, AccountRole role) {
+        if (role != AccountRole.STAFF) {
+            return RosterOutcome.available(java.util.List.of());
+        }
+        return findEligibleRoster(workshopLocationId);
+    }
 
     Optional<MemberAddressSnapshot> findDefaultShippingAddress(AccountId accountId);
 

@@ -14,5 +14,14 @@ public record BookingNotificationDeliveryPayload(
         String renderedBookingContent,
         List<String> renderedTicketArtifacts,
         String bookingAccessLink,
-        String correlationReference
-) { }
+        String correlationReference,
+        /** Subject rendered by Booking for booking-group kinds ({@code GROUP_*}); null for single-booking kinds. */
+        String renderedSubject
+) {
+    public BookingNotificationDeliveryPayload(String notificationKind, String storedRecipient,
+                                              String renderedBookingContent, List<String> renderedTicketArtifacts,
+                                              String bookingAccessLink, String correlationReference) {
+        this(notificationKind, storedRecipient, renderedBookingContent, renderedTicketArtifacts, bookingAccessLink,
+                correlationReference, null);
+    }
+}

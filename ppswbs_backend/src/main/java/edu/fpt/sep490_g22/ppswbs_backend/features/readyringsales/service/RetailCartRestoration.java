@@ -12,23 +12,31 @@ final class RetailCartRestoration {
     private RetailCartRestoration() { }
 
     static int restore(RetailCart cart, GroupedCheckout checkout) {
-        Map<Long, Integer> totals = new HashMap<>();
-        for (CartLine line : cart.getLines()) totals.merge(line.getVariantId(), line.getQuantity(), Integer::sum);
+        return restore(cart, checkout.getOrders());
+    }
+
+    /** Restores only the given branch orders (one branch order cancelled or expired on its own). */
+    static int restore(RetailCart cart, java.util.Collection<edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.entity.RetailOrder> branchOrders) {
+        Map<VariantLocationKey, Integer> totals = new HashMap<>();
+        for (CartLine line : cart.getLines()) {
+            totals.merge(new VariantLocationKey(line.getVariantId(), line.getLocationId()), line.getQuantity(), Integer::sum);
+        }
         int notRestored = 0;
         boolean changed = false;
-        var orders = checkout.getOrders().stream().sorted(Comparator.comparing(order -> order.getLocationId())).toList();
+        var orders = branchOrders.stream().sorted(Comparator.comparing(order -> order.getLocationId())).toList();
         for (var order : orders) {
             var items = order.getItems().stream().sorted(Comparator.comparing(item -> item.getVariantId())).toList();
             for (var item : items) {
                 var existing = cart.getLines().stream().filter(line -> line.getLocationId().equals(order.getLocationId())
                     && line.getVariantId().equals(item.getVariantId())).findFirst();
-                int room = Math.max(0, 99 - totals.getOrDefault(item.getVariantId(), 0));
+                VariantLocationKey key = new VariantLocationKey(item.getVariantId(), order.getLocationId());
+                int room = Math.max(0, 99 - totals.getOrDefault(key, 0));
                 int quantity = existing.isEmpty() && cart.getLines().size() >= 50 ? 0 : Math.min(room, item.getQuantity());
                 if (quantity > 0) {
                     changed = true;
                     if (existing.isPresent()) existing.get().changeQuantity(existing.get().getQuantity() + quantity);
                     else cart.addLine(item.getVariantId(), order.getLocationId(), quantity);
-                    totals.merge(item.getVariantId(), quantity, Integer::sum);
+                    totals.merge(key, quantity, Integer::sum);
                 }
                 notRestored += item.getQuantity() - quantity;
             }
@@ -36,4 +44,6 @@ final class RetailCartRestoration {
         if (changed) cart.touch();
         return notRestored;
     }
+
+    private record VariantLocationKey(Long variantId, Long locationId) { }
 }

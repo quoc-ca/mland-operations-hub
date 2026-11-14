@@ -57,6 +57,8 @@ class WorkshopSettlementContractIT {
 
         assertThat(actual.keySet()).containsExactlyInAnyOrderElementsOf(Set.of(
                 "GET /api/v1/workshop-bookings/{bookingCode}/final-bill",
+                "GET /api/v1/workshop-bookings/{bookingCode}/final-bill/operator",
+                "GET /api/v1/workshop-bookings/{bookingCode}/final-bill/add-ons",
                 "POST /api/v1/workshop-bookings/{bookingCode}/final-bill",
                 "POST /api/v1/workshop-bookings/{bookingCode}/final-bill/charges",
                 "POST /api/v1/workshop-bookings/{bookingCode}/final-bill/payment-attempts",

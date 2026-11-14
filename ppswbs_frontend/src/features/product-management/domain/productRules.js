@@ -134,6 +134,17 @@ export function currentReview(product) {
   return latestEffective(product.reviews);
 }
 
+/**
+ * A never-published product whose initial review needs a Manager's own decision before any one-click publish
+ * (FR-010): 'PENDING' (a submission waits: see and adjust the price of each size) or 'REJECTED' (fix and submit
+ * again). Otherwise null.
+ */
+export function reviewGate(product) {
+  if (!product || product.deletedAt || product.published || product.firstPublishedAt) return null;
+  const state = currentReview(product)?.state;
+  return state === 'PENDING' || state === 'REJECTED' ? state : null;
+}
+
 function latestEffective(items) {
   return (items || []).filter(item => item.effective).reduce((latest, item) => (!latest || Number(item.revision) > Number(latest.revision) ? item : latest), null);
 }
@@ -158,6 +169,24 @@ export function matchProductForFile(fileName, products) {
     });
   });
   return best ? best.id : null;
+}
+
+/**
+ * Key two product names are compared by for the same-name warning: trimmed, inner spaces collapsed, one Unicode form
+ * (a name typed with combined or separate Vietnamese marks is the same), any case. Marks still count: "Nhẫn" ≠ "Nhan".
+ */
+export function productNameKey(name) {
+  return String(name ?? '').normalize('NFC').trim().replace(/\s+/g, ' ').toLocaleLowerCase('vi');
+}
+
+/**
+ * Products of a list that are not deleted and have the same name (productNameKey), except the one being edited.
+ * Product names need not be unique (spec 002, A-003); this only feeds a warning.
+ */
+export function sameNameProducts(items, name, exceptId) {
+  const key = productNameKey(name);
+  if (!key) return [];
+  return (items || []).filter(item => !item.deletedAt && String(item.id) !== String(exceptId ?? '') && productNameKey(item.name) === key);
 }
 
 /** Sizes in ascending order with consecutive runs folded, as an import file may write them: [12,5,6,7,14] → "5–7, 12, 14". */

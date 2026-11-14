@@ -8,6 +8,10 @@
 @org.springframework.modulith.ApplicationModule(
         id = "notificationmanagement",
         displayName = "Notification Management",
-        allowedDependencies = { "workshopbooking :: notification", "accountmanagement :: facade" }
+        allowedDependencies = {
+                "workshopbooking :: notification",
+                "accountmanagement :: facade",
+                "workshopsettlement :: facade"
+        }
 )
 package edu.fpt.sep490_g22.ppswbs_backend.features.notificationmanagement;

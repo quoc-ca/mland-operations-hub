@@ -82,7 +82,7 @@ public class LoyaltyQuoteService {
                 result.pointsUsed(), result.pointDiscount(), result.earnBase(), result.earnBase(),
                 chosen == null ? null : chosen.programId(), chosen == null ? null : chosen.revisionNo(),
                 chosen == null ? null : chosen.normalizedCode(), policy.getRevisionNo(), result.pointsAllowed(),
-                result.reasons(), evaluation.termsDigest(), result.reasonDetails());
+                result.reasons(), evaluation.termsDigest(), result.reasonDetails(), result.eligibleLines());
     }
 
     /**
@@ -91,11 +91,32 @@ public class LoyaltyQuoteService {
      * rows.
      */
     public Evaluation evaluate(TrustedSourceContext context, BenefitSelection selection, boolean strict) {
+        return evaluate(context, selection, strict, null);
+    }
+
+    /**
+     * {@code lockedAutos}: the automatic discounts the accept read under a shared lock (L4); {@code null} reads them
+     * here without a lock (preview).
+     */
+    public Evaluation evaluate(TrustedSourceContext context, BenefitSelection selection, boolean strict,
+                               List<PromotionProgram> lockedAutos) {
         LoyaltyPolicy policy = policies.current();
-        BigInteger available = wallets.findById(context.memberId()).map(LoyaltyWallet::availablePoints)
-                .orElse(BigInteger.ZERO);
+        // A Guest workshop context (Session 2026-11-14, FR-044) has no wallet and may not use a voucher or points;
+        // only an automatic discount applies. Refusing here keeps the rule in one place for preview and accept.
+        if (context.isGuest()) {
+            if (selection.choice() == SelectionChoice.VOUCHER) {
+                throw new LoyaltyException(LoyaltyErrorCode.PROMOTION_INELIGIBLE,
+                        "A voucher can only be used by a signed-in Member.");
+            }
+            if (selection.requestedPoints().signum() > 0) {
+                throw new LoyaltyException(LoyaltyErrorCode.PROMOTION_INELIGIBLE,
+                        "Points can only be spent by a signed-in Member.");
+            }
+        }
+        BigInteger available = context.isGuest() ? BigInteger.ZERO
+                : wallets.findById(context.memberId()).map(LoyaltyWallet::availablePoints).orElse(BigInteger.ZERO);
         if (context.sourceKind() == SourceKind.WORKSHOP) {
-            return evaluateWorkshop(context, selection, strict, policy, available);
+            return evaluateWorkshop(context, selection, strict, policy, available, lockedAutos);
         }
         RetailQuote.Candidate voucher = null;
         if (selection.choice() == SelectionChoice.VOUCHER) {
@@ -103,7 +124,7 @@ public class LoyaltyQuoteService {
             voucher = programs.findByCodeKey(key).map(program -> candidate(program, context, TargetScope.PRODUCT)).orElse(null);
         }
         List<RetailQuote.Candidate> autos = selection.choice() == SelectionChoice.AUTO
-                ? eligibility.findActiveAutoDiscounts(context.at()).stream().map(p -> candidate(p, context, TargetScope.PRODUCT)).toList()
+                ? (lockedAutos != null ? lockedAutos : eligibility.findActiveAutoDiscounts(context.at())).stream().map(p -> candidate(p, context, TargetScope.PRODUCT)).toList()
                 : List.of();
         RetailQuote.Result result = RetailQuote.compute(context.lines(), selection, voucher, autos, policy.terms(),
                 available, strict);
@@ -112,7 +133,8 @@ public class LoyaltyQuoteService {
 
     /** The programme as a candidate for this context, with the reason it cannot be used if any. */
     private Evaluation evaluateWorkshop(TrustedSourceContext context, BenefitSelection selection, boolean strict,
-                                        LoyaltyPolicy policy, BigInteger available) {
+                                        LoyaltyPolicy policy, BigInteger available,
+                                        List<PromotionProgram> lockedAutos) {
         WorkshopBenefitEvaluator.WorkshopCandidate voucher = null;
         if (selection.choice() == SelectionChoice.VOUCHER) {
             String key = LoyaltyValues.normalizeCode("voucherCode", selection.voucherCode()).key();
@@ -123,7 +145,18 @@ public class LoyaltyQuoteService {
                         ids(rows, TargetDimension.BRANCH), dates(rows), keys(rows, TargetDimension.SESSION));
             }).orElse(null);
         }
-        RetailQuote.Result result = WorkshopBenefitEvaluator.compute(context.workshop(), selection, voucher,
+        // Workshop automatic discounts (Session 2026-11-14, FR-044) are read in the (createdAt, id) tie-break order
+        // the evaluator relies on, and are targeted by package only, so no other dimension is loaded for them.
+        List<WorkshopBenefitEvaluator.WorkshopCandidate> autos = selection.choice() != SelectionChoice.AUTO ? List.of()
+                : (lockedAutos != null ? lockedAutos : eligibility.findActiveWorkshopAutoDiscounts(context.at()))
+                        .stream().map(program -> {
+                            RetailQuote.Candidate base = candidate(program, context, TargetScope.WORKSHOP);
+                            List<PromotionTarget> rows =
+                                    targets.findByRevisionIdOrderByDimensionAscTargetKeyAsc(base.revisionId());
+                            return WorkshopBenefitEvaluator.WorkshopCandidate.auto(base,
+                                    ids(rows, TargetDimension.PACKAGE));
+                        }).toList();
+        RetailQuote.Result result = WorkshopBenefitEvaluator.compute(context.workshop(), selection, voucher, autos,
                 policy.terms(), available, strict);
         WorkshopFact booking = context.workshop();
         String digest = RetailQuote.digest(result, policy.getId(), BigInteger.ZERO);
@@ -133,6 +166,17 @@ public class LoyaltyQuoteService {
         booking.sessions().forEach(session -> bound.append("|session=").append(session.sessionRef())
                 .append('@').append(session.branchId()).append('@').append(session.workshopDate()));
         bound.append("|people=").append(booking.participantCount());
+        // A cart (Session 2026-11-12) also binds every ticket in cart order and which tickets the voucher covers, so
+        // an accept with other tickets, prices or order than the preview is QUOTE_CHANGED. The single-package shape
+        // appends nothing here and keeps its digest.
+        booking.tickets().forEach(ticket -> {
+            bound.append("|ticket=").append(ticket.ticketRef()).append('#').append(ticket.packageId())
+                    .append('$').append(ticket.ticketPrice());
+            ticket.sessions().forEach(session -> bound.append('/').append(session.sessionRef()));
+        });
+        if (booking.isCart()) {
+            bound.append("|inScope=").append(result.eligibleLines());
+        }
         return new Evaluation(result, policy, LoyaltyCommandService.digest(bound.toString()));
     }
 
@@ -147,7 +191,10 @@ public class LoyaltyQuoteService {
         List<PromotionTarget> rows = targets.findByRevisionIdOrderByDimensionAscTargetKeyAsc(revision.getId());
         return new RetailQuote.Candidate(program.getId(), revision.getId(), revision.getRevisionNo(), program.getKind(),
                 program.getCreatedAt(), revision.terms(), revision.isAllowPoints(),
-                ids(rows, TargetDimension.PRODUCT), ids(rows, TargetDimension.VARIANT), program.getCodeOriginal(),
+                ids(rows, TargetDimension.PRODUCT), ids(rows, TargetDimension.VARIANT),
+                // A workshop programme's branches are matched per session by WorkshopBenefitEvaluator instead.
+                expected == TargetScope.PRODUCT ? ids(rows, TargetDimension.BRANCH) : Set.of(),
+                program.getCodeOriginal(),
                 unavailableReason(program, revision, context.memberId(), context.at(), expected));
     }
 

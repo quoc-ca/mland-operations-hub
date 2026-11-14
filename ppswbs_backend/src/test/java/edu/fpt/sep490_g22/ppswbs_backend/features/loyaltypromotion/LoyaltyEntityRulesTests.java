@@ -104,7 +104,7 @@ class LoyaltyEntityRulesTests {
 
     @Test
     void automaticDiscountIsProductOnlyWithoutCodeOrQuota() {
-        PromotionProgram auto = PromotionProgram.autoDiscount(NOW, 1L);
+        PromotionProgram auto = PromotionProgram.autoDiscount(TargetScope.PRODUCT, NOW, 1L);
         assertThat(auto.getScope()).isEqualTo(TargetScope.PRODUCT);
         assertThat(auto.getCodeKey()).isNull();
         assertCode(auto::hold, LoyaltyErrorCode.BENEFIT_STATE_CONFLICT);
@@ -312,6 +312,25 @@ class LoyaltyEntityRulesTests {
         assertCode(() -> AcceptedBenefit.accept(snapshot, false), LoyaltyErrorCode.PROMOTION_INELIGIBLE);
     }
 
+    /** D-014: a snapshot without a Member is a workshop one with no points and no voucher. */
+    @Test
+    void aGuestSnapshotIsWorkshopOnlyWithoutPointsOrVoucher() {
+        AcceptedBenefit guest = AcceptedBenefit.accept(new Snapshot(SourceKind.WORKSHOP, "BK-G1", null, NOW,
+                NOW.plusSeconds(60), 1L, "d", 1L, 5L, 6L, n(1_000), n(100), n(0), n(0), n(900), n(900), false), true);
+        assertThat(guest.getMemberId()).isNull();
+        assertThat(guest.getPointsState()).isEqualTo(ComponentState.NONE);
+        assertThat(guest.getVoucherState()).isEqualTo(ComponentState.NONE);
+        assertCode(() -> AcceptedBenefit.accept(new Snapshot(SourceKind.RETAIL, "R-G1", null, NOW, NOW.plusSeconds(60),
+                1L, "d", 1L, null, null, n(10), n(0), n(0), n(0), n(10), null, false), true),
+                LoyaltyErrorCode.PROMOTION_INELIGIBLE);
+        assertCode(() -> AcceptedBenefit.accept(new Snapshot(SourceKind.WORKSHOP, "BK-G2", null, NOW,
+                NOW.plusSeconds(60), 1L, "d", 1L, null, null, n(1_000), n(0), n(10), n(10), n(990), n(990), false), true),
+                LoyaltyErrorCode.PROMOTION_INELIGIBLE);
+        assertCode(() -> AcceptedBenefit.accept(new Snapshot(SourceKind.WORKSHOP, "BK-G3", null, NOW,
+                NOW.plusSeconds(60), 1L, "d", 1L, 5L, 6L, n(1_000), n(100), n(0), n(0), n(900), n(900), true), true),
+                LoyaltyErrorCode.PROMOTION_INELIGIBLE);
+    }
+
     @Test
     void workshopSnapshotNeedsThePostPromotionAmountAndRetailHasNone() {
         AcceptedBenefit workshop = accepted(SourceKind.WORKSHOP, 200, false);
@@ -330,7 +349,9 @@ class LoyaltyEntityRulesTests {
     void targetDimensionsMustMatchTheScope() {
         PromotionTarget.create(1L, TargetScope.PRODUCT, TargetDimension.VARIANT, "10");
         PromotionTarget.create(1L, TargetScope.WORKSHOP, TargetDimension.BRANCH, "3");
-        assertThatThrownBy(() -> PromotionTarget.create(1L, TargetScope.PRODUCT, TargetDimension.BRANCH, "3"))
+        // Session 2026-11-09: a product voucher may be limited to branches.
+        PromotionTarget.create(1L, TargetScope.PRODUCT, TargetDimension.BRANCH, "3");
+        assertThatThrownBy(() -> PromotionTarget.create(1L, TargetScope.PRODUCT, TargetDimension.PACKAGE, "3"))
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> PromotionTarget.create(1L, TargetScope.WORKSHOP, TargetDimension.PRODUCT, "3"))
                 .isInstanceOf(IllegalArgumentException.class);

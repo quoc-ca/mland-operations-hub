@@ -1,13 +1,13 @@
 # Tasks: Account Management (FE-001)
 
 **Date created**: 2026-11-01
-**Date updated**: 2026-11-04
+**Date updated**: 2026-11-14
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
 **Input**: Design documents from `ppswbs-spec/features/001-account-management/`
 
-**Prerequisites**: plan.md ✅ | spec.md ✅ (pass 16/16) | research.md ✅ | data-model.md ✅ | contracts/interfaces.md ✅ | design/architecture.md ✅ | design/workflows.md ✅ | design/ui-flow.md ✅
+**Prerequisites**: Historical baseline artifacts exist. Revision R-MGA in `approval.md` approves the 2026-11-14 Manager-global authorization revision in plan/spec/research/data-model/interfaces/design for T078–T081. Execute those tasks only within that approved scope.
 
 **Tests**: Not requested in spec. Only integration evidence items from quickstart.md are required before handoff; no TDD task sequence included.
 
@@ -156,14 +156,14 @@
 
 ## Phase 5: User Story 3 — Admin provision and maintain an internal account (Priority: P1)
 
-**Goal**: An Admin creates Staff/Manager accounts with fixed role and valid location scope. The invited person completes their own setup. Admin can edit profile, role/location, and status safely without accidentally touching security state. Duplicate create attempts are idempotent.
+**Goal**: An Admin creates Staff/Manager accounts with fixed role and valid Location assignments. Staff assignments define Staff scope; Manager assignments are organizational and do not narrow Manager-authorized operational scope. The invited person completes their own setup. Admin can edit profile, role/location, and status safely without accidentally touching security state. Duplicate create attempts are idempotent.
 
 **Independent Test**: Admin creates one pending Staff/Manager; resend invitation works (with cooldown); activation occurs only after intended identity signs in with verified email and valid scope; duplicate create returns original result.
 
 ### Implementation for User Story 3
 
 - [x] T025 [P] [US3] Implement `AdminAccountService.createInternalAccount` in `ppswbs_backend/.../service/AdminAccountService.java`:
-  - Validates `role` ∈ {STAFF, MANAGER}; Staff: exactly one active `workshopLocationId`; Manager: one or more
+  - Validates `role` ∈ {STAFF, MANAGER}; Staff: exactly one active `workshopLocationId`; Manager: one or more organizational assignments that do not limit Manager-authorized actions
   - Validates `workshopLocationId`(s) against authoritative Workshop Location facade (active IDs only)
   - Idempotency: stores key + normalized request digest; same key+digest → return preserved result; same key+changed digest → `409`
   - Creates `InternalAccountProvisioning` record; Firebase identity/action-link outside DB transaction (reconcilable)
@@ -178,7 +178,7 @@
 - [x] T028 [P] [US3] Implement `AdminAccountService.updateInternalProfile`, `assignRoleLocation`, and admin profile/role/location/status edit endpoints:
   - Each action is a separate command with expected `version` (conflict-safe)
   - `updateInternalProfile(accountId, fullName, phone, version)`: Staff/Manager only; does not change role/status/email/identity/scope
-  - `assignRoleLocation(accountId, role, locationIds, version)`: validates new location scope against Workshop Location facade
+  - `assignRoleLocation(accountId, role, locationIds, version)`: validates assignments against Workshop Location facade; the Admin UI distinguishes Staff scope from Manager organizational assignments
   - Version mismatch → `409`; attempt audit `FAILURE`; UI must reload before retry
 - [x] T029 [P] [US3] Add routes to `AdminAccountController.java`:
   - `POST /admin/accounts` — create internal account (ADMIN only, Idempotency-Key header required)
@@ -187,11 +187,11 @@
   - `PUT /admin/accounts/{accountId}/profile` — admin edit profile (ADMIN only; Staff/Manager targets only)
   - `PUT /admin/accounts/{accountId}/role-location` — admin assign role/location (ADMIN only; version required)
 - [x] T030 [P] [US3] Implement `AccountFacade.findTargetFacts` and `findEligibleRoster` in `AccountFacadeImpl.java` (T010 types already defined):
-  - `findTargetFacts(AccountId)`: read-only; resolves Account + effective `activeWorkshopLocationIds`; typed outcome; no audit event
-  - `findEligibleRoster(workshopLocationId, role)`: read-only; returns ACTIVE Accounts with effective scope; display name = Profile.full_name; no email/phone/UID/lifecycle; no audit event
-  - Both: if Account or Workshop Location scope cannot be verified → `UNAVAILABLE`
+  - `findTargetFacts(AccountId)`: read-only; resolves Account + effective `activeWorkshopLocationIds` for target or Staff location-scoped use; typed outcome; no audit event; it is not called to establish the current Manager's global authority
+  - `findEligibleRoster(workshopLocationId)`: read-only; returns ACTIVE STAFF Accounts with effective scope; display name = Profile.full_name; no email/phone/UID/lifecycle; no audit event
+  - Scope-dependent facade reads: if Account or Workshop Location scope cannot be verified → `UNAVAILABLE`; an active Manager action uses `CurrentAccountActor` instead of this scope path
 - [x] T031 [US3] Implement `InternalAccountCreatePage.tsx` in `ppswbs_frontend/src/features/accountmanagement/components/InternalAccountCreatePage.tsx`:
-  - Role selector (STAFF/MANAGER only); location picker from Workshop Location source; email input
+  - Role selector (STAFF/MANAGER only); location picker from Workshop Location source; email input; explain that Manager assignments are organizational while Staff assignments limit Staff access
   - Generate and attach `Idempotency-Key` header on submit
   - Pending setup ≠ active access (UI must reflect PENDING_SETUP state)
   - Never display raw Firebase action link; repeat click/retry preserves one provisioning request
@@ -253,7 +253,7 @@
   - Account ID in response as opaque positive-integer string
   - `getAccountDetail(accountId)`: returns safe profile summary, role, status, assignment summary; no credential/UID
 - [x] T039 [P] [US5] Implement `RoleCatalogueService.listRoles` and the fixed role definitions:
-  - Returns exactly MEMBER, STAFF, MANAGER, ADMIN with read-only descriptions of scope and constraints
+  - Returns exactly MEMBER, STAFF, MANAGER, ADMIN with read-only descriptions of scope and constraints, including global Manager operational scope and Admin-only boundaries
   - No permission/role editing endpoints; no dynamic RBAC; no multiple-role assignment
 - [x] T040 [P] [US5] Add routes to `AdminAccountController.java` and `RoleCatalogueController.java`:
   - `GET /admin/accounts` — list with filters and pagination (ADMIN only)
@@ -357,6 +357,37 @@
 
 **Checkpoint**: V-13 passes automated Router coverage and the required local Firebase evidence is recorded. Production Firebase Hosting/domain/`authDomain` remains a release decision and is not claimed by this checkpoint.
 
+---
+
+## Phase 11: Manager-global authorization alignment (COMPLETED)
+
+**Scope guard**: This phase implements the 2026-11-14 Manager authorization
+baseline in `spec-general.md` and FE-001. It does not create a new role,
+dynamic RBAC, a new REST endpoint, or a Manager ability to perform an
+Admin-only, ownership-only, or public action.
+
+- [x] T078 Revise the Account facade boundary and its callers so an active
+  Manager requester is authorized from `CurrentAccountActor` without resolving
+  effective Workshop Location scope. Keep `findTargetFacts` for target and
+  Staff location-scoped use, and revise `findEligibleRoster(workshopLocationId)`
+  to return only active Staff candidates.
+- [x] T079 Revise FE-003 consumer authorization and focused module/integration
+  coverage: an active Manager assigned to Location A can perform an explicitly
+  Manager-authorized action on Location B and while the Location-scope
+  dependency is unavailable; an active Staff remains denied outside its scope
+  and receives retryable unavailability when scope cannot be resolved.
+- [x] T080 Revise Admin account create/detail/edit and role-catalogue UI with
+  the approved wording: Manager Location assignments are organizational while
+  Staff assignments limit Staff access. Add UI coverage for role transition,
+  committed-state messaging, and conflict recovery.
+- [x] T081 Record fresh V-04, V-06 and V-07 evidence for T078–T080; do not
+  relabel historical evidence as coverage for the Manager-global behavior.
+
+**Checkpoint**: An active Manager's explicitly Manager-authorized operational
+action is independent of Location assignment and Location-scope availability;
+Staff scope, Admin-only boundaries, target privacy, and safe failure recovery
+remain enforced.
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
@@ -451,7 +482,7 @@ After Phase 2 completes:
 - Code refactoring prerequisite: code-level `activeLocationIds` must be renamed to canonical `activeWorkshopLocationIds` across entities, DTOs, and facade types during implementation.
 - OpenAPI contract: `contracts/account-management.openapi.yaml` has been regenerated to full OpenAPI 3.1.0 specification.
 
-**Total tasks**: 77 (including Phase 6 US6 shipping addresses, Phase 9 Google/re-auth tasks, and unstarted Revision R-SL T069–T077)
+**Total tasks**: 81 (including Phase 6 US6 shipping addresses, Phase 9 Google/re-auth tasks, and unstarted Manager-global alignment T078–T081)
 **By story**: Setup 5 | Foundational 7 | US1 7 | US2 7 | US3 8 | US4 5 | US5 6 | Polish 7
 **Parallel opportunities**: 32 tasks marked [P]
 **MVP scope**: Historical phases retain their original scope. Revision R-SL is a separate approved frontend handoff: T069–T077 and V-13 must be completed before this session/navigation revision is accepted. Phase 7 US5 (T038–T043) and WCAG scan (T047) remain deferred to full release.

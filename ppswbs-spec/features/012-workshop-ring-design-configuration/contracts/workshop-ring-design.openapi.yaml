@@ -1,16 +1,16 @@
 # Date created: 2026-11-08
-# Date updated: 2026-11-08
+# Date updated: 2026-11-14
 # Author: Ngô Tiến Đạt
 # Last updated by: Ngô Tiến Đạt
 
 openapi: 3.1.0
 info:
   title: Feature-012 Workshop Ring Design Configuration API
-  version: 0.2.0-review
+  version: 0.3.0
   description: >-
-    Proposed contract for Guest and Member workshop ring configuration. This is
-    a review baseline. It exposes logical opaque references only and does not
-    approve a physical schema or migration.
+    Authoritative contract for Guest and Member workshop ring configuration,
+    supporting Silver/Copper/Stainless Steel, sizes 6-29 with perimeter in mm,
+    dual-view SVG, thickness and width sliders, and multi-gemstone placement.
 servers:
   - url: /api/v1
 tags:
@@ -214,6 +214,108 @@ components:
       schema: { type: string, minLength: 16, maxLength: 128 }
       description: Opaque Guest session reference; never a raw identity or database ID.
   schemas:
+    DesignOptionsResponse:
+      type: object
+      required: [packageReference, rulesVersion, materials, shapes, sizes, components, attachments, engravingConfig]
+      properties:
+        packageReference: { type: string }
+        rulesVersion: { type: string }
+        materials:
+          type: array
+          description: Active workshop materials (Silver 925, Copper, Stainless Steel 316L; Gold deactivated).
+          items:
+            type: object
+            required: [reference, name]
+            properties:
+              reference: { type: string }
+              name: { type: string }
+              description: { type: string, nullable: true }
+              purity: { type: string, nullable: true }
+              unitPrice: { type: string, nullable: true }
+              currency: { type: string, nullable: true }
+              difficultyScore: { type: string, nullable: true }
+              imageUrl: { type: string, nullable: true }
+        shapes:
+          type: array
+          description: Workshop shapes and surface textures (classic, beveled, single twist, wave, ball-peen, flat band).
+          items:
+            type: object
+            required: [reference, name]
+            properties:
+              reference: { type: string }
+              name: { type: string }
+              description: { type: string, nullable: true }
+              priceAdjustment: { type: string, nullable: true }
+              currency: { type: string, nullable: true }
+              difficultyScore: { type: string, nullable: true }
+              imageUrl: { type: string, nullable: true }
+        sizes:
+          type: array
+          description: Standard workshop sizes (6 through 29) with millimeter perimeter (perimeter = size + 40mm).
+          items: { type: string }
+        components:
+          type: array
+          items:
+            type: object
+            required: [reference, name]
+            properties:
+              reference: { type: string }
+              name: { type: string }
+              description: { type: string, nullable: true }
+              type: { type: string, nullable: true }
+              color: { type: string, nullable: true }
+              cutName: { type: string, nullable: true }
+              unitPrice: { type: string, nullable: true }
+              currency: { type: string, nullable: true }
+              difficultyScore: { type: string, nullable: true }
+              imageUrl: { type: string, nullable: true }
+              maxQuantity: { type: integer, nullable: true }
+              allowedPlacements:
+                type: array
+                items: { type: string }
+        attachments:
+          type: array
+          items:
+            type: object
+            required: [reference, name]
+            properties:
+              reference: { type: string }
+              name: { type: string }
+              description: { type: string, nullable: true }
+              type: { type: string, nullable: true }
+              unitPrice: { type: string, nullable: true }
+              currency: { type: string, nullable: true }
+              difficultyScore: { type: string, nullable: true }
+              imageUrl: { type: string, nullable: true }
+              maxQuantity: { type: integer, nullable: true }
+              allowedPlacements:
+                type: array
+                items: { type: string }
+        engravingConfig:
+          type: object
+          required: [supported]
+          properties:
+            supported: { type: boolean }
+            maxCharacters: { type: integer, nullable: true }
+            allowedPlacements:
+              type: array
+              items: { type: string }
+            priceAdjustment: { type: string, nullable: true }
+            customImagePrice: { type: string, nullable: true }
+            imageFrameSizePx: { type: integer, nullable: true }
+            currency: { type: string, nullable: true }
+        models:
+          type: array
+          items:
+            type: object
+            required: [modelReference, name]
+            properties:
+              modelReference: { type: string }
+              name: { type: string }
+              description: { type: string, nullable: true }
+              imageUrl: { type: string, nullable: true }
+              materialReference: { type: string, nullable: true }
+              shapeReference: { type: string, nullable: true }
     CreateDesignRequest:
       type: object
       additionalProperties: false
@@ -231,6 +333,13 @@ components:
         materialReference: { type: string, minLength: 1, maxLength: 128 }
         shapeReference: { type: string, minLength: 1, maxLength: 128 }
         ringSize: { type: string, minLength: 1, maxLength: 64 }
+        thicknessMm: { type: number, minimum: 0.5, maximum: 10.0, nullable: true }
+        bandWidthMm: { type: number, minimum: 0.5, maximum: 20.0, nullable: true }
+        dimensions:
+          type: object
+          properties:
+            thicknessMm: { type: number, minimum: 1.0, maximum: 3.0 }
+            bandWidthMm: { type: number, minimum: 1.5, maximum: 6.0 }
         components:
           type: array
           maxItems: 64
@@ -246,9 +355,17 @@ components:
       required: [reference, quantity]
       properties:
         reference: { type: string, minLength: 1, maxLength: 128 }
-        quantity: { type: integer, minimum: 1, maximum: 64 }
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 64
+          description: Selected stone quantity, validated against component maxQuantity
         variant: { type: string, maxLength: 64, nullable: true }
-        placement: { type: string, maxLength: 100, nullable: true }
+        placement:
+          type: string
+          maxLength: 100
+          nullable: true
+          description: Semantic placement code (e.g. CENTER, ACCENT_LEFT, ACCENT_RIGHT, HALO, CUSTOM)
     AttachmentSelection:
       type: object
       additionalProperties: false
@@ -266,6 +383,32 @@ components:
         enabled: { type: boolean }
         text: { type: string, maxLength: 200, nullable: true }
         placement: { type: string, maxLength: 100, nullable: true }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/EngravingItem' }
+        customImages:
+          type: array
+          items: { $ref: '#/components/schemas/CustomEngravingImage' }
+    EngravingItem:
+      type: object
+      required: [content]
+      properties:
+        id: { type: string, nullable: true }
+        type: { type: string, enum: [TEXT, SYMBOL], default: TEXT }
+        content: { type: string, minLength: 1, maxLength: 100 }
+        placement: { type: string, enum: [INNER_BAND, OUTER_BAND], default: INNER_BAND }
+    CustomEngravingImage:
+      type: object
+      required: [imageUrl]
+      properties:
+        id: { type: string, nullable: true }
+        placement: { type: string, enum: [INNER_BAND, OUTER_BAND], default: INNER_BAND }
+        imageUrl: { type: string }
+        cropX: { type: integer, default: 0 }
+        cropY: { type: integer, default: 0 }
+        cropWidth: { type: integer, default: 160 }
+        cropHeight: { type: integer, default: 160 }
+        price: { type: number, default: 100000.00 }
     DesignResponse:
       type: object
       required: [designId, packageReference, designVersion, status, validation, evaluation]
@@ -298,6 +441,27 @@ components:
           type: string
           pattern: '^(0|[1-9][0-9]*)(\\.[0-9]+)?$'
           nullable: true
+        estimatedWeightGrams:
+          type: string
+          nullable: true
+        baseWeightLimitGrams:
+          type: string
+          nullable: true
+        materialCost:
+          type: string
+          nullable: true
+        excessMaterialCost:
+          type: string
+          nullable: true
+        engravingCost:
+          type: string
+          nullable: true
+        customImageCount:
+          type: integer
+          nullable: true
+        warnings:
+          type: array
+          items: { type: string }
         rulesVersion: { type: string, minLength: 1, maxLength: 64 }
         advisory: { type: boolean, const: true }
     AttachDesignRequest:

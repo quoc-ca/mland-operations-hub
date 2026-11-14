@@ -7,9 +7,11 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.Loyalt
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.OutcomeKind;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.SourceKind;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.AvailabilityGuardPort;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.BranchVariant;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.CatalogueSalesFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.dao.GroupedCheckoutRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.dao.RetailCartRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.dao.RetailOrderRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.dao.RetailVariantHoldRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.dto.CheckoutDtos;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.entity.PaymentState;
@@ -34,6 +36,8 @@ public class RetailCheckoutCancellationService {
     private final AvailabilityGuardPort guard;
     private final LoyaltyFacade loyalty;
     private final RetailCheckoutService views;
+    private final RetailOrderRepository orders;
+    private final RetailBranchPartService branchParts;
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public CheckoutDtos.CancellationView cancel(Long memberId, String checkoutId) {
@@ -48,15 +52,23 @@ public class RetailCheckoutCancellationService {
         if (checkout.getPaymentState() != PaymentState.ACCEPTED_UNPAID || checkout.getPaymentInitiatedAt() != null) {
             throw new RetailConflictException("Checkout cannot be cancelled after payment initiation");
         }
-        List<Long> ids = checkout.getOrders().stream().flatMap(order -> order.getItems().stream())
-            .map(item -> item.getVariantId()).distinct().sorted().toList();
+        if (branchParts.acceptedWithParts(checkout)) {
+            // Cash with per-branch parts: cancel every branch order not yet paid at its counter.
+            Instant now = Instant.now();
+            int unrestored = 0;
+            for (var order : checkout.getOrders().stream().filter(order -> order.getPaymentState() == PaymentState.ACCEPTED_UNPAID).toList()) {
+                unrestored += branchParts.endUnpaid(checkout, order, cart, false, now);
+            }
+            return result(checkout, unrestored);
+        }
+        var quantities = RetailBranchOrderKeys.quantities(checkout);
+        List<BranchVariant> branchKeys = quantities.keySet().stream().sorted().toList();
+        List<Long> ids = RetailBranchOrderKeys.variantIds(quantities);
         if (ids.isEmpty()) throw new RetailConflictException("Checkout has no items");
         try {
-            return catalogue.withLockedHistoricalContext(checkoutId, ids, context ->
-            guard.withGuard(ids, context.asOf(), snapshots -> {
-                List<RetailVariantHold> current = ids.stream().map(id -> holdRepository
-                    .findByGroupedCheckoutIdAndVariantId(checkoutId, id)
-                    .orElseThrow(() -> new RetailConflictException("Checkout inventory hold is missing"))).toList();
+            return catalogue.withLockedHistoricalBranchContext(checkoutId, branchKeys, context ->
+            guard.withBranchGuard(branchKeys, context.asOf(), snapshots -> {
+                List<RetailVariantHold> current = holds.requireBranchHolds(checkoutId, branchKeys);
                 Instant deadline = current.getFirst().getExpiresAt();
                 if (current.stream().anyMatch(hold -> !deadline.equals(hold.getExpiresAt()))) {
                     throw new RetailConflictException("Checkout hold deadlines do not match");
@@ -78,6 +90,28 @@ public class RetailCheckoutCancellationService {
             }
             throw new RetailConflictException("Checkout benefits cannot be released in their current state");
         }
+    }
+
+    /**
+     * The Member cancels one cash branch order before Staff confirmed its payment (FR-08-046); other branch orders of
+     * the checkout stay as they are. Checkouts accepted without parts are cancelled as a whole.
+     */
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public CheckoutDtos.CancellationView cancelBranchOrder(Long memberId, String orderId) {
+        var owned = orders.findOwnedOrder(memberId, orderId)
+            .orElseThrow(() -> new RetailNotFoundException("Retail order does not exist"));
+        String checkoutId = owned.getGroupedCheckout().getId();
+        var cart = carts.findLockedByMemberAccountId(memberId)
+            .orElseThrow(() -> new RetailNotFoundException("Retail cart does not exist"));
+        var checkout = checkouts.lockOwned(checkoutId, memberId)
+            .orElseThrow(() -> new RetailNotFoundException("Checkout does not exist"));
+        var order = checkout.getOrders().stream().filter(candidate -> candidate.getId().equals(orderId)).findFirst()
+            .orElseThrow(() -> new RetailNotFoundException("Retail order does not exist"));
+        if (order.getPaymentState() == PaymentState.CANCELLED) return result(checkout, 0);
+        if (!branchParts.acceptedWithParts(checkout)) return cancel(memberId, checkoutId);
+        if (checkout.getPaymentInitiatedAt() != null) throw new RetailConflictException("Checkout cannot be cancelled after payment initiation");
+        int unrestored = branchParts.endUnpaid(checkout, order, cart, false, Instant.now());
+        return result(checkout, unrestored);
     }
 
     private CheckoutDtos.CancellationView result(edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.entity.GroupedCheckout checkout, int unrestored) {

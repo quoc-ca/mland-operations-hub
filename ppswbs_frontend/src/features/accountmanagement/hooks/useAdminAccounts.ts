@@ -153,7 +153,7 @@ export function useAdminAccounts() {
         if (err instanceof ApiError && err.status === 409) {
           await loadDetail(accountId);
         }
-        return null;
+        throw err;
       } finally {
         setLoading(false);
       }
@@ -183,7 +183,7 @@ export function useAdminAccounts() {
         if (err instanceof ApiError && err.status === 409) {
           await loadDetail(accountId);
         }
-        return null;
+        throw err;
       } finally {
         setLoading(false);
       }

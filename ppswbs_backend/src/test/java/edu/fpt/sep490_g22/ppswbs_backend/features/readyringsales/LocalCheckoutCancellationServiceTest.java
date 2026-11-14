@@ -16,7 +16,8 @@ class LocalCheckoutCancellationServiceTest {
     private final GroupedCheckoutRepository checkouts = mock(GroupedCheckoutRepository.class);
     private final CheckoutHoldRepository holds = mock(CheckoutHoldRepository.class);
     private final RetailCheckoutService views = mock(RetailCheckoutService.class);
-    private final LocalCheckoutCancellationService service = new LocalCheckoutCancellationService(carts, checkouts, holds, views);
+    private final RetailOrderRepository orders = mock(RetailOrderRepository.class);
+    private final LocalCheckoutCancellationService service = new LocalCheckoutCancellationService(carts, checkouts, holds, views, orders);
 
     @Test
     void localCancellationRestoresCartAndMarksDemoExpiryOnce() {

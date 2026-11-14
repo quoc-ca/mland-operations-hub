@@ -5,6 +5,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.Loyalt
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.OutcomeKind;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.SourceKind;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.AvailabilityGuardPort;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.BranchVariant;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.CatalogueSalesFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.dao.GroupedCheckoutRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.dao.RetailCartRepository;
@@ -31,6 +32,7 @@ public class RetailUnstartedExpiryService {
     private final CatalogueSalesFacade catalogue;
     private final AvailabilityGuardPort guard;
     private final LoyaltyFacade loyalty;
+    private final RetailBranchPartService branchParts;
 
     /** Caller must already hold the checkout lock; do not start a payment after its hold deadline. */
     public void requirePaymentBeforeDeadline(String checkoutId) {
@@ -48,13 +50,22 @@ public class RetailUnstartedExpiryService {
         var checkout = checkouts.lockOwned(checkoutId, memberId)
             .orElseThrow(() -> new RetailNotFoundException("Checkout does not exist"));
         if (checkout.getPaymentState() != PaymentState.ACCEPTED_UNPAID || checkout.getPaymentInitiatedAt() != null) return false;
-        List<Long> ids = checkout.getOrders().stream().flatMap(order -> order.getItems().stream())
-            .map(item -> item.getVariantId()).distinct().sorted().toList();
+        if (branchParts.acceptedWithParts(checkout)) {
+            // Cash with per-branch parts: only branch orders still unpaid at the deadline expire (D-011).
+            Instant now = Instant.now();
+            boolean expired = false;
+            for (var order : checkout.getOrders().stream().filter(order -> order.getPaymentState() == PaymentState.ACCEPTED_UNPAID).toList()) {
+                expired |= branchParts.endUnpaid(checkout, order, cart, true, now) >= 0;
+            }
+            return expired;
+        }
+        var quantities = RetailBranchOrderKeys.quantities(checkout);
+        List<BranchVariant> branchKeys = quantities.keySet().stream().sorted().toList();
+        List<Long> ids = RetailBranchOrderKeys.variantIds(quantities);
         if (ids.isEmpty()) throw new RetailConflictException("Checkout has no items");
-        return catalogue.withLockedHistoricalContext(checkoutId, ids, context ->
-            guard.withGuard(ids, context.asOf(), snapshots -> {
-                var current = ids.stream().map(id -> holdRepository.findByGroupedCheckoutIdAndVariantId(checkoutId, id)
-                    .orElseThrow(() -> new RetailConflictException("Checkout inventory hold is missing"))).toList();
+        return catalogue.withLockedHistoricalBranchContext(checkoutId, branchKeys, context ->
+            guard.withBranchGuard(branchKeys, context.asOf(), snapshots -> {
+                var current = holds.requireBranchHolds(checkoutId, branchKeys);
                 Instant deadline = current.getFirst().getExpiresAt();
                 if (current.stream().anyMatch(hold -> !deadline.equals(hold.getExpiresAt())
                     || hold.getStatus() != RetailVariantHoldStatus.HELD)) {

@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { clearRoleCache } from '../../../shared/auth/useRole';
 import { json, mockFetch, renderRoutes } from '../../../test/render';
 import { productManagementRoutes } from '../routes/productManagementRoutes';
-import { actionResult, categoryPage, managementProduct } from './fixtures';
+import { actionResult, categoryPage, managementProduct, publicProduct } from './fixtures';
 
 const M = '/api/v1/catalogue-management';
 const PROFILE = 'GET /api/v1/accounts/me/profile';
@@ -64,6 +64,45 @@ describe('US10 branches on the create form', () => {
     await user.click(screen.getByRole('button', { name: 'Tạo sản phẩm' }));
     expect(screen.getByText('Chọn ít nhất một chi nhánh.')).toBeInTheDocument();
     expect(calls.some(call => call.method === 'POST')).toBe(false);
+  });
+});
+
+describe('US10 FR-046/FR-052 branches on the public product page', () => {
+  beforeEach(() => clearRoleCache());
+
+  it('offers only the branches selling the chosen size and shows one without stock as sold out', async () => {
+    const user = userEvent.setup();
+    const product = publicProduct({
+      variants: [
+        { id: '101', size: 12, sku: 'SP000042-S12', appliedPrice: '1250000', currency: 'VND', saleEnabled: true, canBuy: true,
+          assignedToBranches: true, branches: [{ locationId: '1', canBuy: false }, { locationId: '2', canBuy: true }] },
+        { id: '102', size: 14, sku: 'SP000042-S14', appliedPrice: '1300000', currency: 'VND', saleEnabled: true, canBuy: true,
+          assignedToBranches: false, branches: [] },
+      ],
+    });
+    const calls = mockFetch({
+      'GET /api/v1/products/42': json(200, product),
+      'GET /api/v1/product-selling-locations': json(200, { items: [
+        { id: '1', name: 'Hoàn Kiếm', address: '' }, { id: '2', name: 'Tây Hồ', address: '' }, { id: '3', name: 'Đà Nẵng', address: '' }] }),
+      'POST /api/v1/members/me/ready-ring-cart/lines': json(201, { id: 'cart' }),
+    });
+    renderRoutes([...productManagementRoutes, { path: '/member/cart', element: <p>FE-08 cart</p> }], { path: '/products/42' });
+
+    const branch = await screen.findByLabelText('Chi nhánh');
+    await screen.findByRole('option', { name: /Tây Hồ/ });
+    const names = within(branch).getAllByRole('option').map(option => option.textContent);
+    expect(names).toEqual(['Chọn chi nhánh', 'Hoàn Kiếm (hết hàng)', 'Tây Hồ']);
+    expect(within(branch).getByRole('option', { name: /Hoàn Kiếm/ })).toBeDisabled();
+
+    // A size not yet assigned to a branch offers every selling location.
+    await user.selectOptions(screen.getByLabelText('Size'), '102');
+    expect(within(screen.getByLabelText('Chi nhánh')).getAllByRole('option')).toHaveLength(4);
+
+    await user.selectOptions(screen.getByLabelText('Size'), '101');
+    await user.selectOptions(screen.getByLabelText('Chi nhánh'), '2');
+    await user.click(screen.getByRole('button', { name: 'Thêm vào giỏ' }));
+    expect(await screen.findByText('FE-08 cart')).toBeInTheDocument();
+    expect(calls.find(call => call.method === 'POST').body).toEqual({ variantId: 101, locationId: 2, quantity: 1 });
   });
 });
 
@@ -139,6 +178,62 @@ describe('US10 branches on the detail page', () => {
 
     const put = await screen.findAllByText(/Đã sửa số lượng size 12/).then(() => calls.find(call => call.method === 'PUT'));
     expect(put.body).toEqual({ expectedVersion: 7, quantity: '3' });
+  });
+
+  it('shows the holds of the chosen branch once FE-08 keeps them per branch (FR-051)', async () => {
+    const user = userEvent.setup();
+    const heldAtHoanKiem = managementProduct({
+      branches: atTwoBranches.branches,
+      variants: [{
+        ...atTwoBranches.variants[0], validHeldQuantity: '2', availableQuantity: '3',
+        branchStocks: [
+          { locationId: '1', remainingUnsold: '3', saleEnabled: true, version: 0, validHeldQuantity: '2', availableQuantity: '1' },
+          { locationId: '2', remainingUnsold: '2', saleEnabled: true, version: 7, validHeldQuantity: '0', availableQuantity: '2' },
+        ],
+      }],
+    });
+    mockFetch({
+      [PROFILE]: json(200, { role: 'MANAGER' }), [`GET ${M}/categories`]: json(200, categoryPage), [LOCATIONS]: json(200, [HK, TH]),
+      [`GET ${M}/products/42`]: json(200, heldAtHoanKiem),
+    });
+    renderRoutes(productManagementRoutes, { path: '/catalogue-management/products/42' });
+
+    const heldCell = () => within(screen.getByRole('table', { name: 'Size và số lượng' })).getAllByRole('row')[1]
+      .querySelectorAll('[role=cell]')[4].textContent;
+    await user.click(await screen.findByRole('tab', { name: /Hoàn Kiếm/ }));
+    expect(heldCell()).toBe('2');
+    await user.click(screen.getByRole('tab', { name: /Tây Hồ/ }));
+    expect(heldCell()).toBe('0');
+  });
+
+  it('a Staff member sees no size-wide stop for a product also sold outside their branches (T134)', async () => {
+    const user = userEvent.setup();
+    mockFetch({
+      [PROFILE]: json(200, { role: 'STAFF' }), [`GET ${M}/categories`]: json(200, categoryPage), [LOCATIONS]: json(200, [HK]),
+      [`GET ${M}/products/42`]: json(200, atTwoBranches),
+    });
+    renderRoutes(productManagementRoutes, { path: '/catalogue-management/products/42' });
+
+    expect(await screen.findByRole('button', { name: 'Ngừng bán tại chi nhánh này' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Ngừng bán size' })).toBeNull();
+    await user.click(screen.getByRole('tab', { name: /Tây Hồ/ }));
+    expect(screen.queryByRole('button', { name: 'Ngừng bán tại chi nhánh này' })).toBeNull();
+  });
+
+  it('stopping sale at a branch sends the state shown, so a stale screen gets a conflict (T142)', async () => {
+    const user = userEvent.setup();
+    const calls = mockFetch({
+      [PROFILE]: json(200, { role: 'MANAGER' }), [`GET ${M}/categories`]: json(200, categoryPage), [LOCATIONS]: json(200, [HK, TH]),
+      [`GET ${M}/products/42`]: json(200, atTwoBranches),
+      [`PUT ${M}/products/42/branches/2/sale-status`]: json(200, actionResult('42', 'product.branch.sale')),
+    });
+    renderRoutes(productManagementRoutes, { path: '/catalogue-management/products/42' });
+
+    await user.click(await screen.findByRole('tab', { name: /Tây Hồ/ }));
+    await user.click(screen.getByRole('button', { name: 'Ngừng bán tại chi nhánh này' }));
+
+    await waitFor(() => expect(calls.some(call => call.method === 'PUT')).toBe(true));
+    expect(calls.find(call => call.method === 'PUT').body).toEqual({ saleEnabled: false, expectedSaleEnabled: true });
   });
 
   it('a product without a branch offers to assign one with its current quantities', async () => {

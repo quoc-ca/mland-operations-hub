@@ -16,6 +16,9 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneOffset;
+import java.time.DayOfWeek;
+import java.time.ZoneId;
+import java.time.temporal.TemporalAdjusters;
 import java.util.*;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -34,6 +37,14 @@ import static org.mockito.Mockito.*;
  * - No partial hold, booking, or ticket mutation when validation fails.
  */
 class WaxCastingScheduleValidationTest {
+
+    /**
+     * Every case below pins a weekday pattern, not a calendar date. Anchoring them to a Monday that is
+     * always ahead of today keeps the patterns intact while the sessions stay sellable, which the policy
+     * requires: it refuses a session whose start is not in the future.
+     */
+    private static final LocalDate MONDAY = LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh"))
+            .with(TemporalAdjusters.next(DayOfWeek.MONDAY)).plusWeeks(1);
 
     private WorkshopPackageRepository packageRepository;
     private WorkshopSessionRepository sessionRepository;
@@ -85,48 +96,48 @@ class WaxCastingScheduleValidationTest {
     @Test
     @DisplayName("Working day count: Monday to Thursday has exactly 2 days (Tue, Wed)")
     void countWorkingDaysMondayToThursday() {
-        LocalDate mon = LocalDate.of(2026, 11, 9);
-        LocalDate thu = LocalDate.of(2026, 11, 12);
+        LocalDate mon = MONDAY.plusDays(0);
+        LocalDate thu = MONDAY.plusDays(3);
         assertThat(WorkshopPackageReservationPolicy.countFoundryWorkingDaysBetween(mon, thu)).isEqualTo(2);
     }
 
     @Test
     @DisplayName("Working day count: Friday to Wednesday next week has exactly 2 days (Mon, Tue; Sat & Sun skipped)")
     void countWorkingDaysFridayToWednesdayNextWeek() {
-        LocalDate fri = LocalDate.of(2026, 11, 13);
-        LocalDate wed = LocalDate.of(2026, 11, 18);
+        LocalDate fri = MONDAY.plusDays(4);
+        LocalDate wed = MONDAY.plusDays(9);
         assertThat(WorkshopPackageReservationPolicy.countFoundryWorkingDaysBetween(fri, wed)).isEqualTo(2);
     }
 
     @Test
     @DisplayName("Working day count: Monday to Wednesday has only 1 day (Tue)")
     void countWorkingDaysMondayToWednesday() {
-        LocalDate mon = LocalDate.of(2026, 11, 9);
-        LocalDate wed = LocalDate.of(2026, 11, 11);
+        LocalDate mon = MONDAY.plusDays(0);
+        LocalDate wed = MONDAY.plusDays(2);
         assertThat(WorkshopPackageReservationPolicy.countFoundryWorkingDaysBetween(mon, wed)).isEqualTo(1);
     }
 
     @Test
     @DisplayName("Working day count: Friday to Tuesday next week has only 1 day (Mon; Sat & Sun skipped)")
     void countWorkingDaysFridayToTuesdayNextWeek() {
-        LocalDate fri = LocalDate.of(2026, 11, 13);
-        LocalDate tue = LocalDate.of(2026, 11, 17);
+        LocalDate fri = MONDAY.plusDays(4);
+        LocalDate tue = MONDAY.plusDays(8);
         assertThat(WorkshopPackageReservationPolicy.countFoundryWorkingDaysBetween(fri, tue)).isEqualTo(1);
     }
 
     @Test
     @DisplayName("Working day count: Monday to Friday has 3 working days")
     void countWorkingDaysMondayToFriday() {
-        LocalDate mon = LocalDate.of(2026, 11, 9);
-        LocalDate fri = LocalDate.of(2026, 11, 13);
+        LocalDate mon = MONDAY.plusDays(0);
+        LocalDate fri = MONDAY.plusDays(4);
         assertThat(WorkshopPackageReservationPolicy.countFoundryWorkingDaysBetween(mon, fri)).isEqualTo(3);
     }
 
     @Test
     @DisplayName("Working day count: Friday to Thursday next week has 3 working days")
     void countWorkingDaysFridayToThursdayNextWeek() {
-        LocalDate fri = LocalDate.of(2026, 11, 13);
-        LocalDate thu = LocalDate.of(2026, 11, 19);
+        LocalDate fri = MONDAY.plusDays(4);
+        LocalDate thu = MONDAY.plusDays(10);
         assertThat(WorkshopPackageReservationPolicy.countFoundryWorkingDaysBetween(fri, thu)).isEqualTo(3);
     }
 
@@ -134,27 +145,27 @@ class WaxCastingScheduleValidationTest {
     @DisplayName("Working day count: Saturday and Sunday are excluded from count")
     void countWorkingDaysExcludesSaturdayAndSunday() {
         // Saturday (Nov 14) to Wednesday (Nov 18): Sunday skipped; Monday & Tuesday counted = 2
-        LocalDate sat = LocalDate.of(2026, 11, 14);
-        LocalDate wed = LocalDate.of(2026, 11, 18);
+        LocalDate sat = MONDAY.plusDays(5);
+        LocalDate wed = MONDAY.plusDays(9);
         assertThat(WorkshopPackageReservationPolicy.countFoundryWorkingDaysBetween(sat, wed)).isEqualTo(2);
 
         // Sunday (Nov 15) to Wednesday (Nov 18): Monday & Tuesday counted = 2
-        LocalDate sun = LocalDate.of(2026, 11, 15);
+        LocalDate sun = MONDAY.plusDays(6);
         assertThat(WorkshopPackageReservationPolicy.countFoundryWorkingDaysBetween(sun, wed)).isEqualTo(2);
 
         // Saturday (Nov 14) to Tuesday (Nov 17): Sunday skipped; Monday counted = 1
-        LocalDate tue = LocalDate.of(2026, 11, 17);
+        LocalDate tue = MONDAY.plusDays(8);
         assertThat(WorkshopPackageReservationPolicy.countFoundryWorkingDaysBetween(sat, tue)).isEqualTo(1);
 
         // Friday (Nov 13) to Sunday (Nov 15): Saturday skipped = 0
-        assertThat(WorkshopPackageReservationPolicy.countFoundryWorkingDaysBetween(LocalDate.of(2026, 11, 13), sun)).isEqualTo(0);
+        assertThat(WorkshopPackageReservationPolicy.countFoundryWorkingDaysBetween(MONDAY.plusDays(4), sun)).isEqualTo(0);
     }
 
     @Test
     @DisplayName("Working day count: Same day or out-of-order dates return 0")
     void countWorkingDaysSameDayOrOutOfOrder() {
-        LocalDate mon = LocalDate.of(2026, 11, 9);
-        LocalDate thu = LocalDate.of(2026, 11, 12);
+        LocalDate mon = MONDAY.plusDays(0);
+        LocalDate thu = MONDAY.plusDays(3);
         assertThat(WorkshopPackageReservationPolicy.countFoundryWorkingDaysBetween(mon, mon)).isEqualTo(0);
         assertThat(WorkshopPackageReservationPolicy.countFoundryWorkingDaysBetween(thu, mon)).isEqualTo(0);
         assertThat(WorkshopPackageReservationPolicy.countFoundryWorkingDaysBetween(null, thu)).isEqualTo(0);
@@ -168,12 +179,12 @@ class WaxCastingScheduleValidationTest {
     @Test
     @DisplayName("Foundry gap validation: at least 2 working days required, no maximum")
     void validateFoundryWorkingDayGapCases() {
-        WorkshopSession monSession = session(1L, UUID.randomUUID(), locationA, slotEvening, LocalDate.of(2026, 11, 9));
-        WorkshopSession wedSession = session(2L, UUID.randomUUID(), locationA, slotMorning, LocalDate.of(2026, 11, 11));
-        WorkshopSession thuSession = session(3L, UUID.randomUUID(), locationA, slotMorning, LocalDate.of(2026, 11, 12));
-        WorkshopSession friSession = session(4L, UUID.randomUUID(), locationA, slotEvening, LocalDate.of(2026, 11, 13));
-        WorkshopSession nextTueSession = session(5L, UUID.randomUUID(), locationA, slotMorning, LocalDate.of(2026, 11, 17));
-        WorkshopSession nextWedSession = session(6L, UUID.randomUUID(), locationA, slotMorning, LocalDate.of(2026, 11, 18));
+        WorkshopSession monSession = session(1L, UUID.randomUUID(), locationA, slotEvening, MONDAY.plusDays(0));
+        WorkshopSession wedSession = session(2L, UUID.randomUUID(), locationA, slotMorning, MONDAY.plusDays(2));
+        WorkshopSession thuSession = session(3L, UUID.randomUUID(), locationA, slotMorning, MONDAY.plusDays(3));
+        WorkshopSession friSession = session(4L, UUID.randomUUID(), locationA, slotEvening, MONDAY.plusDays(4));
+        WorkshopSession nextTueSession = session(5L, UUID.randomUUID(), locationA, slotMorning, MONDAY.plusDays(8));
+        WorkshopSession nextWedSession = session(6L, UUID.randomUUID(), locationA, slotMorning, MONDAY.plusDays(9));
 
         // Monday -> Thursday is valid (2 days: Tue, Wed)
         assertThat(WorkshopPackageReservationPolicy.validateFoundryWorkingDayGap(List.of(monSession, thuSession), 2)).isTrue();
@@ -215,8 +226,8 @@ class WaxCastingScheduleValidationTest {
         UUID ref1 = UUID.randomUUID();
         UUID ref2 = UUID.randomUUID();
         // Monday 16:00 (slotEvening) and Thursday 09:30 (slotMorning)
-        WorkshopSession s1 = session(10L, ref1, locationA, slotEvening, LocalDate.of(2026, 11, 9));
-        WorkshopSession s2 = session(11L, ref2, locationA, slotMorning, LocalDate.of(2026, 11, 12));
+        WorkshopSession s1 = session(10L, ref1, locationA, slotEvening, MONDAY.plusDays(0));
+        WorkshopSession s2 = session(11L, ref2, locationA, slotMorning, MONDAY.plusDays(3));
 
         when(packageRepository.findByIdWithLock(88L)).thenReturn(Optional.of(waxCastingPackage));
         when(sessionRepository.findByReferenceInWithLock(anyList())).thenReturn(List.of(s1, s2));
@@ -233,8 +244,8 @@ class WaxCastingScheduleValidationTest {
     void validateAcceptsFridayToWednesdayNextWeek() {
         UUID ref1 = UUID.randomUUID();
         UUID ref2 = UUID.randomUUID();
-        WorkshopSession s1 = session(12L, ref1, locationA, slotEvening, LocalDate.of(2026, 11, 13));
-        WorkshopSession s2 = session(13L, ref2, locationA, slotMorning, LocalDate.of(2026, 11, 18));
+        WorkshopSession s1 = session(12L, ref1, locationA, slotEvening, MONDAY.plusDays(4));
+        WorkshopSession s2 = session(13L, ref2, locationA, slotMorning, MONDAY.plusDays(9));
 
         when(packageRepository.findByIdWithLock(88L)).thenReturn(Optional.of(waxCastingPackage));
         when(sessionRepository.findByReferenceInWithLock(anyList())).thenReturn(List.of(s1, s2));
@@ -252,8 +263,8 @@ class WaxCastingScheduleValidationTest {
         UUID ref1 = UUID.randomUUID();
         UUID ref2 = UUID.randomUUID();
         // Mon 09:30 and Wed 16:00 (even with 6 slot ordinals difference, only 1 date strictly between)
-        WorkshopSession s1 = session(14L, ref1, locationA, slotMorning, LocalDate.of(2026, 11, 9));
-        WorkshopSession s2 = session(15L, ref2, locationA, slotEvening, LocalDate.of(2026, 11, 11));
+        WorkshopSession s1 = session(14L, ref1, locationA, slotMorning, MONDAY.plusDays(0));
+        WorkshopSession s2 = session(15L, ref2, locationA, slotEvening, MONDAY.plusDays(2));
 
         when(packageRepository.findByIdWithLock(88L)).thenReturn(Optional.of(waxCastingPackage));
         when(sessionRepository.findByReferenceInWithLock(anyList())).thenReturn(List.of(s1, s2));
@@ -270,8 +281,8 @@ class WaxCastingScheduleValidationTest {
     void validateRejectsFridayToTuesdayNextWeek() {
         UUID ref1 = UUID.randomUUID();
         UUID ref2 = UUID.randomUUID();
-        WorkshopSession s1 = session(16L, ref1, locationA, slotMorning, LocalDate.of(2026, 11, 13));
-        WorkshopSession s2 = session(17L, ref2, locationA, slotEvening, LocalDate.of(2026, 11, 17));
+        WorkshopSession s1 = session(16L, ref1, locationA, slotMorning, MONDAY.plusDays(4));
+        WorkshopSession s2 = session(17L, ref2, locationA, slotEvening, MONDAY.plusDays(8));
 
         when(packageRepository.findByIdWithLock(88L)).thenReturn(Optional.of(waxCastingPackage));
         when(sessionRepository.findByReferenceInWithLock(anyList())).thenReturn(List.of(s1, s2));
@@ -288,8 +299,8 @@ class WaxCastingScheduleValidationTest {
     void validateAcceptsMondayToFridayThreeWorkingDays() {
         UUID ref1 = UUID.randomUUID();
         UUID ref2 = UUID.randomUUID();
-        WorkshopSession s1 = session(18L, ref1, locationA, slotMorning, LocalDate.of(2026, 11, 9));
-        WorkshopSession s2 = session(19L, ref2, locationA, slotEvening, LocalDate.of(2026, 11, 13));
+        WorkshopSession s1 = session(18L, ref1, locationA, slotMorning, MONDAY.plusDays(0));
+        WorkshopSession s2 = session(19L, ref2, locationA, slotEvening, MONDAY.plusDays(4));
 
         when(packageRepository.findByIdWithLock(88L)).thenReturn(Optional.of(waxCastingPackage));
         when(sessionRepository.findByReferenceInWithLock(anyList())).thenReturn(List.of(s1, s2));
@@ -307,8 +318,8 @@ class WaxCastingScheduleValidationTest {
         UUID ref1 = UUID.randomUUID();
         UUID ref2 = UUID.randomUUID();
         // Mon at Location A, Thu at Location B
-        WorkshopSession s1 = session(20L, ref1, locationA, slotMorning, LocalDate.of(2026, 11, 9));
-        WorkshopSession s2 = session(21L, ref2, locationB, slotMorning, LocalDate.of(2026, 11, 12));
+        WorkshopSession s1 = session(20L, ref1, locationA, slotMorning, MONDAY.plusDays(0));
+        WorkshopSession s2 = session(21L, ref2, locationB, slotMorning, MONDAY.plusDays(3));
 
         when(packageRepository.findByIdWithLock(88L)).thenReturn(Optional.of(waxCastingPackage));
         when(sessionRepository.findByReferenceInWithLock(anyList())).thenReturn(List.of(s1, s2));
@@ -324,7 +335,7 @@ class WaxCastingScheduleValidationTest {
     @DisplayName("validate rejects duplicate identical sessions (session trùng nhau)")
     void validateRejectsDuplicateSessions() {
         UUID ref1 = UUID.randomUUID();
-        WorkshopSession s1 = session(22L, ref1, locationA, slotMorning, LocalDate.of(2026, 11, 9));
+        WorkshopSession s1 = session(22L, ref1, locationA, slotMorning, MONDAY.plusDays(0));
 
         when(packageRepository.findByIdWithLock(88L)).thenReturn(Optional.of(waxCastingPackage));
 
@@ -341,8 +352,8 @@ class WaxCastingScheduleValidationTest {
     void validateRejectsOutOfOrderChronologicalSessions() {
         UUID refThu = UUID.randomUUID();
         UUID refMon = UUID.randomUUID();
-        WorkshopSession sThu = session(23L, refThu, locationA, slotMorning, LocalDate.of(2026, 11, 12));
-        WorkshopSession sMon = session(24L, refMon, locationA, slotMorning, LocalDate.of(2026, 11, 9));
+        WorkshopSession sThu = session(23L, refThu, locationA, slotMorning, MONDAY.plusDays(3));
+        WorkshopSession sMon = session(24L, refMon, locationA, slotMorning, MONDAY.plusDays(0));
 
         when(packageRepository.findByIdWithLock(88L)).thenReturn(Optional.of(waxCastingPackage));
         when(sessionRepository.findByReferenceInWithLock(anyList())).thenReturn(List.of(sThu, sMon));
@@ -374,10 +385,10 @@ class WaxCastingScheduleValidationTest {
                 .build();
         when(bookingPolicySnapshotRepository.findByBookingReference("BK-REPLACE-WAX")).thenReturn(Optional.of(waxSnapshot));
 
-        WorkshopSession sMon = session(31L, UUID.randomUUID(), locationA, slotEvening, LocalDate.of(2026, 11, 9));
-        WorkshopSession sThu = session(32L, UUID.randomUUID(), locationA, slotMorning, LocalDate.of(2026, 11, 12));
-        WorkshopSession sWed = session(33L, UUID.randomUUID(), locationA, slotMorning, LocalDate.of(2026, 11, 11));
-        WorkshopSession sThuLocB = session(34L, UUID.randomUUID(), locationB, slotMorning, LocalDate.of(2026, 11, 12));
+        WorkshopSession sMon = session(31L, UUID.randomUUID(), locationA, slotEvening, MONDAY.plusDays(0));
+        WorkshopSession sThu = session(32L, UUID.randomUUID(), locationA, slotMorning, MONDAY.plusDays(3));
+        WorkshopSession sWed = session(33L, UUID.randomUUID(), locationA, slotMorning, MONDAY.plusDays(2));
+        WorkshopSession sThuLocB = session(34L, UUID.randomUUID(), locationB, slotMorning, MONDAY.plusDays(3));
 
         // Valid: Monday -> Thursday (2 days)
         assertThat(policy.isValidReplacement("BK-REPLACE-WAX", List.of(sMon, sThu), 2)).isTrue();

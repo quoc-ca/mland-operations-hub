@@ -4,6 +4,16 @@
   max-width: 900px;
   margin: 2rem auto;
   padding: 0 1rem;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.design-container button,
+.design-container input,
+.design-container select,
+.design-container textarea {
+  font-family: inherit;
 }
 
 .chat-box {

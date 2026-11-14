@@ -1,9 +1,9 @@
 # Feature-012 Workflows — Workshop Ring Design Configuration
 
-Date created: 2026-11-08  
-Date updated: 2026-11-08  
-Author: Ngô Tiến Đạt  
-Last updated by: Ngô Tiến Đạt  
+Date created: 2026-11-08
+Date updated: 2026-11-09
+Author: Ngô Tiến Đạt
+Last updated by: Ngô Tiến Đạt
 
 **Status:** Proposed workflow design; names are logical until API and code
 approval.
@@ -113,3 +113,39 @@ design only when the surrounding booking transaction commits. Payment,
 capacity-hold and ticket creation remain outside this operation. A rollback
 leaves the design available for retry; a repeated `operationReference` returns
 the prior outcome, while changed payload with the same reference is a conflict.
+
+## W10 — Frontend live-preview interaction
+
+1. The route loads the package reference and requests the package-scoped option
+   schema.
+2. The application hook normalizes the response into control descriptors and a
+   local draft; the UI renders only those descriptors.
+3. A material, gemstone, ring-size or band-width change updates local draft
+   state and derives a new `PreviewModel` immediately.
+4. `RingPreview` redraws from `PreviewModel` without a network request and does
+   not change the authoritative design version.
+5. Save/Evaluate serializes the complete normalized draft, creates one
+   idempotency key for the command and sends the last `If-Match-Version`.
+6. On success, the application layer replaces the authoritative design/version
+   and evaluation snapshot, then marks the UI validated.
+7. On validation, stale-version or rules-service failure, the UI keeps the
+   local draft and displays the corresponding state from `ui-flow.md`.
+
+The live preview is visual feedback, not a client-side compatibility or price
+calculation. No API request is made for every slider movement unless a future
+approved contract explicitly requires server preview.
+
+## W11 — Frontend branch recovery
+
+1. Booking supplies the selected branch context through the approved booking
+   integration boundary.
+2. The client calls the Feature-012 attach/revalidation adapter only when the
+   current design version is available.
+3. A compatible result proceeds to Booking; the Feature-012 UI does not create
+   payment, capacity or ticket effects.
+4. `DESIGN_BRANCH_INCOMPATIBLE` maps to the recovery state shown in Figma node
+   `457:1795`.
+5. The user may replace the unsupported option or return to branch selection.
+   The saved design and safe local draft are retained.
+6. Retrying the same attach command reuses its operation reference; changing
+   the design creates a new version before a new attach attempt.

@@ -194,24 +194,44 @@ class LoyaltyWorkshopQuoteTest {
     }
 
     @Test
-    void thereIsNoAutomaticDiscountForWorkshops() {
+    void withoutAnyWorkshopProgrammeAnAutomaticSelectionSimplyGivesNoDiscount() {
+        // Session 2026-11-14 (FR-044) replaced the old refusal: workshops do have automatic discounts now, so an
+        // automatic selection with no active programme is a reason, not a typed failure. WorkshopAutoDiscountTest
+        // covers the selection rules themselves.
         BenefitSelection auto = new BenefitSelection(SelectionChoice.AUTO, null, BigInteger.ZERO);
-        assertCode(() -> WorkshopBenefitEvaluator.compute(booking(1_000_000), auto, null, POLICY, n(0), true),
-                LoyaltyErrorCode.PROMOTION_INELIGIBLE);
+        RetailQuote.Result strict = WorkshopBenefitEvaluator.compute(booking(1_000_000), auto, null, POLICY, n(0), true);
+        assertThat(strict.candidate()).isNull();
+        assertThat(strict.programDiscount()).isZero();
+        assertThat(strict.reasonDetails()).extracting(BenefitReason::code)
+                .containsExactly(BenefitReasonCode.WORKSHOP_NO_AUTO_DISCOUNT_APPLIES);
         assertThat(WorkshopBenefitEvaluator.compute(booking(1_000_000), auto, null, POLICY, n(0), false).reasons())
                 .isNotEmpty();
     }
 
     @Test
-    void aZeroOrNegativeFeeAfterBenefitsIsRefused() {
-        // FR-022: no free booking in this version. A voucher taking the whole fee leaves 0.
-        assertCode(() -> WorkshopBenefitEvaluator.compute(booking(100_000), voucherSelection(0),
-                simple(fixed(100_000, 100_000, 0)), POLICY, n(0), true), LoyaltyErrorCode.WORKSHOP_NET_AMOUNT_INVALID);
-        assertCode(() -> WorkshopBenefitEvaluator.compute(booking(0), new BenefitSelection(SelectionChoice.NONE, null,
-                BigInteger.ZERO), null, POLICY, n(0), true), LoyaltyErrorCode.WORKSHOP_NET_AMOUNT_INVALID);
+    void aZeroFeeAfterBenefitsIsAccepted() {
+        // FR-022 (decision 2026-11-12): a voucher taking the whole fee leaves 0, which FE-03 confirms without VNPay.
+        RetailQuote.Result accepted = WorkshopBenefitEvaluator.compute(booking(100_000), voucherSelection(0),
+                simple(fixed(100_000, 100_000, 0)), POLICY, n(0), true);
+        assertThat(accepted.programDiscount()).isEqualTo(n(100_000));
+        assertThat(accepted.earnBase()).isZero();
         RetailQuote.Result preview = WorkshopBenefitEvaluator.compute(booking(100_000), voucherSelection(0),
                 simple(fixed(100_000, 100_000, 0)), POLICY, n(0), false);
-        assertThat(preview.reasons()).isNotEmpty();
+        assertThat(preview.reasons()).isEmpty();
+        assertThat(preview.earnBase()).isZero();
+        // A package priced 0 with no benefit is also passed through; whether to sell it is FE-03's rule.
+        assertThat(WorkshopBenefitEvaluator.compute(booking(0), new BenefitSelection(SelectionChoice.NONE, null,
+                BigInteger.ZERO), null, POLICY, n(0), true).earnBase()).isZero();
+    }
+
+    @Test
+    void pointsCanTakeTheFeeToZeroWhenThePolicyCapAllowsIt() {
+        // FR-025/FR-026: the cap is the Manager's policy (0 < cap <= 100%). At 100% points may pay the whole fee.
+        PolicyTerms fullCap = new PolicyTerms(n(10_000), n(100), n(10), new BigDecimal("100"));
+        RetailQuote.Result result = WorkshopBenefitEvaluator.compute(booking(100_000),
+                new BenefitSelection(SelectionChoice.NONE, null, n(1_000)), null, fullCap, n(1_000), true);
+        assertThat(result.pointDiscount()).isEqualTo(n(100_000));
+        assertThat(result.earnBase()).isZero();
     }
 
     @Test

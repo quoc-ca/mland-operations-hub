@@ -40,6 +40,10 @@ public class GroupedCheckout {
     @Column(name = "payment_initiated_at") private Instant paymentInitiatedAt;
     @Column(name = "cancellation_unrestored_quantity") private Integer cancellationUnrestoredQuantity;
     @Column(name = "payment_proof_ref", length = 128) private String paymentProofRef;
+    /** VNPAY or CASH_AT_COUNTER (FR-08-041); see {@link RetailPaymentMethod}. */
+    @Column(name = "payment_method", nullable = false, length = 24) private String paymentMethod = RetailPaymentMethod.VNPAY.name();
+    /** Pickup/payment deadline of a cash checkout (72 hours after acceptance); null for VNPay. */
+    @Column(name = "counter_payment_deadline") private Instant counterPaymentDeadline;
     @Version @Column(nullable = false) private Long version;
     @CreationTimestamp @Column(name = "created_at", nullable = false, updatable = false) private Instant createdAt;
     @UpdateTimestamp @Column(name = "updated_at", nullable = false) private Instant updatedAt;
@@ -59,6 +63,12 @@ public class GroupedCheckout {
 
     @PrePersist void assignId() { if (id == null) id = UUID.randomUUID().toString(); }
     public void addOrder(RetailOrder order) { orders.add(order); }
+    /** Marks this accepted checkout as paid in cash at the branch counter before {@code deadline}. */
+    public void useCounterCash(Instant deadline) {
+        this.paymentMethod = RetailPaymentMethod.CASH_AT_COUNTER.name();
+        this.counterPaymentDeadline = deadline;
+    }
+    public boolean isCounterCash() { return RetailPaymentMethod.CASH_AT_COUNTER.name().equals(paymentMethod); }
     public void beginPayment() { this.paymentState = PaymentState.PAYMENT_INITIATED; this.paymentInitiatedAt = Instant.now(); }
     public void markPaid() { this.paymentState = PaymentState.PAID; orders.forEach(RetailOrder::markPaid); }
     public void markPaidWithProof(String proofRef) { this.paymentProofRef = proofRef; markPaid(); }
@@ -70,4 +80,14 @@ public class GroupedCheckout {
     }
     public void expireLocalDemo() { this.paymentState = PaymentState.EXPIRED; orders.forEach(RetailOrder::expireLocalDemo); }
     public void expireUnpaid() { this.paymentState = PaymentState.EXPIRED; orders.forEach(RetailOrder::expireUnpaid); }
+    /**
+     * Cash checkout with branch orders settled one by one (Session 2026-11-13, D-011): stays accepted while any branch
+     * order is unpaid, then becomes paid when at least one was paid, cancelled when all were cancelled, else expired.
+     */
+    public void resolveFromOrders() {
+        if (orders.stream().anyMatch(order -> order.getPaymentState() == PaymentState.ACCEPTED_UNPAID)) return;
+        if (orders.stream().anyMatch(order -> order.getPaymentState() == PaymentState.PAID)) this.paymentState = PaymentState.PAID;
+        else if (orders.stream().allMatch(order -> order.getPaymentState() == PaymentState.CANCELLED)) this.paymentState = PaymentState.CANCELLED;
+        else this.paymentState = PaymentState.EXPIRED;
+    }
 }

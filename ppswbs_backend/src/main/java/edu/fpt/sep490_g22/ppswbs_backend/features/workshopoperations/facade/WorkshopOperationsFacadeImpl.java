@@ -7,6 +7,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.AttendanceTicketService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.CapacityHoldService;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.GroupCapacityService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.FacadeCommandIdempotencyManager;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.FacadeCommandIdempotencyManager.ClaimResult;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.FacadeCommandIdempotencyManager.ClaimStatus;
@@ -40,6 +41,10 @@ public class WorkshopOperationsFacadeImpl implements WorkshopOperationsFacade {
     private final FacadeCommandIdempotencyManager idempotencyManager;
     private final ObjectMapper objectMapper;
     private final CapacityHoldService capacityHoldService;
+    private final GroupCapacityService groupCapacityService;
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.TicketQrReissueService ticketQrReissueService;
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.TicketCancellationService ticketCancellationService;
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.TicketSessionReplacementService ticketSessionReplacementService;
     private final AttendanceTicketService attendanceTicketService;
     private final WorkshopOtaSnapshotService otaSnapshotService;
     private final WorkshopPackageReservationPolicy packageReservationPolicy;
@@ -107,6 +112,27 @@ public class WorkshopOperationsFacadeImpl implements WorkshopOperationsFacade {
         return capacityHoldService.reserveBookingCapacity(command,
                 () -> packageReservationPolicy.validate(command),
                 () -> packageReservationPolicy.snapshotForBooking(command));
+    }
+
+    @Override
+    @Transactional
+    public GroupCapacityOutcome reserveGroupCapacity(ReserveGroupCapacityCommand command) {
+        return groupCapacityService.reserveGroupCapacity(command);
+    }
+
+    @Override
+    public TicketQrReissueOutcome reissueTicketQr(ReissueTicketQrCommand command) {
+        return ticketQrReissueService.reissue(command);
+    }
+
+    @Override
+    public TicketCancellationOutcome cancelTicket(CancelTicketCommand command) {
+        return ticketCancellationService.cancelTicket(command);
+    }
+
+    @Override
+    public TicketSessionReplacementOutcome replaceTicketSessions(ReplaceTicketSessionsCommand command) {
+        return ticketSessionReplacementService.replace(command);
     }
 
     @Override
@@ -288,6 +314,13 @@ public class WorkshopOperationsFacadeImpl implements WorkshopOperationsFacade {
     public BookingAttendanceOutcome getBookingAttendanceOutcome(BookingAttendanceOutcomeQuery query) {
         if (query == null) return BookingAttendanceOutcome.pending();
         return bookingAttendanceOutcomeService.evaluate(query.bookingReference(), Instant.now()).outcome();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public BookingAttendanceOutcome getTicketAttendanceOutcome(TicketAttendanceOutcomeQuery query) {
+        if (query == null) return BookingAttendanceOutcome.pending();
+        return bookingAttendanceOutcomeService.evaluateTicket(query.ticketReference(), Instant.now()).outcome();
     }
 
     @Override

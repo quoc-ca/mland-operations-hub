@@ -39,6 +39,12 @@ public class WorkshopBookingSettlementAdapter {
         return booking.getVerifiedDepositPayments(new VerifiedBookingDepositPaymentsQuery(bookingReference));
     }
 
+    /** The one Loyalty context of a booking group, with its ticket identities. */
+    public edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingGroupLoyaltyOutcomeSource
+            groupLoyaltyOutcomeSource(String groupReference) {
+        return booking.getGroupLoyaltyOutcomeSource(groupReference);
+    }
+
     public WorkshopBookingLoyaltyOutcomeSource loyaltyOutcomeSource(String bookingReference) {
         return booking.getLoyaltyOutcomeSource(new WorkshopBookingLoyaltyOutcomeSourceQuery(bookingReference));
     }

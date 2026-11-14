@@ -15,9 +15,14 @@ const QUANTITY = /^[1-9][0-9]?$/;
  * quantity } only — no price, no product id; FE-08 re-checks price and availability. Success opens /member/cart. A
  * Guest is sent to sign-in with returnTo carrying the choice so it is restored on return. Browsing creates nothing;
  * only this button writes. Errors show FE-08's message. Branches come from GET /api/v1/product-selling-locations; if
- * that source is unavailable the button stays disabled with a retry (no guessed default branch).
+ * that source is unavailable the button stays disabled with a retry (no guessed default branch). US10: for a size sold
+ * at branches only those branches are offered, a branch without stock shown as sold out (FR-046/FR-052).
+ *
+ * @param returnPath where a Guest comes back after sign-in (default: this page); the list's quick add uses the
+ *                   product page, which restores the choice from the query
+ * @param onAdded    called after a successful add instead of opening the cart (the list's quick add)
  */
-export function AddToCartPanel({ product }) {
+export function AddToCartPanel({ product, returnPath, onAdded }) {
   const t = useT(messages);
   const errorText = useErrorText(messages);
   const api = useCatalogueApi();
@@ -35,13 +40,24 @@ export function AddToCartPanel({ product }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState(null);
 
-  // A branch from returnTo is kept only if it is still an active selling location.
+  // US10 (FR-046/FR-052): a size sold at branches offers only those branches; one without stock there is shown as
+  // sold out and cannot be chosen. A size not yet assigned to any branch keeps every active selling location.
+  const chosenVariant = buyable.find(variant => variant.id === choice.variantId);
+  const branchOptions = (locations.data?.items || [])
+    .map(item => {
+      if (!chosenVariant?.assignedToBranches) return { ...item, canBuy: true };
+      const atBranch = (chosenVariant.branches || []).find(branch => branch.locationId === item.id);
+      return atBranch ? { ...item, canBuy: atBranch.canBuy } : null;
+    })
+    .filter(Boolean);
+  const branchKey = branchOptions.map(item => `${item.id}:${item.canBuy}`).join(',');
+
+  // A branch from returnTo (or chosen for another size) is kept only if it can still be bought for this size.
   useEffect(() => {
-    const items = locations.data?.items;
-    if (items && choice.locationId && !items.some(item => item.id === choice.locationId)) {
+    if (locations.data && choice.locationId && !branchOptions.some(item => item.id === choice.locationId && item.canBuy)) {
       setChoice(current => ({ ...current, locationId: '' }));
     }
-  }, [locations.data]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [locations.data, choice.variantId, branchKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (buyable.length === 0) return <p className="status">{t('cart.noBuyableSize')}</p>;
 
@@ -49,13 +65,14 @@ export function AddToCartPanel({ product }) {
   const quantityOk = QUANTITY.test(choice.quantity);
   const ready = Boolean(choice.variantId && choice.locationId && quantityOk && locations.data && !pending);
 
-  const back = `${location.pathname}?${new URLSearchParams({ variantId: choice.variantId, locationId: choice.locationId, quantity: choice.quantity })}`;
+  const back = `${returnPath || location.pathname}?${new URLSearchParams({ variantId: choice.variantId, locationId: choice.locationId, quantity: choice.quantity })}`;
   const add = async () => {
     setPending(true);
     setError(null);
     try {
       await api.addCartLine({ variantId: Number(choice.variantId), locationId: Number(choice.locationId), quantity: Number(choice.quantity) });
-      navigate('/member/cart');
+      // The quick add of the list stays on the list (onAdded); the detail page opens the cart as before.
+      if (onAdded) { setPending(false); onAdded(); } else navigate('/member/cart');
     } catch (failure) {
       setError(failure);
       setPending(false);
@@ -71,10 +88,14 @@ export function AddToCartPanel({ product }) {
           </select>
         </Field>
         {/* A plain hint, not an error: nothing is wrong before the shopper has tried to add anything. */}
-        <Field label={t('cart.branch')} hint={locations.data?.items.length && !choice.locationId ? t('cart.chooseBranchHint') : null}>
+        <Field label={t('cart.branch')} hint={branchOptions.length && !choice.locationId ? t('cart.chooseBranchHint') : null}>
           <select value={choice.locationId} onChange={set('locationId')} disabled={!locations.data}>
             <option value="">{t('cart.chooseBranch')}</option>
-            {(locations.data?.items || []).map(item => <option key={item.id} value={item.id}>{item.name}{item.address ? ` — ${item.address}` : ''}</option>)}
+            {branchOptions.map(item => (
+              <option key={item.id} value={item.id} disabled={!item.canBuy}>
+                {item.name}{item.address ? ` — ${item.address}` : ''}{item.canBuy ? '' : ` (${t('cart.soldOutAtBranch')})`}
+              </option>
+            ))}
           </select>
         </Field>
         <Field label={t('cart.quantity')} error={quantityOk ? null : t('cart.quantityHint')}>

@@ -101,6 +101,67 @@ assigned to that session** may …".
   same rule through the booking: a Staff member may act on a booking only while
   assigned to a session the booking holds a valid ticket for.
 
+## Per-ticket capacity, attendance, QR and changes (decision 2026-11-12)
+
+**Source:** owner decisions recorded 2026-11-11/12 in
+`artifacts/workshop-changes-to-implement.md`. **Status:** specified, not yet
+implemented (tasks Phase 14, T090–T096). It serves 003.1 FR-030–FR-043 (booking group, one
+ticket booking per person, ticket recipients) and 003.3 FR-030–FR-045
+(per-ticket folio, cancellation, Mland remedy and changes).
+
+**Supersedes in part:** booking-wide capacity, readiness and attendance
+outcome (FR-010h–FR-010k, FR-010w, FR-014) now apply per ticket booking;
+complete-booking replacement with the booking's full participant count
+(FR-010x) becomes per-ticket replacement; FR-010y's ban on an `IN_PROGRESS`
+source gains the late-arrival exception below. Superseded wording is read
+through this section.
+
+- **FR-030**: A ticket booking holds exactly one seat in each of its required
+  sessions. For a booking group, 003.1 reserves all lines (any packages and
+  sessions) in one command, all or none, and commits or releases the whole group
+  together until confirmation; afterwards capacity is committed and released
+  per ticket. All channels (direct and OTA) consume the same session capacity.
+- **FR-031**: Cancelling a ticket (customer, 003.3 FR-041; Mland, FR-043)
+  releases the ticket's seats in every future session of that ticket and
+  revokes its future entitlements; it never touches another ticket of the group
+  and never rewrites attendance history.
+- **FR-032**: Readiness and the attendance outcome are per ticket booking:
+  `terminal` when every session of the ticket is `ATTENDANCE_FINALIZED` and the
+  24-hour correction window has closed; outcome `ATTENDED`, `PARTIAL` or
+  `NO_SHOW` (every session of that ticket is a final `NO_SHOW`).
+  `BookingAttendanceFinalizedEvent` is published once per ticket booking. The
+  query and event still carry no participant or PII payload.
+- **FR-033**: To change a ticket's recipient (003.1 FR-041), Operations MUST
+  revoke the ticket's current QR immediately and issue a new opaque QR for the
+  same entitlements, idempotently; the revoked QR is refused at check-in. It is
+  refused once any session of the ticket is checked in. A resend to the same
+  recipient keeps the QR. The on-site resend rule is unchanged: a resend never
+  replaces the recipient.
+- **FR-034**: For a 003.3 ticket change (FR-044) Operations replaces the
+  sessions of each selected ticket, all or none across the selected tickets,
+  one seat per ticket per target session, keeping QR and attendance history.
+  Each target must be future, `PUBLISHED`, customer-selectable, have capacity
+  and have reschedule quota left (FR-035), and the resulting set must satisfy
+  the package rules (distinctness, location, same-day slot gap, Wax Casting
+  foundry working days). Late-arrival exception: a source session that is
+  `IN_PROGRESS` and not yet ended may be replaced; the replacement of the missed
+  session must start no later than the old session's end + 7 days; a following
+  session moved with it may be outside that window but must keep the package
+  order and gap. A Mland-caused replacement uses the same checks but is not a
+  customer change.
+- **FR-035** *(values decided 2026-11-12)*: Each session has one reschedule
+  quota: the maximum number of tickets it may receive by customer change,
+  counted per moved ticket and shared by advance changes and late-arrival
+  support. The default is 25% of the session capacity rounded down, at least 1
+  (for example 3 for a 12-seat session); a Manager may change it per session,
+  including 0 to close the session to customer changes. When capacity changes,
+  a session still on the default recomputes it; a Manager-set value is kept.
+  Mland-caused replacements do not consume or check the quota (capacity only).
+  The quota never replaces the capacity check; a moved ticket takes one seat.
+  The 25% default is a starting value to review after operating data exists.
+- **FR-036**: OTA tickets keep the OTA's policy; these customer change and
+  cancellation rules do not apply to them.
+
 ## Scope
 
 This feature owns the Workshop Package catalogue/configuration and publication,
@@ -558,6 +619,29 @@ scope. The target implementation and all public contracts use `location` and
   not create or alter the catalogue per branch. It includes
   `OTHER_REQUIRES_NOTE` for an unlisted exception, which always requires a
   clear note or evidence reference.
+- **Reason-code catalogue (backfilled 2026-11-12 from implementation):**
+
+  | Code | Used for | Note | Evidence |
+  |---|---|:-:|:-:|
+  | `TICKET_REDELIVERY_UNAVAILABLE` | Check-in override after a failed ticket redelivery | Required | Required (failed-redelivery correlation reference) |
+  | `CUSTOMER_DEVICE_UNAVAILABLE` | Check-in override: customer device dead, damaged or unavailable onsite | — | — |
+  | `EARLY_CHECKIN` | Check-in override: customer admitted before the check-in window opens | — | — |
+  | `PHYSICAL_VOUCHER_VERIFIED` | Check-in override: printed confirmation verified by Staff | — | — |
+  | `INSTRUCTOR_UNAVAILABLE` | Session cancellation: instructor/craftsperson unavailable | Required | — |
+  | `FACILITY_ISSUE` | Session cancellation: facility, power, tool or equipment failure | Required | — |
+  | `WEATHER_EMERGENCY` | Session cancellation: severe weather or natural disaster | Required | — |
+  | `RECORDING_ERROR` | Attendance correction: scanning error or mistaken identification | Required | — |
+  | `OTHER_REQUIRES_NOTE` | Any unlisted exception | Required | — |
+
+  An unrecognized code is rejected. The catalogue is fixed in code; changing it
+  is a spec change.
+- **Visible-location configuration (backfilled 2026-11-12 from 8d8e5a4):** the
+  deployment setting `workshop.operations.visible-location-ids`
+  (environment `WORKSHOP_OPERATIONS_VISIBLE_LOCATION_IDS`) lists the location
+  IDs shown by public package/session/location discovery and Operations lists.
+  Empty means every active location is visible. It is an environment filter
+  (for example to hide test locations), not a business permission, and it does
+  not replace Staff location scope.
 
 ## User scenarios
 
@@ -1114,20 +1198,20 @@ correction, with before/after audit evidence.
   publication recorded in the same local Operations transaction as its source
   change. 003.4 consumes that publication at-least-once and owns separate
   durable outbound delivery to providers. V1 MUST NOT require a message broker.
-- **FR-010w**: For a booking/package context requested by 003.3, this feature
+- **FR-010w** *(superseded in part 2026-11-12 by FR-032)*: For a booking/package context requested by 003.3, this feature
   MUST provide only its authoritative settlement-readiness conclusion. It MUST
   be true only when every required session is `ATTENDANCE_FINALIZED`, and false
   when any required session is not finalized, including cancellation. It MUST
   not expose individual attendance, ticket, Staff, audit or PII detail, and
   003.3 MUST NOT derive readiness from scheduled end time or per-session state.
-- **FR-010x**: For a 003.3-requested complete required-session replacement,
+- **FR-010x** *(superseded in part 2026-11-12 by FR-034)*: For a 003.3-requested complete required-session replacement,
   every target session MUST be future, `PUBLISHED`, customer-selectable and
   have capacity for the booking's complete participant count. This feature MUST
   apply every requested capacity and ticket-entitlement change together or none;
   if any source/target eligibility or capacity condition fails, it MUST leave
   every existing required session, ticket entitlement and capacity unchanged.
   `SALES_PAUSED` MUST have no Manager reschedule exception in V1.
-- **FR-010y**: An ordinary 003.3-requested customer session change MUST accept
+- **FR-010y** *(superseded in part 2026-11-12 by FR-034 (late-arrival exception))*: An ordinary 003.3-requested customer session change MUST accept
   a source required session only while it is future and not `IN_PROGRESS`,
   `ATTENDANCE_FINALIZED`, `CANCELLATION_REQUESTED` or `CANCELLED`. It MUST NOT
   rewrite check-in or attendance history. A source in
@@ -1175,7 +1259,7 @@ correction, with before/after audit evidence.
   inventory route is read-only and MUST NOT be used as a second create/update
   contract. Frontend code MUST NOT fabricate missing lifecycle states when the
   management API returns an empty result.
-- **FR-014**: For the direct-booking open folio (owner decisions D2/D3,
+- **FR-014** *(superseded in part 2026-11-12 by FR-032 (per ticket))*: For the direct-booking open folio (owner decisions D2/D3,
   2026-11-05, see `../contracts/workshop-interfeature-facades.md`), this
   feature MUST publish a reference-only post-commit
   `BookingAttendanceFinalizedEvent(bookingReference, finalizedAt)` once per

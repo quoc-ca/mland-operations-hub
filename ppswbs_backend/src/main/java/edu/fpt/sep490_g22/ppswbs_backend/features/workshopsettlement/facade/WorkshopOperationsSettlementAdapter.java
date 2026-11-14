@@ -23,6 +23,13 @@ public class WorkshopOperationsSettlementAdapter {
         return operations.hasBookingServiceStarted(new BookingSettlementReadinessQuery(bookingReference));
     }
 
+    /** The terminal attendance outcome of one ticket of a booking group (003.3 FR-030). */
+    public BookingAttendanceOutcome ticketAttendanceOutcome(String ticketReference) {
+        return operations.getTicketAttendanceOutcome(
+                new edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.TicketAttendanceOutcomeQuery(
+                        ticketReference));
+    }
+
     public BookingAttendanceOutcome attendanceOutcome(String bookingReference) {
         return operations.getBookingAttendanceOutcome(new BookingAttendanceOutcomeQuery(bookingReference));
     }

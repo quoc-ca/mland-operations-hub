@@ -1,7 +1,7 @@
 # Implementation Plan: Product Management
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-26 (V1 không MFA theo 001; tên facade identity; tham chiếu 001 mới; T004 SDK Cloudinary, T092 Apache POI)
+**Date updated**: 2026-11-12 (T146: cập nhật các câu viết trước khi triển khai — Technical Context, Constitution Check I, Project Structure, Verification — theo trạng thái đã triển khai, owner duyệt 2026-11-12; trước đó: 2026-11-10 (T140: thiết kế tồn kho theo chi nhánh US10, Session 2026-11-04/11-08/11-09/11-10; trước đó: 2026-10-26: V1 không MFA theo 001; tên facade identity; tham chiếu 001 mới; T004 SDK Cloudinary, T092 Apache POI)))
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -12,7 +12,7 @@
 
 ## Summary
 
-Triển khai nhẫn bán sẵn trong module productmanagement: tạo sản phẩm với size cố định 5–29 và SKU tự sinh, gửi Manager duyệt, áp dụng đúng giá đã duyệt rồi chủ động công khai. Sửa nội dung trực tiếp sau công khai lần đầu; mọi đổi giá vẫn phải duyệt. Có quản lí ảnh, lượng bán chung, ngừng bán từng size, ẩn/công khai, xóa mềm không khôi phục, danh mục và public search/filter/sort theo spec.
+Triển khai nhẫn bán sẵn trong module productmanagement: tạo sản phẩm với size cố định 5–29 và SKU tự sinh, gửi Manager duyệt, áp dụng đúng giá đã duyệt rồi chủ động công khai. Sửa nội dung trực tiếp sau công khai lần đầu; mọi đổi giá vẫn phải duyệt. Có quản lí ảnh, số lượng theo size × chi nhánh (US10, từ Session 2026-11-08; trước đó là lượng bán chung), ngừng bán từng size hoặc tại một chi nhánh, ẩn/công khai, xóa mềm không khôi phục, danh mục và public search/filter/sort theo spec.
 
 Bổ sung import Excel (US9): tải file mẫu `.xlsx`, tải lên để kiểm tra (không tạo dữ liệu), xem trước/báo cáo lỗi theo dòng–cột, rồi xác nhận để tạo mọi sản phẩm nháp trong một transaction qua đúng `CreateProductService`. Không thay đổi vòng đời duyệt/giá/công khai và không có ảnh trong file.
 
@@ -23,7 +23,7 @@ Giữ module đóng; JPA/Flyway và MySQL 8.4, REST API versioned phục vụ fr
 | Item | Selected/proposed design |
 | --- | --- |
 | Language/Version | Java 21 theo pom hiện hành. |
-| Primary dependencies | Spring Boot 3.4.1, Modulith 1.3.1, Firebase Admin 9.11.0, JPA/Flyway, Security, Validation theo pom (Thymeleaf còn trong pom nhưng không dùng cho UI); frontend React + Vite tách riêng, chưa khởi tạo; không nâng version. |
+| Primary dependencies | Spring Boot 3.4.1, Modulith 1.3.1, Firebase Admin 9.11.0, JPA/Flyway, Security, Validation theo pom (Thymeleaf còn trong pom nhưng không dùng cho UI); frontend React + Vite tách riêng tại `ppswbs_frontend/` (đã khởi tạo theo T088/T089); không nâng version. |
 | Storage | MySQL 8.4/InnoDB để kiểm chứng; bảng catalogue mới, DECIMAL(19,0), UTC timestamps, append-only migration. Cloudinary đã được chọn; adapter đề xuất signed server-side upload, authenticated assets và stream cùng origin. SDK `com.cloudinary:cloudinary-http5:2.4.0` (T004, duyệt 2026-10-26; xem research D-06); không nâng dependency hiện có. |
 | Testing | JUnit/Spring Boot Test/MockMvc hiện có; MySQL thật cho migration/locking/collation, H2 bổ trợ. Fixture dependency không phải integration evidence. |
 | Target platform | Frontend React + Vite (client-side rendering) tách riêng gọi Spring Boot REST; không chọn production host hoặc deployment topology. |
@@ -40,8 +40,8 @@ Giữ module đóng; JPA/Flyway và MySQL 8.4, REST API versioned phục vụ fr
 | Principle/gate | Before research | After design | Evidence/condition |
 | --- | --- | --- | --- |
 | I. Module ownership | PASS | PASS DESIGN | productmanagement sở hữu entity/repo/use case; chỉ facade/SPI ra ngoài; không nghiệp vụ trong common. |
-| I. Acyclic dependencies | RISK | PASS DESIGN / INTEGRATION OPEN | FE-08 implements productmanagement SPI; productmanagement implements `PromotionTargetPort` của FE-06 (chỉ dùng `loyaltypromotion::facade`, không có chiều ngược lại); lock contract tại [interfaces](contracts/interfaces.md); adapter chưa có. |
-| I. JPA/migrations | PASS | PASS DESIGN | Khóa JPA, append-only migration, không raw SQL application, không sửa migration đã áp dụng (hiện chưa có migration nào). |
+| I. Acyclic dependencies | RISK | PASS DESIGN / INTEGRATION OPEN | FE-08 implements productmanagement SPI; productmanagement implements `PromotionTargetPort` của FE-06 (chỉ dùng `loyaltypromotion::facade`, không có chiều ngược lại); lock contract tại [interfaces](contracts/interfaces.md); các adapter đã có: availability/sales của FE-08 (`readyringsales`), `WorkshopSellingLocationAdapter` của 003.2, `LoyaltyProductTargetAdapter` của 002 — kiểm chứng bằng `ModulithArchitectureTests`; phần giữ hàng theo chi nhánh của FE-08 còn ở T124. |
+| I. JPA/migrations | PASS | PASS DESIGN | Khóa JPA, append-only migration, không raw SQL application, không sửa migration đã áp dụng (migration của 002: `V15__product_management.sql` và `V109__catalogue_variant_branch_stock.sql`, cùng các bản bổ sung đã áp dụng; trùng số `V109` với 012 theo dõi ở T136). |
 | II. Identity/authority | OPEN | FE-02 DECISION CLOSED / IDENTITY DEPENDENCY OPEN | Roles, dùng chung xác thực theo 001 đã chốt. V1 không yêu cầu MFA cho vai trò nội bộ (chốt 2026-10-26 theo 001); facade identity/quyền của 001 cần triển khai. Không suy quyền từ Member cookie/ROLE_MEMBER/OWNER. |
 | II. Sensitive data | PASS | POLICY CONFIRMED / IMPLEMENTATION PENDING | Retention ảnh 24h/30 ngày có reference guard, business audit/command result 5 năm đã chốt; cleanup/audit cần triển khai và kiểm chứng. |
 | III. Contract/web | PASS | PASS DESIGN | OpenAPI 3.0.3, typed errors/DTO, bearer cho mọi REST, frontend React tách riêng; backend không render UI. |
@@ -70,7 +70,7 @@ ppswbs-spec/features/002-product-management/
 
 Không tạo tasks.md trong speckit-plan; không sửa checklist reviewer/spec/research tổng để nâng trạng thái phê duyệt.
 
-### Source Code (repository root, planned only)
+### Source Code (repository root, đã triển khai)
 
 ```text
 ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/
@@ -98,7 +98,7 @@ ppswbs_frontend/        (React + Vite)
   src/features/product-management/  ui/ (management, public), application/ (hook gọi API), domain/ (luật thuần), infrastructure/ (REST client), routes/, tests/; cổng công khai index.js — theo FRONTEND-ARCHITECTURE (chuyển 2026-11-02)
 ```
 
-**Structure Decision**: Theo constitution I, backend tổ chức `features/<feature>/{controller,dto,dao,entity,service,facade}`. Feature 002 là module Modulith riêng tên `productmanagement` (Java package hợp lệ; slug tài liệu là `product-management`). Toàn bộ `ppswbs_backend/src`, kể cả shell `catalogue` cũ, đã bị xóa ở commit `c47fefe` (ho-quoc, 2026-10-24); `productmanagement` là module mới tạo từ đầu, không kế thừa code cũ. Plan phải kiểm chứng bằng `ApplicationModules.verify()` rằng `productmanagement` được nhận diện là module riêng, không chỉ gói grouping `features`. Không tạo service mới hoặc làm chung module FE-08. Tên bảng `catalogue_*`, route `/api/v1/catalogue-management/...` và tên class `Catalogue*` giữ nguyên trong tài liệu này (không thuộc yêu cầu đổi gói). Member Profile không được triển khai/sửa từ tác vụ này. Những file trên là vị trí dự kiến, không phải file production đã tạo.
+**Structure Decision**: Theo constitution I, backend tổ chức `features/<feature>/{controller,dto,dao,entity,service,facade}`. Feature 002 là module Modulith riêng tên `productmanagement` (Java package hợp lệ; slug tài liệu là `product-management`). Toàn bộ `ppswbs_backend/src`, kể cả shell `catalogue` cũ, đã bị xóa ở commit `c47fefe` (ho-quoc, 2026-10-24); `productmanagement` là module mới tạo từ đầu, không kế thừa code cũ. Plan phải kiểm chứng bằng `ApplicationModules.verify()` rằng `productmanagement` được nhận diện là module riêng, không chỉ gói grouping `features`. Không tạo service mới hoặc làm chung module FE-08. Tên bảng `catalogue_*`, route `/api/v1/catalogue-management/...` và tên class `Catalogue*` giữ nguyên trong tài liệu này (không thuộc yêu cầu đổi gói). Member Profile không được triển khai/sửa từ tác vụ này. Các vị trí trên đã được tạo khi triển khai (cập nhật 2026-11-12, T146); danh sách file chi tiết theo từng task ở [tasks.md](tasks.md).
 
 ## Phase 0 — Research and decisions
 
@@ -152,6 +152,21 @@ Trạng thái xác thực và trạng thái nghiệp vụ được tách riêng:
 - Product: unpublished/published và deletedAt riêng; firstPublishedAt không bị xóa khi ẩn. Sau firstPublishedAt, sửa content hợp lệ không cần duyệt lại. Product đã xóa không được restore qua command thường.
 - Frontend React + Vite gọi REST theo [interfaces](contracts/interfaces.md): field errors gắn đúng trường và giữ dữ liệu đã nhập, 409 cho xem latest rồi gửi lại, điều hướng client sau thành công; public empty khác dependency error. Không autosubmit; mọi màn hình có loading/empty/validation/success/failure/recovery.
 
+### Branch stock and later sessions (bổ sung 2026-11-10, T140)
+
+Ghi lại thiết kế đã triển khai sau bản plan 2026-10-26; nguồn quyết định là spec Clarifications Session 2026-11-04, 2026-11-08, 2026-11-09, 2026-11-10 và tasks Phase 13–16. Phần này không thay quyết định nào của spec.
+
+- **Dữ liệu (US10, FR-047)**: bảng `catalogue_variant_branch_stock` (migration `V109__catalogue_variant_branch_stock.sql`): một dòng cho mỗi size × chi nhánh, `remaining_unsold` DECIMAL(19,0) ≥ 0, `sale_enabled`, `version`, unique `(variant_id, location_id)`; không FK sang `workshop_locations` (bảng của 003.2), không xóa dòng (ngừng bán thay cho gỡ). `catalogue_variants.remaining_unsold` giữ lại và luôn bằng tổng các dòng của size cho tới khi FE-08 chuyển xong (T124).
+- **Migration (FR-055, Q-B1)**: chuyển số lượng cũ về chi nhánh mã `HN-HOANKIEM`; không có mã đó thì không chuyển gì, sản phẩm cũ "chưa gán chi nhánh" và chi nhánh đầu tiên được thêm trên giao diện nhận số lượng cũ. Chạy lại không tạo dòng trùng.
+- **Nguồn chi nhánh**: chỉ đọc qua `SellingLocationPort` (adapter của 003.2); lỗi nguồn → `LOCATION_DEPENDENCY_UNAVAILABLE` cho lệnh ghi, còn đọc công khai vẫn chạy. Màn quản trị lấy danh sách theo phạm vi từ `GET /api/v1/workshop-locations`.
+- **Phạm vi (FR-050, Q-B3)**: `CatalogueBranchScope` đọc chi nhánh được gán qua `AccountFacade.getLocationScope` ở mỗi lệnh, chạy sau `CatalogueAuthorization.require`. Manager: mọi chi nhánh. Staff: lệnh tồn kho chỉ ở chi nhánh được gán; nội dung/ảnh/giá đề xuất chỉ khi sản phẩm có ít nhất một chi nhánh của mình; ngừng/mở bán cả size cần mọi chi nhánh đang bán size đó (T134); tạo hoặc import không có chi nhánh chỉ Manager/lệnh nội bộ (T134); không có chi nhánh nào → `BRANCH_SCOPE_EMPTY`.
+- **Lệnh (FR-048, FR-049)**: tạo sản phẩm nhận `branches[]` (toàn bộ hoặc không); thêm chi nhánh, sửa số lượng size × chi nhánh, ngừng/mở bán tại chi nhánh — mỗi lệnh có receipt và audit có `locationId`. Lệnh số lượng theo size cũ chỉ còn hợp lệ khi size ở ≤ 1 chi nhánh (`BRANCH_REQUIRED` nếu nhiều hơn). Số mới không nhỏ hơn phần giữ hợp lệ, đọc dưới guard FE-08 (theo chi nhánh khi `tracksHoldsPerBranch()`).
+- **Bán (FR-053)**: facade thêm các hàm theo `BranchVariant` (`readBranchSaleFacts`, `withLockedBranchSaleContext`, `withLockedHistoricalBranchContext`, `recordAcceptedSale(op, variantId, locationId, qty)`) và `AvailabilityGuardPort` có cài đặt mặc định theo size; thứ tự khóa không đổi. Tạm thời một lần bán không có chi nhánh trừ các dòng theo id chi nhánh tăng dần (`deductSaleWithoutBranch`) — gỡ sau T124.
+- **Đọc công khai (FR-046, FR-052, FR-033)**: mỗi size trả `branches[{locationId, canBuy}]` của chi nhánh đang hoạt động và đang bán; `canBuy` = min(số tại chi nhánh − giữ tại chi nhánh, tổng size − giữ của size) > 0; không lộ số lượng/giữ hàng. "Có thể mua" = mua được ở ít nhất một chi nhánh.
+- **Import (Q-B2, FR-040)**: chọn chi nhánh trên màn import; mẫu có cột "Số lượng {tên chi nhánh}" theo thứ tự chọn; mẫu một cột cũ hợp lệ khi chọn đúng một chi nhánh; lần tải bị từ chối vì chi nhánh được audit như file bị từ chối (T138).
+- **Giao diện quản trị (Session 2026-11-04, 2026-11-08, 2026-11-10)**: bảng sửa giá/số lượng nhiều size (mỗi size một lệnh); "Áp dụng giá ngay sau khi duyệt"; Manager tạo không qua gửi duyệt và "Công khai ngay" (mỗi bước một lệnh) — riêng hồ sơ Staff đang Chờ duyệt hoặc Bị từ chối không duyệt bằng một lần bấm, mà dẫn tới mục *Duyệt hồ sơ ban đầu* (T135, FR-010); nút −/+ số lượng; cảnh báo trùng tên dùng tìm kiếm danh sách quản lí (FR-056, không thêm API).
+- **Giao diện công khai (FR-057, FR-058)**: thẻ sản phẩm dùng chung `PublicProductGrid` (danh sách và dải trang chủ khi owner trang chủ đồng ý), hộp *Thêm nhanh* dùng lại `AddToCartPanel`; ưu đãi lấy qua cổng công khai `features/loyalty-promotion/index.js` của 006 (T139), lỗi đọc ưu đãi hiện giá thường.
+
 ### Data, API and module contracts
 
 Xem [data-model](data-model.md), [OpenAPI](contracts/product-management.openapi.json), [web/facade/security contracts](contracts/interfaces.md). ID/amount/quantity truyền decimal string, ngày UTC ISO-8601; strict DTO không nhận extra fields/size mutation/role/approved amount từ client ngoài action được phép.
@@ -175,7 +190,7 @@ Xem [data-model](data-model.md), [OpenAPI](contracts/product-management.openapi.
 | FR-026–FR-030 | Receipt/audit, locks and normalized category key | Lost response replay, audit rollback, concurrent duplicate category/activation. |
 | FR-031–FR-038 | Public predicates, two-step paging, React screens over REST | Same-variant price/buyability filter, hidden price isolation, empty/error/media restoration, UI journeys over REST. |
 
-[quickstart.md](quickstart.md) ghi lệnh, điều kiện chạy và kết quả mong đợi. Chưa chạy runtime tests vì chưa có implementation; không đánh dấu contract/migration/security/FE-08 integration là pass bằng fixture hoặc static checks.
+[quickstart.md](quickstart.md) ghi lệnh, điều kiện chạy và kết quả mong đợi. Implementation và runtime tests đã có; bằng chứng theo từng lần chạy (unit, IT MySQL, frontend, trình duyệt) ghi ở [validation-report.md](validation-report.md) và ghi chú của từng task trong [tasks.md](tasks.md) (cập nhật 2026-11-12, T146). Vẫn không đánh dấu contract/migration/security/FE-08 integration là pass bằng fixture hoặc static checks.
 
 ## Complexity Tracking
 

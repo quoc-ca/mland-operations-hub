@@ -277,6 +277,108 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '409':
           $ref: '#/components/responses/Conflict'
+  /ready-ring-orders/{orderId}/cash-collections:
+    post:
+      summary: Branch Staff confirms the exact counter cash payment of a pickup order
+      description: >-
+        Only for a branch order in AWAITING_COUNTER_PAYMENT before its pickup
+        deadline. Marks the order paid once, sells its held quantity, settles
+        its benefit share and grants its earned points; the handover is then
+        recorded with the pickup operations. Repeating the same
+        Idempotency-Key returns the first result.
+      security:
+        - firebaseBearer: []
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema:
+            type: string
+            maxLength: 128
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CashCollectionRequest'
+      responses:
+        '200':
+          description: Cash collection recorded once
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CashCollectionView'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /staff/retail-pickups:
+    get:
+      summary: Store-pickup orders of the actor's branches that Staff can act on
+      description: >-
+        Unpaid cash orders awaiting the customer and paid pickup orders from the
+        last 30 days, with handover facts and any confirmed cash collection. A
+        Member cancels an unpaid cash checkout with the existing
+        /ready-ring-checkouts/{checkoutId}/cancellations endpoint.
+      security:
+        - firebaseBearer: []
+      parameters:
+        - in: query
+          name: locationId
+          required: false
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Read-only pickup desk list
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /manager/retail-cash-collections:
+    get:
+      summary: Confirmed retail counter cash per branch and Vietnam business date
+      security:
+        - firebaseBearer: []
+      parameters:
+        - in: query
+          name: locationId
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - in: query
+          name: businessDate
+          required: true
+          description: Calendar date in Asia/Ho_Chi_Minh.
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Read-only daily total and the collections behind it
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetailDailyCashView'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /manager/retail-payment-reconciliations:
+    get:
+      summary: Retail checkouts whose VNPay result needs manual reconciliation
+      security:
+        - firebaseBearer: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 0
+      responses:
+        '200':
+          description: Read-only page of reconciliation records for permitted branches
+        '403':
+          $ref: '#/components/responses/Forbidden'
   /integrations/ghtk/webhooks:
     post:
       summary: Receive a GHTK shipment status update
@@ -431,6 +533,10 @@ components:
         benefitTermsAccepted:
           type: boolean
           description: Must be true for the server-priced benefit preview being accepted.
+        cartLineIds:
+          $ref: '#/components/schemas/CartLineSelection'
+        paymentMethod:
+          $ref: '#/components/schemas/RetailPaymentMethod'
     BranchOrderCheckoutInput:
       type: object
       required: [locationId, fulfilment]
@@ -477,9 +583,84 @@ components:
         branchOrders:
           type: array
           minItems: 1
-          description: One selected fulfilment method for each cart location. GHTK requires a verified shipping quote and is not yet enabled.
+          description: One selected fulfilment method for each location of the ticked cart lines. GHTK requires a verified shipping quote.
           items:
             $ref: '#/components/schemas/BenefitPreviewBranch'
+        cartLineIds:
+          $ref: '#/components/schemas/CartLineSelection'
+        paymentMethod:
+          $ref: '#/components/schemas/RetailPaymentMethod'
+    RetailPaymentMethod:
+      type: string
+      enum: [VNPAY, CASH_AT_COUNTER]
+      default: VNPAY
+      description: >-
+        CASH_AT_COUNTER is allowed only when every branch order is PICKUP. The
+        5,000 VND minimum applies only to VNPAY. Changing the method requires a
+        new preview.
+    CashCollectionRequest:
+      type: object
+      required: [amountReceived]
+      properties:
+        amountReceived:
+          type: string
+          pattern: '^[1-9][0-9]*$'
+          description: Cash handed over in VND; must be at least the payable amount.
+    CashCollectionView:
+      type: object
+      required: [orderId, locationId, appliedAmount, amountReceived, changeReturned, confirmedBy, confirmedAt, businessDate]
+      properties:
+        orderId:
+          type: string
+        locationId:
+          type: integer
+          format: int64
+        appliedAmount:
+          type: string
+          description: Exact payable amount of the branch order.
+        amountReceived:
+          type: string
+        changeReturned:
+          type: string
+        confirmedBy:
+          type: string
+        confirmedAt:
+          type: string
+          format: date-time
+        businessDate:
+          type: string
+          format: date
+    RetailDailyCashView:
+      type: object
+      required: [locationId, businessDate, collectionCount, totalApplied, collections]
+      properties:
+        locationId:
+          type: integer
+          format: int64
+        businessDate:
+          type: string
+          format: date
+        collectionCount:
+          type: integer
+        totalApplied:
+          type: string
+        collections:
+          type: array
+          items:
+            $ref: '#/components/schemas/CashCollectionView'
+    CartLineSelection:
+      type: array
+      nullable: true
+      minItems: 1
+      maxItems: 50
+      uniqueItems: true
+      description: >-
+        Cart lines ticked by the Member for this checkout. Only these lines are priced, quoted,
+        held and ordered; other lines stay in the cart. Omit to keep the whole-cart behaviour.
+        Unknown, duplicated or empty selections are rejected with 409.
+      items:
+        type: string
+        maxLength: 36
     BenefitPreviewBranch:
       type: object
       required: [locationId, method]
@@ -584,6 +765,8 @@ components:
           format: int64
         recipient:
           $ref: '#/components/schemas/Recipient'
+        cartLineIds:
+          $ref: '#/components/schemas/CartLineSelection'
     Recipient:
       type: object
       required: [name, phone, province, ward, address]

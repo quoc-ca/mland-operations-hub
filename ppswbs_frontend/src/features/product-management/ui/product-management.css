@@ -136,6 +136,46 @@
 .price-step{flex-basis:100%;margin:0}
 .bulk-images{border-top:1px solid #e3e3e3;margin-top:18px;padding-top:16px;display:flex;flex-direction:column;gap:12px}
 .bulk-images h3{margin:0;font-size:17px}
+.bulk-images>.notice{margin:0}
+/* Same-name warning (create form, import preview): advice in amber, never an error. */
+.pm-theme .notice.same-name,.pm-theme .workspace-card>p.notice.same-name{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 6px;margin:0 0 24px;padding:12px 16px;border:1px solid #f4d36b;border-radius:var(--pm-control-radius);background:#fffbeb;color:#7a5d00;font-size:12px}
+.pm-theme .import-result>p.notice.same-name{margin:0}
+.pm-theme .same-name .text-link{font-size:12px;font-weight:600}
+.pm-theme .same-name-hint{flex-basis:100%;margin:2px 0 0;color:#7a5d00}
+.pm-theme .same-name-row{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 6px;margin-top:4px;font-size:12px}
+.pm-theme .same-name-tag{display:inline-flex;align-items:center;min-height:20px;padding:0 8px;border-radius:10px;background:#fef3c7;color:#7a5d00;font-size:10px;font-weight:600}
+/* Import result (step 3) and image assignment: one 12px rhythm, items on one line, nothing wider than its box. */
+.pm-theme .workspace-card.import-result{display:flex;flex-direction:column;gap:12px}
+.pm-theme .import-result>*{margin:0}
+.pm-theme .import-result .card-head{flex-direction:row;align-items:center;justify-content:space-between;gap:12px}
+.pm-theme .import-result .card-head .status{min-width:0}
+.pm-theme .import-result>.button{align-self:flex-start}
+.pm-theme .import-result .preview-list{display:flex;flex-direction:column;gap:8px;margin:0}
+.pm-theme .created-product{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px}
+.pm-theme .created-product .text-link{font-size:13px}
+.pm-theme .created-skus{font-size:12px;color:var(--pm-muted);overflow-wrap:anywhere}
+.pm-theme .bulk-images{margin-top:4px;padding-top:16px;gap:12px}
+.pm-theme .bulk-images>.muted.small,.pm-theme .bulk-images h3,.pm-theme .bulk-images h4{margin:0}
+.pm-theme .bulk-images h4{font-size:13px;font-weight:600}
+.pm-theme .bulk-products{border-top-color:var(--pm-line)}
+.pm-theme .bulk-products>li{display:flex;flex-direction:column;gap:12px;padding:16px 0;border-bottom-color:var(--pm-line)}
+.pm-theme .bulk-product-head{align-items:center;gap:8px 12px}
+.pm-theme .bulk-product-head strong{font-size:14px;font-weight:600}
+.pm-theme .bulk-product-head .muted.small{margin:0;font-size:12px}
+.pm-theme .bulk-product-head .status{min-width:0;min-height:24px}
+.pm-theme .bulk-product-head .file-button{align-self:center;margin-left:auto}
+.pm-theme .bulk-products .field-error{margin:0}
+.pm-theme .bulk-grid{margin:0;grid-template-columns:repeat(auto-fill,minmax(200px,220px));gap:16px}
+.pm-theme .bulk-image{gap:8px;padding:10px;border-color:var(--pm-line);border-radius:var(--pm-control-radius);min-width:0}
+.pm-theme .bulk-image img{height:140px;border-radius:6px}
+.pm-theme .bulk-file-name{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:var(--pm-muted)}
+.pm-theme .bulk-image label{gap:6px;font-size:12px;font-weight:600}
+.pm-theme .bulk-image select,.pm-theme .bulk-image input{width:100%;box-sizing:border-box}
+.pm-theme .bulk-image .text-button{align-self:flex-start;font-size:12px}
+.pm-theme .bulk-images .button.bulk-save{width:auto;align-self:flex-start;min-width:200px}
+.import-file-row{display:flex;flex-wrap:wrap;align-items:center;gap:16px}
+.import-file-row .button{min-width:132px}
+.import-file-name{display:inline-flex;align-items:center;min-height:40px;padding:0 14px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border:1px dashed var(--pm-input,#d9d9d9);border-radius:8px;background:var(--pm-bg,#f4f5f7);font-size:12px;font-weight:600;color:var(--pm-ink,#1a1a1a)}
 .file-button{position:relative;overflow:hidden;align-self:flex-start;cursor:pointer}
 .file-button input{position:absolute;inset:0;opacity:0;cursor:pointer}
 .bulk-products{list-style:none;margin:0;padding:0;border-top:1px solid #e3e3e3}
@@ -159,6 +199,42 @@
 .pm-public .ring-card{border:1px solid var(--pm-line);border-radius:var(--pm-radius);padding:14px;min-height:0;gap:12px;background:#fff}
 .pm-public .ring-card:hover{border-color:var(--pm-accent)}
 .pm-public .ring-card strong{font-size:15px;font-weight:600}
+/* Card with a cart button (quick add): image and name open the product, the round button adds to the cart. */
+.pm-public .product-card-link{display:flex;flex-direction:column;gap:12px;color:inherit}
+.pm-public .product-card-foot{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;margin-top:auto}
+.pm-public .product-card-info{display:flex;flex-direction:column;gap:8px;min-width:0}
+.pm-public .cart-button{flex:none;display:grid;place-items:center;width:38px;height:38px;border:0;border-radius:50%;background:var(--pm-accent);color:var(--pm-ink);cursor:pointer;transition:transform .12s}
+.pm-public .cart-button:hover:not(:disabled){transform:scale(1.08)}
+.pm-public .cart-button:disabled{background:var(--pm-bg);color:#b8bcc4;cursor:not-allowed}
+.pm-public .cart-added{margin:0 0 16px}
+/* The same grid outside 002's pages (home page Ready Rings): no page background, the home page sets the spacing. */
+.pm-theme.pm-public.product-grid-standalone{background:none;color:inherit;padding:0;margin:0;min-height:0}
+/* Sideways strip: a card is as wide as a home-page workshop card (3 per view, 20px apart); swipe or ‹ ›. */
+.product-strip{display:flex;flex-direction:column;gap:12px}
+.product-strip-tools{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.product-strip-tools .text-link{font-size:13px;font-weight:600}
+.product-strip-tools>span{display:flex;gap:8px}
+.strip-arrow{display:grid;place-items:center;width:36px;height:36px;border:1px solid var(--pm-line,#e5e7eb);border-radius:50%;background:#fff;color:var(--pm-ink,#1a1a1a);font-size:22px;line-height:1;cursor:pointer}
+.strip-arrow:hover:not(:disabled){border-color:var(--pm-ink,#1a1a1a)}
+.strip-arrow:disabled{opacity:.35;cursor:default}
+.product-strip-track{display:grid;grid-auto-flow:column;grid-auto-columns:calc((100% - 40px) / 3);gap:20px;overflow-x:auto;scroll-snap-type:x mandatory;scroll-behavior:smooth;padding-bottom:6px;scrollbar-width:thin}
+.product-strip-item{scroll-snap-align:start;display:flex;min-width:0}
+.product-strip-item>.product-card{flex:1;min-width:0}
+.pm-public .product-strip .ring-card .product-image,.pm-public .product-strip .ring-card .ring-visual{height:200px}
+@media(max-width:900px){.product-strip-track{grid-auto-columns:calc((100% - 20px) / 2)}}
+@media(max-width:600px){.product-strip-track{grid-auto-columns:82%;gap:12px}}
+.quick-add{border-radius:var(--pm-radius,10px);max-width:520px}
+.quick-add-head{display:grid;grid-template-columns:64px 1fr auto;gap:12px;align-items:start;margin-bottom:8px}
+.quick-add-head img,.quick-add-head .ring-visual{width:64px;height:64px;border-radius:8px;object-fit:cover;background:var(--pm-media,#fef6c3)}
+.quick-add-head>div{display:flex;flex-direction:column;gap:6px;min-width:0}
+.quick-add-head strong{font-size:15px;font-weight:600}
+.quick-add-close{border:0;background:none;font-size:24px;line-height:1;color:var(--pm-muted,#6b7280);cursor:pointer;padding:0 4px}
+.quick-add .add-to-cart{border-top:1px solid var(--pm-line,#e5e7eb)}
+/* Size and quantity side by side, the (long) branch name on its own full-width row: no sideways scroll. */
+.quick-add .form-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.quick-add .form-grid>:nth-child(2){grid-column:1/-1;order:3}
+.quick-add .form-grid select,.quick-add .form-grid input{width:100%;min-width:0;box-sizing:border-box}
+@media(max-width:600px){.dialog-backdrop.quick-add-backdrop{align-items:flex-end;padding:0}.dialog.quick-add{max-width:none;border-radius:16px 16px 0 0}}
 .pm-public .ring-visual,.pm-public .product-image,.pm-public .detail-image{border-radius:var(--pm-control-radius);background:var(--pm-media);width:100%;object-fit:cover}
 .pm-public .ring-card .ring-visual,.pm-public .ring-card .product-image{height:160px}
 .pm-public .ring-visual span{display:none}
@@ -218,8 +294,8 @@
 
 /* Size entry of the create form (size chips 5–29, range, apply to all, one row per chosen size). */
 .size-picker{display:flex;flex-direction:column;gap:16px;margin-bottom:8px}
-.size-chips{display:grid;grid-template-columns:repeat(13,minmax(0,1fr));gap:8px}
-.size-chip{min-height:40px;border:1px solid var(--pm-input,#d9d9d9);border-radius:var(--pm-control-radius,8px);background:#fff;color:var(--pm-ink,#1a1a1a);font-size:13px;font-weight:600;cursor:pointer}
+.size-chips{display:flex;flex-wrap:wrap;gap:8px}
+.size-chip{flex:none;width:52px;min-height:36px;padding:0;border:1px solid var(--pm-input,#d9d9d9);border-radius:var(--pm-control-radius,8px);background:#fff;color:var(--pm-ink,#1a1a1a);font-size:13px;font-weight:600;cursor:pointer}
 .size-chip:hover{border-color:var(--pm-ink,#1a1a1a)}
 .size-chip.on{background:var(--pm-accent,#eedc35);border-color:var(--pm-accent,#eedc35)}
 .size-chip:disabled{opacity:.5;cursor:default}
@@ -232,7 +308,7 @@
 .data-row.size-rows{grid-template-columns:120px minmax(0,1fr) minmax(0,1fr) 110px;gap:16px;align-items:center}
 .pm-theme .data-row.size-rows input{max-width:none}
 .data-row.size-rows .field-error{display:block;margin-top:4px}
-@media(max-width:820px){.size-chips{grid-template-columns:repeat(7,minmax(0,1fr))}.data-row.size-rows{grid-template-columns:70px 1fr 1fr 80px;gap:8px}}
+@media(max-width:820px){.data-row.size-rows{grid-template-columns:70px 1fr 1fr 80px;gap:8px}}
 /* Public filter rows per frame 002-07: search (2 columns), category, sort / price from, price to, buyable only, apply. */
 .pm-public .filter-bar{grid-template-columns:repeat(4,minmax(0,1fr))}
 .pm-public .filter-bar label:first-child{grid-column:span 2}
@@ -255,6 +331,7 @@
 
 .pm-theme .data-row.products.with-actions{grid-template-columns:340fr 190fr 190fr 170fr 260fr}
 .pm-theme .row-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.pm-theme .data-row .row-actions .button{min-height:32px;min-width:0;padding:0 12px;border-radius:7px;font-size:12px;font-weight:600;line-height:1}
 
 /* Session 2026-11-08 additions, drawn with the same tokens as the rest of the management screens:
    12px text and labels, 40px controls with the input border, 13px/600 chips, accent for a chosen item. */
@@ -299,3 +376,5 @@
 .branch-bar > span{display:inline-flex;gap:8px;align-items:center}
 .pm-theme .branch-bar .text-button{display:inline-flex;align-items:center;min-height:32px;padding:0 12px;border:1px solid var(--pm-line,#e5e7eb);border-radius:7px;background:#fff;color:var(--pm-ink,#1a1a1a);font-size:12px;font-weight:600;text-decoration:none}
 .pm-theme .branch-bar .text-button:disabled{opacity:.45}
+/* A section heading opened by link (#review-title …) lands below the sticky main top bar (72px). */
+.pm-theme .workspace-card h2[id]{scroll-margin-top:88px}

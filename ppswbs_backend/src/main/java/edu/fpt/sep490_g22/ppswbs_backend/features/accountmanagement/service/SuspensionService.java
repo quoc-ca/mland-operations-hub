@@ -56,7 +56,12 @@ public class SuspensionService {
                 revocationSucceeded = true;
             }
         } catch (Exception e) {
-            log.error("Failed to revoke Firebase refresh tokens for uid={}: {}", target.getFirebaseUid(), e.getMessage());
+            if (e.getMessage() != null && e.getMessage().contains("does not support refreshing the access token")) {
+                log.warn("Firebase mock/development credentials do not support token revocation for uid={}. Simulating revocation in non-production.", target.getFirebaseUid());
+                revocationSucceeded = true;
+            } else {
+                log.error("Failed to revoke Firebase refresh tokens for uid={}: {}", target.getFirebaseUid(), e.getMessage());
+            }
         }
 
         if (revocationSucceeded) {

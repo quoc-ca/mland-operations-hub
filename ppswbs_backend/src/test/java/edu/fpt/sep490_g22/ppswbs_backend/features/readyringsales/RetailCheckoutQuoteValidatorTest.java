@@ -1,5 +1,6 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales;
 
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.BranchStockFact;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.SaleContext;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.SaleVariantFact;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.dto.CheckoutDtos;
@@ -52,6 +53,26 @@ class RetailCheckoutQuoteValidatorTest {
             .isInstanceOf(RetailConflictException.class);
     }
 
+    @Test
+    void acceptsQuoteForSelectedLinesWhileUnselectedLinesStayInCart() {
+        var quote = quote();
+        var cart = cart();
+        cart.addLine(202L, 10L, 3);
+        ReflectionTestUtils.setField(cart, "version", 2L);
+        assertThatCode(() -> validator.validate(quote, cart, request(quote), context(100), now)).doesNotThrowAnyException();
+    }
+
+    @Test
+    void rejectsWhenASelectedLineWasRemovedFromCart() {
+        var quote = quote();
+        var cart = cart();
+        cart.getLines().clear();
+        cart.addLine(202L, 10L, 1);
+        ReflectionTestUtils.setField(cart, "version", 2L);
+        assertThatThrownBy(() -> validator.validate(quote, cart, request(quote), context(100), now))
+            .isInstanceOf(RetailConflictException.class);
+    }
+
     private RetailCart cart() {
         var cart = new RetailCart(1L);
         ReflectionTestUtils.setField(cart, "id", "cart-1");
@@ -75,7 +96,9 @@ class RetailCheckoutQuoteValidatorTest {
     }
 
     private SaleContext context(long price) {
+        // Branch context (FR-053): the validator also requires the size's stock fact at the quoted branch.
         return new SaleContext(now, null, List.of(new SaleVariantFact(5L, "Ring", 101L, "SKU", 10,
-            BigInteger.valueOf(price), "VND", BigInteger.TEN, true, false, true, 1, 1, 1, 1, List.of())));
+            BigInteger.valueOf(price), "VND", BigInteger.TEN, true, false, true, 1, 1, 1, 1, List.of())),
+            List.of(new BranchStockFact(101L, 10L, BigInteger.TEN, true, true, true)));
     }
 }

@@ -24,6 +24,7 @@ export function BulkImagesPanel({ api, products }) {
   const [items, setItems] = useState([]);
   const [results, setResults] = useState({});
   const [saving, setSaving] = useState(false);
+  const [outcome, setOutcome] = useState(null);
   const latest = useRef(items);
   latest.current = items;
   const previews = useRef(new Set());
@@ -79,15 +80,21 @@ export function BulkImagesPanel({ api, products }) {
 
   const saveAll = async () => {
     setSaving(true);
+    setOutcome(null);
+    let saved = 0;
+    let failed = 0;
     for (const product of toSave) {
       setResults(current => ({ ...current, [product.id]: { state: 'saving' } }));
       try {
         await saveProduct(product);
+        saved += 1;
         setResults(current => ({ ...current, [product.id]: { state: 'saved' } }));
       } catch (error) {
+        failed += 1;
         setResults(current => ({ ...current, [product.id]: { state: 'failed', error } }));
       }
     }
+    setOutcome({ saved, failed });
     setSaving(false);
   };
 
@@ -96,7 +103,7 @@ export function BulkImagesPanel({ api, products }) {
     return (
       <li key={item.localId} className="bulk-image">
         <img src={item.previewUrl} alt="" />
-        <span className="mono small">{item.file.name}</span>
+        <span className="mono small bulk-file-name" title={item.file.name}>{item.file.name}</span>
         {item.hint && <span className="field-error">{t(item.hint)}</span>}
         <label>{t('bulk.assignTo')}
           <select value={item.productId} disabled={locked} onChange={event => assign(item, event.target.value)}>
@@ -130,7 +137,8 @@ export function BulkImagesPanel({ api, products }) {
           return (
             <li key={product.id}>
               <div className="bulk-product-head">
-                <strong>{product.name}</strong> <span className="muted small">({product.groupKey}) · {t('bulk.count', { count: list.length, max: LIMITS.maxImages })}</span>
+                <strong>{product.name}</strong>
+                <span className="muted small">({product.groupKey}) · {t('bulk.count', { count: list.length, max: LIMITS.maxImages })}</span>
                 {result?.state === 'saved' && <span className="status ok">{t('bulk.saved')}</span>}
                 {result?.state === 'saving' && <span className="status">{t('bulk.saving')}</span>}
                 {result?.state !== 'saved' && (
@@ -155,9 +163,18 @@ export function BulkImagesPanel({ api, products }) {
         </>
       )}
 
-      <button type="button" className="button primary" disabled={saving || toSave.length === 0 || blocked} onClick={saveAll}>
-        {saving ? t('bulk.savingAll') : t('bulk.saveAll', { count: toSave.length })}
-      </button>
+      {outcome && !saving && outcome.saved > 0 && (
+        <p className="notice success" role="status">{t('bulk.savedAll', { count: outcome.saved })}</p>
+      )}
+      {outcome && !saving && outcome.failed > 0 && (
+        <p className="notice error" role="alert">{t('bulk.failedSome', { count: outcome.failed })}</p>
+      )}
+
+      {toSave.length > 0 && (
+        <button type="button" className="button primary bulk-save" disabled={saving || blocked} onClick={saveAll}>
+          {saving ? t('bulk.savingAll') : t('bulk.saveAll', { count: toSave.length })}
+        </button>
+      )}
     </section>
   );
 }

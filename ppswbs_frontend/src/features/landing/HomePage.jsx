@@ -5,9 +5,10 @@ import { useHttp } from '../../shared/api/useHttp';
 import { useFormat } from '../../shared/i18n/I18nProvider';
 import { useCurrentAccount } from '../accountmanagement/hooks/useCurrentAccount';
 import { firebaseAuthClient } from '../accountmanagement/auth/FirebaseAuthClient';
-import { listWorkshopPackages, listMemberBookings } from '../../api/workshops';
+import { listWorkshopPackages, listMemberBookingGroups } from '../../api/workshops';
 import { listPublicProducts, publicMediaUrl } from '../../api/catalogue';
 import MainTopbar from '../../shared/ui/MainTopbar';
+import { PublicProductGrid } from '../product-management/ui/public/PublicProductGrid';
 import './landing.css';
 
 /**
@@ -166,6 +167,7 @@ export default function HomePage() {
   // Live state kết nối từ các features khác
   const [workshopPackages, setWorkshopPackages] = useState(DEFAULT_WORKSHOP_PACKAGES);
   const [readyRings, setReadyRings] = useState(DEFAULT_READY_RINGS);
+  const [readyProducts, setReadyProducts] = useState([]);
   const [orderCount, setOrderCount] = useState(1);
   const [liveFullName, setLiveFullName] = useState('');
 
@@ -194,14 +196,17 @@ export default function HomePage() {
       try {
         const token = await getIdToken();
         if (!token) return;
-        const bookings = await listMemberBookings({ authorization: `Bearer ${token}` });
+        // A direct booking is a booking group and attendance belongs to one ticket (003.1 FR-046, FR-050).
+        const groups = await listMemberBookingGroups({ authorization: `Bearer ${token}` });
         const now = Date.now();
         const upcoming = [];
-        for (const booking of bookings) {
-          if (booking.bookingStatus !== 'CONFIRMED') continue;
-          for (const session of booking.sessions || []) {
-            const start = new Date(session.scheduledStart).getTime();
-            if (!Number.isNaN(start) && start >= now) upcoming.push({ bookingCode: booking.bookingCode, start });
+        for (const group of groups) {
+          for (const ticket of group.tickets || []) {
+            if (ticket.ticketStatus !== 'CONFIRMED') continue;
+            for (const session of ticket.sessions || []) {
+              const start = new Date(session.scheduledStart).getTime();
+              if (!Number.isNaN(start) && start >= now) upcoming.push({ bookingCode: group.groupCode, start });
+            }
           }
         }
         upcoming.sort((left, right) => left.start - right.start);
@@ -248,6 +253,8 @@ export default function HomePage() {
         if (!active) return;
         const items = Array.isArray(res) ? res : res?.items || [];
         if (items.length === 0) return;
+        // 002 product cards (discount price, offer badges, cart button) in a sideways strip: the whole first page.
+        setReadyProducts(items);
         const mapped = items.slice(0, 4).map((p, idx) => {
           const code = p.variants?.[0]?.sku || `ML-R0${idx + 1}`;
           const minPrice = p.priceRange?.minimum || p.variants?.[0]?.appliedPrice;
@@ -477,6 +484,7 @@ export default function HomePage() {
           <h3 id="ready-rings-title" className="landing-section-title">
             READY RINGS — NHẪN CHẾ TÁC THỦ CÔNG SẴN SÀNG GIAO
           </h3>
+          {readyProducts.length > 0 ? <PublicProductGrid products={readyProducts} standalone /> : (
           <div className="landing-rings-grid">
             {readyRings.map((ring) => (
               <article key={ring.code} className="landing-ring-card">
@@ -501,6 +509,7 @@ export default function HomePage() {
               </article>
             ))}
           </div>
+          )}
         </section>
 
         {/* ================================================================

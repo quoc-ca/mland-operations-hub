@@ -76,6 +76,22 @@ public class WorkshopOperationsAdapter {
                         correlationReference));
     }
 
+    /**
+     * Reserves every line of a booking group, all or none (003.1 FR-031). Operations rechecks publication,
+     * sale eligibility and capacity atomically and, on refusal, names the failing cart positions.
+     */
+    public edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.GroupCapacityOutcome reserveGroupCapacity(
+            String groupReference,
+            List<edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.ReserveGroupCapacityCommand.Line> lines,
+            String operationReference,
+            String correlationReference) {
+        log.info("WorkshopOperationsAdapter.reserveGroupCapacity: groupRef={}, lines={}, opRef={}",
+                groupReference, lines.size(), operationReference);
+        return workshopOperationsFacade.reserveGroupCapacity(
+                new edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.ReserveGroupCapacityCommand(
+                        groupReference, lines, operationReference, correlationReference));
+    }
+
     public edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.OtaBookingCapacityOutcome acceptOtaBooking(
             String bookingReference, String packageReference, UUID sessionReference, int participantCount,
             String operationReference, String correlationReference) {
@@ -122,6 +138,24 @@ public class WorkshopOperationsAdapter {
     public DeliverySafeTicketSet getBookingTicketProjection(String bookingReference) {
         log.debug("WorkshopOperationsAdapter.getBookingTicketProjection: bookingRef={}", bookingReference);
         return workshopOperationsFacade.getBookingTicketProjection(new BookingTicketProjectionQuery(bookingReference));
+    }
+
+    /** Revokes the ticket's QR and issues a new one (003.2 FR-033); joins the caller's transaction. */
+    public edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.TicketQrReissueOutcome reissueTicketQr(
+            java.util.UUID ticketReference, String operationReference, String correlationReference) {
+        return workshopOperationsFacade.reissueTicketQr(
+                new edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.ReissueTicketQrCommand(
+                        ticketReference,
+                        edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.QrRevokeReason.RECIPIENT_CHANGED,
+                        operationReference, correlationReference));
+    }
+
+    /** The attendance outcome of one ticket, keyed by its 003.2 ticket reference (003.2 FR-032). */
+    public edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.BookingAttendanceOutcome
+            getTicketAttendanceOutcome(String ticketReference) {
+        return workshopOperationsFacade.getTicketAttendanceOutcome(
+                new edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.TicketAttendanceOutcomeQuery(
+                        ticketReference));
     }
 
     public DeliverySafeTicketSet getCurrentEntitlementProjection(String bookingReference) {

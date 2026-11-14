@@ -4,8 +4,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.BookingAuditEvidenceRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.BookingInvoiceRepository;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.BookingNotificationIntentRepository;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.MagicLinkAccessRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.BookingPaymentAttemptRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.BookingPaymentReceiptRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.BookingLatePaymentEvidenceRepository;
@@ -16,8 +14,6 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.notificationfa
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.notificationfacade.BookingNotificationDeliveryPayloadQuery;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.notificationfacade.WorkshopBookingNotificationFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.*;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.BookingLifecycleService;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.WorkshopBookingLoyaltyOutcomeService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -45,16 +41,24 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade, Worksho
     private final BookingInvoiceRepository invoiceRepository;
     private final BookingSessionCommitmentRepository commitmentRepository;
     private final MemberWorkshopBookingQuoteRepository memberQuoteRepository;
-    private final BookingNotificationIntentRepository notificationIntentRepository;
-    private final MagicLinkAccessRepository magicLinkRepository;
     private final BookingPaymentAttemptRepository paymentAttemptRepository;
     private final BookingLatePaymentEvidenceRepository latePaymentEvidenceRepository;
     private final BookingPaymentReceiptRepository paymentReceiptRepository;
     private final BookingAuditEvidenceRepository auditEvidenceRepository;
-    private final BookingLifecycleService bookingLifecycleService;
-    private final WorkshopBookingLoyaltyOutcomeService loyaltyOutcomeService;
     private final ObjectMapper objectMapper;
     private final WorkshopOperationsAdapter operationsAdapter;
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.GroupPaymentEvidenceService
+            groupPaymentEvidence;
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.BookingGroupRepository
+            bookingGroupRepository;
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.WorkshopCartQuoteRepository
+            cartQuoteRepository;
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.TicketBookingRepository
+            ticketBookingRepository;
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.GroupNotificationService
+            groupNotificationService;
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.LatePaymentReviewRepository
+            latePaymentReviewRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -152,6 +156,40 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade, Worksho
                 Math.addExact(booking.getVersion(), 1L), booking.getHoldExpiresAt());
     }
 
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public java.util.Optional<TicketBookingRef> findTicketBookingByOperationsReference(String ticketReference) {
+        if (ticketReference == null || ticketReference.isBlank()) return java.util.Optional.empty();
+        return ticketBookingRepository.findByOperationsTicketReference(ticketReference.trim())
+                .map(ticket -> new TicketBookingRef(ticket.getTicketCode(), ticket.getGroup().getGroupCode()));
+    }
+
+    @Override
+    @Transactional
+    public BookingGroupLoyaltyOutcomeSource getGroupLoyaltyOutcomeSource(String groupReference) {
+        if (groupReference == null || groupReference.isBlank()) {
+            return BookingGroupLoyaltyOutcomeSource.none();
+        }
+        BookingGroup group = bookingGroupRepository.findByGroupCode(groupReference).orElse(null);
+        // A group that reserved nothing has no earn to decide. A Guest group with an automatic discount has a snapshot
+        // without a Member (006 D-014), and its earn must still be closed — 006 closes it as a zero grant.
+        if (group == null || group.getVoucherUseReference() == null) {
+            return BookingGroupLoyaltyOutcomeSource.none();
+        }
+        var quote = cartQuoteRepository.findByAcceptedGroupCode(groupReference).orElse(null);
+        if (quote == null) {
+            return BookingGroupLoyaltyOutcomeSource.none();
+        }
+        var tickets = ticketBookingRepository.findByGroupIdOrderByLineIndexAscParticipantOrdinalAsc(group.getId())
+                .stream()
+                .map(ticket -> new BookingGroupLoyaltyOutcomeSource.GroupTicket(ticket.getTicketCode(),
+                        ticket.getOperationsTicketReference()))
+                .toList();
+        return new BookingGroupLoyaltyOutcomeSource(true, quote.getQuoteRef(),
+                Math.addExact(group.getVersion() == null ? 0L : group.getVersion(), 1L),
+                group.getHoldExpiresAt(), tickets);
+    }
+
     /**
      * A Member booking keeps its Loyalty outcome source through every state it can reach once confirmed. The outcome is
      * decided after the booking has moved on (completed or no-show by attendance, cancelled by Settlement), so asking only
@@ -165,9 +203,15 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade, Worksho
     @Override
     @Transactional(readOnly = true)
     public String getSettlementNotificationRecipient(SettlementNotificationRecipientQuery query) {
-        if (query == null) return null;
-        String email = bookingRepository.findByBookingCode(query.bookingReference())
-                .map(WorkshopBooking::getContactEmail).orElse(null);
+        if (query == null || query.bookingReference() == null) return null;
+        String reference = query.bookingReference().trim();
+        // A single booking, a booking group (late-payment refund) or one ticket of a group.
+        String email = bookingRepository.findByBookingCode(reference).map(WorkshopBooking::getContactEmail)
+                .or(() -> bookingGroupRepository.findByGroupCode(reference)
+                        .map(edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.BookingGroup::getContactEmail))
+                .or(() -> ticketBookingRepository.findByTicketCode(reference)
+                        .map(ticket -> ticket.getGroup().getContactEmail()))
+                .orElse(null);
         return email == null || email.isBlank() ? null : email.trim();
     }
 
@@ -280,85 +324,17 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade, Worksho
         log.info("WorkshopBookingFacade.applyVerifiedDepositPaymentEvidence: bookingReference={}, evidenceRef={}, opRef={}",
                 command.bookingReference(), command.verifiedEvidenceReference(), command.operationReference());
 
-        Optional<WorkshopBooking> optBooking = bookingRepository.findLockedByBookingCode(command.bookingReference());
-        if (optBooking.isEmpty()) {
-            return DepositPaymentEvidenceOutcome.rejected(BookingRejectionReason.NOT_READY);
+        // A booking group pays once for the whole group, and its attempt owns the merchant reference, so group
+        // evidence is routed before the single-booking path ever looks for a booking code (003.1 FR-038).
+        if (groupPaymentEvidence.owns(command.merchantReference())) {
+            return groupPaymentEvidence.apply(command.bookingReference(), command.merchantReference(),
+                    command.amountVnd(), command.currencyCode(), command.verifiedEvidenceReference(),
+                    command.operationReference(), command.correlationReference());
         }
 
-        WorkshopBooking booking = optBooking.get();
-        Optional<BookingInvoice> optInvoice = invoiceRepository.findByBookingId(booking.getId());
-        if (optInvoice.isEmpty()) {
-            return DepositPaymentEvidenceOutcome.rejected(BookingRejectionReason.NOT_READY);
-        }
-        BookingInvoice invoice = optInvoice.get();
-        BookingPaymentAttempt attempt = paymentAttemptRepository
-                .findByMerchantReference(command.merchantReference()).orElse(null);
-        if (attempt == null
-                || attempt.getBooking() == null
-                || !booking.getId().equals(attempt.getBooking().getId())
-                || attempt.getInvoice() == null
-                || !invoice.getId().equals(attempt.getInvoice().getId())
-                || !invoice.getDepositAmount().equals(attempt.getAttemptAmount())
-                || !invoice.getDepositAmount().equals(command.amountVnd())
-                || !"VND".equals(invoice.getCurrency())
-                || !"VND".equals(command.currencyCode())) {
-            return DepositPaymentEvidenceOutcome.rejected(BookingRejectionReason.PAYMENT_MISMATCH);
-        }
-
-        if (booking.getBookingStatus() == BookingStatus.CONFIRMED) {
-            BookingPaymentReceipt receipt = paymentReceiptRepository
-                    .findByProviderEventId(command.verifiedEvidenceReference()).orElse(null);
-            if (receipt == null
-                    || receipt.getBooking() == null
-                    || !booking.getId().equals(receipt.getBooking().getId())
-                    || !command.amountVnd().equals(receipt.getAmountReceived())
-                    || receipt.getPaymentAttempt() == null
-                    || !attempt.getId().equals(receipt.getPaymentAttempt().getId())) {
-                return DepositPaymentEvidenceOutcome.rejected(BookingRejectionReason.PAYMENT_MISMATCH);
-            }
-            markPaymentAttemptSuccessful(command.merchantReference());
-            loyaltyOutcomeService.settleVerifiedDeposit(booking, command.verifiedEvidenceReference());
-            return DepositPaymentEvidenceOutcome.accepted();
-        }
-
-        if (booking.getBookingStatus() != BookingStatus.PENDING_PAYMENT) {
-            return DepositPaymentEvidenceOutcome.rejected(BookingRejectionReason.INVALID_STATE);
-        }
-
-        if (booking.getHoldExpiresAt() != null && booking.getHoldExpiresAt().isBefore(Instant.now())) {
-            return DepositPaymentEvidenceOutcome.rejected(BookingRejectionReason.HOLD_MISSING_OR_EXPIRED);
-        }
-        if (attempt.getStatus() == PaymentAttemptStatus.EXPIRED
-                || attempt.getStatus() == PaymentAttemptStatus.FAILED) {
-            return DepositPaymentEvidenceOutcome.rejected(BookingRejectionReason.PAYMENT_MISMATCH);
-        }
-
-        try {
-            bookingLifecycleService.confirmBookingPaymentAndCommitHolds(
-                    booking.getBookingCode(),
-                    command.verifiedEvidenceReference(),
-                    // Callers pass only signed VNPay evidence (IPN or QueryDR).
-                    "VNPAY",
-                    command.amountVnd(),
-                    "PAYLOAD_HASH_" + command.verifiedEvidenceReference(),
-                    command.operationReference(),
-                    command.correlationReference()
-            );
-        } catch (Exception e) {
-            log.warn("Failed to apply deposit payment evidence for booking {}: {}", command.bookingReference(), e.getMessage());
-            return DepositPaymentEvidenceOutcome.rejected(BookingRejectionReason.INVALID_STATE);
-        }
-
-        BookingPaymentReceipt receipt = paymentReceiptRepository
-                .findByProviderEventId(command.verifiedEvidenceReference()).orElse(null);
-        if (receipt == null || !booking.getId().equals(receipt.getBooking().getId())) {
-            throw new IllegalStateException("Verified payment receipt was not persisted for this booking");
-        }
-        receipt.setPaymentAttempt(attempt);
-        paymentReceiptRepository.save(receipt);
-        markPaymentAttemptSuccessful(command.merchantReference());
-        loyaltyOutcomeService.settleVerifiedDeposit(booking, command.verifiedEvidenceReference());
-        return DepositPaymentEvidenceOutcome.accepted();
+        // Decision 2026-11-13 (003.1 FR-044): a direct booking is only a booking group, so no single booking can
+        // be awaiting a deposit. Evidence for any other reference is refused and nothing changes.
+        return DepositPaymentEvidenceOutcome.rejected(BookingRejectionReason.NOT_READY);
     }
 
     @Override
@@ -422,118 +398,24 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade, Worksho
         return BookingCancellationOutcome.accepted();
     }
 
-    /**
-     * Provider evidence is authoritative for the payment attempt identified by
-     * the immutable merchant reference.  This update is deliberately limited
-     * to successful evidence that was accepted (or already reflected by a
-     * confirmed booking); a late success therefore remains EXPIRED and is
-     * available only as reconciliation evidence.
-     */
-    private void markPaymentAttemptSuccessful(String merchantReference) {
-        if (merchantReference == null || merchantReference.isBlank()) {
-            return;
-        }
-        paymentAttemptRepository.findByMerchantReference(merchantReference).ifPresent(attempt -> {
-            if (attempt.getStatus() != PaymentAttemptStatus.SUCCESS
-                    && attempt.getStatus() != PaymentAttemptStatus.EXPIRED) {
-                attempt.setStatus(PaymentAttemptStatus.SUCCESS);
-                paymentAttemptRepository.save(attempt);
-            }
-        });
-    }
-
     @Override
     @Transactional
     public TicketRedeliveryOutcome requestBookingTicketRedelivery(RequestBookingTicketRedeliveryCommand command) {
         log.info("WorkshopBookingFacade.requestBookingTicketRedelivery: bookingReference={}, ticketsCount={}, opRef={}",
                 command.bookingReference(), command.activeUnusedTicketReferences().size(), command.operationReference());
 
-        Optional<WorkshopBooking> optBooking = bookingRepository.findByBookingCode(command.bookingReference());
-        if (optBooking.isEmpty()) {
-            return TicketRedeliveryOutcome.rejected(BookingRejectionReason.NOT_READY);
-        }
-
-        WorkshopBooking booking = optBooking.get();
-        if (booking.getBookingStatus() != BookingStatus.CONFIRMED) {
-            return TicketRedeliveryOutcome.rejected(BookingRejectionReason.INVALID_STATE);
-        }
-
-        try {
-            bookingLifecycleService.requestTicketRedelivery(
-                    booking.getBookingCode(),
-                    command.activeUnusedTicketReferences(),
-                    command.operationReference(),
-                    command.correlationReference()
-            );
-            return TicketRedeliveryOutcome.accepted();
-        } catch (Exception e) {
-            log.warn("Failed to request ticket redelivery for booking {}: {}", command.bookingReference(), e.getMessage());
-            return TicketRedeliveryOutcome.rejected(BookingRejectionReason.INVALID_STATE);
-        }
+        // Decision 2026-11-13: single direct bookings are gone and an OTA booking has no Mland contact, so there is
+        // no single booking to redeliver to. A group ticket is resent with PUT /workshop-tickets/{code}/recipient
+        // (same email) and the buyer confirmation with POST /workshop-booking-groups/{code}/confirmation-deliveries.
+        return TicketRedeliveryOutcome.rejected(BookingRejectionReason.NOT_READY);
     }
 
     @Override
     @Transactional(readOnly = true)
     public BookingNotificationDeliveryPayload getBookingNotificationDeliveryPayload(BookingNotificationDeliveryPayloadQuery query) {
         log.info("WorkshopBookingFacade.getBookingNotificationDeliveryPayload: notificationReference={}", query.notificationReference());
-
-        Optional<BookingNotificationIntent> optIntent = notificationIntentRepository.findByNotificationReference(query.notificationReference());
-        if (optIntent.isEmpty()) {
-            return null;
-        }
-
-        BookingNotificationIntent intent = optIntent.get();
-        if (intent.getDeliverySnapshot() == null || intent.getDeliverySnapshot().isBlank()) {
-            return null;
-        }
-
-        try {
-            JsonNode node = objectMapper.readTree(intent.getDeliverySnapshot());
-            // Hibernate/H2 may expose a JSON-typed String column as a JSON string
-            // containing the serialized object. Accept that representation while
-            // continuing to read object-valued JSON columns directly.
-            if (node.isTextual()) {
-                node = objectMapper.readTree(node.asText());
-            }
-            String kind = node.path("notificationKind").asText(intent.getNotificationKind());
-            String recipient = node.path("storedRecipient").asText("");
-            String content = node.path("renderedBookingContent").asText("");
-            List<String> artifacts = new ArrayList<>();
-            if (node.has("renderedTicketArtifacts") && node.get("renderedTicketArtifacts").isArray()) {
-                for (JsonNode item : node.get("renderedTicketArtifacts")) {
-                    artifacts.add(item.asText());
-                }
-            }
-            String accessLink = node.path("bookingAccessLink").asText("");
-            if (!isActiveBookingAccessLink(intent.getBooking().getId(), accessLink)) accessLink = "";
-            String correlationRef = node.path("correlationReference").asText(intent.getCorrelationReference());
-
-            return new BookingNotificationDeliveryPayload(kind, recipient, content, artifacts, accessLink, correlationRef);
-        } catch (Exception e) {
-            // A malformed snapshot may contain the narrowly permitted bearer URL; never log its exception/payload.
-            log.warn("Failed to read booking notification snapshot: notificationReference={}", query.notificationReference());
-            return null;
-        }
-    }
-
-    private boolean isActiveBookingAccessLink(Long bookingId, String accessLink) {
-        if (accessLink == null || accessLink.isBlank()) return false;
-        int fragmentStart = accessLink.indexOf('#');
-        if (fragmentStart < 0 || fragmentStart == accessLink.length() - 1) return false;
-        String token = accessLink.substring(fragmentStart + 1);
-        String tokenHash = hashToken(token);
-        Instant now = Instant.now();
-        return magicLinkRepository.findByBookingIdAndLifecycleStatus(bookingId, MagicLinkLifecycleStatus.ACTIVE)
-                .stream().anyMatch(link -> link.getExpiresAt().isAfter(now) && link.getTokenHash().equals(tokenHash));
-    }
-
-    private String hashToken(String token) {
-        try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
-                    .digest(token.getBytes(StandardCharsets.UTF_8)));
-        } catch (NoSuchAlgorithmException exception) {
-            throw new IllegalStateException("SHA-256 algorithm is unavailable", exception);
-        }
+        // Only booking groups send emails since the 2026-11-13 decision; their snapshots live with the group.
+        return groupNotificationService.readPayload(query.notificationReference());
     }
 
     @Override
@@ -615,5 +497,15 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade, Worksho
         } catch (NoSuchAlgorithmException ex) {
             throw new IllegalStateException("SHA-256 algorithm is unavailable", ex);
         }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<LatePaymentReviewSnapshot> findLatePaymentReview(String reviewReference) {
+        if (reviewReference == null || reviewReference.isBlank()) return Optional.empty();
+        return latePaymentReviewRepository.findByReviewReference(reviewReference.trim())
+                .map(review -> new LatePaymentReviewSnapshot(review.getReviewReference(),
+                        review.getGroup().getGroupCode(), review.getVerifiedEvidenceReference(),
+                        review.getAmountVnd(), review.getOutcome()));
     }
 }

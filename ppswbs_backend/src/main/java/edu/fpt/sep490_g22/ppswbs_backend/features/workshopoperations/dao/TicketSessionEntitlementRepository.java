@@ -28,6 +28,10 @@ public interface TicketSessionEntitlementRepository extends JpaRepository<Ticket
     @Query("SELECT tse FROM TicketSessionEntitlement tse WHERE tse.ticket.bookingReference = :bookingReference AND tse.ticket.validityState = 'ACTIVE'")
     List<TicketSessionEntitlement> findActiveByBookingReference(@Param("bookingReference") String bookingReference);
 
+    /** The entitlements of one ticket, for the per-ticket attendance outcome of a booking group. */
+    @Query("SELECT tse FROM TicketSessionEntitlement tse WHERE tse.ticket.reference = :ticketReference AND tse.ticket.validityState = 'ACTIVE'")
+    List<TicketSessionEntitlement> findActiveByTicketReference(@Param("ticketReference") String ticketReference);
+
     /** The valid tickets of one session, grouped by booking, for the attendance roster. */
     @Query("SELECT tse FROM TicketSessionEntitlement tse WHERE tse.session.id = :sessionId AND tse.ticket.validityState = ACTIVE "
             + "ORDER BY tse.ticket.bookingReference, tse.ticket.ticketSequence, tse.id")
@@ -50,6 +54,12 @@ public interface TicketSessionEntitlementRepository extends JpaRepository<Ticket
 
     @Query("SELECT COUNT(tse) FROM TicketSessionEntitlement tse WHERE tse.session.id = :sessionId AND tse.ticket.validityState = 'ACTIVE'")
     int countActiveConfirmedSeatsForSession(@Param("sessionId") Long sessionId);
+
+    /** Locking read of a session's entitlements on active tickets; see CapacityHoldRepository (003.2 FR-030 race). */
+    @Lock(LockModeType.PESSIMISTIC_READ)
+    @Query("SELECT tse FROM TicketSessionEntitlement tse JOIN tse.ticket t WHERE tse.session.id = :sessionId "
+            + "AND t.validityState = 'ACTIVE'")
+    List<TicketSessionEntitlement> findActiveSeatsForSessionForShare(@Param("sessionId") Long sessionId);
 
     List<TicketSessionEntitlement> findBySessionIdAndAttendanceState(Long sessionId, AttendanceState state);
 

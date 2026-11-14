@@ -29,6 +29,7 @@ public class RetailCheckoutQuote {
     @Column(name = "points_discount", nullable = false, precision = 19, scale = 0) private BigInteger pointsDiscount;
     @Column(name = "payable_total", nullable = false, precision = 19, scale = 0) private BigInteger payableTotal;
     @Column(nullable = false, length = 16) private String status;
+    @Column(name = "payment_method", nullable = false, length = 24) private String paymentMethod = RetailPaymentMethod.VNPAY.name();
     @Column(name = "accepted_checkout_id", length = 36) private String acceptedCheckoutId;
     @Column(name = "created_at", nullable = false, updatable = false) private Instant createdAt;
     @Column(name = "expires_at", nullable = false) private Instant expiresAt;
@@ -49,6 +50,7 @@ public class RetailCheckoutQuote {
     }
 
     public void addBranch(RetailCheckoutQuoteBranch branch) { branches.add(branch); }
+    public void usePaymentMethod(RetailPaymentMethod method) { this.paymentMethod = method.name(); }
     /** Called after the service has locked and revalidated this quote in the acceptance transaction. */
     public void accept(String checkoutId, Instant acceptedAt) {
         if (!"OPEN".equals(status) || checkoutId == null || checkoutId.isBlank()

@@ -12,6 +12,10 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.ProductV
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.PublicCatalogueQueryRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.Product;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.ProductVariant;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.SellingLocation;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.SellingLocationPort;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,6 +46,12 @@ import java.util.stream.Collectors;
  *       size; FE-08 availability is not used (T091: no T019), so quantity and holds do not count here.</li>
  *   <li>A malformed key is reported as not existing. A database failure is {@code DEPENDENCY_UNAVAILABLE};
  *       nothing is allowed by default. No lock is taken and no remote call is made.</li>
+ *   <li>BRANCH (FE-06 Session 2026-11-09, T084): a product voucher may be limited to branches. The fact comes from
+ *       {@link SellingLocationPort}, the same canonical branch list as US10: an active branch exists and is
+ *       {@code publicVisible}/{@code purchasable}; a well-formed ID that is not active is reported as existing but
+ *       not purchasable (the port lists active branches only, so "missing" and "inactive" cannot be told apart and
+ *       both are refused at save). The port is read only when a BRANCH target is asked for; a missing or failing
+ *       port is {@code DEPENDENCY_UNAVAILABLE}.</li>
  * </ul>
  */
 @Component
@@ -50,12 +60,22 @@ public class LoyaltyProductTargetAdapter implements PromotionTargetPort {
     private final ProductRepository products;
     private final ProductVariantRepository variants;
     private final PublicCatalogueQueryRepository publicQueries;
+    private final ObjectProvider<SellingLocationPort> locations;
 
+    @Autowired
     public LoyaltyProductTargetAdapter(ProductRepository products, ProductVariantRepository variants,
-                                       PublicCatalogueQueryRepository publicQueries) {
+                                       PublicCatalogueQueryRepository publicQueries,
+                                       ObjectProvider<SellingLocationPort> locations) {
         this.products = products;
         this.variants = variants;
         this.publicQueries = publicQueries;
+        this.locations = locations;
+    }
+
+    /** Without a branch source: product and size targets only; a BRANCH target is DEPENDENCY_UNAVAILABLE. */
+    public LoyaltyProductTargetAdapter(ProductRepository products, ProductVariantRepository variants,
+                                       PublicCatalogueQueryRepository publicQueries) {
+        this(products, variants, publicQueries, null);
     }
 
     @Override
@@ -73,8 +93,10 @@ public class LoyaltyProductTargetAdapter implements PromotionTargetPort {
             throw LoyaltyException.invalidField("targets", "Targets are required.");
         }
         for (TargetRef target : targets) {
-            if (target.dimension() != TargetDimension.PRODUCT && target.dimension() != TargetDimension.VARIANT) {
-                throw LoyaltyException.invalidField("targets", "Product programmes target products or variants only.");
+            if (target.dimension() != TargetDimension.PRODUCT && target.dimension() != TargetDimension.VARIANT
+                    && target.dimension() != TargetDimension.BRANCH) {
+                throw LoyaltyException.invalidField("targets",
+                        "Product programmes target products, variants or branches only.");
             }
         }
         try {
@@ -98,9 +120,21 @@ public class LoyaltyProductTargetAdapter implements PromotionTargetPort {
                 .findByProductIdInOrderByProductIdAscRingSizeAsc(productById.keySet()).stream()
                 .collect(Collectors.groupingBy(ProductVariant::getProductId));
 
+        Set<Long> activeBranches = targets.stream().anyMatch(t -> t.dimension() == TargetDimension.BRANCH)
+                ? activeBranchIds() : Set.of();
+
         List<TargetFact> facts = new ArrayList<>(targets.size());
         for (TargetRef target : targets) {
             Optional<Long> id = parse(target.targetKey());
+            if (target.dimension() == TargetDimension.BRANCH) {
+                if (id.isEmpty()) {
+                    facts.add(missing(target));
+                } else {
+                    boolean active = activeBranches.contains(id.get());
+                    facts.add(new TargetFact(target.dimension(), target.targetKey(), true, true, false, active, active));
+                }
+                continue;
+            }
             if (target.dimension() == TargetDimension.PRODUCT) {
                 Product product = id.map(productById::get).orElse(null);
                 if (product == null) {
@@ -126,6 +160,26 @@ public class LoyaltyProductTargetAdapter implements PromotionTargetPort {
             }
         }
         return List.copyOf(facts);
+    }
+
+    private Set<Long> activeBranchIds() {
+        SellingLocationPort source = locations == null ? null : locations.getIfAvailable();
+        if (source == null) {
+            throw new LoyaltyException(LoyaltyErrorCode.DEPENDENCY_UNAVAILABLE,
+                    "Branch information is temporarily unavailable.");
+        }
+        List<SellingLocation> active;
+        try {
+            active = source.activeSellingLocations();
+        } catch (RuntimeException e) {
+            throw new LoyaltyException(LoyaltyErrorCode.DEPENDENCY_UNAVAILABLE,
+                    "Branch information is temporarily unavailable.");
+        }
+        if (active == null) {
+            throw new LoyaltyException(LoyaltyErrorCode.DEPENDENCY_UNAVAILABLE,
+                    "Branch information is temporarily unavailable.");
+        }
+        return active.stream().map(SellingLocation::id).collect(Collectors.toSet());
     }
 
     private static TargetFact missing(TargetRef target) {

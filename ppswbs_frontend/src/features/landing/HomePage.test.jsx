@@ -47,6 +47,7 @@ describe('Landing HomePage (Figma Page 01 · Public & Live Features Integration)
     const nav = screen.getByRole('navigation', { name: 'Khám phá' });
     expect(screen.getByRole('link', { name: 'MLAND' })).toHaveAttribute('href', '/');
     expect(within(nav).getByRole('link', { name: 'Workshop' })).toHaveAttribute('href', '/workshops');
+    expect(within(nav).getByRole('link', { name: 'Cấu hình nhẫn' })).toHaveAttribute('href', '/workshops/PKG-COUPLE-SILVER/design');
     expect(within(nav).getByRole('link', { name: 'Ready Rings' })).toHaveAttribute('href', '/products');
     expect(within(nav).getByRole('link', { name: 'Custom' })).toHaveAttribute('href', '/design-requests/new');
     expect(within(nav).getByRole('link', { name: 'Tra cứu' })).toHaveAttribute('href', '/workshop-booking/lookup');
@@ -64,9 +65,17 @@ describe('Landing HomePage (Figma Page 01 · Public & Live Features Integration)
 
   it('renders Member chip and, with an upcoming ticket, its real time and a link to that booking', async () => {
     const start = new Date(Date.now() + 3 * 24 * 3600 * 1000).toISOString();
-    vi.spyOn(workshopApi, 'listMemberBookings').mockResolvedValue([
-      { bookingCode: 'BK-NEXT-1', bookingStatus: 'CONFIRMED', sessions: [{ scheduledStart: start, scheduledEnd: start }] },
-      { bookingCode: 'BK-PENDING-2', bookingStatus: 'PENDING_PAYMENT', sessions: [{ scheduledStart: start, scheduledEnd: start }] },
+    vi.spyOn(workshopApi, 'listMemberBookingGroups').mockResolvedValue([
+      {
+        groupCode: 'WG-NEXT-1',
+        groupStatus: 'CONFIRMED',
+        tickets: [{ ticketCode: 'WT-1', ticketStatus: 'CONFIRMED', sessions: [{ sessionReference: 's1', scheduledStart: start, scheduledEnd: start }] }],
+      },
+      {
+        groupCode: 'WG-PENDING-2',
+        groupStatus: 'PENDING_PAYMENT',
+        tickets: [{ ticketCode: 'WT-2', ticketStatus: 'PENDING_PAYMENT', sessions: [{ sessionReference: 's2', scheduledStart: start, scheduledEnd: start }] }],
+      },
     ]);
     renderHomePage({ initialAuthState: { status: 'signed-in' } });
     const memberChip = screen.getByRole('button', { name: /Tùy chọn tài khoản/i });
@@ -75,7 +84,7 @@ describe('Landing HomePage (Figma Page 01 · Public & Live Features Integration)
     expect(await screen.findByText(/Buổi workshop sắp tới:/i)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Xem vé & mã QR/i })).toHaveAttribute(
       'href',
-      '/workshop-booking/lookup?code=BK-NEXT-1',
+      '/workshop-booking/lookup?code=WG-NEXT-1',
     );
     expect(screen.getByRole('link', { name: /Đơn hàng \(\d+\)/ })).toHaveAttribute(
       'href',
@@ -84,7 +93,7 @@ describe('Landing HomePage (Figma Page 01 · Public & Live Features Integration)
   });
 
   it('says there is no upcoming workshop and offers no QR link when the Member has no confirmed ticket', async () => {
-    vi.spyOn(workshopApi, 'listMemberBookings').mockResolvedValue([]);
+    vi.spyOn(workshopApi, 'listMemberBookingGroups').mockResolvedValue([]);
     renderHomePage({ initialAuthState: { status: 'signed-in' } });
     expect(await screen.findByText(/Bạn chưa có buổi workshop nào sắp tới/i)).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /Xem vé/i })).toBeNull();
@@ -210,6 +219,7 @@ describe('Landing HomePage (Figma Page 01 · Public & Live Features Integration)
           priceRange: { minimum: 580000 },
           images: [{ url: '/media/ring1.png', altText: 'Nhẫn 1' }],
           variants: [{ sku: 'ML-LIVE-01' }],
+          canBuy: true,
         },
       ],
     };
@@ -218,15 +228,31 @@ describe('Landing HomePage (Figma Page 01 · Public & Live Features Integration)
 
     renderHomePage();
 
+    // The live products use 002's product card: name and image open the product, a cart button adds to the cart.
     await waitFor(() => {
-      expect(screen.getByText('ML-LIVE-01')).toBeInTheDocument();
+      expect(screen.getByText('Nhẫn Bạc Kim Cương Nhân Tạo')).toBeInTheDocument();
     });
-
-    expect(screen.getByText('Nhẫn Bạc Kim Cương Nhân Tạo')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Chi tiết →' })).toHaveAttribute(
+    expect(screen.getByText('Nhẫn Bạc Kim Cương Nhân Tạo').closest('a')).toHaveAttribute(
       'href',
       '/products/prod-live-101',
     );
+    expect(screen.getByText('580.000 ₫')).toBeInTheDocument();
+    expect(screen.getByText('Còn hàng')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Thêm Nhẫn Bạc Kim Cương Nhân Tạo vào giỏ hàng' })).toBeEnabled();
+    // Shown as a sideways strip with arrows and a link to the whole catalogue.
+    expect(screen.getByRole('list', { name: 'Nhẫn Ready Rings' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Sản phẩm tiếp theo' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Xem tất cả nhẫn →' })).toHaveAttribute('href', '/products');
+  });
+
+  it('shows every product of the first catalogue page, not only four', async () => {
+    const items = Array.from({ length: 7 }, (_, index) => ({
+      id: `p${index}`, name: `Nhẫn số ${index}`, priceRange: { minimum: '100000' }, images: [], variants: [], canBuy: true,
+    }));
+    vi.spyOn(catalogueApi, 'listPublicProducts').mockResolvedValue({ items });
+    renderHomePage();
+    await waitFor(() => expect(screen.getByText('Nhẫn số 6')).toBeInTheDocument());
+    expect(within(screen.getByRole('list', { name: 'Nhẫn Ready Rings' })).getAllByRole('listitem')).toHaveLength(7);
   });
 
   it('renders Ecosystem Hub with 6 services and 4 internal operation portals', () => {

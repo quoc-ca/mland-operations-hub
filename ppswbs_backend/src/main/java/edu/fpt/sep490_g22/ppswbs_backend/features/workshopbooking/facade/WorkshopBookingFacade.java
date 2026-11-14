@@ -19,6 +19,15 @@ public interface WorkshopBookingFacade {
     /** Returns the minimal accepted Member source context required for terminal Loyalty outcomes; null for Guest or legacy bookings. */
     WorkshopBookingLoyaltyOutcomeSource getLoyaltyOutcomeSource(WorkshopBookingLoyaltyOutcomeSourceQuery query);
 
+    /** The one Loyalty context of a booking group, with its ticket identities (003.3 FR-030). */
+    BookingGroupLoyaltyOutcomeSource getGroupLoyaltyOutcomeSource(String groupReference);
+
+    /**
+     * Resolves a 003.2 ticket reference ({@code attendance_tickets.reference}) to the ticket booking that holds it,
+     * so 003.3 can find the ticket folio keyed by ticket code (decision 2026-11-13). Empty when unknown.
+     */
+    java.util.Optional<TicketBookingRef> findTicketBookingByOperationsReference(String ticketReference);
+
     /** Returns only an authorization decision; contact proof is neither returned nor logged. */
     CustomerBookingAccessDecision verifyCustomerBookingAccess(CustomerBookingAccessQuery query);
 
@@ -61,4 +70,7 @@ public interface WorkshopBookingFacade {
      * unknown or has no email. The value is for the caller's transaction only: never an event, audit or log field.
      */
     String getSettlementNotificationRecipient(SettlementNotificationRecipientQuery query);
+
+    /** The PII-free facts of one late-payment review, so 003.3 can recheck a refund amount (FR-040). */
+    java.util.Optional<LatePaymentReviewSnapshot> findLatePaymentReview(String reviewReference);
 }

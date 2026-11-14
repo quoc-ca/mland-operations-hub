@@ -37,6 +37,10 @@ public class PointLedger {
     @Column(name = "accepted_benefit_id", nullable = false, updatable = false)
     private Long acceptedBenefitId;
 
+    /** 0 = the whole transaction; 1..n = a settlement part of a retail checkout (Session 2026-11-12, D-011). */
+    @Column(name = "part_seq", nullable = false, updatable = false)
+    private int partSeq;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "entry_kind", nullable = false, updatable = false, length = 10)
     private LedgerEntryKind entryKind;
@@ -94,6 +98,34 @@ public class PointLedger {
         entry.heldAfter = heldAfter;
         entry.occurredAt = occurredAt;
         entry.originalDebitId = originalDebitId;
+        return entry;
+    }
+
+    /** The entry of one settlement part ({@code partSeq >= 1}); never a restore (parts are retail only). */
+    public static PointLedger partEntry(LedgerEntryKind kind, long memberId, long acceptedBenefitId, int partSeq,
+                                        BigInteger points, BigInteger balanceAfter, BigInteger heldAfter,
+                                        Instant occurredAt) {
+        if (partSeq < 1 || kind == LedgerEntryKind.RESTORE || kind == LedgerEntryKind.HOLD) {
+            throw new IllegalArgumentException("A part entry is a consume, release or earn of part 1 or later.");
+        }
+        PointLedger entry = entry(kind, memberId, acceptedBenefitId, points, balanceAfter, heldAfter, occurredAt, null);
+        entry.partSeq = partSeq;
+        return entry;
+    }
+
+    /**
+     * A workshop ticket's used points given back after the group debit (Session 2026-11-12, D-012): RESTORE of part
+     * {@code partSeq}, linked to the group's CONSUME entry.
+     */
+    public static PointLedger partRestore(long memberId, long acceptedBenefitId, int partSeq, BigInteger points,
+                                          BigInteger balanceAfter, BigInteger heldAfter, Instant occurredAt,
+                                          long originalDebitId) {
+        if (partSeq < 1) {
+            throw new IllegalArgumentException("A part restore belongs to part 1 or later.");
+        }
+        PointLedger entry = entry(LedgerEntryKind.RESTORE, memberId, acceptedBenefitId, points, balanceAfter, heldAfter,
+                occurredAt, originalDebitId);
+        entry.partSeq = partSeq;
         return entry;
     }
 }

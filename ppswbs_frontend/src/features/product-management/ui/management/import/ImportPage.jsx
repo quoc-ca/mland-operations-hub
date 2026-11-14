@@ -4,8 +4,10 @@ import { useFormat, useT } from '../../../../../shared/i18n/I18nProvider';
 import { ConfirmDialog, ErrorNotice, useCommand, useResource } from '../../../../../shared/ui/components';
 import { useCatalogueApi } from '../../../application/useCatalogueApi';
 import { messages } from '../../messages';
-import { compactSizes, LIMITS } from '../../../domain/productRules';
+import { compactSizes, LIMITS, productNameKey } from '../../../domain/productRules';
+import { useSameNamesOfBatch } from '../../../application/sameNameProducts';
 import { PageTop } from '../ManagementLayout';
+import { SameNameLinks } from '../SameNameWarning';
 import { BulkImagesPanel } from './BulkImagesPanel';
 
 function save({ blob, fileName }, fallback) {
@@ -33,6 +35,9 @@ export default function ImportPage() {
   const [file, setFile] = useState(null);
   const [hint, setHint] = useState(null);
   const [batch, setBatch] = useState(null);
+  // Products of the file whose name an existing product already has: pointed out, never refused (A-003).
+  const sameNames = useSameNamesOfBatch(api, batch);
+  const duplicateCount = (batch?.preview || []).filter(item => sameNames[productNameKey(item.name)]).length;
   const [confirmOpen, setConfirmOpen] = useState(false);
   const template = useCommand();
   const report = useCommand();
@@ -135,19 +140,19 @@ export default function ImportPage() {
       <section className="workspace-card">
         <h2>{t('import.step2')}</h2>
         <input ref={inputRef} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden onChange={choose} />
-        <div className="actions">
+        <div className="actions import-file-row">
           <button type="button" className="button outline" onClick={() => inputRef.current?.click()} disabled={validation.pending}>{t('import.chooseFile')}</button>
-          {file && <span>{file.name}</span>}
+          {file && <span className="import-file-name" title={file.name}>{file.name}</span>}
+          {file && !batch && (
+            <button type="button" className="button primary" onClick={validate} disabled={validation.pending}>{validation.pending ? t('import.validating') : t('import.validate')}</button>
+          )}
         </div>
         {hint && <p className="field-error">{t(hint)}</p>}
-        {file && !batch && (
-          <button type="button" className="button primary" onClick={validate} disabled={validation.pending}>{validation.pending ? t('import.validating') : t('import.validate')}</button>
-        )}
         <ErrorNotice error={validation.error} messages={messages} onRetry={retryValidate} />
       </section>
 
       {batch && (
-        <section className="workspace-card" aria-live="polite">
+        <section className="workspace-card import-result" aria-live="polite">
           <div className="card-head">
             <h2>{t('import.step3')}</h2>
             <span className={batch.state === 'REJECTED' ? 'status' : 'status ok'}>{t(`import.state.${batch.state}`)}</span>
@@ -186,10 +191,17 @@ export default function ImportPage() {
           {batch.state === 'VALIDATED' && (
             <>
               <p>{t('import.expiresAt', { at: format.dateTime(batch.expiresAt) })}</p>
+              {duplicateCount > 0 && <p className="notice same-name" role="status">{t('sameName.importSummary', { count: duplicateCount })}</p>}
               <ul className="preview-list">
-                {(batch.preview || []).map(item => (
-                  <li key={item.groupKey}><strong>{item.name}</strong> <span className="muted">({item.groupKey})</span> — {t('import.previewSizes', { count: item.sizes.length, sizes: compactSizes(item.sizes) })}</li>
-                ))}
+                {(batch.preview || []).map(item => {
+                  const same = sameNames[productNameKey(item.name)];
+                  return (
+                    <li key={item.groupKey}>
+                      <strong>{item.name}</strong> <span className="muted">({item.groupKey})</span> — {t('import.previewSizes', { count: item.sizes.length, sizes: compactSizes(item.sizes) })}
+                      {same && <span className="same-name-row"><span className="same-name-tag">{t('sameName.tag')}</span> <SameNameLinks products={same} /></span>}
+                    </li>
+                  );
+                })}
               </ul>
               {!staleImport && <button type="button" className="button primary" onClick={() => { confirmation.reset(); setConfirmOpen(true); }}>{t('import.confirm')}</button>}
             </>
@@ -200,9 +212,9 @@ export default function ImportPage() {
               <p className="notice success">{t('import.done', { count: batch.created?.length || 0 })}</p>
               <ul className="preview-list">
                 {(batch.created || []).map(item => (
-                  <li key={item.productId}>
+                  <li key={item.productId} className="created-product">
                     <Link className="text-link" to={`/catalogue-management/products/${encodeURIComponent(item.productId)}`}>{t('import.createdProduct', { id: item.productId, group: item.groupKey })}</Link>
-                    <span className="mono small"> {item.skus.join(', ')}</span>
+                    <span className="mono small created-skus">{item.skus.join(', ')}</span>
                   </li>
                 ))}
               </ul>

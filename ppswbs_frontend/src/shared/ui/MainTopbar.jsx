@@ -129,6 +129,17 @@ export default function MainTopbar() {
   const userRole = profileData?.role || account?.role || 'MEMBER';
   const isInternal = ['STAFF', 'MANAGER', 'ADMIN'].includes(userRole);
 
+  const isRingDesignActive =
+    (location.pathname.includes('/design') &&
+      !location.pathname.startsWith('/design-requests') &&
+      !location.pathname.startsWith('/design-review-requests')) ||
+    location.pathname.startsWith('/ring-design') ||
+    location.pathname === '/my/designs';
+
+  const isWorkshopActive =
+    (location.pathname === '/workshops' || location.pathname.startsWith('/workshops/')) &&
+    !location.pathname.includes('/design');
+
   return (
     <div className="main-topbar-wrapper">
       <header className="main-topbar" role="banner">
@@ -139,9 +150,16 @@ export default function MainTopbar() {
         <nav className="main-topbar-nav" aria-label="Khám phá">
           <Link
             to="/workshops"
-            className={`main-topbar-link ${location.pathname.startsWith('/workshops') ? 'active' : ''}`}
+            className={`main-topbar-link ${isWorkshopActive ? 'active' : ''}`}
           >
             Workshop
+          </Link>
+          <Link
+            to="/workshops/PKG-COUPLE-SILVER/design"
+            className={`main-topbar-link ${isRingDesignActive ? 'active' : ''}`}
+            title="Tự tay phối dáng nhẫn, chất liệu, kích thước và khắc chữ"
+          >
+            Cấu hình nhẫn
           </Link>
           <Link
             to="/products"
@@ -214,6 +232,9 @@ export default function MainTopbar() {
                   <Link to="/profile" className="main-topbar-dropdown-item" role="menuitem">
                     <span>👤</span> Hồ sơ cá nhân
                   </Link>
+                  <Link to="/my/designs" className="main-topbar-dropdown-item" role="menuitem">
+                    <span>💍</span> Mẫu nhẫn đã lưu
+                  </Link>
                   <Link to="/member/orders" className="main-topbar-dropdown-item" role="menuitem">
                     <span>📦</span> Đơn hàng của tôi
                   </Link>
@@ -248,11 +269,11 @@ export default function MainTopbar() {
                             <span>🏢</span> Staff Vận hành
                           </Link>
                           <Link
-                            to="/staff/retail-shipments"
+                            to="/staff/retail-orders"
                             className="main-topbar-dropdown-item"
                             role="menuitem"
                           >
-                            <span>🚚</span> Vận đơn GHTK
+                            <span>🏪</span> Đơn bán lẻ chi nhánh
                           </Link>
                         </>
                       )}

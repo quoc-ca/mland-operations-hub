@@ -58,13 +58,13 @@ public class RetailConfirmedUnpaidExpiryService {
                 .orElseThrow(() -> new RetailNotFoundException("Checkout does not exist"));
         if (checkout.getPaymentState() != PaymentState.PAYMENT_INITIATED || checkout.getPaymentInitiatedAt() == null
                 || checkout.getPayableAmount().compareTo(BigDecimal.valueOf(owner.amountVnd())) != 0) return false;
-        List<Long> ids = checkout.getOrders().stream().flatMap(order -> order.getItems().stream())
-                .map(item -> item.getVariantId()).distinct().sorted().toList();
+        var quantities = RetailBranchOrderKeys.quantities(checkout);
+        List<BranchVariant> branchKeys = quantities.keySet().stream().sorted().toList();
+        List<Long> ids = RetailBranchOrderKeys.variantIds(quantities);
         if (ids.isEmpty()) throw new RetailConflictException("Checkout has no items");
-        return catalogue.withLockedHistoricalContext(checkoutId, ids, context ->
-                guard.withGuard(ids, context.asOf(), snapshots -> {
-                    var current = ids.stream().map(id -> holdRepository.findByGroupedCheckoutIdAndVariantId(checkoutId, id)
-                            .orElseThrow(() -> new RetailConflictException("Checkout inventory hold is missing"))).toList();
+        return catalogue.withLockedHistoricalBranchContext(checkoutId, branchKeys, context ->
+                guard.withBranchGuard(branchKeys, context.asOf(), snapshots -> {
+                    var current = holds.requireBranchHolds(checkoutId, branchKeys);
                     Instant deadline = current.getFirst().getExpiresAt();
                     if (current.stream().anyMatch(h -> !deadline.equals(h.getExpiresAt()) || h.getStatus() != RetailVariantHoldStatus.HELD))
                         throw new RetailConflictException("Checkout inventory holds are inconsistent");

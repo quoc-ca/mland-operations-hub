@@ -4,7 +4,11 @@
 
 **Created**: 2026-10-24
 
-**Status**: Draft
+**Status**: Ready for implementation (reviewed 2026-11-14)
+
+**Date updated**: 2026-11-14
+
+**Last updated by**: Thinh
 
 **Input**: User description: "Create FE-10 Manager Dashboard with a read-only Executive Revenue Dashboard for authorized Managers; Admin may view only purpose-limited parameter-impact information in FE-09, not FE-10 executive revenue."
 
@@ -59,6 +63,55 @@ An Admin may receive a separate, purpose-limited `Parameter Impact Summary` for 
 - Q: Which reporting-period filters must FE-10 V1 support? → A: Calendar day, week, month, and year in Vietnam time (UTC+7), without a custom date range.
 - Q: When must FE-10 refresh its dashboard data? → A: Reload on initial page load, filter application, or explicit Manager refresh; do not refresh automatically on a timer.
 
+### Session 2026-11-12
+
+- Q: FE-08 now lets store-pickup orders be paid in cash at the branch counter.
+  Does that cash count as retail revenue? → A: Yes. A branch order whose cash
+  collection is confirmed by authorized Staff of that branch is a verified
+  retail payment. Its revenue is the branch order's product value after the
+  allocated discount (pickup has no delivery fee), and the Staff confirmation
+  time in Vietnam time decides the reporting period. A cash order that is not
+  yet confirmed, cancelled, or expired is never counted.
+- Q: Does the dashboard split revenue by payment method or show daily cash? →
+  A: No. FE-10 keeps its five KPI cards (FR-016). The daily cash total used to
+  check the cash drawer is an operational view owned by FE-08.
+
+### Session 2026-11-14 (review against the code on `develop`)
+
+- Q: The capability `REPORTING_EXECUTIVE_VIEW` does not exist in account
+  management. How is it granted? → A: V1 grants it to exactly the role
+  `MANAGER` with account status `ACTIVE`; no other role holds it and FE-09
+  parameter authority never implies it. The branch scope is the Manager's
+  active `account_location_assignments` (exposed as the current actor's active
+  location IDs). A separate capability table is out of V1 scope.
+- Q: Which time puts a verified retail payment in a period? → A: The time the
+  branch order became `PAID`, recorded by FE-08 as `retail_orders.paid_at`
+  (verified VNPay evidence applied, zero-total acceptance, or Staff cash
+  confirmation). Orders paid before that column existed take the cash
+  confirmation time, else the checkout's last update time.
+- Q: What is a "fully paid final workshop invoice" in the current settlement
+  model? → A: A settlement folio (`settlement_final_bills`) whose lifecycle is
+  `FINALIZED`, which FE-03 sets only when the balance is zero and no
+  collection is pending. Its revenue is the post-promotion amount plus the
+  confirmed charges (surcharges and add-ons); the deposit is already inside the
+  post-promotion amount, so it is counted once. Its fully-paid time is the
+  `FOLIO_FINALIZED` audit time, else the latest confirmed collection or
+  verified final payment. The branch is the location of the booked session.
+  A finalized folio whose session location cannot be resolved is not counted
+  and marks workshop revenue `PARTIAL` (reason `WORKSHOP_LOCATION_UNRESOLVED`).
+- Q: Which date puts a completed session into a period for utilization? → A:
+  Its scheduled start time in Vietnam time. A session is completed when its
+  state is `ATTENDANCE_FINALIZED`; checked-in participants are its session
+  entitlements in state `CHECKED_IN`.
+- Q: Does the screen need Apply and Refresh buttons? → A: No (Thinh,
+  2026-11-14). Each filter applies as soon as it is chosen, and picking a date
+  shows exactly that day. The Manager refreshes by reloading the page (F5),
+  which counts as the explicit refresh in FR-023. The data never reloads on a
+  timer. A failed load still shows a Retry action (FR-014).
+- Q: How does the screen list the branches a Manager may filter? → A: From the
+  branches returned for the default (all authorized branches) view; no extra
+  endpoint is needed.
+
 ## User Scenarios & Testing
 
 ### User Story 1 - View Executive Manager Dashboard (Priority: P1)
@@ -90,7 +143,7 @@ the corresponding verified source facts without changing business records.
 
 ---
 
-### User Story 3 - Understand Data Quality and Refresh Results (Priority: P2)
+### User Story 2 - Understand Data Quality and Refresh Results (Priority: P2)
 
 As an authorized Manager, I want to know when dashboard data is empty,
 incomplete, or unavailable so that I do not make decisions from misleading
@@ -126,7 +179,9 @@ and complete source states and verifies that each state is represented distinctl
 
 - **FR-001**: The system MUST allow an authenticated active account with
   `REPORTING_EXECUTIVE_VIEW` and at least one active
-  `account_location_assignments` to open the Manager Dashboard.
+  `account_location_assignments` to open the Manager Dashboard. In V1 the
+  capability is held by exactly the `MANAGER` role with `ACTIVE` status
+  (Session 2026-11-14).
 - **FR-002**: The system MUST display exactly five read-only KPI summary cards
   for the selected permitted scope: verified retail revenue, verified workshop
   revenue, total verified revenue, paid retail order count, and workshop
@@ -152,8 +207,9 @@ and complete source states and verifies that each state is represented distinctl
 - **FR-014**: The system MUST allow an eligible Manager to retry an unavailable dashboard view.
 - **FR-015**: The system MUST keep dashboard viewing and filtering read-only; these actions MUST NOT change orders, payments, workshop records, products, promotions, or other operational master data.
 - **FR-016**: The V1 dashboard MUST contain only its period/branch filters,
-  five KPI cards, per-branch KPI rows, data-quality notices, and explicit
-  refresh control; it MUST NOT include operational-list navigation cards,
+  five KPI cards, per-branch KPI rows, data-quality notices, and a Retry
+  action after a failed load (page reload is the refresh control, Session
+  2026-11-14); it MUST NOT include operational-list navigation cards,
   pending-work cards, or metrics owned by another feature.
 - **FR-017**: The system MUST deny access without revealing executive revenue values when the user is unauthenticated, locked, no longer authorized, or outside the Manager role boundary.
 - **FR-018**: The system MUST provide a clear safe state when the session expires or authorization changes during dashboard use.
@@ -168,7 +224,11 @@ and complete source states and verifies that each state is represented distinctl
   the affected result MUST be partial with safe quality metadata.
 - **FR-026**: The system MUST include a retail order in dashboard revenue and
   paid-order count only after its payment is successfully verified and the
-  verified outcome is committed by the retail domain. A Manager refresh MUST
+  verified outcome is committed by the retail domain. A verified payment is
+  either verified VNPay evidence or a counter cash collection confirmed by
+  authorized branch Staff (FE-08 FR-08-045); for cash, the confirmation time
+  in Vietnam time determines the reporting period. Unconfirmed, cancelled, or
+  expired cash orders MUST NOT contribute to any KPI. A Manager refresh MUST
   read the latest committed verified facts; pending or failed payment attempts
   MUST NOT contribute to any KPI.
 

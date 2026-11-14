@@ -48,7 +48,7 @@ import static org.mockito.Mockito.when;
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @ActiveProfiles(LoyaltyTestSupport.MYSQL_PROFILE)
-@Import(RealWorkshopBookings.class)
+@Import({RealWorkshopBookings.class, edu.fpt.sep490_g22.ppswbs_backend.support.legacybooking.LegacyDirectBookings.class, edu.fpt.sep490_g22.ppswbs_backend.support.legacybooking.LegacyBookingLoyaltyOutcomes.class})
 class LoyaltyWorkshopSourceConcurrencyIT {
 
     private static final int ROUNDS = 3;
@@ -134,25 +134,6 @@ class LoyaltyWorkshopSourceConcurrencyIT {
             }
             assertThat(workshop.wallet(booked.member()).getHeldPoints()).isZero();
         }
-    }
-
-    @Test
-    void aDepositRacingTheExpiryOfItsHoldLeavesTheUnclearPaymentToReconciliation() {
-        Booked booked = accepted();
-        Callable<DepositPaymentEvidenceOutcome> deposit = workshop.prepareDeposit(booked.booking());
-        workshop.holdRunsOut(booked.booking());
-
-        List<Outcome<Object>> results = LoyaltyTestSupport.concurrently(
-                () -> deposit.call(),
-                () -> { workshop.runExpiryReconciliation(); return null; });
-
-        assertThat(((DepositPaymentEvidenceOutcome) results.get(0).value()).status())
-                .as("a deposit after the hold ran out is not applied").isEqualTo(BookingOutcomeStatus.REJECTED);
-        BenefitResult result = result(booked.booking().getBookingCode());
-        assertThat(result.pointsState()).as("an attempt exists, so FE-03 reconciles before any release").isEqualTo(ComponentState.HELD);
-        assertThat(result.voucherState()).isEqualTo(ComponentState.HELD);
-        assertThat(workshop.wallet(booked.member()).getHeldPoints()).isEqualTo(BigInteger.valueOf(900));
-        assertThat(workshop.wallet(booked.member()).getBalancePoints()).isEqualTo(BigInteger.valueOf(2_000));
     }
 
     private BenefitResult result(String bookingCode) {

@@ -1,0 +1,71 @@
+/* FE-08 Member cart — Shopee-like layout (branch groups, steppers, bottom voucher/points bar). */
+.retail-cart-page .cart-sp{display:grid;gap:14px}
+.cart-sp-header,.cart-sp-line{display:grid;grid-template-columns:minmax(0,1fr) 140px 150px 140px 90px;gap:16px;align-items:center}
+.cart-sp-header{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:16px 24px;color:#6b7280;font-size:13px}
+.cart-sp-header>span,.cart-sp-price,.cart-sp-amount,.cart-sp-actions{text-align:center}
+.cart-sp-branch{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:0 24px}
+.cart-sp-branch-name{display:flex;align-items:center;gap:10px;padding:16px 0;border-bottom:1px solid #eee}
+.cart-sp-branch-name strong{font-size:14px}
+.cart-sp-branch-icon{display:grid;place-items:center;width:28px;height:28px;border-radius:6px;background:#fef6c3;font-size:16px}
+.cart-sp-line{padding:20px 0;border-bottom:1px solid #f1f1f1}
+.cart-sp-line:last-child{border-bottom:0}
+.cart-sp-product{display:flex;gap:14px;align-items:center;min-width:0}
+.cart-sp-product-text{display:grid;gap:4px;min-width:0}
+.cart-sp-product-text strong{font-size:14px;line-height:1.4;overflow-wrap:anywhere}
+.cart-sp-product-text .muted{font-size:12px}
+.cart-sp-price{font-size:14px;color:#1a1a1a;white-space:nowrap}
+.cart-sp-amount{font-size:14px;font-weight:700;color:#7b6e00;white-space:nowrap}
+.cart-sp-label{display:none}
+.cart-sp-qty{display:inline-flex;justify-self:center;border:1px solid #d9d9d9;border-radius:6px;overflow:hidden}
+.cart-sp-qty button{width:32px;height:32px;border:0;background:#fff;font-size:16px;cursor:pointer}
+.cart-sp-qty button:disabled{color:#c4c4c4;cursor:not-allowed}
+.cart-sp-qty input{width:48px;height:32px;border:0;border-left:1px solid #d9d9d9;border-right:1px solid #d9d9d9;text-align:center;font-size:14px;-moz-appearance:textfield}
+.cart-sp-qty input::-webkit-outer-spin-button,.cart-sp-qty input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.cart-sp-actions .text-link{color:#1a1a1a;font-size:13px}
+.cart-sp-actions .text-link:hover{color:#b42318}
+
+.cart-sp-bottom{position:sticky;bottom:0;z-index:5;background:#fff;border:1px solid #e5e7eb;border-radius:10px;box-shadow:0 -4px 16px rgba(0,0,0,.06);padding:0 24px}
+.cart-sp-row{width:100%;display:grid;grid-template-columns:28px max-content minmax(0,1fr) auto;gap:12px;align-items:center;padding:14px 0;border:0;border-bottom:1px dashed #e5e7eb;background:transparent;text-align:left;font-size:14px;cursor:pointer}
+.cart-sp-voucher{grid-template-columns:28px max-content minmax(0,1fr)}
+.cart-sp-voucher>span:last-child{text-align:right}
+.cart-sp-points{grid-template-columns:18px 28px max-content minmax(0,1fr) auto}
+.cart-sp-points.disabled{cursor:default;opacity:.65}
+.cart-sp-points input{width:16px;height:16px;accent-color:#b4a500}
+.cart-sp-row-icon{color:#847600;font-size:18px}
+.cart-sp-link{color:#7b6e00;font-weight:600}
+.cart-sp-applied{color:#0b5c34;font-weight:600}
+.cart-sp-quote-error{margin:10px 0 0;font-size:13px}
+.cart-sp-footer{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:16px 0}
+.cart-sp-orders-link{font-size:13px;font-weight:600;color:#333;text-decoration:none;margin-left:12px}
+.cart-sp-check{width:18px;height:18px;flex:none;accent-color:#b4a500;cursor:pointer}
+.cart-sp-check:disabled{cursor:not-allowed}
+.cart-sp-check-label{display:inline-flex;align-items:center;gap:12px;cursor:pointer;font-size:14px;color:#1a1a1a}
+.cart-sp-header .cart-sp-check-label{color:#6b7280;font-size:13px}
+.cart-sp-line.unavailable .cart-sp-product-text,.cart-sp-line.unavailable .cart-sp-price,.cart-sp-line.unavailable .cart-sp-amount{opacity:.55}
+.cart-sp-delete-selected{font-size:14px;color:#1a1a1a}
+.cart-sp-delete-selected:hover:not(:disabled){color:#b42318}
+.cart-sp-orders-link:hover{text-decoration:underline}
+.cart-sp-total{margin-left:auto;display:grid;justify-items:end;gap:3px;font-size:14px}
+.cart-sp-total strong{font-size:22px;color:#7b6e00}
+.cart-sp-total small{font-size:12px}
+.cart-sp-total small b{color:#7b6e00}
+.retail-shopping .cart-sp-buy{min-width:200px}
+
+@media(max-width:900px){
+  .cart-sp-header{display:none}
+  .cart-sp-line{grid-template-columns:1fr auto;grid-template-areas:"product product" "price qty" "amount actions";row-gap:10px}
+  .cart-sp-product{grid-area:product}.cart-sp-price{grid-area:price;text-align:left}.cart-sp-qty{grid-area:qty;justify-self:end}
+  .cart-sp-amount{grid-area:amount;text-align:left}.cart-sp-actions{grid-area:actions;text-align:right}
+  .cart-sp-label{display:inline;margin-right:6px;color:#6b7280;font-weight:400;font-size:12px}
+}
+@media(max-width:760px){
+  .cart-sp-branch,.cart-sp-bottom{padding:0 16px}
+  .cart-sp-footer{flex-wrap:wrap}
+  .cart-sp-total{margin-left:0;justify-items:start;width:100%}
+  .retail-shopping .cart-sp-buy{width:100%}
+  .cart-sp-points{grid-template-columns:18px 28px minmax(0,1fr) auto}
+  .cart-sp-points>span.muted:not(:last-child){grid-column:3 / -1;grid-row:2;font-size:12px}
+}
+.cart-sp-price .cart-sp-was{display:block;color:#9ca3af;font-size:12px}
+.cart-sp-price .cart-sp-now{display:block;color:#b45309;font-size:15px}
+.cart-sp-price .cart-sp-voucher-tag{display:inline-block;margin-top:3px;padding:1px 6px;border:1px solid #f59e0b;border-radius:3px;color:#b45309;font-size:11px;white-space:nowrap}

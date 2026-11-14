@@ -1955,7 +1955,8 @@
               }
             }
           }
-        }
+        },
+        "description": "Acts at every branch selling the size (FR-021), so a Staff member needs every one of those branches in scope (FR-050), else 403 BRANCH_OUT_OF_SCOPE; a size not yet assigned to a branch needs at least one assigned branch (BRANCH_SCOPE_EMPTY)."
       }
     },
     "/api/v1/catalogue-management/variants/{variantId}/price-proposals": {
@@ -3478,7 +3479,8 @@
               }
             }
           }
-        }
+        },
+        "description": "Without locationIds (the old template) only a Manager may import (products start without a branch); a Staff member gets 400 VALIDATION_ERROR on locationIds, or 403 BRANCH_SCOPE_EMPTY without an assigned branch (FR-048/FR-050). Confirmation re-checks this."
       }
     },
     "/api/v1/catalogue-management/product-imports/{batchId}": {
@@ -4844,6 +4846,16 @@
           },
           "canBuy": {
             "type": "boolean"
+          },
+          "assignedToBranches": {
+            "type": "boolean",
+            "description": "false = product not yet assigned to any branch: every active selling location may be chosen and branches is empty."
+          },
+          "branches": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicVariantBranch"
+            }
           }
         },
         "required": [
@@ -4853,7 +4865,9 @@
           "appliedPrice",
           "currency",
           "saleEnabled",
-          "canBuy"
+          "canBuy",
+          "assignedToBranches",
+          "branches"
         ]
       },
       "PriceRange": {
@@ -5720,10 +5734,15 @@
         "properties": {
           "saleEnabled": {
             "type": "boolean"
+          },
+          "expectedSaleEnabled": {
+            "type": "boolean",
+            "description": "T142 (FR-026): whether the product was sold at this branch when the user looked. If the current state differs, 409 STALE_VERSION and nothing changes."
           }
         },
         "required": [
-          "saleEnabled"
+          "saleEnabled",
+          "expectedSaleEnabled"
         ]
       },
       "ManagementBranch": {
@@ -5769,6 +5788,18 @@
           "version": {
             "type": "integer",
             "minimum": 0
+          },
+          "validHeldQuantity": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,18})$",
+            "nullable": true,
+            "description": "FR-051 (2026-11-12): valid FE-08 holds at this branch. Null while the FE-08 source keeps holds per size only; the size's validHeldQuantity then applies at every branch."
+          },
+          "availableQuantity": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,18})$",
+            "nullable": true,
+            "description": "FR-051: max(0, remainingUnsold - validHeldQuantity) at this branch; null when validHeldQuantity is null."
           }
         },
         "required": [
@@ -5776,6 +5807,23 @@
           "remainingUnsold",
           "saleEnabled",
           "version"
+        ]
+      },
+      "PublicVariantBranch": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "US10 FR-046/FR-052: an active branch selling the size; canBuy = available there now. No quantity, hold or stopped branch is exposed.",
+        "properties": {
+          "locationId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "canBuy": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "locationId",
+          "canBuy"
         ]
       }
     }

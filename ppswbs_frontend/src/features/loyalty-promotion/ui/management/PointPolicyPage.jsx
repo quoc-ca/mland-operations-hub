@@ -4,7 +4,8 @@ import { ErrorNotice, Field, Loading, SuccessNotice, useCommand, useResource } f
 import { useLoyaltyApi } from '../../application/useLoyaltyApi';
 import { messages } from '../messages';
 import { useDateTime } from '../display';
-import { isPercent, isPositive, serverFieldErrors } from '../../domain/promotionRules';
+import { isPercent, isPositive } from '../../domain/promotionRules';
+import { useFieldErrors } from '../../application/useFieldErrors';
 import { PageTop } from './PromotionManagementLayout';
 
 const FIELDS = ['earnUnitAmount', 'redeemPointValue', 'minRedeemPoints', 'maxRedeemPercent'];
@@ -21,11 +22,9 @@ export default function PointPolicyPage() {
   const api = useLoyaltyApi();
   const policy = useResource(() => api.getPolicy(), []);
   const [form, setForm] = useState(null);
-  const [hints, setHints] = useState({});
   const [notice, setNotice] = useState(null);
   const command = useCommand();
-  const serverErrors = serverFieldErrors(command.error);
-  const errorOf = field => serverErrors[field] || (hints[field] && t(hints[field]));
+  const { errorOf, setHints, clear } = useFieldErrors(command.error, t);
 
   if (policy.loading && !policy.data) return <Loading />;
   if (!policy.data) return <ErrorNotice error={policy.error} messages={messages} onRetry={policy.reload} />;
@@ -74,7 +73,7 @@ export default function PointPolicyPage() {
           <div className="form-grid">
             {FIELDS.map(key => (
               <Field key={key} label={t(`policy.${key}`)} error={errorOf(key)}>
-                <input inputMode={key === 'maxRedeemPercent' ? 'decimal' : 'numeric'} value={form[key]} onChange={event => setForm(current => ({ ...current, [key]: event.target.value }))} />
+                <input inputMode={key === 'maxRedeemPercent' ? 'decimal' : 'numeric'} value={form[key]} onChange={event => { clear(key); setForm(current => ({ ...current, [key]: event.target.value })); }} />
               </Field>
             ))}
           </div>

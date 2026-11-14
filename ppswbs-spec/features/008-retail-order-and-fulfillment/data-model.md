@@ -100,7 +100,13 @@ Later catalogue changes must not alter the order snapshot.
 - Created and expires-at timestamps
 - Released/converted outcome and reason
 
-The maximum unpaid hold is 15 minutes. A payment link is valid for at most 10
+Since T124 (FE-02 FR-053, 2026-11-12) each held quantity belongs to one
+(grouped checkout, size, branch) and is guarded per size x branch: a hold or
+sale at one branch never reduces what another branch can sell. A legacy
+size-level hold without a branch is counted at every branch of its size.
+
+The maximum unpaid VNPay hold is 15 minutes; a counter cash checkout is held for
+72 hours (FR-08-043). A payment link is valid for at most 10
 minutes. An authoritative unpaid payment failure or expiry releases held
 quantities and benefits and restores the source cart; late or ambiguous payment
 evidence is recorded for manual review and does not reopen the hold automatically.

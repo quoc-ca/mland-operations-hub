@@ -8,9 +8,11 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.enums
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.enums.AccountStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.service.TokenVerificationService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.service.VerifiedIdentity;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.dao.MemberProgramRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.dao.PromotionProgramRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.dao.PromotionRevisionRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.dao.PromotionTargetRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.entity.MemberProgram;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.entity.ProgramKind;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.entity.PromotionProgram;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.entity.PromotionRevision;
@@ -19,6 +21,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.Target
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.TargetScope;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.service.LoyaltyCalculator.DiscountTerms;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.support.LoyaltyTestSupport;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.ProductVariantRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.support.CatalogueFlowFixture;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -69,6 +72,8 @@ class SavedVoucherContractIT {
     @Autowired private PromotionProgramRepository programs;
     @Autowired private PromotionRevisionRepository revisions;
     @Autowired private PromotionTargetRepository targets;
+    @Autowired private MemberProgramRepository memberPrograms;
+    @Autowired private ProductVariantRepository variants;
     @MockBean private TokenVerificationService tokens;
 
     private long publicProduct;
@@ -96,7 +101,7 @@ class SavedVoucherContractIT {
         return transaction.execute(status -> {
             PromotionProgram program = programs.saveAndFlush(kind == ProgramKind.VOUCHER
                     ? PromotionProgram.voucher(scope, code, code, 10, 2, now, 1L)
-                    : PromotionProgram.autoDiscount(now, 1L));
+                    : PromotionProgram.autoDiscount(TargetScope.PRODUCT, now, 1L));
             PromotionRevision revision = revisions.saveAndFlush(PromotionRevision.create(program.getId(), 1, kind,
                     "Ưu đãi", now.plus(startOffsetDays, ChronoUnit.DAYS), now.plus(endOffsetDays, ChronoUnit.DAYS),
                     DiscountTerms.fixed(BigInteger.valueOf(20_000), BigInteger.valueOf(20_000), BigInteger.ZERO), true,
@@ -111,6 +116,44 @@ class SavedVoucherContractIT {
             }
             program.pointToRevision(revision.getId());
             return program.getId();
+        });
+    }
+
+    /** An active product voucher with product AND size targets. */
+    private long sizeVoucher(List<Long> productIds, List<Long> variantIds) {
+        Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
+        String code = "SV" + UUID.randomUUID().toString().replace("-", "").substring(0, 10).toUpperCase();
+        return transaction.execute(status -> {
+            PromotionProgram program = programs.saveAndFlush(
+                    PromotionProgram.voucher(TargetScope.PRODUCT, code, code, 10, 2, now, 1L));
+            PromotionRevision revision = revisions.saveAndFlush(PromotionRevision.create(program.getId(), 1,
+                    ProgramKind.VOUCHER, "Ưu đãi size", now.minus(1, ChronoUnit.DAYS), now.plus(1, ChronoUnit.DAYS),
+                    DiscountTerms.fixed(BigInteger.valueOf(20_000), BigInteger.valueOf(20_000), BigInteger.ZERO), true,
+                    now, 1L));
+            productIds.forEach(id -> targets.save(PromotionTarget.create(revision.getId(), TargetScope.PRODUCT,
+                    TargetDimension.PRODUCT, Long.toString(id))));
+            variantIds.forEach(id -> targets.save(PromotionTarget.create(revision.getId(), TargetScope.PRODUCT,
+                    TargetDimension.VARIANT, Long.toString(id))));
+            program.pointToRevision(revision.getId());
+            return program.getId();
+        });
+    }
+
+    private long firstSize(long productId) {
+        return variants.findByProductIdInOrderByProductIdAscRingSizeAsc(java.util.Set.of(productId)).get(0).getId();
+    }
+
+    private long memberId(String bearer) {
+        String uid = bearer.substring("Bearer token-".length());
+        return accounts.findByFirebaseUid(uid).orElseThrow().getId();
+    }
+
+    /** The Member's row as if they had saved the voucher earlier, while it was public. */
+    private void savedEarlier(long programId, String bearer) {
+        long memberId = memberId(bearer);
+        transaction.executeWithoutResult(status -> {
+            MemberProgram row = memberPrograms.saveAndFlush(MemberProgram.create(programId, memberId));
+            row.save(Instant.now().truncatedTo(ChronoUnit.MICROS));
         });
     }
 
@@ -227,8 +270,10 @@ class SavedVoucherContractIT {
         long noProduct = program(ProgramKind.VOUCHER, TargetScope.PRODUCT, -1, 1, draftProduct);
         long scheduled = program(ProgramKind.VOUCHER, TargetScope.PRODUCT, 1, 2, publicProduct);
         long ended = program(ProgramKind.VOUCHER, TargetScope.PRODUCT, -2, -1, publicProduct);
-        for (long id : new long[] {paused, noProduct, scheduled, ended}) {
-            ok(save(id, member));
+        ok(save(paused, member));
+        // Saved while they were public; only a public voucher can be saved now (L1).
+        for (long id : new long[] {noProduct, scheduled, ended}) {
+            savedEarlier(id, member);
         }
         transaction.executeWithoutResult(status -> programs.findById(paused).orElseThrow().pause());
         JsonNode page = ok(call(get(SAVED).param("limit", "10"), member));
@@ -269,5 +314,77 @@ class SavedVoucherContractIT {
         assertError(save(auto, member), 404, "PROMOTION_NOT_FOUND");
         assertError(save(9_223_372_036_854_775_807L, member), 404, "PROMOTION_NOT_FOUND");
         assertError(call(put(SAVED + "/" + voucher), member), 400, "INVALID_INPUT");
+    }
+
+    // ----- review 2026-11-10 -----
+
+    @Test
+    void sizeTargetsThatLeftTheCatalogueLeaveNoPublicTarget() throws Exception {
+        // M2: products [public, draft] AND only a size of the draft product. No line can match, so the card must not
+        // show the public product alone (it would read as "every size of it").
+        long voucher = sizeVoucher(List.of(publicProduct, draftProduct), List.of(firstSize(draftProduct)));
+        assertThat(find(allPublic("PRODUCT"), voucher)).isNull();
+        assertError(call(get(PUBLIC + "/" + voucher), null), 404, "PROMOTION_NOT_FOUND");
+        String member = signIn(AccountRole.MEMBER);
+        savedEarlier(voucher, member);
+        JsonNode item = ok(call(get(SAVED), member)).path("items").get(0);
+        assertThat(item.path("availability").asText()).isEqualTo("NO_PUBLIC_TARGET");
+
+        // A public size keeps the card, listing only that size.
+        long kept = sizeVoucher(List.of(publicProduct, draftProduct),
+                List.of(firstSize(publicProduct), firstSize(draftProduct)));
+        JsonNode card = find(allPublic("PRODUCT"), kept);
+        assertThat(card).isNotNull();
+        assertThat(card.path("targets").path("variantIds")).hasSize(1);
+        assertThat(card.path("targets").path("variantIds").get(0).asText())
+                .isEqualTo(Long.toString(firstSize(publicProduct)));
+    }
+
+    @Test
+    void onlyAPublicVoucherCanBeSavedAndAnEarlierSaveStaysSaveable() throws Exception {
+        // L1: knowing an ID of a paused, scheduled, ended or hidden voucher never reveals its code.
+        String member = signIn(AccountRole.MEMBER);
+        long paused = program(ProgramKind.VOUCHER, TargetScope.PRODUCT, -1, 1, publicProduct);
+        transaction.executeWithoutResult(status -> programs.findById(paused).orElseThrow().pause());
+        long scheduled = program(ProgramKind.VOUCHER, TargetScope.PRODUCT, 1, 2, publicProduct);
+        long ended = program(ProgramKind.VOUCHER, TargetScope.PRODUCT, -2, -1, publicProduct);
+        long hidden = program(ProgramKind.VOUCHER, TargetScope.PRODUCT, -1, 1, draftProduct);
+        for (long id : new long[] {paused, scheduled, ended, hidden}) {
+            assertError(save(id, member), 404, "PROMOTION_NOT_FOUND");
+        }
+        assertThat(ok(call(get(SAVED), member)).path("items")).isEmpty();
+
+        long voucher = program(ProgramKind.VOUCHER, TargetScope.PRODUCT, -1, 1, publicProduct);
+        ok(save(voucher, member));
+        transaction.executeWithoutResult(status -> programs.findById(voucher).orElseThrow().pause());
+        JsonNode again = ok(save(voucher, member));
+        assertThat(again.path("availability").asText()).isEqualTo("PAUSED");
+    }
+
+    @Test
+    void savedVouchersSayWhenNoUseIsLeft() throws Exception {
+        // L2 / US3.5: all uses taken in total, or this Member's own limit reached (held uses count until released).
+        String member = signIn(AccountRole.MEMBER);
+        long full = program(ProgramKind.VOUCHER, TargetScope.PRODUCT, -1, 1, publicProduct);
+        long mine = program(ProgramKind.VOUCHER, TargetScope.PRODUCT, -1, 1, publicProduct);
+        ok(save(full, member));
+        ok(save(mine, member));
+        long memberId = memberId(member);
+        transaction.executeWithoutResult(status -> {
+            PromotionProgram program = programs.findById(full).orElseThrow();
+            for (int i = 0; i < 10; i++) {
+                program.hold();
+            }
+            PromotionProgram limited = programs.findById(mine).orElseThrow();
+            limited.hold();
+            limited.hold();
+            MemberProgram row = memberPrograms.findByProgramIdAndMemberId(mine, memberId).orElseThrow();
+            row.hold(2);
+            row.hold(2);
+        });
+        java.util.Map<Long, String> availability = new java.util.HashMap<>();
+        ok(call(get(SAVED), member)).path("items").forEach(item -> availability.put(
+                item.path("promotion").path("id").asLong(), item.path("availability").asText()));
+        assertThat(availability).containsEntry(full, "NO_USES_LEFT").containsEntry(mine, "MEMBER_LIMIT_REACHED");
     }
 }

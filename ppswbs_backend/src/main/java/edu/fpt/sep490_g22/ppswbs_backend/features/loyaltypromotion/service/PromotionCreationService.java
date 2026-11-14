@@ -83,7 +83,7 @@ public class PromotionCreationService {
             program = PromotionProgram.voucher(request.scope(), request.code().original(), request.code().key(),
                     request.totalLimit(), request.perMemberLimit(), now, manager);
         } else {
-            program = PromotionProgram.autoDiscount(now, manager);
+            program = PromotionProgram.autoDiscount(request.scope(), now, manager);
         }
         program = programs.saveAndFlush(program);
         PromotionRevision revision = revisions.saveAndFlush(PromotionRevision.create(program.getId(), 1,

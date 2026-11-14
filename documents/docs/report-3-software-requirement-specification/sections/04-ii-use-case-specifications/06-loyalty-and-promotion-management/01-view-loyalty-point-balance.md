@@ -2,11 +2,11 @@
 
 #### Primary Actors
 
-- Member
+Member.
 
 #### Secondary Actors
 
-- None
+None.
 
 #### Description
 
@@ -53,9 +53,7 @@ The system rejects the request without revealing whether the account exists (MSG
 
 #### Business Rules
 
-- BR-42-01
-- BR-42-02
-- BR-42-03
+BR-42-01, BR-42-02, BR-42-03
 
 #### Business Rule Definitions
 

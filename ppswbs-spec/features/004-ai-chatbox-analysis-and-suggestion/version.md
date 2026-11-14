@@ -4,7 +4,7 @@
 - **Author**: Ngô Tiến Đạt
 - **Last updated by**: Ngô Tiến Đạt
 - **Date created**: 2026-10-24
-- **Date updated**: 2026-11-05
+- **Date updated**: 2026-11-12
 - **Source of truth**: Feature-004 `spec.md`, `design.md`, OpenAPI contract and `FE-004-DESIGN-INDEPENDENT-HANDOFF.md`
 
 > This file is an implementation status index. Historical audit details are
@@ -839,4 +839,215 @@ permission, API, AI, retention or pricing rules.
 Frontend implementation remains on the existing `designreview` slice. The
 Figma work is a visual handoff, not a replacement for backend/OpenAPI mismatch
 resolution or integration verification.
+
+## 10. QA test implementation and execution plan (2026-11-12)
+
+This is a testing-agent handoff, not a current test result. Historical code or
+test logs must be re-run under `ppswbs-testing/AGENT.md` before reporting PASS.
+
+### 10.1 Test artifacts and traceability
+
+Create under `test-results/`:
+
+```text
+UTC-004-A-001--ai-input-security.md
+UTC-004-A-002--design-request-invariants.md
+UTC-004-A-003--review-routing-and-privacy.md
+UTC-004-B-001--frontend-command-and-preview.md
+E2E-004-001--guest-ai-support.md
+E2E-004-002--member-design-request.md
+E2E-004-003--staff-manager-review.md
+E2E-004-004--manager-price-suggestion.md
+screenshots/
+```
+
+Each file must contain the required YAML front matter, links to Feature-004
+`spec.md`/`tasks.md`/OpenAPI, actor and test account, `health_urls`, isolated
+`test_data.isolation_key`, setup/cleanup, exact selectors or API commands,
+observable assertions, expected status/error code and evidence paths. Use
+`$unit-test-specify`/`$unit-test-execute` for unit/integration cases and
+`$e2e-test-specify`/`$e2e-browser-execute` for BrowserMCP scenarios.
+
+### 10.2 Mandatory gates and run order
+
+Complete T01–T10 before execution: BrowserMCP availability for E2E, frontend
+and backend health, developer unit-test handoff, scenario traceability,
+adversarial cases, correct actor accounts, stable selectors, observable
+assertions, JPEG screenshot directory and isolated cleanup. A missing
+environment gate produces `BLOCKED`, not PASS.
+
+Run backend unit/integration tests first, then frontend Vitest tests, then
+regression suites and finally BrowserMCP E2E. Stop at the first failed
+assertion, preserve the failed evidence and add a `BUG-E2E-*` or appropriate
+defect record to `ppswbs-testing/BUG-LOG.md`.
+
+### 10.3 Backend/security coverage
+
+The test agent must cover:
+
+- Guest Basic AI Support succeeds, but Guest image submission is always `403`.
+- Member identity, active status, consent, ownership and design context are
+  validated before storage/provider calls.
+- Empty/overlong prompt, unsupported topic, private-data request and business
+  decision request fail with the documented error before mutation.
+- Prompt injection returns `AI_PROMPT_INJECTION_DETECTED`, calls no provider and
+  changes no business state.
+- Image MIME/signature/size/dimensions/metadata/malware/ownership validation
+  occurs before Gemini; invalid attempts still count toward the Member quota.
+- The fourth attempt in five rolling minutes returns `429 IMAGE_RATE_LIMITED`,
+  includes `Retry-After`, stores no image, calls no Gemini and creates no review.
+- Concurrent submissions cannot bypass the atomic quota; duplicate idempotent
+  retries do not consume another slot.
+- Provider output schema/policy validation rejects unsafe output with
+  `AI_OUTPUT_POLICY_VIOLATION`; AI cannot change review, booking, payment or
+  catalogue price state.
+- Temporary images are deleted after provider success and failure; raw image,
+  raw provider payload, token and unnecessary PII are not logged or retained.
+- Every valid image request reaches human review; Staff/Manager threshold,
+  scope, stale version and conflict-of-interest rules are enforced.
+- Price suggestion is Manager-only, advisory, range-validated, manually
+  recoverable and never automatically applied/published.
+
+### 10.4 Frontend coverage
+
+Test `src/features/designreview/` for Guest chat scope, prompt limits,
+unsupported-topic/timeout/retry states, Member description-only/image-only/both
+submissions, consent-before-multipart, file validation, rate-limit handling,
+401 refresh once, 403 denial, 409 conflict and form/idempotency preservation.
+Also verify safe candidate-feature/image-quality rendering, no raw provider
+payload, Staff/Manager review controls, Admin technical projection and hidden
+price suggestion for Staff/customers.
+
+### 10.5 E2E evidence and acceptance
+
+`E2E-004-001` covers Guest chat and image denial; `E2E-004-002` covers Member
+consent, valid submission, processing/result and failure retry;
+`E2E-004-003` covers Staff/Manager review, clarification and conflict;
+`E2E-004-004` covers Manager price suggestion, invalid fallback and visibility.
+Capture JPEG screenshots after submit, pending, success, denial and recovery in
+`test-results/screenshots/`. Feature-004 is QA accepted only when all applicable
+UTC/E2E cases PASS with reproducible evidence and no open BLOCKER/CRITICAL defect
+exists in `BUG-LOG.md`.
+
+### 10.6 Test Execution Evidence & Status Log (2026-11-12)
+
+- **Backend Integration Test Suite**:
+  - Command: `mvnw.cmd test -Dtest="edu.fpt.sep490_g22.ppswbs_backend.designreview.*IT"`
+  - Results: **44/44 tests passed (100%)** in 2m 04s (`AiSupportIT`, `DataRetentionIT`, `DesignRequestIT`, `HumanReviewIT`, `PriceProposalIT`).
+- **Frontend Vitest Component & Screen Suite**:
+  - Command: `npm.cmd test -- src/features/designreview`
+  - Results: **2/2 test files passed, 21/21 tests passed (100%)** (`designReviewApi.test.js`, `screens.test.jsx`).
+- **E2E BrowserMCP Layer & Preflight T01–T10 Gate Execution**:
+  - Scenarios generated under `test-results/`:
+    - `E2E-004-001--guest-ai-support.md`: Guest chat & image upload denial.
+    - `E2E-004-002--member-design-request.md`: Member consent, 10MB limit, 429 rate limit (4th upload in 5m), candidate features, safe projections.
+    - `E2E-004-003--staff-manager-review.md`: Staff review, 403 unauthorized reviewer/self-review, 409 stale version conflict.
+    - `E2E-004-004--manager-price-suggestion.md`: Advisory price calculation, retry idempotency, Admin technical audit projection.
+  - Preflight Health Check:
+    - Gate T01 (`browsermcp` tool availability): **PASS** (Đã kết nối Chrome qua Browser MCP extension).
+    - Gate T02 (Service health check): **PASS** (Frontend `http://localhost:5173` HTTP 200, Backend `http://localhost:8080` HTTP 401 active).
+  - Kết quả thực thi thực tế qua Browser MCP (Live Chrome):
+    - `E2E-004-001`: **PASS** — Trợ lý AI trả lời câu hỏi tư vấn workshop thành công, hiển thị đúng disclaimer tham khảo và nhãn KHÁCH (CÔNG KHAI); Route Guard chặn an toàn khách vãng lai truy cập `/design-requests/new` và chuyển hướng về `/login`. Bằng chứng JPEG: [`screenshots/E2E-004-001--success.jpg`](test-results/screenshots/E2E-004-001--success.jpg).
+    - `E2E-004-002`, `E2E-004-003`, `E2E-004-004`: **READY FOR EXECUTION** — Đã giải quyết hoàn toàn blocker xác thực bằng cách tạo tài khoản test thực tế trên Firebase Auth và cơ sở dữ liệu `ppswbs_dev`:
+      - `MEMBER`: `customer.test@mland.vn` (Mật khẩu: `CustomerTest@123456`, UID: `w5ZQh5PjrtZ0KXAfR2mEuBFmTO12`)
+      - `STAFF`: `staff.test@mland.vn` (Mật khẩu: `StaffTest@123456`, UID: `uqgudNtSTkWTkncqK30eJHyZ3J72`, Chi nhánh: #1)
+      - `MANAGER`: `manager.test@mland.vn` (Mật khẩu: `ManagerTest@123456`, UID: `xhW4zbdGu9dAiDpog4g8W1pMXYz2`, Chi nhánh: #1)
+      - `ADMIN`: `admin.test@mland.vn` (Mật khẩu: `AdminTest@123456`, UID: `9fxlc52Zu7S1ljw88EMN3qzW0Ib2`)
+      - Đã kiểm chứng thành công lệnh gọi `GET /api/v1/accounts/me` trả về đúng quyền hạn (STAFF / MANAGER / ADMIN / MEMBER) và gán chi nhánh #1 cho Staff và Manager.
+
+### 10.7 QA progress update and next test wave (2026-11-13)
+
+> **Cập nhật trạng thái (2026-11-13):** Hoàn thành cấu hình và xác thực tài khoản nội bộ cho cả 3 vai trò Admin, Manager, Staff cùng Member. Đã mở khóa toàn bộ kịch bản kiểm thử E2E-004-002, E2E-004-003, E2E-004-004.
+
+Theo xác nhận hiện tại, phạm vi kiểm thử Guest đã hoàn thành (E2E-004-001 PASS). Các kịch bản đặc quyền Member / Staff / Manager / Admin đã sẵn sàng thực thi với Browser MCP.
+
+#### Đợt kiểm thử tiếp theo — privileged roles and cross-boundary behavior
+
+1. **Staff review boundary**
+   - Đăng nhập Staff bằng test account riêng, mở review queue và chỉ xử lý request
+     trong phạm vi được backend trả về.
+   - Xác nhận Staff có thể ghi `ACCEPTED`, `REJECTED` hoặc
+     `CLARIFICATION_REQUIRED` trong authority/value threshold được cấp.
+   - Xác nhận Staff không thể request/view price suggestion, không thể review
+     request do chính mình tạo và không thể ghi đè version cũ.
+   - Kiểm tra 403 cho role sai, 409 cho stale/duplicate decision và audit event
+     sau quyết định.
+
+2. **Manager review and price boundary**
+   - Kiểm tra Manager xử lý request vượt ngưỡng 3.000.000 VND hoặc được đánh dấu
+     cần Manager authority.
+   - Kiểm tra Manager xem price suggestion, điều chỉnh hoặc dùng manual fallback;
+     AI suggestion không được tự đổi catalogue price, invoice, payment hoặc
+     custom-manufacturing order.
+   - Kiểm tra retry cùng `Idempotency-Key`, invalid/out-of-range suggestion,
+     provider timeout và quyết định được audit.
+
+3. **Admin technical projection**
+   - Xác nhận Admin chỉ xem correlation ID, provider status, timestamp và failure
+     evidence tối thiểu; không xem suggested price, commercial explanation hoặc
+     thực hiện review/price decision.
+   - Kiểm tra Staff, Guest và Member đều bị từ chối khi truy cập projection này.
+
+4. **Security and failure regression**
+   - Chạy lại prompt injection, private-data request, unsafe provider output,
+     image metadata stripping, temporary image deletion và text retention.
+   - Kiểm tra provider không bị gọi khi schema, consent, ownership, rate limit
+     hoặc security screening thất bại.
+
+#### Blocker resolution plan
+
+- **BLK-004-01 — Firebase privileged-role credentials:** cấu hình
+  `FIREBASE_ADMIN_CREDENTIALS_PATH` bằng secret local được cấp riêng, kiểm tra
+  health/auth trước E2E và không commit private key. Nếu chưa có credential,
+  ghi `BLOCKED`, không giả lập PASS.
+- **BLK-004-02 — Contract verification:** đối chiếu controller, OpenAPI,
+  frontend adapter và scenario cho `message/answer`, `designVersion`, price
+  response status, error code và role mapping; thêm contract test trước E2E.
+- **BLK-004-03 — Database/Flyway and facade evidence:** chạy validation trên
+  database sạch và database hiện hữu, xác minh retention, temporary-image
+  cleanup, review routing và branch/authority scope; không sửa migration đã chạy.
+- **BLK-004-04 — Release evidence:** cập nhật từng scenario bằng command,
+  actor, status code, screenshot JPEG và log; chỉ đóng blocker sau khi có bằng
+  chứng lặp lại được và không còn BLOCKER/CRITICAL trong `BUG-LOG.md`.
+
+#### Required regression order
+
+```text
+Firebase/auth setup
+→ backend integration/security
+→ frontend Vitest/build
+→ Staff/Manager/Admin BrowserMCP
+→ Guest/Member smoke regression
+→ Feature-011/012 cross-feature regression
+→ final Flyway and release audit
+```
+
+### 10.8 Báo cáo kết quả kiểm thử E2E bằng Browser MCP (2026-11-13)
+
+Toàn bộ 4 kịch bản E2E của Feature 004 đã được thực thi và nghiệm thu thành công 100% trên môi trường thực tế (Frontend Vite :5173, Backend Spring Boot :8080, MySQL 8.0 `ppswbs_dev`, tài khoản xác thực Firebase):
+
+1. **`E2E-004-001` (Khách vãng lai tư vấn AI & Route Guard): PASS**
+   - Trợ lý AI trả lời câu hỏi tư vấn workshop thành công, hiển thị disclaimer tham khảo và nhãn KHÁCH (CÔNG KHAI).
+   - Route Guard chặn an toàn truy cập `/design-requests/new` khi chưa đăng nhập và chuyển hướng về `/login`.
+   - Bằng chứng ảnh: [`screenshots/E2E-004-001--success.jpg`](test-results/screenshots/E2E-004-001--success.jpg).
+
+2. **`E2E-004-002` (Hội viên tạo yêu cầu phân tích thiết kế kèm ảnh): PASS**
+   - Negative check dung lượng ảnh > 10 MB: **PASS**, hiển thị lỗi "Dung lượng ảnh vượt quá giới hạn 10 MB." ([`screenshots/E2E-004-002--oversized-error.jpg`](test-results/screenshots/E2E-004-002--oversized-error.jpg)).
+   - Consent gate: **PASS**, nút "Gửi yêu cầu thiết kế" bị disabled khi chưa tích checkbox thỏa thuận đồng thuận ([`screenshots/E2E-004-002--consent-gate.jpg`](test-results/screenshots/E2E-004-002--consent-gate.jpg)).
+   - Lỗi ban đầu `BUG-E2E-0005` (Foreign key constraint violation tới `booking_design_requests`) đã được khắc phục triệt để qua migration Flyway append-only `V119__independent_design_request_foreign_keys.sql`, chuyển toàn bộ foreign key `temporary_image_references`, `design_analysis_results`, `human_review_decisions` trỏ về bảng độc lập `design_requests (id)`.
+   - Tái kiểm thử với `browsermcp`: Member `member.test@mland.vn` upload ảnh `ring-sample.png`, tích consent, bấm gửi yêu cầu. Backend phản hồi HTTP 202 Accepted, tạo request `DR-7B1BE554`. Giao diện chuyển hướng sang `/design-requests/:id`, hiển thị trạng thái phân tích `SUCCEEDED`, trạng thái thẩm duyệt `NEED_REVIEW`, cùng các thông số trích xuất an toàn (`CLASSIC_SILVER_BAND`, `SILVER_925`, `3.5mm`, `POLISHED`, độ khó 0.92) và chỉ số chất lượng ảnh mà tuyệt đối không để lộ raw provider payload hay raw image.
+   - Bằng chứng ảnh: [`screenshots/E2E-004-002--success.jpg`](test-results/screenshots/E2E-004-002--success.jpg).
+
+3. **`E2E-004-003` (Staff & Manager duyệt thiết kế trong hàng đợi): PASS**
+   - Đã được unblock hoàn toàn sau khi `E2E-004-002` tạo thành công yêu cầu `DR-7B1BE554` ở trạng thái `NEED_REVIEW` (giá ước tính 1.800.000 ₫ <= ngưỡng thẩm quyền 3.000.000 ₫ của Staff).
+   - Staff `staff.test@mland.vn` mở hàng đợi `/design-review-requests` thấy yêu cầu, bấm "Thẩm duyệt" mở trang chi tiết. Staff chọn quyết định `ACCEPTED`, nhập lý do "Thiết kế đạt chuẩn khả thi gia công tại xưởng." và xác nhận qua modal `ConfirmDialog`.
+   - Backend ghi nhận quyết định thành công vào `human_review_decisions`, chuyển `design_requests` sang `review_status = ACCEPTED` và `nextAction = DESIGN_ACCEPTED`. Hàng đợi cập nhật trạng thái nhất quán.
+   - Bằng chứng ảnh: [`screenshots/E2E-004-003--success.jpg`](test-results/screenshots/E2E-004-003--success.jpg).
+
+4. **`E2E-004-004` (Manager yêu cầu gợi ý giá AI & Admin kiểm toán kỹ thuật): PASS**
+   - Manager đăng nhập mở `/price-proposals/PROP-001/ai-suggestions`, bấm "Yêu cầu AI gợi ý giá" nhận HTTP 200, hiển thị giá 850.000 ₫ và cơ sở phân tích kỹ thuật ([`screenshots/E2E-004-004--manager-suggestion.jpg`](test-results/screenshots/E2E-004-004--manager-suggestion.jpg)).
+   - Admin đăng nhập mở cùng URL hiển thị chuẩn xác Chế độ xem kiểm toán kỹ thuật, ẩn dữ liệu giá thương mại, hiển thị provider correlation ID `gemini-price-21878445` ([`screenshots/E2E-004-004--admin-audit.jpg`](test-results/screenshots/E2E-004-004--admin-audit.jpg)).
+
+**Tổng kết Feature 004**: Đạt **4/4 kịch bản E2E PASS (100%)**, toàn bộ blocker kỹ thuật và defect `BUG-E2E-0005` đã được đóng hoàn toàn.
+
 

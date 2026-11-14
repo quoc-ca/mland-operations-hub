@@ -860,11 +860,13 @@ paths:
         '404':
           $ref: '#/components/responses/NotFoundError'
 
-  /api/v1/addresses/provinces:
+  /api/v1/administrative-divisions/provinces:
     get:
-      summary: List standard administrative provinces
-      description: Returns standard Vietnam provinces/cities compatible with GHTK.
+      summary: List provinces in the active administrative directory
+      description: Authenticated Member lookup for Province/City selection.
       operationId: listProvinces
+      security:
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/CorrelationId'
       responses:
@@ -877,49 +879,33 @@ paths:
                 items:
                   $ref: '#/components/schemas/AdministrativeDivisionResponse'
 
-  /api/v1/addresses/districts:
+  /api/v1/administrative-divisions/provinces/{provinceCode}/communes:
     get:
-      summary: List districts for province
-      description: Returns standard districts for a given province ID.
-      operationId: listDistricts
+      summary: List communes for an active-directory province
+      description: Returns all Ward, Commune and Special Zone entries for the selected Province/City. The client may filter this bounded province list locally.
+      operationId: listCommunesForProvince
+      security:
+        - bearerAuth: []
       parameters:
-        - name: provinceId
-          in: query
+        - name: provinceCode
+          in: path
           required: true
           schema:
             type: string
         - $ref: '#/components/parameters/CorrelationId'
       responses:
         '200':
-          description: List of districts
+          description: List of communes
           content:
             application/json:
               schema:
                 type: array
                 items:
                   $ref: '#/components/schemas/AdministrativeDivisionResponse'
-
-  /api/v1/addresses/wards:
-    get:
-      summary: List wards for district
-      description: Returns standard wards/communes (and optional Level 4 hamlets) for a given district ID.
-      operationId: listWards
-      parameters:
-        - name: districtId
-          in: query
-          required: true
-          schema:
-            type: string
-        - $ref: '#/components/parameters/CorrelationId'
-      responses:
-        '200':
-          description: List of wards
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/AdministrativeDivisionResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
 
 components:
   securitySchemes:
@@ -1404,12 +1390,16 @@ components:
         - id
         - recipientName
         - phoneNumber
+        - provinceCode
+        - communeCode
         - provinceName
-        - districtName
-        - wardName
+        - communeName
+        - communeType
         - detailAddress
+        - directoryVersion
         - addressType
         - isDefault
+        - version
         - createdAt
         - updatedAt
       properties:
@@ -1423,41 +1413,34 @@ components:
           type: string
           pattern: '^0[35789]\d{8}$'
           example: '0901234567'
-        provinceId:
+        provinceCode:
           type: string
-          nullable: true
-          example: 'HCM'
+          example: '<official-province-code>'
         provinceName:
           type: string
           example: Thành phố Hồ Chí Minh
-        districtId:
+        communeCode:
           type: string
-          nullable: true
-          example: 'Q1'
-        districtName:
+          example: '<official-commune-code>'
+        communeName:
           type: string
-          example: Quận 1
-        wardId:
+          example: Phường Sài Gòn
+        communeType:
           type: string
-          nullable: true
-          example: 'PBN'
-        wardName:
-          type: string
-          example: Phường Bến Nghé
-        hamletId:
-          type: string
-          nullable: true
-        hamletName:
-          type: string
-          nullable: true
+          enum: [WARD, COMMUNE, SPECIAL_ZONE]
         detailAddress:
           type: string
           example: 123 Đường Lê Duẩn
+        directoryVersion:
+          type: string
         addressType:
           $ref: '#/components/schemas/AddressType'
         isDefault:
           type: boolean
           example: true
+        version:
+          type: integer
+          format: int64
         createdAt:
           type: string
           format: date-time
@@ -1472,9 +1455,8 @@ components:
       required:
         - recipientName
         - phoneNumber
-        - provinceName
-        - districtName
-        - wardName
+        - provinceCode
+        - communeCode
         - detailAddress
       properties:
         recipientName:
@@ -1485,33 +1467,10 @@ components:
           type: string
           description: Vietnamese mobile phone number (normalized to 10 digits)
           example: '0901234567'
-        provinceId:
+        provinceCode:
           type: string
-          nullable: true
-        provinceName:
+        communeCode:
           type: string
-          minLength: 1
-          maxLength: 128
-        districtId:
-          type: string
-          nullable: true
-        districtName:
-          type: string
-          minLength: 1
-          maxLength: 128
-        wardId:
-          type: string
-          nullable: true
-        wardName:
-          type: string
-          minLength: 1
-          maxLength: 128
-        hamletId:
-          type: string
-          nullable: true
-        hamletName:
-          type: string
-          nullable: true
         detailAddress:
           type: string
           minLength: 1
@@ -1528,10 +1487,10 @@ components:
       required:
         - recipientName
         - phoneNumber
-        - provinceName
-        - districtName
-        - wardName
+        - provinceCode
+        - communeCode
         - detailAddress
+        - version
       properties:
         recipientName:
           type: string
@@ -1540,33 +1499,10 @@ components:
         phoneNumber:
           type: string
           example: '0901234567'
-        provinceId:
+        provinceCode:
           type: string
-          nullable: true
-        provinceName:
+        communeCode:
           type: string
-          minLength: 1
-          maxLength: 128
-        districtId:
-          type: string
-          nullable: true
-        districtName:
-          type: string
-          minLength: 1
-          maxLength: 128
-        wardId:
-          type: string
-          nullable: true
-        wardName:
-          type: string
-          minLength: 1
-          maxLength: 128
-        hamletId:
-          type: string
-          nullable: true
-        hamletName:
-          type: string
-          nullable: true
         detailAddress:
           type: string
           minLength: 1
@@ -1575,6 +1511,9 @@ components:
           $ref: '#/components/schemas/AddressType'
         isDefault:
           type: boolean
+        version:
+          type: integer
+          format: int64
 
     AdministrativeDivisionResponse:
       type: object

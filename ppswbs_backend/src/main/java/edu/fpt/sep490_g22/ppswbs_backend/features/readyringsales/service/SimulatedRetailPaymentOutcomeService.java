@@ -5,6 +5,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.Loyalt
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.OutcomeKind;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.SourceKind;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.AvailabilityGuardPort;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.BranchVariant;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.CatalogueSalesFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.dao.GroupedCheckoutRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.dao.RetailVariantHoldRepository;
@@ -54,14 +55,13 @@ public class SimulatedRetailPaymentOutcomeService {
         if (checkout.getPaymentState() != PaymentState.PAYMENT_INITIATED || checkout.getPaymentInitiatedAt() == null) {
             throw new RetailConflictException("Payment cannot be accepted in the current state");
         }
-        Map<Long, Integer> quantities = new HashMap<>();
-        checkout.getOrders().forEach(order -> order.getItems().forEach(item -> quantities.merge(item.getVariantId(), item.getQuantity(), Integer::sum)));
-        List<Long> ids = quantities.keySet().stream().sorted().toList();
+        Map<BranchVariant, Integer> quantities = RetailBranchOrderKeys.quantities(checkout);
+        List<BranchVariant> branchKeys = quantities.keySet().stream().sorted().toList();
+        List<Long> ids = RetailBranchOrderKeys.variantIds(quantities);
         if (ids.isEmpty()) throw new RetailConflictException("Checkout has no items");
-        return catalogue.withLockedHistoricalContext(checkoutId, ids, context -> {
-            var view = guard.withGuard(ids, context.asOf(), snapshots -> {
-                var lockedHolds = ids.stream().map(id -> holdRepository.findByGroupedCheckoutIdAndVariantId(checkoutId, id)
-                    .orElseThrow(() -> new RetailConflictException("Checkout inventory hold is missing"))).toList();
+        return catalogue.withLockedHistoricalBranchContext(checkoutId, branchKeys, context -> {
+            var view = guard.withBranchGuard(branchKeys, context.asOf(), snapshots -> {
+                var lockedHolds = holds.requireBranchHolds(checkoutId, branchKeys);
                 Instant now = Instant.now();
                 Instant deadline = lockedHolds.getFirst().getExpiresAt();
                 if (!now.isBefore(deadline) || lockedHolds.stream().anyMatch(hold -> !deadline.equals(hold.getExpiresAt()))) {
@@ -77,9 +77,10 @@ public class SimulatedRetailPaymentOutcomeService {
                 loyalty.grantEarnedPoints(outcome);
                 return views.toView(checkout);
             });
-            for (Long id : ids) {
-                UUID operationRef = UUID.nameUUIDFromBytes(("retail-paid:" + checkoutId + ":" + id).getBytes(StandardCharsets.UTF_8));
-                catalogue.recordAcceptedSale(operationRef, id, BigInteger.valueOf(quantities.get(id)));
+            for (BranchVariant key : branchKeys) {
+                UUID operationRef = UUID.nameUUIDFromBytes(("retail-paid:" + checkoutId + ":" + key.variantId() + ":" + key.locationId())
+                    .getBytes(StandardCharsets.UTF_8));
+                catalogue.recordAcceptedSale(operationRef, key.variantId(), key.locationId(), BigInteger.valueOf(quantities.get(key)));
             }
             return view;
         });

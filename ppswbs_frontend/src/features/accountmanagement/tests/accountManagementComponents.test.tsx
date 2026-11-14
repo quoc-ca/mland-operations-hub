@@ -151,9 +151,32 @@ describe('FE-001 Account Management Components & Hooks', () => {
       expect(await screen.findByText('Khởi tạo thành công!')).toBeInTheDocument();
       expect(screen.getByText('Trạng thái: PENDING_SETUP (Chờ kích hoạt)')).toBeInTheDocument();
     });
+
+    it('renders approved wording distinguishing Staff operational limit vs Manager organizational assignment (T080)', async () => {
+      render(
+        <MemoryRouter>
+          <InternalAccountCreatePage />
+        </MemoryRouter>
+      );
+
+      // Default is STAFF
+      expect(screen.getByTestId('role-scope-hint')).toHaveTextContent(
+        'Phân công cơ sở giới hạn phạm vi truy cập vận hành của Nhân viên (Staff)'
+      );
+      expect(screen.getByText('Cơ sở làm việc (giới hạn quyền)')).toBeInTheDocument();
+
+      // Switch to MANAGER
+      const roleSelect = screen.getByLabelText('Vai trò nội bộ');
+      fireEvent.change(roleSelect, { target: { value: 'MANAGER' } });
+
+      expect(screen.getByTestId('role-scope-hint')).toHaveTextContent(
+        'Phân công cơ sở hỗ trợ ghi nhận tổ chức; phạm vi vận hành cho các tác vụ của Quản lý (Manager) là toàn hệ thống'
+      );
+      expect(screen.getByText('Cơ sở phân công tổ chức')).toBeInTheDocument();
+    });
   });
 
-  describe('AdminAccountDetailPage (T037)', () => {
+  describe('AdminAccountDetailPage (T037, T080)', () => {
     it('displays account details, allows suspend with reason, and explains revocation pending', async () => {
       const mockDetail = {
         accountId: 5,
@@ -213,6 +236,143 @@ describe('FE-001 Account Management Components & Hooks', () => {
           version: 3,
         });
       });
+    });
+
+    it('renders Manager organizational assignments, role transition notice, and committed-state confirmation (T080)', async () => {
+      const mockManager = {
+        accountId: 10,
+        role: 'MANAGER' as const,
+        status: 'ACTIVE' as const,
+        loginEmail: 'manager10@example.com',
+        revocationStatus: 'NOT_APPLICABLE' as const,
+        createdAt: '2026-11-01',
+        updatedAt: '2026-11-03',
+        profile: {
+          fullName: 'Quản lý Mười',
+          phone: '0912345678',
+        },
+        locationAssignments: [
+          { locationId: 1, assignedAt: '2026-11-01', active: true },
+          { locationId: 2, assignedAt: '2026-11-01', active: true },
+        ],
+        version: 5,
+      };
+
+      vi.spyOn(accountManagementApiClient, 'getAccountDetail').mockResolvedValue(mockManager);
+      const assignSpy = vi.spyOn(accountManagementApiClient, 'assignRoleLocation').mockResolvedValue({
+        accountId: 10,
+        role: 'STAFF',
+        status: 'ACTIVE',
+        loginEmail: 'manager10@example.com',
+        revocationStatus: 'NOT_APPLICABLE',
+        createdAt: '2026-11-01',
+        updatedAt: '2026-11-14',
+      });
+
+      render(
+        <MemoryRouter initialEntries={['/admin/accounts/10']}>
+          <Routes>
+            <Route path="/admin/accounts/:accountId" element={<AdminAccountDetailPage />} />
+          </Routes>
+        </MemoryRouter>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText('manager10@example.com')).toBeInTheDocument();
+      });
+
+      // Wait for form to reflect Manager role and hint
+      await waitFor(() => {
+        expect(screen.getByTestId('edit-role-scope-hint')).toHaveTextContent(
+          'Phân công cơ sở hỗ trợ ghi nhận tổ chức; phạm vi vận hành cho các tác vụ của Quản lý (Manager) là toàn hệ thống'
+        );
+      });
+
+      // Overview table shows Manager organizational assignment label and global scope note
+      expect(screen.getByText('Cơ sở phân công tổ chức:')).toBeInTheDocument();
+      expect(
+        screen.getAllByText(/Phân công cơ sở hỗ trợ ghi nhận tổ chức; phạm vi vận hành cho các tác vụ của Quản lý \(Manager\) là toàn hệ thống/i).length
+      ).toBeGreaterThanOrEqual(1);
+
+      // Wait for checkboxes to be populated
+      await waitFor(() => {
+        expect(screen.getByRole('checkbox', { name: /Cơ sở Quận 1/i })).toBeChecked();
+      });
+
+      // Transition role to STAFF
+      const editRoleSelect = screen.getByLabelText('Vai trò nội bộ');
+      fireEvent.change(editRoleSelect, { target: { value: 'STAFF' } });
+
+      // Role transition warning notice appears
+      expect(screen.getByTestId('role-transition-notice')).toHaveTextContent(
+        'Lưu ý khi đổi vai trò (MANAGER → STAFF): Quyền hạn chỉ thay đổi sau khi máy chủ xác nhận lưu thành công'
+      );
+
+      // Submit role update
+      const updateBtn = screen.getByRole('button', { name: 'Cập nhật vai trò & cơ sở' });
+      fireEvent.click(updateBtn);
+
+      await waitFor(() => {
+        expect(assignSpy).toHaveBeenCalledWith(10, {
+          role: 'STAFF',
+          locationIds: [1],
+          version: 5,
+        });
+      });
+
+      // Committed-state success message
+      expect(
+        await screen.findByText('Cập nhật vai trò và phân công cơ sở thành công. Thay đổi đã được máy chủ xác nhận và có hiệu lực trên hệ thống.')
+      ).toBeInTheDocument();
+    });
+
+    it('handles 409 conflict recovery when assigning role/location (T080)', async () => {
+      const mockStaff = {
+        accountId: 11,
+        role: 'STAFF' as const,
+        status: 'ACTIVE' as const,
+        loginEmail: 'staff11@example.com',
+        revocationStatus: 'NOT_APPLICABLE' as const,
+        createdAt: '2026-11-01',
+        updatedAt: '2026-11-03',
+        profile: {
+          fullName: 'Nhân viên Mười Một',
+          phone: '0912345679',
+        },
+        locationAssignments: [{ locationId: 1, assignedAt: '2026-11-01', active: true }],
+        version: 2,
+      };
+
+      const getSpy = vi.spyOn(accountManagementApiClient, 'getAccountDetail').mockResolvedValue(mockStaff);
+      vi.spyOn(accountManagementApiClient, 'assignRoleLocation').mockRejectedValue(
+        new ApiError({ status: 409, code: 'VERSION_CONFLICT', message: 'Version mismatch' })
+      );
+
+      render(
+        <MemoryRouter initialEntries={['/admin/accounts/11']}>
+          <Routes>
+            <Route path="/admin/accounts/:accountId" element={<AdminAccountDetailPage />} />
+          </Routes>
+        </MemoryRouter>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText('staff11@example.com')).toBeInTheDocument();
+      });
+
+      // Ensure form state has populated from selectedAccount and select location 1
+      await waitFor(() => {
+        expect(screen.getByRole('radio', { name: /Cơ sở Quận 1/i })).toBeInTheDocument();
+      });
+      const radio = screen.getByRole('radio', { name: /Cơ sở Quận 1/i });
+      fireEvent.click(radio);
+
+      const updateBtn = screen.getByRole('button', { name: 'Cập nhật vai trò & cơ sở' });
+      fireEvent.click(updateBtn);
+
+      expect(
+        await screen.findByText(/Dữ liệu đã bị thay đổi bởi phiên khác \(xung đột phiên bản\)/i)
+      ).toBeInTheDocument();
     });
   });
 
@@ -291,6 +451,44 @@ describe('FE-001 Account Management Components & Hooks', () => {
 
       // Verify that NO edit buttons, form controls for permissions exist
       expect(screen.queryByRole('button', { name: /chỉnh sửa|edit|thêm|add/i })).toBeNull();
+
+      // Verify governance rules (T080)
+      expect(
+        screen.getByText(/phạm vi vận hành cho các tác vụ quản lý của Manager là toàn hệ thống/i)
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(/ADMIN là vai trò quản trị hệ thống cao nhất/i)
+      ).toBeInTheDocument();
+    });
+
+    it('renders OpenAPI standard response with code and displayName properties (BUG-E2E-0005)', async () => {
+      const mockRoles = {
+        roles: [
+          { code: 'MEMBER' as const, displayName: 'Khách hàng thành viên / Member' },
+          { code: 'STAFF' as const, displayName: 'Nhân viên cơ sở / Staff' },
+          { code: 'MANAGER' as const, displayName: 'Quản lý cơ sở / Manager' },
+          { code: 'ADMIN' as const, displayName: 'Quản trị viên / Admin' },
+        ],
+      };
+
+      vi.spyOn(accountManagementApiClient, 'listRoles').mockResolvedValue(mockRoles);
+
+      render(
+        <MemoryRouter>
+          <RoleCataloguePage />
+        </MemoryRouter>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText('MEMBER')).toBeInTheDocument();
+        expect(screen.getByText('Khách hàng thành viên / Member')).toBeInTheDocument();
+        expect(screen.getByText('STAFF')).toBeInTheDocument();
+        expect(screen.getByText('Nhân viên cơ sở / Staff')).toBeInTheDocument();
+        expect(screen.getByText('MANAGER')).toBeInTheDocument();
+        expect(screen.getByText('Quản lý cơ sở / Manager')).toBeInTheDocument();
+        expect(screen.getByText('ADMIN')).toBeInTheDocument();
+        expect(screen.getByText('Quản trị viên / Admin')).toBeInTheDocument();
+      });
     });
   });
 });

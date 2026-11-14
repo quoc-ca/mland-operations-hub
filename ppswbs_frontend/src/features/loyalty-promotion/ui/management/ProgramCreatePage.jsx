@@ -5,8 +5,10 @@ import { ErrorNotice, Field, useCommand } from '../../../../shared/ui/components
 import { useLoyaltyApi } from '../../application/useLoyaltyApi';
 import { messages } from '../messages';
 import { useDateTime } from '../display';
-import { checkCreate, createBody, defaultWindow, generateVoucherCode, LIMITS, serverFieldErrors, toInstant } from '../../domain/promotionRules';
+import { checkCreate, createBody, defaultWindow, errorFieldsOf, generateVoucherCode, LIMITS, productBranchIds, productTargets, toInstant } from '../../domain/promotionRules';
+import { useFieldErrors } from '../../application/useFieldErrors';
 import { DateTimeField } from './DateTimeField';
+import { ProductBranchPicker } from './ProductBranchPicker';
 import { ProductTargetPicker } from './ProductTargetPicker';
 import { WorkshopTargetPicker } from './WorkshopTargetPicker';
 import { PageTop } from './PromotionManagementLayout';
@@ -31,11 +33,13 @@ const emptyForm = () => ({
   kind: 'VOUCHER', scope: 'PRODUCT', name: '', discountKind: 'PERCENT', percentage: '', amount: '',
   maxDiscountAmount: '', minimumEligibleAmount: '0', allowPoints: true, totalLimit: '', perMemberLimit: '1',
   productIds: '', variantIds: '', packageIds: '', branchIds: '', sessionIds: '',
+  // Session 2026-11-09: branches of a product voucher ('ALL' = every branch, nothing sent).
+  branchMode: 'ALL', productBranchIds: [],
 });
 
 /**
- * T030 create: fields follow kind and scope (an automatic discount is product-only and always allows points; only a
- * voucher has a code and limits). Product targets are picked from 002's product list (whole product or single sizes);
+ * T030 create: fields follow kind and scope (an automatic discount always allows points and, for workshops, is
+ * targeted by packages only — Session 2026-11-14, FR-044; only a voucher has a code and limits). Product targets are picked from 002's product list (whole product or single sizes);
  * workshop targets are still entered as IDs because 003 offers no picker read yet. Errors keep every value; success
  * opens the created programme. The voucher code is generated (never typed); if the backend reports it as already
  * issued, a new code is drawn and the request sent again, at most MAX_CODE_DRAWS times. The window starts filled in
@@ -47,26 +51,31 @@ export default function ProgramCreatePage() {
   const navigate = useNavigate();
   const dateTime = useDateTime();
   const [form, setForm] = useState(emptyForm);
-  const [hints, setHints] = useState({});
-  const [picked, setPicked] = useState({ products: {}, variants: {} });
+  const [picked, setPicked] = useState({ products: {}, variants: {}, sizesOf: {} });
   const pick = next => {
     setPicked(next);
-    setForm(current => ({ ...current, productIds: Object.keys(next.products).join(','), variantIds: Object.keys(next.variants).join(',') }));
+    const targets = productTargets(next);
+    setForm(current => ({ ...current, productIds: targets.productIds.join(','), variantIds: targets.variantIds.join(',') }));
+    clear(...errorFieldsOf('productIds'), ...errorFieldsOf('variantIds'));
   };
   const command = useCommand();
   const [kept, setKept] = useState(() => pending.read());
   const recovery = useCommand();
-  const serverErrors = serverFieldErrors(command.error);
-  const errorOf = field => serverErrors[field] || (hints[field] && t(hints[field]));
+  const { errorOf, setHints, clear } = useFieldErrors(command.error, t);
   const set = name => event => {
     const value = event.target.type === 'checkbox' ? event.target.checked : event.target.value;
+    clear(...errorFieldsOf(name));
     setForm(current => {
       const next = { ...current, [name]: value };
-      if (name === 'kind' && value === 'AUTO_DISCOUNT') next.scope = 'PRODUCT';
+      // Kind or scope changed: the workshop package choice is single for a voucher and multiple for an automatic
+      // discount (FR-044, packages only), so the picked workshop targets start again.
+      if ((name === 'kind' || name === 'scope') && value !== current[name]) {
+        next.packageIds = ''; next.branchIds = ''; next.sessionIds = '';
+      }
       return next;
     });
   };
-  const setField = (name, value) => setForm(current => ({ ...current, [name]: value }));
+  const setField = (name, value) => { clear(...errorFieldsOf(name)); setForm(current => ({ ...current, [name]: value })); };
   const voucher = form.kind === 'VOUCHER';
   const inWords = local => (toInstant(local) ? t('create.timeInWords', { at: dateTime(toInstant(local)) }) : null);
 
@@ -122,8 +131,8 @@ export default function ProgramCreatePage() {
               <option value="AUTO_DISCOUNT">{t('kind.AUTO_DISCOUNT')}</option>
             </select>
           </Field>
-          <Field label={t('field.scope')} error={errorOf('scope')} hint={voucher ? null : t('create.autoProductOnly')}>
-            <select value={form.scope} onChange={set('scope')} disabled={!voucher}>
+          <Field label={t('field.scope')} error={errorOf('scope')} hint={voucher || form.scope !== 'WORKSHOP' ? null : t('create.autoWorkshopPackagesOnly')}>
+            <select value={form.scope} onChange={set('scope')}>
               <option value="PRODUCT">{t('scope.PRODUCT')}</option>
               <option value="WORKSHOP">{t('scope.WORKSHOP')}</option>
             </select>
@@ -137,8 +146,8 @@ export default function ProgramCreatePage() {
               <button type="button" className="text-button" onClick={() => setForm(current => ({ ...current, code: generateVoucherCode() }))}>{t('create.newCode')}</button>
             </div>
           )}
-          <DateTimeField label={t('field.startAt')} error={errorOf('startAt')} hint={inWords(form.startAt)} value={form.startAt} onChange={value => setForm(current => ({ ...current, startAt: value }))} />
-          <DateTimeField label={t('field.endAt')} error={errorOf('endAt')} hint={inWords(form.endAt)} value={form.endAt} onChange={value => setForm(current => ({ ...current, endAt: value }))} />
+          <DateTimeField label={t('field.startAt')} error={errorOf('startAt')} hint={inWords(form.startAt)} value={form.startAt} onChange={value => setField('startAt', value)} />
+          <DateTimeField label={t('field.endAt')} error={errorOf('endAt')} hint={inWords(form.endAt)} value={form.endAt} onChange={value => setField('endAt', value)} />
         </div>
 
         <h2 className="section-title">{t('field.discount')}</h2>
@@ -170,13 +179,19 @@ export default function ProgramCreatePage() {
         )}
 
         <h2 className="section-title">{t('create.targets')}</h2>
-        <p className="muted small">{t(form.scope === 'PRODUCT' ? 'create.productTargetsHint' : 'create.workshopTargetsHint')}</p>
+        <p className="muted small">{t(form.scope === 'PRODUCT' ? 'create.productTargetsHint' : voucher ? 'create.workshopTargetsHint' : 'create.workshopAutoTargetsHint')}</p>
         {errorOf('targets') && <p className="field-error">{errorOf('targets')}</p>}
         {form.scope === 'PRODUCT' ? (
-          <ProductTargetPicker api={api} value={picked} onChange={pick}
-            errors={{ productIds: errorOf('targets.productIds'), variantIds: errorOf('targets.variantIds') }} />
+          <>
+            <h3 className="picker-title">{t('branch.title')}</h3>
+            <ProductBranchPicker api={api} voucher={voucher} mode={form.branchMode} value={form.productBranchIds}
+              onChange={(mode, ids) => { clear(...errorFieldsOf('productBranchIds')); setForm(current => ({ ...current, branchMode: mode, productBranchIds: ids })); }}
+              error={errorOf('targets.branchIds')} />
+            <ProductTargetPicker api={api} value={picked} onChange={pick} branchIds={productBranchIds(form)}
+              errors={{ productIds: errorOf('targets.productIds'), variantIds: errorOf('targets.variantIds') }} />
+          </>
         ) : (
-          <WorkshopTargetPicker api={api} form={form} setField={setField}
+          <WorkshopTargetPicker api={api} form={form} setField={setField} packagesOnly={!voucher}
             errors={{ packageIds: errorOf('targets.packageIds'), branchIds: errorOf('targets.branchIds'), sessionIds: errorOf('targets.sessionIds') }} />
         )}
 
