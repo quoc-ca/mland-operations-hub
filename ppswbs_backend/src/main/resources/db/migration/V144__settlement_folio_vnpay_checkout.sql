@@ -6,4 +6,4 @@
 ALTER TABLE settlement_folio_collections
     ADD COLUMN payment_url_snapshot VARCHAR(2048) NULL DEFAULT NULL,
     ADD COLUMN payment_expires_at DATETIME(6) NULL DEFAULT NULL,
-    ADD COLUMN provider_create_date CHAR(14) NULL DEFAULT NULL;
+    ADD COLUMN provider_create_date VARCHAR(14) NULL DEFAULT NULL;
