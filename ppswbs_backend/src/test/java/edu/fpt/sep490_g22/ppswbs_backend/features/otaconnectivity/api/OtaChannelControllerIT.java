@@ -243,6 +243,52 @@ class OtaChannelControllerIT {
         call(auth(post(path(id)+"/sales-close").header("Idempotency-Key", "close-001"), ActorRole.MANAGER), Map.of("reason", "different"), 409);
     }
 
+    /** 003.4 T120 on MySQL: the queued sales-close command is found, locked and its provider answer persisted. */
+    @Test void salesCloseDeliveryOutcomesArePersistedOnMySql() throws Exception {
+        String id = create().path("mappingId").asText();
+        var mapping = mappings.findByPublicReference(id).orElseThrow();
+        mapping.startPreparationSync(); mapping.completePreparationSync(); mappings.flush();
+        Long mappingId = mapping.getId();
+
+        // First Manager close: the provider acknowledges it.
+        call(auth(post(path(id)+"/sales-close").header("Idempotency-Key", "t120-close-1"), ActorRole.MANAGER),
+                Map.of("reason", "venue closed"), 202);
+        em.flush(); em.clear();
+        assertThat(controls.findTop50ByStatusOrderByCreatedAtAscIdAsc("QUEUED")).hasSize(1);
+        var first = controls.findByIdForUpdate(controls.findTopByMapping_IdOrderByCreatedAtDesc(mappingId)
+                .orElseThrow().getId()).orElseThrow();
+        sales.recordSalesCloseDelivery(first, new OtaDeliveryResult(1, FROM, FROM.plusSeconds(1),
+                OtaDeliveryOutcome.DELIVERED, "provider-corr-1", null));
+        em.flush(); em.clear();
+
+        // Second close of the still-closed mapping: the provider never confirms it.
+        call(auth(post(path(id)+"/sales-close").header("Idempotency-Key", "t120-close-2"), ActorRole.MANAGER),
+                Map.of("reason", "still closed"), 202);
+        em.flush(); em.clear();
+        var queued = controls.findTop50ByStatusOrderByCreatedAtAscIdAsc("QUEUED");
+        assertThat(queued).hasSize(1);
+        var second = controls.findByIdForUpdate(queued.get(0).getId()).orElseThrow();
+        sales.recordSalesCloseDelivery(second, new OtaDeliveryResult(3, FROM, FROM.plusSeconds(1),
+                OtaDeliveryOutcome.EXHAUSTED, "provider-corr-2", "RETRIES_EXHAUSTED"));
+        em.flush(); em.clear();
+        String exhausted = id;
+
+        var deliveredRow = controls.findById(first.getId()).orElseThrow();
+        assertThat(deliveredRow.getStatus()).isEqualTo("DELIVERED");
+        assertThat(deliveredRow.getProviderCorrelationReference()).isEqualTo("provider-corr-1");
+        assertThat(deliveredRow.getDeliveredAt()).isNotNull();
+        var exhaustedRow = controls.findById(second.getId()).orElseThrow();
+        assertThat(exhaustedRow.getStatus()).isEqualTo("EXHAUSTED");
+        assertThat(exhaustedRow.getFailureCategory()).isEqualTo("RETRIES_EXHAUSTED");
+        assertThat(controls.findTop50ByStatusOrderByCreatedAtAscIdAsc("QUEUED")).isEmpty();
+        assertThat(mappings.findByPublicReference(exhausted).orElseThrow().getStatus()).isEqualTo(OtaMappingStatus.SALES_CLOSED);
+        assertThat(items.findAll()).filteredOn(item -> "INVENTORY_DELIVERY_FAILURE".equals(item.getCategory()))
+                .singleElement().satisfies(item -> {
+                    assertThat(item.getStatus()).isEqualTo("OPEN");
+                    assertThat(item.getMapping().getPublicReference()).isEqualTo(exhausted);
+                });
+    }
+
     @Test void incompleteReadinessIsRetainedAndMappingStaysClosed() throws Exception {
         String id = create().path("mappingId").asText();
         var mapping = mappings.findByPublicReference(id).orElseThrow();
