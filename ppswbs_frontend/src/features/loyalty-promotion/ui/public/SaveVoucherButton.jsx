@@ -7,17 +7,21 @@ import { ErrorNotice, useCommand } from '../../../../shared/ui/components';
 import { useLoyaltyApi } from '../../application/useLoyaltyApi';
 import { messages } from '../messages';
 
-/** Saves a voucher to the Member's Kho Voucher (PUT, idempotent). A Guest is asked to sign in first. */
-export function SaveVoucherButton({ promotion }) {
+/**
+ * Saves a voucher to the Member's Kho Voucher (PUT, idempotent). A Guest is asked to sign in first.
+ * `saved` comes from the Member's wallet (useSavedVoucherIds) so a voucher saved earlier reads "Đã lưu" after a
+ * reload; `onSaved` lets the page update that set.
+ */
+export function SaveVoucherButton({ promotion, saved: savedBefore = false, onSaved }) {
   const t = useT(messages);
   const { status } = useAuth();
   const api = useLoyaltyApi();
   const command = useCommand();
-  const [saved, setSaved] = useState(false);
+  const [savedNow, setSavedNow] = useState(false);
 
   if (status !== 'signed-in') return <SignInLink className="button outline small">{t('public.signInToSave')}</SignInLink>;
-  if (saved) return <p className="status ok" role="status">{t('public.saved')} <Link className="text-link" to="/me/saved-vouchers">{t('nav.savedVouchers')}</Link></p>;
-  const finish = outcome => { if (outcome?.ok) setSaved(true); };
+  if (savedBefore || savedNow) return <p className="status ok" role="status">{t('public.saved')} <Link className="text-link" to="/me/saved-vouchers">{t('nav.savedVouchers')}</Link></p>;
+  const finish = outcome => { if (outcome?.ok) { setSavedNow(true); onSaved?.(promotion.id); } };
   return (
     <div>
       <button type="button" className="button primary small" disabled={command.pending}

@@ -1,7 +1,7 @@
 # Verification — FE-06 Loyalty & Promotion
 
 **Date created**: 2026-10-26
-**Date updated**: 2026-11-12 (mục 60: rà soát cuối và chạy toàn bộ 006 trên màn thật — Manager, Member, Staff thu tiền; trước đó cùng ngày: mục 59: sau khi gộp develop; trước đó cùng ngày: mục 58: đổi số migration sang V119–V121; trước đó cùng ngày: mục 57: tích điểm, hủy và trả điểm theo vé workshop, T103; trước đó cùng ngày: mục 56: rà soát liên feature 002/006 ↔ 003/008; trước đó cùng ngày: mục 55: rà soát toàn bộ 006 và speckit-converge, sửa T100 (V120), T101, T102; trước đó cùng ngày: mục 54: checkout nhiều chi nhánh trả tại quầy của FE-08, T099; trước đó cùng ngày: mục 53: giỏ workshop nhiều vé cho 003.1, T098; trước đó: 2026-11-10 (mục 52: rà soát spec ↔ code và sửa M1–M3, L1–L6 (T090–T097), test tự động và trên màn thật; mục 51: contract chi nhánh cho FE-08; mục 50: voucher sản phẩm theo chi nhánh T083–T087, ưu đãi trên trang sản phẩm công khai T089, đóng T082, sửa OpenAPI `TargetWarning`; trước đó: 2026-11-05 (mục 49: kiểm thử cuối trên màn thật, tên gói/chi nhánh workshop; mục 48: T081 mã lý do vi/en; trước đó: 2026-11-04 (mục 46: rà soát hoàn thành — 80/80 task, backend 258/258, frontend 31/31, owner thử voucher thật; trước đó: 2026-11-03 (mục 40 sửa theo thực tế, mục 41: cảnh báo phạm vi cho Manager, khôi phục lệnh tạo, mã voucher trong spec; trước đó: 2026-11-01 (mục 30: chuẩn bị T075/T076, đối chiếu 41 FR; mục 29: phục hồi, tranh chấp nguồn, báo cáo lượt dùng; mục 28: workshop nguồn thật FE-03 và CORS; mục 27: frontend React FE-06; trước đó: 2026-10-29 (mục 21: ép lock timeout/deadlock T063, lưu giữ/khôi phục T074; mục 20: build thật)))))
+**Date updated**: 2026-11-15 (mục 63: T109 — đổi nhãn " · Trong Kho Voucher" thành " · Trong Voucher của tôi" ở picker workshop của FE-03, Hồ Hoàng Quốc cho phép FE-06 sửa; trước đó cùng ngày: mục 62: bằng chứng T108 cho Session 2026-11-14 — T104–T107 và trần giảm FIXED; trước đó: 2026-11-12 (mục 60: rà soát cuối và chạy toàn bộ 006 trên màn thật — Manager, Member, Staff thu tiền; trước đó cùng ngày: mục 59: sau khi gộp develop; trước đó cùng ngày: mục 58: đổi số migration sang V119–V121; trước đó cùng ngày: mục 57: tích điểm, hủy và trả điểm theo vé workshop, T103; trước đó cùng ngày: mục 56: rà soát liên feature 002/006 ↔ 003/008; trước đó cùng ngày: mục 55: rà soát toàn bộ 006 và speckit-converge, sửa T100 (V120), T101, T102; trước đó cùng ngày: mục 54: checkout nhiều chi nhánh trả tại quầy của FE-08, T099; trước đó cùng ngày: mục 53: giỏ workshop nhiều vé cho 003.1, T098; trước đó: 2026-11-10 (mục 52: rà soát spec ↔ code và sửa M1–M3, L1–L6 (T090–T097), test tự động và trên màn thật; mục 51: contract chi nhánh cho FE-08; mục 50: voucher sản phẩm theo chi nhánh T083–T087, ưu đãi trên trang sản phẩm công khai T089, đóng T082, sửa OpenAPI `TargetWarning`; trước đó: 2026-11-05 (mục 49: kiểm thử cuối trên màn thật, tên gói/chi nhánh workshop; mục 48: T081 mã lý do vi/en; trước đó: 2026-11-04 (mục 46: rà soát hoàn thành — 80/80 task, backend 258/258, frontend 31/31, owner thử voucher thật; trước đó: 2026-11-03 (mục 40 sửa theo thực tế, mục 41: cảnh báo phạm vi cho Manager, khôi phục lệnh tạo, mã voucher trong spec; trước đó: 2026-11-01 (mục 30: chuẩn bị T075/T076, đối chiếu 41 FR; mục 29: phục hồi, tranh chấp nguồn, báo cáo lượt dùng; mục 28: workshop nguồn thật FE-03 và CORS; mục 27: frontend React FE-06; trước đó: 2026-10-29 (mục 21: ép lock timeout/deadlock T063, lưu giữ/khôi phục T074; mục 20: build thật))))))
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -991,3 +991,85 @@ Môi trường như validation-report 002 mục "Rà soát cuối và chạy to�
 
 - `PromotionSeedRunner` + `promotion-seed.json` (xem quickstart). Chạy thật trên `ppswbs_dev` sau khi dọn dữ liệu thử và có 21 sản phẩm mẫu: log "Promotion seed: 10 sample programme(s) created."; đối tượng đúng (2 voucher × 21 sản phẩm, mã não 6, đá thô 3 + Tây Hồ, đá quý 10 + Hoàn Kiếm, giảm tự động 2 và 4 sản phẩm, 3 voucher workshop, một có Hoàn Kiếm); `/promotions` hiện đủ 10; thẻ "Nhẫn bạc cành lá citrine" 560.000 → 530.000 ₫ kèm nhãn voucher. Khởi động lại: vẫn 10 chương trình, 21 sản phẩm.
 - `PromotionSeedRunnerTests` (10 mục đều qua `parseCreate`, mã/tên không trùng) + Modulith 6/6.
+
+## 62. Bằng chứng Session 2026-11-14 (T108), 2026-11-15
+
+Nguồn: speckit-converge 2026-11-15 (Phase 21, T108). Chạy trên cây làm việc của nhánh `khuong` (HEAD `698919b2` cộng phần chưa commit của T107). Không sửa code.
+
+**Database test riêng.** Lần chạy đầu trỏ `LOYALTY_TEST_JDBC_URL` vào `ppswbs_it` (đã có từ trước): Flyway dừng ở validate với "Detected failed migration to version 9 (workshop booking)" nên mọi IT lỗi khi nạp context — lỗi của DB cũ, không phải của code. Không repair hay xóa DB đó. Lần chạy thứ hai dùng DB mới, trống `ppswbs_it_006` (`LOYALTY_TEST_JDBC_URL` và `PM_TEST_JDBC_URL` cùng trỏ vào đó; không chạm `ppswbs_dev`), Flyway áp toàn bộ migration tới V150 trên MySQL 8.4.
+
+| Lệnh / lớp test | Kết quả | Phủ |
+| --- | --- | --- |
+| `SavedVoucherContractIT` | 11/11 PASS, gồm `publicCardsSayWhenAVoucherHasNoUseLeft` | T107, FR-011: `PublicPromotion.availability` `NO_USES_LEFT`/`ACTIVE` ở danh sách và chi tiết công khai, lượt đang giữ được tính |
+| `LoyaltyApiContractIT` | 8/8 PASS | Hợp đồng OpenAPI khớp API thật sau khi `availability` thành trường bắt buộc |
+| `PromotionCreateContractIT` | 14/14 PASS, gồm `fixedAmountNeedsNoCapAndACapSentMustEqualTheAmount` | Trần giảm của FIXED (Session 2026-11-14), giảm tự động workshop chỉ `packageIds` (T104, FR-044) |
+| `LoyaltyMySqlMigrationIT` | 23/23 PASS | Migration trên DB trống tới V150, gồm V134 (`chk_promotion_program_auto`) và V135 (`chk_loyalty_benefit_guest`) |
+| `LoyaltyWorkshopFacadeIT` | 17/17 PASS | Giảm tự động workshop qua facade, snapshot Guest không Member (T104, T106, D-014) |
+| `WorkshopAutoDiscountTest` | 14/14 PASS | Chọn khoản giảm lớn nhất, phạm vi theo vé, trần một lần (T104) |
+| `npx vitest run src/features/loyalty-promotion` | 4 file, 80/80 PASS: `loyalty.test.jsx` 55, `workshopOffers.test.jsx` 12, `productOffers.test.js` 9, `fixedDiscount.test.js` 4 | Kho Voucher, Voucher của tôi, hiển thị ưu đãi workshop (T105, T107), trần FIXED |
+| `npm run build` | PASS (chỉ cảnh báo chunk > 500 kB, có từ trước) | Build frontend sau T107 |
+
+Tổng backend 87/87 PASS (`./mvnw -o test -Dtest=…`, exit 0).
+
+**Chênh lệch số liệu:** T107 ghi "Vitest `loyalty.test.jsx` 96/96", lần chạy này `loyalty.test.jsx` có 55 test (cả thư mục 80). Không tìm thấy tập 96 test tương ứng; số đúng hiện tại là số ở bảng trên. Không sửa dòng của T107 (append-only).
+
+**Không chạy:** cả suite backend, test của 003/008 và kiểm tra trên màn thật — ngoài phạm vi T108.
+
+## 63. Nhãn " · Trong Kho Voucher" trong picker workshop của FE-03 (T109), 2026-11-15
+
+Nguồn: T109, spec.md Session 2026-11-14 (câu "Tên gọi trên giao diện"), FR-012. Đối chiếu trên cây làm việc của nhánh `khuong` (HEAD `698919b2`, `src/workshops` không có thay đổi chưa commit). Không sửa code của FE-03.
+
+| Kiểm tra | Kết quả |
+| --- | --- |
+| Chữ hiện cho Member | `ppswbs_frontend/src/workshops/CartBenefitPicker.jsx:170` vẫn ghép `' · Trong Kho Voucher'` khi `item.saved` (voucher Member đã lưu). Từ Session 2026-11-14, "Kho Voucher" là trang voucher công khai `/promotions`; kho riêng của Member là "Voucher của tôi", nên nhãn này gây hiểu nhầm. |
+| Test bị ảnh hưởng | Không test nào trong `ppswbs_frontend/src` và không tài liệu nào trong `ppswbs-spec` (ngoài tasks.md của 006) khẳng định chuỗi "Trong Kho Voucher". Đổi chữ không làm hỏng test hiện có. |
+| Chỗ khác của FE-03 | `WorkshopBookingPage.jsx:116` và `WorkshopCartPage.jsx:61` chỉ dùng "Kho Voucher" trong comment, không hiện cho người dùng; không cần đổi. |
+
+**Thay đổi:** Hồ Hoàng Quốc (owner FE-03) cho phép FE-06 tự sửa. `CartBenefitPicker.jsx:170` đổi `' · Trong Kho Voucher'` thành `' · Trong Voucher của tôi'`. Chỉ đổi chữ, không đổi logic. Comment ở `WorkshopBookingPage.jsx` và `WorkshopCartPage.jsx` giữ nguyên.
+
+| Lệnh | Kết quả |
+| --- | --- |
+| `npx vitest run src/workshops` | 6 file, 29/29 PASS |
+
+**Trạng thái:** ĐẠT, T109 tick. Không chạy build hay kiểm tra trên màn thật.
+
+## 64. Kiểm chứng cuối trước bàn giao (cả suite, build, màn thật T107/T109), 2026-11-15
+
+Chạy trên cây làm việc của nhánh `khuong` (HEAD `698919b2` cộng phần chưa commit của T107/T109). Không sửa code.
+
+**Cả suite backend.** `./mvnw -o test`; các biến `JDBC_URL`, `LOYALTY_`/`PM_`/`WORKSHOP_OPERATIONS_TEST_JDBC_URL` cùng trỏ vào `ppswbs_it_006` (không chạm `ppswbs_dev`). Hai lần chạy đầu Maven dừng ngay lúc khởi động vì máy hết bộ nhớ ảo (đang mở thêm 3 backend); chạy lại sau khi chúng tắt.
+
+| Phạm vi | Kết quả |
+| --- | --- |
+| Cả suite | 2433 test, 3 failure, 63 error, 22 skipped (23 phút) |
+| `features.loyaltypromotion.**`, `features.productmanagement.**`, `ModulithArchitectureTests` | 780/780 PASS |
+| 63 error: các lớp OTA (`Ota*IT`, `WorkshopOtaSnapshotIT`, `WorkshopSettlementMigrationIT`) | Do cấu hình lần chạy: `WORKSHOP_OTA_TEST_JDBC_URL` trỏ vào `ppswbs_it_006`, test OTA đòi schema tiền tố `ppswbs_workshop_test_`. Chạy lại không đặt biến này: các lớp đó SKIPPED như mặc định, 0 error |
+| `readyringsales.CartJourneyTest.enforcesMaximumLineAndVariantQuantityLimitsAgainstPersistedCartData` (FE-08) | FAIL, tái hiện khi chạy lại: "Expecting code to raise a throwable" (dòng 115) |
+| `workshopbooking.WorkshopBookingContractIT.theCartQuoteSchemaCarriesEveryFieldTheQuoteResponseReturns` (003.1) | FAIL, tái hiện: contract 003.1 không khai báo schema `CartQuote` |
+| `paymentintegration.PaymentIngressServiceTest` | FAIL, tái hiện (đã ghi từ mục 59) |
+
+Ba lỗi trên không chạm file nào của 002/006 đang sửa (diff backend của 006 chỉ `PublicPromotionDtos`, `PublicPromotionQueryService`, `SavedVoucherContractIT`).
+
+**Frontend.**
+
+| Lệnh | Kết quả |
+| --- | --- |
+| `npx vitest run` (cả repo) | 72 file, 598/599 PASS. Lỗi duy nhất `src/workshops/groupBooking.test.jsx` (FE-03): `findByText` hết thời gian khi máy quá tải; chạy riêng 7/7 PASS |
+| `npm run build` | PASS (chỉ cảnh báo chunk > 500 kB, có từ trước) |
+
+**Màn thật.** Backend trên `ppswbs_dev` chạy với `--spring.flyway.enabled=false`: khởi động có Flyway dừng ở "Migration checksum mismatch for migration version 144" — `V144__settlement_folio_vnpay_checkout.sql` (003.3) bị sửa ở `b28ede32` sau khi đã áp vào `ppswbs_dev`; không repair DB. Frontend `:5173`. API `GET /api/v1/promotions` trả `availability` (20 thẻ, đều `ACTIVE`).
+
+| Bước | Kết quả |
+| --- | --- |
+| Guest, header | Link "Kho Voucher" → `/promotions` |
+| Guest, `/promotions` | Tab Tất cả / Sản phẩm / Workshop (Sản phẩm → `?scope=PRODUCT`), thẻ dạng vé có mã, HSD, "Điều kiện", "Đăng nhập để lưu" (T107) |
+| Guest, `/promotions/373` | Tiêu đề "Chi tiết mã giảm giá", điều kiện áp dụng (thời gian, tối thiểu, dùng cùng điểm, lượt) |
+| Member, `/promotions?scope=PRODUCT` sau khi tải lại | MLHK12 và MLGIAM50K hiện "Đã lưu. Voucher của tôi", các thẻ khác "Lưu voucher" — trạng thái lấy từ server (`useSavedVoucherIds`) |
+| Member, `/me/saved-vouchers` | "Voucher của tôi", tab "Còn hiệu lực 5" / "Hết hạn / Không dùng được 0", mỗi thẻ có "Dùng ngay" (sản phẩm → `/products`, workshop → `/workshops`) |
+| Member, `/workshops/2/book`, mở "Voucher MLAND" (T109) | 5 voucher đã lưu đều có " · Trong Voucher của tôi"; không còn chuỗi "Trong Kho Voucher" |
+
+**Không kiểm trên màn:** chữ "Đã hết mã" — `ppswbs_dev` không có voucher `NO_USES_LEFT`; phần backend có bằng chứng ở `SavedVoucherContractIT.publicCardsSayWhenAVoucherHasNoUseLeft` (mục 62). Không lưu voucher mới để tránh đổi dữ liệu của Member.
+
+**Ghi nhận ngoài 006 (FE-03):** `CartBenefitPicker.jsx:26` chỉ lọc voucher đã lưu theo `availability`, không theo phạm vi, nên picker workshop gợi ý cả voucher sản phẩm (MLGIAM50K, MLHK12) và voucher chỉ cho gói #1 (SV8B634DC5CE) khi đặt gói 2; báo giá sẽ từ chối các mã này. Chuyển owner FE-03.
+
+**Trạng thái:** 006 ĐẠT — backend 006/002/Modulith 780/780, frontend 598/599 (lỗi còn lại của FE-03, chạy riêng đạt), build đạt, T107/T109 đạt trên màn thật. Lỗi còn mở thuộc FE-08, 003.1, 003.3 (V144) và paymentintegration.

@@ -4,13 +4,15 @@ import { publicImageUrl } from '../../application/useCatalogueApi';
 import { messages } from '../messages';
 import { AddToCartPanel } from './AddToCartPanel';
 import { PriceRange } from './PriceRange';
+import { SizeOfferPrice } from '../../../loyalty-promotion';
 
 /**
  * Quick add from the public list (TikTok/Shopee-like cart button on a card): the same size / branch / quantity choice
  * and FE-08 call as the product page ({@link AddToCartPanel}), in a dialog over the list. Success closes it and the
- * list shows "added"; a Guest signs in and comes back to the product page with the choice kept.
+ * list shows "added"; a Guest signs in and comes back to the product page with the choice kept. The chosen size's
+ * price (after FE-06's automatic discount, from `offers`) shows under the size boxes as on the product page (FR-059(2)).
  */
-export function QuickAddDialog({ product, price, onClose, onAdded }) {
+export function QuickAddDialog({ product, price, offers, onClose, onAdded }) {
   const t = useT(messages);
   const format = useFormat();
   const closeRef = useRef(null);
@@ -28,7 +30,10 @@ export function QuickAddDialog({ product, price, onClose, onAdded }) {
           </div>
           <button type="button" ref={closeRef} className="quick-add-close" onClick={onClose} aria-label={t('quickAdd.close')}>×</button>
         </div>
-        <AddToCartPanel product={product} returnPath={`/products/${encodeURIComponent(product.id)}`} onAdded={onAdded} />
+        <AddToCartPanel product={product} returnPath={`/products/${encodeURIComponent(product.id)}`} onAdded={onAdded}
+          sizePrice={variant => (
+            <SizeOfferPrice size={offers?.sizes?.[variant.id]} fallback={<span>{format.money(variant.appliedPrice)}</span>} />
+          )} />
       </div>
     </div>
   );

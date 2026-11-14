@@ -164,8 +164,17 @@ public class PublicPromotionQueryService {
         PublicPromotionDtos.PublicPromotion card = new PublicPromotionDtos.PublicPromotion(management.id(),
                 management.kind(), management.scope(), management.code(), management.name(), management.startAt(),
                 management.endAt(), management.discount(), management.minimumEligibleAmount(), management.allowPoints(),
-                shown, management.totalLimit(), management.perMemberLimit());
+                shown, management.totalLimit(), management.perMemberLimit(), usesAvailability(program));
         return new Projection(card, hasPublic, revision);
+    }
+
+    /**
+     * Whether a public voucher still has a use to give (Session 2026-11-14, FR-011): Kho Voucher shows "Đã hết mã" for
+     * NO_USES_LEFT, still listed so the Member knows it ran out. Read without the programme lock: it is information,
+     * the quote and the order decide under the lock (FR-013).
+     */
+    private static String usesAvailability(PromotionProgram program) {
+        return program.isVoucher() && program.availableTotal() < 1 ? "NO_USES_LEFT" : "ACTIVE";
     }
 
     private static List<String> keys(List<PromotionTarget> rows, TargetDimension dimension) {
