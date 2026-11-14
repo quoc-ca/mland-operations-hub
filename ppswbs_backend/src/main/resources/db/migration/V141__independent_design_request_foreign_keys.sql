@@ -1,5 +1,9 @@
--- Flyway Migration V119: Align Feature 004 dependent tables with independent design_requests table
+-- Flyway Migration V141: Align Feature 004 dependent tables with independent design_requests table
 -- Resolves BUG-E2E-0005: foreign keys were still referencing legacy booking_design_requests
+-- Renumbered from V119 on 2026-11-14: version 119 was already taken by
+-- V119__loyalty_accepted_benefit_parts.sql (006, 2026-11-12), so Flyway refused to start with
+-- "Found more than one migration with version 119" and every test needing the database failed.
+-- This file is the later of the two and had never been applied anywhere, so it is the one that moved.
 
 ALTER TABLE temporary_image_references
     DROP FOREIGN KEY fk_tir_request;

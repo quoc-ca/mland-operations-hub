@@ -1,4 +1,9 @@
--- V120: Deactivate Gold, Add Copper & Stainless Steel materials, new shapes and 10+ catalogue models for workshop ring design
+-- V142: Deactivate Gold, Add Copper & Stainless Steel materials, new shapes and 10+ catalogue models for workshop ring design
+-- Renumbered from V120 on 2026-11-14: version 120 was already taken by
+-- V120__loyalty_workshop_zero_fee.sql (006, 2026-11-12, applied and asserted by
+-- LoyaltyMySqlMigrationIT), so Flyway refused to start with "Found more than one migration with
+-- version 120". This file is the later of the two and had never been applied, so it is the one
+-- that moved. The same day V119 of this feature moved to V141 for the same reason.
 
 -- 1. Deactivate Gold materials
 UPDATE ring_materials 
