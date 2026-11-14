@@ -1,0 +1,68 @@
+services:
+  db:
+    image: mysql:8.0
+    container_name: ${COMPOSE_PROJECT_NAME:-mland}_mysql
+    restart: unless-stopped
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-sa123123}
+      MYSQL_DATABASE: ${DB_NAME:-ppswbs_dev}
+    ports:
+      - "${HOST_DB_PORT:-3306}:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p$${MYSQL_ROOT_PASSWORD}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  backend:
+    build:
+      context: ./ppswbs_backend
+      dockerfile: Dockerfile
+    container_name: ${COMPOSE_PROJECT_NAME:-mland}_backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SERVER_PORT: 8080
+      JDBC_URL: jdbc:mysql://db:3306/${DB_NAME:-ppswbs_dev}?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Ho_Chi_Minh
+      JDBC_USER: ${DB_USER:-root}
+      JDBC_PASSWORD: ${DB_PASSWORD:-sa123123}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-validate}
+      CORS_ALLOWED_ORIGINS: http://localhost:${HOST_FE_PORT:-5173},http://127.0.0.1:${HOST_FE_PORT:-5173}
+      FRONTEND_BASE_URL: http://localhost:${HOST_FE_PORT:-5173}
+      MEMBER_AUTH_ALLOWED_ORIGINS: http://localhost:${HOST_BE_PORT:-8080},http://localhost:${HOST_FE_PORT:-5173},http://127.0.0.1:${HOST_FE_PORT:-5173}
+      FIREBASE_API_KEY: ${FIREBASE_API_KEY:-AIzaSyCfMw23jTT8_s7e-DvQT5I6p2sHBhD9iDg}
+      FIREBASE_AUTH_DOMAIN: ${FIREBASE_AUTH_DOMAIN:-mland-operation-hub.firebaseapp.com}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-mland-operation-hub}
+      FIREBASE_APP_ID: ${FIREBASE_APP_ID:-1:620470873334:web:fd7be9ad75fa527d6a90d7}
+      FIREBASE_ADMIN_CREDENTIALS_PATH: firebase-service-account.json
+    ports:
+      - "${HOST_BE_PORT:-8080}:8080"
+    volumes:
+      - ./ppswbs_backend/logs:/app/logs
+
+  frontend:
+    build:
+      context: ./ppswbs_frontend
+      dockerfile: Dockerfile
+      target: dev
+    container_name: ${COMPOSE_PROJECT_NAME:-mland}_frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      VITE_API_BASE_URL: http://localhost:${HOST_BE_PORT:-8080}
+      USE_POLLING: "true"
+    ports:
+      - "${HOST_FE_PORT:-5173}:5173"
+    volumes:
+      - ./ppswbs_frontend:/app
+      - /app/node_modules
+
+volumes:
+  db_data:

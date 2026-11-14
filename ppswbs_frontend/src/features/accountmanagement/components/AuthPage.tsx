@@ -99,7 +99,12 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode = 'signin' }) => {
           sessionStorage.removeItem('mland_google_redirect_pending');
           setPending(true);
           const account = await accountManagementApiClient.bootstrapOwnAccount();
-          const target = afterSignInPath(account?.role, searchParams.get('returnTo') || new URLSearchParams(window.location.search).get('returnTo'));
+          const returnParam =
+            searchParams.get('returnTo') ||
+            searchParams.get('redirect') ||
+            new URLSearchParams(window.location.search).get('returnTo') ||
+            new URLSearchParams(window.location.search).get('redirect');
+          const target = afterSignInPath(account?.role, returnParam);
           navigate(target, { replace: true });
         } else {
           // If getRedirectAuthResult returned null but redirect was in progress, check current user
@@ -293,7 +298,12 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode = 'signin' }) => {
 
       // Bootstrap Mland Account record
       const account = await accountManagementApiClient.bootstrapOwnAccount();
-      navigate(afterSignInPath(account?.role, searchParams.get('returnTo')), { replace: true });
+      const returnParam =
+        searchParams.get('returnTo') ||
+        searchParams.get('redirect') ||
+        new URLSearchParams(window.location.search).get('returnTo') ||
+        new URLSearchParams(window.location.search).get('redirect');
+      navigate(afterSignInPath(account?.role, returnParam), { replace: true });
     } catch (err: any) {
       if (err instanceof ApiError) {
         if (err.status === 401) {

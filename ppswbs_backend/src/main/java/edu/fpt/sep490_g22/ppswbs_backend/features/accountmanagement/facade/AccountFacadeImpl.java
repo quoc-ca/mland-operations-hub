@@ -201,16 +201,15 @@ public class AccountFacadeImpl implements AccountFacade {
             a.getId(),
             a.getRecipientName(),
             a.getPhoneNumber(),
-            a.getProvinceId(),
+            a.getProvinceCode(),
             a.getProvinceName(),
-            a.getDistrictId(),
-            a.getDistrictName(),
-            a.getWardId(),
-            a.getWardName(),
-            a.getHamletId(),
-            a.getHamletName(),
+            a.getCommuneCode(),
+            a.getCommuneName(),
+            a.getCommuneType(),
             a.getDetailAddress(),
-            a.getAddressType()
+            a.getDirectoryVersion(),
+            a.getAddressType(),
+            a.getVersion()
         );
     }
 

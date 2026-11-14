@@ -3,8 +3,11 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.service;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dao.MemberAddressRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dto.request.AddressCreateRequest;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dto.response.AddressResponse;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.AdministrativeCommune;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.AdministrativeProvince;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.MemberAddress;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AddressType;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.CommuneType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -25,6 +28,9 @@ class MemberAddressServiceTest {
 
     @Mock
     private MemberAddressRepository addressRepository;
+
+    @Mock
+    private AdministrativeDivisionService divisionService;
 
     @InjectMocks
     private MemberAddressService memberAddressService;
@@ -64,16 +70,18 @@ class MemberAddressServiceTest {
             "Nguyen Van A",
             "0912345678",
             "HN",
-            "Hà Nội",
-            "CG",
-            "Cầu Giấy",
-            "DV",
-            "Dịch Vọng",
-            null,
-            null,
-            "123 Cau Giay",
+            "PHTR",
+            "123 Hang Trong",
             AddressType.HOME,
             false // requests isDefault=false, but first address must auto-default
+        );
+
+        when(divisionService.getActiveDirectoryVersion()).thenReturn("VN-2026-V1");
+        when(divisionService.resolveProvince("VN-2026-V1", "HN")).thenReturn(
+            AdministrativeProvince.builder().directoryVersion("VN-2026-V1").code("HN").name("Thành phố Hà Nội").build()
+        );
+        when(divisionService.resolveCommune("VN-2026-V1", "HN", "PHTR")).thenReturn(
+            AdministrativeCommune.builder().directoryVersion("VN-2026-V1").provinceCode("HN").code("PHTR").name("Phường Hàng Trống").type(CommuneType.WARD).build()
         );
 
         // Action 1: First address auto-becomes default
@@ -85,20 +93,23 @@ class MemberAddressServiceTest {
                 .accountId(a.getAccountId())
                 .recipientName(a.getRecipientName())
                 .phoneNumber(a.getPhoneNumber())
-                .provinceId(a.getProvinceId())
+                .provinceCode(a.getProvinceCode())
                 .provinceName(a.getProvinceName())
-                .districtId(a.getDistrictId())
-                .districtName(a.getDistrictName())
-                .wardId(a.getWardId())
-                .wardName(a.getWardName())
+                .communeCode(a.getCommuneCode())
+                .communeName(a.getCommuneName())
+                .communeType(a.getCommuneType())
                 .detailAddress(a.getDetailAddress())
+                .directoryVersion(a.getDirectoryVersion())
                 .addressType(a.getAddressType())
                 .isDefault(a.isDefault())
+                .version(0L)
                 .build();
         });
 
         AddressResponse firstResponse = memberAddressService.createAddress(accountId, createReq);
         assertThat(firstResponse.isDefault()).isTrue();
+        assertThat(firstResponse.provinceName()).isEqualTo("Thành phố Hà Nội");
+        assertThat(firstResponse.communeName()).isEqualTo("Phường Hàng Trống");
 
         // Action 2: Exceeding max quota (10 addresses) throws AddressLimitExceededException
         when(addressRepository.countByAccountId(accountId)).thenReturn(10L);

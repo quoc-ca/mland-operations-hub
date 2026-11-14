@@ -8,6 +8,9 @@ export default defineConfig({
     headers: {
       'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
     },
+    watch: {
+      usePolling: process.env.USE_POLLING === 'true',
+    },
   },
   preview: {
     headers: {

@@ -1,6 +1,7 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity;
 
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AddressType;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.CommuneType;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -30,32 +31,27 @@ public class MemberAddress {
     @Column(name = "phone_number", nullable = false, length = 15)
     private String phoneNumber;
 
-    @Column(name = "province_id", length = 64)
-    private String provinceId;
+    @Column(name = "province_code", nullable = false, length = 64)
+    private String provinceCode;
 
     @Column(name = "province_name", nullable = false, length = 128)
     private String provinceName;
 
-    @Column(name = "district_id", length = 64)
-    private String districtId;
+    @Column(name = "commune_code", nullable = false, length = 64)
+    private String communeCode;
 
-    @Column(name = "district_name", nullable = false, length = 128)
-    private String districtName;
+    @Column(name = "commune_name", nullable = false, length = 128)
+    private String communeName;
 
-    @Column(name = "ward_id", length = 64)
-    private String wardId;
-
-    @Column(name = "ward_name", nullable = false, length = 128)
-    private String wardName;
-
-    @Column(name = "hamlet_id", length = 64)
-    private String hamletId;
-
-    @Column(name = "hamlet_name", length = 128)
-    private String hamletName;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "commune_type", nullable = false, length = 32)
+    private CommuneType communeType;
 
     @Column(name = "detail_address", nullable = false)
     private String detailAddress;
+
+    @Column(name = "directory_version", nullable = false, length = 64)
+    private String directoryVersion;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "address_type", nullable = false, length = 16)
@@ -66,6 +62,11 @@ public class MemberAddress {
     @Builder.Default
     private boolean isDefault = false;
 
+    @Version
+    @Column(name = "version", nullable = false)
+    @Builder.Default
+    private Long version = 0L;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
@@ -74,4 +75,3 @@ public class MemberAddress {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 }
-

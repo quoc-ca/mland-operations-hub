@@ -37,6 +37,43 @@ class LocalRetailShippingQuoteAdapterTest {
     }
 
     @Test
+    void quotesATwoLevelAddressWithoutDistrictAfterTheMerger() {
+        GhtkQuoteProperties properties = enabledProperties();
+        AtomicReference<GhtkFeeTransport.FeeRequest> captured = new AtomicReference<>();
+        GhtkFeeTransport transport = request -> {
+            captured.set(request);
+            return new GhtkFeeTransport.FeeResponse(true, true, BigDecimal.valueOf(23_540), "");
+        };
+        LocalRetailShippingQuoteAdapter adapter = new LocalRetailShippingQuoteAdapter(properties, transport);
+
+        var quote = adapter.quote(9L, 20L, List.of(new RetailCheckoutPorts.PricedLine(101L, 20L, 1, BigDecimal.valueOf(560_000))),
+            new RetailCheckoutPorts.RecipientAddress("1 Xuan Thuy", "Ha Noi", null, "Phuong Cau Giay"));
+
+        assertThat(quote.deliveryAvailable()).isTrue();
+        assertThat(captured.get().district()).isNull();
+        assertThat(captured.get().ward()).isEqualTo("Phuong Cau Giay");
+    }
+
+    @Test
+    void retriesAnOldDistrictAddressAsTwoLevelWhenGhtkDoesNotMatchIt() {
+        GhtkQuoteProperties properties = enabledProperties();
+        java.util.List<GhtkFeeTransport.FeeRequest> calls = new java.util.ArrayList<>();
+        GhtkFeeTransport transport = request -> {
+            calls.add(request);
+            return new GhtkFeeTransport.FeeResponse(true, request.district() == null, BigDecimal.valueOf(23_540), "");
+        };
+        LocalRetailShippingQuoteAdapter adapter = new LocalRetailShippingQuoteAdapter(properties, transport);
+
+        var quote = adapter.quote(9L, 20L, List.of(new RetailCheckoutPorts.PricedLine(101L, 20L, 1, BigDecimal.valueOf(560_000))),
+            new RetailCheckoutPorts.RecipientAddress("1 Xuan Thuy", "Ha Noi", "Quan Cau Giay", "Phuong Cau Giay"));
+
+        assertThat(quote.deliveryAvailable()).isTrue();
+        assertThat(calls).hasSize(2);
+        assertThat(calls.get(1).district()).isNull();
+        assertThat(calls.get(1).ward()).isEqualTo("Phuong Cau Giay");
+    }
+
+    @Test
     void returnsAnUnavailableDeliveryChoiceWithoutCreatingAQuoteWhenGhtkDoesNotServeTheAddress() {
         GhtkQuoteProperties properties = enabledProperties();
         GhtkFeeTransport transport = request -> new GhtkFeeTransport.FeeResponse(true, false, BigDecimal.valueOf(39_250), "");

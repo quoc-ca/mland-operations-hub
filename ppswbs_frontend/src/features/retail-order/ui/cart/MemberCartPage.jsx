@@ -5,7 +5,7 @@ import { useFormat } from '../../../../shared/i18n/I18nProvider';
 import { ErrorNotice, Loading, useCommand, useResource } from '../../../../shared/ui/components';
 import { useRetailApi } from '../../application/useRetailApi';
 import { VoucherPicker } from '../checkout/VoucherPicker';
-import { bestVoucherCode as bestOf, useVoucherOptions, voucherCheckBase } from '../checkout/voucherOptions';
+import { bestVoucherCode as bestOf, usePublicProductVouchers, useVoucherOptions, voucherCheckBase, withPublicVouchers } from '../checkout/voucherOptions';
 
 const MAX_QUANTITY = 99;
 const initialSelection = { choice: 'AUTO', voucherCode: '', requestedPoints: '0' };
@@ -88,10 +88,11 @@ function CartContent() {
   const itemCount = selectedLines.reduce((sum, line) => sum + line.quantity, 0);
   const subtotal = selectedLines.reduce((total, line) => total + BigInt(line.indicativePrice || '0') * BigInt(line.quantity || 0), 0n).toString();
   const availablePoints = loyalty.data ? String(loyalty.data.availablePoints ?? loyalty.data.balancePoints ?? '0') : null;
-  const savedVouchers = (savedVoucherResource.data?.items || savedVoucherResource.data || [])
+  const publicVouchers = usePublicProductVouchers(api);
+  const savedVouchers = withPublicVouchers((savedVoucherResource.data?.items || savedVoucherResource.data || [])
     .map(item => ({ code: item.promotion?.code || item.code, name: item.promotion?.name || item.name || item.promotion?.code || item.code, availability: item.availability,
       discount: item.promotion?.discount || null, minimumEligibleAmount: item.promotion?.minimumEligibleAmount || '0', endAt: item.promotion?.endAt || null }))
-    .filter(item => item.code);
+    .filter(item => item.code), publicVouchers);
   // Best saved voucher for the ticked lines by its real FE-06 saving (products, branches and minimum included).
   const voucherOptions = useVoucherOptions(api, savedVouchers, voucherCheckBase(selectedLines));
   const bestVoucherCode = bestOf(voucherOptions);
@@ -113,6 +114,7 @@ function CartContent() {
       selection: { ...selection, voucherCode: selection.choice === 'VOUCHER' ? selection.voucherCode.trim() : null },
       branchOrders: selectedGroups.map(([locationId]) => ({ locationId: Number(locationId), method: 'PICKUP', shippingQuoteId: null, recipient: null })),
       cartLineIds: selectedLines.map(line => line.id),
+      estimateOnly: true, // the cart only shows numbers; checkout makes the order-ready quote
     };
     setQuoting(true);
     api.previewBenefits(body)

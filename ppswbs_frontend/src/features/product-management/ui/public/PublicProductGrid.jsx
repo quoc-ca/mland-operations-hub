@@ -87,12 +87,14 @@ export function PublicProductCard({ product, programs, onAdded }) {
         {product.category && <span className="badge">{product.category.name}</span>}
         <strong>{product.name}</strong>
       </Link>
+      {/* Price and offers sit right under the name (same gap on every card); only the stock label and the cart
+          button are pinned to the bottom, so a card with fewer offer badges does not open a gap above its price. */}
+      <div className="product-card-info">
+        {price}
+        <OfferBadges offers={offers} />
+      </div>
       <div className="product-card-foot">
-        <div className="product-card-info">
-          {price}
-          <OfferBadges offers={offers} />
-          <span className={product.canBuy ? 'status ok' : 'status'}>{product.canBuy ? t('public.canBuy') : t('public.cannotBuy')}</span>
-        </div>
+        <span className={product.canBuy ? 'status ok' : 'status'}>{product.canBuy ? t('public.canBuy') : t('public.cannotBuy')}</span>
         <button type="button" className="cart-button" disabled={!product.canBuy} onClick={() => setAdding(true)}
           aria-label={t('quickAdd.open', { name: product.name })} title={product.canBuy ? t('cart.add') : t('public.cannotBuy')}>
           <CartIcon />

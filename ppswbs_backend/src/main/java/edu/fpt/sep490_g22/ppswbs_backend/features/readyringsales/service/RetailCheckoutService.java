@@ -99,7 +99,7 @@ public class RetailCheckoutService {
         List<RetailCheckoutPorts.PricedLine> priced = pricingPort.price(selected);
         BigDecimal subtotal = subtotal(priced);
         RetailCheckoutPorts.BenefitPreview benefit = benefitPort.requireValidPreview(memberAccountId, request.benefitPreviewId(),
-            toSelection(request.benefitSelection()), subtotal);
+            toSelection(request.benefitSelection()), priced);
         BigDecimal discount = benefit.discountAmount().add(benefit.pointsDiscountAmount());
         Map<Long, BigDecimal> shippingByLocation = shippingByLocation(memberAccountId, choices, priced);
         BigDecimal shipping = shippingByLocation.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);

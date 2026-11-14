@@ -4,37 +4,45 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dto.response
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.service.AdministrativeDivisionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/v1/addresses")
 @RequiredArgsConstructor
 public class AdministrativeDivisionController {
 
     private final AdministrativeDivisionService divisionService;
 
-    @GetMapping("/provinces")
+    @GetMapping("/api/v1/administrative-divisions/provinces")
     public ResponseEntity<List<AdministrativeDivisionResponse>> listProvinces() {
         return ResponseEntity.ok(divisionService.listProvinces());
     }
 
-    @GetMapping("/districts")
-    public ResponseEntity<List<AdministrativeDivisionResponse>> listDistricts(
-        @RequestParam(name = "provinceId", required = true) String provinceId
+    @GetMapping("/api/v1/administrative-divisions/provinces/{provinceCode}/communes")
+    public ResponseEntity<List<AdministrativeDivisionResponse>> listCommunes(
+        @PathVariable String provinceCode
     ) {
-        return ResponseEntity.ok(divisionService.listDistricts(provinceId));
+        return ResponseEntity.ok(divisionService.listCommunes(provinceCode));
     }
 
-    @GetMapping("/wards")
-    public ResponseEntity<List<AdministrativeDivisionResponse>> listWards(
-        @RequestParam(name = "districtId", required = true) String districtId
+    // Compatibility alias for legacy /api/v1/addresses/provinces
+    @GetMapping("/api/v1/addresses/provinces")
+    public ResponseEntity<List<AdministrativeDivisionResponse>> listProvincesAlias() {
+        return listProvinces();
+    }
+
+    @GetMapping("/api/v1/addresses/districts")
+    public ResponseEntity<List<AdministrativeDivisionResponse>> listDistrictsAlias(
+        @RequestParam(name = "provinceId", required = false) String provinceId
     ) {
-        return ResponseEntity.ok(divisionService.listWards(districtId));
+        return ResponseEntity.ok(List.of());
+    }
+
+    @GetMapping("/api/v1/addresses/wards")
+    public ResponseEntity<List<AdministrativeDivisionResponse>> listWardsAlias(
+        @RequestParam(name = "districtId", required = false) String districtId
+    ) {
+        return ResponseEntity.ok(List.of());
     }
 }
-

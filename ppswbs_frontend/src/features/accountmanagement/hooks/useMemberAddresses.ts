@@ -8,6 +8,11 @@ import {
 } from '../api/AddressApiClient';
 import { ApiError } from '../../../shared/api/http';
 
+export function removeDiacritics(str: string): string {
+  if (!str) return '';
+  return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+
 export function normalizePhoneNumber(input: string): string {
   let cleaned = input.trim().replace(/[\s.\-()]/g, '');
   if (cleaned.startsWith('+84')) {
@@ -28,34 +33,46 @@ export function validateAddressInput(
 ): Record<string, string> {
   const errors: Record<string, string> = {};
 
-  if (!data.recipientName || !data.recipientName.trim()) {
+  const name = data.recipientName?.trim();
+  if (!name) {
     errors.recipientName = 'Họ và tên người nhận là bắt buộc';
-  } else if (data.recipientName.length > 255) {
+  } else if (name.length > 255) {
     errors.recipientName = 'Họ và tên không được vượt quá 255 ký tự';
+  } else if (/[\u0000-\u001F\u007F-\u009F]/.test(name)) {
+    errors.recipientName = 'Họ và tên không được chứa ký tự điều khiển ISO';
   }
 
-  if (!data.phoneNumber || !data.phoneNumber.trim()) {
+  const phone = data.phoneNumber?.trim();
+  if (!phone) {
     errors.phoneNumber = 'Số điện thoại người nhận là bắt buộc';
-  } else if (!validatePhoneNumber(data.phoneNumber)) {
+  } else if (!validatePhoneNumber(phone)) {
     errors.phoneNumber = 'Số điện thoại không hợp lệ (phải là số di động Việt Nam 10 chữ số, ví dụ: 0912345678)';
   }
 
-  if (!data.provinceName || !data.provinceName.trim()) {
+  const prov = (data as any).provinceCode || (data as any).provinceName || (data as any).provinceId;
+  if (!prov || !String(prov).trim()) {
+    errors.provinceCode = 'Vui lòng chọn Tỉnh/Thành phố';
     errors.provinceName = 'Vui lòng chọn Tỉnh/Thành phố';
   }
 
-  if (!data.districtName || !data.districtName.trim()) {
-    errors.districtName = 'Vui lòng chọn Quận/Huyện';
-  }
-
-  if (!data.wardName || !data.wardName.trim()) {
+  const comm = (data as any).communeCode || (data as any).communeName || (data as any).wardName || (data as any).wardId;
+  if (!comm || !String(comm).trim()) {
+    errors.communeCode = 'Vui lòng chọn Phường/Xã/Khu vực đặc thù';
+    errors.communeName = 'Vui lòng chọn Phường/Xã/Khu vực đặc thù';
     errors.wardName = 'Vui lòng chọn Phường/Xã';
   }
 
-  if (!data.detailAddress || !data.detailAddress.trim()) {
+  if ('districtName' in data && !data.districtName?.trim()) {
+    errors.districtName = 'Vui lòng chọn Quận/Huyện';
+  }
+
+  const detail = data.detailAddress?.trim();
+  if (!detail) {
     errors.detailAddress = 'Địa chỉ chi tiết (số nhà, tên đường...) là bắt buộc';
-  } else if (data.detailAddress.length > 255) {
+  } else if (detail.length > 255) {
     errors.detailAddress = 'Địa chỉ chi tiết không được vượt quá 255 ký tự';
+  } else if (/[\u0000-\u001F\u007F-\u009F]/.test(detail)) {
+    errors.detailAddress = 'Địa chỉ chi tiết không được chứa ký tự điều khiển ISO';
   }
 
   return errors;
@@ -230,9 +247,11 @@ export function useMemberAddresses(options: UseMemberAddressesOptions = { autoLo
 
 export function useAdministrativeDivisions(selectedProvinceId?: string, selectedDistrictId?: string) {
   const [provinces, setProvinces] = useState<AdministrativeDivisionResponse[]>([]);
+  const [communes, setCommunes] = useState<AdministrativeDivisionResponse[]>([]);
   const [districts, setDistricts] = useState<AdministrativeDivisionResponse[]>([]);
   const [wards, setWards] = useState<AdministrativeDivisionResponse[]>([]);
   const [loadingProvinces, setLoadingProvinces] = useState<boolean>(false);
+  const [loadingCommunes, setLoadingCommunes] = useState<boolean>(false);
   const [loadingDistricts, setLoadingDistricts] = useState<boolean>(false);
   const [loadingWards, setLoadingWards] = useState<boolean>(false);
 
@@ -256,7 +275,31 @@ export function useAdministrativeDivisions(selectedProvinceId?: string, selected
     };
   }, []);
 
-  // Load districts when provinceId changes
+  // Load communes when province changes (2-level Shopee style per FR-041)
+  useEffect(() => {
+    if (!selectedProvinceId) {
+      setCommunes([]);
+      return;
+    }
+    let active = true;
+    setLoadingCommunes(true);
+    addressApiClient
+      .listCommunes(selectedProvinceId)
+      .then(data => {
+        if (active) setCommunes(data);
+      })
+      .catch(() => {
+        if (active) setCommunes([]);
+      })
+      .finally(() => {
+        if (active) setLoadingCommunes(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [selectedProvinceId]);
+
+  // Compatibility: load districts when provinceId changes
   useEffect(() => {
     if (!selectedProvinceId) {
       setDistricts([]);
@@ -281,7 +324,7 @@ export function useAdministrativeDivisions(selectedProvinceId?: string, selected
     };
   }, [selectedProvinceId]);
 
-  // Load wards when districtId changes
+  // Compatibility: load wards when districtId changes
   useEffect(() => {
     if (!selectedDistrictId) {
       setWards([]);
@@ -307,11 +350,13 @@ export function useAdministrativeDivisions(selectedProvinceId?: string, selected
 
   return {
     provinces,
+    communes,
     districts,
-    wards,
+    wards: communes.length > 0 ? communes : wards,
     loadingProvinces,
+    loadingCommunes,
     loadingDistricts,
-    loadingWards,
+    loadingWards: loadingCommunes || loadingWards,
   };
 }
 

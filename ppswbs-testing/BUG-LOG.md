@@ -7,11 +7,38 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
 
 ## Danh sách lỗi đang theo dõi (Active Defects)
 
-<!-- Không còn lỗi nào ở trạng thái OPEN. Tất cả 7 lỗi đã được khắc phục và nghiệm thu đóng hoàn toàn. -->
+<!-- Không còn lỗi nào ở trạng thái OPEN. Tất cả 8 lỗi đã được khắc phục và nghiệm thu đóng hoàn toàn. -->
 
 ---
 
 ## Danh sách lỗi đã đóng / nghiệm thu (Resolved & Closed Defects)
+
+## BUG-E2E-0008 — CLOSED
+
+- Ngày mở: 2026-11-14
+- Ngày đóng / nghiệm thu: 2026-11-14
+- Phát hiện bởi: Senior QA & System Verification Engineer
+- Xác minh đóng lỗi bởi: Senior QA & System Verification Engineer
+- Feature: 001-account-management
+- Kịch bản liên quan: [E2E-001-002](../ppswbs-spec/features/001-account-management/test-results/E2E-001-002--member-address-book-flow.md)
+- Mức độ nghiêm trọng: MAJOR
+- Phân loại / Gán cho: Frontend & Backend (Chưa triển khai cập nhật đặc tả sổ địa chỉ 2 cấp ngày 2026-11-14)
+- Mô tả lỗi ban đầu: Biểu mẫu modal "Thêm địa chỉ nhận hàng mới" trên Frontend và API lưu trữ Backend hoạt động theo mô hình 4 cấp GHTK cũ (Tỉnh -> Huyện -> Xã -> Thôn/Ấp), tự động pre-fill họ tên từ Profile, không tuân thủ luồng nhập liệu tuần tự Shopee-style. Mâu thuẫn với bản sửa đổi đặc tả ngày 2026-11-14 (FR-036, FR-037, FR-038, FR-041, FR-042) và OpenAPI schema `account-management.openapi.yaml`.
+- Biện pháp khắc phục đã triển khai (Commit `b2b88bb6`):
+  1. Backend: Bổ sung Flyway migration `V93__two_level_administrative_divisions_and_shipping_addresses.sql` và entities `AdministrativeProvince`, `AdministrativeCommune`, `AdministrativeDirectoryVersion`; refactor `MemberAddress` lưu mã và tên 2 cấp (`provinceCode`, `communeCode`, `detailAddress`); cập nhật `AdministrativeDivisionService` cung cấp API tra cứu địa giới 2 cấp và `MemberAddressService` lưu trữ snapshot 2 cấp.
+  2. Frontend: Refactor `AddressModal.tsx` mở form ở trạng thái trống hoàn toàn (FR-036), kiểm soát luồng nhập liệu tuần tự Shopee-style theo cờ validation (`Họ tên` -> `SĐT` -> `Tỉnh/Thành` -> `Phường/Xã` -> `Địa chỉ chi tiết`) (FR-037), hỗ trợ ô lọc nhanh không dấu cho Phường/Xã (FR-041), và tự động reset các trường cấp con khi thay đổi cấp cha.
+- Kết quả kiểm chứng lại (QA Re-test 2026-11-14 qua Browser MCP & Automated Suites):
+  - Kịch bản `E2E-001-002` chạy lại trên Chrome thực tế qua `browsermcp`:
+    + Form mở ra ở trạng thái trống, không pre-fill họ tên từ Profile (PASS FR-036).
+    + Nhập liệu tuần tự: SĐT chỉ mở khóa khi nhập Họ tên; Tỉnh/Thành chỉ mở khóa khi nhập SĐT di động hợp lệ (chặn số bàn 0241234567, chuẩn hóa +84 912 345 678); Phường/Xã chỉ mở khóa khi chọn Tỉnh/Thành; Địa chỉ cụ thể chỉ mở khóa khi chọn Phường/Xã (PASS FR-037).
+    + Ô tìm kiếm Phường/Xã lọc nhanh không dấu (nhập "trong" lọc ra "Phường Hàng Trống") (PASS FR-041).
+    + Chọn đổi Tỉnh từ Hà Nội sang TP.HCM: Phường/Xã và Địa chỉ cụ thể tự động bị xóa và khóa lại (PASS FR-037 cascade reset).
+    + Lưu địa chỉ thành công, hiển thị đúng địa giới 2 cấp: "Số 2 Lê Duẩn, Phường Bến Nghé, Thành phố Hồ Chí Minh" kèm badge "Mặc định", badge "Văn phòng" và quota "Đã lưu 1 trên 10 địa chỉ".
+    + Xóa địa chỉ duy nhất thành công và trở lại trạng thái danh sách trống.
+  - Automated Tests:
+    + Frontend Vitest: 7 test suites, 94/94 tests PASS (bao gồm 15/15 tests trong `addressBook.test.tsx`).
+    + Backend JUnit: `MemberAddressServiceTest` PASS 2/2 tests (BUILD SUCCESS).
+- Trạng thái xử lý: **CLOSED**
 
 ## BUG-E2E-0007 — CLOSED
 
@@ -181,6 +208,47 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
 - Kết quả kiểm chứng lại (QA Re-test 2026-11-12 qua Browser MCP):
   - Kịch bản `E2E-012-003` tái kiểm tra trên Chrome thực tế: Bấm "Lưu & Thẩm định" thành công chuyển sang `/design/{designId}`, hiển thị đầy đủ bảng chỉ số kỹ thuật và chi phí tham khảo ước tính (HTTP 201 + 200). Chuyển tiếp sang `/workshops/booking?...` đạt yêu cầu. Trạng thái: **PASS**. Bằng chứng JPEG: ![Thành công](../ppswbs-spec/features/012-workshop-ring-design-configuration/test-results/screenshots/E2E-012-003--success.jpg).
   - Kịch bản `E2E-012-005` (nhánh phiên hết hạn): Truy cập thiết kế với phiên hết hạn trả về HTTP 401 `DESIGN_SESSION_EXPIRED` và hiển thị alert tiếng Việt: *"Phiên làm việc của bạn đã hết hạn sau 20 phút không hoạt động. Vui lòng bắt đầu lại để tiếp tục."*. Trạng thái: **PASS**. Bằng chứng JPEG: ![Phiên hết hạn](../ppswbs-spec/features/012-workshop-ring-design-configuration/test-results/screenshots/E2E-012-005--session-expired.jpg).
+
+## BUG-E2E-0004 — CLOSED
+
+- Ngày mở: 2026-11-14
+- Ngày khắc phục: 2026-11-14
+- Ngày đóng / nghiệm thu: 2026-11-14
+- Phát hiện bởi: Senior QA & System Verification Engineer
+- Khắc phục bởi: Senior Java/Spring Backend Implementation Engineer & Database Architect
+- Xác minh đóng lỗi bởi: Senior QA & System Verification Engineer
+- Feature: 007-notification-management
+- Kịch bản liên quan: [E2E-007-011](../ppswbs-spec/features/007-notification-management/test-results/e2e/E2E-007-011--redeliver-with-refreshed-credential.md)
+- Mức độ nghiêm trọng: MAJOR
+- Phân loại / Gán cho: Backend / Database Schema
+- Mô tả lỗi ban đầu: 
+  Endpoint `POST /api/v1/notification-requests/{id}/redeliver` trả về lỗi HTTP 500 (Internal Server Error) do xung đột ràng buộc toàn vẹn cơ sở dữ liệu `DataIntegrityViolationException`.
+  Khi một yêu cầu gửi thông báo gốc (`original_request_id`) đã từng phát sinh một yêu cầu gửi lại (resend hoặc redeliver trước đó, ví dụ tạo request #1005 từ request gốc #1001), việc thực hiện thao tác redeliver (hoặc resend lần thứ 2) trên cùng request gốc #1001 sẽ cố gắng chèn một bản ghi mới với cùng bộ giá trị:
+  `(business_event_reference, template_code, recipient_role, recipient_address_fingerprint, original_request_id = 1001)`.
+  Ràng buộc `uq_nr_idempotency` trong Flyway migration `V111__notification_management.sql`:
+  ```sql
+  UNIQUE KEY uq_nr_idempotency (business_event_reference, template_code, recipient_role, recipient_address_fingerprint, original_request_id)
+  ```
+  từ chối bản ghi thứ 2, dẫn tới Crash 500 ở backend thay vì xử lý mượt mà hoặc cấp định danh/chu kỳ phân biệt.
+- Biện pháp khắc phục đã triển khai:
+  1. Flyway migration `V140__notification_original_request_idempotency.sql`:
+     - Chuẩn hóa các chuỗi phả hệ derived request trỏ trực tiếp về root request.
+     - Drop chỉ mục unique `uq_nr_idempotency`.
+     - Bổ sung cột sinh `original_idempotency_scope TINYINT GENERATED ALWAYS AS (CASE WHEN original_request_id IS NULL THEN 1 ELSE NULL END) STORED`.
+     - Tạo unique constraint mới `uq_nr_original_idempotency (business_event_reference, template_code, recipient_role, recipient_address_fingerprint, original_idempotency_scope)`. Do SQL bỏ qua duplicate NULLs, constraint chỉ bảo vệ tính duy nhất của request gốc và cho phép tạo không giới hạn derived requests.
+  2. JPA Entity `NotificationRequest.java`: Bổ sung mapping cột sinh `@Column(name = "original_idempotency_scope", insertable = false, updatable = false)`.
+  3. Bổ sung test tích hợp `NotificationManagementIT#verifyMultipleResendAndRedeliverOnSameRootSucceeds` (Task T034).
+- Kết quả kiểm chứng lại (QA Re-test 2026-11-14 qua Browser MCP trên live Docker environment):
+  - Kịch bản `E2E-007-011` được thực thi lại trên môi trường Docker cục bộ (`http://localhost:5174` và backend `http://localhost:8081`):
+    + Quản lý mở chi tiết yêu cầu gốc #1001 (đã có request gửi lại trước đó).
+    + Bấm "Gửi lại với link/vé mới", nhập lý do "Khách hàng liên hệ xin link mới do link 24h đã hết hạn" và xác nhận.
+    + Backend xử lý thành công, trả về HTTP 201 Created và sinh request mới #1009 với `original_request_id = 1001`.
+    + Không còn lỗi HTTP 500 hay `DataIntegrityViolationException`.
+    + Bảng `notification_operational_audit` lưu vết chính xác hành động `REDELIVER_REFRESHED_CREDENTIAL`.
+  - Trạng thái kiểm chứng: **PASS 100%**.
+  - Bằng chứng screenshot: [E2E-007-011--redeliver-success.jpg](../ppswbs-spec/features/007-notification-management/test-results/e2e/screenshots/E2E-007-011--redeliver-success.jpg).
+- Trạng thái xử lý: **CLOSED**
+
 
 <!--
 ## BUG-E2E-0000 — OPEN

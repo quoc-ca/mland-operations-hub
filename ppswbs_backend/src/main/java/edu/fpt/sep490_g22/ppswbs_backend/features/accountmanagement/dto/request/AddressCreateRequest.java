@@ -12,27 +12,11 @@ public record AddressCreateRequest(
     @NotBlank(message = "Phone number is required")
     String phoneNumber,
 
-    String provinceId,
+    @NotBlank(message = "Province code is required")
+    String provinceCode,
 
-    @NotBlank(message = "Province name is required")
-    @Size(max = 128, message = "Province name cannot exceed 128 characters")
-    String provinceName,
-
-    String districtId,
-
-    @NotBlank(message = "District name is required")
-    @Size(max = 128, message = "District name cannot exceed 128 characters")
-    String districtName,
-
-    String wardId,
-
-    @NotBlank(message = "Ward name is required")
-    @Size(max = 128, message = "Ward name cannot exceed 128 characters")
-    String wardName,
-
-    String hamletId,
-
-    String hamletName,
+    @NotBlank(message = "Commune code is required")
+    String communeCode,
 
     @NotBlank(message = "Detail address is required")
     @Size(max = 255, message = "Detail address cannot exceed 255 characters")
@@ -50,4 +34,3 @@ public record AddressCreateRequest(
         return Boolean.TRUE.equals(isDefault);
     }
 }
-

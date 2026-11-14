@@ -2,6 +2,7 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dto.request
 
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AddressType;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 public record AddressUpdateRequest(
@@ -12,27 +13,11 @@ public record AddressUpdateRequest(
     @NotBlank(message = "Phone number is required")
     String phoneNumber,
 
-    String provinceId,
+    @NotBlank(message = "Province code is required")
+    String provinceCode,
 
-    @NotBlank(message = "Province name is required")
-    @Size(max = 128, message = "Province name cannot exceed 128 characters")
-    String provinceName,
-
-    String districtId,
-
-    @NotBlank(message = "District name is required")
-    @Size(max = 128, message = "District name cannot exceed 128 characters")
-    String districtName,
-
-    String wardId,
-
-    @NotBlank(message = "Ward name is required")
-    @Size(max = 128, message = "Ward name cannot exceed 128 characters")
-    String wardName,
-
-    String hamletId,
-
-    String hamletName,
+    @NotBlank(message = "Commune code is required")
+    String communeCode,
 
     @NotBlank(message = "Detail address is required")
     @Size(max = 255, message = "Detail address cannot exceed 255 characters")
@@ -40,7 +25,10 @@ public record AddressUpdateRequest(
 
     AddressType addressType,
 
-    Boolean isDefault
+    Boolean isDefault,
+
+    @NotNull(message = "Optimistic lock version is required")
+    Long version
 ) {
     public AddressType resolvedAddressType() {
         return addressType != null ? addressType : AddressType.HOME;
@@ -50,4 +38,3 @@ public record AddressUpdateRequest(
         return Boolean.TRUE.equals(isDefault);
     }
 }
-

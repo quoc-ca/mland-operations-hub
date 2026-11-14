@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { clearRoleCache } from '../../../shared/auth/useRole';
@@ -814,8 +814,13 @@ describe('T071 public catalogue', () => {
   });
 
   it('detail lists each offer and says which sizes a partial one covers', async () => {
+    const user = userEvent.setup();
+    const bothOnSale = publicProduct({ variants: [
+      { id: '101', size: 12, sku: 'SP000042-S12', appliedPrice: '1250000', currency: 'VND', saleEnabled: true, canBuy: true, availableQuantity: '5' },
+      { id: '102', size: 14, sku: 'SP000042-S14', appliedPrice: '1300000', currency: 'VND', saleEnabled: true, canBuy: true, availableQuantity: '2' },
+    ] });
     mockFetch({
-      'GET /api/v1/products/42': json(200, publicProduct()),
+      'GET /api/v1/products/42': json(200, bothOnSale),
       'GET /api/v1/promotions': json(200, { items: [
         { id: '3', kind: 'AUTO_DISCOUNT', scope: 'PRODUCT', code: null, name: 'Giảm size 14', minimumEligibleAmount: '0',
           discount: { kind: 'PERCENT', percentage: '10', maxDiscountAmount: '500000' }, targets: { variantIds: ['102'] } },
@@ -824,7 +829,9 @@ describe('T071 public catalogue', () => {
     open('/products/42');
     expect(await screen.findByText('Chỉ áp dụng cho size 14.')).toBeInTheDocument();
     expect(screen.getByText('Giảm 10% · size 14')).toBeInTheDocument();
-    expect(screen.getByText('1.170.000 ₫')).toBeInTheDocument();
+    // The chosen size's price sits under the size boxes: size 14 shows its price after the offer.
+    await user.click(screen.getByRole('button', { name: 'Size 14' }));
+    expect(screen.getByText('1.170.000 ₫', { selector: '.buy-sizes-price *' })).toBeInTheDocument();
   });
 
   it('shows normal prices when offers cannot be read', async () => {
@@ -839,12 +846,46 @@ describe('T071 public catalogue', () => {
   });
 
   it('detail labels a disabled size and buying it is not offered', async () => {
+    const user = userEvent.setup();
     mockFetch({ 'GET /api/v1/products/42': json(200, publicProduct()) });
     open('/products/42');
     expect(await screen.findByRole('heading', { level: 1, name: 'Nhẫn bạc' })).toBeInTheDocument();
-    expect(screen.getByText('Ngừng bán')).toBeInTheDocument();
-    expect(await screen.findByLabelText('Size')).toBeInTheDocument();
-    expect(screen.getAllByRole('option').map(option => option.textContent)).not.toContain('Size 14');
+    // Sizes are boxes: none is chosen at first; the one not on sale is faded and cannot be pressed.
+    const sizes = await screen.findByRole('group', { name: 'Size' });
+    expect(within(sizes).getByRole('button', { name: 'Size 12' })).toHaveAttribute('aria-pressed', 'false');
+    expect(within(sizes).getByRole('button', { name: 'Size 14 (Ngừng bán)' })).toBeDisabled();
+    await user.click(within(sizes).getByRole('button', { name: 'Size 12' }));
+    expect(within(sizes).getByRole('button', { name: 'Size 12' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByText('1.250.000 ₫', { selector: '.buy-sizes-price *' })).toBeInTheDocument();
+  });
+
+  it('a sold-out size is faded, and with no size to buy the boxes stay with the notice', async () => {
+    const soldOut = publicProduct({ canBuy: false, variants: [
+      { id: '101', size: 12, sku: 'SP000042-S12', appliedPrice: '1250000', currency: 'VND', saleEnabled: true, canBuy: false, availableQuantity: '0' },
+    ] });
+    mockFetch({ 'GET /api/v1/products/42': json(200, soldOut) });
+    open('/products/42');
+    const sizes = await screen.findByRole('group', { name: 'Size' });
+    expect(within(sizes).getByRole('button', { name: 'Size 12 (Hết hàng)' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Thêm Vào Giỏ Hàng' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Mua Ngay' })).toBeNull();
+  });
+
+  it('the size conversion link opens the chart dialog with its steps, and it closes', async () => {
+    const user = userEvent.setup();
+    mockFetch({ 'GET /api/v1/products/42': json(200, publicProduct()) });
+    open('/products/42');
+    await user.click(await screen.findByRole('button', { name: /Bảng Quy Đổi Kích Cỡ/ }));
+    const dialog = screen.getByRole('dialog', { name: 'Bảng quy đổi kích cỡ nhẫn' });
+    expect(within(dialog).getByRole('img', { name: 'Bảng quy đổi size nhẫn từ 5 đến 29 theo đường kính và chu vi' })).toHaveAttribute('src', '/size-guide/bang-size.jpg');
+    // Two ways to measure, each with its own numbered steps: by the ring's diameter, then by the finger's circumference.
+    expect(within(within(dialog).getByRole('region', { name: /Đo theo đường kính/ })).getAllByRole('listitem')).toHaveLength(4);
+    expect(within(within(dialog).getByRole('region', { name: /Đo theo chu vi ngón tay/ })).getAllByRole('listitem')).toHaveLength(5);
+    // A missing chart image reads as "no chart yet", not a broken picture.
+    fireEvent.error(within(dialog).getByRole('img'));
+    expect(within(dialog).getByText('Chưa có ảnh bảng size.')).toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: 'Đóng' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 
   it('a hidden or deleted product reads as not found', async () => {
@@ -950,15 +991,14 @@ describe('T072 hand-off to the FE-08 cart', () => {
     });
     // FE-08 owns /member/cart; a stand-in route shows that the page navigates there.
     const { router } = renderRoutes([...productManagementRoutes, { path: '/member/cart', element: <p>FE-08 cart</p> }], { path: '/products/42' });
-    const add = await screen.findByRole('button', { name: 'Thêm vào giỏ' });
-    expect(add).toBeDisabled();
-    expect(screen.getAllByRole('option').map(option => option.textContent)).not.toContain('Size 14');
+    const add = await screen.findByRole('button', { name: 'Thêm Vào Giỏ Hàng' });
+    expect(screen.getByRole('button', { name: 'Size 14 (Ngừng bán)' })).toBeDisabled();
     // Branches load after the page: wait for the option, or the choice races the list under a loaded test run.
     await screen.findByRole('option', { name: /MLAND Thủ Đức/ });
+    await user.click(screen.getByRole('button', { name: 'Size 12' }));
     await user.selectOptions(screen.getByLabelText('Chi nhánh'), '9');
-    const quantity = screen.getByLabelText('Số lượng');
-    await user.clear(quantity);
-    await user.type(quantity, '2');
+    await user.click(screen.getByRole('button', { name: 'Tăng số lượng' }));
+    expect(screen.getByLabelText('Số Lượng')).toHaveValue('2');
     await user.click(add);
 
     expect(await screen.findByText('FE-08 cart')).toBeInTheDocument();
@@ -967,6 +1007,88 @@ describe('T072 hand-off to the FE-08 cart', () => {
     expect(post.body).toEqual({ variantId: 101, locationId: 9, quantity: 2 });
     expect(post.headers.Authorization).toBe('Bearer test-token');
     expect(calls.filter(call => call.method !== 'GET')).toHaveLength(1);
+  });
+
+  it('without a size, then without a branch, a click only asks for it and sends nothing', async () => {
+    const user = userEvent.setup();
+    const calls = mockFetch({
+      'GET /api/v1/products/42': json(200, publicProduct()),
+      'GET /api/v1/product-selling-locations': json(200, locations),
+    });
+    open('/products/42');
+    await screen.findByRole('option', { name: /MLAND Thủ Đức/ });
+    await user.click(screen.getByRole('button', { name: 'Thêm Vào Giỏ Hàng' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('Vui lòng chọn size.');
+    await user.click(screen.getByRole('button', { name: 'Size 12' }));
+    expect(screen.queryByRole('alert')).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Mua Ngay' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('Vui lòng chọn chi nhánh.');
+    expect(calls.filter(call => call.method !== 'GET')).toHaveLength(0);
+  });
+
+  it('the branch list holds only real branches; "Chọn chi nhánh" is a placeholder that cannot be picked', async () => {
+    mockFetch({
+      'GET /api/v1/products/42': json(200, publicProduct()),
+      'GET /api/v1/product-selling-locations': json(200, locations),
+    });
+    open('/products/42');
+    await screen.findByRole('option', { name: /MLAND Thủ Đức/ });
+    const branch = screen.getByLabelText('Chi nhánh');
+    expect(within(branch).getAllByRole('option').map(option => option.textContent)).toEqual(['MLAND Quận 1 — 12 Lê Lợi', 'MLAND Thủ Đức']);
+    const placeholder = branch.querySelector('option[value=""]');
+    expect(placeholder).toHaveTextContent('Chọn chi nhánh');
+    expect(placeholder).toBeDisabled();
+    expect(branch).toHaveValue('');
+  });
+
+  it('the − / + stepper stays between 1 and the stock of the chosen size, and a smaller size clamps it', async () => {
+    const user = userEvent.setup();
+    const bothOnSale = publicProduct({ variants: [
+      { id: '101', size: 12, sku: 'SP000042-S12', appliedPrice: '1250000', currency: 'VND', saleEnabled: true, canBuy: true, availableQuantity: '3' },
+      { id: '102', size: 14, sku: 'SP000042-S14', appliedPrice: '1300000', currency: 'VND', saleEnabled: true, canBuy: true, availableQuantity: '2' },
+    ] });
+    mockFetch({
+      'GET /api/v1/products/42': json(200, bothOnSale),
+      'GET /api/v1/product-selling-locations': json(200, locations),
+    });
+    open('/products/42');
+    // Before a size is chosen no stock figure is shown (a total over sizes read as one size's stock) and the
+    // quantity stays at 1.
+    expect(await screen.findByText('Chọn size để xem số lượng còn')).toBeInTheDocument();
+    expect(screen.queryByText(/sản phẩm có sẵn/)).toBeNull();
+    const minus = screen.getByRole('button', { name: 'Giảm số lượng' });
+    const plus = screen.getByRole('button', { name: 'Tăng số lượng' });
+    expect(minus).toBeDisabled();
+    expect(plus).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Size 12' }));
+    expect(screen.getByText('3 sản phẩm có sẵn')).toBeInTheDocument();
+    await user.click(plus);
+    await user.click(plus);
+    expect(screen.getByLabelText('Số Lượng')).toHaveValue('3');
+    expect(plus).toBeDisabled();
+    expect(minus).toBeEnabled();
+    await user.click(screen.getByRole('button', { name: 'Size 14' }));
+    expect(screen.getByText('2 sản phẩm có sẵn')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByLabelText('Số Lượng')).toHaveValue('2'));
+    expect(screen.getByLabelText('Số Lượng')).toHaveAttribute('readonly');
+  });
+
+  it('"Mua Ngay" adds the line and opens FE-08 checkout for that one line', async () => {
+    const user = userEvent.setup();
+    const calls = mockFetch({
+      'GET /api/v1/products/42': json(200, publicProduct()),
+      'GET /api/v1/product-selling-locations': json(200, locations),
+      'POST /api/v1/members/me/ready-ring-cart/lines': json(201, { version: 3, lines: [
+        { id: '70', variantId: 555, locationId: 9, quantity: 1 }, { id: '77', variantId: 101, locationId: 9, quantity: 1 }] }),
+    });
+    const { router } = renderRoutes([...productManagementRoutes, { path: '/member/checkout', element: <p>FE-08 checkout</p> }], { path: '/products/42' });
+    await screen.findByRole('option', { name: /MLAND Thủ Đức/ });
+    await user.click(screen.getByRole('button', { name: 'Size 12' }));
+    await user.selectOptions(screen.getByLabelText('Chi nhánh'), '9');
+    await user.click(screen.getByRole('button', { name: 'Mua Ngay' }));
+    expect(await screen.findByText('FE-08 checkout')).toBeInTheDocument();
+    expect(router.state.location.state).toEqual({ cartLineIds: ['77'] });
+    expect(calls.find(call => call.method === 'POST').body).toEqual({ variantId: 101, locationId: 9, quantity: 1 });
   });
 
   it('the cart button of a list card adds without leaving the list', async () => {
@@ -981,8 +1103,10 @@ describe('T072 hand-off to the FE-08 cart', () => {
     expect(await screen.findByText('Còn hàng')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Thêm Nhẫn bạc vào giỏ hàng' }));
     const dialog = await screen.findByRole('dialog', { name: 'Thêm vào giỏ: Nhẫn bạc' });
-    await user.selectOptions(await within(dialog).findByLabelText('Chi nhánh'), '3');
-    await user.click(within(dialog).getByRole('button', { name: 'Thêm vào giỏ' }));
+    await within(dialog).findByRole('option', { name: /MLAND Quận 1/ });
+    await user.click(within(dialog).getByRole('button', { name: 'Size 12' }));
+    await user.selectOptions(within(dialog).getByLabelText('Chi nhánh'), '3');
+    await user.click(within(dialog).getByRole('button', { name: 'Thêm Vào Giỏ Hàng' }));
     expect(await screen.findByText('Đã thêm "Nhẫn bạc" vào giỏ hàng.')).toBeInTheDocument();
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(router.state.location.pathname).toBe('/products');
@@ -996,22 +1120,31 @@ describe('T072 hand-off to the FE-08 cart', () => {
       'GET /api/v1/product-categories': json(200, categoryPage),
       'GET /api/v1/product-selling-locations': json(200, locations),
     });
-    open('/products', { session: fakeSession('signed-out') });
+    const { router } = open('/products', { session: fakeSession('signed-out') });
     await user.click(await screen.findByRole('button', { name: 'Thêm Nhẫn bạc vào giỏ hàng' }));
-    const link = await screen.findByRole('link', { name: 'Đăng nhập để thêm vào giỏ' });
-    expect(decodeURIComponent(link.getAttribute('href'))).toContain('/products/42?variantId=101');
+    const dialog = await screen.findByRole('dialog', { name: 'Thêm vào giỏ: Nhẫn bạc' });
+    await within(dialog).findByRole('option', { name: /MLAND Quận 1/ });
+    await user.click(within(dialog).getByRole('button', { name: 'Size 12' }));
+    await user.selectOptions(within(dialog).getByLabelText('Chi nhánh'), '3');
+    await user.click(within(dialog).getByRole('button', { name: 'Thêm Vào Giỏ Hàng' }));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/login'));
+    expect(decodeURIComponent(router.state.location.search)).toContain('/products/42?variantId=101');
   });
 
   it('a Guest is sent to sign-in with the choice kept in returnTo, and the choice comes back', async () => {
-    mockFetch({
+    const user = userEvent.setup();
+    const calls = mockFetch({
       'GET /api/v1/products/42': json(200, publicProduct()),
       'GET /api/v1/product-selling-locations': json(200, locations),
     });
-    open('/products/42?variantId=101&locationId=3&quantity=4', { session: fakeSession('signed-out') });
-    const link = await screen.findByRole('link', { name: 'Đăng nhập để thêm vào giỏ' });
+    const { router } = open('/products/42?variantId=101&locationId=3&quantity=4', { session: fakeSession('signed-out') });
     await waitFor(() => expect(screen.getByLabelText('Chi nhánh')).toHaveValue('3'));
-    expect(screen.getByLabelText('Số lượng')).toHaveValue('4');
-    expect(decodeURIComponent(link.getAttribute('href'))).toBe('/login?returnTo=/products/42?variantId=101&locationId=3&quantity=4');
+    expect(screen.getByRole('button', { name: 'Size 12' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByLabelText('Số Lượng')).toHaveValue('4');
+    await user.click(screen.getByRole('button', { name: 'Mua Ngay' }));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/login'));
+    expect(decodeURIComponent(router.state.location.search)).toBe('?returnTo=/products/42?variantId=101&locationId=3&quantity=4');
+    expect(calls.filter(call => call.method !== 'GET')).toHaveLength(0);
   });
 
   it('without the branch source the button stays disabled and offers a retry; FE-08 errors show its message', async () => {
@@ -1026,10 +1159,13 @@ describe('T072 hand-off to the FE-08 cart', () => {
     });
     open('/products/42');
     expect(await screen.findByText('Chưa tải được danh sách chi nhánh. Bấm Thử lại.')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Thêm vào giỏ' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Thêm Vào Giỏ Hàng' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Mua Ngay' })).toBeDisabled();
     await user.click(screen.getByRole('button', { name: 'Thử lại' }));
-    await user.selectOptions(await screen.findByRole('combobox', { name: 'Chi nhánh' }), '3');
-    await user.click(screen.getByRole('button', { name: 'Thêm vào giỏ' }));
+    await screen.findByRole('option', { name: /MLAND Quận 1/ });
+    await user.click(screen.getByRole('button', { name: 'Size 12' }));
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Chi nhánh' }), '3');
+    await user.click(screen.getByRole('button', { name: 'Thêm Vào Giỏ Hàng' }));
     expect(await screen.findByText('Giỏ hàng đã đủ 50 dòng.')).toBeInTheDocument();
     expect(screen.getByText('Mã tra cứu: c-9')).toBeInTheDocument();
   });

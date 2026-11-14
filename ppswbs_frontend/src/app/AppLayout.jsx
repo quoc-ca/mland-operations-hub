@@ -14,6 +14,9 @@ export default function AppLayout() {
     location.pathname.startsWith('/workshop-packages') ||
     location.pathname.startsWith('/staff/') ||
     location.pathname.startsWith('/manager/') ||
+    location.pathname.startsWith('/admin/') ||
+    location.pathname.startsWith('/promotion-management') ||
+    location.pathname.startsWith('/catalogue-management') ||
     location.pathname === '/home';
 
   if (isAuthPage || isOperationsWorkspace) {

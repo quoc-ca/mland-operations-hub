@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   AddressResponse,
   AddressCreateRequest,
@@ -7,6 +7,8 @@ import {
 import {
   validateAddressInput,
   normalizePhoneNumber,
+  validatePhoneNumber,
+  removeDiacritics,
   useAdministrativeDivisions,
 } from '../hooks/useMemberAddresses';
 import '../accountmanagement.css';
@@ -25,18 +27,16 @@ export const AddressModal: React.FC<AddressModalProps> = ({
   onClose,
   onSave,
   initialAddress,
-  profileDefaults,
+  profileDefaults, // Kept in interface for backward compatibility, ignored per FR-036 for new address
   isFirstAddress = false,
 }) => {
   const [recipientName, setRecipientName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [provinceId, setProvinceId] = useState('');
+  const [provinceCode, setProvinceCode] = useState('');
   const [provinceName, setProvinceName] = useState('');
-  const [districtId, setDistrictId] = useState('');
-  const [districtName, setDistrictName] = useState('');
-  const [wardId, setWardId] = useState('');
-  const [wardName, setWardName] = useState('');
-  const [hamletName, setHamletName] = useState('');
+  const [communeCode, setCommuneCode] = useState('');
+  const [communeName, setCommuneName] = useState('');
+  const [communeFilter, setCommuneFilter] = useState('');
   const [detailAddress, setDetailAddress] = useState('');
   const [addressType, setAddressType] = useState<'HOME' | 'OFFICE'>('HOME');
   const [isDefault, setIsDefault] = useState(false);
@@ -50,12 +50,34 @@ export const AddressModal: React.FC<AddressModalProps> = ({
 
   const {
     provinces,
-    districts,
-    wards,
+    communes,
     loadingProvinces,
-    loadingDistricts,
-    loadingWards,
-  } = useAdministrativeDivisions(provinceId, districtId);
+    loadingCommunes,
+  } = useAdministrativeDivisions(provinceCode);
+
+  // Filter communes locally without diacritics / case-sensitivity (FR-041)
+  const filteredCommunes = useMemo(() => {
+    if (!communeFilter.trim()) return communes;
+    const searchClean = removeDiacritics(communeFilter.trim());
+    return communes.filter(c => removeDiacritics(c.name).includes(searchClean));
+  }, [communes, communeFilter]);
+
+  // Progressive validation flags per FR-037 & FR-040
+  const isNameValid =
+    recipientName.trim().length > 0 &&
+    recipientName.length <= 255 &&
+    !/[\u0000-\u001F\u007F-\u009F]/.test(recipientName);
+
+  const isPhoneValid = isNameValid && validatePhoneNumber(phoneNumber);
+  const isProvinceValid = isPhoneValid && Boolean(provinceCode);
+  const isCommuneValid = isProvinceValid && Boolean(communeCode);
+  const isDetailValid =
+    isCommuneValid &&
+    detailAddress.trim().length > 0 &&
+    detailAddress.length <= 255 &&
+    !/[\u0000-\u001F\u007F-\u009F]/.test(detailAddress);
+
+  const isFormValid = isNameValid && isPhoneValid && isProvinceValid && isCommuneValid && isDetailValid;
 
   // Initialize or reset form values
   useEffect(() => {
@@ -63,36 +85,26 @@ export const AddressModal: React.FC<AddressModalProps> = ({
 
     setFieldErrors({});
     setSubmitError(null);
+    setCommuneFilter('');
 
     if (initialAddress) {
       setRecipientName(initialAddress.recipientName || '');
       setPhoneNumber(initialAddress.phoneNumber || '');
-      setProvinceId(initialAddress.provinceId || '');
+      setProvinceCode(initialAddress.provinceCode || initialAddress.provinceId || '');
       setProvinceName(initialAddress.provinceName || '');
-      setDistrictId(initialAddress.districtId || '');
-      setDistrictName(initialAddress.districtName || '');
-      setWardId(initialAddress.wardId || '');
-      setWardName(initialAddress.wardName || '');
-      setHamletName(initialAddress.hamletName || '');
+      setCommuneCode(initialAddress.communeCode || initialAddress.wardId || '');
+      setCommuneName(initialAddress.communeName || initialAddress.wardName || '');
       setDetailAddress(initialAddress.detailAddress || '');
       setAddressType(initialAddress.addressType || 'HOME');
       setIsDefault(Boolean(initialAddress.isDefault));
     } else {
-      // New Address
-      if (isFirstAddress && profileDefaults) {
-        setRecipientName(profileDefaults.fullName || '');
-        setPhoneNumber(profileDefaults.phone ? normalizePhoneNumber(profileDefaults.phone) : '');
-      } else {
-        setRecipientName('');
-        setPhoneNumber('');
-      }
-      setProvinceId('');
+      // New Address: FR-036 MUST open in clean state, NO profile prefill
+      setRecipientName('');
+      setPhoneNumber('');
+      setProvinceCode('');
       setProvinceName('');
-      setDistrictId('');
-      setDistrictName('');
-      setWardId('');
-      setWardName('');
-      setHamletName('');
+      setCommuneCode('');
+      setCommuneName('');
       setDetailAddress('');
       setAddressType('HOME');
       setIsDefault(isFirstAddress);
@@ -102,7 +114,7 @@ export const AddressModal: React.FC<AddressModalProps> = ({
     setTimeout(() => {
       firstInputRef.current?.focus();
     }, 50);
-  }, [isOpen, initialAddress, profileDefaults, isFirstAddress]);
+  }, [isOpen, initialAddress, isFirstAddress]);
 
   // Escape key listener to close modal
   useEffect(() => {
@@ -118,41 +130,30 @@ export const AddressModal: React.FC<AddressModalProps> = ({
 
   if (!isOpen) return null;
 
+  // FR-037: Changing a province clears the selected commune and detail address
   const handleProvinceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const pId = e.target.value;
-    setProvinceId(pId);
-    const found = provinces.find(p => p.id === pId);
+    const pCode = e.target.value;
+    setProvinceCode(pCode);
+    const found = provinces.find(p => (p.code || p.id) === pCode);
     setProvinceName(found ? found.name : '');
-    // Reset subordinate divisions
-    setDistrictId('');
-    setDistrictName('');
-    setWardId('');
-    setWardName('');
-    if (fieldErrors.provinceName) {
-      setFieldErrors(prev => ({ ...prev, provinceName: '' }));
+    setCommuneCode('');
+    setCommuneName('');
+    setDetailAddress('');
+    setCommuneFilter('');
+    if (fieldErrors.provinceCode || fieldErrors.provinceName) {
+      setFieldErrors(prev => ({ ...prev, provinceCode: '', provinceName: '' }));
     }
   };
 
-  const handleDistrictChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const dId = e.target.value;
-    setDistrictId(dId);
-    const found = districts.find(d => d.id === dId);
-    setDistrictName(found ? found.name : '');
-    // Reset subordinate ward
-    setWardId('');
-    setWardName('');
-    if (fieldErrors.districtName) {
-      setFieldErrors(prev => ({ ...prev, districtName: '' }));
-    }
-  };
-
-  const handleWardChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const wId = e.target.value;
-    setWardId(wId);
-    const found = wards.find(w => w.id === wId);
-    setWardName(found ? found.name : '');
-    if (fieldErrors.wardName) {
-      setFieldErrors(prev => ({ ...prev, wardName: '' }));
+  // FR-037: Changing a commune clears the detail address
+  const handleCommuneChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const cCode = e.target.value;
+    setCommuneCode(cCode);
+    const found = communes.find(c => (c.code || c.id) === cCode);
+    setCommuneName(found ? found.name : '');
+    setDetailAddress('');
+    if (fieldErrors.communeCode || fieldErrors.communeName) {
+      setFieldErrors(prev => ({ ...prev, communeCode: '', communeName: '' }));
     }
   };
 
@@ -163,9 +164,10 @@ export const AddressModal: React.FC<AddressModalProps> = ({
     const dataToValidate = {
       recipientName,
       phoneNumber,
+      provinceCode,
       provinceName,
-      districtName,
-      wardName,
+      communeCode,
+      communeName,
       detailAddress,
     };
 
@@ -180,17 +182,19 @@ export const AddressModal: React.FC<AddressModalProps> = ({
       await onSave({
         recipientName: recipientName.trim(),
         phoneNumber: normalizePhoneNumber(phoneNumber),
-        provinceId: provinceId || null,
-        provinceName,
-        districtId: districtId || null,
-        districtName,
-        wardId: wardId || null,
-        wardName,
-        hamletId: null,
-        hamletName: hamletName.trim() || null,
+        provinceCode,
+        communeCode,
         detailAddress: detailAddress.trim(),
         addressType,
         isDefault: isFirstAddress ? true : isDefault,
+        ...(isEditing && initialAddress?.version !== undefined ? { version: initialAddress.version } : {}),
+        // Compatibility attributes
+        provinceId: provinceCode,
+        provinceName,
+        districtId: communeCode,
+        districtName: communeName,
+        wardId: communeCode,
+        wardName: communeName,
       });
       onClose();
     } catch (err: any) {
@@ -240,7 +244,7 @@ export const AddressModal: React.FC<AddressModalProps> = ({
         )}
 
         <form className="account-form account-modal-body" onSubmit={handleSubmit}>
-          {/* Row 1: Name and Phone */}
+          {/* Row 1: Progressive Step 1 (Name) & Step 2 (Phone) */}
           <div className="account-form-grid">
             <div className="account-field">
               <label className="account-label account-label-required" htmlFor="modal-recipient-name">
@@ -283,20 +287,24 @@ export const AddressModal: React.FC<AddressModalProps> = ({
                 }}
                 maxLength={30}
                 aria-invalid={Boolean(fieldErrors.phoneNumber)}
-                disabled={submitting}
-                placeholder="Ví dụ: 0912345678"
+                disabled={submitting || !isNameValid}
+                placeholder={!isNameValid ? '— Nhập Họ và tên trước —' : 'Ví dụ: 0912345678'}
               />
               {fieldErrors.phoneNumber && (
                 <span className="account-field-error" role="alert">
                   {fieldErrors.phoneNumber}
                 </span>
               )}
-              <span className="account-field-hint">Số di động 10 chữ số (tự chuẩn hóa +84/dấu cách).</span>
+              <span className="account-field-hint">
+                {!isNameValid
+                  ? 'Vui lòng nhập Họ tên để mở khóa trường này.'
+                  : 'Số di động 10 chữ số (tự chuẩn hóa +84/dấu cách).'}
+              </span>
             </div>
           </div>
 
-          {/* Row 2: Cascading Dropdowns: Province, District, Ward */}
-          <div className="account-form-grid-3">
+          {/* Row 2: Progressive Step 3 (Province) & Step 4 (Commune/Ward 2-level) */}
+          <div className="account-form-grid">
             <div className="account-field">
               <label className="account-label account-label-required" htmlFor="modal-province">
                 Tỉnh / Thành phố
@@ -304,109 +312,83 @@ export const AddressModal: React.FC<AddressModalProps> = ({
               <select
                 id="modal-province"
                 className="account-select"
-                value={provinceId}
+                value={provinceCode}
                 onChange={handleProvinceChange}
-                disabled={submitting || loadingProvinces}
-                aria-invalid={Boolean(fieldErrors.provinceName)}
+                disabled={submitting || !isPhoneValid || loadingProvinces}
+                aria-invalid={Boolean(fieldErrors.provinceCode || fieldErrors.provinceName)}
               >
                 <option value="">
-                  {loadingProvinces ? 'Đang tải danh sách…' : '— Chọn Tỉnh/Thành phố —'}
+                  {loadingProvinces
+                    ? 'Đang tải danh sách…'
+                    : !isPhoneValid
+                    ? '— Nhập Số điện thoại hợp lệ trước —'
+                    : '— Chọn Tỉnh/Thành phố —'}
                 </option>
-                {provinces.map(p => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
+                {provinces.map(p => {
+                  const val = p.code || p.id;
+                  return (
+                    <option key={val} value={val}>
+                      {p.name}
+                    </option>
+                  );
+                })}
               </select>
-              {fieldErrors.provinceName && (
+              {(fieldErrors.provinceCode || fieldErrors.provinceName) && (
                 <span className="account-field-error" role="alert">
-                  {fieldErrors.provinceName}
+                  {fieldErrors.provinceCode || fieldErrors.provinceName}
                 </span>
               )}
             </div>
 
             <div className="account-field">
-              <label className="account-label account-label-required" htmlFor="modal-district">
-                Quận / Huyện
+              <label className="account-label account-label-required" htmlFor="modal-commune">
+                Phường / Xã / Khu vực đặc thù
               </label>
+              {communes.length > 5 && isProvinceValid && (
+                <input
+                  type="text"
+                  className="account-input"
+                  style={{ marginBottom: '0.375rem', fontSize: '0.85rem' }}
+                  placeholder="🔍 Lọc nhanh phường, xã..."
+                  value={communeFilter}
+                  onChange={e => setCommuneFilter(e.target.value)}
+                  disabled={submitting || !isProvinceValid || loadingCommunes}
+                  aria-label="Lọc nhanh Phường / Xã"
+                />
+              )}
               <select
-                id="modal-district"
+                id="modal-commune"
                 className="account-select"
-                value={districtId}
-                onChange={handleDistrictChange}
-                disabled={submitting || !provinceId || loadingDistricts}
-                aria-invalid={Boolean(fieldErrors.districtName)}
+                value={communeCode}
+                onChange={handleCommuneChange}
+                disabled={submitting || !isProvinceValid || loadingCommunes}
+                aria-invalid={Boolean(fieldErrors.communeCode || fieldErrors.communeName)}
               >
                 <option value="">
-                  {loadingDistricts
-                    ? 'Đang tải…'
-                    : !provinceId
+                  {loadingCommunes
+                    ? 'Đang tải danh sách phường/xã…'
+                    : !isProvinceValid
                     ? '— Chọn Tỉnh/Thành trước —'
-                    : '— Chọn Quận/Huyện —'}
+                    : '— Chọn Phường/Xã/Khu vực đặc thù —'}
                 </option>
-                {districts.map(d => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                  </option>
-                ))}
+                {filteredCommunes.map(c => {
+                  const val = c.code || c.id;
+                  return (
+                    <option key={val} value={val}>
+                      {c.name}
+                    </option>
+                  );
+                })}
               </select>
-              {fieldErrors.districtName && (
+              {(fieldErrors.communeCode || fieldErrors.communeName) && (
                 <span className="account-field-error" role="alert">
-                  {fieldErrors.districtName}
-                </span>
-              )}
-            </div>
-
-            <div className="account-field">
-              <label className="account-label account-label-required" htmlFor="modal-ward">
-                Phường / Xã
-              </label>
-              <select
-                id="modal-ward"
-                className="account-select"
-                value={wardId}
-                onChange={handleWardChange}
-                disabled={submitting || !districtId || loadingWards}
-                aria-invalid={Boolean(fieldErrors.wardName)}
-              >
-                <option value="">
-                  {loadingWards
-                    ? 'Đang tải…'
-                    : !districtId
-                    ? '— Chọn Quận/Huyện trước —'
-                    : '— Chọn Phường/Xã —'}
-                </option>
-                {wards.map(w => (
-                  <option key={w.id} value={w.id}>
-                    {w.name}
-                  </option>
-                ))}
-              </select>
-              {fieldErrors.wardName && (
-                <span className="account-field-error" role="alert">
-                  {fieldErrors.wardName}
+                  {fieldErrors.communeCode || fieldErrors.communeName}
                 </span>
               )}
             </div>
           </div>
 
-          {/* Row 3: Optional Hamlet and Detail Address */}
-          <div className="account-field">
-            <label className="account-label" htmlFor="modal-hamlet">
-              Thôn / Ấp / Xóm / Bản <span style={{ fontWeight: 'normal', color: '#6b7280' }}>(Không bắt buộc, GHTK Cấp 4)</span>
-            </label>
-            <input
-              id="modal-hamlet"
-              type="text"
-              className="account-input"
-              value={hamletName}
-              onChange={e => setHamletName(e.target.value)}
-              maxLength={128}
-              disabled={submitting}
-              placeholder="Ví dụ: Thôn 3, Xóm Cầu..."
-            />
-          </div>
-
+          {/* Row 3: Progressive Step 5: Detail Address */}
           <div className="account-field">
             <label className="account-label account-label-required" htmlFor="modal-detail-address">
               Địa chỉ cụ thể (Số nhà, Tòa nhà, Tên đường)
@@ -422,8 +404,8 @@ export const AddressModal: React.FC<AddressModalProps> = ({
               }}
               maxLength={255}
               aria-invalid={Boolean(fieldErrors.detailAddress)}
-              disabled={submitting}
-              placeholder="Ví dụ: Số 25, Ngõ 12 Đội Cấn..."
+              disabled={submitting || !isCommuneValid}
+              placeholder={!isCommuneValid ? '— Vui lòng chọn Phường/Xã trước —' : 'Ví dụ: Số 25, Ngõ 12 Đội Cấn...'}
             />
             {fieldErrors.detailAddress && (
               <span className="account-field-error" role="alert">
@@ -492,7 +474,7 @@ export const AddressModal: React.FC<AddressModalProps> = ({
             <button
               type="submit"
               className="account-btn account-btn-primary"
-              disabled={submitting}
+              disabled={submitting || !isFormValid}
             >
               {submitting ? 'Đang lưu…' : isEditing ? 'Cập nhật' : 'Hoàn thành'}
             </button>
@@ -504,4 +486,3 @@ export const AddressModal: React.FC<AddressModalProps> = ({
 };
 
 export default AddressModal;
-

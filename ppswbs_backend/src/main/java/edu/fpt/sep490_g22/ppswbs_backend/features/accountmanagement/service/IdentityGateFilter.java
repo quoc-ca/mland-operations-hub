@@ -50,7 +50,7 @@ public class IdentityGateFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = normalizedRequestPath(request);
-        if ("GET".equalsIgnoreCase(request.getMethod()) && path.startsWith("/api/v1/addresses/")) {
+        if ("GET".equalsIgnoreCase(request.getMethod()) && (path.startsWith("/api/v1/addresses/") || path.startsWith("/api/v1/administrative-divisions/"))) {
             return true;
         }
         if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {

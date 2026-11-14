@@ -97,18 +97,38 @@ describe('FE-001 Member Shipping Address Book (US6 / WF-09)', () => {
       expect(errors.recipientName).toBe('Họ và tên người nhận là bắt buộc');
       expect(errors.phoneNumber).toBe('Số điện thoại người nhận là bắt buộc');
       expect(errors.provinceName).toBe('Vui lòng chọn Tỉnh/Thành phố');
-      expect(errors.districtName).toBe('Vui lòng chọn Quận/Huyện');
-      expect(errors.wardName).toBe('Vui lòng chọn Phường/Xã');
+      expect(errors.communeName).toBe('Vui lòng chọn Phường/Xã/Khu vực đặc thù');
       expect(errors.detailAddress).toBe('Địa chỉ chi tiết (số nhà, tên đường...) là bắt buộc');
     });
 
-    it('passes for complete and valid address data', () => {
+    it('rejects ISO control characters in recipient name and detail address (FR-040)', () => {
+      const nameErrors = validateAddressInput({
+        recipientName: 'Nguyễn\u0000Văn A',
+        phoneNumber: '0912345678',
+        provinceCode: '01',
+        communeCode: '00001',
+        detailAddress: 'Số 10 Đội Cấn',
+      });
+      expect(nameErrors.recipientName).toBe('Họ và tên không được chứa ký tự điều khiển ISO');
+
+      const detailErrors = validateAddressInput({
+        recipientName: 'Nguyễn Văn A',
+        phoneNumber: '0912345678',
+        provinceCode: '01',
+        communeCode: '00001',
+        detailAddress: 'Số 10\u001FĐội Cấn',
+      });
+      expect(detailErrors.detailAddress).toBe('Địa chỉ chi tiết không được chứa ký tự điều khiển ISO');
+    });
+
+    it('passes for complete and valid address data in 2-level model', () => {
       const errors = validateAddressInput({
         recipientName: 'Nguyễn Văn A',
         phoneNumber: '+84 912 345 678',
-        provinceName: 'Hà Nội',
-        districtName: 'Ba Đình',
-        wardName: 'Phúc Xá',
+        provinceCode: '01',
+        provinceName: 'Thành phố Hà Nội',
+        communeCode: '00001',
+        communeName: 'Phường Phúc Xá',
         detailAddress: 'Số 10 Đội Cấn',
       });
       expect(Object.keys(errors)).toHaveLength(0);
@@ -262,18 +282,15 @@ describe('FE-001 Member Shipping Address Book (US6 / WF-09)', () => {
     });
   });
 
-  describe('AddressModal (T062)', () => {
-    it('renders with accessible modal dialog attributes and handles cascading divisions', async () => {
+  describe('AddressModal (T062 / FR-036 / FR-037 / FR-041)', () => {
+    it('renders with accessible modal dialog attributes and handles 2-level cascading divisions with local filtering', async () => {
       vi.spyOn(addressApiClient, 'listProvinces').mockResolvedValue([
-        { id: '01', name: 'Thành phố Hà Nội' },
-        { id: '79', name: 'Thành phố Hồ Chí Minh' },
+        { id: '01', name: 'Thành phố Hà Nội', code: '01' },
+        { id: '79', name: 'Thành phố Hồ Chí Minh', code: '79' },
       ]);
-      const districtSpy = vi.spyOn(addressApiClient, 'listDistricts').mockResolvedValue([
-        { id: '001', name: 'Quận Ba Đình' },
-        { id: '002', name: 'Quận Hoàn Kiếm' },
-      ]);
-      const wardSpy = vi.spyOn(addressApiClient, 'listWards').mockResolvedValue([
-        { id: '00001', name: 'Phường Phúc Xá' },
+      const communeSpy = vi.spyOn(addressApiClient, 'listCommunes').mockResolvedValue([
+        { id: '00001', name: 'Phường Phúc Xá', code: '00001' },
+        { id: '00004', name: 'Phường Trúc Bạch', code: '00004' },
       ]);
 
       const onSaveMock = vi.fn().mockResolvedValue(undefined);
@@ -293,58 +310,51 @@ describe('FE-001 Member Shipping Address Book (US6 / WF-09)', () => {
       expect(dialog).toHaveAttribute('aria-modal', 'true');
       expect(dialog).toHaveAttribute('aria-labelledby', 'address-modal-title');
 
-      // Load provinces and select Hà Nội
+      // Step 1: Fill Name to unlock Phone
+      const nameInput = screen.getByLabelText(/Họ và tên người nhận/i);
+      fireEvent.change(nameInput, { target: { value: 'Trần Thị B' } });
+
+      // Step 2: Fill Phone to unlock Province
+      const phoneInput = screen.getByLabelText(/Số điện thoại/i);
+      expect(phoneInput).not.toBeDisabled();
+      fireEvent.change(phoneInput, { target: { value: '+84 987 654 321' } });
+
+      // Step 3: Select Province
       const provinceSelect = await screen.findByLabelText(/Tỉnh \/ Thành phố/i);
+      expect(provinceSelect).not.toBeDisabled();
       await waitFor(() => {
         expect(screen.getByText('Thành phố Hà Nội')).toBeInTheDocument();
       });
 
       fireEvent.change(provinceSelect, { target: { value: '01' } });
       await waitFor(() => {
-        expect(districtSpy).toHaveBeenCalledWith('01');
+        expect(communeSpy).toHaveBeenCalledWith('01');
       });
 
-      // Select District
-      const districtSelect = screen.getByLabelText(/Quận \/ Huyện/i);
-      await waitFor(() => {
-        expect(screen.getByText('Quận Ba Đình')).toBeInTheDocument();
-      });
-
-      fireEvent.change(districtSelect, { target: { value: '001' } });
-      await waitFor(() => {
-        expect(wardSpy).toHaveBeenCalledWith('001');
-      });
-
-      // Select Ward
-      const wardSelect = screen.getByLabelText(/Phường \/ Xã/i);
+      // Step 4: Select Commune (2-level: no District in between)
+      const communeSelect = screen.getByLabelText(/Phường \/ Xã \/ Khu vực đặc thù/i);
       await waitFor(() => {
         expect(screen.getByText('Phường Phúc Xá')).toBeInTheDocument();
       });
-      fireEvent.change(wardSelect, { target: { value: '00001' } });
+      fireEvent.change(communeSelect, { target: { value: '00001' } });
 
-      // Fill Name, Phone, Detail Address
-      fireEvent.change(screen.getByLabelText(/Họ và tên người nhận/i), {
-        target: { value: 'Trần Thị B' },
-      });
-      fireEvent.change(screen.getByLabelText(/Số điện thoại/i), {
-        target: { value: '+84 987 654 321' },
-      });
-      fireEvent.change(screen.getByLabelText(/Địa chỉ cụ thể/i), {
-        target: { value: 'Số 15 Phố Quán Thánh' },
-      });
+      // Step 5: Fill Detail Address
+      const detailInput = screen.getByLabelText(/Địa chỉ cụ thể/i);
+      expect(detailInput).not.toBeDisabled();
+      fireEvent.change(detailInput, { target: { value: 'Số 15 Phố Quán Thánh' } });
 
       // Submit Form
       const submitBtn = screen.getByRole('button', { name: 'Hoàn thành' });
+      expect(submitBtn).not.toBeDisabled();
       fireEvent.click(submitBtn);
 
       await waitFor(() => {
         expect(onSaveMock).toHaveBeenCalledWith(
           expect.objectContaining({
             recipientName: 'Trần Thị B',
-            phoneNumber: '0987654321', // Normalized!
-            provinceName: 'Thành phố Hà Nội',
-            districtName: 'Quận Ba Đình',
-            wardName: 'Phường Phúc Xá',
+            phoneNumber: '0987654321', // Normalized per FR-040!
+            provinceCode: '01',
+            communeCode: '00001',
             detailAddress: 'Số 15 Phố Quán Thánh',
             addressType: 'HOME',
           })
@@ -353,7 +363,80 @@ describe('FE-001 Member Shipping Address Book (US6 / WF-09)', () => {
       expect(onCloseMock).toHaveBeenCalled();
     });
 
-    it('pre-fills name and phone when adding first address and forces isDefault=true', async () => {
+    it('enforces Shopee-style progressive entry order and resets subordinate fields on change (FR-037)', async () => {
+      vi.spyOn(addressApiClient, 'listProvinces').mockResolvedValue([
+        { id: '01', name: 'Thành phố Hà Nội', code: '01' },
+        { id: '79', name: 'Thành phố Hồ Chí Minh', code: '79' },
+      ]);
+      vi.spyOn(addressApiClient, 'listCommunes').mockResolvedValue([
+        { id: '00001', name: 'Phường Phúc Xá', code: '00001' },
+      ]);
+
+      render(
+        <AddressModal
+          isOpen={true}
+          onClose={vi.fn()}
+          onSave={vi.fn()}
+          isFirstAddress={false}
+        />
+      );
+
+      const nameInput = screen.getByLabelText(/Họ và tên người nhận/i) as HTMLInputElement;
+      const phoneInput = screen.getByLabelText(/Số điện thoại/i) as HTMLInputElement;
+      const provinceSelect = screen.getByLabelText(/Tỉnh \/ Thành phố/i) as HTMLSelectElement;
+      const communeSelect = screen.getByLabelText(/Phường \/ Xã \/ Khu vực đặc thù/i) as HTMLSelectElement;
+      const detailInput = screen.getByLabelText(/Địa chỉ cụ thể/i) as HTMLInputElement;
+      const submitBtn = screen.getByRole('button', { name: 'Hoàn thành' }) as HTMLButtonElement;
+
+      // Initially: only Name is enabled
+      expect(nameInput).not.toBeDisabled();
+      expect(phoneInput).toBeDisabled();
+      expect(provinceSelect).toBeDisabled();
+      expect(communeSelect).toBeDisabled();
+      expect(detailInput).toBeDisabled();
+      expect(submitBtn).toBeDisabled();
+
+      // Enter name -> unlocks phone
+      fireEvent.change(nameInput, { target: { value: 'Nguyễn Văn Tiến' } });
+      expect(phoneInput).not.toBeDisabled();
+      expect(provinceSelect).toBeDisabled();
+
+      // Enter invalid phone -> province stays disabled
+      fireEvent.change(phoneInput, { target: { value: '123' } });
+      expect(provinceSelect).toBeDisabled();
+
+      // Enter valid phone -> unlocks province
+      fireEvent.change(phoneInput, { target: { value: '0981234567' } });
+      await waitFor(() => {
+        expect(provinceSelect).not.toBeDisabled();
+      });
+      expect(communeSelect).toBeDisabled();
+
+      // Select province -> unlocks commune
+      fireEvent.change(provinceSelect, { target: { value: '01' } });
+      await waitFor(() => {
+        expect(communeSelect).not.toBeDisabled();
+      });
+      expect(detailInput).toBeDisabled();
+
+      // Select commune -> unlocks detail address
+      fireEvent.change(communeSelect, { target: { value: '00001' } });
+      expect(detailInput).not.toBeDisabled();
+      expect(submitBtn).toBeDisabled();
+
+      // Enter detail address -> unlocks submit
+      fireEvent.change(detailInput, { target: { value: '123 Đường Láng' } });
+      expect(submitBtn).not.toBeDisabled();
+
+      // Changing province clears commune and detail address per FR-037
+      fireEvent.change(provinceSelect, { target: { value: '79' } });
+      expect(communeSelect.value).toBe('');
+      expect(detailInput.value).toBe('');
+      expect(detailInput).toBeDisabled();
+      expect(submitBtn).toBeDisabled();
+    });
+
+    it('does NOT pre-fill name or phone from profile when adding new address even if profileDefaults exist (FR-036)', async () => {
       vi.spyOn(addressApiClient, 'listProvinces').mockResolvedValue([]);
 
       render(
@@ -372,8 +455,10 @@ describe('FE-001 Member Shipping Address Book (US6 / WF-09)', () => {
       const nameInput = screen.getByLabelText(/Họ và tên người nhận/i) as HTMLInputElement;
       const phoneInput = screen.getByLabelText(/Số điện thoại/i) as HTMLInputElement;
 
-      expect(nameInput.value).toBe('Lê Văn C');
-      expect(phoneInput.value).toBe('0901234567');
+      // FR-036: Form MUST be completely blank, NO profile prefill!
+      expect(nameInput.value).toBe('');
+      expect(phoneInput.value).toBe('');
+      expect(phoneInput).toBeDisabled();
 
       // The isDefault checkbox should be checked and disabled for first address
       const checkbox = screen.getByRole('checkbox', {

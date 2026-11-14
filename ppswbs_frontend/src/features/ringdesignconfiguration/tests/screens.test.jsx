@@ -395,6 +395,26 @@ describe('Feature-012 Workshop Ring Design Configuration Screens', () => {
     });
 
     it('displays saved designs list when signed in as member', async () => {
+      mockFetch({
+        'GET /api/v1/workshop-designs': json(200, [
+          {
+            designId: 'DSG-DEMO-MEMBER-01',
+            packageReference: 'PKG-COUPLE-01',
+            status: 'DRAFT',
+            designVersion: 1,
+            estimatedPrice: '250000.00',
+            difficultyScore: 2.0,
+            componentSnapshot: {
+              materialReference: 'MAT-SILVER-925',
+              shapeReference: 'SHP-CLASSIC-ROUND',
+              ringSize: '8',
+              components: [],
+            },
+            updatedAt: '2026-11-14T10:00:00Z',
+          },
+        ]),
+      });
+
       open('/my/designs', { session: fakeSession('signed-in') });
 
       expect(await screen.findByTestId('member-design-history-page')).toBeInTheDocument();

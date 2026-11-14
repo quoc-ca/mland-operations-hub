@@ -35,6 +35,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
@@ -67,7 +68,7 @@ class GroupedCheckoutIntegrationTest {
         when(pricingPort.price(any())).thenAnswer(invocation -> ((List<edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.entity.CartLine>) invocation.getArgument(0)).stream()
             .map(line -> new RetailCheckoutPorts.PricedLine(line.getVariantId(), line.getLocationId(), line.getQuantity(), BigDecimal.valueOf(500_000))).toList());
         when(benefitPort.preview(anyLong(), any(), any())).thenReturn(new RetailCheckoutPorts.BenefitPreview("preview-1", BigDecimal.valueOf(100_000), BigDecimal.ZERO, Instant.now().plus(15, ChronoUnit.MINUTES)));
-        when(benefitPort.requireValidPreview(anyLong(), anyString(), any(), any())).thenReturn(new RetailCheckoutPorts.BenefitPreview("preview-1", BigDecimal.valueOf(100_000), BigDecimal.ZERO, Instant.now().plus(15, ChronoUnit.MINUTES)));
+        when(benefitPort.requireValidPreview(anyLong(), anyString(), any(), anyList())).thenReturn(new RetailCheckoutPorts.BenefitPreview("preview-1", BigDecimal.valueOf(100_000), BigDecimal.ZERO, Instant.now().plus(15, ChronoUnit.MINUTES)));
         when(shippingQuotePort.requireValidQuote(anyLong(), anyLong(), anyString(), org.mockito.ArgumentMatchers.anyList(), org.mockito.ArgumentMatchers.nullable(RetailCheckoutPorts.RecipientAddress.class))).thenReturn(new RetailCheckoutPorts.ShippingQuote("quote-1", 20L, BigDecimal.valueOf(35_000), Instant.now().plus(15, ChronoUnit.MINUTES)));
         when(paymentPort.initiate(anyString(), any())).thenAnswer(invocation -> new RetailCheckoutPorts.PaymentInitiation("https://local.mock/vnpay/" + invocation.getArgument(0), Instant.now().plus(15, ChronoUnit.MINUTES), true));
     }

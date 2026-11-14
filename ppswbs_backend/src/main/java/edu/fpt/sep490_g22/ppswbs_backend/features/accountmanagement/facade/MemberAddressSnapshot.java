@@ -4,15 +4,13 @@ public record MemberAddressSnapshot(
     Long id,
     String recipientName,
     String phoneNumber,
-    String provinceId,
+    String provinceCode,
     String provinceName,
-    String districtId,
-    String districtName,
-    String wardId,
-    String wardName,
-    String hamletId,
-    String hamletName,
+    String communeCode,
+    String communeName,
+    CommuneType communeType,
     String detailAddress,
-    AddressType addressType
+    String directoryVersion,
+    AddressType addressType,
+    Long version
 ) {}
-

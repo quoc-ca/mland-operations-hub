@@ -115,7 +115,13 @@ get url
 ## 6. Lịch sử thực thi
 
 <!-- EXECUTION:START -->
-- Latest status: NOT_RUN
-- Note: Cập nhật đặc tả ngày 2026-11-14 theo mô hình địa giới 2 cấp (Tỉnh -> Xã) và biểu mẫu tuần tự Shopee-style; kịch bản cần được chạy lại khi giao diện hoàn tất kết nối API danh mục mới.
-- Previous execution: PASS (2026-11-09 trên mô hình 4 cấp cũ).
+- Latest status: PASS
+- Executed at: 2026-11-14 18:40:00
+- Executed by: Senior QA & System Verification Engineer
+- Browser tool: browsermcp
+- Failure step: None
+- Actual result: Form modal tuân thủ 100% đặc tả 2026-11-14: khởi tạo rỗng không pre-fill từ Profile (FR-036); nhập liệu tuần tự Shopee-style (Họ tên -> SĐT -> Tỉnh/Thành -> Phường/Xã -> Địa chỉ chi tiết) (FR-037); lọc nhanh xã không dấu (FR-041); tự động reset trường con khi đổi Tỉnh; lưu và hiển thị cấu trúc địa chỉ 2 cấp và quota 1/10 chính xác.
+- Evidence screenshot: screenshots/E2E-001-002--address-list-2level-success.jpg
+- Bug reference: BUG-E2E-0008 (RESOLVED & CLOSED)
+- Previous execution: FAIL (2026-11-14 17:58:00 trên bản build cũ), PASS (2026-11-09 trên mô hình 4 cấp cũ).
 <!-- EXECUTION:END -->

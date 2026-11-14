@@ -15,7 +15,7 @@ export function useVoucherOptions(api, vouchers, base) {
   useEffect(() => {
     if (!codes.length || !base?.cartLineIds?.length) { setState({ key, options: new Map() }); return undefined; }
     let live = true;
-    Promise.all(codes.map(code => api.previewBenefits({ ...base, selection: { choice: 'VOUCHER', voucherCode: code, requestedPoints: '0' } })
+    Promise.all(codes.map(code => api.previewBenefits({ ...base, estimateOnly: true, selection: { choice: 'VOUCHER', voucherCode: code, requestedPoints: '0' } })
       .then(result => {
         const saving = result?.eligible ? BigInt(result.discountAmount || '0') : 0n;
         return [code, { eligible: saving > 0n, saving }];
@@ -25,6 +25,35 @@ export function useVoucherOptions(api, vouchers, base) {
     return () => { live = false; };
   }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
   return state.key === key ? state.options : null;
+}
+
+/**
+ * Every product voucher a Member can type at checkout: the public active vouchers (the ones product pages show),
+ * not only the saved ones. FE-06 does not require saving a voucher before using its code. A failure leaves the list
+ * empty, so the picker still shows the saved vouchers.
+ */
+export function usePublicProductVouchers(api) {
+  const [items, setItems] = useState([]);
+  useEffect(() => {
+    let live = true;
+    api.listPublicProductPromotions()
+      .then(result => {
+        if (!live) return;
+        setItems((result?.items || []).filter(item => item.kind === 'VOUCHER' && item.code).map(item => ({
+          code: item.code, name: item.name || item.code, availability: 'ACTIVE', discount: item.discount || null,
+          minimumEligibleAmount: item.minimumEligibleAmount || '0', endAt: item.endAt || null,
+        })));
+      })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [api]);
+  return items;
+}
+
+/** Saved vouchers first (they keep their own availability), then public vouchers not saved yet. */
+export function withPublicVouchers(saved, publicVouchers) {
+  const seen = new Set(saved.map(voucher => String(voucher.code).toUpperCase()));
+  return [...saved, ...publicVouchers.filter(voucher => !seen.has(String(voucher.code).toUpperCase()))];
 }
 
 /** The usable voucher with the largest real saving, or null. */

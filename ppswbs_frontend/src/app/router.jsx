@@ -14,6 +14,7 @@ import { operationsRoutes } from '../workshop-operations/routes';
 import { settlementRoutes } from '../workshop-settlement/routes';
 import { operatorHomeRoutes } from '../features/operatorhome/routes';
 import { managerDashboardRoutes } from '../features/manager-dashboard';
+import { notificationRoutes } from '../features/notification-management';
 import HomePage from '../features/landing/HomePage';
 import AppLayout from './AppLayout';
 import NotImplementedPage from './NotImplementedPage';
@@ -40,6 +41,7 @@ export const routes = [
           ...ringDesignConfigurationRoutes,
           ...productManagementRoutes,
           ...loyaltyPromotionRoutes,
+          ...notificationRoutes,
           { path: '*', element: <NotImplementedPage /> },
         ],
       },
