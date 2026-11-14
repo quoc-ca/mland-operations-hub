@@ -12,6 +12,8 @@ ppswbs-spec/features/**/test-results/**/screenshots/
 node_modules/
 
 # Local Docker and database initialization artifacts; do not commit machine-local setup.
+/.env
+/.env.local
 /docker-compose.yml
 /docker/
 /ppswbs_backend/docker-compose.yml
