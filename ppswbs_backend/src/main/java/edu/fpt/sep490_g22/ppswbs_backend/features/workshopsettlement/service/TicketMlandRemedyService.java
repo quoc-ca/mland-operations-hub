@@ -314,7 +314,7 @@ public class TicketMlandRemedyService {
                 .collect(java.util.stream.Collectors.joining(";"));
     }
 
-    /** The offered sessions of a remedy; an offer made before V147 is read from its reference list and one start. */
+    /** The offered sessions of a remedy; an offer made before V152 is read from its reference list and one start. */
     static List<ReplacementOption> optionsOf(SettlementTicketMlandRemedy remedy) {
         String encoded = remedy.getReplacementOptions();
         if (encoded != null && !encoded.isBlank()) {
