@@ -17,6 +17,7 @@ import { useBookingIdentity } from './useBookingIdentity';
 import { useHttp } from '../shared/api/useHttp';
 import { getEffectiveParticipantMax } from './bookingCapacity';
 import { Paginator, usePaged } from '../shared/ui/Paginator';
+import { offersForPackage, usePublicWorkshopPrograms, WorkshopOfferBadges, WorkshopOfferPrice } from '../features/loyalty-promotion/publicOffers';
 import './figmaPublicShell.css';
 
 function formatDate(date) {
@@ -159,6 +160,10 @@ export function WorkshopBookingPage({ packageId }) {
       .catch(() => { if (active) setLoyaltyAccount(null); });
     return () => { active = false; };
   }, [bookingMode, http]);
+
+  // Display only (FR-052): the amount to pay is always the server quote.
+  const publicPrograms = usePublicWorkshopPrograms();
+  const packageOffers = pkg ? offersForPackage(pkg, publicPrograms) : null;
 
   const requiredSessions = Math.max(1, Number(pkg?.requiredSessionCount) || 1);
   const packageMinParticipants = Math.max(1, Number(pkg?.minParticipants) || 1);
@@ -622,9 +627,12 @@ export function WorkshopBookingPage({ packageId }) {
         <section className="workspace-card" style={{ marginTop: '24px' }}>
           <h2 style={{ marginTop: 0 }}>{bookingMode === 'MEMBER' ? '3' : '2'}. Đặt chỗ</h2>
           <p style={{ margin: '0 0 6px' }}>
-            Gói: <strong>{pkg.name}</strong> · Đơn giá: <strong>{vnd(pkg.publicPrice)} / vé</strong> · Số vé:{' '}
+            Gói: <strong>{pkg.name}</strong> · Đơn giá:{' '}
+            {/* FR-052: price after the best automatic discount from 006's public gate; the quote below stays the server's. */}
+            <strong><WorkshopOfferPrice offers={packageOffers} fallback={vnd(pkg.publicPrice)} /> / vé</strong> · Số vé:{' '}
             <strong>{participantCount}</strong>
           </p>
+          <WorkshopOfferBadges offers={packageOffers} />
           <p className="muted" style={{ fontSize: '13px' }}>
             Giá cuối, ưu đãi và số tiền phải trả khi đặt do hệ thống tính ở bước báo giá.
           </p>
