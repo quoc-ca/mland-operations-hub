@@ -7,34 +7,38 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
 
 ## Danh sách lỗi đang theo dõi (Active Defects)
 
-## BUG-E2E-0008 — OPEN
-
-- Ngày mở: 2026-11-14
-- Phát hiện bởi: Senior QA & System Verification Engineer
-- Feature: 001-account-management
-- Kịch bản liên quan: [E2E-001-002](../ppswbs-spec/features/001-account-management/test-results/E2E-001-002--member-address-book-flow.md)
-- Mức độ nghiêm trọng: MAJOR
-- Phân loại / Gán cho: Frontend & Backend (Chưa triển khai cập nhật đặc tả sổ địa chỉ 2 cấp ngày 2026-11-14)
-- Mô tả lỗi: Biểu mẫu modal "Thêm địa chỉ nhận hàng mới" trên Frontend và API lưu trữ Backend đang hoạt động theo mô hình 4 cấp GHTK cũ (Tỉnh -> Huyện -> Xã -> Thôn/Ấp), tự động pre-fill họ tên từ Profile, không tuân thủ luồng nhập liệu tuần tự Shopee-style. Điều này mâu thuẫn trực tiếp với bản sửa đổi đặc tả ngày 2026-11-14 (FR-036, FR-037, FR-038, FR-041, FR-042) và OpenAPI schema `account-management.openapi.yaml`.
-- Các bước tái hiện:
-  1. Đăng nhập tài khoản Member (`qa-e2e-feat007@test.com`) trên hệ thống đang chạy Docker.
-  2. Điều hướng tới `http://localhost:5173/profile/addresses`.
-  3. Bấm nút `+ Thêm địa chỉ mới`.
-  4. Quan sát cấu trúc các trường nhập liệu trong modal.
-- Kết quả mong đợi (Theo spec.md sửa đổi ngày 2026-11-14):
-  - Giao diện địa giới 2 cấp: Tỉnh/Thành phố -> Phường/Xã/Khu vực đặc thù -> Địa chỉ chi tiết (Loại bỏ hoàn toàn trường Quận/Huyện và Thôn/Ấp).
-  - Form mở ra ở trạng thái trống hoàn toàn, KHÔNG prefill họ tên hay số điện thoại từ Hồ sơ cá nhân (FR-036).
-  - Nhập liệu tuần tự Shopee-style: Kích hoạt lần lượt Họ và tên -> Số điện thoại -> Tỉnh/Thành phố -> Phường/Xã -> Địa chỉ chi tiết (FR-037).
-- Thực tế quan sát:
-  - Form modal hiển thị đầy đủ 4 trường hành chính: Tỉnh / Thành phố, Quận / Huyện, Phường / Xã, Thôn / Ấp / Xóm / Bản (GHTK Cấp 4).
-  - Trường "Họ và tên người nhận *" bị tự động pre-fill giá trị `qa-e2e-feat007` từ Profile.
-  - Ô "Địa chỉ cụ thể (Số nhà, Tòa nhà, Tên đường)" hiển thị sẵn sàng cho nhập cùng lúc thay vì bị vô hiệu hóa chờ chọn Phường/Xã.
-- Bằng chứng:
-  - Screenshot: [BUG-E2E-0008--address-modal-spec-discrepancy.jpg](../ppswbs-spec/features/001-account-management/test-results/screenshots/BUG-E2E-0008--address-modal-spec-discrepancy.jpg)
+<!-- Không còn lỗi nào ở trạng thái OPEN. Tất cả 8 lỗi đã được khắc phục và nghiệm thu đóng hoàn toàn. -->
 
 ---
 
 ## Danh sách lỗi đã đóng / nghiệm thu (Resolved & Closed Defects)
+
+## BUG-E2E-0008 — CLOSED
+
+- Ngày mở: 2026-11-14
+- Ngày đóng / nghiệm thu: 2026-11-14
+- Phát hiện bởi: Senior QA & System Verification Engineer
+- Xác minh đóng lỗi bởi: Senior QA & System Verification Engineer
+- Feature: 001-account-management
+- Kịch bản liên quan: [E2E-001-002](../ppswbs-spec/features/001-account-management/test-results/E2E-001-002--member-address-book-flow.md)
+- Mức độ nghiêm trọng: MAJOR
+- Phân loại / Gán cho: Frontend & Backend (Chưa triển khai cập nhật đặc tả sổ địa chỉ 2 cấp ngày 2026-11-14)
+- Mô tả lỗi ban đầu: Biểu mẫu modal "Thêm địa chỉ nhận hàng mới" trên Frontend và API lưu trữ Backend hoạt động theo mô hình 4 cấp GHTK cũ (Tỉnh -> Huyện -> Xã -> Thôn/Ấp), tự động pre-fill họ tên từ Profile, không tuân thủ luồng nhập liệu tuần tự Shopee-style. Mâu thuẫn với bản sửa đổi đặc tả ngày 2026-11-14 (FR-036, FR-037, FR-038, FR-041, FR-042) và OpenAPI schema `account-management.openapi.yaml`.
+- Biện pháp khắc phục đã triển khai (Commit `b2b88bb6`):
+  1. Backend: Bổ sung Flyway migration `V93__two_level_administrative_divisions_and_shipping_addresses.sql` và entities `AdministrativeProvince`, `AdministrativeCommune`, `AdministrativeDirectoryVersion`; refactor `MemberAddress` lưu mã và tên 2 cấp (`provinceCode`, `communeCode`, `detailAddress`); cập nhật `AdministrativeDivisionService` cung cấp API tra cứu địa giới 2 cấp và `MemberAddressService` lưu trữ snapshot 2 cấp.
+  2. Frontend: Refactor `AddressModal.tsx` mở form ở trạng thái trống hoàn toàn (FR-036), kiểm soát luồng nhập liệu tuần tự Shopee-style theo cờ validation (`Họ tên` -> `SĐT` -> `Tỉnh/Thành` -> `Phường/Xã` -> `Địa chỉ chi tiết`) (FR-037), hỗ trợ ô lọc nhanh không dấu cho Phường/Xã (FR-041), và tự động reset các trường cấp con khi thay đổi cấp cha.
+- Kết quả kiểm chứng lại (QA Re-test 2026-11-14 qua Browser MCP & Automated Suites):
+  - Kịch bản `E2E-001-002` chạy lại trên Chrome thực tế qua `browsermcp`:
+    + Form mở ra ở trạng thái trống, không pre-fill họ tên từ Profile (PASS FR-036).
+    + Nhập liệu tuần tự: SĐT chỉ mở khóa khi nhập Họ tên; Tỉnh/Thành chỉ mở khóa khi nhập SĐT di động hợp lệ (chặn số bàn 0241234567, chuẩn hóa +84 912 345 678); Phường/Xã chỉ mở khóa khi chọn Tỉnh/Thành; Địa chỉ cụ thể chỉ mở khóa khi chọn Phường/Xã (PASS FR-037).
+    + Ô tìm kiếm Phường/Xã lọc nhanh không dấu (nhập "trong" lọc ra "Phường Hàng Trống") (PASS FR-041).
+    + Chọn đổi Tỉnh từ Hà Nội sang TP.HCM: Phường/Xã và Địa chỉ cụ thể tự động bị xóa và khóa lại (PASS FR-037 cascade reset).
+    + Lưu địa chỉ thành công, hiển thị đúng địa giới 2 cấp: "Số 2 Lê Duẩn, Phường Bến Nghé, Thành phố Hồ Chí Minh" kèm badge "Mặc định", badge "Văn phòng" và quota "Đã lưu 1 trên 10 địa chỉ".
+    + Xóa địa chỉ duy nhất thành công và trở lại trạng thái danh sách trống.
+  - Automated Tests:
+    + Frontend Vitest: 7 test suites, 94/94 tests PASS (bao gồm 15/15 tests trong `addressBook.test.tsx`).
+    + Backend JUnit: `MemberAddressServiceTest` PASS 2/2 tests (BUILD SUCCESS).
+- Trạng thái xử lý: **CLOSED**
 
 ## BUG-E2E-0007 — CLOSED
 
