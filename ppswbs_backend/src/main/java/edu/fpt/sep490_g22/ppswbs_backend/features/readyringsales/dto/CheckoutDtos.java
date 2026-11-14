@@ -23,7 +23,15 @@ public final class CheckoutDtos {
     public record BenefitPreviewRequest(@NotNull @Valid BenefitSelection selection,
                                         List<@Valid BranchOrderCheckoutInput> branchOrders,
                                         @Size(max = 50) List<@NotBlank @Size(max = 36) String> cartLineIds,
-                                        @Size(max = 24) String paymentMethod) {
+                                        @Size(max = 24) String paymentMethod,
+                                        Boolean estimateOnly) {
+        /** Without {@code estimateOnly}: a preview that can be used to place the order. */
+        public BenefitPreviewRequest(BenefitSelection selection, List<BranchOrderCheckoutInput> branchOrders,
+                                     List<String> cartLineIds, String paymentMethod) {
+            this(selection, branchOrders, cartLineIds, paymentMethod, null);
+        }
+        /** Cart totals and voucher checks only need the numbers; no order-ready quote is stored for them. */
+        public boolean estimate() { return Boolean.TRUE.equals(estimateOnly); }
         public BenefitPreviewRequest(BenefitSelection selection) { this(selection, null, null, null); }
         public BenefitPreviewRequest(BenefitSelection selection, List<BranchOrderCheckoutInput> branchOrders) {
             this(selection, branchOrders, null, null);

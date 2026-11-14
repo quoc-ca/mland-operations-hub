@@ -5,7 +5,7 @@ import { useFormat } from '../../../../shared/i18n/I18nProvider';
 import { ErrorNotice, Loading, SuccessNotice, useCommand, useResource } from '../../../../shared/ui/components';
 import { useRetailApi } from '../../application/useRetailApi';
 import { RetailBenefitPanel } from './RetailBenefitPanel';
-import { useVoucherOptions, voucherCheckBase } from './voucherOptions';
+import { usePublicProductVouchers, useVoucherOptions, voucherCheckBase, withPublicVouchers } from './voucherOptions';
 import { AddressModal, addressApiClient, useProfile } from '../../../accountmanagement';
 
 const initialSelection = { choice: 'AUTO', voucherCode: '', requestedPoints: '0' };
@@ -111,7 +111,8 @@ function CheckoutContent() {
     if (!cashAllowed && paymentMethod === 'CASH_AT_COUNTER') setPaymentMethod('VNPAY');
   }, [cashAllowed, paymentMethod]);
   const isCashCheckout = checkout?.paymentMethod === 'CASH_AT_COUNTER';
-  const savedVouchers = (savedVoucherResource.data?.items || savedVoucherResource.data || []).map(item => ({ code: item.promotion?.code || item.code, name: item.promotion?.name || item.name || item.promotion?.code || item.code, availability: item.availability, discount: item.promotion?.discount || null, minimumEligibleAmount: item.promotion?.minimumEligibleAmount || '0', endAt: item.promotion?.endAt || null })).filter(item => item.code);
+  const publicVouchers = usePublicProductVouchers(api);
+  const savedVouchers = withPublicVouchers((savedVoucherResource.data?.items || savedVoucherResource.data || []).map(item => ({ code: item.promotion?.code || item.code, name: item.promotion?.name || item.name || item.promotion?.code || item.code, availability: item.availability, discount: item.promotion?.discount || null, minimumEligibleAmount: item.promotion?.minimumEligibleAmount || '0', endAt: item.promotion?.endAt || null })).filter(item => item.code), publicVouchers);
   // Merchandise value of the selected lines, used to grey out vouchers whose minimum is not reached.
   const voucherSubtotal = groups.reduce((sum, group) => group.lines.reduce((acc, line) => acc + (line.indicativePrice == null ? 0n : BigInt(line.indicativePrice) * BigInt(line.quantity)), sum), 0n).toString();
 

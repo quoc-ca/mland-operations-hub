@@ -132,10 +132,23 @@ public class RetailCheckoutQuotePreviewService {
         }
         boolean eligible = (selection.choice() != SelectionChoice.VOUCHER || result.programId() != null)
             && selection.requestedPoints().equals(result.pointsUsed());
+        // The cart lines the programme discount covers (FE-06 line indexes follow the selected cart lines).
+        List<String> discountedLineIds = result.eligibleLineIndexes().stream()
+            .filter(index -> index >= 0 && index < selected.size()).map(index -> selected.get(index).getId()).toList();
+        String voucherCode = selection.choice() == SelectionChoice.VOUCHER ? result.normalizedCode() : null;
         if (!eligible) {
             return new CheckoutDtos.BenefitPreviewView(null, "VND", subtotal.toString(), true,
                 result.programDiscount().toString(), result.pointDiscount().toString(), result.postPromotionAmount().toString(),
-                null, "0", false, result.reasons(), result.maxPoints().toString(), result.minRedeemPoints().toString());
+                null, "0", false, result.reasons(), result.maxPoints().toString(), result.minRedeemPoints().toString(),
+                discountedLineIds, voucherCode);
+        }
+        if (request.estimate()) {
+            // Cart totals and voucher checks: the same FE-06 numbers, but no quote row (no order can be placed from it).
+            return new CheckoutDtos.BenefitPreviewView(null, "VND", subtotal.toString(), true,
+                result.programDiscount().toString(), result.pointDiscount().toString(),
+                result.postPromotionAmount().add(shippingTotal).toString(), expiresAt.toString(), shippingTotal.toString(),
+                true, result.reasons(), result.maxPoints().toString(), result.minRedeemPoints().toString(),
+                discountedLineIds, voucherCode);
         }
         var quote = new RetailCheckoutQuote(memberId, cart.getId(), cart.getVersion(), selection.choice().name(),
             selection.voucherCode(), selection.requestedPoints(), result.termsDigest(), "VND", subtotal,
@@ -165,7 +178,8 @@ public class RetailCheckoutQuotePreviewService {
         quotes.saveAndFlush(quote);
         return new CheckoutDtos.BenefitPreviewView(quote.getId(), "VND", subtotal.toString(), true,
             result.programDiscount().toString(), result.pointDiscount().toString(), quote.getPayableTotal().toString(),
-            expiresAt.toString(), shippingTotal.toString(), true, result.reasons(), result.maxPoints().toString(), result.minRedeemPoints().toString());
+            expiresAt.toString(), shippingTotal.toString(), true, result.reasons(), result.maxPoints().toString(), result.minRedeemPoints().toString(),
+            discountedLineIds, voucherCode);
     }
 
     /**
