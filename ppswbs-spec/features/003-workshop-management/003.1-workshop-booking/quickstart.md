@@ -1,11 +1,13 @@
 # Quickstart Validation: Workshop Booking Core
 
 **Date created**: 2026-10-07
-**Date updated**: 2026-11-05
+**Date updated**: 2026-11-15
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
 This is a future implementation-validation guide, not evidence that code exists.
+
+> *(Superseded 2026-11-15 for direct bookings: this guide describes the single-booking design of 2026-11-05 (one Package per booking, deposit, booking-level final balance). Steps 11-12 in particular are superseded by FR-040 (late payment re-confirmed or reviewed per group, never rejected outright) and FR-044 (a direct booking is a group of one or more tickets, final balance is per ticket in 003.3). Kept as history; the group-flow evidence is in tasks.md T097 and T098. Not rewritten here.)*
 Read [spec.md](spec.md), [data-model.md](data-model.md), and the draft
 [OpenAPI contract](contracts/workshop-booking.openapi.yaml) first.
 Keep observed test results in the approved CI report/artifact; do not append

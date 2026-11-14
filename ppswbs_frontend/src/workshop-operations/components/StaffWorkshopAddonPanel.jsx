@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ErrorNotice, SuccessNotice, useCommand } from '../../shared/ui/components';
 import { createSettlementApi } from '../../workshop-settlement/api/settlementApi';
+import FolioCorrectionLookup from '../../workshop-settlement/FolioCorrectionLookup';
 
 /**
  * Manager-only post-FINALIZED correction of one ticket folio (T106: POST /workshop-tickets/{ticketCode}/folio/corrections).
@@ -12,6 +13,7 @@ export default function StaffWorkshopAddonPanel({ http }) {
   const [amountVnd, setAmountVnd] = useState('');
   const [reason, setReason] = useState('');
   const [correction, setCorrection] = useState(null);
+  const [viewing, setViewing] = useState(false);
   const createCommand = useCommand();
   const settlementApi = createSettlementApi(http);
 
@@ -20,6 +22,7 @@ export default function StaffWorkshopAddonPanel({ http }) {
   async function submit(event) {
     event.preventDefault();
     setCorrection(null);
+    setViewing(false);
     if (!isValid) return;
     const outcome = await createCommand.run(key => settlementApi.createFolioCorrection(
       ticketCode.trim(),
@@ -53,6 +56,9 @@ export default function StaffWorkshopAddonPanel({ http }) {
       <p><strong>Correction: {correction.correctionReference}</strong></p>
       <p>Ticket {correction.ticketCode} · {correction.overchargeAmount} VND · {correction.status}{correction.refundStatus ? ` · refund ${correction.refundStatus}` : ''}</p>
       <p className="muted small">The refund is paid by bank transfer after a Manager approves it in the refund queue; an undercharge is never collected.</p>
+      {!viewing && <button type="button" className="button outline" onClick={() => setViewing(true)}>View correction</button>}
+      {viewing && <FolioCorrectionLookup api={settlementApi} ticketCode={correction.ticketCode || ticketCode.trim()}
+        initialReference={correction.correctionReference} />}
     </div>}
     <p className="muted small staff-addon-policy">Manager-only overcharge correction on finalized folios. Never alters original invoice lines, Loyalty earn, tickets, or capacity.</p>
   </article>;

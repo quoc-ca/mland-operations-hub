@@ -1,9 +1,15 @@
 # Research: Workshop Settlement and Changes
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-05
+**Date updated**: 2026-11-15
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
+
+> **Superseded in part (2026-11-15).** This research predates the per-ticket
+> settlement and bank-refund decisions (2026-11-12 to 2026-11-14: spec FR-030–FR-055,
+> tasks T093–T125). Where it describes booking-wide settlement or a VNPay refund /
+> QueryDR for Mland money, read spec.md and plan.md instead; it is kept as
+> history.
 
 ## Purpose and inherited baseline
 

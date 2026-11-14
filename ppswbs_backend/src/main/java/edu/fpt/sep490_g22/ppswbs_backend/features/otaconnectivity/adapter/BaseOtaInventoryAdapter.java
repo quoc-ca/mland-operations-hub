@@ -86,8 +86,40 @@ public abstract class BaseOtaInventoryAdapter implements OtaInventoryAdapter {
                     OtaDeliveryOutcome.EXHAUSTED, sanitizeCorrelation(null), "ALLOWLIST_VIOLATION");
         }
 
-        String endpointUrl = buildEndpointUrl(mapping, change.getChangeKind());
-        String payload = buildProviderPayload(mapping, change);
+        return send(mapping, buildEndpointUrl(mapping, change.getChangeKind()), buildProviderPayload(mapping, change),
+                attemptNumber, startedAt);
+    }
+
+    @Override
+    public OtaDeliveryResult deliverSalesClose(OtaChannelMapping mapping, String operationReference, int attemptNumber) {
+        Instant startedAt = Instant.now();
+        if (mapping == null || mapping.getConnection() == null) {
+            return new OtaDeliveryResult(attemptNumber, startedAt, Instant.now(),
+                    OtaDeliveryOutcome.EXHAUSTED, sanitizeCorrelation(null), "INVALID_MAPPING");
+        }
+        if (mapping.getConnection().getProviderCode() != supportedProvider()) {
+            return new OtaDeliveryResult(attemptNumber, startedAt, Instant.now(),
+                    OtaDeliveryOutcome.EXHAUSTED, sanitizeCorrelation(null), "UNSUPPORTED_PROVIDER");
+        }
+        if (operationReference == null || operationReference.isBlank()) {
+            return new OtaDeliveryResult(attemptNumber, startedAt, Instant.now(),
+                    OtaDeliveryOutcome.EXHAUSTED, sanitizeCorrelation(null), "INVALID_COMMAND");
+        }
+        // Only the mapping identity and the closed state leave Mland; no customer or commercial data.
+        ObjectNode root = objectMapper.createObjectNode();
+        root.put("provider", supportedProvider().name());
+        root.put("productId", mapping.getExternalProductId());
+        root.put("optionId", mapping.getExternalOptionId());
+        root.put("changeKind", "SALES_CLOSE");
+        ObjectNode data = root.putObject("data");
+        data.put("operationReference", operationReference.trim());
+        data.put("saleState", "CLOSED");
+        return send(mapping, buildEndpointUrl(mapping, OtaChangeKind.SALE_STATE), root.toString(),
+                attemptNumber, startedAt);
+    }
+
+    private OtaDeliveryResult send(OtaChannelMapping mapping, String endpointUrl, String payload, int attemptNumber,
+                                   Instant startedAt) {
         String correlationHeader = UUID.randomUUID().toString();
 
         Map<String, String> headers = Map.of(

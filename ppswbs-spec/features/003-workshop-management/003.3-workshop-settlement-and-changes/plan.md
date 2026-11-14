@@ -1,7 +1,7 @@
 # Implementation Plan: Workshop Settlement and Changes
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-14
+**Date updated**: 2026-11-15
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -105,7 +105,7 @@ overcharge uses the Manager folio correction (D7–D10, FR-004c). Owner decision
 (2026-11-05, see `../contracts/workshop-interfeature-facades.md` "Direct-booking
 open-folio lifecycle") supersede the paragraph below: Settlement opens the
 folio on `MlandBookingConfirmedEvent` with the verified deposit as first
-collection; `POST /final-bill` returns the existing folio; `ATTENDANCE_FINALIZED`
+collection; `POST /final-bill` returned the existing folio *(route removed 2026-11-15, T106/T121/T123/T124)*; `ATTENDANCE_FINALIZED`
 readiness gates only finalization; Operations' `BookingAttendanceFinalizedEvent`
 plus `BookingAttendanceOutcomeQuery` drive `CLOSED` on a full no-show; accepted
 customer cancellation sets `CLOSED`; an append-only Flyway backfill opens
@@ -115,6 +115,7 @@ chosen during 003.3 T087.
 The final bill is available only after 003.2 reports every required session as
 `ATTENDANCE_FINALIZED`. On verified final-balance resolution, 003.3 invokes
 `WorkshopBookingFacade`; 003.1 alone changes booking state to `FULLY_PAID`.
+*(Superseded 2026-11-14/15: the conclusion is per ticket, `recordTicketFinalBalanceResolved(ticketCode, …)` (T106(b), BE-DESIGN-0006), and T121 removed the booking-level `RecordFinalBalanceResolvedCommand` branch.)*
 
 ### Charges and bill access
 
@@ -202,8 +203,9 @@ person (003.1 FR-044–FR-051, 003.1 numbering), and V132 removed every direct
   in [`contracts/workshop-settlement-ticket.openapi.yaml`](./contracts/workshop-settlement-ticket.openapi.yaml)
   replace the booking-wide `final-bill*`, `folio-corrections*` and the code
   routes `/workshop-folios/*`. The checkout VNPay payment is a `VNPAY` folio
-  collection. The booking-wide routes are removed only after T099–T101, T105
-  and T106 land; then 003.1 T100 removes its legacy facade operations.
+  collection. The booking-wide routes were removed in the code (T106, T121,
+  T123, T124; contract published 2026-11-15); 003.1 T100 removes its legacy
+  facade operations.
 - **Owner boundaries:** ticket context from 003.1 `getTicketFolioContext`;
   buyer proof for changes through 003.1 `consumeBuyerProof` (MANDATORY);
   ticket reference resolution through `findTicketBookingByOperationsReference`;
@@ -230,15 +232,16 @@ person (003.1 FR-044–FR-051, 003.1 numbering), and V132 removed every direct
 
 The contract is the normative transport detail in
 [`contracts/workshop-settlement.openapi.yaml`](./contracts/workshop-settlement.openapi.yaml)
-for the routes still served booking-wide (OTA add-on bills, refund policies,
-settlement case list, and the booking-wide routes until T106 removes them) and
+for the routes still served booking-wide (OTA add-on bills, refund policies
+and settlement case list; the booking-wide final-bill, charges and folio-correction
+routes were removed 2026-11-15, T106/T121/T123/T124) and
 [`contracts/workshop-settlement-ticket.openapi.yaml`](./contracts/workshop-settlement-ticket.openapi.yaml)
 for every per-ticket route (see "Per-ticket settlement" above).
 
 | Resource group | Public route family | Authority / proof |
 | --- | --- | --- |
-| Final bill | `/api/v1/workshop-bookings/{bookingCode}/final-bill` | Member ownership or Guest contact proof for read-only projection; Staff/Manager for settlement actions. |
-| Charges | `/final-bill/charges` | Staff in booking-location scope or any active Manager globally; customer routes cannot create charge lines. |
+| Final bill | `/api/v1/workshop-bookings/{bookingCode}/final-bill` | Member ownership or Guest contact proof for read-only projection; Staff/Manager for settlement actions. *(Removed 2026-11-15, T106/T121/T123/T124; replaced by the per-ticket folio routes.)* |
+| Charges | `/final-bill/charges` | Staff in booking-location scope or any active Manager globally; customer routes cannot create charge lines. *(Removed 2026-11-15, T106/T121/T123/T124; replaced by the per-ticket folio routes.)* |
 | Settlement cases | `/.../{case-collection}` and `/{caseReference}` | Customer cancellation/read by ownership/proof; Manager for required-session change and Mland remedy. |
 | Refund policy | `/api/v1/workshop-refund-policies` | Any active Manager, global scope. |
 | VNPay ingress | Shared integration contract | `paymentintegration` owns the signed GET; this feature never owns the provider route. |

@@ -1,7 +1,7 @@
 # Data Model: Workshop Settlement and Changes
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-14
+**Date updated**: 2026-11-15
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -273,7 +273,7 @@ payment and refund records, isolated from OTA payment/payout facts:
 
 ### Per-ticket settlement records (decision 2026-11-12, spec FR-030–FR-051)
 
-Planned, not yet implemented (tasks Phase 8). Each record belongs to one ticket
+Implemented (tasks T093–T125, 2026-11-15). Each record belongs to one ticket
 folio (003.1 ticket booking) unless stated.
 
 | Record | Key data | Invariants |
@@ -287,6 +287,8 @@ folio (003.1 ticket booking) unless stated.
 | Refund account | refund request; bank; account number (encrypted, masked after `REFUNDED`); holder name; payer confirmation when the recipient is not the payer — **withdrawn 2026-11-14 (Hồ Hoàng Quốc): no declaration and no payer-confirmation step; the refund goes to the account the payer enters and the holder name is never compared** *(earlier wording "when names differ" superseded by spec FR-040, decision 2026-11-13: the holder name is not compared with the payer; **Withdrawn 2026-11-14 (Hồ Hoàng Quốc):** there is no different-recipient declaration and no payer-confirmation step; the refund goes to the account the payer enters and the holder name is never compared (FR-039/FR-040))*; channel (link/counter); entering actor; link token hash, expiry (7 days), revocation; reminder times (days 3, 7) | Full number visible only to the approving Manager and the transferring actor; never in email, logs or audit. |
 | Ticket cancellation | ticket; group request reference (one request may cancel several tickets of one group, all or none, decision 2026-11-14); requester (buyer/Staff for buyer); channel; buyer proof (Member owner, or consumed `buyerVerificationReference` id; never the OTP); request time; first-session start; 24-hour outcome (`VALID_CANCELLATION`, `LATE_CANCELLATION`); points returned; voucher restoration reference | Idempotent per request key. A group request commits every listed ticket or none. Voucher use restored at most once per group, only when every ticket ended by valid or Mland cancellation. |
 | Mland ticket remedy | ticket; cancelled session; replacement offered; buyer answer and deadline (24 h before replacement start); outcome (`MOVED`, `REFUND`); refund request reference | Not counted as a customer change. Voucher restored once for the group even when partial. |
+| Mland remedy session options (V152, T112, BE-DESIGN-0008, decided 2026-11-14) | extends the Mland ticket remedy row: `replacement_options` (TEXT, nullable: the whole offered list of equivalent sessions with each start time) and `selected_replacement_session_reference` (VARCHAR(64), nullable: the session the buyer chose); `replacement_session_references` widens from 512 characters to TEXT | 003.2 returns ALL valid equivalent sessions (no cap); the buyer CHOOSES ONE and an accept answer must carry a reference from the offered list. A session is choosable only while it starts at least 24 h after the answer; the default refund fires at `answerDeadlineAt` = 24 h before the LATEST offered session. Rows written before V152 keep their values and are read from `replacement_session_references` and `replacement_start_at`. |
+| Ticket change request (V153, T117, spec FR-045a, decided 2026-11-14) | table `settlement_ticket_change_requests`: `request_reference`, `idempotency_key`, `ticket_code`, `group_code`, `location_reference`, `change_type`, `target_session_references`, `blocked_rules`, `status` (`PENDING`, `APPROVED`, `REJECTED`, `EXPIRED`), `price_increase_amount_vnd`, `buyer_confirmed_increase`, requester account/role/channel, `buyer_proof` (consumed when stored, kept for audit), `reason`, `expires_at`, decision reason/actor/time/`decision_idempotency_key`, `applied_change_reference`, `created_at`, `updated_at` | Stored instead of a refusal when an online change fails only on a rule a Manager may lift (quota, used allowance, 24 h window); the change route answers 202. `PENDING` moves to `APPROVED`, `REJECTED` or `EXPIRED`; the request expires when the old session starts. Approval (Manager, reason, Idempotency-Key, audit) equals a FR-054 grant followed by one counted change. Unique per `request_reference` and per (`ticket_code`, `idempotency_key`). |
 | Ticket change | ticket; type (`ADVANCE`, `LATE_ARRIVAL`, `MLAND`, `MANAGER_GRANTED`); from/to sessions; counted (yes/no); price effect (voucher allocation lost, balance increase); buyer confirmation; actor | At most one counted customer change per ticket unless a Manager grants more. Price never decreases. |
 
 Permissions used here: `workshop.payment.transfer.confirm` and

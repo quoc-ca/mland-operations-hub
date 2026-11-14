@@ -3,6 +3,7 @@ import { useHttp } from '../../shared/api/useHttp';
 import { useRole } from '../../shared/auth/useRole';
 import { Loading, SuccessNotice, useCommand, useResource } from '../../shared/ui/components';
 import { createSettlementApi } from '../api/settlementApi';
+import FolioCorrectionLookup from '../FolioCorrectionLookup';
 import { OpsPage } from '../OpsPage';
 import { ProblemNotice, ReasonDialog, asList, isWholeVnd, money, when } from '../ui';
 
@@ -44,7 +45,7 @@ export default function SettlementWorkspacePage() {
   const [transferRefs, setTransferRefs] = useState({});
   const [checkout, setCheckout] = useState(null);
   const [failing, setFailing] = useState(null);
-  const [dangerous, setDangerous] = useState(null); // { kind: 'debt' | 'closeDebt' }
+  const [dangerous, setDangerous] = useState(null); // { kind: 'debt' | 'closeDebt' | 'handover' }
   const [voiding, setVoiding] = useState(null); // { kind: 'line' | 'collection', id, label }
   const [addOn, setAddOn] = useState('');
   const [consent, setConsent] = useState(false);
@@ -91,6 +92,11 @@ export default function SettlementWorkspacePage() {
       const send = voiding.kind === 'line' ? api.voidLine : api.voidCollection;
       const out = await run(key => send(ticketCode, voiding.id, { reason }, key), voiding.kind === 'line' ? 'Line voided.' : 'Collection voided.');
       if (out.ok) setVoiding(null);
+    } else if (dangerous?.kind === 'handover') {
+      // T126 (FR-035): the folio is reloaded afterwards, so the balance shown is the server's.
+      const out = await run(key => api.allowHandover(ticketCode, { reason }, key),
+        'Handover allowed and audited. The balance below is still owed.');
+      if (out.ok) setDangerous(null);
     } else if (dangerous) {
       const send = dangerous.kind === 'debt' ? api.recordDebt : api.closeDebt;
       const out = await run(key => send(ticketCode, { reason }, key), dangerous.kind === 'debt' ? 'Debt recorded.' : 'Debt closed.');
@@ -111,7 +117,9 @@ export default function SettlementWorkspacePage() {
   const dialogOpen = Boolean(failing || dangerous || voiding);
   const dialogTitle = failing ? 'Mark this collection as not paid'
     : voiding ? `Void this ${voiding.kind === 'line' ? 'line' : 'collection'}`
-      : dangerous?.kind === 'debt' ? 'Record a debt on this ticket' : 'Close this ticket’s debt';
+      : dangerous?.kind === 'handover' ? 'Allow product handover before payment is verified'
+        : dangerous?.kind === 'debt' ? 'Record a debt on this ticket' : 'Close this ticket’s debt';
+  const unsettled = Number(bill?.balanceDue) > 0;
   const addOnOptions = asList(addOns.data);
 
   return (
@@ -140,6 +148,7 @@ export default function SettlementWorkspacePage() {
               <button className="button primary" type="button" disabled={command.pending} onClick={() => run(key => api.finalize(ticketCode, key), 'Folio finalized.')}>Finalize folio</button>
               {isManager && <button className="button outline" type="button" onClick={() => setDangerous({ kind: 'debt' })}>Record debt</button>}
               {isManager && <button className="button outline" type="button" onClick={() => setDangerous({ kind: 'closeDebt' })}>Close debt</button>}
+              {isManager && unsettled && <button className="button outline" type="button" onClick={() => setDangerous({ kind: 'handover' })}>Allow handover</button>}
             </div>
           </article>
 
@@ -255,13 +264,17 @@ export default function SettlementWorkspacePage() {
               </form>
             </article>
           )}
+
+          <article className="ota-panel">
+            <FolioCorrectionLookup key={ticketCode} api={api} ticketCode={ticketCode} />
+          </article>
         </section>
       ) : null}
       {ticketCode && !folio.loading && !bill && !folio.error ? <div className="empty-state"><p>No folio was found for this ticket.</p></div> : null}
 
       <ReasonDialog open={dialogOpen} title={dialogTitle} confirmLabel="Confirm" pending={command.pending}
         onCancel={() => { setFailing(null); setDangerous(null); setVoiding(null); }} onConfirm={confirmDangerous}>
-        <p>{voiding ? 'The original row is kept as an audited reversal and the balance is recomputed by the server. A collection already counted into a closed cash day is refused.' : failing ?'The part becomes FAILED so another method can take the balance. Signed VNPay money that still arrives is kept and refunded to the payer by bank transfer.' : 'This is audited and cannot be undone from this screen.'}</p>
+        <p>{dangerous?.kind === 'handover' ? 'The customer may take the product now. The balance stays owed and no payment is recorded; the exception is audited with your reason.' : voiding ? 'The original row is kept as an audited reversal and the balance is recomputed by the server. A collection already counted into a closed cash day is refused.' : failing ?'The part becomes FAILED so another method can take the balance. Signed VNPay money that still arrives is kept and refunded to the payer by bank transfer.' : 'This is audited and cannot be undone from this screen.'}</p>
       </ReasonDialog>
     </OpsPage>
   );

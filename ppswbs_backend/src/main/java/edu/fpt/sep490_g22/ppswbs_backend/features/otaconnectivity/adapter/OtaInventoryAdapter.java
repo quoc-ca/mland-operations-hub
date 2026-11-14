@@ -22,4 +22,10 @@ public interface OtaInventoryAdapter {
     }
 
     OtaDeliveryResult deliver(OtaChannelMapping mapping, OtaOutboundChange change, int attemptNumber);
+
+    /**
+     * 003.4 T120 (FR-004a, contract "Outbound: close/reopen sale"): tells the provider to stop selling the mapped
+     * product/option. Driven by an OTA-owned control-outbox command, never by an Operations source version.
+     */
+    OtaDeliveryResult deliverSalesClose(OtaChannelMapping mapping, String operationReference, int attemptNumber);
 }

@@ -13,6 +13,8 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.persistence.Ot
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.persistence.OtaMappingStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.persistence.OtaReconciliationDecision;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.persistence.OtaReconciliationDecisionRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.persistence.OtaReconciliationWorkItem;
+import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.persistence.OtaReconciliationWorkItemRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,6 +33,50 @@ public class OtaSalesControlService {
     private final OtaControlOutboxRepository controlOutboxRepository;
     private final OtaReconciliationDecisionRepository decisionRepository;
     private final OtaAuditCorrelationService auditCorrelationService;
+    private final OtaReconciliationWorkItemRepository workItemRepository;
+
+    /** Same category as an exhausted inventory change, so the reconciliation filter needs no new value. */
+    static final String DELIVERY_FAILURE_CATEGORY = "INVENTORY_DELIVERY_FAILURE";
+
+    /**
+     * 003.4 T120 (FR-004a, FR-004c): records the final provider answer for one locked, queued sales-close command.
+     * The Manager decision stays immutable; only the outbox projection changes. On exhaustion the mapping stays
+     * sales-closed (Mland already refuses new OTA bookings) and one open reconciliation work item is ensured.
+     */
+    @Transactional
+    public void recordSalesCloseDelivery(OtaControlOutboxCommand command, OtaDeliveryResult result) {
+        if (command == null || result == null || result.outcome() == null) {
+            throw new IllegalArgumentException("A control command and a delivery result are required");
+        }
+        OtaChannelMapping mapping = command.getMapping();
+        String correlation = auditCorrelationService.safeCorrelationReference(command.getCorrelationReference());
+        if (result.outcome() == OtaDeliveryOutcome.DELIVERED) {
+            command.recordDelivered(result.correlationReference());
+            controlOutboxRepository.save(command);
+            auditCorrelationService.record(OtaAuditCorrelationService.IntegrationAction.OUTBOUND_DELIVERY_COMPLETED,
+                    mapping.getConnection().getProviderCode(), mapping.getId(), correlation,
+                    OtaAuditCorrelationService.IntegrationOutcome.ACCEPTED);
+            return;
+        }
+        if (result.outcome() != OtaDeliveryOutcome.EXHAUSTED) {
+            throw new IllegalArgumentException("Only a final delivery result can be recorded on a control command");
+        }
+        command.recordExhausted(result.failureCategory(), result.correlationReference());
+        controlOutboxRepository.save(command);
+        if (!workItemRepository.existsByMapping_IdAndCategoryAndStatus(
+                mapping.getId(), DELIVERY_FAILURE_CATEGORY, "OPEN")) {
+            workItemRepository.save(OtaReconciliationWorkItem.builder()
+                    .mapping(mapping)
+                    .locationReference(mapping.getLocationReference())
+                    .category(DELIVERY_FAILURE_CATEGORY)
+                    .status("OPEN")
+                    .auditReference(correlation)
+                    .build());
+        }
+        auditCorrelationService.record(OtaAuditCorrelationService.IntegrationAction.RECONCILIATION_REQUIRED,
+                mapping.getConnection().getProviderCode(), mapping.getId(), correlation,
+                OtaAuditCorrelationService.IntegrationOutcome.REJECTED);
+    }
 
     @Transactional
     public OtaOperationAccepted requestSalesClose(String mappingPublicReference, String reason,

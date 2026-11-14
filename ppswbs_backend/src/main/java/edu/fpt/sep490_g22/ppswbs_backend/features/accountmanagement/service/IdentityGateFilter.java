@@ -70,6 +70,13 @@ public class IdentityGateFilter extends OncePerRequestFilter {
                 && "/api/v1/integrations/payments/vnpay/events".equals(path)) {
             return true;
         }
+        // 003.4 OTA provider callbacks (contract `security: []`): the provider has no Mland bearer;
+        // OtaProviderEventController authenticates X-Ota-Signature itself, fail closed (E3, T118).
+        if ("POST".equalsIgnoreCase(request.getMethod())
+                && ("/api/v1/ota-provider/booking-events".equals(path)
+                || "/api/v1/ota-provider/cancellation-events".equals(path))) {
+            return true;
+        }
         // 003.1 FR-031, FR-045, FR-047, FR-048: the group booking journey is open to a Guest (contract
         // `security: [{}, {bearerAuth: []}]`). Without a bearer the request skips the gate and each service
         // authorizes it (contact proof, Magic-Link token); with a bearer the Member is still verified here.
