@@ -17,6 +17,9 @@ import java.util.Objects;
 /** Applies only the redacted, already verified payment evidence delivered by paymentintegration. */
 @Service
 public class FinalPaymentService {
+
+    /** Signed VNPay evidence that settled a ticket-folio VNPAY collection; counted through the collection only. */
+    public static final String FOLIO_VNPAY_VERIFIED = "FOLIO_VNPAY_VERIFIED";
     private final SettlementEvidenceConclusionRepository evidence;
     private final SettlementFinalBillRepository bills;
     private final SettlementChargeRepository charges;
@@ -91,7 +94,9 @@ public class FinalPaymentService {
                 // FR-008 per ticket (BE-DESIGN-0006, decided 2026-11-14): no conclusion here. If this collection
                 // clears the balance, confirmGatewayCollection finalizes the folio and FolioFinalizationService
                 // sends 003.1 recordTicketFinalBalanceResolved in the same transaction.
-                conclusion = "FINAL_PAYMENT_VERIFIED";
+                // FR-034/FR-049: this money is counted once, through the CONFIRMED collection. The evidence row keeps
+                // its own conclusion so balance and refund sums that read FINAL_PAYMENT_VERIFIED never add it again.
+                conclusion = FOLIO_VNPAY_VERIFIED;
             } else {
                 if (!"OPEN".equals(bill.getLifecycleStatus())) return SettlementPaymentEvidenceOutcome.rejected("BILL_NOT_OPEN");
                 long confirmedCharges = charges.findByBillReferenceAndLifecycleStatusOrderByIdAsc(
@@ -224,7 +229,9 @@ public class FinalPaymentService {
                     || Objects.equals(existing.getOriginalProviderCreateDate(), command.originalProviderCreateDate()))
                 && Objects.equals(existing.getAmountVnd(), command.amountVnd())
                 && Objects.equals(existing.getCurrencyCode(), command.currencyCode())
-                && Objects.equals(existing.getConclusion(), command.paymentKind() + "_VERIFIED");
+                && (Objects.equals(existing.getConclusion(), command.paymentKind() + "_VERIFIED")
+                    || ("FINAL_PAYMENT".equals(command.paymentKind())
+                        && FOLIO_VNPAY_VERIFIED.equals(existing.getConclusion())));
         return same ? SettlementPaymentEvidenceOutcome.accepted()
                 : SettlementPaymentEvidenceOutcome.rejected("IDEMPOTENCY_CONFLICT");
     }
