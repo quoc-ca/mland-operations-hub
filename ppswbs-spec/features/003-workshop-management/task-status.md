@@ -34,11 +34,11 @@ Convergence đã đóng trong ngày: 003.1 T108, T113; 003.3 T107; 003.4 T105 (4
 | Nhóm | Nội dung | Số task | Ghi chú |
 | --- | --- | ---: | --- |
 | A | Settlement: tiền, quyền, MySQL IT (003.3) | 15 | Làm trước vì liên quan tiền |
-| B | OTA lõi nghiệp vụ và bằng chứng (003.4) | 12 | T108, T109 cùng file, làm tuần tự |
+| B | OTA lõi nghiệp vụ và bằng chứng (003.4) | 13 | T108, T109 cùng file, làm tuần tự |
 | C | Vận hành và đặt chỗ, backend + dọn legacy (003.1, 003.2) | 12 | Gồm các task cũ 003.1 T097, T100; 003.2 T096, T097 |
 | D | Frontend (003.1, 003.2, 003.3, 003.4) | 8 | Chờ API của A, C ổn định |
 | E | Contract và tài liệu | 3 | Làm cuối |
-| F | Còn chờ chủ sở hữu chốt (003.4 T113) | 1 | Xem mục 4 |
+| F | Còn chờ chủ sở hữu chốt | 0 | Xem mục 4 |
 | X | Bị chặn bởi bên ngoài (VNPay, provider OTA) | 8 | Không làm được trong repo |
 | | **Tổng** | **59** | |
 
@@ -119,7 +119,7 @@ Mức: **C** = CRITICAL, **H** = HIGH, **M** = MEDIUM, **L** = LOW (chỉ có �
 | T110 | converge | BE | H | B | Tạo `OtaPayoutPosition` khi xác nhận booking |
 | T111 | converge | BE | M | B | Snapshot chính sách huỷ, giờ chốt, phí thay cho giá trị gán cứng |
 | T112 | converge | BE | M | B | Từ chối khi điều khoản giá hết hạn (`effectiveTo`) |
-| T113 | converge | BE | M | F | Giá `PER_PERSON` theo số người (chờ xác nhận hợp đồng provider) |
+| T113 | converge | BE | M | B | Bỏ so sánh số tiền khách trả với giá Mland (OTA luôn có phí sàn); lấy số vé từ số người |
 | T114 | converge | BE | M | B | Ghi sổ cái `GROSS_SALE`, `COMMISSION_FEE`, `CUSTOMER_REFUND` |
 | T115 | converge | BE | M | B | Việc đối soát cho callback không có mapping |
 | T116 | converge | BE | M | B | Gắn việc đối soát huỷ vào sự kiện để `/resolve` chạy được |
@@ -135,8 +135,9 @@ Mức: **C** = CRITICAL, **H** = HIGH, **M** = MEDIUM, **L** = LOW (chỉ có �
 | 003.3 T118 | Duyệt: `POST /workshop-booking-groups/{groupCode}/ticket-changes`, tất cả hoặc không |
 | 003.4 T109 | Thu hẹp: chỉ cần nhận báo huỷ của OTA và nhả chỗ; điều kiện huỷ và việc hoàn đủ tiền là logic của OTA |
 | 003.4 T117 | Bỏ: vé OTA là vé đơn như vé Mland, voucher của OTA nằm ở hệ thống OTA (spec FR-009 để người phụ trách spec sửa) |
+| 003.4 T113 | Bỏ so sánh số tiền khách trả trên OTA với giá Mland (OTA luôn khác vì phí sàn và phí khác); số vé lấy từ số người, số tiền chỉ ghi lại để đối soát |
 
-**Còn chờ chốt:** 003.4 T113 — giá OTA "theo từng người" (giá lẻ trong snapshot là giá một người, tối thiểu = giá × số người); cần xác nhận với hợp đồng provider.
+Không còn điểm nào chờ chốt. Spec FR-009 và FR-012 của 003.4 để người phụ trách spec sửa theo các quyết định trên.
 
 ## 5. Thống kê theo mức độ (task convergence còn mở, 42)
 
