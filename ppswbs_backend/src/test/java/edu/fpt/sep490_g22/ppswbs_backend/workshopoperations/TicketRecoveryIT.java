@@ -53,6 +53,7 @@ class TicketRecoveryIT {
     @Autowired TicketResendThrottleRepository throttleRepository;
     @Autowired AttendanceActionRepository actionRepository;
     @Autowired OperationsAuditEventRepository auditRepository;
+    @Autowired SessionStaffAssignmentRepository staffAssignmentRepository;
     @Autowired TicketResendService ticketResendService;
     @Autowired CheckInOverrideService checkInOverrideService;
 
@@ -83,6 +84,7 @@ class TicketRecoveryIT {
         jdbcTemplate.execute("TRUNCATE TABLE attendance_tickets");
         jdbcTemplate.execute("TRUNCATE TABLE ticket_resend_throttles");
         jdbcTemplate.execute("TRUNCATE TABLE operations_audit_events");
+        jdbcTemplate.execute("TRUNCATE TABLE session_staff_assignments");
         jdbcTemplate.execute("TRUNCATE TABLE workshop_sessions");
         jdbcTemplate.execute("TRUNCATE TABLE workshop_slots");
         jdbcTemplate.execute("TRUNCATE TABLE workshop_locations");
@@ -94,6 +96,9 @@ class TicketRecoveryIT {
         WorkshopSlot otherSlot = slotRepository.save(slot(otherLocation));
         session = sessionRepository.save(session(location, slot));
         otherSession = sessionRepository.save(session(otherLocation, otherSlot));
+        // A Staff member acts on a session only while actively assigned to it (owner decision 2026-11-06).
+        staffAssignmentRepository.save(SessionStaffAssignment.builder().session(session).accountId(801L)
+                .assignedById(10L).assignedAt(Instant.now()).active(true).build());
 
         activeTicket = ticketRepository.save(ticket("BOOK-RECOVERY", "TICKET-RECOVERY-1"));
         entitlementRepository.save(entitlement(activeTicket, session, AttendanceState.NOT_CHECKED_IN));
