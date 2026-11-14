@@ -7,7 +7,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.support.Loyal
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.MemberWorkshopBookingQuoteRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.WorkshopBookingRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.*;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.WorkshopBookingLoyaltyOutcomeService;
+import edu.fpt.sep490_g22.ppswbs_backend.support.legacybooking.LegacyBookingLoyaltyOutcomes;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.BookingAttendanceOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementCaseRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementFinalBillRepository;
@@ -36,6 +36,7 @@ import static org.mockito.Mockito.when;
 
 /** Datasource-backed proof that FE-03 owns and emits the Loyalty outcomes described by T050/T051. */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
+@org.springframework.context.annotation.Import(LegacyBookingLoyaltyOutcomes.class)
 @ActiveProfiles(LoyaltyTestSupport.MYSQL_PROFILE)
 class LoyaltyWorkshopSourceIntegrationIT {
 
@@ -45,7 +46,7 @@ class LoyaltyWorkshopSourceIntegrationIT {
     @Autowired private MemberWorkshopBookingQuoteRepository quotes;
     @Autowired private SettlementFinalBillRepository bills;
     @Autowired private SettlementCaseRepository cases;
-    @Autowired private WorkshopBookingLoyaltyOutcomeService bookingOutcomes;
+    @Autowired private LegacyBookingLoyaltyOutcomes bookingOutcomes;
     @Autowired private WorkshopCancellationLoyaltyService cancellationOutcomes;
     @Autowired private WorkshopLoyaltyOutcomeProcessor finalOutcomes;
     @Autowired private TransactionTemplate transaction;

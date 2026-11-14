@@ -4,6 +4,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.dao.AcceptedB
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.dao.LoyaltyPolicyRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.dao.PointLedgerRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.entity.AcceptedBenefit;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.entity.AcceptedBenefitPart;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.entity.LedgerEntryKind;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.entity.LoyaltyPolicy;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.entity.LoyaltyWallet;
@@ -18,6 +19,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigInteger;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -46,9 +48,12 @@ public class LoyaltyEarnService {
     private final PointLedgerRepository ledger;
     private final LoyaltyLockCoordinator locks;
     private final LoyaltyAuditService audit;
+    private final BenefitPartSupport partSupport;
 
     public LoyaltyEarnService(AcceptedBenefitRepository benefits, LoyaltyPolicyRepository policies,
-                              PointLedgerRepository ledger, LoyaltyLockCoordinator locks, LoyaltyAuditService audit) {
+                              PointLedgerRepository ledger, LoyaltyLockCoordinator locks, LoyaltyAuditService audit,
+                              BenefitPartSupport partSupport) {
+        this.partSupport = partSupport;
         this.benefits = benefits;
         this.policies = policies;
         this.ledger = ledger;
@@ -63,14 +68,19 @@ public class LoyaltyEarnService {
         }
         AcceptedBenefitRepository.References references = references(outcome);
         locks.readRegistry();
-        LoyaltyWallet wallet = locks.lockOrOpenWallet(references.getMemberId());
+        // A Guest workshop snapshot (D-014) has no wallet and earns nothing: the earn closes as a zero grant.
+        boolean guest = references.getMemberId() == null;
+        LoyaltyWallet wallet = guest ? null : locks.lockOrOpenWallet(references.getMemberId());
         AcceptedBenefit benefit = lockBenefit(outcome);
         LoyaltyPolicy policy = policies.findById(benefit.getPolicyId())
                 .orElseThrow(() -> new LoyaltyException(LoyaltyErrorCode.BENEFIT_STATE_CONFLICT,
                         "The policy recorded for this transaction is missing."));
-        BigInteger earned = LoyaltyCalculator.earnedPoints(policy.terms(), benefit.getEarnBase());
+        BigInteger earned = guest ? BigInteger.ZERO : LoyaltyCalculator.earnedPoints(policy.terms(), benefit.getEarnBase());
+        // A checkout accepted with branch orders (D-011) earns every part's share at once (they add up to `earned`).
+        List<AcceptedBenefitPart> parts = partSupport.requireWholeAllowed(benefit);
         boolean granted = benefit.grantEarn(outcome.sourceOutcomeKey(), outcome.sourceOutcomeVersion(), earned);
         if (granted) {
+            partSupport.mirrorGrant(parts);
             if (earned.signum() > 0) {
                 wallet.earn(earned);
                 ledger.save(PointLedger.entry(LedgerEntryKind.EARN, benefit.getMemberId(), benefit.getId(), earned,
@@ -79,7 +89,7 @@ public class LoyaltyEarnService {
             audit.record(outcome.ownerModule(), "benefit.earn", "benefit:" + benefit.getId(),
                     "{\"earnedPoints\":\"" + earned + "\",\"policyRevision\":" + policy.getRevisionNo() + "}");
         }
-        return BenefitEffectSupport.result(benefit);
+        return BenefitPartSupport.result(benefit, parts);
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
@@ -91,8 +101,10 @@ public class LoyaltyEarnService {
         references(outcome);
         locks.readRegistry();
         AcceptedBenefit benefit = lockBenefit(outcome);
+        List<AcceptedBenefitPart> parts = partSupport.requireWholeAllowed(benefit);
         if (benefit.finishIneligibleEarn(outcome.sourceOutcomeKey(), outcome.sourceOutcomeVersion(),
                 outcome.decisionAt())) {
+            partSupport.mirrorIneligible(parts);
             audit.record(outcome.ownerModule(), "benefit.earn-ineligible", "benefit:" + benefit.getId(),
                     "{\"outcome\":\"" + outcome.outcome() + "\"}");
         }

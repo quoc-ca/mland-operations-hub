@@ -38,6 +38,7 @@ public class CheckInOverrideService {
     private final WorkshopOperationsAuthorizationService authorizationService;
     private final WorkshopSessionRepository sessionRepository;
     private final AttendanceTicketRepository ticketRepository;
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.TicketQrGenerationRepository qrGenerationRepository;
     private final TicketSessionEntitlementRepository entitlementRepository;
     private final AttendanceActionRepository attendanceActionRepository;
     private final OperationsAuditEventRepository auditRepository;
@@ -104,6 +105,9 @@ public class CheckInOverrideService {
         Optional<AttendanceTicket> ticket = request.getTicketCode() != null && !request.getTicketCode().isBlank()
                 ? ticketRepository.findByTicketCodeWithLock(request.getTicketCode())
                 : ticketRepository.findByQrReferenceWithLock(request.getQrToken());
-        return ticket.orElseThrow(() -> new WorkshopNotFoundException("Ticket not found"));
+        return ticket.orElseThrow(() -> request.getQrToken() != null
+                && qrGenerationRepository.existsByQrReference(request.getQrToken())
+                ? new WorkshopTicketQrRevokedException()
+                : new WorkshopNotFoundException("Ticket not found"));
     }
 }

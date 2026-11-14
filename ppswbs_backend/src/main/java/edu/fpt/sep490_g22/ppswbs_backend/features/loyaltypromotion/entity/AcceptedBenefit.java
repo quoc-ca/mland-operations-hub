@@ -31,8 +31,9 @@ import java.util.Objects;
  * on an already decided component is a conflict, and a transition from RELEASED/RESTORED back to HELD/CONSUMED
  * does not exist.
  *
- * <p>Workshop amounts: {@code postPromotionAmount} is the fee after voucher and points. FE-03/003.1 derives the
- * deposit ({@code ceil(post / 2)}) and the remaining amount; loyalty never rounds a deposit itself.
+ * <p>Workshop amounts: {@code postPromotionAmount} is the fee after voucher and points, 0 or more (V120). FE-03/003.1
+ * derives the amount collected at booking and the remaining amount under its own rule (003.1 FR-035); loyalty never
+ * computes or rounds a deposit itself.
  */
 @Entity
 @Table(name = "loyalty_accepted_benefit")
@@ -58,7 +59,13 @@ public class AcceptedBenefit {
     @Column(name = "source_ref", nullable = false, updatable = false, length = 128)
     private String sourceRef;
 
-    @Column(name = "member_id", nullable = false, updatable = false)
+    /**
+     * The Member who accepted, or {@code null} for a Guest workshop booking (Session 2026-11-14, D-014): a workshop
+     * automatic discount applies to every direct customer, and the Guest's snapshot is identified by its source
+     * reference (the booking group code), which is already unique. Such a snapshot never holds points or a voucher
+     * and never earns points; V135 enforces that in the database.
+     */
+    @Column(name = "member_id", updatable = false)
     private Long memberId;
 
     @Column(name = "member_origin_eligible", nullable = false, updatable = false)
@@ -151,7 +158,7 @@ public class AcceptedBenefit {
     private long version;
 
     /** Amounts and revisions captured at acceptance; the caller already held quota and points. */
-    public record Snapshot(SourceKind sourceKind, String sourceRef, long memberId, Instant acceptedAt,
+    public record Snapshot(SourceKind sourceKind, String sourceRef, Long memberId, Instant acceptedAt,
                            Instant originalDeadline, long sourceRevision, String acceptedTermsDigest, long policyId,
                            Long programId, Long revisionId, BigInteger grossAmount, BigInteger programDiscount,
                            BigInteger requestedPoints, BigInteger pointDiscount, BigInteger earnBase,
@@ -168,6 +175,12 @@ public class AcceptedBenefit {
         if (workshop != (snapshot.postPromotionAmount() != null)) {
             throw LoyaltyException.invalidField("postPromotionAmount",
                     "Only a workshop snapshot carries the post-promotion amount, and it must carry it.");
+        }
+        if (snapshot.memberId() == null && (!workshop || snapshot.requestedPoints().signum() != 0
+                || snapshot.pointDiscount().signum() != 0 || snapshot.voucherHeld())) {
+            // D-014: a Guest snapshot exists only for a workshop booking with an automatic discount (or none).
+            throw new LoyaltyException(LoyaltyErrorCode.PROMOTION_INELIGIBLE,
+                    "Only a signed-in Member can use points or a voucher.");
         }
         AcceptedBenefit benefit = new AcceptedBenefit();
         benefit.sourceKind = snapshot.sourceKind();
@@ -327,6 +340,101 @@ public class AcceptedBenefit {
             sourceTerminalAt = at;
         }
         return true;
+    }
+
+    /**
+     * True once an outcome of the whole transaction was applied (settle, release, restore or earn). A checkout with
+     * settlement parts then no longer accepts part outcomes, and the reverse (Session 2026-11-12, D-011).
+     */
+    public boolean hasWholeOutcome() {
+        return settlementOutcomeKey != null || releaseOutcomeKey != null || restoreOutcomeKey != null
+                || earnOutcomeKey != null;
+    }
+
+    /**
+     * A part was paid (Session 2026-11-12, D-011). The voucher use is consumed when the first part that carries a
+     * share of the voucher discount is paid ({@code voucherPart}); a part without a share leaves it held. Returns
+     * whether the voucher changed.
+     */
+    public boolean settlePart(boolean voucherPart, Instant at) {
+        if (settledAt == null) {
+            settledAt = at;
+        }
+        if (voucherPart && voucherState == ComponentState.HELD) {
+            voucherState = ComponentState.CONSUMED;
+            voucherConsumedAt = at;
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Every part that carries a share of the voucher discount ended unpaid while the voucher is still held: the use is
+     * given back once, even if a part without a share was paid. Returns whether the voucher changed.
+     */
+    public boolean releaseVoucherAfterParts() {
+        if (voucherState == ComponentState.HELD) {
+            voucherState = ComponentState.RELEASED;
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Workshop cart (Session 2026-11-12, D-012, 003.3 FR-042/FR-043): the group's voucher use comes back once — a held
+     * use is released, a consumed use is restored (an expired or paused programme is not reactivated). Returns the new
+     * voucher state when it changed, otherwise null.
+     */
+    public ComponentState giveBackVoucherForTickets(Instant at) {
+        if (voucherState == ComponentState.HELD) {
+            voucherState = ComponentState.RELEASED;
+            return voucherState;
+        }
+        if (voucherState == ComponentState.CONSUMED) {
+            voucherState = ComponentState.RESTORED;
+            voucherRestoredAt = at;
+            return voucherState;
+        }
+        return null;
+    }
+
+    /**
+     * True once a terminal outcome of the whole transaction was applied (release, restore or earn). A workshop cart's
+     * group deposit settlement is not terminal: per-ticket outcomes follow it (D-012).
+     */
+    public boolean hasWholeTerminalOutcome() {
+        return releaseOutcomeKey != null || restoreOutcomeKey != null || earnOutcomeKey != null;
+    }
+
+    /** True once the held benefits were settled (retail paid/zero, workshop deposit or 0đ confirmation). */
+    public boolean isSettled() {
+        return settlementOutcomeKey != null || settledAt != null;
+    }
+
+    /**
+     * Keeps the transaction-level states in step with its parts: points HELD while a part still holds points, then
+     * CONSUMED if any part debited them, else RELEASED; earn PENDING while a part is pending, then GRANTED (with the
+     * sum of the parts' earned points) if any part earned, else INELIGIBLE. The transaction is terminal once every
+     * part is.
+     */
+    public void refreshFromParts(java.util.List<AcceptedBenefitPart> parts, Instant at) {
+        if (requestedPoints.signum() > 0) {
+            boolean held = parts.stream().anyMatch(p -> p.getPointsState() == ComponentState.HELD);
+            boolean consumed = parts.stream().anyMatch(p -> p.getPointsState() == ComponentState.CONSUMED);
+            boolean restored = parts.stream().anyMatch(p -> p.getPointsState() == ComponentState.RESTORED);
+            pointsState = held ? ComponentState.HELD : consumed ? ComponentState.CONSUMED
+                    : restored ? ComponentState.RESTORED : ComponentState.RELEASED;
+        }
+        boolean pending = parts.stream().anyMatch(p -> p.getEarnState() == EarnState.PENDING);
+        if (!pending) {
+            boolean granted = parts.stream().anyMatch(p -> p.getEarnState() == EarnState.GRANTED);
+            earnState = granted ? EarnState.GRANTED : EarnState.INELIGIBLE;
+            earnedPoints = granted ? parts.stream().map(AcceptedBenefitPart::getEarnedPoints)
+                    .filter(Objects::nonNull).reduce(BigInteger.ZERO, BigInteger::add) : null;
+            if (sourceTerminalAt == null) {
+                sourceTerminalAt = at;
+            }
+        }
     }
 
     /** A voucher use counts in the current usage report: consumed and not given back. */

@@ -4,6 +4,7 @@ import { RequireSession } from '../../../../shared/auth/RequireSession';
 import { useFormat } from '../../../../shared/i18n/I18nProvider';
 import { ErrorNotice, Loading, useCommand, useResource } from '../../../../shared/ui/components';
 import { useRetailApi } from '../../application/useRetailApi';
+import { VoucherPicker, voucherSaving } from '../checkout/VoucherPicker';
 
 const MAX_QUANTITY = 99;
 const initialSelection = { choice: 'AUTO', voucherCode: '', requestedPoints: '0' };
@@ -43,6 +44,10 @@ function CartContent() {
   const [quoteError, setQuoteError] = useState(null);
   const [quoting, setQuoting] = useState(false);
   const [selectedIds, setSelectedIds] = useState(null);
+  // 'auto': the best usable saved voucher is applied by itself (Shopee style); 'manual' after the Member picks or removes one.
+  const [voucherMode, setVoucherMode] = useState('auto');
+  const [rejectedCodes, setRejectedCodes] = useState(() => new Set());
+  const [pointsWanted, setPointsWanted] = useState(false);
   const previewSeq = useRef(0);
 
   const lines = cart.data?.lines || [];
@@ -83,8 +88,29 @@ function CartContent() {
   const subtotal = selectedLines.reduce((total, line) => total + BigInt(line.indicativePrice || '0') * BigInt(line.quantity || 0), 0n).toString();
   const availablePoints = loyalty.data ? String(loyalty.data.availablePoints ?? loyalty.data.balancePoints ?? '0') : null;
   const savedVouchers = (savedVoucherResource.data?.items || savedVoucherResource.data || [])
-    .map(item => ({ code: item.promotion?.code || item.code, name: item.promotion?.name || item.name || item.promotion?.code || item.code, availability: item.availability }))
+    .map(item => ({ code: item.promotion?.code || item.code, name: item.promotion?.name || item.name || item.promotion?.code || item.code, availability: item.availability,
+      discount: item.promotion?.discount || null, minimumEligibleAmount: item.promotion?.minimumEligibleAmount || '0', endAt: item.promotion?.endAt || null }))
     .filter(item => item.code);
+  // Best usable saved voucher for the ticked lines: active, minimum reached, not refused by FE-06, largest saving.
+  const bestVoucherCode = useMemo(() => {
+    const base = BigInt(subtotal);
+    let best = null;
+    let bestSaving = 0n;
+    savedVouchers.forEach(voucher => {
+      if (voucher.availability !== 'ACTIVE' || rejectedCodes.has(voucher.code)) return;
+      if (/^[0-9]+$/.test(voucher.minimumEligibleAmount) && base < BigInt(voucher.minimumEligibleAmount)) return;
+      const saving = voucherSaving(voucher, subtotal) ?? 0n;
+      if (saving > bestSaving) { best = voucher.code; bestSaving = saving; }
+    });
+    return best;
+  }, [subtotal, savedVoucherResource.data, rejectedCodes]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (voucherMode !== 'auto') return;
+    const wanted = bestVoucherCode ? { choice: 'VOUCHER', voucherCode: bestVoucherCode } : { choice: 'AUTO', voucherCode: '' };
+    if (wanted.choice !== selection.choice || wanted.voucherCode !== selection.voucherCode) {
+      setSelection(current => ({ ...current, ...wanted, requestedPoints: '0' }));
+    }
+  }, [voucherMode, bestVoucherCode]); // eslint-disable-line react-hooks/exhaustive-deps
   const selectedVoucher = savedVouchers.find(item => item.code === selection.voucherCode);
 
   // Estimate benefits for the ticked lines with in-store pickup; re-run whenever cart, ticks or benefits change.
@@ -104,12 +130,51 @@ function CartContent() {
       .finally(() => { if (seq === previewSeq.current) setQuoting(false); });
   }, [previewKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // A voucher FE-06 refuses is dropped quietly (and greyed in the picker); points follow the switch.
+  useEffect(() => {
+    if (!quote || quoting) return;
+    if (!quote.eligible) {
+      if (selection.requestedPoints !== '0') {
+        if (selection.requestedPoints === String(quote.maxPoints)) setPointsWanted(false);
+        setSelection(current => ({ ...current, requestedPoints: '0' }));
+        return;
+      }
+      if (selection.choice === 'VOUCHER' && selection.voucherCode) {
+        const code = selection.voucherCode;
+        setRejectedCodes(current => new Set([...current, code]));
+        if (voucherMode === 'manual') {
+          setNotice(`Voucher ${code} chưa áp dụng được cho các sản phẩm đã chọn.`);
+          setSelection(current => ({ ...current, choice: 'AUTO', voucherCode: '' }));
+        }
+      }
+      return;
+    }
+    if (pointsWanted && selection.requestedPoints === '0' && isPositive(quote.maxPoints)
+      && !(isPositive(quote.minRedeemPoints) && BigInt(quote.maxPoints) < BigInt(quote.minRedeemPoints))) {
+      setSelection(current => ({ ...current, requestedPoints: String(quote.maxPoints) }));
+    }
+  }, [quote, quoting]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const maxPoints = quote?.maxPoints;
   const pointsOn = selection.requestedPoints !== '0';
   const pointsBelowMinimum = isPositive(maxPoints) && isPositive(quote?.minRedeemPoints) && BigInt(maxPoints) < BigInt(quote.minRedeemPoints);
   const canUsePoints = isPositive(maxPoints) && !pointsBelowMinimum;
-  const discount = quote ? BigInt(quote.discountAmount || '0') : 0n;
-  const pointsDiscount = quote ? BigInt(quote.pointsDiscountAmount || '0') : 0n;
+  const discount = quote?.eligible ? BigInt(quote.discountAmount || '0') : 0n;
+  // Voucher discount spread over the ticked lines in proportion to their amount, shown on each line like Shopee.
+  const lineDiscounts = useMemo(() => {
+    const result = new Map();
+    const base = BigInt(subtotal);
+    if (discount <= 0n || base <= 0n) return result;
+    let left = discount;
+    selectedLines.forEach((line, index) => {
+      const amount = BigInt(lineTotal(line) || '0');
+      const share = index === selectedLines.length - 1 ? left : (discount * amount) / base;
+      left -= share;
+      result.set(line.id, share);
+    });
+    return result;
+  }, [discount, subtotal, previewKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  const pointsDiscount = quote?.eligible ? BigInt(quote.pointsDiscountAmount || '0') : 0n;
   const savings = (discount + pointsDiscount).toString();
   const total = quote?.payableAmount ?? subtotal;
 
@@ -129,14 +194,16 @@ function CartContent() {
     const result = await command.run(key => api.removeLine(line.id, key));
     if (result.ok) cart.reload();
   };
-  const applyVoucher = code => {
-    const clean = code.trim();
-    if (!clean) return;
-    const deselect = selection.choice === 'VOUCHER' && selection.voucherCode === clean;
-    setSelection({ choice: deselect ? 'AUTO' : 'VOUCHER', voucherCode: deselect ? '' : clean, requestedPoints: '0' });
+  const confirmVoucher = code => {
     setPickerOpen(false);
+    setVoucherMode('manual');
+    setNotice('');
+    setSelection(current => ({ ...current, choice: code ? 'VOUCHER' : 'NONE', voucherCode: code || '', requestedPoints: '0' }));
   };
-  const togglePoints = checked => setSelection(current => ({ ...current, requestedPoints: checked ? String(maxPoints) : '0' }));
+  const togglePoints = checked => {
+    setPointsWanted(checked);
+    setSelection(current => ({ ...current, requestedPoints: checked ? String(maxPoints) : '0' }));
+  };
   const removeSelected = async () => {
     if (!selectedLines.length) return;
     setNotice('');
@@ -189,7 +256,11 @@ function CartContent() {
                   {!line.saleEligible && <span className="status">Tạm thời không còn bán</span>}
                 </div>
               </div>
-              <div className="cart-sp-price"><span className="cart-sp-label">Đơn giá</span>{line.indicativePrice == null ? 'Chưa có giá' : format.money(line.indicativePrice)}</div>
+              <div className="cart-sp-price"><span className="cart-sp-label">Đơn giá</span>{line.indicativePrice == null ? 'Chưa có giá' : lineDiscounts.get(line.id) > 0n ? <>
+                <s className="cart-sp-was">{format.money(line.indicativePrice)}</s>
+                <b className="cart-sp-now">{format.money(((BigInt(lineTotal(line)) - lineDiscounts.get(line.id)) / BigInt(line.quantity || 1)).toString())}</b>
+                <small className="cart-sp-voucher-tag">Đã áp dụng mã giảm giá</small>
+              </> : format.money(line.indicativePrice)}</div>
               <div className="cart-sp-qty" role="group" aria-label={`Số lượng ${line.productName || ''}`}>
                 <button type="button" aria-label="Giảm số lượng" disabled={command.pending || line.quantity <= 1} onClick={() => changeQuantity(line, line.quantity - 1)}>−</button>
                 <input key={`${line.id}-${line.quantity}`} type="number" min="1" max={line.availableQuantity == null ? MAX_QUANTITY : Math.min(MAX_QUANTITY, Number(line.availableQuantity))}
@@ -198,7 +269,7 @@ function CartContent() {
                   onKeyDown={event => event.key === 'Enter' && event.currentTarget.blur()} />
                 <button type="button" aria-label="Tăng số lượng" disabled={command.pending || line.quantity >= MAX_QUANTITY || (line.availableQuantity != null && BigInt(line.quantity) >= BigInt(line.availableQuantity))} onClick={() => changeQuantity(line, line.quantity + 1)}>+</button>
               </div>
-              <div className="cart-sp-amount"><span className="cart-sp-label">Số tiền</span>{lineTotal(line) == null ? '—' : format.money(lineTotal(line))}</div>
+              <div className="cart-sp-amount"><span className="cart-sp-label">Số tiền</span>{lineTotal(line) == null ? '—' : format.money((BigInt(lineTotal(line)) - (lineDiscounts.get(line.id) || 0n)).toString())}</div>
               <div className="cart-sp-actions"><button type="button" className="text-link" disabled={command.pending} onClick={() => remove(line)}>Xóa</button></div>
             </article>
           ))}
@@ -214,7 +285,7 @@ function CartContent() {
           <span className="cart-sp-row-icon" aria-hidden="true">▣</span>
           <strong>Voucher MLAND</strong>
           <span className={selection.choice === 'VOUCHER' ? 'cart-sp-applied' : 'cart-sp-link'}>
-            {selection.choice === 'VOUCHER' ? (selectedVoucher?.name || selection.voucherCode) : 'Chọn hoặc nhập mã'}
+            {selection.choice === 'VOUCHER' ? (discount > 0n ? `${selection.voucherCode} · −${format.money(discount.toString())}` : (selectedVoucher?.name || selection.voucherCode)) : 'Chọn hoặc nhập mã'}
           </span>
         </button>
 
@@ -233,7 +304,6 @@ function CartContent() {
         </label>
 
         {quoteError && <p className="notice error cart-sp-quote-error">{quoteError.message || 'Không áp dụng được ưu đãi đã chọn.'}</p>}
-        {quote?.reasons?.length > 0 && !quote.eligible && <p className="notice error cart-sp-quote-error">{quote.reasons.join(' ')}</p>}
 
         <div className="cart-sp-footer">
           <label className="cart-sp-check-label"><Checkbox checked={allSelected} indeterminate={!allSelected && selectedLines.length > 0} disabled={!selectableLines.length} onChange={toggleAll} label="Chọn tất cả sản phẩm" /><span>Chọn tất cả ({format.number(String(selectableLines.length))})</span></label>
@@ -247,7 +317,8 @@ function CartContent() {
         </div>
       </section>
 
-      {pickerOpen && <VoucherPicker savedVouchers={savedVouchers} selection={selection} onApply={applyVoucher} onClose={() => setPickerOpen(false)} />}
+      {pickerOpen && <VoucherPicker vouchers={savedVouchers.filter(item => item.availability !== 'EXPIRED')} selectedCode={selection.choice === 'VOUCHER' ? selection.voucherCode : null}
+        subtotal={subtotal} rejectedCodes={rejectedCodes} onConfirm={confirmVoucher} onClose={() => setPickerOpen(false)} />}
     </section>
   );
 }
@@ -258,24 +329,4 @@ function Checkbox({ checked, indeterminate = false, disabled = false, onChange, 
   useEffect(() => { if (ref.current) ref.current.indeterminate = indeterminate; }, [indeterminate]);
   return <input ref={ref} type="checkbox" className="cart-sp-check" checked={checked} disabled={disabled} aria-label={label}
     onChange={event => onChange(event.target.checked)} />;
-}
-
-function VoucherPicker({ savedVouchers, selection, onApply, onClose }) {
-  const [typedCode, setTypedCode] = useState('');
-  const active = savedVouchers.filter(item => item.availability === 'ACTIVE');
-  return (
-    <div className="benefit-picker-backdrop" role="presentation" onClick={event => event.target === event.currentTarget && onClose()}>
-      <section className="benefit-picker" role="dialog" aria-modal="true" aria-label="Chọn voucher">
-        <div className="card-head"><h2>Chọn voucher MLAND</h2><button type="button" className="text-link" onClick={onClose}>Đóng</button></div>
-        <div className="voucher-code-entry"><input value={typedCode} maxLength="128" placeholder="Nhập mã voucher" onChange={event => setTypedCode(event.target.value)} /><button type="button" className="button primary" onClick={() => onApply(typedCode)}>Áp dụng</button></div>
-        <h3>Voucher của bạn</h3>
-        {active.length === 0 && <p className="muted">Bạn chưa có voucher khả dụng.</p>}
-        {active.map(item => (
-          <button type="button" key={item.code} className={`voucher-option${item.code === selection.voucherCode ? ' selected' : ''}`} aria-pressed={item.code === selection.voucherCode} onClick={() => onApply(item.code)}>
-            <span className="voucher-stamp">MLAND</span><span><strong>{item.name}</strong><small>{item.code}</small></span><span>{item.code === selection.voucherCode ? '✓' : '○'}</span>
-          </button>
-        ))}
-      </section>
-    </div>
-  );
 }

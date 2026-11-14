@@ -12,13 +12,18 @@ final class RetailCartRestoration {
     private RetailCartRestoration() { }
 
     static int restore(RetailCart cart, GroupedCheckout checkout) {
+        return restore(cart, checkout.getOrders());
+    }
+
+    /** Restores only the given branch orders (one branch order cancelled or expired on its own). */
+    static int restore(RetailCart cart, java.util.Collection<edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.entity.RetailOrder> branchOrders) {
         Map<VariantLocationKey, Integer> totals = new HashMap<>();
         for (CartLine line : cart.getLines()) {
             totals.merge(new VariantLocationKey(line.getVariantId(), line.getLocationId()), line.getQuantity(), Integer::sum);
         }
         int notRestored = 0;
         boolean changed = false;
-        var orders = checkout.getOrders().stream().sorted(Comparator.comparing(order -> order.getLocationId())).toList();
+        var orders = branchOrders.stream().sorted(Comparator.comparing(order -> order.getLocationId())).toList();
         for (var order : orders) {
             var items = order.getItems().stream().sorted(Comparator.comparing(item -> item.getVariantId())).toList();
             for (var item : items) {

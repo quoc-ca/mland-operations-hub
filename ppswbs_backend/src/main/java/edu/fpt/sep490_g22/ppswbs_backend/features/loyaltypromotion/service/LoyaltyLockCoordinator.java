@@ -120,6 +120,13 @@ public class LoyaltyLockCoordinator {
         return eligibility.lockActiveAutoDiscounts(at);
     }
 
+    /** The same shared read for workshop automatic discounts (Session 2026-11-14, FR-044). */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public List<PromotionProgram> shareActiveWorkshopAutoDiscounts(Instant at) {
+        enter(Step.PROGRAMS, List.of("workshop-auto-discounts@" + at));
+        return eligibility.lockActiveWorkshopAutoDiscounts(at);
+    }
+
     /** The Member's wallet, locked; empty when the Member has none yet. */
     @Transactional(propagation = Propagation.MANDATORY)
     public Optional<LoyaltyWallet> lockWallet(long memberId) {

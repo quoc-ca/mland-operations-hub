@@ -5,7 +5,7 @@ import { useHttp } from '../../shared/api/useHttp';
 import { useFormat } from '../../shared/i18n/I18nProvider';
 import { useCurrentAccount } from '../accountmanagement/hooks/useCurrentAccount';
 import { firebaseAuthClient } from '../accountmanagement/auth/FirebaseAuthClient';
-import { listWorkshopPackages, listMemberBookings } from '../../api/workshops';
+import { listWorkshopPackages, listMemberBookingGroups } from '../../api/workshops';
 import { listPublicProducts, publicMediaUrl } from '../../api/catalogue';
 import MainTopbar from '../../shared/ui/MainTopbar';
 import { PublicProductGrid } from '../product-management/ui/public/PublicProductGrid';
@@ -196,14 +196,17 @@ export default function HomePage() {
       try {
         const token = await getIdToken();
         if (!token) return;
-        const bookings = await listMemberBookings({ authorization: `Bearer ${token}` });
+        // A direct booking is a booking group and attendance belongs to one ticket (003.1 FR-046, FR-050).
+        const groups = await listMemberBookingGroups({ authorization: `Bearer ${token}` });
         const now = Date.now();
         const upcoming = [];
-        for (const booking of bookings) {
-          if (booking.bookingStatus !== 'CONFIRMED') continue;
-          for (const session of booking.sessions || []) {
-            const start = new Date(session.scheduledStart).getTime();
-            if (!Number.isNaN(start) && start >= now) upcoming.push({ bookingCode: booking.bookingCode, start });
+        for (const group of groups) {
+          for (const ticket of group.tickets || []) {
+            if (ticket.ticketStatus !== 'CONFIRMED') continue;
+            for (const session of ticket.sessions || []) {
+              const start = new Date(session.scheduledStart).getTime();
+              if (!Number.isNaN(start) && start >= now) upcoming.push({ bookingCode: group.groupCode, start });
+            }
           }
         }
         upcoming.sort((left, right) => left.start - right.start);

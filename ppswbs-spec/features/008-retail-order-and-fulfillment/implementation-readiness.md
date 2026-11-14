@@ -1,7 +1,7 @@
 # FE-08 Implementation Readiness
 
 **Date created**: 2026-10-26
-**Date updated**: 2026-10-30
+**Date updated**: 2026-11-13
 **Author**: Thinh
 **Last updated by**: Thinh
 
@@ -85,3 +85,14 @@ it is replaced by verified VNPay evidence before production.
 | Unallocated | Shipments, carrier status events, custody evidence and recipient retention | Approve a migration number, GHTK callback/security and Staff/Manager delegation design |
 
 Shipping and shipment migrations remain unallocated and unauthorized by this document.
+
+## Frontend stack (T004, recorded 2026-11-13)
+
+| Item | Value |
+| --- | --- |
+| Framework | React 19.3.1, JavaScript/JSX (TypeScript is not used) |
+| Router | react-router 7.18.5, routes in `src/features/retail-order/routes/routes.jsx` |
+| Build | Vite 7.3.7 (`vite.config.js`) |
+| Tests | Vitest 4.1.12 |
+| State and API | shared `useResource`/`useCommand`; `infrastructure/retailApi.js` through `application/useRetailApi.js` |
+| Auth | bearer session from `shared/auth`; `RequireSession` guards Member and Staff pages |

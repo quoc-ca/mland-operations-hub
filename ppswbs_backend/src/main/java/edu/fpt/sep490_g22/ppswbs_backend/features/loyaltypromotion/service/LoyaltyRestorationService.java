@@ -28,10 +28,19 @@ public class LoyaltyRestorationService {
 
     private final BenefitEffectSupport effects;
     private final LoyaltyAuditService audit;
+    /** Null only in unit tests that build the service by hand without settlement parts. */
+    private final BenefitPartSupport partSupport;
 
-    public LoyaltyRestorationService(BenefitEffectSupport effects, LoyaltyAuditService audit) {
+    @org.springframework.beans.factory.annotation.Autowired
+    public LoyaltyRestorationService(BenefitEffectSupport effects, LoyaltyAuditService audit,
+                                     BenefitPartSupport partSupport) {
         this.effects = effects;
         this.audit = audit;
+        this.partSupport = partSupport;
+    }
+
+    LoyaltyRestorationService(BenefitEffectSupport effects, LoyaltyAuditService audit) {
+        this(effects, audit, null);
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
@@ -42,6 +51,11 @@ public class LoyaltyRestorationService {
         }
         BenefitEffectSupport.Locked locked = effects.lockFor(outcome);
         AcceptedBenefit benefit = locked.benefit();
+        // A workshop cart (D-012) cancelled as a whole gives back every ticket at once, unless tickets have outcomes.
+        java.util.List<edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.entity.AcceptedBenefitPart> parts =
+                partSupport == null ? java.util.List.of()
+                        : outcome.sourceOutcomeKey().equals(benefit.getRestoreOutcomeKey())
+                        ? partSupport.partsOf(benefit) : partSupport.requireWholeAllowed(benefit);
         AcceptedBenefit.Changes changes = benefit.restore(outcome.sourceOutcomeKey(), outcome.sourceOutcomeVersion(),
                 outcome.decisionAt());
         if (changes.points()) {
@@ -59,9 +73,10 @@ public class LoyaltyRestorationService {
             }
         }
         if (changes.any()) {
+            parts.forEach(part -> part.mirrorRestore(outcome.decisionAt()));
             audit.record(outcome.ownerModule(), "benefit.restore", "benefit:" + benefit.getId(),
                     BenefitEffectSupport.detail(benefit, outcome));
         }
-        return BenefitEffectSupport.result(benefit);
+        return BenefitPartSupport.result(benefit, parts);
     }
 }

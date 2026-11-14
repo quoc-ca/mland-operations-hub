@@ -24,12 +24,14 @@ class RetailPaymentMethodsTest {
     }
 
     @Test
-    void cashIsOnlyForOneStorePickupBranch() {
+    void cashIsForStorePickupAtOneOrSeveralBranches() {
         assertThatCode(() -> RetailPaymentMethods.requireAllowed(RetailPaymentMethod.CASH_AT_COUNTER, List.of("PICKUP")))
             .doesNotThrowAnyException();
         assertThatThrownBy(() -> RetailPaymentMethods.requireAllowed(RetailPaymentMethod.CASH_AT_COUNTER, List.of("GHTK")))
             .isInstanceOf(RetailConflictException.class);
-        assertThatThrownBy(() -> RetailPaymentMethods.requireAllowed(RetailPaymentMethod.CASH_AT_COUNTER, List.of("PICKUP", "PICKUP")))
+        assertThatCode(() -> RetailPaymentMethods.requireAllowed(RetailPaymentMethod.CASH_AT_COUNTER, List.of("PICKUP", "PICKUP")))
+            .doesNotThrowAnyException();
+        assertThatThrownBy(() -> RetailPaymentMethods.requireAllowed(RetailPaymentMethod.CASH_AT_COUNTER, List.of("PICKUP", "GHTK")))
             .isInstanceOf(RetailConflictException.class);
         assertThatCode(() -> RetailPaymentMethods.requireAllowed(RetailPaymentMethod.VNPAY, List.of("GHTK", "PICKUP")))
             .doesNotThrowAnyException();

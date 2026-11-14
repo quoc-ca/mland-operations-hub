@@ -66,3 +66,6 @@
   .cart-sp-points{grid-template-columns:18px 28px minmax(0,1fr) auto}
   .cart-sp-points>span.muted:not(:last-child){grid-column:3 / -1;grid-row:2;font-size:12px}
 }
+.cart-sp-price .cart-sp-was{display:block;color:#9ca3af;font-size:12px}
+.cart-sp-price .cart-sp-now{display:block;color:#b45309;font-size:15px}
+.cart-sp-price .cart-sp-voucher-tag{display:inline-block;margin-top:3px;padding:1px 6px;border:1px solid #f59e0b;border-radius:3px;color:#b45309;font-size:11px;white-space:nowrap}

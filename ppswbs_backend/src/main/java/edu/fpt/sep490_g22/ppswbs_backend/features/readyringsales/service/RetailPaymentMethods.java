@@ -28,8 +28,8 @@ public final class RetailPaymentMethods {
     }
 
     /**
-     * Cash is allowed only when every branch order is store pickup. V1 also limits cash to a single branch
-     * order until FE-06 can settle and release benefits per branch (spec implementation gate).
+     * Cash is allowed only when every branch order is store pickup. Several branches are allowed: each branch order is
+     * paid, cancelled or expired on its own with its FE-06 settlement part (Session 2026-11-13, D-011).
      */
     public static void requireAllowed(RetailPaymentMethod method, Collection<String> fulfilmentMethods) {
         if (method != RetailPaymentMethod.CASH_AT_COUNTER) return;
@@ -38,9 +38,6 @@ public final class RetailPaymentMethods {
         }
         if (fulfilmentMethods.stream().anyMatch(value -> !"PICKUP".equalsIgnoreCase(value))) {
             throw new RetailConflictException("Cash at the counter is only available for store pickup");
-        }
-        if (fulfilmentMethods.size() != 1) {
-            throw new RetailConflictException("Cash at the counter currently supports one branch per checkout");
         }
     }
 

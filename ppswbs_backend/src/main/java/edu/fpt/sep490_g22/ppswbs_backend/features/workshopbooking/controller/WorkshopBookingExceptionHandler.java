@@ -41,6 +41,15 @@ public class WorkshopBookingExceptionHandler {
         return buildResponse(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "Unauthorized", ex.getMessage(), correlationId);
     }
 
+    @ExceptionHandler(edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.WorkshopBookingProblemException.class)
+    public ResponseEntity<ProblemDetailResponse> handleProblem(
+            edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.WorkshopBookingProblemException ex,
+            HttpServletRequest request) {
+        String correlationId = resolveCorrelationId(request);
+        log.info("Workshop booking refusal [correlationId={}]: {}", correlationId, ex.getCode());
+        return buildResponse(ex.getStatus(), ex.getCode(), ex.getStatus().getReasonPhrase(), ex.getMessage(), correlationId);
+    }
+
     @ExceptionHandler(WorkshopBookingLocationScopeException.class)
     public ResponseEntity<ProblemDetailResponse> handleLocationScope(
             WorkshopBookingLocationScopeException ex, HttpServletRequest request) {

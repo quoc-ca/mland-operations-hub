@@ -39,6 +39,17 @@ public class SettlementNotificationHandoff {
     @Column(name = "rendered_settlement_content", nullable = false, updatable = false, columnDefinition = "text")
     private String renderedSettlementContent;
 
+    /** Subject rendered by Settlement; null for kinds whose subject Feature 007 derives. */
+    @Column(name = "rendered_subject", length = 255, updatable = false)
+    private String renderedSubject;
+
+    /** Private link path the email opens (e.g. the refund-account link); never in events, audit or logs. */
+    @Column(name = "payment_action_link", columnDefinition = "text", updatable = false)
+    private String actionLink;
+
+    @Column(name = "payment_action_link_expires_at", updatable = false)
+    private Instant actionLinkExpiresAt;
+
     @Column(name = "payload_expires_at", nullable = false, updatable = false)
     private Instant payloadExpiresAt;
 

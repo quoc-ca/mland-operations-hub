@@ -187,8 +187,40 @@ class PromotionCreateContractIT {
         assertError(create(manager, UUID.randomUUID(), autoDiscount(",\"allowPoints\":false")), 400, "INVALID_INPUT");
         assertError(create(manager, UUID.randomUUID(), autoDiscount(",\"code\":\"AUTO1\"")), 400, "INVALID_INPUT");
         assertError(create(manager, UUID.randomUUID(), autoDiscount(",\"totalLimit\":\"5\"")), 400, "INVALID_INPUT");
+    }
+
+    /** A workshop automatic discount with the given targets (Session 2026-11-14, FR-044). */
+    private String workshopAutoDiscount(String targets) {
+        return """
+                {"kind":"AUTO_DISCOUNT","scope":"WORKSHOP","name":"Giảm tự động gói",
+                 "startAt":"2026-11-15T00:00:00Z","endAt":"2026-12-01T00:00:00Z",
+                 "discount":{"kind":"FIXED","amount":"100000","maxDiscountAmount":"100000"},
+                 "minimumEligibleAmount":"0","targets":%s}""".formatted(targets);
+    }
+
+    @Test
+    void aWorkshopAutomaticDiscountTakesPackagesOnly() throws Exception {
+        // The package itself is checked by the real provider of 003.2; an unknown one is refused by its field path,
+        // which shows the AUTO_DISCOUNT + WORKSHOP combination now reaches that check instead of being rejected.
+        MvcResult checked = create(manager, UUID.randomUUID(),
+                workshopAutoDiscount("{\"packageIds\":[\"999999999999\"]}"));
+        assertError(checked, 400, "INVALID_INPUT");
+        assertThat(checked.getResponse().getContentAsString()).contains("targets.packageIds[999999999999]");
+
+        // Branch, workshop date and session are refused by their own field path, before any target check.
+        for (String extra : java.util.List.of("\"branchIds\":[\"3\"]", "\"workshopDates\":[\"2026-11-20\"]",
+                "\"sessionIds\":[\"" + UUID.randomUUID() + "\"]")) {
+            MvcResult refused = create(manager, UUID.randomUUID(),
+                    workshopAutoDiscount("{\"packageIds\":[\"1\"]," + extra + "}"));
+            assertError(refused, 400, "INVALID_INPUT");
+            assertThat(refused.getResponse().getContentAsString()).contains("packages only");
+        }
+        // Unlike a workshop voucher, it needs at least one package.
+        assertError(create(manager, UUID.randomUUID(), workshopAutoDiscount("{}")), 400, "INVALID_INPUT");
+        // And it keeps the automatic rules: no code, no quota.
         assertError(create(manager, UUID.randomUUID(),
-                autoDiscount("").replace("\"scope\":\"PRODUCT\"", "\"scope\":\"WORKSHOP\"")), 400, "INVALID_INPUT");
+                workshopAutoDiscount("{\"packageIds\":[\"1\"]}").replace("\"minimumEligibleAmount\":\"0\"",
+                        "\"minimumEligibleAmount\":\"0\",\"totalLimit\":\"5\"")), 400, "INVALID_INPUT");
     }
 
     @Test

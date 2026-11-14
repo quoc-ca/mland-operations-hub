@@ -28,7 +28,8 @@ class AttendanceRosterTest {
     private final WorkshopSessionRepository sessions = mock(WorkshopSessionRepository.class);
     private final TicketSessionEntitlementRepository entitlements = mock(TicketSessionEntitlementRepository.class);
     private final WorkshopOperationsAuthorizationService authorization = mock(WorkshopOperationsAuthorizationService.class);
-    private final CheckInService service = new CheckInService(sessions, mock(AttendanceTicketRepository.class), entitlements,
+    private final CheckInService service = new CheckInService(sessions, mock(AttendanceTicketRepository.class),
+            mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.TicketQrGenerationRepository.class), entitlements,
             mock(AttendanceActionRepository.class), mock(OperationsAuditEventRepository.class), authorization);
 
     private TicketSessionEntitlement entitlement(String code, String booking, int sequence, AttendanceState state, Instant at) {

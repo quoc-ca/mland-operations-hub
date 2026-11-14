@@ -1,77 +1,74 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { getWorkshopPackage, listWorkshopLocations, listWorkshopSessions, previewWorkshopBookingQuote, createWorkshopBooking, WorkshopApiError } from '../api/workshops';
-import { WorkshopBenefitPanel } from './WorkshopBenefitPanel';
-import { HoldPaymentPanel } from './HoldPaymentPanel';
-import { useAuth } from '../shared/auth/AuthProvider';
+import { Link } from 'react-router';
+import {
+  createBookingGroup,
+  getWorkshopPackage,
+  listWorkshopLocations,
+  listWorkshopSessions,
+  quoteWorkshopCart,
+  WorkshopApiError,
+} from '../api/workshops';
+import { CartBenefitPicker } from './CartBenefitPicker';
+import { CartQuotePanel } from './CartQuotePanel';
+import { GroupDetailCard } from './GroupDetailCard';
+import { addCartLine, cartLineCount, clearCart, subscribeToCart } from './cartStorage';
+import { failingLinesOf, formatSessionWindow, vnd } from './groupDisplay';
+import { useBookingIdentity } from './useBookingIdentity';
 import { useHttp } from '../shared/api/useHttp';
 import { getEffectiveParticipantMax } from './bookingCapacity';
 import { Paginator, usePaged } from '../shared/ui/Paginator';
 import './figmaPublicShell.css';
 
 function formatDate(date) {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
-function formatSessionDateTime(isoString) {
-  if (!isoString) return '';
-  const d = new Date(isoString);
-  return d.toLocaleDateString('vi-VN', {
-    weekday: 'short',
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  });
-}
+const BOOKING_ERROR_MESSAGE = {
+  INSUFFICIENT_CAPACITY: 'Ca workshop bạn chọn không còn đủ chỗ. Hệ thống không giữ chỗ nào; vui lòng chọn ca khác.',
+  CART_HOLD_REJECTED: 'Giỏ chưa được giữ chỗ vì có dòng không còn đủ chỗ. Vui lòng sửa lại rồi thử lại.',
+  PACKAGE_SELECTION_INVALID: 'Lựa chọn ca không hợp lệ theo quy định của gói (số ca, địa điểm hoặc khoảng cách thời gian).',
+  PACKAGE_NOT_PUBLISHED: 'Gói workshop này hiện chưa được mở bán hoặc đã tạm dừng.',
+  QUOTE_EXPIRED: 'Báo giá đã hết hạn. Vui lòng báo giá lại.',
+  CART_BENEFITS_NEED_A_MEMBER: 'Voucher và điểm chỉ áp dụng cho tài khoản Member đang đăng nhập.',
+  SALES_PAUSED: 'Hệ thống đang tạm dừng nhận đăng ký cho ca này.',
+  IDEMPOTENCY_CONFLICT: 'Yêu cầu trùng lặp nhưng nội dung khác với lần gửi trước.',
+};
 
-function formatSessionTime(isoStart, isoEnd) {
-  if (!isoStart || !isoEnd) return '';
-  const start = new Date(isoStart).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-  const end = new Date(isoEnd).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-  return `${start} - ${end}`;
-}
+const describeBookingError = error => ({
+  code: error?.code || 'CLIENT_ERROR',
+  message: BOOKING_ERROR_MESSAGE[error?.code] || error?.detail || error?.message
+    || 'Không thể hoàn tất yêu cầu. Vui lòng thử lại.',
+  correlationId: error?.correlationId || null,
+});
 
+/**
+ * Booking one package (003.1 FR-045, decision 2026-11-13). A direct booking is only a booking group, so both actions
+ * here go through the same two calls: "Đặt ngay" quotes this single line with `POST /workshop-cart-quotes` and shows
+ * the quote on this screen, then confirms it with `POST /workshop-booking-groups`; "Thêm vào giỏ" stores the line in
+ * this browser and the cart page confirms it with the same two calls. There is no server cart and no second booking
+ * path.
+ */
 export function WorkshopBookingPage({ packageId }) {
-  const { status: authStatus, getIdToken } = useAuth();
+  const { authStatus, mode: bookingMode, profile, profileLoading, profileError, memberAuthorization } = useBookingIdentity();
   const http = useHttp();
-  // Package facts
+
   const [pkg, setPkg] = useState(null);
   const [loadingPkg, setLoadingPkg] = useState(true);
   const [pkgError, setPkgError] = useState(null);
 
-  // Booking mode is derived from the authenticated account. The visitor must
-  // not be able to switch identity/authorization mode from the booking form.
-  const [accountProfile, setAccountProfile] = useState(null);
-  const [profileLoading, setProfileLoading] = useState(false);
-  const [profileError, setProfileError] = useState(null);
-  const bookingMode = authStatus === 'signed-out' || authStatus === 'unconfigured'
-    ? 'GUEST'
-    : accountProfile?.role === 'MEMBER' ? 'MEMBER' : null;
-
-  // Contact form state
-  const [contactFullName, setContactFullName] = useState('');
-  const [contactEmail, setContactEmail] = useState('');
-  const [contactPhone, setContactPhone] = useState('');
+  const [contact, setContact] = useState({ contactEmail: '', contactPhone: '' });
   const [participantCount, setParticipantCount] = useState(1);
   const [benefitSelection, setBenefitSelection] = useState({ choice: 'NONE', voucherCode: '', requestedPoints: '0' });
-  const [memberQuote, setMemberQuote] = useState(null);
-  const [quoteMatches, setQuoteMatches] = useState(false);
-  // The voucher the current quote was calculated for: the points limit is only valid for that voucher.
-  const [quotedVoucher, setQuotedVoucher] = useState(null);
-  const [benefitsAcknowledged, setBenefitsAcknowledged] = useState(false);
-  const [isQuoteLoading, setIsQuoteLoading] = useState(false);
 
-  // Location & Session discovery
   const today = new Date();
   const nextTwoWeeks = new Date();
   nextTwoWeeks.setDate(today.getDate() + 14);
 
-  // A session card on the package page opens this page with the session, branch and dates already chosen.
   const urlParams = useRef(new URLSearchParams(typeof window !== 'undefined' ? window.location.search : ''));
   const pendingSessionRef = useRef(urlParams.current.get('session'));
-  const attachedDesignId = urlParams.current.get('designId');
   const [locationId, setLocationId] = useState(Number(urlParams.current.get('locationId')) || null);
   const [locations, setLocations] = useState([]);
   const [loadingLocations, setLoadingLocations] = useState(false);
@@ -82,62 +79,41 @@ export function WorkshopBookingPage({ packageId }) {
   const [sessions, setSessions] = useState([]);
   const [loadingSessions, setLoadingSessions] = useState(false);
   const [sessionsError, setSessionsError] = useState(null);
-  // Eight sessions per page; what the customer ticked is kept while moving between pages.
   const pagedSessions = usePaged(sessions, 8, sessions);
   const pendingPageRef = useRef(null);
-  // Declared after usePaged so it runs after the reset-to-first-page that follows a list change.
   useEffect(() => {
     if (pendingPageRef.current != null) { pagedSessions.setPage(pendingPageRef.current); pendingPageRef.current = null; }
   }, [sessions]);
 
-  // Selected sessions: array of opaque UUID strings
   const [selectedSessionRefs, setSelectedSessionRefs] = useState([]);
 
-  // Submission state
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formValidationErrors, setFormValidationErrors] = useState({});
-  const [serverError, setServerError] = useState(null);
-  const [bookingOutcome, setBookingOutcome] = useState(null);
+  // Quote ("Đặt ngay"), confirmation and the created group
+  const [quote, setQuote] = useState(null);
+  const [quoting, setQuoting] = useState(false);
+  const [quoteError, setQuoteError] = useState(null);
+  const [confirming, setConfirming] = useState(false);
+  const [confirmError, setConfirmError] = useState(null);
+  const [failingLines, setFailingLines] = useState([]);
+  const [group, setGroup] = useState(null);
+  const [validationErrors, setValidationErrors] = useState({});
+  const [cartMessage, setCartMessage] = useState(null);
+  const [cartCount, setCartCount] = useState(() => cartLineCount());
+  const confirmKey = useRef(null);
+
+  useEffect(() => subscribeToCart(lines => setCartCount(lines.length)), []);
 
   useEffect(() => {
-    let active = true;
     if (authStatus !== 'signed-in') {
-      setAccountProfile(null);
-      setProfileLoading(false);
-      setProfileError(null);
-      // Do not retain authenticated contact data after sign-out.
-      setContactFullName('');
-      setContactEmail('');
-      setContactPhone('');
-      return () => { active = false; };
+      // Authenticated contact data is not kept after sign-out.
+      setContact({ contactEmail: '', contactPhone: '' });
+      return;
     }
+    if (profile) {
+      setContact({ contactEmail: profile.email || '', contactPhone: profile.phone || '' });
+    }
+  }, [authStatus, profile]);
 
-    setProfileLoading(true);
-    setProfileError(null);
-    http('/api/v1/accounts/me/profile')
-      .then(profile => {
-        if (!active) return;
-        setAccountProfile(profile || null);
-        setContactFullName(profile?.fullName || '');
-        setContactEmail(profile?.email || '');
-        setContactPhone(profile?.phone || '');
-      })
-      .catch(error => {
-        if (!active) return;
-        // A profile lookup failure must not be hidden as a Member profile.
-        // A signed-in account without a canonical Member role is blocked
-        // rather than silently downgraded to the Guest journey.
-        setAccountProfile(null);
-        setProfileError(error?.message || 'Không thể tải hồ sơ Member.');
-      })
-      .finally(() => {
-        if (active) setProfileLoading(false);
-      });
-
-    return () => { active = false; };
-  }, [authStatus, http]);
-
-  // Kho Voucher for the benefit picker; a failed load leaves the picker empty (the code can still be typed).
+  // Kho Voucher and the running workshop vouchers for the picker; a failed load just leaves it empty.
   const [savedVouchers, setSavedVouchers] = useState([]);
   useEffect(() => {
     if (bookingMode !== 'MEMBER') { setSavedVouchers([]); return undefined; }
@@ -156,7 +132,6 @@ export function WorkshopBookingPage({ packageId }) {
     return () => { active = false; };
   }, [bookingMode, http]);
 
-  // Running workshop vouchers (public list), so the picker offers them even when the Member has not saved them.
   const [workshopOffers, setWorkshopOffers] = useState([]);
   useEffect(() => {
     if (bookingMode !== 'MEMBER') { setWorkshopOffers([]); return undefined; }
@@ -167,15 +142,14 @@ export function WorkshopBookingPage({ packageId }) {
         const items = result?.items || [];
         setWorkshopOffers(items
           .filter(item => item.kind === 'VOUCHER' && item.code)
-          // A voucher limited to other packages is not offered here (branch and session limits are checked by the quote).
-          .filter(item => !(item.targets?.packageIds?.length) || item.targets.packageIds.map(String).includes(String(packageId)))
+          .filter(item => !(item.targets?.packageIds?.length)
+            || item.targets.packageIds.map(String).includes(String(packageId)))
           .map(item => ({ code: item.code, name: item.name || item.code, discount: item.discount })));
       })
       .catch(() => { if (active) setWorkshopOffers([]); });
     return () => { active = false; };
   }, [bookingMode, http, packageId]);
 
-  // The Member's points, shown before any choice: available (balance minus held), held, and the redeem policy.
   const [loyaltyAccount, setLoyaltyAccount] = useState(null);
   useEffect(() => {
     if (bookingMode !== 'MEMBER') { setLoyaltyAccount(null); return undefined; }
@@ -194,51 +168,32 @@ export function WorkshopBookingPage({ packageId }) {
     && effectiveMaxParticipants >= packageMinParticipants;
   const inputMaxParticipants = canChooseParticipantCount ? effectiveMaxParticipants : 1;
 
-  useEffect(() => {
-    if (!hasCompleteSessionSelection) {
-      if (participantCount !== 1) {
-        setParticipantCount(1);
-        if (bookingMode === 'MEMBER') {
-          invalidateMemberQuote();
-        }
-      }
-      return;
-    }
-    if (effectiveMaxParticipants < packageMinParticipants) {
-      return;
-    }
-    if (participantCount > effectiveMaxParticipants) {
-      setParticipantCount(effectiveMaxParticipants);
-      if (bookingMode === 'MEMBER') {
-        invalidateMemberQuote();
-      }
-    }
-  }, [hasCompleteSessionSelection, effectiveMaxParticipants, packageMinParticipants, participantCount, bookingMode]);
-
-  const invalidateMemberQuote = () => {
-    setQuoteMatches(false);
-    setBenefitsAcknowledged(false);
+  // A quote stops matching the choices as soon as anything in the cart line changes.
+  const invalidateQuote = () => {
+    setQuote(null);
+    setQuoteError(null);
+    setConfirmError(null);
+    setFailingLines([]);
+    confirmKey.current = null;
   };
 
-  // Load package facts
+  useEffect(() => {
+    if (!hasCompleteSessionSelection) {
+      if (participantCount !== 1) setParticipantCount(1);
+      return;
+    }
+    if (effectiveMaxParticipants < packageMinParticipants) return;
+    if (participantCount > effectiveMaxParticipants) setParticipantCount(effectiveMaxParticipants);
+  }, [hasCompleteSessionSelection, effectiveMaxParticipants, packageMinParticipants, participantCount]);
+
   useEffect(() => {
     if (!packageId) return;
     setLoadingPkg(true);
     setPkgError(null);
     getWorkshopPackage(packageId)
-      .then(data => {
-        setPkg(data);
-        // Keep the customer-facing quantity at one until a session is chosen.
-        // The package minimum is validated when the selected-session quantity
-        // control becomes active and again by the backend during quote/hold.
-        setParticipantCount(1);
-      })
-      .catch(err => {
-        setPkgError(err?.detail || err?.message || 'Không tìm thấy gói workshop.');
-      })
-      .finally(() => {
-        setLoadingPkg(false);
-      });
+      .then(data => { setPkg(data); setParticipantCount(1); })
+      .catch(error => setPkgError(error?.detail || error?.message || 'Không tìm thấy gói workshop.'))
+      .finally(() => setLoadingPkg(false));
   }, [packageId]);
 
   useEffect(() => {
@@ -251,28 +206,26 @@ export function WorkshopBookingPage({ packageId }) {
         if (!active) return;
         const next = Array.isArray(data) ? data : [];
         setLocations(next);
-        setLocationId(current => next.some(item => Number(item.id) === Number(current)) ? current : (next[0]?.id ?? null));
+        setLocationId(current => (next.some(item => Number(item.id) === Number(current)) ? current : (next[0]?.id ?? null)));
       })
-      .catch(err => {
+      .catch(error => {
         if (!active) return;
         setLocations([]);
         setLocationId(null);
-        setLocationsError(err?.detail || err?.message || 'Không thể tải danh sách chi nhánh.');
+        setLocationsError(error?.detail || error?.message || 'Không thể tải danh sách chi nhánh.');
       })
       .finally(() => { if (active) setLoadingLocations(false); });
     return () => { active = false; };
   }, [packageId, pkg, from, to]);
 
-  // Load sessions for selected location and date range
-  const loadSessions = () => {
-    if (!packageId || !locationId) return;
+  useEffect(() => {
+    if (!pkg || !locationId) { setSessions([]); return; }
     setLoadingSessions(true);
     setSessionsError(null);
     listWorkshopSessions(packageId, { locationId, from, to })
       .then(data => {
         const list = Array.isArray(data) ? data : [];
         setSessions(list);
-        // Tick the session chosen on the package page (once), and show the page of the list that holds it.
         const wanted = pendingSessionRef.current;
         if (wanted) {
           pendingSessionRef.current = null;
@@ -283,296 +236,148 @@ export function WorkshopBookingPage({ packageId }) {
           }
         }
       })
-      .catch(err => {
-        setSessionsError(err?.detail || err?.message || 'Không thể tải lịch ca workshop. Vui lòng thử lại.');
-      })
-      .finally(() => {
-        setLoadingSessions(false);
-      });
+      .catch(error => setSessionsError(error?.detail || error?.message || 'Không thể tải lịch ca workshop. Vui lòng thử lại.'))
+      .finally(() => setLoadingSessions(false));
+  }, [pkg, packageId, locationId, from, to]);
+
+  useEffect(() => { setSelectedSessionRefs([]); invalidateQuote(); }, [locationId, from, to]);
+
+  const toggleSessionSelection = sessionReference => {
+    setSelectedSessionRefs(previous => {
+      if (previous.includes(sessionReference)) return previous.filter(ref => ref !== sessionReference);
+      if (requiredSessions === 1) return [sessionReference];
+      if (previous.length >= requiredSessions) return [...previous.slice(1), sessionReference];
+      return [...previous, sessionReference];
+    });
+    invalidateQuote();
   };
 
-  useEffect(() => {
-    if (pkg && locationId) {
-      loadSessions();
-    } else {
-      setSessions([]);
-    }
-  }, [pkg, locationId, from, to]);
+  const selectedSessionLabels = () => selectedSessionRefs.map(reference => {
+    const session = sessions.find(item => item.sessionReference === reference);
+    return session ? formatSessionWindow(session.scheduledStart, session.scheduledEnd) : reference;
+  });
 
-  useEffect(() => {
-    setSelectedSessionRefs([]);
-  }, [locationId, from, to]);
+  const lineForCart = () => ({
+    packageId: Number(packageId),
+    sessionReferences: selectedSessionRefs,
+    participantCount: Number(participantCount),
+  });
 
-  // Toggle session selection (opaque UUID)
-  const toggleSessionSelection = (sessionReference) => {
-    setSelectedSessionRefs(prev => {
-      if (prev.includes(sessionReference)) {
-        return prev.filter(ref => ref !== sessionReference);
-      } else {
-        const requiredCount = pkg?.requiredSessionCount || 1;
-        if (requiredCount === 1) {
-          return [sessionReference];
-        }
-        if (prev.length >= requiredCount) {
-          // Replace the oldest or allow user to toggle off
-          return [...prev.slice(1), sessionReference];
-        }
-        return [...prev, sessionReference];
-      }
-    });
-    // Clear previous errors when user changes selection
-    setServerError(null);
-    if (bookingMode === 'MEMBER') invalidateMemberQuote();
-  };
-
-  const handleBenefitChange = (nextValue) => {
-    setBenefitSelection(nextValue);
-    invalidateMemberQuote();
-    setServerError(null);
-    setFormValidationErrors(prev => {
-      const next = { ...prev };
-      delete next.memberBenefits;
-      return next;
-    });
-  };
-
-  const recalculateMemberQuote = async () => {
-    setServerError(null);
-    setFormValidationErrors(prev => {
-      const next = { ...prev };
-      delete next.memberBenefits;
-      return next;
-    });
+  const selectionProblem = () => {
     if (selectedSessionRefs.length < requiredSessions) {
-      setFormValidationErrors(prev => ({
-        ...prev,
-        sessions: `Vui lòng chọn đủ ${requiredSessions} ca workshop trước khi tính ưu đãi.`,
-      }));
+      return `Vui lòng chọn đủ ${requiredSessions} ca workshop.`;
+    }
+    if (effectiveMaxParticipants < packageMinParticipants) {
+      return 'Các ca đã chọn không còn đủ chỗ cho số vé tối thiểu của gói. Vui lòng chọn ca khác.';
+    }
+    if (participantCount < packageMinParticipants) {
+      return `Số vé tối thiểu là ${packageMinParticipants}.`;
+    }
+    if (participantCount > effectiveMaxParticipants) {
+      return `Các ca đã chọn chỉ còn đủ ${effectiveMaxParticipants} vé.`;
+    }
+    return null;
+  };
+
+  /** FR-045 "Đặt ngay": the cart is this one line, quoted and shown here; no cart page is involved. */
+  const bookNow = async (selectionOverride) => {
+    const problem = selectionProblem();
+    if (problem) {
+      setValidationErrors({ sessions: problem });
       document.getElementById('workshop-sessions-section')?.scrollIntoView({ behavior: 'smooth' });
       return;
     }
-
-    setIsQuoteLoading(true);
+    setValidationErrors({});
+    setQuoting(true);
+    setQuoteError(null);
+    setConfirmError(null);
+    setFailingLines([]);
     try {
-      let idToken = null;
-      if (authStatus === 'signed-in') {
-        try {
-          idToken = await getIdToken(false);
-        } catch (_) {}
-      }
-
-      const normalizedBenefitSelection = {
-        choice: benefitSelection.choice,
-        voucherCode: benefitSelection.choice === 'VOUCHER' && benefitSelection.voucherCode?.trim()
-          ? benefitSelection.voucherCode.trim()
-          : null,
-        requestedPoints: String(benefitSelection.requestedPoints ?? '0').trim() || '0',
-      };
-
-      let quote;
-      try {
-        quote = await previewWorkshopBookingQuote({
-          packageId,
-          sessionReferences: selectedSessionRefs,
-          participantCount,
-          benefitSelection: normalizedBenefitSelection,
-          authorization: idToken ? `Bearer ${idToken}` : undefined,
-        });
-      } catch (apiErr) {
-        // If 401 / unauthorized, try force refresh token once
-        if ((apiErr?.status === 401 || apiErr?.code === 'WORKSHOP_401' || apiErr?.message?.includes('401')) && authStatus === 'signed-in') {
-          const freshToken = await getIdToken(true);
-          if (freshToken) {
-            quote = await previewWorkshopBookingQuote({
-              packageId,
-              sessionReferences: selectedSessionRefs,
-              participantCount,
-              benefitSelection: normalizedBenefitSelection,
-              authorization: `Bearer ${freshToken}`,
-            });
-          } else {
-            throw apiErr;
-          }
-        } else {
-          throw apiErr;
-        }
-      }
-
-      setMemberQuote(quote);
-      setQuotedVoucher(normalizedBenefitSelection.voucherCode || '');
-      setQuoteMatches(true);
-      setBenefitsAcknowledged(false);
-      setServerError(null);
-      setFormValidationErrors(prev => {
-        const next = { ...prev };
-        delete next.memberBenefits;
-        return next;
+      const authorization = await memberAuthorization();
+      const result = await quoteWorkshopCart({
+        lines: [lineForCart()],
+        benefitSelection: bookingMode === 'MEMBER' ? (selectionOverride || benefitSelection) : undefined,
+        authorization: authorization || undefined,
       });
-    } catch (err) {
-      const errMsg = err?.detail || err?.message || 'Không thể tính lại ưu đãi workshop. Vui lòng thử lại.';
-      const errCode = err?.code || (err?.status ? `WORKSHOP_${err.status}` : 'CLIENT_ERROR');
-      setServerError({
-        code: errCode,
-        message: errMsg,
-        correlationId: err?.correlationId || null,
-      });
-      setFormValidationErrors(prev => ({
-        ...prev,
-        memberBenefits: `Lỗi tính ưu đãi (${errCode}): ${errMsg}`,
-      }));
-      setQuoteMatches(false);
+      setQuote(result);
+    } catch (error) {
+      setQuote(null);
+      setQuoteError(describeBookingError(error));
     } finally {
-      setIsQuoteLoading(false);
+      setQuoting(false);
     }
   };
 
-  // Automatic quote (replaces the old "recalculate" button): whenever the quote no longer matches the choices (voucher,
-  // points, sessions or ticket count) and the sessions are complete, ask for a new quote after a short pause. Each
-  // combination of inputs is asked for once, so a failed quote does not loop; "Thử tính lại" asks again by hand.
-  const autoQuoteKey = useRef(null);
-  useEffect(() => {
-    if (bookingMode !== 'MEMBER' || quoteMatches || isQuoteLoading || profileLoading) return undefined;
-    if (selectedSessionRefs.length < requiredSessions) return undefined;
-    const key = JSON.stringify([packageId, selectedSessionRefs, participantCount, benefitSelection]);
-    if (autoQuoteKey.current === key) return undefined;
-    const timer = setTimeout(() => { autoQuoteKey.current = key; recalculateMemberQuote(); }, 250);
-    return () => clearTimeout(timer);
-  });
+  /**
+   * A new voucher or point choice changes every amount, so the quote on screen is replaced at once by a new one
+   * (FR-033, FR-034). Before the first quote there is nothing to replace: the quote comes with "Đặt ngay".
+   */
+  const changeBenefitSelection = next => {
+    const hadQuote = Boolean(quote);
+    setBenefitSelection(next);
+    invalidateQuote();
+    if (hadQuote) bookNow(next);
+  };
 
-  // Validate form before submission
-  const validateForm = () => {
+  const addToCart = () => {
+    const problem = selectionProblem();
+    if (problem) {
+      setValidationErrors({ sessions: problem });
+      document.getElementById('workshop-sessions-section')?.scrollIntoView({ behavior: 'smooth' });
+      return;
+    }
+    setValidationErrors({});
+    addCartLine({
+      ...lineForCart(),
+      packageName: pkg?.name || '',
+      pricePerParticipantVnd: Number(pkg?.publicPrice || 0),
+      locationId,
+      locationName: locations.find(item => Number(item.id) === Number(locationId))?.name || '',
+      sessionLabels: selectedSessionLabels(),
+      minParticipants: packageMinParticipants,
+      maxParticipants: effectiveMaxParticipants,
+    });
+    setCartMessage('Đã thêm gói này vào giỏ. Bạn có thể chọn thêm gói khác rồi thanh toán một lần.');
+  };
+
+  const confirmQuote = async () => {
     const errors = {};
-    if (!contactEmail || !contactEmail.includes('@') || !contactEmail.includes('.')) {
+    if (!contact.contactEmail || !contact.contactEmail.includes('@')) {
       errors.contactEmail = 'Email không hợp lệ (ví dụ: name@example.com).';
     }
-    const cleanPhone = contactPhone.replace(/\s+/g, '');
-    if (!cleanPhone || cleanPhone.length < 7) {
+    if (!contact.contactPhone || contact.contactPhone.replace(/\s+/g, '').length < 7) {
       errors.contactPhone = 'Số điện thoại phải có ít nhất 7 chữ số.';
     }
-    if (selectedSessionRefs.length < requiredSessions) {
-      errors.sessions = `Vui lòng chọn đủ ${requiredSessions} ca workshop phù hợp.`;
-    }
-    if (hasCompleteSessionSelection && (!participantCount || participantCount < packageMinParticipants)) {
-      errors.participantCount = `Số vé tối thiểu là ${packageMinParticipants}.`;
-    } else if (hasCompleteSessionSelection && effectiveMaxParticipants < packageMinParticipants) {
-      errors.participantCount = 'Các ca đã chọn không còn đủ chỗ cho số vé tối thiểu của gói. Vui lòng chọn ca khác.';
-    } else if (hasCompleteSessionSelection && participantCount > effectiveMaxParticipants) {
-      errors.participantCount = `Các ca đã chọn chỉ còn đủ ${effectiveMaxParticipants} vé. Vui lòng giảm số vé hoặc chọn ca khác.`;
-    }
-    if (bookingMode === 'MEMBER') {
-      if (!memberQuote || !quoteMatches) {
-        errors.memberBenefits = 'Hệ thống đang tính ưu đãi ở mục 3. Ưu đãi & Điểm thưởng. Vui lòng đợi tính xong (hoặc bấm "Thử tính lại" nếu có lỗi) trước khi giữ chỗ.';
-      } else if (!benefitsAcknowledged) {
-        errors.memberBenefits = 'Vui lòng tích chọn ô "Tôi đã xem tổng tiền và ưu đãi ở trên" trước khi xác nhận.';
-      }
-    }
-    return errors;
-  };
+    setValidationErrors(errors);
+    if (Object.keys(errors).length > 0) return;
 
-  // Handle booking submission
-  const handleSubmit = async (e) => {
-    e?.preventDefault();
-    setServerError(null);
-    if (bookingMode === null) {
-      setServerError({
-        code: profileError ? 'PROFILE_UNAVAILABLE' : 'ACCOUNT_ROLE_UNAVAILABLE',
-        message: profileError
-          ? 'Không thể xác minh vai trò tài khoản. Vui lòng tải lại hoặc đăng nhập lại.'
-          : 'Tài khoản hiện tại chưa được phép đặt workshop theo luồng Member.',
-        correlationId: null,
-      });
-      return;
-    }
-    const errors = validateForm();
-    if (Object.keys(errors).length > 0) {
-      setFormValidationErrors(errors);
-      if (errors.contactEmail || errors.contactPhone) {
-        document.getElementById('contact-info-section')?.scrollIntoView({ behavior: 'smooth' });
-      } else if (errors.sessions) {
-        document.getElementById('workshop-sessions-section')?.scrollIntoView({ behavior: 'smooth' });
-      } else if (errors.memberBenefits) {
-        document.getElementById('member-benefits-section')?.scrollIntoView({ behavior: 'smooth' });
-      }
-      return;
-    }
-    setFormValidationErrors({});
-    setIsSubmitting(true);
-
+    setConfirming(true);
+    setConfirmError(null);
+    setFailingLines([]);
     try {
-      const idempotencyKey = typeof crypto !== 'undefined' && crypto.randomUUID
-        ? crypto.randomUUID()
-        : `idemp-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-      let idToken = null;
-      if (authStatus === 'signed-in') {
-        try {
-          idToken = await getIdToken(false);
-        } catch (_) {}
-        if (!idToken) {
-          try {
-            idToken = await getIdToken(true);
-          } catch (_) {}
-        }
+      if (!confirmKey.current) {
+        confirmKey.current = globalThis.crypto?.randomUUID?.()
+          || `group-create-${Date.now()}-${Math.random().toString(16).slice(2)}`;
       }
-
-      let payload;
-      if (bookingMode === 'MEMBER') {
-        payload = {
-          quoteRef: memberQuote.quoteRef,
-          contactEmail: contactEmail.trim(),
-          contactPhone: contactPhone.trim(),
-          idempotencyKey,
-          authorization: idToken ? `Bearer ${idToken}` : undefined,
-        };
-      }
-      if (attachedDesignId) {
-        payload.designReference = attachedDesignId;
-      } else {
-        payload = {
-          packageId: Number(packageId),
-          sessionReferences: selectedSessionRefs,
-          participantCount: Number(participantCount),
-          contactEmail: contactEmail.trim(),
-          contactPhone: contactPhone.trim(),
-          idempotencyKey,
-        };
-      }
-      if (attachedDesignId) {
-        payload.designReference = attachedDesignId;
-      }
-
-      const outcome = await createWorkshopBooking(payload);
-      setBookingOutcome(outcome);
-    } catch (err) {
-      if (err instanceof WorkshopApiError) {
-        let userFriendlyMsg = err.detail || err.message;
-        if (err.code === 'INSUFFICIENT_CAPACITY') {
-          userFriendlyMsg = 'Ca workshop bạn chọn hiện đã hết chỗ hoặc không đủ số lượng người đăng ký. Vui lòng chọn ca khác.';
-        } else if (err.code === 'PACKAGE_SELECTION_INVALID') {
-          userFriendlyMsg = 'Lựa chọn ca workshop không hợp lệ theo quy định của gói (số ca, địa điểm hoặc khoảng cách thời gian). Vui lòng điều chỉnh lại.';
-        } else if (err.code === 'PACKAGE_NOT_PUBLISHED') {
-          userFriendlyMsg = 'Gói workshop này hiện chưa được mở bán hoặc đã tạm dừng.';
-        } else if (err.code === 'QUOTE_EXPIRED') {
-          userFriendlyMsg = 'Báo giá hội viên đã hết hạn. Vui lòng tạo lại báo giá mới.';
-        } else if (err.code === 'SALES_PAUSED') {
-          userFriendlyMsg = 'Hệ thống đang tạm dừng nhận đăng ký cho ca này.';
-        } else if (err.code === 'IDEMPOTENCY_CONFLICT') {
-          userFriendlyMsg = 'Yêu cầu trùng lặp nhưng nội dung khác với lần gửi trước.';
-        }
-
-        setServerError({
-          code: err.code,
-          message: userFriendlyMsg,
-          correlationId: err.correlationId,
-        });
-      } else {
-        setServerError({
-          code: 'CLIENT_ERROR',
-          message: err?.message || 'Có lỗi xảy ra khi tạo đặt chỗ. Vui lòng kiểm tra lại thông tin.',
-          correlationId: null,
-        });
-      }
+      const authorization = await memberAuthorization();
+      const created = await createBookingGroup({
+        quoteRef: quote.quoteRef,
+        contactEmail: contact.contactEmail,
+        contactPhone: contact.contactPhone,
+        idempotencyKey: confirmKey.current,
+        authorization: authorization || undefined,
+      });
+      setGroup(created);
+      setQuote(null);
+      // The cart this booking came from is gone (FR-045).
+      clearCart();
+    } catch (error) {
+      const lines = failingLinesOf(error);
+      if (lines.length > 0) setFailingLines(lines);
+      confirmKey.current = null;
+      setConfirmError(describeBookingError(error));
     } finally {
-      setIsSubmitting(false);
+      setConfirming(false);
     }
   };
 
@@ -580,9 +385,7 @@ export function WorkshopBookingPage({ packageId }) {
     return (
       <main className="public-page figma-public-page">
         <p className="eyebrow">WORKSHOP TẠI MLAND</p>
-        <div className="empty-state">
-          <p>Đang tải thông tin gói workshop...</p>
-        </div>
+        <div className="empty-state"><p>Đang tải thông tin gói workshop...</p></div>
       </main>
     );
   }
@@ -596,154 +399,44 @@ export function WorkshopBookingPage({ packageId }) {
             {pkgError || 'Gói workshop không tồn tại hoặc đã ngừng cung cấp.'}
           </p>
           <div style={{ marginTop: '20px' }}>
-            <a href="/workshops" className="button outline">
-              ← Quay lại danh sách workshop
-            </a>
+            <a href="/workshops" className="button outline">← Quay lại danh sách workshop</a>
           </div>
         </div>
       </main>
     );
   }
 
-  // If booking succeeded, display BookingSummary confirmation state
-  if (bookingOutcome) {
-    // A booking returned already CONFIRMED by the create call is a 0 VND booking (FR-007a1): benefits covered the
-    // whole price, so it was confirmed without a deposit payment.
-    const isZeroAmountBooking = bookingOutcome.bookingStatus === 'CONFIRMED';
+  if (group) {
     return (
       <main className="public-page figma-public-page">
-        <p className="eyebrow">{isZeroAmountBooking ? 'ĐẶT CHỖ THÀNH CÔNG' : 'GIỮ CHỖ THÀNH CÔNG'}</p>
+        <p className="eyebrow">{group.groupStatus === 'CONFIRMED' ? 'ĐẶT CHỖ THÀNH CÔNG' : 'GIỮ CHỖ THÀNH CÔNG'}</p>
         <h1 style={{ color: '#002967' }}>
-          {isZeroAmountBooking ? 'Đơn đặt chỗ đã được xác nhận' : 'Đã tạo đơn đặt chỗ workshop'}
+          {group.groupStatus === 'CONFIRMED' ? 'Nhóm đặt chỗ đã được xác nhận' : 'Đã giữ chỗ cho nhóm đặt chỗ'}
         </h1>
-        {isZeroAmountBooking && (
-          <p className="muted">
-            Ưu đãi đã trả toàn bộ giá vé nên không cần đặt cọc. Vé và đường dẫn tra cứu được gửi qua email.
-          </p>
-        )}
-
-        <div className="workspace-card" style={{ marginTop: '24px', padding: '32px', border: '2px solid #002967' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #eee', paddingBottom: '16px' }}>
-            <div>
-              <span className="muted" style={{ fontSize: '13px' }}>Mã đặt chỗ (Booking Code)</span>
-              <strong style={{ display: 'block', fontSize: '24px', color: '#002967', letterSpacing: '0.05em' }}>
-                {bookingOutcome.bookingCode}
-              </strong>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <span className="status ok" style={{ fontSize: '14px', fontWeight: 'bold' }}>
-                {bookingOutcome.bookingStatus === 'PENDING_PAYMENT' ? 'CHỜ ĐẶT CỌC'
-                  : bookingOutcome.bookingStatus === 'CONFIRMED' ? 'ĐÃ XÁC NHẬN' : bookingOutcome.bookingStatus}
-              </span>
-              <span className="muted" style={{ display: 'block', fontSize: '12px', marginTop: '4px' }}>
-                Thanh toán: {bookingOutcome.paymentStatus === 'UNPAID' ? 'Chưa thanh toán'
-                  : bookingOutcome.bookingStatus === 'CONFIRMED' && isZeroAmountBooking ? 'Miễn phí, không cần thanh toán online'
-                  : bookingOutcome.paymentStatus}
-              </span>
-            </div>
-          </div>
-
-          <div style={{ marginTop: '20px', lineHeight: '1.8' }}>
-            <p>
-              Gói workshop: <strong>{bookingOutcome.packageName || pkg.name}</strong>
-            </p>
-            <p>
-              Số vé: <strong>{bookingOutcome.participantCount}</strong>
-            </p>
-            {Array.isArray(bookingOutcome.sessions) && bookingOutcome.sessions.length > 0 && (
-              <div style={{ marginTop: '16px', background: '#f9f9f9', padding: '16px', border: '1px solid #eee' }}>
-                <h4 style={{ margin: '0 0 10px', fontSize: '15px' }}>Các ca workshop đã giữ chỗ:</h4>
-                <ul style={{ margin: 0, paddingLeft: '20px' }}>
-                  {bookingOutcome.sessions.map((s, idx) => (
-                    <li key={s.sessionReference || idx}>
-                      Buổi {s.ordinal || (idx + 1)}: {formatSessionDateTime(s.scheduledStart)} lúc {formatSessionTime(s.scheduledStart, s.scheduledEnd)}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
-
-          {bookingOutcome.bookingStatus === 'PENDING_PAYMENT' && (
-            <HoldPaymentPanel bookingCode={bookingOutcome.bookingCode} holdExpiresAt={bookingOutcome.holdExpiresAt} />
-          )}
-
-          <div className="actions" style={{ marginTop: '20px' }}>
-            <a className="button outline" href="/workshop-booking/lookup">Xem đặt chỗ của tôi</a>
-            <a className="button outline" href="/">Về trang chủ</a>
-          </div>
+        <GroupDetailCard group={group} authorization={null} allowRecipientChange={false} />
+        <div className="actions" style={{ marginTop: '20px' }}>
+          <a className="button outline" href="/workshop-booking/lookup">Xem đặt chỗ của tôi</a>
+          <a className="button outline" href="/">Về trang chủ</a>
         </div>
       </main>
     );
   }
-
-  const hasMemberQuote = bookingMode === 'MEMBER' && memberQuote && quoteMatches;
-  const estimatedTotal = hasMemberQuote
-    ? Number(memberQuote.grossAmount || 0)
-    : (Number(pkg.publicPrice) || 0) * (Number(participantCount) || 1);
-  const totalDiscount = hasMemberQuote
-    ? (Number(memberQuote.programDiscount || 0) + Number(memberQuote.pointDiscount || 0))
-    : 0;
-  const netTotal = hasMemberQuote
-    ? Number(memberQuote.postPromotionAmount || 0)
-    : estimatedTotal;
-  const estimatedDeposit = hasMemberQuote
-    ? Number(memberQuote.depositAmount || 0)
-    : Math.ceil(estimatedTotal / 2);
-  const estimatedRemaining = hasMemberQuote
-    ? Number(memberQuote.remainingAmount || 0)
-    : (estimatedTotal - estimatedDeposit);
 
   return (
     <main className="public-page figma-public-page">
-      <div style={{ marginBottom: '16px' }}>
+      <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
         <a href={`/workshops/${pkg.packageId}`} className="text-link">← Xem lại chi tiết gói workshop</a>
+        <Link className="text-link" to="/workshop-booking/cart">Giỏ workshop ({cartCount})</Link>
       </div>
 
       <p className="eyebrow">ĐẶT WORKSHOP</p>
       <h1>{pkg.name}</h1>
       <p className="lead">
-        Hoàn tất thông tin liên hệ và chọn {requiredSessions} ca workshop phù hợp để giữ chỗ.
+        Chọn {requiredSessions} ca workshop và số người tham gia. Mỗi người là một vé riêng với QR, điểm danh và hóa đơn
+        riêng.
       </p>
 
-      {(() => {
-        // The progress bar follows the form: the first section still to be completed is the current step.
-        const isMember = bookingMode === 'MEMBER';
-        const steps = [
-          { label: 'Thông tin người đặt', target: 'contact-info-section', done: Boolean(contactEmail.trim() && contactPhone.trim()) },
-          { label: `Chọn ${requiredSessions} ca`, target: 'workshop-sessions-section', done: hasCompleteSessionSelection },
-          ...(isMember ? [{ label: 'Ưu đãi & điểm', target: 'member-benefits-section', done: benefitsAcknowledged }] : []),
-          { label: 'Xác nhận đặt chỗ', target: 'booking-summary', done: false },
-        ];
-        const currentIndex = steps.findIndex(step => !step.done);
-        return (
-          <nav className="figma-booking-steps" aria-label="Tiến trình đặt chỗ">
-            {steps.map((step, index) => (
-              <button
-                type="button"
-                key={step.target}
-                className={`${index === currentIndex ? 'active' : ''} ${step.done ? 'done' : ''}`.trim()}
-                aria-current={index === currentIndex ? 'step' : undefined}
-                onClick={() => document.getElementById(step.target)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-              >
-                {step.done ? '✓' : index + 1} {step.label}
-              </button>
-            ))}
-          </nav>
-        );
-      })()}
-
-      <div
-        role="status"
-        style={{
-          marginTop: '24px',
-          marginBottom: '24px',
-          padding: '12px 16px',
-          border: '1px solid #dcdfe6',
-          background: '#f8fafc',
-          color: '#002967',
-        }}
-      >
+      <div role="status" style={{ margin: '20px 0', padding: '12px 16px', border: '1px solid #dcdfe6', background: '#f8fafc', color: '#002967' }}>
         {authStatus === 'loading' || profileLoading
           ? 'Đang xác định thông tin tài khoản...'
           : bookingMode === 'MEMBER'
@@ -765,523 +458,213 @@ export function WorkshopBookingPage({ packageId }) {
         </div>
       )}
 
-      {serverError && (
-        <div className="workspace-card" style={{ border: '2px solid #b00', background: '#fff5f5', marginBottom: '24px', padding: '20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-            <span className="status" style={{ color: '#b00', borderColor: '#b00', fontWeight: 'bold' }}>
-              {serverError.code}
-            </span>
-            <strong style={{ color: '#b00' }}>Không thể hoàn tất giữ chỗ</strong>
-          </div>
-          <p style={{ margin: '8px 0', color: '#333' }}>{serverError.message}</p>
-          {serverError.correlationId && (
-            <p className="muted" style={{ fontSize: '12px', margin: 0 }}>
-              Mã đối soát (Correlation ID): {serverError.correlationId}
-            </p>
-          )}
-        </div>
-      )}
-
-      {attachedDesignId && (
-        <div className="workspace-card" style={{ border: '1px solid #c8a265', background: '#fcfbf8', marginBottom: '24px', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderRadius: '8px' }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '18px' }}>💍</span>
-              <strong style={{ color: '#002967' }}>Mẫu nhẫn tự thiết kế đã đính kèm</strong>
+      <fieldset
+        disabled={authStatus === 'loading' || profileLoading || bookingMode === null}
+        style={{ border: 0, padding: 0, margin: 0, minInlineSize: 0 }}
+      >
+        <section id="workshop-sessions-section" className="workspace-card" style={{ scrollMarginTop: '32px' }}>
+          <div className="card-head">
+            <div>
+              <h2>1. Chọn {requiredSessions} ca workshop</h2>
+              <p className="muted" style={{ margin: '4px 0 0' }}>
+                Gói này yêu cầu đúng {requiredSessions} ca (đã chọn: {selectedSessionRefs.length}/{requiredSessions})
+              </p>
             </div>
-            <p style={{ margin: '4px 0 0', fontSize: '14px', color: '#666' }}>
-              Mã thiết kế: <code>{attachedDesignId}</code> — Mẫu cấu hình này sẽ được gắn cố định vào lịch đặt workshop của bạn sau khi giữ chỗ thành công.
-            </p>
           </div>
-          <span className="status" style={{ background: '#e8f4fd', color: '#002967', borderColor: '#b8daff', fontWeight: 'bold' }}>
-            ĐÃ THẨM ĐỊNH
-          </span>
-        </div>
-      )}
 
-      <form onSubmit={handleSubmit}>
-        <fieldset disabled={authStatus === 'loading' || profileLoading || bookingMode === null} style={{ border: 0, padding: 0, margin: 0, minInlineSize: 0 }}>
-        <div className="figma-booking-layout" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 420px)', gap: '32px', alignItems: 'start' }}>
-          {/* Left Column: Form & Session Selection */}
-          <div>
-            <section id="contact-info-section" className="workspace-card" style={{ scrollMarginTop: '32px' }}>
-              <h2>1. Thông tin người đặt</h2>
+          {validationErrors.sessions && (
+            <p role="alert" style={{ color: '#b00', fontSize: '14px', marginBottom: '12px' }}>{validationErrors.sessions}</p>
+          )}
 
-              <div className="form-grid">
-                <label>
-                  Họ và tên
-                  <input
-                    type="text"
-                    placeholder="Nguyễn Văn A"
-                    value={contactFullName}
-                    onChange={e => setContactFullName(e.target.value)}
-                    disabled={isSubmitting}
-                  />
-                </label>
+          <div className="filter-bar" style={{ margin: '0 0 16px', padding: '12px' }}>
+            <label style={{ flex: '1 1 200px' }}>
+              Chi nhánh
+              <select
+                value={locationId ?? ''}
+                disabled={loadingLocations || locations.length === 0}
+                onChange={event => { setLocationId(Number(event.target.value)); setSelectedSessionRefs([]); invalidateQuote(); }}
+              >
+                <option value="" disabled>{loadingLocations ? 'Đang tải chi nhánh...' : 'Chọn chi nhánh'}</option>
+                {locations.map(location => <option key={location.id} value={location.id}>{location.name}</option>)}
+              </select>
+            </label>
+            {locationsError && <p className="status" style={{ color: '#b00', borderColor: '#b00' }}>{locationsError}</p>}
+            <label style={{ flex: '1 1 120px' }}>
+              Từ ngày
+              <input type="date" value={from} onChange={event => setFrom(event.target.value)} />
+            </label>
+            <label style={{ flex: '1 1 120px' }}>
+              Đến ngày
+              <input type="date" value={to} onChange={event => setTo(event.target.value)} />
+            </label>
+          </div>
 
-                <label>
-                  Email nhận vé & xác nhận *
-                  <input
-                    type="email"
-                    placeholder="email@example.com"
-                    value={contactEmail}
-                    onChange={e => setContactEmail(e.target.value)}
-                    disabled={isSubmitting}
-                    required
-                  />
-                  {bookingMode === 'MEMBER' && (
-                    <small style={{ display: 'block', color: '#595959' }}>
-                      Tự điền từ hồ sơ Member; bạn có thể sửa nếu đặt chỗ cho người khác.
-                    </small>
-                  )}
-                  {formValidationErrors.contactEmail && (
-                    <small style={{ color: '#b00' }}>{formValidationErrors.contactEmail}</small>
-                  )}
-                </label>
+          {loadingSessions && <div className="empty-state"><p>Đang tìm các ca workshop khả dụng...</p></div>}
+          {sessionsError && !loadingSessions && (
+            <div className="empty-state"><p className="status" style={{ color: '#b00' }}>{sessionsError}</p></div>
+          )}
+          {!loadingSessions && !sessionsError && sessions.length === 0 && (
+            <div className="empty-state"><p>Không có ca nào phù hợp trong khoảng ngày này. Vui lòng chọn khoảng ngày khác.</p></div>
+          )}
 
-                <label>
-                  Số điện thoại liên hệ *
-                  <input
-                    type="tel"
-                    placeholder="0901234567"
-                    value={contactPhone}
-                    onChange={e => setContactPhone(e.target.value)}
-                    disabled={isSubmitting}
-                    required
-                  />
-                  {formValidationErrors.contactPhone && (
-                    <small style={{ color: '#b00' }}>{formValidationErrors.contactPhone}</small>
-                  )}
-                </label>
-              </div>
-
-            </section>
-
-            <section id="workshop-sessions-section" className="workspace-card" style={{ marginTop: '24px', scrollMarginTop: '32px' }}>
-                <div className="card-head">
-                  <div>
-                    <h2>2. Chọn {requiredSessions} ca workshop</h2>
-                    <p className="muted" style={{ margin: '4px 0 0' }}>
-                      Gói này yêu cầu chọn đúng {requiredSessions} ca (Đã chọn: {selectedSessionRefs.length}/{requiredSessions})
-                    </p>
-                  </div>
-                </div>
-
-                {formValidationErrors.sessions && (
-                  <p style={{ color: '#b00', fontSize: '14px', marginBottom: '12px' }}>
-                    {formValidationErrors.sessions}
-                  </p>
-                )}
-
-                {/* Location selector */}
-                <div className="filter-bar" style={{ margin: '0 0 16px', padding: '12px' }}>
-                  <label style={{ flex: '1 1 200px' }}>
-                    Chi nhánh
-                    <select
-                      value={locationId ?? ''}
-                      disabled={isSubmitting || loadingLocations || locations.length === 0}
-                      onChange={e => {
-                        setLocationId(Number(e.target.value));
-                        setSelectedSessionRefs([]);
-                        if (bookingMode === 'MEMBER') invalidateMemberQuote();
+          {!loadingSessions && !sessionsError && sessions.length > 0 && (
+            <>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {pagedSessions.pageItems.map(session => {
+                  const isSelected = selectedSessionRefs.includes(session.sessionReference);
+                  const isSelectable = session.customerSelectable
+                    && (isSelected || session.remainingCapacity >= packageMinParticipants);
+                  return (
+                    <div
+                      key={session.sessionReference}
+                      onClick={() => { if (isSelectable) toggleSessionSelection(session.sessionReference); }}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '14px 18px',
+                        border: isSelected ? '2px solid #002967' : '1px solid #dcdfe6',
+                        background: isSelected ? '#edf3fc' : isSelectable ? '#fff' : '#fafafa',
+                        cursor: isSelectable ? 'pointer' : 'not-allowed',
+                        opacity: isSelectable ? 1 : 0.5,
                       }}
                     >
-                      <option value="" disabled>{loadingLocations ? 'Đang tải chi nhánh...' : 'Chọn chi nhánh'}</option>
-                      {locations.map(loc => (
-                        <option key={loc.id} value={loc.id}>{loc.name}</option>
-                      ))}
-                    </select>
-                  </label>
-                  {locationsError && <p className="status" style={{ color: '#b00', borderColor: '#b00' }}>{locationsError}</p>}
-
-                  <label style={{ flex: '1 1 120px' }}>
-                    Từ ngày
-                    <input
-                      type="date"
-                      value={from}
-                      onChange={e => {
-                        setFrom(e.target.value);
-                        if (bookingMode === 'MEMBER') invalidateMemberQuote();
-                      }}
-                      disabled={isSubmitting}
-                    />
-                  </label>
-
-                  <label style={{ flex: '1 1 120px' }}>
-                    Đến ngày
-                    <input
-                      type="date"
-                      value={to}
-                      onChange={e => {
-                        setTo(e.target.value);
-                        if (bookingMode === 'MEMBER') invalidateMemberQuote();
-                      }}
-                      disabled={isSubmitting}
-                    />
-                  </label>
-                </div>
-
-                {loadingSessions && (
-                  <div className="empty-state">
-                    <p>Đang tìm các ca workshop khả dụng...</p>
-                  </div>
-                )}
-
-                {sessionsError && !loadingSessions && (
-                  <div className="empty-state">
-                    <p className="status" style={{ color: '#b00' }}>{sessionsError}</p>
-                  </div>
-                )}
-
-                {!loadingSessions && !sessionsError && sessions.length === 0 && (
-                  <div className="empty-state">
-                    <p>Không có ca nào phù hợp trong khoảng ngày này. Vui lòng chọn khoảng ngày khác.</p>
-                  </div>
-                )}
-
-                {!loadingSessions && !sessionsError && sessions.length > 0 && (
-                  <>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    {pagedSessions.pageItems.map(s => {
-                      const isSelected = selectedSessionRefs.includes(s.sessionReference);
-                      const isSelectable = s.customerSelectable && (
-                        isSelected || s.remainingCapacity >= packageMinParticipants
-                      );
-
-                      return (
-                        <div
-                          key={s.sessionReference}
-                          onClick={() => {
-                            if (isSelectable && !isSubmitting) {
-                              toggleSessionSelection(s.sessionReference);
-                            }
-                          }}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            padding: '14px 18px',
-                            border: isSelected ? '2px solid #002967' : '1px solid #dcdfe6',
-                            background: isSelected ? '#edf3fc' : isSelectable ? '#fff' : '#fafafa',
-                            cursor: isSelectable && !isSubmitting ? 'pointer' : 'not-allowed',
-                            opacity: isSelectable ? 1 : 0.5,
-                            transition: 'all 0.15s ease',
-                          }}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              disabled={!isSelectable || isSubmitting}
-                              readOnly
-                              style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                            />
-                            <div>
-                              <strong>{formatSessionDateTime(s.scheduledStart)}</strong>
-                              <span style={{ display: 'block', fontSize: '13px', color: '#595959', marginTop: '2px' }}>
-                                Thời gian: {formatSessionTime(s.scheduledStart, s.scheduledEnd)}
-                              </span>
-                            </div>
-                          </div>
-
-                          <div style={{ textAlign: 'right' }}>
-                            <span className={isSelectable ? 'status ok' : 'status'} style={{ fontSize: '12px' }}>
-                              {s.remainingCapacity > 0 ? `Còn ${s.remainingCapacity} chỗ` : 'Hết chỗ'}
-                            </span>
-                            {isSelected && (
-                              <span style={{ display: 'block', color: '#002967', fontWeight: 'bold', fontSize: '12px', marginTop: '4px' }}>
-                                ✓ Đã chọn
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <Paginator page={pagedSessions.page} pageCount={pagedSessions.pageCount} onChange={pagedSessions.setPage} label="Phân trang các ca workshop" />
-                  </>
-                )}
-
-                <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid #eee' }}>
-                  {!hasCompleteSessionSelection && (
-                    <p className="muted" style={{ margin: 0 }}>
-                      Chọn đủ {requiredSessions} ca workshop trước, sau đó mới chọn số vé.
-                      Số vé tạm thời: 1.
-                    </p>
-                  )}
-                  {hasCompleteSessionSelection && !canChooseParticipantCount && (
-                    <p style={{ margin: 0, color: '#b00' }}>
-                      Các ca đã chọn không còn đủ {packageMinParticipants} vé tối thiểu của gói.
-                      Vui lòng chọn ca khác.
-                    </p>
-                  )}
-                  {canChooseParticipantCount && (() => {
-                    const stepDisabled = isSubmitting || !hasCompleteSessionSelection;
-                    const setCount = nextValue => {
-                      if (!Number.isFinite(nextValue) || !hasCompleteSessionSelection) return;
-                      setParticipantCount(Math.min(Math.max(packageMinParticipants, nextValue), inputMaxParticipants));
-                      if (bookingMode === 'MEMBER') invalidateMemberQuote();
-                    };
-                    return (
-                      <div className="participant-field">
-                        <span className="participant-label" id="participant-label">Số vé / số người tham gia *</span>
-                        <div className="participant-stepper" role="group" aria-labelledby="participant-label">
-                          <button type="button" aria-label="Giảm số vé" disabled={stepDisabled || participantCount <= packageMinParticipants} onClick={() => setCount(Number(participantCount) - 1)}>−</button>
-                          <input
-                            type="number"
-                            min={packageMinParticipants}
-                            max={inputMaxParticipants}
-                            value={participantCount}
-                            aria-labelledby="participant-label"
-                            onChange={e => setCount(Number(e.target.value))}
-                            disabled={stepDisabled}
-                          />
-                          <button type="button" aria-label="Tăng số vé" disabled={stepDisabled || participantCount >= inputMaxParticipants} onClick={() => setCount(Number(participantCount) + 1)}>+</button>
-                        </div>
-                        <small className="participant-hint">
-                          {hasCompleteSessionSelection
-                            ? `Tối đa ${effectiveMaxParticipants} vé theo các ca đã chọn. Hệ thống sẽ kiểm tra lại khi giữ chỗ.`
-                            : 'Chọn đủ ca workshop để chọn số vé.'}
-                        </small>
-                        {formValidationErrors.participantCount && (
-                          <small style={{ color: '#b00' }}>{formValidationErrors.participantCount}</small>
-                        )}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                        <input type="checkbox" checked={isSelected} disabled={!isSelectable} readOnly style={{ width: '18px', height: '18px' }} />
+                        <strong>{formatSessionWindow(session.scheduledStart, session.scheduledEnd)}</strong>
                       </div>
-                    );
-                  })()}
-                </div>
-              </section>
+                      <span className={isSelectable ? 'status ok' : 'status'} style={{ fontSize: '12px' }}>
+                        {session.remainingCapacity > 0 ? `Còn ${session.remainingCapacity} chỗ` : 'Hết chỗ'}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+              <Paginator page={pagedSessions.page} pageCount={pagedSessions.pageCount} onChange={pagedSessions.setPage} label="Phân trang các ca workshop" />
+            </>
+          )}
 
-            {bookingMode === 'MEMBER' && (
-              <section
-                id="member-benefits-section"
-                className="workspace-card"
-                style={{
-                  marginTop: '24px',
-                  scrollMarginTop: '32px',
-                  border: formValidationErrors.memberBenefits ? '2px solid #b00' : undefined,
-                  background: formValidationErrors.memberBenefits ? '#fffdfd' : undefined,
-                  transition: 'all 0.3s ease',
-                }}
-              >
-                <div className="card-head" style={{ marginBottom: '16px' }}>
-                  <div>
-                    <h2 style={{ margin: 0 }}>3. Ưu đãi &amp; Điểm thưởng</h2>
-                    <p className="muted" style={{ margin: '4px 0 0', fontSize: '13px' }}>
-                      Áp dụng voucher và điểm tích lũy của tài khoản Member.
-                    </p>
-                  </div>
-                </div>
-
-                {formValidationErrors.memberBenefits && (
-                  <div
-                    role="alert"
-                    style={{
-                      padding: '12px 16px',
-                      background: '#fff2f0',
-                      border: '1px solid #ffccc7',
-                      borderRadius: '4px',
-                      marginBottom: '16px',
-                      color: '#cf1322',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      fontWeight: 'bold',
-                      fontSize: '14px',
-                    }}
+          <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid #eee' }}>
+            {!hasCompleteSessionSelection && (
+              <p className="muted" style={{ margin: 0 }}>
+                Chọn đủ {requiredSessions} ca workshop trước, sau đó mới chọn số người. Số vé tạm thời: 1.
+              </p>
+            )}
+            {hasCompleteSessionSelection && !canChooseParticipantCount && (
+              <p style={{ margin: 0, color: '#b00' }}>
+                Các ca đã chọn không còn đủ {packageMinParticipants} vé tối thiểu của gói. Vui lòng chọn ca khác.
+              </p>
+            )}
+            {canChooseParticipantCount && (
+              <div className="participant-field">
+                <span className="participant-label" id="participant-label">Số người tham gia (mỗi người một vé) *</span>
+                <div className="participant-stepper" role="group" aria-labelledby="participant-label">
+                  <button
+                    type="button"
+                    aria-label="Giảm số vé"
+                    disabled={participantCount <= packageMinParticipants}
+                    onClick={() => { setParticipantCount(Math.max(packageMinParticipants, participantCount - 1)); invalidateQuote(); }}
                   >
-                    <span>⚠️</span>
-                    <span>{formValidationErrors.memberBenefits}</span>
-                  </div>
-                )}
-
-                {isQuoteLoading && (
-                  <div style={{ padding: '10px 14px', background: '#f0f5ff', borderLeft: '4px solid #2f54eb', marginBottom: '16px', fontSize: '14px', color: '#1d39c4' }}>
-                    ⏳ Đang kết nối máy chủ để tính toán ưu đãi và điểm thưởng...
-                  </div>
-                )}
-
-                {bookingMode === 'MEMBER' && selectedSessionRefs.length < requiredSessions && (
-                  <div style={{ padding: '10px 14px', background: '#eef4ff', borderLeft: '4px solid #002967', marginBottom: '16px', fontSize: '14px', color: '#002967' }}>
-                    Chọn đủ <strong>{requiredSessions} ca</strong> workshop, hệ thống sẽ tự tính giá, ưu đãi và số tiền đặt cọc. Sau đó bạn chỉ cần chọn voucher hoặc bật dùng điểm.
-                  </div>
-                )}
-
-                {quoteMatches && !benefitsAcknowledged && !isQuoteLoading && (
-                  <div style={{ padding: '10px 14px', background: '#fffbe6', borderLeft: '4px solid #faad14', marginBottom: '16px', fontSize: '14px', color: '#874d00' }}>
-                    <strong>Lưu ý:</strong> Vui lòng xem bảng phân bổ tiền bên dưới và tích chọn ô <strong>&quot;Tôi đã xem tổng tiền và ưu đãi ở trên&quot;</strong> để hoàn tất điều kiện giữ chỗ.
-                  </div>
-                )}
-
-                <WorkshopBenefitPanel
-                  selection={benefitSelection}
-                  onChange={handleBenefitChange}
-                  savedVouchers={savedVouchers}
-                  account={loyaltyAccount}
-                  offers={workshopOffers}
-                  maxPoints={memberQuote && quotedVoucher === (benefitSelection.choice === 'VOUCHER' ? (benefitSelection.voucherCode || '').trim() : '') ? memberQuote.maxPoints : null}
-                  quote={memberQuote && memberQuote.reasonDetails
-                    ? { ...memberQuote, reasons: memberQuote.reasonDetails.map(detail => detail.message) }
-                    : memberQuote}
-                  quoteMatches={quoteMatches}
-                  acknowledged={benefitsAcknowledged}
-                  onAcknowledge={val => {
-                    setBenefitsAcknowledged(val);
-                    if (val) {
-                      setFormValidationErrors(prev => {
-                        const next = { ...prev };
-                        delete next.memberBenefits;
-                        return next;
-                      });
-                    }
-                  }}
-                  onRecalculate={recalculateMemberQuote}
-                  pending={profileLoading || isSubmitting || isQuoteLoading}
-                />
-              </section>
+                    −
+                  </button>
+                  <input
+                    type="number"
+                    min={packageMinParticipants}
+                    max={inputMaxParticipants}
+                    value={participantCount}
+                    aria-labelledby="participant-label"
+                    onChange={event => {
+                      const next = Number(event.target.value);
+                      if (!Number.isFinite(next)) return;
+                      setParticipantCount(Math.min(Math.max(packageMinParticipants, next), inputMaxParticipants));
+                      invalidateQuote();
+                    }}
+                  />
+                  <button
+                    type="button"
+                    aria-label="Tăng số vé"
+                    disabled={participantCount >= inputMaxParticipants}
+                    onClick={() => { setParticipantCount(Math.min(inputMaxParticipants, participantCount + 1)); invalidateQuote(); }}
+                  >
+                    +
+                  </button>
+                </div>
+                <small className="participant-hint">
+                  Tối đa {effectiveMaxParticipants} vé theo các ca đã chọn. Hệ thống kiểm tra lại khi giữ chỗ.
+                </small>
+              </div>
             )}
           </div>
+        </section>
 
-          {/* Right Column: Order Summary & Confirmation CTA */}
-          <aside className="workspace-card" style={{ position: 'sticky', top: '24px' }}>
-            <h2 id="booking-summary" style={{ scrollMarginTop: '32px' }}>Tóm tắt đặt chỗ</h2>
-
-            <div style={{ borderBottom: '1px solid #eee', paddingBottom: '16px', marginBottom: '16px', lineHeight: '1.8' }}>
-              <p style={{ margin: 0 }}>Gói: <strong>{pkg.name}</strong></p>
-              <p style={{ margin: 0 }}>Số vé: <strong>{participantCount}</strong></p>
-              <p style={{ margin: 0 }}>Đơn giá: <strong>{Number(pkg.publicPrice).toLocaleString('vi-VN')} ₫ / vé</strong></p>
-              <p style={{ margin: 0 }}>
-                Ca đã chọn: <strong>{selectedSessionRefs.length} / {requiredSessions} ca</strong>
-              </p>
-            </div>
-
-            <div style={{ lineHeight: '2' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>Tổng giá trị gói</span>
-                <strong>{estimatedTotal.toLocaleString('vi-VN')} ₫</strong>
-              </div>
-              {hasMemberQuote && totalDiscount > 0 && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#2b8a3e', fontSize: '14px' }}>
-                  <span>Ưu đãi &amp; Điểm giảm trừ</span>
-                  <span>−{totalDiscount.toLocaleString('vi-VN')} ₫</span>
-                </div>
-              )}
-              {hasMemberQuote && totalDiscount > 0 && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold' }}>
-                  <span>Tổng sau ưu đãi</span>
-                  <span>{netTotal.toLocaleString('vi-VN')} ₫</span>
-                </div>
-              )}
-              <div style={{ display: 'flex', justifyContent: 'space-between', color: '#002967', fontSize: '16px', fontWeight: 'bold', borderTop: '1px solid #eee', paddingTop: '8px', marginTop: '8px' }}>
-                <span>Tiền đặt cọc (50%)</span>
-                <span>{estimatedDeposit.toLocaleString('vi-VN')} ₫</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', color: '#595959', fontSize: '13px' }}>
-                <span>Còn lại tại chi nhánh</span>
-                <span>{estimatedRemaining.toLocaleString('vi-VN')} ₫</span>
+        {bookingMode === 'MEMBER' && (
+          <section id="member-benefits-section" className="workspace-card" style={{ marginTop: '24px', scrollMarginTop: '32px' }}>
+            <div className="card-head" style={{ marginBottom: '16px' }}>
+              <div>
+                <h2 style={{ margin: 0 }}>2. Ưu đãi &amp; Điểm thưởng</h2>
+                <p className="muted" style={{ margin: '4px 0 0', fontSize: '13px' }}>
+                  Một lần dùng voucher áp cho cả nhóm; hệ thống phân bổ ưu đãi cho từng vé khi báo giá.
+                </p>
               </div>
             </div>
+            <CartBenefitPicker
+              selection={benefitSelection}
+              onChange={changeBenefitSelection}
+              savedVouchers={savedVouchers}
+              offers={workshopOffers}
+              account={loyaltyAccount}
+              quote={quote}
+              pending={quoting || confirming}
+            />
+          </section>
+        )}
 
-            {bookingMode === 'MEMBER' && !hasMemberQuote && (
-              <p className="muted" style={{ fontSize: '12px', margin: '8px 0 0', lineHeight: '1.4' }}>
-                * Giá tạm tính trước ưu đãi. Ưu đãi Member sẽ được tính tự động ở mục 3 khi bạn chọn đủ ca.
-              </p>
-            )}
-
-            <div style={{ marginTop: '24px' }}>
-              <button
-                type="submit"
-                className="button primary"
-                disabled={authStatus === 'loading' || profileLoading || bookingMode === null || isSubmitting}
-                style={{
-                  width: '100%',
-                  minHeight: '48px',
-                  fontSize: '16px',
-                  cursor: authStatus === 'loading' || profileLoading || bookingMode === null || isSubmitting ? 'wait' : 'pointer',
-                }}
-              >
-                {profileLoading ? 'Đang tải hồ sơ...' : isSubmitting ? 'Đang xử lý giữ chỗ...' : 'Xác nhận đặt chỗ & Giữ chỗ'}
-              </button>
-
-              {formValidationErrors.memberBenefits && (
-                <div
-                  style={{
-                    marginTop: '12px',
-                    padding: '10px 12px',
-                    background: '#fff2f0',
-                    border: '1px solid #ffccc7',
-                    borderRadius: '4px',
-                    color: '#cf1322',
-                    fontSize: '13px',
-                    lineHeight: '1.4',
-                  }}
-                >
-                  <strong>⚠️ Chưa thể xác nhận:</strong>
-                  <p style={{ margin: '4px 0 0' }}>{formValidationErrors.memberBenefits}</p>
-                  <button
-                    type="button"
-                    onClick={() => document.getElementById('member-benefits-section')?.scrollIntoView({ behavior: 'smooth' })}
-                    style={{
-                      marginTop: '6px',
-                      background: 'none',
-                      border: 'none',
-                      color: '#002967',
-                      textDecoration: 'underline',
-                      cursor: 'pointer',
-                      padding: 0,
-                      fontSize: '12px',
-                      fontWeight: 'bold',
-                    }}
-                  >
-                    ↓ Cuộn đến mục Ưu đãi
-                  </button>
-                </div>
-              )}
-
-              {formValidationErrors.sessions && (
-                <div
-                  style={{
-                    marginTop: '12px',
-                    padding: '10px 12px',
-                    background: '#fff2f0',
-                    border: '1px solid #ffccc7',
-                    borderRadius: '4px',
-                    color: '#cf1322',
-                    fontSize: '13px',
-                    lineHeight: '1.4',
-                  }}
-                >
-                  <strong>⚠️ Chưa chọn đủ ca:</strong>
-                  <p style={{ margin: '4px 0 0' }}>{formValidationErrors.sessions}</p>
-                  <button
-                    type="button"
-                    onClick={() => document.getElementById('workshop-sessions-section')?.scrollIntoView({ behavior: 'smooth' })}
-                    style={{
-                      marginTop: '6px',
-                      background: 'none',
-                      border: 'none',
-                      color: '#002967',
-                      textDecoration: 'underline',
-                      cursor: 'pointer',
-                      padding: 0,
-                      fontSize: '12px',
-                      fontWeight: 'bold',
-                    }}
-                  >
-                    ↓ Cuộn đến mục Chọn ca
-                  </button>
-                </div>
-              )}
-            </div>
-
-            <p className="muted" style={{ fontSize: '12px', marginTop: '16px', lineHeight: '1.5' }}>
-              * Khi bấm xác nhận, hệ thống sẽ tiến hành giữ chỗ tức thời qua Workshop Operations. Đơn đặt chỗ sẽ có hiệu lực giữ chỗ trong 10 phút để hoàn tất thủ tục đặt cọc.
+        <section className="workspace-card" style={{ marginTop: '24px' }}>
+          <h2 style={{ marginTop: 0 }}>{bookingMode === 'MEMBER' ? '3' : '2'}. Đặt chỗ</h2>
+          <p style={{ margin: '0 0 6px' }}>
+            Gói: <strong>{pkg.name}</strong> · Đơn giá: <strong>{vnd(pkg.publicPrice)} / vé</strong> · Số vé:{' '}
+            <strong>{participantCount}</strong>
+          </p>
+          <p className="muted" style={{ fontSize: '13px' }}>
+            Giá cuối, ưu đãi và số tiền phải trả khi đặt do hệ thống tính ở bước báo giá.
+          </p>
+          <div className="actions" style={{ marginTop: '12px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            <button type="button" className="button primary" onClick={() => bookNow()} disabled={quoting || confirming}>
+              {quoting ? 'Đang báo giá...' : 'Đặt ngay'}
+            </button>
+            <button type="button" className="button outline" onClick={addToCart} disabled={quoting || confirming}>
+              Thêm vào giỏ
+            </button>
+          </div>
+          {cartMessage && (
+            <p role="status" style={{ marginTop: '10px' }}>
+              {cartMessage} <Link className="text-link" to="/workshop-booking/cart">Mở giỏ workshop</Link>
             </p>
-          </aside>
-        </div>
-        </fieldset>
-      </form>
+          )}
+          {quoteError && (
+            <div role="alert" style={{ marginTop: '12px', color: '#b00' }}>
+              <strong>{quoteError.code}</strong>
+              <p style={{ margin: '4px 0 0' }}>{quoteError.message}</p>
+              {quoteError.correlationId && (
+                <p className="muted" style={{ fontSize: '12px', margin: 0 }}>Mã đối soát: {quoteError.correlationId}</p>
+              )}
+            </div>
+          )}
+        </section>
+
+        <CartQuotePanel
+          quote={quote}
+          contact={contact}
+          onContactChange={setContact}
+          onConfirm={confirmQuote}
+          onCancel={invalidateQuote}
+          confirming={confirming}
+          confirmError={confirmError}
+          validationErrors={validationErrors}
+          failingLines={failingLines}
+          title="Báo giá đặt ngay"
+        />
+      </fieldset>
     </main>
   );
 }
-

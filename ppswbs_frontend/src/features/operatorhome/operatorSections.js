@@ -14,10 +14,19 @@ const dailyWork = {
       'Thêm add-on, thu phần còn lại, chốt hóa đơn.', 'Add add-ons, collect the balance, finalize the bill.'),
     item('/ota-connectivity/add-ons', 'Add-on tại xưởng (OTA)', 'Shop add-ons (OTA)',
       'Ghi nhận add-on cho khách đặt qua OTA.', 'Record add-ons for customers who booked through an OTA.'),
+    item('/staff/retail-orders', 'Đơn bán lẻ chi nhánh', 'Branch retail orders',
+      'Thu tiền mặt, giao hàng tại quầy, gửi hàng GHTK.', 'Collect counter cash, hand over pickups, ship with GHTK.'),
   ],
 };
 
 const managerOnly = [
+  {
+    id: 'reporting', vi: 'Báo cáo', en: 'Reporting',
+    items: [
+      item('/manager/dashboard', 'Dashboard điều hành', 'Executive dashboard',
+        'Doanh thu bán lẻ, workshop và tỷ lệ lấp đầy theo chi nhánh.', 'Retail and workshop revenue and utilization by branch.'),
+    ],
+  },
   {
     id: 'workshop', vi: 'Quản lý workshop', en: 'Workshop management',
     items: [

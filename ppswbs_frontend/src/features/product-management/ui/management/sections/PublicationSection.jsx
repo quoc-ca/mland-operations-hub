@@ -3,7 +3,7 @@ import { useFormat, useT } from '../../../../../shared/i18n/I18nProvider';
 import { ErrorNotice } from '../../../../../shared/ui/components';
 import { ACTIONS } from '../../../application/useCatalogueCommand';
 import { messages } from '../../messages';
-import { effectiveProposal, missingRequirements, reviewGate } from '../../../domain/productRules';
+import { currentReview, effectiveProposal, missingRequirements, reviewGate } from '../../../domain/productRules';
 import { publishWithoutReview } from '../../../application/publishNow';
 import { useRole } from '../../../../../shared/auth/useRole';
 import { useProductCommand } from '../ProductDetailPage';
@@ -63,7 +63,7 @@ export function PublicationSection({ product, api, reload, setNotice, deleted, f
           {t(gate === 'PENDING' ? 'publication.managerReviewFirst' : 'publication.managerRejected')}{' '}
           <a href="#review-title">{t('publication.goToReview')}</a>
         </p>
-      ) : <p className="muted small">{t(canPublishNow ? 'publication.managerHint' : 'publication.hint')}</p>}
+      ) : <p className="muted small">{t(!canPublishNow ? 'publication.hint' : currentReview(product)?.state === 'APPROVED' ? 'publication.managerHintApproved' : 'publication.managerHint')}</p>}
       {canPublishNow && (
         <button type="button" className="button primary" disabled={command.pending} onClick={publishNow}>{t('publication.publishNow')}</button>
       )}

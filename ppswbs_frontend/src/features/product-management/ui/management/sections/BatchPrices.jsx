@@ -149,7 +149,7 @@ export function ApplyApproved({ product, api, reload, setNotice }) {
  * can decide them together here (approve with an amount per size, or reject with one shared reason), apply every
  * approved price in one go, or a Staff member can submit every draft. The per-size blocks below stay as they were.
  */
-export function BatchPrices({ product, api, reload, setNotice }) {
+export function BatchPrices({ product, api, reload, setNotice, isManager = true }) {
   const independent = Boolean(product.firstPublishedAt);
   const rows = (product.variants || [])
     .map(variant => ({ variant, proposal: effectiveProposal(variant) }))
@@ -162,7 +162,7 @@ export function BatchPrices({ product, api, reload, setNotice }) {
   return (
     <>
       <ProposeBatch rows={rows} independent={independent} {...context} />
-      <PendingBatch rows={pending} {...context} />
+      {isManager && <PendingBatch rows={pending} {...context} />}
       <SimpleBatch rows={drafts} labelKey="batch.submitAll" action={ACTIONS.submitPrice} successKey="batch.submittedN" at="submit-batch"
         send={({ proposal }) => key => api.submitPrice(key, proposal.id, proposal.version)} {...context} />
       <SimpleBatch rows={approved} labelKey="batch.applyAll" action={ACTIONS.applyPrice} successKey="batch.appliedN" at="apply-batch"

@@ -41,10 +41,13 @@ public class RetailOrderQueryService {
         String fulfilment = "READY_FOR_PICKUP".equals(order.getFulfilmentState()) && !order.isPickupReadyConfirmed()
             ? null : order.getFulfilmentState();
         var checkout = order.getGroupedCheckout();
+        BigDecimal discount = order.getDiscountAmount().max(BigDecimal.ZERO);
+        int together = (int) Math.max(1L, orders.countByCheckout(checkout.getId()));
         return new RetailOrderHistoryView(order.getId(), order.getLocationId(), order.getFulfilmentMethod(),
             order.getPaymentState().name(), fulfilment, money(order.getSubtotal()),
             money(order.getShippingCharge()), money(order.getPayableAmount()), checkout.getCreatedAt(), items,
-            checkout.getId(), checkout.getPaymentMethod(), checkout.getCounterPaymentDeadline());
+            checkout.getId(), checkout.getPaymentMethod(), checkout.getCounterPaymentDeadline(),
+            RetailOrderCodes.of(order.getId(), checkout.getCreatedAt()), money(discount), together);
     }
 
     private RetailCataloguePort.CartProductFact currentProduct(VariantLocationKey key) {

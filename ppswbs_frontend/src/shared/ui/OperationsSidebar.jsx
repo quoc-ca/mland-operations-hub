@@ -76,6 +76,9 @@ export function OperationsSidebar() {
   const isCasesActive = pathname === '/settlement/cases' && tab !== 'policies';
   const isPoliciesActive = pathname === '/settlement/cases' && tab === 'policies';
   const isProfileActive = pathname === '/profile';
+  const isRetailOrdersActive = pathname.startsWith('/staff/retail-');
+  const isRetailReconciliationActive = pathname.startsWith('/manager/retail-payment-reconciliations');
+  const isDashboardActive = pathname === '/manager/dashboard';
 
   const isVi = language === 'vi';
 
@@ -92,6 +95,13 @@ export function OperationsSidebar() {
         <Link className={pathname === '/staff/home' || pathname === '/manager/home' ? 'active' : ''} to="/home">
           {isVi ? 'Trang chủ' : 'Home'}
         </Link>
+
+        {/* REPORTING (FE-10): Manager only; the backend also refuses everyone else */}
+        {role === 'MANAGER' && (
+        <Link className={isDashboardActive ? 'active' : ''} to="/manager/dashboard">
+          {isVi ? 'Dashboard điều hành' : 'Executive dashboard'}
+        </Link>
+        )}
 
         {canManageProducts && (<>
         {/* PRODUCT MANAGEMENT */}
@@ -129,6 +139,19 @@ export function OperationsSidebar() {
         </Link>
 
         </>)}
+
+        {/* RETAIL (FE-08) */}
+        <div className="ota-sidebar-label">
+          {isVi ? 'BÁN LẺ' : 'RETAIL'}
+        </div>
+        <Link className={isRetailOrdersActive ? 'active' : ''} to="/staff/retail-orders">
+          {isVi ? 'Đơn bán lẻ chi nhánh' : 'Branch retail orders'}
+        </Link>
+        {canManage && (
+        <Link className={isRetailReconciliationActive ? 'active' : ''} to="/manager/retail-payment-reconciliations">
+          {isVi ? 'Đối soát thanh toán bán lẻ' : 'Retail payment reconciliation'}
+        </Link>
+        )}
 
         {/* WORKSHOP OPERATIONS */}
         <div className="ota-sidebar-label">

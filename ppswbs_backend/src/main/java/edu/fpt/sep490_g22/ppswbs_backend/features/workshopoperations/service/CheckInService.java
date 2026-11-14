@@ -26,6 +26,7 @@ public class CheckInService {
 
     private final WorkshopSessionRepository sessionRepository;
     private final AttendanceTicketRepository ticketRepository;
+    private final TicketQrGenerationRepository qrGenerationRepository;
     private final TicketSessionEntitlementRepository entitlementRepository;
     private final AttendanceActionRepository attendanceActionRepository;
     private final OperationsAuditEventRepository auditEventRepository;
@@ -181,7 +182,9 @@ public class CheckInService {
         }
         if (request.getQrToken() != null && !request.getQrToken().isBlank()) {
             return ticketRepository.findByQrReference(request.getQrToken())
-                    .orElseThrow(() -> new WorkshopNotFoundException("Ticket not found for provided QR token"));
+                    .orElseThrow(() -> qrGenerationRepository.existsByQrReference(request.getQrToken())
+                            ? new WorkshopTicketQrRevokedException()
+                            : new WorkshopNotFoundException("Ticket not found for provided QR token"));
         }
         if (request.getTicketCode() != null && !request.getTicketCode().isBlank()) {
             return ticketRepository.findByTicketCode(request.getTicketCode())

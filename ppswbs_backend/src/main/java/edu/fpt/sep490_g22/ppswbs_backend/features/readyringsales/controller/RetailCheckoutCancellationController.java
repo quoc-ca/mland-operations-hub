@@ -24,4 +24,12 @@ public class RetailCheckoutCancellationController {
         if (key.isBlank() || key.length() > 128) throw new edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailConflictException("A valid Idempotency-Key is required");
         return cancellation.cancel(actors.requireActiveMember(request).accountId(), checkoutId);
     }
+
+    /** Cancels one cash branch order before Staff confirmed its payment (FR-08-046). */
+    @PostMapping("/api/v1/ready-ring-orders/{orderId}/cancellations")
+    public CheckoutDtos.CancellationView cancelBranchOrder(HttpServletRequest request, @PathVariable String orderId,
+                                                           @RequestHeader("Idempotency-Key") String key) {
+        if (key.isBlank() || key.length() > 128) throw new edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailConflictException("A valid Idempotency-Key is required");
+        return cancellation.cancelBranchOrder(actors.requireActiveMember(request).accountId(), orderId);
+    }
 }

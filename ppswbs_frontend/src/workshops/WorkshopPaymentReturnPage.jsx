@@ -1,196 +1,179 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router';
-import { lookupGuestBooking, lookupMemberBooking, WorkshopApiError } from '../api/workshops';
-import { useAuth } from '../shared/auth/AuthProvider';
-import { useHttp } from '../shared/api/useHttp';
+import { getOwnedBookingGroup, lookupGuestBookingGroup, WorkshopApiError } from '../api/workshops';
+import { GroupDetailCard } from './GroupDetailCard';
+import { AWAITING_RESULT_MESSAGE, countdownText, groupHoldPhase } from './groupDisplay';
+import { useBookingIdentity } from './useBookingIdentity';
 import './figmaPublicShell.css';
 
-export function classifyGuestPaymentOutcome({ responseCode, bookingStatus, error } = {}) {
-  if (bookingStatus === 'EXPIRED' || error?.code === 'HOLD_EXPIRED' || error?.code === 'BOOKING_EXPIRED') {
-    return { kind: 'EXPIRED', title: 'Payment window expired', message: 'The ten-minute hold has expired. Create a new booking to try again.' };
+/**
+ * What the browser return from the gateway means (003.1 FR-038): nothing. A group is confirmed only on verified
+ * evidence the backend receives, so this page classifies the return for display and then reads the group itself.
+ */
+export function classifyGroupPaymentOutcome({ responseCode, groupStatus, error } = {}) {
+  if (groupStatus === 'EXPIRED' || error?.code === 'HOLD_EXPIRED' || error?.code === 'BOOKING_EXPIRED') {
+    return {
+      kind: 'EXPIRED',
+      title: 'Thời hạn thanh toán đã kết thúc',
+      message: 'Chỗ giữ của nhóm đã được trả lại. Nếu tiền về trễ, hệ thống sẽ liên hệ bạn về cách xử lý.',
+    };
   }
-  if (error && (error.code === 'NETWORK_ERROR' || error.code === 'NETWORK_TIMEOUT' || error.code === 'REQUEST_TIMEOUT' || Number(error.status || 0) === 0 || error.name === 'AbortError')) {
-    return { kind: 'NETWORK_TIMEOUT', title: 'Status check timed out', message: 'The payment result is not known yet. Do not create another payment; check the booking status again.' };
+  if (error && (error.code === 'NETWORK_ERROR' || error.code === 'NETWORK_TIMEOUT' || error.code === 'REQUEST_TIMEOUT'
+    || Number(error.status || 0) === 0 || error.name === 'AbortError')) {
+    return {
+      kind: 'NETWORK_TIMEOUT',
+      title: 'Chưa kiểm tra được trạng thái',
+      message: 'Kết quả thanh toán chưa rõ. Đừng tạo thêm giao dịch; hãy kiểm tra lại trạng thái nhóm đặt chỗ.',
+    };
   }
   if (error) {
-    return { kind: 'LOOKUP_ERROR', title: 'Booking status unavailable', message: error.detail || error.message || 'MLAND could not verify this booking yet.' };
+    return {
+      kind: 'LOOKUP_ERROR',
+      title: 'Chưa đọc được nhóm đặt chỗ',
+      message: error.detail || error.message || 'MLAND chưa xác minh được nhóm đặt chỗ này.',
+    };
   }
   if (responseCode === '00') {
-    return { kind: 'PROVIDER_SUCCESS_PENDING_VERIFICATION', title: 'Provider reported success', message: 'VNPay reported success. MLAND will confirm the booking only after verified IPN evidence.' };
+    return {
+      kind: 'PROVIDER_SUCCESS_PENDING_VERIFICATION',
+      title: 'Cổng thanh toán báo thành công',
+      message: 'VNPay báo thành công. MLAND chỉ xác nhận nhóm đặt chỗ sau khi nhận được bằng chứng IPN đã xác minh.',
+    };
   }
   if (responseCode) {
-    return { kind: 'PROVIDER_ERROR', title: `Provider payment response ${responseCode}`, message: 'The provider did not complete this payment. No booking confirmation is inferred from the browser return.' };
+    return {
+      kind: 'PROVIDER_ERROR',
+      title: `Cổng thanh toán trả mã ${responseCode}`,
+      message: 'Giao dịch chưa hoàn tất tại cổng. Không suy ra xác nhận nào từ lần chuyển hướng này.',
+    };
   }
-  return { kind: 'NO_PROVIDER_RESPONSE', title: 'No provider response received', message: 'No provider result was returned. Check the booking status with MLAND before trying again.' };
+  return {
+    kind: 'NO_PROVIDER_RESPONSE',
+    title: 'Không nhận được phản hồi từ cổng',
+    message: 'Hãy kiểm tra trạng thái nhóm đặt chỗ với MLAND trước khi thử lại.',
+  };
 }
 
-export function WorkshopPaymentReturnPage({ bookingCode }) {
-  const { status: authStatus, getIdToken } = useAuth();
-  const http = useHttp();
-  const [params, setParams] = useState(() => new URLSearchParams(window.location.search));
+/**
+ * The payment result of a booking group (003.1 FR-032, FR-038). While the group is still held, the customer sees only
+ * the 10-minute countdown; when it ends the page shows "Đang xác nhận kết quả thanh toán…" until the internal hold
+ * ends and then the outcome the server reports. The 12-minute hold and the 2-minute buffer are never shown.
+ */
+export function WorkshopPaymentReturnPage({ groupCode }) {
+  const { authStatus, mode: lookupMode, profileLoading, operatorRole, memberAuthorization } = useBookingIdentity();
+  const params = new URLSearchParams(window.location.search);
   const vnpResponseCode = params.get('vnp_ResponseCode');
-  const vnpTransactionNo = params.get('vnp_TransactionNo');
 
-  // Contact proof for verification from backend
   const [contactProof, setContactProof] = useState('');
-  const [proofType, setProofType] = useState('phone'); // 'phone' or 'email'
-
-  // Booking verification state
+  const [proofType, setProofType] = useState('phone');
   const [isVerifying, setIsVerifying] = useState(false);
-  const [bookingData, setBookingData] = useState(null);
+  const [group, setGroup] = useState(null);
   const [verifyError, setVerifyError] = useState(null);
-  const [accountProfile, setAccountProfile] = useState(null);
-  const [profileLoading, setProfileLoading] = useState(false);
-  const lookupMode = authStatus === 'signed-out' || authStatus === 'unconfigured'
-    ? 'GUEST'
-    : accountProfile?.role === 'MEMBER' ? 'MEMBER' : null;
-  // A Staff or Manager who started a payment for a customer (the final payment at the workshop) lands here too.
-  const operatorRole = ['STAFF', 'MANAGER', 'ADMIN'].includes(accountProfile?.role) ? accountProfile.role : null;
+  const [phase, setPhase] = useState(() => groupHoldPhase(null));
+  const [authorization, setAuthorization] = useState(null);
 
-  // Countdown timer for active hold
-  const [countdownSeconds, setCountdownSeconds] = useState(null);
-
-  // Return pages follow the same identity invariant as booking and lookup:
-  // a signed-in non-Member is blocked rather than silently downgraded to Guest.
   useEffect(() => {
-    let active = true;
-    if (authStatus !== 'signed-in') {
-      setAccountProfile(null);
-      setProfileLoading(false);
-      return () => { active = false; };
-    }
-    setProfileLoading(true);
-    http('/api/v1/accounts/me/profile')
-      .then(profile => { if (active) setAccountProfile(profile || null); })
-      .catch(() => { if (active) setAccountProfile(null); })
-      .finally(() => { if (active) setProfileLoading(false); });
-    return () => { active = false; };
-  }, [authStatus, http]);
+    if (!group || group.groupStatus !== 'PENDING_PAYMENT') { setPhase(groupHoldPhase(null)); return undefined; }
+    const tick = () => setPhase(groupHoldPhase(group));
+    tick();
+    const timer = setInterval(tick, 1000);
+    return () => clearInterval(timer);
+  }, [group?.groupStatus, group?.paymentDeadlineAt, group?.holdExpiresAt]);
 
-  // Update countdown
-  useEffect(() => {
-    if (!bookingData?.holdExpiresAt) {
-      setCountdownSeconds(null);
-      return;
-    }
-    const updateCountdown = () => {
-      const remaining = Math.max(0, Math.floor((new Date(bookingData.holdExpiresAt).getTime() - Date.now()) / 1000));
-      setCountdownSeconds(remaining);
-    };
-    updateCountdown();
-    const interval = setInterval(updateCountdown, 1000);
-    return () => clearInterval(interval);
-  }, [bookingData?.holdExpiresAt]);
-
-  const handleVerifyBackend = async (e) => {
-    if (e) e.preventDefault();
-    if (!bookingCode) return;
+  const readGroup = async event => {
+    if (event) event.preventDefault();
+    if (!groupCode) return;
     if (lookupMode === null) {
-      setVerifyError({ title: 'Member verification unavailable', message: 'Unable to verify the signed-in account for this booking. Please sign in again.' });
+      setVerifyError({ title: 'Chưa xác minh được tài khoản', message: 'Vui lòng đăng nhập lại bằng tài khoản Member.' });
       return;
     }
     if (lookupMode === 'GUEST' && !contactProof.trim()) {
-      setVerifyError({ title: 'Contact proof required', message: 'Enter the email or phone used for this Guest booking.' });
+      setVerifyError({ title: 'Cần thông tin xác minh', message: 'Nhập email hoặc số điện thoại đã dùng khi đặt.' });
       return;
     }
-
     setIsVerifying(true);
     setVerifyError(null);
-
     try {
       let result;
       if (lookupMode === 'MEMBER') {
-        const idToken = await getIdToken();
-        if (!idToken) throw new Error('MEMBER_SESSION_EXPIRED');
-        result = await lookupMemberBooking(bookingCode, { authorization: `Bearer ${idToken}` });
+        const bearer = await memberAuthorization();
+        if (!bearer) throw new Error('MEMBER_SESSION_EXPIRED');
+        setAuthorization(bearer);
+        result = await getOwnedBookingGroup(groupCode, { authorization: bearer });
       } else {
-        result = await lookupGuestBooking({
-          bookingCode,
+        result = await lookupGuestBookingGroup({
+          groupCode,
           contactEmail: proofType === 'email' ? contactProof.trim() : undefined,
           contactPhone: proofType === 'phone' ? contactProof.trim() : undefined,
         });
       }
-      setBookingData(result);
+      setGroup(result);
     } catch (err) {
-      if (err instanceof WorkshopApiError) {
-        setVerifyError(classifyGuestPaymentOutcome({ error: err }));
-      } else {
-        setVerifyError(classifyGuestPaymentOutcome({ error: err }));
-      }
+      setVerifyError(classifyGroupPaymentOutcome({ error: err instanceof WorkshopApiError ? err : err }));
     } finally {
       setIsVerifying(false);
     }
   };
 
-  const isProviderSuccess = vnpResponseCode === '00';
-  const returnOutcome = classifyGuestPaymentOutcome({ responseCode: vnpResponseCode, bookingStatus: bookingData?.bookingStatus });
+  const guestProof = proofType === 'email'
+    ? { contactEmail: contactProof.trim() || undefined }
+    : { contactPhone: contactProof.trim() || undefined };
+  const returnOutcome = classifyGroupPaymentOutcome({ responseCode: vnpResponseCode, groupStatus: group?.groupStatus });
 
   return (
     <main className="public-page figma-public-page">
-      <p className="eyebrow">WORKSHOP BOOKING PAYMENT</p>
+      <p className="eyebrow">THANH TOÁN NHÓM ĐẶT CHỖ WORKSHOP</p>
       <h1>Kết quả chuyển hướng thanh toán</h1>
 
-      {/* Gateway Return Display-Only Notice */}
       <div className="workspace-card" style={{ padding: '24px', borderLeft: '4px solid #002967', marginTop: '20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span className={isProviderSuccess ? 'status ok' : 'status'}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          <span className={vnpResponseCode === '00' ? 'status ok' : 'status'}>
             Mã phản hồi cổng: {vnpResponseCode || 'N/A'}
           </span>
           <strong>{returnOutcome.title}</strong>
         </div>
-
         <p className="prototype-note" style={{ margin: '14px 0 0', lineHeight: '1.6' }}>
-          <strong>{returnOutcome.message}</strong> Browser return is display-only.
-          Theo nguyên tắc an toàn tài chính, booking <strong>chỉ được xác nhận chính thức</strong> sau khi hệ thống backend MLAND nhận và xác minh chữ ký IPN an toàn từ VNPay. Không có token hay dữ liệu bí mật nào được chuyển giao qua browser return.
+          <strong>{returnOutcome.message}</strong> Trang chuyển hướng chỉ để hiển thị: nhóm đặt chỗ chỉ được xác nhận
+          sau khi backend MLAND nhận và xác minh bằng chứng IPN có chữ ký từ VNPay. Không có token hay dữ liệu bí mật
+          nào đi qua lần chuyển hướng này.
         </p>
       </div>
 
-      {/* Backend Status Check & Sync */}
       <section className="workspace-card" style={{ marginTop: '24px' }}>
-        <h2>Kiểm tra trạng thái xác nhận từ MLAND</h2>
+        <h2>Kiểm tra trạng thái nhóm đặt chỗ</h2>
         <p className="muted" style={{ margin: '0 0 16px' }}>
-          Mã đặt chỗ: <strong>{bookingCode || 'Chưa xác định'}</strong>
+          Mã nhóm: <strong>{groupCode || 'Chưa xác định'}</strong>
         </p>
 
-        {!bookingData && operatorRole ? (
+        {!group && operatorRole ? (
           <div role="status" className="operator-payment-note" style={{ background: '#f8fafc', border: '1px solid #dcdfe6', padding: '16px 18px', lineHeight: '1.6' }}>
             <strong>Bạn đang đăng nhập bằng tài khoản nhân viên ({operatorRole}).</strong>
             <p style={{ margin: '8px 0 0' }}>
-              Trang này dành cho khách kiểm tra đơn của mình nên không xác minh bằng tài khoản nhân viên. Kết quả thanh toán đã được
-              VNPay báo về; hệ thống chỉ ghi nhận khi nhận IPN, thường sau vài giây.
+              Trang này dành cho khách kiểm tra đơn của mình nên không xác minh bằng tài khoản nhân viên. Hệ thống chỉ
+              ghi nhận khi nhận IPN, thường sau vài giây.
             </p>
             <p style={{ margin: '8px 0 12px' }}>
-              Hãy quay lại <strong>Hóa đơn quyết toán</strong>, bấm <strong>Load folio</strong> để xem số tiền còn nợ đã được cập nhật,
-              rồi chốt hóa đơn khi còn nợ bằng 0.
+              Hãy quay lại <strong>Hóa đơn quyết toán</strong>, bấm <strong>Load folio</strong> để xem số còn nợ đã cập
+              nhật, rồi chốt hóa đơn khi còn nợ bằng 0.
             </p>
             <Link className="button primary" to="/settlement">Quay lại Hóa đơn quyết toán</Link>
           </div>
-        ) : !bookingData ? (
-          <form className="payment-form" onSubmit={handleVerifyBackend}>
+        ) : !group ? (
+          <form className="payment-form" onSubmit={readGroup}>
             <p hidden={lookupMode !== 'GUEST'} style={{ fontSize: '14px', lineHeight: '1.6', marginBottom: '14px' }}>
-              Vui lòng nhập Email hoặc Số điện thoại đã dùng khi đặt chỗ để đồng bộ kết quả xác thực backend:
+              Vui lòng nhập email hoặc số điện thoại đã dùng khi đặt để xem trạng thái nhóm:
+            </p>
+            <p className="muted" hidden={lookupMode !== 'MEMBER'}>
+              Hệ thống dùng tài khoản Member đang đăng nhập để xác minh quyền xem nhóm; không cần thông tin liên hệ.
             </p>
 
-            <p className="muted" hidden={lookupMode !== 'MEMBER'}>
-              Your signed-in Member account is used to verify booking ownership. No contact proof is requested.
-            </p>
             <div hidden={lookupMode !== 'GUEST'} style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', cursor: 'pointer' }}>
-                <input
-                  type="radio"
-                  name="proofType"
-                  checked={proofType === 'phone'}
-                  onChange={() => setProofType('phone')}
-                />
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px' }}>
+                <input type="radio" name="proofType" checked={proofType === 'phone'} onChange={() => setProofType('phone')} />
                 Số điện thoại
               </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', cursor: 'pointer' }}>
-                <input
-                  type="radio"
-                  name="proofType"
-                  checked={proofType === 'email'}
-                  onChange={() => setProofType('email')}
-                />
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px' }}>
+                <input type="radio" name="proofType" checked={proofType === 'email'} onChange={() => setProofType('email')} />
                 Email
               </label>
             </div>
@@ -200,145 +183,53 @@ export function WorkshopPaymentReturnPage({ bookingCode }) {
                 type={proofType === 'email' ? 'email' : 'tel'}
                 placeholder={proofType === 'email' ? 'email@example.com' : '0901234567'}
                 value={contactProof}
-                onChange={e => setContactProof(e.target.value)}
+                onChange={event => setContactProof(event.target.value)}
                 style={{ flex: 1, padding: '10px 14px', border: '1px solid #ccc' }}
                 disabled={isVerifying}
                 required={lookupMode === 'GUEST'}
               />
               <button type="submit" className="button primary" disabled={isVerifying}>
-                {isVerifying ? 'Đang kiểm tra...' : 'Xem trạng thái đơn'}
+                {isVerifying ? 'Đang kiểm tra...' : 'Xem trạng thái nhóm'}
               </button>
             </div>
 
-            {lookupMode === 'MEMBER' ? (
+            {lookupMode === 'MEMBER' && (
               <button type="submit" className="button primary" disabled={isVerifying}>
-                {isVerifying ? 'Checking…' : 'Check booking status'}
+                {isVerifying ? 'Đang kiểm tra...' : 'Xem trạng thái nhóm'}
               </button>
-            ) : null}
-            {profileLoading ? <p className="muted">Checking signed-in account…</p> : null}
-            {lookupMode === null && !profileLoading ? (
-              <p className="muted">Sign in again with a Member account, or sign out to use Guest contact proof.</p>
-            ) : null}
-
+            )}
+            {profileLoading && <p className="muted">Đang kiểm tra tài khoản đang đăng nhập…</p>}
+            {lookupMode === null && !profileLoading && authStatus === 'signed-in' && (
+              <p className="muted">Đăng nhập lại bằng tài khoản Member, hoặc đăng xuất để tra cứu như khách.</p>
+            )}
             {verifyError && (
-              <div role="alert" style={{ color: '#b00', fontSize: '13px', marginTop: '8px' }}><strong>{verifyError.title}</strong><p>{verifyError.message}</p></div>
+              <div role="alert" style={{ color: '#b00', fontSize: '13px', marginTop: '8px' }}>
+                <strong>{verifyError.title}</strong>
+                <p style={{ margin: '4px 0 0' }}>{verifyError.message}</p>
+              </div>
             )}
           </form>
         ) : (
-          <div>
-            {/* Status: CONFIRMED with tickets */}
-            {bookingData.bookingStatus === 'CONFIRMED' && (
-              <div style={{ background: '#f0f9f4', border: '1px solid #b7eb8f', padding: '24px', marginTop: '12px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                  <div>
-                    <span className="status ok" style={{ fontSize: '14px', fontWeight: 'bold' }}>
-                      ✓ ĐÃ XÁC NHẬN THÀNH CÔNG
-                    </span>
-                    <h3 style={{ margin: '8px 0 0', color: '#002967' }}>
-                      {bookingData.packageName} — {bookingData.participantCount} vé
-                    </h3>
-                  </div>
-                  <span className="badge" style={{ background: '#fff' }}>
-                    Thanh toán: {bookingData.paymentStatus}
-                  </span>
-                </div>
-
-                {Array.isArray(bookingData.tickets) && bookingData.tickets.length > 0 ? (
-                  <div style={{ marginTop: '16px' }}>
-                    <h4 style={{ margin: '0 0 10px' }}>Vé tham gia workshop:</h4>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px' }}>
-                      {bookingData.tickets.map(ticket => (
-                        <div key={ticket.ticketCode} style={{ background: '#fff', border: '1px solid #d9d9d9', padding: '14px' }}>
-                          <span className="muted" style={{ fontSize: '12px' }}>Mã vé</span>
-                          <strong style={{ display: 'block', fontSize: '18px', color: '#002967' }}>{ticket.ticketCode}</strong>
-                          <span className="muted" style={{ fontSize: '12px', marginTop: '6px', display: 'block' }}>Mã quét check-in</span>
-                          <code style={{ fontSize: '12px', background: '#f5f5f5', padding: '2px 6px' }}>{ticket.qrReference}</code>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  <p className="muted">Vé điện tử sẽ sớm được đồng bộ và gửi qua email/tin nhắn xác nhận của bạn.</p>
-                )}
-
-                <div className="actions" style={{ marginTop: '20px' }}>
-                  <a className="button primary" href="/workshop-booking/lookup">
-                    Xem tại trang Tra cứu đơn đặt
-                  </a>
-                  <a className="button outline" href="/">
-                    Về trang chủ
-                  </a>
-                </div>
-              </div>
+          <>
+            {group.groupStatus === 'PENDING_PAYMENT' && phase.phase === 'PAYABLE' && (
+              <p role="timer" style={{ margin: '0 0 12px' }}>
+                Thời hạn thanh toán còn <strong>{countdownText(phase.secondsLeft)}</strong>
+              </p>
+            )}
+            {group.groupStatus === 'PENDING_PAYMENT' && phase.phase === 'AWAITING_RESULT' && (
+              <p role="status" style={{ margin: '0 0 12px' }}>{AWAITING_RESULT_MESSAGE}</p>
             )}
 
-            {/* Status: PENDING_PAYMENT */}
-            {bookingData.bookingStatus === 'PENDING_PAYMENT' && (
-              <div style={{ background: '#fffbe6', border: '1px solid #ffe58f', padding: '24px', marginTop: '12px' }}>
-                <span className="status" style={{ color: '#d46b08', borderColor: '#d46b08', fontWeight: 'bold' }}>
-                  ⏳ CHỜ XÁC MINH THANH TOÁN
-                </span>
-                <h3 style={{ margin: '10px 0 6px', color: '#002967' }}>Đang chờ xác nhận giao dịch từ ngân hàng</h3>
-                <p style={{ margin: '0 0 14px', fontSize: '14px', lineHeight: '1.6' }}>
-                  Nếu bạn vừa thực hiện thanh toán, giao dịch có thể mất ít phút để ngân hàng truyền dữ liệu IPN an toàn tới hệ thống.
-                </p>
-
-                {countdownSeconds !== null && (
-                  <div style={{ margin: '14px 0', padding: '12px', background: '#fff', border: '1px solid #ffe58f' }}>
-                    <span>Thời hạn giữ chỗ còn lại: </span>
-                    <strong style={{ color: countdownSeconds < 120 ? '#b00' : '#002967', fontSize: '18px' }}>
-                      {Math.floor(countdownSeconds / 60)} phút {countdownSeconds % 60} giây
-                    </strong>
-                  </div>
-                )}
-
-                <div className="actions" style={{ marginTop: '16px', display: 'flex', gap: '10px' }}>
-                  <button type="button" className="button outline" onClick={handleVerifyBackend} disabled={isVerifying}>
-                    {isVerifying ? 'Đang kiểm tra...' : 'Kiểm tra lại trạng thái'}
-                  </button>
-
-                </div>
-              </div>
-            )}
-
-            {/* Status: EXPIRED */}
-            {bookingData.bookingStatus === 'EXPIRED' && (
-              <div style={{ background: '#fff1f0', border: '1px solid #ffa39e', padding: '24px', marginTop: '12px' }}>
-                <span className="status" style={{ color: '#cf1322', borderColor: '#cf1322', fontWeight: 'bold' }}>
-                  HẾT HẠN GIỮ CHỖ
-                </span>
-                <h3 style={{ margin: '10px 0 6px', color: '#cf1322' }}>Đơn đặt chỗ đã hết hạn 10 phút</h3>
-                <p style={{ margin: '0 0 16px', fontSize: '14px', lineHeight: '1.6' }}>
-                  Thời hạn giữ chỗ đã kết thúc do chưa nhận được thanh toán cọc hợp lệ trong thời gian quy định. Các ca giữ chỗ đã được giải phóng cho khách hàng khác.
-                </p>
-                <p style={{ margin: '0 0 16px', fontSize: '14px', lineHeight: '1.6' }}>
-                  Liên kết cũ không được cấp lại. Nếu vẫn muốn tham gia, vui lòng tạo một booking mới để hệ thống kiểm tra sức chứa lại.
-                </p>
-                <a className="button primary" href="/workshops">
-                  Đặt lại gói workshop khác
-                </a>
-              </div>
-            )}
-
-            {/* Status: CANCELLED */}
-            {bookingData.bookingStatus === 'CANCELLED' && (
-              <div style={{ background: '#f5f5f5', border: '1px solid #d9d9d9', padding: '24px', marginTop: '12px' }}>
-                <span className="status" style={{ color: '#595959', fontWeight: 'bold' }}>
-                  ĐÃ HỦY
-                </span>
-                <h3 style={{ margin: '10px 0 6px', color: '#333' }}>Đơn đặt chỗ đã được hủy</h3>
-                <p style={{ margin: '0 0 16px', fontSize: '14px' }}>
-                  Các ca giữ chỗ của đơn này đã được hoàn trả.
-                </p>
-                <a className="button outline" href="/workshops">
-                  Khám phá các workshop khác
-                </a>
-              </div>
-            )}
-          </div>
+            <GroupDetailCard
+              group={group}
+              authorization={lookupMode === 'MEMBER' ? authorization : null}
+              proof={lookupMode === 'GUEST' ? guestProof : undefined}
+              onRefresh={readGroup}
+              onTicketUpdated={readGroup}
+            />
+          </>
         )}
       </section>
     </main>
   );
 }
-

@@ -138,17 +138,31 @@ class LoyaltyMySqlMigrationIT {
     // ----- migration, tables and seed -----
 
     @Test
-    void migrationsAreAppliedInOrderWithTenTables() {
+    void migrationsAreAppliedInOrderWithElevenTables() {
         LoyaltyTestSupport.requireMySql84(dataSource);
         List<String> versions = jdbc.queryForList(
                 "SELECT version FROM flyway_schema_history WHERE success = 1 ORDER BY installed_rank", String.class);
         assertThat(versions).containsSubsequence("5", "10", "11", "12");
+        assertThat(versions).contains("119", "120", "121", "134", "135");
         List<String> tables = jdbc.queryForList("SELECT table_name FROM information_schema.tables "
                 + "WHERE table_schema = DATABASE() AND (table_name LIKE 'loyalty\\_%' OR table_name LIKE 'promotion\\_%') "
                 + "ORDER BY table_name", String.class);
-        assertThat(tables).containsExactlyInAnyOrder("loyalty_accepted_benefit", "loyalty_audit", "loyalty_policy",
-                "loyalty_point_ledger", "loyalty_registry", "loyalty_wallet", "promotion_member_program",
-                "promotion_program", "promotion_revision", "promotion_revision_target");
+        // V119 (Session 2026-11-12, D-011) adds the settlement parts of a retail checkout.
+        assertThat(tables).containsExactlyInAnyOrder("loyalty_accepted_benefit", "loyalty_accepted_benefit_part",
+                "loyalty_audit", "loyalty_policy", "loyalty_point_ledger", "loyalty_registry", "loyalty_wallet",
+                "promotion_member_program", "promotion_program", "promotion_revision", "promotion_revision_target");
+    }
+
+    @Test
+    void theLedgerIsUniquePerBenefitKindAndPart() {
+        LoyaltyTestSupport.requireMySql84(dataSource);
+        List<String> columns = jdbc.queryForList("SELECT column_name FROM information_schema.statistics "
+                + "WHERE table_schema = DATABASE() AND table_name = 'loyalty_point_ledger' "
+                + "AND index_name = 'uk_loyalty_ledger_benefit_kind_part' ORDER BY seq_in_index", String.class);
+        assertThat(columns).containsExactly("accepted_benefit_id", "entry_kind", "part_seq");
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.statistics "
+                + "WHERE table_schema = DATABASE() AND table_name = 'loyalty_point_ledger' "
+                + "AND index_name = 'uk_loyalty_ledger_benefit_kind'", Integer.class)).isZero();
     }
 
     @Test
@@ -270,17 +284,21 @@ class LoyaltyMySqlMigrationIT {
     }
 
     @Test
-    void automaticDiscountCannotHaveCodeQuotaOrWorkshopScope() {
+    void automaticDiscountCannotHaveCodeOrQuotaAndMayHaveEitherScope() {
         assertRejected(sql -> sql.update("INSERT INTO promotion_program (kind, scope, code_original, code_key, status, "
                 + "created_at, created_by, version) VALUES ('AUTO_DISCOUNT','PRODUCT','X','X','ENABLED',?,1,0)",
                 java.sql.Timestamp.from(NOW)));
         assertRejected(sql -> sql.update("INSERT INTO promotion_program (kind, scope, status, total_limit, member_limit, "
                 + "held_count, consumed_count, created_at, created_by, version) "
                 + "VALUES ('AUTO_DISCOUNT','PRODUCT','ENABLED',5,1,0,0,?,1,0)", java.sql.Timestamp.from(NOW)));
-        assertRejected(sql -> sql.update("INSERT INTO promotion_program (kind, scope, status, created_at, created_by, version) "
-                + "VALUES ('AUTO_DISCOUNT','WORKSHOP','ENABLED',?,1,0)", java.sql.Timestamp.from(NOW)));
         rolledBack(sql -> sql.update("INSERT INTO promotion_program (kind, scope, status, created_at, created_by, version) "
                 + "VALUES ('AUTO_DISCOUNT','PRODUCT','ENABLED',?,1,0)", java.sql.Timestamp.from(NOW)));
+        // V134 (Session 2026-11-14, FR-044): the WORKSHOP scope is allowed now; the no-code/no-quota rule stays.
+        rolledBack(sql -> sql.update("INSERT INTO promotion_program (kind, scope, status, created_at, created_by, version) "
+                + "VALUES ('AUTO_DISCOUNT','WORKSHOP','ENABLED',?,1,0)", java.sql.Timestamp.from(NOW)));
+        assertRejected(sql -> sql.update("INSERT INTO promotion_program (kind, scope, status, total_limit, member_limit, "
+                + "held_count, consumed_count, created_at, created_by, version) "
+                + "VALUES ('AUTO_DISCOUNT','WORKSHOP','ENABLED',5,1,0,0,?,1,0)", java.sql.Timestamp.from(NOW)));
     }
 
     @Test
@@ -390,11 +408,34 @@ class LoyaltyMySqlMigrationIT {
         assertRejected(sql -> insertBenefit(sql, "RETAIL", unique("guest-"), null, 0, "PENDING", null));
     }
 
+    /** V135 (D-014): a snapshot without a Member is a workshop one with no points, no voucher and no earn. */
     @Test
-    void onlyAWorkshopStoresAPositivePostPromotionAmount() {
-        // A workshop must carry the fee after voucher and points; a retail order never does.
+    void aSnapshotWithoutAMemberIsAWorkshopOneWithoutPointsVoucherOrEarn() {
+        rolledBack(sql -> insertGuestBenefit(sql, "WORKSHOP", 0, "NONE", "NONE", "GRANTED", "0"));
+        assertRejected(sql -> insertGuestBenefit(sql, "RETAIL", 0, "NONE", "NONE", "PENDING", null));
+        assertRejected(sql -> insertGuestBenefit(sql, "WORKSHOP", 10, "HELD", "NONE", "PENDING", null));
+        assertRejected(sql -> insertGuestBenefit(sql, "WORKSHOP", 0, "NONE", "HELD", "PENDING", null));
+        assertRejected(sql -> insertGuestBenefit(sql, "WORKSHOP", 0, "NONE", "NONE", "GRANTED", "5"));
+    }
+
+    private void insertGuestBenefit(JdbcTemplate sql, String sourceKind, long points, String pointsState,
+                                    String voucherState, String earnState, String earned) {
+        sql.update("INSERT INTO loyalty_accepted_benefit (source_kind, source_ref, member_id, member_origin_eligible, "
+                + "accepted_at, original_deadline, source_revision, accepted_terms_digest, policy_id, gross_amount, "
+                + "program_discount, requested_points, point_discount, earn_base, post_promotion_amount, "
+                + "points_state, voucher_state, earn_state, earned_points, source_outcome_version, version) "
+                + "VALUES (?,?,NULL,1,?,?,1,'digest',?,1000000,0,?,?,1000000,?,?,?,?,?,0,0)",
+                sourceKind, unique("guest-"), java.sql.Timestamp.from(NOW), java.sql.Timestamp.from(LATER),
+                currentPolicyId(sql), points, points, "WORKSHOP".equals(sourceKind) ? new BigInteger("1000000") : null,
+                pointsState, voucherState, earnState, earned == null ? null : new BigInteger(earned));
+    }
+
+    @Test
+    void onlyAWorkshopStoresAPostPromotionAmount() {
+        // A workshop must carry the fee after voucher and points; a retail order never does. Since V120 (T100,
+        // FR-022) 0đ is a valid workshop amount; the zero and negative cases are in
+        // aWorkshopMayStoreAZeroPostPromotionAmountButNotANegativeOne.
         assertRejected(sql -> insertBenefit(sql, "WORKSHOP", unique("w1-"), null, 1, "PENDING", null));
-        assertRejected(sql -> insertBenefit(sql, "WORKSHOP", unique("w2-"), "0", 1, "PENDING", null));
         assertRejected(sql -> insertBenefit(sql, "RETAIL", unique("w3-"), "880000", 1, "PENDING", null));
         // An odd amount stays exact: deposit and remaining are FE-03's business and are not stored here.
         rolledBack(sql -> insertBenefit(sql, "WORKSHOP", unique("w4-"), "984999", 1, "PENDING", null));
@@ -415,6 +456,15 @@ class LoyaltyMySqlMigrationIT {
         List<String> columns = jdbc.queryForList("SELECT column_name FROM information_schema.columns "
                 + "WHERE table_schema = DATABASE() AND table_name = 'loyalty_accepted_benefit'", String.class);
         assertThat(columns).contains("post_promotion_amount").doesNotContain("deposit_amount", "remaining_amount");
+    }
+
+    /** T100 (V120, FR-022): a workshop may store 0đ after benefits; negative stays refused, retail stores none. */
+    @Test
+    void aWorkshopMayStoreAZeroPostPromotionAmountButNotANegativeOne() {
+        rolledBack(sql -> insertBenefit(sql, "WORKSHOP", unique("z0-"), "0", 1, "PENDING", null));
+        assertRejected(sql -> insertBenefit(sql, "WORKSHOP", unique("z1-"), "-1", 1, "PENDING", null));
+        assertRejected(sql -> insertBenefit(sql, "WORKSHOP", unique("z2-"), null, 1, "PENDING", null));
+        assertRejected(sql -> insertBenefit(sql, "RETAIL", unique("z3-"), "0", 1, "PENDING", null));
     }
 
     @Test

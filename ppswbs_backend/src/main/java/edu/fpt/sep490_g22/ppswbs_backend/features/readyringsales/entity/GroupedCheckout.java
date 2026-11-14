@@ -80,4 +80,14 @@ public class GroupedCheckout {
     }
     public void expireLocalDemo() { this.paymentState = PaymentState.EXPIRED; orders.forEach(RetailOrder::expireLocalDemo); }
     public void expireUnpaid() { this.paymentState = PaymentState.EXPIRED; orders.forEach(RetailOrder::expireUnpaid); }
+    /**
+     * Cash checkout with branch orders settled one by one (Session 2026-11-13, D-011): stays accepted while any branch
+     * order is unpaid, then becomes paid when at least one was paid, cancelled when all were cancelled, else expired.
+     */
+    public void resolveFromOrders() {
+        if (orders.stream().anyMatch(order -> order.getPaymentState() == PaymentState.ACCEPTED_UNPAID)) return;
+        if (orders.stream().anyMatch(order -> order.getPaymentState() == PaymentState.PAID)) this.paymentState = PaymentState.PAID;
+        else if (orders.stream().allMatch(order -> order.getPaymentState() == PaymentState.CANCELLED)) this.paymentState = PaymentState.CANCELLED;
+        else this.paymentState = PaymentState.EXPIRED;
+    }
 }

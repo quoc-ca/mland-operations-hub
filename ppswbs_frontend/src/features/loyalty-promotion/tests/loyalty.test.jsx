@@ -63,12 +63,12 @@ describe('T030 programmes', () => {
     expect(screen.getByRole('link', { name: 'Giảm 10%' })).toBeInTheDocument();
   });
 
-  it('an automatic discount is product-only and has no code or limits', async () => {
+  it('an automatic discount may be for products or workshops (FR-044) and has no code or limits', async () => {
     const user = userEvent.setup();
     mockFetch({});
     open('/promotion-management/programs/new');
     await user.selectOptions(await screen.findByLabelText('Loại'), 'AUTO_DISCOUNT');
-    expect(screen.getByLabelText('Phạm vi')).toBeDisabled();
+    expect(screen.getByLabelText('Phạm vi')).toBeEnabled();
     expect(screen.queryByLabelText('Mã voucher')).toBeNull();
     expect(screen.queryByLabelText('Tổng số lượt')).toBeNull();
   });
@@ -857,5 +857,29 @@ describe('workshop target picker', () => {
     expect(calls.find(call => call.method === 'POST').body.targets).toEqual({
       packageIds: ['8'], branchIds: ['2'], sessionIds: ['bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'],
     });
+  }, 20000);
+
+  it('a workshop automatic discount picks one or more packages only, and needs at least one (FR-044)', async () => {
+    const user = userEvent.setup();
+    const calls = mockFetch({ ...workshopLists, [`POST ${P}`]: json(201, program({ id: '9', kind: 'AUTO_DISCOUNT', code: null })), [`GET ${P}/9`]: json(200, program({ id: '9', kind: 'AUTO_DISCOUNT', code: null })), [`GET ${P}/9/usage`]: json(200, voucherUsage) });
+    open('/promotion-management/programs/new');
+    await user.selectOptions(await screen.findByLabelText('Loại'), 'AUTO_DISCOUNT');
+    await user.type(screen.getByLabelText('Tên chương trình'), 'Giảm workshop');
+    await user.type(screen.getByLabelText('Phần trăm giảm (%)'), '10');
+    await user.type(screen.getByLabelText('Giảm tối đa (₫)'), '50000');
+    await user.selectOptions(screen.getByLabelText('Phạm vi'), 'WORKSHOP');
+    const silverclay = await screen.findByRole('checkbox', { name: 'Silverclay 2 phiên' });
+    expect(screen.queryByLabelText('Chi nhánh')).toBeNull();
+    expect(screen.queryByLabelText('Phiên workshop')).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Tạo chương trình' }));
+    expect(await screen.findByText('Chọn ít nhất một gói workshop.')).toBeInTheDocument();
+    expect(calls.some(call => call.method === 'POST')).toBe(false);
+    await user.click(silverclay);
+    await user.click(screen.getByRole('checkbox', { name: 'Ring Basic' }));
+    await user.click(screen.getByRole('button', { name: 'Tạo chương trình' }));
+    expect(await screen.findByText('Đã tạo chương trình.')).toBeInTheDocument();
+    const body = calls.find(call => call.method === 'POST').body;
+    expect(body).toMatchObject({ kind: 'AUTO_DISCOUNT', scope: 'WORKSHOP', targets: { packageIds: ['7', '8'] } });
+    expect(body.code).toBeUndefined();
   }, 20000);
 });

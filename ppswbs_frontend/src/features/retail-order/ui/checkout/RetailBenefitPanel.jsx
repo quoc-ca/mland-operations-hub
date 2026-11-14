@@ -1,8 +1,12 @@
 import React, { useState } from 'react';
 import { useFormat } from '../../../../shared/i18n/I18nProvider';
+import { VoucherPicker } from './VoucherPicker';
 
-/** FE-08 presentation for FE-06 data: a Shopee-like voucher picker and all-eligible-points switch. */
-export function RetailBenefitPanel({ selection, onChange, savedVouchers, maxPoints, minRedeemPoints, quote, quoteMatches, acknowledged, onAcknowledge, onRecalculate, onConfirm, pending, hideActions = false }) {
+/**
+ * FE-08 presentation for FE-06 data: a Shopee-like voucher picker and all-eligible-points switch.
+ * With autoQuote the page recalculates totals by itself, so no recalculate hint or acknowledgement is shown.
+ */
+export function RetailBenefitPanel({ selection, onChange, savedVouchers, maxPoints, minRedeemPoints, quote, quoteMatches, acknowledged, onAcknowledge, onRecalculate, onConfirm, pending, hideActions = false, autoQuote = false, voucherSubtotal = null, rejectedCodes = null }) {
   const format = useFormat();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [typedCode, setTypedCode] = useState('');
@@ -25,20 +29,23 @@ export function RetailBenefitPanel({ selection, onChange, savedVouchers, maxPoin
   return <section className="retail-benefits" aria-label="Ưu đãi và điểm thành viên">
     <button type="button" className="retail-benefit-row" disabled={pending} onClick={() => setPickerOpen(true)}>
       <span className="retail-benefit-icon">▣</span><strong>Voucher MLAND</strong>
-      <span className={selectedVoucher ? 'benefit-applied' : 'muted'}>{selectedVoucher?.name || (selection.voucherCode ? selection.voucherCode : 'Chọn hoặc nhập mã')}</span><span>›</span>
+      <span className={selectedVoucher || selection.voucherCode ? 'benefit-applied' : 'muted'}>{autoQuote && selection.choice === 'VOUCHER' && quoteMatches && quote?.discountAmount && quote.discountAmount !== '0' ? `${selection.voucherCode} · −${format.money(quote.discountAmount)}` : selectedVoucher?.name || (selection.voucherCode ? selection.voucherCode : 'Chọn hoặc nhập mã')}</span><span>›</span>
     </button>
     <label className="retail-benefit-row point-row">
       <span className="retail-benefit-icon">Ⓟ</span><strong>Dùng {format.number(maxPoints ?? '0')} điểm thành viên</strong>
-      <span className="muted">{!limitsKnown ? 'Tính lại ưu đãi để xem điểm tối đa' : belowMinimum ? `Cần tối thiểu ${format.number(minRedeemPoints)} điểm để sử dụng` : 'Điểm tối đa theo báo giá'}</span>
+      <span className="muted">{autoQuote ? '' : !limitsKnown ? 'Tính lại ưu đãi để xem điểm tối đa' : belowMinimum ? `Cần tối thiểu ${format.number(minRedeemPoints)} điểm để sử dụng` : 'Điểm tối đa theo báo giá'}</span>
       <input className="switch" type="checkbox" checked={pointsEnabled} disabled={pending || (!canUsePoints && !pointsEnabled)} onChange={event => togglePoints(event.target.checked)} />
     </label>
-    {quote && <div className="retail-benefit-quote">
-      {!quoteMatches && <p className="notice error">Lựa chọn đã đổi. Hãy tính lại tổng tiền.</p>}
-      {quote.reasons?.length > 0 && <p className={quote.eligible ? 'muted small' : 'notice error'}>{quote.reasons.map(reason => reason === 'No automatic discount applies to this cart.' ? 'Giỏ hàng hiện không có ưu đãi tự động phù hợp.' : reason).join(' ')}</p>}
-      <label className="check-row"><input type="checkbox" checked={acknowledged} disabled={!quoteMatches || !quote.eligible} onChange={event => onAcknowledge(event.target.checked)} /> Tôi đã xem tổng tiền và ưu đãi.</label>
+    {quote && !autoQuote && <div className="retail-benefit-quote">
+      {!quoteMatches && !autoQuote && <p className="notice error">Lựa chọn đã đổi. Hãy tính lại tổng tiền.</p>}
+      {quote.reasons?.length > 0 && !(autoQuote && quote.eligible) && <p className={quote.eligible ? 'muted small' : 'notice error'}>{quote.reasons.map(reason => reason === 'No automatic discount applies to this cart.' ? 'Giỏ hàng hiện không có ưu đãi tự động phù hợp.' : reason).join(' ')}</p>}
+      {!autoQuote && <label className="check-row"><input type="checkbox" checked={acknowledged} disabled={!quoteMatches || !quote.eligible} onChange={event => onAcknowledge(event.target.checked)} /> Tôi đã xem tổng tiền và ưu đãi.</label>}
     </div>}
     {!hideActions && <div className="retail-benefit-actions"><button type="button" className="button outline" disabled={pending} onClick={onRecalculate}>Tính lại ưu đãi</button><button type="button" className="button primary" disabled={!canConfirm} onClick={onConfirm}>Tạo đơn</button></div>}
-    {pickerOpen && <div className="benefit-picker-backdrop" role="presentation"><section className="benefit-picker" role="dialog" aria-modal="true" aria-label="Chọn voucher">
+    {pickerOpen && autoQuote && <VoucherPicker vouchers={savedVouchers.filter(item => item.availability !== 'EXPIRED')} selectedCode={selection.choice === 'VOUCHER' ? selection.voucherCode : null}
+      subtotal={voucherSubtotal} rejectedCodes={rejectedCodes} onClose={() => setPickerOpen(false)}
+      onConfirm={code => { setPickerOpen(false); if ((code || '') !== (selection.choice === 'VOUCHER' ? selection.voucherCode : '')) onChange({ ...selection, choice: code ? 'VOUCHER' : 'NONE', voucherCode: code || '', requestedPoints: '0' }); }} />}
+    {pickerOpen && !autoQuote && <div className="benefit-picker-backdrop" role="presentation"><section className="benefit-picker" role="dialog" aria-modal="true" aria-label="Chọn voucher">
       <div className="card-head"><h2>Chọn voucher MLAND</h2><button type="button" className="text-link" onClick={() => setPickerOpen(false)}>Đóng</button></div>
       <div className="voucher-code-entry"><input value={typedCode} maxLength="128" placeholder="Nhập mã voucher" onChange={event => setTypedCode(event.target.value)} /><button type="button" className="button primary" onClick={() => applyVoucher(typedCode)}>Áp dụng</button></div>
       <h3>Voucher đề xuất</h3>

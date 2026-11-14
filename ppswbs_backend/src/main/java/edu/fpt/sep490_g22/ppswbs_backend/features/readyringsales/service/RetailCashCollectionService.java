@@ -59,6 +59,7 @@ public class RetailCashCollectionService {
     private final CatalogueSalesFacade catalogue;
     private final AvailabilityGuardPort guard;
     private final LoyaltyFacade loyalty;
+    private final RetailBranchPartService branchParts;
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public CheckoutDtos.CashCollectionView confirm(CurrentAccountActor actor, String orderId, String amountReceived,
@@ -88,18 +89,24 @@ public class RetailCashCollectionService {
             .orElseThrow(() -> new RetailNotFoundException("Retail order does not exist"));
         Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
         if (!checkout.isCounterCash()) throw new RetailConflictException("This order is not paid in cash at the counter");
-        if (checkout.getPaymentState() != PaymentState.ACCEPTED_UNPAID) {
+        if (checkout.getPaymentState() != PaymentState.ACCEPTED_UNPAID || order.getPaymentState() != PaymentState.ACCEPTED_UNPAID) {
             throw new RetailConflictException("This order can no longer be paid in cash");
         }
-        if (checkout.getOrders().size() != 1 || !"PICKUP".equals(order.getFulfilmentMethod())) {
-            throw new RetailConflictException("Cash at the counter supports one store-pickup branch order");
+        if (!"PICKUP".equals(order.getFulfilmentMethod())) {
+            throw new RetailConflictException("Cash at the counter is only for store-pickup branch orders");
+        }
+        boolean held = !holdRepository.findByGroupedCheckoutId(checkout.getId()).isEmpty();
+        // Without FE-06 parts (checkouts accepted before D-011) the whole checkout is one unit: one branch order only.
+        boolean perBranch = !held || branchParts.acceptedWithParts(checkout);
+        if (!perBranch && checkout.getOrders().size() != 1) {
+            throw new RetailConflictException("This older cash checkout can only be paid as one branch order");
         }
         if (checkout.getCounterPaymentDeadline() == null || !now.isBefore(checkout.getCounterPaymentDeadline())) {
             throw new RetailConflictException("The pickup deadline has passed; the order is no longer held");
         }
         BigDecimal received = parseAmount(amountReceived);
         BigDecimal due = order.getPayableAmount();
-        if (due.signum() <= 0 || due.compareTo(checkout.getPayableAmount()) != 0) {
+        if (due.signum() <= 0 || (!perBranch && due.compareTo(checkout.getPayableAmount()) != 0)) {
             throw new RetailConflictException("Order amount is inconsistent with its checkout");
         }
         if (received.compareTo(due) < 0) throw new RetailConflictException("Cash received is less than the amount due");
@@ -107,10 +114,13 @@ public class RetailCashCollectionService {
         var collection = new RetailCashCollection(checkout.getId(), order.getId(), order.getLocationId(),
             LocalDate.ofInstant(now, VIETNAM), due, received, actor.accountId(), now, idempotencyKey);
         String proof = "CASH-" + collection.getId();
-        if (holdRepository.findByGroupedCheckoutId(checkout.getId()).isEmpty()) {
+        if (!held) {
             // Checkout-level (local/demo) acceptance path: no variant holds or loyalty reservation exist.
-            checkout.markPaidWithProof(proof);
+            if (checkout.getOrders().size() == 1) checkout.markPaidWithProof(proof);
+            else { order.markPaid(); checkout.resolveFromOrders(); }
             checkouts.saveAndFlush(checkout);
+        } else if (perBranch) {
+            branchParts.pay(checkout, order, proof, now);
         } else {
             settleHeldCheckout(checkout, proof, now);
         }

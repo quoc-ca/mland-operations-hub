@@ -46,9 +46,6 @@ class WorkshopBookingMigrationIT {
     private BookingSessionCommitmentRepository commitmentRepository;
 
     @Autowired
-    private BookingCapacityHoldRepository holdRepository;
-
-    @Autowired
     private BookingInvoiceRepository invoiceRepository;
 
     @Autowired
@@ -56,18 +53,6 @@ class WorkshopBookingMigrationIT {
 
     @Autowired
     private BookingPaymentReceiptRepository paymentReceiptRepository;
-
-    @Autowired
-    private BookingTicketRepository ticketRepository;
-
-    @Autowired
-    private BookingTicketSessionEntitlementRepository entitlementRepository;
-
-    @Autowired
-    private MagicLinkAccessRepository magicLinkRepository;
-
-    @Autowired
-    private BookingNotificationIntentRepository notificationIntentRepository;
 
     @Autowired
     private BookingAuditEvidenceRepository auditEvidenceRepository;
@@ -95,7 +80,7 @@ class WorkshopBookingMigrationIT {
     }
 
     @Test
-    @DisplayName("T010-1: Verify Flyway V9 applied on MySQL and all 12 tables exist")
+    @DisplayName("T010-1: Flyway V9 applied on MySQL; its tables that survive the 2026-11-13 removal exist")
     void verifyV9MigrationAppliedOnMySQL() {
         assertThat(jdbcTemplate).isNotNull();
 
@@ -108,14 +93,9 @@ class WorkshopBookingMigrationIT {
         String[] expectedTables = {
                 "workshop_bookings",
                 "booking_session_commitments",
-                "booking_capacity_holds",
                 "booking_invoices",
                 "booking_payment_attempts",
                 "booking_payment_receipts",
-                "booking_tickets",
-                "booking_ticket_session_entitlements",
-                "booking_magic_links",
-                "booking_notification_intents",
                 "booking_audit_evidence",
                 "booking_idempotency_records"
         };
@@ -143,7 +123,7 @@ class WorkshopBookingMigrationIT {
     }
 
     @Test
-    @DisplayName("T010: Verify V37 migrated commitments and ticket entitlements to opaque UUID references")
+    @DisplayName("T010: Verify V37 migrated commitments to opaque UUID references (ticket entitlements dropped by V133)")
     void verifyV37OpaqueSessionReferenceMigrationApplied() {
         Integer v37Count = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM flyway_schema_history WHERE version = '37' AND success = 1",
@@ -151,21 +131,13 @@ class WorkshopBookingMigrationIT {
         assertThat(v37Count).as("V37 must be applied by Flyway").isNotNull().isGreaterThanOrEqualTo(1);
 
         assertColumnExists("booking_session_commitments", "session_reference");
-        assertColumnExists("booking_ticket_session_entitlements", "session_reference");
         assertColumnMissing("booking_session_commitments", "session_id");
-        assertColumnMissing("booking_ticket_session_entitlements", "session_id");
 
         Integer invalidCommitments = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM booking_session_commitments WHERE session_reference NOT REGEXP " +
                         "'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'",
                 Integer.class);
         assertThat(invalidCommitments).as("persisted session references must be canonical UUIDs").isZero();
-        Integer mismatchedEntitlements = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM booking_ticket_session_entitlements btse " +
-                        "JOIN booking_session_commitments bsc ON bsc.id = btse.session_commitment_id " +
-                        "WHERE btse.session_reference <> bsc.session_reference",
-                Integer.class);
-        assertThat(mismatchedEntitlements).as("ticket entitlements must match their booking commitment").isZero();
     }
 
     private void assertColumnExists(String table, String column) {
@@ -184,7 +156,7 @@ class WorkshopBookingMigrationIT {
 
     @Test
     @Transactional
-    @DisplayName("T009-1: Verify Booking, commitment, hold and invoice persistence and invariants")
+    @DisplayName("T009-1: Verify Booking, commitment and invoice persistence and invariants")
     void verifyBookingPersistenceLifecycle() {
         String code = "BK-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
 
@@ -212,15 +184,6 @@ class WorkshopBookingMigrationIT {
                 .build();
         commitment = commitmentRepository.save(commitment);
         assertThat(commitment.getId()).isNotNull();
-
-        BookingCapacityHold hold = BookingCapacityHold.builder()
-                .booking(booking)
-                .sessionCommitment(commitment)
-                .holdReference(UUID.randomUUID().toString())
-                .holdStatus("RESERVED")
-                .build();
-        hold = holdRepository.save(hold);
-        assertThat(hold.getId()).isNotNull();
 
         BookingInvoice invoice = BookingInvoice.builder()
                 .booking(booking)
@@ -302,91 +265,14 @@ class WorkshopBookingMigrationIT {
     }
 
     @Test
-    @Transactional
-    @DisplayName("T009-3: Verify tickets, entitlements, magic links, notification intents and audit evidence")
-    void verifyDeliveryAndAuditPersistence() {
-        String code = "BK-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
-
-        WorkshopBooking booking = bookingRepository.save(WorkshopBooking.builder()
-                .bookingCode(code)
-                .packageId(102L)
-                .packageNameSnapshot("Ring Workshop")
-                .contactEmail("tickets@example.com")
-                .contactPhone("0934567890")
-                .participantCount(1)
-                .bookingStatus(BookingStatus.CONFIRMED)
-                .paymentStatus(PaymentStatus.DEPOSIT_PAID)
-                .build());
-
-        String sessionReference = UUID.randomUUID().toString();
-        BookingSessionCommitment commitment = commitmentRepository.save(BookingSessionCommitment.builder()
-                .booking(booking)
-                .sessionReference(sessionReference)
-                .locationId(testLocationId)
-                .ordinal(1)
-                .seatCount(1)
-                .build());
-
-        BookingTicket ticket = ticketRepository.save(BookingTicket.builder()
-                .booking(booking)
-                .ticketCode("TK-" + code + "-1")
-                .qrReference("QR-REF-" + UUID.randomUUID())
-                .deliveryStatus(TicketDeliveryStatus.PENDING)
-                .build());
-        assertThat(ticket.getId()).isNotNull();
-
-        BookingTicketSessionEntitlement entitlement = entitlementRepository.save(BookingTicketSessionEntitlement.builder()
-                .bookingTicket(ticket)
-                .sessionCommitment(commitment)
-                .sessionReference(sessionReference)
-                .build());
-        assertThat(entitlement.getId()).isNotNull();
-
-        MagicLinkAccess magicLink = magicLinkRepository.save(MagicLinkAccess.builder()
-                .booking(booking)
-                .tokenHash("hash-" + UUID.randomUUID())
-                .lifecycleStatus(MagicLinkLifecycleStatus.ACTIVE)
-                .expiresAt(Instant.now().plus(7, ChronoUnit.DAYS))
-                .build());
-        assertThat(magicLink.getId()).isNotNull();
-
-        BookingNotificationIntent intent = notificationIntentRepository.save(BookingNotificationIntent.builder()
-                .booking(booking)
-                .notificationReference("NOTIF-" + UUID.randomUUID())
-                .notificationKind("CONFIRMED_DELIVERY")
-                .correlationReference("CORR-TEST")
-                .deliverySnapshot("{\"bookingCode\":\"" + code + "\",\"recipient\":\"tickets@example.com\"}")
-                .build());
-        assertThat(intent.getId()).isNotNull();
-
-        BookingAuditEvidence audit = auditEvidenceRepository.save(BookingAuditEvidence.builder()
-                .bookingCode(code)
-                .locationId(testLocationId)
-                .actorType("MANAGER")
-                .actorId(10L)
-                .action("CONFIRMATION_RESEND")
-                .outcome("ACCEPTED")
-                .correlationReference("CORR-TEST")
-                .managerReason("Customer requested resend")
-                .occurredAt(Instant.now())
-                .build());
-        assertThat(audit.getId()).isNotNull();
-    }
-
-    @Test
     @DisplayName("T009-4: Verify raw-sensitive-data exclusion across entity models")
     void verifyRawSensitiveDataExclusion() {
         Class<?>[] entities = {
                 WorkshopBooking.class,
                 BookingSessionCommitment.class,
-                BookingCapacityHold.class,
                 BookingInvoice.class,
                 BookingPaymentAttempt.class,
                 BookingPaymentReceipt.class,
-                BookingTicket.class,
-                BookingTicketSessionEntitlement.class,
-                MagicLinkAccess.class,
-                BookingNotificationIntent.class,
                 BookingAuditEvidence.class,
                 BookingIdempotencyRecord.class
         };

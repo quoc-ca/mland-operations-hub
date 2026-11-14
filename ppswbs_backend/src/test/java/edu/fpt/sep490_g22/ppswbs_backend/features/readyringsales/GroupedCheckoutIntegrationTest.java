@@ -4,8 +4,11 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dao.AccountR
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.Account;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.dao.GroupedCheckoutRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.dao.RetailCartRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.dao.RetailShipmentRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.dao.RetailVariantHoldRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.dto.CartDtos;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.dto.CheckoutDtos;
+import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.entity.RetailVariantHold;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.facade.RetailBenefitPort;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.facade.RetailCheckoutPorts;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.facade.RetailCheckoutPricingPort;
@@ -21,6 +24,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -42,8 +46,11 @@ class GroupedCheckoutIntegrationTest {
     @Autowired RetailPaymentService paymentService;
     @Autowired RetailCartRepository cartRepository;
     @Autowired GroupedCheckoutRepository checkoutRepository;
+    @Autowired RetailVariantHoldRepository holdRepository;
+    @Autowired RetailShipmentRepository shipmentRepository;
     @Autowired AccountRepository accountRepository;
     @Autowired JdbcTemplate jdbcTemplate;
+    @Autowired TransactionTemplate transaction;
     @MockBean edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.facade.RetailCataloguePort cataloguePort;
     @MockBean RetailCheckoutPricingPort pricingPort;
     @MockBean RetailBenefitPort benefitPort;
@@ -52,6 +59,7 @@ class GroupedCheckoutIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        shipmentRepository.deleteAll(); holdRepository.deleteAll();
         checkoutRepository.deleteAll(); cartRepository.deleteAll(); accountRepository.deleteAll();
         when(cataloguePort.isEligibleForCart(anyLong(), anyLong())).thenReturn(true);
         org.mockito.Mockito.lenient().when(cataloguePort.readCartProduct(anyLong(), anyLong())).thenReturn(
@@ -76,6 +84,7 @@ class GroupedCheckoutIntegrationTest {
 
         CheckoutDtos.GroupedCheckoutView created = checkoutService.createCheckout(memberId, "idempotency-1", request);
         CheckoutDtos.GroupedCheckoutView replay = checkoutService.createCheckout(memberId, "idempotency-1", request);
+        holdBranchStock(created.id());
         CheckoutDtos.PaymentRedirectView payment = paymentService.initiate(memberId, created.id());
 
         assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM information_schema.tables WHERE UPPER(table_name) = 'RETAIL_GROUPED_CHECKOUTS'", Integer.class)).isEqualTo(1);
@@ -87,6 +96,19 @@ class GroupedCheckoutIntegrationTest {
         assertThat(cartService.getCart(memberId).lines()).isEmpty();
         assertThat(payment.paymentState()).isEqualTo("PAID");
         assertThat(checkoutRepository.findByIdAndMemberAccountId(created.id(), memberId).orElseThrow().getPaymentState().name()).isEqualTo("PAID");
+    }
+
+    /**
+     * The simple createCheckout path does not reserve stock, while payment requires every branch line to be held
+     * (T124). Seed the holds the accepted-checkout flow would have created so the payment step can run.
+     */
+    private void holdBranchStock(String checkoutId) {
+        Instant expiresAt = Instant.now().plus(15, ChronoUnit.MINUTES);
+        transaction.executeWithoutResult(status -> {
+            var checkout = checkoutRepository.findById(checkoutId).orElseThrow();
+            checkout.getOrders().forEach(order -> order.getItems().forEach(item -> holdRepository.save(
+                new RetailVariantHold(checkout, item.getVariantId(), order.getLocationId(), item.getQuantity(), expiresAt))));
+        });
     }
 
     private Account createMember() {
