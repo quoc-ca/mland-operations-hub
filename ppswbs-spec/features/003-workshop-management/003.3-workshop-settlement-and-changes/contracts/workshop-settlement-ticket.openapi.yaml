@@ -20,6 +20,10 @@ info:
     change; a Staff-on-behalf change reuses
     POST /workshop-tickets/{ticketCode}/changes with buyer proof and a reason,
     so it gets no route of its own.
+    T123 (2026-11-15): the FR-052–FR-054 routes below are published as served by
+    the code (line and collection voids, change-allowances, cash-close
+    difference-confirmations); the retired /workshop-cash-days/* routes are no
+    longer listed.
 paths:
   /api/v1/workshop-tickets/{ticketCode}/folio:
     get:
@@ -127,6 +131,45 @@ paths:
       requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ReasonRequest'}}}}
       responses:
         '200': {description: Part failed, content: {application/json: {schema: {$ref: '#/components/schemas/Collection'}}}}
+        '400': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-tickets/{ticketCode}/folio/lines/{lineId}/voids:
+    post:
+      summary: Manager voids a wrongly recorded folio line (FR-053, decided 2026-11-14)
+      description: >-
+        Manager only, reason and Idempotency-Key required, audited. Allowed only
+        while the folio is OPEN. A void is an audited reversal record and never
+        deletes the original row; the balance is recomputed from what remains.
+      security: [{bearerAuth: []}]
+      parameters:
+        - {$ref: '#/components/parameters/TicketCode'}
+        - {name: lineId, in: path, required: true, schema: {type: string}}
+        - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ReasonRequest'}}}}
+      responses:
+        '200': {description: Line voided, content: {application/json: {schema: {$ref: '#/components/schemas/TicketFolio'}}}}
+        '400': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-tickets/{ticketCode}/folio/collections/{collectionId}/voids:
+    post:
+      summary: Manager voids a wrongly recorded collection (FR-053, decided 2026-11-14)
+      description: >-
+        Manager only, reason and Idempotency-Key required, audited. Allowed only
+        while the folio is OPEN; a collection already counted into a closed cash
+        day is refused (FR-050). The original row is kept and the balance is
+        recomputed from what remains.
+      security: [{bearerAuth: []}]
+      parameters:
+        - {$ref: '#/components/parameters/TicketCode'}
+        - {name: collectionId, in: path, required: true, schema: {type: string}}
+        - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ReasonRequest'}}}}
+      responses:
+        '200': {description: Collection voided, content: {application/json: {schema: {$ref: '#/components/schemas/TicketFolio'}}}}
         '400': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
@@ -321,32 +364,29 @@ paths:
                 countedAmount: {$ref: '#/components/schemas/Vnd'}
                 differenceReason: {type: string, maxLength: 1000}
       responses:
-        '201': {description: Close recorded; a difference waits for Manager confirmation}
+        '201': {description: Close recorded; a difference waits for Manager confirmation, content: {application/json: {schema: {$ref: '#/components/schemas/CashClose'}}}}
         '403': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
-  /api/v1/workshop-cash-days/confirm-difference:
+  /api/v1/workshop-cash-closes/{cashCloseId}/difference-confirmations:
     post:
-      summary: Manager confirms a cash-close difference (FR-036)
+      summary: Manager confirms a cash-close difference (FR-036, FR-052, T120)
       description: >-
-        Listed as the code serves it (FolioCollectionController, re-checked
-        2026-11-14): Manager only; the day is identified by query parameters,
-        there is no request body and no Idempotency-Key. The close itself is
-        served in code at POST /api/v1/workshop-cash-days/close, not at
-        /workshop-cash-closes above. Decided 2026-11-14 (spec FR-052): the
-        canonical family is the cash-close resource, so T106 moves this command
-        to POST /api/v1/workshop-cash-closes/{cashCloseId}/difference-confirmations
-        with a required Idempotency-Key (FR-022d) and a required reason, and the
-        /workshop-cash-days/* paths stop being public. In code a repeat on a day
-        already CLOSED returns the close unchanged; 404 when the branch has no
-        close for that day.
+        Manager only; reason and Idempotency-Key required (FR-022d), audited.
+        cashCloseId is the closeReference returned by POST /workshop-cash-closes.
+        A replay with the same Idempotency-Key returns the stored close
+        unchanged. Replaces the retired POST /workshop-cash-days/confirm-difference,
+        which is no longer served.
       security: [{bearerAuth: []}]
       parameters:
-        - {name: branchId, in: query, required: true, schema: {type: integer, format: int64}}
-        - {name: businessDay, in: query, required: false, description: Vietnam working day; today (Vietnam time) when absent., schema: {type: string, format: date}}
+        - {name: cashCloseId, in: path, required: true, schema: {type: string}}
+        - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ReasonRequest'}}}}
       responses:
         '200': {description: Difference confirmed; the day is CLOSED, content: {application/json: {schema: {$ref: '#/components/schemas/CashClose'}}}}
+        '400': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-refund-requests:
     get:
       summary: List refund requests (Manager; transfer actors see PENDING_TRANSFER)
@@ -581,6 +621,7 @@ paths:
                 targetSessionReferences: {type: array, minItems: 1, maxItems: 2, items: {type: string, format: uuid}}
                 confirmIncrease: {type: boolean}
                 buyerVerificationReference: {$ref: '#/components/schemas/BuyerVerificationReference'}
+                reason: {type: string, maxLength: 1000, description: Required for Staff acting on the buyer's behalf (FR-055); a Member or Guest buyer may omit it.}
       responses:
         '200': {description: Change result with its price effect (FR-045), content: {application/json: {schema: {$ref: '#/components/schemas/ChangeResult'}}}}
         '202': {description: 'Only a Manager rule was missing; the request waits in the queue (T117, FR-045a). applied is false and changeRequestReference names it.', content: {application/json: {schema: {$ref: '#/components/schemas/ChangeResult'}}}}
@@ -696,6 +737,33 @@ paths:
         '404': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
         '422': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-tickets/{ticketCode}/change-allowances:
+    post:
+      summary: Manager grants one extra counted change for a ticket (FR-054, decided 2026-11-14)
+      description: >-
+        Manager only, reason and Idempotency-Key required, audited. Only grants
+        the allowance; it never performs the change (the buyer or Staff on the
+        buyer's behalf still calls POST /workshop-tickets/{ticketCode}/changes).
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/TicketCode'}, {$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ReasonRequest'}}}}
+      responses:
+        '201':
+          description: Allowance granted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [allowanceReference, ticketCode, reason, grantedAt]
+                properties:
+                  allowanceReference: {type: string}
+                  ticketCode: {type: string}
+                  reason: {type: string}
+                  grantedAt: {type: string, format: date-time}
+        '400': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-tickets/{ticketCode}/mland-remedy:
     get:
       summary: The current Mland offer of a ticket with every offered session (FR-043, T112, decided 2026-11-14)
