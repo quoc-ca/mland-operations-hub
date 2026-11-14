@@ -21,7 +21,7 @@ const vi = {
   'kind.VOUCHER': 'Voucher', 'kind.AUTO_DISCOUNT': 'Giảm giá tự động',
   'scope.PRODUCT': 'Sản phẩm', 'scope.WORKSHOP': 'Workshop',
   'status.ENABLED': 'Đang bật', 'status.PAUSED': 'Tạm dừng',
-  'discount.PERCENT': 'Theo phần trăm', 'discount.FIXED': 'Số tiền cố định', 'discount.text': 'Giảm {value} (tối đa {max})',
+  'discount.PERCENT': 'Theo phần trăm', 'discount.FIXED': 'Số tiền cố định', 'discount.text': 'Giảm {value} (tối đa {max})', 'discount.fixedText': 'Giảm {value}',
 
   'field.kind': 'Loại', 'field.scope': 'Phạm vi', 'field.status': 'Trạng thái', 'field.name': 'Tên chương trình', 'field.code': 'Mã voucher',
   'field.startAt': 'Bắt đầu', 'field.endAt': 'Kết thúc', 'field.window': 'Thời gian áp dụng', 'field.discount': 'Mức giảm',
@@ -179,7 +179,7 @@ const en = {
   'kind.VOUCHER': 'Voucher', 'kind.AUTO_DISCOUNT': 'Automatic discount',
   'scope.PRODUCT': 'Products', 'scope.WORKSHOP': 'Workshops',
   'status.ENABLED': 'Enabled', 'status.PAUSED': 'Paused',
-  'discount.PERCENT': 'Percentage', 'discount.FIXED': 'Fixed amount', 'discount.text': '{value} off (up to {max})',
+  'discount.PERCENT': 'Percentage', 'discount.FIXED': 'Fixed amount', 'discount.text': '{value} off (up to {max})', 'discount.fixedText': '{value} off',
 
   'field.kind': 'Kind', 'field.scope': 'Scope', 'field.status': 'Status', 'field.name': 'Programme name', 'field.code': 'Voucher code',
   'field.startAt': 'Starts', 'field.endAt': 'Ends', 'field.window': 'Valid period', 'field.discount': 'Discount',
