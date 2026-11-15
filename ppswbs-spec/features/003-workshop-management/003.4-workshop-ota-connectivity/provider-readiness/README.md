@@ -43,8 +43,8 @@ appropriate access controls.
 | --- | --- | --- | --- | --- |
 | Contract and onboarding | Signed/onboarded commercial terms and authority to integrate this product/option. | `<reference>` | `MISSING` | `<reviewer / date>` |
 | Commercial terms | Confirmed price semantics, commission/fees, taxes, currency/FX, and payout terms that apply to this mapping. | `<reference>` | `MISSING` | `<reviewer / date>` |
-| Connection ownership | Approved environment and Admin-owned opaque credential reference; no credential value is recorded here. | `<reference>` | `MISSING` | `<reviewer / date>` |
-| Callback authentication | Approved authentication/signature procedure and evidence of valid, invalid, and replay handling. | `<reference>` | `MISSING` | `<reviewer / date>` |
+| Connection ownership | Approved environment and opaque credential reference held as environment configuration (no Admin REST route, CHK026, 2026-11-15); no credential value is recorded here. | `<reference>` | `MISSING` | `<reviewer / date>` |
+| Callback authentication | Approved authentication/signature procedure and evidence of valid, invalid, and replay handling. The interim static-secret ingress is not this procedure (E3 blocks PRODUCTION; decided 2026-11-15, CHK024): its secret rotation is a change of value in the secret channel by runbook with no two-secret window, revocation is a changed value or a non-ACTIVE connection, and replay protection rests on the dedupe key; a signature with timestamp, nonce, replay window and key rotation is a go-live condition of each provider. | `<reference>` | `MISSING` | `<reviewer / date>` |
 | Quota and delivery behavior | Provider-approved quota, timeout, retry, idempotency, and acknowledgement behavior. Record only values confirmed by onboarding evidence. | `<reference>` | `MISSING` | `<reviewer / date>` |
 | Product and session mapping | Provider product/option maps to an eligible Basic Ring offer/session and canonical Mland location. | `<reference>` | `MISSING` | `<reviewer / date>` |
 | Data allowlist | Fields received/sent, operational purpose, provider authorization, and applicable retention source. Exclude unapproved contact and participant data. | `<reference>` | `MISSING` | `<reviewer / date>` |
@@ -68,10 +68,10 @@ Any missing, failed, or conditional evidence keeps the mapping sales-closed.
 Preparation synchronization may continue only within the approved sales-closed
 behavior. Record the resolution and its evidence before requesting a new review.
 
-The Admin booking-enable action is the final readiness attestation. It records
+The Manager booking-enable action (was Admin, changed 2026-11-15, CHK026) is the final readiness attestation. It records
 one outcome and safe evidence reference for each checklist area above, bound to
 the provider, environment and exact mapping. Mland persists the assessment,
-checklist references, Admin account, decision and timestamp; it does not copy
+checklist references, Manager account, decision and timestamp; it does not copy
 the underlying documents. Rejected or incomplete reviews remain in the audit
 history and do not enable sales. A changed mapping or environment needs a new
 assessment. Booking enablement is synchronous and atomic with the approved

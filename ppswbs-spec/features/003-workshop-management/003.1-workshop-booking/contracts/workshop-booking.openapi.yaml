@@ -28,6 +28,10 @@ paths:
         `pointValueVnd` are reported even when nothing is selected (FR-034); a
         Guest cart has no benefits and reports zeros. A Guest cart that asks for
         a voucher or points is refused with 409 `CART_BENEFITS_NEED_A_MEMBER`.
+        When Loyalty (006) or Operations (003.2) is unavailable the quote is
+        refused with 503 `DEPENDENCY_UNAVAILABLE` (same code as FR-031 group
+        creation) and no quote is created (FR-031, CHK013, decided 2026-11-15;
+        HTTP status 503 decided 2026-11-15).
       security: [{}, {bearerAuth: []}]
       requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CartQuoteRequest'}}}}
       responses:
@@ -36,6 +40,7 @@ paths:
         '401': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
         '409': {description: "A line cannot be sold now; failingLines names the zero-based cart positions (FR-031).", content: {application/json: {schema: {$ref: '#/components/schemas/CartHoldRejection'}}}}
+        '503': {description: "DEPENDENCY_UNAVAILABLE: Loyalty (006) or Operations (003.2) unavailable; no quote created (FR-031, CHK013; status decided 2026-11-15).", content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}}
   /api/v1/workshop-booking-groups:
     post:
       summary: Confirm a cart quote and hold every line atomically
@@ -47,7 +52,12 @@ paths:
         5,000 VND (FR-036, FR-038). A capacity failure returns 409 with
         `failingLines` and holds nothing. The quote is accepted once under a row
         lock: `QUOTE_EXPIRED`, `QUOTE_ALREADY_ACCEPTED` and `QUOTE_CHANGED` are
-        409. A replay with the same `Idempotency-Key` returns the stored 201.
+        409. A replay with the same `Idempotency-Key` returns the stored 201; a
+        reused key with different content returns 409 `IDEMPOTENCY_CONFLICT`
+        and changes nothing (FR-013, CHK018). When Loyalty (006) or Operations
+        (003.2) is unavailable the whole group is refused with 503
+        `DEPENDENCY_UNAVAILABLE` and nothing is held (FR-031, CHK013; HTTP
+        status 503 decided 2026-11-15).
       security: [{}, {bearerAuth: []}]
       parameters: [{$ref: '#/components/parameters/CreateIdempotencyKey'}]
       requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CreateGroupRequest'}}}}
@@ -56,7 +66,8 @@ paths:
         '400': {$ref: '#/components/responses/Problem'}
         '401': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
-        '409': {description: "Quote or capacity refusal; a capacity refusal carries failingLines.", content: {application/json: {schema: {$ref: '#/components/schemas/CartHoldRejection'}}}}
+        '409': {description: "Quote or capacity refusal (a capacity refusal carries failingLines), or IDEMPOTENCY_CONFLICT for a reused key with different content.", content: {application/json: {schema: {$ref: '#/components/schemas/CartHoldRejection'}}}}
+        '503': {description: "DEPENDENCY_UNAVAILABLE: Loyalty (006) or Operations (003.2) unavailable; nothing held (FR-031; status decided 2026-11-15).", content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}}
   /api/v1/workshop-booking-groups/{groupCode}/payment-attempts:
     post:
       summary: Start or retry the single VNPay payment of the group
@@ -64,14 +75,30 @@ paths:
         Only for a group collection of at least 5,000 VND; the amount is
         rechecked immediately before the attempt is created (FR-036).
         `expiresAt` is the group's payment deadline, two minutes before the hold
-        ends; a retry never extends the hold (FR-032).
+        ends; a retry never extends the hold (FR-032). A retry is refused with
+        409 `PAYMENT_WINDOW_CLOSED` after that deadline (status and code
+        decided 2026-11-15, CHK002; earlier label "proposed, not yet approved"
+        superseded) and, while a valid `PENDING` attempt
+        exists, returns it instead of creating another (FR-012a, decided
+        2026-11-15). A reused `Idempotency-Key` with different content returns
+        409 `IDEMPOTENCY_CONFLICT` (FR-013, CHK018). A Guest
+        sends `groupCode` plus exactly one matching contact value; a Member must
+        own a `PENDING_PAYMENT` group with an active payment window (FR-048). A
+        provider failure while the link is created answers 503
+        `PAYMENT_LINK_UNAVAILABLE` (one status, decided 2026-11-15, CHK012;
+        the earlier "502/503" is superseded), creates no attempt and leaves the
+        hold unchanged (FR-032).
       security: [{}, {bearerAuth: []}]
       parameters: [{$ref: '#/components/parameters/GroupCode'}, {$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: false, description: 'Guest contact proof (FR-048, CHK023); omitted by an authenticated Member.', content: {application/json: {schema: {$ref: '#/components/schemas/ContactProof'}}}}
       responses:
         '200': {description: Payment initiation, content: {application/json: {schema: {$ref: '#/components/schemas/GroupPaymentAttempt'}}}}
         '400': {$ref: '#/components/responses/Problem'}
+        '401': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
+        '429': {description: "Rate limit of T110 applied to Guest payment attempts (decided 2026-11-16, F19); carries no booking data (SC-008).", content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}}
+        '503': {description: "PAYMENT_LINK_UNAVAILABLE: the payment provider failed while the link was created; no attempt exists and the hold is unchanged (FR-032; status decided 2026-11-15, CHK012).", content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}}
   /api/v1/workshop-booking-groups/{groupCode}:
     get:
       summary: Read an owned group with its tickets (Member buyer view)
@@ -104,7 +131,8 @@ paths:
       summary: Guest lookup of a group by group code and one contact proof
       description: >-
         Replaces POST /booking-lookups (FR-048). Exactly one of `contactEmail`
-        or `contactPhone`. A wrong code or a wrong proof answers the same 404
+        or `contactPhone`; both, or neither, answers 400 `VALIDATION_ERROR`
+        (Bean Validation, FR-017a, CHK022, decided 2026-11-15). A wrong code or a wrong proof answers the same 404
         and never says which part failed; rate limits follow FR-048/T110 (per-instance in-memory sliding window). The Magic-Link holder gets the buyer's full view (price, collected, remaining, attendance, QR reference) with no contact data, no VNPay reference and no audit; `ticketReference` stays Member-only. Served `Cache-Control: no-store`.
       security: [{}]
       requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/GroupLookupRequest'}}}}
@@ -137,7 +165,8 @@ paths:
         evidence it also releases the held voucher and points (FR-017j). Refused
         with 409 `PAYMENT_ATTEMPT_EXISTS` once a group payment attempt exists,
         and 409 `INVALID_STATE` when the group is not `PENDING_PAYMENT`. A
-        replay with the same `Idempotency-Key` returns 204.
+        replay with the same `Idempotency-Key` returns 204; a reused key with
+        different content returns 409 `IDEMPOTENCY_CONFLICT` (FR-013, CHK018).
       security: [{}, {bearerAuth: []}]
       parameters: [{$ref: '#/components/parameters/GroupCode'}, {$ref: '#/components/parameters/IdempotencyKey'}]
       requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/GroupPendingHoldReleaseRequest'}}}}
@@ -145,7 +174,6 @@ paths:
         '204': {description: Released}
         '400': {$ref: '#/components/responses/Problem'}
         '401': {$ref: '#/components/responses/Problem'}
-        '403': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
         '429': {$ref: '#/components/responses/Problem'}
@@ -154,12 +182,15 @@ paths:
       summary: Resend a CONFIRMED group's buyer confirmation to the stored contact email
       description: >-
         Guest supplies exactly one stored contact proof; the owning Member none;
-        Staff within the active location scope of a group session; any active
-        Manager globally. Sends every ticket again to the stored contact only,
+        Staff whose active location scope includes the location of a session of the group and who is
+        actively assigned to a session of the group; any active Manager
+        globally. Sends every ticket again to the stored contact only,
         never to a recipient, and reuses the active group Magic Link (409
         `ACCESS_LINK_UNAVAILABLE` when none is active). Rolling limits: 3
         accepted self-service resends per group per hour and 5 accepted internal
-        resends per group per 15 minutes; a rejected request queues nothing.
+        resends per group per 15 minutes; a rejected request queues nothing. A
+        reused `Idempotency-Key` with different content returns 409
+        `IDEMPOTENCY_CONFLICT` (FR-013, CHK018).
       security: [{}, {bearerAuth: []}]
       parameters: [{$ref: '#/components/parameters/GroupCode'}, {$ref: '#/components/parameters/IdempotencyKey'}]
       requestBody: {required: false, content: {application/json: {schema: {$ref: '#/components/schemas/ContactProof'}}}}
@@ -177,7 +208,9 @@ paths:
       description: >-
         Any active Manager globally. `ROTATE` revokes the active link and sends
         a new one to the stored contact email; `REVOKE` only revokes. The reason
-        must not contain URLs, link fragments or credentials.
+        must not contain URLs, link fragments or credentials. A reused
+        `Idempotency-Key` with different content returns 409
+        `IDEMPOTENCY_CONFLICT` (FR-013, CHK018).
       security: [{bearerAuth: []}]
       parameters: [{$ref: '#/components/parameters/GroupCode'}, {$ref: '#/components/parameters/IdempotencyKey'}]
       requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/MagicLinkIncidentRequest'}}}}
@@ -192,8 +225,15 @@ paths:
     post:
       summary: Send a buyer-verification OTP to the group's original contact email
       description: >-
-        Guest buyer, or Staff at the shop on the buyer's behalf (FR-041,
-        decision 2026-11-13). The caller proves the booking with exactly one of
+        Guest buyer, Staff at the shop on the buyer's behalf, or any active
+        Manager (global) on the buyer's behalf (FR-041, decision 2026-11-13;
+        Manager and the Staff scope added 2026-11-15, CHK024/CHK025, replacing
+        "Guest buyer, or Staff"). A Staff member must be within the active
+        location scope of the session of the group they are actively assigned
+        to (FR-048 "Staff scope"); Admin has no authority; a Member needs no
+        OTP. A Staff or Manager caller needs no contact value (authority is
+        checked by role and assignment; decided 2026-11-16, F19; the body may be
+        empty). A Guest caller proves the booking with exactly one of
         the stored contact email or phone (the same proof as the guest lookup);
         the OTP always goes to the original contact email, never to a ticket
         recipient. 6 digits, valid 10 minutes, at most 5 wrong attempts; only a
@@ -207,6 +247,8 @@ paths:
       responses:
         '202': {description: Challenge accepted, content: {application/json: {schema: {$ref: '#/components/schemas/BuyerVerificationChallenge'}}}}
         '400': {$ref: '#/components/responses/Problem'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {description: "An authenticated Staff member known to lack authority (outside the Staff scope or not assigned to a session of the group, FR-048); an unknown group or wrong proof stays 404.", content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}}
         '404': {$ref: '#/components/responses/Problem'}
         '429': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-booking-groups/{groupCode}/buyer-verifications/{verificationId}/confirmations:
@@ -227,27 +269,39 @@ paths:
       responses:
         '200': {description: Buyer verified, content: {application/json: {schema: {$ref: '#/components/schemas/BuyerVerificationResult'}}}}
         '400': {$ref: '#/components/responses/Problem'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {description: "An authenticated Staff member known to lack authority (FR-048 Staff scope); an unknown group, wrong proof or other caller stays 404.", content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}}
+        '404': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-tickets/{ticketCode}/recipient:
     put:
       summary: Send a ticket to a recipient email, or change its recipient
       description: >-
-        Buyer only, or Staff after verifying the buyer (FR-041, decision
-        2026-11-13). Proof: a Member buyer sends a Firebase bearer and must own
-        the group; a Guest buyer sends `buyerVerificationReference`; Staff or
-        Manager sends a bearer with location scope plus
-        `buyerVerificationReference` and `reason`. A recipient has no management
-        right. The first send keeps the current QR and is not counted. Changing
+        Buyer only, or Staff or a Manager after verifying the buyer (FR-041,
+        decision 2026-11-13; Manager added 2026-11-15, CHK028, superseding the
+        earlier "Buyer only, or Staff after verifying the buyer"). Proof: a
+        Member buyer sends a Firebase bearer and must own the group; a Guest
+        buyer sends `buyerVerificationReference`; Staff sends a bearer with
+        location scope plus `buyerVerificationReference` and `reason`, and must
+        also be actively assigned to a session of the ticket's group (FR-048,
+        CHK025); a Manager sends a bearer plus `buyerVerificationReference` and
+        `reason` and is global, with no location scope (FR-048; the earlier
+        "Staff or Manager ... with location scope" is superseded 2026-11-15,
+        CHK028). A
+        recipient has no management right. The first send keeps the current QR and is not counted. Changing
         to a different email revokes the old QR at once, issues a new opaque QR
         for the same entitlements (003.2 FR-033), emails the new recipient and
         tells the previous recipient the old QR is void; it counts as one online
         change (at most 3 per ticket). Staff changes are not counted. The same
         email resends with the same QR. Errors: 401
-        `BUYER_VERIFICATION_REQUIRED`, 403 `RECIPIENT_CHANGE_FORBIDDEN`, 404
+        `BUYER_VERIFICATION_REQUIRED` (intended SC-008 exception), 403
+        `RECIPIENT_CHANGE_FORBIDDEN` (only an authenticated Staff/Manager known
+        to lack authority; a non-owner Member or wrong reference answers 404,
+        FR-017), 404
         `TICKET_NOT_FOUND`, 409 `TICKET_NOT_CONFIRMED`, 409
         `TICKET_ALREADY_CHECKED_IN`, 409 `TICKET_QR_REVOKED`, 409
         `RECIPIENT_CHANGE_LIMIT_REACHED` (go to the shop), 409
-        `BUYER_VERIFICATION_EXPIRED`, 409 `IDEMPOTENCY_KEY_REUSED`. A refused
+        `BUYER_VERIFICATION_EXPIRED`, 409 `IDEMPOTENCY_CONFLICT`. A refused
         request changes nothing. Audit keeps the masked old and new email, the
         actor, the channel, the time and the correlation only.
       security: [{}, {bearerAuth: []}]
@@ -291,7 +345,9 @@ paths:
         once a durable bank-refund request exists (`PENDING_ACCOUNT` when the
         refund account is still missing); it never calls VNPay Refund. A
         repeated decision with the same `Idempotency-Key` replays the result; a
-        decided review returns 409 `LATE_PAYMENT_REVIEW_ALREADY_DECIDED`.
+        decided review returns 409 `LATE_PAYMENT_REVIEW_ALREADY_DECIDED`; a
+        reused key with different content returns 409 `IDEMPOTENCY_CONFLICT`
+        (FR-013, CHK018).
       security: [{bearerAuth: []}]
       parameters:
         - {$ref: '#/components/parameters/GroupCode'}
@@ -326,6 +382,10 @@ components:
       description: Safe typed error (RFC 7807)
       content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}
   schemas:
+    GroupStatus:
+      type: string
+      enum: [PENDING_PAYMENT, CONFIRMED, EXPIRED, CANCELLED]
+      description: Booking group status (data-model.md booking_groups); ticket statuses use BookingStatus.
     BookingStatus:
       type: string
       enum: [PENDING_PAYMENT, CONFIRMED, EXPIRED, CANCELLED, COMPLETED, NO_SHOW]
@@ -333,7 +393,7 @@ components:
     PaymentStatus:
       type: string
       enum: [UNPAID, DEPOSIT_PAID, FULLY_PAID, REFUND_PENDING, REFUNDED]
-      description: "REFUND_PENDING and REFUNDED occur only during a Mland-caused remedy (D14)."
+      description: "Set per ticket when 003.3 opens or reconciles a bank refund for the ticket (FR-050); superseded wording: only during a Mland-caused remedy (D14)."
     PaymentMode:
       type: string
       enum: [VNPAY, INTERNAL_FREE, INTERNAL_DEFERRED]
@@ -477,7 +537,7 @@ components:
       description: The group as group creation returns it (FR-030..FR-032, FR-036).
       properties:
         groupCode: {type: string}
-        groupStatus: {$ref: '#/components/schemas/BookingStatus'}
+        groupStatus: {$ref: '#/components/schemas/GroupStatus'}
         paymentMode: {$ref: '#/components/schemas/PaymentMode'}
         groupCollectionVnd: {$ref: '#/components/schemas/Vnd'}
         holdExpiresAt: {type: string, format: date-time, nullable: true, description: Internal hold end (12 minutes); never shown to customers.}
@@ -508,7 +568,7 @@ components:
         attendance.
       properties:
         groupCode: {type: string}
-        groupStatus: {$ref: '#/components/schemas/BookingStatus'}
+        groupStatus: {$ref: '#/components/schemas/GroupStatus'}
         paymentMode: {$ref: '#/components/schemas/PaymentMode'}
         groupCollectionVnd: {$ref: '#/components/schemas/Vnd'}
         holdExpiresAt: {type: string, format: date-time, nullable: true}
@@ -561,11 +621,11 @@ components:
         currency: {type: string}
         paymentUrl: {type: string}
         expiresAt: {type: string, format: date-time, description: The group's payment deadline, two minutes before the hold ends (FR-032).}
-        status: {type: string}
+        status: {type: string, enum: [INITIATED, PENDING, SUCCESS, FAILED, EXPIRED], description: 'Backend PaymentAttemptStatus (FR-012a, CHK011); UNKNOWN is a client classification only (FR-012b).'}
     GroupLookupRequest:
       type: object
       required: [groupCode]
-      description: Exactly one of contactEmail or contactPhone.
+      description: Exactly one of contactEmail or contactPhone. A request with both, or with neither, is refused with 400 `VALIDATION_ERROR` by Bean Validation, with the same safe answer that never says which part failed (FR-017a, CHK022, decided 2026-11-15).
       properties:
         groupCode: {type: string, maxLength: 32}
         contactEmail: {type: string, format: email, maxLength: 254, writeOnly: true}
@@ -577,13 +637,14 @@ components:
         token: {type: string, maxLength: 128, writeOnly: true, description: Opaque value from the Magic Link URL fragment; never persist or log it.}
     ContactProof:
       type: object
-      description: Guest sends exactly one stored contact value; a Member or authorized internal caller sends none.
+      description: Guest sends exactly one stored contact value; a Member or authorized internal caller sends none. A Guest request with both values, or with neither, is refused with 400 `VALIDATION_ERROR` (Bean Validation), with the same safe answer that never says which part failed (FR-017a, CHK022, decided 2026-11-15).
       properties:
         contactEmail: {type: string, format: email, maxLength: 254, writeOnly: true}
         contactPhone: {type: string, minLength: 7, maxLength: 32, writeOnly: true}
     GroupPendingHoldReleaseRequest:
       type: object
       required: [reason]
+      description: Exactly one of contactEmail or contactPhone for a Guest; the owning Member sends neither (FR-048). A Guest request with both values, or with neither, is refused with 400 `VALIDATION_ERROR` (Bean Validation), with the same safe answer that never says which part failed (FR-017a, CHK022, decided 2026-11-15).
       properties:
         contactEmail: {type: string, format: email, maxLength: 254, writeOnly: true}
         contactPhone: {type: string, minLength: 7, maxLength: 32, writeOnly: true}
@@ -604,7 +665,7 @@ components:
         correlationId: {type: string}
     BuyerVerificationRequest:
       type: object
-      description: Exactly one of contactEmail or contactPhone.
+      description: Guest caller - exactly one of contactEmail or contactPhone; a Staff or Manager caller sends neither (decided 2026-11-16, F19). A Guest request with both, or with neither, is refused with 400 `VALIDATION_ERROR` by Bean Validation, with the same safe answer that never says which part failed (FR-017a, CHK022, decided 2026-11-15).
       properties:
         contactEmail: {type: string, format: email, maxLength: 254}
         contactPhone: {type: string, minLength: 7, maxLength: 32}

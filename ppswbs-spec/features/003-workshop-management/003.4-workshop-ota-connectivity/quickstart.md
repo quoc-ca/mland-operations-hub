@@ -13,7 +13,7 @@ This is an evidence-oriented validation flow for implementation and provider onb
 
 - The 003.1 booking, 003.2 operations, and 003.3 settlement/change facades are available in the test environment.
 - An approved Basic Ring test workshop session uses `PER_PERSON` pricing and has known capacity; no group/co-maker/base-plus-extra scenario is used. The offer is Signature Workshop - Brass (legacy name Basic Ring, Clarifications Q9); its mapping is configured by a Manager. Wax Casting is direct-Mland only and has no OTA mapping in V1.
-- Test actors have active canonical Account Management role/status/location facts and satisfy the applicable OTA Connectivity action rule for the target location. A separate Admin test actor owns provider connection actions.
+- Test actors have active canonical Account Management role/status/location facts and satisfy the applicable OTA Connectivity action rule for the target location. An Admin test actor is used only to confirm that every 003.4 route answers 403 (Admin has no authority in 003.4, CHK026, 2026-11-15); provider connection and credentials are environment configuration.
 - The provider adapter simulator can capture outbound messages and submit authenticated, redacted representative callbacks. A real sandbox is used only after credential and callback approval.
 
 ## Validation sequence
@@ -34,7 +34,7 @@ This is an evidence-oriented validation flow for implementation and provider onb
    and requests an authoritative 003.2 resync before it claims current inventory
    or schedule. Simulate a 003.4 consumer failure/restart and verify replay of
    the internal publication creates no second logical outbound sync change.
-4. After a current source change is accepted, simulate a transient provider failure and then a successful retry. Retain both attempts as evidence without changing Operations capacity or sale state.
+4. After a current source change is accepted, simulate a transient provider failure and then a successful retry. Retain both attempts as evidence without changing Operations capacity or sale state. Verify the default schedule (2026-11-15, CHK013, SC-009): one initial send, then retries 30 seconds, 2 minutes and 10 minutes after the previous failure, the last send within 15 minutes of the first; the `SALES_CLOSE` control command follows the same schedule.
 5. Pause and then resume sales in Operations. Verify 003.4 publishes normal
    closed/zero availability and then the reopened snapshot without suspending a
    valid mapping. Separately simulate retry exhaustion. Verify only the affected
@@ -50,8 +50,9 @@ This is an evidence-oriented validation flow for implementation and provider onb
 7. Complete a provider readiness record using sandbox evidence: product mapping, callback auth, test booking, one Mland ticket per participant, and individual ticket scan. Attempt booking enablement without one item and verify rejection.
 8. After all provider gates are approved, submit a booking for `N` participants. Verify exactly `N` Mland tickets, one capacity reservation, linked external references, and no direct provider write to Operations tables.
 9. Replay the same provider event and submit an out-of-order update. Verify the original booking/tickets/capacity are unchanged and the replay is audited.
-10. Exercise cancellation/refund evidence, a provider payout update, and a paid direct-Mland add-on. Verify these create distinct histories; a browser return or callback receipt alone does not settle money.
+10. Exercise cancellation/refund evidence, a provider payout update, and a paid direct-Mland add-on. Verify these create distinct histories; a browser return or callback receipt alone does not settle money. Cancel k of N participants: k not-yet-checked-in tickets are revoked, k equal to the active tickets cancels the whole booking, k above the active or the not-yet-checked-in tickets revokes nothing and opens an INBOUND_EVENT work item, a checked-in ticket is never revoked, a refund event releases no ticket, and the expected net stays unchanged (Clarifications 2026-11-15 follow-up; SC-003, SC-007).
 11. Simulate a booking delivered after sales-close only when the provider's written rule is available. Verify the configured rule, capacity result, and operator evidence. Without that evidence, this test is a release blocker.
+11a. Publish snapshots with `saleState` `PUBLISHED`, `SALES_PAUSED`, `CLOSED`, then `SALES_PAUSED` to `CLOSED`, and replay one snapshot. Verify any non-`PUBLISHED` value gives closed/zero availability, the `SALES_PAUSED` to `CLOSED` transition is not a mapping error, and the duplicate is a no-op (T145).
 
 ## Required evidence and test suites
 

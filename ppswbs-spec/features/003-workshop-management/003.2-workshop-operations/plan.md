@@ -1,7 +1,7 @@
 # Implementation Plan: Workshop Operations
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-15
+**Date updated**: 2026-11-16
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -33,7 +33,9 @@ transition remains only for explicit early start or recovery.
 *(Superseded 2026-11-15: "Approved — updated 2026-11-14 and re-approved the same
 day".)* Tasks Phase 1–13 and
 Phase 14 T090–T113 are implemented (tasks.md evidence, including T092, T096,
-T097); Phase 15 T114–T123 (spec Clarifications 2026-11-15) are open.
+T097); Phase 15 T114–T123 (spec Clarifications 2026-11-15) and Phase 16 T124–T125 (convergence), together T114–T125, are open; Phase 17
+T126–T142 (spec "Checklist follow-up (payment-error-access.md), answered
+2026-11-15") are open, mechanisms in "Checklist follow-up 2026-11-15" below.
 *(Superseded 2026-11-14: "Design draft — internal capacity semantics and
 facade-command idempotency are clarified; implementation must rebase the
 affected task before changing persistence or code.")*
@@ -130,6 +132,15 @@ status and active location IDs. Operations must not read Account entities or
 repositories or create a duplicate role store. There is no capability decision
 call or operational-lead handover boundary in the target V1 design.
 
+*(Added 2026-11-15, owner decision Hồ Hoàng Quốc, spec FR-012a/FR-012c, CHK018
+and CHK024.)* The facts are read at command time and never cached. If the
+Account facade throws or times out, `WorkshopOperationsAuthorizationService`
+converts the failure into a dependency-unavailable exception answered `503
+DEPENDENCY_UNAVAILABLE` before any business write (T128). Only `MANAGER` is a
+global workshop actor: `isGlobalWorkshopActor` no longer accepts `ADMIN`, and
+location creation (`WorkshopLocationService`) requires an active Manager
+instead of the ADMIN-only `requireAllBranchActor` (T129).
+
 ### Resolved OTA-Observable Snapshot Boundary
 
 Operations remains the sole source of session schedule, capacity and direct-
@@ -196,6 +207,8 @@ location routes and DTO fields are defined by this feature's OpenAPI contract.
 
 ### Resolved Settlement and Required-Session-Change Boundary
 
+*(Superseded 2026-11-14/15 by FR-032, FR-034 and T097: booking-wide settlement readiness and the complete required-session replacement below were removed; readiness and attendance outcome are per ticket (`getTicketAttendanceOutcome`) and replacement is per ticket (`replaceTicketSessions`, T094). The text below is kept as history.)*
+
 For a booking/package context supplied by 003.3, Operations alone determines
 settlement readiness. It returns only the conclusion: ready is true only when
 every required session is `ATTENDANCE_FINALIZED`; any unfinished or cancelled
@@ -260,7 +273,11 @@ from `operationReference`; the one business audit event for that execution uses
 the same correlation reference. Equivalent retries create no duplicate business
 audit event. Completed records are retained for at least 24 hours before
 cleanup; a caller must not retry after that window because duplicate protection
-is no longer guaranteed. No raw request payload, Firebase token, PII, QR value,
+is no longer guaranteed. *(Added 2026-11-15, owner decision Hồ Hoàng Quốc, spec
+FR-010kf, CHK016:)* a retry after cleanup is a new command and the business
+state checks (ticket no longer active, hold no longer active) stop a second
+effect; no tombstone or longer retention is added; T134 tests it for
+`cancelTicket`, `commitBookingHolds` and `releaseBookingHolds`. No raw request payload, Firebase token, PII, QR value,
 or audit metadata is used as the ledger or outcome store.
 
 ## Technical Context
@@ -288,7 +305,7 @@ workshop uses about 2.5 hours; the remaining 30 minutes is operational buffer.
 | Modular ownership | `workshopoperations` exposes an explicit facade; Booking and account/personnel are dependencies only through facades. | Pass |
 | No business logic in `common` | Session, ticket, capacity and attendance policies remain in Operations. Shared audit plumbing is technical only. | Pass |
 | JPA/Flyway discipline | JPA repositories only; a new append-only migration is selected at implementation time after checking the latest migration. | Pass |
-| Security boundary | Firebase verifies identity; server-side capability/scope checks guard every operation. No client-supplied location or actor is trusted. | Pass |
+| Security boundary | Firebase verifies identity; server-side role/scope checks guard every operation *(2026-11-15: was "capability/scope checks"; there is no capability key)*. No client-supplied location or actor is trusted. | Pass |
 | API quality | Versioned DTO contract, validation, problem responses and OpenAPI are designed before controllers. | Pass |
 | Verifiability | Lifecycle, capacity races, authorization, check-in and finalisation are explicit test slices. | Pass |
 
@@ -387,7 +404,7 @@ boundary.
    `IN_PROGRESS`, `ATTENDANCE_FINALIZED`, `CANCELLATION_REQUESTED` and
    `CANCELLED` have closed sale state. At scheduled start the scheduler changes
    `PUBLISHED` or `SALES_PAUSED` *(Q2, 2026-11-15)* to `IN_PROGRESS`, within 5 minutes
-   of the start time with a logged/alerted failure beyond that and catch-up on
+   of the start time with a failure beyond that logged at ERROR with a metric, no email (F14), and catch-up on
    restart *(Q7, task T119)*, and persists the complete closed snapshot in
    the same Operations transaction. `ATTENDANCE_FINALIZED` does not allocate a
    second version when the snapshot is already closed and otherwise unchanged.
@@ -478,7 +495,7 @@ the same day by Hồ Hoàng Quốc")*.
 | Task | Status | Mechanism |
 | --- | --- | --- |
 | T090 group capacity (FR-030) | Implemented | `WorkshopOperationsFacade.reserveGroupCapacity` → `GroupCapacityService`. Locks every involved session once through `findByReferenceInWithLock` in sorted reference order, then counts holds and seats with locking reads (the caller may hold an older REPEATABLE READ snapshot). All lines or none, demand summed per session, one hold per line per session, 12-minute hold, failing line indexes on refusal, idempotent replay. Commit at confirmation is done by 003.1 `GroupConfirmationService`, which calls `commitBookingHolds` per line reference; release after confirmation is per ticket (T091). |
-| T091 per-ticket cancellation (FR-031) | Implemented | `cancelTicket` → `TicketCancellationService`. V131 `ticket_entitlement_releases` (unique `ticket_id`, `session_id`) keeps one row per released future seat; the entitlement row is removed, the line's confirmed hold is decremented, checked-in/no-show sessions are untouched. |
+| T091 per-ticket cancellation (FR-031) | Implemented | `cancelTicket` → `TicketCancellationService`. V131 `ticket_entitlement_releases` (unique `ticket_id`, `session_id`) keeps one row per released future seat; the entitlement row is removed, the line's confirmed hold is decremented, checked-in/no-show sessions are untouched. QR (CHK010, 2026-11-15): the ticket's validity becomes `CANCELLED` and its QR is kept (no new generation, no `ticket_qr_generations` row); check-in and override answer `409 TICKET_CONFLICT`; `TICKET_QR_REVOKED` stays for recipient change. |
 | T093 QR reissue (FR-033) | Implemented | `reissueTicketQr` → `TicketQrReissueService`. V126 adds `attendance_tickets.qr_generation` and `ticket_qr_generations` (revoked QR values, reason `RECIPIENT_CHANGED`); check-in and override refuse a revoked QR with `TICKET_QR_REVOKED`; refused after any check-in. |
 | T094 per-ticket replacement (FR-034) | Implemented | `replaceTicketSessions` → `TicketSessionReplacementService`. V131 `ticket_session_replacements` (type `CUSTOMER_ADVANCE`, `CUSTOMER_LATE_ARRIVAL`, `MLAND`; `MLAND` never consumes quota). Lock order: every source and target session in sorted reference order, then each ticket, then its entitlements; all or none across the selected tickets. |
 | T095 reschedule quota (FR-035) | Implemented | V131 adds `workshop_sessions.reschedule_quota_override` and `reschedule_quota_used`; effective quota is the override or `max(1, capacity / 4)`. Route `PUT /api/v1/workshop-sessions/{sessionId}/reschedule-quota`. |
@@ -530,6 +547,63 @@ leaves no caller; their removal is T097 and keeps whatever OTA users remain.
 settlement/attendance facade methods. Only `BookingSettlementReadinessQuery`
 remains, kept for `hasBookingServiceStarted` and `isStaffAssignedToBooking`.)*
 
+## Checklist follow-up 2026-11-15 (Phase 17)
+
+**Source:** spec Clarifications "Checklist follow-up (payment-error-access.md),
+answered 2026-11-15" (owner decision Hồ Hoàng Quốc, 2026-11-15), the spec
+"Error catalogue" and SC-005–SC-008. Class names below were read from
+`ppswbs_backend/src` on 2026-11-15; new class names are proposed and final
+names are chosen at implementation.
+
+| Task | Decision | Mechanism |
+| --- | --- | --- |
+| T126 | CHK014 | `CheckInService` throws a new `WorkshopCheckInNotOpenException(checkInOpensAt)` instead of `WorkshopLifecycleException` when `now < checkInOpensAt`; `WorkshopOperationsExceptionHandler` answers `409 CHECK_IN_NOT_OPEN` and adds `checkInOpensAt` to `ProblemDetailResponse`. All other codes stay as in the catalogue. |
+| T127 | CHK020 | The resend throttle in `TicketResendService` already counts a fixed window from the first request; `WorkshopRateLimitException` gains `retryAfterSeconds` = ceil(windowStart + 15 min − now), min 1; the handler sets the `Retry-After` header on `429 REDELIVERY_THROTTLED`. |
+| T128 | CHK018 | Account facade failures are wrapped once in `WorkshopOperationsAuthorizationService` (proposed `WorkshopDependencyUnavailableException`) → `503 DEPENDENCY_UNAVAILABLE`; no fallback, no cache. 401 stays only for token failures (CHK028; current behaviour, verified by test). |
+| T129 | CHK024 | Remove `ADMIN` from `isGlobalWorkshopActor`; replace `requireAllBranchActor`/`isAllLocationActor`/`isAllBranchActor` uses in `WorkshopLocationService`, `WorkshopLifecycleService`, `WorkshopSessionService` with the Manager check; the ADMIN branches of `WorkshopResponsibilityService` belong to the operational-lead code removed by T124. |
+| T130 | CHK029 | `WorkshopResponsibilityService` assignment path: ineligible assignee → proposed `WorkshopStaffNotEligibleException(reason)` → `409 STAFF_NOT_ELIGIBLE` + `reason`; session state outside `DRAFT`/`PUBLISHED`/`SALES_PAUSED`/`IN_PROGRESS` → `409 INVALID_STATE`; duplicate active assignment stays a no-op. |
+| T131 | CHK032 | One proposed `OperationsDeniedAttemptRecorder` writes the denied `OperationsAuditEvent` (data-model "Denied-attempt audit") in a `REQUIRES_NEW` transaction, called from the refusal points of the listed actions (or from the exception handler for routes tagged as sensitive); refused normal check-ins and reads only log. |
+| T132 | CHK004 | `CapacityHoldService` commit guard (today it refuses only `CANCELLED`/`ATTENDANCE_FINALIZED`) also refuses `CANCELLATION_REQUESTED` with `REJECTED INVALID_STATE`; no hold is touched, so expiry releases it as usual. |
+| T133 | CHK009 | A proposed `UnresolvedCancellationAlertScheduler` reuses the existing scheduling mechanism of `WorkshopSessionStartScheduler`: Spring `@Scheduled(fixedDelayString = …)` under the `workshop.operations.scheduler.*` properties, `Instant.now()` as time source, UTC instants compared with `scheduled_end_at + 24h`. It selects `CANCELLATION_REQUESTED` sessions past that instant without a `CANCELLATION_UNRESOLVED_ALERT` audit event, reads `AccountFacade.listActiveManagerEmails()` (already an allowed dependency) and hands the emails to delivery; with an empty list it writes only a WARN log and no marker. *(Decided 2026-11-16, F06: the `SENT` audit event is written only after `NotificationFacade` returns success; disabled or failed sending gives a WARN log and no marker so the next scan retries; `NO_ACTIVE_MANAGER` is withdrawn.)* Each session is processed in its own transaction (same pattern as T125). **Channel decided (approved by Hồ Hoàng Quốc 2026-11-15; supersedes the former Open status of this row):** `workshopoperations` gains the dependency `notificationmanagement :: facade` (T133 adds it to `allowedDependencies` in `package-info.java`) and sends the alert through `NotificationFacade` with a new alert email template in the notification module. Recipients: `AccountFacade.listActiveManagerEmails()`; none active means WARN and no email and no marker (F06, 2026-11-16). The dependency and template approved by Hồ Hoàng Quốc 2026-11-16 (F06-email): the template `WORKSHOP_CANCELLATION_UNRESOLVED_ALERT` is added by a Flyway migration (definition in `notification_template_definition` + first version in `notification_template_version`, status per the module convention) and the 007 module owner is informed by the 003 owner after the change (convention, not a technical gate); release is not blocked by 007. One `NotificationFacade` intent per active Manager (`businessEventReference` `<sessionReference>:CANCELLATION_UNRESOLVED:<managerAccountId>`); `SENT` audit only when all intents were accepted. T133 acceptance adds the migration, a 007 preview-API render with sample data, and an allowlist test. The names `CANCELLATION_UNRESOLVED_ALERT`, `SENT`, `NO_ACTIVE_MANAGER` and the one-alert-per-session rule are approved by Hồ Hoàng Quốc 2026-11-15. |
+| T134 | CHK016 | Test only: delete the ledger row (simulating `FacadeCommandIdempotencyCleanupService`) and replay the same command. |
+| T135–T137 | FR-012c | `PATCH /workshop-locations/{locationId}` (Manager only, added to V1 by Hồ Hoàng Quốc 2026-11-15): `WorkshopLocationController` + `WorkshopLocationService.updateLocation` change `display_name`, `address_snapshot` and `active` of the existing `WorkshopLocation`; `code` immutable; `Idempotency-Key` through the existing REST idempotency executor; one audit event; frontend edit action on the administration page. Deactivation rule is confirmed by the owner 2026-11-15 (`409 INVALID_STATE` with a message while a not-yet-ended session uses the location; rename, address change and reactivation always allowed). No migration. |
+| T139 | CHK020 | `POST /workshop-sessions/{sessionId}/ticket-resends` answers `409 INVALID_STATE` with `reason` for two more cases (owner decision Hồ Hoàng Quốc 2026-11-15): no `ACTIVE` unused ticket in the booking (`NO_ELIGIBLE_TICKET`) and Booking refusing the redelivery (`REDELIVERY_REJECTED_BY_BOOKING`); never 400/404, so a booking's existence is not revealed. The `reason` names are final (owner 2026-11-16, option A). Today the code throws `WorkshopValidationException` (`400 VALIDATION_ERROR`) for both (`TicketResendService` ~line 58, `WorkshopCheckInController` ~line 71) and saves the throttle counter before the Booking call, so a Booking refusal still counts; T139 changes both to `409 INVALID_STATE` with the reasons and moves the increment so only a request handed to Booking and accepted counts. |
+| T140 | CHK015 | Test and OpenAPI-description task, no new mechanism (spec FR-010kh): the five operational routes take no `Idempotency-Key`; a repeat is decided by state under the existing session/ticket lock (`409 INVALID_STATE`; same-value correction `200` without a second audit; resend limited only by FR-003c). |
+| T141 | CHK025 | Test task (spec FR-007c): every Manager-only action in the FR-007c list writes its success audit event with actor, time, source and correlation ID; add the missing ones if a test shows a gap (slot change, session create, publish/pause, Staff assign/revoke). |
+| T142 | FR-007a, FR-013 | Test-only: the reason catalogue is enforced wherever a reason is required (unknown code `400 VALIDATION_ERROR`; `OTHER_REQUIRES_NOTE` without note or evidence reference `400 VALIDATION_ERROR`) and add-on visibility (Manager reads `DRAFT`/`RETIRED` on the administration route, the public route returns only `ACTIVE`, Staff/Admin 403). |
+| T138 | decision D | Documentation/QA check only, no code: find out whether FE-001, Loyalty `ProductBranchPicker` or Product management let an Admin call `GET /workshop-locations`; see "Open items" below. |
+
+**Approved contract names (approved by Hồ Hoàng Quốc 2026-11-15; replaces "proposed" for these names only).** *(Re-approved as-is 2026-11-16; 401 and 503 are not audited. The resend `409 INVALID_STATE` reasons `NO_ELIGIBLE_TICKET` and `REDELIVERY_REJECTED_BY_BOOKING` are final too, option A 2026-11-16.)* The `reason` values of `STAFF_NOT_ELIGIBLE` (`ACCOUNT_NOT_FOUND`, `NOT_STAFF`, `NOT_ACTIVE`, `LOCATION_NOT_IN_SCOPE`), the audit outcome `DENIED`, the audit action `CANCELLATION_UNRESOLVED_ALERT` with outcome `SENT` (`NO_ACTIVE_MANAGER` withdrawn 2026-11-16), and the rule of one alert per session. Java class names such as `WorkshopStaffNotEligibleException` or `OperationsDeniedAttemptRecorder` stay implementation choices.
+
+**Open items.**
+
+- Deactivating a location while a not-yet-ended session uses it: `409 INVALID_STATE` (T135), confirmed by the owner 2026-11-15 (closed).
+- Admin and `GET /workshop-locations`: **decided 2026-11-16 by Hồ Hoàng Quốc, option A, conditional on the T138 result** (supersedes "stays `403`, return to the owner"). T138 first checks whether FE-001 (the Admin screen assigning `activeLocationIds`) calls this route. If yes: Admin gets a separate read-only grant to the location list only (reference data, explicitly NOT a business permission; no create/edit/assignment/audit rights), documented in FR-012c, the 403 row of the error catalogue and the OpenAPI role text; T129/T138 tests expect Admin `200` on `GET /workshop-locations` and `403` on every other 003.2 route. If FE-001 does not call it, Admin stays `403`.
+- No location edit route: resolved at document level by T135/T137 (`PATCH /workshop-locations/{locationId}`, Manager edits, Admin `403`); confirmed when T135 is implemented (2026-11-16).
+- Self-chosen names approved as-is 2026-11-16 (Hồ Hoàng Quốc): `STAFF_NOT_ELIGIBLE` reasons, audit outcome `DENIED`, audit action `CANCELLATION_UNRESOLVED_ALERT` (outcome `SENT` only), 401/503 not audited, alert sent once per session (closed). The two resend reasons `NO_ELIGIBLE_TICKET` and `REDELIVERY_REJECTED_BY_BOOKING` (`409 INVALID_STATE`) are also final (option A, 2026-11-16, after comparing with the code); T139 aligns the code.
+- T048 contract-drift test may stay red until T126, T128, T129 and T139 are done (owner, 2026-11-16).
+- Alert email template content and the `notificationmanagement :: facade` dependency: resolved 2026-11-16, approved by Hồ Hoàng Quốc (F06-email); the template is added by a Flyway migration in T133 and the 007 module owner is only informed after the change (convention, not a technical gate).
+
+**Mechanisms for Phase 15 and 16 (T114–T125).** Read-only verification tasks first read the code and become a fix only if it differs from the spec.
+
+| Task | Mechanism |
+| --- | --- |
+| T114 | `CheckInService` accepts `PUBLISHED`, `SALES_PAUSED`, `IN_PROGRESS`; `WorkshopSessionStartScheduler` also starts `SALES_PAUSED` sessions with a system audit event; the snapshot builder emits `saleState=SALES_PAUSED` for a paused session (not `CLOSED`); the scheduler and the manual `PUBLISHED`/`SALES_PAUSED` to `IN_PROGRESS` transition both publish the complete closed snapshot and bump the version exactly once (add the manual `SALES_PAUSED` case and a unit test of the enum mapping). *(F04 reopened 2026-11-16, option B.)* |
+| T115 | Session response gains the `missingStaff` flag (true from `checkInOpensAt` while no Staff assignment is active); `WorkshopResponsibilityService` revoke refuses the last active assignment after `checkInOpensAt` with `409 LAST_STAFF_ASSIGNMENT_CONFIRMATION_REQUIRED` unless the request carries `confirmLastAssignmentRemoval: true` (query parameter on the DELETE route); both the refusal and the confirmed removal are audited. Names accepted 2026-11-15 (owner Hồ Hoàng Quốc). Scope (CHK030): the flag and the guard apply only while the session is `PUBLISHED`, `SALES_PAUSED` or `IN_PROGRESS`; in other states `missingStaff` is false and no confirmation is needed. |
+| T116 | New read-only audited Manager route `GET /workshop-booking-lookups/{bookingCode}` (name proposed) for a booking's cross-session ticket set: `ticketCode`, `sessionId`, `locationId`, `validityState`, `attendanceState`, no contact data; Manager only; unknown code `404 RESOURCE_NOT_FOUND` (FR-003b, CHK026). Route and schemas are already in the OpenAPI contract. |
+| T117 | Verify `cancelTicket` revokes at call time with no refund dependency (FR-031); remove refund-trigger wording in 003.2. CHK010: ticket `CANCELLED`, QR kept, scan → `409 TICKET_CONFLICT`. |
+| T118 | Verify `GroupCapacityService` checks each line against its own Package bounds; add the mixed-package MySQL test. |
+| T119 | `WorkshopSessionStartScheduler` logs at ERROR and increments a metric (no email; F14, 2026-11-16) for a start later than 5 minutes after `scheduledStartAt` and still catches up on restart. |
+| T120 | Read-only check that Loyalty `BRANCH` equals `workshop_location.id`; defect task in Loyalty/Booking if not. |
+| T121 | Verify and test the Staff location-plus-assignment rule on every Staff operation (`WorkshopOperationsAuthorizationService`). |
+| T122 | Verify that `completeCancellation` (facade method `completeCancellationHandoff`) moves `CANCELLATION_REQUESTED` to `CANCELLED` and that `CANCELLED` rejects check-in. |
+| T123 | New OTA-only ticket revocation facade operation for 003.4, idempotent per OTA event reference. |
+| T124 | Delete the operational-lead code and the "responsible operator" guard; T115 rule replaces it. |
+| T125 | Per-session `REQUIRES_NEW` transaction in `WorkshopSessionStartScheduler.transitionDueSessions` through a separate bean. |
+
+003.3 T167 (003.3 tasks.md) adds the caller of `completeCancellation`; 003.2
+T122 then verifies the transition end to end.
+
 ## Validation Strategy
 
 - Contract-test Package create/read/update/publish/retire, public exclusion of
@@ -558,7 +632,12 @@ remains, kept for `hasBookingServiceStarted` and `isStaffAssignedToBooking`.)*
 - Security-test active/inactive Staff, Staff location boundaries, global Manager
   authority, scheduled auto-start, normal check-in and reasoned override.
 - Contract-test REST responses and problem codes against
-  `contracts/workshop-operations.openapi.yaml`.
+  `contracts/workshop-operations.openapi.yaml`. *(Added 2026-11-15:)* every
+  returned `code` is in the `Problem.code` enum (spec "Error catalogue");
+  `401` only for token failures and `403` for no account/inactive/Admin;
+  `CHECK_IN_NOT_OPEN` with `checkInOpensAt`; `429` with `Retry-After`; `503`
+  with no side effect when the Account facade fails; `STAFF_NOT_ELIGIBLE` with
+  each `reason`; denied-attempt audit rows without PII (T126–T131).
 - Modulith-test that Operations does not depend on Booking internals and that
   Booking uses only the Operations facade.
 - Verify the OTA-observable boundary using session publication, schedule change,

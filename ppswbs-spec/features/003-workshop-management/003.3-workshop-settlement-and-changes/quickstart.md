@@ -1,7 +1,7 @@
 # Quickstart Validation: Workshop Settlement and Changes
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-15
+**Date updated**: 2026-11-16
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -127,6 +127,26 @@ credentials, provider calls, schema changes or deployment.
    from an accepted 003.4 quote creates one separate Mland bill paid only by
    verified `SHOP_ADDON` evidence, with no change to OTA payment, payout,
    commission or refund facts.
+
+## Per-ticket validation (current)
+
+This section is the current acceptance path (added 2026-11-16, R29); the scenarios above stay historical. Validate per ticket with: spec User Stories 5-13 (per-ticket settlement, bank refunds, cancellation and change, refund account, reconciliation, cash correction); task T103 (per-ticket end-to-end verification) and T138 (SC-015 accessibility and browser verification of every screen, after T164); and the reconciliation scenario: online booking-time VNPay 6,000,000 VND (IPN success) + counter collection 1,200,000 VND = 7,200,000 VND confirmed total in the FR-056 list, with an unverified booking-time row shown as `PENDING_VERIFICATION` and left out of the confirmed total. Contracts: `contracts/workshop-settlement-ticket.openapi.yaml`.
+
+## Vận hành hiện hành 003.3
+
+*(Added 2026-11-16, fix A14. The scenarios above are historical; this section is the current operations runbook outline for the per-ticket model. Task T137 completes and tests it.)*
+
+### Thay khóa mã hóa số tài khoản hoàn tiền (`WORKSHOP_REFUND_ACCOUNT_KEY`, FR-040, T137)
+
+1. Quyết định thay khóa (khóa bị lộ hoặc luân chuyển định kỳ). Hệ thống không xoay khóa trong V1: mọi số tài khoản đang được mã hóa bằng khóa cũ sẽ bị xóa.
+2. Thông báo trước cho Manager: các yêu cầu hoàn tiền đang giữ số tài khoản sẽ quay về `PENDING_ACCOUNT`, người nhận phải nhập lại số tài khoản và Manager phải duyệt lại.
+3. Đổi giá trị biến môi trường `WORKSHOP_REFUND_ACCOUNT_KEY` trong cấu hình triển khai (không ghi vào tài liệu, log hay repo) và khởi động lại dịch vụ.
+4. Một Admin gọi `POST /api/v1/workshop-refund-account-key-replacements` với `reason` và header `Idempotency-Key` (Manager và Staff nhận `403`).
+5. Kết quả mong đợi, mỗi yêu cầu một giao dịch: bản mã bị xóa nhưng giữ mask, trạng thái `PENDING_ACCOUNT`, link cũ bị thu hồi, link mới gửi cho người nhận, phê duyệt cũ của Manager vô hiệu, một bản ghi audit mỗi yêu cầu, không số tài khoản nào được trả về hay ghi log.
+6. Gọi lại cùng route là an toàn: chỉ tác động các yêu cầu còn giữ bản mã (chạy lại không đổi gì).
+7. Theo dõi: người nhận nhập lại số tài khoản qua link mới; Manager duyệt lại sau khi có tài khoản mới.
+
+Trước khi thực hiện, kiểm tra cột nào đang lưu bản mã và có cần migration không (T137).
 
 ## Evidence to Retain
 
