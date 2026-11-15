@@ -1,7 +1,7 @@
 # Tasks: FE-007 Notification Management
 
 **Date created**: 2026-11-06
-**Date updated**: 2026-11-06
+**Date updated**: 2026-11-16
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
@@ -119,6 +119,7 @@
 - [ ] T032 Verify full end-to-end flow using scenarios in `quickstart.md`
 - [ ] T033 Add an append-only corrective Flyway migration that normalizes existing derived-request chains to their root, preserves historical audit/delivery records, replaces `uq_nr_idempotency` with the original-only constraint from `data-model.md`, and updates the mapped JPA entity accordingly
 - [ ] T034 Add integration coverage for concurrent original intents (one `ENQUEUED`, one `DUPLICATE_IGNORED`) and for multiple eligible resend/redelivery actions linked to the same root
+- [x] T037 Backend: Update `BookingMailDeliveryService` to inject `ApplicationEventPublisher`, tighten technical retry to at most 2 attempts (`MAX_ATTEMPTS = 2`), and publish `BookingNotificationDeliveryFailed` upon final failed attempt per FR-029 and `workshop-interfeature-facades.md` (unblocks 003.1 T147).
 
 ---
 

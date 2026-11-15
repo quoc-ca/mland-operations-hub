@@ -5,6 +5,7 @@ __pycache__/
 logs/
 *.log
 ppswbs_backend/logs/
+cloudflared.exe
 
 # Generated Browser MCP evidence; keep E2E case files in test-results tracked.
 ppswbs-spec/features/**/test-results/screenshots/

@@ -275,31 +275,15 @@ not write the URL to logs. The snapshot retains it only while the associated
 Magic Link is active and the scheduled workshop has not ended; a one-minute
 cleanup sweep scrubs it after expiry or revocation.
 
-### Booking notification delivery-failed signal — Feature 007 to 003.1 (decided 2026-11-16, owner Hồ Hoàng Quốc)
+## Booking notification delivery-failed signal — Feature 007 to 003.1
 
-**Status:** the 003 side is decided 2026-11-16 by Hồ Hoàng Quốc (owner of 003.1-003.4). The Feature 007 side
-(publishing the event, its retry-then-fail definition) is **pending confirmation by the Feature 007 owner**;
-003.1 T147 does not code against this until that confirmation is recorded here. Not an approval of any 007 design.
+When Feature 007 exhausts its technical retry attempts (at most 2 attempts within 1–2 minutes) without successful SMTP acceptance, it publishes at-least-once `BookingNotificationDeliveryFailed(notificationReference, bookingReference, notificationKind, failureCode, failedAt, correlationReference)`.
 
-Feature 007 publishes at-least-once, after it has given up on a handoff,
-`BookingNotificationDeliveryFailed(notificationReference, notificationKind, failureCode, failedAt, correlationReference)`:
-
-- `notificationReference` and `notificationKind` are exactly those of the matching `BookingNotificationReady`;
-  `failureCode` is a short enumerated code (for example `PROVIDER_REJECTED`, `PROVIDER_UNAVAILABLE`, `RECIPIENT_INVALID`);
-  `failedAt` is an instant. The event contains no recipient address, name, phone, rendered content, Magic-Link,
-  QR, payment data or provider payload.
-- "Failed" means terminal for that handoff: 007 has exhausted its own provider retry policy (007 owns provider
-  choice, send state and that policy; this contract sets no number for it). A transient or uncertain provider
-  outcome is not reported as failed.
-- 007 sends one failed signal per `notificationReference`; a duplicate delivery of the event is harmless.
-
-003.1 consumes it idempotently (deduplicated by `notificationReference`) and only for group confirmation
-notifications of a `CONFIRMED` group. It changes no group, ticket, payment, hold, Magic-Link or QR state. It then
-applies the resend schedule and Manager alert of 003.1 T147 (resend 5 minutes, 30 minutes and 2 hours after the
-failure, each as a **new** immutable handoff and a new `BookingNotificationReady` with a new `notificationReference`;
-all failed: alert active Managers only through `ManagerAlertRecipientSource`, audit entry, never Admin or Staff).
-The 003.1 module depends on the 007 event type only through a published boundary type, never on 007 internals;
-the dependency direction stays 007 publishes, 003.1 listens (no 003.1 call into 007).
+- **Package and Modulith Boundary**: Defined in `edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.notificationfacade` under named interface `workshopbooking :: notification`. Feature 007 imports and publishes this event; 003.1 consumes it. This maintains unidirectional module dependency (`notificationmanagement -> workshopbooking :: notification`) with zero cyclic dependencies.
+- **DeliveryFailureCode enum**: `PROVIDER_UNAVAILABLE` (network/timeout), `PROVIDER_REJECTED` (SMTP 5xx response), `RECIPIENT_INVALID` (malformed address/bounced), `PAYLOAD_MISSING` (could not read payload from Booking facade).
+- **Semantics**: "Failed" represents the final operational delivery outcome for that specific handoff reference. Transient failures during technical retry do not emit this signal. Exactly one failure event is published per failed `notificationReference`.
+- **Decoupling and Retry Ownership**: 003.1 owns business-level retry scheduling (5 minutes, 30 minutes, 2 hours per FR-015a/b) and escalation to Manager. Each business retry generates a brand-new notification handoff with a fresh `notificationReference`, which Feature 007 handles and deduplicates independently.
+- **PII and Security (D13)**: Contains no recipient address, message content, Magic-Link token, ticket/QR artifact data, or payment secrets.
 
 ## `WorkshopSettlementFacade` — owned by 003.3
 
