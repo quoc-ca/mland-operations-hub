@@ -1,12 +1,12 @@
 # Data Model: Workshop Booking Core
 
 **Date created**: 2026-10-07
-**Date updated**: 2026-11-14
+**Date updated**: 2026-11-15
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
 **Status**: Updated 2026-11-14 to the implemented group/ticket model (migrations
-V113–V133); owner re-approval pending. *(Previous status: "Draft design — schema
+V113–V133); approved by Hồ Hoàng Quốc 2026-11-15 together with spec.md. *(Previous status: "Draft design — schema
 names and migrations require approval before implementation".)* The current
 direct-booking model is the section "Booking group and ticket bookings" below;
 the single-`WorkshopBooking` sections that follow it here are history for direct
@@ -149,7 +149,7 @@ BookingGroup (1) ── (1..N) TicketBooking ── (1..2) TicketSessionEntitlem
 | TicketBooking | ticket booking code; group; package and session-set snapshot; service/financial status; QR/Magic Link reference; one-change counter used by 003.3 | One person per ticket. A multi-session package is one ticket. Cancel/change/refund of one ticket never changes another ticket implicitly. |
 | TicketPriceSnapshot | package price; voucher allocation; allocated points and point discount; final price; collected at booking; collection kind (`FREE`, `FULL`, `DEPOSIT`, `DEFERRED_BELOW_VNPAY_MINIMUM`); remaining; disclosed non-refundable condition; recorded Loyalty policy revision | Immutable after confirmation. Allocations use largest remainder in whole VND / whole points (ties: higher price, then cart order); voucher allocation ≤ ticket price; ticket at 0 after voucher gets no points. Collection: 0 → 0; 1–200,000 → full; > 200,000 → 200,000; whole group 1–4,999 → all deferred to checkout. |
 | TicketRecipient | ticket; recipient email (encrypted or masked in reads); active QR generation; change count; change history (old/new masked email, actor, channel, time) | Optional. A recipient change revokes the old QR and issues a new one; same-email resend keeps the QR. No change after check-in; at most 3 online changes per ticket. Only the buyer or Staff after verifying the buyer may change it. |
-| LatePaymentReview | group; verified evidence reference; arrival time; evaluated conditions (capacity, start ≥ 2 h, recomputed amount, ≤ 60 min, no duplicate booking); outcome (`AUTO_RECONFIRMED`, `PENDING_MANAGER`, `MANAGER_CONFIRMED`, `REFUND_REQUESTED`) | One review per verified evidence. Auto re-confirmation is atomic for the whole group and idempotent across IPN/QueryDR. Manager confirmation is allowed only when only the 60-minute or duplicate-booking condition failed. |
+| LatePaymentReview | group; verified evidence reference; arrival time; evaluated conditions (capacity, start ≥ 2 h, recomputed amount, ≤ 60 min, no duplicate booking: same Member account or normalized email with a `CONFIRMED` or `PENDING_PAYMENT` booking whose hold still runs, FR-040 condition 5); outcome (`AUTO_RECONFIRMED`, `PENDING_MANAGER`, `MANAGER_CONFIRMED`, `REFUND_REQUESTED`) | One review per verified evidence. Auto re-confirmation is atomic for the whole group and idempotent across IPN/QueryDR. Manager confirmation is allowed only when only the 60-minute or duplicate-booking condition failed. |
 
 `BookingInvoice` keeps its meaning for single-ticket history; for new bookings
 the per-ticket `TicketPriceSnapshot` and the 003.3 folio replace the group-level
@@ -167,7 +167,7 @@ the per-ticket `TicketPriceSnapshot` and the 003.3 folio replace the group-level
 | `ticket_price_snapshots` (V113) | `ticket_id` (unique), `package_price_vnd`, `voucher_discount_vnd`, `points_used`, `point_discount_vnd`, `final_price_vnd`, `collected_at_booking_vnd`, `collection_kind`, `remaining_vnd`, `non_refundable_disclosed`, `loyalty_policy_revision` | `collection_kind` ENUM `FREE`, `FULL`, `DEPOSIT`, `DEFERRED_BELOW_VNPAY_MINIMUM`; `ck_tps_amounts` (final = price − discounts; collected + remaining = final) and `ck_tps_kind` (FR-035 bands: FREE 0; FULL 1–200,000 collects all; DEPOSIT ≥ 200,001 collects 200,000; DEFERRED collects 0). |
 | `ticket_recipients` (V113) | `ticket_id` (unique), `recipient_email`, `change_count`, `qr_generation` | `change_count ≥ 0`, `qr_generation ≥ 1`. |
 | `ticket_recipient_changes` (V113, V127) | `ticket_id`, `old_email_masked`, `new_email_masked`, `actor_type`, `actor_reference`, `channel`, `changed_at`; V127 adds `change_kind`, `qr_rotated`, `counted_online`, `reason`, `correlation_reference`, `idempotency_key` (unique) | `change_kind` `FIRST_SEND`/`CHANGE`; `actor_type` `MEMBER`/`GUEST`/`STAFF`/`MANAGER`; `channel` `ONLINE`/`SHOP`. Emails stored masked. |
-| `booking_buyer_verifications` (V127) | `verification_reference` (unique), `group_id`, `status`, `otp_hash`, `otp_salt`, `failed_attempts`, `otp_expires_at`, `buyer_verification_reference` (unique), `reference_expires_at`, `consumed_at` | `status` `PROOF_MISMATCH`, `PENDING`, `VERIFIED`, `CONSUMED`, `LOCKED`, `SUPERSEDED`; `failed_attempts` 0–5; only a salted OTP hash is stored. |
+| `booking_buyer_verifications` (V127) | `verification_reference` (unique), `group_id`, `status`, `otp_hash`, `otp_salt`, `failed_attempts`, `otp_expires_at`, `buyer_verification_reference` (unique), `reference_expires_at`, `consumed_at` | `status` `PROOF_MISMATCH`, `PENDING`, `VERIFIED`, `CONSUMED`, `LOCKED`, `SUPERSEDED`; `failed_attempts` 0–5; only a salted OTP hash is stored. Limits (FR-041a): OTP 10 min, 5 wrong entries then `LOCKED`, resend ≥60 s apart and ≤5 per hour per group, reference single-use 15 min. |
 | `group_payment_attempts` (V113) | `group_id`, `attempt_reference`, `merchant_reference` (both unique), `amount_vnd`, `provider_create_date`, `payment_url_snapshot`, `attempt_status`, `expires_at` | `attempt_status` ENUM `PENDING`, `SUCCESS`, `FAILED`, `EXPIRED`; `ck_gpa_amount` (≥ 5,000). |
 | `booking_group_magic_links` (V115) | `group_id`, `token_hash` (unique), `lifecycle_status`, `expires_at`, `revoked_at` | `lifecycle_status` ENUM `ACTIVE`, `REVOKED`, `EXPIRED`; one group link, expiring with the last session. |
 | `booking_group_notification_intents` (V127) | `notification_reference` (unique), `group_id`, `ticket_id` (nullable), `notification_kind`, `correlation_reference`, `delivery_snapshot`, `snapshot_expires_at` | Feature 007 pulls the snapshot through `WorkshopBookingNotificationFacade`; snapshots holding an OTP are scrubbed at expiry. |
@@ -184,8 +184,7 @@ or the Member's voucher (006 FR-015: one or the other). No column was added;
 the quote response reports the programme in `appliedDiscount`
 (`NONE`/`AUTO`/`VOUCHER`). A cart with no applicable automatic discount keeps an
 empty benefit snapshot and reserves nothing. Consequence: late-payment
-condition 3 fails a group with an automatic discount (spec FR-040, open owner
-decision).
+condition 3 passes for an automatic discount, which is recomputed; only a voucher or points fail it (spec FR-040, decided 2026-11-14; the former "open owner decision" is closed).
 
 ## Migration boundary
 
