@@ -1,0 +1,317 @@
+import { createHotContext as __vite__createHotContext } from "/@vite/client";import.meta.hot = __vite__createHotContext("/src/features/loyalty-promotion/ui/member/MyLoyaltyPage.jsx");import __vite__cjsImport0_react_jsxDevRuntime from "/node_modules/.vite/deps/react_jsx-dev-runtime.js?v=83e3faa1"; const Fragment = __vite__cjsImport0_react_jsxDevRuntime["Fragment"]; const jsxDEV = __vite__cjsImport0_react_jsxDevRuntime["jsxDEV"];
+var _s = $RefreshSig$(), _s2 = $RefreshSig$();
+import __vite__cjsImport1_react from "/node_modules/.vite/deps/react.js?v=83e3faa1"; const React = __vite__cjsImport1_react.__esModule ? __vite__cjsImport1_react.default : __vite__cjsImport1_react;
+import { Link } from "/node_modules/.vite/deps/react-router.js?v=83e3faa1";
+import { RequireSession } from "/src/shared/auth/RequireSession.jsx?t=1794733875684";
+import { useFormat, useT } from "/src/shared/i18n/I18nProvider.jsx";
+import { ErrorNotice, Loading, useResource } from "/src/shared/ui/components.jsx?t=1794733875684";
+import { useLoyaltyApi } from "/src/features/loyalty-promotion/application/useLoyaltyApi.js?t=1794733875684";
+import { messages } from "/src/features/loyalty-promotion/ui/messages.js?t=1794733875670";
+import { useDateTime } from "/src/features/loyalty-promotion/ui/display.jsx?t=1794733875670";
+import { useCursorList } from "/src/features/loyalty-promotion/application/useCursorList.js";
+export default function MyLoyaltyPage() {
+  _s();
+  const t = useT(messages);
+  return /* @__PURE__ */ jsxDEV("main", { className: "container public-page lp-theme lp-public", children: [
+    /* @__PURE__ */ jsxDEV("p", { className: "eyebrow", children: "MEMBER" }, void 0, false, {
+      fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/loyalty-promotion/ui/member/MyLoyaltyPage.jsx",
+      lineNumber: 20,
+      columnNumber: 7
+    }, this),
+    /* @__PURE__ */ jsxDEV("h1", { children: t("loyalty.title") }, void 0, false, {
+      fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/loyalty-promotion/ui/member/MyLoyaltyPage.jsx",
+      lineNumber: 21,
+      columnNumber: 7
+    }, this),
+    /* @__PURE__ */ jsxDEV(RequireSession, { requiredText: t("session.member"), children: /* @__PURE__ */ jsxDEV(LoyaltyContent, {}, void 0, false, {
+      fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/loyalty-promotion/ui/member/MyLoyaltyPage.jsx",
+      lineNumber: 22,
+      columnNumber: 58
+    }, this) }, void 0, false, {
+      fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/loyalty-promotion/ui/member/MyLoyaltyPage.jsx",
+      lineNumber: 22,
+      columnNumber: 7
+    }, this)
+  ] }, void 0, true, {
+    fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/loyalty-promotion/ui/member/MyLoyaltyPage.jsx",
+    lineNumber: 19,
+    columnNumber: 5
+  }, this);
+}
+_s(MyLoyaltyPage, "uZyfTDL5l50aWwhHvO0Py2n2h8Y=", false, function() {
+  return [useT];
+});
+_c = MyLoyaltyPage;
+function LoyaltyContent() {
+  _s2();
+  const t = useT(messages);
+  const format = useFormat();
+  const dateTime = useDateTime();
+  const api = useLoyaltyApi();
+  const account = useResource(() => api.getOwnAccount(), []);
+  const history = useCursorList((cursor) => api.listOwnTransactions({ cursor }), []);
+  const data = account.error ? null : account.data;
+  const policy = data?.policy;
+  return /* @__PURE__ */ jsxDEV(Fragment, { children: [
+    account.loading && !data && /* @__PURE__ */ jsxDEV(Loading, {}, void 0, false, {
+      fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/loyalty-promotion/ui/member/MyLoyaltyPage.jsx",
+      lineNumber: 39,
+      columnNumber: 36
+    }, this),
+    account.error && /* @__PURE__ */ jsxDEV(ErrorNotice, { error: account.error, messages, onRetry: account.reload }, void 0, false, {
+      fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/loyalty-promotion/ui/member/MyLoyaltyPage.jsx",
+      lineNumber: 40,
+      columnNumber: 25
+    }, this),
+    data && /* @__PURE__ */ jsxDEV("section", { className: "workspace-card", children: [
+      /* @__PURE__ */ jsxDEV("div", { className: "points-grid", children: [
+        /* @__PURE__ */ jsxDEV("div", { children: [
+          /* @__PURE__ */ jsxDEV("span", { children: t("loyalty.available") }, void 0, false, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/loyalty-promotion/ui/member/MyLoyaltyPage.jsx",
+            lineNumber: 44,
+            columnNumber: 18
+          }, this),
+          /* @__PURE__ */ jsxDEV("strong", { children: format.number(data.availablePoints) }, void 0, false, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/loyalty-promotion/ui/member/MyLoyaltyPage.jsx",
+            lineNumber: 44,
+            columnNumber: 55
+          }, this)
+        ] }, void 0, true, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/loyalty-promotion/ui/member/MyLoyaltyPage.jsx",
+          lineNumber: 44,
+          columnNumber: 13
+        }, this),
+        /* @__PURE__ */ jsxDEV("div", { children: [
+          /* @__PURE__ */ jsxDEV("span", { children: t("loyalty.balance") }, void 0, false, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/loyalty-promotion/ui/member/MyLoyaltyPage.jsx",
+            lineNumber: 45,
+            columnNumber: 18
+          }, this),
+          /* @__PURE__ */ jsxDEV("strong", { children: format.number(data.balancePoints) }, void 0, false, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/loyalty-promotion/ui/member/MyLoyaltyPage.jsx",
+            lineNumber: 45,
+            columnNumber: 53
+          }, this)
+        ] }, void 0, true, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/loyalty-promotion/ui/member/MyLoyaltyPage.jsx",
+          lineNumber: 45,
+          columnNumber: 13
+        }, this),
+        /* @__PURE__ */ jsxDEV("div", { children: [
+          /* @__PURE__ */ jsxDEV("span", { children: t("loyalty.held") }, void 0, false, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/loyalty-promotion/ui/member/MyLoyaltyPage.jsx",
+            lineNumber: 46,
+            columnNumber: 18
+          }, this),
+          /* @__PURE__ */ jsxDEV("strong", { children: format.number(data.heldPoints) }, void 0, false, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/loyalty-promotion/ui/member/MyLoyaltyPage.jsx",
+            lineNumber: 46,
+            columnNumber: 50
+          }, this)
+        ] }, void 0, true, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/loyalty-promotion/ui/member/MyLoyaltyPage.jsx",
+          lineNumber: 46,
+          columnNumber: 13
+        }, this)
+      ] }, void 0, true, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/loyalty-promotion/ui/member/MyLoyaltyPage.jsx",
+        lineNumber: 43,
+        columnNumber: 11
+      }, this),
+      /* @__PURE__ */ jsxDEV("p", { className: "muted small", children: t("loyalty.heldHint") }, void 0, false, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/loyalty-promotion/ui/member/MyLoyaltyPage.jsx",
+        lineNumber: 48,
+        columnNumber: 11
+      }, this),
+      policy && /* @__PURE__ */ jsxDEV("ul", { className: "rules", children: [
+        /* @__PURE__ */ jsxDEV("li", { children: t("policy.earnText", { amount: format.money(policy.earnUnitAmount) }) }, void 0, false, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/loyalty-promotion/ui/member/MyLoyaltyPage.jsx",
+          lineNumber: 51,
+          columnNumber: 15
+        }, this),
+        /* @__PURE__ */ jsxDEV("li", { children: t("policy.redeemText", { amount: format.money(policy.redeemPointValue) }) }, void 0, false, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/loyalty-promotion/ui/member/MyLoyaltyPage.jsx",
+          lineNumber: 52,
+          columnNumber: 15
+        }, this),
+        /* @__PURE__ */ jsxDEV("li", { children: t("loyalty.minRedeem", { points: format.number(policy.minRedeemPoints) }) }, void 0, false, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/loyalty-promotion/ui/member/MyLoyaltyPage.jsx",
+          lineNumber: 53,
+          columnNumber: 15
+        }, this),
+        /* @__PURE__ */ jsxDEV("li", { children: t("loyalty.maxRedeem", { percent: policy.maxRedeemPercent }) }, void 0, false, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/loyalty-promotion/ui/member/MyLoyaltyPage.jsx",
+          lineNumber: 54,
+          columnNumber: 15
+        }, this)
+      ] }, void 0, true, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/loyalty-promotion/ui/member/MyLoyaltyPage.jsx",
+        lineNumber: 50,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ jsxDEV("p", { className: "actions", children: /* @__PURE__ */ jsxDEV(Link, { className: "text-link", to: "/me/saved-vouchers", children: t("nav.savedVouchers") }, void 0, false, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/loyalty-promotion/ui/member/MyLoyaltyPage.jsx",
+        lineNumber: 57,
+        columnNumber: 34
+      }, this) }, void 0, false, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/loyalty-promotion/ui/member/MyLoyaltyPage.jsx",
+        lineNumber: 57,
+        columnNumber: 11
+      }, this)
+    ] }, void 0, true, {
+      fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/loyalty-promotion/ui/member/MyLoyaltyPage.jsx",
+      lineNumber: 42,
+      columnNumber: 7
+    }, this),
+    /* @__PURE__ */ jsxDEV("section", { className: "workspace-card", children: [
+      /* @__PURE__ */ jsxDEV("h2", { children: t("loyalty.history") }, void 0, false, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/loyalty-promotion/ui/member/MyLoyaltyPage.jsx",
+        lineNumber: 62,
+        columnNumber: 9
+      }, this),
+      history.loading && history.items.length === 0 && /* @__PURE__ */ jsxDEV(Loading, {}, void 0, false, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/loyalty-promotion/ui/member/MyLoyaltyPage.jsx",
+        lineNumber: 63,
+        columnNumber: 59
+      }, this),
+      history.error && /* @__PURE__ */ jsxDEV(ErrorNotice, { error: history.error, messages, onRetry: history.retry }, void 0, false, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/loyalty-promotion/ui/member/MyLoyaltyPage.jsx",
+        lineNumber: 64,
+        columnNumber: 27
+      }, this),
+      !history.loading && !history.error && history.items.length === 0 && /* @__PURE__ */ jsxDEV("p", { className: "muted", children: t("loyalty.noHistory") }, void 0, false, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/loyalty-promotion/ui/member/MyLoyaltyPage.jsx",
+        lineNumber: 65,
+        columnNumber: 78
+      }, this),
+      history.items.length > 0 && /* @__PURE__ */ jsxDEV("div", { className: "data-table", role: "table", "aria-label": t("loyalty.history"), children: [
+        /* @__PURE__ */ jsxDEV("div", { className: "data-row head ledger", role: "row", children: [
+          /* @__PURE__ */ jsxDEV("span", { role: "columnheader", children: t("loyalty.when") }, void 0, false, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/loyalty-promotion/ui/member/MyLoyaltyPage.jsx",
+            lineNumber: 69,
+            columnNumber: 15
+          }, this),
+          /* @__PURE__ */ jsxDEV("span", { role: "columnheader", children: t("loyalty.kind") }, void 0, false, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/loyalty-promotion/ui/member/MyLoyaltyPage.jsx",
+            lineNumber: 69,
+            columnNumber: 67
+          }, this),
+          /* @__PURE__ */ jsxDEV("span", { role: "columnheader", children: t("loyalty.source") }, void 0, false, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/loyalty-promotion/ui/member/MyLoyaltyPage.jsx",
+            lineNumber: 70,
+            columnNumber: 15
+          }, this),
+          /* @__PURE__ */ jsxDEV("span", { role: "columnheader", children: t("loyalty.balanceChange") }, void 0, false, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/loyalty-promotion/ui/member/MyLoyaltyPage.jsx",
+            lineNumber: 70,
+            columnNumber: 69
+          }, this),
+          /* @__PURE__ */ jsxDEV("span", { role: "columnheader", children: t("loyalty.heldChange") }, void 0, false, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/loyalty-promotion/ui/member/MyLoyaltyPage.jsx",
+            lineNumber: 71,
+            columnNumber: 15
+          }, this)
+        ] }, void 0, true, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/loyalty-promotion/ui/member/MyLoyaltyPage.jsx",
+          lineNumber: 68,
+          columnNumber: 13
+        }, this),
+        history.items.map(
+          (entry) => /* @__PURE__ */ jsxDEV("div", { className: "data-row ledger", role: "row", children: [
+            /* @__PURE__ */ jsxDEV("span", { role: "cell", children: dateTime(entry.occurredAt) }, void 0, false, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/loyalty-promotion/ui/member/MyLoyaltyPage.jsx",
+              lineNumber: 75,
+              columnNumber: 17
+            }, this),
+            /* @__PURE__ */ jsxDEV("span", { role: "cell", children: t(`ledger.${entry.kind}`) }, void 0, false, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/loyalty-promotion/ui/member/MyLoyaltyPage.jsx",
+              lineNumber: 76,
+              columnNumber: 17
+            }, this),
+            /* @__PURE__ */ jsxDEV("span", { role: "cell", children: [
+              t(`source.${entry.sourceKind}`),
+              " #",
+              entry.sourceRef
+            ] }, void 0, true, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/loyalty-promotion/ui/member/MyLoyaltyPage.jsx",
+              lineNumber: 77,
+              columnNumber: 17
+            }, this),
+            /* @__PURE__ */ jsxDEV("span", { role: "cell", children: signed(format, entry.balanceChange) }, void 0, false, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/loyalty-promotion/ui/member/MyLoyaltyPage.jsx",
+              lineNumber: 78,
+              columnNumber: 17
+            }, this),
+            /* @__PURE__ */ jsxDEV("span", { role: "cell", children: signed(format, entry.heldChange) }, void 0, false, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/loyalty-promotion/ui/member/MyLoyaltyPage.jsx",
+              lineNumber: 79,
+              columnNumber: 17
+            }, this)
+          ] }, entry.id, true, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/loyalty-promotion/ui/member/MyLoyaltyPage.jsx",
+            lineNumber: 74,
+            columnNumber: 11
+          }, this)
+        )
+      ] }, void 0, true, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/loyalty-promotion/ui/member/MyLoyaltyPage.jsx",
+        lineNumber: 67,
+        columnNumber: 9
+      }, this),
+      history.nextCursor && /* @__PURE__ */ jsxDEV("div", { className: "pager", children: /* @__PURE__ */ jsxDEV("button", { type: "button", className: "button outline", disabled: history.loading, onClick: history.more, children: t("more") }, void 0, false, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/loyalty-promotion/ui/member/MyLoyaltyPage.jsx",
+        lineNumber: 84,
+        columnNumber: 55
+      }, this) }, void 0, false, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/loyalty-promotion/ui/member/MyLoyaltyPage.jsx",
+        lineNumber: 84,
+        columnNumber: 32
+      }, this)
+    ] }, void 0, true, {
+      fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/loyalty-promotion/ui/member/MyLoyaltyPage.jsx",
+      lineNumber: 61,
+      columnNumber: 7
+    }, this)
+  ] }, void 0, true, {
+    fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/loyalty-promotion/ui/member/MyLoyaltyPage.jsx",
+    lineNumber: 38,
+    columnNumber: 5
+  }, this);
+}
+_s2(LoyaltyContent, "RYOD9I0ucNOJZhSXv06cqxkKc3I=", false, function() {
+  return [useT, useFormat, useDateTime, useLoyaltyApi, useResource, useCursorList];
+});
+_c2 = LoyaltyContent;
+function signed(format, value) {
+  if (value === null || value === void 0 || value === "0") return "0";
+  const text = String(value);
+  return text.startsWith("-") ? format.number(text) : `+${format.number(text)}`;
+}
+var _c, _c2;
+$RefreshReg$(_c, "MyLoyaltyPage");
+$RefreshReg$(_c2, "LoyaltyContent");
+import * as RefreshRuntime from "/@react-refresh";
+const inWebWorker = typeof WorkerGlobalScope !== "undefined" && self instanceof WorkerGlobalScope;
+if (import.meta.hot && !inWebWorker) {
+  if (!window.$RefreshReg$) {
+    throw new Error(
+      "@vitejs/plugin-react can't detect preamble. Something is wrong."
+    );
+  }
+  RefreshRuntime.__hmr_import(import.meta.url).then((currentExports) => {
+    RefreshRuntime.registerExportsForReactRefresh("C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/loyalty-promotion/ui/member/MyLoyaltyPage.jsx", currentExports);
+    import.meta.hot.accept((nextExports) => {
+      if (!nextExports) return;
+      const invalidateMessage = RefreshRuntime.validateRefreshBoundaryAndEnqueueUpdate("C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/loyalty-promotion/ui/member/MyLoyaltyPage.jsx", currentExports, nextExports);
+      if (invalidateMessage) import.meta.hot.invalidate(invalidateMessage);
+    });
+  });
+}
+function $RefreshReg$(type, id) {
+  return RefreshRuntime.register(type, "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/loyalty-promotion/ui/member/MyLoyaltyPage.jsx " + id);
+}
+function $RefreshSig$() {
+  return RefreshRuntime.createSignatureFunctionForTransform();
+}
+
+//# sourceMappingURL=data:application/json;base64,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QUFBQTtBQUFBO0FBQUE7QUFBQSxTQWdEQTtBQUVKO0FBQUNFLElBN0RRRCxnQkFBYztBQUFBLFVBQ1hYLE1BQ0tELFdBQ0VPLGFBQ0xGLGVBQ0lELGFBQ0FJLGFBQWE7QUFBQTtBQUFBLE1BTnRCSTtBQStEVCxTQUFTb0MsT0FBT2xDLFFBQVF3QyxPQUFPO0FBQzdCLE1BQUlBLFVBQVUsUUFBUUEsVUFBVUMsVUFBYUQsVUFBVSxJQUFLLFFBQU87QUFDbkUsUUFBTUUsT0FBT0MsT0FBT0gsS0FBSztBQUN6QixTQUFPRSxLQUFLRSxXQUFXLEdBQUcsSUFBSTVDLE9BQU9hLE9BQU82QixJQUFJLElBQUksSUFBSTFDLE9BQU9hLE9BQU82QixJQUFJLENBQUM7QUFDN0U7QUFBQyxJQUFBRyxJQUFBQztBQUFBLGFBQUFELElBQUE7QUFBQSxhQUFBQyxLQUFBIiwibmFtZXMiOlsiUmVhY3QiLCJMaW5rIiwiUmVxdWlyZVNlc3Npb24iLCJ1c2VGb3JtYXQiLCJ1c2VUIiwiRXJyb3JOb3RpY2UiLCJMb2FkaW5nIiwidXNlUmVzb3VyY2UiLCJ1c2VMb3lhbHR5QXBpIiwibWVzc2FnZXMiLCJ1c2VEYXRlVGltZSIsInVzZUN1cnNvckxpc3QiLCJNeUxveWFsdHlQYWdlIiwiX3MiLCJ0IiwiTG95YWx0eUNvbnRlbnQiLCJfczIiLCJmb3JtYXQiLCJkYXRlVGltZSIsImFwaSIsImFjY291bnQiLCJnZXRPd25BY2NvdW50IiwiaGlzdG9yeSIsImN1cnNvciIsImxpc3RPd25UcmFuc2FjdGlvbnMiLCJkYXRhIiwiZXJyb3IiLCJwb2xpY3kiLCJsb2FkaW5nIiwicmVsb2FkIiwibnVtYmVyIiwiYXZhaWxhYmxlUG9pbnRzIiwiYmFsYW5jZVBvaW50cyIsImhlbGRQb2ludHMiLCJhbW91bnQiLCJtb25leSIsImVhcm5Vbml0QW1vdW50IiwicmVkZWVtUG9pbnRWYWx1ZSIsInBvaW50cyIsIm1pblJlZGVlbVBvaW50cyIsInBlcmNlbnQiLCJtYXhSZWRlZW1QZXJjZW50IiwiaXRlbXMiLCJsZW5ndGgiLCJyZXRyeSIsIm1hcCIsImVudHJ5Iiwib2NjdXJyZWRBdCIsImtpbmQiLCJzb3VyY2VLaW5kIiwic291cmNlUmVmIiwic2lnbmVkIiwiYmFsYW5jZUNoYW5nZSIsImhlbGRDaGFuZ2UiLCJpZCIsIm5leHRDdXJzb3IiLCJtb3JlIiwidmFsdWUiLCJ1bmRlZmluZWQiLCJ0ZXh0IiwiU3RyaW5nIiwic3RhcnRzV2l0aCIsIl9jIiwiX2MyIl0sImlnbm9yZUxpc3QiOltdLCJzb3VyY2VzIjpbIk15TG95YWx0eVBhZ2UuanN4Il0sInNvdXJjZXNDb250ZW50IjpbImltcG9ydCBSZWFjdCBmcm9tICdyZWFjdCc7XHJcbmltcG9ydCB7IExpbmsgfSBmcm9tICdyZWFjdC1yb3V0ZXInO1xyXG5pbXBvcnQgeyBSZXF1aXJlU2Vzc2lvbiB9IGZyb20gJy4uLy4uLy4uLy4uL3NoYXJlZC9hdXRoL1JlcXVpcmVTZXNzaW9uJztcclxuaW1wb3J0IHsgdXNlRm9ybWF0LCB1c2VUIH0gZnJvbSAnLi4vLi4vLi4vLi4vc2hhcmVkL2kxOG4vSTE4blByb3ZpZGVyJztcclxuaW1wb3J0IHsgRXJyb3JOb3RpY2UsIExvYWRpbmcsIHVzZVJlc291cmNlIH0gZnJvbSAnLi4vLi4vLi4vLi4vc2hhcmVkL3VpL2NvbXBvbmVudHMnO1xyXG5pbXBvcnQgeyB1c2VMb3lhbHR5QXBpIH0gZnJvbSAnLi4vLi4vYXBwbGljYXRpb24vdXNlTG95YWx0eUFwaSc7XHJcbmltcG9ydCB7IG1lc3NhZ2VzIH0gZnJvbSAnLi4vbWVzc2FnZXMnO1xyXG5pbXBvcnQgeyB1c2VEYXRlVGltZSB9IGZyb20gJy4uL2Rpc3BsYXknO1xyXG5pbXBvcnQgeyB1c2VDdXJzb3JMaXN0IH0gZnJvbSAnLi4vLi4vYXBwbGljYXRpb24vdXNlQ3Vyc29yTGlzdCc7XHJcblxyXG4vKipcclxuICogVDA0MCBNeSBMb3lhbHR5OiB0aGUgTWVtYmVyJ3Mgb3duIGJhbGFuY2UsIGhlbGQgYW5kIGF2YWlsYWJsZSBwb2ludHMsIHRoZSBjb252ZXJzaW9uIHJ1bGVzIGFuZCB0aGUgaGlzdG9yeS5cclxuICogQSBmYWlsZWQgcmVhZCBuZXZlciBrZWVwcyBzaG93aW5nIG9sZCBudW1iZXJzIGFzIGNvbmZpcm1lZDsgYW4gZW1wdHkgaGlzdG9yeSBkaWZmZXJzIGZyb20gYSBsb2FkIGVycm9yLlxyXG4gKiBUaGVyZSBpcyBubyBwdXJnZSBvciBleHBpcnkgc2NyZWVuIChwb2ludHMgZG8gbm90IGV4cGlyZSwgaGlzdG9yeSBpcyBrZXB0KS5cclxuICovXHJcbmV4cG9ydCBkZWZhdWx0IGZ1bmN0aW9uIE15TG95YWx0eVBhZ2UoKSB7XHJcbiAgY29uc3QgdCA9IHVzZVQobWVzc2FnZXMpO1xyXG4gIHJldHVybiAoXHJcbiAgICA8bWFpbiBjbGFzc05hbWU9XCJjb250YWluZXIgcHVibGljLXBhZ2UgbHAtdGhlbWUgbHAtcHVibGljXCI+XHJcbiAgICAgIDxwIGNsYXNzTmFtZT1cImV5ZWJyb3dcIj5NRU1CRVI8L3A+XHJcbiAgICAgIDxoMT57dCgnbG95YWx0eS50aXRsZScpfTwvaDE+XHJcbiAgICAgIDxSZXF1aXJlU2Vzc2lvbiByZXF1aXJlZFRleHQ9e3QoJ3Nlc3Npb24ubWVtYmVyJyl9PjxMb3lhbHR5Q29udGVudCAvPjwvUmVxdWlyZVNlc3Npb24+XHJcbiAgICA8L21haW4+XHJcbiAgKTtcclxufVxyXG5cclxuZnVuY3Rpb24gTG95YWx0eUNvbnRlbnQoKSB7XHJcbiAgY29uc3QgdCA9IHVzZVQobWVzc2FnZXMpO1xyXG4gIGNvbnN0IGZvcm1hdCA9IHVzZUZvcm1hdCgpO1xyXG4gIGNvbnN0IGRhdGVUaW1lID0gdXNlRGF0ZVRpbWUoKTtcclxuICBjb25zdCBhcGkgPSB1c2VMb3lhbHR5QXBpKCk7XHJcbiAgY29uc3QgYWNjb3VudCA9IHVzZVJlc291cmNlKCgpID0+IGFwaS5nZXRPd25BY2NvdW50KCksIFtdKTtcclxuICBjb25zdCBoaXN0b3J5ID0gdXNlQ3Vyc29yTGlzdChjdXJzb3IgPT4gYXBpLmxpc3RPd25UcmFuc2FjdGlvbnMoeyBjdXJzb3IgfSksIFtdKTtcclxuICBjb25zdCBkYXRhID0gYWNjb3VudC5lcnJvciA/IG51bGwgOiBhY2NvdW50LmRhdGE7XHJcbiAgY29uc3QgcG9saWN5ID0gZGF0YT8ucG9saWN5O1xyXG5cclxuICByZXR1cm4gKFxyXG4gICAgPD5cclxuICAgICAge2FjY291bnQubG9hZGluZyAmJiAhZGF0YSAmJiA8TG9hZGluZyAvPn1cclxuICAgICAge2FjY291bnQuZXJyb3IgJiYgPEVycm9yTm90aWNlIGVycm9yPXthY2NvdW50LmVycm9yfSBtZXNzYWdlcz17bWVzc2FnZXN9IG9uUmV0cnk9e2FjY291bnQucmVsb2FkfSAvPn1cclxuICAgICAge2RhdGEgJiYgKFxyXG4gICAgICAgIDxzZWN0aW9uIGNsYXNzTmFtZT1cIndvcmtzcGFjZS1jYXJkXCI+XHJcbiAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cInBvaW50cy1ncmlkXCI+XHJcbiAgICAgICAgICAgIDxkaXY+PHNwYW4+e3QoJ2xveWFsdHkuYXZhaWxhYmxlJyl9PC9zcGFuPjxzdHJvbmc+e2Zvcm1hdC5udW1iZXIoZGF0YS5hdmFpbGFibGVQb2ludHMpfTwvc3Ryb25nPjwvZGl2PlxyXG4gICAgICAgICAgICA8ZGl2PjxzcGFuPnt0KCdsb3lhbHR5LmJhbGFuY2UnKX08L3NwYW4+PHN0cm9uZz57Zm9ybWF0Lm51bWJlcihkYXRhLmJhbGFuY2VQb2ludHMpfTwvc3Ryb25nPjwvZGl2PlxyXG4gICAgICAgICAgICA8ZGl2PjxzcGFuPnt0KCdsb3lhbHR5LmhlbGQnKX08L3NwYW4+PHN0cm9uZz57Zm9ybWF0Lm51bWJlcihkYXRhLmhlbGRQb2ludHMpfTwvc3Ryb25nPjwvZGl2PlxyXG4gICAgICAgICAgPC9kaXY+XHJcbiAgICAgICAgICA8cCBjbGFzc05hbWU9XCJtdXRlZCBzbWFsbFwiPnt0KCdsb3lhbHR5LmhlbGRIaW50Jyl9PC9wPlxyXG4gICAgICAgICAge3BvbGljeSAmJiAoXHJcbiAgICAgICAgICAgIDx1bCBjbGFzc05hbWU9XCJydWxlc1wiPlxyXG4gICAgICAgICAgICAgIDxsaT57dCgncG9saWN5LmVhcm5UZXh0JywgeyBhbW91bnQ6IGZvcm1hdC5tb25leShwb2xpY3kuZWFyblVuaXRBbW91bnQpIH0pfTwvbGk+XHJcbiAgICAgICAgICAgICAgPGxpPnt0KCdwb2xpY3kucmVkZWVtVGV4dCcsIHsgYW1vdW50OiBmb3JtYXQubW9uZXkocG9saWN5LnJlZGVlbVBvaW50VmFsdWUpIH0pfTwvbGk+XHJcbiAgICAgICAgICAgICAgPGxpPnt0KCdsb3lhbHR5Lm1pblJlZGVlbScsIHsgcG9pbnRzOiBmb3JtYXQubnVtYmVyKHBvbGljeS5taW5SZWRlZW1Qb2ludHMpIH0pfTwvbGk+XHJcbiAgICAgICAgICAgICAgPGxpPnt0KCdsb3lhbHR5Lm1heFJlZGVlbScsIHsgcGVyY2VudDogcG9saWN5Lm1heFJlZGVlbVBlcmNlbnQgfSl9PC9saT5cclxuICAgICAgICAgICAgPC91bD5cclxuICAgICAgICAgICl9XHJcbiAgICAgICAgICA8cCBjbGFzc05hbWU9XCJhY3Rpb25zXCI+PExpbmsgY2xhc3NOYW1lPVwidGV4dC1saW5rXCIgdG89XCIvbWUvc2F2ZWQtdm91Y2hlcnNcIj57dCgnbmF2LnNhdmVkVm91Y2hlcnMnKX08L0xpbms+PC9wPlxyXG4gICAgICAgIDwvc2VjdGlvbj5cclxuICAgICAgKX1cclxuXHJcbiAgICAgIDxzZWN0aW9uIGNsYXNzTmFtZT1cIndvcmtzcGFjZS1jYXJkXCI+XHJcbiAgICAgICAgPGgyPnt0KCdsb3lhbHR5Lmhpc3RvcnknKX08L2gyPlxyXG4gICAgICAgIHtoaXN0b3J5LmxvYWRpbmcgJiYgaGlzdG9yeS5pdGVtcy5sZW5ndGggPT09IDAgJiYgPExvYWRpbmcgLz59XHJcbiAgICAgICAge2hpc3RvcnkuZXJyb3IgJiYgPEVycm9yTm90aWNlIGVycm9yPXtoaXN0b3J5LmVycm9yfSBtZXNzYWdlcz17bWVzc2FnZXN9IG9uUmV0cnk9e2hpc3RvcnkucmV0cnl9IC8+fVxyXG4gICAgICAgIHshaGlzdG9yeS5sb2FkaW5nICYmICFoaXN0b3J5LmVycm9yICYmIGhpc3RvcnkuaXRlbXMubGVuZ3RoID09PSAwICYmIDxwIGNsYXNzTmFtZT1cIm11dGVkXCI+e3QoJ2xveWFsdHkubm9IaXN0b3J5Jyl9PC9wPn1cclxuICAgICAgICB7aGlzdG9yeS5pdGVtcy5sZW5ndGggPiAwICYmIChcclxuICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwiZGF0YS10YWJsZVwiIHJvbGU9XCJ0YWJsZVwiIGFyaWEtbGFiZWw9e3QoJ2xveWFsdHkuaGlzdG9yeScpfT5cclxuICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJkYXRhLXJvdyBoZWFkIGxlZGdlclwiIHJvbGU9XCJyb3dcIj5cclxuICAgICAgICAgICAgICA8c3BhbiByb2xlPVwiY29sdW1uaGVhZGVyXCI+e3QoJ2xveWFsdHkud2hlbicpfTwvc3Bhbj48c3BhbiByb2xlPVwiY29sdW1uaGVhZGVyXCI+e3QoJ2xveWFsdHkua2luZCcpfTwvc3Bhbj5cclxuICAgICAgICAgICAgICA8c3BhbiByb2xlPVwiY29sdW1uaGVhZGVyXCI+e3QoJ2xveWFsdHkuc291cmNlJyl9PC9zcGFuPjxzcGFuIHJvbGU9XCJjb2x1bW5oZWFkZXJcIj57dCgnbG95YWx0eS5iYWxhbmNlQ2hhbmdlJyl9PC9zcGFuPlxyXG4gICAgICAgICAgICAgIDxzcGFuIHJvbGU9XCJjb2x1bW5oZWFkZXJcIj57dCgnbG95YWx0eS5oZWxkQ2hhbmdlJyl9PC9zcGFuPlxyXG4gICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAge2hpc3RvcnkuaXRlbXMubWFwKGVudHJ5ID0+IChcclxuICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cImRhdGEtcm93IGxlZGdlclwiIHJvbGU9XCJyb3dcIiBrZXk9e2VudHJ5LmlkfT5cclxuICAgICAgICAgICAgICAgIDxzcGFuIHJvbGU9XCJjZWxsXCI+e2RhdGVUaW1lKGVudHJ5Lm9jY3VycmVkQXQpfTwvc3Bhbj5cclxuICAgICAgICAgICAgICAgIDxzcGFuIHJvbGU9XCJjZWxsXCI+e3QoYGxlZGdlci4ke2VudHJ5LmtpbmR9YCl9PC9zcGFuPlxyXG4gICAgICAgICAgICAgICAgPHNwYW4gcm9sZT1cImNlbGxcIj57dChgc291cmNlLiR7ZW50cnkuc291cmNlS2luZH1gKX0gI3tlbnRyeS5zb3VyY2VSZWZ9PC9zcGFuPlxyXG4gICAgICAgICAgICAgICAgPHNwYW4gcm9sZT1cImNlbGxcIj57c2lnbmVkKGZvcm1hdCwgZW50cnkuYmFsYW5jZUNoYW5nZSl9PC9zcGFuPlxyXG4gICAgICAgICAgICAgICAgPHNwYW4gcm9sZT1cImNlbGxcIj57c2lnbmVkKGZvcm1hdCwgZW50cnkuaGVsZENoYW5nZSl9PC9zcGFuPlxyXG4gICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICApKX1cclxuICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICl9XHJcbiAgICAgICAge2hpc3RvcnkubmV4dEN1cnNvciAmJiA8ZGl2IGNsYXNzTmFtZT1cInBhZ2VyXCI+PGJ1dHRvbiB0eXBlPVwiYnV0dG9uXCIgY2xhc3NOYW1lPVwiYnV0dG9uIG91dGxpbmVcIiBkaXNhYmxlZD17aGlzdG9yeS5sb2FkaW5nfSBvbkNsaWNrPXtoaXN0b3J5Lm1vcmV9Pnt0KCdtb3JlJyl9PC9idXR0b24+PC9kaXY+fVxyXG4gICAgICA8L3NlY3Rpb24+XHJcbiAgICA8Lz5cclxuICApO1xyXG59XHJcblxyXG5mdW5jdGlvbiBzaWduZWQoZm9ybWF0LCB2YWx1ZSkge1xyXG4gIGlmICh2YWx1ZSA9PT0gbnVsbCB8fCB2YWx1ZSA9PT0gdW5kZWZpbmVkIHx8IHZhbHVlID09PSAnMCcpIHJldHVybiAnMCc7XHJcbiAgY29uc3QgdGV4dCA9IFN0cmluZyh2YWx1ZSk7XHJcbiAgcmV0dXJuIHRleHQuc3RhcnRzV2l0aCgnLScpID8gZm9ybWF0Lm51bWJlcih0ZXh0KSA6IGArJHtmb3JtYXQubnVtYmVyKHRleHQpfWA7XHJcbn1cclxuIl0sImZpbGUiOiJDOi9Vc2Vycy9hZG1pbi9EZXNrdG9wL1NFUC9tbGFuZC1vcGVyYXRpb25zLWh1Yi9wcHN3YnNfZnJvbnRlbmQvc3JjL2ZlYXR1cmVzL2xveWFsdHktcHJvbW90aW9uL3VpL21lbWJlci9NeUxveWFsdHlQYWdlLmpzeCJ9

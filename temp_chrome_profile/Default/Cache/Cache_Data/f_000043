@@ -1,0 +1,438 @@
+import { createHotContext as __vite__createHotContext } from "/@vite/client";import.meta.hot = __vite__createHotContext("/src/workshop-operations/pages/OperationsDashboardPage.jsx");import __vite__cjsImport0_react_jsxDevRuntime from "/node_modules/.vite/deps/react_jsx-dev-runtime.js?v=83e3faa1"; const jsxDEV = __vite__cjsImport0_react_jsxDevRuntime["jsxDEV"];
+var _s = $RefreshSig$();
+import __vite__cjsImport1_react from "/node_modules/.vite/deps/react.js?v=83e3faa1"; const React = __vite__cjsImport1_react.__esModule ? __vite__cjsImport1_react.default : __vite__cjsImport1_react; const useState = __vite__cjsImport1_react["useState"];
+import { Link } from "/node_modules/.vite/deps/react-router.js?v=83e3faa1";
+import { useAuth } from "/src/shared/auth/AuthProvider.jsx";
+import { useRole } from "/src/shared/auth/useRole.js?t=1794733875684";
+import { useHttp } from "/src/shared/api/useHttp.js?t=1794733875684";
+import { ErrorNotice, Loading, useResource } from "/src/shared/ui/components.jsx?t=1794733875684";
+import { OperationsSidebar } from "/src/shared/ui/OperationsSidebar.jsx?t=1794733875738";
+import { OperationsAuthWorkspace } from "/src/shared/ui/OperationsAuthWorkspace.jsx?t=1794733875738";
+import { Paginator, usePaged } from "/src/shared/ui/Paginator.jsx";
+import { createOperationsApi } from "/src/workshop-operations/api/operationsApi.js?t=1794733875741";
+import "/src/ota-connectivity/ota-connectivity.css";
+import "/src/workshop-operations/workshop-operations.css";
+export default function OperationsDashboardPage() {
+  _s();
+  const { status } = useAuth();
+  const isStaff = useRole() === "STAFF";
+  const api = createOperationsApi(useHttp());
+  const [filters, setFilters] = useState({ state: "", locationId: "", from: "", to: "" });
+  const resource = useResource(() => api.listSessions(filters), [filters.state, filters.locationId, filters.from, filters.to]);
+  const sessions = Array.isArray(resource.data) ? resource.data : resource.data?.content || resource.data?.items || [];
+  const paged = usePaged(sessions, 15, resource.data);
+  if (status === "loading") return /* @__PURE__ */ jsxDEV(Loading, {}, void 0, false, {
+    fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+    lineNumber: 23,
+    columnNumber: 36
+  }, this);
+  if (status !== "signed-in") {
+    return /* @__PURE__ */ jsxDEV(
+      OperationsAuthWorkspace,
+      {
+        topline: "MLAND / WORKSHOP OPERATIONS",
+        message: "Authentication required to access operations."
+      },
+      void 0,
+      false,
+      {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+        lineNumber: 26,
+        columnNumber: 7
+      },
+      this
+    );
+  }
+  const counts = sessions.reduce((acc, item) => {
+    acc[item.state] = (acc[item.state] || 0) + 1;
+    return acc;
+  }, {});
+  return /* @__PURE__ */ jsxDEV("div", { className: "ota-workspace", children: [
+    /* @__PURE__ */ jsxDEV(OperationsSidebar, {}, void 0, false, {
+      fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+      lineNumber: 34,
+      columnNumber: 5
+    }, this),
+    /* @__PURE__ */ jsxDEV("main", { className: "ota-main", children: [
+      /* @__PURE__ */ jsxDEV("div", { className: "ota-topline", children: [
+        "MLAND / WORKSHOP OPERATIONS ",
+        /* @__PURE__ */ jsxDEV("span", { children: "● Backend-authorized" }, void 0, false, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+          lineNumber: 35,
+          columnNumber: 89
+        }, this)
+      ] }, void 0, true, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+        lineNumber: 35,
+        columnNumber: 32
+      }, this),
+      /* @__PURE__ */ jsxDEV("header", { className: "ota-page-heading", children: /* @__PURE__ */ jsxDEV("div", { children: [
+        /* @__PURE__ */ jsxDEV("p", { className: "ota-eyebrow", children: "TODAY'S WORK" }, void 0, false, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+          lineNumber: 35,
+          columnNumber: 170
+        }, this),
+        /* @__PURE__ */ jsxDEV("h1", { children: isStaff ? "Ca của tôi" : "Workshop session board" }, void 0, false, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+          lineNumber: 35,
+          columnNumber: 213
+        }, this),
+        /* @__PURE__ */ jsxDEV("p", { children: isStaff ? "Chỉ hiện các ca bạn được Manager phân công." : "Coordinate capacity, check-in and attendance finalization across active sessions." }, void 0, false, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+          lineNumber: 35,
+          columnNumber: 273
+        }, this)
+      ] }, void 0, true, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+        lineNumber: 35,
+        columnNumber: 165
+      }, this) }, void 0, false, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+        lineNumber: 35,
+        columnNumber: 128
+      }, this),
+      /* @__PURE__ */ jsxDEV("section", { className: "ops-metrics", children: [
+        /* @__PURE__ */ jsxDEV("div", { children: [
+          /* @__PURE__ */ jsxDEV("span", { children: "All sessions" }, void 0, false, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+            lineNumber: 36,
+            columnNumber: 45
+          }, this),
+          /* @__PURE__ */ jsxDEV("strong", { children: sessions.length }, void 0, false, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+            lineNumber: 36,
+            columnNumber: 70
+          }, this)
+        ] }, void 0, true, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+          lineNumber: 36,
+          columnNumber: 40
+        }, this),
+        /* @__PURE__ */ jsxDEV("div", { children: [
+          /* @__PURE__ */ jsxDEV("span", { children: "Published" }, void 0, false, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+            lineNumber: 36,
+            columnNumber: 115
+          }, this),
+          /* @__PURE__ */ jsxDEV("strong", { children: counts.PUBLISHED || 0 }, void 0, false, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+            lineNumber: 36,
+            columnNumber: 137
+          }, this)
+        ] }, void 0, true, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+          lineNumber: 36,
+          columnNumber: 110
+        }, this),
+        /* @__PURE__ */ jsxDEV("div", { children: [
+          /* @__PURE__ */ jsxDEV("span", { children: "In progress" }, void 0, false, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+            lineNumber: 36,
+            columnNumber: 188
+          }, this),
+          /* @__PURE__ */ jsxDEV("strong", { children: counts.IN_PROGRESS || 0 }, void 0, false, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+            lineNumber: 36,
+            columnNumber: 212
+          }, this)
+        ] }, void 0, true, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+          lineNumber: 36,
+          columnNumber: 183
+        }, this),
+        /* @__PURE__ */ jsxDEV("div", { children: [
+          /* @__PURE__ */ jsxDEV("span", { children: "Finalized" }, void 0, false, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+            lineNumber: 36,
+            columnNumber: 265
+          }, this),
+          /* @__PURE__ */ jsxDEV("strong", { children: counts.ATTENDANCE_FINALIZED || 0 }, void 0, false, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+            lineNumber: 36,
+            columnNumber: 287
+          }, this)
+        ] }, void 0, true, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+          lineNumber: 36,
+          columnNumber: 260
+        }, this)
+      ] }, void 0, true, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+        lineNumber: 36,
+        columnNumber: 7
+      }, this),
+      /* @__PURE__ */ jsxDEV("section", { className: "ota-panel", children: /* @__PURE__ */ jsxDEV("form", { className: "ota-inline-form", onSubmit: (e) => {
+        e.preventDefault();
+        resource.reload();
+      }, children: [
+        /* @__PURE__ */ jsxDEV("label", { children: [
+          "From",
+          /* @__PURE__ */ jsxDEV("input", { type: "date", value: filters.from, onChange: (e) => setFilters({ ...filters, from: e.target.value }) }, void 0, false, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+            lineNumber: 37,
+            columnNumber: 141
+          }, this)
+        ] }, void 0, true, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+          lineNumber: 37,
+          columnNumber: 130
+        }, this),
+        /* @__PURE__ */ jsxDEV("label", { children: [
+          "To",
+          /* @__PURE__ */ jsxDEV("input", { type: "date", value: filters.to, onChange: (e) => setFilters({ ...filters, to: e.target.value }) }, void 0, false, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+            lineNumber: 37,
+            columnNumber: 267
+          }, this)
+        ] }, void 0, true, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+          lineNumber: 37,
+          columnNumber: 258
+        }, this),
+        /* @__PURE__ */ jsxDEV("label", { children: [
+          "State",
+          /* @__PURE__ */ jsxDEV("select", { value: filters.state, onChange: (e) => setFilters({ ...filters, state: e.target.value }), children: [
+            /* @__PURE__ */ jsxDEV("option", { value: "", children: "All states" }, void 0, false, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+              lineNumber: 37,
+              columnNumber: 490
+            }, this),
+            ["PUBLISHED", "SALES_PAUSED", "IN_PROGRESS", "ATTENDANCE_FINALIZED"].map((v) => /* @__PURE__ */ jsxDEV("option", { children: v }, v, false, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+              lineNumber: 37,
+              columnNumber: 607
+            }, this))
+          ] }, void 0, true, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+            lineNumber: 37,
+            columnNumber: 392
+          }, this)
+        ] }, void 0, true, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+          lineNumber: 37,
+          columnNumber: 380
+        }, this),
+        /* @__PURE__ */ jsxDEV("label", { children: [
+          "Location ID",
+          /* @__PURE__ */ jsxDEV("input", { value: filters.locationId, onChange: (e) => setFilters({ ...filters, locationId: e.target.value }), placeholder: "Optional" }, void 0, false, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+            lineNumber: 37,
+            columnNumber: 672
+          }, this)
+        ] }, void 0, true, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+          lineNumber: 37,
+          columnNumber: 654
+        }, this),
+        /* @__PURE__ */ jsxDEV("button", { className: "button primary", type: "submit", children: "Refresh board" }, void 0, false, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+          lineNumber: 37,
+          columnNumber: 812
+        }, this)
+      ] }, void 0, true, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+        lineNumber: 37,
+        columnNumber: 38
+      }, this) }, void 0, false, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+        lineNumber: 37,
+        columnNumber: 7
+      }, this),
+      /* @__PURE__ */ jsxDEV(ErrorNotice, { error: resource.error, onRetry: resource.reload, onReload: resource.reload }, void 0, false, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+        lineNumber: 38,
+        columnNumber: 7
+      }, this),
+      resource.loading ? /* @__PURE__ */ jsxDEV(Loading, {}, void 0, false, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+        lineNumber: 38,
+        columnNumber: 118
+      }, this) : sessions.length === 0 ? /* @__PURE__ */ jsxDEV("div", { className: "empty-state", children: /* @__PURE__ */ jsxDEV("p", { children: isStaff ? "Bạn chưa được phân công ca nào (hoặc không có ca nào khớp bộ lọc). Liên hệ Manager để được phân công." : "No sessions match the selected filters." }, void 0, false, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+        lineNumber: 38,
+        columnNumber: 185
+      }, this) }, void 0, false, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+        lineNumber: 38,
+        columnNumber: 156
+      }, this) : /* @__PURE__ */ jsxDEV("section", { className: "ota-panel", children: [
+        /* @__PURE__ */ jsxDEV("div", { className: "ota-panel-head", children: [
+          /* @__PURE__ */ jsxDEV("h2", { children: "Session queue" }, void 0, false, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+            lineNumber: 38,
+            columnNumber: 423
+          }, this),
+          /* @__PURE__ */ jsxDEV("span", { children: [
+            sessions.length,
+            " records"
+          ] }, void 0, true, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+            lineNumber: 38,
+            columnNumber: 445
+          }, this)
+        ] }, void 0, true, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+          lineNumber: 38,
+          columnNumber: 391
+        }, this),
+        /* @__PURE__ */ jsxDEV("div", { className: "ops-table-wrap", children: /* @__PURE__ */ jsxDEV("table", { className: "ops-table", children: [
+          /* @__PURE__ */ jsxDEV("thead", { children: /* @__PURE__ */ jsxDEV("tr", { children: [
+            /* @__PURE__ */ jsxDEV("th", { children: "Date" }, void 0, false, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+              lineNumber: 38,
+              columnNumber: 561
+            }, this),
+            /* @__PURE__ */ jsxDEV("th", { children: "Session" }, void 0, false, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+              lineNumber: 38,
+              columnNumber: 574
+            }, this),
+            /* @__PURE__ */ jsxDEV("th", { children: "Location" }, void 0, false, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+              lineNumber: 38,
+              columnNumber: 590
+            }, this),
+            /* @__PURE__ */ jsxDEV("th", { children: "Capacity" }, void 0, false, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+              lineNumber: 38,
+              columnNumber: 607
+            }, this),
+            /* @__PURE__ */ jsxDEV("th", { children: "State" }, void 0, false, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+              lineNumber: 38,
+              columnNumber: 624
+            }, this),
+            /* @__PURE__ */ jsxDEV("th", {}, void 0, false, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+              lineNumber: 38,
+              columnNumber: 638
+            }, this)
+          ] }, void 0, true, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+            lineNumber: 38,
+            columnNumber: 557
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+            lineNumber: 38,
+            columnNumber: 550
+          }, this),
+          /* @__PURE__ */ jsxDEV("tbody", { children: paged.pageItems.map((item) => /* @__PURE__ */ jsxDEV("tr", { children: [
+            /* @__PURE__ */ jsxDEV("td", { children: item.workshopDate || "—" }, void 0, false, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+              lineNumber: 38,
+              columnNumber: 713
+            }, this),
+            /* @__PURE__ */ jsxDEV("td", { children: [
+              /* @__PURE__ */ jsxDEV("strong", { children: item.slotId || item.id }, void 0, false, {
+                fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+                lineNumber: 38,
+                columnNumber: 752
+              }, this),
+              /* @__PURE__ */ jsxDEV("small", { children: item.id }, void 0, false, {
+                fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+                lineNumber: 38,
+                columnNumber: 793
+              }, this)
+            ] }, void 0, true, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+              lineNumber: 38,
+              columnNumber: 748
+            }, this),
+            /* @__PURE__ */ jsxDEV("td", { children: item.locationId || "—" }, void 0, false, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+              lineNumber: 38,
+              columnNumber: 822
+            }, this),
+            /* @__PURE__ */ jsxDEV("td", { children: item.capacity ?? "—" }, void 0, false, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+              lineNumber: 38,
+              columnNumber: 855
+            }, this),
+            /* @__PURE__ */ jsxDEV("td", { children: /* @__PURE__ */ jsxDEV("span", { className: "ops-status", children: item.state }, void 0, false, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+              lineNumber: 38,
+              columnNumber: 890
+            }, this) }, void 0, false, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+              lineNumber: 38,
+              columnNumber: 886
+            }, this),
+            /* @__PURE__ */ jsxDEV("td", { children: /* @__PURE__ */ jsxDEV(Link, { className: "button outline small", to: `/operations/sessions/${item.id}`, children: "Open" }, void 0, false, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+              lineNumber: 38,
+              columnNumber: 947
+            }, this) }, void 0, false, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+              lineNumber: 38,
+              columnNumber: 943
+            }, this)
+          ] }, item.id, true, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+            lineNumber: 38,
+            columnNumber: 695
+          }, this)) }, void 0, false, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+            lineNumber: 38,
+            columnNumber: 657
+          }, this)
+        ] }, void 0, true, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+          lineNumber: 38,
+          columnNumber: 521
+        }, this) }, void 0, false, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+          lineNumber: 38,
+          columnNumber: 489
+        }, this),
+        /* @__PURE__ */ jsxDEV(Paginator, { page: paged.page, pageCount: paged.pageCount, onChange: paged.setPage, label: "Phân trang bảng điều phối ca" }, void 0, false, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+          lineNumber: 38,
+          columnNumber: 1070
+        }, this)
+      ] }, void 0, true, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+        lineNumber: 38,
+        columnNumber: 360
+      }, this)
+    ] }, void 0, true, {
+      fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+      lineNumber: 35,
+      columnNumber: 5
+    }, this)
+  ] }, void 0, true, {
+    fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx",
+    lineNumber: 33,
+    columnNumber: 10
+  }, this);
+}
+_s(OperationsDashboardPage, "yANJjIVvF7cFHletlNaJCtRl8tA=", false, function() {
+  return [useAuth, useRole, useHttp, useResource, usePaged];
+});
+_c = OperationsDashboardPage;
+var _c;
+$RefreshReg$(_c, "OperationsDashboardPage");
+import * as RefreshRuntime from "/@react-refresh";
+const inWebWorker = typeof WorkerGlobalScope !== "undefined" && self instanceof WorkerGlobalScope;
+if (import.meta.hot && !inWebWorker) {
+  if (!window.$RefreshReg$) {
+    throw new Error(
+      "@vitejs/plugin-react can't detect preamble. Something is wrong."
+    );
+  }
+  RefreshRuntime.__hmr_import(import.meta.url).then((currentExports) => {
+    RefreshRuntime.registerExportsForReactRefresh("C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx", currentExports);
+    import.meta.hot.accept((nextExports) => {
+      if (!nextExports) return;
+      const invalidateMessage = RefreshRuntime.validateRefreshBoundaryAndEnqueueUpdate("C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx", currentExports, nextExports);
+      if (invalidateMessage) import.meta.hot.invalidate(invalidateMessage);
+    });
+  });
+}
+function $RefreshReg$(type, id) {
+  return RefreshRuntime.register(type, "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/pages/OperationsDashboardPage.jsx " + id);
+}
+function $RefreshSig$() {
+  return RefreshRuntime.createSignatureFunctionForTransform();
+}
+
+//# sourceMappingURL=data:application/json;base64,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aUIsSUFBZDtBQUFBO0FBQUE7QUFBQTtBQUFBLGlCQUEwVixDQUFLLEtBQW5ZO0FBQUE7QUFBQTtBQUFBO0FBQUEsaUJBQXFZO0FBQUEsYUFBN2dCO0FBQUE7QUFBQTtBQUFBO0FBQUEsZUFBcWhCLEtBQXJqQjtBQUFBO0FBQUE7QUFBQTtBQUFBLGVBQTZqQjtBQUFBLFFBQU0sdUJBQUMsYUFBVSxNQUFNckIsTUFBTXVCLE1BQU0sV0FBV3ZCLE1BQU13QixXQUFXLFVBQVV4QixNQUFNeUIsU0FBUyxPQUFNLGtDQUF4RjtBQUFBO0FBQUE7QUFBQTtBQUFBLGVBQXNIO0FBQUEsV0FBMXpCO0FBQUE7QUFBQTtBQUFBO0FBQUEsYUFBNnpCO0FBQUEsU0FIaHFDO0FBQUE7QUFBQTtBQUFBO0FBQUEsV0FJQTtBQUFBLE9BTks7QUFBQTtBQUFBO0FBQUE7QUFBQSxTQU1FO0FBQ1g7QUFBQzNDLEdBMUJ1QkQseUJBQXVCO0FBQUEsVUFDMUJYLFNBRUhDLFNBQ2dCQyxTQUVmRyxhQUVISSxRQUFRO0FBQUE7QUFBQSxLQVJBRTtBQUF1QixJQUFBNkM7QUFBQSxhQUFBQSxJQUFBIiwibmFtZXMiOlsiUmVhY3QiLCJ1c2VTdGF0ZSIsIkxpbmsiLCJ1c2VBdXRoIiwidXNlUm9sZSIsInVzZUh0dHAiLCJFcnJvck5vdGljZSIsIkxvYWRpbmciLCJ1c2VSZXNvdXJjZSIsIk9wZXJhdGlvbnNTaWRlYmFyIiwiT3BlcmF0aW9uc0F1dGhXb3Jrc3BhY2UiLCJQYWdpbmF0b3IiLCJ1c2VQYWdlZCIsImNyZWF0ZU9wZXJhdGlvbnNBcGkiLCJPcGVyYXRpb25zRGFzaGJvYXJkUGFnZSIsIl9zIiwic3RhdHVzIiwiaXNTdGFmZiIsImFwaSIsImZpbHRlcnMiLCJzZXRGaWx0ZXJzIiwic3RhdGUiLCJsb2NhdGlvbklkIiwiZnJvbSIsInRvIiwicmVzb3VyY2UiLCJsaXN0U2Vzc2lvbnMiLCJzZXNzaW9ucyIsIkFycmF5IiwiaXNBcnJheSIsImRhdGEiLCJjb250ZW50IiwiaXRlbXMiLCJwYWdlZCIsImNvdW50cyIsInJlZHVjZSIsImFjYyIsIml0ZW0iLCJsZW5ndGgiLCJQVUJMSVNIRUQiLCJJTl9QUk9HUkVTUyIsIkFUVEVOREFOQ0VfRklOQUxJWkVEIiwiZSIsInByZXZlbnREZWZhdWx0IiwicmVsb2FkIiwidGFyZ2V0IiwidmFsdWUiLCJtYXAiLCJ2IiwiZXJyb3IiLCJsb2FkaW5nIiwicGFnZUl0ZW1zIiwid29ya3Nob3BEYXRlIiwic2xvdElkIiwiaWQiLCJjYXBhY2l0eSIsInBhZ2UiLCJwYWdlQ291bnQiLCJzZXRQYWdlIiwiX2MiXSwiaWdub3JlTGlzdCI6W10sInNvdXJjZXMiOlsiT3BlcmF0aW9uc0Rhc2hib2FyZFBhZ2UuanN4Il0sInNvdXJjZXNDb250ZW50IjpbImltcG9ydCBSZWFjdCwgeyB1c2VTdGF0ZSB9IGZyb20gJ3JlYWN0JztcclxuaW1wb3J0IHsgTGluayB9IGZyb20gJ3JlYWN0LXJvdXRlcic7XHJcbmltcG9ydCB7IHVzZUF1dGggfSBmcm9tICcuLi8uLi9zaGFyZWQvYXV0aC9BdXRoUHJvdmlkZXInO1xyXG5pbXBvcnQgeyB1c2VSb2xlIH0gZnJvbSAnLi4vLi4vc2hhcmVkL2F1dGgvdXNlUm9sZSc7XHJcbmltcG9ydCB7IHVzZUh0dHAgfSBmcm9tICcuLi8uLi9zaGFyZWQvYXBpL3VzZUh0dHAnO1xyXG5pbXBvcnQgeyBFcnJvck5vdGljZSwgTG9hZGluZywgdXNlUmVzb3VyY2UgfSBmcm9tICcuLi8uLi9zaGFyZWQvdWkvY29tcG9uZW50cyc7XHJcbmltcG9ydCB7IE9wZXJhdGlvbnNTaWRlYmFyIH0gZnJvbSAnLi4vLi4vc2hhcmVkL3VpL09wZXJhdGlvbnNTaWRlYmFyJztcclxuaW1wb3J0IHsgT3BlcmF0aW9uc0F1dGhXb3Jrc3BhY2UgfSBmcm9tICcuLi8uLi9zaGFyZWQvdWkvT3BlcmF0aW9uc0F1dGhXb3Jrc3BhY2UnO1xyXG5pbXBvcnQgeyBQYWdpbmF0b3IsIHVzZVBhZ2VkIH0gZnJvbSAnLi4vLi4vc2hhcmVkL3VpL1BhZ2luYXRvcic7XHJcbmltcG9ydCB7IGNyZWF0ZU9wZXJhdGlvbnNBcGkgfSBmcm9tICcuLi9hcGkvb3BlcmF0aW9uc0FwaSc7XHJcbmltcG9ydCAnLi4vLi4vb3RhLWNvbm5lY3Rpdml0eS9vdGEtY29ubmVjdGl2aXR5LmNzcyc7XHJcbmltcG9ydCAnLi4vd29ya3Nob3Atb3BlcmF0aW9ucy5jc3MnO1xyXG5cclxuZXhwb3J0IGRlZmF1bHQgZnVuY3Rpb24gT3BlcmF0aW9uc0Rhc2hib2FyZFBhZ2UoKSB7XHJcbiAgY29uc3QgeyBzdGF0dXMgfSA9IHVzZUF1dGgoKTtcclxuICAvLyBBIFN0YWZmIG1lbWJlciBzZWVzIG9ubHkgdGhlIHNlc3Npb25zIGEgTWFuYWdlciBhc3NpZ25lZCB0byB0aGVtICh0aGUgYmFja2VuZCBmaWx0ZXJzIHRoZSBsaXN0KS5cclxuICBjb25zdCBpc1N0YWZmID0gdXNlUm9sZSgpID09PSAnU1RBRkYnO1xyXG4gIGNvbnN0IGFwaSA9IGNyZWF0ZU9wZXJhdGlvbnNBcGkodXNlSHR0cCgpKTtcclxuICBjb25zdCBbZmlsdGVycywgc2V0RmlsdGVyc10gPSB1c2VTdGF0ZSh7IHN0YXRlOiAnJywgbG9jYXRpb25JZDogJycsIGZyb206ICcnLCB0bzogJycgfSk7XHJcbiAgY29uc3QgcmVzb3VyY2UgPSB1c2VSZXNvdXJjZSgoKSA9PiBhcGkubGlzdFNlc3Npb25zKGZpbHRlcnMpLCBbZmlsdGVycy5zdGF0ZSwgZmlsdGVycy5sb2NhdGlvbklkLCBmaWx0ZXJzLmZyb20sIGZpbHRlcnMudG9dKTtcclxuICBjb25zdCBzZXNzaW9ucyA9IEFycmF5LmlzQXJyYXkocmVzb3VyY2UuZGF0YSkgPyByZXNvdXJjZS5kYXRhIDogcmVzb3VyY2UuZGF0YT8uY29udGVudCB8fCByZXNvdXJjZS5kYXRhPy5pdGVtcyB8fCBbXTtcclxuICBjb25zdCBwYWdlZCA9IHVzZVBhZ2VkKHNlc3Npb25zLCAxNSwgcmVzb3VyY2UuZGF0YSk7XHJcbiAgaWYgKHN0YXR1cyA9PT0gJ2xvYWRpbmcnKSByZXR1cm4gPExvYWRpbmcgLz47XHJcbiAgaWYgKHN0YXR1cyAhPT0gJ3NpZ25lZC1pbicpIHtcclxuICAgIHJldHVybiAoXHJcbiAgICAgIDxPcGVyYXRpb25zQXV0aFdvcmtzcGFjZVxyXG4gICAgICAgIHRvcGxpbmU9XCJNTEFORCAvIFdPUktTSE9QIE9QRVJBVElPTlNcIlxyXG4gICAgICAgIG1lc3NhZ2U9XCJBdXRoZW50aWNhdGlvbiByZXF1aXJlZCB0byBhY2Nlc3Mgb3BlcmF0aW9ucy5cIlxyXG4gICAgICAvPlxyXG4gICAgKTtcclxuICB9XHJcbiAgY29uc3QgY291bnRzID0gc2Vzc2lvbnMucmVkdWNlKChhY2MsIGl0ZW0pID0+IHsgYWNjW2l0ZW0uc3RhdGVdID0gKGFjY1tpdGVtLnN0YXRlXSB8fCAwKSArIDE7IHJldHVybiBhY2M7IH0sIHt9KTtcclxuICByZXR1cm4gPGRpdiBjbGFzc05hbWU9XCJvdGEtd29ya3NwYWNlXCI+XHJcbiAgICA8T3BlcmF0aW9uc1NpZGViYXIgLz5cclxuICAgIDxtYWluIGNsYXNzTmFtZT1cIm90YS1tYWluXCI+PGRpdiBjbGFzc05hbWU9XCJvdGEtdG9wbGluZVwiPk1MQU5EIC8gV09SS1NIT1AgT1BFUkFUSU9OUyA8c3Bhbj7il48gQmFja2VuZC1hdXRob3JpemVkPC9zcGFuPjwvZGl2PjxoZWFkZXIgY2xhc3NOYW1lPVwib3RhLXBhZ2UtaGVhZGluZ1wiPjxkaXY+PHAgY2xhc3NOYW1lPVwib3RhLWV5ZWJyb3dcIj5UT0RBWSdTIFdPUks8L3A+PGgxPntpc1N0YWZmID8gJ0NhIGPhu6dhIHTDtGknIDogJ1dvcmtzaG9wIHNlc3Npb24gYm9hcmQnfTwvaDE+PHA+e2lzU3RhZmYgPyAnQ2jhu4kgaGnhu4duIGPDoWMgY2EgYuG6oW4gxJHGsOG7o2MgTWFuYWdlciBwaMOibiBjw7RuZy4nIDogJ0Nvb3JkaW5hdGUgY2FwYWNpdHksIGNoZWNrLWluIGFuZCBhdHRlbmRhbmNlIGZpbmFsaXphdGlvbiBhY3Jvc3MgYWN0aXZlIHNlc3Npb25zLid9PC9wPjwvZGl2PjwvaGVhZGVyPlxyXG4gICAgICA8c2VjdGlvbiBjbGFzc05hbWU9XCJvcHMtbWV0cmljc1wiPjxkaXY+PHNwYW4+QWxsIHNlc3Npb25zPC9zcGFuPjxzdHJvbmc+e3Nlc3Npb25zLmxlbmd0aH08L3N0cm9uZz48L2Rpdj48ZGl2PjxzcGFuPlB1Ymxpc2hlZDwvc3Bhbj48c3Ryb25nPntjb3VudHMuUFVCTElTSEVEIHx8IDB9PC9zdHJvbmc+PC9kaXY+PGRpdj48c3Bhbj5JbiBwcm9ncmVzczwvc3Bhbj48c3Ryb25nPntjb3VudHMuSU5fUFJPR1JFU1MgfHwgMH08L3N0cm9uZz48L2Rpdj48ZGl2PjxzcGFuPkZpbmFsaXplZDwvc3Bhbj48c3Ryb25nPntjb3VudHMuQVRURU5EQU5DRV9GSU5BTElaRUQgfHwgMH08L3N0cm9uZz48L2Rpdj48L3NlY3Rpb24+XHJcbiAgICAgIDxzZWN0aW9uIGNsYXNzTmFtZT1cIm90YS1wYW5lbFwiPjxmb3JtIGNsYXNzTmFtZT1cIm90YS1pbmxpbmUtZm9ybVwiIG9uU3VibWl0PXtlID0+IHsgZS5wcmV2ZW50RGVmYXVsdCgpOyByZXNvdXJjZS5yZWxvYWQoKTsgfX0+PGxhYmVsPkZyb208aW5wdXQgdHlwZT1cImRhdGVcIiB2YWx1ZT17ZmlsdGVycy5mcm9tfSBvbkNoYW5nZT17ZSA9PiBzZXRGaWx0ZXJzKHsgLi4uZmlsdGVycywgZnJvbTogZS50YXJnZXQudmFsdWUgfSl9IC8+PC9sYWJlbD48bGFiZWw+VG88aW5wdXQgdHlwZT1cImRhdGVcIiB2YWx1ZT17ZmlsdGVycy50b30gb25DaGFuZ2U9e2UgPT4gc2V0RmlsdGVycyh7IC4uLmZpbHRlcnMsIHRvOiBlLnRhcmdldC52YWx1ZSB9KX0gLz48L2xhYmVsPjxsYWJlbD5TdGF0ZTxzZWxlY3QgdmFsdWU9e2ZpbHRlcnMuc3RhdGV9IG9uQ2hhbmdlPXtlID0+IHNldEZpbHRlcnMoeyAuLi5maWx0ZXJzLCBzdGF0ZTogZS50YXJnZXQudmFsdWUgfSl9PjxvcHRpb24gdmFsdWU9XCJcIj5BbGwgc3RhdGVzPC9vcHRpb24+e1snUFVCTElTSEVEJywnU0FMRVNfUEFVU0VEJywnSU5fUFJPR1JFU1MnLCdBVFRFTkRBTkNFX0ZJTkFMSVpFRCddLm1hcCh2ID0+IDxvcHRpb24ga2V5PXt2fT57dn08L29wdGlvbj4pfTwvc2VsZWN0PjwvbGFiZWw+PGxhYmVsPkxvY2F0aW9uIElEPGlucHV0IHZhbHVlPXtmaWx0ZXJzLmxvY2F0aW9uSWR9IG9uQ2hhbmdlPXtlID0+IHNldEZpbHRlcnMoeyAuLi5maWx0ZXJzLCBsb2NhdGlvbklkOiBlLnRhcmdldC52YWx1ZSB9KX0gcGxhY2Vob2xkZXI9XCJPcHRpb25hbFwiIC8+PC9sYWJlbD48YnV0dG9uIGNsYXNzTmFtZT1cImJ1dHRvbiBwcmltYXJ5XCIgdHlwZT1cInN1Ym1pdFwiPlJlZnJlc2ggYm9hcmQ8L2J1dHRvbj48L2Zvcm0+PC9zZWN0aW9uPlxyXG4gICAgICA8RXJyb3JOb3RpY2UgZXJyb3I9e3Jlc291cmNlLmVycm9yfSBvblJldHJ5PXtyZXNvdXJjZS5yZWxvYWR9IG9uUmVsb2FkPXtyZXNvdXJjZS5yZWxvYWR9IC8+e3Jlc291cmNlLmxvYWRpbmcgPyA8TG9hZGluZyAvPiA6IHNlc3Npb25zLmxlbmd0aCA9PT0gMCA/IDxkaXYgY2xhc3NOYW1lPVwiZW1wdHktc3RhdGVcIj48cD57aXNTdGFmZiA/ICdC4bqhbiBjaMawYSDEkcaw4bujYyBwaMOibiBjw7RuZyBjYSBuw6BvIChob+G6t2Mga2jDtG5nIGPDsyBjYSBuw6BvIGto4bubcCBi4buZIGzhu41jKS4gTGnDqm4gaOG7hyBNYW5hZ2VyIMSR4buDIMSRxrDhu6NjIHBow6JuIGPDtG5nLicgOiAnTm8gc2Vzc2lvbnMgbWF0Y2ggdGhlIHNlbGVjdGVkIGZpbHRlcnMuJ308L3A+PC9kaXY+IDogPHNlY3Rpb24gY2xhc3NOYW1lPVwib3RhLXBhbmVsXCI+PGRpdiBjbGFzc05hbWU9XCJvdGEtcGFuZWwtaGVhZFwiPjxoMj5TZXNzaW9uIHF1ZXVlPC9oMj48c3Bhbj57c2Vzc2lvbnMubGVuZ3RofSByZWNvcmRzPC9zcGFuPjwvZGl2PjxkaXYgY2xhc3NOYW1lPVwib3BzLXRhYmxlLXdyYXBcIj48dGFibGUgY2xhc3NOYW1lPVwib3BzLXRhYmxlXCI+PHRoZWFkPjx0cj48dGg+RGF0ZTwvdGg+PHRoPlNlc3Npb248L3RoPjx0aD5Mb2NhdGlvbjwvdGg+PHRoPkNhcGFjaXR5PC90aD48dGg+U3RhdGU8L3RoPjx0aCAvPjwvdHI+PC90aGVhZD48dGJvZHk+e3BhZ2VkLnBhZ2VJdGVtcy5tYXAoaXRlbSA9PiA8dHIga2V5PXtpdGVtLmlkfT48dGQ+e2l0ZW0ud29ya3Nob3BEYXRlIHx8ICfigJQnfTwvdGQ+PHRkPjxzdHJvbmc+e2l0ZW0uc2xvdElkIHx8IGl0ZW0uaWR9PC9zdHJvbmc+PHNtYWxsPntpdGVtLmlkfTwvc21hbGw+PC90ZD48dGQ+e2l0ZW0ubG9jYXRpb25JZCB8fCAn4oCUJ308L3RkPjx0ZD57aXRlbS5jYXBhY2l0eSA/PyAn4oCUJ308L3RkPjx0ZD48c3BhbiBjbGFzc05hbWU9XCJvcHMtc3RhdHVzXCI+e2l0ZW0uc3RhdGV9PC9zcGFuPjwvdGQ+PHRkPjxMaW5rIGNsYXNzTmFtZT1cImJ1dHRvbiBvdXRsaW5lIHNtYWxsXCIgdG89e2Avb3BlcmF0aW9ucy9zZXNzaW9ucy8ke2l0ZW0uaWR9YH0+T3BlbjwvTGluaz48L3RkPjwvdHI+KX08L3Rib2R5PjwvdGFibGU+PC9kaXY+PFBhZ2luYXRvciBwYWdlPXtwYWdlZC5wYWdlfSBwYWdlQ291bnQ9e3BhZ2VkLnBhZ2VDb3VudH0gb25DaGFuZ2U9e3BhZ2VkLnNldFBhZ2V9IGxhYmVsPVwiUGjDom4gdHJhbmcgYuG6o25nIMSRaeG7gXUgcGjhu5FpIGNhXCIgLz48L3NlY3Rpb24+fVxyXG4gICAgPC9tYWluPjwvZGl2PjtcclxufVxyXG4iXSwiZmlsZSI6IkM6L1VzZXJzL2FkbWluL0Rlc2t0b3AvU0VQL21sYW5kLW9wZXJhdGlvbnMtaHViL3Bwc3dic19mcm9udGVuZC9zcmMvd29ya3Nob3Atb3BlcmF0aW9ucy9wYWdlcy9PcGVyYXRpb25zRGFzaGJvYXJkUGFnZS5qc3gifQ==
