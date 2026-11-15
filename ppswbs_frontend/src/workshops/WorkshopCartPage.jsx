@@ -84,6 +84,8 @@ export function WorkshopCartPage() {
           code: item.promotion?.code || item.code,
           name: item.promotion?.name || item.name || item.promotion?.code || item.code,
           availability: item.availability,
+          scope: item.promotion?.scope,
+          packageIds: item.promotion?.targets?.packageIds || [],
         })).filter(item => item.code));
       })
       .catch(() => { if (active) setSavedVouchers([]); });
@@ -348,6 +350,7 @@ export function WorkshopCartPage() {
             onChange={changeBenefitSelection}
             savedVouchers={savedVouchers}
             offers={workshopOffers}
+            packageIds={lines.map(line => line.packageId)}
             account={loyaltyAccount}
             quote={quote}
             pending={quoting || confirming}

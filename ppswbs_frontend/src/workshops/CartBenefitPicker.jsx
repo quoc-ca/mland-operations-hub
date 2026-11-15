@@ -15,15 +15,25 @@ const wholeOf = value => (isWhole(value) ? String(value) : null);
  * from the Loyalty account and every amount comes from the quote.
  *
  * Props: selection { choice: 'NONE'|'VOUCHER', voucherCode, requestedPoints }, onChange(selection),
- * savedVouchers [{ code, name, availability }], offers [{ code, name, discount }],
+ * savedVouchers [{ code, name, availability, scope, packageIds }], offers [{ code, name, discount }],
+ * packageIds (the packages in this cart),
  * account { availablePoints, heldPoints, policy }, quote (the current cart quote, or null), pending.
  */
-export function CartBenefitPicker({ selection, onChange, savedVouchers = [], offers = [], account, quote, pending }) {
+export function CartBenefitPicker({ selection, onChange, savedVouchers = [], offers = [], packageIds = [], account, quote, pending }) {
   const format = useFormat();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [typedCode, setTypedCode] = useState('');
 
-  const usable = savedVouchers.filter(item => item.availability === 'ACTIVE');
+  // Only suggest what can apply here: a saved voucher must be active, of WORKSHOP scope and not limited to other
+  // packages. 006 still decides at quote time (BUG-E2E-0009: Product vouchers and vouchers for another package were
+  // suggested and then refused by the quote). A voucher that reports no scope or no package limit stays suggested.
+  const cartPackages = packageIds.map(String);
+  const appliesHere = item => {
+    if (item.scope && item.scope !== 'WORKSHOP') return false;
+    const limited = (item.packageIds || []).map(String);
+    return limited.length === 0 || cartPackages.length === 0 || limited.some(id => cartPackages.includes(id));
+  };
+  const usable = savedVouchers.filter(item => item.availability === 'ACTIVE' && appliesHere(item));
   const benefitText = offer => {
     const discount = offer?.discount;
     if (!discount) return '';
