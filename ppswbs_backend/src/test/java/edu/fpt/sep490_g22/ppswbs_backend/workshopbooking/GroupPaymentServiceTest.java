@@ -83,6 +83,21 @@ class GroupPaymentServiceTest {
     }
 
     @Test
+    void theMerchantReferenceOfARealGroupCodeFitsTheVarchar64Column() {
+        // A real group code is "GRP-" + 20 hex characters (BookingGroupCreationService), 24 characters in all.
+        String realCode = "GRP-37867B4FE853458192BE";
+        group.setGroupCode(realCode);
+        when(groups.findByGroupCodeForUpdate(realCode)).thenReturn(Optional.of(group));
+        tickets(30_000);
+
+        service.initiate(realCode, KEY, "127.0.0.1");
+
+        var reference = org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(gateway).createDepositUrl(reference.capture(), eq(realCode), eq(30_000L), any(), any(), any());
+        assertThat(reference.getValue()).startsWith(realCode + "-").hasSizeLessThanOrEqualTo(64);
+    }
+
+    @Test
     void aStoredTotalThatDiffersFromTheSnapshotsIsRefusedAndNoUrlIsMade() {
         tickets(10_000, 15_000);
 
