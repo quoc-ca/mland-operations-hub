@@ -255,6 +255,16 @@ not write the URL to logs. The snapshot retains it only while the associated
 Magic Link is active and the scheduled workshop has not ended; a one-minute
 cleanup sweep scrubs it after expiry or revocation.
 
+## Booking notification delivery-failed signal — Feature 007 to 003.1
+
+When Feature 007 exhausts its technical retry attempts (at most 2 attempts within 1–2 minutes) without successful SMTP acceptance, it publishes at-least-once `BookingNotificationDeliveryFailed(notificationReference, bookingReference, notificationKind, failureCode, failedAt, correlationReference)`.
+
+- **Package and Modulith Boundary**: Defined in `edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.notificationfacade` under named interface `workshopbooking :: notification`. Feature 007 imports and publishes this event; 003.1 consumes it. This maintains unidirectional module dependency (`notificationmanagement -> workshopbooking :: notification`) with zero cyclic dependencies.
+- **DeliveryFailureCode enum**: `PROVIDER_UNAVAILABLE` (network/timeout), `PROVIDER_REJECTED` (SMTP 5xx response), `RECIPIENT_INVALID` (malformed address/bounced), `PAYLOAD_MISSING` (could not read payload from Booking facade).
+- **Semantics**: "Failed" represents the final operational delivery outcome for that specific handoff reference. Transient failures during technical retry do not emit this signal. Exactly one failure event is published per failed `notificationReference`.
+- **Decoupling and Retry Ownership**: 003.1 owns business-level retry scheduling (5 minutes, 30 minutes, 2 hours per FR-015a/b) and escalation to Manager. Each business retry generates a brand-new notification handoff with a fresh `notificationReference`, which Feature 007 handles and deduplicates independently.
+- **PII and Security (D13)**: Contains no recipient address, message content, Magic-Link token, ticket/QR artifact data, or payment secrets.
+
 ## `WorkshopSettlementFacade` — owned by 003.3
 
 | Operation | Input boundary type | Result boundary type | Invariant / disclosure limit |

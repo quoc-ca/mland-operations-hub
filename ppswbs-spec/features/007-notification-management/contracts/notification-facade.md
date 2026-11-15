@@ -172,3 +172,12 @@ This is a behavioral contract for the owning Booking or Retail facade called by 
 1. Does NOT guarantee real-time delivery: delivery worker processes requests in 30-second poll cycles.
 2. Does NOT guarantee email inbox placement (only SMTP server receipt).
 
+---
+
+## 5. Inter-feature Event Boundaries (Workshop Booking & Settlement)
+
+In addition to synchronous facade calls, Feature 007 participates in asynchronous post-commit event handoffs:
+- **Consumes**: `BookingNotificationReady` and `SettlementNotificationReady` (from `workshopbooking :: notification` and `workshopsettlement :: facade`).
+- **Publishes**: `BookingNotificationDeliveryFailed(notificationReference, bookingReference, notificationKind, failureCode, failedAt, correlationReference)` when technical retries are exhausted.
+- **Contract Reference**: Documented canonically in `ppswbs-spec/features/003-workshop-management/contracts/workshop-interfeature-facades.md` § "Booking notification delivery-failed signal — Feature 007 to 003.1".
+
