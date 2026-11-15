@@ -127,6 +127,8 @@ export function WorkshopBookingPage({ packageId }) {
           code: item.promotion?.code || item.code,
           name: item.promotion?.name || item.name || item.promotion?.code || item.code,
           availability: item.availability,
+          scope: item.promotion?.scope,
+          packageIds: item.promotion?.targets?.packageIds || [],
         })).filter(item => item.code));
       })
       .catch(() => { if (active) setSavedVouchers([]); });
@@ -617,6 +619,7 @@ export function WorkshopBookingPage({ packageId }) {
               onChange={changeBenefitSelection}
               savedVouchers={savedVouchers}
               offers={workshopOffers}
+              packageIds={[packageId]}
               account={loyaltyAccount}
               quote={quote}
               pending={quoting || confirming}

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { fakeSession, json, mockFetch, renderRoutes } from '../test/render';
 import { workshopRoutes } from './routes';
@@ -131,6 +131,37 @@ describe('003.1 FR-033/FR-034 cart benefits of a Member', () => {
 
     expect(await screen.findByText('Voucher không áp dụng cho gói workshop này.')).toBeInTheDocument();
     expect(screen.getByText(/Bạn chưa có điểm dùng được cho giỏ này/)).toBeInTheDocument();
+  });
+
+  it('suggests only saved vouchers that can apply to this workshop package (BUG-E2E-0009)', async () => {
+    const saved = (code, scope, packageIds, availability = 'ACTIVE') => ({
+      availability,
+      promotion: { code, name: `Voucher ${code}`, scope, targets: { packageIds } },
+    });
+    const user = userEvent.setup();
+    mockFetch({
+      ...memberHandlers(json(201, quote())),
+      'GET /api/v1/members/me/saved-vouchers': json(200, {
+        items: [
+          saved('PRODUCT50K', 'PRODUCT', []),
+          saved('OTHERPKG', 'WORKSHOP', [1]),
+          saved('THISPKG', 'WORKSHOP', [5]),
+          saved('ANYPKG', 'WORKSHOP', []),
+          saved('EXPIRED', 'WORKSHOP', [], 'EXPIRED'),
+        ],
+      }),
+    });
+    renderRoutes(workshopRoutes, { path: '/workshops/5/book', session: fakeSession('signed-in') });
+
+    await user.click(await screen.findByRole('button', { name: /Voucher MLAND/i }));
+    const dialog = await screen.findByRole('dialog', { name: 'Chọn voucher' });
+
+    await within(dialog).findByText('Voucher ANYPKG');
+    const options = within(dialog).getAllByRole('button', { pressed: false }).map(item => item.textContent);
+    expect(options.some(text => text.includes('THISPKG'))).toBe(true);
+    for (const hidden of ['PRODUCT50K', 'OTHERPKG', 'EXPIRED']) {
+      expect(dialog.textContent).not.toContain(hidden);
+    }
   });
 
   it('offers the same voucher and point picker on the cart page (FR-033)', async () => {
