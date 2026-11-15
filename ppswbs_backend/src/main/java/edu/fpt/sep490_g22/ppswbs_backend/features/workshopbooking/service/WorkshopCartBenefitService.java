@@ -77,7 +77,8 @@ public class WorkshopCartBenefitService {
      */
     public CartBenefits preview(Long memberAccountId, WorkshopCartPricingService.PricedCart cart,
                                 BenefitSelection selection) {
-        BenefitPreview preview = loyalty.previewBenefits(trusted(memberAccountId, cart, Instant.now()), selection);
+        BenefitPreview preview = DependencyGuard.call("Loyalty",
+                () -> loyalty.previewBenefits(trusted(memberAccountId, cart, Instant.now()), selection));
         return new CartBenefits(exact(preview.programDiscount()), exact(preview.pointsUsed()),
                 exact(preview.pointValue()), exact(preview.pointDiscount()), preview.eligibleLineIndexes(),
                 preview.termsDigest(), preview.policyRevisionNo(), customerReasons(preview),
@@ -116,7 +117,8 @@ public class WorkshopCartBenefitService {
                                      String termsDigest, Instant acceptedAt, Instant holdExpiresAt) {
         AcceptedSourceContext accepted = new AcceptedSourceContext(trusted(memberAccountId, cart, acceptedAt),
                 groupCode, 1L, true, acceptedAt, holdExpiresAt, quoteRef, termsDigest);
-        return loyalty.reserveAcceptedTransaction(accepted, selection, "create-" + groupCode);
+        return DependencyGuard.call("Loyalty",
+                () -> loyalty.reserveAcceptedTransaction(accepted, selection, "create-" + groupCode));
     }
 
     /** Per-ticket inputs for the allocator, with the voucher scope 006 decided. */

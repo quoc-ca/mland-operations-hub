@@ -84,8 +84,11 @@ public class WorkshopBookingAuthorizationService {
     }
 
     /**
-     * Record denied attempt audit evidence without side effect.
+     * Record denied attempt audit evidence without side effect. It commits on its own, so the entry survives the
+     * rollback of the refused command that wrote it (FR-017b7, T143).
      */
+    @org.springframework.transaction.annotation.Transactional(
+            propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
     public void recordDeniedAttempt(String bookingCode,
                                     Long locationId,
                                     String actorType,

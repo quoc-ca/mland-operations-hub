@@ -541,7 +541,10 @@ self-service (FR-018 and Scope); whole-booking Mland remedy (FR-020, FR-021).
   handoff is resolved, 003.3 MUST report it to 003.2 through
   `completeCancellation` (`CompleteCancellationHandoffCommand`), idempotently,
   so the session becomes `CANCELLED`; a handoff with no affected ticket is
-  reported when it is received. 003.2 alerts the Managers if a session is still
+  reported when it is received. *(Decided 2026-11-16, owner Hồ Hoàng Quốc)* If
+  003.2 answers `CANCELLATION_HANDOFF_UNRESOLVED`, 003.3 treats it as "not yet":
+  the folio and refund flow continue unchanged, and 003.3 retries when the last
+  ticket resolves. 003.2 alerts the Managers if a session is still
   `CANCELLATION_REQUESTED` 24 hours after its scheduled end.
 
 ### Changes (rescheduling)
@@ -790,7 +793,7 @@ separate Mland shop add-on bill of an OTA booking (D12).
 
 ### Session 2026-11-15
 
-- Q: In a group where at least one ticket is cancelled by Mland and another ticket is cancelled late or is a no-show, is the group's voucher use restored? → A: Yes. The first Mland-cancelled ticket that is refunded restores the group's voucher use at once, exactly once, whatever happens to the other tickets (FR-043 prevails; FR-042's all-tickets rule applies only when no ticket was cancelled by Mland).
+- Q: In a group where at least one ticket is cancelled by Mland and another ticket is cancelled late or is a no-show, is the group's voucher use restored? → A: Yes. The first Mland-cancelled ticket that has its refund request opened (or, for a ticket with no collected money, whose answer or default is recorded; FR-043, 2026-11-16) restores the group's voucher use at once, exactly once, whatever happens to the other tickets (FR-043 prevails; FR-042's all-tickets rule applies only when no ticket was cancelled by Mland).
 - Q: Besides a zero balance and no pending collection, must any other condition hold before one ticket's folio can be `FINALIZED`? → A: No. A ticket's folio finalizes when its `balanceDue = 0` and no collection of it is pending; attendance, the 24-hour correction window and the other tickets of the group are not conditions (each ticket finalizes on its own).
 - Q: When a Manager corrects a finalized folio whose cash day is already closed, is a cash adjustment on the current working day needed in V1? → A: No. A post-`FINALIZED` correction refunds only by bank (FR-050) and never touches confirmed cash; a closed cash day stays locked and no cash adjustment record or route exists. *(Partly superseded later on 2026-11-15, checklist CHK014: this still holds for a post-`FINALIZED` folio correction; a cash collection recorded in error on a closed day while the folio is not yet `FINALIZED`/`CLOSED` is corrected by the Manager-only cash reversal entry of FR-036.)*
 - Q: Are the transfer/VNPay reconciliation reports of FR-036 in V1, and at what depth? → A: Yes, in 003.3, as a read-only Manager list only (FR-056); no "reconciled" mark and no in-system mismatch handling (customer collection after `FINALIZED`, employee liability, accounting entries) in V1.
@@ -1811,8 +1814,9 @@ ticket refund.)*
   an actor outside the scope gets `403`. The receipt-image routes (FR-039)
   add `413 RECEIPT_IMAGE_TOO_LARGE`, `415 RECEIPT_IMAGE_TYPE_UNSUPPORTED` and
   `503 RECEIPT_STORAGE_UNAVAILABLE`, and the guest folio lookup keeps `429`
-  (the 003.1 group lookup limit); these are the only status codes outside the
-  list above. The public account-link route `POST /refund-account-links/{token}`
+  (the 003.1 group lookup limit), and the reconciliation list (FR-056) adds
+  `503 RECONCILIATION_SOURCE_UNAVAILABLE` when the 003.1 source is down; these
+  are the only status codes outside the list above. The public account-link route `POST /refund-account-links/{token}`
   also requires `Idempotency-Key` (see FR-022a).
 - **FR-022b**: The public REST contract MUST represent final bill and charge as
   business resources. Customer cancellation, required-session change, and

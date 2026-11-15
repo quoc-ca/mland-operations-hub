@@ -33,6 +33,7 @@ const BOOKING_ERROR_MESSAGE = {
   PACKAGE_SELECTION_INVALID: 'Lựa chọn ca không hợp lệ theo quy định của gói (số ca, địa điểm hoặc khoảng cách thời gian).',
   PACKAGE_NOT_PUBLISHED: 'Gói workshop này hiện chưa được mở bán hoặc đã tạm dừng.',
   QUOTE_EXPIRED: 'Báo giá đã hết hạn. Vui lòng báo giá lại.',
+  DEPENDENCY_UNAVAILABLE: 'Hệ thống tạm thời chưa xử lý được yêu cầu. Giỏ và thông tin bạn đã nhập vẫn được giữ; vui lòng thử lại sau.',
   CART_BENEFITS_NEED_A_MEMBER: 'Voucher và điểm chỉ áp dụng cho tài khoản Member đang đăng nhập.',
   SALES_PAUSED: 'Hệ thống đang tạm dừng nhận đăng ký cho ca này.',
   IDEMPOTENCY_CONFLICT: 'Yêu cầu trùng lặp nhưng nội dung khác với lần gửi trước.',
@@ -420,7 +421,7 @@ export function WorkshopBookingPage({ packageId }) {
         <h1 style={{ color: '#002967' }}>
           {group.groupStatus === 'CONFIRMED' ? 'Nhóm đặt chỗ đã được xác nhận' : 'Đã giữ chỗ cho nhóm đặt chỗ'}
         </h1>
-        <GroupDetailCard group={group} authorization={null} allowRecipientChange={false} />
+        <GroupDetailCard group={group} authorization={null} proof={contact} allowRecipientChange={false} />
         <div className="actions" style={{ marginTop: '20px' }}>
           <a className="button outline" href="/workshop-booking/lookup">Xem đặt chỗ của tôi</a>
           <a className="button outline" href="/">Về trang chủ</a>

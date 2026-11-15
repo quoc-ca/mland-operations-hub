@@ -56,6 +56,7 @@ public class BookingGroupRecoveryService {
     private final GroupConfirmationService confirmation;
     private final GroupNotificationService notifications;
     private final WorkshopBookingAuthorizationService authorization;
+    private final GroupStaffScopeService staffScope;
     private final BookingIdempotencyService idempotency;
     private final ObjectMapper mapper;
 
@@ -162,7 +163,7 @@ public class BookingGroupRecoveryService {
         Long locationId = locationOf(group);
         String actorType;
         if (!actor.anonymous() && (authorization.isStaff(actor.account()) || authorization.isManager(actor.account()))) {
-            if (!authorization.canResendConfirmation(actor.account(), locationId)) {
+            if (!staffScope.canOperate(actor.account(), group)) {
                 throw new WorkshopBookingProblemException(HttpStatus.FORBIDDEN, "FORBIDDEN",
                         "Caller is not authorized to resend this group's confirmation");
             }
@@ -278,7 +279,7 @@ public class BookingGroupRecoveryService {
     }
 
     /** GUEST with exactly one matching contact value and no bearer, or the owning MEMBER with no proof. */
-    private String requireBuyer(BookingGroup group, Actor actor, String contactEmail, String contactPhone) {
+    public String requireBuyer(BookingGroup group, Actor actor, String contactEmail, String contactPhone) {
         if (actor.anonymous()) {
             requireOneProof(contactEmail, contactPhone);
             if (!contactMatches(group, contactEmail, contactPhone)) throw notFound();

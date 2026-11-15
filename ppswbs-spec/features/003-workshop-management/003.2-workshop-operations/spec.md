@@ -828,8 +828,8 @@ and CHK035. Code and test work: tasks T115–T117, T140, T141.)*
   `resolved` exactly as FR-010a does and states that the open command keeps
   booking references while 003.3 derives the ticket set (facade contract,
   `WorkshopSettlementFacade` rows). The use of `CANCELLATION_HANDOFF_UNRESOLVED`
-  as the rejection of an early `completeCancellation` is a proposal confirmed
-  in T122/T167.
+  as the rejection of an early `completeCancellation` is decided 2026-11-16
+  (owner Hồ Hoàng Quốc; see FR-010a, T122, 003.3 T167).
 
 #### Analyze follow-up, answered 2026-11-16
 
@@ -1874,7 +1874,16 @@ correction, with before/after audit evidence.
   moved to a replacement session, or a bank refund request has been opened for
   it (Operations does not wait for `REFUNDED`), or the ticket has no collected money (FREE/deferred) and the buyer's answer or default is recorded and the folio is CLOSED (003.3 A03, 2026-11-16). 003.3 MUST call `completeCancellation`
   (`CompleteCancellationHandoffCommand`) as soon as the last affected ticket of
-  the handoff is resolved. If a session is still `CANCELLATION_REQUESTED` 24
+  the handoff is resolved. *(Decided 2026-11-16, owner Hồ Hoàng Quốc)* When
+  `completeCancellation` is called for a session in `CANCELLATION_REQUESTED`
+  and Operations finds any ticket of that session still unresolved (not
+  exchanged, no refund request opened, no zero-money answer/default recorded
+  with the folio CLOSED), Operations REJECTS the call with reason
+  `CANCELLATION_HANDOFF_UNRESOLVED` (facade result `REJECTED`; REST-equivalent
+  409 `INVALID_STATE` where it surfaces), changes no state, and the call is
+  safely repeatable. When every ticket is resolved the call moves the session to
+  `CANCELLED`, and a replay returns the same result (idempotent by
+  `operationReference`). If a session is still `CANCELLATION_REQUESTED` 24
   hours after its `scheduledEndAt`, Operations MUST alert the active Managers
   once per session through `AccountFacade.listActiveManagerEmails()`; when no
   Manager is active it sends no email and writes a WARN log only, no marker.

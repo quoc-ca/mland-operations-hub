@@ -17,6 +17,16 @@ public interface BookingAuditEvidenceRepository extends JpaRepository<BookingAud
 
     List<BookingAuditEvidence> findByCorrelationReference(String correlationReference);
 
+    long countByBookingCodeAndAction(String bookingCode, String action);
+
+    boolean existsByBookingCodeAndActionAndActionReason(String bookingCode, String action, String actionReason);
+
+    @org.springframework.data.jpa.repository.Query("select distinct a.bookingCode from BookingAuditEvidence a where a.action = :action and a.occurredAt > :since")
+    java.util.List<String> findBookingCodesWithActionSince(@org.springframework.data.repository.query.Param("action") String action,
+                                                           @org.springframework.data.repository.query.Param("since") Instant since);
+
+    java.util.Optional<BookingAuditEvidence> findFirstByBookingCodeAndActionOrderByOccurredAtDesc(String bookingCode, String action);
+
     long countByBookingCodeAndActionAndOutcomeAndActorTypeInAndOccurredAtAfter(
             String bookingCode, String action, String outcome, Collection<String> actorTypes, Instant occurredAt);
 }

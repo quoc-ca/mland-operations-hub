@@ -596,7 +596,7 @@ names are chosen at implementation.
 | T119 | `WorkshopSessionStartScheduler` logs at ERROR and increments a metric (no email; F14, 2026-11-16) for a start later than 5 minutes after `scheduledStartAt` and still catches up on restart. |
 | T120 | Read-only check that Loyalty `BRANCH` equals `workshop_location.id`; defect task in Loyalty/Booking if not. |
 | T121 | Verify and test the Staff location-plus-assignment rule on every Staff operation (`WorkshopOperationsAuthorizationService`). |
-| T122 | Verify that `completeCancellation` (facade method `completeCancellationHandoff`) moves `CANCELLATION_REQUESTED` to `CANCELLED` and that `CANCELLED` rejects check-in. |
+| T122 | Verify that `completeCancellation` (facade method `completeCancellationHandoff`) moves `CANCELLATION_REQUESTED` to `CANCELLED` only when every ticket is resolved, rejects an early call with `CANCELLATION_HANDOFF_UNRESOLVED` (no state change, repeatable; decided 2026-11-16), is idempotent by `operationReference`, and that `CANCELLED` rejects check-in. |
 | T123 | New OTA-only ticket revocation facade operation for 003.4, idempotent per OTA event reference. |
 | T124 | Delete the operational-lead code and the "responsible operator" guard; T115 rule replaces it. |
 | T125 | Per-session `REQUIRES_NEW` transaction in `WorkshopSessionStartScheduler.transitionDueSessions` through a separate bean. |

@@ -435,8 +435,10 @@ commit is accepted in `PUBLISHED`, `SALES_PAUSED` and `IN_PROGRESS` and refused
 cancellation handoff does not grow after the request.
 `CANCELLATION_REQUESTED -> CANCELLED` is taken only by
 `completeCancellation(CompleteCancellationHandoffCommand)` (Operations facade method in code: `completeCancellationHandoff`), called by 003.3 once every affected ticket is
-moved, has a bank refund request opened, or has an audited Manager decision
-(003.3 T167); there is no timeout transition, only the 24-hour Manager alert
+moved, has a bank refund request opened, or (no money collected) has the buyer's
+answer or default recorded with the folio CLOSED (003.3 T167). While any ticket is
+unresolved the call is rejected with `CANCELLATION_HANDOFF_UNRESOLVED` and changes
+no state (decided 2026-11-16); there is no timeout transition, only the 24-hour Manager alert
 above (T133).
 
 ### Capacity hold lifecycle

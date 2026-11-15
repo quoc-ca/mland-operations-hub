@@ -26,6 +26,7 @@ class BookingSettlementConclusionFacadeTest {
     @Mock private BookingLatePaymentEvidenceRepository lateEvidence;
     @Mock private BookingPaymentReceiptRepository paymentReceipts;
     @Mock private BookingAuditEvidenceRepository audits;
+    @Mock private edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.TicketBookingRepository ticketBookingRepository;
     @Mock private ObjectMapper objectMapper;
     @Mock private WorkshopOperationsAdapter operations;
     @InjectMocks private WorkshopBookingFacadeImpl facade;

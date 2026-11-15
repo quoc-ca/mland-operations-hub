@@ -89,6 +89,67 @@ class WorkshopCartBookingTest {
                 tickets, snapshots, mock(BookingIdempotencyService.class), benefits, groupConfirmation, mapper);
     }
 
+    // ---- T132 / T146 (FR-031, decided 2026-11-15): 006 or 003.2 unavailable -> 503, nothing quoted, nothing held ----
+
+    private static void assertUnavailable(Throwable thrown) {
+        assertThat(thrown).isInstanceOfSatisfying(WorkshopBookingProblemException.class, e -> {
+            assertThat(e.getStatus()).isEqualTo(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE);
+            assertThat(e.getCode()).isEqualTo("DEPENDENCY_UNAVAILABLE");
+        });
+    }
+
+    @Test
+    void aGuestQuoteIsRefusedWith503AndStoresNothingWhenOperationsIsUnavailable() {
+        UUID session = publishedLine("7", 150_000, 1, 6, 1, "Clay Workshop");
+        when(operations.getSaleEligibility(session))
+                .thenThrow(new org.springframework.dao.DataAccessResourceFailureException("database down"));
+
+        assertThatThrownBy(() -> quoteService.quote(null, cart(line(7L, session, 1))))
+                .satisfies(WorkshopCartBookingTest::assertUnavailable);
+        verify(quotes, never()).save(any());
+        assertThat(saved).isEmpty();
+    }
+
+    @Test
+    void aMemberQuoteIsRefusedWith503AndStoresNothingWhenLoyaltyIsUnavailable() {
+        UUID session = publishedLine("7", 150_000, 1, 6, 1, "Clay Workshop");
+        givenMember(42L);
+        when(loyalty.previewBenefits(any(), any())).thenThrow(new edu.fpt.sep490_g22.ppswbs_backend.features
+                .loyaltypromotion.facade.LoyaltyException(edu.fpt.sep490_g22.ppswbs_backend.features
+                .loyaltypromotion.facade.LoyaltyErrorCode.DEPENDENCY_UNAVAILABLE, "down"));
+
+        assertThatThrownBy(() -> quoteService.quote("Bearer token", cart(line(7L, session, 1))))
+                .satisfies(WorkshopCartBookingTest::assertUnavailable);
+        verify(quotes, never()).save(any());
+        assertThat(saved).isEmpty();
+    }
+
+    @Test
+    void aLoyaltyBusinessRefusalIsNotMistakenForAnOutage() {
+        UUID session = publishedLine("7", 150_000, 1, 6, 1, "Clay Workshop");
+        givenMember(42L);
+        var refusal = new edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.LoyaltyException(
+                edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.LoyaltyErrorCode.QUOTE_CHANGED, "changed");
+        when(loyalty.previewBenefits(any(), any())).thenThrow(refusal);
+
+        assertThatThrownBy(() -> quoteService.quote("Bearer token", cart(line(7L, session, 1)))).isSameAs(refusal);
+    }
+
+    @Test
+    void groupCreationIsRefusedWith503AndHoldsNothingWhenOperationsIsUnavailable() {
+        UUID session = publishedLine("7", 150_000, 1, 6, 1, "Clay Workshop");
+        WorkshopCartQuoteResponse quote = quoteService.quote(null, cart(line(7L, session, 1)));
+        openQuote(quote.quoteRef());
+        when(operations.reserveGroupCapacity(anyString(), any(), anyString(), anyString()))
+                .thenThrow(new org.springframework.transaction.CannotCreateTransactionException("pool exhausted"));
+
+        assertThatThrownBy(() -> creationService.create(new CreateBookingGroupRequest(quote.quoteRef(),
+                "guest@example.com", "0901234567"), null, "corr-down", null))
+                .satisfies(WorkshopCartBookingTest::assertUnavailable);
+        verify(groups, never()).save(any());
+        verify(loyalty, never()).reserveAcceptedTransaction(any(), any(), anyString());
+    }
+
     // ---- quoting ----
 
     @Test
@@ -568,6 +629,8 @@ class WorkshopCartBookingTest {
                 "buyer@example.com", "0901234567"), null, "corr-3", null))
                 .isInstanceOf(BookingCreationRejectedException.class)
                 .hasFieldOrPropertyWithValue("code", "QUOTE_ALREADY_ACCEPTED");
+        verify(operations, never()).reserveGroupCapacity(anyString(), any(), anyString(), anyString());
+        verifyNoInteractions(groups);
     }
 
     @Test
@@ -582,6 +645,8 @@ class WorkshopCartBookingTest {
                 "buyer@example.com", "0901234567"), null, "corr-4", null))
                 .isInstanceOf(BookingCreationRejectedException.class)
                 .hasFieldOrPropertyWithValue("code", "QUOTE_EXPIRED");
+        verify(operations, never()).reserveGroupCapacity(anyString(), any(), anyString(), anyString());
+        verifyNoInteractions(groups);
     }
 
     @Test
@@ -596,6 +661,7 @@ class WorkshopCartBookingTest {
                 "buyer@example.com", "0901234567"), null, "corr-5", null))
                 .isInstanceOf(BookingCreationRejectedException.class)
                 .hasFieldOrPropertyWithValue("code", "QUOTE_CHANGED");
+        verify(operations, never()).reserveGroupCapacity(anyString(), any(), anyString(), anyString());
         verifyNoInteractions(groups);
     }
 

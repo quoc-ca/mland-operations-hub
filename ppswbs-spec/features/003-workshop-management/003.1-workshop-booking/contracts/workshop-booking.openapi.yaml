@@ -36,7 +36,7 @@ paths:
       requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CartQuoteRequest'}}}}
       responses:
         '201': {description: Cart quote, content: {application/json: {schema: {$ref: '#/components/schemas/CartQuote'}}}}
-        '400': {$ref: '#/components/responses/Problem'}
+        '400': {description: "Validation error. A line outside its Package min/max participants or session count is PACKAGE_SELECTION_INVALID with failingLines naming the zero-based cart positions (T121, decided 2026-11-16); nothing is quoted.", content: {application/json: {schema: {$ref: '#/components/schemas/CartHoldRejection'}}}}
         '401': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
         '409': {description: "A line cannot be sold now; failingLines names the zero-based cart positions (FR-031).", content: {application/json: {schema: {$ref: '#/components/schemas/CartHoldRejection'}}}}
@@ -299,7 +299,7 @@ paths:
         to lack authority; a non-owner Member or wrong reference answers 404,
         FR-017), 404
         `TICKET_NOT_FOUND`, 409 `TICKET_NOT_CONFIRMED`, 409
-        `TICKET_ALREADY_CHECKED_IN`, 409 `TICKET_QR_REVOKED`, 409
+        `TICKET_ALREADY_CHECKED_IN`, 409
         `RECIPIENT_CHANGE_LIMIT_REACHED` (go to the shop), 409
         `BUYER_VERIFICATION_EXPIRED`, 409 `IDEMPOTENCY_CONFLICT`. A refused
         request changes nothing. Audit keeps the masked old and new email, the
