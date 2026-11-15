@@ -75,7 +75,7 @@ public class LatePaymentReviewService {
     private final BookingIdempotencyService idempotency;
     private final ApplicationEventPublisher events;
     private final ObjectMapper mapper;
-    private final ManagerAlertRecipientSource managerRecipients;
+    private final ManagerAlertService managerAlerts;
     private final WorkshopCartQuoteRepository quotes;
     private final WorkshopCartBenefitService benefits;
 
@@ -94,14 +94,6 @@ public class LatePaymentReviewService {
      */
     private void alertManagers(BookingGroup group, List<BookingGroupLine> groupLines, LatePaymentReview review,
                                String correlationReference) {
-        List<String> recipients = managerRecipients.activeManagerEmails().stream()
-                .filter(Objects::nonNull).map(String::trim).filter(s -> !s.isEmpty())
-                .map(EmailMasking::normalize).distinct().sorted().toList();
-        if (recipients.isEmpty()) {
-            log.warn("Late-payment review {} has no Manager alert recipient; it waits in the queue",
-                    review.getReviewReference());
-            return;
-        }
         Set<String> failed = parse(review.getFailedConditions());
         String due = review.getResultDueAt() == null ? "" : DISPLAY_TIME.format(review.getResultDueAt());
         String subject = "MLAND – [Cần xử lý trước " + due + "] Tiền về sau hạn, đơn " + group.getGroupCode();
@@ -119,10 +111,8 @@ public class LatePaymentReviewService {
                 + "sớm nhất nếu sớm hơn)\n\n"
                 + action + "\n\n"
                 + "Mở hàng chờ \"Tiền về sau hạn\" trong màn hình quản lý để xử lý.";
-        for (String recipient : recipients) {
-            notifications.queue(group, null, GroupNotificationService.KIND_LATE_PAYMENT_MANAGER_ALERT, recipient,
-                    subject, body, List.of(), null, correlationReference);
-        }
+        managerAlerts.alert(group, GroupNotificationService.KIND_LATE_PAYMENT_MANAGER_ALERT,
+                review.getReviewReference(), subject, body, correlationReference);
     }
 
     private static String vnd(long amountVnd) {
@@ -218,6 +208,17 @@ public class LatePaymentReviewService {
             throw new BookingValidationException("Unknown late-payment review status");
         }
         return reviews.findQueue(status).stream().map(LatePaymentReviewService::response).toList();
+    }
+
+    /** Same, but a refusal of a known caller leaves a denied-attempt audit entry on the group (FR-017b7, T143). */
+    public AccountSummary requireManager(String authorizationHeader, String groupCode, String correlationReference) {
+        AccountSummary account = authorization.authenticate(authorizationHeader);
+        if (!authorization.isManager(account)) {
+            authorization.recordDeniedAttempt(groupCode, 0L, account.role().name(), account.accountId(),
+                    "LATE_PAYMENT_DECISION", correlationReference, "Manager role required");
+            throw new WorkshopBookingForbiddenException("Late-payment reviews are handled by a Manager");
+        }
+        return account;
     }
 
     public AccountSummary requireManager(String authorizationHeader) {
@@ -544,7 +545,9 @@ public class LatePaymentReviewService {
 
     static Instant resultDue(Instant arrivedAt, Instant earliestSessionAt) {
         Instant byDay = arrivedAt.plus(RESULT_LIMIT);
-        return earliestSessionAt != null && earliestSessionAt.isBefore(byDay) ? earliestSessionAt : byDay;
+        // FR-040a (T128): a session that already started bounds nothing, the limit is then 24 hours after the evidence.
+        return earliestSessionAt != null && earliestSessionAt.isAfter(arrivedAt) && earliestSessionAt.isBefore(byDay)
+                ? earliestSessionAt : byDay;
     }
 
     private static String join(Set<String> failed) {
@@ -562,7 +565,8 @@ public class LatePaymentReviewService {
                 review.getOutcome(), Long.toString(review.getAmountVnd()), review.getArrivedAt(), List.copyOf(failed),
                 LatePaymentReview.PENDING_MANAGER.equals(review.getOutcome()) && MANAGER_CONFIRMABLE.containsAll(failed),
                 review.getEarliestSessionAt(), review.getResultDueAt(), review.getDecidedAt(),
-                review.getRefundRequestReference());
+                review.getRefundRequestReference(),
+                LatePaymentReview.DELIVERY_MANUAL_CONTACT.equals(review.getResultDeliveryState()));
     }
 
     private void audit(BookingGroup group, List<BookingGroupLine> groupLines, String actorType, Long actorId,

@@ -599,6 +599,7 @@ FR-030–FR-043 or below. **Not changed:** OTA bookings (003.4) keep
   every transition applies exactly once (a replay is accepted without a second
   write; an out-of-order or backward transition is refused `INVALID_STATE`);
   `CHECKED_IN` stays reserved.
+  *(2026-11-16, owner Hồ Hoàng Quốc)* 003.3 sends these conclusions through `recordBookingServiceOutcome` / `recordBookingRefundStatus` with the ticket code as `bookingReference`; 003.1 applies them to that ticket only (`REFUND_PENDING` from `DEPOSIT_PAID`/`FULLY_PAID`).
 
   | Event | `ticketStatus` | `financialStatus` |
   |---|---|---|

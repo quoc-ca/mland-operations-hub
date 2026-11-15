@@ -50,6 +50,13 @@ public class WorkshopOperationsAdapter {
                                 new PublishedPackageSelectionQuery(packageReference));
         }
 
+        /** Is this Staff member actively assigned to a session the line holds a valid ticket for (003.2 assignment rule)? */
+        public boolean isStaffAssignedToLine(Long staffAccountId, String lineReference) {
+                return workshopOperationsFacade.isStaffAssignedToBooking(
+                                new edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.StaffBookingAssignmentQuery(
+                                                staffAccountId, lineReference));
+        }
+
         public SaleEligibilitySnapshot getSaleEligibility(UUID sessionReference) {
                 log.debug("WorkshopOperationsAdapter.getSaleEligibility: sessionReference={}", sessionReference);
                 return workshopOperationsFacade.getSaleEligibility(new SaleEligibilityQuery(sessionReference));

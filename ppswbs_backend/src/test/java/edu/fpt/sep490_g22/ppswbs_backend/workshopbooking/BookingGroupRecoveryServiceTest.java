@@ -39,6 +39,7 @@ class BookingGroupRecoveryServiceTest {
     private GroupNotificationService notifications;
     private WorkshopBookingAuthorizationService authorization;
     private BookingIdempotencyService idempotency;
+    private GroupStaffScopeService staffScope;
     private BookingGroupRecoveryService service;
     private BookingGroup group;
     private final BookingIdempotencyClaim claim = BookingIdempotencyClaim.live(7L, 1L);
@@ -57,8 +58,9 @@ class BookingGroupRecoveryServiceTest {
         notifications = mock(GroupNotificationService.class);
         authorization = mock(WorkshopBookingAuthorizationService.class);
         idempotency = mock(BookingIdempotencyService.class);
+        staffScope = mock(GroupStaffScopeService.class);
         service = new BookingGroupRecoveryService(groups, lines, magicLinks, attempts, audit, projection, confirmation,
-                notifications, authorization, idempotency, new ObjectMapper());
+                notifications, authorization, staffScope, idempotency, new ObjectMapper());
         ReflectionTestUtils.setField(service, "selfServiceResendLimit", 3);
         ReflectionTestUtils.setField(service, "selfServiceResendWindowSeconds", 3600L);
         ReflectionTestUtils.setField(service, "internalResendLimit", 5);
@@ -239,7 +241,7 @@ class BookingGroupRecoveryServiceTest {
     void staffOutsideTheLocationScopeCannotResend() {
         BookingGroupRecoveryService.Actor staff = new BookingGroupRecoveryService.Actor(account(5L, ActorRole.STAFF));
         when(authorization.isStaff(staff.account())).thenReturn(true);
-        when(authorization.canResendConfirmation(staff.account(), null)).thenReturn(false);
+        when(staffScope.canOperate(staff.account(), group)).thenReturn(false);
 
         assertThatThrownBy(() -> service.resendConfirmation(CODE, staff, null, null, "corr", claim))
                 .satisfies(e -> assertThat(status(e)).isEqualTo(403));
@@ -314,5 +316,36 @@ class BookingGroupRecoveryServiceTest {
     private BookingGroupMagicLink link(MagicLinkLifecycleStatus status, Instant expiresAt) {
         return BookingGroupMagicLink.builder().group(group).tokenHash(GroupMagicLinkTokens.hash(TOKEN))
                 .lifecycleStatus(status).expiresAt(expiresAt).build();
+    }
+
+    // ---- T134 / T137 (FR-017a, FR-048): the buyer proof used by payment attempt and every Guest command ----
+
+    @Test
+    void theBuyerProofRefusesBothOrNeitherContactValueAsValidationAndAWrongOneAsNotFound() {
+        BookingGroupRecoveryService.Actor guest = new BookingGroupRecoveryService.Actor(null);
+
+        assertThat(service.requireBuyer(group, guest, "buyer@example.com", null)).isEqualTo("GUEST");
+        assertThat(service.requireBuyer(group, guest, null, "0900000001")).isEqualTo("GUEST");
+        assertThatThrownBy(() -> service.requireBuyer(group, guest, "buyer@example.com", "0900000001"))
+                .isInstanceOf(BookingValidationException.class);
+        assertThatThrownBy(() -> service.requireBuyer(group, guest, null, null))
+                .isInstanceOf(BookingValidationException.class);
+        assertThatThrownBy(() -> service.requireBuyer(group, guest, "other@example.com", null))
+                .satisfies(thrown -> assertThat(status(thrown)).isEqualTo(404));
+        assertThatThrownBy(() -> service.requireBuyer(group, guest, null, "0900000002"))
+                .satisfies(thrown -> assertThat(status(thrown)).isEqualTo(404));
+    }
+
+    @Test
+    void anOwningMemberPaysWithNoProofAndAnotherMemberLearnsNothing() {
+        var owner = new BookingGroupRecoveryService.Actor(account(42L, ActorRole.MEMBER));
+        var stranger = new BookingGroupRecoveryService.Actor(account(43L, ActorRole.MEMBER));
+        when(authorization.isOwner(owner.account(), 42L)).thenReturn(true);
+
+        assertThat(service.requireBuyer(group, owner, null, null)).isEqualTo("MEMBER");
+        assertThatThrownBy(() -> service.requireBuyer(group, owner, "buyer@example.com", null))
+                .isInstanceOf(BookingValidationException.class);
+        assertThatThrownBy(() -> service.requireBuyer(group, stranger, null, null))
+                .satisfies(thrown -> assertThat(status(thrown)).isEqualTo(404));
     }
 }

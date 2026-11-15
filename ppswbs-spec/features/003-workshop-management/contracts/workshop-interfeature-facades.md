@@ -1,7 +1,7 @@
 # 003 Workshop Management — Internal Facade Contract
 
 **Date created**: 2026-10-25
-**Date updated**: 2026-11-15
+**Date updated**: 2026-11-16
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -275,6 +275,32 @@ not write the URL to logs. The snapshot retains it only while the associated
 Magic Link is active and the scheduled workshop has not ended; a one-minute
 cleanup sweep scrubs it after expiry or revocation.
 
+### Booking notification delivery-failed signal — Feature 007 to 003.1 (decided 2026-11-16, owner Hồ Hoàng Quốc)
+
+**Status:** the 003 side is decided 2026-11-16 by Hồ Hoàng Quốc (owner of 003.1-003.4). The Feature 007 side
+(publishing the event, its retry-then-fail definition) is **pending confirmation by the Feature 007 owner**;
+003.1 T147 does not code against this until that confirmation is recorded here. Not an approval of any 007 design.
+
+Feature 007 publishes at-least-once, after it has given up on a handoff,
+`BookingNotificationDeliveryFailed(notificationReference, notificationKind, failureCode, failedAt, correlationReference)`:
+
+- `notificationReference` and `notificationKind` are exactly those of the matching `BookingNotificationReady`;
+  `failureCode` is a short enumerated code (for example `PROVIDER_REJECTED`, `PROVIDER_UNAVAILABLE`, `RECIPIENT_INVALID`);
+  `failedAt` is an instant. The event contains no recipient address, name, phone, rendered content, Magic-Link,
+  QR, payment data or provider payload.
+- "Failed" means terminal for that handoff: 007 has exhausted its own provider retry policy (007 owns provider
+  choice, send state and that policy; this contract sets no number for it). A transient or uncertain provider
+  outcome is not reported as failed.
+- 007 sends one failed signal per `notificationReference`; a duplicate delivery of the event is harmless.
+
+003.1 consumes it idempotently (deduplicated by `notificationReference`) and only for group confirmation
+notifications of a `CONFIRMED` group. It changes no group, ticket, payment, hold, Magic-Link or QR state. It then
+applies the resend schedule and Manager alert of 003.1 T147 (resend 5 minutes, 30 minutes and 2 hours after the
+failure, each as a **new** immutable handoff and a new `BookingNotificationReady` with a new `notificationReference`;
+all failed: alert active Managers only through `ManagerAlertRecipientSource`, audit entry, never Admin or Staff).
+The 003.1 module depends on the 007 event type only through a published boundary type, never on 007 internals;
+the dependency direction stays 007 publishes, 003.1 listens (no 003.1 call into 007).
+
 ## `WorkshopSettlementFacade` — owned by 003.3
 
 | Operation | Input boundary type | Result boundary type | Invariant / disclosure limit |
@@ -437,7 +463,7 @@ code), **removed**.
 | `verifyCustomerBookingAccess` | kept (spec FR-046) | 003.1 T100; 003.3 T106 replaces it with `getTicketFolioContext` and the folio-lookup contact proof. |
 | `recordFinalBalanceResolved` | removed (003.1 T100, done 2026-11-14; confirm in code at converge) | 003.1 T100. Per-ticket replacement `recordTicketFinalBalanceResolved` (2026-11-14, see "Per-ticket boundary changes"). |
 | `cancelConfirmedBooking` | removed (003.1 T100, done 2026-11-14; confirm in code at converge) | 003.1 T100. |
-| `recordBookingServiceOutcome`, `recordBookingRefundStatus` | kept (removal not decided) | In code; today called only by booking-wide 003.3 services. The per-ticket equivalent is "Booking status conclusions" in "Per-ticket boundary changes". |
+| `recordBookingServiceOutcome`, `recordBookingRefundStatus` | kept (removal not decided) | **Ticket-level since 2026-11-16 (owner Hồ Hoàng Quốc, BE-DESIGN-0010):** when `bookingReference` is a ticket code the conclusion applies to that ticket only (`recordBookingServiceOutcome` COMPLETED/NO_SHOW/CANCELLED from `CONFIRMED`; `recordBookingRefundStatus` REFUND_PENDING from `DEPOSIT_PAID`/`FULLY_PAID`, REFUNDED from `REFUND_PENDING`; replay accepted, other moves `INVALID_STATE`, audit on the group); signatures unchanged; any other reference keeps the legacy booking path. Previously called only by booking-wide 003.3 services. The per-ticket equivalent is "Booking status conclusions" in "Per-ticket boundary changes". |
 | `recordLateDepositEvidence` | legacy; listed for removal (row above) | Still called by `paymentintegration` (`PaymentIngressService`) on 2026-11-14; looks up a `WorkshopBooking` only. |
 | `applyVerifiedDepositPaymentEvidence` | kept (group routing only) | 003.1 T093/T100: routes group VNPay evidence by the group attempt's merchant reference and refuses everything else. |
 | `requestBookingTicketRedelivery` | kept, refuses every request | 003.1 T100: a group ticket is resent per ticket (FR-048); removal not decided. |

@@ -12,9 +12,10 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * Releases booking groups whose 12-minute hold ran out with no confirmation (003.1 FR-032). The whole group
- * goes at once, never a part of it. Each group is released in its own transaction, so one stuck group cannot
- * keep the others held.
+ * Releases booking groups whose 12-minute hold ran out with no confirmation (003.1 FR-032). The whole group goes at
+ * once, never a part of it. Each group is released in its own transaction, so one stuck group cannot keep the others
+ * held. The sweep runs every 30 seconds (SC-004 needs every expired group released within 5 minutes). A release that
+ * fails is retried on the {@link GroupExpiryReleaseRetryService} schedule (FR-039, T133); every retry is idempotent.
  */
 @Service
 @RequiredArgsConstructor
@@ -25,17 +26,28 @@ public class GroupHoldExpiryScheduler {
 
     private final BookingGroupRepository groups;
     private final GroupConfirmationService confirmation;
+    private final GroupExpiryReleaseRetryService retries;
 
     @Scheduled(fixedDelayString = "${workshop.booking.group-expiry-sweep:PT30S}")
     public void releaseExpiredGroups() {
-        for (BookingGroup group : groups.findExpiredPending(Instant.now(), PageRequest.of(0, BATCH))) {
+        Instant now = Instant.now();
+        for (BookingGroup group : groups.findExpiredPending(now, PageRequest.of(0, BATCH))) {
+            if (!retries.isDue(group.getGroupCode(), now)) {
+                continue;
+            }
             String correlation = "GROUP-EXPIRY-" + UUID.randomUUID();
             try {
                 confirmation.releaseExpiredGroup(group.getGroupCode(), "EXPIRE-" + group.getGroupCode(),
                         correlation);
             } catch (RuntimeException ex) {
-                // A group that cannot be released now is retried on the next sweep while its seats stay held.
+                // The seats stay held; the group is retried on the FR-039 schedule and the Managers hear after 3 retries.
                 log.warn("Could not release expired booking group {}: {}", group.getGroupCode(), ex.getMessage());
+                try {
+                    retries.recordFailure(group, correlation, ex.getClass().getSimpleName());
+                } catch (RuntimeException recordFailure) {
+                    log.warn("Could not record the failed release of {}: {}", group.getGroupCode(),
+                            recordFailure.getClass().getSimpleName());
+                }
             }
         }
     }

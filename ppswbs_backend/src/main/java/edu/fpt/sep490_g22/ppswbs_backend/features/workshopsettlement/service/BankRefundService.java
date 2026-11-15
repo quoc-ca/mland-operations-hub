@@ -111,6 +111,29 @@ public class BankRefundService {
                 reviewReference, amountVnd, correlationReference);
     }
 
+    /**
+     * 003.1 FR-013a (decided 2026-11-15): a 100% bank refund of excess or duplicate money on a CONFIRMED group. The
+     * money is the verified evidence Booking recorded, not a folio collection, so the request is opened for the
+     * group itself. Idempotent on (EXCESS_OR_DUPLICATE_MONEY, evidenceReference).
+     */
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public OpenedRefund openExcessPaymentRefund(String groupReference, String evidenceReference, long amountVnd,
+                                                String correlationReference) {
+        if (groupReference == null || groupReference.isBlank() || evidenceReference == null
+                || evidenceReference.isBlank()) {
+            throw new WorkshopSettlementValidationException("REFUND_REFERENCES_REQUIRED");
+        }
+        if (amountVnd <= 0) {
+            throw new WorkshopSettlementValidationException("REFUND_AMOUNT_INVALID");
+        }
+        var existing = requests.findByReasonAndSourceReference(RefundReason.EXCESS_OR_DUPLICATE_MONEY, evidenceReference);
+        if (existing.isPresent()) {
+            return new OpenedRefund(existing.get(), null);
+        }
+        return createRequest(groupReference, groupReference, RefundReason.EXCESS_OR_DUPLICATE_MONEY,
+                evidenceReference, amountVnd, correlationReference);
+    }
+
     private OpenedRefund createRequest(String bookingReference, String groupReference, RefundReason reason,
                                        String sourceReference, long amountVnd,
                                        String correlationReference) {

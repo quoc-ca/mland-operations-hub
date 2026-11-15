@@ -49,7 +49,7 @@ public class LatePaymentReviewController {
         }
         String correlation = correlationId == null || correlationId.isBlank()
                 ? UUID.randomUUID().toString() : correlationId.trim();
-        AccountSummary manager = reviews.requireManager(authorization);
+        AccountSummary manager = reviews.requireManager(authorization, groupCode, correlation);
         BookingIdempotencyClaim claim = idempotency.acquireClaim(idempotencyKey, COMMAND_ACTION,
                 groupCode + "|" + reviewId + "|" + request.decision() + "|" + request.reason().trim() + "|"
                         + manager.accountId(), correlation);

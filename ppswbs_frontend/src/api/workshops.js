@@ -218,13 +218,17 @@ export async function createBookingGroup({
  * Starts or retries the single VNPay payment of the whole group (FR-032, FR-038). A retry never extends the hold; the
  * returned expiresAt is the customer-visible 10-minute deadline.
  */
-export async function initiateGroupPayment(groupCode, { idempotencyKey, correlationId, authorization } = {}) {
+export async function initiateGroupPayment(groupCode, { idempotencyKey, correlationId, authorization, contactEmail, contactPhone } = {}) {
   if (!groupCode || typeof groupCode !== 'string' || !groupCode.trim()) {
     throw new Error('GROUP_CODE_REQUIRED');
   }
   return request(`/api/v1/workshop-booking-groups/${encodeURIComponent(groupCode.trim())}/payment-attempts`, {
     method: 'POST',
     headers: commandHeaders({ idempotencyKey, correlationId, authorization }),
+    // A Guest proves the group with exactly one stored contact value (FR-048); a Member sends none.
+    ...(!authorization && (contactEmail || contactPhone)
+      ? { body: contactEmail ? { contactEmail: contactEmail.trim() } : { contactPhone: contactPhone.trim() } }
+      : {}),
   });
 }
 

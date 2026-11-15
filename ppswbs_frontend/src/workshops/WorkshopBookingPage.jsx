@@ -420,7 +420,7 @@ export function WorkshopBookingPage({ packageId }) {
         <h1 style={{ color: '#002967' }}>
           {group.groupStatus === 'CONFIRMED' ? 'Nhóm đặt chỗ đã được xác nhận' : 'Đã giữ chỗ cho nhóm đặt chỗ'}
         </h1>
-        <GroupDetailCard group={group} authorization={null} allowRecipientChange={false} />
+        <GroupDetailCard group={group} authorization={null} proof={contact} allowRecipientChange={false} />
         <div className="actions" style={{ marginTop: '20px' }}>
           <a className="button outline" href="/workshop-booking/lookup">Xem đặt chỗ của tôi</a>
           <a className="button outline" href="/">Về trang chủ</a>

@@ -175,8 +175,14 @@ class WorkshopBookingFacadeT107Test {
         private BookingGroupRepository groups;
         @Mock
         private BookingBuyerVerificationRepository verifications;
-        @InjectMocks
         private BuyerVerificationService buyerVerificationService;
+
+        @org.junit.jupiter.api.BeforeEach
+        void buildService() {
+            // The limits are constructor arguments since T123; consumeProof does not use them.
+            buyerVerificationService = new BuyerVerificationService(groups, verifications, null,
+                    java.time.Duration.ofMinutes(10), java.time.Duration.ofMinutes(15), java.time.Duration.ofSeconds(60), 5, 5);
+        }
 
         @Test
         @DisplayName("Null or blank groupCode returns BUYER_VERIFICATION_REQUIRED")

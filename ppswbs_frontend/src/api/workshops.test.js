@@ -173,6 +173,22 @@ describe('003.1 workshop booking group client (decision 2026-11-13)', () => {
       assert.strictEqual(attempt.paymentUrl, 'https://vnpay.example/pay');
     });
 
+    it('sends exactly one stored contact value for a Guest and none for a Member (FR-048)', async () => {
+      let captured = captureFetch({ body: { paymentUrl: 'https://vnpay.example/pay' } });
+      await initiateGroupPayment('WG-1', { idempotencyKey: 'idem-key-0123456789',
+        contactEmail: ' buyer@example.com ', contactPhone: '0900000001' });
+      assert.deepStrictEqual(JSON.parse(captured.options.body), { contactEmail: 'buyer@example.com' });
+
+      captured = captureFetch({ body: { paymentUrl: 'https://vnpay.example/pay' } });
+      await initiateGroupPayment('WG-1', { idempotencyKey: 'idem-key-0123456789', contactPhone: '0900000001' });
+      assert.deepStrictEqual(JSON.parse(captured.options.body), { contactPhone: '0900000001' });
+
+      captured = captureFetch({ body: { paymentUrl: 'https://vnpay.example/pay' } });
+      await initiateGroupPayment('WG-1', { idempotencyKey: 'idem-key-0123456789', authorization: 'Bearer m',
+        contactEmail: 'buyer@example.com' });
+      assert.strictEqual(captured.options.body, undefined);
+    });
+
     it('requires the group code', async () => {
       await assert.rejects(() => initiateGroupPayment(''), { message: 'GROUP_CODE_REQUIRED' });
     });

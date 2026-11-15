@@ -229,6 +229,8 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade, Worksho
     @Override
     @Transactional
     public BookingServiceOutcomeResult recordBookingServiceOutcome(RecordBookingServiceOutcomeCommand command) {
+        TicketBooking ticket = ticketBookingRepository.findByTicketCodeForUpdate(command.bookingReference().trim()).orElse(null);
+        if (ticket != null) return recordTicketServiceOutcome(ticket, command);
         WorkshopBooking booking = bookingRepository.findLockedByBookingCode(command.bookingReference().trim()).orElse(null);
         if (booking == null) return BookingServiceOutcomeResult.rejected(BookingRejectionReason.NOT_READY);
 
@@ -247,6 +249,8 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade, Worksho
     @Override
     @Transactional
     public BookingRefundStatusResult recordBookingRefundStatus(RecordBookingRefundStatusCommand command) {
+        TicketBooking ticket = ticketBookingRepository.findByTicketCodeForUpdate(command.bookingReference().trim()).orElse(null);
+        if (ticket != null) return recordTicketRefundStatus(ticket, command);
         WorkshopBooking booking = bookingRepository.findLockedByBookingCode(command.bookingReference().trim()).orElse(null);
         if (booking == null) return BookingRefundStatusResult.rejected(BookingRejectionReason.NOT_READY);
 
@@ -260,6 +264,50 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade, Worksho
         bookingRepository.save(booking);
         recordSettlementAudit(booking, "BOOKING_REFUND_" + target.name(), command.correlationReference());
         return BookingRefundStatusResult.accepted();
+    }
+
+    /**
+     * FR-050 (decided 2026-11-16, Hồ Hoàng Quốc): when bookingReference is a ticket code the conclusion applies to that
+     * ticket only. COMPLETED, NO_SHOW and CANCELLED leave a CONFIRMED ticket once; replays are accepted without a
+     * second write; any other move is INVALID_STATE. Another ticket of the group is never touched.
+     */
+    private BookingServiceOutcomeResult recordTicketServiceOutcome(TicketBooking ticket, RecordBookingServiceOutcomeCommand command) {
+        BookingStatus target = BookingStatus.valueOf(command.outcome().name());
+        if (ticket.getTicketStatus() == target) return BookingServiceOutcomeResult.accepted();
+        if (ticket.getTicketStatus() != BookingStatus.CONFIRMED) {
+            return BookingServiceOutcomeResult.rejected(BookingRejectionReason.INVALID_STATE);
+        }
+        ticket.setTicketStatus(target);
+        ticketBookingRepository.save(ticket);
+        recordTicketConclusionAudit(ticket, "TICKET_SERVICE_" + target.name(), command.settlementReference(), command.correlationReference());
+        return BookingServiceOutcomeResult.accepted();
+    }
+
+    /** FR-050: REFUND_PENDING only from DEPOSIT_PAID or FULLY_PAID, REFUNDED only from REFUND_PENDING, once each. */
+    private BookingRefundStatusResult recordTicketRefundStatus(TicketBooking ticket, RecordBookingRefundStatusCommand command) {
+        PaymentStatus target = PaymentStatus.valueOf(command.status().name());
+        PaymentStatus current = ticket.getFinancialStatus();
+        if (current == target) return BookingRefundStatusResult.accepted();
+        boolean legal = (target == PaymentStatus.REFUND_PENDING
+                        && (current == PaymentStatus.DEPOSIT_PAID || current == PaymentStatus.FULLY_PAID))
+                || (target == PaymentStatus.REFUNDED && current == PaymentStatus.REFUND_PENDING);
+        if (!legal) return BookingRefundStatusResult.rejected(BookingRejectionReason.INVALID_STATE);
+        ticket.setFinancialStatus(target);
+        ticketBookingRepository.save(ticket);
+        recordTicketConclusionAudit(ticket, "TICKET_REFUND_" + target.name(), command.settlementReference(), command.correlationReference());
+        return BookingRefundStatusResult.accepted();
+    }
+
+    private void recordTicketConclusionAudit(TicketBooking ticket, String action, String settlementReference, String correlationReference) {
+        BookingGroup group = ticket.getGroup();
+        Long locationId = getTicketFolioContext(ticket.getTicketCode()).map(TicketFolioContext::locationReference).orElse(null);
+        auditEvidenceRepository.save(BookingAuditEvidence.builder()
+                .bookingCode(group != null ? group.getGroupCode() : ticket.getTicketCode())
+                .locationId(locationId != null ? locationId : 0L).actorType("SETTLEMENT")
+                .action(action).outcome("ACCEPTED")
+                .correlationReference(correlationReference == null ? "SETTLEMENT-CONCLUSION" : correlationReference)
+                .actionReason("ticket=" + ticket.getTicketCode() + " settlement=" + settlementReference.trim())
+                .occurredAt(Instant.now()).build());
     }
 
     private void recordSettlementAudit(WorkshopBooking booking, String action, String correlationReference) {

@@ -29,6 +29,9 @@ public class GroupPaymentEvidenceService {
     private final GroupConfirmationService confirmation;
     private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.BookingGroupRepository groupRepository;
     private final LatePaymentReviewService lateReviews;
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.GroupExcessPaymentRepository excessPayments;
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.ExcessPaymentRefundPort excessRefunds;
+    private final ManagerAlertService managerAlerts;
 
     /** Whether this merchant reference belongs to a group payment at all. */
     public boolean owns(String merchantReference) {
@@ -52,6 +55,9 @@ public class GroupPaymentEvidenceService {
         if (attempt.getAttemptStatus() == PaymentAttemptStatus.SUCCESS
                 && attempt.getGroup().getGroupStatus() == BookingStatus.CONFIRMED) {
             return DepositPaymentEvidenceOutcome.accepted();
+        }
+        if (attempt.getGroup().getGroupStatus() == BookingStatus.CONFIRMED) {
+            return recordExcessPayment(attempt, merchantReference, amountVnd, operationReference, correlationReference);
         }
         // FR-040 (T094): decide lateness under the group lock, before trying to confirm, so a late payment never
         // reaches the confirmation path (whose refusal would mark this transaction rollback-only).
@@ -78,6 +84,51 @@ public class GroupPaymentEvidenceService {
         }
         attempt.setAttemptStatus(PaymentAttemptStatus.SUCCESS);
         attempts.save(attempt);
+        return DepositPaymentEvidenceOutcome.accepted();
+    }
+
+    /**
+     * FR-013a (T124): a second verified success with a different merchant reference on a CONFIRMED group is excess or
+     * duplicate money. It is recorded in full, a 100% bank refund is opened through 003.3 in this same transaction
+     * (a refusal leaves nothing recorded), the Managers are alerted, and the group, tickets, capacity and benefits
+     * are not touched. A replay of the same evidence returns the stored outcome and does nothing more.
+     */
+    private DepositPaymentEvidenceOutcome recordExcessPayment(GroupPaymentAttempt attempt, String merchantReference,
+                                                              long amountVnd, String operationReference,
+                                                              String correlationReference) {
+        if (excessPayments.findByVerifiedEvidenceReference(merchantReference).isPresent()) {
+            return DepositPaymentEvidenceOutcome.accepted();
+        }
+        var group = attempt.getGroup();
+        var outcome = excessRefunds.openExcessPaymentRefund(
+                new edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.ExcessPaymentRefundPort
+                        .OpenExcessPaymentRefundCommand(group.getGroupCode(), merchantReference, amountVnd,
+                        operationReference, correlationReference));
+        if (outcome == null || !outcome.opened()) {
+            log.warn("Excess payment for group {} could not open its bank refund: {}", group.getGroupCode(),
+                    outcome == null ? "NO_OUTCOME" : outcome.reason());
+            return DepositPaymentEvidenceOutcome.rejected(BookingRejectionReason.NOT_READY);
+        }
+        excessPayments.save(edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.GroupExcessPayment
+                .builder()
+                .group(group)
+                .verifiedEvidenceReference(merchantReference)
+                .merchantReference(merchantReference)
+                .amountVnd(amountVnd)
+                .receivedAt(java.time.Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MICROS))
+                .refundRequestReference(outcome.refundRequestReference())
+                .refundOutcome(outcome.status())
+                .correlationReference(correlationReference)
+                .build());
+        attempt.setAttemptStatus(PaymentAttemptStatus.SUCCESS);
+        attempts.save(attempt);
+        managerAlerts.alert(group, GroupNotificationService.KIND_EXCESS_PAYMENT_MANAGER_ALERT, merchantReference,
+                "MLAND – Tiền thanh toán thừa hoặc trùng, đơn " + group.getGroupCode(),
+                "Đơn " + group.getGroupCode() + " đã được xác nhận, nhưng vừa nhận thêm " + amountVnd
+                        + " VND từ một giao dịch khác. Hệ thống đã mở yêu cầu hoàn 100% qua chuyển khoản ngân hàng "
+                        + "và không thay đổi đơn. Mở hàng chờ hoàn tiền trong màn hình quản lý để theo dõi.",
+                correlationReference);
+        log.warn("Excess payment of group {} recorded and refunded through 003.3", group.getGroupCode());
         return DepositPaymentEvidenceOutcome.accepted();
     }
 }

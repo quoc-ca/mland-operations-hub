@@ -15,6 +15,7 @@ public record LatePaymentReviewResponse(
         Instant earliestSessionAt,
         Instant resultDueAt,
         Instant decidedAt,
-        String refundRequestReference
+        String refundRequestReference,
+        boolean manualContactRequired
 ) {
 }

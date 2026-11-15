@@ -21,6 +21,10 @@ public interface LatePaymentReviewRepository extends JpaRepository<LatePaymentRe
     Optional<LatePaymentReview> findByReviewReferenceForUpdate(@Param("reference") String reference);
 
     /** FR-040a: the Manager queue, earliest session first (sessions within 24 hours come first). */
+    java.util.Optional<LatePaymentReview> findFirstByGroupIdOrderByIdDesc(Long groupId);
+
+    List<LatePaymentReview> findByResultDeliveryStateAndResultDueAtBefore(String resultDeliveryState, java.time.Instant before);
+
     @Query("select r from LatePaymentReview r join fetch r.group where r.outcome = :outcome "
             + "order by case when r.earliestSessionAt is null then 1 else 0 end, r.earliestSessionAt, r.resultDueAt, r.id")
     List<LatePaymentReview> findQueue(@Param("outcome") String outcome);
