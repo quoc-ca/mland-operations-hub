@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { getWorkshopPackage, listWorkshopLocations, listWorkshopSessions } from '../api/workshops';
 import PackageReviewSummary from '../features/reviewmanagement/ui/PackageReviewSummary';
+import { offersForPackage, usePublicWorkshopPrograms, WorkshopOfferList, WorkshopOfferPrice } from '../features/loyalty-promotion/publicOffers';
 
 /** Sessions shown per page: two rows of three on a wide screen, so the page stays short. */
 const SESSIONS_PER_PAGE = 6;
@@ -31,6 +32,7 @@ function formatSessionTime(isoStart, isoEnd) {
 }
 
 export function WorkshopDetailPage({ packageId }) {
+  const programs = usePublicWorkshopPrograms();
   const [pkg, setPkg] = useState(null);
   const [loadingPkg, setLoadingPkg] = useState(true);
   const [pkgError, setPkgError] = useState(null);
@@ -154,6 +156,8 @@ export function WorkshopDetailPage({ packageId }) {
     );
   }
 
+  const offers = offersForPackage(pkg, programs);
+
   return (
     <main className="container public-page">
       <div style={{ marginBottom: '16px' }}>
@@ -169,12 +173,14 @@ export function WorkshopDetailPage({ packageId }) {
         </div>
 
         <div>
+          {/* FR-052: one ticket after the best automatic discount (006's public gate); plain price when none. */}
           <p className="price" style={{ fontSize: '32px', margin: '0 0 16px' }}>
-            {Number(pkg.publicPrice || 0).toLocaleString('vi-VN')} ₫ <small style={{ fontSize: '16px', fontWeight: 'normal', color: '#595959' }}>/ người</small>
+            <WorkshopOfferPrice offers={offers} fallback={`${Number(pkg.publicPrice || 0).toLocaleString('vi-VN')} ₫`} /> <small style={{ fontSize: '16px', fontWeight: 'normal', color: '#595959' }}>/ người</small>
           </p>
           <p className="lead" style={{ fontSize: '16px', lineHeight: '1.6', marginBottom: '20px' }}>
             {pkg.description}
           </p>
+          <WorkshopOfferList offers={offers} />
 
           {/* Reviews are written by people who attended a session, so a session still open for booking has none. What helps
               someone choosing a package is the reviews of the package, gathered from the sessions already held. */}

@@ -102,6 +102,8 @@ public class SecurityConfiguration {
                         .requestMatchers(HttpMethod.POST, "/api/v1/workshop-tickets/*/cancellations").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/workshop-booking-groups/*/cancellations").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/workshop-tickets/*/mland-remedy/answers").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/workshop-tickets/*/mland-remedy").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/workshop-booking-groups/*/ticket-changes").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/workshop-tickets/*/changes").permitAll()
                         // 003.3 FR-040: the single-use refund-account link from email 7 is the
                         // credential.
@@ -113,6 +115,11 @@ public class SecurityConfiguration {
                         // Browser return is display-only. It only redirects to the React result page;
                         // no payment state is accepted from this request.
                         .requestMatchers(HttpMethod.GET, "/payment/vnpay/return").permitAll()
+                        // 003.4 OTA provider callbacks carry no Mland bearer (contract: security: []).
+                        // OtaProviderEventController authenticates each call with X-Ota-Signature against
+                        // the secret the connection's credential reference resolves to, fail closed (E3, T118).
+                        .requestMatchers(HttpMethod.POST, "/api/v1/ota-provider/booking-events").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/ota-provider/cancellation-events").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/workshop-tickets/*/folio-lookups").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/review-eligibility/lookup").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/reviews/**").permitAll()

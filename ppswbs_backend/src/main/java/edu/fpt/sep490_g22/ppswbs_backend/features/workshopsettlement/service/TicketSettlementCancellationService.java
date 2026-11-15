@@ -50,6 +50,7 @@ public class TicketSettlementCancellationService {
     private final WorkshopOperationsSettlementAdapter operations;
     private final LoyaltyFacade loyalty;
     private final SettlementIdempotencyService idempotency;
+    private final WorkshopSettlementAuthorizationService authorization;
 
     @Transactional
     public TicketCancellationDto cancelTicket(String ticketCode, CancellationRequestDto request,
@@ -188,7 +189,11 @@ public class TicketSettlementCancellationService {
             channel = "ONLINE";
             buyerProof = "MEMBER_OWNER";
         } else if (actor != null && (actor.role() == ActorRole.STAFF || actor.role() == ActorRole.MANAGER)) {
-            // Staff at counter acting on buyer's behalf
+            // Staff at counter acting on buyer's behalf; T116, FR-002/FR-051: active account and, for Staff,
+            // every cancelled ticket's location in scope (Manager is global).
+            for (TicketFolioContext ticketContext : contextMap.values()) {
+                authorization.requireManagerOrStaff(actor, ticketContext.locationReference());
+            }
             if (request.buyerVerificationReference() == null || request.buyerVerificationReference().isBlank()) {
                 throw new WorkshopSettlementAuthorizationException("BUYER_VERIFICATION_REQUIRED");
             }

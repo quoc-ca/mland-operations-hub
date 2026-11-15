@@ -10,6 +10,7 @@ import { createOperationsApi } from '../api/operationsApi';
 import { useOtaConnectivityApi } from '../../ota-connectivity/api/useOtaConnectivityApi';
 import { decideLatePaymentReview, listLatePaymentReviews, submitGroupMagicLinkIncident } from '../../api/workshops';
 import StaffWorkshopAddonPanel from '../components/StaffWorkshopAddonPanel';
+import { RescheduleQuotaPanel } from '../components/RescheduleQuotaPanel';
 import '../../ota-connectivity/ota-connectivity.css';
 import '../workshop-operations.css';
 
@@ -415,6 +416,7 @@ export default function OperationsSessionPage() {
       </article>
       <article className="ota-panel"><div className="ota-panel-head"><h2>Session facts</h2></div><dl className="ops-facts"><div><dt>Capacity</dt><dd>{session.capacity}</dd></div><div><dt>Check-in opens</dt><dd>{session.checkInOpensAt ? new Date(session.checkInOpensAt).toLocaleString() : '—'}</dd></div><div><dt>Assigned Staff</dt><dd>{assignedStaffLabel}</dd></div></dl><div className="ops-actions">{/* ATTENDANCE_FINALIZED is not a plain state change: only "Finalize attendance" marks no-shows and records the finalization time. */SALES_STATES.map(state => <button key={state} className="button outline" disabled={Boolean(transitionBlockedReason(session.state, state)) || command.pending} title={transitionBlockedReason(session.state, state)} onClick={() => run(key => api.transition(sessionId, state, key), `Session moved to ${state}.`)}>{state.replaceAll('_', ' ')}</button>)}<button className="button primary" disabled={command.pending || session.state !== 'IN_PROGRESS'} title={session.state !== 'IN_PROGRESS' ? 'Attendance can be finalized only while the session is IN PROGRESS.' : undefined} onClick={() => run(key => api.finalizeAttendance(sessionId, key), 'Attendance finalized.')}>Finalize attendance</button></div></article>
       {isManager && (<>
+      <RescheduleQuotaPanel api={api} session={session} onSaved={resource.reload} onReload={resource.reload} />
       <article className="ota-panel">
         <div className="ota-panel-head"><h2>Staff assignment</h2></div>
         <p className="muted">

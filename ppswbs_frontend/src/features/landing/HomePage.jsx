@@ -9,6 +9,7 @@ import { listWorkshopPackages, listMemberBookingGroups } from '../../api/worksho
 import { listPublicProducts, publicMediaUrl } from '../../api/catalogue';
 import MainTopbar from '../../shared/ui/MainTopbar';
 import { PublicProductGrid } from '../product-management/ui/public/PublicProductGrid';
+import { offersForPackage, usePublicWorkshopPrograms, WorkshopOfferBadges, WorkshopOfferPrice } from '../loyalty-promotion/publicOffers';
 import './landing.css';
 
 /**
@@ -166,6 +167,7 @@ export default function HomePage() {
 
   // Live state kết nối từ các features khác
   const [workshopPackages, setWorkshopPackages] = useState(DEFAULT_WORKSHOP_PACKAGES);
+  const workshopPrograms = usePublicWorkshopPrograms();
   const [readyRings, setReadyRings] = useState(DEFAULT_READY_RINGS);
   const [readyProducts, setReadyProducts] = useState([]);
   const [orderCount, setOrderCount] = useState(1);
@@ -232,6 +234,8 @@ export default function HomePage() {
         if (!active || !Array.isArray(data) || data.length === 0) return;
         const mapped = data.slice(0, 3).map((pkg, idx) => ({
           id: pkg.packageId || String(idx),
+          packageId: pkg.packageId,
+          publicPrice: pkg.publicPrice,
           tag: idx === 1 ? 'Được yêu thích nhất' : `Gói 0${idx + 1} · Workshop`,
           isFeatured: idx === 1,
           title: pkg.name || 'Workshop',
@@ -452,7 +456,7 @@ export default function HomePage() {
             CÁC GÓI WORKSHOP CHẾ TÁC NỔI BẬT
           </h3>
           <div className="landing-workshop-grid">
-            {workshopPackages.map((pkg) => (
+            {workshopPackages.map(item => (item.packageId ? { ...item, offers: offersForPackage(item, workshopPrograms) } : item)).map((pkg) => (
               <article
                 key={pkg.id}
                 className={`landing-workshop-card ${pkg.isFeatured ? 'featured' : ''}`}
@@ -465,7 +469,12 @@ export default function HomePage() {
                 <h4 className="landing-workshop-name">{pkg.title}</h4>
                 <p className="landing-workshop-desc">{pkg.description}</p>
                 <p className="landing-workshop-meta">{pkg.durationAndMaterial}</p>
-                <p className="landing-workshop-price">{pkg.price}</p>
+                {/* FR-052: price after the best automatic discount from 006's public gate; plain price when none. */}
+                <p className="landing-workshop-price">
+                  <WorkshopOfferPrice offers={pkg.offers} fallback={pkg.price} />
+                  {pkg.offers?.discounted ? ' / người' : null}
+                </p>
+                <WorkshopOfferBadges offers={pkg.offers} />
                 <Link
                   to={pkg.actionUrl}
                   className={`landing-workshop-btn ${pkg.isFeatured ? 'primary-action' : ''}`}

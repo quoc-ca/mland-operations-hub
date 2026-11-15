@@ -14,6 +14,7 @@ import {
 import { failingLinesOf, vnd } from './groupDisplay';
 import { useBookingIdentity } from './useBookingIdentity';
 import { useHttp } from '../shared/api/useHttp';
+import { offersForPackage, usePublicWorkshopPrograms, WorkshopOfferBadges, WorkshopOfferPrice } from '../features/loyalty-promotion/publicOffers';
 import './figmaPublicShell.css';
 
 const CART_ERROR_MESSAGE = {
@@ -58,6 +59,10 @@ export function WorkshopCartPage() {
     if (profile) setContact({ contactEmail: profile.email || '', contactPhone: profile.phone || '' });
   }, [authStatus, profile]);
 
+  // Display only (FR-052): each line's per-ticket price after the automatic discount; the quote is the server's.
+  const publicPrograms = usePublicWorkshopPrograms();
+  const lineOffers = line => offersForPackage({ packageId: line.packageId, publicPrice: line.pricePerParticipantVnd }, publicPrograms);
+
   // Kho Voucher, the running workshop vouchers and the Member's points, for the picker. A failed load leaves it
   // empty: the code can still be typed, and Feature 006 decides what applies.
   const [savedVouchers, setSavedVouchers] = useState([]);
@@ -79,6 +84,8 @@ export function WorkshopCartPage() {
           code: item.promotion?.code || item.code,
           name: item.promotion?.name || item.name || item.promotion?.code || item.code,
           availability: item.availability,
+          scope: item.promotion?.scope,
+          packageIds: item.promotion?.targets?.packageIds || [],
         })).filter(item => item.code));
       })
       .catch(() => { if (active) setSavedVouchers([]); });
@@ -247,8 +254,15 @@ export function WorkshopCartPage() {
                       <p className="muted" style={{ margin: '4px 0 0', fontSize: '13px' }}>
                         Dòng {index + 1}
                         {line.locationName ? ` · ${line.locationName}` : ''}
-                        {line.pricePerParticipantVnd ? ` · ${vnd(line.pricePerParticipantVnd)} / vé` : ''}
+                        {/* FR-052: per-ticket price after the automatic discount (006's public gate); display only. */}
+                        {line.pricePerParticipantVnd ? (
+                          <>
+                            {' · '}
+                            <WorkshopOfferPrice offers={lineOffers(line)} fallback={vnd(line.pricePerParticipantVnd)} /> / vé
+                          </>
+                        ) : ''}
                       </p>
+                      {line.pricePerParticipantVnd ? <WorkshopOfferBadges offers={lineOffers(line)} /> : null}
                       {line.sessionLabels?.length > 0 && (
                         <ul className="muted" style={{ margin: '6px 0 0', paddingLeft: '18px', fontSize: '12px' }}>
                           {line.sessionLabels.map((label, position) => (
@@ -336,6 +350,7 @@ export function WorkshopCartPage() {
             onChange={changeBenefitSelection}
             savedVouchers={savedVouchers}
             offers={workshopOffers}
+            packageIds={lines.map(line => line.packageId)}
             account={loyaltyAccount}
             quote={quote}
             pending={quoting || confirming}

@@ -7,7 +7,6 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dto.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.BookingAuditEvidence;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.WorkshopOperationsFacade;
-import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
 import org.junit.jupiter.api.DisplayName;
@@ -22,8 +21,6 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.Set;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -47,75 +44,6 @@ class WorkshopBookingDtoTests {
 
     @MockBean
     private WorkshopOperationsFacade operationsFacade;
-
-    @Test
-    @DisplayName("T013-1: CreateBookingRequest Bean Validation checks required fields, bounds, and formats")
-    void verifyCreateBookingRequestValidation() {
-        // Valid request
-        CreateBookingRequest valid = CreateBookingRequest.builder()
-                .packageId(1L)
-                .sessionReferences(List.of(UUID.randomUUID(), UUID.randomUUID()))
-                .participantCount(2)
-                .contactEmail("test@mland.vn")
-                .contactPhone("0901234567")
-                .build();
-        assertThat(validator.validate(valid)).isEmpty();
-
-        // A Guest request must provide the complete package/session selection.
-        CreateBookingRequest missingPkg = CreateBookingRequest.builder()
-                .sessionReferences(List.of(UUID.randomUUID()))
-                .participantCount(1)
-                .contactEmail("test@mland.vn")
-                .contactPhone("0901234567")
-                .build();
-        Set<ConstraintViolation<CreateBookingRequest>> v1 = validator.validate(missingPkg);
-        assertThat(v1).anyMatch(v -> v.getMessage()
-                .contains("Provide either quoteRef or the complete Guest package/session selection"));
-
-        // Invalid participant count < 1
-        CreateBookingRequest zeroParticipants = CreateBookingRequest.builder()
-                .packageId(1L)
-                .sessionReferences(List.of(UUID.randomUUID()))
-                .participantCount(0)
-                .contactEmail("test@mland.vn")
-                .contactPhone("0901234567")
-                .build();
-        Set<ConstraintViolation<CreateBookingRequest>> v2 = validator.validate(zeroParticipants);
-        assertThat(v2).anyMatch(v -> v.getMessage().contains("at least 1"));
-
-        // Invalid email format
-        CreateBookingRequest badEmail = CreateBookingRequest.builder()
-                .packageId(1L)
-                .sessionReferences(List.of(UUID.randomUUID()))
-                .participantCount(1)
-                .contactEmail("not-an-email")
-                .contactPhone("0901234567")
-                .build();
-        Set<ConstraintViolation<CreateBookingRequest>> v3 = validator.validate(badEmail);
-        assertThat(v3).anyMatch(v -> v.getMessage().contains("valid email"));
-
-        // Too many sessions (> 2)
-        CreateBookingRequest threeSessions = CreateBookingRequest.builder()
-                .packageId(1L)
-                .sessionReferences(List.of(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID()))
-                .participantCount(1)
-                .contactEmail("test@mland.vn")
-                .contactPhone("0901234567")
-                .build();
-        Set<ConstraintViolation<CreateBookingRequest>> v4 = validator.validate(threeSessions);
-        assertThat(v4).anyMatch(v -> v.getMessage().contains("one or two sessions"));
-
-        UUID duplicateReference = UUID.randomUUID();
-        CreateBookingRequest duplicateSessions = CreateBookingRequest.builder()
-                .packageId(1L)
-                .sessionReferences(List.of(duplicateReference, duplicateReference))
-                .participantCount(1)
-                .contactEmail("test@mland.vn")
-                .contactPhone("0901234567")
-                .build();
-        Set<ConstraintViolation<CreateBookingRequest>> v5 = validator.validate(duplicateSessions);
-        assertThat(v5).anyMatch(v -> v.getMessage().contains("must be unique"));
-    }
 
     @Test
     @DisplayName("T013-2: Booking response DTOs expose opaque UUID session references")

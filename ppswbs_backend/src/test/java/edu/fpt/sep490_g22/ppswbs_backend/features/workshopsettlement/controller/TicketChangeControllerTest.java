@@ -26,7 +26,9 @@ import static org.mockito.Mockito.when;
 class TicketChangeControllerTest {
 
     private final TicketChangeService changeService = mock(TicketChangeService.class);
-    private final TicketChangeController controller = new TicketChangeController(changeService);
+    private final TicketChangeController controller = new TicketChangeController(changeService,
+            mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.TicketChangeRequestService.class),
+            mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.GroupTicketChangeService.class));
 
     private static final String TICKET_CODE = "GRP-01-L1-T1";
     private static final String IDEMPOTENCY_KEY = "idempotency-key-ticket-change-123";

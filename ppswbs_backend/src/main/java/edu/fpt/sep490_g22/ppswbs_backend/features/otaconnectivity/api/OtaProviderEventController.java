@@ -1,6 +1,9 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.api;
 
 import edu.fpt.sep490_g22.ppswbs_backend.common.CorrelationIdFilter;
+import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.adapter.BaseOtaCancellationAdapter;
+import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.application.OtaCancellationService;
+import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.application.OtaCancellationService.OtaCancellationEventResult;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.application.exception.OtaForbiddenException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.application.exception.OtaUnauthorizedException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.integration.OtaProviderEventHandler;
@@ -16,6 +19,7 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -26,10 +30,13 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -45,20 +52,29 @@ public class OtaProviderEventController {
     private final OtaProviderEventHandler eventHandler;
     private final OtaChannelConnectionRepository connectionRepository;
     private final org.springframework.core.env.Environment springEnvironment;
+    private final OtaCancellationService cancellationService;
 
     @org.springframework.beans.factory.annotation.Autowired
     public OtaProviderEventController(OtaProviderEventHandler eventHandler,
                                       OtaChannelConnectionRepository connectionRepository,
                                       @org.springframework.beans.factory.annotation.Autowired(required = false)
-                                      org.springframework.core.env.Environment springEnvironment) {
+                                      org.springframework.core.env.Environment springEnvironment,
+                                      OtaCancellationService cancellationService) {
         this.eventHandler = eventHandler;
         this.connectionRepository = connectionRepository;
         this.springEnvironment = springEnvironment;
+        this.cancellationService = cancellationService;
+    }
+
+    public OtaProviderEventController(OtaProviderEventHandler eventHandler,
+                                      OtaChannelConnectionRepository connectionRepository,
+                                      org.springframework.core.env.Environment springEnvironment) {
+        this(eventHandler, connectionRepository, springEnvironment, null);
     }
 
     public OtaProviderEventController(OtaProviderEventHandler eventHandler,
                                       OtaChannelConnectionRepository connectionRepository) {
-        this(eventHandler, connectionRepository, null);
+        this(eventHandler, connectionRepository, null, null);
     }
 
     @Value("${ota.auth.allow-test-tokens:false}")
@@ -98,7 +114,12 @@ public class OtaProviderEventController {
             String currencyCode,
 
             String externalPaymentEvidenceReference,
-            String correlationReference
+            String correlationReference,
+            @Size(max = 128) String displayedPolicyReference,
+            @Size(max = 64) String displayedPolicyVersion,
+            Instant bookingCutoffAt,
+            @Size(max = 64) String bookingCutoffTimezone,
+            @Min(value = 0, message = "Fee must not be negative") Long feeAmountMinor
     ) {}
 
     public record ProviderEventAcknowledgement(
@@ -136,7 +157,12 @@ public class OtaProviderEventController {
                 request.acceptedAmountMinor(),
                 request.currencyCode().toUpperCase(),
                 request.externalPaymentEvidenceReference(),
-                correlation
+                correlation,
+                request.displayedPolicyReference(),
+                request.displayedPolicyVersion(),
+                request.bookingCutoffAt(),
+                request.bookingCutoffTimezone(),
+                request.feeAmountMinor()
         );
 
         OtaBookingEventResult result = eventHandler.handleBookingEvent(command);
@@ -159,6 +185,66 @@ public class OtaProviderEventController {
             return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(acknowledgement);
         }
     }
+
+    public record ProviderCancellationAcknowledgement(
+            String status,
+            String externalBookingReference,
+            String channelBookingReference,
+            String currentBookingStatus,
+            String rejectionReason,
+            String reconciliationWorkItemReference,
+            String correlationReference,
+            Instant acknowledgedAt
+    ) {}
+
+    /**
+     * 003.4 T121 (US3, FR-010, FR-011; route approved 2026-11-15 by Hồ Hoàng Quốc): interim authenticated ingress
+     * for a provider cancellation or refund update. The body is the provider's own JSON, mapped by that provider's
+     * cancellation adapter; {@code provider} and {@code environment} name the connection. Authentication follows
+     * exactly the {@code booking-events} rules (E3, T118). A replay returns the stored outcome (T107).
+     */
+    @PostMapping(value = "/cancellation-events", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ProviderCancellationAcknowledgement> handleCancellationCallback(
+            @RequestHeader(value = "X-Ota-Signature", required = false) String signature,
+            @RequestParam("provider") OtaProvider provider,
+            @RequestParam("environment") OtaEnvironment environment,
+            @RequestBody String rawPayload,
+            HttpServletRequest httpServletRequest
+    ) {
+        verifyProviderSignature(signature, provider, environment);
+        if (cancellationService == null) {
+            throw new IllegalStateException("OTA cancellation ingress is not configured");
+        }
+        if (rawPayload == null || rawPayload.isBlank() || rawPayload.length() > MAX_CANCELLATION_PAYLOAD_CHARS) {
+            throw new IllegalArgumentException("A provider cancellation payload is required");
+        }
+        String correlation = CorrelationIdFilter.current(httpServletRequest);
+
+        // The map is built here, never copied from the request, so the ingress marker cannot be supplied by a caller.
+        Map<String, String> adapterHeaders = new HashMap<>();
+        adapterHeaders.put(BaseOtaCancellationAdapter.AUTHENTICATED_INGRESS_HEADER, "true");
+        if (correlation != null) {
+            adapterHeaders.put("X-Correlation-Id", correlation);
+        }
+        OtaCancellationEventResult result = cancellationService.handleRawProviderCancellation(
+                provider, environment, rawPayload, adapterHeaders);
+
+        ProviderCancellationAcknowledgement acknowledgement = new ProviderCancellationAcknowledgement(
+                result.status(),
+                result.externalBookingReference(),
+                result.channelBookingReference(),
+                result.currentBookingStatus(),
+                result.rejectionReason(),
+                result.reconciliationWorkItemReference(),
+                correlation,
+                Instant.now()
+        );
+        return "REJECTED".equals(result.status())
+                ? ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(acknowledgement)
+                : ResponseEntity.ok(acknowledgement);
+    }
+
+    private static final int MAX_CANCELLATION_PAYLOAD_CHARS = 65_536;
 
     /**
      * E3 (2026-11-12), fail closed until a provider's real signed callback is approved in provider-readiness.

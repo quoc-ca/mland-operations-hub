@@ -13,7 +13,7 @@ export const voucherUsage = { programId: '5', totalLimit: '100', perMemberLimit:
 
 export function publicPromotion(overrides = {}) {
   const { id, kind, scope, code, name, startAt, endAt, discount, minimumEligibleAmount, allowPoints, targets, totalLimit, perMemberLimit } = program();
-  return { id, kind, scope, code, name, startAt, endAt, discount, minimumEligibleAmount, allowPoints, targets, totalLimit, perMemberLimit, ...overrides };
+  return { id, kind, scope, code, name, startAt, endAt, discount, minimumEligibleAmount, allowPoints, targets, totalLimit, perMemberLimit, availability: 'ACTIVE', ...overrides };
 }
 
 export const policy = { id: '1', version: '3', earnUnitAmount: '10000', redeemPointValue: '100', minRedeemPoints: '10', maxRedeemPercent: '50', roundingMode: 'FLOOR', createdAt: '2026-10-01T00:00:00Z' };

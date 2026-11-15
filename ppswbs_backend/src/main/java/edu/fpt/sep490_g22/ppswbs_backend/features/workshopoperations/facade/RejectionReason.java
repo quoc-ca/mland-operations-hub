@@ -15,5 +15,7 @@ public enum RejectionReason {
     /** 003.2 FR-035: a target session has no reschedule quota left for a customer change. */
     RESCHEDULE_QUOTA_EXHAUSTED,
     /** 003.2 FR-034: the replacement of a missed session starts after the old session's end plus 7 days. */
-    LATE_ARRIVAL_WINDOW_EXPIRED
+    LATE_ARRIVAL_WINDOW_EXPIRED,
+    /** 003.2 FR-036: an OTA-origin ticket keeps the OTA's policy; cancel, replace and QR reissue refuse it. */
+    OTA_TICKET_NOT_SUPPORTED
 }

@@ -65,7 +65,10 @@ class TicketSettlementCancellationServiceTest {
     @BeforeEach
     void setUp() {
         service = new TicketSettlementCancellationService(
-                cancellationRepository, bills, audits, booking, operations, loyalty, idempotency
+                cancellationRepository, bills, audits, booking, operations, loyalty, idempotency,
+                new WorkshopSettlementAuthorizationService(
+                        mock(edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountFacade.class),
+                        audits, operations)
         );
         lenient().when(idempotency.findOutcomeReference(anyString(), anyString())).thenReturn(Optional.empty());
         lenient().when(idempotency.execute(anyString(), anyString(), any())).thenAnswer(invocation -> {
@@ -350,6 +353,27 @@ class TicketSettlementCancellationServiceTest {
                             && Long.valueOf(50L).equals(c.getRequesterAccountId())
                             && "COUNTER-PROOF-456".equals(c.getBuyerProof())
             ));
+        }
+
+        @Test
+        @DisplayName("T116: Staff outside the ticket's location, or inactive, is refused before the proof is consumed")
+        void staffOutOfScopeOrInactiveIsRefused() {
+            TicketFolioContext context = createContext(TICKET_1, OPS_REF_1, Instant.now().plus(48, ChronoUnit.HOURS), 0L, "L0-T1");
+            when(booking.getTicketFolioContext(TICKET_1)).thenReturn(Optional.of(context));
+            lenient().when(cancellationRepository.existsByTicketCode(TICKET_1)).thenReturn(false);
+            lenient().when(bills.findByBookingReference(TICKET_1)).thenReturn(Optional.of(createOpenBill(TICKET_1)));
+            lenient().when(bills.findByBookingReferenceForUpdate(TICKET_1)).thenReturn(Optional.of(createOpenBill(TICKET_1)));
+            CancellationRequestDto request = new CancellationRequestDto("Counter", "COUNTER-PROOF-456");
+
+            CurrentAccountActor otherBranch = new CurrentAccountActor(50L, ActorRole.STAFF, ActorStatus.ACTIVE, true, List.of(7L));
+            assertThatThrownBy(() -> service.cancelTicket(TICKET_1, request, VALID_IDEMPOTENCY_KEY, "corr-t116a", otherBranch))
+                    .isInstanceOf(WorkshopSettlementAuthorizationException.class);
+            CurrentAccountActor suspended = new CurrentAccountActor(50L, ActorRole.STAFF, ActorStatus.SUSPENDED, true, List.of(1L));
+            assertThatThrownBy(() -> service.cancelTicket(TICKET_1, request, VALID_IDEMPOTENCY_KEY, "corr-t116b", suspended))
+                    .isInstanceOf(WorkshopSettlementAuthorizationException.class);
+
+            verify(booking, never()).consumeBuyerProof(any());
+            verify(operations, never()).cancelTicket(any(), anyString(), anyString(), anyString());
         }
     }
 

@@ -1091,6 +1091,45 @@ describe('T072 hand-off to the FE-08 cart', () => {
     expect(calls.find(call => call.method === 'POST').body).toEqual({ variantId: 101, locationId: 9, quantity: 1 });
   });
 
+  it('"Mua Ngay" opens the FE-08 cart when the added line is not in the reply (FR-059(4))', async () => {
+    const user = userEvent.setup();
+    mockFetch({
+      'GET /api/v1/products/42': json(200, publicProduct()),
+      'GET /api/v1/product-selling-locations': json(200, locations),
+      'POST /api/v1/members/me/ready-ring-cart/lines': json(201, { version: 3, lines: [
+        { id: '70', variantId: 555, locationId: 9, quantity: 1 }] }),
+    });
+    const { router } = renderRoutes([...productManagementRoutes,
+      { path: '/member/checkout', element: <p>FE-08 checkout</p> }, { path: '/member/cart', element: <p>FE-08 cart</p> }],
+    { path: '/products/42' });
+    await screen.findByRole('option', { name: /MLAND Thủ Đức/ });
+    await user.click(screen.getByRole('button', { name: 'Size 12' }));
+    await user.selectOptions(screen.getByLabelText('Chi nhánh'), '9');
+    await user.click(screen.getByRole('button', { name: 'Mua Ngay' }));
+    expect(await screen.findByText('FE-08 cart')).toBeInTheDocument();
+    expect(screen.queryByText('FE-08 checkout')).toBeNull();
+    expect(router.state.location.pathname).toBe('/member/cart');
+  });
+
+  it('the quick add shows the chosen size price after the automatic discount (FR-059(2), FR-057)', async () => {
+    const user = userEvent.setup();
+    mockFetch({
+      'GET /api/v1/products': json(200, { items: [publicProduct()], page: 0, pageSize: 20, totalElements: '1' }),
+      'GET /api/v1/product-categories': json(200, categoryPage),
+      'GET /api/v1/product-selling-locations': json(200, locations),
+      'GET /api/v1/promotions': json(200, { items: [
+        { id: '1', kind: 'AUTO_DISCOUNT', scope: 'PRODUCT', code: null, name: 'Giảm 11.11', minimumEligibleAmount: '0',
+          discount: { kind: 'PERCENT', percentage: '10', maxDiscountAmount: '500000' }, targets: { productIds: ['42'] } },
+      ], nextCursor: null }),
+    });
+    open('/products');
+    await user.click(await screen.findByRole('button', { name: 'Thêm Nhẫn bạc vào giỏ hàng' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Thêm vào giỏ: Nhẫn bạc' });
+    expect(dialog.querySelector('.buy-sizes-price')).toBeNull();
+    await user.click(within(dialog).getByRole('button', { name: 'Size 12' }));
+    expect(within(dialog).getByText('1.125.000 ₫', { selector: '.buy-sizes-price *' })).toBeInTheDocument();
+  });
+
   it('the cart button of a list card adds without leaving the list', async () => {
     const user = userEvent.setup();
     const calls = mockFetch({

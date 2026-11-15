@@ -5,9 +5,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.EarnSt
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.LoyaltyFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.OutcomeKind;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.SourceKind;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.BookingAttendanceOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.TicketAttendanceOutcome;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementCaseRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementChargeRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementEvidenceConclusionRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementFinalBillRepository;
@@ -42,15 +40,12 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class WorkshopLoyaltyOutcomeProcessor {
-    private static final List<String> CANCELLATION_CASE_TYPES = List.of("CUSTOMER_CANCELLATION", "MLAND_CANCELLATION_REMEDY");
 
     private final SettlementFinalBillRepository bills;
     private final SettlementChargeRepository charges;
     private final SettlementEvidenceConclusionRepository evidence;
-    private final SettlementCaseRepository cases;
     private final WorkshopBookingSettlementAdapter booking;
     private final WorkshopOperationsSettlementAdapter operations;
-    private final WorkshopCancellationLoyaltyService cancellationLoyalty;
     private final LoyaltyFacade loyalty;
 
     /**
@@ -147,61 +142,9 @@ public class WorkshopLoyaltyOutcomeProcessor {
             processGroupTicket(bill);
             return;
         }
-        var source = booking.loyaltyOutcomeSource(bookingReference);
-        if (source == null || !source.memberOrigin()) {
-            markProcessed(bill); // Guests have no Loyalty outcome.
-            return;
-        }
-        if (source.snapshotRef() == null || source.snapshotRef().isBlank()) {
-            return;
-        }
-
-        var existing = loyalty.findBenefitResult(SourceKind.WORKSHOP, bookingReference);
-        if (existing == null) {
-            return;
-        }
-        if (existing.earnState() != EarnState.PENDING) {
-            markProcessed(bill); // Already decided (for example by the verified-refund path).
-            return;
-        }
-
-        boolean closed = SettlementFinalBillLifecycleStatus.CLOSED.name().equals(bill.getLifecycleStatus());
-        BookingAttendanceOutcome attendance = operations.attendanceOutcome(bookingReference);
-        BookingAttendanceOutcome.Outcome outcome = attendance != null && attendance.terminal() ? attendance.outcome() : null;
-        Instant now = Instant.now();
-
-        if (outcome == BookingAttendanceOutcome.Outcome.NO_SHOW) {
-            loyalty.finishIneligibleEarn(new AuthoritativeOutcome(
-                    SourceKind.WORKSHOP, bookingReference, "workshopsettlement",
-                    "no-show-" + bill.getBillReference(), source.nextOutcomeVersion(),
-                    OutcomeKind.WORKSHOP_NO_SHOW_FINAL, now, source.originalDeadline(), source.snapshotRef(),
-                    true, "attendance-outcome:" + bill.getBillReference()));
-            markProcessed(bill);
-            return;
-        }
-
-        if (closed) {
-            // A CLOSED folio never grants points; it is closed by a cancellation or a remedy.
-            var cancellations = cases.findByBookingReferenceAndCaseTypeInAndLifecycleStatusOrderByCreatedAtAsc(
-                    bookingReference, CANCELLATION_CASE_TYPES, "RESOLVED");
-            if (!cancellations.isEmpty()) {
-                var settled = cancellations.get(0);
-                cancellationLoyalty.restoreVerifiedCancellation(settled, "case:" + settled.getCaseReference());
-                markProcessed(bill);
-            }
-            return;
-        }
-
-        if ((outcome == BookingAttendanceOutcome.Outcome.ATTENDED || outcome == BookingAttendanceOutcome.Outcome.PARTIAL)
-                && SettlementFinalBillLifecycleStatus.FINALIZED.name().equals(bill.getLifecycleStatus())
-                && outstanding(bill) == 0L) {
-            loyalty.grantEarnedPoints(new AuthoritativeOutcome(
-                    SourceKind.WORKSHOP, bookingReference, "workshopsettlement",
-                    "completed-" + bill.getBillReference(), source.nextOutcomeVersion(),
-                    OutcomeKind.WORKSHOP_COMPLETED_AND_FULLY_PAID, now, source.originalDeadline(), source.snapshotRef(),
-                    true, "final-bill:" + bill.getBillReference()));
-            markProcessed(bill);
-        }
+        // FR-046: the single direct flow is gone, so a folio without a booking group has no Member Loyalty source;
+        // OTA and any leftover non-group folio is only marked processed so the scheduler stops scanning it.
+        markProcessed(bill);
     }
 
     private void markProcessed(SettlementFinalBill bill) {

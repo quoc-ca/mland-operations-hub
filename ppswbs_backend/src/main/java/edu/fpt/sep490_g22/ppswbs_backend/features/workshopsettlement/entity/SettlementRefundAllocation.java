@@ -26,10 +26,10 @@ public class SettlementRefundAllocation {
     @Column(name = "original_payment_reference", nullable = false, length = 128)
     private String originalPaymentReference;
 
-    @Column(name = "original_provider_transaction_number", nullable = false, length = 15)
+    @Column(name = "original_provider_transaction_number", length = 15)
     private String originalProviderTransactionNumber;
 
-    @Column(name = "original_provider_create_date", nullable = false, length = 14)
+    @Column(name = "original_provider_create_date", length = 14)
     private String originalProviderCreateDate;
 
     @Column(name = "original_amount_vnd", nullable = false)

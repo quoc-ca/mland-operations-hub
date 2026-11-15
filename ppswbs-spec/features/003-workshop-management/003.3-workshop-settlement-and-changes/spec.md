@@ -1,13 +1,13 @@
 # Feature Specification: Workshop Settlement and Changes
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-14
+**Date updated**: 2026-11-15
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
 **Feature Branch**: `003.3-workshop-settlement-and-changes`
 
-**Status**: Draft — not implemented
+**Status**: Implemented; T005 and T035 blocked on VNPay merchant configuration
 
 **Input**: Confirmed workshop-settlement, change, and direct-booking cancellation
 decisions. This spec retains the feature baseline locally so a later retirement
@@ -142,7 +142,9 @@ only the exceptional correction flow (T040) applies.
   allocated oldest verified payment first (QueryDR-verified); the deprecated
   `direct-addon-bills` create/read operations are repurposed as the
   folio-correction resource and its `payment-attempts` operation is removed.
-  See FR-004c.
+  See FR-004c. *(Superseded 2026-11-12 by FR-038: bank refund. The overcharge
+  is refunded by bank transfer through the Manager-approved refund lifecycle,
+  not by VNPay partial refund or QueryDR; the rest of D7–D10 stands.)*
 
 ## Per-ticket settlement, bank refunds, counter collection and changes (decision 2026-11-12)
 
@@ -319,8 +321,11 @@ self-service (FR-018 and Scope); whole-booking Mland remedy (FR-020, FR-021).
 
 - **FR-043**: When Mland cancels or moves a session, only tickets with that
   session are affected; a two-session ticket losing one session is handled as a
-  whole ticket. Mland first offers an equivalent replacement (not counted as the
-  customer's change, no extra charge, same capacity/quota/package-order checks).
+  whole ticket. Mland first offers every valid equivalent replacement (same package and
+  branch, starting after the cancellation, with capacity and quota left, package
+  session order kept; not counted as the customer's change, no extra charge) and
+  the buyer chooses one; with none, the 100% bank refund opens at once
+  (decided 2026-11-14).
   The buyer answers at least 24 hours before the replacement starts; no answer
   means refund, never an automatic move. If declined or unavailable, 100% of the
   money collected for the ticket (booking-time and counter) is refunded by bank
@@ -379,6 +384,12 @@ self-service (FR-018 and Scope); whole-booking Mland remedy (FR-020, FR-021).
   reason, and a request that only a Manager could allow (quota exhausted, the
   allowance used, outside the window) goes to the Staff/Manager queue instead.
   Mland-caused changes are not customer changes and never take this path.
+  *(Queue and group change decided 2026-11-14, T117/T118)*: a request that only a
+  Manager could allow is stored as `settlement_ticket_change_requests` and
+  answered 202; a Manager approves (equal to an FR-054 grant followed by one
+  counted change) or rejects it with a reason; it expires when it can no longer
+  be carried out. Several tickets of one group change together, all or none,
+  through `POST /workshop-booking-groups/{groupCode}/ticket-changes`.
 
 *(Superseded 2026-11-14 by FR-045a.)* **Open before implementation:** the exact
 auto-approval conditions for online
@@ -1325,8 +1336,7 @@ none, with a buyer-confirmed price effect.
   the refund, so removing it would rewrite that flow for a naming gain only.
   Only the wording changes: the enum value, the stored strings and the
   behaviour stay as they are, and no migration is needed. The Javadoc of
-  `SettlementCaseLifecycleStatus` is updated to this meaning in the next task
-  that touches settlement refunds (T106).
+  `SettlementCaseLifecycleStatus` was updated to this meaning in T106.
 - **FR-022c**: The public REST contract MUST use the booking-scoped routes
   `GET/POST /workshop-bookings/{bookingCode}/final-bill`,
   `POST /workshop-bookings/{bookingCode}/final-bill/charges`, and
@@ -1336,8 +1346,8 @@ none, with a buyer-confirmed price effect.
   `GET/POST /workshop-refund-policies`.
   *(Superseded by FR-048 after T106 (decision 2026-11-14): the booking-scoped
   final-bill routes and case collections give way to the per-ticket routes
-  under `/workshop-tickets/{ticketCode}/…` (FR-041–FR-045, FR-048) and are
-  removed only once T106 lands. `/workshop-refund-policies` is unaffected.)*
+  under `/workshop-tickets/{ticketCode}/…` (FR-041–FR-045, FR-048) and were
+  removed on 2026-11-15 (T106, T123). `/workshop-refund-policies` is unaffected.)*
 - **FR-022e**: The public REST contract MUST provide `GET`
   `/workshop-bookings/{bookingCode}/cancellation-cases/{caseReference}`,
   `/workshop-bookings/{bookingCode}/required-session-change-cases/{caseReference}`, and
@@ -1348,8 +1358,8 @@ none, with a buyer-confirmed price effect.
   request. The routes MUST NOT disclose raw gateway evidence, tokens, QR payloads,
   or unnecessary contact data.
   *(Superseded by FR-048 after T106 (decision 2026-11-14): the booking-scoped
-  case reads are removed with the booking-wide routes; the no-disclosure rule
-  carries over to the per-ticket reads.)*
+  case reads were removed with the booking-wide routes on 2026-11-15 (T123); the
+  no-disclosure rule carries over to the per-ticket reads.)*
 
 ## Key Entities
 

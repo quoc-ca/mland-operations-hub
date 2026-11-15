@@ -1,7 +1,7 @@
 # Feature Specification: Customer Workshop Booking Core
 
 **Date created**: 2026-10-06
-**Date updated**: 2026-11-14
+**Date updated**: 2026-11-15
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -105,8 +105,8 @@ verified payment evidence:
 **Source:** owner decisions recorded 2026-11-11/12 in
 `artifacts/workshop-changes-to-implement.md`. **Status:** ~~specified, not yet
 implemented (tasks Phase 8)~~ *(updated 2026-11-14)* implemented by T089–T096
-(T094 except the FE-001 Manager alert recipient source); the full MySQL group
-flow test T097 is open. Cancellation, rescheduling, refunds and counter
+(T094 with the FE-001 Manager alert recipient source connected 2026-11-14); the
+full MySQL group flow test T097 is done (2026-11-14). Cancellation, rescheduling, refunds and counter
 collection for these tickets are specified in 003.3; per-ticket capacity,
 attendance and reschedule quota in 003.2.
 
@@ -245,7 +245,10 @@ are kept for history and are read through this section.
     voucher use reference), because the 006 contract cannot re-hold a benefit
     in V1; it is not re-priced. Since T105 (2026-11-14) the automatic workshop
     discount is carried in `voucherDiscountVnd`, so such a group also fails
-    condition 3 and goes to the Manager queue.
+    condition 3 and goes to the Manager queue. *(Superseded 2026-11-14 by the
+    "Decided 2026-11-14" bullet below: an automatic workshop discount is
+    recomputed and passes; only a voucher or points still fail. The "programme
+    discount" and the automatic-discount sentence above are history.)*
   - **Decided 2026-11-14 (Hồ Hoàng Quốc, owner Feature 003):** an **automatic
     workshop discount is recomputed, not failed**. Condition 3 passes when the
     automatic discount recomputed at review time equals the amount recorded in
@@ -422,7 +425,7 @@ FE-06 baseline ~~still waits for Đặng Thị Khương to re-confirm~~ was re-a
 by Đặng Thị Khương on 2026-11-14 (006 spec status line, with D-014).
 ~~**Not implemented** (no task yet).~~ *(updated 2026-11-14)* Backend done by
 T105 (commit 193d2f30: every cart gets the automatic discount, the quote reports
-`appliedDiscount`); the five public frontend surfaces are T106, still open.
+`appliedDiscount`); the five public frontend surfaces are T106, done 2026-11-14.
 
 - **FR-052 — one discounted price, on every public surface.** Every customer
   surface that shows a package price MUST show the price after the largest
@@ -905,6 +908,8 @@ package, and see enough information to decide whether to continue to booking.
 
 ### User Story 2 - Create a pending workshop booking (Priority: P1)
 
+*(Superseded for direct bookings 2026-11-13 by FR-030/FR-032/FR-044 and User Stories 5-6: one cart creates a booking group with a 12-minute hold and per-ticket collection, not one booking with a 10-minute hold and a deposit. Kept as history and for OTA.)*
+
 As a Guest or Member, I want to select a package/course and participant count
 so that the system can prepare my deposit payment and reserve every session
 required by that package.
@@ -939,6 +944,8 @@ required session.
 ---
 
 ### User Story 3 - Pay the workshop deposit (Priority: P1)
+
+*(Superseded for direct bookings 2026-11-12/13 by FR-032, FR-035, FR-036, FR-040 and FR-044 and User Story 6: the booking-time amount is the per-ticket collection of the group, not `ceil(post/2)`, and a late payment is reviewed per FR-040. Kept as history and for OTA.)*
 
 As a Guest or Member, I want to pay the required workshop deposit so that my
 booking is confirmed and I receive a booking reference and check-in ticket.
@@ -979,6 +986,8 @@ payment confirmation is received.
 ---
 
 ### User Story 4 - Look up a booking (Priority: P2)
+
+*(Superseded for direct bookings 2026-11-13 by FR-044 and FR-047–FR-049 and User Story 7: lookup is by booking group code. Kept as history and for OTA.)*
 
 As a Guest or Member, I want to look up my booking so that I can review its
 status, workshop information, payment state, and check-in ticket.
@@ -1209,7 +1218,10 @@ deadline.
   is left behind.
 - The payment link and capacity hold share the same deadline at most 10 minutes
   after hold creation; late confirmation must not confirm a booking after its
-  capacity has been released.
+  capacity has been released. *(Superseded 2026-11-12 by FR-032: the group hold
+  is 12 minutes and the payment link expires 2 minutes earlier, a 10-minute
+  window; and by FR-040/FR-040a: a late payment may be re-confirmed or reviewed
+  rather than always rejected.)*
 - Cancellation and refund are deferred to a later feature and are not performed
   by this booking lifecycle.
 - No-show determination belongs to 003.2 and folio closure to 003.3; this
@@ -1368,7 +1380,7 @@ deadline.
   remaining amount together. The package total is the selected participant count
   multiplied by the selected package's price per participant; deposit and
   remaining amount follow FR-007a.
-- **FR-007a** *(superseded for new bookings 2026-11-12 by FR-035/FR-036;
+- **FR-007a** *(superseded for new bookings 2026-11-12 by FR-035/FR-036 and for direct bookings 2026-11-13 by FR-044 (no 50% deposit path);
   existing confirmed bookings keep this snapshot)*: The system MUST freeze the post-promotion booking amount,
   deposit, and remaining amount together at acceptance:
   `deposit = ceil(postPromotionAmount / 2)` whole VND and
@@ -1427,12 +1439,12 @@ deadline.
 - **FR-010a**: The Payment Gateway MUST own payment authorization steps such as
   QR scanning or OTP entry; the Workshop Booking system MUST NOT capture, store,
   or independently validate gateway OTP values.
-- **FR-010b**: While the payment hold remains active, the system MUST run
+- **FR-010b** *(superseded for direct bookings by FR-032/FR-044, 2026-11-12/13; applies to OTA only)*: While the payment hold remains active, the system MUST run
   bounded automatic signed QueryDR recovery only for a payment attempt with no
   terminal IPN outcome. A QueryDR result MUST pass the same signature, booking
   reference, amount, currency, status, idempotency and capacity-commit
   validation as IPN before it can confirm a booking.
-- **FR-010d**: For a payment attempt with no terminal IPN outcome, automatic
+- **FR-010d** *(superseded for direct bookings by FR-032/FR-044: QueryDR runs at minutes 10 and 11 of the 12-minute group hold, not 8 and 9 of a 10-minute hold; 2026-11-12/13)*: For a payment attempt with no terminal IPN outcome, automatic
   QueryDR recovery MUST run at minutes 8 and 9 after hold creation while the
   hold is active. At minute 10, Booking closes the capacity hold. After hold
   expiry, QueryDR is reconciliation-only: it MUST NOT confirm or reopen the
@@ -1491,7 +1503,7 @@ deadline.
   remain confirmed. A later failure result MUST NOT downgrade it; a duplicate
   success MUST be acknowledged without a second payment settlement, capacity
   commit, ticket delivery, or notification intent.
-- **FR-013b**: A signed success result received after the related hold has
+- **FR-013b** *(superseded for direct bookings by FR-040/FR-040a, 2026-11-12: a late signed success is re-confirmed or reviewed per group, not rejected outright; applies to OTA only)*: A signed success result received after the related hold has
   expired MUST NOT confirm or reactivate the booking, restore capacity, issue a
   ticket, or start a new payment link. The system MUST retain only safe
   reconciliation evidence. Any active Manager globally
@@ -1817,11 +1829,37 @@ deadline.
 - **Payment Status**: The financial state of a booking, including unpaid,
   deposit paid, fully paid, failed, refund pending, or refunded.
 
+*(Entities added 2026-11-15 for the group model of FR-030–FR-044; the Workshop
+Booking, Package Invoice and Booking Ticket entries above describe the
+superseded single-booking design and survive only for OTA bookings. Full
+definitions are in [data-model.md](data-model.md).)*
+
+- **Booking Group** *(FR-030, FR-044)*: The one direct booking created by
+  confirming a cart of one or more package lines; it holds, pays, confirms or
+  expires its tickets together, with one `holdExpiresAt` and one group
+  collection.
+- **Ticket Booking** *(FR-030, FR-035)*: One person's booking in a group, with
+  its own service and financial status; a multi-session package is one ticket
+  and cancelling or changing one ticket never changes another.
+- **Price Snapshot** *(FR-033–FR-035)*: The immutable per-ticket record of
+  package price, voucher and point allocation, final price, collected-at-booking
+  amount and collection kind (`FREE`, `FULL`, `DEPOSIT`,
+  `DEFERRED_BELOW_VNPAY_MINIMUM`).
+- **Late-Payment Review** *(FR-040, FR-040a)*: One review per verified payment
+  evidence arriving after a group expired, recording the five conditions and the
+  outcome (automatic re-confirmation, Manager queue, refund requested).
+- **Ticket Recipient** *(FR-041)*: The optional recipient email of a ticket;
+  a changed recipient revokes the old QR and issues a new one (at most 3 online
+  changes), with masked audit.
+- **Buyer Verification** *(FR-041)*: The single-use proof, from an OTP to the
+  original contact email, that a Guest buyer (or Staff acting for one) may change
+  a recipient or reach 003.3 buyer-proof actions; only a salted OTP hash is kept.
+
 ## Success Criteria
 
 ### Measurable Outcomes
 
-- **SC-001**: At least 95% of valid customer booking attempts reach a clear
+- **SC-001** *("booking" read as booking group, FR-030/FR-044, 2026-11-15)*: At least 95% of valid customer booking attempts reach a clear
   pending-payment or confirmed outcome without manual operator intervention.
 - **SC-002** *(restated 2026-11-14 for groups/tickets, FR-035, FR-036, FR-038)*:
   100% of confirmed booking groups have a retrievable group code, exactly one
@@ -1836,7 +1874,8 @@ deadline.
   retrievable booking code, and
   exactly one active ticket for each purchased participant seat.~~
   *(superseded by FR-035/FR-036/FR-038, 2026-11-12)*
-- **SC-003**: 100% of invalid, duplicate, mismatched, or unsigned payment
+- **SC-003** *("booking" read as booking group and "invoice" as the group's
+  per-ticket snapshots, FR-030/FR-035, 2026-11-15)*: 100% of invalid, duplicate, mismatched, or unsigned payment
   notifications leave the booking unconfirmed and do not settle the invoice.
 - **SC-004** *(restated 2026-11-14 for groups/tickets, FR-039, FR-040,
   FR-040a)*: 100% of expired pending booking groups release every line's hold,
@@ -1850,7 +1889,7 @@ deadline.
   *(superseded by FR-040/FR-040a, 2026-11-12)*
 - **SC-005**: A visitor can browse a package and reach its booking entry point in
   no more than three primary interaction steps from the workshop listing.
-- **SC-006**: At least 90% of successful booking lookups return the correct
+- **SC-006** *("booking" read as booking group, FR-030/FR-047, 2026-11-15)*: At least 90% of successful booking lookups return the correct
   booking summary and status on the first valid lookup attempt.
 - **SC-007**: No acceptance-path verification or production log contains a
   password, raw authentication token, payment secret, raw signed payload, or
@@ -1912,7 +1951,10 @@ deadline.
   this as a known unmet MUST; the Manager queue
   `GET /api/v1/late-payment-reviews?status=PENDING_MANAGER` and the management
   screen remain the working path. FE-001's owner needs to know 003.1 waits on
-  this operation.
+  this operation. *(Superseded 2026-11-14 by the landing of
+  `AccountFacade.listActiveManagerEmails()`: `AccountManagerAlertRecipientSource`
+  is wired, the Manager alert email is sent to every active Manager and T094 is
+  done `[x]`, see tasks.md T094. The Manager queue stays the in-app path.)*
 - **Feature 007 Notifications** — pulls group notification snapshots through
   `WorkshopBookingNotificationFacade`.
 - **VNPay** — environment-approved configuration (tasks T005/T046).

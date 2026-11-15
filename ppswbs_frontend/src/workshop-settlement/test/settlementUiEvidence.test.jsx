@@ -54,4 +54,17 @@ describe('Settlement rendered UI evidence', () => {
     expect(screen.getByText(/corr-settlement-1/)).toBeInTheDocument();
     expect(screen.queryByText('No settlement cases found.')).not.toBeInTheDocument();
   });
+
+  it('offers no booking lookup, required-session-change form or case-detail request after the booking-wide routes were removed', async () => {
+    const calls = mockFetch({
+      'GET /api/v1/workshop-settlement-cases': json(200, { items: [{ caseReference: 'CASE-9', caseType: 'CUSTOMER_CANCELLATION', status: 'OPEN', bookingCode: 'BK-9' }] }),
+      'GET /api/v1/workshop-refund-policies': emptyPolicies,
+    });
+    const user = userEvent.setup();
+    renderRoutes(settlementRoutes, { path: '/settlement/cases?tab=cases' });
+    await user.click(await screen.findByText('CASE-9'));
+    expect(screen.queryByRole('link', { name: 'Required session change' })).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('BK-...')).not.toBeInTheDocument();
+    expect(calls.some(call => /\/workshop-bookings\//.test(call.path))).toBe(false);
+  });
 });

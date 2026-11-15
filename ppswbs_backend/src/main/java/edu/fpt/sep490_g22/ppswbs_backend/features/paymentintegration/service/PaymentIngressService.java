@@ -123,7 +123,7 @@ public class PaymentIngressService {
     private long parseAmount(String raw) { try { long value=Long.parseLong(raw); if(value<=0 || value%100!=0) return -1; return value/100; } catch(Exception e){return -1;} }
     private boolean isProviderCode(String value) { return value != null && value.matches("[0-9]{2}"); }
     public record Outcome(String rspCode, String message) {
-        static Outcome accept(){return new Outcome("00","OK");} static Outcome duplicate(){return new Outcome("00","Already received");}
+        static Outcome accept(){return new Outcome("00","OK");} static Outcome duplicate(){return new Outcome("02","Already received");} // VNPay IPN: 02 = order already confirmed
         /**
          * VNPay's documented IPN response codes: 97 invalid checksum, 01 order (merchant reference) not found,
          * 04 invalid amount, 99 any other unverifiable callback. The message keeps the stable internal reason.

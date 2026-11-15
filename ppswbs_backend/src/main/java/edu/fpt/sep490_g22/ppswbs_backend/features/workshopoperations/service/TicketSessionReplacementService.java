@@ -112,6 +112,11 @@ public class TicketSessionReplacementService {
             ReplaceTicketSessionsCommand.Line line = command.lines().get(i);
             AttendanceTicket ticket = tickets.get(line.ticketReference());
             AttendanceTicket locked = ticketRepository.findByReferenceWithLock(ticket.getReference()).orElse(null);
+            if (locked != null && locked.getSalesChannel() == TicketSalesChannel.OTA) {
+                failing.add(i);
+                reason = RejectionReason.OTA_TICKET_NOT_SUPPORTED; // FR-036 outranks any other line's reason
+                continue;
+            }
             if (locked == null || locked.getValidityState() != TicketValidityState.ACTIVE) {
                 failing.add(i);
                 reason = reason == null ? RejectionReason.INVALID_STATE : reason;
@@ -289,7 +294,7 @@ public class TicketSessionReplacementService {
     }
 
     /** Locking reads, as in {@code GroupCapacityService}: an older snapshot must not take the last seat twice. */
-    private int remainingCapacity(WorkshopSession session, Instant now) {
+    public int remainingCapacity(WorkshopSession session, Instant now) {
         List<CapacityHold> countable = capacityHoldRepository.findCountableHoldsForSessionForShare(session.getId());
         int activeHolds = countable.stream()
                 .filter(hold -> hold.getState() == CapacityHoldState.ACTIVE && hold.getExpiresAt().isAfter(now))
@@ -345,8 +350,39 @@ public class TicketSessionReplacementService {
 
     private TicketSessionReplacementOutcome finish(ClaimResult claim, TicketSessionReplacementOutcome outcome) {
         idempotencyManager.completeClaim(claim.getRecordId(), claim.getClaimVersion(), outcome.status(),
-                outcome.reason(), null);
+                outcome.reason(), failingIndexesPayload(outcome.failingLineIndexes()));
         return outcome;
+    }
+
+    /** FR-010kb: the refused lines are kept, as a JSON array of indexes (the column is JSON), so a replay names the same lines. */
+    private static String failingIndexesPayload(List<Integer> indexes) {
+        if (indexes == null || indexes.isEmpty()) {
+            return null;
+        }
+        return "[" + String.join(",", indexes.stream().map(String::valueOf).toList()) + "]";
+    }
+
+    private static List<Integer> parseFailingIndexes(String payload) {
+        if (payload == null || payload.isBlank()) {
+            return List.of();
+        }
+        List<Integer> indexes = new ArrayList<>();
+        String body = payload.trim();
+        if (!body.startsWith("[") || !body.endsWith("]")) {
+            return List.of();
+        }
+        body = body.substring(1, body.length() - 1).trim();
+        if (body.isEmpty()) {
+            return List.of();
+        }
+        for (String part : body.split(",")) {
+            try {
+                indexes.add(Integer.parseInt(part.trim()));
+            } catch (NumberFormatException ignored) {
+                return List.of();
+            }
+        }
+        return indexes;
     }
 
     private TicketSessionReplacementOutcome reconstruct(FacadeCommandIdempotencyRecord record) {
@@ -361,7 +397,7 @@ public class TicketSessionReplacementService {
         } catch (IllegalArgumentException ignored) {
             // keep INVALID_STATE
         }
-        return TicketSessionReplacementOutcome.rejected(reason, List.of());
+        return TicketSessionReplacementOutcome.rejected(reason, parseFailingIndexes(record.getResponsePayload()));
     }
 
     private void audit(ReplaceTicketSessionsCommand command, int movedTickets, String outcome) {

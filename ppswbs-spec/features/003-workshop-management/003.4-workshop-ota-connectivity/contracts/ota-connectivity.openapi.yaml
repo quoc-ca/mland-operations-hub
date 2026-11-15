@@ -306,8 +306,9 @@ paths:
         Backfilled 2026-11-12 from implementation (1fe139a). Interim, provider-neutral
         ingress used before per-provider onboarding contracts are approved; it is not
         the approved provider transport. The caller sends X-Ota-Signature, which the
-        server compares in constant time with the ACTIVE connection's credential
-        reference for the provider and environment. Fail closed (E3, 2026-11-12): a
+        server compares in constant time with the secret that the ACTIVE
+        connection's credential reference resolves to (see below; the reference is
+        a lookup name, never compared directly). Fail closed (E3, 2026-11-12): a
         PRODUCTION callback returns 403 unless the provider is listed in
         ota.provider-callbacks.approved-production-providers (empty by default, set only
         after that provider's signed callback is approved and implemented); test-prefixed
@@ -320,15 +321,15 @@ paths:
         with a DIFFERENT payload fingerprint is refused as a conflict and opens an
         INBOUND_EVENT reconciliation work item instead of returning the stored
         outcome, and an adapter never invents an event reference, so a provider that
-        sends none falls back to the payload fingerprint (T060). Still open (blocks
-        provider go-live and any approved-production-providers
-        entry): the compared credential reference is stored in MySQL and acts as a
-        bearer secret, against Constitution II; resolve it to a secret held in the
-        approved secret channel (decided 2026-11-14): credential_reference stays
-        a non-secret lookup name, the backend reads the secret for that name from
-        the approved environment/secret channel and compares against it; an
-        unresolvable reference fails closed in every environment, TEST included.
-        Implemented by T059.
+        sends none falls back to the payload fingerprint (T060). Credential
+        (decided 2026-11-14, implemented by T059, description corrected by T118):
+        credential_reference stays a non-secret lookup name stored in MySQL; the
+        backend resolves it to the secret value held in the approved
+        environment/secret channel (a Spring property or an environment variable
+        of that name) and compares X-Ota-Signature against that secret, never
+        against the stored reference. A reference that resolves to nothing, or to a
+        blank value, fails closed in every environment, TEST included, and answers
+        401 like a wrong signature. No secret value is logged or returned.
         A CONFIRMED outcome returns 201 with
         the Mland booking and ticket references; any other outcome returns 422 with a
         rejection reason. Missing or wrong signature, or an inactive connection,
@@ -358,11 +359,65 @@ paths:
                 currencyCode: { type: string, pattern: '^[A-Za-z]{3}$' }
                 externalPaymentEvidenceReference: { type: string }
                 correlationReference: { type: string }
+                displayedPolicyReference: { type: string, maxLength: 128, description: "Cancellation policy shown to the customer; absent means the mapping price terms reference is snapshotted (T111)." }
+                displayedPolicyVersion: { type: string, maxLength: 64 }
+                bookingCutoffAt: { type: string, format: date-time }
+                bookingCutoffTimezone: { type: string, maxLength: 64, description: "IANA zone id; unknown zones are refused with INVALID_POLICY_SNAPSHOT." }
+                feeAmountMinor: { type: integer, format: int64, minimum: 0 }
       responses:
         '201': { $ref: '#/components/responses/ProviderEventAcknowledgement' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '422': { $ref: '#/components/responses/ProviderEventAcknowledgement' }
+  /ota-provider/cancellation-events:
+    post:
+      operationId: receiveOtaProviderCancellationEvent
+      summary: Receive a provider cancellation or refund update (interim ingress).
+      description: >-
+        Added 2026-11-15 (T121, US3, FR-010, FR-011; route approved 2026-11-15 by
+        Hồ Hoàng Quốc). Interim ingress used before per-provider onboarding
+        contracts are approved; it is not the approved provider transport. The
+        query parameters name the connection; the body is the provider's own JSON
+        event, mapped by that provider's cancellation adapter (V1 cancels the whole
+        booking; refunds are OTA logic and are only recorded as the OTA reports
+        them, FR-012). Authentication is exactly that of booking-events:
+        X-Ota-Signature is compared in constant time with the secret that the
+        ACTIVE connection's credential reference resolves to; an unresolvable or
+        blank reference fails closed in every environment; PRODUCTION returns 403
+        unless the provider is listed in
+        ota.provider-callbacks.approved-production-providers; test-prefixed values
+        are accepted only for TEST with ota.auth.allow-test-tokens enabled. A replay
+        returns the stored outcome (T107). An event the adapter cannot map is
+        refused with 422 and opens an INBOUND_EVENT reconciliation work item whose
+        reference is returned. A missing or wrong signature, or an inactive
+        connection, returns 401.
+      security: []
+      parameters:
+        - name: X-Ota-Signature
+          in: header
+          required: true
+          schema: { type: string }
+        - name: provider
+          in: query
+          required: true
+          schema: { type: string, enum: [KLOOK, GETYOURGUIDE] }
+        - name: environment
+          in: query
+          required: true
+          schema: { type: string, enum: [TEST, PRODUCTION] }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Provider-specific cancellation event, at most 65,536 characters; fields naming customer, contact, payment, card, token or secret data are refused.
+      responses:
+        '200': { $ref: '#/components/responses/ProviderCancellationAcknowledgement' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ProviderCancellationAcknowledgement' }
 components:
   parameters:
     ChannelId:
@@ -556,6 +611,10 @@ components:
           format: uuid
           description: Persisted audit correlation for this item; reads do not regenerate it. An audited resolution returns its decision correlation. Development records repaired by V29 receive a tracking UUID without reconstructing historical log evidence.
         safeSummary: { type: string, maxLength: 500 }
+        category:
+          type: string
+          enum: [INBOUND_EVENT, PAYOUT_DISPUTE, SHARED_VOUCHER_INCIDENT, INVENTORY_DELIVERY_FAILURE, SOURCE_VERSION_GAP, SOURCE_ORDER_UNCERTAIN, MANUAL_FULL_RESYNC]
+          description: Kind of work item; the same value the category filter of the list endpoint accepts. Equals safeSummary today.
     ReconciliationWorkItemList:
       type: object
       additionalProperties: false
@@ -569,10 +628,10 @@ components:
       additionalProperties: false
       required: [kind, evidenceType, amount, reference, reason, occurredAt]
       properties:
-        kind: { type: string, enum: [PAYOUT, VARIANCE, DISPUTE, ADJUSTMENT, REVERSAL] }
+        kind: { type: string, enum: [PAYOUT, VARIANCE, DISPUTE, ADJUSTMENT, COMPENSATION, REVERSAL] }
         evidenceType:
           type: string
-          enum: [ELIGIBILITY, INVOICE, REMITTANCE, BANK_RECEIPT, ADJUSTMENT, REVERSAL, VARIANCE, DISPUTE]
+          enum: [ELIGIBILITY, INVOICE, REMITTANCE, BANK_RECEIPT, ADJUSTMENT, COMPENSATION, REVERSAL, VARIANCE, DISPUTE]
           description: Stage or correction evidence checked by an active Manager; BANK_RECEIPT requires a booking-specific allocation and payout reference matching the remittance before PAID_OUT.
         amount: { $ref: '#/components/schemas/Money' }
         reference: { type: string, minLength: 1, maxLength: 200 }
@@ -694,6 +753,22 @@ components:
               participantCount: { type: integer }
               ticketReferences: { type: array, items: { type: string } }
               rejectionReason: { type: [string, 'null'] }
+              correlationReference: { type: [string, 'null'] }
+              acknowledgedAt: { type: string, format: date-time }
+    ProviderCancellationAcknowledgement:
+      description: Outcome of a provider cancellation callback (T121).
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [status, acknowledgedAt]
+            properties:
+              status: { type: string, description: REJECTED when the event was refused; otherwise the recorded cancellation outcome. }
+              externalBookingReference: { type: [string, 'null'] }
+              channelBookingReference: { type: [string, 'null'] }
+              currentBookingStatus: { type: [string, 'null'] }
+              rejectionReason: { type: [string, 'null'] }
+              reconciliationWorkItemReference: { type: [string, 'null'] }
               correlationReference: { type: [string, 'null'] }
               acknowledgedAt: { type: string, format: date-time }
     ChannelList:

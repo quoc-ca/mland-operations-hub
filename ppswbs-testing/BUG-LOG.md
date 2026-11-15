@@ -7,7 +7,24 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
 
 ## Danh sách lỗi đang theo dõi (Active Defects)
 
-<!-- Không còn lỗi nào ở trạng thái OPEN. Tất cả 8 lỗi đã được khắc phục và nghiệm thu đóng hoàn toàn. -->
+## BUG-E2E-0009 — OPEN
+
+- Ngày: 2026-11-15
+- Phát hiện bởi: QA Agent (kiểm chứng cuối 006, `ppswbs-spec/features/006-loyalty-promotion/verification.md` mục 64)
+- Feature: 003.1-workshop-booking (FE-03); liên quan 006 FR-012 (voucher đã lưu)
+- Kịch bản liên quan: chưa có kịch bản E2E; phát hiện khi kiểm màn thật T109 của 006
+- Mức độ nghiêm trọng: MINOR
+- Phân loại / Gán cho: Frontend — owner FE-03 (Hồ Hoàng Quốc)
+- Mô tả lỗi: Picker "Voucher MLAND" trên trang đặt workshop gợi ý mọi voucher Member đã lưu còn `ACTIVE`, kể cả voucher phạm vi Sản phẩm và voucher workshop giới hạn gói khác. `ppswbs_frontend/src/workshops/CartBenefitPicker.jsx:26` chỉ lọc `savedVouchers` theo `availability`, không theo phạm vi (`scope`/`packageIds`). Member chọn mã đó thì báo giá của 006 sẽ từ chối.
+- Các bước tái hiện:
+  1. Đăng nhập Member có voucher đã lưu gồm cả voucher sản phẩm (ví dụ `MLGIAM50K`, `MLHK12`) và voucher workshop chỉ cho gói #1 (`SV8B634DC5CE`).
+  2. Mở `http://localhost:5173/workshops/2/book`.
+  3. Bấm "Voucher MLAND — Chọn hoặc nhập mã", xem mục "Voucher đề xuất".
+- Kết quả mong đợi: Chỉ gợi ý voucher phạm vi WORKSHOP áp được cho gói đang đặt (không có `packageIds` hoặc `packageIds` chứa gói hiện tại); hoặc nếu vẫn liệt kê thì đánh dấu không dùng được cho gói này.
+- Thực tế quan sát: Danh sách có `MLGIAM50K · Trong Voucher của tôi`, `MLHK12 · Trong Voucher của tôi` (voucher sản phẩm) và `SV8B634DC5CE · Trong Voucher của tôi` (chỉ gói #1) khi đặt gói 2, cạnh `WR1579F4EEF0` và `ITBBF8230857`.
+- Bằng chứng:
+  - Màn thật 2026-11-15 trên `ppswbs_dev` (backend `:8080` chạy Flyway tắt, frontend `:5173`); kết quả `find` trên trình duyệt ghi ở verification 006 mục 64. Không lưu screenshot vào repo.
+  - Code: `CartBenefitPicker.jsx:26` `savedVouchers.filter(item => item.availability === 'ACTIVE')`.
 
 ---
 

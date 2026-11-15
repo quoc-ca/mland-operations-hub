@@ -15,8 +15,8 @@ public final class OtaFinancialEvidenceDtos {
     private OtaFinancialEvidenceDtos() {}
 
     public record PayoutReconciliationRequest(
-            @NotBlank @Pattern(regexp = "PAYOUT|VARIANCE|DISPUTE|ADJUSTMENT|REVERSAL") String kind,
-            @NotBlank @Pattern(regexp = "ELIGIBILITY|INVOICE|REMITTANCE|BANK_RECEIPT|ADJUSTMENT|REVERSAL|VARIANCE|DISPUTE") String evidenceType,
+            @NotBlank @Pattern(regexp = "PAYOUT|VARIANCE|DISPUTE|ADJUSTMENT|COMPENSATION|REVERSAL") String kind,
+            @NotBlank @Pattern(regexp = "ELIGIBILITY|INVOICE|REMITTANCE|BANK_RECEIPT|ADJUSTMENT|COMPENSATION|REVERSAL|VARIANCE|DISPUTE") String evidenceType,
             @NotNull @Valid Money amount,
             @NotBlank @Size(max = 200) String reference,
             @NotBlank @Size(max = 1000) String reason,

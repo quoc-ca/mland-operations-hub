@@ -20,7 +20,6 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.Work
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.WorkshopOperationsSettlementAdapter;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.WorkshopRefundService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.SettlementCustomerNotifier;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.WorkshopCancellationLoyaltyService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.transaction.TransactionDefinition;
@@ -49,7 +48,6 @@ class WorkshopRefundServiceTest {
     private final SettlementCaseRepository cases = mock(SettlementCaseRepository.class);
     private final SettlementBusinessAuditRepository audits = mock(SettlementBusinessAuditRepository.class);
     private final WorkshopOperationsSettlementAdapter operations = mock(WorkshopOperationsSettlementAdapter.class);
-    private final WorkshopCancellationLoyaltyService cancellationLoyalty = mock(WorkshopCancellationLoyaltyService.class);
     private final WorkshopBookingSettlementAdapter booking = mock(WorkshopBookingSettlementAdapter.class);
     private final SettlementFinalBillRepository bills = mock(SettlementFinalBillRepository.class);
     private final SettlementCustomerNotifier notifier = mock(SettlementCustomerNotifier.class);
@@ -66,7 +64,7 @@ class WorkshopRefundServiceTest {
         cancellationCase = SettlementCase.builder().caseReference(CASE_REF).bookingReference(BOOKING_REF)
                 .caseType("CUSTOMER_CANCELLATION").lifecycleStatus("PENDING_PROVIDER")
                 .correlationReference("CORR-1").createdAt(Instant.now()).updatedAt(Instant.now()).build();
-        service = new WorkshopRefundService(provider, allocations, cases, audits, operations, cancellationLoyalty,
+        service = new WorkshopRefundService(provider, allocations, cases, audits, operations,
                 booking, bills, notifier, bankRefunds, transactions, "8.8.8.8", "sandbox-merchant");
         when(cases.findByCaseReference(CASE_REF)).thenReturn(Optional.of(cancellationCase));
         when(cases.findByCaseReferenceForUpdate(CASE_REF)).thenReturn(Optional.of(cancellationCase));
@@ -125,7 +123,6 @@ class WorkshopRefundServiceTest {
         assertThat(allocation.getOriginalPaymentReference()).isEqualTo("PAY-MLAND");
         // Nothing is settled before a Manager confirms the transfer, so no consequence has run.
         assertThat(cancellationCase.getLifecycleStatus()).isNotEqualTo("RESOLVED");
-        verify(cancellationLoyalty, never()).restoreVerifiedCancellation(any(), anyString());
         verify(booking).recordBookingRefundStatus(eq(BOOKING_REF), eq(BookingRefundStatus.REFUND_PENDING),
                 eq(CASE_REF), anyString(), eq("CORR-1"));
         verify(booking, never()).recordBookingRefundStatus(eq(BOOKING_REF), eq(BookingRefundStatus.REFUNDED),
@@ -149,7 +146,6 @@ class WorkshopRefundServiceTest {
 
         assertThat(allocation.getLifecycleStatus()).isEqualTo("VERIFIED");
         assertThat(cancellationCase.getLifecycleStatus()).isEqualTo("RESOLVED");
-        verify(cancellationLoyalty).restoreVerifiedCancellation(eq(cancellationCase), anyString());
         verify(booking).recordBookingRefundStatus(eq(BOOKING_REF), eq(BookingRefundStatus.REFUNDED), eq(CASE_REF),
                 anyString(), eq("CORR-1"));
         assertThat(openFolio.getLifecycleStatus()).isEqualTo("CLOSED");
@@ -220,7 +216,6 @@ class WorkshopRefundServiceTest {
 
         // A folio correction still touches no booking, folio or cancellation consequence.
         verify(operations, never()).applyRefund(anyString(), anyString(), anyString(), anyString());
-        verify(cancellationLoyalty, never()).restoreVerifiedCancellation(any(), anyString());
         verify(booking, never()).recordBookingRefundStatus(anyString(), any(), anyString(), anyString(), anyString());
         verify(booking, never()).recordBookingServiceOutcome(anyString(), any(), anyString(), anyString(), anyString());
         verify(bills, never()).saveAndFlush(any());
@@ -263,7 +258,6 @@ class WorkshopRefundServiceTest {
 
         // Verify consequences were NEVER invoked
         verify(operations, never()).applyRefund(anyString(), anyString(), anyString(), anyString());
-        verify(cancellationLoyalty, never()).restoreVerifiedCancellation(any(), anyString());
         verify(booking, never()).recordBookingRefundStatus(anyString(), any(), anyString(), anyString(), anyString());
         verify(booking, never()).recordBookingServiceOutcome(anyString(), any(), anyString(), anyString(), anyString());
         verify(bills, never()).saveAndFlush(any());

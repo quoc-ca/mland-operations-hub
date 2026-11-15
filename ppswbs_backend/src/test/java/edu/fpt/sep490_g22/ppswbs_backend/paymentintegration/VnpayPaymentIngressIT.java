@@ -70,7 +70,10 @@ class VnpayPaymentIngressIT {
                 params(finalMerchant, "7500000", "00", "TX-F-1"));
 
         assertThat(firstDeposit.message()).isEqualTo("OK");
+        assertThat(firstDeposit.rspCode()).isEqualTo("00");
         assertThat(duplicateDeposit.message()).isEqualTo("Already received");
+        // VNPay IPN convention, decided 2026-11-15: a replay of an accepted delivery answers 02.
+        assertThat(duplicateDeposit.rspCode()).isEqualTo("02");
         assertThat(finalPayment.message()).isEqualTo("OK");
         assertThat(receipts.existsByDeliveryReference(depositMerchant + "|TX-D-1|00|00")).isTrue();
         assertThat(receipts.existsByDeliveryReference(finalMerchant + "|TX-F-1|00|00")).isTrue();

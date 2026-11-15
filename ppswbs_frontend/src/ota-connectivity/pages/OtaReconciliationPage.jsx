@@ -22,11 +22,15 @@ export default function OtaReconciliationPage() {
 
   const [resolveModal, setResolveModal] = useState({ open: false, item: null });
 
-  const loadWorkItems = useCallback(async (status) => {
+  // 003.4 T119: the applied category filter (sent as `category`) and what is typed before applying it.
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [categoryInput, setCategoryInput] = useState('');
+
+  const loadWorkItems = useCallback(async (status, category) => {
     try {
       setLoading(true);
       setError(null);
-      const items = await api.listReconciliationWorkItems(status);
+      const items = await api.listReconciliationWorkItems(status, category);
       setWorkItems(items || []);
     } catch (err) {
       setError(err);
@@ -37,9 +41,15 @@ export default function OtaReconciliationPage() {
 
   useEffect(() => {
     if (authStatus === 'signed-in') {
-      loadWorkItems(selectedStatus);
+      loadWorkItems(selectedStatus, selectedCategory);
     }
-  }, [authStatus, selectedStatus, loadWorkItems]);
+  }, [authStatus, selectedStatus, selectedCategory, loadWorkItems]);
+
+  const applyCategory = (value) => {
+    const next = value.trim().toUpperCase();
+    setCategoryInput(next);
+    setSelectedCategory(next);
+  };
 
   const handleFilterChange = (status) => {
     setSelectedStatus(status);
@@ -49,7 +59,7 @@ export default function OtaReconciliationPage() {
     if (!resolveModal.item) return;
     await api.resolveReconciliationWorkItem(resolveModal.item.workItemId, { resolution, reason });
     setSuccessMessage(`Resolution "${resolution}" recorded for item ${resolveModal.item.workItemId}.`);
-    await loadWorkItems(selectedStatus);
+    await loadWorkItems(selectedStatus, selectedCategory);
   };
 
   const getStatusBadge = (status) => {
@@ -99,7 +109,7 @@ export default function OtaReconciliationPage() {
       </nav>
 
       {successMessage && <SuccessNotice>{successMessage}</SuccessNotice>}
-      <ErrorNotice error={error} onRetry={() => loadWorkItems(selectedStatus)} onReload={() => loadWorkItems(selectedStatus)} />
+      <ErrorNotice error={error} onRetry={() => loadWorkItems(selectedStatus, selectedCategory)} onReload={() => loadWorkItems(selectedStatus, selectedCategory)} />
 
       {/* Filter Bar */}
       <div className="filter-bar">
@@ -117,13 +127,46 @@ export default function OtaReconciliationPage() {
             </button>
           ))}
         </div>
+        {/* Each work item now carries category (contract enum). The filter stays free text plus the INBOUND_EVENT shortcut. */}
+        <form
+          className="filter-group"
+          aria-label="Filter by category"
+          onSubmit={(e) => { e.preventDefault(); applyCategory(categoryInput); }}
+        >
+          <label htmlFor="ota-work-item-category" style={{ fontWeight: 600, fontSize: '13px' }}>Category:</label>
+          <input
+            id="ota-work-item-category"
+            value={categoryInput}
+            onChange={(e) => setCategoryInput(e.target.value)}
+            placeholder="e.g. INBOUND_EVENT"
+            maxLength={32}
+            disabled={loading}
+          />
+          <button type="submit" className="button small outline" disabled={loading}>Apply</button>
+          <button
+            type="button"
+            className={`button small ${selectedCategory === 'INBOUND_EVENT' ? 'primary' : 'outline'}`}
+            onClick={() => applyCategory('INBOUND_EVENT')}
+            disabled={loading}
+          >
+            INBOUND_EVENT
+          </button>
+          {selectedCategory && (
+            <button type="button" className="button small outline" onClick={() => applyCategory('')} disabled={loading}>
+              All categories
+            </button>
+          )}
+        </form>
       </div>
 
       {loading ? (
         <Loading />
       ) : workItems.length === 0 ? (
         <div className="empty-state" role="status">
-          <p>No reconciliation work items found matching status "{selectedStatus}".</p>
+          <p>
+            No reconciliation work items found matching status "{selectedStatus}"
+            {selectedCategory ? ` and category "${selectedCategory}"` : ''}.
+          </p>
         </div>
       ) : (
         <div className="work-items-list">
@@ -154,6 +197,10 @@ export default function OtaReconciliationPage() {
               </div>
 
               <div className="mapping-grid">
+                <div className="mapping-field">
+                  <span className="mapping-label">Type</span>
+                  <span className="mapping-value mono">{item.category || '—'}</span>
+                </div>
                 <div className="mapping-field">
                   <span className="mapping-label">Linked Mapping ID</span>
                   <span className="mapping-value mono">{item.mappingId || 'None (Global)'}</span>
