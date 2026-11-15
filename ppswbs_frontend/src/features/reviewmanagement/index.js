@@ -12,7 +12,5 @@ export {
   validateRating,
   validateBodyText,
   validateReason,
-  validateReply,
   validateReplyText,
-  validateContact,
 } from './rules';

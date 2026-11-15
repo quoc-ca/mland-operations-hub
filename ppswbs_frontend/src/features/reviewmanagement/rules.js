@@ -77,8 +77,6 @@ export function validateReply(reply) {
   return null;
 }
 
-export const validateReplyText = validateReply;
-
 export function validateContact(contactType, contactValue) {
   if (!contactValue || !contactValue.trim()) {
     return 'validationRequired';
