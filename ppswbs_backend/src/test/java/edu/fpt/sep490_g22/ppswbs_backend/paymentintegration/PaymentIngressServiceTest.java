@@ -64,6 +64,34 @@ class PaymentIngressServiceTest {
         var outcome = service().receive(params("DEP-BK-1-1", "5100000", "00", "TX-1"));
         assertThat(outcome.message()).isEqualTo("AMOUNT_CURRENCY_MISMATCH");
         assertThat(outcome.rspCode()).isEqualTo("04");
+        // not a group payment: the facade answers false, so no receipt is stored and nothing is dispatched
+        verify(booking).recordMismatchedGroupPaymentEvidence(any());
+        verify(receipts, never()).saveAndFlush(any());
+        verifyNoInteractions(settlement);
+    }
+
+    @Test void recordsVerifiedMismatchedGroupEvidenceOnceAndStillAnswers04() {
+        when(checksum.valid(anyMap(), any())).thenReturn(true);
+        when(registry.lockOwner("DEP-BK-1-1")).thenReturn(Optional.of(owner(50_000L)));
+        when(booking.recordMismatchedGroupPaymentEvidence(any())).thenReturn(true);
+        var outcome = service().receive(params("DEP-BK-1-1", "5100000", "00", "TX-1"));
+        assertThat(outcome.rspCode()).isEqualTo("04");
+        verify(receipts).saveAndFlush(argThat(r -> r.getAmountVnd() == 51_000L && r.isTerminalOutcome()
+                && "DEP-BK-1-1|TX-1|00|00".equals(r.getDeliveryReference())));
+        verify(booking, never()).applyVerifiedDepositPaymentEvidence(any());
+
+        // replay of the same delivery: the receipt exists, so nothing more is recorded
+        when(receipts.existsByDeliveryReference("DEP-BK-1-1|TX-1|00|00")).thenReturn(true);
+        assertThat(service().receive(params("DEP-BK-1-1", "5100000", "00", "TX-1")).rspCode()).isEqualTo("04");
+        verify(booking, times(1)).recordMismatchedGroupPaymentEvidence(any());
+        verify(receipts, times(1)).saveAndFlush(any());
+    }
+
+    @Test void doesNotRecordAMismatchedOutcomeThatIsNotAVerifiedSuccess() {
+        when(checksum.valid(anyMap(), any())).thenReturn(true);
+        when(registry.lockOwner("DEP-BK-1-1")).thenReturn(Optional.of(owner(50_000L)));
+        var outcome = service().receive(params("DEP-BK-1-1", "5100000", "24", "TX-1"));
+        assertThat(outcome.rspCode()).isEqualTo("04");
         verifyNoInteractions(receipts, booking, settlement);
     }
 
@@ -75,7 +103,9 @@ class PaymentIngressServiceTest {
         var outcome = service().receive(callback);
         assertThat(outcome.message()).isEqualTo("AMOUNT_CURRENCY_MISMATCH");
         assertThat(outcome.rspCode()).isEqualTo("04");
-        verifyNoInteractions(receipts, booking, settlement);
+        verify(booking).recordMismatchedGroupPaymentEvidence(any());
+        verify(receipts, never()).saveAndFlush(any());
+        verifyNoInteractions(settlement);
     }
 
     @Test void acceptsVnPayCallbackWhenCurrencyFieldIsOmitted() {

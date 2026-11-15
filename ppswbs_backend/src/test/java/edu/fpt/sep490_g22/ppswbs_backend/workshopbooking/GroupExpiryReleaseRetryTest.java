@@ -82,7 +82,8 @@ class GroupExpiryReleaseRetryTest {
         BookingGroupRepository groups = mock(BookingGroupRepository.class);
         GroupConfirmationService confirmation = mock(GroupConfirmationService.class);
         GroupExpiryReleaseRetryService gate = mock(GroupExpiryReleaseRetryService.class);
-        GroupHoldExpiryScheduler scheduler = new GroupHoldExpiryScheduler(groups, confirmation, gate);
+        GroupHoldExpiryScheduler scheduler = new GroupHoldExpiryScheduler(groups, confirmation, gate,
+                mock(GroupMismatchedEvidenceService.class), mock(GroupConfirmationRetryService.class));
         when(groups.findExpiredPending(any(), any(Pageable.class))).thenReturn(List.of(group));
 
         when(gate.isDue(eq(CODE), any())).thenReturn(false);

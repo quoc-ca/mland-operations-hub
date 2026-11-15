@@ -32,6 +32,8 @@ public class GroupPaymentEvidenceService {
     private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.GroupExcessPaymentRepository excessPayments;
     private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.ExcessPaymentRefundPort excessRefunds;
     private final ManagerAlertService managerAlerts;
+    private final GroupConfirmationAttemptRunner confirmationRunner;
+    private final GroupConfirmationRetryService confirmationRetries;
 
     /** Whether this merchant reference belongs to a group payment at all. */
     public boolean owns(String merchantReference) {
@@ -59,32 +61,48 @@ public class GroupPaymentEvidenceService {
         if (attempt.getGroup().getGroupStatus() == BookingStatus.CONFIRMED) {
             return recordExcessPayment(attempt, merchantReference, amountVnd, operationReference, correlationReference);
         }
-        // FR-040 (T094): decide lateness under the group lock, before trying to confirm, so a late payment never
-        // reaches the confirmation path (whose refusal would mark this transaction rollback-only).
-        var lockedGroup = groupRepository.findByGroupCodeForUpdate(groupCode).orElseThrow();
-        if (lateReviews.isLate(lockedGroup, java.time.Instant.now())) {
-            attempt.setAttemptStatus(PaymentAttemptStatus.SUCCESS);
-            attempts.save(attempt);
-            var review = lateReviews.receive(groupCode, merchantReference, amountVnd, correlationReference);
-            return edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.LatePaymentReview.AUTO_RECONFIRMED
-                    .equals(review.getOutcome())
-                    ? DepositPaymentEvidenceOutcome.accepted()
-                    : DepositPaymentEvidenceOutcome.rejected(BookingRejectionReason.NOT_READY);
+        // FR-040 (T094): a payment past the hold is a late payment, decided under the group lock, and never reaches
+        // the confirmation path.
+        if (lateReviews.isLate(attempt.getGroup(), java.time.Instant.now())) {
+            return receiveLate(attempt, groupCode, merchantReference, amountVnd, correlationReference);
         }
-        try {
-            confirmation.confirmPaidGroup(groupCode, amountVnd, evidenceReference, operationReference,
-                    correlationReference);
-        } catch (BookingCreationRejectedException ex) {
-            // The hold had already run out. The money is real, so the group waits for the FR-040 late-payment
-            // review of T094; NOT_READY keeps the single-booking late-evidence path from being handed a group.
-            log.warn("Verified group payment for {} arrived after its hold expired: {}", groupCode, ex.getCode());
-            attempt.setAttemptStatus(PaymentAttemptStatus.SUCCESS);
-            attempts.save(attempt);
-            return DepositPaymentEvidenceOutcome.rejected(BookingRejectionReason.NOT_READY);
+        // T145: confirmation runs in its own transaction, so a dependency failure (003.2 or 006) cannot roll back the
+        // evidence. The caller still commits the ingress receipt, the attempt SUCCESS (verified evidence only) and
+        // the WAITING retry row; the group stays PENDING_PAYMENT and nothing is released.
+        var result = confirmationRunner.tryConfirm(groupCode, amountVnd, evidenceReference, operationReference,
+                correlationReference);
+        switch (result.kind()) {
+            case HOLD_EXPIRED -> {
+                log.warn("Verified group payment for {} arrived after its hold expired", groupCode);
+                return receiveLate(attempt, groupCode, merchantReference, amountVnd, correlationReference);
+            }
+            case DEPENDENCY_UNAVAILABLE -> {
+                attempt.setAttemptStatus(PaymentAttemptStatus.SUCCESS);
+                attempts.save(attempt);
+                confirmationRetries.hold(attempt.getGroup(), attempt, evidenceReference, null, result.failureCode(),
+                        correlationReference);
+                return DepositPaymentEvidenceOutcome.accepted();
+            }
+            default -> {
+                attempt.setAttemptStatus(PaymentAttemptStatus.SUCCESS);
+                attempts.save(attempt);
+                confirmationRetries.markConfirmed(attempt.getGroup().getId());
+                return DepositPaymentEvidenceOutcome.accepted();
+            }
         }
+    }
+
+    private DepositPaymentEvidenceOutcome receiveLate(GroupPaymentAttempt attempt, String groupCode,
+                                                      String merchantReference, long amountVnd,
+                                                      String correlationReference) {
+        groupRepository.findByGroupCodeForUpdate(groupCode).orElseThrow();
         attempt.setAttemptStatus(PaymentAttemptStatus.SUCCESS);
         attempts.save(attempt);
-        return DepositPaymentEvidenceOutcome.accepted();
+        var review = lateReviews.receive(groupCode, merchantReference, amountVnd, correlationReference);
+        return edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.LatePaymentReview.AUTO_RECONFIRMED
+                .equals(review.getOutcome())
+                ? DepositPaymentEvidenceOutcome.accepted()
+                : DepositPaymentEvidenceOutcome.rejected(BookingRejectionReason.NOT_READY);
     }
 
     /**

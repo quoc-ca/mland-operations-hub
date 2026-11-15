@@ -37,7 +37,10 @@ public class PaymentIngressService {
         // provider contract for this merchant. An explicitly supplied
         // non-VND value remains a hard mismatch.
         String providerCurrency = params.getOrDefault("vnp_CurrCode", "VND");
-        if (amount != owner.getAmountVnd() || !owner.getCurrencyCode().equals(providerCurrency)) return Outcome.reject("AMOUNT_CURRENCY_MISMATCH");
+        if (amount != owner.getAmountVnd() || !owner.getCurrencyCode().equals(providerCurrency)) {
+            recordMismatchedGroupEvidence(owner, merchant, amount, providerCurrency, params);
+            return Outcome.reject("AMOUNT_CURRENCY_MISMATCH");
+        }
         String responseCode = params.get("vnp_ResponseCode");
         String transactionStatus = params.get("vnp_TransactionStatus");
         if (!isProviderCode(responseCode) || !isProviderCode(transactionStatus)) {
@@ -70,6 +73,31 @@ public class PaymentIngressService {
         }
         if (verifiedSuccess) dispatchVerifiedSuccess(owner, merchant, amount, params);
         return Outcome.accept();
+    }
+
+    /**
+     * FR-010f (F14): signed 00/00 evidence of a booking-group payment whose amount or currency differs is recorded
+     * (this shared receipt, one audit entry and one WARN in 003.1) and never confirms the group. The IPN answer stays
+     * 04. A replayed delivery finds its receipt and records nothing more. Other owners and non-success outcomes are
+     * left as before.
+     */
+    private void recordMismatchedGroupEvidence(PaymentOwnerRegistration owner, String merchant, long amount,
+                                               String currency, Map<String, String> params) {
+        if (owner.getPaymentKind() != PaymentOwnerKind.DEPOSIT
+                || !"00".equals(params.get("vnp_ResponseCode")) || !"00".equals(params.get("vnp_TransactionStatus"))) {
+            return;
+        }
+        String transaction = params.getOrDefault("vnp_TransactionNo", "");
+        String delivery = merchant + "|" + transaction + "|00|00";
+        if (receipts.existsByDeliveryReference(delivery)) return;
+        String reason = amount != owner.getAmountVnd() ? "AMOUNT_MISMATCH" : "CURRENCY_MISMATCH";
+        boolean recorded = booking.recordMismatchedGroupPaymentEvidence(new RecordMismatchedGroupPaymentEvidenceCommand(
+                owner.getBookingReference(), merchant, delivery, amount, currency, reason, "VNPAY-" + merchant));
+        if (!recorded) return;
+        receipts.saveAndFlush(PaymentIngressReceipt.builder().deliveryReference(delivery).merchantReference(merchant)
+                .responseCode("00").transactionStatus("00").terminalOutcome(true).amountVnd(amount)
+                .currencyCode(currency).providerTransactionNumber(transaction.isBlank() ? null : transaction)
+                .createdAt(Instant.now()).build());
     }
 
     private void dispatchVerifiedSuccess(PaymentOwnerRegistration owner, String merchant, long amount,

@@ -299,7 +299,7 @@ paths:
         to lack authority; a non-owner Member or wrong reference answers 404,
         FR-017), 404
         `TICKET_NOT_FOUND`, 409 `TICKET_NOT_CONFIRMED`, 409
-        `TICKET_ALREADY_CHECKED_IN`, 409 `TICKET_QR_REVOKED`, 409
+        `TICKET_ALREADY_CHECKED_IN`, 409
         `RECIPIENT_CHANGE_LIMIT_REACHED` (go to the shop), 409
         `BUYER_VERIFICATION_EXPIRED`, 409 `IDEMPOTENCY_CONFLICT`. A refused
         request changes nothing. Audit keeps the masked old and new email, the

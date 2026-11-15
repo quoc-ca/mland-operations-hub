@@ -129,6 +129,16 @@ public class LatePaymentReviewService {
     @Transactional(propagation = Propagation.MANDATORY)
     public LatePaymentReview receive(String groupCode, String merchantReference, long amountVnd,
                                      String correlationReference) {
+        return receive(groupCode, merchantReference, amountVnd, null, correlationReference);
+    }
+
+    /**
+     * Same, with the time Mland received the evidence (T145: a held-back confirmation keeps its real arrival time, so
+     * the FR-040 arrival condition is judged on it); null means now.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public LatePaymentReview receive(String groupCode, String merchantReference, long amountVnd,
+                                     Instant evidenceReceivedAt, String correlationReference) {
         BookingGroup group = groups.findByGroupCodeForUpdate(groupCode)
                 .orElseThrow(() -> new BookingNotFoundException("Booking group " + groupCode + " was not found"));
         Optional<LatePaymentReview> existing = reviews.findByVerifiedEvidenceReference(merchantReference);
@@ -136,22 +146,23 @@ public class LatePaymentReviewService {
             return existing.get();
         }
         Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
+        Instant arrivedAt = evidenceReceivedAt == null ? now : evidenceReceivedAt.truncatedTo(ChronoUnit.MICROS);
         if (group.getGroupStatus() == BookingStatus.PENDING_PAYMENT) {
             // The sweep has not run yet: release the whole stale hold first so capacity is counted once.
-            confirmation.releaseExpiredGroup(groupCode, "LATE-RELEASE-" + groupCode, correlationReference);
+            confirmation.releaseExpiredGroup(groupCode, "LATE-" + groupCode, correlationReference);
         }
         List<BookingGroupLine> groupLines = lines.findByGroupIdOrderByLineIndexAsc(group.getId());
-        Evaluation evaluation = evaluate(group, groupLines, amountVnd, now, now, true);
+        Evaluation evaluation = evaluate(group, groupLines, amountVnd, arrivedAt, now, true);
 
         LatePaymentReview review = reviews.save(LatePaymentReview.builder()
                 .reviewReference(UUID.randomUUID().toString())
                 .group(group)
                 .verifiedEvidenceReference(merchantReference)
                 .amountVnd(amountVnd)
-                .arrivedAt(now)
+                .arrivedAt(arrivedAt)
                 .outcome(LatePaymentReview.PENDING_MANAGER)
                 .earliestSessionAt(evaluation.earliestSessionAt())
-                .resultDueAt(resultDue(now, evaluation.earliestSessionAt()))
+                .resultDueAt(resultDue(arrivedAt, evaluation.earliestSessionAt()))
                 .correlationReference(correlationReference)
                 .build());
 

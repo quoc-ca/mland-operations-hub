@@ -52,6 +52,20 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade, Worksho
             groupPaymentEvidence;
     private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.BookingGroupRepository
             bookingGroupRepository;
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.BookingTimePaymentQueryService
+            bookingTimePayments;
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.GroupMismatchedEvidenceService
+            mismatchedEvidence;
+
+    @Override
+    public boolean recordMismatchedGroupPaymentEvidence(RecordMismatchedGroupPaymentEvidenceCommand command) {
+        return mismatchedEvidence.record(command);
+    }
+
+    @Override
+    public List<BookingTimePayment> listBookingTimePayments(Long locationId, java.time.LocalDate workingDate) {
+        return bookingTimePayments.list(locationId, workingDate);
+    }
     private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.WorkshopCartQuoteRepository
             cartQuoteRepository;
     private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.TicketBookingRepository

@@ -1,7 +1,7 @@
 # Data Model: Workshop Booking Core
 
 **Date created**: 2026-10-07
-**Date updated**: 2026-11-15
+**Date updated**: 2026-11-16
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -273,6 +273,12 @@ evidence goes to the late-payment review. How it is stored is decided:
   nothing for a group with a `WAITING` row before `holdExpiresAt`; at expiry it
   hands the row over, then releases the group as any expired group.
 - **Attempt status (closed 2026-11-15, analyze M1; decision of Hồ Hoàng Quốc, "làm theo đề xuất"):** attempt `SUCCESS` means only "VNPay evidence verified for this attempt", whether or not the group is yet `CONFIRMED`. The wait for a confirmation retry is the `WAITING` row of `group_confirmation_retries`, not an attempt or group status; no new status is added. T145 asserts this.
+
+**Implemented 2026-11-16 (T144, T145; owner Hồ Hoàng Quốc chose "A: F14 in full", ERROR-LOG BE-DESIGN-0013).**
+
+- **Mismatched evidence (F14).** Only signed `00`/`00` evidence of a group payment (a `DEPOSIT` owner whose merchant reference is a group attempt) with a wrong amount or currency is recorded. The IPN answer stays `04`. The `payment_ingress_receipts` row has `delivery_reference` = `merchant|transaction|00|00`, the received amount and currency, `terminal_outcome` true; a replay finds the receipt and records nothing more. The audit entry is `booking_audit_evidence` with `action = GROUP_PAYMENT_EVIDENCE_MISMATCH`, `outcome = RECORDED`, `actor_type = SYSTEM`, `location_id = 0` and `action_reason = reason=...;merchant=...;evidence=<delivery reference>;amount=...;currency=...`; one WARN is logged once. At `holdExpiresAt` (at once if it arrives later) the evidence is handed to `LatePaymentReviewService.receive` with the delivery reference as `verified_evidence_reference`, the amount condition fails and only the 100% bank refund remains. Still no new table or column.
+- **V158 `group_confirmation_retries`.** Columns as in the Table bullet: `id`, `group_id` (FK, cascade), `attempt_id` (FK, cascade), `verified_evidence_reference` (unique), `merchant_reference`, `provider_transaction_reference`, `amount_vnd` (> 0), `received_at`, `retry_status` (`VARCHAR(24)`, checked to `WAITING`/`CONFIRMED`/`HANDED_TO_LATE_REVIEW`), `retries_made` (>= 0), `next_retry_at`, `last_failure_code` (`DEPENDENCY_UNAVAILABLE:OPERATIONS` or `:LOYALTY`), `late_payment_review_reference`, `correlation_reference`, `version`, `created_at`, `updated_at`. "At most one `WAITING` row per group" is enforced by the service, not by a unique key. Retry every 1 minute, at most 10 retries; the hand-over to the late review keeps `received_at` as the arrival time.
+- **V156, V157 (earlier, recorded here for completeness).** V156 `group_excess_payments` (second verified payment on a `CONFIRMED` group, refunded 100%); V157 adds `late_payment_reviews.result_delivery_state` (`PENDING`, `RESEND_SCHEDULED`, `MANUAL_CONTACT_REQUIRED`).
 
 ## Migration boundary
 

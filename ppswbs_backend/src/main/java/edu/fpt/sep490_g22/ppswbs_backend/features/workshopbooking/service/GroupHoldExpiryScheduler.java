@@ -27,6 +27,8 @@ public class GroupHoldExpiryScheduler {
     private final BookingGroupRepository groups;
     private final GroupConfirmationService confirmation;
     private final GroupExpiryReleaseRetryService retries;
+    private final GroupMismatchedEvidenceService mismatchedEvidence;
+    private final GroupConfirmationRetryService confirmationRetries;
 
     @Scheduled(fixedDelayString = "${workshop.booking.group-expiry-sweep:PT30S}")
     public void releaseExpiredGroups() {
@@ -37,6 +39,10 @@ public class GroupHoldExpiryScheduler {
             }
             String correlation = "GROUP-EXPIRY-" + UUID.randomUUID();
             try {
+                // T145: verified evidence still waiting for a confirmation retry is handed to the late-payment review first.
+                confirmationRetries.handOverWaiting(group.getGroupCode(), correlation);
+                // F14: evidence that did not match goes to the late-payment review first, then the group is released.
+                mismatchedEvidence.handOver(group.getGroupCode(), correlation);
                 confirmation.releaseExpiredGroup(group.getGroupCode(), "EXPIRE-" + group.getGroupCode(),
                         correlation);
             } catch (RuntimeException ex) {

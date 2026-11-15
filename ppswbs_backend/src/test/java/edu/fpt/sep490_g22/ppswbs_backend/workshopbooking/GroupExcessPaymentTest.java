@@ -40,7 +40,10 @@ class GroupExcessPaymentTest {
         refunds = mock(ExcessPaymentRefundPort.class);
         alerts = mock(ManagerAlertService.class);
         evidence = new GroupPaymentEvidenceService(attempts, confirmation, mock(BookingGroupRepository.class),
-                mock(LatePaymentReviewService.class), excess, refunds, alerts);
+                mock(LatePaymentReviewService.class), excess, refunds, alerts,
+                new GroupConfirmationAttemptRunner(confirmation,
+                        mock(org.springframework.transaction.PlatformTransactionManager.class)),
+                mock(GroupConfirmationRetryService.class));
         group = BookingGroup.builder().id(1L).groupCode(GROUP).groupStatus(BookingStatus.CONFIRMED)
                 .paymentMode(GroupPaymentMode.VNPAY).groupCollectionVnd(150_000).build();
         second = GroupPaymentAttempt.builder().group(group).attemptReference("GATT-2").merchantReference("GRP-M2")
