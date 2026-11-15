@@ -16,11 +16,13 @@ session location in scope **and** an active assignment to the session; see
 
 **Feature Branch**: `003.2-workshop-operations`
 
-**Status**: Implemented through tasks Phase 13; Phase 14 T090, T091 and
-T093–T095 implemented (tasks.md evidence 2026-11-13); T092 (per-ticket
-attendance finalization event, decided 2026-11-14) and T096 (remaining MySQL
-evidence) open. Updated 2026-11-14; owner re-approval pending.
-*(Superseded 2026-11-14: "Draft — not implemented".)*  
+**Status**: Implemented through tasks Phase 14 T090–T113 (tasks.md evidence);
+Phase 15 tasks T114–T123 (Clarifications Session 2026-11-15) open. Updated
+2026-11-15; **Approved 2026-11-15 by Hồ Hoàng Quốc (owner Feature 003), whole
+spec content of that date including Clarifications Session 2026-11-15**
+(supersedes "approval pending", Q1).
+*(Superseded 2026-11-15: "T092 and T096 open; owner re-approval pending", and
+2026-11-14: "Draft — not implemented".)*  
 
 **Input**: Confirmed Workshop Operations decisions from the responsible member,
 recorded in this document's Clarifications; implementation-design evidence is in
@@ -44,7 +46,8 @@ where they conflict with the following V1 decisions:
   operational-lead check is required for Manager authority.
 - `operational lead` is retired from the target V1 design. Assignment/lead
   endpoints and lead-only authority are not part of the target contract.
-- At `checkInOpensAt`, check-in becomes available while an eligible `PUBLISHED`
+- *(Extended 2026-11-15, Clarifications Q2: `PUBLISHED` here also means
+  `SALES_PAUSED` for check-in and scheduled start.)* At `checkInOpensAt`, check-in becomes available while an eligible `PUBLISHED`
   session remains in that state. At the session's scheduled start time, a
   scheduler automatically transitions it to `IN_PROGRESS`. The existing
   state-transition command remains only for explicit early start or recovery;
@@ -95,7 +98,10 @@ assigned to that session** may …".
   `assignedStaffAccountIds`.
 - **Publication and start do not require an assignment** (FR-010b is
   unchanged). A session without an assigned Staff is visible and operable by
-  Managers only until a Manager assigns someone.
+  Managers only until a Manager assigns someone. *(Added 2026-11-15,
+  Clarifications Q3: from `checkInOpensAt` such a session is flagged "missing
+  Staff", and revoking the last assignment after that instant needs explicit
+  Manager confirmation.)*
 - **Attendance roster**: `GET /workshop-sessions/{sessionId}/attendance-roster`
   lists the session's valid tickets with their check-in state
   (`NOT_CHECKED_IN`, `CHECKED_IN`, `NO_SHOW`), the booking reference and the
@@ -112,10 +118,10 @@ assigned to that session** may …".
 ## Per-ticket capacity, attendance, QR and changes (decision 2026-11-12)
 
 **Source:** owner decisions recorded 2026-11-11/12 in
-`artifacts/workshop-changes-to-implement.md`. **Status (updated 2026-11-14):**
-T090 (FR-030), T091 (FR-031), T093 (FR-033), T094 (FR-034) and T095 (FR-035)
-implemented with evidence in tasks.md; T092 (FR-032, decided 2026-11-14) and
-T096 (remaining MySQL cases) open; owner re-approval pending. *(Superseded
+`artifacts/workshop-changes-to-implement.md`. **Status (updated 2026-11-15):**
+T090–T097 (FR-030–FR-036, including T092 and T096) are implemented with
+evidence in tasks.md; approved 2026-11-15 by Hồ Hoàng Quốc (see Status). *(Superseded 2026-11-15: "T092
+and T096 open".)* *(Superseded
 2026-11-14: "specified, not yet implemented (tasks Phase 14, T090–T096)".)* It serves 003.1 FR-030–FR-043 (booking group, one
 ticket booking per person, ticket recipients) and 003.3 FR-030–FR-045
 (per-ticket folio, cancellation, Mland remedy and changes).
@@ -218,6 +224,11 @@ through this section.
   services is `WorkshopOtaSnapshotService` publishing the observable snapshot,
   not a refusal), so adding it is part of the FR-036 work and T096's "OTA
   ticket refused" case verifies it.
+  **Amended 2026-11-15 (owner Hồ Hoàng Quốc, via 003.4 Clarifications Session
+  2026-11-15):** the refusal stays for every general caller, but 003.2 also
+  provides one separate facade operation, callable only by 003.4, that revokes
+  named tickets of an OTA booking after the OTA has confirmed their
+  cancellation (task T123).
 
 ## Scope
 
@@ -246,7 +257,7 @@ answers are marked inline.)*
 ### Session 2026-10-23
 
 - Q: Which operational states does a session use? → A: The lifecycle is `DRAFT → PUBLISHED → SALES_PAUSED → IN_PROGRESS → ATTENDANCE_FINALIZED`; sales may resume from `SALES_PAUSED`, and `CANCELLATION_REQUESTED` is a pre-finalization cancellation branch.
-- Q: When may a customer check in? → A: A valid ticket may be checked in only at or after the Manager-configured `check_in_opens_at`, whose default is 60 minutes before the session start, while the session is `PUBLISHED` or `IN_PROGRESS`. There is no automatic check-in closing time; check-in ends when attendance is finalized.
+- Q: When may a customer check in? → A: A valid ticket may be checked in only at or after the Manager-configured `check_in_opens_at`, whose default is 60 minutes before the session start, while the session is `PUBLISHED`, `SALES_PAUSED` *(added 2026-11-15, Q2)* or `IN_PROGRESS`. There is no automatic check-in closing time; check-in ends when attendance is finalized.
 - Q: May Manager directly change the slot or branch of a session with confirmed tickets or unexpired payment holds? → A: No. Direct slot/branch changes are allowed only when neither exists. Otherwise Manager uses `CANCELLATION_REQUESTED`, and feature 003.3 resolves customer notification, reschedule/refund and ticket consequences with audit. *(Deferred in V1, 2026-11-15, see T112: direct slot/branch change of an existing session is not offered; it is refused with 400.)*
 - Q: How must exceptional operational actions record their audit reason? → A: Check-in override, finalized-attendance correction and session cancellation request require a standardized reason code. A short note or evidence reference is optional or required by the chosen reason code.
 - Q: What customer information may Staff see during ticket or booking lookup? → A: Check-in displays only ticket code, session/branch, ticket status and check-in result. Booking lookup displays its tickets and their used/unused status; it does not expose the booking contact's full email or phone number.
@@ -255,7 +266,7 @@ answers are marked inline.)*
 
 - Q: Which state follows `CANCELLATION_REQUESTED` after all affected customer cases are resolved? → A: Feature 003.3 reports completion only after all affected customers are resolved or have an audited Manager decision; the session then becomes terminal `CANCELLED` and cannot operate or check in again.
 - Q: Does V1 support check-in while Mland is offline? → A: No. V1 check-in is online only; it has no offline scan queue. Staff uses a backup connection or waits for recovery to preserve ticket reuse protection and audit consistency.
-- Q: Must a session have an assigned Staff member before publication or start? → A: No. Check-in opens at `checkInOpensAt` while the session remains `PUBLISHED`; a scheduled-start job moves the eligible session to `IN_PROGRESS` at its scheduled start time. Active Staff in the session location or any active Manager may operate it without a session assignment or operational-lead record.
+- Q: Must a session have an assigned Staff member before publication or start? → A: No. Check-in opens at `checkInOpensAt` while the session remains `PUBLISHED`; a scheduled-start job moves the eligible session to `IN_PROGRESS` at its scheduled start time. Active Staff in the session location or any active Manager may operate it without a session assignment or operational-lead record. *(Staff part superseded 2026-11-06: Staff also needs an active assignment; "check-in while `PUBLISHED`" extended 2026-11-15, Q2, to `SALES_PAUSED`; Q3 sets the missing-Staff flag.)*
 
 ### Session 2026-10-24
 
@@ -269,7 +280,7 @@ answers are marked inline.)*
 
 - Q: May a session return to `PUBLISHED` or `SALES_PAUSED` after it enters `IN_PROGRESS`? → A: No. `IN_PROGRESS` is one-way: it may transition only to `ATTENDANCE_FINALIZED` or, for an interruption before finalization, `CANCELLATION_REQUESTED`. It must never reopen sales.
 - Q: When may a session with no checked-in ticket be finalized? → A: The same as any session: only while it is `IN_PROGRESS`, after an authorized Staff member in the location or any active Manager confirms it has actually ended. It may finish earlier or later than scheduled; finalization is not gated by `scheduled_end_at`, requires confirmation and audit, and marks every unchecked ticket `NO_SHOW`.
-- Q: Who may start onsite operation by moving a session to `IN_PROGRESS`? → A: A scheduler moves an eligible `PUBLISHED` session to `IN_PROGRESS` at `scheduledStartAt` and records a system audit event. An explicit state-transition command remains available to an active Staff in the session location or any active Manager for early start/recovery.
+- Q: Who may start onsite operation by moving a session to `IN_PROGRESS`? → A: A scheduler moves an eligible `PUBLISHED` session to `IN_PROGRESS` at `scheduledStartAt` and records a system audit event. An explicit state-transition command remains available to an active Staff in the session location or any active Manager for early start/recovery. *(Staff: also needs an active assignment, 2026-11-06; scheduler also starts `SALES_PAUSED`, 2026-11-15 Q2.)*
 - Q: May Manager change Staff roster records while a session is `IN_PROGRESS`? → A: Optional roster changes are informational/audited only and never change authorization; active Staff authority comes from role/status and location scope. *(Superseded 2026-11-06: Staff authority also needs an active session assignment, so a Manager assigning or revoking Staff does change access.)*
 - Q: Until when may Manager change `check_in_opens_at`? → A: Manager may configure it only while the session is `DRAFT`, `PUBLISHED` or `SALES_PAUSED`. It is locked once the session enters `IN_PROGRESS`.
 
@@ -282,7 +293,7 @@ answers are marked inline.)*
 ### Session 2026-10-24
 
 - Q: Which tickets appear when Staff looks up a multi-session booking by `booking_code`? → A: Staff sees only tickets for the session and location they are operating; other tickets are not shown and cannot be checked in. Manager uses a separate audited management lookup to view the full ticket set when support requires it.
-- Q: Who may request ticket resend from the check-in flow? → A: Active Staff in the session location and any active Manager may request resend only to the booking contact's existing delivery channel. Ticket delivery remains owned by feature 003.1; the request is rate-limited and audited.
+- Q: Who may request ticket resend from the check-in flow? → A: Active Staff in the session location and any active Manager may request resend only to the booking contact's existing delivery channel. Ticket delivery remains owned by feature 003.1; the request is rate-limited and audited. *(Staff: also needs an active assignment, 2026-11-06.)*
 - Q: Who may override check-in after ticket resend fails? → A: An active Staff whose location scope contains the session location or any active Manager may override each unused ticket only for its assigned session and location, using the standardized reason `TICKET_REDELIVERY_UNAVAILABLE`, a short note and audit linked to the failed resend outcome. *(Superseded 2026-11-06: the Staff member must also be actively assigned to the session.)*
 - Q: When is ticket resend unavailable for override purposes? → A: When delivery reports an error, or the customer confirms they did not receive or cannot access the ticket after resend. No fixed waiting period applies; Staff records a short note and the system audits the reason and outcome.
 - Q: Which tickets are included when Staff requests resend from the check-in flow? → A: The system resends the full ticket set in the booking to the booking contact's existing delivery channel, including tickets for other sessions or locations. Staff check-in authority remains limited to the current session and location.
@@ -450,7 +461,8 @@ answers are marked inline.)*
 - Q: May a Manager replace a booking's required session with a target session
   that is `SALES_PAUSED`? → A: No. Every replacement target must be future,
   `PUBLISHED`, customer-selectable and have capacity for the booking's complete
-  participant count. If any source/target condition or any target capacity check
+  participant count *(per ticket since FR-034, 2026-11-12: one seat per selected
+  ticket per target)*. If any source/target condition or any target capacity check
   fails, 003.2 applies no change to any required session, ticket entitlement or
   capacity. `SALES_PAUSED` has no Manager reschedule exception in V1.
 - Q: May a Manager use the ordinary customer-requested session-change flow
@@ -522,7 +534,7 @@ answers are marked inline.)*
 
 - Q: Does V1 need a separate immutable business package code? → A: No. The system-generated `packageId` is the technical identity and an active Manager supplies an editable public `name`. Every Package also has a required public per-participant price; V1 has no separate `packageCode`.
 
-- Q: What participant constraints does a V1 Workshop Package define? → A: It defines `minParticipants` and `maxParticipants` for one booking. A booking's participant count must be within that inclusive range and must still fit the authoritative available capacity of every selected required session.
+- Q: What participant constraints does a V1 Workshop Package define? → A: It defines `minParticipants` and `maxParticipants` for one booking *(per booking line, 2026-11-15 Q6)*. A booking line's ticket count must be within that inclusive range and must still fit the authoritative available capacity of every selected required session.
 
 - Q: Which REST command performs Package publish or retirement? → A: An active Manager uses `POST /api/v1/workshop-packages/{packageId}/lifecycle-transitions` with `targetState` `PUBLISHED` or `RETIRED`. Package lifecycle state is never changed through a generic `PATCH` field.
 - Q: Which public route discovers customer-selectable future sessions for one Package? → A: 003.2 exposes `GET /api/v1/workshop-packages/{packageId}/sessions`. It is public and returns only `PUBLISHED`, customer-selectable future sessions that satisfy the Package's selection rules. The existing `GET /api/v1/workshop-sessions` remains Manager/Staff-scoped and is never opened for public discovery.
@@ -536,6 +548,79 @@ answers are marked inline.)*
   Silver Clay catalogue. `minimumSameDaySlotGap` remains a generic field for a
   same-local-date package rule, but it must not be used for Wax Casting, whose
   foundry-working-date requirement is represented separately.
+
+### Session 2026-11-15
+
+- Q: Has the owner approved the 2026-11-15 content of this spec? → A: No.
+  Approval is pending for the whole 2026-11-15 content, including T092 and T096
+  work and this session's clarifications; the owner (Hồ Hoàng Quốc) approves once,
+  after this clarify session ends. `spec.md`, `plan.md` and `data-model.md` all
+  carry "approval pending". *(Supersedes the plan's "re-approved 2026-11-14".)*
+  **Update, same day:** after the session ended the owner approved the content
+  (option C of this question): "Approved 2026-11-15 by Hồ Hoàng Quốc".
+- Q: When a session is `SALES_PAUSED` at `checkInOpensAt` or at its scheduled
+  start, may it be checked in and auto-started? → A: Yes. `SALES_PAUSED` only
+  stops sales (new bookings and holds). From `checkInOpensAt` check-in is
+  available while the session is `PUBLISHED` **or** `SALES_PAUSED`; at the
+  scheduled start the scheduler moves a `PUBLISHED` or `SALES_PAUSED` session to
+  `IN_PROGRESS` with a system audit event (sales are already closed, so no new
+  OTA snapshot unless the observable snapshot changes). Unexpired holds of a
+  paused session still complete payment until their deadline. Every earlier
+  statement that ties check-in or auto-start to `PUBLISHED` alone is read through
+  this answer. `IN_PROGRESS` still never returns to `PUBLISHED`/`SALES_PAUSED`.
+- Q: Must a session have at least one assigned Staff before it can be operated,
+  and does that bind a Manager? → A: Staff work requires at least one active
+  assignment to the session (the 2026-11-06 rule: an unassigned Staff member
+  cannot operate it, so a session with no assigned Staff has no Staff
+  operator). A Manager is **not** bound: an active Manager may still check in,
+  resend and finalize, with the actor audited. Additionally: (1) from
+  `checkInOpensAt`, a session with no active Staff assignment is reported to
+  Managers as "missing Staff" in the session response (a flag, not a block; the
+  field name is decided in the contract task); (2) once `checkInOpensAt` has
+  passed, revoking the **last** active assignment of a session is refused unless
+  the Manager explicitly confirms it in the same request, and is audited either
+  way. Publication, scheduled start and Manager early start still need no
+  assignment (FR-010b unchanged). *(Answers the former "may a Manager remove the
+  last Staff from an `IN_PROGRESS` session" question.)*
+- Q: Is the Manager-only lookup of a booking's full ticket set across sessions
+  and locations part of V1? → A: Yes. FR-003b's Manager management lookup is V1
+  scope, unchanged: read-only, audited, never exposes the booking contact's full
+  email or phone. A grep of tasks.md, plan.md and the OpenAPI contract on
+  2026-11-15 found no task or route for it, so it becomes an open task (added in
+  the sync step), not a deferral.
+- Q: When are a ticket's remaining entitlements and QR revoked now that there is
+  no VNPay Refund? → A: At the moment 003.3 calls `cancelTicket` (customer or
+  Mland cancellation, FR-031); a refund is not a revocation event and Operations
+  does not wait for money to move. FR-010aa's "verified-refund consequence" is
+  superseded: the projection reflects the resulting entitlement after a
+  required-session replacement or a ticket cancellation only.
+- Q: Are a Package's `minParticipants`/`maxParticipants` counted per booking
+  group or per booking line? → A: Per booking line: the number of tickets on a
+  line must be within that line's Package inclusive range. There is no group-wide
+  min/max; the group is limited only by each session's remaining capacity.
+  *(Supersedes "a booking's participant count" in the 2026-10-26 Package rule
+  and FR-001-level wording, read per line from FR-030 on.)*
+- Q: How late may the scheduled auto-start be? → A: Within 5 minutes of
+  `scheduledStartAt`, including across one restart. A start later than 5 minutes
+  is a monitored failure (logged and alerted, not silent); the scheduler still
+  catches up and starts the session whenever the system is back, with no upper
+  bound on catching up. The explicit early-start/recovery command remains
+  available meanwhile (FR-010d).
+- Q: Which sessions does Operations publish OTA snapshots for, and how is the
+  OTA-visible capacity computed? → A: Sessions are shared by all Packages (a
+  session has no package; `data-model.md` WorkshopSession), so there is no
+  per-package filter and no OTA-only quota. The snapshot is the session's full
+  remaining capacity, as today; direct and OTA sales consume the same capacity
+  (FR-030). In V1 the business sells only the cheapest Package on the OTA
+  (Signature Workshop — Brass, 750,000 VND direct; the OTA's own higher price is
+  not stored or owned by Operations); which offer is sold is decided only by the
+  003.4 mapping, not by 003.2. *(Business fact stated by the owner, 2026-11-15;
+  catalogue.md still names the V1 offer "Basic Ring" — naming is a 003.4
+  question.)*
+- Q: Is the Loyalty `BRANCH` identifier the same as `workshop_location.id`? →
+  A: Yes, one identifier: Loyalty `BRANCH` ≡ `workshop_location.id`
+  (`locationId` in APIs), with no mapping table. If Loyalty code is found to use
+  a different key, that is a defect task in Loyalty/Booking, not a spec change.
 
 ## Business model
 
@@ -666,14 +751,16 @@ scope. The target implementation and all public contracts use `location` and
   terminal `CANCELLED`. Without either commitment, Manager may cancel directly
   to terminal `CANCELLED` with audit.
 - A session may be `PUBLISHED` without any Staff roster or lead record. At
-  `checkInOpensAt`, check-in opens while it remains `PUBLISHED`; at scheduled
+  `checkInOpensAt`, check-in opens while it remains `PUBLISHED` or `SALES_PAUSED`
+  *(2026-11-15, Q2)*; at scheduled
   start, the scheduler moves it to `IN_PROGRESS`. Active Staff in the session
-  location or any active Manager may then operate it.
+  location **and actively assigned to it** *(2026-11-06)* or any active Manager may then operate it.
  - An active Manager has global Workshop Operations authority across all
    canonical locations and sessions. An active Staff member may operate only
    sessions whose canonical location is in that actor's `activeLocationIds`.
    Session assignment and operational-lead status are not authorization
-   prerequisites.
+   prerequisites. *(Staff: an active assignment IS required, 2026-11-06; the
+   operational-lead record stays retired; Manager unaffected, Q3.)*
  - Account Management owns the canonical role, active status and
    `activeLocationIds` facts consumed through its public facade. Workshop
    Operations does not create or mutate those account facts.
@@ -716,7 +803,7 @@ scope. The target implementation and all public contracts use `location` and
 | Story | Priority | Scenario group | Independent test |
 | --- | --- | --- | --- |
 | US1 | P1 | Manager configures branches, fixed slots and future sessions. | A scoped Manager creates non-overlapping slots, creates a future session and re-runs bulk generation without duplicate sessions. |
-| US2 | P1 | Scheduled start and role/location-scoped operation. | Check-in opens at `checkInOpensAt`; a published session auto-starts at its scheduled start time; Staff is limited by location and active Manager is global. |
+| US2 | P1 | Scheduled start and role/location-scoped operation. | Check-in opens at `checkInOpensAt`; a published or sales-paused session auto-starts at its scheduled start time (within 5 minutes, Q7); Staff is limited by location and active assignment and active Manager is global. |
 | US3 | P1 | Staff verifies and checks in one individual ticket. | Two concurrent scans of one valid QR create one attendance action; the later scan returns `ALREADY_CHECKED_IN` with the original `checkedInAt`. |
 | US4 | P2 | Staff recovers ticket access and handles authorized exceptions. | A resend returns only active unused tickets to the existing delivery channel and an override cannot cross session/branch. |
 | US5 | P2 | Authorized actor finalizes attendance and Manager handles cancellation/correction. | Finalization marks only unchecked active tickets `NO_SHOW`; cancellation with commitments creates a 003.3 handoff without settlement side effects. |
@@ -731,8 +818,8 @@ publish a draft, pause/resume sales and request cancellation before attendance
 finalization. Publication does not require a Staff assignment. At
 `checkInOpensAt`, check-in becomes available while the session remains
 `PUBLISHED`. At the session's scheduled start time, a recoverable scheduler
-auto-starts the eligible published session and records a system audit event. An active Staff in the session
-location or any active Manager may issue an explicit early-start/recovery
+auto-starts the eligible published or sales-paused session (Q2) and records a system audit event. An active Staff in the session
+location and assigned to it (2026-11-06) or any active Manager may issue an explicit early-start/recovery
 command. The Manager may directly change a session's slot or location only
 when it has neither confirmed tickets nor unexpired payment capacity holds;
 otherwise the Manager must use the `CANCELLATION_REQUESTED` handoff.
@@ -935,7 +1022,8 @@ correction, with before/after audit evidence.
   selection rules.
   Every reserve request from 003.1 MUST carry the selected `packageReference`.
   Operations MUST atomically recheck that the Package is `PUBLISHED`, the
-  requested participant count is within its bounds, the complete selected
+  ticket count of each booking line is within that line's Package bounds
+  *(per line, Q6; no group-wide bound)*, the complete selected
   session set satisfies its required-session count, location rule, any
   same-day slot-gap rule and any foundry-working-date rule, and every session
   remains sale-eligible with capacity.
@@ -960,8 +1048,9 @@ correction, with before/after audit evidence.
   prospectively; every existing Booking retains its frozen Package and
   financial snapshot.
   A Package MUST define inclusive `minParticipants` and `maxParticipants` for
-  one booking, with a valid minimum no greater than its maximum. Booking's
-  participant count MUST be inside that range and still fit every selected
+  one booking line *(per line, Clarifications 2026-11-15 Q6; was "one
+  booking")*, with a valid minimum no greater than its maximum. The ticket
+  count of the line MUST be inside that range and still fit every selected
   required session's authoritative available capacity.
   A Package MUST expose generic `requiredSessionCount`,
   `sameLocationRequired`, non-negative `minimumSameDaySlotGap` and non-negative
@@ -1160,14 +1249,18 @@ correction, with before/after audit evidence.
   `ATTENDANCE_FINALIZED` or `CANCELLATION_REQUESTED`.
  - **FR-010b**: The system MAY publish a session without Staff assignment.
    At `checkInOpensAt`, the system MUST make check-in available while the
-   session remains `PUBLISHED`. At the session's scheduled start time, a
-   recoverable scheduler MUST transition an eligible `PUBLISHED` session to
-   `IN_PROGRESS` and record a system audit event. A manual transition remains
+   session remains `PUBLISHED` or `SALES_PAUSED` *(extended 2026-11-15,
+   Clarifications Q2)*. At the session's scheduled start time, a
+   recoverable scheduler MUST transition an eligible `PUBLISHED` or
+   `SALES_PAUSED` session to `IN_PROGRESS` and record a system audit event. A manual transition remains
    available only for explicit early start or recovery.
 - **FR-010d**: The scheduled transition MUST be idempotent and safe across
   restart/retry. An explicit early-start/recovery command MUST be allowed to an
-  active Staff in the session location or any active Manager and MUST audit the
-  actor, timestamp and previous state.
+  active Staff in the session location and actively assigned to it
+  *(2026-11-06)* or any active Manager and MUST audit the
+  actor, timestamp and previous state. The scheduled start MUST happen within
+  5 minutes of `scheduledStartAt`, including across one restart; a later start
+  is logged and alerted and the scheduler still catches up *(Q7, 2026-11-15)*.
 - **FR-010e**: Staff roster changes are optional operational metadata and MUST
   not change authorization. Active Staff authority is determined by role,
   status and location scope; active Manager authority is global.
@@ -1334,7 +1427,8 @@ correction, with before/after audit evidence.
 - **FR-010aa** *(superseded in part 2026-11-12 by FR-034, noted 2026-11-15)*: This feature MUST provide 003.1 an authorized, read-only,
   current delivery-safe ticket/session-entitlement projection for booking and
   Magic-Link reads. Following a successful required-session replacement or a
-  verified-refund consequence, that projection MUST reflect the resulting
+  ticket cancellation (FR-031; *replaces "verified-refund consequence",
+  Clarifications Q5, 2026-11-15*), that projection MUST reflect the resulting
   entitlement, location and schedule rather than a superseded session. It MUST
   continue to exclude attendance, Staff, audit and PII detail; it does not make
   003.1 an owner of tickets or schedules.

@@ -22,14 +22,18 @@ operational-lead model in the target contract. The capability key
 `workshop.checkin.override` and `AccountFacade.can(...)` are not used.
 
 At `checkInOpensAt`, check-in becomes available while an eligible session
-remains `PUBLISHED`. At the session's scheduled start time, a recoverable
+remains `PUBLISHED` or `SALES_PAUSED` *(extended 2026-11-15, spec Clarifications
+Q2; the scheduler also starts a `SALES_PAUSED` session)*. At the session's scheduled start time, a recoverable
 scheduler transitions it to `IN_PROGRESS` and records a system audit event. The transition must
 be idempotent, timezone-aware and safe across restart/retry. A manual state
 transition remains only for explicit early start or recovery.
 
-**Status**: Approved — updated 2026-11-14 and re-approved the same day by Hồ Hoàng Quốc (owner Feature 003) in session. Tasks Phase 1–13 and
-Phase 14 T090, T091, T093–T095 are implemented (tasks.md evidence); T092
-(decided 2026-11-14, see "Per-ticket operations (Phase 14)") and T096 are open.
+**Status**: Approved 2026-11-15 by Hồ Hoàng Quốc (owner Feature 003) for the
+2026-11-15 content (spec Clarifications Session 2026-11-15, Q1 update).
+*(Superseded 2026-11-15: "Approved — updated 2026-11-14 and re-approved the same
+day".)* Tasks Phase 1–13 and
+Phase 14 T090–T113 are implemented (tasks.md evidence, including T092, T096,
+T097); Phase 15 T114–T123 (spec Clarifications 2026-11-15) are open.
 *(Superseded 2026-11-14: "Design draft — internal capacity semantics and
 facade-command idempotency are clarified; implementation must rebase the
 affected task before changing persistence or code.")*
@@ -129,7 +133,7 @@ call or operational-lead handover boundary in the target V1 design.
 ### Resolved OTA-Observable Snapshot Boundary
 
 Operations remains the sole source of session schedule, capacity and direct-
-Mland sale state. For a mapped Basic Ring session, it makes a schedule snapshot
+Mland sale state. For a session (no package filter; the offer mapping is 003.4's, spec Q8, 2026-11-15), it makes a schedule snapshot
 and an availability/sale-state snapshot available to 003.4 only after a
 completed local change alters OTA-observable data. The schedule snapshot is
 limited to opaque session identity, location, scheduled start/end, source change
@@ -214,7 +218,7 @@ For a Manager-mediated customer change, 003.3 supplies the complete resulting
 required-session set. Operations accepts a source only while future and outside
 `IN_PROGRESS`, `ATTENDANCE_FINALIZED`, `CANCELLATION_REQUESTED` and `CANCELLED`.
 Every target must be future, `PUBLISHED`, customer-selectable and have capacity
-for the full participant count. Operations updates all affected entitlements and
+for one seat per selected ticket *(FR-034; was "the full participant count")*. Operations updates all affected entitlements and
 capacity together or changes none. The persistent QR is retained; a replaced
 session retains neither entitlement nor capacity. `SALES_PAUSED` has no V1
 Manager-reschedule exception. A cancellation-requested source uses 003.3's
@@ -370,15 +374,21 @@ boundary.
    local MySQL transaction; events are limited to non-critical post-transition
    handoff. For an authorized Booking customer read, the same delivery-safe
    boundary returns the current entitlement/location/schedule rather than an
-   initial snapshot. A successful replacement or verified-refund consequence
+   initial snapshot. A successful replacement or ticket cancellation
+   *(replaces "verified-refund consequence", spec Clarifications Q5, 2026-11-15)*
    therefore becomes visible to the existing Booking/Magic-Link access without
    Booking copying or owning a session schedule.
    For 003.4, Operations exposes only the approved semantic schedule and
-   availability/sale-state snapshots for mapped Basic Ring sessions. `DRAFT`
+   availability/sale-state snapshots for sessions *(2026-11-15, spec Q8: sessions are
+   shared by all Packages, so the snapshot is the session's full remaining
+   capacity with no per-package filter or OTA-only quota; which offer is sold is
+   the 003.4 mapping, not 003.2; was "mapped Basic Ring sessions")*. `DRAFT`
    produces none; `PUBLISHED` makes the current snapshot available, while
    `IN_PROGRESS`, `ATTENDANCE_FINALIZED`, `CANCELLATION_REQUESTED` and
    `CANCELLED` have closed sale state. At scheduled start the scheduler changes
-   `PUBLISHED` to `IN_PROGRESS` and persists the complete closed snapshot in
+   `PUBLISHED` or `SALES_PAUSED` *(Q2, 2026-11-15)* to `IN_PROGRESS`, within 5 minutes
+   of the start time with a logged/alerted failure beyond that and catch-up on
+   restart *(Q7, task T119)*, and persists the complete closed snapshot in
    the same Operations transaction. `ATTENDANCE_FINALIZED` does not allocate a
    second version when the snapshot is already closed and otherwise unchanged.
    Hold creation, release and expiry notify when availability changes;
@@ -462,8 +472,8 @@ needs an active assignment to the session.
 **Added 2026-11-14** (spec FR-030–FR-036, decision 2026-11-12; T092 decision
 2026-11-14). Names below were confirmed by read-only grep of
 `ppswbs_backend/src` on 2026-11-14; the evidence for each task is in tasks.md.
-Updated 2026-11-14 and re-approved the same day by Hồ Hoàng Quốc (owner
-Feature 003) in session.
+Updated 2026-11-14; owner approval pending *(superseded 2026-11-15: "re-approved
+the same day by Hồ Hoàng Quốc")*.
 
 | Task | Status | Mechanism |
 | --- | --- | --- |
@@ -472,9 +482,9 @@ Feature 003) in session.
 | T093 QR reissue (FR-033) | Implemented | `reissueTicketQr` → `TicketQrReissueService`. V126 adds `attendance_tickets.qr_generation` and `ticket_qr_generations` (revoked QR values, reason `RECIPIENT_CHANGED`); check-in and override refuse a revoked QR with `TICKET_QR_REVOKED`; refused after any check-in. |
 | T094 per-ticket replacement (FR-034) | Implemented | `replaceTicketSessions` → `TicketSessionReplacementService`. V131 `ticket_session_replacements` (type `CUSTOMER_ADVANCE`, `CUSTOMER_LATE_ARRIVAL`, `MLAND`; `MLAND` never consumes quota). Lock order: every source and target session in sorted reference order, then each ticket, then its entitlements; all or none across the selected tickets. |
 | T095 reschedule quota (FR-035) | Implemented | V131 adds `workshop_sessions.reschedule_quota_override` and `reschedule_quota_used`; effective quota is the override or `max(1, capacity / 4)`. Route `PUT /api/v1/workshop-sessions/{sessionId}/reschedule-quota`. |
-| T092 per-ticket attendance event (FR-032) | Open, decided 2026-11-14 | See below. |
-| T096 MySQL evidence | Open | Remaining cases only; see tasks.md. |
-| T097 booking-wide cleanup | Open | See below. |
+| T092 per-ticket attendance event (FR-032) | Done 2026-11-14 | See below and tasks.md. |
+| T096 MySQL evidence | Done | See tasks.md. |
+| T097 booking-wide cleanup | Done 2026-11-15 | See below. |
 
 **T092 decision (owner Hồ Hoàng Quốc, 2026-11-14, ERROR-LOG BE-DESIGN-0004):**
 
