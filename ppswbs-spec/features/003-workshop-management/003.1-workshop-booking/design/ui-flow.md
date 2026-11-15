@@ -1,5 +1,7 @@
 # UI Flow Design: 003.1 Workshop Booking
 
+> **Superseded in part, 2026-11-15:** the routes (`/workshop-bookings/{bookingCode}/...`, `POST /workshop-booking-quotes`, `/booking-lookups`), `quoteRef` acceptance and the 10-minute hold in this document predate the booking-group model. The current behaviour is spec FR-030-FR-052 and `contracts/workshop-booking.openapi.yaml` (group, cart and Magic-Link routes; 12/10-minute hold per spec). Regenerate this file with the feature-design skill before implementing screens.
+
 **Date created**: 2026-11-02
 **Date updated**: 2026-11-03
 **Author**: Hồ Hoàng Quốc

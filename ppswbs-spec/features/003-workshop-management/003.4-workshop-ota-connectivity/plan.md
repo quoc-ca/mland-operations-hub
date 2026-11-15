@@ -51,7 +51,7 @@ provider delivery failure suspends the mapping.
 
 **Project Type**: Modular-monolith web application with external OTA adapters.
 
-**Performance Goals**: No approved numeric latency, retry, or throughput target. Correctness, idempotency, auditability, and safe sales closure take priority over apparent immediacy.
+**Performance Goals**: Outbound retry default (Clarifications Q7, T127): 3 attempts at 30 seconds, 2 minutes and 10 minutes, configuration defaults; no approved numeric latency or throughput target. Correctness, idempotency, auditability, and safe sales closure take priority over apparent immediacy.
 
 **Constraints**: Mland is authoritative for schedule, capacity and ticket
 issuance; 003.4 consumes the 003.2 schedule and availability/sale-state
@@ -188,3 +188,9 @@ consumer receives the persistent internal Operations publication again and
 creates no duplicate logical outbound change before its separately durable
 provider delivery. Do not deploy booking capability merely because preparation
 synchronization succeeds.
+
+## Clarifications 2026-11-15 (003.4)
+
+*Note 2026-11-15, responsible member Hồ Hoàng Quốc; source: spec Clarifications Session 2026-11-15, Q1–Q9.* Cancellation ingress: `POST /api/v1/ota-provider/cancellation-events` (T121) authenticates like `booking-events` and maps the provider's own JSON through its cancellation adapter (FR-010, FR-011). A confirmed partial cancellation of k participants revokes k tickets by a fixed rule through the 003.2 OTA-only revocation operation (003.2 T123, a dependency of T125); no work item for a normal partial and no email or SMS to an OTA customer (Q3, Q4). Expected net is `targetNetAmount × N`, reconciled in the price terms' currency with FX differences as adjustments (Q1, Q2). Outbound retry default: 3 attempts at 30 s, 2 min and 10 min (Q7, T127). `SHARED_VOUCHER_INCIDENT` is removed (Q8, T128). The V1 offer is Signature Workshop — Brass, legacy name "Basic Ring" (Q9, T129).
+
+**Approval**: Approved 2026-11-15 by Hồ Hoàng Quốc (owner Feature 003) for the 2026-11-15 content (spec Status and Clarifications Session 2026-11-15).

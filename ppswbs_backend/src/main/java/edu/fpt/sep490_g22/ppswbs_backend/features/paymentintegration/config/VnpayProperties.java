@@ -11,7 +11,7 @@ import java.time.Duration;
 @Getter @Setter @Component @ConfigurationProperties(prefix = "vnpay")
 public class VnpayProperties {
     private boolean enabled; private String tmnCode=""; private String hashSecret=""; private String payUrl="";
-    private String returnUrl=""; private String ipnUrl=""; private String queryDrUrl=""; private String refundUrl="";
+    private String returnUrl=""; private String ipnUrl=""; private String queryDrUrl="";
     private String merchantApiIpAddress="";
     private Duration merchantApiConnectTimeout = Duration.ofSeconds(5);
     private Duration merchantApiReadTimeout = Duration.ofSeconds(10);
@@ -19,7 +19,7 @@ public class VnpayProperties {
     public void validateForEnabledRuntime(){
         if(!enabled)return; require(tmnCode,"vnpay.tmn-code"); require(hashSecret,"vnpay.hash-secret");
         requireHttps(ipnUrl,"vnpay.ipn-url"); requireHttps(returnUrl,"vnpay.return-url");
-        requireHttps(queryDrUrl,"vnpay.query-dr-url"); requireHttps(refundUrl,"vnpay.refund-url"); require(payUrl,"vnpay.pay-url");
+        requireHttps(queryDrUrl,"vnpay.query-dr-url"); require(payUrl,"vnpay.pay-url");
         if (merchantApiConnectTimeout == null || merchantApiConnectTimeout.isZero() || merchantApiConnectTimeout.isNegative())
             throw new IllegalStateException("vnpay.merchant-api-connect-timeout must be positive");
         if (merchantApiReadTimeout == null || merchantApiReadTimeout.isZero() || merchantApiReadTimeout.isNegative())

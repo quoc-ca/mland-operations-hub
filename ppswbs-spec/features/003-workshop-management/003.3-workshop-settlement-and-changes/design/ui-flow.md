@@ -1,14 +1,26 @@
 # UI Flow Design: 003.3 Workshop Settlement and Changes
 
 **Date created**: 2026-11-02
-**Date updated**: 2026-11-05
+**Date updated**: 2026-11-15
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
+
+> **Superseded in part — 2026-11-15.** The booking-wide flow in "Actors,
+> routes, and authorization", "Screen and interaction flows", "Final-payment
+> recovery guardrails" and invariants 2–3 describes the whole-booking model,
+> whose routes were removed (T106, T121, T123, T124). Direct bookings now use
+> the per-ticket screens in "Per-ticket screens (2026-11-12 onward)" below.
+> The booking-wide sections are kept for history; the settlement case list is
+> still served. *(Refund-policy administration is NOT kept: the screen and the
+> `/workshop-refund-policies` routes are removed by T140 (frontend) and T139
+> (backend), decided 2026-11-15; FR-043 always refunds 100%.)*
 
 ## Scope and sources
 
 - Business rules: `spec.md` (final bill/payment, direct cancellation, required-session changes, Mland-caused remedy/refund, add-ons).
-- Transport contract: `contracts/workshop-settlement.openapi.yaml`.
+- Transport contract: `contracts/workshop-settlement.openapi.yaml`; per-ticket
+  contract `contracts/workshop-settlement-ticket.openapi.yaml` (FR-030–FR-057,
+  added 2026-11-15).
 - Current implementation reference: `ppswbs_frontend/src/workshop-settlement/`.
 
 ## Actors, routes, and authorization
@@ -30,7 +42,7 @@
 | Direct customer cancellation | `/cancellation-cases` | Whole-booking request with reason; show non-refundable result; release/cancel through Operations handoff; never show a VNPay refund action. One case per booking. |
 | Required-session change | `/required-session-change-cases` | Show eligible replacement options and stale-capacity conflict; no silent partial change; recover by reloading current sessions. |
 | Mland-caused remedy/refund | `/mland-cancellation-remedy-cases` | Manager-only decision path; calculate from retained policy/payment evidence; show `PENDING_PROVIDER` only while awaiting verified provider evidence; do not mark complete on provider acceptance alone. |
-| Refund-policy administration | `/workshop-refund-policies` | Manager global; show effective time and percentage validation; preserve historical snapshots and display audit evidence. |
+| Refund-policy administration *(superseded 2026-11-15: screen to be removed by T140; routes removed by T139, FR-043)* | `/workshop-refund-policies` | Manager global; show effective time and percentage validation; preserve historical snapshots and display audit evidence. |
 | Settlement result | Bill/case detail | Distinguish service state, bill state, payment state, and case state; show typed errors and correlation ID without secrets. |
 
 ## Final-payment recovery guardrails for regeneration
@@ -53,7 +65,7 @@ recovery path.
 ## Invariants captured for regeneration
 
 1. Direct customer cancellation after a confirmed direct booking is non-refundable; it does not create `PENDING_PROVIDER`, QueryDR, or VNPay refund.
-2. VNPay refund remains only for an approved Mland-caused direct-payment remedy or a Manager post-FINALIZED overcharge correction (FR-004c), not for ordinary customer cancellation and not for OTA-collected base-package money.
+2. VNPay refund remains only for an approved Mland-caused direct-payment remedy or a Manager post-FINALIZED overcharge correction (FR-004c), not for ordinary customer cancellation and not for OTA-collected base-package money. *(Superseded 2026-11-12/15 by spec FR-038: no VNPay Refund is used at all; every Mland refund is a bank transfer through the refund queue.)*
 3. Final-payment checkout is separate from the deposit attempt and expires after 10 minutes.
 4. A provider response is not verified completion; the case changes only after verified evidence.
 5. No credit/deferred-payment workflow is exposed.
@@ -63,6 +75,32 @@ recovery path.
    correction uses only the exceptional T040 flow). All OTA bookings use the
    separate direct-Mland shop add-on bill; OTA base-package financial facts
    remain isolated.
+
+## Per-ticket screens (2026-11-12 onward)
+
+Sources: `contracts/workshop-settlement-ticket.openapi.yaml`, spec FR-030–FR-057,
+and `ppswbs_frontend/src/workshop-settlement/routes.jsx` (pages in `pages/`).
+Every screen shows server figures only, sends a new `Idempotency-Key` per
+command, explains `403`/`404`/`409`/`422` by their typed code with the
+correlation ID, and recovers by re-reading the server resource; a dangerous
+command asks for confirmation and, where the contract requires it, a reason.
+
+| Screen (route) | Actor | Loading | Empty | Validation | Failure (contract codes) | Recovery | Success | Navigation |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Ticket folio workspace (`/settlement`, `SettlementWorkspacePage`) — collections, add-ons, charges, finalize, debt, handover exception, line/collection voids, correction view | Manager; Staff assigned to the ticket's group line | Spinner while `GET …/folio` and add-ons load | "No folio was found for this ticket."; "No collection recorded."; no add-on for the package/location | Ticket code required; amount > 0; VNPay part ≥ 5,000 warned before collecting (FR-033); cash received ≥ amount; transfer reference required; reason required for debt, handover, voids | 404 unknown/not visible; 403 not assigned; 409 pending part, `FINAL_BILL_NOT_OPEN`, `IDEMPOTENCY_CONFLICT`, closed cash day on a void; 422 business refusal | Reload the folio; pending VNPay part shows its checkout link until expiry and is reconciled by the server; Manager may confirm or fail a pending part | "Collection recorded." (a `VNPAY` part also shows "Open VNPay checkout" with its expiry), "Transfer confirmed.", "Collection marked as not paid.", "Add-on added.", "Charge added.", "Folio finalized.", "Debt recorded."/"Debt closed.", "Handover allowed and audited. The balance below is still owed.", "Line voided."/"Collection voided."; the folio is re-read so balance and state are the server's | Stays on `/settlement` with the same ticket; the VNPay checkout opens in a new tab; an overcharge is corrected from the Manager correction panel and its refund followed in `/settlement/refunds`; FR-057 record/void is on this page (planned, T136) |
+| Cash close (`/settlement/cash-close`, `CashClosePage`) | Manager; Staff of the branch | Spinner while expected cash loads | Expected cash 0 for a day with no cash | Branch (`locationId`) numeric; working date; counted amount ≥ 0; reason required when counted ≠ expected | 400 malformed body; 403 out of scope; 409 day already closed or `IDEMPOTENCY_CONFLICT`; 422 difference without `differenceReason`; 400/404 on difference confirmation | Re-read expected cash; a close with a difference waits as `PENDING_MANAGER_CONFIRMATION` for the Manager's confirmation (reason) | "Cash book closed." with the returned `CashClose` (expected, counted, difference, status; a difference shows `PENDING_MANAGER_CONFIRMATION`); after the Manager's confirmation "Difference confirmed; the day is closed." | Stays on `/settlement/cash-close`; transfers and VNPay are checked in the reconciliation list `/settlement/reconciliation` (planned, T134) |
+| Refund queue (`/settlement/refunds`, `RefundQueuePage`) | Manager (every transition in V1) | Spinner while the queue loads | "No refund requests found." | Status filter; counter account (bank, number, holder) complete; bank reference and proof for `RECORD_TRANSFER`; reason for close/reopen | 403 non-Manager; 409 wrong state, `REFUND_ACCOUNT_ALREADY_ON_FILE`; 404/409 `REFUND_ACCOUNT_NOT_ON_FILE` on reveal; 422 `TRANSFER_PROOF_REQUIRED` | Reload the queue; resend the account link; reopen a `CLOSED_UNREACHABLE` request; full number only on an audited reveal (`no-store`) | "Account recorded.", "Refund approved.", "Transfer recorded.", "Refund confirmed as REFUNDED.", "Refund closed as unreachable.", "Refund reopened with a fresh account link.", "A fresh account link was sent; the previous link no longer works."; the queue is re-read with the new status | Stays on `/settlement/refunds` (linked from `/settlement/cases`) |
+| Refund account page (`/refund-account#token`, `RefundAccountPage`) | Payer (anonymous, token in the URL fragment) | Submit in progress | No token: page explains the link is missing | Bank, account number and holder name required | 404 unknown token; 410 `REFUND_ACCOUNT_LINK_NOT_USABLE` (used, revoked, expired) | Ask the shop to resend the link; the number is never shown again after submission | The form is replaced by "Thank you. Your bank account was received. We will transfer the refund after it is approved and email you when it is done." | None: the page ends there (the link is single-use) |
+| Change requests queue (`/settlement/change-requests`, `ChangeRequestsPage`) | Manager decides; Staff sees their locations | Spinner while the queue loads | "No change requests found." | Decision and reason required | 403; 404; 409 already decided/expired or full quota; 422 | Reload; an expired request shows `EXPIRED` (expiry rule FR-045a; LATE_ARRIVAL: changed session end + 7 days) | "Change approved and applied." or "Change rejected."; the queue is re-read | Stays on `/settlement/change-requests` (reached from the 202 link on `/settlement/ticket-actions` and from `/settlement/cases`) |
+| Ticket actions (`/settlement/ticket-actions` with `tab=cancel` or `tab=change`, `TicketActionsPage`) — cancel one or several tickets, change one or several, buyer verification, Manager extra-change grant | Staff/Manager on the buyer's behalf; Manager for the grant | Command in progress | — | Buyer verification reference for Staff on behalf; reason required; target sessions 1–2 per ticket and the matching from-session (T141; 422 if not the ticket's); price increase confirmed before repeating | 403 not buyer / out of scope; 404; 409 with `failingTicketCodes` (group all-or-none), `CHANGE_REQUEST_PENDING`; `BUYER_VERIFICATION_REQUIRED`/`FAILED`/`EXPIRED`; 422 | 202 shows the queued request reference; "Nothing has changed yet" until the buyer confirms an increase; retry with a new key | Cancel: "Cancellation recorded." with each ticket's outcome; change: "Change applied." (200) or "Queued for a Manager decision." (202, request reference shown); grant: "One extra change granted for … (allowance reference). The change itself is still to be made." | Stays on the same tab (`?tab=cancel` / `?tab=change`); a 202 links to `/settlement/change-requests` |
+| Mland remedy (`/workshop-tickets/:ticketCode/remedy`, `MlandRemedyPage`) | Buyer (Member by bearer, Guest by buyer verification) | Spinner while the offer loads | No offer for the ticket | One offered selectable session or refund | 403 not buyer; 404; 409 `REPLACEMENT_SESSION_UNAVAILABLE`, `REPLACEMENT_SESSION_NOT_OFFERED`, `ANSWER_DEADLINE_EXPIRED` | Choose another session or refund; an answered offer is read-only | "Your new session is booked." or "Your refund request was recorded."; the offer is re-read and shown answered | Stays on `/workshop-tickets/:ticketCode/remedy`; a refund continues through the account link sent to the payer (`/refund-account#token`) |
+| Customer folio (`/workshop-tickets/:ticketCode/folio`, `CustomerFolioPage`) | Member owner (bearer); Guest (`POST …/folio-lookups` with one contact in the body) | Spinner while reading | "No folio was found for this ticket." | One contact (email or phone) for a Guest | Same 404 for a wrong code or contact | Retry the lookup; a Member sees a posted correction read-only | The read-only folio (lines, collections, balance, state) replaces the lookup form | Stays on `/workshop-tickets/:ticketCode/folio` |
+| Manager correction panel (`StaffWorkshopAddonPanel` in workshop-operations) | Manager | Command in progress | — | Overcharge amount > 0 and reason | 403; 409 cap or `IDEMPOTENCY_CONFLICT` | Read the correction (`FolioCorrectionLookup`); refund follows the bank refund queue | "Folio correction … created (status). A bank refund request was opened (refund id)."; re-readable through `FolioCorrectionLookup` | Stays in the panel; the refund is followed in `/settlement/refunds` |
+| Reconciliation list (`/settlement/reconciliation`, FR-056, **planned**, T134; route fixed 2026-11-15, free in `routes.jsx`) | Manager only | Spinner while listing | "No transfer or VNPay collection" for the filters | `locationId` and working date required; optional method and state | 403 Staff; 400 bad filter | Change filters and reload; read-only, no reconciled mark | The rows of `ReconciliationCollection` (200): ticket code, group code, amount, method, state, reference, confirming actor and time | Stays on `/settlement/reconciliation`; nothing to act on, no link out |
+| Absorbed undercharges (FR-057, **planned**, T136; record/void action on the ticket folio page `/settlement`, list at `/settlement/absorbed-undercharges`; routes fixed 2026-11-15, free in `routes.jsx`) | Manager only | Spinner while listing | No record for the branch and period | Amount > 0 and reason to record; reason to void; branch and from/to dates to list | 403 Staff; 409 folio not `FINALIZED`, already voided, `IDEMPOTENCY_CONFLICT` | Reload; a voided record stays visible, marked `VOIDED`, outside the total | Record (201): the stored record (reference, amount, reason, actor, time); a same-key replay returns it unchanged; void (200): the record shown `VOIDED`; the list shows `totalVnd` of `ACTIVE` records | Record/void stays on `/settlement` with the same ticket; the list stays on `/settlement/absorbed-undercharges` |
+
+Accessibility and browsers for every row: WCAG 2.2 AA and the two latest major
+desktop Chrome, Edge and Firefox (spec SC-015; verification task T138).
 
 ## Session, data handling, and accessibility
 

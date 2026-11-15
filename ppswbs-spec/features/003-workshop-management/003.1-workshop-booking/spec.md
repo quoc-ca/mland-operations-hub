@@ -6,8 +6,9 @@
 **Last updated by**: Hồ Hoàng Quốc
 
 **Feature Branch**: `003.1-workshop-booking`
-**Status**: Draft — design-ready; external implementation dependencies are
-recorded in `tasks.md`
+**Status**: Approved 2026-11-15 by Hồ Hoàng Quốc (owner Feature 003) for the
+spec as clarified in Session 2026-11-15; external implementation dependencies
+are recorded in `tasks.md`. *(Earlier label "Draft — design-ready" is history.)*
 **Input**: Customer-facing workshop booking lifecycle; the current aggregate
 model is defined in [REBASE-NOTES.md](REBASE-NOTES.md).
 **Governing baseline**: [spec-general.md](../../../spec-general.md) and the
@@ -37,8 +38,9 @@ Booking settles held benefits on verified deposit, grants earned points only
 after all sessions are complete and the invoice is fully paid, releases held
 benefits on unpaid expiry, restores eligible cancelled benefits, and marks
 earn ineligible on final no-show. Full integration tasks T048–T051 are tracked
-in `tasks.md`; they remain unchecked until implementation and suitable
-verification evidence exist.
+in `tasks.md`; ~~they remain unchecked until implementation and suitable
+verification evidence exist~~ *(updated 2026-11-15: T048–T051 are done with
+evidence; the Member quote itself is superseded for direct bookings by FR-044)*.
 
 ### Loyalty outcome ownership decision (2026-10-31)
 
@@ -48,7 +50,9 @@ verification evidence exist.
   booking lock. For a booking with payment attempts, Booking emits
   `UNPAID_EXPIRY_CONFIRMED` only after every attempt has matching, verified
   terminal status `02`; reaching the hold deadline or receiving an unknown or
-  pending result is not sufficient.
+  pending result is not sufficient. *(Superseded 2026-11-15 for groups by
+  FR-039 and Session 2026-11-15: a group's seats, voucher and points are
+  released at `holdExpiresAt` without waiting for attempt verification.)*
 - Settlement emits workshop completion, cancellation, and final no-show
   outcomes only after it has authoritative evidence for the whole booking.
   Completion requires a fully paid final invoice and terminal attendance for
@@ -190,7 +194,8 @@ are kept for history and are read through this section.
     here is authoritative);
   - group collection 1–4,999 → no VNPay; every ticket's booking-time collection
     becomes 0 with kind `DEFERRED_BELOW_VNPAY_MINIMUM`, the amount moves to the
-    ticket's checkout balance, and the group is confirmed internally;
+    ticket's checkout balance, and the group is confirmed internally (payment
+    mode `INTERNAL_DEFERRED`);
   - group collection ≥ 5,000 → one VNPay payment for the whole group.
   A cart with ticket A at 3,000 and ticket B at 500,000 is valid and collects
   203,000. The quote MUST show how each ticket is paid, and the backend MUST
@@ -214,15 +219,18 @@ are kept for history and are read through this section.
   paid group wait for the group payment and are never confirmed early or split
   off. Replays MUST NOT create tickets, consume capacity or benefits twice.
 - **FR-039**: When the hold expires without verified payment the whole group is
-  released, free tickets included, and held benefits are released under
-  FR-017k. Money arriving later follows FR-040; it never revives the old hold.
+  released, free tickets included, and held benefits are released at the same
+  moment, without waiting for any payment attempt to be verified as no-money
+  (clarified 2026-11-15; the FR-017k guard is superseded for groups, see
+  Session 2026-11-15). Money arriving later follows FR-040; it never revives
+  the old hold.
 
 ### Late payment after the hold expired
 
 - **FR-040**: On signed VNPay evidence (IPN or matching QueryDR) for an expired
   group, the system MUST re-confirm the group automatically only when all of
   these hold: (1) every ticket still has capacity and channel quota, held
-  atomically for the whole group; (2) no session has started and the earliest
+  atomically for the whole group (a `SALES_PAUSED` session refuses new holds in 003.2, so this condition fails and the review goes to the Manager); (2) no session has started and the earliest
   starts at least 2 hours later; (3) recomputing price, voucher and points under
   the recorded policy gives exactly the collected amount (voucher use and points
   still available); (4) the evidence arrived within 60 minutes after
@@ -235,6 +243,12 @@ are kept for history and are read through this section.
   or 5 failed, the buyer still wants to attend, and 1–3 hold at that moment)
   or opens a 100% bank refund under 003.3. Money is never moved to a new
   booking.
+  - *Condition 5 matching key (clarified 2026-11-15):* "the same buyer" is the
+    same Member account, or the same normalized (case-insensitive) contact
+    email; the phone number is not a matching key, and a Guest is matched by
+    email only. Another active booking means another group that is `CONFIRMED`,
+    or `PENDING_PAYMENT` with its hold still running, and holds one of the
+    same sessions.
   - *Condition 1 in V1 (decision 2026-11-13, tasks T094):* V1 checks session
     capacity only; there is no channel quota, so "and channel quota" above is
     not evaluated in V1.
@@ -281,6 +295,15 @@ are kept for history and are read through this section.
   buyer, may change a recipient. A recipient gets ticket access only, not the
   buyer's management rights; a change requested by a recipient goes through the
   buyer or the shop. Audit masks the old and new emails.
+- **FR-041a** *(clarified 2026-11-15)*: A Guest buyer proves they are the buyer
+  for a recipient change by a one-time code (OTP) sent to the group's original
+  contact email. The code MUST be valid for 10 minutes, allow at most 5 wrong
+  entries (the verification is then locked), be re-sent no sooner than 60
+  seconds after the previous send and at most 5 times per hour per group, and
+  be stored only as a salted hash. A correct code yields a single-use
+  `buyerVerificationReference` valid for 15 minutes; it is consumed by the
+  change it authorizes. A Member buyer needs no OTP (bearer plus ownership).
+  The limits are configurable; these are the V1 defaults.
 - **FR-042**: The Member booking list (FR-021a), Guest lookup and Magic Link
   show the group with its tickets; each ticket shows its own status, recipient
   (masked), attendance and payment kind.
@@ -296,8 +319,11 @@ expiry and late-payment templates are recorded in
 `artifacts/workshop-email-templates-draft.md`. The filename is retained for
 existing references; its content is approved, ~~not yet implemented~~
 *(updated 2026-11-14)* and used by T093–T095 (group notification intents
-pulled by Feature 007). The Manager alert email (template 13) is still a draft
-and is not sent until the FE-001 recipient source exists (T094).
+pulled by Feature 007). The Manager alert email (template 13) is approved
+(2026-11-15, Hồ Hoàng Quốc) and is sent to every active Manager through the
+FE-001 `listActiveManagerEmails()` recipient source (T094, done 2026-11-14);
+~~"still a draft and not sent until the FE-001 recipient source exists"~~ is
+history.
 
 ## Direct booking is only a booking group (decision 2026-11-13)
 
@@ -305,8 +331,8 @@ and is not sent until the FE-001 recipient source exists (T094).
 2026-11-13: normalize now, because old direct bookings exist only in dev/test.
 **Status:** approved 2026-11-13 by Hồ Hoàng Quốc (owner Feature 003) in session, including the items marked "decided 2026-11-13"; ~~not implemented
 (tasks T098–T104)~~ *(updated 2026-11-14)* implemented by T098–T104 (commits
-9038ca7a, 164f510f, 721ebc46), except the T100 legacy remainder: the facade
-operations still serving the 003.3 booking-wide routes (see FR-046).
+9038ca7a, 164f510f, 721ebc46); the T100 legacy remainder (facade
+operations for the 003.3 booking-wide routes) was also done 2026-11-14 (see FR-046).
 
 **Supersedes** for every direct (Guest or Member) booking (superseded lines are
 kept for history and read through this section): the single `WorkshopBooking`
@@ -343,14 +369,22 @@ FR-030–FR-043 or below. **Not changed:** OTA bookings (003.4) keep
   OTA booking has no customer lookup.
   *State 2026-11-14:* every route above, its controller, its services and their
   tests are removed (T100, T104), and no frontend file calls them (T103).
-  **Still pending:** the `WorkshopBookingFacade` operations that only the 003.3
+  **Updated 2026-11-15: no longer pending.** T100 removed the five booking-wide
+  facade operations on 2026-11-14 (`getConfirmedBookingFinancialProjection`,
+  `getVerifiedDepositPayments`, `getLoyaltyOutcomeSource`,
+  `recordFinalBalanceResolved`, `cancelConfirmedBooking`) and the legacy
+  callers in 003.3 were unreachable (V132). Kept on purpose:
+  `verifyCustomerBookingAccess` (ticket folio lookup),
+  `recordBookingServiceOutcome` and `recordBookingRefundStatus`. The text below
+  is history.
+  ~~**Still pending:** the `WorkshopBookingFacade` operations that only the 003.3
   booking-wide routes still call — `getLoyaltyOutcomeSource`,
   `getConfirmedBookingFinancialProjection`, `getVerifiedDepositPayments`,
   `verifyCustomerBookingAccess`, `recordFinalBalanceResolved`,
   `cancelConfirmedBooking` and the Loyalty cancellation restore — and the
   tables they read (data-model.md "Kept"). They are removed by 003.1 T100 once
   003.3 T106 has landed; 003.3 T106 itself follows 003.3 T099–T101 and T105, and
-  needs 003.1 T107.
+  needs 003.1 T107.~~
 - **FR-047 — group routes that replace them** (contract:
   `contracts/workshop-booking.openapi.yaml`, where T104 moved them on 2026-11-14):
 
@@ -393,13 +427,15 @@ FR-030–FR-043 or below. **Not changed:** OTA bookings (003.4) keep
     so a payment in flight is never orphaned; the hold then ends by expiry.
   - Confirmation resend: sends the buyer confirmation (every ticket) again to
     the stored contact email only; Guest proof, Member ownership, scoped Staff
-    or any Manager; limits as FR-014h. One ticket to its recipient is resent by
+    or any Manager; limits as FR-014e (3 accepted self-service resends per
+    group per hour, 5 accepted internal resends per group per 15 minutes;
+    FR-014h is the single-booking route and is superseded). One ticket to its recipient is resent by
     `PUT /workshop-tickets/{ticketCode}/recipient` with the same email.
   - Magic-Link incident: any active Manager revokes or rotates the group link.
 - **FR-049 — group projection.** The buyer projection MUST give, per ticket:
   package name, session schedule, final price, collected amount, collection
   kind, remaining balance, status, attendance, masked recipient and, for the
-  buyer only, the QR reference. The owning Member's projection also carries
+  buyer only (the Magic-Link holder counts as the buyer, Session 2026-11-15), the QR reference. The owning Member's projection also carries
   each ticket's opaque `ticketReference` so Feature 011 keeps matching one
   review source to one ticket (FR-021c carried over).
 - **FR-050 — attendance per ticket.** 003.2 publishes
@@ -407,6 +443,21 @@ FR-030–FR-043 or below. **Not changed:** OTA bookings (003.4) keep
   booking-wide `BookingAttendanceFinalizedEvent`, its outbox and query are
   removed (003.3 decision 2026-11-13). Booking-wide status FR-020 does not
   apply to a group; each ticket has its own status.
+  *Ticket status mapping (decided 2026-11-15, Hồ Hoàng Quốc):* each ticket
+  concludes independently and another ticket of the group is never affected;
+  every transition applies exactly once (a replay is accepted without a second
+  write; an out-of-order or backward transition is refused `INVALID_STATE`);
+  `CHECKED_IN` stays reserved.
+
+  | Event | `ticketStatus` | `financialStatus` |
+  |---|---|---|
+  | Group confirmed (003.1) | `CONFIRMED` | `FULLY_PAID`, `DEPOSIT_PAID` or `UNPAID` from the snapshot's collected amount |
+  | Ticket attended, concluded by 003.3 | `COMPLETED` | unchanged |
+  | Final no-show (003.3) | `NO_SHOW` | unchanged |
+  | Ticket cancelled by the customer or by Mland (003.3) | `CANCELLED` | unchanged |
+  | Ticket folio `FINALIZED` (zero balance, no collection awaiting verification) | unchanged | `FULLY_PAID` |
+  | 003.3 opens a bank-refund request for the ticket | unchanged | `REFUND_PENDING` (kept through `CLOSED_UNREACHABLE`; decided 2026-11-15) |
+  | Bank refund reconciled | unchanged | `REFUNDED` |
 - **FR-051 — data.** A new append-only migration deletes direct
   `WorkshopBooking` rows and their dependent rows (dev/test only, FR-043), then
   drops tables used only by the removed flow. Candidates: Member quotes,
@@ -447,6 +498,12 @@ T105 (commit 193d2f30: every cart gets the automatic discount, the quote reports
   the one `POST /api/v1/workshop-cart-quotes` computes (FR-030, FR-035), and
   the quote, the hold and every screen after confirmation keep showing only
   server figures.
+
+> **Terminology (clarified 2026-11-15, Constitution I):** the workshop location
+> identifier is `workshopLocationId` (`workshop_location.id`). The public DTOs
+> and OpenAPI of 003.1/003.2 name the same value `locationId`; it is one
+> identifier, not two, and no contract is renamed. "Branch" in this spec and in
+> audit text is the older word for the workshop location.
 
 ## Scope and source alignment
 
@@ -494,6 +551,21 @@ through an approved boundary.
 
 ## Clarifications
 
+### Session 2026-11-15
+
+*(Responsible member: Hồ Hoàng Quốc, owner Feature 003. Source: `$speckit-clarify` after the 2026-11-15 analyze report.)*
+
+- Q: Has the current 003.1 spec (FR-030–FR-052 and the 2026-11-12→15 decisions) been approved so its Status can change from Draft? → A: Yes. Approved 2026-11-15 by Hồ Hoàng Quốc (owner Feature 003) for the spec as clarified in this session; the Status line is updated accordingly.
+- Q: Must the Guest lookup / hold-release / resend rate limits (T110) be shared across backend instances in V1? → A: No. V1 accepts a per-instance in-memory sliding window (configurable `max-attempts` 10 and `window-seconds` 900 per action + group + client). Known limits, recorded in plan.md State: with N instances the effective cap is up to N × the configured number, and a restart resets the counters; the protection against code guessing also rests on the unguessable group code plus the required contact proof and the DB-backed OTP limits. Running more than one backend instance requires revisiting this (shared counter in MySQL) before scale-out.
+- Q: What does the group Magic Link show, and does "QR only for the buyer" include the holder of the link? → A: The Magic Link is a bearer credential held by the buyer's confirmation email, so its holder gets the buyer's full group view (FR-049): per ticket package, schedule, final price, collected amount, collection kind, remaining balance, status, attendance, masked recipient and the QR reference. It never shows contact email/phone, VNPay references or audit evidence. FR-017b4 (no monetary amounts, no attendance) is superseded for groups; a ticket recipient's QR email is still not a Magic Link and gives no group view (FR-048).
+- Q: When a group's hold expires while a payment attempt is still unverified, are the seats and held voucher/points released at once or only after every attempt is verified as no-money (FR-017k)? → A: Released at once. FR-039 releases the whole group (seats, voucher use, points) at `holdExpiresAt` without waiting for attempt verification; FR-017k's "every attempt verified no-money" guard does not apply to groups. Money verified later follows FR-040; a group that used a voucher or points then fails condition 3 and goes to the Manager queue, where the Manager cannot confirm it (manual confirm needs conditions 1–3 to hold) and the outcome is a 100% bank refund. A group with only an automatic discount is recomputed and can be re-confirmed.
+- Q: Are the Guest buyer-OTP limits in code official requirements? → A: Yes, as new FR-041a: OTP valid 10 minutes, 5 wrong entries then locked, resend ≥60 seconds apart and ≤5 per hour per group, single-use verification reference valid 15 minutes; configurable defaults.
+- Q: What are the per-ticket status transitions after 003.3 concludes (FR-050)? → A: The mapping table now in FR-050 (confirmed → CONFIRMED with financial status from the snapshot; COMPLETED, NO_SHOW, CANCELLED set by 003.3; `FULLY_PAID` when the ticket folio is `FINALIZED`; `REFUND_PENDING`/`REFUNDED` with the bank refund), each ticket independent, each transition once, invalid ones refused.
+- Q: In FR-040 condition 5, how is "the same buyer" matched for a Guest? → A: Same Member account or same normalized contact email (phone is not a key; a Guest is matched by email only), as `countActiveSameBuyerOnSessions` does today; "active" = `CONFIRMED`, or `PENDING_PAYMENT` with a running hold.
+- Q: How are SC-001 (95%) and SC-006 (90%) verified? → A: SC-001 becomes a pass/fail criterion over the MySQL integration scenarios (no production percentage until real traffic and a counter exist); SC-006 is superseded (tautological, covered by FR-048/FR-049 tests).
+- Q: Is the location identifier `workshopLocationId` (Constitution I) or `locationId`, and what is "branch"? → A: One identifier: `locationId` in public DTOs/OpenAPI is the `workshopLocationId` of Constitution I; "branch" is the older word for the workshop location. Alias note only, no contract rename.
+- Q: Is email template 13 (Manager alert for a late payment) approved for sending? → A: Yes, approved 2026-11-15 by Hồ Hoàng Quốc; it is sent to every active Manager via FE-001 `listActiveManagerEmails()` (T094).
+
 ### Session 2026-10-28
 
 - Q: Who owns customer Package and customer-session discovery? → A: 003.2 Workshop Operations owns both public resources. 003.1 consumes their public results and the approved internal facade; it no longer exposes competing package or session discovery routes.
@@ -520,8 +592,11 @@ through an approved boundary.
   one HTTPS `GET` VNPay ingress. It verifies the checksum once, deduplicates
   provider delivery, resolves the immutable owner-qualified merchant reference,
   and dispatches redacted verified evidence only to 003.1 for `DEPOSIT` or to
-  003.3 for `FINAL_PAYMENT`/`REFUND`. It never broadcasts, guesses an owner,
-  or performs booking/settlement business state changes itself.
+  003.3 for `FINAL_PAYMENT`/~~`REFUND`~~. It never broadcasts, guesses an owner,
+  or performs booking/settlement business state changes itself. *(Updated
+  2026-11-15: there is no VNPay `REFUND` evidence; VNPay Refund was removed
+  (commits bc39429c, 4e2875a0, V155) and refunds are manual bank transfers,
+  003.3 FR-038–FR-040.)*
 - Q: Should booking recovery actions use dedicated public command resources? →
   A: Yes. V1 exposes separate booking-scoped commands for confirmation delivery,
   Magic-Link incident handling, and late-payment follow-up rather than putting
@@ -531,6 +606,9 @@ through an approved boundary.
   a hold has expired? → A: The late-payment follow-up command accepts only
   `RECORD` or `ESCALATE` action plus a required reason. It is an auditable
   operational follow-up, never a financial or booking-state command.
+  *(Superseded 2026-11-12 for direct bookings by FR-040/FR-040a: the route is
+  removed (FR-046) and a Manager now confirms or refunds a late payment
+  through the review queue; history, applies to OTA only.)*
 - Q: Which React routes own the direct-Mland Workshop Booking customer flow? →
   A: V1 uses `/workshops` for package browsing,
   `/workshops/:packageId` for package detail and session selection,
@@ -538,7 +616,11 @@ through an approved boundary.
   `/workshop-booking/lookup` for Guest/Member lookup,
   `/workshop-booking/access#token` for Magic-Link exchange, and
   `/workshop-booking/:bookingCode/payment-return` for browser-return display
-  only. The payment-return route never confirms payment.
+  only. The payment-return route never confirms payment. *(Updated
+  2026-11-15: the implemented routes are `/workshop-booking/cart` for the
+  browser cart and `/workshop-booking/:groupCode/payment-return`; `:bookingCode`
+  is the single-booking name and is history. The Magic-Link route is
+  `/workshop-booking/access#token`.)*
 - Q: How does Booking hand an approved confirmation, resend, or Magic-Link
   rotation delivery to Feature 007 without coupling payment confirmation to
   email delivery? → A: In the same local transaction that accepts the Booking
@@ -704,12 +786,12 @@ seat and receives one independent ticket after valid payment confirmation.
   codes, provider/received time and correlation/idempotency evidence. Do not
   retain raw IPN/QueryDR payload, checksum or signing secret.
 
-### Session 2026-10-25
+### Session 2026-10-25 (continued)
 
 - Q: How do 003.1, 003.2, and 003.3 interact for booking-critical work? → A:
   Each owning feature exposes its own synchronous, in-process facade and
   explicit boundary types. Reserve, commit, release, settlement-readiness,
-  required-session replacement, refund consequence, booking financial
+  required-session replacement, ticket cancellation (003.2 FR-010aa, 2026-11-15), booking financial
   projection, and `FULLY_PAID` conclusion use those facades because their
   caller needs an immediate all-or-none answer. Events occur only after the
   local transaction commits for notification, OTA, or other downstream work;
@@ -771,7 +853,12 @@ seat and receives one independent ticket after valid payment confirmation.
   no raw VNPay payload or final-payment detail and does not verify final payment
   or calculate final balance. 003.3 emits this conclusion only after signed,
   matching evidence verifies that the complete final balance was paid. There is
-  no deferred-payment resolution path.
+  no deferred-payment resolution path. *(Updated 2026-11-15: for a group the
+  conclusion is per ticket, `recordTicketFinalBalanceResolved`, sent when the
+  ticket folio is `FINALIZED` (FR-050). "No deferred-payment path" means no
+  credit or invoice-later exception; a group below the VNPay minimum is a
+  different, allowed case: its tickets are `DEFERRED_BELOW_VNPAY_MINIMUM`
+  (FR-036) and the amount is paid at the counter at checkout.)*
 
 - Q: Should the post-payment Magic Link be reusable or single-use? → A:
   Reusable until the associated workshop/package ends or the link is revoked.
@@ -1234,7 +1321,8 @@ deadline.
 - A lookup request is malformed or attempts to access another booking; the system
   returns a safe error without exposing sensitive data.
 - An invalid, expired, or revoked Magic Link must not reveal booking
-  details. Its token hash is stored in MagicLinkAccess. The raw bearer URL is
+  details. Its token hash is stored in ~~MagicLinkAccess~~ `booking_group_magic_links`
+  *(entity removed by T100/V133; renamed 2026-11-15)*. The raw bearer URL is
   the sole persistence exception: it may appear only in the protected
   render-ready notification snapshot readable through the dedicated
   `workshopbooking :: notification` interface by Feature 007 after the matching
@@ -1260,7 +1348,7 @@ deadline.
   `remainingCapacity` across every selected session, capped by the Package
   `maxParticipants`: `effectiveMax = min(package.maxParticipants,
   min(selectedSession.remainingCapacity))`. If no selected session has enough
-  capacity for the Package's `minParticipants`, show a validation error and
+  capacity for the Package's `minParticipants` (per booking line, 003.2 Q6, 2026-11-15), show a validation error and
   require another session. This is a customer-facing snapshot hint only;
   Operations remains authoritative and atomically rechecks the Package bounds
   and capacity during quote/booking acceptance.
@@ -1287,6 +1375,35 @@ deadline.
 >   FR-003c, FR-004a, FR-005 (per line, with FR-031), FR-014, FR-014a–FR-014g,
 >   FR-014i, FR-015/FR-015a/FR-015b, FR-018, FR-019, FR-019a, FR-021 (as
 >   FR-039 for a group), FR-022, FR-025.
+> - **Payment rules inside FR-010–FR-013d that still apply to groups**
+>   *(clarified 2026-11-15; the range above is superseded only for the
+>   single-booking deposit, hold and quote mechanics, not for these rules)*:
+>   FR-010 (validate signature, reference, amount, status and duplicate state
+>   before settlement) and FR-010a (the gateway owns authorization steps;
+>   Booking never stores them), FR-010c (accept only the approved VNPay HMAC-SHA512 checksum, verified once
+>   in `paymentintegration`, a bad checksum has no side effect), FR-010e (003.1
+>   consumes only redacted verified `DEPOSIT` evidence through
+>   `WorkshopBookingFacade`, never owns an IPN route; the group payment is
+>   routed by its attempt's merchant reference, and no `REFUND` evidence is
+>   routed to 003.3 because VNPay Refund is not used), FR-010f (terminal IPN
+>   status, only `vnp_ResponseCode=00` with `vnp_TransactionStatus=00` and an
+>   exact reference, amount and VND may confirm), FR-011 (as FR-038), FR-012 (a
+>   browser return is never payment evidence), FR-012a (a failed or cancelled
+>   attempt keeps the group `PENDING_PAYMENT` and retry is allowed only inside
+>   the hold), FR-012b (the UI classes `PENDING`, `VERIFIED_PAID`,
+>   `VERIFIED_UNPAID`, `UNKNOWN`, `EXPIRED`; an `UNKNOWN` result keeps the
+>   original `Idempotency-Key` and is never shown as failed), FR-012c (an
+>   expired group is terminal; a new journey is a new quote and hold), FR-013
+>   and FR-013a (idempotent outcomes; a confirmed ticket or group is never
+>   downgraded by a later failure and a duplicate success settles nothing
+>   twice), FR-013c (retain only the redacted reconciliation fields, never a raw
+>   payload or secret).
+> - **Booking contact and delivery (FR-014a, FR-014g):** the confirmation email
+>   goes to the group's booking contact with every ticket and the group Magic
+>   Link; the contact distributing tickets themselves is still allowed. The
+>   optional per-ticket delivery of FR-041 (recipient email, QR rotation)
+>   supersedes only the sentence "no participant-specific delivery is
+>   performed".
 >
 > Where a requirement in the second list names "booking", read "booking group"
 > (group-level facts) or "ticket booking" (per-person facts). This note only
@@ -1321,7 +1438,7 @@ deadline.
   session selection is complete, the form MUST use the minimum exact `remainingCapacity` snapshot
   among those sessions, subject to the published Package `maxParticipants`,
   as the displayed/input upper bound. The client
-  MUST keep the Package's `minParticipants` lower bound, show a recoverable
+  MUST keep the Package's `minParticipants` lower bound (per booking line, 003.2 Q6), show a recoverable
   validation message when the snapshot cannot satisfy that lower bound, and
   MUST NOT treat this snapshot as final authorization; the backend MUST
   revalidate atomically at quote/acceptance.
@@ -1406,8 +1523,10 @@ deadline.
   (`WORKSHOP_NET_AMOUNT_INVALID`). Replay of the same accepted command is
   idempotent through the booking idempotency record and the Loyalty settle key.
   The per-ticket booking-time collection table and multi-ticket cart in
-  `artifacts/workshop-changes-to-implement.md` are not implemented yet; this
-  requirement covers the single-booking 0 VND case only.
+  `artifacts/workshop-changes-to-implement.md` ~~are not implemented yet~~
+  *(updated 2026-11-15: implemented by T089–T093, FR-030–FR-038; the 0 VND
+  group is confirmed internally as `INTERNAL_FREE`)*; this requirement is
+  history for the single-booking 0 VND case.
 - **FR-007b**: A direct Guest/Member booking MUST have exactly one OPEN folio
   from deposit confirmation until checkout or terminal cancellation/no-show
   closure. Settlement (003.3) creates it when it consumes the post-commit
@@ -1473,7 +1592,8 @@ deadline.
 - **FR-010e**: 003.1 MUST consume a redacted verified `DEPOSIT` evidence
   conclusion only through `WorkshopBookingFacade`; it MUST NOT expose or own a
   VNPay IPN HTTP route, raw callback payload, checksum verification, or routing
-  of final-payment/refund evidence.
+  of final-payment evidence (~~/refund~~: there is no VNPay refund evidence since
+  2026-11-15, see the Session 2026-10-26 note).
 - **FR-011**: The system MUST confirm a booking only after one valid, signed,
   non-duplicate deposit payment confirmation matching the frozen deposit is
   accepted, MUST set its financial status to `DEPOSIT_PAID`, and MUST emit
@@ -1618,7 +1738,7 @@ deadline.
   contact email, Guest lookup using the booking code and stored contact phone
   MUST provide the same read-only booking and ticket view. V1 MUST NOT
   automatically change the contact email or send a Magic Link to a new email.
-- **FR-017b4**: A valid Magic Link projection MUST contain only booking code,
+- **FR-017b4** *(superseded for groups 2026-11-15: the group Magic Link gives the buyer's full group view of FR-049, see Session 2026-11-15; kept for OTA/history)*: A valid Magic Link projection MUST contain only booking code,
   booking/deposit status, package, branch, required-session schedule,
   participant count, and ticket codes with the opaque Operations-issued
   `qrReference` needed to render each ticket QR. That reference is a bearer
@@ -1629,8 +1749,8 @@ deadline.
 - **FR-017b10**: For every authorized Guest lookup, Member lookup, or Magic
   Link read, the system MUST obtain the current delivery-safe ticket/session-
   entitlement projection from 003.2. The displayed branch and required-session
-  schedule MUST therefore reflect a successful later replacement or verified
-  refund consequence. Every projected session entitlement MUST include its
+  schedule MUST therefore reflect a successful later replacement or ticket
+  cancellation (003.2 FR-010aa, 2026-11-15). Every projected session entitlement MUST include its
   opaque UUID `sessionReference`, canonical location reference, and current
   scheduled start/end instants so 003.1 can map each current entitlement to a
   session without inferring identity from time or location. A booking-side
@@ -1677,7 +1797,9 @@ deadline.
   `/workshop-booking/lookup`, `/workshop-booking/access#token`, and
   `/workshop-booking/:bookingCode/payment-return`. The browser-return route
   MUST display only current server-confirmed state and MUST NOT use redirect
-  parameters as payment evidence or confirmation authority.
+  parameters as payment evidence or confirmation authority. *(Updated
+  2026-11-15 for groups: the route map also has `/workshop-booking/cart`, and
+  the payment-return route is `/workshop-booking/:groupCode/payment-return`.)*
 - **FR-017b7**: Before any internal resend, Magic Link incident action, or
   late-payment follow-up action, the server MUST recheck
   canonical account facts and the applicable Booking action rule. For Staff,
@@ -1788,6 +1910,10 @@ deadline.
   raw VNPay payload or final-payment detail, verify final payment, or calculate
   the final balance. This feature defines no credit/deferred-payment exception;
   creation or delivery of any payment link is never final settlement.
+  *(Superseded 2026-11-14/15 for direct bookings by FR-044 and FR-050: the
+  booking-wide `recordFinalBalanceResolved` was removed in T100; the same
+  behaviour now applies per ticket as `recordTicketFinalBalanceResolved`. A
+  `DEFERRED_BELOW_VNPAY_MINIMUM` ticket is not a credit exception, FR-036.)*
 - **FR-024**: The system MUST preserve the financial-status vocabulary needed by
   later cancellation/refund features without implementing refund processing in
   this feature. **Updated 2026-11-05 (D14):** on an idempotent
@@ -1819,15 +1945,18 @@ deadline.
   notification, including safe provider reference and idempotency evidence.
 - **Capacity Hold**: A temporary reservation of participant capacity associated
   with a pending booking and an expiry time.
-- **Design Request**: An optional supported ring-design choice and its outcome
-  associated with a booking.
+- ~~**Design Request**: An optional supported ring-design choice and its outcome
+  associated with a booking.~~ *(Out of scope in 003.1, removed from the entity
+  list 2026-11-15; no requirement or table uses it.)*
 - **Booking Ticket**: One independently scannable QR representation of a
   purchased participant seat, available after booking confirmation. A confirmed
   booking has exactly `participant_count` tickets. For a multi-session package, each ticket
   is valid for both selected sessions; later attendance remains per
   ticket/session pair.
 - **Payment Status**: The financial state of a booking, including unpaid,
-  deposit paid, fully paid, failed, refund pending, or refunded.
+  deposit paid, fully paid, refund pending, or refunded. *(Corrected
+  2026-11-15: `failed` is a payment-attempt state, not a financial status; a
+  failed attempt leaves the financial status `UNPAID`.)*
 
 *(Entities added 2026-11-15 for the group model of FR-030–FR-044; the Workshop
 Booking, Package Invoice and Booking Ticket entries above describe the
@@ -1851,7 +1980,24 @@ definitions are in [data-model.md](data-model.md).)*
 - **Ticket Recipient** *(FR-041)*: The optional recipient email of a ticket;
   a changed recipient revokes the old QR and issues a new one (at most 3 online
   changes), with masked audit.
-- **Buyer Verification** *(FR-041)*: The single-use proof, from an OTP to the
+- **Booking Group Line** *(FR-030, FR-031)*: One package, its complete
+  required-session set (each with its hold reference) and a participant count
+  inside a group; the unit that fails or succeeds together at the hold.
+- **Cart Quote** *(FR-033–FR-037, FR-045)*: The server-computed, single-use
+  quote of a cart (per-ticket prices, allocations, collection kinds, applied
+  discount); accepted once to create a group; expires and can be refused as
+  changed.
+- **Group Payment Attempt** *(FR-032, FR-036)*: One VNPay attempt for the group
+  collection with its merchant reference and deadline (`paymentDeadlineAt`,
+  never extending the hold); its `FAILED`/`EXPIRED` states are not group
+  statuses.
+- **Group Magic Link** *(FR-042, FR-048)*: The one reusable read-only bearer
+  access to the group projection, stored only as a hash, expiring with the last
+  session and revocable or rotatable by a Manager.
+- **Group Notification Intent** *(FR-038, FR-041, FR-048)*: A reference-only,
+  immutable handoff of a confirmation, expiry, late-payment, recipient or
+  resend email that Feature 007 pulls after commit.
+- **Buyer Verification** *(FR-041, FR-041a)*: The single-use proof, from an OTP to the
   original contact email, that a Guest buyer (or Staff acting for one) may change
   a recipient or reach 003.3 buyer-proof actions; only a salted OTP hash is kept.
 
@@ -1859,8 +2005,13 @@ definitions are in [data-model.md](data-model.md).)*
 
 ### Measurable Outcomes
 
-- **SC-001** *("booking" read as booking group, FR-030/FR-044, 2026-11-15)*: At least 95% of valid customer booking attempts reach a clear
-  pending-payment or confirmed outcome without manual operator intervention.
+- **SC-001** *(restated 2026-11-15 as a verifiable criterion, FR-030/FR-044; the
+  earlier "95% of valid attempts" has no measurement source in V1 and is history)*:
+  Every valid booking scenario of the MySQL integration suite
+  (`GroupBookingFlowMySqlIT`, `GroupBookingDiscountMySqlIT`) ends in a clear
+  pending-payment, confirmed or typed-refusal outcome with no manual operator
+  step. A production percentage target is deferred until real traffic and an
+  operational counter exist.
 - **SC-002** *(restated 2026-11-14 for groups/tickets, FR-035, FR-036, FR-038)*:
   100% of confirmed booking groups have a retrievable group code, exactly one
   ticket booking with one active QR per person, and a booking-time collection
@@ -1889,8 +2040,11 @@ definitions are in [data-model.md](data-model.md).)*
   *(superseded by FR-040/FR-040a, 2026-11-12)*
 - **SC-005**: A visitor can browse a package and reach its booking entry point in
   no more than three primary interaction steps from the workshop listing.
-- **SC-006** *("booking" read as booking group, FR-030/FR-047, 2026-11-15)*: At least 90% of successful booking lookups return the correct
-  booking summary and status on the first valid lookup attempt.
+- ~~**SC-006**: At least 90% of successful booking lookups return the correct
+  booking summary and status on the first valid lookup attempt.~~ **Superseded
+  2026-11-15:** a successful lookup by definition returns the matched group, so
+  the percentage cannot fail and has no measurement source; the behaviour is
+  covered by FR-048/FR-049 and their lookup tests.
 - **SC-007**: No acceptance-path verification or production log contains a
   password, raw authentication token, payment secret, raw signed payload, or
   unnecessary sensitive personal data.

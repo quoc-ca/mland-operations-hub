@@ -2,8 +2,6 @@ package edu.fpt.sep490_g22.ppswbs_backend.paymentintegration;
 
 import edu.fpt.sep490_g22.ppswbs_backend.common.payment.VnpayMerchantOperationResult;
 import edu.fpt.sep490_g22.ppswbs_backend.common.payment.VnpayQueryDrCommand;
-import edu.fpt.sep490_g22.ppswbs_backend.common.payment.VnpayRefundReconciliationCommand;
-import edu.fpt.sep490_g22.ppswbs_backend.common.payment.VnpayRefundCommand;
 import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.config.VnpayProperties;
 import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.entity.PaymentOwnerKind;
 import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.entity.PaymentOwnerRegistration;
@@ -35,7 +33,6 @@ class VnpayMerchantOperationsAdapterTest {
     private static final String SECRET = "merchant-api-test-secret";
     private static final String MERCHANT_REFERENCE = "DEP-BOOKING-1";
     private static final String QUERY_URL = "https://sandbox.example.test/querydr";
-    private static final String REFUND_URL = "https://sandbox.example.test/refund";
 
     private PaymentOwnerRegistry owners;
     private VnpayMerchantOperationJournal journal;
@@ -55,7 +52,6 @@ class VnpayMerchantOperationsAdapterTest {
         properties.setReturnUrl("https://app.example.test/return");
         properties.setIpnUrl("https://app.example.test/ipn");
         properties.setQueryDrUrl(QUERY_URL);
-        properties.setRefundUrl(REFUND_URL);
         adapter = new VnpayMerchantOperationsAdapter(properties, owners, journal,
                 new VnpayMerchantApiSigner(properties), transport);
         when(owners.resolve(MERCHANT_REFERENCE)).thenReturn(Optional.of(PaymentOwnerRegistration.builder()
@@ -156,171 +152,6 @@ class VnpayMerchantOperationsAdapterTest {
         verifyNoMoreInteractions(transport);
     }
 
-    @Test
-    void acceptedRefundRemainsAcceptedRatherThanSettled() {
-        VnpayMerchantOperation operation = operation("refund-1", "REFUND", "provider-refund-1");
-        when(journal.prepare(eq("refund-1"), anyString(), eq("REFUND"), anyString(), eq(MERCHANT_REFERENCE)))
-                .thenReturn(new VnpayMerchantOperationJournal.Prepared(operation, true));
-        when(transport.post(eq(REFUND_URL), anyMap())).thenAnswer(invocation -> {
-            @SuppressWarnings("unchecked") Map<String, String> request = invocation.getArgument(1);
-            assertThat(request.get("vnp_Amount")).isEqualTo("5000000");
-            assertThat(request.get("vnp_TransactionDate")).isEqualTo("20261030181359");
-            return refundResponse();
-        });
-        completeAsJournalMutation(operation);
-
-        VnpayMerchantOperationResult result = adapter.requestFullRefund(new VnpayRefundCommand(
-                "refund-1", MERCHANT_REFERENCE, "12345678", "20261030181359", 50_000L,
-                "Workshop deposit", "manager-test", "8.8.8.8"));
-
-        assertThat(result.status()).isEqualTo("ACCEPTED");
-        assertThat(result.responseSignatureVerified()).isTrue();
-        assertThat(result.status()).isNotEqualTo("SETTLED");
-        verify(journal).complete("refund-1", "ACCEPTED", "00", "02", "06", "12345679", 50_000L);
-    }
-
-    @Test
-    void partialRefundUsesVnpayPartialTransactionTypeAndMatchesRequestedAmount() {
-        VnpayMerchantOperation operation = operation("refund-partial", "REFUND", "provider-refund-partial");
-        when(journal.prepare(eq("refund-partial"), anyString(), eq("REFUND"), anyString(), eq(MERCHANT_REFERENCE)))
-                .thenReturn(new VnpayMerchantOperationJournal.Prepared(operation, true));
-        when(transport.post(eq(REFUND_URL), anyMap())).thenAnswer(invocation -> {
-            @SuppressWarnings("unchecked") Map<String, String> request = invocation.getArgument(1);
-            assertThat(request.get("vnp_TransactionType")).isEqualTo("03");
-            assertThat(request.get("vnp_Amount")).isEqualTo("2500000");
-            assertThat(request.get("vnp_TransactionDate")).isEqualTo("20261030181359");
-            return refundResponse("2500000", "03");
-        });
-        completeAsJournalMutation(operation);
-
-        VnpayMerchantOperationResult result = adapter.requestRefund(new VnpayRefundCommand(
-                "refund-partial", MERCHANT_REFERENCE, "12345678", "20261030181359", 25_000L,
-                "Workshop deposit partial", "manager-test", "8.8.8.8"));
-
-        assertThat(result.status()).isEqualTo("ACCEPTED");
-        assertThat(result.amountVnd()).isEqualTo(25_000L);
-        verify(journal).complete("refund-partial", "ACCEPTED", "00", "03", "06", "12345679", 25_000L);
-    }
-
-    @Test
-    void refundQueryVerifiesOnlySignedMatchingTerminalRefundTransaction() {
-        VnpayMerchantOperation operation = operation("refund-query-verified", "REFUND_QUERYDR", "refund-query-provider-id");
-        when(journal.prepare(eq("refund-query-verified"), anyString(), eq("REFUND_QUERYDR"), anyString(), eq(MERCHANT_REFERENCE)))
-                .thenReturn(new VnpayMerchantOperationJournal.Prepared(operation, true));
-        when(transport.post(eq(QUERY_URL), anyMap())).thenAnswer(invocation -> {
-            @SuppressWarnings("unchecked") Map<String, String> request = invocation.getArgument(1);
-            assertThat(request.get("vnp_TransactionNo")).isEqualTo("12345679");
-            assertThat(request.get("vnp_TransactionDate")).isEqualTo("20261030181359");
-            Map<String, String> response = refundQueryResponse("2500000", "03", "00", "12345679");
-            return response;
-        });
-        completeAsJournalMutation(operation);
-
-        VnpayMerchantOperationResult result = adapter.queryRefund(refundQuery("refund-query-verified"));
-
-        assertThat(result.status()).isEqualTo("VERIFIED");
-        assertThat(result.responseSignatureVerified()).isTrue();
-        assertThat(result.providerTransactionNumber()).isEqualTo("12345679");
-        assertThat(result.amountVnd()).isEqualTo(25_000L);
-        verify(journal).complete("refund-query-verified", "VERIFIED", "00", "03", "00", "12345679", 25_000L);
-    }
-
-    @Test
-    void refundQueryKeepsProviderStatuses05And06PendingAnd09Rejected() {
-        for (String transactionStatus : List.of("05", "06", "09")) {
-            String operationReference = "refund-query-status-" + transactionStatus;
-            VnpayMerchantOperation operation = operation(operationReference, "REFUND_QUERYDR", "provider-" + transactionStatus);
-            when(journal.prepare(eq(operationReference), anyString(), eq("REFUND_QUERYDR"), anyString(), eq(MERCHANT_REFERENCE)))
-                    .thenReturn(new VnpayMerchantOperationJournal.Prepared(operation, true));
-            when(transport.post(eq(QUERY_URL), anyMap()))
-                    .thenReturn(refundQueryResponse("2500000", "03", transactionStatus, "12345679"));
-            completeAsJournalMutation(operation);
-
-            VnpayMerchantOperationResult result = adapter.queryRefund(refundQuery(operationReference));
-
-            assertThat(result.status()).isEqualTo("09".equals(transactionStatus) ? "REJECTED" : "PENDING");
-        }
-    }
-
-    @Test
-    void refundQueryMismatchRemainsUnknown() {
-        VnpayMerchantOperation operation = operation("refund-query-mismatch", "REFUND_QUERYDR", "refund-query-mismatch-id");
-        when(journal.prepare(eq("refund-query-mismatch"), anyString(), eq("REFUND_QUERYDR"), anyString(), eq(MERCHANT_REFERENCE)))
-                .thenReturn(new VnpayMerchantOperationJournal.Prepared(operation, true));
-        when(transport.post(eq(QUERY_URL), anyMap()))
-                .thenReturn(refundQueryResponse("2500001", "03", "00", "wrong-provider-transaction"));
-        completeAsJournalMutation(operation);
-
-        VnpayMerchantOperationResult result = adapter.queryRefund(refundQuery("refund-query-mismatch"));
-
-        assertThat(result.status()).isEqualTo("UNKNOWN");
-        assertThat(result.responseSignatureVerified()).isTrue();
-        verify(journal).complete("refund-query-mismatch", "UNKNOWN", "00", "03", "00",
-                "wrong-provider-transaction", null);
-    }
-
-    @Test
-    void partialRefundCannotExceedOriginalPayment() {
-        assertThatThrownBy(() -> adapter.requestRefund(new VnpayRefundCommand(
-                "refund-too-large", MERCHANT_REFERENCE, "12345678", "20261030181359", 50_001L,
-                "Workshop deposit", "manager-test", "8.8.8.8")))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("REFUND_AMOUNT_MUST_BE_WITHIN_ORIGINAL_PAYMENT");
-        verifyNoInteractions(transport, journal);
-    }
-
-    @Test
-    void refundRejectsOriginalPaymentDateThatDiffersFromImmutableOwnerRegistration() {
-        assertThatThrownBy(() -> adapter.requestRefund(new VnpayRefundCommand(
-                "refund-wrong-date", MERCHANT_REFERENCE, "12345678", "20261030181358", 25_000L,
-                "Workshop deposit", "manager-test", "8.8.8.8")))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("ORIGINAL_PAYMENT_DATE_MISMATCH");
-        verifyNoInteractions(transport, journal);
-    }
-
-    @Test
-    void refundRejectsLegacyOwnerWithoutImmutableOriginalPaymentDate() {
-        when(owners.resolve(MERCHANT_REFERENCE)).thenReturn(Optional.of(PaymentOwnerRegistration.builder()
-                .merchantReference(MERCHANT_REFERENCE).bookingReference("BOOKING-1")
-                .paymentKind(PaymentOwnerKind.DEPOSIT).amountVnd(50_000L).currencyCode("VND")
-                .lifecycleStatus("OPEN").build()));
-
-        assertThatThrownBy(() -> adapter.requestRefund(new VnpayRefundCommand(
-                "refund-legacy-date", MERCHANT_REFERENCE, "12345678", "20261030181359", 25_000L,
-                "Workshop deposit", "manager-test", "8.8.8.8")))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("ORIGINAL_PAYMENT_DATE_MISSING");
-        verifyNoInteractions(transport, journal);
-    }
-
-    @Test
-    void refundRejectsNonNumericProviderTransactionNumberBeforeDispatch() {
-        assertThatThrownBy(() -> adapter.requestRefund(new VnpayRefundCommand(
-                "refund-invalid-transaction", MERCHANT_REFERENCE, "TX-123", "20261030181359", 25_000L,
-                "Workshop deposit", "manager-test", "8.8.8.8")))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("INVALID_PROVIDER_TRANSACTION_NUMBER");
-        verifyNoInteractions(transport, journal);
-    }
-
-    @Test
-    void transportFailureIsUnknownAndDoesNotRetry() {
-        VnpayMerchantOperation operation = operation("refund-timeout", "REFUND", "provider-refund-timeout");
-        when(journal.prepare(eq("refund-timeout"), anyString(), eq("REFUND"), anyString(), eq(MERCHANT_REFERENCE)))
-                .thenReturn(new VnpayMerchantOperationJournal.Prepared(operation, true));
-        when(transport.post(eq(REFUND_URL), anyMap())).thenThrow(new IllegalStateException("simulated timeout"));
-        completeAsJournalMutation(operation);
-
-        VnpayMerchantOperationResult result = adapter.requestFullRefund(new VnpayRefundCommand(
-                "refund-timeout", MERCHANT_REFERENCE, "12345678", "20261030181359", 50_000L,
-                "Workshop deposit", "manager-test", "8.8.8.8"));
-
-        assertThat(result.status()).isEqualTo("UNKNOWN");
-        verify(transport, times(1)).post(eq(REFUND_URL), anyMap());
-        verify(journal).complete("refund-timeout", "UNKNOWN", null, null, null, null, null);
-    }
-
     private void completeAsJournalMutation(VnpayMerchantOperation operation) {
         when(journal.complete(anyString(), anyString(), nullable(String.class), nullable(String.class),
                 nullable(String.class), nullable(String.class), nullable(Long.class))).thenAnswer(invocation -> {
@@ -337,11 +168,6 @@ class VnpayMerchantOperationsAdapterTest {
     private static VnpayQueryDrCommand query(String operationReference) {
         return new VnpayQueryDrCommand(operationReference, MERCHANT_REFERENCE,
                 "20261030181359", "Workshop deposit", "8.8.8.8");
-    }
-
-    private static VnpayRefundReconciliationCommand refundQuery(String operationReference) {
-        return new VnpayRefundReconciliationCommand(operationReference, MERCHANT_REFERENCE,
-                "12345679", "20261030181359", 25_000L, "Workshop deposit refund", "8.8.8.8");
     }
 
     private static VnpayMerchantOperation operation(String reference, String kind, String providerRequestId) {
@@ -367,45 +193,6 @@ class VnpayMerchantOperationsAdapterTest {
         response.put("vnp_OrderInfo", "Workshop deposit");
         response.put("vnp_PromotionCode", "");
         response.put("vnp_PromotionAmount", "");
-        response.put("vnp_SecureHash", responseHash(response, List.of("vnp_ResponseId", "vnp_Command",
-                "vnp_ResponseCode", "vnp_Message", "vnp_TmnCode", "vnp_TxnRef", "vnp_Amount",
-                "vnp_BankCode", "vnp_PayDate", "vnp_TransactionNo", "vnp_TransactionType",
-                "vnp_TransactionStatus", "vnp_OrderInfo", "vnp_PromotionCode", "vnp_PromotionAmount")));
-        return response;
-    }
-
-    private static Map<String, String> refundResponse() {
-        return refundResponse("5000000", "02");
-    }
-
-    private static Map<String, String> refundResponse(String amount, String transactionType) {
-        Map<String, String> response = new LinkedHashMap<>();
-        response.put("vnp_ResponseId", "response-refund-1");
-        response.put("vnp_Command", "refund");
-        response.put("vnp_ResponseCode", "00");
-        response.put("vnp_Message", "Accepted");
-        response.put("vnp_TmnCode", "TEST1234");
-        response.put("vnp_TxnRef", MERCHANT_REFERENCE);
-        response.put("vnp_Amount", amount);
-        response.put("vnp_BankCode", "NCB");
-        response.put("vnp_PayDate", "20261031120100");
-        response.put("vnp_TransactionNo", "12345679");
-        response.put("vnp_TransactionType", transactionType);
-        response.put("vnp_TransactionStatus", "06");
-        response.put("vnp_OrderInfo", "Workshop deposit");
-        response.put("vnp_SecureHash", responseHash(response, List.of("vnp_ResponseId", "vnp_Command",
-                "vnp_ResponseCode", "vnp_Message", "vnp_TmnCode", "vnp_TxnRef", "vnp_Amount",
-                "vnp_BankCode", "vnp_PayDate", "vnp_TransactionNo", "vnp_TransactionType",
-                "vnp_TransactionStatus", "vnp_OrderInfo")));
-        return response;
-    }
-
-    private static Map<String, String> refundQueryResponse(String amount, String transactionType,
-                                                            String transactionStatus, String transactionNumber) {
-        Map<String, String> response = queryResponse("00", amount);
-        response.put("vnp_TransactionNo", transactionNumber);
-        response.put("vnp_TransactionType", transactionType);
-        response.put("vnp_TransactionStatus", transactionStatus);
         response.put("vnp_SecureHash", responseHash(response, List.of("vnp_ResponseId", "vnp_Command",
                 "vnp_ResponseCode", "vnp_Message", "vnp_TmnCode", "vnp_TxnRef", "vnp_Amount",
                 "vnp_BankCode", "vnp_PayDate", "vnp_TransactionNo", "vnp_TransactionType",

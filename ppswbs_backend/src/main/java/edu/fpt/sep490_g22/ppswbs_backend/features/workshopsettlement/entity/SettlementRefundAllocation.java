@@ -44,30 +44,12 @@ public class SettlementRefundAllocation {
     @Column(name = "operation_reference", nullable = false, unique = true, length = 128)
     private String operationReference;
 
-    @Column(name = "provider_refund_transaction_number", length = 15)
-    private String providerRefundTransactionNumber;
-
     @Column(name = "lifecycle_status", nullable = false, length = 24)
     private String lifecycleStatus;
 
     /** The T097 bank refund this allocation was handed to, when it is not going back through a gateway. */
     @Column(name = "bank_refund_reference", length = 128)
     private String bankRefundReference;
-
-    @Column(name = "provider_response_code", length = 8)
-    private String providerResponseCode;
-
-    @Column(name = "provider_transaction_type", length = 4)
-    private String providerTransactionType;
-
-    @Column(name = "provider_transaction_status", length = 4)
-    private String providerTransactionStatus;
-
-    @Column(name = "provider_accepted_at")
-    private Instant providerAcceptedAt;
-
-    @Column(name = "last_query_at")
-    private Instant lastQueryAt;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

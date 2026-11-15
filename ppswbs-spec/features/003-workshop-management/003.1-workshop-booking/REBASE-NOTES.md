@@ -1,5 +1,8 @@
 # Rebase notes — Workshop Booking Core
 
+> **Superseded 2026-11-15:** this note predates the booking-group model; the current model is spec FR-030-FR-052 and data-model "Booking group".
+
+
 **Status**: Required before additional implementation is planned from the
 original V1 artifacts in this directory.
 

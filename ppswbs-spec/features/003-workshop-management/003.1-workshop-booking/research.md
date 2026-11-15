@@ -1,5 +1,8 @@
 # Research: Direct-Mland Workshop Booking Core
 
+> **Superseded in part 2026-11-15:** research input only, predates the booking-group model (spec FR-030-FR-052).
+
+
 **Date created**: 2026-10-25
 **Date updated**: 2026-11-05
 **Feature Branch**: `003.1-workshop-booking`
