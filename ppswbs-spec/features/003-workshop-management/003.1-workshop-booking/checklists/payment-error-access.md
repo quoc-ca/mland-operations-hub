@@ -16,7 +16,7 @@
 
 - [x] CHK001 Is the required outcome defined when a second, distinct verified success (different provider transaction) arrives for a group that is already `CONFIRMED`, as opposed to a duplicate of the same event? [Gap, Spec §FR-013a]
 - [x] CHK002 Is it unambiguous whether a payment retry may be started between the payment deadline (minute 10) and `holdExpiresAt` (minute 12), given FR-012a says "within the hold" while FR-032 expires the link at minute 10? [Ambiguity, Spec §FR-012a, §FR-032]
-- [ ] CHK003 Are verified-but-mismatched amount/reference/currency results specified so they can never confirm a group, before or after expiry? [Edge Case, Spec §FR-010f, §FR-040, SC-003]
+- [x] CHK003 Are verified-but-mismatched amount/reference/currency results specified so they can never confirm a group, before or after expiry? [Edge Case, Spec §FR-010f, §FR-040, SC-003] — ticked by an independent review agent on 2026-11-16 per the instruction of Hồ Hoàng Quốc
 - [x] CHK004 Are the group-collection thresholds (0, 1–4,999, at least 5,000 VND) and the pre-attempt amount recheck defined without room for rounding, waiver or silent benefit change? [Clarity, Spec §FR-036]
 - [x] CHK005 Are the non-refundable disclosure and the forfeited amount (only the collected amount, no debt on the uncollected remainder) stated for every collection kind? [Completeness, Spec §FR-035, §FR-037]
 - [x] CHK006 Does FR-040 condition 4 define which timestamp is measured against the 60-minute window (provider payment time or Mland receipt time of the evidence)? [Ambiguity, Spec §FR-040]
@@ -28,23 +28,23 @@
 
 ## Error States and Recovery
 
-- [ ] CHK012 Is the customer-visible and state outcome defined when the payment provider cannot create a payment link (server-side, before any attempt exists), distinct from the client-side `UNKNOWN` timeout case? [Gap, Spec §FR-012b]
+- [x] CHK012 Is the customer-visible and state outcome defined when the payment provider cannot create a payment link (server-side, before any attempt exists), distinct from the client-side `UNKNOWN` timeout case? [Gap, Spec §FR-012b] — ticked by an independent review agent on 2026-11-16 per the instruction of Hồ Hoàng Quốc
 - [x] CHK013 Are failure outcomes defined for an unavailable Loyalty (006) or Operations (003.2) dependency during quote, hold, confirmation and expiry release? [Gap, Spec §FR-019a, §FR-031]
 - [x] CHK014 Is recovery defined when releasing a group's seats or benefits fails at expiry (retry, escalation, who is told), beyond "exactly once"? [Gap, Spec §FR-021, §FR-039]
-- [ ] CHK015 Is it explicit that notification failure after confirmation never reverses payment or confirmation, with a bounded retry and follow-up owner? [Completeness, Spec §FR-015a, §FR-015b]
+- [x] CHK015 Is it explicit that notification failure after confirmation never reverses payment or confirmation, with a bounded retry and follow-up owner? [Completeness, Spec §FR-015a, §FR-015b] — ticked by an independent review agent on 2026-11-16 per the instruction of Hồ Hoàng Quốc
 - [x] CHK016 Does FR-040a say whether a late-payment result email that fails to deliver still counts as having "reached" the buyer within 24 hours? [Ambiguity, Spec §FR-040a]
 - [x] CHK017 Is the behaviour defined when there is no active Manager (empty alert recipient set) while a review is queued? [Edge Case, Spec §FR-040a, Dependencies FE-001]
 - [x] CHK018 Is the outcome defined when an `Idempotency-Key` is reused with different content on group creation, payment attempt, hold release and resend, not only on recipient change? [Gap, Spec §FR-013, Contract]
 - [x] CHK019 Are quote validity duration and the stale-quote refusals (expired, already accepted, changed) stated as requirements rather than only in plan/contract? [Gap, Spec §FR-045, Plan "Group creation flow"]
 - [x] CHK020 Are all-or-nothing hold, `failingLines` reporting and an editable cart after refusal defined for multi-line failure? [Completeness, Spec §FR-031]
-- [ ] CHK021 Are the `UNKNOWN` result, browser-return display and terminal expired state defined so no UI path infers payment from a redirect? [Clarity, Spec §FR-012, §FR-012b, §FR-012c]
+- [x] CHK021 Are the `UNKNOWN` result, browser-return display and terminal expired state defined so no UI path infers payment from a redirect? [Clarity, Spec §FR-012, §FR-012b, §FR-012c] — ticked by an independent review agent on 2026-11-16 per the instruction of Hồ Hoàng Quốc
 
 ## Access Control and Data Exposure
 
 - [x] CHK022 Is the behaviour defined when a Guest supplies both contact email and phone, given FR-017a ("at least one must match") and FR-048/FR-014e/FR-017h ("exactly one")? [Conflict, Spec §FR-017a, §FR-048]
 - [x] CHK023 Is the authorization rule for starting or retrying a group payment attempt defined for a Guest (what proof) and a Member (ownership), now that FR-017c1 is superseded and FR-048 does not restate it? [Gap, Spec §FR-017c1, §FR-048]
-- [ ] CHK024 Is there a single role-by-operation matrix (Guest, Member, Staff, Manager, Admin) covering lookup, payment, release, resend, recipient change, Magic-Link incident and late-payment decision, including that Admin alone has no authority? [Gap, Spec §FR-017b5]
-- [ ] CHK025 Is Staff location scope defined for a group whose lines or sessions sit in different locations (any session, every session, or the acted ticket's line)? [Ambiguity, Spec §FR-048, Plan "Identity and authorization"]
+- [x] CHK024 Is there a single role-by-operation matrix (Guest, Member, Staff, Manager, Admin) covering lookup, payment, release, resend, recipient change, Magic-Link incident and late-payment decision, including that Admin alone has no authority? [Gap, Spec §FR-017b5] — ticked by an independent review agent on 2026-11-16 per the instruction of Hồ Hoàng Quốc
+- [x] CHK025 Is Staff location scope defined for a group whose lines or sessions sit in different locations (any session, every session, or the acted ticket's line)? [Ambiguity, Spec §FR-048, Plan "Identity and authorization"] — ticked by an independent review agent on 2026-11-16 per the instruction of Hồ Hoàng Quốc
 - [x] CHK026 Is a uniform rule stated for when an unauthorized or non-owner request answers 403 versus 404, so existence is not revealed? [Ambiguity, Spec §FR-017, §FR-048]
 - [x] CHK027 Does the denied-attempt audit requirement name every sensitive internal action now in scope (late-payment decision, Staff/Manager recipient change), not only resend, Magic-Link incident and the removed late-payment follow-up? [Gap, Spec §FR-017b7]
 - [x] CHK028 Are the actors allowed to change a recipient consistent between FR-041 ("buyer, or Staff after verifying the buyer") and the contract ("Staff or Manager")? [Conflict, Spec §FR-041, Contract recipient route]
@@ -61,9 +61,9 @@
 
 ## Acceptance Criteria Measurability
 
-- [ ] CHK036 Are SC-002 and SC-003 stated as 100% pass/fail criteria with an objective way to count confirmed groups and rejected notifications? [Measurability, Spec SC-002, SC-003]
+- [x] CHK036 Are SC-002 and SC-003 stated as 100% pass/fail criteria with an objective way to count confirmed groups and rejected notifications? [Measurability, Spec SC-002, SC-003] — ticked by an independent review agent on 2026-11-16 per the instruction of Hồ Hoàng Quốc
 - [x] CHK037 Does SC-004 give a numeric bound for release latency after `holdExpiresAt` instead of "within the defined expiry process"? [Measurability, Spec SC-004, §FR-039]
-- [ ] CHK038 Is there a success criterion for access control and non-disclosure (unauthorized, wrong-proof and cross-owner requests expose no booking data) now that SC-006 is superseded? [Gap, Spec SC-006]
+- [x] CHK038 Is there a success criterion for access control and non-disclosure (unauthorized, wrong-proof and cross-owner requests expose no booking data) now that SC-006 is superseded? [Gap, Spec SC-006] — ticked by an independent review agent on 2026-11-16 per the instruction of Hồ Hoàng Quốc
 - [x] CHK039 Is SC-007's "unnecessary sensitive personal data" defined by an objective list rather than a subjective term? [Ambiguity, Spec SC-007]
 - [x] CHK040 Do the P1/P2 stories for payment (US6) and late payment (US9) have independently testable failure and refund scenarios with expected outcomes? [Coverage, Spec US6, US9]
 

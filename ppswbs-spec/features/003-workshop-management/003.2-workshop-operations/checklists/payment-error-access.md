@@ -34,7 +34,7 @@ Each item carries an agent assessment as a sub-bullet (PASS or FAIL). Boxes stay
   - Assessment: PASS. FR-009/FR-009a also separate the no-commitment direct `CANCELLED` path.
 - [x] CHK009 Is there a requirement for a session stuck in `CANCELLATION_REQUESTED` when 003.3 never reports resolution (time limit, alert, Manager escalation)? [Gap, Spec §FR-010a]
   - Assessment: FAIL. FR-010a defines only the happy completion condition; no timeout, monitoring or escalation requirement exists for an unresolved handoff.
-- [ ] CHK010 Are the timing and scope of entitlement/QR revocation (at `cancelTicket`, future sessions only, attendance history preserved, other group tickets untouched) specified without ambiguity? [Clarity, Spec §FR-031, Clarifications 2026-11-15 Q5]
+- [x] CHK010 Are the timing and scope of entitlement/QR revocation (at `cancelTicket`, future sessions only, attendance history preserved, other group tickets untouched) specified without ambiguity? [Clarity, Spec §FR-031, Clarifications 2026-11-15 Q5] — ticked by an independent review agent on 2026-11-16 per the instruction of Hồ Hoàng Quốc
   - Để trống (agent độc lập): FR-031 (spec.md:166-169) chỉ nói thu hồi "future entitlements", Q5 (spec.md:622-627) và T117 (tasks.md:453) nói thêm QR, còn facades contract dòng 382 và plan.md:496 chỉ xóa entitlement + giảm hold, không nêu QR bị thu hồi hay trạng thái ticket sau cancelTicket (check-in sau đó trả TICKET_CONFLICT hay TICKET_QR_REVOKED?).
   - Assessment: PASS.
 - [x] CHK011 Are OTA-ticket cancellation rules defined for both the general refusal and the 003.4-only revocation exception? [Coverage, Spec §FR-036]
@@ -48,7 +48,7 @@ Each item carries an agent assessment as a sub-bullet (PASS or FAIL). Boxes stay
   - Assessment: FAIL. FR-036 says "one code, for example `OTA_TICKET_NOT_SUPPORTED`"; the code is not decided and is absent from the facades contract reasons.
 - [x] CHK014 Are the REST error codes and HTTP statuses for operational refusals (check-in before `checkInOpensAt`, wrong state, unassigned Staff, finalization out of state) enumerated? [Gap, OpenAPI `Problem.code`, Spec §FR-005, §FR-006]
   - Assessment: FAIL. `Problem.code` is a free string; the spec names only `ALREADY_CHECKED_IN`, `OPTIMISTIC_LOCK_CONFLICT`, `IDEMPOTENCY_*` and the 403 message for unassigned Staff; no code for a too-early check-in.
-- [ ] CHK015 Are duplicate and concurrent command behaviours (`IDEMPOTENCY_CONFLICT`, `IDEMPOTENCY_IN_PROGRESS`, replay) fully specified for REST and facade? [Completeness, Spec §FR-010ka–§FR-010kd, Clarifications 2026-11-03]
+- [x] CHK015 Are duplicate and concurrent command behaviours (`IDEMPOTENCY_CONFLICT`, `IDEMPOTENCY_IN_PROGRESS`, replay) fully specified for REST and facade? [Completeness, Spec §FR-010ka–§FR-010kd, Clarifications 2026-11-03] — ticked by an independent review agent on 2026-11-16 per the instruction of Hồ Hoàng Quốc
   - Để trống (agent độc lập): Idempotency-Key chỉ khai báo cho route quản trị (openapi:31-377, 559); route vận hành check-in-reversals/attendance-corrections/attendance-finalizations/cancellation-requests/ticket-resends (openapi:436-545) không có quy tắc replay/trùng lặp, và spec.md:516-531 (Q 2026-11-03) chỉ phủ route quản trị; lặp reversal/correction cùng giá trị chưa định nghĩa.
   - Assessment: PASS.
 - [x] CHK016 Is the outcome of retrying an `operationReference` after the 24-hour retention window defined? [Ambiguity, Spec §FR-010kf]
@@ -72,10 +72,10 @@ Each item carries an agent assessment as a sub-bullet (PASS or FAIL). Boxes stay
   - Assessment: FAIL. The 2026-10-24 branch-assigned answer has no inline supersession marker (only the top-of-file 2026-10-29 note) and SC-001 still says "scoped Manager".
 - [x] CHK024 Are Admin permissions on Workshop Operations defined? [Ambiguity, Spec §Authorization decision, §Staff session-assignment access, §FR-012]
   - Assessment: FAIL. "Admin remains global" and "Admin-only technical actions" appear in prose but no FR defines Admin actions, and 2026-10-24 refers to an undefined "higher-privilege actor".
-- [ ] CHK025 Are Manager-only actions (reverse check-in, correct attendance, request cancellation, publish/pause, assign Staff, slots/sessions) enumerated with their audit requirement? [Completeness, Spec §FR-001e, §FR-001f, §FR-002b, §FR-008, §FR-009, §FR-010]
+- [x] CHK025 Are Manager-only actions (reverse check-in, correct attendance, request cancellation, publish/pause, assign Staff, slots/sessions) enumerated with their audit requirement? [Completeness, Spec §FR-001e, §FR-001f, §FR-002b, §FR-008, §FR-009, §FR-010] — ticked by an independent review agent on 2026-11-16 per the instruction of Hồ Hoàng Quốc
   - Để trống (agent độc lập): Audit của publish/pause (spec.md:1426-1432, FR-010), tạo session (spec.md:1251, FR-001f) và gán/thu Staff thông thường không được nêu trong FR nào; chỉ có câu chung "Every operational configuration change is audited" (spec.md:966-967) và "audit reference" ở data-model.md:130, nên danh sách Manager-only kèm yêu cầu audit chưa liệt kê đầy đủ.
   - Assessment: PASS.
-- [ ] CHK026 Are the requirements for the Manager cross-session booking lookup (read-only, audited, no full email/phone) complete? [Completeness, Spec §FR-003b, Clarifications 2026-11-15 Q4]
+- [x] CHK026 Are the requirements for the Manager cross-session booking lookup (read-only, audited, no full email/phone) complete? [Completeness, Spec §FR-003b, Clarifications 2026-11-15 Q4] — ticked by an independent review agent on 2026-11-16 per the instruction of Hồ Hoàng Quốc
   - Để trống (agent độc lập): Yêu cầu nghiệp vụ có (spec.md:1308-1313, 616-621) nhưng OpenAPI chưa có route/DTO cho Manager lookup (openapi:448-459 chỉ có booking-lookups cho Staff) và tasks.md:452 (T116) vẫn mở; chưa chốt đường dẫn, trường trả về, hành vi booking không tồn tại.
   - Assessment: PASS at requirement level (route absence is open task T116).
 - [x] CHK027 Is Staff booking-lookup refusal consistent between "generic no-eligible-ticket result" and the documented `404`? [Ambiguity, Spec §FR-003d, OpenAPI booking-lookups `404`]
@@ -84,7 +84,7 @@ Each item carries an agent assessment as a sub-bullet (PASS or FAIL). Boxes stay
   - Assessment: FAIL. Spec specifies only inactive/out-of-scope refusal; `401` is declared on three OpenAPI operations only.
 - [x] CHK029 Are eligibility rules for assigning Staff to a session (active, STAFF role, location in scope, duplicates) specified? [Gap, Spec §Staff session-assignment access, OpenAPI staff-assignments `409`]
   - Assessment: FAIL. Who may be assigned and when the `409` applies are not stated.
-- [ ] CHK030 Are the "missing Staff" flag and the last-assignment revocation guard (explicit confirmation, audited) specified, including Manager exemption? [Completeness, Spec §Staff session-assignment access, Clarifications 2026-11-15 Q3]
+- [x] CHK030 Are the "missing Staff" flag and the last-assignment revocation guard (explicit confirmation, audited) specified, including Manager exemption? [Completeness, Spec §Staff session-assignment access, Clarifications 2026-11-15 Q3] — ticked by an independent review agent on 2026-11-16 per the instruction of Hồ Hoàng Quốc
   - Để trống (agent độc lập): Phạm vi trạng thái của cờ missingStaff và guard thu hồi Staff cuối (spec.md:603-613) chưa nêu: session DRAFT, hoặc đã CANCELLED/ATTENDANCE_FINALIZED mà checkInOpensAt đã qua có bị gắn cờ/đòi xác nhận không (spec.md:135-136 cho phép thu hồi ở mọi trạng thái).
   - Assessment: PASS. Field name deferred to the contract task by design.
 - [x] CHK031 Are PII disclosure limits consistent across check-in, repeat scan, lookup, roster and projection? [Consistency, Spec §FR-002c, §FR-003a, §FR-003e, Staff session-assignment access (roster)]
@@ -98,7 +98,7 @@ Each item carries an agent assessment as a sub-bullet (PASS or FAIL). Boxes stay
 
 - [x] CHK034 Is it specified which modules may call each facade command that changes tickets (`cancelTicket`, `replaceTicketSessions`, `reissueTicketQr`, `CancelBookingCommand`)? [Gap, Spec §FR-036, facades contract]
   - Assessment: FAIL. Only the 003.4-only operation names its caller; the others are described as "whatever the caller is" with no declared permitted-caller list.
-- [ ] CHK035 Are handoff open, resolution read and completion symmetric between 003.2 and 003.3 (idempotency, `CANCELLATION_HANDOFF_UNRESOLVED`)? [Consistency, Spec §FR-010a, facades contract OpenCancellationHandoff / Complete]
+- [x] CHK035 Are handoff open, resolution read and completion symmetric between 003.2 and 003.3 (idempotency, `CANCELLATION_HANDOFF_UNRESOLVED`)? [Consistency, Spec §FR-010a, facades contract OpenCancellationHandoff / Complete] — ticked by an independent review agent on 2026-11-16 per the instruction of Hồ Hoàng Quốc
   - Để trống (agent độc lập): Facades contract dòng 284 định nghĩa resolved ở mức "every affected booking case ... recorded remedy" với affectedBookingReferences (dòng 282), trong khi FR-010a (spec.md:1647-1652) đã chuyển sang mức ticket (moved / bank refund request opened / audited Manager decision); hợp đồng open/resolve/complete chưa đồng bộ về đơn vị và định nghĩa resolved.
   - Assessment: PASS.
 - [x] CHK036 Is the Staff-assignment rule propagated to 003.3/003.4 through a defined query? [Consistency, Spec §Staff session-assignment access "Downstream", facades `isStaffAssignedToBooking`]
