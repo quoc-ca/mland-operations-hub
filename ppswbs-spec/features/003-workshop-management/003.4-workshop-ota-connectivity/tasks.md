@@ -318,3 +318,8 @@ Task: T019 mapping and price snapshot persistence in .../persistence/
 - [ ] T129 Normalize "Basic Ring" to Signature Workshop — Brass in `plan.md`, `data-model.md`, `quickstart.md`, `design/ui-flow.md` and the contract descriptions, keeping the Manager-configured mapping (Q9); no hard-coded package.
 
 *Traceability addendum 2026-11-15:* T120, T122 → FR-004a/004c, FR-017; T121 → FR-010, FR-011; T123 → FR-013, FR-014; T124 → FR-015; T125 → FR-011 (needs 003.2 T123); T126 → FR-013; T127 → FR-017; T128 → C2/T061; T129 → Clarifications Q9.
+
+## Phase 11: Convergence
+
+- [ ] T130 [US3] Expose a Manager-only read of an OTA channel booking's revoked tickets (audit entries naming the tickets) on the booking detail API and the Manager page, per Clarifications 2026-11-15 Q3 / FR-011 (partial)
+- [ ] T131 [US3] Record `PARTIALLY_REFUNDED` evidence and a `CUSTOMER_REFUND` ledger entry, without releasing tickets, when the OTA reports a partial refund, in `OtaCancellationService` and the adapters per FR-012 / T109 (missing)

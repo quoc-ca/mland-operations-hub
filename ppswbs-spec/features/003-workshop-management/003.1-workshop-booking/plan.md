@@ -75,7 +75,7 @@ cancellation, refund and changes (003.3) and OTA (003.4) are outside it.
 | --- | --- |
 | Runtime | Java 21, Spring Boot REST, Spring Modulith, JPA/Spring Data, MySQL and append-only Flyway migrations (group model V113–V133). |
 | Client | Separate React + Vite client using versioned REST APIs; no backend-rendered booking UI. |
-| Identity and authorization | Firebase bearer tokens prove identity only. Account Management supplies canonical `MEMBER`, `STAFF`, `MANAGER`, or `ADMIN` role, active status and `activeLocationIds`; Booking applies its own support-action rules against the group line's canonical location. Guest access uses one stored contact proof of the group, a protected group Magic Link, or (for a recipient change) the single-use `buyerVerificationReference` of an OTP to the original contact email. |
+| Identity and authorization | Firebase bearer tokens prove identity only. Account Management supplies canonical `MEMBER`, `STAFF`, `MANAGER`, or `ADMIN` role, active status and `activeLocationIds`; Booking applies its own support-action rules: for a group-level Staff operation the Staff member's active location scope MUST include the group's branch AND the Staff member MUST be actively assigned to a session of the group (003.2 "Staff session-assignment access", 003.3 FR-032; decided 2026-11-15, CHK025); a Manager is global. Guest access uses one stored contact proof of the group, a protected group Magic Link, or (for a recipient change) the single-use `buyerVerificationReference` of an OTP to the original contact email. |
 | State | Persisted group/line/ticket/snapshot/hold/payment/review state; one group `holdExpiresAt` (12 min) and `paymentDeadlineAt` (10 min); booking-critical local work uses one MySQL transaction; the unquoted cart lives only in the browser (FR-045); no new global session/token store. Rate-limit counters (Guest lookup, hold release, resend, T110) are per-instance in-memory sliding windows (decided 2026-11-15, spec Session 2026-11-15): lifecycle = process lifetime, reset on restart, effective cap up to N × configured with N instances, no cross-instance consistency; revisit (shared MySQL counter) before running more than one backend instance. |
 | Payment | Shared `paymentintegration` ingress verifies VNPay once and routes redacted evidence by immutable merchant reference; a group attempt's evidence goes to `GroupPaymentEvidenceService`, anything else is refused by the single-booking path. |
 | Benefits | Feature 006 cart contract (006 T098, D-010) plus automatic workshop discount (006 FR-044, D-013, D-014); 003.1 allocates per ticket with `TicketBenefitAllocator`. |
@@ -144,7 +144,7 @@ immutable price snapshot per person, all in one MySQL transaction, protected by
 confirmed in the same call.
 
 **Group payment flow.** One attempt for the group collection (≥ 5,000 VND),
-expiring at `paymentDeadlineAt`; a retry returns the live attempt and never
+expiring at `paymentDeadlineAt`; a retry is refused after `paymentDeadlineAt` (decided 2026-11-15, FR-012a), returns the single live `PENDING` attempt and never
 extends the hold. Verified evidence is routed by the group attempt's merchant
 reference and is idempotent. `GroupPaymentQueryDrRecoveryScheduler` queries at
 minutes 10 and 11 only when no verified terminal IPN exists and accepts only a
@@ -175,6 +175,9 @@ also failed automatic discounts and is superseded)*.
 The Manager alert email is wired to `ManagerAlertRecipientSource`, whose
 FE-001 source (`AccountManagerAlertRecipientSource`) is connected and T094 is
 done *(closed 2026-11-14, see design risk 1)*.
+**Decisions 2026-11-15 (checklist payment-error-access.md):** condition 4 counts 60 minutes from the time Mland receives the verified evidence (CHK006); evidence arriving after the earliest session started fails condition 2 and the Manager result limit is 24 hours after the evidence, refund only (CHK007); a failed result email is not "reached" and is resent with a bounded retry **limit still to be decided in this plan (open, no number set)**, then the Manager contacts the customer manually (CHK016); with no active Manager the alert goes to every active Admin, who only receive it and cannot decide (CHK017, recipient source depends on FE-001); a second verified payment with a different transaction on a `CONFIRMED` group is recorded as excess and refunded 100% through 003.3 with a Manager alert, the port being proposed (CHK001).
+
+**Decisions 2026-11-15 (checklist payment-error-access.md, second batch):** provider failure while creating the payment link answers 502/503 `PAYMENT_LINK_UNAVAILABLE` with no attempt and an unchanged hold (CHK012); `DEPENDENCY_UNAVAILABLE` refuses a whole group at creation and, at expiry, keeps the group waiting for an idempotent scheduler retry (CHK013); a release that fails at expiry is retried with backoff and alerts a Manager after N failures, where **N, the backoff and the alert recipient are OPEN and must be decided in this plan before coding (no number set; touches 003.2 idempotent release and 006)** (CHK014); a Guest payment attempt needs `groupCode` plus exactly one matching contact value, a Member only an owned `PENDING_PAYMENT` group with an active payment window (CHK023); `IDEMPOTENCY_CONFLICT` replaces `IDEMPOTENCY_KEY_REUSED` (CHK018); wrong proof or non-owner answers 404, 403 only for a known Staff/Manager without authority, and every contract route is audited for this (CHK026); SC-004 release within 5 minutes after `holdExpiresAt`, measured from audit (CHK037).
 
 **Recipient flow.** `PUT /workshop-tickets/{ticketCode}/recipient` with buyer
 proof (Member bearer + ownership; Guest OTP → single-use
@@ -296,7 +299,7 @@ capacity races". *(late-payment rejection superseded by FR-040/FR-040a)*
 
 **Former flows.** Create: validate contact, reserve `participant_count` places
 in every session through Operations, persist pending booking, invoice and
-expiry in one transaction. Payment: start/retry only while the 10-minute hold
+expiry in one transaction. Payment: start/retry only while the 10-minute hold *(for groups: until `paymentDeadlineAt`, FR-012a 2026-11-15)*
 is active; commit the hold set and confirm on matching evidence; obtain the
 ticket projection; publish a reference-only notification event. A signed
 success after hold expiry never confirmed; only a Manager could record or

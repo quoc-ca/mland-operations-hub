@@ -1,7 +1,7 @@
 # 003 Workshop Management — Internal Facade Contract
 
 **Date created**: 2026-10-25
-**Date updated**: 2026-11-14
+**Date updated**: 2026-11-15
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -461,7 +461,7 @@ Approved by the Feature 003 owner on 2026-11-13 for 003.1 FR-040/FR-040a.
   `reserveGroupCapacity` only (no channel quota exists in V1). Condition 3
   holds only when the current loyalty revision equals the recorded revision,
   the voucher and points can be held again and the recomputed total equals
-  the collected amount.
+  the collected amount. Condition 3 follows 003.1 FR-040: a voucher or points always fail it in V1 because 006 cannot re-hold them; an automatic workshop discount is recomputed and passes only if it equals the snapshot.
 - **Manager queue.** `GET /api/v1/late-payment-reviews` ordered by earliest
   session start. Booking publishes `LatePaymentReviewQueued(reviewReference,
   groupReference, earliestSessionAt, resultDueAt, correlationReference)` with
@@ -473,6 +473,33 @@ Approved by the Feature 003 owner on 2026-11-13 for 003.1 FR-040/FR-040a.
   `/refund-account#{token}` link, are `settlement_notification_handoffs` pulled through
   `WorkshopSettlementFacade.getSettlementNotificationDeliveryPayload`; Feature 007 now consumes both
   `BookingNotificationReady` and `SettlementNotificationReady` (decision 2026-11-13).
+
+## Voucher and points restoration on ticket cancellation (decision 2026-11-15)
+
+003.3 only triggers the restoration (003.3 FR-042, FR-043); the module that owns
+vouchers and points performs it exactly once per `groupCode` (idempotent key)
+and 003.3 never writes voucher or points data. A voucher is restored only while
+it is still valid at that moment, for every kind of cancellation; an expired
+voucher is not restored, the outcome carries reason `EXPIRED` and the buyer is
+told. The money already paid is refunded by bank regardless (003.3 FR-038).
+
+**Proposed signature (2026-11-15, 003.3 T155; names are PROPOSED until the
+owner approves them; owner = the voucher and points module, 006):**
+
+```text
+restoreVoucherForCancelledTicket(RestoreVoucherCommand) -> VoucherRestorationOutcome   (proposed)
+RestoreVoucherCommand        { groupCode, ticketCode, cancellationKind }               (proposed; opaque references only)
+VoucherRestorationOutcome    { outcome: RESTORED | EXPIRED | ALREADY_RESTORED }        (proposed)
+```
+
+- Idempotent per `groupCode`: the first call restores (`RESTORED`) or finds the
+  voucher no longer valid (`EXPIRED`, never extended); every later call for the
+  same `groupCode` returns `ALREADY_RESTORED` (or the stored `EXPIRED`) and
+  restores nothing a second time.
+- 003.3 stores the returned outcome with the cancellation and maps it to its
+  `voucherRestoration {restored, reason}` response field; it never reads or
+  writes voucher or points data, and the bank refund does not depend on the
+  outcome.
 
 ## Explicitly not decided here
 

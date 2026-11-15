@@ -264,10 +264,10 @@ and recovers by re-reading the server resource.
 
 | State | Storage (MySQL) | Lifecycle | Consistency | Recovery / expiry |
 | --- | --- | --- | --- | --- |
-| Ticket folio and its collections | `settlement_final_bills` (ticket code as reference; handover and debt columns, V117) and `settlement_folio_collections` | Folio `OPEN` → `FINALIZED` or `CLOSED`; collection `PENDING_VERIFICATION` → `CONFIRMED`/`FAILED`/`VOIDED` | Folio row locked (`PESSIMISTIC_WRITE`) while a balance is assigned; unique (`method`, `external_reference`); `Idempotency-Key` per command | A pending `VNPAY` part is reconciled by `FolioGatewayReconciliationScheduler` (signed IPN or QueryDR, every 5 min for at most 24 h after the checkout expires, T109); other parts wait for a Manager confirmation or failure |
+| Ticket folio and its collections | `settlement_final_bills` (ticket code as reference; handover and debt columns, V117) and `settlement_folio_collections` | Folio `OPEN` → `FINALIZED` or `CLOSED`; collection `PENDING_VERIFICATION` → `CONFIRMED`/`FAILED`/`VOIDED` | Folio row locked (`PESSIMISTIC_WRITE`) while a balance is assigned; unique (`method`, `external_reference`); `Idempotency-Key` per command | A pending `VNPAY` part is reconciled by `FolioGatewayReconciliationScheduler` (signed IPN or QueryDR, every 5 min for at most 24 h after the checkout expires, T109 *(superseded 2026-11-15, FR-034/CHK016: 24 h from the attempt creation, then automatic `FAILED` as `SYSTEM`; see "Checklist follow-up of 2026-11-15", T149)*); other parts wait for a Manager confirmation or failure |
 | Refund request and account link | `settlement_refund_requests`, `settlement_refund_account_links` | `PENDING_ACCOUNT` → `PENDING_APPROVAL` → `PENDING_TRANSFER` → `PENDING_RECONCILIATION` → `REFUNDED`, or `CLOSED_UNREACHABLE` (reopenable); link `ACTIVE` → `USED`/`REVOKED`/`EXPIRED` | Request row locked for transitions; unique (`reason`, `source_reference`) and `request_reference`; token stored only as a unique hash; `Idempotency-Key` per transition | Link valid 7 days, a resend revokes the old one; reminders on days 3 and 7; a Manager may close after 30 days and reopen; key replacement deletes ciphertexts and returns requests to `PENDING_ACCOUNT` (FR-040, T137) |
 | Ticket change request | `settlement_ticket_change_requests` (V153) | `PENDING` → `APPROVED`/`REJECTED`/`EXPIRED` | Row locked for a decision; unique `request_reference` and (`ticket_code`, `idempotency_key`); one `PENDING` per ticket | `expires_at` = earliest start of the session being changed and of any requested target session (FR-045a; the code still uses the ticket's first session, fix T130); stale requests are marked `EXPIRED` when read |
-| Cash day close | `settlement_cash_day_closes` | `PENDING_MANAGER_CONFIRMATION` → `CLOSED`, or `CLOSED` at once without a difference | Unique (`branch_id`, `business_day`); row lock; `Idempotency-Key` stored with replay (T120) | A closed day is never edited (FR-036, FR-050); cash after the close counts for the next day |
+| Cash day close | `settlement_cash_day_closes` | `PENDING_MANAGER_CONFIRMATION` → `CLOSED`, or `CLOSED` at once without a difference | Unique (`branch_id`, `business_day`); row lock; `Idempotency-Key` stored with replay (T120) | A closed day is never edited (FR-036, FR-050); cash after the close (the submission of the counted amount) counts for the next day; a wrong cash entry of a closed day is corrected by a Manager cash reversal on the current day (proposed `settlement_cash_reversals`, T144) |
 | Mland remedy offer | `settlement_ticket_mland_remedies` (V138, V152) | `PENDING_ANSWER` → `MOVED` or `REFUND` | Unique `remedy_reference`; `Idempotency-Key` on the answer; buyer proof consumed in the same transaction | No answer by `answerDeadlineAt` (24 h before the latest offered session) means refund (FR-043) |
 | Absorbed undercharge record (FR-057, planned) | proposed `settlement_absorbed_undercharges` (not yet migrated, T135) | `ACTIVE` → `VOIDED` (once) | Unique `undercharge_reference`; unique (`ticket_code`, `idempotency_key`) for the record command; the void uses its own `void_idempotency_key`; content immutable after insert (aligned with `data-model.md` 2026-11-15) | No expiry; a mistaken record is voided and a new one recorded |
 
@@ -292,6 +292,52 @@ Decided by Hồ Hoàng Quốc on 2026-11-15 and tracked in `tasks.md` Phase 10:
 - Recorded as done: VNPay Refund removal (T128) and the migration renumber
   incident with the rule never to edit or renumber an applied migration
   (T129).
+
+### Checklist follow-up of 2026-11-15 (`checklists/payment-error-access.md`)
+
+Decided by Hồ Hoàng Quốc on 2026-11-15 (spec "Checklist follow-up"); tracked in
+`tasks.md` Phase 11 (T144–T164). Tables, columns, routes and codes named below
+are **proposed** until approved (`ppswbs-spec/AGENT.md` §3); the decisions
+themselves are final in the spec.
+
+| Topic (spec) | Design | Tasks |
+| --- | --- | --- |
+| (a) Cash reversal entry (FR-036, FR-053, CHK014) | Manager-only `POST …/folio/collections/{collectionId}/cash-reversals` (proposed), reason and `Idempotency-Key`; writes a row in the proposed table `settlement_cash_reversals` (negative `amount_vnd`, `cash_business_day` = current Vietnam working day, `collection_id` unique). The original collection and the closed `settlement_cash_day_closes` row are never edited. `FolioBalanceService` subtracts the reversal; `CashDayCloseService` expected cash adds a day's reversals. Refused for a `FINALIZED`/`CLOSED` folio, for money under a refund request, and for a day not yet closed (use the FR-053 void). Whole-collection reversal only is proposed. | T144, T145 |
+| (b) "Next day" cut-off (FR-036, CHK013) | The cut-off is the submission of the counted amount, not the Manager's confirmation; any cash (and any reversal) recorded after it gets `cash_business_day` = next working day while the close is `PENDING_MANAGER_CONFIRMATION`. Closer = active Staff or Manager whose location scope contains the branch, no session-assignment rule (CHK024). | T147, T160 |
+| (c) Auto-`FAILED` of an unreconciled VNPay collection (FR-034, CHK016) | `FolioGatewayReconciliationScheduler` marks a `PENDING_VERIFICATION` `VNPAY` part `FAILED` as `SYSTEM` once 24 h have passed since the attempt was created and QueryDR reports no successful payment (an unavailable or inconclusive QueryDR is retried). *(Supersedes the state-classification text "every 5 min for at most 24 h after the checkout expires": the 24 h run from creation, T109 to be aligned.)* Money signed later follows the T110 excess path to an `EXCESS_OR_DUPLICATE_MONEY` refund. End-to-end proof needs the QueryDR sandbox (T005, T035); until then only a fake-transport test. | T149 |
+| (d) Refund failure → `PENDING_ACCOUNT` (FR-039, FR-040, CHK005/006/021) | One service operation in `BankRefundService` (proposed transition `RETURN_TO_PENDING_ACCOUNT`, Manager, reason) that, in one transaction, records the reason, deletes the ciphertext (mask kept), voids the approval, revokes the old link and sends a new one. A bank return, a statement mismatch found at `PENDING_RECONCILIATION`, or a Manager refusal all use it; no terminal rejection state exists. The key replacement of T137 uses the same rule: per-request transaction, approval void, idempotent rerun (touches only requests still holding ciphertext). | T146, T148 |
+| (e) Account entry confirmation (FR-040, CHK005/006) | The customer link page and the counter form show bank, number and holder name back and require an explicit confirmation (proposed request flag `accountDetailsConfirmed`, `422 ACCOUNT_CONFIRMATION_REQUIRED` when false). No bank-name lookup in V1. The transfer-time holder-name comparison is removed. | T150, T151 |
+| (f) Counter-entry authority (FR-040, CHK025) | Counter entry: Manager, or active Staff whose location scope contains the ticket's location and who is assigned to a session the ticket holds (the FR-032 rule, `requireManagerOrAssignedStaff`); a group-level `LATE_PAYMENT_NOT_RECONFIRMED` request is never entered at the counter. | T152 |
+| (g) Voucher restoration (FR-042, FR-043, CHK011/034) | 003.3 triggers once through the shared facade (`workshop-interfeature-facades.md`, "Voucher and points restoration"); the voucher-and-points owner restores only while the voucher is valid, idempotent per `groupCode`, reason `EXPIRED` otherwise; 003.3 stores the returned outcome and tells the buyer; the refund by bank is unaffected. Extends T142. | T155 |
+| (h) FR-057 cap (CHK009) | Service-level check under the folio lock: record ≤ folio total and Σ `ACTIVE` records of the ticket ≤ folio total, `422`. Extends T135. | T156 |
+| (i) `FINALIZED` → `CLOSED` only by Mland-cancel refund (FR-043, CHK004) | The only transition out of `FINALIZED`; every other event leaves it unchanged. It closes when the refund is `REFUNDED` and nothing is pending *(clarified 2026-11-15, O-2 decided; supersedes "when the refund request is opened")*; applies to any session reaching `CANCELLATION_REQUESTED`, including an `IN_PROGRESS` interruption. | T157 |
+| (j) Pending collection does not block Mland cancel (FR-034, CHK003) | The cancellation opens the refund; a Manager confirms or fails the pending part; a later confirmation is routed to the excess refund; the folio closes only when nothing is pending. | T158 |
+| (k) Token scrub (FR-012a, CHK030) | The account-link token in the stored notification payload is cleared when the link is used, revoked or expired; the rest of the payload keeps the 30-day retention. | T159 |
+| (l) Closer and role tests (FR-036, SC-016, SC-017) | Closer authority test; Staff-`403` contract test for every Manager-only operation; reminders/close/reopen test. | T160, T161, T162 |
+
+**Open decisions (settle in this plan before the dependent task is built):**
+
+- **O-1 Optional receipt image on the refund transfer proof (FR-039, CHK007).**
+  Decided in the spec: the bank reference (text) stays required, the image is
+  optional, visible only to a Manager and the transferring actor, and follows
+  the request lifecycle. **Not decided: file types, size limit, storage
+  location (database / file store / object store), retention period, malware
+  or content checks, and the upload mechanism.** No number is proposed here;
+  the owner (Hồ Hoàng Quốc) and the platform storage facts must settle them
+  first (task T153 records the decision, then T154 builds BE/FE). Until then the
+  contract field `proofImageReference` is a placeholder (`x-status:
+  pending-plan-decision`) and sensitive-data rules D13 (minimisation, access,
+  retention) are unmet for the image.
+- **O-2 Folio close timing for a Mland cancellation of a `FINALIZED` folio.**
+  The spec says the refund request is opened and the folio moves to `CLOSED`;
+  T113 (done) closes a folio only when the remedy's refund is `REFUNDED`. The
+  owner confirms which applies to an `OPEN` folio and whether `FINALIZED` closes
+  at opening (T157).
+  **DECIDED 2026-11-15 (spec FR-043, FR-039):** a folio, `OPEN` or `FINALIZED`,
+  moves to `CLOSED` only once the Mland-cancel refund is `REFUNDED` and nothing
+  is pending, consistent with done task T113; FR-043 applies to any session
+  reaching `CANCELLATION_REQUESTED`, including an `IN_PROGRESS` interruption.
+  The question above is kept for history; T157 needs no further owner answer.
 
 ## Public REST Design
 

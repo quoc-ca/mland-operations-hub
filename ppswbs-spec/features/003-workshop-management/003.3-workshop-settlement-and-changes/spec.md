@@ -11,7 +11,11 @@
 tasks T133–T136, not built), the FR-045a change-request expiry fix and the FR-044 24-hour window fix (T130), the
 cash-close `locationId`/`workingDate` naming fix (T131/T132), the FR-040 key
 replacement operation (T137) and the SC-015 accessibility/browser verification
-(T138), and the refund-policy removal (T139/T140); T005 and T035 blocked on VNPay merchant configuration
+(T138), and the refund-policy removal (T139/T140), the follow-ups T141–T143 and
+the checklist follow-up of 2026-11-15 (Phase 11, T144–T165, all open: cash
+reversal, refund failure path, account-entry confirmation, optional receipt
+image after plan decision O-1, voucher restoration outcome, folio close rule);
+T005 and T035 blocked on VNPay merchant configuration
 
 **Input**: Confirmed workshop-settlement, change, and direct-booking cancellation
 decisions. This spec retains the feature baseline locally so a later retirement
@@ -197,7 +201,10 @@ self-service (FR-018 and Scope); whole-booking Mland remedy (FR-020, FR-021).
   (`PENDING_VERIFICATION`, `CONFIRMED`, `FAILED`, `VOIDED`), reference, payer,
   confirming actor and time, and belongs to one ticket folio.
 - **FR-032**: Verification: VNPay only by signed IPN/QueryDR (never marked by
-  Staff); cash by Staff with collection authority, recording amount received
+  Staff); cash by Staff with collection authority (an active Staff member whose location
+  scope contains the ticket's location and who is actively assigned to a
+  session the ticket holds, per the 2026-11-06 session-assignment rule; a
+  Manager is global), recording amount received
   and change returned, with only the applied amount on the folio; direct
   transfer only by an actor holding `workshop.payment.transfer.confirm` after
   seeing the money in the shop account (remote confirmation allowed). A
@@ -220,7 +227,21 @@ self-service (FR-018 and Scope); whole-booking Mland remedy (FR-020, FR-021).
   attempt; closing the QR or screen is not proof of failure. Money that arrives
   twice or exceeds the balance MUST be recorded in full and routed to a Manager
   refund (FR-039); it never finalizes or earns twice. The same bank transaction
-  or cash confirmation cannot be recorded twice.
+  or cash confirmation cannot be recorded twice. *(decided 2026-11-15,
+  checklist CHK003)* A collection still `PENDING_VERIFICATION` when Mland
+  cancels the ticket (FR-043) does not block the cancellation: a Manager
+  confirms it or marks it `FAILED`; a part confirmed after the cancellation is
+  recorded in full as money collected and routed to the Manager refund as
+  duplicate or excess money (FR-039), and the folio closes (FR-043) only when no
+  collection of the ticket is still pending. *(decided 2026-11-15, checklist
+  CHK016)* A VNPay collection that is still unreconciled 24 hours after the
+  attempt was created, and for which QueryDR reports no successful payment, is
+  marked `FAILED` automatically (audited as system action) so the balance can be
+  paid another way; closing the QR or screen remains no proof of failure before
+  that. A payment that arrives after the automatic `FAILED` is recorded in full
+  as money collected and routed to the Manager refund as duplicate or excess
+  money (FR-039), never lost. The 24-hour rule cannot be exercised end to end
+  until the VNPay QueryDR sandbox is configured (T005, T035).
 - **FR-035**: A ticket's folio MUST be `FINALIZED` only when its
   `balanceDue = 0` and none of its collections is pending; no other condition
   applies (attendance, the 24-hour correction window and the group's other
@@ -232,6 +253,11 @@ self-service (FR-018 and Scope); whole-booking Mland remedy (FR-020, FR-021).
   verification is an exception only a Manager may approve, with a reason and
   audit. Recording a real debt (`Còn nợ`) and closing it are Manager-only, with
   a reason; there is no automatic reminder, deadline or booking block.
+  *(clarified 2026-11-15, checklist CHK012)* A recorded debt (`Còn nợ`) never
+  finalizes a folio: `balanceDue` stays above 0, so the folio stays `OPEN` until
+  a later collection clears it and finalizes it; the handover exception
+  releases the product only and changes neither `balanceDue` nor the
+  `FINALIZED` condition.
 - **FR-036**: Each branch MUST close its cash book once per working day (Vietnam
   time) when closing: the system totals confirmed cash for the branch and day
   (net of change returned), the closer enters the counted amount, a difference
@@ -240,6 +266,23 @@ self-service (FR-018 and Scope); whole-booking Mland remedy (FR-020, FR-021).
   Manager folio correction refunds by bank and does not touch it (FR-050,
   clarified 2026-11-15). Transfers and VNPay are not part of the cash close;
   a Manager checks them with the read-only reconciliation list of FR-056.
+  *(decided 2026-11-15, checklist CHK013)* "The close" is the moment the closer
+  submits the counted amount: cash collected after that moment belongs to the
+  next working day even while a difference still awaits Manager confirmation,
+  and the Manager's confirmation does not move the cut-off or change the
+  submitted count. *(decided 2026-11-15, checklist CHK014: exception to the
+  rule that a closed day never changes)* A cash collection recorded in error on
+  a closed day is corrected by a Manager-only reversal entry (reason required,
+  `Idempotency-Key` required, audited with actor and time) dated the current
+  working day as a negative cash amount; the closed day is never edited. The
+  reversal reduces the folio's collected amount and `balanceDue` is recomputed;
+  it is refused when that folio is already `FINALIZED` or `CLOSED` or a refund
+  request exists for that money (those cases go through the folio correction of
+  FR-050 and the bank refund of FR-038). *(decided 2026-11-15, checklist
+  CHK024)* The closer is an active Staff member or Manager whose location scope
+  contains the branch; the session-assignment rule does not apply because the
+  close is per branch, not per session. The closer is recorded on the close
+  record, and only a Manager confirms a difference.
 - **FR-037**: Add-on and variable-charge prices remain at least 5,000 VND. A
   wrongly recorded line is voided whole with history by a Manager while the
   folio is OPEN; this is not a customer's right to cancel a used service.
@@ -255,7 +298,12 @@ self-service (FR-018 and Scope); whole-booking Mland remedy (FR-020, FR-021).
   booking-time collection. Refunds are per ticket; the total refunded or
   pending for a ticket never exceeds the money collected for that ticket, and a
   refund of one ticket changes no other ticket. There is no 5,000 VND minimum.
-  Voucher value is never refunded as money.
+  Voucher value is never refunded as money. *(clarified 2026-11-15, checklist
+  CHK032)* Exception: a late payment that is not re-confirmed (003.1 FR-040)
+  has no ticket and no folio; it opens one group-level request (source
+  `LATE_PAYMENT_NOT_RECONFIRMED`, source reference = the late-payment review
+  reference, amount = the verified late evidence), and the per-ticket cap
+  applies only to ticket-based requests.
 - **FR-038a** *(decided 2026-11-12)*: The overcharge refund of an OTA booking's
   separate Mland shop add-on bill (D12, T092) is Mland money and also moves to
   the bank refund flow of FR-039–FR-040 (Manager-only, no VNPay Refund). The
@@ -265,7 +313,12 @@ self-service (FR-018 and Scope); whole-booking Mland remedy (FR-020, FR-021).
   `PENDING_TRANSFER` → `PENDING_RECONCILIATION` → `REFUNDED`, plus
   `CLOSED_UNREACHABLE` (reopenable). A Manager approves reason, amount and
   recipient. An actor holding `workshop.refund.execute` transfers outside the
-  system and records the bank reference and proof; only a Manager confirms
+  system and records the bank reference (required, text) and may attach proof
+  (an optional image of the transfer receipt; *decided 2026-11-15, checklist
+  CHK007; file type, size limit, storage location and retention of the image
+  are not yet decided and are settled in the plan before this is built*; the
+  image is visible only to a Manager and the transferring actor, and follows the
+  request's lifecycle); only a Manager confirms
   `REFUNDED` after matching the bank statement (one Manager may both approve and
   confirm; every step records actor, time and proof). The default recipient is
   the payer of the refunded money (the group payer for the shared booking-time
@@ -299,20 +352,40 @@ self-service (FR-018 and Scope); whole-booking Mland remedy (FR-020, FR-021).
   account number and holder name. The system does not compare the holder with the payer
   *(decision 2026-11-13: no trustworthy payer name or source account exists —
   VNPay returns neither — and name matching misjudges namesakes and spelling)*;
-  the approving Manager approves the amount, reason and order, and the
-  transferring actor compares the holder name the bank shows for the account
-  number with the name entered and stops on a mismatch (a mistyped account
-  number), then contacts the customer. Account numbers are encrypted, shown in full
+  the approving Manager approves the amount, reason and order. *(decided
+  2026-11-15, checklist CHK025: Staff counter entry is allowed only for an
+  active Staff member actively assigned to a session the ticket holds, by the
+  same rule as FR-032, or for a Manager; a group-level request for a late
+  payment that is not re-confirmed has no ticket, so it is collected only by the
+  account link and never at the counter; a refund of an OTA booking's overcharge
+  follows the 2026-11-06 session-assignment rule)* *(decided
+  2026-11-15, checklist CHK005/006: the earlier rule that the transferring
+  actor compares the holder name the bank shows with the name entered and stops
+  on a mismatch is replaced by a confirmation at entry)* Before the customer
+  (on the account link) or Staff (at the counter) submits, the form shows the
+  bank, account number and holder name back and requires an explicit
+  confirmation that they are correct; no bank name lookup is performed in V1.
+  When a transfer later fails (the bank returns it, the statement does not match,
+  or the approving Manager refuses), the request returns to `PENDING_ACCOUNT`
+  with the reason recorded, the encrypted number is deleted (the mask is kept),
+  the earlier approval no longer applies and a Manager approves again after a new
+  account is entered; there is no terminal rejection state and the customer
+  never loses the right to the refund. Account numbers are encrypted, shown in full
   only to the approving Manager and the transferring actor, masked
   (`****1234`) elsewhere, never written to email, logs or audit, and only the
   masked form is kept after `REFUNDED`. The encryption key is not rotated
   in-system in V1 (clarified 2026-11-15): when the key is replaced, every
   request still holding an encrypted number has that ciphertext deleted
   (keeping the mask), returns to `PENDING_ACCOUNT`, and a new account link is
-  sent to the payer; this is done by an Admin-only route (`POST /workshop-refund-account-key-replacements`, reason and Idempotency-Key required, one audit record per request, never returning or logging a number; clarified 2026-11-15) called after the key variable is replaced and the service restarted. Without a reply the request stays
+  sent to the payer; this is done by an Admin-only route (`POST /workshop-refund-account-key-replacements`, reason and Idempotency-Key required, one audit record per request, never returning or logging a number; clarified 2026-11-15) called after the key variable is replaced and the service restarted. *(decided 2026-11-15, checklist CHK021)* The replacement runs in one transaction per request and a rerun is idempotent: it touches only requests that still hold ciphertext; the earlier Manager approval of such a request no longer applies, so a Manager approves again after the new account is entered. Without a reply the request stays
   `PENDING_ACCOUNT` with reminders on days 3 and 7; after 30 days a Manager may
   close it as `CLOSED_UNREACHABLE` with a reason and reopen it when the customer
   returns. The customer never loses the right to the refund.
+  *(clarified 2026-11-15, checklist CHK017)* The refund-account link route
+  answers an unknown token with `404 RESOURCE_NOT_FOUND` and a link that is
+  used, revoked by a resend or expired with `410 REFUND_ACCOUNT_LINK_NOT_USABLE`;
+  neither answer echoes an account number, and the customer asks the shop for a
+  new link.
 
 ### Customer cancellation per ticket
 
@@ -343,7 +416,17 @@ self-service (FR-018 and Scope); whole-booking Mland remedy (FR-020, FR-021).
   (clarified 2026-11-15: a Mland cancellation restores it regardless of the
   other tickets, and it is never restored a second time). Each cancellation records request time, first-session start, the
   24-hour outcome, benefits returned, actor and channel, and replays are
-  idempotent. Cart-level voucher conditions are not re-evaluated.
+  idempotent. Cart-level voucher conditions are not re-evaluated. *(decided
+  2026-11-15, checklist CHK011/CHK034)* A voucher is a shared system-wide
+  campaign, so it is never extended for one customer: restoration happens only
+  while the voucher is still valid at the moment of restoration, for every kind
+  of cancellation including Mland's. If it has expired, nothing is restored, the
+  audit records reason `EXPIRED`, and the buyer is told; the money already paid
+  is still refunded in full by bank (FR-038) and voucher value is never refunded
+  as money. Settlement (003.3) only triggers the restoration through the shared
+  facade; the module that owns vouchers and points performs it, exactly once per
+  `groupCode` (idempotent key), and 003.3 never writes voucher or points data
+  itself.
 
 ### Mland cancellation per ticket
 
@@ -371,7 +454,18 @@ self-service (FR-018 and Scope); whole-booking Mland remedy (FR-020, FR-021).
   recipient is told the session was cancelled but only the buyer chooses. The
   refund is always 100% of the money collected for the ticket; the
   Mland-cancellation refund policy and its booking snapshot (FR-021a–FR-021e)
-  do not apply to tickets (clarified 2026-11-15).
+  do not apply to tickets (clarified 2026-11-15). *(decided 2026-11-15,
+  checklist CHK004)* This is the only transition out of `FINALIZED`: when Mland
+  cancels a ticket whose folio is already `FINALIZED`, the refund request
+  (FR-038) is opened and the folio moves to `CLOSED` only once that refund is
+  `REFUNDED` (FR-039: business consequences apply after `REFUNDED`); no other event reopens or
+  closes a `FINALIZED` folio, and FR-035's immutability applies to every other
+  case. *(decided 2026-11-15, follow-up to CHK004)* This FR applies whenever a
+  session reaches `CANCELLATION_REQUESTED` (003.2), including an `IN_PROGRESS`
+  session interrupted before attendance is finalized and tickets already
+  checked in to it: the same 100% refund path applies. For a multi-session
+  ticket that loses a session the refund stays 100% of the money collected for
+  the whole ticket, including any session already attended.
 
 ### Changes (rescheduling)
 
@@ -466,7 +560,11 @@ them. T106 adds them to
   Manager only, reason required, `Idempotency-Key` required. A void is an
   audited reversal record and never deletes the original row; a collection
   already counted into a closed cash day is refused (FR-050), and the balance is
-  recomputed by `FolioBalanceService` from what remains.
+  recomputed by `FolioBalanceService` from what remains. *(clarified
+  2026-11-15, checklist CHK014)* The refusal for a closed cash day is not a dead
+  end: the Manager records the cash reversal entry of FR-036 on the current
+  working day instead, which is the only correction path for a wrongly recorded
+  cash collection of a closed day.
 - **FR-054 — Manager-granted extra change.** `POST /workshop-tickets/{ticketCode}/change-allowances`,
   Manager only, reason required, `Idempotency-Key` required. It grants one extra
   counted customer change for that ticket (FR-044) and never performs the change
@@ -501,7 +599,11 @@ them. T106 adds them to
   is voided by a Manager (reason required, audited, once only), keeps its
   original content, and no longer counts in totals; the correct amount is
   then recorded as a new record. A Manager can list these records by branch
-  and period, with the total of non-voided records.
+  and period, with the total of non-voided records. *(decided 2026-11-15,
+  checklist CHK009)* The amount of a record may not exceed the ticket's folio
+  total (price plus add-ons and variable charges, voided lines excluded); a
+  larger amount is refused with `422`, and the non-voided records of one ticket
+  together may not exceed that total either.
 
 ## No-show per ticket only; direct booking is only a group (decision 2026-11-13)
 
@@ -570,6 +672,9 @@ for history and read through this section.
     cash of a branch working day that is already closed (FR-036): the closed
     day stays locked. Because the correction refunds only by bank, it has no
     cash effect and no cash adjustment is recorded (clarified 2026-11-15).
+    A confirmed cash collection of a closed day is never edited, reopened or
+    deleted (except the Manager cash reversal of FR-036 for a folio not yet
+    FINALIZED or CLOSED).
   - **FR-051**: The ticket's package, branch, sessions, group and buyer come
     from 003.1 (`getTicketFolioContext`), and Staff authorization reuses the
     session assignment of the ticket's group line (`staffAssignedToBooking`
@@ -610,7 +715,7 @@ separate Mland shop add-on bill of an OTA booking (D12).
 
 - Q: In a group where at least one ticket is cancelled by Mland and another ticket is cancelled late or is a no-show, is the group's voucher use restored? → A: Yes. The first Mland-cancelled ticket that is refunded restores the group's voucher use at once, exactly once, whatever happens to the other tickets (FR-043 prevails; FR-042's all-tickets rule applies only when no ticket was cancelled by Mland).
 - Q: Besides a zero balance and no pending collection, must any other condition hold before one ticket's folio can be `FINALIZED`? → A: No. A ticket's folio finalizes when its `balanceDue = 0` and no collection of it is pending; attendance, the 24-hour correction window and the other tickets of the group are not conditions (each ticket finalizes on its own).
-- Q: When a Manager corrects a finalized folio whose cash day is already closed, is a cash adjustment on the current working day needed in V1? → A: No. A post-`FINALIZED` correction refunds only by bank (FR-050) and never touches confirmed cash; a closed cash day stays locked and no cash adjustment record or route exists.
+- Q: When a Manager corrects a finalized folio whose cash day is already closed, is a cash adjustment on the current working day needed in V1? → A: No. A post-`FINALIZED` correction refunds only by bank (FR-050) and never touches confirmed cash; a closed cash day stays locked and no cash adjustment record or route exists. *(Partly superseded later on 2026-11-15, checklist CHK014: this still holds for a post-`FINALIZED` folio correction; a cash collection recorded in error on a closed day while the folio is not yet `FINALIZED`/`CLOSED` is corrected by the Manager-only cash reversal entry of FR-036.)*
 - Q: Are the transfer/VNPay reconciliation reports of FR-036 in V1, and at what depth? → A: Yes, in 003.3, as a read-only Manager list only (FR-056); no "reconciled" mark and no in-system mismatch handling (customer collection after `FINALIZED`, employee liability, accounting entries) in V1.
 - Q: Should an undercharge absorbed by Mland after `FINALIZED` be recorded in V1? → A: Yes. "Mland absorbs" means the business bears the loss, not a Staff member or Manager personally; a Manager records it as an immutable, audited, documentation-only record (FR-057) that collects nothing and changes no folio or cash.
 - Q: When does a pending (Manager-approval) ticket change request expire? → A: At the earliest of the start of the session being changed and the start of any requested target session; the ticket's other sessions (e.g. an earlier session 1 when session 2 is being changed) do not affect it. The current code uses the ticket's first session instead and must be corrected (`TicketChangeService.requestExpiry`).
@@ -630,6 +735,21 @@ separate Mland shop add-on bill of an OTA booking (D12).
 - Q: How do an excess or duplicate bank transfer and VNPay excess money appear in the reconciliation list? -> A: A transfer that exceeds the balance or arrives twice (FR-034) is one `CONFIRMED` `BANK_TRANSFER` row with its full amount (matching the bank statement), plus `excessAmount` and `refundRequestReference` (FR-039); two different bank transactions are two rows; a second recording of the same transaction is refused. An `EXCESS` row (VNPay money that settled no part) has no collection (`collectionId` null), belongs to the Vietnam working day of its evidence time and gets its branch through the ticket folio at query time, a deliberate exception to the stored `branch_id` rule because such rows are rare (FR-056, T133, T143).
 - Q: When Mland cancels a ticket's session, is the refund always 100% or the percentage of the booking's policy snapshot? → A: Always 100% of the money collected for the ticket; the Mland-cancellation refund policy and snapshots (FR-021a–FR-021e) do not apply to tickets (FR-043).
 - Q: Should the now-unused Mland-cancellation refund policy (routes, snapshot capture, UI) be removed? → A: Yes: remove the `/workshop-refund-policies` routes, the snapshot capture on booking confirmation and the frontend use; drop the policy tables with a new migration (never by editing an applied one) (T139, T140).
+
+#### Checklist follow-up (payment-error-access.md), answered by Hồ Hoàng Quốc on 2026-11-15
+
+- Q: Can Mland's refund close a `FINALIZED` folio? → A: Yes, as the only exception: Mland cancellation opens the refund request and moves the folio to `CLOSED` (FR-043).
+- Q: Does a pending collection block a Mland cancellation? → A: No; a Manager confirms or fails it, a later confirmation is routed to refund as excess, and the folio closes only when nothing is pending (FR-034).
+- Q: After a bank refund fails (returned, statement mismatch, Manager refusal) what state? → A: `PENDING_ACCOUNT` with a reason, ciphertext deleted, approval void, Manager re-approves; no terminal rejection (FR-040). The transfer-time holder-name comparison is replaced by an explicit confirmation of bank, number and holder name at entry; no bank name lookup in V1.
+- Q: Key replacement and old approval? → A: Approval no longer applies; one transaction per request, idempotent rerun (FR-040).
+- Q: Transfer proof? → A: Bank reference text required, optional receipt image; storage, size and retention of the image are decided in the plan (FR-039). **Open.**
+- Q: Which day does cash taken while a difference awaits confirmation belong to? → A: The next working day; the cut-off is the submission of the counted amount (FR-036).
+- Q: Correcting a wrong cash entry on a closed day? → A: Manager-only reversal entry on the current day, refused for `FINALIZED`/`CLOSED` folios or money under a refund request (FR-036, FR-053).
+- Q: Voucher expired at restoration? → A: Never extended; not restored, reason `EXPIRED`, buyer told; the voucher-owning module performs restoration once per `groupCode` (FR-042).
+- Q: Who closes the cash book and who enters a refund account at the counter? → A: Staff or Manager of the branch for the close; Staff assigned to a session of the ticket (or a Manager) for the counter entry (FR-036, FR-040).
+- Q: Unreconciled VNPay attempt? → A: Automatically `FAILED` after 24 hours when QueryDR reports no payment; late money goes to excess refund (FR-034).
+- Q: Cap on an absorbed undercharge? → A: Not above the ticket's folio total (FR-057).
+- Document-sync additions (no new decision): FR-035 debt, FR-040 link `404/410`, FR-022d `410`, FR-032 collection authority, FR-038 group-level late-payment request, FR-012a token scrub, SC-016, SC-017 (CHK012, 017, 018, 023, 032, 030, 037, 038).
 
 ### Session 2026-10-31 — owner-approved refund execution (superseded 2026-11-12 by FR-038–FR-040: bank refunds, no VNPay Refund)
 
@@ -1361,6 +1481,10 @@ none, with a buyer-confirmed price effect.
   idempotent provider delivery/retry and operational logs. The stored
   recipient/rendered content MUST be retained for at most 30 days after
   handoff. After 30 days the delivery payload MUST no longer be retrievable.
+  *(clarified 2026-11-15, checklist CHK030)* The payload of a refund-account
+  email carries the account link token only while that link is usable: the token
+  is scrubbed from the stored payload when the link is used, revoked by a resend
+  or expired (FR-040); the rest of the payload keeps the 30-day retention.
   Delivery failure MUST NOT reverse the accepted Settlement outcome.
 - **FR-013** *(superseded 2026-11-12 by FR-041)*: Guest/authorized Member cancellation MUST be whole-booking only;
   session/ticket/participant self-service cancellation/refund is prohibited. An
@@ -1489,7 +1613,7 @@ ticket refund.)*
   verified provider transaction/reference and safely acknowledge a duplicate.
   The public contract MUST return typed safe errors as `400` for malformed input,
   `401` for missing/invalid authentication, `403` for authority denial, `404` for
-  missing/not-visible booking, `409` for conflict, and `422` for valid input that
+  missing/not-visible booking, `409` for conflict, `410` for a refund-account link that is used, revoked or expired (`REFUND_ACCOUNT_LINK_NOT_USABLE`), and `422` for valid input that
   is business-ineligible.
 - **FR-022b**: The public REST contract MUST represent final bill and charge as
   business resources. Customer cancellation, required-session change, and
@@ -1683,6 +1807,19 @@ T103 on MySQL):
   close, refund queue and account link, ticket cancellation/change, remedy,
   reconciliation list, undercharge record) meets WCAG 2.2 AA and is verified on
   the two latest major desktop versions of Chrome, Edge and Firefox.
+- **SC-016** *(FR-052 to FR-054, FR-035, FR-057; checklist CHK037)*: in 100% of
+  contract tests every Manager-only operation (line void, collection void,
+  collection failure marking, extra change, cash-close difference confirmation,
+  handover exception, debt record and close, reconciliation list, absorbed
+  undercharge record and its void, and the Manager cash reversal of T144) answers
+  a Staff caller with `403` and records no change; the Admin-only refund-account
+  key-replacement route (T137) answers a Manager and a Staff caller with `403`.
+- **SC-017** *(FR-040; checklist CHK038)*: a refund request in `PENDING_ACCOUNT`
+  without a reply sends exactly one reminder on day 3 and one on day 7 and none
+  once the account is entered; closing it as `CLOSED_UNREACHABLE` is refused
+  before day 30 and allowed from day 30 for a Manager with a reason; reopening
+  returns it to `PENDING_ACCOUNT` with a fresh link and leaves the customer's
+  entitlement to the refund unchanged.
 
 ## Assumptions and Dependencies
 

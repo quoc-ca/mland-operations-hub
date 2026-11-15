@@ -64,7 +64,14 @@ paths:
         Only for a group collection of at least 5,000 VND; the amount is
         rechecked immediately before the attempt is created (FR-036).
         `expiresAt` is the group's payment deadline, two minutes before the hold
-        ends; a retry never extends the hold (FR-032).
+        ends; a retry never extends the hold (FR-032). A retry is refused (409)
+        after that deadline and, while a valid `PENDING` attempt exists, returns
+        it instead of creating another (FR-012a, decided 2026-11-15). A Guest
+        sends `groupCode` plus exactly one matching contact value; a Member must
+        own a `PENDING_PAYMENT` group with an active payment window (FR-048). A
+        provider failure while the link is created answers 502/503
+        `PAYMENT_LINK_UNAVAILABLE`, creates no attempt and leaves the hold
+        unchanged (FR-032).
       security: [{}, {bearerAuth: []}]
       parameters: [{$ref: '#/components/parameters/GroupCode'}, {$ref: '#/components/parameters/IdempotencyKey'}]
       responses:
@@ -72,6 +79,8 @@ paths:
         '400': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
+        '502': {$ref: '#/components/responses/Problem'}
+        '503': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-booking-groups/{groupCode}:
     get:
       summary: Read an owned group with its tickets (Member buyer view)
@@ -154,8 +163,9 @@ paths:
       summary: Resend a CONFIRMED group's buyer confirmation to the stored contact email
       description: >-
         Guest supplies exactly one stored contact proof; the owning Member none;
-        Staff within the active location scope of a group session; any active
-        Manager globally. Sends every ticket again to the stored contact only,
+        Staff within the active location scope of the group's branch who is
+        actively assigned to a session of the group; any active Manager
+        globally. Sends every ticket again to the stored contact only,
         never to a recipient, and reuses the active group Magic Link (409
         `ACCESS_LINK_UNAVAILABLE` when none is active). Rolling limits: 3
         accepted self-service resends per group per hour and 5 accepted internal
@@ -247,7 +257,7 @@ paths:
         `TICKET_NOT_FOUND`, 409 `TICKET_NOT_CONFIRMED`, 409
         `TICKET_ALREADY_CHECKED_IN`, 409 `TICKET_QR_REVOKED`, 409
         `RECIPIENT_CHANGE_LIMIT_REACHED` (go to the shop), 409
-        `BUYER_VERIFICATION_EXPIRED`, 409 `IDEMPOTENCY_KEY_REUSED`. A refused
+        `BUYER_VERIFICATION_EXPIRED`, 409 `IDEMPOTENCY_CONFLICT`. A refused
         request changes nothing. Audit keeps the masked old and new email, the
         actor, the channel, the time and the correlation only.
       security: [{}, {bearerAuth: []}]
