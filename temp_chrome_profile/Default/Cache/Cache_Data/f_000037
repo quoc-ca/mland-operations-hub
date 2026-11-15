@@ -1,0 +1,507 @@
+import { createHotContext as __vite__createHotContext } from "/@vite/client";import.meta.hot = __vite__createHotContext("/src/workshop-settlement/pages/RefundQueuePage.jsx");import __vite__cjsImport0_react_jsxDevRuntime from "/node_modules/.vite/deps/react_jsx-dev-runtime.js?v=83e3faa1"; const Fragment = __vite__cjsImport0_react_jsxDevRuntime["Fragment"]; const jsxDEV = __vite__cjsImport0_react_jsxDevRuntime["jsxDEV"];
+var _s = $RefreshSig$();
+import __vite__cjsImport1_react from "/node_modules/.vite/deps/react.js?v=83e3faa1"; const React = __vite__cjsImport1_react.__esModule ? __vite__cjsImport1_react.default : __vite__cjsImport1_react; const useMemo = __vite__cjsImport1_react["useMemo"]; const useState = __vite__cjsImport1_react["useState"];
+import { useHttp } from "/src/shared/api/useHttp.js?t=1794733875684";
+import { useRole } from "/src/shared/auth/useRole.js?t=1794733875684";
+import { Loading, SuccessNotice, useCommand, useResource } from "/src/shared/ui/components.jsx?t=1794733875684";
+import { createSettlementApi } from "/src/workshop-settlement/api/settlementApi.js?t=1794733875702";
+import { OpsPage } from "/src/workshop-settlement/OpsPage.jsx";
+import { ProblemNotice, ReasonDialog, asList, money } from "/src/workshop-settlement/ui.jsx";
+const STATUSES = ["PENDING_ACCOUNT", "PENDING_APPROVAL", "PENDING_TRANSFER", "PENDING_RECONCILIATION", "REFUNDED", "CLOSED_UNREACHABLE"];
+export default function RefundQueuePage() {
+  _s();
+  const api = createSettlementApi(useHttp());
+  const role = useRole();
+  const isManager = role === "MANAGER" || role === "ADMIN";
+  const [status, setStatus] = useState("");
+  const [selected, setSelected] = useState(null);
+  const [account, setAccount] = useState({ bankCode: "", accountNumber: "", holderName: "" });
+  const [transfer, setTransfer] = useState({ bankTransactionReference: "", proofReference: "" });
+  const [revealed, setRevealed] = useState(null);
+  const [closing, setClosing] = useState(false);
+  const [message, setMessage] = useState("");
+  const command = useCommand();
+  const queue = useResource(() => api.listRefunds(status ? { status } : void 0), [status]);
+  const refunds = useMemo(() => asList(queue.data), [queue.data]);
+  const refund = refunds.find((item) => item.refundId === selected) || null;
+  const act = async (send, success) => {
+    setMessage("");
+    const out = await command.run(send);
+    if (out.ok) {
+      setMessage(success);
+      setRevealed(null);
+      queue.reload();
+    }
+    return out;
+  };
+  const transition = (body, success) => act((key) => api.transitionRefund(refund.refundId, body, key), success);
+  const enterAccount = async (event) => {
+    event.preventDefault();
+    const out = await act((key) => api.putRefundAccount(refund.refundId, {
+      bankCode: account.bankCode.trim(),
+      accountNumber: account.accountNumber.trim(),
+      holderName: account.holderName.trim()
+    }, key), "Account recorded.");
+    if (out.ok) setAccount({ bankCode: "", accountNumber: "", holderName: "" });
+  };
+  const reveal = async () => {
+    const out = await command.run(() => api.getRefundAccountNumber(refund.refundId));
+    if (out.ok) setRevealed(out.result);
+  };
+  const recordTransfer = async (event) => {
+    event.preventDefault();
+    const out = await transition({ action: "RECORD_TRANSFER", bankTransactionReference: transfer.bankTransactionReference.trim(), proofReference: transfer.proofReference.trim() }, "Transfer recorded.");
+    if (out.ok) setTransfer({ bankTransactionReference: "", proofReference: "" });
+  };
+  const closeUnreachable = async (reason) => {
+    const out = await transition({ action: "CLOSE_UNREACHABLE", reason }, "Refund closed as unreachable.");
+    if (out.ok) setClosing(false);
+  };
+  return /* @__PURE__ */ jsxDEV(OpsPage, { eyebrow: "BANK REFUNDS", title: "Refund queue", intro: "Every Mland refund is a bank transfer. A refund counts as done only when a Manager confirms REFUNDED.", children: [
+    /* @__PURE__ */ jsxDEV(SuccessNotice, { children: message }, void 0, false, {
+      fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+      lineNumber: 66,
+      columnNumber: 7
+    }, this),
+    /* @__PURE__ */ jsxDEV(ProblemNotice, { error: queue.error || command.error, onRetry: command.retry, onReload: queue.reload }, void 0, false, {
+      fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+      lineNumber: 67,
+      columnNumber: 7
+    }, this),
+    /* @__PURE__ */ jsxDEV("section", { className: "ota-panel", children: [
+      /* @__PURE__ */ jsxDEV("div", { className: "ota-inline-form", children: [
+        /* @__PURE__ */ jsxDEV("label", { children: [
+          "Status",
+          /* @__PURE__ */ jsxDEV("select", { value: status, onChange: (event) => {
+            setStatus(event.target.value);
+            setSelected(null);
+          }, children: [
+            /* @__PURE__ */ jsxDEV("option", { value: "", children: "All" }, void 0, false, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+              lineNumber: 72,
+              columnNumber: 15
+            }, this),
+            STATUSES.map((value) => /* @__PURE__ */ jsxDEV("option", { value, children: value }, value, false, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+              lineNumber: 73,
+              columnNumber: 40
+            }, this))
+          ] }, void 0, true, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+            lineNumber: 71,
+            columnNumber: 13
+          }, this)
+        ] }, void 0, true, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+          lineNumber: 70,
+          columnNumber: 11
+        }, this),
+        /* @__PURE__ */ jsxDEV("button", { className: "button secondary", type: "button", onClick: () => queue.reload(), children: "Refresh" }, void 0, false, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+          lineNumber: 76,
+          columnNumber: 11
+        }, this)
+      ] }, void 0, true, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+        lineNumber: 69,
+        columnNumber: 9
+      }, this),
+      queue.loading ? /* @__PURE__ */ jsxDEV(Loading, {}, void 0, false, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+        lineNumber: 78,
+        columnNumber: 26
+      }, this) : queue.error ? null : refunds.length === 0 ? /* @__PURE__ */ jsxDEV("div", { className: "empty-state", children: /* @__PURE__ */ jsxDEV("p", { children: "No refund requests found." }, void 0, false, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+        lineNumber: 78,
+        columnNumber: 113
+      }, this) }, void 0, false, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+        lineNumber: 78,
+        columnNumber: 84
+      }, this) : /* @__PURE__ */ jsxDEV("table", { className: "ops-table", children: [
+        /* @__PURE__ */ jsxDEV("thead", { children: /* @__PURE__ */ jsxDEV("tr", { children: [
+          /* @__PURE__ */ jsxDEV("th", { children: "Refund" }, void 0, false, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+            lineNumber: 80,
+            columnNumber: 24
+          }, this),
+          /* @__PURE__ */ jsxDEV("th", { children: "Ticket / group" }, void 0, false, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+            lineNumber: 80,
+            columnNumber: 39
+          }, this),
+          /* @__PURE__ */ jsxDEV("th", { children: "Reason" }, void 0, false, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+            lineNumber: 80,
+            columnNumber: 62
+          }, this),
+          /* @__PURE__ */ jsxDEV("th", { children: "Amount" }, void 0, false, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+            lineNumber: 80,
+            columnNumber: 77
+          }, this),
+          /* @__PURE__ */ jsxDEV("th", { children: "Status" }, void 0, false, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+            lineNumber: 80,
+            columnNumber: 92
+          }, this),
+          /* @__PURE__ */ jsxDEV("th", { children: "Account" }, void 0, false, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+            lineNumber: 80,
+            columnNumber: 107
+          }, this)
+        ] }, void 0, true, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+          lineNumber: 80,
+          columnNumber: 20
+        }, this) }, void 0, false, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+          lineNumber: 80,
+          columnNumber: 13
+        }, this),
+        /* @__PURE__ */ jsxDEV("tbody", { children: refunds.map(
+          (item) => /* @__PURE__ */ jsxDEV("tr", { className: selected === item.refundId ? "selected" : "", style: { cursor: "pointer" }, onClick: () => {
+            setSelected(item.refundId);
+            setRevealed(null);
+          }, children: [
+            /* @__PURE__ */ jsxDEV("td", { children: item.refundId }, void 0, false, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+              lineNumber: 84,
+              columnNumber: 19
+            }, this),
+            /* @__PURE__ */ jsxDEV("td", { children: item.ticketCode || item.groupCode || "—" }, void 0, false, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+              lineNumber: 85,
+              columnNumber: 19
+            }, this),
+            /* @__PURE__ */ jsxDEV("td", { children: item.source }, void 0, false, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+              lineNumber: 86,
+              columnNumber: 19
+            }, this),
+            /* @__PURE__ */ jsxDEV("td", { children: money(item.amount) }, void 0, false, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+              lineNumber: 87,
+              columnNumber: 19
+            }, this),
+            /* @__PURE__ */ jsxDEV("td", { children: /* @__PURE__ */ jsxDEV("span", { className: "ops-status", children: item.status }, void 0, false, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+              lineNumber: 88,
+              columnNumber: 23
+            }, this) }, void 0, false, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+              lineNumber: 88,
+              columnNumber: 19
+            }, this),
+            /* @__PURE__ */ jsxDEV("td", { children: item.accountNumberMasked ? `${item.accountNumberMasked}${item.holderName ? ` · ${item.holderName}` : ""}` : "—" }, void 0, false, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+              lineNumber: 89,
+              columnNumber: 19
+            }, this)
+          ] }, item.refundId, true, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+            lineNumber: 83,
+            columnNumber: 13
+          }, this)
+        ) }, void 0, false, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+          lineNumber: 81,
+          columnNumber: 13
+        }, this)
+      ] }, void 0, true, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+        lineNumber: 79,
+        columnNumber: 9
+      }, this)
+    ] }, void 0, true, {
+      fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+      lineNumber: 68,
+      columnNumber: 7
+    }, this),
+    refund && /* @__PURE__ */ jsxDEV("section", { className: "ota-panel", "aria-label": "Refund actions", children: [
+      /* @__PURE__ */ jsxDEV("div", { className: "ota-panel-head", children: [
+        /* @__PURE__ */ jsxDEV("h2", { children: refund.refundId }, void 0, false, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+          lineNumber: 99,
+          columnNumber: 43
+        }, this),
+        /* @__PURE__ */ jsxDEV("span", { className: "ops-status", children: refund.status }, void 0, false, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+          lineNumber: 99,
+          columnNumber: 69
+        }, this)
+      ] }, void 0, true, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+        lineNumber: 99,
+        columnNumber: 11
+      }, this),
+      refund.status === "PENDING_ACCOUNT" && /* @__PURE__ */ jsxDEV(Fragment, { children: [
+        /* @__PURE__ */ jsxDEV("p", { className: "muted", children: "Waiting for the payer’s account. The payer gets a single-use link by email (7 days), or Staff can enter the account the payer hands over at the counter." }, void 0, false, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+          lineNumber: 101,
+          columnNumber: 13
+        }, this),
+        /* @__PURE__ */ jsxDEV("form", { className: "ota-form", "aria-label": "Counter account", onSubmit: enterAccount, children: [
+          /* @__PURE__ */ jsxDEV("label", { children: [
+            "Bank code",
+            /* @__PURE__ */ jsxDEV("input", { value: account.bankCode, maxLength: 32, onChange: (event) => setAccount((v) => ({ ...v, bankCode: event.target.value })) }, void 0, false, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+              lineNumber: 103,
+              columnNumber: 31
+            }, this)
+          ] }, void 0, true, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+            lineNumber: 103,
+            columnNumber: 15
+          }, this),
+          /* @__PURE__ */ jsxDEV("label", { children: [
+            "Account number",
+            /* @__PURE__ */ jsxDEV("input", { inputMode: "numeric", autoComplete: "off", value: account.accountNumber, maxLength: 32, onChange: (event) => setAccount((v) => ({ ...v, accountNumber: event.target.value })) }, void 0, false, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+              lineNumber: 104,
+              columnNumber: 36
+            }, this)
+          ] }, void 0, true, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+            lineNumber: 104,
+            columnNumber: 15
+          }, this),
+          /* @__PURE__ */ jsxDEV("label", { children: [
+            "Holder name (as the bank shows it)",
+            /* @__PURE__ */ jsxDEV("input", { autoComplete: "off", value: account.holderName, maxLength: 128, onChange: (event) => setAccount((v) => ({ ...v, holderName: event.target.value })) }, void 0, false, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+              lineNumber: 105,
+              columnNumber: 56
+            }, this)
+          ] }, void 0, true, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+            lineNumber: 105,
+            columnNumber: 15
+          }, this),
+          /* @__PURE__ */ jsxDEV("button", { className: "button primary", type: "submit", disabled: command.pending || !account.bankCode.trim() || !account.accountNumber.trim() || !account.holderName.trim(), children: "Save account" }, void 0, false, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+            lineNumber: 106,
+            columnNumber: 15
+          }, this)
+        ] }, void 0, true, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+          lineNumber: 102,
+          columnNumber: 13
+        }, this),
+        /* @__PURE__ */ jsxDEV("div", { className: "ops-actions", children: [
+          /* @__PURE__ */ jsxDEV("button", { className: "button outline", type: "button", disabled: command.pending, onClick: () => act((key) => api.resendAccountLink(refund.refundId, key), "A fresh account link was sent; the previous link no longer works."), children: "Resend account link" }, void 0, false, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+            lineNumber: 109,
+            columnNumber: 15
+          }, this),
+          isManager && /* @__PURE__ */ jsxDEV("button", { className: "button danger", type: "button", onClick: () => setClosing(true), children: "Close as unreachable" }, void 0, false, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+            lineNumber: 110,
+            columnNumber: 29
+          }, this)
+        ] }, void 0, true, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+          lineNumber: 108,
+          columnNumber: 13
+        }, this)
+      ] }, void 0, true, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+        lineNumber: 100,
+        columnNumber: 51
+      }, this),
+      refund.status !== "PENDING_ACCOUNT" && refund.status !== "REFUNDED" && refund.status !== "CLOSED_UNREACHABLE" && isManager && /* @__PURE__ */ jsxDEV("div", { className: "ops-actions", children: [
+        /* @__PURE__ */ jsxDEV("button", { className: "button outline", type: "button", disabled: command.pending, onClick: reveal, children: "Show full account number" }, void 0, false, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+          lineNumber: 115,
+          columnNumber: 15
+        }, this),
+        refund.status === "PENDING_APPROVAL" && /* @__PURE__ */ jsxDEV("button", { className: "button primary", type: "button", disabled: command.pending, onClick: () => transition({ action: "APPROVE" }, "Refund approved."), children: "Approve" }, void 0, false, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+          lineNumber: 116,
+          columnNumber: 56
+        }, this),
+        refund.status === "PENDING_RECONCILIATION" && /* @__PURE__ */ jsxDEV("button", { className: "button primary", type: "button", disabled: command.pending, onClick: () => transition({ action: "CONFIRM_REFUNDED" }, "Refund confirmed as REFUNDED."), children: "Confirm refunded" }, void 0, false, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+          lineNumber: 117,
+          columnNumber: 62
+        }, this)
+      ] }, void 0, true, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+        lineNumber: 114,
+        columnNumber: 9
+      }, this),
+      revealed && /* @__PURE__ */ jsxDEV("dl", { className: "ops-facts", "aria-label": "Recipient account", children: [
+        /* @__PURE__ */ jsxDEV("div", { children: [
+          /* @__PURE__ */ jsxDEV("dt", { children: "Bank" }, void 0, false, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+            lineNumber: 122,
+            columnNumber: 20
+          }, this),
+          /* @__PURE__ */ jsxDEV("dd", { children: revealed.bankCode || "—" }, void 0, false, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+            lineNumber: 122,
+            columnNumber: 33
+          }, this)
+        ] }, void 0, true, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+          lineNumber: 122,
+          columnNumber: 15
+        }, this),
+        /* @__PURE__ */ jsxDEV("div", { children: [
+          /* @__PURE__ */ jsxDEV("dt", { children: "Account number" }, void 0, false, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+            lineNumber: 123,
+            columnNumber: 20
+          }, this),
+          /* @__PURE__ */ jsxDEV("dd", { children: revealed.accountNumber }, void 0, false, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+            lineNumber: 123,
+            columnNumber: 43
+          }, this)
+        ] }, void 0, true, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+          lineNumber: 123,
+          columnNumber: 15
+        }, this),
+        /* @__PURE__ */ jsxDEV("div", { children: [
+          /* @__PURE__ */ jsxDEV("dt", { children: "Holder" }, void 0, false, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+            lineNumber: 124,
+            columnNumber: 20
+          }, this),
+          /* @__PURE__ */ jsxDEV("dd", { children: revealed.holderName || "—" }, void 0, false, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+            lineNumber: 124,
+            columnNumber: 35
+          }, this)
+        ] }, void 0, true, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+          lineNumber: 124,
+          columnNumber: 15
+        }, this),
+        /* @__PURE__ */ jsxDEV("div", { children: [
+          /* @__PURE__ */ jsxDEV("dt", {}, void 0, false, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+            lineNumber: 125,
+            columnNumber: 20
+          }, this),
+          /* @__PURE__ */ jsxDEV("dd", { children: /* @__PURE__ */ jsxDEV("button", { type: "button", className: "button outline", onClick: () => setRevealed(null), children: "Hide" }, void 0, false, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+            lineNumber: 125,
+            columnNumber: 30
+          }, this) }, void 0, false, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+            lineNumber: 125,
+            columnNumber: 26
+          }, this)
+        ] }, void 0, true, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+          lineNumber: 125,
+          columnNumber: 15
+        }, this)
+      ] }, void 0, true, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+        lineNumber: 121,
+        columnNumber: 9
+      }, this),
+      refund.status === "PENDING_TRANSFER" && isManager && /* @__PURE__ */ jsxDEV("form", { className: "ota-form", "aria-label": "Record transfer", onSubmit: recordTransfer, children: [
+        /* @__PURE__ */ jsxDEV("p", { className: "muted small", children: "Compare the holder name the bank shows with the name entered and stop on a mismatch." }, void 0, false, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+          lineNumber: 130,
+          columnNumber: 15
+        }, this),
+        /* @__PURE__ */ jsxDEV("label", { children: [
+          "Bank transaction reference",
+          /* @__PURE__ */ jsxDEV("input", { value: transfer.bankTransactionReference, maxLength: 128, onChange: (event) => setTransfer((v) => ({ ...v, bankTransactionReference: event.target.value })) }, void 0, false, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+            lineNumber: 131,
+            columnNumber: 48
+          }, this)
+        ] }, void 0, true, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+          lineNumber: 131,
+          columnNumber: 15
+        }, this),
+        /* @__PURE__ */ jsxDEV("label", { children: [
+          "Proof reference",
+          /* @__PURE__ */ jsxDEV("input", { value: transfer.proofReference, maxLength: 256, onChange: (event) => setTransfer((v) => ({ ...v, proofReference: event.target.value })) }, void 0, false, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+            lineNumber: 132,
+            columnNumber: 37
+          }, this)
+        ] }, void 0, true, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+          lineNumber: 132,
+          columnNumber: 15
+        }, this),
+        /* @__PURE__ */ jsxDEV("button", { className: "button primary", type: "submit", disabled: command.pending || !transfer.bankTransactionReference.trim() || !transfer.proofReference.trim(), children: "Record transfer" }, void 0, false, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+          lineNumber: 133,
+          columnNumber: 15
+        }, this)
+      ] }, void 0, true, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+        lineNumber: 129,
+        columnNumber: 9
+      }, this),
+      refund.status === "CLOSED_UNREACHABLE" && isManager && /* @__PURE__ */ jsxDEV("button", { className: "button outline", type: "button", disabled: command.pending, onClick: () => transition({ action: "REOPEN" }, "Refund reopened with a fresh account link."), children: "Reopen" }, void 0, false, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+        lineNumber: 137,
+        columnNumber: 9
+      }, this),
+      refund.status === "REFUNDED" && /* @__PURE__ */ jsxDEV("p", { className: "muted", children: "Refunded. Only the masked account remains on file." }, void 0, false, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+        lineNumber: 139,
+        columnNumber: 44
+      }, this)
+    ] }, void 0, true, {
+      fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+      lineNumber: 98,
+      columnNumber: 7
+    }, this),
+    /* @__PURE__ */ jsxDEV(ReasonDialog, { open: closing, title: "Close this refund as unreachable", confirmLabel: "Close refund", pending: command.pending, onCancel: () => setClosing(false), onConfirm: closeUnreachable, children: /* @__PURE__ */ jsxDEV("p", { children: "Allowed only after 30 days without an account. The refund can be reopened later." }, void 0, false, {
+      fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+      lineNumber: 143,
+      columnNumber: 9
+    }, this) }, void 0, false, {
+      fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+      lineNumber: 142,
+      columnNumber: 7
+    }, this)
+  ] }, void 0, true, {
+    fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx",
+    lineNumber: 65,
+    columnNumber: 5
+  }, this);
+}
+_s(RefundQueuePage, "iOXZf1E4xavc/A9byyYSlWaSnaM=", false, function() {
+  return [useHttp, useRole, useCommand, useResource];
+});
+_c = RefundQueuePage;
+var _c;
+$RefreshReg$(_c, "RefundQueuePage");
+import * as RefreshRuntime from "/@react-refresh";
+const inWebWorker = typeof WorkerGlobalScope !== "undefined" && self instanceof WorkerGlobalScope;
+if (import.meta.hot && !inWebWorker) {
+  if (!window.$RefreshReg$) {
+    throw new Error(
+      "@vitejs/plugin-react can't detect preamble. Something is wrong."
+    );
+  }
+  RefreshRuntime.__hmr_import(import.meta.url).then((currentExports) => {
+    RefreshRuntime.registerExportsForReactRefresh("C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx", currentExports);
+    import.meta.hot.accept((nextExports) => {
+      if (!nextExports) return;
+      const invalidateMessage = RefreshRuntime.validateRefreshBoundaryAndEnqueueUpdate("C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx", currentExports, nextExports);
+      if (invalidateMessage) import.meta.hot.invalidate(invalidateMessage);
+    });
+  });
+}
+function $RefreshReg$(type, id) {
+  return RefreshRuntime.register(type, "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-settlement/pages/RefundQueuePage.jsx " + id);
+}
+function $RefreshSig$() {
+  return RefreshRuntime.createSignatureFunctionForTransform();
+}
+
+//# sourceMappingURL=data:application/json;base64,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QSxPQS9FRjtBQUFBO0FBQUE7QUFBQTtBQUFBLFNBZ0ZBO0FBRUo7QUFBQ3RELEdBbkl1QkQsaUJBQWU7QUFBQSxVQUNMYixTQUNuQkMsU0FTR0csWUFDRkMsV0FBVztBQUFBO0FBQUEsS0FaSFE7QUFBZSxJQUFBeUU7QUFBQSxhQUFBQSxJQUFBIiwibmFtZXMiOlsiUmVhY3QiLCJ1c2VNZW1vIiwidXNlU3RhdGUiLCJ1c2VIdHRwIiwidXNlUm9sZSIsIkxvYWRpbmciLCJTdWNjZXNzTm90aWNlIiwidXNlQ29tbWFuZCIsInVzZVJlc291cmNlIiwiY3JlYXRlU2V0dGxlbWVudEFwaSIsIk9wc1BhZ2UiLCJQcm9ibGVtTm90aWNlIiwiUmVhc29uRGlhbG9nIiwiYXNMaXN0IiwibW9uZXkiLCJTVEFUVVNFUyIsIlJlZnVuZFF1ZXVlUGFnZSIsIl9zIiwiYXBpIiwicm9sZSIsImlzTWFuYWdlciIsInN0YXR1cyIsInNldFN0YXR1cyIsInNlbGVjdGVkIiwic2V0U2VsZWN0ZWQiLCJhY2NvdW50Iiwic2V0QWNjb3VudCIsImJhbmtDb2RlIiwiYWNjb3VudE51bWJlciIsImhvbGRlck5hbWUiLCJ0cmFuc2ZlciIsInNldFRyYW5zZmVyIiwiYmFua1RyYW5zYWN0aW9uUmVmZXJlbmNlIiwicHJvb2ZSZWZlcmVuY2UiLCJyZXZlYWxlZCIsInNldFJldmVhbGVkIiwiY2xvc2luZyIsInNldENsb3NpbmciLCJtZXNzYWdlIiwic2V0TWVzc2FnZSIsImNvbW1hbmQiLCJxdWV1ZSIsImxpc3RSZWZ1bmRzIiwidW5kZWZpbmVkIiwicmVmdW5kcyIsImRhdGEiLCJyZWZ1bmQiLCJmaW5kIiwiaXRlbSIsInJlZnVuZElkIiwiYWN0Iiwic2VuZCIsInN1Y2Nlc3MiLCJvdXQiLCJydW4iLCJvayIsInJlbG9hZCIsInRyYW5zaXRpb24iLCJib2R5Iiwia2V5IiwidHJhbnNpdGlvblJlZnVuZCIsImVudGVyQWNjb3VudCIsImV2ZW50IiwicHJldmVudERlZmF1bHQiLCJwdXRSZWZ1bmRBY2NvdW50IiwidHJpbSIsInJldmVhbCIsImdldFJlZnVuZEFjY291bnROdW1iZXIiLCJyZXN1bHQiLCJyZWNvcmRUcmFuc2ZlciIsImFjdGlvbiIsImNsb3NlVW5yZWFjaGFibGUiLCJyZWFzb24iLCJlcnJvciIsInJldHJ5IiwidGFyZ2V0IiwidmFsdWUiLCJtYXAiLCJsb2FkaW5nIiwibGVuZ3RoIiwiY3Vyc29yIiwidGlja2V0Q29kZSIsImdyb3VwQ29kZSIsInNvdXJjZSIsImFtb3VudCIsImFjY291bnROdW1iZXJNYXNrZWQiLCJ2IiwicGVuZGluZyIsInJlc2VuZEFjY291bnRMaW5rIiwiX2MiXSwiaWdub3JlTGlzdCI6W10sInNvdXJjZXMiOlsiUmVmdW5kUXVldWVQYWdlLmpzeCJdLCJzb3VyY2VzQ29udGVudCI6WyJpbXBvcnQgUmVhY3QsIHsgdXNlTWVtbywgdXNlU3RhdGUgfSBmcm9tICdyZWFjdCc7XHJcbmltcG9ydCB7IHVzZUh0dHAgfSBmcm9tICcuLi8uLi9zaGFyZWQvYXBpL3VzZUh0dHAnO1xyXG5pbXBvcnQgeyB1c2VSb2xlIH0gZnJvbSAnLi4vLi4vc2hhcmVkL2F1dGgvdXNlUm9sZSc7XHJcbmltcG9ydCB7IExvYWRpbmcsIFN1Y2Nlc3NOb3RpY2UsIHVzZUNvbW1hbmQsIHVzZVJlc291cmNlIH0gZnJvbSAnLi4vLi4vc2hhcmVkL3VpL2NvbXBvbmVudHMnO1xyXG5pbXBvcnQgeyBjcmVhdGVTZXR0bGVtZW50QXBpIH0gZnJvbSAnLi4vYXBpL3NldHRsZW1lbnRBcGknO1xyXG5pbXBvcnQgeyBPcHNQYWdlIH0gZnJvbSAnLi4vT3BzUGFnZSc7XHJcbmltcG9ydCB7IFByb2JsZW1Ob3RpY2UsIFJlYXNvbkRpYWxvZywgYXNMaXN0LCBtb25leSB9IGZyb20gJy4uL3VpJztcclxuXHJcbmNvbnN0IFNUQVRVU0VTID0gWydQRU5ESU5HX0FDQ09VTlQnLCAnUEVORElOR19BUFBST1ZBTCcsICdQRU5ESU5HX1RSQU5TRkVSJywgJ1BFTkRJTkdfUkVDT05DSUxJQVRJT04nLCAnUkVGVU5ERUQnLCAnQ0xPU0VEX1VOUkVBQ0hBQkxFJ107XHJcblxyXG4vKipcclxuICogQmFuayByZWZ1bmQgcXVldWUgYW5kIGxpZmVjeWNsZSAoRlItMDM44oCTRlItMDQwKS4gVGhlIHN0YXR1cywgYW1vdW50IGFuZCBtYXNrZWQgYWNjb3VudCBhcmUgdGhlIHNlcnZlcidzOyBhIHN0ZXAgaXMgb25seVxyXG4gKiBvZmZlcmVkIGZvciB0aGUgc3RhdHVzIHRoYXQgYWxsb3dzIGl0LCBhbmQgdGhlIHNlcnZlciBzdGlsbCByZWZ1c2VzIGFueXRoaW5nIGVsc2UuIFRoZSBmdWxsIGFjY291bnQgbnVtYmVyIGlzIHNob3duIG9uXHJcbiAqIHJlcXVlc3QgdG8gYSBNYW5hZ2VyLCBrZXB0IGluIG1lbW9yeSBvbmx5IGFuZCBuZXZlciBzdG9yZWQgb3IgbG9nZ2VkLlxyXG4gKi9cclxuZXhwb3J0IGRlZmF1bHQgZnVuY3Rpb24gUmVmdW5kUXVldWVQYWdlKCkge1xyXG4gIGNvbnN0IGFwaSA9IGNyZWF0ZVNldHRsZW1lbnRBcGkodXNlSHR0cCgpKTtcclxuICBjb25zdCByb2xlID0gdXNlUm9sZSgpO1xyXG4gIGNvbnN0IGlzTWFuYWdlciA9IHJvbGUgPT09ICdNQU5BR0VSJyB8fCByb2xlID09PSAnQURNSU4nO1xyXG4gIGNvbnN0IFtzdGF0dXMsIHNldFN0YXR1c10gPSB1c2VTdGF0ZSgnJyk7XHJcbiAgY29uc3QgW3NlbGVjdGVkLCBzZXRTZWxlY3RlZF0gPSB1c2VTdGF0ZShudWxsKTtcclxuICBjb25zdCBbYWNjb3VudCwgc2V0QWNjb3VudF0gPSB1c2VTdGF0ZSh7IGJhbmtDb2RlOiAnJywgYWNjb3VudE51bWJlcjogJycsIGhvbGRlck5hbWU6ICcnIH0pO1xyXG4gIGNvbnN0IFt0cmFuc2Zlciwgc2V0VHJhbnNmZXJdID0gdXNlU3RhdGUoeyBiYW5rVHJhbnNhY3Rpb25SZWZlcmVuY2U6ICcnLCBwcm9vZlJlZmVyZW5jZTogJycgfSk7XHJcbiAgY29uc3QgW3JldmVhbGVkLCBzZXRSZXZlYWxlZF0gPSB1c2VTdGF0ZShudWxsKTtcclxuICBjb25zdCBbY2xvc2luZywgc2V0Q2xvc2luZ10gPSB1c2VTdGF0ZShmYWxzZSk7XHJcbiAgY29uc3QgW21lc3NhZ2UsIHNldE1lc3NhZ2VdID0gdXNlU3RhdGUoJycpO1xyXG4gIGNvbnN0IGNvbW1hbmQgPSB1c2VDb21tYW5kKCk7XHJcbiAgY29uc3QgcXVldWUgPSB1c2VSZXNvdXJjZSgoKSA9PiBhcGkubGlzdFJlZnVuZHMoc3RhdHVzID8geyBzdGF0dXMgfSA6IHVuZGVmaW5lZCksIFtzdGF0dXNdKTtcclxuICBjb25zdCByZWZ1bmRzID0gdXNlTWVtbygoKSA9PiBhc0xpc3QocXVldWUuZGF0YSksIFtxdWV1ZS5kYXRhXSk7XHJcbiAgY29uc3QgcmVmdW5kID0gcmVmdW5kcy5maW5kKGl0ZW0gPT4gaXRlbS5yZWZ1bmRJZCA9PT0gc2VsZWN0ZWQpIHx8IG51bGw7XHJcblxyXG4gIGNvbnN0IGFjdCA9IGFzeW5jIChzZW5kLCBzdWNjZXNzKSA9PiB7XHJcbiAgICBzZXRNZXNzYWdlKCcnKTtcclxuICAgIGNvbnN0IG91dCA9IGF3YWl0IGNvbW1hbmQucnVuKHNlbmQpO1xyXG4gICAgaWYgKG91dC5vaykgeyBzZXRNZXNzYWdlKHN1Y2Nlc3MpOyBzZXRSZXZlYWxlZChudWxsKTsgcXVldWUucmVsb2FkKCk7IH1cclxuICAgIHJldHVybiBvdXQ7XHJcbiAgfTtcclxuICBjb25zdCB0cmFuc2l0aW9uID0gKGJvZHksIHN1Y2Nlc3MpID0+IGFjdChrZXkgPT4gYXBpLnRyYW5zaXRpb25SZWZ1bmQocmVmdW5kLnJlZnVuZElkLCBib2R5LCBrZXkpLCBzdWNjZXNzKTtcclxuXHJcbiAgY29uc3QgZW50ZXJBY2NvdW50ID0gYXN5bmMgZXZlbnQgPT4ge1xyXG4gICAgZXZlbnQucHJldmVudERlZmF1bHQoKTtcclxuICAgIGNvbnN0IG91dCA9IGF3YWl0IGFjdChrZXkgPT4gYXBpLnB1dFJlZnVuZEFjY291bnQocmVmdW5kLnJlZnVuZElkLCB7XHJcbiAgICAgIGJhbmtDb2RlOiBhY2NvdW50LmJhbmtDb2RlLnRyaW0oKSwgYWNjb3VudE51bWJlcjogYWNjb3VudC5hY2NvdW50TnVtYmVyLnRyaW0oKSwgaG9sZGVyTmFtZTogYWNjb3VudC5ob2xkZXJOYW1lLnRyaW0oKSxcclxuICAgIH0sIGtleSksICdBY2NvdW50IHJlY29yZGVkLicpO1xyXG4gICAgaWYgKG91dC5vaykgc2V0QWNjb3VudCh7IGJhbmtDb2RlOiAnJywgYWNjb3VudE51bWJlcjogJycsIGhvbGRlck5hbWU6ICcnIH0pO1xyXG4gIH07XHJcblxyXG4gIGNvbnN0IHJldmVhbCA9IGFzeW5jICgpID0+IHtcclxuICAgIGNvbnN0IG91dCA9IGF3YWl0IGNvbW1hbmQucnVuKCgpID0+IGFwaS5nZXRSZWZ1bmRBY2NvdW50TnVtYmVyKHJlZnVuZC5yZWZ1bmRJZCkpO1xyXG4gICAgaWYgKG91dC5vaykgc2V0UmV2ZWFsZWQob3V0LnJlc3VsdCk7XHJcbiAgfTtcclxuXHJcbiAgY29uc3QgcmVjb3JkVHJhbnNmZXIgPSBhc3luYyBldmVudCA9PiB7XHJcbiAgICBldmVudC5wcmV2ZW50RGVmYXVsdCgpO1xyXG4gICAgY29uc3Qgb3V0ID0gYXdhaXQgdHJhbnNpdGlvbih7IGFjdGlvbjogJ1JFQ09SRF9UUkFOU0ZFUicsIGJhbmtUcmFuc2FjdGlvblJlZmVyZW5jZTogdHJhbnNmZXIuYmFua1RyYW5zYWN0aW9uUmVmZXJlbmNlLnRyaW0oKSwgcHJvb2ZSZWZlcmVuY2U6IHRyYW5zZmVyLnByb29mUmVmZXJlbmNlLnRyaW0oKSB9LCAnVHJhbnNmZXIgcmVjb3JkZWQuJyk7XHJcbiAgICBpZiAob3V0Lm9rKSBzZXRUcmFuc2Zlcih7IGJhbmtUcmFuc2FjdGlvblJlZmVyZW5jZTogJycsIHByb29mUmVmZXJlbmNlOiAnJyB9KTtcclxuICB9O1xyXG5cclxuICBjb25zdCBjbG9zZVVucmVhY2hhYmxlID0gYXN5bmMgcmVhc29uID0+IHtcclxuICAgIGNvbnN0IG91dCA9IGF3YWl0IHRyYW5zaXRpb24oeyBhY3Rpb246ICdDTE9TRV9VTlJFQUNIQUJMRScsIHJlYXNvbiB9LCAnUmVmdW5kIGNsb3NlZCBhcyB1bnJlYWNoYWJsZS4nKTtcclxuICAgIGlmIChvdXQub2spIHNldENsb3NpbmcoZmFsc2UpO1xyXG4gIH07XHJcblxyXG4gIHJldHVybiAoXHJcbiAgICA8T3BzUGFnZSBleWVicm93PVwiQkFOSyBSRUZVTkRTXCIgdGl0bGU9XCJSZWZ1bmQgcXVldWVcIiBpbnRybz1cIkV2ZXJ5IE1sYW5kIHJlZnVuZCBpcyBhIGJhbmsgdHJhbnNmZXIuIEEgcmVmdW5kIGNvdW50cyBhcyBkb25lIG9ubHkgd2hlbiBhIE1hbmFnZXIgY29uZmlybXMgUkVGVU5ERUQuXCI+XHJcbiAgICAgIDxTdWNjZXNzTm90aWNlPnttZXNzYWdlfTwvU3VjY2Vzc05vdGljZT5cclxuICAgICAgPFByb2JsZW1Ob3RpY2UgZXJyb3I9e3F1ZXVlLmVycm9yIHx8IGNvbW1hbmQuZXJyb3J9IG9uUmV0cnk9e2NvbW1hbmQucmV0cnl9IG9uUmVsb2FkPXtxdWV1ZS5yZWxvYWR9IC8+XHJcbiAgICAgIDxzZWN0aW9uIGNsYXNzTmFtZT1cIm90YS1wYW5lbFwiPlxyXG4gICAgICAgIDxkaXYgY2xhc3NOYW1lPVwib3RhLWlubGluZS1mb3JtXCI+XHJcbiAgICAgICAgICA8bGFiZWw+U3RhdHVzXHJcbiAgICAgICAgICAgIDxzZWxlY3QgdmFsdWU9e3N0YXR1c30gb25DaGFuZ2U9e2V2ZW50ID0+IHsgc2V0U3RhdHVzKGV2ZW50LnRhcmdldC52YWx1ZSk7IHNldFNlbGVjdGVkKG51bGwpOyB9fT5cclxuICAgICAgICAgICAgICA8b3B0aW9uIHZhbHVlPVwiXCI+QWxsPC9vcHRpb24+XHJcbiAgICAgICAgICAgICAge1NUQVRVU0VTLm1hcCh2YWx1ZSA9PiA8b3B0aW9uIGtleT17dmFsdWV9IHZhbHVlPXt2YWx1ZX0+e3ZhbHVlfTwvb3B0aW9uPil9XHJcbiAgICAgICAgICAgIDwvc2VsZWN0PlxyXG4gICAgICAgICAgPC9sYWJlbD5cclxuICAgICAgICAgIDxidXR0b24gY2xhc3NOYW1lPVwiYnV0dG9uIHNlY29uZGFyeVwiIHR5cGU9XCJidXR0b25cIiBvbkNsaWNrPXsoKSA9PiBxdWV1ZS5yZWxvYWQoKX0+UmVmcmVzaDwvYnV0dG9uPlxyXG4gICAgICAgIDwvZGl2PlxyXG4gICAgICAgIHtxdWV1ZS5sb2FkaW5nID8gPExvYWRpbmcgLz4gOiBxdWV1ZS5lcnJvciA/IG51bGwgOiByZWZ1bmRzLmxlbmd0aCA9PT0gMCA/IDxkaXYgY2xhc3NOYW1lPVwiZW1wdHktc3RhdGVcIj48cD5ObyByZWZ1bmQgcmVxdWVzdHMgZm91bmQuPC9wPjwvZGl2PiA6IChcclxuICAgICAgICAgIDx0YWJsZSBjbGFzc05hbWU9XCJvcHMtdGFibGVcIj5cclxuICAgICAgICAgICAgPHRoZWFkPjx0cj48dGg+UmVmdW5kPC90aD48dGg+VGlja2V0IC8gZ3JvdXA8L3RoPjx0aD5SZWFzb248L3RoPjx0aD5BbW91bnQ8L3RoPjx0aD5TdGF0dXM8L3RoPjx0aD5BY2NvdW50PC90aD48L3RyPjwvdGhlYWQ+XHJcbiAgICAgICAgICAgIDx0Ym9keT5cclxuICAgICAgICAgICAgICB7cmVmdW5kcy5tYXAoaXRlbSA9PiAoXHJcbiAgICAgICAgICAgICAgICA8dHIga2V5PXtpdGVtLnJlZnVuZElkfSBjbGFzc05hbWU9e3NlbGVjdGVkID09PSBpdGVtLnJlZnVuZElkID8gJ3NlbGVjdGVkJyA6ICcnfSBzdHlsZT17eyBjdXJzb3I6ICdwb2ludGVyJyB9fSBvbkNsaWNrPXsoKSA9PiB7IHNldFNlbGVjdGVkKGl0ZW0ucmVmdW5kSWQpOyBzZXRSZXZlYWxlZChudWxsKTsgfX0+XHJcbiAgICAgICAgICAgICAgICAgIDx0ZD57aXRlbS5yZWZ1bmRJZH08L3RkPlxyXG4gICAgICAgICAgICAgICAgICA8dGQ+e2l0ZW0udGlja2V0Q29kZSB8fCBpdGVtLmdyb3VwQ29kZSB8fCAn4oCUJ308L3RkPlxyXG4gICAgICAgICAgICAgICAgICA8dGQ+e2l0ZW0uc291cmNlfTwvdGQ+XHJcbiAgICAgICAgICAgICAgICAgIDx0ZD57bW9uZXkoaXRlbS5hbW91bnQpfTwvdGQ+XHJcbiAgICAgICAgICAgICAgICAgIDx0ZD48c3BhbiBjbGFzc05hbWU9XCJvcHMtc3RhdHVzXCI+e2l0ZW0uc3RhdHVzfTwvc3Bhbj48L3RkPlxyXG4gICAgICAgICAgICAgICAgICA8dGQ+e2l0ZW0uYWNjb3VudE51bWJlck1hc2tlZCA/IGAke2l0ZW0uYWNjb3VudE51bWJlck1hc2tlZH0ke2l0ZW0uaG9sZGVyTmFtZSA/IGAgwrcgJHtpdGVtLmhvbGRlck5hbWV9YCA6ICcnfWAgOiAn4oCUJ308L3RkPlxyXG4gICAgICAgICAgICAgICAgPC90cj5cclxuICAgICAgICAgICAgICApKX1cclxuICAgICAgICAgICAgPC90Ym9keT5cclxuICAgICAgICAgIDwvdGFibGU+XHJcbiAgICAgICAgKX1cclxuICAgICAgPC9zZWN0aW9uPlxyXG5cclxuICAgICAge3JlZnVuZCAmJiAoXHJcbiAgICAgICAgPHNlY3Rpb24gY2xhc3NOYW1lPVwib3RhLXBhbmVsXCIgYXJpYS1sYWJlbD1cIlJlZnVuZCBhY3Rpb25zXCI+XHJcbiAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cIm90YS1wYW5lbC1oZWFkXCI+PGgyPntyZWZ1bmQucmVmdW5kSWR9PC9oMj48c3BhbiBjbGFzc05hbWU9XCJvcHMtc3RhdHVzXCI+e3JlZnVuZC5zdGF0dXN9PC9zcGFuPjwvZGl2PlxyXG4gICAgICAgICAge3JlZnVuZC5zdGF0dXMgPT09ICdQRU5ESU5HX0FDQ09VTlQnICYmICg8PlxyXG4gICAgICAgICAgICA8cCBjbGFzc05hbWU9XCJtdXRlZFwiPldhaXRpbmcgZm9yIHRoZSBwYXllcuKAmXMgYWNjb3VudC4gVGhlIHBheWVyIGdldHMgYSBzaW5nbGUtdXNlIGxpbmsgYnkgZW1haWwgKDcgZGF5cyksIG9yIFN0YWZmIGNhbiBlbnRlciB0aGUgYWNjb3VudCB0aGUgcGF5ZXIgaGFuZHMgb3ZlciBhdCB0aGUgY291bnRlci48L3A+XHJcbiAgICAgICAgICAgIDxmb3JtIGNsYXNzTmFtZT1cIm90YS1mb3JtXCIgYXJpYS1sYWJlbD1cIkNvdW50ZXIgYWNjb3VudFwiIG9uU3VibWl0PXtlbnRlckFjY291bnR9PlxyXG4gICAgICAgICAgICAgIDxsYWJlbD5CYW5rIGNvZGU8aW5wdXQgdmFsdWU9e2FjY291bnQuYmFua0NvZGV9IG1heExlbmd0aD17MzJ9IG9uQ2hhbmdlPXtldmVudCA9PiBzZXRBY2NvdW50KHYgPT4gKHsgLi4udiwgYmFua0NvZGU6IGV2ZW50LnRhcmdldC52YWx1ZSB9KSl9IC8+PC9sYWJlbD5cclxuICAgICAgICAgICAgICA8bGFiZWw+QWNjb3VudCBudW1iZXI8aW5wdXQgaW5wdXRNb2RlPVwibnVtZXJpY1wiIGF1dG9Db21wbGV0ZT1cIm9mZlwiIHZhbHVlPXthY2NvdW50LmFjY291bnROdW1iZXJ9IG1heExlbmd0aD17MzJ9IG9uQ2hhbmdlPXtldmVudCA9PiBzZXRBY2NvdW50KHYgPT4gKHsgLi4udiwgYWNjb3VudE51bWJlcjogZXZlbnQudGFyZ2V0LnZhbHVlIH0pKX0gLz48L2xhYmVsPlxyXG4gICAgICAgICAgICAgIDxsYWJlbD5Ib2xkZXIgbmFtZSAoYXMgdGhlIGJhbmsgc2hvd3MgaXQpPGlucHV0IGF1dG9Db21wbGV0ZT1cIm9mZlwiIHZhbHVlPXthY2NvdW50LmhvbGRlck5hbWV9IG1heExlbmd0aD17MTI4fSBvbkNoYW5nZT17ZXZlbnQgPT4gc2V0QWNjb3VudCh2ID0+ICh7IC4uLnYsIGhvbGRlck5hbWU6IGV2ZW50LnRhcmdldC52YWx1ZSB9KSl9IC8+PC9sYWJlbD5cclxuICAgICAgICAgICAgICA8YnV0dG9uIGNsYXNzTmFtZT1cImJ1dHRvbiBwcmltYXJ5XCIgdHlwZT1cInN1Ym1pdFwiIGRpc2FibGVkPXtjb21tYW5kLnBlbmRpbmcgfHwgIWFjY291bnQuYmFua0NvZGUudHJpbSgpIHx8ICFhY2NvdW50LmFjY291bnROdW1iZXIudHJpbSgpIHx8ICFhY2NvdW50LmhvbGRlck5hbWUudHJpbSgpfT5TYXZlIGFjY291bnQ8L2J1dHRvbj5cclxuICAgICAgICAgICAgPC9mb3JtPlxyXG4gICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cIm9wcy1hY3Rpb25zXCI+XHJcbiAgICAgICAgICAgICAgPGJ1dHRvbiBjbGFzc05hbWU9XCJidXR0b24gb3V0bGluZVwiIHR5cGU9XCJidXR0b25cIiBkaXNhYmxlZD17Y29tbWFuZC5wZW5kaW5nfSBvbkNsaWNrPXsoKSA9PiBhY3Qoa2V5ID0+IGFwaS5yZXNlbmRBY2NvdW50TGluayhyZWZ1bmQucmVmdW5kSWQsIGtleSksICdBIGZyZXNoIGFjY291bnQgbGluayB3YXMgc2VudDsgdGhlIHByZXZpb3VzIGxpbmsgbm8gbG9uZ2VyIHdvcmtzLicpfT5SZXNlbmQgYWNjb3VudCBsaW5rPC9idXR0b24+XHJcbiAgICAgICAgICAgICAge2lzTWFuYWdlciAmJiA8YnV0dG9uIGNsYXNzTmFtZT1cImJ1dHRvbiBkYW5nZXJcIiB0eXBlPVwiYnV0dG9uXCIgb25DbGljaz17KCkgPT4gc2V0Q2xvc2luZyh0cnVlKX0+Q2xvc2UgYXMgdW5yZWFjaGFibGU8L2J1dHRvbj59XHJcbiAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgPC8+KX1cclxuICAgICAgICAgIHtyZWZ1bmQuc3RhdHVzICE9PSAnUEVORElOR19BQ0NPVU5UJyAmJiByZWZ1bmQuc3RhdHVzICE9PSAnUkVGVU5ERUQnICYmIHJlZnVuZC5zdGF0dXMgIT09ICdDTE9TRURfVU5SRUFDSEFCTEUnICYmIGlzTWFuYWdlciAmJiAoXHJcbiAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwib3BzLWFjdGlvbnNcIj5cclxuICAgICAgICAgICAgICA8YnV0dG9uIGNsYXNzTmFtZT1cImJ1dHRvbiBvdXRsaW5lXCIgdHlwZT1cImJ1dHRvblwiIGRpc2FibGVkPXtjb21tYW5kLnBlbmRpbmd9IG9uQ2xpY2s9e3JldmVhbH0+U2hvdyBmdWxsIGFjY291bnQgbnVtYmVyPC9idXR0b24+XHJcbiAgICAgICAgICAgICAge3JlZnVuZC5zdGF0dXMgPT09ICdQRU5ESU5HX0FQUFJPVkFMJyAmJiA8YnV0dG9uIGNsYXNzTmFtZT1cImJ1dHRvbiBwcmltYXJ5XCIgdHlwZT1cImJ1dHRvblwiIGRpc2FibGVkPXtjb21tYW5kLnBlbmRpbmd9IG9uQ2xpY2s9eygpID0+IHRyYW5zaXRpb24oeyBhY3Rpb246ICdBUFBST1ZFJyB9LCAnUmVmdW5kIGFwcHJvdmVkLicpfT5BcHByb3ZlPC9idXR0b24+fVxyXG4gICAgICAgICAgICAgIHtyZWZ1bmQuc3RhdHVzID09PSAnUEVORElOR19SRUNPTkNJTElBVElPTicgJiYgPGJ1dHRvbiBjbGFzc05hbWU9XCJidXR0b24gcHJpbWFyeVwiIHR5cGU9XCJidXR0b25cIiBkaXNhYmxlZD17Y29tbWFuZC5wZW5kaW5nfSBvbkNsaWNrPXsoKSA9PiB0cmFuc2l0aW9uKHsgYWN0aW9uOiAnQ09ORklSTV9SRUZVTkRFRCcgfSwgJ1JlZnVuZCBjb25maXJtZWQgYXMgUkVGVU5ERUQuJyl9PkNvbmZpcm0gcmVmdW5kZWQ8L2J1dHRvbj59XHJcbiAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgKX1cclxuICAgICAgICAgIHtyZXZlYWxlZCAmJiAoXHJcbiAgICAgICAgICAgIDxkbCBjbGFzc05hbWU9XCJvcHMtZmFjdHNcIiBhcmlhLWxhYmVsPVwiUmVjaXBpZW50IGFjY291bnRcIj5cclxuICAgICAgICAgICAgICA8ZGl2PjxkdD5CYW5rPC9kdD48ZGQ+e3JldmVhbGVkLmJhbmtDb2RlIHx8ICfigJQnfTwvZGQ+PC9kaXY+XHJcbiAgICAgICAgICAgICAgPGRpdj48ZHQ+QWNjb3VudCBudW1iZXI8L2R0PjxkZD57cmV2ZWFsZWQuYWNjb3VudE51bWJlcn08L2RkPjwvZGl2PlxyXG4gICAgICAgICAgICAgIDxkaXY+PGR0PkhvbGRlcjwvZHQ+PGRkPntyZXZlYWxlZC5ob2xkZXJOYW1lIHx8ICfigJQnfTwvZGQ+PC9kaXY+XHJcbiAgICAgICAgICAgICAgPGRpdj48ZHQgLz48ZGQ+PGJ1dHRvbiB0eXBlPVwiYnV0dG9uXCIgY2xhc3NOYW1lPVwiYnV0dG9uIG91dGxpbmVcIiBvbkNsaWNrPXsoKSA9PiBzZXRSZXZlYWxlZChudWxsKX0+SGlkZTwvYnV0dG9uPjwvZGQ+PC9kaXY+XHJcbiAgICAgICAgICAgIDwvZGw+XHJcbiAgICAgICAgICApfVxyXG4gICAgICAgICAge3JlZnVuZC5zdGF0dXMgPT09ICdQRU5ESU5HX1RSQU5TRkVSJyAmJiBpc01hbmFnZXIgJiYgKFxyXG4gICAgICAgICAgICA8Zm9ybSBjbGFzc05hbWU9XCJvdGEtZm9ybVwiIGFyaWEtbGFiZWw9XCJSZWNvcmQgdHJhbnNmZXJcIiBvblN1Ym1pdD17cmVjb3JkVHJhbnNmZXJ9PlxyXG4gICAgICAgICAgICAgIDxwIGNsYXNzTmFtZT1cIm11dGVkIHNtYWxsXCI+Q29tcGFyZSB0aGUgaG9sZGVyIG5hbWUgdGhlIGJhbmsgc2hvd3Mgd2l0aCB0aGUgbmFtZSBlbnRlcmVkIGFuZCBzdG9wIG9uIGEgbWlzbWF0Y2guPC9wPlxyXG4gICAgICAgICAgICAgIDxsYWJlbD5CYW5rIHRyYW5zYWN0aW9uIHJlZmVyZW5jZTxpbnB1dCB2YWx1ZT17dHJhbnNmZXIuYmFua1RyYW5zYWN0aW9uUmVmZXJlbmNlfSBtYXhMZW5ndGg9ezEyOH0gb25DaGFuZ2U9e2V2ZW50ID0+IHNldFRyYW5zZmVyKHYgPT4gKHsgLi4udiwgYmFua1RyYW5zYWN0aW9uUmVmZXJlbmNlOiBldmVudC50YXJnZXQudmFsdWUgfSkpfSAvPjwvbGFiZWw+XHJcbiAgICAgICAgICAgICAgPGxhYmVsPlByb29mIHJlZmVyZW5jZTxpbnB1dCB2YWx1ZT17dHJhbnNmZXIucHJvb2ZSZWZlcmVuY2V9IG1heExlbmd0aD17MjU2fSBvbkNoYW5nZT17ZXZlbnQgPT4gc2V0VHJhbnNmZXIodiA9PiAoeyAuLi52LCBwcm9vZlJlZmVyZW5jZTogZXZlbnQudGFyZ2V0LnZhbHVlIH0pKX0gLz48L2xhYmVsPlxyXG4gICAgICAgICAgICAgIDxidXR0b24gY2xhc3NOYW1lPVwiYnV0dG9uIHByaW1hcnlcIiB0eXBlPVwic3VibWl0XCIgZGlzYWJsZWQ9e2NvbW1hbmQucGVuZGluZyB8fCAhdHJhbnNmZXIuYmFua1RyYW5zYWN0aW9uUmVmZXJlbmNlLnRyaW0oKSB8fCAhdHJhbnNmZXIucHJvb2ZSZWZlcmVuY2UudHJpbSgpfT5SZWNvcmQgdHJhbnNmZXI8L2J1dHRvbj5cclxuICAgICAgICAgICAgPC9mb3JtPlxyXG4gICAgICAgICAgKX1cclxuICAgICAgICAgIHtyZWZ1bmQuc3RhdHVzID09PSAnQ0xPU0VEX1VOUkVBQ0hBQkxFJyAmJiBpc01hbmFnZXIgJiYgKFxyXG4gICAgICAgICAgICA8YnV0dG9uIGNsYXNzTmFtZT1cImJ1dHRvbiBvdXRsaW5lXCIgdHlwZT1cImJ1dHRvblwiIGRpc2FibGVkPXtjb21tYW5kLnBlbmRpbmd9IG9uQ2xpY2s9eygpID0+IHRyYW5zaXRpb24oeyBhY3Rpb246ICdSRU9QRU4nIH0sICdSZWZ1bmQgcmVvcGVuZWQgd2l0aCBhIGZyZXNoIGFjY291bnQgbGluay4nKX0+UmVvcGVuPC9idXR0b24+XHJcbiAgICAgICAgICApfVxyXG4gICAgICAgICAge3JlZnVuZC5zdGF0dXMgPT09ICdSRUZVTkRFRCcgJiYgPHAgY2xhc3NOYW1lPVwibXV0ZWRcIj5SZWZ1bmRlZC4gT25seSB0aGUgbWFza2VkIGFjY291bnQgcmVtYWlucyBvbiBmaWxlLjwvcD59XHJcbiAgICAgICAgPC9zZWN0aW9uPlxyXG4gICAgICApfVxyXG4gICAgICA8UmVhc29uRGlhbG9nIG9wZW49e2Nsb3Npbmd9IHRpdGxlPVwiQ2xvc2UgdGhpcyByZWZ1bmQgYXMgdW5yZWFjaGFibGVcIiBjb25maXJtTGFiZWw9XCJDbG9zZSByZWZ1bmRcIiBwZW5kaW5nPXtjb21tYW5kLnBlbmRpbmd9IG9uQ2FuY2VsPXsoKSA9PiBzZXRDbG9zaW5nKGZhbHNlKX0gb25Db25maXJtPXtjbG9zZVVucmVhY2hhYmxlfT5cclxuICAgICAgICA8cD5BbGxvd2VkIG9ubHkgYWZ0ZXIgMzAgZGF5cyB3aXRob3V0IGFuIGFjY291bnQuIFRoZSByZWZ1bmQgY2FuIGJlIHJlb3BlbmVkIGxhdGVyLjwvcD5cclxuICAgICAgPC9SZWFzb25EaWFsb2c+XHJcbiAgICA8L09wc1BhZ2U+XHJcbiAgKTtcclxufVxyXG4iXSwiZmlsZSI6IkM6L1VzZXJzL2FkbWluL0Rlc2t0b3AvU0VQL21sYW5kLW9wZXJhdGlvbnMtaHViL3Bwc3dic19mcm9udGVuZC9zcmMvd29ya3Nob3Atc2V0dGxlbWVudC9wYWdlcy9SZWZ1bmRRdWV1ZVBhZ2UuanN4In0=

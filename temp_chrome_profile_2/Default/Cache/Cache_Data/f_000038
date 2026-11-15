@@ -1,0 +1,322 @@
+import { createHotContext as __vite__createHotContext } from "/@vite/client";import.meta.hot = __vite__createHotContext("/src/workshops/WorkshopListPage.jsx");import __vite__cjsImport0_react_jsxDevRuntime from "/node_modules/.vite/deps/react_jsx-dev-runtime.js?v=83e3faa1"; const jsxDEV = __vite__cjsImport0_react_jsxDevRuntime["jsxDEV"];
+var _s = $RefreshSig$();
+import __vite__cjsImport1_react from "/node_modules/.vite/deps/react.js?v=83e3faa1"; const React = __vite__cjsImport1_react.__esModule ? __vite__cjsImport1_react.default : __vite__cjsImport1_react; const useEffect = __vite__cjsImport1_react["useEffect"]; const useState = __vite__cjsImport1_react["useState"];
+import "/src/workshops/workshopList.css";
+import { listWorkshopPackages } from "/src/api/workshops.js";
+import { Paginator, usePaged } from "/src/shared/ui/Paginator.jsx";
+import PackageReviewSummary from "/src/features/reviewmanagement/ui/PackageReviewSummary.jsx?t=1794733884177";
+import { offersForPackage, usePublicWorkshopPrograms, WorkshopOfferBadges, WorkshopOfferPrice } from "/src/features/loyalty-promotion/publicOffers.js?t=1794733875684";
+export function WorkshopListPage() {
+  _s();
+  const programs = usePublicWorkshopPrograms();
+  const [packages, setPackages] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const paged = usePaged(packages, 9, packages);
+  const fetchPackages = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await listWorkshopPackages();
+      setPackages(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setError(err?.detail || err?.message || "Không thể tải danh sách workshop. Vui lòng thử lại sau.");
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => {
+    fetchPackages();
+  }, []);
+  return /* @__PURE__ */ jsxDEV("main", { className: "container public-page", children: [
+    /* @__PURE__ */ jsxDEV("p", { className: "eyebrow", children: "WORKSHOP TẠI MLAND" }, void 0, false, {
+      fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshops/WorkshopListPage.jsx",
+      lineNumber: 34,
+      columnNumber: 7
+    }, this),
+    /* @__PURE__ */ jsxDEV("h1", { children: "Khám phá các gói Workshop" }, void 0, false, {
+      fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshops/WorkshopListPage.jsx",
+      lineNumber: 35,
+      columnNumber: 7
+    }, this),
+    /* @__PURE__ */ jsxDEV("p", { className: "lead", children: "Tự tay chế tác chiếc nhẫn mang đậm dấu ấn cá nhân cùng sự hướng dẫn tận tâm từ nghệ nhân MLAND." }, void 0, false, {
+      fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshops/WorkshopListPage.jsx",
+      lineNumber: 36,
+      columnNumber: 7
+    }, this),
+    /* @__PURE__ */ jsxDEV(
+      "div",
+      {
+        style: {
+          margin: "20px 0 28px",
+          padding: "14px 20px",
+          backgroundColor: "#fefce8",
+          border: "1px solid #fde047",
+          borderRadius: "8px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: "12px"
+        },
+        children: [
+          /* @__PURE__ */ jsxDEV("div", { style: { display: "flex", alignItems: "center", gap: "10px" }, children: [
+            /* @__PURE__ */ jsxDEV("span", { style: { fontSize: "1.4rem" }, children: "💍" }, void 0, false, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshops/WorkshopListPage.jsx",
+              lineNumber: 55,
+              columnNumber: 11
+            }, this),
+            /* @__PURE__ */ jsxDEV("span", { style: { fontSize: "14px", color: "#1e293b" }, children: "Bạn muốn tùy chọn dáng nhẫn, chất liệu hoặc tự tay thiết kế mẫu trước khi đến lớp?" }, void 0, false, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshops/WorkshopListPage.jsx",
+              lineNumber: 56,
+              columnNumber: 11
+            }, this)
+          ] }, void 0, true, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshops/WorkshopListPage.jsx",
+            lineNumber: 54,
+            columnNumber: 9
+          }, this),
+          /* @__PURE__ */ jsxDEV(
+            "a",
+            {
+              href: "/workshops/PKG-COUPLE-SILVER/design",
+              className: "button outline",
+              style: { height: "36px", fontSize: "13px", whiteSpace: "nowrap" },
+              children: "Cấu hình mẫu nhẫn ngay →"
+            },
+            void 0,
+            false,
+            {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshops/WorkshopListPage.jsx",
+              lineNumber: 60,
+              columnNumber: 9
+            },
+            this
+          )
+        ]
+      },
+      void 0,
+      true,
+      {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshops/WorkshopListPage.jsx",
+        lineNumber: 40,
+        columnNumber: 7
+      },
+      this
+    ),
+    loading && /* @__PURE__ */ jsxDEV("div", { className: "empty-state", children: /* @__PURE__ */ jsxDEV("p", { children: "Đang tải danh sách gói workshop..." }, void 0, false, {
+      fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshops/WorkshopListPage.jsx",
+      lineNumber: 71,
+      columnNumber: 11
+    }, this) }, void 0, false, {
+      fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshops/WorkshopListPage.jsx",
+      lineNumber: 70,
+      columnNumber: 7
+    }, this),
+    error && !loading && /* @__PURE__ */ jsxDEV("div", { className: "empty-state", children: [
+      /* @__PURE__ */ jsxDEV("p", { className: "status", style: { color: "#b00", borderColor: "#b00" }, children: error }, void 0, false, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshops/WorkshopListPage.jsx",
+        lineNumber: 77,
+        columnNumber: 11
+      }, this),
+      /* @__PURE__ */ jsxDEV("div", { style: { marginTop: "16px" }, children: /* @__PURE__ */ jsxDEV("button", { type: "button", className: "button outline", onClick: fetchPackages, children: "Thử lại" }, void 0, false, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshops/WorkshopListPage.jsx",
+        lineNumber: 81,
+        columnNumber: 13
+      }, this) }, void 0, false, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshops/WorkshopListPage.jsx",
+        lineNumber: 80,
+        columnNumber: 11
+      }, this)
+    ] }, void 0, true, {
+      fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshops/WorkshopListPage.jsx",
+      lineNumber: 76,
+      columnNumber: 7
+    }, this),
+    !loading && !error && packages.length === 0 && /* @__PURE__ */ jsxDEV("div", { className: "empty-state", children: /* @__PURE__ */ jsxDEV("p", { children: "Hiện chưa có gói workshop nào được mở bán." }, void 0, false, {
+      fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshops/WorkshopListPage.jsx",
+      lineNumber: 90,
+      columnNumber: 11
+    }, this) }, void 0, false, {
+      fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshops/WorkshopListPage.jsx",
+      lineNumber: 89,
+      columnNumber: 7
+    }, this),
+    !loading && !error && packages.length > 0 && /* @__PURE__ */ jsxDEV("div", { className: "wk-grid", children: paged.pageItems.map((pkg, idx) => {
+      const sessionCount = pkg.requiredSessionCount || 1;
+      const offers = offersForPackage(pkg, programs);
+      return /* @__PURE__ */ jsxDEV("article", { className: "wk-card", children: [
+        /* @__PURE__ */ jsxDEV("div", { className: `ring-visual ${idx % 2 === 0 ? "gold" : "pair"}`, "aria-label": "Minh họa workshop", children: /* @__PURE__ */ jsxDEV("span", {}, void 0, false, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshops/WorkshopListPage.jsx",
+          lineNumber: 102,
+          columnNumber: 19
+        }, this) }, void 0, false, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshops/WorkshopListPage.jsx",
+          lineNumber: 101,
+          columnNumber: 17
+        }, this),
+        /* @__PURE__ */ jsxDEV("div", { className: "wk-body", children: [
+          /* @__PURE__ */ jsxDEV("h2", { className: "wk-name", children: pkg.name }, void 0, false, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshops/WorkshopListPage.jsx",
+            lineNumber: 105,
+            columnNumber: 19
+          }, this),
+          /* @__PURE__ */ jsxDEV("p", { className: "wk-desc", children: pkg.description }, void 0, false, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshops/WorkshopListPage.jsx",
+            lineNumber: 106,
+            columnNumber: 19
+          }, this),
+          /* @__PURE__ */ jsxDEV("div", { className: "wk-chips", children: [
+            /* @__PURE__ */ jsxDEV("span", { className: "wk-chip", children: [
+              "⏱ ",
+              sessionCount,
+              " buổi"
+            ] }, void 0, true, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshops/WorkshopListPage.jsx",
+              lineNumber: 108,
+              columnNumber: 21
+            }, this),
+            /* @__PURE__ */ jsxDEV("span", { className: "wk-chip", children: [
+              "👥 ",
+              pkg.minParticipants === pkg.maxParticipants ? `${pkg.maxParticipants} vé` : `${pkg.minParticipants}–${pkg.maxParticipants} vé`
+            ] }, void 0, true, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshops/WorkshopListPage.jsx",
+              lineNumber: 109,
+              columnNumber: 21
+            }, this),
+            sessionCount > 1 && pkg.sameLocationRequired && /* @__PURE__ */ jsxDEV("span", { className: "wk-chip", children: "📍 Cùng một chi nhánh" }, void 0, false, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshops/WorkshopListPage.jsx",
+              lineNumber: 111,
+              columnNumber: 70
+            }, this)
+          ] }, void 0, true, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshops/WorkshopListPage.jsx",
+            lineNumber: 107,
+            columnNumber: 19
+          }, this),
+          /* @__PURE__ */ jsxDEV("p", { className: "wk-price", children: [
+            /* @__PURE__ */ jsxDEV(
+              WorkshopOfferPrice,
+              {
+                offers,
+                fallback: `${Number(pkg.publicPrice || 0).toLocaleString("vi-VN")} ₫`
+              },
+              void 0,
+              false,
+              {
+                fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshops/WorkshopListPage.jsx",
+                lineNumber: 115,
+                columnNumber: 21
+              },
+              this
+            ),
+            /* @__PURE__ */ jsxDEV("small", { children: "/ người" }, void 0, false, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshops/WorkshopListPage.jsx",
+              lineNumber: 118,
+              columnNumber: 20
+            }, this)
+          ] }, void 0, true, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshops/WorkshopListPage.jsx",
+            lineNumber: 114,
+            columnNumber: 19
+          }, this),
+          /* @__PURE__ */ jsxDEV(WorkshopOfferBadges, { offers }, void 0, false, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshops/WorkshopListPage.jsx",
+            lineNumber: 120,
+            columnNumber: 19
+          }, this),
+          /* @__PURE__ */ jsxDEV("div", { className: "wk-actions", children: [
+            /* @__PURE__ */ jsxDEV("a", { className: "button outline", href: `/workshops/${pkg.packageId}`, children: "Xem lịch ca" }, void 0, false, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshops/WorkshopListPage.jsx",
+              lineNumber: 122,
+              columnNumber: 21
+            }, this),
+            /* @__PURE__ */ jsxDEV(
+              "a",
+              {
+                className: "button outline",
+                href: `/workshops/${pkg.packageReference || "PKG-COUPLE-SILVER"}/design`,
+                title: "Cấu hình mẫu nhẫn cho workshop này",
+                children: "Cấu hình nhẫn"
+              },
+              void 0,
+              false,
+              {
+                fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshops/WorkshopListPage.jsx",
+                lineNumber: 123,
+                columnNumber: 21
+              },
+              this
+            ),
+            /* @__PURE__ */ jsxDEV("a", { className: "button primary", href: `/workshops/${pkg.packageId}/book`, children: "Đặt ngay" }, void 0, false, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshops/WorkshopListPage.jsx",
+              lineNumber: 130,
+              columnNumber: 21
+            }, this)
+          ] }, void 0, true, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshops/WorkshopListPage.jsx",
+            lineNumber: 121,
+            columnNumber: 19
+          }, this)
+        ] }, void 0, true, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshops/WorkshopListPage.jsx",
+          lineNumber: 104,
+          columnNumber: 17
+        }, this)
+      ] }, pkg.packageId, true, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshops/WorkshopListPage.jsx",
+        lineNumber: 100,
+        columnNumber: 13
+      }, this);
+    }) }, void 0, false, {
+      fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshops/WorkshopListPage.jsx",
+      lineNumber: 95,
+      columnNumber: 7
+    }, this),
+    !loading && !error && /* @__PURE__ */ jsxDEV(Paginator, { page: paged.page, pageCount: paged.pageCount, onChange: paged.setPage, label: "Phân trang gói workshop" }, void 0, false, {
+      fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshops/WorkshopListPage.jsx",
+      lineNumber: 138,
+      columnNumber: 30
+    }, this),
+    /* @__PURE__ */ jsxDEV(PackageReviewSummary, { allPackages: true }, void 0, false, {
+      fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshops/WorkshopListPage.jsx",
+      lineNumber: 139,
+      columnNumber: 7
+    }, this)
+  ] }, void 0, true, {
+    fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshops/WorkshopListPage.jsx",
+    lineNumber: 33,
+    columnNumber: 5
+  }, this);
+}
+_s(WorkshopListPage, "bQtWG7HfH7GUVRYJBqk0ChbtKPM=", false, function() {
+  return [usePublicWorkshopPrograms, usePaged];
+});
+_c = WorkshopListPage;
+var _c;
+$RefreshReg$(_c, "WorkshopListPage");
+import * as RefreshRuntime from "/@react-refresh";
+const inWebWorker = typeof WorkerGlobalScope !== "undefined" && self instanceof WorkerGlobalScope;
+if (import.meta.hot && !inWebWorker) {
+  if (!window.$RefreshReg$) {
+    throw new Error(
+      "@vitejs/plugin-react can't detect preamble. Something is wrong."
+    );
+  }
+  RefreshRuntime.__hmr_import(import.meta.url).then((currentExports) => {
+    RefreshRuntime.registerExportsForReactRefresh("C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshops/WorkshopListPage.jsx", currentExports);
+    import.meta.hot.accept((nextExports) => {
+      if (!nextExports) return;
+      const invalidateMessage = RefreshRuntime.validateRefreshBoundaryAndEnqueueUpdate("C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshops/WorkshopListPage.jsx", currentExports, nextExports);
+      if (invalidateMessage) import.meta.hot.invalidate(invalidateMessage);
+    });
+  });
+}
+function $RefreshReg$(type, id) {
+  return RefreshRuntime.register(type, "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshops/WorkshopListPage.jsx " + id);
+}
+function $RefreshSig$() {
+  return RefreshRuntime.createSignatureFunctionForTransform();
+}
+
+//# sourceMappingURL=data:application/json;base64,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IiwiUGFnaW5hdG9yIiwidXNlUGFnZWQiLCJQYWNrYWdlUmV2aWV3U3VtbWFyeSIsIm9mZmVyc0ZvclBhY2thZ2UiLCJ1c2VQdWJsaWNXb3Jrc2hvcFByb2dyYW1zIiwiV29ya3Nob3BPZmZlckJhZGdlcyIsIldvcmtzaG9wT2ZmZXJQcmljZSIsIldvcmtzaG9wTGlzdFBhZ2UiLCJfcyIsInByb2dyYW1zIiwicGFja2FnZXMiLCJzZXRQYWNrYWdlcyIsImxvYWRpbmciLCJzZXRMb2FkaW5nIiwiZXJyb3IiLCJzZXRFcnJvciIsInBhZ2VkIiwiZmV0Y2hQYWNrYWdlcyIsImRhdGEiLCJBcnJheSIsImlzQXJyYXkiLCJlcnIiLCJkZXRhaWwiLCJtZXNzYWdlIiwibWFyZ2luIiwicGFkZGluZyIsImJhY2tncm91bmRDb2xvciIsImJvcmRlciIsImJvcmRlclJhZGl1cyIsImRpc3BsYXkiLCJhbGlnbkl0ZW1zIiwianVzdGlmeUNvbnRlbnQiLCJmbGV4V3JhcCIsImdhcCIsImZvbnRTaXplIiwiY29sb3IiLCJoZWlnaHQiLCJ3aGl0ZVNwYWNlIiwiYm9yZGVyQ29sb3IiLCJtYXJnaW5Ub3AiLCJsZW5ndGgiLCJwYWdlSXRlbXMiLCJtYXAiLCJwa2ciLCJpZHgiLCJzZXNzaW9uQ291bnQiLCJyZXF1aXJlZFNlc3Npb25Db3VudCIsIm9mZmVycyIsIm5hbWUiLCJkZXNjcmlwdGlvbiIsIm1pblBhcnRpY2lwYW50cyIsIm1heFBhcnRpY2lwYW50cyIsInNhbWVMb2NhdGlvblJlcXVpcmVkIiwiTnVtYmVyIiwicHVibGljUHJpY2UiLCJ0b0xvY2FsZVN0cmluZyIsInBhY2thZ2VJZCIsInBhY2thZ2VSZWZlcmVuY2UiLCJwYWdlIiwicGFnZUNvdW50Iiwic2V0UGFnZSIsIl9jIl0sImlnbm9yZUxpc3QiOltdLCJzb3VyY2VzIjpbIldvcmtzaG9wTGlzdFBhZ2UuanN4Il0sInNvdXJjZXNDb250ZW50IjpbImltcG9ydCBSZWFjdCwgeyB1c2VFZmZlY3QsIHVzZVN0YXRlIH0gZnJvbSAncmVhY3QnO1xyXG5pbXBvcnQgJy4vd29ya3Nob3BMaXN0LmNzcyc7XHJcbmltcG9ydCB7IGxpc3RXb3Jrc2hvcFBhY2thZ2VzIH0gZnJvbSAnLi4vYXBpL3dvcmtzaG9wcyc7XHJcbmltcG9ydCB7IFBhZ2luYXRvciwgdXNlUGFnZWQgfSBmcm9tICcuLi9zaGFyZWQvdWkvUGFnaW5hdG9yJztcclxuaW1wb3J0IFBhY2thZ2VSZXZpZXdTdW1tYXJ5IGZyb20gJy4uL2ZlYXR1cmVzL3Jldmlld21hbmFnZW1lbnQvdWkvUGFja2FnZVJldmlld1N1bW1hcnknO1xyXG5pbXBvcnQgeyBvZmZlcnNGb3JQYWNrYWdlLCB1c2VQdWJsaWNXb3Jrc2hvcFByb2dyYW1zLCBXb3Jrc2hvcE9mZmVyQmFkZ2VzLCBXb3Jrc2hvcE9mZmVyUHJpY2UgfSBmcm9tICcuLi9mZWF0dXJlcy9sb3lhbHR5LXByb21vdGlvbi9wdWJsaWNPZmZlcnMnO1xyXG5cclxuZXhwb3J0IGZ1bmN0aW9uIFdvcmtzaG9wTGlzdFBhZ2UoKSB7XHJcbiAgY29uc3QgcHJvZ3JhbXMgPSB1c2VQdWJsaWNXb3Jrc2hvcFByb2dyYW1zKCk7XHJcbiAgY29uc3QgW3BhY2thZ2VzLCBzZXRQYWNrYWdlc10gPSB1c2VTdGF0ZShbXSk7XHJcbiAgY29uc3QgW2xvYWRpbmcsIHNldExvYWRpbmddID0gdXNlU3RhdGUodHJ1ZSk7XHJcbiAgY29uc3QgW2Vycm9yLCBzZXRFcnJvcl0gPSB1c2VTdGF0ZShudWxsKTtcclxuICBjb25zdCBwYWdlZCA9IHVzZVBhZ2VkKHBhY2thZ2VzLCA5LCBwYWNrYWdlcyk7XHJcblxyXG4gIGNvbnN0IGZldGNoUGFja2FnZXMgPSBhc3luYyAoKSA9PiB7XHJcbiAgICBzZXRMb2FkaW5nKHRydWUpO1xyXG4gICAgc2V0RXJyb3IobnVsbCk7XHJcbiAgICB0cnkge1xyXG4gICAgICBjb25zdCBkYXRhID0gYXdhaXQgbGlzdFdvcmtzaG9wUGFja2FnZXMoKTtcclxuICAgICAgc2V0UGFja2FnZXMoQXJyYXkuaXNBcnJheShkYXRhKSA/IGRhdGEgOiBbXSk7XHJcbiAgICB9IGNhdGNoIChlcnIpIHtcclxuICAgICAgc2V0RXJyb3IoZXJyPy5kZXRhaWwgfHwgZXJyPy5tZXNzYWdlIHx8ICdLaMO0bmcgdGjhu4MgdOG6o2kgZGFuaCBzw6FjaCB3b3Jrc2hvcC4gVnVpIGzDsm5nIHRo4butIGzhuqFpIHNhdS4nKTtcclxuICAgIH0gZmluYWxseSB7XHJcbiAgICAgIHNldExvYWRpbmcoZmFsc2UpO1xyXG4gICAgfVxyXG4gIH07XHJcblxyXG4gIHVzZUVmZmVjdCgoKSA9PiB7XHJcbiAgICBmZXRjaFBhY2thZ2VzKCk7XHJcbiAgfSwgW10pO1xyXG5cclxuICByZXR1cm4gKFxyXG4gICAgPG1haW4gY2xhc3NOYW1lPVwiY29udGFpbmVyIHB1YmxpYy1wYWdlXCI+XHJcbiAgICAgIDxwIGNsYXNzTmFtZT1cImV5ZWJyb3dcIj5XT1JLU0hPUCBU4bqgSSBNTEFORDwvcD5cclxuICAgICAgPGgxPktow6FtIHBow6EgY8OhYyBnw7NpIFdvcmtzaG9wPC9oMT5cclxuICAgICAgPHAgY2xhc3NOYW1lPVwibGVhZFwiPlxyXG4gICAgICAgIFThu7EgdGF5IGNo4bq/IHTDoWMgY2hp4bq/YyBuaOG6q24gbWFuZyDEkeG6rW0gZOG6pXUg4bqlbiBjw6EgbmjDom4gY8O5bmcgc+G7sSBoxrDhu5tuZyBk4bqrbiB04bqtbiB0w6JtIHThu6sgbmdo4buHIG5ow6JuIE1MQU5ELlxyXG4gICAgICA8L3A+XHJcblxyXG4gICAgICA8ZGl2XHJcbiAgICAgICAgc3R5bGU9e3tcclxuICAgICAgICAgIG1hcmdpbjogJzIwcHggMCAyOHB4JyxcclxuICAgICAgICAgIHBhZGRpbmc6ICcxNHB4IDIwcHgnLFxyXG4gICAgICAgICAgYmFja2dyb3VuZENvbG9yOiAnI2ZlZmNlOCcsXHJcbiAgICAgICAgICBib3JkZXI6ICcxcHggc29saWQgI2ZkZTA0NycsXHJcbiAgICAgICAgICBib3JkZXJSYWRpdXM6ICc4cHgnLFxyXG4gICAgICAgICAgZGlzcGxheTogJ2ZsZXgnLFxyXG4gICAgICAgICAgYWxpZ25JdGVtczogJ2NlbnRlcicsXHJcbiAgICAgICAgICBqdXN0aWZ5Q29udGVudDogJ3NwYWNlLWJldHdlZW4nLFxyXG4gICAgICAgICAgZmxleFdyYXA6ICd3cmFwJyxcclxuICAgICAgICAgIGdhcDogJzEycHgnLFxyXG4gICAgICAgIH19XHJcbiAgICAgID5cclxuICAgICAgICA8ZGl2IHN0eWxlPXt7IGRpc3BsYXk6ICdmbGV4JywgYWxpZ25JdGVtczogJ2NlbnRlcicsIGdhcDogJzEwcHgnIH19PlxyXG4gICAgICAgICAgPHNwYW4gc3R5bGU9e3sgZm9udFNpemU6ICcxLjRyZW0nIH19PvCfko08L3NwYW4+XHJcbiAgICAgICAgICA8c3BhbiBzdHlsZT17eyBmb250U2l6ZTogJzE0cHgnLCBjb2xvcjogJyMxZTI5M2InIH19PlxyXG4gICAgICAgICAgICBC4bqhbiBtdeG7kW4gdMO5eSBjaOG7jW4gZMOhbmcgbmjhuqtuLCBjaOG6pXQgbGnhu4d1IGhv4bq3YyB04buxIHRheSB0aGnhur90IGvhur8gbeG6q3UgdHLGsOG7m2Mga2hpIMSR4bq/biBs4bubcD9cclxuICAgICAgICAgIDwvc3Bhbj5cclxuICAgICAgICA8L2Rpdj5cclxuICAgICAgICA8YVxyXG4gICAgICAgICAgaHJlZj1cIi93b3Jrc2hvcHMvUEtHLUNPVVBMRS1TSUxWRVIvZGVzaWduXCJcclxuICAgICAgICAgIGNsYXNzTmFtZT1cImJ1dHRvbiBvdXRsaW5lXCJcclxuICAgICAgICAgIHN0eWxlPXt7IGhlaWdodDogJzM2cHgnLCBmb250U2l6ZTogJzEzcHgnLCB3aGl0ZVNwYWNlOiAnbm93cmFwJyB9fVxyXG4gICAgICAgID5cclxuICAgICAgICAgIEPhuqV1IGjDrG5oIG3huqt1IG5o4bqrbiBuZ2F5IOKGklxyXG4gICAgICAgIDwvYT5cclxuICAgICAgPC9kaXY+XHJcblxyXG4gICAgICB7bG9hZGluZyAmJiAoXHJcbiAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJlbXB0eS1zdGF0ZVwiPlxyXG4gICAgICAgICAgPHA+xJBhbmcgdOG6o2kgZGFuaCBzw6FjaCBnw7NpIHdvcmtzaG9wLi4uPC9wPlxyXG4gICAgICAgIDwvZGl2PlxyXG4gICAgICApfVxyXG5cclxuICAgICAge2Vycm9yICYmICFsb2FkaW5nICYmIChcclxuICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cImVtcHR5LXN0YXRlXCI+XHJcbiAgICAgICAgICA8cCBjbGFzc05hbWU9XCJzdGF0dXNcIiBzdHlsZT17eyBjb2xvcjogJyNiMDAnLCBib3JkZXJDb2xvcjogJyNiMDAnIH19PlxyXG4gICAgICAgICAgICB7ZXJyb3J9XHJcbiAgICAgICAgICA8L3A+XHJcbiAgICAgICAgICA8ZGl2IHN0eWxlPXt7IG1hcmdpblRvcDogJzE2cHgnIH19PlxyXG4gICAgICAgICAgICA8YnV0dG9uIHR5cGU9XCJidXR0b25cIiBjbGFzc05hbWU9XCJidXR0b24gb3V0bGluZVwiIG9uQ2xpY2s9e2ZldGNoUGFja2FnZXN9PlxyXG4gICAgICAgICAgICAgIFRo4butIGzhuqFpXHJcbiAgICAgICAgICAgIDwvYnV0dG9uPlxyXG4gICAgICAgICAgPC9kaXY+XHJcbiAgICAgICAgPC9kaXY+XHJcbiAgICAgICl9XHJcblxyXG4gICAgICB7IWxvYWRpbmcgJiYgIWVycm9yICYmIHBhY2thZ2VzLmxlbmd0aCA9PT0gMCAmJiAoXHJcbiAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJlbXB0eS1zdGF0ZVwiPlxyXG4gICAgICAgICAgPHA+SGnhu4duIGNoxrBhIGPDsyBnw7NpIHdvcmtzaG9wIG7DoG8gxJHGsOG7o2MgbeG7nyBiw6FuLjwvcD5cclxuICAgICAgICA8L2Rpdj5cclxuICAgICAgKX1cclxuXHJcbiAgICAgIHshbG9hZGluZyAmJiAhZXJyb3IgJiYgcGFja2FnZXMubGVuZ3RoID4gMCAmJiAoXHJcbiAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJ3ay1ncmlkXCI+XHJcbiAgICAgICAgICB7cGFnZWQucGFnZUl0ZW1zLm1hcCgocGtnLCBpZHgpID0+IHtcclxuICAgICAgICAgICAgY29uc3Qgc2Vzc2lvbkNvdW50ID0gcGtnLnJlcXVpcmVkU2Vzc2lvbkNvdW50IHx8IDE7XHJcbiAgICAgICAgICAgIGNvbnN0IG9mZmVycyA9IG9mZmVyc0ZvclBhY2thZ2UocGtnLCBwcm9ncmFtcyk7XHJcbiAgICAgICAgICAgIHJldHVybiAoXHJcbiAgICAgICAgICAgICAgPGFydGljbGUgY2xhc3NOYW1lPVwid2stY2FyZFwiIGtleT17cGtnLnBhY2thZ2VJZH0+XHJcbiAgICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT17YHJpbmctdmlzdWFsICR7aWR4ICUgMiA9PT0gMCA/ICdnb2xkJyA6ICdwYWlyJ31gfSBhcmlhLWxhYmVsPVwiTWluaCBo4buNYSB3b3Jrc2hvcFwiPlxyXG4gICAgICAgICAgICAgICAgICA8c3BhbiAvPlxyXG4gICAgICAgICAgICAgICAgPC9kaXY+XHJcbiAgICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cIndrLWJvZHlcIj5cclxuICAgICAgICAgICAgICAgICAgPGgyIGNsYXNzTmFtZT1cIndrLW5hbWVcIj57cGtnLm5hbWV9PC9oMj5cclxuICAgICAgICAgICAgICAgICAgPHAgY2xhc3NOYW1lPVwid2stZGVzY1wiPntwa2cuZGVzY3JpcHRpb259PC9wPlxyXG4gICAgICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cIndrLWNoaXBzXCI+XHJcbiAgICAgICAgICAgICAgICAgICAgPHNwYW4gY2xhc3NOYW1lPVwid2stY2hpcFwiPuKPsSB7c2Vzc2lvbkNvdW50fSBideG7lWk8L3NwYW4+XHJcbiAgICAgICAgICAgICAgICAgICAgPHNwYW4gY2xhc3NOYW1lPVwid2stY2hpcFwiPvCfkaUge3BrZy5taW5QYXJ0aWNpcGFudHMgPT09IHBrZy5tYXhQYXJ0aWNpcGFudHMgPyBgJHtwa2cubWF4UGFydGljaXBhbnRzfSB2w6lgIDogYCR7cGtnLm1pblBhcnRpY2lwYW50c33igJMke3BrZy5tYXhQYXJ0aWNpcGFudHN9IHbDqWB9PC9zcGFuPlxyXG4gICAgICAgICAgICAgICAgICAgIHsvKiBPbmx5IHdvcnRoIHNheWluZyBvbiB0aGUgY2FyZCB3aGVuIHRoZSBwYWNrYWdlIHNwYW5zIHNldmVyYWwgc2Vzc2lvbnM7IHRoZSBwYWNrYWdlIHBhZ2UgaGFzIHRoZSBmdWxsIHJ1bGVzLiAqL31cclxuICAgICAgICAgICAgICAgICAgICB7c2Vzc2lvbkNvdW50ID4gMSAmJiBwa2cuc2FtZUxvY2F0aW9uUmVxdWlyZWQgJiYgPHNwYW4gY2xhc3NOYW1lPVwid2stY2hpcFwiPvCfk40gQ8O5bmcgbeG7mXQgY2hpIG5ow6FuaDwvc3Bhbj59XHJcbiAgICAgICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICAgICAgICB7LyogRlItMDUyOiBwcmljZSBhZnRlciB0aGUgYmVzdCBhdXRvbWF0aWMgZGlzY291bnQsIGZyb20gMDA2J3MgcHVibGljIGdhdGU7IHBsYWluIHByaWNlIHdoZW4gbm9uZS4gKi99XHJcbiAgICAgICAgICAgICAgICAgIDxwIGNsYXNzTmFtZT1cIndrLXByaWNlXCI+XHJcbiAgICAgICAgICAgICAgICAgICAgPFdvcmtzaG9wT2ZmZXJQcmljZVxyXG4gICAgICAgICAgICAgICAgICAgICAgb2ZmZXJzPXtvZmZlcnN9XHJcbiAgICAgICAgICAgICAgICAgICAgICBmYWxsYmFjaz17YCR7TnVtYmVyKHBrZy5wdWJsaWNQcmljZSB8fCAwKS50b0xvY2FsZVN0cmluZygndmktVk4nKX0g4oKrYH1cclxuICAgICAgICAgICAgICAgICAgICAvPiA8c21hbGw+LyBuZ8aw4budaTwvc21hbGw+XHJcbiAgICAgICAgICAgICAgICAgIDwvcD5cclxuICAgICAgICAgICAgICAgICAgPFdvcmtzaG9wT2ZmZXJCYWRnZXMgb2ZmZXJzPXtvZmZlcnN9IC8+XHJcbiAgICAgICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwid2stYWN0aW9uc1wiPlxyXG4gICAgICAgICAgICAgICAgICAgIDxhIGNsYXNzTmFtZT1cImJ1dHRvbiBvdXRsaW5lXCIgaHJlZj17YC93b3Jrc2hvcHMvJHtwa2cucGFja2FnZUlkfWB9PlhlbSBs4buLY2ggY2E8L2E+XHJcbiAgICAgICAgICAgICAgICAgICAgPGFcclxuICAgICAgICAgICAgICAgICAgICAgIGNsYXNzTmFtZT1cImJ1dHRvbiBvdXRsaW5lXCJcclxuICAgICAgICAgICAgICAgICAgICAgIGhyZWY9e2Avd29ya3Nob3BzLyR7cGtnLnBhY2thZ2VSZWZlcmVuY2UgfHwgJ1BLRy1DT1VQTEUtU0lMVkVSJ30vZGVzaWduYH1cclxuICAgICAgICAgICAgICAgICAgICAgIHRpdGxlPVwiQ+G6pXUgaMOsbmggbeG6q3UgbmjhuqtuIGNobyB3b3Jrc2hvcCBuw6B5XCJcclxuICAgICAgICAgICAgICAgICAgICA+XHJcbiAgICAgICAgICAgICAgICAgICAgICBD4bqldSBow6xuaCBuaOG6q25cclxuICAgICAgICAgICAgICAgICAgICA8L2E+XHJcbiAgICAgICAgICAgICAgICAgICAgPGEgY2xhc3NOYW1lPVwiYnV0dG9uIHByaW1hcnlcIiBocmVmPXtgL3dvcmtzaG9wcy8ke3BrZy5wYWNrYWdlSWR9L2Jvb2tgfT7EkOG6t3QgbmdheTwvYT5cclxuICAgICAgICAgICAgICAgICAgPC9kaXY+XHJcbiAgICAgICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgICA8L2FydGljbGU+XHJcbiAgICAgICAgICAgICk7XHJcbiAgICAgICAgICB9KX1cclxuICAgICAgICA8L2Rpdj5cclxuICAgICAgKX1cclxuICAgICAgeyFsb2FkaW5nICYmICFlcnJvciAmJiA8UGFnaW5hdG9yIHBhZ2U9e3BhZ2VkLnBhZ2V9IHBhZ2VDb3VudD17cGFnZWQucGFnZUNvdW50fSBvbkNoYW5nZT17cGFnZWQuc2V0UGFnZX0gbGFiZWw9XCJQaMOibiB0cmFuZyBnw7NpIHdvcmtzaG9wXCIgLz59XHJcbiAgICAgIDxQYWNrYWdlUmV2aWV3U3VtbWFyeSBhbGxQYWNrYWdlcyAvPlxyXG4gICAgPC9tYWluPlxyXG4gICk7XHJcbn1cclxuXHJcbiJdLCJmaWxlIjoiQzovVXNlcnMvYWRtaW4vRGVza3RvcC9TRVAvbWxhbmQtb3BlcmF0aW9ucy1odWIvcHBzd2JzX2Zyb250ZW5kL3NyYy93b3Jrc2hvcHMvV29ya3Nob3BMaXN0UGFnZS5qc3gifQ==

@@ -1,0 +1,276 @@
+import { createHotContext as __vite__createHotContext } from "/@vite/client";import.meta.hot = __vite__createHotContext("/src/features/ringdesignconfiguration/ui/RingModelSelectionPage.jsx");import __vite__cjsImport0_react_jsxDevRuntime from "/node_modules/.vite/deps/react_jsx-dev-runtime.js?v=83e3faa1"; const jsxDEV = __vite__cjsImport0_react_jsxDevRuntime["jsxDEV"];
+var _s = $RefreshSig$();
+import __vite__cjsImport1_react from "/node_modules/.vite/deps/react.js?v=83e3faa1"; const React = __vite__cjsImport1_react.__esModule ? __vite__cjsImport1_react.default : __vite__cjsImport1_react;
+import { useParams, useNavigate } from "/node_modules/.vite/deps/react-router.js?v=83e3faa1";
+import { useWorkshopDesignOptions } from "/src/features/ringdesignconfiguration/application/useWorkshopDesignOptions.js?t=1794733875684";
+import { messages } from "/src/features/ringdesignconfiguration/messages.js";
+import "/src/features/ringdesignconfiguration/ring-design.css";
+export default function RingModelSelectionPage() {
+  _s();
+  const { packageReference } = useParams();
+  const navigate = useNavigate();
+  const { options, loading, error } = useWorkshopDesignOptions(packageReference);
+  const lang = "vi";
+  const t = messages[lang];
+  const models = options?.models || [];
+  return /* @__PURE__ */ jsxDEV("div", { className: "ring-design-container", "data-testid": "ring-model-selection-page", children: [
+    /* @__PURE__ */ jsxDEV("div", { className: "ring-design-header", children: [
+      /* @__PURE__ */ jsxDEV("h1", { className: "ring-design-title", children: t.modelChoiceTitle }, void 0, false, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/RingModelSelectionPage.jsx",
+        lineNumber: 19,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ jsxDEV("p", { className: "ring-design-subtitle", children: t.modelChoiceDesc }, void 0, false, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/RingModelSelectionPage.jsx",
+        lineNumber: 20,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ jsxDEV(
+        "button",
+        {
+          type: "button",
+          className: "ring-btn-secondary",
+          onClick: () => navigate(`/workshops/${encodeURIComponent(packageReference)}/design`),
+          children: [
+            "← ",
+            t.backToModels
+          ]
+        },
+        void 0,
+        true,
+        {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/RingModelSelectionPage.jsx",
+          lineNumber: 21,
+          columnNumber: 9
+        },
+        this
+      )
+    ] }, void 0, true, {
+      fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/RingModelSelectionPage.jsx",
+      lineNumber: 18,
+      columnNumber: 7
+    }, this),
+    loading && /* @__PURE__ */ jsxDEV("div", { style: { textAlign: "center", padding: "3rem", color: "#64748b" }, children: "Đang tải danh sách mẫu thiết kế..." }, void 0, false, {
+      fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/RingModelSelectionPage.jsx",
+      lineNumber: 31,
+      columnNumber: 7
+    }, this),
+    error && /* @__PURE__ */ jsxDEV("div", { className: "ring-error-card", role: "alert", children: error.message || "Không thể tải danh sách mẫu thiết kế." }, void 0, false, {
+      fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/RingModelSelectionPage.jsx",
+      lineNumber: 37,
+      columnNumber: 7
+    }, this),
+    !loading && !error && models.length === 0 && /* @__PURE__ */ jsxDEV("div", { style: { textAlign: "center", padding: "3rem", color: "#64748b" }, children: [
+      "Gói workshop này chưa có mẫu gợi ý sẵn. Bạn có thể bắt đầu với phôi trắng.",
+      /* @__PURE__ */ jsxDEV("div", { style: { marginTop: "1rem" }, children: /* @__PURE__ */ jsxDEV(
+        "button",
+        {
+          type: "button",
+          className: "ring-btn-primary",
+          style: { width: "auto" },
+          onClick: () => navigate(`/workshops/${encodeURIComponent(packageReference)}/design/configure?mode=BLANK`),
+          children: t.blankChoiceTitle
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/RingModelSelectionPage.jsx",
+          lineNumber: 46,
+          columnNumber: 13
+        },
+        this
+      ) }, void 0, false, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/RingModelSelectionPage.jsx",
+        lineNumber: 45,
+        columnNumber: 11
+      }, this)
+    ] }, void 0, true, {
+      fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/RingModelSelectionPage.jsx",
+      lineNumber: 43,
+      columnNumber: 7
+    }, this),
+    /* @__PURE__ */ jsxDEV("div", { className: "ring-cards-grid", style: { gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }, children: models.map(
+      (model) => /* @__PURE__ */ jsxDEV(
+        "div",
+        {
+          className: "ring-section-card",
+          style: {
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "space-between",
+            cursor: "pointer",
+            border: "2px solid #e2e8f0"
+          },
+          onClick: () => {
+            navigate(
+              `/workshops/${encodeURIComponent(packageReference)}/design/configure?mode=MODEL&modelRef=${encodeURIComponent(
+                model.modelReference
+              )}`
+            );
+          },
+          children: [
+            /* @__PURE__ */ jsxDEV("div", { children: [
+              model.imageUrl && /* @__PURE__ */ jsxDEV(
+                "div",
+                {
+                  style: {
+                    width: "100%",
+                    height: "180px",
+                    borderRadius: "8px",
+                    overflow: "hidden",
+                    marginBottom: "1rem",
+                    background: "#f1f5f9"
+                  },
+                  children: /* @__PURE__ */ jsxDEV(
+                    "img",
+                    {
+                      src: model.imageUrl,
+                      alt: model.name,
+                      style: { width: "100%", height: "100%", objectFit: "cover" }
+                    },
+                    void 0,
+                    false,
+                    {
+                      fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/RingModelSelectionPage.jsx",
+                      lineNumber: 90,
+                      columnNumber: 19
+                    },
+                    this
+                  )
+                },
+                void 0,
+                false,
+                {
+                  fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/RingModelSelectionPage.jsx",
+                  lineNumber: 80,
+                  columnNumber: 13
+                },
+                this
+              ),
+              /* @__PURE__ */ jsxDEV("div", { style: { display: "flex", gap: "6px", flexWrap: "wrap", marginBottom: "8px" }, children: /* @__PURE__ */ jsxDEV(
+                "span",
+                {
+                  style: {
+                    fontSize: "0.72rem",
+                    fontWeight: 700,
+                    padding: "2px 8px",
+                    borderRadius: "4px",
+                    background: model.materialReference === "MAT-COPPER" ? "#ffedd5" : model.materialReference === "MAT-STAINLESS-STEEL" ? "#f1f5f9" : "#e0f2fe",
+                    color: model.materialReference === "MAT-COPPER" ? "#c2410c" : model.materialReference === "MAT-STAINLESS-STEEL" ? "#334155" : "#0369a1"
+                  },
+                  children: model.materialReference === "MAT-COPPER" ? "Đồng" : model.materialReference === "MAT-STAINLESS-STEEL" ? "Thép không gỉ" : "Bạc Ý 925"
+                },
+                void 0,
+                false,
+                {
+                  fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/RingModelSelectionPage.jsx",
+                  lineNumber: 98,
+                  columnNumber: 17
+                },
+                this
+              ) }, void 0, false, {
+                fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/RingModelSelectionPage.jsx",
+                lineNumber: 97,
+                columnNumber: 15
+              }, this),
+              /* @__PURE__ */ jsxDEV("h3", { style: { fontSize: "1.15rem", fontWeight: 600, color: "#0f172a", margin: "0 0 0.4rem" }, children: model.name }, void 0, false, {
+                fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/RingModelSelectionPage.jsx",
+                lineNumber: 111,
+                columnNumber: 15
+              }, this),
+              /* @__PURE__ */ jsxDEV("p", { style: { fontSize: "0.85rem", color: "#64748b", lineHeight: 1.4, margin: "0 0 0.5rem" }, children: model.description }, void 0, false, {
+                fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/RingModelSelectionPage.jsx",
+                lineNumber: 114,
+                columnNumber: 15
+              }, this),
+              model.difficultyScore !== void 0 && /* @__PURE__ */ jsxDEV("div", { style: { fontSize: "0.8rem", color: "#64748b", marginBottom: "0.5rem" }, children: [
+                "Độ khó ước tính: ",
+                model.difficultyScore,
+                " / 10"
+              ] }, void 0, true, {
+                fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/RingModelSelectionPage.jsx",
+                lineNumber: 118,
+                columnNumber: 13
+              }, this)
+            ] }, void 0, true, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/RingModelSelectionPage.jsx",
+              lineNumber: 78,
+              columnNumber: 13
+            }, this),
+            /* @__PURE__ */ jsxDEV(
+              "button",
+              {
+                type: "button",
+                className: "ring-btn-primary",
+                onClick: (e) => {
+                  e.stopPropagation();
+                  navigate(
+                    `/workshops/${encodeURIComponent(packageReference)}/design/configure?mode=MODEL&modelRef=${encodeURIComponent(
+                      model.modelReference
+                    )}`
+                  );
+                },
+                children: t.selectModel
+              },
+              void 0,
+              false,
+              {
+                fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/RingModelSelectionPage.jsx",
+                lineNumber: 123,
+                columnNumber: 13
+              },
+              this
+            )
+          ]
+        },
+        model.modelReference,
+        true,
+        {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/RingModelSelectionPage.jsx",
+          lineNumber: 60,
+          columnNumber: 9
+        },
+        this
+      )
+    ) }, void 0, false, {
+      fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/RingModelSelectionPage.jsx",
+      lineNumber: 58,
+      columnNumber: 7
+    }, this)
+  ] }, void 0, true, {
+    fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/RingModelSelectionPage.jsx",
+    lineNumber: 17,
+    columnNumber: 5
+  }, this);
+}
+_s(RingModelSelectionPage, "ao/CUPiFqzA7fus9BPyaLfkOlOg=", false, function() {
+  return [useParams, useNavigate, useWorkshopDesignOptions];
+});
+_c = RingModelSelectionPage;
+var _c;
+$RefreshReg$(_c, "RingModelSelectionPage");
+import * as RefreshRuntime from "/@react-refresh";
+const inWebWorker = typeof WorkerGlobalScope !== "undefined" && self instanceof WorkerGlobalScope;
+if (import.meta.hot && !inWebWorker) {
+  if (!window.$RefreshReg$) {
+    throw new Error(
+      "@vitejs/plugin-react can't detect preamble. Something is wrong."
+    );
+  }
+  RefreshRuntime.__hmr_import(import.meta.url).then((currentExports) => {
+    RefreshRuntime.registerExportsForReactRefresh("C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/RingModelSelectionPage.jsx", currentExports);
+    import.meta.hot.accept((nextExports) => {
+      if (!nextExports) return;
+      const invalidateMessage = RefreshRuntime.validateRefreshBoundaryAndEnqueueUpdate("C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/RingModelSelectionPage.jsx", currentExports, nextExports);
+      if (invalidateMessage) import.meta.hot.invalidate(invalidateMessage);
+    });
+  });
+}
+function $RefreshReg$(type, id) {
+  return RefreshRuntime.register(type, "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/RingModelSelectionPage.jsx " + id);
+}
+function $RefreshSig$() {
+  return RefreshRuntime.createSignatureFunctionForTransform();
+}
+
+//# sourceMappingURL=data:application/json;base64,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RCxLQWhGSDtBQUFBO0FBQUE7QUFBQTtBQUFBLFdBaUZBO0FBQUEsT0ExSEY7QUFBQTtBQUFBO0FBQUE7QUFBQSxTQTJIQTtBQUVKO0FBQUM3QixHQXZJdUJELHdCQUFzQjtBQUFBLFVBQ2ZKLFdBQ1pDLGFBQ21CQyx3QkFBd0I7QUFBQTtBQUFBLEtBSHRDRTtBQUFzQixJQUFBb0Q7QUFBQSxhQUFBQSxJQUFBIiwibmFtZXMiOlsiUmVhY3QiLCJ1c2VQYXJhbXMiLCJ1c2VOYXZpZ2F0ZSIsInVzZVdvcmtzaG9wRGVzaWduT3B0aW9ucyIsIm1lc3NhZ2VzIiwiUmluZ01vZGVsU2VsZWN0aW9uUGFnZSIsIl9zIiwicGFja2FnZVJlZmVyZW5jZSIsIm5hdmlnYXRlIiwib3B0aW9ucyIsImxvYWRpbmciLCJlcnJvciIsImxhbmciLCJ0IiwibW9kZWxzIiwibW9kZWxDaG9pY2VUaXRsZSIsIm1vZGVsQ2hvaWNlRGVzYyIsImVuY29kZVVSSUNvbXBvbmVudCIsImJhY2tUb01vZGVscyIsInRleHRBbGlnbiIsInBhZGRpbmciLCJjb2xvciIsIm1lc3NhZ2UiLCJsZW5ndGgiLCJtYXJnaW5Ub3AiLCJ3aWR0aCIsImJsYW5rQ2hvaWNlVGl0bGUiLCJncmlkVGVtcGxhdGVDb2x1bW5zIiwibWFwIiwibW9kZWwiLCJkaXNwbGF5IiwiZmxleERpcmVjdGlvbiIsImp1c3RpZnlDb250ZW50IiwiY3Vyc29yIiwiYm9yZGVyIiwibW9kZWxSZWZlcmVuY2UiLCJpbWFnZVVybCIsImhlaWdodCIsImJvcmRlclJhZGl1cyIsIm92ZXJmbG93IiwibWFyZ2luQm90dG9tIiwiYmFja2dyb3VuZCIsIm5hbWUiLCJvYmplY3RGaXQiLCJnYXAiLCJmbGV4V3JhcCIsImZvbnRTaXplIiwiZm9udFdlaWdodCIsIm1hdGVyaWFsUmVmZXJlbmNlIiwibWFyZ2luIiwibGluZUhlaWdodCIsImRlc2NyaXB0aW9uIiwiZGlmZmljdWx0eVNjb3JlIiwidW5kZWZpbmVkIiwiZSIsInN0b3BQcm9wYWdhdGlvbiIsInNlbGVjdE1vZGVsIiwiX2MiXSwiaWdub3JlTGlzdCI6W10sInNvdXJjZXMiOlsiUmluZ01vZGVsU2VsZWN0aW9uUGFnZS5qc3giXSwic291cmNlc0NvbnRlbnQiOlsiaW1wb3J0IFJlYWN0IGZyb20gJ3JlYWN0JztcclxuaW1wb3J0IHsgdXNlUGFyYW1zLCB1c2VOYXZpZ2F0ZSB9IGZyb20gJ3JlYWN0LXJvdXRlcic7XHJcbmltcG9ydCB7IHVzZVdvcmtzaG9wRGVzaWduT3B0aW9ucyB9IGZyb20gJy4uL2FwcGxpY2F0aW9uL3VzZVdvcmtzaG9wRGVzaWduT3B0aW9ucyc7XHJcbmltcG9ydCB7IG1lc3NhZ2VzIH0gZnJvbSAnLi4vbWVzc2FnZXMnO1xyXG5pbXBvcnQgJy4uL3JpbmctZGVzaWduLmNzcyc7XHJcblxyXG5leHBvcnQgZGVmYXVsdCBmdW5jdGlvbiBSaW5nTW9kZWxTZWxlY3Rpb25QYWdlKCkge1xyXG4gIGNvbnN0IHsgcGFja2FnZVJlZmVyZW5jZSB9ID0gdXNlUGFyYW1zKCk7XHJcbiAgY29uc3QgbmF2aWdhdGUgPSB1c2VOYXZpZ2F0ZSgpO1xyXG4gIGNvbnN0IHsgb3B0aW9ucywgbG9hZGluZywgZXJyb3IgfSA9IHVzZVdvcmtzaG9wRGVzaWduT3B0aW9ucyhwYWNrYWdlUmVmZXJlbmNlKTtcclxuICBjb25zdCBsYW5nID0gJ3ZpJztcclxuICBjb25zdCB0ID0gbWVzc2FnZXNbbGFuZ107XHJcblxyXG4gIGNvbnN0IG1vZGVscyA9IG9wdGlvbnM/Lm1vZGVscyB8fCBbXTtcclxuXHJcbiAgcmV0dXJuIChcclxuICAgIDxkaXYgY2xhc3NOYW1lPVwicmluZy1kZXNpZ24tY29udGFpbmVyXCIgZGF0YS10ZXN0aWQ9XCJyaW5nLW1vZGVsLXNlbGVjdGlvbi1wYWdlXCI+XHJcbiAgICAgIDxkaXYgY2xhc3NOYW1lPVwicmluZy1kZXNpZ24taGVhZGVyXCI+XHJcbiAgICAgICAgPGgxIGNsYXNzTmFtZT1cInJpbmctZGVzaWduLXRpdGxlXCI+e3QubW9kZWxDaG9pY2VUaXRsZX08L2gxPlxyXG4gICAgICAgIDxwIGNsYXNzTmFtZT1cInJpbmctZGVzaWduLXN1YnRpdGxlXCI+e3QubW9kZWxDaG9pY2VEZXNjfTwvcD5cclxuICAgICAgICA8YnV0dG9uXHJcbiAgICAgICAgICB0eXBlPVwiYnV0dG9uXCJcclxuICAgICAgICAgIGNsYXNzTmFtZT1cInJpbmctYnRuLXNlY29uZGFyeVwiXHJcbiAgICAgICAgICBvbkNsaWNrPXsoKSA9PiBuYXZpZ2F0ZShgL3dvcmtzaG9wcy8ke2VuY29kZVVSSUNvbXBvbmVudChwYWNrYWdlUmVmZXJlbmNlKX0vZGVzaWduYCl9XHJcbiAgICAgICAgPlxyXG4gICAgICAgICAg4oaQIHt0LmJhY2tUb01vZGVsc31cclxuICAgICAgICA8L2J1dHRvbj5cclxuICAgICAgPC9kaXY+XHJcblxyXG4gICAgICB7bG9hZGluZyAmJiAoXHJcbiAgICAgICAgPGRpdiBzdHlsZT17eyB0ZXh0QWxpZ246ICdjZW50ZXInLCBwYWRkaW5nOiAnM3JlbScsIGNvbG9yOiAnIzY0NzQ4YicgfX0+XHJcbiAgICAgICAgICDEkGFuZyB04bqjaSBkYW5oIHPDoWNoIG3huqt1IHRoaeG6v3Qga+G6vy4uLlxyXG4gICAgICAgIDwvZGl2PlxyXG4gICAgICApfVxyXG5cclxuICAgICAge2Vycm9yICYmIChcclxuICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cInJpbmctZXJyb3ItY2FyZFwiIHJvbGU9XCJhbGVydFwiPlxyXG4gICAgICAgICAge2Vycm9yLm1lc3NhZ2UgfHwgJ0tow7RuZyB0aOG7gyB04bqjaSBkYW5oIHPDoWNoIG3huqt1IHRoaeG6v3Qga+G6vy4nfVxyXG4gICAgICAgIDwvZGl2PlxyXG4gICAgICApfVxyXG5cclxuICAgICAgeyFsb2FkaW5nICYmICFlcnJvciAmJiBtb2RlbHMubGVuZ3RoID09PSAwICYmIChcclxuICAgICAgICA8ZGl2IHN0eWxlPXt7IHRleHRBbGlnbjogJ2NlbnRlcicsIHBhZGRpbmc6ICczcmVtJywgY29sb3I6ICcjNjQ3NDhiJyB9fT5cclxuICAgICAgICAgIEfDs2kgd29ya3Nob3AgbsOgeSBjaMawYSBjw7MgbeG6q3UgZ+G7o2kgw70gc+G6tW4uIELhuqFuIGPDsyB0aOG7gyBi4bqvdCDEkeG6p3UgduG7m2kgcGjDtGkgdHLhuq9uZy5cclxuICAgICAgICAgIDxkaXYgc3R5bGU9e3sgbWFyZ2luVG9wOiAnMXJlbScgfX0+XHJcbiAgICAgICAgICAgIDxidXR0b25cclxuICAgICAgICAgICAgICB0eXBlPVwiYnV0dG9uXCJcclxuICAgICAgICAgICAgICBjbGFzc05hbWU9XCJyaW5nLWJ0bi1wcmltYXJ5XCJcclxuICAgICAgICAgICAgICBzdHlsZT17eyB3aWR0aDogJ2F1dG8nIH19XHJcbiAgICAgICAgICAgICAgb25DbGljaz17KCkgPT4gbmF2aWdhdGUoYC93b3Jrc2hvcHMvJHtlbmNvZGVVUklDb21wb25lbnQocGFja2FnZVJlZmVyZW5jZSl9L2Rlc2lnbi9jb25maWd1cmU/bW9kZT1CTEFOS2ApfVxyXG4gICAgICAgICAgICA+XHJcbiAgICAgICAgICAgICAge3QuYmxhbmtDaG9pY2VUaXRsZX1cclxuICAgICAgICAgICAgPC9idXR0b24+XHJcbiAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICA8L2Rpdj5cclxuICAgICAgKX1cclxuXHJcbiAgICAgIDxkaXYgY2xhc3NOYW1lPVwicmluZy1jYXJkcy1ncmlkXCIgc3R5bGU9e3sgZ3JpZFRlbXBsYXRlQ29sdW1uczogJ3JlcGVhdChhdXRvLWZpbGwsIG1pbm1heCgyODBweCwgMWZyKSknIH19PlxyXG4gICAgICAgIHttb2RlbHMubWFwKChtb2RlbCkgPT4gKFxyXG4gICAgICAgICAgPGRpdlxyXG4gICAgICAgICAgICBrZXk9e21vZGVsLm1vZGVsUmVmZXJlbmNlfVxyXG4gICAgICAgICAgICBjbGFzc05hbWU9XCJyaW5nLXNlY3Rpb24tY2FyZFwiXHJcbiAgICAgICAgICAgIHN0eWxlPXt7XHJcbiAgICAgICAgICAgICAgZGlzcGxheTogJ2ZsZXgnLFxyXG4gICAgICAgICAgICAgIGZsZXhEaXJlY3Rpb246ICdjb2x1bW4nLFxyXG4gICAgICAgICAgICAgIGp1c3RpZnlDb250ZW50OiAnc3BhY2UtYmV0d2VlbicsXHJcbiAgICAgICAgICAgICAgY3Vyc29yOiAncG9pbnRlcicsXHJcbiAgICAgICAgICAgICAgYm9yZGVyOiAnMnB4IHNvbGlkICNlMmU4ZjAnLFxyXG4gICAgICAgICAgICB9fVxyXG4gICAgICAgICAgICBvbkNsaWNrPXsoKSA9PiB7XHJcbiAgICAgICAgICAgICAgbmF2aWdhdGUoXHJcbiAgICAgICAgICAgICAgICBgL3dvcmtzaG9wcy8ke2VuY29kZVVSSUNvbXBvbmVudChwYWNrYWdlUmVmZXJlbmNlKX0vZGVzaWduL2NvbmZpZ3VyZT9tb2RlPU1PREVMJm1vZGVsUmVmPSR7ZW5jb2RlVVJJQ29tcG9uZW50KFxyXG4gICAgICAgICAgICAgICAgICBtb2RlbC5tb2RlbFJlZmVyZW5jZVxyXG4gICAgICAgICAgICAgICAgKX1gXHJcbiAgICAgICAgICAgICAgKTtcclxuICAgICAgICAgICAgfX1cclxuICAgICAgICAgID5cclxuICAgICAgICAgICAgPGRpdj5cclxuICAgICAgICAgICAgICB7bW9kZWwuaW1hZ2VVcmwgJiYgKFxyXG4gICAgICAgICAgICAgICAgPGRpdlxyXG4gICAgICAgICAgICAgICAgICBzdHlsZT17e1xyXG4gICAgICAgICAgICAgICAgICAgIHdpZHRoOiAnMTAwJScsXHJcbiAgICAgICAgICAgICAgICAgICAgaGVpZ2h0OiAnMTgwcHgnLFxyXG4gICAgICAgICAgICAgICAgICAgIGJvcmRlclJhZGl1czogJzhweCcsXHJcbiAgICAgICAgICAgICAgICAgICAgb3ZlcmZsb3c6ICdoaWRkZW4nLFxyXG4gICAgICAgICAgICAgICAgICAgIG1hcmdpbkJvdHRvbTogJzFyZW0nLFxyXG4gICAgICAgICAgICAgICAgICAgIGJhY2tncm91bmQ6ICcjZjFmNWY5JyxcclxuICAgICAgICAgICAgICAgICAgfX1cclxuICAgICAgICAgICAgICAgID5cclxuICAgICAgICAgICAgICAgICAgPGltZ1xyXG4gICAgICAgICAgICAgICAgICAgIHNyYz17bW9kZWwuaW1hZ2VVcmx9XHJcbiAgICAgICAgICAgICAgICAgICAgYWx0PXttb2RlbC5uYW1lfVxyXG4gICAgICAgICAgICAgICAgICAgIHN0eWxlPXt7IHdpZHRoOiAnMTAwJScsIGhlaWdodDogJzEwMCUnLCBvYmplY3RGaXQ6ICdjb3ZlcicgfX1cclxuICAgICAgICAgICAgICAgICAgLz5cclxuICAgICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICAgICl9XHJcbiAgICAgICAgICAgICAgPGRpdiBzdHlsZT17eyBkaXNwbGF5OiAnZmxleCcsIGdhcDogJzZweCcsIGZsZXhXcmFwOiAnd3JhcCcsIG1hcmdpbkJvdHRvbTogJzhweCcgfX0+XHJcbiAgICAgICAgICAgICAgICA8c3BhblxyXG4gICAgICAgICAgICAgICAgICBzdHlsZT17e1xyXG4gICAgICAgICAgICAgICAgICAgIGZvbnRTaXplOiAnMC43MnJlbScsXHJcbiAgICAgICAgICAgICAgICAgICAgZm9udFdlaWdodDogNzAwLFxyXG4gICAgICAgICAgICAgICAgICAgIHBhZGRpbmc6ICcycHggOHB4JyxcclxuICAgICAgICAgICAgICAgICAgICBib3JkZXJSYWRpdXM6ICc0cHgnLFxyXG4gICAgICAgICAgICAgICAgICAgIGJhY2tncm91bmQ6IG1vZGVsLm1hdGVyaWFsUmVmZXJlbmNlID09PSAnTUFULUNPUFBFUicgPyAnI2ZmZWRkNScgOiBtb2RlbC5tYXRlcmlhbFJlZmVyZW5jZSA9PT0gJ01BVC1TVEFJTkxFU1MtU1RFRUwnID8gJyNmMWY1ZjknIDogJyNlMGYyZmUnLFxyXG4gICAgICAgICAgICAgICAgICAgIGNvbG9yOiBtb2RlbC5tYXRlcmlhbFJlZmVyZW5jZSA9PT0gJ01BVC1DT1BQRVInID8gJyNjMjQxMGMnIDogbW9kZWwubWF0ZXJpYWxSZWZlcmVuY2UgPT09ICdNQVQtU1RBSU5MRVNTLVNURUVMJyA/ICcjMzM0MTU1JyA6ICcjMDM2OWExJyxcclxuICAgICAgICAgICAgICAgICAgfX1cclxuICAgICAgICAgICAgICAgID5cclxuICAgICAgICAgICAgICAgICAge21vZGVsLm1hdGVyaWFsUmVmZXJlbmNlID09PSAnTUFULUNPUFBFUicgPyAnxJDhu5NuZycgOiBtb2RlbC5tYXRlcmlhbFJlZmVyZW5jZSA9PT0gJ01BVC1TVEFJTkxFU1MtU1RFRUwnID8gJ1Row6lwIGtow7RuZyBn4buJJyA6ICdC4bqhYyDDnSA5MjUnfVxyXG4gICAgICAgICAgICAgICAgPC9zcGFuPlxyXG4gICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICAgIDxoMyBzdHlsZT17eyBmb250U2l6ZTogJzEuMTVyZW0nLCBmb250V2VpZ2h0OiA2MDAsIGNvbG9yOiAnIzBmMTcyYScsIG1hcmdpbjogJzAgMCAwLjRyZW0nIH19PlxyXG4gICAgICAgICAgICAgICAge21vZGVsLm5hbWV9XHJcbiAgICAgICAgICAgICAgPC9oMz5cclxuICAgICAgICAgICAgICA8cCBzdHlsZT17eyBmb250U2l6ZTogJzAuODVyZW0nLCBjb2xvcjogJyM2NDc0OGInLCBsaW5lSGVpZ2h0OiAxLjQsIG1hcmdpbjogJzAgMCAwLjVyZW0nIH19PlxyXG4gICAgICAgICAgICAgICAge21vZGVsLmRlc2NyaXB0aW9ufVxyXG4gICAgICAgICAgICAgIDwvcD5cclxuICAgICAgICAgICAgICB7bW9kZWwuZGlmZmljdWx0eVNjb3JlICE9PSB1bmRlZmluZWQgJiYgKFxyXG4gICAgICAgICAgICAgICAgPGRpdiBzdHlsZT17eyBmb250U2l6ZTogJzAuOHJlbScsIGNvbG9yOiAnIzY0NzQ4YicsIG1hcmdpbkJvdHRvbTogJzAuNXJlbScgfX0+XHJcbiAgICAgICAgICAgICAgICAgIMSQ4buZIGtow7MgxrDhu5tjIHTDrW5oOiB7bW9kZWwuZGlmZmljdWx0eVNjb3JlfSAvIDEwXHJcbiAgICAgICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgICApfVxyXG4gICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgPGJ1dHRvblxyXG4gICAgICAgICAgICAgIHR5cGU9XCJidXR0b25cIlxyXG4gICAgICAgICAgICAgIGNsYXNzTmFtZT1cInJpbmctYnRuLXByaW1hcnlcIlxyXG4gICAgICAgICAgICAgIG9uQ2xpY2s9eyhlKSA9PiB7XHJcbiAgICAgICAgICAgICAgICBlLnN0b3BQcm9wYWdhdGlvbigpO1xyXG4gICAgICAgICAgICAgICAgbmF2aWdhdGUoXHJcbiAgICAgICAgICAgICAgICAgIGAvd29ya3Nob3BzLyR7ZW5jb2RlVVJJQ29tcG9uZW50KHBhY2thZ2VSZWZlcmVuY2UpfS9kZXNpZ24vY29uZmlndXJlP21vZGU9TU9ERUwmbW9kZWxSZWY9JHtlbmNvZGVVUklDb21wb25lbnQoXHJcbiAgICAgICAgICAgICAgICAgICAgbW9kZWwubW9kZWxSZWZlcmVuY2VcclxuICAgICAgICAgICAgICAgICAgKX1gXHJcbiAgICAgICAgICAgICAgICApO1xyXG4gICAgICAgICAgICAgIH19XHJcbiAgICAgICAgICAgID5cclxuICAgICAgICAgICAgICB7dC5zZWxlY3RNb2RlbH1cclxuICAgICAgICAgICAgPC9idXR0b24+XHJcbiAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICApKX1cclxuICAgICAgPC9kaXY+XHJcbiAgICA8L2Rpdj5cclxuICApO1xyXG59XHJcbiJdLCJmaWxlIjoiQzovVXNlcnMvYWRtaW4vRGVza3RvcC9TRVAvbWxhbmQtb3BlcmF0aW9ucy1odWIvcHBzd2JzX2Zyb250ZW5kL3NyYy9mZWF0dXJlcy9yaW5nZGVzaWduY29uZmlndXJhdGlvbi91aS9SaW5nTW9kZWxTZWxlY3Rpb25QYWdlLmpzeCJ9
