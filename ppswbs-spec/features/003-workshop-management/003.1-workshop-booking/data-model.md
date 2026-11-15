@@ -247,6 +247,7 @@ evidence goes to the late-payment review. How it is stored is decided:
   transaction; Booking keeps no evidence reference for it, and
   `late_payment_reviews.verified_evidence_reference` exists only for an
   expired group. A dependency failure inside confirmation rolls both back.
+- **Mismatched evidence (decided 2026-11-16, F14, FR-010f).** Verified evidence with a wrong amount, reference or currency adds no table or column: it is the `payment_ingress_receipts` row plus an audit entry with the reason and a WARN log. At `holdExpiresAt` the late-payment review created for it uses that receipt as `verified_evidence_reference`. The `group_confirmation_retries` table below is only for evidence that matched but whose confirmation failed on a dependency.
 - **Table.** A new table (working name
   `group_confirmation_retries`, Flyway after the current latest migration;
   no applied migration is edited) with `group_id`, `attempt_id`,

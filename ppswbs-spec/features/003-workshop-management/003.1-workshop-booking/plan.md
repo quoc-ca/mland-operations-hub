@@ -10,7 +10,7 @@
 *(Spec approval of 2026-11-15 by Hồ Hoàng Quốc covers this plan as updated.)* (Previous status 2026-11-05: "Draft design — not approved for implementation"; the
 2026-11-05 single-booking design is kept for history at the end of this file.)
 **Spec**: [spec.md](spec.md) (FR-030–FR-052a are the current direct-booking requirements)
-**Tasks**: [tasks.md](tasks.md) Phases 8–16 (T089–T144; T107 is Phase 11, T108–T114 Phase 12, T115 Phase 13, T116–T122 Phase 14, T123 Phase 15, T124–T144 Phase 16) *(was "Phases 8–14 (T089–T120 …)", updated 2026-11-15)*
+**Tasks**: [tasks.md](tasks.md) Phases 8–16 (T089–T149; T107 is Phase 11, T108–T114 Phase 12, T115 Phase 13, T116–T122 Phase 14, T123 Phase 15, T124–T149 Phase 16; range fixed 2026-11-16, analyze) *(was "Phases 8–14 (T089–T120 …)", updated 2026-11-15)*
 **Research baseline**: [research.md](research.md) and [REBASE-NOTES.md](REBASE-NOTES.md)
 
 ## Summary
@@ -183,7 +183,7 @@ done *(closed 2026-11-14, see design risk 1)*.
 
 **Decisions 2026-11-15 (checklist payment-error-access.md, fourth batch, final; owner Hồ Hoàng Quốc; spec "Checklist follow-up, final decisions"):**
 
-- *Alert recipients (all business alerts, CHK017, T130).* Every business alert of 003.1 (late-payment review, excess payment, failed expiry release, failed result email) goes to the active Managers only through `ManagerAlertRecipientSource` (FE-001 `AccountFacade.listActiveManagerEmails()`). An Admin never receives a business alert; there is no Admin recipient source. With no active Manager: no email, an audit entry plus a WARN log, and the item stays in the Manager work queue (for example `GET /api/v1/late-payment-reviews?status=PENDING_MANAGER`) for the first Manager who becomes active; nothing is decided automatically. No FE-001 change.
+- *Alert recipients (all business alerts, CHK017, T130).* Every business alert of 003.1 (late-payment review, excess payment, failed expiry release, failed result email) goes to the active Managers only through `ManagerAlertRecipientSource` (FE-001 `AccountFacade.listActiveManagerEmails()`). An Admin never receives a business alert; there is no Admin recipient source. With no active Manager: no email, an audit entry plus a WARN log, and ~~the item stays in the Manager work queue~~ *(decided 2026-11-16, F18: only a late-payment review stays in its queue, `GET /api/v1/late-payment-reviews?status=PENDING_MANAGER`; excess payment, failed expiry release and failed confirmation notification keep audit + WARN only)* for the first Manager who becomes active; nothing is decided automatically. No FE-001 change.
 - *Excess payment (CHK001, T124).* Port `ExcessPaymentRefundPort.openExcessPaymentRefund(OpenExcessPaymentRefundCommand(groupCode, evidenceReference, amountVnd, operationReference, correlationReference)) → LatePaymentRefundOutcome` and table `group_excess_payments` decided; exact column types are fixed by the migration. Alert per the rule above.
 - *Late retry (CHK002, T125).* A payment retry after `paymentDeadlineAt` answers `409 PAYMENT_WINDOW_CLOSED`.
 - *Confirmation retry (CHK013, T145, design risk 6).* The scheduler retries `confirmPaidGroup` every 1 minute while the hold is active, about 10 attempts inside the 12-minute hold; no separate alert when a retry fails (the late-payment path already alerts the Managers). At `holdExpiresAt` the late-payment review is created first, then the group is released under FR-039. Store: `group_confirmation_retries`.
@@ -195,7 +195,7 @@ done *(closed 2026-11-14, see design risk 1)*.
 **Decisions 2026-11-15 (checklist payment-error-access.md, fifth batch, owner Hồ Hoàng Quốc; checklist fix log):**
 
 - *Payment-link failure status (CHK012, T131).* `PAYMENT_LINK_UNAVAILABLE` is HTTP 503 only (the earlier "502/503" is superseded); no attempt, hold unchanged.
-- *Verified evidence with a wrong amount, reference or currency (CHK003, FR-010f, T144).* Never confirms a group. It is recorded with the reason, the group stays `PENDING_PAYMENT`, and at `holdExpiresAt` it is handed to the late-payment path (condition 3 fails, Managers alerted, 100% bank refund only).
+- *Verified evidence with a wrong amount, reference or currency (CHK003, FR-010f, T144).* Never confirms a group. It is recorded (decided 2026-11-16, F14: the `payment_ingress_receipts` row, one audit entry with the reason and one WARN log; no new table) with the reason, the group stays `PENDING_PAYMENT`, and at `holdExpiresAt` it is handed to the late-payment path (condition 3 fails, Managers alerted, 100% bank refund only).
 - *Confirmation notification failure (CHK015, FR-015b, T147).* Resend up to 3 times, 5 minutes, 30 minutes and 2 hours after the failure (the CHK016 schedule); still failing → alert the active Managers only (alert rule above) to phone the buyer. Never reverses payment or confirmation.
 - *Buyer-verification routes (CHK024, T148).* Guest, Staff within the Staff scope, and any active Manager (global) on the buyer's behalf; Member needs no OTP; Admin has no authority.
 - *Staff scope of a multi-location group (CHK025, T135, T148).* The location scope is checked against the location of the session the Staff member is assigned to.
@@ -256,7 +256,7 @@ decision authority.
 
 Evidence already recorded per task in [tasks.md](tasks.md) (T089–T120). T097,
 T106 and T107 are all done (2026-11-14); what remains is the real-provider
-evidence (T005/T046), the open verification tasks T116–T120 (T117 proves SC-005, T118 proves SC-007) and the per-change checks below. The recorded
+evidence (T005/T046), the open verification tasks T116–T123 and Phase 16 T124–T149 (T117 proves SC-005, T118 proves SC-007) and the per-change checks below. The recorded
 verification:
 
 - **T097 (done 2026-11-14):** MySQL integration of the full group flow — paid group, mixed
@@ -309,7 +309,7 @@ verification:
 7. **Business-alert recipients (CHK017) — decided 2026-11-15, owner Hồ Hoàng
    Quốc:** active Managers only, via FE-001 `listActiveManagerEmails()`; an
    Admin never receives a business alert; with no active Manager an audit
-   entry plus a WARN log and the item stays in the Manager queue. CHK014
+   entry plus a WARN log (the item stays in the Manager queue only for a late-payment review, F18 2026-11-16). CHK014
    (T133: 3 × 1 minute, then Manager alert and every 5 minutes) and CHK016
    (T129: resend at 5 minutes, 30 minutes, 2 hours, then Manager alert) use
    this rule; see the fourth batch of decisions above.

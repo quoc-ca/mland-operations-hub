@@ -97,6 +97,7 @@ paths:
         '401': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
+        '429': {description: "Rate limit of T110 applied to Guest payment attempts (decided 2026-11-16, F19); carries no booking data (SC-008).", content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}}
         '503': {description: "PAYMENT_LINK_UNAVAILABLE: the payment provider failed while the link was created; no attempt exists and the hold is unchanged (FR-032; status decided 2026-11-15, CHK012).", content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}}
   /api/v1/workshop-booking-groups/{groupCode}:
     get:
@@ -181,7 +182,7 @@ paths:
       summary: Resend a CONFIRMED group's buyer confirmation to the stored contact email
       description: >-
         Guest supplies exactly one stored contact proof; the owning Member none;
-        Staff within the active location scope of the group's branch who is
+        Staff whose active location scope includes the location of a session of the group and who is
         actively assigned to a session of the group; any active Manager
         globally. Sends every ticket again to the stored contact only,
         never to a recipient, and reuses the active group Magic Link (409
@@ -230,7 +231,9 @@ paths:
         "Guest buyer, or Staff"). A Staff member must be within the active
         location scope of the session of the group they are actively assigned
         to (FR-048 "Staff scope"); Admin has no authority; a Member needs no
-        OTP. The caller proves the booking with exactly one of
+        OTP. A Staff or Manager caller needs no contact value (authority is
+        checked by role and assignment; decided 2026-11-16, F19; the body may be
+        empty). A Guest caller proves the booking with exactly one of
         the stored contact email or phone (the same proof as the guest lookup);
         the OTP always goes to the original contact email, never to a ticket
         recipient. 6 digits, valid 10 minutes, at most 5 wrong attempts; only a
@@ -291,7 +294,10 @@ paths:
         tells the previous recipient the old QR is void; it counts as one online
         change (at most 3 per ticket). Staff changes are not counted. The same
         email resends with the same QR. Errors: 401
-        `BUYER_VERIFICATION_REQUIRED`, 403 `RECIPIENT_CHANGE_FORBIDDEN`, 404
+        `BUYER_VERIFICATION_REQUIRED` (intended SC-008 exception), 403
+        `RECIPIENT_CHANGE_FORBIDDEN` (only an authenticated Staff/Manager known
+        to lack authority; a non-owner Member or wrong reference answers 404,
+        FR-017), 404
         `TICKET_NOT_FOUND`, 409 `TICKET_NOT_CONFIRMED`, 409
         `TICKET_ALREADY_CHECKED_IN`, 409 `TICKET_QR_REVOKED`, 409
         `RECIPIENT_CHANGE_LIMIT_REACHED` (go to the shop), 409
@@ -376,6 +382,10 @@ components:
       description: Safe typed error (RFC 7807)
       content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}
   schemas:
+    GroupStatus:
+      type: string
+      enum: [PENDING_PAYMENT, CONFIRMED, EXPIRED, CANCELLED]
+      description: Booking group status (data-model.md booking_groups); ticket statuses use BookingStatus.
     BookingStatus:
       type: string
       enum: [PENDING_PAYMENT, CONFIRMED, EXPIRED, CANCELLED, COMPLETED, NO_SHOW]
@@ -383,7 +393,7 @@ components:
     PaymentStatus:
       type: string
       enum: [UNPAID, DEPOSIT_PAID, FULLY_PAID, REFUND_PENDING, REFUNDED]
-      description: "REFUND_PENDING and REFUNDED occur only during a Mland-caused remedy (D14)."
+      description: "Set per ticket when 003.3 opens or reconciles a bank refund for the ticket (FR-050); superseded wording: only during a Mland-caused remedy (D14)."
     PaymentMode:
       type: string
       enum: [VNPAY, INTERNAL_FREE, INTERNAL_DEFERRED]
@@ -527,7 +537,7 @@ components:
       description: The group as group creation returns it (FR-030..FR-032, FR-036).
       properties:
         groupCode: {type: string}
-        groupStatus: {$ref: '#/components/schemas/BookingStatus'}
+        groupStatus: {$ref: '#/components/schemas/GroupStatus'}
         paymentMode: {$ref: '#/components/schemas/PaymentMode'}
         groupCollectionVnd: {$ref: '#/components/schemas/Vnd'}
         holdExpiresAt: {type: string, format: date-time, nullable: true, description: Internal hold end (12 minutes); never shown to customers.}
@@ -558,7 +568,7 @@ components:
         attendance.
       properties:
         groupCode: {type: string}
-        groupStatus: {$ref: '#/components/schemas/BookingStatus'}
+        groupStatus: {$ref: '#/components/schemas/GroupStatus'}
         paymentMode: {$ref: '#/components/schemas/PaymentMode'}
         groupCollectionVnd: {$ref: '#/components/schemas/Vnd'}
         holdExpiresAt: {type: string, format: date-time, nullable: true}
@@ -655,7 +665,7 @@ components:
         correlationId: {type: string}
     BuyerVerificationRequest:
       type: object
-      description: Exactly one of contactEmail or contactPhone. A request with both, or with neither, is refused with 400 `VALIDATION_ERROR` by Bean Validation, with the same safe answer that never says which part failed (FR-017a, CHK022, decided 2026-11-15).
+      description: Guest caller - exactly one of contactEmail or contactPhone; a Staff or Manager caller sends neither (decided 2026-11-16, F19). A Guest request with both, or with neither, is refused with 400 `VALIDATION_ERROR` by Bean Validation, with the same safe answer that never says which part failed (FR-017a, CHK022, decided 2026-11-15).
       properties:
         contactEmail: {type: string, format: email, maxLength: 254}
         contactPhone: {type: string, minLength: 7, maxLength: 32}
