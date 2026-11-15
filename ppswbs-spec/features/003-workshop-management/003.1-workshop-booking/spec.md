@@ -283,7 +283,7 @@ are kept for history and are read through this section.
   is then released by this requirement like any expired group (the release
   itself follows the retry rule above if 006 or 003.2 is still unavailable);
   the old hold is never revived. *(Order decided 2026-11-15, CHK013: the
-  late-payment review is created first, then the group is released.)*
+  late-payment review is created first, then the group is released.)* *(2026-11-15, analyze M3: the retry record in `group_confirmation_retries` moves `WAITING` → `CONFIRMED` on a successful retry, or `WAITING` → `HANDED_TO_LATE_REVIEW` at `holdExpiresAt`; see data-model.)*
 
 ### Late payment after the hold expired
 
@@ -1560,7 +1560,9 @@ deadline.
 >   exact reference, amount and VND may confirm), FR-011 (as FR-038), FR-012 (a
 >   browser return is never payment evidence), FR-012a (a failed or cancelled
 >   attempt keeps the group `PENDING_PAYMENT` and retry is allowed only inside
->   the hold), FR-012b (the UI classes `PENDING`, `VERIFIED_PAID`,
+>   the 10-minute payment window, i.e. until `paymentDeadlineAt` =
+>   `holdExpiresAt` − 2 minutes; later it is refused with 409
+>   `PAYMENT_WINDOW_CLOSED`, decided 2026-11-15, CHK002), FR-012b (the UI classes `PENDING`, `VERIFIED_PAID`,
 >   `VERIFIED_UNPAID`, `UNKNOWN`, `EXPIRED`; an `UNKNOWN` result keeps the
 >   original `Idempotency-Key` and is never shown as failed), FR-012c (an
 >   expired group is terminal; a new journey is a new quote and hold), FR-013

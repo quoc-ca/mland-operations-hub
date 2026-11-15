@@ -192,16 +192,16 @@ condition 3 passes for an automatic discount, which is recomputed; only a vouche
 `ExcessPaymentRefundPort.openExcessPaymentRefund(...)` below are approved as
 the design; the exact column types are fixed by the Flyway migration of T124.
 The Manager alert follows spec FR-040a (active Managers only, never an Admin).
-The word "proposed" in the bullets below is history *(superseded 2026-11-15)*.
+The design below is decided; the exact column types are fixed by the migration.
 
 The rule is decided (FR-013a): a second verified success with a **different**
 provider transaction or merchant reference on a `CONFIRMED` group is recorded
 in full and refunded 100% through 003.3; a replay of the same event settles
-nothing. Where it is recorded and how it reaches 003.3 is **proposed**:
+nothing. Where it is recorded and how it reaches 003.3 is decided:
 
 - **Where.** No implemented table holds it today: `late_payment_reviews` is for
   evidence on a group that was *not* confirmed (its outcomes and conditions do
-  not fit), and `group_payment_attempts` holds attempts, not evidence. Proposed:
+  not fit), and `group_payment_attempts` holds attempts, not evidence. Decided:
   a new append-only table (working name `group_excess_payments`, Flyway after
   the current latest migration) with `group_id`, `verified_evidence_reference`
   (unique), `merchant_reference`, `provider_transaction_reference` (nullable),
@@ -211,7 +211,7 @@ nothing. Where it is recorded and how it reaches 003.3 is **proposed**:
   `correlation_reference`. No raw provider payload, signature or contact data.
   The group, tickets, snapshots, capacity and benefits are not touched.
 - **Link to 003.3.** In the same evidence transaction Booking calls the
-  proposed `ExcessPaymentRefundPort.openExcessPaymentRefund(OpenExcessPaymentRefundCommand(groupCode,
+  decided `ExcessPaymentRefundPort.openExcessPaymentRefund(OpenExcessPaymentRefundCommand(groupCode,
   evidenceReference, amountVnd, operationReference, correlationReference))`
   (`../contracts/workshop-interfeature-facades.md`, "Late-payment review and
   bank refund"), propagation `MANDATORY`. 003.3 opens one refund request with
@@ -233,14 +233,13 @@ decided store; the exact column types are fixed by the Flyway migration of
 T145. The retry runs every 1 minute while the hold is active (about 10
 attempts, so `retries_made` stays small), with no separate alert; at
 `holdExpiresAt` the late-payment review is created first, then the group is
-released. The word "proposed" in the bullets below is history *(superseded
-2026-11-15)*.
+released. The design below is decided.
 
 The rule is decided (spec FR-038): verified evidence for a `PENDING_PAYMENT`
 group whose confirmation fails because 003.2 (hold commit) or 006 (benefit
 settlement) is unavailable is kept, the group stays `PENDING_PAYMENT`, and the
 confirmation is retried while the hold is active; at `holdExpiresAt` the
-evidence goes to the late-payment review. How it is stored is **proposed**:
+evidence goes to the late-payment review. How it is stored is decided:
 
 - **Today.** The verified evidence of an in-time payment is persisted only as
   the shared `payment_ingress_receipts` row (paymentintegration) and
@@ -248,7 +247,7 @@ evidence goes to the late-payment review. How it is stored is **proposed**:
   transaction; Booking keeps no evidence reference for it, and
   `late_payment_reviews.verified_evidence_reference` exists only for an
   expired group. A dependency failure inside confirmation rolls both back.
-- **Proposed table.** A new table (working name
+- **Table.** A new table (working name
   `group_confirmation_retries`, Flyway after the current latest migration;
   no applied migration is edited) with `group_id`, `attempt_id`,
   `verified_evidence_reference` (unique), `merchant_reference`,
@@ -272,11 +271,7 @@ evidence goes to the late-payment review. How it is stored is **proposed**:
 - **Expiry interaction (FR-039).** `GroupHoldExpiryScheduler` releases
   nothing for a group with a `WAITING` row before `holdExpiresAt`; at expiry it
   hands the row over, then releases the group as any expired group.
-- **Open before code (T145):** ~~table name and columns, the retry interval and
-  maximum count (plan.md design risk 6), and~~ *(superseded 2026-11-15: decided,
-  plan.md design risk 6)* the attempt-status meaning of `SUCCESS` on a group
-  that is not yet `CONFIRMED` (still to be confirmed in T145; not part of the
-  2026-11-15 decisions).
+- **Attempt status (closed 2026-11-15, analyze M1; decision of Hồ Hoàng Quốc, "làm theo đề xuất"):** attempt `SUCCESS` means only "VNPay evidence verified for this attempt", whether or not the group is yet `CONFIRMED`. The wait for a confirmation retry is the `WAITING` row of `group_confirmation_retries`, not an attempt or group status; no new status is added. T145 asserts this.
 
 ## Migration boundary
 
