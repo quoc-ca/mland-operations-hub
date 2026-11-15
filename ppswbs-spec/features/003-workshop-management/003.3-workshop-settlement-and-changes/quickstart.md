@@ -1,9 +1,15 @@
 # Quickstart Validation: Workshop Settlement and Changes
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-05
+**Date updated**: 2026-11-15
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
+
+> **Historical (2026-11-15): this guide validates the booking-wide model only.**
+> Current validation is per ticket: spec User Stories 5–10, tasks T103 and T123,
+> and `contracts/workshop-settlement-ticket.openapi.yaml`. The booking-wide
+> routes named below were removed from the code. Do not use this guide to
+> accept current behavior.
 
 This is a non-production validation guide. It does not authorize production
 credentials, provider calls, schema changes or deployment.

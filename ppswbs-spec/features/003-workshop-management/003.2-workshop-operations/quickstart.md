@@ -11,7 +11,8 @@ authorize a production migration or a reset of existing workshop data.
 ## Re-based authorization and scheduled start
 
 - Use an active Staff fixture with `activeLocationIds` containing the session
-  location; no session assignment is required for authorization.
+  location **and an active assignment to the session** (an unassigned Staff
+  gets 403; 2026-11-06 — "no session assignment is required" is superseded).
 - Use an active Manager fixture and verify it can operate sessions in any
   location without an operational-lead record.
 - Set a future `checkInOpensAt`; at that instant verify check-in becomes
@@ -110,7 +111,7 @@ run is not sufficient proof of index, lock or migration behaviour.
 5. Create a future `DRAFT` session, then publish it. Run a bulk generation for
    at most 90 future days twice: the first creates sessions and the second
    reports duplicates rather than creating more. Verify `DRAFT` creates no
-   OTA-observable snapshot. On publication, verify the mapped Basic Ring session
+   OTA-observable snapshot. On publication, verify the session (no package filter; spec Q8, 2026-11-15)
    exposes its schedule and availability/sale-state snapshots using one unified
    source-version sequence.
 6. Configure capacity for two published sessions. Request N seats for both and
@@ -149,11 +150,18 @@ run is not sufficient proof of index, lock or migration behaviour.
    cleanup affects only eligible completed records; verify the ledger contains no
    raw request payload, Firebase token, PII, QR value or audit JSON.
 8. Set `checkInOpensAt` on a `PUBLISHED` session and verify check-in opens while
-   the session remains `PUBLISHED`; at scheduled start verify the scheduler
+   the session remains `PUBLISHED`; repeat with a `SALES_PAUSED` session
+   (spec Clarifications 2026-11-15 Q2: check-in and scheduled start still apply); at scheduled start verify the scheduler
    transitions it to `IN_PROGRESS` idempotently. Verify an
-   active Staff inside the session location can operate without assignment,
-   Staff outside the location is denied, and an active Manager can operate
-   globally. Verify an inactive actor is denied.
+   active Staff inside the session location **and actively assigned** can
+   operate (an unassigned Staff gets 403; 2026-11-06), Staff outside the
+   location is denied, and an active Manager can operate globally. For a
+   `SALES_PAUSED` session verify the auto-start writes a system audit event,
+   publishes no extra OTA snapshot, and unexpired holds still complete payment
+   (Q2); verify a start later than 5 minutes is logged as a failure and still
+   caught up (Q7); verify a session with no Staff is flagged from
+   `checkInOpensAt` and revoking its last assignment needs explicit Manager
+   confirmation (Q3). Verify an inactive actor is denied.
 9. Before `check_in_opens_at`, a valid QR/ticket-code check-in is rejected.
    Once open, scan a two-session ticket at session one successfully. Scan it
    concurrently or twice at that session and verify exactly one check-in is
@@ -171,7 +179,7 @@ run is not sufficient proof of index, lock or migration behaviour.
    time or attendance detail.
 12. Request a Manager change of one or both future required sessions through the
    003.3 boundary. Verify every target is future, `PUBLISHED`, customer-
-   selectable and has capacity for the full participant count; if one check
+   selectable and has one seat per selected ticket (FR-034); if one check
    fails, no session entitlement or capacity changes. On success, verify the
    same persistent QR gains the complete resulting session set, capacity moves
    atomically, and a replaced session has no remaining entitlement. Verify a

@@ -1,7 +1,7 @@
 # UI Flow Design: 003.4 Workshop OTA Connectivity
 
 **Date created**: 2026-11-02
-**Date updated**: 2026-11-02
+**Date updated**: 2026-11-15
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -29,7 +29,7 @@
 | Sync/publication | `/sync`, `/sales-close`, `/booking-enable` | Show queued/retrying/succeeded/failed; idempotent replay; no success claim until provider evidence is recorded. |
 | Reconciliation work items | `GET/POST /ota-reconciliation-work-items` | Filter by state/category; resolve with evidence; duplicate key returns existing result; stale version is a conflict. |
 | Financial evidence | `GET /ota-channel-bookings/{channelBookingId}/financial-evidence` | Manager read; redact customer PII, card data and credentials; distinguish channel payment from payout state. |
-| Payout reconciliation | `POST /ota-channel-bookings/{channelBookingId}/payout-reconciliation` | Evidence lifecycle; only matching reference/net/currency reaches `PAID_OUT`; mismatch opens dispute and keeps current state. |
+| Payout reconciliation | `POST /ota-channel-bookings/{channelBookingId}/payout-reconciliation` | Evidence lifecycle; only matching reference/net/currency reaches `PAID_OUT` (this is a payout match, not a check of the customer's OTA amount against Mland's price, T113); mismatch opens dispute and keeps current state. |
 | Shop add-on quote | `POST /ota-channel-bookings/{channelBookingId}/add-on-quotes` | Staff location scope after customer consent at the workshop; for this OTA-only route laser engraving is zero-charge; paid option requires positive VND amount and item code; no OTA checkout and no mutation of the OTA base-package payment. |
 | Shop add-on acceptance/bill | `/ota-addon-quotes/{quoteId}/acceptance`, `/direct-bill` | Consent required before paid direct bill; replay same consent/bill is idempotent; changed replay conflicts; OTA free engraving never creates a bill. |
 

@@ -226,6 +226,7 @@ flowchart LR
     A --> Catalogue --> Product
     Product -->|"Chọn configured variant; Add to Cart"| Cart
     A --> Cart
+    Product -->|"Mua Ngay: thêm giỏ rồi checkout chỉ dòng vừa thêm (FE-02 FR-059)"| Checkout
     Cart -->|"Cart không rỗng"| Checkout
     Checkout -->|"Chọn branch; review toàn quote; chấp nhận hợp lệ"| Payment
     Checkout -->|"Invalid line / changed quote: review và submit lại"| Cart

@@ -1,8 +1,5 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service;
 
-import edu.fpt.sep490_g22.ppswbs_backend.common.payment.VnpayMerchantOperationResult;
-import edu.fpt.sep490_g22.ppswbs_backend.common.payment.VnpayMerchantOperationsPort;
-import edu.fpt.sep490_g22.ppswbs_backend.common.payment.VnpayRefundReconciliationCommand;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingRefundStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingServiceOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.OutcomeStatus;
@@ -19,7 +16,6 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.Work
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.WorkshopOperationsSettlementAdapter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -31,10 +27,9 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.HexFormat;
 import java.util.List;
-import java.util.Objects;
 import java.util.UUID;
 
-/** Dispatches one durable refund operation per original payment and waits for signed QueryDR evidence. */
+/** Routes each refund allocation to the manual bank refund (FR-038/FR-039/FR-040); VNPay Refund is not used. */
 @Service
 @Slf4j
 public class WorkshopRefundService {
@@ -42,53 +37,38 @@ public class WorkshopRefundService {
     private static final String CASE_PENDING = edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementCaseLifecycleStatus.PENDING_PROVIDER.name();
     private static final String CASE_RESOLVED = edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementCaseLifecycleStatus.RESOLVED.name();
     private static final String CASE_REJECTED = edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementCaseLifecycleStatus.REJECTED.name();
-    private static final String REASON_MANUAL_REMEDIATION = "REFUND_PARTIAL_MANUAL_REMEDIATION_REQUIRED";
     /** The allocation is with the T097 bank refund and waits for a Manager to confirm the transfer. */
     static final String PENDING_BANK_REFUND = "PENDING_BANK_REFUND";
-    private static final Duration QUERY_INTERVAL = Duration.ofMinutes(5);
-    private static final Duration QUERY_WINDOW = Duration.ofHours(24);
 
-    private final VnpayMerchantOperationsPort provider;
     private final SettlementRefundAllocationRepository allocations;
     private final SettlementCaseRepository cases;
     private final SettlementBusinessAuditRepository audits;
     private final WorkshopOperationsSettlementAdapter operations;
-    private final WorkshopCancellationLoyaltyService cancellationLoyalty;
     private final WorkshopBookingSettlementAdapter booking;
     private final SettlementFinalBillRepository bills;
     private final SettlementCustomerNotifier notifier;
     private final BankRefundService bankRefunds;
     private final TransactionTemplate transaction;
-    private final String merchantApiIpAddress;
-    private final String merchantApiCreatedBy;
 
     @Autowired
-    public WorkshopRefundService(VnpayMerchantOperationsPort provider,
-            SettlementRefundAllocationRepository allocations,
+    public WorkshopRefundService(SettlementRefundAllocationRepository allocations,
             SettlementCaseRepository cases,
             SettlementBusinessAuditRepository audits,
             WorkshopOperationsSettlementAdapter operations,
-            WorkshopCancellationLoyaltyService cancellationLoyalty,
             WorkshopBookingSettlementAdapter booking,
             SettlementFinalBillRepository bills,
             SettlementCustomerNotifier notifier,
             BankRefundService bankRefunds,
-            PlatformTransactionManager transactionManager,
-            @Value("${vnpay.merchant-api-ip-address:}") String merchantApiIpAddress,
-            @Value("${vnpay.merchant-api-created-by:}") String merchantApiCreatedBy) {
-        this.provider = provider;
+            PlatformTransactionManager transactionManager) {
         this.allocations = allocations;
         this.cases = cases;
         this.audits = audits;
         this.operations = operations;
-        this.cancellationLoyalty = cancellationLoyalty;
         this.booking = booking;
         this.bills = bills;
         this.notifier = notifier;
         this.bankRefunds = bankRefunds;
         this.transaction = new TransactionTemplate(transactionManager);
-        this.merchantApiIpAddress = trimToNull(merchantApiIpAddress);
-        this.merchantApiCreatedBy = trimToNull(merchantApiCreatedBy);
     }
 
     /** Invoked only after the cancellation case and every allocation have committed. */
@@ -106,10 +86,6 @@ public class WorkshopRefundService {
             if (!"PREPARED".equals(allocation.getLifecycleStatus())) {
                 if (!"VERIFIED".equals(allocation.getLifecycleStatus())) return;
                 continue;
-            }
-            if (merchantApiCreatedBy == null || merchantApiIpAddress == null) {
-                log.warn("Refund dispatch awaits merchant API configuration; caseReference={}", caseReference);
-                return;
             }
             dispatchPreparedAllocation(allocation.getAllocationReference());
             SettlementRefundAllocation latest = findAllocation(allocation.getAllocationReference());
@@ -136,13 +112,6 @@ public class WorkshopRefundService {
 
     /** Hands one prepared allocation to the bank refund of T097 and leaves it waiting for a Manager. */
     private void routeToBankRefund(SettlementRefundAllocation allocation, SettlementCase settlementCase) {
-        // A legacy refund already at the gateway is never duplicated by hand: reconcile it first (T098).
-        if ("99".equals(allocation.getProviderResponseCode())
-                || allocation.getProviderRefundTransactionNumber() != null) {
-            log.warn("Allocation {} has an unreconciled gateway refund; the bank refund waits for it",
-                    allocation.getAllocationReference());
-            return;
-        }
         RefundReason reason = switch (settlementCase.getCaseType()) {
             case "FOLIO_CORRECTION" -> RefundReason.OVERCHARGE_AFTER_FINALIZED;
             case "LATE_PAYMENT_REFUND" -> RefundReason.LATE_PAYMENT_NOT_RECONFIRMED;
@@ -215,96 +184,18 @@ public class WorkshopRefundService {
             return;
         }
 
-        // Removed 2026-11-14 (owner decision): no case type asks VNPay for a refund any more. Every Mland refund
-        // goes through the bank refund lifecycle of FR-038/FR-039/FR-040 (T097/T098/T104) and a customer
-        // self-cancellation is refused above, so the outbound request, its response matching and its retry states
-        // had become unreachable. Reconciliation of refunds VNPay already accepted before that change is kept
-        // below (reconcileAllocation and the scheduler): those allocations are real money in flight and still
-        // need their signed QueryDR conclusion.
+        // Removed 2026-11-15 (owner decision, Hồ Hoàng Quốc): VNPay Refund and refund-QueryDR are not used at all.
+        // Every Mland refund goes through the bank refund lifecycle of FR-038/FR-039/FR-040 (T097/T098/T104) and a
+        // customer self-cancellation is refused above. The reconciliation of refunds VNPay had accepted earlier is
+        // gone with it (no such allocation exists in any local database).
         log.error("No refund route for case type {}; caseReference={} is left for a Manager",
                 settlementCase.getCaseType(), settlementCase.getCaseReference());
         updateCase(settlementCase, CASE_PENDING, "REFUND_ROUTE_UNAVAILABLE");
     }
 
-    private void reconcileAllocation(String allocationReference) {
-        SettlementRefundAllocation allocation = findAllocation(allocationReference);
-        if (allocation == null || !List.of("ACCEPTED", "UNKNOWN").contains(allocation.getLifecycleStatus())
-                || !isProviderTransactionNumber(allocation.getProviderRefundTransactionNumber())) return;
-        SettlementCase settlementCase = cases.findByCaseReference(allocation.getCaseReference()).orElse(null);
-        if (!isPendingRefundCase(settlementCase)) return;
-        String orderInfo = "FOLIO_CORRECTION".equals(settlementCase.getCaseType())
-                ? "Workshop folio correction " + settlementCase.getCaseReference()
-                : "ADDON_REFUND".equals(settlementCase.getCaseType())
-                ? "Workshop add-on refund " + settlementCase.getCaseReference()
-                : "Workshop cancellation " + settlementCase.getCaseReference();
-        String queryReference = "VNPAY-REFUND-QUERY-" + UUID.randomUUID().toString().replace("-", "");
-        VnpayMerchantOperationResult result;
-        try {
-            result = provider.queryRefund(new VnpayRefundReconciliationCommand(
-                    queryReference, allocation.getOriginalPaymentReference(),
-                    allocation.getProviderRefundTransactionNumber(), allocation.getOriginalProviderCreateDate(),
-                    allocation.getAllocatedAmountVnd(), orderInfo, merchantApiIpAddress));
-        } catch (RuntimeException queryFailure) {
-            updateAllocation(allocationReference, current -> {
-                current.setLifecycleStatus("UNKNOWN");
-                current.setLastQueryAt(Instant.now());
-                current.setUpdatedAt(Instant.now());
-            }, "REFUND_QUERY_UNKNOWN");
-            log.warn("Refund QueryDR failed; allocationReference={} exceptionType={}",
-                    allocationReference, queryFailure.getClass().getSimpleName());
-            return;
-        }
-
-        String expectedType = expectedRefundType(allocation);
-        if (!matchesRefundQuery(result, allocation, expectedType)) {
-            updateAllocation(allocationReference, current -> {
-                current.setLifecycleStatus("UNKNOWN");
-                current.setProviderResponseCode(safeCode(result));
-                current.setLastQueryAt(Instant.now());
-                current.setUpdatedAt(Instant.now());
-            }, "REFUND_QUERY_UNVERIFIED");
-            return;
-        }
-
-        String nextStatus = switch (result.transactionStatus()) {
-            case "00" -> "VERIFIED";
-            case "09" -> "REJECTED";
-            default -> "ACCEPTED";
-        };
-        updateAllocation(allocationReference, current -> {
-            current.setLifecycleStatus(nextStatus);
-            current.setProviderResponseCode(result.providerResponseCode());
-            current.setProviderTransactionType(result.transactionType());
-            current.setProviderTransactionStatus(result.transactionStatus());
-            current.setLastQueryAt(Instant.now());
-            current.setUpdatedAt(Instant.now());
-        }, "REFUND_QUERY_" + nextStatus);
-
-        if ("REJECTED".equals(nextStatus)) rejectAllocation(allocationReference, result.providerResponseCode());
-        else if ("VERIFIED".equals(nextStatus)) applyCancellationConsequenceIfFullyRefunded(allocation.getCaseReference());
-    }
-
     @Scheduled(fixedDelayString = "${workshop.settlement.refund-query-delay-ms:300000}")
     public void reconcileDueRefunds() {
-        Instant now = Instant.now();
-        List<SettlementRefundAllocation> due;
-        try {
-            due = allocations.findDueRefundQueries(List.of("ACCEPTED", "UNKNOWN"),
-                    now.minus(QUERY_WINDOW), now.minus(QUERY_INTERVAL));
-        } catch (RuntimeException storageFailure) {
-            log.warn("Refund QueryDR scheduler could not load due allocations ({})",
-                    storageFailure.getClass().getSimpleName());
-            return;
-        }
-        if (merchantApiIpAddress == null) return;
-        for (SettlementRefundAllocation allocation : due) {
-            try {
-                reconcileAllocation(allocation.getAllocationReference());
-            } catch (RuntimeException failure) {
-                log.warn("Refund QueryDR scheduler deferred allocationReference={} ({})",
-                        allocation.getAllocationReference(), failure.getClass().getSimpleName());
-            }
-        }
+        // Recovers the consequence of a case whose allocations are all VERIFIED (a Manager confirmed the bank refund).
         try {
             for (SettlementCase settlementCase : cases.findTop100ByCaseTypeInAndLifecycleStatusOrderByCreatedAtAsc(
                     List.of(CASE_TYPE, "MLAND_CANCELLATION_REMEDY", "FOLIO_CORRECTION", "ADDON_REFUND"), CASE_PENDING)) {
@@ -340,41 +231,6 @@ public class WorkshopRefundService {
                 log.warn("Refund dispatch recovery deferred allocationReference={} ({})",
                         allocation.getAllocationReference(), failure.getClass().getSimpleName());
             }
-        }
-    }
-
-    private void rejectAllocation(String allocationReference, String responseCode) {
-        SettlementRefundAllocation rejected = updateAllocation(allocationReference, current -> {
-            current.setLifecycleStatus("REJECTED");
-            current.setProviderResponseCode(responseCode);
-            current.setUpdatedAt(Instant.now());
-        }, "REFUND_ALLOCATION_REJECTED");
-        if (rejected == null) return;
-        List<SettlementRefundAllocation> caseAllocations = allocations
-                .findAllByCaseReferenceOrderByCreatedAtAsc(rejected.getCaseReference());
-        boolean anyVerified = caseAllocations.stream().anyMatch(a -> "VERIFIED".equals(a.getLifecycleStatus()));
-        SettlementCase settlementCase = cases.findByCaseReference(rejected.getCaseReference()).orElse(null);
-        if (!isPendingRefundCase(settlementCase)) return;
-        if ("FOLIO_CORRECTION".equals(settlementCase.getCaseType())) {
-            if (anyVerified) {
-                updateCase(settlementCase, CASE_PENDING, REASON_MANUAL_REMEDIATION);
-            } else {
-                updateCase(settlementCase, CASE_REJECTED, "FOLIO_CORRECTION_REFUND_REJECTED");
-            }
-            return;
-        }
-        if ("ADDON_REFUND".equals(settlementCase.getCaseType())) {
-            if (anyVerified) {
-                updateCase(settlementCase, CASE_PENDING, REASON_MANUAL_REMEDIATION);
-            } else {
-                updateCase(settlementCase, CASE_REJECTED, "ADDON_REFUND_REJECTED");
-            }
-            return;
-        }
-        if (anyVerified) {
-            updateCase(settlementCase, CASE_PENDING, REASON_MANUAL_REMEDIATION);
-        } else {
-            updateCase(settlementCase, CASE_REJECTED, "CUSTOMER_CANCELLATION_REFUND_REJECTED");
         }
     }
 
@@ -419,7 +275,6 @@ public class WorkshopRefundService {
                 transaction.executeWithoutResult(status -> {
                     SettlementCase latest = cases.findByCaseReferenceForUpdate(caseReference).orElse(null);
                     if (!isPendingRefundCase(latest)) return;
-                    cancellationLoyalty.restoreVerifiedCancellation(latest, evidenceReference);
                     latest.setLifecycleStatus(CASE_RESOLVED);
                     latest.setReasonReference(null);
                     latest.setUpdatedAt(Instant.now());
@@ -479,23 +334,6 @@ public class WorkshopRefundService {
                 resolved.getCaseReference(), resolved.getCorrelationReference());
     }
 
-    private SettlementRefundAllocation updateAllocation(String allocationReference,
-            java.util.function.Consumer<SettlementRefundAllocation> change, String action) {
-        return transaction.execute(status -> {
-            SettlementRefundAllocation current = allocations.findByAllocationReferenceForUpdate(allocationReference)
-                    .orElse(null);
-            if (current == null) return null;
-            String oldStatus = current.getLifecycleStatus();
-            change.accept(current);
-            SettlementRefundAllocation saved = allocations.save(current);
-            if (!oldStatus.equals(saved.getLifecycleStatus())) {
-                SettlementCase settlementCase = cases.findByCaseReference(saved.getCaseReference()).orElse(null);
-                if (settlementCase != null) saveAudit(settlementCase, action, saved.getAllocationReference());
-            }
-            return saved;
-        });
-    }
-
     private void updateCase(SettlementCase settlementCase, String status, String reason) {
         settlementCase.setLifecycleStatus(status);
         settlementCase.setReasonReference(reason);
@@ -516,38 +354,9 @@ public class WorkshopRefundService {
         return allocations.findByAllocationReference(reference).orElse(null);
     }
 
-    // matchesRefundResponse was removed 2026-11-14 with the outbound refund request: only the QueryDR
-    // conclusion of refunds VNPay already accepted is still matched.
-    private static boolean matchesRefundQuery(VnpayMerchantOperationResult result,
-            SettlementRefundAllocation allocation, String expectedType) {
-        return result != null && "REFUND_QUERYDR".equals(result.operationKind())
-                && result.responseSignatureVerified() && "00".equals(result.providerResponseCode())
-                && allocation.getOriginalPaymentReference().equals(result.merchantReference())
-                && allocation.getProviderRefundTransactionNumber().equals(result.providerTransactionNumber())
-                && Objects.equals(result.amountVnd(), allocation.getAllocatedAmountVnd())
-                && expectedType.equals(result.transactionType());
-    }
-
-    private static String expectedRefundType(SettlementRefundAllocation allocation) {
-        return allocation.getAllocatedAmountVnd().equals(allocation.getOriginalAmountVnd()) ? "02" : "03";
-    }
-
-    private static String safeCode(VnpayMerchantOperationResult result) {
-        return result == null || result.providerResponseCode() == null ? null
-                : result.providerResponseCode().replaceAll("[^A-Za-z0-9_-]", "");
-    }
-
-    private static boolean isProviderTransactionNumber(String value) {
-        return value != null && value.matches("[0-9]{1,15}");
-    }
-
     private static boolean isPendingRefundCase(SettlementCase value) {
         return value != null && List.of(CASE_TYPE, "MLAND_CANCELLATION_REMEDY", "FOLIO_CORRECTION", "ADDON_REFUND").contains(value.getCaseType())
                 && CASE_PENDING.equals(value.getLifecycleStatus());
-    }
-
-    private static String trimToNull(String value) {
-        return value == null || value.isBlank() ? null : value.trim();
     }
 
     private static String digest(String value) {

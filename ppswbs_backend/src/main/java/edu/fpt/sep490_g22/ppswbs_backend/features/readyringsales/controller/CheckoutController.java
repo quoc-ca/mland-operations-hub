@@ -54,11 +54,10 @@ public class CheckoutController {
                                                             @RequestHeader("Idempotency-Key") String idempotencyKey,
                                                             @Valid @RequestBody CheckoutDtos.CreateGroupedCheckoutRequest body) {
         RetailMemberActor actor = actorResolver.requireActiveMember(request);
-        if (testAcceptanceEnabled) {
-            var testAcceptance = acceptance.getIfAvailable();
-            if (testAcceptance == null) throw new edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.RetailIntegrationUnavailableException("Test checkout acceptance is unavailable");
-            return testAcceptance.accept(actor.accountId(), idempotencyKey, body);
-        }
+        // Real acceptance (FE-06 reserve, FE-02 holds) when enabled; the local profile has no such bean and keeps its
+        // simple path, so the same .env works in both profiles.
+        var realAcceptance = testAcceptanceEnabled ? acceptance.getIfAvailable() : null;
+        if (realAcceptance != null) return realAcceptance.accept(actor.accountId(), idempotencyKey, body);
         return checkoutService.createCheckout(actor.accountId(), idempotencyKey, body);
     }
 

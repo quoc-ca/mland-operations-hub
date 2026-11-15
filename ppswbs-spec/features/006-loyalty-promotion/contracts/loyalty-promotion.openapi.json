@@ -1678,6 +1678,14 @@
           "perMemberLimit": {
             "type": "string",
             "nullable": true
+          },
+          "availability": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "NO_USES_LEFT"
+            ],
+            "description": "Session 2026-11-14 (FR-011): NO_USES_LEFT when a voucher's held + consumed uses reached its total limit (held uses count until released); Kho Voucher shows it as \"Đã hết mã\". An automatic discount is always ACTIVE. Information only: the quote and the order decide (FR-013)."
           }
         },
         "required": [
@@ -1693,7 +1701,8 @@
           "allowPoints",
           "targets",
           "totalLimit",
-          "perMemberLimit"
+          "perMemberLimit",
+          "availability"
         ]
       },
       "ProgramUsage": {

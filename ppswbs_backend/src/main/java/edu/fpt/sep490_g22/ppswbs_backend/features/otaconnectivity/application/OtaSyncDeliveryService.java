@@ -203,13 +203,20 @@ public class OtaSyncDeliveryService {
             if (mapping.getStatus() != OtaMappingStatus.DISABLED) {
                 mapping.suspendAfterSyncFailure();
                 mappingRepository.save(mapping);
-                reconciliationWorkItemRepository.save(OtaReconciliationWorkItem.builder()
-                        .mapping(mapping)
-                        .locationReference(mapping.getLocationReference())
-                        .category(RECONCILIATION_CATEGORY)
-                        .status("OPEN")
-                        .auditReference(safeCorrelation)
-                        .build());
+                // FR-004c/FR-017: one open work item per mapping, however many change kinds run out of retries.
+                if (!reconciliationWorkItemRepository.existsByMapping_IdAndCategoryAndStatus(
+                        mapping.getId(), RECONCILIATION_CATEGORY, "OPEN")) {
+                    reconciliationWorkItemRepository.save(OtaReconciliationWorkItem.builder()
+                            .mapping(mapping)
+                            .locationReference(mapping.getLocationReference())
+                            .category(RECONCILIATION_CATEGORY)
+                            .status("OPEN")
+                            .auditReference(safeCorrelation)
+                            .build());
+                }
+                auditCorrelationService.record(OtaAuditCorrelationService.IntegrationAction.RECONCILIATION_REQUIRED,
+                        mapping.getConnection().getProviderCode(), mapping.getId(), safeCorrelation,
+                        OtaAuditCorrelationService.IntegrationOutcome.REJECTED);
             }
         }
     }

@@ -1,7 +1,7 @@
 # Data Model: Workshop Settlement and Changes
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-14
+**Date updated**: 2026-11-15
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -77,7 +77,7 @@ confirmation; no VNPay refund or QueryDR.)*
 - Dedicated snapshot table `settlement_folio_corrections` (`id`, `correction_reference`, `case_reference`, `booking_reference`, `bill_reference`, `amount_vnd`, `currency_code`, `reason`, `manager_actor_reference`, `created_at`, `updated_at`).
 - Per-original-payment refund allocations are persisted in `settlement_refund_allocations` linked by `case_reference`, dispatched and reconciled through `WorkshopRefundService` without applying cancellation consequences (folio remains `FINALIZED`, booking remains `COMPLETED`, Loyalty earn and tickets untouched).
 - Deprecated `settlement_direct_addon_bills` draft is retired and replaced by Flyway migration `V98__settlement_folio_corrections.sql`.
-- **Current state (corrected 2026-11-14, re-check of the earlier 2026-11-14 alignment, which named the wrong enum):** the FR-022b1 case lifecycle in code is `SettlementCaseLifecycleStatus` (`OPEN`, `PENDING_PROVIDER`, `RESOLVED`, `REJECTED`, `FAILED`) on `SettlementCase.lifecycle_status`, so Decision (a) above stands. `SettlementCaseStatus` (`OPEN`, `RESOLVED`, `REJECTED`, `FAILED`) is a different enum: the status of the 003.2 session-cancellation handoff record `SettlementCancellationCase`, not used for corrections. `FolioCorrectionService` creates a `FOLIO_CORRECTION` case as `PENDING_PROVIDER`; since T098 (V123) its refund allocation goes to the bank refund flow and waits as `PENDING_BANK_REFUND` (allocation lifecycle) while the case stays `PENDING_PROVIDER`, and the Manager's confirmed transfer (`MlandBankRefundConfirmedEvent`) verifies the allocation and resolves the case (`RESOLVED`). No VNPay refund or QueryDR is used for Mland money. **Open (owner decision needed, spec FR-022b1):** `PENDING_PROVIDER` no longer means "awaiting gateway evidence" for Mland money; keep it as "awaiting verified refund evidence" or retire it. A ticket folio correction (T106, spec FR-050) uses the same record with `booking_reference` = the ticket code.
+- **Current state (corrected 2026-11-14, re-check of the earlier 2026-11-14 alignment, which named the wrong enum):** the FR-022b1 case lifecycle in code is `SettlementCaseLifecycleStatus` (`OPEN`, `PENDING_PROVIDER`, `RESOLVED`, `REJECTED`, `FAILED`) on `SettlementCase.lifecycle_status`, so Decision (a) above stands. `SettlementCaseStatus` (`OPEN`, `RESOLVED`, `REJECTED`, `FAILED`) is a different enum: the status of the 003.2 session-cancellation handoff record `SettlementCancellationCase`, not used for corrections. `FolioCorrectionService` creates a `FOLIO_CORRECTION` case as `PENDING_PROVIDER`; since T098 (V123) its refund allocation goes to the bank refund flow and waits as `PENDING_BANK_REFUND` (allocation lifecycle) while the case stays `PENDING_PROVIDER`, and the Manager's confirmed transfer (`MlandBankRefundConfirmedEvent`) verifies the allocation and resolves the case (`RESOLVED`). No VNPay refund or QueryDR is used for Mland money. **Decided 2026-11-14 (Hồ Hoàng Quốc, spec FR-022b1; formerly "Open (owner decision needed)"):** `PENDING_PROVIDER` is kept and means "awaits verified refund evidence"; enum value, stored strings and behaviour are unchanged. A ticket folio correction (T106, spec FR-050) uses the same record with `booking_reference` = the ticket code.
   - *(Superseded text of the earlier 2026-11-14 alignment, kept for history; wrong enum:)* the code's `SettlementCaseStatus` has four states (`OPEN`, `RESOLVED`, `REJECTED`, `FAILED`); there is no `PENDING_PROVIDER` case state. Since T098 (V123) a correction's refund allocation goes to the bank refund flow and waits as `PENDING_BANK_REFUND` (allocation lifecycle), the case stays `OPEN`, and the Manager's confirmed transfer resolves it.
 
 ### Charge Evidence
@@ -105,12 +105,14 @@ agreed, not the customer's own consent.
 Every cancellation, required-session-change and Mland-caused
 remedy has one opaque case reference, booking reference, type, lifecycle state,
 reason, safe correlation reference and redacted audit linkage. States are
-`OPEN`, `RESOLVED`, `REJECTED` or `FAILED`; only a gateway-waiting refund can be
-`PENDING_PROVIDER`. There is no deferred-payment case or `EXPIRED` case state.
+`OPEN`, `RESOLVED`, `REJECTED` or `FAILED`; only a case that awaits verified
+refund evidence can be `PENDING_PROVIDER` *(wording changed 2026-11-15 from
+"a gateway-waiting refund")*. There is no deferred-payment case or `EXPIRED` case state.
 *(Re-checked 2026-11-14: in code this is `SettlementCaseLifecycleStatus`. Since
 T098/T104 Mland-money cases wait for the bank refund, not the gateway, yet are
-still created as `PENDING_PROVIDER`; **Open (owner decision needed, spec
-FR-022b1):** keep or retire `PENDING_PROVIDER` for them.)*
+still created as `PENDING_PROVIDER`; **Decided 2026-11-14 (Hồ Hoàng Quốc, spec
+FR-022b1; formerly "Open (owner decision needed)"):** keep `PENDING_PROVIDER`
+for them, meaning "awaits verified refund evidence".)*
 
 A customer cancellation has at most one case per booking, including when the
 case is rejected. Its dedicated snapshot is unique by booking and links to the
@@ -134,6 +136,39 @@ Verified final-payment evidence also retains the provider transaction number and
 the immutable PAY URL creation timestamp needed to identify/refund that exact
 original payment. Booking supplies verified deposits through its named facade;
 Settlement does not reach into Booking storage for payment rows.
+
+**Refund allocation, current model (rewritten 2026-11-15; spec FR-038–FR-040,
+commits bc39429c and 4e2875a0):** a refund allocation is a child row of its
+settlement case (`MLAND_CANCELLATION_REMEDY`, `FOLIO_CORRECTION`,
+`LATE_PAYMENT_REFUND`, `ADDON_REFUND`) in `settlement_refund_allocations`. It
+names the original payment the money came from and is returned only by bank
+transfer through a refund request (Refund request record below); no VNPay
+Refund or refund-QueryDR call exists. Lifecycle in code: `PREPARED` (written
+before dispatch) → `PENDING_BANK_REFUND` (handed to a bank refund request,
+`bank_refund_reference` set) → `VERIFIED` (the Manager confirmed that request
+`REFUNDED`, `MlandBankRefundConfirmedEvent`); a case resolves only when every
+nonzero allocation is `VERIFIED`. The CHECK constraint `ck_settlement_refund_lifecycle`
+(V125) still also admits the legacy values `ACCEPTED`, `UNKNOWN` and `REJECTED`,
+which no code writes any more.
+
+Current columns (V45 as altered by V123, V151 and V155): `id`,
+`allocation_reference` (unique), `case_reference` (FK to `settlement_cases`),
+`original_payment_reference`, `original_provider_transaction_number`
+(nullable since V151), `original_provider_create_date` (nullable since V151),
+`original_amount_vnd`, `allocated_amount_vnd`, `currency_code`,
+`operation_reference` (unique), `lifecycle_status`, `bank_refund_reference`
+(V123, indexed `idx_sra_bank_refund`), `created_at`, `updated_at`; unique
+(`case_reference`, `original_payment_reference`). V155 dropped
+`provider_refund_transaction_number`, `provider_response_code`,
+`provider_transaction_type`, `provider_transaction_status`,
+`provider_accepted_at`, `last_query_at` and the index
+`ix_settlement_refund_polling`. The `original_*` columns stay because a bank
+refund still points to the customer's original payment.
+
+*(Superseded 2026-11-15 by the current model above; the two paragraphs below
+describe the removed VNPay refund lifecycle (`ACCEPTED`/`UNKNOWN`, refund
+transaction number, QueryDR polling every five minutes for 24 hours, Merchant
+Admin investigation) and are kept for history only.)*
 
 Each refund allocation is an immutable child operation of its settlement case
 and identifies one original payment, provider transaction number, original
@@ -176,6 +211,9 @@ merchant reference and a unique provider operation reference. Payment
 integration's operation journal is the provider-call idempotency boundary. An
 allocation is committed before dispatch; provider calls occur after the local
 transaction; `UNKNOWN` is reconciled and never automatically resent.
+*(Allocation part superseded 2026-11-15: see "Refund allocation, current
+model" above; the refund transaction number and provider response facts were
+dropped by V155 and no provider refund call is made.)*
 
 The final bill remains unpaid until signed, matching VNPay evidence confirms the
 complete remaining balance. No role can waive collection, defer the balance,
@@ -213,6 +251,15 @@ reference events. Recipient/content are readable only through the named
 Settlement delivery payload facade; the event dispatcher emits references only.
 
 ### Refund Policy Revision and Snapshot
+
+> **Superseded 2026-11-15 for tickets (spec FR-043; FR-021a–FR-021e).** A
+> Mland cancellation of a ticket always refunds 100% of the money collected for
+> it; the policy revision and the booking snapshot below are no longer
+> consulted. Task T139 removes the code and drops the tables
+> `settlement_refund_policy_revisions`, `settlement_refund_policy_snapshots`
+> and `settlement_booking_mland_refund_policy_snapshots` (names as mapped by the
+> entities) with a NEW migration after V155, never by editing an applied one;
+> T140 removes the frontend use. The text is kept for history.
 
 A central policy revision has its future effective time and integral
 `wholeBookingRefundPercent` in `0..100`. It applies only to bookings confirmed
@@ -273,7 +320,9 @@ payment and refund records, isolated from OTA payment/payout facts:
 
 ### Per-ticket settlement records (decision 2026-11-12, spec FR-030–FR-051)
 
-Planned, not yet implemented (tasks Phase 8). Each record belongs to one ticket
+Implemented (tasks T093–T125, 2026-11-15), except the absorbed undercharge
+record (FR-057, proposed, T135) and the reconciliation list (FR-056, T133)
+added 2026-11-15. Each record belongs to one ticket
 folio (003.1 ticket booking) unless stated.
 
 | Record | Key data | Invariants |
@@ -282,12 +331,16 @@ folio (003.1 ticket booking) unless stated.
 | Folio collection | method (`VNPAY`, `CASH`, `BANK_TRANSFER`, `BOOKING_TIME`); amount; status (`PENDING_VERIFICATION`, `CONFIRMED`, `FAILED`, `VOIDED`); reference (VNPay transaction, bank transaction, cash receipt); payer; confirmer; cash received/change; times | Only `CONFIRMED` counts. VNPay only from signed evidence; cash by collecting Staff; transfer by `workshop.payment.transfer.confirm`. A bank reference or cash confirmation is used once. VNPay collection ≥ 5,000. |
 | Handover exception | folio; Manager; reason; time | Only a Manager may allow product handover before verification. |
 | Debt record | folio; amount; Manager; reason; open/closed and closing reason | Manager-only; no automatic reminder, deadline or booking block. |
-| Cash day close | branch; working date (Vietnam time); system cash total; counted amount; difference and reason; closer; Manager confirmation of a difference | One per branch per working date. Cash after the close belongs to the next date. A closed date stays locked: a Manager correction never edits its confirmed cash and records any cash effect as an adjustment on the current working date (decision 2026-11-14, spec FR-050). |
-| Refund request | ticket folio (nullable) and group; source = `RefundReason` (`MLAND_CANCELLATION`, `LATE_PAYMENT_NOT_RECONFIRMED`, `OVERCHARGE_AFTER_FINALIZED`, `EXCESS_OR_DUPLICATE_MONEY`, `OTA_ADDON_OVERCHARGE`; names aligned to the code 2026-11-14); amount; recipient (payer by default; another recipient needs the payer's recorded confirmation); status (`PENDING_ACCOUNT`, `PENDING_APPROVAL`, `PENDING_TRANSFER`, `PENDING_RECONCILIATION`, `REFUNDED`, `CLOSED_UNREACHABLE`); approver; transferring actor; bank reference and proof; reconciling Manager; times | Σ refunded + pending per ticket ≤ money collected for that ticket. Deduplicated create/confirm. Consequences apply only at `REFUNDED`. A legacy VNPay refund with code `99` is reconciled first. |
+| Cash day close | branch; working date (Vietnam time); system cash total; counted amount; difference and reason; closer; Manager confirmation of a difference | One per branch per working date. Cash after the close belongs to the next date. A closed date stays locked: a Manager correction never edits its confirmed cash and records any cash effect as an adjustment on the current working date (decision 2026-11-14, spec FR-050). *(Superseded 2026-11-15, spec FR-036/FR-050: a correction refunds only by bank, has no cash effect, and no cash adjustment record exists.)* Table `settlement_cash_day_closes` stores the branch as `branch_id` and the date as `business_day`; the public contract names them `locationId` and `workingDate` (C2, decided 2026-11-15, tasks T131/T132). |
+| Refund request | ticket folio (nullable) and group; source = `RefundReason` (`MLAND_CANCELLATION`, `LATE_PAYMENT_NOT_RECONFIRMED`, `OVERCHARGE_AFTER_FINALIZED`, `EXCESS_OR_DUPLICATE_MONEY`, `OTA_ADDON_OVERCHARGE`; names aligned to the code 2026-11-14); amount; recipient (payer by default; ~~another recipient needs the payer's recorded confirmation~~ *withdrawn 2026-11-14 by Hồ Hoàng Quốc, spec FR-039: no different-recipient step*); status (`PENDING_ACCOUNT`, `PENDING_APPROVAL`, `PENDING_TRANSFER`, `PENDING_RECONCILIATION`, `REFUNDED`, `CLOSED_UNREACHABLE`); approver; transferring actor; bank reference and proof; reconciling Manager; times | Σ refunded + pending per ticket ≤ money collected for that ticket. Deduplicated create/confirm. Consequences apply only at `REFUNDED`. ~~A legacy VNPay refund with code `99` is reconciled first.~~ *(Withdrawn 2026-11-15 by Hồ Hoàng Quốc: VNPay Refund code removed, bc39429c/V155; spec FR-039.)* |
 | Refund account | refund request; bank; account number (encrypted, masked after `REFUNDED`); holder name; payer confirmation when the recipient is not the payer — **withdrawn 2026-11-14 (Hồ Hoàng Quốc): no declaration and no payer-confirmation step; the refund goes to the account the payer enters and the holder name is never compared** *(earlier wording "when names differ" superseded by spec FR-040, decision 2026-11-13: the holder name is not compared with the payer; **Withdrawn 2026-11-14 (Hồ Hoàng Quốc):** there is no different-recipient declaration and no payer-confirmation step; the refund goes to the account the payer enters and the holder name is never compared (FR-039/FR-040))*; channel (link/counter); entering actor; link token hash, expiry (7 days), revocation; reminder times (days 3, 7) | Full number visible only to the approving Manager and the transferring actor; never in email, logs or audit. |
-| Ticket cancellation | ticket; group request reference (one request may cancel several tickets of one group, all or none, decision 2026-11-14); requester (buyer/Staff for buyer); channel; buyer proof (Member owner, or consumed `buyerVerificationReference` id; never the OTP); request time; first-session start; 24-hour outcome (`VALID_CANCELLATION`, `LATE_CANCELLATION`); points returned; voucher restoration reference | Idempotent per request key. A group request commits every listed ticket or none. Voucher use restored at most once per group, only when every ticket ended by valid or Mland cancellation. |
-| Mland ticket remedy | ticket; cancelled session; replacement offered; buyer answer and deadline (24 h before replacement start); outcome (`MOVED`, `REFUND`); refund request reference | Not counted as a customer change. Voucher restored once for the group even when partial. |
+| Ticket cancellation | ticket; group request reference (one request may cancel several tickets of one group, all or none, decision 2026-11-14); requester (buyer/Staff for buyer); channel; buyer proof (Member owner, or consumed `buyerVerificationReference` id; never the OTP); request time; first-session start; 24-hour outcome (`VALID_CANCELLATION`, `LATE_CANCELLATION`); points returned; voucher restoration reference | Idempotent per request key. A group request commits every listed ticket or none. Voucher use restored at most once per group, only when every ticket ended by valid or Mland cancellation *(clarified 2026-11-15, spec FR-042/FR-043: a Mland cancellation restores it when its first ticket is refunded, whatever the other tickets did)*. |
+| Mland ticket remedy | ticket; cancelled session; replacement offered; buyer answer and deadline `answerDeadlineAt` (24 h before the LATEST offered session; a session is choosable only while it starts at least 24 h after the answer; aligned 2026-11-15 with spec FR-043); outcome (`MOVED`, `REFUND`); refund request reference | Not counted as a customer change. Voucher restored once for the group even when partial. |
+| Mland remedy session options (V152, T112, BE-DESIGN-0008, decided 2026-11-14) | extends the Mland ticket remedy row: `replacement_options` (TEXT, nullable: the whole offered list of equivalent sessions with each start time) and `selected_replacement_session_reference` (VARCHAR(64), nullable: the session the buyer chose); `replacement_session_references` widens from 512 characters to TEXT | 003.2 returns ALL valid equivalent sessions (no cap); the buyer CHOOSES ONE and an accept answer must carry a reference from the offered list. A session is choosable only while it starts at least 24 h after the answer; the default refund fires at `answerDeadlineAt` = 24 h before the LATEST offered session. Rows written before V152 keep their values and are read from `replacement_session_references` and `replacement_start_at`. |
+| Ticket change request (V153, T117, spec FR-045a, decided 2026-11-14) | table `settlement_ticket_change_requests`: `request_reference`, `idempotency_key`, `ticket_code`, `group_code`, `location_reference`, `change_type`, `target_session_references`, `from_session_references` (T130, planned; new migration after V155), `blocked_rules`, `status` (`PENDING`, `APPROVED`, `REJECTED`, `EXPIRED`), `price_increase_amount_vnd`, `buyer_confirmed_increase`, requester account/role/channel, `buyer_proof` (consumed when stored, kept for audit), `reason`, `expires_at`, decision reason/actor/time/`decision_idempotency_key`, `applied_change_reference`, `created_at`, `updated_at` | Stored instead of a refusal when an online change fails only on a rule a Manager may lift (quota, used allowance, 24 h window); the change route answers 202. `PENDING` moves to `APPROVED`, `REJECTED` or `EXPIRED`; the request expires when the old session starts *(superseded 2026-11-15, spec FR-045a: `expires_at` is the earliest of the start of the session being changed and the start of any requested target session; the ticket's other sessions never count; the code still uses the ticket's first session and is fixed by T130)*. Approval (Manager, reason, Idempotency-Key, audit) equals a FR-054 grant followed by one counted change. Unique per `request_reference` and per (`ticket_code`, `idempotency_key`). |
 | Ticket change | ticket; type (`ADVANCE`, `LATE_ARRIVAL`, `MLAND`, `MANAGER_GRANTED`); from/to sessions; counted (yes/no); price effect (voucher allocation lost, balance increase); buyer confirmation; actor | At most one counted customer change per ticket unless a Manager grants more. Price never decreases. |
+| Absorbed undercharge record (spec FR-057, decided 2026-11-15; **proposed, not yet migrated**, task T135) | proposed table `settlement_absorbed_undercharges`: `id`, `undercharge_reference` (unique), `ticket_code`, `bill_reference` (the ticket folio in `settlement_final_bills`), `location_reference` (BIGINT, as in V153), `amount_vnd` (BIGINT, CHECK > 0), `currency_code` (VND), `reason` (VARCHAR(1000), required), `recorded_by_account_id`, `recorded_at`, `idempotency_key`, `status` (`ACTIVE`, `VOIDED`), `void_reason`, `voided_by_account_id`, `voided_at`, `void_idempotency_key`, `created_at`; unique (`ticket_code`, `idempotency_key`) following V139/V153; index (`location_reference`, `recorded_at`, `status`) for the branch/period list | Only on a `FINALIZED` ticket folio (refused otherwise); Manager only; reason required; immutable once saved except the one void (`ACTIVE` → `VOIDED`, reason, actor, time; a second void is refused); a voided record keeps its content and is excluded from totals; a correct amount is a new record; it collects nothing and changes no folio, line, balance, Loyalty earn, cash or cash close, and names no employee; audited on record and void. Exact column types and names are fixed by T135's migration. |
+| Transfer/VNPay reconciliation list (spec FR-056, decided 2026-11-15, task T133) | **no new table**: a read-only query over `settlement_folio_collections` filtered by `branch_id` (= `locationId`; decided 2026-11-15: `branch_id` is now filled for every method, not only cash — set at creation from the ticket folio context `locationReference`, and back-filled for existing transfer/VNPAY rows by a new migration after V155, T133), Vietnam working day, `method` in (`BANK_TRANSFER`, `VNPAY`) and state (`CONFIRMED`, `PENDING_VERIFICATION`, `VOIDED` from the collection status; `EXCESS` from `settlement_evidence_conclusions` rows with conclusion `FOLIO_VNPAY_EXCESS`, decided 2026-11-15; `FAILED` is not listed), joined to the ticket folio for ticket and group code; row = ticket code, group code, amount, method, state (`status`, published as `state`), `external_reference`, confirming actor (`confirmed_by_account_id`) and `confirmed_at` | Writes nothing: no "reconciled" mark, no change to a collection, folio or cash close. Manager only. `cash_business_day` is set only for cash, so the working day of a transfer/VNPay row is derived from its time in Vietnam time: a `CONFIRMED` row belongs to the Vietnam day of `confirmed_at`, a `PENDING_VERIFICATION` row to the Vietnam day of its creation time (decided 2026-11-15, spec FR-056; earlier wording "T133 decides confirmed time vs. creation time for pending rows" superseded). |
 
 Permissions used here: `workshop.payment.transfer.confirm` and
 `workshop.refund.execute` (Manager by default, grantable per person, never per
@@ -331,7 +384,9 @@ records and cash-close differences are Manager-only.
 8. A Mland-caused remedy is traceable to the same cancellation handoff as its
    replacement attempt.
 9. Policy revisions are prospective and cannot rewrite a confirmed booking's
-   snapshot.
+   snapshot. *(Superseded 2026-11-15 for tickets by spec FR-043: no policy or
+   snapshot is consulted for a ticket refund; the policy tables are dropped by a
+   new migration in T139.)*
 10. A client idempotency key cannot produce two settlement effects or be reused
     for different semantic input.
 11. A notification handoff is immutable and reference-only; duplicate delivery
@@ -346,8 +401,10 @@ Per-ticket rules (spec FR-030–FR-051, decisions 2026-11-12 to 2026-11-14):
     lifecycle (FR-038–FR-040): no VNPay Refund or refund-QueryDR call; a
     refund's business consequences apply only at `REFUNDED`; the total
     refunded or pending for a ticket never exceeds the money collected for it;
-    a legacy VNPay refund with code `99` is reconciled before any manual
-    refund of the same money.
+    ~~a legacy VNPay refund with code `99` is reconciled before any manual
+    refund of the same money~~ *(withdrawn 2026-11-15 by Hồ Hoàng Quốc: VNPay
+    Refund and refund-QueryDR code removed (bc39429c), V155 dropped the VNPay
+    refund columns; spec FR-039)*.
 14. The buyer cancels chosen tickets (FR-041): one ticket, or several tickets of
     one group in one request that commits every listed ticket or none; each
     ticket keeps its own 24-hour outcome (FR-042); a customer cancellation

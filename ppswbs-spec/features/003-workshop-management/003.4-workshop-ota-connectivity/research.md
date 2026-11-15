@@ -1,7 +1,7 @@
 # Research: Workshop OTA Connectivity
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-29
+**Date updated**: 2026-11-15
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -15,7 +15,7 @@ This file preserves approved OTA decisions migrated from the shared `ppswbs-spec
 - Each provider has its own adapter. Booking references and idempotency keys prevent duplicate effects; authenticated callbacks and retry/reconciliation protect Mland from external delivery failure.
 - Initial OTA sale is `PER_PERSON` only; `BASE_PLUS_EXTRA`, workshop-item, co-maker, and group-pricing remain excluded until separately validated.
 - Channel price records retain retail price, target net, currency, fee/commission version, and validity. Klook stays unpublished without commercial confirmation.
-- Klook and GetYourGuide each require proved ticket-per-person delivery and Mland scanning before sale. A shared voucher is only an audited incident fallback; neither provider is enabled until its own evidence exists.
+- Klook and GetYourGuide each require proved ticket-per-person delivery and Mland scanning before sale. ~~A shared voucher is only an audited incident fallback;~~ *(Superseded 2026-11-14, recorded 2026-11-15, FR-009 amendment, T117: there is no shared-voucher fallback; an OTA ticket is a single ticket.)* Neither provider is enabled until its own evidence exists.
 - Mland may synchronize schedule, availability, and sales-closed status to an authorized candidate OTA before ticket proof so catalogue setup can be checked. This is not permission to accept a booking or consume capacity.
 - Confirmed failure posture: after automatic retry is exhausted, close sales for the affected OTA mapping, retain inbound events for reconciliation, and reopen only after successful confirmed re-sync.
 - Confirmed go-live boundary: public documentation is insufficient to decide whether Mland confirms or rejects a booking delivered after sales close during a sync incident. The provider must confirm this rule, timeout/retry/idempotency, and capacity responsibility in writing before Mland enables OTA bookings.
@@ -54,7 +54,7 @@ This file preserves approved OTA decisions migrated from the shared `ppswbs-spec
 
 **Rationale**: GetYourGuide documents single-ticket redemption separately from whole-booking redemption, matching Mland's one participant/one ticket rule. Klook's public process also requires voucher scan verification before launch.
 
-**Alternatives considered**: A single booking voucher was rejected as normal flow because scanning it could admit all participants; it remains only a separately audited incident fallback after approval.
+**Alternatives considered**: A single booking voucher was rejected as normal flow because scanning it could admit all participants; ~~it remains only a separately audited incident fallback after approval.~~ *(Superseded 2026-11-14, recorded 2026-11-15, T117: no shared-voucher fallback is built.)*
 
 ### Decision: do not invent operational constants
 

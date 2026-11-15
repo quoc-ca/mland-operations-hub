@@ -1,13 +1,13 @@
 # Feature Specification: Workshop OTA Connectivity
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-14
+**Date updated**: 2026-11-15
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
 **Feature Branch**: `003.4-workshop-ota-connectivity`
 
-**Status**: Draft — not implemented; provider onboarding and commercial gates apply
+**Status**: Implemented in part; T004, T038b, T051, T054 open (new tasks T123–T129 from Clarifications Session 2026-11-15); provider onboarding and commercial gates apply. **Approved 2026-11-15 by Hồ Hoàng Quốc (owner Feature 003)** for the whole spec content of that date including Clarifications Session 2026-11-15.
 
 **Input**: Migrate approved OTA decisions from the retiring shared research
 document. Supporting evidence is retained locally in [research.md](research.md).
@@ -89,6 +89,89 @@ are evidenced.
 - Q: Nếu 003.4 phát hiện thiếu version hoặc không xác định thứ tự của schedule snapshot từ 003.2, có phải suspend mapping OTA giống availability gap không? → A: Có. Suspend riêng mapping OTA, authoritative resync schedule từ 003.2, chỉ mở lại sau khi xác nhận thành công; direct-Mland không đổi.
 - Q: 003.2 nên cấp cho 003.4 một source version tăng dần chung cho mọi thay đổi OTA-observable của cùng session, hay version riêng cho schedule và availability? → A: Một source version tăng dần chung theo từng session cho mọi thay đổi schedule, availability và sale state gửi sang 003.4.
 
+### Session 2026-11-15
+
+- Q: How is a booking's expected net payout computed from the price terms'
+  `targetNetAmount`? → A: `targetNetAmount` is the net price **per person**
+  (V1 sells only `PER_PERSON` packages). The booking's expected net is
+  `targetNetAmount × participant count N`, in the price terms' currency,
+  snapshotted when the channel booking is confirmed (FR-013) and used by the
+  payout position (FR-014, T110). *(Closes analyze finding F03.)*
+- Q: When the OTA collects the customer's money in a foreign currency, which
+  currency is the reference for reconciling the payout? → A: The currency of the
+  expected net / the payout actually received (the price terms' currency). The
+  customer-paid amount and currency stay as evidence only (T113) and are never
+  used to match a payout. Any difference caused by conversion is recorded as an
+  evidenced FX-variance adjustment (FR-015), not as a mismatch of the payout.
+  *(Closes analyze finding F04.)*
+- Q: How are a partial refund and a partial cancellation from the OTA handled?
+  → A: Refund size and cancellation policy are the OTA's own (owner statement,
+  2026-11-15). Mland records the amounts the OTA reports (FR-012) and derives
+  nothing from them; the only thing that releases tickets and capacity is the OTA
+  confirming a cancellation (FR-011). The OTA's booking page sells only a
+  participant **quantity** (1 ticket = 1 person, no named person per ticket;
+  Klook listing observed by the owner 2026-11-15, max 4 per booking), and every
+  ticket of an OTA booking is interchangeable (same session, same Package).
+  *(Decided 2026-11-15 after first choosing "whole-booking only", which is
+  superseded: U1 is replaced as follows.)* When the OTA **confirms** a
+  cancellation of k participants and k is less than the booking's active
+  tickets, Mland revokes k tickets by a fixed rule — tickets not yet checked in
+  first, then the highest ticket sequence first — and releases k seats; if the
+  payload names the ticket or voucher, that ticket is revoked instead of the rule
+  choosing. If k is at least the active tickets, the whole booking is cancelled.
+  A request (not yet confirmed) revokes nothing. A partial revocation is fully
+  automatic and is recorded in the audit trail naming the revoked tickets
+  (visible to a Manager on the booking detail); it opens **no** work item. A work
+  item is opened only when automation cannot decide (k exceeds the active
+  tickets, unknown booking, unmapped event). No ticket is ever revoked from an
+  unconfirmed or unauthenticated event. At the door, a guest holding a revoked QR while the booking still has an
+  unused valid ticket is handled by Staff through the booking-code lookup
+  (FR-003b of 003.2) and an audited check-in of a remaining ticket.
+  `PARTIALLY_REFUNDED` stays a payment state recorded only if the OTA reports it
+  (T109). Klook's actual support for quantity cancellation is verified in
+  T004/T038b from real payloads.
+- Q: Does Mland notify the OTA customer when an OTA booking is cancelled? → A:
+  No. Mland sends no email or SMS to an OTA customer; the OTA informs its
+  customer under its own policy. The outbound notification of FR-017 is only the
+  synchronization of state and availability to the OTA; Mland's record of a
+  cancellation is the audit trail.
+- Q: How does 003.4 revoke OTA tickets when 003.2 FR-036 refuses
+  `cancelTicket` for OTA-origin tickets? → A: 003.2 adds a separate facade
+  operation for OTA-confirmed cancellation of named tickets of an OTA booking,
+  callable only by 003.4. 003.2 FR-036 still refuses the general operations
+  (`cancelTicket`, `replaceTicketSessions`, `reissueTicketQr`) for every other
+  caller. The new operation releases each ticket's seats and revokes its
+  entitlements and QR without rewriting attendance history, idempotently per
+  OTA event. 003.4 chooses the tickets (fixed rule or payload) and 003.2 revokes
+  exactly those; ticket ownership stays in 003.2.
+- Q: May the FR-013 booking snapshot have empty fields when the OTA does not
+  send them? → A: The required snapshot terms (sales channel, price terms
+  version, `targetNetAmount`, commission, currency, policy/cutoff) come from the
+  active price terms entered in Mland and are always complete; a booking with no
+  valid active price terms is rejected. Values the OTA reports (customer-paid
+  amount and currency, fees) are evidence fields and may be null. Later
+  configuration never rewrites the snapshot.
+- Q: What are the outbound retry count and spacing for availability/state
+  delivery to an OTA? → A: 3 attempts spaced 30 seconds, 2 minutes and 10
+  minutes (back-off, under 15 minutes in total). When the attempts are
+  exhausted, only that mapping closes sales and a work item opens (FR-017). The
+  values are configuration defaults, adjustable when a provider's contract
+  requires different ones; they are not provider commitments. *(Closes the
+  "3 retries / 30 s" question; plan.md Performance Goals "no approved numeric
+  retry target" is superseded by this default.)*
+- Q: Does the work item category `SHARED_VOUCHER_INCIDENT` stay? → A: No. The
+  shared-voucher fallback no longer exists (FR-009, T117), so the category is
+  removed from the contract enum. If existing rows carry it, the value stays
+  readable, marked deprecated, and is never created again; a task checks the
+  data first.
+- Q: Is the V1 OTA offer "Basic Ring" or Signature Workshop — Brass? → A: The
+  single V1 OTA offer is the cheapest Package, **Signature Workshop — Brass**
+  (750,000 VND direct; the OTA lists its own higher price, e.g. 1,600,000 VND per
+  person on Klook as observed by the owner 2026-11-15). "Basic Ring" is the
+  legacy name of the same offer: wherever this feature says "Basic Ring" it means
+  the catalogue Package Signature Workshop — Brass. The mapping is still
+  configured by a Manager, never hard-coded.
+
 ## Confirmed Decisions and Boundaries
 
 - The initial OTA rollout publishes only `PER_PERSON` packages. A later
@@ -111,7 +194,10 @@ are evidenced.
   product/option, participant count, accepted amount and currency; a confirmed
   outcome returns the Mland booking and ticket references, a rejection returns a
   reason. Caller authentication compares `X-Ota-Signature` in constant time
-  with the `ACTIVE` connection's credential reference. This is not an approved
+  with the secret that the `ACTIVE` connection's `credential_reference` (a
+  non-secret lookup name) resolves to from the environment or secret channel
+  (T059, T118); a reference that resolves to nothing, or is blank, fails closed
+  in every environment, `TEST` included. This is not an approved
   provider signature scheme, so the endpoint fails closed (E3, 2026-11-12): a
   `PRODUCTION` callback is refused with 403 unless the provider is listed in
   `ota.provider-callbacks.approved-production-providers` (environment
@@ -137,11 +223,15 @@ are evidenced.
   connection whose reference resolves to nothing MUST fail closed in every
   environment. No constitution exception is recorded, and `TEST` works the same
   way, so a secret can never reach MySQL in any environment. The E3
-  production fail-closed rule stays as it is.
+  production fail-closed rule stays as it is. *(Implemented and verified
+  2026-11-14 by T059; the comparison wording above aligned 2026-11-15, T118.)*
 - A booking for N participants creates exactly N active Mland tickets. The OTA
   must deliver each ticket/QR individually before the option can be sold.
-- A shared voucher/order code is only an authorized, audited post-go-live
-  incident fallback; it cannot check in an entire booking automatically.
+- ~~A shared voucher/order code is only an authorized, audited post-go-live
+  incident fallback; it cannot check in an entire booking automatically.~~
+  *(Superseded 2026-11-14, recorded 2026-11-15 by the FR-009 amendment, T117:
+  there is no shared-voucher fallback; an OTA ticket is a single ticket,
+  checked in one at a time.)*
 - OTA customers pay and are refunded under the policy shown by the OTA.
   ~~Mland never uses its direct-payment gateway to refund OTA-collected
   money.~~ *(Superseded 2026-11-14: OTA bookings keep their WorkshopBooking
@@ -154,11 +244,14 @@ are evidenced.
   through the OTA checkout. Mland does not collect a deposit or final payment
   for that base package. The OTA's later supplier payout to Mland is a separate
   receivable and reconciliation flow; a payout is not customer-payment proof.
-- Mland may confirm an OTA booking and issue its tickets only after an
-  authenticated provider outcome establishes that the full accepted customer
-  amount and currency were paid on the channel. If the provider's callback or
-  reconciliation contract cannot establish that fact, the mapping stays
-  sales-closed until the provider evidence is approved.
+- Mland may confirm an OTA booking and issue its tickets only when the
+  authenticated provider outcome carries payment evidence. The amount and
+  currency are kept as the OTA reported them and are not compared with Mland's
+  retail price (T113, FR-012 amendment). If the provider's callback or
+  reconciliation contract cannot supply payment evidence, the mapping stays
+  sales-closed until the provider evidence is approved. *(Aligned 2026-11-15 to
+  the 2026-11-14 decision, T113; the earlier full-amount-and-currency rule is
+  superseded.)*
 - Add-ons are not sold through the OTA checkout. After an OTA-origin customer
   arrives at the Mland shop, laser engraving is included free and creates only
   a zero-charge operational record. Any other paid option needs a prior quote
@@ -176,8 +269,10 @@ are evidenced.
   non-secret lookup name and the backend resolves it to a secret held in the
   approved secret channel before comparing `X-Ota-Signature`; an unresolvable
   reference fails closed in every environment. No constitution exception is
-  recorded (see the interim ingress text above; implemented by T059, which
-  still blocks T054 and any `approved-production-providers` entry until done).
+  recorded (see the interim ingress text above; implemented by T059, done and verified
+  2026-11-14 (11/11), so it no longer blocks T054; an
+  `approved-production-providers` entry still needs its approved callback
+  procedure, E3).
 - **A1 — inbound replay key (implemented behaviour, read from
   `OtaInboundEventService`):** the key is unique per connection and equals
   SHA-256 of `EVENT:<provider>:<reference>`, where the reference is the
@@ -187,7 +282,11 @@ are evidenced.
   currently gets a random reference, so it is not deduplicated at the
   inbound-event layer (its idempotency rests on the channel booking state). A
   second event with the same reference but a different payload fingerprint
-  returns the stored prior outcome; no conflict is raised.
+  returns the stored prior outcome; no conflict is raised. *(Superseded
+  2026-11-14 by the decision below, T060: the random reference and the silent
+  prior outcome are not the intended behaviour; a same-reference,
+  different-fingerprint event is refused as a conflict and opens an
+  `INBOUND_EVENT` work item, and an adapter never invents an event reference.)*
   **Decided 2026-11-14 (Hồ Hoàng Quốc, owner Feature 003):** the key above is
   **confirmed as the one dedupe key**, and two gaps MUST be closed (T060):
   1. **Conflict rule:** a second event carrying the same reference but a
@@ -201,8 +300,11 @@ are evidenced.
      `PAYLOAD:<fingerprint>`, which is the branch meant for that case. The
      Klook cancellation adapter currently invents `klk-ccl-ev-<random>`, so
      every redelivery looks new and the inbound layer never deduplicates it.
-- **U1 — Decided 2026-11-14 (Hồ Hoàng Quốc):** OTA cancellation stays
-  **whole-booking only in V1**, and no ticket subset is ever revoked from an
+- **U1 — Decided 2026-11-14 (Hồ Hoàng Quốc); superseded 2026-11-15 by
+  Clarifications Session 2026-11-15 (partial confirmed cancellation revokes k
+  tickets by a fixed rule; no longer whole-booking only; tasks added in the sync
+  step):** OTA cancellation stays
+  ~~**whole-booking only in V1**, and no ticket subset is ever revoked from an
   OTA event. The reason is what the providers actually send: the Klook and
   GetYourGuide cancellation adapters and `OtaCancellationEventCommand` carry
   only the external booking and event references, a cancellation kind
@@ -214,7 +316,7 @@ are evidenced.
   ticket: it opens a reconciliation work item for Staff or a Manager to settle
   with the provider. Whether per-ticket OTA cancellation becomes possible is
   decided in T038b from the real, contract-approved provider payloads (T004),
-  not here.
+  not here.~~ *(Struck 2026-11-15: replaced by Clarifications Session 2026-11-15 Q3.)*
 - **C2 — Decided 2026-11-14 (Hồ Hoàng Quốc):** `INBOUND_EVENT` reconciliation
   work items (unknown booking, unmapped event, and from T060 a dedupe conflict)
   MUST be listed and resolved through the **existing**
@@ -246,10 +348,10 @@ the repeat returns the original result without another capacity deduction.
 **Acceptance Scenarios**:
 
 1. **Given** enough Mland capacity, **When** an approved OTA submits a valid
-   booking for N participants with authenticated evidence of full payment of
-   the accepted channel amount, **Then** Mland creates one channel booking,
+   booking for N participants with authenticated payment evidence (amount
+   and currency kept as the OTA reported them, T113), **Then** Mland creates one channel booking,
    exactly N active tickets, and commits N places as one result. A booking
-   lacking full-payment evidence is not confirmed and receives no tickets.
+   lacking payment evidence is not confirmed and receives no tickets.
 2. **Given** the same accepted request is delivered again, **When** Mland
    processes it, **Then** it returns the original result without duplicate
    booking, ticket, capacity, or financial effects.
@@ -257,7 +359,8 @@ the repeat returns the original result without another capacity deduction.
    OTA requests a booking, **Then** it receives a clear rejection and no change
    persists.
 4. **Given** a channel delivers one shared voucher for N people, **When** its
-   option is assessed, **Then** Mland keeps it disabled.
+   option is assessed, **Then** Mland keeps it disabled. *(Note 2026-11-15,
+   T117: there is no shared-voucher fallback; an OTA ticket is a single ticket.)*
 
 ---
 
@@ -307,7 +410,7 @@ releases capacity only after confirmation.
    processed, **Then** Mland records it but retains tickets/capacity.
 2. **Given** an authenticated confirmed outcome, **When** it is processed,
    **Then** unused tickets are revoked and eligible future capacity is released
-   exactly once.
+   exactly once. *(Added 2026-11-15: a confirmed partial cancellation revokes k tickets (whole booking when k reaches the active tickets), Clarifications Q3, replacing U1; refund facts are only what the OTA reports, T109.)*
 3. **Given** an invalid, duplicate, late, or out-of-order callback, **When** it
    arrives, **Then** it cannot make a second financial, ticket, or capacity
    effect and is safely audited or queued for reconciliation.
@@ -377,6 +480,7 @@ remains separate from OTA financial facts.
 - A provider replays a booking/cancellation/refund event after timeout.
 - Availability delivery is late, fails, or has incompatible mapping/state.
 - A partial customer refund and later statement/payout have different outcomes.
+  *(Note 2026-11-15: a confirmed partial OTA cancellation revokes k tickets by the fixed rule (Clarifications Q3, replacing U1), and a request revokes nothing; a refund fact is recorded only as the OTA reports it, T109.)*
 - Channel price changes after booking acceptance.
 - An OTA supplies contact data that is not permitted or operationally necessary.
 
@@ -463,23 +567,44 @@ remains separate from OTA financial facts.
 - **FR-008**: The system MUST not enable an option until an end-to-end test proves
   booking N participants delivers N individual Mland ticket/QR values that
   Staff can scan.
-- **FR-009**: A shared OTA voucher MUST be an authorization-protected,
-  audited incident fallback and MUST NOT automatically check in all participants.
+- **FR-009**: ~~A shared OTA voucher MUST be an authorization-protected,
+  audited incident fallback and MUST NOT automatically check in all participants.~~
+  *(Superseded 2026-11-14, owner decision Hồ Hoàng Quốc, recorded 2026-11-15
+  (T117): there is no shared-voucher fallback. OTA vouchers and discounts live in
+  the OTA's own system; at check-in an OTA ticket is a single ticket equivalent
+  to a Mland ticket, checked in one at a time. `OtaVoucherFallbackService` is
+  left unchanged and unexposed.)*
 - **FR-010**: The system MUST authenticate callbacks, deduplicate events, retain
   safe correlation/reference data, and never log credentials, raw tokens,
   signing secrets, or avoidable PII.
 - **FR-011**: The system MUST distinguish a channel cancellation request from a
   confirmed cancellation/refund outcome and release tickets/capacity only after
-  confirmation.
+  confirmation. *(Revocation: whole-booking only in V1 was decision U1,
+  superseded 2026-11-15: a confirmed partial cancellation of k participants
+  revokes k tickets by the fixed rule in Clarifications Session 2026-11-15.)*
+  Refund
+  facts are only what the OTA reports (T109).
 - **FR-012**: The system MUST record customer channel-payment states as
   `PAID_ON_CHANNEL`, `REFUND_REQUESTED`, `PARTIALLY_REFUNDED`, or `REFUNDED`.
-  `PAID_ON_CHANNEL` MUST represent authenticated evidence that the full
-  accepted customer amount and currency were collected by the OTA for the
-  booking. An incomplete, mismatched, or absent payment outcome MUST NOT
-  confirm the channel booking or issue tickets. These states MUST NOT be read
+  `PAID_ON_CHANNEL` MUST represent authenticated evidence that the OTA
+  collected payment for the booking, with the amount and currency kept as the
+  OTA reported them and not compared with Mland's retail price (T113). An
+  absent payment outcome MUST NOT confirm the channel booking or issue
+  tickets. `PARTIALLY_REFUNDED` is recorded only if the OTA itself reports a
+  partial refund; Mland never derives it (T109). These states MUST NOT be read
   as a direct-Mland payment, booking, or supplier-payout state. Mland MUST NOT
   create a `DEPOSIT` or `FINAL_PAYMENT` attempt for the OTA-collected base
   package.
+  *(Amended 2026-11-14, owner decision Hồ Hoàng Quốc, recorded 2026-11-15
+  (T113, T109): the price an OTA customer pays always differs from Mland's retail
+  price (platform fee and other OTA charges), so Mland MUST NOT compare the
+  customer's amount with its own price and MUST NOT reject a booking for a
+  smaller amount or a different currency; the amount and currency are kept as
+  the OTA reported them, for reconciliation and payout only. The number of
+  tickets follows the participant count. Absent payment evidence still does not
+  confirm the booking. Refunds are the OTA's own logic: Mland records the
+  facts the OTA reports and releases tickets and capacity only when the OTA
+  confirms a cancellation (FR-011).)*
 - **FR-013**: The system MUST snapshot sales channel, displayed policy/version,
   cutoff/timezone, price terms, commission/fee facts, and accepted currency
   amounts for each OTA booking; later configuration cannot rewrite the snapshot.
@@ -511,7 +636,7 @@ remains separate from OTA financial facts.
   item/price/currency/consent/actor/payment evidence, without changing OTA
   price, channel payment, commission, payout, settlement, or channel refund.
 - **FR-021**: The system MUST authorize configuration, publication,
-  reconciliation resolution, and fallback check-in on the server using active
+  reconciliation resolution~~, and fallback check-in~~ *(withdrawn 2026-11-15, T117)* on the server using active
   Mland authority and resource scope; OTA claims/UI visibility grant no power.
 - **FR-022**: The system MUST return safe typed, correlation-linked failures
   without exposing other booking data or sensitive integration information.
@@ -539,7 +664,7 @@ remains separate from OTA financial facts.
 - **SC-002**: 100% of enabled channel options in go-live verification create and
   deliver exactly one Mland-scannable ticket per participant.
 - **SC-003**: 100% of confirmed cancellation/refund tests revoke only applicable
-  unused tickets and release capacity once; unconfirmed requests do neither.
+  unused tickets and release capacity once; unconfirmed requests do neither. A confirmed partial revocation of k tickets is idempotent and audited (Q3, replacing U1); refund facts are only what the OTA reports (T109).
 - **SC-004**: 100% of reconciliation tests keep channel customer payment,
   expected payout, received payout, and direct Mland add-on totals distinct.
 - **SC-005**: 100% of publication attempts lacking commercial approval, supported
@@ -574,7 +699,7 @@ customer refunds, supplier receivables, and direct counter sales. Separate
 adapters, ticket gates, immutable financial facts, idempotency, and reconciliation
 are required boundaries.
 
-**Provider release gates remain**: Provider contracts, commercial terms,
+**Provider release gates remain** *(note 2026-11-15: after T113, any "payment semantics" gate means payout and payment-evidence presence only, not an amount or currency check against Mland's price)*: Provider contracts, commercial terms,
 credential/callback configuration, quotas, late-booking behavior, and deployment
 ownership need approved follow-up evidence. Finance authorization is resolved:
 any active Manager may read financial evidence and perform payout reconciliation

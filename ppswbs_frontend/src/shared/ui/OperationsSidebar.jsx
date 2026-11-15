@@ -198,9 +198,21 @@ export function OperationsSidebar() {
           {isVi ? 'QUYẾT TOÁN & BỒI HOÀN' : 'WORKSHOP SETTLEMENT'}
         </div>
         <Link className={isBillsActive ? 'active' : ''} to="/settlement">
-          {isVi ? 'Hóa đơn quyết toán (Bills)' : 'Final bills'}
+          {isVi ? 'Folio vé (Ticket folio)' : 'Ticket folio'}
+        </Link>
+        <Link className={pathname === '/settlement/cash-close' ? 'active' : ''} to="/settlement/cash-close">
+          {isVi ? 'Chốt sổ tiền mặt' : 'Cash close'}
+        </Link>
+        <Link className={pathname === '/settlement/ticket-actions' ? 'active' : ''} to="/settlement/ticket-actions">
+          {isVi ? 'Huỷ & đổi vé' : 'Cancel & change tickets'}
+        </Link>
+        <Link className={pathname === '/settlement/change-requests' ? 'active' : ''} to="/settlement/change-requests">
+          {isVi ? 'Yêu cầu đổi vé' : 'Change requests'}
         </Link>
         {canManage && (<>
+        <Link className={pathname === '/settlement/refunds' ? 'active' : ''} to="/settlement/refunds">
+          {isVi ? 'Hàng đợi hoàn tiền' : 'Refund queue'}
+        </Link>
         <Link className={isCasesActive ? 'active' : ''} to="/settlement/cases?tab=cases">
           {isVi ? 'Sự vụ & bồi hoàn (Cases)' : 'Settlement cases'}
         </Link>

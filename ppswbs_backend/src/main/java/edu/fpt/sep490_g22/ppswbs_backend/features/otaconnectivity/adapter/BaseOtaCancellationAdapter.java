@@ -108,8 +108,18 @@ public abstract class BaseOtaCancellationAdapter implements OtaCancellationAdapt
             Map<String, String> headers
     );
 
+    /**
+     * 003.4 T121: set only by {@code OtaProviderEventController} after it has authenticated the callback with the
+     * booking-events rules (E3, T118: the credential reference resolves to a secret, fail closed). The controller
+     * builds the header map itself and never copies request headers into it, so a caller cannot supply this marker.
+     */
+    public static final String AUTHENTICATED_INGRESS_HEADER = "ota-internal-authenticated-ingress";
+
     protected boolean verifySignature(OtaChannelConnection connection, Map<String, String> headers) {
         if (headers == null) return false;
+        if ("true".equals(headers.get(AUTHENTICATED_INGRESS_HEADER))) {
+            return true;
+        }
         String signature = headers.getOrDefault("X-Ota-Signature",
                 headers.getOrDefault("x-ota-signature",
                         headers.getOrDefault("X-Provider-Signature",

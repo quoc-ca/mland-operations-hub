@@ -79,6 +79,11 @@ public class OtaInboundEventService {
         return receipt(saved, false);
     }
 
+    /** Managed reference to a persisted inbound event, so a work item can name the event (and its provider). */
+    public OtaInboundEvent referenceFor(Long eventId) {
+        return eventId == null ? null : inboundEventRepository.getReferenceById(eventId);
+    }
+
     /** Fingerprints adapter-canonicalized, allowlisted JSON without retaining or logging its content. */
     public String fingerprintCanonicalAllowlistedPayload(String canonicalAllowlistedPayload) {
         if (blank(canonicalAllowlistedPayload)) {

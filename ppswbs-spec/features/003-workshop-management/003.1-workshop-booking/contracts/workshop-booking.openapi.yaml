@@ -35,7 +35,7 @@ paths:
         '400': {$ref: '#/components/responses/Problem'}
         '401': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
-        '409': {$ref: '#/components/responses/Problem'}
+        '409': {description: "A line cannot be sold now; failingLines names the zero-based cart positions (FR-031).", content: {application/json: {schema: {$ref: '#/components/schemas/CartHoldRejection'}}}}
   /api/v1/workshop-booking-groups:
     post:
       summary: Confirm a cart quote and hold every line atomically
@@ -105,9 +105,7 @@ paths:
       description: >-
         Replaces POST /booking-lookups (FR-048). Exactly one of `contactEmail`
         or `contactPhone`. A wrong code or a wrong proof answers the same 404
-        and never says which part failed; rate limits follow the single-booking
-        lookup. The projection omits `qrReference`'s Member-only companion
-        `ticketReference`. Served `Cache-Control: no-store`.
+        and never says which part failed; rate limits follow FR-048/T110 (per-instance in-memory sliding window). The Magic-Link holder gets the buyer's full view (price, collected, remaining, attendance, QR reference) with no contact data, no VNPay reference and no audit; `ticketReference` stays Member-only. Served `Cache-Control: no-store`.
       security: [{}]
       requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/GroupLookupRequest'}}}}
       responses:
@@ -150,6 +148,7 @@ paths:
         '403': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
+        '429': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-booking-groups/{groupCode}/confirmation-deliveries:
     post:
       summary: Resend a CONFIRMED group's buyer confirmation to the stored contact email
@@ -320,9 +319,8 @@ components:
       schema: {type: string, minLength: 16, maxLength: 128}
       description: >-
         16 to 128 characters, like every other command here (decided
-        2026-11-14). The implemented controller still accepts 1 to 128 and is
-        tightened in T107; the frontend already sends 16 to 128 (T102), so no
-        client changes.
+        2026-11-14). The controller refuses a shorter or longer key with 400
+        (T107); the frontend already sends 16 to 128 (T102).
   responses:
     Problem:
       description: Safe typed error (RFC 7807)
@@ -353,7 +351,7 @@ components:
       properties:
         packageId: {type: integer, format: int64, minimum: 1}
         sessionReferences: {type: array, minItems: 1, maxItems: 4, items: {type: string, format: uuid, description: Canonical lower-case UUID.}}
-        participantCount: {type: integer, minimum: 1, maximum: 20}
+        participantCount: {type: integer, minimum: 1, maximum: 20, description: 'API ceiling only; the per-line Package min/max is decided by Operations (PACKAGE_SELECTION_INVALID with failingLines)'}
     BenefitSelection:
       type: object
       required: [choice]

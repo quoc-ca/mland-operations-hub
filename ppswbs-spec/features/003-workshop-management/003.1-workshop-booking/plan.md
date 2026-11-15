@@ -1,16 +1,16 @@
 # Implementation Plan: Customer Workshop Booking Core
 
 **Date created**: 2026-10-07
-**Date updated**: 2026-11-14
+**Date updated**: 2026-11-15
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
 **Feature Branch**: `003.1-workshop-booking`
 **Status**: Approved — updated 2026-11-14 to the implemented group/ticket model and re-approved the same day by Hồ Hoàng Quốc (owner Feature 003) in session.
-(Previous status 2026-11-05: "Draft design — not approved for implementation"; the
+*(Spec approval of 2026-11-15 by Hồ Hoàng Quốc covers this plan as updated.)* (Previous status 2026-11-05: "Draft design — not approved for implementation"; the
 2026-11-05 single-booking design is kept for history at the end of this file.)
 **Spec**: [spec.md](spec.md) (FR-030–FR-052a are the current direct-booking requirements)
-**Tasks**: [tasks.md](tasks.md) Phases 8–10 (T089–T107)
+**Tasks**: [tasks.md](tasks.md) Phases 8–14 (T089–T120; T107 is Phase 11, T108–T114 Phase 12, T115 Phase 13, T116–T120 Phase 14)
 **Research baseline**: [research.md](research.md) and [REBASE-NOTES.md](REBASE-NOTES.md)
 
 ## Summary
@@ -63,7 +63,7 @@ The implemented flow is:
    Guest group lookup, group Magic-Link exchange, pending-hold release,
    confirmation resend and Manager Magic-Link incidents.
 8. **Public discounted price** (FR-052/FR-052a): backend part done in T105;
-   the five public frontend surfaces are T106.
+   the five public frontend surfaces are T106 (done 2026-11-14).
 
 003.1 still stops at ticket issuance, delivery, recovery and the per-ticket
 facts other features read; check-in and attendance (003.2), folios,
@@ -76,11 +76,11 @@ cancellation, refund and changes (003.3) and OTA (003.4) are outside it.
 | Runtime | Java 21, Spring Boot REST, Spring Modulith, JPA/Spring Data, MySQL and append-only Flyway migrations (group model V113–V133). |
 | Client | Separate React + Vite client using versioned REST APIs; no backend-rendered booking UI. |
 | Identity and authorization | Firebase bearer tokens prove identity only. Account Management supplies canonical `MEMBER`, `STAFF`, `MANAGER`, or `ADMIN` role, active status and `activeLocationIds`; Booking applies its own support-action rules against the group line's canonical location. Guest access uses one stored contact proof of the group, a protected group Magic Link, or (for a recipient change) the single-use `buyerVerificationReference` of an OTP to the original contact email. |
-| State | Persisted group/line/ticket/snapshot/hold/payment/review state; one group `holdExpiresAt` (12 min) and `paymentDeadlineAt` (10 min); booking-critical local work uses one MySQL transaction; the unquoted cart lives only in the browser (FR-045); no new global session/token store. |
+| State | Persisted group/line/ticket/snapshot/hold/payment/review state; one group `holdExpiresAt` (12 min) and `paymentDeadlineAt` (10 min); booking-critical local work uses one MySQL transaction; the unquoted cart lives only in the browser (FR-045); no new global session/token store. Rate-limit counters (Guest lookup, hold release, resend, T110) are per-instance in-memory sliding windows (decided 2026-11-15, spec Session 2026-11-15): lifecycle = process lifetime, reset on restart, effective cap up to N × configured with N instances, no cross-instance consistency; revisit (shared MySQL counter) before running more than one backend instance. |
 | Payment | Shared `paymentintegration` ingress verifies VNPay once and routes redacted evidence by immutable merchant reference; a group attempt's evidence goes to `GroupPaymentEvidenceService`, anything else is refused by the single-booking path. |
 | Benefits | Feature 006 cart contract (006 T098, D-010) plus automatic workshop discount (006 FR-044, D-013, D-014); 003.1 allocates per ticket with `TicketBenefitAllocator`. |
 | Verification | Unit/integration (MySQL for schema and late payment), contract (`WorkshopBookingContractIT`), concurrency, callback/idempotency, migration and Spring Modulith boundary verification. |
-| Unknowns | VNPay integration values/environments (T005/T046), Manager alert recipient source (FE-001, T094), automatic-discount behaviour of late-payment condition 3 (FR-040), and production rollout approval. |
+| Unknowns | VNPay integration values/environments (T005/T046) and production rollout approval. *(Manager alert recipient source and the automatic-discount behaviour of late-payment condition 3 were unknowns here; both decided 2026-11-14, see design risks 1-2 and T094.)* |
 
 ### Approved React route boundary
 
@@ -100,11 +100,11 @@ evidence. These routes are client routes, not Java REST endpoints or SSR pages.
 | Gate | Result | Plan response |
 | --- | --- | --- |
 | Module and data ownership | PASS | `workshopbooking` owns groups, lines, ticket bookings, price snapshots, holds references, group payment attempts, late-payment reviews, recipients, buyer verifications, Magic Links and notification intents; it reaches 003.2, 003.3, 006 and FE-001 only through their facades/events. |
-| Separate frontend/REST | PASS | Contract is JSON `/api/v1` ([workshop-booking.openapi.yaml](contracts/workshop-booking.openapi.yaml), 14 group paths); the group Magic Link resolves to client-readable data, never server-rendered HTML. |
+| Separate frontend/REST | PASS | Contract is JSON `/api/v1` ([workshop-booking.openapi.yaml](contracts/workshop-booking.openapi.yaml), 15 paths; 10 of them Guest-capable with `security: [{}, …]`); the group Magic Link resolves to client-readable data, never server-rendered HTML. |
 | Identity and sensitive data | PASS | No participant identity, OTP (only salted hash), raw gateway payload, raw Magic-Link secret or unmasked recipient email in audit; contact proof never travels in a URL. |
 | Data evolution | PASS (dev/test) | Only dev/test data exists (FR-043). V113–V131 add the group model; V132 deletes direct single bookings and V133 drops tables only they used. No applied migration was edited. Any data-bearing environment still needs its own preservation plan. |
-| Evidence and concurrency | PASS | All-or-none group hold, one group payment, IPN/QueryDR idempotency, late-payment review with one winner in a capacity race, and confirmation replay are covered by `WorkshopCartBookingTest`, `GroupConfirmationTest`, `GroupPaymentQueryDrRecoveryTest`, `LatePaymentReviewIT`; the full MySQL group flow is T097 (open). |
-| Explicit decisions | CONDITIONAL | Decisions of 2026-11-12/13/14 are recorded in spec.md. Decided 2026-11-14: Manager alert source waits for FE-001 (no interim list); late-payment condition 3 recomputes an automatic discount. Decided 2026-11-14: group-creation `Idempotency-Key` aligns to 16–128 (T107). |
+| Evidence and concurrency | PASS | All-or-none group hold, one group payment, IPN/QueryDR idempotency, late-payment review with one winner in a capacity race, and confirmation replay are covered by `WorkshopCartBookingTest`, `GroupConfirmationTest`, `GroupPaymentQueryDrRecoveryTest`, `LatePaymentReviewIT`; the full MySQL group flow is T097 (done 2026-11-14). |
+| Explicit decisions | PASS | Decisions of 2026-11-12/13/14 are recorded in spec.md. Decided 2026-11-14: Manager alert source waits for FE-001 (no interim list) *(then closed 2026-11-14: `listActiveManagerEmails()` landed and T094 is done)*; late-payment condition 3 recomputes an automatic discount. Decided 2026-11-14: group-creation `Idempotency-Key` aligns to 16–128 (T107, done). *(Was CONDITIONAL until these decisions were recorded and implemented.)* |
 
 ## Module boundaries and flows
 
@@ -157,7 +157,7 @@ group's Loyalty transaction once (`WORKSHOP_DEPOSIT_ACCEPTED`), open one group
 Magic Link expiring with the last session, queue the buyer confirmation email,
 and publish one `MlandTicketConfirmedEvent` per ticket after commit. Replays
 return the stored outcome. `GroupHoldExpiryScheduler` releases an unpaid group
-once and releases its benefits (`UNPAID_EXPIRY_CONFIRMED`).
+once and releases its benefits (`UNPAID_EXPIRY_CONFIRMED`). Expiry releases the group's seats, voucher and points immediately even when an unverified VNPay attempt exists (Session 2026-11-15, FR-039).
 
 **Late-payment flow.** One review per payment attempt (IPN and QueryDR share
 it). Conditions 1 (session capacity only; no channel quota in V1) to 5 are
@@ -168,10 +168,13 @@ new acceptance. Otherwise the review enters the Manager queue
 CONFIRM (conditions 4/5 only, 1–3 rechecked) or REFUND through
 `LatePaymentRefundPort` (003.3 opens a `LATE_PAYMENT_NOT_RECONFIRMED` bank
 refund in `PENDING_ACCOUNT`; never VNPay Refund). Condition 3 fails for any
-group with a voucher, points or programme discount (decision 2026-11-13; T105
-known effect for automatic discounts — owner decision open, see spec FR-040).
+group with a voucher or points (decision 2026-11-13); an automatic workshop
+discount is recomputed at review time and passes *(decided 2026-11-14, see
+design risk 2 and spec FR-040; the 2026-11-13 wording "programme discount"
+also failed automatic discounts and is superseded)*.
 The Manager alert email is wired to `ManagerAlertRecipientSource`, whose
-FE-001 source is still open (T094).
+FE-001 source (`AccountManagerAlertRecipientSource`) is connected and T094 is
+done *(closed 2026-11-14, see design risk 1)*.
 
 **Recipient flow.** `PUT /workshop-tickets/{ticketCode}/recipient` with buyer
 proof (Member bearer + ownership; Guest OTP → single-use
@@ -187,7 +190,7 @@ reusing the active link, and Manager revoke/rotate (FR-047–FR-049).
 **Removal of the single flow.** T100 removed the single-booking controllers,
 services, entities and their tests; V132 deleted direct `workshop_bookings` rows
 and V133 dropped tables only they used. The facade operations the 003.3
-booking-wide routes still call stay until 003.3 T106 lands (spec FR-046 note).
+booking-wide routes called were removed by T100 on 2026-11-14 (spec FR-046 note); `verifyCustomerBookingAccess`, `recordBookingServiceOutcome` and `recordBookingRefundStatus` are kept on purpose.
 
 Events occur only after Booking's local state transition; an event never
 determines capacity or whether a group confirms.
@@ -195,7 +198,7 @@ determines capacity or whether a group confirms.
 ## Contract and state design
 
 The public contract is [workshop-booking.openapi.yaml](contracts/workshop-booking.openapi.yaml)
-(14 group paths, T104/T105). `workshop-booking-cart.openapi.yaml` is an empty
+(15 paths after T104/T105 and T095/T094). `workshop-booking-cart.openapi.yaml` is an empty
 pointer. The shared VNPay ingress is documented separately.
 
 - Group status: `PENDING_PAYMENT`, `CONFIRMED`, `EXPIRED`, `CANCELLED`.
@@ -208,8 +211,8 @@ pointer. The shared VNPay ingress is documented separately.
 - Late-payment review outcome: `AUTO_RECONFIRMED`, `PENDING_MANAGER`,
   `MANAGER_CONFIRMED`, `REFUND_REQUESTED`; decision `CONFIRM`/`REFUND` (V128).
 - `Idempotency-Key` protects every command (16–128 characters; group creation
-  is aligned to 16–128 by the decision of 2026-11-14, tightened in T107 —
-  the controller still accepts 1–128 today).
+  was aligned to 16–128 by the decision of 2026-11-14 and the controller now
+  refuses anything outside it, T107).
 
 The group Magic Link (one per group) follows the single-booking rules carried
 over by FR-048: hash persisted, raw URL only in the protected notification
@@ -227,18 +230,20 @@ decision authority.
 
 ## Verification plan
 
-Evidence already recorded per task in [tasks.md](tasks.md) (T089–T105). The
-remaining verification:
+Evidence already recorded per task in [tasks.md](tasks.md) (T089–T120). T097,
+T106 and T107 are all done (2026-11-14); what remains is the real-provider
+evidence (T005/T046), the open verification tasks T116–T120 (T117 proves SC-005, T118 proves SC-007) and the per-change checks below. The recorded
+verification:
 
-- **T097 (open):** MySQL integration of the full group flow — paid group, mixed
+- **T097 (done 2026-11-14):** MySQL integration of the full group flow — paid group, mixed
   free/paid group, 0 VND group, deferred group, capacity refusal of one line,
   expiry, late payment auto/manual paths, recipient change and QR revocation,
   plus the T105 automatic-discount cases (Guest cart with an automatic
   discount through confirmation, Member voucher replacing it, cart below the
   discount minimum, per-ticket remainder allocation, and the late-payment
   condition 3 effect).
-- **T106 (open):** component tests of the five FR-052 surfaces.
-- **T107 (open):** narrow tests of `getTicketFolioContext`/`consumeBuyerProof`
+- **T106 (done 2026-11-14):** component tests of the five FR-052 surfaces.
+- **T107 (done 2026-11-14):** narrow tests of `getTicketFolioContext`/`consumeBuyerProof`
   and `ApplicationModules.verify()`.
 - **T005/T046 (open):** real VNPay sandbox evidence; until then fake-provider
   and signed-fixture tests are the interim evidence (constitution
@@ -251,13 +256,14 @@ remaining verification:
 
 ## Design risks and handoff conditions
 
-1. **Manager alert recipients (T094):** no alert email is sent until FE-001
-   provides `AccountFacade.listActiveManagerEmails()`; the in-app queue works.
-   Interim fallback not decided.
-2. **Late-payment condition 3 and automatic discounts:** a group whose price
-   included an automatic discount always goes to the Manager queue. Whether to
-   recompute it instead is an owner decision (spec FR-040).
-3. **Legacy facade operations (T100 remainder):** removal waits for 003.3 T106,
+1. **Manager alert recipients (T094) — closed 2026-11-14:** FE-001 provides
+   `AccountFacade.listActiveManagerEmails()` and `AccountManagerAlertRecipientSource`
+   reads it, so the Manager alert email is sent as well as queued in-app.
+2. **Late-payment condition 3 and automatic discounts — decided 2026-11-14:**
+   condition 3 recomputes the automatic workshop discount at review time and
+   passes when it still applies; a group that used a voucher or points still
+   fails it (spec FR-040, `LatePaymentReviewService`).
+3. **Legacy facade operations (T100 remainder) — closed 2026-11-14:** removal was gated on 003.3 T106,
    which itself follows 003.3 T099–T101 and T105; T107 provides the facade
    operations 003.3 T099/T106 need.
 4. **Real VNPay** needs the provider/environment inputs of

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.SessionState;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -34,4 +35,20 @@ public class SessionRequest {
 
     @JsonFormat(shape = JsonFormat.Shape.STRING)
     private Instant checkInOpensAt;
+
+    /**
+     * T112: the session version the client last read. PATCH compares it with the stored version before applying
+     * anything and answers 409 OPTIMISTIC_LOCK_CONFLICT on a mismatch; absent means no stale check. Ignored on create.
+     */
+    private Long version;
+
+    /** FR-001i: DRAFT (default) or PUBLISHED, validated exactly as in bulk generation. */
+    @Builder.Default
+    private SessionState initialState = SessionState.DRAFT;
+
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    @jakarta.validation.constraints.AssertTrue(message = "initialState must be either DRAFT or PUBLISHED")
+    public boolean isInitialStateValid() {
+        return initialState == null || initialState == SessionState.DRAFT || initialState == SessionState.PUBLISHED;
+    }
 }

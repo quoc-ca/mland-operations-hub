@@ -259,152 +259,9 @@ class WaxCastingBookingIntegrationIT {
     // 3. Booking Change / Replacement (replaceRequiredSessions) Tests
     // =========================================================================
 
-    @Test
-    @DisplayName("replaceRequiredSessions accepts valid Monday to Thursday and transfers entitlements")
-    void replaceWaxCastingMondayToThursdayIsAccepted() {
-        String booking = bookingReference("WAX-REPLACE-OK");
-        WorkshopSession src1 = createSessionOn(locationA, baseMonday, LocalTime.of(9, 0), 10);
-        WorkshopSession src2 = createSessionOn(locationA, thursday, LocalTime.of(9, 0), 10);
-        AttendanceTicket ticket = createTicketWithSnapshot(booking, 1, List.of(src1, src2), 2);
-
-        // New target sessions
-        WorkshopSession tgtMon = createSessionOn(locationA, baseMonday, LocalTime.of(16, 0), 10);
-        WorkshopSession tgtThu = createSessionOn(locationA, thursday, LocalTime.of(16, 0), 10);
-
-        var outcome = operationsFacade.replaceRequiredSessions(replaceCommand(booking, List.of(tgtMon, tgtThu)));
-
-        assertThat(outcome.status()).isEqualTo(OutcomeStatus.ACCEPTED);
-        assertThat(entitlementRepository.findByTicketId(ticket.getId())).extracting(e -> e.getSession().getId())
-                .containsExactlyInAnyOrder(tgtMon.getId(), tgtThu.getId());
-    }
-
-    @Test
-    @DisplayName("replaceRequiredSessions accepts Friday to Wednesday next week")
-    void replaceWaxCastingFridayToWednesdayNextWeekIsAccepted() {
-        String booking = bookingReference("WAX-REPLACE-WEEKEND");
-        WorkshopSession src1 = createSessionOn(locationA, baseMonday, LocalTime.of(9, 0), 10);
-        WorkshopSession src2 = createSessionOn(locationA, thursday, LocalTime.of(9, 0), 10);
-        AttendanceTicket ticket = createTicketWithSnapshot(booking, 1, List.of(src1, src2), 2);
-
-        WorkshopSession tgtFri = createSessionOn(locationA, friday, LocalTime.of(16, 0), 10);
-        WorkshopSession tgtWed = createSessionOn(locationA, nextWednesday, LocalTime.of(9, 30), 10);
-
-        var outcome = operationsFacade.replaceRequiredSessions(replaceCommand(booking, List.of(tgtFri, tgtWed)));
-
-        assertThat(outcome.status()).isEqualTo(OutcomeStatus.ACCEPTED);
-        assertThat(entitlementRepository.findByTicketId(ticket.getId())).extracting(e -> e.getSession().getId())
-                .containsExactlyInAnyOrder(tgtFri.getId(), tgtWed.getId());
-    }
-
-    @Test
-    @DisplayName("replaceRequiredSessions rejects Monday to Wednesday with zero partial mutation")
-    void replaceWaxCastingMondayToWednesdayIsRejectedWithoutMutation() {
-        String booking = bookingReference("WAX-REPLACE-MON-WED-FAIL");
-        WorkshopSession src1 = createSessionOn(locationA, baseMonday, LocalTime.of(9, 0), 10);
-        WorkshopSession src2 = createSessionOn(locationA, thursday, LocalTime.of(9, 0), 10);
-        AttendanceTicket ticket = createTicketWithSnapshot(booking, 1, List.of(src1, src2), 2);
-
-        // Targets have only 1 working day gap (Tue)
-        WorkshopSession tgtMon = createSessionOn(locationA, baseMonday, LocalTime.of(16, 0), 10);
-        WorkshopSession tgtWed = createSessionOn(locationA, wednesday, LocalTime.of(9, 30), 10);
-
-        var outcome = operationsFacade.replaceRequiredSessions(replaceCommand(booking, List.of(tgtMon, tgtWed)));
-
-        assertThat(outcome.status()).isEqualTo(OutcomeStatus.REJECTED);
-        assertThat(outcome.reason()).isEqualTo(RejectionReason.INVALID_REPLACEMENT);
-
-        // Verify zero booking / ticket / entitlement mutation
-        assertThat(entitlementRepository.findByTicketId(ticket.getId())).extracting(e -> e.getSession().getId())
-                .containsExactlyInAnyOrder(src1.getId(), src2.getId());
-        assertThat(entitlementRepository.findBySessionId(tgtMon.getId())).isEmpty();
-        assertThat(entitlementRepository.findBySessionId(tgtWed.getId())).isEmpty();
-    }
-
-    @Test
-    @DisplayName("replaceRequiredSessions rejects Friday to Tuesday next week with zero partial mutation")
-    void replaceWaxCastingFridayToTuesdayNextWeekIsRejectedWithoutMutation() {
-        String booking = bookingReference("WAX-REPLACE-FRI-TUE-FAIL");
-        WorkshopSession src1 = createSessionOn(locationA, baseMonday, LocalTime.of(9, 0), 10);
-        WorkshopSession src2 = createSessionOn(locationA, thursday, LocalTime.of(9, 0), 10);
-        AttendanceTicket ticket = createTicketWithSnapshot(booking, 1, List.of(src1, src2), 2);
-
-        WorkshopSession tgtFri = createSessionOn(locationA, friday, LocalTime.of(16, 0), 10);
-        WorkshopSession tgtTue = createSessionOn(locationA, nextTuesday, LocalTime.of(9, 30), 10);
-
-        var outcome = operationsFacade.replaceRequiredSessions(replaceCommand(booking, List.of(tgtFri, tgtTue)));
-
-        assertThat(outcome.status()).isEqualTo(OutcomeStatus.REJECTED);
-        assertThat(outcome.reason()).isEqualTo(RejectionReason.INVALID_REPLACEMENT);
-
-        assertThat(entitlementRepository.findByTicketId(ticket.getId())).extracting(e -> e.getSession().getId())
-                .containsExactlyInAnyOrder(src1.getId(), src2.getId());
-    }
-
-    @Test
-    @DisplayName("replaceRequiredSessions rejects out-of-order, different location, or duplicate targets")
-    void replaceWaxCastingInvalidTargetSetIsRejectedWithoutMutation() {
-        String booking = bookingReference("WAX-REPLACE-SET-FAIL");
-        WorkshopSession src1 = createSessionOn(locationA, baseMonday, LocalTime.of(9, 0), 10);
-        WorkshopSession src2 = createSessionOn(locationA, thursday, LocalTime.of(9, 0), 10);
-        AttendanceTicket ticket = createTicketWithSnapshot(booking, 1, List.of(src1, src2), 2);
-
-        WorkshopSession tgtThu = createSessionOn(locationA, thursday, LocalTime.of(9, 30), 10);
-        WorkshopSession tgtMon = createSessionOn(locationA, baseMonday, LocalTime.of(16, 0), 10);
-        WorkshopSession tgtLocB = createSessionOn(locationB, thursday, LocalTime.of(9, 30), 10);
-
-        // 1. Out of order
-        var outOfOrder = operationsFacade.replaceRequiredSessions(replaceCommand(booking, List.of(tgtThu, tgtMon)));
-        assertThat(outOfOrder.status()).isEqualTo(OutcomeStatus.REJECTED);
-
-        // 2. Different locations
-        var diffLoc = operationsFacade.replaceRequiredSessions(replaceCommand(booking, List.of(tgtMon, tgtLocB)));
-        assertThat(diffLoc.status()).isEqualTo(OutcomeStatus.REJECTED);
-
-        // 3. Duplicate sessions
-        var duplicate = operationsFacade.replaceRequiredSessions(replaceCommand(booking, List.of(tgtMon, tgtMon)));
-        assertThat(duplicate.status()).isEqualTo(OutcomeStatus.REJECTED);
-
-        // Source entitlements preserved
-        assertThat(entitlementRepository.findByTicketId(ticket.getId())).extracting(e -> e.getSession().getId())
-                .containsExactlyInAnyOrder(src1.getId(), src2.getId());
-    }
-
     // =========================================================================
     // 4. Immutable Booking-Time Policy After Package Modification
     // =========================================================================
-
-    @Test
-    @DisplayName("Booking-time policy snapshot remains immutable and enforces 2 working days after Package entity is edited or retired")
-    void immutableBookingTimePolicyEnforcedAfterPackageEdits() {
-        String booking = bookingReference("WAX-IMMUTABLE-TEST");
-        WorkshopSession src1 = createSessionOn(locationA, baseMonday, LocalTime.of(9, 0), 10);
-        WorkshopSession src2 = createSessionOn(locationA, thursday, LocalTime.of(9, 0), 10);
-        AttendanceTicket ticket = createTicketWithSnapshot(booking, 1, List.of(src1, src2), 2);
-
-        // Mutate the WorkshopPackage entity in DB: set requiredFoundryWorkingDaysBetweenSessions to 0 and RETIRE it
-        waxCastingPackage.setRequiredFoundryWorkingDaysBetweenSessions(0);
-        waxCastingPackage.setState(WorkshopPackageState.RETIRED);
-        waxCastingPackage = packageRepository.save(waxCastingPackage);
-
-        // 1. Verify snapshot in DB is still intact with 2 working days
-        var frozenSnapshot = snapshotRepository.findByBookingReference(booking).orElseThrow();
-        assertThat(frozenSnapshot.getRequiredFoundryWorkingDaysBetweenSessions()).isEqualTo(2);
-
-        // 2. Replacement attempting 1-day gap (Mon -> Wed) MUST STILL BE REJECTED by snapshot
-        WorkshopSession tgtMon = createSessionOn(locationA, baseMonday, LocalTime.of(16, 0), 10);
-        WorkshopSession tgtWed = createSessionOn(locationA, wednesday, LocalTime.of(9, 30), 10);
-        var invalidOutcome = operationsFacade.replaceRequiredSessions(replaceCommand(booking, List.of(tgtMon, tgtWed)));
-        assertThat(invalidOutcome.status()).isEqualTo(OutcomeStatus.REJECTED);
-        assertThat(invalidOutcome.reason()).isEqualTo(RejectionReason.INVALID_REPLACEMENT);
-
-        // 3. Replacement conforming to 2-day gap (Mon -> Thu) MUST BE ACCEPTED
-        WorkshopSession tgtThu = createSessionOn(locationA, thursday, LocalTime.of(16, 0), 10);
-        var validOutcome = operationsFacade.replaceRequiredSessions(replaceCommand(booking, List.of(tgtMon, tgtThu)));
-        assertThat(validOutcome.status()).isEqualTo(OutcomeStatus.ACCEPTED);
-
-        assertThat(entitlementRepository.findByTicketId(ticket.getId())).extracting(e -> e.getSession().getId())
-                .containsExactlyInAnyOrder(tgtMon.getId(), tgtThu.getId());
-    }
 
     // =========================================================================
     // Helper methods
@@ -473,14 +330,6 @@ class WaxCastingBookingIntegrationIT {
                     .build());
         }
         return ticket;
-    }
-
-    private ReplaceRequiredSessionsCommand replaceCommand(String booking, List<WorkshopSession> targets) {
-        return new ReplaceRequiredSessionsCommand(
-                booking,
-                targets.stream().map(s -> UUID.fromString(s.getReference())).toList(),
-                "op-replace-" + UUID.randomUUID(),
-                "corr-replace-" + UUID.randomUUID());
     }
 
     private int holdsFor(String bookingReference) {

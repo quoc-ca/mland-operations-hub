@@ -91,8 +91,10 @@ public class GhtkRetailShippingQuoteAdapter implements RetailShippingQuotePort {
                 || line.quantity() <= 0 || line.unitPrice() == null || line.unitPrice().signum() < 0)) {
             throw new RetailConflictException("Shipping quote requires valid items for this branch");
         }
+        // After the 2025 merger an address is Province -> Ward/Commune; GHTK's fee API requires province and ward
+        // and takes the district only as an optional hint.
         if (recipient == null || !hasText(recipient.address()) || !hasText(recipient.province())
-            || !hasText(recipient.district())) {
+            || !hasText(recipient.ward())) {
             throw new RetailConflictException("GHTK shipping quote requires a complete recipient address");
         }
     }
@@ -112,13 +114,12 @@ public class GhtkRetailShippingQuoteAdapter implements RetailShippingQuotePort {
             properties.getPickupWard(), recipient.address(), recipient.province(), recipient.district(),
             recipient.ward(), weight, declaredValue);
         GhtkFeeTransport.FeeResponse response = ghtk.quote(request);
-        // GHTK's administrative directory can lag behind the address directory used by the member
-        // profile. Preserve the full address first, then retry without the optional ward query
-        // parameter only when GHTK explicitly says the route is unavailable.
-        if (response.success() && !response.deliveryAvailable() && recipient.ward() != null && !recipient.ward().isBlank()) {
+        // An old address may still carry a pre-merger district that GHTK no longer matches with the new ward.
+        // When GHTK says the route is unavailable, retry once with the two-level address (no district).
+        if (response.success() && !response.deliveryAvailable() && hasText(recipient.district())) {
             response = ghtk.quote(new GhtkFeeTransport.FeeRequest(
                 request.pickupAddress(), request.pickupProvince(), request.pickupDistrict(), request.pickupWard(),
-                request.address(), request.province(), request.district(), null, request.weightGrams(),
+                request.address(), request.province(), null, request.ward(), request.weightGrams(),
                 request.declaredValue()));
         }
         if (!response.success()) {

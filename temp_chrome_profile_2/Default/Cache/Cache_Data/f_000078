@@ -1,0 +1,202 @@
+import { createHotContext as __vite__createHotContext } from "/@vite/client";import.meta.hot = __vite__createHotContext("/src/ota-connectivity/components/ResolveWorkItemModal.jsx");import __vite__cjsImport0_react_jsxDevRuntime from "/node_modules/.vite/deps/react_jsx-dev-runtime.js?v=83e3faa1"; const Fragment = __vite__cjsImport0_react_jsxDevRuntime["Fragment"]; const jsxDEV = __vite__cjsImport0_react_jsxDevRuntime["jsxDEV"];
+var _s = $RefreshSig$();
+import __vite__cjsImport1_react from "/node_modules/.vite/deps/react.js?v=83e3faa1"; const React = __vite__cjsImport1_react.__esModule ? __vite__cjsImport1_react.default : __vite__cjsImport1_react; const useState = __vite__cjsImport1_react["useState"];
+import { Field, ErrorNotice } from "/src/shared/ui/components.jsx?t=1794733875684";
+export function ResolveWorkItemModal({ open, workItem, onClose, onResolve }) {
+  _s();
+  const [resolution, setResolution] = useState("RESYNC_REQUESTED");
+  const [reason, setReason] = useState("");
+  const [errors, setErrors] = useState({});
+  const [submitting, setSubmitting] = useState(false);
+  const [apiError, setApiError] = useState(null);
+  if (!open || !workItem) return null;
+  const validate = () => {
+    const errs = {};
+    if (!reason.trim()) {
+      errs.reason = "Reason is required";
+    } else if (reason.trim().length > 1e3) {
+      errs.reason = "Reason must not exceed 1000 characters";
+    }
+    setErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setApiError(null);
+    if (!validate()) return;
+    try {
+      setSubmitting(true);
+      await onResolve({
+        resolution,
+        reason: reason.trim()
+      });
+      onClose();
+    } catch (err) {
+      setApiError(err);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+  return /* @__PURE__ */ jsxDEV("div", { className: "dialog-backdrop", children: /* @__PURE__ */ jsxDEV("div", { className: "dialog", role: "dialog", "aria-modal": "true", "aria-label": "Resolve Reconciliation Work Item", children: [
+    /* @__PURE__ */ jsxDEV("h2", { children: "Resolve Reconciliation Item" }, void 0, false, {
+      fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/ota-connectivity/components/ResolveWorkItemModal.jsx",
+      lineNumber: 46,
+      columnNumber: 9
+    }, this),
+    /* @__PURE__ */ jsxDEV("p", { className: "small muted", children: [
+      "Record an auditable resolution decision for Work Item ",
+      /* @__PURE__ */ jsxDEV("strong", { className: "mono", children: workItem.workItemId }, void 0, false, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/ota-connectivity/components/ResolveWorkItemModal.jsx",
+        lineNumber: 48,
+        columnNumber: 65
+      }, this),
+      workItem.mappingId && /* @__PURE__ */ jsxDEV(Fragment, { children: [
+        " (Mapping: ",
+        /* @__PURE__ */ jsxDEV("span", { className: "mono", children: workItem.mappingId }, void 0, false, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/ota-connectivity/components/ResolveWorkItemModal.jsx",
+          lineNumber: 49,
+          columnNumber: 47
+        }, this),
+        ")"
+      ] }, void 0, true, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/ota-connectivity/components/ResolveWorkItemModal.jsx",
+        lineNumber: 49,
+        columnNumber: 34
+      }, this),
+      "."
+    ] }, void 0, true, {
+      fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/ota-connectivity/components/ResolveWorkItemModal.jsx",
+      lineNumber: 47,
+      columnNumber: 9
+    }, this),
+    /* @__PURE__ */ jsxDEV(ErrorNotice, { error: apiError }, void 0, false, {
+      fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/ota-connectivity/components/ResolveWorkItemModal.jsx",
+      lineNumber: 52,
+      columnNumber: 9
+    }, this),
+    /* @__PURE__ */ jsxDEV("form", { onSubmit: handleSubmit, children: [
+      /* @__PURE__ */ jsxDEV(Field, { label: "Resolution Action", error: apiError?.fieldError("resolution"), children: /* @__PURE__ */ jsxDEV(
+        "select",
+        {
+          value: resolution,
+          onChange: (e) => setResolution(e.target.value),
+          disabled: submitting,
+          children: [
+            /* @__PURE__ */ jsxDEV("option", { value: "RESYNC_REQUESTED", children: "RESYNC_REQUESTED (Queue Authoritative Operations Resync)" }, void 0, false, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/ota-connectivity/components/ResolveWorkItemModal.jsx",
+              lineNumber: 61,
+              columnNumber: 15
+            }, this),
+            /* @__PURE__ */ jsxDEV("option", { value: "ACCEPTED", children: "ACCEPTED (Accept Reconciliation Outcome)" }, void 0, false, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/ota-connectivity/components/ResolveWorkItemModal.jsx",
+              lineNumber: 62,
+              columnNumber: 15
+            }, this),
+            /* @__PURE__ */ jsxDEV("option", { value: "REJECTED", children: "REJECTED (Reject / Close Item)" }, void 0, false, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/ota-connectivity/components/ResolveWorkItemModal.jsx",
+              lineNumber: 63,
+              columnNumber: 15
+            }, this),
+            /* @__PURE__ */ jsxDEV("option", { value: "ESCALATED", children: "ESCALATED (Escalate for Merchant Investigation)" }, void 0, false, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/ota-connectivity/components/ResolveWorkItemModal.jsx",
+              lineNumber: 64,
+              columnNumber: 15
+            }, this)
+          ]
+        },
+        void 0,
+        true,
+        {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/ota-connectivity/components/ResolveWorkItemModal.jsx",
+          lineNumber: 56,
+          columnNumber: 13
+        },
+        this
+      ) }, void 0, false, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/ota-connectivity/components/ResolveWorkItemModal.jsx",
+        lineNumber: 55,
+        columnNumber: 11
+      }, this),
+      /* @__PURE__ */ jsxDEV(Field, { label: "Decision Reason", hint: "Provide clear operational reason for audit record", error: errors.reason || apiError?.fieldError("reason"), children: /* @__PURE__ */ jsxDEV(
+        "textarea",
+        {
+          name: "reason",
+          value: reason,
+          onChange: (e) => setReason(e.target.value),
+          placeholder: "e.g. Requested authoritative resync to reconcile gap version...",
+          rows: 4,
+          disabled: submitting
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/ota-connectivity/components/ResolveWorkItemModal.jsx",
+          lineNumber: 69,
+          columnNumber: 13
+        },
+        this
+      ) }, void 0, false, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/ota-connectivity/components/ResolveWorkItemModal.jsx",
+        lineNumber: 68,
+        columnNumber: 11
+      }, this),
+      /* @__PURE__ */ jsxDEV("div", { className: "dialog-actions", children: [
+        /* @__PURE__ */ jsxDEV("button", { type: "button", className: "button outline", onClick: onClose, disabled: submitting, children: "Cancel" }, void 0, false, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/ota-connectivity/components/ResolveWorkItemModal.jsx",
+          lineNumber: 80,
+          columnNumber: 13
+        }, this),
+        /* @__PURE__ */ jsxDEV("button", { type: "submit", className: "button primary", disabled: submitting, children: submitting ? "Resolving..." : "Record Decision" }, void 0, false, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/ota-connectivity/components/ResolveWorkItemModal.jsx",
+          lineNumber: 83,
+          columnNumber: 13
+        }, this)
+      ] }, void 0, true, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/ota-connectivity/components/ResolveWorkItemModal.jsx",
+        lineNumber: 79,
+        columnNumber: 11
+      }, this)
+    ] }, void 0, true, {
+      fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/ota-connectivity/components/ResolveWorkItemModal.jsx",
+      lineNumber: 54,
+      columnNumber: 9
+    }, this)
+  ] }, void 0, true, {
+    fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/ota-connectivity/components/ResolveWorkItemModal.jsx",
+    lineNumber: 45,
+    columnNumber: 7
+  }, this) }, void 0, false, {
+    fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/ota-connectivity/components/ResolveWorkItemModal.jsx",
+    lineNumber: 44,
+    columnNumber: 5
+  }, this);
+}
+_s(ResolveWorkItemModal, "uVquBqXGa3gJ7FE4uxn5/zKcD2g=");
+_c = ResolveWorkItemModal;
+var _c;
+$RefreshReg$(_c, "ResolveWorkItemModal");
+import * as RefreshRuntime from "/@react-refresh";
+const inWebWorker = typeof WorkerGlobalScope !== "undefined" && self instanceof WorkerGlobalScope;
+if (import.meta.hot && !inWebWorker) {
+  if (!window.$RefreshReg$) {
+    throw new Error(
+      "@vitejs/plugin-react can't detect preamble. Something is wrong."
+    );
+  }
+  RefreshRuntime.__hmr_import(import.meta.url).then((currentExports) => {
+    RefreshRuntime.registerExportsForReactRefresh("C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/ota-connectivity/components/ResolveWorkItemModal.jsx", currentExports);
+    import.meta.hot.accept((nextExports) => {
+      if (!nextExports) return;
+      const invalidateMessage = RefreshRuntime.validateRefreshBoundaryAndEnqueueUpdate("C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/ota-connectivity/components/ResolveWorkItemModal.jsx", currentExports, nextExports);
+      if (invalidateMessage) import.meta.hot.invalidate(invalidateMessage);
+    });
+  });
+}
+function $RefreshReg$(type, id) {
+  return RefreshRuntime.register(type, "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/ota-connectivity/components/ResolveWorkItemModal.jsx " + id);
+}
+function $RefreshSig$() {
+  return RefreshRuntime.createSignatureFunctionForTransform();
+}
+
+//# sourceMappingURL=data:application/json;base64,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QTtBQUFBLFNBNkNBO0FBRUo7QUFBQ1AsR0F2RmVMLHNCQUFvQjtBQUFBLEtBQXBCQTtBQUFvQixJQUFBK0I7QUFBQSxhQUFBQSxJQUFBIiwibmFtZXMiOlsiUmVhY3QiLCJ1c2VTdGF0ZSIsIkZpZWxkIiwiRXJyb3JOb3RpY2UiLCJSZXNvbHZlV29ya0l0ZW1Nb2RhbCIsIm9wZW4iLCJ3b3JrSXRlbSIsIm9uQ2xvc2UiLCJvblJlc29sdmUiLCJfcyIsInJlc29sdXRpb24iLCJzZXRSZXNvbHV0aW9uIiwicmVhc29uIiwic2V0UmVhc29uIiwiZXJyb3JzIiwic2V0RXJyb3JzIiwic3VibWl0dGluZyIsInNldFN1Ym1pdHRpbmciLCJhcGlFcnJvciIsInNldEFwaUVycm9yIiwidmFsaWRhdGUiLCJlcnJzIiwidHJpbSIsImxlbmd0aCIsIk9iamVjdCIsImtleXMiLCJoYW5kbGVTdWJtaXQiLCJlIiwicHJldmVudERlZmF1bHQiLCJlcnIiLCJ3b3JrSXRlbUlkIiwibWFwcGluZ0lkIiwiZmllbGRFcnJvciIsInRhcmdldCIsInZhbHVlIiwiX2MiXSwiaWdub3JlTGlzdCI6W10sInNvdXJjZXMiOlsiUmVzb2x2ZVdvcmtJdGVtTW9kYWwuanN4Il0sInNvdXJjZXNDb250ZW50IjpbImltcG9ydCBSZWFjdCwgeyB1c2VTdGF0ZSB9IGZyb20gJ3JlYWN0JztcclxuaW1wb3J0IHsgRmllbGQsIEVycm9yTm90aWNlIH0gZnJvbSAnLi4vLi4vc2hhcmVkL3VpL2NvbXBvbmVudHMnO1xyXG5cclxuZXhwb3J0IGZ1bmN0aW9uIFJlc29sdmVXb3JrSXRlbU1vZGFsKHsgb3Blbiwgd29ya0l0ZW0sIG9uQ2xvc2UsIG9uUmVzb2x2ZSB9KSB7XHJcbiAgY29uc3QgW3Jlc29sdXRpb24sIHNldFJlc29sdXRpb25dID0gdXNlU3RhdGUoJ1JFU1lOQ19SRVFVRVNURUQnKTtcclxuICBjb25zdCBbcmVhc29uLCBzZXRSZWFzb25dID0gdXNlU3RhdGUoJycpO1xyXG4gIGNvbnN0IFtlcnJvcnMsIHNldEVycm9yc10gPSB1c2VTdGF0ZSh7fSk7XHJcbiAgY29uc3QgW3N1Ym1pdHRpbmcsIHNldFN1Ym1pdHRpbmddID0gdXNlU3RhdGUoZmFsc2UpO1xyXG4gIGNvbnN0IFthcGlFcnJvciwgc2V0QXBpRXJyb3JdID0gdXNlU3RhdGUobnVsbCk7XHJcblxyXG4gIGlmICghb3BlbiB8fCAhd29ya0l0ZW0pIHJldHVybiBudWxsO1xyXG5cclxuICBjb25zdCB2YWxpZGF0ZSA9ICgpID0+IHtcclxuICAgIGNvbnN0IGVycnMgPSB7fTtcclxuICAgIGlmICghcmVhc29uLnRyaW0oKSkge1xyXG4gICAgICBlcnJzLnJlYXNvbiA9ICdSZWFzb24gaXMgcmVxdWlyZWQnO1xyXG4gICAgfSBlbHNlIGlmIChyZWFzb24udHJpbSgpLmxlbmd0aCA+IDEwMDApIHtcclxuICAgICAgZXJycy5yZWFzb24gPSAnUmVhc29uIG11c3Qgbm90IGV4Y2VlZCAxMDAwIGNoYXJhY3RlcnMnO1xyXG4gICAgfVxyXG4gICAgc2V0RXJyb3JzKGVycnMpO1xyXG4gICAgcmV0dXJuIE9iamVjdC5rZXlzKGVycnMpLmxlbmd0aCA9PT0gMDtcclxuICB9O1xyXG5cclxuICBjb25zdCBoYW5kbGVTdWJtaXQgPSBhc3luYyAoZSkgPT4ge1xyXG4gICAgZS5wcmV2ZW50RGVmYXVsdCgpO1xyXG4gICAgc2V0QXBpRXJyb3IobnVsbCk7XHJcbiAgICBpZiAoIXZhbGlkYXRlKCkpIHJldHVybjtcclxuXHJcbiAgICB0cnkge1xyXG4gICAgICBzZXRTdWJtaXR0aW5nKHRydWUpO1xyXG4gICAgICBhd2FpdCBvblJlc29sdmUoe1xyXG4gICAgICAgIHJlc29sdXRpb24sXHJcbiAgICAgICAgcmVhc29uOiByZWFzb24udHJpbSgpLFxyXG4gICAgICB9KTtcclxuICAgICAgb25DbG9zZSgpO1xyXG4gICAgfSBjYXRjaCAoZXJyKSB7XHJcbiAgICAgIHNldEFwaUVycm9yKGVycik7XHJcbiAgICB9IGZpbmFsbHkge1xyXG4gICAgICBzZXRTdWJtaXR0aW5nKGZhbHNlKTtcclxuICAgIH1cclxuICB9O1xyXG5cclxuICByZXR1cm4gKFxyXG4gICAgPGRpdiBjbGFzc05hbWU9XCJkaWFsb2ctYmFja2Ryb3BcIj5cclxuICAgICAgPGRpdiBjbGFzc05hbWU9XCJkaWFsb2dcIiByb2xlPVwiZGlhbG9nXCIgYXJpYS1tb2RhbD1cInRydWVcIiBhcmlhLWxhYmVsPVwiUmVzb2x2ZSBSZWNvbmNpbGlhdGlvbiBXb3JrIEl0ZW1cIj5cclxuICAgICAgICA8aDI+UmVzb2x2ZSBSZWNvbmNpbGlhdGlvbiBJdGVtPC9oMj5cclxuICAgICAgICA8cCBjbGFzc05hbWU9XCJzbWFsbCBtdXRlZFwiPlxyXG4gICAgICAgICAgUmVjb3JkIGFuIGF1ZGl0YWJsZSByZXNvbHV0aW9uIGRlY2lzaW9uIGZvciBXb3JrIEl0ZW0gPHN0cm9uZyBjbGFzc05hbWU9XCJtb25vXCI+e3dvcmtJdGVtLndvcmtJdGVtSWR9PC9zdHJvbmc+XHJcbiAgICAgICAgICB7d29ya0l0ZW0ubWFwcGluZ0lkICYmIDw+IChNYXBwaW5nOiA8c3BhbiBjbGFzc05hbWU9XCJtb25vXCI+e3dvcmtJdGVtLm1hcHBpbmdJZH08L3NwYW4+KTwvPn0uXHJcbiAgICAgICAgPC9wPlxyXG5cclxuICAgICAgICA8RXJyb3JOb3RpY2UgZXJyb3I9e2FwaUVycm9yfSAvPlxyXG5cclxuICAgICAgICA8Zm9ybSBvblN1Ym1pdD17aGFuZGxlU3VibWl0fT5cclxuICAgICAgICAgIDxGaWVsZCBsYWJlbD1cIlJlc29sdXRpb24gQWN0aW9uXCIgZXJyb3I9e2FwaUVycm9yPy5maWVsZEVycm9yKCdyZXNvbHV0aW9uJyl9PlxyXG4gICAgICAgICAgICA8c2VsZWN0XHJcbiAgICAgICAgICAgICAgdmFsdWU9e3Jlc29sdXRpb259XHJcbiAgICAgICAgICAgICAgb25DaGFuZ2U9eyhlKSA9PiBzZXRSZXNvbHV0aW9uKGUudGFyZ2V0LnZhbHVlKX1cclxuICAgICAgICAgICAgICBkaXNhYmxlZD17c3VibWl0dGluZ31cclxuICAgICAgICAgICAgPlxyXG4gICAgICAgICAgICAgIDxvcHRpb24gdmFsdWU9XCJSRVNZTkNfUkVRVUVTVEVEXCI+UkVTWU5DX1JFUVVFU1RFRCAoUXVldWUgQXV0aG9yaXRhdGl2ZSBPcGVyYXRpb25zIFJlc3luYyk8L29wdGlvbj5cclxuICAgICAgICAgICAgICA8b3B0aW9uIHZhbHVlPVwiQUNDRVBURURcIj5BQ0NFUFRFRCAoQWNjZXB0IFJlY29uY2lsaWF0aW9uIE91dGNvbWUpPC9vcHRpb24+XHJcbiAgICAgICAgICAgICAgPG9wdGlvbiB2YWx1ZT1cIlJFSkVDVEVEXCI+UkVKRUNURUQgKFJlamVjdCAvIENsb3NlIEl0ZW0pPC9vcHRpb24+XHJcbiAgICAgICAgICAgICAgPG9wdGlvbiB2YWx1ZT1cIkVTQ0FMQVRFRFwiPkVTQ0FMQVRFRCAoRXNjYWxhdGUgZm9yIE1lcmNoYW50IEludmVzdGlnYXRpb24pPC9vcHRpb24+XHJcbiAgICAgICAgICAgIDwvc2VsZWN0PlxyXG4gICAgICAgICAgPC9GaWVsZD5cclxuXHJcbiAgICAgICAgICA8RmllbGQgbGFiZWw9XCJEZWNpc2lvbiBSZWFzb25cIiBoaW50PVwiUHJvdmlkZSBjbGVhciBvcGVyYXRpb25hbCByZWFzb24gZm9yIGF1ZGl0IHJlY29yZFwiIGVycm9yPXtlcnJvcnMucmVhc29uIHx8IGFwaUVycm9yPy5maWVsZEVycm9yKCdyZWFzb24nKX0+XHJcbiAgICAgICAgICAgIDx0ZXh0YXJlYVxyXG4gICAgICAgICAgICAgIG5hbWU9XCJyZWFzb25cIlxyXG4gICAgICAgICAgICAgIHZhbHVlPXtyZWFzb259XHJcbiAgICAgICAgICAgICAgb25DaGFuZ2U9eyhlKSA9PiBzZXRSZWFzb24oZS50YXJnZXQudmFsdWUpfVxyXG4gICAgICAgICAgICAgIHBsYWNlaG9sZGVyPVwiZS5nLiBSZXF1ZXN0ZWQgYXV0aG9yaXRhdGl2ZSByZXN5bmMgdG8gcmVjb25jaWxlIGdhcCB2ZXJzaW9uLi4uXCJcclxuICAgICAgICAgICAgICByb3dzPXs0fVxyXG4gICAgICAgICAgICAgIGRpc2FibGVkPXtzdWJtaXR0aW5nfVxyXG4gICAgICAgICAgICAvPlxyXG4gICAgICAgICAgPC9GaWVsZD5cclxuXHJcbiAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cImRpYWxvZy1hY3Rpb25zXCI+XHJcbiAgICAgICAgICAgIDxidXR0b24gdHlwZT1cImJ1dHRvblwiIGNsYXNzTmFtZT1cImJ1dHRvbiBvdXRsaW5lXCIgb25DbGljaz17b25DbG9zZX0gZGlzYWJsZWQ9e3N1Ym1pdHRpbmd9PlxyXG4gICAgICAgICAgICAgIENhbmNlbFxyXG4gICAgICAgICAgICA8L2J1dHRvbj5cclxuICAgICAgICAgICAgPGJ1dHRvbiB0eXBlPVwic3VibWl0XCIgY2xhc3NOYW1lPVwiYnV0dG9uIHByaW1hcnlcIiBkaXNhYmxlZD17c3VibWl0dGluZ30+XHJcbiAgICAgICAgICAgICAge3N1Ym1pdHRpbmcgPyAnUmVzb2x2aW5nLi4uJyA6ICdSZWNvcmQgRGVjaXNpb24nfVxyXG4gICAgICAgICAgICA8L2J1dHRvbj5cclxuICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgIDwvZm9ybT5cclxuICAgICAgPC9kaXY+XHJcbiAgICA8L2Rpdj5cclxuICApO1xyXG59XHJcblxyXG4iXSwiZmlsZSI6IkM6L1VzZXJzL2FkbWluL0Rlc2t0b3AvU0VQL21sYW5kLW9wZXJhdGlvbnMtaHViL3Bwc3dic19mcm9udGVuZC9zcmMvb3RhLWNvbm5lY3Rpdml0eS9jb21wb25lbnRzL1Jlc29sdmVXb3JrSXRlbU1vZGFsLmpzeCJ9

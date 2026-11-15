@@ -76,6 +76,27 @@ public class LocalRetailBenefitAdapter implements RetailBenefitPort {
         return stored.preview;
     }
 
+    /**
+     * Re-asks FE-06 at order time: a voucher that ended, ran out or now gives a different discount since the preview
+     * is refused, so the Member reviews the new total instead of paying with a benefit that no longer exists.
+     */
+    @Override
+    public RetailCheckoutPorts.BenefitPreview requireValidPreview(Long memberAccountId, String previewId,
+                                                                    RetailCheckoutPorts.BenefitSelection selection,
+                                                                    List<RetailCheckoutPorts.PricedLine> lines) {
+        BigDecimal subtotal = lines.stream().map(line -> line.unitPrice().multiply(BigDecimal.valueOf(line.quantity())))
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        RetailCheckoutPorts.BenefitPreview stored = requireValidPreview(memberAccountId, previewId, selection, subtotal);
+        RetailCheckoutPorts.BenefitPreview now = loyaltyPreview(memberAccountId, lines, selection, subtotal, stored.expiresAt());
+        if (now != null && (!now.eligible()
+            || now.discountAmount().compareTo(stored.discountAmount()) != 0
+            || now.pointsDiscountAmount().compareTo(stored.pointsDiscountAmount()) != 0)) {
+            previews.remove(previewId);
+            throw new RetailConflictException("Ưu đãi đã hết hạn hoặc đã thay đổi. Vui lòng xem lại tổng tiền trước khi đặt hàng.");
+        }
+        return stored;
+    }
+
     /** Real FE-06 calculation, or null when a line is not a catalogue size (demo data) or FE-06 cannot answer. */
     private RetailCheckoutPorts.BenefitPreview loyaltyPreview(Long memberId, List<RetailCheckoutPorts.PricedLine> lines,
                                                                RetailCheckoutPorts.BenefitSelection selection,

@@ -32,6 +32,15 @@ public class WorkshopRingDesignController {
         return responseBuilder.body(dto);
     }
 
+    @GetMapping
+    public ResponseEntity<java.util.List<DesignResponseDto>> listWorkshopDesigns(
+            @RequestHeader(value = "X-Guest-Design-Session", required = false) String guestSessionHeader
+    ) {
+        Long memberAccountId = resolveMemberAccountId();
+        java.util.List<DesignResponseDto> list = applicationService.listMyDesigns(memberAccountId, guestSessionHeader);
+        return ResponseEntity.ok(list);
+    }
+
     @GetMapping("/{designId}")
     public ResponseEntity<DesignResponseDto> getWorkshopDesign(
             @PathVariable String designId,

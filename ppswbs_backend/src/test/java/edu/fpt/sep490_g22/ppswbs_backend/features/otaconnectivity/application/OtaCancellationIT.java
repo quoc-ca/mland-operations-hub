@@ -40,6 +40,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -58,6 +59,7 @@ class OtaCancellationIT {
     @Mock private OtaReconciliationWorkItemRepository reconciliationRepository;
     @Mock private OtaInboundEventService inboundEventService;
     @Mock private OtaCancellationConsequenceService consequenceService;
+    @Mock private OtaPayoutLedgerRecorder payoutLedgerRecorder;
 
     private OtaCancellationService cancellationService;
 
@@ -82,7 +84,9 @@ class OtaCancellationIT {
                 customerPaymentRepository,
                 reconciliationRepository,
                 inboundEventService,
-                consequenceService
+                consequenceService,
+                null,
+                payoutLedgerRecorder
         );
 
         connection = OtaChannelConnection.builder()
@@ -127,7 +131,8 @@ class OtaCancellationIT {
         when(connectionRepository.findByProviderCodeAndEnvironment(OtaProvider.KLOOK, OtaEnvironment.TEST))
                 .thenReturn(Optional.of(connection));
 
-        when(bookingRepository.findAll()).thenAnswer(inv -> new ArrayList<>(bookingStore.values()));
+        when(bookingRepository.findByMapping_Connection_IdAndExternalBookingReference(any(), any())).thenAnswer(inv ->
+                Optional.ofNullable(bookingStore.get((String) inv.getArgument(1))));
         when(bookingRepository.save(any(OtaChannelBooking.class))).thenAnswer(inv -> {
             OtaChannelBooking b = inv.getArgument(0);
             bookingStore.put(b.getExternalBookingReference(), b);
@@ -213,7 +218,7 @@ class OtaCancellationIT {
     class ConfirmedCancellationTests {
 
         @Test
-        @DisplayName("Confirmed cancellation transitions booking to CANCELLED, records REFUNDED evidence, and invokes Operations consequence once")
+        @DisplayName("T109: confirmed cancellation releases the seats once and records no refund fact of its own")
         void confirmedCancellation_invokesConsequenceOnce() {
             OtaCancellationEventCommand cmd = new OtaCancellationEventCommand(
                     OtaProvider.KLOOK,
@@ -232,10 +237,124 @@ class OtaCancellationIT {
             assertThat(result.status()).isEqualTo("CONFIRMED");
             assertThat(booking.getProviderStatus()).isEqualTo("CANCELLED");
 
-            assertThat(paymentEvidences).hasSize(1);
-            assertThat(paymentEvidences.get(0).getEvidenceStatus()).isEqualTo(OtaCustomerPaymentState.REFUNDED);
+            // The refund is the OTA's own logic: a cancellation alone writes no REFUNDED fact and no ledger entry.
+            assertThat(paymentEvidences).isEmpty();
+            verify(payoutLedgerRecorder, never()).recordCustomerRefund(any(), any(), anyLong(), any(), any());
 
             verify(consequenceService, times(1)).applyConfirmedConsequence(eq(booking), any(), eq("cor-canc-2"));
+        }
+
+        @Test
+        @DisplayName("T109: a REFUNDED event records the amount the OTA reports (no default to the accepted amount) and links the ledger")
+        void refundedEvent_recordsOnlyTheReportedAmount() {
+            OtaCancellationEventCommand cmd = new OtaCancellationEventCommand(
+                    OtaProvider.KLOOK, OtaEnvironment.TEST, "event-refund-1", "ext-book-canc-001",
+                    "REFUNDED", 90_000L, "VND", "Klook refunded part of the amount", "cor-refund-1");
+
+            OtaCancellationEventResult result = cancellationService.handleCancellationEvent(cmd);
+
+            assertThat(result.status()).isEqualTo("CONFIRMED");
+            assertThat(booking.getProviderStatus()).isEqualTo("REFUNDED");
+            assertThat(paymentEvidences).hasSize(1);
+            assertThat(paymentEvidences.get(0).getAmountMinor()).isEqualTo(90_000L);
+            assertThat(paymentEvidences.get(0).getEvidenceStatus()).isEqualTo(OtaCustomerPaymentState.REFUNDED);
+            verify(consequenceService, times(1)).applyConfirmedConsequence(eq(booking), any(), any());
+            verify(payoutLedgerRecorder).recordCustomerRefund(eq(booking), eq("REF-200"), eq(90_000L), eq("VND"), any());
+            assertThat(workItems).isEmpty();
+        }
+
+        @Test
+        @DisplayName("T109: a REFUNDED event without an amount invents no refund evidence")
+        void refundedEventWithoutAmount_recordsNoEvidence() {
+            OtaCancellationEventCommand cmd = new OtaCancellationEventCommand(
+                    OtaProvider.KLOOK, OtaEnvironment.TEST, "event-refund-2", "ext-book-canc-001",
+                    "REFUNDED", null, null, "Klook refunded", "cor-refund-2");
+
+            cancellationService.handleCancellationEvent(cmd);
+
+            assertThat(booking.getProviderStatus()).isEqualTo("REFUNDED");
+            assertThat(paymentEvidences).isEmpty();
+        }
+
+        @Test
+        @DisplayName("T108: a REFUNDED event after the cancellation records the refund without a second Operations consequence")
+        void refundAfterCancellation_doesNotReleaseSeatsAgain() {
+            cancellationService.handleCancellationEvent(new OtaCancellationEventCommand(
+                    OtaProvider.KLOOK, OtaEnvironment.TEST, "event-canc-conf-1", "ext-book-canc-001",
+                    "CONFIRMED_CANCELLED", null, null, "cancelled", "cor-a"));
+            cancellationService.handleCancellationEvent(new OtaCancellationEventCommand(
+                    OtaProvider.KLOOK, OtaEnvironment.TEST, "event-refund-3", "ext-book-canc-001",
+                    "REFUNDED", 150_000L, "VND", "refunded", "cor-b"));
+
+            assertThat(booking.getProviderStatus()).isEqualTo("REFUNDED");
+            assertThat(paymentEvidences).hasSize(1);
+            verify(consequenceService, times(1)).applyConfirmedConsequence(any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("T107: a replayed confirmation returns the stored outcome and touches nothing")
+        void replayedConfirmation_returnsStoredOutcome() {
+            when(inboundEventService.receive(any(AuthenticatedOtaInboundEvent.class)))
+                    .thenReturn(new OtaInboundEventReceipt(200L, true, "ACCEPTED", booking.getPublicReference()));
+            when(bookingRepository.findByPublicReference(booking.getPublicReference()))
+                    .thenReturn(Optional.of(booking));
+
+            OtaCancellationEventResult result = cancellationService.handleCancellationEvent(new OtaCancellationEventCommand(
+                    OtaProvider.KLOOK, OtaEnvironment.TEST, "event-canc-conf-1", "ext-book-canc-001",
+                    "CONFIRMED_CANCELLED", null, null, "cancelled", "cor-a"));
+
+            assertThat(result.status()).isEqualTo("CONFIRMED");
+            assertThat(result.channelBookingReference()).isEqualTo(booking.getPublicReference());
+            assertThat(booking.getProviderStatus()).isEqualTo("CONFIRMED");
+            assertThat(paymentEvidences).isEmpty();
+            assertThat(workItems).isEmpty();
+            verify(consequenceService, never()).applyConfirmedConsequence(any(), any(), any());
+            verify(bookingRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("T107: a replayed event for an unknown booking opens no second work item")
+        void replayedUnknownBooking_opensNoSecondWorkItem() {
+            when(inboundEventService.receive(any(AuthenticatedOtaInboundEvent.class)))
+                    .thenReturn(new OtaInboundEventReceipt(200L, true, "REJECTED", "UNKNOWN_BOOKING_REFERENCE"));
+
+            OtaCancellationEventResult result = cancellationService.handleCancellationEvent(new OtaCancellationEventCommand(
+                    OtaProvider.KLOOK, OtaEnvironment.TEST, "event-canc-unknown", "ext-book-unknown-999",
+                    "CONFIRMED_CANCELLED", null, null, "cancelled", "cor-a"));
+
+            assertThat(result.status()).isEqualTo("REJECTED");
+            assertThat(result.rejectionReason()).isEqualTo("UNKNOWN_BOOKING_REFERENCE");
+            assertThat(workItems).isEmpty();
+        }
+
+        @Test
+        @DisplayName("T108: a late REQUESTED after CANCELLED is refused with no evidence, state change or Operations call")
+        void lateRequest_afterCancellation_isRefused() {
+            cancellationService.handleCancellationEvent(new OtaCancellationEventCommand(
+                    OtaProvider.KLOOK, OtaEnvironment.TEST, "event-canc-conf-1", "ext-book-canc-001",
+                    "CONFIRMED_CANCELLED", null, null, "cancelled", "cor-a"));
+
+            OtaCancellationEventResult late = cancellationService.handleCancellationEvent(new OtaCancellationEventCommand(
+                    OtaProvider.KLOOK, OtaEnvironment.TEST, "event-canc-late", "ext-book-canc-001",
+                    "REQUESTED", 150_000L, "VND", "late request", "cor-late"));
+
+            assertThat(late.status()).isEqualTo("REJECTED");
+            assertThat(late.rejectionReason()).isEqualTo("LATE_REQUEST_AFTER_CANCELLATION");
+            assertThat(booking.getProviderStatus()).isEqualTo("CANCELLED");
+            assertThat(paymentEvidences).isEmpty();
+            verify(consequenceService, times(1)).applyConfirmedConsequence(any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("T107: a second REQUESTED under a new event reference adds no evidence")
+        void secondRequest_underNewEventReference_addsNoEvidence() {
+            for (String eventRef : List.of("event-req-a", "event-req-b")) {
+                cancellationService.handleCancellationEvent(new OtaCancellationEventCommand(
+                        OtaProvider.KLOOK, OtaEnvironment.TEST, eventRef, "ext-book-canc-001",
+                        "REQUESTED", 150_000L, "VND", "request", "cor-r"));
+            }
+            assertThat(paymentEvidences).hasSize(1);
+            assertThat(booking.getProviderStatus()).isEqualTo("CANCELLATION_REQUESTED");
         }
 
         @Test

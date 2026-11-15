@@ -1,0 +1,221 @@
+import { createHotContext as __vite__createHotContext } from "/@vite/client";import.meta.hot = __vite__createHotContext("/src/workshop-operations/components/StaffWorkshopAddonPanel.jsx");import __vite__cjsImport0_react_jsxDevRuntime from "/node_modules/.vite/deps/react_jsx-dev-runtime.js?v=83e3faa1"; const jsxDEV = __vite__cjsImport0_react_jsxDevRuntime["jsxDEV"];
+var _s = $RefreshSig$();
+import __vite__cjsImport1_react from "/node_modules/.vite/deps/react.js?v=83e3faa1"; const React = __vite__cjsImport1_react.__esModule ? __vite__cjsImport1_react.default : __vite__cjsImport1_react; const useState = __vite__cjsImport1_react["useState"];
+import { ErrorNotice, SuccessNotice, useCommand } from "/src/shared/ui/components.jsx?t=1794733875684";
+import { createSettlementApi } from "/src/workshop-settlement/api/settlementApi.js?t=1794733875702";
+import FolioCorrectionLookup from "/src/workshop-settlement/FolioCorrectionLookup.jsx";
+export default function StaffWorkshopAddonPanel({ http }) {
+  _s();
+  const [ticketCode, setTicketCode] = useState("");
+  const [amountVnd, setAmountVnd] = useState("");
+  const [reason, setReason] = useState("");
+  const [correction, setCorrection] = useState(null);
+  const [viewing, setViewing] = useState(false);
+  const createCommand = useCommand();
+  const settlementApi = createSettlementApi(http);
+  const isValid = ticketCode.trim() && /^[1-9][0-9]*$/.test(amountVnd.trim()) && reason.trim();
+  async function submit(event) {
+    event.preventDefault();
+    setCorrection(null);
+    setViewing(false);
+    if (!isValid) return;
+    const outcome = await createCommand.run((key) => settlementApi.createFolioCorrection(
+      ticketCode.trim(),
+      { overchargeAmount: amountVnd.trim(), reason: reason.trim() },
+      key
+    ));
+    if (outcome.ok) setCorrection(outcome.result);
+  }
+  return /* @__PURE__ */ jsxDEV("article", { className: "ota-panel staff-addon-panel folio-correction-panel", children: [
+    /* @__PURE__ */ jsxDEV("div", { className: "ota-panel-head", children: /* @__PURE__ */ jsxDEV("div", { children: [
+      /* @__PURE__ */ jsxDEV("p", { className: "ota-eyebrow", children: "MANAGER / FOLIO CORRECTION" }, void 0, false, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/components/StaffWorkshopAddonPanel.jsx",
+        lineNumber: 38,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ jsxDEV("h2", { children: "Manager folio correction" }, void 0, false, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/components/StaffWorkshopAddonPanel.jsx",
+        lineNumber: 39,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ jsxDEV("p", { className: "muted small", children: "Overcharge refund for a finalized ticket folio. The finalized folio, Loyalty points, ticket and capacity remain immutable." }, void 0, false, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/components/StaffWorkshopAddonPanel.jsx",
+        lineNumber: 40,
+        columnNumber: 9
+      }, this)
+    ] }, void 0, true, {
+      fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/components/StaffWorkshopAddonPanel.jsx",
+      lineNumber: 37,
+      columnNumber: 7
+    }, this) }, void 0, false, {
+      fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/components/StaffWorkshopAddonPanel.jsx",
+      lineNumber: 36,
+      columnNumber: 5
+    }, this),
+    /* @__PURE__ */ jsxDEV(SuccessNotice, { children: correction ? `Folio correction ${correction.correctionReference} created (${correction.status}). A bank refund request was opened${correction.refundId ? ` (${correction.refundId})` : ""}.` : "" }, void 0, false, {
+      fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/components/StaffWorkshopAddonPanel.jsx",
+      lineNumber: 43,
+      columnNumber: 5
+    }, this),
+    /* @__PURE__ */ jsxDEV(ErrorNotice, { error: createCommand.error, onRetry: createCommand.retry }, void 0, false, {
+      fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/components/StaffWorkshopAddonPanel.jsx",
+      lineNumber: 44,
+      columnNumber: 5
+    }, this),
+    !reason.trim() && ticketCode.trim() && Number(amountVnd) > 0 && /* @__PURE__ */ jsxDEV("p", { role: "status", className: "muted small", children: "A manager correction reason is required before submitting." }, void 0, false, {
+      fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/components/StaffWorkshopAddonPanel.jsx",
+      lineNumber: 46,
+      columnNumber: 5
+    }, this),
+    createCommand.pending && /* @__PURE__ */ jsxDEV("p", { role: "status", "aria-live": "polite", className: "muted small", children: "Submitting folio correction..." }, void 0, false, {
+      fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/components/StaffWorkshopAddonPanel.jsx",
+      lineNumber: 48,
+      columnNumber: 31
+    }, this),
+    /* @__PURE__ */ jsxDEV("form", { className: "ota-form", onSubmit: submit, children: [
+      /* @__PURE__ */ jsxDEV("label", { children: [
+        "Folio ticket code",
+        /* @__PURE__ */ jsxDEV("input", { value: ticketCode, onChange: (event) => setTicketCode(event.target.value), placeholder: "TK-...", autoComplete: "off" }, void 0, false, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/components/StaffWorkshopAddonPanel.jsx",
+          lineNumber: 50,
+          columnNumber: 31
+        }, this)
+      ] }, void 0, true, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/components/StaffWorkshopAddonPanel.jsx",
+        lineNumber: 50,
+        columnNumber: 7
+      }, this),
+      /* @__PURE__ */ jsxDEV("label", { children: [
+        "Overcharge refund amount (VND)",
+        /* @__PURE__ */ jsxDEV("input", { inputMode: "numeric", value: amountVnd, onChange: (event) => setAmountVnd(event.target.value), placeholder: "50000", autoComplete: "off" }, void 0, false, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/components/StaffWorkshopAddonPanel.jsx",
+          lineNumber: 51,
+          columnNumber: 44
+        }, this)
+      ] }, void 0, true, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/components/StaffWorkshopAddonPanel.jsx",
+        lineNumber: 51,
+        columnNumber: 7
+      }, this),
+      /* @__PURE__ */ jsxDEV("label", { children: [
+        "Correction reason",
+        /* @__PURE__ */ jsxDEV("input", { value: reason, onChange: (event) => setReason(event.target.value), placeholder: "Staff overcharge at counter...", autoComplete: "off", maxLength: 1e3 }, void 0, false, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/components/StaffWorkshopAddonPanel.jsx",
+          lineNumber: 52,
+          columnNumber: 31
+        }, this)
+      ] }, void 0, true, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/components/StaffWorkshopAddonPanel.jsx",
+        lineNumber: 52,
+        columnNumber: 7
+      }, this),
+      /* @__PURE__ */ jsxDEV("button", { className: "button primary", type: "submit", disabled: createCommand.pending || !!correction || !isValid, children: createCommand.pending ? "Submitting..." : "Submit folio correction" }, void 0, false, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/components/StaffWorkshopAddonPanel.jsx",
+        lineNumber: 53,
+        columnNumber: 7
+      }, this)
+    ] }, void 0, true, {
+      fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/components/StaffWorkshopAddonPanel.jsx",
+      lineNumber: 49,
+      columnNumber: 5
+    }, this),
+    correction && /* @__PURE__ */ jsxDEV("div", { className: "staff-addon-result folio-correction-result", children: [
+      /* @__PURE__ */ jsxDEV("p", { children: /* @__PURE__ */ jsxDEV("strong", { children: [
+        "Correction: ",
+        correction.correctionReference
+      ] }, void 0, true, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/components/StaffWorkshopAddonPanel.jsx",
+        lineNumber: 56,
+        columnNumber: 10
+      }, this) }, void 0, false, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/components/StaffWorkshopAddonPanel.jsx",
+        lineNumber: 56,
+        columnNumber: 7
+      }, this),
+      /* @__PURE__ */ jsxDEV("p", { children: [
+        "Ticket ",
+        correction.ticketCode,
+        " · ",
+        correction.overchargeAmount,
+        " VND · ",
+        correction.status,
+        correction.refundStatus ? ` · refund ${correction.refundStatus}` : ""
+      ] }, void 0, true, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/components/StaffWorkshopAddonPanel.jsx",
+        lineNumber: 57,
+        columnNumber: 7
+      }, this),
+      /* @__PURE__ */ jsxDEV("p", { className: "muted small", children: "The refund is paid by bank transfer after a Manager approves it in the refund queue; an undercharge is never collected." }, void 0, false, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/components/StaffWorkshopAddonPanel.jsx",
+        lineNumber: 58,
+        columnNumber: 7
+      }, this),
+      !viewing && /* @__PURE__ */ jsxDEV("button", { type: "button", className: "button outline", onClick: () => setViewing(true), children: "View correction" }, void 0, false, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/components/StaffWorkshopAddonPanel.jsx",
+        lineNumber: 59,
+        columnNumber: 20
+      }, this),
+      viewing && /* @__PURE__ */ jsxDEV(
+        FolioCorrectionLookup,
+        {
+          api: settlementApi,
+          ticketCode: correction.ticketCode || ticketCode.trim(),
+          initialReference: correction.correctionReference
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/components/StaffWorkshopAddonPanel.jsx",
+          lineNumber: 60,
+          columnNumber: 19
+        },
+        this
+      )
+    ] }, void 0, true, {
+      fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/components/StaffWorkshopAddonPanel.jsx",
+      lineNumber: 55,
+      columnNumber: 20
+    }, this),
+    /* @__PURE__ */ jsxDEV("p", { className: "muted small staff-addon-policy", children: "Manager-only overcharge correction on finalized folios. Never alters original invoice lines, Loyalty earn, tickets, or capacity." }, void 0, false, {
+      fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/components/StaffWorkshopAddonPanel.jsx",
+      lineNumber: 63,
+      columnNumber: 5
+    }, this)
+  ] }, void 0, true, {
+    fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/components/StaffWorkshopAddonPanel.jsx",
+    lineNumber: 35,
+    columnNumber: 10
+  }, this);
+}
+_s(StaffWorkshopAddonPanel, "2TMBz75IrGKLNC3VXJevi4NLFS4=", false, function() {
+  return [useCommand];
+});
+_c = StaffWorkshopAddonPanel;
+export { StaffWorkshopAddonPanel as FolioCorrectionPanel };
+var _c;
+$RefreshReg$(_c, "StaffWorkshopAddonPanel");
+import * as RefreshRuntime from "/@react-refresh";
+const inWebWorker = typeof WorkerGlobalScope !== "undefined" && self instanceof WorkerGlobalScope;
+if (import.meta.hot && !inWebWorker) {
+  if (!window.$RefreshReg$) {
+    throw new Error(
+      "@vitejs/plugin-react can't detect preamble. Something is wrong."
+    );
+  }
+  RefreshRuntime.__hmr_import(import.meta.url).then((currentExports) => {
+    RefreshRuntime.registerExportsForReactRefresh("C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/components/StaffWorkshopAddonPanel.jsx", currentExports);
+    import.meta.hot.accept((nextExports) => {
+      if (!nextExports) return;
+      const invalidateMessage = RefreshRuntime.validateRefreshBoundaryAndEnqueueUpdate("C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/components/StaffWorkshopAddonPanel.jsx", currentExports, nextExports);
+      if (invalidateMessage) import.meta.hot.invalidate(invalidateMessage);
+    });
+  });
+}
+function $RefreshReg$(type, id) {
+  return RefreshRuntime.register(type, "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/workshop-operations/components/StaffWorkshopAddonPanel.jsx " + id);
+}
+function $RefreshSig$() {
+  return RefreshRuntime.createSignatureFunctionForTransform();
+}
+
+//# sourceMappingURL=data:application/json;base64,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V0FBV2dCO0FBQUFBLFFBQWlCO0FBQUEsUUFBUWhCLFdBQVdvQjtBQUFBQSxRQUFRcEIsV0FBVzRCLGVBQWUsYUFBYTVCLFdBQVc0QixZQUFZLEtBQUs7QUFBQSxXQUEvSjtBQUFBO0FBQUE7QUFBQTtBQUFBLGFBQWtLO0FBQUEsTUFDbEssdUJBQUMsT0FBRSxXQUFVLGVBQWMsdUlBQTNCO0FBQUE7QUFBQTtBQUFBO0FBQUEsYUFBa0o7QUFBQSxNQUNqSixDQUFDMUIsV0FBVyx1QkFBQyxZQUFPLE1BQUssVUFBUyxXQUFVLGtCQUFpQixTQUFTLE1BQU1DLFdBQVcsSUFBSSxHQUFHLCtCQUFsRjtBQUFBO0FBQUE7QUFBQTtBQUFBLGFBQWlHO0FBQUEsTUFDN0dELFdBQVc7QUFBQSxRQUFDO0FBQUE7QUFBQSxVQUFzQixLQUFLRztBQUFBQSxVQUFlLFlBQVlMLFdBQVdOLGNBQWNBLFdBQVdhLEtBQUs7QUFBQSxVQUMxRyxrQkFBa0JQLFdBQVdtQjtBQUFBQTtBQUFBQSxRQURuQjtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUEsTUFDdUM7QUFBQSxTQU50QztBQUFBO0FBQUE7QUFBQTtBQUFBLFdBT2Y7QUFBQSxJQUNBLHVCQUFDLE9BQUUsV0FBVSxrQ0FBaUMsZ0pBQTlDO0FBQUE7QUFBQTtBQUFBO0FBQUEsV0FBOEs7QUFBQSxPQTVCeks7QUFBQTtBQUFBO0FBQUE7QUFBQSxTQTZCUDtBQUNGO0FBQUMxQixHQXREdUJGLHlCQUF1QjtBQUFBLFVBTXZCSCxVQUFVO0FBQUE7QUFBQSxLQU5WRztBQXdEeEIsU0FBU0EsMkJBQTJCc0M7QUFBdUIsSUFBQUM7QUFBQSxhQUFBQSxJQUFBIiwibmFtZXMiOlsiUmVhY3QiLCJ1c2VTdGF0ZSIsIkVycm9yTm90aWNlIiwiU3VjY2Vzc05vdGljZSIsInVzZUNvbW1hbmQiLCJjcmVhdGVTZXR0bGVtZW50QXBpIiwiRm9saW9Db3JyZWN0aW9uTG9va3VwIiwiU3RhZmZXb3Jrc2hvcEFkZG9uUGFuZWwiLCJodHRwIiwiX3MiLCJ0aWNrZXRDb2RlIiwic2V0VGlja2V0Q29kZSIsImFtb3VudFZuZCIsInNldEFtb3VudFZuZCIsInJlYXNvbiIsInNldFJlYXNvbiIsImNvcnJlY3Rpb24iLCJzZXRDb3JyZWN0aW9uIiwidmlld2luZyIsInNldFZpZXdpbmciLCJjcmVhdGVDb21tYW5kIiwic2V0dGxlbWVudEFwaSIsImlzVmFsaWQiLCJ0cmltIiwidGVzdCIsInN1Ym1pdCIsImV2ZW50IiwicHJldmVudERlZmF1bHQiLCJvdXRjb21lIiwicnVuIiwia2V5IiwiY3JlYXRlRm9saW9Db3JyZWN0aW9uIiwib3ZlcmNoYXJnZUFtb3VudCIsIm9rIiwicmVzdWx0IiwiY29ycmVjdGlvblJlZmVyZW5jZSIsInN0YXR1cyIsInJlZnVuZElkIiwiZXJyb3IiLCJyZXRyeSIsIk51bWJlciIsInBlbmRpbmciLCJ0YXJnZXQiLCJ2YWx1ZSIsInJlZnVuZFN0YXR1cyIsIkZvbGlvQ29ycmVjdGlvblBhbmVsIiwiX2MiXSwiaWdub3JlTGlzdCI6W10sInNvdXJjZXMiOlsiU3RhZmZXb3Jrc2hvcEFkZG9uUGFuZWwuanN4Il0sInNvdXJjZXNDb250ZW50IjpbImltcG9ydCBSZWFjdCwgeyB1c2VTdGF0ZSB9IGZyb20gJ3JlYWN0JztcclxuaW1wb3J0IHsgRXJyb3JOb3RpY2UsIFN1Y2Nlc3NOb3RpY2UsIHVzZUNvbW1hbmQgfSBmcm9tICcuLi8uLi9zaGFyZWQvdWkvY29tcG9uZW50cyc7XHJcbmltcG9ydCB7IGNyZWF0ZVNldHRsZW1lbnRBcGkgfSBmcm9tICcuLi8uLi93b3Jrc2hvcC1zZXR0bGVtZW50L2FwaS9zZXR0bGVtZW50QXBpJztcclxuaW1wb3J0IEZvbGlvQ29ycmVjdGlvbkxvb2t1cCBmcm9tICcuLi8uLi93b3Jrc2hvcC1zZXR0bGVtZW50L0ZvbGlvQ29ycmVjdGlvbkxvb2t1cCc7XHJcblxyXG4vKipcclxuICogTWFuYWdlci1vbmx5IHBvc3QtRklOQUxJWkVEIGNvcnJlY3Rpb24gb2Ygb25lIHRpY2tldCBmb2xpbyAoVDEwNjogUE9TVCAvd29ya3Nob3AtdGlja2V0cy97dGlja2V0Q29kZX0vZm9saW8vY29ycmVjdGlvbnMpLlxyXG4gKiBPdmVyY2hhcmdlIG9ubHk7IHRoZSBvdmVyY2hhcmdlIGJlY29tZXMgYSBiYW5rIHJlZnVuZCByZXF1ZXN0IChuZXZlciBhIFZOUGF5IHJlZnVuZCkuIFRoZSBmaW5hbGl6ZWQgZm9saW8sIExveWFsdHlcclxuICogZWFybiBhbmQgdGhlIHRpY2tldCBzdGF5IHVuY2hhbmdlZCwgYW5kIGFuIHVuZGVyY2hhcmdlIGlzIGFic29yYmVkIGJ5IE1sYW5kIGFuZCBuZXZlciBjb2xsZWN0ZWQuXHJcbiAqL1xyXG5leHBvcnQgZGVmYXVsdCBmdW5jdGlvbiBTdGFmZldvcmtzaG9wQWRkb25QYW5lbCh7IGh0dHAgfSkge1xyXG4gIGNvbnN0IFt0aWNrZXRDb2RlLCBzZXRUaWNrZXRDb2RlXSA9IHVzZVN0YXRlKCcnKTtcclxuICBjb25zdCBbYW1vdW50Vm5kLCBzZXRBbW91bnRWbmRdID0gdXNlU3RhdGUoJycpO1xyXG4gIGNvbnN0IFtyZWFzb24sIHNldFJlYXNvbl0gPSB1c2VTdGF0ZSgnJyk7XHJcbiAgY29uc3QgW2NvcnJlY3Rpb24sIHNldENvcnJlY3Rpb25dID0gdXNlU3RhdGUobnVsbCk7XHJcbiAgY29uc3QgW3ZpZXdpbmcsIHNldFZpZXdpbmddID0gdXNlU3RhdGUoZmFsc2UpO1xyXG4gIGNvbnN0IGNyZWF0ZUNvbW1hbmQgPSB1c2VDb21tYW5kKCk7XHJcbiAgY29uc3Qgc2V0dGxlbWVudEFwaSA9IGNyZWF0ZVNldHRsZW1lbnRBcGkoaHR0cCk7XHJcblxyXG4gIGNvbnN0IGlzVmFsaWQgPSB0aWNrZXRDb2RlLnRyaW0oKSAmJiAvXlsxLTldWzAtOV0qJC8udGVzdChhbW91bnRWbmQudHJpbSgpKSAmJiByZWFzb24udHJpbSgpO1xyXG5cclxuICBhc3luYyBmdW5jdGlvbiBzdWJtaXQoZXZlbnQpIHtcclxuICAgIGV2ZW50LnByZXZlbnREZWZhdWx0KCk7XHJcbiAgICBzZXRDb3JyZWN0aW9uKG51bGwpO1xyXG4gICAgc2V0Vmlld2luZyhmYWxzZSk7XHJcbiAgICBpZiAoIWlzVmFsaWQpIHJldHVybjtcclxuICAgIGNvbnN0IG91dGNvbWUgPSBhd2FpdCBjcmVhdGVDb21tYW5kLnJ1bihrZXkgPT4gc2V0dGxlbWVudEFwaS5jcmVhdGVGb2xpb0NvcnJlY3Rpb24oXHJcbiAgICAgIHRpY2tldENvZGUudHJpbSgpLFxyXG4gICAgICB7IG92ZXJjaGFyZ2VBbW91bnQ6IGFtb3VudFZuZC50cmltKCksIHJlYXNvbjogcmVhc29uLnRyaW0oKSB9LFxyXG4gICAgICBrZXksXHJcbiAgICApKTtcclxuICAgIGlmIChvdXRjb21lLm9rKSBzZXRDb3JyZWN0aW9uKG91dGNvbWUucmVzdWx0KTtcclxuICB9XHJcblxyXG4gIHJldHVybiA8YXJ0aWNsZSBjbGFzc05hbWU9XCJvdGEtcGFuZWwgc3RhZmYtYWRkb24tcGFuZWwgZm9saW8tY29ycmVjdGlvbi1wYW5lbFwiPlxyXG4gICAgPGRpdiBjbGFzc05hbWU9XCJvdGEtcGFuZWwtaGVhZFwiPlxyXG4gICAgICA8ZGl2PlxyXG4gICAgICAgIDxwIGNsYXNzTmFtZT1cIm90YS1leWVicm93XCI+TUFOQUdFUiAvIEZPTElPIENPUlJFQ1RJT048L3A+XHJcbiAgICAgICAgPGgyPk1hbmFnZXIgZm9saW8gY29ycmVjdGlvbjwvaDI+XHJcbiAgICAgICAgPHAgY2xhc3NOYW1lPVwibXV0ZWQgc21hbGxcIj5PdmVyY2hhcmdlIHJlZnVuZCBmb3IgYSBmaW5hbGl6ZWQgdGlja2V0IGZvbGlvLiBUaGUgZmluYWxpemVkIGZvbGlvLCBMb3lhbHR5IHBvaW50cywgdGlja2V0IGFuZCBjYXBhY2l0eSByZW1haW4gaW1tdXRhYmxlLjwvcD5cclxuICAgICAgPC9kaXY+XHJcbiAgICA8L2Rpdj5cclxuICAgIDxTdWNjZXNzTm90aWNlPntjb3JyZWN0aW9uID8gYEZvbGlvIGNvcnJlY3Rpb24gJHtjb3JyZWN0aW9uLmNvcnJlY3Rpb25SZWZlcmVuY2V9IGNyZWF0ZWQgKCR7Y29ycmVjdGlvbi5zdGF0dXN9KS4gQSBiYW5rIHJlZnVuZCByZXF1ZXN0IHdhcyBvcGVuZWQke2NvcnJlY3Rpb24ucmVmdW5kSWQgPyBgICgke2NvcnJlY3Rpb24ucmVmdW5kSWR9KWAgOiAnJ30uYCA6ICcnfTwvU3VjY2Vzc05vdGljZT5cclxuICAgIDxFcnJvck5vdGljZSBlcnJvcj17Y3JlYXRlQ29tbWFuZC5lcnJvcn0gb25SZXRyeT17Y3JlYXRlQ29tbWFuZC5yZXRyeX0gLz5cclxuICAgIHshcmVhc29uLnRyaW0oKSAmJiB0aWNrZXRDb2RlLnRyaW0oKSAmJiBOdW1iZXIoYW1vdW50Vm5kKSA+IDAgJiYgKFxyXG4gICAgICA8cCByb2xlPVwic3RhdHVzXCIgY2xhc3NOYW1lPVwibXV0ZWQgc21hbGxcIj5BIG1hbmFnZXIgY29ycmVjdGlvbiByZWFzb24gaXMgcmVxdWlyZWQgYmVmb3JlIHN1Ym1pdHRpbmcuPC9wPlxyXG4gICAgKX1cclxuICAgIHtjcmVhdGVDb21tYW5kLnBlbmRpbmcgJiYgPHAgcm9sZT1cInN0YXR1c1wiIGFyaWEtbGl2ZT1cInBvbGl0ZVwiIGNsYXNzTmFtZT1cIm11dGVkIHNtYWxsXCI+U3VibWl0dGluZyBmb2xpbyBjb3JyZWN0aW9uLi4uPC9wPn1cclxuICAgIDxmb3JtIGNsYXNzTmFtZT1cIm90YS1mb3JtXCIgb25TdWJtaXQ9e3N1Ym1pdH0+XHJcbiAgICAgIDxsYWJlbD5Gb2xpbyB0aWNrZXQgY29kZTxpbnB1dCB2YWx1ZT17dGlja2V0Q29kZX0gb25DaGFuZ2U9e2V2ZW50ID0+IHNldFRpY2tldENvZGUoZXZlbnQudGFyZ2V0LnZhbHVlKX0gcGxhY2Vob2xkZXI9XCJUSy0uLi5cIiBhdXRvQ29tcGxldGU9XCJvZmZcIiAvPjwvbGFiZWw+XHJcbiAgICAgIDxsYWJlbD5PdmVyY2hhcmdlIHJlZnVuZCBhbW91bnQgKFZORCk8aW5wdXQgaW5wdXRNb2RlPVwibnVtZXJpY1wiIHZhbHVlPXthbW91bnRWbmR9IG9uQ2hhbmdlPXtldmVudCA9PiBzZXRBbW91bnRWbmQoZXZlbnQudGFyZ2V0LnZhbHVlKX0gcGxhY2Vob2xkZXI9XCI1MDAwMFwiIGF1dG9Db21wbGV0ZT1cIm9mZlwiIC8+PC9sYWJlbD5cclxuICAgICAgPGxhYmVsPkNvcnJlY3Rpb24gcmVhc29uPGlucHV0IHZhbHVlPXtyZWFzb259IG9uQ2hhbmdlPXtldmVudCA9PiBzZXRSZWFzb24oZXZlbnQudGFyZ2V0LnZhbHVlKX0gcGxhY2Vob2xkZXI9XCJTdGFmZiBvdmVyY2hhcmdlIGF0IGNvdW50ZXIuLi5cIiBhdXRvQ29tcGxldGU9XCJvZmZcIiBtYXhMZW5ndGg9ezEwMDB9IC8+PC9sYWJlbD5cclxuICAgICAgPGJ1dHRvbiBjbGFzc05hbWU9XCJidXR0b24gcHJpbWFyeVwiIHR5cGU9XCJzdWJtaXRcIiBkaXNhYmxlZD17Y3JlYXRlQ29tbWFuZC5wZW5kaW5nIHx8ICEhY29ycmVjdGlvbiB8fCAhaXNWYWxpZH0+e2NyZWF0ZUNvbW1hbmQucGVuZGluZyA/ICdTdWJtaXR0aW5nLi4uJyA6ICdTdWJtaXQgZm9saW8gY29ycmVjdGlvbid9PC9idXR0b24+XHJcbiAgICA8L2Zvcm0+XHJcbiAgICB7Y29ycmVjdGlvbiAmJiA8ZGl2IGNsYXNzTmFtZT1cInN0YWZmLWFkZG9uLXJlc3VsdCBmb2xpby1jb3JyZWN0aW9uLXJlc3VsdFwiPlxyXG4gICAgICA8cD48c3Ryb25nPkNvcnJlY3Rpb246IHtjb3JyZWN0aW9uLmNvcnJlY3Rpb25SZWZlcmVuY2V9PC9zdHJvbmc+PC9wPlxyXG4gICAgICA8cD5UaWNrZXQge2NvcnJlY3Rpb24udGlja2V0Q29kZX0gwrcge2NvcnJlY3Rpb24ub3ZlcmNoYXJnZUFtb3VudH0gVk5EIMK3IHtjb3JyZWN0aW9uLnN0YXR1c317Y29ycmVjdGlvbi5yZWZ1bmRTdGF0dXMgPyBgIMK3IHJlZnVuZCAke2NvcnJlY3Rpb24ucmVmdW5kU3RhdHVzfWAgOiAnJ308L3A+XHJcbiAgICAgIDxwIGNsYXNzTmFtZT1cIm11dGVkIHNtYWxsXCI+VGhlIHJlZnVuZCBpcyBwYWlkIGJ5IGJhbmsgdHJhbnNmZXIgYWZ0ZXIgYSBNYW5hZ2VyIGFwcHJvdmVzIGl0IGluIHRoZSByZWZ1bmQgcXVldWU7IGFuIHVuZGVyY2hhcmdlIGlzIG5ldmVyIGNvbGxlY3RlZC48L3A+XHJcbiAgICAgIHshdmlld2luZyAmJiA8YnV0dG9uIHR5cGU9XCJidXR0b25cIiBjbGFzc05hbWU9XCJidXR0b24gb3V0bGluZVwiIG9uQ2xpY2s9eygpID0+IHNldFZpZXdpbmcodHJ1ZSl9PlZpZXcgY29ycmVjdGlvbjwvYnV0dG9uPn1cclxuICAgICAge3ZpZXdpbmcgJiYgPEZvbGlvQ29ycmVjdGlvbkxvb2t1cCBhcGk9e3NldHRsZW1lbnRBcGl9IHRpY2tldENvZGU9e2NvcnJlY3Rpb24udGlja2V0Q29kZSB8fCB0aWNrZXRDb2RlLnRyaW0oKX1cclxuICAgICAgICBpbml0aWFsUmVmZXJlbmNlPXtjb3JyZWN0aW9uLmNvcnJlY3Rpb25SZWZlcmVuY2V9IC8+fVxyXG4gICAgPC9kaXY+fVxyXG4gICAgPHAgY2xhc3NOYW1lPVwibXV0ZWQgc21hbGwgc3RhZmYtYWRkb24tcG9saWN5XCI+TWFuYWdlci1vbmx5IG92ZXJjaGFyZ2UgY29ycmVjdGlvbiBvbiBmaW5hbGl6ZWQgZm9saW9zLiBOZXZlciBhbHRlcnMgb3JpZ2luYWwgaW52b2ljZSBsaW5lcywgTG95YWx0eSBlYXJuLCB0aWNrZXRzLCBvciBjYXBhY2l0eS48L3A+XHJcbiAgPC9hcnRpY2xlPjtcclxufVxyXG5cclxuZXhwb3J0IHsgU3RhZmZXb3Jrc2hvcEFkZG9uUGFuZWwgYXMgRm9saW9Db3JyZWN0aW9uUGFuZWwgfTtcclxuIl0sImZpbGUiOiJDOi9Vc2Vycy9hZG1pbi9EZXNrdG9wL1NFUC9tbGFuZC1vcGVyYXRpb25zLWh1Yi9wcHN3YnNfZnJvbnRlbmQvc3JjL3dvcmtzaG9wLW9wZXJhdGlvbnMvY29tcG9uZW50cy9TdGFmZldvcmtzaG9wQWRkb25QYW5lbC5qc3gifQ==

@@ -1,7 +1,7 @@
 # Quickstart and Validation: Product Management
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-01 (T087 — lệnh hiện hành và điều kiện còn thiếu; trước đó: 2026-10-26 (V1 không MFA theo 001; tên facade identity; tham chiếu 001 mới; lệnh và lớp test thực tế, liên kết validation-report; cập nhật 2026-10-27 sau REST API))
+**Date updated**: 2026-11-14 (MySQL IT chỉ lấy URL từ `PM_TEST_JDBC_URL`, không rơi về `JDBC_URL`; trước đó: 2026-11-01 (T087 — lệnh hiện hành và điều kiện còn thiếu; trước đó: 2026-10-26 (V1 không MFA theo 001; tên facade identity; tham chiếu 001 mới; lệnh và lớp test thực tế, liên kết validation-report; cập nhật 2026-10-27 sau REST API)))
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -33,7 +33,7 @@ Set-Location D:/mland-operations-hub/mland-operations-hub/ppswbs_backend
 
 Các lớp đã có (2026-10-27): xem bảng "Nhóm test của 002" trong [validation-report](validation-report.md) (đơn vị, MySQL tầng service, đồng thời thật, HTTP với security thật `CatalogueApiIT`/`CatalogueImportApiIT`/`CatalogueContractIT`, Cloudinary thật `CatalogueCloudinaryIT`, ranh giới `CatalogueDependenciesIT`). Còn là mục tiêu thiết kế, chưa tồn tại vì cần adapter FE-08 thật (không coi "không tìm thấy test" là pass): `CatalogueQuantityIT`, `CatalogueLifecycleConcurrencyIT`, `CatalogueAcceptedPriceIT`, `CataloguePublicApiIT`. Chạy `CatalogueCloudinaryIT` cần `CLOUDINARY_CLOUD_NAME`/`CLOUDINARY_API_KEY`/`CLOUDINARY_API_SECRET`; thiếu thì lớp này báo NOT RUN.
 
-Bộ MySQL IT dùng profile `productmanagement-mysql-test`: datasource lấy từ `PM_TEST_JDBC_URL`/`PM_TEST_JDBC_USER`/`PM_TEST_JDBC_PASSWORD`, nếu thiếu thì `JDBC_URL`/`JDBC_USER`/`JDBC_PASSWORD`; không có giá trị mặc định, không H2. `CatalogueMySqlEnvironmentIT` từ chối chạy nếu server không phải MySQL 8.4. `CatalogueMySqlIT` tạo database tạm `ppswbs_pm_fresh_<ngẫu nhiên>` trên cùng server (tài khoản test cần quyền `CREATE`/`DROP` database) và tự xóa sau khi chạy; không đụng tới database test hay database thật. Username/password do môi trường kiểm chứng cấp qua biến môi trường, không ghi ở đây.
+Bộ MySQL IT dùng profile `productmanagement-mysql-test`: datasource lấy URL **chỉ** từ `PM_TEST_JDBC_URL` (từ 2026-11-14 không còn lấy `JDBC_URL`, vì lấy như vậy đã ghi hàng trăm sản phẩm test vào database dev `ppswbs_dev`; thiếu biến thì test dừng ngay khi khởi động), còn user/password lấy `PM_TEST_JDBC_USER`/`PM_TEST_JDBC_PASSWORD`, nếu thiếu thì `JDBC_USER`/`JDBC_PASSWORD`; không có giá trị mặc định, không H2. `PM_TEST_JDBC_URL` phải trỏ tới một database riêng cho test, không trỏ `ppswbs_dev`. `CatalogueMySqlEnvironmentIT` từ chối chạy nếu server không phải MySQL 8.4. `CatalogueMySqlIT` tạo database tạm `ppswbs_pm_fresh_<ngẫu nhiên>` trên cùng server (tài khoản test cần quyền `CREATE`/`DROP` database) và tự xóa sau khi chạy; không đụng tới database test hay database thật. Username/password do môi trường kiểm chứng cấp qua biến môi trường, không ghi ở đây.
 
 Để chạy ứng dụng sau implementation, cấp datasource/identity/media/FE-08 settings theo contract cấu hình đã review rồi dùng `.\mvnw.cmd spring-boot:run` cho backend; chạy frontend React + Vite riêng sau khi `ppswbs_frontend/` được khởi tạo. Không suy rằng các settings/adapter này đã tồn tại. G-01 đã chốt hướng/phiên nhưng quản trị vẫn không được enable khi dependency MFA/session/capability chưa đáp ứng; không dùng fallback permitAll để bỏ qua.
 

@@ -19,6 +19,7 @@ import org.springframework.stereotype.Component;
 @Slf4j
 public class CancellationHandoffEventConsumer {
     private final WorkshopSettlementFacade settlementFacade;
+    private final SessionCancellationRemedyService remedyService;
 
     @EventListener
     public void onCancellationHandoffRequested(CancellationHandoffRequestedEvent event) {
@@ -34,5 +35,10 @@ public class CancellationHandoffEventConsumer {
         }
         log.info("Cancellation handoff {} processed with status {} and case {}",
                 event.eventReference(), outcome.status(), outcome.cancellationCaseReference());
+        if (outcome.cancellationCaseReference() != null) {
+            // T112 (FR-043): one Mland remedy per affected ticket; idempotent, so a redelivery changes nothing.
+            remedyService.openRemedies(event.sessionReference(), event.affectedBookingReferences(),
+                    event.correlationReference());
+        }
     }
 }

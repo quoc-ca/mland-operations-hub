@@ -592,6 +592,45 @@ public class WorkshopClosureIT {
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
     }
 
+    @Test
+    @DisplayName("T107: the correction window is anchored per ticket, not per booking line (FR-032)")
+    void testAttendanceCorrection_WindowIsPerTicketNotPerBookingLine() throws Exception {
+        WorkshopSession recentSession = createSession(SessionState.ATTENDANCE_FINALIZED);
+        WorkshopSession oldSession = createSession(SessionState.ATTENDANCE_FINALIZED);
+        oldSession.setAttendanceFinalizedAt(Instant.now().minus(30, ChronoUnit.HOURS));
+        sessionRepository.save(oldSession);
+
+        // Two tickets of the same booking line: A attended the recent session, B only the one finalized 30 h ago.
+        AttendanceTicket ticketA = ticketRepository.save(AttendanceTicket.builder()
+                .reference(UUID.randomUUID().toString()).ticketCode("TK-WIN-A").bookingReference("BKG-WIN")
+                .ticketSequence(1).qrReference("qr-win-a").validityState(TicketValidityState.ACTIVE).build());
+        AttendanceTicket ticketB = ticketRepository.save(AttendanceTicket.builder()
+                .reference(UUID.randomUUID().toString()).ticketCode("TK-WIN-B").bookingReference("BKG-WIN")
+                .ticketSequence(2).qrReference("qr-win-b").validityState(TicketValidityState.ACTIVE).build());
+        entitlementRepository.save(TicketSessionEntitlement.builder().ticket(ticketA).session(recentSession)
+                .attendanceState(AttendanceState.NO_SHOW).build());
+        TicketSessionEntitlement entB = entitlementRepository.save(TicketSessionEntitlement.builder()
+                .ticket(ticketB).session(oldSession).attendanceState(AttendanceState.NO_SHOW).build());
+
+        AttendanceCorrectionRequest forB = AttendanceCorrectionRequest.builder().ticketCode("TK-WIN-B")
+                .correctedAttendanceState(AttendanceState.CHECKED_IN).reasonCode("RECORDING_ERROR")
+                .reasonNote("Window closed for this ticket").build();
+        mockMvc.perform(post("/api/v1/workshop-sessions/{sessionId}/attendance-corrections", oldSession.getReference())
+                        .header("Authorization", MGR_A_TOKEN).header("X-Correlation-Id", "corr-t107-b")
+                        .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(forB)))
+                .andExpect(status().isConflict());
+        assertThat(entitlementRepository.findById(entB.getId()).orElseThrow().getAttendanceState())
+                .isEqualTo(AttendanceState.NO_SHOW);
+
+        AttendanceCorrectionRequest forA = AttendanceCorrectionRequest.builder().ticketCode("TK-WIN-A")
+                .correctedAttendanceState(AttendanceState.CHECKED_IN).reasonCode("RECORDING_ERROR")
+                .reasonNote("Still inside the window").build();
+        mockMvc.perform(post("/api/v1/workshop-sessions/{sessionId}/attendance-corrections", recentSession.getReference())
+                        .header("Authorization", MGR_A_TOKEN).header("X-Correlation-Id", "corr-t107-a")
+                        .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(forA)))
+                .andExpect(status().isOk());
+    }
+
     // =========================================================================
     // 7. Direct cancellation returns 200 OK without commitments
     // =========================================================================

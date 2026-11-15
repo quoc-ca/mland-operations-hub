@@ -8,17 +8,6 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade;
  */
 public interface WorkshopBookingFacade {
 
-    /**
-     * Read confirmed booking financial projection required by 003.3.
-     */
-    ConfirmedBookingFinancialProjection getConfirmedBookingFinancialProjection(ConfirmedBookingFinancialProjectionQuery query);
-
-    /** Reads only verified deposit payment facts, with no PII or browser/provider payload. */
-    VerifiedBookingDepositPaymentsProjection getVerifiedDepositPayments(VerifiedBookingDepositPaymentsQuery query);
-
-    /** Returns the minimal accepted Member source context required for terminal Loyalty outcomes; null for Guest or legacy bookings. */
-    WorkshopBookingLoyaltyOutcomeSource getLoyaltyOutcomeSource(WorkshopBookingLoyaltyOutcomeSourceQuery query);
-
     /** The one Loyalty context of a booking group, with its ticket identities (003.3 FR-030). */
     BookingGroupLoyaltyOutcomeSource getGroupLoyaltyOutcomeSource(String groupReference);
 
@@ -30,11 +19,6 @@ public interface WorkshopBookingFacade {
 
     /** Returns only an authorization decision; contact proof is neither returned nor logged. */
     CustomerBookingAccessDecision verifyCustomerBookingAccess(CustomerBookingAccessQuery query);
-
-    /**
-     * Record final-balance resolution from 003.3.
-     */
-    FinalBalanceResolutionOutcome recordFinalBalanceResolved(RecordFinalBalanceResolvedCommand command);
 
     /**
      * 003.3 concludes that one ticket's folio is settled (FINALIZED with a zero balance): the ticket becomes
@@ -58,9 +42,6 @@ public interface WorkshopBookingFacade {
     /** Persist redacted, verified deposit evidence that arrived after booking capacity was released. */
     DepositPaymentEvidenceOutcome recordLateDepositEvidence(RecordLateDepositEvidenceCommand command);
 
-    /** Cancel a confirmed direct booking after Operations has cancelled its sessions/tickets. */
-    BookingCancellationOutcome cancelConfirmedBooking(CancelConfirmedBookingCommand command);
-
     /**
      * Request delivery of existing ticket set (called by 003.2 resend flow).
      */
@@ -78,6 +59,13 @@ public interface WorkshopBookingFacade {
      * unknown or has no email. The value is for the caller's transaction only: never an event, audit or log field.
      */
     String getSettlementNotificationRecipient(SettlementNotificationRecipientQuery query);
+
+    /**
+     * The email of the ticket's recipient (003.1 FR-041) for Settlement's notice that a session was cancelled (003.3
+     * T112, FR-043); null when the ticket is unknown, has no recipient, or the recipient is the buyer's own contact
+     * email. For the caller's transaction only: never an event, audit or log field.
+     */
+    String getTicketRecipientEmail(String ticketCode);
 
     /** The PII-free facts of one late-payment review, so 003.3 can recheck a refund amount (FR-040). */
     java.util.Optional<LatePaymentReviewSnapshot> findLatePaymentReview(String reviewReference);

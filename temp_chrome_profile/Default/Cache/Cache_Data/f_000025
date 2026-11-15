@@ -1,0 +1,626 @@
+import { createHotContext as __vite__createHotContext } from "/@vite/client";import.meta.hot = __vite__createHotContext("/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx");import __vite__cjsImport0_react_jsxDevRuntime from "/node_modules/.vite/deps/react_jsx-dev-runtime.js?v=83e3faa1"; const jsxDEV = __vite__cjsImport0_react_jsxDevRuntime["jsxDEV"];
+var _s = $RefreshSig$();
+import __vite__cjsImport1_react from "/node_modules/.vite/deps/react.js?v=83e3faa1"; const React = __vite__cjsImport1_react.__esModule ? __vite__cjsImport1_react.default : __vite__cjsImport1_react; const useEffect = __vite__cjsImport1_react["useEffect"]; const useState = __vite__cjsImport1_react["useState"]; const useMemo = __vite__cjsImport1_react["useMemo"];
+import { useParams, useNavigate } from "/node_modules/.vite/deps/react-router.js?v=83e3faa1";
+import { useWorkshopRingDesignApi } from "/src/features/ringdesignconfiguration/api/useWorkshopRingDesignApi.js?t=1794733875684";
+import { useWorkshopDesignCommand } from "/src/features/ringdesignconfiguration/application/useWorkshopDesignCommand.js?t=1794733875684";
+import { useAuth } from "/src/shared/auth/AuthProvider.jsx";
+import RingPreview from "/src/features/ringdesignconfiguration/ui/RingPreview.jsx";
+import { derivePreviewModel } from "/src/features/ringdesignconfiguration/domain/designPreview.js";
+import { getErrorMessage } from "/src/features/ringdesignconfiguration/domain/designErrors.js";
+import { messages } from "/src/features/ringdesignconfiguration/messages.js";
+import "/src/features/ringdesignconfiguration/ring-design.css";
+export default function DesignEvaluationPage() {
+  _s();
+  const { packageReference, designId } = useParams();
+  const navigate = useNavigate();
+  const { status, userId } = useAuth();
+  const isAuthenticated = status === "signed-in" || Boolean(userId);
+  const api = useWorkshopRingDesignApi();
+  const [design, setDesign] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(null);
+  const { loading: archiving, error: archiveError, executeArchive } = useWorkshopDesignCommand(isAuthenticated);
+  useEffect(() => {
+    async function load() {
+      setLoading(true);
+      setFetchError(null);
+      try {
+        const res = await api.getDesign(designId, null, isAuthenticated);
+        setDesign(res);
+      } catch (err) {
+        setFetchError(getErrorMessage(err));
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, [api, designId, isAuthenticated]);
+  const previewModel = useMemo(() => {
+    if (!design?.componentSnapshot) return derivePreviewModel(null);
+    return derivePreviewModel(design.componentSnapshot);
+  }, [design]);
+  const lang = "vi";
+  const t = messages[lang];
+  const handleArchive = async () => {
+    if (!window.confirm("Bạn có chắc chắn muốn lưu trữ mẫu thiết kế này không?")) return;
+    try {
+      const res = await executeArchive(designId, design.designVersion);
+      setDesign(res);
+    } catch {
+    }
+  };
+  const handleProceedBooking = () => {
+    navigate(`/workshops/booking?packageReference=${encodeURIComponent(packageReference)}&designId=${encodeURIComponent(designId)}`);
+  };
+  if (loading) {
+    return /* @__PURE__ */ jsxDEV("div", { className: "ring-design-container", style: { textAlign: "center", padding: "4rem" }, children: /* @__PURE__ */ jsxDEV("p", { children: "Đang tải kết quả thẩm định thiết kế..." }, void 0, false, {
+      fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+      lineNumber: 67,
+      columnNumber: 9
+    }, this) }, void 0, false, {
+      fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+      lineNumber: 66,
+      columnNumber: 7
+    }, this);
+  }
+  if (fetchError) {
+    return /* @__PURE__ */ jsxDEV("div", { className: "ring-design-container", children: [
+      /* @__PURE__ */ jsxDEV("div", { className: "ring-error-card", role: "alert", children: fetchError }, void 0, false, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+        lineNumber: 75,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ jsxDEV(
+        "button",
+        {
+          type: "button",
+          className: "ring-btn-secondary",
+          onClick: () => navigate(`/workshops/${encodeURIComponent(packageReference)}/design`),
+          children: t.restartFlow
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+          lineNumber: 78,
+          columnNumber: 9
+        },
+        this
+      )
+    ] }, void 0, true, {
+      fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+      lineNumber: 74,
+      columnNumber: 7
+    }, this);
+  }
+  const evalData = design?.evaluation || {};
+  return /* @__PURE__ */ jsxDEV("div", { className: "ring-design-container", "data-testid": "design-evaluation-page", children: [
+    /* @__PURE__ */ jsxDEV("div", { className: "ring-design-header", children: [
+      /* @__PURE__ */ jsxDEV("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }, children: [
+        /* @__PURE__ */ jsxDEV("div", { children: [
+          /* @__PURE__ */ jsxDEV("h1", { className: "ring-design-title", children: t.evaluationTitle }, void 0, false, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+            lineNumber: 96,
+            columnNumber: 13
+          }, this),
+          /* @__PURE__ */ jsxDEV("p", { className: "ring-design-subtitle", children: [
+            "Mã thiết kế: ",
+            /* @__PURE__ */ jsxDEV("strong", { children: design?.designId }, void 0, false, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+              lineNumber: 98,
+              columnNumber: 28
+            }, this),
+            " · ",
+            t.versionLabel,
+            " ",
+            design?.designVersion
+          ] }, void 0, true, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+            lineNumber: 97,
+            columnNumber: 13
+          }, this)
+        ] }, void 0, true, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+          lineNumber: 95,
+          columnNumber: 11
+        }, this),
+        /* @__PURE__ */ jsxDEV("div", { children: /* @__PURE__ */ jsxDEV("span", { className: `ring-status-badge ${design?.status?.toLowerCase() || "draft"}`, children: t[design?.status] || design?.status }, void 0, false, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+          lineNumber: 102,
+          columnNumber: 13
+        }, this) }, void 0, false, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+          lineNumber: 101,
+          columnNumber: 11
+        }, this)
+      ] }, void 0, true, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+        lineNumber: 94,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ jsxDEV("div", { className: "ring-notice-banner", role: "note", children: [
+        /* @__PURE__ */ jsxDEV("span", { children: "ℹ️" }, void 0, false, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+          lineNumber: 108,
+          columnNumber: 11
+        }, this),
+        /* @__PURE__ */ jsxDEV("span", { children: t.advisoryWarning }, void 0, false, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+          lineNumber: 109,
+          columnNumber: 11
+        }, this)
+      ] }, void 0, true, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+        lineNumber: 107,
+        columnNumber: 9
+      }, this)
+    ] }, void 0, true, {
+      fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+      lineNumber: 93,
+      columnNumber: 7
+    }, this),
+    archiveError && /* @__PURE__ */ jsxDEV("div", { className: "ring-error-card", role: "alert", children: archiveError }, void 0, false, {
+      fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+      lineNumber: 114,
+      columnNumber: 7
+    }, this),
+    (evalData.warnings?.length > 0 || previewModel.showSurfaceTextureWarning) && /* @__PURE__ */ jsxDEV(
+      "div",
+      {
+        style: {
+          marginBottom: "1rem",
+          padding: "0.85rem 1rem",
+          borderRadius: "8px",
+          background: "#fffbeb",
+          border: "1.5px solid #f59e0b",
+          color: "#92400e",
+          fontSize: "0.875rem",
+          lineHeight: 1.5
+        },
+        "data-testid": "evaluation-surface-texture-warning",
+        children: evalData.warnings?.[0] || t.surfaceTextureWarning
+      },
+      void 0,
+      false,
+      {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+        lineNumber: 121,
+        columnNumber: 7
+      },
+      this
+    ),
+    /* @__PURE__ */ jsxDEV("div", { className: "ring-configurator-layout", children: [
+      /* @__PURE__ */ jsxDEV("div", { className: "ring-controls-panel", children: [
+        /* @__PURE__ */ jsxDEV("div", { className: "ring-section-card", children: [
+          /* @__PURE__ */ jsxDEV("h2", { className: "ring-section-title", children: "Chỉ số ước tính kỹ thuật" }, void 0, false, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+            lineNumber: 143,
+            columnNumber: 13
+          }, this),
+          /* @__PURE__ */ jsxDEV("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "1rem", marginTop: "1rem" }, children: [
+            /* @__PURE__ */ jsxDEV("div", { style: { background: "#f8fafc", padding: "1.25rem", borderRadius: "8px", border: "1px solid #e2e8f0" }, children: [
+              /* @__PURE__ */ jsxDEV("div", { style: { fontSize: "0.85rem", color: "#64748b", marginBottom: "0.35rem" }, children: t.estimatedPriceLabel }, void 0, false, {
+                fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+                lineNumber: 146,
+                columnNumber: 17
+              }, this),
+              /* @__PURE__ */ jsxDEV("div", { style: { fontSize: "1.5rem", fontWeight: 700, color: "#b45309" }, children: evalData.estimatedPrice ? `${Number(evalData.estimatedPrice).toLocaleString("vi-VN")} đ` : "Theo gói" }, void 0, false, {
+                fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+                lineNumber: 149,
+                columnNumber: 17
+              }, this),
+              /* @__PURE__ */ jsxDEV("div", { style: { fontSize: "0.75rem", color: "#94a3b8", marginTop: "0.25rem" }, children: [
+                t.advisoryBadge,
+                " (Không đổi cọc gói)"
+              ] }, void 0, true, {
+                fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+                lineNumber: 154,
+                columnNumber: 17
+              }, this)
+            ] }, void 0, true, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+              lineNumber: 145,
+              columnNumber: 15
+            }, this),
+            /* @__PURE__ */ jsxDEV("div", { style: { background: "#f8fafc", padding: "1.25rem", borderRadius: "8px", border: "1px solid #e2e8f0" }, children: [
+              /* @__PURE__ */ jsxDEV("div", { style: { fontSize: "0.85rem", color: "#64748b", marginBottom: "0.35rem" }, children: "Khối lượng ước tính" }, void 0, false, {
+                fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+                lineNumber: 160,
+                columnNumber: 17
+              }, this),
+              /* @__PURE__ */ jsxDEV("div", { style: { fontSize: "1.5rem", fontWeight: 700, color: "#0f172a" }, children: evalData.estimatedWeightGrams ? `${evalData.estimatedWeightGrams} g` : `${previewModel.estimatedWeightGrams?.toFixed(2) || "3.00"} g` }, void 0, false, {
+                fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+                lineNumber: 163,
+                columnNumber: 17
+              }, this),
+              /* @__PURE__ */ jsxDEV("div", { style: { fontSize: "0.75rem", color: evalData.excessMaterialCost && Number(evalData.excessMaterialCost) > 0 ? "#b45309" : "#166534", marginTop: "0.25rem" }, children: evalData.excessMaterialCost && Number(evalData.excessMaterialCost) > 0 ? `Vượt mức (+${Number(evalData.excessMaterialCost).toLocaleString("vi-VN")} đ)` : "Trong định mức chuẩn (≤ 3.0g)" }, void 0, false, {
+                fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+                lineNumber: 168,
+                columnNumber: 17
+              }, this)
+            ] }, void 0, true, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+              lineNumber: 159,
+              columnNumber: 15
+            }, this),
+            /* @__PURE__ */ jsxDEV("div", { style: { background: "#f8fafc", padding: "1.25rem", borderRadius: "8px", border: "1px solid #e2e8f0" }, children: [
+              /* @__PURE__ */ jsxDEV("div", { style: { fontSize: "0.85rem", color: "#64748b", marginBottom: "0.35rem" }, children: t.difficultyLabel }, void 0, false, {
+                fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+                lineNumber: 176,
+                columnNumber: 17
+              }, this),
+              /* @__PURE__ */ jsxDEV("div", { style: { fontSize: "1.5rem", fontWeight: 700, color: "#0f172a" }, children: evalData.difficultyScore ? `${evalData.difficultyScore} / 10` : "1.0 / 10" }, void 0, false, {
+                fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+                lineNumber: 179,
+                columnNumber: 17
+              }, this),
+              /* @__PURE__ */ jsxDEV("div", { style: { fontSize: "0.75rem", color: "#94a3b8", marginTop: "0.25rem" }, children: [
+                "Quy tắc: ",
+                evalData.rulesVersion || "v1.0"
+              ] }, void 0, true, {
+                fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+                lineNumber: 182,
+                columnNumber: 17
+              }, this)
+            ] }, void 0, true, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+              lineNumber: 175,
+              columnNumber: 15
+            }, this)
+          ] }, void 0, true, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+            lineNumber: 144,
+            columnNumber: 13
+          }, this)
+        ] }, void 0, true, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+          lineNumber: 142,
+          columnNumber: 11
+        }, this),
+        /* @__PURE__ */ jsxDEV("div", { className: "ring-section-card", children: [
+          /* @__PURE__ */ jsxDEV("h2", { className: "ring-section-title", children: t.summaryHeading }, void 0, false, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+            lineNumber: 191,
+            columnNumber: 13
+          }, this),
+          /* @__PURE__ */ jsxDEV("div", { className: "ring-summary-box", style: { background: "transparent", padding: 0 }, children: [
+            /* @__PURE__ */ jsxDEV("div", { className: "ring-summary-item", children: [
+              /* @__PURE__ */ jsxDEV("span", { className: "ring-summary-label", children: t.materialSummary }, void 0, false, {
+                fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+                lineNumber: 194,
+                columnNumber: 17
+              }, this),
+              /* @__PURE__ */ jsxDEV("span", { className: "ring-summary-value", children: previewModel.material?.label }, void 0, false, {
+                fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+                lineNumber: 195,
+                columnNumber: 17
+              }, this)
+            ] }, void 0, true, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+              lineNumber: 193,
+              columnNumber: 15
+            }, this),
+            /* @__PURE__ */ jsxDEV("div", { className: "ring-summary-item", children: [
+              /* @__PURE__ */ jsxDEV("span", { className: "ring-summary-label", children: t.shapeSummary }, void 0, false, {
+                fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+                lineNumber: 198,
+                columnNumber: 17
+              }, this),
+              /* @__PURE__ */ jsxDEV("span", { className: "ring-summary-value", children: previewModel.shape?.label }, void 0, false, {
+                fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+                lineNumber: 199,
+                columnNumber: 17
+              }, this)
+            ] }, void 0, true, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+              lineNumber: 197,
+              columnNumber: 15
+            }, this),
+            /* @__PURE__ */ jsxDEV("div", { className: "ring-summary-item", children: [
+              /* @__PURE__ */ jsxDEV("span", { className: "ring-summary-label", children: t.sizeSummary }, void 0, false, {
+                fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+                lineNumber: 202,
+                columnNumber: 17
+              }, this),
+              /* @__PURE__ */ jsxDEV("span", { className: "ring-summary-value", children: [
+                "Size ",
+                previewModel.ringSize,
+                " (",
+                previewModel.circumferenceMm,
+                " mm)"
+              ] }, void 0, true, {
+                fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+                lineNumber: 203,
+                columnNumber: 17
+              }, this)
+            ] }, void 0, true, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+              lineNumber: 201,
+              columnNumber: 15
+            }, this),
+            /* @__PURE__ */ jsxDEV("div", { className: "ring-summary-item", children: [
+              /* @__PURE__ */ jsxDEV("span", { className: "ring-summary-label", children: t.thicknessSummary }, void 0, false, {
+                fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+                lineNumber: 206,
+                columnNumber: 17
+              }, this),
+              /* @__PURE__ */ jsxDEV("span", { className: "ring-summary-value", children: [
+                previewModel.thicknessMm?.toFixed(1),
+                " mm"
+              ] }, void 0, true, {
+                fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+                lineNumber: 207,
+                columnNumber: 17
+              }, this)
+            ] }, void 0, true, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+              lineNumber: 205,
+              columnNumber: 15
+            }, this),
+            /* @__PURE__ */ jsxDEV("div", { className: "ring-summary-item", children: [
+              /* @__PURE__ */ jsxDEV("span", { className: "ring-summary-label", children: t.bandWidthSummary }, void 0, false, {
+                fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+                lineNumber: 210,
+                columnNumber: 17
+              }, this),
+              /* @__PURE__ */ jsxDEV("span", { className: "ring-summary-value", children: [
+                previewModel.bandWidthMm?.toFixed(1),
+                " mm"
+              ] }, void 0, true, {
+                fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+                lineNumber: 211,
+                columnNumber: 17
+              }, this)
+            ] }, void 0, true, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+              lineNumber: 209,
+              columnNumber: 15
+            }, this),
+            /* @__PURE__ */ jsxDEV("div", { className: "ring-summary-item", children: [
+              /* @__PURE__ */ jsxDEV("span", { className: "ring-summary-label", children: t.weightSummary }, void 0, false, {
+                fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+                lineNumber: 214,
+                columnNumber: 17
+              }, this),
+              /* @__PURE__ */ jsxDEV("span", { className: "ring-summary-value", children: [
+                evalData.estimatedWeightGrams || previewModel.estimatedWeightGrams?.toFixed(2),
+                " g",
+                evalData.excessMaterialCost && Number(evalData.excessMaterialCost) > 0 && /* @__PURE__ */ jsxDEV("span", { style: { fontSize: "0.8rem", color: "#b45309", display: "block" }, children: [
+                  "(Phụ phí khối lượng: +",
+                  Number(evalData.excessMaterialCost).toLocaleString("vi-VN"),
+                  " đ)"
+                ] }, void 0, true, {
+                  fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+                  lineNumber: 218,
+                  columnNumber: 19
+                }, this)
+              ] }, void 0, true, {
+                fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+                lineNumber: 215,
+                columnNumber: 17
+              }, this)
+            ] }, void 0, true, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+              lineNumber: 213,
+              columnNumber: 15
+            }, this),
+            /* @__PURE__ */ jsxDEV("div", { className: "ring-summary-item", children: [
+              /* @__PURE__ */ jsxDEV("span", { className: "ring-summary-label", children: t.gemstonesSummary }, void 0, false, {
+                fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+                lineNumber: 225,
+                columnNumber: 17
+              }, this),
+              /* @__PURE__ */ jsxDEV("span", { className: "ring-summary-value", children: previewModel.gemstoneGroups?.length > 0 ? previewModel.gemstoneGroups.map((g) => `${g.quantity}x ${g.label}`).join(", ") : previewModel.gemstones?.length > 0 ? previewModel.gemstones.map((g) => `${g.quantity || 1}x ${g.label}`).join(", ") : t.none }, void 0, false, {
+                fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+                lineNumber: 226,
+                columnNumber: 17
+              }, this)
+            ] }, void 0, true, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+              lineNumber: 224,
+              columnNumber: 15
+            }, this),
+            /* @__PURE__ */ jsxDEV("div", { className: "ring-summary-item", children: [
+              /* @__PURE__ */ jsxDEV("span", { className: "ring-summary-label", children: t.attachmentsSummary }, void 0, false, {
+                fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+                lineNumber: 235,
+                columnNumber: 17
+              }, this),
+              /* @__PURE__ */ jsxDEV("span", { className: "ring-summary-value", children: previewModel.attachments.length > 0 ? previewModel.attachments.map((a) => `${a.quantity}x ${a.reference}`).join(", ") : t.none }, void 0, false, {
+                fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+                lineNumber: 236,
+                columnNumber: 17
+              }, this)
+            ] }, void 0, true, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+              lineNumber: 234,
+              columnNumber: 15
+            }, this),
+            /* @__PURE__ */ jsxDEV("div", { className: "ring-summary-item", children: [
+              /* @__PURE__ */ jsxDEV("span", { className: "ring-summary-label", children: t.engravingSummary }, void 0, false, {
+                fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+                lineNumber: 243,
+                columnNumber: 17
+              }, this),
+              /* @__PURE__ */ jsxDEV("span", { className: "ring-summary-value", children: [
+                previewModel.engravingText ? `"${previewModel.engravingText}"` : t.none,
+                previewModel.standardEngravingCost > 0 && /* @__PURE__ */ jsxDEV("span", { style: { fontSize: "0.8rem", color: "#0369a1", display: "block", fontWeight: 500 }, children: "(+80.000 đ)" }, void 0, false, {
+                  fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+                  lineNumber: 247,
+                  columnNumber: 19
+                }, this)
+              ] }, void 0, true, {
+                fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+                lineNumber: 244,
+                columnNumber: 17
+              }, this)
+            ] }, void 0, true, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+              lineNumber: 242,
+              columnNumber: 15
+            }, this),
+            previewModel.customImages?.length > 0 && /* @__PURE__ */ jsxDEV("div", { className: "ring-summary-item", "data-testid": "eval-custom-images", children: [
+              /* @__PURE__ */ jsxDEV("span", { className: "ring-summary-label", children: "Ảnh khắc laser" }, void 0, false, {
+                fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+                lineNumber: 255,
+                columnNumber: 19
+              }, this),
+              /* @__PURE__ */ jsxDEV("span", { className: "ring-summary-value", children: [
+                previewModel.customImages.length,
+                " ảnh",
+                /* @__PURE__ */ jsxDEV("span", { style: { fontSize: "0.8rem", color: "#0369a1", display: "block", fontWeight: 500 }, children: [
+                  "(+",
+                  (previewModel.customImages.length * 1e5).toLocaleString("vi-VN"),
+                  " đ)"
+                ] }, void 0, true, {
+                  fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+                  lineNumber: 258,
+                  columnNumber: 21
+                }, this)
+              ] }, void 0, true, {
+                fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+                lineNumber: 256,
+                columnNumber: 19
+              }, this)
+            ] }, void 0, true, {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+              lineNumber: 254,
+              columnNumber: 15
+            }, this)
+          ] }, void 0, true, {
+            fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+            lineNumber: 192,
+            columnNumber: 13
+          }, this)
+        ] }, void 0, true, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+          lineNumber: 190,
+          columnNumber: 11
+        }, this)
+      ] }, void 0, true, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+        lineNumber: 140,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ jsxDEV("div", { className: "ring-preview-panel", children: [
+        /* @__PURE__ */ jsxDEV(RingPreview, { previewModel, readOnly: true }, void 0, false, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+          lineNumber: 270,
+          columnNumber: 11
+        }, this),
+        /* @__PURE__ */ jsxDEV("div", { style: { display: "flex", flexDirection: "column", gap: "0.75rem", marginTop: "1rem" }, children: [
+          design?.status !== "ARCHIVED" && design?.status !== "LOCKED" && /* @__PURE__ */ jsxDEV(
+            "button",
+            {
+              type: "button",
+              className: "ring-btn-primary",
+              onClick: handleProceedBooking,
+              "data-testid": "proceed-booking-btn",
+              children: [
+                t.proceedToBooking,
+                " →"
+              ]
+            },
+            void 0,
+            true,
+            {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+              lineNumber: 274,
+              columnNumber: 13
+            },
+            this
+          ),
+          design?.status !== "LOCKED" && design?.status !== "ARCHIVED" && /* @__PURE__ */ jsxDEV(
+            "button",
+            {
+              type: "button",
+              className: "ring-btn-secondary",
+              onClick: () => navigate(
+                `/workshops/${encodeURIComponent(packageReference)}/design/configure?mode=EDIT&designId=${encodeURIComponent(
+                  designId
+                )}`
+              ),
+              children: t.editDesign
+            },
+            void 0,
+            false,
+            {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+              lineNumber: 285,
+              columnNumber: 13
+            },
+            this
+          ),
+          design?.status !== "ARCHIVED" && design?.status !== "LOCKED" && design?.status !== "ATTACHED_TO_BOOKING" && /* @__PURE__ */ jsxDEV(
+            "button",
+            {
+              type: "button",
+              className: "ring-btn-secondary",
+              style: { color: "#ef4444", borderColor: "#fca5a5" },
+              disabled: archiving,
+              onClick: handleArchive,
+              "data-testid": "archive-design-btn",
+              children: archiving ? t.archiving : t.archiveDesign
+            },
+            void 0,
+            false,
+            {
+              fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+              lineNumber: 301,
+              columnNumber: 13
+            },
+            this
+          )
+        ] }, void 0, true, {
+          fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+          lineNumber: 272,
+          columnNumber: 11
+        }, this)
+      ] }, void 0, true, {
+        fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+        lineNumber: 269,
+        columnNumber: 9
+      }, this)
+    ] }, void 0, true, {
+      fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+      lineNumber: 138,
+      columnNumber: 7
+    }, this)
+  ] }, void 0, true, {
+    fileName: "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx",
+    lineNumber: 92,
+    columnNumber: 5
+  }, this);
+}
+_s(DesignEvaluationPage, "KUIGsoegiFLEAdT7vydKZ0i4Jts=", false, function() {
+  return [useParams, useNavigate, useAuth, useWorkshopRingDesignApi, useWorkshopDesignCommand];
+});
+_c = DesignEvaluationPage;
+var _c;
+$RefreshReg$(_c, "DesignEvaluationPage");
+import * as RefreshRuntime from "/@react-refresh";
+const inWebWorker = typeof WorkerGlobalScope !== "undefined" && self instanceof WorkerGlobalScope;
+if (import.meta.hot && !inWebWorker) {
+  if (!window.$RefreshReg$) {
+    throw new Error(
+      "@vitejs/plugin-react can't detect preamble. Something is wrong."
+    );
+  }
+  RefreshRuntime.__hmr_import(import.meta.url).then((currentExports) => {
+    RefreshRuntime.registerExportsForReactRefresh("C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx", currentExports);
+    import.meta.hot.accept((nextExports) => {
+      if (!nextExports) return;
+      const invalidateMessage = RefreshRuntime.validateRefreshBoundaryAndEnqueueUpdate("C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx", currentExports, nextExports);
+      if (invalidateMessage) import.meta.hot.invalidate(invalidateMessage);
+    });
+  });
+}
+function $RefreshReg$(type, id) {
+  return RefreshRuntime.register(type, "C:/Users/admin/Desktop/SEP/mland-operations-hub/ppswbs_frontend/src/features/ringdesignconfiguration/ui/DesignEvaluationPage.jsx " + id);
+}
+function $RefreshSig$() {
+  return RefreshRuntime.createSignatureFunctionForTransform();
+}
+
+//# sourceMappingURL=data:application/json;base64,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bEQsVUFBVTFGO0FBQUFBLGNBQ1YsU0FBU1k7QUFBQUEsY0FDVCxlQUFZO0FBQUEsY0FFWFosc0JBQVlXLEVBQUVYLFlBQVlXLEVBQUVnRjtBQUFBQTtBQUFBQSxZQVIvQjtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUEsVUFTQTtBQUFBLGFBdENKO0FBQUE7QUFBQTtBQUFBO0FBQUEsZUF3Q0E7QUFBQSxXQTNDRjtBQUFBO0FBQUE7QUFBQTtBQUFBLGFBNENBO0FBQUEsU0EvS0Y7QUFBQTtBQUFBO0FBQUE7QUFBQSxXQWdMQTtBQUFBLE9BOU5GO0FBQUE7QUFBQTtBQUFBO0FBQUEsU0ErTkE7QUFFSjtBQUFDMUcsR0FqVHVCRCxzQkFBb0I7QUFBQSxVQUNIVCxXQUN0QkMsYUFDVUcsU0FFZkYsMEJBTXdEQyx3QkFBd0I7QUFBQTtBQUFBLEtBWHRFTTtBQUFvQixJQUFBNEc7QUFBQSxhQUFBQSxJQUFBIiwibmFtZXMiOlsiUmVhY3QiLCJ1c2VFZmZlY3QiLCJ1c2VTdGF0ZSIsInVzZU1lbW8iLCJ1c2VQYXJhbXMiLCJ1c2VOYXZpZ2F0ZSIsInVzZVdvcmtzaG9wUmluZ0Rlc2lnbkFwaSIsInVzZVdvcmtzaG9wRGVzaWduQ29tbWFuZCIsInVzZUF1dGgiLCJSaW5nUHJldmlldyIsImRlcml2ZVByZXZpZXdNb2RlbCIsImdldEVycm9yTWVzc2FnZSIsIm1lc3NhZ2VzIiwiRGVzaWduRXZhbHVhdGlvblBhZ2UiLCJfcyIsInBhY2thZ2VSZWZlcmVuY2UiLCJkZXNpZ25JZCIsIm5hdmlnYXRlIiwic3RhdHVzIiwidXNlcklkIiwiaXNBdXRoZW50aWNhdGVkIiwiQm9vbGVhbiIsImFwaSIsImRlc2lnbiIsInNldERlc2lnbiIsImxvYWRpbmciLCJzZXRMb2FkaW5nIiwiZmV0Y2hFcnJvciIsInNldEZldGNoRXJyb3IiLCJhcmNoaXZpbmciLCJlcnJvciIsImFyY2hpdmVFcnJvciIsImV4ZWN1dGVBcmNoaXZlIiwibG9hZCIsInJlcyIsImdldERlc2lnbiIsImVyciIsInByZXZpZXdNb2RlbCIsImNvbXBvbmVudFNuYXBzaG90IiwibGFuZyIsInQiLCJoYW5kbGVBcmNoaXZlIiwid2luZG93IiwiY29uZmlybSIsImRlc2lnblZlcnNpb24iLCJoYW5kbGVQcm9jZWVkQm9va2luZyIsImVuY29kZVVSSUNvbXBvbmVudCIsInRleHRBbGlnbiIsInBhZGRpbmciLCJyZXN0YXJ0RmxvdyIsImV2YWxEYXRhIiwiZXZhbHVhdGlvbiIsImRpc3BsYXkiLCJqdXN0aWZ5Q29udGVudCIsImFsaWduSXRlbXMiLCJmbGV4V3JhcCIsImdhcCIsImV2YWx1YXRpb25UaXRsZSIsInZlcnNpb25MYWJlbCIsInRvTG93ZXJDYXNlIiwiYWR2aXNvcnlXYXJuaW5nIiwid2FybmluZ3MiLCJsZW5ndGgiLCJzaG93U3VyZmFjZVRleHR1cmVXYXJuaW5nIiwibWFyZ2luQm90dG9tIiwiYm9yZGVyUmFkaXVzIiwiYmFja2dyb3VuZCIsImJvcmRlciIsImNvbG9yIiwiZm9udFNpemUiLCJsaW5lSGVpZ2h0Iiwic3VyZmFjZVRleHR1cmVXYXJuaW5nIiwiZ3JpZFRlbXBsYXRlQ29sdW1ucyIsIm1hcmdpblRvcCIsImVzdGltYXRlZFByaWNlTGFiZWwiLCJmb250V2VpZ2h0IiwiZXN0aW1hdGVkUHJpY2UiLCJOdW1iZXIiLCJ0b0xvY2FsZVN0cmluZyIsImFkdmlzb3J5QmFkZ2UiLCJlc3RpbWF0ZWRXZWlnaHRHcmFtcyIsInRvRml4ZWQiLCJleGNlc3NNYXRlcmlhbENvc3QiLCJkaWZmaWN1bHR5TGFiZWwiLCJkaWZmaWN1bHR5U2NvcmUiLCJydWxlc1ZlcnNpb24iLCJzdW1tYXJ5SGVhZGluZyIsIm1hdGVyaWFsU3VtbWFyeSIsIm1hdGVyaWFsIiwibGFiZWwiLCJzaGFwZVN1bW1hcnkiLCJzaGFwZSIsInNpemVTdW1tYXJ5IiwicmluZ1NpemUiLCJjaXJjdW1mZXJlbmNlTW0iLCJ0aGlja25lc3NTdW1tYXJ5IiwidGhpY2tuZXNzTW0iLCJiYW5kV2lkdGhTdW1tYXJ5IiwiYmFuZFdpZHRoTW0iLCJ3ZWlnaHRTdW1tYXJ5IiwiZ2Vtc3RvbmVzU3VtbWFyeSIsImdlbXN0b25lR3JvdXBzIiwibWFwIiwiZyIsInF1YW50aXR5Iiwiam9pbiIsImdlbXN0b25lcyIsIm5vbmUiLCJhdHRhY2htZW50c1N1bW1hcnkiLCJhdHRhY2htZW50cyIsImEiLCJyZWZlcmVuY2UiLCJlbmdyYXZpbmdTdW1tYXJ5IiwiZW5ncmF2aW5nVGV4dCIsInN0YW5kYXJkRW5ncmF2aW5nQ29zdCIsImN1c3RvbUltYWdlcyIsImZsZXhEaXJlY3Rpb24iLCJwcm9jZWVkVG9Cb29raW5nIiwiZWRpdERlc2lnbiIsImJvcmRlckNvbG9yIiwiYXJjaGl2ZURlc2lnbiIsIl9jIl0sImlnbm9yZUxpc3QiOltdLCJzb3VyY2VzIjpbIkRlc2lnbkV2YWx1YXRpb25QYWdlLmpzeCJdLCJzb3VyY2VzQ29udGVudCI6WyJpbXBvcnQgUmVhY3QsIHsgdXNlRWZmZWN0LCB1c2VTdGF0ZSwgdXNlTWVtbyB9IGZyb20gJ3JlYWN0JztcclxuaW1wb3J0IHsgdXNlUGFyYW1zLCB1c2VOYXZpZ2F0ZSB9IGZyb20gJ3JlYWN0LXJvdXRlcic7XHJcbmltcG9ydCB7IHVzZVdvcmtzaG9wUmluZ0Rlc2lnbkFwaSB9IGZyb20gJy4uL2FwaS91c2VXb3Jrc2hvcFJpbmdEZXNpZ25BcGknO1xyXG5pbXBvcnQgeyB1c2VXb3Jrc2hvcERlc2lnbkNvbW1hbmQgfSBmcm9tICcuLi9hcHBsaWNhdGlvbi91c2VXb3Jrc2hvcERlc2lnbkNvbW1hbmQnO1xyXG5pbXBvcnQgeyB1c2VBdXRoIH0gZnJvbSAnLi4vLi4vLi4vc2hhcmVkL2F1dGgvQXV0aFByb3ZpZGVyJztcclxuaW1wb3J0IFJpbmdQcmV2aWV3IGZyb20gJy4vUmluZ1ByZXZpZXcnO1xyXG5pbXBvcnQgeyBkZXJpdmVQcmV2aWV3TW9kZWwgfSBmcm9tICcuLi9kb21haW4vZGVzaWduUHJldmlldyc7XHJcbmltcG9ydCB7IGdldEVycm9yTWVzc2FnZSB9IGZyb20gJy4uL2RvbWFpbi9kZXNpZ25FcnJvcnMnO1xyXG5pbXBvcnQgeyBtZXNzYWdlcyB9IGZyb20gJy4uL21lc3NhZ2VzJztcclxuaW1wb3J0ICcuLi9yaW5nLWRlc2lnbi5jc3MnO1xyXG5cclxuZXhwb3J0IGRlZmF1bHQgZnVuY3Rpb24gRGVzaWduRXZhbHVhdGlvblBhZ2UoKSB7XHJcbiAgY29uc3QgeyBwYWNrYWdlUmVmZXJlbmNlLCBkZXNpZ25JZCB9ID0gdXNlUGFyYW1zKCk7XHJcbiAgY29uc3QgbmF2aWdhdGUgPSB1c2VOYXZpZ2F0ZSgpO1xyXG4gIGNvbnN0IHsgc3RhdHVzLCB1c2VySWQgfSA9IHVzZUF1dGgoKTtcclxuICBjb25zdCBpc0F1dGhlbnRpY2F0ZWQgPSBzdGF0dXMgPT09ICdzaWduZWQtaW4nIHx8IEJvb2xlYW4odXNlcklkKTtcclxuICBjb25zdCBhcGkgPSB1c2VXb3Jrc2hvcFJpbmdEZXNpZ25BcGkoKTtcclxuXHJcbiAgY29uc3QgW2Rlc2lnbiwgc2V0RGVzaWduXSA9IHVzZVN0YXRlKG51bGwpO1xyXG4gIGNvbnN0IFtsb2FkaW5nLCBzZXRMb2FkaW5nXSA9IHVzZVN0YXRlKHRydWUpO1xyXG4gIGNvbnN0IFtmZXRjaEVycm9yLCBzZXRGZXRjaEVycm9yXSA9IHVzZVN0YXRlKG51bGwpO1xyXG5cclxuICBjb25zdCB7IGxvYWRpbmc6IGFyY2hpdmluZywgZXJyb3I6IGFyY2hpdmVFcnJvciwgZXhlY3V0ZUFyY2hpdmUgfSA9IHVzZVdvcmtzaG9wRGVzaWduQ29tbWFuZChpc0F1dGhlbnRpY2F0ZWQpO1xyXG5cclxuICB1c2VFZmZlY3QoKCkgPT4ge1xyXG4gICAgYXN5bmMgZnVuY3Rpb24gbG9hZCgpIHtcclxuICAgICAgc2V0TG9hZGluZyh0cnVlKTtcclxuICAgICAgc2V0RmV0Y2hFcnJvcihudWxsKTtcclxuICAgICAgdHJ5IHtcclxuICAgICAgICBjb25zdCByZXMgPSBhd2FpdCBhcGkuZ2V0RGVzaWduKGRlc2lnbklkLCBudWxsLCBpc0F1dGhlbnRpY2F0ZWQpO1xyXG4gICAgICAgIHNldERlc2lnbihyZXMpO1xyXG4gICAgICB9IGNhdGNoIChlcnIpIHtcclxuICAgICAgICBzZXRGZXRjaEVycm9yKGdldEVycm9yTWVzc2FnZShlcnIpKTtcclxuICAgICAgfSBmaW5hbGx5IHtcclxuICAgICAgICBzZXRMb2FkaW5nKGZhbHNlKTtcclxuICAgICAgfVxyXG4gICAgfVxyXG4gICAgbG9hZCgpO1xyXG4gIH0sIFthcGksIGRlc2lnbklkLCBpc0F1dGhlbnRpY2F0ZWRdKTtcclxuXHJcbiAgY29uc3QgcHJldmlld01vZGVsID0gdXNlTWVtbygoKSA9PiB7XHJcbiAgICBpZiAoIWRlc2lnbj8uY29tcG9uZW50U25hcHNob3QpIHJldHVybiBkZXJpdmVQcmV2aWV3TW9kZWwobnVsbCk7XHJcbiAgICByZXR1cm4gZGVyaXZlUHJldmlld01vZGVsKGRlc2lnbi5jb21wb25lbnRTbmFwc2hvdCk7XHJcbiAgfSwgW2Rlc2lnbl0pO1xyXG5cclxuICBjb25zdCBsYW5nID0gJ3ZpJztcclxuICBjb25zdCB0ID0gbWVzc2FnZXNbbGFuZ107XHJcblxyXG4gIGNvbnN0IGhhbmRsZUFyY2hpdmUgPSBhc3luYyAoKSA9PiB7XHJcbiAgICBpZiAoIXdpbmRvdy5jb25maXJtKCdC4bqhbiBjw7MgY2jhuq9jIGNo4bqvbiBtdeG7kW4gbMawdSB0cuG7ryBt4bqrdSB0aGnhur90IGvhur8gbsOgeSBraMO0bmc/JykpIHJldHVybjtcclxuICAgIHRyeSB7XHJcbiAgICAgIGNvbnN0IHJlcyA9IGF3YWl0IGV4ZWN1dGVBcmNoaXZlKGRlc2lnbklkLCBkZXNpZ24uZGVzaWduVmVyc2lvbik7XHJcbiAgICAgIHNldERlc2lnbihyZXMpO1xyXG4gICAgfSBjYXRjaCB7XHJcbiAgICAgIC8vIEVycm9yIGhhbmRsZWQgYnkgY29tbWFuZCBob29rXHJcbiAgICB9XHJcbiAgfTtcclxuXHJcbiAgY29uc3QgaGFuZGxlUHJvY2VlZEJvb2tpbmcgPSAoKSA9PiB7XHJcbiAgICAvLyBOYXZpZ2F0ZSB0byBXb3Jrc2hvcCBib29raW5nIGZsb3cgd2l0aCBwYWNrYWdlIGFuZCBkZXNpZ24gY29udGV4dFxyXG4gICAgbmF2aWdhdGUoYC93b3Jrc2hvcHMvYm9va2luZz9wYWNrYWdlUmVmZXJlbmNlPSR7ZW5jb2RlVVJJQ29tcG9uZW50KHBhY2thZ2VSZWZlcmVuY2UpfSZkZXNpZ25JZD0ke2VuY29kZVVSSUNvbXBvbmVudChkZXNpZ25JZCl9YCk7XHJcbiAgfTtcclxuXHJcbiAgaWYgKGxvYWRpbmcpIHtcclxuICAgIHJldHVybiAoXHJcbiAgICAgIDxkaXYgY2xhc3NOYW1lPVwicmluZy1kZXNpZ24tY29udGFpbmVyXCIgc3R5bGU9e3sgdGV4dEFsaWduOiAnY2VudGVyJywgcGFkZGluZzogJzRyZW0nIH19PlxyXG4gICAgICAgIDxwPsSQYW5nIHThuqNpIGvhur90IHF14bqjIHRo4bqpbSDEkeG7i25oIHRoaeG6v3Qga+G6vy4uLjwvcD5cclxuICAgICAgPC9kaXY+XHJcbiAgICApO1xyXG4gIH1cclxuXHJcbiAgaWYgKGZldGNoRXJyb3IpIHtcclxuICAgIHJldHVybiAoXHJcbiAgICAgIDxkaXYgY2xhc3NOYW1lPVwicmluZy1kZXNpZ24tY29udGFpbmVyXCI+XHJcbiAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJyaW5nLWVycm9yLWNhcmRcIiByb2xlPVwiYWxlcnRcIj5cclxuICAgICAgICAgIHtmZXRjaEVycm9yfVxyXG4gICAgICAgIDwvZGl2PlxyXG4gICAgICAgIDxidXR0b25cclxuICAgICAgICAgIHR5cGU9XCJidXR0b25cIlxyXG4gICAgICAgICAgY2xhc3NOYW1lPVwicmluZy1idG4tc2Vjb25kYXJ5XCJcclxuICAgICAgICAgIG9uQ2xpY2s9eygpID0+IG5hdmlnYXRlKGAvd29ya3Nob3BzLyR7ZW5jb2RlVVJJQ29tcG9uZW50KHBhY2thZ2VSZWZlcmVuY2UpfS9kZXNpZ25gKX1cclxuICAgICAgICA+XHJcbiAgICAgICAgICB7dC5yZXN0YXJ0Rmxvd31cclxuICAgICAgICA8L2J1dHRvbj5cclxuICAgICAgPC9kaXY+XHJcbiAgICApO1xyXG4gIH1cclxuXHJcbiAgY29uc3QgZXZhbERhdGEgPSBkZXNpZ24/LmV2YWx1YXRpb24gfHwge307XHJcblxyXG4gIHJldHVybiAoXHJcbiAgICA8ZGl2IGNsYXNzTmFtZT1cInJpbmctZGVzaWduLWNvbnRhaW5lclwiIGRhdGEtdGVzdGlkPVwiZGVzaWduLWV2YWx1YXRpb24tcGFnZVwiPlxyXG4gICAgICA8ZGl2IGNsYXNzTmFtZT1cInJpbmctZGVzaWduLWhlYWRlclwiPlxyXG4gICAgICAgIDxkaXYgc3R5bGU9e3sgZGlzcGxheTogJ2ZsZXgnLCBqdXN0aWZ5Q29udGVudDogJ3NwYWNlLWJldHdlZW4nLCBhbGlnbkl0ZW1zOiAnY2VudGVyJywgZmxleFdyYXA6ICd3cmFwJywgZ2FwOiAnMXJlbScgfX0+XHJcbiAgICAgICAgICA8ZGl2PlxyXG4gICAgICAgICAgICA8aDEgY2xhc3NOYW1lPVwicmluZy1kZXNpZ24tdGl0bGVcIj57dC5ldmFsdWF0aW9uVGl0bGV9PC9oMT5cclxuICAgICAgICAgICAgPHAgY2xhc3NOYW1lPVwicmluZy1kZXNpZ24tc3VidGl0bGVcIj5cclxuICAgICAgICAgICAgICBNw6MgdGhp4bq/dCBr4bq/OiA8c3Ryb25nPntkZXNpZ24/LmRlc2lnbklkfTwvc3Ryb25nPiDCtyB7dC52ZXJzaW9uTGFiZWx9IHtkZXNpZ24/LmRlc2lnblZlcnNpb259XHJcbiAgICAgICAgICAgIDwvcD5cclxuICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgPGRpdj5cclxuICAgICAgICAgICAgPHNwYW4gY2xhc3NOYW1lPXtgcmluZy1zdGF0dXMtYmFkZ2UgJHtkZXNpZ24/LnN0YXR1cz8udG9Mb3dlckNhc2UoKSB8fCAnZHJhZnQnfWB9PlxyXG4gICAgICAgICAgICAgIHt0W2Rlc2lnbj8uc3RhdHVzXSB8fCBkZXNpZ24/LnN0YXR1c31cclxuICAgICAgICAgICAgPC9zcGFuPlxyXG4gICAgICAgICAgPC9kaXY+XHJcbiAgICAgICAgPC9kaXY+XHJcbiAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJyaW5nLW5vdGljZS1iYW5uZXJcIiByb2xlPVwibm90ZVwiPlxyXG4gICAgICAgICAgPHNwYW4+4oS577iPPC9zcGFuPlxyXG4gICAgICAgICAgPHNwYW4+e3QuYWR2aXNvcnlXYXJuaW5nfTwvc3Bhbj5cclxuICAgICAgICA8L2Rpdj5cclxuICAgICAgPC9kaXY+XHJcblxyXG4gICAgICB7YXJjaGl2ZUVycm9yICYmIChcclxuICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cInJpbmctZXJyb3ItY2FyZFwiIHJvbGU9XCJhbGVydFwiPlxyXG4gICAgICAgICAge2FyY2hpdmVFcnJvcn1cclxuICAgICAgICA8L2Rpdj5cclxuICAgICAgKX1cclxuXHJcbiAgICAgIHsvKiBTdXJmYWNlIFRleHR1cmUgV2FybmluZyAqL31cclxuICAgICAgeyhldmFsRGF0YS53YXJuaW5ncz8ubGVuZ3RoID4gMCB8fCBwcmV2aWV3TW9kZWwuc2hvd1N1cmZhY2VUZXh0dXJlV2FybmluZykgJiYgKFxyXG4gICAgICAgIDxkaXZcclxuICAgICAgICAgIHN0eWxlPXt7XHJcbiAgICAgICAgICAgIG1hcmdpbkJvdHRvbTogJzFyZW0nLFxyXG4gICAgICAgICAgICBwYWRkaW5nOiAnMC44NXJlbSAxcmVtJyxcclxuICAgICAgICAgICAgYm9yZGVyUmFkaXVzOiAnOHB4JyxcclxuICAgICAgICAgICAgYmFja2dyb3VuZDogJyNmZmZiZWInLFxyXG4gICAgICAgICAgICBib3JkZXI6ICcxLjVweCBzb2xpZCAjZjU5ZTBiJyxcclxuICAgICAgICAgICAgY29sb3I6ICcjOTI0MDBlJyxcclxuICAgICAgICAgICAgZm9udFNpemU6ICcwLjg3NXJlbScsXHJcbiAgICAgICAgICAgIGxpbmVIZWlnaHQ6IDEuNSxcclxuICAgICAgICAgIH19XHJcbiAgICAgICAgICBkYXRhLXRlc3RpZD1cImV2YWx1YXRpb24tc3VyZmFjZS10ZXh0dXJlLXdhcm5pbmdcIlxyXG4gICAgICAgID5cclxuICAgICAgICAgIHtldmFsRGF0YS53YXJuaW5ncz8uWzBdIHx8IHQuc3VyZmFjZVRleHR1cmVXYXJuaW5nfVxyXG4gICAgICAgIDwvZGl2PlxyXG4gICAgICApfVxyXG5cclxuICAgICAgPGRpdiBjbGFzc05hbWU9XCJyaW5nLWNvbmZpZ3VyYXRvci1sYXlvdXRcIj5cclxuICAgICAgICB7LyogTGVmdCBDb2x1bW46IEV2YWx1YXRpb24gTWV0cmljcyAmIERldGFpbHMgKi99XHJcbiAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJyaW5nLWNvbnRyb2xzLXBhbmVsXCI+XHJcbiAgICAgICAgICB7LyogQ2FyZDogQWR2aXNvcnkgUHJpY2UgJiBEaWZmaWN1bHR5ICovfVxyXG4gICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJyaW5nLXNlY3Rpb24tY2FyZFwiPlxyXG4gICAgICAgICAgICA8aDIgY2xhc3NOYW1lPVwicmluZy1zZWN0aW9uLXRpdGxlXCI+Q2jhu4kgc+G7kSDGsOG7m2MgdMOtbmgga+G7uSB0aHXhuq10PC9oMj5cclxuICAgICAgICAgICAgPGRpdiBzdHlsZT17eyBkaXNwbGF5OiAnZ3JpZCcsIGdyaWRUZW1wbGF0ZUNvbHVtbnM6ICdyZXBlYXQoYXV0by1maXQsIG1pbm1heCgxODBweCwgMWZyKSknLCBnYXA6ICcxcmVtJywgbWFyZ2luVG9wOiAnMXJlbScgfX0+XHJcbiAgICAgICAgICAgICAgPGRpdiBzdHlsZT17eyBiYWNrZ3JvdW5kOiAnI2Y4ZmFmYycsIHBhZGRpbmc6ICcxLjI1cmVtJywgYm9yZGVyUmFkaXVzOiAnOHB4JywgYm9yZGVyOiAnMXB4IHNvbGlkICNlMmU4ZjAnIH19PlxyXG4gICAgICAgICAgICAgICAgPGRpdiBzdHlsZT17eyBmb250U2l6ZTogJzAuODVyZW0nLCBjb2xvcjogJyM2NDc0OGInLCBtYXJnaW5Cb3R0b206ICcwLjM1cmVtJyB9fT5cclxuICAgICAgICAgICAgICAgICAge3QuZXN0aW1hdGVkUHJpY2VMYWJlbH1cclxuICAgICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICAgICAgPGRpdiBzdHlsZT17eyBmb250U2l6ZTogJzEuNXJlbScsIGZvbnRXZWlnaHQ6IDcwMCwgY29sb3I6ICcjYjQ1MzA5JyB9fT5cclxuICAgICAgICAgICAgICAgICAge2V2YWxEYXRhLmVzdGltYXRlZFByaWNlXHJcbiAgICAgICAgICAgICAgICAgICAgPyBgJHtOdW1iZXIoZXZhbERhdGEuZXN0aW1hdGVkUHJpY2UpLnRvTG9jYWxlU3RyaW5nKCd2aS1WTicpfSDEkWBcclxuICAgICAgICAgICAgICAgICAgICA6ICdUaGVvIGfDs2knfVxyXG4gICAgICAgICAgICAgICAgPC9kaXY+XHJcbiAgICAgICAgICAgICAgICA8ZGl2IHN0eWxlPXt7IGZvbnRTaXplOiAnMC43NXJlbScsIGNvbG9yOiAnIzk0YTNiOCcsIG1hcmdpblRvcDogJzAuMjVyZW0nIH19PlxyXG4gICAgICAgICAgICAgICAgICB7dC5hZHZpc29yeUJhZGdlfSAoS2jDtG5nIMSR4buVaSBj4buNYyBnw7NpKVxyXG4gICAgICAgICAgICAgICAgPC9kaXY+XHJcbiAgICAgICAgICAgICAgPC9kaXY+XHJcblxyXG4gICAgICAgICAgICAgIDxkaXYgc3R5bGU9e3sgYmFja2dyb3VuZDogJyNmOGZhZmMnLCBwYWRkaW5nOiAnMS4yNXJlbScsIGJvcmRlclJhZGl1czogJzhweCcsIGJvcmRlcjogJzFweCBzb2xpZCAjZTJlOGYwJyB9fT5cclxuICAgICAgICAgICAgICAgIDxkaXYgc3R5bGU9e3sgZm9udFNpemU6ICcwLjg1cmVtJywgY29sb3I6ICcjNjQ3NDhiJywgbWFyZ2luQm90dG9tOiAnMC4zNXJlbScgfX0+XHJcbiAgICAgICAgICAgICAgICAgIEto4buRaSBsxrDhu6NuZyDGsOG7m2MgdMOtbmhcclxuICAgICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICAgICAgPGRpdiBzdHlsZT17eyBmb250U2l6ZTogJzEuNXJlbScsIGZvbnRXZWlnaHQ6IDcwMCwgY29sb3I6ICcjMGYxNzJhJyB9fT5cclxuICAgICAgICAgICAgICAgICAge2V2YWxEYXRhLmVzdGltYXRlZFdlaWdodEdyYW1zXHJcbiAgICAgICAgICAgICAgICAgICAgPyBgJHtldmFsRGF0YS5lc3RpbWF0ZWRXZWlnaHRHcmFtc30gZ2BcclxuICAgICAgICAgICAgICAgICAgICA6IGAke3ByZXZpZXdNb2RlbC5lc3RpbWF0ZWRXZWlnaHRHcmFtcz8udG9GaXhlZCgyKSB8fCAnMy4wMCd9IGdgfVxyXG4gICAgICAgICAgICAgICAgPC9kaXY+XHJcbiAgICAgICAgICAgICAgICA8ZGl2IHN0eWxlPXt7IGZvbnRTaXplOiAnMC43NXJlbScsIGNvbG9yOiBldmFsRGF0YS5leGNlc3NNYXRlcmlhbENvc3QgJiYgTnVtYmVyKGV2YWxEYXRhLmV4Y2Vzc01hdGVyaWFsQ29zdCkgPiAwID8gJyNiNDUzMDknIDogJyMxNjY1MzQnLCBtYXJnaW5Ub3A6ICcwLjI1cmVtJyB9fT5cclxuICAgICAgICAgICAgICAgICAge2V2YWxEYXRhLmV4Y2Vzc01hdGVyaWFsQ29zdCAmJiBOdW1iZXIoZXZhbERhdGEuZXhjZXNzTWF0ZXJpYWxDb3N0KSA+IDBcclxuICAgICAgICAgICAgICAgICAgICA/IGBWxrDhu6N0IG3hu6ljICgrJHtOdW1iZXIoZXZhbERhdGEuZXhjZXNzTWF0ZXJpYWxDb3N0KS50b0xvY2FsZVN0cmluZygndmktVk4nKX0gxJEpYFxyXG4gICAgICAgICAgICAgICAgICAgIDogJ1Ryb25nIMSR4buLbmggbeG7qWMgY2h14bqpbiAo4omkIDMuMGcpJ31cclxuICAgICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICAgIDwvZGl2PlxyXG5cclxuICAgICAgICAgICAgICA8ZGl2IHN0eWxlPXt7IGJhY2tncm91bmQ6ICcjZjhmYWZjJywgcGFkZGluZzogJzEuMjVyZW0nLCBib3JkZXJSYWRpdXM6ICc4cHgnLCBib3JkZXI6ICcxcHggc29saWQgI2UyZThmMCcgfX0+XHJcbiAgICAgICAgICAgICAgICA8ZGl2IHN0eWxlPXt7IGZvbnRTaXplOiAnMC44NXJlbScsIGNvbG9yOiAnIzY0NzQ4YicsIG1hcmdpbkJvdHRvbTogJzAuMzVyZW0nIH19PlxyXG4gICAgICAgICAgICAgICAgICB7dC5kaWZmaWN1bHR5TGFiZWx9XHJcbiAgICAgICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgICAgIDxkaXYgc3R5bGU9e3sgZm9udFNpemU6ICcxLjVyZW0nLCBmb250V2VpZ2h0OiA3MDAsIGNvbG9yOiAnIzBmMTcyYScgfX0+XHJcbiAgICAgICAgICAgICAgICAgIHtldmFsRGF0YS5kaWZmaWN1bHR5U2NvcmUgPyBgJHtldmFsRGF0YS5kaWZmaWN1bHR5U2NvcmV9IC8gMTBgIDogJzEuMCAvIDEwJ31cclxuICAgICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICAgICAgPGRpdiBzdHlsZT17eyBmb250U2l6ZTogJzAuNzVyZW0nLCBjb2xvcjogJyM5NGEzYjgnLCBtYXJnaW5Ub3A6ICcwLjI1cmVtJyB9fT5cclxuICAgICAgICAgICAgICAgICAgUXV5IHThuq9jOiB7ZXZhbERhdGEucnVsZXNWZXJzaW9uIHx8ICd2MS4wJ31cclxuICAgICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgIDwvZGl2PlxyXG5cclxuICAgICAgICAgIHsvKiBDYXJkOiBDb25maWd1cmF0aW9uIEJyZWFrZG93biAqL31cclxuICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwicmluZy1zZWN0aW9uLWNhcmRcIj5cclxuICAgICAgICAgICAgPGgyIGNsYXNzTmFtZT1cInJpbmctc2VjdGlvbi10aXRsZVwiPnt0LnN1bW1hcnlIZWFkaW5nfTwvaDI+XHJcbiAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwicmluZy1zdW1tYXJ5LWJveFwiIHN0eWxlPXt7IGJhY2tncm91bmQ6ICd0cmFuc3BhcmVudCcsIHBhZGRpbmc6IDAgfX0+XHJcbiAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJyaW5nLXN1bW1hcnktaXRlbVwiPlxyXG4gICAgICAgICAgICAgICAgPHNwYW4gY2xhc3NOYW1lPVwicmluZy1zdW1tYXJ5LWxhYmVsXCI+e3QubWF0ZXJpYWxTdW1tYXJ5fTwvc3Bhbj5cclxuICAgICAgICAgICAgICAgIDxzcGFuIGNsYXNzTmFtZT1cInJpbmctc3VtbWFyeS12YWx1ZVwiPntwcmV2aWV3TW9kZWwubWF0ZXJpYWw/LmxhYmVsfTwvc3Bhbj5cclxuICAgICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cInJpbmctc3VtbWFyeS1pdGVtXCI+XHJcbiAgICAgICAgICAgICAgICA8c3BhbiBjbGFzc05hbWU9XCJyaW5nLXN1bW1hcnktbGFiZWxcIj57dC5zaGFwZVN1bW1hcnl9PC9zcGFuPlxyXG4gICAgICAgICAgICAgICAgPHNwYW4gY2xhc3NOYW1lPVwicmluZy1zdW1tYXJ5LXZhbHVlXCI+e3ByZXZpZXdNb2RlbC5zaGFwZT8ubGFiZWx9PC9zcGFuPlxyXG4gICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwicmluZy1zdW1tYXJ5LWl0ZW1cIj5cclxuICAgICAgICAgICAgICAgIDxzcGFuIGNsYXNzTmFtZT1cInJpbmctc3VtbWFyeS1sYWJlbFwiPnt0LnNpemVTdW1tYXJ5fTwvc3Bhbj5cclxuICAgICAgICAgICAgICAgIDxzcGFuIGNsYXNzTmFtZT1cInJpbmctc3VtbWFyeS12YWx1ZVwiPlNpemUge3ByZXZpZXdNb2RlbC5yaW5nU2l6ZX0gKHtwcmV2aWV3TW9kZWwuY2lyY3VtZmVyZW5jZU1tfSBtbSk8L3NwYW4+XHJcbiAgICAgICAgICAgICAgPC9kaXY+XHJcbiAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJyaW5nLXN1bW1hcnktaXRlbVwiPlxyXG4gICAgICAgICAgICAgICAgPHNwYW4gY2xhc3NOYW1lPVwicmluZy1zdW1tYXJ5LWxhYmVsXCI+e3QudGhpY2tuZXNzU3VtbWFyeX08L3NwYW4+XHJcbiAgICAgICAgICAgICAgICA8c3BhbiBjbGFzc05hbWU9XCJyaW5nLXN1bW1hcnktdmFsdWVcIj57cHJldmlld01vZGVsLnRoaWNrbmVzc01tPy50b0ZpeGVkKDEpfSBtbTwvc3Bhbj5cclxuICAgICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cInJpbmctc3VtbWFyeS1pdGVtXCI+XHJcbiAgICAgICAgICAgICAgICA8c3BhbiBjbGFzc05hbWU9XCJyaW5nLXN1bW1hcnktbGFiZWxcIj57dC5iYW5kV2lkdGhTdW1tYXJ5fTwvc3Bhbj5cclxuICAgICAgICAgICAgICAgIDxzcGFuIGNsYXNzTmFtZT1cInJpbmctc3VtbWFyeS12YWx1ZVwiPntwcmV2aWV3TW9kZWwuYmFuZFdpZHRoTW0/LnRvRml4ZWQoMSl9IG1tPC9zcGFuPlxyXG4gICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwicmluZy1zdW1tYXJ5LWl0ZW1cIj5cclxuICAgICAgICAgICAgICAgIDxzcGFuIGNsYXNzTmFtZT1cInJpbmctc3VtbWFyeS1sYWJlbFwiPnt0LndlaWdodFN1bW1hcnl9PC9zcGFuPlxyXG4gICAgICAgICAgICAgICAgPHNwYW4gY2xhc3NOYW1lPVwicmluZy1zdW1tYXJ5LXZhbHVlXCI+XHJcbiAgICAgICAgICAgICAgICAgIHtldmFsRGF0YS5lc3RpbWF0ZWRXZWlnaHRHcmFtcyB8fCBwcmV2aWV3TW9kZWwuZXN0aW1hdGVkV2VpZ2h0R3JhbXM/LnRvRml4ZWQoMil9IGdcclxuICAgICAgICAgICAgICAgICAge2V2YWxEYXRhLmV4Y2Vzc01hdGVyaWFsQ29zdCAmJiBOdW1iZXIoZXZhbERhdGEuZXhjZXNzTWF0ZXJpYWxDb3N0KSA+IDAgJiYgKFxyXG4gICAgICAgICAgICAgICAgICAgIDxzcGFuIHN0eWxlPXt7IGZvbnRTaXplOiAnMC44cmVtJywgY29sb3I6ICcjYjQ1MzA5JywgZGlzcGxheTogJ2Jsb2NrJyB9fT5cclxuICAgICAgICAgICAgICAgICAgICAgIChQaOG7pSBwaMOtIGto4buRaSBsxrDhu6NuZzogK3tOdW1iZXIoZXZhbERhdGEuZXhjZXNzTWF0ZXJpYWxDb3N0KS50b0xvY2FsZVN0cmluZygndmktVk4nKX0gxJEpXHJcbiAgICAgICAgICAgICAgICAgICAgPC9zcGFuPlxyXG4gICAgICAgICAgICAgICAgICApfVxyXG4gICAgICAgICAgICAgICAgPC9zcGFuPlxyXG4gICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwicmluZy1zdW1tYXJ5LWl0ZW1cIj5cclxuICAgICAgICAgICAgICAgIDxzcGFuIGNsYXNzTmFtZT1cInJpbmctc3VtbWFyeS1sYWJlbFwiPnt0LmdlbXN0b25lc1N1bW1hcnl9PC9zcGFuPlxyXG4gICAgICAgICAgICAgICAgPHNwYW4gY2xhc3NOYW1lPVwicmluZy1zdW1tYXJ5LXZhbHVlXCI+XHJcbiAgICAgICAgICAgICAgICAgIHtwcmV2aWV3TW9kZWwuZ2Vtc3RvbmVHcm91cHM/Lmxlbmd0aCA+IDBcclxuICAgICAgICAgICAgICAgICAgICA/IHByZXZpZXdNb2RlbC5nZW1zdG9uZUdyb3Vwcy5tYXAoKGcpID0+IGAke2cucXVhbnRpdHl9eCAke2cubGFiZWx9YCkuam9pbignLCAnKVxyXG4gICAgICAgICAgICAgICAgICAgIDogcHJldmlld01vZGVsLmdlbXN0b25lcz8ubGVuZ3RoID4gMFxyXG4gICAgICAgICAgICAgICAgICAgICAgPyBwcmV2aWV3TW9kZWwuZ2Vtc3RvbmVzLm1hcCgoZykgPT4gYCR7Zy5xdWFudGl0eSB8fCAxfXggJHtnLmxhYmVsfWApLmpvaW4oJywgJylcclxuICAgICAgICAgICAgICAgICAgICAgIDogdC5ub25lfVxyXG4gICAgICAgICAgICAgICAgPC9zcGFuPlxyXG4gICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwicmluZy1zdW1tYXJ5LWl0ZW1cIj5cclxuICAgICAgICAgICAgICAgIDxzcGFuIGNsYXNzTmFtZT1cInJpbmctc3VtbWFyeS1sYWJlbFwiPnt0LmF0dGFjaG1lbnRzU3VtbWFyeX08L3NwYW4+XHJcbiAgICAgICAgICAgICAgICA8c3BhbiBjbGFzc05hbWU9XCJyaW5nLXN1bW1hcnktdmFsdWVcIj5cclxuICAgICAgICAgICAgICAgICAge3ByZXZpZXdNb2RlbC5hdHRhY2htZW50cy5sZW5ndGggPiAwXHJcbiAgICAgICAgICAgICAgICAgICAgPyBwcmV2aWV3TW9kZWwuYXR0YWNobWVudHMubWFwKChhKSA9PiBgJHthLnF1YW50aXR5fXggJHthLnJlZmVyZW5jZX1gKS5qb2luKCcsICcpXHJcbiAgICAgICAgICAgICAgICAgICAgOiB0Lm5vbmV9XHJcbiAgICAgICAgICAgICAgICA8L3NwYW4+XHJcbiAgICAgICAgICAgICAgPC9kaXY+XHJcbiAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJyaW5nLXN1bW1hcnktaXRlbVwiPlxyXG4gICAgICAgICAgICAgICAgPHNwYW4gY2xhc3NOYW1lPVwicmluZy1zdW1tYXJ5LWxhYmVsXCI+e3QuZW5ncmF2aW5nU3VtbWFyeX08L3NwYW4+XHJcbiAgICAgICAgICAgICAgICA8c3BhbiBjbGFzc05hbWU9XCJyaW5nLXN1bW1hcnktdmFsdWVcIj5cclxuICAgICAgICAgICAgICAgICAge3ByZXZpZXdNb2RlbC5lbmdyYXZpbmdUZXh0ID8gYFwiJHtwcmV2aWV3TW9kZWwuZW5ncmF2aW5nVGV4dH1cImAgOiB0Lm5vbmV9XHJcbiAgICAgICAgICAgICAgICAgIHtwcmV2aWV3TW9kZWwuc3RhbmRhcmRFbmdyYXZpbmdDb3N0ID4gMCAmJiAoXHJcbiAgICAgICAgICAgICAgICAgICAgPHNwYW4gc3R5bGU9e3sgZm9udFNpemU6ICcwLjhyZW0nLCBjb2xvcjogJyMwMzY5YTEnLCBkaXNwbGF5OiAnYmxvY2snLCBmb250V2VpZ2h0OiA1MDAgfX0+XHJcbiAgICAgICAgICAgICAgICAgICAgICAoKzgwLjAwMCDEkSlcclxuICAgICAgICAgICAgICAgICAgICA8L3NwYW4+XHJcbiAgICAgICAgICAgICAgICAgICl9XHJcbiAgICAgICAgICAgICAgICA8L3NwYW4+XHJcbiAgICAgICAgICAgICAgPC9kaXY+XHJcbiAgICAgICAgICAgICAge3ByZXZpZXdNb2RlbC5jdXN0b21JbWFnZXM/Lmxlbmd0aCA+IDAgJiYgKFxyXG4gICAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJyaW5nLXN1bW1hcnktaXRlbVwiIGRhdGEtdGVzdGlkPVwiZXZhbC1jdXN0b20taW1hZ2VzXCI+XHJcbiAgICAgICAgICAgICAgICAgIDxzcGFuIGNsYXNzTmFtZT1cInJpbmctc3VtbWFyeS1sYWJlbFwiPuG6om5oIGto4bqvYyBsYXNlcjwvc3Bhbj5cclxuICAgICAgICAgICAgICAgICAgPHNwYW4gY2xhc3NOYW1lPVwicmluZy1zdW1tYXJ5LXZhbHVlXCI+XHJcbiAgICAgICAgICAgICAgICAgICAge3ByZXZpZXdNb2RlbC5jdXN0b21JbWFnZXMubGVuZ3RofSDhuqNuaFxyXG4gICAgICAgICAgICAgICAgICAgIDxzcGFuIHN0eWxlPXt7IGZvbnRTaXplOiAnMC44cmVtJywgY29sb3I6ICcjMDM2OWExJywgZGlzcGxheTogJ2Jsb2NrJywgZm9udFdlaWdodDogNTAwIH19PlxyXG4gICAgICAgICAgICAgICAgICAgICAgKCt7KHByZXZpZXdNb2RlbC5jdXN0b21JbWFnZXMubGVuZ3RoICogMTAwMDAwKS50b0xvY2FsZVN0cmluZygndmktVk4nKX0gxJEpXHJcbiAgICAgICAgICAgICAgICAgICAgPC9zcGFuPlxyXG4gICAgICAgICAgICAgICAgICA8L3NwYW4+XHJcbiAgICAgICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgICApfVxyXG4gICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgIDwvZGl2PlxyXG5cclxuICAgICAgICB7LyogUmlnaHQgQ29sdW1uOiBQcmV2aWV3ICYgRmluYWwgQWN0aW9ucyAqL31cclxuICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cInJpbmctcHJldmlldy1wYW5lbFwiPlxyXG4gICAgICAgICAgPFJpbmdQcmV2aWV3IHByZXZpZXdNb2RlbD17cHJldmlld01vZGVsfSByZWFkT25seT17dHJ1ZX0gLz5cclxuXHJcbiAgICAgICAgICA8ZGl2IHN0eWxlPXt7IGRpc3BsYXk6ICdmbGV4JywgZmxleERpcmVjdGlvbjogJ2NvbHVtbicsIGdhcDogJzAuNzVyZW0nLCBtYXJnaW5Ub3A6ICcxcmVtJyB9fT5cclxuICAgICAgICAgICAge2Rlc2lnbj8uc3RhdHVzICE9PSAnQVJDSElWRUQnICYmIGRlc2lnbj8uc3RhdHVzICE9PSAnTE9DS0VEJyAmJiAoXHJcbiAgICAgICAgICAgICAgPGJ1dHRvblxyXG4gICAgICAgICAgICAgICAgdHlwZT1cImJ1dHRvblwiXHJcbiAgICAgICAgICAgICAgICBjbGFzc05hbWU9XCJyaW5nLWJ0bi1wcmltYXJ5XCJcclxuICAgICAgICAgICAgICAgIG9uQ2xpY2s9e2hhbmRsZVByb2NlZWRCb29raW5nfVxyXG4gICAgICAgICAgICAgICAgZGF0YS10ZXN0aWQ9XCJwcm9jZWVkLWJvb2tpbmctYnRuXCJcclxuICAgICAgICAgICAgICA+XHJcbiAgICAgICAgICAgICAgICB7dC5wcm9jZWVkVG9Cb29raW5nfSDihpJcclxuICAgICAgICAgICAgICA8L2J1dHRvbj5cclxuICAgICAgICAgICAgKX1cclxuXHJcbiAgICAgICAgICAgIHtkZXNpZ24/LnN0YXR1cyAhPT0gJ0xPQ0tFRCcgJiYgZGVzaWduPy5zdGF0dXMgIT09ICdBUkNISVZFRCcgJiYgKFxyXG4gICAgICAgICAgICAgIDxidXR0b25cclxuICAgICAgICAgICAgICAgIHR5cGU9XCJidXR0b25cIlxyXG4gICAgICAgICAgICAgICAgY2xhc3NOYW1lPVwicmluZy1idG4tc2Vjb25kYXJ5XCJcclxuICAgICAgICAgICAgICAgIG9uQ2xpY2s9eygpID0+XHJcbiAgICAgICAgICAgICAgICAgIG5hdmlnYXRlKFxyXG4gICAgICAgICAgICAgICAgICAgIGAvd29ya3Nob3BzLyR7ZW5jb2RlVVJJQ29tcG9uZW50KHBhY2thZ2VSZWZlcmVuY2UpfS9kZXNpZ24vY29uZmlndXJlP21vZGU9RURJVCZkZXNpZ25JZD0ke2VuY29kZVVSSUNvbXBvbmVudChcclxuICAgICAgICAgICAgICAgICAgICAgIGRlc2lnbklkXHJcbiAgICAgICAgICAgICAgICAgICAgKX1gXHJcbiAgICAgICAgICAgICAgICAgIClcclxuICAgICAgICAgICAgICAgIH1cclxuICAgICAgICAgICAgICA+XHJcbiAgICAgICAgICAgICAgICB7dC5lZGl0RGVzaWdufVxyXG4gICAgICAgICAgICAgIDwvYnV0dG9uPlxyXG4gICAgICAgICAgICApfVxyXG5cclxuICAgICAgICAgICAge2Rlc2lnbj8uc3RhdHVzICE9PSAnQVJDSElWRUQnICYmIGRlc2lnbj8uc3RhdHVzICE9PSAnTE9DS0VEJyAmJiBkZXNpZ24/LnN0YXR1cyAhPT0gJ0FUVEFDSEVEX1RPX0JPT0tJTkcnICYmIChcclxuICAgICAgICAgICAgICA8YnV0dG9uXHJcbiAgICAgICAgICAgICAgICB0eXBlPVwiYnV0dG9uXCJcclxuICAgICAgICAgICAgICAgIGNsYXNzTmFtZT1cInJpbmctYnRuLXNlY29uZGFyeVwiXHJcbiAgICAgICAgICAgICAgICBzdHlsZT17eyBjb2xvcjogJyNlZjQ0NDQnLCBib3JkZXJDb2xvcjogJyNmY2E1YTUnIH19XHJcbiAgICAgICAgICAgICAgICBkaXNhYmxlZD17YXJjaGl2aW5nfVxyXG4gICAgICAgICAgICAgICAgb25DbGljaz17aGFuZGxlQXJjaGl2ZX1cclxuICAgICAgICAgICAgICAgIGRhdGEtdGVzdGlkPVwiYXJjaGl2ZS1kZXNpZ24tYnRuXCJcclxuICAgICAgICAgICAgICA+XHJcbiAgICAgICAgICAgICAgICB7YXJjaGl2aW5nID8gdC5hcmNoaXZpbmcgOiB0LmFyY2hpdmVEZXNpZ259XHJcbiAgICAgICAgICAgICAgPC9idXR0b24+XHJcbiAgICAgICAgICAgICl9XHJcbiAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICA8L2Rpdj5cclxuICAgICAgPC9kaXY+XHJcbiAgICA8L2Rpdj5cclxuICApO1xyXG59XHJcblxyXG4iXSwiZmlsZSI6IkM6L1VzZXJzL2FkbWluL0Rlc2t0b3AvU0VQL21sYW5kLW9wZXJhdGlvbnMtaHViL3Bwc3dic19mcm9udGVuZC9zcmMvZmVhdHVyZXMvcmluZ2Rlc2lnbmNvbmZpZ3VyYXRpb24vdWkvRGVzaWduRXZhbHVhdGlvblBhZ2UuanN4In0=

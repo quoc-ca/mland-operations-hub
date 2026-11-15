@@ -10,10 +10,6 @@ import org.springframework.stereotype.Component;
 public class WorkshopOperationsSettlementAdapter {
     private final WorkshopOperationsFacade operations;
 
-    public SettlementReadiness readiness(String bookingReference) {
-        return operations.getSettlementReadiness(new BookingSettlementReadinessQuery(bookingReference));
-    }
-
     /** Whether the Staff member is actively assigned to a session this booking holds a valid ticket for. */
     public boolean staffAssignedToBooking(Long staffAccountId, String bookingReference) {
         return operations.isStaffAssignedToBooking(new StaffBookingAssignmentQuery(staffAccountId, bookingReference));
@@ -29,32 +25,12 @@ public class WorkshopOperationsSettlementAdapter {
                 new edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.TicketAttendanceOutcomeQuery(
                         ticketReference));
     }
-
-    /**
-     * @deprecated Booking-wide attendance is removed; use {@link #ticketAttendanceOutcome(String)}.
-     */
-    @Deprecated
-    public BookingAttendanceOutcome attendanceOutcome(String bookingReference) {
-        return BookingAttendanceOutcome.pending();
-    }
-
-    public BookingCancellationEligibilitySnapshot cancellationEligibility(String bookingReference) {
-        return operations.getBookingCancellationEligibility(new BookingCancellationEligibilityQuery(bookingReference));
-    }
-
     public java.util.List<WorkshopAddOnPriceSnapshot> listAddOns(String packageReference, Long locationReference) {
         return operations.listWorkshopAddOns(new WorkshopAddOnListQuery(packageReference, locationReference));
     }
 
     public WorkshopAddOnPriceSnapshot addOnPrice(String packageReference, Long locationReference, String addOnReference) {
         return operations.getWorkshopAddOnPrice(new WorkshopAddOnPriceQuery(packageReference, locationReference, addOnReference));
-    }
-
-    public RequiredSessionReplacementOutcome replace(String bookingReference,
-            java.util.List<String> targetSessionReferences, String operationReference, String correlationReference) {
-        return operations.replaceRequiredSessions(new ReplaceRequiredSessionsCommand(
-                bookingReference, targetSessionReferences.stream().map(java.util.UUID::fromString).toList(),
-                operationReference, correlationReference));
     }
 
     public RefundConsequenceOutcome applyRefund(String bookingReference, String verifiedRefundReference,
@@ -69,12 +45,6 @@ public class WorkshopOperationsSettlementAdapter {
                 java.util.UUID.fromString(sessionReference), cancellationCaseReference, operationReference, correlationReference));
     }
 
-    public CancellationCompletionOutcome cancelBooking(String bookingReference,
-            String cancellationCaseReference, String operationReference, String correlationReference) {
-        return operations.cancelBooking(new CancelBookingCommand(
-                bookingReference, cancellationCaseReference, operationReference, correlationReference));
-    }
-
     public TicketCancellationOutcome cancelTicket(java.util.UUID ticketReference,
             String cancellationCaseReference, String operationReference, String correlationReference) {
         return operations.cancelTicket(new CancelTicketCommand(
@@ -83,6 +53,18 @@ public class WorkshopOperationsSettlementAdapter {
 
     public TicketSessionReplacementOutcome replaceTicketSessions(ReplaceTicketSessionsCommand command) {
         return operations.replaceTicketSessions(command);
+    }
+
+    /** The active tickets of one 003.2 booking line with their sessions (T112 maps a cancelled session to tickets). */
+    public DeliverySafeTicketSet ticketProjection(String bookingReference) {
+        return operations.getBookingTicketProjection(new BookingTicketProjectionQuery(bookingReference));
+    }
+
+    /** Every valid equivalent replacement for one cancelled session of a ticket, read only (T112, FR-043). */
+    public EquivalentReplacementSessions equivalentReplacementSessions(java.util.UUID ticketReference,
+            java.util.UUID cancelledSessionReference) {
+        return operations.findEquivalentReplacementSessions(
+                new FindEquivalentReplacementSessionsQuery(ticketReference, cancelledSessionReference));
     }
 
     public SaleEligibilitySnapshot saleEligibility(java.util.UUID sessionReference) {

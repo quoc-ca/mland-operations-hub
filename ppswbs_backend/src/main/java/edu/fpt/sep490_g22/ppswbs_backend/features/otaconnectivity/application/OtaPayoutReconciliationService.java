@@ -137,6 +137,7 @@ public class OtaPayoutReconciliationService {
                     dispute = openDispute(booking, position, actor);
                 }
             }
+            case COMPENSATION -> { }
             case VARIANCE, DISPUTE -> dispute = openDispute(booking, position, actor);
         }
         return new OtaPayoutReconciliationResult(entry.getPublicReference(), position.getStatus(),
@@ -190,7 +191,8 @@ public class OtaPayoutReconciliationService {
                 || type == OtaPayoutEvidenceType.REMITTANCE) && command.amountMinor() <= 0) {
             throw new IllegalArgumentException("Payout stage amount must be positive");
         }
-        if ((type == OtaPayoutEvidenceType.ADJUSTMENT || type == OtaPayoutEvidenceType.REVERSAL)
+        if ((type == OtaPayoutEvidenceType.ADJUSTMENT || type == OtaPayoutEvidenceType.COMPENSATION
+                || type == OtaPayoutEvidenceType.REVERSAL)
                 && command.amountMinor() == 0) {
             throw new IllegalArgumentException("Correction amount must be nonzero");
         }
@@ -261,6 +263,7 @@ public class OtaPayoutReconciliationService {
             case ELIGIBILITY, INVOICE, REMITTANCE -> OtaPayoutLedgerKind.EXPECTED_PAYOUT;
             case BANK_RECEIPT -> OtaPayoutLedgerKind.RECEIVED_PAYOUT;
             case ADJUSTMENT -> OtaPayoutLedgerKind.ADJUSTMENT;
+            case COMPENSATION -> OtaPayoutLedgerKind.COMPENSATION;
             case REVERSAL -> OtaPayoutLedgerKind.REVERSAL;
             case VARIANCE -> OtaPayoutLedgerKind.FX_VARIANCE;
             case DISPUTE -> OtaPayoutLedgerKind.DISPUTE;

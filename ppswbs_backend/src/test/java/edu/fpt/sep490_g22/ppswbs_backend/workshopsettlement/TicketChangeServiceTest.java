@@ -18,6 +18,8 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.Tick
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementBusinessAuditRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementFinalBillRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementTicketChangeRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementTicketChangeRequestRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementTicketChangeRequest;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.TicketChangeDtos.ChangeAllowanceResponseDto;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.TicketChangeDtos.ChangeResultDto;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.TicketChangeDtos.GrantChangeAllowanceRequestDto;
@@ -29,6 +31,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.Sett
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.WorkshopOperationsSettlementAdapter;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.FolioBalanceService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.TicketChangeService;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.WorkshopSettlementAuthorizationService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.WorkshopSettlementAuthorizationException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.WorkshopSettlementConflictException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.WorkshopSettlementValidationException;
@@ -71,6 +74,8 @@ class TicketChangeServiceTest {
     private SettlementBusinessAuditRepository auditRepository;
     @Mock
     private LoyaltyFacade loyalty;
+    @Mock
+    private SettlementTicketChangeRequestRepository requestRepository;
 
     private TicketChangeService service;
 
@@ -94,8 +99,34 @@ class TicketChangeServiceTest {
                 changeRepository,
                 folioBalanceService,
                 auditRepository,
-                loyalty
+                loyalty,
+                new WorkshopSettlementAuthorizationService(
+                        mock(edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountFacade.class),
+                        auditRepository, operations),
+                requestRepository
         );
+        lenient().when(requestRepository.save(any(SettlementTicketChangeRequest.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+    }
+
+    @Test
+    @DisplayName("T116: Staff acting for a buyer outside the ticket's location, or inactive, is refused before anything")
+    void staffOnBehalf_outOfScopeOrInactive_isRefused() {
+        TicketFolioContext ctx = createDefaultContext(0L, Instant.now().plus(48, ChronoUnit.HOURS));
+        when(booking.getTicketFolioContext(TICKET_CODE)).thenReturn(Optional.of(ctx));
+        when(finalBills.findByBookingReference(TICKET_CODE)).thenReturn(Optional.of(createDefaultFolio(100_000L)));
+        TicketChangeRequestDto req = new TicketChangeRequestDto(TicketChangeType.ADVANCE, List.of(TARGET_SESSION_1),
+                null, "bvr-proof-1234567890", "Counter request");
+
+        CurrentAccountActor otherBranch = new CurrentAccountActor(STAFF_ACCOUNT_ID, ActorRole.STAFF, ActorStatus.ACTIVE, false, List.of(99L));
+        assertThatThrownBy(() -> service.changeTicketSessions(TICKET_CODE, req, IDEMPOTENCY_KEY, "CORR-T116a", otherBranch))
+                .isInstanceOf(WorkshopSettlementAuthorizationException.class);
+        CurrentAccountActor inactive = new CurrentAccountActor(STAFF_ACCOUNT_ID, ActorRole.STAFF, ActorStatus.SUSPENDED, false, List.of(10L));
+        assertThatThrownBy(() -> service.changeTicketSessions(TICKET_CODE, req, IDEMPOTENCY_KEY, "CORR-T116b", inactive))
+                .isInstanceOf(WorkshopSettlementAuthorizationException.class);
+
+        verify(booking, never()).consumeBuyerProof(any());
+        verify(operations, never()).replaceTicketSessions(any());
     }
 
     private TicketFolioContext createDefaultContext(long voucherDiscountVnd, Instant firstSessionStart) {
@@ -190,10 +221,14 @@ class TicketChangeServiceTest {
                 null
         );
 
-        // Attempting a second change fails with CHANGE_ALLOWANCE_EXHAUSTED
-        assertThatThrownBy(() -> service.changeTicketSessions(TICKET_CODE, request, IDEMPOTENCY_KEY, "CORR-02", memberActor))
-                .isInstanceOf(WorkshopSettlementConflictException.class)
-                .hasMessageContaining("CHANGE_ALLOWANCE_EXHAUSTED");
+        // Attempting a second change no longer fails: only a Manager can allow it, so it waits in the queue (T117)
+        when(folioBalanceService.balanceOf(any())).thenReturn(new FolioBalanceService.FolioBalance(100_000L, 0L, 100_000L));
+        ChangeResultDto queued = service.changeTicketSessions(TICKET_CODE, request, IDEMPOTENCY_KEY, "CORR-02", memberActor);
+        assertThat(queued.applied()).isFalse();
+        assertThat(queued.changeRequestReference()).startsWith("CHG-REQ-");
+        verify(requestRepository).save(argThat(r -> "CHANGE_ALLOWANCE_EXHAUSTED".equals(r.getBlockedRules())
+                && SettlementTicketChangeRequest.PENDING.equals(r.getStatus())));
+        verify(operations, never()).replaceTicketSessions(any());
 
         // Now Manager grants extra allowance (FR-054)
         CurrentAccountActor managerActor = new CurrentAccountActor(MANAGER_ACCOUNT_ID, ActorRole.MANAGER, ActorStatus.ACTIVE, false, List.of());
@@ -206,7 +241,6 @@ class TicketChangeServiceTest {
 
         // With 1 manager grant present, remaining allowance is 1 + 1 - 1 = 1 > 0
         when(changeRepository.countByTicketCodeAndChangeTypeAndAppliedTrue(TICKET_CODE, "MANAGER_GRANTED")).thenReturn(1L);
-        when(folioBalanceService.balanceOf(any())).thenReturn(new FolioBalanceService.FolioBalance(100_000L, 0L, 100_000L));
         when(operations.replaceTicketSessions(any())).thenReturn(TicketSessionReplacementOutcome.accepted());
 
         ChangeResultDto secondResult = service.changeTicketSessions(TICKET_CODE, request, "idem-key-second-change-ok", "CORR-04", memberActor);
@@ -215,7 +249,7 @@ class TicketChangeServiceTest {
     }
 
     @Test
-    @DisplayName("changeTicketSessions: advance change within 24 hours of first session start throws 409 ADVANCE_CHANGE_WINDOW_EXPIRED")
+    @DisplayName("changeTicketSessions: advance change within 24 hours of first session start waits in the Manager queue (T117)")
     void advanceChange_within24Hours_throws409() {
         // First session start is in 12 hours (less than 24h)
         TicketFolioContext ctx = createDefaultContext(0L, Instant.now().plus(12, ChronoUnit.HOURS));
@@ -236,9 +270,66 @@ class TicketChangeServiceTest {
                 null
         );
 
-        assertThatThrownBy(() -> service.changeTicketSessions(TICKET_CODE, request, IDEMPOTENCY_KEY, "CORR-05", memberActor))
+        when(folioBalanceService.balanceOf(any())).thenReturn(new FolioBalanceService.FolioBalance(100_000L, 0L, 100_000L));
+
+        ChangeResultDto queued = service.changeTicketSessions(TICKET_CODE, request, IDEMPOTENCY_KEY, "CORR-05", memberActor);
+
+        assertThat(queued.applied()).isFalse();
+        assertThat(queued.changeRequestReference()).isNotBlank();
+        ArgumentCaptor<SettlementTicketChangeRequest> saved = ArgumentCaptor.forClass(SettlementTicketChangeRequest.class);
+        verify(requestRepository).save(saved.capture());
+        assertThat(saved.getValue().getBlockedRules()).isEqualTo("ADVANCE_CHANGE_WINDOW_EXPIRED");
+        assertThat(saved.getValue().getExpiresAt()).isEqualTo(ctx.firstSessionStart());
+        verify(operations, never()).replaceTicketSessions(any());
+    }
+
+    @Test
+    @DisplayName("changeTicketSessions: window closed and the old session already started -> nothing to wait for, refused 409")
+    void advanceChange_oldSessionStarted_refused() {
+        TicketFolioContext ctx = createDefaultContext(0L, Instant.now().minus(1, ChronoUnit.HOURS));
+        when(booking.getTicketFolioContext(TICKET_CODE)).thenReturn(Optional.of(ctx));
+        when(finalBills.findByBookingReference(TICKET_CODE)).thenReturn(Optional.of(createDefaultFolio(100_000L)));
+        when(folioBalanceService.balanceOf(any())).thenReturn(new FolioBalanceService.FolioBalance(100_000L, 0L, 100_000L));
+        CurrentAccountActor memberActor = new CurrentAccountActor(BUYER_ACCOUNT_ID, ActorRole.MEMBER, ActorStatus.ACTIVE, false, List.of(10L));
+        TicketChangeRequestDto request = new TicketChangeRequestDto(TicketChangeType.ADVANCE, List.of(TARGET_SESSION_1), null, null, null);
+
+        assertThatThrownBy(() -> service.changeTicketSessions(TICKET_CODE, request, IDEMPOTENCY_KEY, "CORR-05b", memberActor))
                 .isInstanceOf(WorkshopSettlementConflictException.class)
                 .hasMessageContaining("ADVANCE_CHANGE_WINDOW_EXPIRED");
+        verify(requestRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("changeTicketSessions: a second request while one is pending -> 409 CHANGE_REQUEST_PENDING")
+    void queuedRequest_secondOneWhilePending_refused() {
+        TicketFolioContext ctx = createDefaultContext(0L, Instant.now().plus(12, ChronoUnit.HOURS));
+        when(booking.getTicketFolioContext(TICKET_CODE)).thenReturn(Optional.of(ctx));
+        when(finalBills.findByBookingReference(TICKET_CODE)).thenReturn(Optional.of(createDefaultFolio(100_000L)));
+        when(folioBalanceService.balanceOf(any())).thenReturn(new FolioBalanceService.FolioBalance(100_000L, 0L, 100_000L));
+        when(requestRepository.existsByTicketCodeAndStatus(TICKET_CODE, "PENDING")).thenReturn(true);
+        CurrentAccountActor memberActor = new CurrentAccountActor(BUYER_ACCOUNT_ID, ActorRole.MEMBER, ActorStatus.ACTIVE, false, List.of(10L));
+        TicketChangeRequestDto request = new TicketChangeRequestDto(TicketChangeType.ADVANCE, List.of(TARGET_SESSION_1), null, null, null);
+
+        assertThatThrownBy(() -> service.changeTicketSessions(TICKET_CODE, request, IDEMPOTENCY_KEY, "CORR-05c", memberActor))
+                .isInstanceOf(WorkshopSettlementConflictException.class)
+                .hasMessageContaining("CHANGE_REQUEST_PENDING");
+    }
+
+    @Test
+    @DisplayName("changeTicketSessions: a Guest's request is queued and spends the buyer proof once")
+    void queuedRequest_guest_consumesProofOnce() {
+        TicketFolioContext ctx = createDefaultContext(0L, Instant.now().plus(12, ChronoUnit.HOURS));
+        when(booking.getTicketFolioContext(TICKET_CODE)).thenReturn(Optional.of(ctx));
+        when(finalBills.findByBookingReference(TICKET_CODE)).thenReturn(Optional.of(createDefaultFolio(100_000L)));
+        when(folioBalanceService.balanceOf(any())).thenReturn(new FolioBalanceService.FolioBalance(100_000L, 0L, 100_000L));
+        when(booking.consumeBuyerProof(any())).thenReturn(ConsumeBuyerProofResult.accepted());
+        TicketChangeRequestDto request = new TicketChangeRequestDto(TicketChangeType.ADVANCE, List.of(TARGET_SESSION_1), null,
+                "bvr-" + "a".repeat(20), null);
+
+        ChangeResultDto queued = service.changeTicketSessions(TICKET_CODE, request, IDEMPOTENCY_KEY, "CORR-05d", null);
+
+        assertThat(queued.changeRequestReference()).isNotBlank();
+        verify(booking, times(1)).consumeBuyerProof(any());
     }
 
     @Test
@@ -271,7 +362,7 @@ class TicketChangeServiceTest {
     }
 
     @Test
-    @DisplayName("changeTicketSessions: 003.2 reschedule quota exhausted throws 409 RESCHEDULE_QUOTA_EXHAUSTED")
+    @DisplayName("changeTicketSessions: 003.2 reschedule quota exhausted waits in the Manager queue (T117)")
     void quotaExhausted_throws409() {
         TicketFolioContext ctx = createDefaultContext(0L, Instant.now().plus(48, ChronoUnit.HOURS));
         when(booking.getTicketFolioContext(TICKET_CODE)).thenReturn(Optional.of(ctx));
@@ -294,9 +385,13 @@ class TicketChangeServiceTest {
                 null
         );
 
-        assertThatThrownBy(() -> service.changeTicketSessions(TICKET_CODE, request, IDEMPOTENCY_KEY, "CORR-07", memberActor))
-                .isInstanceOf(WorkshopSettlementConflictException.class)
-                .hasMessageContaining("RESCHEDULE_QUOTA_EXHAUSTED");
+        when(folioBalanceService.balanceOf(any())).thenReturn(new FolioBalanceService.FolioBalance(100_000L, 0L, 100_000L));
+
+        ChangeResultDto queued = service.changeTicketSessions(TICKET_CODE, request, IDEMPOTENCY_KEY, "CORR-07", memberActor);
+
+        assertThat(queued.applied()).isFalse();
+        assertThat(queued.changeRequestReference()).isNotBlank();
+        verify(requestRepository).save(argThat(r -> "RESCHEDULE_QUOTA_EXHAUSTED".equals(r.getBlockedRules())));
     }
 
     @Test
@@ -585,7 +680,7 @@ class TicketChangeServiceTest {
         assertThat(result.balanceDue()).isEqualTo("100000");
 
         verifyNoInteractions(booking);
-        verifyNoInteractions(operations);
+        verify(operations, never()).replaceTicketSessions(any());
     }
 
     @Test

@@ -1,7 +1,7 @@
 # Implementation Plan: Workshop OTA Connectivity
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-14
+**Date updated**: 2026-11-15
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -51,7 +51,7 @@ provider delivery failure suspends the mapping.
 
 **Project Type**: Modular-monolith web application with external OTA adapters.
 
-**Performance Goals**: No approved numeric latency, retry, or throughput target. Correctness, idempotency, auditability, and safe sales closure take priority over apparent immediacy.
+**Performance Goals**: Outbound retry default (Clarifications Q7, T127): 3 attempts at 30 seconds, 2 minutes and 10 minutes, configuration defaults; no approved numeric latency or throughput target. Correctness, idempotency, auditability, and safe sales closure take priority over apparent immediacy.
 
 **Constraints**: Mland is authoritative for schedule, capacity and ticket
 issuance; 003.4 consumes the 003.2 schedule and availability/sale-state
@@ -74,7 +74,7 @@ idempotent; a failed mapping closes OTA sales until confirmed re-sync.
 | State and security simplicity | PASS | PASS | Durable business state is limited to mappings, changes, deliveries, inbound events, bookings, financial positions, and reconciliation work. No new session/JWT/stateful frontend mechanism is introduced. |
 | Provider readiness | CONDITIONAL | CONDITIONAL | Public documentation proves possible API capabilities only. It cannot approve commercial terms, production credentials, ticket proof, or late-booking responsibility; those remain explicit release gates. |
 
-No constitution exception is requested. *(Note 2026-11-14, decided by Hồ Hoàng Quốc — resolve the reference to a secret in the approved secret channel (T059; blocks T054 until implemented): the interim ingress `POST /api/v1/ota-provider/booking-events` compares `X-Ota-Signature` with `credential_reference` stored in MySQL, i.e. a bearer secret in the database, against Constitution II. `credential_reference` stays a non-secret lookup name and the backend resolves it to a secret held in the approved secret channel; an unresolvable reference fails closed in every environment, `TEST` included, and no exception is recorded. Tracked by T059.)* The conditional provider gate constrains release behavior, not the documentation plan: the only permitted pre-gate mode is sales-closed/preparation synchronization.
+No constitution exception is requested. *(Note 2026-11-14, decided by Hồ Hoàng Quốc — resolve the reference to a secret in the approved secret channel (T059; done 2026-11-14, 11/11; no longer blocks T054): the interim ingress `POST /api/v1/ota-provider/booking-events` compares `X-Ota-Signature` with `credential_reference` stored in MySQL, i.e. a bearer secret in the database, against Constitution II. `credential_reference` stays a non-secret lookup name and the backend resolves it to a secret held in the approved secret channel; an unresolvable reference fails closed in every environment, `TEST` included, and no exception is recorded. Tracked by T059.)* The conditional provider gate constrains release behavior, not the documentation plan: the only permitted pre-gate mode is sales-closed/preparation synchronization.
 
 ## Project Structure
 
@@ -143,7 +143,7 @@ The source tree is a proposed boundary, not an instruction to create it before t
   call or mutate a mapping from an update that has not been accepted as current.
   Publish `SALES_PAUSED` as normal closed/zero availability while retaining the
   mapping.
-- Deduplicate inbound callbacks by provider, provider event reference, and safe payload fingerprint before invoking Mland booking/ticket effects. A duplicate therefore returns the prior outcome and never consumes additional capacity. *(Aligned 2026-11-14 to the implemented key in `OtaInboundEventService`: unique per connection, SHA-256 of `EVENT:<provider>:<external event reference, or the external booking reference for a booking callback without one>`, and `PAYLOAD:<fingerprint>` only when no reference exists. Same reference with a different fingerprint returns the prior outcome. Decided 2026-11-14 (Hồ Hoàng Quốc): this key is confirmed; same reference with a different fingerprint is refused as a conflict and opens an `INBOUND_EVENT` work item, and an adapter never invents an event reference (T060); see spec.md A1.)*
+- Deduplicate inbound callbacks by provider, provider event reference, and safe payload fingerprint before invoking Mland booking/ticket effects. A duplicate therefore returns the prior outcome and never consumes additional capacity. *(Aligned 2026-11-14 to the implemented key in `OtaInboundEventService`: unique per connection, SHA-256 of `EVENT:<provider>:<external event reference, or the external booking reference for a booking callback without one>`, and `PAYLOAD:<fingerprint>` only when no reference exists. ~~Same reference with a different fingerprint returns the prior outcome.~~ Decided 2026-11-14 (Hồ Hoàng Quốc): this key is confirmed; same reference with a different fingerprint is refused as a conflict and opens an `INBOUND_EVENT` work item, and an adapter never invents an event reference (T060); see spec.md A1.)*
 - Permit only `PER_PERSON` sale and require one successful Mland ticket for each participant. A provider booking cannot become confirmed until the Operations facade atomically reserves capacity and returns those tickets.
 - Separate OTA guest payment evidence, OTA payout owed to Mland, and any direct Mland add-on bill. None is derived from a browser redirect or from another ledger.
 - Treat provider-specific timeout, retries, idempotency header, cancellation,
@@ -188,3 +188,9 @@ consumer receives the persistent internal Operations publication again and
 creates no duplicate logical outbound change before its separately durable
 provider delivery. Do not deploy booking capability merely because preparation
 synchronization succeeds.
+
+## Clarifications 2026-11-15 (003.4)
+
+*Note 2026-11-15, responsible member Hồ Hoàng Quốc; source: spec Clarifications Session 2026-11-15, Q1–Q9.* Cancellation ingress: `POST /api/v1/ota-provider/cancellation-events` (T121) authenticates like `booking-events` and maps the provider's own JSON through its cancellation adapter (FR-010, FR-011). A confirmed partial cancellation of k participants revokes k tickets by a fixed rule through the 003.2 OTA-only revocation operation (003.2 T123, a dependency of T125); no work item for a normal partial and no email or SMS to an OTA customer (Q3, Q4). Expected net is `targetNetAmount × N`, reconciled in the price terms' currency with FX differences as adjustments (Q1, Q2). Outbound retry default: 3 attempts at 30 s, 2 min and 10 min (Q7, T127). `SHARED_VOUCHER_INCIDENT` is removed (Q8, T128). The V1 offer is Signature Workshop — Brass, legacy name "Basic Ring" (Q9, T129).
+
+**Approval**: Approved 2026-11-15 by Hồ Hoàng Quốc (owner Feature 003) for the 2026-11-15 content (spec Status and Clarifications Session 2026-11-15).

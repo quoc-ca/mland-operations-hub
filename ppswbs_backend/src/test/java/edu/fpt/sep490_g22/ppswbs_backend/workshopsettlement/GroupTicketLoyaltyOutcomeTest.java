@@ -8,7 +8,6 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.Sett
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementFinalBillLifecycleStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.WorkshopBookingSettlementAdapter;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.WorkshopOperationsSettlementAdapter;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.WorkshopCancellationLoyaltyService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.WorkshopLoyaltyOutcomeProcessor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -53,14 +52,12 @@ class GroupTicketLoyaltyOutcomeTest {
         SettlementChargeRepository charges = mock(SettlementChargeRepository.class);
         SettlementEvidenceConclusionRepository evidence = mock(SettlementEvidenceConclusionRepository.class);
         SettlementCaseRepository cases = mock(SettlementCaseRepository.class);
-        WorkshopCancellationLoyaltyService cancellationLoyalty = mock(WorkshopCancellationLoyaltyService.class);
         when(bills.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(bills.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(charges.findByBillReferenceAndLifecycleStatusOrderByIdAsc(anyString(), anyString()))
                 .thenReturn(List.of());
         when(evidence.findByBookingReferenceAndConclusion(anyString(), anyString())).thenReturn(List.of());
-        processor = new WorkshopLoyaltyOutcomeProcessor(bills, charges, evidence, cases, booking, operations,
-                cancellationLoyalty, loyalty);
+        processor = new WorkshopLoyaltyOutcomeProcessor(bills, charges, evidence, booking, operations, loyalty);
 
         folios.add(folio(TICKET_A));
         folios.add(folio(TICKET_B));

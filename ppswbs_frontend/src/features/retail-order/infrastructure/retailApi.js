@@ -30,6 +30,7 @@ export function retailApi(request) {
     handOverOrder: orderId => request(`/api/v1/ready-ring-orders/${id(orderId)}/pickup-confirmations`, { method: 'POST' }),
     dailyCash: (locationId, businessDate) => request('/api/v1/manager/retail-cash-collections', { query: { locationId, businessDate } }),
     listSavedVouchers: () => request('/api/v1/members/me/saved-vouchers', { query: { limit: 100 } }),
+    listPublicProductPromotions: () => request('/api/v1/promotions', { query: { scope: 'PRODUCT', limit: 100 }, auth: false }),
     getLoyaltyAccount: () => request('/api/v1/members/me/loyalty-accounts/current'),
     previewBenefits: body => request('/api/v1/ready-ring-benefit-previews', { method: 'POST', body }),
     quoteShipping: body => request('/api/v1/ready-ring-shipping-quotes', { method: 'POST', body }),

@@ -23,8 +23,8 @@ export function publicProduct(overrides = {}) {
     id: '42', name: 'Nhẫn bạc', description: 'Bạc 925', category: { id: '7', name: 'Nhẫn cưới' },
     images: [{ id: '9', url: '/api/v1/product-media/9', altText: 'Mặt trước', position: 0 }],
     variants: [
-      { id: '101', size: 12, sku: 'SP000042-S12', appliedPrice: '1250000', currency: 'VND', saleEnabled: true, canBuy: true },
-      { id: '102', size: 14, sku: 'SP000042-S14', appliedPrice: '1300000', currency: 'VND', saleEnabled: false, canBuy: false },
+      { id: '101', size: 12, sku: 'SP000042-S12', appliedPrice: '1250000', currency: 'VND', saleEnabled: true, canBuy: true, availableQuantity: '5' },
+      { id: '102', size: 14, sku: 'SP000042-S14', appliedPrice: '1300000', currency: 'VND', saleEnabled: false, canBuy: false, availableQuantity: '0' },
     ],
     priceRange: { minimum: '1250000', maximum: '1300000', currency: 'VND' }, canBuy: true, createdAt: '2026-10-30T00:00:00Z',
     ...overrides,

@@ -4856,6 +4856,10 @@
             "items": {
               "$ref": "#/components/schemas/PublicVariantBranch"
             }
+          },
+          "availableQuantity": {
+            "$ref": "#/components/schemas/Quantity",
+            "description": "Added 2026-11-14 (product detail \"N sản phẩm có sẵn\"): remaining − valid holds of the size, capped by the sum of branches[].availableQuantity when assignedToBranches; \"0\" when not on sale. Display only; FE-08 re-checks on add/checkout."
           }
         },
         "required": [
@@ -4867,7 +4871,8 @@
           "saleEnabled",
           "canBuy",
           "assignedToBranches",
-          "branches"
+          "branches",
+          "availableQuantity"
         ]
       },
       "PriceRange": {
@@ -5812,18 +5817,23 @@
       "PublicVariantBranch": {
         "type": "object",
         "additionalProperties": false,
-        "description": "US10 FR-046/FR-052: an active branch selling the size; canBuy = available there now. No quantity, hold or stopped branch is exposed.",
+        "description": "US10 FR-046/FR-052: an active branch selling the size; canBuy = availableQuantity > 0. No hold or stopped branch is exposed.",
         "properties": {
           "locationId": {
             "$ref": "#/components/schemas/Id"
           },
           "canBuy": {
             "type": "boolean"
+          },
+          "availableQuantity": {
+            "$ref": "#/components/schemas/Quantity",
+            "description": "Added 2026-11-14: min(branch remaining − holds at the branch, size remaining − holds of the size), not negative; \"0\" when the size is not on sale. Display only."
           }
         },
         "required": [
           "locationId",
-          "canBuy"
+          "canBuy",
+          "availableQuantity"
         ]
       }
     }

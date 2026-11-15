@@ -68,13 +68,12 @@ public class LocalRetailShippingQuoteAdapter implements RetailShippingQuotePort 
             properties.getPickupAddress(), properties.getPickupProvince(), properties.getPickupDistrict(), properties.getPickupWard(),
             recipient.address(), recipient.province(), recipient.district(), recipient.ward(), weight, declaredValue);
         GhtkFeeTransport.FeeResponse response = ghtk.quote(request);
-        // GHTK's administrative directory can lag behind the address directory used by the member profile.
-        // Preserve the full address first, then retry without the optional ward query parameter only when
-        // GHTK explicitly says the route is unavailable.
-        if (response.success() && !response.deliveryAvailable() && recipient.ward() != null && !recipient.ward().isBlank()) {
+        // An old address may still carry a pre-merger district that GHTK no longer matches with the new ward.
+        // When GHTK says the route is unavailable, retry once with the two-level address (no district).
+        if (response.success() && !response.deliveryAvailable() && hasText(recipient.district())) {
             response = ghtk.quote(new GhtkFeeTransport.FeeRequest(
                 request.pickupAddress(), request.pickupProvince(), request.pickupDistrict(), request.pickupWard(),
-                request.address(), request.province(), request.district(), null, request.weightGrams(), request.declaredValue()));
+                request.address(), request.province(), null, request.ward(), request.weightGrams(), request.declaredValue()));
         }
         Instant expiresAt = Instant.now().plus(15, ChronoUnit.MINUTES);
         if (!response.success()) {
@@ -95,10 +94,9 @@ public class LocalRetailShippingQuoteAdapter implements RetailShippingQuotePort 
     }
 
     private boolean hasRecipient(RetailCheckoutPorts.RecipientAddress recipient) {
-        // GHTK accepts fee quotes with the recipient's province and district even
-        // when a ward has not been selected yet.  Requiring the ward here made a
-        // valid GHTK route impossible to quote from a saved address without it.
-        return hasText(recipient.address()) && hasText(recipient.province()) && hasText(recipient.district());
+        // After the 2025 merger an address is Province -> Ward/Commune (FE-001 V150); GHTK's fee API requires
+        // province and ward, and the district is only an optional hint.
+        return hasText(recipient.address()) && hasText(recipient.province()) && hasText(recipient.ward());
     }
 
     private boolean hasText(String value) {

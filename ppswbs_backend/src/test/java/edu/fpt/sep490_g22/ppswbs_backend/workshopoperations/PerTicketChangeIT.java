@@ -371,6 +371,82 @@ class PerTicketChangeIT {
         assertThat(outcome.failingLineIndexes()).containsExactly(0);
     }
 
+    @Test
+    @DisplayName("T110: a replayed refused replacement keeps the failing line indexes")
+    void replace_refusedReplay_keepsFailingLineIndexes() {
+        WorkshopSession source = publishedSession(10, morning, 5);
+        WorkshopSession target = publishedSession(11, afternoon, 5);
+        sessionService.setRescheduleQuota(MANAGER_TOKEN, target.getReference(),
+                RescheduleQuotaRequest.builder().quota(0).reason("No customer changes").build());
+        List<AttendanceTicket> group = confirmGroup(source, 2);
+        ReplaceTicketSessionsCommand command = new ReplaceTicketSessionsCommand(
+                List.of(new ReplaceTicketSessionsCommand.Line(UUID.fromString(group.get(0).getReference()),
+                                List.of(UUID.fromString(target.getReference()))),
+                        new ReplaceTicketSessionsCommand.Line(UUID.fromString(group.get(1).getReference()),
+                                List.of(UUID.fromString(target.getReference())))),
+                TicketReplacementType.CUSTOMER_ADVANCE, "op-replay-" + UUID.randomUUID(), "corr-ptc");
+
+        TicketSessionReplacementOutcome first = facade.replaceTicketSessions(command);
+        TicketSessionReplacementOutcome replay = facade.replaceTicketSessions(command);
+
+        assertThat(first.failingLineIndexes()).containsExactly(0, 1);
+        assertThat(replay.status()).isEqualTo(OutcomeStatus.REJECTED);
+        assertThat(replay.reason()).isEqualTo(RejectionReason.RESCHEDULE_QUOTA_EXHAUSTED);
+        assertThat(replay.failingLineIndexes()).containsExactly(0, 1);
+    }
+
+    @Test
+    @DisplayName("T096-a: a group reserve with one full line is refused, names that line and holds nothing")
+    void reserveGroup_oneFailingLine_holdsNothing() {
+        WorkshopSession open = publishedSession(8, morning, 5);
+        WorkshopSession full = publishedSession(9, afternoon, 1);
+        confirmGroup(full, 1); // takes the only seat
+        Integer holdsBefore = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM capacity_holds", Integer.class);
+
+        String groupReference = "GRP-" + UUID.randomUUID().toString().substring(0, 8);
+        GroupCapacityOutcome outcome = facade.reserveGroupCapacity(new ReserveGroupCapacityCommand(groupReference,
+                List.of(new ReserveGroupCapacityCommand.Line(groupReference + "-L0", String.valueOf(packageId),
+                                List.of(UUID.fromString(open.getReference())), 1),
+                        new ReserveGroupCapacityCommand.Line(groupReference + "-L1", String.valueOf(packageId),
+                                List.of(UUID.fromString(full.getReference())), 1)),
+                "op-" + UUID.randomUUID(), "corr-ptc"));
+
+        assertThat(outcome.status()).isEqualTo(OutcomeStatus.REJECTED);
+        assertThat(outcome.failingLines()).containsExactly(1);
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM capacity_holds", Integer.class))
+                .isEqualTo(holdsBefore);
+    }
+
+    @Test
+    @DisplayName("T096-b/FR-036: cancel, replace and QR reissue refuse an OTA ticket with one typed failure")
+    void otaTicket_isRefusedByCancelReplaceAndReissue() {
+        WorkshopSession source = publishedSession(8, morning, 5);
+        WorkshopSession target = publishedSession(9, afternoon, 5);
+        String otaBooking = "OTA-" + UUID.randomUUID();
+        OtaBookingCapacityOutcome accepted = facade.acceptOtaBooking(new AcceptOtaBookingCommand(otaBooking,
+                String.valueOf(packageId), UUID.fromString(source.getReference()), 1,
+                "op-" + UUID.randomUUID(), "corr-ota"));
+        assertThat(accepted.status()).isEqualTo(OutcomeStatus.ACCEPTED);
+        UUID ticket = accepted.ticketReferences().getFirst();
+
+        TicketCancellationOutcome cancel = facade.cancelTicket(new CancelTicketCommand(ticket, "case-ota",
+                "op-" + UUID.randomUUID(), "corr-ota"));
+        TicketSessionReplacementOutcome replace = facade.replaceTicketSessions(new ReplaceTicketSessionsCommand(
+                List.of(new ReplaceTicketSessionsCommand.Line(ticket, List.of(UUID.fromString(target.getReference())))),
+                TicketReplacementType.CUSTOMER_ADVANCE, "op-" + UUID.randomUUID(), "corr-ota"));
+        TicketQrReissueOutcome reissue = facade.reissueTicketQr(new ReissueTicketQrCommand(ticket,
+                QrRevokeReason.RECIPIENT_CHANGED, "op-" + UUID.randomUUID(), "corr-ota"));
+
+        assertThat(cancel.reason()).isEqualTo(RejectionReason.OTA_TICKET_NOT_SUPPORTED);
+        assertThat(replace.reason()).isEqualTo(RejectionReason.OTA_TICKET_NOT_SUPPORTED);
+        assertThat(replace.failingLineIndexes()).containsExactly(0);
+        assertThat(reissue.reason()).isEqualTo(RejectionReason.OTA_TICKET_NOT_SUPPORTED);
+        AttendanceTicket stored = ticketRepository.findByReference(ticket.toString()).orElseThrow();
+        assertThat(stored.getValidityState()).isEqualTo(TicketValidityState.ACTIVE);
+        assertThat(stored.getSalesChannel()).isEqualTo(TicketSalesChannel.OTA);
+        assertThat(sessionOf(stored)).isEqualTo(source.getId());
+    }
+
     // ---- fixtures ----
 
     private Long sessionOf(AttendanceTicket ticket) {

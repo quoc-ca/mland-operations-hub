@@ -1,7 +1,7 @@
 # Interface Contracts: Product Management
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-03 (GET media/{mediaId} cho Staff/Manager; frontend kiểm tra command receipt trước khi gửi lại; trước đó: 2026-11-01 (bước gắn ảnh hàng loạt sau import; SellingLocationPort, GET product-selling-locations, hợp đồng chuyển sang giỏ FE-08; trước đó: 2026-10-29 (`readSaleFacts` cho giỏ hàng FE-08 theo xác nhận của owner FE-08))
+**Date updated**: 2026-11-14 (nút "Mua Ngay" sang `/member/checkout` với `cartLineIds`, FR-059; trước đó: 2026-11-03 (GET media/{mediaId} cho Staff/Manager; frontend kiểm tra command receipt trước khi gửi lại; trước đó: 2026-11-01 (bước gắn ảnh hàng loạt sau import; SellingLocationPort, GET product-selling-locations, hợp đồng chuyển sang giỏ FE-08; trước đó: 2026-10-29 (`readSaleFacts` cho giỏ hàng FE-08 theo xác nhận của owner FE-08)))
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -95,7 +95,7 @@ Frontend là ứng dụng React + Vite tách riêng, render phía client và ch�
 
 | Màn hình | REST operations | Hành vi UI bắt buộc |
 | --- | --- | --- |
-| Danh sách / chi tiết công khai | `GET /api/v1/products`, `GET /api/v1/product-categories`, `GET /api/v1/product-selling-locations`; "Add to cart" gọi `POST /api/v1/members/me/ready-ring-cart/lines` của FE-08 | Public; GET không tạo cart/hold. Không phát minh route checkout của FE-08 nếu chưa có contract riêng; chọn mua chuyển sang FE-08 qua handoff đã có contract. |
+| Danh sách / chi tiết công khai | `GET /api/v1/products`, `GET /api/v1/product-categories`, `GET /api/v1/product-selling-locations`; "Add to cart" gọi `POST /api/v1/members/me/ready-ring-cart/lines` của FE-08 | Public; GET không tạo cart/hold. Không phát minh route checkout của FE-08 nếu chưa có contract riêng; chọn mua chuyển sang FE-08 qua handoff đã có contract. "Mua Ngay" (Session 2026-11-14) chỉ dùng route `/member/checkout` sẵn có của FE-08 với `cartLineIds` theo contract checkout của 008. |
 | Danh sách / tạo / chi tiết sản phẩm quản trị | GET/POST `products`, GET/PUT/DELETE `products/{productId}` | Mỗi lệnh ghi có commandId + expectedVersion; Manager được tự duyệt. Xóa qua hộp thoại xác nhận riêng. |
 | Ảnh sản phẩm | POST `media-uploads`, PUT `products/{productId}/images`, GET `media/{mediaId}` | Tải multipart một file rồi attach bằng mediaId; không dùng URL tùy ý; hiển thị tiến trình, lỗi và thử lại cùng key. Ảnh đã có (kể cả sản phẩm nháp/ẩn) hiển thị hình thu nhỏ qua `media/{mediaId}` kèm bearer; đang tải hoặc lỗi thì hiện ô số thứ tự. |
 | Gửi duyệt / quyết định | POST `review-submissions`, POST `review-decisions` | Hiển thị snapshot đúng; REJECT cần lý do; không duyệt một phần. |
@@ -152,6 +152,7 @@ Các hàm theo size ở trên **vẫn giữ nguyên** để FE-08 chạy tiếp;
 - Đọc công khai `GET /api/v1/product-selling-locations` (không cần identity, `no-store`): `{ items: [{ id, name, address }] }` sắp theo tên rồi id. Thiếu bean cài đặt, lỗi hoặc trùng id → 503 `LOCATION_DEPENDENCY_UNAVAILABLE`.
 - ~~V1: mọi chi nhánh đang hoạt động bán mọi sản phẩm đã công khai.~~ *(Thay bằng US10, 2026-11-09)*: danh sách này là danh sách chi nhánh chung; trang sản phẩm chỉ cho chọn chi nhánh có trong `variants[].branches` của `GET /api/v1/products/{id}` (đang bán size, `canBuy` = còn hàng tại chi nhánh), trừ size chưa gán chi nhánh (`assignedToBranches=false`) thì mọi chi nhánh trong danh sách. productmanagement không import module của 003.2.
 - **Hợp đồng chuyển sang giỏ (T072, Bùi Trọng Thịnh chốt 2026-11-01):** trang chi tiết gọi `POST /api/v1/members/me/ready-ring-cart/lines` với bearer của Member và body `{ variantId, locationId, quantity }` (1–99), không gửi giá/productId; thành công chuyển `/member/cart`; Guest đi đăng nhập kèm `returnTo`; FE-08 kiểm tra lại giá/khả năng bán, lỗi `VALIDATION_ERROR` (400) hoặc `RETAIL_CONFLICT` (409) hiển thị `message`. Xem catalogue không tạo giỏ/giữ hàng.
+- **"Mua Ngay" (FR-059, Đặng Thị Khương chốt 2026-11-14; cần báo owner FE-08):** gọi đúng lệnh thêm giỏ ở trên; từ `RetailCartView.lines` của phản hồi lấy dòng có cùng `variantId` và `locationId`, rồi chuyển `/member/checkout` với router state `{ cartLineIds: [lineId] }` (cách trang giỏ FE-08 đã chuyển sang checkout); không tìm thấy dòng thì chuyển `/member/cart`. FE-02 không gọi API checkout và không tính tiền. Số lượng gửi đi vẫn 1–99 và không vượt `availableQuantity` công khai (FR-052); FE-08 vẫn kiểm tra lại.
 
 ### PromotionTargetPort — FE-06 owns SPI, productmanagement implements
 

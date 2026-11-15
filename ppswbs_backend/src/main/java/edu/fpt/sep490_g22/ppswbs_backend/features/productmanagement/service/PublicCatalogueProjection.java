@@ -45,7 +45,8 @@ import java.util.stream.Collectors;
  *       published, so the hold source is always required; without it the read fails with
  *       {@code AVAILABILITY_DEPENDENCY_UNAVAILABLE}, never with zero holds.</li>
  *   <li>A disabled size is still listed with its label; a sold-out product stays visible. Only READY images
- *       are listed, as same-origin URLs. Proposals, reviews, quantities and holds are never exposed.</li>
+ *       are listed, as same-origin URLs. Proposals, reviews and holds are never exposed; the quantity that can
+ *       be bought now (remaining − holds) is, per size and per branch, for display only (2026-11-14).</li>
  * </ul>
  */
 @Service
@@ -88,7 +89,7 @@ public class PublicCatalogueProjection {
 
     /** Whether a size can be bought, and at which branches (US10). */
     public record SizeAvailability(boolean canBuy, boolean assignedToBranches,
-                                   List<PublicCatalogueDtos.PublicVariantBranch> branches) {
+                                   List<PublicCatalogueDtos.PublicVariantBranch> branches, BigInteger available) {
     }
 
     /**
@@ -117,24 +118,29 @@ public class PublicCatalogueProjection {
         for (SizeLine size : sizes) {
             BigInteger ofSize = size.remainingUnsold().subtract(heldBySize.get(size.id()));
             Map<Long, VariantBranchStock> rows = stocks.getOrDefault(size.id(), Map.of());
+            BigInteger ofSizeNow = size.saleEnabled() ? ofSize.max(BigInteger.ZERO) : BigInteger.ZERO;
             if (rows.isEmpty()) {
                 result.put(size.id(), new SizeAvailability(canBuy(size.saleEnabled(), size.remainingUnsold(),
-                        heldBySize.get(size.id())), false, List.of()));
+                        heldBySize.get(size.id())), false, List.of(), ofSizeNow));
                 continue;
             }
             List<PublicCatalogueDtos.PublicVariantBranch> branches = new ArrayList<>();
+            BigInteger atBranches = BigInteger.ZERO;
             for (VariantBranchStock row : rows.values()) {
                 BranchVariant key = new BranchVariant(size.id(), row.getLocationId());
                 HeldSnapshot held = heldByBranch.get(key);
                 if (held == null) {
                     continue; // stopped at this branch or branch not active: not listed
                 }
-                boolean buyable = size.saleEnabled()
-                        && row.getRemainingUnsold().subtract(held.heldQuantity()).min(ofSize).signum() > 0;
-                branches.add(new PublicCatalogueDtos.PublicVariantBranch(Long.toString(row.getLocationId()), buyable));
+                BigInteger here = size.saleEnabled()
+                        ? row.getRemainingUnsold().subtract(held.heldQuantity()).min(ofSize).max(BigInteger.ZERO)
+                        : BigInteger.ZERO;
+                atBranches = atBranches.add(here);
+                branches.add(new PublicCatalogueDtos.PublicVariantBranch(Long.toString(row.getLocationId()),
+                        here.signum() > 0, here.toString()));
             }
             boolean any = branches.stream().anyMatch(PublicCatalogueDtos.PublicVariantBranch::canBuy);
-            result.put(size.id(), new SizeAvailability(any, true, List.copyOf(branches)));
+            result.put(size.id(), new SizeAvailability(any, true, List.copyOf(branches), atBranches.min(ofSizeNow)));
         }
         return result;
     }
@@ -216,7 +222,8 @@ public class PublicCatalogueProjection {
                     .map(size -> new PublicCatalogueDtos.PublicVariant(size.getId().toString(), size.getRingSize(),
                             size.getSku(), size.getAppliedPrice().toString(), PublicCatalogueDtos.CURRENCY,
                             size.isSaleEnabled(), buyable.get(size.getId()).canBuy(),
-                            buyable.get(size.getId()).assignedToBranches(), buyable.get(size.getId()).branches()))
+                            buyable.get(size.getId()).assignedToBranches(), buyable.get(size.getId()).branches(),
+                            buyable.get(size.getId()).available().toString()))
                     .toList();
             BigInteger minimum = sizes.stream().map(ProductVariant::getAppliedPrice).min(Comparator.naturalOrder())
                     .orElseThrow();

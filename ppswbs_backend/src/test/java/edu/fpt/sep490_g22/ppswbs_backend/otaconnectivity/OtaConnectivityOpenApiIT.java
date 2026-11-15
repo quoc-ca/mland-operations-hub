@@ -117,7 +117,10 @@ public class OtaConnectivityOpenApiIT {
                 "/ota-addon-quotes/{quoteId}/direct-bill",
 
                 // Interim provider booking callback ingress (backfilled 2026-11-12, E3 fail-closed)
-                "/ota-provider/booking-events"
+                "/ota-provider/booking-events",
+
+                // Interim provider cancellation ingress (T121, route approved 2026-11-15, same E3 rules)
+                "/ota-provider/cancellation-events"
         };
 
         for (String expectedPath : requiredPaths) {
