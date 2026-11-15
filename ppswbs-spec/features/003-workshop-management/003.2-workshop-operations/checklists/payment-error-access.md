@@ -12,7 +12,7 @@
 **Review Ownership**: This checklist is a reviewer-owned requirements-quality review artifact. Mark an item `[x]` only when the reviewer determines the requirements-quality criterion is satisfied.
 **Marker Semantics**: `[x]` means the criterion has been reviewed and satisfied for requirements quality. It does not mean implementation work is complete.
 
-Each item carries an agent assessment as a sub-bullet (PASS or FAIL). Boxes stay unchecked: ratification belongs to the reviewer. Open tasks T114–T123 and the VNPay QueryDR sandbox gap (T005/T035/T046) are not treated as defects.
+Each item carries an agent assessment as a sub-bullet (PASS or FAIL). Boxes stay unchecked: ratification belongs to the reviewer. Open tasks T114–T142 and the VNPay QueryDR sandbox gap (T005/T035/T046) are not treated as defects.
 
 ## Payment & Refund Edge Cases
 
@@ -145,7 +145,7 @@ FAIL items:
 
 - CHK002: nay đạt ở mức yêu cầu. Facade contract đánh dấu `applyVerifiedRefundConsequence` là superseded cho mọi caller không phải OTA; FR-010aa và FR-031 chốt việc thu hồi xảy ra tại `cancelTicket`.
 - CHK004: nay đạt ở mức yêu cầu. FR-010c/FR-010j, data-model "State Models" và hàng "Commit holds" của facade nêu rõ commit được chấp nhận ở `PUBLISHED`/`SALES_PAUSED`/`IN_PROGRESS` và bị từ chối `REJECTED INVALID_STATE` ở `CANCELLATION_REQUESTED`/`CANCELLED`/`ATTENDANCE_FINALIZED`.
-- CHK009: nay đạt ở mức yêu cầu. FR-010a định nghĩa điều kiện "đã giải quyết" cho từng vé, cảnh báo Manager một lần mỗi buổi sau `scheduledEndAt` + 24 giờ, trường hợp không có Manager active, và SC-008. Còn mở ngoài mức yêu cầu: nội dung mẫu email chờ chủ module thông báo duyệt, và 003.3 T167 chưa có caller của `completeCancellation`.
+- CHK009: nay đạt ở mức yêu cầu. FR-010a định nghĩa điều kiện "đã giải quyết" cho từng vé, cảnh báo Manager một lần mỗi buổi sau `scheduledEndAt` + 24 giờ, trường hợp không có Manager active, và SC-008. Còn mở ngoài mức yêu cầu: nội dung mẫu email đã giải quyết 2026-11-16 (Hồ Hoàng Quốc duyệt dependency và template; chủ module 007 chỉ được báo sau khi thay đổi), và 003.3 T167 chưa có caller của `completeCancellation`.
 - CHK012: nay đạt ở mức yêu cầu. Quy tắc chung số 3 của facade contract liệt kê các lý do cấp vé (`TICKET_NOT_FOUND`, `TICKET_ALREADY_CHECKED_IN`, `RESCHEDULE_QUOTA_EXHAUSTED`, `LATE_ARRIVAL_WINDOW_EXPIRED`, `OTA_TICKET_NOT_SUPPORTED`) và câu "narrower set" nay kèm điều kiện không được trả lý do ngoài danh sách.
 - CHK013: nay đạt ở mức yêu cầu. FR-036 cố định tên `OTA_TICKET_NOT_SUPPORTED`; tên này có trong facade contract (quy tắc chung số 3).
 - CHK014: còn thiếu (nhỏ). "Error catalogue" của spec và enum `Problem.code` của OpenAPI đã liệt kê đóng các mã cho check-in sớm (`CHECK_IN_NOT_OPEN`), sai trạng thái, Staff chưa được gán, finalization sai trạng thái. Chưa có mã cho từ chối "cần Manager xác nhận khi gỡ phân công cuối" (Clarifications Q3, T115); spec ghi rõ sẽ bổ sung vào bảng khi làm T115.
@@ -153,7 +153,7 @@ FAIL items:
 - CHK018: nay đạt ở mức yêu cầu. FR-012a và bảng lỗi: `503 DEPENDENCY_UNAVAILABLE`, fail closed, không side effect, không cache; OpenAPI khai 503 trên các route.
 - CHK020: nay đạt ở mức yêu cầu. FR-003c và SC-006: `429 REDELIVERY_THROTTLED` kèm `Retry-After` (số giây), OpenAPI có response `RedeliveryThrottled`.
 - CHK023: nay đạt ở mức yêu cầu. Hai câu trả lời 2026-10-24 có marker superseded (Noted 2026-11-15, CHK023); SC-001 dùng "active Manager"; mục Clarifications ghi "scoped Manager" là superseded.
-- CHK024: nay đạt ở mức yêu cầu. FR-012c: Manager là người duy nhất tạo/sửa location (kể cả `PATCH /workshop-locations/{locationId}`), Admin không có quyền nghiệp vụ Workshop Operations và nhận 403. Còn mở ngoài mức yêu cầu: T138 kiểm tra xem FE-001, Loyalty `ProductBranchPicker` hoặc Product management có cần Admin gọi `GET /workshop-locations` không.
+- CHK024: nay đạt ở mức yêu cầu. FR-012c: Manager là người duy nhất tạo/sửa location (kể cả `PATCH /workshop-locations/{locationId}`), Admin không có quyền nghiệp vụ Workshop Operations và nhận 403. Đã chốt 2026-11-16 (Hồ Hoàng Quốc, phương án A, có điều kiện theo kết quả T138): nếu FE-001 (màn Admin gán `activeLocationIds`) gọi `GET /workshop-locations` thì Admin có quyền đọc riêng chỉ danh sách location (dữ liệu tham chiếu, không phải quyền nghiệp vụ), 403 ở mọi route 003.2 khác; nếu không gọi thì Admin vẫn 403.
 - CHK027: nay đạt ở mức yêu cầu. FR-003d và bảng lỗi: một kết quả `404 RESOURCE_NOT_FOUND` duy nhất cho mã lạ, buổi khác, location khác; chú thích OpenAPI của booking-lookups nêu rõ; T126 có test.
 - CHK028: nay đạt ở mức yêu cầu. Bảng lỗi: `401` chỉ khi thiếu/sai/hết hạn token; mọi 37 operation dùng `bearerAuth` trong OpenAPI đều khai `401` (đã kiểm bằng script); SC-004 bao gồm `401`.
 - CHK029: nay đạt ở mức yêu cầu. Mục "Eligibility and session state of an assignment" trong "Staff session-assignment access" cùng bảng lỗi (`STAFF_NOT_ELIGIBLE` với `reason`, `INVALID_STATE`, duplicate là no-op) và mô tả OpenAPI của `staff-assignments`.
@@ -165,8 +165,8 @@ FAIL items:
 Tổng của re-assessment này: 40 mục, 39 đạt (22 PASS gốc + 17 nay đạt), 1 còn thiếu (CHK014). Đây chỉ là đánh giá của agent, không thay Totals gốc và không thay ratify của reviewer.
 
 Cập nhật sau khi owner chốt 5 mục "Còn mở" (2026-11-15, agent):
-- CHK024 và CHK029: giữ "nay đạt". `PATCH /workshop-locations/{locationId}` đã xác nhận: ngừng dùng bị `409 INVALID_STATE` khi còn buổi chưa `ATTENDANCE_FINALIZED`/`CANCELLED` (FR-012c, T135, T137). `GET /workshop-locations` của Admin giữ 403; T138 là kiểm tra ngoài mức yêu cầu.
-- CHK014: vẫn còn thiếu (nhỏ). Hai case mới của `ticket-resends` đã có trong catalogue dưới `INVALID_STATE` kèm `reason` (`NO_ELIGIBLE_TICKET`, `REDELIVERY_REJECTED_BY_BOOKING`, tên còn là đề xuất chờ code, T139), nhưng mã cho "Manager xác nhận khi gỡ Staff cuối" vẫn chờ T115.
+- CHK024 và CHK029: giữ "nay đạt". `PATCH /workshop-locations/{locationId}` đã xác nhận: ngừng dùng bị `409 INVALID_STATE` khi còn buổi chưa `ATTENDANCE_FINALIZED`/`CANCELLED` (FR-012c, T135, T137). `GET /workshop-locations` của Admin: đã chốt 2026-11-16, phương án A có điều kiện theo kết quả T138 (xem CHK024); không còn là mục mở. Route sửa location đã xử lý ở mức tài liệu bởi T135/T137, xác nhận khi code T135. Các tên tự chọn (`reason` của `STAFF_NOT_ELIGIBLE`, outcome `DENIED`, action `CANCELLATION_UNRESOLVED_ALERT`/`SENT`, 401 và 503 không audit, cảnh báo một lần mỗi buổi) đã được duyệt nguyên trạng 2026-11-16.
+- CHK014: vẫn còn thiếu (nhỏ). Hai case mới của `ticket-resends` đã có trong catalogue dưới `INVALID_STATE` kèm `reason` (`NO_ELIGIBLE_TICKET`, `REDELIVERY_REJECTED_BY_BOOKING`, tên đã chốt cuối, owner 2026-11-16 phương án A sau khi đối chiếu code; code hiện trả 400 và T139 sẽ chỉnh; test T048 có thể đỏ đến khi T126/T128/T129/T139 xong), nhưng mã cho "Manager xác nhận khi gỡ Staff cuối" vẫn chờ T115.
 - Tổng không đổi: 39 đạt, 1 còn thiếu (CHK014). Không tick ô nào; việc tick thuộc reviewer.
 
 Cập nhật sau khi owner Hồ Hoàng Quốc chấp nhận tên contract (2026-11-15, agent):

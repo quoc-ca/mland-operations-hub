@@ -215,7 +215,10 @@ outbound sync change, so a repeated internal publication cannot create another
 logical provider update. It does not calculate schedule/availability, write
 Operations capacity or sale state, or turn this internal input into a public
 REST contract. `SALES_PAUSED` publishes normal closed/zero availability while
-retaining a valid mapping. A source gap/order failure or provider delivery
+retaining a valid mapping. The OTA `saleState` enum is `{PUBLISHED, SALES_PAUSED, CLOSED}`,
+mapped from session states: `PUBLISHED` to `PUBLISHED`, `SALES_PAUSED` to `SALES_PAUSED`,
+and `IN_PROGRESS`, `ATTENDANCE_FINALIZED`, `CANCELLATION_REQUESTED`, `CANCELLED` to `CLOSED`;
+any value other than `PUBLISHED` means not sellable at the OTA (F04, 2026-11-16). A source gap/order failure or provider delivery
 failure may suspend only the affected channel mapping and create reconciliation
 work; it cannot mutate Operations or direct-Mland booking behaviour.
 

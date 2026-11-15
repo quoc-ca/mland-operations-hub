@@ -121,7 +121,8 @@ notification events that Feature 007 resolves through
 `WorkshopBookingNotificationFacade`. For 003.3 it exposes
 `findTicketBookingByOperationsReference` (T099) and, decided 2026-11-14,
 `getTicketFolioContext` and `consumeBuyerProof` (T107, see
-[../contracts/workshop-interfeature-facades.md](../contracts/workshop-interfeature-facades.md)).
+[../contracts/workshop-interfeature-facades.md](../contracts/workshop-interfeature-facades.md)) and, decided 2026-11-16 for 003.3 FR-056, the read-only
+`listBookingTimePayments(locationId, workingDate)` (T150; stored group payment attempts and evidence only, no VNPay call; statuses `CONFIRMED`, `LATE_PENDING_REVIEW`, `UNVERIFIED`; one row per payment with `locationIds[]`, filter by any session location, decided 2026-11-16 option B).
 
 **Cart quote flow.** Validate lines; re-read published Package price and
 sessions; preview with 006 (`VOUCHER` stays a voucher; otherwise `AUTO` with the

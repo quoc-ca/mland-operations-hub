@@ -696,6 +696,11 @@ remains separate from OTA financial facts.
   retaining the OTA mapping as valid. When 003.2 resumes sales, 003.4 MUST
   publish the reopened state from the new authoritative snapshot. Neither normal
   transition may be treated as mapping sync failure or require re-onboarding.
+  The OTA `saleState` enum is `{PUBLISHED, SALES_PAUSED, CLOSED}`, mapped from
+  session states: `PUBLISHED` to `PUBLISHED`, `SALES_PAUSED` to `SALES_PAUSED`,
+  and `IN_PROGRESS`, `ATTENDANCE_FINALIZED`, `CANCELLATION_REQUESTED`,
+  `CANCELLED` to `CLOSED`. Any value other than `PUBLISHED` means the session is
+  not sellable at the OTA. *(Added 2026-11-16, F04 reopened, option B.)*
 - **FR-004b**: An active Manager MAY perform authorized OTA business sync and
   reconciliation actions across all locations; Manager authorization does not
   depend on `activeLocationIds`. ~~Admin owns OTA credentials and connection

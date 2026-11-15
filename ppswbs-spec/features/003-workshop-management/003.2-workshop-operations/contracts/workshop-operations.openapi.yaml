@@ -9,7 +9,8 @@ info:
     Authorization (owner decision Hồ Hoàng Quốc, 2026-11-15, spec FR-012/FR-012c): an active
     MANAGER is global, including creating and editing workshop locations; an active STAFF needs
     the session location in activeLocationIds and an active assignment to the session; an ADMIN
-    has no Workshop Operations business authority and is answered 403. Errors (spec "Error
+    has no Workshop Operations business authority and is answered 403 (one exception decided
+    2026-11-16, conditional on task T138: read-only GET /workshop-locations as reference data). Errors (spec "Error
     catalogue"): 401 UNAUTHORIZED only for a missing, malformed, invalid or expired bearer token,
     declared on every bearerAuth operation; 403 for a verified identity without a Mland account,
     inactive, wrong role or out of scope; 503 DEPENDENCY_UNAVAILABLE when the Account facade
@@ -186,6 +187,9 @@ paths:
       description: >-
         An active Manager sees every location; an active Staff member sees the locations in their
         activeLocationIds. An Admin has no Workshop Operations authority and gets 403 (FR-012c).
+        Decided 2026-11-16 (Hồ Hoàng Quốc, conditional on task T138): if FE-001 calls this route,
+        an Admin gets a separate read-only grant to this list only (reference data, not a business
+        permission; no create, edit, assignment or audit right) and 403 stays on every other route.
       responses:
         '200': { $ref: '#/components/responses/LocationList' }
         '401': { $ref: '#/components/responses/Problem' }
@@ -304,7 +308,7 @@ paths:
   /workshop-sessions/{sessionId}:
     parameters: [ { $ref: '#/components/parameters/SessionId' } ]
     get:
-      summary: Get a session within authorized location scope
+      summary: Get a session (Manager, or Staff in the session location and assigned to it)
       responses:
         '200': { $ref: '#/components/responses/Session' }
         '401': { $ref: '#/components/responses/Problem' }
@@ -351,7 +355,7 @@ paths:
   /workshop-sessions/{sessionId}/state-transitions:
     parameters: [ { $ref: '#/components/parameters/SessionId' } ]
     post:
-      summary: Apply a non-cancellation authorized lifecycle transition; cancellation uses the reasoned cancellation endpoint
+      summary: Apply a non-cancellation authorized lifecycle transition (PUBLISHED, SALES_PAUSED, IN_PROGRESS); finalization only via attendance-finalizations, cancellation via the reasoned cancellation endpoint
       parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/StateTransitionRequest' } } } }
       responses:
@@ -365,7 +369,7 @@ paths:
   /workshop-sessions/{sessionId}/staff-assignments:
     parameters: [ { $ref: '#/components/parameters/SessionId' } ]
     put:
-      summary: Add or replace a Staff assignment
+      summary: Assign one Staff member (adds; never replaces)
       description: >-
         Manager only (spec "Staff session-assignment access", eligibility rules decided 2026-11-15,
         CHK029, task T130). The assignee must exist, have role STAFF, be ACTIVE and have the session
@@ -395,7 +399,7 @@ paths:
         confirmLastAssignmentRemoval=true to proceed. Both the refusal and the confirmed removal are
         audited (FR-007b). Other refused attempts are recorded as denied-attempt audits too.
         The confirmation is an optional boolean query parameter (default false) because DELETE carries no
-        request body here; đã xác nhận bởi Hồ Hoàng Quốc 2026-11-15.
+        request body here; đã xác nhận bởi Hồ Hoàng Quốc 2026-11-15. A retry with confirmLastAssignmentRemoval=true MUST use a new Idempotency-Key (the refused attempt's key is bound to the first request and would answer IDEMPOTENCY_CONFLICT).
       parameters:
         - { $ref: '#/components/parameters/IdempotencyKey' }
         - { name: accountId, in: query, required: true, schema: { type: integer, format: int64 } }
@@ -508,12 +512,15 @@ paths:
         refused with 429 REDELIVERY_THROTTLED, sends nothing and carries Retry-After (whole seconds
         until the 15-minute window counted from the first request of that window ends; decided
         2026-11-15, CHK020, task T127); the Staff screen then suggests the
-        TICKET_REDELIVERY_UNAVAILABLE override. Refused attempts, including 429, are recorded as
-        denied-attempt audits (FR-007b). 409 INVALID_STATE is also returned, with a `reason`, when the
+        TICKET_REDELIVERY_UNAVAILABLE override. Refused attempts, including 429 and the two 409 INVALID_STATE
+        reasons below, are recorded as denied-attempt audits (FR-007b). A resend refused with
+        NO_ELIGIBLE_TICKET or REDELIVERY_REJECTED_BY_BOOKING is not counted toward the three requests
+        (the counter belongs to Operations and counts only a request actually processed; decided
+        2026-11-16, F15). 409 INVALID_STATE is also returned, with a `reason`, when the
         session state does not allow resend, when the booking has no ACTIVE unused ticket
-        (reason NO_ELIGIBLE_TICKET, proposed name) and when Booking refuses the redelivery
-        (reason REDELIVERY_REJECTED_BY_BOOKING, proposed name); owner decision Hồ Hoàng Quốc
-        2026-11-15, task T139. These two cases are never 400 or 404, so the response does not reveal
+        (reason NO_ELIGIBLE_TICKET) and when Booking refuses the redelivery
+        (reason REDELIVERY_REJECTED_BY_BOOKING); owner decision Hồ Hoàng Quốc
+        2026-11-15, names final 2026-11-16 (option A), task T139. These two cases are never 400 or 404, so the response does not reveal
         whether a booking exists. No Idempotency-Key and no deduplication (spec FR-010kh, CHK015, T140):
         each accepted request is a new delivery, limited only by the three-per-15-minutes rule.
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/TicketResendRequest' } } } }
@@ -687,7 +694,7 @@ components:
         locationId: { type: integer, format: int64 }
         scheduledStart: { type: string, format: date-time }
         scheduledEnd: { type: string, format: date-time }
-        saleState: { type: string }
+        saleState: { type: string, description: "Customer discovery returns only future PUBLISHED sessions; this is not the OTA saleState enum (see 003.4)" }
         customerSelectable: { type: boolean }
         remainingCapacity: { type: integer, minimum: 0, description: Exact current availability snapshot; reserve remains authoritative. }
     LocationWrite:
@@ -804,7 +811,7 @@ components:
       type: object
       required: [targetState]
       properties:
-        targetState: { type: string, enum: [PUBLISHED, SALES_PAUSED, IN_PROGRESS, ATTENDANCE_FINALIZED] }
+        targetState: { type: string, enum: [PUBLISHED, SALES_PAUSED, IN_PROGRESS], description: 'Finalization only via attendance-finalizations; cancellation via cancellation-requests (decided 2026-11-15).' }
     StaffAssignmentRequest:
       type: object
       required: [accountId]
@@ -912,5 +919,5 @@ components:
         checkInOpensAt: { type: string, format: date-time, description: 'Only with CHECK_IN_NOT_OPEN: when normal check-in opens for the session.' }
         reason:
           type: string
-          description: 'Only with STAFF_NOT_ELIGIBLE: why the account cannot be assigned (CHK029).'
-          enum: [ACCOUNT_NOT_FOUND, NOT_STAFF, NOT_ACTIVE, LOCATION_NOT_IN_SCOPE]
+          description: 'Only with STAFF_NOT_ELIGIBLE (account reasons) or INVALID_STATE on ticket-resends (NO_ELIGIBLE_TICKET, REDELIVERY_REJECTED_BY_BOOKING; CHK029, T139).'
+          enum: [ACCOUNT_NOT_FOUND, NOT_STAFF, NOT_ACTIVE, LOCATION_NOT_IN_SCOPE, NO_ELIGIBLE_TICKET, REDELIVERY_REJECTED_BY_BOOKING]  # last two: final (2026-11-16), code aligned by T139

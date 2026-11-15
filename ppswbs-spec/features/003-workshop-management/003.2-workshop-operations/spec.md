@@ -1,7 +1,7 @@
 # Feature Specification: Workshop Operations
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-15
+**Date updated**: 2026-11-16
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -22,10 +22,11 @@ action (FR-012c).)*
 
 **Status**: Implemented through tasks Phase 14 T090–T113 (tasks.md evidence);
 Phase 15 tasks T114–T125 (Clarifications Session 2026-11-15 and its convergence, Phase 16) open; Phase 17
-tasks T126–T141 (Checklist follow-up 2026-11-15 and its second pass) open. Updated
+tasks T126–T142 (Checklist follow-up 2026-11-15, its second pass and the
+checklist follow-up analysis) open. Updated
 2026-11-15; **Approved 2026-11-15 by Hồ Hoàng Quốc (owner Feature 003), whole
 spec content of that date including Clarifications Session 2026-11-15**
-(supersedes "approval pending", Q1).
+(supersedes "approval pending", Q1). Analyze follow-up approved 2026-11-16 by Hồ Hoàng Quốc.
 *(Superseded 2026-11-15: "T092 and T096 open; owner re-approval pending", and
 2026-11-14: "Draft — not implemented".)*  
 
@@ -71,8 +72,8 @@ where they conflict with the following V1 decisions:
   required. Settlement may treat the booking-wide attendance projection as
   terminal only after every required session is finalized and this correction
   window has closed. *(Superseded in part 2026-11-12/14 by FR-032: the outcome
-  is per ticket; the window anchor per ticket vs per booking line is an open
-  owner decision recorded in FR-032.)*
+  is per ticket (window anchored per ticket, decided 2026-11-14, FR-032).)*
+  *(Superseded 2026-11-15 by FR-032: the earlier "open owner decision recorded in FR-032" is closed.)*
 
 Any older paragraph, example or scenario that requires a Staff assignment,
 Manager operational lead, capability key or manual scheduled start is legacy
@@ -301,7 +302,7 @@ answers are marked inline.)*
 
 ### Session 2026-10-23
 
-- Q: Which state follows `CANCELLATION_REQUESTED` after all affected customer cases are resolved? → A: Feature 003.3 reports completion only after all affected customers are resolved or have an audited Manager decision; the session then becomes terminal `CANCELLED` and cannot operate or check in again.
+- Q: Which state follows `CANCELLATION_REQUESTED` after all affected customer cases are resolved? → A: Feature 003.3 reports completion only after all affected customers are resolved (a ticket resolved as in FR-010a; the audited Manager decision was removed, 003.3 A03, 2026-11-16); the session then becomes terminal `CANCELLED` and cannot operate or check in again.
 - Q: Does V1 support check-in while Mland is offline? → A: No. V1 check-in is online only; it has no offline scan queue. Staff uses a backup connection or waits for recovery to preserve ticket reuse protection and audit consistency.
 - Q: Must a session have an assigned Staff member before publication or start? → A: No. Check-in opens at `checkInOpensAt` while the session remains `PUBLISHED`; a scheduled-start job moves the eligible session to `IN_PROGRESS` at its scheduled start time. Active Staff in the session location or any active Manager may operate it without a session assignment or operational-lead record. *(Staff part superseded 2026-11-06: Staff also needs an active assignment; "check-in while `PUBLISHED`" extended 2026-11-15, Q2, to `SALES_PAUSED`; Q3 sets the missing-Staff flag.)*
 
@@ -443,7 +444,7 @@ answers are marked inline.)*
   complete post-state whenever schedule, sellable availability, or sale state
   changes. `SALES_PAUSED`, `IN_PROGRESS`, `ATTENDANCE_FINALIZED`,
   `CANCELLATION_REQUESTED` and `CANCELLED` have their defined sale state;
-  `IN_PROGRESS` closes OTA sales. Scheduled start publishes that closure in the
+  `IN_PROGRESS` closes OTA sales. Scheduled start from `PUBLISHED` or `SALES_PAUSED` publishes that closure in the
   same transaction. `ATTENDANCE_FINALIZED` is already closed and does not
   advance the version unless another OTA-observable value changes.
 - Q: If one completed 003.2 local change changes several OTA-observable values
@@ -600,8 +601,10 @@ answers are marked inline.)*
   stops sales (new bookings and holds). From `checkInOpensAt` check-in is
   available while the session is `PUBLISHED` **or** `SALES_PAUSED`; at the
   scheduled start the scheduler moves a `PUBLISHED` or `SALES_PAUSED` session to
-  `IN_PROGRESS` with a system audit event (sales are already closed, so no new
-  OTA snapshot unless the observable snapshot changes). Unexpired holds of a
+  `IN_PROGRESS` with a system audit event *(F04 reopened 2026-11-16, option B: the OTA `saleState` enum distinguishes `SALES_PAUSED`
+  from `CLOSED`; the automatic `SALES_PAUSED` to `IN_PROGRESS` transition
+  therefore publishes the complete closed snapshot and advances the version
+  exactly once, in the same Operations transaction.)*. Unexpired holds of a
   paused session still complete payment until their deadline. Every earlier
   statement that ties check-in or auto-start to `PUBLISHED` alone is read through
   this answer. `IN_PROGRESS` still never returns to `PUBLISHED`/`SALES_PAUSED`.
@@ -652,7 +655,8 @@ answers are marked inline.)*
   and FR-001-level wording, read per line from FR-030 on.)*
 - Q: How late may the scheduled auto-start be? → A: Within 5 minutes of
   `scheduledStartAt`, including across one restart. A start later than 5 minutes
-  is a monitored failure (logged and alerted, not silent); the scheduler still
+  is a monitored failure (*2026-11-16, F14: an `ERROR` log plus a metric, no
+  email*; not silent); the scheduler still
   catches up and starts the session whenever the system is back, with no upper
   bound on catching up. The explicit early-start/recovery command remains
   available meanwhile (FR-010d).
@@ -679,7 +683,7 @@ Quốc, 2026-11-15), on checklist items CHK004, CHK009, CHK014, CHK016, CHK018,
 CHK020, CHK024, CHK028, CHK029 and CHK032, plus documentation sync with no new
 decision for CHK002, CHK012, CHK013, CHK023, CHK027, CHK034, CHK037, CHK039 and
 two extra findings. Rule text is in the FRs named below, the "Error catalogue"
-and SC-005–SC-008; code work is Phase 17 of tasks.md (T126–T134) and 003.3
+and SC-005–SC-008; code work is Phase 17 of tasks.md (T126–T142) and 003.3
 T167.)*
 
 - Q (CHK004): May an unexpired hold be committed after the session auto-started
@@ -693,7 +697,7 @@ T167.)*
 - Q (CHK009): When is a cancellation handoff resolved, and what if it stays
   open? → A: Each affected ticket is resolved once it is moved to a replacement
   session, or a bank refund request is opened for it (no wait for `REFUNDED`),
-  or an audited Manager decision exists for it. 003.3 then calls
+  or the ticket has no collected money (FREE/deferred) and the buyer's answer or default is recorded and the folio is CLOSED (003.3 A03, 2026-11-16). 003.3 then calls
   `completeCancellation` (today no 003.3 service calls it; 003.3 T167). If the
   session is still `CANCELLATION_REQUESTED` 24 hours after `scheduledEndAt`,
   Operations alerts the active Managers through
@@ -753,7 +757,8 @@ T167.)*
   (declared in `package-info.java` `allowedDependencies` by code in T133) and the
   alert goes through `NotificationFacade` with a new alert template in the
   notification module; the notification-module owner (Feature 007) must approve
-  the template content before sending is enabled. Recipients come from
+  the template content before sending is enabled *(superseded 2026-11-16, F06-email:
+  dependency and template approved by Hồ Hoàng Quốc, 007 owner only informed)*. Recipients come from
   `AccountFacade.listActiveManagerEmails()`; with no active Manager Operations
   sends nothing and writes an audit entry and a WARN log. *(Approved by Hồ Hoàng
   Quốc 2026-11-15; replaces the open channel decision.)*
@@ -768,8 +773,8 @@ T167.)*
   follow-up become contract? → A: Yes. The `reason` values of
   `STAFF_NOT_ELIGIBLE` (`ACCOUNT_NOT_FOUND`, `NOT_STAFF`, `NOT_ACTIVE`,
   `LOCATION_NOT_IN_SCOPE`), the audit outcome `DENIED` of a refused attempt, the
-  audit action `CANCELLATION_UNRESOLVED_ALERT` with outcome `SENT` or
-  `NO_ACTIVE_MANAGER`, and the rule of one alert per session are contract
+  audit action `CANCELLATION_UNRESOLVED_ALERT` with outcome `SENT`
+  *(`NO_ACTIVE_MANAGER` withdrawn 2026-11-16, F06)*, and the rule of one alert per session are contract
   names. *(Approved by Hồ Hoàng Quốc 2026-11-15.)*
 - Q (Admin and `GET /workshop-locations`, 2026-11-15): Does an Admin keep read
   access to the location list? → A: No, it stays `403` (decision D). The owner
@@ -777,7 +782,8 @@ T167.)*
   with loyalty or products, it is not needed. QA task T138 checks FE-001
   (branch assignment to an account), Loyalty `ProductBranchPicker` and Product
   management; if any Admin screen uses the route, the question returns to the
-  owner.
+  owner. *(Updated 2026-11-16: decided option A, conditional on the T138
+  result; see "Analyze follow-up, answered 2026-11-16", open item 2.)*
 - Q (CHK002/012/013/023/027/034/037/039, EXTRA-1, EXTRA-2; documentation sync,
   no new decision): → A: `applyVerifiedRefundConsequence` is marked superseded
   for every non-OTA caller and the shared rejection reasons gain the ticket
@@ -824,6 +830,104 @@ and CHK035. Code and test work: tasks T115–T117, T140, T141.)*
   `WorkshopSettlementFacade` rows). The use of `CANCELLATION_HANDOFF_UNRESOLVED`
   as the rejection of an early `completeCancellation` is a proposal confirmed
   in T122/T167.
+
+#### Analyze follow-up, answered 2026-11-16
+
+*(Final decisions of Hồ Hoàng Quốc, owner Feature 003, 2026-11-16, on analysis findings F04, F05, F06, F14 and F15, and on the four remaining open items 2 to 5. Rule text is in FR-003c, FR-007b, FR-010a, FR-010d, FR-010kh and FR-010s; tasks T114, T119, T127, T131, T133, T139, T140.)*
+
+- Q (F04): Does the scheduled start of a `SALES_PAUSED` session publish an OTA
+  snapshot? → A: Yes. *(F04 reopened 2026-11-16, option
+  B: the OTA `saleState` enum distinguishes `SALES_PAUSED` from `CLOSED`; the
+  automatic `SALES_PAUSED` to `IN_PROGRESS` transition therefore publishes the
+  complete closed snapshot and advances the version exactly once, in the same
+  Operations transaction.)*
+- Q (F05): Which refusals are denied-attempt audits? → A: option C: `403`, a
+  `409` that is an authority or eligibility refusal, `429`, and the two resend
+  `409 INVALID_STATE` cases (`NO_ELIGIBLE_TICKET`,
+  `REDELIVERY_REJECTED_BY_BOOKING`). A repeated reversal, finalization or
+  cancellation request answers `409 INVALID_STATE` as a state conflict and is
+  **not** audited (FR-007b, FR-010kh).
+- Q (F06): When is `CANCELLATION_UNRESOLVED_ALERT` recorded? → A: options A+C:
+  the audit event (outcome `SENT`) is written only after `NotificationFacade`
+  returns success. If sending is disabled or fails, only a WARN log is written
+  and no marker, so the next scan retries; with no active Manager only a WARN
+  log, no marker. The outcome `NO_ACTIVE_MANAGER` is withdrawn. *(Release is no
+  longer blocked by Feature 007, see F06-email below.)*
+- Q (F06-email): Who approves the alert email and its dependency, and what is the
+  content? → A: Hồ Hoàng Quốc, owner of Feature 003, 2026-11-16, adopting the
+  draft as-is. (1) The dependency `workshopoperations -> notificationmanagement
+  :: facade` is APPROVED (added to `allowedDependencies` in `package-info.java`
+  when T133 is implemented). Dependency and template approved by Hồ Hoàng Quốc
+  2026-11-16; the template is added by a Flyway migration (definition in
+  `notification_template_definition` + first version in
+  `notification_template_version`, status per the module convention); the 007
+  module owner is informed by the 003 owner after the change (convention, not a
+  technical gate). Release is not blocked by 007. F06 rules stay: SENT audit only
+  after `NotificationFacade` succeeds; WARN otherwise; no marker; retry on the next
+  scan; no active Manager means WARN and no marker. (2) Template code
+  `WORKSHOP_CANCELLATION_UNRESOLVED_ALERT`, `owning_module` `workshopoperations`;
+  `allowed_placeholders`: `sessionReference`, `sessionName`, `locationName`,
+  `scheduledEndAt`, `unresolvedTicketCount`, `hoursSinceScheduledEnd`; no
+  credentials, no buyer personal data. Subject: `[Mland] Buổi workshop
+  {{sessionName}} còn {{unresolvedTicketCount}} vé chưa xử lý sau khi bị hủy`.
+  Body (plain + simple HTML): "Kính gửi Quản lý chi nhánh {{locationName}}, Buổi
+  workshop {{sessionName}} (mã {{sessionReference}}) kết thúc theo lịch lúc
+  {{scheduledEndAt}} nhưng vẫn ở trạng thái chờ hủy sau {{hoursSinceScheduledEnd}}
+  giờ. Còn {{unresolvedTicketCount}} vé chưa được giải quyết (đổi buổi hoặc mở yêu
+  cầu hoàn tiền). Vui lòng kiểm tra các vé của buổi này trong màn hình quản lý và
+  xử lý. Đây là cảnh báo gửi một lần cho mỗi buổi. Trân trọng, Hệ thống Mland."
+  (3) Recipients: every active Manager (global scope, decision D) via the Account
+  facade active-manager email list; one `NotificationFacade` intent per Manager
+  with `businessEventReference` =
+  `<sessionReference>:CANCELLATION_UNRESOLVED:<managerAccountId>` (idempotent).
+  Audit `CANCELLATION_UNRESOLVED_ALERT` outcome `SENT` is written only when all
+  intents were accepted (partial failure means WARN, no marker, retry next scan;
+  idempotent references prevent duplicate mails). T133 acceptance adds the
+  migration, a preview check and an allowlist test.
+- Q (F14): How is a late auto-start (more than 5 minutes) reported? → A: option
+  A: an `ERROR` log plus a metric for operations monitoring; no email.
+- Q (F15): Do refused resends count toward three per 15 minutes? → A: option A:
+  no. A resend refused with `NO_ELIGIBLE_TICKET` or
+  `REDELIVERY_REJECTED_BY_BOOKING` does not count; the counter belongs to
+  Operations and counts only a request actually processed.
+- Q (open item 2, Admin and `GET /workshop-locations`, 2026-11-16): Does an
+  Admin get read access to the location list? → A: option A, **decided:
+  conditional on the T138 result** (Hồ Hoàng Quốc, 2026-11-16). T138 first
+  checks whether FE-001 (the Admin screen assigning `activeLocationIds`) calls
+  `GET /workshop-locations`. If it does, an Admin receives a separate read-only
+  grant to the location list only: reference data, explicitly **not** a
+  business permission (no create, edit, assignment or audit right), documented
+  in FR-012c and the 403 row of the error catalogue (FR-007b scope), and in the
+  OpenAPI role text; the T129/T138 tests then expect Admin `200` on
+  `GET /workshop-locations` and `403` on every other 003.2 route. If FE-001
+  does not call it, the Admin stays `403`. *(Supersedes the 2026-11-15 answer
+  above: "stays 403, the question returns to the owner".)*
+- Q (open item 3, no location edit route, 2026-11-16): → A: resolved at
+  document level: the route is `PATCH /workshop-locations/{locationId}`,
+  Manager edits, Admin `403` (FR-012c, T135, T137). It is confirmed when T135 is
+  implemented.
+- Q (open item 4, self-chosen names, 2026-11-16): → A: **APPROVED as-is**
+  (Hồ Hoàng Quốc): `STAFF_NOT_ELIGIBLE` reasons `ACCOUNT_NOT_FOUND`,
+  `NOT_STAFF`, `NOT_ACTIVE`, `LOCATION_NOT_IN_SCOPE`; audit outcome `DENIED`;
+  audit action `CANCELLATION_UNRESOLVED_ALERT` (outcome `SENT` only); `401` and
+  `503` are not audited; the cancellation-unresolved alert is sent once per
+  session. These are no longer proposed or to be confirmed. This does **not**
+  cover the two resend reasons below.
+- Q (open item 5, resend 409 reasons and T048, 2026-11-16): → A: **resolved,
+  option A** (Hồ Hoàng Quốc, after comparing with `TicketResendService` and
+  `WorkshopCheckInController`): `409 INVALID_STATE` with `reason`
+  `NO_ELIGIBLE_TICKET` (no `ACTIVE` unused ticket) and
+  `REDELIVERY_REJECTED_BY_BOOKING` (Booking refused redelivery); both names are
+  **final**. A session state outside `PUBLISHED`/`SALES_PAUSED`/`IN_PROGRESS`
+  stays `409 INVALID_STATE` without these reasons. The code differs today (verified
+  2026-11-16): both cases return `400 VALIDATION_ERROR`
+  (`WorkshopValidationException`), and a request refused by Booking still
+  increments the three-per-15-minutes counter because the counter is saved before
+  the Booking call. T139 aligns the code: both become `409 INVALID_STATE` with the
+  reasons, and the throttle increment moves so that only a request actually handed
+  to Booking and accepted counts (a refusal, including a Booking refusal, never
+  counts); T127 adds the `Retry-After` header on `429`. The T048 contract-drift
+  test may stay red until T126, T128, T129 and T139 are done.
 
 ## Business model
 
@@ -987,7 +1091,7 @@ scope. The target implementation and all public contracts use `location` and
   | `FACILITY_ISSUE` | Session cancellation: facility, power, tool or equipment failure | Required | — |
   | `WEATHER_EMERGENCY` | Session cancellation: severe weather or natural disaster | Required | — |
   | `RECORDING_ERROR` | Attendance correction: scanning error or mistaken identification | Required | — |
-  | `OTHER_REQUIRES_NOTE` | Any unlisted exception | Required | — |
+  | `OTHER_REQUIRES_NOTE` | Any unlisted exception | Required unless an evidence reference is given | Accepted in place of the note |
 
   An unrecognized code is rejected. The catalogue is fixed in code; changing it
   is a spec change.
@@ -1109,8 +1213,7 @@ Manager may move a session with valid tickets to `CANCELLATION_REQUESTED`. This
 immediately stops normal operation and check-in, but does not revoke tickets,
 move customers, release capacity or refund money in this feature. The system
 creates an audited handoff case for feature 003.3 to resolve those consequences.
-After feature 003.3 reports that every affected customer case is resolved or has
-an audited Manager decision, the session becomes terminal `CANCELLED`.
+After feature 003.3 reports that every affected customer case is resolved (FR-010a; no audited Manager decision, 003.3 A03, 2026-11-16), the session becomes terminal `CANCELLED`.
 
 ### Manager cancels a session without customer commitments
 
@@ -1367,7 +1470,8 @@ correction, with before/after audit evidence.
   route is `GET /workshop-booking-lookups/{bookingCode}` (route name proposed
   until T116 is coded, as for T139). Manager only; Staff, Admin and any other
   role get `403`. It returns the booking code and, for each ticket, `ticketCode`,
-  `sessionId`, `locationId`, `validityState` and `attendanceState`; no contact
+  `sessionId`, `locationId`, `validityState`, `attendanceState` and
+  `checkedInAt` (null when not checked in; added 2026-11-15); no contact
   data, QR value or payment data. An unknown code answers `404
   RESOURCE_NOT_FOUND` (the Manager is allowed to see every booking, so there is
   nothing to conceal, unlike FR-003d). Every successful lookup is audited with
@@ -1394,7 +1498,9 @@ correction, with before/after audit evidence.
   channel, including tickets for other sessions or locations. It MUST exclude
   tickets that are cancelled, revoked, refunded, `NO_SHOW` or already
   `CHECKED_IN`; apply the feature-003.1 delivery throttle of at most three
-  requests per booking in 15 minutes; prohibit recipient replacement or expanded
+  requests per booking in 15 minutes *(2026-11-16, F15: the counter belongs to
+  Operations and counts only a request actually processed; a resend refused
+  with `NO_ELIGIBLE_TICKET` or `REDELIVERY_REJECTED_BY_BOOKING` does not count)*; prohibit recipient replacement or expanded
   check-in authority; and audit actor, ticket/booking correlation, recipient
   channel and outcome. It MUST permit the request only while the session is
   `PUBLISHED`, `SALES_PAUSED` or `IN_PROGRESS`, regardless of
@@ -1457,7 +1563,9 @@ correction, with before/after audit evidence.
   for check-ins, resend requests, overrides, finalization and corrections.
 - **FR-007b** *(added 2026-11-15, owner decision Hồ Hoàng Quốc, CHK032, T131)*:
   A refused attempt (`403`, a `409` that is an authority or eligibility refusal,
-  or `429`) at a check-in override, check-in reversal, attendance correction,
+  `429`, or the two ticket-resend `409 INVALID_STATE` cases with `reason`
+  `NO_ELIGIBLE_TICKET` or `REDELIVERY_REJECTED_BY_BOOKING`; decided 2026-11-16,
+  F05) at a check-in override, check-in reversal, attendance correction,
   attendance finalization, session cancellation request, Staff assignment or
   revocation, the Manager management booking lookup (FR-003b) or a ticket
   resend (including a throttled resend) MUST record a minimal denied-attempt
@@ -1465,7 +1573,9 @@ correction, with before/after audit evidence.
   reference, refusal code, time and correlation ID, with no customer PII (no
   contact data, QR value or token). Refused normal check-ins and refused reads
   are logged, not audited. A `401` (no verified identity) and a `503`
-  (FR-012a) are not audited.
+  (FR-012a) are not audited. A repeated reversal, finalization or cancellation
+  request answered `409 INVALID_STATE` is a state conflict, not an authority or
+  eligibility refusal, and is **not** audited (FR-010kh; F05, 2026-11-16).
 - **FR-007c** *(added 2026-11-15, CHK025, T141; consolidates existing rules, no
   new decision beyond the Q4 lookup audit)*: Manager-only actions and their
   audit, all with actor, time, source and correlation ID (FR-007) and the prior
@@ -1474,7 +1584,9 @@ correction, with before/after audit evidence.
   | --- | --- |
   | Create, change or stop a slot (FR-001e) | one event per change |
   | Create a session, individually or in bulk (FR-001f) | one event per created session, plus the created/skipped report |
-  | Publish, pause or resume sales, change a session's capacity or location (FR-010, Business model) | one event with prior and new state |
+  | Publish, pause or resume sales, change a session's capacity (FR-010, Business model; a location change is deferred, V1 — see T112) | one event with prior and new state |
+  | Create or edit a workshop location (FR-012c) | one event per applied change, prior and new values |
+  | Set or clear a session's reschedule quota (FR-035) | one event `RESCHEDULE_QUOTA_SET`, prior and new quota, reason code |
   | Assign or revoke a Staff member (Staff session-assignment access) | one event per assignment or removal; a refused removal of the last Staff and the confirmed one are both audited (Q3) |
   | Reverse a check-in (FR-002b) | before/after, reason code |
   | Correct finalized attendance (FR-008) | before/after, reason code |
@@ -1506,7 +1618,8 @@ correction, with before/after audit evidence.
   bookings, and only Manager may publish, pause/resume sales or request
   cancellation. Once a session enters `IN_PROGRESS`, it MUST NOT return to
   `PUBLISHED` or `SALES_PAUSED`; before finalization it may move only to
-  `ATTENDANCE_FINALIZED` or `CANCELLATION_REQUESTED`.
+  `ATTENDANCE_FINALIZED` or `CANCELLATION_REQUESTED`; or directly `CANCELLED`
+  under FR-009a when no ticket or unexpired hold exists.
  - **FR-010b**: The system MAY publish a session without Staff assignment.
    At `checkInOpensAt`, the system MUST make check-in available while the
    session remains `PUBLISHED` or `SALES_PAUSED` *(extended 2026-11-15,
@@ -1520,7 +1633,9 @@ correction, with before/after audit evidence.
   *(2026-11-06)* or any active Manager and MUST audit the
   actor, timestamp and previous state. The scheduled start MUST happen within
   5 minutes of `scheduledStartAt`, including across one restart; a later start
-  is logged and alerted and the scheduler still catches up *(Q7, 2026-11-15)*.
+  is logged at `ERROR` level and increments a monitoring metric (no email), and
+  the scheduler still catches up *(Q7, 2026-11-15; channel decided 2026-11-16,
+  F14)*.
 - **FR-010e** *(rewritten 2026-11-15 per the 2026-11-06 Staff
   session-assignment amendment; was "Staff roster changes are optional
   operational metadata and MUST not change authorization")*: A Staff session
@@ -1606,14 +1721,26 @@ correction, with before/after audit evidence.
   T140)*: The Staff/Manager operational routes — check-in reversals, attendance
   corrections, attendance finalizations, cancellation requests and ticket
   resends — take **no** `Idempotency-Key`; the ledger of Q 2026-11-03 stays
-  limited to the administration routes and facade commands. A repeated or
+  limited to the administration routes and facade commands. The routes that
+  require `Idempotency-Key` are exactly: `POST /workshop-packages`, `PATCH
+  /workshop-packages/{packageId}`, `POST .../lifecycle-transitions` (package),
+  `POST` and `PATCH` of package add-ons and their `lifecycle-transitions`,
+  `POST /workshop-locations`, `PATCH /workshop-locations/{locationId}`, `POST
+  /workshop-locations/{locationId}/slots`, `PATCH /workshop-slots/{slotId}`,
+  `POST /workshop-sessions`, `POST /workshop-sessions/bulk`, `PATCH
+  /workshop-sessions/{sessionId}`, `PUT .../reschedule-quota`, `POST
+  .../state-transitions`, and `PUT` and `DELETE .../staff-assignments`. A retry
+  of a refused `DELETE` with `confirmLastAssignmentRemoval=true` MUST use a new
+  `Idempotency-Key`. A repeated or
   concurrent request is decided by the business state read under the existing
   session/ticket lock, so the second of two identical requests sees the state
   the first produced: (a) a reversal of a ticket that is no longer checked in,
   a finalization of a session that is not `IN_PROGRESS`, and a cancellation
   request of a session not in an operable state each answer `409
-  INVALID_STATE`, with no second audit of success (the refusal is a denied
-  attempt under FR-007b); (b) a correction that sets the value the ticket
+  INVALID_STATE`, with no second audit of success and no denied-attempt audit
+  either (a state conflict, not an authority or eligibility refusal; decided
+  2026-11-16, F05, FR-007b) *(Superseded 2026-11-16: the earlier text called
+  this refusal a denied attempt under FR-007b)*; (b) a correction that sets the value the ticket
   already has answers `200` with the unchanged ticket and writes no second
   audit event; (c) a resend is not deduplicated — each accepted request is a
   new delivery and is limited only by the three-per-15-minutes rule (FR-003c).
@@ -1657,9 +1784,13 @@ correction, with before/after audit evidence.
   Ring session is `PUBLISHED`, and publish the complete post-state whenever an
   OTA-observable value changes. `IN_PROGRESS`, `ATTENDANCE_FINALIZED`,
   `CANCELLATION_REQUESTED` and `CANCELLED` have closed OTA sale state. The
-  automatic `PUBLISHED` to `IN_PROGRESS` transition at `scheduledStartAt` MUST
+  automatic `PUBLISHED` or `SALES_PAUSED` to `IN_PROGRESS` transition at `scheduledStartAt` MUST
   persist the session transition, complete closed snapshot/version and
-  persistent Modulith publication in the same Operations transaction. An
+  persistent Modulith publication in the same Operations transaction.
+  *(F04 reopened 2026-11-16, option B: the OTA `saleState` enum distinguishes `SALES_PAUSED` from
+  `CLOSED`; the automatic `SALES_PAUSED` to `IN_PROGRESS` transition therefore
+  publishes the complete closed snapshot and advances the version exactly once,
+  in the same Operations transaction.)* An
   `ATTENDANCE_FINALIZED` transition MUST NOT create another snapshot/version
   when the observable post-state is already closed and otherwise unchanged.
 - **FR-010t**: A completed local transaction that changes one or more
@@ -1736,25 +1867,40 @@ correction, with before/after audit evidence.
   003.1 an owner of tickets or schedules.
 - **FR-010a**: The system MUST transition `CANCELLATION_REQUESTED` to terminal
   `CANCELLED` only after feature 003.3 reports all affected customer cases
-  resolved or an audited Manager decision for each. `CANCELLED` MUST reject
+  resolved as defined below. `CANCELLED` MUST reject
   normal operation and check-in whether it was reached directly or through
   `CANCELLATION_REQUESTED`. *(Added 2026-11-15, owner decision Hồ Hoàng Quốc,
   CHK009, T133 and 003.3 T167)* An affected ticket is resolved when it has been
   moved to a replacement session, or a bank refund request has been opened for
-  it (Operations does not wait for `REFUNDED`), or an audited Manager decision
-  exists for it. 003.3 MUST call `completeCancellation`
+  it (Operations does not wait for `REFUNDED`), or the ticket has no collected money (FREE/deferred) and the buyer's answer or default is recorded and the folio is CLOSED (003.3 A03, 2026-11-16). 003.3 MUST call `completeCancellation`
   (`CompleteCancellationHandoffCommand`) as soon as the last affected ticket of
   the handoff is resolved. If a session is still `CANCELLATION_REQUESTED` 24
   hours after its `scheduledEndAt`, Operations MUST alert the active Managers
   once per session through `AccountFacade.listActiveManagerEmails()`; when no
-  Manager is active it sends no email and writes an audit entry and a WARN log.
+  Manager is active it sends no email and writes a WARN log only, no marker.
+  *(Superseded 2026-11-16, F06: the earlier text wrote an audit entry in that
+  case.)* The audit event `CANCELLATION_UNRESOLVED_ALERT` (outcome `SENT`) is
+  written only after `NotificationFacade` returns success; if sending is
+  disabled or fails, only a WARN log is written and no marker, so a later scan
+  retries. *(Updated 2026-11-16, F06-email: the dependency and template are
+  approved by Hồ Hoàng Quốc 2026-11-16; the template is added by a Flyway
+  migration (definition in `notification_template_definition` plus first version
+  in `notification_template_version`, status per the module convention); the 007
+  module owner is informed by the 003 owner after the change (convention, not a
+  technical gate). Release is no longer blocked by Feature 007. The alert is one
+  `NotificationFacade` intent per active Manager with `businessEventReference` =
+  `<sessionReference>:CANCELLATION_UNRESOLVED:<managerAccountId>`; the audit
+  `SENT` is written only when all intents were accepted, a partial failure is
+  WARN with no marker and retried at the next scan, and the idempotent references
+  prevent duplicate mails.)*
   A handoff with no affected ticket (only unexpired holds) is completed when 003.3
   receives it; the holds expire (FR-010c). *(Added 2026-11-15, owner decision Hồ
   Hoàng Quốc.)*
   The alert is an email sent through `NotificationFacade` (module
   `notificationmanagement :: facade`, approved as a dependency of
   `workshopoperations` by Hồ Hoàng Quốc 2026-11-15) using a new alert template in
-  the notification module, whose content the notification-module owner approves.
+  the notification module, whose content Hồ Hoàng Quốc approved 2026-11-16 (template
+  `WORKSHOP_CANCELLATION_UNRESOLVED_ALERT`, see the follow-up Q/A F06-email).
   The alert decides nothing and does not change the session state.
 - **FR-011**: The system MUST reject a direct session slot or location change
   whenever confirmed tickets or unexpired payment capacity holds exist; Manager
@@ -1804,6 +1950,12 @@ correction, with before/after audit evidence.
   or Staff-assignment action and no global session visibility; an Admin
   calling a 003.2 business route gets `403`. Assigning `activeLocationIds` to
   Staff for a new location stays in Account Management (FE-001).
+  *(Decided 2026-11-16, Hồ Hoàng Quốc, option A, conditional on the T138
+  result:)* if T138 finds that FE-001 calls `GET /workshop-locations`, an Admin
+  gets a separate read-only grant to the location list only. It is reference
+  data and explicitly NOT a business permission: no create, edit, assignment
+  or audit right, and `403` on every other 003.2 route. If FE-001 does not
+  call the route, the Admin stays `403` on it too.
 - **FR-013**: Workshop add-on inventory MUST expose separate public and
   management contracts. The public package/location add-on read MUST expose
   only currently `ACTIVE` add-ons that are eligible for customer display. The
@@ -1851,12 +2003,12 @@ reveals another session, location, ticket or customer contact data.)*
 | HTTP | `code` | When |
 | --- | --- | --- |
 | 400 | `VALIDATION_ERROR` | Bean Validation or a request rule fails (including a changed slot, location or date on session PATCH). |
-| 400 | `IDEMPOTENCY_KEY_REQUIRED` | A state-changing Manager route is called without `Idempotency-Key`. |
+| 400 | `IDEMPOTENCY_KEY_REQUIRED` | A state-changing administration route (those listed in FR-010kh) is called without `Idempotency-Key`. |
 | 401 | `UNAUTHORIZED` | Only a missing, malformed, invalid or expired bearer token (CHK028). Declared on every `bearerAuth` operation. |
-| 403 | `FORBIDDEN` | Verified identity but no Mland account, account not `ACTIVE`, wrong role (including any Admin, FR-012c), or a Staff member not actively assigned to the session. |
-| 403 | `LOCATION_SCOPE_DENIED` | A Staff caller whose `activeLocationIds` excludes the session location. Never used for an assignee (see `STAFF_NOT_ELIGIBLE`). |
+| 403 | `FORBIDDEN` | Verified identity but no Mland account, account not `ACTIVE`, wrong role (including any Admin, FR-012c; exception decided 2026-11-16, conditional on T138: an Admin may read `GET /workshop-locations` only, as reference data and not a business permission), or a Staff member not actively assigned to the session. |
+| 403 | `LOCATION_SCOPE_DENIED` | A Staff caller whose `activeLocationIds` excludes the session location. Never used for an assignee (see `STAFF_NOT_ELIGIBLE`). Check order for a Staff caller: location scope first (`LOCATION_SCOPE_DENIED`), then assignment (`FORBIDDEN`). |
 | 404 | `RESOURCE_NOT_FOUND` | Unknown resource, and the single generic booking-lookup result of FR-003d. |
-| 409 | `INVALID_STATE` | The session or ticket state does not allow the action (for example check-in after finalization, finalization outside `IN_PROGRESS`, a Staff assignment outside `DRAFT`/`PUBLISHED`/`SALES_PAUSED`/`IN_PROGRESS`, deactivating a location that a not-yet-ended session uses (confirmed 2026-11-15, T135), a ticket resend when the booking has no `ACTIVE` unused ticket (`reason` `NO_ELIGIBLE_TICKET`, proposed name) or when Booking refuses the redelivery (`reason` `REDELIVERY_REJECTED_BY_BOOKING`, proposed name; T139)). For resend the status is always 409, never 400 or 404, so the response does not reveal whether a booking exists. The two `reason` names are proposals pending the code (T139). |
+| 409 | `INVALID_STATE` | The session or ticket state does not allow the action (for example check-in after finalization, finalization outside `IN_PROGRESS`, a Staff assignment outside `DRAFT`/`PUBLISHED`/`SALES_PAUSED`/`IN_PROGRESS`, deactivating a location that a not-yet-ended session uses (confirmed 2026-11-15, T135), a ticket resend when the booking has no `ACTIVE` unused ticket (`reason` `NO_ELIGIBLE_TICKET`) or when Booking refuses the redelivery (`reason` `REDELIVERY_REJECTED_BY_BOOKING`; T139)). For resend the status is always 409, never 400 or 404, so the response does not reveal whether a booking exists. The two `reason` names are final (owner, 2026-11-16, option A); the code returns `400 VALIDATION_ERROR` today and T139 aligns it. `Problem.reason` therefore appears with `STAFF_NOT_ELIGIBLE` and with this resend `INVALID_STATE`. |
 | 409 | `CHECK_IN_NOT_OPEN` | Normal check-in before `checkInOpensAt`; the body adds `checkInOpensAt` (FR-005, T126). |
 | 409 | `TICKET_CONFLICT` | The ticket is not valid for check-in (cancelled — including after `cancelTicket`, FR-031, CHK010 — revoked, refunded). |
 | 409 | `TICKET_QR_REVOKED` | A QR revoked by a recipient change (FR-033). |
@@ -1908,8 +2060,7 @@ row above; T115 implements it and the contract test keeps the code in the closed
   leave no business side effect.
 - **SC-008** *(added 2026-11-15, CHK009/CHK037, owner decision Hồ Hoàng
   Quốc)*: Every session in `CANCELLATION_REQUESTED` becomes `CANCELLED` once
-  each affected ticket is moved, has a bank refund request opened, or has an
-  audited Manager decision; a session still unresolved 24 hours after
+  each affected ticket is moved, has a bank refund request opened, or the ticket has no collected money (FREE/deferred) and the buyer's answer or default is recorded and the folio is CLOSED (003.3 A03, 2026-11-16); a session still unresolved 24 hours after
   `scheduledEndAt` raises exactly one Manager alert (or, with no active
   Manager, one audit entry and a WARN log).
 

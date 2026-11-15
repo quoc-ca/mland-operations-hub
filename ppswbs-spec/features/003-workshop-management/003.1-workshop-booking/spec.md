@@ -2526,7 +2526,17 @@ definitions are in [data-model.md](data-model.md).)*
   (FR-040). 003.3 T099/T106 need the 003.1 facade operations
   `getTicketFolioContext` and `consumeBuyerProof` (decided 2026-11-14,
   [../contracts/workshop-interfeature-facades.md](../contracts/workshop-interfeature-facades.md);
-  tasks T107).
+  tasks T107). *(Added 2026-11-16, owner decision for 003.3 FR-056/A04.)* The 003.3
+  reconciliation list also needs the read-only facade operation
+  `listBookingTimePayments(locationId, workingDate)`: stored online booking-time
+  VNPay payments of one working day (filter by branch: every payment with at least
+  one session at that branch; each row carries `locationIds[]`, one row per payment,
+  decided 2026-11-16 option B), each `CONFIRMED` (attempt `SUCCESS`, group
+  `CONFIRMED`), `LATE_PENDING_REVIEW` (attempt `SUCCESS`, group not confirmed,
+  waiting for the FR-040 late-payment review) or `UNVERIFIED` (attempt `PENDING`),
+  with `amountVnd` = the stored requested amount (no separate received amount; a
+  mismatched IPN is rejected and never listed), no VNPay call, no write and no
+  buyer contact data (task T150).
 - **006 Loyalty and Promotion (FE-06)** — cart benefit contract (006 T098,
   D-010), automatic workshop discount (006 FR-044/FR-045, D-013, D-014; FE-06
   baseline re-approved by Đặng Thị Khương 2026-11-14), FE-06 display component

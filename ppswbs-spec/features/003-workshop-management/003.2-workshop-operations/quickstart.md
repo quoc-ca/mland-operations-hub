@@ -1,7 +1,7 @@
 # Quickstart: Workshop Operations Verification
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-05
+**Date updated**: 2026-11-16
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -16,7 +16,7 @@ authorize a production migration or a reset of existing workshop data.
 - Use an active Manager fixture and verify it can operate sessions in any
   location without an operational-lead record.
 - Set a future `checkInOpensAt`; at that instant verify check-in becomes
-  available while the session remains `PUBLISHED`. At the session's scheduled
+  available while the session remains `PUBLISHED` or `SALES_PAUSED` *(extended 2026-11-15, Q2, T114; was "`PUBLISHED`")*. At the session's scheduled
   start time verify the scheduler moves it to `IN_PROGRESS` and records a
   system audit event. Verify it also persists one complete `CLOSED` OTA snapshot
   and event in that same transaction; a repeated scheduler run must not create
@@ -33,6 +33,7 @@ authorize a production migration or a reset of existing workshop data.
   state to `CLOSED` and publishes the complete snapshot atomically; because
   `ATTENDANCE_FINALIZED` is already closed, that transition alone does not
   create another version/publication.
+- Verify `SALES_PAUSED` to `IN_PROGRESS` (scheduled start and manual) publishes the complete closed snapshot with `sourceVersion` +1, and a replay (repeated scheduler run) adds no duplicate publication or version.
 - Change schedule, availability and sale state together and verify they share
   one new version; internal-only Staff/assignment changes create no snapshot.
 - Deliver the same publication twice and deliver an older version; 003.4 must
@@ -157,8 +158,8 @@ run is not sufficient proof of index, lock or migration behaviour.
    operate (an unassigned Staff gets 403; 2026-11-06), Staff outside the
    location is denied, and an active Manager can operate globally. For a
    `SALES_PAUSED` session verify the auto-start writes a system audit event,
-   publishes no extra OTA snapshot, and unexpired holds still complete payment
-   (Q2); verify a start later than 5 minutes is logged as a failure and still
+   publishes the complete closed snapshot and advances the version exactly once *(F04 reopened 2026-11-16, option B)*, and unexpired holds still complete payment
+   (Q2); verify a start later than 5 minutes is logged at ERROR level, a metric increases and no email is sent (F14), and it is still
    caught up (Q7); verify a session with no Staff is flagged from
    `checkInOpensAt` and revoking its last assignment needs explicit Manager
    confirmation (Q3). Verify an inactive actor is denied.
@@ -174,10 +175,15 @@ run is not sufficient proof of index, lock or migration behaviour.
 11. Finalise the session after actual end time. Checked-in tickets remain
    checked-in and unchecked active tickets become `NO_SHOW`. Verify a regular
    Staff member cannot correct this result after finalisation.
-   For a multi-session booking, verify Settlement receives readiness only after
-   every required session is `ATTENDANCE_FINALIZED`, never from scheduled end
-   time or attendance detail.
-12. Request a Manager change of one or both future required sessions through the
+   *(Superseded 2026-11-15 by FR-032/T097: the booking-wide readiness check below is removed.)*
+   For each ticket, verify `getTicketAttendanceOutcome` is terminal only after
+   every session of that ticket is `ATTENDANCE_FINALIZED` and the ticket's own
+   24-hour correction window has closed, never from scheduled end time or
+   attendance detail. *(Original: "For a multi-session booking, verify Settlement
+   receives readiness only after every required session is `ATTENDANCE_FINALIZED`".)*
+12. *(Superseded 2026-11-15 by FR-034/T094/T097: the change is per ticket
+   (`replaceTicketSessions`), not a complete booking-wide required-session set.)*
+   Request a Manager change of one or both future required sessions through the
    003.3 boundary. Verify every target is future, `PUBLISHED`, customer-
    selectable and has one seat per selected ticket (FR-034); if one check
    fails, no session entitlement or capacity changes. On success, verify the
@@ -197,7 +203,7 @@ run is not sufficient proof of index, lock or migration behaviour.
    - Request a resend for a booking with no `ACTIVE` unused ticket and verify `409
      INVALID_STATE` with `reason` `NO_ELIGIBLE_TICKET`; make Booking refuse the
      redelivery and verify `409 INVALID_STATE` with `reason`
-     `REDELIVERY_REJECTED_BY_BOOKING` (task T139; names proposed). Neither is 400
+     `REDELIVERY_REJECTED_BY_BOOKING` (task T139; names are final, owner 2026-11-16). Neither is 400
      or 404.
    - Make the Account facade fail (stub an exception) and verify `503
      DEPENDENCY_UNAVAILABLE` with no side effect and no audit row; a missing or

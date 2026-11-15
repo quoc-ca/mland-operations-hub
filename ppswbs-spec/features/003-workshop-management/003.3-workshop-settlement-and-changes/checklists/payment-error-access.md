@@ -68,7 +68,9 @@
 
 ## Reviewer notes (agent assessment, not ratification)
 
-All boxes stay unchecked; the reviewer ratifies. Open tasks T130–T143 and the VNPay QueryDR sandbox gap (T005/T035) are not counted as defects. Spec approval status: `spec.md` records no owner approval for the Session 2026-11-15 clarifications.
+Trạng thái hiện hành = Fix log; các phần dưới là lịch sử.
+
+*(History, 2026-11-15; current state 2026-11-16: the owner approved the Session 2026-11-15 clarifications on 2026-11-15; open tasks are T130–T171 (T153 done, T148 merged into T137); 34 of 44 boxes are ticked at this date. The VNPay QueryDR sandbox gap (T005/T035) is not counted as a defect. No box was ticked or unticked by this update.)*
 
 Result: 39 items, 17 PASS, 22 FAIL.
 
@@ -103,7 +105,7 @@ Result: 39 items, 17 PASS, 22 FAIL.
 
 **Người chịu trách nhiệm**: Hồ Hoàng Quốc · **Ngày**: 2026-11-15 · **Loại**: đánh giá của agent (không phải duyệt). Mọi ô vẫn để trống; người review ký từng mục.
 
-Phạm vi đối chiếu: `spec.md` (FR, SC, `## Clarifications` > `### Session 2026-11-15` và `#### Checklist follow-up`), `plan.md` (mục "Checklist follow-up of 2026-11-15", O-1, O-2), `data-model.md`, `contracts/workshop-settlement-ticket.openapi.yaml`, `tasks.md` (Phase 11, T144–T165) và `../contracts/workshop-interfeature-facades.md`. Tiêu chí: yêu cầu được viết rõ và kiểm chứng được trong tài liệu; task code còn mở không tính là lỗi. Khoảng trống QueryDR sandbox (T005/T035) không tính là lỗi.
+Phạm vi đối chiếu: `spec.md` (FR, SC, `## Clarifications` > `### Session 2026-11-15` và `#### Checklist follow-up`), `plan.md` (mục "Checklist follow-up of 2026-11-15", O-1, O-2), `data-model.md`, `contracts/workshop-settlement-ticket.openapi.yaml`, `tasks.md` (Phase 11, T144–T171) và `../contracts/workshop-interfeature-facades.md`. Tiêu chí: yêu cầu được viết rõ và kiểm chứng được trong tài liệu; task code còn mở không tính là lỗi. Khoảng trống QueryDR sandbox (T005/T035) không tính là lỗi.
 
 **Kết quả: 39 mục — 37 Đạt, 1 Đạt có quyết định mở, 1 Chưa đạt** (trước: 17 Đạt / 22 Chưa đạt). *(Tổng cuối sau cập nhật 2026-11-15 ở cuối mục này: 39 Đạt, 0 Đạt có quyết định mở, 0 Chưa đạt. Bảng dưới giữ nguyên làm lịch sử.)*
 

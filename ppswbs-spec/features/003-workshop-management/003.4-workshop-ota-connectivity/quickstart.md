@@ -52,6 +52,7 @@ This is an evidence-oriented validation flow for implementation and provider onb
 9. Replay the same provider event and submit an out-of-order update. Verify the original booking/tickets/capacity are unchanged and the replay is audited.
 10. Exercise cancellation/refund evidence, a provider payout update, and a paid direct-Mland add-on. Verify these create distinct histories; a browser return or callback receipt alone does not settle money. Cancel k of N participants: k not-yet-checked-in tickets are revoked, k equal to the active tickets cancels the whole booking, k above the active or the not-yet-checked-in tickets revokes nothing and opens an INBOUND_EVENT work item, a checked-in ticket is never revoked, a refund event releases no ticket, and the expected net stays unchanged (Clarifications 2026-11-15 follow-up; SC-003, SC-007).
 11. Simulate a booking delivered after sales-close only when the provider's written rule is available. Verify the configured rule, capacity result, and operator evidence. Without that evidence, this test is a release blocker.
+11a. Publish snapshots with `saleState` `PUBLISHED`, `SALES_PAUSED`, `CLOSED`, then `SALES_PAUSED` to `CLOSED`, and replay one snapshot. Verify any non-`PUBLISHED` value gives closed/zero availability, the `SALES_PAUSED` to `CLOSED` transition is not a mapping error, and the duplicate is a no-op (T145).
 
 ## Required evidence and test suites
 

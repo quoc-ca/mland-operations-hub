@@ -7,7 +7,7 @@
 
 ## Decision 1 — Operational ownership
 
-**Decision:** `workshopoperations` owns branch, slot, session, capacity hold,
+**Decision:** `workshopoperations` owns location *(2026-11-15: was "branch")*, slot, session, capacity hold,
 attendance ticket, QR/ticket-code verification and attendance history.
 `workshopbooking` owns the commercial booking, payment, invoice and ticket
 delivery. Booking calls an Operations facade; Operations never calls Booking.
@@ -25,7 +25,7 @@ confirms/releases it and requests ticket issue after the relevant commercial
 state is reached. Booking then reads a delivery-safe ticket view to send the
 buyer QR codes. Operations consumes account/personnel decisions through a
 separate facade: canonical actor role, active status and location scope.
-Operations then applies its own action rules with the target branch and explicit
+Operations then applies its own action rules with the target location and explicit
 Staff-session assignment.
 
 **Why:** A facade preserves module ownership, allows the account module to
@@ -49,9 +49,9 @@ but it must preserve the same atomic invariant.
 **Decision:** One attendance ticket represents one person. QR carries an opaque
 reference; ticket code is unique and typed fallback. The persisted value must
 not expose internal IDs or customer data. QR/ticket verification has the same
-session, branch, time, status and actor checks as a scan.
+session, location, time, status and actor checks as a scan.
 
-**Why:** A booking can contain tickets for different slots or branches. A
+**Why:** A booking can contain tickets for different slots or locations. A
 booking code therefore locates a commercial record only; it cannot select an
 individual person for normal check-in.
 
@@ -70,7 +70,7 @@ attendance. A manual end supports workshops that finish early or use their
 ## Decision 6 — Audit and sensitive data
 
 **Decision:** Operations writes immutable audit entries for state transitions,
-assignments, lead handovers, overrides, corrections and cancellation requests.
+assignments, overrides, corrections and cancellation requests.
 They contain actor, action, timestamp, resource, standard reason code and only
 safe metadata; reason codes that require a note/evidence reference enforce it.
 
@@ -101,7 +101,7 @@ The tempting shortcuts below are rejected:
   workshop business rules.
 - **Trust the legacy global security configuration:** every new route must make
   canonical server-side account facts plus an Operations action rule; a
-  client-provided branch or user id
+  client-provided location or user id
   is not authority.
 - **Reuse one ticket per booking:** it contradicts individual QR check-in and
   permits the wrong person to be marked present.
@@ -109,5 +109,5 @@ The tempting shortcuts below are rejected:
   migration behind schema work. It must be reviewed and auditable.
 
 These choices intentionally add explicit contracts and migration work, but they
-remove the much higher risk of oversell, cross-branch access, and irreconcilable
+remove the much higher risk of oversell, cross-location access, and irreconcilable
 attendance history.

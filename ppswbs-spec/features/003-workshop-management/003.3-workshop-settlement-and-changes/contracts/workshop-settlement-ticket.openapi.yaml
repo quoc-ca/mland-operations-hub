@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Workshop Settlement per Ticket API
-  version: 0.2.0
+  version: 0.3.0
   description: >-
     Contract for spec FR-030–FR-057 (decision 2026-11-12; FR-052–FR-055
     added 2026-11-14, FR-056–FR-057 added 2026-11-15): per-ticket
@@ -33,14 +33,17 @@ info:
     record, void and list) are designed but not implemented (tasks T133,
     T135). C2 (decided 2026-11-15): every cash-close route, parameter and
     schema uses locationId and workingDate; the code follows in T131/T132.
-    2026-11-15 (checklist payment-error-access.md, tasks Phase 11 T144-T164):
+    2026-11-15 (checklist payment-error-access.md, tasks Phase 11 T144-T171):
     the Manager-only cash reversal route, the account-entry confirmation
     flag, the return-to-PENDING_ACCOUNT transition and the optional transfer
     receipt image are PROPOSED here (names and codes are proposals until
-    approved); the receipt image storage, size and retention are an open plan
-    decision and no upload mechanism is defined yet.
+    approved); the receipt image storage, size and retention are decided (plan O-1,
+    2026-11-15): JPEG/PNG/WebP, at most 5,000,000 bytes, authenticated Cloudinary
+    object, ATTACHED image not deleted before 5 years after the request reaches
+    REFUNDED or CLOSED_UNREACHABLE (delete job T166, after V1).
     Planned routes (x-status planned, none served yet): the reconciliation
-    list (T133), absorbed-undercharge record, void and list (T135), the
+    list (T133), the two receipt-image routes POST /workshop-refund-requests/{refundId}/receipt-images and
+    GET /workshop-refund-requests/{refundId}/receipt-image (T154), absorbed-undercharge record, void and list (T135), the
     Admin-only refund-account key replacement
     POST /workshop-refund-account-key-replacements (T137; Manager and Staff
     get 403), and the Manager-only cash reversal
@@ -375,7 +378,8 @@ paths:
       summary: Read one ticket folio correction (owning Member, Manager or assigned Staff)
       description: >-
         T114 (FR-048, Constitution II): no contact proof is accepted in the URL;
-        an anonymous request answers 404. A Guest reads the ticket folio through
+        a missing or invalid bearer token answers 401 (fix A09, 2026-11-15; a verified caller who is not the owner,
+        a Manager or assigned Staff gets 403 or 404 as for the folio). A Guest reads the ticket folio through
         POST /workshop-tickets/{ticketCode}/folio-lookups with one contact proof
         in the body.
       security: [{bearerAuth: []}]
@@ -384,6 +388,8 @@ paths:
         - {name: correctionReference, in: path, required: true, schema: {type: string}}
       responses:
         '200': {description: Correction, content: {application/json: {schema: {$ref: '#/components/schemas/FolioCorrection'}}}}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-tickets/{ticketCode}/folio/absorbed-undercharges:
     post:
@@ -618,7 +624,8 @@ paths:
       description: >-
         FR-056/FR-057, added 2026-11-15, not implemented (task T133). Manager
         only; Staff is 403. Lists the folio collections of one branch and one
-        Vietnam working day paid by direct transfer (BANK_TRANSFER) or VNPAY,
+        Vietnam working day paid by BANK_TRANSFER, VNPAY or BOOKING_TIME
+        (online booking-time VNPay money from 003.1; the whole group payment),
         optionally filtered by method and state. A confirmed collection
         belongs to the Vietnam day of its confirmation time, a pending one to
         the Vietnam day of its creation time. Read-only:
@@ -630,13 +637,14 @@ paths:
       parameters:
         - {name: locationId, in: query, required: true, description: Canonical workshop_location.id of the branch., schema: {type: integer, format: int64}}
         - {name: workingDate, in: query, required: true, description: Vietnam working day., schema: {type: string, format: date}}
-        - {name: method, in: query, required: false, description: Both methods when absent., schema: {type: string, enum: [BANK_TRANSFER, VNPAY]}}
+        - {name: method, in: query, required: false, description: All three methods when absent. BOOKING_TIME = online booking-time VNPay money read from 003.1 stored payment data (added 2026-11-16, A04)., schema: {type: string, enum: [BANK_TRANSFER, VNPAY, BOOKING_TIME]}}
         - {name: state, in: query, required: false, description: "All four states when absent. VOIDED = a collection a Manager voided; EXCESS = signed VNPay money that settled no part of the folio (FOLIO_VNPAY_EXCESS evidence, owed back by a bank refund). Added 2026-11-15.", schema: {type: string, enum: [CONFIRMED, PENDING_VERIFICATION, VOIDED, EXCESS]}}
       responses:
         '200': {description: Collections, content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/ReconciliationCollection'}}}}}
         '400': {$ref: '#/components/responses/Problem'}
         '401': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
+        '503': {description: 'Problem code RECONCILIATION_SOURCE_UNAVAILABLE: the filter includes BOOKING_TIME and the 003.1 facade failed or timed out; no partial list is returned (R02, 2026-11-16).', content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}}
   /api/v1/workshop-refund-requests:
     get:
       summary: List refund requests (Manager; transfer actors see PENDING_TRANSFER)
@@ -656,9 +664,10 @@ paths:
         person (owner decision 2026-11-13, needs FE-001). RECORD_TRANSFER needs both a bank reference and a
         proof reference (422 TRANSFER_PROOF_REQUIRED without the proof); CLOSE_UNREACHABLE needs 30 days in
         PENDING_ACCOUNT and a reason; REOPEN restores PENDING_ACCOUNT with a fresh account link.
-        *(Superseded 2026-11-15, spec FR-039, CHK007: only the bank reference text is required; the
-        receipt image is optional. The 422 code name TRANSFER_PROOF_REQUIRED is kept for a missing bank
-        reference until the plan/tasks T153 rename it.)*
+        *(Superseded 2026-11-15, spec FR-039, CHK007: only bankTransactionReference is required for RECORD_TRANSFER;
+        proofReference is optional (backend, DTO and RefundQueuePage); the receipt image is optional. The 422
+        code TRANSFER_PROOF_REQUIRED is renamed to the proposed BANK_TRANSACTION_REFERENCE_REQUIRED (name to be confirmed) for a missing
+        bank reference in task T154.)*
         PROPOSED 2026-11-15 (FR-040, CHK005/006): action RETURN_TO_PENDING_ACCOUNT (Manager, reason required,
         from PENDING_APPROVAL, PENDING_TRANSFER or PENDING_RECONCILIATION) is the single path when a bank
         returns the transfer, the statement does not match or the Manager refuses: the request goes back to
@@ -788,9 +797,7 @@ paths:
         accountDetailsConfirmed must be true, meaning the form showed bank, account number and holder name
         back and the user confirmed them; false or absent is 422 ACCOUNT_CONFIRMATION_REQUIRED (proposed
         code). No bank name lookup is made in V1.
-        Idempotency-Key (FR-022d) added to the contract 2026-11-14: the code
-        (RefundRequestController) does not take it yet and must add it (T097
-        follow-up).
+        Idempotency-Key (FR-022d) is required.
       security: [{bearerAuth: []}]
       parameters:
         - {name: refundId, in: path, required: true, schema: {type: string}}
@@ -819,9 +826,7 @@ paths:
       description: >-
         Implemented 2026-11-13. Staff or Manager; only possible while the request is PENDING_ACCOUNT
         (409 REFUND_ACCOUNT_ALREADY_ON_FILE otherwise). The token never appears in the response, only in email 7.
-        Idempotency-Key (FR-022d) added to the contract 2026-11-14: the code
-        (RefundRequestController) does not take it yet and must add it (T097
-        follow-up); a same-key replay must not send a second link.
+        Idempotency-Key (FR-022d) is required; a same-key replay must not send a second link.
       security: [{bearerAuth: []}]
       parameters:
         - {name: refundId, in: path, required: true, schema: {type: string}}
@@ -998,11 +1003,11 @@ paths:
           application/json:
             schema:
               type: object
-              required: [type, targetSessionReferences]
+              required: [type, targetSessionReferences, fromSessionReferences]
               properties:
                 type: {type: string, enum: [ADVANCE, LATE_ARRIVAL]}
                 targetSessionReferences: {type: array, minItems: 1, maxItems: 2, items: {type: string, format: uuid}}
-                fromSessionReferences: {type: array, minItems: 1, maxItems: 2, items: {type: string, format: uuid}, description: "Planned 2026-11-15 (T130; optional until T130 is served, then required): the ticket's current session(s) being replaced, one per target in the same order; each must be one of the ticket's sessions. The 24 h window and the request expiry are measured from the earlier of them."}
+                fromSessionReferences: {type: array, minItems: 1, maxItems: 2, items: {type: string, format: uuid}, description: "Planned 2026-11-15 (T130); REQUIRED, decided 2026-11-16 (A02: T130 and T141 ship in the same release, so the field is required in the same change): the ticket's current session(s) being replaced, one per target in the same order; each must be one of the ticket's sessions. The 24 h window and the request expiry are measured from the earlier of them."}
                 confirmIncrease: {type: boolean}
                 buyerVerificationReference: {$ref: '#/components/schemas/BuyerVerificationReference'}
                 reason: {type: string, maxLength: 1000, description: Required for Staff acting on the buyer's behalf (FR-055); a Member or Guest buyer may omit it.}
@@ -1052,7 +1057,7 @@ paths:
                   maxItems: 200
                   items:
                     type: object
-                    required: [ticketCode, targetSessionReferences]
+                    required: [ticketCode, targetSessionReferences, fromSessionReferences]
                     properties:
                       ticketCode: {type: string}
                       targetSessionReferences: {type: array, minItems: 1, maxItems: 2, items: {type: string, format: uuid}}
@@ -1189,6 +1194,7 @@ paths:
                   outcome: {type: string, description: 'PENDING_ANSWER, MOVED or REFUND'}
                   answerDeadlineAt: {type: string, format: date-time, description: 24 h before the LATEST offered session; without an answer by then the ticket is refunded.}
                   selectedReplacementSessionReference: {type: string, nullable: true}
+                  voucherRestoration: {$ref: '#/components/schemas/VoucherRestoration'}
                   offeredSessions:
                     type: array
                     items:
@@ -1235,7 +1241,17 @@ paths:
                   description: Required for ACCEPT_REPLACEMENT; one of the offered sessions.
                 buyerVerificationReference: {$ref: '#/components/schemas/BuyerVerificationReference'}
       responses:
-        '200': {description: Answer recorded}
+        '200':
+          description: >-
+            Answer recorded. For answer REFUND the body carries voucherRestoration (the Mland cancellation
+            restores the group voucher once, when the refund request is opened; FR-043); for
+            ACCEPT_REPLACEMENT no restoration happens and the field is absent.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  voucherRestoration: {$ref: '#/components/schemas/VoucherRestoration'}
         '401': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
@@ -1270,11 +1286,10 @@ components:
       type: object
       required: [collectionId, method, amount, status]
       properties:
-        collectionId: {type: string, nullable: true, description: Null for an EXCESS row, which comes from an evidence conclusion and has no collection.}
+        collectionId: {type: string}
         createdAt: {type: string, format: date-time}
-        excessAmount: {allOf: [{$ref: '#/components/schemas/Vnd'}], nullable: true, description: 'Amount beyond the ticket balance or a duplicate transfer, null when none (FR-034); the row keeps the full bank amount.'}
-        refundRequestReference: {type: string, nullable: true, description: 'Refund request (FR-039) opened for the excess, null when none.'}
-        method: {type: string, enum: [BOOKING_TIME, VNPAY, CASH, BANK_TRANSFER]}
+        cashDayClosed: {type: boolean, description: 'Read-only (2026-11-15 fix A17): true when the collection is CASH and the counted amount of its working day has been submitted (both PENDING_MANAGER_CONFIRMATION and CLOSED, the FR-036 cut-off; R04, 2026-11-16), so the Manager sees "Reverse cash entry" (FR-036/FR-053, T144) instead of "Void"; false otherwise.'}
+        method: {type: string, enum: [BOOKING_TIME, VNPAY, CASH, BANK_TRANSFER], description: 'BOOKING_TIME on a folio Collection is a per-ticket allocation of the booking-time payment, view only (R14, 2026-11-16); the ReconciliationCollection BOOKING_TIME is the whole group payment, a different meaning.'}
         amount: {$ref: '#/components/schemas/Vnd'}
         status: {type: string, enum: [PENDING_VERIFICATION, CONFIRMED, FAILED, VOIDED]}
         changeReturned: {$ref: '#/components/schemas/Vnd'}
@@ -1351,6 +1366,12 @@ components:
         message: {type: string}
     TicketCancellation:
       type: object
+      description: >-
+        Result of a customer cancellation (FR-041, FR-042). The voucher is restored only when every ticket of
+        the group has ended by valid cancellation (at least 24 hours before the ticket's first session); any
+        late cancellation or no-show in the group prevents it, and a valid cancellation that leaves another
+        ticket of the group not yet ended restores nothing yet. The Mland-cancellation rule is on
+        VoucherRestoration and the Mland remedy routes (fix A06, 2026-11-15).
       required: [ticketCode, benefitOutcome, pointsReturned]
       properties:
         ticketCode: {type: string}
@@ -1362,28 +1383,29 @@ components:
         # voucherRestored (boolean) is replaced 2026-11-15 by voucherRestoration (PROPOSED; decision FR-042/FR-043, task T155).
         # 2026-11-15: description aligned with spec FR-042/FR-043 and Session 2026-11-15; it replaces the stale sentence
         # "A customer cancellation that does not end the group's last ticket has restored false and no reason".
-        voucherRestoration:
-          type: object
-          description: >-
-            PROPOSED 2026-11-15, replaces the former boolean voucherRestored. The outcome of the one
-            voucher restoration per groupCode, triggered through the shared facade; the module that
-            owns vouchers performs it and 003.3 never writes voucher data (FR-042). A Mland
-            cancellation of a ticket in the group restores the group voucher once, when the first
-            Mland-cancelled ticket has its refund request opened (decided 2026-11-15, CHK010; not at REFUNDED, and a ticket moved to a replacement session never triggers it), whatever the other tickets did, including a late
-            cancellation or a no-show (FR-043 prevails over FR-042). Without a Mland cancellation, it
-            is restored only when every ticket of the group has ended by valid cancellation (at least
-            24 hours before the ticket's first session, FR-042); any late cancellation or no-show in
-            the group prevents it, so a late cancellation never restores, and a valid customer
-            cancellation that leaves another ticket of the group not yet ended restores nothing yet.
-            Restoration happens only while the voucher is still valid; otherwise restored is false
-            with reason EXPIRED (never extended; the bank refund is unaffected and the buyer is
-            told). It happens at most once per groupCode: when the voucher was already restored,
-            restored is false and reason is null (or EXPIRED when that is the stored outcome). In
-            every other case restored is false and reason is null.
-          required: [restored]
-          properties:
-            restored: {type: boolean}
-            reason: {type: string, nullable: true, enum: [EXPIRED], description: "Set only when restored is false because the voucher is no longer valid; null otherwise."}
+        voucherRestoration: {$ref: '#/components/schemas/VoucherRestoration'}
+    VoucherRestoration:
+      type: object
+      description: >-
+        PROPOSED 2026-11-15, replaces the former boolean voucherRestored. The outcome of the one
+        voucher restoration per groupCode, triggered through the shared facade; the module that
+        owns vouchers performs it and 003.3 never writes voucher data (FR-042). A Mland
+        cancellation of a ticket in the group restores the group voucher once, when the first
+        Mland-cancelled ticket has its refund request opened (decided 2026-11-15, CHK010; not at
+        REFUNDED, and a ticket moved to a replacement session never triggers it), whatever the other
+        tickets did, including a late cancellation or a no-show (FR-043 prevails over FR-042). The
+        customer-cancellation rule is on TicketCancellation. Restoration happens only while the voucher is still valid; otherwise restored is false
+        with reason EXPIRED (never extended; the bank refund is unaffected and the buyer is
+        told). It happens at most once per groupCode: when the voucher was already restored,
+        restored is false and reason is null (or EXPIRED when that is the stored outcome). In
+        every other case restored is false and reason is null.
+        Mapping from the facade outcome (R20, 2026-11-16): RESTORED -> {restored: true, reason: null};
+        EXPIRED -> {restored: false, reason: EXPIRED}; ALREADY_RESTORED -> {restored: false, reason: null}.
+        The buyer message (T163) is shown only when reason is EXPIRED.
+      required: [restored]
+      properties:
+        restored: {type: boolean}
+        reason: {type: string, nullable: true, enum: [EXPIRED], description: "Set only when restored is false because the voucher is no longer valid; null otherwise."}
     FolioCorrection:
       type: object
       required: [correctionReference, ticketCode, overchargeAmount, status]
@@ -1468,6 +1490,7 @@ components:
         groupCode: {type: string}
         type: {type: string, enum: [ADVANCE, LATE_ARRIVAL]}
         targetSessionReferences: {type: array, items: {type: string, format: uuid}}
+        fromSessionReferences: {type: array, items: {type: string, format: uuid}, description: "Planned 2026-11-16 (T130, A02): the ticket's current session(s) the request replaces, in the same order as the targets."}
         blockedRules: {type: array, items: {type: string, enum: [CHANGE_ALLOWANCE_EXHAUSTED, ADVANCE_CHANGE_WINDOW_EXPIRED, RESCHEDULE_QUOTA_EXHAUSTED]}}
         status: {type: string, enum: [PENDING, APPROVED, REJECTED, EXPIRED]}
         priceIncreaseAmount: {$ref: '#/components/schemas/Vnd'}
@@ -1500,17 +1523,21 @@ components:
     ReconciliationCollection:
       type: object
       description: One row of the FR-056 reconciliation list (planned, added 2026-11-15, task T133).
-      required: [ticketCode, groupCode, amount, method, state, createdAt]
+      required: [groupCode, amount, method, state, createdAt]
       properties:
         collectionId: {type: string, nullable: true, description: Null for an EXCESS row, which comes from an evidence conclusion and has no collection.}
         createdAt: {type: string, format: date-time}
-        ticketCode: {type: string}
+        ticketCode: {type: string, nullable: true, description: 'Null when one payment covers several tickets (one row per payment, R03, 2026-11-16); see ticketCodes.'}
+        ticketCodes: {type: array, items: {type: string}, description: 'Every ticket the payment covers (one row per payment, R03).'}
         groupCode: {type: string}
         amount: {$ref: '#/components/schemas/Vnd'}
-        method: {type: string, enum: [BANK_TRANSFER, VNPAY]}
+        excessAmount: {allOf: [{$ref: '#/components/schemas/Vnd'}], nullable: true, description: 'Amount beyond the ticket balance or a duplicate transfer, null when none (FR-034); the row keeps the full bank amount.'}
+        refundRequestReference: {type: string, nullable: true, description: 'Refund request (FR-039) opened for the excess; null for an EXCESS row and when none.'}
+        method: {type: string, enum: [BANK_TRANSFER, VNPAY, BOOKING_TIME], description: 'BOOKING_TIME here is the whole group payment (not the per-ticket allocation of a folio Collection, R14). BOOKING_TIME added 2026-11-16 (A04): online booking-time VNPay money from 003.1 stored payment data. A successful-IPN row carries the amount received and counts in the confirmed total; an unverified row carries the requested amount with state PENDING_VERIFICATION and does not count. A late payment (money received, group not confirmed, awaiting FR-040 review; 003.1 LATE_PENDING_REVIEW) is also PENDING_VERIFICATION with a reason note late payment under review and does not count. The amount is the stored requested amount (no separate received amount). A multi-location payment is one row with locationIds and appears under every location of the filter; per-location totals must not be summed (decided 2026-11-16, option B).'}
         state: {type: string, enum: [CONFIRMED, PENDING_VERIFICATION, VOIDED, EXCESS], description: 'Same values as the state query filter; renamed from status 2026-11-15 (planned, nothing built).'}
         transactionReference: {type: string, nullable: true, description: Bank transaction reference or VNPay transaction reference.}
-        confirmedBy: {type: string, nullable: true, description: Confirming actor; null while pending.}
+        confirmedBy: {type: string, nullable: true, description: 'Confirming actor (account); null while pending and always null for BOOKING_TIME rows (confirmed by the system through the IPN). 003.1 CONFIRMED maps to CONFIRMED, UNVERIFIED and LATE_PENDING_REVIEW map to PENDING_VERIFICATION (R19, 2026-11-16).'}
+        locationIds: {type: array, items: {type: string}, description: 'Locations (canonical workshop_location.id) of the sessions of the payment tickets; for BOOKING_TIME rows one payment can have several; the locationId query parameter is a filter, not the single attribute of the row. The whole-system day total counts a payment once; do not sum per-location totals (double counting). Decided 2026-11-16, option B.'}
         confirmedAt: {type: string, format: date-time, nullable: true}
     CashReversal:
       type: object
