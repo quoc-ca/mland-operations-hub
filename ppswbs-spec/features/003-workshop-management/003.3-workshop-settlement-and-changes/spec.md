@@ -17,6 +17,15 @@ reversal, refund failure path, account-entry confirmation, optional receipt
 image after plan decision O-1, voucher restoration outcome, folio close rule);
 T005 and T035 blocked on VNPay merchant configuration
 
+**Approval**: Session 2026-11-15 (Clarifications and "Checklist follow-up") approved
+2026-11-15 by Hồ Hoàng Quốc (owner Feature 003), on request in the working
+session. Scope: the decisions recorded in that session in this `spec.md` and
+their sync in `plan.md`, `data-model.md`, `tasks.md` and the contract. Also
+confirmed by the owner on 2026-11-15: the FR-043 timing of closing a folio from
+`FINALIZED` to `CLOSED` after a Mland cancellation (only after the refund is
+`REFUNDED`), and the plan decision O-1 names (receipt image folder and table
+names, as proposed there).
+
 **Input**: Confirmed workshop-settlement, change, and direct-booking cancellation
 decisions. This spec retains the feature baseline locally so a later retirement
 of the shared `research.md` does not remove its behavioural decisions.

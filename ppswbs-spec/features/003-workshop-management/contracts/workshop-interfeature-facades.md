@@ -529,8 +529,11 @@ it is still valid at that moment, for every kind of cancellation; an expired
 voucher is not restored, the outcome carries reason `EXPIRED` and the buyer is
 told. The money already paid is refunded by bank regardless (003.3 FR-038).
 
-**Proposed signature (2026-11-15, 003.3 T155; names are PROPOSED until the
-owner approves them; owner = the voucher and points module, 006):**
+**Signature (2026-11-15, 003.3 T155; owner = the voucher and points module, 006).
+Names approved 2026-11-15 by Hồ Hoàng Quốc, acting for Đặng Thị Khương (owner
+of 006), who delegated this approval to him per his statement in the working
+session; the "(proposed)" tags below are kept as history. The 006 owner builds
+the operation; a rename is still possible through the owner of 006:**
 
 ```text
 restoreVoucherForCancelledTicket(RestoreVoucherCommand) -> VoucherRestorationOutcome   (proposed)
