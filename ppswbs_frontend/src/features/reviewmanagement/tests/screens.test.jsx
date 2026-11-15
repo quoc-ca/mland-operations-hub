@@ -39,7 +39,7 @@ describe('F11-PUBLIC-REVIEW-LIST Screen (/reviews)', () => {
     open('/reviews', { session: fakeSession('signed-out') });
 
     expect(await screen.findByText('Đánh giá từ khách hàng')).toBeInTheDocument();
-    expect(screen.getByText(/Chỉ đánh giá PUBLIC được hiển thị và tính vào điểm tổng hợp/)).toBeInTheDocument();
+    expect(screen.queryByText(/Chỉ đánh giá PUBLIC được hiển thị và tính vào điểm tổng hợp/)).not.toBeInTheDocument();
     expect(screen.getByText('Workshop làm nhẫn rất tuyệt vời!')).toBeInTheDocument();
     expect(screen.getByText('Nhẫn bạc đóng gói cẩn thận.')).toBeInTheDocument();
     expect(screen.getByText('Hội viên #1***45')).toBeInTheDocument();
