@@ -93,7 +93,9 @@ public class GroupPaymentService {
         long collection = recomputedCollectionVnd(group);
         // The link dies with the payment deadline, two minutes before the hold, never later.
         Instant expiresAt = group.getPaymentDeadlineAt();
-        String merchantReference = "GRP-" + groupCode + "-" + UUID.randomUUID();
+        // group_payment_attempts.merchant_reference is VARCHAR(64) (V113): the group code (24) + "-" + a hyphen-free
+        // UUID (32) is 57 characters. The old "GRP-" + code + "-" + UUID was 65 and failed every insert on MySQL.
+        String merchantReference = groupCode + "-" + UUID.randomUUID().toString().replace("-", "");
         String providerCreateDate = PROVIDER_DATE.format(now);
         String url = gateway.createDepositUrl(merchantReference, groupCode, collection, now,
                 expiresAt, clientIp);

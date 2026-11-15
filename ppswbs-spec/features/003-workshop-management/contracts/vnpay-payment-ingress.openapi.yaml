@@ -34,7 +34,8 @@ paths:
         '200':
           description: >-
             VNPay acknowledgement including safe duplicate acknowledgement. RspCode follows the VNPay IPN
-            convention: 00 accepted or already received; 97 invalid checksum (Message INVALID_SIGNATURE);
+            convention: 00 accepted; 02 already received, a replay of a delivery already accepted
+            (Message "Already received"; decided 2026-11-15 by Hồ Hoàng Quốc, was 00); 97 invalid checksum (Message INVALID_SIGNATURE);
             01 merchant reference not found (UNKNOWN_REFERENCE); 04 amount or currency mismatch
             (AMOUNT_CURRENCY_MISMATCH); 99 any other unverifiable outcome (UNVERIFIED_OUTCOME). A rejected
             callback has no Booking or Settlement side effect.
