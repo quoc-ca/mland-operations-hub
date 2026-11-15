@@ -21,14 +21,6 @@ public interface SettlementRefundAllocationRepository extends JpaRepository<Sett
     List<SettlementRefundAllocation> findTop100ByLifecycleStatusAndCreatedAtBeforeOrderByCreatedAtAsc(
             String lifecycleStatus, Instant cutoff);
 
-    @Query("select a from SettlementRefundAllocation a where a.lifecycleStatus in :statuses "
-            + "and a.providerRefundTransactionNumber is not null "
-            + "and coalesce(a.providerAcceptedAt, a.createdAt) >= :acceptanceCutoff "
-            + "and (a.lastQueryAt is null or a.lastQueryAt <= :dueBefore) "
-            + "order by a.lastQueryAt asc nulls first")
-    List<SettlementRefundAllocation> findDueRefundQueries(@Param("statuses") List<String> lifecycleStatuses,
-            @Param("acceptanceCutoff") Instant acceptanceCutoff, @Param("dueBefore") Instant dueBefore);
-
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select a from SettlementRefundAllocation a where a.allocationReference = :reference")
     Optional<SettlementRefundAllocation> findByAllocationReferenceForUpdate(@Param("reference") String reference);

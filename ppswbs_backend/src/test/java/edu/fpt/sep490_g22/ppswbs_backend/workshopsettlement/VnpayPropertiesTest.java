@@ -45,7 +45,6 @@ class VnpayPropertiesTest {
         properties.setReturnUrl("https://merchant.example.test/return");
         properties.setIpnUrl("https://merchant.example.test/api/v1/integrations/payments/vnpay/events");
         properties.setQueryDrUrl("https://sandbox.vnpayment.vn/merchant_webapi/api/transaction");
-        properties.setRefundUrl("https://sandbox.vnpayment.vn/merchant_webapi/api/transaction");
         return properties;
     }
 }

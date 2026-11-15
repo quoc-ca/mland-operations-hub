@@ -1,10 +1,7 @@
 package edu.fpt.sep490_g22.ppswbs_backend.workshopsettlement;
 
 import edu.fpt.sep490_g22.ppswbs_backend.common.payment.PaymentGatewayCheckoutPort;
-import edu.fpt.sep490_g22.ppswbs_backend.common.payment.VnpayMerchantOperationResult;
 import edu.fpt.sep490_g22.ppswbs_backend.common.payment.VnpayMerchantOperationsPort;
-import edu.fpt.sep490_g22.ppswbs_backend.common.payment.VnpayRefundCommand;
-import edu.fpt.sep490_g22.ppswbs_backend.common.payment.VnpayRefundReconciliationCommand;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorRole;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.CurrentAccountActor;
@@ -89,7 +86,6 @@ class OtaAddonCollectionAcceptanceIT {
     private final CurrentAccountActor manager = new CurrentAccountActor(10L, ActorRole.MANAGER, ActorStatus.ACTIVE, true, List.of());
     private final CurrentAccountActor staffInScope = new CurrentAccountActor(20L, ActorRole.STAFF, ActorStatus.ACTIVE, true, List.of(LOCATION));
     private final CurrentAccountActor staffOutOfScope = new CurrentAccountActor(21L, ActorRole.STAFF, ActorStatus.ACTIVE, true, List.of(LOCATION + 1));
-    private volatile String refundQueryStatus;
 
     @BeforeAll
     static void refundEncryptionKey() {
@@ -100,29 +96,11 @@ class OtaAddonCollectionAcceptanceIT {
 
     @BeforeEach
     void setUp() {
-        refundQueryStatus = "00";
         // Staff 20 is assigned to a session of the booking; the out-of-scope Staff fails on the location first.
         when(operations.isStaffAssignedToBooking(any())).thenAnswer(invocation ->
                 Long.valueOf(20L).equals(((StaffBookingAssignmentQuery) invocation.getArgument(0)).staffAccountId()));
         when(checkout.createShopAddonUrl(any(), any(), anyLong(), any(), any(), any()))
                 .thenAnswer(invocation -> "https://pay.example.invalid/" + invocation.getArgument(0));
-        when(provider.requestRefund(any())).thenAnswer(invocation -> {
-            VnpayRefundCommand command = invocation.getArgument(0);
-            String type = command.amountVnd() == paidAmount(command.merchantReference()) ? "02" : "03";
-            return new VnpayMerchantOperationResult(command.operationReference(), "REFUND", "ACCEPTED", "00", type, "05",
-                    "880" + Math.abs(command.operationReference().hashCode() % 1_000_000),
-                    command.merchantReference(), command.amountVnd(), true);
-        });
-        when(provider.queryRefund(any())).thenAnswer(invocation -> {
-            VnpayRefundReconciliationCommand command = invocation.getArgument(0);
-            SettlementRefundAllocation allocation = allocations.findAll().stream()
-                    .filter(a -> command.refundTransactionNumber().equals(a.getProviderRefundTransactionNumber()))
-                    .findFirst().orElseThrow();
-            String type = allocation.getAllocatedAmountVnd().equals(allocation.getOriginalAmountVnd()) ? "02" : "03";
-            return new VnpayMerchantOperationResult(command.operationReference(), "REFUND_QUERYDR", "ACCEPTED", "00", type,
-                    refundQueryStatus, command.refundTransactionNumber(), command.merchantReference(),
-                    command.expectedRefundAmountVnd(), true);
-        });
     }
 
     @Test
@@ -208,14 +186,13 @@ class OtaAddonCollectionAcceptanceIT {
         assertThatThrownBy(() -> addonPayments.createRefund(bill.reference(), key(), null,
                 new OtaAddonRefundCommand(AMOUNT + 1, "Too much"), manager)).isInstanceOf(RuntimeException.class);
 
-        verify(provider, never()).requestRefund(any());
+        verifyNoInteractions(provider); // VNPay Refund is not used
     }
 
     /** Idempotency: the same key must return the original refund even while it is still waiting for QueryDR. */
     @Test
     void retryingTheSameRefundKeyWhileItIsPendingReturnsTheOriginalRefund() {
         Bill bill = paidBill();
-        refundQueryStatus = "05";
         String key = key();
         OtaAddonRefundCommand command = new OtaAddonRefundCommand(10_000L, "Customer returned the item");
 
@@ -224,7 +201,7 @@ class OtaAddonCollectionAcceptanceIT {
 
         assertThat(retry.refundReference()).isEqualTo(first.refundReference());
         assertThat(bankRefunds.listForBooking(bill.channelReference())).hasSize(1);
-        verify(provider, never()).requestRefund(any());
+        verifyNoInteractions(provider); // VNPay Refund is not used
     }
 
     /** A verified payment that arrives for an already PAID bill is real money and must be recorded to be refundable. */

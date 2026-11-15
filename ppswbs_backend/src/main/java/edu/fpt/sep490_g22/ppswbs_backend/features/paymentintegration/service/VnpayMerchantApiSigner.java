@@ -21,23 +21,11 @@ public class VnpayMerchantApiSigner {
                 "vnp_TxnRef", "vnp_TransactionDate", "vnp_CreateDate", "vnp_IpAddr", "vnp_OrderInfo"));
     }
 
-    public Map<String, String> signRefund(Map<String, String> fields) {
-        return sign(fields, List.of("vnp_RequestId", "vnp_Version", "vnp_Command", "vnp_TmnCode",
-                "vnp_TransactionType", "vnp_TxnRef", "vnp_Amount", "vnp_TransactionNo",
-                "vnp_TransactionDate", "vnp_CreateBy", "vnp_CreateDate", "vnp_IpAddr", "vnp_OrderInfo"));
-    }
-
     public boolean verifyQueryDrResponse(Map<String, String> response) {
         return verify(response, List.of("vnp_ResponseId", "vnp_Command", "vnp_ResponseCode", "vnp_Message",
                 "vnp_TmnCode", "vnp_TxnRef", "vnp_Amount", "vnp_BankCode", "vnp_PayDate",
                 "vnp_TransactionNo", "vnp_TransactionType", "vnp_TransactionStatus", "vnp_OrderInfo",
                 "vnp_PromotionCode", "vnp_PromotionAmount"));
-    }
-
-    public boolean verifyRefundResponse(Map<String, String> response) {
-        return verify(response, List.of("vnp_ResponseId", "vnp_Command", "vnp_ResponseCode", "vnp_Message",
-                "vnp_TmnCode", "vnp_TxnRef", "vnp_Amount", "vnp_BankCode", "vnp_PayDate",
-                "vnp_TransactionNo", "vnp_TransactionType", "vnp_TransactionStatus", "vnp_OrderInfo"));
     }
 
     private Map<String, String> sign(Map<String, String> fields, List<String> order) {
