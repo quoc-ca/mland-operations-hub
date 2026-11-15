@@ -33,6 +33,7 @@ const BOOKING_ERROR_MESSAGE = {
   PACKAGE_SELECTION_INVALID: 'Lựa chọn ca không hợp lệ theo quy định của gói (số ca, địa điểm hoặc khoảng cách thời gian).',
   PACKAGE_NOT_PUBLISHED: 'Gói workshop này hiện chưa được mở bán hoặc đã tạm dừng.',
   QUOTE_EXPIRED: 'Báo giá đã hết hạn. Vui lòng báo giá lại.',
+  DEPENDENCY_UNAVAILABLE: 'Hệ thống tạm thời chưa xử lý được yêu cầu. Giỏ và thông tin bạn đã nhập vẫn được giữ; vui lòng thử lại sau.',
   CART_BENEFITS_NEED_A_MEMBER: 'Voucher và điểm chỉ áp dụng cho tài khoản Member đang đăng nhập.',
   SALES_PAUSED: 'Hệ thống đang tạm dừng nhận đăng ký cho ca này.',
   IDEMPOTENCY_CONFLICT: 'Yêu cầu trùng lặp nhưng nội dung khác với lần gửi trước.',

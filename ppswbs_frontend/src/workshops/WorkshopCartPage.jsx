@@ -21,6 +21,7 @@ const CART_ERROR_MESSAGE = {
   CART_HOLD_REJECTED: 'Giỏ chưa được giữ chỗ vì có dòng không còn đủ chỗ. Hệ thống không giữ chỗ nào; vui lòng sửa giỏ rồi báo giá lại.',
   INSUFFICIENT_CAPACITY: 'Có dòng trong giỏ không còn đủ chỗ. Hệ thống không giữ chỗ nào.',
   QUOTE_EXPIRED: 'Báo giá đã hết hạn. Vui lòng báo giá lại.',
+  DEPENDENCY_UNAVAILABLE: 'Hệ thống tạm thời chưa xử lý được yêu cầu. Giỏ và thông tin bạn đã nhập vẫn được giữ; vui lòng thử lại sau.',
   CART_BENEFITS_NEED_A_MEMBER: 'Voucher và điểm chỉ áp dụng cho tài khoản Member đang đăng nhập.',
 };
 
