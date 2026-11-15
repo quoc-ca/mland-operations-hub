@@ -1,5 +1,8 @@
 # Specification Quality Checklist: Workshop Settlement and Changes
 
+> **Historical (2026-10-27):** this checklist predates the per-ticket model and the 2026-11-15 decisions; do not use it to accept current behavior. Regenerate with the checklist skill.
+
+
 **Date created**: 2026-10-24
 **Date updated**: 2026-10-27
 **Author**: Hồ Hoàng Quốc
