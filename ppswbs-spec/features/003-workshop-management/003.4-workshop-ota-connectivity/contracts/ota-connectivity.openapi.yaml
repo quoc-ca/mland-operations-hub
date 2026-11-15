@@ -378,8 +378,8 @@ paths:
         Hồ Hoàng Quốc). Interim ingress used before per-provider onboarding
         contracts are approved; it is not the approved provider transport. The
         query parameters name the connection; the body is the provider's own JSON
-        event, mapped by that provider's cancellation adapter (V1 cancels the whole
-        booking; refunds are OTA logic and are only recorded as the OTA reports
+        event, mapped by that provider's cancellation adapter (a confirmed cancellation of k participants revokes k tickets by a
+        fixed rule, the whole booking when k reaches the active tickets; refunds are OTA logic and are only recorded as the OTA reports
         them, FR-012). Authentication is exactly that of booking-events:
         X-Ota-Signature is compared in constant time with the secret that the
         ACTIVE connection's credential reference resolves to; an unresolvable or
