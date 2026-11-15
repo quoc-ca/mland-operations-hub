@@ -98,3 +98,66 @@ Result: 39 items, 17 PASS, 22 FAIL.
 - CHK034: the owner that executes the voucher restore is not named in the spec or facade (FR-042, FR-043).
 - CHK037: no success criterion for Staff refusal on void, extra change or difference confirmation (FR-052 to FR-054).
 - CHK038: no success criterion for reminders, 30-day close and reopen (FR-040).
+
+### Re-assessment 2026-11-15 (after checklist follow-up)
+
+**Người chịu trách nhiệm**: Hồ Hoàng Quốc · **Ngày**: 2026-11-15 · **Loại**: đánh giá của agent (không phải duyệt). Mọi ô vẫn để trống; người review ký từng mục.
+
+Phạm vi đối chiếu: `spec.md` (FR, SC, `## Clarifications` > `### Session 2026-11-15` và `#### Checklist follow-up`), `plan.md` (mục "Checklist follow-up of 2026-11-15", O-1, O-2), `data-model.md`, `contracts/workshop-settlement-ticket.openapi.yaml`, `tasks.md` (Phase 11, T144–T165) và `../contracts/workshop-interfeature-facades.md`. Tiêu chí: yêu cầu được viết rõ và kiểm chứng được trong tài liệu; task code còn mở không tính là lỗi. Khoảng trống QueryDR sandbox (T005/T035) không tính là lỗi.
+
+**Kết quả: 39 mục — 37 Đạt, 1 Đạt có quyết định mở, 1 Chưa đạt** (trước: 17 Đạt / 22 Chưa đạt).
+
+| CHK | Trước | Sau | Căn cứ | Còn thiếu (nếu Chưa đạt) |
+| --- | --- | --- | --- | --- |
+| CHK001 | Đạt | Đạt | FR-039 (người nhận mặc định), FR-038a, FR-038 (yêu cầu cấp nhóm cho thanh toán trễ) | |
+| CHK002 | Đạt | Đạt | FR-038 (trần theo vé, áp cho mọi yêu cầu theo vé), FR-034, SC-004a | |
+| CHK003 | Chưa đạt | Đạt | FR-034 (CHK003); plan (j); T158 | |
+| CHK004 | Chưa đạt | Chưa đạt | FR-043 (CHK004 + follow-up), FR-035; plan (i) và O-2 "DECIDED"; T157 | `data-model.md` dòng "Refund request" vẫn ghi folio `FINALIZED` chuyển `CLOSED` "khi yêu cầu hoàn được mở" và còn câu "Open inconsistency (to confirm with the owner, T155)", trái với FR-043 (chỉ `CLOSED` khi refund `REFUNDED` và không còn khoản chờ); gạch đầu dòng tóm tắt trong `#### Checklist follow-up` của spec cũng thiếu vế "khi `REFUNDED`". Chỉ cần đồng bộ câu chữ, không cần quyết định mới. |
+| CHK005 | Chưa đạt | Đạt | FR-040 (CHK005/006: hoàn thất bại → `PENDING_ACCOUNT`, không có trạng thái từ chối cuối), FR-039; plan (d); T146 | |
+| CHK006 | Chưa đạt | Đạt | FR-040 (so khớp tên chủ tài khoản lúc chuyển bị bỏ, thay bằng xác nhận lúc nhập); plan (e); contract `accountDetailsConfirmed`; T150/T151 | |
+| CHK007 | Chưa đạt | Đạt có quyết định mở | FR-039 (mã tham chiếu ngân hàng bắt buộc, ảnh biên lai tùy chọn, chỉ Manager và người chuyển xem); plan O-1 (chủ quyết định Hồ Hoàng Quốc); T153 → T154; contract `proofImageReference` `x-status: pending-plan-decision` | Quyết định mở có chủ và task: loại file, giới hạn dung lượng, nơi lưu, thời hạn lưu, kiểm tra nội dung, cơ chế upload. |
+| CHK008 | Đạt | Đạt | FR-057, SC-014 | |
+| CHK009 | Chưa đạt | Đạt | FR-057 (CHK009: không vượt tổng folio, tổng các bản ghi chưa void cũng vậy, `422`); plan (h); T156 | |
+| CHK010 | Đạt | Đạt | FR-042, FR-043, Session 2026-11-15; "đúng một lần" = một lần cho mỗi `groupCode` (FR-042, facade "Voucher and points restoration") | |
+| CHK011 | Chưa đạt | Đạt | FR-042 (CHK011/034: chỉ khôi phục khi voucher còn hiệu lực, không gia hạn, lý do `EXPIRED`, báo người mua, tiền vẫn hoàn); facade; T155, T163 | Ghi chú nhỏ, không tính lỗi: enum lý do chỉ có `EXPIRED`; trường hợp voucher bị thu hồi được bao bởi quy tắc chung "chỉ khi còn hiệu lực" nhưng chưa có mã lý do riêng. |
+| CHK012 | Chưa đạt | Đạt | FR-035 (CHK012: `Còn nợ` không finalize, ngoại lệ bàn giao không đổi `balanceDue`) | |
+| CHK013 | Chưa đạt | Đạt | FR-036 (CHK013: mốc cắt = lúc nộp số đếm); plan (b); T147 | |
+| CHK014 | Chưa đạt | Đạt | FR-036 (CHK014: bút toán đảo tiền mặt chỉ Manager), FR-053, FR-050; data-model "Cash reversal entry"; contract `…/cash-reversals`; T144/T145 | |
+| CHK015 | Đạt | Đạt | FR-033, FR-034, FR-056 | |
+| CHK016 | Chưa đạt | Đạt | FR-034 (CHK016: tự `FAILED` sau 24 giờ khi QueryDR báo không có thanh toán; tiền đến sau → hoàn dư); plan (c); T149 | |
+| CHK017 | Chưa đạt | Đạt | FR-040 (CHK017: `404 RESOURCE_NOT_FOUND`, `410 REFUND_ACCOUNT_LINK_NOT_USABLE`, không lộ số tài khoản); contract; T165 | |
+| CHK018 | Chưa đạt | Đạt | FR-022d (thêm `410`); contract route link có `410` | Ghi chú nhỏ: FR-022d mô tả `404` là "missing/not-visible booking" trong khi route link dùng `404` cho token không tồn tại; không mâu thuẫn hành vi. |
+| CHK019 | Đạt | Đạt | FR-022a, FR-022d; FR-036/FR-040/FR-057 nêu `Idempotency-Key` cho lệnh mới | |
+| CHK020 | Đạt | Đạt | FR-040, FR-039; SC-017 | |
+| CHK021 | Chưa đạt | Đạt | FR-040 (CHK021: một giao dịch mỗi yêu cầu, chạy lại idempotent, duyệt cũ mất hiệu lực); T137 (đã gộp T148) | |
+| CHK022 | Đạt | Đạt | FR-041, FR-044, FR-045a | |
+| CHK023 | Chưa đạt | Đạt | FR-032 (Staff thuộc phạm vi địa điểm và được phân công vào một buổi của vé; Manager toàn cục) | |
+| CHK024 | Chưa đạt | Đạt | FR-036 (CHK024: Staff hoặc Manager có phạm vi chứa chi nhánh, không áp quy tắc phân công); T160 | |
+| CHK025 | Chưa đạt | Đạt | FR-040 (CHK025), FR-038a; plan (f); T152 | |
+| CHK026 | Đạt | Đạt | FR-040, quyết định phân quyền Feature 003; SC-016 (Manager và Staff nhận `403` ở route thay khóa) | |
+| CHK027 | Đạt | Đạt | FR-048 | |
+| CHK028 | Đạt | Đạt | FR-032, FR-035, FR-052–FR-054, FR-056, FR-057, FR-036 (đảo tiền mặt) | |
+| CHK029 | Đạt | Đạt | FR-040, SC-009 | |
+| CHK030 | Chưa đạt | Đạt | FR-012a (CHK030: xóa token khỏi payload khi link dùng/thu hồi/hết hạn, phần còn lại giữ 30 ngày); plan (k); T159 | |
+| CHK031 | Đạt | Đạt | FR-003, FR-022 | |
+| CHK032 | Chưa đạt | Đạt | FR-038 (CHK032: ngoại lệ yêu cầu cấp nhóm `LATE_PAYMENT_NOT_RECONFIRMED`, trần theo vé chỉ cho yêu cầu theo vé); facade "Late-payment review and bank refund" | |
+| CHK033 | Đạt | Đạt | FR-001a, FR-039; facade "Per-ticket boundary changes" (`REFUND_PENDING` khi mở, `REFUNDED` sau đối soát) | |
+| CHK034 | Chưa đạt | Đạt | FR-042 (003.3 chỉ kích hoạt; module sở hữu voucher và điểm thực hiện một lần mỗi `groupCode`); facade "Voucher and points restoration" (chủ sở hữu 006, chữ ký PROPOSED); T155 | |
+| CHK035 | Đạt | Đạt | FR-038a, FR-001 | |
+| CHK036 | Đạt | Đạt | SC-009 | |
+| CHK037 | Chưa đạt | Đạt | SC-016; T161 | |
+| CHK038 | Chưa đạt | Đạt | SC-017; T162 | |
+| CHK039 | Đạt | Đạt | SC-006, SC-013, SC-014 | |
+
+**Phần sót nhỏ (chỉ ghi nhận, không sửa trong lượt này):**
+
+- `plan.md`, bảng "Checklist follow-up of 2026-11-15", dòng (d): cột Tasks vẫn ghi `T146, T148`, trong khi T148 đã gộp vào T137 (tasks.md T148 "MERGED into T137"). Nên là `T146, T137`.
+- `contracts/workshop-settlement-ticket.openapi.yaml`, mô tả `voucherRestoration` (khoảng dòng 1230–1236): câu cũ "A customer cancellation that does not end the group's last ticket has restored false and no reason" vẫn còn; câu này chưa phủ trường hợp hủy của khách kết thúc vé cuối nhưng nhóm có vé hủy trễ hoặc no-show (FR-042: không khôi phục, không có lý do) và trường hợp voucher đã được khôi phục trước đó bởi hủy của Mland (facade trả `ALREADY_RESTORED`).
+- `data-model.md`, dòng "Refund request": câu "Open inconsistency (to confirm with the owner, T155)" đã lỗi thời (O-2 đã quyết định, task đúng là T157) và câu "the refund request is opened and the folio moves to `CLOSED`" trái FR-043 — đây là lý do CHK004 Chưa đạt.
+- `spec.md`, `#### Checklist follow-up`, gạch đầu dòng đầu: "opens the refund request and moves the folio to `CLOSED`" thiếu vế "khi refund `REFUNDED`" mà FR-043 đã ghi.
+- `tasks.md` đoạn mở Phase 11 (dòng "Appended 2026-11-15"): vẫn ghi "open decisions O-1, O-2"; O-2 đã quyết định, chỉ O-1 còn mở.
+
+CHK004: Đạt sau khi sửa câu chữ (data-model, spec), 2026-11-15.
+
+CHK007: Đạt, O-1 đã chốt 2026-11-15 (thời hạn xóa cuối cùng chờ kế toán, ghi mở trong plan).
+CHK007 (cập nhật 2026-11-15): thời hạn xóa đã chốt, xóa file ảnh 5 năm sau khi yêu cầu hoàn đạt `REFUNDED` hoặc `CLOSED_UNREACHABLE`, giữ metadata; kế toán cần xác nhận căn cứ 5 năm.

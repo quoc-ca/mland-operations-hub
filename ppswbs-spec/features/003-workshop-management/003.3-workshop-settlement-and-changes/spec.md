@@ -315,10 +315,27 @@ self-service (FR-018 and Scope); whole-booking Mland remedy (FR-020, FR-021).
   recipient. An actor holding `workshop.refund.execute` transfers outside the
   system and records the bank reference (required, text) and may attach proof
   (an optional image of the transfer receipt; *decided 2026-11-15, checklist
-  CHK007; file type, size limit, storage location and retention of the image
-  are not yet decided and are settled in the plan before this is built*; the
-  image is visible only to a Manager and the transferring actor, and follows the
-  request's lifecycle); only a Manager confirms
+  CHK007; ~~file type, size limit, storage location and retention of the image
+  are not yet decided and are settled in the plan before this is built~~
+  (superseded 2026-11-15, plan O-1 decided by Hồ Hoàng Quốc): at most one
+  JPEG, PNG or WebP image of at most 5,000,000 bytes per transfer evidence,
+  checked by declared Content-Type, file signature and a readable header (the
+  file name extension is never trusted; PDF is refused, staff send a
+  screenshot); stored as an authenticated object in the Cloudinary account
+  already used by feature 002, in a separate 003.3 folder, with only metadata
+  in the database; never served by a provider URL but streamed by the backend
+  after the same access check as the request; if image storage is unavailable
+  the bank reference is still recorded without the image; an attached image is
+  never deleted automatically in V1 and is kept as long as the refund record,
+  an uploaded image never attached is removed after 24 hours; ~~the final
+  retention period waits for an accounting decision (open, owner Hồ Hoàng
+  Quốc)~~ *(decided 2026-11-15 by Hồ Hoàng Quốc)* the attached image file is
+  deleted 5 years after the refund request reaches `REFUNDED` or
+  `CLOSED_UNREACHABLE`; the bank reference, checksum and upload metadata stay
+  with the refund record; the in-app image is supporting evidence, not the
+  accounting voucher (the bank statement is kept by accounting)*; the image is visible only to a Manager and the transferring actor,
+  which in V1 means a Manager only (see the 2026-11-13 role decision below), and
+  follows the request's lifecycle); only a Manager confirms
   `REFUNDED` after matching the bank statement (one Manager may both approve and
   confirm; every step records actor, time and proof). The default recipient is
   the payer of the refunded money (the group payer for the shared booking-time
@@ -738,11 +755,12 @@ separate Mland shop add-on bill of an OTA booking (D12).
 
 #### Checklist follow-up (payment-error-access.md), answered by Hồ Hoàng Quốc on 2026-11-15
 
-- Q: Can Mland's refund close a `FINALIZED` folio? → A: Yes, as the only exception: Mland cancellation opens the refund request and moves the folio to `CLOSED` (FR-043).
+- Q: Can Mland's refund close a `FINALIZED` folio? → A: Yes, as the only exception: Mland cancellation opens the refund request and moves the folio to `CLOSED` only after the refund is `REFUNDED` and nothing is pending (FR-043, FR-039) (owner confirmed option A, 2026-11-15).
 - Q: Does a pending collection block a Mland cancellation? → A: No; a Manager confirms or fails it, a later confirmation is routed to refund as excess, and the folio closes only when nothing is pending (FR-034).
 - Q: After a bank refund fails (returned, statement mismatch, Manager refusal) what state? → A: `PENDING_ACCOUNT` with a reason, ciphertext deleted, approval void, Manager re-approves; no terminal rejection (FR-040). The transfer-time holder-name comparison is replaced by an explicit confirmation of bank, number and holder name at entry; no bank name lookup in V1.
 - Q: Key replacement and old approval? → A: Approval no longer applies; one transaction per request, idempotent rerun (FR-040).
-- Q: Transfer proof? → A: Bank reference text required, optional receipt image; storage, size and retention of the image are decided in the plan (FR-039). **Open.**
+- Q: Transfer proof? → A: Bank reference text required, optional receipt image; storage, size and retention of the image are decided in the plan (FR-039). ~~**Open.**~~ *(Settled 2026-11-15, plan O-1; see the next answer.)*
+- Q: Which receipt image files are accepted, how large, where stored, who sees them and how long are they kept (plan O-1, CHK007)? → A: JPEG, PNG or WebP only, validated like feature 002 product images (FR-008 of 002): declared Content-Type plus file signature plus a readable header, no trust in the extension; PDF is refused (staff send a screenshot). At most 5,000,000 bytes and one image per refund transfer evidence. Stored in Cloudinary as `type=authenticated` objects through a 003.3-owned adapter (the 002 module exposes no upload facade), same Cloudinary account and `CLOUDINARY_*` variables, separate folder (proposed `ppswbs/settlement-receipts`); the database stores metadata only (storage key, checksum, content type, byte count, uploader, times), never the bytes. The provider URL is never returned: the backend reads with a signed URL and streams it same-origin with `Cache-Control: no-store` and `X-Content-Type-Options: nosniff`, after the same access check as the refund request (FR-039: a Manager and the transferring actor; V1: Manager only, since every refund transition is Manager-only; Staff, who may only enter the account at the counter and resend the link under FR-040, get `403`). Missing Cloudinary credentials give a typed dependency-unavailable error and the bank reference can still be recorded without the image. V1 never deletes an attached image automatically; it is kept as long as the refund record; an uploaded image never attached is removed after 24 hours (same rule as 002). ~~The final retention/deletion period is deferred to an accounting decision (owner Hồ Hoàng Quốc), still open~~ *(decided 2026-11-15)* The attached image file is deleted 5 years after the refund request reaches `REFUNDED` or `CLOSED_UNREACHABLE`; the bank reference, checksum and upload metadata are kept with the refund record. Basis: the image is supporting evidence, not the accounting voucher (accounting keeps the bank statement); 5 years follows the minimum for records not used directly for bookkeeping (Luật Kế toán 2015 / Nghị định 174/2016, to be confirmed by accounting; if accounting uses the in-app image as its voucher, the period becomes 10 years) (FR-039; decided by Hồ Hoàng Quốc, 2026-11-15).
 - Q: Which day does cash taken while a difference awaits confirmation belong to? → A: The next working day; the cut-off is the submission of the counted amount (FR-036).
 - Q: Correcting a wrong cash entry on a closed day? → A: Manager-only reversal entry on the current day, refused for `FINALIZED`/`CLOSED` folios or money under a refund request (FR-036, FR-053).
 - Q: Voucher expired at restoration? → A: Never extended; not restored, reason `EXPIRED`, buyer told; the voucher-owning module performs restoration once per `groupCode` (FR-042).

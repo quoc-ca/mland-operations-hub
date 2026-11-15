@@ -433,6 +433,24 @@ code), **removed**.
 
 Approved by the Feature 003 owner on 2026-11-13 for 003.1 FR-040/FR-040a.
 
+> **Decided 2026-11-15 by Hồ Hoàng Quốc, owner Feature 003 (003.1 FR-013a,
+> CHK001, T124)** *(earlier label "Proposed 2026-11-15 … not yet approved"
+> superseded 2026-11-15)*: a
+> second verified success with a different provider transaction or merchant
+> reference on a `CONFIRMED` group needs its own Booking-to-Settlement port,
+> because `OpenLatePaymentRefundCommand` requires a `reviewReference` and fixes
+> reason `LATE_PAYMENT_NOT_RECONFIRMED`. ~~Candidate:~~ Decided port:
+> `ExcessPaymentRefundPort.openExcessPaymentRefund(OpenExcessPaymentRefundCommand(groupCode,
+> evidenceReference, amountVnd, operationReference, correlationReference)) →
+> LatePaymentRefundOutcome`, declared in `workshopbooking.facade`, implemented by
+> 003.3, reason `EXCESS_OR_DUPLICATE_MONEY`, source reference =
+> `evidenceReference`, idempotent on `(reason, source_reference)`, propagation
+> `MANDATORY` inside the evidence transaction. Booking records the money in
+> `group_excess_payments` (003.1 data-model; exact column types fixed by the
+> migration). The Manager alert follows the "Manager queue" rule below (active
+> Managers only). ~~Name and shape must be decided before T124 is coded.~~
+> *(superseded 2026-11-15)*
+
 - **Direction.** Booking may not depend on Settlement (Settlement already
   depends on `workshopbooking :: facade`). Booking therefore declares the port
   `LatePaymentRefundPort` in `workshopbooking.facade`, and Settlement implements
@@ -460,14 +478,22 @@ Approved by the Feature 003 owner on 2026-11-13 for 003.1 FR-040/FR-040a.
 - **Conditions.** Condition 1 checks session capacity through
   `reserveGroupCapacity` only (no channel quota exists in V1). Condition 3
   holds only when the current loyalty revision equals the recorded revision,
-  the voucher and points can be held again and the recomputed total equals
-  the collected amount. Condition 3 follows 003.1 FR-040: a voucher or points always fail it in V1 because 006 cannot re-hold them; an automatic workshop discount is recomputed and passes only if it equals the snapshot.
+  the group used no voucher and no points, every ticket price is unchanged and
+  the recomputed total equals the collected amount. Condition 3 follows 003.1 FR-040: a voucher or points always fail it in V1 because 006 cannot re-hold them; an automatic workshop discount is recomputed and passes only if it equals the snapshot. *(Earlier wording "the voucher and points can be held again" superseded 2026-11-15, CHK032: 006 has no re-hold in V1, so a re-confirmed group never holds a voucher or points again.)*
 - **Manager queue.** `GET /api/v1/late-payment-reviews` ordered by earliest
   session start. Booking publishes `LatePaymentReviewQueued(reviewReference,
   groupReference, earliestSessionAt, resultDueAt, correlationReference)` with
   references only. Internal Manager email (template 13) goes to every active Manager through
-  `ManagerAlertRecipientSource`, to be backed by FE-001 `AccountFacade.listActiveManagerEmails()` once FE-001
-  agrees; until then no alert email is sent.
+  `ManagerAlertRecipientSource`, backed by FE-001 `AccountFacade.listActiveManagerEmails()` (landed 2026-11-14,
+  T094). ~~With no active Manager the alert goes to every active Admin, who only receives it (003.1 FR-040a,
+  CHK017; Admin recipient source proposed, T130).~~ *(superseded 2026-11-15)* **Decided 2026-11-15
+  (Hồ Hoàng Quốc, 003.1 FR-040a, CHK017, T130):** every 003.1 business alert (late-payment review, excess
+  payment, failed expiry release, failed result email) goes to the active Managers only through
+  `ManagerAlertRecipientSource`; an Admin never receives a business alert and there is no Admin recipient
+  source. With no active Manager no email is sent, Booking writes an audit entry and a WARN log, and the item
+  stays in the Manager queue for the first Manager who becomes active; nothing is decided automatically.
+  No FE-001 change is needed. *(Earlier wording "to be backed … once FE-001 agrees; until
+  then no alert email is sent" superseded 2026-11-15.)*
 - **Customer emails.** Booking-group emails (templates 1/6a, 2, 3, 4, 6b, 12) are `booking_group_notification_intents`
   pulled through `WorkshopBookingNotificationFacade`. Settlement emails, including template 7 with the private
   `/refund-account#{token}` link, are `settlement_notification_handoffs` pulled through

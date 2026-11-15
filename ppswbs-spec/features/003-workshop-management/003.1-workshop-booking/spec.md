@@ -8,7 +8,13 @@
 **Feature Branch**: `003.1-workshop-booking`
 **Status**: Approved 2026-11-15 by Hồ Hoàng Quốc (owner Feature 003) for the
 spec as clarified in Session 2026-11-15; external implementation dependencies
-are recorded in `tasks.md`. *(Earlier label "Draft — design-ready" is history.)*
+are recorded in `tasks.md`; the approval applies to all items
+~~except items marked proposed (FR-031 503)~~ *(503 decided 2026-11-15)*. *(Updated 2026-11-15: the FR-012a error code, FR-017a 400, FR-013a
+port and FR-038 confirmation-retry storage are decided in "Checklist follow-up,
+final decisions"; the FR-040a Admin source is withdrawn because an Admin receives
+no business alert. Earlier list ~~FR-012a error code, FR-017a 400, FR-031 503,
+FR-013a port, FR-040a Admin source, FR-038 confirmation-retry storage~~
+*(superseded 2026-11-15)*.)* *(Earlier label "Draft — design-ready" is history.)*
 **Input**: Customer-facing workshop booking lifecycle; the current aggregate
 model is defined in [REBASE-NOTES.md](REBASE-NOTES.md).
 **Governing baseline**: [spec-general.md](../../../spec-general.md) and the
@@ -136,7 +142,7 @@ are kept for history and are read through this section.
 - **FR-031**: Cart confirmation MUST validate and hold every line in one
   transaction, all or nothing. If any line lacks capacity or eligibility, the
   system MUST report the failing lines, hold nothing and keep the cart editable.
-  A cart quote is valid for 30 minutes after it is created. Group creation MUST refuse a quote that has expired (`QUOTE_EXPIRED`), was already accepted (`QUOTE_ALREADY_ACCEPTED`) or whose accepted discount or points differ (`QUOTE_CHANGED`) with 409 and hold nothing (CHK019; source: contract and plan "Group creation flow"). *(Decided 2026-11-15, CHK013)* When Loyalty (006) or Operations (003.2) is unavailable at group creation, the whole group is refused with the safe error `DEPENDENCY_UNAVAILABLE` and nothing is held (all-or-nothing).
+  A cart quote is valid for 30 minutes after it is created. Group creation MUST refuse a quote that has expired (`QUOTE_EXPIRED`), was already accepted (`QUOTE_ALREADY_ACCEPTED`) or whose accepted discount or points differ (`QUOTE_CHANGED`) with 409 and hold nothing (CHK019; source: contract and plan "Group creation flow"). *(Decided 2026-11-15, CHK013)* When Loyalty (006) or Operations (003.2) is unavailable at group creation, the whole group is refused with the safe error `DEPENDENCY_UNAVAILABLE` and nothing is held (all-or-nothing). The error is answered with HTTP 503 *(~~status proposed 2026-11-15, not yet approved~~ decided 2026-11-15 by Hồ Hoàng Quốc)*. *(Decided 2026-11-15, CHK013, quote time)* When Loyalty (006) or Operations (003.2) is unavailable while a cart is quoted (`POST /workshop-cart-quotes`), the quote is refused with the same safe error `DEPENDENCY_UNAVAILABLE` (HTTP 503, decided 2026-11-15) and no quote is created; nothing is reserved, as for any quote.
   Participant details of companions are not required to complete the cart.
 - **FR-032**: The group has one `holdExpiresAt` = 12 minutes after the whole
   cart is held. The VNPay link expires at `holdExpiresAt − 2 minutes`
@@ -224,6 +230,33 @@ are kept for history and are read through this section.
   the ticket's allocated collection, balance = remainder). Free tickets in a
   paid group wait for the group payment and are never confirmed early or split
   off. Replays MUST NOT create tickets, consume capacity or benefits twice.
+  - **Decided 2026-11-15 (Hồ Hoàng Quốc, CHK013, confirmation time):** when
+    VNPay evidence for a `PENDING_PAYMENT` group is verified before
+    `holdExpiresAt` but committing the holds (003.2) or settling the voucher
+    and points (006) fails, the money is not lost: the verified evidence MUST
+    be recorded durably in the same transaction that would otherwise roll back
+    the money record. Today that transaction holds the shared ingress receipt
+    (`payment_ingress_receipts`, paymentintegration) and the attempt's
+    `SUCCESS` status (`group_payment_attempts`), and Booking keeps no evidence
+    reference for an in-time payment, so a dependency failure would roll both
+    back; the decision is that they commit together with a durable
+    confirmation-retry record of the evidence (data-model "Confirmation retry
+    after a dependency failure", ~~proposed~~ table `group_confirmation_retries`
+    decided 2026-11-15). The group stays `PENDING_PAYMENT`
+    (not `CONFIRMED`), nothing is published, and a scheduler retries the
+    confirmation idempotently while the hold is active (a replay or a
+    successful retry confirms once, FR-038 above). ~~The retry interval and count
+    are **OPEN** and decided in plan.md (no number set here).~~ *(superseded
+    2026-11-15)* **Decided 2026-11-15 (Hồ Hoàng Quốc, CHK013):** the retry runs
+    every 1 minute while the hold is active (about 10 attempts inside the
+    12-minute hold) and raises no separate alert, because the late-payment path
+    already alerts the Managers (FR-040a). At `holdExpiresAt` the late-payment
+    review is created first and the group is then released under FR-039. Seats, voucher
+    and points are not released while the verified payment waits for a retry
+    (FR-039). If the group still cannot be confirmed when the hold expires, the
+    recorded evidence enters the late-payment path of FR-040/FR-040a (automatic
+    re-confirmation when every condition holds, otherwise Manager review:
+    re-confirm or a 100% bank refund through 003.3).
 - **FR-039**: When the hold expires without verified payment the whole group is
   released, free tickets included, and held benefits are released at the same
   moment, without waiting for any payment attempt to be verified as no-money
@@ -231,10 +264,26 @@ are kept for history and are read through this section.
   Session 2026-11-15). Money arriving later follows FR-040; it never revives
   the old hold. *(Decided 2026-11-15, CHK013/CHK014)* If Loyalty (006) or
   Operations (003.2) is unavailable at expiry, the group is not marked done: it
-  stays waiting for release and the scheduler retries idempotently. A release
+  stays waiting for release and the scheduler retries idempotently. ~~A release
   that fails at expiry is retried with backoff and alerts a Manager after N
   failures; N, the backoff and the alert recipient are **OPEN** and decided in
-  plan.md (no number set here). This touches 003.2 (idempotent release) and 006.
+  plan.md (no number set here).~~ *(superseded 2026-11-15)* **Decided
+  2026-11-15 (Hồ Hoàng Quốc, CHK014):** a release that fails at expiry is
+  retried 3 times, 1 minute apart (inside the 5 minutes of SC-004); if it still
+  fails, the active Managers are alerted (alert rule of FR-040a: Managers only,
+  never an Admin) and the release keeps being retried every 5 minutes until it
+  succeeds; every retry is idempotent. This touches 003.2 (idempotent release) and 006.
+  *(Decided 2026-11-15, CHK013, interaction with a confirmation retry)* A group
+  whose verified payment waits for a confirmation retry (FR-038) is not
+  "without verified payment": before `holdExpiresAt` nothing releases its
+  seats, voucher or points (the expiry release does not run before the hold
+  ends, and the buyer's pending-hold release is already refused once a payment
+  attempt exists, FR-048 "Pending-hold release"). At `holdExpiresAt` the retry stops, the recorded
+  evidence is handed to FR-040 as evidence for an expired group, and the group
+  is then released by this requirement like any expired group (the release
+  itself follows the retry rule above if 006 or 003.2 is still unavailable);
+  the old hold is never revived. *(Order decided 2026-11-15, CHK013: the
+  late-payment review is created first, then the group is released.)*
 
 ### Late payment after the hold expired
 
@@ -286,6 +335,16 @@ are kept for history and are read through this section.
     quota and no code, so it cannot run out between the evidence and the review;
     failing it would leave every discounted group, Guests included, with refund
     as its only outcome even when the buyer paid the right amount.
+  - **Decided 2026-11-15 (Hồ Hoàng Quốc, CHK013, handover from a confirmation
+    retry):** verified evidence that was recorded before `holdExpiresAt` but
+    could not be confirmed because 003.2 or 006 failed (FR-038) is handed to
+    this requirement at `holdExpiresAt` as evidence for an expired group: one
+    review for that evidence, the five conditions evaluated as above, then
+    automatic re-confirmation or the Manager queue and FR-040a. Its arrival
+    time for condition 4 and for the FR-040a deadline is the time Mland
+    received the verified evidence (CHK006), so condition 4 passes. A group
+    that used a voucher or points still fails condition 3 (V1, decided
+    2026-11-13), so its outcome is the 100% bank refund under 003.3.
 - **FR-040a** *(2026-11-12)*: A late payment waiting for a Manager MUST reach
   the buyer with a result within 24 hours of the evidence, or before the
   earliest session of the group starts if that is sooner. The result is the
@@ -302,17 +361,32 @@ are kept for history and are read through this section.
     earliest session starts" bound is already in the past and does not apply),
     and the only outcome is the 100% bank refund.
   - **Decided 2026-11-15 (CHK016):** a result email that fails to deliver does
-    **not** count as having "reached" the buyer. The system retries sending it
+    **not** count as having "reached" the buyer. ~~The system retries sending it
     with a bounded number of retries (limit decided in plan.md, not here); once
     the FR-040a deadline passes without a delivered result, the Manager
-    contacts the customer manually.
-  - **Decided 2026-11-15 (CHK017):** when no Manager is active (empty recipient
+    contacts the customer manually.~~ *(superseded 2026-11-15)* **Decided
+    2026-11-15 (Hồ Hoàng Quốc, CHK016):** the system resends a failed result
+    email up to 3 times, 5 minutes, 30 minutes and 2 hours after the failure;
+    if every resend fails, the active Managers are alerted (alert rule below)
+    to contact the buyer by phone. A failed email never counts as "reached".
+  - ~~**Decided 2026-11-15 (CHK017):** when no Manager is active (empty recipient
     set), the late-payment alert goes to **every active Admin**. An Admin only
     receives the alert and has no decision authority over the review
     (consistent with FR-017b5, where the `ADMIN` role alone has no Manager
     authority). The recipient source depends on FE-001 (Dependencies below);
     until FE-001 supplies active Admin recipients the fallback cannot be sent
-    and the in-app queue stays the working path.
+    and the in-app queue stays the working path.~~ *(superseded 2026-11-15)*
+  - **Decided 2026-11-15 (Hồ Hoàng Quốc, CHK017, alert rule for every business
+    alert of 003.1):** an Admin is only the system administrator and never
+    receives a business alert. Every business alert of this feature (the
+    late-payment review of FR-040a, the excess payment of FR-013a, the failed
+    expiry release of FR-039, the failed result email above) goes to the active
+    Managers only, through FE-001 `AccountFacade.listActiveManagerEmails()`.
+    When no Manager is active, no email is sent; the system writes an audit
+    entry and a WARN log, and the item stays in the Manager work queue (for
+    example `GET /api/v1/late-payment-reviews?status=PENDING_MANAGER`) so the
+    first Manager who becomes active sees it. Nothing is lost and nothing is
+    decided automatically. No FE-001 change is needed.
 
 ### Ticket recipients
 
@@ -618,20 +692,36 @@ through an approved boundary.
 *(Final decisions of Hồ Hoàng Quốc, owner Feature 003, on checklist items CHK001, CHK002, CHK006, CHK007, CHK011, CHK016, CHK017. Rule text is in FR-012a, FR-013a, FR-040 and FR-040a; code work is Phase 16 of tasks.md.)*
 
 - Q (CHK002): May a payment retry start between minute 10 and `holdExpiresAt` (minute 12)? → A: No. A retry is allowed only inside the 10-minute payment window (`paymentDeadlineAt` = `holdExpiresAt` − 2 minutes); after it, no new attempt (FR-012a aligned with FR-032). The 2-minute buffer stays hidden from the customer.
-- Q (CHK001): What happens when a second verified payment with a different provider transaction/merchant reference arrives for an already `CONFIRMED` group? → A: Record it in full as excess/duplicate money and open a 100% bank refund request through 003.3 (FR-034, FR-038; existing reason `EXCESS_OR_DUPLICATE_MONEY`; the Booking-to-Settlement port is proposed); the group is unchanged and Managers are alerted (FR-013a). Code gap: the current replay path silently ignores it.
+- Q (CHK001): What happens when a second verified payment with a different provider transaction/merchant reference arrives for an already `CONFIRMED` group? → A: Record it in full as excess/duplicate money and open a 100% bank refund request through 003.3 (FR-034, FR-038; existing reason `EXCESS_OR_DUPLICATE_MONEY`; the Booking-to-Settlement port is ~~proposed~~ decided 2026-11-15, see final decisions below); the group is unchanged and Managers are alerted (FR-013a). Code gap: the current replay path silently ignores it.
 - Q (CHK011): Is there a limit on payment attempts per group? → A: No count limit; at most one attempt `PENDING` at a time (a retry returns the existing valid `PENDING` attempt). The spec wording "`PENDING`/`UNKNOWN`" is superseded to match `PaymentAttemptStatus` (`INITIATED`, `PENDING`, `SUCCESS`, `FAILED`, `EXPIRED`; `UNKNOWN` is only the client classification of FR-012b).
 - Q (CHK006): Which timestamp measures the 60 minutes of FR-040 condition 4? → A: The time Mland receives the verified evidence, not the VNPay timestamp.
 - Q (CHK007): What is the result deadline when evidence arrives after the earliest session has started? → A: Condition 2 fails, no reconfirmation is possible, the Manager's result limit is 24 hours after the evidence, and only a bank refund remains (FR-040a).
-- Q (CHK016): Does a failed result email count as "reached" for FR-040a? → A: No. Resend is retried with a limit (limit decided in plan); after the deadline the Manager contacts the customer manually.
-- Q (CHK017): Who is alerted when no Manager is active? → A: Every active Admin; an Admin only receives the alert and has no decision authority (FR-017b5). The recipient source depends on FE-001.
+- Q (CHK016): Does a failed result email count as "reached" for FR-040a? → A: No. Resend is retried with a limit ~~(limit decided in plan)~~ *(superseded 2026-11-15: limit set in "Checklist follow-up, final decisions" below)*; after the deadline the Manager contacts the customer manually.
+- Q (CHK017): Who is alerted when no Manager is active? → A: ~~Every active Admin; an Admin only receives the alert and has no decision authority (FR-017b5). The recipient source depends on FE-001.~~ *(superseded 2026-11-15: no Admin receives a business alert, see "Checklist follow-up, final decisions" below)*
 - Q (CHK012): What happens when the provider fails while the payment link is created (no attempt yet)? → A: 502/503 `PAYMENT_LINK_UNAVAILABLE`, no attempt created, hold unchanged and never extended; the customer may retry inside the 10-minute window and the hold still ends at `holdExpiresAt` (FR-032).
 - Q (CHK013): What if Loyalty (006) or Operations (003.2) is unavailable at group creation or at hold expiry? → A: At creation the whole group is refused with `DEPENDENCY_UNAVAILABLE` and nothing is held (FR-031). At expiry the group is not marked done, stays waiting for release and the scheduler retries idempotently (FR-039).
-- Q (CHK014): What if a release fails at expiry? → A: Retry with backoff and alert a Manager after N failures. N, backoff and alert recipient are OPEN, to be settled in plan.md; touches 003.2 idempotent release and 006.
+- Q (CHK014): What if a release fails at expiry? → A: Retry with backoff and alert a Manager after N failures. ~~N, backoff and alert recipient are OPEN, to be settled in plan.md;~~ *(superseded 2026-11-15: numbers set in "Checklist follow-up, final decisions" below)* touches 003.2 idempotent release and 006.
 - Q (CHK023): Who may start or retry a payment attempt? → A: A Guest with `groupCode` plus exactly one matching contact value (same proof as hold release); a Member only for an owned `PENDING_PAYMENT` group with an active payment window (FR-048).
 - Q (CHK025): Which Staff may run group-level operations (resend, recipient change)? → A: An active Staff member whose location scope includes the branch and who is actively assigned to a session of the group (003.2 "Staff session-assignment access", 003.3 FR-032); single-ticket operations follow that ticket; a Manager is global (FR-048, FR-017b7).
 - Q (CHK037): What is SC-004's release time? → A: 100% of expired groups release seats, voucher and points within 5 minutes after `holdExpiresAt`, measured from audit; the scheduler cycle is confirmed in implementation.
 - Q (CHK018): Which name is used for a reused idempotency key with different content? → A: `IDEMPOTENCY_CONFLICT` (as 003.3 FR-022d) instead of `IDEMPOTENCY_KEY_REUSED`; the code is checked by T138.
-- Q (CHK019/022/024/026/027/028/032/038/039): Documentation sync, no new decision. → A: Quote errors in FR-031; exactly one contact value (400 proposed) in FR-017a; role matrix in FR-048; 404 non-disclosure in FR-017; denied-attempt audit scope in FR-017b7; recipient-change authority in FR-041; SC-008 added and SC-007 data list fixed; facade condition 3 aligned with FR-040.
+- Q (CHK019/022/024/026/027/028/032/038/039): Documentation sync, no new decision. → A: Quote errors in FR-031; exactly one contact value (400 ~~proposed~~ decided 2026-11-15 as `VALIDATION_ERROR`, see final decisions below) in FR-017a; role matrix in FR-048; 404 non-disclosure in FR-017; denied-attempt audit scope in FR-017b7; recipient-change authority in FR-041; SC-008 added and SC-007 data list fixed; facade condition 3 aligned with FR-040.
+- Q (CHK013, quote time, decided 2026-11-15): What if Loyalty (006) or Operations (003.2) is unavailable while a cart is quoted? → A: `POST /workshop-cart-quotes` answers 503 `DEPENDENCY_UNAVAILABLE` (same code as group creation; 503 ~~still proposed~~ decided 2026-11-15) and creates no quote (FR-031).
+- Q (CHK013, confirmation time, decided 2026-11-15): What if VNPay evidence for a `PENDING_PAYMENT` group is verified but committing the holds (003.2) or settling voucher/points (006) fails? → A: The verified evidence is recorded durably in the same transaction that would otherwise roll back the money record (ingress receipt and attempt `SUCCESS`); the group stays not `CONFIRMED`; a scheduler retries the confirmation idempotently while the hold is active, and seats, voucher and points are not released meanwhile. If it still cannot be confirmed at `holdExpiresAt`, the evidence enters the late-payment path (FR-040/FR-040a: re-confirm or 100% bank refund via 003.3). ~~Retry interval and count are OPEN in plan.md (owner Hồ Hoàng Quốc).~~ *(superseded 2026-11-15, see final decisions below)* Rule text in FR-038, FR-039, FR-040; storage ~~proposed~~ decided 2026-11-15 in data-model.
+- Q (CHK028/CHK032, documentation sync 2026-11-15, no new decision): → A: The recipient route and US8 scenario 4 now name Staff or a Manager (Manager global, FR-048; "Manager with location scope" superseded); the facade "Conditions" paragraph no longer says the voucher and points "can be held again" (FR-040 condition 3: they always fail in V1).
+
+#### Checklist follow-up, final decisions (payment-error-access.md), decided 2026-11-15
+
+*(Final decisions of Hồ Hoàng Quốc, owner Feature 003, on CHK001, CHK002, CHK013, CHK014, CHK016, CHK017, CHK022 and on the business-alert recipient policy. They replace the "proposed"/"OPEN" labels of these items. Rule text is in FR-012a, FR-013a, FR-017a, FR-038, FR-039 and FR-040a; code work is T124, T125, T129, T130, T133, T137 and T145 in tasks.md. The 503 status of FR-031 is not part of this batch and stays proposed.)*
+
+- Q (alert policy): Who receives a business alert of 003.1, and what happens when no Manager is active? → A: Only the active Managers, through FE-001 `AccountFacade.listActiveManagerEmails()`. An Admin is only the system administrator and never receives a business alert. With no active Manager no email is sent; the system writes an audit entry and a WARN log, and the item stays in the Manager work queue (for example the late-payment review queue) so the first Manager who becomes active sees it; nothing is lost and nothing is decided automatically. This supersedes the earlier CHK017 answer "every active Admin" (FR-040a). Admin system-management permissions are unchanged.
+- Q (CHK001): Are `ExcessPaymentRefundPort` and `group_excess_payments` approved? → A: Yes. `ExcessPaymentRefundPort.openExcessPaymentRefund(OpenExcessPaymentRefundCommand(groupCode, evidenceReference, amountVnd, operationReference, correlationReference)) → LatePaymentRefundOutcome` and the table `group_excess_payments` are decided; the exact column types are fixed by the migration. The alert goes to the Managers under the alert policy above (FR-013a, T124).
+- Q (CHK002): Which answer refuses a payment retry after `paymentDeadlineAt`? → A: `409 PAYMENT_WINDOW_CLOSED` (FR-012a, T125).
+- Q (CHK013, confirmation retry): What are the retry interval and count, and is a Manager alerted when a retry fails? → A: Every 1 minute while the hold is active (about 10 attempts inside the 12-minute hold); no separate alert, because the late-payment path already alerts the Managers. At `holdExpiresAt` the late-payment review is created first, then the group is released under FR-039. The table `group_confirmation_retries` is the decided store (FR-038, FR-039, T145).
+- Q (CHK014): How is a failed expiry release retried and who is alerted? → A: Retry 3 times, 1 minute apart (inside the 5 minutes of SC-004); if it still fails, alert the Managers under the alert policy above, then keep retrying every 5 minutes until it succeeds; every retry is idempotent (FR-039, T133).
+- Q (CHK016): How many times is a failed late-payment result email resent? → A: Up to 3 times, 5 minutes, 30 minutes and 2 hours after the failure; if it still fails, alert the Managers under the alert policy above to contact the buyer by phone. A failed email never counts as "reached" (FR-040a, T129).
+- Q (CHK017): What does T130 implement? → A: Alert recipients are the active Managers only; with no active Manager the alert policy above applies (audit + WARN log, item stays in the queue). Tests cover both cases and that no Admin receives anything. No FE-001 change is needed (FR-040a, T130).
+- Q (CHK022): How is a request with both contact values, or neither, answered? → A: `400 VALIDATION_ERROR` through Bean Validation, with the same safe answer that never says which part failed (FR-017a, T137).
 
 ### Session 2026-10-28
 
@@ -1254,6 +1344,14 @@ group payment confirms every ticket once, and expiry releases the whole group.
 7. **Given** the hold expires without verified payment, **When** expiry runs,
    **Then** the whole group is released, free tickets included, and held
    benefits are released (FR-039).
+8. *(added 2026-11-15, CHK013)* **Given** verified VNPay evidence for a
+   `PENDING_PAYMENT` group arrives before the hold ends, **When** committing
+   the holds (003.2) or settling the benefits (006) fails, **Then** the
+   evidence is recorded durably, the group stays `PENDING_PAYMENT`, its seats,
+   voucher and points are not released, and the confirmation is retried
+   idempotently while the hold is active; if it still cannot be confirmed at
+   `holdExpiresAt`, the evidence enters the late-payment review (FR-038,
+   FR-039, FR-040).
 
 ---
 
@@ -1313,8 +1411,11 @@ issues a new one; a non-buyer cannot change it.
    is refused; more changes need Staff at the shop.
 4. **Given** a recipient (not the buyer), **When** the recipient asks to change
    the ticket, **Then** the change is refused online and must go through the
-   buyer or the shop; only the buyer, or Staff after verifying the buyer, may
-   change it.
+   buyer or the shop; only the buyer, or Staff or a Manager after verifying the
+   buyer (Staff within its location and session-assignment scope, a Manager
+   globally, FR-041, FR-048), may change it. *(Manager added 2026-11-15,
+   CHK028; the earlier "only the buyer, or Staff after verifying the buyer" is
+   superseded.)*
 
 ---
 
@@ -1437,6 +1538,8 @@ deadline.
 >   "carried over" (proof rule and rate limit of FR-016/017, Magic-Link rules
 >   FR-017b–FR-017b9a, resend limits FR-014h, list rule FR-021a, FR-017j,
 >   FR-021c), it applies to groups **through FR-048**, not on its own.
+>   Decisions dated 2026-11-15 inside FR-017, FR-017a and FR-017b7 apply to
+>   groups directly.
 > - **Not listed as superseded, so they still apply to groups:** FR-001,
 >   FR-002 (price shown per FR-052), FR-002a, FR-003a, FR-003a1, FR-003b,
 >   FR-003c, FR-004a, FR-005 (per line, with FR-031), FR-014, FR-014a–FR-014g,
@@ -1675,7 +1778,11 @@ deadline.
   `paymentDeadlineAt` = `holdExpiresAt` − 2 minutes (FR-032); after it no new
   attempt is created, even though `holdExpiresAt` is not yet reached, and the
   2-minute buffer stays hidden from the customer (the screen shows the
-  "Đang xác nhận kết quả thanh toán…" state, FR-032). The old wording "within
+  "Đang xác nhận kết quả thanh toán…" state, FR-032). Such a late retry is
+  answered 409 with code `PAYMENT_WINDOW_CLOSED` ~~*(HTTP status and code
+  proposed 2026-11-15, not yet approved; owner Hồ Hoàng Quốc; T125)*~~
+  *(superseded 2026-11-15: HTTP status and code decided by Hồ Hoàng Quốc,
+  CHK002; T125)*. The old wording "within
   the hold" is superseded for groups. There is **no limit on the number of
   attempts** for a group, but at most one attempt is `PENDING` at a time: a
   retry while a valid `PENDING` attempt exists returns that attempt instead of
@@ -1713,11 +1820,19 @@ deadline.
   request for it through 003.3 (003.3 FR-034 and FR-038; 003.3 `RefundReason`
   `EXCESS_OR_DUPLICATE_MONEY`, source reference = the new payment evidence
   reference). The group, its tickets, capacity, benefits and notifications are
-  unchanged, and Managers are alerted (same alert path as FR-040a). The
+  unchanged, and Managers are alerted (same alert path as FR-040a: active
+  Managers only, never an Admin; with no active Manager an audit entry and a
+  WARN log, no email). ~~The
   Booking-to-Settlement port for this refund is **proposed** (the existing
   `OpenLatePaymentRefundCommand` is bound to a late-payment review and its
   reason; a new command or a generalised reason is not yet in the facade
-  contract). *Code gap:* `GroupPaymentEvidenceService` /
+  contract).~~ *(superseded 2026-11-15)* **Decided 2026-11-15 (Hồ Hoàng
+  Quốc, CHK001):** the port is
+  `ExcessPaymentRefundPort.openExcessPaymentRefund(OpenExcessPaymentRefundCommand(groupCode,
+  evidenceReference, amountVnd, operationReference, correlationReference)) →
+  LatePaymentRefundOutcome` (facade contract) and the excess money is recorded
+  in the table `group_excess_payments` (data-model; exact column types fixed by
+  the migration). *Code gap:* `GroupPaymentEvidenceService` /
   `GroupConfirmationService` currently accept and ignore such a payment on a
   confirmed group (replay path), so the money is neither recorded nor refunded
   (task T124).
@@ -1813,7 +1928,7 @@ deadline.
 - **FR-017a**: The Guest self-service lookup MUST require the booking code and
   either the normalized contact phone or normalized contact email captured for
   that booking; ~~at least one contact proof must match.~~ *(superseded
-  2026-11-15, CHK022; FR-048 wins)* Guest lookup, hold release and group lookup carry exactly one contact value (email or phone) with the group code; a request carrying both or neither is refused as 400 validation (**proposed**), and the answer never says which part failed.
+  2026-11-15, CHK022; FR-048 wins)* Guest lookup, hold release and group lookup carry exactly one contact value (email or phone) with the group code; a request carrying both or neither is refused as 400 validation ~~(**proposed**)~~ *(superseded 2026-11-15: decided by Hồ Hoàng Quốc, CHK022, as `400 VALIDATION_ERROR` raised by Bean Validation on the request body; T137)*, and the answer never says which part failed.
 - **FR-017b**: After successful payment confirmation, the system MUST send a
   protected Magic Link that grants read-only access to the corresponding booking
   details and complete ticket set until the associated workshop ends; the token hash MUST be
@@ -2212,7 +2327,9 @@ definitions are in [data-model.md](data-model.md).)*
 - **FE-001 Account Management** — canonical role, status, ownership and
   location scope (T004); **`AccountFacade.listActiveManagerEmails()`** as the
   source of `ManagerAlertRecipientSource` for the FR-040a Manager alert email
-  (request `artifacts/001-manager-alert-recipients-request.md`).
+  (request `artifacts/001-manager-alert-recipients-request.md`). *(Decided
+  2026-11-15, CHK017: this is the only alert recipient source; no Admin
+  recipient source is needed and no FE-001 change is requested.)*
   **Decided 2026-11-14 (Hồ Hoàng Quốc):** wait for FE-001; **no interim
   configured recipient list is introduced**. Until `listActiveManagerEmails()`
   lands, the FR-040a Manager alert email is not sent and T094 stays open with

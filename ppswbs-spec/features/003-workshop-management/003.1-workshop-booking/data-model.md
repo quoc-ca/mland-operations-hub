@@ -186,6 +186,98 @@ the quote response reports the programme in `appliedDiscount`
 empty benefit snapshot and reserves nothing. Consequence: late-payment
 condition 3 passes for an automatic discount, which is recomputed; only a voucher or points fail it (spec FR-040, decided 2026-11-14; the former "open owner decision" is closed).
 
+### Excess or duplicate payment on a `CONFIRMED` group *(~~proposed 2026-11-15, not yet approved;~~ decided 2026-11-15 by Hồ Hoàng Quốc, owner Feature 003; FR-013a, CHK001, T124)*
+
+**Decided 2026-11-15 (CHK001):** the table `group_excess_payments` and the port
+`ExcessPaymentRefundPort.openExcessPaymentRefund(...)` below are approved as
+the design; the exact column types are fixed by the Flyway migration of T124.
+The Manager alert follows spec FR-040a (active Managers only, never an Admin).
+The word "proposed" in the bullets below is history *(superseded 2026-11-15)*.
+
+The rule is decided (FR-013a): a second verified success with a **different**
+provider transaction or merchant reference on a `CONFIRMED` group is recorded
+in full and refunded 100% through 003.3; a replay of the same event settles
+nothing. Where it is recorded and how it reaches 003.3 is **proposed**:
+
+- **Where.** No implemented table holds it today: `late_payment_reviews` is for
+  evidence on a group that was *not* confirmed (its outcomes and conditions do
+  not fit), and `group_payment_attempts` holds attempts, not evidence. Proposed:
+  a new append-only table (working name `group_excess_payments`, Flyway after
+  the current latest migration) with `group_id`, `verified_evidence_reference`
+  (unique), `merchant_reference`, `provider_transaction_reference` (nullable),
+  `amount_vnd` (> 0), `received_at` (time Mland received the verified
+  evidence), `refund_request_reference` (nullable until 003.3 accepts),
+  `refund_outcome` (`ACCEPTED`/`PRIOR_EQUIVALENT`/`REJECTED`),
+  `correlation_reference`. No raw provider payload, signature or contact data.
+  The group, tickets, snapshots, capacity and benefits are not touched.
+- **Link to 003.3.** In the same evidence transaction Booking calls the
+  proposed `ExcessPaymentRefundPort.openExcessPaymentRefund(OpenExcessPaymentRefundCommand(groupCode,
+  evidenceReference, amountVnd, operationReference, correlationReference))`
+  (`../contracts/workshop-interfeature-facades.md`, "Late-payment review and
+  bank refund"), propagation `MANDATORY`. 003.3 opens one refund request with
+  reason `EXCESS_OR_DUPLICATE_MONEY` and source reference =
+  `evidenceReference`, idempotent on `(reason, source_reference)`; the returned
+  `refundRequestReference` is stored on the row. A failure rolls back both, so
+  the evidence is never recorded without a durable refund request.
+- **Idempotency.** The unique `verified_evidence_reference` makes an IPN/QueryDR
+  replay of the same excess evidence a no-op that returns the stored row.
+- ~~**Open before code (T124):** table name and columns, port name and shape,
+  and whether the Manager alert reuses the FR-040a recipient source.~~
+  *(superseded 2026-11-15: all decided; the alert reuses the FR-040a Manager
+  recipient source)*
+
+### Confirmation retry after a dependency failure *(~~proposed 2026-11-15, not yet approved;~~ decided 2026-11-15 by Hồ Hoàng Quốc, owner Feature 003; FR-038, FR-039, FR-040, CHK013, T145)*
+
+**Decided 2026-11-15 (CHK013):** `group_confirmation_retries` below is the
+decided store; the exact column types are fixed by the Flyway migration of
+T145. The retry runs every 1 minute while the hold is active (about 10
+attempts, so `retries_made` stays small), with no separate alert; at
+`holdExpiresAt` the late-payment review is created first, then the group is
+released. The word "proposed" in the bullets below is history *(superseded
+2026-11-15)*.
+
+The rule is decided (spec FR-038): verified evidence for a `PENDING_PAYMENT`
+group whose confirmation fails because 003.2 (hold commit) or 006 (benefit
+settlement) is unavailable is kept, the group stays `PENDING_PAYMENT`, and the
+confirmation is retried while the hold is active; at `holdExpiresAt` the
+evidence goes to the late-payment review. How it is stored is **proposed**:
+
+- **Today.** The verified evidence of an in-time payment is persisted only as
+  the shared `payment_ingress_receipts` row (paymentintegration) and
+  `group_payment_attempts.attempt_status = SUCCESS`, both in the evidence
+  transaction; Booking keeps no evidence reference for it, and
+  `late_payment_reviews.verified_evidence_reference` exists only for an
+  expired group. A dependency failure inside confirmation rolls both back.
+- **Proposed table.** A new table (working name
+  `group_confirmation_retries`, Flyway after the current latest migration;
+  no applied migration is edited) with `group_id`, `attempt_id`,
+  `verified_evidence_reference` (unique), `merchant_reference`,
+  `provider_transaction_reference` (nullable), `amount_vnd` (> 0),
+  `received_at` (time Mland received the verified evidence, used as the
+  FR-040 arrival time), `retry_status` (`WAITING`, `CONFIRMED`,
+  `HANDED_TO_LATE_REVIEW`), `retries_made` (≥ 0), `next_retry_at`
+  (nullable), `last_failure_code` (safe code only, e.g.
+  `DEPENDENCY_UNAVAILABLE` with the failing feature `OPERATIONS`/`LOYALTY`),
+  `late_payment_review_reference` (nullable until handover),
+  `correlation_reference`, `version`. No raw provider payload, signature or
+  contact data. At most one `WAITING` row per group.
+- **No new group status.** The group keeps `group_status = PENDING_PAYMENT`;
+  "waiting for confirmation retry" is the existence of a `WAITING` row with
+  the attempt in `SUCCESS`. Nothing is added to the `booking_groups` or
+  `ticket_bookings` ENUMs.
+- **Transitions.** `WAITING` → `CONFIRMED` when a retry (or a replayed IPN /
+  QueryDR) confirms the group once (FR-038); `WAITING` →
+  `HANDED_TO_LATE_REVIEW` at `holdExpiresAt`, in the same transaction that
+  creates the one `late_payment_reviews` row for that evidence. Both are final.
+- **Expiry interaction (FR-039).** `GroupHoldExpiryScheduler` releases
+  nothing for a group with a `WAITING` row before `holdExpiresAt`; at expiry it
+  hands the row over, then releases the group as any expired group.
+- **Open before code (T145):** ~~table name and columns, the retry interval and
+  maximum count (plan.md design risk 6), and~~ *(superseded 2026-11-15: decided,
+  plan.md design risk 6)* the attempt-status meaning of `SUCCESS` on a group
+  that is not yet `CONFIRMED` (still to be confirmed in T145; not part of the
+  2026-11-15 decisions).
+
 ## Migration boundary
 
 **Update 2026-11-12:** only dev/test data exists, so the group/ticket model is

@@ -305,7 +305,7 @@ themselves are final in the spec.
 | (a) Cash reversal entry (FR-036, FR-053, CHK014) | Manager-only `POST …/folio/collections/{collectionId}/cash-reversals` (proposed), reason and `Idempotency-Key`; writes a row in the proposed table `settlement_cash_reversals` (negative `amount_vnd`, `cash_business_day` = current Vietnam working day, `collection_id` unique). The original collection and the closed `settlement_cash_day_closes` row are never edited. `FolioBalanceService` subtracts the reversal; `CashDayCloseService` expected cash adds a day's reversals. Refused for a `FINALIZED`/`CLOSED` folio, for money under a refund request, and for a day not yet closed (use the FR-053 void). Whole-collection reversal only is proposed. | T144, T145 |
 | (b) "Next day" cut-off (FR-036, CHK013) | The cut-off is the submission of the counted amount, not the Manager's confirmation; any cash (and any reversal) recorded after it gets `cash_business_day` = next working day while the close is `PENDING_MANAGER_CONFIRMATION`. Closer = active Staff or Manager whose location scope contains the branch, no session-assignment rule (CHK024). | T147, T160 |
 | (c) Auto-`FAILED` of an unreconciled VNPay collection (FR-034, CHK016) | `FolioGatewayReconciliationScheduler` marks a `PENDING_VERIFICATION` `VNPAY` part `FAILED` as `SYSTEM` once 24 h have passed since the attempt was created and QueryDR reports no successful payment (an unavailable or inconclusive QueryDR is retried). *(Supersedes the state-classification text "every 5 min for at most 24 h after the checkout expires": the 24 h run from creation, T109 to be aligned.)* Money signed later follows the T110 excess path to an `EXCESS_OR_DUPLICATE_MONEY` refund. End-to-end proof needs the QueryDR sandbox (T005, T035); until then only a fake-transport test. | T149 |
-| (d) Refund failure → `PENDING_ACCOUNT` (FR-039, FR-040, CHK005/006/021) | One service operation in `BankRefundService` (proposed transition `RETURN_TO_PENDING_ACCOUNT`, Manager, reason) that, in one transaction, records the reason, deletes the ciphertext (mask kept), voids the approval, revokes the old link and sends a new one. A bank return, a statement mismatch found at `PENDING_RECONCILIATION`, or a Manager refusal all use it; no terminal rejection state exists. The key replacement of T137 uses the same rule: per-request transaction, approval void, idempotent rerun (touches only requests still holding ciphertext). | T146, T148 |
+| (d) Refund failure → `PENDING_ACCOUNT` (FR-039, FR-040, CHK005/006/021) | One service operation in `BankRefundService` (proposed transition `RETURN_TO_PENDING_ACCOUNT`, Manager, reason) that, in one transaction, records the reason, deletes the ciphertext (mask kept), voids the approval, revokes the old link and sends a new one. A bank return, a statement mismatch found at `PENDING_RECONCILIATION`, or a Manager refusal all use it; no terminal rejection state exists. The key replacement of T137 uses the same rule: per-request transaction, approval void, idempotent rerun (touches only requests still holding ciphertext). | T146, T137 |
 | (e) Account entry confirmation (FR-040, CHK005/006) | The customer link page and the counter form show bank, number and holder name back and require an explicit confirmation (proposed request flag `accountDetailsConfirmed`, `422 ACCOUNT_CONFIRMATION_REQUIRED` when false). No bank-name lookup in V1. The transfer-time holder-name comparison is removed. | T150, T151 |
 | (f) Counter-entry authority (FR-040, CHK025) | Counter entry: Manager, or active Staff whose location scope contains the ticket's location and who is assigned to a session the ticket holds (the FR-032 rule, `requireManagerOrAssignedStaff`); a group-level `LATE_PAYMENT_NOT_RECONFIRMED` request is never entered at the counter. | T152 |
 | (g) Voucher restoration (FR-042, FR-043, CHK011/034) | 003.3 triggers once through the shared facade (`workshop-interfeature-facades.md`, "Voucher and points restoration"); the voucher-and-points owner restores only while the voucher is valid, idempotent per `groupCode`, reason `EXPIRED` otherwise; 003.3 stores the returned outcome and tells the buyer; the refund by bank is unaffected. Extends T142. | T155 |
@@ -328,6 +328,73 @@ themselves are final in the spec.
   contract field `proofImageReference` is a placeholder (`x-status:
   pending-plan-decision`) and sensitive-data rules D13 (minimisation, access,
   retention) are unmet for the image.
+  *(The paragraph above is kept for history; superseded by the decision below.)*
+  **DECIDED 2026-11-15 by Hồ Hoàng Quốc (spec FR-039, Checklist follow-up;
+  CHK007).** The bank reference text stays required, the image stays optional.
+  Names of tables, routes, properties and codes below are **proposed**.
+  1. *File types*: JPEG, PNG, WebP only, validated as feature 002 product images
+     (002 spec FR-008; backend `ImageContentInspector`): the declared
+     Content-Type, the file signature (magic bytes) and a readable image header
+     must all agree; the file name extension is never trusted. PDF is refused
+     (staff take a screenshot). Refusal: `415` (proposed code
+     `RECEIPT_IMAGE_TYPE_UNSUPPORTED`).
+  2. *Size and count*: at most 5,000,000 bytes (`413`, proposed
+     `RECEIPT_IMAGE_TOO_LARGE`; the global multipart limit in
+     `application.properties` is already 5,000,000 B per file with lazy
+     resolution, so 003.3 needs its own typed `413` handler) and at most one
+     image per refund transfer evidence (`409`, proposed
+     `RECEIPT_IMAGE_ALREADY_ATTACHED`).
+  3. *Storage and access*: Cloudinary, `resource_type=image`,
+     `type=authenticated`, through a 003.3-owned adapter (a
+     `SettlementReceiptStoragePort` in the settlement module, proposed),
+     because the 002 module exposes no upload facade; it follows the pattern of
+     `CloudinaryMediaStorageAdapter` without calling it. Same Cloudinary account
+     and variables `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`,
+     `CLOUDINARY_API_SECRET`; separate folder from its own property (proposed
+     `SETTLEMENT_RECEIPT_CLOUDINARY_FOLDER`, default
+     `ppswbs/settlement-receipts`), not `CLOUDINARY_FOLDER`, which 002 uses
+     with default `ppswbs/catalogue`. MySQL stores metadata only (proposed table
+     `settlement_refund_receipt_images`, see `data-model.md`), never the bytes.
+     Mechanism: two steps — upload (`POST
+     /workshop-refund-requests/{refundId}/receipt-images`, multipart,
+     `Idempotency-Key`, allowed while the request is `PENDING_TRANSFER`), then
+     `RECORD_TRANSFER` carries the returned `proofImageReference` and attaches
+     it in the same transaction as the transfer record. The provider URL is
+     never returned: `GET /workshop-refund-requests/{refundId}/receipt-image`
+     checks access first, then the backend reads the object with a signed URL
+     and streams it same-origin with `Cache-Control: no-store` and
+     `X-Content-Type-Options: nosniff`. Access = the actors who may act on the
+     refund transfer (FR-039: a Manager and the transferring actor). In V1
+     every refund transition is Manager-only (FR-039, owner decision
+     2026-11-13: the Manager holds `workshop.refund.execute`), so upload and
+     stream are Manager-only; Staff, who may only enter the account at the
+     counter and resend the link (FR-040, FR-038a, contract `…/account`,
+     `…/account-link-resends`), get `403`. Missing credentials or an
+     unreachable provider give `503` (proposed
+     `RECEIPT_STORAGE_UNAVAILABLE`, like 002 `MEDIA_DEPENDENCY_UNAVAILABLE`);
+     `RECORD_TRANSFER` with the bank reference and no image still succeeds.
+  4. *Retention*: V1 never deletes an attached image automatically; it is kept
+     as long as the refund record (including after `RETURN_TO_PENDING_ACCOUNT`,
+     where it stays with the earlier transfer evidence, and after
+     `REFUNDED`/`CLOSED_UNREACHABLE`). Only an image uploaded but never attached
+     is removed after 24 hours by a scheduled cleanup, same rule as 002
+     (`CatalogueMediaCleanupService.NEVER_ATTACHED_GRACE`).
+  ~~**Still open (follow-up, not a number):** the final retention/deletion period
+  of attached receipt images is deferred to an accounting decision; owner
+  Hồ Hoàng Quốc. Until then D13 retention for the image reads "kept with the
+  refund record".~~ *(superseded 2026-11-15)*
+  **Retention decided 2026-11-15 (Hồ Hoàng Quốc):** an attached image file is
+  deleted 5 years after its refund request reaches `REFUNDED` or
+  `CLOSED_UNREACHABLE` (signed destroy, row → `DELETED`); the row keeps the
+  bank reference snapshot, checksum, content type, size, uploader and
+  timestamps. Basis: supporting evidence, not the accounting voucher (the bank
+  statement is kept by accounting); 5 years = minimum for records not used
+  directly for bookkeeping (Luật Kế toán 2015 / Nghị định 174/2016), to be
+  confirmed by accounting; if accounting uses the in-app image as its voucher
+  the period becomes 10 years. V1 builds no deletion job (first image due
+  about 2031); T154 only keeps the terminal timestamp needed to compute the
+  due date; the job is T166 (after V1). Tasks: T153 (decision, done
+  2026-11-15), T154 (build), T166 (deletion job).
 - **O-2 Folio close timing for a Mland cancellation of a `FINALIZED` folio.**
   The spec says the refund request is opened and the folio moves to `CLOSED`;
   T113 (done) closes a folio only when the remedy's refund is `REFUNDED`. The

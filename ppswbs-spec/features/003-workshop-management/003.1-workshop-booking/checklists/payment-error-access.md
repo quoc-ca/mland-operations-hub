@@ -102,3 +102,78 @@ FAIL items:
 - CHK037 SC-004 has no numeric release latency.
 - CHK038 no access-control/non-disclosure success criterion after SC-006 was superseded.
 - CHK039 SC-007 "unnecessary sensitive personal data" is subjective.
+
+### Re-assessment 2026-11-15 (after checklist follow-up and analyze fixes)
+
+*Người chịu trách nhiệm: Hồ Hoàng Quốc (owner Feature 003). Ngày: 2026-11-15. Đây là đánh giá của agent, không phải duyệt; không marker nào được tick. Căn cứ là các file trên đĩa tại thời điểm đánh giá (gồm thay đổi chưa commit): spec.md (Clarifications > Session 2026-11-15 và "Checklist follow-up", FR, SC), plan.md, data-model.md, contracts/workshop-booking.openapi.yaml, tasks.md (Phase 14–16, T116–T144) và ../contracts/workshop-interfeature-facades.md.*
+
+Quy tắc chấm: **Đạt** = yêu cầu đã viết rõ và kiểm chứng được trong artifact (trạng thái code không xét, task code còn mở vẫn được). **Đạt có quyết định mở** = spec cố ý hoãn một chi tiết bằng quyết định mở/đề xuất có owner (Hồ Hoàng Quốc) và task. Còn lại là **Chưa đạt**.
+
+| CHK | Trước | Sau | Căn cứ | Còn thiếu |
+| --- | --- | --- | --- | --- |
+| CHK001 | Chưa đạt | Đạt có quyết định mở | spec FR-013a (Decided CHK001); data-model "group_excess_payments"; facade "Late-payment review and bank refund" (Proposed); tasks T124 | Tên/shape `ExcessPaymentRefundPort` và bảng `group_excess_payments` là đề xuất, chờ owner duyệt trước T124; có dùng chung nguồn người nhận alert FR-040a hay không còn mở. |
+| CHK002 | Chưa đạt | Đạt có quyết định mở | spec FR-012a (Decided CHK002), FR-032; plan dòng "Payment: start/retry … until `paymentDeadlineAt`"; contract `payment-attempts`; tasks T125 | HTTP 409 và mã `PAYMENT_WINDOW_CLOSED` là đề xuất, chưa duyệt (T125). |
+| CHK003 | Đạt | Đạt | spec FR-010f, FR-040 cond. 3, SC-003; tasks T144 | |
+| CHK004 | Đạt | Đạt | spec FR-036 | |
+| CHK005 | Đạt | Đạt | spec FR-035, FR-037 | |
+| CHK006 | Chưa đạt | Đạt | spec FR-040 cond. 4 (Decided CHK006: thời điểm Mland nhận evidence đã xác minh); plan "Decisions 2026-11-15"; tasks T127 | |
+| CHK007 | Chưa đạt | Đạt | spec FR-040a (Decided CHK007: cond. 2 fail, hạn 24 giờ sau evidence, chỉ hoàn tiền); tasks T128 | |
+| CHK008 | Đạt | Đạt | spec FR-040; facade "Late-payment review and bank refund" | |
+| CHK009 | Đạt | Đạt | spec FR-039, FR-040 cond. 3, Session 2026-11-15 | |
+| CHK010 | Đạt | Đạt | spec FR-050 (bảng mapping); facade "Booking status conclusions" đã đồng bộ `REFUND_PENDING`; tasks T119, T122 | |
+| CHK011 | Chưa đạt | Đạt | spec FR-012a (Decided CHK011: không giới hạn số attempt, tối đa một `PENDING`); data-model `group_payment_attempts`; tasks T126 | |
+| CHK012 | Chưa đạt | Đạt | spec FR-032 (Decided CHK012: 502/503 `PAYMENT_LINK_UNAVAILABLE`, không tạo attempt, hold không đổi); contract `payment-attempts` 502/503; tasks T131 | |
+| CHK013 | Chưa đạt | Chưa đạt | spec FR-031 (tạo group: `DEPENDENCY_UNAVAILABLE`, 503 đề xuất), FR-039 (expiry: retry idempotent); tasks T132 | Chưa có kết quả khi 006/003.2 không khả dụng lúc **quote** (`POST /workshop-cart-quotes` không có 503) và lúc **xác nhận** sau khi đã có evidence VNPay hợp lệ (commit hold/settle Loyalty thất bại khi tiền đã nhận). |
+| CHK014 | Chưa đạt | Đạt có quyết định mở | spec FR-039 (Decided CHK013/CHK014); plan "Decisions 2026-11-15, second batch"; tasks T133 | N, backoff và người nhận alert khi release thất bại là OPEN, phải chốt trong plan.md trước T133. |
+| CHK015 | Đạt | Đạt | spec FR-015a, FR-015b, FR-014i | |
+| CHK016 | Chưa đạt | Đạt có quyết định mở | spec FR-040a (Decided CHK016); plan "Decisions 2026-11-15"; tasks T129 | Số lần gửi lại email kết quả là OPEN, phải chốt trong plan.md trước T129. |
+| CHK017 | Chưa đạt | Đạt có quyết định mở | spec FR-040a (Decided CHK017), FR-048 role matrix; facade "Manager queue"; tasks T130 | Nguồn người nhận Admin (FE-001) là đề xuất; T130 chờ contract FE-001. |
+| CHK018 | Chưa đạt | Đạt | spec FR-013 (Decided CHK018, `IDEMPOTENCY_CONFLICT`); contract: mọi route ghi trạng thái khai báo 409 `IDEMPOTENCY_CONFLICT`; tasks T138 | |
+| CHK019 | Chưa đạt | Đạt | spec FR-031 (quote 30 phút, `QUOTE_EXPIRED`/`QUOTE_ALREADY_ACCEPTED`/`QUOTE_CHANGED` 409); contract `workshop-booking-groups`; tasks T140 | |
+| CHK020 | Đạt | Đạt | spec FR-031; contract `CartHoldRejection.failingLines` | |
+| CHK021 | Đạt | Đạt | spec FR-012, FR-012b, FR-012c, FR-017b9a | |
+| CHK022 | Chưa đạt | Đạt có quyết định mở | spec FR-017a (superseded, CHK022), FR-048; contract `ContactProof`/lookup "Exactly one"; tasks T137 | Phản hồi 400 validation khi gửi cả hai hoặc không gửi giá trị nào là đề xuất, chưa duyệt. |
+| CHK023 | Chưa đạt | Đạt | spec FR-048 "Payment attempt" (Decided CHK023); contract `payment-attempts` requestBody `ContactProof`; tasks T134 | |
+| CHK024 | Chưa đạt | Đạt | spec FR-048 "Role matrix" (Decided CHK024, Admin không có quyền) | |
+| CHK025 | Chưa đạt | Đạt | spec FR-048 "Staff scope" (Decided CHK025), FR-017b7; plan "Identity and authorization"; contract `confirmation-deliveries`, `recipient`; tasks T135 | |
+| CHK026 | Chưa đạt | Đạt | spec FR-017 (Decided CHK026: 404, 403 chỉ cho Staff/Manager đã biết thiếu quyền); contract GET group "404, never 403"; tasks T139 | |
+| CHK027 | Chưa đạt | Đạt | spec FR-017b7 (Decided CHK027: quyết định late-payment và đổi recipient bởi Staff/Manager); tasks T143 | |
+| CHK028 | Chưa đạt | Chưa đạt | spec FR-041 (buyer, hoặc Staff/Manager sau khi xác minh buyer); contract `recipient` (quy tắc proof có Manager); tasks T143 | Câu mở đầu của contract `PUT /workshop-tickets/{ticketCode}/recipient` ("Buyer only, or Staff after verifying the buyer") và US8 kịch bản 4 vẫn bỏ Manager; contract còn ghi Manager "with location scope" trong khi Manager là global (FR-048). |
+| CHK029 | Đạt | Đạt | spec FR-041, FR-048, FR-049, Session 2026-11-15 | |
+| CHK030 | Đạt | Đạt | spec FR-017b7, Session 2026-11-15 (rate limit theo instance, giới hạn đã nêu) | |
+| CHK031 | Đạt | Đạt | spec FR-040a; contract `late-payment-reviews` ("Manager only", "no buyer contact data") | |
+| CHK032 | Chưa đạt | Chưa đạt | facade "Late-payment review and bank refund" > "Conditions"; spec FR-040 cond. 3 | Đoạn "Conditions" đã thêm câu "follows 003.1 FR-040" nhưng vẫn giữ câu "the voucher and points can be held again", tức vẫn mô tả việc giữ lại voucher/points mà 006 không làm được, mâu thuẫn ngay trong đoạn. |
+| CHK033 | Đạt | Đạt | spec FR-041a; facade `consumeBuyerProof` | |
+| CHK034 | Đạt | Đạt | spec FR-050; facade "Booking status conclusions"; tasks T119 | |
+| CHK035 | Đạt | Đạt | spec FR-044, FR-046, "Direct booking is only a booking group" | |
+| CHK036 | Đạt | Đạt | spec SC-002, SC-003; tasks T097, T144 | |
+| CHK037 | Chưa đạt | Đạt | spec SC-004 (Decided CHK037: 100% trong 5 phút sau `holdExpiresAt`, đo từ audit); tasks T136 | |
+| CHK038 | Chưa đạt | Đạt | spec SC-008; tasks T141 | |
+| CHK039 | Chưa đạt | Đạt | spec SC-007 (danh sách dữ liệu, CHK039); tasks T142 | |
+| CHK040 | Đạt | Đạt | spec US6, US9 | |
+
+**Tổng hợp:** trước 17 Đạt / 23 Chưa đạt; sau **31 Đạt, 6 Đạt có quyết định mở, 3 Chưa đạt** (tổng 40).
+
+- Đạt có quyết định mở: CHK001, CHK002, CHK014, CHK016, CHK017, CHK022 (owner Hồ Hoàng Quốc; task T124, T125, T133, T129, T130, T137).
+- Chưa đạt: CHK013 (cần owner quyết định cho lỗi dependency lúc quote và lúc xác nhận sau khi đã nhận tiền); CHK028 và CHK032 (chỉ cần sửa câu chữ, không cần quyết định mới).
+
+**Cập nhật 2026-11-15 (sau quyết định CHK013 của owner Hồ Hoàng Quốc và đồng bộ câu chữ CHK028/CHK032; đánh giá của agent, không tick marker):**
+
+- CHK013: Chưa đạt → **Đạt có quyết định mở**. Căn cứ: spec FR-031 (quote: 503 `DEPENDENCY_UNAVAILABLE`, không tạo quote), FR-038 (Decided CHK013 lúc xác nhận: evidence ghi bền vững cùng transaction, group giữ `PENDING_PAYMENT`, scheduler retry idempotent trong hold), FR-039 (không release khi đang chờ retry; bàn giao lúc `holdExpiresAt`), FR-040 (handover vào late-payment), US6 kịch bản 8; contract `POST /workshop-cart-quotes` 503; data-model "Confirmation retry after a dependency failure" (proposed); tasks T145, T146. Còn mở: khoảng cách và số lần retry (plan.md design risk 6), bảng `group_confirmation_retries` đề xuất chưa duyệt, HTTP 503 vẫn là đề xuất.
+- CHK028: Chưa đạt → **Đạt**. Căn cứ: contract `PUT /workshop-tickets/{ticketCode}/recipient` ("Buyer only, or Staff or a Manager after verifying the buyer", Manager global, câu cũ "with location scope" đánh dấu superseded); spec US8 kịch bản 4; plan "Recipient flow"; tasks T135 (mở rộng), T143.
+- CHK032: Chưa đạt → **Đạt**. Căn cứ: facade "Late-payment review and bank refund" > "Conditions": câu "the voucher and points can be held again" đánh dấu superseded, thay bằng "the group used no voucher and no points, every ticket price is unchanged", khớp spec FR-040 cond. 3 (V1 voucher/points luôn fail, automatic discount được tính lại).
+
+**Tổng hợp sau cập nhật:** 33 Đạt, 7 Đạt có quyết định mở (thêm CHK013), 0 Chưa đạt (tổng 40).
+
+**Cập nhật 2026-11-15 (sau quyết định cuối của owner Hồ Hoàng Quốc; spec "Checklist follow-up, final decisions"; đánh giá của agent, không tick marker):**
+
+- CHK001: Đạt có quyết định mở → **Đạt (quyết định 2026-11-15)**. Căn cứ: spec FR-013a (port `ExcessPaymentRefundPort.openExcessPaymentRefund(...) → LatePaymentRefundOutcome` và bảng `group_excess_payments` đã chốt; kiểu cột do migration quyết định); data-model "Excess or duplicate payment"; facade "Late-payment review and bank refund"; tasks T124. Alert theo quy tắc Manager-only (FR-040a).
+- CHK002: Đạt có quyết định mở → **Đạt (quyết định 2026-11-15)**. Căn cứ: spec FR-012a (409 `PAYMENT_WINDOW_CLOSED` đã chốt); contract `payment-attempts`; tasks T125.
+- CHK013: Đạt có quyết định mở → **Đạt (quyết định 2026-11-15)**. Căn cứ: spec FR-038 (retry mỗi 1 phút trong hold, khoảng 10 lần, không alert riêng), FR-039 (tạo late-payment review trước rồi mới release); plan.md design risk 6 đã đóng; data-model `group_confirmation_retries` đã chốt; tasks T145. Ghi chú: HTTP 503 của `DEPENDENCY_UNAVAILABLE` (FR-031, T146) vẫn là đề xuất, giữ nguyên theo chỉ thị; ý nghĩa `SUCCESS` của attempt trên group chưa `CONFIRMED` vẫn để T145 xác nhận.
+- CHK014: Đạt có quyết định mở → **Đạt (quyết định 2026-11-15)**. Căn cứ: spec FR-039 (retry 3 lần cách 1 phút trong 5 phút của SC-004; vẫn lỗi → alert Manager, rồi retry mỗi 5 phút đến khi thành công; idempotent); plan.md "fourth batch"; tasks T133.
+- CHK016: Đạt có quyết định mở → **Đạt (quyết định 2026-11-15)**. Căn cứ: spec FR-040a (gửi lại tối đa 3 lần sau 5 phút, 30 phút, 2 giờ; vẫn lỗi → alert Manager gọi điện cho buyer; email lỗi không tính là "reached"); plan.md "fourth batch"; tasks T129.
+- CHK017: Đạt có quyết định mở → **Đạt (quyết định 2026-11-15)**. Căn cứ: spec FR-040a (mọi alert nghiệp vụ chỉ gửi Manager đang active qua FE-001 `listActiveManagerEmails()`; Admin không nhận alert nghiệp vụ; không có Manager active → không gửi email, ghi audit + WARN log, mục vẫn nằm trong hàng đợi Manager); facade "Manager queue"; tasks T130 (viết lại). Câu hỏi CHK017 cũ ("alert every active Admin") đã superseded; không cần thay đổi FE-001.
+- CHK022: Đạt có quyết định mở → **Đạt (quyết định 2026-11-15)**. Căn cứ: spec FR-017a (cả hai hoặc không có giá trị nào → `400 VALIDATION_ERROR` qua Bean Validation); contract `GroupLookupRequest`, `ContactProof`, `GroupPendingHoldReleaseRequest`, `BuyerVerificationRequest` và route lookup; tasks T137. Ghi chú: owner chọn `VALIDATION_ERROR` (2026-11-15), trùng mã handler hiện tại và quy ước chung của dự án.
+
+**Tổng hợp sau cập nhật quyết định cuối:** 40 Đạt, 0 Đạt có quyết định mở, 0 Chưa đạt (tổng 40). Không marker nào được tick.
+- CHK013 (cập nhật 2026-11-15): HTTP 503 `DEPENDENCY_UNAVAILABLE` lúc quote và lúc tạo nhóm đã chốt, không còn mục proposed nào ở 003.1.

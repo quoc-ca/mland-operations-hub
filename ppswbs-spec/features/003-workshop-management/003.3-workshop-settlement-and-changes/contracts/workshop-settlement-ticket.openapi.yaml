@@ -660,18 +660,94 @@ paths:
                 proofImageReference:
                   type: string
                   nullable: true
-                  x-status: pending-plan-decision
+                  x-status: planned
                   description: >-
-                    OPTIONAL receipt image of the transfer (FR-039, CHK007). PENDING PLAN DECISION
-                    (plan "Open decisions", O-1): file type, size limit, storage location, retention and
-                    the upload mechanism (this reference or a separate upload route) are not decided,
-                    so this field is a placeholder and must not be built until the plan settles them
-                    (task T153). Visible only to a Manager and the transferring actor.
+                    OPTIONAL receipt image of the transfer (FR-039, CHK007), RECORD_TRANSFER only.
+                    *(Superseded 2026-11-15: "PENDING PLAN DECISION (plan O-1) ... placeholder, must not
+                    be built until the plan settles them (task T153)"; x-status pending-plan-decision
+                    replaced.)* DECIDED 2026-11-15 by Hồ Hoàng Quốc (plan O-1): the receiptImageId
+                    returned by the proposed upload route
+                    POST /api/v1/workshop-refund-requests/{refundId}/receipt-images for the same
+                    request; attached in the same transaction as the transfer record. At most one image
+                    per transfer evidence (409 RECEIPT_IMAGE_ALREADY_ATTACHED, proposed); an unknown,
+                    foreign or already attached reference is 409/422. JPEG, PNG or WebP, at most
+                    5,000,000 bytes, stored as an authenticated Cloudinary object; the bank reference
+                    stays required and the transfer is recorded without an image when this is null or
+                    image storage is unavailable. Visible only to a Manager and the transferring actor
+                    (V1: Manager only). Implementation task T154.
                 reason: {type: string, maxLength: 1000}
       responses:
         '200': {description: Transition applied, content: {application/json: {schema: {$ref: '#/components/schemas/RefundRequest'}}}}
         '403': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-refund-requests/{refundId}/receipt-images:
+    post:
+      summary: Upload the optional transfer receipt image (FR-039, plan O-1; route name PROPOSED)
+      x-status: planned
+      description: >-
+        PROPOSED 2026-11-15 (plan O-1, decided by Hồ Hoàng Quốc; task T154). Manager only in V1 (the actor
+        who records the transfer, FR-039; Staff 403). Only while the request is PENDING_TRANSFER (409
+        otherwise). One file part "file": JPEG, PNG or WebP; the declared Content-Type, the file signature and
+        a readable image header must agree and the extension is never trusted (415
+        RECEIPT_IMAGE_TYPE_UNSUPPORTED, proposed; PDF is refused); at most 5,000,000 bytes (413
+        RECEIPT_IMAGE_TOO_LARGE, proposed). The bytes go to Cloudinary (type=authenticated, 003.3 folder);
+        only metadata is stored. Missing credentials or an unreachable provider is 503
+        RECEIPT_STORAGE_UNAVAILABLE (proposed); the transfer can still be recorded without the image. The
+        response never carries a provider URL. An upload never attached by RECORD_TRANSFER is removed after
+        24 hours.
+      security: [{bearerAuth: []}]
+      parameters:
+        - {name: refundId, in: path, required: true, schema: {type: string}}
+        - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: {type: string, format: binary, maxLength: 5000000}
+      responses:
+        '201':
+          description: Uploaded, not yet attached
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/RefundReceiptImage'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+        '413': {$ref: '#/components/responses/Problem'}
+        '415': {$ref: '#/components/responses/Problem'}
+        '503': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-refund-requests/{refundId}/receipt-image:
+    get:
+      summary: Stream the attached transfer receipt image (FR-039, plan O-1; route name PROPOSED)
+      x-status: planned
+      description: >-
+        PROPOSED 2026-11-15 (plan O-1; task T154). Authorization first, with the same rule as the refund
+        request (FR-039: a Manager and the transferring actor; V1: Manager only, Staff 403). The backend reads
+        the authenticated Cloudinary object with a signed URL and streams the bytes same-origin; the provider
+        URL is never returned or redirected to. 404 when no image is attached. 503
+        RECEIPT_STORAGE_UNAVAILABLE (proposed) when storage is unavailable. The image file is deleted 5 years
+        after the request reaches REFUNDED or CLOSED_UNREACHABLE (decided 2026-11-15); afterwards this route
+        answers 404 while the bank reference stays on the request.
+      security: [{bearerAuth: []}]
+      parameters:
+        - {name: refundId, in: path, required: true, schema: {type: string}}
+      responses:
+        '200':
+          description: The image bytes
+          headers:
+            Cache-Control: {schema: {type: string, enum: [no-store]}}
+            X-Content-Type-Options: {schema: {type: string, enum: [nosniff]}}
+          content:
+            image/jpeg: {schema: {type: string, format: binary}}
+            image/png: {schema: {type: string, format: binary}}
+            image/webp: {schema: {type: string, format: binary}}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '503': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-refund-requests/{refundId}/account:
     put:
       summary: Staff or Manager enters the recipient account at the counter (FR-038a, FR-040)
@@ -1207,6 +1283,18 @@ components:
         status: {$ref: '#/components/schemas/RefundStatus'}
         accountNumberMasked: {type: string, nullable: true}
         holderName: {type: string, nullable: true}
+        receiptImageAttached: {type: boolean, x-status: planned, description: 'PROPOSED 2026-11-15 (plan O-1, T154): true when the recorded transfer has a receipt image; read it through GET .../receipt-image. No URL is exposed.'}
+    RefundReceiptImage:
+      type: object
+      x-status: planned
+      description: PROPOSED 2026-11-15 (plan O-1, T154). Metadata of an uploaded receipt image; never a provider URL.
+      required: [receiptImageId, contentType, byteCount, checksum, uploadedAt]
+      properties:
+        receiptImageId: {type: string, description: Pass as proofImageReference on RECORD_TRANSFER.}
+        contentType: {type: string, enum: [image/jpeg, image/png, image/webp]}
+        byteCount: {type: integer, format: int64, minimum: 1, maximum: 5000000}
+        checksum: {type: string, description: SHA-256 of the bytes, hex.}
+        uploadedAt: {type: string, format: date-time}
     Problem:
       type: object
       required: [code, correlationId]
@@ -1225,15 +1313,26 @@ components:
           description: FR-042. At least 24 hours before the ticket's first session, or later (treated as a no-show for benefits).
         pointsReturned: {type: integer, format: int64, minimum: 0}
         # voucherRestored (boolean) is replaced 2026-11-15 by voucherRestoration (PROPOSED; decision FR-042/FR-043, task T155).
+        # 2026-11-15: description aligned with spec FR-042/FR-043 and Session 2026-11-15; it replaces the stale sentence
+        # "A customer cancellation that does not end the group's last ticket has restored false and no reason".
         voucherRestoration:
           type: object
           description: >-
             PROPOSED 2026-11-15, replaces the former boolean voucherRestored. The outcome of the one
-            voucher restoration per group, triggered through the shared facade. A Mland cancellation
-            restores the group voucher immediately, once, whatever the other tickets did; reason is
-            EXPIRED when the voucher is no longer valid (it is not restored and never extended; the
-            bank refund is unaffected and the buyer is told). A customer cancellation that does not
-            end the group's last ticket has restored false and no reason.
+            voucher restoration per groupCode, triggered through the shared facade; the module that
+            owns vouchers performs it and 003.3 never writes voucher data (FR-042). A Mland
+            cancellation of a ticket in the group restores the group voucher once, when the first
+            Mland-cancelled ticket is refunded, whatever the other tickets did, including a late
+            cancellation or a no-show (FR-043 prevails over FR-042). Without a Mland cancellation, it
+            is restored only when every ticket of the group has ended by valid cancellation (at least
+            24 hours before the ticket's first session, FR-042); any late cancellation or no-show in
+            the group prevents it, so a late cancellation never restores, and a valid customer
+            cancellation that leaves another ticket of the group not yet ended restores nothing yet.
+            Restoration happens only while the voucher is still valid; otherwise restored is false
+            with reason EXPIRED (never extended; the bank refund is unaffected and the buyer is
+            told). It happens at most once per groupCode: when the voucher was already restored,
+            restored is false and reason is null (or EXPIRED when that is the stored outcome). In
+            every other case restored is false and reason is null.
           required: [restored]
           properties:
             restored: {type: boolean}
