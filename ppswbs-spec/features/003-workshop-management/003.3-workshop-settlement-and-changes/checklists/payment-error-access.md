@@ -14,57 +14,57 @@
 
 ## Payment and Refund Edge Cases
 
-- [ ] CHK001 Is the default refund recipient defined for every source of refunded money (group booking-time payment, counter collection, excess or duplicate money, OTA shop add-on bill)? [Completeness, Spec §FR-039, §FR-038a]
+- [x] CHK001 Is the default refund recipient defined for every source of refunded money (group booking-time payment, counter collection, excess or duplicate money, OTA shop add-on bill)? [Completeness, Spec §FR-039, §FR-038a]
 - [ ] CHK002 Is the cap "refunded or pending never exceeds money collected for the ticket" stated so it also binds refunds opened for different reasons at the same time (for example an excess refund and a Mland cancellation)? [Consistency, Spec §FR-038, §FR-034]
-- [ ] CHK003 Is it specified what happens to a `PENDING_VERIFICATION` collection (transfer or VNPay) when the ticket is cancelled by Mland or by the buyer before it is verified? [Gap, Spec §FR-043, §FR-034]
-- [ ] CHK004 Is the outcome defined when a Mland-cancelled ticket's folio is already `FINALIZED`, given that `FINALIZED` is immutable and the Mland refund closes the folio as `CLOSED`? [Conflict, Spec §D4, §FR-035, §FR-043]
-- [ ] CHK005 Does the refund lifecycle define negative outcomes (a Manager rejects the approval, the bank statement does not match at `PENDING_RECONCILIATION`, the transfer is returned)? [Gap, Spec §FR-039]
-- [ ] CHK006 Is the request state after the transferring actor stops on a holder-name mismatch defined (stay in `PENDING_TRANSFER`, return to `PENDING_ACCOUNT`, who contacts the customer and how it is recorded)? [Ambiguity, Spec §FR-040]
-- [ ] CHK007 Is "the bank reference and proof" of an executed transfer defined (what qualifies as proof, format, who may view it, retention)? [Ambiguity, Spec §FR-039]
-- [ ] CHK008 Are the content, immutability and single-void rules of the absorbed-undercharge record (FR-057) stated without ambiguity? [Clarity, Spec §FR-057, §SC-014]
-- [ ] CHK009 Is a bound on the absorbed-undercharge amount specified (relative to the ticket price or folio total), or is "> 0" the only constraint by intent? [Ambiguity, Spec §FR-057]
+- [x] CHK003 Is it specified what happens to a `PENDING_VERIFICATION` collection (transfer or VNPay) when the ticket is cancelled by Mland or by the buyer before it is verified? [Gap, Spec §FR-043, §FR-034]
+- [x] CHK004 Is the outcome defined when a Mland-cancelled ticket's folio is already `FINALIZED`, given that `FINALIZED` is immutable and the Mland refund closes the folio as `CLOSED`? [Conflict, Spec §D4, §FR-035, §FR-043]
+- [x] CHK005 Does the refund lifecycle define negative outcomes (a Manager rejects the approval, the bank statement does not match at `PENDING_RECONCILIATION`, the transfer is returned)? [Gap, Spec §FR-039]
+- [x] CHK006 Is the request state after the transferring actor stops on a holder-name mismatch defined (stay in `PENDING_TRANSFER`, return to `PENDING_ACCOUNT`, who contacts the customer and how it is recorded)? [Ambiguity, Spec §FR-040]
+- [x] CHK007 Is "the bank reference and proof" of an executed transfer defined (what qualifies as proof, format, who may view it, retention)? [Ambiguity, Spec §FR-039]
+- [x] CHK008 Are the content, immutability and single-void rules of the absorbed-undercharge record (FR-057) stated without ambiguity? [Clarity, Spec §FR-057, §SC-014]
+- [x] CHK009 Is a bound on the absorbed-undercharge amount specified (relative to the ticket price or folio total), or is "> 0" the only constraint by intent? [Ambiguity, Spec §FR-057]
 - [ ] CHK010 Is the group voucher restoration rule unambiguous across mixed outcomes (Mland cancellation, valid cancellation, late cancellation, no-show) and is "exactly once" defined? [Clarity, Spec §FR-042, §FR-043, Session 2026-11-15]
-- [ ] CHK011 Is behavior defined when the voucher to be restored is no longer valid (expired, withdrawn, already used elsewhere) at restoration time? [Gap, Spec §FR-042, §FR-043]
-- [ ] CHK012 Is the interaction between a recorded debt (`Còn nợ`), the handover exception and the `FINALIZED` condition (`balanceDue = 0` and no pending collection) stated in the spec itself? [Consistency, Spec §FR-035]
-- [ ] CHK013 Is the cash-close day boundary defined for cash collected after the count is submitted but before a Manager confirms a difference? [Ambiguity, Spec §FR-036]
-- [ ] CHK014 Is there a defined path to correct a wrongly recorded cash collection that already belongs to a closed day, given that confirmed cash never changes and a void of it is refused? [Gap, Spec §FR-036, §FR-053]
-- [ ] CHK015 Are the VNPay 5,000 VND minimum, the absence of a cash/transfer limit, and the duplicate or excess money rules (same transaction recorded once, excess recorded in full and routed to a Manager refund) complete and non-conflicting? [Completeness, Spec §FR-033, §FR-034, §FR-056]
+- [x] CHK011 Is behavior defined when the voucher to be restored is no longer valid (expired, withdrawn, already used elsewhere) at restoration time? [Gap, Spec §FR-042, §FR-043]
+- [x] CHK012 Is the interaction between a recorded debt (`Còn nợ`), the handover exception and the `FINALIZED` condition (`balanceDue = 0` and no pending collection) stated in the spec itself? [Consistency, Spec §FR-035]
+- [x] CHK013 Is the cash-close day boundary defined for cash collected after the count is submitted but before a Manager confirms a difference? [Ambiguity, Spec §FR-036]
+- [x] CHK014 Is there a defined path to correct a wrongly recorded cash collection that already belongs to a closed day, given that confirmed cash never changes and a void of it is refused? [Gap, Spec §FR-036, §FR-053]
+- [x] CHK015 Are the VNPay 5,000 VND minimum, the absence of a cash/transfer limit, and the duplicate or excess money rules (same transaction recorded once, excess recorded in full and routed to a Manager refund) complete and non-conflicting? [Completeness, Spec §FR-033, §FR-034, §FR-056]
 
 ## Error and Failure States and Recovery
 
-- [ ] CHK016 Is a maximum wait or terminal outcome specified for a VNPay attempt that stays unreconciled ("closing the QR is not proof of failure")? [Gap, Spec §FR-034]
-- [ ] CHK017 Are the customer-facing outcomes of the refund account link in each failure state (expired, already used, revoked by resend, unknown token) specified as requirements? [Gap, Spec §FR-040]
+- [x] CHK016 Is a maximum wait or terminal outcome specified for a VNPay attempt that stays unreconciled ("closing the QR is not proof of failure")? [Gap, Spec §FR-034]
+- [x] CHK017 Are the customer-facing outcomes of the refund account link in each failure state (expired, already used, revoked by resend, unknown token) specified as requirements? [Gap, Spec §FR-040]
 - [ ] CHK018 Is the status-code vocabulary consistent with every route the feature exposes (a "used/revoked/expired link" outcome is not among the codes listed)? [Conflict, Spec §FR-022d, §FR-040]
 - [ ] CHK019 Are idempotency, same-key replay and changed-content conflict requirements stated for every state-changing command? [Completeness, Spec §FR-022a, §FR-022d]
-- [ ] CHK020 Are the recovery requirements for an unreachable payer (reminders on days 3 and 7, close after 30 days by a Manager with a reason, reopen) unambiguous about actor and effect on the customer's right to the refund? [Clarity, Spec §FR-040, §FR-039]
-- [ ] CHK021 Are failure semantics of the key-replacement operation defined (a partial run, a rerun, and whether a Manager approval already given survives when a request returns to `PENDING_ACCOUNT`)? [Gap, Spec §FR-040]
-- [ ] CHK022 Is all-or-none behavior with failing tickets reported specified for multi-ticket cancellation and group changes? [Completeness, Spec §FR-041, §FR-044, §FR-045a]
+- [x] CHK020 Are the recovery requirements for an unreachable payer (reminders on days 3 and 7, close after 30 days by a Manager with a reason, reopen) unambiguous about actor and effect on the customer's right to the refund? [Clarity, Spec §FR-040, §FR-039]
+- [x] CHK021 Are failure semantics of the key-replacement operation defined (a partial run, a rerun, and whether a Manager approval already given survives when a request returns to `PENDING_ACCOUNT`)? [Gap, Spec §FR-040]
+- [x] CHK022 Is all-or-none behavior with failing tickets reported specified for multi-ticket cancellation and group changes? [Completeness, Spec §FR-041, §FR-044, §FR-045a]
 
 ## Access Control and Sensitive Data
 
-- [ ] CHK023 Is "Staff with collection authority" for cash confirmation defined (which Staff, which scope, relation to the session-assignment rule)? [Ambiguity, Spec §FR-032]
-- [ ] CHK024 Are the role and scope of "the closer" who submits the cash count defined? [Gap, Spec §FR-036]
-- [ ] CHK025 Is the authority of Staff to enter a refund account at the counter defined (location scope, assignment, which refund sources)? [Gap, Spec §FR-040, §FR-038a]
-- [ ] CHK026 Are Manager global scope and the Admin-only key-replacement route stated without a Manager fallback and with reason, `Idempotency-Key` and per-request audit? [Clarity, Spec §FR-040, Feature 003 authorization decision]
-- [ ] CHK027 Are the reading proofs defined for the owning Member, the Guest (contact proof in a body, identical 404) and the operator view? [Completeness, Spec §FR-048, §Staff booking-assignment access]
-- [ ] CHK028 Is every Manager-only operation (transfer confirmation, void, extra change, difference confirmation, handover exception, debt, reconciliation list, undercharge record) stated with refusal of Staff? [Completeness, Spec §FR-032, §FR-035, §FR-052, §FR-053, §FR-054, §FR-056, §FR-057]
-- [ ] CHK029 Is the exposure rule for the full account number complete (who may see it, audit on reveal, no-store, masked elsewhere, only the mask after `REFUNDED`, never in email, logs or audit)? [Completeness, Spec §FR-040, §SC-009]
-- [ ] CHK030 Is the retention of the stored notification payload that carries the account link token reconciled with the 7-day link validity and revocation on resend? [Conflict, Spec §FR-012a, §FR-040]
-- [ ] CHK031 Are audit and error responses required to stay free of raw tokens, payment payloads, secrets and unnecessary PII? [Completeness, Spec §FR-003, §FR-022]
+- [x] CHK023 Is "Staff with collection authority" for cash confirmation defined (which Staff, which scope, relation to the session-assignment rule)? [Ambiguity, Spec §FR-032]
+- [x] CHK024 Are the role and scope of "the closer" who submits the cash count defined? [Gap, Spec §FR-036]
+- [x] CHK025 Is the authority of Staff to enter a refund account at the counter defined (location scope, assignment, which refund sources)? [Gap, Spec §FR-040, §FR-038a]
+- [x] CHK026 Are Manager global scope and the Admin-only key-replacement route stated without a Manager fallback and with reason, `Idempotency-Key` and per-request audit? [Clarity, Spec §FR-040, Feature 003 authorization decision]
+- [x] CHK027 Are the reading proofs defined for the owning Member, the Guest (contact proof in a body, identical 404) and the operator view? [Completeness, Spec §FR-048, §Staff booking-assignment access]
+- [x] CHK028 Is every Manager-only operation (transfer confirmation, void, extra change, difference confirmation, handover exception, debt, reconciliation list, undercharge record) stated with refusal of Staff? [Completeness, Spec §FR-032, §FR-035, §FR-052, §FR-053, §FR-054, §FR-056, §FR-057]
+- [x] CHK029 Is the exposure rule for the full account number complete (who may see it, audit on reveal, no-store, masked elsewhere, only the mask after `REFUNDED`, never in email, logs or audit)? [Completeness, Spec §FR-040, §SC-009]
+- [x] CHK030 Is the retention of the stored notification payload that carries the account link token reconciled with the 7-day link validity and revocation on resend? [Conflict, Spec §FR-012a, §FR-040]
+- [x] CHK031 Are audit and error responses required to stay free of raw tokens, payment payloads, secrets and unnecessary PII? [Completeness, Spec §FR-003, §FR-022]
 
 ## Cross-Feature Consistency (facade with 003.1, 003.2, 003.4)
 
 - [ ] CHK032 Is the refund unit consistent between "refunds are per ticket" and the group-level refund request that 003.1 opens for a late payment that is not re-confirmed? [Conflict, Spec §FR-038, Facade "Late-payment review and bank refund"]
-- [ ] CHK033 Is the handoff of refund status to 003.1 (`REFUND_PENDING` when the request opens, `REFUNDED` only after Manager confirmation) consistent between 003.3 and 003.1? [Consistency, Spec §FR-001a, §FR-039, Facade "Per-ticket boundary changes"]
-- [ ] CHK034 Is the owner that executes the voucher and points restoration named, with a defined exactly-once handoff between 003.3 and 003.1? [Gap, Spec §FR-042, §FR-043]
-- [ ] CHK035 Is the OTA shop add-on bill (003.4) refund covered by the bank refund rules and kept separate from OTA-owned base-ticket refunds? [Consistency, Spec §FR-038a, §FR-001]
+- [x] CHK033 Is the handoff of refund status to 003.1 (`REFUND_PENDING` when the request opens, `REFUNDED` only after Manager confirmation) consistent between 003.3 and 003.1? [Consistency, Spec §FR-001a, §FR-039, Facade "Per-ticket boundary changes"]
+- [x] CHK034 Is the owner that executes the voucher and points restoration named, with a defined exactly-once handoff between 003.3 and 003.1? [Gap, Spec §FR-042, §FR-043]
+- [x] CHK035 Is the OTA shop add-on bill (003.4) refund covered by the bank refund rules and kept separate from OTA-owned base-ticket refunds? [Consistency, Spec §FR-038a, §FR-001]
 
 ## Acceptance Criteria Measurability
 
-- [ ] CHK036 Is SC-009 measurable for sensitive account data (no consequence before `REFUNDED`, number only in the audited reveal, link works once within 7 days)? [Measurability, Spec §SC-009]
-- [ ] CHK037 Is there a measurable criterion for the refusal of Staff on every Manager-only operation, beyond transfer confirmation (SC-007) and the reconciliation list (SC-013)? [Gap, Spec §FR-052, §FR-053, §FR-054]
-- [ ] CHK038 Is there a measurable criterion for the unreachable-payer rules (reminders on days 3 and 7, 30-day close, reopen)? [Gap, Spec §FR-040]
-- [ ] CHK039 Are SC-006, SC-013 and SC-014 stated with objective, countable pass conditions? [Measurability, Spec §SC-006, §SC-013, §SC-014]
+- [x] CHK036 Is SC-009 measurable for sensitive account data (no consequence before `REFUNDED`, number only in the audited reveal, link works once within 7 days)? [Measurability, Spec §SC-009]
+- [x] CHK037 Is there a measurable criterion for the refusal of Staff on every Manager-only operation, beyond transfer confirmation (SC-007) and the reconciliation list (SC-013)? [Gap, Spec §FR-052, §FR-053, §FR-054]
+- [x] CHK038 Is there a measurable criterion for the unreachable-payer rules (reminders on days 3 and 7, 30-day close, reopen)? [Gap, Spec §FR-040]
+- [x] CHK039 Are SC-006, SC-013 and SC-014 stated with objective, countable pass conditions? [Measurability, Spec §SC-006, §SC-013, §SC-014]
 
 ## Reviewer notes (agent assessment, not ratification)
 
@@ -105,7 +105,7 @@ Result: 39 items, 17 PASS, 22 FAIL.
 
 Phạm vi đối chiếu: `spec.md` (FR, SC, `## Clarifications` > `### Session 2026-11-15` và `#### Checklist follow-up`), `plan.md` (mục "Checklist follow-up of 2026-11-15", O-1, O-2), `data-model.md`, `contracts/workshop-settlement-ticket.openapi.yaml`, `tasks.md` (Phase 11, T144–T165) và `../contracts/workshop-interfeature-facades.md`. Tiêu chí: yêu cầu được viết rõ và kiểm chứng được trong tài liệu; task code còn mở không tính là lỗi. Khoảng trống QueryDR sandbox (T005/T035) không tính là lỗi.
 
-**Kết quả: 39 mục — 37 Đạt, 1 Đạt có quyết định mở, 1 Chưa đạt** (trước: 17 Đạt / 22 Chưa đạt).
+**Kết quả: 39 mục — 37 Đạt, 1 Đạt có quyết định mở, 1 Chưa đạt** (trước: 17 Đạt / 22 Chưa đạt). *(Tổng cuối sau cập nhật 2026-11-15 ở cuối mục này: 39 Đạt, 0 Đạt có quyết định mở, 0 Chưa đạt. Bảng dưới giữ nguyên làm lịch sử.)*
 
 | CHK | Trước | Sau | Căn cứ | Còn thiếu (nếu Chưa đạt) |
 | --- | --- | --- | --- | --- |
@@ -161,3 +161,34 @@ CHK004: Đạt sau khi sửa câu chữ (data-model, spec), 2026-11-15.
 
 CHK007: Đạt, O-1 đã chốt 2026-11-15 (thời hạn xóa cuối cùng chờ kế toán, ghi mở trong plan).
 CHK007 (cập nhật 2026-11-15): thời hạn xóa đã chốt, xóa file ảnh 5 năm sau khi yêu cầu hoàn đạt `REFUNDED` hoặc `CLOSED_UNREACHABLE`, giữ metadata; kế toán cần xác nhận căn cứ 5 năm.
+
+**Cập nhật cuối (2026-11-15, agent, không phải duyệt reviewer; đếm lại 39 hàng của bảng):**
+
+- CHK004: Đạt. Dòng `data-model.md` "Open inconsistency" đã gạch và ghi giải quyết (phương án A); `spec.md` dòng Q về `FINALIZED` ghi "chỉ sau khi `REFUNDED` và không còn khoản chờ" kèm "owner confirmed option A". Các mục "Phần sót nhỏ" ở trên đã được xử lý: dòng (d) của plan không còn `T148`, câu cũ trong mô tả `voucherRestoration` của contract chỉ còn trong comment đã đánh dấu thay thế, `tasks.md` ghi O-2 đã quyết định.
+- CHK007: Đạt. Chủ sở hữu đã xác nhận tên thư mục/bảng ảnh biên lai (2026-11-15, mục Approval của `spec.md`). Căn cứ kế toán cho thời hạn 5 năm vẫn do kế toán xác nhận, đây là việc ngoài tài liệu và không làm mục này chưa đạt.
+- CHK034: chữ ký facade `restoreVoucherForCancelledTicket` nay đã duyệt (Hồ Hoàng Quốc, thay mặt Đặng Thị Khương, 2026-11-15); chữ "PROPOSED" ở cột Căn cứ ở trên là lịch sử. Phần code ở 006 là T110.
+- Đếm lại: 39 mục Đạt, 0 Đạt có quyết định mở, 0 Chưa đạt. Không tick ô nào; việc tick thuộc reviewer.
+
+### Independent tick 2026-11-15
+
+Tick bởi phiên agent độc lập theo chỉ thị của Hồ Hoàng Quốc, ngày 2026-11-15; không phải review của người.
+
+Đã tick 34/39 mục (đối chiếu spec.md, plan.md, data-model.md, contracts/, tasks.md; không dùng phần Re-assessment). Mục để trống và lý do:
+
+- [ ] CHK002 — Trần hoàn tiền (FR-038, spec.md:308) và "hoàn 100% tiền đã thu" của Mland (FR-043, spec.md:473) không nói số tiền hoàn Mland là 100% tiền thu trừ phần đã hoàn/đang chờ (ví dụ đã có yêu cầu hoàn tiền thừa); cơ chế khóa khi hai yêu cầu khác lý do mở đồng thời cũng chưa nêu (data-model.md:410-411 chỉ lặp lại trần).
+- [ ] CHK010 — Chưa nêu thời điểm kích hoạt hoàn voucher của Mland ("when the first Mland-cancelled ticket is refunded", spec.md:476; trước hay sau `REFUNDED`, trong khi voucher có thể hết hạn trong lúc chờ), và FR-043 chưa nêu khi người mua chuyển vé bị Mland hủy sang buổi thay thế thay vì hoàn tiền (chính tasks.md:323 T142 ghi còn thiếu).
+- [ ] CHK018 — Hợp đồng vé không khai báo `401` ở route nào (workshop-settlement-ticket.openapi.yaml, 0 lần) dù FR-022d (spec.md:1651-1654) yêu cầu; route ảnh biên lai dùng `413`/`415`/`503` (openapi.yaml:689-697) nằm ngoài bộ mã của FR-022d.
+- [ ] CHK019 — `POST /refund-account-links/{token}` (openapi.yaml:834-868) đổi trạng thái nhưng không có `Idempotency-Key` và spec không ghi ngoại lệ cho FR-022a (spec.md:1638-1643); gửi lại cùng nội dung sau khi mất phản hồi nhận `410`, không phải phát lại kết quả cũ.
+- [ ] CHK032 — FR-038 (spec.md:311-315) chỉ cho một ngoại lệ cấp nhóm là `LATE_PAYMENT_NOT_RECONFIRMED`, nhưng facade 003.1 còn mở yêu cầu cấp nhóm lý do `EXCESS_OR_DUPLICATE_MONEY` không có vé/folio (workshop-interfeature-facades.md:456-470); FR-038/FR-040 chưa nêu trần và cách nhập tài khoản cho loại này.
+
+### Fix log (2026-11-15)
+
+Sửa tài liệu cho 5 mục để trống ở "Independent tick 2026-11-15". Không tick ô nào; việc tick lại thuộc phiên review độc lập. Hai quyết định do Hồ Hoàng Quốc chốt trong phiên này (CHK010, CHK019); ba mục còn lại là đồng bộ tài liệu theo quyết định đã có.
+
+- CHK002 (đồng bộ tài liệu): `spec.md` FR-038 nay nói trần theo vé ràng buộc mọi yêu cầu theo vé bất kể lý do; số tiền yêu cầu mới = tiền đã thu của vé (gồm tiền thừa giữ trên folio) trừ tổng các yêu cầu khác của vé đã `REFUNDED` hoặc còn mở (`CLOSED_UNREACHABLE` tính là còn mở); ví dụ 500.000 thu, 80.000 thừa đang chờ, Mland hủy thì hoàn 420.000; tính và tạo dưới khóa folio của FR-034, phần còn lại bằng 0 thì không tạo mà trả yêu cầu hiện có. FR-043 trỏ về quy tắc này. `data-model.md` (dòng Refund request) và `plan.md` (hàng m) đồng bộ. Task mới T170.
+- CHK010 (quyết định owner): hoàn voucher khi yêu cầu hoàn của vé bị Mland hủy được mở (không chờ `REFUNDED`); vé bị Mland hủy mà người mua chuyển sang buổi thay thế thì không kích hoạt; "đúng một lần" = một lần cho mỗi `groupCode` (lặp lại trả `ALREADY_RESTORED`); voucher đã hết hạn thì không khôi phục (`EXPIRED`), tiền hoàn không bị ảnh hưởng. Ghi ở `spec.md` FR-043 và Clarifications "Checklist follow-up", `plan.md` hàng (g), `data-model.md`, mô tả `voucherRestoration` trong contract; T142 cập nhật.
+- CHK018 (đồng bộ tài liệu): `spec.md` FR-022d nêu quy tắc `401` (như 003.2 CHK028) và các mã ngoài danh sách (`413`, `415`, `503` của route ảnh biên lai, `429` của tra cứu folio). Contract vé thêm `401` cho 38 thao tác có `403`. Task mới T171 (test hợp đồng); `plan.md` hàng (o).
+- CHK019 (quyết định owner): `POST /refund-account-links/{token}` bắt buộc `Idempotency-Key`; cùng khóa cùng nội dung phát lại `204`, khác nội dung `409 IDEMPOTENCY_CONFLICT`, khóa mới trên link đã dùng/thu hồi/hết hạn vẫn `410`; bản ghi gắn với hash token và chỉ giữ dấu vân tay có khóa, không giữ số tài khoản. Ghi ở `spec.md` FR-022a, contract (tham số `Idempotency-Key`, `409`), `plan.md` hàng (n). Task mới T169.
+- CHK032 (đồng bộ tài liệu): `spec.md` FR-038 thêm nguồn cấp nhóm thứ hai `EXCESS_OR_DUPLICATE_MONEY` (số tiền = bằng chứng đã xác minh, mã nguồn = `evidenceReference`, idempotent theo `(reason, source reference)`, không có trần theo vé); FR-040, `data-model.md` và mô tả route nhập tài khoản tại quầy trong contract nêu loại này chỉ nhập qua link, không nhập tại quầy. Facade `workshop-interfeature-facades.md` đã có cổng này nên không sửa.
+
+Mục còn chờ owner: không. Việc còn lại là tick lại bởi reviewer độc lập và làm T169–T171 ở giai đoạn code. Contract đã kiểm bằng SnakeYAML: parse được, 41 path, 286 `$ref`, không `$ref` hỏng.

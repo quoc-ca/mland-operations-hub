@@ -84,9 +84,10 @@ paths:
         409 `IDEMPOTENCY_CONFLICT` (FR-013, CHK018). A Guest
         sends `groupCode` plus exactly one matching contact value; a Member must
         own a `PENDING_PAYMENT` group with an active payment window (FR-048). A
-        provider failure while the link is created answers 502/503
-        `PAYMENT_LINK_UNAVAILABLE`, creates no attempt and leaves the hold
-        unchanged (FR-032).
+        provider failure while the link is created answers 503
+        `PAYMENT_LINK_UNAVAILABLE` (one status, decided 2026-11-15, CHK012;
+        the earlier "502/503" is superseded), creates no attempt and leaves the
+        hold unchanged (FR-032).
       security: [{}, {bearerAuth: []}]
       parameters: [{$ref: '#/components/parameters/GroupCode'}, {$ref: '#/components/parameters/IdempotencyKey'}]
       requestBody: {required: false, description: 'Guest contact proof (FR-048, CHK023); omitted by an authenticated Member.', content: {application/json: {schema: {$ref: '#/components/schemas/ContactProof'}}}}
@@ -96,8 +97,7 @@ paths:
         '401': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
-        '502': {$ref: '#/components/responses/Problem'}
-        '503': {$ref: '#/components/responses/Problem'}
+        '503': {description: "PAYMENT_LINK_UNAVAILABLE: the payment provider failed while the link was created; no attempt exists and the hold is unchanged (FR-032; status decided 2026-11-15, CHK012).", content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}}
   /api/v1/workshop-booking-groups/{groupCode}:
     get:
       summary: Read an owned group with its tickets (Member buyer view)
@@ -173,7 +173,6 @@ paths:
         '204': {description: Released}
         '400': {$ref: '#/components/responses/Problem'}
         '401': {$ref: '#/components/responses/Problem'}
-        '403': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
         '429': {$ref: '#/components/responses/Problem'}
@@ -225,8 +224,13 @@ paths:
     post:
       summary: Send a buyer-verification OTP to the group's original contact email
       description: >-
-        Guest buyer, or Staff at the shop on the buyer's behalf (FR-041,
-        decision 2026-11-13). The caller proves the booking with exactly one of
+        Guest buyer, Staff at the shop on the buyer's behalf, or any active
+        Manager (global) on the buyer's behalf (FR-041, decision 2026-11-13;
+        Manager and the Staff scope added 2026-11-15, CHK024/CHK025, replacing
+        "Guest buyer, or Staff"). A Staff member must be within the active
+        location scope of the session of the group they are actively assigned
+        to (FR-048 "Staff scope"); Admin has no authority; a Member needs no
+        OTP. The caller proves the booking with exactly one of
         the stored contact email or phone (the same proof as the guest lookup);
         the OTP always goes to the original contact email, never to a ticket
         recipient. 6 digits, valid 10 minutes, at most 5 wrong attempts; only a
@@ -240,6 +244,8 @@ paths:
       responses:
         '202': {description: Challenge accepted, content: {application/json: {schema: {$ref: '#/components/schemas/BuyerVerificationChallenge'}}}}
         '400': {$ref: '#/components/responses/Problem'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {description: "An authenticated Staff member known to lack authority (outside the Staff scope or not assigned to a session of the group, FR-048); an unknown group or wrong proof stays 404.", content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}}
         '404': {$ref: '#/components/responses/Problem'}
         '429': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-booking-groups/{groupCode}/buyer-verifications/{verificationId}/confirmations:
@@ -260,6 +266,9 @@ paths:
       responses:
         '200': {description: Buyer verified, content: {application/json: {schema: {$ref: '#/components/schemas/BuyerVerificationResult'}}}}
         '400': {$ref: '#/components/responses/Problem'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {description: "An authenticated Staff member known to lack authority (FR-048 Staff scope); an unknown group, wrong proof or other caller stays 404.", content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}}
+        '404': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-tickets/{ticketCode}/recipient:
     put:

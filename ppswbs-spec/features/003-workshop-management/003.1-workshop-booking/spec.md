@@ -153,7 +153,9 @@ are kept for history and are read through this section.
   `holdExpiresAt`, then the final outcome. Screens and emails use the same
   10-minute figure and never show the 2-minute buffer. *(Decided 2026-11-15,
   CHK012)* When the payment provider fails while the payment link is being
-  created (no attempt exists yet), the answer is 502/503 `PAYMENT_LINK_UNAVAILABLE`,
+  created (no attempt exists yet), the answer is ~~502/503~~ **HTTP 503**
+  *(decided 2026-11-15 by Hồ Hoàng Quốc, CHK012: one code, the same status as
+  `DEPENDENCY_UNAVAILABLE`)* `PAYMENT_LINK_UNAVAILABLE`,
   no attempt is created and the hold is unchanged (never extended); the customer
   may retry inside the 10-minute payment window and the hold still ends at
   `holdExpiresAt`.
@@ -530,6 +532,18 @@ FR-030–FR-043 or below. **Not changed:** OTA bookings (003.4) keep
     Member, Staff per scope, any Manager; recipient change = buyer, Staff,
     Manager; Magic-Link incident = Manager; late-payment queue/decision =
     Manager. Admin has no authority over any of these operations.
+    *(Completed 2026-11-15, CHK024, decided by Hồ Hoàng Quốc)* Buyer
+    verification (`POST …/buyer-verifications` and
+    `…/buyer-verifications/{verificationId}/confirmations`, FR-041/FR-041a):
+    Guest with the group code plus exactly one stored contact value; Staff on
+    the buyer's behalf, only within the Staff scope below; any active Manager,
+    global, on the buyer's behalf. The OTP always goes to the group's original
+    contact email, never to the caller or a recipient, and the response never
+    reveals whether the contact matched. A Member needs no OTP (ownership by
+    bearer proves the buyer). A Staff or Manager who passes the OTP receives
+    the single-use `buyerVerificationReference` that the recipient change
+    requires (so a Manager obtains the reference the same way as Staff).
+    Admin has no authority over these routes either.
   - Payment attempt *(decided 2026-11-15, CHK023)*: a Guest may start or retry
     a payment attempt only with `groupCode` plus exactly one matching contact
     value (email or phone), the same proof as hold release. An authenticated
@@ -541,6 +555,18 @@ FR-030–FR-043 or below. **Not changed:** OTA bookings (003.4) keep
     session of the group (rule of 003.2 "Staff session-assignment access" and
     003.3 FR-032). Single-ticket operations follow that ticket; a Manager is
     global.
+    *(Clarified 2026-11-15, CHK025, decided by Hồ Hoàng Quốc; "the branch" of
+    a group is not a single value)* A group can hold lines in different
+    locations, so it has no single branch. The location scope is checked
+    against the location of the session of the group the Staff member is
+    actively assigned to (the session whose assignment satisfies the rule
+    above). The assignment is the only link: a Staff member with scope for
+    location A and an assignment to a session at A may run group-level
+    operations for the whole group even when other lines are at location B;
+    the same Staff member with an assignment only to a session at B and no
+    scope for B is refused. Scope for a location where the Staff member has no
+    assigned session of the group never authorizes anything. Buyer-verification
+    routes follow the same rule.
   - Pending-hold release: Guest with one contact proof, or owning Member, plus
     a reason; releases every line's hold and, when the group has no payment
     attempt and no late evidence, its held voucher/points (FR-017j).
@@ -698,7 +724,7 @@ through an approved boundary.
 - Q (CHK007): What is the result deadline when evidence arrives after the earliest session has started? → A: Condition 2 fails, no reconfirmation is possible, the Manager's result limit is 24 hours after the evidence, and only a bank refund remains (FR-040a).
 - Q (CHK016): Does a failed result email count as "reached" for FR-040a? → A: No. Resend is retried with a limit ~~(limit decided in plan)~~ *(superseded 2026-11-15: limit set in "Checklist follow-up, final decisions" below)*; after the deadline the Manager contacts the customer manually.
 - Q (CHK017): Who is alerted when no Manager is active? → A: ~~Every active Admin; an Admin only receives the alert and has no decision authority (FR-017b5). The recipient source depends on FE-001.~~ *(superseded 2026-11-15: no Admin receives a business alert, see "Checklist follow-up, final decisions" below)*
-- Q (CHK012): What happens when the provider fails while the payment link is created (no attempt yet)? → A: 502/503 `PAYMENT_LINK_UNAVAILABLE`, no attempt created, hold unchanged and never extended; the customer may retry inside the 10-minute window and the hold still ends at `holdExpiresAt` (FR-032).
+- Q (CHK012): What happens when the provider fails while the payment link is created (no attempt yet)? → A: ~~502/503~~ HTTP 503 *(decided 2026-11-15, CHK012)* `PAYMENT_LINK_UNAVAILABLE`, no attempt created, hold unchanged and never extended; the customer may retry inside the 10-minute window and the hold still ends at `holdExpiresAt` (FR-032).
 - Q (CHK013): What if Loyalty (006) or Operations (003.2) is unavailable at group creation or at hold expiry? → A: At creation the whole group is refused with `DEPENDENCY_UNAVAILABLE` and nothing is held (FR-031). At expiry the group is not marked done, stays waiting for release and the scheduler retries idempotently (FR-039).
 - Q (CHK014): What if a release fails at expiry? → A: Retry with backoff and alert a Manager after N failures. ~~N, backoff and alert recipient are OPEN, to be settled in plan.md;~~ *(superseded 2026-11-15: numbers set in "Checklist follow-up, final decisions" below)* touches 003.2 idempotent release and 006.
 - Q (CHK023): Who may start or retry a payment attempt? → A: A Guest with `groupCode` plus exactly one matching contact value (same proof as hold release); a Member only for an owned `PENDING_PAYMENT` group with an active payment window (FR-048).
@@ -712,7 +738,7 @@ through an approved boundary.
 
 #### Checklist follow-up, final decisions (payment-error-access.md), decided 2026-11-15
 
-*(Final decisions of Hồ Hoàng Quốc, owner Feature 003, on CHK001, CHK002, CHK013, CHK014, CHK016, CHK017, CHK022 and on the business-alert recipient policy. They replace the "proposed"/"OPEN" labels of these items. Rule text is in FR-012a, FR-013a, FR-017a, FR-038, FR-039 and FR-040a; code work is T124, T125, T129, T130, T133, T137 and T145 in tasks.md. The 503 status of FR-031 is not part of this batch and stays proposed.)*
+*(Final decisions of Hồ Hoàng Quốc, owner Feature 003, on CHK001, CHK002, CHK013, CHK014, CHK016, CHK017, CHK022 and on the business-alert recipient policy. They replace the "proposed"/"OPEN" labels of these items. Rule text is in FR-012a, FR-013a, FR-017a, FR-038, FR-039 and FR-040a; code work is T124, T125, T129, T130, T133, T137 and T145 in tasks.md. ~~The 503 status of FR-031 is not part of this batch and stays proposed.~~ *(superseded 2026-11-15: the 503 status of FR-031 is decided, see FR-031 and the CHK013 answers above; CHK013 doc-sync, checklist fix log.)*)*
 
 - Q (alert policy): Who receives a business alert of 003.1, and what happens when no Manager is active? → A: Only the active Managers, through FE-001 `AccountFacade.listActiveManagerEmails()`. An Admin is only the system administrator and never receives a business alert. With no active Manager no email is sent; the system writes an audit entry and a WARN log, and the item stays in the Manager work queue (for example the late-payment review queue) so the first Manager who becomes active sees it; nothing is lost and nothing is decided automatically. This supersedes the earlier CHK017 answer "every active Admin" (FR-040a). Admin system-management permissions are unchanged.
 - Q (CHK001): Are `ExcessPaymentRefundPort` and `group_excess_payments` approved? → A: Yes. `ExcessPaymentRefundPort.openExcessPaymentRefund(OpenExcessPaymentRefundCommand(groupCode, evidenceReference, amountVnd, operationReference, correlationReference)) → LatePaymentRefundOutcome` and the table `group_excess_payments` are decided; the exact column types are fixed by the migration. The alert goes to the Managers under the alert policy above (FR-013a, T124).
@@ -1757,6 +1783,27 @@ deadline.
   `vnp_TransactionStatus=00`, matching immutable merchant reference, amount,
   and VND currency may confirm a booking. Other verified terminal outcomes
   stop QueryDR but never confirm the booking.
+  **Rewritten for booking groups, decided 2026-11-15 (Hồ Hoàng Quốc, CHK003;
+  the text above is history for direct bookings, FR-044):** a group is
+  confirmed (FR-038) or re-confirmed late (FR-040) only by verified evidence
+  with `vnp_ResponseCode=00` and `vnp_TransactionStatus=00` whose merchant
+  reference is the immutable reference of one of the group's payment attempts,
+  whose amount equals the group collection of FR-036 and whose currency is VND.
+  Verified evidence that fails the amount, merchant-reference-to-attempt or
+  currency check never confirms a group, before or after `holdExpiresAt`, and
+  never settles a voucher, points, QR or Magic Link. Handling of verified
+  money that does not match (for example a group needing 203,000 VND that
+  receives 200,000 VND): the evidence and the reason it did not match are
+  recorded, the group stays `PENDING_PAYMENT` and nothing is published or
+  refunded while the hold runs (the customer may still pay the right amount
+  inside the 10-minute window); at `holdExpiresAt` the evidence is handed to
+  FR-040/FR-040a as evidence for an expired group, where a received amount that
+  differs from the recomputed collection fails condition 3, so the Managers are
+  alerted (FR-040a alert rule) and the only outcome is the 100% bank refund
+  under 003.3. Evidence whose merchant reference matches no attempt of any
+  group cannot be attributed to a group and changes none. A verified terminal
+  outcome that is not `00`/`00` is not money received: it never confirms and
+  only stops QueryDR. Tests: T144.
 - **FR-010c**: V1 MUST accept only the approved VNPAY HMAC-SHA512 checksum
   configuration. `paymentintegration` MUST verify checksum validity once before
   routing a callback or QueryDR result as payment evidence; a missing or invalid
@@ -1801,12 +1848,33 @@ deadline.
   client MUST retain the exact original `Idempotency-Key` and offer only a
   status check or same-command retry with that key. It MUST NOT automatically
   retry, generate a different key, or open another payment URL.
+  **Rewritten for booking groups, 2026-11-15 (CHK021, documentation sync, no
+  new decision; "booking" is read as booking group and "failed payment, new
+  attempt, or expired booking" as the same for the group):** the classification
+  applies to the group payment-attempt command (`POST …/payment-attempts`,
+  FR-012a, FR-032). `UNKNOWN` is a client-side classification only, not an
+  attempt status (FR-012a), and the client shows it as "being checked", never
+  as failed, expired or paid. A typed `PAYMENT_LINK_UNAVAILABLE` (503, FR-032)
+  or `PAYMENT_WINDOW_CLOSED` (409, FR-012a) is a deterministic failure, not
+  `UNKNOWN`. The payment-return page (FR-017b9a) shows only the group state
+  the server returns (FR-012).
 - **FR-012c**: The customer UI MUST make the expired state terminal for that
   pending booking: disable payment-resume/send-again controls, state that the
   expired deposit link cannot be reissued, and offer only a new booking
   journey. A new booking creates a new quote/hold and is not a reactivation of
   the expired booking. No UI path may infer payment confirmation from a browser
   return, a redirect response code, or an unverified provider message.
+  **Rewritten for booking groups, 2026-11-15 (CHK021, documentation sync):**
+  the terminal state is the group status `EXPIRED` (the group, free tickets
+  included, is released, FR-039). For an `EXPIRED` group the UI disables
+  pay/retry and send-again controls, states that the payment link of the
+  expired group cannot be reissued and offers only a new cart and a new quote
+  (a new group is never a reactivation of the old one). While the group is
+  `PENDING_PAYMENT` between `paymentDeadlineAt` and `holdExpiresAt` the UI shows
+  "Đang xác nhận kết quả thanh toán…" and no pay control (FR-012a, FR-032). No
+  UI path, payment-return page included, may infer payment from a browser
+  return, a redirect response code or an unverified provider message; it shows
+  the group state only after the server confirms it.
 - **FR-013**: The system MUST record payment outcomes idempotently so repeated
   payment events do not create duplicate transactions or duplicate settlement.
   *(Decided 2026-11-15, CHK018)* Every state-changing group command (group creation, payment attempt, hold release, confirmation resend, recipient change, late-payment decision) requires an Idempotency-Key. A same-key, same-content retry returns the original outcome; a reused key with different content returns 409 `IDEMPOTENCY_CONFLICT` (the name used by 003.3 FR-022d) and changes nothing. Whether the code already uses this name is verified by T138.
@@ -1918,6 +1986,22 @@ deadline.
   three times with backoff, then produce a safe operational follow-up outcome
   for Staff assigned to the booking branch or any active Manager globally,
   without changing booking/payment state.
+  **Rewritten for booking groups, decided 2026-11-15 (Hồ Hoàng Quốc, CHK015;
+  "booking branch" Staff and the undefined "safe operational follow-up
+  outcome" are superseded):** a failure to deliver the buyer confirmation of a
+  `CONFIRMED` group never reverses the payment or the confirmation and never
+  changes the group or ticket state (FR-015a). The failed delivery is resent
+  automatically up to 3 times, 5 minutes, 30 minutes and 2 hours after the
+  failure (the same schedule as the late-payment result email, FR-040a). If
+  every resend fails, the active Managers are alerted under the alert rule of
+  FR-040a (Managers only through FE-001 `AccountFacade.listActiveManagerEmails()`;
+  never an Admin or Staff; with no active Manager no email, an audit entry and
+  a WARN log) to contact the buyer by phone; the group stays visible to the
+  buyer through lookup and the Magic Link (FR-048), and the Managers' follow-up
+  does not change booking or payment state. The "safe operational follow-up
+  outcome" is therefore: audit entry plus the Manager alert after the third
+  failed resend. The resend limits of FR-048 (3 self-service, 5 internal) are
+  unaffected. Tests: T147.
 - **FR-015**: The system MUST send or queue a confirmation notification after
   successful booking confirmation and retain a safe operational outcome when
   delivery fails.
@@ -2027,7 +2111,9 @@ deadline.
   denied-attempt audit applies to the late-payment review decision and to the
   Staff/Manager recipient change as well (decided 2026-11-15, CHK027). For a
   group-level Staff operation the Staff member MUST also be actively assigned to
-  a session of the group (see FR-048).
+  a session of the group (see FR-048). *(Clarified 2026-11-15, CHK025: for a
+  group, "booking-branch scope" is the location of the session the Staff member
+  is assigned to, FR-048 "Staff scope".)*
 - **FR-017e**: The current booking flow MUST NOT require or invoke the legacy
   pre-payment email-confirmation classes, endpoints, token states, or email gate.
 - **FR-017c**: An authenticated Member MUST access bookings through Member
@@ -2241,6 +2327,15 @@ definitions are in [data-model.md](data-model.md).)*
   attempt for an `INTERNAL_FREE` or `INTERNAL_DEFERRED` group. Each ticket's
   financial status matches its snapshot (`FULLY_PAID` for `FULL`/`FREE`,
   `DEPOSIT_PAID` for `DEPOSIT`, `UNPAID` for `DEFERRED_BELOW_VNPAY_MINIMUM`).
+  *(Measurement source, 2026-11-15, CHK036, documentation sync)* Counted per
+  group in the MySQL integration suites of SC-001 (T097): the denominator is
+  every group with status `CONFIRMED`; a group passes when a query of its
+  ticket rows (`ticket_bookings`), their price snapshots (`ticket_price_snapshots`) and its
+  `group_payment_attempts` shows one ticket and one active QR per person, the
+  sum of the snapshotted collections equal to the group collection, and exactly
+  one attempt with status `SUCCESS` of that amount for a `VNPAY` group or no
+  attempt for an internal group. The criterion is met at 100% (no tolerance);
+  one failing group fails it.
   ~~100% of confirmed bookings have exactly one accepted deposit
   transaction matching the frozen deposit, payment status `DEPOSIT_PAID`, a
   retrievable booking code, and
@@ -2249,6 +2344,19 @@ definitions are in [data-model.md](data-model.md).)*
 - **SC-003** *("booking" read as booking group and "invoice" as the group's
   per-ticket snapshots, FR-030/FR-035, 2026-11-15)*: 100% of invalid, duplicate, mismatched, or unsigned payment
   notifications leave the booking unconfirmed and do not settle the invoice.
+  *(Measurement and wording, 2026-11-15, CHK003/CHK036, FR-010f rewritten for
+  groups)* "Mismatched" means a verified notification whose amount, merchant
+  reference (not an attempt of the group) or currency differs from the group
+  collection, or whose result is not `00`/`00`; "unsigned" means a missing or
+  invalid checksum (FR-010c); "duplicate" means a replay of an event already
+  applied. Counted in the MySQL IT of T144 through the real IPN route: the
+  denominator is every notification the test sends in these four classes for a
+  `PENDING_PAYMENT` group; it passes when each one leaves the group not
+  `CONFIRMED`, with no ticket created, no QR, no voucher or points settled and
+  no confirmation published, which is read from the group status, the ticket
+  count and the Loyalty (006) calls recorded by that test. 100%, no tolerance.
+  "Booking/invoice" reads as the booking group and the group's per-ticket
+  snapshots (the wording above).
 - **SC-004** *(restated 2026-11-14 for groups/tickets, FR-039, FR-040,
   FR-040a)*: 100% of expired pending booking groups release every line's hold,
   free tickets included, exactly once within the defined expiry process, and a
@@ -2258,7 +2366,16 @@ definitions are in [data-model.md](data-model.md).)*
   buyer within the FR-040a deadline. *(Decided 2026-11-15, CHK037)* 100% of
   expired groups have seats, voucher and points released within 5 minutes after
   `holdExpiresAt`, measured from audit; the scheduler cycle is confirmed in
-  implementation.
+  implementation. *(Scope of the 5 minutes, 2026-11-15, CHK037, documentation
+  sync with FR-039)* The 5-minute bound applies while Loyalty (006) and
+  Operations (003.2) are available. For a group whose release cannot complete
+  because one of them is unavailable, the group stays waiting for release
+  (FR-039), the bound is not met by definition, and the evidence of the
+  failure is the audit trail of FR-039 (3 retries 1 minute apart, then the
+  Manager alert, then a retry every 5 minutes until success). The criterion
+  counts only groups whose dependencies were available; the failed-release
+  groups are reported separately from the audit and each must release as soon
+  as the dependency recovers.
   ~~100% of expired pending bookings release their temporary capacity
   within the defined expiry process and cannot be confirmed by a late payment.~~
   *(superseded by FR-040/FR-040a, 2026-11-12)*
@@ -2278,7 +2395,23 @@ definitions are in [data-model.md](data-model.md).)*
   superseded SC-006)*: 100% of requests with a wrong proof, a non-owner
   identity, an expired or revoked Magic Link or a missing role expose no
   booking data and answer the same safe error, verified by contract tests per
-  route.
+  route. *(Reworded 2026-11-15, CHK038, documentation sync with FR-017
+  CHK026; "the same safe error" means the same safe error per class, not one
+  status for all)* 100% of requests with a wrong proof, a non-owner identity,
+  an unknown group or an expired, revoked or unknown Magic Link expose no
+  booking data and answer the same 404 (the answer for a wrong proof and for
+  a non-existent group is identical in status, body and `code`, FR-017). A
+  request with no or an invalid credential on a bearer-only route answers 401.
+  A request from an authenticated Staff or Manager known to lack authority for
+  a role-gated route answers 403 with a body that carries no booking data;
+  403 is never used for ownership or proof failures. 429 on a rate-limited
+  route also carries no booking data. Counted per contract route
+  (`WorkshopBookingContractIT`, T139/T141): the denominator is every route
+  that reads or acts on a group or ticket crossed with each failure class
+  above that applies to it; each pair passes when status, `code` and body
+  match this rule and the body holds no group, ticket, contact or payment
+  field. 100%, no tolerance. The earlier "the same safe error" for all
+  classes is superseded.
 
 ## Assumptions
 

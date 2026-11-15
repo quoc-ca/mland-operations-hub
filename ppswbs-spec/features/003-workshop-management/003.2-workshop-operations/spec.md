@@ -22,7 +22,7 @@ action (FR-012c).)*
 
 **Status**: Implemented through tasks Phase 14 T090–T113 (tasks.md evidence);
 Phase 15 tasks T114–T125 (Clarifications Session 2026-11-15 and its convergence, Phase 16) open; Phase 17
-tasks T126–T138 (Checklist follow-up 2026-11-15) open. Updated
+tasks T126–T141 (Checklist follow-up 2026-11-15 and its second pass) open. Updated
 2026-11-15; **Approved 2026-11-15 by Hồ Hoàng Quốc (owner Feature 003), whole
 spec content of that date including Clarifications Session 2026-11-15**
 (supersedes "approval pending", Q1).
@@ -133,7 +133,9 @@ assigned to that session** may …".
   `IN_PROGRESS`; in `CANCELLATION_REQUESTED`, `CANCELLED` or
   `ATTENDANCE_FINALIZED` the assignment is refused with `409 INVALID_STATE`.
   Revocation is allowed in every state, subject only to the last-assignment
-  guard of Clarifications Q3 (T115). *(Supersedes the earlier code behaviour of
+  guard of Clarifications Q3 (T115), which applies only while the session is
+  `PUBLISHED`, `SALES_PAUSED` or `IN_PROGRESS` (CHK030, owner decision Hồ Hoàng
+  Quốc 2026-11-15). *(Supersedes the earlier code behaviour of
   `409 INVALID_STATE` for an ineligible account and `403
   LOCATION_SCOPE_DENIED` for an assignee outside the location.)*
 - **Downstream**: Settlement (003.3) and the OTA shop add-on (003.4) apply the
@@ -166,7 +168,16 @@ through this section.
 - **FR-031**: Cancelling a ticket (customer, 003.3 FR-041; Mland, FR-043)
   releases the ticket's seats in every future session of that ticket and
   revokes its future entitlements; it never touches another ticket of the group
-  and never rewrites attendance history.
+  and never rewrites attendance history. *(Added 2026-11-15, owner decision Hồ
+  Hoàng Quốc, CHK010, T117)* Timing and effect: at the moment 003.3 calls
+  `cancelTicket`, no later. The ticket's validity becomes `CANCELLED`; its QR
+  value is **not** regenerated or recorded as a revoked generation (that is the
+  recipient-change mechanism of FR-033), it is refused by the ticket state:
+  a scan, check-in or override of that ticket in any session answers `409
+  TICKET_CONFLICT` and records no attendance. `TICKET_QR_REVOKED` stays for a QR
+  replaced by a recipient change only. Sessions already `CHECKED_IN`/`NO_SHOW`
+  or finalized keep their attendance record (they are not released), so a
+  ticket cancelled after attending session 1 of 3 releases sessions 2–3 only.
 - **FR-032** *(rewritten 2026-11-14, owner decision Hồ Hoàng Quốc, ERROR-LOG
   BE-DESIGN-0004, task T092)*: Readiness and the attendance outcome are per
   ticket. The ticket's outcome is read through the existing
@@ -613,6 +624,14 @@ answers are marked inline.)*
   accepted removal are audited (names accepted 2026-11-15, T115). Publication, scheduled start and Manager early start still need no
   assignment (FR-010b unchanged). *(Answers the former "may a Manager remove the
   last Staff from an `IN_PROGRESS` session" question.)*
+  *(Scope added 2026-11-15, owner decision Hồ Hoàng Quốc, CHK030, T115)* Both
+  the `missingStaff` flag and the last-assignment guard apply only while the
+  session is `PUBLISHED`, `SALES_PAUSED` or `IN_PROGRESS`. In `DRAFT`,
+  `CANCELLATION_REQUESTED`, `CANCELLED` and `ATTENDANCE_FINALIZED`,
+  `missingStaff` is always false and removing the last active assignment needs
+  no confirmation (revocation stays allowed in every state, line above). A
+  Manager is exempt from the assignment requirement, not from the guard: the
+  guard concerns the Manager's own removal of Staff and is never skipped by role.
 - Q: Is the Manager-only lookup of a booking's full ticket set across sessions
   and locations part of V1? → A: Yes. FR-003b's Manager management lookup is V1
   scope, unchanged: read-only, audited, never exposes the booking contact's full
@@ -771,6 +790,40 @@ T167.)*
   `WorkshopPackageState` reference is corrected to `PackageState`; FR-010e and
   FR-012 are rewritten to the 2026-11-06 Staff assignment rule and the roster
   wording in the user scenarios is marked superseded.
+
+#### Checklist follow-up, second pass (payment-error-access.md), answered 2026-11-15
+
+*(Items CHK010, CHK015, CHK025, CHK026, CHK030 and CHK035 were left open by the
+independent tick. Owner decisions of Hồ Hoàng Quốc, 2026-11-15, for CHK010,
+CHK015, CHK026 and CHK030; documentation sync with no new decision for CHK025
+and CHK035. Code and test work: tasks T115–T117, T140, T141.)*
+
+- Q (CHK010): What happens to a ticket's QR and status when 003.3 calls
+  `cancelTicket`? → A: Timing is the call itself. The QR is kept; the ticket
+  becomes `CANCELLED` and a scan answers `409 TICKET_CONFLICT`; the new mechanism
+  `TICKET_QR_REVOKED` stays for recipient change only; attended sessions keep
+  their record and only future sessions are released (FR-031).
+- Q (CHK015): How are repeated or concurrent operational commands handled? → A:
+  No `Idempotency-Key` on those five routes; the business state decides
+  (`409 INVALID_STATE`, same-value correction is a `200` no-op, resend is
+  throttled only) — FR-010kh.
+- Q (CHK030): For which session states do `missingStaff` and the last-assignment
+  guard apply? → A: Only `PUBLISHED`, `SALES_PAUSED` and `IN_PROGRESS`; in every
+  other state the flag is false and no confirmation is needed (Staff
+  session-assignment access, Q3 scope note).
+- Q (CHK026): What is the Manager cross-session lookup route? → A:
+  `GET /workshop-booking-lookups/{bookingCode}`, Manager only, ticket set
+  without contact data, `404 RESOURCE_NOT_FOUND` for an unknown code, audited
+  (FR-003b, T116). Route name proposed until coded.
+- Q (CHK025, documentation sync): Are the Manager-only actions enumerated with
+  their audit? → A: FR-007c consolidates the existing rules into one list.
+- Q (CHK035, documentation sync): Are handoff open, read and complete symmetric
+  between 003.2 and 003.3? → A: The facade contract now defines ticket-level
+  `resolved` exactly as FR-010a does and states that the open command keeps
+  booking references while 003.3 derives the ticket set (facade contract,
+  `WorkshopSettlementFacade` rows). The use of `CANCELLATION_HANDOFF_UNRESOLVED`
+  as the rejection of an early `completeCancellation` is a proposal confirmed
+  in T122/T167.
 
 ## Business model
 
@@ -1310,7 +1363,16 @@ correction, with before/after audit evidence.
   and MUST NOT allow another ticket to be selected or checked in. It MUST allow
   Manager-only, audited management lookup of the full ticket set across sessions
   and locations, without exposing the booking contact's full email or phone
-  number.
+  number. *(Added 2026-11-15, owner decision Hồ Hoàng Quốc, CHK026, T116)* The
+  route is `GET /workshop-booking-lookups/{bookingCode}` (route name proposed
+  until T116 is coded, as for T139). Manager only; Staff, Admin and any other
+  role get `403`. It returns the booking code and, for each ticket, `ticketCode`,
+  `sessionId`, `locationId`, `validityState` and `attendanceState`; no contact
+  data, QR value or payment data. An unknown code answers `404
+  RESOURCE_NOT_FOUND` (the Manager is allowed to see every booking, so there is
+  nothing to conceal, unlike FR-003d). Every successful lookup is audited with
+  actor, booking code and correlation ID; a refused one is a denied-attempt
+  audit (FR-007b).
 - **FR-003d**: If a `booking_code` lookup has no eligible ticket for the
   current session and location, the Staff check-in flow MUST return only a generic
   no-eligible-ticket result and MUST NOT reveal another ticket, session or
@@ -1404,6 +1466,21 @@ correction, with before/after audit evidence.
   contact data, QR value or token). Refused normal check-ins and refused reads
   are logged, not audited. A `401` (no verified identity) and a `503`
   (FR-012a) are not audited.
+- **FR-007c** *(added 2026-11-15, CHK025, T141; consolidates existing rules, no
+  new decision beyond the Q4 lookup audit)*: Manager-only actions and their
+  audit, all with actor, time, source and correlation ID (FR-007) and the prior
+  state or before/after values where the action changes data:
+  | Action (rule) | Audited success event |
+  | --- | --- |
+  | Create, change or stop a slot (FR-001e) | one event per change |
+  | Create a session, individually or in bulk (FR-001f) | one event per created session, plus the created/skipped report |
+  | Publish, pause or resume sales, change a session's capacity or location (FR-010, Business model) | one event with prior and new state |
+  | Assign or revoke a Staff member (Staff session-assignment access) | one event per assignment or removal; a refused removal of the last Staff and the confirmed one are both audited (Q3) |
+  | Reverse a check-in (FR-002b) | before/after, reason code |
+  | Correct finalized attendance (FR-008) | before/after, reason code |
+  | Request cancellation or cancel directly (FR-009, FR-009a) | prior state, reason code |
+  | Manager booking lookup (FR-003b) | actor, booking code |
+  A refused attempt at a sensitive action is audited as `DENIED` under FR-007b.
 - **FR-007a**: The system MUST require a standardized reason code for a
   check-in override, finalized-attendance correction or session cancellation
   request, and MUST require a short note or evidence reference whenever that
@@ -1525,6 +1602,24 @@ correction, with before/after audit evidence.
   MUST have an incrementing claim version. Completing the record and committing
   its business effect MUST require the current claim version; a request that
   has lost its version MUST be rejected or rolled back.
+- **FR-010kh** *(added 2026-11-15, owner decision Hồ Hoàng Quốc, CHK015,
+  T140)*: The Staff/Manager operational routes — check-in reversals, attendance
+  corrections, attendance finalizations, cancellation requests and ticket
+  resends — take **no** `Idempotency-Key`; the ledger of Q 2026-11-03 stays
+  limited to the administration routes and facade commands. A repeated or
+  concurrent request is decided by the business state read under the existing
+  session/ticket lock, so the second of two identical requests sees the state
+  the first produced: (a) a reversal of a ticket that is no longer checked in,
+  a finalization of a session that is not `IN_PROGRESS`, and a cancellation
+  request of a session not in an operable state each answer `409
+  INVALID_STATE`, with no second audit of success (the refusal is a denied
+  attempt under FR-007b); (b) a correction that sets the value the ticket
+  already has answers `200` with the unchanged ticket and writes no second
+  audit event; (c) a resend is not deduplicated — each accepted request is a
+  new delivery and is limited only by the three-per-15-minutes rule (FR-003c).
+  A true parallel pair is serialised by the lock; the loser receives (a) or (b),
+  or `409 OPTIMISTIC_LOCK_CONFLICT` when the version check fires first. The UI
+  SHOULD disable the control while a request is pending.
 - **FR-010l**: When this feature makes session availability available to 003.4,
   its sellable capacity MUST equal total capacity minus confirmed ticket seats
   and all active, unexpired direct-Mland capacity holds. Feature 003.4 MAY
@@ -1763,7 +1858,7 @@ reveals another session, location, ticket or customer contact data.)*
 | 404 | `RESOURCE_NOT_FOUND` | Unknown resource, and the single generic booking-lookup result of FR-003d. |
 | 409 | `INVALID_STATE` | The session or ticket state does not allow the action (for example check-in after finalization, finalization outside `IN_PROGRESS`, a Staff assignment outside `DRAFT`/`PUBLISHED`/`SALES_PAUSED`/`IN_PROGRESS`, deactivating a location that a not-yet-ended session uses (confirmed 2026-11-15, T135), a ticket resend when the booking has no `ACTIVE` unused ticket (`reason` `NO_ELIGIBLE_TICKET`, proposed name) or when Booking refuses the redelivery (`reason` `REDELIVERY_REJECTED_BY_BOOKING`, proposed name; T139)). For resend the status is always 409, never 400 or 404, so the response does not reveal whether a booking exists. The two `reason` names are proposals pending the code (T139). |
 | 409 | `CHECK_IN_NOT_OPEN` | Normal check-in before `checkInOpensAt`; the body adds `checkInOpensAt` (FR-005, T126). |
-| 409 | `TICKET_CONFLICT` | The ticket is not valid for check-in (cancelled, revoked, refunded). |
+| 409 | `TICKET_CONFLICT` | The ticket is not valid for check-in (cancelled — including after `cancelTicket`, FR-031, CHK010 — revoked, refunded). |
 | 409 | `TICKET_QR_REVOKED` | A QR revoked by a recipient change (FR-033). |
 | 409 | `INSUFFICIENT_CAPACITY` | Capacity below commitments or no seat left. |
 | 409 | `SLOT_OVERLAP_CONFLICT` | A slot overlaps another slot of the location. |

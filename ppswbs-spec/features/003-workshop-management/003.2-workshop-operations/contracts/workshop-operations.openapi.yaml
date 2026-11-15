@@ -388,7 +388,8 @@ paths:
       description: >-
         Manager only; 403 for any other caller. Revocation is allowed in every session state and
         takes effect immediately, subject only to the last-assignment confirmation of spec
-        Clarifications Q3 (T115). Once checkInOpensAt has passed, removing the last active Staff
+        Clarifications Q3 (T115). Once checkInOpensAt has passed and while the session is PUBLISHED,
+        SALES_PAUSED or IN_PROGRESS (CHK030; no confirmation is needed in any other state), removing the last active Staff
         assignment of the session without confirmLastAssignmentRemoval=true is refused with
         409 LAST_STAFF_ASSIGNMENT_CONFIRMATION_REQUIRED; the Manager repeats the request with
         confirmLastAssignmentRemoval=true to proceed. Both the refusal and the confirmed removal are
@@ -417,7 +418,8 @@ paths:
     post:
       summary: Normal QR or exact ticket-code check-in; repeat scan returns the existing result without another attendance action
       description: >-
-        A QR revoked by a recipient change (FR-033) is refused with 409
+        A ticket cancelled by cancelTicket (FR-031, CHK010) keeps its QR but is refused with 409
+        TICKET_CONFLICT and records no attendance. A QR revoked by a recipient change (FR-033) is refused with 409
         TICKET_QR_REVOKED and records no attendance; the ticket's current QR
         or exact ticket code still checks in. A check-in before checkInOpensAt is
         refused with 409 CHECK_IN_NOT_OPEN and Problem.checkInOpensAt (spec FR-005,
@@ -444,6 +446,29 @@ paths:
         '403': { $ref: '#/components/responses/Problem' }
         '409': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /workshop-booking-lookups/{bookingCode}:
+    parameters:
+      - { name: bookingCode, in: path, required: true, schema: { type: string } }
+    get:
+      summary: Manager-only audited lookup of a booking's full ticket set across sessions and locations
+      description: >-
+        Spec FR-003b, Clarifications 2026-11-15 Q4 and "Checklist follow-up, second pass" (CHK026),
+        task T116; route name proposed until coded. Manager only; Staff, Admin and any other role get
+        403 (a refused attempt is a denied-attempt audit, FR-007b). Read-only. Returns the booking code and
+        every ticket with its session, location, validity and attendance state, and never the booking
+        contact's full email or phone, a QR value or payment data. An unknown code is 404
+        RESOURCE_NOT_FOUND (the Manager may see every booking, so nothing is concealed, unlike the Staff
+        lookup of FR-003d). Every successful lookup is audited with actor, booking code and correlation ID.
+      responses:
+        '200':
+          description: The booking's tickets across all sessions and locations
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ManagerBookingLookup' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }   # RESOURCE_NOT_FOUND for an unknown booking code
         '503': { $ref: '#/components/responses/Problem' }
   /workshop-sessions/{sessionId}/booking-lookups/{bookingCode}:
     parameters:
@@ -489,7 +514,8 @@ paths:
         (reason NO_ELIGIBLE_TICKET, proposed name) and when Booking refuses the redelivery
         (reason REDELIVERY_REJECTED_BY_BOOKING, proposed name); owner decision Hồ Hoàng Quốc
         2026-11-15, task T139. These two cases are never 400 or 404, so the response does not reveal
-        whether a booking exists.
+        whether a booking exists. No Idempotency-Key and no deduplication (spec FR-010kh, CHK015, T140):
+        each accepted request is a new delivery, limited only by the three-per-15-minutes rule.
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/TicketResendRequest' } } } }
       responses:
         '202': { description: Delivery request accepted }
@@ -503,6 +529,9 @@ paths:
     parameters: [ { $ref: '#/components/parameters/SessionId' } ]
     post:
       summary: Finalise the whole session's attendance
+      description: >-
+        No Idempotency-Key (spec FR-010kh, CHK015, T140). A repeat after success finds the session no longer
+        IN_PROGRESS and is refused 409 INVALID_STATE.
       responses:
         '200': { $ref: '#/components/responses/Session' }
         '401': { $ref: '#/components/responses/Problem' }
@@ -514,6 +543,9 @@ paths:
     parameters: [ { $ref: '#/components/parameters/SessionId' } ]
     post:
       summary: Manager-only post-finalisation attendance correction
+      description: >-
+        No Idempotency-Key (spec FR-010kh, CHK015, T140). A correction that sets the value the ticket already
+        has returns 200 with the unchanged ticket and writes no second audit event.
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AttendanceCorrectionRequest' } } } }
       responses:
         '200': { $ref: '#/components/responses/Ticket' }
@@ -526,6 +558,9 @@ paths:
     parameters: [ { $ref: '#/components/parameters/SessionId' } ]
     post:
       summary: Manager-only reversal of an erroneous check-in before attendance finalization
+      description: >-
+        No Idempotency-Key (spec FR-010kh, CHK015, T140). A repeat after success finds the ticket no longer
+        checked in and is refused 409 INVALID_STATE; the original scan is never deleted.
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CheckInReversalRequest' } } } }
       responses:
         '200': { $ref: '#/components/responses/Ticket' }
@@ -538,6 +573,9 @@ paths:
     parameters: [ { $ref: '#/components/parameters/SessionId' } ]
     post:
       summary: Cancel directly when no commitment exists, otherwise stop operations and create a 003.3 cancellation handoff
+      description: >-
+        No Idempotency-Key (spec FR-010kh, CHK015, T140). A repeat finds the session already
+        CANCELLATION_REQUESTED or CANCELLED and is refused 409 INVALID_STATE; no second handoff is created.
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ReasonedRequest' } } } }
       responses:
         '200': { $ref: '#/components/responses/Session' }
@@ -719,7 +757,9 @@ components:
               description: >-
                 True from checkInOpensAt while the session has no active Staff assignment (Clarifications Q3,
                 T115); a flag for Managers, not a block. False before checkInOpensAt and whenever at least
-                one Staff assignment is active.
+                one Staff assignment is active. Applies only while the session is PUBLISHED, SALES_PAUSED or
+                IN_PROGRESS; always false in DRAFT, CANCELLATION_REQUESTED, CANCELLED and ATTENDANCE_FINALIZED
+                (CHK030, owner decision 2026-11-15).
             rescheduleQuota:
               type: integer
               description: Tickets this session may receive by customer change (FR-035); the Manager-set value or the default.
@@ -796,6 +836,15 @@ components:
           enum: [TICKET_REDELIVERY_UNAVAILABLE, CUSTOMER_DEVICE_UNAVAILABLE, EARLY_CHECKIN, PHYSICAL_VOUCHER_VERIFIED, INSTRUCTOR_UNAVAILABLE, FACILITY_ISSUE, WEATHER_EMERGENCY, RECORDING_ERROR, OTHER_REQUIRES_NOTE]
         reasonNote: { type: string }
         evidenceReference: { type: string }
+    ManagerBookingLookup:
+      type: object
+      required: [bookingCode, tickets]
+      properties:
+        bookingCode: { type: string }
+        tickets:
+          type: array
+          description: Every ticket of the booking in every session and location; no contact data, QR value or payment data.
+          items: { $ref: '#/components/schemas/Ticket' }
     Ticket:
       type: object
       required: [ticketCode, sessionId, locationId, validityState, attendanceState]

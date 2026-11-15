@@ -14,58 +14,58 @@
 
 ## Payment and Refund Edge Cases
 
-- [ ] CHK001 Is the required outcome defined when a second, distinct verified success (different provider transaction) arrives for a group that is already `CONFIRMED`, as opposed to a duplicate of the same event? [Gap, Spec §FR-013a]
-- [ ] CHK002 Is it unambiguous whether a payment retry may be started between the payment deadline (minute 10) and `holdExpiresAt` (minute 12), given FR-012a says "within the hold" while FR-032 expires the link at minute 10? [Ambiguity, Spec §FR-012a, §FR-032]
+- [x] CHK001 Is the required outcome defined when a second, distinct verified success (different provider transaction) arrives for a group that is already `CONFIRMED`, as opposed to a duplicate of the same event? [Gap, Spec §FR-013a]
+- [x] CHK002 Is it unambiguous whether a payment retry may be started between the payment deadline (minute 10) and `holdExpiresAt` (minute 12), given FR-012a says "within the hold" while FR-032 expires the link at minute 10? [Ambiguity, Spec §FR-012a, §FR-032]
 - [ ] CHK003 Are verified-but-mismatched amount/reference/currency results specified so they can never confirm a group, before or after expiry? [Edge Case, Spec §FR-010f, §FR-040, SC-003]
-- [ ] CHK004 Are the group-collection thresholds (0, 1–4,999, at least 5,000 VND) and the pre-attempt amount recheck defined without room for rounding, waiver or silent benefit change? [Clarity, Spec §FR-036]
-- [ ] CHK005 Are the non-refundable disclosure and the forfeited amount (only the collected amount, no debt on the uncollected remainder) stated for every collection kind? [Completeness, Spec §FR-035, §FR-037]
-- [ ] CHK006 Does FR-040 condition 4 define which timestamp is measured against the 60-minute window (provider payment time or Mland receipt time of the evidence)? [Ambiguity, Spec §FR-040]
-- [ ] CHK007 Is the result deadline defined for a late payment whose evidence arrives after the earliest session has already started, where "before the earliest session starts if sooner" is already in the past? [Edge Case, Spec §FR-040a]
-- [ ] CHK008 Are the amount, 100% rule, bank-transfer-only channel, no-VNPay-refund rule and all-or-nothing recording of a late-payment refund defined? [Completeness, Spec §FR-040, Facade "Late-payment review and bank refund"]
-- [ ] CHK009 Is it explicit what happens to held voucher and points when a group expires with an unverified attempt and money arrives later? [Consistency, Spec §FR-039, §FR-040 cond. 3, Session 2026-11-15]
-- [ ] CHK010 Is the per-ticket financial-status vocabulary for refund (`REFUND_PENDING`, `REFUNDED`, kept through `CLOSED_UNREACHABLE`) defined once and applied consistently? [Consistency, Spec §FR-050]
-- [ ] CHK011 Is a limit on the number or rate of payment attempts per group defined, or an explicit statement that none is required? [Gap, Spec §FR-012a, §FR-032]
+- [x] CHK004 Are the group-collection thresholds (0, 1–4,999, at least 5,000 VND) and the pre-attempt amount recheck defined without room for rounding, waiver or silent benefit change? [Clarity, Spec §FR-036]
+- [x] CHK005 Are the non-refundable disclosure and the forfeited amount (only the collected amount, no debt on the uncollected remainder) stated for every collection kind? [Completeness, Spec §FR-035, §FR-037]
+- [x] CHK006 Does FR-040 condition 4 define which timestamp is measured against the 60-minute window (provider payment time or Mland receipt time of the evidence)? [Ambiguity, Spec §FR-040]
+- [x] CHK007 Is the result deadline defined for a late payment whose evidence arrives after the earliest session has already started, where "before the earliest session starts if sooner" is already in the past? [Edge Case, Spec §FR-040a]
+- [x] CHK008 Are the amount, 100% rule, bank-transfer-only channel, no-VNPay-refund rule and all-or-nothing recording of a late-payment refund defined? [Completeness, Spec §FR-040, Facade "Late-payment review and bank refund"]
+- [x] CHK009 Is it explicit what happens to held voucher and points when a group expires with an unverified attempt and money arrives later? [Consistency, Spec §FR-039, §FR-040 cond. 3, Session 2026-11-15]
+- [x] CHK010 Is the per-ticket financial-status vocabulary for refund (`REFUND_PENDING`, `REFUNDED`, kept through `CLOSED_UNREACHABLE`) defined once and applied consistently? [Consistency, Spec §FR-050]
+- [x] CHK011 Is a limit on the number or rate of payment attempts per group defined, or an explicit statement that none is required? [Gap, Spec §FR-012a, §FR-032]
 
 ## Error States and Recovery
 
 - [ ] CHK012 Is the customer-visible and state outcome defined when the payment provider cannot create a payment link (server-side, before any attempt exists), distinct from the client-side `UNKNOWN` timeout case? [Gap, Spec §FR-012b]
-- [ ] CHK013 Are failure outcomes defined for an unavailable Loyalty (006) or Operations (003.2) dependency during quote, hold, confirmation and expiry release? [Gap, Spec §FR-019a, §FR-031]
-- [ ] CHK014 Is recovery defined when releasing a group's seats or benefits fails at expiry (retry, escalation, who is told), beyond "exactly once"? [Gap, Spec §FR-021, §FR-039]
+- [x] CHK013 Are failure outcomes defined for an unavailable Loyalty (006) or Operations (003.2) dependency during quote, hold, confirmation and expiry release? [Gap, Spec §FR-019a, §FR-031]
+- [x] CHK014 Is recovery defined when releasing a group's seats or benefits fails at expiry (retry, escalation, who is told), beyond "exactly once"? [Gap, Spec §FR-021, §FR-039]
 - [ ] CHK015 Is it explicit that notification failure after confirmation never reverses payment or confirmation, with a bounded retry and follow-up owner? [Completeness, Spec §FR-015a, §FR-015b]
-- [ ] CHK016 Does FR-040a say whether a late-payment result email that fails to deliver still counts as having "reached" the buyer within 24 hours? [Ambiguity, Spec §FR-040a]
-- [ ] CHK017 Is the behaviour defined when there is no active Manager (empty alert recipient set) while a review is queued? [Edge Case, Spec §FR-040a, Dependencies FE-001]
-- [ ] CHK018 Is the outcome defined when an `Idempotency-Key` is reused with different content on group creation, payment attempt, hold release and resend, not only on recipient change? [Gap, Spec §FR-013, Contract]
-- [ ] CHK019 Are quote validity duration and the stale-quote refusals (expired, already accepted, changed) stated as requirements rather than only in plan/contract? [Gap, Spec §FR-045, Plan "Group creation flow"]
-- [ ] CHK020 Are all-or-nothing hold, `failingLines` reporting and an editable cart after refusal defined for multi-line failure? [Completeness, Spec §FR-031]
+- [x] CHK016 Does FR-040a say whether a late-payment result email that fails to deliver still counts as having "reached" the buyer within 24 hours? [Ambiguity, Spec §FR-040a]
+- [x] CHK017 Is the behaviour defined when there is no active Manager (empty alert recipient set) while a review is queued? [Edge Case, Spec §FR-040a, Dependencies FE-001]
+- [x] CHK018 Is the outcome defined when an `Idempotency-Key` is reused with different content on group creation, payment attempt, hold release and resend, not only on recipient change? [Gap, Spec §FR-013, Contract]
+- [x] CHK019 Are quote validity duration and the stale-quote refusals (expired, already accepted, changed) stated as requirements rather than only in plan/contract? [Gap, Spec §FR-045, Plan "Group creation flow"]
+- [x] CHK020 Are all-or-nothing hold, `failingLines` reporting and an editable cart after refusal defined for multi-line failure? [Completeness, Spec §FR-031]
 - [ ] CHK021 Are the `UNKNOWN` result, browser-return display and terminal expired state defined so no UI path infers payment from a redirect? [Clarity, Spec §FR-012, §FR-012b, §FR-012c]
 
 ## Access Control and Data Exposure
 
-- [ ] CHK022 Is the behaviour defined when a Guest supplies both contact email and phone, given FR-017a ("at least one must match") and FR-048/FR-014e/FR-017h ("exactly one")? [Conflict, Spec §FR-017a, §FR-048]
-- [ ] CHK023 Is the authorization rule for starting or retrying a group payment attempt defined for a Guest (what proof) and a Member (ownership), now that FR-017c1 is superseded and FR-048 does not restate it? [Gap, Spec §FR-017c1, §FR-048]
+- [x] CHK022 Is the behaviour defined when a Guest supplies both contact email and phone, given FR-017a ("at least one must match") and FR-048/FR-014e/FR-017h ("exactly one")? [Conflict, Spec §FR-017a, §FR-048]
+- [x] CHK023 Is the authorization rule for starting or retrying a group payment attempt defined for a Guest (what proof) and a Member (ownership), now that FR-017c1 is superseded and FR-048 does not restate it? [Gap, Spec §FR-017c1, §FR-048]
 - [ ] CHK024 Is there a single role-by-operation matrix (Guest, Member, Staff, Manager, Admin) covering lookup, payment, release, resend, recipient change, Magic-Link incident and late-payment decision, including that Admin alone has no authority? [Gap, Spec §FR-017b5]
 - [ ] CHK025 Is Staff location scope defined for a group whose lines or sessions sit in different locations (any session, every session, or the acted ticket's line)? [Ambiguity, Spec §FR-048, Plan "Identity and authorization"]
-- [ ] CHK026 Is a uniform rule stated for when an unauthorized or non-owner request answers 403 versus 404, so existence is not revealed? [Ambiguity, Spec §FR-017, §FR-048]
-- [ ] CHK027 Does the denied-attempt audit requirement name every sensitive internal action now in scope (late-payment decision, Staff/Manager recipient change), not only resend, Magic-Link incident and the removed late-payment follow-up? [Gap, Spec §FR-017b7]
-- [ ] CHK028 Are the actors allowed to change a recipient consistent between FR-041 ("buyer, or Staff after verifying the buyer") and the contract ("Staff or Manager")? [Conflict, Spec §FR-041, Contract recipient route]
-- [ ] CHK029 Are Magic-Link holder view, QR visibility (buyer only), recipient-email QR (no group view) and Guest exclusion of `ticketReference` defined without overlap? [Consistency, Spec §FR-041, §FR-048, §FR-049, Session 2026-11-15]
-- [ ] CHK030 Are action-time recheck of internal actors (locked, inactive, lost scope), safe denial and the V1 per-instance rate limits with their known limit specified? [Completeness, Spec §FR-017b7, Session 2026-11-15]
-- [ ] CHK031 Is the data a Manager sees in the late-payment queue bounded (no buyer contact data) and its Manager-only access stated? [Security, Spec §FR-040a, Contract late-payment-reviews]
+- [x] CHK026 Is a uniform rule stated for when an unauthorized or non-owner request answers 403 versus 404, so existence is not revealed? [Ambiguity, Spec §FR-017, §FR-048]
+- [x] CHK027 Does the denied-attempt audit requirement name every sensitive internal action now in scope (late-payment decision, Staff/Manager recipient change), not only resend, Magic-Link incident and the removed late-payment follow-up? [Gap, Spec §FR-017b7]
+- [x] CHK028 Are the actors allowed to change a recipient consistent between FR-041 ("buyer, or Staff after verifying the buyer") and the contract ("Staff or Manager")? [Conflict, Spec §FR-041, Contract recipient route]
+- [x] CHK029 Are Magic-Link holder view, QR visibility (buyer only), recipient-email QR (no group view) and Guest exclusion of `ticketReference` defined without overlap? [Consistency, Spec §FR-041, §FR-048, §FR-049, Session 2026-11-15]
+- [x] CHK030 Are action-time recheck of internal actors (locked, inactive, lost scope), safe denial and the V1 per-instance rate limits with their known limit specified? [Completeness, Spec §FR-017b7, Session 2026-11-15]
+- [x] CHK031 Is the data a Manager sees in the late-payment queue bounded (no buyer contact data) and its Manager-only access stated? [Security, Spec §FR-040a, Contract late-payment-reviews]
 
 ## Cross-Feature Consistency (Facade with 003.2 / 003.3 / 003.4)
 
-- [ ] CHK032 Does the facade's late-payment "Conditions" paragraph agree with FR-040 on condition 3 (voucher/points always fail in V1, automatic discount recomputed), rather than describing a re-hold that 006 cannot do? [Conflict, Spec §FR-040, Facade "Late-payment review and bank refund"]
-- [ ] CHK033 Is the single-use, group-scoped, 15-minute buyer-verification reference consumed identically by 003.1 recipient change and by 003.3 changes via `consumeBuyerProof`? [Consistency, Spec §FR-041a, Facade consumeBuyerProof]
-- [ ] CHK034 Does the ticket status/financial mapping of FR-050 match what 003.3 conclusions and refund statuses publish, including exactly-once and refusal of backward transitions? [Consistency, Spec §FR-050, Facade "Booking status conclusions"]
-- [ ] CHK035 Is the separation of OTA bookings (no Mland folio, no VNPay collection, no customer lookup) from direct groups consistent between 003.1 and 003.4? [Consistency, Spec §FR-044, §FR-046]
+- [x] CHK032 Does the facade's late-payment "Conditions" paragraph agree with FR-040 on condition 3 (voucher/points always fail in V1, automatic discount recomputed), rather than describing a re-hold that 006 cannot do? [Conflict, Spec §FR-040, Facade "Late-payment review and bank refund"]
+- [x] CHK033 Is the single-use, group-scoped, 15-minute buyer-verification reference consumed identically by 003.1 recipient change and by 003.3 changes via `consumeBuyerProof`? [Consistency, Spec §FR-041a, Facade consumeBuyerProof]
+- [x] CHK034 Does the ticket status/financial mapping of FR-050 match what 003.3 conclusions and refund statuses publish, including exactly-once and refusal of backward transitions? [Consistency, Spec §FR-050, Facade "Booking status conclusions"]
+- [x] CHK035 Is the separation of OTA bookings (no Mland folio, no VNPay collection, no customer lookup) from direct groups consistent between 003.1 and 003.4? [Consistency, Spec §FR-044, §FR-046]
 
 ## Acceptance Criteria Measurability
 
 - [ ] CHK036 Are SC-002 and SC-003 stated as 100% pass/fail criteria with an objective way to count confirmed groups and rejected notifications? [Measurability, Spec SC-002, SC-003]
-- [ ] CHK037 Does SC-004 give a numeric bound for release latency after `holdExpiresAt` instead of "within the defined expiry process"? [Measurability, Spec SC-004, §FR-039]
+- [x] CHK037 Does SC-004 give a numeric bound for release latency after `holdExpiresAt` instead of "within the defined expiry process"? [Measurability, Spec SC-004, §FR-039]
 - [ ] CHK038 Is there a success criterion for access control and non-disclosure (unauthorized, wrong-proof and cross-owner requests expose no booking data) now that SC-006 is superseded? [Gap, Spec SC-006]
-- [ ] CHK039 Is SC-007's "unnecessary sensitive personal data" defined by an objective list rather than a subjective term? [Ambiguity, Spec SC-007]
-- [ ] CHK040 Do the P1/P2 stories for payment (US6) and late payment (US9) have independently testable failure and refund scenarios with expected outcomes? [Coverage, Spec US6, US9]
+- [x] CHK039 Is SC-007's "unnecessary sensitive personal data" defined by an objective list rather than a subjective term? [Ambiguity, Spec SC-007]
+- [x] CHK040 Do the P1/P2 stories for payment (US6) and late payment (US9) have independently testable failure and refund scenarios with expected outcomes? [Coverage, Spec US6, US9]
 
 ## Notes
 
@@ -177,3 +177,51 @@ Quy tắc chấm: **Đạt** = yêu cầu đã viết rõ và kiểm chứng đ�
 
 **Tổng hợp sau cập nhật quyết định cuối:** 40 Đạt, 0 Đạt có quyết định mở, 0 Chưa đạt (tổng 40). Không marker nào được tick.
 - CHK013 (cập nhật 2026-11-15): HTTP 503 `DEPENDENCY_UNAVAILABLE` lúc quote và lúc tạo nhóm đã chốt, không còn mục proposed nào ở 003.1.
+
+### Independent tick 2026-11-15 (agent session)
+
+Tick bởi phiên agent độc lập theo chỉ thị của Hồ Hoàng Quốc, ngày 2026-11-15; không phải review của người.
+
+Đã tick 32/40. Phiên này không đọc các mục Reviewer notes / Re-assessment ở trên; chỉ đối chiếu câu hỏi từng CHK với spec.md (Clarifications 2026-11-15 là quyết định chốt), plan.md, data-model.md, contracts/ và tasks.md. Bản tick chỉ xác nhận chất lượng yêu cầu, không phải code đã xong.
+
+Mục để trống và lý do:
+
+- CHK003: chưa rõ evidence sai amount/reference/currency không bao giờ xác nhận nhóm. FR-010f (spec.md:1754) nằm trong danh sách bị thay thế cho booking trực tiếp (spec.md:443-444) và không được viết lại cho nhóm; FR-038 (spec.md:225) và FR-040 điều kiện 3 (spec.md:295-296) không nói evidence lệch tiền/mã tham chiếu/tiền tệ xử lý ra sao. T144 (tasks.md:389) mới chỉ là việc kiểm chứng.
+- CHK012: spec.md:156, contract workshop-booking.openapi.yaml:87 và tasks.md:376 đều ghi "502/503 PAYMENT_LINK_UNAVAILABLE", chưa chọn một mã HTTP, người code và test phải đoán.
+- CHK015: FR-015b (spec.md:1917-1920) nói "safe operational follow-up outcome" cho "Staff assigned to the booking branch" nhưng không định nghĩa kết quả đó là gì, không có giá trị backoff, và "booking branch" không khớp quy tắc Staff theo nhóm ở FR-048 (spec.md:538-543); chưa viết lại cho nhóm.
+- CHK021: FR-012b và FR-012c (spec.md:1796-1809) nằm trong danh sách bị thay thế (spec.md:444), lời văn vẫn là "booking/deposit link", chưa viết lại cho nhóm. Session 2026-11-15 (spec.md:696) lại dùng FR-012b như quy tắc đang hiệu lực.
+- CHK024: ma trận vai trò ở FR-048 (spec.md:527-532) không có các route buyer-verification (OTP). Contract (yaml:224-263) chỉ nêu "Guest buyer, or Staff", trong khi đổi người nhận cho phép Manager kèm buyerVerificationReference (yaml:275); chưa nói Manager lấy reference đó thế nào, Staff cần scope/phân công nào.
+- CHK025: FR-048 (spec.md:538-543) dùng "the branch" của nhóm, nhưng nhóm có thể có các line ở nhiều location (data-model.md:164 giữ location theo từng session), nhóm không có một branch duy nhất, chưa nói rõ là bất kỳ/mọi session hay theo ticket.
+- CHK036: SC-002 và SC-003 (spec.md:2236-2251) không nêu nguồn đo/cách đếm nhóm đã xác nhận và notification bị từ chối (khác SC-001/SC-004/SC-008 có nguồn). SC-003 còn dùng từ "booking/invoice" và gồm "mismatched" (xem CHK003).
+- CHK038: SC-008 (spec.md:2277-2281) đòi "answer the same safe error", mâu thuẫn với FR-017 (spec.md:1929: sai proof/không phải chủ → 404, thiếu quyền → 403) và contract còn có 401, nên test theo route không biết khẳng định mã nào.
+
+Ghi chú không chặn (đã tick nhưng nên sửa tài liệu):
+
+- CHK013: spec.md:715 vẫn ghi "503 ... stays proposed" trong khi spec.md:145, 709 và plan.md:193 đã ghi 503 là đã chốt; câu ở dòng 715 là chữ cũ.
+- CHK026: contract ghi 403 cho pending-hold-release (yaml:176) dù route này không giới hạn theo vai trò; T139 sẽ rà từng route nên chưa tính là lỗi yêu cầu.
+- CHK037: SC-004 "100% trong 5 phút" (spec.md:2258-2261) không loại trừ trường hợp 006/003.2 ngừng hoạt động kéo dài, khi FR-039 (spec.md:270-275) cho thử lại mỗi 5 phút đến khi xong.
+
+### Fix log (2026-11-15)
+
+*Người chịu trách nhiệm: Hồ Hoàng Quốc (owner Feature 003). Phiên agent sửa tài liệu theo 8 mục để trống ở "Independent tick 2026-11-15". Không marker nào được tick; việc tick lại thuộc phiên review độc lập. Quyết định bên dưới do owner trả lời trực tiếp trong phiên ngày 2026-11-15.*
+
+| CHK | Loại | Đã sửa thế nào | Nơi sửa |
+| --- | --- | --- | --- |
+| CHK003 | DOC-SYNC + DECISION | FR-010f viết lại cho nhóm: chỉ evidence `00`/`00` đúng merchant reference của attempt, đúng tiền nhóm, đúng VND mới xác nhận; evidence hợp lệ nhưng lệch không bao giờ xác nhận (trước/sau hết hold). **Owner chọn:** ghi evidence + lý do, nhóm giữ `PENDING_PAYMENT`, đến `holdExpiresAt` chuyển vào late-payment (điều kiện 3 fail, alert Manager, chỉ hoàn 100% qua 003.3). SC-003 nêu rõ "mismatched/unsigned/duplicate" và cách đếm. | spec FR-010f, SC-003; plan "fifth batch"; tasks T144 (mở rộng) |
+| CHK012 | DECISION | **Owner chọn:** HTTP 503 duy nhất cho `PAYMENT_LINK_UNAVAILABLE` (bỏ "502/503"). Contract bỏ response 502 và khai báo 503 riêng. | spec FR-032, Session 2026-11-15; plan; tasks T131; contract `payment-attempts` |
+| CHK015 | DECISION | **Owner chọn theo mẫu FR-040a:** FR-015b viết lại cho nhóm; lỗi gửi email xác nhận không đảo xác nhận/thanh toán; gửi lại tối đa 3 lần (5 phút, 30 phút, 2 giờ); vẫn lỗi → alert Manager đang active (không Admin, không Staff) gọi điện buyer + audit. "Staff của booking branch" bị thay thế. | spec FR-015b; plan; tasks T147 (mới) |
+| CHK021 | DOC-SYNC | FR-012b và FR-012c viết lại cho nhóm: phân loại `UNKNOWN` áp cho lệnh payment-attempt của nhóm, trạng thái terminal là group `EXPIRED`, chỉ cho giỏ/quote mới, không suy ra thanh toán từ redirect. Không đánh số lại FR. | spec FR-012b, FR-012c |
+| CHK024 | DECISION | **Owner chọn:** buyer-verification (OTP) dành cho Guest, Staff trong scope, Manager global thay buyer; Member không cần OTP; Admin không có quyền. Thêm vào role matrix FR-048; contract cập nhật mô tả và 401/403/404. | spec FR-048; contract `buyer-verifications`; plan; tasks T148 (mới) |
+| CHK025 | DECISION | **Owner chọn:** scope Staff kiểm theo location của session mà Staff được phân công (nhóm đa location không có một "branch"). FR-017b7 đồng bộ. | spec FR-048 "Staff scope", FR-017b7; plan; tasks T135, T148 |
+| CHK036 | DOC-SYNC | SC-002 và SC-003 có nguồn đo và mẫu số rõ (truy vấn `ticket_bookings`, `ticket_price_snapshots`, `group_payment_attempts`; IT của T097 và T144), 100% không dung sai. | spec SC-002, SC-003 |
+| CHK038 | DOC-SYNC | SC-008 bỏ "the same safe error" cho mọi lớp; viết theo FR-017: sai proof/không phải chủ/Magic Link hết hạn → cùng 404, thiếu credential → 401, Staff/Manager biết thiếu quyền → 403, không lộ dữ liệu; cách đếm theo từng route (T139/T141). | spec SC-008 |
+
+Ghi chú không chặn:
+
+- CHK013: chữ cũ "The 503 status of FR-031 ... stays proposed" (spec "Checklist follow-up, final decisions") đã gạch và đánh dấu superseded; không còn chỗ nào ghi 503 của `DEPENDENCY_UNAVAILABLE` là đề xuất.
+- CHK026: contract `pending-hold-release` bỏ response 403 (route không giới hạn theo vai trò; sai chủ/proof trả 404). Các route khác vẫn do T139 rà từng cái.
+- CHK037: SC-004 thêm phạm vi: mốc 5 phút áp dụng khi 006/003.2 hoạt động; khi dependency ngừng, nhóm chờ release theo FR-039 (3 lần retry, alert Manager, retry mỗi 5 phút), tính riêng và phải release ngay khi dependency phục hồi. Đây là đồng bộ chữ với FR-039, không đổi hành vi đã chốt.
+
+Kiểm tra: YAML OpenAPI `workshop-booking.openapi.yaml` parse được bằng Java 21 + SnakeYAML 2.5 (15 path, 155 `$ref`, không `$ref` hỏng). Task mới T147, T148 là số kế tiếp sau T146, khối phụ thuộc đã cập nhật.
+
+Còn chờ owner: không còn mục nào. Cả 8 mục đã có câu trả lời; checkbox CHK003, 012, 015, 021, 024, 025, 036, 038 vẫn để trống chờ phiên review độc lập tick lại.

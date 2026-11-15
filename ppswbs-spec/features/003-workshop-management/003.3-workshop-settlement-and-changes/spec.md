@@ -312,7 +312,29 @@ self-service (FR-018 and Scope); whole-booking Mland remedy (FR-020, FR-021).
   has no ticket and no folio; it opens one group-level request (source
   `LATE_PAYMENT_NOT_RECONFIRMED`, source reference = the late-payment review
   reference, amount = the verified late evidence), and the per-ticket cap
-  applies only to ticket-based requests.
+  applies only to ticket-based requests. *(clarified 2026-11-15, checklist
+  CHK032)* A second group-level source exists: verified money for a `CONFIRMED`
+  group that settles no ticket (a second verified success with a different
+  provider transaction, 003.1 FR-013a; `workshop-interfeature-facades.md`,
+  decided port `ExcessPaymentRefundPort`) opens one group-level request with
+  reason `EXCESS_OR_DUPLICATE_MONEY`, source reference = the Booking
+  `evidenceReference`, amount = the verified evidence amount (Settlement
+  rechecks it through the Booking facade), idempotent on
+  `(reason, source reference)`. Like the late-payment request it has no ticket
+  and no folio, the per-ticket cap does not apply, and its account is collected
+  only through the account link (FR-040), never at the counter. *(clarified
+  2026-11-15, checklist CHK002)* The ticket cap binds every ticket-based
+  request whatever its reason: the amount of a new request is at most the
+  money collected for the ticket (including excess or duplicate money kept on
+  that folio, T110) minus the sum of the amounts of all its other requests
+  that are `REFUNDED` or still open (`CLOSED_UNREACHABLE` counts as open,
+  because the customer keeps the right). Example: collected 500,000 VND, of
+  which an excess refund of 80,000 VND is pending; a Mland cancellation then
+  opens a request of 420,000 VND, so the customer receives 500,000 VND in
+  total and never more. The remainder is computed and the request created
+  under the ticket folio lock (the lock of FR-034), so two requests opened at
+  the same moment cannot together pass the cap; a request whose remainder
+  would be 0 is not created and the existing request is returned.
 - **FR-038a** *(decided 2026-11-12)*: The overcharge refund of an OTA booking's
   separate Mland shop add-on bill (D12, T092) is Mland money and also moves to
   the bank refund flow of FR-039–FR-040 (Manager-only, no VNPay Refund). The
@@ -381,8 +403,9 @@ self-service (FR-018 and Scope); whole-booking Mland remedy (FR-020, FR-021).
   the approving Manager approves the amount, reason and order. *(decided
   2026-11-15, checklist CHK025: Staff counter entry is allowed only for an
   active Staff member actively assigned to a session the ticket holds, by the
-  same rule as FR-032, or for a Manager; a group-level request for a late
-  payment that is not re-confirmed has no ticket, so it is collected only by the
+  same rule as FR-032, or for a Manager; a group-level request (a late
+  payment that is not re-confirmed, or excess or duplicate group money,
+  FR-038) has no ticket, so it is collected only by the
   account link and never at the counter; a refund of an OTA booking's overcharge
   follows the 2026-11-06 session-assignment rule)* *(decided
   2026-11-15, checklist CHK005/006: the earlier rule that the transferring
@@ -476,7 +499,25 @@ self-service (FR-018 and Scope); whole-booking Mland remedy (FR-020, FR-021).
   once, when the first Mland-cancelled ticket is refunded, even when only part
   of the group is cancelled by Mland and even if another ticket of the group was
   cancelled late or was a no-show; it is never restored a second time
-  (clarified 2026-11-15). The buyer is emailed the replacement and refund choice; a
+  (clarified 2026-11-15). *(decided 2026-11-15 by Hồ Hoàng Quốc, checklist
+  CHK010)* "Is refunded" here means the moment the refund request of that
+  ticket is opened (the buyer's refund answer, or the default refund at
+  `answerDeadlineAt`), not `REFUNDED`: the voucher is not money and must not
+  expire while the customer waits for the bank. This is the one consequence
+  that does not wait for `REFUNDED` (FR-039 keeps the folio and booking
+  consequences after `REFUNDED`). "Exactly once" means once per `groupCode`,
+  enforced by the voucher-owning module (facade "Voucher and points
+  restoration"); a repeat trigger returns `ALREADY_RESTORED` and changes
+  nothing. A Mland-cancelled ticket that the buyer MOVES to a replacement
+  session instead of a refund is not refunded, so it does not trigger the
+  restoration and the voucher stays used; if another ticket of the same group
+  is later refunded after a Mland cancellation, that refund triggers it then.
+  A refund request of a ticket not cancelled by Mland never triggers it
+  (FR-042). If the voucher has already expired when the request is opened
+  it is not restored, reason `EXPIRED` (never extended), the refund is
+  unaffected and the buyer is told. The refund amount follows FR-038 (100% of
+  the money collected for the ticket, less other requests of the same ticket
+  that are refunded or still open). The buyer is emailed the replacement and refund choice; a
   recipient is told the session was cancelled but only the buyer chooses. The
   refund is always 100% of the money collected for the ticket; the
   Mland-cancellation refund policy and its booking snapshot (FR-021a–FR-021e)
@@ -786,6 +827,9 @@ separate Mland shop add-on bill of an OTA booking (D12).
 - Q: Who closes the cash book and who enters a refund account at the counter? → A: Staff or Manager of the branch for the close; Staff assigned to a session of the ticket (or a Manager) for the counter entry (FR-036, FR-040).
 - Q: Unreconciled VNPay attempt? → A: Automatically `FAILED` after 24 hours when QueryDR reports no payment; late money goes to excess refund (FR-034).
 - Q: Cap on an absorbed undercharge? → A: Not above the ticket's folio total (FR-057).
+- Q (CHK010, fix of 2026-11-15, decided by Hồ Hoàng Quốc): When is the group's voucher restored after a Mland cancellation? → A: When the refund request of the first Mland-cancelled ticket is opened (the buyer chose refund, or the default refund fired), not at `REFUNDED`, so the voucher cannot expire during the bank wait; once per `groupCode` (a repeat returns `ALREADY_RESTORED`); a ticket the buyer moves to a replacement session does not trigger it; an already expired voucher is not restored (`EXPIRED`) and the refund is unaffected (FR-043, T142, T155).
+- Q (CHK019, fix of 2026-11-15, decided by Hồ Hoàng Quốc): Does `POST /refund-account-links/{token}` need `Idempotency-Key`? → A: Yes. A same-key same-content retry replays `204`; changed content is `409 IDEMPOTENCY_CONFLICT`; the record keeps only a keyed fingerprint, never the account (FR-022a, T169).
+- Document-sync additions of the fix of 2026-11-15 (no new decision): ticket refund cap across reasons and the remainder amount under the folio lock (CHK002, FR-038, T170); group-level `EXCESS_OR_DUPLICATE_MONEY` request (CHK032, FR-038, FR-040); `401` rule and receipt-image/`429` status codes (CHK018, FR-022d, T171).
 - Document-sync additions (no new decision): FR-035 debt, FR-040 link `404/410`, FR-022d `410`, FR-032 collection authority, FR-038 group-level late-payment request, FR-012a token scrub, SC-016, SC-017 (CHK012, 017, 018, 023, 032, 030, 037, 038).
 
 ### Session 2026-10-31 — owner-approved refund execution (superseded 2026-11-12 by FR-038–FR-040: bank refunds, no VNPay Refund)
@@ -1640,7 +1684,15 @@ ticket refund.)*
   identical request MUST return the original outcome without repeating the
   command; a reused key with changed content MUST return a safe typed conflict.
   A successful command response MUST return the current safe settlement
-  projection.
+  projection. *(clarified 2026-11-15, checklist CHK019, decided by Hồ Hoàng
+  Quốc)* The rule covers the unauthenticated, single-use account-link route
+  `POST /refund-account-links/{token}`: the page generates the key; the same
+  key with the same content replays `204` without a second write or email, the
+  same key with changed content is `409 IDEMPOTENCY_CONFLICT`, and a new key on
+  a link already used, revoked or expired is `410
+  REFUND_ACCOUNT_LINK_NOT_USABLE`. The stored record is scoped to the link
+  token hash and keeps a keyed fingerprint of the request, never the account
+  number, holder name or token.
 - **FR-022d** *(note 2026-11-15: its first sentence restates the
   `Idempotency-Key` rule of FR-022a; FR-022a is the source, this requirement
   adds the error code, the provider deduplication and the status mapping)*:
@@ -1651,7 +1703,18 @@ ticket refund.)*
   The public contract MUST return typed safe errors as `400` for malformed input,
   `401` for missing/invalid authentication, `403` for authority denial, `404` for
   missing/not-visible booking, `409` for conflict, `410` for a refund-account link that is used, revoked or expired (`REFUND_ACCOUNT_LINK_NOT_USABLE`), and `422` for valid input that
-  is business-ineligible.
+  is business-ineligible. *(clarified 2026-11-15, checklist CHK018, same rule as
+  003.2 CHK028)* `401` is returned only for a missing, malformed, invalid or
+  expired bearer token and is declared on every operation that accepts
+  `bearerAuth`; on a route open to a guest or a Member it applies only when a
+  bearer token is present but invalid (no token means the guest path). A
+  verified identity with no Mland account, an inactive account, a wrong role or
+  an actor outside the scope gets `403`. The receipt-image routes (FR-039)
+  add `413 RECEIPT_IMAGE_TOO_LARGE`, `415 RECEIPT_IMAGE_TYPE_UNSUPPORTED` and
+  `503 RECEIPT_STORAGE_UNAVAILABLE`, and the guest folio lookup keeps `429`
+  (the 003.1 group lookup limit); these are the only status codes outside the
+  list above. The public account-link route `POST /refund-account-links/{token}`
+  also requires `Idempotency-Key` (see FR-022a).
 - **FR-022b**: The public REST contract MUST represent final bill and charge as
   business resources. Customer cancellation, required-session change, and
   Mland-caused remedy MUST each create or update an auditable case resource with

@@ -355,6 +355,16 @@ assignment, lead and cancellation changes with before/after-safe metadata.
 Both are append-only; corrections add a new event and update the ticket
 entitlement attendance projection rather than altering historical evidence.
 
+**Manager-only action audit (added 2026-11-15, CHK025, spec FR-007c, T141).**
+Each successful Manager-only action (slot change, session creation, publish,
+pause/resume, capacity or location change, Staff assignment or revocation,
+check-in reversal, attendance correction, cancellation request or direct
+cancellation, Manager booking lookup) writes one `OperationsAuditEvent` with
+actor, time, source, correlation ID and, where data changes, the prior and new
+values. `missingStaff` is a derived response field (true only in `PUBLISHED`,
+`SALES_PAUSED` or `IN_PROGRESS` from `checkInOpensAt` with no active
+assignment), not a stored column.
+
 **Denied-attempt audit (added 2026-11-15, owner decision Hồ Hoàng Quốc, spec
 FR-007b, CHK032, task T131).** A refused sensitive action (check-in override,
 check-in reversal, attendance correction, attendance finalization, cancellation
@@ -493,7 +503,7 @@ yet implemented (tasks Phase 14).")*
 | Record | Key data | Invariants |
 | --- | --- | --- |
 | Group capacity hold | booking-group reference; one hold per ticket per session; hold set reference; expiry (12 min, from 003.1) | Reserved and committed/released all or none for the group before confirmation; per ticket after. One seat per ticket per session. |
-| Ticket QR generation | ticket reference; QR generation number; active opaque QR value; revoked QR values with revocation time and reason (`RECIPIENT_CHANGED`) | One active QR per ticket. Revocation is immediate and refused after any check-in of the ticket. Entitlements and attendance history are unchanged. |
+| Ticket QR generation | ticket reference; QR generation number; active opaque QR value; revoked QR values with revocation time and reason (`RECIPIENT_CHANGED`) | One active QR per ticket. Revocation is immediate and refused after any check-in of the ticket. Entitlements and attendance history are unchanged. `cancelTicket` (FR-031, CHK010) does not touch the QR generation: the ticket becomes `CANCELLED`, the QR value stays and is refused through the ticket state (`TICKET_CONFLICT`), not as a revoked generation. |
 | Per-ticket attendance outcome (T092, decided 2026-11-14) | `ticketReference` = `attendance_tickets.reference` (003.3 resolves it via 003.1 `findTicketBookingByOperationsReference`); read model from `getTicketAttendanceOutcome`: `terminal`, outcome (`ATTENDED`, `PARTIAL`, `NO_SHOW`), `windowClosesAt` (added by T092; return-type name not decided); event `TicketAttendanceFinalizedEvent(eventId, ticketReference, windowClosedAt)`; outbox `workshop_ticket_attendance_finalization_outbox`, unique (`ticket_reference`, `event_type`), new append-only migration | Terminal only after every session of the ticket is finalized and the 24-hour correction window closed. One event per ticket key; reference-only (no PII, no outcome); at-least-once with consumer dedup by `eventId` (BE-DESIGN-0001 mechanics). **Decided 2026-11-14 (Hồ Hoàng Quốc):** window anchor **per ticket** — 24 hours after the latest finalization among the ticket's own sessions; the Staff correction deadline uses the same anchor. *(Superseded 2026-11-14: "ticket booking reference; terminal flag; outcome; finalized-at; outbox row per ticket".)* |
 | Ticket replacement | ticket; source/target sessions; type (`CUSTOMER_ADVANCE`, `CUSTOMER_LATE_ARRIVAL`, `MLAND`); quota consumed; operation reference | All or none across the selected tickets; late-arrival target ≤ old end + 7 days for the missed session; quota checked in addition to capacity; history and QR kept. |
 | Session reschedule quota | session; quota (tickets receivable by customer change); default or Manager-set flag; used count | One quota shared by advance and late-arrival changes; default floor(25% × capacity), at least 1; Manager may set any value including 0; Mland replacements exempt; counted per moved ticket. |
