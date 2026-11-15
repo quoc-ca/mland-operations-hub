@@ -15,7 +15,7 @@
 
 | Actor | Route | Access rule |
 | --- | --- | --- |
-| Admin | `/ota-connectivity/channels` | Manages technical channel connection/credential lifecycle; credentials are never rendered back. |
+| Admin | none | ~~Manages technical channel connection/credential lifecycle~~ *(2026-11-15, CHK026: Admin has no OTA route or authority; connection/credentials are environment configuration)*; credentials are never rendered back. |
 | Manager | `/ota-connectivity/channels`, `/ota-connectivity/reconciliation`, `/ota-connectivity/finance` | Global Feature 003 business scope for mapping, publication, reconciliation and payout evidence. |
 | Staff | `/ota-connectivity/add-ons` | Location-scoped shop add-on actions for an OTA booking only; Staff records consent at the workshop and creates the separate direct-Mland bill. Direct bookings use Settlement's direct flow. No channel credential or payout authority. |
 
@@ -23,7 +23,7 @@
 
 | Screen / flow | Workflow/API reference | Required states and recovery |
 | --- | --- | --- |
-| Channel list/configuration | `GET/POST /ota-channels` | Loading; no channels; credential redaction; connection failure; Admin-only technical actions. |
+| Channel list/configuration | `GET/POST /ota-channels` | Loading; no channels; credential redaction; connection failure; Manager-only actions (Admin gets 403). |
 | Mapping editor | `/ota-channels/{channelId}/mappings`, `PUT /ota-channel-mappings/{mappingId}` | Draft/sales-closed/active states; optimistic version conflict returns 409 and reload; never change identity while outbound work is queued/retrying. |
 | Price terms | `POST /ota-channel-mappings/{mappingId}/price-terms` | Show OTA-confirmed evidence requirement; immutable approved snapshot; rejected/pending evidence remains visible in history. |
 | Sync/publication | `/sync`, `/sales-close`, `/booking-enable` | Show queued/retrying/succeeded/failed; idempotent replay; no success claim until provider evidence is recorded. |
@@ -37,14 +37,14 @@
 
 1. OTA customers pay the base package in the OTA checkout; Mland does not create a direct deposit/final-payment attempt for that base package.
 2. OTA cancellation/refund evidence is channel-owned; Mland direct VNPay refund is not used for OTA-collected money.
-3. Manager is globally scoped for OTA business operations; Admin owns technical credentials; Staff is location-scoped for shop add-ons.
+3. Manager is globally scoped for OTA business operations, booking enablement included; Admin has no authority in 003.4 (2026-11-15, CHK026); Staff is location-scoped for shop add-ons.
 4. Credentials, raw provider payloads, card data and unnecessary PII are never shown in the UI or logged.
 5. Add-ons happen at the Mland shop and are financially separate from OTA booking facts; only OTA-origin laser engraving is free, while paid options use a separate direct Mland bill.
 6. Callback/reconciliation/payout actions are idempotent and never treat browser state as verified provider evidence.
 
 ## Session, data handling, and accessibility
 
-- Clear channel-management state after Admin logout; do not persist credentials in local storage.
+- Clear channel-management state after Manager logout; do not persist credentials in local storage.
 - Preserve safe draft mapping fields on validation errors, but invalidate stale versions after a conflict.
 - Payout and financial screens must use accessible tables, explicit currency/amount labels, and text status descriptions rather than color alone.
 

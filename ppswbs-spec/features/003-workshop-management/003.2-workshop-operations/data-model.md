@@ -13,10 +13,11 @@ Management and is consumed read-only. Session Staff assignment records, if
 retained for roster/audit visibility, do not determine authorization.
 *(Superseded 2026-11-06 and 2026-11-15: a Staff member needs the session
 location in scope **and** an active assignment; Manager is unaffected. From
-`checkInOpensAt` a session with no active assignment is flagged "missing
-Staff", and revoking the last assignment then needs explicit Manager
-confirmation — spec Clarifications Q3, task T115, which adds the flag and guard
-to this model.)* Manager
+`checkInOpensAt` a session with no active assignment is flagged `missingStaff`
+in the session response (derived, not stored), and revoking the last assignment
+then needs `confirmLastAssignmentRemoval: true`, otherwise `409
+LAST_STAFF_ASSIGNMENT_CONFIRMATION_REQUIRED` — spec Clarifications Q3, task
+T115; names accepted 2026-11-15.)* Manager
 authority is global while the account is active. `checkInOpensAt` is the
 independent check-in availability threshold; the scheduled start timestamp
 drives the later `PUBLISHED -> IN_PROGRESS` state transition. Neither event
@@ -72,7 +73,7 @@ Constraints and ownership invariants:
 Package commands are Operations-owned. Any active canonical `MANAGER` may
 administer Packages globally; `activeLocationIds` does not narrow Manager
 authority anywhere in Feature 003. There is no Central Manager tier or persisted
-Package-to-Manager assignment. Staff operational actions remain location-scoped.
+Package-to-Manager assignment. Staff operational actions remain location-scoped and assignment-scoped (2026-11-06).
 
 ### WorkshopBookingPackagePolicySnapshot
 
@@ -92,7 +93,12 @@ Canonical `workshop_location.id` (`Long`), immutable `code`, display name,
 address snapshot, active flag, created and updated timestamps. A location is
 never hard-deleted while it has session history. This is the same identity held
 in Account Management `activeLocationIds`; it has no separate branch ID,
-UUID reference or mapping record.
+UUID reference or mapping record. *(Added 2026-11-15, owner decision Hồ Hoàng
+Quốc, spec FR-012c, CHK024, task T129:)* an active Manager creates and edits
+locations; an Admin has no write or read authority over them in Workshop
+Operations. No schema change.
+
+*(Added 2026-11-15, owner decision Hồ Hoàng Quốc, spec FR-012c, tasks T135–T137:)* `PATCH /workshop-locations/{locationId}` (Manager only) changes only the existing columns `display_name` (request `name`), `address_snapshot` (request `address`) and `active`; `code` is immutable. No new column and no migration. Deactivation leaves sessions and history untouched; *confirmed by the owner 2026-11-15:* it is refused with `409 INVALID_STATE` while a session not yet ended (not `ATTENDANCE_FINALIZED` or `CANCELLED`) uses the location. Whether `updated_at` is advanced by the existing `@PreUpdate` hook is already the entity behaviour; whether a location-change audit event type exists in `OperationsAuditEvent` is TBD, to be verified in T135 (do not invent an action name before reading the audit enum).
 
 ### WorkshopSlot
 
@@ -122,7 +128,13 @@ Constraints:
 
 If retained, roster records contain `session_id`, target Mland `account_id`,
 active interval, assigning actor and audit reference for operational visibility
-only. They do not grant or revoke authorization. There is no
+only. They do not grant or revoke authorization. *(Superseded 2026-11-06: the
+assignment (`session_staff_assignments`, `active`) grants and revokes the Staff
+member's access; spec "Staff session-assignment access". Added 2026-11-15,
+CHK029, T130: a row is created only for an existing `STAFF`, `ACTIVE` account
+with the session location in scope, only while the session is `DRAFT`,
+`PUBLISHED`, `SALES_PAUSED` or `IN_PROGRESS`; a second assignment of an active
+pair creates no row.)* There is no
 `SessionOperationalLead` record in the target V1 model, no lead handover and no
 separate personnel identifier. Inactive accounts lose operational use through
 the Account facade status check without erasing historical roster/audit data.
@@ -343,6 +355,28 @@ assignment, lead and cancellation changes with before/after-safe metadata.
 Both are append-only; corrections add a new event and update the ticket
 entitlement attendance projection rather than altering historical evidence.
 
+**Denied-attempt audit (added 2026-11-15, owner decision Hồ Hoàng Quốc, spec
+FR-007b, CHK032, task T131).** A refused sensitive action (check-in override,
+check-in reversal, attendance correction, attendance finalization, cancellation
+request, Staff assignment or revocation, Manager management booking lookup,
+ticket resend including a throttled `429`) writes one `OperationsAuditEvent`
+with `action` = the attempted action, `outcome` = `DENIED`, `actor_id` (null
+only when no account was resolved), `session_id` (when the session exists),
+`correlation_id`, `occurred_at`, and `metadata` holding only the refusal `code`
+(and the HTTP status). No customer PII, contact data, QR value, ticket code
+list or token is stored. It is written in its own transaction so it survives
+the rollback of the refused command. The existing columns (`action`,
+`outcome`, `metadata`) suffice; no migration is expected (the names `DENIED` and the metadata are approved by Hồ Hoàng Quốc 2026-11-15; T131 only confirms that `DENIED` fits the current `outcome` length of 32).
+
+**Unresolved-cancellation alert (added 2026-11-15, owner decision Hồ Hoàng
+Quốc, spec FR-010a/SC-008, CHK009, task T133).** When a session is still
+`CANCELLATION_REQUESTED` 24 hours after `scheduled_end_at`, the alert run writes
+one `OperationsAuditEvent` with `action` = `CANCELLATION_UNRESOLVED_ALERT`,
+`outcome` = `SENT` (Manager emails handed to delivery) or `NO_ACTIVE_MANAGER`
+(no email; a WARN log as well), `actor_id` null and the recipient count in
+`metadata` (no email address). The existence of that event for the session is
+the once-per-session marker, so no new column is needed. The action name `CANCELLATION_UNRESOLVED_ALERT`, the outcomes `SENT` and `NO_ACTIVE_MANAGER` and the one-alert-per-session rule are approved by Hồ Hoàng Quốc 2026-11-15. T133 confirms that the `action` and `outcome` columns are long enough for these values.
+
 ### CancellationHandoff
 
 `id`, session, requester, requested-at, standard reason, optional required
@@ -369,6 +403,17 @@ pre-finalization session with neither confirmed ticket nor unexpired hold
 
 `CANCELLED` and `ATTENDANCE_FINALIZED` are terminal. Only an authorised active
 operator may take a transition, and transition audit is mandatory.
+
+*(Added 2026-11-15, owner decisions Hồ Hoàng Quốc, CHK004 and CHK009.)* A hold
+commit is accepted in `PUBLISHED`, `SALES_PAUSED` and `IN_PROGRESS` and refused
+`INVALID_STATE` in `CANCELLATION_REQUESTED`, `CANCELLED` and
+`ATTENDANCE_FINALIZED` (spec FR-010c/FR-010j, T132), so the ticket set of a
+cancellation handoff does not grow after the request.
+`CANCELLATION_REQUESTED -> CANCELLED` is taken only by
+`completeCancellation(CompleteCancellationHandoffCommand)` (Operations facade method in code: `completeCancellationHandoff`), called by 003.3 once every affected ticket is
+moved, has a bank refund request opened, or has an audited Manager decision
+(003.3 T167); there is no timeout transition, only the 24-hour Manager alert
+above (T133).
 
 ### Capacity hold lifecycle
 

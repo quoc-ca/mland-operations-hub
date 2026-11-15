@@ -483,6 +483,16 @@ self-service (FR-018 and Scope); whole-booking Mland remedy (FR-020, FR-021).
   checked in to it: the same 100% refund path applies. For a multi-session
   ticket that loses a session the refund stays 100% of the money collected for
   the whole ticket, including any session already attended.
+  *(Added 2026-11-15, owner decision Hồ Hoàng Quốc, 003.2 checklist CHK009,
+  003.2 FR-010a/SC-008; task T167)* An affected ticket of a 003.2 cancellation
+  handoff is resolved once it is moved to a replacement session, or its bank
+  refund request is opened (003.3 does not wait for `REFUNDED`), or an audited
+  Manager decision exists for it. As soon as the last affected ticket of the
+  handoff is resolved, 003.3 MUST report it to 003.2 through
+  `completeCancellation` (`CompleteCancellationHandoffCommand`), idempotently,
+  so the session becomes `CANCELLED`; a handoff with no affected ticket is
+  reported when it is received. 003.2 alerts the Managers if a session is still
+  `CANCELLATION_REQUESTED` 24 hours after its scheduled end.
 
 ### Changes (rescheduling)
 

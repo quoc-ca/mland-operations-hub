@@ -133,6 +133,40 @@ FAIL items:
 - CHK037: no success criteria for cancellation/hold/resend/assignment.
 - CHK039: undefined terms in SC-001/SC-004.
 
+### Re-assessment (2026-11-15, agent, không phải duyệt reviewer)
+
+Đánh giá lại 18 mục trước đây FAIL sau khi spec, plan, data-model, OpenAPI và facade contract được cập nhật ngày 2026-11-15. Đây là ý kiến của agent về mức yêu cầu; không ô nào được tick, phần Totals gốc ở trên giữ nguyên, việc ratify vẫn thuộc reviewer.
+
+- CHK002: nay đạt ở mức yêu cầu. Facade contract đánh dấu `applyVerifiedRefundConsequence` là superseded cho mọi caller không phải OTA; FR-010aa và FR-031 chốt việc thu hồi xảy ra tại `cancelTicket`.
+- CHK004: nay đạt ở mức yêu cầu. FR-010c/FR-010j, data-model "State Models" và hàng "Commit holds" của facade nêu rõ commit được chấp nhận ở `PUBLISHED`/`SALES_PAUSED`/`IN_PROGRESS` và bị từ chối `REJECTED INVALID_STATE` ở `CANCELLATION_REQUESTED`/`CANCELLED`/`ATTENDANCE_FINALIZED`.
+- CHK009: nay đạt ở mức yêu cầu. FR-010a định nghĩa điều kiện "đã giải quyết" cho từng vé, cảnh báo Manager một lần mỗi buổi sau `scheduledEndAt` + 24 giờ, trường hợp không có Manager active, và SC-008. Còn mở ngoài mức yêu cầu: nội dung mẫu email chờ chủ module thông báo duyệt, và 003.3 T167 chưa có caller của `completeCancellation`.
+- CHK012: nay đạt ở mức yêu cầu. Quy tắc chung số 3 của facade contract liệt kê các lý do cấp vé (`TICKET_NOT_FOUND`, `TICKET_ALREADY_CHECKED_IN`, `RESCHEDULE_QUOTA_EXHAUSTED`, `LATE_ARRIVAL_WINDOW_EXPIRED`, `OTA_TICKET_NOT_SUPPORTED`) và câu "narrower set" nay kèm điều kiện không được trả lý do ngoài danh sách.
+- CHK013: nay đạt ở mức yêu cầu. FR-036 cố định tên `OTA_TICKET_NOT_SUPPORTED`; tên này có trong facade contract (quy tắc chung số 3).
+- CHK014: còn thiếu (nhỏ). "Error catalogue" của spec và enum `Problem.code` của OpenAPI đã liệt kê đóng các mã cho check-in sớm (`CHECK_IN_NOT_OPEN`), sai trạng thái, Staff chưa được gán, finalization sai trạng thái. Chưa có mã cho từ chối "cần Manager xác nhận khi gỡ phân công cuối" (Clarifications Q3, T115); spec ghi rõ sẽ bổ sung vào bảng khi làm T115.
+- CHK016: nay đạt ở mức yêu cầu. FR-010kf (Clarifications CHK016) định nghĩa retry sau khi record idempotency bị dọn là lệnh mới, được bảo vệ bởi kiểm tra trạng thái nghiệp vụ; T134 là test.
+- CHK018: nay đạt ở mức yêu cầu. FR-012a và bảng lỗi: `503 DEPENDENCY_UNAVAILABLE`, fail closed, không side effect, không cache; OpenAPI khai 503 trên các route.
+- CHK020: nay đạt ở mức yêu cầu. FR-003c và SC-006: `429 REDELIVERY_THROTTLED` kèm `Retry-After` (số giây), OpenAPI có response `RedeliveryThrottled`.
+- CHK023: nay đạt ở mức yêu cầu. Hai câu trả lời 2026-10-24 có marker superseded (Noted 2026-11-15, CHK023); SC-001 dùng "active Manager"; mục Clarifications ghi "scoped Manager" là superseded.
+- CHK024: nay đạt ở mức yêu cầu. FR-012c: Manager là người duy nhất tạo/sửa location (kể cả `PATCH /workshop-locations/{locationId}`), Admin không có quyền nghiệp vụ Workshop Operations và nhận 403. Còn mở ngoài mức yêu cầu: T138 kiểm tra xem FE-001, Loyalty `ProductBranchPicker` hoặc Product management có cần Admin gọi `GET /workshop-locations` không.
+- CHK027: nay đạt ở mức yêu cầu. FR-003d và bảng lỗi: một kết quả `404 RESOURCE_NOT_FOUND` duy nhất cho mã lạ, buổi khác, location khác; chú thích OpenAPI của booking-lookups nêu rõ; T126 có test.
+- CHK028: nay đạt ở mức yêu cầu. Bảng lỗi: `401` chỉ khi thiếu/sai/hết hạn token; mọi 37 operation dùng `bearerAuth` trong OpenAPI đều khai `401` (đã kiểm bằng script); SC-004 bao gồm `401`.
+- CHK029: nay đạt ở mức yêu cầu. Mục "Eligibility and session state of an assignment" trong "Staff session-assignment access" cùng bảng lỗi (`STAFF_NOT_ELIGIBLE` với `reason`, `INVALID_STATE`, duplicate là no-op) và mô tả OpenAPI của `staff-assignments`.
+- CHK032: nay đạt ở mức yêu cầu. FR-007b và data-model "Denied-attempt audit" xác định hành động được audit, các trường được ghi, không PII, 401/503 không audit; tên `DENIED` đã được chủ feature duyệt.
+- CHK034: nay đạt ở mức yêu cầu. Facade contract có đoạn "Permitted callers" liệt kê caller của `cancelTicket`, `replaceTicketSessions`, `reissueTicketQr`, `completeCancellation`, thao tác thu hồi vé OTA và `applyVerifiedRefundConsequence`; `CancelBookingCommand` ghi là đã gỡ bởi T097.
+- CHK037: nay đạt ở mức yêu cầu. SC-005 (SALES_PAUSED), SC-006 (giới hạn resend), SC-007 (Staff chưa được gán), SC-008 (cancellation handoff) đã thêm; SC-004 liệt kê dữ liệu được bảo vệ.
+- CHK039: nay đạt ở mức yêu cầu. SC-001 chỉ còn "active Manager"; SC-004 liệt kê cụ thể dữ liệu được bảo vệ (session detail/list, roster, booking lookup, ticket/check-in result, Staff assignments) và các tác nhân bị từ chối.
+
+Tổng của re-assessment này: 40 mục, 39 đạt (22 PASS gốc + 17 nay đạt), 1 còn thiếu (CHK014). Đây chỉ là đánh giá của agent, không thay Totals gốc và không thay ratify của reviewer.
+
+Cập nhật sau khi owner chốt 5 mục "Còn mở" (2026-11-15, agent):
+- CHK024 và CHK029: giữ "nay đạt". `PATCH /workshop-locations/{locationId}` đã xác nhận: ngừng dùng bị `409 INVALID_STATE` khi còn buổi chưa `ATTENDANCE_FINALIZED`/`CANCELLED` (FR-012c, T135, T137). `GET /workshop-locations` của Admin giữ 403; T138 là kiểm tra ngoài mức yêu cầu.
+- CHK014: vẫn còn thiếu (nhỏ). Hai case mới của `ticket-resends` đã có trong catalogue dưới `INVALID_STATE` kèm `reason` (`NO_ELIGIBLE_TICKET`, `REDELIVERY_REJECTED_BY_BOOKING`, tên còn là đề xuất chờ code, T139), nhưng mã cho "Manager xác nhận khi gỡ Staff cuối" vẫn chờ T115.
+- Tổng không đổi: 39 đạt, 1 còn thiếu (CHK014). Không tick ô nào; việc tick thuộc reviewer.
+
+Cập nhật sau khi owner Hồ Hoàng Quốc chấp nhận tên contract (2026-11-15, agent):
+- CHK014: nay đạt ở mức yêu cầu. Mã `LAST_STAFF_ASSIGNMENT_CONFIRMATION_REQUIRED` (409, gỡ Staff active cuối sau `checkInOpensAt` mà không có `confirmLastAssignmentRemoval: true`) đã nằm trong "Error catalogue" của spec và trong enum đóng `Problem.code` của OpenAPI; route DELETE staff-assignments mô tả 409 và tham số xác nhận; cờ `missingStaff` đã có trong schema `Session`; T115 ghi tên đã chấp nhận và test mã 409 cùng audit hai lần (từ chối và chấp nhận). Hai `reason` của `ticket-resends` vẫn là đề xuất chờ T139, nhưng không còn là điều kiện của CHK014 ở mức yêu cầu.
+- Tổng sau cập nhật này: 40/40 đạt ở mức yêu cầu. Chỉ là đánh giá của agent; không tick ô nào, không sửa Totals gốc (22 PASS, 18 FAIL); việc tick và ratify thuộc reviewer.
+
 ## Notes
 
 - Mark items `[x]` only after review confirms the requirement-quality criterion is satisfied

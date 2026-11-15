@@ -3,9 +3,18 @@ info:
   title: Mland Workshop Operations API
   version: 1.0.0-draft
   description: >-
-    Public discovery plus globally authorized Manager and location-scoped Staff API for Workshop
+    Public discovery plus globally authorized Manager and location- and assignment-scoped Staff API for Workshop
     Packages, fixed workshop add-ons, canonical workshop locations, slots,
     sessions, attendance and exception audit. Authorization is evaluated server-side.
+    Authorization (owner decision Hồ Hoàng Quốc, 2026-11-15, spec FR-012/FR-012c): an active
+    MANAGER is global, including creating and editing workshop locations; an active STAFF needs
+    the session location in activeLocationIds and an active assignment to the session; an ADMIN
+    has no Workshop Operations business authority and is answered 403. Errors (spec "Error
+    catalogue"): 401 UNAUTHORIZED only for a missing, malformed, invalid or expired bearer token,
+    declared on every bearerAuth operation; 403 for a verified identity without a Mland account,
+    inactive, wrong role or out of scope; 503 DEPENDENCY_UNAVAILABLE when the Account facade
+    cannot supply role, status or activeLocationIds (fail closed, no side effect). Problem.code
+    lists the closed set of codes.
 servers:
   - url: /api/v1
 security:
@@ -24,7 +33,10 @@ paths:
       responses:
         '201': { $ref: '#/components/responses/Package' }
         '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }   # IDEMPOTENCY_CONFLICT / IDEMPOTENCY_IN_PROGRESS
+        '503': { $ref: '#/components/responses/Problem' }
   /workshop-package-management/packages:
     get:
       summary: List Workshop Packages for the globally authorized Manager
@@ -36,11 +48,12 @@ paths:
         - name: state
           in: query
           required: false
-          schema: { $ref: '#/components/schemas/WorkshopPackageState' }
+          schema: { $ref: '#/components/schemas/PackageState' }
       responses:
         '200': { $ref: '#/components/responses/PackageManagementList' }
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
   /workshop-packages/{packageId}:
     parameters: [ { $ref: '#/components/parameters/PackageId' } ]
     get:
@@ -56,8 +69,11 @@ paths:
       responses:
         '200': { $ref: '#/components/responses/Package' }
         '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }   # IDEMPOTENCY_CONFLICT / IDEMPOTENCY_IN_PROGRESS
+        '503': { $ref: '#/components/responses/Problem' }
   /workshop-packages/{packageId}/lifecycle-transitions:
     parameters: [ { $ref: '#/components/parameters/PackageId' } ]
     post:
@@ -67,8 +83,11 @@ paths:
       responses:
         '200': { $ref: '#/components/responses/Package' }
         '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }   # IDEMPOTENCY_CONFLICT / IDEMPOTENCY_IN_PROGRESS
+        '503': { $ref: '#/components/responses/Problem' }
   /workshop-packages/{packageId}/sessions:
     parameters: [ { $ref: '#/components/parameters/PackageId' } ]
     get:
@@ -110,8 +129,11 @@ paths:
       responses:
         '201': { $ref: '#/components/responses/AddOn' }
         '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }   # IDEMPOTENCY_CONFLICT / IDEMPOTENCY_IN_PROGRESS
+        '503': { $ref: '#/components/responses/Problem' }
   /workshop-package-management/packages/{packageId}/locations/{locationId}/add-ons:
     parameters:
       - { $ref: '#/components/parameters/PackageId' }
@@ -123,6 +145,7 @@ paths:
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
   /workshop-packages/{packageId}/locations/{locationId}/add-ons/{addOnReference}:
     parameters:
       - { $ref: '#/components/parameters/PackageId' }
@@ -135,8 +158,11 @@ paths:
       responses:
         '200': { $ref: '#/components/responses/AddOn' }
         '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }   # IDEMPOTENCY_CONFLICT / IDEMPOTENCY_IN_PROGRESS
+        '503': { $ref: '#/components/responses/Problem' }
   /workshop-packages/{packageId}/locations/{locationId}/add-ons/{addOnReference}/lifecycle-transitions:
     parameters:
       - { $ref: '#/components/parameters/PackageId' }
@@ -149,29 +175,72 @@ paths:
       responses:
         '200': { $ref: '#/components/responses/AddOn' }
         '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }   # IDEMPOTENCY_CONFLICT / IDEMPOTENCY_IN_PROGRESS
+        '503': { $ref: '#/components/responses/Problem' }
   /workshop-locations:
     get:
       summary: List workshop locations visible to the actor
+      description: >-
+        An active Manager sees every location; an active Staff member sees the locations in their
+        activeLocationIds. An Admin has no Workshop Operations authority and gets 403 (FR-012c).
       responses:
         '200': { $ref: '#/components/responses/LocationList' }
         '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
     post:
-      summary: Create a workshop location
+      summary: Create a workshop location as an active Manager (global scope)
+      description: >-
+        Manager only (owner decision Hồ Hoàng Quốc, 2026-11-15, spec FR-012c, CHK024; task T129).
+        An Admin, a Staff member or any other role is refused with 403 FORBIDDEN. Assigning the
+        new location to Staff activeLocationIds stays in Account Management (FE-001).
       parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/LocationWrite' } } } }
       responses:
         '201': { $ref: '#/components/responses/Location' }
         '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }   # IDEMPOTENCY_CONFLICT / IDEMPOTENCY_IN_PROGRESS
+        '503': { $ref: '#/components/responses/Problem' }
+  /workshop-locations/{locationId}:
+    parameters: [ { $ref: '#/components/parameters/LocationId' } ]
+    patch:
+      summary: Rename a workshop location or deactivate/reactivate it as an active Manager (global scope)
+      description: >-
+        Added to V1 (owner decision Hồ Hoàng Quốc, 2026-11-15, spec FR-012c, task T135). Manager only;
+        an Admin, a Staff member or any other role is refused with 403 FORBIDDEN. Changes only
+        `name`, `address` and `active` (existing columns display_name, address_snapshot, active);
+        `code` is immutable and sending a different `code` is refused with 400 VALIDATION_ERROR.
+        At least one of the three fields is required. Deactivating (`active=false`) does not touch
+        existing sessions, tickets or history. Confirmed by the owner 2026-11-15: renaming, changing the
+        address and reactivating are always allowed; deactivating a location that still has a session
+        not yet ended (state other than ATTENDANCE_FINALIZED or CANCELLED) that uses it is refused
+        with 409 INVALID_STATE and a message.
+        Idempotent per Idempotency-Key; one audit event per applied change. An unknown locationId is
+        404 RESOURCE_NOT_FOUND.
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/LocationUpdate' } } } }
+      responses:
+        '200': { $ref: '#/components/responses/Location' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }   # INVALID_STATE (deactivation refused, confirmed 2026-11-15); IDEMPOTENCY_CONFLICT / IDEMPOTENCY_IN_PROGRESS
+        '503': { $ref: '#/components/responses/Problem' }
   /workshop-locations/{locationId}/slots:
     parameters: [ { $ref: '#/components/parameters/LocationId' } ]
     get:
       summary: List location slots
       responses:
         '200': { $ref: '#/components/responses/SlotList' }
+        '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
     post:
       summary: Create a reusable non-overlapping slot
       parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
@@ -179,7 +248,10 @@ paths:
       responses:
         '201': { $ref: '#/components/responses/Slot' }
         '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
         '409': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
   /workshop-slots/{slotId}:
     parameters: [ { $ref: '#/components/parameters/SlotId' } ]
     patch:
@@ -189,7 +261,10 @@ paths:
       responses:
         '200': { $ref: '#/components/responses/Slot' }
         '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
         '409': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
   /workshop-sessions:
     get:
       summary: Search sessions within the actor's location scope
@@ -200,7 +275,9 @@ paths:
         - { name: state, in: query, schema: { $ref: '#/components/schemas/SessionState' } }
       responses:
         '200': { $ref: '#/components/responses/SessionList' }
+        '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
     post:
       summary: Create one future session in DRAFT by default
       parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
@@ -208,7 +285,10 @@ paths:
       responses:
         '201': { $ref: '#/components/responses/Session' }
         '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
         '409': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
   /workshop-sessions/bulk:
     post:
       summary: Generate bounded future sessions and report duplicates skipped
@@ -217,15 +297,20 @@ paths:
       responses:
         '201': { $ref: '#/components/responses/BulkGenerationResult' }
         '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }   # IDEMPOTENCY_CONFLICT / IDEMPOTENCY_IN_PROGRESS
+        '503': { $ref: '#/components/responses/Problem' }
   /workshop-sessions/{sessionId}:
     parameters: [ { $ref: '#/components/parameters/SessionId' } ]
     get:
       summary: Get a session within authorized location scope
       responses:
         '200': { $ref: '#/components/responses/Session' }
+        '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
     patch:
       summary: Update the capacity and the check-in opening override of a session.
       description: >-
@@ -238,7 +323,11 @@ paths:
       responses:
         '200': { $ref: '#/components/responses/Session' }
         '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
         '409': { $ref: '#/components/responses/Problem' }   # OPTIMISTIC_LOCK_CONFLICT (stale version) or INSUFFICIENT_CAPACITY
+        '404': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
   /workshop-sessions/{sessionId}/reschedule-quota:
     parameters: [ { $ref: '#/components/parameters/SessionId' } ]
     put:
@@ -254,8 +343,11 @@ paths:
       responses:
         '200': { $ref: '#/components/responses/Session' }
         '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }   # INVALID_STATE (session ATTENDANCE_FINALIZED or CANCELLED); IDEMPOTENCY_CONFLICT / IDEMPOTENCY_IN_PROGRESS
+        '503': { $ref: '#/components/responses/Problem' }
   /workshop-sessions/{sessionId}/state-transitions:
     parameters: [ { $ref: '#/components/parameters/SessionId' } ]
     post:
@@ -265,26 +357,61 @@ paths:
       responses:
         '200': { $ref: '#/components/responses/Session' }
         '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '409': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
   /workshop-sessions/{sessionId}/staff-assignments:
     parameters: [ { $ref: '#/components/parameters/SessionId' } ]
     put:
       summary: Add or replace a Staff assignment
+      description: >-
+        Manager only (spec "Staff session-assignment access", eligibility rules decided 2026-11-15,
+        CHK029, task T130). The assignee must exist, have role STAFF, be ACTIVE and have the session
+        location in activeLocationIds; otherwise 409 STAFF_NOT_ELIGIBLE with Problem.reason. 403 only
+        when the caller is not an active Manager. Allowed only while the session is DRAFT, PUBLISHED,
+        SALES_PAUSED or IN_PROGRESS; otherwise 409 INVALID_STATE. Assigning an already actively
+        assigned Staff member is a no-op answered 200 with the unchanged session. A refused attempt
+        is recorded as a denied-attempt audit (FR-007b).
       parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/StaffAssignmentRequest' } } } }
       responses:
         '200': { $ref: '#/components/responses/Session' }
+        '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
-        '409': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }   # STAFF_NOT_ELIGIBLE (with reason) or INVALID_STATE (session state)
+        '404': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
     delete:
       summary: Remove one Staff assignment when responsibility remains
+      description: >-
+        Manager only; 403 for any other caller. Revocation is allowed in every session state and
+        takes effect immediately, subject only to the last-assignment confirmation of spec
+        Clarifications Q3 (T115). Once checkInOpensAt has passed, removing the last active Staff
+        assignment of the session without confirmLastAssignmentRemoval=true is refused with
+        409 LAST_STAFF_ASSIGNMENT_CONFIRMATION_REQUIRED; the Manager repeats the request with
+        confirmLastAssignmentRemoval=true to proceed. Both the refusal and the confirmed removal are
+        audited (FR-007b). Other refused attempts are recorded as denied-attempt audits too.
+        The confirmation is an optional boolean query parameter (default false) because DELETE carries no
+        request body here; đã xác nhận bởi Hồ Hoàng Quốc 2026-11-15.
       parameters:
         - { $ref: '#/components/parameters/IdempotencyKey' }
         - { name: accountId, in: query, required: true, schema: { type: integer, format: int64 } }
+        - name: confirmLastAssignmentRemoval
+          in: query
+          required: false
+          description: >-
+            Explicit Manager confirmation (Clarifications Q3, T115). Required to be true only when the
+            request removes the last active Staff assignment after checkInOpensAt; ignored otherwise.
+          schema: { type: boolean, default: false }
       responses:
         '204': { description: Assignment removed }
-        '409': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }   # LAST_STAFF_ASSIGNMENT_CONFIRMATION_REQUIRED (last active assignment after checkInOpensAt, no confirmation) or INVALID_STATE
+        '404': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
   /workshop-sessions/{sessionId}/check-ins:
     parameters: [ { $ref: '#/components/parameters/SessionId' } ]
     post:
@@ -292,13 +419,20 @@ paths:
       description: >-
         A QR revoked by a recipient change (FR-033) is refused with 409
         TICKET_QR_REVOKED and records no attendance; the ticket's current QR
-        or exact ticket code still checks in.
+        or exact ticket code still checks in. A check-in before checkInOpensAt is
+        refused with 409 CHECK_IN_NOT_OPEN and Problem.checkInOpensAt (spec FR-005,
+        decided 2026-11-15, CHK014, task T126); the EARLY_CHECKIN override remains
+        available. A session that is not open for check-in (for example
+        ATTENDANCE_FINALIZED or CANCELLED) is 409 INVALID_STATE.
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CheckInRequest' } } } }
       responses:
         '200': { $ref: '#/components/responses/CheckInResult' }
         '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
-        '409': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }   # CHECK_IN_NOT_OPEN, INVALID_STATE, TICKET_CONFLICT or TICKET_QR_REVOKED
+        '404': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
   /workshop-sessions/{sessionId}/check-in-overrides:
     parameters: [ { $ref: '#/components/parameters/SessionId' } ]
     post:
@@ -306,8 +440,11 @@ paths:
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CheckInOverrideRequest' } } } }
       responses:
         '200': { $ref: '#/components/responses/Ticket' }
+        '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '409': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
   /workshop-sessions/{sessionId}/booking-lookups/{bookingCode}:
     parameters:
       - { $ref: '#/components/parameters/SessionId' }
@@ -316,8 +453,10 @@ paths:
       summary: Lookup only eligible tickets for the active session and location
       responses:
         '200': { $ref: '#/components/responses/TicketList' }
+        '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
-        '404': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }   # Generic no-eligible-ticket result (FR-003d): RESOURCE_NOT_FOUND, identical for unknown booking, other session or other location
+        '503': { $ref: '#/components/responses/Problem' }
   /workshop-sessions/{sessionId}/attendance-roster:
     parameters:
       - { $ref: '#/components/parameters/SessionId' }
@@ -331,25 +470,46 @@ paths:
               schema:
                 type: array
                 items: { $ref: '#/components/schemas/AttendanceRosterEntry' }
+        '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
   /workshop-sessions/{sessionId}/ticket-resends:
     parameters: [ { $ref: '#/components/parameters/SessionId' } ]
     post:
       summary: Request auditable resend of the buyer's tickets
+      description: >-
+        At most three requests per booking in 15 minutes (spec FR-003c). A further request is
+        refused with 429 REDELIVERY_THROTTLED, sends nothing and carries Retry-After (whole seconds
+        until the 15-minute window counted from the first request of that window ends; decided
+        2026-11-15, CHK020, task T127); the Staff screen then suggests the
+        TICKET_REDELIVERY_UNAVAILABLE override. Refused attempts, including 429, are recorded as
+        denied-attempt audits (FR-007b). 409 INVALID_STATE is also returned, with a `reason`, when the
+        session state does not allow resend, when the booking has no ACTIVE unused ticket
+        (reason NO_ELIGIBLE_TICKET, proposed name) and when Booking refuses the redelivery
+        (reason REDELIVERY_REJECTED_BY_BOOKING, proposed name); owner decision Hồ Hoàng Quốc
+        2026-11-15, task T139. These two cases are never 400 or 404, so the response does not reveal
+        whether a booking exists.
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/TicketResendRequest' } } } }
       responses:
         '202': { description: Delivery request accepted }
+        '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
-        '429': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }   # INVALID_STATE (session not PUBLISHED, SALES_PAUSED or IN_PROGRESS; or reason NO_ELIGIBLE_TICKET / REDELIVERY_REJECTED_BY_BOOKING, T139)
+        '429': { $ref: '#/components/responses/RedeliveryThrottled' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
   /workshop-sessions/{sessionId}/attendance-finalizations:
     parameters: [ { $ref: '#/components/parameters/SessionId' } ]
     post:
       summary: Finalise the whole session's attendance
       responses:
         '200': { $ref: '#/components/responses/Session' }
+        '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '409': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
   /workshop-sessions/{sessionId}/attendance-corrections:
     parameters: [ { $ref: '#/components/parameters/SessionId' } ]
     post:
@@ -357,8 +517,11 @@ paths:
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AttendanceCorrectionRequest' } } } }
       responses:
         '200': { $ref: '#/components/responses/Ticket' }
+        '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '409': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
   /workshop-sessions/{sessionId}/check-in-reversals:
     parameters: [ { $ref: '#/components/parameters/SessionId' } ]
     post:
@@ -366,8 +529,11 @@ paths:
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CheckInReversalRequest' } } } }
       responses:
         '200': { $ref: '#/components/responses/Ticket' }
+        '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '409': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
   /workshop-sessions/{sessionId}/cancellation-requests:
     parameters: [ { $ref: '#/components/parameters/SessionId' } ]
     post:
@@ -376,8 +542,11 @@ paths:
       responses:
         '200': { $ref: '#/components/responses/Session' }
         '202': { description: Cancellation handoff created }
+        '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '409': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
 components:
   securitySchemes:
     bearerAuth: { type: http, scheme: bearer, bearerFormat: Firebase-ID-token }
@@ -406,6 +575,17 @@ components:
     TicketList: { description: Tickets, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Ticket' } } } } }
     BulkGenerationResult: { description: Generation outcome, content: { application/json: { schema: { $ref: '#/components/schemas/BulkGenerationResult' } } } }
     Problem: { description: Problem response, content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
+    RedeliveryThrottled:
+      description: >-
+        REDELIVERY_THROTTLED: the resend limit of three requests per booking in 15 minutes is
+        reached; nothing was sent (spec FR-003c, decided 2026-11-15, CHK020).
+      headers:
+        Retry-After: { $ref: '#/components/headers/RetryAfter' }
+      content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } }
+  headers:
+    RetryAfter:
+      description: Whole seconds (rounded up, at least 1) until the 15-minute resend window counted from its first request ends.
+      schema: { type: integer, minimum: 1 }
   schemas:
     PackageState:
       type: string
@@ -476,6 +656,11 @@ components:
       type: object
       required: [code, name]
       properties: { code: { type: string }, name: { type: string }, address: { type: string }, active: { type: boolean } }
+    LocationUpdate:
+      type: object
+      minProperties: 1
+      description: Partial update of a workshop location (T135). `code` is immutable and is not accepted.
+      properties: { name: { type: string, minLength: 1 }, address: { type: string }, active: { type: boolean } }
     Location:
       allOf: [ { $ref: '#/components/schemas/LocationWrite' }, { type: object, required: [id], properties: { id: { type: integer, format: int64 } } } ]
     SlotWrite:
@@ -529,6 +714,12 @@ components:
               type: array
               description: Accounts of the Staff currently assigned to the session; empty when none.
               items: { type: integer, format: int64 }
+            missingStaff:
+              type: boolean
+              description: >-
+                True from checkInOpensAt while the session has no active Staff assignment (Clarifications Q3,
+                T115); a flag for Managers, not a block. False before checkInOpensAt and whenever at least
+                one Staff assignment is active.
             rescheduleQuota:
               type: integer
               description: Tickets this session may receive by customer change (FR-035); the Manager-set value or the default.
@@ -630,5 +821,47 @@ components:
         type: { type: string, format: uri }
         title: { type: string }
         status: { type: integer }
-        code: { type: string, example: TICKET_ALREADY_CHECKED_IN }
+        code:
+          type: string
+          description: >-
+            Closed list of the spec "Error catalogue" (decided 2026-11-15, owner decision Hồ Hoàng Quốc,
+            CHK014). 400 VALIDATION_ERROR, IDEMPOTENCY_KEY_REQUIRED; 401 UNAUTHORIZED (missing, malformed,
+            invalid or expired token only); 403 FORBIDDEN (no Mland account, inactive, wrong role
+            including Admin, Staff not assigned), LOCATION_SCOPE_DENIED (Staff caller outside location
+            scope); 404 RESOURCE_NOT_FOUND; 409 INVALID_STATE, CHECK_IN_NOT_OPEN (adds checkInOpensAt),
+            TICKET_CONFLICT, TICKET_QR_REVOKED, INSUFFICIENT_CAPACITY, SLOT_OVERLAP_CONFLICT,
+            DUPLICATE_SESSION, OPTIMISTIC_LOCK_CONFLICT, IDEMPOTENCY_CONFLICT, IDEMPOTENCY_IN_PROGRESS,
+            STAFF_NOT_ELIGIBLE (adds reason), LAST_STAFF_ASSIGNMENT_CONFIRMATION_REQUIRED (removing the last
+            active Staff assignment after checkInOpensAt without confirmLastAssignmentRemoval=true; accepted
+            2026-11-15, owner decision Hồ Hoàng Quốc, T115); 429 REDELIVERY_THROTTLED (Retry-After header); 500
+            INTERNAL_ERROR; 503 DEPENDENCY_UNAVAILABLE (Account facade unavailable, fail closed).
+          enum:
+            - VALIDATION_ERROR
+            - IDEMPOTENCY_KEY_REQUIRED
+            - UNAUTHORIZED
+            - FORBIDDEN
+            - LOCATION_SCOPE_DENIED
+            - RESOURCE_NOT_FOUND
+            - INVALID_STATE
+            - CHECK_IN_NOT_OPEN
+            - TICKET_CONFLICT
+            - TICKET_QR_REVOKED
+            - INSUFFICIENT_CAPACITY
+            - SLOT_OVERLAP_CONFLICT
+            - DUPLICATE_SESSION
+            - OPTIMISTIC_LOCK_CONFLICT
+            - IDEMPOTENCY_CONFLICT
+            - IDEMPOTENCY_IN_PROGRESS
+            - STAFF_NOT_ELIGIBLE
+            - LAST_STAFF_ASSIGNMENT_CONFIRMATION_REQUIRED
+            - REDELIVERY_THROTTLED
+            - INTERNAL_ERROR
+            - DEPENDENCY_UNAVAILABLE
+          example: CHECK_IN_NOT_OPEN
         detail: { type: string }
+        correlationId: { type: string, description: Correlation ID of the request; returned by every Problem body today. }
+        checkInOpensAt: { type: string, format: date-time, description: 'Only with CHECK_IN_NOT_OPEN: when normal check-in opens for the session.' }
+        reason:
+          type: string
+          description: 'Only with STAFF_NOT_ELIGIBLE: why the account cannot be assigned (CHK029).'
+          enum: [ACCOUNT_NOT_FOUND, NOT_STAFF, NOT_ACTIVE, LOCATION_NOT_IN_SCOPE]
