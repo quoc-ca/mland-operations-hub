@@ -252,9 +252,10 @@ self-service (FR-018 and Scope); whole-booking Mland remedy (FR-020, FR-021).
   the payer of the refunded money (the group payer for the shared booking-time
   payment even when the ticket was sent to someone else; the counter payer for
   a counter collection); another recipient needs the payer's recorded
-  confirmation. Requests and confirmations are deduplicated. A legacy VNPay
-  refund with code `99` MUST be reconciled before any manual refund of the same
-  money. Business consequences (folio `CLOSED`, booking refund status) apply only
+  confirmation. Requests and confirmations are deduplicated. *(Decided 2026-11-15
+  by Hồ Hoàng Quốc: VNPay Refund and refund-QueryDR are no longer used and their code is removed, so the
+  former rule that a legacy VNPay refund with code `99` is reconciled before a manual refund no longer
+  applies; no such refund exists in any local database.)* Business consequences (folio `CLOSED`, booking refund status) apply only
   after `REFUNDED`. *(V1, owner decision 2026-11-13: the codebase has roles,
   not named permissions, so a Manager is the holder of `workshop.refund.execute`
   and every refund transition is Manager-only; per-person grants wait for
