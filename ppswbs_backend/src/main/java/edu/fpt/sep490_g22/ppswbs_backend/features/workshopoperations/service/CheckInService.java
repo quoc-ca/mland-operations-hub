@@ -58,7 +58,8 @@ public class CheckInService {
         Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
         if (session.getCheckInOpensAt() != null && now.isBefore(session.getCheckInOpensAt())) {
             log.warn("Check-in rejected: session {} check-in opens at {}", sessionReference, session.getCheckInOpensAt());
-            throw new WorkshopLifecycleException("Check-in has not opened yet for session " + sessionReference + " (opens at " + session.getCheckInOpensAt() + ")");
+            throw new WorkshopCheckInNotOpenException("Check-in has not opened yet for session " + sessionReference
+                    + " (check-in opens at " + session.getCheckInOpensAt() + ")", session.getCheckInOpensAt());
         }
 
         AttendanceTicket ticket = resolveTicket(request);
