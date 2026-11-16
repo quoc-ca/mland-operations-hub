@@ -19,7 +19,7 @@ export function isValidUuid(val) {
 export function getApiBaseUrl() {
   const envUrl = (typeof import.meta !== 'undefined' && import.meta?.env?.VITE_API_BASE_URL)
     || (typeof process !== 'undefined' && process?.env?.VITE_API_BASE_URL);
-  if (envUrl !== undefined && envUrl !== '') return envUrl.replace(/\/$/, '');
+  if (typeof envUrl === 'string' && envUrl !== '') return envUrl.replace(/\/$/, '');
   return (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8080');
 }
 
