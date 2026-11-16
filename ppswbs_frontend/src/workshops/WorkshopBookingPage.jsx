@@ -67,9 +67,13 @@ export function WorkshopBookingPage({ packageId }) {
   const [benefitSelection, setBenefitSelection] = useState({ choice: 'NONE', voucherCode: '', requestedPoints: '0' });
 
   // The choice made on the package detail page; this screen never edits it.
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const selection = useRef(parseSelection(searchParams)).current;
-  const { locationId, from: selectedFrom, to: selectedTo, sessionReferences: selectedSessionRefs } = selection;
+  const { locationId, from: selectedFrom, to: selectedTo } = selection;
+  // The sessions can be swapped on this screen ("Đổi ca"); the URL follows so a refresh keeps the swap.
+  const [selectedSessionRefs, setSelectedSessionRefs] = useState(selection.sessionReferences);
+  const [changingSessions, setChangingSessions] = useState(false);
+  const skipRequote = useRef(true);
   const participantCount = selection.participantCount;
   const today = new Date();
   const nextTwoWeeks = new Date();
@@ -335,6 +339,25 @@ export function WorkshopBookingPage({ packageId }) {
     }
   };
 
+  const swapSession = (index, reference) => {
+    if (!reference || reference === selectedSessionRefs[index]) { setChangingSessions(false); return; }
+    const next = selectedSessionRefs.map((current, position) => (position === index ? reference : current));
+    setSelectedSessionRefs(next);
+    setChangingSessions(false);
+    invalidateQuote();
+    setValidationErrors({});
+    const params = new URLSearchParams(searchParams);
+    params.delete('session');
+    next.forEach(item => params.append('session', item));
+    setSearchParams(params, { replace: true });
+  };
+
+  // A swapped session changes the amounts, so the quote is asked again at once (the first quote is the automatic pick).
+  useEffect(() => {
+    if (skipRequote.current) { skipRequote.current = false; return; }
+    if (autoQuoted.current) bookNow();
+  }, [selectedSessionRefs]);
+
   const vouchersReady = bookingMode !== 'MEMBER' || (vouchersLoaded.saved && vouchersLoaded.offers);
   useEffect(() => {
     if (autoQuoted.current || !pkg || !identityKnown || loadingSessions || !vouchersReady) return;
@@ -412,10 +435,6 @@ export function WorkshopBookingPage({ packageId }) {
           {group.groupStatus === 'CONFIRMED' ? 'Nhóm đặt chỗ đã được xác nhận' : 'Đã giữ chỗ cho nhóm đặt chỗ'}
         </h1>
         <GroupDetailCard group={group} authorization={null} proof={contact} allowRecipientChange={false} />
-        <div className="actions" style={{ marginTop: '20px' }}>
-          <a className="button outline" href="/workshop-booking/lookup">Xem đặt chỗ của tôi</a>
-          <a className="button outline" href="/">Về trang chủ</a>
-        </div>
       </main>
     );
   }
@@ -468,7 +487,11 @@ export function WorkshopBookingPage({ packageId }) {
                 {locations.find(item => Number(item.id) === Number(locationId))?.name || ''}
               </p>
             </div>
-            <a className="text-link" href={changeChoiceHref}>Đổi ca</a>
+            {selectedSessionRefs.length > 0 && sessions.length > 0 && (
+              <button type="button" className="text-link" onClick={() => setChangingSessions(value => !value)}>
+                {changingSessions ? 'Hủy' : 'Đổi ca'}
+              </button>
+            )}
           </div>
 
           {loadingSessions && <p className="muted">Đang tải lịch ca workshop...</p>}
@@ -485,7 +508,29 @@ export function WorkshopBookingPage({ packageId }) {
                 const session = sessionsOfChoice[index];
                 return (
                   <li key={reference} style={{ padding: '12px 16px', border: '1px solid #dcdfe6', background: '#fafafa' }}>
-                    <strong>{session ? formatSessionWindow(session.scheduledStart, session.scheduledEnd) : reference}</strong>
+                    {changingSessions ? (
+                      <select
+                        aria-label={`Chọn ca thay thế cho buổi ${index + 1}`}
+                        value={reference}
+                        onChange={event => swapSession(index, event.target.value)}
+                        style={{ width: '100%' }}
+                      >
+                        {sessions
+                          .filter(item => item.sessionReference === reference
+                            || (item.customerSelectable && Number(item.remainingCapacity) >= 1
+                              && !selectedSessionRefs.includes(item.sessionReference)))
+                          .map(item => {
+                            const fits = item.sessionReference === reference || Number(item.remainingCapacity) >= Number(participantCount);
+                            return (
+                              <option key={item.sessionReference} value={item.sessionReference} disabled={!fits}>
+                                {formatSessionWindow(item.scheduledStart, item.scheduledEnd)} – còn {item.remainingCapacity} chỗ{fits ? '' : ' (không đủ cho số vé)'}
+                              </option>
+                            );
+                          })}
+                      </select>
+                    ) : (
+                      <strong>{session ? formatSessionWindow(session.scheduledStart, session.scheduledEnd) : reference}</strong>
+                    )}
                   </li>
                 );
               })}
@@ -557,7 +602,6 @@ export function WorkshopBookingPage({ packageId }) {
           contact={contact}
           onContactChange={setContact}
           onConfirm={confirmQuote}
-          onCancel={invalidateQuote}
           confirming={confirming}
           confirmError={confirmError}
           validationErrors={validationErrors}

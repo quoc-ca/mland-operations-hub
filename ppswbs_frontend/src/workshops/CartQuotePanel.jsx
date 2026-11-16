@@ -9,7 +9,7 @@ import {
   vnd,
 } from './groupDisplay';
 import { EMPTY_CONTACT } from './contactValidation';
-import { PhoneInput } from './PhoneInput';
+import { FIELD_STYLE, PhoneInput } from './PhoneInput';
 
 /**
  * The quote of a cart, shown before confirmation (003.1 FR-030, FR-033–FR-037). Every amount is a server fact from
@@ -123,7 +123,7 @@ export function CartQuotePanel({
         </p>
       )}
 
-      <div className="form-grid" style={{ marginTop: '16px' }}>
+      <div className="form-grid" style={{ marginTop: '16px', alignItems: 'start' }}>
         <label>
           Email nhận vé &amp; xác nhận *
           <input
@@ -132,11 +132,12 @@ export function CartQuotePanel({
             onChange={event => onContactChange({ ...contactValue, contactEmail: event.target.value })}
             disabled={confirming}
             required
+            style={{ ...FIELD_STYLE, width: '100%' }}
           />
           {validationErrors.contactEmail && <small style={{ color: '#b00' }}>{validationErrors.contactEmail}</small>}
         </label>
         {/* A div, not a label: a label around the country select would name it "Số điện thoại liên hệ" too. */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '7px', fontSize: '14px', fontWeight: 700 }}>
           <label htmlFor="booking-contact-phone">Số điện thoại liên hệ *</label>
           <PhoneInput
             id="booking-contact-phone"

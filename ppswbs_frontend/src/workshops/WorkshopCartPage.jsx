@@ -547,7 +547,6 @@ export function WorkshopCartPage() {
         contact={contact}
         onContactChange={setContact}
         onConfirm={confirm}
-        onCancel={invalidateQuote}
         confirming={confirming}
         confirmError={confirmError}
         validationErrors={validationErrors}
