@@ -328,6 +328,23 @@
 .price-bulk{margin:0 0 12px}
 .price-bulk .field{margin:0}
 .data-row.batch{grid-template-columns:36px .7fr 1fr 1fr 1.4fr 1fr;min-width:680px}
+/* FR-060: submitter, branches at submit time, decider — one label/value line each */
+.submitter-info{display:grid;grid-template-columns:max-content 1fr;gap:3px 14px;margin:0;font-size:12px;line-height:1.5}
+.submitter-info>div{display:contents}
+.submitter-info dt{color:var(--pm-muted,#666);font-weight:400}
+.submitter-info dd{margin:0;color:var(--pm-ink,#1e1e1e)}
+.submitter-info .who{font-weight:600}
+.submitter-info .when{color:var(--pm-muted,#666)}
+.workspace-card>.submitter-info{margin:-8px 0 14px}
+.history li .submitter-info{margin:4px 0 10px 14px}
+.data-row.people{display:block;border-top:0}
+.pm-theme .data-row.people{min-height:0;padding:0 12px 12px}
+.pm-theme .data-row:has(+ .data-row.people){border-bottom:0}
+/* An open amount form takes its own line so the next buttons do not sit beside its label. */
+.price-actions>.amount-form{flex:0 0 100%}
+.price-actions>.amount-form>*{max-width:420px}
+.submitter-info.inline .submitter-line{display:inline}
+.submitter-info.inline .submitter-line+.submitter-line::before{content:" · "}
 .data-row.decision.changed,.data-row.batch.changed{background:#fffbe0}
 .price-gap{font-weight:700;font-size:12px}
 .price-gap.up{color:#16a34a}
@@ -829,3 +846,10 @@
     height: 300px;
   }
 }
+.workspace-card .card-head.category-head{flex-direction:row;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px}
+.workspace-card .category-head h2{margin:0}
+.category-tools{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0}
+.category-tools input{width:260px;min-height:40px;padding:0 16px;border:1px solid var(--pm-input);border-radius:8px;font-size:12px}
+.category-tools select{width:180px}
+.category-tools .button{min-height:40px}
+@media(max-width:600px){.workspace-card .card-head.category-head{flex-direction:column;align-items:stretch}.category-tools,.category-tools input,.category-tools select{width:100%}}

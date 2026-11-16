@@ -61,9 +61,37 @@ public class ProductCategoryService {
 
     @Transactional(readOnly = true)
     public CategoryDtos.CategoryPage list(Integer page) {
+        return list(page, null);
+    }
+
+    /** {@code active}: only categories in this state, filtered before paging (FR-062); null = every category. */
+    @Transactional(readOnly = true)
+    public CategoryDtos.CategoryPage list(Integer page, Boolean active) {
+        return list(page, active, null);
+    }
+
+    /**
+     * {@code q}: only categories whose name contains it, ignoring case (FR-062); blank = no name filter. Both filters
+     * apply before paging.
+     */
+    @Transactional(readOnly = true)
+    public CategoryDtos.CategoryPage list(Integer page, Boolean active, String q) {
         int pageNumber = requirePage(page);
-        Page<ProductCategory> found = categories.findAllByOrderByNameAscIdAsc(
-                PageRequest.of(pageNumber, ManagementProductDtos.PAGE_SIZE));
+        String name = q == null || q.isBlank() ? null : q.strip();
+        if (name != null && name.length() > NAME_QUERY_MAX) {
+            throw CatalogueException.invalidField("q", "Search text must be at most " + NAME_QUERY_MAX + " characters.");
+        }
+        PageRequest pageable = PageRequest.of(pageNumber, ManagementProductDtos.PAGE_SIZE);
+        Page<ProductCategory> found;
+        if (name == null) {
+            found = active == null
+                    ? categories.findAllByOrderByNameAscIdAsc(pageable)
+                    : categories.findAllByActiveOrderByNameAscIdAsc(active, pageable);
+        } else {
+            found = active == null
+                    ? categories.findAllByNameContainingIgnoreCaseOrderByNameAscIdAsc(name, pageable)
+                    : categories.findAllByActiveAndNameContainingIgnoreCaseOrderByNameAscIdAsc(active, name, pageable);
+        }
         return new CategoryDtos.CategoryPage(found.getContent().stream().map(ProductCategoryService::view).toList(),
                 pageNumber, ManagementProductDtos.PAGE_SIZE, Long.toString(found.getTotalElements()));
     }
@@ -171,6 +199,9 @@ public class ProductCategoryService {
             throw new CatalogueException(CatalogueErrorCode.DUPLICATE_CATEGORY_NAME);
         }
     }
+
+    /** Longest name search accepted: the category name column length (FR-062). */
+    private static final int NAME_QUERY_MAX = 200;
 
     private static int requirePage(Integer page) {
         int pageNumber = page == null ? 0 : page;

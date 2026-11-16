@@ -9,6 +9,7 @@ import { newCommandId } from '../../../../../shared/api/http';
 import { ApplyNowToggle, BatchPrices } from './BatchPrices';
 import { NoticeAt } from '../notices';
 import { useRole } from '../../../../../shared/auth/useRole';
+import { SubmitterInfo } from './SubmitterInfo';
 
 /**
  * T057 price proposals per size: proposed, approved and applied amounts are shown apart with the revision
@@ -53,7 +54,8 @@ function VariantPrices({ product, variant, api, reload, setNotice, deleted, isMa
             <span role="columnheader">{t('price.applied')}</span><span role="columnheader">{t('price.reason')}</span>
           </div>
           {history.map(proposal => (
-            <div className={`data-row prices${proposal === current ? ' current' : ''}`} role="row" key={`${proposal.id}-${proposal.revision}`}>
+            <React.Fragment key={`${proposal.id}-${proposal.revision}`}>
+            <div className={`data-row prices${proposal === current ? ' current' : ''}`} role="row">
               <span role="cell">{proposal.revision}{proposal === current && ` (${t('price.current')})`}</span>
               <span role="cell">{t(`state.${proposal.state}`)}</span>
               <span role="cell">{format.money(proposal.proposedPrice)}</span>
@@ -61,6 +63,12 @@ function VariantPrices({ product, variant, api, reload, setNotice, deleted, isMa
               <span role="cell">{proposal.applied ? t('yes') : t('no')}</span>
               <span role="cell" className="pre-line">{proposal.reason || '—'}</span>
             </div>
+            {(proposal.submittedBy || proposal.decidedBy) && (
+              <div className={`data-row people${proposal === current ? ' current' : ''}`} role="row">
+                <span role="cell" aria-label={t('people.column')}><SubmitterInfo item={proposal} /></span>
+              </div>
+            )}
+            </React.Fragment>
           ))}
         </div>
       ) : <p className="muted">{t('price.none')}</p>}
