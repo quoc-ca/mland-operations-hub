@@ -26,7 +26,12 @@ public interface GroupPaymentAttemptRepository extends JpaRepository<GroupPaymen
             @org.springframework.data.repository.query.Param("groupStatus")
             edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.BookingStatus groupStatus);
 
-    /** Payments of one location inside one half-open instant range, for the booking-time payment list (T150). */
+    /**
+     * Payments of one location inside one half-open instant range, for the booking-time payment list (T150).
+     * Guard (FR-054, Q5, T164): the location is matched on the booking-time copy
+     * {@code BookingGroupLineSession.locationReference} only (where the money was collected); never join Operations'
+     * current sessions here, so a later ticket move does not move a paid row to another branch.
+     */
     @org.springframework.data.jpa.repository.Query("""
             select a from GroupPaymentAttempt a join fetch a.group g
             where a.attemptStatus in :statuses

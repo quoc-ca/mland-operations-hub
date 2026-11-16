@@ -9,6 +9,10 @@ import './figmaPublicShell.css';
 import PackageReviewSummary from '../features/reviewmanagement/ui/PackageReviewSummary';
 import { offersForPackage, usePublicWorkshopPrograms, WorkshopOfferList, WorkshopOfferPrice } from '../features/loyalty-promotion/publicOffers';
 
+// 003.1 FR-056 (003.2 FR-039): short messages, shown without the technical error (proposed copy, Q7).
+const BRANCH_UNAVAILABLE_MESSAGE = 'Gói này hiện không còn bán tại chi nhánh bạn đã chọn. Vui lòng chọn chi nhánh khác.';
+const SOLD_NOWHERE_MESSAGE = 'Gói này hiện chưa được bán tại chi nhánh nào. Vui lòng quay lại sau.';
+
 /** Sessions shown per page: two rows of three on a wide screen, so the page stays short. */
 const SESSIONS_PER_PAGE = 6;
 
@@ -41,6 +45,12 @@ export function WorkshopDetailPage({ packageId }) {
   const [locations, setLocations] = useState([]);
   const [loadingLocations, setLoadingLocations] = useState(false);
   const [locationsError, setLocationsError] = useState(null);
+  // FR-056: a branch the server no longer sells this Package at is dropped with a short message (never a 409 screen).
+  const [branchNotice, setBranchNotice] = useState(null);
+  const [locationsLoaded, setLocationsLoaded] = useState(false);
+  const [locationsReload, setLocationsReload] = useState(0);
+  // After a conflict the customer returns to the branch choice: the first branch must not be picked for them.
+  const skipAutoSelect = useRef(false);
   const [from, setFrom] = useState(initial.from || formatDate(today));
   const [to, setTo] = useState(initial.to || formatDate(nextTwoWeeks));
 
@@ -93,17 +103,29 @@ export function WorkshopDetailPage({ packageId }) {
         if (!active) return;
         const next = Array.isArray(data) ? data : [];
         setLocations(next);
-        setLocationId(current => next.some(item => Number(item.id) === Number(current)) ? current : (next[0]?.id ?? null));
+        setLocationsLoaded(true);
+        setLocationId(current => {
+          if (current && next.some(item => Number(item.id) === Number(current))) return current;
+          // A branch from the URL (or an earlier pick) that is no longer in the list is dropped, not replaced silently.
+          if (current) {
+            setBranchNotice(BRANCH_UNAVAILABLE_MESSAGE);
+            setSelectedRefs([]);
+            return null;
+          }
+          if (skipAutoSelect.current) return null;
+          return next[0]?.id ?? null;
+        });
       })
       .catch(err => {
         if (!active) return;
         setLocations([]);
+        setLocationsLoaded(false);
         setLocationId(null);
         setLocationsError(err?.detail || err?.message || 'Không thể tải danh sách chi nhánh.');
       })
       .finally(() => { if (active) setLoadingLocations(false); });
     return () => { active = false; };
-  }, [packageId, pkg, from, to]);
+  }, [packageId, pkg, from, to, locationsReload]);
 
   // Load sessions when packageId, locationId, from, to change
   const fetchSessions = () => {
@@ -115,6 +137,16 @@ export function WorkshopDetailPage({ packageId }) {
         setSessions(Array.isArray(data) ? data : []);
       })
       .catch(err => {
+        if (err?.code === 'PACKAGE_NOT_AVAILABLE_AT_LOCATION') {
+          // Stale page or typed URL (FR-056): drop the branch and its sessions, reload the branch list, no retry.
+          skipAutoSelect.current = true;
+          setSessions([]);
+          setSelectedRefs([]);
+          setLocationId(null);
+          setBranchNotice(BRANCH_UNAVAILABLE_MESSAGE);
+          setLocationsReload(count => count + 1);
+          return;
+        }
         setSessionsError(err?.detail || err?.message || 'Không thể tải danh sách ca workshop. Vui lòng thử lại.');
       })
       .finally(() => {
@@ -123,12 +155,13 @@ export function WorkshopDetailPage({ packageId }) {
   };
 
   useEffect(() => {
-    if (pkg && locationId) {
+    // The sessions of a branch are read only after the branch list confirmed the branch (FR-056).
+    if (pkg && locationId && locationsLoaded) {
       fetchSessions();
     } else {
       setSessions([]);
     }
-  }, [pkg, locationId, from, to]);
+  }, [pkg, locationId, from, to, locationsLoaded]);
 
   const scrolledToFocus = useRef(false);
   useEffect(() => {
@@ -204,7 +237,9 @@ export function WorkshopDetailPage({ packageId }) {
     setParticipantCount(Math.min(Math.max(minParticipants, next), effectiveMax));
   };
 
-  const resetSelection = () => { setSelectedRefs([]); setSelectionError(null); setCartMessage(null); };
+  const resetSelection = () => { setSelectedRefs([]); setSelectionError(null); setCartMessage(null); setBranchNotice(null); };
+  // An empty branch list means the Package is sold nowhere: no booking control is offered (FR-056).
+  const soldNowhere = locationsLoaded && !loadingLocations && !locationsError && locations.length === 0;
 
   const buyNow = () => {
     if (problem) { setSelectionError(problem); return; }
@@ -222,7 +257,6 @@ export function WorkshopDetailPage({ packageId }) {
       packageName: pkg.name || '',
       pricePerParticipantVnd: Number(pkg.publicPrice || 0),
       locationId,
-      locationName: locations.find(item => Number(item.id) === Number(locationId))?.name || '',
       sessionLabels: chosenRefs.map(ref => {
         const found = sessions.find(item => item.sessionReference === ref);
         return found ? formatSessionWindow(found.scheduledStart, found.scheduledEnd) : ref;
@@ -316,7 +350,10 @@ export function WorkshopDetailPage({ packageId }) {
               </label>
             </div>
             {locationsError && <p className="status" style={{ color: '#b00', borderColor: '#b00' }}>{locationsError}</p>}
+            {branchNotice && <p role="status" className="status">{branchNotice}</p>}
+            {soldNowhere && <p role="status" className="status">{SOLD_NOWHERE_MESSAGE}</p>}
 
+            {!soldNowhere && (<>
             <h3 id="session-choice-label" style={{ margin: '0 0 4px', fontSize: '16px', scrollMarginTop: '96px' }}>
               Chọn {requiredSessions} ca workshop <small className="muted">(đã chọn {chosenRefs.length}/{requiredSessions})</small>
             </h3>
@@ -356,6 +393,7 @@ export function WorkshopDetailPage({ packageId }) {
                           opacity: selectable ? 1 : 0.5,
                         }}
                       >
+                        {s.locationName && <small style={{ display: 'block', fontSize: '12px', color: '#002967' }}>{s.locationName}</small>}
                         <strong style={{ display: 'block', fontSize: '14px' }}>{formatSessionWindow(s.scheduledStart, s.scheduledEnd)}</strong>
                         <span style={{ fontSize: '12px', color: '#595959' }}>{open ? `Còn ${s.remainingCapacity} chỗ` : 'Hết chỗ'}</span>
                       </button>
@@ -424,6 +462,7 @@ export function WorkshopDetailPage({ packageId }) {
                 {cartMessage} <Link className="text-link" to="/workshop-booking/cart">Mở giỏ workshop ({cartCount})</Link>
               </p>
             )}
+            </>)}
           </section>
         </div>
       </div>

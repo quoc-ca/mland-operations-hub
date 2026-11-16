@@ -26,6 +26,8 @@ export function CartQuotePanel({
   confirmError,
   validationErrors = {},
   failingLines = [],
+  failingCode = null,
+  packageHrefOf = null,
   title = 'Báo giá đặt chỗ',
 }) {
   if (!quote) return null;
@@ -37,7 +39,20 @@ export function CartQuotePanel({
     <section className="workspace-card cart-quote" aria-label={title} style={{ marginTop: '20px', borderTop: '4px solid #002967' }}>
       <h2 style={{ marginTop: 0 }}>{title}</h2>
 
-      {failingLines.length > 0 && (
+      {failingLines.length > 0 && failingCode === 'PACKAGE_NOT_AVAILABLE_AT_LOCATION' && (
+        <div role="alert" style={{ color: '#b00' }}>
+          <p style={{ margin: 0 }}>
+            {failingLines.map(index => `Dòng ${Number(index) + 1}`).join(', ')}: gói không còn bán tại chi nhánh đã chọn.
+            Hệ thống không giữ chỗ nào; giỏ và thông tin bạn đã nhập vẫn được giữ.
+          </p>
+          {packageHrefOf && failingLines.map(index => (
+            <p key={index} style={{ margin: '4px 0 0' }}>
+              <a className="text-link" href={packageHrefOf(index)}>Chọn chi nhánh khác cho dòng {Number(index) + 1}</a>
+            </p>
+          ))}
+        </div>
+      )}
+      {failingLines.length > 0 && failingCode !== 'PACKAGE_NOT_AVAILABLE_AT_LOCATION' && (
         <p role="alert" style={{ color: '#b00' }}>
           Các dòng sau không còn đủ chỗ: {failingLines.map(index => `dòng ${Number(index) + 1}`).join(', ')}.
           Hệ thống không giữ chỗ nào; bạn có thể sửa lại giỏ rồi báo giá lại.

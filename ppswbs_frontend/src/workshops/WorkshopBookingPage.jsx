@@ -33,6 +33,8 @@ const BOOKING_ERROR_MESSAGE = {
   CART_HOLD_REJECTED: 'Giỏ chưa được giữ chỗ vì có dòng không còn đủ chỗ. Vui lòng sửa lại rồi thử lại.',
   PACKAGE_SELECTION_INVALID: 'Lựa chọn ca không hợp lệ theo quy định của gói (số ca, địa điểm hoặc khoảng cách thời gian).',
   PACKAGE_NOT_PUBLISHED: 'Gói workshop này hiện chưa được mở bán hoặc đã tạm dừng.',
+  // 003.1 FR-055 (003.2 FR-039): nothing was held; the typed fields are kept (proposed copy, Q7).
+  PACKAGE_NOT_AVAILABLE_AT_LOCATION: 'Gói này hiện không còn bán tại chi nhánh bạn đã chọn. Hệ thống không giữ chỗ nào; thông tin bạn đã nhập vẫn được giữ. Vui lòng chọn chi nhánh khác ở trang gói.',
   QUOTE_EXPIRED: 'Báo giá đã hết hạn. Vui lòng báo giá lại.',
   DEPENDENCY_UNAVAILABLE: 'Hệ thống tạm thời chưa xử lý được yêu cầu. Giỏ và thông tin bạn đã nhập vẫn được giữ; vui lòng thử lại sau.',
   CART_BENEFITS_NEED_A_MEMBER: 'Voucher và điểm chỉ áp dụng cho tài khoản Member đang đăng nhập.',
@@ -81,6 +83,9 @@ export function WorkshopBookingPage({ packageId }) {
   const from = selectedFrom || formatDate(today);
   const to = selectedTo || formatDate(nextTwoWeeks);
   const [locations, setLocations] = useState([]);
+  // FR-056: the branch list the server answered (only branches where the Package is sold); the URL branch is checked against it.
+  const [locationsReady, setLocationsReady] = useState(false);
+  const [branchConflict, setBranchConflict] = useState(false);
 
   const [sessions, setSessions] = useState([]);
   // False until the sessions of the choice were read (or there is nothing to read): the quote waits for it.
@@ -97,6 +102,7 @@ export function WorkshopBookingPage({ packageId }) {
   const [confirming, setConfirming] = useState(false);
   const [confirmError, setConfirmError] = useState(null);
   const [failingLines, setFailingLines] = useState([]);
+  const [failingCode, setFailingCode] = useState(null);
   const [group, setGroup] = useState(null);
   const [validationErrors, setValidationErrors] = useState({});
   const [cartCount, setCartCount] = useState(() => cartLineCount());
@@ -201,8 +207,8 @@ export function WorkshopBookingPage({ packageId }) {
     if (!packageId || !pkg) return undefined;
     let active = true;
     listWorkshopLocations(packageId, { from, to })
-      .then(data => { if (active) setLocations(Array.isArray(data) ? data : []); })
-      .catch(() => { if (active) setLocations([]); });
+      .then(data => { if (active) { setLocations(Array.isArray(data) ? data : []); setLocationsReady(true); } })
+      .catch(() => { if (active) { setLocations([]); setLocationsReady(false); } });
     return () => { active = false; };
   }, [packageId, pkg, from, to]);
 
@@ -213,7 +219,12 @@ export function WorkshopBookingPage({ packageId }) {
     setSessionsError(null);
     listWorkshopSessions(packageId, { locationId, from, to })
       .then(data => { if (active) setSessions(Array.isArray(data) ? data : []); })
-      .catch(error => { if (active) setSessionsError(error?.detail || error?.message || 'Không thể tải lịch ca workshop. Vui lòng thử lại.'); })
+      .catch(error => {
+        if (!active) return;
+        // FR-056: a stale or typed URL for a branch that no longer sells this Package; no technical error, no retry.
+        if (error?.code === 'PACKAGE_NOT_AVAILABLE_AT_LOCATION') { setSessions([]); setBranchConflict(true); return; }
+        setSessionsError(error?.detail || error?.message || 'Không thể tải lịch ca workshop. Vui lòng thử lại.');
+      })
       .finally(() => { if (active) setSessionsReady(true); });
     return () => { active = false; };
   }, [pkg, packageId, locationId, from, to]);
@@ -391,7 +402,7 @@ export function WorkshopBookingPage({ packageId }) {
       clearCart();
     } catch (error) {
       const lines = failingLinesOf(error);
-      if (lines.length > 0) setFailingLines(lines);
+      if (lines.length > 0) { setFailingLines(lines); setFailingCode(error?.code || null); }
       confirmKey.current = null;
       setConfirmError(describeBookingError(error));
     } finally {
@@ -422,6 +433,29 @@ export function WorkshopBookingPage({ packageId }) {
           <div style={{ marginTop: '20px' }}>
             <a href="/workshops" className="button outline">← Quay lại danh sách workshop</a>
           </div>
+        </div>
+      </main>
+    );
+  }
+
+  // FR-056: no booking control when the Package is sold nowhere, or the branch of the URL is not sold any more.
+  const soldNowhere = locationsReady && locations.length === 0;
+  const branchNotSold = branchConflict
+    || (locationsReady && locations.length > 0 && locationId && !locations.some(item => Number(item.id) === Number(locationId)));
+  if (!group && (soldNowhere || branchNotSold)) {
+    return (
+      <main className="public-page figma-public-page">
+        <p className="eyebrow">THANH TOÁN WORKSHOP</p>
+        <h1>{pkg.name}</h1>
+        <div className="empty-state">
+          <p role="status">
+            {soldNowhere
+              ? 'Gói này hiện chưa được bán tại chi nhánh nào. Vui lòng quay lại sau.'
+              : 'Gói này hiện không còn bán tại chi nhánh bạn đã chọn. Vui lòng chọn chi nhánh khác.'}
+          </p>
+          {!soldNowhere && (
+            <p style={{ marginTop: '12px' }}><a className="button primary" href={`/workshops/${pkg.packageId ?? packageId}`}>Chọn chi nhánh khác</a></p>
+          )}
         </div>
       </main>
     );
@@ -529,7 +563,10 @@ export function WorkshopBookingPage({ packageId }) {
                           })}
                       </select>
                     ) : (
-                      <strong>{session ? formatSessionWindow(session.scheduledStart, session.scheduledEnd) : reference}</strong>
+                      <>
+                        {session?.locationName && <small style={{ display: 'block', color: '#002967' }}>{session.locationName}</small>}
+                        <strong>{session ? formatSessionWindow(session.scheduledStart, session.scheduledEnd) : reference}</strong>
+                      </>
                     )}
                   </li>
                 );
@@ -606,6 +643,8 @@ export function WorkshopBookingPage({ packageId }) {
           confirmError={confirmError}
           validationErrors={validationErrors}
           failingLines={failingLines}
+          failingCode={failingCode}
+          packageHrefOf={() => `/workshops/${pkg.packageId ?? packageId}`}
           title="Báo giá đặt ngay"
         />
       </fieldset>

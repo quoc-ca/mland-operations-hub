@@ -16,14 +16,14 @@ import java.util.function.Supplier;
  * passes through unchanged. Nothing is held: the callers run inside the transaction that this exception rolls back.
  */
 @Slf4j
-final class DependencyGuard {
+public final class DependencyGuard {
 
     static final String CODE = "DEPENDENCY_UNAVAILABLE";
 
     private DependencyGuard() {
     }
 
-    static <T> T call(String dependency, Supplier<T> action) {
+    public static <T> T call(String dependency, Supplier<T> action) {
         try {
             return action.get();
         } catch (LoyaltyException ex) {

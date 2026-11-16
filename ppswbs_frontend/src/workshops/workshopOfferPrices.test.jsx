@@ -110,7 +110,8 @@ describe('003.1 FR-052 discounted price on the public package surfaces', () => {
   it('booking screen: the package summary shows the discounted unit price and no quote is computed on screen', async () => {
     const calls = renderPage(<WorkshopBookingPage packageId="7" />, {
       'GET /api/v1/workshop-packages/7': json(200, PACKAGE),
-      'GET /api/v1/workshop-packages/7/locations': json(200, []),
+      // FR-056: an empty branch list means "sold nowhere" and hides the booking controls, so one branch is sold here.
+      'GET /api/v1/workshop-packages/7/locations': json(200, [{ id: 1, name: 'Thủ Đức' }]),
       ...promotions([auto()]),
     });
     const summary = (await screen.findByText(/Đơn giá:/)).closest('p');

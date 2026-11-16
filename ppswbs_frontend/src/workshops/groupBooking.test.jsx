@@ -313,3 +313,113 @@ describe('003.1 FR-032 the hold the customer sees', () => {
     }
   });
 });
+
+const SESSION_TWO = 'a81d4fae-7dec-11d0-a765-00a0c91e6bf7';
+const namedSessions = [
+  { ...SESSIONS[0], locationId: 2, locationName: 'MLAND Hoàn Kiếm' },
+  { ...SESSIONS[0], sessionReference: SESSION_TWO, locationId: 3, locationName: 'MLAND Tây Hồ' },
+];
+
+describe('003.1 FR-057 the branch name on every session row (T161)', () => {
+  beforeEach(() => { clearCart(); });
+
+  it('the Package page tells two sessions of the same slot at two branches apart', async () => {
+    mockFetch({
+      ...discoveryHandlers(),
+      'GET /api/v1/workshop-packages/5/sessions': json(200, namedSessions),
+    });
+    renderRoutes(workshopRoutes, { path: '/workshops/5', session: fakeSession('signed-out') });
+
+    expect(await screen.findByText('MLAND Hoàn Kiếm', { selector: 'small' })).toBeInTheDocument();
+    expect(screen.getByText('MLAND Tây Hồ', { selector: 'small' })).toBeInTheDocument();
+  });
+
+  it('the "Đặt ngay" review shows the branch name of the chosen session', async () => {
+    mockFetch({
+      ...discoveryHandlers(),
+      'GET /api/v1/workshop-packages/5/sessions': json(200, namedSessions),
+    });
+    renderRoutes(workshopRoutes, {
+      path: `/workshops/5/book?locationId=2&session=${SESSION_ONE}&participants=1`,
+      session: fakeSession('signed-out'),
+    });
+
+    expect(await screen.findByText('MLAND Hoàn Kiếm', { selector: 'small' })).toBeInTheDocument();
+  });
+
+  it('the cart stores only the branch id and re-reads the name from the branch list', async () => {
+    const user = userEvent.setup();
+    mockFetch(discoveryHandlers());
+    renderRoutes(workshopRoutes, { path: '/workshops/5', session: fakeSession('signed-out') });
+    await pickSessionAndTwoTickets(user);
+    await user.click(screen.getByRole('button', { name: 'Thêm vào giỏ' }));
+
+    const stored = readCart()[0];
+    expect(stored.locationId).toBe(2);
+    expect(stored).not.toHaveProperty('locationName');
+    await user.click(await screen.findByRole('link', { name: /Mở giỏ workshop/i }));
+    expect(await screen.findByText(/Dòng 1 · MLAND Quận 1/)).toBeInTheDocument();
+  });
+});
+
+describe('003.1 FR-055 a branch that stopped selling the Package refuses the whole cart (T162)', () => {
+  beforeEach(() => { clearCart(); });
+
+  const REFUSED = json(409, {
+    code: 'PACKAGE_NOT_AVAILABLE_AT_LOCATION',
+    detail: 'No seat was held',
+    correlationId: 'corr-loc',
+    failingLines: [0],
+  });
+
+  it('cart: names the failing line, says no seat was held, keeps the cart and the fields, one call, no group', async () => {
+    const user = userEvent.setup();
+    const calls = mockFetch({
+      ...discoveryHandlers(),
+      'POST /api/v1/workshop-cart-quotes': json(201, QUOTE),
+      'POST /api/v1/workshop-booking-groups': REFUSED,
+    });
+    renderRoutes(workshopRoutes, { path: '/workshops/5', session: fakeSession('signed-out') });
+    await pickSessionAndTwoTickets(user);
+    await user.click(screen.getByRole('button', { name: 'Thêm vào giỏ' }));
+    await user.click(await screen.findByRole('link', { name: /Mở giỏ workshop/i }));
+    await user.click(await screen.findByRole('button', { name: 'Đặt chỗ ngay' }));
+    await user.type(await screen.findByLabelText(/Email nhận vé/i), 'guest@mland.vn');
+    await user.type(screen.getByLabelText(/Số điện thoại liên hệ/i), '0901234567');
+    await user.click(screen.getByRole('button', { name: 'Xác nhận và giữ chỗ' }));
+
+    // Row alert and quote panel both name the failing line.
+    expect((await screen.findAllByText(/không còn bán tại chi nhánh đã chọn/)).length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText(/Dòng 1: gói không còn bán tại chi nhánh đã chọn/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Hệ thống không giữ chỗ nào; giỏ và thông tin bạn đã nhập vẫn được giữ\./).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByRole('link', { name: /Chọn chi nhánh khác/ })[0]).toHaveAttribute('href', '/workshops/5');
+    // The cart and every typed field stay; no group view; no automatic retry.
+    expect(readCart()).toHaveLength(1);
+    expect(screen.getByLabelText(/Email nhận vé/i)).toHaveValue('guest@mland.vn');
+    expect(screen.queryByText('WG-20261113-ABCD')).toBeNull();
+    await new Promise(resolve => setTimeout(resolve, 150));
+    expect(calls.filter(call => call.path === '/api/v1/workshop-booking-groups')).toHaveLength(1);
+  });
+
+  it('"Đặt ngay": the same refusal keeps the typed fields and offers the way back to the Package page', async () => {
+    const user = userEvent.setup();
+    const calls = mockFetch({
+      ...discoveryHandlers(),
+      'POST /api/v1/workshop-cart-quotes': json(201, QUOTE),
+      'POST /api/v1/workshop-booking-groups': REFUSED,
+    });
+    renderRoutes(workshopRoutes, { path: '/workshops/5', session: fakeSession('signed-out') });
+    await pickSessionAndTwoTickets(user);
+    await user.click(screen.getByRole('button', { name: 'Đặt ngay' }));
+    await user.type(await screen.findByLabelText(/Email nhận vé/i), 'guest@mland.vn');
+    await user.type(screen.getByLabelText(/Số điện thoại liên hệ/i), '0901234567');
+    await user.click(screen.getByRole('button', { name: 'Xác nhận và giữ chỗ' }));
+
+    expect(await screen.findByText(/không còn bán tại chi nhánh bạn đã chọn\. Hệ thống không giữ chỗ nào/)).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: /Chọn chi nhánh khác/ })[0]).toHaveAttribute('href', '/workshops/5');
+    expect(screen.getByLabelText(/Email nhận vé/i)).toHaveValue('guest@mland.vn');
+    expect(screen.queryByText('WG-20261113-ABCD')).toBeNull();
+    await new Promise(resolve => setTimeout(resolve, 150));
+    expect(calls.filter(call => call.path === '/api/v1/workshop-booking-groups')).toHaveLength(1);
+  });
+});

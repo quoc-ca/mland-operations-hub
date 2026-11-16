@@ -2401,7 +2401,9 @@ deadline.
 
 - **Error codes the group contract already returns** (so spec, contract and
   tasks use one list; checked by T139/T140): `CART_LINE_UNAVAILABLE` (409,
-  with the failing lines, FR-031; T097), `GROUP_COLLECTION_MISMATCH` and
+  with the failing lines, FR-031; T097), `PACKAGE_NOT_AVAILABLE_AT_LOCATION`
+  (409 on `POST /workshop-booking-groups` with the failing lines, FR-055; added
+  2026-11-17, T163), `GROUP_COLLECTION_MISMATCH` and
   `GROUP_COLLECTION_BELOW_MINIMUM` (409 on a payment attempt, FR-036; T109),
   `PAYMENT_ATTEMPT_EXISTS` (409 on pending-hold release once an attempt
   exists), `INVALID_STATE` (409 on release of a non-releasable group),

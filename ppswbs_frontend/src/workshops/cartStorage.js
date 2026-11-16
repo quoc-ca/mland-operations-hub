@@ -95,7 +95,6 @@ export function addCartLine(line) {
     packageName: line.packageName || '',
     pricePerParticipantVnd: Number(line.pricePerParticipantVnd || 0),
     locationId: line.locationId ?? null,
-    locationName: line.locationName || '',
     sessionReferences: [...line.sessionReferences],
     sessionLabels: Array.isArray(line.sessionLabels) ? [...line.sessionLabels] : [],
     participantCount: Number(line.participantCount),

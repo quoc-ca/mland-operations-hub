@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import CartTabs from '../shared/ui/CartTabs';
-import { createBookingGroup, quoteWorkshopCart } from '../api/workshops';
+import { createBookingGroup, listWorkshopLocations, quoteWorkshopCart } from '../api/workshops';
 import { CartBenefitPicker } from './CartBenefitPicker';
 import { contactForRequest, EMPTY_CONTACT, splitPhone, validateBookingContact } from './contactValidation';
 import { CartQuotePanel } from './CartQuotePanel';
@@ -21,6 +21,8 @@ import './figmaPublicShell.css';
 import './cartShopee.css';
 
 const CART_ERROR_MESSAGE = {
+  // 003.1 FR-055 (003.2 FR-039): nothing was held; the cart and the typed fields are kept (proposed copy, Q7).
+  PACKAGE_NOT_AVAILABLE_AT_LOCATION: 'Có dòng trong giỏ là gói hiện không còn bán tại chi nhánh đã chọn. Hệ thống không giữ chỗ nào; giỏ và thông tin bạn đã nhập vẫn được giữ. Hãy chọn chi nhánh khác ở trang gói hoặc xóa dòng đó.',
   CART_HOLD_REJECTED: 'Giỏ chưa được giữ chỗ vì có dòng không còn đủ chỗ. Hệ thống không giữ chỗ nào; vui lòng sửa giỏ rồi báo giá lại.',
   INSUFFICIENT_CAPACITY: 'Có dòng trong giỏ không còn đủ chỗ. Hệ thống không giữ chỗ nào.',
   QUOTE_EXPIRED: 'Báo giá đã hết hạn. Vui lòng báo giá lại.',
@@ -59,6 +61,25 @@ export function WorkshopCartPage() {
   const [confirming, setConfirming] = useState(false);
   const [confirmError, setConfirmError] = useState(null);
   const [failingLines, setFailingLines] = useState([]);
+  const [failingCode, setFailingCode] = useState(null);
+  // FR-057: the cart stores only the branch id; the display name is re-read from the branch list of each Package.
+  const [locationNames, setLocationNames] = useState({});
+  const packageIdsKey = [...new Set(lines.map(line => line.packageId))].join(',');
+  useEffect(() => {
+    let active = true;
+    packageIdsKey.split(',').filter(Boolean).forEach(packageId => {
+      listWorkshopLocations(packageId)
+        .then(data => {
+          if (!active || !Array.isArray(data)) return;
+          setLocationNames(previous => ({
+            ...previous,
+            ...Object.fromEntries(data.map(item => [`${packageId}:${item.id}`, item.name])),
+          }));
+        })
+        .catch(() => { /* no name is shown when the read fails */ });
+    });
+    return () => { active = false; };
+  }, [packageIdsKey]);
   const [validationErrors, setValidationErrors] = useState({});
   const [group, setGroup] = useState(null);
   const [confirmKey, setConfirmKey] = useState(null);
@@ -316,7 +337,7 @@ export function WorkshopCartPage() {
       const failing = failingLinesOf(error)
         .map(position => lines.findIndex(line => line.lineId === selectedLines[position]?.lineId))
         .filter(position => position >= 0);
-      if (failing.length > 0) setFailingLines(failing);
+      if (failing.length > 0) { setFailingLines(failing); setFailingCode(error?.code || null); }
       setConfirmKey(null);
       setConfirmError(describe(error));
     } finally {
@@ -403,7 +424,7 @@ export function WorkshopCartPage() {
                   <div className="cart-cell cart-product">
                     <strong>{line.packageName || `Gói #${line.packageId}`}</strong>
                     <p className="muted">
-                      Dòng {index + 1}{line.locationName ? ` · ${line.locationName}` : ''}
+                      Dòng {index + 1}{locationNames[`${line.packageId}:${line.locationId}`] ? ` · ${locationNames[`${line.packageId}:${line.locationId}`]}` : ''}
                     </p>
                     {line.sessionLabels?.length > 0 && (
                       <ul className="muted cart-sessions">
@@ -469,7 +490,9 @@ export function WorkshopCartPage() {
                   </div>
                   {failed && (
                     <p role="alert" className="cart-row-alert">
-                      Dòng này không còn đủ chỗ. Hãy giảm số người hoặc chọn ca khác.
+                      {failingCode === 'PACKAGE_NOT_AVAILABLE_AT_LOCATION'
+                        ? <>Gói này không còn bán tại chi nhánh đã chọn. <a className="text-link" href={`/workshops/${line.packageId}`}>Chọn chi nhánh khác</a></>
+                        : 'Dòng này không còn đủ chỗ. Hãy giảm số người hoặc chọn ca khác.'}
                     </p>
                   )}
                 </li>
@@ -551,6 +574,8 @@ export function WorkshopCartPage() {
         confirmError={confirmError}
         validationErrors={validationErrors}
         failingLines={failingLines}
+        failingCode={failingCode}
+        packageHrefOf={index => `/workshops/${lines[index]?.packageId}`}
         title="Báo giá giỏ workshop"
       />
     </main>
