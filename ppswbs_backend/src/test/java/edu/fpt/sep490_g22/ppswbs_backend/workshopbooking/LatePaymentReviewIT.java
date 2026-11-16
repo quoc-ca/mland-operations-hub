@@ -103,7 +103,7 @@ class LatePaymentReviewIT {
         jdbc.execute("SET FOREIGN_KEY_CHECKS = 0");
         for (String table : List.of("settlement_notification_handoffs", "settlement_business_audits", "notification_deliveries",
                 "settlement_refund_account_links", "settlement_refund_requests",
-                "late_payment_reviews", "booking_group_notification_intents", "group_payment_attempts",
+                "promotion_revision_target", "promotion_revision", "promotion_program", "late_payment_reviews", "booking_group_notification_intents", "group_payment_attempts",
                 "booking_group_magic_links", "ticket_price_snapshots", "ticket_bookings", "booking_group_line_sessions",
                 "booking_group_lines", "booking_groups", "booking_idempotency_records", "booking_audit_evidence",
                 "facade_command_idempotency_records", "ticket_session_entitlements", "attendance_tickets",
@@ -476,12 +476,12 @@ class LatePaymentReviewIT {
         assertThat(String.join("|", jdbc.queryForList("SELECT CONCAT_WS('|', action_code, IFNULL(actor_reference,''), IFNULL(evidence_reference,''), IFNULL(reason_reference,'')) FROM settlement_business_audits", String.class)))
                 .doesNotContain(token);
 
-        String account = "{\"bankCode\":\"VCB\",\"accountNumber\":\"0123456789\",\"holderName\":\"Nguyen Van A\"}";
-        mockMvc.perform(post("/api/v1/refund-account-links/{t}", "unknown-token").contentType(MediaType.APPLICATION_JSON).content(account))
+        String account = "{\"bankCode\":\"VCB\",\"accountNumber\":\"0123456789\",\"holderName\":\"Nguyen Van A\",\"accountDetailsConfirmed\":true}";
+        mockMvc.perform(post("/api/v1/refund-account-links/{t}", "unknown-token").header("Idempotency-Key", key()).contentType(MediaType.APPLICATION_JSON).content(account))
                 .andExpect(status().isNotFound());
-        mockMvc.perform(post("/api/v1/refund-account-links/{t}", token).contentType(MediaType.APPLICATION_JSON).content(account))
+        mockMvc.perform(post("/api/v1/refund-account-links/{t}", token).header("Idempotency-Key", key()).contentType(MediaType.APPLICATION_JSON).content(account))
                 .andExpect(status().isNoContent());
-        mockMvc.perform(post("/api/v1/refund-account-links/{t}", token).contentType(MediaType.APPLICATION_JSON).content(account))
+        mockMvc.perform(post("/api/v1/refund-account-links/{t}", token).header("Idempotency-Key", key()).contentType(MediaType.APPLICATION_JSON).content(account))
                 .andExpect(status().isGone())
                 .andExpect(jsonPath("$.code").value("REFUND_ACCOUNT_LINK_NOT_USABLE"));
         Map<String, Object> request = jdbc.queryForMap("SELECT status, recipient_account_masked FROM settlement_refund_requests");
@@ -515,7 +515,7 @@ class LatePaymentReviewIT {
 
         assertThat(groups.findByGroupCode(group.code()).orElseThrow().getGroupStatus()).isEqualTo(BookingStatus.EXPIRED);
         assertThat(count("capacity_holds WHERE state = 'ACTIVE'")).isZero();
-        assertThat(count("group_payment_attempts WHERE attempt_status = 'PENDING'")).isEqualTo(1);
+        assertThat(count("group_payment_attempts WHERE attempt_status = 'EXPIRED'")).isEqualTo(1);
         assertThat(reviews.findAll()).isEmpty();
 
         apply(group);
