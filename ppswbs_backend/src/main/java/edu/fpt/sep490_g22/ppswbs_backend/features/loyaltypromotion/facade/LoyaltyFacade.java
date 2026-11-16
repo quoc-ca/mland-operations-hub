@@ -38,4 +38,12 @@ public interface LoyaltyFacade {
      * automatic discount or points are never lost. Holds nothing and changes no snapshot; asking twice answers the same.
      */
     TicketVoucherScope checkTicketVoucherScope(TicketVoucherScopeQuery query);
+
+    /**
+     * 003.3 FR-042/FR-043 (006 T110): a workshop ticket was cancelled by Mland. Its points come back (held released,
+     * consumed restored in the original amount) once per ticket, and the group's voucher comes back once per group,
+     * only while the voucher is still valid; an expired voucher answers {@code EXPIRED} and is never extended. A
+     * repeat for the same group or ticket restores nothing twice. Mandatory transaction.
+     */
+    VoucherRestorationOutcome restoreVoucherForCancelledTicket(RestoreVoucherCommand command);
 }
