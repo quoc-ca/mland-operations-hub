@@ -5,6 +5,18 @@ import { currentIdToken, endSession, watchSession } from './firebaseSession';
 // A route guard or hidden button never replaces the backend's authorization.
 export const AuthContext = createContext(null);
 
+const isGoogleRedirectPending = () => {
+  if (typeof window === 'undefined') return false;
+  try {
+    return (
+      sessionStorage.getItem('mland_google_redirect_pending') === 'true' ||
+      localStorage.getItem('mland_google_redirect_pending') === 'true'
+    );
+  } catch {
+    return false;
+  }
+};
+
 const firebaseSource = { watch: watchSession, getIdToken: currentIdToken, signOut: endSession };
 
 export function AuthProvider({ children, source = firebaseSource }) {
@@ -16,6 +28,29 @@ export function AuthProvider({ children, source = firebaseSource }) {
   const listenersRef = useRef(new Set());
   const initialResolvedRef = useRef(false);
   const prevStatusRef = useRef('loading');
+  const pendingGoogleUserIdRef = useRef(null);
+
+  useEffect(() => {
+    const handleBootstrapComplete = (e) => {
+      const isStillPending = isGoogleRedirectPending();
+      if (!isStillPending) {
+        const uid = e?.detail?.userId || pendingGoogleUserIdRef.current;
+        if (uid) {
+          pendingGoogleUserIdRef.current = null;
+          setStatus('signed-in');
+          setUserId(uid);
+          prevStatusRef.current = 'signed-in';
+          sessionLostReportedRef.current = false;
+          terminalOutcomeRef.current = false;
+          initialResolvedRef.current = true;
+        }
+      }
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('mland:auth-bootstrap-complete', handleBootstrapComplete);
+      return () => window.removeEventListener('mland:auth-bootstrap-complete', handleBootstrapComplete);
+    }
+  }, []);
 
   const subscribeOutcome = useMemo(() => {
     return (listener) => {
@@ -49,10 +84,20 @@ export function AuthProvider({ children, source = firebaseSource }) {
       setUserId(next.userId ?? null);
 
       if (next.status === 'signed-in') {
+        if (isGoogleRedirectPending()) {
+          // FR-047: Google redirect sign-in MUST synchronize account bootstrap before global session activation
+          pendingGoogleUserIdRef.current = next.userId ?? null;
+          setStatus('loading');
+          return;
+        }
         sessionLostReportedRef.current = false;
         terminalOutcomeRef.current = false;
         initialResolvedRef.current = true;
       } else if (next.status === 'signed-out') {
+        if (isGoogleRedirectPending()) {
+          setStatus('loading');
+          return;
+        }
         // Firebase reports no user after having been signed-in
         if (initialResolvedRef.current && prev === 'signed-in') {
           // If explicit sign-out is in progress, USER_SIGN_OUT takes precedence
@@ -87,7 +132,7 @@ export function AuthProvider({ children, source = firebaseSource }) {
     }
   };
 
-  const reportSessionLost = () => {
+  const reportSessionLost = (outcomeInfo = {}) => {
     if (isUserSigningOutRef.current) return;
     if (sessionLostReportedRef.current) return;
     sessionLostReportedRef.current = true;
@@ -95,7 +140,12 @@ export function AuthProvider({ children, source = firebaseSource }) {
     setStatus('signed-out');
     setUserId(null);
     prevStatusRef.current = 'signed-out';
-    emitOutcome({ type: 'SESSION_LOST' });
+    emitOutcome({ type: 'SESSION_LOST', code: outcomeInfo?.code });
+    try {
+      source.signOut?.()?.catch?.(() => {});
+    } catch {
+      // ignore
+    }
   };
 
   const reportAccessDenied = () => {

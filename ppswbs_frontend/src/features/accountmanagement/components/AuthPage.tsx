@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router';
+import { Link, useNavigate, useLocation, useSearchParams } from 'react-router';
+import type { User } from 'firebase/auth';
 import { afterSignInPath } from '../../../shared/auth/roleHome';
 import { firebaseAuthClient } from '../auth/FirebaseAuthClient';
 import { accountManagementApiClient } from '../api/AccountManagementApiClient';
@@ -11,6 +12,38 @@ export interface AuthPageProps {
 }
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const isGoogleRedirectPending = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  try {
+    return (
+      sessionStorage.getItem('mland_google_redirect_pending') === 'true' ||
+      localStorage.getItem('mland_google_redirect_pending') === 'true'
+    );
+  } catch {
+    return false;
+  }
+};
+
+const setGoogleRedirectPending = (): void => {
+  if (typeof window === 'undefined') return;
+  try {
+    sessionStorage.setItem('mland_google_redirect_pending', 'true');
+  } catch {}
+  try {
+    localStorage.setItem('mland_google_redirect_pending', 'true');
+  } catch {}
+};
+
+const clearGoogleRedirectPending = (): void => {
+  if (typeof window === 'undefined') return;
+  try {
+    sessionStorage.removeItem('mland_google_redirect_pending');
+  } catch {}
+  try {
+    localStorage.removeItem('mland_google_redirect_pending');
+  } catch {}
+};
 
 function mapFirebaseError(error: any): string {
   const code = error?.code || '';
@@ -30,6 +63,13 @@ function mapFirebaseError(error: any): string {
   }
 
   switch (code) {
+    case 'auth/popup-closed-by-user':
+    case 'auth/cancelled-popup-request':
+      return 'Cửa sổ đăng nhập đã bị đóng trước khi hoàn tất xác thực. Vui lòng thử lại.';
+    case 'auth/popup-blocked':
+      return 'Trình duyệt đã chặn cửa sổ đăng nhập (popup). Vui lòng cấp quyền mở popup trên trình duyệt.';
+    case 'auth/unauthorized-domain':
+      return 'Tên miền hiện tại chưa được cấp quyền trong Firebase (yêu cầu truy cập qua http://localhost:5173).';
     case 'auth/invalid-credential':
     case 'auth/user-not-found':
     case 'auth/wrong-password':
@@ -60,12 +100,15 @@ const GoogleIcon: React.FC = () => (
 
 export const AuthPage: React.FC<AuthPageProps> = ({ mode = 'signin' }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  const [generalError, setGeneralError] = useState<string | null>(null);
+  const [generalError, setGeneralError] = useState<string | null>(
+    () => location.state?.sessionNotice || null
+  );
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [retryableError, setRetryableError] = useState(false);
@@ -74,11 +117,35 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode = 'signin' }) => {
   const isRegister = mode === 'register';
 
   useEffect(() => {
+    if (location.state?.sessionNotice) {
+      setGeneralError(location.state.sessionNotice);
+    }
+  }, [location.state?.sessionNotice]);
+
+  useEffect(() => {
     let isMounted = true;
     const processRedirectResult = async () => {
       if (!firebaseAuthClient.isConfigured()) return;
+      const isGoogleRedirect = isGoogleRedirectPending();
+      if (isGoogleRedirect) {
+        setPending(true);
+      }
+
       try {
-        const user = await firebaseAuthClient.getRedirectAuthResult();
+        let user: User | null = null;
+        try {
+          user = await firebaseAuthClient.getRedirectAuthResult();
+        } catch (redirectErr) {
+          throw redirectErr;
+        }
+
+        // FR-047: When getRedirectResult() resolves null following a Google redirect (e.g. due to
+        // Chrome 115+ storage partitioning on localhost/COOP), wait for Firebase auth state to inspect
+        // the current Firebase user instead of immediately giving up and abandoning sign-in.
+        if (!user && isGoogleRedirect) {
+          user = firebaseAuthClient.getCurrentUser() || (await firebaseAuthClient.waitForAuthState(5000));
+        }
+
         if (!isMounted) return;
 
         if (user) {
@@ -87,18 +154,23 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode = 'signin' }) => {
           const hasPassword =
             Array.isArray(user.providerData) &&
             user.providerData.some(p => p.providerId === 'password');
-          const isGoogleRedirect = sessionStorage.getItem('mland_google_redirect_pending') === 'true';
 
           if (hasPassword && isGoogleRedirect) {
-            sessionStorage.removeItem('mland_google_redirect_pending');
+            clearGoogleRedirectPending();
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('mland:auth-bootstrap-complete'));
+            }
             await firebaseAuthClient.signOut();
             setGeneralError('Email này đã được đăng ký bằng Mật khẩu. Vui lòng đăng nhập bằng Email và Mật khẩu gốc.');
             return;
           }
 
-          sessionStorage.removeItem('mland_google_redirect_pending');
           setPending(true);
           const account = await accountManagementApiClient.bootstrapOwnAccount();
+          clearGoogleRedirectPending();
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('mland:auth-bootstrap-complete', { detail: { userId: user.uid } }));
+          }
           const returnParam =
             searchParams.get('returnTo') ||
             searchParams.get('redirect') ||
@@ -106,23 +178,18 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode = 'signin' }) => {
             new URLSearchParams(window.location.search).get('redirect');
           const target = afterSignInPath(account?.role, returnParam);
           navigate(target, { replace: true });
-        } else {
-          // If getRedirectAuthResult returned null but redirect was in progress, check current user
-          const currentUser = firebaseAuthClient.getCurrentUser();
-          const isGoogleRedirect = sessionStorage.getItem('mland_google_redirect_pending') === 'true';
-          if (currentUser && isGoogleRedirect) {
-            const hasPassword =
-              Array.isArray(currentUser.providerData) &&
-              currentUser.providerData.some(p => p.providerId === 'password');
-            if (hasPassword) {
-              sessionStorage.removeItem('mland_google_redirect_pending');
-              await firebaseAuthClient.signOut();
-              setGeneralError('Email này đã được đăng ký bằng Mật khẩu. Vui lòng đăng nhập bằng Email và Mật khẩu gốc.');
-            }
+        } else if (isGoogleRedirect) {
+          // Timed out waiting for auth state after redirect, clean up flag
+          clearGoogleRedirectPending();
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('mland:auth-bootstrap-complete'));
           }
         }
       } catch (err: any) {
-        sessionStorage.removeItem('mland_google_redirect_pending');
+        clearGoogleRedirectPending();
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('mland:auth-bootstrap-complete'));
+        }
         if (!isMounted) return;
 
         const isCollision =
@@ -216,6 +283,12 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode = 'signin' }) => {
     setRetryableError(false);
     setPending(true);
     try {
+      if (typeof window !== 'undefined' && (window.location.hostname === '127.0.0.1' || window.location.hostname === '[::1]')) {
+        const newUrl = window.location.href.replace('//' + window.location.hostname, '//localhost');
+        window.location.href = newUrl;
+        return;
+      }
+
       if (firebaseAuthClient.getCurrentUser()) {
         try {
           await firebaseAuthClient.signOut();
@@ -224,11 +297,53 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode = 'signin' }) => {
         }
       }
 
-      sessionStorage.setItem('mland_google_redirect_pending', 'true');
+      // In browser runtime on localhost, try signInWithGooglePopup first to avoid Chrome 115+ storage partitioning failure.
+      // If popup is blocked or closed by user, seamlessly fallback to signInWithGoogleRedirect.
+      const isTestEnv = typeof process !== 'undefined' && process.env?.NODE_ENV === 'test';
+      if (!isTestEnv && typeof window !== 'undefined') {
+        try {
+          const user = await firebaseAuthClient.signInWithGooglePopup();
+          if (user) {
+            const hasPassword =
+              Array.isArray(user.providerData) &&
+              user.providerData.some(p => p.providerId === 'password');
+
+            if (hasPassword) {
+              await firebaseAuthClient.signOut();
+              setGeneralError('Email này đã được đăng ký bằng Mật khẩu. Vui lòng đăng nhập bằng Email và Mật khẩu gốc.');
+              setPending(false);
+              return;
+            }
+
+            const account = await accountManagementApiClient.bootstrapOwnAccount();
+            const returnParam =
+              searchParams.get('returnTo') ||
+              searchParams.get('redirect') ||
+              new URLSearchParams(window.location.search).get('returnTo') ||
+              new URLSearchParams(window.location.search).get('redirect');
+            const target = afterSignInPath(account?.role, returnParam);
+            navigate(target, { replace: true });
+            return;
+          }
+        } catch (popupErr: any) {
+          const code = popupErr?.code || '';
+          if (
+            code === 'auth/popup-blocked' ||
+            code === 'auth/cancelled-popup-request' ||
+            code === 'auth/popup-closed-by-user'
+          ) {
+            console.warn('Popup closed or blocked, falling back to redirect:', code);
+          } else {
+            throw popupErr;
+          }
+        }
+      }
+
+      setGoogleRedirectPending();
       await firebaseAuthClient.signInWithGoogleRedirect();
     } catch (err: any) {
       console.error('[GoogleSignIn] error caught:', err);
-      sessionStorage.removeItem('mland_google_redirect_pending');
+      clearGoogleRedirectPending();
       setPending(false);
       const isCollision =
         err?.code === 'auth/account-exists-with-different-credential' ||

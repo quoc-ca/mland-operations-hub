@@ -12,6 +12,7 @@ import {
   GoogleAuthProvider,
   signInWithRedirect as fbSignInWithRedirect,
   getRedirectResult as fbGetRedirectResult,
+  signInWithPopup as fbSignInWithPopup,
   EmailAuthProvider,
   reauthenticateWithCredential as fbReauthenticateWithCredential,
   User,
@@ -155,6 +156,14 @@ class FirebaseAuthClient {
   }
 
 
+  public async signInWithGooglePopup(): Promise<User> {
+    const auth = this.requireAuth();
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+    const cred = await fbSignInWithPopup(auth, provider);
+    return cred.user;
+  }
+
   public async signInWithGoogleRedirect(): Promise<void> {
     const auth = this.requireAuth();
     this.redirectPromise = null;
@@ -183,6 +192,52 @@ class FirebaseAuthClient {
   public clearRedirectResult(): void {
     this.redirectPromise = null;
     this.lastRedirectError = null;
+  }
+
+  /**
+   * Waits for the initial Firebase auth state to settle.
+   * If currentUser is already set, returns it immediately.
+   * Otherwise waits for authStateReady or onAuthStateChanged up to timeoutMs.
+   */
+  public async waitForAuthState(timeoutMs: number = 5000): Promise<User | null> {
+    const auth = this.getAuth();
+    if (!auth) return null;
+    const current = this.getCurrentUser();
+    if (current) return current;
+
+    if (typeof (auth as any).authStateReady === 'function') {
+      try {
+        await Promise.race([
+          (auth as any).authStateReady(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), timeoutMs)),
+        ]);
+        const readyUser = this.getCurrentUser();
+        if (readyUser) return readyUser;
+      } catch {
+        // fallback to onAuthStateChanged below
+      }
+    }
+
+    return new Promise((resolve) => {
+      let resolved = false;
+      let unsub: (() => void) | null = null;
+      const timer = setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          unsub?.();
+          resolve(this.getCurrentUser());
+        }
+      }, timeoutMs);
+
+      unsub = fbOnAuthStateChanged(auth, (user) => {
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(timer);
+          unsub?.();
+          resolve(user);
+        }
+      });
+    });
   }
 
   public async reauthenticateWithCredential(password: string): Promise<void> {

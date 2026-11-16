@@ -102,13 +102,16 @@ describe('Revision R-SL: Shared Browser Session Lifecycle & Router Boundary (FR-
       }
     });
 
-    it('redirects guest accessing Member-only /design-requests/new to /login with replace', async () => {
+    it('renders inline empty state notice and login CTA for guest accessing /design-requests/new', async () => {
       const session = createControlledSession('signed-out');
       const { router } = renderRoutes(routes, { path: '/design-requests/new', session });
 
-      await waitFor(() => {
-        expect(router.state.location.pathname).toBe('/login');
-      });
+      expect(router.state.location.pathname).toBe('/design-requests/new');
+      expect(await screen.findByText('Vui lòng đăng nhập để tạo yêu cầu thiết kế tùy chỉnh')).toBeInTheDocument();
+      const loginLinks = screen.getAllByRole('link', { name: /đăng nhập/i });
+      const ctaLink = loginLinks.find(link => link.getAttribute('href') === '/login?returnTo=%2Fdesign-requests%2Fnew');
+      expect(ctaLink).toBeDefined();
+      expect(ctaLink).toHaveAttribute('href', '/login?returnTo=%2Fdesign-requests%2Fnew');
     });
 
     it('renders inline session notice for Member-only /member/cart when signed out', async () => {
@@ -307,6 +310,38 @@ describe('Revision R-SL: Shared Browser Session Lifecycle & Router Boundary (FR-
       // Flashed notice must be "Đã đăng xuất", NOT "Phiên đã kết thúc"
       expect(await screen.findByText('Đã đăng xuất')).toBeInTheDocument();
       expect(screen.queryByText('Phiên đã kết thúc, vui lòng đăng nhập lại')).not.toBeInTheDocument();
+    });
+
+    it('handles 401 ACCOUNT_NOT_FOUND by skipping token refresh retry, cleaning up, and routing to /login with flash notice', async () => {
+      let draftCleaned = false;
+      registerPrivateStateCleanup(() => {
+        draftCleaned = true;
+      });
+
+      const session = createControlledSession('signed-in');
+
+      // Setup backend 401 ACCOUNT_NOT_FOUND on authenticated profile call
+      mockFetch({
+        'GET /api/v1/accounts/me/profile': json(401, {
+          code: 'ACCOUNT_NOT_FOUND',
+          message: 'Account not found in backend database',
+        }),
+      });
+
+      const { router } = renderRoutes(routes, { path: '/profile', session });
+
+      await waitFor(() => {
+        expect(router.state.location.pathname).toBe('/login');
+      });
+
+      // Assert getIdToken(true) was NOT called (no retry storm)
+      expect(session.getIdToken).not.toHaveBeenCalledWith(true);
+
+      // Assert draft cleanup executed
+      expect(draftCleaned).toBe(true);
+
+      // Assert flash notice rendered in AuthPage alert
+      expect(await screen.findByText('Tài khoản không tồn tại trên hệ thống, vui lòng đăng nhập lại')).toBeInTheDocument();
     });
   });
 

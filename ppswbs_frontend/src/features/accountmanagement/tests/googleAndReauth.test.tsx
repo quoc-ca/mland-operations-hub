@@ -187,6 +187,116 @@ describe('T064–T068: Google Sign-In & Credential Re-authentication (FR-002, FR
       expect(sessionStorage.getItem("mland_google_redirect_pending")).toBeNull();
     });
 
+    it("completes pending bootstrap when getRedirectResult resolves null but currentUser is present (FR-047)", async () => {
+      const activeGoogleUser = {
+        uid: "google-active-uid",
+        email: "googleuser@mland.vn",
+        providerData: [{ providerId: "google.com" }],
+      };
+      sessionStorage.setItem("mland_google_redirect_pending", "true");
+      vi.spyOn(firebaseAuthClient, "isConfigured").mockReturnValue(true);
+      vi.spyOn(firebaseAuthClient, "getRedirectAuthResult").mockResolvedValue(null);
+      vi.spyOn(firebaseAuthClient, "getCurrentUser").mockReturnValue(activeGoogleUser as any);
+      const bootstrapSpy = vi.spyOn(accountManagementApiClient, "bootstrapOwnAccount").mockResolvedValue({
+        id: 102,
+        email: "googleuser@mland.vn",
+        fullName: "googleuser",
+        role: "MEMBER",
+        status: "ACTIVE",
+        emailVerified: true,
+        createdAt: "2026-11-16",
+      });
+
+      render(
+        <MemoryRouter>
+          <AuthPage mode="signin" />
+        </MemoryRouter>
+      );
+
+      await waitFor(() => {
+        expect(bootstrapSpy).toHaveBeenCalledTimes(1);
+        expect(mockNavigate).toHaveBeenCalledWith("/", { replace: true });
+        expect(sessionStorage.getItem("mland_google_redirect_pending")).toBeNull();
+      });
+    });
+
+    it("completes pending bootstrap when getRedirectResult resolves null and currentUser is initially null, waiting for waitForAuthState (FR-047 race condition)", async () => {
+      const activeGoogleUser = {
+        uid: "google-delayed-uid",
+        email: "delayeduser@mland.vn",
+        providerData: [{ providerId: "google.com" }],
+      };
+      sessionStorage.setItem("mland_google_redirect_pending", "true");
+      vi.spyOn(firebaseAuthClient, "isConfigured").mockReturnValue(true);
+      vi.spyOn(firebaseAuthClient, "getRedirectAuthResult").mockResolvedValue(null);
+      vi.spyOn(firebaseAuthClient, "getCurrentUser").mockReturnValue(null);
+      const waitSpy = vi.spyOn(firebaseAuthClient, "waitForAuthState").mockResolvedValue(activeGoogleUser as any);
+      const bootstrapSpy = vi.spyOn(accountManagementApiClient, "bootstrapOwnAccount").mockResolvedValue({
+        id: 103,
+        email: "delayeduser@mland.vn",
+        fullName: "delayeduser",
+        role: "MEMBER",
+        status: "ACTIVE",
+        emailVerified: true,
+        createdAt: "2026-11-16",
+      });
+
+      render(
+        <MemoryRouter>
+          <AuthPage mode="signin" />
+        </MemoryRouter>
+      );
+
+      await waitFor(() => {
+        expect(waitSpy).toHaveBeenCalled();
+        expect(bootstrapSpy).toHaveBeenCalledTimes(1);
+        expect(mockNavigate).toHaveBeenCalledWith("/", { replace: true });
+        expect(sessionStorage.getItem("mland_google_redirect_pending")).toBeNull();
+      });
+    });
+
+    it("cleans up redirect flag safely when waitForAuthState times out and returns null", async () => {
+      sessionStorage.setItem("mland_google_redirect_pending", "true");
+      vi.spyOn(firebaseAuthClient, "isConfigured").mockReturnValue(true);
+      vi.spyOn(firebaseAuthClient, "getRedirectAuthResult").mockResolvedValue(null);
+      vi.spyOn(firebaseAuthClient, "getCurrentUser").mockReturnValue(null);
+      vi.spyOn(firebaseAuthClient, "waitForAuthState").mockResolvedValue(null);
+      const bootstrapSpy = vi.spyOn(accountManagementApiClient, "bootstrapOwnAccount");
+
+      render(
+        <MemoryRouter>
+          <AuthPage mode="signin" />
+        </MemoryRouter>
+      );
+
+      await waitFor(() => {
+        expect(sessionStorage.getItem("mland_google_redirect_pending")).toBeNull();
+        expect(bootstrapSpy).not.toHaveBeenCalled();
+        expect(mockNavigate).not.toHaveBeenCalled();
+      });
+    });
+
+    it("handles auth/unauthorized-domain with clear instruction to use http://localhost:5173", async () => {
+      vi.spyOn(firebaseAuthClient, "isConfigured").mockReturnValue(true);
+      vi.spyOn(firebaseAuthClient, "getRedirectAuthResult").mockResolvedValue(null);
+      vi.spyOn(firebaseAuthClient, "signInWithGoogleRedirect").mockRejectedValue({
+        code: "auth/unauthorized-domain",
+      });
+
+      render(
+        <MemoryRouter>
+          <AuthPage mode="signin" />
+        </MemoryRouter>
+      );
+
+      const googleBtn = screen.getByRole("button", { name: /đăng nhập với google/i });
+      fireEvent.click(googleBtn);
+
+      expect(
+        await screen.findByText(/Tên miền hiện tại chưa được cấp quyền trong Firebase/i)
+      ).toBeInTheDocument();
+    });
+
     it('handles generic redirect error gracefully offering retry or email/password alternative', async () => {
       vi.spyOn(firebaseAuthClient, 'isConfigured').mockReturnValue(true);
       vi.spyOn(firebaseAuthClient, 'getRedirectAuthResult').mockResolvedValue(null);

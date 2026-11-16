@@ -1,4 +1,4 @@
-import { initializeApp } from 'firebase/app';
+import { initializeApp, getApps, getApp } from 'firebase/app';
 import {
   createUserWithEmailAndPassword,
   getAuth,
@@ -23,7 +23,8 @@ function firebaseAuth() {
   if (auth) return auth;
   const config = readFirebaseConfig();
   if (!config) return null;
-  auth = getAuth(initializeApp(config));
+  const app = getApps().length > 0 ? getApp() : initializeApp(config);
+  auth = getAuth(app);
   return auth;
 }
 

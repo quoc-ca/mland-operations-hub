@@ -120,11 +120,23 @@ export function createHttpClient({ baseUrl = apiBaseUrl, getIdToken, onSessionEx
     }
     let response = await send(url, init, token);
     if (auth && response.status === 401) {
+      let initialError = null;
+      try {
+        const cloned = typeof response.clone === 'function' ? response.clone() : response;
+        initialError = await errorFrom(cloned, method);
+      } catch {
+        initialError = null;
+      }
+      if (initialError?.code === 'ACCOUNT_NOT_FOUND') {
+        // FR-046: 401 ACCOUNT_NOT_FOUND is terminal; MUST NOT retry getIdToken(true)
+        onSessionExpired?.(initialError);
+        throw initialError;
+      }
       const refreshed = await getIdToken(true);
       if (refreshed) response = await send(url, init, refreshed);
       if (response.status === 401) {
         const error = await errorFrom(response, method);
-        onSessionExpired?.();
+        onSessionExpired?.(error);
         throw error;
       }
     }

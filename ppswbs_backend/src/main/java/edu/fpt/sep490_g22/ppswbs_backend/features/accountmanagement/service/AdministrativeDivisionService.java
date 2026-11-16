@@ -69,12 +69,27 @@ public class AdministrativeDivisionService {
             .toList();
     }
 
+    private String normalizeProvinceCode(String code) {
+        if (code == null) return "";
+        String upper = code.trim().toUpperCase();
+        return switch (upper) {
+            case "01" -> "HN";
+            case "79" -> "HCM";
+            case "48" -> "DN";
+            case "74" -> "BDG";
+            case "75" -> "DNA";
+            case "31" -> "HP";
+            case "92" -> "CT";
+            default -> upper;
+        };
+    }
+
     @Transactional(readOnly = true)
     public List<AdministrativeDivisionResponse> listCommunes(String provinceCode) {
         if (provinceCode == null || provinceCode.isBlank()) {
             return List.of();
         }
-        String cleanProvinceCode = provinceCode.trim().toUpperCase();
+        String cleanProvinceCode = normalizeProvinceCode(provinceCode);
         String activeVersion = getActiveDirectoryVersion();
         List<AdministrativeCommune> list = List.of();
         if (communeRepository != null) {
@@ -97,7 +112,7 @@ public class AdministrativeDivisionService {
         if (provinceCode == null || provinceCode.isBlank()) {
             throw new IllegalArgumentException("Province code is required");
         }
-        String cleanCode = provinceCode.trim().toUpperCase();
+        String cleanCode = normalizeProvinceCode(provinceCode);
         if (provinceRepository != null) {
             try {
                 Optional<AdministrativeProvince> opt = provinceRepository.findByDirectoryVersionAndCode(directoryVersion, cleanCode);
@@ -121,7 +136,7 @@ public class AdministrativeDivisionService {
             throw new IllegalArgumentException("Commune code is required");
         }
         String cleanCommuneCode = communeCode.trim().toUpperCase();
-        String cleanProvinceCode = provinceCode != null ? provinceCode.trim().toUpperCase() : "";
+        String cleanProvinceCode = normalizeProvinceCode(provinceCode);
 
         AdministrativeCommune commune = null;
         if (communeRepository != null) {

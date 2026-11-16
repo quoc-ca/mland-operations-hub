@@ -14,7 +14,7 @@ export const designReviewRoutes = [
   {
     path: '/design-requests/new',
     element: (
-      <RequireSession>
+      <RequireSession requiredText="Vui lòng đăng nhập để tạo yêu cầu thiết kế tùy chỉnh">
         <DesignWorkspacePage />
       </RequireSession>
     ),
