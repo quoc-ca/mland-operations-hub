@@ -213,7 +213,11 @@ class ManagerBookingLookupIT {
         mockMvc.perform(get(ROUTE, bookingRef).header("Authorization", ADMIN)).andExpect(status().isForbidden());
         mockMvc.perform(get(ROUTE, bookingRef)).andExpect(status().isUnauthorized());
 
-        assertThat(auditEventRepository.findAll()).noneMatch(ManagerBookingLookupIT::isLookupAudit);
+        // No success audit on refusal; the Staff and Admin 403s are denied-attempt audits (T131), the 401 is not audited.
+        List<OperationsAuditEvent> lookupAudits = auditEventRepository.findAll().stream()
+                .filter(ManagerBookingLookupIT::isLookupAudit).toList();
+        assertThat(lookupAudits).noneMatch(e -> "SUCCESS".equals(e.getOutcome()));
+        assertThat(lookupAudits).hasSize(2).allMatch(e -> "DENIED".equals(e.getOutcome()));
     }
 
     @Test
