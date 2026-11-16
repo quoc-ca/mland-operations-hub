@@ -610,6 +610,22 @@ class TicketChangeServiceTest {
     }
 
     @Test
+    @DisplayName("Staff in the ticket's location but not assigned to a session of the ticket is refused (2026-11-06 rule)")
+    void staffNotAssignedToTicketSession_isRefused() {
+        TicketFolioContext ctx = createDefaultContext(0L, Instant.now().plus(48, ChronoUnit.HOURS));
+        when(booking.getTicketFolioContext(TICKET_CODE)).thenReturn(Optional.of(ctx));
+        when(finalBills.findByBookingReference(TICKET_CODE)).thenReturn(Optional.of(createDefaultFolio(100_000L)));
+        when(operations.staffAssignedToBooking(eq(STAFF_ACCOUNT_ID), any())).thenReturn(false);
+        CurrentAccountActor staff = new CurrentAccountActor(STAFF_ACCOUNT_ID, ActorRole.STAFF, ActorStatus.ACTIVE, false, List.of(10L));
+        TicketChangeRequestDto req = new TicketChangeRequestDto(TicketChangeType.ADVANCE, List.of(TARGET_SESSION_1),
+                List.of(FROM_SESSION_1), null, "bvr-proof-1234567890", "Counter request");
+
+        assertThatThrownBy(() -> service.changeTicketSessions(TICKET_CODE, req, IDEMPOTENCY_KEY, "CORR-NA", staff))
+                .isInstanceOf(WorkshopSettlementAuthorizationException.class)
+                .hasMessageContaining("SESSION_ASSIGNMENT_REQUIRED");
+    }
+
+    @Test
     @DisplayName("changeTicketSessions: Staff at counter requires reason and buyerVerificationReference (FR-055)")
     void staffAtCounter_requiresReasonAndProof() {
         TicketFolioContext ctx = createDefaultContext(0L, Instant.now().plus(48, ChronoUnit.HOURS));
@@ -619,6 +635,7 @@ class TicketChangeServiceTest {
         when(finalBills.findByBookingReference(TICKET_CODE)).thenReturn(Optional.of(folio));
 
         CurrentAccountActor staffActor = new CurrentAccountActor(STAFF_ACCOUNT_ID, ActorRole.STAFF, ActorStatus.ACTIVE, false, List.of(10L));
+        when(operations.staffAssignedToBooking(eq(STAFF_ACCOUNT_ID), any())).thenReturn(true);
 
         // Missing reason -> 422 REASON_REQUIRED
         TicketChangeRequestDto noReasonReq = new TicketChangeRequestDto(

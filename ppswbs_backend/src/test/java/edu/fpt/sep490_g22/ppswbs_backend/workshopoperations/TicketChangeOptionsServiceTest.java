@@ -100,7 +100,7 @@ class TicketChangeOptionsServiceTest {
     }
 
     @Test
-    @DisplayName("lists a candidate with its exact seats, full ones as not selectable, quota reported")
+    @DisplayName("lists a candidate with its exact seats and quota left; full or no-quota sessions are not listed")
     void listsCandidatesWithSeatsAndQuota() {
         WorkshopSession old = session(80, SessionState.PUBLISHED);
         WorkshopSession open = session(100, SessionState.PUBLISHED);
@@ -119,12 +119,10 @@ class TicketChangeOptionsServiceTest {
         TicketChangeOptions.FromSession entry = result.perFromSession().get(0);
         assertThat(entry.sourceChangeable()).isTrue();
         assertThat(entry.options()).extracting(TicketChangeOptions.Option::sessionReference)
-                .containsExactly(ref(open), ref(full), ref(noQuota));
+                .containsExactly(ref(open));
         assertThat(entry.options().get(0).remainingCapacity()).isEqualTo(3);
+        assertThat(entry.options().get(0).remainingRescheduleQuota()).isEqualTo(open.remainingRescheduleQuota());
         assertThat(entry.options().get(0).reasonCode()).isNull();
-        assertThat(entry.options().get(1).reasonCode()).isEqualTo("INSUFFICIENT_CAPACITY");
-        assertThat(entry.options().get(2).quotaAvailable()).isFalse();
-        assertThat(entry.options().get(2).reasonCode()).isNull();
         assertThat(result.pairs()).isEmpty();
     }
 
@@ -170,7 +168,6 @@ class TicketChangeOptionsServiceTest {
         WorkshopSession b = session(200, SessionState.PUBLISHED);
         ticketHolds(first, second);
         branchOffers(first, second, a, b);
-        when(replacement.remainingCapacity(eq(b), any())).thenReturn(0);
 
         TicketChangeOptions result = list(TicketReplacementType.CUSTOMER_ADVANCE, first, second);
 
@@ -178,8 +175,8 @@ class TicketChangeOptionsServiceTest {
         TicketChangeOptions.Pair pair = result.pairs().get(0);
         assertThat(pair.first().sessionReference()).isEqualTo(ref(a));
         assertThat(pair.second().sessionReference()).isEqualTo(ref(b));
-        assertThat(pair.second().remainingCapacity()).isZero();
-        assertThat(pair.reasonCode()).isEqualTo("INSUFFICIENT_CAPACITY");
+        assertThat(pair.second().remainingCapacity()).isPositive();
+        assertThat(pair.reasonCode()).isNull();
     }
 
     @Test

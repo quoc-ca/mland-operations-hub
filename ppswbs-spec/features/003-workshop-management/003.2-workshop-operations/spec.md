@@ -106,6 +106,13 @@ assigned to that session** may …".
 - **Only a Manager assigns or revokes Staff** for a session. Several Staff may
   be assigned to one session; the session response carries
   `assignedStaffAccountIds`.
+  *(Owner decision 2026-11-16, Hồ Hoàng Quốc: every active Staff member is
+  assigned by default to the sessions of the location in their scope. The system
+  creates the `session_staff_assignments` rows when a session is created and in a
+  periodic sync (a Staff member added to a location or activated later gets the
+  sessions that already exist). A row that a Manager revoked is never re-added.
+  Only a Manager still revokes or re-assigns; the audit action is
+  `SESSION_STAFF_AUTO_ASSIGNED`. Implemented by `StaffAutoAssignmentService`.)*
 - **Publication and start do not require an assignment** (FR-010b is
   unchanged). A session without an assigned Staff is visible and operable by
   Managers only until a Manager assigns someone. *(Added 2026-11-15,

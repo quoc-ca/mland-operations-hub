@@ -496,9 +496,10 @@ public class TicketChangeService {
             return new Requester(actor.accountId(), "MEMBER", "ONLINE", "MEMBER_OWNER");
         }
         if (actor != null && (actor.role() == ActorRole.STAFF || actor.role() == ActorRole.MANAGER)) {
-            // Staff acting on buyer's behalf at counter (FR-055); T116, FR-002/FR-051: active account and,
-            // for Staff, the ticket's location in scope (Manager is global).
-            authorization.requireManagerOrStaff(actor, ctx.locationReference());
+            // Staff acting on buyer's behalf at counter (FR-055); T116, FR-002/FR-051: active account and, for Staff,
+            // the ticket's location in scope AND an active assignment to a session the ticket holds (owner decision
+            // 2026-11-06, applied to ticket changes 2026-11-16). Manager is global.
+            authorization.requireManagerOrAssignedStaff(actor, ctx.locationReference(), ctx.lineReference());
             if (reason == null || reason.isBlank()) {
                 throw new WorkshopSettlementValidationException("REASON_REQUIRED");
             }

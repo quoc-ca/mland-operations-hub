@@ -65,6 +65,7 @@ const PICKER_LABELS = {
   noOptions: 'Hiện chưa có buổi nào thay thế được buổi này.',
   noPairs: 'Hiện chưa có cặp buổi nào phù hợp với quy định của gói.',
   seatsLeft: count => `còn ${count} chỗ`,
+  quotaLeft: count => `còn ${count} lượt đổi`,
   full: 'Hết chỗ',
   needsManager: 'Cần quản lý duyệt',
   priceIncrease: amount => `tăng giá ${amount}`,

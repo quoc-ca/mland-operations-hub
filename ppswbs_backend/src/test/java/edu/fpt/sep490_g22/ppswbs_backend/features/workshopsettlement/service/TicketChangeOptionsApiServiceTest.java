@@ -82,7 +82,7 @@ class TicketChangeOptionsApiServiceTest {
         when(finalBills.findByBookingReference(TICKET)).thenReturn(Optional.of(folio(SettlementFinalBillLifecycleStatus.OPEN)));
         when(changeRepository.countByTicketCodeAndCountedTrueAndAppliedTrue(TICKET)).thenReturn(0L);
         when(changeRepository.countByTicketCodeAndChangeTypeAndAppliedTrue(TICKET, "MANAGER_GRANTED")).thenReturn(0L);
-        when(operations.ticketChangeOptions(eq(opsTicket), any(), any())).thenReturn(found(true, true));
+        when(operations.ticketChangeOptions(eq(opsTicket), any(), any())).thenReturn(found(1, true));
     }
 
     private TicketFolioContext context(long voucher) {
@@ -97,7 +97,7 @@ class TicketChangeOptionsApiServiceTest {
     }
 
     /** First session changeable with two candidates: A fine, B full. */
-    private TicketChangeOptions found(boolean quotaA, boolean changeable) {
+    private TicketChangeOptions found(int quotaA, boolean changeable) {
         Instant start = firstStart;
         TicketChangeOptions.FromSession entry = new TicketChangeOptions.FromSession(first, start,
                 start.plus(2, ChronoUnit.HOURS), changeable, changeable ? null : "INVALID_REPLACEMENT",
@@ -105,7 +105,7 @@ class TicketChangeOptionsApiServiceTest {
                         new TicketChangeOptions.Option(optionA, start.plus(24, ChronoUnit.HOURS),
                                 start.plus(26, ChronoUnit.HOURS), 10L, 4, quotaA, null),
                         new TicketChangeOptions.Option(optionB, start.plus(48, ChronoUnit.HOURS),
-                                start.plus(50, ChronoUnit.HOURS), 10L, 0, true, "INSUFFICIENT_CAPACITY"))
+                                start.plus(50, ChronoUnit.HOURS), 10L, 0, 1, "INSUFFICIENT_CAPACITY"))
                         : List.of());
         return new TicketChangeOptions(TicketChangeOptions.Status.OK, List.of(entry), List.of());
     }
@@ -136,23 +136,23 @@ class TicketChangeOptionsApiServiceTest {
     }
 
     @Test
-    @DisplayName("a full reschedule quota is listed as selectable but needs a Manager")
-    void quotaExhaustedNeedsManager() {
-        when(operations.ticketChangeOptions(eq(opsTicket), any(), any())).thenReturn(found(false, true));
+    @DisplayName("the reschedule quota left of a session is passed on and needs no Manager")
+    void quotaLeftIsReported() {
+        when(operations.ticketChangeOptions(eq(opsTicket), any(), any())).thenReturn(found(2, true));
 
         ChangeOptionDto option = service.forActor(TICKET, TicketChangeType.ADVANCE, List.of(first),
                 actor(BUYER, ActorRole.MEMBER, 10L)).perFromSession().get(0).options().get(0);
 
         assertThat(option.selectable()).isTrue();
-        assertThat(option.requiresManager()).isTrue();
-        assertThat(option.managerRules()).containsExactly("RESCHEDULE_QUOTA_EXHAUSTED");
+        assertThat(option.remainingRescheduleQuota()).isEqualTo(2);
+        assertThat(option.requiresManager()).isFalse();
     }
 
     @Test
     @DisplayName("the used allowance and a closed 24 h window put their rule names on every selectable option")
     void allowanceAndWindowRules() {
         firstStart = Instant.now().plus(10, ChronoUnit.HOURS);
-        when(operations.ticketChangeOptions(eq(opsTicket), any(), any())).thenReturn(found(true, true));
+        when(operations.ticketChangeOptions(eq(opsTicket), any(), any())).thenReturn(found(1, true));
         when(changeRepository.countByTicketCodeAndCountedTrueAndAppliedTrue(TICKET)).thenReturn(1L);
 
         ChangeOptionsDto result = service.forActor(TICKET, TicketChangeType.ADVANCE, List.of(first),
@@ -216,8 +216,21 @@ class TicketChangeOptionsApiServiceTest {
     }
 
     @Test
-    @DisplayName("Staff in the ticket's location and a Manager may read")
+    @DisplayName("Staff in the ticket's location but not assigned to a session of the ticket is refused")
+    void unassignedStaffIsRefused() {
+        when(operations.staffAssignedToBooking(200L, "L1")).thenReturn(false);
+
+        assertThatThrownBy(() -> service.forActor(TICKET, TicketChangeType.ADVANCE, null,
+                actor(200L, ActorRole.STAFF, 10L)))
+                .isInstanceOf(WorkshopSettlementAuthorizationException.class)
+                .hasMessageContaining("SESSION_ASSIGNMENT_REQUIRED");
+        verify(operations, never()).ticketChangeOptions(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("Staff in the ticket's location and assigned to a session of the ticket, and a Manager, may read")
     void staffAndManagerMayRead() {
+        when(operations.staffAssignedToBooking(200L, "L1")).thenReturn(true);
         assertThat(service.forActor(TICKET, TicketChangeType.ADVANCE, null, actor(200L, ActorRole.STAFF, 10L)))
                 .isNotNull();
         assertThat(service.forActor(TICKET, TicketChangeType.ADVANCE, null, actor(300L, ActorRole.MANAGER)))
