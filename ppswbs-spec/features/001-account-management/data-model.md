@@ -1,11 +1,11 @@
 # Account Management Data Model
 
 **Date created**: 2026-10-26
-**Date updated**: 2026-11-14
+**Date updated**: 2026-11-16
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
-**Status**: Proposed physical design; no migration is created by this document.
+**Status**: Proposed physical design (updated 2026-11-16 for VN-2026-V1 63 provinces, WARD/COMMUNE/SPECIAL_ZONE coverage); no migration is created by this document.
 
 ## Ownership and entities
 
@@ -17,9 +17,9 @@
 | InternalAccountProvisioning | `accountmanagement` | Account creation request identity, idempotency key, normalized request digest, intended email/role/location snapshot, Firebase UID, Account ID, lifecycle/progress and retry diagnostics. Unique idempotency key; same key/different digest conflicts. |
 | AccountAuditEvent | `accountmanagement` | actor/target Account IDs nullable, action, outcome, correlation ID, safe metadata, occurred time. Retain five years; never store password, raw token/action-link, full name, phone. |
 | NotificationIntent | FE-07-owned delivery record | Account writes a referenceable intent in the same business commit for invitation, lock/unlock, or role change. No raw Firebase action link is persisted. |
-| AdministrativeDirectoryVersion | `accountmanagement` | Versioned reference-data set: `version` (unique), `source_url`, `effective_from`, `status` (`DRAFT`, `ACTIVE`, `ARCHIVED`), creator/time. Exactly one `ACTIVE` version. An active version is immutable; Admin creates a new draft by copying it. |
-| AdministrativeProvince | `accountmanagement` | Directory-version-scoped official `code` and resolved `name`. Code is unique within its directory version. |
-| AdministrativeCommune | `accountmanagement` | Directory-version-scoped official `code`, `name`, `type` (`WARD`, `COMMUNE`, `SPECIAL_ZONE`) and parent province. Commune code is unique within its directory version and must have a parent province in the same version. |
+| AdministrativeDirectoryVersion | `accountmanagement` | Versioned reference-data set: `version` (unique), `source_url`, `effective_from`, `status` (`DRAFT`, `ACTIVE`, `ARCHIVED`), creator/time. Exactly one `ACTIVE` version. An active version is immutable; Admin creates a new draft by copying it. Active version `VN-2026-V1` provides complete baseline reference data for all 63 provinces and ~10,500 nationwide communes/special zones. |
+| AdministrativeProvince | `accountmanagement` | Directory-version-scoped official `code` and resolved `name`. Code is unique within its directory version. Covers all 63 provinces/centrally-run cities of Vietnam in `VN-2026-V1`. |
+| AdministrativeCommune | `accountmanagement` | Directory-version-scoped official `code`, `name`, `type` (`WARD`, `COMMUNE`, `SPECIAL_ZONE`) and parent province. Commune code is unique within its directory version and must have a parent province in the same version. Covers ~10,500 units in `VN-2026-V1` including island/special zones (Hoàng Sa, Trường Sa, Phú Quốc, Côn Đảo, Lý Sơn, Cô Tô...). |
 | MemberAddress | `accountmanagement` | `id`, FK `account_id`, recipient contact, `province_code`/resolved `province_name`, `commune_code`/resolved `commune_name`/`commune_type`, `detail_address`, `directory_version`, `address_type` (`HOME`/`OFFICE`), `is_default`, optimistic-lock `version`, timestamps. Hard delete; maximum 10 addresses per account; exactly one default address if address count > 0. |
 
 ## Enumerations and lifecycle

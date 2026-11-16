@@ -1,12 +1,12 @@
-﻿# Feature-004 Frontend Design — Independent AI Design Workspace
+# Feature-004 Frontend Design — Independent AI Design Workspace
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-05
+**Date updated**: 2026-11-16
 **Author**: Ngô Tiến Đạt
-**Last updated by**: Ngô Tiến Đạt
+**Last updated by**: Phan Sơn
 
 **Feature**: `004-ai-chatbox-analysis-and-suggestion`
-**Status**: Frontend behavior synchronized with the current React/Vite implementation; backend contract blockers remain documented
+**Status**: Frontend behavior synchronized with the current React/Vite implementation (updated 2026-11-16 for F04-DESIGN-WORKSPACE unauthenticated empty state and login CTA); backend contract blockers remain documented
 **Design baseline**: [`ppswbs-spec/DESIGN.md`](../../DESIGN.md) and [`FRONTEND-ARCHITECTURE.md`](../../FRONTEND-ARCHITECTURE.md)
 
 ## 1. Objective and boundary
@@ -84,7 +84,7 @@ prototype slice during documentation synchronization.
 | ID | Route | Actor | Required states |
 | --- | --- | --- | --- |
 | `F04-AI-CHAT` | `/ai-support` | Guest/Member | Empty, pending, validation, provider failure, retry, advisory scope label. |
-| `F04-DESIGN-WORKSPACE` | `/design-requests/new` | Member | Description-only, image-only, combined input, validation, consent, pending and recoverable failure. |
+| `F04-DESIGN-WORKSPACE` | `/design-requests/new` | Member | Description-only, image-only, combined input, validation, consent, pending, unauthenticated empty state with login CTA (`RequireSession requiredText`), and recoverable failure. |
 | `F04-CONSENT` | Inline workspace state | Member | Purpose/version display, affirmative consent, consent-required error. |
 | `F04-IMAGE-UPLOAD` | Inline workspace state | Member | JPEG/PNG/WEBP, 10 MB, 4096×4096, rate-limit and file validation states. |
 | `F04-ANALYSIS-STATUS` | `/design-requests/:designRequestId` | Member owner | `PROCESSING`, `SUCCEEDED`, `FAILED`, retry and safe failure evidence. |

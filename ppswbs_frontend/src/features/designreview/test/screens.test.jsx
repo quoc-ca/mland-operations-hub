@@ -61,10 +61,11 @@ describe('F04-AI-CHAT Screen (/ai-support)', () => {
 });
 
 describe('F04-DESIGN-WORKSPACE Screen (/design-requests/new)', () => {
-  it('requires session when signed out', async () => {
+  it('requires session when signed out and renders inline empty state with login CTA', async () => {
     mockFetch({});
     open('/design-requests/new', { session: fakeSession('signed-out') });
-    expect(await screen.findByText('Bạn cần đăng nhập để tiếp tục.')).toBeInTheDocument();
+    expect(await screen.findByText('Vui lòng đăng nhập để tạo yêu cầu thiết kế tùy chỉnh')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /đăng nhập/i })).toBeInTheDocument();
   });
 
   it('renders independent boundary notice and validates empty input', async () => {

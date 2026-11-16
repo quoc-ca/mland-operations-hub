@@ -33,14 +33,25 @@ services:
       JDBC_USER: ${DB_USER:-root}
       JDBC_PASSWORD: ${DB_PASSWORD:-sa123123}
       SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-validate}
-      CORS_ALLOWED_ORIGINS: http://localhost:${HOST_FE_PORT:-5173},http://127.0.0.1:${HOST_FE_PORT:-5173}
-      FRONTEND_BASE_URL: http://localhost:${HOST_FE_PORT:-5173}
-      MEMBER_AUTH_ALLOWED_ORIGINS: http://localhost:${HOST_BE_PORT:-8080},http://localhost:${HOST_FE_PORT:-5173},http://127.0.0.1:${HOST_FE_PORT:-5173}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:${HOST_FE_PORT:-5173},http://127.0.0.1:${HOST_FE_PORT:-5173}}
+      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost:${HOST_FE_PORT:-5173}}
+      MEMBER_AUTH_ALLOWED_ORIGINS: ${MEMBER_AUTH_ALLOWED_ORIGINS:-http://localhost:${HOST_BE_PORT:-8080},http://localhost:${HOST_FE_PORT:-5173},http://127.0.0.1:${HOST_FE_PORT:-5173}}
       FIREBASE_API_KEY: ${FIREBASE_API_KEY:-AIzaSyCfMw23jTT8_s7e-DvQT5I6p2sHBhD9iDg}
       FIREBASE_AUTH_DOMAIN: ${FIREBASE_AUTH_DOMAIN:-mland-operation-hub.firebaseapp.com}
       FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-mland-operation-hub}
       FIREBASE_APP_ID: ${FIREBASE_APP_ID:-1:620470873334:web:fd7be9ad75fa527d6a90d7}
       FIREBASE_ADMIN_CREDENTIALS_PATH: firebase-service-account.json
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
+      CLOUDINARY_FOLDER: ${CLOUDINARY_FOLDER:-ppswbs/catalogue}
+      GHTK_QUOTE_ENABLED: ${GHTK_QUOTE_ENABLED:-false}
+      GHTK_BASE_URL: ${GHTK_BASE_URL:-https://services.giaohangtietkiem.vn}
+      GHTK_TOKEN: ${GHTK_TOKEN:-}
+      GHTK_PICKUP_ADDRESS: ${GHTK_PICKUP_ADDRESS:-}
+      GHTK_PICKUP_PROVINCE: ${GHTK_PICKUP_PROVINCE:-}
+      GHTK_PICKUP_DISTRICT: ${GHTK_PICKUP_DISTRICT:-}
+      GHTK_PICKUP_WARD: ${GHTK_PICKUP_WARD:-}
     ports:
       - "${HOST_BE_PORT:-8080}:8080"
     volumes:
@@ -56,7 +67,7 @@ services:
     depends_on:
       - backend
     environment:
-      VITE_API_BASE_URL: http://localhost:${HOST_BE_PORT:-8080}
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:${HOST_BE_PORT:-8080}}
       USE_POLLING: "true"
     ports:
       - "${HOST_FE_PORT:-5173}:5173"

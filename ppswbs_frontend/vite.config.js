@@ -6,6 +6,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     host: true,
+    allowedHosts: ['.trycloudflare.com'],
     proxy: {
       '/api': {
         target: 'http://localhost:8080',
@@ -15,6 +16,16 @@ export default defineConfig({
     headers: {
       'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
     },
+    proxy: {
+      '/__/auth': {
+        target: 'https://mland-operation-hub.firebaseapp.com',
+        changeOrigin: true,
+      },
+      '/__/firebase': {
+        target: 'https://mland-operation-hub.firebaseapp.com',
+        changeOrigin: true,
+      },
+    },
     watch: {
       usePolling: process.env.USE_POLLING === 'true',
     },
@@ -22,6 +33,16 @@ export default defineConfig({
   preview: {
     headers: {
       'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
+    },
+    proxy: {
+      '/__/auth': {
+        target: 'https://mland-operation-hub.firebaseapp.com',
+        changeOrigin: true,
+      },
+      '/__/firebase': {
+        target: 'https://mland-operation-hub.firebaseapp.com',
+        changeOrigin: true,
+      },
     },
   },
   // The existing local .env came from Firebase's generated snippet and uses

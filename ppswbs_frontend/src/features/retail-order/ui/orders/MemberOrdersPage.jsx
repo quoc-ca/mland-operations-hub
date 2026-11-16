@@ -5,6 +5,7 @@ import { useFormat } from '../../../../shared/i18n/I18nProvider';
 import { ErrorNotice, Loading, useCommand, useResource } from '../../../../shared/ui/components';
 import { useRetailApi } from '../../application/useRetailApi';
 import { cardToggleProps, displayTime, orderCode, OrderMoneyRows } from '../orderCode';
+import { ProductThumb } from '../ProductThumb';
 
 /** FE-08 FR-08-050: "Đơn mua" grouped into marketplace-style tabs, one card per branch order. */
 const TABS = [
@@ -107,7 +108,7 @@ function OrdersContent() {
           <span className={`order-pill pill-${current.toLowerCase()}`}>{statusLabel(order, current)}</span>
         </div>
         <ul className="order-items">{(order.items || []).map(item => <li key={`${order.id}-${item.variantId}`}>
-          <span className="order-thumb" aria-hidden="true">◇</span>
+          <ProductThumb className="order-thumb" productId={item.productId} />
           <span className="order-item-name"><strong>{item.productName || `Sản phẩm #${item.variantId}`}</strong><small>Size {item.size ?? '—'} · x{item.quantity}</small></span>
           <b>{item.lineTotal ? format.money(item.lineTotal) : ''}</b>
         </li>)}</ul>

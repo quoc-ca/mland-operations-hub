@@ -15,6 +15,12 @@ public interface RetailCataloguePort {
      */
     CartProductFact readCartProduct(Long variantId, Long locationId);
 
+    /** {@code productId} lets the screens show the product's public image (Session 2026-11-16); null when unknown. */
     record CartProductFact(String productName, String sku, Integer size, String indicativePrice,
-                           String currency, String availableQuantity, boolean saleEligible) {}
+                           String currency, String availableQuantity, boolean saleEligible, Long productId) {
+        public CartProductFact(String productName, String sku, Integer size, String indicativePrice,
+                               String currency, String availableQuantity, boolean saleEligible) {
+            this(productName, sku, size, indicativePrice, currency, availableQuantity, saleEligible, null);
+        }
+    }
 }
