@@ -18,8 +18,15 @@ public final class TicketFolioDtos {
             String pendingAmount,
             String balanceDue,
             List<CollectionDto> collections,
-            List<ChargeDto> charges
-    ) {}
+            List<ChargeDto> charges,
+            TicketRemedyDtos.VoucherRestorationDto voucherRestoration
+    ) {
+        public TicketFolioDto(String ticketCode, String status, String totalAmount, String paidAmount,
+                              String pendingAmount, String balanceDue, List<CollectionDto> collections,
+                              List<ChargeDto> charges) {
+            this(ticketCode, status, totalAmount, paidAmount, pendingAmount, balanceDue, collections, charges, null);
+        }
+    }
 
     /**
      * One collection of a ticket folio. {@code paymentUrl} and {@code paymentExpiresAt} are set only for a VNPAY

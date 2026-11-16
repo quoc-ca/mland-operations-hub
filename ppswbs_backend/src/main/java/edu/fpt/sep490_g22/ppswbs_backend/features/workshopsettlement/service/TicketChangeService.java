@@ -61,6 +61,8 @@ public class TicketChangeService {
     static final String RULE_ALLOWANCE = "CHANGE_ALLOWANCE_EXHAUSTED";
     static final String RULE_WINDOW = "ADVANCE_CHANGE_WINDOW_EXPIRED";
     static final String RULE_QUOTA = "RESCHEDULE_QUOTA_EXHAUSTED";
+    /** FR-044: a late arrival may be moved up to 7 days after the changed session ends. */
+    static final long LATE_ARRIVAL_WINDOW_DAYS = 7;
 
     private final WorkshopBookingFacade booking;
     private final WorkshopOperationsSettlementAdapter operations;
@@ -132,6 +134,9 @@ public class TicketChangeService {
         TicketFolioContext ctx = booking.getTicketFolioContext(ticket)
                 .orElseThrow(() -> new WorkshopSettlementNotFoundException("TICKET_NOT_FOUND"));
 
+        // FR-044/FR-045a (T130): the session(s) being replaced, each one of the ticket's sessions (422 otherwise).
+        List<UUID> fromSessions = checkedFromSessions(ctx, request.fromSessionReferences(), request.targetSessionReferences());
+
         SettlementFinalBill folio = finalBills.findByBookingReference(ticket)
                 .orElseThrow(() -> new WorkshopSettlementConflictException("TICKET_FOLIO_NOT_FOUND"));
         if (!SettlementFinalBillLifecycleStatus.OPEN.name().equals(folio.getLifecycleStatus())) {
@@ -150,8 +155,7 @@ public class TicketChangeService {
         if (1 + managerGranted - countedUsed <= 0) {
             blocked.add(RULE_ALLOWANCE);
         }
-        if (request.type() == TicketChangeType.ADVANCE
-                && ctx.firstSessionStart() != null && !now.isBefore(ctx.firstSessionStart().minus(24, ChronoUnit.HOURS))) {
+        if (request.type() == TicketChangeType.ADVANCE && advanceWindowClosed(fromSessions, now)) {
             blocked.add(RULE_WINDOW);
         }
 
@@ -172,7 +176,7 @@ public class TicketChangeService {
         }
 
         if (!blocked.isEmpty()) {
-            return queueOrRefuse(ticket, ctx, request.type(), request.targetSessionReferences(), blocked,
+            return queueOrRefuse(ticket, ctx, request.type(), fromSessions, request.targetSessionReferences(), blocked,
                     priceIncreaseAmount, confirmed, requester, request.reason(), key, correlation, now, currentBalance);
         }
 
@@ -183,7 +187,7 @@ public class TicketChangeService {
         if (outcome.status() != OutcomeStatus.ACCEPTED) {
             if (outcome.reason() == RejectionReason.RESCHEDULE_QUOTA_EXHAUSTED) {
                 // Only a Manager can lift a full quota, so the request waits in the queue (FR-045a).
-                return queueOrRefuse(ticket, ctx, request.type(), request.targetSessionReferences(),
+                return queueOrRefuse(ticket, ctx, request.type(), fromSessions, request.targetSessionReferences(),
                         List.of(RULE_QUOTA), priceIncreaseAmount, confirmed, requester, request.reason(), key,
                         correlation, now, currentBalance);
             }
@@ -254,11 +258,11 @@ public class TicketChangeService {
     // ------------------------------------------------------------------------------------------------------
 
     private ChangeResultDto queueOrRefuse(String ticket, TicketFolioContext ctx, TicketChangeType type,
-                                          List<UUID> targets, List<String> blocked, long priceIncrease,
+                                          List<UUID> fromSessions, List<UUID> targets, List<String> blocked, long priceIncrease,
                                           boolean confirmed, Requester requester, String reason, String key,
                                           String correlation, Instant now,
                                           FolioBalanceService.FolioBalance balance) {
-        Instant expiresAt = requestExpiry(ctx, targets, now);
+        Instant expiresAt = requestExpiry(type, fromSessions, targets, now);
         if (expiresAt == null) {
             // Nothing left to wait for: the old and the new sessions have started, so refuse as before.
             throw new WorkshopSettlementConflictException(blocked.get(0));
@@ -278,6 +282,7 @@ public class TicketChangeService {
                 .locationReference(ctx.locationReference())
                 .changeType(type.name())
                 .targetSessionReferences(joinUuids(targets))
+                .fromSessionReferences(joinUuids(fromSessions))
                 .blockedRules(String.join(",", blocked))
                 .status(SettlementTicketChangeRequest.PENDING)
                 .priceIncreaseAmountVnd(priceIncrease)
@@ -308,14 +313,23 @@ public class TicketChangeService {
     }
 
     /**
-     * T117: the request waits until it can no longer be carried out, i.e. until the earlier of the old first session
-     * and the earliest target session starts. For a late arrival the old session has already started, so the target
-     * decides. Null when both lie in the past.
+     * T117/T130 (FR-045a): the request waits until it can no longer be carried out. ADVANCE: the earlier of the start of
+     * the session being changed (the earlier one when both move) and the start of every requested target still in the
+     * future; the ticket's other sessions never count. LATE_ARRIVAL: the changed session has started, so the earlier of
+     * its end + 7 days (the FR-044 window) and the start of any target still in the future. Null when nothing is left.
      */
-    private Instant requestExpiry(TicketFolioContext ctx, List<UUID> targets, Instant now) {
+    Instant requestExpiry(TicketChangeType type, List<UUID> fromSessions, List<UUID> targets, Instant now) {
         List<Instant> limits = new ArrayList<>();
-        if (ctx.firstSessionStart() != null && ctx.firstSessionStart().isAfter(now)) {
-            limits.add(ctx.firstSessionStart());
+        if (type == TicketChangeType.LATE_ARRIVAL) {
+            fromSessions.stream().map(this::snapshotOf).map(SaleEligibilitySnapshot::scheduledEnd)
+                    .filter(java.util.Objects::nonNull).min(Comparator.naturalOrder())
+                    .map(end -> end.plus(LATE_ARRIVAL_WINDOW_DAYS, ChronoUnit.DAYS))
+                    .filter(limit -> limit.isAfter(now)).ifPresent(limits::add);
+        } else {
+            Instant start = earliestStart(fromSessions);
+            if (start.isAfter(now)) {
+                limits.add(start);
+            }
         }
         for (UUID target : targets) {
             SaleEligibilitySnapshot snapshot = operations.saleEligibility(target);
@@ -324,6 +338,46 @@ public class TicketChangeService {
             }
         }
         return limits.stream().min(Comparator.naturalOrder()).orElse(null);
+    }
+
+    /**
+     * T130: the references must be 1-2, one per target in the same order, and each one of the ticket's sessions;
+     * otherwise 422. Returns them unchanged.
+     */
+    List<UUID> checkedFromSessions(TicketFolioContext ctx, List<UUID> from, List<UUID> targets) {
+        if (from == null || from.isEmpty()) {
+            throw new WorkshopSettlementValidationException("FROM_SESSIONS_REQUIRED");
+        }
+        if (from.size() != targets.size() || from.stream().anyMatch(java.util.Objects::isNull)) {
+            throw new WorkshopSettlementValidationException("FROM_SESSIONS_MISMATCH");
+        }
+        List<String> own = ctx.sessionReferences() == null ? List.of() : ctx.sessionReferences();
+        for (UUID reference : from) {
+            if (own.stream().noneMatch(session -> session != null && session.equalsIgnoreCase(reference.toString()))) {
+                throw new WorkshopSettlementValidationException("FROM_SESSION_NOT_OF_TICKET");
+            }
+        }
+        return List.copyOf(from);
+    }
+
+    /** Start of the earliest session being changed, from 003.2 (FR-044: the 24 h window and the expiry use it). */
+    Instant earliestStart(List<UUID> fromSessions) {
+        return fromSessions.stream().map(this::snapshotOf).map(SaleEligibilitySnapshot::scheduledStart)
+                .filter(java.util.Objects::nonNull).min(Comparator.naturalOrder())
+                .orElseThrow(() -> new WorkshopSettlementValidationException("FROM_SESSION_NOT_FOUND"));
+    }
+
+    /** FR-044: an advance change is closed from 24 h before the start of the session being changed. */
+    boolean advanceWindowClosed(List<UUID> fromSessions, Instant now) {
+        return !now.isBefore(earliestStart(fromSessions).minus(24, ChronoUnit.HOURS));
+    }
+
+    private SaleEligibilitySnapshot snapshotOf(UUID session) {
+        SaleEligibilitySnapshot snapshot = operations.saleEligibility(session);
+        if (snapshot == null) {
+            throw new WorkshopSettlementValidationException("FROM_SESSION_NOT_FOUND");
+        }
+        return snapshot;
     }
 
     /** Marks this ticket's pending requests whose time has run out as EXPIRED. */

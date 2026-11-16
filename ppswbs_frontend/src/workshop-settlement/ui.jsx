@@ -138,3 +138,16 @@ export function BuyerProof({ groupCode, onReference }) {
     </fieldset>
   );
 }
+
+/**
+ * T163 (FR-042/FR-043): shown only when the stored voucher restoration reason is EXPIRED (never for ALREADY_RESTORED or a
+ * restored voucher). The voucher is never extended and the money already paid is refunded by bank whatever happened to it.
+ */
+export function VoucherNotRestoredNotice({ voucherRestoration }) {
+  if (voucherRestoration?.reason !== 'EXPIRED') return null;
+  return (
+    <div className="notice" role="status" aria-label="Voucher not restored">
+      <p>The voucher had expired, so it was not restored. Your refund is not affected.</p>
+    </div>
+  );
+}

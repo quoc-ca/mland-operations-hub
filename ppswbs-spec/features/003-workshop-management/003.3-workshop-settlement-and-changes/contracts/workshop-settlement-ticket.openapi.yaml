@@ -1313,6 +1313,7 @@ components:
         pendingAmount: {$ref: '#/components/schemas/Vnd'}
         balanceDue: {$ref: '#/components/schemas/Vnd'}
         collections: {type: array, items: {$ref: '#/components/schemas/Collection'}}
+        voucherRestoration: {allOf: [{$ref: '#/components/schemas/VoucherRestoration'}], nullable: true, description: "T155/T163 (2026-11-16, additive): what the group voucher did when this ticket was Mland-cancelled and its refund request opened or its answer recorded; absent or null when nothing was triggered. The customer folio shows the expired-voucher notice only when reason is EXPIRED."}
         charges:
           type: array
           description: Add-on and variable lines of the folio (as TicketFolioDtos.ChargeDto serves them); chargeReference is the lineId of the line void route (FR-053).
@@ -1490,7 +1491,7 @@ components:
         groupCode: {type: string}
         type: {type: string, enum: [ADVANCE, LATE_ARRIVAL]}
         targetSessionReferences: {type: array, items: {type: string, format: uuid}}
-        fromSessionReferences: {type: array, items: {type: string, format: uuid}, description: "Planned 2026-11-16 (T130, A02): the ticket's current session(s) the request replaces, in the same order as the targets."}
+        fromSessionReferences: {type: array, items: {type: string, format: uuid}, description: "T130 done 2026-11-16 (A02): the ticket's current session(s) the request replaces, in the same order as the targets."}
         blockedRules: {type: array, items: {type: string, enum: [CHANGE_ALLOWANCE_EXHAUSTED, ADVANCE_CHANGE_WINDOW_EXPIRED, RESCHEDULE_QUOTA_EXHAUSTED]}}
         status: {type: string, enum: [PENDING, APPROVED, REJECTED, EXPIRED]}
         priceIncreaseAmount: {$ref: '#/components/schemas/Vnd'}

@@ -47,6 +47,7 @@ class TicketFolioApiServiceTest {
     @Mock private FolioFinalizationService folioFinalizationService;
     @Mock private CashDayCloseService cashCloses;
     @Mock private SettlementIdempotencyService idempotency;
+    @Mock private edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementTicketMlandRemedyRepository mlandRemedies;
 
     private TicketFolioApiService service;
 
@@ -59,7 +60,7 @@ class TicketFolioApiServiceTest {
     void setUp() {
         service = new TicketFolioApiService(
                 authorization, booking, operations, bills, charges, collections, audits,
-                folioBalances, folioCollectionService, folioFinalizationService, cashCloses, idempotency
+                folioBalances, folioCollectionService, folioFinalizationService, cashCloses, idempotency, mlandRemedies
         );
         when(authorization.requireManager(manager)).thenReturn(manager);
         when(authorization.requireManager(staff)).thenThrow(new WorkshopSettlementAuthorizationException("MANAGER_REQUIRED"));
@@ -511,6 +512,23 @@ class TicketFolioApiServiceTest {
                 new ConfirmBankTransferRequest("FT123"), manager))
                 .isInstanceOf(WorkshopSettlementValidationException.class);
         verifyNoInteractions(folioCollectionService);
+    }
+
+    @Test
+    void readFolio_carriesStoredVoucherRestorationOfMlandCancelledTicket() {
+        TicketFolioContext ctx = new TicketFolioContext("TK-1", "GRP-1", "LINE-1", "PKG-1", 1L, List.of("SES-1"), 30L);
+        SettlementFinalBill folio = SettlementFinalBill.builder().billReference("BILL-1").bookingReference("TK-1")
+                .lifecycleStatus("CLOSED").postPromotionAmountVnd(100_000L).acceptedDepositAmountVnd(20_000L)
+                .remainingAmountVnd(0L).build();
+        when(booking.getTicketFolioContext("TK-1")).thenReturn(Optional.of(ctx));
+        when(bills.findByBookingReference("TK-1")).thenReturn(Optional.of(folio));
+        when(folioBalances.balanceOf(folio)).thenReturn(new FolioBalanceService.FolioBalance(0L, 0L, 0L));
+        when(mlandRemedies.findByTicketCodeOrderByCreatedAtDesc("TK-1")).thenReturn(List.of(
+                SettlementTicketMlandRemedy.builder().ticketCode("TK-1").voucherRestorationOutcome("EXPIRED").build()));
+
+        TicketFolioDto dto = service.readFolio("TK-1", memberBuyer);
+
+        assertThat(dto.voucherRestoration()).isEqualTo(new edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.TicketRemedyDtos.VoucherRestorationDto(false, "EXPIRED"));
     }
 
     @Test

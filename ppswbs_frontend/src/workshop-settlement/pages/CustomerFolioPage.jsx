@@ -6,7 +6,7 @@ import { Loading, useCommand, useResource } from '../../shared/ui/components';
 import { createSettlementApi } from '../api/settlementApi';
 import FolioCorrectionLookup from '../FolioCorrectionLookup';
 import { CustomerPage } from '../OpsPage';
-import { ProblemNotice, money } from '../ui';
+import { ProblemNotice, VoucherNotRestoredNotice, money } from '../ui';
 import { buildContactProof, EMPTY_CONTACT } from '../../workshops/contactValidation';
 import { PhoneInput } from '../../workshops/PhoneInput';
 
@@ -20,6 +20,7 @@ function FolioView({ folio }) {
         {folio.pendingAmount !== undefined && <div><dt>Awaiting verification</dt><dd>{money(folio.pendingAmount)}</dd></div>}
         <div><dt>Balance due</dt><dd>{money(folio.balanceDue)}</dd></div>
       </dl>
+      <VoucherNotRestoredNotice voucherRestoration={folio.voucherRestoration} />
       {(folio.collections || []).length > 0 && (
         <table className="ops-table">
           <thead><tr><th>Method</th><th>Amount</th><th>Status</th></tr></thead>

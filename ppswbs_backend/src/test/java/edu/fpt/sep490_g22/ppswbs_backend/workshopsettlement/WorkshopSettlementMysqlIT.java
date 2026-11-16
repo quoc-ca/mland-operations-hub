@@ -125,6 +125,7 @@ class WorkshopSettlementMysqlIT {
     @Autowired SettlementRefundRequestRepository refunds;
     @Autowired SettlementRefundAllocationRepository allocations;
     @Autowired SettlementTicketMlandRemedyRepository remedies;
+    @Autowired edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementCancellationCaseRepository cancellationCases;
     @Autowired SettlementTicketChangeRepository changes;
     @Autowired SettlementTicketChangeRequestRepository changeRequests;
     @Autowired FolioCollectionService collectionService;
@@ -423,7 +424,16 @@ class WorkshopSettlementMysqlIT {
         });
         when(operationsFacade.cancelTicket(any())).thenAnswer(invocation -> TicketCancellationOutcome.accepted(ops[2], List.of()));
         when(operationsFacade.replaceTicketSessions(any())).thenReturn(TicketSessionReplacementOutcome.accepted());
-        doReturn(BookingGroupLoyaltyOutcomeSource.none()).when(bookingFacade).getGroupLoyaltyOutcomeSource(group);
+        doReturn(new BookingGroupLoyaltyOutcomeSource(true, "SNAP-IT", 1, Instant.now().plus(7, ChronoUnit.DAYS), List.of()))
+                .when(bookingFacade).getGroupLoyaltyOutcomeSource(group);
+        when(loyalty.restoreVoucherForCancelledTicket(any())).thenReturn(edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.VoucherRestorationOutcome.EXPIRED);
+        // T167: the 003.2 handoff of this session; it is completed once the last ticket is resolved.
+        String caseReference = unique("CASE-ML-");
+        cancellationCases.save(edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementCancellationCase.builder()
+                .caseReference(caseReference).sessionReference(cancelled.toString()).affectedBookingReferencesJson("[]")
+                .cancellationReasonReference("IT").operationReference(unique("OP-ML-")).correlationReference("CORR-ML").build());
+        when(operationsFacade.completeCancellationHandoff(any()))
+                .thenReturn(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.CancellationCompletionOutcome.accepted());
 
         int opened = sessionRemedies.openRemedies(cancelled.toString(), List.of(line), "CORR-ML");
         assertThat(opened).as("the ticket that does not hold the cancelled session is left alone").isEqualTo(3);
@@ -459,6 +469,18 @@ class WorkshopSettlementMysqlIT {
         assertThat(refunded.getOutcome()).isEqualTo("REFUND");
         assertThat(refunded.getRefundRequestReference()).isNotBlank();
         assertThat(refunded.getBuyerAnswer()).as("never moved on its own").isNull();
+        // T155: the facade answer is stored with the refund; the bank refund is opened whatever it is.
+        assertThat(refunded.getVoucherRestorationOutcome()).isEqualTo("EXPIRED");
+        assertThat(refunded.isVoucherRestored()).isFalse();
+        assertThat(remedies.findByRemedyReference(answeredRemedy(chooser)).orElseThrow().getVoucherRestorationOutcome()).isNull();
+        // T167: the last ticket resolved, so 003.2 was told once and the case is resolved.
+        verify(operationsFacade, org.mockito.Mockito.times(1)).completeCancellationHandoff(any());
+        assertThat(cancellationCases.findByCaseReference(caseReference).orElseThrow().getStatus())
+                .isEqualTo(edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementCaseStatus.RESOLVED);
+    }
+
+    private String answeredRemedy(String ticketCode) {
+        return remedies.findByTicketCodeOrderByCreatedAtDesc(ticketCode).get(0).getRemedyReference();
     }
 
     private static DeliverySafeTicket projection(UUID ticket, String code, UUID session) {
@@ -474,9 +496,10 @@ class WorkshopSettlementMysqlIT {
         String group = unique("G-CHG-");
         String ticket = unique("T-CHG-");
         UUID opsRef = UUID.randomUUID();
+        UUID from = UUID.randomUUID();
         UUID target = UUID.randomUUID();
         folio(ticket, group, 100_000, 100_000, "OPEN");
-        ctx(ticket, group, 100L, opsRef, Instant.now().plus(72, ChronoUnit.HOURS), 20_000, List.of(UUID.randomUUID().toString()));
+        ctx(ticket, group, 100L, opsRef, Instant.now().plus(72, ChronoUnit.HOURS), 20_000, List.of(from.toString()));
         when(operationsFacade.getSaleEligibility(any())).thenReturn(new SaleEligibilitySnapshot(target, true, "ACTIVE", 20L,
                 Instant.now().plus(96, ChronoUnit.HOURS), Instant.now().plus(98, ChronoUnit.HOURS), 5, LocalDate.now().plusDays(4)));
         when(loyalty.checkTicketVoucherScope(any())).thenReturn(new TicketVoucherScope(true, false, java.math.BigInteger.valueOf(20_000L)));
@@ -484,19 +507,19 @@ class WorkshopSettlementMysqlIT {
         CurrentAccountActor buyer = new CurrentAccountActor(100L, ActorRole.MEMBER, ActorStatus.ACTIVE, true, List.of());
 
         ChangeResultDto preview = changeService.changeTicketSessions(ticket, new TicketChangeRequestDto(
-                TicketChangeType.ADVANCE, List.of(target), null, null, null), key(), "CORR", buyer);
+                TicketChangeType.ADVANCE, List.of(target), List.of(from), null, null, null), key(), "CORR", buyer);
         assertThat(preview.applied()).isFalse();
         assertThat(preview.confirmIncreaseRequired()).isTrue();
         assertThat(balanceOwed(ticket)).isEqualTo(100_000L);
 
         ChangeResultDto applied = changeService.changeTicketSessions(ticket, new TicketChangeRequestDto(
-                TicketChangeType.ADVANCE, List.of(target), true, null, null), key(), "CORR", buyer);
+                TicketChangeType.ADVANCE, List.of(target), List.of(from), true, null, null), key(), "CORR", buyer);
         assertThat(applied.applied()).isTrue();
         assertThat(applied.countedChange()).isTrue();
         assertThat(balanceOwed(ticket)).as("the increase goes to the checkout balance").isEqualTo(120_000L);
 
         ChangeResultDto queued = changeService.changeTicketSessions(ticket, new TicketChangeRequestDto(
-                TicketChangeType.ADVANCE, List.of(target), true, null, null), key(), "CORR", buyer);
+                TicketChangeType.ADVANCE, List.of(target), List.of(from), true, null, null), key(), "CORR", buyer);
         assertThat(queued.applied()).isFalse();
         assertThat(queued.changeRequestReference()).isNotBlank();
         assertThat(changeRequestService.list(MANAGER, "PENDING")).anySatisfy(request ->
@@ -519,13 +542,17 @@ class WorkshopSettlementMysqlIT {
         UUID ops2 = UUID.randomUUID();
         folio(t1, group, 100_000, 50_000, "OPEN");
         folio(t2, group, 100_000, 50_000, "OPEN");
-        ctx(t1, group, 100L, ops1, Instant.now().plus(72, ChronoUnit.HOURS), 0, List.of(UUID.randomUUID().toString()));
-        ctx(t2, group, 100L, ops2, Instant.now().plus(72, ChronoUnit.HOURS), 0, List.of(UUID.randomUUID().toString()));
+        UUID from1 = UUID.randomUUID();
+        UUID from2 = UUID.randomUUID();
+        ctx(t1, group, 100L, ops1, Instant.now().plus(72, ChronoUnit.HOURS), 0, List.of(from1.toString()));
+        ctx(t2, group, 100L, ops2, Instant.now().plus(72, ChronoUnit.HOURS), 0, List.of(from2.toString()));
+        when(operationsFacade.getSaleEligibility(any())).thenReturn(new SaleEligibilitySnapshot(from1, true, "ACTIVE", 10L,
+                Instant.now().plus(72, ChronoUnit.HOURS), Instant.now().plus(74, ChronoUnit.HOURS), 5, null));
         when(operationsFacade.replaceTicketSessions(any())).thenReturn(TicketSessionReplacementOutcome.accepted());
         CurrentAccountActor buyer = new CurrentAccountActor(100L, ActorRole.MEMBER, ActorStatus.ACTIVE, true, List.of());
         GroupTicketChangeRequestDto request = new GroupTicketChangeRequestDto(TicketChangeType.ADVANCE, List.of(
-                new GroupTicketChangeItemDto(t1, List.of(UUID.randomUUID())),
-                new GroupTicketChangeItemDto(t2, List.of(UUID.randomUUID()))), null, null, null);
+                new GroupTicketChangeItemDto(t1, List.of(UUID.randomUUID()), List.of(from1)),
+                new GroupTicketChangeItemDto(t2, List.of(UUID.randomUUID()), List.of(from2))), null, null, null);
 
         var result = groupChangeService.changeGroupTickets(group, request, key(), "CORR", buyer);
 
