@@ -143,9 +143,12 @@ public class WorkshopSessionController {
             @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId,
             @PathVariable("sessionId") String sessionId,
             @RequestHeader(value = "Idempotency-Key", required = true) String idempotencyKey,
-            @RequestParam("accountId") Long accountId) {
+            @RequestParam("accountId") Long accountId,
+            @RequestParam(value = "confirmLastAssignmentRemoval", defaultValue = "false") boolean confirmLastAssignmentRemoval) {
+        // The confirmation flag is part of the fingerprint: replaying a key with a different flag is IDEMPOTENCY_CONFLICT (T115).
         restIdempotency.execute(idempotencyKey, "REST:DELETE:/api/v1/workshop-sessions/{sessionId}/staff-assignments", "session:staff-remove:" + sessionId + ":" + accountId,
-                accountId, Void.class, () -> { responsibilityService.removeStaff(authHeader, correlationId, sessionId, accountId); return null; });
+                accountId + ":confirm=" + confirmLastAssignmentRemoval, Void.class,
+                () -> { responsibilityService.removeStaff(authHeader, correlationId, sessionId, accountId, confirmLastAssignmentRemoval); return null; });
         return ResponseEntity.noContent().build();
     }
 

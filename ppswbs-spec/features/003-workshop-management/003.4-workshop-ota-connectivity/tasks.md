@@ -1,7 +1,7 @@
 # Tasks: Workshop OTA Connectivity
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-15
+**Date updated**: 2026-11-16
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -370,3 +370,11 @@ T125 → T130 (the Manager read of revoked tickets needs the audit entries that 
 T124, T126, T128, T129, T130: independent of the above (T129 touches the same docs as T144 only)
 T011 → T145 (OTA saleState three-value enum consumption; F05 2026-11-16)
 ```
+
+## Phase 13: Convergence
+
+- [ ] T146 Scale the snapshotted retail, target-net and commission amounts and the `COMMISSION_FEE` ledger entry by participant count in `OtaProviderEventHandler` and `OtaPayoutLedgerRecorder`, and add an N = 3 assertion that `GROSS_SALE` and commission agree per FR-013, FR-015, SC-007 (partial)
+- [ ] T147 Open one deduplicated `INBOUND_EVENT` work item and an audit entry when a booking is rejected by the 003.1/003.2 facade (capacity or session closed or paused, `BOOKING_CAPACITY_REJECTED`) in `OtaProviderEventHandler`, with a test per FR-004d, US1/AC3, FR-017 (partial)
+- [ ] T148 Replace the random `PAY-<uuid>` evidence reference in `OtaProviderEventHandler` with a deterministic reference derived from provider plus external booking reference, or refuse to confirm when the OTA supplies no payment reference, so a replay under a new event key cannot write a second evidence row per FR-012, FR-007 (partial)
+- [ ] T149 Add a duplicate, older and source-version-gap test of `OtaOperationsSnapshotListener` through `OtaSyncDeliveryService` per FR-004a, FR-004c, FR-004b (partial)
+- [ ] T150 Verify and, where absent, add success-path audit entries (actor, location, channel, scope, reason, outcome) for price-terms, booking-enable and work-item resolve in `OtaPriceTermsService`, `OtaSalesControlService` and `OtaChannelController` per FR-004b, FR-004b1 (partial)

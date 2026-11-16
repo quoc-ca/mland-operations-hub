@@ -248,6 +248,10 @@ through this section.
   Mland-caused replacements do not consume or check the quota (capacity only).
   The quota never replaces the capacity check; a moved ticket takes one seat.
   The 25% default is a starting value to review after operating data exists.
+  **Decided 2026-11-16 (Hồ Hoàng Quốc, owner Feature 003):** a quota change requires a free-text
+  reason (required, at most 500 characters, as in `RescheduleQuotaRequest`); it is not a code of the
+  FR-007a catalogue, which covers only check-in override, finalized-attendance correction and session
+  cancellation. The audit event `RESCHEDULE_QUOTA_SET` records that text.
 - **FR-036**: OTA tickets keep the OTA's policy; these customer change and
   cancellation rules do not apply to them.
   **Decided 2026-11-14 (Hồ Hoàng Quốc, owner Feature 003): 003.2 refuses.**
@@ -867,13 +871,13 @@ and CHK035. Code and test work: tasks T115–T117, T140, T141.)*
   scan; no active Manager means WARN and no marker. (2) Template code
   `WORKSHOP_CANCELLATION_UNRESOLVED_ALERT`, `owning_module` `workshopoperations`;
   `allowed_placeholders`: `sessionReference`, `sessionName`, `locationName`,
-  `scheduledEndAt`, `unresolvedTicketCount`, `hoursSinceScheduledEnd`; no
+  `scheduledEndAt`, `hoursSinceScheduledEnd`; no
   credentials, no buyer personal data. Subject: `[Mland] Buổi workshop
-  {{sessionName}} còn {{unresolvedTicketCount}} vé chưa xử lý sau khi bị hủy`.
+  {{sessionName}} vẫn còn vé chưa xử lý sau khi bị hủy`.
   Body (plain + simple HTML): "Kính gửi Quản lý chi nhánh {{locationName}}, Buổi
   workshop {{sessionName}} (mã {{sessionReference}}) kết thúc theo lịch lúc
   {{scheduledEndAt}} nhưng vẫn ở trạng thái chờ hủy sau {{hoursSinceScheduledEnd}}
-  giờ. Còn {{unresolvedTicketCount}} vé chưa được giải quyết (đổi buổi hoặc mở yêu
+  giờ. Vẫn còn vé chưa được giải quyết (đổi buổi hoặc mở yêu
   cầu hoàn tiền). Vui lòng kiểm tra các vé của buổi này trong màn hình quản lý và
   xử lý. Đây là cảnh báo gửi một lần cho mỗi buổi. Trân trọng, Hệ thống Mland."
   (3) Recipients: every active Manager (global scope, decision D) via the Account
@@ -882,7 +886,14 @@ and CHK035. Code and test work: tasks T115–T117, T140, T141.)*
   `<sessionReference>:CANCELLATION_UNRESOLVED:<managerAccountId>` (idempotent).
   Audit `CANCELLATION_UNRESOLVED_ALERT` outcome `SENT` is written only when all
   intents were accepted (partial failure means WARN, no marker, retry next scan;
-  idempotent references prevent duplicate mails). T133 acceptance adds the
+  idempotent references prevent duplicate mails). *Amended 2026-11-16 by the 003
+  owner (T133, option c): the `unresolvedTicketCount` placeholder is removed from
+  the allowlist, subject and body, because Operations does not know which tickets
+  003.3 has resolved and no count facade exists; the email only states that
+  tickets remain unresolved. `businessEventReference` is
+  `<sessionReference>:CANCELLATION_UNRESOLVED` (the Account facade returns emails
+  only, no account id; Notification already de-duplicates per recipient
+  fingerprint).* T133 acceptance adds the
   migration, a preview check and an allowlist test.
 - Q (F14): How is a late auto-start (more than 5 minutes) reported? → A: option
   A: an `ERROR` log plus a metric for operations monitoring; no email.
@@ -1586,7 +1597,7 @@ correction, with before/after audit evidence.
   | Create a session, individually or in bulk (FR-001f) | one event per created session, plus the created/skipped report |
   | Publish, pause or resume sales, change a session's capacity (FR-010, Business model; a location change is deferred, V1 — see T112) | one event with prior and new state |
   | Create or edit a workshop location (FR-012c) | one event per applied change, prior and new values |
-  | Set or clear a session's reschedule quota (FR-035) | one event `RESCHEDULE_QUOTA_SET`, prior and new quota, reason code |
+  | Set or clear a session's reschedule quota (FR-035) | one event `RESCHEDULE_QUOTA_SET`, prior and new quota, reason text (free text, FR-035) |
   | Assign or revoke a Staff member (Staff session-assignment access) | one event per assignment or removal; a refused removal of the last Staff and the confirmed one are both audited (Q3) |
   | Reverse a check-in (FR-002b) | before/after, reason code |
   | Correct finalized attendance (FR-008) | before/after, reason code |

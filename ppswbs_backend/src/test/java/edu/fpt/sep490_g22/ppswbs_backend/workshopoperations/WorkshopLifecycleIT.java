@@ -11,20 +11,17 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.service.Toke
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.service.VerifiedIdentity;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.CapacityHoldRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.OperationsAuditEventRepository;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.SessionOperationalLeadRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.SessionStaffAssignmentRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.WorkshopLocationRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.WorkshopPackageRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.WorkshopSessionRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.WorkshopSlotRepository;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.OperationalLeadRequest;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.StaffAssignmentRequest;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.StateTransitionRequest;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.CapacityHold;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.CapacityHoldState;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.CheckInOpeningSource;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.OperationsAuditEvent;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.SessionOperationalLead;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.SessionStaffAssignment;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.SessionState;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.WorkshopLocation;
@@ -119,9 +116,6 @@ public class WorkshopLifecycleIT {
     private SessionStaffAssignmentRepository staffAssignmentRepository;
 
     @Autowired
-    private SessionOperationalLeadRepository operationalLeadRepository;
-
-    @Autowired
     private CapacityHoldRepository capacityHoldRepository;
 
     @Autowired
@@ -151,7 +145,6 @@ public class WorkshopLifecycleIT {
         jdbcTemplate.execute("TRUNCATE TABLE ticket_session_entitlements");
         jdbcTemplate.execute("TRUNCATE TABLE attendance_tickets");
         jdbcTemplate.execute("TRUNCATE TABLE capacity_holds");
-        jdbcTemplate.execute("TRUNCATE TABLE session_operational_leads");
         jdbcTemplate.execute("TRUNCATE TABLE session_staff_assignments");
         jdbcTemplate.execute("TRUNCATE TABLE cancellation_handoffs");
         jdbcTemplate.execute("TRUNCATE TABLE operations_audit_events");
@@ -324,7 +317,7 @@ public class WorkshopLifecycleIT {
         when(accountFacade.getTargetAccount(203L)).thenReturn(Optional.of(
                 new TargetAccountSnapshot(203L, ActorRole.STAFF, ActorStatus.ACTIVE, List.of(locationB.getId()))));
 
-        // 3a. Target does not exist -> 409 INVALID_STATE
+        // 3a. Target does not exist -> 409 STAFF_NOT_ELIGIBLE ACCOUNT_NOT_FOUND
         StaffAssignmentRequest reqNotFound = StaffAssignmentRequest.builder().accountId(999L).build();
         mockMvc.perform(put("/api/v1/workshop-sessions/" + sessionA.getReference() + "/staff-assignments")
                 .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
@@ -332,9 +325,10 @@ public class WorkshopLifecycleIT {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(reqNotFound)))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("INVALID_STATE"));
+                .andExpect(jsonPath("$.code").value("STAFF_NOT_ELIGIBLE"))
+                .andExpect(jsonPath("$.reason").value("ACCOUNT_NOT_FOUND"));
 
-        // 3b. Target wrong role -> 409 INVALID_STATE
+        // 3b. Target wrong role -> 409 STAFF_NOT_ELIGIBLE NOT_STAFF
         StaffAssignmentRequest reqWrongRole = StaffAssignmentRequest.builder().accountId(201L).build();
         mockMvc.perform(put("/api/v1/workshop-sessions/" + sessionA.getReference() + "/staff-assignments")
                 .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
@@ -342,9 +336,10 @@ public class WorkshopLifecycleIT {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(reqWrongRole)))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("INVALID_STATE"));
+                .andExpect(jsonPath("$.code").value("STAFF_NOT_ELIGIBLE"))
+                .andExpect(jsonPath("$.reason").value("NOT_STAFF"));
 
-        // 3c. Target not ACTIVE -> 409 INVALID_STATE
+        // 3c. Target not ACTIVE -> 409 STAFF_NOT_ELIGIBLE NOT_ACTIVE
         StaffAssignmentRequest reqSuspended = StaffAssignmentRequest.builder().accountId(202L).build();
         mockMvc.perform(put("/api/v1/workshop-sessions/" + sessionA.getReference() + "/staff-assignments")
                 .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
@@ -352,17 +347,19 @@ public class WorkshopLifecycleIT {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(reqSuspended)))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("INVALID_STATE"));
+                .andExpect(jsonPath("$.code").value("STAFF_NOT_ELIGIBLE"))
+                .andExpect(jsonPath("$.reason").value("NOT_ACTIVE"));
 
-        // 3d. Target outside location scope -> 403 LOCATION_SCOPE_DENIED
+        // 3d. Target outside location scope -> 409 STAFF_NOT_ELIGIBLE LOCATION_NOT_IN_SCOPE
         StaffAssignmentRequest reqOutsideScope = StaffAssignmentRequest.builder().accountId(203L).build();
         mockMvc.perform(put("/api/v1/workshop-sessions/" + sessionA.getReference() + "/staff-assignments")
                 .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
                         .header("Authorization", MGR_A_TOKEN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(reqOutsideScope)))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("LOCATION_SCOPE_DENIED"));
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("STAFF_NOT_ELIGIBLE"))
+                .andExpect(jsonPath("$.reason").value("LOCATION_NOT_IN_SCOPE"));
     }
 
     // =========================================================================
@@ -476,6 +473,29 @@ public class WorkshopLifecycleIT {
                 .anyMatch(event -> "SESSION_AUTO_STARTED".equals(event.getAction()));
     }
 
+
+    @Test
+    @DisplayName("T114: scheduler starts a SALES_PAUSED session at its scheduled time and audits it")
+    void shouldAutoStartSalesPausedSession() {
+        Instant now = Instant.now();
+        sessionA.setState(SessionState.SALES_PAUSED);
+        sessionA.setCheckInOpensAt(now.minusSeconds(60));
+        sessionA.setScheduledStartAt(now.plusSeconds(60));
+        sessionA = sessionRepository.saveAndFlush(sessionA);
+        sessionStartScheduler.transitionDueSessions();
+        assertThat(sessionRepository.findByReference(sessionA.getReference()).orElseThrow().getState())
+                .isEqualTo(SessionState.SALES_PAUSED);
+
+        sessionA.setScheduledStartAt(now.minusSeconds(1));
+        sessionA = sessionRepository.saveAndFlush(sessionA);
+        sessionStartScheduler.transitionDueSessions();
+
+        WorkshopSession started = sessionRepository.findByReference(sessionA.getReference()).orElseThrow();
+        assertThat(started.getState()).isEqualTo(SessionState.IN_PROGRESS);
+        assertThat(auditEventRepository.findBySessionIdOrderByOccurredAtDesc(started.getId()))
+                .anyMatch(event -> "SESSION_AUTO_STARTED".equals(event.getAction())
+                        && event.getMetadata().contains("SALES_PAUSED"));
+    }
     @Test
     @DisplayName("T025-6: SALES_PAUSED blocks new hold creation while preserving and committing existing unexpired holds")
     void shouldPreserveHoldsAcrossSalesPause() throws Exception {
@@ -567,9 +587,10 @@ public class WorkshopLifecycleIT {
     // =========================================================================
 
     @Test
-    @DisplayName("T025-8: Staff removal during IN_PROGRESS follows location/role authorization")
+    @DisplayName("T115/T025-8: removing the last Staff of an IN_PROGRESS session needs confirmLastAssignmentRemoval")
     void shouldEnforceStaffRemovalInvariantDuringInProgress() throws Exception {
         sessionA.setState(SessionState.IN_PROGRESS);
+        sessionA.setCheckInOpensAt(Instant.now().minusSeconds(60));
         sessionRepository.save(sessionA);
 
         when(accountFacade.getTargetAccount(101L)).thenReturn(Optional.of(
@@ -584,17 +605,28 @@ public class WorkshopLifecycleIT {
                 .assignedAt(Instant.now())
                 .build());
 
-        // The final responsible Staff member still cannot be removed while
-        // the session is IN_PROGRESS; this is a responsibility invariant,
-        // not a per-request assignment authorization check.
+        // Last assignment after checkInOpensAt: refused until the Manager confirms (T115).
         mockMvc.perform(delete("/api/v1/workshop-sessions/" + sessionA.getReference() + "/staff-assignments")
                 .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
                         .header("Authorization", MGR_A_TOKEN)
                         .param("accountId", "101"))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("INVALID_STATE"));
+                .andExpect(jsonPath("$.code").value("LAST_STAFF_ASSIGNMENT_CONFIRMATION_REQUIRED"));
 
         assertThat(staffAssignmentRepository.findById(staffAssignment.getId()).orElseThrow().isActive()).isTrue();
+        assertThat(auditEventRepository.findBySessionIdOrderByOccurredAtDesc(sessionA.getId()))
+                .anyMatch(e -> "SESSION_STAFF_REMOVED".equals(e.getAction()) && "DENIED".equals(e.getOutcome()));
+
+        mockMvc.perform(delete("/api/v1/workshop-sessions/" + sessionA.getReference() + "/staff-assignments")
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
+                        .header("Authorization", MGR_A_TOKEN)
+                        .param("accountId", "101")
+                        .param("confirmLastAssignmentRemoval", "true"))
+                .andExpect(status().isNoContent());
+
+        assertThat(staffAssignmentRepository.findById(staffAssignment.getId()).orElseThrow().isActive()).isFalse();
+        assertThat(auditEventRepository.findBySessionIdOrderByOccurredAtDesc(sessionA.getId()))
+                .anyMatch(e -> "SESSION_STAFF_REMOVED".equals(e.getAction()) && "SUCCESS".equals(e.getOutcome()));
 
     }
 

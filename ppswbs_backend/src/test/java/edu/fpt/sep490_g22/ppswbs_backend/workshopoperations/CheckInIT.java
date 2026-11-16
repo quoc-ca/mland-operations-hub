@@ -93,9 +93,6 @@ public class CheckInIT {
     private SessionStaffAssignmentRepository staffAssignmentRepository;
 
     @Autowired
-    private SessionOperationalLeadRepository operationalLeadRepository;
-
-    @Autowired
     private CapacityHoldRepository capacityHoldRepository;
 
     @Autowired
@@ -141,7 +138,6 @@ public class CheckInIT {
         jdbcTemplate.execute("TRUNCATE TABLE ticket_session_entitlements");
         jdbcTemplate.execute("TRUNCATE TABLE attendance_tickets");
         jdbcTemplate.execute("TRUNCATE TABLE capacity_holds");
-        jdbcTemplate.execute("TRUNCATE TABLE session_operational_leads");
         jdbcTemplate.execute("TRUNCATE TABLE session_staff_assignments");
         jdbcTemplate.execute("TRUNCATE TABLE cancellation_handoffs");
         jdbcTemplate.execute("TRUNCATE TABLE operations_audit_events");
@@ -419,6 +415,32 @@ public class CheckInIT {
         assertThat(actions).hasSize(1);
     }
 
+
+    @Test
+    @DisplayName("T114: Check-in is accepted for a SALES_PAUSED session and refused once it is cancelled")
+    void checkIn_salesPausedSession_isAccepted() throws Exception {
+        WorkshopSession session = createPublishedSession(locationA, slotMorning, null);
+        String bookingRef = "BK-PAUSE-" + UUID.randomUUID().toString().substring(0, 8);
+        DeliverySafeTicket ticket = issueTicketsForBooking(bookingRef, List.of(session), 1).tickets().get(0);
+        session = sessionRepository.findByReference(session.getReference()).orElseThrow();
+        session.setState(SessionState.SALES_PAUSED);
+        session = sessionRepository.saveAndFlush(session);
+
+        mockMvc.perform(post("/api/v1/workshop-sessions/{sessionId}/check-ins", session.getReference())
+                        .header("Authorization", STAFF_A_TOKEN)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(CheckInRequest.builder().ticketCode(ticket.ticketCode()).build())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.checkInResult").value("CHECKED_IN"));
+
+        session.setState(SessionState.CANCELLATION_REQUESTED);
+        sessionRepository.saveAndFlush(session);
+        mockMvc.perform(post("/api/v1/workshop-sessions/{sessionId}/check-ins", session.getReference())
+                        .header("Authorization", STAFF_A_TOKEN)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(CheckInRequest.builder().ticketCode(ticket.ticketCode()).build())))
+                .andExpect(status().isConflict());
+    }
     // =========================================================================
     // 3. Wrong Location or Session Scan Rejected with 409 TICKET_CONFLICT
     // =========================================================================
@@ -438,13 +460,6 @@ public class CheckInIT {
                 .active(true)
                 .build());
         WorkshopSession sessionB = createPublishedSession(locationB, slotB, null);
-        operationalLeadRepository.save(SessionOperationalLead.builder()
-                .session(sessionB)
-                .managerAccountId(10L)
-                .reasonCode("INITIAL_LEAD")
-                .assignedAt(Instant.now())
-                .active(true)
-                .build());
 
         String bookingRef = "BK-LOCA-" + UUID.randomUUID().toString().substring(0, 8);
         DeliverySafeTicketSet ticketSet = issueTicketsForBooking(bookingRef, List.of(sessionA), 1);

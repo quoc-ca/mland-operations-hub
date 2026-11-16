@@ -3,7 +3,6 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountSummary;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.AttendanceActionRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.OperationsAuditEventRepository;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.SessionOperationalLeadRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.TicketSessionEntitlementRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.WorkshopSessionRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.AttendanceFinalizationRequest;
@@ -45,7 +44,6 @@ public class AttendanceFinalizationService {
     private final OperationsAuditEventRepository auditEventRepository;
     private final WorkshopOtaSnapshotService otaSnapshotService;
     private final WorkshopOperationsAuthorizationService authorizationService;
-    private final SessionOperationalLeadRepository operationalLeadRepository;
     private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.SessionStaffAssignmentRepository staffAssignmentRepository;
 
     /**
@@ -78,14 +76,15 @@ public class AttendanceFinalizationService {
 
         WorkshopSession session = resolveSessionForUpdate(sessionReference);
 
+        // Authorization (T121): assigned Staff in location scope or any active Manager globally. Authority comes
+        // before state, so an unassigned Staff gets 403 whatever the session state and learns nothing about it.
+        AccountSummary actor = authorizationService.requireStaffSessionAssignment(authHeader, session.getId());
+
         // Guard: session must be IN_PROGRESS
         if (session.getState() != SessionState.IN_PROGRESS) {
             log.warn("Finalization rejected: session {} is in state {}", sessionReference, session.getState());
             throw new WorkshopLifecycleException("Session is in state " + session.getState() + "; finalization requires IN_PROGRESS");
         }
-
-        // Authorization: assigned Staff in location scope or any active Manager globally.
-        AccountSummary actor = authorizationService.requireStaffSessionAssignment(authHeader, session.getId());
 
         Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
 
@@ -192,10 +191,6 @@ public class AttendanceFinalizationService {
     }
 
     private SessionResponse toSessionResponse(WorkshopSession session) {
-        Long operationalLeadId = operationalLeadRepository.findBySessionIdAndActiveTrue(session.getId())
-                .map(SessionOperationalLead::getManagerAccountId)
-                .orElse(null);
-
         return SessionResponse.builder()
                 .id(session.getReference())
                 .locationId(session.getLocation().getId())
@@ -207,7 +202,7 @@ public class AttendanceFinalizationService {
                 .checkInOpeningSource(session.getCheckInOpeningSource())
                 .capacity(session.getCapacity())
                 .state(session.getState())
-                .operationalLeadAccountId(operationalLeadId)
+                .missingStaff(false) // finalized / cancellation-requested sessions are outside the staffing-watched states
                 .assignedStaffAccountIds(staffAssignmentRepository.findBySessionIdAndActiveTrue(session.getId()).stream().map(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.SessionStaffAssignment::getAccountId).sorted().toList())
                 .build();
     }

@@ -3,7 +3,6 @@ package edu.fpt.sep490_g22.ppswbs_backend.workshopoperations;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.controller.WorkshopOperationsExceptionHandler;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.OperationalLeadRequest;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.ProblemDetailResponse;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.SessionResponse;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.StaffAssignmentRequest;
@@ -391,7 +390,6 @@ public class WorkshopLifecycleContractIT {
         // Verify that DTO classes exist and can be instantiated
         assertThat(StateTransitionRequest.class).isNotNull();
         assertThat(StaffAssignmentRequest.class).isNotNull();
-        assertThat(OperationalLeadRequest.class).isNotNull();
 
         // Verify BE-DESIGN-0003 blocker state:
         // AccountFacade lacks semantic query for target accountId capabilities/roles.
