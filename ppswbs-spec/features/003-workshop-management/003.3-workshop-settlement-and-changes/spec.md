@@ -1,7 +1,7 @@
 # Feature Specification: Workshop Settlement and Changes
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-16
+**Date updated**: 2026-11-17
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -16,6 +16,8 @@ the checklist follow-up of 2026-11-15 (Phase 11, T144–T172, all open except T1
 reversal, refund failure path, account-entry confirmation, optional receipt
 image after plan decision O-1, voucher restoration outcome, folio close rule);
 T005 and T035 blocked on VNPay merchant configuration
+
+**Approved addition (2026-11-17)**: "Changes across locations" (FR-058–FR-063, SC-021–SC-023) and the decisions Q1–Q7 of Clarifications "Session 2026-11-17" (Q7 withdrawn), applying 003.2 Package availability per location and the calendar-date change window, planned as tasks T182–T193 (Phase 14). Approved 2026-11-17 by Hồ Hoàng Quốc (owner Feature 003 and 003.3), on request in the working session, for the text at commit `dbfd8a14` of branch `claude/pkg-location-003-3-tasks-325d2e`. Scope: requirements, decisions, plan section and Phase 14 tasks of 003.3, and the matching amendment of 003.2 FR-042 (commit `1071a65b`). **Not covered:** screen wording and layout (no Figma; T189/T192), the OpenAPI changes (written in T183/T184), and the 003.1 tasks this depends on (`getTicketFolioContext` from the current session; payment-time location in `listBookingTimePayments`), which the 003.1 owner session must add and approve.
 
 **Approval**: Session 2026-11-15 (Clarifications and "Checklist follow-up") approved
 2026-11-15 by Hồ Hoàng Quốc (owner Feature 003), on request in the working
@@ -486,7 +488,10 @@ self-service (FR-018 and Scope); whole-booking Mland remedy (FR-020, FR-021).
   branch, starting after the cancellation, with capacity and quota left, package
   session order kept; not counted as the customer's change, no extra charge) and
   the buyer chooses one; with none, the 100% bank refund opens at once
-  (decided 2026-11-14).
+  (decided 2026-11-14). *(Amended 2026-11-17, FR-061, owner decision 003.2 FR-046:
+  "same package and branch" becomes "same package at any location where it is
+  `ACTIVE`", each candidate with its location name; a two-session ticket keeps the
+  location of the unchanged session.)*
   The buyer chooses ONE of all the offered equivalent sessions; a session is
   choosable only while it starts at least 24 hours after the answer; no answer
   means refund, never an automatic move, and the default refund fires at
@@ -569,7 +574,10 @@ self-service (FR-018 and Scope); whole-booking Mland remedy (FR-020, FR-021).
   these rights or ask Staff at the shop. Only valid options are shown and they
   are rechecked on confirmation. Capacity and the reschedule quota are checked
   per ticket in 003.2; quota never replaces the capacity check. OTA tickets
-  follow the OTA's policy.
+  follow the OTA's policy. *(Amended 2026-11-17: the 7-day limit for the
+  replacement is counted by `Asia/Ho_Chi_Minh` calendar date, applies to advance
+  changes as well as late arrival, and exempts Mland (FR-062); a change may move
+  the ticket to another location where the Package is sold, with no Manager (FR-058, FR-059).)*
 - **FR-045**: The package price stays frozen, so a change never lowers the price
   and never creates a refund. A ticket moved outside its voucher scope loses
   its allocated voucher discount; used points stay. A ticket moved into scope
@@ -606,6 +614,9 @@ self-service (FR-018 and Scope); whole-booking Mland remedy (FR-020, FR-021).
   session (clarified 2026-11-15); the ticket's other sessions, such as an
   earlier first session, never make it expire. **LATE_ARRIVAL (decided 2026-11-15, owner Ho Hoang Quoc):** the session being changed has already started when the request is made, so it expires at the earliest of the end of the FR-044 7-day window (the changed session's end + 7 days) and the start of any requested target session. Each request carries `fromSessionReferences`, and each reference must belong to the ticket, otherwise it is refused (422). Several tickets of one group change together, all or none,
   through `POST /workshop-booking-groups/{groupCode}/ticket-changes`.
+  *(Amended 2026-11-17: "the end of the FR-044 7-day window" is the end of the 7th
+  calendar day after the day the changed session ends, `Asia/Ho_Chi_Minh` (FR-062); a
+  change to another location needs no Manager (FR-059, decided 2026-11-17).)*
 
 
 - **FR-044a — listing the sessions a ticket may move to** *(decided 2026-11-16 by Hồ Hoàng Quốc, owner Feature 003; tasks T176–T181)*:
@@ -623,6 +634,112 @@ self-service (FR-018 and Scope); whole-booking Mland remedy (FR-020, FR-021).
   re-checks everything. `fromSessionReferences` of `POST /changes` names only the sessions that really move (one per
   target, same order); the server builds the ticket's new session set by keeping the other session, and ignores a pair
   whose from equals its target.
+  *(Amended 2026-11-17, see "Changes across locations" below, FR-058–FR-063:
+  "branch rule" and "A target at another branch is listed when the package does not
+  require one branch" are replaced by the availability rule of FR-058; the
+  "listed with `requiresManager=true`" wording for a full reschedule quota was
+  already superseded by the contract and the code (a session with no quota left is
+  not listed, user decision 2026-11-16) and is aligned by FR-063; the 7-day window
+  is the calendar-date rule of FR-062.)*
+
+### Changes across locations (Package availability per location; added 2026-11-17)
+
+**Source:** 003.2 `spec.md` "Package availability per location" (owner request and
+decisions of Hồ Hoàng Quốc, owner Feature 003, 2026-11-17: FR-037–FR-046, especially
+FR-042, FR-044, FR-045, FR-046), 003.2 `plan.md` Phase 18 "Cross-feature impact",
+`approval.md` of 003.2 (003.3 is an exclusion there) and
+`../contracts/workshop-interfeature-facades.md`. **Status: DRAFT/PROPOSED for 003.3.**
+The 003.2 owner decisions are stated there; this section applies them to 003.3 and
+marks every point that 003.2 does not decide as *proposed* with the question in
+"Session 2026-11-17" under Clarifications. It changes nothing in 003.2.
+
+**Observed baseline (facts, code read 2026-11-17):** `TicketChangeOptionsApiService`
+answers a ticket's candidates from the 003.2 `TicketChangeOptions` read, which today
+still pins candidates to the old location (003.2 T154 changes that); `ChangeOptionDto`
+has `locationReference` and `remainingRescheduleQuota` but no location name;
+`TicketChangeService.authorizeRequester` requires, for Staff, the ticket's location in
+scope **and** an active assignment to a session the ticket holds
+(`SESSION_ASSIGNMENT_REQUIRED`), and does not compare the target location with the
+ticket's current location; a 003.2 refusal other than a full reschedule quota is
+returned as `409` with the refusal name as the code; the 7-day window is computed in
+003.3 as `end + 7 × 24 h` (`LATE_ARRIVAL_WINDOW_DAYS` with `ChronoUnit.DAYS`) in the
+options `lateDeadline` and in the queue expiry, while 003.2 `TicketReplacementRules`
+already enforces it by Vietnam calendar date for advance and late-arrival changes and
+answers `LATE_ARRIVAL_WINDOW_EXPIRED`; only `settlement_folio_collections` stores a
+branch (`branch_id`), while charges, add-ons, final bills and change records store none.
+
+- **FR-058 — Options at every location where the Package is sold** *(applies 003.2
+  FR-042/FR-044; owner decision 2026-11-17)*: the change-option list
+  (`GET /workshop-tickets/{ticketCode}/change-options` and `POST .../change-option-lookups`)
+  MUST offer candidate sessions at **every** location where the ticket's Package is
+  `ACTIVE`, no longer only at the ticket's current location. 003.3 consumes the
+  candidates built by 003.2 (`TicketChangeOptionsService.candidatesFor`, 003.2 T154,
+  which uses `WorkshopOperationsFacade.activeLocationsForPackage`); it does not
+  re-implement the availability rule and does not filter by location itself. Each
+  option and each pair member MUST carry `locationReference` **and** `locationName`
+  (003.2 FR-044), so the customer can tell sessions of the same date and slot apart.
+  A candidate at a location where the Package is `INACTIVE` is never listed. The list
+  stays advisory: `POST /changes` rechecks availability at commit.
+- **FR-059 — Who may change a ticket to another location** *(applies 003.2 FR-042;
+  owner decision 2026-11-17)*: (a) Staff may read options for, and change, a ticket only
+  when the ticket's **current** location is in the Staff member's scope **and** the
+  Staff member is actively assigned to a session the ticket holds; otherwise
+  `SESSION_ASSIGNMENT_REQUIRED` (existing rule, now stated as a requirement here;
+  Manager is global). (b) *(Withdrawn 2026-11-17, see the decision below.)* (c) A Mland-caused replacement (FR-043,
+  FR-061) needs no Manager. (d) A target at an `INACTIVE` location is
+  refused at commit with `PACKAGE_NOT_AVAILABLE_AT_LOCATION` (`409`, same code
+  surface as the other 003.2 refusals), including a request that was queued or
+  approved before the pair was set `INACTIVE`: approving a queued request rechecks
+  availability, and a refused approval leaves the request unapplied and consumes no
+  allowance. (e) For a two-session package that requires one location
+  (`sameLocationRequired`), moving only one session to another location is refused by
+  003.2 with `INVALID_REPLACEMENT`; 003.3 passes the refusal on unchanged.
+  **Decided 2026-11-17 (Q1, Q2, Q7, owner Hồ Hoàng Quốc, "option 2"):** (b) is dropped for 003.3: no Manager is needed because the target is at another location. An online buyer or a Staff member who passes (a) completes the change under FR-045a / FR-055 and the move is audited as a location change (actor, from and to location, time). Staff lose access after the move (FR-060). **Open divergence:** 003.2 FR-042 and its `approval.md` still say a Manager is needed; they must be amended in 003.2 before this is implemented.
+- **FR-060 — Money and location of record after a cross-location move** *(applies 003.2
+  FR-045; owner decision 2026-11-17)*: a move changes no amount (price is identical at
+  every location; FR-045 stands). Money **already collected** keeps the branch where it was
+  collected: `settlement_folio_collections.branch_id` is stored per collection and is
+  never rewritten by a change. A collection, charge, add-on, fee or final bill created
+  **after** the move is attributed to the **new** location. The location of a ticket is
+  always read from the ticket's current Operations session through 003.1
+  `getTicketFolioContext` (003.1 changes that read to use the current session, 003.1
+  task; 003.3 consumes it unchanged), never from a copy taken at booking time and never
+  from a location stored by 003.3 at an earlier moment. Staff access, the cash-close
+  branch of a cash collection and the folio screens therefore follow the new location
+  from the moment the change is applied; Staff of the old location lose access going
+  forward, and audit history stays. **Add-ons already sold** at the old location stay as
+  sold and MUST be listed to the Manager for follow-up (decided 2026-11-17, Q3/Q4, owner Hồ Hoàng Quốc: no new column or migration; a read-only Manager route lists the ticket's catalogue add-on charges whose catalogue add-on (003.2 `WorkshopAddOn.location_id`, found through the `CATALOGUE-ADDON:<ref>` of the charge) belongs to a location other than the ticket's current one; add-ons can only be sold once a session has started, so the list is almost always empty; if the catalogue add-on is later retired or moved the result may be wrong, accepted). **Decided 2026-11-17 (Q5, option A):** the `EXCESS` and `BOOKING_TIME` rows of the FR-056 reconciliation list keep the branch of the moment the money was received and do not follow a later move.
+- **FR-061 — Mland-caused replacement at any location** *(applies 003.2 FR-046; owner
+  decision 2026-11-17)*: when 003.3 asks 003.2 for the equivalent sessions of a ticket
+  whose session Mland cancelled (FR-043), the candidates MAY be at any location where the
+  Package is `ACTIVE`, each with `locationId` and `locationName`. 003.3 stores the list in
+  the Mland offer as before and the buyer sees the location name next to each session;
+  it never filters or re-orders candidates by location. For a two-session ticket the
+  candidates stay at the location of the unchanged session (003.2 rule; moving both
+  sessions is a customer change under FR-059). The buyer's choice moves the ticket to
+  that session's location under FR-060; no Manager is needed. When the buyer answers,
+  003.3 re-asks 003.2 as today, so a candidate whose location was set `INACTIVE` in the
+  meantime is no longer valid and is handled like a candidate that lost its last seat.
+- **FR-062 — Change window by calendar date** *(applies 003.2 FR-034; user decision
+  2026-11-16, relayed by the owner 2026-11-17)*: a customer change, both before the
+  session (advance) and on arriving late, MUST land by the end of the 7th calendar day
+  after the day on which the replaced session ends, by `Asia/Ho_Chi_Minh` date; it is a
+  date, not 168 hours, so every session of one day is in or out together. A target that
+  starts on a later date is refused with `LATE_ARRIVAL_WINDOW_EXPIRED` (003.2). A
+  Mland-caused replacement is exempt. 003.3 MUST use the same rule wherever it computes
+  the window itself: the options `lateDeadline` and the expiry of a queued
+  `LATE_ARRIVAL` request (FR-045a: the earlier of the end of that 7th day and the start
+  of any requested target), instead of `end + 7 × 24 h`. The 24-hour advance rule of
+  FR-044 is unchanged. `LATE_ARRIVAL_WINDOW_EXPIRED` is refused, not queued (current
+  behaviour; a Manager cannot lift it, decided 2026-11-17).
+- **FR-063 — What each option row shows** *(decided 2026-11-16, owner Hồ Hoàng Quốc;
+  fields exist in the code, `remainingRescheduleQuota`)*: a target session with no free
+  seat or with no reschedule quota left is **not listed**. Each listed row shows the
+  location name, date and time, the seats left and the changes left, for example
+  "Mland Hà Nội – Hoàn Kiếm · 09:00 20/11 · còn 3 chỗ · còn 2 lượt đổi"; a pair row shows
+  the numbers per session. The numbers are advisory; `POST /changes` rechecks capacity
+  and quota, and a race answers `RESCHEDULE_QUOTA_EXHAUSTED` as before (queued) or
+  `INSUFFICIENT_CAPACITY`.
 
 *(Superseded 2026-11-14 by FR-045a.)* **Decided 2026-11-14 (formerly "Open before implementation"):** the exact
 auto-approval conditions for online
@@ -807,6 +924,18 @@ rescheduling, or process OTA payments/refunds. It does create and collect the
 separate Mland shop add-on bill of an OTA booking (D12).
 
 ## Clarifications
+
+### Session 2026-11-17 — Package availability per location (open questions for the owner)
+
+Applies 003.2 FR-037–FR-046 (owner Hồ Hoàng Quốc, 2026-11-17) to 003.3 as FR-058–FR-063.
+Q1–Q7 are decided or withdrawn (struck through); the text names what was proposed in the
+spec. **Owner/Tech Lead: Hồ Hoàng Quốc.**
+
+- ~~Q1, Q2~~ (FR-059) **Decided 2026-11-17 (owner Hồ Hoàng Quốc, "option 2" after reading the 003.2 FR-042 sentence):** a change to a session at another location where the Package is `ACTIVE` needs **no Manager** in 003.3. An online buyer is auto-approved under FR-045a; a Staff member on the buyer's behalf (counter, FR-055) may do it when the ticket's current location is in their scope and they are assigned to a session the ticket holds. After the move the ticket belongs to the new location and that Staff member loses access (FR-060). It is the ticket's normal counted change and is audited as a location change. **This differs from 003.2 FR-042 and its `approval.md` row "Đổi vé khác location"** ("a change whose target is in a different location needs an active Manager"); 003.2 must be amended by its owner session, 003.3 does not edit it.
+- ~~Q3, Q4~~ (FR-060) **Decided 2026-11-17 (owner Hồ Hoàng Quốc):** no from/to location column and no migration; the Manager lists the ticket's catalogue add-on charges whose catalogue add-on location differs from the ticket's current location (read-only route, no notification). Add-ons are sold only after a session starts, so the list is almost always empty.
+- ~~Q5~~ (FR-060) **Decided 2026-11-17 (owner Hồ Hoàng Quốc, option A):** the FR-056 rows `EXCESS` and `BOOKING_TIME` keep the branch of the moment the money was received, not the ticket's branch at query time; this supersedes the query-time rule of 2026-11-15 (`EXCESS`) and of 2026-11-16 option B (`BOOKING_TIME`) for the branch only. `EXCESS`: 003.3 stores the branch when the evidence is recorded (where, and whether a column is needed, is decided in T186). `BOOKING_TIME`: 003.1 `listBookingTimePayments` must return the location(s) at payment time (003.1 task to add; not edited here); until it does, the row keeps the current query-time rule.
+- ~~Q6~~ (FR-062) **Decided 2026-11-17 (owner Hồ Hoàng Quốc):** `LATE_ARRIVAL_WINDOW_EXPIRED` stays refused and never queued; a Manager cannot lift it.
+- ~~Q7~~ **Withdrawn 2026-11-17:** no `MANAGER_REQUIRED_FOR_LOCATION_CHANGE` code exists (Q1 answered "option 2").
 
 ### Session 2026-11-15
 
@@ -2043,6 +2172,27 @@ T103 on MySQL):
 - **SC-018** *(FR-040; decided 2026-11-16, R08)*: in 100% of tests a refund-account key replacement is Admin-only (Manager and Staff get `403`), deletes the ciphertext of every request still holding one while keeping the mask, returns each to `PENDING_ACCOUNT` with a revoked old link and a new link sent, writes one audit record per request and never logs a number; a rerun touches only requests still holding ciphertext.
 - **SC-019** *(FR-036, FR-053; decided 2026-11-16, R08)*: in 100% of tests a Manager cash reversal is dated the current working day and never edits the closed day; `cashDayClosed` is true from the submission of the counted amount (both `PENDING_MANAGER_CONFIRMATION` and `CLOSED`); cash recorded after that submission belongs to the next working day.
 - **SC-020** *(FR-034; decided 2026-11-16, R08)*: in 100% of tests a `PENDING_VERIFICATION` VNPay part older than 24 hours with no successful QueryDR becomes `FAILED` with audit by `SYSTEM`; an inconclusive QueryDR does not fail it; money signed after `FAILED` is accepted in full and routed to an excess refund.
+
+- **SC-021** *(FR-058, FR-059, FR-063; added 2026-11-17, proposed)*: in 100% of tests a
+  ticket's change-option list contains sessions of every location where its Package is
+  `ACTIVE` and none of a location where it is `INACTIVE`, each row with
+  `locationName`, seats left and changes left, and no session without a seat or
+  without reschedule quota; a Staff member without an assignment to a session the ticket
+  holds, or outside the ticket's location scope, is refused (`SESSION_ASSIGNMENT_REQUIRED`);
+  a change to another location needs no Manager (a Staff member in scope and assigned, or the buyer online, completes it) and writes an audited location-change record; a Mland replacement needs none; a commit at an `INACTIVE` location, including an
+  approval of a request queued earlier, answers `PACKAGE_NOT_AVAILABLE_AT_LOCATION`
+  and consumes no allowance.
+- **SC-022** *(FR-060; added 2026-11-17, proposed)*: in 100% of tests, after a ticket
+  moves from branch A to branch B, a collection recorded before the move still has
+  branch A, a collection, charge or final bill created after it has branch B, the
+  Staff of A lose access and the Staff of B (assigned) gain it, no amount changes, and the
+  add-ons sold at A remain and reach the Manager's follow-up list.
+- **SC-023** *(FR-062; added 2026-11-17, proposed)*: in 100% of tests a customer change
+  whose target starts on the 7th calendar day after the day the replaced session ended
+  (any hour) is accepted and one starting on the 8th is refused with
+  `LATE_ARRIVAL_WINDOW_EXPIRED`, for advance and late-arrival changes alike, and a
+  Mland replacement is never refused for it; the options `lateDeadline` and the
+  queued-request expiry use the same date rule.
 
 ## Assumptions and Dependencies
 

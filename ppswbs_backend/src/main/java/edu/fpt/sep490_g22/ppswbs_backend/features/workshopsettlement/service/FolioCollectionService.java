@@ -462,12 +462,17 @@ public class FolioCollectionService {
      * 003.1 folio context; unresolved stays null and is listed by the back-fill evidence rather than guessed.
      */
     private Long branchOf(SettlementFinalBill folio) {
+        return branchOfTicket(folio.getBookingReference());
+    }
+
+    /** The location of the ticket now (T186, FR-060); money received is stamped with it at that moment. */
+    Long branchOfTicket(String ticketCode) {
         try {
-            return booking.getTicketFolioContext(folio.getBookingReference())
+            return booking.getTicketFolioContext(ticketCode)
                     .map(edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.TicketFolioContext::locationReference)
                     .orElse(null);
         } catch (RuntimeException e) {
-            log.warn("Branch of ticket {} unresolved for a new collection: {}", folio.getBookingReference(), e.toString());
+            log.warn("Branch of ticket {} unresolved for a new collection: {}", ticketCode, e.toString());
             return null;
         }
     }

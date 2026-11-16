@@ -147,7 +147,7 @@ public class TicketChangeOptionsApiService {
         } else {
             lateDeadline = basis.stream().map(TicketChangeOptions.FromSession::end).filter(Objects::nonNull)
                     .min(Comparator.naturalOrder())
-                    .map(end -> end.plus(TicketChangeService.LATE_ARRIVAL_WINDOW_DAYS, ChronoUnit.DAYS)).orElse(null);
+                    .map(TicketChangeWindow::firstInstantAfterWindow).orElse(null);
             windowOpen = lateDeadline != null && now.isBefore(lateDeadline);
         }
 
@@ -170,7 +170,7 @@ public class TicketChangeOptionsApiService {
                     rules.addAll(ticketRules);
                 }
                 options.add(new ChangeOptionDto(option.sessionReference(), option.start(), option.end(),
-                        option.locationReference(), option.remainingCapacity(), option.remainingRescheduleQuota(),
+                        option.locationReference(), option.locationName(), option.remainingCapacity(), option.remainingRescheduleQuota(),
                         selectable, option.reasonCode(),
                         !rules.isEmpty(), List.copyOf(rules),
                         priceOf(ticket, ctx, List.of(item.sessionReference()), List.of(option.sessionReference()))));
@@ -191,9 +191,11 @@ public class TicketChangeOptionsApiService {
             List<UUID> targets = List.of(pair.first().sessionReference(), pair.second().sessionReference());
             pairs.add(new PairOptionDto(targets, List.of(
                     new SessionSeatsDto(pair.first().sessionReference(), pair.first().start(), pair.first().end(),
-                            pair.first().remainingCapacity(), pair.first().remainingRescheduleQuota()),
+                            pair.first().remainingCapacity(), pair.first().remainingRescheduleQuota(),
+                            pair.first().locationReference(), pair.first().locationName()),
                     new SessionSeatsDto(pair.second().sessionReference(), pair.second().start(), pair.second().end(),
-                            pair.second().remainingCapacity(), pair.second().remainingRescheduleQuota())), selectable, pair.reasonCode(), !rules.isEmpty(), List.copyOf(rules),
+                            pair.second().remainingCapacity(), pair.second().remainingRescheduleQuota(),
+                            pair.second().locationReference(), pair.second().locationName())), selectable, pair.reasonCode(), !rules.isEmpty(), List.copyOf(rules),
                     priceOf(ticket, ctx, pairFrom, targets)));
         }
 

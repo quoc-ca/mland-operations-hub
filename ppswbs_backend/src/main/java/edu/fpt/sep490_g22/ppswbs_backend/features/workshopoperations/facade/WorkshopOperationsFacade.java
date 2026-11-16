@@ -10,6 +10,9 @@ public interface WorkshopOperationsFacade {
     /** Returns null unless this UUID add-on is active for the published package and active location. */
     WorkshopAddOnPriceSnapshot getWorkshopAddOnPrice(WorkshopAddOnPriceQuery query);
 
+    /** The location a catalogue add-on belongs to (any state); null when unknown. Read only (003.3 T187, FR-060). */
+    Long getWorkshopAddOnLocation(String addOnReference);
+
     /** The fixed-price add-ons currently sellable for a package at a location (empty when none or not sellable). */
     java.util.List<WorkshopAddOnPriceSnapshot> listWorkshopAddOns(WorkshopAddOnListQuery query);
 

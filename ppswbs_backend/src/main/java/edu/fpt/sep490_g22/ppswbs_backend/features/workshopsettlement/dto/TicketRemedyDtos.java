@@ -36,7 +36,9 @@ public final class TicketRemedyDtos {
             String sessionReference,
             Instant startAt,
             Instant endAt,
-            boolean selectable
+            boolean selectable,
+            Long locationReference,
+            String locationName
     ) {}
 
     public record TicketRemedyAnswerResponseDto(

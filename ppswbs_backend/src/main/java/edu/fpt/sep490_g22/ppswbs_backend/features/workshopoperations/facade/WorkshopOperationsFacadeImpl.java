@@ -65,6 +65,12 @@ public class WorkshopOperationsFacadeImpl implements WorkshopOperationsFacade {
 
     @Override
     @Transactional(readOnly = true)
+    public Long getWorkshopAddOnLocation(String addOnReference) {
+        return addOnService.locationOf(addOnReference);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public java.util.List<WorkshopAddOnPriceSnapshot> listWorkshopAddOns(WorkshopAddOnListQuery query) {
         if (query == null) return java.util.List.of();
         return addOnService.listEligibleSnapshots(query.packageReference(), query.locationReference());

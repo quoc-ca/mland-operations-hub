@@ -198,4 +198,20 @@ class ReconciliationCollectionServiceTest {
         return new edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.TicketFolioContext(ticket, group,
                 group + "-L1", "7", location, List.of(), null, null, null, 0L, "L1-" + ticket, 0L);
     }
+
+    @Test
+    void excessRowKeepsTheBranchOfItsEvidenceAfterTheTicketMoves() {
+        var moved = new edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementEvidenceConclusion();
+        moved.setBookingReference("T-MOVED");
+        moved.setAmountVnd(70_000L);
+        moved.setCreatedAt(NOON);
+        moved.setBranchId(7L);
+        when(evidence.findByConclusionAndCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtAscIdAsc(
+                eq("FOLIO_VNPAY_EXCESS"), any(), any())).thenReturn(List.of(moved));
+        // T186: the ticket is now at branch 9, but the money was recorded at branch 7.
+        when(booking.getTicketFolioContext("T-MOVED")).thenReturn(Optional.of(context("T-MOVED", "G-1", 9L)));
+
+        assertThat(service.list(7L, DAY, null, State.EXCESS, MANAGER)).hasSize(1);
+        assertThat(service.list(9L, DAY, null, State.EXCESS, MANAGER)).isEmpty();
+    }
 }

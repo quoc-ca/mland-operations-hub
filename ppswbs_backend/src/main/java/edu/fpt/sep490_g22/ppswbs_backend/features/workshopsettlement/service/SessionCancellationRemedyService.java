@@ -74,7 +74,7 @@ public class SessionCancellationRemedyService {
                             found.candidates().stream()
                                     .map(candidate -> new TicketMlandRemedyService.ReplacementOption(
                                             candidate.sessionReference().toString(), candidate.startAt(),
-                                            candidate.endAt()))
+                                            candidate.endAt(), candidate.locationId(), candidate.locationName()))
                                     .toList(),
                             correlationReference);
                 }

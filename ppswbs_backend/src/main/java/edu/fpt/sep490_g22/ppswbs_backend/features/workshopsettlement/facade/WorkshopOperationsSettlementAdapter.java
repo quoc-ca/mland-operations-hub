@@ -29,6 +29,11 @@ public class WorkshopOperationsSettlementAdapter {
         return operations.listWorkshopAddOns(new WorkshopAddOnListQuery(packageReference, locationReference));
     }
 
+    /** The location a catalogue add-on belongs to, or null when unknown (T187). */
+    public Long addOnLocation(String addOnReference) {
+        return operations.getWorkshopAddOnLocation(addOnReference);
+    }
+
     public WorkshopAddOnPriceSnapshot addOnPrice(String packageReference, Long locationReference, String addOnReference) {
         return operations.getWorkshopAddOnPrice(new WorkshopAddOnPriceQuery(packageReference, locationReference, addOnReference));
     }

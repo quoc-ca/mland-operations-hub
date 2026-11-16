@@ -281,4 +281,35 @@ class TicketChangeOptionsApiServiceTest {
                 "buyer@example.com", "0900000000", TicketChangeType.ADVANCE, null)))
                 .isInstanceOf(WorkshopSettlementValidationException.class);
     }
+
+    @Test
+    @DisplayName("T183: every option and each session of a pair carries its location name; a location needs no Manager")
+    void locationNamesOnOptionsAndPairs() {
+        Instant start = firstStart;
+        TicketChangeOptions.FromSession entry = new TicketChangeOptions.FromSession(first, start,
+                start.plus(2, ChronoUnit.HOURS), true, null, List.of(
+                new TicketChangeOptions.Option(optionA, start.plus(24, ChronoUnit.HOURS),
+                        start.plus(26, ChronoUnit.HOURS), 10L, 4, 2, null, "Hà Nội"),
+                new TicketChangeOptions.Option(optionB, start.plus(48, ChronoUnit.HOURS),
+                        start.plus(50, ChronoUnit.HOURS), 20L, 3, 2, null, "Đà Nẵng")));
+        TicketChangeOptions.Pair pair = new TicketChangeOptions.Pair(
+                new TicketChangeOptions.PairSession(optionA, start.plus(24, ChronoUnit.HOURS),
+                        start.plus(26, ChronoUnit.HOURS), 4, 2, 20L, "Đà Nẵng"),
+                new TicketChangeOptions.PairSession(optionB, start.plus(48, ChronoUnit.HOURS),
+                        start.plus(50, ChronoUnit.HOURS), 3, 2, 20L, "Đà Nẵng"), null);
+        when(operations.ticketChangeOptions(any(), any(), any())).thenReturn(
+                new TicketChangeOptions(TicketChangeOptions.Status.OK, List.of(entry), List.of(pair)));
+
+        ChangeOptionsDto result = service.forActor(TICKET, TicketChangeType.ADVANCE, List.of(first),
+                actor(BUYER, ActorRole.MEMBER, 10L));
+
+        List<ChangeOptionDto> options = result.perFromSession().get(0).options();
+        assertThat(options).extracting(ChangeOptionDto::locationName).containsExactly("Hà Nội", "Đà Nẵng");
+        assertThat(options).extracting(ChangeOptionDto::locationReference).containsExactly(10L, 20L);
+        assertThat(options).allSatisfy(o -> assertThat(o.requiresManager()).isFalse());
+        assertThat(result.pairs().get(0).sessions()).extracting(s -> s.locationName())
+                .containsExactly("Đà Nẵng", "Đà Nẵng");
+        assertThat(result.pairs().get(0).sessions()).extracting(s -> s.locationReference())
+                .containsExactly(20L, 20L);
+    }
 }

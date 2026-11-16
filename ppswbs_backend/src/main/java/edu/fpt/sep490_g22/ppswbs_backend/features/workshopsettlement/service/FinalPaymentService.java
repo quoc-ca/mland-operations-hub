@@ -129,6 +129,9 @@ public class FinalPaymentService {
                 .originalProviderCreateDate(command.originalProviderCreateDate())
                 .conclusion(conclusion)
                 .amountVnd(command.amountVnd())
+                // T186 (FR-060): the EXCESS row keeps the branch of the moment the evidence is recorded.
+                .branchId(FOLIO_VNPAY_EXCESS.equals(conclusion)
+                        ? folioCollections.branchOfTicket(command.bookingReference().trim()) : null)
                 .currencyCode(command.currencyCode())
                 .operationReference(command.operationReference().trim())
                 .createdAt(Instant.now()).build());

@@ -953,4 +953,71 @@ class TicketMlandRemedyServiceTest {
         verifyNoInteractions(bankRefunds);
         verify(handoffCompletion).completeIfResolved(eq(offer.getCancelledSessionReference()), any());
     }
+
+    // ---- T188 (FR-061): candidates at any location, each with its name -------------------------------------------
+
+    @Test
+    @DisplayName("T188: createOffer keeps the location of every candidate, getOffer shows it and the email names it")
+    void createOffer_candidatesAtTwoLocations_keepNames() {
+        TicketFolioContext ctx = createContext(TICKET_CODE, OPS_TICKET_REF, 0L, "L1-T1");
+        when(booking.getTicketFolioContext(TICKET_CODE)).thenReturn(Optional.of(ctx));
+        lenient().when(bills.findByBookingReference(TICKET_CODE)).thenReturn(Optional.of(createBill(TICKET_CODE, 100_000L)));
+        when(remedyRepository.save(any(SettlementTicketMlandRemedy.class))).thenAnswer(i -> i.getArgument(0));
+        Instant early = Instant.now().plus(50, ChronoUnit.HOURS).truncatedTo(ChronoUnit.MICROS);
+        Instant late = Instant.now().plus(120, ChronoUnit.HOURS).truncatedTo(ChronoUnit.MICROS);
+
+        SettlementTicketMlandRemedy offer = service.createOffer(TICKET_CODE, "cancelled-1", List.of(
+                new TicketMlandRemedyService.ReplacementOption(SESSION_EARLY, early, early.plus(2, ChronoUnit.HOURS),
+                        10L, "Hà Nội"),
+                new TicketMlandRemedyService.ReplacementOption(SESSION_LATE, late, null, 20L, "Đà Nẵng; Sơn|Trà")),
+                "CORR-LOC");
+
+        ArgumentCaptor<String> listed = ArgumentCaptor.forClass(String.class);
+        verify(notifier).notifyMlandRemedyOffer(eq(TICKET_CODE), eq("cancelled-1"), listed.capture(), any(), eq("CORR-LOC"));
+        assertThat(listed.getValue()).contains("(Hà Nội)").contains("(Đà Nẵng; Sơn|Trà)");
+
+        when(remedyRepository.findByTicketCodeAndOutcome(TICKET_CODE, "PENDING_ANSWER")).thenReturn(Optional.of(offer));
+        CurrentAccountActor memberActor = new CurrentAccountActor(BUYER_ACCOUNT_ID, ActorRole.MEMBER, ActorStatus.ACTIVE, true, List.of());
+        TicketRemedyOfferDto dto = service.getOffer(TICKET_CODE, memberActor);
+        assertThat(dto.offeredSessions()).extracting(OfferedSessionDto::locationReference).containsExactly(10L, 20L);
+        assertThat(dto.offeredSessions()).extracting(OfferedSessionDto::locationName)
+                .containsExactly("Hà Nội", "Đà Nẵng, Sơn/Trà");
+    }
+
+    @Test
+    @DisplayName("T188: an offer saved before names existed still reads, with no location")
+    void getOffer_offerWithoutLocation_hasNullLocation() {
+        TicketFolioContext ctx = createContext(TICKET_CODE, OPS_TICKET_REF, 0L, "L1-T1");
+        when(booking.getTicketFolioContext(TICKET_CODE)).thenReturn(Optional.of(ctx));
+        SettlementTicketMlandRemedy offer = twoSessionOffer(Instant.now().plus(60, ChronoUnit.HOURS),
+                Instant.now().plus(100, ChronoUnit.HOURS));
+        when(remedyRepository.findByTicketCodeAndOutcome(TICKET_CODE, "PENDING_ANSWER")).thenReturn(Optional.of(offer));
+        CurrentAccountActor memberActor = new CurrentAccountActor(BUYER_ACCOUNT_ID, ActorRole.MEMBER, ActorStatus.ACTIVE, true, List.of());
+
+        TicketRemedyOfferDto dto = service.getOffer(TICKET_CODE, memberActor);
+
+        assertThat(dto.offeredSessions()).extracting(OfferedSessionDto::locationName).containsOnlyNulls();
+    }
+
+    @Test
+    @DisplayName("T188: a candidate whose location turned INACTIVE is refused like a full one; the offer stays open")
+    void answerOffer_candidateLocationInactive_throws409() {
+        TicketFolioContext ctx = createContext(TICKET_CODE, OPS_TICKET_REF, 0L, "L1-T1");
+        when(booking.getTicketFolioContext(TICKET_CODE)).thenReturn(Optional.of(ctx));
+        SettlementTicketMlandRemedy offer = twoSessionOffer(Instant.now().plus(60, ChronoUnit.HOURS),
+                Instant.now().plus(100, ChronoUnit.HOURS));
+        when(remedyRepository.findByTicketCodeAndOutcome(TICKET_CODE, "PENDING_ANSWER")).thenReturn(Optional.of(offer));
+        when(booking.consumeBuyerProof(any())).thenReturn(ConsumeBuyerProofResult.accepted());
+        when(operations.replaceTicketSessions(any())).thenReturn(
+                TicketSessionReplacementOutcome.rejected(RejectionReason.PACKAGE_NOT_AVAILABLE_AT_LOCATION, List.of(0)));
+        CurrentAccountActor memberActor = new CurrentAccountActor(BUYER_ACCOUNT_ID, ActorRole.MEMBER, ActorStatus.ACTIVE, true, List.of());
+
+        assertThatThrownBy(() -> service.answerOffer(TICKET_CODE,
+                new TicketRemedyAnswerRequestDto(TicketRemedyAnswer.ACCEPT_REPLACEMENT, null, SESSION_EARLY),
+                IDEMPOTENCY_KEY, "CORR", memberActor))
+                .isInstanceOf(WorkshopSettlementConflictException.class)
+                .hasMessageContaining("REPLACEMENT_SESSION_UNAVAILABLE");
+        assertThat(offer.getOutcome()).isEqualTo("PENDING_ANSWER");
+        verify(remedyRepository, never()).save(any());
+    }
 }
