@@ -2634,7 +2634,7 @@ definitions are in [data-model.md](data-model.md).)*
   that `GET /workshop-packages/{packageId}/locations` did not return, and a 409
   from `…/sessions` ends on the branch choice with no technical error shown;
   (d) every session row on the Package page, review and cart shows its location
-  name. Counted by the tests of T154–T163 (MySQL integration for (a) and (b),
+  name. Counted by the tests of T154–T164 (MySQL integration for (a) and (b),
   component tests for (c) and (d)); 100%, no tolerance.
 
 ## Assumptions

@@ -277,7 +277,7 @@ migration, no new module dependency: `workshopbooking` already reads
    (the first session also changes on a reschedule; to confirm in T155 whether
    003.3 relies on the old value). No Operations facade method is added.
 2. **Cost and failure.** One read per call. The method is used on settlement and
-   audit paths (about nine call sites in `workshopsettlement` and three in
+   audit paths (seven call sites in `workshopsettlement` (plus its adapter wrapper) and two in
    `WorkshopBookingFacadeImpl`), not per page view, so no cache is proposed. A
    projection failure follows Q3.
 3. **Readers of the location copy** (verified in code 2026-11-17; the copy is
