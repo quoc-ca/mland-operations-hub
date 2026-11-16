@@ -217,18 +217,18 @@ describe('003.1 FR-031/FR-045 503 DEPENDENCY_UNAVAILABLE on quote and group crea
   it('cart quote: shows "try again later", keeps the cart, creates no group, sends no retry', async () => {
     const user = userEvent.setup();
     const calls = mockFetch({ ...discovery(), 'POST /api/v1/workshop-cart-quotes': UNAVAILABLE });
-    renderRoutes(workshopRoutes, { path: '/workshops/5/book', session: fakeSession('signed-out') });
+    renderRoutes(workshopRoutes, { path: '/workshops/5', session: fakeSession('signed-out') });
     await pickTwoTickets(user);
     await user.click(screen.getByRole('button', { name: 'Thêm vào giỏ' }));
     await user.click(await screen.findByRole('link', { name: /Mở giỏ workshop/i }));
-    await user.click(await screen.findByRole('button', { name: 'Báo giá giỏ' }));
+    await user.click(await screen.findByRole('button', { name: 'Tiếp tục đặt chỗ' }));
 
     expect(await screen.findByText(TRY_LATER)).toBeInTheDocument();
     await new Promise(resolve => setTimeout(resolve, 150));
     expect(calls.filter(call => call.path === '/api/v1/workshop-cart-quotes')).toHaveLength(1);
     expect(calls.some(call => call.path === '/api/v1/workshop-booking-groups')).toBe(false);
     expect(readCart()).toHaveLength(1);
-    expect(screen.getByRole('button', { name: 'Báo giá giỏ' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Tiếp tục đặt chỗ' })).toBeEnabled();
     expect(screen.queryByText(GROUP_CODE)).toBeNull();
   });
 
@@ -239,11 +239,11 @@ describe('003.1 FR-031/FR-045 503 DEPENDENCY_UNAVAILABLE on quote and group crea
       'POST /api/v1/workshop-cart-quotes': json(201, QUOTE),
       'POST /api/v1/workshop-booking-groups': UNAVAILABLE,
     });
-    renderRoutes(workshopRoutes, { path: '/workshops/5/book', session: fakeSession('signed-out') });
+    renderRoutes(workshopRoutes, { path: '/workshops/5', session: fakeSession('signed-out') });
     await pickTwoTickets(user);
     await user.click(screen.getByRole('button', { name: 'Thêm vào giỏ' }));
     await user.click(await screen.findByRole('link', { name: /Mở giỏ workshop/i }));
-    await user.click(await screen.findByRole('button', { name: 'Báo giá giỏ' }));
+    await user.click(await screen.findByRole('button', { name: 'Tiếp tục đặt chỗ' }));
     await user.type(await screen.findByLabelText(/Email nhận vé/i), 'guest@mland.vn');
     await user.type(screen.getByLabelText(/Số điện thoại liên hệ/i), '0901234567');
     await user.click(screen.getByRole('button', { name: 'Xác nhận và giữ chỗ' }));
@@ -261,7 +261,7 @@ describe('003.1 FR-031/FR-045 503 DEPENDENCY_UNAVAILABLE on quote and group crea
   it('"Đặt ngay" quote: shows "try again later" and keeps the chosen session and ticket count', async () => {
     const user = userEvent.setup();
     const calls = mockFetch({ ...discovery(), 'POST /api/v1/workshop-cart-quotes': UNAVAILABLE });
-    renderRoutes(workshopRoutes, { path: '/workshops/5/book', session: fakeSession('signed-out') });
+    renderRoutes(workshopRoutes, { path: '/workshops/5', session: fakeSession('signed-out') });
     await pickTwoTickets(user);
     await user.click(screen.getByRole('button', { name: 'Đặt ngay' }));
 
@@ -269,8 +269,10 @@ describe('003.1 FR-031/FR-045 503 DEPENDENCY_UNAVAILABLE on quote and group crea
     await new Promise(resolve => setTimeout(resolve, 150));
     expect(calls.filter(call => call.path === '/api/v1/workshop-cart-quotes')).toHaveLength(1);
     expect(calls.some(call => call.path === '/api/v1/workshop-booking-groups')).toBe(false);
-    expect(screen.getByRole('button', { name: 'Đặt ngay' })).toBeEnabled();
-    expect(screen.getByRole('button', { name: 'Giảm số vé' })).toBeEnabled();
+    // The chosen session and ticket count stay on the checkout, and the quote can be asked again by hand.
+    expect(screen.getByRole('button', { name: 'Báo giá lại' })).toBeEnabled();
+    expect(screen.getByText(/\d{2}\/\d{2}\/\d{4}/)).toBeInTheDocument();
+    expect(screen.getByText(/Số vé:/).textContent).toContain('2');
   });
 
   it('"Đặt ngay" confirm: keeps the quote and typed fields, creates no group view, no retry', async () => {
@@ -280,7 +282,7 @@ describe('003.1 FR-031/FR-045 503 DEPENDENCY_UNAVAILABLE on quote and group crea
       'POST /api/v1/workshop-cart-quotes': json(201, QUOTE),
       'POST /api/v1/workshop-booking-groups': UNAVAILABLE,
     });
-    renderRoutes(workshopRoutes, { path: '/workshops/5/book', session: fakeSession('signed-out') });
+    renderRoutes(workshopRoutes, { path: '/workshops/5', session: fakeSession('signed-out') });
     await pickTwoTickets(user);
     await user.click(screen.getByRole('button', { name: 'Đặt ngay' }));
     await user.type(await screen.findByLabelText(/Email nhận vé/i), 'guest@mland.vn');
