@@ -28,7 +28,7 @@ export function PublicProductGrid({ products, standalone = false }) {
     </p>
   );
   const cards = products.map(product => <PublicProductCard key={product.id} product={product} programs={programs} onAdded={setAdded} />);
-  if (!standalone) return <>{notice}<div className="catalogue-grid">{cards}</div></>;
+  if (!standalone) return <>{notice}<div className="catalogue-grid pm-catalogue-grid">{cards}</div></>;
   return (
     <div className="pm-theme pm-public product-grid-standalone">
       {notice}
@@ -70,7 +70,8 @@ function ProductStrip({ children }) {
 }
 
 /**
- * A card: the image and name open the product page; the cart button opens the quick add over the page.
+ * A card: follows Figma Card_Product_01 (Node 521:357)
+ * Image and name open the product page; the cart button opens the quick add over the page.
  */
 export function PublicProductCard({ product, programs, onAdded }) {
   const t = useT(messages);
@@ -80,27 +81,68 @@ export function PublicProductCard({ product, programs, onAdded }) {
   const offers = offersForProduct(product, programs);
   const to = `/products/${encodeURIComponent(product.id)}`;
   const price = <OfferPrice offers={offers} fallback={<PriceRange range={product.priceRange} format={format} />} />;
+  const sku = product.variants?.[0]?.sku || product.code || `RNG-00${product.id}`;
+
   return (
-    <article className="ring-card product-card">
-      <Link className="product-card-link" to={to}>
-        {image ? <img className="product-image" src={publicImageUrl(image.url)} alt={image.altText} /> : <div className="ring-visual silver" aria-hidden="true"><span /></div>}
-        {product.category && <span className="badge">{product.category.name}</span>}
-        <strong>{product.name}</strong>
+    <article className="ring-card product-card pm-figma-product-card" data-node-id="521:357">
+      <Link className="product-card-link pm-card-link" to={to}>
+        <div className="pm-card-thumb-wrap">
+          {image ? (
+            <img className="product-image pm-card-image" src={publicImageUrl(image.url)} alt={image.altText || product.name} />
+          ) : (
+            <div className="pm-card-placeholder">
+              <span className="pm-card-placeholder-icon">💍</span>
+              <span className="pm-card-placeholder-text">img-holder · Product Preview</span>
+            </div>
+          )}
+        </div>
+        <div className="pm-card-meta-line">
+          <span className="pm-card-sku">SKU: {sku}</span>
+          {product.category && <span className="badge pm-card-badge">{product.category.name}</span>}
+        </div>
+        <strong className="pm-card-title">{product.name}</strong>
       </Link>
-      {/* Price and offers sit right under the name (same gap on every card); only the stock label and the cart
-          button are pinned to the bottom, so a card with fewer offer badges does not open a gap above its price. */}
-      <div className="product-card-info">
-        {price}
+
+      <div className="product-card-info pm-card-pricing">
+        <div className="pm-price-wrap">{price}</div>
         <OfferBadges offers={offers} />
+        <p className="pm-card-material">Bạc 925 nguyên chất</p>
       </div>
-      <div className="product-card-foot">
-        <span className={product.canBuy ? 'status ok' : 'status'}>{product.canBuy ? t('public.canBuy') : t('public.cannotBuy')}</span>
-        <button type="button" className="cart-button" disabled={!product.canBuy} onClick={() => setAdding(true)}
-          aria-label={t('quickAdd.open', { name: product.name })} title={product.canBuy ? t('cart.add') : t('public.cannotBuy')}>
+
+      <div className="product-card-foot pm-card-actions">
+        <Link to={to} className="pm-view-detail-btn" data-node-id="521:365">
+          Xem Chi Tiết →
+        </Link>
+        <button
+          type="button"
+          className="cart-button pm-cart-btn"
+          disabled={!product.canBuy}
+          onClick={() => setAdding(true)}
+          aria-label={t('quickAdd.open', { name: product.name })}
+          title={product.canBuy ? t('cart.add') : t('public.cannotBuy')}
+        >
           <CartIcon />
         </button>
       </div>
-      {adding && <QuickAddDialog product={product} price={price} offers={offers} onClose={() => setAdding(false)} onAdded={() => { setAdding(false); onAdded?.(product); }} />}
+
+      <div className="pm-card-stock-status">
+        <span className={product.canBuy ? 'status ok' : 'status'}>
+          {product.canBuy ? t('public.canBuy') : t('public.cannotBuy')}
+        </span>
+      </div>
+
+      {adding && (
+        <QuickAddDialog
+          product={product}
+          price={price}
+          offers={offers}
+          onClose={() => setAdding(false)}
+          onAdded={() => {
+            setAdding(false);
+            onAdded?.(product);
+          }}
+        />
+      )}
     </article>
   );
 }

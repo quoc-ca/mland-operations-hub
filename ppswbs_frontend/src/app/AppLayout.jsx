@@ -1,6 +1,7 @@
 import React from 'react';
 import { Outlet, useLocation } from 'react-router';
 import MainTopbar from '../shared/ui/MainTopbar';
+import MainFooter from '../shared/ui/MainFooter';
 
 /** Header and footer for production-oriented feature routes. */
 export default function AppLayout() {
@@ -27,12 +28,7 @@ export default function AppLayout() {
     <>
       <MainTopbar />
       <Outlet />
-      <footer>
-        <div className="container footer-inner">
-          <strong>MLAND</strong>
-          <span>© MLAND Operations Hub</span>
-        </div>
-      </footer>
+      <MainFooter />
     </>
   );
 }

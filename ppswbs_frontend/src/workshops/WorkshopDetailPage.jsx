@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import './workshopList.css';
 import { getWorkshopPackage, listWorkshopLocations, listWorkshopSessions } from '../api/workshops';
 import PackageReviewSummary from '../features/reviewmanagement/ui/PackageReviewSummary';
 import { offersForPackage, usePublicWorkshopPrograms, WorkshopOfferList, WorkshopOfferPrice } from '../features/loyalty-promotion/publicOffers';
@@ -159,35 +160,91 @@ export function WorkshopDetailPage({ packageId }) {
   const offers = offersForPackage(pkg, programs);
 
   return (
-    <main className="container public-page">
+    <main className="container public-page wk-detail-container" data-node-id="521:674">
+      {/* Breadcrumb - Figma node 521:689 */}
+      <div className="wk-breadcrumb" data-node-id="521:689">
+        <a href="/">Trang chủ</a> &nbsp;/&nbsp; <a href="/workshops">Workshops</a> &nbsp;/&nbsp; <span>{pkg.name}</span>
+      </div>
+
       <div style={{ marginBottom: '16px' }}>
         <a href="/workshops" className="text-link">← Quay lại danh sách workshop</a>
       </div>
 
-      <p className="eyebrow">CHI TIẾT GÓI WORKSHOP</p>
-      <h1>{pkg.name}</h1>
-
-      <div className="detail-grid" style={{ alignItems: 'start', marginTop: '24px' }}>
-        <div className="ring-visual gold" aria-label="Minh họa gói workshop" style={{ height: '320px' }}>
-          <span />
+      {/* Workshop Overview Grid - Figma node 539:1723 */}
+      <div className="wk-detail-overview" data-node-id="539:1723">
+        {/* Left Studio Preview - Figma node 521:690 */}
+        <div className="wk-detail-media" data-node-id="521:690" aria-label="Minh họa gói workshop">
+          {pkg.imageUrl ? (
+            <img src={pkg.imageUrl} alt={pkg.name} />
+          ) : (
+            <div className="wk-media-placeholder">
+              <p className="wk-media-tag" data-node-id="521:691">img-holder · Studio Không Gian Xưởng Bạc</p>
+            </div>
+          )}
         </div>
 
-        <div>
-          {/* FR-052: one ticket after the best automatic discount (006's public gate); plain price when none. */}
-          <p className="price" style={{ fontSize: '32px', margin: '0 0 16px' }}>
-            <WorkshopOfferPrice offers={offers} fallback={`${Number(pkg.publicPrice || 0).toLocaleString('vi-VN')} ₫`} /> <small style={{ fontSize: '16px', fontWeight: 'normal', color: '#595959' }}>/ người</small>
+        {/* Right Info Box - Figma node 539:1724 */}
+        <div className="wk-detail-info" data-node-id="539:1724">
+          <p className="wk-detail-eyebrow eyebrow" data-node-id="521:692">
+            KHÓA TRẢI NGHIỆM ĐƯỢC YÊU THÍCH NHẤT
           </p>
-          <p className="lead" style={{ fontSize: '16px', lineHeight: '1.6', marginBottom: '20px' }}>
+          <h1 className="wk-detail-title" data-node-id="521:693">{pkg.name}</h1>
+
+          {/* Price - Figma node 521:694 */}
+          <div className="price wk-detail-price" data-node-id="521:694">
+            <WorkshopOfferPrice offers={offers} fallback={`${Number(pkg.publicPrice || 0).toLocaleString('vi-VN')} ₫`} />
+            <small style={{ fontSize: '13px', fontWeight: 'normal', color: '#595959', marginLeft: '6px' }}>
+              / người (Đã gồm trọn gói dụng cụ &amp; phôi bạc)
+            </small>
+          </div>
+
+          <p className="lead" style={{ fontSize: '14px', lineHeight: '1.6', margin: 0 }}>
             {pkg.description}
           </p>
+
           <WorkshopOfferList offers={offers} />
 
-          {/* Reviews are written by people who attended a session, so a session still open for booking has none. What helps
-              someone choosing a package is the reviews of the package, gathered from the sessions already held. */}
-          <p style={{ margin: '0 0 20px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          {/* Crafting Steps - Figma node 539:1725 */}
+          <div className="wk-steps-box" data-node-id="539:1725">
+            <p className="wk-steps-title" data-node-id="521:695">QUY TRÌNH 4 BƯỚC TỰ TAY LÀM NHẪN:</p>
+            <div className="wk-steps-list" data-node-id="521:696">
+              <p style={{ margin: '0 0 4px' }}>1. Đo chu vi tay và chọn dáng nhẫn (nhẫn tròn, nhẫn xoắn, nhẫn vát).</p>
+              <p style={{ margin: '0 0 4px' }}>2. Cắt thanh bạc 925 nguyên chất và uốn tròn trên đe kim hoàn.</p>
+              <p style={{ margin: '0 0 4px' }}>3. Hàn vảy bạc chuyên dụng và xử lý nhiệt cao để khép kín mối nối.</p>
+              <p style={{ margin: 0 }}>4. Dũa tinh xảo, tạo vân búa/nhám và đánh bóng sáng gương.</p>
+            </div>
+          </div>
+
+          {/* Inclusions & Gifts - Figma node 521:697 */}
+          <div className="wk-inclusions-box" data-node-id="521:697">
+            <p style={{ margin: '0 0 4px' }} data-node-id="521:698">
+              🎁 <strong>Thành phẩm mang về:</strong> 01 chiếc nhẫn bạc 925 do chính tay bạn làm
+            </p>
+            <p style={{ margin: 0 }}>
+              Kèm túi hộp nhung cao cấp &amp; Khắc tên laser kỷ niệm miễn phí.
+            </p>
+          </div>
+
+          {/* Main Booking Button - Figma node 521:699 */}
+          <div style={{ marginTop: '8px' }} data-node-id="521:699">
+            <a
+              className="button primary wk-btn-primary-book"
+              aria-disabled={!locationId}
+              style={{ opacity: locationId ? 1 : 0.65 }}
+              href={locationId ? `/workshops/${pkg.packageId}/book?locationId=${locationId}` : undefined}
+              onClick={event => { if (!locationId) event.preventDefault(); }}
+              data-node-id="521:700"
+            >
+              {locationId ? 'Chọn chi nhánh và giờ trải nghiệm →' : 'Vui lòng chọn chi nhánh bên dưới để đặt lịch'}
+            </a>
+          </div>
+
+          {/* Secondary Actions */}
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '4px' }}>
             <button
               type="button"
               className="button outline"
+              style={{ fontSize: '12px', height: '36px' }}
               onClick={() => reviewRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })}
             >
               Xem đánh giá của gói này ↓
@@ -195,14 +252,16 @@ export function WorkshopDetailPage({ packageId }) {
             <a
               href={`/workshops/${pkg.packageReference || 'PKG-COUPLE-SILVER'}/design`}
               className="button outline"
+              style={{ fontSize: '12px', height: '36px' }}
             >
               💍 Cấu hình mẫu nhẫn
             </a>
-          </p>
+          </div>
 
-          <div className="workspace-card" style={{ padding: '18px', backgroundColor: '#fafafa' }}>
-            <h3 style={{ margin: '0 0 12px', fontSize: '16px' }}>Quy định của gói workshop</h3>
-            <ul style={{ margin: 0, paddingLeft: '20px', lineHeight: '1.8', fontSize: '14px', color: '#333' }}>
+          {/* Rules Card */}
+          <div className="workspace-card" style={{ padding: '16px', backgroundColor: '#ffffff', border: '1px solid #e0e3e5', borderRadius: '8px', marginTop: '8px' }}>
+            <h3 style={{ margin: '0 0 10px', fontSize: '13px', color: '#0e0069', textTransform: 'uppercase' }}>Quy định của gói workshop</h3>
+            <ul style={{ margin: 0, paddingLeft: '18px', lineHeight: '1.7', fontSize: '12px', color: '#4b5563' }}>
               <li>Số buổi thực hiện: <strong>{pkg.requiredSessionCount || 1} buổi</strong></li>
               <li>Quy định số vé / booking: <strong>{pkg.minParticipants} - {pkg.maxParticipants} vé</strong></li>
               <li>Quy định địa điểm: <strong>{pkg.sameLocationRequired ? 'Bắt buộc chọn cùng một chi nhánh' : 'Có thể chọn linh hoạt giữa các chi nhánh'}</strong></li>
@@ -211,12 +270,6 @@ export function WorkshopDetailPage({ packageId }) {
               )}
               <li>Chính sách cọc: <strong>Đặt cọc 50%</strong> khi giữ chỗ, phần còn lại thanh toán tại chi nhánh.</li>
             </ul>
-          </div>
-
-          <div style={{ marginTop: '24px' }}>
-                <a className="button primary" aria-disabled={!locationId} style={{ width: '100%', textAlign: 'center', fontSize: '16px', padding: '14px 20px', opacity: locationId ? 1 : 0.55 }} href={locationId ? `/workshops/${pkg.packageId}/book?locationId=${locationId}` : undefined} onClick={event => { if (!locationId) event.preventDefault(); }}>
-              Đặt gói workshop này ngay →
-            </a>
           </div>
         </div>
       </div>

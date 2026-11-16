@@ -6,12 +6,14 @@ import {
   lookupGuestBookingGroup,
   WorkshopApiError,
 } from '../api/workshops';
-import { GroupDetailCard } from './GroupDetailCard';
+import { GroupDetailCard, groupSessionLabels } from './GroupDetailCard';
 import { MyBookingGroupsList } from './MyBookingGroupsList';
 import { ReviewCta } from './ReviewCta';
 import { useBookingIdentity } from './useBookingIdentity';
 import { useReviewManagementApi } from '../features/reviewmanagement/api/useReviewManagementApi';
+import { vnd } from './groupDisplay';
 import './figmaPublicShell.css';
+import './workshopList.css';
 
 /**
  * Lookup and management of a booking group (003.1 FR-042, FR-048, FR-049). A signed-in Member reads their own groups
@@ -173,11 +175,16 @@ export function WorkshopLookupPage() {
   }, [lookupMode, group?.groupCode]);
 
   return (
-    <main className="public-page figma-public-page">
-      <p className="eyebrow">TRA CỨU &amp; QUẢN LÝ ĐẶT CHỖ</p>
-      <h1>Tra cứu nhóm đặt chỗ Workshop</h1>
+    <main className="public-page figma-public-page wk-lookup-page" data-node-id="521:823">
+      <div className="wk-lookup-header" data-node-id="539:1733">
+        <p className="eyebrow">TRA CỨU &amp; QUẢN LÝ ĐẶT CHỖ</p>
+        <h1 className="wk-lookup-title" data-node-id="521:839">Tra cứu nhóm đặt chỗ Workshop</h1>
+        <p className="wk-lookup-desc" data-node-id="521:840">
+          Nhập Mã đặt chỗ (Group Code) hoặc Số điện thoại để kiểm tra trạng thái vé &amp; mã QR check-in.
+        </p>
+      </div>
 
-      <div role="status" style={{ marginTop: '20px', marginBottom: '24px', padding: '12px 16px', border: '1px solid #dcdfe6', background: '#f8fafc', color: '#002967' }}>
+      <div role="status" style={{ marginTop: '16px', marginBottom: '24px', padding: '12px 16px', border: '1px solid #dcdfe6', background: '#f8fafc', color: '#002967', borderRadius: '6px' }}>
         {authStatus === 'loading' || profileLoading
           ? 'Đang xác định thông tin tài khoản...'
           : lookupMode === 'MEMBER'
@@ -204,52 +211,61 @@ export function WorkshopLookupPage() {
       )}
 
       {/* A signed-in Member picks a group from the list above, so only Guests (and the unknown-role state) type a code. */}
-      <section className="workspace-card lookup-panel" style={lookupMode === 'MEMBER' && !error ? { display: 'none' } : undefined}>
+      <section className="workspace-card lookup-panel wk-lookup-form-card" style={lookupMode === 'MEMBER' && !error ? { display: 'none' } : undefined} data-node-id="521:838">
         {lookupMode !== 'MEMBER' && (
           <form onSubmit={handleLookup}>
             <fieldset disabled={authStatus === 'loading' || profileLoading || lookupMode === null} style={{ border: 0, padding: 0, margin: 0, minInlineSize: 0 }}>
-              <label style={{ display: 'block', marginBottom: '14px' }}>
+              <label style={{ display: 'block', marginBottom: '14px', fontSize: '13px', fontWeight: 600, color: '#0e0069' }}>
                 Mã nhóm đặt chỗ *
                 <input
                   type="text"
-                  placeholder="e.g. WG-20261113-ABCD"
+                  placeholder="e.g. GRP-202611-001 hoặc WG-20261113-ABCD"
                   value={groupCode}
                   onChange={event => setGroupCode(event.target.value.toUpperCase())}
                   disabled={loading}
                   required
-                  style={{ width: '100%', marginTop: '6px' }}
+                  style={{ width: '100%', marginTop: '6px', padding: '10px 14px', borderRadius: '6px', border: '1px solid #e0e3e5', background: '#fafafa' }}
+                  data-node-id="521:841"
                 />
               </label>
 
               {lookupMode === 'GUEST' && (
-                <div style={{ padding: '14px', background: '#fafafa', border: '1px solid #e3e3e3', marginBottom: '16px' }}>
-                  <p style={{ margin: '0 0 10px', fontSize: '13px', fontWeight: 'bold' }}>
+                <div style={{ padding: '14px', background: '#fafafa', border: '1px solid #e0e3e5', borderRadius: '6px', marginBottom: '16px' }}>
+                  <p style={{ margin: '0 0 10px', fontSize: '12px', fontWeight: 'bold', color: '#1c1c1c' }}>
                     Xác minh thông tin (chỉ cần điền 1 trong 2 mục):
                   </p>
                   <div className="form-grid" style={{ margin: 0 }}>
-                    <label>
+                    <label style={{ fontSize: '12px' }}>
                       Email khi đặt
                       <input
                         type="email"
                         value={contactEmail}
                         onChange={event => { setContactEmail(event.target.value); if (event.target.value) setContactPhone(''); }}
                         disabled={loading}
+                        style={{ borderRadius: '4px', border: '1px solid #e0e3e5' }}
                       />
                     </label>
-                    <label>
+                    <label style={{ fontSize: '12px' }}>
                       Số điện thoại khi đặt
                       <input
                         type="tel"
                         value={contactPhone}
                         onChange={event => { setContactPhone(event.target.value); if (event.target.value) setContactEmail(''); }}
                         disabled={loading}
+                        style={{ borderRadius: '4px', border: '1px solid #e0e3e5' }}
                       />
                     </label>
                   </div>
                 </div>
               )}
 
-              <button type="submit" className="button primary" disabled={loading} style={{ width: '100%' }}>
+              <button
+                type="submit"
+                className="button primary wk-btn-lookup"
+                disabled={loading}
+                style={{ width: '100%', height: '42px', fontSize: '12px', fontWeight: 700 }}
+                data-node-id="521:843"
+              >
                 {loading ? 'Đang tra cứu...' : 'Tra cứu nhóm đặt chỗ'}
               </button>
             </fieldset>
@@ -260,7 +276,34 @@ export function WorkshopLookupPage() {
       </section>
 
       {group && (
-        <div ref={detailsRef}>
+        <div ref={detailsRef} style={{ marginTop: '24px' }}>
+          {/* Figma node 521:845 Verified Booking Ticket Preview */}
+          <div className="wk-ticket-preview-box" data-node-id="521:845">
+            <div className="wk-ticket-preview-main">
+              <p className="wk-ticket-preview-title" data-node-id="521:846">
+                VÉ THAM GIA WORKSHOP HỢP LỆ
+              </p>
+              <p className="wk-ticket-preview-status" data-node-id="521:847">
+                Trạng thái: ✅ {group.groupStatus === 'CONFIRMED' ? 'ĐÃ XÁC NHẬN (CONFIRMED)' : group.groupStatus}
+              </p>
+              <div className="wk-ticket-preview-details" data-node-id="521:848">
+                <p>• Mã đặt chỗ: <strong>{group.groupCode}</strong></p>
+                {group.lines?.[0] && <p>• Gói Workshop: {group.lines[0].packageName || `Gói #${group.lines[0].packageId}`} ({group.lines[0].ticketCount ?? group.lines[0].participantCount} vé)</p>}
+                {groupSessionLabels(group).length > 0 && <p>• Thời gian: {groupSessionLabels(group).join(', ')}</p>}
+                <p>• Đã cọc: {vnd(group.groupCollectionVnd)} ({group.paymentMode || 'Trực tuyến'})</p>
+              </div>
+            </div>
+            <div className="wk-ticket-qr-container" data-node-id="521:849">
+              <div className="wk-ticket-qr-box" data-node-id="521:850">
+                <span style={{ fontSize: '32px' }}>📱</span>
+                <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#7a8696', fontWeight: 600 }}>QR Check-in</p>
+              </div>
+            </div>
+            <p className="wk-ticket-preview-footer" data-node-id="521:851">
+              Xuất trình mã QR này tại quầy lễ tân khi đến xưởng
+            </p>
+          </div>
+
           <GroupDetailCard
             group={group}
             authorization={lookupMode === 'MEMBER' ? cardAuthorization : null}

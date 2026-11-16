@@ -71,10 +71,14 @@ export default function PublicReviewListPage() {
   const packageName = packageId ? (page.items.find(item => item.packageName)?.packageName || `#${packageId}`) : null;
 
   return (
-    <div className="review-container">
-      <header className="page-header">
-        <h1>{packageName ? `${t('packageReviewsTitle')}: ${packageName}` : t('publicTitle')}</h1>
-        <p className="muted">{t('publicSubtitle')}</p>
+    <div className="review-container figma-review-page" data-node-id="521:734">
+      <header className="page-header" data-node-id="539:1727">
+        <h1 className="review-main-title" data-node-id="521:748">
+          {packageName ? `${t('packageReviewsTitle')}: ${packageName}` : t('publicTitle')}
+        </h1>
+        <p className="muted review-main-subtitle" data-node-id="521:749">
+          {t('publicSubtitle')} 100% đánh giá công khai từ khách hàng đã tham gia workshop hoặc mua trang sức tại xưởng.
+        </p>
         {packageName && (
           <p>
             <Link to="/reviews">{t('showAllPackages')}</Link>
@@ -82,29 +86,29 @@ export default function PublicReviewListPage() {
         )}
       </header>
 
-      <div className="review-aggregate-card">
+      <div className="review-aggregate-card" data-node-id="521:750">
         <div className="aggregate-score-box">
-          <div className="aggregate-score-large">
+          <div className="aggregate-score-large" data-node-id="521:751">
             {avgRating > 0 ? avgRating.toFixed(1) : '0.0'}
           </div>
           <div className="aggregate-score-details">
-            <span className="review-stars" style={{ fontSize: '1.25rem' }}>
+            <span className="review-stars" style={{ fontSize: '1.25rem', color: '#f2a600' }} data-node-id="521:752">
               {formatStars(avgRating || 5)}
             </span>
-            <span className="muted" style={{ fontSize: '0.9rem' }}>
-              {count} {t('review').toLowerCase()}
+            <span className="muted" style={{ fontSize: '11px', color: '#73757a' }} data-node-id="521:753">
+              {count > 0 ? `Dựa trên ${count} đánh giá đã xác thực qua hệ thống` : `${count} ${t('review').toLowerCase()}`}
             </span>
           </div>
         </div>
 
         <div className="review-actions" style={{ margin: 0 }}>
           {isGuest && (
-            <Link className="button outline" to="/reviews/guest/lookup">
+            <Link className="button primary rev-btn-lookup" to="/reviews/guest/lookup" data-node-id="521:754">
               {t('lookupTitle')}
             </Link>
           )}
           {isMember && (
-            <Link className="button primary" to="/reviews/eligible-sources">
+            <Link className="button primary rev-btn-lookup" to="/reviews/eligible-sources" data-node-id="521:754">
               {t('eligibleTitle')}
             </Link>
           )}

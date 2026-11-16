@@ -10,7 +10,6 @@ import { firebaseAuthClient } from '../accountmanagement/auth/FirebaseAuthClient
 
 function renderHomePage({
   initialAuthState = { status: 'signed-out' },
-  httpHandler = vi.fn().mockRejectedValue(new Error('no mock')),
 } = {}) {
   const mockAuthSource = {
     watch: (listener) => {
@@ -30,28 +29,32 @@ function renderHomePage({
   );
 }
 
-describe('Landing HomePage (Figma Page 01 · Public & Live Features Integration)', () => {
+describe('Landing HomePage (Figma Page 01 · Public & Guest Node 55:5)', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
   });
 
-  it('does not render screen heading annotations or technical handoff banner in production UI', () => {
-    renderHomePage();
-    expect(screen.queryByText(/LAPTOP · 1024/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/MOBILE · 320/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/HANDOFF ·/i)).not.toBeInTheDocument();
-  });
-
-  it('renders topbar brand and 5 public navigation links', () => {
+  it('renders topbar brand and public navigation links matching Figma Page 01', () => {
     renderHomePage();
     const nav = screen.getByRole('navigation', { name: 'Khám phá' });
     expect(screen.getByRole('link', { name: 'MLAND' })).toHaveAttribute('href', '/');
-    expect(within(nav).getByRole('link', { name: 'Workshop' })).toHaveAttribute('href', '/workshops');
-    expect(within(nav).getByRole('link', { name: 'Cấu hình nhẫn' })).toHaveAttribute('href', '/workshops/PKG-COUPLE-SILVER/design');
-    expect(within(nav).getByRole('link', { name: 'Ready Rings' })).toHaveAttribute('href', '/products');
-    expect(within(nav).getByRole('link', { name: 'Custom' })).toHaveAttribute('href', '/design-requests/new');
-    expect(within(nav).getByRole('link', { name: 'Tra cứu' })).toHaveAttribute('href', '/workshop-booking/lookup');
-    expect(within(nav).getByRole('link', { name: 'Trợ lý AI' })).toHaveAttribute('href', '/ai-support');
+    expect(within(nav).getByRole('link', { name: 'Workshops' })).toHaveAttribute('href', '/workshops');
+    expect(within(nav).getByRole('link', { name: 'Trang sức' })).toHaveAttribute('href', '/products');
+    expect(within(nav).getByRole('link', { name: 'Đặt thiết kế' })).toHaveAttribute(
+      'href',
+      '/workshops/PKG-COUPLE-SILVER/design',
+    );
+    expect(within(nav).getByRole('link', { name: 'Đánh giá' })).toHaveAttribute('href', '/reviews');
+
+    // Utility links
+    expect(screen.getByRole('link', { name: 'Tra cứu' })).toHaveAttribute(
+      'href',
+      '/workshop-booking/lookup',
+    );
+    expect(screen.getAllByRole('link', { name: /Trợ lý AI/i })[0]).toHaveAttribute(
+      'href',
+      '/ai-support',
+    );
   });
 
   it('renders Guest topbar CTA when unauthenticated', () => {
@@ -60,7 +63,6 @@ describe('Landing HomePage (Figma Page 01 · Public & Live Features Integration)
     expect(loginLink).toBeInTheDocument();
     expect(loginLink).toHaveAttribute('href', '/login');
     expect(screen.queryByText('ACTIVE · MEMBER')).not.toBeInTheDocument();
-    expect(screen.queryByText(/HANDOFF ·/i)).not.toBeInTheDocument();
   });
 
   it('renders Member chip and, with an upcoming ticket, its real time and a link to that booking', async () => {
@@ -69,12 +71,13 @@ describe('Landing HomePage (Figma Page 01 · Public & Live Features Integration)
       {
         groupCode: 'WG-NEXT-1',
         groupStatus: 'CONFIRMED',
-        tickets: [{ ticketCode: 'WT-1', ticketStatus: 'CONFIRMED', sessions: [{ sessionReference: 's1', scheduledStart: start, scheduledEnd: start }] }],
-      },
-      {
-        groupCode: 'WG-PENDING-2',
-        groupStatus: 'PENDING_PAYMENT',
-        tickets: [{ ticketCode: 'WT-2', ticketStatus: 'PENDING_PAYMENT', sessions: [{ sessionReference: 's2', scheduledStart: start, scheduledEnd: start }] }],
+        tickets: [
+          {
+            ticketCode: 'WT-1',
+            ticketStatus: 'CONFIRMED',
+            sessions: [{ sessionReference: 's1', scheduledStart: start, scheduledEnd: start }],
+          },
+        ],
       },
     ]);
     renderHomePage({ initialAuthState: { status: 'signed-in' } });
@@ -82,7 +85,7 @@ describe('Landing HomePage (Figma Page 01 · Public & Live Features Integration)
     expect(memberChip).toBeInTheDocument();
     expect(screen.getByText('ACTIVE · MEMBER')).toBeInTheDocument();
     expect(await screen.findByText(/Buổi workshop sắp tới:/i)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Xem vé & mã QR/i })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /Xem vé & QR/i })).toHaveAttribute(
       'href',
       '/workshop-booking/lookup?code=WG-NEXT-1',
     );
@@ -96,7 +99,7 @@ describe('Landing HomePage (Figma Page 01 · Public & Live Features Integration)
     vi.spyOn(workshopApi, 'listMemberBookingGroups').mockResolvedValue([]);
     renderHomePage({ initialAuthState: { status: 'signed-in' } });
     expect(await screen.findByText(/Bạn chưa có buổi workshop nào sắp tới/i)).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: /Xem vé/i })).toBeNull();
+    expect(screen.queryByRole('link', { name: /Xem vé & QR/i })).toBeNull();
   });
 
   it('opens dropdown menu with account options when user chip is clicked', () => {
@@ -127,52 +130,38 @@ describe('Landing HomePage (Figma Page 01 · Public & Live Features Integration)
 
     renderHomePage({ initialAuthState: { status: 'signed-in' } });
     expect(screen.getByRole('button', { name: /Tùy chọn tài khoản: Đặng Ngọc Sơn/i })).toBeInTheDocument();
-    expect(screen.getByText('Đặng Ngọc Sơn')).toBeInTheDocument();
+    expect(screen.getByText('Đặng Ngọc Sơn...')).toBeInTheDocument();
     expect(screen.getByText(/Xin chào, Đặng Ngọc Sơn!/i)).toBeInTheDocument();
-    expect(screen.queryByText(/Minh Anh/i)).not.toBeInTheDocument();
   });
 
-  it('renders Hero section with dual conversion CTAs', () => {
+  it('renders Section 1 Hero banner with headline, CTA, and brand logo box', () => {
     renderHomePage();
-    expect(screen.getByText('TRẢI NGHIỆM CHẾ TÁC CỦA RIÊNG BẠN')).toBeInTheDocument();
-    expect(screen.getByText(/MỘT CHIẾC NHẪN,/i)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /ĐẶT WORKSHOP NGAY/i })).toHaveAttribute(
+    expect(
+      screen.getByText(/Tự tay chế tác nhẫn bạc & Trang sức thiết kế cá nhân hoá/i),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Khám phá Workshop →/i })).toHaveAttribute(
       'href',
       '/workshops',
     );
-    expect(screen.getByRole('link', { name: /KHÁM PHÁ READY RINGS/i })).toHaveAttribute(
-      'href',
-      '/products',
-    );
+    expect(screen.getByText('img-holder · Brand Logo')).toBeInTheDocument();
   });
 
-  it('renders Brand Story section with 3 golden commitments', () => {
+  it('renders Section 2 Workshop packages with 3 Figma baseline cards', () => {
     renderHomePage();
-    expect(screen.getByText('VỀ XƯỞNG KIM HOÀN MLAND')).toBeInTheDocument();
+    expect(screen.getByText('GÓI WORKSHOP NỔI BẬT')).toBeInTheDocument();
+    expect(screen.getByText('Trải nghiệm tự làm trang sức')).toBeInTheDocument();
     expect(
-      screen.getByText(/Không gian sáng tạo kim hoàn thủ công giữa lòng đô thị/i),
+      screen.getByText(/Workshop Làm Nhẫn Bạc Cơ Bản · 2 Giờ/i),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/Bạc 925 tiêu chuẩn cao cấp kèm bảo hành đánh bóng trọn đời/i),
+      screen.getByText(/Workshop Nhẫn Cặp Đính Đá Phong Thuỷ · 3.5 Giờ/i),
     ).toBeInTheDocument();
-    expect(screen.getByText(/Nghệ nhân hướng dẫn 1-kèm-1/i)).toBeInTheDocument();
-    expect(screen.getByText(/Đầy đủ thiết bị đúc nung hiện đại/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Khoá Masterclass Nghệ Nhân & Chế Tác Riêng/i),
+    ).toBeInTheDocument();
   });
 
-  it('renders 3 core workshop packages with correct prices and highlight tag (fallback)', () => {
-    renderHomePage();
-    expect(screen.getByRole('heading', { level: 4, name: 'Signature Workshop' })).toBeInTheDocument();
-    expect(screen.getByText('490,000 đ / người')).toBeInTheDocument();
-
-    expect(screen.getByRole('heading', { level: 4, name: 'Silver Clay Workshop' })).toBeInTheDocument();
-    expect(screen.getByText('690,000 đ / người')).toBeInTheDocument();
-    expect(screen.getByText('Được yêu thích nhất')).toBeInTheDocument();
-
-    expect(screen.getByRole('heading', { level: 4, name: 'Wax Carving Workshop' })).toBeInTheDocument();
-    expect(screen.getByText('890,000 đ / người')).toBeInTheDocument();
-  });
-
-  it('fetches and dynamically displays live workshop packages from Feature 003 API', async () => {
+  it('fetches and dynamically displays live workshop packages from backend API', async () => {
     const livePackagesMock = [
       {
         packageId: 'pkg-live-1',
@@ -199,111 +188,61 @@ describe('Landing HomePage (Figma Page 01 · Public & Live Features Integration)
     renderHomePage();
 
     await waitFor(() => {
-      expect(screen.getByRole('heading', { level: 4, name: 'Workshop Bạc Tinh Xảo 2026' })).toBeInTheDocument();
+      expect(screen.getByText('Workshop Bạc Tinh Xảo 2026')).toBeInTheDocument();
     });
 
-    expect(screen.getByText(/Workshop Silver Clay Nung Lò/i)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Chi tiết & Đặt chỗ' })).toHaveAttribute(
-      'href',
-      '/workshops/pkg-live-1',
-    );
+    expect(screen.getByText('Workshop Silver Clay Nung Lò')).toBeInTheDocument();
   });
 
-  it('fetches and dynamically displays live ready ring products from Feature 002 Catalogue API', async () => {
-    const liveProductsMock = {
-      items: [
-        {
-          id: 'prod-live-101',
-          name: 'Nhẫn Bạc Kim Cương Nhân Tạo',
-          category: { name: 'Nhẫn Nữ Bạc 925' },
-          priceRange: { minimum: 580000 },
-          images: [{ url: '/media/ring1.png', altText: 'Nhẫn 1' }],
-          variants: [{ sku: 'ML-LIVE-01' }],
-          canBuy: true,
-        },
-      ],
-    };
-
-    vi.spyOn(catalogueApi, 'listPublicProducts').mockResolvedValue(liveProductsMock);
-
+  it('renders Section 3 About Showcase with title, story, and pagination dots', () => {
     renderHomePage();
-
-    // The live products use 002's product card: name and image open the product, a cart button adds to the cart.
-    await waitFor(() => {
-      expect(screen.getByText('Nhẫn Bạc Kim Cương Nhân Tạo')).toBeInTheDocument();
-    });
-    expect(screen.getByText('Nhẫn Bạc Kim Cương Nhân Tạo').closest('a')).toHaveAttribute(
-      'href',
-      '/products/prod-live-101',
-    );
-    expect(screen.getByText('580.000 ₫')).toBeInTheDocument();
-    expect(screen.getByText('Còn hàng')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Thêm Nhẫn Bạc Kim Cương Nhân Tạo vào giỏ hàng' })).toBeEnabled();
-    // Shown as a sideways strip with arrows and a link to the whole catalogue.
-    expect(screen.getByRole('list', { name: 'Nhẫn Ready Rings' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Sản phẩm tiếp theo' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Xem tất cả nhẫn →' })).toHaveAttribute('href', '/products');
+    expect(screen.getByText('Về M-Land')).toBeInTheDocument();
+    expect(
+      screen.getByText(/Không gian trải nghiệm kim hoàn thủ công giữa lòng phố/i),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('tablist', { name: 'Chọn mẫu sản phẩm trưng bày' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Trưng bày mẫu 1' })).toBeInTheDocument();
   });
 
-  it('shows every product of the first catalogue page, not only four', async () => {
-    const items = Array.from({ length: 7 }, (_, index) => ({
-      id: `p${index}`, name: `Nhẫn số ${index}`, priceRange: { minimum: '100000' }, images: [], variants: [], canBuy: true,
-    }));
-    vi.spyOn(catalogueApi, 'listPublicProducts').mockResolvedValue({ items });
+  it('renders Section 4 Reviews with 3 cards matching Figma text', () => {
     renderHomePage();
-    await waitFor(() => expect(screen.getByText('Nhẫn số 6')).toBeInTheDocument());
-    expect(within(screen.getByRole('list', { name: 'Nhẫn Ready Rings' })).getAllByRole('listitem')).toHaveLength(7);
+    expect(screen.getByText('Khách hàng nói gì về M-Land')).toBeInTheDocument();
+    expect(screen.getByText('M*** A*** (Đà Nẵng)')).toBeInTheDocument();
+    expect(screen.getByText('T*** H*** (TP.HCM)')).toBeInTheDocument();
+    expect(screen.getByText('D*** L*** (Du khách Anh)')).toBeInTheDocument();
+    expect(screen.getAllByText('★★★★★ 5.0 / 5.0')).toHaveLength(3);
   });
 
-  it('renders Ecosystem Hub with 6 services and 4 internal operation portals', () => {
+  it('renders Section 5 Footer with brand, services, policies, and branches', () => {
     renderHomePage();
-    expect(screen.getByText('🔨 Đặt lịch Workshop')).toBeInTheDocument();
-    expect(screen.getByText('💍 Mua nhẫn Ready Rings')).toBeInTheDocument();
-    expect(screen.getByText('🎨 Chế tác theo yêu cầu')).toBeInTheDocument();
-    expect(screen.getByText('🤖 Trợ lý AI tư vấn')).toBeInTheDocument();
-    expect(screen.getByText('🎫 Tra cứu vé & Booking')).toBeInTheDocument();
-    expect(screen.getByText('🚚 Tra cứu đơn hàng')).toBeInTheDocument();
+    expect(screen.getByText('MLAND JEWELRY & WORKSHOP')).toBeInTheDocument();
+    expect(screen.getByText('DỊCH VỤ & WORKSHOP')).toBeInTheDocument();
+    expect(screen.getByText('HỖ TRỢ & CHÍNH SÁCH')).toBeInTheDocument();
+    expect(screen.getByText('HỆ THỐNG CHI NHÁNH')).toBeInTheDocument();
+    expect(screen.getByText(/45 Bạch Đằng, Q. Hải Châu/i)).toBeInTheDocument();
+    expect(screen.getByText(/123 Nguyễn Huệ, Quận 1/i)).toBeInTheDocument();
+    expect(screen.getByText(/© 2026 M-Land Operations Hub \(SEP490_G22\)\. All rights reserved\./i)).toBeInTheDocument();
+  });
 
+  it('renders internal operation portals bar for staff and manager workflows', () => {
+    renderHomePage();
+    expect(screen.getByText(/Cổng nội bộ:/i)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Staff Vận hành/i })).toHaveAttribute(
       'href',
       '/operations/sessions',
     );
-    expect(screen.getByRole('link', { name: 'Quản trị Sản phẩm' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /Quản trị Sản phẩm/i })).toHaveAttribute(
       'href',
       '/catalogue-management/products',
     );
-    expect(screen.getByRole('link', { name: 'Quản lý Ưu đãi' })).toHaveAttribute(
-      'href',
-      '/promotion-management/programs',
-    );
-    expect(screen.getByRole('link', { name: /Admin Tài khoản/i })).toHaveAttribute(
-      'href',
-      '/admin/accounts',
-    );
   });
 
-  it('renders Customer Reviews with 4.9 rating and Showroom Footer', () => {
+  it('renders mobile drawer and FAB AI button for mobile viewport access', () => {
     renderHomePage();
-    expect(screen.getByText('4.9 / 5.0 ★')).toBeInTheDocument();
-    expect(screen.getByText('Hà My & Quốc Trung')).toBeInTheDocument();
-    expect(screen.getByText('Trần Hoàng Long')).toBeInTheDocument();
-    expect(screen.getByText('Lê Thuỳ Dung')).toBeInTheDocument();
-
-    expect(screen.getByText(/45 Tràng Tiền, Quận Hoàn Kiếm/i)).toBeInTheDocument();
-    expect(screen.getByText(/128 Nguyễn Đình Chiểu, Quận 3/i)).toBeInTheDocument();
-    expect(screen.getByText(/Hotline: 1900 6868/i)).toBeInTheDocument();
-  });
-
-  it('renders mobile sticky bottom navigation with 5 targets', () => {
-    renderHomePage();
-    const bottomNav = screen.getByRole('navigation', { name: 'Điều hướng di động' });
-    expect(bottomNav).toBeInTheDocument();
-    const links = bottomNav.querySelectorAll('a');
-    expect(links).toHaveLength(5);
-    expect(links[0]).toHaveAttribute('href', '/');
-    expect(links[1]).toHaveAttribute('href', '/workshops');
-    expect(links[2]).toHaveAttribute('href', '/products');
-    expect(links[3]).toHaveAttribute('href', '/workshop-booking/lookup');
-    expect(links[4]).toHaveAttribute('href', '/profile');
+    expect(screen.getByRole('button', { name: 'Mở thực đơn điều hướng' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Trợ lý AI tư vấn thiết kế' })).toHaveAttribute(
+      'href',
+      '/ai-support',
+    );
   });
 });
