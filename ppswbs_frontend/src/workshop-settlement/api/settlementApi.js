@@ -46,7 +46,7 @@ export function createSettlementApi(http) {
     putRefundAccount: (refundId, body, key) => http(`/api/v1/workshop-refund-requests/${enc(refundId)}/account`, { method: 'PUT', body, idempotencyKey: key || newCommandId() }),
     resendAccountLink: (refundId, key) => write(`/api/v1/workshop-refund-requests/${enc(refundId)}/account-link-resends`, undefined, key),
     getRefundAccountNumber: refundId => http(`/api/v1/workshop-refund-requests/${enc(refundId)}/account-number`),
-    submitRefundAccount: (token, body) => http(`/api/v1/refund-account-links/${enc(token)}`, { method: 'POST', body, auth: false }),
+    submitRefundAccount: (token, body, key) => http(`/api/v1/refund-account-links/${enc(token)}`, { method: 'POST', body, auth: false, idempotencyKey: key || newCommandId() }),
 
     // Cancellation and change (buyer proof: bearer for a Member, buyerVerificationReference otherwise).
     cancelTicket: (code, body, key, opts) => write(`${ticket(code)}/cancellations`, body, key, opts),

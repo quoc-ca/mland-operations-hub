@@ -58,7 +58,7 @@ describe('Workshop settlement API client (per ticket)', () => {
     await api.transitionRefund('R-1', { action: 'APPROVE' }, 'key-transition-0001');
     await api.putRefundAccount('R-1', { bankCode: 'VCB' }, 'key-account-000001');
     await api.resendAccountLink('R-1', 'key-resend-0000001');
-    await api.submitRefundAccount('tok/en', { bankCode: 'VCB', accountNumber: '1', holderName: 'A' });
+    await api.submitRefundAccount('tok/en', { bankCode: 'VCB', accountNumber: '1', holderName: 'A' }, 'key-link-00000001');
     expect(http).toHaveBeenNthCalledWith(1, '/api/v1/workshop-cash-closes/expected-cash', { query: { branchId: '3' } });
     expect(http).toHaveBeenNthCalledWith(2, '/api/v1/workshop-cash-closes', post({ locationId: 3, workingDate: '2026-11-14', countedAmount: '0' }, 'key-close-00000001'));
     expect(http).toHaveBeenNthCalledWith(3, '/api/v1/workshop-cash-closes/CLOSE-1/difference-confirmations', post({ reason: 'counted twice' }, 'key-diff-000000001'));
@@ -66,7 +66,7 @@ describe('Workshop settlement API client (per ticket)', () => {
     expect(http).toHaveBeenNthCalledWith(5, '/api/v1/workshop-refund-requests/R-1/transitions', post({ action: 'APPROVE' }, 'key-transition-0001'));
     expect(http).toHaveBeenNthCalledWith(6, '/api/v1/workshop-refund-requests/R-1/account', { method: 'PUT', body: { bankCode: 'VCB' }, idempotencyKey: 'key-account-000001' });
     expect(http).toHaveBeenNthCalledWith(7, '/api/v1/workshop-refund-requests/R-1/account-link-resends', post(undefined, 'key-resend-0000001'));
-    expect(http).toHaveBeenNthCalledWith(8, '/api/v1/refund-account-links/tok%2Fen', { method: 'POST', body: { bankCode: 'VCB', accountNumber: '1', holderName: 'A' }, auth: false });
+    expect(http).toHaveBeenNthCalledWith(8, '/api/v1/refund-account-links/tok%2Fen', { method: 'POST', body: { bankCode: 'VCB', accountNumber: '1', holderName: 'A' }, auth: false, idempotencyKey: 'key-link-00000001' });
   });
 
   it('covers cancellation, change, the change-request queue and the Mland remedy', async () => {

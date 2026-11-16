@@ -51,6 +51,13 @@ public class WorkshopSettlementAuthorizationService {
         return actor;
     }
 
+    /** T137: an active account with the canonical Admin role from AccountFacade, nothing else. */
+    public CurrentAccountActor requireAdmin(CurrentAccountActor actor) {
+        requireActive(actor);
+        if (actor.role() != ActorRole.ADMIN) throw deny(actor.accountId().toString(), "ADMIN_REQUIRED");
+        return actor;
+    }
+
     /** Manager is global for Feature 003; Staff remains scoped to active locations. */
     public CurrentAccountActor requireManagerOrStaff(CurrentAccountActor actor, Long bookingLocationId) {
         requireActive(actor);

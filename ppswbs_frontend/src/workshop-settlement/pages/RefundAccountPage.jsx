@@ -21,11 +21,14 @@ export default function RefundAccountPage() {
 
   const submit = async event => {
     event.preventDefault();
-    const out = await command.run(() => api.submitRefundAccount(token, {
+    const out = await command.run(key => api.submitRefundAccount(token, {
       bankCode: form.bankCode.trim(), accountNumber: form.accountNumber.trim(), holderName: form.holderName.trim(),
-    }));
-    if (out.ok) { setForm({ bankCode: '', accountNumber: '', holderName: '' }); setDone(true); }
+    }, key));
+    if (out.ok) finish();
   };
+  const finish = () => { setForm({ bankCode: '', accountNumber: '', holderName: '' }); setDone(true); };
+  // A retry resends the same Idempotency-Key (FR-022a), so a lost response replays instead of writing twice.
+  const retry = async () => { const out = await command.retry(); if (out?.ok) finish(); };
 
   if (!token) {
     return <CustomerPage title="Refund account"><div className="notice error" role="alert"><p>This link is incomplete. Open the link from your refund email again.</p></div></CustomerPage>;
@@ -40,7 +43,7 @@ export default function RefundAccountPage() {
         <div className="notice error" role="alert"><p>This link was already used, replaced or has expired. Ask the shop to send you a new link.</p></div>
       ) : error?.status === 404 ? (
         <div className="notice error" role="alert"><p>This link is not valid. Open the link from your refund email again.</p></div>
-      ) : <ProblemNotice error={error} onRetry={command.retry} />}
+      ) : <ProblemNotice error={error} onRetry={retry} />}
       <form className="ota-form" aria-label="Refund account" onSubmit={submit}>
         <Field label="Bank"><input value={form.bankCode} maxLength={32} autoComplete="off" onChange={event => setForm(v => ({ ...v, bankCode: event.target.value }))} /></Field>
         <Field label="Account number"><input inputMode="numeric" value={form.accountNumber} maxLength={32} autoComplete="off" onChange={event => setForm(v => ({ ...v, accountNumber: event.target.value }))} /></Field>

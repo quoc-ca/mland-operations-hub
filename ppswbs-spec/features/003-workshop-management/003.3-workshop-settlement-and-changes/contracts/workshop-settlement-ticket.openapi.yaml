@@ -42,11 +42,9 @@ info:
     2026-11-15): JPEG/PNG/WebP, at most 5,000,000 bytes, authenticated Cloudinary
     object, ATTACHED image not deleted before 5 years after the request reaches
     REFUNDED or CLOSED_UNREACHABLE (delete job T166, after V1).
-    Planned routes (x-status planned, none served yet): the two receipt-image routes POST /workshop-refund-requests/{refundId}/receipt-images and
-    GET /workshop-refund-requests/{refundId}/receipt-image (T154), the
-    Admin-only refund-account key replacement
-    POST /workshop-refund-account-key-replacements (T137; Manager and Staff
-    get 403). Served 2026-11-16: the reconciliation list (T133), the absorbed-undercharge
+    Served 2026-11-16 (T154, backend): the two receipt-image routes POST /workshop-refund-requests/{refundId}/receipt-images and
+    GET /workshop-refund-requests/{refundId}/receipt-image (T154). Served 2026-11-16: the Admin-only refund-account key
+    replacement POST /workshop-refund-account-key-replacements (T137; Manager and Staff get 403), the reconciliation list (T133), the absorbed-undercharge
     record, void and list (T135) and the Manager-only cash reversal
     POST /workshop-tickets/{ticketCode}/folio/collections/{collectionId}/cash-reversals
     (T144). The TicketCancellation field voucherRestored is replaced by the
@@ -453,10 +451,9 @@ paths:
         '409': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-refund-account-key-replacements:
     post:
-      x-status: planned
-      summary: Admin replaces the refund-account encryption key operationally (FR-040, planned)
+      summary: Admin replaces the refund-account encryption key operationally (FR-040)
       description: >-
-        FR-040, decided 2026-11-15, not implemented (task T137). Admin only
+        FR-040, decided 2026-11-15, served 2026-11-16 (task T137). Admin only
         (Manager and Staff are 403). Run after the environment variable
         WORKSHOP_REFUND_ACCOUNT_KEY was replaced and the service restarted: for
         every refund request still holding an encrypted account number it
@@ -483,17 +480,19 @@ paths:
                 reason: {type: string, minLength: 1, maxLength: 1000}
       responses:
         '200':
-          description: Done
+          description: Done. Only counts are returned, never an account number.
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  requestsReset: {type: integer, format: int32, description: Requests returned to PENDING_ACCOUNT.}
-                  linksSent: {type: integer, format: int32}
+                  requestsReset: {type: integer, format: int32, description: 'Requests returned to PENDING_ACCOUNT by this call; a rerun answers 0.'}
+                  linksSent: {type: integer, format: int32, description: 'New account links sent, one per request returned.'}
+                  failed: {type: integer, format: int32, description: 'Requests that could not be returned and still hold a ciphertext; a new call with a new Idempotency-Key retries them (T137, 2026-11-16).'}
         '400': {$ref: '#/components/responses/Problem'}
         '401': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-absorbed-undercharges:
     get:
@@ -659,14 +658,15 @@ paths:
         PENDING_ACCOUNT and a reason; REOPEN restores PENDING_ACCOUNT with a fresh account link.
         *(Superseded 2026-11-15, spec FR-039, CHK007: only bankTransactionReference is required for RECORD_TRANSFER;
         proofReference is optional (backend, DTO and RefundQueuePage); the receipt image is optional. The 422
-        code TRANSFER_PROOF_REQUIRED is renamed to the proposed BANK_TRANSACTION_REFERENCE_REQUIRED (name to be confirmed) for a missing
+        code TRANSFER_PROOF_REQUIRED is replaced (served 2026-11-16, T154) by 422 BANK_TRANSACTION_REFERENCE_REQUIRED for a missing
         bank reference in task T154.)*
         PROPOSED 2026-11-15 (FR-040, CHK005/006): action RETURN_TO_PENDING_ACCOUNT (Manager, reason required,
         from PENDING_APPROVAL, PENDING_TRANSFER or PENDING_RECONCILIATION) is the single path when a bank
         returns the transfer, the statement does not match or the Manager refuses: the request goes back to
         PENDING_ACCOUNT with the reason recorded, the encrypted number is deleted (mask kept), the earlier
         approval is voided, the old link is revoked and a new account link is sent to the payer. There is no
-        terminal rejection state. The action name is a proposal (task T146).
+        terminal rejection state. Implemented 2026-11-16 (task T146): a request already REFUNDED or still
+        PENDING_ACCOUNT answers 409 REFUND_NOT_RETURNABLE and changes nothing.
       security: [{bearerAuth: []}]
       parameters:
         - {name: refundId, in: path, required: true, schema: {type: string}}
@@ -685,7 +685,6 @@ paths:
                 proofImageReference:
                   type: string
                   nullable: true
-                  x-status: planned
                   description: >-
                     OPTIONAL receipt image of the transfer (FR-039, CHK007), RECORD_TRANSFER only.
                     *(Superseded 2026-11-15: "PENDING PLAN DECISION (plan O-1) ... placeholder, must not
@@ -709,7 +708,6 @@ paths:
   /api/v1/workshop-refund-requests/{refundId}/receipt-images:
     post:
       summary: Upload the optional transfer receipt image (FR-039, plan O-1; route name PROPOSED)
-      x-status: planned
       description: >-
         PROPOSED 2026-11-15 (plan O-1, decided by Hồ Hoàng Quốc; task T154). Manager only in V1 (the actor
         who records the transfer, FR-039; Staff 403). Only while the request is PENDING_TRANSFER (409
@@ -750,7 +748,6 @@ paths:
   /api/v1/workshop-refund-requests/{refundId}/receipt-image:
     get:
       summary: Stream the attached transfer receipt image (FR-039, plan O-1; route name PROPOSED)
-      x-status: planned
       description: >-
         PROPOSED 2026-11-15 (plan O-1; task T154). Authorization first, with the same rule as the refund
         request (FR-039: a Manager and the transferring actor; V1: Manager only, Staff 403). The backend reads
@@ -1339,10 +1336,9 @@ components:
         status: {$ref: '#/components/schemas/RefundStatus'}
         accountNumberMasked: {type: string, nullable: true}
         holderName: {type: string, nullable: true}
-        receiptImageAttached: {type: boolean, x-status: planned, description: 'PROPOSED 2026-11-15 (plan O-1, T154): true when the recorded transfer has a receipt image; read it through GET .../receipt-image. No URL is exposed.'}
+        receiptImageAttached: {type: boolean, description: 'PROPOSED 2026-11-15 (plan O-1, T154): true when the recorded transfer has a receipt image; read it through GET .../receipt-image. No URL is exposed.'}
     RefundReceiptImage:
       type: object
-      x-status: planned
       description: PROPOSED 2026-11-15 (plan O-1, T154). Metadata of an uploaded receipt image; never a provider URL.
       required: [receiptImageId, contentType, byteCount, checksum, uploadedAt]
       properties:
