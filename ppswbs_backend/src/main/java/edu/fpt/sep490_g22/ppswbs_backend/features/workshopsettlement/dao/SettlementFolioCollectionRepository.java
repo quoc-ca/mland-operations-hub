@@ -29,6 +29,26 @@ public interface SettlementFolioCollectionRepository extends JpaRepository<Settl
     List<SettlementFolioCollection> findByBillReferenceAndStatusOrderByIdAsc(String billReference,
                                                                             FolioCollectionStatus status);
 
+    /** T133: collections of one method set without a branch, for the one-off back-fill. */
+    List<SettlementFolioCollection> findByBranchIdIsNullAndMethodIn(java.util.Collection<FolioCollectionMethod> methods);
+
+    /**
+     * T133 (FR-056): collections of one branch and day for the reconciliation list. A confirmed collection belongs to
+     * the day of its confirmation, a pending or voided one to the day of its creation.
+     */
+    @Query("""
+            select c from SettlementFolioCollection c
+            where c.branchId = :branchId and c.method in :methods
+              and ((c.status = :confirmed and c.confirmedAt >= :from and c.confirmedAt < :to)
+                or (c.status in :unconfirmed and c.createdAt >= :from and c.createdAt < :to))
+            order by c.createdAt asc, c.id asc""")
+    List<SettlementFolioCollection> findForReconciliation(@Param("branchId") Long branchId,
+                                                         @Param("methods") java.util.Collection<FolioCollectionMethod> methods,
+                                                         @Param("confirmed") FolioCollectionStatus confirmed,
+                                                         @Param("unconfirmed") java.util.Collection<FolioCollectionStatus> unconfirmed,
+                                                         @Param("from") java.time.Instant from,
+                                                         @Param("to") java.time.Instant to);
+
     /** Confirmed cash of one branch and working day, net of change returned (FR-036). */
     @Query("""
             select coalesce(sum(c.amountVnd), 0) from SettlementFolioCollection c

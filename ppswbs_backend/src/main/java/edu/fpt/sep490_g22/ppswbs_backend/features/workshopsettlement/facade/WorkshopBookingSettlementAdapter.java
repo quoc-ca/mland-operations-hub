@@ -93,6 +93,12 @@ public class WorkshopBookingSettlementAdapter {
         return booking.getTicketFolioContext(ticketCode);
     }
 
+    /** T133 (FR-056): online booking-time VNPay payments of one working day and location, read-only (003.1 T150). */
+    public java.util.List<edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingTimePayment>
+            listBookingTimePayments(Long locationId, java.time.LocalDate workingDate) {
+        return booking.listBookingTimePayments(locationId, workingDate);
+    }
+
     public edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.ConsumeBuyerProofResult
             consumeBuyerProof(edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.ConsumeBuyerProofCommand command) {
         return booking.consumeBuyerProof(command);

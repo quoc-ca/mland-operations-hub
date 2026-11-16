@@ -96,6 +96,18 @@ public class WorkshopSettlementProblemHandler {
                         error.getCode(), correlation, error.getMessage(), error.getFailingTicketCodes()));
     }
 
+    @ExceptionHandler(SettlementUnprocessableException.class)
+    ResponseEntity<SettlementProblem> namedUnprocessable(SettlementUnprocessableException error,
+                                                         HttpServletRequest request) {
+        return respond(HttpStatus.UNPROCESSABLE_ENTITY, error.getMessage(), List.of(), request);
+    }
+
+    @ExceptionHandler(ReconciliationSourceUnavailableException.class)
+    ResponseEntity<SettlementProblem> reconciliationSourceUnavailable(ReconciliationSourceUnavailableException error,
+                                                                      HttpServletRequest request) {
+        return respond(HttpStatus.SERVICE_UNAVAILABLE, "RECONCILIATION_SOURCE_UNAVAILABLE", List.of(), request);
+    }
+
     @ExceptionHandler(WorkshopSettlementValidationException.class)
     ResponseEntity<SettlementProblem> businessValidation(WorkshopSettlementValidationException error, HttpServletRequest request) {
         return respond(HttpStatus.UNPROCESSABLE_ENTITY, "SETTLEMENT_VALIDATION_ERROR", List.of(), request);

@@ -91,13 +91,13 @@ class FolioCollectionServiceTest {
                 rows.stream().filter(row -> invocation.getArgument(0).equals(row.getCollectionReference()))
                         .findFirst());
 
-        FolioBalanceService balances = new FolioBalanceService(charges, evidence, collections);
+        FolioBalanceService balances = new FolioBalanceService(charges, evidence, collections, mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementCashReversalRepository.class));
         finalization = new FolioFinalizationService(bills, audits, balances, booking);
         checkout = mock(PaymentGatewayCheckoutPort.class);
         when(checkout.createFinalPaymentUrl(anyString(), anyString(), anyLong(), any(), any(), anyString()))
                 .thenAnswer(invocation -> "https://pay.example/" + invocation.getArgument(0));
         service = new FolioCollectionService(bills, collections, cashCloses, audits, balances, finalization,
-                bankRefunds, paymentOwners, checkout);
+                bankRefunds, paymentOwners, checkout, booking);
     }
 
     private SettlementFolioCollection row(String collectionReference) {

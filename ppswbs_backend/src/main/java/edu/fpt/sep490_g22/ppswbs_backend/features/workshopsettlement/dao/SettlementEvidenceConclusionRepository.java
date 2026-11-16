@@ -6,4 +6,7 @@ public interface SettlementEvidenceConclusionRepository extends JpaRepository<Se
  Optional<SettlementEvidenceConclusion> findByOperationReference(String operationReference);
  Optional<SettlementEvidenceConclusion> findByEvidenceReference(String evidenceReference);
  java.util.List<SettlementEvidenceConclusion> findByBookingReferenceAndConclusion(String bookingReference, String conclusion);
+ /** T133 (FR-056): evidence of one conclusion inside a time window, for the EXCESS rows of the reconciliation list. */
+ java.util.List<SettlementEvidenceConclusion> findByConclusionAndCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtAscIdAsc(
+   String conclusion, java.time.Instant from, java.time.Instant to);
 }

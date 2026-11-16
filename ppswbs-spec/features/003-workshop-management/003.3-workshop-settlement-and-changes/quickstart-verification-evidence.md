@@ -70,3 +70,11 @@ mvn -f ppswbs_backend/pom.xml test "-Dtest=WorkshopSettlementContractIT,Settleme
 - **Scenario 9 (Notification isolation)**: Verified by `SettlementNotificationEventDispatcherTest` and `SettlementNotificationHandoffServiceTest`. Replay creates no duplicate delivery request; no recipient PII or payment secrets are logged or published.
 - **Scenario 10 (Data-bearing rollout)**: Verified by isolated MySQL execution on `ppswbs_workshop_test_20261029`. No shared rows were truncated, dropped, or reset.
 
+
+## 5. Collection branch back-fill and reconciliation list (T133, 2026-11-16)
+
+- **Mechanism**: `settlement_folio_collections.branch_id` is stamped at creation for transfer and VNPay (`FolioCollectionService`, from `TicketFolioContext.locationReference()`); existing rows are filled by the one-off Java job `CollectionBranchBackfillService` (runs at start-up through `CollectionBranchBackfillRunner` when `app.scheduling.enabled` is not false) calling the 003.1 facade `getTicketFolioContext` per ticket; no SQL across modules. V171 only adds the index `ix_sfc_branch_method_status_confirmed (branch_id, method, status, confirmed_at)`.
+- **Rows left NULL**: none were produced by this session. Back-fill ran only on the isolated test schema `ppswbs_workshop_test_it_foliocash` (`ReconciliationCollectionMysqlIT.backfillFillsResolvedAndListsUnresolved`: a resolvable row is filled, a row whose ticket the facade cannot resolve stays NULL and is returned in `Result.unresolved` and logged at WARN). The dev and production databases were not touched; at each environment first start the job logs the references it could not resolve, and that list must be pasted here when the environment is migrated.
+- **EXCESS branch**: resolved through the ticket folio context (`getTicketFolioContext(bookingReference).locationReference()`), working day = day of the evidence `created_at`.
+- **Tests (MySQL)**: `ReconciliationCollectionMysqlIT` 6/6 (stamp, exact branch/day/method/state filter, nothing written, Staff refused, excess + refund request, EXCESS, BOOKING_TIME 6,000,000 + counter 1,200,000 = 7,200,000, 003.1 failure = 503); unit `ReconciliationCollectionServiceTest` 6, `ReconciliationCollectionControllerTest` 4.
+- **Regression**: all `workshopsettlement` unit and MySQL IT classes, 429 tests, 0 failures; `ModulithArchitectureTests` 7/7.

@@ -68,7 +68,7 @@ class FolioCollectionApiServiceTest {
 
     @Test
     void closeRequiresTheIdempotencyKey() {
-        CashCloseRequest request = new CashCloseRequest(1L, LocalDate.of(2026, 11, 14), 90_000L, "Thieu");
+        CashCloseRequest request = new CashCloseRequest(1L, LocalDate.of(2026, 11, 14), "90000", "Thieu");
         assertThatThrownBy(() -> service.closeCashDay(request, null, "corr", staff))
                 .isInstanceOf(WorkshopSettlementValidationException.class);
         assertThatThrownBy(() -> service.closeCashDay(request, "short", "corr", staff))
@@ -78,7 +78,7 @@ class FolioCollectionApiServiceTest {
 
     @Test
     void closeReplayReturnsTheStoredCloseWithoutClosingTwice() {
-        CashCloseRequest request = new CashCloseRequest(1L, LocalDate.of(2026, 11, 14), 90_000L, "Thieu");
+        CashCloseRequest request = new CashCloseRequest(1L, LocalDate.of(2026, 11, 14), "90000", "Thieu");
         when(cashCloses.close(eq(1L), eq(LocalDate.of(2026, 11, 14)), eq(90_000L), eq("Thieu"), eq(20L), eq("corr")))
                 .thenReturn(close(CashDayCloseStatus.PENDING_MANAGER_CONFIRMATION));
         when(cashCloses.findByReference("CASHCLOSE-1")).thenReturn(close(CashDayCloseStatus.PENDING_MANAGER_CONFIRMATION));
@@ -98,7 +98,7 @@ class FolioCollectionApiServiceTest {
         CurrentAccountActor otherBranch = new CurrentAccountActor(21L, ActorRole.STAFF, ActorStatus.ACTIVE, true, List.of(2L));
         when(authorization.requireManagerOrStaff(otherBranch, 1L))
                 .thenThrow(new WorkshopSettlementAuthorizationException("LOCATION_SCOPE_DENIED"));
-        assertThatThrownBy(() -> service.closeCashDay(new CashCloseRequest(1L, null, 0L, null), KEY, "corr", otherBranch))
+        assertThatThrownBy(() -> service.closeCashDay(new CashCloseRequest(1L, null, "0", null), KEY, "corr", otherBranch))
                 .isInstanceOf(WorkshopSettlementAuthorizationException.class);
         verifyNoInteractions(cashCloses, idempotency);
     }
