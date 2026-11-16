@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router';
 import { useT } from '../../../shared/i18n/I18nProvider';
+import { useRole } from '../../../shared/auth/useRole';
 import { ErrorNotice, Loading, useResource } from '../../../shared/ui/components';
 import { useReviewManagementApi } from '../api/useReviewManagementApi';
 import { reviewManagementMessages } from '../messages';
@@ -9,6 +10,7 @@ import ReviewCard from './ReviewCard';
 export default function ModerationQueuePage() {
   const t = useT(reviewManagementMessages);
   const api = useReviewManagementApi();
+  const role = useRole();
   const [statusFilter, setStatusFilter] = useState('ALL');
 
   const resource = useResource(() => api.listModeration(), []);
@@ -21,6 +23,11 @@ export default function ModerationQueuePage() {
   return (
     <div className="review-container">
       <header className="page-header">
+        <div style={{ marginBottom: '0.75rem' }}>
+          <Link to="/home" className="button outline small" style={{ textDecoration: 'none' }}>
+            ← Quay lại Trang chủ
+          </Link>
+        </div>
         <h1>{t('moderationTitle')}</h1>
         <p className="muted">{t('moderationSubtitle')}</p>
       </header>
@@ -28,6 +35,15 @@ export default function ModerationQueuePage() {
       <div className="warning-banner">
         {t('staffNotice')}
       </div>
+
+      {role && (
+        <div style={{ margin: '0.75rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>Vai trò hiện tại:</span>
+          <span className={`badge-tag ${role === 'MANAGER' ? 'badge-status' : 'badge-status-hidden'}`}>
+            {role === 'MANAGER' ? 'Quản lý (MANAGER)' : 'Nhân viên (STAFF)'}
+          </span>
+        </div>
+      )}
 
       <div className="review-toolbar">
         <div className="toolbar-filters">

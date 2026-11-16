@@ -24,15 +24,17 @@ export default function AppLayout() {
   }
 
   return (
-    <>
+    <div className="app-layout-wrapper">
       <MainTopbar />
-      <Outlet />
-      <footer>
+      <main className="app-layout-content">
+        <Outlet />
+      </main>
+      <footer className="app-layout-footer">
         <div className="container footer-inner">
           <strong>MLAND</strong>
           <span>© MLAND Operations Hub</span>
         </div>
       </footer>
-    </>
+    </div>
   );
 }

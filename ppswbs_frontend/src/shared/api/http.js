@@ -1,6 +1,6 @@
 // Shared HTTP client (proposal §8, 002 T089). It never caches responses, never retries on its own and never
 // writes the token anywhere: the token is read from the session for each request and sent only as a header.
-export const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080').replace(/\/$/, '');
+export const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8080')).replace(/\/$/, '');
 
 /** Typed failure built from common.ErrorResponse: code, safe message, correlationId, fieldErrors. */
 export class ApiError extends Error {
@@ -40,7 +40,9 @@ export function newCommandId() {
 }
 
 function buildUrl(baseUrl, path, query) {
-  const url = new URL(`${baseUrl}${path}`);
+  const origin = baseUrl || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8080');
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  const url = new URL(`${origin}${normalizedPath}`);
   Object.entries(query || {}).forEach(([key, value]) => {
     if (Array.isArray(value)) value.forEach(item => url.searchParams.append(key, String(item)));
     else if (value !== undefined && value !== null && value !== '') url.searchParams.set(key, String(value));
