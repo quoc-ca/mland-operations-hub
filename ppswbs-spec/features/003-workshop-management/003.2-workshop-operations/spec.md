@@ -1,7 +1,7 @@
 # Feature Specification: Workshop Operations
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-16
+**Date updated**: 2026-11-17
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -278,6 +278,145 @@ through this section.
   provides one separate facade operation, callable only by 003.4, that revokes
   named tickets of an OTA booking after the OTA has confirmed their
   cancellation (task T123).
+
+## Package availability per location (owner request 2026-11-17)
+
+**Source:** request of Hồ Hoàng Quốc (owner Feature 003), 2026-11-17. **Status:
+DRAFT/PROPOSED** — three owner points answered 2026-11-17 (initial
+availability, matrix access, financial records on a location move); the rest
+awaits owner approval. It serves 003.1 (session discovery and
+reserve) and 003.3 (ticket change, FR-044), whose specs need matching edits after
+this section is approved.
+
+**Observed baseline (facts, not decisions):** the Package catalogue is global
+(Q "Which actor manages Workshop Packages shared across locations"); every
+Package has `sameLocationRequired`, which today means the required sessions of
+one ticket must share a location; public session discovery already requires one
+`locationId`; the five catalogue Packages all have `sameLocationRequired` on,
+and the 003.3 change-option query keeps the replacement session at the original
+location because of that flag (owner handoff 2026-11-17). Nothing records
+whether a Package is sold at a given location.
+
+**Intent:** some Packages are sold at one location and not at another. Price and
+Package rules stay the same at every location. A Manager decides, per Package
+and per location, whether it is sold there.
+
+- **FR-037** *(Package–location availability)*: For every pair of Package and
+  workshop location, 003.2 MUST hold an availability state `ACTIVE` or
+  `INACTIVE`. A Package is sellable at a location only when its lifecycle state
+  is `PUBLISHED` **and** its availability at that location is `ACTIVE`. Name,
+  description, per-participant price, participant bounds and required-session
+  rules remain one value per Package; there is no per-location price or rule.
+  Initial availability when this section takes effect (owner decision Hồ Hoàng
+  Quốc, 2026-11-17): Mland Hà Nội – Hoàn Kiếm has all five Packages `ACTIVE`;
+  Mland Hà Nội – Tây Hồ has Signature Brass, Signature Silver 925 and Wax Casting
+  `ACTIVE` and Silver Clay 5g and Silver Clay 7g `INACTIVE`; Mland Đà Nẵng – Hải
+  Châu (not active) has every Package `INACTIVE`. A Package or location created
+  later starts `INACTIVE` at every pair until a Manager enables it (confirmed
+  2026-11-17).
+- **FR-038** *(Manager matrix)*: An active Manager MUST be able to read all
+  workshop locations and all Packages as one Package × location matrix and set
+  one pair `ACTIVE` or `INACTIVE` through an explicit, audited Manager command.
+  The matrix shows Packages as columns and locations as rows; a ticked cell
+  means `ACTIVE` and an unticked cell means `INACTIVE` (owner clarification
+  2026-11-17).
+  The audit record MUST hold the actor, Package, location, prior and new state
+  and time. Setting a pair to the state it already has changes nothing and
+  writes no audit record. Only an active Manager may read or write the matrix;
+  Staff and Admin are refused (`403`) on both (owner decision Hồ Hoàng Quốc,
+  2026-11-17).
+- **FR-039** *(Customer discovery and reserve)*: When a Package is `INACTIVE` at a
+  location, public session discovery for that Package and location MUST return
+  no selectable session and a safe reason `PACKAGE_NOT_AVAILABLE_AT_LOCATION`;
+  the same location must not offer the Package in any customer selection. The
+  atomic reserve decision (FR-030) MUST recheck, for every required session, that
+  the Package is `ACTIVE` at that session's location and refuse the whole
+  reserve with `PACKAGE_NOT_AVAILABLE_AT_LOCATION` otherwise. A stale discovery
+  result never authorizes a selection. The matrix does **not** block OTA
+  bookings: an OTA booking (003.4) is accepted as today even when the pair is
+  `INACTIVE` (owner decision Hồ Hoàng Quốc, 2026-11-17; an OTA listing is tied
+  to one Package and one location, e.g. the Klook listing for the 750,000 ₫
+  basic Package at Mã Mây, Hoàn Kiếm). Changing the matrix never updates an OTA
+  listing; doing so is a separate, explicit OTA step owned by 003.4 and is out
+  of scope here.
+- **FR-040** *(Existing commitments are untouched)*: Setting a pair `INACTIVE`
+  MUST NOT cancel, move or refuse operation of any existing booking, ticket,
+  session, attendance or already-unexpired capacity hold; holds created before
+  the change may still be committed until their own `expiresAt` (same rule as a
+  sales pause, SC-005). Future sessions keep existing state and can still be
+  operated; the Manager may pause or cancel them separately. A Manager can set a
+  pair `INACTIVE` at any time, even while bookings exist; the command is never
+  blocked by existing bookings (owner decision Hồ Hoàng Quốc, 2026-11-17).
+- **FR-041** *(`sameLocationRequired` meaning)*: `sameLocationRequired` keeps
+  one meaning: all required sessions of one ticket must be at the same location.
+  It trivially holds for a one-session Package. It no longer means that a ticket
+  must stay at its original location when changed; that is decided by FR-042.
+- **FR-042** *(Ticket change across locations — serves 003.3 FR-044)*: A change
+  MAY move a ticket to sessions at a different location when the Package is
+  `ACTIVE` at that location. The resulting sessions of one ticket MUST all be at
+  one location when `sameLocationRequired` is set, so a Wax Casting ticket moves
+  both sessions to one location where it is sold; changing only one of its two
+  sessions to another location is refused with `INVALID_REPLACEMENT` (the
+  existing replacement refusal; corrected 2026-11-17 from
+  `PACKAGE_SELECTION_INVALID`, which belongs to reserve). A
+  Staff member can change a ticket only inside a location in their
+  `activeLocationIds` (and under the existing assignment rule); a change whose
+  target is in a different location needs an active Manager. A target at an
+  `INACTIVE` location is never offered and is refused at commit
+  (`PACKAGE_NOT_AVAILABLE_AT_LOCATION`), including a change request approved
+  before the pair was set `INACTIVE`. The existing seat, quota, QR and
+  attendance-history rules of FR-034 apply unchanged.
+- **FR-043** *(Sessions are independent per location)*: Capacity, state,
+  reschedule quota (FR-035), check-in opening time and Staff assignments belong
+  to each session. Two sessions in the same slot at different locations are
+  distinct sessions, are not duplicates and do not conflict. The reschedule
+  quota consumed by a change is the target session's own quota. Slot-gap and
+  foundry-working-day rules are evaluated on the sessions of one ticket only.
+- **FR-044** *(Location name shown)*: Customer session discovery, ticket-change
+  options and Manager/Staff session lists MUST return the location's display name
+  together with its identifier, so a customer can tell sessions of the same date
+  and slot apart ("branch – date/time – seats left – changes left").
+- **FR-045** *(Effects of a cross-location move)*: After a ticket moves to
+  another location, the location of record of the ticket is the new location;
+  Staff access follows the new location and the new session assignment (FR in
+  "Staff session-assignment access"); Staff of the old location lose access to
+  that ticket going forward but audit history stays. Price is identical across
+  locations, so the move itself changes no amount. How money already collected,
+  folio lines and add-ons tied to the old location are carried (owner decision
+  Hồ Hoàng Quốc, 2026-11-17): amounts stay unchanged; money already
+  collected keeps the branch where it was collected (each collection already
+  records its branch); collections, charges and bills made after the move are
+  attributed to the new location; and add-ons already sold at the old location
+  stay as sold and are listed to the Manager for follow-up (refined 2026-11-17,
+  owner decision Hồ Hoàng Quốc). The location of a ticket is always read from
+  the ticket's current session in Operations, never from a copy taken at booking
+  time, so a moved ticket's Staff access, folio and new collections follow the
+  new location (owner decision 2026-11-17).
+- **FR-046** *(Mland-caused replacement across locations; owner decision Hồ Hoàng
+  Quốc, 2026-11-17)*: When a session cancelled by Mland leaves a ticket needing a
+  replacement, the equivalent-session offer (003.3, via the 003.2 query of
+  FR-034) MUST list every future, `PUBLISHED`, customer-selectable session with a
+  seat and reschedule quota left for the same Package at **any** location where
+  the Package is `ACTIVE`, not only the original location, ordered by start and
+  showing the location name (FR-044). The buyer picks one; the ticket then moves
+  to that session's location under FR-045. The one-location rule of FR-041 still
+  applies: the offer replaces only the cancelled session and the ticket's other
+  session is unchanged, so for a Wax Casting ticket the candidates stay at the
+  location of the unchanged session; moving both sessions to another location is
+  a customer change under FR-042, not a Mland offer. No Manager is needed because the replacement
+  is Mland-caused. An empty list keeps today's direct 100% bank refund.
+
+**Edge cases:** a Package inactive at every location is not sellable anywhere;
+a Package `RETIRED` or not `PUBLISHED` stays refused regardless of availability
+(`PACKAGE_NOT_PUBLISHED` wins); a deactivation racing a reserve gives one
+consistent outcome (reserve either sees `ACTIVE` and commits, or `INACTIVE` and is
+refused, never partially reserved); a location that is not active is not sold at
+whatever the pair state says; a customer holding tickets at two locations is not
+treated as a duplicate booking.
+
+**Assumptions:** the owner has not set per-location price, per-location rules or
+a per-location Package lifecycle; those stay out of scope. The safe error code
+name is a proposal until the contract is drafted.
 
 ## Scope
 
@@ -1132,6 +1271,7 @@ scope. The target implementation and all public contracts use `location` and
 | US3 | P1 | Staff verifies and checks in one individual ticket. | Two concurrent scans of one valid QR create one attendance action; the later scan returns `ALREADY_CHECKED_IN` with the original `checkedInAt`. |
 | US4 | P2 | Staff recovers ticket access and handles authorized exceptions. | A resend returns only active unused tickets to the existing delivery channel and an override cannot cross session/branch. |
 | US5 | P2 | Authorized actor finalizes attendance and Manager handles cancellation/correction. | Finalization marks only unchecked active tickets `NO_SHOW`; cancellation with commitments creates a 003.3 handoff without settlement side effects. |
+| US6 | P1 | Manager decides which Package is sold at which location; customers and ticket changes follow it. | A Manager sets a Package `INACTIVE` at location A: discovery at A returns no session, reserve at A is refused, existing bookings at A are unchanged, and a ticket change can still move that Package to location B where it is `ACTIVE`. |
 
 ### Manager configures an operable session
 
@@ -2091,6 +2231,19 @@ row above; T115 implements it and the contract test keeps the code in the closed
   each affected ticket is moved, has a bank refund request opened, or the ticket has no collected money (FREE/deferred) and the buyer's answer or default is recorded and the folio is CLOSED (003.3 A03, 2026-11-16); a session still unresolved 24 hours after
   `scheduledEndAt` raises exactly one Manager alert (or, with no active
   Manager, one audit entry and a WARN log).
+- **SC-009** *(added 2026-11-17, FR-037–FR-040)*: 100% of reserve attempts for a
+  Package at a location where it is `INACTIVE` are refused with no capacity
+  consumed, while every booking and ticket created before the change keeps
+  working unchanged.
+- **SC-010** *(added 2026-11-17, FR-038)*: A Manager can switch any Package ×
+  location pair in one action, sees the result immediately in the matrix, and
+  every change has one audit record; no non-Manager can switch a pair.
+- **SC-011** *(added 2026-11-17, FR-042)*: A ticket change to a location where
+  the Package is `INACTIVE` is never offered and never commits; a Wax Casting
+  change always ends with both sessions at one location where it is `ACTIVE`.
+- **SC-012** *(added 2026-11-17, FR-044)*: Every session shown to a customer or
+  to staff in discovery, change options and lists carries its location name, so
+  two sessions at the same date and slot are never indistinguishable.
 
 ## Out of scope
 

@@ -236,6 +236,32 @@ run is not sufficient proof of index, lock or migration behaviour.
     handling, and does not make an external OTA call inside the Operations
     transaction.
 
+## Package availability per location (proposed 2026-11-17)
+
+Validation scenarios for spec FR-037–FR-045 (contract: `PUT
+/workshop-packages/{packageId}/locations/{locationId}/availability`, `GET
+/workshop-package-availability`; data: data-model "Package availability per
+location"). Prerequisites: an active Manager, a Staff member and a Member
+account; the seeded matrix (Hoàn Kiếm all five Packages, Tây Hồ Signature Brass,
+Signature Silver 925 and Wax Casting, Đà Nẵng none).
+
+1. Manager reads the matrix: 5 Packages × 3 locations, 8 cells `ACTIVE`; Staff and
+   Admin get `403` on read and write.
+2. Silver Clay 5g discovery at Tây Hồ returns `409
+   PACKAGE_NOT_AVAILABLE_AT_LOCATION`; at Hoàn Kiếm it returns sessions; the
+   Package's locations list excludes Tây Hồ.
+3. Manager sets Silver Clay 5g `ACTIVE` at Tây Hồ twice: the first call writes one
+   audit event, the second changes nothing and writes none.
+4. Manager sets Wax Casting `INACTIVE` at Hoàn Kiếm while a booking exists: the
+   call succeeds, the booking, tickets and an unexpired hold are untouched, a new
+   reserve there is refused.
+5. A ticket change moves a one-session ticket from Hoàn Kiếm to Tây Hồ (active
+   there) as Manager; a Staff caller is refused; a Wax Casting change to Tây Hồ
+   moves both sessions or none; a target at an `INACTIVE` pair is never offered and
+   is refused at commit.
+6. Concurrent deactivation and reserve give either a committed reserve or a
+   refusal, never a partial reserve.
+
 ## Release Safety
 
 Before a production rollout, review the legacy booking/session/ticket inventory

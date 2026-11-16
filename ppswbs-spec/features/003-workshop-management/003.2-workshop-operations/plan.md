@@ -1,7 +1,7 @@
 # Implementation Plan: Workshop Operations
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-16
+**Date updated**: 2026-11-17
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -604,6 +604,107 @@ names are chosen at implementation.
 
 003.3 T167 (003.3 tasks.md) adds the caller of `completeCancellation`; 003.2
 T122 then verifies the transition end to end.
+
+## Package availability per location (Phase 18, plan 2026-11-17)
+
+**Spec:** "Package availability per location", FR-037–FR-046, SC-009–SC-012, US6
+(owner answers 2026-11-17). Backend and contract scope partially approved the
+same day in `approval.md` (PARTIALLY APPROVED); UI, 003.1, 003.3 and the OTA push
+step stay excluded there. Tasks: Phase 18 (T144–T162) in `tasks.md`.
+
+**Design decisions (proposed):**
+
+1. **One new Operations-owned record**, `WorkshopPackageLocationAvailability`
+   (see data-model). A missing row means `INACTIVE`, so a new Package or location
+   needs no insert and the "new pairs start `INACTIVE`" rule costs nothing. The
+   matrix read synthesizes missing cells.
+2. **One check, one place.** A single Operations service answers "is Package P
+   sellable at location L" (`PUBLISHED` + pair `ACTIVE` + location active). The
+   same answer feeds public discovery, the atomic reserve (FR-039), the ticket
+   change validation (FR-042) and the change-option listing, so the four paths
+   cannot disagree.
+3. **Reserve and change rules.** Reserve and `replaceTicketSessions` check the
+   pair for every target session inside their existing all-or-none transaction.
+   No extra lock: a reserve that commits before a deactivation is an ordinary
+   earlier sale (FR-040); one that starts after is refused. No partial result.
+4. **Toggle command** `PUT` per cell, Manager only, `Idempotency-Key` required,
+   audited once per real change; same state is a no-op without audit (FR-038).
+   Optimistic `version` on the row for two Managers editing the same cell.
+5. **`sameLocationRequired` unchanged in the Package record** (FR-041). Cross-
+   location is allowed by availability, not by clearing the flag; the existing
+   candidate filter that pins a change to the old location is replaced by an
+   availability filter (003.3 impact below).
+6. **Staff scope of a change stays with 003.3**, which knows the actor:
+   `replaceTicketSessions` has no actor. 003.3 requires an active Manager when
+   the target location differs from the ticket's current location (FR-042);
+   003.2 enforces availability, one-location and quota.
+7. **Location name** is added to the customer session read, the Manager/Staff
+   session list and the change options (FR-044). `locationId` stays.
+
+**Boundary and Modulith:** all new code stays in `workshopoperations`; 003.3 and
+003.1 reach it only through `WorkshopOperationsFacade` (new read
+`activeLocationsForPackage(packageReference)` and the new rejection reason). No
+new module dependency, no cycle. `ApplicationModules.verify()` must still pass.
+
+**Cross-feature impact (to be tasked in each feature, not edited here):**
+
+- **003.1:** the session-discovery client and reserve error mapping handle
+  `PACKAGE_NOT_AVAILABLE_AT_LOCATION`; the location picker lists only locations
+  returned by `GET /workshop-packages/{packageId}/locations`; the session list
+  shows the location name. Cart snapshots are unchanged because price and rules
+  are identical across locations.
+- **003.1 (decided 2026-11-17):** `WorkshopBookingFacadeImpl.getTicketFolioContext`
+  must derive `locationReference` and `sessionReferences` from the ticket's
+  current Operations sessions, not from the line copy (`BookingGroupLineSession`,
+  not updated by a change, shared by every ticket of the line). 003.3 authorization,
+  folio and collection branch read this value unchanged.
+- **003.3:** `TicketChangeOptionsService.candidatesFor` stops filtering by the
+  old location and filters by the active-locations read; options carry the
+  location name; `TicketChangeService` requires an active Manager when the
+  target location differs; a cross-location move updates the ticket's location
+  of record, re-attributes the folio to the new location and lists the old-
+  location add-ons to the Manager (FR-045). The change-option wording of
+  003.3 FR-044/FR-044a needs a matching edit.
+- **003.4 (OTA):** inventory is per session already; verify the OTA session
+  projection is not changed by availability (open check, T-task).
+
+**Resolved with the owner / verified 2026-11-17:**
+
+- **Mland replacement (spec FR-046, owner decision):**
+  `findEquivalentReplacementSessions` drops "same branch" and uses the sellable
+  locations of the Package; candidates carry `locationId` and `locationName`.
+  003.3 stores the list as before; the chosen session moves the ticket under
+  FR-045.
+- **Audit action name (verified in code):** `operations_audit_events.action` is a
+  free `varchar(80)`, not an enum; package events use `WORKSHOP_PACKAGE_CREATED`,
+  `_UPDATED` and `_PUBLISHED`/`_RETIRED` (`WorkshopPackageService.recordAudit`).
+  Use **`WORKSHOP_PACKAGE_AVAILABILITY_CHANGED`**, `session_id` null, `outcome`
+  `SUCCESS`, and `metadata` JSON `{packageId, locationId, from, to}`. A refused
+  attempt by Staff/Admin follows the existing denied-attempt audit rule.
+- **Seed names (verified in `V161__add_data.sql`):** the Packages are
+  `Signature Workshop - Silver 925`, `Signature Workshop - Brass`,
+  `Silver Clay Workshop - 5g`, `Silver Clay Workshop - 7g`, `Wax Casting
+  Workshop`; locations `HN-HOANKIEM` (id 1), `HN-TAYHO` (id 2), `DN-HAICHAU`
+  (id 3, inactive). The latest migration in the repo is `V177`; choose the next
+  free version when implementing, after fetching `origin/develop`. Not checked
+  against a live database (no credentials used).
+
+**Decided 2026-11-17 (owner Hồ Hoàng Quốc, found in design review):** an OTA
+booking (`acceptOtaBooking`) is NOT refused at an `INACTIVE` pair; blocking it
+would desync an order already sold on the external platform. The matrix never
+updates an OTA listing; pushing a change to the OTA is a separate explicit step
+of 003.4 (open for the 003.4 owner, outside this feature). See spec FR-039.
+
+**Frontend:** a Manager-only matrix page (rows = locations, columns = Packages,
+checkbox = `ACTIVE`; Đà Nẵng row present but empty while inactive); location
+name in 003.1 and 003.3 pickers and lists.
+
+**Verification plan:** unit tests for the sellability service (each combination
+of lifecycle, pair, location active); MySQL IT for migration seed (Hoàn Kiếm 5,
+Tây Hồ 3, Đà Nẵng 0) and for the reserve/toggle race; contract tests for 403 on
+Staff/Admin read and write, 409 on inactive discovery, no-op audit; Modulith
+verify; 003.3 tests for cross-location change, Wax Casting both sessions at one
+location, and Staff refused on a different location.
 
 ## Validation Strategy
 
