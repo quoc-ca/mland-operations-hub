@@ -46,10 +46,19 @@ loại trừ bên dưới vẫn bị chặn.
 | Tiền và location của vé | Tiền đã thu giữ chi nhánh nơi thu; khoản mới theo chi nhánh mới; location của vé đọc từ buổi hiện tại ở Operations | Chỉ thị trong phiên; spec FR-045 | spec, plan |
 | Audit | `WORKSHOP_PACKAGE_AVAILABILITY_CHANGED`, không ghi khi không đổi | Chỉ thị trong phiên; plan | plan, data-model |
 
+## UI approval — trang ma trận gói × chi nhánh (added 2026-11-17)
+
+- **Phạm vi:** chỉ giao diện và chữ hiển thị của `PackageAvailabilityMatrixPage` / `PackageAvailabilityMatrix` (route `/operations/package-availability`). Không gồm 003.1/003.3.
+- **Nguồn thiết kế:** Figma https://www.figma.com/design/lNOLBLlL9DEeyU5EvXJnPd, frame 01–11 (node ID trong `design/ui-flow.md`, mục "Figma của trang ma trận").
+- **Duyệt bởi:** Tech Lead Hồ Hoàng Quốc, chỉ thị trong phiên ngày 2026-11-17 ("tôi duyệt") sau khi nhận danh sách quyết định thiết kế tự chọn.
+- **Quyết định riêng:** hàng Đà Nẵng (chi nhánh chưa hoạt động) vẫn hiện và ô vẫn tick được, không vô hiệu hóa. Tech Lead chốt trong phiên 2026-11-17, khớp Figma hiện tại; backend không được chặn ghi ô của chi nhánh chưa hoạt động.
+- **Mã băm sau khi ghi nhận (SHA-256, 12 ký tự đầu, 2026-11-17):** `design/ui-flow.md` — `a04f74328e8b` (thay `3f6e7689fd4d`, mục UI đã đổi); `tasks.md` — `e0bd51a950c1` (dòng B1). Mã băm khác của bảng "Approved revision" không đổi.
+- **Chưa làm:** task frontend chưa được tạo; cần `$speckit-tasks` trước khi code FE.
+
 ## Exclusions and remaining blockers
 
 - **Chưa duyệt, vẫn bị chặn:**
-  - Giao diện trang ma trận và chữ hiển thị (chưa có Figma). Chỉ quyền và dữ liệu được duyệt.
+  - ~~Giao diện trang ma trận và chữ hiển thị (chưa có Figma)~~ — đã duyệt 2026-11-17, xem mục "UI approval" ở trên.
   - Thay đổi của 003.1: đổi `getTicketFolioContext` để suy location từ buổi hiện tại của vé; xử lý lý do từ chối mới ở giỏ; hiển thị location.
   - Thay đổi của 003.3: bỏ ghim location trong tùy chọn đổi vé đã tính ở 003.3, yêu cầu Manager khi khác location, áp hệ quả FR-045.
   - Bước "đẩy cập nhật lên OTA" của 003.4 (ngoài phạm vi).

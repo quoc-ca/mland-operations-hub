@@ -55,8 +55,33 @@
 
 ## Package availability per location (proposed 2026-11-17, spec FR-037–FR-046)
 
-Phạm vi: màn hình mới của Manager và các thay đổi hiển thị ở 003.1/003.3. Trạng thái `proposed`; chưa có Figma, nên
-không suy bố cục từ prototype. Liên kết: [architecture.md](./architecture.md), [workflows.md](./workflows.md).
+Phạm vi: màn hình mới của Manager và các thay đổi hiển thị ở 003.1/003.3. Trạng thái: trang ma trận của Manager đã có
+Figma và được Tech Lead duyệt ngày 2026-11-17 (xem "Figma của trang ma trận" bên dưới); các thay đổi hiển thị ở 003.1/003.3
+vẫn `proposed`, chưa có Figma. Liên kết: [architecture.md](./architecture.md), [workflows.md](./workflows.md).
+
+### Figma của trang ma trận (duyệt 2026-11-17)
+
+Figma: https://www.figma.com/design/lNOLBLlL9DEeyU5EvXJnPd (file "Mland 003.2 Package availability matrix", trang
+"003.2 Ma trận gói × chi nhánh"). Tech Lead Hồ Hoàng Quốc duyệt trong phiên ngày 2026-11-17, kèm các quyết định tự chọn
+của thiết kế liệt kê ở frame 11 và bên dưới.
+
+| Frame | Node | Trạng thái |
+| --- | --- | --- |
+| 01 Mặc định (đã tải) | `2:2` | Dữ liệu mẫu: Hoàn Kiếm 5 gói, Tây Hồ Brass/Silver 925/Wax Casting, Đà Nẵng trống |
+| 02 Đang tải | `2:106` | Khung bảng skeleton, `aria-busy` |
+| 03 Rỗng | `2:191` | Không có gói hoặc chi nhánh; nút "Đến Gói workshop", "Tải lại" |
+| 04 Đang lưu từng ô | `2:227` | Ô vô hiệu kèm spinner và chữ "Đang lưu" |
+| 05 Lưu thành công | `2:339` | Thông báo xanh ngắn, tự ẩn sau vài giây |
+| 06 Lỗi 403 | `2:449` | Trang từ chối quyền, sidebar không có mục ma trận |
+| 07 Lỗi 409 version | `2:476` | Ô tải lại giá trị server, viền cam, nút "Tải lại ma trận" |
+| 08 Lỗi khác | `2:586` | Ô giữ giá trị cũ, viền đỏ, banner lỗi |
+| 09, 10 Mobile 375 | `3:2`, `3:86` | Thẻ theo chi nhánh, mỗi thẻ 5 checkbox; mặc định và lỗi khác |
+| 11 Ghi chú accessibility và quyết định | `3:175` | Nhãn ô, bàn phím, thông báo trạng thái, tương phản |
+
+Quyết định thiết kế đã duyệt: lưu ngay từng ô (không nút "Lưu" chung, không hỏi xác nhận khi tắt, không hiện số đơn đang
+chạy); hàng Đà Nẵng chưa hoạt động vẫn hiện, ô trống và vẫn tick được (Tech Lead chốt riêng
+ngày 2026-11-17: không vô hiệu hóa ô của chi nhánh chưa hoạt động); mobile dùng thẻ theo chi nhánh thay vì cuộn ngang; ô đang lưu dùng `aria-disabled`; màu nhấn navy #002967 vì thư
+viện Figma không có design system Mland (token lấy từ `workshop-operations.css`).
 
 | Screen / flow | Entry and actor | Workflow ID | Architecture component/hook/API-client link | API/contract reference | Loading / empty / validation / success / error / partial states | Recovery |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -70,10 +95,10 @@ hoặc mất quyền, xóa dữ liệu ma trận trong bộ nhớ và về trang
 Khả năng truy cập: ô tick là checkbox có nhãn "<tên gói> tại <tên location>", dùng được bằng bàn phím, trạng thái lưu
 được thông báo cho trình đọc màn hình.
 
-**Open decisions (UI):** bố cục và chữ chính thức chờ Figma; có hiện số đơn đang chạy khi Manager tắt một ô hay không
-(spec không yêu cầu, chưa quyết định).
+**Open decisions (UI):** bố cục và chữ của trang ma trận đã chốt theo Figma ở trên; không hiện số đơn đang chạy khi
+Manager tắt một ô (spec không yêu cầu, Tech Lead duyệt theo Figma). Bố cục 003.1/003.3 vẫn chờ Figma riêng.
 
 ## Open decisions and dependencies
 
-- **DRAFT**: exact Figma revision/node IDs and final copy for operational error banners.
+- Figma của trang ma trận đã có node ID (xem trên). **DRAFT** còn lại: Figma cho phần hiển thị 003.1/003.3 và chữ chính thức của các banner lỗi vận hành khác.
 - **Traceability gap**: map each screen to its existing `tasks.md` task and UI verification case before regeneration.
