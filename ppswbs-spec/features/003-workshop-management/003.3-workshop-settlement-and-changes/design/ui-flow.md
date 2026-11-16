@@ -121,6 +121,8 @@ rows above and supersede only where stated.
 
 Accessibility and browsers for these rows follow SC-015 (T138, extended by T164).
 
+**QA list verified by T138 (extended by T164, 2026-11-16):** every row of the table above, that is: ticket folio (including the Reverse cash entry dialog, the absorbed-undercharge record and void dialogs, and the booking-time allocation label), cash close (including the cut-off note in both states), refund queue (counter account review step, Return to account entry dialog, optional receipt image upload and view, record transfer with the bank reference only), refund account page (review step and its 404/410/422 states), ticket cancellation/change and the EXPIRED voucher notice, change requests, Mland remedy, customer folio, settlement case list, reconciliation list (`/settlement/reconciliation`, including the 503 and multi-branch warning states) and absorbed undercharges (`/settlement/absorbed-undercharges`). Each is checked against WCAG 2.2 AA on the two latest major desktop Chrome, Edge and Firefox.
+
 ## Session, data handling, and accessibility
 
 - Customer views must expose only their own booking/bill/case data.

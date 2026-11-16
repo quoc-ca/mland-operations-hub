@@ -11,6 +11,8 @@ async function fillAndSend(user) {
   await user.type(await screen.findByLabelText('Bank'), 'BIDV');
   await user.type(screen.getByLabelText('Account number'), '12345678901');
   await user.type(screen.getByLabelText('Account holder name'), 'NGUYEN VAN A');
+  await user.click(screen.getByRole('button', { name: 'Review details' }));
+  await user.click(screen.getByRole('checkbox', { name: 'These details are correct' }));
   await user.click(screen.getByRole('button', { name: 'Send account' }));
 }
 
@@ -46,6 +48,6 @@ describe('RefundAccountPage', () => {
     await fillAndSend(second);
     expect(await screen.findByText(/Ask the shop to send you a new link/)).toBeInTheDocument();
     // Neither answer echoes the account number back.
-    expect(screen.queryByText(/12345678901/)).toBeNull();
+    expect(screen.getAllByRole('alert').every(alert => !alert.textContent.includes('12345678901'))).toBe(true);
   });
 });

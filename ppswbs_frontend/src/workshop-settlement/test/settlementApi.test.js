@@ -51,7 +51,7 @@ describe('Workshop settlement API client (per ticket)', () => {
   it('covers cash close, refunds and the customer account link', async () => {
     const http = vi.fn().mockResolvedValue({});
     const api = createSettlementApi(http);
-    await api.getExpectedCash({ branchId: '3' });
+    await api.getExpectedCash({ locationId: '3', workingDate: '2026-11-14' });
     await api.closeCash({ locationId: 3, workingDate: '2026-11-14', countedAmount: '0' }, 'key-close-00000001');
     await api.confirmCashDifference('CLOSE-1', { reason: 'counted twice' }, 'key-diff-000000001');
     await api.listRefunds({ status: 'PENDING_APPROVAL' });
@@ -59,7 +59,7 @@ describe('Workshop settlement API client (per ticket)', () => {
     await api.putRefundAccount('R-1', { bankCode: 'VCB' }, 'key-account-000001');
     await api.resendAccountLink('R-1', 'key-resend-0000001');
     await api.submitRefundAccount('tok/en', { bankCode: 'VCB', accountNumber: '1', holderName: 'A' }, 'key-link-00000001');
-    expect(http).toHaveBeenNthCalledWith(1, '/api/v1/workshop-cash-closes/expected-cash', { query: { branchId: '3' } });
+    expect(http).toHaveBeenNthCalledWith(1, '/api/v1/workshop-cash-closes/expected-cash', { query: { locationId: '3', workingDate: '2026-11-14' } });
     expect(http).toHaveBeenNthCalledWith(2, '/api/v1/workshop-cash-closes', post({ locationId: 3, workingDate: '2026-11-14', countedAmount: '0' }, 'key-close-00000001'));
     expect(http).toHaveBeenNthCalledWith(3, '/api/v1/workshop-cash-closes/CLOSE-1/difference-confirmations', post({ reason: 'counted twice' }, 'key-diff-000000001'));
     expect(http).toHaveBeenNthCalledWith(4, '/api/v1/workshop-refund-requests', { query: { status: 'PENDING_APPROVAL' } });

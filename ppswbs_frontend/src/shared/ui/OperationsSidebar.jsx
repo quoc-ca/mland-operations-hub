@@ -227,6 +227,12 @@ export function OperationsSidebar() {
         <Link className={pathname === '/settlement/refunds' ? 'active' : ''} to="/settlement/refunds">
           {isVi ? 'Hàng đợi hoàn tiền' : 'Refund queue'}
         </Link>
+        <Link className={pathname === '/settlement/reconciliation' ? 'active' : ''} to="/settlement/reconciliation">
+          {isVi ? 'Đối soát thu tiền' : 'Reconciliation list'}
+        </Link>
+        <Link className={pathname === '/settlement/absorbed-undercharges' ? 'active' : ''} to="/settlement/absorbed-undercharges">
+          {isVi ? 'Khoản thiếu Mland chịu' : 'Absorbed undercharges'}
+        </Link>
         <Link className={isCasesActive ? 'active' : ''} to="/settlement/cases?tab=cases">
           {isVi ? 'Sự vụ & bồi hoàn (Cases)' : 'Settlement cases'}
         </Link>

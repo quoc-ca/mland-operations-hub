@@ -4,7 +4,7 @@ import { useHttp } from '../../shared/api/useHttp';
 import { Field, useCommand } from '../../shared/ui/components';
 import { createSettlementApi } from '../api/settlementApi';
 import { CustomerPage } from '../OpsPage';
-import { ProblemNotice } from '../ui';
+import { AccountReviewStep, ProblemNotice } from '../ui';
 
 /**
  * Customer refund-account page (FR-040). The single-use link from email 7 is /refund-account#TOKEN: the token stays in the
@@ -16,17 +16,22 @@ export default function RefundAccountPage() {
   const token = decodeURIComponent(useLocation().hash.replace(/^#/, ''));
   const [form, setForm] = useState({ bankCode: '', accountNumber: '', holderName: '' });
   const [done, setDone] = useState(false);
+  // T151: the form is reviewed before it is sent; a refused attempt (422) keeps the user on the review step with the values.
+  const [reviewing, setReviewing] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
   const command = useCommand();
   const ready = form.bankCode.trim() && form.accountNumber.trim() && form.holderName.trim();
 
-  const submit = async event => {
-    event.preventDefault();
+  const review = event => { event.preventDefault(); setConfirmed(false); setReviewing(true); };
+  const edit = () => { setReviewing(false); setConfirmed(false); command.reset(); };
+  const submit = async () => {
     const out = await command.run(key => api.submitRefundAccount(token, {
       bankCode: form.bankCode.trim(), accountNumber: form.accountNumber.trim(), holderName: form.holderName.trim(),
+      accountDetailsConfirmed: confirmed,
     }, key));
     if (out.ok) finish();
   };
-  const finish = () => { setForm({ bankCode: '', accountNumber: '', holderName: '' }); setDone(true); };
+  const finish = () => { setForm({ bankCode: '', accountNumber: '', holderName: '' }); setReviewing(false); setConfirmed(false); setDone(true); };
   // A retry resends the same Idempotency-Key (FR-022a), so a lost response replays instead of writing twice.
   const retry = async () => { const out = await command.retry(); if (out?.ok) finish(); };
 
@@ -44,12 +49,16 @@ export default function RefundAccountPage() {
       ) : error?.status === 404 ? (
         <div className="notice error" role="alert"><p>This link is not valid. Open the link from your refund email again.</p></div>
       ) : <ProblemNotice error={error} onRetry={retry} />}
-      <form className="ota-form" aria-label="Refund account" onSubmit={submit}>
-        <Field label="Bank"><input value={form.bankCode} maxLength={32} autoComplete="off" onChange={event => setForm(v => ({ ...v, bankCode: event.target.value }))} /></Field>
-        <Field label="Account number"><input inputMode="numeric" value={form.accountNumber} maxLength={32} autoComplete="off" onChange={event => setForm(v => ({ ...v, accountNumber: event.target.value }))} /></Field>
-        <Field label="Account holder name" hint="Exactly as your bank shows it."><input value={form.holderName} maxLength={128} autoComplete="off" onChange={event => setForm(v => ({ ...v, holderName: event.target.value }))} /></Field>
-        <button className="button primary" type="submit" disabled={command.pending || !ready}>Send account</button>
-      </form>
+      {reviewing ? (
+        <AccountReviewStep details={form} confirmed={confirmed} onConfirmedChange={setConfirmed} onEdit={edit} pending={command.pending} submitLabel="Send account" onSubmit={submit} />
+      ) : (
+        <form className="ota-form" aria-label="Refund account" onSubmit={review}>
+          <Field label="Bank"><input value={form.bankCode} maxLength={32} autoComplete="off" onChange={event => setForm(v => ({ ...v, bankCode: event.target.value }))} /></Field>
+          <Field label="Account number"><input inputMode="numeric" value={form.accountNumber} maxLength={32} autoComplete="off" onChange={event => setForm(v => ({ ...v, accountNumber: event.target.value }))} /></Field>
+          <Field label="Account holder name" hint="Exactly as your bank shows it."><input value={form.holderName} maxLength={128} autoComplete="off" onChange={event => setForm(v => ({ ...v, holderName: event.target.value }))} /></Field>
+          <button className="button primary" type="submit" disabled={command.pending || !ready}>Review details</button>
+        </form>
+      )}
     </CustomerPage>
   );
 }

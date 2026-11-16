@@ -196,9 +196,11 @@ describe('Customer refund-account page', () => {
     await user.type(await screen.findByLabelText('Bank'), 'VCB');
     await user.type(screen.getByLabelText('Account number'), '0123456789');
     await user.type(screen.getByLabelText('Account holder name'), 'NGUYEN VAN A');
+    await user.click(screen.getByRole('button', { name: 'Review details' }));
+    await user.click(screen.getByRole('checkbox', { name: 'These details are correct' }));
     await user.click(screen.getByRole('button', { name: 'Send account' }));
     expect(await screen.findByText(/Your bank account was received/)).toBeInTheDocument();
-    expect(calls[0].body).toEqual({ bankCode: 'VCB', accountNumber: '0123456789', holderName: 'NGUYEN VAN A' });
+    expect(calls[0].body).toEqual({ bankCode: 'VCB', accountNumber: '0123456789', holderName: 'NGUYEN VAN A', accountDetailsConfirmed: true });
     expect(calls[0].headers.Authorization).toBeUndefined();
     expect(container.textContent).not.toContain('0123456789');
     expect(container.textContent).not.toContain('tok123');
@@ -211,6 +213,8 @@ describe('Customer refund-account page', () => {
     await user.type(await screen.findByLabelText('Bank'), 'VCB');
     await user.type(screen.getByLabelText('Account number'), '1');
     await user.type(screen.getByLabelText('Account holder name'), 'A');
+    await user.click(screen.getByRole('button', { name: 'Review details' }));
+    await user.click(screen.getByRole('checkbox', { name: 'These details are correct' }));
     await user.click(screen.getByRole('button', { name: 'Send account' }));
     expect(await screen.findByText(/already used, replaced or has expired/)).toBeInTheDocument();
   });
