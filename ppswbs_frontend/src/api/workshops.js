@@ -17,7 +17,7 @@ export function isValidUuid(val) {
 }
 
 export function getApiBaseUrl() {
-  const envUrl = (typeof import.meta !== 'undefined' && import.meta?.env?.VITE_API_BASE_URL)
+  const envUrl = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL)
     || (typeof process !== 'undefined' && process?.env?.VITE_API_BASE_URL);
   return (envUrl || 'http://localhost:8080').replace(/\/$/, '');
 }
