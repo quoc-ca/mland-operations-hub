@@ -1,7 +1,12 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service;
 
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountSummary;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.OperationsAuditEventRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.WorkshopLocationRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.WorkshopSessionRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.LocationUpdateRequest;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.OperationsAuditEvent;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.SessionState;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.LocationRequest;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.LocationResponse;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.WorkshopLocation;
@@ -10,7 +15,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 
 /**
  * Scoped Workshop Location management service for canonical WorkshopLocation resource.
@@ -23,6 +35,11 @@ public class WorkshopLocationService {
     private final WorkshopLocationRepository locationRepository;
     private final WorkshopOperationsAuthorizationService authorizationService;
     private final WorkshopVisibleLocationPolicy visibleLocationPolicy;
+    private final WorkshopSessionRepository sessionRepository;
+    private final OperationsAuditEventRepository auditEventRepository;
+
+    private static final ObjectMapper AUDIT_JSON = new ObjectMapper();
+    private static final Set<SessionState> ENDED_STATES = Set.of(SessionState.ATTENDANCE_FINALIZED, SessionState.CANCELLED);
 
     @Transactional(readOnly = true)
     public List<LocationResponse> listLocations(String authHeader) {
@@ -30,7 +47,8 @@ public class WorkshopLocationService {
 
         List<WorkshopLocation> locations;
         if (authorizationService.isManager(actor)) {
-            locations = locationRepository.findByActiveTrue();
+            // FR-012c: a Manager sees every location, inactive ones included, so a deactivated one can be reactivated.
+            locations = locationRepository.findAll(org.springframework.data.domain.Sort.by("id"));
         } else if (authorizationService.isStaff(actor)) {
             List<Long> locationScope = authorizationService.getLocationScope(actor.accountId());
             if (locationScope == null || locationScope.isEmpty()) {
@@ -83,10 +101,88 @@ public class WorkshopLocationService {
                 .build();
 
         WorkshopLocation saved = locationRepository.save(location);
+        recordLocationAudit(saved.getId(), actor.accountId(), "LOCATION_CREATED", "location", null,
+                java.util.Map.of("code", saved.getCode(), "name", saved.getDisplayName(), "address", saved.getAddressSnapshot(), "active", saved.isActive()));
         log.info("Created workshop location id={}, code={}, by all-location actor accountId={}",
                 saved.getId(), saved.getCode(), actor.accountId());
 
         return toLocationResponse(saved);
+    }
+
+    /**
+     * T135 (FR-012c): Manager renames a location, changes its address or deactivates/reactivates it.
+     * {@code code} is immutable. Deactivation is refused with {@link WorkshopLifecycleException} (409 INVALID_STATE)
+     * while a session not in ATTENDANCE_FINALIZED/CANCELLED uses the location; reactivation is always allowed.
+     * One audit event is written per applied change.
+     */
+    @Transactional
+    public LocationResponse updateLocation(String authHeader, Long locationId, LocationUpdateRequest request) {
+        AccountSummary actor = authorizationService.requireGlobalManager(authHeader);
+
+        if (request == null || (request.getName() == null && request.getAddress() == null && request.getActive() == null)) {
+            throw new WorkshopValidationException("At least one of name, address or active is required");
+        }
+        if (request.getName() != null && request.getName().isBlank()) {
+            throw new WorkshopValidationException("Location name must not be blank");
+        }
+        WorkshopLocation location = locationRepository.findById(locationId)
+                .orElseThrow(() -> new WorkshopNotFoundException("Workshop location not found with ID " + locationId));
+        if (request.getCode() != null && !request.getCode().trim().equals(location.getCode())) {
+            throw new WorkshopValidationException("Location code is immutable");
+        }
+
+        String newName = request.getName() == null ? null : request.getName().trim();
+        String newAddress = request.getAddress() == null ? null : request.getAddress().trim();
+        boolean rename = newName != null && !newName.equals(location.getDisplayName());
+        boolean addressChange = newAddress != null && !newAddress.equals(location.getAddressSnapshot());
+        boolean activeChange = request.getActive() != null && request.getActive() != location.isActive();
+
+        if (activeChange && !request.getActive()
+                && sessionRepository.existsByLocationIdAndStateNotIn(location.getId(), ENDED_STATES)) {
+            log.warn("Refused deactivation of locationId={}: sessions not yet ended still use it", location.getId());
+            throw new WorkshopLifecycleException("Location cannot be deactivated while a session that has not ended"
+                    + " (not ATTENDANCE_FINALIZED or CANCELLED) still uses it");
+        }
+
+        if (rename) {
+            String prior = location.getDisplayName();
+            location.setDisplayName(newName);
+            recordLocationAudit(location.getId(), actor.accountId(), "LOCATION_RENAMED", "name", prior, newName);
+        }
+        if (addressChange) {
+            String prior = location.getAddressSnapshot();
+            location.setAddressSnapshot(newAddress);
+            recordLocationAudit(location.getId(), actor.accountId(), "LOCATION_ADDRESS_CHANGED", "address", prior, newAddress);
+        }
+        if (activeChange) {
+            boolean prior = location.isActive();
+            location.setActive(request.getActive());
+            recordLocationAudit(location.getId(), actor.accountId(),
+                    request.getActive() ? "LOCATION_REACTIVATED" : "LOCATION_DEACTIVATED", "active", prior, request.getActive());
+        }
+        WorkshopLocation saved = rename || addressChange || activeChange ? locationRepository.save(location) : location;
+        log.info("Updated workshop location id={} (rename={}, address={}, active={}) by Manager accountId={}",
+                saved.getId(), rename, addressChange, activeChange, actor.accountId());
+        return toLocationResponse(saved);
+    }
+
+    private void recordLocationAudit(Long locationId, Long actorId, String action, String field, Object prior, Object value) {
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("locationId", locationId);
+        metadata.put("field", field);
+        metadata.put("prior", prior);
+        metadata.put("new", value);
+        try {
+            auditEventRepository.save(OperationsAuditEvent.builder()
+                    .actorId(actorId)
+                    .action(action)
+                    .outcome("SUCCESS")
+                    .correlationId(UUID.randomUUID().toString())
+                    .metadata(AUDIT_JSON.writeValueAsString(metadata))
+                    .build());
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Cannot serialise location audit metadata", e);
+        }
     }
 
     @Transactional(readOnly = true)
