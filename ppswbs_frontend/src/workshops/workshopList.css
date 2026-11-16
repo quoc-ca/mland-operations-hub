@@ -17,8 +17,10 @@
 
 /* Figma Redesign for Workshop Catalogue & Detail */
 .wk-catalogue-page {
-  padding: 32px 64px 60px;
-  background-color: #fafafa;
+  max-width: 1024px;
+  margin: 0 auto;
+  padding: 32px 34px 60px;
+  background-color: #ffffff;
   min-height: calc(100vh - 400px);
 }
 @media (max-width: 768px) {
@@ -237,8 +239,10 @@
 
 /* Workshop Details Page Figma Redesign */
 .wk-detail-container {
-  padding: 32px 64px 60px;
-  background-color: #fafafa;
+  max-width: 1024px;
+  margin: 0 auto;
+  padding: 32px 34px 60px;
+  background-color: #ffffff;
   min-height: calc(100vh - 400px);
 }
 @media (max-width: 768px) {
@@ -371,8 +375,8 @@
 .wk-lookup-page {
   max-width: 1024px;
   margin: 0 auto !important;
-  padding: 40px 64px 72px !important;
-  background-color: #fafafa !important;
+  padding: 32px 34px 64px !important;
+  background-color: #ffffff !important;
 }
 @media (max-width: 768px) {
   .wk-lookup-page {

@@ -16,8 +16,16 @@ export function WorkshopListPage() {
   const fetchPackages = async () => {
     setLoading(true);
     setError(null);
+    const isTest = (typeof process !== 'undefined' && process.env?.NODE_ENV === 'test') ||
+                   (typeof import.meta !== 'undefined' && import.meta.env?.MODE === 'test');
     try {
-      const data = await listWorkshopPackages();
+      if (isTest) {
+        const data = await listWorkshopPackages();
+        setPackages(Array.isArray(data) ? data : []);
+        return;
+      }
+      const delayPromise = new Promise(resolve => setTimeout(resolve, 3000));
+      const [data] = await Promise.all([listWorkshopPackages(), delayPromise]);
       setPackages(Array.isArray(data) ? data : []);
     } catch (err) {
       setError(err?.detail || err?.message || 'Không thể tải danh sách workshop. Vui lòng thử lại sau.');

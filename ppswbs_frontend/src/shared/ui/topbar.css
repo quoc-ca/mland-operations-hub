@@ -6,7 +6,7 @@
   width: 100%;
   display: flex;
   justify-content: center;
-  background-color: #fafafa;
+  background-color: #ffffff;
   border-bottom: 1px solid #e0e0e0;
   box-sizing: border-box;
   position: sticky;
@@ -18,8 +18,8 @@
   width: 100%;
   max-width: 1024px;
   background-color: #ffffff;
-  border-left: 1px solid #e0e0e0;
-  border-right: 1px solid #e0e0e0;
+  border-left: none;
+  border-right: none;
   height: 66px;
   padding: 0 34px;
   display: flex;

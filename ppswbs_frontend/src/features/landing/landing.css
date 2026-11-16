@@ -5,7 +5,7 @@
 
 .landing-page-root {
   min-height: 100vh;
-  background-color: #fafafa;
+  background-color: #ffffff;
   color: #1c1c1c;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   line-height: 1.5;
@@ -20,11 +20,12 @@
   max-width: 1024px;
   margin: 0 auto;
   background-color: #ffffff;
-  border-left: 1px solid #e0e0e0;
-  border-right: 1px solid #e0e0e0;
+  border-left: none;
+  border-right: none;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
+  flex: 1 0 auto;
 }
 
 /* --------------------------------------------------------------------------
@@ -116,7 +117,7 @@
    SECTION 1: HERO BANNER (Node 521:170 & 521:260)
    -------------------------------------------------------------------------- */
 .landing-hero-banner {
-  padding: 48px 64px;
+  padding: 48px 34px;
   border-bottom: 1px solid #e0e0e0;
   background-color: #fafafa;
 }
@@ -229,7 +230,7 @@
    SECTION 2: WORKSHOP PACKAGES (Node 521:186 & 521:267)
    -------------------------------------------------------------------------- */
 .landing-workshops-section {
-  padding: 48px 64px;
+  padding: 48px 34px;
   border-bottom: 1px solid #e0e0e0;
 }
 
@@ -388,7 +389,7 @@
    SECTION 3: ABOUT SHOWCASE (Node 521:199 & 521:288)
    -------------------------------------------------------------------------- */
 .landing-about-section {
-  padding: 48px 64px;
+  padding: 48px 34px;
   border-bottom: 1px solid #e0e0e0;
 }
 
@@ -497,7 +498,7 @@
    SECTION 4: REVIEWS (Node 521:205 & 521:297)
    -------------------------------------------------------------------------- */
 .landing-reviews-section {
-  padding: 48px 64px;
+  padding: 48px 34px;
   border-bottom: 1px solid #e0e0e0;
 }
 
@@ -571,41 +572,6 @@
 }
 
 /* --------------------------------------------------------------------------
-   Internal Portals Bar
-   -------------------------------------------------------------------------- */
-.landing-portals-section {
-  padding: 20px 64px;
-  background-color: #fafafa;
-  border-bottom: 1px solid #e0e0e0;
-}
-
-.landing-portals-bar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 12px;
-  color: #4b5563;
-  flex-wrap: wrap;
-}
-
-.landing-portal-link {
-  color: #1f2937;
-  text-decoration: none;
-  font-weight: 500;
-  transition: color 0.15s ease;
-}
-
-.landing-portal-link:hover,
-.landing-portal-link.active-role {
-  color: #0e0069;
-  font-weight: 700;
-}
-
-.landing-portal-separator {
-  color: #d1d5db;
-}
-
-/* --------------------------------------------------------------------------
    Responsive Breakpoints: Tablet & Phone (320px - 768px)
    -------------------------------------------------------------------------- */
 @media (max-width: 860px) {
@@ -617,8 +583,7 @@
   .landing-hero-banner,
   .landing-workshops-section,
   .landing-about-section,
-  .landing-reviews-section,
-  .landing-portals-section {
+  .landing-reviews-section {
     padding: 32px 20px;
   }
 
@@ -668,8 +633,7 @@
   .landing-hero-banner,
   .landing-workshops-section,
   .landing-about-section,
-  .landing-reviews-section,
-  .landing-portals-section {
+  .landing-reviews-section {
     padding: 24px 16px;
   }
 

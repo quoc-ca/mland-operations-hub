@@ -505,40 +505,6 @@ export default function HomePage() {
             ))}
           </div>
         </section>
-
-        {/* Internal Portals Bar (Giữ lối tắt cho Nhân sự & Quản trị) */}
-        <section className="landing-portals-section" aria-label="Cổng làm việc nội bộ">
-          <div className="landing-portals-bar">
-            <span>🏢 <strong>Cổng nội bộ:</strong></span>
-            <Link
-              to="/operations/sessions"
-              className={`landing-portal-link ${userRole === 'STAFF' ? 'active-role' : ''}`}
-            >
-              Staff Vận hành {userRole === 'STAFF' && '★'}
-            </Link>
-            <span className="landing-portal-separator">|</span>
-            <Link
-              to="/catalogue-management/products"
-              className={`landing-portal-link ${userRole === 'MANAGER' ? 'active-role' : ''}`}
-            >
-              Quản trị Sản phẩm
-            </Link>
-            <span className="landing-portal-separator">|</span>
-            <Link
-              to="/promotion-management/programs"
-              className={`landing-portal-link ${userRole === 'MANAGER' ? 'active-role' : ''}`}
-            >
-              Quản lý Ưu đãi
-            </Link>
-            <span className="landing-portal-separator">|</span>
-            <Link
-              to="/admin/accounts"
-              className={`landing-portal-link ${userRole === 'ADMIN' ? 'active-role' : ''}`}
-            >
-              Admin Tài khoản {userRole === 'ADMIN' && '★'}
-            </Link>
-          </div>
-        </section>
       </main>
 
       {/* Chân trang Footer chuẩn Figma */}

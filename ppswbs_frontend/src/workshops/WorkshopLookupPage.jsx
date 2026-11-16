@@ -34,10 +34,18 @@ export function WorkshopLookupPage() {
   loadMyGroups.current = async () => {
     setMyGroupsLoading(true);
     setMyGroupsError(null);
+    const isTest = (typeof process !== 'undefined' && process.env?.NODE_ENV === 'test') ||
+                   (typeof import.meta !== 'undefined' && import.meta.env?.MODE === 'test');
     try {
       const authorization = await memberAuthorization();
       if (!authorization) throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
-      setMyGroups(await listMemberBookingGroups({ authorization }));
+      if (isTest) {
+        setMyGroups(await listMemberBookingGroups({ authorization }));
+        return;
+      }
+      const delayPromise = new Promise(resolve => setTimeout(resolve, 3000));
+      const [groups] = await Promise.all([listMemberBookingGroups({ authorization }), delayPromise]);
+      setMyGroups(groups);
     } catch {
       setMyGroups(null);
       setMyGroupsError('Không tải được danh sách đặt chỗ của bạn.');

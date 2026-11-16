@@ -294,7 +294,7 @@
 /* No shared header/footer around 002 (Figma page "002-006"): the shell and public pages own the whole viewport. */
 .app-shell.pm-shell{min-height:100vh}
 .pm-shell .side-nav{min-height:100vh;align-self:stretch}
-.pm-public{min-height:100vh;width:auto;margin:0;padding:64px max(24px,calc((100% - 1056px)/2)) 88px}
+.pm-public{width:100%;max-width:1024px;margin:0 auto;padding:32px 34px 64px;box-sizing:border-box;background-color:#ffffff}
 .pm-public .filter-bar select,.pm-public .filter-bar input:not([type=checkbox]){width:100%}
 
 /* Sign-out at the foot of the side menu (the shared header that held it is not used here). */
@@ -448,6 +448,17 @@
 /* ==========================================================================
    Figma Page 01 (Node 521:328 & 521:481) — Public Catalogue & Detail Styles
    ========================================================================== */
+
+/* Catalogue Page & Detail Page Containers (Figma 1024px grid) */
+.pm-catalogue-page,
+.pm-detail-page {
+  width: 100% !important;
+  max-width: 1024px !important;
+  margin: 0 auto !important;
+  padding: 32px 34px 64px !important;
+  box-sizing: border-box !important;
+  background-color: #ffffff !important;
+}
 
 /* Catalogue Banner (Node 539:1690) */
 .pm-catalogue-banner {

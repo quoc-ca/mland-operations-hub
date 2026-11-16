@@ -427,8 +427,8 @@
 .figma-review-page {
   max-width: 1024px;
   margin: 0 auto;
-  padding: 32px 64px 60px;
-  background-color: #fafafa;
+  padding: 32px 34px 60px;
+  background-color: #ffffff;
 }
 @media (max-width: 768px) {
   .figma-review-page {

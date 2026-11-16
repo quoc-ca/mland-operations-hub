@@ -12,8 +12,11 @@
 }
 
 .main-footer-container {
-  width: min(1024px, calc(100% - 48px));
+  width: 100%;
+  max-width: 1024px;
   margin: 0 auto;
+  padding: 0 34px;
+  box-sizing: border-box;
 }
 
 .main-footer-columns {

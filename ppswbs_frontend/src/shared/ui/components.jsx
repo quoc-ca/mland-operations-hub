@@ -131,7 +131,9 @@ export function useCommand() {
   return { ...state, run, retry, reset };
 }
 
-/** Loads data for a screen; reload() reads again (also after a 409). No caching between screens. */
+/** Loads data for a screen; reload() reads again (also after a 409). No caching between screens.
+ * Enforces a minimum 3s wait time in dev/prod runtime to smooth transitions and avoid flicker.
+ */
 export function useResource(load, deps) {
   const [state, setState] = useState({ loading: true, error: null, data: null });
   const loadRef = useRef(load);
@@ -141,8 +143,16 @@ export function useResource(load, deps) {
   const reload = useCallback(async () => {
     const mine = ++sequence.current;
     setState(current => ({ ...current, loading: true, error: null }));
+    const isTest = (typeof process !== 'undefined' && process.env?.NODE_ENV === 'test') ||
+                   (typeof import.meta !== 'undefined' && import.meta.env?.MODE === 'test');
     try {
-      const data = await loadRef.current();
+      if (isTest) {
+        const data = await loadRef.current();
+        if (mine === sequence.current) setState({ loading: false, error: null, data });
+        return data;
+      }
+      const delayPromise = new Promise(resolve => setTimeout(resolve, 3000));
+      const [data] = await Promise.all([loadRef.current(), delayPromise]);
       if (mine === sequence.current) setState({ loading: false, error: null, data });
       return data;
     } catch (error) {

@@ -224,17 +224,10 @@ describe('Landing HomePage (Figma Page 01 · Public & Guest Node 55:5)', () => {
     expect(screen.getByText(/© 2026 M-Land Operations Hub \(SEP490_G22\)\. All rights reserved\./i)).toBeInTheDocument();
   });
 
-  it('renders internal operation portals bar for staff and manager workflows', () => {
+  it('does not render internal operation portals bar on public homepage', () => {
     renderHomePage();
-    expect(screen.getByText(/Cổng nội bộ:/i)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Staff Vận hành/i })).toHaveAttribute(
-      'href',
-      '/operations/sessions',
-    );
-    expect(screen.getByRole('link', { name: /Quản trị Sản phẩm/i })).toHaveAttribute(
-      'href',
-      '/catalogue-management/products',
-    );
+    expect(screen.queryByText(/Cổng nội bộ:/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Staff Vận hành/i })).not.toBeInTheDocument();
   });
 
   it('renders mobile drawer and FAB AI button for mobile viewport access', () => {
