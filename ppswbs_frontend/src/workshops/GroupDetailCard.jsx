@@ -24,6 +24,15 @@ import {
  * projection. The group holds the contact, the single payment and the voucher use; each ticket keeps its own status,
  * folio figures, recipient and attendance.
  */
+function rebookHref(group) {
+  const line = Array.isArray(group.lines) ? group.lines[0] : null;
+  if (!line?.packageId) return '/workshops';
+  const params = new URLSearchParams({ focus: 'schedule' });
+  const count = Number(line.ticketCount ?? line.participantCount);
+  if (count >= 1) params.set('participants', String(count));
+  return `/workshops/${line.packageId}?${params.toString()}`;
+}
+
 export function GroupDetailCard({
   group,
   authorization,
@@ -154,7 +163,8 @@ export function GroupDetailCard({
             Liên kết thanh toán cũ không được cấp lại. Nếu tiền về trễ, hệ thống sẽ liên hệ bạn về cách xử lý.
           </p>
           <div style={{ marginTop: '12px' }}>
-            <a className="button primary" href="/workshops">Đặt lại workshop</a>
+            {/* Back to the same package at its session picker with the same ticket count, not the package list. */}
+            <a className="button primary" href={rebookHref(group)}>Đặt lại workshop</a>
           </div>
         </div>
       )}
@@ -190,7 +200,8 @@ export function GroupDetailCard({
             Hủy giữ chỗ
           </button>
         )}
-        {onRefresh && (
+        {/* Expired and cancelled are final: refreshing can never change them. */}
+        {onRefresh && group.groupStatus !== 'EXPIRED' && group.groupStatus !== 'CANCELLED' && (
           <button type="button" className="button outline" onClick={onRefresh}>Cập nhật trạng thái</button>
         )}
       </div>
