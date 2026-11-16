@@ -85,7 +85,7 @@ class TicketQrReissueIT {
         jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS = 0");
         for (String table : List.of("facade_command_idempotency_records", "attendance_actions",
                 "ticket_qr_generations", "ticket_session_entitlements", "attendance_tickets", "capacity_holds",
-                "session_operational_leads", "session_staff_assignments", "cancellation_handoffs",
+                "session_staff_assignments", "cancellation_handoffs",
                 "operations_audit_events", "workshop_sessions", "workshop_slots", "workshop_locations")) {
             jdbcTemplate.execute("TRUNCATE TABLE " + table);
         }

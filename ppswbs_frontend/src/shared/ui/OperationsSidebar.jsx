@@ -34,7 +34,10 @@ export function OperationsSidebar() {
   // Staff see their daily work; management areas appear for Manager and Admin only. The role is unknown until the
   // profile arrives, and then only the daily work shows. Navigation only: the backend decides every permission.
   const role = useRole();
-  const canManage = role === 'MANAGER' || role === 'ADMIN';
+  const canManage = role === 'MANAGER';
+  // Workshop Operations (003.2, FR-012c, T129): ADMIN holds no business authority, so the menu is Manager-only.
+  const canManageOperations = role === 'MANAGER';
+  const showOperations = role !== 'ADMIN';
   // Staff and Manager both manage products.
   const canManageProducts = canManage || role === 'STAFF';
 
@@ -156,13 +159,15 @@ export function OperationsSidebar() {
         )}
 
         {/* WORKSHOP OPERATIONS */}
+        {showOperations && (<>
         <div className="ota-sidebar-label">
           {isVi ? 'VẬN HÀNH WORKSHOP' : 'WORKSHOP OPERATIONS'}
         </div>
         <Link className={isSessionBoardActive ? 'active' : ''} to="/operations/sessions">
           {role === 'STAFF' ? (isVi ? 'Ca của tôi' : 'My sessions') : (isVi ? 'Bảng điều phối ca' : 'Session board')}
         </Link>
-        {canManage && (<>
+        </>)}
+        {canManageOperations && (<>
         <Link className={isLocationsActive ? 'active' : ''} to="/operations/admin?tab=locations">
           {isVi ? 'Chi nhánh & khung giờ' : 'Locations & slots'}
         </Link>

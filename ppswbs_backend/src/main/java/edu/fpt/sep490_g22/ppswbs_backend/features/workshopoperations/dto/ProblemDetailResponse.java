@@ -17,5 +17,9 @@ public class ProblemDetailResponse {
     private int status;
     private String code;
     private String detail;
+
+    /** Only with STAFF_NOT_ELIGIBLE (and the T139 resend INVALID_STATE reasons); omitted otherwise. */
+    @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+    private String reason;
     private String correlationId;
 }

@@ -85,7 +85,6 @@ public class CapacityHoldIT {
         jdbcTemplate.execute("TRUNCATE TABLE ticket_session_entitlements");
         jdbcTemplate.execute("TRUNCATE TABLE attendance_tickets");
         jdbcTemplate.execute("TRUNCATE TABLE capacity_holds");
-        jdbcTemplate.execute("TRUNCATE TABLE session_operational_leads");
         jdbcTemplate.execute("TRUNCATE TABLE session_staff_assignments");
         jdbcTemplate.execute("TRUNCATE TABLE operations_audit_events");
         jdbcTemplate.execute("TRUNCATE TABLE workshop_sessions");

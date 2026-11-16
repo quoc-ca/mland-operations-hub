@@ -1,6 +1,5 @@
 package edu.fpt.sep490_g22.ppswbs_backend.workshopoperations;
 
-import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountSummary;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorRole;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorStatus;
@@ -25,10 +24,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 class WorkshopLifecycleFinalizeTransitionTest {
-    private final AccountFacade accounts = mock(AccountFacade.class);
     private final WorkshopOperationsAuthorizationService authorization = mock(WorkshopOperationsAuthorizationService.class);
     private final WorkshopSessionRepository sessions = mock(WorkshopSessionRepository.class);
-    private final WorkshopLifecycleService service = new WorkshopLifecycleService(accounts, authorization, sessions,
+    private final WorkshopLifecycleService service = new WorkshopLifecycleService(authorization, sessions,
             mock(WorkshopResponsibilityService.class), mock(OperationsAuditEventRepository.class), mock(WorkshopOtaSnapshotService.class));
 
     /** The plain transition would skip marking no-shows and the finalization time, so only the dedicated action may finalize. */
@@ -42,7 +40,7 @@ class WorkshopLifecycleFinalizeTransitionTest {
         when(session.getState()).thenReturn(SessionState.IN_PROGRESS);
         when(authorization.authenticate("Bearer t")).thenReturn(manager);
         when(authorization.isGlobalWorkshopActor(manager)).thenReturn(true);
-        when(accounts.getAccountStatus(1L)).thenReturn(Optional.of(ActorStatus.ACTIVE));
+        when(authorization.getAccountStatus(1L)).thenReturn(Optional.of(ActorStatus.ACTIVE));
         when(sessions.findByReference("S-1")).thenReturn(Optional.of(session));
 
         assertThatThrownBy(() -> service.transitionState("Bearer t", null, "S-1",

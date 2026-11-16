@@ -4,7 +4,7 @@ export const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://localhos
 
 /** Typed failure built from common.ErrorResponse: code, safe message, correlationId, fieldErrors. */
 export class ApiError extends Error {
-  constructor({ status, code, message, correlationId = null, fieldErrors = [], method = 'GET', failingTicketCodes = [] }) {
+  constructor({ status, code, message, correlationId = null, fieldErrors = [], method = 'GET', failingTicketCodes = [], reason = null }) {
     super(message || code);
     this.name = 'ApiError';
     this.status = status;
@@ -13,6 +13,7 @@ export class ApiError extends Error {
     this.fieldErrors = fieldErrors;
     this.method = method;
     this.failingTicketCodes = failingTicketCodes;
+    this.reason = reason;
   }
 
   /** 503 and lost responses may be retried with the same Idempotency-Key. */
@@ -52,6 +53,7 @@ async function errorFrom(response, method) {
     fieldErrors: Array.isArray(payload.fieldErrors) ? payload.fieldErrors : [],
     method,
     failingTicketCodes: Array.isArray(payload.failingTicketCodes) ? payload.failingTicketCodes : [],
+    reason: typeof payload.reason === 'string' ? payload.reason : null,
   });
 }
 

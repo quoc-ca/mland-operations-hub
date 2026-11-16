@@ -93,9 +93,6 @@ public class CheckInIT {
     private SessionStaffAssignmentRepository staffAssignmentRepository;
 
     @Autowired
-    private SessionOperationalLeadRepository operationalLeadRepository;
-
-    @Autowired
     private CapacityHoldRepository capacityHoldRepository;
 
     @Autowired
@@ -141,7 +138,6 @@ public class CheckInIT {
         jdbcTemplate.execute("TRUNCATE TABLE ticket_session_entitlements");
         jdbcTemplate.execute("TRUNCATE TABLE attendance_tickets");
         jdbcTemplate.execute("TRUNCATE TABLE capacity_holds");
-        jdbcTemplate.execute("TRUNCATE TABLE session_operational_leads");
         jdbcTemplate.execute("TRUNCATE TABLE session_staff_assignments");
         jdbcTemplate.execute("TRUNCATE TABLE cancellation_handoffs");
         jdbcTemplate.execute("TRUNCATE TABLE operations_audit_events");
@@ -438,13 +434,6 @@ public class CheckInIT {
                 .active(true)
                 .build());
         WorkshopSession sessionB = createPublishedSession(locationB, slotB, null);
-        operationalLeadRepository.save(SessionOperationalLead.builder()
-                .session(sessionB)
-                .managerAccountId(10L)
-                .reasonCode("INITIAL_LEAD")
-                .assignedAt(Instant.now())
-                .active(true)
-                .build());
 
         String bookingRef = "BK-LOCA-" + UUID.randomUUID().toString().substring(0, 8);
         DeliverySafeTicketSet ticketSet = issueTicketsForBooking(bookingRef, List.of(sessionA), 1);

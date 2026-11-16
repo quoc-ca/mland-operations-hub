@@ -326,23 +326,10 @@ class WorkshopOperationsDtoTests {
         StaffAssignmentRequest deserializedStaff = objectMapper.readValue(staffJson, StaffAssignmentRequest.class);
         assertThat(deserializedStaff.getAccountId()).isEqualTo(42L);
 
-        // OperationalLeadRequest roundtrip
-        OperationalLeadRequest opLeadReq = OperationalLeadRequest.builder()
-                .managerAccountId(10L)
-                .reasonCode("LEAD_TAKEOVER")
-                .reasonNote("Manager taking over onsite operations")
-                .evidenceReference("EV-2026-001")
-                .build();
-        String opLeadJson = objectMapper.writeValueAsString(opLeadReq);
-        OperationalLeadRequest deserializedOpLead = objectMapper.readValue(opLeadJson, OperationalLeadRequest.class);
-        assertThat(deserializedOpLead.getManagerAccountId()).isEqualTo(10L);
-        assertThat(deserializedOpLead.getReasonCode()).isEqualTo("LEAD_TAKEOVER");
-        assertThat(deserializedOpLead.getReasonNote()).isEqualTo("Manager taking over onsite operations");
-        assertThat(deserializedOpLead.getEvidenceReference()).isEqualTo("EV-2026-001");
     }
 
     @Test
-    @DisplayName("T020-1: StateTransitionRequest, StaffAssignmentRequest, and OperationalLeadRequest enforce canonical types and reject legacy fields")
+    @DisplayName("T020-1: StateTransitionRequest, and StaffAssignmentRequest enforce canonical types and reject legacy fields")
     void us2DtoValidationAndAbsenceOfLegacyFields() {
         // StateTransitionRequest
         StateTransitionRequest validState = StateTransitionRequest.builder()
@@ -368,27 +355,5 @@ class WorkshopOperationsDtoTests {
         assertThat(staffFields).contains("accountId");
         assertThat(staffFields).doesNotContain("personnelId", "branchId");
 
-        // OperationalLeadRequest: requires Long managerAccountId and String reasonCode
-        OperationalLeadRequest validOpLead = OperationalLeadRequest.builder()
-                .managerAccountId(10L)
-                .reasonCode("ONSITE_COVERAGE")
-                .build();
-        assertThat(validator.validate(validOpLead)).isEmpty();
-
-        OperationalLeadRequest missingMgr = OperationalLeadRequest.builder()
-                .reasonCode("ONSITE_COVERAGE")
-                .build();
-        assertThat(validator.validate(missingMgr)).hasSize(1);
-
-        OperationalLeadRequest missingReason = OperationalLeadRequest.builder()
-                .managerAccountId(10L)
-                .build();
-        assertThat(validator.validate(missingReason)).hasSize(1);
-
-        List<String> opLeadFields = Arrays.stream(OperationalLeadRequest.class.getDeclaredFields())
-                .map(Field::getName)
-                .toList();
-        assertThat(opLeadFields).contains("managerAccountId", "reasonCode", "reasonNote", "evidenceReference");
-        assertThat(opLeadFields).doesNotContain("managerPersonnelId", "branchId");
     }
 }
