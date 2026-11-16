@@ -30,9 +30,10 @@ info:
     longer listed.
     2026-11-15 (spec FR-056, FR-057, Clarifications Session 2026-11-15): the
     routes marked x-status planned (reconciliation list, absorbed-undercharge
-    record, void and list) are designed but not implemented (tasks T133,
-    T135). C2 (decided 2026-11-15): every cash-close route, parameter and
-    schema uses locationId and workingDate; the code follows in T131/T132.
+    record, void and list) were designed 2026-11-15 and are served since 2026-11-16
+    (tasks T133, T135; x-status planned removed). C2 (decided 2026-11-15): every
+    cash-close route, parameter and schema uses locationId and workingDate; the
+    backend follows since T131 (2026-11-16), the frontend in T132.
     2026-11-15 (checklist payment-error-access.md, tasks Phase 11 T144-T171):
     the Manager-only cash reversal route, the account-entry confirmation
     flag, the return-to-PENDING_ACCOUNT transition and the optional transfer
@@ -41,12 +42,12 @@ info:
     2026-11-15): JPEG/PNG/WebP, at most 5,000,000 bytes, authenticated Cloudinary
     object, ATTACHED image not deleted before 5 years after the request reaches
     REFUNDED or CLOSED_UNREACHABLE (delete job T166, after V1).
-    Planned routes (x-status planned, none served yet): the reconciliation
-    list (T133), the two receipt-image routes POST /workshop-refund-requests/{refundId}/receipt-images and
-    GET /workshop-refund-requests/{refundId}/receipt-image (T154), absorbed-undercharge record, void and list (T135), the
+    Planned routes (x-status planned, none served yet): the two receipt-image routes POST /workshop-refund-requests/{refundId}/receipt-images and
+    GET /workshop-refund-requests/{refundId}/receipt-image (T154), the
     Admin-only refund-account key replacement
     POST /workshop-refund-account-key-replacements (T137; Manager and Staff
-    get 403), and the Manager-only cash reversal
+    get 403). Served 2026-11-16: the reconciliation list (T133), the absorbed-undercharge
+    record, void and list (T135) and the Manager-only cash reversal
     POST /workshop-tickets/{ticketCode}/folio/collections/{collectionId}/cash-reversals
     (T144). The TicketCancellation field voucherRestored is replaced by the
     proposed voucherRestoration {restored, reason} (T155).
@@ -208,11 +209,12 @@ paths:
         '409': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-tickets/{ticketCode}/folio/collections/{collectionId}/cash-reversals:
     post:
-      x-status: planned
       summary: Manager reverses a wrongly recorded cash collection of a closed day (FR-036, FR-053, proposed)
       description: >-
-        PROPOSED 2026-11-15 (checklist CHK014, decided in spec FR-036; route name,
-        error codes and schema are a proposal, tasks T144/T145). Manager only
+        SERVED 2026-11-16 (T144; decided in spec FR-036, checklist CHK014; the UI is T145).
+        Refusals answer 409 with the codes FINAL_BILL_NOT_OPEN, COLLECTION_UNDER_REFUND,
+        COLLECTION_NOT_CASH, COLLECTION_ALREADY_VOIDED, COLLECTION_NOT_CONFIRMED,
+        COLLECTION_ALREADY_REVERSED and CASH_DAY_NOT_CLOSED. Manager only
         (Staff 403); reason and Idempotency-Key required; audited with actor and
         time. Records a negative cash amount equal to the collection's applied
         amount on the CURRENT Vietnam working day (the day after the close once
@@ -393,10 +395,9 @@ paths:
         '404': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-tickets/{ticketCode}/folio/absorbed-undercharges:
     post:
-      x-status: planned
       summary: Manager records an undercharge Mland absorbs on a FINALIZED ticket folio (FR-057, planned)
       description: >-
-        FR-056/FR-057, added 2026-11-15, not implemented (task T135). Manager
+        FR-056/FR-057, added 2026-11-15, SERVED 2026-11-16 (task T135). Manager
         only; reason and Idempotency-Key required; audited. Allowed only on a
         FINALIZED ticket folio (409 FOLIO_NOT_FINALIZED otherwise). Documentation only: it collects nothing, does not reopen or
         change the folio, its lines, balance or Loyalty earn, does not touch
@@ -407,8 +408,7 @@ paths:
         Cap (decided 2026-11-15, CHK009): amountVnd may not exceed the ticket's
         folio total (price plus add-ons and variable charges, voided lines
         excluded), and the non-voided records of one ticket together may not
-        exceed it either; a larger amount is 422 (code UNDERCHARGE_EXCEEDS_FOLIO_TOTAL,
-        proposed name).
+        exceed it either; a larger amount is 422 (code UNDERCHARGE_EXCEEDS_FOLIO_TOTAL, T156).
       security: [{bearerAuth: []}]
       parameters: [{$ref: '#/components/parameters/TicketCode'}, {$ref: '#/components/parameters/IdempotencyKey'}]
       requestBody:
@@ -431,10 +431,9 @@ paths:
         '422': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-tickets/{ticketCode}/folio/absorbed-undercharges/{underchargeReference}/voids:
     post:
-      x-status: planned
       summary: Manager voids a mistaken absorbed-undercharge record once (FR-057, planned)
       description: >-
-        FR-056/FR-057, added 2026-11-15, not implemented (task T135). Manager
+        FR-056/FR-057, added 2026-11-15, SERVED 2026-11-16 (task T135). Manager
         only; reason and Idempotency-Key required; audited. The record keeps
         its original content, becomes VOIDED and no longer counts in totals. A
         record already voided is 409; a replay with the same Idempotency-Key
@@ -498,10 +497,9 @@ paths:
         '409': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-absorbed-undercharges:
     get:
-      x-status: planned
       summary: Manager lists absorbed-undercharge records of a branch for a period, with the total (FR-057, planned)
       description: >-
-        FR-056/FR-057, added 2026-11-15, not implemented (task T135). Manager
+        FR-056/FR-057, added 2026-11-15, SERVED 2026-11-16 (task T135). Manager
         only; Staff is 403. Lists ACTIVE and VOIDED records whose recorded day
         (Vietnam time) is within from..to inclusive; totalVnd sums only ACTIVE
         records. Read-only. Returns the whole list like the other list routes
@@ -538,9 +536,7 @@ paths:
         C2 (decided 2026-11-15 by Hồ Hoàng Quốc, owner Feature 003): every
         cash-close route, parameter and schema names the branch locationId (the
         canonical workshop_location.id) and the Vietnam working day
-        workingDate; the former names branchId and businessDay are retired. The
-        code still uses branchId/businessDay until tasks T131 (backend) and T132
-        (frontend) align it.
+        workingDate; the former names branchId and businessDay are retired. The backend uses these names since T131 (2026-11-16); the frontend aligns in T132.
       security: [{bearerAuth: []}]
       parameters:
         - {name: locationId, in: query, required: true, description: Canonical workshop_location.id of the branch (formerly branchId)., schema: {type: integer, format: int64}}
@@ -567,9 +563,7 @@ paths:
         same key and content returns the stored close, a changed reuse answers
         409 IDEMPOTENCY_CONFLICT. The retired POST /workshop-cash-days/close is no
         longer served. C2 (decided 2026-11-15): the body names the branch
-        locationId and the day workingDate; the code's CashCloseRequest still
-        reads branchId, businessDay, countedCashVnd and reason, so the code is
-        aligned to this body by T131/T132. countedAmount is a whole VND string
+        locationId and the day workingDate; the code's CashCloseRequest reads this body since T131 (2026-11-16). countedAmount is a whole VND string
         (Vnd); the CashClose response keeps countedCashVnd as a whole VND
         integer. Errors (FR-022d): 400 malformed input (missing or ill-formed
         locationId, workingDate or countedAmount); 422 valid input that is
@@ -619,10 +613,9 @@ paths:
         '409': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-reconciliation-collections:
     get:
-      x-status: planned
       summary: Manager's read-only transfer/VNPay reconciliation list (FR-056, planned)
       description: >-
-        FR-056/FR-057, added 2026-11-15, not implemented (task T133). Manager
+        FR-056/FR-057, added 2026-11-15, SERVED 2026-11-16 (task T133). Manager
         only; Staff is 403. Lists the folio collections of one branch and one
         Vietnam working day paid by BANK_TRANSFER, VNPAY or BOOKING_TIME
         (online booking-time VNPay money from 003.1; the whole group payment),
@@ -1509,7 +1502,7 @@ components:
         Shape of the code's CashCloseResponse (FolioCollectionDtos, re-checked
         2026-11-14); money as whole VND integers there. C2 (decided
         2026-11-15): branchId is renamed locationId and businessDay is renamed
-        workingDate; the code follows in T131/T132.
+        workingDate; the backend follows since T131 (2026-11-16), the frontend in T132.
       required: [closeReference, locationId, workingDate, expectedCashVnd, countedCashVnd, differenceVnd, status]
       properties:
         closeReference: {type: string}
@@ -1522,7 +1515,7 @@ components:
         status: {type: string, enum: [PENDING_MANAGER_CONFIRMATION, CLOSED]}
     ReconciliationCollection:
       type: object
-      description: One row of the FR-056 reconciliation list (planned, added 2026-11-15, task T133).
+      description: One row of the FR-056 reconciliation list (served 2026-11-16, task T133; added 2026-11-15).
       required: [groupCode, amount, method, state, createdAt]
       properties:
         collectionId: {type: string, nullable: true, description: Null for an EXCESS row, which comes from an evidence conclusion and has no collection.}
@@ -1539,9 +1532,10 @@ components:
         confirmedBy: {type: string, nullable: true, description: 'Confirming actor (account); null while pending and always null for BOOKING_TIME rows (confirmed by the system through the IPN). 003.1 CONFIRMED maps to CONFIRMED, UNVERIFIED and LATE_PENDING_REVIEW map to PENDING_VERIFICATION (R19, 2026-11-16).'}
         locationIds: {type: array, items: {type: string}, description: 'Locations (canonical workshop_location.id) of the sessions of the payment tickets; for BOOKING_TIME rows one payment can have several; the locationId query parameter is a filter, not the single attribute of the row. The whole-system day total counts a payment once; do not sum per-location totals (double counting). Decided 2026-11-16, option B.'}
         confirmedAt: {type: string, format: date-time, nullable: true}
+        note: {type: string, nullable: true, description: 'Reason note, "late payment under review" for a BOOKING_TIME row in 003.1 LATE_PENDING_REVIEW (T133); null otherwise.'}
     CashReversal:
       type: object
-      description: PROPOSED 2026-11-15 (FR-036, CHK014; tasks T144/T145). Negative cash entry dated the current working day that corrects a cash collection of a closed day.
+      description: SERVED 2026-11-16 (FR-036, CHK014; T144). Negative cash entry dated the current working day that corrects a cash collection of a closed day.
       required: [reversalReference, ticketCode, collectionId, amountVnd, workingDate, reason, recordedBy, recordedAt]
       properties:
         reversalReference: {type: string}
@@ -1556,7 +1550,7 @@ components:
         recordedAt: {type: string, format: date-time}
     AbsorbedUndercharge:
       type: object
-      description: An undercharge Mland absorbs on a FINALIZED ticket folio (FR-057; planned, added 2026-11-15, task T135). Documentation only.
+      description: An undercharge Mland absorbs on a FINALIZED ticket folio (FR-057; served 2026-11-16, task T135; added 2026-11-15). Documentation only.
       required: [underchargeReference, ticketCode, amountVnd, reason, status, recordedBy, recordedAt]
       properties:
         underchargeReference: {type: string}

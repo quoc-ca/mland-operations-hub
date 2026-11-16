@@ -115,7 +115,7 @@ class WorkshopSettlementEvidenceConsumerTest {
         verify(folioCollections, never()).confirmGatewayCollection(any(), anyLong(), any());
 
         // The excess conclusion is not one FolioBalanceService reads, so the folio still owes its 75,000.
-        var balances = new FolioBalanceService(charges, evidence, collections);
+        var balances = new FolioBalanceService(charges, evidence, collections, mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementCashReversalRepository.class));
         when(charges.findByBillReferenceAndLifecycleStatusOrderByIdAsc("BILL-1", "CONFIRMED")).thenReturn(List.of());
         when(evidence.findByBookingReferenceAndConclusion("BK-1", "FINAL_PAYMENT_VERIFIED")).thenReturn(List.of());
         when(collections.findByBillReferenceOrderByIdAsc("BILL-1"))
@@ -236,7 +236,7 @@ class WorkshopSettlementEvidenceConsumerTest {
     }
 
     @Test void aPartialVnpayPartPlusCashClearsTheFolioOnlyAtTheFullAmount() {
-        var balances = new FolioBalanceService(charges, evidence, collections);
+        var balances = new FolioBalanceService(charges, evidence, collections, mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementCashReversalRepository.class));
         SettlementFinalBill folio = openBill(); // 75,000 VND left at checkout
         var vnpay = SettlementFolioCollection.builder().collectionReference("COL-V").billReference("BILL-1")
                 .method(FolioCollectionMethod.VNPAY).externalReference("FINAL-BK-1-1").amountVnd(40_000L)

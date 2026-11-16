@@ -519,7 +519,7 @@ public class TicketFolioApiService {
         );
     }
 
-    private static CollectionDto toCollectionDto(SettlementFolioCollection c) {
+    private CollectionDto toCollectionDto(SettlementFolioCollection c) {
         // T108: the checkout is shown only while the VNPay part can still be paid.
         boolean payable = c.getMethod() == FolioCollectionMethod.VNPAY && c.isPending()
                 && c.getPaymentUrlSnapshot() != null && c.getPaymentExpiresAt() != null
@@ -531,8 +531,15 @@ public class TicketFolioApiService {
                 c.getStatus().name(),
                 c.getCashChangeVnd() == null ? null : String.valueOf(c.getCashChangeVnd()),
                 payable ? c.getPaymentUrlSnapshot() : null,
-                payable ? c.getPaymentExpiresAt().toString() : null
+                payable ? c.getPaymentExpiresAt().toString() : null,
+                cashDayClosed(c)
         );
+    }
+
+    /** T144 (A17): a CASH collection whose working day has a close, confirmed or not (FR-036 cut-off). */
+    private boolean cashDayClosed(SettlementFolioCollection c) {
+        return c.getMethod() == FolioCollectionMethod.CASH && c.getCashBusinessDay() != null
+                && cashCloses.isClosed(c.getBranchId(), c.getCashBusinessDay());
     }
 
     private SettlementCharge findCharge(String lineId) {

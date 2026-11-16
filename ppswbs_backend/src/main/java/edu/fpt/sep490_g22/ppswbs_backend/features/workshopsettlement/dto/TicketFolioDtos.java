@@ -24,7 +24,9 @@ public final class TicketFolioDtos {
     /**
      * One collection of a ticket folio. {@code paymentUrl} and {@code paymentExpiresAt} are set only for a VNPAY
      * part that is still pending and whose checkout has not expired (T108); the merchant reference behind the
-     * URL is created by the server.
+     * URL is created by the server. {@code cashDayClosed} is read-only (T144, A17):
+     * true for a CASH collection whose working day already has a cash close (the FR-036 cut-off is the submission of the
+     * counted amount, so both pending and confirmed closes count).
      */
     public record CollectionDto(
             String collectionId,
@@ -33,12 +35,27 @@ public final class TicketFolioDtos {
             String status,
             String changeReturned,
             String paymentUrl,
-            String paymentExpiresAt
+            String paymentExpiresAt,
+            boolean cashDayClosed
     ) {
         public CollectionDto(String collectionId, String method, String amount, String status, String changeReturned) {
-            this(collectionId, method, amount, status, changeReturned, null, null);
+            this(collectionId, method, amount, status, changeReturned, null, null, false);
         }
     }
+
+    /** T144 (FR-036, FR-053): a Manager's negative cash entry that corrects a CASH collection of a closed day. */
+    public record CashReversalDto(
+            String reversalReference,
+            String ticketCode,
+            String collectionId,
+            Long locationId,
+            String amountVnd,
+            java.time.LocalDate workingDate,
+            java.time.LocalDate originalWorkingDate,
+            String reason,
+            String recordedBy,
+            java.time.Instant recordedAt
+    ) {}
 
     public record ChargeDto(
             String chargeReference,

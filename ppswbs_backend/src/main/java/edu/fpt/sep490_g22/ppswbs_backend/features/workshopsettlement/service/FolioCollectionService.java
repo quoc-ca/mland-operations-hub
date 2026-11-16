@@ -64,6 +64,7 @@ public class FolioCollectionService {
     private final BankRefundService bankRefunds;
     private final PaymentOwnerRegistrationPort paymentOwners;
     private final PaymentGatewayCheckoutPort checkout;
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.WorkshopBookingSettlementAdapter booking;
 
     public record CollectionOutcome(String collectionReference, FolioCollectionMethod method, long amountVnd,
                                     long excessVnd, FolioCollectionStatus status, long balanceDue, long pendingVnd,
@@ -134,6 +135,7 @@ public class FolioCollectionService {
                 .billReference(folio.getBillReference())
                 .bookingReference(folio.getBookingReference())
                 .method(FolioCollectionMethod.BANK_TRANSFER)
+                .branchId(branchOf(folio))
                 .amountVnd(amountVnd)
                 .status(FolioCollectionStatus.PENDING_VERIFICATION)
                 .externalReference(customerTransactionReference.trim())
@@ -174,6 +176,7 @@ public class FolioCollectionService {
                 .billReference(folio.getBillReference())
                 .bookingReference(folio.getBookingReference())
                 .method(FolioCollectionMethod.VNPAY)
+                .branchId(branchOf(folio))
                 .amountVnd(amountVnd)
                 .status(FolioCollectionStatus.PENDING_VERIFICATION)
                 .externalReference(merchantReference)
@@ -404,6 +407,21 @@ public class FolioCollectionService {
         bankRefunds.open(folio.getBookingReference(), folio.getGroupReference(),
                 RefundReason.EXCESS_OR_DUPLICATE_MONEY, collection.getCollectionReference(),
                 collection.getExcessVnd(), correlationReference);
+    }
+
+    /**
+     * T133 (FR-056): every collection carries the ticket's canonical branch (workshop_location.id), read through the
+     * 003.1 folio context; unresolved stays null and is listed by the back-fill evidence rather than guessed.
+     */
+    private Long branchOf(SettlementFinalBill folio) {
+        try {
+            return booking.getTicketFolioContext(folio.getBookingReference())
+                    .map(edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.TicketFolioContext::locationReference)
+                    .orElse(null);
+        } catch (RuntimeException e) {
+            log.warn("Branch of ticket {} unresolved for a new collection: {}", folio.getBookingReference(), e.toString());
+            return null;
+        }
     }
 
     /** FR-036: cash taken after a branch's close belongs to the next working day. */
