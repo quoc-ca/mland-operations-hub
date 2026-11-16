@@ -13,6 +13,7 @@ const EN = {
   noOptions: 'No other session can replace this one right now.',
   noPairs: 'No pair of sessions fits the package rules right now.',
   seatsLeft: count => `${count} seat${count === 1 ? '' : 's'} left`,
+  quotaLeft: count => `${count} change${count === 1 ? '' : 's'} left`,
   full: 'Full',
   needsManager: 'Needs a Manager to approve',
   priceIncrease: amount => `Price increase ${amount}`,
@@ -115,6 +116,7 @@ export function TicketSessionPicker({ ticketCode, type, loadOptions, onSelect, l
   const optionText = option => [
     formatWindow(option.start, option.end),
     option.selectable === false && option.remainingCapacity <= 0 ? text.full : text.seatsLeft(option.remainingCapacity),
+    Number.isFinite(option.remainingRescheduleQuota) ? text.quotaLeft(option.remainingRescheduleQuota) : null,
     option.requiresManager ? `${text.needsManager}${option.managerRules?.length ? ` (${managerNote(option.managerRules)})` : ''}` : null,
     Number(option.priceIncreaseAmountVnd) > 0 ? text.priceIncrease(formatMoney(option.priceIncreaseAmountVnd)) : null,
   ].filter(Boolean).join(' · ');
@@ -206,7 +208,7 @@ export function TicketSessionPicker({ ticketCode, type, loadOptions, onSelect, l
             >
               <option value="" disabled>{text.pickPlaceholder}</option>
               {pairData.pairs.map(pair => {
-                const [firstWindow, secondWindow] = (pair.sessions || []).map(item => `${formatWindow(item.start, item.end)} (${text.seatsLeft(item.remainingCapacity)})`);
+                const [firstWindow, secondWindow] = (pair.sessions || []).map(item => `${formatWindow(item.start, item.end)} (${[text.seatsLeft(item.remainingCapacity), Number.isFinite(item.remainingRescheduleQuota) ? text.quotaLeft(item.remainingRescheduleQuota) : null].filter(Boolean).join(', ')})`);
                 const notes = [
                   !pair.selectable ? text.full : null,
                   pair.requiresManager ? text.needsManager : null,

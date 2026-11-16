@@ -34,7 +34,8 @@ import java.util.UUID;
  * source, target and late-arrival window, {@code remainingCapacity} for seats and
  * {@link WorkshopPackageReservationPolicy#isValidTicketReplacement} for the package structure. A candidate that
  * breaks the package structure, the position of the session it replaces or the late-arrival window is not listed;
- * a full session is listed as not selectable. Reschedule quota is reported, not applied (a Manager may lift it).
+ * a session with no free seat or no reschedule quota left is not listed (decision 2026-11-16); the quota left is
+ * reported. The replacement itself still rechecks both when the change is confirmed.
  */
 @Service
 @RequiredArgsConstructor
@@ -121,7 +122,8 @@ public class TicketChangeOptionsService {
                             || !packageReservationPolicy.isValidTicketReplacement(ticket.getBookingReference(), sorted)) {
                         continue;
                     }
-                    options.add(option(candidate, now));
+                    Optional<TicketChangeOptions.Option> listed = option(candidate, now);
+                    listed.ifPresent(options::add);
                 }
             }
             perFrom.add(new TicketChangeOptions.FromSession(UUID.fromString(from.getReference()),
@@ -155,13 +157,18 @@ public class TicketChangeOptionsService {
                 }
                 int firstSeats = replacementService.remainingCapacity(first, now);
                 int secondSeats = replacementService.remainingCapacity(second, now);
-                boolean quota = first.remainingRescheduleQuota() >= 1 && second.remainingRescheduleQuota() >= 1;
+                // A pair is listed only when both sessions still have a seat and reschedule quota.
+                if (firstSeats < 1 || secondSeats < 1
+                        || first.remainingRescheduleQuota() < 1 || second.remainingRescheduleQuota() < 1) {
+                    continue;
+                }
                 pairs.add(new TicketChangeOptions.Pair(
                         new TicketChangeOptions.PairSession(UUID.fromString(first.getReference()),
-                                first.getScheduledStartAt(), first.getScheduledEndAt(), Math.max(0, firstSeats)),
+                                first.getScheduledStartAt(), first.getScheduledEndAt(), firstSeats,
+                                first.remainingRescheduleQuota()),
                         new TicketChangeOptions.PairSession(UUID.fromString(second.getReference()),
-                                second.getScheduledStartAt(), second.getScheduledEndAt(), Math.max(0, secondSeats)), quota,
-                        firstSeats < 1 || secondSeats < 1 ? RejectionReason.INSUFFICIENT_CAPACITY.name() : null));
+                                second.getScheduledStartAt(), second.getScheduledEndAt(), secondSeats,
+                                second.remainingRescheduleQuota()), null));
             }
         }
         return pairs;
@@ -186,13 +193,16 @@ public class TicketChangeOptionsService {
         return found.stream().filter(session -> session.getScheduledStartAt() != null).toList();
     }
 
-    private TicketChangeOptions.Option option(WorkshopSession candidate, Instant now) {
-        int seats = Math.max(0, replacementService.remainingCapacity(candidate, now));
-        return new TicketChangeOptions.Option(UUID.fromString(candidate.getReference()),
+    /** Empty when the session has no free seat or no reschedule quota left: it is not offered at all. */
+    private Optional<TicketChangeOptions.Option> option(WorkshopSession candidate, Instant now) {
+        int seats = replacementService.remainingCapacity(candidate, now);
+        int quota = candidate.remainingRescheduleQuota();
+        if (seats < 1 || quota < 1) {
+            return Optional.empty();
+        }
+        return Optional.of(new TicketChangeOptions.Option(UUID.fromString(candidate.getReference()),
                 candidate.getScheduledStartAt(), candidate.getScheduledEndAt(),
-                candidate.getLocation() != null ? candidate.getLocation().getId() : null, seats,
-                candidate.remainingRescheduleQuota() >= 1,
-                seats < 1 ? RejectionReason.INSUFFICIENT_CAPACITY.name() : null);
+                candidate.getLocation() != null ? candidate.getLocation().getId() : null, seats, quota, null));
     }
 
     private static int indexOf(List<WorkshopSession> sources, WorkshopSession session) {

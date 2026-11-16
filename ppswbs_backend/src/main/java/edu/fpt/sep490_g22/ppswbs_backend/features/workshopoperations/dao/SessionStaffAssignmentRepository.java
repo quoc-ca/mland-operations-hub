@@ -16,6 +16,9 @@ public interface SessionStaffAssignmentRepository extends JpaRepository<SessionS
 
     boolean existsBySessionIdAndAccountIdAndActiveTrue(Long sessionId, Long accountId);
 
+    /** Every row of the sessions, active or revoked (auto-assignment never re-adds a revoked Staff member). */
+    List<SessionStaffAssignment> findBySessionIdIn(java.util.Collection<Long> sessionIds);
+
     /** The sessions a Staff member is currently assigned to. */
     List<SessionStaffAssignment> findByAccountIdAndActiveTrue(Long accountId);
 }

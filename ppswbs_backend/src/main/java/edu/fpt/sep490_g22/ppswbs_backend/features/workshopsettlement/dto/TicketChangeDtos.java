@@ -63,6 +63,7 @@ public final class TicketChangeDtos {
             Instant end,
             Long locationReference,
             int remainingCapacity,
+            int remainingRescheduleQuota,
             boolean selectable,
             String reasonCode,
             boolean requiresManager,
@@ -70,7 +71,8 @@ public final class TicketChangeDtos {
             String priceIncreaseAmountVnd
     ) {}
 
-    public record SessionSeatsDto(UUID sessionReference, Instant start, Instant end, int remainingCapacity) {}
+    public record SessionSeatsDto(UUID sessionReference, Instant start, Instant end, int remainingCapacity,
+                                  int remainingRescheduleQuota) {}
 
     public record PairOptionDto(
             List<UUID> sessionReferences,
