@@ -71,6 +71,7 @@ const PICKER_LABELS = {
   allowanceUsed: 'Vé này đã dùng hết lần đổi lịch; mọi lựa chọn cần quản lý duyệt.',
   windowClosed: 'Đã quá hạn đổi lịch trước buổi học (24 giờ); lựa chọn cần quản lý duyệt.',
   choose: 'Chọn buổi mới',
+  pickPlaceholder: 'Chọn buổi mới…',
   rule: {
     CHANGE_ALLOWANCE_EXHAUSTED: 'đã dùng lần đổi của vé',
     ADVANCE_CHANGE_WINDOW_EXPIRED: 'còn dưới 24 giờ',

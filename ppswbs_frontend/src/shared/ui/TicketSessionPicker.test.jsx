@@ -28,7 +28,8 @@ describe('TicketSessionPicker', () => {
     render(<TicketSessionPicker ticketCode="T1" type="ADVANCE" loadOptions={loadOptions} onSelect={onSelect} formatWindow={win} />);
 
     await user.click((await screen.findAllByRole('radio'))[0]);
-    await user.click((await screen.findAllByRole('radio')).find(radio => radio.getAttribute('name') === 'to-T1'));
+    const select = (await screen.findAllByRole('combobox')).find(item => item.getAttribute('name') === 'to-T1');
+    await user.selectOptions(select, A2);
 
     expect(onSelect).toHaveBeenLastCalledWith(expect.objectContaining({ fromSessionReferences: [A], targetSessionReferences: [A2], requiresManager: undefined }));
     expect(loadOptions).toHaveBeenCalledWith([]);
@@ -45,7 +46,8 @@ describe('TicketSessionPicker', () => {
 
     await user.click(await screen.findByRole('radio', { name: /Both sessions together/ }));
     expect(loadOptions).toHaveBeenLastCalledWith([A, B]);
-    await user.click(await screen.findByRole('radio', { name: /s3\|e3 \(2 seats left\) → s4\|e4 \(1 seat left\)/ }));
+    const pairSelect = (await screen.findAllByRole('combobox')).find(item => item.getAttribute('name') === 'pair-T1');
+    await user.selectOptions(pairSelect, `${A2}>${B2}`);
 
     expect(onSelect).toHaveBeenLastCalledWith(expect.objectContaining({
       fromSessionReferences: [A, B], targetSessionReferences: [A2, B2], requiresManager: true,
