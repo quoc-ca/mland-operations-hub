@@ -119,7 +119,7 @@ Trigger độc lập khác nhau được tách thành workflow riêng, kể cả
 1. `TicketChangeController` nhận yêu cầu; `TicketChangeOptionsApiService` kiểm quyền.
 2. `WorkshopOperationsSettlementAdapter` gọi `WorkshopOperationsFacade` (`ListTicketChangeOptionsQuery`).
 3. `TicketChangeOptionsService.candidatesFor` không còn ghim vào location của buổi cũ; nó lấy ứng viên ở mọi location trả về từ `WorkshopPackageAvailabilityService.activeLocationIds`, lọc TRƯỚC giới hạn pool, bỏ session hết chỗ hoặc hết lượt đổi (đã có), tính quota theo từng session đích. Với vé hai buổi, cặp chỉ được liệt kê khi `isValidTicketReplacement` (cùng location, đủ ngày xưởng đúc) đạt.
-4. Mỗi ứng viên có `locationName`; ứng viên khác location đánh dấu cần Manager nếu người gọi là Staff.
+4. Mỗi ứng viên có `locationName`; ứng viên khác location không cần Manager (sửa 2026-11-17, Hồ Hoàng Quốc).
 5. Trang hiển thị "Chi nhánh – ngày giờ – còn N chỗ – còn M lượt đổi".
 
 ### Failure, recovery, and integrity

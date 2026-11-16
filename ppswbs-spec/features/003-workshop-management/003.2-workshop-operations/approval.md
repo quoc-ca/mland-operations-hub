@@ -41,7 +41,7 @@ loại trừ bên dưới vẫn bị chặn.
 | Tắt ô | Không bị chặn bởi đơn đang có; đơn, vé, hold còn hiệu lực giữ nguyên | Chỉ thị trong phiên; spec FR-040 | spec |
 | Khám phá ở ô INACTIVE | `409 PACKAGE_NOT_AVAILABLE_AT_LOCATION` (mặc định, hiếm gặp) | Chỉ thị trong phiên; OpenAPI | OpenAPI |
 | OTA | Không chặn đơn OTA; ma trận không tự cập nhật listing OTA | Chỉ thị trong phiên; spec FR-039 | spec |
-| Đổi vé khác location | Cho phép khi gói ACTIVE ở đó; Wax Casting đổi cả hai buổi cùng location; Staff chỉ trong location của mình, khác location cần Manager | Chỉ thị trong phiên; spec FR-042 | spec, facade contract |
+| Đổi vé khác location | Cho phép khi gói ACTIVE ở đó; Wax Casting đổi cả hai buổi cùng location; Staff trong location của mình và được gán vào buổi của vé; khác location KHÔNG cần Manager, sau khi đổi Staff location cũ mất quyền, có audit (sửa 2026-11-17, Hồ Hoàng Quốc; trước đó ghi "khác location cần Manager") | Chỉ thị trong phiên 2026-11-17; spec FR-042 | spec, facade contract |
 | Mland thay buổi | Gợi ý mọi location còn bán gói; vé hai buổi ở location của buổi còn lại | Chỉ thị trong phiên; spec FR-046 | spec, facade contract |
 | Tiền và location của vé | Tiền đã thu giữ chi nhánh nơi thu; khoản mới theo chi nhánh mới; location của vé đọc từ buổi hiện tại ở Operations | Chỉ thị trong phiên; spec FR-045 | spec, plan |
 | Audit | `WORKSHOP_PACKAGE_AVAILABILITY_CHANGED`, không ghi khi không đổi | Chỉ thị trong phiên; plan | plan, data-model |
@@ -60,7 +60,7 @@ loại trừ bên dưới vẫn bị chặn.
 - **Chưa duyệt, vẫn bị chặn:**
   - ~~Giao diện trang ma trận và chữ hiển thị (chưa có Figma)~~ — đã duyệt 2026-11-17, xem mục "UI approval" ở trên.
   - Thay đổi của 003.1: đổi `getTicketFolioContext` để suy location từ buổi hiện tại của vé; xử lý lý do từ chối mới ở giỏ; hiển thị location.
-  - Thay đổi của 003.3: bỏ ghim location trong tùy chọn đổi vé đã tính ở 003.3, yêu cầu Manager khi khác location, áp hệ quả FR-045.
+  - Thay đổi của 003.3: bỏ ghim location trong tùy chọn đổi vé đã tính ở 003.3, không cần Manager khi khác location (sửa 2026-11-17), áp hệ quả FR-045. *(003.3 được duyệt ngày 2026-11-17 bởi Hồ Hoàng Quốc, xem header spec 003.3 "Approved addition".)*
   - Bước "đẩy cập nhật lên OTA" của 003.4 (ngoài phạm vi).
   Mỗi phần cần task, thiết kế và duyệt trong feature của nó.
 - **Chưa kiểm:** số phiên bản migration (chọn sau khi fetch `origin/develop`; hiện mới nhất V177) và tên gói trong DB thật (đã khớp `V161__add_data.sql`, chưa truy vấn DB).
