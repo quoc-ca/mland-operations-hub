@@ -21,16 +21,25 @@ function useValue() {
   return discount => (discount?.kind === 'PERCENT' ? `${discount.percentage}%` : format.money(discount?.amount));
 }
 
-/** Price of one ticket: discounted + struck original when an automatic discount applies, else `fallback`. */
-export function WorkshopOfferPrice({ offers, fallback }) {
+/**
+ * The ONE price of a ticket (like Shopee's "Giá sau voucher"): the original price after the automatic discount and the
+ * member's best voucher, in red, with the original struck through and a tag naming the voucher when one is counted.
+ * `voucher={false}` leaves the voucher out (the cart shows the server's quote instead). `fallback` when nothing is off.
+ */
+export function WorkshopOfferPrice({ offers, fallback, voucher = true }) {
   const t = useT(messages);
   const format = useFormat();
-  if (!offers?.discounted) return fallback ?? null;
+  const best = voucher ? offers?.bestVoucher : null;
+  if (!offers?.discounted && !best) return fallback ?? null;
   const original = format.money(text(offers.price));
+  const now = best ? best.priceAfter : offers.finalPrice;
   return (
-    <span className="offer-price">
-      <span className="price offer-now">{format.money(text(offers.finalPrice))}</span>
+    <span className="offer-price ws-offer-price">
+      <span className="ws-offer-line">
+      <span className="price offer-now">{format.money(text(now))}</span>
       <s className="offer-was" aria-label={t('offer.originalPrice', { price: original })}>{original}</s>
+      </span>
+      {best && <span className="offer-voucher-tag" title={best.program.name}>{t('wsOffer.afterVoucher', { code: best.program.code || best.program.name })}</span>}
     </span>
   );
 }
@@ -51,11 +60,17 @@ export function WorkshopOfferBadges({ offers }) {
     <span key={`from-${program.id}`} className="offer-badge auto">{t('offer.autoFrom', { value: value(program.discount), minimum: format.money(program.minimumEligibleAmount) })}</span>,
   ));
   const vouchers = offers.vouchers.slice(0, 2);
+  const minimumOf = program => (Number(program.minimumEligibleAmount || 0) > 0 ? t('offer.voucherMinimum', { minimum: format.money(program.minimumEligibleAmount) }) : '');
   vouchers.forEach(program => badges.push(
-    <span key={`v-${program.id}`} className="offer-badge voucher">{t('offer.voucher', { value: value(program.discount) })}</span>,
+    <span key={`v-${program.id}`} className="offer-badge voucher">{t('offer.voucher', { value: value(program.discount) })}{minimumOf(program)}</span>,
   ));
   if (vouchers.length && status !== 'signed-in') badges.push(<span key="sign-in" className="offer-applies">{t('wsOffer.signInHint')}</span>);
-  return badges.length ? <span className="offer-badges">{badges}</span> : null;
+  if (!badges.length) return null;
+  return (
+    <>
+      <span className="offer-badges">{badges}</span>
+    </>
+  );
 }
 
 /** Every offer of the package for its detail page, each voucher as a chip linking to its public page. */

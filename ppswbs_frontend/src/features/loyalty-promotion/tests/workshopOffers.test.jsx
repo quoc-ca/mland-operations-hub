@@ -89,13 +89,15 @@ describe('workshop offer display', () => {
 
   it('shows the price after the automatic discount with the original struck, without "possible discount" wording', async () => {
     show(<WorkshopOfferPrice offers={offers} fallback={<span>giá thường</span>} />);
-    expect(await screen.findByText(/450\.000/)).toBeInTheDocument();
+    // One price (Shopee-style): 500 000 -10 % automatic = 450 000, then the best voucher (10 %) = 405 000.
+    expect(await screen.findByText(/405\.000/)).toBeInTheDocument();
+    expect(screen.getByText(/Giá sau voucher/)).toBeInTheDocument();
     expect(screen.getByLabelText(/Giá gốc/).tagName).toBe('S');
     expect(screen.queryByText(/có thể/i)).toBeNull();
   });
 
   it('falls back to the plain price when nothing is taken off', async () => {
-    show(<WorkshopOfferPrice offers={offersForPackage(pkg, [voucher()])} fallback={<span>giá thường</span>} />);
+    show(<WorkshopOfferPrice offers={offersForPackage(pkg, [])} fallback={<span>giá thường</span>} />);
     expect(await screen.findByText('giá thường')).toBeInTheDocument();
   });
 
