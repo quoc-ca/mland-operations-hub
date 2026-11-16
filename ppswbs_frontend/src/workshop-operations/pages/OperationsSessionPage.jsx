@@ -101,6 +101,22 @@ function ReasonFields({ ticketCode, setTicketCode, reasonCode, setReasonCode, re
   );
 }
 
+/** Staff-facing text of the three resend refusals (spec FR-003c, T127, T139); null for any other failure. */
+function resendRefusalText(error) {
+  if (error?.status === 429 && error.code === 'REDELIVERY_THROTTLED') {
+    const wait = error.retryAfterSeconds;
+    return `Đã gửi lại vé tối đa 3 lần trong 15 phút cho đơn này${wait ? `; thử lại sau ${wait} giây` : ''}. `
+      + 'Nếu khách vẫn chưa nhận được vé, dùng "Override check-in" với lý do TICKET_REDELIVERY_UNAVAILABLE.';
+  }
+  if (error?.status === 409 && error.code === 'INVALID_STATE' && error.reason === 'NO_ELIGIBLE_TICKET') {
+    return 'Đơn này không có vé hợp lệ chưa sử dụng để gửi lại.';
+  }
+  if (error?.status === 409 && error.code === 'INVALID_STATE' && error.reason === 'REDELIVERY_REJECTED_BY_BOOKING') {
+    return 'Hệ thống đặt chỗ từ chối gửi lại vé của đơn này. Chưa có vé nào được gửi.';
+  }
+  return null;
+}
+
 export default function OperationsSessionPage() {
   const { sessionId } = useParams();
   const { status, user } = useAuth();
@@ -120,6 +136,7 @@ export default function OperationsSessionPage() {
   const [qrToken, setQrToken] = useState('');
   const [lookupBookingCode, setLookupBookingCode] = useState('');
   const [resendBookingCode, setResendBookingCode] = useState('');
+  const [resendError, setResendError] = useState(null);
   const [lookup, setLookup] = useState(null);
   const [otaBooking, setOtaBooking] = useState(null);
   const [lookupError, setLookupError] = useState('');
@@ -196,6 +213,16 @@ export default function OperationsSessionPage() {
     setMessage('');
     const result = await command.run(key => action(key));
     if (result.ok) { setMessage(success); resource.reload(); roster.reload(); }
+  }
+
+  // T127 / T139: a resend refusal is explained inside the Ticket delivery panel (wait time, no eligible ticket, Booking
+  // refusal) instead of the generic notice; any other failure stays in the generic notice.
+  async function runResend() {
+    setMessage('');
+    setResendError(null);
+    const result = await command.run(key => api.resendTickets(sessionId, resendBookingCode.trim(), key));
+    if (result.ok) { setMessage('Ticket resend requested.'); resource.reload(); roster.reload(); return; }
+    if (resendRefusalText(result.error)) { setResendError(result.error); command.reset(); }
   }
 
   async function runBookingAction(action) {
@@ -520,11 +547,12 @@ export default function OperationsSessionPage() {
           <button
             className="button outline"
             disabled={command.pending || !resendBookingCode.trim()}
-            onClick={() => run(key => api.resendTickets(sessionId, resendBookingCode.trim(), key), 'Ticket resend requested.')}
+            onClick={runResend}
           >
             Resend ticket
           </button>
         </div>
+        {resendError && <div className="notice error" role="alert"><p>{resendRefusalText(resendError)}</p></div>}
       </article>
       {isManager && (<>
       <article className="ota-panel">

@@ -14,6 +14,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.Wor
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopIdempotencyConflictException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopIdempotencyInProgressException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopRateLimitException;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopTicketResendRefusedException;
 import jakarta.persistence.OptimisticLockException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
@@ -94,7 +95,23 @@ public class WorkshopOperationsExceptionHandler {
     public ResponseEntity<ProblemDetailResponse> handleRateLimit(
             WorkshopRateLimitException ex, HttpServletRequest request) {
         String correlationId = resolveCorrelationId(request);
-        return buildResponse(HttpStatus.TOO_MANY_REQUESTS, "REDELIVERY_THROTTLED", "Ticket Redelivery Throttled", ex.getMessage(), correlationId);
+        ResponseEntity<ProblemDetailResponse> response = buildResponse(HttpStatus.TOO_MANY_REQUESTS,
+                "REDELIVERY_THROTTLED", "Ticket Redelivery Throttled", ex.getMessage(), correlationId);
+        if (ex.getRetryAfterSeconds() < 1) {
+            return response;
+        }
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header(org.springframework.http.HttpHeaders.RETRY_AFTER, Long.toString(ex.getRetryAfterSeconds()))
+                .body(response.getBody());
+    }
+
+    /** T139: resend refused with a closed reason; never 400/404 so an unknown booking is not revealed. */
+    @ExceptionHandler(WorkshopTicketResendRefusedException.class)
+    public ResponseEntity<ProblemDetailResponse> handleTicketResendRefused(
+            WorkshopTicketResendRefusedException ex, HttpServletRequest request) {
+        String correlationId = resolveCorrelationId(request);
+        return buildResponse(HttpStatus.CONFLICT, "INVALID_STATE", "Invalid Lifecycle State", ex.getMessage(),
+                correlationId, ex.getReason().name());
     }
 
     /** A missing required header is the caller's mistake (400), never a server error. */
@@ -209,12 +226,18 @@ public class WorkshopOperationsExceptionHandler {
 
     private ResponseEntity<ProblemDetailResponse> buildResponse(
             HttpStatus status, String code, String title, String detail, String correlationId) {
+        return buildResponse(status, code, title, detail, correlationId, null);
+    }
+
+    private ResponseEntity<ProblemDetailResponse> buildResponse(
+            HttpStatus status, String code, String title, String detail, String correlationId, String reason) {
         ProblemDetailResponse body = ProblemDetailResponse.builder()
                 .type(URI.create(PROBLEM_BASE_URI + code.toLowerCase().replace('_', '-')))
                 .title(title)
                 .status(status.value())
                 .code(code)
                 .detail(detail)
+                .reason(reason)
                 .correlationId(correlationId)
                 .build();
         return ResponseEntity.status(status).body(body);

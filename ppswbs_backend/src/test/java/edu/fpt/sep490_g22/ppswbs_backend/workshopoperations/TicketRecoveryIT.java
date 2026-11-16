@@ -37,7 +37,7 @@ import static org.mockito.Mockito.*;
 
 /** T040: MySQL integration coverage for ticket recovery and manual override. */
 @SpringBootTest
-@ActiveProfiles("test")
+@ActiveProfiles("workshopoperations-mysql-test")
 @TestPropertySource(properties = "workshop.operations.auth.allow-test-tokens=true")
 class TicketRecoveryIT {
 
@@ -131,20 +131,104 @@ class TicketRecoveryIT {
                 .anyMatch(event -> "TICKET_REDELIVERY_REQUESTED".equals(event.getAction()));
     }
 
+    private TicketResendRequest resendRequest() {
+        return TicketResendRequest.builder().bookingCode("BOOK-RECOVERY").build();
+    }
+
+    private void moveWindowStart(long secondsAgo) {
+        TicketResendThrottle t = throttleRepository.findAll().get(0);
+        t.setWindowStartedAt(Instant.now().minusSeconds(secondsAgo));
+        throttleRepository.saveAndFlush(t);
+    }
+
+    private void resend(String tag) {
+        ticketResendService.requestResend(STAFF_TOKEN, "corr-" + tag, "op-" + tag, session.getReference(), resendRequest());
+    }
+
     @Test
-    void resendThrottleRejectsFourthRequestWithinWindow() {
+    void resendThrottleRejectsFourthRequestWithRetryAfterAndSendsNothing() {
         for (int i = 0; i < 3; i++) {
-            ticketResendService.requestResend(STAFF_TOKEN, "corr-" + i, "op-" + i,
-                    session.getReference(), TicketResendRequest.builder().bookingCode("BOOK-RECOVERY").build());
+            resend("t" + i);
         }
-        assertThatThrownBy(() -> ticketResendService.requestResend(
-                STAFF_TOKEN, "corr-4", "op-4", session.getReference(),
-                TicketResendRequest.builder().bookingCode("BOOK-RECOVERY").build()))
-                .isInstanceOf(WorkshopRateLimitException.class);
+        clearInvocations(workshopBookingFacade);
+        assertThatThrownBy(() -> resend("t4"))
+                .isInstanceOfSatisfying(WorkshopRateLimitException.class, ex ->
+                        assertThat(ex.getRetryAfterSeconds()).isBetween(1L, 900L));
+        verifyNoInteractions(workshopBookingFacade);
         Integer throttleRows = jdbcTemplate.queryForObject(
                 "select count(*) from ticket_resend_throttles where booking_reference = ?",
                 Integer.class, "BOOK-RECOVERY");
         assertThat(throttleRows).isEqualTo(1);
+    }
+
+    @Test
+    void retryAfterIsRemainingWindowRoundedUpAndRequestAfterWindowIsAccepted() {
+        resend("w1");
+        resend("w2");
+        resend("w3");
+        // The window started 14 min 30 s ago: 30 s remain.
+        moveWindowStart(870);
+        assertThatThrownBy(() -> resend("w4"))
+                .isInstanceOfSatisfying(WorkshopRateLimitException.class, ex ->
+                        assertThat(ex.getRetryAfterSeconds()).isBetween(28L, 31L));
+        // The window ended 1 s ago: the next request is accepted and starts a new window.
+        moveWindowStart(901);
+        resend("w5");
+        assertThat(throttleRepository.findAll().get(0).getRequestCount())
+                .isEqualTo(1);
+    }
+
+    @Test
+    void resendRepeatSendsANewDeliveryEachTimeUntilTheLimit() {
+        resend("r1");
+        resend("r2");
+        resend("r3");
+        verify(workshopBookingFacade, times(3)).requestBookingTicketRedelivery(any());
+    }
+
+    @Test
+    void bookingWithNoActiveUnusedTicketIsRefusedWithReasonAndConsumesNoSlot() {
+        activeTicket.setValidityState(TicketValidityState.CANCELLED);
+        ticketRepository.save(activeTicket);
+        for (int i = 0; i < 5; i++) {
+            int n = i;
+            assertThatThrownBy(() -> resend("n" + n))
+                    .isInstanceOfSatisfying(WorkshopTicketResendRefusedException.class, ex ->
+                            assertThat(ex.getReason()).isEqualTo(WorkshopTicketResendRefusedException.Reason.NO_ELIGIBLE_TICKET));
+        }
+        verifyNoInteractions(workshopBookingFacade);
+        Integer rows = jdbcTemplate.queryForObject("select count(*) from ticket_resend_throttles", Integer.class);
+        assertThat(rows).isZero();
+    }
+
+    @Test
+    void unknownBookingIsRefusedLikeABookingWithNoEligibleTicket() {
+        assertThatThrownBy(() -> ticketResendService.requestResend(STAFF_TOKEN, "corr-x", "op-x", session.getReference(),
+                TicketResendRequest.builder().bookingCode("BOOK-DOES-NOT-EXIST").build()))
+                .isInstanceOfSatisfying(WorkshopTicketResendRefusedException.class, ex ->
+                        assertThat(ex.getReason()).isEqualTo(WorkshopTicketResendRefusedException.Reason.NO_ELIGIBLE_TICKET));
+    }
+
+    @Test
+    void bookingRefusalConsumesNoSlotSoThreeAcceptedRequestsStillFit() {
+        reset(workshopBookingFacade);
+        when(workshopBookingFacade.requestBookingTicketRedelivery(any()))
+                .thenReturn(TicketRedeliveryOutcome.rejected(BookingRejectionReason.INVALID_STATE));
+        for (int i = 0; i < 4; i++) {
+            int n = i;
+            assertThatThrownBy(() -> resend("b" + n))
+                    .isInstanceOfSatisfying(WorkshopTicketResendRefusedException.class, ex ->
+                            assertThat(ex.getReason()).isEqualTo(
+                                    WorkshopTicketResendRefusedException.Reason.REDELIVERY_REJECTED_BY_BOOKING));
+        }
+        assertThat(jdbcTemplate.queryForObject("select count(*) from ticket_resend_throttles", Integer.class)).isZero();
+
+        reset(workshopBookingFacade);
+        when(workshopBookingFacade.requestBookingTicketRedelivery(any())).thenReturn(TicketRedeliveryOutcome.accepted());
+        resend("a1");
+        resend("a2");
+        resend("a3");
+        assertThatThrownBy(() -> resend("a4")).isInstanceOf(WorkshopRateLimitException.class);
     }
 
     @Test
@@ -203,22 +287,6 @@ class TicketRecoveryIT {
         verify(workshopBookingFacade).requestBookingTicketRedelivery(captor.capture());
         assertThat(captor.getValue().activeUnusedTicketReferences())
                 .containsExactly(activeTicket.getReference());
-    }
-
-    @Test
-    void failedBookingDeliveryReturnsRejectedOutcomeAndAuditEvidence() {
-        reset(workshopBookingFacade);
-        when(workshopBookingFacade.requestBookingTicketRedelivery(any()))
-                .thenReturn(TicketRedeliveryOutcome.rejected(BookingRejectionReason.INVALID_STATE));
-
-        BookingTicketRedeliveryPort.RedeliveryOutcome result = ticketResendService.requestResend(
-                STAFF_TOKEN, "corr-failed", "op-failed", session.getReference(),
-                TicketResendRequest.builder().bookingCode("BOOK-RECOVERY").build());
-
-        assertThat(result.status()).isEqualTo(BookingTicketRedeliveryPort.RedeliveryOutcome.Status.REJECTED);
-        assertThat(auditRepository.findBySessionIdOrderByOccurredAtDesc(session.getId()))
-                .anyMatch(event -> "TICKET_REDELIVERY_REQUESTED".equals(event.getAction())
-                        && "REJECTED".equals(event.getOutcome()));
     }
 
     private WorkshopLocation location(String code) {

@@ -65,11 +65,8 @@ public class WorkshopCheckInController {
             @RequestHeader(value = "Idempotency-Key", required = false) String operationReference,
             @PathVariable("sessionId") String sessionId,
             @Valid @RequestBody TicketResendRequest request) {
-        BookingTicketRedeliveryPort.RedeliveryOutcome outcome = ticketResendService.requestResend(
+        ticketResendService.requestResend(
                 authHeader, correlationReference, operationReference, sessionId, request);
-        if (outcome.status() != BookingTicketRedeliveryPort.RedeliveryOutcome.Status.ACCEPTED) {
-            throw new WorkshopValidationException("Ticket redelivery was rejected by Booking");
-        }
         return ResponseEntity.accepted().build();
     }
 
