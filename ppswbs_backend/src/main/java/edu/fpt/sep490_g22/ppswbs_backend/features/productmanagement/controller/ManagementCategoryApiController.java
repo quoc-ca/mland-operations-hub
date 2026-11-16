@@ -43,9 +43,11 @@ class ManagementCategoryApiController {
     }
 
     @GetMapping
-    ResponseEntity<CategoryDtos.CategoryPage> list(@RequestParam(required = false) Integer page) {
+    ResponseEntity<CategoryDtos.CategoryPage> list(@RequestParam(required = false) Integer page,
+                                                   @RequestParam(required = false) Boolean active,
+                                                   @RequestParam(required = false) String q) {
         authorization.require(Capability.CATEGORY_MANAGE);
-        return ok(categories.list(page));
+        return ok(categories.list(page, active, q));
     }
 
     @PostMapping

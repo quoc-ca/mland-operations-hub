@@ -160,6 +160,9 @@ const vi = {
   'review.noPendingProposal': 'Size này không có đề xuất đang chờ duyệt.', 'review.approvedFor': 'Giá duyệt size {size}',
   'review.approveAll': 'Duyệt toàn bộ hồ sơ', 'review.approved': 'Đã duyệt hồ sơ. Giá chưa áp dụng: bấm "Áp dụng giá đã duyệt" rồi Công khai.', 'review.rejected': 'Đã từ chối hồ sơ. Staff sẽ thấy lý do để sửa và gửi lại.',
   'review.history': 'Lịch sử duyệt', 'review.historyItem': 'Lần {revision}: {state} (nội dung {contentVersion})',
+  'people.column': 'Người gửi / quyết định', 'people.submitter': 'Người gửi', 'people.decider': 'Người quyết định',
+  'people.branchesLabel': 'Chi nhánh người gửi', 'people.branchesAll': 'Tất cả chi nhánh', 'people.system': 'Hệ thống',
+  'people.branchesNotRecorded': 'Chưa ghi nhận', 'people.branchesNone': 'Không có chi nhánh được gán', 'people.branchId': 'Chi nhánh #{id}',
 
   'publication.hint': 'Công khai cần hồ sơ ban đầu đã duyệt và giá đã áp dụng cho mọi size. Ẩn sản phẩm giữ nguyên size, giá và lịch sử.',
   'publication.notApplied': 'Chưa áp dụng', 'publication.publish': 'Công khai sản phẩm', 'publication.hide': 'Ẩn sản phẩm',
@@ -176,6 +179,8 @@ const vi = {
   'delete.done': 'Đã xóa sản phẩm "{name}".',
 
   'category.title': 'Danh mục sản phẩm', 'category.list': 'Các danh mục', 'category.new': 'Thêm danh mục',
+  'category.filter': 'Trạng thái', 'category.filterAll': 'Tất cả', 'category.emptyFiltered': 'Không có danh mục nào khớp bộ lọc.',
+  'category.search': 'Tìm danh mục', 'category.searchHint': 'Tên danh mục', 'category.find': 'Tìm',
   'category.create': 'Tạo danh mục', 'category.empty': 'Chưa có danh mục.', 'category.active': 'Đang hoạt động',
   'category.inactive': 'Ngừng hoạt động', 'category.activate': 'Kích hoạt', 'category.deactivate': 'Ngừng hoạt động',
   'category.activateTitle': 'Kích hoạt lại "{name}"?', 'category.deactivateTitle': 'Ngừng hoạt động "{name}"?',
@@ -420,6 +425,9 @@ const en = {
   'review.noPendingProposal': 'This size has no pending proposal.', 'review.approvedFor': 'Approved price for size {size}',
   'review.approveAll': 'Approve the whole review', 'review.approved': 'Review approved. Prices are not applied yet: choose "Apply approved prices", then publish.', 'review.rejected': 'Review rejected. Staff can see the reason to fix it and submit again.',
   'review.history': 'Review history', 'review.historyItem': 'Revision {revision}: {state} (content {contentVersion})',
+  'people.column': 'Submitted / decided by', 'people.submitter': 'Submitted by', 'people.decider': 'Decided by',
+  'people.branchesLabel': 'Submitter branches', 'people.branchesAll': 'All branches', 'people.system': 'System',
+  'people.branchesNotRecorded': 'Not recorded', 'people.branchesNone': 'No assigned branch', 'people.branchId': 'Branch #{id}',
 
   'publication.hint': 'Publishing needs an approved initial review and an applied price for every size. Hiding keeps sizes, prices and history.',
   'publication.notApplied': 'Not applied', 'publication.publish': 'Publish product', 'publication.hide': 'Hide product',
@@ -436,6 +444,8 @@ const en = {
   'delete.done': 'Product "{name}" was deleted.',
 
   'category.title': 'Product categories', 'category.list': 'Categories', 'category.new': 'New category',
+  'category.filter': 'Status', 'category.filterAll': 'All', 'category.emptyFiltered': 'No category matches the filter.',
+  'category.search': 'Find a category', 'category.searchHint': 'Category name', 'category.find': 'Find',
   'category.create': 'Create category', 'category.empty': 'No category yet.', 'category.active': 'Active',
   'category.inactive': 'Inactive', 'category.activate': 'Activate', 'category.deactivate': 'Deactivate',
   'category.activateTitle': 'Activate "{name}" again?', 'category.deactivateTitle': 'Deactivate "{name}"?',

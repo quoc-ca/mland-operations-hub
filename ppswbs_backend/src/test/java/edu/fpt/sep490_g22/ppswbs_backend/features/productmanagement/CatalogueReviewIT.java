@@ -64,6 +64,9 @@ class CatalogueReviewIT {
         assertThat(review.getSnapshot()).contains("\"sku\"").contains("proposalRevision").contains("Mặt trước");
         List<PriceProposal> proposals = fixture.proposalsOf(review.getId());
         assertThat(proposals).hasSize(2).allMatch(PriceProposal::isCurrentPending);
+        // FR-061: an internal call without an actor has every-branch scope; the snapshot is stored with the submit.
+        assertThat(review.getSubmitterBranches()).contains("\"all\"").contains("true");
+        assertThat(proposals).allSatisfy(proposal -> assertThat(proposal.getSubmitterBranches()).contains("\"all\""));
         List<ProductVariant> sizes = transaction.execute(status -> variants.findByProductIdOrderByRingSizeAsc(productId));
         assertThat(sizes).extracting(ProductVariant::getPendingProposalId)
                 .containsExactlyInAnyOrderElementsOf(proposals.stream().map(PriceProposal::getId).toList());

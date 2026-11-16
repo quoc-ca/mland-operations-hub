@@ -1,7 +1,7 @@
 # Data Model: Product Management
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-08 (bảng `catalogue_variant_branch_stock` cho US10 — tồn kho theo chi nhánh; trước đó: 2026-10-26 (V1 không MFA theo 001; tên facade identity; tham chiếu 001 mới))
+**Date updated**: 2026-11-16 (cột `submitter_branches` cho FR-061, duyệt 2026-11-16; trước đó: 2026-11-08 (bảng `catalogue_variant_branch_stock` cho US10 — tồn kho theo chi nhánh; trước đó: 2026-10-26 (V1 không MFA theo 001; tên facade identity; tham chiếu 001 mới)))
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -94,6 +94,24 @@ Thay đổi kèm theo (đề xuất):
 - Index: (location_id, variant_id) cho lọc danh sách theo chi nhánh và đọc công khai theo size.
 
 Migration (FR-055): `INSERT … SELECT` một dòng cho mỗi variant với `location_id` của chi nhánh mặc định tra theo **mã** (Q-B1), `remaining_unsold` và `sale_enabled=true` như cũ; không có mã đó thì không chuyển gì (sản phẩm cũ "chưa gán chi nhánh", gán sau trên giao diện — FR-055 bản sửa, không dừng migration để không chặn backend cả nhóm); `INSERT IGNORE`/kiểm tra unique để chạy lại không trùng. Số migration cấp theo high-water mark lúc triển khai (hiện V108), không đặt trước.
+
+## Người gửi, chi nhánh lúc gửi, người quyết định (Session 2026-11-16 — duyệt bởi Đặng Thị Khương ngày 2026-11-16)
+
+Nguồn: spec FR-060, FR-061. Cột người/thời điểm đã có (`submitted_by/at`, `decided_by/at` của `catalogue_price_proposals` và `catalogue_product_reviews`, VARCHAR(128) opaque actor id — decimal account id từ `CatalogueAuthorization`, hoặc `system:catalogue-seed`); chỉ thêm bản chụp chi nhánh.
+
+| Table | Cột mới | Invariants |
+| --- | --- | --- |
+| catalogue_price_proposals | `submitter_branches` JSON nullable | Ghi cùng lúc với `submitted_by/at` trong `PriceProposal.submit` (cả gửi độc lập và gửi kèm hồ sơ), cùng transaction. Không cập nhật sau khi ghi. NULL khi chưa gửi, gửi trước migration, hoặc tác nhân `system:*`. |
+| catalogue_product_reviews | `submitter_branches` JSON nullable | Như trên, ghi trong `ProductReview.submit`. |
+
+Dạng JSON (value data, không phải DTO dùng chung):
+
+- Manager: `{"all": true}`
+- Staff: `{"all": false, "branches": [{"locationId": 12, "name": "Hoàn Kiếm"}]}` — các chi nhánh `AccountFacade.getLocationScope` trả lúc gửi, theo id tăng dần; `name` lấy từ `SellingLocationPort.activeSellingLocations()` lúc gửi (chi nhánh được gán nhưng không có trong danh sách đang hoạt động thì `name` null, vẫn giữ `locationId`). Staff không có chi nhánh không gửi được (FR-050/Q-B3), nên `branches` không rỗng.
+
+Phạm vi lấy từ cùng `CatalogueBranchScope.current()` đã dùng cho kiểm tra FR-050 của lệnh đó, không đọc lại lần hai. Không thêm FK chéo module tới chi nhánh. Không backfill hàng cũ (không có nguồn lịch sử đáng tin); hàng cũ hiện "Chưa ghi nhận". Tên người **không** chụp lại: đọc qua `AccountFacade.findAccountFullName` lúc đọc màn chi tiết (đổi họ tên thì hiện tên mới — chấp nhận vì là cùng một người; tránh lưu bản sao PII). Đọc theo lô các actor id khác nhau của một sản phẩm (gộp trước khi gọi facade, một lần mỗi id), id không phải số nguyên bỏ qua facade.
+
+Migration: một file mới, số cấp theo high-water mark lúc triển khai (hiện V162 → dự kiến V163), chỉ `ALTER TABLE … ADD COLUMN submitter_branches JSON NULL` cho hai bảng; không sửa migration đã áp dụng, không đổi dữ liệu cũ.
 
 ## Public reads and indexes
 

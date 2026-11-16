@@ -72,12 +72,14 @@ public class ProductReviewService {
     private final CatalogueAuditWriter audit;
     private final CatalogueCommandExecutor executor;
     private final ObjectMapper objectMapper;
+    private final SubmitterBranchSnapshot submitterBranches;
 
     public ProductReviewService(CatalogueLockCoordinator locks, ProductReviewRepository reviews,
                                 PriceProposalRepository proposals, ProductImageRepository images,
                                 CatalogueMediaRepository media, MediaReferenceService mediaReferences,
                                 CatalogueAuditWriter audit, CatalogueCommandExecutor executor,
-                                ObjectMapper objectMapper) {
+                                ObjectMapper objectMapper, SubmitterBranchSnapshot submitterBranches) {
+        this.submitterBranches = submitterBranches;
         this.locks = locks;
         this.reviews = reviews;
         this.proposals = proposals;
@@ -144,10 +146,11 @@ public class ProductReviewService {
             }
 
             Instant now = CatalogueValues.toStoredInstant(Instant.now());
-            review.submit(actorId, now, snapshot(product, locked, productImages, draftByVariant));
+            String branches = submitterBranches.capture(actorId);
+            review.submit(actorId, now, snapshot(product, locked, productImages, draftByVariant), branches);
             for (ProductVariant variant : locked.variants()) {
                 PriceProposal proposal = draftByVariant.get(variant.getId());
-                proposal.submit(actorId, now);
+                proposal.submit(actorId, now, branches);
                 variant.pointPendingProposal(proposal.getId());
             }
             mediaReferences.retain(MediaReferenceService.OWNER_MODULE, "review:" + review.getId(),

@@ -29,6 +29,16 @@ public interface ProductCategoryRepository extends JpaRepository<ProductCategory
     /** Active categories, paged, for the public filter (US8). */
     Page<ProductCategory> findAllByActiveTrueOrderByNameAscIdAsc(Pageable pageable);
 
+    /** Categories of one activation state, paged, for the category management filter (FR-062). */
+    Page<ProductCategory> findAllByActiveOrderByNameAscIdAsc(boolean active, Pageable pageable);
+
+    /** Categories whose name contains the text, ignoring case (LIKE wildcards escaped), for the name search (FR-062). */
+    Page<ProductCategory> findAllByNameContainingIgnoreCaseOrderByNameAscIdAsc(String name, Pageable pageable);
+
+    /** Name search within one activation state (FR-062). */
+    Page<ProductCategory> findAllByActiveAndNameContainingIgnoreCaseOrderByNameAscIdAsc(boolean active, String name,
+                                                                                    Pageable pageable);
+
     /** Every category, active or not, for category management (US7). */
     Page<ProductCategory> findAllByOrderByNameAscIdAsc(Pageable pageable);
 

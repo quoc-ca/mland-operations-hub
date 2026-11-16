@@ -63,6 +63,11 @@ public class ProductReview {
     @Column(name = "submitted_at")
     private Instant submittedAt;
 
+    /** FR-061: branch scope of the submitter at submit time (JSON value data); null before submit or when unknown. */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "submitter_branches")
+    private String submitterBranches;
+
     @Column(name = "decided_by", length = 128)
     private String decidedBy;
 
@@ -91,10 +96,16 @@ public class ProductReview {
 
     /** Freezes the snapshot JSON prepared by the submission service and moves to PENDING. */
     public void submit(String actorId, Instant at, String snapshotJson) {
+        submit(actorId, at, snapshotJson, null);
+    }
+
+    /** {@code submitterBranchesJson}: FR-061 snapshot, null when not recorded (system actor). Never rewritten. */
+    public void submit(String actorId, Instant at, String snapshotJson, String submitterBranchesJson) {
         requireCurrent(ReviewState.DRAFT);
         this.snapshot = Objects.requireNonNull(snapshotJson, "snapshotJson");
         this.submittedBy = Objects.requireNonNull(actorId, "actorId");
         this.submittedAt = Objects.requireNonNull(at, "at");
+        this.submitterBranches = submitterBranchesJson;
         this.state = ReviewState.PENDING;
     }
 
