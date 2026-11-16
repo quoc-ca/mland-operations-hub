@@ -1,7 +1,7 @@
 # Data Model: Workshop Operations
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-15
+**Date updated**: 2026-11-16
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -13,10 +13,11 @@ Management and is consumed read-only. Session Staff assignment records, if
 retained for roster/audit visibility, do not determine authorization.
 *(Superseded 2026-11-06 and 2026-11-15: a Staff member needs the session
 location in scope **and** an active assignment; Manager is unaffected. From
-`checkInOpensAt` a session with no active assignment is flagged "missing
-Staff", and revoking the last assignment then needs explicit Manager
-confirmation — spec Clarifications Q3, task T115, which adds the flag and guard
-to this model.)* Manager
+`checkInOpensAt` a session with no active assignment is flagged `missingStaff`
+in the session response (derived, not stored), and revoking the last assignment
+then needs `confirmLastAssignmentRemoval: true`, otherwise `409
+LAST_STAFF_ASSIGNMENT_CONFIRMATION_REQUIRED` — spec Clarifications Q3, task
+T115; names accepted 2026-11-15.)* Manager
 authority is global while the account is active. `checkInOpensAt` is the
 independent check-in availability threshold; the scheduled start timestamp
 drives the later `PUBLISHED -> IN_PROGRESS` state transition. Neither event
@@ -72,7 +73,7 @@ Constraints and ownership invariants:
 Package commands are Operations-owned. Any active canonical `MANAGER` may
 administer Packages globally; `activeLocationIds` does not narrow Manager
 authority anywhere in Feature 003. There is no Central Manager tier or persisted
-Package-to-Manager assignment. Staff operational actions remain location-scoped.
+Package-to-Manager assignment. Staff operational actions remain location-scoped and assignment-scoped (2026-11-06).
 
 ### WorkshopBookingPackagePolicySnapshot
 
@@ -92,7 +93,12 @@ Canonical `workshop_location.id` (`Long`), immutable `code`, display name,
 address snapshot, active flag, created and updated timestamps. A location is
 never hard-deleted while it has session history. This is the same identity held
 in Account Management `activeLocationIds`; it has no separate branch ID,
-UUID reference or mapping record.
+UUID reference or mapping record. *(Added 2026-11-15, owner decision Hồ Hoàng
+Quốc, spec FR-012c, CHK024, task T129:)* an active Manager creates and edits
+locations; an Admin has no write authority and no business authority over them in Workshop
+Operations. *(Decided 2026-11-16, conditional on T138: only if FE-001 calls `GET /workshop-locations`, an Admin gets a separate read-only grant to the location list as reference data, not a business permission.)* No schema change.
+
+*(Added 2026-11-15, owner decision Hồ Hoàng Quốc, spec FR-012c, tasks T135–T137:)* `PATCH /workshop-locations/{locationId}` (Manager only) changes only the existing columns `display_name` (request `name`), `address_snapshot` (request `address`) and `active`; `code` is immutable. No new column and no migration. Deactivation leaves sessions and history untouched; *confirmed by the owner 2026-11-15:* it is refused with `409 INVALID_STATE` while a session not yet ended (not `ATTENDANCE_FINALIZED` or `CANCELLED`) uses the location. Whether `updated_at` is advanced by the existing `@PreUpdate` hook is already the entity behaviour; whether a location-change audit event type exists in `OperationsAuditEvent` is TBD, to be verified in T135 (do not invent an action name before reading the audit enum).
 
 ### WorkshopSlot
 
@@ -118,11 +124,19 @@ Constraints:
   existing session is refused unconditionally with 400)*;
 - only `PUBLISHED` accepts new holds; state rules are in the specification.
 
-### Optional SessionStaffRoster
+### Session Staff assignment (SessionStaffRoster)
+
+*(Heading renamed 2026-11-15; it was "Optional SessionStaffRoster". Since 2026-11-06 the assignment is not optional and is an authorization prerequisite for Staff, as stated below.)*
 
 If retained, roster records contain `session_id`, target Mland `account_id`,
 active interval, assigning actor and audit reference for operational visibility
-only. They do not grant or revoke authorization. There is no
+only. They do not grant or revoke authorization. *(Superseded 2026-11-06: the
+assignment (`session_staff_assignments`, `active`) grants and revokes the Staff
+member's access; spec "Staff session-assignment access". Added 2026-11-15,
+CHK029, T130: a row is created only for an existing `STAFF`, `ACTIVE` account
+with the session location in scope, only while the session is `DRAFT`,
+`PUBLISHED`, `SALES_PAUSED` or `IN_PROGRESS`; a second assignment of an active
+pair creates no row.)* There is no
 `SessionOperationalLead` record in the target V1 model, no lead handover and no
 separate personnel identifier. Inactive accounts lose operational use through
 the Account facade status check without erasing historical roster/audit data.
@@ -195,6 +209,7 @@ ticket's entitlement from every replaced session to the complete resulting set;
 the persistent QR remains the same. Failure changes neither capacity nor
 entitlement. Individual attendance detail, ticket detail, Staff/audit and PII
 are never returned for this purpose.
+*(Superseded 2026-11-14/15 by FR-032, FR-034 and T097: the booking-wide settlement-readiness conclusion and the complete required-session replacement were removed; readiness and attendance outcome are per ticket (`getTicketAttendanceOutcome`) and replacement is per ticket (`replaceTicketSessions`, T094). Kept as history.)*
 
 **Booking attendance outcome (FR-014, owner decisions D2/D3, 2026-11-05) *(superseded 2026-11-14 by FR-032, BE-DESIGN-0004, V140; see the note below)*:**
 Operations also owns a booking-level attendance outcome
@@ -298,9 +313,9 @@ post-state; internal-only changes do not advance it or expose a snapshot. A
 `DRAFT` session exposes none. `PUBLISHED` makes the snapshot available;
 `SALES_PAUSED` retains its distinct sale state. `IN_PROGRESS`,
 `ATTENDANCE_FINALIZED`, `CANCELLATION_REQUESTED` and `CANCELLED` expose closed
-sale state. The scheduled-start transition from `PUBLISHED` or `SALES_PAUSED` *(Q2, 2026-11-15; within 5 minutes, Q7)* to `IN_PROGRESS`
+sale state. The scheduled-start transition from `PUBLISHED` or `SALES_PAUSED` to `IN_PROGRESS` *(within 5 minutes, Q7)*
 persists the session state, complete closed snapshot/version and Modulith event
-in the same Operations transaction. `ATTENDANCE_FINALIZED` does not create a
+in the same Operations transaction. *(F04 reopened 2026-11-16, option B: the OTA `saleState` enum distinguishes `SALES_PAUSED` from `CLOSED`; the automatic `SALES_PAUSED` to `IN_PROGRESS` transition therefore publishes the complete closed snapshot and advances the version exactly once, in the same Operations transaction.)* `ATTENDANCE_FINALIZED` does not create a
 second version when the snapshot is already closed and no other observable
 value changed. Hold creation, release and expiry can change availability;
 pause/resume, start and cancellation/closure can change sale state. Hold-to-
@@ -326,6 +341,15 @@ audit links. Feature 003.3 reports cancellation, refund and reschedule
 consequences through a facade; Operations records their resulting
 ticket-validity projection but does not decide those commercial outcomes.
 
+**Validity-state producers (added 2026-11-15, T123, T117):**
+
+| State | Written by |
+| --- | --- |
+| `ACTIVE` | ticket issue after verified commercial confirmation |
+| `CANCELLED` | `cancelTicket` (FR-031, T091); the QR value is kept and refused through the ticket state |
+| `REVOKED` | only the OTA path: the OTA-only revocation operation (T123, 003.4 caller) |
+| `REFUNDED` | only the OTA path: `applyVerifiedRefundConsequence` (003.4 only; superseded for every other caller, 2026-11-15 Q5). No non-OTA producer exists in V1; the value stays in the enum for rows already written |
+
 Each ticket has one or more **session entitlements**. An entitlement associates
 one ticket with one session and carries that ticket's attendance state for that
 session (`NOT_CHECKED_IN`, `CHECKED_IN`, `NO_SHOW`). This is a conceptual
@@ -339,9 +363,43 @@ is one ticket per participant, not one ticket per booking or per session.
 Attendance actions record check-in, override, finalisation consequence or
 Manager correction with ticket/session, actor, time, channel, reason code and
 safe reason note/evidence reference. Operations audit events record state,
-assignment, lead and cancellation changes with before/after-safe metadata.
+assignment and cancellation changes with before/after-safe metadata *(2026-11-15: "lead" removed, there is no operational-lead record in V1)*.
 Both are append-only; corrections add a new event and update the ticket
 entitlement attendance projection rather than altering historical evidence.
+
+**Manager-only action audit (added 2026-11-15, CHK025, spec FR-007c, T141).**
+Each successful Manager-only action (slot change, session creation, publish,
+pause/resume, capacity change (location change is deferred in V1, T112),
+create/edit workshop location (FR-012c), set/clear reschedule quota (FR-035,
+`RESCHEDULE_QUOTA_SET`), Staff assignment or revocation,
+check-in reversal, attendance correction, cancellation request or direct
+cancellation, Manager booking lookup) writes one `OperationsAuditEvent` with
+actor, time, source, correlation ID and, where data changes, the prior and new
+values. `missingStaff` is a derived response field (true only in `PUBLISHED`,
+`SALES_PAUSED` or `IN_PROGRESS` from `checkInOpensAt` with no active
+assignment), not a stored column.
+
+**Denied-attempt audit (added 2026-11-15, owner decision Hồ Hoàng Quốc, spec
+FR-007b, CHK032, task T131).** A refused sensitive action (check-in override,
+check-in reversal, attendance correction, attendance finalization, cancellation
+request, Staff assignment or revocation, Manager management booking lookup,
+ticket resend including a throttled `429` and the two resend `409 INVALID_STATE` reasons `NO_ELIGIBLE_TICKET` and `REDELIVERY_REJECTED_BY_BOOKING`; a repeated reversal, finalization or cancellation answered `409 INVALID_STATE` is a state conflict and is not audited, F05 2026-11-16) writes one `OperationsAuditEvent`
+with `action` = the attempted action, `outcome` = `DENIED`, `actor_id` (null
+only when no account was resolved), `session_id` (when the session exists),
+`correlation_id`, `occurred_at`, and `metadata` holding only the refusal `code`
+(and the HTTP status). No customer PII, contact data, QR value, ticket code
+list or token is stored. It is written in its own transaction so it survives
+the rollback of the refused command. The existing columns (`action`,
+`outcome`, `metadata`) suffice; no migration is expected (the names `DENIED` and the metadata are approved by Hồ Hoàng Quốc 2026-11-15; T131 only confirms that `DENIED` fits the current `outcome` length of 32).
+
+**Unresolved-cancellation alert (added 2026-11-15, owner decision Hồ Hoàng
+Quốc, spec FR-010a/SC-008, CHK009, task T133).** When a session is still
+`CANCELLATION_REQUESTED` 24 hours after `scheduled_end_at`, the alert run writes
+one `OperationsAuditEvent` with `action` = `CANCELLATION_UNRESOLVED_ALERT`,
+`outcome` = `SENT`, written only after `NotificationFacade` returned success, `actor_id` null and the recipient count in
+`metadata` (no email address). The existence of that event for the session is
+the once-per-session marker, so no new column is needed. *(Decided 2026-11-16, F06: with sending disabled or failing, or with no active Manager, only a WARN log is written and no event, so a later scan retries; the outcome `NO_ACTIVE_MANAGER` is withdrawn.)* The action name `CANCELLATION_UNRESOLVED_ALERT`, the outcome `SENT` and the one-alert-per-session rule are approved by Hồ Hoàng Quốc 2026-11-15 (`NO_ACTIVE_MANAGER` withdrawn 2026-11-16). Verified: `action` length 80 and `outcome` length 32 fit.
+*(Decided 2026-11-16, F06-email, Hồ Hoàng Quốc.)* The `SENT` event is written only when every per-Manager `NotificationFacade` intent was accepted (`businessEventReference` = `<sessionReference>:CANCELLATION_UNRESOLVED` (no account id: the Account facade returns emails only; amended 2026-11-16)); a partial failure writes WARN only, no event, and the next scan retries (idempotent references prevent duplicate mails). The alert uses the template `WORKSHOP_CANCELLATION_UNRESOLVED_ALERT` (`owning_module` `workshopoperations`; allowed placeholders `sessionReference`, `sessionName`, `locationName`, `scheduledEndAt`, `hoursSinceScheduledEnd` (`unresolvedTicketCount` removed 2026-11-16, option c)), added by a Flyway migration in `notification_template_definition` and `notification_template_version` (notification-module tables; no change to Operations tables).
 
 ### CancellationHandoff
 
@@ -369,6 +427,19 @@ pre-finalization session with neither confirmed ticket nor unexpired hold
 
 `CANCELLED` and `ATTENDANCE_FINALIZED` are terminal. Only an authorised active
 operator may take a transition, and transition audit is mandatory.
+
+*(Added 2026-11-15, owner decisions Hồ Hoàng Quốc, CHK004 and CHK009.)* A hold
+commit is accepted in `PUBLISHED`, `SALES_PAUSED` and `IN_PROGRESS` and refused
+`INVALID_STATE` in `CANCELLATION_REQUESTED`, `CANCELLED` and
+`ATTENDANCE_FINALIZED` (spec FR-010c/FR-010j, T132), so the ticket set of a
+cancellation handoff does not grow after the request.
+`CANCELLATION_REQUESTED -> CANCELLED` is taken only by
+`completeCancellation(CompleteCancellationHandoffCommand)` (Operations facade method in code: `completeCancellationHandoff`), called by 003.3 once every affected ticket is
+moved, has a bank refund request opened, or (no money collected) has the buyer's
+answer or default recorded with the folio CLOSED (003.3 T167). While any ticket is
+unresolved the call is rejected with `CANCELLATION_HANDOFF_UNRESOLVED` and changes
+no state (decided 2026-11-16); there is no timeout transition, only the 24-hour Manager alert
+above (T133).
 
 ### Capacity hold lifecycle
 
@@ -448,7 +519,7 @@ yet implemented (tasks Phase 14).")*
 | Record | Key data | Invariants |
 | --- | --- | --- |
 | Group capacity hold | booking-group reference; one hold per ticket per session; hold set reference; expiry (12 min, from 003.1) | Reserved and committed/released all or none for the group before confirmation; per ticket after. One seat per ticket per session. |
-| Ticket QR generation | ticket reference; QR generation number; active opaque QR value; revoked QR values with revocation time and reason (`RECIPIENT_CHANGED`) | One active QR per ticket. Revocation is immediate and refused after any check-in of the ticket. Entitlements and attendance history are unchanged. |
+| Ticket QR generation | ticket reference; QR generation number; active opaque QR value; revoked QR values with revocation time and reason (`RECIPIENT_CHANGED`) | One active QR per ticket. Revocation is immediate and refused after any check-in of the ticket. Entitlements and attendance history are unchanged. `cancelTicket` (FR-031, CHK010) does not touch the QR generation: the ticket becomes `CANCELLED`, the QR value stays and is refused through the ticket state (`TICKET_CONFLICT`), not as a revoked generation. |
 | Per-ticket attendance outcome (T092, decided 2026-11-14) | `ticketReference` = `attendance_tickets.reference` (003.3 resolves it via 003.1 `findTicketBookingByOperationsReference`); read model from `getTicketAttendanceOutcome`: `terminal`, outcome (`ATTENDED`, `PARTIAL`, `NO_SHOW`), `windowClosesAt` (added by T092; return-type name not decided); event `TicketAttendanceFinalizedEvent(eventId, ticketReference, windowClosedAt)`; outbox `workshop_ticket_attendance_finalization_outbox`, unique (`ticket_reference`, `event_type`), new append-only migration | Terminal only after every session of the ticket is finalized and the 24-hour correction window closed. One event per ticket key; reference-only (no PII, no outcome); at-least-once with consumer dedup by `eventId` (BE-DESIGN-0001 mechanics). **Decided 2026-11-14 (Hồ Hoàng Quốc):** window anchor **per ticket** — 24 hours after the latest finalization among the ticket's own sessions; the Staff correction deadline uses the same anchor. *(Superseded 2026-11-14: "ticket booking reference; terminal flag; outcome; finalized-at; outbox row per ticket".)* |
 | Ticket replacement | ticket; source/target sessions; type (`CUSTOMER_ADVANCE`, `CUSTOMER_LATE_ARRIVAL`, `MLAND`); quota consumed; operation reference | All or none across the selected tickets; late-arrival target ≤ old end + 7 days for the missed session; quota checked in addition to capacity; history and QR kept. |
 | Session reschedule quota | session; quota (tickets receivable by customer change); default or Manager-set flag; used count | One quota shared by advance and late-arrival changes; default floor(25% × capacity), at least 1; Manager may set any value including 0; Mland replacements exempt; counted per moved ticket. |

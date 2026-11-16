@@ -81,4 +81,18 @@ public interface WorkshopBookingFacade {
      * Must be called within an active transaction (MANDATORY).
      */
     ConsumeBuyerProofResult consumeBuyerProof(ConsumeBuyerProofCommand command);
+
+    /**
+     * Read-only list of the online booking-time VNPay payments that have at least one session at the location on the
+     * Vietnam working day (003.1 T150, for 003.3 T133). One record per payment; a multi-location payment appears under
+     * each of its locations, so per-location totals must not be summed. Calls no VNPay endpoint and writes nothing.
+     */
+    java.util.List<BookingTimePayment> listBookingTimePayments(Long locationId, java.time.LocalDate workingDate);
+
+    /**
+     * Records verified group payment evidence whose amount or currency does not match (FR-010f, F14): one audit entry
+     * and one WARN, group unchanged; handed to the late-payment review at hold expiry. Returns false when the merchant
+     * reference is not a group payment, so the caller stores nothing for it.
+     */
+    boolean recordMismatchedGroupPaymentEvidence(RecordMismatchedGroupPaymentEvidenceCommand command);
 }

@@ -130,8 +130,8 @@ public class BookingGroupCreationService {
                     line.sessions().stream().map(WorkshopCartPricingService.PricedSession::reference).toList(),
                     line.participantCount()));
         }
-        GroupCapacityOutcome outcome = operations.reserveGroupCapacity(groupCode, commandLines,
-                "CREATE-" + groupCode, correlationReference);
+        GroupCapacityOutcome outcome = DependencyGuard.call("Workshop Operations",
+                () -> operations.reserveGroupCapacity(groupCode, commandLines, "CREATE-" + groupCode, correlationReference));
         requireHeld(outcome, cart.lines().size());
 
         // One Loyalty reservation per group, inside this transaction, for the cart exactly as it was quoted.

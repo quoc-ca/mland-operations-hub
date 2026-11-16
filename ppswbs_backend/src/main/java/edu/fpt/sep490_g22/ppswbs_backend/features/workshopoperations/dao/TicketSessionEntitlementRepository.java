@@ -63,6 +63,11 @@ public interface TicketSessionEntitlementRepository extends JpaRepository<Ticket
 
     List<TicketSessionEntitlement> findBySessionIdAndAttendanceState(Long sessionId, AttendanceState state);
 
+    /** T116: every entitlement of a booking in every session and location, whatever the ticket validity state. */
+    @Query("SELECT tse FROM TicketSessionEntitlement tse WHERE tse.ticket.bookingReference = :bookingReference "
+            + "ORDER BY tse.ticket.ticketSequence, tse.id")
+    List<TicketSessionEntitlement> findAllByBookingReferenceOrdered(@Param("bookingReference") String bookingReference);
+
     @Query("SELECT tse FROM TicketSessionEntitlement tse WHERE tse.session.id = :sessionId AND tse.ticket.bookingReference = :bookingReference AND tse.ticket.validityState = 'ACTIVE'")
     List<TicketSessionEntitlement> findActiveEntitlementsBySessionIdAndBookingReference(@Param("sessionId") Long sessionId, @Param("bookingReference") String bookingReference);
 }

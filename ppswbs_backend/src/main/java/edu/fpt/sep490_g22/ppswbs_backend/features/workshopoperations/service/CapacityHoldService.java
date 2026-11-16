@@ -248,9 +248,12 @@ public class CapacityHoldService {
                 return outcome;
             }
 
-            // Session must not be cancelled or attendance finalized
+            // FR-010c/FR-010j: no commit once a cancellation is requested or the session is closed;
+            // the holds stay untouched and expire normally. IN_PROGRESS and SALES_PAUSED stay accepted.
             SessionState sessionState = hold.getSession().getState();
-            if (sessionState == SessionState.CANCELLED || sessionState == SessionState.ATTENDANCE_FINALIZED) {
+            if (sessionState == SessionState.CANCELLED
+                    || sessionState == SessionState.CANCELLATION_REQUESTED
+                    || sessionState == SessionState.ATTENDANCE_FINALIZED) {
                 CapacityCommitOutcome outcome = CapacityCommitOutcome.rejected(RejectionReason.INVALID_STATE);
                 idempotencyManager.completeClaim(claim.getRecordId(), claim.getClaimVersion(), outcome.status(), outcome.reason(), null);
                 return outcome;

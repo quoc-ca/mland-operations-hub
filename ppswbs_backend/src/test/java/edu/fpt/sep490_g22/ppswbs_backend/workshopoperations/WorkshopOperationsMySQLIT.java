@@ -103,9 +103,6 @@ class WorkshopOperationsMySQLIT {
     @Autowired
     private SessionStaffAssignmentRepository staffAssignmentRepository;
 
-    @Autowired
-    private SessionOperationalLeadRepository operationalLeadRepository;
-
     private WorkshopLocation testLocation;
     private WorkshopSlot testSlot;
     private WorkshopSession testSession;
@@ -132,7 +129,6 @@ class WorkshopOperationsMySQLIT {
         entitlementRepository.deleteAll();
         ticketRepository.deleteAll();
         holdRepository.deleteAll();
-        operationalLeadRepository.deleteAll();
         staffAssignmentRepository.deleteAll();
         handoffRepository.deleteAll();
         auditEventRepository.deleteAll();

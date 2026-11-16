@@ -18,4 +18,7 @@ public interface TicketBookingRepository extends JpaRepository<TicketBooking, Lo
             @org.springframework.data.repository.query.Param("ticketCode") String ticketCode);
 
     List<TicketBooking> findByGroupIdOrderByLineIndexAscParticipantOrdinalAsc(Long groupId);
+
+    List<TicketBooking> findByGroupIdInOrderByGroupIdAscLineIndexAscParticipantOrdinalAsc(
+            java.util.Collection<Long> groupIds);
 }

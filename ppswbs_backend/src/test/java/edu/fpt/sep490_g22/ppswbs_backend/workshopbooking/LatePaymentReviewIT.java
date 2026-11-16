@@ -55,6 +55,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * idempotent across IPN and QueryDR, capacity race with one winner, Manager queue and alert, CONFIRM limited to
  * conditions 4/5 with 1–3 rechecked, REFUND opening a durable 003.3 bank-refund request without VNPay Refund.
  */
+@org.junit.jupiter.api.extension.ExtendWith(org.springframework.boot.test.system.OutputCaptureExtension.class)
 @SpringBootTest
 @AutoConfigureMockMvc
 @RecordApplicationEvents
@@ -164,6 +165,133 @@ class LatePaymentReviewIT {
         assertThat(confirmationEmail.storedRecipient()).isEqualTo(BUYER_EMAIL);
         assertThat(confirmationEmail.renderedBookingContent()).contains("Thanh toán của bạn đến sau thời hạn");
         assertThat(confirmationEmail.renderedTicketArtifacts()).hasSize(2).allSatisfy(t -> assertThat(t).contains("QR: QR-"));
+    }
+
+    @Test
+    @DisplayName("T127: condition 4 is measured from receipt by Mland: 59 minutes after the hold passes, 61 fails")
+    void arrivalWindow_isMeasuredFromReceiptAt59And61Minutes() {
+        WorkshopSession session = session(Duration.ofDays(3), 10);
+        Fixture inside = pendingGroup(session, 1, Duration.ofMinutes(59), "inside@example.com");
+        Fixture outside = pendingGroup(session, 1, Duration.ofMinutes(61), "outside@example.com");
+
+        apply(inside);
+        apply(outside);
+
+        assertThat(groups.findByGroupCode(inside.code()).orElseThrow().getGroupStatus()).isEqualTo(BookingStatus.CONFIRMED);
+        assertThat(reviews.findAll()).hasSize(2);
+        LatePaymentReview review = reviews.findByVerifiedEvidenceReference(outside.merchant()).orElseThrow();
+        assertThat(reviews.findByVerifiedEvidenceReference(inside.merchant()).orElseThrow().getOutcome())
+                .isEqualTo(LatePaymentReview.AUTO_RECONFIRMED);
+        assertThat(review.getOutcome()).isEqualTo(LatePaymentReview.PENDING_MANAGER);
+        assertThat(review.getFailedConditions()).isEqualTo("ARRIVAL_WINDOW");
+        assertThat(review.getArrivedAt()).isAfter(Instant.now().minus(Duration.ofMinutes(5)));
+    }
+
+    @Test
+    @DisplayName("T128: evidence after the earliest session started -> condition 2 fails, refund only, 24h after the evidence")
+    void evidenceAfterTheSessionStarted_failsConditionTwoAndKeepsA24HourLimit() throws Exception {
+        WorkshopSession session = session(Duration.ofDays(3), 10);
+        Fixture group = pendingGroup(session, 1, Duration.ofMinutes(10), BUYER_EMAIL);
+        session.setScheduledStartAt(Instant.now().minus(Duration.ofMinutes(30)));
+        sessions.save(session);
+
+        apply(group);
+
+        LatePaymentReview review = onlyReview();
+        assertThat(review.getOutcome()).isEqualTo(LatePaymentReview.PENDING_MANAGER);
+        assertThat(review.getFailedConditions()).contains("START_TIME");
+        assertThat(review.getResultDueAt()).isAfter(review.getArrivedAt().plus(Duration.ofHours(23)))
+                .isBeforeOrEqualTo(review.getArrivedAt().plus(Duration.ofHours(24)));
+        assertThat(groups.findByGroupCode(group.code()).orElseThrow().getGroupStatus()).isEqualTo(BookingStatus.EXPIRED);
+        decide(group, review, "CONFIRM", key())
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("LATE_PAYMENT_CONFIRM_NOT_ALLOWED"));
+        assertThat(groups.findByGroupCode(group.code()).orElseThrow().getGroupStatus()).isEqualTo(BookingStatus.EXPIRED);
+    }
+
+    @Test
+    @DisplayName("T124: a second verified payment on a CONFIRMED group -> excess row, one 100% refund, Manager alert, replay settles nothing")
+    void secondPaymentOnConfirmedGroup_isRecordedAsExcessAndRefundedOnce() {
+        WorkshopSession session = session(Duration.ofDays(3), 10);
+        Fixture group = pendingGroup(session, 1, Duration.ofMinutes(10), BUYER_EMAIL);
+        when(accountFacade.listActiveManagerEmails()).thenReturn(List.of("m1@mland.test"));
+        apply(group);
+        BookingGroup confirmed = groups.findByGroupCode(group.code()).orElseThrow();
+        assertThat(confirmed.getGroupStatus()).isEqualTo(BookingStatus.CONFIRMED);
+        String secondMerchant = group.code() + "-" + UUID.randomUUID().toString().replace("-", "");
+        attempts.save(GroupPaymentAttempt.builder().group(confirmed).attemptReference(UUID.randomUUID().toString())
+                .merchantReference(secondMerchant).amountVnd(AMOUNT).attemptStatus(PaymentAttemptStatus.PENDING)
+                .expiresAt(Instant.now().plusSeconds(60)).build());
+        Fixture second = new Fixture(group.id(), group.code(), secondMerchant);
+        int ticketsBefore = count("ticket_bookings WHERE ticket_status = 'CONFIRMED'");
+        int holdsBefore = count("capacity_holds WHERE state = 'COMMITTED'");
+
+        apply(second);
+        apply(second);
+
+        assertThat(count("group_excess_payments WHERE verified_evidence_reference = '" + secondMerchant
+                + "' AND amount_vnd = " + AMOUNT + " AND refund_outcome = 'ACCEPTED'")).isEqualTo(1);
+        assertThat(count("settlement_refund_requests WHERE reason = 'EXCESS_OR_DUPLICATE_MONEY' AND source_reference = '"
+                + secondMerchant + "' AND amount_vnd = " + AMOUNT)).isEqualTo(1);
+        assertThat(count("late_payment_reviews")).isEqualTo(1); // only the first, auto-reconfirmed payment
+        assertThat(groups.findByGroupCode(group.code()).orElseThrow().getGroupStatus()).isEqualTo(BookingStatus.CONFIRMED);
+        assertThat(count("ticket_bookings WHERE ticket_status = 'CONFIRMED'")).isEqualTo(ticketsBefore);
+        assertThat(count("capacity_holds WHERE state = 'COMMITTED'")).isEqualTo(holdsBefore);
+        assertThat(intents.findByGroupIdOrderByCreatedAtAsc(group.id()))
+                .extracting(BookingGroupNotificationIntent::getNotificationKind)
+                .filteredOn(GroupNotificationService.KIND_EXCESS_PAYMENT_MANAGER_ALERT::equals).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("T143: a non-Manager decision is refused 403 and leaves a denied-attempt audit entry, no review change")
+    void nonManagerDecision_isRefusedAndAudited() throws Exception {
+        WorkshopSession session = session(Duration.ofDays(3), 10);
+        Fixture group = pendingGroup(session, 1, Duration.ofMinutes(90), BUYER_EMAIL);
+        apply(group);
+        LatePaymentReview review = onlyReview();
+
+        mockMvc.perform(post("/api/v1/workshop-booking-groups/{g}/late-payment-reviews/{r}/decisions",
+                        group.code(), review.getReviewReference())
+                        .header("Authorization", "Bearer test-uid:staff").header("Idempotency-Key", key())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"decision\":\"CONFIRM\",\"reason\":\"Staff should not decide\"}"))
+                .andExpect(status().isForbidden());
+
+        assertThat(count("booking_audit_evidence WHERE action = 'LATE_PAYMENT_DECISION' AND outcome = 'DENIED' AND booking_code = '"
+                + group.code() + "'")).isEqualTo(1);
+        assertThat(reviews.findByReviewReference(review.getReviewReference()).orElseThrow().getOutcome())
+                .isEqualTo(LatePaymentReview.PENDING_MANAGER);
+    }
+
+    @Autowired private edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.GroupHoldExpiryScheduler expiryScheduler;
+
+    @Test
+    @DisplayName("T136 (SC-004): every expired group is released by one sweep, within 5 minutes of holdExpiresAt, and the sweep cadence is under 5 minutes")
+    void everyExpiredGroupIsReleasedWithinFiveMinutes() throws Exception {
+        WorkshopSession session = session(Duration.ofDays(3), 20);
+        List<Fixture> expired = new ArrayList<>();
+        for (int i = 0; i < 4; i++) {
+            expired.add(pendingGroup(session, 1, Duration.ofSeconds(30 + i), "exp" + i + "@example.com"));
+        }
+
+        expiryScheduler.releaseExpiredGroups();
+
+        for (Fixture group : expired) {
+            BookingGroup stored = groups.findByGroupCode(group.code()).orElseThrow();
+            assertThat(stored.getGroupStatus()).isEqualTo(BookingStatus.EXPIRED);
+            BookingGroupNotificationIntent released = intents.findByGroupIdOrderByCreatedAtAsc(group.id()).stream()
+                    .filter(i -> GroupNotificationService.KIND_GROUP_HOLD_EXPIRED.equals(i.getNotificationKind()))
+                    .findFirst().orElseThrow();
+            assertThat(Duration.between(stored.getHoldExpiresAt(), released.getCreatedAt()))
+                    .isLessThan(Duration.ofMinutes(5));
+        }
+        assertThat(count("capacity_holds WHERE state = 'ACTIVE'")).isZero();
+        // The sweep default is 30 seconds, far inside the 5 minutes of SC-004.
+        String source = java.nio.file.Files.readString(java.nio.file.Path.of(
+                "src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopbooking/service/GroupHoldExpiryScheduler.java"));
+        var cadence = java.util.regex.Pattern.compile("group-expiry-sweep:(PT[0-9A-Z]+)").matcher(source);
+        assertThat(cadence.find()).isTrue();
+        assertThat(Duration.parse(cadence.group(1))).isLessThan(Duration.ofMinutes(5));
     }
 
     @Test
@@ -373,6 +501,99 @@ class LatePaymentReviewIT {
 
         LatePaymentReview review = onlyReview();
         assertThat(review.getFailedConditions()).isEqualTo("DUPLICATE_BOOKING");
+    }
+
+    @Test
+    @DisplayName("T122 FR-039: at holdExpiresAt seats are released at once even with an unverified attempt; the late payment then goes to review")
+    void expiryWithLiveAttempt_releasesImmediately_thenLatePaymentIsReviewed() {
+        WorkshopSession session = session(Duration.ofHours(10), 10);
+        Fixture group = pendingGroup(session, 1, Duration.ofMinutes(90), BUYER_EMAIL);
+        assertThat(count("group_payment_attempts WHERE attempt_status = 'PENDING'")).isEqualTo(1);
+        assertThat(count("capacity_holds WHERE state = 'ACTIVE'")).isEqualTo(1);
+
+        expire(group);
+
+        assertThat(groups.findByGroupCode(group.code()).orElseThrow().getGroupStatus()).isEqualTo(BookingStatus.EXPIRED);
+        assertThat(count("capacity_holds WHERE state = 'ACTIVE'")).isZero();
+        assertThat(count("group_payment_attempts WHERE attempt_status = 'PENDING'")).isEqualTo(1);
+        assertThat(reviews.findAll()).isEmpty();
+
+        apply(group);
+
+        assertThat(onlyReview().getOutcome()).isEqualTo(LatePaymentReview.PENDING_MANAGER);
+        assertThat(count("capacity_holds WHERE state = 'ACTIVE'")).isZero();
+    }
+
+    @Test
+    @DisplayName("T118 SC-007: a late payment and its review leave no buyer email, phone or provider payload in the logs")
+    void logs_holdNoBuyerContactOrProviderPayload(org.springframework.boot.test.system.CapturedOutput output) {
+        WorkshopSession session = session(Duration.ofHours(10), 10);
+        Fixture group = pendingGroup(session, 1, Duration.ofMinutes(90), BUYER_EMAIL);
+        when(accountFacade.listActiveManagerEmails()).thenReturn(List.of("m1@mland.test"));
+
+        apply(group);
+
+        assertThat(output.getAll()).doesNotContain(BUYER_EMAIL).doesNotContain("0900000000")
+                .doesNotContainIgnoringCase("vnp_SecureHash").doesNotContainIgnoringCase("vnp_HashSecret");
+    }
+
+    private void markBuyer(Fixture f, Long memberAccountId, BookingStatus status) {
+        BookingGroup g = groups.findByGroupCode(f.code()).orElseThrow();
+        g.setBuyerMemberAccountId(memberAccountId);
+        if (status != null) g.setGroupStatus(status);
+        groups.save(g);
+    }
+
+    @Test
+    @DisplayName("T120 FR-040 cond 5: same Member account with a different email still counts as the same buyer")
+    void condition5_sameMemberAccount_differentEmail_isDuplicate() {
+        WorkshopSession session = session(Duration.ofDays(3), 10);
+        Fixture other = pendingGroup(session, 1, Duration.ofMinutes(-5), "member.one@example.com");
+        Fixture group = pendingGroup(session, 1, Duration.ofMinutes(10), "member.two@example.com");
+        markBuyer(other, 901L, null);
+        markBuyer(group, 901L, null);
+
+        apply(group);
+
+        assertThat(onlyReview().getFailedConditions()).isEqualTo("DUPLICATE_BOOKING");
+    }
+
+    @Test
+    @DisplayName("T120 FR-040 cond 5: an already CONFIRMED group of the same email on the same session counts")
+    void condition5_otherGroupConfirmed_isDuplicate() {
+        WorkshopSession session = session(Duration.ofDays(3), 10);
+        Fixture other = pendingGroup(session, 1, Duration.ofMinutes(-5), BUYER_EMAIL);
+        Fixture group = pendingGroup(session, 1, Duration.ofMinutes(10), BUYER_EMAIL);
+        markBuyer(other, null, BookingStatus.CONFIRMED);
+
+        apply(group);
+
+        assertThat(onlyReview().getFailedConditions()).isEqualTo("DUPLICATE_BOOKING");
+    }
+
+    @Test
+    @DisplayName("T120 FR-040 cond 5: a PENDING_PAYMENT group whose hold already ended does not count")
+    void condition5_otherGroupWithExpiredHold_isNotDuplicate() {
+        WorkshopSession session = session(Duration.ofDays(3), 10);
+        pendingGroup(session, 1, Duration.ofMinutes(30), BUYER_EMAIL);
+        Fixture group = pendingGroup(session, 1, Duration.ofMinutes(10), BUYER_EMAIL);
+
+        apply(group);
+
+        assertThat(onlyReview().getOutcome()).isEqualTo(LatePaymentReview.AUTO_RECONFIRMED);
+    }
+
+    @Test
+    @DisplayName("T120 FR-040 cond 5: the same buyer holding a different session does not count")
+    void condition5_otherSession_isNotDuplicate() {
+        WorkshopSession session = session(Duration.ofDays(3), 10);
+        WorkshopSession otherSession = session(Duration.ofDays(4), 10);
+        pendingGroup(otherSession, 1, Duration.ofMinutes(-5), BUYER_EMAIL);
+        Fixture group = pendingGroup(session, 1, Duration.ofMinutes(10), BUYER_EMAIL);
+
+        apply(group);
+
+        assertThat(onlyReview().getOutcome()).isEqualTo(LatePaymentReview.AUTO_RECONFIRMED);
     }
 
     @Test

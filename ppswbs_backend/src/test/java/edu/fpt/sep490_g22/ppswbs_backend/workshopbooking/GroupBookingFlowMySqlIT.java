@@ -212,6 +212,29 @@ class GroupBookingFlowMySqlIT {
         assertThat(kindsOf(code)).containsExactly(GroupNotificationService.KIND_GROUP_HOLD_EXPIRED);
     }
 
+    @Test
+    @DisplayName("T121: a mixed cart with one line below its Package minParticipants is refused whole, naming that line")
+    void oneLineBelowPackageMinimum() throws Exception {
+        Long ok = packageOf(100_000);
+        Long needsThree = packages.save(WorkshopPackage.builder().name("Flow min3 " + UUID.randomUUID())
+                .description("fixture").publicPrice(90_000L).minParticipants(3).maxParticipants(10)
+                .requiredSessionCount(1).sameLocationRequired(true).minimumSameDaySlotGap(0)
+                .state(WorkshopPackageState.PUBLISHED).build()).getId();
+        int holdsBefore = count("capacity_holds");
+
+        MvcResult refused = mockMvc.perform(post("/api/v1/workshop-cart-quotes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"lines\":[" + line(ok, session(10), 1) + "," + line(needsThree, session(11), 2) + "]}"))
+                .andExpect(status().isBadRequest()).andReturn();
+
+        JsonNode body = JSON.readTree(refused.getResponse().getContentAsString());
+        assertThat(body.get("code").asText()).isEqualTo("PACKAGE_SELECTION_INVALID");
+        assertThat(body.get("failingLines").toString()).isEqualTo("[1]");
+        assertThat(count("capacity_holds")).isEqualTo(holdsBefore);
+        assertThat(count("booking_groups")).isZero();
+        assertThat(count("workshop_cart_quotes")).isZero();
+    }
+
     // ---- helpers ----
 
     private JsonNode quote(List<String> lines) throws Exception {

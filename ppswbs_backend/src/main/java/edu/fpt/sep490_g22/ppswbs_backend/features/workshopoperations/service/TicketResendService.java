@@ -55,7 +55,8 @@ public class TicketResendService {
                 .filter(t -> t.getSessionEntitlements().stream().anyMatch(e -> e.getAttendanceState() == AttendanceState.NOT_CHECKED_IN))
                 .map(AttendanceTicket::getReference).distinct().toList();
         if (eligibleReferences.isEmpty()) {
-            throw new WorkshopValidationException("No active unused tickets are eligible for redelivery");
+            throw new WorkshopTicketResendRefusedException(WorkshopTicketResendRefusedException.Reason.NO_ELIGIBLE_TICKET,
+                    "No active unused tickets are eligible for redelivery");
         }
 
         Instant now = Instant.now();
@@ -67,11 +68,11 @@ public class TicketResendService {
             throttle.setRequestCount(0);
         }
         if (throttle.getRequestCount() >= MAX_REQUESTS) {
-            throw new WorkshopRateLimitException("At most three ticket resend requests per booking are allowed in 15 minutes");
+            long retryAfter = Math.max(1, (long) Math.ceil(
+                    Duration.between(now, throttle.getWindowStartedAt().plus(WINDOW)).toMillis() / 1000.0));
+            throw new WorkshopRateLimitException(
+                    "At most three ticket resend requests per booking are allowed in 15 minutes", retryAfter);
         }
-        throttle.setRequestCount(throttle.getRequestCount() + 1);
-        throttle.setUpdatedAt(now);
-        throttleRepository.save(throttle);
 
         String correlation = correlationReference == null || correlationReference.isBlank()
                 ? UUID.randomUUID().toString() : correlationReference;
@@ -80,6 +81,16 @@ public class TicketResendService {
         BookingTicketRedeliveryPort.RedeliveryOutcome outcome = bookingTicketRedeliveryPort.request(
                 new BookingTicketRedeliveryPort.RedeliveryCommand(
                         request.getBookingCode(), eligibleReferences, operation, correlation));
+        if (outcome.status() != BookingTicketRedeliveryPort.RedeliveryOutcome.Status.ACCEPTED) {
+            // T139: a refused resend sends nothing and consumes no throttle slot.
+            throw new WorkshopTicketResendRefusedException(
+                    WorkshopTicketResendRefusedException.Reason.REDELIVERY_REJECTED_BY_BOOKING,
+                    "Ticket redelivery was rejected by Booking");
+        }
+        // Only a request actually accepted by Booking counts toward the three-per-15-minutes limit.
+        throttle.setRequestCount(throttle.getRequestCount() + 1);
+        throttle.setUpdatedAt(now);
+        throttleRepository.save(throttle);
         auditRepository.save(OperationsAuditEvent.builder().sessionId(session.getId())
                 .action("TICKET_REDELIVERY_REQUESTED").outcome(outcome.status().name())
                 .correlationId(correlation)

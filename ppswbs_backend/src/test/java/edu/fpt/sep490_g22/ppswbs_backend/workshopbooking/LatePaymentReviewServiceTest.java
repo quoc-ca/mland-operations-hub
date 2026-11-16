@@ -50,7 +50,7 @@ class LatePaymentReviewServiceTest {
     private BookingIdempotencyService idempotency;
     private ApplicationEventPublisher events;
     private ObjectMapper mapper;
-    private ManagerAlertRecipientSource managerRecipients;
+    private ManagerAlertService managerAlerts;
     private WorkshopCartQuoteRepository quotes;
     private WorkshopCartBenefitService benefits;
 
@@ -77,11 +77,10 @@ class LatePaymentReviewServiceTest {
         idempotency = mock(BookingIdempotencyService.class);
         events = mock(ApplicationEventPublisher.class);
         mapper = new ObjectMapper().findAndRegisterModules();
-        managerRecipients = mock(ManagerAlertRecipientSource.class);
+        managerAlerts = mock(ManagerAlertService.class);
         quotes = mock(WorkshopCartQuoteRepository.class);
         benefits = mock(WorkshopCartBenefitService.class);
 
-        when(managerRecipients.activeManagerEmails()).thenReturn(List.of());
         when(reviews.save(any())).thenAnswer(inv -> {
             LatePaymentReview r = inv.getArgument(0);
             if (r.getId() == null) {
@@ -93,7 +92,7 @@ class LatePaymentReviewServiceTest {
         service = new LatePaymentReviewService(
                 groups, lines, tickets, snapshots, reviews, auditEvidence, confirmation,
                 operations, notifications, refunds, authorization, idempotency, events,
-                mapper, managerRecipients, quotes, benefits
+                mapper, managerAlerts, quotes, benefits
         );
     }
 

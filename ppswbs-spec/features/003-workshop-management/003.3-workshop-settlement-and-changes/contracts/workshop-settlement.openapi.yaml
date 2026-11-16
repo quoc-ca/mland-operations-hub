@@ -334,6 +334,8 @@ paths:
     parameters: *settlementCaseReadParameters
     get: *settlementCaseReadGet
   /api/v1/workshop-refund-policies:
+    x-status: removal-planned
+    x-removal-note: 'Removal planned by T139 (backend) and T140 (frontend), decided 2026-11-15: FR-043 always refunds 100%; FR-021a-FR-021e superseded. Fix A26, 2026-11-16.'
     get:
       summary: Read central prospective refund-policy revision history
       description: Requires any active Manager globally.
@@ -369,7 +371,7 @@ paths:
         schema: {type: string}
     get:
       summary: Read OTA add-on bill details and latest payment attempt
-      description: Requires in-scope Staff or any active Manager globally.
+      description: "Staff assigned to the booking's session, or Manager (fix A26, 2026-11-16)."
       security: [{bearerAuth: []}]
       responses:
         '200': {$ref: '#/components/responses/OtaAddonBill'}
@@ -385,7 +387,7 @@ paths:
     post:
       summary: Create a short-lived VNPay payment checkout attempt for an OTA add-on bill (SHOP_ADDON)
       description: >-
-        In-scope Staff or any active Manager may initiate checkout for an OPEN OTA add-on bill.
+        Staff assigned to the booking's session, or Manager (fix A26, 2026-11-16), may initiate checkout for an OPEN OTA add-on bill.
         Exact bill amount only. Only one active pending attempt per bill. Idempotent on Idempotency-Key.
       security: [{bearerAuth: []}]
       parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
@@ -435,7 +437,7 @@ components:
   parameters:
     BookingCode: {name: bookingCode, in: path, required: true, schema: {type: string}}
     CaseReference: {name: caseReference, in: path, required: true, schema: {type: string}}
-    IdempotencyKey: {name: Idempotency-Key, in: header, required: true, schema: {type: string}}
+    IdempotencyKey: {name: Idempotency-Key, in: header, required: true, schema: {type: string, minLength: 16, maxLength: 128}}
     GuestContactEmail: {name: contactEmail, in: query, required: false, schema: {type: string, format: email}, description: Guest reads provide exactly one of contactEmail or contactPhone.}
     GuestContactPhone: {name: contactPhone, in: query, required: false, schema: {type: string}, description: Guest reads provide exactly one of contactEmail or contactPhone.}
   schemas:

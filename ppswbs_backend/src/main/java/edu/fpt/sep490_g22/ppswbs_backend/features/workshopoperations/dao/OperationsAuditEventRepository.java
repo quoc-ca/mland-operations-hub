@@ -15,4 +15,6 @@ public interface OperationsAuditEventRepository extends JpaRepository<Operations
     List<OperationsAuditEvent> findByActorIdOrderByOccurredAtDesc(Long actorId);
 
     Optional<OperationsAuditEvent> findTopByActionAndCorrelationIdOrderByOccurredAtDesc(String action, String correlationId);
+
+    boolean existsBySessionIdAndAction(Long sessionId, String action);
 }

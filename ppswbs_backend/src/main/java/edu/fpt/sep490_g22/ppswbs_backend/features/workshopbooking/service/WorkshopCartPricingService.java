@@ -119,18 +119,20 @@ public class WorkshopCartPricingService {
         if (new HashSet<>(references).size() != references.size()) {
             throw new BookingValidationException("Cart line " + index + " repeats a session");
         }
-        PublishedPackageSelectionSnapshot pkg = operations.getPublishedPackageSelection(Long.toString(line.packageId()));
+        PublishedPackageSelectionSnapshot pkg = DependencyGuard.call("Workshop Operations",
+                () -> operations.getPublishedPackageSelection(Long.toString(line.packageId())));
         if (pkg == null || pkg.packageName() == null || pkg.packageName().isBlank()) {
             throw new BookingConflictException("A package in the cart is not currently available");
         }
         if (line.participantCount() < pkg.minParticipants() || line.participantCount() > pkg.maxParticipants()
                 || references.size() != pkg.requiredSessionCount()) {
-            throw new BookingValidationException(
-                    "Cart line " + index + " does not match the published package requirements");
+            throw new BookingValidationException("PACKAGE_SELECTION_INVALID",
+                    "Cart line " + index + " does not match the published package requirements", java.util.List.of(index));
         }
         List<PricedSession> sessions = new ArrayList<>();
         for (UUID reference : references) {
-            SaleEligibilitySnapshot session = operations.getSaleEligibility(reference);
+            SaleEligibilitySnapshot session = DependencyGuard.call("Workshop Operations",
+                    () -> operations.getSaleEligibility(reference));
             if (session == null || !session.customerSelectable() || session.locationReference() == null
                     || session.workshopDate() == null) {
                 throw new BookingConflictException("A session in the cart is not currently available");

@@ -19,6 +19,9 @@ public class LatePaymentReview {
     public static final String PENDING_MANAGER = "PENDING_MANAGER";
     public static final String MANAGER_CONFIRMED = "MANAGER_CONFIRMED";
     public static final String REFUND_REQUESTED = "REFUND_REQUESTED";
+    public static final String DELIVERY_PENDING = "PENDING";
+    public static final String DELIVERY_RESEND_SCHEDULED = "RESEND_SCHEDULED";
+    public static final String DELIVERY_MANUAL_CONTACT = "MANUAL_CONTACT_REQUIRED";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -67,6 +70,12 @@ public class LatePaymentReview {
 
     @Column(name = "result_due_at")
     private Instant resultDueAt;
+
+    /** PENDING, RESEND_SCHEDULED or MANUAL_CONTACT_REQUIRED (V157); a failed result email never counts as reached. */
+    @Builder.Default
+    @Column(name = "result_delivery_state", nullable = false, columnDefinition =
+            "enum('PENDING','RESEND_SCHEDULED','MANUAL_CONTACT_REQUIRED')")
+    private String resultDeliveryState = "PENDING";
 
     @Column(name = "refund_request_reference", length = 64)
     private String refundRequestReference;

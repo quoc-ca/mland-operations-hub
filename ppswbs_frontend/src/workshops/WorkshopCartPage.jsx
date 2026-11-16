@@ -21,6 +21,7 @@ const CART_ERROR_MESSAGE = {
   CART_HOLD_REJECTED: 'Giỏ chưa được giữ chỗ vì có dòng không còn đủ chỗ. Hệ thống không giữ chỗ nào; vui lòng sửa giỏ rồi báo giá lại.',
   INSUFFICIENT_CAPACITY: 'Có dòng trong giỏ không còn đủ chỗ. Hệ thống không giữ chỗ nào.',
   QUOTE_EXPIRED: 'Báo giá đã hết hạn. Vui lòng báo giá lại.',
+  DEPENDENCY_UNAVAILABLE: 'Hệ thống tạm thời chưa xử lý được yêu cầu. Giỏ và thông tin bạn đã nhập vẫn được giữ; vui lòng thử lại sau.',
   CART_BENEFITS_NEED_A_MEMBER: 'Voucher và điểm chỉ áp dụng cho tài khoản Member đang đăng nhập.',
 };
 
@@ -200,7 +201,7 @@ export function WorkshopCartPage() {
         <h1 style={{ color: '#002967' }}>
           {group.groupStatus === 'CONFIRMED' ? 'Nhóm đặt chỗ đã được xác nhận' : 'Đã giữ chỗ cho nhóm đặt chỗ'}
         </h1>
-        <GroupDetailCard group={group} authorization={null} allowRecipientChange={false} />
+        <GroupDetailCard group={group} authorization={null} proof={contact} allowRecipientChange={false} />
         <div className="actions" style={{ marginTop: '20px' }}>
           <a className="button outline" href="/workshop-booking/lookup">Xem đặt chỗ của tôi</a>
           <a className="button outline" href="/workshops">Đặt thêm workshop</a>

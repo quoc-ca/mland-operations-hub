@@ -50,7 +50,8 @@ export const needsOnlinePayment = paymentMode => paymentMode === 'VNPAY';
  * the result is being confirmed until the internal hold (`holdExpiresAt`, 12 minutes) ends; the 2-minute buffer and
  * the 12-minute figure are never shown. After the hold ends the outcome is whatever the server reports.
  */
-export function groupHoldPhase({ paymentDeadlineAt, holdExpiresAt } = {}, now = Date.now()) {
+export function groupHoldPhase(group, now = Date.now()) {
+  const { paymentDeadlineAt, holdExpiresAt } = group || {};
   const deadline = paymentDeadlineAt ? new Date(paymentDeadlineAt).getTime() : null;
   const holdEnd = holdExpiresAt ? new Date(holdExpiresAt).getTime() : null;
   if (Number.isFinite(deadline) && now < deadline) {

@@ -44,7 +44,8 @@ class BookingNotificationReadyConsumer {
 
     @EventListener
     void onBookingNotificationReady(BookingNotificationReady event) {
-        executor.execute(() -> delivery.deliver(event.notificationReference(), event.bookingReference(), event.notificationKind()));
+        executor.execute(() -> delivery.deliver(event.notificationReference(), event.bookingReference(),
+                event.notificationKind(), event.correlationReference()));
     }
 
     @PreDestroy

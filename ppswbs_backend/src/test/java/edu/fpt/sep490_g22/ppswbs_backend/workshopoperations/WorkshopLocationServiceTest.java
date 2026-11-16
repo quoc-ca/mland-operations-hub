@@ -1,6 +1,5 @@
 package edu.fpt.sep490_g22.ppswbs_backend.workshopoperations;
 
-import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountSummary;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.WorkshopLocationRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.LocationRequest;
@@ -36,9 +35,6 @@ public class WorkshopLocationServiceTest {
 
     @Mock
     private WorkshopOperationsAuthorizationService authorizationService;
-
-    @Mock
-    private AccountFacade accountFacade;
 
     @InjectMocks
     private WorkshopLocationService locationService;
@@ -94,28 +90,19 @@ public class WorkshopLocationServiceTest {
     class ListLocationsTests {
 
         @Test
-        @DisplayName("All-location actor (Admin) lists all active locations")
-        void adminListsAllLocations() {
+        @DisplayName("Admin is denied listing locations (T129, FR-012c: no Admin business authority)")
+        void adminDeniedFromListingLocations() {
             when(authorizationService.authenticate(AUTH_HEADER)).thenReturn(adminAccount);
-            when(authorizationService.isAllBranchActor(adminAccount)).thenReturn(true);
-            when(locationRepository.findByActiveTrue()).thenReturn(List.of(location1, location2));
 
-            List<LocationResponse> responses = locationService.listLocations(AUTH_HEADER);
-
-            assertThat(responses).hasSize(2);
-            assertThat(responses.get(0).getCode()).isEqualTo("LOC-01");
-            assertThat(responses.get(0).getId()).isEqualTo(1L);
-            assertThat(responses.get(1).getCode()).isEqualTo("LOC-02");
-            assertThat(responses.get(1).getId()).isEqualTo(2L);
-            verify(locationRepository).findByActiveTrue();
-            verify(accountFacade, never()).getLocationScope(any());
+            assertThatThrownBy(() -> locationService.listLocations(AUTH_HEADER))
+                    .isInstanceOf(WorkshopForbiddenException.class);
+            verify(locationRepository, never()).findByActiveTrue();
         }
 
         @Test
         @DisplayName("Manager lists all active locations regardless of location assignments")
         void managerListsAllLocationsGlobally() {
             when(authorizationService.authenticate(AUTH_HEADER)).thenReturn(managerAccountA);
-            when(authorizationService.isAllBranchActor(managerAccountA)).thenReturn(false);
             when(authorizationService.isManager(managerAccountA)).thenReturn(true);
             when(locationRepository.findByActiveTrue()).thenReturn(List.of(location1, location2));
 
@@ -132,7 +119,6 @@ public class WorkshopLocationServiceTest {
         @DisplayName("Manager with empty location assignments still receives all active locations")
         void managerWithEmptyScopeReceivesAllLocations() {
             when(authorizationService.authenticate(AUTH_HEADER)).thenReturn(managerAccountA);
-            when(authorizationService.isAllBranchActor(managerAccountA)).thenReturn(false);
             when(authorizationService.isManager(managerAccountA)).thenReturn(true);
             when(locationRepository.findByActiveTrue()).thenReturn(List.of(location1, location2));
 
@@ -146,7 +132,6 @@ public class WorkshopLocationServiceTest {
         @DisplayName("Member role is denied with WorkshopForbiddenException when listing locations")
         void memberDeniedFromListingLocations() {
             when(authorizationService.authenticate(AUTH_HEADER)).thenReturn(memberAccount);
-            when(authorizationService.isAllBranchActor(memberAccount)).thenReturn(false);
             when(authorizationService.isManager(memberAccount)).thenReturn(false);
             when(authorizationService.isStaff(memberAccount)).thenReturn(false);
 
@@ -161,8 +146,8 @@ public class WorkshopLocationServiceTest {
     class CreateLocationTests {
 
         @Test
-        @DisplayName("All-location actor (Admin) successfully creates a new location")
-        void adminCreatesLocationSuccessfully() {
+        @DisplayName("Manager successfully creates a new location")
+        void managerCreatesLocationSuccessfully() {
             LocationRequest request = LocationRequest.builder()
                     .code("LOC-03")
                     .name("District 3 Workshop")
@@ -170,7 +155,7 @@ public class WorkshopLocationServiceTest {
                     .active(true)
                     .build();
 
-            when(authorizationService.requireAllBranchActor(AUTH_HEADER)).thenReturn(adminAccount);
+            when(authorizationService.requireGlobalManager(AUTH_HEADER)).thenReturn(managerAccountA);
             when(locationRepository.findByCode("LOC-03")).thenReturn(Optional.empty());
             when(locationRepository.save(any(WorkshopLocation.class))).thenAnswer(invocation -> {
                 WorkshopLocation b = invocation.getArgument(0);
@@ -196,7 +181,7 @@ public class WorkshopLocationServiceTest {
                     .address("Some Address")
                     .build();
 
-            when(authorizationService.requireAllBranchActor(AUTH_HEADER)).thenReturn(adminAccount);
+            when(authorizationService.requireGlobalManager(AUTH_HEADER)).thenReturn(managerAccountA);
             when(locationRepository.findByCode("LOC-01")).thenReturn(Optional.of(location1));
 
             assertThatThrownBy(() -> locationService.createLocation(AUTH_HEADER, request))

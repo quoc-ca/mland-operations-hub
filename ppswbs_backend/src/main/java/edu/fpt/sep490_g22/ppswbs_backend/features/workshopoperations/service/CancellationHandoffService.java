@@ -49,7 +49,6 @@ public class CancellationHandoffService {
     private final CapacityHoldRepository holdRepository;
     private final CancellationHandoffRepository cancellationHandoffRepository;
     private final OperationsAuditEventRepository auditEventRepository;
-    private final SessionOperationalLeadRepository operationalLeadRepository;
     private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.SessionStaffAssignmentRepository staffAssignmentRepository;
     private final WorkshopOperationsAuthorizationService authorizationService;
     private final CancellationHandoffOutboxRepository outboxRepository;
@@ -143,23 +142,11 @@ public class CancellationHandoffService {
             throw new WorkshopLifecycleException("Session is in terminal state ATTENDANCE_FINALIZED; cancellation is not permitted");
         }
 
-        // Idempotency: already CANCELLED
-        if (currentState == SessionState.CANCELLED) {
-            log.info("Session {} is already CANCELLED; returning existing terminal outcome", sessionReference);
-            return CancellationResult.directCancelled(toSessionResponse(session));
-        }
-
-        // Idempotency: already CANCELLATION_REQUESTED
-        if (currentState == SessionState.CANCELLATION_REQUESTED) {
-            log.info("Session {} is already in CANCELLATION_REQUESTED; returning existing handoff outcome", sessionReference);
-            List<CancellationHandoff> existingHandoffs = cancellationHandoffRepository
-                    .findBySessionIdAndStatus(session.getId(), CancellationHandoffStatus.REQUESTED);
-            String existingCaseRef = existingHandoffs.isEmpty()
-                    ? session.getCancellationHandoffReference()
-                    : existingHandoffs.get(0).getCancellationCaseReference();
-
-            List<String> affectedBookings = collectAffectedBookingReferences(session.getId(), Instant.now());
-            return CancellationResult.handoffCreated(session.getReference(), existingCaseRef, affectedBookings, toSessionResponse(session));
+        // T140 (FR-010kh): a repeat finds the session already CANCELLATION_REQUESTED or CANCELLED and is a state
+        // conflict (409 INVALID_STATE); no second handoff, no second audit and no denied-attempt audit row.
+        if (currentState == SessionState.CANCELLED || currentState == SessionState.CANCELLATION_REQUESTED) {
+            log.warn("Cancellation rejected: session {} is already {}", sessionReference, currentState);
+            throw new WorkshopLifecycleException("Session is already " + currentState + "; the cancellation request was not repeated");
         }
 
         // Commitments check: active confirmed tickets OR active unexpired holds
@@ -325,10 +312,10 @@ public class CancellationHandoffService {
     }
 
     private WorkshopSession resolveSession(String sessionReference) {
-        return sessionRepository.findByReference(sessionReference)
+        return sessionRepository.findByReferenceWithLock(sessionReference)
                 .or(() -> {
                     try {
-                        return sessionRepository.findById(Long.parseLong(sessionReference));
+                        return sessionRepository.findByIdWithLock(Long.parseLong(sessionReference));
                     } catch (NumberFormatException e) {
                         return Optional.empty();
                     }
@@ -353,10 +340,6 @@ public class CancellationHandoffService {
     }
 
     private SessionResponse toSessionResponse(WorkshopSession session) {
-        Long operationalLeadId = operationalLeadRepository.findBySessionIdAndActiveTrue(session.getId())
-                .map(SessionOperationalLead::getManagerAccountId)
-                .orElse(null);
-
         return SessionResponse.builder()
                 .id(session.getReference())
                 .locationId(session.getLocation().getId())
@@ -368,7 +351,7 @@ public class CancellationHandoffService {
                 .checkInOpeningSource(session.getCheckInOpeningSource())
                 .capacity(session.getCapacity())
                 .state(session.getState())
-                .operationalLeadAccountId(operationalLeadId)
+                .missingStaff(false) // finalized / cancellation-requested sessions are outside the staffing-watched states
                 .assignedStaffAccountIds(staffAssignmentRepository.findBySessionIdAndActiveTrue(session.getId()).stream().map(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.SessionStaffAssignment::getAccountId).sorted().toList())
                 .build();
     }

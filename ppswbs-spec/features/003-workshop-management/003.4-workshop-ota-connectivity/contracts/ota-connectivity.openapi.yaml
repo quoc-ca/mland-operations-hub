@@ -1,9 +1,10 @@
 openapi: 3.1.0
 info:
   title: Mland OTA Connectivity API
-  version: 0.2.0
+  version: 0.3.0
   description: >-
-    Mland-owned operations API; version 0.2.0 (2026-11-14) reflects the implemented
+    Mland-owned operations API; version 0.3.0 (2026-11-15) adds the RETRYING control state and
+    deprecates SHARED_VOUCHER_INCIDENT on top of 0.2.0 (2026-11-14), which reflected the implemented
     routes (previously 0.1.0-proposed). It includes the interim provider-neutral
     booking ingress, which fails closed for PRODUCTION. Each provider's approved
     callback transport, signatures, credentials, payloads, and transport details
@@ -16,18 +17,19 @@ paths:
     get:
       operationId: listOtaChannels
       summary: List channel connections and mappings visible to the authorized actor.
-      description: Requires an active canonical MANAGER or Admin with global access. This safe mapping view redacts connection and credential details.
+      description: Requires an active canonical MANAGER with global access; Admin and Staff receive 403 (CHK026, 2026-11-15). This safe mapping view redacts connection and credential details.
       responses:
         '200': { $ref: '#/components/responses/ChannelList' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
   /ota-channels/{channelId}/mappings:
     parameters:
       - $ref: '#/components/parameters/ChannelId'
     post:
       operationId: upsertOtaChannelMapping
       summary: Create a draft channel mapping; no publish is implied.
-      description: Requires an active canonical MANAGER with global location scope or an authorized Admin. Provider connection and credential changes remain Admin-only. The connection/product/option tuple is the natural key; an exact duplicate returns the existing draft, while reuse with different workshop facts returns 409.
+      description: Requires an active canonical MANAGER with global location scope; Admin receives 403 (CHK026, 2026-11-15). Provider connection and credential configuration is environment configuration with no REST route. The connection/product/option tuple is the natural key; an exact duplicate returns the existing draft, while reuse with different workshop facts returns 409.
       requestBody:
         required: true
         content:
@@ -38,6 +40,7 @@ paths:
         '400': { $ref: '#/components/responses/ValidationError' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
@@ -58,6 +61,7 @@ paths:
         '400': { $ref: '#/components/responses/ValidationError' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
@@ -78,6 +82,7 @@ paths:
         '400': { $ref: '#/components/responses/ValidationError' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
@@ -88,7 +93,7 @@ paths:
     post:
       operationId: queueOtaMappingSync
       summary: Queue a preparation or full re-sync; delivery is asynchronous.
-      description: Business sync requires an active canonical MANAGER with global location scope. Admin may run explicitly authorized technical or recovery actions globally.
+      description: Business sync and force re-sync require an active canonical MANAGER with global location scope. Admin receives 403 (CHK026, 2026-11-15).
       requestBody:
         required: true
         content:
@@ -99,6 +104,7 @@ paths:
         '400': { $ref: '#/components/responses/ValidationError' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
   /ota-channel-mappings/{mappingId}/sales-close:
@@ -122,6 +128,7 @@ paths:
         '400': { $ref: '#/components/responses/ValidationError' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
   /ota-channel-mappings/{mappingId}/booking-enable:
@@ -129,9 +136,10 @@ paths:
       - $ref: '#/components/parameters/MappingId'
     post:
       operationId: requestOtaBookingEnablement
-      summary: Record an Admin readiness decision and enable booking only when all checks pass.
+      summary: Record a Manager readiness decision and enable booking only when all checks pass.
       description: >-
-        Admin-only and synchronous. The Admin attests that the referenced controlled readiness record
+        Requires an active canonical MANAGER with global location scope (was Admin-only; changed 2026-11-15,
+        Hồ Hoàng Quốc, CHK026; Admin now receives 403). Synchronous. The Manager attests that the referenced controlled readiness record
         was reviewed for this provider, environment and mapping. Mland stores the immutable checklist
         evidence references, reviewer, decision and mapping fingerprint. It does not fetch or copy the
         external evidence documents. Every required check must be VERIFIED to enable a SALES_CLOSED
@@ -146,6 +154,7 @@ paths:
         '400': { $ref: '#/components/responses/ValidationError' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
@@ -154,8 +163,9 @@ paths:
       operationId: listOtaReconciliationWorkItems
       summary: List authorized sync, recovery, and inbound-event work items.
       description: >-
-        Requires an active canonical MANAGER or Admin with global access. This endpoint
-        lists synchronization, recovery, and inbound-event work items.
+        Requires an active canonical MANAGER with global access; Admin and Staff receive 403
+        (CHK026, 2026-11-15). This endpoint lists synchronization, recovery, and inbound-event
+        work items.
       parameters:
         - name: status
           in: query
@@ -169,6 +179,7 @@ paths:
         '400': { $ref: '#/components/responses/ValidationError' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
   /ota-reconciliation-work-items/{workItemId}/resolve:
     parameters:
       - $ref: '#/components/parameters/WorkItemId'
@@ -177,7 +188,8 @@ paths:
       operationId: resolveOtaReconciliationWorkItem
       summary: Record an authorized, auditable reconciliation decision.
       description: >-
-        Requires an active canonical MANAGER or Admin with global access. Every decision is
+        Requires an active canonical MANAGER with global access for every category,
+        PAYOUT_DISPUTE included; Admin and Staff receive 403 (CHK026, 2026-11-15). Every decision is
         appended to immutable audit history. RESYNC_REQUESTED keeps a mapping suspended and
         the item IN_PROGRESS while the authoritative current Operations snapshot is queued.
         ACCEPTED resolves a full-resync item only after every required outbound snapshot kind
@@ -194,6 +206,7 @@ paths:
         '400': { $ref: '#/components/responses/ValidationError' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
   /ota-channel-bookings/{channelBookingId}/financial-evidence:
@@ -202,11 +215,12 @@ paths:
     get:
       operationId: getOtaFinancialEvidence
       summary: Read authorized, separated channel-payment and payout evidence.
-      description: Requires an active canonical MANAGER with global location scope.
+      description: Requires an active canonical MANAGER with global location scope; Staff and Admin receive 403 before the booking is looked up.
       responses:
         '200': { $ref: '#/components/responses/FinancialEvidence' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
         '404': { $ref: '#/components/responses/NotFound' }
   /ota-channel-bookings/{channelBookingId}/payout-reconciliation:
     parameters:
@@ -214,7 +228,12 @@ paths:
     post:
       operationId: reconcileOtaPayout
       summary: Record Manager-verified payout stage, variance, or correction evidence.
-      description: Requires an active canonical MANAGER with global location scope.
+      description: >-
+        Requires an active canonical MANAGER with global location scope; Staff and Admin receive 403 before the booking is looked up.
+        In V1 a payout difference is a dispute closed by an evidenced ADJUSTMENT with a reason; there is no FX variance, so
+        kind and evidenceType VARIANCE are recorded as a payout dispute (CHK003/CHK004, 2026-11-15). A BANK_RECEIPT whose
+        currency differs from the position's currency opens a dispute. A reused Idempotency-Key or evidence reference with
+        a different request returns 409 IDEMPOTENCY_CONFLICT.
       requestBody:
         required: true
         content:
@@ -225,6 +244,7 @@ paths:
         '400': { $ref: '#/components/responses/ValidationError' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
   /ota-channel-bookings/lookups:
@@ -248,6 +268,7 @@ paths:
         '400': { $ref: '#/components/responses/ValidationError' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
         '404': { $ref: '#/components/responses/NotFound' }
   /ota-channel-bookings/{channelBookingId}/add-on-quotes:
     parameters:
@@ -265,6 +286,7 @@ paths:
         '400': { $ref: '#/components/responses/ValidationError' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
         '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/Unprocessable' }
   /ota-addon-quotes/{quoteId}/acceptance:
@@ -283,6 +305,7 @@ paths:
         '400': { $ref: '#/components/responses/ValidationError' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
   /ota-addon-quotes/{quoteId}/direct-bill:
@@ -295,6 +318,7 @@ paths:
         '201': { $ref: '#/components/responses/DirectBillLink' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
@@ -332,8 +356,15 @@ paths:
         401 like a wrong signature. No secret value is logged or returned.
         A CONFIRMED outcome returns 201 with
         the Mland booking and ticket references; any other outcome returns 422 with a
-        rejection reason. Missing or wrong signature, or an inactive connection,
-        returns 401.
+        rejection reason. Failure statuses are fixed (CHK020, 2026-11-15): a missing or
+        wrong signature, a blank or unresolvable credential reference, or no ACTIVE connection
+        for the provider and environment returns 401; a PRODUCTION callback from a provider
+        not listed in approved-production-providers returns 403 before the signature is checked.
+        Both use the safe typed error body and reveal neither which check failed nor whether a
+        connection exists. Test-prefixed values are honoured only for an ACTIVE TEST connection.
+        Secret rotation, replay windows and revocation beyond changing the secret value or
+        deactivating the connection are deferred to each provider's go-live (CHK024); this
+        interim ingress is not a production authentication scheme.
       security: []
       parameters:
         - name: X-Ota-Signature
@@ -378,9 +409,11 @@ paths:
         Hồ Hoàng Quốc). Interim ingress used before per-provider onboarding
         contracts are approved; it is not the approved provider transport. The
         query parameters name the connection; the body is the provider's own JSON
-        event, mapped by that provider's cancellation adapter (a confirmed cancellation of k participants revokes k tickets by a
-        fixed rule, the whole booking when k reaches the active tickets; refunds are OTA logic and are only recorded as the OTA reports
-        them, FR-012). Authentication is exactly that of booking-events:
+        event, mapped by that provider's cancellation adapter (a confirmed cancellation of k participants, k being that
+        event's own count, revokes k not-yet-checked-in tickets by a fixed rule; the whole booking when k equals the
+        active tickets; k above the active or the not-yet-checked-in tickets revokes nothing and opens an INBOUND_EVENT
+        work item; a checked-in ticket is never revoked; a refund event releases no ticket; refunds are OTA logic and are
+        only recorded as the OTA reports them, FR-011, FR-012). Authentication is exactly that of booking-events:
         X-Ota-Signature is compared in constant time with the secret that the
         ACTIVE connection's credential reference resolves to; an unresolvable or
         blank reference fails closed in every environment; PRODUCTION returns 403
@@ -389,8 +422,10 @@ paths:
         are accepted only for TEST with ota.auth.allow-test-tokens enabled. A replay
         returns the stored outcome (T107). An event the adapter cannot map is
         refused with 422 and opens an INBOUND_EVENT reconciliation work item whose
-        reference is returned. A missing or wrong signature, or an inactive
-        connection, returns 401.
+        reference is returned. Failure statuses are fixed (CHK020, 2026-11-15): a missing or wrong
+        signature, a blank or unresolvable credential reference, or no ACTIVE connection returns
+        401; an unapproved PRODUCTION provider returns 403 before the signature is checked.
+        Test-prefixed values are honoured only for an ACTIVE TEST connection.
       security: []
       parameters:
         - name: X-Ota-Signature
@@ -514,7 +549,7 @@ components:
       additionalProperties: false
       required: [readinessRecordReference, checks, reason]
       properties:
-        readinessRecordReference: { type: string, minLength: 1, maxLength: 255, description: Safe reference to the controlled provider readiness record; Admin attests it was reviewed for this mapping and environment. }
+        readinessRecordReference: { type: string, minLength: 1, maxLength: 255, description: Safe reference to the controlled provider readiness record; the Manager attests it was reviewed for this mapping and environment. }
         checks:
           type: array
           minItems: 12
@@ -574,7 +609,13 @@ components:
         bookingEnabled: { type: boolean }
         safeReadinessStatus: { type: string, enum: [INCOMPLETE, APPROVED, REJECTED] }
         version: { type: integer, minimum: 1 }
-        salesControlStatus: { type: string, enum: [NONE, QUEUED, DELIVERED, EXHAUSTED] }
+        salesControlStatus:
+          type: string
+          enum: [NONE, QUEUED, RETRYING, DELIVERED, EXHAUSTED]
+          description: >-
+            RETRYING is the waiting state of the SALES_CLOSE control command between retries (đã xác nhận bởi Hồ Hoàng Quốc
+            2026-11-15, CHK013 answer 4.2, T135; added by a new migration, the implementer may rename it if a suitable existing column is found): one initial send plus 3 retries, 30 seconds, 2 minutes and
+            10 minutes after the previous failure. The implementation does not return it until T135 is done.
     PriceTerms:
       type: object
       additionalProperties: false
@@ -614,7 +655,11 @@ components:
         category:
           type: string
           enum: [INBOUND_EVENT, PAYOUT_DISPUTE, SHARED_VOUCHER_INCIDENT, INVENTORY_DELIVERY_FAILURE, SOURCE_VERSION_GAP, SOURCE_ORDER_UNCERTAIN, MANUAL_FULL_RESYNC]
-          description: Kind of work item; the same value the category filter of the list endpoint accepts. Equals safeSummary today.
+          description: >-
+            Kind of work item; the same value the category filter of the list endpoint accepts. Equals safeSummary today.
+            SHARED_VOUCHER_INCIDENT is deprecated (Clarifications Q8, 2026-11-15): it is never created again and stays
+            readable only for existing rows. The value stays in the enum (confirmed by Hồ Hoàng Quốc 2026-11-15); T128 checks the data: no row uses it, then it is removed in a later cleanup; any row uses it, then it is kept. An unknown-booking or unmapped cancellation
+            event is an INBOUND_EVENT item.
     ReconciliationWorkItemList:
       type: object
       additionalProperties: false
@@ -805,16 +850,28 @@ components:
       description: Request fails validation.
       content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
     Unauthorized:
-      description: Mland identity is absent or invalid.
+      description: >-
+        Mland identity is absent, wrong or expired. On the provider ingress routes: a missing or wrong signature, a blank
+        or unresolvable credential reference, or no ACTIVE connection for the provider and environment.
       content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
     Forbidden:
-      description: Actor lacks an active account, required OTA action authorization, or location scope.
+      description: >-
+        Actor lacks an active account, required OTA action authorization (Manager only for the Manager actions; Admin has
+        none, CHK026), or location scope; Staff and Admin on financial routes are refused before the booking is looked up.
+        On the provider ingress routes: a PRODUCTION callback from a provider not listed in approved-production-providers.
       content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
     NotFound:
-      description: Resource is not visible in the actor's authorized scope.
+      description: Resource is not visible in the actor's authorized scope. Only the booking lookup by Mland booking reference answers an unassigned or out-of-scope Staff member 404; the add-on routes answer 403.
       content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
     Conflict:
-      description: Current lifecycle state prevents the requested operation.
+      description: >-
+        Current lifecycle state or version prevents the requested operation. A reused Idempotency-Key with a different
+        request, or a conflicting payout-evidence replay, carries the error code IDEMPOTENCY_CONFLICT (2026-11-15, T136).
+      content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+    DependencyUnavailable:
+      description: >-
+        The Account facade (or identity verification) cannot supply the actor's role, status or location scope. The route
+        fails closed with error code DEPENDENCY_UNAVAILABLE and no side effect (2026-11-15, T137). Not used on the provider ingress routes.
       content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
     Unprocessable:
       description: Business gate rejects the requested operation.

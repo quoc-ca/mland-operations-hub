@@ -27,6 +27,7 @@ public class TicketRecipientController {
     private static final String COMMAND_ACTION = "CHANGE_TICKET_RECIPIENT";
 
     private final BuyerVerificationService buyerVerification;
+    private final BuyerVerificationAccessService internalAccess;
     private final TicketRecipientService recipients;
     private final BookingIdempotencyService idempotency;
     private final ObjectMapper mapper;
@@ -35,9 +36,21 @@ public class TicketRecipientController {
     public ResponseEntity<BuyerVerificationChallenge> requestVerification(
             @PathVariable String groupCode,
             @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId,
+            @RequestHeader(value = "Authorization", required = false) String authorization,
             @Valid @RequestBody BuyerVerificationRequest request) {
-        BuyerVerificationService.Challenge challenge = buyerVerification.requestChallenge(groupCode,
-                request.contactEmail(), request.contactPhone(), correlation(correlationId));
+        BuyerVerificationService.Challenge challenge;
+        if (authorization != null && !authorization.isBlank()) {
+            // Staff or Manager (FR-048, T148): authority comes from the bearer, so no contact value is sent.
+            if (hasText(request.contactEmail()) || hasText(request.contactPhone())) {
+                throw new BookingValidationException("A Staff or Manager caller sends no contact value");
+            }
+            String correlation = correlation(correlationId);
+            internalAccess.requireInternalAuthority(authorization, groupCode, correlation);
+            challenge = buyerVerification.requestChallengeForStaff(groupCode.trim(), correlation);
+        } else {
+            challenge = buyerVerification.requestChallenge(groupCode,
+                    request.contactEmail(), request.contactPhone(), correlation(correlationId));
+        }
         return ResponseEntity.status(HttpStatus.ACCEPTED)
                 .body(new BuyerVerificationChallenge(challenge.verificationId(), challenge.expiresAt()));
     }
@@ -46,7 +59,12 @@ public class TicketRecipientController {
     public ResponseEntity<BuyerVerificationResult> confirmVerification(
             @PathVariable String groupCode,
             @PathVariable String verificationId,
+            @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId,
+            @RequestHeader(value = "Authorization", required = false) String authorization,
             @Valid @RequestBody BuyerVerificationConfirmation request) {
+        if (authorization != null && !authorization.isBlank()) {
+            internalAccess.requireInternalAuthority(authorization, groupCode, correlation(correlationId));
+        }
         BuyerVerificationService.ConfirmResult result = buyerVerification.confirm(groupCode, verificationId, request.otp());
         if (result.errorCode() != null) {
             HttpStatus status = "BUYER_VERIFICATION_FAILED".equals(result.errorCode())
@@ -85,6 +103,10 @@ public class TicketRecipientController {
         }
         return ResponseEntity.ok(recipients.change(ticketCode, request.recipientEmail(),
                 request.buyerVerificationReference(), request.reason(), actor, idempotencyKey, correlation, claim));
+    }
+
+    private static boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 
     private static String correlation(String correlationId) {

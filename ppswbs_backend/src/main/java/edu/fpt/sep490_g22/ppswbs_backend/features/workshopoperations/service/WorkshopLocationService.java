@@ -1,6 +1,5 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service;
 
-import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountSummary;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.WorkshopLocationRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.LocationRequest;
@@ -23,7 +22,6 @@ public class WorkshopLocationService {
 
     private final WorkshopLocationRepository locationRepository;
     private final WorkshopOperationsAuthorizationService authorizationService;
-    private final AccountFacade accountFacade;
     private final WorkshopVisibleLocationPolicy visibleLocationPolicy;
 
     @Transactional(readOnly = true)
@@ -31,10 +29,10 @@ public class WorkshopLocationService {
         AccountSummary actor = authorizationService.authenticate(authHeader);
 
         List<WorkshopLocation> locations;
-        if (authorizationService.isAllBranchActor(actor) || authorizationService.isManager(actor)) {
+        if (authorizationService.isManager(actor)) {
             locations = locationRepository.findByActiveTrue();
         } else if (authorizationService.isStaff(actor)) {
-            List<Long> locationScope = accountFacade.getLocationScope(actor.accountId());
+            List<Long> locationScope = authorizationService.getLocationScope(actor.accountId());
             if (locationScope == null || locationScope.isEmpty()) {
                 log.debug("Actor accountId={} has empty location scope; returning empty list",
                         actor.accountId());
@@ -59,7 +57,7 @@ public class WorkshopLocationService {
 
     @Transactional
     public LocationResponse createLocation(String authHeader, LocationRequest request) {
-        AccountSummary actor = authorizationService.requireAllBranchActor(authHeader);
+        AccountSummary actor = authorizationService.requireGlobalManager(authHeader);
 
         if (request == null) {
             throw new WorkshopValidationException("Location request must not be null");
@@ -137,11 +135,11 @@ public class WorkshopLocationService {
     }
 
     private void verifyLocationScope(AccountSummary actor, WorkshopLocation location) {
-        if (authorizationService.isAllBranchActor(actor) || authorizationService.isManager(actor)) {
+        if (authorizationService.isManager(actor)) {
             return;
         }
         if (authorizationService.isStaff(actor)) {
-            List<Long> locationScope = accountFacade.getLocationScope(actor.accountId());
+            List<Long> locationScope = authorizationService.getLocationScope(actor.accountId());
             if (locationScope == null || !locationScope.contains(location.getId())) {
                 log.warn("Location scope check failed: accountId={}, locationId={}, allowedScope={}",
                         actor.accountId(), location.getId(), locationScope);
