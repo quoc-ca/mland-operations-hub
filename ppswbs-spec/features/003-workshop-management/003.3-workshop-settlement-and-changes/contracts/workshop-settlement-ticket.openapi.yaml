@@ -1593,13 +1593,14 @@ components:
               priceIncreaseAmountVnd: {$ref: '#/components/schemas/Vnd'}
     ChangeOption:
       type: object
-      required: [sessionReference, start, end, remainingCapacity, selectable, requiresManager]
+      required: [sessionReference, start, end, remainingCapacity, remainingRescheduleQuota, selectable, requiresManager]
       properties:
         sessionReference: {type: string, format: uuid}
         start: {type: string, format: date-time}
         end: {type: string, format: date-time}
         locationReference: {type: integer, format: int64}
-        remainingCapacity: {type: integer, minimum: 0, description: 'Exact seats left, shown to every caller (decision 2026-11-16).'}
+        remainingCapacity: {type: integer, minimum: 1, description: 'Exact seats left, shown to every caller (decision 2026-11-16). A session with no free seat is not listed.'}
+        remainingRescheduleQuota: {type: integer, minimum: 1, description: 'Customer-change quota left on the target session (003.2 FR-035). A session whose quota is used up is not listed (user decision 2026-11-16); the quota is still rechecked on confirm, so RESCHEDULE_QUOTA_EXHAUSTED can only come from a race.'}
         selectable: {type: boolean, description: 'False for a full session; never lifted by a Manager. A target outside the package rules or past the LATE_ARRIVAL 7-day window is not listed at all; an OTA ticket or a folio that is not OPEN answers 409 for the whole request.'}
         reasonCode: {type: string, nullable: true, description: 'Set when selectable is false: INSUFFICIENT_CAPACITY.'}
         requiresManager: {type: boolean, description: 'True when only a Manager could allow it (the change is then queued, 202).'}
