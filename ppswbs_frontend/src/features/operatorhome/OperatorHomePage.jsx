@@ -28,7 +28,7 @@ export default function OperatorHomePage({ role }) {
       />
     );
   }
-  if (profile.loading) return <Loading />;
+  if (profile.loading || !profile.data) return <Loading />;
   if (profile.error) return <ErrorNotice error={profile.error} onRetry={profile.reload} />;
 
   const actualRole = profile.data?.role;

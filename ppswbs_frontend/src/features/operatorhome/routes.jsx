@@ -11,7 +11,7 @@ function RoleHomeRedirect() {
   const { status } = useAuth();
   const http = useHttp();
   const profile = useResource(() => (status === 'signed-in' ? http('/api/v1/accounts/me/profile') : Promise.resolve(null)), [status]);
-  if (status === 'loading' || profile.loading) return <Loading />;
+  if (status === 'loading' || profile.loading || !profile.data) return <Loading />;
   return <Navigate to={roleHomePath(profile.data?.role)} replace />;
 }
 
