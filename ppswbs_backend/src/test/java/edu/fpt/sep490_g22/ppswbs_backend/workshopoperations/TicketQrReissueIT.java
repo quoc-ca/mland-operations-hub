@@ -232,6 +232,7 @@ class TicketQrReissueIT {
                 .description("Synthetic fixture").publicPrice(1000L).minParticipants(1).maxParticipants(10)
                 .requiredSessionCount(1).sameLocationRequired(true).minimumSameDaySlotGap(0)
                 .state(WorkshopPackageState.PUBLISHED).build()).getId();
+        PackageAvailabilityFixture.activateEverywhere(jdbcTemplate, packageId);
         CapacityHoldOutcome hold = operationsFacade.reserveBookingCapacity(new ReserveBookingCapacityCommand(
                 bookingRef, String.valueOf(packageId), List.of(UUID.fromString(session.getReference())), 1,
                 "op-hold-" + UUID.randomUUID(), "corr-hold"));

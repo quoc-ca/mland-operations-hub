@@ -50,6 +50,7 @@ public class WorkshopOperationsFacadeImpl implements WorkshopOperationsFacade {
     private final AttendanceTicketService attendanceTicketService;
     private final WorkshopOtaSnapshotService otaSnapshotService;
     private final WorkshopPackageReservationPolicy packageReservationPolicy;
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopPackageAvailabilityService packageAvailabilityService;
     private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.BookingAttendanceOutcomeService bookingAttendanceOutcomeService;
     private final WorkshopAddOnService addOnService;
     private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.SessionStaffAssignmentRepository staffAssignmentRepository;
@@ -144,6 +145,14 @@ public class WorkshopOperationsFacadeImpl implements WorkshopOperationsFacade {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public ActivePackageLocations activeLocationsForPackage(String packageReference) {
+        Long packageId = packageReservationPolicy.parsePackageReference(packageReference);
+        return new ActivePackageLocations(packageId == null ? java.util.List.of()
+                : packageAvailabilityService.activeLocationIds(packageId));
+    }
+
+    @Override
     public TicketChangeOptions listTicketChangeOptions(ListTicketChangeOptionsQuery query) {
         return ticketChangeOptionsService.list(query);
     }
@@ -202,7 +211,8 @@ public class WorkshopOperationsFacadeImpl implements WorkshopOperationsFacade {
                 command.correlationReference());
         CapacityHoldOutcome holdOutcome = capacityHoldService.reserveBookingCapacity(
                 reserveCommand,
-                () -> packageReservationPolicy.validate(reserveCommand),
+                // 003.2 FR-039: an OTA booking is never refused at an INACTIVE Package x location pair.
+                () -> packageReservationPolicy.validate(reserveCommand, false),
                 () -> packageReservationPolicy.snapshotForBooking(reserveCommand));
 
         if (holdOutcome.status() == OutcomeStatus.IN_PROGRESS) {

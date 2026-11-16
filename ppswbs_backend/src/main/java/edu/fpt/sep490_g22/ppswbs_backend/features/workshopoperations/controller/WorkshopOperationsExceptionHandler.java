@@ -241,6 +241,16 @@ public class WorkshopOperationsExceptionHandler {
         return buildResponse(HttpStatus.CONFLICT, "OPTIMISTIC_LOCK_CONFLICT", "Conflict", "The record was updated by another transaction. Please retry.", correlationId);
     }
 
+    /** 003.2 FR-039: the Package is INACTIVE at the requested location; the page goes back to the location list. */
+    @ExceptionHandler(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopPackageNotAvailableException.class)
+    public ResponseEntity<ProblemDetailResponse> handlePackageNotAvailable(
+            edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopPackageNotAvailableException ex,
+            HttpServletRequest request) {
+        String correlationId = resolveCorrelationId(request);
+        return buildResponse(HttpStatus.CONFLICT, "PACKAGE_NOT_AVAILABLE_AT_LOCATION", "Package Not Available At Location",
+                "The Workshop Package is not sold at this location", correlationId);
+    }
+
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<ProblemDetailResponse> handleIllegalState(
             IllegalStateException ex, HttpServletRequest request) {

@@ -687,6 +687,7 @@ public class AttendanceTicketContractIT {
                 .sameLocationRequired(true).minimumSameDaySlotGap(0)
                 .state(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.WorkshopPackageState.PUBLISHED)
                 .build()).getId();
+        PackageAvailabilityFixture.activateAtSessionLocations(jdbcTemplate, packageId, sessionRefs);
         CapacityHoldOutcome holdOutcome = operationsFacade.reserveBookingCapacity(
                 new ReserveBookingCapacityCommand(bookingRef, String.valueOf(packageId), sessionRefs, 2,
                         "op-ctr-hold-" + UUID.randomUUID(), "corr-ctr-hold"));

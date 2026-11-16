@@ -19,6 +19,9 @@ public class SessionResponse {
 
     private String id;
     private Long locationId;
+
+    /** 003.2 FR-044: the location display name, next to locationId. */
+    private String locationName;
     private String slotId;
 
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")

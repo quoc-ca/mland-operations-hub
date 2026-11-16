@@ -285,10 +285,12 @@ class GroupBookingDiscountMySqlIT {
     }
 
     private Long packageOf(long price) {
-        return packages.save(WorkshopPackage.builder().name("Disc package " + price + "-" + UUID.randomUUID())
+        Long packageId = packages.save(WorkshopPackage.builder().name("Disc package " + price + "-" + UUID.randomUUID())
                 .description("fixture").publicPrice(price).minParticipants(1).maxParticipants(10)
                 .requiredSessionCount(1).sameLocationRequired(true).minimumSameDaySlotGap(0)
                 .state(WorkshopPackageState.PUBLISHED).build()).getId();
+        edu.fpt.sep490_g22.ppswbs_backend.workshopoperations.PackageAvailabilityFixture.activateEverywhere(jdbc, packageId);
+        return packageId;
     }
 
     private WorkshopSession session(int daysAhead) {
