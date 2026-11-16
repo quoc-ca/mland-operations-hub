@@ -52,8 +52,8 @@ loại trừ bên dưới vẫn bị chặn.
 - **Nguồn thiết kế:** Figma https://www.figma.com/design/lNOLBLlL9DEeyU5EvXJnPd, frame 01–11 (node ID trong `design/ui-flow.md`, mục "Figma của trang ma trận").
 - **Duyệt bởi:** Tech Lead Hồ Hoàng Quốc, chỉ thị trong phiên ngày 2026-11-17 ("tôi duyệt") sau khi nhận danh sách quyết định thiết kế tự chọn.
 - **Quyết định riêng:** hàng Đà Nẵng (chi nhánh chưa hoạt động) vẫn hiện và ô vẫn tick được, không vô hiệu hóa. Tech Lead chốt trong phiên 2026-11-17, khớp Figma hiện tại; backend không được chặn ghi ô của chi nhánh chưa hoạt động.
-- **Mã băm sau khi ghi nhận (SHA-256, 12 ký tự đầu, 2026-11-17):** `design/ui-flow.md` — `a04f74328e8b` (thay `3f6e7689fd4d`, mục UI đã đổi); `tasks.md` — `e0bd51a950c1` (dòng B1). Mã băm khác của bảng "Approved revision" không đổi.
-- **Chưa làm:** task frontend chưa được tạo; cần `$speckit-tasks` trước khi code FE.
+- **Mã băm sau khi ghi nhận (SHA-256, 12 ký tự đầu, 2026-11-17):** `design/ui-flow.md` — `a04f74328e8b` (thay `3f6e7689fd4d`, mục UI đã đổi); `tasks.md` — `e0bd51a950c1` (dòng B1; sau khi sinh task FE T163–T174 ngày 2026-11-17: xem dòng "Task frontend" bên dưới). Mã băm khác của bảng "Approved revision" không đổi.
+- **Task frontend (added 2026-11-17, `$speckit-tasks`):** T163–T174 trong `tasks.md` mục "Frontend: Manager matrix page"; mục B1 đã gỡ. Mã băm `tasks.md` sau khi thêm: `bac6844b5e48` (thay `e0bd51a950c1`; chỉ thêm task FE, bảng B1 và dòng phụ thuộc, không đổi T144–T162). Giả định cần Tech Lead xác nhận: breakpoint thẻ mobile 768 px (Figma chỉ có khung 375 px) và ô chỉ đổi sau khi server xác nhận (kiểm khung 05). Phần 003.1/003.3 vẫn bị chặn (B2, B3).
 
 ## Exclusions and remaining blockers
 
