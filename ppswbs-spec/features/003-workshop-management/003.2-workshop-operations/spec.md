@@ -1593,10 +1593,11 @@ correction, with before/after audit evidence.
   state or before/after values where the action changes data:
   | Action (rule) | Audited success event |
   | --- | --- |
-  | Create, change or stop a slot (FR-001e) | one event per change |
-  | Create a session, individually or in bulk (FR-001f) | one event per created session, plus the created/skipped report |
-  | Publish, pause or resume sales, change a session's capacity (FR-010, Business model; a location change is deferred, V1 — see T112) | one event with prior and new state |
-  | Create or edit a workshop location (FR-012c) | one event per applied change, prior and new values |
+  | Create, change or stop a slot (FR-001e) | one event per change: `SLOT_CREATED`, `SLOT_UPDATED` (prior and new label, times, capacity), `SLOT_ACTIVATED` / `SLOT_DEACTIVATED` |
+  | Create a session, individually or in bulk (FR-001f) | one `SESSION_CREATED` event per created session, plus the created/skipped report |
+  | Publish, pause or resume sales (FR-010) | one `SESSION_STATE_TRANSITION` event with prior and new state |
+  | Change a session's capacity (Business model; a location change is deferred, V1 — see T112) | one `SESSION_CAPACITY_CHANGED` event with prior and new capacity |
+  | Create or edit a workshop location (FR-012c) | `LOCATION_CREATED`; one event per applied edit with prior and new value: `LOCATION_RENAMED`, `LOCATION_ADDRESS_CHANGED`, `LOCATION_DEACTIVATED`, `LOCATION_REACTIVATED` |
   | Set or clear a session's reschedule quota (FR-035) | one event `RESCHEDULE_QUOTA_SET`, prior and new quota, reason text (free text, FR-035) |
   | Assign or revoke a Staff member (Staff session-assignment access) | one event per assignment or removal; a refused removal of the last Staff and the confirmed one are both audited (Q3) |
   | Reverse a check-in (FR-002b) | before/after, reason code |
