@@ -102,10 +102,43 @@ paths:
         '200': { $ref: '#/components/responses/CustomerSessionAvailabilityList' }
         '400': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }   # PACKAGE_NOT_AVAILABLE_AT_LOCATION (spec FR-039, proposed 2026-11-17): Package is INACTIVE at the requested location
+  /workshop-package-availability:
+    get:
+      summary: Read the Package x location availability matrix as an active Manager (spec FR-038, proposed 2026-11-17)
+      description: >-
+        Active Manager only; Staff, Admin and every other role get 403 (owner decision 2026-11-17).
+        Returns every Package, every workshop location and one cell per pair; a pair with no stored
+        row is returned as INACTIVE.
+      responses:
+        '200': { description: Matrix, content: { application/json: { schema: { $ref: '#/components/schemas/PackageAvailabilityMatrix' } } } }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /workshop-packages/{packageId}/locations/{locationId}/availability:
+    parameters:
+      - { $ref: '#/components/parameters/PackageId' }
+      - { $ref: '#/components/parameters/LocationId' }
+    put:
+      summary: Set one Package x location pair ACTIVE or INACTIVE as an active Manager (spec FR-038, proposed 2026-11-17)
+      description: >-
+        Active Manager only. Setting the state the pair already has returns 200 with no change and no
+        audit event; a real change writes one audit event. Never blocked by existing bookings, tickets or
+        holds (spec FR-040). Unknown Package or location is 404.
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PackageAvailabilityWrite' } } } }
+      responses:
+        '200': { description: Resulting cell, content: { application/json: { schema: { $ref: '#/components/schemas/PackageAvailabilityCell' } } } }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }   # IDEMPOTENCY_CONFLICT / IDEMPOTENCY_IN_PROGRESS / OPTIMISTIC_LOCK_CONFLICT
+        '503': { $ref: '#/components/responses/Problem' }
   /workshop-packages/{packageId}/locations:
     parameters: [ { $ref: '#/components/parameters/PackageId' } ]
     get:
-      summary: List all active locations for one published package
+      summary: List the active locations where one published package is sellable (ACTIVE pair only since 2026-11-17, spec FR-039)
       security: []
       parameters:
         - { name: from, in: query, required: false, schema: { type: string, format: date } }
@@ -693,11 +726,42 @@ components:
       properties:
         sessionReference: { type: string, format: uuid, description: Opaque Operations session reference; not a numeric legacy ID. }
         locationId: { type: integer, format: int64 }
+        locationName: { type: string, description: 'Location display name (spec FR-044, proposed 2026-11-17).' }
         scheduledStart: { type: string, format: date-time }
         scheduledEnd: { type: string, format: date-time }
         saleState: { type: string, description: "Customer discovery returns only future PUBLISHED sessions; this is not the OTA saleState enum (see 003.4)" }
         customerSelectable: { type: boolean }
         remainingCapacity: { type: integer, minimum: 0, description: Exact current availability snapshot; reserve remains authoritative. }
+    PackageAvailabilityState:
+      type: string
+      enum: [ACTIVE, INACTIVE]
+    PackageAvailabilityCell:
+      type: object
+      required: [packageId, locationId, state, version]
+      properties:
+        packageId: { type: integer, format: int64 }
+        locationId: { type: integer, format: int64 }
+        state: { $ref: '#/components/schemas/PackageAvailabilityState' }
+        version: { type: integer, format: int64, minimum: 0, description: 0 for a pair with no stored row. }
+    PackageAvailabilityWrite:
+      type: object
+      required: [state]
+      properties:
+        state: { $ref: '#/components/schemas/PackageAvailabilityState' }
+        version: { type: integer, format: int64, minimum: 0, description: Optional; a stale value returns 409 OPTIMISTIC_LOCK_CONFLICT. }
+    PackageAvailabilityMatrix:
+      type: object
+      required: [packages, locations, cells]
+      properties:
+        packages:
+          type: array
+          items: { type: object, required: [id, name, lifecycleState], properties: { id: { type: integer, format: int64 }, name: { type: string }, lifecycleState: { type: string } } }
+        locations:
+          type: array
+          items: { type: object, required: [id, name, active], properties: { id: { type: integer, format: int64 }, name: { type: string }, active: { type: boolean } } }
+        cells:
+          type: array
+          items: { $ref: '#/components/schemas/PackageAvailabilityCell' }
     LocationWrite:
       type: object
       required: [code, name]
@@ -752,6 +816,7 @@ components:
           required: [id, version, state, scheduledStartAt, scheduledEndAt, checkInOpeningSource]
           properties:
             id: { type: string, format: uuid }
+            locationName: { type: string, description: 'Location display name (spec FR-044, proposed 2026-11-17).' }
             state: { $ref: '#/components/schemas/SessionState' }
             scheduledStartAt: { type: string, format: date-time }
             scheduledEndAt: { type: string, format: date-time }
@@ -904,6 +969,7 @@ components:
             - TICKET_CONFLICT
             - TICKET_QR_REVOKED
             - INSUFFICIENT_CAPACITY
+            - PACKAGE_NOT_AVAILABLE_AT_LOCATION   # proposed 2026-11-17, spec FR-039 (409 on discovery at an inactive pair)
             - SLOT_OVERLAP_CONFLICT
             - DUPLICATE_SESSION
             - OPTIMISTIC_LOCK_CONFLICT

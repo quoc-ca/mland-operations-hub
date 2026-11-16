@@ -1,7 +1,7 @@
 # UI Flow Design: 003.2 Workshop Operations
 
 **Date created**: 2026-11-02
-**Date updated**: 2026-11-02
+**Date updated**: 2026-11-17
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -52,6 +52,26 @@
 - Keep server revision/source version with editable rows to prevent stale overwrites.
 - Do not put contact PII, ticket secrets, or credentials in query strings or logs.
 - Calendar, table, and check-in controls must be keyboard navigable, labelled, and usable at the approved responsive breakpoints.
+
+## Package availability per location (proposed 2026-11-17, spec FR-037–FR-046)
+
+Phạm vi: màn hình mới của Manager và các thay đổi hiển thị ở 003.1/003.3. Trạng thái `proposed`; chưa có Figma, nên
+không suy bố cục từ prototype. Liên kết: [architecture.md](./architecture.md), [workflows.md](./workflows.md).
+
+| Screen / flow | Entry and actor | Workflow ID | Architecture component/hook/API-client link | API/contract reference | Loading / empty / validation / success / error / partial states | Recovery |
+| --- | --- | --- | --- | --- | --- | --- |
+| Ma trận gói × location (mới) | Manager vào `/operations/package-availability` | WF-01, WF-02 | `PackageAvailabilityMatrixPage`, `PackageAvailabilityMatrix`, `packageAvailabilityApi` | `GET /workshop-package-availability`, `PUT /workshop-packages/{packageId}/locations/{locationId}/availability` | Loading: khung bảng. Empty: không có gói hoặc location, hiện thông báo. Mỗi ô đang lưu bị vô hiệu hóa riêng; thành công: ô đổi ngay và có thông báo ngắn; lỗi 403: trang từ chối quyền; lỗi 409 version: tải lại ô; lỗi khác: giữ trạng thái cũ của ô và hiện lỗi. Hàng location không hoạt động (Đà Nẵng) vẫn hiện, ô để trống. | Tải lại ma trận; ô lỗi trở về giá trị server |
+| Chọn location khi đặt chỗ (003.1, đổi) | Khách trên trang gói | WF-03, WF-04 | `WorkshopDetailPage`, `WorkshopBookingPage` (existing, `ppswbs_frontend/src/workshops`) | `GET /workshop-packages/{packageId}/locations`, `.../sessions?locationId=` | Danh sách chỉ gồm location bán gói; rỗng: "Chưa bán ở chi nhánh nào"; 409: quay về chọn location kèm thông báo | Chọn location khác |
+| Danh sách buổi đặt chỗ và đổi vé (003.1/003.3, đổi) | Khách, Staff, Manager | WF-04, WF-06 | `TicketSessionPicker`, `GroupTicketList` (existing) | OpenAPI `locationName`; 003.3 `ChangeOption` | Mỗi dòng: "Chi nhánh – ngày giờ – còn N chỗ – còn M lượt đổi"; dòng khác location đánh dấu cần Manager với Staff | Chọn buổi khác |
+| Xác nhận đổi vé sang location khác (003.3, đổi) | Khách, Staff, Manager | WF-07 | `TicketSessionPicker` + trang đổi vé của 003.3 | facade `replaceTicketSessions` qua 003.3 | Lỗi `PACKAGE_NOT_AVAILABLE_AT_LOCATION` hiện rõ "gói vừa ngừng bán ở chi nhánh đó"; Wax Casting báo phải đổi cả hai buổi cùng chi nhánh | Chọn lại buổi |
+
+Quyền và phiên: chỉ Manager thấy mục menu ma trận; Staff và Admin không thấy và bị 403 nếu vào thẳng URL. Khi mất phiên
+hoặc mất quyền, xóa dữ liệu ma trận trong bộ nhớ và về trang đăng nhập (cùng quy tắc "clear stale session data" ở trên).
+Khả năng truy cập: ô tick là checkbox có nhãn "<tên gói> tại <tên location>", dùng được bằng bàn phím, trạng thái lưu
+được thông báo cho trình đọc màn hình.
+
+**Open decisions (UI):** bố cục và chữ chính thức chờ Figma; có hiện số đơn đang chạy khi Manager tắt một ô hay không
+(spec không yêu cầu, chưa quyết định).
 
 ## Open decisions and dependencies
 
