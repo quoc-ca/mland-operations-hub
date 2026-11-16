@@ -251,3 +251,12 @@
 .lp-public .workspace-card>.card-head .badge{font-size:12px;padding:5px 12px}
 .package-checks{border:0;padding:0;margin:0 0 8px}
 .package-checks legend{font-size:14px;font-weight:600;margin-bottom:4px}
+.target-picker .actions.target-bulk{margin:16px 0 8px;gap:12px}
+.target-picker .target-search{margin-top:16px;gap:12px;flex-wrap:nowrap}
+.target-picker .target-search .field{flex:1 1 auto;min-width:0}
+.target-picker .target-search .button{flex:0 0 auto;min-width:96px}
+.target-picker .target-search .field.target-filter{flex:0 0 220px}
+.target-picker .target-filter select{width:100%;min-width:0}
+@media(max-width:600px){.target-picker .target-search{flex-wrap:wrap}.target-picker .target-search .field.target-filter,.target-picker .target-search .button{flex:1 1 100%}}
+.target-picker .actions:not(.target-bulk){align-items:center;margin-top:16px;gap:12px}
+.lp-theme .target-picker .actions:not(.target-bulk)>span.muted.small{margin:0;line-height:1}

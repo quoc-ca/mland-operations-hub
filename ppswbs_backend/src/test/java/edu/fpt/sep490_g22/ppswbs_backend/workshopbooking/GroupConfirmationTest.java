@@ -369,7 +369,13 @@ class GroupConfirmationTest {
         when(attempts.findByMerchantReference("GRP-M1")).thenReturn(Optional.of(attempt));
         when(attempts.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         GroupPaymentEvidenceService evidence = new GroupPaymentEvidenceService(attempts, service, groups,
-                mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.LatePaymentReviewService.class));
+                mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.LatePaymentReviewService.class),
+                mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.GroupExcessPaymentRepository.class),
+                mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.ExcessPaymentRefundPort.class),
+                mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.ManagerAlertService.class),
+                new edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.GroupConfirmationAttemptRunner(
+                        service, mock(org.springframework.transaction.PlatformTransactionManager.class)),
+                mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.GroupConfirmationRetryService.class));
 
         DepositPaymentEvidenceOutcome first = evidence.apply(GROUP, "GRP-M1", 150_000, "VND", "VNPAY-TX-7", "op-1", "corr-1");
         DepositPaymentEvidenceOutcome second = evidence.apply(GROUP, "GRP-M1", 150_000, "VND", "VNPAY-TX-7", "op-1", "corr-1");
@@ -394,7 +400,13 @@ class GroupConfirmationTest {
                 .merchantReference("GRP-M1").attemptStatus(PaymentAttemptStatus.PENDING).build();
         when(attempts.findByMerchantReference("GRP-M1")).thenReturn(Optional.of(attempt));
         GroupPaymentEvidenceService evidence = new GroupPaymentEvidenceService(attempts, service, groups,
-                mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.LatePaymentReviewService.class));
+                mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.LatePaymentReviewService.class),
+                mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.GroupExcessPaymentRepository.class),
+                mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.ExcessPaymentRefundPort.class),
+                mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.ManagerAlertService.class),
+                new edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.GroupConfirmationAttemptRunner(
+                        service, mock(org.springframework.transaction.PlatformTransactionManager.class)),
+                mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.GroupConfirmationRetryService.class));
 
         assertThat(evidence.apply(GROUP, "GRP-M1", 149_000, "VND", "ev", "op", "corr").reason())
                 .isEqualTo(BookingRejectionReason.PAYMENT_MISMATCH);

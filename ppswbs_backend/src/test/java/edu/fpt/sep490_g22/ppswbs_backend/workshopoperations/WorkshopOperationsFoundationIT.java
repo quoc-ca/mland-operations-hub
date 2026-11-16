@@ -93,9 +93,6 @@ public class WorkshopOperationsFoundationIT {
     private SessionStaffAssignmentRepository staffAssignmentRepository;
 
     @Autowired
-    private SessionOperationalLeadRepository operationalLeadRepository;
-
-    @Autowired
     private CapacityHoldRepository holdRepository;
 
     @Autowired
@@ -128,7 +125,6 @@ public class WorkshopOperationsFoundationIT {
         entitlementRepository.deleteAll();
         ticketRepository.deleteAll();
         holdRepository.deleteAll();
-        operationalLeadRepository.deleteAll();
         staffAssignmentRepository.deleteAll();
         handoffRepository.deleteAll();
         auditEventRepository.deleteAll();
@@ -209,15 +205,6 @@ public class WorkshopOperationsFoundationIT {
                     .active(true)
                     .build());
             assertThat(assignment.getId()).isNotNull();
-
-            // Operational Lead
-            SessionOperationalLead lead = operationalLeadRepository.save(SessionOperationalLead.builder()
-                    .session(testSession)
-                    .managerAccountId(100L)
-                    .reasonCode("MGR_COVERAGE")
-                    .active(true)
-                    .build());
-            assertThat(lead.getId()).isNotNull();
 
             // Capacity Hold
             CapacityHold hold = holdRepository.save(CapacityHold.builder()

@@ -16,7 +16,6 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.Cancell
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.CancellationHandoffOutboxRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.CapacityHoldRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.OperationsAuditEventRepository;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.SessionOperationalLeadRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.SessionStaffAssignmentRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.TicketSessionEntitlementRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.WorkshopLocationRepository;
@@ -36,7 +35,6 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.Capa
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.CapacityHoldState;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.CheckInOpeningSource;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.OperationsAuditEvent;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.SessionOperationalLead;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.SessionStaffAssignment;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.SessionState;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.TicketSessionEntitlement;
@@ -107,9 +105,6 @@ public class WorkshopClosureIT {
     private SessionStaffAssignmentRepository staffAssignmentRepository;
 
     @Autowired
-    private SessionOperationalLeadRepository operationalLeadRepository;
-
-    @Autowired
     private CapacityHoldRepository capacityHoldRepository;
 
     @Autowired
@@ -159,7 +154,6 @@ public class WorkshopClosureIT {
         jdbcTemplate.execute("TRUNCATE TABLE ticket_session_entitlements");
         jdbcTemplate.execute("TRUNCATE TABLE attendance_tickets");
         jdbcTemplate.execute("TRUNCATE TABLE capacity_holds");
-        jdbcTemplate.execute("TRUNCATE TABLE session_operational_leads");
         jdbcTemplate.execute("TRUNCATE TABLE session_staff_assignments");
         jdbcTemplate.execute("TRUNCATE TABLE cancellation_handoffs");
         jdbcTemplate.execute("TRUNCATE TABLE workshop_cancellation_outbox");
@@ -574,6 +568,11 @@ public class WorkshopClosureIT {
         TicketSessionEntitlement updatedA = entitlementRepository.findById(entA.getId()).orElseThrow();
         assertThat(updatedA.getAttendanceState()).isEqualTo(AttendanceState.CHECKED_IN);
         assertThat(updatedA.getCheckedInAt()).isNotNull();
+        // T141 / FR-007c: the correction is audited once with the before/after state and the reason code.
+        List<OperationsAuditEvent> correctionAudits = auditEventRepository.findBySessionIdOrderByOccurredAtDesc(session.getId()).stream()
+                .filter(a -> "ATTENDANCE_CORRECTED".equals(a.getAction())).toList();
+        assertThat(correctionAudits).hasSize(1);
+        assertThat(correctionAudits.get(0).getMetadata()).contains("NO_SHOW").contains("CHECKED_IN").contains("RECORDING_ERROR");
 
         // Ticket B: Attempt invalid correction to NOT_CHECKED_IN -> 400 Bad Request
         AttendanceCorrectionRequest reqInvalid = AttendanceCorrectionRequest.builder()

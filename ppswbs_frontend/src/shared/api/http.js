@@ -4,7 +4,7 @@ export const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://localhos
 
 /** Typed failure built from common.ErrorResponse: code, safe message, correlationId, fieldErrors. */
 export class ApiError extends Error {
-  constructor({ status, code, message, correlationId = null, fieldErrors = [], method = 'GET', failingTicketCodes = [] }) {
+  constructor({ status, code, message, correlationId = null, fieldErrors = [], method = 'GET', failingTicketCodes = [], reason = null, retryAfterSeconds = null, checkInOpensAt = null }) {
     super(message || code);
     this.name = 'ApiError';
     this.status = status;
@@ -13,6 +13,11 @@ export class ApiError extends Error {
     this.fieldErrors = fieldErrors;
     this.method = method;
     this.failingTicketCodes = failingTicketCodes;
+    // Closed `reason` of a 409 INVALID_STATE / STAFF_NOT_ELIGIBLE and whole seconds of a 429 Retry-After header.
+    this.reason = reason;
+    this.retryAfterSeconds = retryAfterSeconds;
+    // Only with 409 CHECK_IN_NOT_OPEN: ISO instant when normal check-in opens (T126).
+    this.checkInOpensAt = checkInOpensAt;
   }
 
   /** 503 and lost responses may be retried with the same Idempotency-Key. */
@@ -42,6 +47,13 @@ function buildUrl(baseUrl, path, query) {
   return url.toString();
 }
 
+/** Retry-After as whole seconds (>= 1); an HTTP date or junk is ignored. */
+function retryAfterOf(value) {
+  if (!value || !/^\d+$/.test(value.trim())) return null;
+  const seconds = Number(value.trim());
+  return seconds >= 1 ? seconds : null;
+}
+
 async function errorFrom(response, method) {
   const payload = await response.json().catch(() => ({}));
   return new ApiError({
@@ -52,6 +64,9 @@ async function errorFrom(response, method) {
     fieldErrors: Array.isArray(payload.fieldErrors) ? payload.fieldErrors : [],
     method,
     failingTicketCodes: Array.isArray(payload.failingTicketCodes) ? payload.failingTicketCodes : [],
+    reason: typeof payload.reason === 'string' ? payload.reason : null,
+    retryAfterSeconds: retryAfterOf(response.headers.get('Retry-After')),
+    checkInOpensAt: typeof payload.checkInOpensAt === 'string' ? payload.checkInOpensAt : null,
   });
 }
 

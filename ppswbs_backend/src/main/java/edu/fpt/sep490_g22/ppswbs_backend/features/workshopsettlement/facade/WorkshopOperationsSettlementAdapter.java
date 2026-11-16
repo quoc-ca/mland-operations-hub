@@ -33,12 +33,6 @@ public class WorkshopOperationsSettlementAdapter {
         return operations.getWorkshopAddOnPrice(new WorkshopAddOnPriceQuery(packageReference, locationReference, addOnReference));
     }
 
-    public RefundConsequenceOutcome applyRefund(String bookingReference, String verifiedRefundReference,
-            String operationReference, String correlationReference) {
-        return operations.applyVerifiedRefundConsequence(new ApplyVerifiedRefundConsequenceCommand(
-                bookingReference, verifiedRefundReference, operationReference, correlationReference));
-    }
-
     public CancellationCompletionOutcome completeCancellation(String sessionReference,
             String cancellationCaseReference, String operationReference, String correlationReference) {
         return operations.completeCancellationHandoff(new CompleteCancellationHandoffCommand(

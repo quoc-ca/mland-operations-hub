@@ -33,6 +33,7 @@ class TicketChangeControllerTest {
     private static final String TICKET_CODE = "GRP-01-L1-T1";
     private static final String IDEMPOTENCY_KEY = "idempotency-key-ticket-change-123";
     private static final UUID TARGET_SESSION = UUID.randomUUID();
+    private static final UUID FROM_SESSION = UUID.randomUUID();
 
     @Test
     void changeTicketSessions_success_returns200() {
@@ -41,7 +42,7 @@ class TicketChangeControllerTest {
 
         TicketChangeRequestDto request = new TicketChangeRequestDto(
                 TicketChangeType.ADVANCE,
-                List.of(TARGET_SESSION),
+                List.of(TARGET_SESSION), List.of(FROM_SESSION),
                 null,
                 null,
                 null

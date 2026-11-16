@@ -45,8 +45,11 @@ class PromotionSeedRunnerTests {
             if (program.path("seedTargets").has("branchCodes")) {
                 targets.putArray("branchIds").add("1");
             }
+            if (program.path("seedTargets").path("publishedPackages").asBoolean(false)) {
+                targets.putArray("packageIds").add("1");
+            }
             assertThatCode(() -> PromotionWriteDtos.parseCreate(body)).as(identity).doesNotThrowAnyException();
         }
-        assertThat(count).isEqualTo(10);
+        assertThat(count).isEqualTo(11);
     }
 }

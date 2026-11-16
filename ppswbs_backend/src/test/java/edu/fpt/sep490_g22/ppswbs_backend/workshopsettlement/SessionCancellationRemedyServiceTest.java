@@ -36,8 +36,10 @@ class SessionCancellationRemedyServiceTest {
     private final TicketMlandRemedyService remedies = mock(TicketMlandRemedyService.class);
     private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.SettlementCustomerNotifier notifier =
             mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.SettlementCustomerNotifier.class);
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.CancellationHandoffCompletionService handoffCompletion =
+            mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.CancellationHandoffCompletionService.class);
     private final SessionCancellationRemedyService service =
-            new SessionCancellationRemedyService(operations, booking, remedies, notifier);
+            new SessionCancellationRemedyService(operations, booking, remedies, notifier, handoffCompletion);
 
     private final UUID cancelled = UUID.randomUUID();
     private final UUID otherSession = UUID.randomUUID();

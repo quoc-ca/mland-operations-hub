@@ -57,10 +57,13 @@ public class PriceProposalService {
     private final ProductReviewInvalidationService invalidation;
     private final CatalogueAuditWriter audit;
     private final CatalogueCommandExecutor executor;
+    private final SubmitterBranchSnapshot submitterBranches;
 
     public PriceProposalService(CatalogueLockCoordinator locks, PriceProposalRepository proposals,
                                 ProductVariantRepository variants, ProductReviewInvalidationService invalidation,
-                                CatalogueAuditWriter audit, CatalogueCommandExecutor executor) {
+                                CatalogueAuditWriter audit, CatalogueCommandExecutor executor,
+                                SubmitterBranchSnapshot submitterBranches) {
+        this.submitterBranches = submitterBranches;
         this.locks = locks;
         this.proposals = proposals;
         this.variants = variants;
@@ -130,7 +133,7 @@ public class PriceProposalService {
                 throw new CatalogueException(CatalogueErrorCode.STALE_VERSION);
             }
             requireSameTerms(size.variant(), proposal);
-            proposal.submit(actorId, CatalogueValues.toStoredInstant(Instant.now()));
+            proposal.submit(actorId, CatalogueValues.toStoredInstant(Instant.now()), submitterBranches.capture(actorId));
             size.variant().pointPendingProposal(proposal.getId());
             return recorded(actorId, commandId, SUBMIT_ACTION, proposals.saveAndFlush(proposal), 200);
         });

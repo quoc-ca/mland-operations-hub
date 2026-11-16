@@ -38,6 +38,15 @@ const RECOVERY_REASONS = [
   { code: 'OTHER_REQUIRES_NOTE', label: 'OTHER_REQUIRES_NOTE — Lý do khác (yêu cầu điền chi tiết ở ô ghi chú)' },
 ];
 
+// T130: one message per STAFF_NOT_ELIGIBLE reason (the closed set the backend returns).
+const STAFF_NOT_ELIGIBLE_MESSAGES = {
+  ACCOUNT_NOT_FOUND: 'Không tìm thấy tài khoản này. Kiểm tra lại Account ID.',
+  NOT_STAFF: 'Tài khoản này không phải Staff nên không thể phân công vào ca.',
+  NOT_ACTIVE: 'Tài khoản Staff này không còn hoạt động (không ở trạng thái ACTIVE).',
+  LOCATION_NOT_IN_SCOPE: 'Staff này không thuộc chi nhánh của ca nên không thể phân công.',
+};
+const staffNotEligibleText = reason => STAFF_NOT_ELIGIBLE_MESSAGES[reason] || 'Không phân công được Staff này cho ca.';
+
 const ROSTER_LABELS = { CHECKED_IN: 'Đã check-in', NOT_CHECKED_IN: 'Chưa check-in', NO_SHOW: 'Vắng mặt' };
 
 // While a session is IN_PROGRESS it can only go on to finalization or cancellation (spec 003.2): it never returns to a
@@ -101,6 +110,30 @@ function ReasonFields({ ticketCode, setTicketCode, reasonCode, setReasonCode, re
   );
 }
 
+/** Staff-facing text of the three resend refusals (spec FR-003c, T127, T139); null for any other failure. */
+function resendRefusalText(error) {
+  if (error?.status === 429 && error.code === 'REDELIVERY_THROTTLED') {
+    const wait = error.retryAfterSeconds;
+    return `Đã gửi lại vé tối đa 3 lần trong 15 phút cho đơn này${wait ? `; thử lại sau ${wait} giây` : ''}. `
+      + 'Nếu khách vẫn chưa nhận được vé, dùng "Override check-in" với lý do TICKET_REDELIVERY_UNAVAILABLE.';
+  }
+  if (error?.status === 409 && error.code === 'INVALID_STATE' && error.reason === 'NO_ELIGIBLE_TICKET') {
+    return 'Đơn này không có vé hợp lệ chưa sử dụng để gửi lại.';
+  }
+  if (error?.status === 409 && error.code === 'INVALID_STATE' && error.reason === 'REDELIVERY_REJECTED_BY_BOOKING') {
+    return 'Hệ thống đặt chỗ từ chối gửi lại vé của đơn này. Chưa có vé nào được gửi.';
+  }
+  return null;
+}
+
+/** T126: staff-facing text of 409 CHECK_IN_NOT_OPEN ("check-in opens at ..."); null for any other failure. */
+export function checkInNotOpenText(error) {
+  if (error?.status !== 409 || error.code !== 'CHECK_IN_NOT_OPEN') return null;
+  const opensAt = error.checkInOpensAt ? new Date(error.checkInOpensAt) : null;
+  const when = opensAt && !Number.isNaN(opensAt.getTime()) ? opensAt.toLocaleString('vi-VN') : null;
+  return `Check-in opens at ${when || 'a later time'}. Nếu khách đến sớm, dùng "Override check-in" với lý do EARLY_CHECKIN.`;
+}
+
 export default function OperationsSessionPage() {
   const { sessionId } = useParams();
   const { status, user } = useAuth();
@@ -112,7 +145,7 @@ export default function OperationsSessionPage() {
   // Staff assignment, booking recovery, session cancellation and folio correction are Manager actions (the backend
   // refuses a Staff there); the role is unknown until the profile arrives, so they appear only once it is known.
   const role = useRole();
-  const isManager = role === 'MANAGER' || role === 'ADMIN';
+  const isManager = role === 'MANAGER';
   const [rosterFilter, setRosterFilter] = useState('ALL');
   const command = useCommand();
   const [message, setMessage] = useState('');
@@ -120,6 +153,10 @@ export default function OperationsSessionPage() {
   const [qrToken, setQrToken] = useState('');
   const [lookupBookingCode, setLookupBookingCode] = useState('');
   const [resendBookingCode, setResendBookingCode] = useState('');
+  const [resendError, setResendError] = useState(null);
+  // T126: the refused normal check-in (409 CHECK_IN_NOT_OPEN) and whether the exceptions panel (override) is open.
+  const [checkInNotOpen, setCheckInNotOpen] = useState(null);
+  const [exceptionsOpen, setExceptionsOpen] = useState(false);
   const [lookup, setLookup] = useState(null);
   const [otaBooking, setOtaBooking] = useState(null);
   const [lookupError, setLookupError] = useState('');
@@ -132,6 +169,10 @@ export default function OperationsSessionPage() {
   const [assignmentAccountId, setAssignmentAccountId] = useState('');
   const [staffOptions, setStaffOptions] = useState(DEFAULT_STAFF_OPTIONS);
   const [customAccountId, setCustomAccountId] = useState(false);
+  // T115: the Staff whose removal needs the Manager's confirmation (the last assignment after check-in opened).
+  const [pendingLastRemoval, setPendingLastRemoval] = useState(null);
+  // T130: why the chosen Staff cannot be assigned (STAFF_NOT_ELIGIBLE reason), shown next to the form.
+  const [assignmentError, setAssignmentError] = useState('');
   const [loadingStaff, setLoadingStaff] = useState(false);
   const [bookingCode, setBookingCode] = useState('');
   const [recoveryReasonCode, setRecoveryReasonCode] = useState('PROVIDER_CONFIRMED_LATE_DEPOSIT');
@@ -198,6 +239,54 @@ export default function OperationsSessionPage() {
     if (result.ok) { setMessage(success); resource.reload(); roster.reload(); }
   }
 
+  // T126: a check-in refused before checkInOpensAt is explained in the desk (opens-at time, EARLY_CHECKIN override).
+  async function runCheckIn(body, success) {
+    setMessage('');
+    setCheckInNotOpen(null);
+    const result = await command.run(key => api.checkIn(sessionId, body, key));
+    if (result.ok) { setMessage(success); resource.reload(); roster.reload(); return; }
+    if (checkInNotOpenText(result.error)) { setCheckInNotOpen(result.error); command.reset(); }
+  }
+
+  function prepareEarlyCheckInOverride() {
+    setReasonCode('EARLY_CHECKIN');
+    setExceptionsOpen(true);
+  }
+
+  // T127 / T139: a resend refusal is explained inside the Ticket delivery panel (wait time, no eligible ticket, Booking
+  // refusal) instead of the generic notice; any other failure stays in the generic notice.
+  async function runResend() {
+    setMessage('');
+    setResendError(null);
+    const result = await command.run(key => api.resendTickets(sessionId, resendBookingCode.trim(), key));
+    if (result.ok) { setMessage('Ticket resend requested.'); resource.reload(); roster.reload(); return; }
+    if (resendRefusalText(result.error)) { setResendError(result.error); command.reset(); }
+  }
+
+  async function removeAssignedStaff(accountId, confirmLast = false) {
+    setMessage('');
+    setAssignmentError('');
+    setPendingLastRemoval(null);
+    // A confirmed repeat is a new command, so command.run issues a new Idempotency-Key (the refused one is spent).
+    const result = await command.run(key => api.removeStaff(sessionId, accountId, key, confirmLast));
+    if (result.ok) { setMessage('Staff assignment removed.'); resource.reload(); roster.reload(); return; }
+    if (result.error?.code === 'LAST_STAFF_ASSIGNMENT_CONFIRMATION_REQUIRED') {
+      command.reset();
+      setPendingLastRemoval(accountId);
+    }
+  }
+
+  async function assignSelectedStaff() {
+    setMessage('');
+    setAssignmentError('');
+    const result = await command.run(key => api.assignStaff(sessionId, assignmentAccountId, key));
+    if (result.ok) { setMessage('Staff assignment saved.'); resource.reload(); roster.reload(); return; }
+    if (result.error?.code === 'STAFF_NOT_ELIGIBLE') {
+      command.reset();
+      setAssignmentError(staffNotEligibleText(result.error.reason));
+    }
+  }
+
   async function runBookingAction(action) {
     setMessage('');
     setIncidentResult(null);
@@ -246,6 +335,7 @@ export default function OperationsSessionPage() {
       <span className={`ops-status large session-state session-state-${String(session.state).toLowerCase()}`}>{session.state}</span>
     </header>
     <SuccessNotice>{message}</SuccessNotice><ErrorNotice error={command.error} onRetry={command.retry} onReload={resource.reload} />
+    {isManager && session.missingStaff && <div className="notice error" role="alert">Ca này đã mở check-in nhưng chưa có Staff nào được phân công. Hãy phân công Staff cho ca (Manager vẫn check-in được).</div>}
     <section className="ops-detail-grid">
       <article className="ota-panel">
         <div className="ota-panel-head"><h2>Check-in desk</h2></div>
@@ -253,8 +343,8 @@ export default function OperationsSessionPage() {
           className="ota-form"
           onSubmit={e => {
             e.preventDefault();
-            if (ticketCode.trim()) run(key => api.checkIn(sessionId, { ticketCode: ticketCode.trim() }, key), 'Check-in recorded.');
-            else if (qrToken.trim()) run(key => api.checkIn(sessionId, { qrToken: qrToken.trim() }, key), 'QR check-in recorded.');
+            if (ticketCode.trim()) runCheckIn({ ticketCode: ticketCode.trim() }, 'Check-in recorded.');
+            else if (qrToken.trim()) runCheckIn({ qrToken: qrToken.trim() }, 'QR check-in recorded.');
           }}
         >
           <label>
@@ -281,6 +371,12 @@ export default function OperationsSessionPage() {
             Check in
           </button>
         </form>
+        {checkInNotOpen && (
+          <div className="notice error" role="alert">
+            <p>{checkInNotOpenText(checkInNotOpen)}</p>
+            <button type="button" className="button outline small" onClick={prepareEarlyCheckInOverride}>Chuẩn bị override EARLY_CHECKIN</button>
+          </div>
+        )}
 
         <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid #e5e7eb' }}>
           <p style={{ margin: '0 0 8px', fontSize: '13px', fontWeight: 600, color: '#374151' }}>
@@ -430,7 +526,7 @@ export default function OperationsSessionPage() {
                 <li key={item.accountId}>
                   <span>{item.label} <small className="muted">(ID {item.accountId})</small></span>
                   <button type="button" className="button outline small" disabled={command.pending}
-                    onClick={() => run(key => api.removeStaff(sessionId, item.accountId, key), 'Staff assignment removed.')}>
+                    onClick={() => removeAssignedStaff(item.accountId)}>
                     Remove
                   </button>
                 </li>
@@ -475,25 +571,36 @@ export default function OperationsSessionPage() {
             </label>
           )}
         </div>
+        {assignmentError && <p role="alert" className="field-error">{assignmentError}</p>}
+        {pendingLastRemoval !== null && (
+          <div role="alertdialog" aria-labelledby="last-staff-title" aria-describedby="last-staff-body" className="notice error">
+            <strong id="last-staff-title">Gỡ Staff cuối cùng của ca?</strong>
+            <p id="last-staff-body">Đây là Staff cuối cùng được phân công và check-in của ca đã mở. Sau khi gỡ, ca sẽ không có Staff phụ trách (Manager vẫn check-in được).</p>
+            <div className="ops-actions">
+              <button type="button" className="button danger" disabled={command.pending} onClick={() => removeAssignedStaff(pendingLastRemoval, true)}>Xác nhận gỡ</button>
+              <button type="button" className="button outline" disabled={command.pending} onClick={() => setPendingLastRemoval(null)}>Hủy</button>
+            </div>
+          </div>
+        )}
         <div className="ops-actions">
           <button
             className="button primary"
             disabled={command.pending || !assignmentAccountId.trim()}
-            onClick={() => run(key => api.assignStaff(sessionId, assignmentAccountId, key), 'Staff assignment saved.')}
+            onClick={assignSelectedStaff}
           >
             Assign
           </button>
           <button
             className="button outline"
             disabled={command.pending || !assignmentAccountId.trim()}
-            onClick={() => run(key => api.removeStaff(sessionId, assignmentAccountId, key), 'Staff assignment removed.')}
+            onClick={() => removeAssignedStaff(assignmentAccountId)}
           >
             Remove
           </button>
         </div>
       </article>
       </>)}
-      <details className="ops-exceptions">
+      <details className="ops-exceptions" open={exceptionsOpen} onToggle={e => setExceptionsOpen(e.currentTarget.open)}>
         <summary>Xử lý ngoại lệ <small>điều chỉnh check-in, gửi lại vé, khôi phục đặt chỗ, hủy ca, điều chỉnh folio</small></summary>
         <div className="ops-detail-grid">
       <article className="ota-panel">
@@ -520,11 +627,12 @@ export default function OperationsSessionPage() {
           <button
             className="button outline"
             disabled={command.pending || !resendBookingCode.trim()}
-            onClick={() => run(key => api.resendTickets(sessionId, resendBookingCode.trim(), key), 'Ticket resend requested.')}
+            onClick={runResend}
           >
             Resend ticket
           </button>
         </div>
+        {resendError && <div className="notice error" role="alert"><p>{resendRefusalText(resendError)}</p></div>}
       </article>
       {isManager && (<>
       <article className="ota-panel">

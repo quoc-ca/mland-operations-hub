@@ -57,14 +57,44 @@ public final class ManagementProductDtos {
                                     List<BranchStock> branchStocks) {
     }
 
+    /**
+     * FR-060 fields ({@code submittedBy} … {@code decidedAt}) are omitted while the revision was not submitted /
+     * decided.
+     */
     public record Proposal(String id, String variantId, long revision, long version, String state, boolean effective,
                            String proposedPrice,
                            @JsonInclude(JsonInclude.Include.NON_NULL) String approvedPrice,
                            long baseAppliedSequence, boolean applied,
-                           @JsonInclude(JsonInclude.Include.NON_NULL) String reason) {
+                           @JsonInclude(JsonInclude.Include.NON_NULL) String reason,
+                           @JsonInclude(JsonInclude.Include.NON_NULL) ActorRef submittedBy,
+                           @JsonInclude(JsonInclude.Include.NON_NULL) Instant submittedAt,
+                           @JsonInclude(JsonInclude.Include.NON_NULL) SubmitterBranches submitterBranches,
+                           @JsonInclude(JsonInclude.Include.NON_NULL) ActorRef decidedBy,
+                           @JsonInclude(JsonInclude.Include.NON_NULL) Instant decidedAt) {
     }
 
+    /** FR-060 fields as on {@link Proposal}. */
     public record Review(String id, long revision, long contentVersion, String state, boolean effective,
-                         @JsonInclude(JsonInclude.Include.NON_NULL) String reason) {
+                         @JsonInclude(JsonInclude.Include.NON_NULL) String reason,
+                         @JsonInclude(JsonInclude.Include.NON_NULL) ActorRef submittedBy,
+                         @JsonInclude(JsonInclude.Include.NON_NULL) Instant submittedAt,
+                         @JsonInclude(JsonInclude.Include.NON_NULL) SubmitterBranches submitterBranches,
+                         @JsonInclude(JsonInclude.Include.NON_NULL) ActorRef decidedBy,
+                         @JsonInclude(JsonInclude.Include.NON_NULL) Instant decidedAt) {
+    }
+
+    /**
+     * FR-060: who recorded a submit or decision. {@code kind} ACCOUNT or SYSTEM; {@code displayName} is the final label
+     * (full name, else "Tài khoản #id"; "Hệ thống" for SYSTEM). No raw id, email or Firebase UID.
+     */
+    public record ActorRef(String kind, String displayName) {
+    }
+
+    /** FR-061: branch scope of the submitter at submit time; {@code kind} ALL, LISTED, SYSTEM or NOT_RECORDED. */
+    public record SubmitterBranches(String kind, List<SubmitterBranch> branches) {
+    }
+
+    /** {@code name} as at submit time; null when it was not known then. */
+    public record SubmitterBranch(String locationId, @JsonInclude(JsonInclude.Include.NON_NULL) String name) {
     }
 }

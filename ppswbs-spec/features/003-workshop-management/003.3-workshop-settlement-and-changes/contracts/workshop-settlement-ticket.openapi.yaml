@@ -1,9 +1,10 @@
 openapi: 3.0.3
 info:
   title: Workshop Settlement per Ticket API
-  version: 0.2.0
+  version: 0.3.0
   description: >-
-    Contract for spec FR-030–FR-051 (decision 2026-11-12): per-ticket
+    Contract for spec FR-030–FR-057 (decision 2026-11-12; FR-052–FR-055
+    added 2026-11-14, FR-056–FR-057 added 2026-11-15): per-ticket
     folio, counter collection, cash day close, bank refunds, per-ticket
     cancellation, Mland remedy and changes. Implemented and served by the code (tasks T093–T125).
     Decision 2026-11-14 (T106): the per-ticket folio routes below (add-ons,
@@ -11,8 +12,11 @@ info:
     contract path) replace every /workshop-bookings/{bookingCode}/final-bill*,
     /folio-corrections* and /workshop-folios/{bookingReference}/* route; the
     booking-wide routes are removed (T106, T123, T124).
-    Routes move into workshop-settlement.openapi.yaml as they are implemented.
-    Money values are whole VND strings.
+    Every per-ticket route stays in this file once implemented (plan "Public
+    REST Design"); workshop-settlement.openapi.yaml keeps only the routes
+    still served booking-wide.
+    Money values are whole VND strings (Vnd schema); the CashClose and
+    expected-cash responses still use the code's whole VND integers.
     Decided 2026-11-14 (spec FR-052–FR-055), added by T106: Manager-only public
     routes with a required reason and audit for the cash-close difference
     confirmation (canonical family /workshop-cash-closes/{cashCloseId}/difference-confirmations),
@@ -24,6 +28,27 @@ info:
     the code (line and collection voids, change-allowances, cash-close
     difference-confirmations); the retired /workshop-cash-days/* routes are no
     longer listed.
+    2026-11-15 (spec FR-056, FR-057, Clarifications Session 2026-11-15): the
+    routes marked x-status planned (reconciliation list, absorbed-undercharge
+    record, void and list) were designed 2026-11-15 and are served since 2026-11-16
+    (tasks T133, T135; x-status planned removed). C2 (decided 2026-11-15): every
+    cash-close route, parameter and schema uses locationId and workingDate; the
+    backend follows since T131 (2026-11-16), the frontend in T132.
+    2026-11-15 (checklist payment-error-access.md, tasks Phase 11 T144-T171):
+    the Manager-only cash reversal route, the account-entry confirmation
+    flag, the return-to-PENDING_ACCOUNT transition and the optional transfer
+    receipt image are PROPOSED here (names and codes are proposals until
+    approved); the receipt image storage, size and retention are decided (plan O-1,
+    2026-11-15): JPEG/PNG/WebP, at most 5,000,000 bytes, authenticated Cloudinary
+    object, ATTACHED image not deleted before 5 years after the request reaches
+    REFUNDED or CLOSED_UNREACHABLE (delete job T166, after V1).
+    Served 2026-11-16 (T154, backend): the two receipt-image routes POST /workshop-refund-requests/{refundId}/receipt-images and
+    GET /workshop-refund-requests/{refundId}/receipt-image (T154). Served 2026-11-16: the Admin-only refund-account key
+    replacement POST /workshop-refund-account-key-replacements (T137; Manager and Staff get 403), the reconciliation list (T133), the absorbed-undercharge
+    record, void and list (T135) and the Manager-only cash reversal
+    POST /workshop-tickets/{ticketCode}/folio/collections/{collectionId}/cash-reversals
+    (T144). The TicketCancellation field voucherRestored is replaced by the
+    proposed voucherRestoration {restored, reason} (T155).
 paths:
   /api/v1/workshop-tickets/{ticketCode}/folio:
     get:
@@ -38,6 +63,7 @@ paths:
       parameters: [{$ref: '#/components/parameters/TicketCode'}]
       responses:
         '200': {description: Ticket folio, content: {application/json: {schema: {$ref: '#/components/schemas/TicketFolio'}}}}
+        '401': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-tickets/{ticketCode}/folio-lookups:
@@ -88,6 +114,7 @@ paths:
       requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CollectionRequest'}}}}
       responses:
         '201': {description: Collection recorded, content: {application/json: {schema: {$ref: '#/components/schemas/Collection'}}}}
+        '401': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
         '422': {$ref: '#/components/responses/Problem'}
@@ -110,6 +137,7 @@ paths:
                 bankTransactionReference: {type: string, maxLength: 128}
       responses:
         '200': {description: Confirmed, content: {application/json: {schema: {$ref: '#/components/schemas/Collection'}}}}
+        '401': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-tickets/{ticketCode}/folio/collections/{collectionId}/failures:
@@ -132,6 +160,7 @@ paths:
       responses:
         '200': {description: Part failed, content: {application/json: {schema: {$ref: '#/components/schemas/Collection'}}}}
         '400': {$ref: '#/components/responses/Problem'}
+        '401': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
@@ -151,6 +180,7 @@ paths:
       responses:
         '200': {description: Line voided, content: {application/json: {schema: {$ref: '#/components/schemas/TicketFolio'}}}}
         '400': {$ref: '#/components/responses/Problem'}
+        '401': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
@@ -171,6 +201,40 @@ paths:
       responses:
         '200': {description: Collection voided, content: {application/json: {schema: {$ref: '#/components/schemas/TicketFolio'}}}}
         '400': {$ref: '#/components/responses/Problem'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-tickets/{ticketCode}/folio/collections/{collectionId}/cash-reversals:
+    post:
+      summary: Manager reverses a wrongly recorded cash collection of a closed day (FR-036, FR-053, proposed)
+      description: >-
+        SERVED 2026-11-16 (T144; decided in spec FR-036, checklist CHK014; the UI is T145).
+        Refusals answer 409 with the codes FINAL_BILL_NOT_OPEN, COLLECTION_UNDER_REFUND,
+        COLLECTION_NOT_CASH, COLLECTION_ALREADY_VOIDED, COLLECTION_NOT_CONFIRMED,
+        COLLECTION_ALREADY_REVERSED and CASH_DAY_NOT_CLOSED. Manager only
+        (Staff 403); reason and Idempotency-Key required; audited with actor and
+        time. Records a negative cash amount equal to the collection's applied
+        amount on the CURRENT Vietnam working day (the day after the close once
+        the counted amount was submitted); the closed day is never edited and
+        the original collection keeps its row. The folio's collected amount
+        falls and balanceDue is recomputed. Refused with 409 when the folio is
+        FINALIZED or CLOSED (FINAL_BILL_NOT_OPEN, use the folio correction and
+        bank refund of FR-050/FR-038), when a refund request exists for that
+        money (COLLECTION_UNDER_REFUND), when the collection is not CASH or is
+        already voided/reversed, or when its cash day is not yet closed
+        (CASH_DAY_NOT_CLOSED, use the void of FR-053). A same-key replay returns
+        the stored reversal; a changed reuse is 409 IDEMPOTENCY_CONFLICT.
+      security: [{bearerAuth: []}]
+      parameters:
+        - {$ref: '#/components/parameters/TicketCode'}
+        - {name: collectionId, in: path, required: true, schema: {type: string}}
+        - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ReasonRequest'}}}}
+      responses:
+        '201': {description: Reversal recorded, content: {application/json: {schema: {$ref: '#/components/schemas/CashReversal'}}}}
+        '400': {$ref: '#/components/responses/Problem'}
+        '401': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
@@ -182,6 +246,7 @@ paths:
       requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ReasonRequest'}}}}
       responses:
         '201': {description: Exception recorded}
+        '401': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-tickets/{ticketCode}/folio/add-ons:
     get:
@@ -203,6 +268,7 @@ paths:
                     catalogueAddOnReference: {type: string}
                     name: {type: string}
                     price: {$ref: '#/components/schemas/Vnd'}
+        '401': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-tickets/{ticketCode}/folio/charges:
@@ -238,6 +304,7 @@ paths:
                   description: Internal Staff/Manager variable charge only.
       responses:
         '201': {description: Charge added, content: {application/json: {schema: {$ref: '#/components/schemas/TicketFolio'}}}}
+        '401': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
         '422': {$ref: '#/components/responses/Problem'}
@@ -253,6 +320,7 @@ paths:
       parameters: [{$ref: '#/components/parameters/TicketCode'}, {$ref: '#/components/parameters/IdempotencyKey'}]
       responses:
         '200': {description: Finalized, content: {application/json: {schema: {$ref: '#/components/schemas/TicketFolio'}}}}
+        '401': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-tickets/{ticketCode}/folio/debts:
@@ -264,6 +332,7 @@ paths:
       requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ReasonRequest'}}}}
       responses:
         '201': {description: Debt recorded}
+        '401': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-tickets/{ticketCode}/folio/debts/closures:
@@ -275,6 +344,7 @@ paths:
       requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ReasonRequest'}}}}
       responses:
         '201': {description: Debt closed}
+        '401': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-tickets/{ticketCode}/folio/corrections:
@@ -300,6 +370,7 @@ paths:
                 reason: {type: string, minLength: 1, maxLength: 1000}
       responses:
         '201': {description: Correction opened, content: {application/json: {schema: {$ref: '#/components/schemas/FolioCorrection'}}}}
+        '401': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-tickets/{ticketCode}/folio/corrections/{correctionReference}:
@@ -307,7 +378,8 @@ paths:
       summary: Read one ticket folio correction (owning Member, Manager or assigned Staff)
       description: >-
         T114 (FR-048, Constitution II): no contact proof is accepted in the URL;
-        an anonymous request answers 404. A Guest reads the ticket folio through
+        a missing or invalid bearer token answers 401 (fix A09, 2026-11-15; a verified caller who is not the owner,
+        a Manager or assigned Staff gets 403 or 404 as for the folio). A Guest reads the ticket folio through
         POST /workshop-tickets/{ticketCode}/folio-lookups with one contact proof
         in the body.
       security: [{bearerAuth: []}]
@@ -316,7 +388,143 @@ paths:
         - {name: correctionReference, in: path, required: true, schema: {type: string}}
       responses:
         '200': {description: Correction, content: {application/json: {schema: {$ref: '#/components/schemas/FolioCorrection'}}}}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-tickets/{ticketCode}/folio/absorbed-undercharges:
+    post:
+      summary: Manager records an undercharge Mland absorbs on a FINALIZED ticket folio (FR-057, planned)
+      description: >-
+        FR-056/FR-057, added 2026-11-15, SERVED 2026-11-16 (task T135). Manager
+        only; reason and Idempotency-Key required; audited. Allowed only on a
+        FINALIZED ticket folio (409 FOLIO_NOT_FINALIZED otherwise). Documentation only: it collects nothing, does not reopen or
+        change the folio, its lines, balance or Loyalty earn, does not touch
+        confirmed or closed cash, and names no employee. The record is
+        immutable; a mistake is voided once and a correct amount is recorded
+        as a new record. A replay with the same Idempotency-Key returns the
+        stored record; a changed reuse is 409 IDEMPOTENCY_CONFLICT.
+        Cap (decided 2026-11-15, CHK009): amountVnd may not exceed the ticket's
+        folio total (price plus add-ons and variable charges, voided lines
+        excluded), and the non-voided records of one ticket together may not
+        exceed it either; a larger amount is 422 (code UNDERCHARGE_EXCEEDS_FOLIO_TOTAL, T156).
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/TicketCode'}, {$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amountVnd, reason]
+              properties:
+                amountVnd: {allOf: [{$ref: '#/components/schemas/Vnd'}], pattern: '^[1-9][0-9]*$', description: 'Whole VND string above 0 (Vnd without the value 0).'}
+                reason: {type: string, minLength: 1, maxLength: 1000}
+      responses:
+        '201': {description: Recorded, content: {application/json: {schema: {$ref: '#/components/schemas/AbsorbedUndercharge'}}}}
+        '400': {$ref: '#/components/responses/Problem'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-tickets/{ticketCode}/folio/absorbed-undercharges/{underchargeReference}/voids:
+    post:
+      summary: Manager voids a mistaken absorbed-undercharge record once (FR-057, planned)
+      description: >-
+        FR-056/FR-057, added 2026-11-15, SERVED 2026-11-16 (task T135). Manager
+        only; reason and Idempotency-Key required; audited. The record keeps
+        its original content, becomes VOIDED and no longer counts in totals. A
+        record already voided is 409; a replay with the same Idempotency-Key
+        returns the stored record.
+      security: [{bearerAuth: []}]
+      parameters:
+        - {$ref: '#/components/parameters/TicketCode'}
+        - {name: underchargeReference, in: path, required: true, schema: {type: string}}
+        - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ReasonRequest'}}}}
+      responses:
+        '200': {description: Voided, content: {application/json: {schema: {$ref: '#/components/schemas/AbsorbedUndercharge'}}}}
+        '400': {$ref: '#/components/responses/Problem'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-refund-account-key-replacements:
+    post:
+      summary: Admin replaces the refund-account encryption key operationally (FR-040)
+      description: >-
+        FR-040, decided 2026-11-15, served 2026-11-16 (task T137). Admin only
+        (Manager and Staff are 403). Run after the environment variable
+        WORKSHOP_REFUND_ACCOUNT_KEY was replaced and the service restarted: for
+        every refund request still holding an encrypted account number it
+        deletes the ciphertext (the mask is kept), returns the request to
+        PENDING_ACCOUNT, revokes its active link and sends the payer a new
+        account link, with one audit record per request. A reason and an
+        Idempotency-Key are required; a replay returns the stored result. It
+        never returns or logs an account number. Not reversible: the numbers
+        are gone and payers must enter them again. Decided 2026-11-15 (CHK021):
+        one transaction per request, a rerun is idempotent (it touches only
+        requests still holding ciphertext), and the earlier Manager approval of
+        each such request is voided so a Manager approves again after the new
+        account is entered.
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: {type: string, minLength: 1, maxLength: 1000}
+      responses:
+        '200':
+          description: Done. Only counts are returned, never an account number.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  requestsReset: {type: integer, format: int32, description: 'Requests returned to PENDING_ACCOUNT by this call; a rerun answers 0.'}
+                  linksSent: {type: integer, format: int32, description: 'New account links sent, one per request returned.'}
+                  failed: {type: integer, format: int32, description: 'Requests that could not be returned and still hold a ciphertext; a new call with a new Idempotency-Key retries them (T137, 2026-11-16).'}
+        '400': {$ref: '#/components/responses/Problem'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-absorbed-undercharges:
+    get:
+      summary: Manager lists absorbed-undercharge records of a branch for a period, with the total (FR-057, planned)
+      description: >-
+        FR-056/FR-057, added 2026-11-15, SERVED 2026-11-16 (task T135). Manager
+        only; Staff is 403. Lists ACTIVE and VOIDED records whose recorded day
+        (Vietnam time) is within from..to inclusive; totalVnd sums only ACTIVE
+        records. Read-only. Returns the whole list like the other list routes
+        of this contract (no paging).
+      security: [{bearerAuth: []}]
+      parameters:
+        - {name: locationId, in: query, required: true, description: Canonical workshop_location.id of the branch., schema: {type: integer, format: int64}}
+        - {name: from, in: query, required: true, description: First Vietnam working day of the period., schema: {type: string, format: date}}
+        - {name: to, in: query, required: true, description: Last Vietnam working day of the period (inclusive)., schema: {type: string, format: date}}
+      responses:
+        '200':
+          description: Records and the total of non-voided records
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [locationId, from, to, totalVnd, records]
+                properties:
+                  locationId: {type: integer, format: int64}
+                  from: {type: string, format: date}
+                  to: {type: string, format: date}
+                  totalVnd: {allOf: [{$ref: '#/components/schemas/Vnd'}], description: 'Whole VND string; sum of ACTIVE records only ("0" when none).'}
+                  records: {type: array, items: {$ref: '#/components/schemas/AbsorbedUndercharge'}}
+        '400': {$ref: '#/components/responses/Problem'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-cash-closes/expected-cash:
     get:
       summary: Expected cash in a branch's drawer for one working day (FR-036, T120)
@@ -324,10 +532,14 @@ paths:
         Replaces the retired GET /workshop-cash-days/expected. Manager, or Staff
         of that branch. Confirmed cash of the Vietnam working day net of change;
         transfers and VNPay are excluded.
+        C2 (decided 2026-11-15 by Hồ Hoàng Quốc, owner Feature 003): every
+        cash-close route, parameter and schema names the branch locationId (the
+        canonical workshop_location.id) and the Vietnam working day
+        workingDate; the former names branchId and businessDay are retired. The backend uses these names since T131 (2026-11-16); the frontend aligns in T132.
       security: [{bearerAuth: []}]
       parameters:
-        - {name: branchId, in: query, required: true, schema: {type: integer, format: int64}}
-        - {name: businessDay, in: query, required: false, description: Vietnam working day; today (Vietnam time) when absent., schema: {type: string, format: date}}
+        - {name: locationId, in: query, required: true, description: Canonical workshop_location.id of the branch (formerly branchId)., schema: {type: integer, format: int64}}
+        - {name: workingDate, in: query, required: false, description: Vietnam working day (formerly businessDay); today (Vietnam time) when absent., schema: {type: string, format: date}}
       responses:
         '200':
           description: Expected cash
@@ -335,11 +547,12 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [branchId, businessDay, expectedCashVnd]
+                required: [locationId, workingDate, expectedCashVnd]
                 properties:
-                  branchId: {type: integer, format: int64}
-                  businessDay: {type: string, format: date}
+                  locationId: {type: integer, format: int64}
+                  workingDate: {type: string, format: date}
                   expectedCashVnd: {type: integer, format: int64}
+        '401': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-cash-closes:
     post:
@@ -348,7 +561,13 @@ paths:
         T120 (FR-022d): Idempotency-Key required and stored; a replay with the
         same key and content returns the stored close, a changed reuse answers
         409 IDEMPOTENCY_CONFLICT. The retired POST /workshop-cash-days/close is no
-        longer served.
+        longer served. C2 (decided 2026-11-15): the body names the branch
+        locationId and the day workingDate; the code's CashCloseRequest reads this body since T131 (2026-11-16). countedAmount is a whole VND string
+        (Vnd); the CashClose response keeps countedCashVnd as a whole VND
+        integer. Errors (FR-022d): 400 malformed input (missing or ill-formed
+        locationId, workingDate or countedAmount); 422 valid input that is
+        business-ineligible, such as a difference without differenceReason;
+        409 day already closed or IDEMPOTENCY_CONFLICT.
       security: [{bearerAuth: []}]
       parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
       requestBody:
@@ -365,8 +584,11 @@ paths:
                 differenceReason: {type: string, maxLength: 1000}
       responses:
         '201': {description: Close recorded; a difference waits for Manager confirmation, content: {application/json: {schema: {$ref: '#/components/schemas/CashClose'}}}}
+        '400': {$ref: '#/components/responses/Problem'}
+        '401': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-cash-closes/{cashCloseId}/difference-confirmations:
     post:
       summary: Manager confirms a cash-close difference (FR-036, FR-052, T120)
@@ -384,9 +606,37 @@ paths:
       responses:
         '200': {description: Difference confirmed; the day is CLOSED, content: {application/json: {schema: {$ref: '#/components/schemas/CashClose'}}}}
         '400': {$ref: '#/components/responses/Problem'}
+        '401': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-reconciliation-collections:
+    get:
+      summary: Manager's read-only transfer/VNPay reconciliation list (FR-056, planned)
+      description: >-
+        FR-056/FR-057, added 2026-11-15, SERVED 2026-11-16 (task T133). Manager
+        only; Staff is 403. Lists the folio collections of one branch and one
+        Vietnam working day paid by BANK_TRANSFER, VNPAY or BOOKING_TIME
+        (online booking-time VNPay money from 003.1; the whole group payment),
+        optionally filtered by method and state. A confirmed collection
+        belongs to the Vietnam day of its confirmation time, a pending one to
+        the Vietnam day of its creation time. Read-only:
+        it records no reconciled mark and changes no collection, folio or cash
+        close; the Manager compares it with the bank statement and VNPay
+        Merchant Admin outside the system. Returns the whole list like the
+        other list routes of this contract (no paging).
+      security: [{bearerAuth: []}]
+      parameters:
+        - {name: locationId, in: query, required: true, description: Canonical workshop_location.id of the branch., schema: {type: integer, format: int64}}
+        - {name: workingDate, in: query, required: true, description: Vietnam working day., schema: {type: string, format: date}}
+        - {name: method, in: query, required: false, description: All three methods when absent. BOOKING_TIME = online booking-time VNPay money read from 003.1 stored payment data (added 2026-11-16, A04)., schema: {type: string, enum: [BANK_TRANSFER, VNPAY, BOOKING_TIME]}}
+        - {name: state, in: query, required: false, description: "All four states when absent. VOIDED = a collection a Manager voided; EXCESS = signed VNPay money that settled no part of the folio (FOLIO_VNPAY_EXCESS evidence, owed back by a bank refund). Added 2026-11-15.", schema: {type: string, enum: [CONFIRMED, PENDING_VERIFICATION, VOIDED, EXCESS]}}
+      responses:
+        '200': {description: Collections, content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/ReconciliationCollection'}}}}}
+        '400': {$ref: '#/components/responses/Problem'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '503': {description: 'Problem code RECONCILIATION_SOURCE_UNAVAILABLE: the filter includes BOOKING_TIME and the 003.1 facade failed or timed out; no partial list is returned (R02, 2026-11-16).', content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}}
   /api/v1/workshop-refund-requests:
     get:
       summary: List refund requests (Manager; transfer actors see PENDING_TRANSFER)
@@ -395,6 +645,7 @@ paths:
         - {name: status, in: query, required: false, schema: {$ref: '#/components/schemas/RefundStatus'}}
       responses:
         '200': {description: Refund requests, content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/RefundRequest'}}}}}
+        '401': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-refund-requests/{refundId}/transitions:
     post:
@@ -405,6 +656,17 @@ paths:
         person (owner decision 2026-11-13, needs FE-001). RECORD_TRANSFER needs both a bank reference and a
         proof reference (422 TRANSFER_PROOF_REQUIRED without the proof); CLOSE_UNREACHABLE needs 30 days in
         PENDING_ACCOUNT and a reason; REOPEN restores PENDING_ACCOUNT with a fresh account link.
+        *(Superseded 2026-11-15, spec FR-039, CHK007: only bankTransactionReference is required for RECORD_TRANSFER;
+        proofReference is optional (backend, DTO and RefundQueuePage); the receipt image is optional. The 422
+        code TRANSFER_PROOF_REQUIRED is replaced (served 2026-11-16, T154) by 422 BANK_TRANSACTION_REFERENCE_REQUIRED for a missing
+        bank reference in task T154.)*
+        PROPOSED 2026-11-15 (FR-040, CHK005/006): action RETURN_TO_PENDING_ACCOUNT (Manager, reason required,
+        from PENDING_APPROVAL, PENDING_TRANSFER or PENDING_RECONCILIATION) is the single path when a bank
+        returns the transfer, the statement does not match or the Manager refuses: the request goes back to
+        PENDING_ACCOUNT with the reason recorded, the encrypted number is deleted (mask kept), the earlier
+        approval is voided, the old link is revoked and a new account link is sent to the payer. There is no
+        terminal rejection state. Implemented 2026-11-16 (task T146): a request already REFUNDED or still
+        PENDING_ACCOUNT answers 409 REFUND_NOT_RETURNABLE and changes nothing.
       security: [{bearerAuth: []}]
       parameters:
         - {name: refundId, in: path, required: true, schema: {type: string}}
@@ -417,14 +679,100 @@ paths:
               type: object
               required: [action]
               properties:
-                action: {type: string, enum: [APPROVE, RECORD_TRANSFER, CONFIRM_REFUNDED, CLOSE_UNREACHABLE, REOPEN]}
+                action: {type: string, enum: [APPROVE, RECORD_TRANSFER, CONFIRM_REFUNDED, CLOSE_UNREACHABLE, REOPEN, RETURN_TO_PENDING_ACCOUNT]}
                 bankTransactionReference: {type: string, maxLength: 128}
-                proofReference: {type: string, maxLength: 256}
+                proofReference: {type: string, maxLength: 256, description: 'Superseded 2026-11-15 as a required field (FR-039): optional text note; the required evidence is bankTransactionReference.'}
+                proofImageReference:
+                  type: string
+                  nullable: true
+                  description: >-
+                    OPTIONAL receipt image of the transfer (FR-039, CHK007), RECORD_TRANSFER only.
+                    *(Superseded 2026-11-15: "PENDING PLAN DECISION (plan O-1) ... placeholder, must not
+                    be built until the plan settles them (task T153)"; x-status pending-plan-decision
+                    replaced.)* DECIDED 2026-11-15 by Hồ Hoàng Quốc (plan O-1): the receiptImageId
+                    returned by the proposed upload route
+                    POST /api/v1/workshop-refund-requests/{refundId}/receipt-images for the same
+                    request; attached in the same transaction as the transfer record. At most one image
+                    per transfer evidence (409 RECEIPT_IMAGE_ALREADY_ATTACHED, proposed); an unknown,
+                    foreign or already attached reference is 409/422. JPEG, PNG or WebP, at most
+                    5,000,000 bytes, stored as an authenticated Cloudinary object; the bank reference
+                    stays required and the transfer is recorded without an image when this is null or
+                    image storage is unavailable. Visible only to a Manager and the transferring actor
+                    (V1: Manager only). Implementation task T154.
                 reason: {type: string, maxLength: 1000}
       responses:
         '200': {description: Transition applied, content: {application/json: {schema: {$ref: '#/components/schemas/RefundRequest'}}}}
+        '401': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-refund-requests/{refundId}/receipt-images:
+    post:
+      summary: Upload the optional transfer receipt image (FR-039, plan O-1; route name PROPOSED)
+      description: >-
+        PROPOSED 2026-11-15 (plan O-1, decided by Hồ Hoàng Quốc; task T154). Manager only in V1 (the actor
+        who records the transfer, FR-039; Staff 403). Only while the request is PENDING_TRANSFER (409
+        otherwise). One file part "file": JPEG, PNG or WebP; the declared Content-Type, the file signature and
+        a readable image header must agree and the extension is never trusted (415
+        RECEIPT_IMAGE_TYPE_UNSUPPORTED, proposed; PDF is refused); at most 5,000,000 bytes (413
+        RECEIPT_IMAGE_TOO_LARGE, proposed). The bytes go to Cloudinary (type=authenticated, 003.3 folder);
+        only metadata is stored. Missing credentials or an unreachable provider is 503
+        RECEIPT_STORAGE_UNAVAILABLE (proposed); the transfer can still be recorded without the image. The
+        response never carries a provider URL. An upload never attached by RECORD_TRANSFER is removed after
+        24 hours.
+      security: [{bearerAuth: []}]
+      parameters:
+        - {name: refundId, in: path, required: true, schema: {type: string}}
+        - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: {type: string, format: binary, maxLength: 5000000}
+      responses:
+        '201':
+          description: Uploaded, not yet attached
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/RefundReceiptImage'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+        '413': {$ref: '#/components/responses/Problem'}
+        '415': {$ref: '#/components/responses/Problem'}
+        '503': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-refund-requests/{refundId}/receipt-image:
+    get:
+      summary: Stream the attached transfer receipt image (FR-039, plan O-1; route name PROPOSED)
+      description: >-
+        PROPOSED 2026-11-15 (plan O-1; task T154). Authorization first, with the same rule as the refund
+        request (FR-039: a Manager and the transferring actor; V1: Manager only, Staff 403). The backend reads
+        the authenticated Cloudinary object with a signed URL and streams the bytes same-origin; the provider
+        URL is never returned or redirected to. 404 when no image is attached. 503
+        RECEIPT_STORAGE_UNAVAILABLE (proposed) when storage is unavailable. The image file is deleted 5 years
+        after the request reaches REFUNDED or CLOSED_UNREACHABLE (decided 2026-11-15); afterwards this route
+        answers 404 while the bank reference stays on the request.
+      security: [{bearerAuth: []}]
+      parameters:
+        - {name: refundId, in: path, required: true, schema: {type: string}}
+      responses:
+        '200':
+          description: The image bytes
+          headers:
+            Cache-Control: {schema: {type: string, enum: [no-store]}}
+            X-Content-Type-Options: {schema: {type: string, enum: [nosniff]}}
+          content:
+            image/jpeg: {schema: {type: string, format: binary}}
+            image/png: {schema: {type: string, format: binary}}
+            image/webp: {schema: {type: string, format: binary}}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '503': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-refund-requests/{refundId}/account:
     put:
       summary: Staff or Manager enters the recipient account at the counter (FR-038a, FR-040)
@@ -432,9 +780,14 @@ paths:
         Implemented 2026-11-13. The payer is at the counter, so any active Staff member or a Manager may record
         what they hand over; the entry records actor, channel and time and revokes any active link. The
         response never echoes the account number, only the stored mask.
-        Idempotency-Key (FR-022d) added to the contract 2026-11-14: the code
-        (RefundRequestController) does not take it yet and must add it (T097
-        follow-up).
+        Authority (decided 2026-11-15, CHK025): the caller is a Manager, or an active Staff member whose
+        location scope contains the ticket's location and who is actively assigned to a session the ticket
+        holds (same rule as FR-032); other Staff get 403. A group-level request (LATE_PAYMENT_NOT_RECONFIRMED or EXCESS_OR_DUPLICATE_MONEY of a group)
+        has no ticket and is never entered at the counter (403). PROPOSED 2026-11-15 (CHK005/006):
+        accountDetailsConfirmed must be true, meaning the form showed bank, account number and holder name
+        back and the user confirmed them; false or absent is 422 ACCOUNT_CONFIRMATION_REQUIRED (proposed
+        code). No bank name lookup is made in V1.
+        Idempotency-Key (FR-022d) is required.
       security: [{bearerAuth: []}]
       parameters:
         - {name: refundId, in: path, required: true, schema: {type: string}}
@@ -445,30 +798,32 @@ paths:
           application/json:
             schema:
               type: object
-              required: [bankCode, accountNumber, holderName]
+              required: [bankCode, accountNumber, holderName, accountDetailsConfirmed]
               properties:
                 bankCode: {type: string, maxLength: 32}
                 accountNumber: {type: string, maxLength: 32}
                 holderName: {type: string, maxLength: 128}
+                accountDetailsConfirmed: {type: boolean, description: 'PROPOSED 2026-11-15 (FR-040): must be true; the user confirmed the bank, number and holder name shown back.'}
       responses:
         '200': {description: Account recorded, content: {application/json: {schema: {$ref: '#/components/schemas/RefundRequest'}}}}
+        '401': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-refund-requests/{refundId}/account-link-resends:
     post:
       summary: Send a fresh single-use account link, revoking the previous one (FR-040)
       description: >-
         Implemented 2026-11-13. Staff or Manager; only possible while the request is PENDING_ACCOUNT
         (409 REFUND_ACCOUNT_ALREADY_ON_FILE otherwise). The token never appears in the response, only in email 7.
-        Idempotency-Key (FR-022d) added to the contract 2026-11-14: the code
-        (RefundRequestController) does not take it yet and must add it (T097
-        follow-up); a same-key replay must not send a second link.
+        Idempotency-Key (FR-022d) is required; a same-key replay must not send a second link.
       security: [{bearerAuth: []}]
       parameters:
         - {name: refundId, in: path, required: true, schema: {type: string}}
         - {$ref: '#/components/parameters/IdempotencyKey'}
       responses:
         '204': {description: A fresh link was sent}
+        '401': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-refund-requests/{refundId}/account-number:
@@ -496,6 +851,7 @@ paths:
                   bankCode: {type: string, nullable: true}
                   accountNumber: {type: string}
                   holderName: {type: string, nullable: true}
+        '401': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
@@ -507,26 +863,42 @@ paths:
         Implemented 2026-11-13. The link reaches the payer in email 7 as the frontend path /refund-account#{token}
         (the token stays in the fragment); a day-3 or day-7 reminder issues a fresh link and revokes the previous one.
         404 RESOURCE_NOT_FOUND for an unknown link, 410 REFUND_ACCOUNT_LINK_NOT_USABLE when used, revoked or expired.
-        The holder is not compared with the payer (decision 2026-11-13); the transferring actor compares the
-        holder name the bank shows with the name entered and stops on a mismatch.
+        The holder is not compared with the payer (decision 2026-11-13).
+        *(Superseded 2026-11-15, CHK005/006: the transferring actor no longer compares the holder name the
+        bank shows with the name entered; the form shows bank, account number and holder name back and the
+        payer must confirm them before submitting: accountDetailsConfirmed = true, else 422
+        ACCOUNT_CONFIRMATION_REQUIRED, both PROPOSED. No bank name lookup in V1.)*
+        410 REFUND_ACCOUNT_LINK_NOT_USABLE is also the answer when the link no longer exists for the request
+        (decided 2026-11-15, CHK017/018).
         The account page asks for the payer's own account, with the holder name exactly as the bank shows it.
+        Idempotency-Key required (FR-022a, CHK019, decided 2026-11-15 by Hồ Hoàng Quốc; task T169): the same key
+        with the same content replays 204 with no second write or email; the same key with changed content is
+        409 IDEMPOTENCY_CONFLICT; a new key on a link already used, revoked or expired is 410
+        REFUND_ACCOUNT_LINK_NOT_USABLE. The stored record is scoped to the link token hash and keeps a keyed
+        fingerprint of the request, never the account number, holder name or token. No bearer token is needed,
+        so this route declares no 401 or 403.
       security: [{}]
-      parameters: [{name: token, in: path, required: true, schema: {type: string}}]
+      parameters:
+        - {name: token, in: path, required: true, schema: {type: string}}
+        - {$ref: '#/components/parameters/IdempotencyKey'}
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [bankCode, accountNumber, holderName]
+              required: [bankCode, accountNumber, holderName, accountDetailsConfirmed]
               properties:
                 bankCode: {type: string, maxLength: 32}
                 accountNumber: {type: string, maxLength: 32}
                 holderName: {type: string, maxLength: 128}
+                accountDetailsConfirmed: {type: boolean, description: 'PROPOSED 2026-11-15 (FR-040): must be true; the payer confirmed the bank, number and holder name shown back.'}
       responses:
-        '204': {description: Account recorded}
+        '204': {description: Account recorded (also the replay of a same-key same-content retry)}
         '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
         '410': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-tickets/{ticketCode}/cancellations:
     post:
       summary: Buyer cancels a ticket (FR-041, FR-042)
@@ -535,6 +907,7 @@ paths:
       requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CancellationRequest'}}}}
       responses:
         '201': {description: Cancelled; reports the 24-hour outcome and returned benefits, content: {application/json: {schema: {$ref: '#/components/schemas/TicketCancellation'}}}}
+        '401': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
@@ -577,6 +950,7 @@ paths:
                 properties:
                   groupCode: {type: string}
                   tickets: {type: array, items: {$ref: '#/components/schemas/TicketCancellation'}}
+        '401': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
         '409':
@@ -600,6 +974,10 @@ paths:
         (spec FR-054, POST /workshop-tickets/{ticketCode}/change-allowances)
         that only grants the allowance and never performs the change.
         Auto-approval follows spec FR-045a.
+        Decided 2026-11-15 (spec FR-044, SC-012): the 24 h advance window is
+        measured from the start of the session being changed (the earlier of the
+        two when both move), not from the ticket's first session; the code
+        follows in T130.
         Decided 2026-11-14 (T117): when the change fails ONLY on a rule a Manager may
         lift (reschedule quota full, the one allowance used, inside the 24 h window)
         the request is stored in the Staff/Manager queue and the route answers
@@ -615,16 +993,18 @@ paths:
           application/json:
             schema:
               type: object
-              required: [type, targetSessionReferences]
+              required: [type, targetSessionReferences, fromSessionReferences]
               properties:
                 type: {type: string, enum: [ADVANCE, LATE_ARRIVAL]}
                 targetSessionReferences: {type: array, minItems: 1, maxItems: 2, items: {type: string, format: uuid}}
+                fromSessionReferences: {type: array, minItems: 1, maxItems: 2, items: {type: string, format: uuid}, description: "Planned 2026-11-15 (T130); REQUIRED, decided 2026-11-16 (A02: T130 and T141 ship in the same release, so the field is required in the same change): the ticket's current session(s) being replaced, one per target in the same order; each must be one of the ticket's sessions. The 24 h window and the request expiry are measured from the earlier of them."}
                 confirmIncrease: {type: boolean}
                 buyerVerificationReference: {$ref: '#/components/schemas/BuyerVerificationReference'}
                 reason: {type: string, maxLength: 1000, description: Required for Staff acting on the buyer's behalf (FR-055); a Member or Guest buyer may omit it.}
       responses:
         '200': {description: Change result with its price effect (FR-045), content: {application/json: {schema: {$ref: '#/components/schemas/ChangeResult'}}}}
         '202': {description: 'Only a Manager rule was missing; the request waits in the queue (T117, FR-045a). applied is false and changeRequestReference names it.', content: {application/json: {schema: {$ref: '#/components/schemas/ChangeResult'}}}}
+        '401': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
@@ -646,7 +1026,10 @@ paths:
         ticket fails the whole change is refused with 409 and failingTicketCodes
         (no Manager queue for groups). A replay with the same Idempotency-Key
         returns the stored result. Owner: 003.3 serves this route although it
-        sits under the 003.1 group resource.
+        sits under the 003.1 group resource. Decided 2026-11-15 (spec FR-044):
+        the 24 h window of each ticket is measured from the start of the session
+        being changed (the earlier of the two when both move), not from the
+        ticket's first session; the code follows in T130.
       security: [{}, {bearerAuth: []}]
       parameters: [{$ref: '#/components/parameters/GroupCode'}, {$ref: '#/components/parameters/IdempotencyKey'}]
       requestBody:
@@ -664,10 +1047,11 @@ paths:
                   maxItems: 200
                   items:
                     type: object
-                    required: [ticketCode, targetSessionReferences]
+                    required: [ticketCode, targetSessionReferences, fromSessionReferences]
                     properties:
                       ticketCode: {type: string}
                       targetSessionReferences: {type: array, minItems: 1, maxItems: 2, items: {type: string, format: uuid}}
+                      fromSessionReferences: {type: array, minItems: 1, maxItems: 2, items: {type: string, format: uuid}, description: "Planned 2026-11-15 (T130): the ticket's current session(s) being replaced, in the same order as the targets."}
                 confirmIncrease: {type: boolean}
                 buyerVerificationReference: {$ref: '#/components/schemas/BuyerVerificationReference'}
                 reason: {type: string, maxLength: 1000}
@@ -685,6 +1069,7 @@ paths:
                   totalPriceIncrease: {$ref: '#/components/schemas/Vnd'}
                   confirmIncreaseRequired: {type: boolean}
                   tickets: {type: array, items: {$ref: '#/components/schemas/ChangeResult'}}
+        '401': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
         '409':
@@ -697,13 +1082,18 @@ paths:
       description: >-
         Manager sees every request; Staff only those of their locations. status
         defaults to PENDING (PENDING, APPROVED, REJECTED, EXPIRED). A pending
-        request whose time ran out (the earlier of the old first session and
-        the earliest target session starting) is marked EXPIRED when listed.
+        request whose time ran out is marked EXPIRED when listed. Spec FR-045a
+        (clarified 2026-11-15): expiresAt is the earliest of the start of the
+        session being changed and the start of any requested target session;
+        the ticket's other sessions do not count. The code still uses the
+        ticket's first session instead of the session being changed until task
+        T130 fixes it.
       security: [{bearerAuth: []}]
       parameters:
         - {name: status, in: query, required: false, schema: {type: string, enum: [PENDING, APPROVED, REJECTED, EXPIRED]}}
       responses:
         '200': {description: Requests, oldest first, content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/ChangeRequest'}}}}}
+        '401': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
         '422': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-change-requests/{requestReference}/decisions:
@@ -733,6 +1123,7 @@ paths:
                 reason: {type: string, minLength: 1, maxLength: 1000}
       responses:
         '200': {description: Decision recorded, content: {application/json: {schema: {$ref: '#/components/schemas/ChangeRequest'}}}}
+        '401': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
@@ -761,6 +1152,7 @@ paths:
                   reason: {type: string}
                   grantedAt: {type: string, format: date-time}
         '400': {$ref: '#/components/responses/Problem'}
+        '401': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
@@ -792,6 +1184,7 @@ paths:
                   outcome: {type: string, description: 'PENDING_ANSWER, MOVED or REFUND'}
                   answerDeadlineAt: {type: string, format: date-time, description: 24 h before the LATEST offered session; without an answer by then the ticket is refunded.}
                   selectedReplacementSessionReference: {type: string, nullable: true}
+                  voucherRestoration: {$ref: '#/components/schemas/VoucherRestoration'}
                   offeredSessions:
                     type: array
                     items:
@@ -802,6 +1195,7 @@ paths:
                         startAt: {type: string, format: date-time}
                         endAt: {type: string, format: date-time, nullable: true}
                         selectable: {type: boolean}
+        '401': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-tickets/{ticketCode}/mland-remedy/answers:
@@ -837,7 +1231,18 @@ paths:
                   description: Required for ACCEPT_REPLACEMENT; one of the offered sessions.
                 buyerVerificationReference: {$ref: '#/components/schemas/BuyerVerificationReference'}
       responses:
-        '200': {description: Answer recorded}
+        '200':
+          description: >-
+            Answer recorded. For answer REFUND the body carries voucherRestoration (the Mland cancellation
+            restores the group voucher once, when the refund request is opened; FR-043); for
+            ACCEPT_REPLACEMENT no restoration happens and the field is absent.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  voucherRestoration: {$ref: '#/components/schemas/VoucherRestoration'}
+        '401': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
@@ -872,7 +1277,9 @@ components:
       required: [collectionId, method, amount, status]
       properties:
         collectionId: {type: string}
-        method: {type: string, enum: [BOOKING_TIME, VNPAY, CASH, BANK_TRANSFER]}
+        createdAt: {type: string, format: date-time}
+        cashDayClosed: {type: boolean, description: 'Read-only (2026-11-15 fix A17): true when the collection is CASH and the counted amount of its working day has been submitted (both PENDING_MANAGER_CONFIRMATION and CLOSED, the FR-036 cut-off; R04, 2026-11-16), so the Manager sees "Reverse cash entry" (FR-036/FR-053, T144) instead of "Void"; false otherwise.'}
+        method: {type: string, enum: [BOOKING_TIME, VNPAY, CASH, BANK_TRANSFER], description: 'BOOKING_TIME on a folio Collection is a per-ticket allocation of the booking-time payment, view only (R14, 2026-11-16); the ReconciliationCollection BOOKING_TIME is the whole group payment, a different meaning.'}
         amount: {$ref: '#/components/schemas/Vnd'}
         status: {type: string, enum: [PENDING_VERIFICATION, CONFIRMED, FAILED, VOIDED]}
         changeReturned: {$ref: '#/components/schemas/Vnd'}
@@ -896,6 +1303,7 @@ components:
         pendingAmount: {$ref: '#/components/schemas/Vnd'}
         balanceDue: {$ref: '#/components/schemas/Vnd'}
         collections: {type: array, items: {$ref: '#/components/schemas/Collection'}}
+        voucherRestoration: {allOf: [{$ref: '#/components/schemas/VoucherRestoration'}], nullable: true, description: "T155/T163 (2026-11-16, additive): what the group voucher did when this ticket was Mland-cancelled and its refund request opened or its answer recorded; absent or null when nothing was triggered. The customer folio shows the expired-voucher notice only when reason is EXPIRED."}
         charges:
           type: array
           description: Add-on and variable lines of the folio (as TicketFolioDtos.ChargeDto serves them); chargeReference is the lineId of the line void route (FR-053).
@@ -928,6 +1336,17 @@ components:
         status: {$ref: '#/components/schemas/RefundStatus'}
         accountNumberMasked: {type: string, nullable: true}
         holderName: {type: string, nullable: true}
+        receiptImageAttached: {type: boolean, description: 'PROPOSED 2026-11-15 (plan O-1, T154): true when the recorded transfer has a receipt image; read it through GET .../receipt-image. No URL is exposed.'}
+    RefundReceiptImage:
+      type: object
+      description: PROPOSED 2026-11-15 (plan O-1, T154). Metadata of an uploaded receipt image; never a provider URL.
+      required: [receiptImageId, contentType, byteCount, checksum, uploadedAt]
+      properties:
+        receiptImageId: {type: string, description: Pass as proofImageReference on RECORD_TRANSFER.}
+        contentType: {type: string, enum: [image/jpeg, image/png, image/webp]}
+        byteCount: {type: integer, format: int64, minimum: 1, maximum: 5000000}
+        checksum: {type: string, description: SHA-256 of the bytes, hex.}
+        uploadedAt: {type: string, format: date-time}
     Problem:
       type: object
       required: [code, correlationId]
@@ -937,6 +1356,12 @@ components:
         message: {type: string}
     TicketCancellation:
       type: object
+      description: >-
+        Result of a customer cancellation (FR-041, FR-042). The voucher is restored only when every ticket of
+        the group has ended by valid cancellation (at least 24 hours before the ticket's first session); any
+        late cancellation or no-show in the group prevents it, and a valid cancellation that leaves another
+        ticket of the group not yet ended restores nothing yet. The Mland-cancellation rule is on
+        VoucherRestoration and the Mland remedy routes (fix A06, 2026-11-15).
       required: [ticketCode, benefitOutcome, pointsReturned]
       properties:
         ticketCode: {type: string}
@@ -945,7 +1370,32 @@ components:
           enum: [VALID_CANCELLATION, LATE_CANCELLATION]
           description: FR-042. At least 24 hours before the ticket's first session, or later (treated as a no-show for benefits).
         pointsReturned: {type: integer, format: int64, minimum: 0}
-        voucherRestored: {type: boolean, description: "True only on the cancellation that ends the group's last ticket and restores its one voucher use."}
+        # voucherRestored (boolean) is replaced 2026-11-15 by voucherRestoration (PROPOSED; decision FR-042/FR-043, task T155).
+        # 2026-11-15: description aligned with spec FR-042/FR-043 and Session 2026-11-15; it replaces the stale sentence
+        # "A customer cancellation that does not end the group's last ticket has restored false and no reason".
+        voucherRestoration: {$ref: '#/components/schemas/VoucherRestoration'}
+    VoucherRestoration:
+      type: object
+      description: >-
+        PROPOSED 2026-11-15, replaces the former boolean voucherRestored. The outcome of the one
+        voucher restoration per groupCode, triggered through the shared facade; the module that
+        owns vouchers performs it and 003.3 never writes voucher data (FR-042). A Mland
+        cancellation of a ticket in the group restores the group voucher once, when the first
+        Mland-cancelled ticket has its refund request opened (decided 2026-11-15, CHK010; not at
+        REFUNDED, and a ticket moved to a replacement session never triggers it), whatever the other
+        tickets did, including a late cancellation or a no-show (FR-043 prevails over FR-042). The
+        customer-cancellation rule is on TicketCancellation. Restoration happens only while the voucher is still valid; otherwise restored is false
+        with reason EXPIRED (never extended; the bank refund is unaffected and the buyer is
+        told). It happens at most once per groupCode: when the voucher was already restored,
+        restored is false and reason is null (or EXPIRED when that is the stored outcome). In
+        every other case restored is false and reason is null.
+        Mapping from the facade outcome (R20, 2026-11-16): RESTORED -> {restored: true, reason: null};
+        EXPIRED -> {restored: false, reason: EXPIRED}; ALREADY_RESTORED -> {restored: false, reason: null}.
+        The buyer message (T163) is shown only when reason is EXPIRED.
+      required: [restored]
+      properties:
+        restored: {type: boolean}
+        reason: {type: string, nullable: true, enum: [EXPIRED], description: "Set only when restored is false because the voucher is no longer valid; null otherwise."}
     FolioCorrection:
       type: object
       required: [correctionReference, ticketCode, overchargeAmount, status]
@@ -1030,6 +1480,7 @@ components:
         groupCode: {type: string}
         type: {type: string, enum: [ADVANCE, LATE_ARRIVAL]}
         targetSessionReferences: {type: array, items: {type: string, format: uuid}}
+        fromSessionReferences: {type: array, items: {type: string, format: uuid}, description: "T130 done 2026-11-16 (A02): the ticket's current session(s) the request replaces, in the same order as the targets."}
         blockedRules: {type: array, items: {type: string, enum: [CHANGE_ALLOWANCE_EXHAUSTED, ADVANCE_CHANGE_WINDOW_EXPIRED, RESCHEDULE_QUOTA_EXHAUSTED]}}
         status: {type: string, enum: [PENDING, APPROVED, REJECTED, EXPIRED]}
         priceIncreaseAmount: {$ref: '#/components/schemas/Vnd'}
@@ -1044,17 +1495,73 @@ components:
         appliedChangeReference: {type: string, nullable: true}
     CashClose:
       type: object
-      description: Shape of the code's CashCloseResponse (FolioCollectionDtos, re-checked 2026-11-14); money as whole VND integers there.
-      required: [closeReference, branchId, businessDay, expectedCashVnd, countedCashVnd, differenceVnd, status]
+      description: >-
+        Shape of the code's CashCloseResponse (FolioCollectionDtos, re-checked
+        2026-11-14); money as whole VND integers there. C2 (decided
+        2026-11-15): branchId is renamed locationId and businessDay is renamed
+        workingDate; the backend follows since T131 (2026-11-16), the frontend in T132.
+      required: [closeReference, locationId, workingDate, expectedCashVnd, countedCashVnd, differenceVnd, status]
       properties:
         closeReference: {type: string}
-        branchId: {type: integer, format: int64}
-        businessDay: {type: string, format: date}
+        locationId: {type: integer, format: int64, description: Canonical workshop_location.id of the branch (formerly branchId).}
+        workingDate: {type: string, format: date, description: Vietnam working day (formerly businessDay).}
         expectedCashVnd: {type: integer, format: int64}
         countedCashVnd: {type: integer, format: int64}
         differenceVnd: {type: integer, format: int64}
         differenceReason: {type: string, nullable: true}
         status: {type: string, enum: [PENDING_MANAGER_CONFIRMATION, CLOSED]}
+    ReconciliationCollection:
+      type: object
+      description: One row of the FR-056 reconciliation list (served 2026-11-16, task T133; added 2026-11-15).
+      required: [groupCode, amount, method, state, createdAt]
+      properties:
+        collectionId: {type: string, nullable: true, description: Null for an EXCESS row, which comes from an evidence conclusion and has no collection.}
+        createdAt: {type: string, format: date-time}
+        ticketCode: {type: string, nullable: true, description: 'Null when one payment covers several tickets (one row per payment, R03, 2026-11-16); see ticketCodes.'}
+        ticketCodes: {type: array, items: {type: string}, description: 'Every ticket the payment covers (one row per payment, R03).'}
+        groupCode: {type: string}
+        amount: {$ref: '#/components/schemas/Vnd'}
+        excessAmount: {allOf: [{$ref: '#/components/schemas/Vnd'}], nullable: true, description: 'Amount beyond the ticket balance or a duplicate transfer, null when none (FR-034); the row keeps the full bank amount.'}
+        refundRequestReference: {type: string, nullable: true, description: 'Refund request (FR-039) opened for the excess; null for an EXCESS row and when none.'}
+        method: {type: string, enum: [BANK_TRANSFER, VNPAY, BOOKING_TIME], description: 'BOOKING_TIME here is the whole group payment (not the per-ticket allocation of a folio Collection, R14). BOOKING_TIME added 2026-11-16 (A04): online booking-time VNPay money from 003.1 stored payment data. A successful-IPN row carries the amount received and counts in the confirmed total; an unverified row carries the requested amount with state PENDING_VERIFICATION and does not count. A late payment (money received, group not confirmed, awaiting FR-040 review; 003.1 LATE_PENDING_REVIEW) is also PENDING_VERIFICATION with a reason note late payment under review and does not count. The amount is the stored requested amount (no separate received amount). A multi-location payment is one row with locationIds and appears under every location of the filter; per-location totals must not be summed (decided 2026-11-16, option B).'}
+        state: {type: string, enum: [CONFIRMED, PENDING_VERIFICATION, VOIDED, EXCESS], description: 'Same values as the state query filter; renamed from status 2026-11-15 (planned, nothing built).'}
+        transactionReference: {type: string, nullable: true, description: Bank transaction reference or VNPay transaction reference.}
+        confirmedBy: {type: string, nullable: true, description: 'Confirming actor (account); null while pending and always null for BOOKING_TIME rows (confirmed by the system through the IPN). 003.1 CONFIRMED maps to CONFIRMED, UNVERIFIED and LATE_PENDING_REVIEW map to PENDING_VERIFICATION (R19, 2026-11-16).'}
+        locationIds: {type: array, items: {type: string}, description: 'Locations (canonical workshop_location.id) of the sessions of the payment tickets; for BOOKING_TIME rows one payment can have several; the locationId query parameter is a filter, not the single attribute of the row. The whole-system day total counts a payment once; do not sum per-location totals (double counting). Decided 2026-11-16, option B.'}
+        confirmedAt: {type: string, format: date-time, nullable: true}
+        note: {type: string, nullable: true, description: 'Reason note, "late payment under review" for a BOOKING_TIME row in 003.1 LATE_PENDING_REVIEW (T133); null otherwise.'}
+    CashReversal:
+      type: object
+      description: SERVED 2026-11-16 (FR-036, CHK014; T144). Negative cash entry dated the current working day that corrects a cash collection of a closed day.
+      required: [reversalReference, ticketCode, collectionId, amountVnd, workingDate, reason, recordedBy, recordedAt]
+      properties:
+        reversalReference: {type: string}
+        ticketCode: {type: string}
+        collectionId: {type: string, description: The reversed CASH collection.}
+        locationId: {type: integer, format: int64}
+        amountVnd: {type: string, pattern: '^-[1-9][0-9]*$', description: 'Negative whole VND string (minus the applied amount of the collection).'}
+        workingDate: {type: string, format: date, description: Current Vietnam working day on which the reversal counts.}
+        originalWorkingDate: {type: string, format: date, description: The closed day of the reversed collection; never edited.}
+        reason: {type: string}
+        recordedBy: {type: string}
+        recordedAt: {type: string, format: date-time}
+    AbsorbedUndercharge:
+      type: object
+      description: An undercharge Mland absorbs on a FINALIZED ticket folio (FR-057; served 2026-11-16, task T135; added 2026-11-15). Documentation only.
+      required: [underchargeReference, ticketCode, amountVnd, reason, status, recordedBy, recordedAt]
+      properties:
+        underchargeReference: {type: string}
+        ticketCode: {type: string}
+        groupCode: {type: string, nullable: true}
+        locationId: {type: integer, format: int64}
+        amountVnd: {allOf: [{$ref: '#/components/schemas/Vnd'}], pattern: '^[1-9][0-9]*$', description: 'Whole VND string above 0.'}
+        reason: {type: string}
+        status: {type: string, enum: [ACTIVE, VOIDED]}
+        recordedBy: {type: string}
+        recordedAt: {type: string, format: date-time}
+        voidReason: {type: string, nullable: true}
+        voidedBy: {type: string, nullable: true}
+        voidedAt: {type: string, format: date-time, nullable: true}
     GroupCancellationProblem:
       allOf:
         - {$ref: '#/components/schemas/Problem'}

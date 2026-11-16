@@ -3,7 +3,6 @@ package edu.fpt.sep490_g22.ppswbs_backend.workshopoperations;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.controller.WorkshopOperationsExceptionHandler;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.OperationalLeadRequest;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.ProblemDetailResponse;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.SessionResponse;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.StaffAssignmentRequest;
@@ -161,7 +160,8 @@ public class WorkshopLifecycleContractIT {
         Map<String, Object> properties = (Map<String, Object>) stateTransitionSchema.get("properties");
         Map<String, Object> targetStateProp = (Map<String, Object>) properties.get("targetState");
         List<String> allowedEnums = (List<String>) targetStateProp.get("enum");
-        assertThat(allowedEnums).containsExactlyInAnyOrder("PUBLISHED", "SALES_PAUSED", "IN_PROGRESS", "ATTENDANCE_FINALIZED");
+        // Contract decided 2026-11-15: finalization only via attendance-finalizations, cancellation via cancellation-requests.
+        assertThat(allowedEnums).containsExactlyInAnyOrder("PUBLISHED", "SALES_PAUSED", "IN_PROGRESS");
 
         // DTO Validation: permitted states
         for (String stateName : allowedEnums) {
@@ -391,7 +391,6 @@ public class WorkshopLifecycleContractIT {
         // Verify that DTO classes exist and can be instantiated
         assertThat(StateTransitionRequest.class).isNotNull();
         assertThat(StaffAssignmentRequest.class).isNotNull();
-        assertThat(OperationalLeadRequest.class).isNotNull();
 
         // Verify BE-DESIGN-0003 blocker state:
         // AccountFacade lacks semantic query for target accountId capabilities/roles.

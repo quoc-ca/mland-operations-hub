@@ -14,7 +14,7 @@ import {
  * ends, and then asks for a refresh. The 12-minute hold and the 2-minute buffer are never shown. A retry reuses the
  * same command key, so it never opens a second attempt.
  */
-export function GroupHoldPanel({ group, authorization, onHoldEnded }) {
+export function GroupHoldPanel({ group, authorization, proof, onHoldEnded }) {
   const [phase, setPhase] = useState(() => groupHoldPhase(group));
   const [isPaying, setIsPaying] = useState(false);
   const [payError, setPayError] = useState(null);
@@ -48,6 +48,8 @@ export function GroupHoldPanel({ group, authorization, onHoldEnded }) {
       const attempt = await initiateGroupPayment(group.groupCode, {
         idempotencyKey: requestKey.current,
         authorization,
+        contactEmail: !authorization ? proof?.contactEmail : undefined,
+        contactPhone: !authorization ? proof?.contactPhone : undefined,
       });
       requestKey.current = null;
       if (attempt?.paymentUrl) window.location.href = attempt.paymentUrl;

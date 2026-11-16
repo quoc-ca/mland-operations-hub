@@ -31,6 +31,7 @@ class CashDayCloseServiceTest {
 
     private SettlementCashDayCloseRepository closes;
     private SettlementFolioCollectionRepository collections;
+    private edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementCashReversalRepository reversals;
     private CashDayCloseService service;
 
     @BeforeEach
@@ -38,8 +39,9 @@ class CashDayCloseServiceTest {
         closes = mock(SettlementCashDayCloseRepository.class);
         collections = mock(SettlementFolioCollectionRepository.class);
         SettlementBusinessAuditRepository audits = mock(SettlementBusinessAuditRepository.class);
+        reversals = mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementCashReversalRepository.class);
         when(closes.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
-        service = new CashDayCloseService(closes, collections, audits);
+        service = new CashDayCloseService(closes, collections, audits, reversals);
     }
 
     @Test

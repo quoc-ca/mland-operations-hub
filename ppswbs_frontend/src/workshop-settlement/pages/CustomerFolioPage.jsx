@@ -6,7 +6,9 @@ import { Loading, useCommand, useResource } from '../../shared/ui/components';
 import { createSettlementApi } from '../api/settlementApi';
 import FolioCorrectionLookup from '../FolioCorrectionLookup';
 import { CustomerPage } from '../OpsPage';
-import { ProblemNotice, money } from '../ui';
+import { ProblemNotice, VoucherNotRestoredNotice, money } from '../ui';
+import { buildContactProof, EMPTY_CONTACT } from '../../workshops/contactValidation';
+import { PhoneInput } from '../../workshops/PhoneInput';
 
 function FolioView({ folio }) {
   return (
@@ -18,6 +20,7 @@ function FolioView({ folio }) {
         {folio.pendingAmount !== undefined && <div><dt>Awaiting verification</dt><dd>{money(folio.pendingAmount)}</dd></div>}
         <div><dt>Balance due</dt><dd>{money(folio.balanceDue)}</dd></div>
       </dl>
+      <VoucherNotRestoredNotice voucherRestoration={folio.voucherRestoration} />
       {(folio.collections || []).length > 0 && (
         <table className="ops-table">
           <thead><tr><th>Method</th><th>Amount</th><th>Status</th></tr></thead>
@@ -40,19 +43,21 @@ export default function CustomerFolioPage() {
   const { status } = useAuth();
   const member = status === 'signed-in';
   const api = createSettlementApi(useHttp());
-  const [contact, setContact] = useState({ contactEmail: '', contactPhone: '' });
+  const [contact, setContact] = useState({ ...EMPTY_CONTACT });
   const [guestFolio, setGuestFolio] = useState(null);
   const command = useCommand();
   const own = useResource(() => (member ? api.getFolio(ticketCode) : Promise.resolve(null)), [ticketCode, member]);
 
   if (status === 'loading') return <CustomerPage title="Ticket payment"><Loading /></CustomerPage>;
 
-  const oneContact = Boolean(contact.contactEmail.trim()) !== Boolean(contact.contactPhone.trim());
+  // One contact only, in the normalized form the server compares by; null while it is empty or malformed.
+  const { proof } = buildContactProof({ email: contact.contactEmail, phone: contact.contactPhone, phoneCountry: contact.contactPhoneCountry });
+  const oneContact = Boolean(proof);
   const lookup = async event => {
     event.preventDefault();
-    const proof = contact.contactEmail.trim() ? { contactEmail: contact.contactEmail.trim() } : { contactPhone: contact.contactPhone.trim() };
+    if (!proof) return;
     const out = await command.run(() => api.lookupFolio(ticketCode, proof));
-    setContact({ contactEmail: '', contactPhone: '' });
+    setContact({ ...EMPTY_CONTACT });
     if (out.ok) setGuestFolio(out.result);
   };
 
@@ -82,8 +87,15 @@ export default function CustomerFolioPage() {
             : <ProblemNotice error={error} onRetry={command.retry} />}
           <form className="ota-form" aria-label="Find ticket" onSubmit={lookup}>
             <label>Email<input type="email" autoComplete="off" value={contact.contactEmail} onChange={event => setContact(v => ({ ...v, contactEmail: event.target.value }))} /></label>
-            <label>Phone<input autoComplete="off" value={contact.contactPhone} onChange={event => setContact(v => ({ ...v, contactPhone: event.target.value }))} /></label>
-            <p className="muted small">Use one of the two.</p>
+            <label htmlFor="folio-contact-phone">Phone</label>
+            <PhoneInput
+              id="folio-contact-phone"
+              country={contact.contactPhoneCountry}
+              value={contact.contactPhone}
+              onCountryChange={contactPhoneCountry => setContact(v => ({ ...v, contactPhoneCountry }))}
+              onValueChange={contactPhone => setContact(v => ({ ...v, contactPhone }))}
+            />
+            <p className="muted small">Use one of the two, in a valid format.</p>
             <button className="button primary" type="submit" disabled={command.pending || !oneContact}>Show my ticket</button>
           </form>
         </>

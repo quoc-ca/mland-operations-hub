@@ -1,7 +1,11 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.PriceProposalRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.VariantBranchStockRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dto.ManagementProductDtos.ActorRef;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dto.ManagementProductDtos.SubmitterBranch;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.ProductCategoryRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.ProductImageRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.ProductRepository;
@@ -33,6 +37,7 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -132,6 +137,80 @@ class ManagementProductQueryServiceTests {
         String body = json.writeValueAsString(page.items().get(0));
         assertThat(body).contains("\"firstPublishedAt\":null").contains("\"deletedAt\":null")
                 .doesNotContain("appliedPrice").doesNotContain("approvedPrice");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void proposalShowsSubmitterBranchesAndDeciderOnceLookedUp() throws Exception {
+        AccountFacade accounts = mock(AccountFacade.class);
+        when(accounts.findAccountFullName(12L)).thenReturn(Optional.of("Nguyễn Văn Staff"));
+        when(accounts.findAccountFullName(7L)).thenReturn(Optional.empty());
+        ObjectProvider<AccountFacade> accountProvider = mock(ObjectProvider.class);
+        when(accountProvider.getIfAvailable()).thenReturn(accounts);
+        ObjectProvider<CatalogueActorNames> names = mock(ObjectProvider.class);
+        when(names.getIfAvailable()).thenReturn(new CatalogueActorNames(accountProvider));
+        ObjectProvider<VariantBranchStockRepository> noStocks = mock(ObjectProvider.class);
+        ObjectProvider<ProductBranchStockService> noBranches = mock(ObjectProvider.class);
+        service = new ManagementProductQueryService(products, variants, categories, images, reviews, proposals,
+                holdReader, noStocks, noBranches, names);
+
+        Product draft = product(123L, false);
+        ProductVariant variant = variant(10L, 123L, 12, 7);
+        Instant submitted = Instant.parse("2026-11-16T03:00:00Z");
+        Instant decided = Instant.parse("2026-11-16T04:00:00Z");
+        PriceProposal first = PriceProposal.draft(10L, null, 1, BigInteger.valueOf(150_000), 0, "d", null);
+        setField(first, "id", 98L);
+        first.submit("12", submitted, "{\"all\":false,\"branches\":[{\"locationId\":3,\"name\":\"Hoàn Kiếm\"}]}");
+        first.approve("7", decided, BigInteger.valueOf(140_000));
+        PriceProposal second = PriceProposal.draft(10L, null, 2, BigInteger.valueOf(160_000), 0, "d", 98L);
+        setField(second, "id", 99L);
+        second.submit("12", submitted, null);
+        PriceProposal draftOnly = PriceProposal.draft(10L, null, 3, BigInteger.valueOf(170_000), 0, "d", 99L);
+        setField(draftOnly, "id", 100L);
+        stubSearch(List.of(123L), 1);
+        when(products.findAllById(List.of(123L))).thenReturn(List.of(draft));
+        when(categories.findAllById(any())).thenReturn(List.of(category(5L)));
+        when(variants.findByProductIdInOrderByProductIdAscRingSizeAsc(List.of(123L))).thenReturn(List.of(variant));
+        when(proposals.findByVariantIdInOrderByVariantIdAscRevisionAscIdAsc(List.of(10L)))
+                .thenReturn(List.of(first, second, draftOnly));
+
+        var rows = service.list(null, null, null, null).items().get(0).variants().get(0).proposals();
+
+        var decidedRow = rows.get(0);
+        assertThat(decidedRow.submittedBy()).isEqualTo(new ActorRef("ACCOUNT", "Nguyễn Văn Staff"));
+        assertThat(decidedRow.submittedAt()).isEqualTo(submitted);
+        assertThat(decidedRow.submitterBranches().kind()).isEqualTo("LISTED");
+        assertThat(decidedRow.submitterBranches().branches())
+                .containsExactly(new SubmitterBranch("3", "Hoàn Kiếm"));
+        assertThat(decidedRow.decidedBy()).isEqualTo(new ActorRef("ACCOUNT", "Tài khoản #7"));
+        assertThat(decidedRow.decidedAt()).isEqualTo(decided);
+        assertThat(rows.get(1).submitterBranches().kind()).isEqualTo("NOT_RECORDED");
+        assertThat(rows.get(1).decidedBy()).isNull();
+        assertThat(rows.get(2).submittedBy()).isNull();
+        assertThat(rows.get(2).submitterBranches()).isNull();
+        verify(accounts, times(1)).findAccountFullName(12L);
+
+        String body = Jackson2ObjectMapperBuilder.json().build().writeValueAsString(rows.get(2));
+        assertThat(body).doesNotContain("submittedBy").doesNotContain("submitterBranches").doesNotContain("decidedBy");
+    }
+
+    @Test
+    void withoutIdentityLookupActorsStillGetSafeLabels() {
+        Product draft = product(123L, false);
+        ProductVariant variant = variant(10L, 123L, 12, 7);
+        PriceProposal seeded = PriceProposal.draft(10L, null, 1, BigInteger.valueOf(150_000), 0, "d", null);
+        setField(seeded, "id", 98L);
+        seeded.submit("system:catalogue-seed", Instant.parse("2026-11-16T03:00:00Z"));
+        stubSearch(List.of(123L), 1);
+        when(products.findAllById(List.of(123L))).thenReturn(List.of(draft));
+        when(categories.findAllById(any())).thenReturn(List.of(category(5L)));
+        when(variants.findByProductIdInOrderByProductIdAscRingSizeAsc(List.of(123L))).thenReturn(List.of(variant));
+        when(proposals.findByVariantIdInOrderByVariantIdAscRevisionAscIdAsc(List.of(10L))).thenReturn(List.of(seeded));
+
+        var row = service.list(null, null, null, null).items().get(0).variants().get(0).proposals().get(0);
+
+        assertThat(row.submittedBy()).isEqualTo(new ActorRef("SYSTEM", "Hệ thống"));
+        assertThat(row.submitterBranches().kind()).isEqualTo("SYSTEM");
     }
 
     @Test

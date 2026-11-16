@@ -1,7 +1,7 @@
 # Quickstart: Workshop Operations Verification
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-05
+**Date updated**: 2026-11-16
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -11,11 +11,12 @@ authorize a production migration or a reset of existing workshop data.
 ## Re-based authorization and scheduled start
 
 - Use an active Staff fixture with `activeLocationIds` containing the session
-  location; no session assignment is required for authorization.
+  location **and an active assignment to the session** (an unassigned Staff
+  gets 403; 2026-11-06 — "no session assignment is required" is superseded).
 - Use an active Manager fixture and verify it can operate sessions in any
   location without an operational-lead record.
 - Set a future `checkInOpensAt`; at that instant verify check-in becomes
-  available while the session remains `PUBLISHED`. At the session's scheduled
+  available while the session remains `PUBLISHED` or `SALES_PAUSED` *(extended 2026-11-15, Q2, T114; was "`PUBLISHED`")*. At the session's scheduled
   start time verify the scheduler moves it to `IN_PROGRESS` and records a
   system audit event. Verify it also persists one complete `CLOSED` OTA snapshot
   and event in that same transaction; a repeated scheduler run must not create
@@ -32,6 +33,7 @@ authorize a production migration or a reset of existing workshop data.
   state to `CLOSED` and publishes the complete snapshot atomically; because
   `ATTENDANCE_FINALIZED` is already closed, that transition alone does not
   create another version/publication.
+- Verify `SALES_PAUSED` to `IN_PROGRESS` (scheduled start and manual) publishes the complete closed snapshot with `sourceVersion` +1, and a replay (repeated scheduler run) adds no duplicate publication or version.
 - Change schedule, availability and sale state together and verify they share
   one new version; internal-only Staff/assignment changes create no snapshot.
 - Deliver the same publication twice and deliver an older version; 003.4 must
@@ -110,7 +112,7 @@ run is not sufficient proof of index, lock or migration behaviour.
 5. Create a future `DRAFT` session, then publish it. Run a bulk generation for
    at most 90 future days twice: the first creates sessions and the second
    reports duplicates rather than creating more. Verify `DRAFT` creates no
-   OTA-observable snapshot. On publication, verify the mapped Basic Ring session
+   OTA-observable snapshot. On publication, verify the session (no package filter; spec Q8, 2026-11-15)
    exposes its schedule and availability/sale-state snapshots using one unified
    source-version sequence.
 6. Configure capacity for two published sessions. Request N seats for both and
@@ -149,11 +151,18 @@ run is not sufficient proof of index, lock or migration behaviour.
    cleanup affects only eligible completed records; verify the ledger contains no
    raw request payload, Firebase token, PII, QR value or audit JSON.
 8. Set `checkInOpensAt` on a `PUBLISHED` session and verify check-in opens while
-   the session remains `PUBLISHED`; at scheduled start verify the scheduler
+   the session remains `PUBLISHED`; repeat with a `SALES_PAUSED` session
+   (spec Clarifications 2026-11-15 Q2: check-in and scheduled start still apply); at scheduled start verify the scheduler
    transitions it to `IN_PROGRESS` idempotently. Verify an
-   active Staff inside the session location can operate without assignment,
-   Staff outside the location is denied, and an active Manager can operate
-   globally. Verify an inactive actor is denied.
+   active Staff inside the session location **and actively assigned** can
+   operate (an unassigned Staff gets 403; 2026-11-06), Staff outside the
+   location is denied, and an active Manager can operate globally. For a
+   `SALES_PAUSED` session verify the auto-start writes a system audit event,
+   publishes the complete closed snapshot and advances the version exactly once *(F04 reopened 2026-11-16, option B)*, and unexpired holds still complete payment
+   (Q2); verify a start later than 5 minutes is logged at ERROR level, a metric increases and no email is sent (F14), and it is still
+   caught up (Q7); verify a session with no Staff is flagged from
+   `checkInOpensAt` and revoking its last assignment needs explicit Manager
+   confirmation (Q3). Verify an inactive actor is denied.
 9. Before `check_in_opens_at`, a valid QR/ticket-code check-in is rejected.
    Once open, scan a two-session ticket at session one successfully. Scan it
    concurrently or twice at that session and verify exactly one check-in is
@@ -166,17 +175,50 @@ run is not sufficient proof of index, lock or migration behaviour.
 11. Finalise the session after actual end time. Checked-in tickets remain
    checked-in and unchecked active tickets become `NO_SHOW`. Verify a regular
    Staff member cannot correct this result after finalisation.
-   For a multi-session booking, verify Settlement receives readiness only after
-   every required session is `ATTENDANCE_FINALIZED`, never from scheduled end
-   time or attendance detail.
-12. Request a Manager change of one or both future required sessions through the
+   *(Superseded 2026-11-15 by FR-032/T097: the booking-wide readiness check below is removed.)*
+   For each ticket, verify `getTicketAttendanceOutcome` is terminal only after
+   every session of that ticket is `ATTENDANCE_FINALIZED` and the ticket's own
+   24-hour correction window has closed, never from scheduled end time or
+   attendance detail. *(Original: "For a multi-session booking, verify Settlement
+   receives readiness only after every required session is `ATTENDANCE_FINALIZED`".)*
+12. *(Superseded 2026-11-15 by FR-034/T094/T097: the change is per ticket
+   (`replaceTicketSessions`), not a complete booking-wide required-session set.)*
+   Request a Manager change of one or both future required sessions through the
    003.3 boundary. Verify every target is future, `PUBLISHED`, customer-
-   selectable and has capacity for the full participant count; if one check
+   selectable and has one seat per selected ticket (FR-034); if one check
    fails, no session entitlement or capacity changes. On success, verify the
    same persistent QR gains the complete resulting session set, capacity moves
    atomically, and a replaced session has no remaining entitlement. Verify a
    `SALES_PAUSED`, started, finalized or cancellation-requested session is not
    accepted by this ordinary change flow.
+12a. Error and access checks (spec "Error catalogue", Checklist follow-up
+   2026-11-15; tasks T126–T131, T135):
+   - Send a normal check-in before `checkInOpensAt` and verify `409
+     CHECK_IN_NOT_OPEN` with `checkInOpensAt` in the body (the `EARLY_CHECKIN`
+     override stays available); a session not open for check-in answers `409
+     INVALID_STATE`.
+   - Request a ticket resend four times for one booking within 15 minutes and
+     verify the fourth answers `429 REDELIVERY_THROTTLED` with a `Retry-After`
+     header in whole seconds, sends nothing and is audited as a denied attempt.
+   - Request a resend for a booking with no `ACTIVE` unused ticket and verify `409
+     INVALID_STATE` with `reason` `NO_ELIGIBLE_TICKET`; make Booking refuse the
+     redelivery and verify `409 INVALID_STATE` with `reason`
+     `REDELIVERY_REJECTED_BY_BOOKING` (task T139; names are final, owner 2026-11-16). Neither is 400
+     or 404.
+   - Make the Account facade fail (stub an exception) and verify `503
+     DEPENDENCY_UNAVAILABLE` with no side effect and no audit row; a missing or
+     expired bearer token is `401`, never a missing account.
+   - Call a 003.2 business route as an Admin (location create or edit, session
+     list, publish, finalize, `GET /workshop-sessions/{id}`) and verify `403`;
+     verify a Manager creates (`POST`) and edits (`PATCH
+     /workshop-locations/{locationId}`) a location and that a Staff caller gets
+     `403`.
+   - Assign a Staff session with each ineligible account (missing, not `STAFF`,
+     not `ACTIVE`, location out of scope) and verify `409 STAFF_NOT_ELIGIBLE`
+     with `reason` `ACCOUNT_NOT_FOUND`, `NOT_STAFF`, `NOT_ACTIVE` or
+     `LOCATION_NOT_IN_SCOPE`; assign outside `DRAFT`/`PUBLISHED`/`SALES_PAUSED`/
+     `IN_PROGRESS` and verify `409 INVALID_STATE`; repeat an assignment and verify
+     a `200` no-op.
 13. Request cancellation on a session with commitments. Verify normal check-in
    stops, a 003.3 handoff exists, and no automatic refund, reschedule or ticket
    replacement occurs in this feature.

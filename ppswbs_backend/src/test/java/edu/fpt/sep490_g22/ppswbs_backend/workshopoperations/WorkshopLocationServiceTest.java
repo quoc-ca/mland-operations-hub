@@ -1,6 +1,5 @@
 package edu.fpt.sep490_g22.ppswbs_backend.workshopoperations;
 
-import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountSummary;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.WorkshopLocationRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.LocationRequest;
@@ -38,7 +37,7 @@ public class WorkshopLocationServiceTest {
     private WorkshopOperationsAuthorizationService authorizationService;
 
     @Mock
-    private AccountFacade accountFacade;
+    private edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.OperationsAuditEventRepository createAuditRepository;
 
     @InjectMocks
     private WorkshopLocationService locationService;
@@ -94,59 +93,48 @@ public class WorkshopLocationServiceTest {
     class ListLocationsTests {
 
         @Test
-        @DisplayName("All-location actor (Admin) lists all active locations")
-        void adminListsAllLocations() {
+        @DisplayName("Admin is denied listing locations (T129, FR-012c: no Admin business authority)")
+        void adminDeniedFromListingLocations() {
             when(authorizationService.authenticate(AUTH_HEADER)).thenReturn(adminAccount);
-            when(authorizationService.isAllBranchActor(adminAccount)).thenReturn(true);
-            when(locationRepository.findByActiveTrue()).thenReturn(List.of(location1, location2));
 
-            List<LocationResponse> responses = locationService.listLocations(AUTH_HEADER);
-
-            assertThat(responses).hasSize(2);
-            assertThat(responses.get(0).getCode()).isEqualTo("LOC-01");
-            assertThat(responses.get(0).getId()).isEqualTo(1L);
-            assertThat(responses.get(1).getCode()).isEqualTo("LOC-02");
-            assertThat(responses.get(1).getId()).isEqualTo(2L);
-            verify(locationRepository).findByActiveTrue();
-            verify(accountFacade, never()).getLocationScope(any());
+            assertThatThrownBy(() -> locationService.listLocations(AUTH_HEADER))
+                    .isInstanceOf(WorkshopForbiddenException.class);
+            verify(locationRepository, never()).findByActiveTrue();
         }
 
         @Test
-        @DisplayName("Manager lists all active locations regardless of location assignments")
+        @DisplayName("Manager lists every location (inactive included) regardless of location assignments")
         void managerListsAllLocationsGlobally() {
             when(authorizationService.authenticate(AUTH_HEADER)).thenReturn(managerAccountA);
-            when(authorizationService.isAllBranchActor(managerAccountA)).thenReturn(false);
             when(authorizationService.isManager(managerAccountA)).thenReturn(true);
-            when(locationRepository.findByActiveTrue()).thenReturn(List.of(location1, location2));
+            when(locationRepository.findAll(any(org.springframework.data.domain.Sort.class))).thenReturn(List.of(location1, location2));
 
             List<LocationResponse> responses = locationService.listLocations(AUTH_HEADER);
 
             assertThat(responses).hasSize(2);
             assertThat(responses.get(0).getCode()).isEqualTo("LOC-01");
             assertThat(responses.get(0).getId()).isEqualTo(1L);
-            verify(locationRepository).findByActiveTrue();
+            verify(locationRepository).findAll(any(org.springframework.data.domain.Sort.class));
             verify(locationRepository, never()).findByIdInAndActiveTrue(any());
         }
 
         @Test
-        @DisplayName("Manager with empty location assignments still receives all active locations")
+        @DisplayName("Manager with empty location assignments still receives every location")
         void managerWithEmptyScopeReceivesAllLocations() {
             when(authorizationService.authenticate(AUTH_HEADER)).thenReturn(managerAccountA);
-            when(authorizationService.isAllBranchActor(managerAccountA)).thenReturn(false);
             when(authorizationService.isManager(managerAccountA)).thenReturn(true);
-            when(locationRepository.findByActiveTrue()).thenReturn(List.of(location1, location2));
+            when(locationRepository.findAll(any(org.springframework.data.domain.Sort.class))).thenReturn(List.of(location1, location2));
 
             List<LocationResponse> responses = locationService.listLocations(AUTH_HEADER);
 
             assertThat(responses).hasSize(2);
-            verify(locationRepository).findByActiveTrue();
+            verify(locationRepository).findAll(any(org.springframework.data.domain.Sort.class));
         }
 
         @Test
         @DisplayName("Member role is denied with WorkshopForbiddenException when listing locations")
         void memberDeniedFromListingLocations() {
             when(authorizationService.authenticate(AUTH_HEADER)).thenReturn(memberAccount);
-            when(authorizationService.isAllBranchActor(memberAccount)).thenReturn(false);
             when(authorizationService.isManager(memberAccount)).thenReturn(false);
             when(authorizationService.isStaff(memberAccount)).thenReturn(false);
 
@@ -161,8 +149,8 @@ public class WorkshopLocationServiceTest {
     class CreateLocationTests {
 
         @Test
-        @DisplayName("All-location actor (Admin) successfully creates a new location")
-        void adminCreatesLocationSuccessfully() {
+        @DisplayName("Manager successfully creates a new location")
+        void managerCreatesLocationSuccessfully() {
             LocationRequest request = LocationRequest.builder()
                     .code("LOC-03")
                     .name("District 3 Workshop")
@@ -170,7 +158,7 @@ public class WorkshopLocationServiceTest {
                     .active(true)
                     .build();
 
-            when(authorizationService.requireAllBranchActor(AUTH_HEADER)).thenReturn(adminAccount);
+            when(authorizationService.requireGlobalManager(AUTH_HEADER)).thenReturn(managerAccountA);
             when(locationRepository.findByCode("LOC-03")).thenReturn(Optional.empty());
             when(locationRepository.save(any(WorkshopLocation.class))).thenAnswer(invocation -> {
                 WorkshopLocation b = invocation.getArgument(0);
@@ -196,7 +184,7 @@ public class WorkshopLocationServiceTest {
                     .address("Some Address")
                     .build();
 
-            when(authorizationService.requireAllBranchActor(AUTH_HEADER)).thenReturn(adminAccount);
+            when(authorizationService.requireGlobalManager(AUTH_HEADER)).thenReturn(managerAccountA);
             when(locationRepository.findByCode("LOC-01")).thenReturn(Optional.of(location1));
 
             assertThatThrownBy(() -> locationService.createLocation(AUTH_HEADER, request))
@@ -204,6 +192,88 @@ public class WorkshopLocationServiceTest {
                     .hasMessageContaining("already exists");
 
             verify(locationRepository, never()).save(any());
+        }
+    }
+
+    @Nested
+    @DisplayName("T135 updateLocation")
+    class UpdateLocationTests {
+
+        @Mock
+        private edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.WorkshopSessionRepository sessionRepository;
+        @Mock
+        private edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.OperationsAuditEventRepository auditEventRepository;
+
+        private WorkshopLocationService service() {
+            return new WorkshopLocationService(locationRepository, authorizationService, null, sessionRepository, auditEventRepository);
+        }
+
+        private void manager() {
+            when(authorizationService.requireGlobalManager(AUTH_HEADER)).thenReturn(managerAccountA);
+            lenient().when(locationRepository.findById(1L)).thenReturn(Optional.of(location1));
+            lenient().when(locationRepository.save(any(WorkshopLocation.class))).thenAnswer(i -> i.getArgument(0));
+        }
+
+        @Test
+        @DisplayName("non-Manager is refused before any lookup")
+        void nonManagerRefused() {
+            when(authorizationService.requireGlobalManager(AUTH_HEADER)).thenThrow(new WorkshopForbiddenException("no"));
+            assertThatThrownBy(() -> service().updateLocation(AUTH_HEADER, 1L,
+                    edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.LocationUpdateRequest.builder().name("X").build()))
+                    .isInstanceOf(WorkshopForbiddenException.class);
+            verify(locationRepository, never()).findById(any());
+        }
+
+        @Test
+        @DisplayName("empty request, blank name and different code are validation errors; nothing saved")
+        void validation() {
+            manager();
+            var update = edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.LocationUpdateRequest.builder();
+            assertThatThrownBy(() -> service().updateLocation(AUTH_HEADER, 1L, update.build()))
+                    .isInstanceOf(WorkshopValidationException.class);
+            assertThatThrownBy(() -> service().updateLocation(AUTH_HEADER, 1L, update.name(" ").build()))
+                    .isInstanceOf(WorkshopValidationException.class);
+            assertThatThrownBy(() -> service().updateLocation(AUTH_HEADER, 1L, update.name("Ok").code("OTHER").build()))
+                    .isInstanceOf(WorkshopValidationException.class).hasMessageContaining("immutable");
+            verify(locationRepository, never()).save(any());
+            verifyNoInteractions(auditEventRepository);
+        }
+
+        @Test
+        @DisplayName("unknown id is WorkshopNotFoundException")
+        void unknownId() {
+            manager();
+            assertThatThrownBy(() -> service().updateLocation(AUTH_HEADER, 77L,
+                    edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.LocationUpdateRequest.builder().name("X").build()))
+                    .isInstanceOf(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopNotFoundException.class);
+        }
+
+        @Test
+        @DisplayName("deactivation is refused with WorkshopLifecycleException while a not-ended session uses the location")
+        void deactivationRefused() {
+            manager();
+            when(sessionRepository.existsByLocationIdAndStateNotIn(eq(1L), any())).thenReturn(true);
+            assertThatThrownBy(() -> service().updateLocation(AUTH_HEADER, 1L,
+                    edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.LocationUpdateRequest.builder().active(false).build()))
+                    .isInstanceOf(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopLifecycleException.class);
+            assertThat(location1.isActive()).isTrue();
+            verify(locationRepository, never()).save(any());
+            verifyNoInteractions(auditEventRepository);
+        }
+
+        @Test
+        @DisplayName("an unchanged value writes no audit event; a rename writes exactly one")
+        void auditPerAppliedChange() {
+            manager();
+            var same = edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.LocationUpdateRequest.builder()
+                    .name("Location One").address("123 Street 1").active(true).build();
+            service().updateLocation(AUTH_HEADER, 1L, same);
+            verifyNoInteractions(auditEventRepository);
+
+            LocationResponse response = service().updateLocation(AUTH_HEADER, 1L,
+                    edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.LocationUpdateRequest.builder().name(" Renamed ").build());
+            assertThat(response.getName()).isEqualTo("Renamed");
+            verify(auditEventRepository, times(1)).save(any());
         }
     }
 }

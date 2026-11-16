@@ -98,7 +98,8 @@ public class AttendanceCorrectionService {
 
         if (entitlement.getAttendanceState() != AttendanceState.CHECKED_IN) {
             log.warn("Check-in reversal rejected: ticket {} is in state {}", ticket.getTicketCode(), entitlement.getAttendanceState());
-            throw new WorkshopTicketConflictException("Ticket " + ticket.getTicketCode() + " is in state "
+            // T140 (FR-010kh): a repeat finds the ticket no longer checked in: a state conflict, 409 INVALID_STATE.
+            throw new WorkshopLifecycleException("Ticket " + ticket.getTicketCode() + " is in state "
                     + entitlement.getAttendanceState() + "; check-in reversal requires currently CHECKED_IN ticket");
         }
 
@@ -213,6 +214,19 @@ public class AttendanceCorrectionService {
         AttendanceState previousState = entitlement.getAttendanceState();
         Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
         ensureCorrectionWindowOpen(ticket.getReference(), now);
+
+        // T140 (FR-010kh): a correction with the value the ticket already has is 200, unchanged, with no second
+        // action or audit event.
+        if (previousState == request.getCorrectedAttendanceState()) {
+            return Ticket.builder()
+                    .ticketCode(ticket.getTicketCode())
+                    .sessionId(session.getReference())
+                    .locationId(session.getLocation().getId())
+                    .validityState(ticket.getValidityState())
+                    .attendanceState(entitlement.getAttendanceState())
+                    .checkedInAt(entitlement.getCheckedInAt())
+                    .build();
+        }
 
         // 1. Apply correction to entitlement
         entitlement.setAttendanceState(request.getCorrectedAttendanceState());

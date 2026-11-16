@@ -1,13 +1,7 @@
 package edu.fpt.sep490_g22.ppswbs_backend.workshopsettlement;
 
-import edu.fpt.sep490_g22.ppswbs_backend.common.payment.VnpayMerchantOperationResult;
-import edu.fpt.sep490_g22.ppswbs_backend.common.payment.VnpayMerchantOperationsPort;
-import edu.fpt.sep490_g22.ppswbs_backend.common.payment.VnpayRefundCommand;
-import edu.fpt.sep490_g22.ppswbs_backend.common.payment.VnpayRefundReconciliationCommand;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingRefundStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingServiceOutcome;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.OutcomeStatus;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.RefundConsequenceOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementBusinessAuditRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementCaseRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementFinalBillRepository;
@@ -27,7 +21,6 @@ import org.springframework.transaction.support.AbstractPlatformTransactionManage
 import org.springframework.transaction.support.DefaultTransactionStatus;
 
 import java.time.Instant;
-import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -43,7 +36,6 @@ class WorkshopRefundServiceTest {
     private static final String CASE_REF = "SETTLE-CANCEL-CASE-1";
     private static final String BOOKING_REF = "BK-CANCEL-1";
 
-    private final VnpayMerchantOperationsPort provider = mock(VnpayMerchantOperationsPort.class);
     private final SettlementRefundAllocationRepository allocations = mock(SettlementRefundAllocationRepository.class);
     private final SettlementCaseRepository cases = mock(SettlementCaseRepository.class);
     private final SettlementBusinessAuditRepository audits = mock(SettlementBusinessAuditRepository.class);
@@ -64,8 +56,8 @@ class WorkshopRefundServiceTest {
         cancellationCase = SettlementCase.builder().caseReference(CASE_REF).bookingReference(BOOKING_REF)
                 .caseType("CUSTOMER_CANCELLATION").lifecycleStatus("PENDING_PROVIDER")
                 .correlationReference("CORR-1").createdAt(Instant.now()).updatedAt(Instant.now()).build();
-        service = new WorkshopRefundService(provider, allocations, cases, audits, operations,
-                booking, bills, notifier, bankRefunds, transactions, "8.8.8.8", "sandbox-merchant");
+        service = new WorkshopRefundService(allocations, cases, audits, operations,
+                booking, bills, notifier, bankRefunds, transactions);
         when(cases.findByCaseReference(CASE_REF)).thenReturn(Optional.of(cancellationCase));
         when(cases.findByCaseReferenceForUpdate(CASE_REF)).thenReturn(Optional.of(cancellationCase));
         when(cases.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
@@ -77,8 +69,6 @@ class WorkshopRefundServiceTest {
         when(allocations.findAllByCaseReferenceOrderByCreatedAtAsc(CASE_REF)).thenAnswer(invocation ->
                 allocationRows.values().stream().sorted(java.util.Comparator.comparing(
                         SettlementRefundAllocation::getCreatedAt)).toList());
-        when(operations.applyRefund(eq(BOOKING_REF), anyString(), anyString(), anyString()))
-                .thenReturn(RefundConsequenceOutcome.accepted());
     }
 
     @Test
@@ -92,9 +82,7 @@ class WorkshopRefundServiceTest {
 
         assertThat(cancellationCase.getLifecycleStatus()).isEqualTo("REJECTED");
         assertThat(cancellationCase.getReasonReference()).isEqualTo("CUSTOMER_CANCELLATION_NON_REFUNDABLE");
-        verify(provider, never()).requestRefund(any(VnpayRefundCommand.class));
-        verify(provider, never()).queryRefund(any(VnpayRefundReconciliationCommand.class));
-        verify(operations, never()).applyRefund(anyString(), anyString(), anyString(), anyString());
+        verifyNoInteractions(operations);
     }
 
     // Removed 2026-11-14 with T099: acceptedRefundIsImmediatelyQueriedAndOnlyVerifiedQueryAppliesCancellation,
@@ -103,8 +91,8 @@ class WorkshopRefundServiceTest {
     // laterRejectedAllocationAfterVerifiedRefundRemainsPendingForManualRemediation exercised the VNPay refund
     // dispatch through a CUSTOMER_CANCELLATION case. Every case type is now either bank-routed (T098/T104:
     // MLAND_CANCELLATION_REMEDY, FOLIO_CORRECTION, LATE_PAYMENT_REFUND, ADDON_REFUND) or refused above, so no
-    // case can reach provider.requestRefund any more and those tests asserted an unreachable path. The dispatch
-    // code itself is left in place: removing a money flow needs the owner's decision (003.3 tasks, T099 note).
+    // case could reach the VNPay refund and those tests asserted an unreachable path. The VNPay refund code itself was
+    // removed 2026-11-15 on the owner's decision.
 
     @Test
     void aMlandRemedyGoesBackByBankTransferAndNeverReachesTheGateway() {
@@ -116,7 +104,6 @@ class WorkshopRefundServiceTest {
         service.dispatchCase(CASE_REF);
 
         // T098: Mland's own money is refunded outside the system, so VNPay is never asked for a refund.
-        verify(provider, never()).requestRefund(any(VnpayRefundCommand.class));
         assertThat(allocation.getLifecycleStatus()).isEqualTo("PENDING_BANK_REFUND");
         assertThat(allocation.getBankRefundReference()).isEqualTo("REFUND-1");
         // The original payment evidence stays: it is still what proves Mland holds the money.
@@ -149,39 +136,23 @@ class WorkshopRefundServiceTest {
         verify(booking).recordBookingRefundStatus(eq(BOOKING_REF), eq(BookingRefundStatus.REFUNDED), eq(CASE_REF),
                 anyString(), eq("CORR-1"));
         assertThat(openFolio.getLifecycleStatus()).isEqualTo("CLOSED");
+        // T168: REFUNDED is not an entitlement-revocation trigger; the 003.2 facade is not called at all.
+        verifyNoInteractions(operations);
     }
 
+
     @Test
-    void anUnreconciledLegacyGatewayRefundIsLeftAloneInsteadOfPaidTwice() {
+    void theSchedulerResolvesACaseWhoseAllocationsWereAllConfirmedByTheManager() {
         cancellationCase.setCaseType("MLAND_CANCELLATION_REMEDY");
-        SettlementRefundAllocation allocation = allocation("ALLOC-MLAND", "PAY-MLAND", 50_000, 25_000, "03");
-        allocation.setProviderResponseCode("99");
+        SettlementRefundAllocation allocation = allocation("ALLOC-DONE", "PAY-DONE", 50_000, 25_000, "03");
+        allocation.setLifecycleStatus("VERIFIED");
         when(allocations.findAllByCaseReferenceOrderByCreatedAtAsc(CASE_REF)).thenReturn(List.of(allocation));
-
-        service.dispatchCase(CASE_REF);
-
-        assertThat(allocation.getLifecycleStatus()).isEqualTo("PREPARED");
-        assertThat(allocation.getBankRefundReference()).isNull();
-        verify(provider, never()).requestRefund(any(VnpayRefundCommand.class));
-    }
-
-
-    @Test
-    void scheduledReconciliationLimitsQueriesToKnownRefundsDueAfterFiveMinutesAndWithinTwentyFourHours() {
-        Instant before = Instant.now();
+        when(cases.findTop100ByCaseTypeInAndLifecycleStatusOrderByCreatedAtAsc(any(), eq("PENDING_PROVIDER")))
+                .thenReturn(List.of(cancellationCase));
 
         service.reconcileDueRefunds();
 
-        Instant after = Instant.now();
-        var cutoffs = org.mockito.ArgumentCaptor.forClass(Instant.class);
-        verify(allocations).findDueRefundQueries(eq(List.of("ACCEPTED", "UNKNOWN")),
-                cutoffs.capture(), cutoffs.capture());
-        assertThat(cutoffs.getAllValues().get(0)).isBetween(before.minus(Duration.ofHours(24)),
-                after.minus(Duration.ofHours(24)));
-        assertThat(cutoffs.getAllValues().get(1)).isBetween(before.minus(Duration.ofMinutes(5)),
-                after.minus(Duration.ofMinutes(5)));
-        verify(provider, never()).queryRefund(any(VnpayRefundReconciliationCommand.class));
-        verify(provider, never()).requestRefund(any(VnpayRefundCommand.class));
+        assertThat(cancellationCase.getLifecycleStatus()).isEqualTo("RESOLVED");
     }
 
     @Test
@@ -201,7 +172,6 @@ class WorkshopRefundServiceTest {
         service.dispatchCase(corrCaseRef);
 
         // T098: an overcharge corrected after FINALIZED is Mland money, so it leaves by bank transfer too.
-        verify(provider, never()).requestRefund(any(VnpayRefundCommand.class));
         assertThat(alloc.getLifecycleStatus()).isEqualTo("PENDING_BANK_REFUND");
 
         // The correction resolves only once the Manager has confirmed the bank transfer.
@@ -215,7 +185,7 @@ class WorkshopRefundServiceTest {
         assertThat(corrCase.getLifecycleStatus()).isEqualTo("RESOLVED");
 
         // A folio correction still touches no booking, folio or cancellation consequence.
-        verify(operations, never()).applyRefund(anyString(), anyString(), anyString(), anyString());
+        verifyNoInteractions(operations);
         verify(booking, never()).recordBookingRefundStatus(anyString(), any(), anyString(), anyString(), anyString());
         verify(booking, never()).recordBookingServiceOutcome(anyString(), any(), anyString(), anyString(), anyString());
         verify(bills, never()).saveAndFlush(any());
@@ -244,7 +214,6 @@ class WorkshopRefundServiceTest {
 
         // T104: the add-on overcharge of an OTA booking is Mland money, so it leaves by bank transfer too.
         // The OTA's own base ticket stays the OTA's process and was never handled here.
-        verify(provider, never()).requestRefund(any(VnpayRefundCommand.class));
         assertThat(alloc.getLifecycleStatus()).isEqualTo("PENDING_BANK_REFUND");
         assertThat(alloc.getBankRefundReference()).isEqualTo("REFUND-ADDON");
         assertThat(addonCase.getLifecycleStatus()).isNotEqualTo("RESOLVED");
@@ -257,7 +226,7 @@ class WorkshopRefundServiceTest {
         assertThat(addonCase.getLifecycleStatus()).isEqualTo("RESOLVED");
 
         // Verify consequences were NEVER invoked
-        verify(operations, never()).applyRefund(anyString(), anyString(), anyString(), anyString());
+        verifyNoInteractions(operations);
         verify(booking, never()).recordBookingRefundStatus(anyString(), any(), anyString(), anyString(), anyString());
         verify(booking, never()).recordBookingServiceOutcome(anyString(), any(), anyString(), anyString(), anyString());
         verify(bills, never()).saveAndFlush(any());
@@ -283,17 +252,11 @@ class WorkshopRefundServiceTest {
                 .originalProviderTransactionNumber(paymentRef.equals("PAY-1") ? "10001" : "10002")
                 .originalProviderCreateDate("20261030181359").originalAmountVnd(original)
                 .allocatedAmountVnd(amount).currencyCode("VND").operationReference("OP-" + ref)
-                .providerTransactionType(type).lifecycleStatus("PREPARED")
+                .lifecycleStatus("PREPARED")
                 .createdAt(Instant.parse(paymentRef.equals("PAY-1") ? "2026-10-30T18:00:00Z" : "2026-10-30T18:01:00Z"))
                 .updatedAt(Instant.now()).build();
         allocationRows.put(ref, allocation);
         return allocation;
-    }
-
-    private static VnpayMerchantOperationResult result(String kind, String status, String code, String type,
-            String transactionStatus, String txnNumber, String merchantRef, Long amount, boolean signatureVerified) {
-        return new VnpayMerchantOperationResult("OP", kind, status, code, type, transactionStatus,
-                txnNumber, merchantRef, amount, signatureVerified);
     }
 
     private static final class RecordingTransactionManager extends AbstractPlatformTransactionManager {

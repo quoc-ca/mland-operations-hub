@@ -57,4 +57,24 @@ describe('Attendance roster on the session page', () => {
     expect(await panel.findByText('Đã check-in')).toBeInTheDocument();
     expect(calls.filter(call => call.path.endsWith('/attendance-roster')).length).toBeGreaterThanOrEqual(2);
   });
+
+  it('T114: the check-in desk is usable while the session is SALES_PAUSED (the screen does not gate by state)', async () => {
+    const calls = mockFetch({
+      'GET /api/v1/workshop-sessions/session-1': json(200, { id: 'session-1', state: 'SALES_PAUSED', locationId: 4, capacity: 10, assignedStaffAccountIds: [] }),
+      'GET /api/v1/workshop-sessions/session-1/attendance-roster': json(200, [row('TK-1', 'NOT_CHECKED_IN', null)]),
+      'POST /api/v1/workshop-sessions/session-1/check-ins': json(200, { checkInResult: 'CHECKED_IN' }),
+    });
+    const user = userEvent.setup();
+    renderRoutes(operationsRoutes, { path: '/operations/sessions/session-1' });
+    await screen.findByText('Check-in desk');
+
+    await user.type(screen.getAllByPlaceholderText('TK-...')[0], 'TK-1');
+    const button = screen.getByRole('button', { name: 'Check in' });
+    expect(button).toBeEnabled();
+    await user.click(button);
+
+    expect(await screen.findByText('Check-in recorded.')).toBeInTheDocument();
+    const post = calls.find(call => call.method === 'POST' && call.path.endsWith('/check-ins'));
+    expect(post.body).toEqual({ ticketCode: 'TK-1' });
+  });
 });

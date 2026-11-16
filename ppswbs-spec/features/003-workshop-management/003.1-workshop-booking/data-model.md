@@ -1,12 +1,12 @@
 # Data Model: Workshop Booking Core
 
 **Date created**: 2026-10-07
-**Date updated**: 2026-11-14
+**Date updated**: 2026-11-16
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
 **Status**: Updated 2026-11-14 to the implemented group/ticket model (migrations
-V113–V133); owner re-approval pending. *(Previous status: "Draft design — schema
+V113–V133); approved by Hồ Hoàng Quốc 2026-11-15 together with spec.md. *(Previous status: "Draft design — schema
 names and migrations require approval before implementation".)* The current
 direct-booking model is the section "Booking group and ticket bookings" below;
 the single-`WorkshopBooking` sections that follow it here are history for direct
@@ -149,7 +149,7 @@ BookingGroup (1) ── (1..N) TicketBooking ── (1..2) TicketSessionEntitlem
 | TicketBooking | ticket booking code; group; package and session-set snapshot; service/financial status; QR/Magic Link reference; one-change counter used by 003.3 | One person per ticket. A multi-session package is one ticket. Cancel/change/refund of one ticket never changes another ticket implicitly. |
 | TicketPriceSnapshot | package price; voucher allocation; allocated points and point discount; final price; collected at booking; collection kind (`FREE`, `FULL`, `DEPOSIT`, `DEFERRED_BELOW_VNPAY_MINIMUM`); remaining; disclosed non-refundable condition; recorded Loyalty policy revision | Immutable after confirmation. Allocations use largest remainder in whole VND / whole points (ties: higher price, then cart order); voucher allocation ≤ ticket price; ticket at 0 after voucher gets no points. Collection: 0 → 0; 1–200,000 → full; > 200,000 → 200,000; whole group 1–4,999 → all deferred to checkout. |
 | TicketRecipient | ticket; recipient email (encrypted or masked in reads); active QR generation; change count; change history (old/new masked email, actor, channel, time) | Optional. A recipient change revokes the old QR and issues a new one; same-email resend keeps the QR. No change after check-in; at most 3 online changes per ticket. Only the buyer or Staff after verifying the buyer may change it. |
-| LatePaymentReview | group; verified evidence reference; arrival time; evaluated conditions (capacity, start ≥ 2 h, recomputed amount, ≤ 60 min, no duplicate booking); outcome (`AUTO_RECONFIRMED`, `PENDING_MANAGER`, `MANAGER_CONFIRMED`, `REFUND_REQUESTED`) | One review per verified evidence. Auto re-confirmation is atomic for the whole group and idempotent across IPN/QueryDR. Manager confirmation is allowed only when only the 60-minute or duplicate-booking condition failed. |
+| LatePaymentReview | group; verified evidence reference; arrival time; evaluated conditions (capacity, start ≥ 2 h, recomputed amount, ≤ 60 min, no duplicate booking: same Member account or normalized email with a `CONFIRMED` or `PENDING_PAYMENT` booking whose hold still runs, FR-040 condition 5); outcome (`AUTO_RECONFIRMED`, `PENDING_MANAGER`, `MANAGER_CONFIRMED`, `REFUND_REQUESTED`) | One review per verified evidence. Auto re-confirmation is atomic for the whole group and idempotent across IPN/QueryDR. Manager confirmation is allowed only when only the 60-minute or duplicate-booking condition failed. |
 
 `BookingInvoice` keeps its meaning for single-ticket history; for new bookings
 the per-ticket `TicketPriceSnapshot` and the 003.3 folio replace the group-level
@@ -167,8 +167,8 @@ the per-ticket `TicketPriceSnapshot` and the 003.3 folio replace the group-level
 | `ticket_price_snapshots` (V113) | `ticket_id` (unique), `package_price_vnd`, `voucher_discount_vnd`, `points_used`, `point_discount_vnd`, `final_price_vnd`, `collected_at_booking_vnd`, `collection_kind`, `remaining_vnd`, `non_refundable_disclosed`, `loyalty_policy_revision` | `collection_kind` ENUM `FREE`, `FULL`, `DEPOSIT`, `DEFERRED_BELOW_VNPAY_MINIMUM`; `ck_tps_amounts` (final = price − discounts; collected + remaining = final) and `ck_tps_kind` (FR-035 bands: FREE 0; FULL 1–200,000 collects all; DEPOSIT ≥ 200,001 collects 200,000; DEFERRED collects 0). |
 | `ticket_recipients` (V113) | `ticket_id` (unique), `recipient_email`, `change_count`, `qr_generation` | `change_count ≥ 0`, `qr_generation ≥ 1`. |
 | `ticket_recipient_changes` (V113, V127) | `ticket_id`, `old_email_masked`, `new_email_masked`, `actor_type`, `actor_reference`, `channel`, `changed_at`; V127 adds `change_kind`, `qr_rotated`, `counted_online`, `reason`, `correlation_reference`, `idempotency_key` (unique) | `change_kind` `FIRST_SEND`/`CHANGE`; `actor_type` `MEMBER`/`GUEST`/`STAFF`/`MANAGER`; `channel` `ONLINE`/`SHOP`. Emails stored masked. |
-| `booking_buyer_verifications` (V127) | `verification_reference` (unique), `group_id`, `status`, `otp_hash`, `otp_salt`, `failed_attempts`, `otp_expires_at`, `buyer_verification_reference` (unique), `reference_expires_at`, `consumed_at` | `status` `PROOF_MISMATCH`, `PENDING`, `VERIFIED`, `CONSUMED`, `LOCKED`, `SUPERSEDED`; `failed_attempts` 0–5; only a salted OTP hash is stored. |
-| `group_payment_attempts` (V113) | `group_id`, `attempt_reference`, `merchant_reference` (both unique), `amount_vnd`, `provider_create_date`, `payment_url_snapshot`, `attempt_status`, `expires_at` | `attempt_status` ENUM `PENDING`, `SUCCESS`, `FAILED`, `EXPIRED`; `ck_gpa_amount` (≥ 5,000). |
+| `booking_buyer_verifications` (V127) | `verification_reference` (unique), `group_id`, `status`, `otp_hash`, `otp_salt`, `failed_attempts`, `otp_expires_at`, `buyer_verification_reference` (unique), `reference_expires_at`, `consumed_at` | `status` `PROOF_MISMATCH`, `PENDING`, `VERIFIED`, `CONSUMED`, `LOCKED`, `SUPERSEDED`; `failed_attempts` 0–5; only a salted OTP hash is stored. Limits (FR-041a): OTP 10 min, 5 wrong entries then `LOCKED`, resend ≥60 s apart and ≤5 per hour per group, reference single-use 15 min. |
+| `group_payment_attempts` (V113) | `group_id`, `attempt_reference`, `merchant_reference` (both unique), `amount_vnd`, `provider_create_date`, `payment_url_snapshot`, `attempt_status`, `expires_at` | `attempt_status` ENUM `INITIATED` *(in code; added to this list 2026-11-15)*, `PENDING`, `SUCCESS`, `FAILED`, `EXPIRED` (there is no `UNKNOWN` attempt status; FR-012a); at most one `PENDING` attempt per group, no attempt-count limit; `ck_gpa_amount` (≥ 5,000). |
 | `booking_group_magic_links` (V115) | `group_id`, `token_hash` (unique), `lifecycle_status`, `expires_at`, `revoked_at` | `lifecycle_status` ENUM `ACTIVE`, `REVOKED`, `EXPIRED`; one group link, expiring with the last session. |
 | `booking_group_notification_intents` (V127) | `notification_reference` (unique), `group_id`, `ticket_id` (nullable), `notification_kind`, `correlation_reference`, `delivery_snapshot`, `snapshot_expires_at` | Feature 007 pulls the snapshot through `WorkshopBookingNotificationFacade`; snapshots holding an OTP are scrubbed at expiry. |
 | `late_payment_reviews` (V113, V128) | `group_id`, `verified_evidence_reference` (unique), `amount_vnd`, `arrived_at`, `failed_conditions`, `outcome`, `decided_by_account_id`, `decision_reason`, `decided_at`, `result_due_at`; V128 adds `review_reference` (unique), `earliest_session_at`, `decision`, `refund_request_reference`, `correlation_reference`, `version` | `outcome` ENUM `AUTO_RECONFIRMED`, `PENDING_MANAGER`, `MANAGER_CONFIRMED`, `REFUND_REQUESTED`; `decision` `CONFIRM`/`REFUND`; queue index (`outcome`, `earliest_session_at`, `result_due_at`). |
@@ -184,8 +184,101 @@ or the Member's voucher (006 FR-015: one or the other). No column was added;
 the quote response reports the programme in `appliedDiscount`
 (`NONE`/`AUTO`/`VOUCHER`). A cart with no applicable automatic discount keeps an
 empty benefit snapshot and reserves nothing. Consequence: late-payment
-condition 3 fails a group with an automatic discount (spec FR-040, open owner
-decision).
+condition 3 passes for an automatic discount, which is recomputed; only a voucher or points fail it (spec FR-040, decided 2026-11-14; the former "open owner decision" is closed).
+
+### Excess or duplicate payment on a `CONFIRMED` group *(~~proposed 2026-11-15, not yet approved;~~ decided 2026-11-15 by Hồ Hoàng Quốc, owner Feature 003; FR-013a, CHK001, T124)*
+
+**Decided 2026-11-15 (CHK001):** the table `group_excess_payments` and the port
+`ExcessPaymentRefundPort.openExcessPaymentRefund(...)` below are approved as
+the design; the exact column types are fixed by the Flyway migration of T124.
+The Manager alert follows spec FR-040a (active Managers only, never an Admin).
+The design below is decided; the exact column types are fixed by the migration.
+
+The rule is decided (FR-013a): a second verified success with a **different**
+provider transaction or merchant reference on a `CONFIRMED` group is recorded
+in full and refunded 100% through 003.3; a replay of the same event settles
+nothing. Where it is recorded and how it reaches 003.3 is decided:
+
+- **Where.** No implemented table holds it today: `late_payment_reviews` is for
+  evidence on a group that was *not* confirmed (its outcomes and conditions do
+  not fit), and `group_payment_attempts` holds attempts, not evidence. Decided:
+  a new append-only table (working name `group_excess_payments`, Flyway after
+  the current latest migration) with `group_id`, `verified_evidence_reference`
+  (unique), `merchant_reference`, `provider_transaction_reference` (nullable),
+  `amount_vnd` (> 0), `received_at` (time Mland received the verified
+  evidence), `refund_request_reference` (nullable until 003.3 accepts),
+  `refund_outcome` (`ACCEPTED`/`PRIOR_EQUIVALENT`/`REJECTED`),
+  `correlation_reference`. No raw provider payload, signature or contact data.
+  The group, tickets, snapshots, capacity and benefits are not touched.
+- **Link to 003.3.** In the same evidence transaction Booking calls the
+  decided `ExcessPaymentRefundPort.openExcessPaymentRefund(OpenExcessPaymentRefundCommand(groupCode,
+  evidenceReference, amountVnd, operationReference, correlationReference))`
+  (`../contracts/workshop-interfeature-facades.md`, "Late-payment review and
+  bank refund"), propagation `MANDATORY`. 003.3 opens one refund request with
+  reason `EXCESS_OR_DUPLICATE_MONEY` and source reference =
+  `evidenceReference`, idempotent on `(reason, source_reference)`; the returned
+  `refundRequestReference` is stored on the row. A failure rolls back both, so
+  the evidence is never recorded without a durable refund request.
+- **Idempotency.** The unique `verified_evidence_reference` makes an IPN/QueryDR
+  replay of the same excess evidence a no-op that returns the stored row.
+- ~~**Open before code (T124):** table name and columns, port name and shape,
+  and whether the Manager alert reuses the FR-040a recipient source.~~
+  *(superseded 2026-11-15: all decided; the alert reuses the FR-040a Manager
+  recipient source)*
+
+### Confirmation retry after a dependency failure *(~~proposed 2026-11-15, not yet approved;~~ decided 2026-11-15 by Hồ Hoàng Quốc, owner Feature 003; FR-038, FR-039, FR-040, CHK013, T145)*
+
+**Decided 2026-11-15 (CHK013):** `group_confirmation_retries` below is the
+decided store; the exact column types are fixed by the Flyway migration of
+T145. The retry runs every 1 minute while the hold is active (about 10
+attempts, so `retries_made` stays small), with no separate alert; at
+`holdExpiresAt` the late-payment review is created first, then the group is
+released. The design below is decided.
+
+The rule is decided (spec FR-038): verified evidence for a `PENDING_PAYMENT`
+group whose confirmation fails because 003.2 (hold commit) or 006 (benefit
+settlement) is unavailable is kept, the group stays `PENDING_PAYMENT`, and the
+confirmation is retried while the hold is active; at `holdExpiresAt` the
+evidence goes to the late-payment review. How it is stored is decided:
+
+- **Today.** The verified evidence of an in-time payment is persisted only as
+  the shared `payment_ingress_receipts` row (paymentintegration) and
+  `group_payment_attempts.attempt_status = SUCCESS`, both in the evidence
+  transaction; Booking keeps no evidence reference for it, and
+  `late_payment_reviews.verified_evidence_reference` exists only for an
+  expired group. A dependency failure inside confirmation rolls both back.
+- **Mismatched evidence (decided 2026-11-16, F14, FR-010f).** Verified evidence with a wrong amount, reference or currency adds no table or column: it is the `payment_ingress_receipts` row plus an audit entry with the reason and a WARN log. At `holdExpiresAt` the late-payment review created for it uses that receipt as `verified_evidence_reference`. The `group_confirmation_retries` table below is only for evidence that matched but whose confirmation failed on a dependency.
+- **Table.** A new table (working name
+  `group_confirmation_retries`, Flyway after the current latest migration;
+  no applied migration is edited) with `group_id`, `attempt_id`,
+  `verified_evidence_reference` (unique), `merchant_reference`,
+  `provider_transaction_reference` (nullable), `amount_vnd` (> 0),
+  `received_at` (time Mland received the verified evidence, used as the
+  FR-040 arrival time), `retry_status` (`WAITING`, `CONFIRMED`,
+  `HANDED_TO_LATE_REVIEW`), `retries_made` (≥ 0), `next_retry_at`
+  (nullable), `last_failure_code` (safe code only, e.g.
+  `DEPENDENCY_UNAVAILABLE` with the failing feature `OPERATIONS`/`LOYALTY`),
+  `late_payment_review_reference` (nullable until handover),
+  `correlation_reference`, `version`. No raw provider payload, signature or
+  contact data. At most one `WAITING` row per group.
+- **No new group status.** The group keeps `group_status = PENDING_PAYMENT`;
+  "waiting for confirmation retry" is the existence of a `WAITING` row with
+  the attempt in `SUCCESS`. Nothing is added to the `booking_groups` or
+  `ticket_bookings` ENUMs.
+- **Transitions.** `WAITING` → `CONFIRMED` when a retry (or a replayed IPN /
+  QueryDR) confirms the group once (FR-038); `WAITING` →
+  `HANDED_TO_LATE_REVIEW` at `holdExpiresAt`, in the same transaction that
+  creates the one `late_payment_reviews` row for that evidence. Both are final.
+- **Expiry interaction (FR-039).** `GroupHoldExpiryScheduler` releases
+  nothing for a group with a `WAITING` row before `holdExpiresAt`; at expiry it
+  hands the row over, then releases the group as any expired group.
+- **Attempt status (closed 2026-11-15, analyze M1; decision of Hồ Hoàng Quốc, "làm theo đề xuất"):** attempt `SUCCESS` means only "VNPay evidence verified for this attempt", whether or not the group is yet `CONFIRMED`. The wait for a confirmation retry is the `WAITING` row of `group_confirmation_retries`, not an attempt or group status; no new status is added. T145 asserts this.
+
+**Implemented 2026-11-16 (T144, T145; owner Hồ Hoàng Quốc chose "A: F14 in full", ERROR-LOG BE-DESIGN-0013).**
+
+- **Mismatched evidence (F14).** Only signed `00`/`00` evidence of a group payment (a `DEPOSIT` owner whose merchant reference is a group attempt) with a wrong amount or currency is recorded. The IPN answer stays `04`. The `payment_ingress_receipts` row has `delivery_reference` = `merchant|transaction|00|00`, the received amount and currency, `terminal_outcome` true; a replay finds the receipt and records nothing more. The audit entry is `booking_audit_evidence` with `action = GROUP_PAYMENT_EVIDENCE_MISMATCH`, `outcome = RECORDED`, `actor_type = SYSTEM`, `location_id = 0` and `action_reason = reason=...;merchant=...;evidence=<delivery reference>;amount=...;currency=...`; one WARN is logged once. At `holdExpiresAt` (at once if it arrives later) the evidence is handed to `LatePaymentReviewService.receive` with the delivery reference as `verified_evidence_reference`, the amount condition fails and only the 100% bank refund remains. Still no new table or column.
+- **V158 `group_confirmation_retries`.** Columns as in the Table bullet: `id`, `group_id` (FK, cascade), `attempt_id` (FK, cascade), `verified_evidence_reference` (unique), `merchant_reference`, `provider_transaction_reference`, `amount_vnd` (> 0), `received_at`, `retry_status` (`VARCHAR(24)`, checked to `WAITING`/`CONFIRMED`/`HANDED_TO_LATE_REVIEW`), `retries_made` (>= 0), `next_retry_at`, `last_failure_code` (`DEPENDENCY_UNAVAILABLE:OPERATIONS` or `:LOYALTY`), `late_payment_review_reference`, `correlation_reference`, `version`, `created_at`, `updated_at`. "At most one `WAITING` row per group" is enforced by the service, not by a unique key. Retry every 1 minute, at most 10 retries; the hand-over to the late review keeps `received_at` as the arrival time.
+- **V156, V157 (earlier, recorded here for completeness).** V156 `group_excess_payments` (second verified payment on a `CONFIRMED` group, refunded 100%); V157 adds `late_payment_reviews.result_delivery_state` (`PENDING`, `RESEND_SCHEDULED`, `MANUAL_CONTACT_REQUIRED`).
 
 ## Migration boundary
 

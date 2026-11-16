@@ -29,10 +29,10 @@ public class FolioCollectionController {
 
     @GetMapping("/api/v1/workshop-cash-closes/expected-cash")
     public ExpectedCashResponse expectedCash(
-            @RequestParam Long branchId,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate businessDay,
+            @RequestParam Long locationId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate workingDate,
             Authentication authentication) {
-        return service.expectedCash(branchId, businessDay, actor(authentication));
+        return service.expectedCash(locationId, workingDate, actor(authentication));
     }
 
     @PostMapping("/api/v1/workshop-cash-closes")

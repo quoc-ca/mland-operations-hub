@@ -5,6 +5,7 @@ import { Field, useErrorText } from '../../../../../shared/ui/components';
 import { ACTIONS } from '../../../application/useCatalogueCommand';
 import { messages } from '../../messages';
 import { NoticeAt } from '../notices';
+import { SubmitterInfo } from './SubmitterInfo';
 import { checkReason, effectiveProposal, isAmount, LIMITS } from '../../../domain/productRules';
 
 /**
@@ -252,7 +253,8 @@ function PendingBatch({ rows, api, reload, setNotice }) {
               <span role="columnheader">{t('bulk.diff')}</span>
             </div>
             {rows.map(row => (
-              <div className={`data-row batch${String(priceOf(row)) !== String(row.proposal.proposedPrice) ? ' changed' : ''}`} role="row" key={row.variant.id}>
+              <React.Fragment key={row.variant.id}>
+              <div className={`data-row batch${String(priceOf(row)) !== String(row.proposal.proposedPrice) ? ' changed' : ''}`} role="row">
                 <SelectCell checked={selected[row.variant.id] !== false} label={t('bulk.selectSize', { size: row.variant.size })}
                   onChange={checked => setSelected(current => ({ ...current, [row.variant.id]: checked }))} />
                 <span role="cell"><strong>{t('size', { size: row.variant.size })}</strong></span>
@@ -266,6 +268,12 @@ function PendingBatch({ rows, api, reload, setNotice }) {
                 </span>
                 <span role="cell"><PriceGap proposed={row.proposal.proposedPrice} approved={priceOf(row)} /></span>
               </div>
+              {row.proposal.submittedBy && (
+                <div className="data-row people" role="row">
+                  <span role="cell" aria-label={t('people.column')}><SubmitterInfo item={row.proposal} /></span>
+                </div>
+              )}
+              </React.Fragment>
             ))}
           </div>
           {errors.selection && <p className="field-error">{errors.selection}</p>}

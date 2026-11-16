@@ -52,6 +52,7 @@ public class WorkshopOperationsFacadeImpl implements WorkshopOperationsFacade {
     private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.BookingAttendanceOutcomeService bookingAttendanceOutcomeService;
     private final WorkshopAddOnService addOnService;
     private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.SessionStaffAssignmentRepository staffAssignmentRepository;
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.OtaTicketRevocationService otaTicketRevocationService;
 
     @Override
     @Transactional(readOnly = true)
@@ -129,6 +130,11 @@ public class WorkshopOperationsFacadeImpl implements WorkshopOperationsFacade {
     @Override
     public TicketCancellationOutcome cancelTicket(CancelTicketCommand command) {
         return ticketCancellationService.cancelTicket(command);
+    }
+
+    @Override
+    public OtaTicketRevocationOutcome revokeOtaTickets(RevokeOtaTicketsCommand command) {
+        return otaTicketRevocationService.revoke(command);
     }
 
     @Override
@@ -355,6 +361,20 @@ public class WorkshopOperationsFacadeImpl implements WorkshopOperationsFacade {
         }
 
         WorkshopSession session = sessionOpt.get();
+        if (session.getState() != SessionState.CANCELLATION_REQUESTED) {
+            CancellationCompletionOutcome outcome = CancellationCompletionOutcome.rejected(RejectionReason.INVALID_STATE);
+            idempotencyManager.completeClaim(claim.getRecordId(), claim.getClaimVersion(), outcome.status(), outcome.reason(), null);
+            return outcome;
+        }
+
+        // FR-010a (decided 2026-11-16): a ticket still holding an active entitlement in this session has
+        // been neither moved (replaceTicketSessions) nor cancelled (cancelTicket). Reject without any state
+        // change and release the claim so the same operationReference can be retried after the last ticket resolves.
+        if (entitlementRepository.countActiveConfirmedSeatsForSession(session.getId()) > 0) {
+            idempotencyManager.abandonClaim(claim.getRecordId(), claim.getClaimVersion());
+            return CancellationCompletionOutcome.rejected(RejectionReason.CANCELLATION_HANDOFF_UNRESOLVED);
+        }
+
         session.setState(SessionState.CANCELLED);
         sessionRepository.save(session);
 

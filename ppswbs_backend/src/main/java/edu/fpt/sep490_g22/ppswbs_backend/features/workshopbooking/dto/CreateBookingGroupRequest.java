@@ -9,5 +9,5 @@ import jakarta.validation.constraints.*;
 public record CreateBookingGroupRequest(
         @NotBlank @Size(max = 36) String quoteRef,
         @NotBlank @Email @Size(max = 254) String contactEmail,
-        @NotBlank @Size(max = 32) String contactPhone) {
+        @NotBlank @Size(max = 32) @InternationalPhone String contactPhone) {
 }

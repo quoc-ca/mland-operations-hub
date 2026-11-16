@@ -25,4 +25,27 @@ public interface GroupPaymentAttemptRepository extends JpaRepository<GroupPaymen
             List<edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.PaymentAttemptStatus> statuses,
             @org.springframework.data.repository.query.Param("groupStatus")
             edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.BookingStatus groupStatus);
+
+    /** Payments of one location inside one half-open instant range, for the booking-time payment list (T150). */
+    @org.springframework.data.jpa.repository.Query("""
+            select a from GroupPaymentAttempt a join fetch a.group g
+            where a.attemptStatus in :statuses
+              and exists (select 1 from BookingGroupLineSession s where s.line.group = g
+                          and s.locationReference = :locationId)
+              and not exists (select 1 from GroupExcessPayment x where x.merchantReference = a.merchantReference)
+              and ((a.attemptStatus = :success and g.groupStatus = :confirmed
+                    and g.confirmedAt >= :fromInstant and g.confirmedAt < :toInstant)
+                or (not (a.attemptStatus = :success and g.groupStatus = :confirmed)
+                    and a.createdAt >= :fromInstant and a.createdAt < :toInstant))
+            order by a.createdAt, a.id""")
+    List<GroupPaymentAttempt> findBookingTimePayments(
+            @org.springframework.data.repository.query.Param("locationId") Long locationId,
+            @org.springframework.data.repository.query.Param("statuses")
+            List<edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.PaymentAttemptStatus> statuses,
+            @org.springframework.data.repository.query.Param("success")
+            edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.PaymentAttemptStatus success,
+            @org.springframework.data.repository.query.Param("confirmed")
+            edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.BookingStatus confirmed,
+            @org.springframework.data.repository.query.Param("fromInstant") java.time.Instant fromInstant,
+            @org.springframework.data.repository.query.Param("toInstant") java.time.Instant toInstant);
 }

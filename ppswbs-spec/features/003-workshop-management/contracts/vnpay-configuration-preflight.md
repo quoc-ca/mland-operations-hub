@@ -1,7 +1,7 @@
 # VNPay Paymentintegration Configuration Preflight
 
 **Date created**: 2026-10-26
-**Date updated**: 2026-11-05
+**Date updated**: 2026-11-15
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -34,11 +34,11 @@ deployment process, never Git, specifications, logs, tickets, or screenshots:
    `/api/v1/integrations/payments/vnpay/events`, registered with VNPay for that
    environment.
 4. Approved outbound VNPay base endpoint and network/TLS egress for payment
-   initiation, QueryDR, and refund operations.
-5. Approved QueryDR and refund access/operation authority for the Merchant only
-   where a separately approved provider/remedy flow exists. Direct Mland deposit
-   cancellation does not consume either operation; OTA refunds are external to
-   this direct-payment flow.
+   initiation and QueryDR.
+5. Approved QueryDR access/operation authority for the Merchant. VNPay Refund and
+   refund-QueryDR are not used (decided 2026-11-15): every refund is the manual
+   bank refund of 003.3 FR-038a. Direct Mland deposit cancellation does not
+   consume QueryDR; OTA refunds are external to this direct-payment flow.
 6. The approved browser Return URL origin/path. It is display-only and must not
    be registered as an IPN substitute.
 
@@ -58,7 +58,7 @@ Before enabling a real VNPay environment, retain only redacted evidence that:
   credential appears in retained evidence.
 
 The feature can be implemented and tested with a fake adapter before this
-preflight. Real payment initiation, IPN, QueryDR, and refund integration remain
+preflight. Real payment initiation, IPN, and QueryDR integration remain
 disabled until all applicable inputs/evidence are approved.
 
 ## Ownership

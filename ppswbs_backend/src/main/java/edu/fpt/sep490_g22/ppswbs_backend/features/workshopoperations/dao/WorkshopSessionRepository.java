@@ -34,6 +34,9 @@ public interface WorkshopSessionRepository extends JpaRepository<WorkshopSession
 
     boolean existsByLocationIdAndWorkshopDateAndSlotId(Long locationId, LocalDate workshopDate, Long slotId);
 
+    /** T135: true while a session of the location is in a state outside {@code excludedStates}. */
+    boolean existsByLocationIdAndStateNotIn(Long locationId, Collection<SessionState> excludedStates);
+
     List<WorkshopSession> findByLocationIdAndWorkshopDateBetween(Long locationId, LocalDate from, LocalDate to);
 
     List<WorkshopSession> findByLocationIdAndStateAndWorkshopDateGreaterThanEqualOrderByScheduledStartAtAsc(
@@ -45,6 +48,10 @@ public interface WorkshopSessionRepository extends JpaRepository<WorkshopSession
     List<WorkshopSession> findByLocationIdAndState(Long locationId, SessionState state);
 
     List<WorkshopSession> findByStateAndScheduledStartAtLessThanEqual(SessionState state, Instant cutoff);
+
+    List<WorkshopSession> findByStateInAndScheduledStartAtLessThanEqual(Collection<SessionState> states, Instant cutoff);
+
+    List<WorkshopSession> findByStateAndScheduledEndAtLessThanEqual(SessionState state, Instant cutoff);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT s FROM WorkshopSession s WHERE s.id IN :ids ORDER BY s.id")

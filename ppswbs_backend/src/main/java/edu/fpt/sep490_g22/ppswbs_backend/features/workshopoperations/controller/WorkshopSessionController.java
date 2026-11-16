@@ -35,6 +35,7 @@ public class WorkshopSessionController {
     private final WorkshopSessionService sessionService;
     private final WorkshopLifecycleService lifecycleService;
     private final WorkshopResponsibilityService responsibilityService;
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.OperationsDeniedAttemptRecorder deniedAttemptRecorder;
     private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.OperationsRestIdempotencyService restIdempotency;
 
     @PatchMapping("/workshop-slots/{slotId}")
@@ -133,7 +134,8 @@ public class WorkshopSessionController {
             @RequestHeader(value = "Idempotency-Key", required = true) String idempotencyKey,
             @Valid @RequestBody StaffAssignmentRequest request) {
         SessionResponse response = restIdempotency.execute(idempotencyKey, "REST:PUT:/api/v1/workshop-sessions/{sessionId}/staff-assignments", "session:staff:" + sessionId,
-                request, SessionResponse.class, () -> responsibilityService.assignStaff(authHeader, correlationId, sessionId, request));
+                request, SessionResponse.class, () -> deniedAttemptRecorder.guard("SESSION_STAFF_ASSIGNED", sessionId, authHeader, correlationId,
+                        () -> responsibilityService.assignStaff(authHeader, correlationId, sessionId, request)));
         return ResponseEntity.ok(response);
     }
 
@@ -143,9 +145,13 @@ public class WorkshopSessionController {
             @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId,
             @PathVariable("sessionId") String sessionId,
             @RequestHeader(value = "Idempotency-Key", required = true) String idempotencyKey,
-            @RequestParam("accountId") Long accountId) {
+            @RequestParam("accountId") Long accountId,
+            @RequestParam(value = "confirmLastAssignmentRemoval", defaultValue = "false") boolean confirmLastAssignmentRemoval) {
+        // The confirmation flag is part of the fingerprint: replaying a key with a different flag is IDEMPOTENCY_CONFLICT (T115).
         restIdempotency.execute(idempotencyKey, "REST:DELETE:/api/v1/workshop-sessions/{sessionId}/staff-assignments", "session:staff-remove:" + sessionId + ":" + accountId,
-                accountId, Void.class, () -> { responsibilityService.removeStaff(authHeader, correlationId, sessionId, accountId); return null; });
+                accountId + ":confirm=" + confirmLastAssignmentRemoval, Void.class,
+                () -> deniedAttemptRecorder.guard("SESSION_STAFF_REMOVED", sessionId, authHeader, correlationId,
+                        () -> { responsibilityService.removeStaff(authHeader, correlationId, sessionId, accountId, confirmLastAssignmentRemoval); return null; }));
         return ResponseEntity.noContent().build();
     }
 

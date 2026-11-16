@@ -7,10 +7,10 @@
 
 **Feature Branch**: `003.1-workshop-booking`
 **Status**: Approved — updated 2026-11-14 to the implemented group/ticket model and re-approved the same day by Hồ Hoàng Quốc (owner Feature 003) in session.
-(Previous status 2026-11-05: "Draft design — not approved for implementation"; the
+*(Spec approval of 2026-11-15 by Hồ Hoàng Quốc covers this plan as updated.)* (Previous status 2026-11-05: "Draft design — not approved for implementation"; the
 2026-11-05 single-booking design is kept for history at the end of this file.)
 **Spec**: [spec.md](spec.md) (FR-030–FR-052a are the current direct-booking requirements)
-**Tasks**: [tasks.md](tasks.md) Phases 8–10 (T089–T107)
+**Tasks**: [tasks.md](tasks.md) Phases 8–16 (T089–T149; T107 is Phase 11, T108–T114 Phase 12, T115 Phase 13, T116–T122 Phase 14, T123 Phase 15, T124–T149 Phase 16; range fixed 2026-11-16, analyze) *(was "Phases 8–14 (T089–T120 …)", updated 2026-11-15)*
 **Research baseline**: [research.md](research.md) and [REBASE-NOTES.md](REBASE-NOTES.md)
 
 ## Summary
@@ -75,8 +75,8 @@ cancellation, refund and changes (003.3) and OTA (003.4) are outside it.
 | --- | --- |
 | Runtime | Java 21, Spring Boot REST, Spring Modulith, JPA/Spring Data, MySQL and append-only Flyway migrations (group model V113–V133). |
 | Client | Separate React + Vite client using versioned REST APIs; no backend-rendered booking UI. |
-| Identity and authorization | Firebase bearer tokens prove identity only. Account Management supplies canonical `MEMBER`, `STAFF`, `MANAGER`, or `ADMIN` role, active status and `activeLocationIds`; Booking applies its own support-action rules against the group line's canonical location. Guest access uses one stored contact proof of the group, a protected group Magic Link, or (for a recipient change) the single-use `buyerVerificationReference` of an OTP to the original contact email. |
-| State | Persisted group/line/ticket/snapshot/hold/payment/review state; one group `holdExpiresAt` (12 min) and `paymentDeadlineAt` (10 min); booking-critical local work uses one MySQL transaction; the unquoted cart lives only in the browser (FR-045); no new global session/token store. |
+| Identity and authorization | Firebase bearer tokens prove identity only. Account Management supplies canonical `MEMBER`, `STAFF`, `MANAGER`, or `ADMIN` role, active status and `activeLocationIds`; Booking applies its own support-action rules: for a group-level Staff operation the Staff member's active location scope MUST include the group's branch AND the Staff member MUST be actively assigned to a session of the group (003.2 "Staff session-assignment access", 003.3 FR-032; decided 2026-11-15, CHK025); a Manager is global. Guest access uses one stored contact proof of the group, a protected group Magic Link, or (for a recipient change) the single-use `buyerVerificationReference` of an OTP to the original contact email. |
+| State | Persisted group/line/ticket/snapshot/hold/payment/review state; one group `holdExpiresAt` (12 min) and `paymentDeadlineAt` (10 min); booking-critical local work uses one MySQL transaction; the unquoted cart lives only in the browser (FR-045); no new global session/token store. Rate-limit counters (Guest lookup, hold release, resend, T110) are per-instance in-memory sliding windows (decided 2026-11-15, spec Session 2026-11-15): lifecycle = process lifetime, reset on restart, effective cap up to N × configured with N instances, no cross-instance consistency; revisit (shared MySQL counter) before running more than one backend instance. |
 | Payment | Shared `paymentintegration` ingress verifies VNPay once and routes redacted evidence by immutable merchant reference; a group attempt's evidence goes to `GroupPaymentEvidenceService`, anything else is refused by the single-booking path. |
 | Benefits | Feature 006 cart contract (006 T098, D-010) plus automatic workshop discount (006 FR-044, D-013, D-014); 003.1 allocates per ticket with `TicketBenefitAllocator`. |
 | Verification | Unit/integration (MySQL for schema and late payment), contract (`WorkshopBookingContractIT`), concurrency, callback/idempotency, migration and Spring Modulith boundary verification. |
@@ -100,7 +100,7 @@ evidence. These routes are client routes, not Java REST endpoints or SSR pages.
 | Gate | Result | Plan response |
 | --- | --- | --- |
 | Module and data ownership | PASS | `workshopbooking` owns groups, lines, ticket bookings, price snapshots, holds references, group payment attempts, late-payment reviews, recipients, buyer verifications, Magic Links and notification intents; it reaches 003.2, 003.3, 006 and FE-001 only through their facades/events. |
-| Separate frontend/REST | PASS | Contract is JSON `/api/v1` ([workshop-booking.openapi.yaml](contracts/workshop-booking.openapi.yaml), 14 group paths); the group Magic Link resolves to client-readable data, never server-rendered HTML. |
+| Separate frontend/REST | PASS | Contract is JSON `/api/v1` ([workshop-booking.openapi.yaml](contracts/workshop-booking.openapi.yaml), 15 paths; 10 of them Guest-capable with `security: [{}, …]`); the group Magic Link resolves to client-readable data, never server-rendered HTML. |
 | Identity and sensitive data | PASS | No participant identity, OTP (only salted hash), raw gateway payload, raw Magic-Link secret or unmasked recipient email in audit; contact proof never travels in a URL. |
 | Data evolution | PASS (dev/test) | Only dev/test data exists (FR-043). V113–V131 add the group model; V132 deletes direct single bookings and V133 drops tables only they used. No applied migration was edited. Any data-bearing environment still needs its own preservation plan. |
 | Evidence and concurrency | PASS | All-or-none group hold, one group payment, IPN/QueryDR idempotency, late-payment review with one winner in a capacity race, and confirmation replay are covered by `WorkshopCartBookingTest`, `GroupConfirmationTest`, `GroupPaymentQueryDrRecoveryTest`, `LatePaymentReviewIT`; the full MySQL group flow is T097 (done 2026-11-14). |
@@ -121,7 +121,8 @@ notification events that Feature 007 resolves through
 `WorkshopBookingNotificationFacade`. For 003.3 it exposes
 `findTicketBookingByOperationsReference` (T099) and, decided 2026-11-14,
 `getTicketFolioContext` and `consumeBuyerProof` (T107, see
-[../contracts/workshop-interfeature-facades.md](../contracts/workshop-interfeature-facades.md)).
+[../contracts/workshop-interfeature-facades.md](../contracts/workshop-interfeature-facades.md)) and, decided 2026-11-16 for 003.3 FR-056, the read-only
+`listBookingTimePayments(locationId, workingDate)` (T150; stored group payment attempts and evidence only, no VNPay call; statuses `CONFIRMED`, `LATE_PENDING_REVIEW`, `UNVERIFIED`; one row per payment with `locationIds[]`, filter by any session location, decided 2026-11-16 option B).
 
 **Cart quote flow.** Validate lines; re-read published Package price and
 sessions; preview with 006 (`VOUCHER` stays a voucher; otherwise `AUTO` with the
@@ -144,7 +145,7 @@ immutable price snapshot per person, all in one MySQL transaction, protected by
 confirmed in the same call.
 
 **Group payment flow.** One attempt for the group collection (≥ 5,000 VND),
-expiring at `paymentDeadlineAt`; a retry returns the live attempt and never
+expiring at `paymentDeadlineAt`; a retry is refused after `paymentDeadlineAt` (decided 2026-11-15, FR-012a), returns the single live `PENDING` attempt and never
 extends the hold. Verified evidence is routed by the group attempt's merchant
 reference and is idempotent. `GroupPaymentQueryDrRecoveryScheduler` queries at
 minutes 10 and 11 only when no verified terminal IPN exists and accepts only a
@@ -157,10 +158,10 @@ group's Loyalty transaction once (`WORKSHOP_DEPOSIT_ACCEPTED`), open one group
 Magic Link expiring with the last session, queue the buyer confirmation email,
 and publish one `MlandTicketConfirmedEvent` per ticket after commit. Replays
 return the stored outcome. `GroupHoldExpiryScheduler` releases an unpaid group
-once and releases its benefits (`UNPAID_EXPIRY_CONFIRMED`).
+once and releases its benefits (`UNPAID_EXPIRY_CONFIRMED`). Expiry releases the group's seats, voucher and points immediately even when an unverified VNPay attempt exists (Session 2026-11-15, FR-039).
 
-**Late-payment flow.** One review per payment attempt (IPN and QueryDR share
-it). Conditions 1 (session capacity only; no channel quota in V1) to 5 are
+**Late-payment flow.** One review per verified evidence *(wording "per payment
+attempt" superseded 2026-11-15)* (IPN and QueryDR share it). Conditions 1 (session capacity only; no channel quota in V1) to 5 are
 evaluated; automatic re-confirmation holds fresh capacity all or none and is a
 new acceptance. Otherwise the review enters the Manager queue
 (`GET /late-payment-reviews`, ordered by earliest session), the payer gets the
@@ -175,10 +176,34 @@ also failed automatic discounts and is superseded)*.
 The Manager alert email is wired to `ManagerAlertRecipientSource`, whose
 FE-001 source (`AccountManagerAlertRecipientSource`) is connected and T094 is
 done *(closed 2026-11-14, see design risk 1)*.
+**Decisions 2026-11-15 (checklist payment-error-access.md):** condition 4 counts 60 minutes from the time Mland receives the verified evidence (CHK006); evidence arriving after the earliest session started fails condition 2 and the Manager result limit is 24 hours after the evidence, refund only (CHK007); a failed result email is not "reached" and is resent with a bounded retry ~~**limit still to be decided in this plan (open, no number set)**~~ limit *(set 2026-11-15, fourth batch below)*, then the Manager contacts the customer manually (CHK016); ~~with no active Manager the alert goes to every active Admin, who only receive it and cannot decide (CHK017, recipient source depends on FE-001);~~ *(superseded 2026-11-15: business alerts go to active Managers only, fourth batch below)* a second verified payment with a different transaction on a `CONFIRMED` group is recorded as excess and refunded 100% through 003.3 with a Manager alert, the port being ~~proposed~~ decided 2026-11-15 (CHK001).
+
+**Decisions 2026-11-15 (checklist payment-error-access.md, second batch):** provider failure while creating the payment link answers ~~502/503~~ HTTP 503 *(decided 2026-11-15, CHK012)* `PAYMENT_LINK_UNAVAILABLE` with no attempt and an unchanged hold (CHK012); `DEPENDENCY_UNAVAILABLE` refuses a whole group at creation and, at expiry, keeps the group waiting for an idempotent scheduler retry (CHK013); a release that fails at expiry is retried with backoff and alerts a Manager after N failures, where ~~**N, the backoff and the alert recipient are OPEN and must be decided in this plan before coding (no number set;~~ *(superseded 2026-11-15: set in the fourth batch below)* touches 003.2 idempotent release and 006 (CHK014); a Guest payment attempt needs `groupCode` plus exactly one matching contact value, a Member only an owned `PENDING_PAYMENT` group with an active payment window (CHK023); `IDEMPOTENCY_CONFLICT` replaces `IDEMPOTENCY_KEY_REUSED` (CHK018); wrong proof or non-owner answers 404, 403 only for a known Staff/Manager without authority, and every contract route is audited for this (CHK026); SC-004 release within 5 minutes after `holdExpiresAt`, measured from audit (CHK037).
+
+**Decisions 2026-11-15 (checklist payment-error-access.md, third batch, CHK013):** *quote time* — `POST /workshop-cart-quotes` answers 503 `DEPENDENCY_UNAVAILABLE` and creates no quote when 006 or 003.2 is unavailable (spec FR-031; 503 decided 2026-11-15 as for group creation; T146). *Confirmation time* — today `PaymentIngressService` saves the `payment_ingress_receipts` row and dispatches to `GroupPaymentEvidenceService.apply` in one transaction, and Booking records an in-time payment only as `group_payment_attempts.attempt_status = SUCCESS`; a runtime failure in `GroupConfirmationService.confirmPaidGroup` (003.2 commit or 006 settlement) therefore rolls back the receipt and the attempt status. Decided (spec FR-038): on such a dependency failure the receipt, the attempt `SUCCESS` and a durable confirmation-retry record of the verified evidence commit together (data-model "Confirmation retry after a dependency failure", ~~proposed~~ `group_confirmation_retries` decided 2026-11-15), the group stays `PENDING_PAYMENT`, and a scheduler retries `confirmPaidGroup` idempotently while the hold is active. Design constraint (proposed, verify in T145): the dependency failure must be caught or classified so that it does not mark the evidence transaction rollback-only (the same concern the late-payment branch of `apply` already avoids by deciding lateness before confirming); a confirmation that fails must leave no partial commit of holds/tickets that a retry would duplicate. `GroupHoldExpiryScheduler` MUST NOT release a group with a waiting retry record before `holdExpiresAt` (it never runs before then anyway; pending-hold release is refused once an attempt exists). At `holdExpiresAt` the scheduler stops the retry, opens one late-payment review for the recorded evidence (arrival = time Mland received it, FR-040 condition 4 passes) and then releases the group under FR-039 (with the CHK014 release retry if a dependency is still down). ~~**OPEN decision (owner Hồ Hoàng Quốc), must be settled in this plan before T145:** the confirmation retry interval and the maximum number of retries inside the hold (no number set here); also whether a Manager is alerted when a retry fails (not decided).~~ *(superseded 2026-11-15: closed in the fourth batch below)*
+
+**Decisions 2026-11-15 (checklist payment-error-access.md, fourth batch, final; owner Hồ Hoàng Quốc; spec "Checklist follow-up, final decisions"):**
+
+- *Alert recipients (all business alerts, CHK017, T130).* Every business alert of 003.1 (late-payment review, excess payment, failed expiry release, failed result email) goes to the active Managers only through `ManagerAlertRecipientSource` (FE-001 `AccountFacade.listActiveManagerEmails()`). An Admin never receives a business alert; there is no Admin recipient source. With no active Manager: no email, an audit entry plus a WARN log, and ~~the item stays in the Manager work queue~~ *(decided 2026-11-16, F18: only a late-payment review stays in its queue, `GET /api/v1/late-payment-reviews?status=PENDING_MANAGER`; excess payment, failed expiry release and failed confirmation notification keep audit + WARN only)* for the first Manager who becomes active; nothing is decided automatically. No FE-001 change.
+- *Excess payment (CHK001, T124).* Port `ExcessPaymentRefundPort.openExcessPaymentRefund(OpenExcessPaymentRefundCommand(groupCode, evidenceReference, amountVnd, operationReference, correlationReference)) → LatePaymentRefundOutcome` and table `group_excess_payments` decided; exact column types are fixed by the migration. Alert per the rule above.
+- *Late retry (CHK002, T125).* A payment retry after `paymentDeadlineAt` answers `409 PAYMENT_WINDOW_CLOSED`.
+- *Confirmation retry (CHK013, T145, design risk 6).* The scheduler retries `confirmPaidGroup` every 1 minute while the hold is active, about 10 attempts inside the 12-minute hold; no separate alert when a retry fails (the late-payment path already alerts the Managers). At `holdExpiresAt` the late-payment review is created first, then the group is released under FR-039. Store: `group_confirmation_retries`.
+- *Failed expiry release (CHK014, T133).* Retry 3 times, 1 minute apart (inside SC-004's 5 minutes); still failing → alert the Managers per the rule above, then retry every 5 minutes until it succeeds; every retry idempotent.
+- *Late-payment result email (CHK016, T129).* Resend up to 3 times, 5 minutes, 30 minutes and 2 hours after the failure; still failing → alert the Managers per the rule above to contact the buyer by phone; a failed email never counts as "reached".
+- *Contact proof shape (CHK022, T137).* Both `contactEmail` and `contactPhone`, or neither, → `400 VALIDATION_ERROR` through Bean Validation, with the same safe answer.
+- ~~*Not in this batch.* The HTTP 503 status of `DEPENDENCY_UNAVAILABLE` (quote and group creation, FR-031, T146) stays proposed.~~ *(Decided 2026-11-15 by Hồ Hoàng Quốc: HTTP 503 for `DEPENDENCY_UNAVAILABLE` at quote and group creation.)*
+
+**Decisions 2026-11-15 (checklist payment-error-access.md, fifth batch, owner Hồ Hoàng Quốc; checklist fix log):**
+
+- *Payment-link failure status (CHK012, T131).* `PAYMENT_LINK_UNAVAILABLE` is HTTP 503 only (the earlier "502/503" is superseded); no attempt, hold unchanged.
+- *Verified evidence with a wrong amount, reference or currency (CHK003, FR-010f, T144).* Never confirms a group. It is recorded (decided 2026-11-16, F14: the `payment_ingress_receipts` row, one audit entry with the reason and one WARN log; no new table) with the reason, the group stays `PENDING_PAYMENT`, and at `holdExpiresAt` it is handed to the late-payment path (condition 3 fails, Managers alerted, 100% bank refund only).
+- *Confirmation notification failure (CHK015, FR-015b, T147).* Resend up to 3 times, 5 minutes, 30 minutes and 2 hours after the failure (the CHK016 schedule); still failing → alert the active Managers only (alert rule above) to phone the buyer. Never reverses payment or confirmation.
+- *Buyer-verification routes (CHK024, T148).* Guest, Staff within the Staff scope, and any active Manager (global) on the buyer's behalf; Member needs no OTP; Admin has no authority.
+- *Staff scope of a multi-location group (CHK025, T135, T148).* The location scope is checked against the location of the session the Staff member is assigned to.
 
 **Recipient flow.** `PUT /workshop-tickets/{ticketCode}/recipient` with buyer
 proof (Member bearer + ownership; Guest OTP → single-use
-`buyerVerificationReference`; Staff/Manager with location scope and reason).
+`buyerVerificationReference`; Staff with location scope, session assignment and reason; a Manager globally with reason *(updated 2026-11-15, CHK028: "Staff/Manager with location scope" superseded, Manager is global per FR-048)*).
 A first send keeps the QR; a change rotates it through 003.2 and counts once
 online (max 3); masked audit (V127).
 
@@ -190,7 +215,7 @@ reusing the active link, and Manager revoke/rotate (FR-047–FR-049).
 **Removal of the single flow.** T100 removed the single-booking controllers,
 services, entities and their tests; V132 deleted direct `workshop_bookings` rows
 and V133 dropped tables only they used. The facade operations the 003.3
-booking-wide routes still call stay until 003.3 T106 lands (spec FR-046 note).
+booking-wide routes called were removed by T100 on 2026-11-14 (spec FR-046 note); `verifyCustomerBookingAccess`, `recordBookingServiceOutcome` and `recordBookingRefundStatus` are kept on purpose.
 
 Events occur only after Booking's local state transition; an event never
 determines capacity or whether a group confirms.
@@ -198,7 +223,7 @@ determines capacity or whether a group confirms.
 ## Contract and state design
 
 The public contract is [workshop-booking.openapi.yaml](contracts/workshop-booking.openapi.yaml)
-(14 group paths, T104/T105). `workshop-booking-cart.openapi.yaml` is an empty
+(15 paths after T104/T105 and T095/T094). `workshop-booking-cart.openapi.yaml` is an empty
 pointer. The shared VNPay ingress is documented separately.
 
 - Group status: `PENDING_PAYMENT`, `CONFIRMED`, `EXPIRED`, `CANCELLED`.
@@ -230,9 +255,9 @@ decision authority.
 
 ## Verification plan
 
-Evidence already recorded per task in [tasks.md](tasks.md) (T089–T107). T097,
+Evidence already recorded per task in [tasks.md](tasks.md) (T089–T120). T097,
 T106 and T107 are all done (2026-11-14); what remains is the real-provider
-evidence (T005/T046) and the per-change checks below. The recorded
+evidence (T005/T046), the open verification tasks T116–T123 and Phase 16 T124–T149 (T117 proves SC-005, T118 proves SC-007) and the per-change checks below. The recorded
 verification:
 
 - **T097 (done 2026-11-14):** MySQL integration of the full group flow — paid group, mixed
@@ -263,7 +288,7 @@ verification:
    condition 3 recomputes the automatic workshop discount at review time and
    passes when it still applies; a group that used a voucher or points still
    fails it (spec FR-040, `LatePaymentReviewService`).
-3. **Legacy facade operations (T100 remainder):** removal waits for 003.3 T106,
+3. **Legacy facade operations (T100 remainder) — closed 2026-11-14:** removal was gated on 003.3 T106,
    which itself follows 003.3 T099–T101 and T105; T107 provides the facade
    operations 003.3 T099/T106 need.
 4. **Real VNPay** needs the provider/environment inputs of
@@ -272,6 +297,23 @@ verification:
    on 2026-11-14 for this updated plan. The approval covers the design recorded
    here; it does not by itself approve code, schema, deployment or contract
    changes, each of which still needs its own task and evidence.
+6. **Confirmation retry after a dependency failure (CHK013) — closed
+   2026-11-15, owner Hồ Hoàng Quốc:** ~~OPEN 2026-11-15: the rule is decided
+   (spec FR-038/FR-039/FR-040), but the retry interval and the maximum retry
+   count inside the 12-minute hold are not set, and the retry record
+   (data-model, proposed) is not approved. T145 does not start until both are
+   recorded here.~~ *(superseded 2026-11-15)* Decided: retry every 1 minute
+   while the hold is active (about 10 attempts), no separate alert; at
+   `holdExpiresAt` the late-payment review is created first, then the group is
+   released (FR-039); store `group_confirmation_retries` (data-model). T145 is
+   no longer blocked by a decision.
+7. **Business-alert recipients (CHK017) — decided 2026-11-15, owner Hồ Hoàng
+   Quốc:** active Managers only, via FE-001 `listActiveManagerEmails()`; an
+   Admin never receives a business alert; with no active Manager an audit
+   entry plus a WARN log (the item stays in the Manager queue only for a late-payment review, F18 2026-11-16). CHK014
+   (T133: 3 × 1 minute, then Manager alert and every 5 minutes) and CHK016
+   (T129: resend at 5 minutes, 30 minutes, 2 hours, then Manager alert) use
+   this rule; see the fourth batch of decisions above.
 
 ---
 
@@ -296,7 +338,7 @@ capacity races". *(late-payment rejection superseded by FR-040/FR-040a)*
 
 **Former flows.** Create: validate contact, reserve `participant_count` places
 in every session through Operations, persist pending booking, invoice and
-expiry in one transaction. Payment: start/retry only while the 10-minute hold
+expiry in one transaction. Payment: start/retry only while the 10-minute hold *(for groups: until `paymentDeadlineAt`, FR-012a 2026-11-15)*
 is active; commit the hold set and confirm on matching evidence; obtain the
 ticket projection; publish a reference-only notification event. A signed
 success after hold expiry never confirmed; only a Manager could record or

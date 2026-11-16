@@ -158,4 +158,45 @@ public class ModulithArchitectureTests {
 
         rule.check(importedClasses);
     }
+
+    private static final String OPERATIONS = "..features.workshopoperations..";
+
+    /** Fails when a class outside {@code permitted} (and outside Operations itself) calls the facade method. */
+    private static void assertOnlyCalledBy(String method, String... permitted) {
+        java.util.List<String> allowed = new java.util.ArrayList<>(java.util.List.of(permitted));
+        allowed.add(OPERATIONS);
+        ArchRuleDefinition.noClasses()
+                .that().resideOutsideOfPackages(allowed.toArray(String[]::new))
+                .should().callMethodWhere(new com.tngtech.archunit.base.DescribedPredicate<
+                        com.tngtech.archunit.core.domain.JavaCall<?>>("WorkshopOperationsFacade." + method) {
+                    @Override
+                    public boolean test(com.tngtech.archunit.core.domain.JavaCall<?> call) {
+                        return call.getTargetOwner().isEquivalentTo(
+                                edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.WorkshopOperationsFacade.class)
+                                && call.getTarget().getName().equals(method);
+                    }
+                })
+                .as("WorkshopOperationsFacade." + method + " may be called only by " + java.util.List.of(permitted))
+                .check(importedClasses);
+    }
+
+    @Test
+    @DisplayName("T123: each facade operation with a listed caller is called only by its feature (workshop-interfeature-facades.md, Permitted callers)")
+    void facadeOperationsAreCalledOnlyByTheirPermittedFeature() {
+        // 003.3 only: per-ticket cancellation, session replacement and the cancellation completion report.
+        assertOnlyCalledBy("cancelTicket", "..features.workshopsettlement..");
+        assertOnlyCalledBy("replaceTicketSessions", "..features.workshopsettlement..");
+        assertOnlyCalledBy("completeCancellationHandoff", "..features.workshopsettlement..");
+        // 003.1 only: QR reissue for a recipient change.
+        assertOnlyCalledBy("reissueTicketQr", "..features.workshopbooking..");
+        // 003.4 only: OTA ticket revocation (T123).
+        assertOnlyCalledBy("revokeOtaTickets", "..features.otaconnectivity..");
+    }
+
+    @Test
+    @DisplayName("T123/T168: applyVerifiedRefundConsequence is called by 003.4 only")
+    void applyVerifiedRefundConsequenceHasNoNewCaller() {
+        // 003.3 T168 removed the settlement and booking adapter wrappers; only 003.4 may call it.
+        assertOnlyCalledBy("applyVerifiedRefundConsequence", "..features.otaconnectivity..");
+    }
 }

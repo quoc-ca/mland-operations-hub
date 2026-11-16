@@ -32,6 +32,7 @@ import java.util.UUID;
  */
 @Service
 @RequiredArgsConstructor
+@lombok.extern.slf4j.Slf4j
 public class GroupPaymentService {
 
     private static final DateTimeFormatter PROVIDER_DATE =
@@ -45,17 +46,26 @@ public class GroupPaymentService {
     private final PaymentOwnerRegistrationPort owners;
     private final BookingIdempotencyService idempotency;
     private final ObjectMapper mapper;
+    private final BookingGroupRecoveryService recovery;
 
     @Transactional
-    public GroupPaymentAttemptResponse initiate(String groupCode, String idempotencyKey, String clientIp) {
+    public GroupPaymentAttemptResponse initiate(String groupCode, String idempotencyKey, String clientIp,
+                                                  BookingGroupRecoveryService.Actor actor, String contactEmail,
+                                                  String contactPhone) {
         if (idempotencyKey == null || idempotencyKey.trim().length() < 16 || idempotencyKey.trim().length() > 128) {
             throw new BookingValidationException("Idempotency-Key must be between 16 and 128 characters");
         }
         if (groupCode == null || groupCode.isBlank()) {
             throw new BookingValidationException("groupCode is required");
         }
+        // FR-048: proof is checked before any cached replay, so a wrong proof never sees a stored payment URL.
+        // A Guest proves exactly one contact value (400 otherwise), a Member owns the group; else 404.
+        BookingGroup probe = groups.findByGroupCode(groupCode.trim())
+                .orElseThrow(() -> new WorkshopBookingProblemException(org.springframework.http.HttpStatus.NOT_FOUND,
+                        "BOOKING_NOT_FOUND", "Booking not found"));
+        recovery.requireBuyer(probe, actor, contactEmail, contactPhone);
         BookingIdempotencyClaim claim = idempotency.acquireClaim(idempotencyKey.trim(), "START_GROUP_PAYMENT",
-                "groupCode=" + groupCode, UUID.randomUUID().toString());
+                "groupCode=" + groupCode + "|" + actor.key(), UUID.randomUUID().toString());
         if (claim.cachedOutcome()) {
             try {
                 return mapper.readValue(claim.responsePayload(), GroupPaymentAttemptResponse.class);
@@ -74,7 +84,7 @@ public class GroupPaymentService {
                     + " and is not awaiting payment");
         }
         if (group.getPaymentDeadlineAt() == null || !group.getPaymentDeadlineAt().isAfter(now)) {
-            throw new BookingCreationRejectedException("GROUP_PAYMENT_WINDOW_CLOSED",
+            throw new BookingCreationRejectedException("PAYMENT_WINDOW_CLOSED",
                     "The payment window of this group has closed");
         }
 
@@ -97,8 +107,16 @@ public class GroupPaymentService {
         // UUID (32) is 57 characters. The old "GRP-" + code + "-" + UUID was 65 and failed every insert on MySQL.
         String merchantReference = groupCode + "-" + UUID.randomUUID().toString().replace("-", "");
         String providerCreateDate = PROVIDER_DATE.format(now);
-        String url = gateway.createDepositUrl(merchantReference, groupCode, collection, now,
-                expiresAt, clientIp);
+        String url;
+        try {
+            url = gateway.createDepositUrl(merchantReference, groupCode, collection, now, expiresAt, clientIp);
+        } catch (RuntimeException failure) {
+            // FR-032: no attempt, the hold is left as it is (never extended) and a retry stays possible.
+            log.warn("Payment link for group {} could not be created: {}", groupCode,
+                    failure.getClass().getSimpleName());
+            throw new WorkshopBookingProblemException(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE,
+                    "PAYMENT_LINK_UNAVAILABLE", "The payment link could not be created. Try again shortly.");
+        }
         GroupPaymentAttempt attempt = attempts.saveAndFlush(GroupPaymentAttempt.builder()
                 .group(group)
                 .attemptReference("GATT-" + UUID.randomUUID())

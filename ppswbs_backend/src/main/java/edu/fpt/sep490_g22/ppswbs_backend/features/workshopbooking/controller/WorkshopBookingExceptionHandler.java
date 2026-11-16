@@ -74,9 +74,16 @@ public class WorkshopBookingExceptionHandler {
     }
 
     @ExceptionHandler(BookingValidationException.class)
-    public ResponseEntity<ProblemDetailResponse> handleValidation(
+    public ResponseEntity<?> handleValidation(
             BookingValidationException ex, HttpServletRequest request) {
         String correlationId = resolveCorrelationId(request);
+        if (!ex.getFailingLines().isEmpty()) {
+            var body = new edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dto.CartHoldRejectionResponse(
+                    URI.create(PROBLEM_BASE_URI + ex.getCode().toLowerCase().replace('_', '-')),
+                    "Validation Error", HttpStatus.BAD_REQUEST.value(), ex.getCode(), ex.getMessage(), correlationId,
+                    ex.getFailingLines());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).header(CORRELATION_ID_HEADER, correlationId).body(body);
+        }
         return buildResponse(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "Validation Error", ex.getMessage(), correlationId);
     }
 

@@ -53,6 +53,7 @@ public class TicketRecipientService {
     private final WorkshopBookingAuthorizationService authorization;
     private final BuyerVerificationService buyerVerification;
     private final WorkshopOperationsAdapter operations;
+    private final GroupStaffScopeService staffScope;
     private final GroupNotificationService notifications;
     private final BookingIdempotencyService idempotency;
     private final ObjectMapper mapper;
@@ -100,13 +101,23 @@ public class TicketRecipientService {
                 actorType = "MEMBER";
                 channel = "ONLINE";
             } else if (authorization.isStaff(account) || authorization.isManager(account)) {
-                if (!authorization.canResendConfirmation(account, locationOf(line))) {
+                if (!staffScope.canOperateOnLine(account, line)) {
+                    authorization.recordDeniedAttempt(group.getGroupCode(), orZero(locationOf(line)),
+                            account.role().name(), account.accountId(), "TICKET_RECIPIENT_CHANGE", correlation,
+                            "Outside the Staff scope or assignment");
                     throw forbidden();
                 }
                 if (reason == null || reason.isBlank()) {
                     throw new BookingValidationException("reason is required for a Staff recipient change");
                 }
-                buyerVerification.consume(group, buyerVerificationReference);
+                try {
+                    buyerVerification.consume(group, buyerVerificationReference);
+                } catch (WorkshopBookingProblemException refused) {
+                    authorization.recordDeniedAttempt(group.getGroupCode(), orZero(locationOf(line)),
+                            account.role().name(), account.accountId(), "TICKET_RECIPIENT_CHANGE", correlation,
+                            "Buyer verification reference refused");
+                    throw refused;
+                }
                 actorType = authorization.isManager(account) ? "MANAGER" : "STAFF";
                 channel = "SHOP";
                 auditReason = reason.trim();
@@ -121,7 +132,8 @@ public class TicketRecipientService {
                     "Only a confirmed ticket can be sent to a recipient");
         }
 
-        String newEmail = recipientEmail.trim();
+        // One stored form (trim + lower case), the same one every email comparison in this feature uses.
+        String newEmail = EmailMasking.normalize(recipientEmail);
         TicketRecipient recipient = recipients.findByTicketId(ticket.getId()).orElse(null);
         boolean online = "ONLINE".equals(channel);
         if (recipient != null && EmailMasking.normalize(recipient.getRecipientEmail()).equals(EmailMasking.normalize(newEmail))) {
@@ -167,6 +179,10 @@ public class TicketRecipientService {
         idempotency.completeClaimWithinTransaction(claim.recordId(), claim.claimVersion(), 200, json(response));
         log.info("Recipient command for ticket {} done by {} via {}", ticket.getTicketCode(), actorType, channel);
         return response;
+    }
+
+    private static long orZero(Long value) {
+        return value == null ? 0L : value;
     }
 
     private Long locationOf(BookingGroupLine line) {

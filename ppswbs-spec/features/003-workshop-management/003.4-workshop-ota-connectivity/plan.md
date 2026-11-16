@@ -31,8 +31,8 @@ ordering. This internal boundary is not a public REST API or provider payload.
 If provider publication fails, only the affected 003.4 mapping may be
 sales-closed/suspended and reconciled. It must not change a 003.2 session's
 capacity or sale state, or alter direct-Mland booking behaviour. Basic Ring is
-the only OTA package in V1; its mapping to a confirmed catalogue Signature
-variant remains TBD. Wax Casting remains direct-Mland only. A normal
+the only OTA package in V1; ~~its mapping to a confirmed catalogue Signature
+variant remains TBD~~ *(resolved 2026-11-15, Clarifications Q9: it is Signature Workshop — Brass, configured by a Manager mapping)*. Wax Casting remains direct-Mland only. A normal
 `SALES_PAUSED` snapshot closes sale or publishes zero availability for the
 affected session while retaining its mapping; only a source gap/order failure or
 provider delivery failure suspends the mapping.
@@ -51,7 +51,7 @@ provider delivery failure suspends the mapping.
 
 **Project Type**: Modular-monolith web application with external OTA adapters.
 
-**Performance Goals**: No approved numeric latency, retry, or throughput target. Correctness, idempotency, auditability, and safe sales closure take priority over apparent immediacy.
+**Performance Goals**: Outbound retry default (Clarifications Q7 as clarified by CHK013, T127/T134/T135): one initial send plus 3 retries, each waiting 30 seconds, 2 minutes and 10 minutes after the previous failure (4 sends, the last about 14.5 minutes after the first including the poll of at most 30 seconds, under 15 minutes), configuration defaults (`max-retries = 3` plus the list of waits, a `next_attempt_at` per outbound change and per `SALES_CLOSE` control command); no approved numeric latency or throughput target. Correctness, idempotency, auditability, and safe sales closure take priority over apparent immediacy.
 
 **Constraints**: Mland is authoritative for schedule, capacity and ticket
 issuance; 003.4 consumes the 003.2 schedule and availability/sale-state
@@ -67,7 +67,7 @@ idempotent; a failed mapping closes OTA sales until confirmed re-sync.
 | Gate | Pre-design | Post-design | Evidence / condition |
 | --- | --- | --- | --- |
 | Module integrity | PASS | PASS | A dedicated OTA facade owns channel state and calls Booking, Operations, Settlement, and Account/Personnel only through their facades. |
-| Identity and data | PASS | PASS | Firebase establishes Mland user identity; Account Management supplies canonical role/status/location facts. OTA Connectivity applies action rules from canonical role/status; active Managers have global OTA business-action scope without `activeLocationIds` filtering, while location-scoped Staff rules (where specified) use canonical location facts. *(Amended 2026-11-06: Staff OTA add-on actions need location scope AND an active assignment to a session the Mland booking holds a valid ticket for, checked through `WorkshopOperationsFacade.isStaffAssignedToBooking`; the lookup answers an unassigned Staff member `404` like a missing booking.)* Provider callback identity is separate from a user identity. **Open (D1, 2026-11-14):** the interim ingress keeps the callback bearer value in `credential_reference` (MySQL), which conflicts with Constitution II; see below. |
+| Identity and data | PASS | PASS | Firebase establishes Mland user identity; Account Management supplies canonical role/status/location facts. OTA Connectivity applies action rules from canonical role/status; active Managers have global OTA business-action scope without `activeLocationIds` filtering, while location-scoped Staff rules (where specified) use canonical location facts. *(Amended 2026-11-06: Staff OTA add-on actions need location scope AND an active assignment to a session the Mland booking holds a valid ticket for, checked through `WorkshopOperationsFacade.isStaffAssignedToBooking`; the lookup answers an unassigned Staff member `404` like a missing booking. The quote, acceptance and direct-bill routes, which take an opaque UUID obtained from an authorized lookup, answer the same Staff member 403 (decision 2026-11-06).)* *(Amended 2026-11-15, Hồ Hoàng Quốc, CHK026/CHK027: Admin has no authority in 003.4; every OTA business action, including booking enablement, financial evidence and payout reconciliation, belongs to an active Manager, and Staff and Admin get `403` on the financial routes before the booking is looked up.)* Provider callback identity is separate from a user identity. ~~**Open (D1, 2026-11-14):** the interim ingress keeps the callback bearer value in `credential_reference` (MySQL), which conflicts with Constitution II; see below.~~ *(Decided 2026-11-14 by Hồ Hoàng Quốc and implemented by T059: `credential_reference` is a non-secret lookup name resolved to a secret in the approved secret channel, so the conflict no longer exists.)* |
 | REST and frontend separation | PASS | PASS | Proposed REST paths are versioned/plural; a separate React/Vite client consumes API contracts only. |
 | Persistence and migration safety | PASS | PASS | JPA-owned records and append-only Flyway migrations; uniqueness and state invariants are tested. No raw SQL persistence design is required. |
 | Verification | PASS | PASS | Module, migration, contract, authorization, replay, failure-recovery, and reconciliation scenarios are specified below. |
@@ -188,3 +188,22 @@ consumer receives the persistent internal Operations publication again and
 creates no duplicate logical outbound change before its separately durable
 provider delivery. Do not deploy booking capability merely because preparation
 synchronization succeeds.
+
+## Clarifications 2026-11-15 (003.4)
+
+*Note 2026-11-15, responsible member Hồ Hoàng Quốc; source: spec Clarifications Session 2026-11-15, Q1–Q9.* Cancellation ingress: `POST /api/v1/ota-provider/cancellation-events` (T121) authenticates like `booking-events` and maps the provider's own JSON through its cancellation adapter (FR-010, FR-011). A confirmed partial cancellation of k participants revokes k tickets by a fixed rule through the 003.2 OTA-only revocation operation (003.2 T123, a dependency of T125); no work item for a normal partial and no email or SMS to an OTA customer (Q3, Q4). Expected net is `targetNetAmount × N`, reconciled in the price terms' currency ~~with FX differences as adjustments~~ *(superseded below: no FX variance in V1)* (Q1, Q2). Outbound retry default: ~~3 attempts at 30 s, 2 min and 10 min~~ *(clarified below: one initial send plus 3 retries)* (Q7, T127). `SHARED_VOUCHER_INCIDENT` is removed (Q8, T128). The V1 offer is Signature Workshop — Brass, legacy name "Basic Ring" (Q9, T129).
+
+### Checklist follow-up 2026-11-15 (payment-error-access.md)
+
+*Decisions of Hồ Hoàng Quốc, 2026-11-15; rules are in spec.md "Checklist follow-up (payment-error-access.md), answered 2026-11-15"; code work is T132–T144.*
+
+| Area | Plan consequence | Tasks |
+| --- | --- | --- |
+| Partial cancellation | k is the event's own count; a checked-in ticket is never revoked; k equal to the active tickets cancels the whole booking; k above the active or the not-yet-checked-in tickets revokes nothing and opens an `INBOUND_EVENT` work item; refund events never release tickets; booking states are one-way `OPEN` → `CANCELLATION_REQUESTED` → `CANCELLED` → `REFUNDED`. | T125, T131–T133, T142 (+ 003.2 T123) |
+| Money | Expected net stays `targetNetAmount × N` after a cancellation; the Manager records the contractual effect as an `ADJUSTMENT`. Price terms and bank receipt are in VND; no FX variance in V1; every payout difference is a dispute closed by an evidenced `ADJUSTMENT`. | T123, T124 |
+| Retry | One initial send plus 3 retries at 30 s, 2 min, 10 min after the previous failure (4 sends, under 15 minutes); `next_attempt_at` on outbound changes; the `SALES_CLOSE` control outbox follows the same schedule with a waiting state. | T127, T134, T135 |
+| Access | Admin has no authority in 003.4; the Manager does everything, booking-enable included; Staff and Admin get `403` on the financial routes before the booking is looked up; the lookup answers `404`, the add-on routes `403`; refused sensitive actions are audited; the Account facade failing gives `503 DEPENDENCY_UNAVAILABLE`; a reused idempotency key with a different command gives `409 IDEMPOTENCY_CONFLICT`. | T136–T141, T144 |
+| Ingress | Interim static-secret ingress is not production authentication; rotation, replay window and revocation beyond changing the secret value or deactivating the connection are deferred to each provider's go-live; statuses `401`/`403` fixed; test tokens only for an `ACTIVE` `TEST` connection. | T140, T143 |
+| Alerts | V1 sends no email for work items, exhausted retry or sales closure; review after go-live. | none |
+
+**Approval**: Approved 2026-11-15 by Hồ Hoàng Quốc (owner Feature 003) for the 2026-11-15 content (spec Status and Clarifications Session 2026-11-15).

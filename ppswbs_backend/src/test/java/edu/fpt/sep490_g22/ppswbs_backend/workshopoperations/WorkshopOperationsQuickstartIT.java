@@ -75,9 +75,6 @@ public class WorkshopOperationsQuickstartIT {
     private SessionStaffAssignmentRepository staffAssignmentRepository;
 
     @Autowired
-    private SessionOperationalLeadRepository operationalLeadRepository;
-
-    @Autowired
     private CapacityHoldRepository holdRepository;
 
     @Autowired
@@ -227,11 +224,9 @@ public class WorkshopOperationsQuickstartIT {
         session.setState(SessionState.PUBLISHED);
         sessionRepository.save(session);
 
-        // Transitioning to IN_PROGRESS without assigned staff or operational lead must be prevented
+        // Transitioning to IN_PROGRESS without assigned staff must be prevented
         List<SessionStaffAssignment> assignments = staffAssignmentRepository.findBySessionIdAndActiveTrue(session.getId());
-        Optional<SessionOperationalLead> lead = operationalLeadRepository.findBySessionIdAndActiveTrue(session.getId());
         assertThat(assignments).isEmpty();
-        assertThat(lead).isEmpty();
 
         // Assign Staff to session
         SessionStaffAssignment staffAssignment = staffAssignmentRepository.save(SessionStaffAssignment.builder()

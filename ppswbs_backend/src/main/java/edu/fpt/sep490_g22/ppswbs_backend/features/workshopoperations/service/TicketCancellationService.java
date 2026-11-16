@@ -73,13 +73,40 @@ public class TicketCancellationService {
         }
 
         Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
+        Map<Long, WorkshopSession> changedSessions = new LinkedHashMap<>();
+        List<UUID> released = releaseFutureSeats(ticket, command.cancellationCaseReference(),
+                command.operationReference(), command.correlationReference(), now, changedSessions);
+        if (released == null) {
+            return finish(claim, TicketCancellationOutcome.rejected(ticketRef, RejectionReason.INVALID_STATE));
+        }
+
+        ticket.setValidityState(TicketValidityState.CANCELLED);
+        ticketRepository.save(ticket);
+
+        for (WorkshopSession changed : changedSessions.values()) {
+            otaSnapshotService.publishForObservableChange(changed, command.operationReference(), now);
+        }
+        audit(command.correlationReference(), ticket, released.size(), "SUCCESS");
+        log.info("Cancelled ticket {} and released {} future seats", ticket.getTicketCode(), released.size());
+        return finish(claim, TicketCancellationOutcome.accepted(ticketRef, released));
+    }
+
+    /**
+     * Gives back the ticket's seats in every future untouched session and deletes those entitlements, keeping one
+     * release record each. Shared with the OTA revocation (003.2 T123). Returns the released session references, or
+     * {@code null} (nothing changed) when a session lacks its start time. Sessions that changed are added to
+     * {@code changedSessions} so the caller can publish the OTA snapshot.
+     */
+    List<UUID> releaseFutureSeats(AttendanceTicket ticket, String caseReference, String operationReference,
+                                  String correlationReference, Instant now,
+                                  Map<Long, WorkshopSession> changedSessions) {
         List<TicketSessionEntitlement> entitlements = entitlementRepository.findByTicketIdWithLock(ticket.getId());
         List<TicketSessionEntitlement> releasable = new ArrayList<>();
-        Map<Long, WorkshopSession> changedSessions = new LinkedHashMap<>();
         for (TicketSessionEntitlement entitlement : entitlements) {
             WorkshopSession session = entitlement.getSession();
             if (session == null || session.getScheduledStartAt() == null) {
-                return finish(claim, TicketCancellationOutcome.rejected(ticketRef, RejectionReason.INVALID_STATE));
+                changedSessions.clear();
+                return null;
             }
             if (isFutureAndUntouched(session, entitlement, now)) {
                 releasable.add(entitlement);
@@ -93,9 +120,9 @@ public class TicketCancellationService {
             releaseRepository.save(TicketEntitlementRelease.builder()
                     .ticket(ticket)
                     .session(session)
-                    .cancellationCaseReference(command.cancellationCaseReference())
-                    .operationReference(command.operationReference())
-                    .correlationReference(command.correlationReference())
+                    .cancellationCaseReference(caseReference)
+                    .operationReference(operationReference)
+                    .correlationReference(correlationReference)
                     .releasedAt(now)
                     .build());
             entitlementRepository.delete(entitlement);
@@ -103,16 +130,7 @@ public class TicketCancellationService {
             released.add(UUID.fromString(session.getReference()));
         }
         entitlementRepository.flush();
-
-        ticket.setValidityState(TicketValidityState.CANCELLED);
-        ticketRepository.save(ticket);
-
-        for (WorkshopSession changed : changedSessions.values()) {
-            otaSnapshotService.publishForObservableChange(changed, command.operationReference(), now);
-        }
-        audit(command.correlationReference(), ticket, released.size(), "SUCCESS");
-        log.info("Cancelled ticket {} and released {} future seats", ticket.getTicketCode(), released.size());
-        return finish(claim, TicketCancellationOutcome.accepted(ticketRef, released));
+        return released;
     }
 
     /**

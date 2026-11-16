@@ -130,7 +130,7 @@ export function GroupDetailCard({
       )}
 
       {pending && needsOnlinePayment(group.paymentMode) && (
-        <GroupHoldPanel group={group} authorization={authorization} onHoldEnded={onRefresh} />
+        <GroupHoldPanel group={group} authorization={authorization} proof={proof} onHoldEnded={onRefresh} />
       )}
 
       {isDeferredGroup(group.paymentMode) && (

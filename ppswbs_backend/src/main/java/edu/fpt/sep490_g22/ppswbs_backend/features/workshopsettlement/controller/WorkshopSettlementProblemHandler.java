@@ -10,6 +10,9 @@ import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpMediaTypeNotAcceptableException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.MissingRequestHeaderException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.receipt.SettlementReceiptException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
@@ -48,7 +51,7 @@ public class WorkshopSettlementProblemHandler {
         return respond(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", List.of(), request);
     }
 
-    @ExceptionHandler({HttpMessageNotReadableException.class, MissingRequestHeaderException.class,
+    @ExceptionHandler({HttpMessageNotReadableException.class, MissingRequestHeaderException.class, MissingServletRequestPartException.class,
             MissingServletRequestParameterException.class, MethodArgumentTypeMismatchException.class})
     ResponseEntity<SettlementProblem> malformedRequest(Exception error, HttpServletRequest request) {
         return respond(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", List.of(), request);
@@ -94,6 +97,31 @@ public class WorkshopSettlementProblemHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(
                 new edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.TicketCancellationDtos.GroupCancellationProblemDto(
                         error.getCode(), correlation, error.getMessage(), error.getFailingTicketCodes()));
+    }
+
+    @ExceptionHandler(SettlementUnprocessableException.class)
+    ResponseEntity<SettlementProblem> namedUnprocessable(SettlementUnprocessableException error,
+                                                         HttpServletRequest request) {
+        return respond(HttpStatus.UNPROCESSABLE_ENTITY, error.getMessage(), List.of(), request);
+    }
+
+    /** T154: a refused or unavailable receipt image keeps its own named code (415, 413, 503). */
+    @ExceptionHandler(SettlementReceiptException.class)
+    ResponseEntity<SettlementProblem> receiptImage(SettlementReceiptException error, HttpServletRequest request) {
+        return respond(HttpStatus.valueOf(error.failure().httpStatus()), error.failure().code(), List.of(), request);
+    }
+
+    /** T154: a file over the multipart limit; only the receipt-image route takes uploads in 003.3. */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    ResponseEntity<SettlementProblem> uploadTooLarge(MaxUploadSizeExceededException error, HttpServletRequest request) {
+        return respond(HttpStatus.PAYLOAD_TOO_LARGE, SettlementReceiptException.Failure.TOO_LARGE.code(),
+                List.of(), request);
+    }
+
+    @ExceptionHandler(ReconciliationSourceUnavailableException.class)
+    ResponseEntity<SettlementProblem> reconciliationSourceUnavailable(ReconciliationSourceUnavailableException error,
+                                                                      HttpServletRequest request) {
+        return respond(HttpStatus.SERVICE_UNAVAILABLE, "RECONCILIATION_SOURCE_UNAVAILABLE", List.of(), request);
     }
 
     @ExceptionHandler(WorkshopSettlementValidationException.class)

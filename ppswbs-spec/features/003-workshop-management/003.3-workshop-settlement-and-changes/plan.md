@@ -1,7 +1,7 @@
 # Implementation Plan: Workshop Settlement and Changes
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-15
+**Date updated**: 2026-11-16
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -10,7 +10,9 @@
 ## Summary
 
 Every active canonical Manager has global authority for Manager-authorized
-003.3 actions, including policy reads/revisions and cross-location booking
+003.3 actions, including policy reads/revisions *(refund-policy reads and
+revisions superseded 2026-11-15: the Mland-cancellation refund policy and its
+routes are removed by T139/T140; FR-043 always refunds 100%)* and cross-location booking
 changes. Staff-authorized actions remain location-scoped; Member ownership and
 explicitly Admin-only actions remain unchanged. There is no central Manager tier.
 
@@ -25,6 +27,10 @@ set `COMPLETED`/`CANCELLED`/`NO_SHOW` and remedy `REFUND_PENDING`/`REFUNDED`
 non-refundable deposit decision and does not invoke VNPay refund/QueryDR. It is
 not an item/session finance system, cart,
 OTA payment system, capacity owner, or normal check-in system.
+*(Superseded 2026-11-12/14 for direct bookings, see "Per-ticket settlement":
+there is one folio per ticket booking, not one bill per booking; cancellation,
+changes and the Mland remedy are per ticket; refunds go by bank, never by
+VNPay.)*
 
 ## Technical Context
 
@@ -47,7 +53,7 @@ OTA payment system, capacity owner, or normal check-in system.
 | REST and frontend | PASS | The OpenAPI contract defines resource routes, authorization alternatives, idempotency, safe projections and typed errors. React consumes REST only. |
 | State, failure and idempotency | PASS | Client commands retain idempotent outcomes; verified provider transaction/reference deduplicates IPN/QueryDR. Cases have explicit lifecycle and correlation. |
 | Refund account numbers at rest (FR-040, T097) | PASS (code, 2026-11-13) | `RefundAccountCipher` encrypts each number with AES-GCM and a fresh nonce; only the mask `****1234` is stored beside it and kept after `REFUNDED` (ciphertext dropped). The number never goes to email, logs or audit. |
-| Refund account key secret channel | PASS with deployment condition | The 256-bit key comes only from the environment variable `WORKSHOP_REFUND_ACCOUNT_KEY` (base64); it is never committed, logged or kept in `.env` under version control. Each environment must supply it through its approved secret channel; key rotation is not designed (Open). |
+| Refund account key secret channel | PASS with deployment condition | The 256-bit key comes only from the environment variable `WORKSHOP_REFUND_ACCOUNT_KEY` (base64); it is never committed, logged or kept in `.env` under version control. Each environment must supply it through its approved secret channel. ~~Key rotation is not designed (Open).~~ Decided 2026-11-15 (spec FR-040): no in-system rotation in V1; when the key is replaced, every request still holding a ciphertext has it deleted (mask kept), returns to `PENDING_ACCOUNT` and the payer gets a new account link, as an audited operational step (task T137). |
 | Audited account-number reveal | PASS (code, 2026-11-13) | `GET /api/v1/workshop-refund-requests/{refundId}/account-number` is Manager-only, audited on every read (`REFUND_ACCOUNT_REVEALED`) and served `Cache-Control: no-store`; it is the one route that returns the number in clear. |
 | Anonymous refund-account link route | PASS (code, 2026-11-13) | `POST /api/v1/refund-account-links/{token}` is `permitAll` in `SecurityConfiguration` and allow-listed in `IdentityGateFilter`; the single-use token (7 days, resend revokes) is the credential, kept in the URL fragment of the frontend page, stored only as a hash, never returned or logged; 404 unknown, 410 used/revoked/expired; the response never echoes the number. |
 | Data evolution | PASS with rollout condition | Only dev/test without retained booking/customer data may reset after preflight. Data-bearing environments require append-only preservation migration, upgrade test, recovery/rollback evidence. |
@@ -55,13 +61,17 @@ OTA payment system, capacity owner, or normal check-in system.
 ## Ownership and Internal Boundaries
 
 ```text
-paymentintegration ─ verified final-payment/refund/OTA shop add-on (SHOP_ADDON) evidence ─► 003.3
+paymentintegration ─ verified final-payment/OTA shop add-on (SHOP_ADDON) evidence (refund evidence: legacy, no longer produced) ─► 003.3
 003.1 Booking ─ confirmed financial projection / FULLY_PAID conclusion ─► 003.3
-003.2 Operations ─ readiness / atomic replacement / verified-refund effect ─► 003.3
+003.2 Operations ─ readiness / atomic replacement / verified-refund effect *(OTA-only/legacy since 2026-11-15; a ticket cancellation is the trigger)* ─► 003.3
 FE-001 Account ─ current authorization, ownership and location scope ─► 003.3
 VNPay ─ signed IPN / QueryDR evidence ─► paymentintegration
 003.3 ─ reference-only post-commit settlement notification handoff ─► Feature 007
 ```
+
+*(2026-11-15: the first arrow formerly read "final-payment/refund/OTA shop
+add-on evidence". `REFUND` evidence is legacy: VNPay Refund and refund-QueryDR
+are not used and their code was removed (bc39429c, T128; spec FR-038, FR-009c).)*
 
 | Concern | Owner | 003.3 rule |
 | --- | --- | --- |
@@ -91,7 +101,8 @@ One confirmed direct booking/package has at most one final bill. It receives the
 frozen post-promotion amount, accepted deposit and frozen remaining amount from
 003.1. It never recalculates voucher, points, deposit or remaining amount. Its
 amount due is the frozen remaining amount plus accepted charges, less verified
-final-payment/refund consequences as applicable.
+final-payment/refund consequences as applicable. *(Superseded 2026-11-12 by
+spec FR-030: one folio per ticket booking; see "Per-ticket settlement".)*
 
 **Open-folio policy (2026-11-05)**: per
 [direct-booking-open-folio-policy.md](../direct-booking-open-folio-policy.md),
@@ -140,14 +151,19 @@ Customer cancellation, required-session change and Mland-caused remedy are
 booking-scoped, auditable cases. A case moves from
 `OPEN` to `RESOLVED`, `REJECTED`, or `FAILED`; only a gateway-waiting refund may
 be `PENDING_PROVIDER`. Each case is read through its booking and `caseReference`, never by
-ticket/session.
+ticket/session. *(Superseded 2026-11-12/15: cancellation, change and Mland
+remedy are per ticket (spec FR-041–FR-045a) and the booking-scoped case routes
+were removed (T106, T123, T124); `PENDING_PROVIDER` now means "awaits verified
+refund evidence" (FR-022b1, decided 2026-11-14).)*
 
 For a required-session replacement, Manager supplies the whole target session
 set and reason. 003.2 validates/applies every capacity and entitlement change or
 none, preserving ticket QR. For Mland-caused replacement, the change carries the
 authoritative `cancellationHandoffReference`; an `UNAVAILABLE` or `DECLINED`
 remedy references the same handoff. A remedy refund uses the booking's retained
-policy snapshot, not a caller amount.
+policy snapshot, not a caller amount. *(Superseded 2026-11-15 by FR-043: a
+remedy refund is always 100% of the money collected for the ticket; no policy
+snapshot is used. Snapshot capture and the policy are removed by T139/T140.)*
 
 Any active Manager may read or revise global refund-policy history. A
 revision has a future effective time, integral percentage `0..100`, applies only
@@ -155,6 +171,9 @@ to later-confirmed bookings, and computes its snapshot refund as
 `floor(collectedAmount × wholeBookingRefundPercent / 100)` whole VND for a
 Mland-caused remedy. Direct customer cancellation has no refund percentage: the
 deposit is forfeited and the booking is cancelled by Operations.
+*(The refund-policy history, revisions and percentage above are superseded
+2026-11-15 by FR-043 and removed by T139 (backend) and T140 (frontend); see
+spec FR-021a–FR-021e.)*
 
 ### Payment and retry boundaries
 
@@ -187,6 +206,14 @@ caller must start a distinct QueryDR operation to reconcile. A refund response
 a signature-verified QueryDR result can be presented as reconciliation evidence
 to 003.3. Its original `vnp_CreateDate` is supplied as the transaction date;
 unknown outcomes never cause an automatic second refund.
+*(Superseded 2026-11-15 by spec FR-038 and commit bc39429c: the outbound
+Merchant API is now used only for QueryDR of a payment
+(`VnpayMerchantOperationsPort.queryTransaction`; in 003.3 by
+`FolioGatewayReconciliationScheduler` for a pending `VNPAY` folio collection,
+T109). The refund request, its `00`
+acceptance semantics and refund-QueryDR were removed; refunds are bank
+transfers outside the system. "Refund" evidence from `paymentintegration`
+(above) is legacy and no longer produced.)*
 
 ## Per-ticket settlement (Phase 8; decisions 2026-11-12, 2026-11-13, 2026-11-14)
 
@@ -228,11 +255,175 @@ person (003.1 FR-044–FR-051, 003.1 numbering), and V132 removed every direct
   006 `WORKSHOP_TICKET_*` outcomes with `partRef` = the 003.1 ticket reference
   (BE-DESIGN-0002, T093/T105).
 
+### State classification (Constitution V, added 2026-11-15)
+
+Every per-ticket state below is owned by 003.3 and stored in MySQL (Flyway
+tables as named in `data-model.md`); no state lives only in memory, in the
+browser or in an external queue. The React client holds response state only
+and recovers by re-reading the server resource.
+
+| State | Storage (MySQL) | Lifecycle | Consistency | Recovery / expiry |
+| --- | --- | --- | --- | --- |
+| Ticket folio and its collections | `settlement_final_bills` (ticket code as reference; handover and debt columns, V117) and `settlement_folio_collections` | Folio `OPEN` → `FINALIZED` or `CLOSED`; collection `PENDING_VERIFICATION` → `CONFIRMED`/`FAILED`/`VOIDED` | Folio row locked (`PESSIMISTIC_WRITE`) while a balance is assigned; unique (`method`, `external_reference`); `Idempotency-Key` per command | A pending `VNPAY` part is reconciled by `FolioGatewayReconciliationScheduler` (signed IPN or QueryDR, every 5 min for at most 24 h after the checkout expires, T109 *(superseded 2026-11-15, FR-034/CHK016: 24 h from the attempt creation, then automatic `FAILED` as `SYSTEM`; see "Checklist follow-up of 2026-11-15", T149)*); other parts wait for a Manager confirmation or failure |
+| Refund request and account link | `settlement_refund_requests`, `settlement_refund_account_links` | `PENDING_ACCOUNT` → `PENDING_APPROVAL` → `PENDING_TRANSFER` → `PENDING_RECONCILIATION` → `REFUNDED`, or `CLOSED_UNREACHABLE` (reopenable); link `ACTIVE` → `USED`/`REVOKED`/`EXPIRED` | Request row locked for transitions; unique (`reason`, `source_reference`) and `request_reference`; token stored only as a unique hash; `Idempotency-Key` per transition | Link valid 7 days, a resend revokes the old one; reminders on days 3 and 7; a Manager may close after 30 days and reopen; key replacement deletes ciphertexts and returns requests to `PENDING_ACCOUNT` (FR-040, T137) |
+| Ticket change request | `settlement_ticket_change_requests` (V153) | `PENDING` → `APPROVED`/`REJECTED`/`EXPIRED` | Row locked for a decision; unique `request_reference` and (`ticket_code`, `idempotency_key`); one `PENDING` per ticket | `expires_at` = earliest start of the session being changed and of any requested target session (FR-045a; the code still uses the ticket's first session, fix T130); stale requests are marked `EXPIRED` when read |
+| Cash day close | `settlement_cash_day_closes` | `PENDING_MANAGER_CONFIRMATION` → `CLOSED`, or `CLOSED` at once without a difference | Unique (`branch_id`, `business_day`); row lock; `Idempotency-Key` stored with replay (T120) | A closed day is never edited (FR-036, FR-050); cash after the close (the submission of the counted amount) counts for the next day; a wrong cash entry of a closed day is corrected by a Manager cash reversal on the current day (proposed `settlement_cash_reversals`, T144) |
+| Mland remedy offer | `settlement_ticket_mland_remedies` (V138, V152) | `PENDING_ANSWER` → `MOVED` or `REFUND` | Unique `remedy_reference`; `Idempotency-Key` on the answer; buyer proof consumed in the same transaction | No answer by `answerDeadlineAt` (24 h before the latest offered session) means refund (FR-043) |
+| Absorbed undercharge record (FR-057, planned) | proposed `settlement_absorbed_undercharges` (not yet migrated, T135) | `ACTIVE` → `VOIDED` (once) | Unique `undercharge_reference`; unique (`ticket_code`, `idempotency_key`) for the record command; the void uses its own `void_idempotency_key`; content immutable after insert (aligned with `data-model.md` 2026-11-15) | No expiry; a mistaken record is voided and a new one recorded |
+
+Stateless: the transfer/VNPay/booking-time reconciliation list (FR-056, T133) is read-only: `settlement_folio_collections` + `settlement_evidence_conclusions` (EXCESS) + 003.1 facade `listBookingTimePayments` (BOOKING_TIME); it writes nothing and has
+no lifecycle.
+
+### Additions of 2026-11-15 (spec Clarifications "Session 2026-11-15")
+
+Decided by Hồ Hoàng Quốc on 2026-11-15 and tracked in `tasks.md` Phase 10:
+
+- FR-056 read-only Manager transfer/VNPay reconciliation list: backend T133,
+  frontend T134 (planned routes in `contracts/workshop-settlement-ticket.openapi.yaml`, `x-status: planned`).
+- FR-057 absorbed-undercharge record: backend T135 (new migration), frontend
+  T136 (planned routes in the same contract).
+- FR-045a expiry fix in `TicketChangeService.requestExpiry` and FR-044 24-hour window fix (`TicketChangeService`, `GroupTicketChangeService`): T130.
+- Follow-up tasks of the same date: T141 (FE send `fromSessionReferences`), T142 (verify the Mland-cancellation voucher rule), T143 (acceptance scenarios, spec User Stories 11-13).
+- FR-040 refund-account key replacement as an audited operational step: T137.
+- C2 cash-close naming (`branchId`/`businessDay` → `locationId`/`workingDate`
+  in every route, parameter and schema): backend T131, frontend T132.
+- SC-015 WCAG 2.2 AA and browser verification of every 003.3 screen: T138.
+- Removal of the unused Mland-cancellation refund policy (FR-043, FR-021a–e superseded 2026-11-15): T139 (BE), T140 (FE).
+- Recorded as done: VNPay Refund removal (T128) and the migration renumber
+  incident with the rule never to edit or renumber an applied migration
+  (T129).
+
+### Checklist follow-up of 2026-11-15 (`checklists/payment-error-access.md`)
+
+Decided by Hồ Hoàng Quốc on 2026-11-15 (spec "Checklist follow-up"); tracked in
+`tasks.md` Phase 11 (T144–T172). Tables, columns, routes and codes named below
+are **proposed** until approved (`ppswbs-spec/AGENT.md` §3); the decisions
+themselves are final in the spec.
+
+| Topic (spec) | Design | Tasks |
+| --- | --- | --- |
+| (a) Cash reversal entry (FR-036, FR-053, CHK014) | Manager-only `POST …/folio/collections/{collectionId}/cash-reversals` (proposed), reason and `Idempotency-Key`; writes a row in the proposed table `settlement_cash_reversals` (negative `amount_vnd`, `cash_business_day` = current Vietnam working day, `collection_id` unique). The original collection and the closed `settlement_cash_day_closes` row are never edited. `FolioBalanceService` subtracts the reversal; `CashDayCloseService` expected cash adds a day's reversals. Refused for a `FINALIZED`/`CLOSED` folio, for money under a refund request, and for a day not yet closed (use the FR-053 void). Whole-collection reversal only is proposed. | T144, T145 |
+| (b) "Next day" cut-off (FR-036, CHK013) | The cut-off is the submission of the counted amount, not the Manager's confirmation; any cash (and any reversal) recorded after it gets `cash_business_day` = next working day while the close is `PENDING_MANAGER_CONFIRMATION`. Closer = active Staff or Manager whose location scope contains the branch, no session-assignment rule (CHK024). | T147, T160 |
+| (c) Auto-`FAILED` of an unreconciled VNPay collection (FR-034, CHK016) | `FolioGatewayReconciliationScheduler` marks a `PENDING_VERIFICATION` `VNPAY` part `FAILED` as `SYSTEM` once 24 h have passed since the attempt was created and QueryDR reports no successful payment (an unavailable or inconclusive QueryDR is retried). *(Supersedes the state-classification text "every 5 min for at most 24 h after the checkout expires": the 24 h run from creation, T109 to be aligned.)* Money signed later follows the T110 excess path to an `EXCESS_OR_DUPLICATE_MONEY` refund. End-to-end proof needs the QueryDR sandbox (T005, T035); until then only a fake-transport test. | T149 |
+| (d) Refund failure → `PENDING_ACCOUNT` (FR-039, FR-040, CHK005/006/021) | One service operation in `BankRefundService` (proposed transition `RETURN_TO_PENDING_ACCOUNT`, Manager, reason) that, in one transaction, records the reason, deletes the ciphertext (mask kept), voids the approval, revokes the old link and sends a new one. A bank return, a statement mismatch found at `PENDING_RECONCILIATION`, or a Manager refusal all use it; no terminal rejection state exists. The key replacement of T137 uses the same rule: per-request transaction, approval void, idempotent rerun (touches only requests still holding ciphertext). | T146, T137 |
+| (e) Account entry confirmation (FR-040, CHK005/006) | The customer link page and the counter form show bank, number and holder name back and require an explicit confirmation (proposed request flag `accountDetailsConfirmed`, `422 ACCOUNT_CONFIRMATION_REQUIRED` when false). No bank-name lookup in V1. The transfer-time holder-name comparison is removed. | T150, T151 |
+| (f) Counter-entry authority (FR-040, CHK025) | Counter entry: Manager, or active Staff whose location scope contains the ticket's location and who is assigned to a session the ticket holds (the FR-032 rule, `requireManagerOrAssignedStaff`); a group-level `LATE_PAYMENT_NOT_RECONFIRMED` request is never entered at the counter. | T152 |
+| (g) Voucher restoration (FR-042, FR-043, CHK011/034) | 003.3 triggers once through the shared facade (`workshop-interfeature-facades.md`, "Voucher and points restoration"); the voucher-and-points owner restores only while the voucher is valid, idempotent per `groupCode`, reason `EXPIRED` otherwise; 003.3 stores the returned outcome and tells the buyer; the refund by bank is unaffected. Extends T142. *(Decided 2026-11-15, CHK010, Hồ Hoàng Quốc: the trigger fires when the Mland-cancelled ticket's refund request is opened, not at `REFUNDED`; a moved ticket never triggers it.)* | T155 |
+| (h) FR-057 cap (CHK009) | Service-level check under the folio lock: record ≤ folio total and Σ `ACTIVE` records of the ticket ≤ folio total, `422`. Extends T135. | T156 |
+| (i) `FINALIZED` → `CLOSED` only by Mland-cancel refund (FR-043, CHK004) | The only transition out of `FINALIZED`; every other event leaves it unchanged. It closes when the refund is `REFUNDED` and nothing is pending *(clarified 2026-11-15, O-2 decided; supersedes "when the refund request is opened")*; applies to any session reaching `CANCELLATION_REQUESTED`, including an `IN_PROGRESS` interruption. | T157 |
+| (j) Pending collection does not block Mland cancel (FR-034, CHK003) | The cancellation opens the refund; a Manager confirms or fails the pending part; a later confirmation is routed to the excess refund; the folio closes only when nothing is pending. | T158 |
+| (k) Token scrub (FR-012a, CHK030) | The account-link token in the stored notification payload is cleared when the link is used, revoked or expired; the rest of the payload keeps the 30-day retention. | T159 |
+| (l) Closer and role tests (FR-036, SC-016, SC-017) | Closer authority test; Staff-`403` contract test for every Manager-only operation; reminders/close/reopen test. | T160, T161, T162 |
+| (m) Refund cap across reasons (FR-038, CHK002) | A new ticket-based request takes collected for the ticket (excess kept on the folio included) minus all its other `REFUNDED`/open requests, computed and inserted under the same ticket folio lock as FR-034; remainder 0 returns the existing request; the Mland-cancellation path (FR-043) uses the same remainder. | T170 |
+| (n) Account link idempotency (FR-022a, CHK019, decided by Hồ Hoàng Quốc) | The anonymous route takes `Idempotency-Key`; a record scoped to the token hash with a keyed fingerprint of the request (never the account), removed 30 days after link expiry; same key and content replays `204`, changed content `409`. Table `settlement_refund_account_link_idempotency` (proposed, see `data-model.md`; columns `token_hash`, `idempotency_key`, `request_fingerprint`, `outcome`, `created_at`, `purge_after`; unique (`token_hash`, `idempotency_key`)). | T169 |
+| (o) Status codes (FR-022d, CHK018) | `401` on every operation accepting `bearerAuth` (invalid token only on guest-or-Member routes); receipt-image `413`/`415`/`503` and lookup `429` are the documented extras. | T171 |
+
+**Open decisions (settle in this plan before the dependent task is built):**
+
+- **O-1 Optional receipt image on the refund transfer proof (FR-039, CHK007).**
+  Decided in the spec: the bank reference (text) stays required, the image is
+  optional, visible only to a Manager and the transferring actor, and follows
+  the request lifecycle. **Not decided: file types, size limit, storage
+  location (database / file store / object store), retention period, malware
+  or content checks, and the upload mechanism.** No number is proposed here;
+  the owner (Hồ Hoàng Quốc) and the platform storage facts must settle them
+  first (task T153 records the decision, then T154 builds BE/FE). Until then the
+  contract field `proofImageReference` is a placeholder (`x-status:
+  pending-plan-decision`) and sensitive-data rules D13 (minimisation, access,
+  retention) are unmet for the image.
+  *(The paragraph above is kept for history; superseded by the decision below.)*
+  **DECIDED 2026-11-15 by Hồ Hoàng Quốc (spec FR-039, Checklist follow-up;
+  CHK007).** The bank reference text stays required, the image stays optional.
+  Names of tables, routes, properties and codes below are **proposed**.
+  1. *File types*: JPEG, PNG, WebP only, validated as feature 002 product images
+     (002 spec FR-008; backend `ImageContentInspector`): the declared
+     Content-Type, the file signature (magic bytes) and a readable image header
+     must all agree; the file name extension is never trusted. PDF is refused
+     (staff take a screenshot). Refusal: `415` (proposed code
+     `RECEIPT_IMAGE_TYPE_UNSUPPORTED`).
+  2. *Size and count*: at most 5,000,000 bytes (`413`, proposed
+     `RECEIPT_IMAGE_TOO_LARGE`; the global multipart limit in
+     `application.properties` is already 5,000,000 B per file with lazy
+     resolution, so 003.3 needs its own typed `413` handler) and at most one
+     image per refund transfer evidence (`409`, proposed
+     `RECEIPT_IMAGE_ALREADY_ATTACHED`).
+  3. *Storage and access*: Cloudinary, `resource_type=image`,
+     `type=authenticated`, through a 003.3-owned adapter (a
+     `SettlementReceiptStoragePort` in the settlement module, proposed),
+     because the 002 module exposes no upload facade; it follows the pattern of
+     `CloudinaryMediaStorageAdapter` without calling it. Same Cloudinary account
+     and variables `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`,
+     `CLOUDINARY_API_SECRET`; separate folder from its own property (proposed
+     `SETTLEMENT_RECEIPT_CLOUDINARY_FOLDER`, default
+     `ppswbs/settlement-receipts`), not `CLOUDINARY_FOLDER`, which 002 uses
+     with default `ppswbs/catalogue`. MySQL stores metadata only (proposed table
+     `settlement_refund_receipt_images`, see `data-model.md`), never the bytes.
+     Mechanism: two steps — upload (`POST
+     /workshop-refund-requests/{refundId}/receipt-images`, multipart,
+     `Idempotency-Key`, allowed while the request is `PENDING_TRANSFER`), then
+     `RECORD_TRANSFER` carries the returned `proofImageReference` and attaches
+     it in the same transaction as the transfer record. The provider URL is
+     never returned: `GET /workshop-refund-requests/{refundId}/receipt-image`
+     checks access first, then the backend reads the object with a signed URL
+     and streams it same-origin with `Cache-Control: no-store` and
+     `X-Content-Type-Options: nosniff`. Access = the actors who may act on the
+     refund transfer (FR-039: a Manager and the transferring actor). In V1
+     every refund transition is Manager-only (FR-039, owner decision
+     2026-11-13: the Manager holds `workshop.refund.execute`), so upload and
+     stream are Manager-only; Staff, who may only enter the account at the
+     counter and resend the link (FR-040, FR-038a, contract `…/account`,
+     `…/account-link-resends`), get `403`. Missing credentials or an
+     unreachable provider give `503` (proposed
+     `RECEIPT_STORAGE_UNAVAILABLE`, like 002 `MEDIA_DEPENDENCY_UNAVAILABLE`);
+     `RECORD_TRANSFER` with the bank reference and no image still succeeds.
+  4. *Retention* *(fix A16, 2026-11-16: replaces "V1 never deletes an attached image automatically")*: an ATTACHED image is not deleted before 5 years after
+     the request reaches `REFUNDED` or `CLOSED_UNREACHABLE` (job T166, after V1);
+     until then it follows the refund record (including after `RETURN_TO_PENDING_ACCOUNT`,
+     where it stays with the earlier transfer evidence). Only an image uploaded but never attached
+     is removed after 24 hours by a scheduled cleanup, same rule as 002
+     (`CatalogueMediaCleanupService.NEVER_ATTACHED_GRACE`).
+  ~~**Still open (follow-up, not a number):** the final retention/deletion period
+  of attached receipt images is deferred to an accounting decision; owner
+  Hồ Hoàng Quốc. Until then D13 retention for the image reads "kept with the
+  refund record".~~ *(superseded 2026-11-15)*
+  **Retention decided 2026-11-15 (Hồ Hoàng Quốc):** an attached image file is
+  deleted 5 years after its refund request reaches `REFUNDED` or
+  `CLOSED_UNREACHABLE` (signed destroy, row → `DELETED`); the row keeps the
+  bank reference snapshot, checksum, content type, size, uploader and
+  timestamps. Basis: supporting evidence, not the accounting voucher (the bank
+  statement is kept by accounting); 5 years = minimum for records not used
+  directly for bookkeeping (Luật Kế toán 2015 / Nghị định 174/2016), to be
+  confirmed by accounting; if accounting uses the in-app image as its voucher
+  the period becomes 10 years. V1 builds no deletion job (first image due
+  about 2031); T154 only keeps the terminal timestamp needed to compute the
+  due date; the job is T166 (after V1). Tasks: T153 (decision, done
+  2026-11-15), T154 (build), T166 (deletion job).
+- **O-2 Folio close timing for a Mland cancellation of a `FINALIZED` folio.**
+  The spec says the refund request is opened and the folio moves to `CLOSED`;
+  T113 (done) closes a folio only when the remedy's refund is `REFUNDED`. The
+  owner confirms which applies to an `OPEN` folio and whether `FINALIZED` closes
+  at opening (T157).
+  **DECIDED 2026-11-15 (spec FR-043, FR-039):** a folio, `OPEN` or `FINALIZED`,
+  moves to `CLOSED` only once the Mland-cancel refund is `REFUNDED` and nothing
+  is pending, consistent with done task T113; FR-043 applies to any session
+  reaching `CANCELLATION_REQUESTED`, including an `IN_PROGRESS` interruption.
+  The question above is kept for history; T157 needs no further owner answer.
+
+### Approval exception and step-by-step workflows (A15, decided 2026-11-16)
+
+**Exception (option B, Hồ Hoàng Quốc):** the owner approved the part already built; there is no `approval.md` and no separate design pack for 003.3. This plan, the spec Clarifications and the tasks are the approval record. The workflows below are short step lists for four tasks.
+
+- **T137 key replacement:** (1) the Admin replaces `WORKSHOP_REFUND_ACCOUNT_KEY` and restarts the service; (2) the Admin calls the route with a reason and an Idempotency-Key; (3) for each request still holding ciphertext, in its own transaction: delete the ciphertext (mask kept), set `PENDING_ACCOUNT`, void the approval, revoke the link, send a new link, write one audit record; (4) a rerun touches nothing already handled; (5) payers re-enter numbers and a Manager approves again. The Admin runs the technical step only; approvals stay with Managers.
+- **T146 return to `PENDING_ACCOUNT`:** (1) a bank return, a statement mismatch or a Manager refusal calls one service operation; (2) in one transaction record the reason, delete the ciphertext (mask kept), void the approval, revoke the old link and send a new one; (3) the refund right is unchanged and there is no terminal rejection state; (4) a repeated call changes nothing. `REFUNDED` is final in V1 (a late bank return after it is handled outside the system).
+- **T167 handoff to 003.2:** (1) after each per-ticket resolution (replacement accepted, refund request opened, or a ticket with no collected money whose answer or default is recorded and whose folio closes); (2) in the same transaction check whether every affected ticket of the `SettlementCancellationCase` is resolved; (3) if so call `completeCancellation` with a deterministic `operationReference` per case; (4) a `REJECTED` outcome is audited and retried; (5) a handoff with no affected ticket completes on receipt.
+- **T170 refund cap:** (1) take the ticket folio lock; (2) compute collected (excess kept on the folio included) minus the sum of the ticket's other requests that are `REFUNDED` or open (`CLOSED_UNREACHABLE` counts as open); (3) a remainder of 0 creates nothing and returns the existing request; (4) otherwise insert the request for the remainder under the same lock; (5) the Mland-cancellation path uses the same remainder.
+
 ## Public REST Design
 
 The contract is the normative transport detail in
 [`contracts/workshop-settlement.openapi.yaml`](./contracts/workshop-settlement.openapi.yaml)
 for the routes still served booking-wide (OTA add-on bills, refund policies
+*(refund policies removed by T139, 2026-11-15; FR-043, FR-021a–FR-021e superseded)*
 and settlement case list; the booking-wide final-bill, charges and folio-correction
 routes were removed 2026-11-15, T106/T121/T123/T124) and
 [`contracts/workshop-settlement-ticket.openapi.yaml`](./contracts/workshop-settlement-ticket.openapi.yaml)
@@ -242,8 +433,16 @@ for every per-ticket route (see "Per-ticket settlement" above).
 | --- | --- | --- |
 | Final bill | `/api/v1/workshop-bookings/{bookingCode}/final-bill` | Member ownership or Guest contact proof for read-only projection; Staff/Manager for settlement actions. *(Removed 2026-11-15, T106/T121/T123/T124; replaced by the per-ticket folio routes.)* |
 | Charges | `/final-bill/charges` | Staff in booking-location scope or any active Manager globally; customer routes cannot create charge lines. *(Removed 2026-11-15, T106/T121/T123/T124; replaced by the per-ticket folio routes.)* |
-| Settlement cases | `/.../{case-collection}` and `/{caseReference}` | Customer cancellation/read by ownership/proof; Manager for required-session change and Mland remedy. |
-| Refund policy | `/api/v1/workshop-refund-policies` | Any active Manager, global scope. |
+| Settlement cases | `/.../{case-collection}` and `/{caseReference}` | Customer cancellation/read by ownership/proof; Manager for required-session change and Mland remedy. *(Booking-scoped case collections removed 2026-11-15, T106/T123/T124; replaced by the per-ticket cancellation, change and Mland-remedy routes. The Manager list `GET /workshop-settlement-cases` is still served.)* |
+| Refund policy | `/api/v1/workshop-refund-policies` | Any active Manager, global scope. *(Removed by T139 (backend) and T140 (frontend), decided 2026-11-15: FR-043 always refunds 100%; FR-021a–FR-021e superseded; T139 will mark the routes in the contract removed.)* |
+| Per-ticket folio and collections | `/api/v1/workshop-tickets/{ticketCode}/folio`, `…/folio/collections`, `…/folio/lines/{lineId}/voids`, `…/folio/collections/{collectionId}/voids`, `…/folio/corrections/{correctionReference}`, `…/folio-lookups` | Member owner, Manager or assigned Staff; Guest by one contact proof in the body (FR-048). |
+| Per-ticket cancellation, change and Mland remedy | `/workshop-tickets/{ticketCode}/cancellations`, `…/changes`, `…/change-allowances`, `…/mland-remedy`, `…/mland-remedy/answers` | Buyer proof (Member bearer or `buyerVerificationReference`); Manager for allowances. |
+| Refund requests and account | `/workshop-refund-requests`, `…/{refundId}/transitions`, `…/account`, `…/account-link-resends`, `/refund-account-links/{token}` | Manager (every transition in V1); Staff counter entry per FR-040; anonymous single-use link. |
+| Reconciliation list *(planned, T133)* | `GET /workshop-reconciliation-collections` (methods `BANK_TRANSFER`, `VNPAY`, `BOOKING_TIME`; `BOOKING_TIME` depends on 003.1 T150) | Manager only (FR-056). |
+| Absorbed undercharge *(planned, T135)* | `POST …/folio/absorbed-undercharges`, `…/{underchargeReference}/voids`, `GET /workshop-absorbed-undercharges` | Manager only (FR-057). |
+| Refund-account key replacement *(planned, T137)* | `POST /workshop-refund-account-key-replacements` | Admin only (FR-040); Manager and Staff get `403`. |
+| Refund receipt images *(planned, T154)* | `POST /workshop-refund-requests/{refundId}/receipt-images`, `GET …/receipt-image` | Manager in V1 (FR-039, plan O-1). |
+| Cash reversal *(planned, T144)* | `POST …/folio/collections/{collectionId}/cash-reversals` | Manager only (FR-036). |
 | VNPay ingress | Shared integration contract | `paymentintegration` owns the signed GET; this feature never owns the provider route. |
 
 All client write routes declare `Idempotency-Key`, and all responses use a safe
@@ -267,7 +466,12 @@ Merchant Admin investigation below no longer run for Mland money; an
 allocation is routed to a bank refund request (`PENDING_BANK_REFUND`) and is
 verified only by the Manager's confirmed transfer. Only an unreconciled legacy
 gateway refund (code `99`) is still reconciled first. The original text is
-kept for history.)*
+kept for history.)* *(Superseded 2026-11-15 by Hồ Hoàng Quốc: the code-`99`
+sentence is withdrawn. VNPay Refund and refund-QueryDR code was removed
+(bc39429c) and V155 dropped the VNPay refund columns and the
+`ix_settlement_refund_polling` index of `settlement_refund_allocations`
+(4e2875a0); no such refund exists in any local database, spec FR-039.)*
+*(Superseded 2026-11-15, T128: no VNPay Refund or refund-QueryDR exists any more; the next paragraph is history.)*
 Persist all allocations before dispatch, call paymentintegration only after the
 Settlement transaction commits, and use its operation journal as the provider
 idempotency boundary. QueryDR runs immediately after a refund is accepted and
@@ -294,6 +498,9 @@ re-reading the safe resource/case projection.
   before data-bearing deployment. Do not reset staging/production data.
 - Test concurrent cancellation requests with different idempotency keys for the
   same booking; the unique booking claim must prevent a second case/allocation.
+  *(Superseded 2026-11-12/15: cancellation is per ticket (FR-041); the
+  per-ticket idempotency and all-or-none group tests of T099/T103 replace
+  this booking test.)*
 
 ## Readiness and Dependencies
 
@@ -302,15 +509,19 @@ re-reading the safe resource/case projection.
 | 003.1 confirmed booking projection and `FULLY_PAID` conclusion | Concrete facade contract | 003.3 consumes only the typed owner boundary. |
 | 003.2 readiness, replacement, refund consequence and cancellation handoff | Concrete facade contract | 003.3 consumes only typed owner outcomes. |
 | FE-001 account facts/scope | Approved dependency assumption | Implementation consumes canonical role/status, ownership and location scope; Settlement owns its action rules and does not edit FE-001 or use display roles/claims as authority. |
-| VNPay merchant credential, configured callback URL, QueryDR/refund access | External configuration/evidence blocker | Protocol and fake-backed adapter can be implemented locally. Live requests remain disabled until the shared [VNPay configuration preflight](../contracts/vnpay-configuration-preflight.md) is satisfied. |
+| VNPay merchant credential, configured callback URL, QueryDR access for payments *(refund access no longer needed: no VNPay Refund, FR-038, 2026-11-15)* | External configuration/evidence blocker (T005) | Protocol and fake-backed adapter can be implemented locally. Live requests remain disabled until the shared [VNPay configuration preflight](../contracts/vnpay-configuration-preflight.md) is satisfied. |
 | Settlement-to-007 notification handoff | Defined cross-feature boundary | Durable handoff, reference-only event and payload facade are fixed in the shared facade contract. Recipient/content are retained up to 30 days; payment-action links are not part of settlement notifications. Feature 007 provider configuration remains external; Settlement commits independently. |
 | Shared VNPay ingress/dispatch | Defined cross-feature boundary | Canonical route and dispatch rules live in `../contracts/vnpay-payment-ingress.openapi.yaml` and the facade contract; merchant credentials/configuration remain blocked. |
+| 003.1 T150, read-only facade "list booking-time payments by day and location" (R11) | Not done | Blocks T133 and T134 (BOOKING_TIME rows); the rest of FR-056 can be built without it. |
+| 006 T110, voucher restoration operation | Not done | Real call of T155 and T163 needs it; T155 tests use a fake facade. |
+| 003.2 `completeCancellation` and T122 | Not done (no 003.3 service calls it) | T167 calls it; 003.2 T122 verifies the transition afterwards. |
 
 ## Design Challenge Review
 
 The main risk is pretending a complete REST contract makes payment integration
 ready. It does not: without an approved VNPay merchant configuration and actual
-callback/QueryDR/refund access, provider adapter work cannot be verified. The
+callback/QueryDR access (refund access is no longer needed since 2026-11-15,
+FR-038), provider adapter work cannot be verified. The
 design therefore keeps that work explicitly blocked while retaining a testable
 semantic contract. A second risk is letting delivery failure alter money/capacity;
 post-commit delivery isolation avoids that. No new framework, queue, state store,
@@ -319,7 +530,7 @@ schema is assumed.
 
 ## Next Gate
 
-This design is ready for `$speckit-tasks`. The resulting task set must replace
+*(Superseded 2026-11-16, fix A30: current status. T001–T127 are done except T005 and T035 (blocked on VNPay merchant configuration); Phase 10 (T128–T143) and Phase 11 (T144–T172) are open, except T153 (done) and T148 (merged into T137); plan decisions O-1 and O-2 are decided; the tasks exist in `tasks.md`. The gate text below is kept as history.)* This design is ready for `$speckit-tasks`. The resulting task set must replace
 legacy item/session-bill and browser-confirmation work, mark the provider/
 notification configuration dependencies blocked, and implement the shared VNPay
 ingress before either business facade consumes payment evidence.
@@ -331,4 +542,9 @@ final-payment checkout and single-contract statements; new rows for the
 encrypted refund account, its key, the audited reveal and the anonymous link
 route). These notes do not approve the plan; the open owner decisions listed
 in spec (FR-022b1 `PENDING_PROVIDER`, FR-039 different recipient, the missing
-operations after FR-045) remain open.
+operations after FR-045) remain open. *(Superseded 2026-11-15: all three were
+decided by Hồ Hoàng Quốc on 2026-11-14 — `PENDING_PROVIDER` kept, meaning
+"awaits verified refund evidence" (FR-022b1); the different-recipient
+confirmation withdrawn (FR-039); the missing operations became the
+Manager-only routes FR-052–FR-055, published by T123 and given screens by
+T125.)*

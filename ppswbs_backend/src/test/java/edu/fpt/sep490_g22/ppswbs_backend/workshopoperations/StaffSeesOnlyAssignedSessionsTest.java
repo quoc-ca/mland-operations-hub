@@ -1,6 +1,5 @@
 package edu.fpt.sep490_g22.ppswbs_backend.workshopoperations;
 
-import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountSummary;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorRole;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorStatus;
@@ -33,11 +32,10 @@ class StaffSeesOnlyAssignedSessionsTest {
     private static final Long LOCATION = 4L;
     private final WorkshopSessionRepository sessions = mock(WorkshopSessionRepository.class);
     private final WorkshopOperationsAuthorizationService authorization = mock(WorkshopOperationsAuthorizationService.class);
-    private final AccountFacade accounts = mock(AccountFacade.class);
     private final WorkshopLocationService locations = mock(WorkshopLocationService.class);
     private final SessionStaffAssignmentRepository assignments = mock(SessionStaffAssignmentRepository.class);
     private final WorkshopSessionService service = new WorkshopSessionService(sessions, locations, mock(WorkshopSlotService.class),
-            authorization, accounts, mock(OperationsAuditEventRepository.class), mock(CapacityHoldService.class),
+            authorization, mock(OperationsAuditEventRepository.class), mock(CapacityHoldService.class),
             mock(WorkshopOtaSnapshotService.class), null, assignments);
 
     private WorkshopSession session(long id, String reference) {
@@ -64,7 +62,8 @@ class StaffSeesOnlyAssignedSessionsTest {
         AccountSummary staff = account(ActorRole.STAFF);
         when(authorization.authenticate("Bearer staff")).thenReturn(staff);
         when(authorization.isGlobalWorkshopActor(staff)).thenReturn(false);
-        when(accounts.getLocationScope(33L)).thenReturn(List.of(LOCATION));
+        when(authorization.isStaff(staff)).thenReturn(true);
+        when(authorization.getLocationScope(33L)).thenReturn(List.of(LOCATION));
         SessionStaffAssignment assignment = SessionStaffAssignment.builder().session(mine).accountId(33L).assignedById(10L).active(true).build();
         when(assignments.findByAccountIdAndActiveTrue(33L)).thenReturn(List.of(assignment));
 

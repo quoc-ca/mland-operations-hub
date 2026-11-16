@@ -112,6 +112,7 @@ When an email's access credential or ticket artifact has expired or been revoked
 - **FR-026**: The system MUST retain redacted delivery metadata, attempt history, and Admin/Manager operational audit for 12 months, unless a binding business or legal policy requires a longer period.
 - **FR-027**: In V1, Admin and Manager authorization for template management, resend, cancellation, and operational actions MUST apply at global scope. Workshop Location–scoped authorization is out of scope for V1.
 - **FR-028**: The V1 delivery worker MUST poll for processable requests (PENDING or RETRY_SCHEDULED whose scheduled time has arrived) every 30 seconds. The retry wait times specified in FR-013 are measured from the failed attempt, not from the poll cycle.
+- **FR-029**: For asynchronous post-commit event handoffs from business modules (such as Workshop Booking `BookingNotificationReady`), the delivery worker MUST perform at most 2 technical retry attempts (initial send + 1 retry after ~1 minute) for transient network/provider failures. When technical retries are exhausted without successful provider acceptance, the system MUST record the terminal state `FAILED` and publish the failure event `BookingNotificationDeliveryFailed` defined in `workshopbooking :: notification` to enable the owning business module to drive business-level retry policies (FR-015a/b) and operator escalation.
 
 ### Key Entities
 

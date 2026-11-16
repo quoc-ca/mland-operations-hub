@@ -36,7 +36,7 @@ public class CheckInService {
      * Executes atomic normal check-in via QR reference or exact ticket-code.
      * Requires:
      * - Online request;
-     * - Session in PUBLISHED or IN_PROGRESS;
+     * - Session in PUBLISHED, SALES_PAUSED or IN_PROGRESS;
      * - Check-in window open (now >= checkInOpensAt);
      * - Ticket validityState == ACTIVE;
      * - Valid entitlement for the target session and location;
@@ -49,15 +49,17 @@ public class CheckInService {
 
         AccountSummary actor = authorizationService.requireStaffSessionAssignment(authHeader, session.getId());
 
-        if (session.getState() != SessionState.PUBLISHED && session.getState() != SessionState.IN_PROGRESS) {
+        if (session.getState() != SessionState.PUBLISHED && session.getState() != SessionState.SALES_PAUSED
+                && session.getState() != SessionState.IN_PROGRESS) {
             log.warn("Check-in rejected: session {} is in state {}", sessionReference, session.getState());
-            throw new WorkshopLifecycleException("Session is in state " + session.getState() + ", check-in requires PUBLISHED or IN_PROGRESS");
+            throw new WorkshopLifecycleException("Session is in state " + session.getState() + ", check-in requires PUBLISHED, SALES_PAUSED or IN_PROGRESS");
         }
 
         Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
         if (session.getCheckInOpensAt() != null && now.isBefore(session.getCheckInOpensAt())) {
             log.warn("Check-in rejected: session {} check-in opens at {}", sessionReference, session.getCheckInOpensAt());
-            throw new WorkshopLifecycleException("Check-in has not opened yet for session " + sessionReference + " (opens at " + session.getCheckInOpensAt() + ")");
+            throw new WorkshopCheckInNotOpenException("Check-in has not opened yet for session " + sessionReference
+                    + " (check-in opens at " + session.getCheckInOpensAt() + ")", session.getCheckInOpensAt());
         }
 
         AttendanceTicket ticket = resolveTicket(request);
@@ -162,6 +164,49 @@ public class CheckInService {
                         .checkedInAt(e.getCheckedInAt())
                         .build())
                 .toList();
+    }
+
+    /**
+     * T116 (FR-003b): Manager-only, audited, read-only lookup of a booking's full ticket set across sessions and
+     * locations. Unknown code is 404 RESOURCE_NOT_FOUND (a Manager may see every booking, nothing is concealed).
+     * The result never carries contact data, a QR value or payment data. The success audit row holds the actor and
+     * the booking code only. The denied-attempt audit is T131.
+     */
+    @Transactional
+    public ManagerBookingLookup managerBookingLookup(String authHeader, String correlationReference, String bookingCode) {
+        AccountSummary actor = authorizationService.requireGlobalManager(authHeader);
+
+        List<TicketSessionEntitlement> entitlements = entitlementRepository.findAllByBookingReferenceOrdered(bookingCode);
+        if (entitlements.isEmpty()) {
+            throw new WorkshopNotFoundException("Booking not found for the specified booking code");
+        }
+
+        List<Ticket> tickets = entitlements.stream()
+                .<Ticket>map(e -> (Ticket) Ticket.builder()
+                        .ticketCode(e.getTicket().getTicketCode())
+                        .sessionId(e.getSession().getReference())
+                        .locationId(e.getSession().getLocation().getId())
+                        .validityState(e.getTicket().getValidityState())
+                        .attendanceState(e.getAttendanceState())
+                        .checkedInAt(e.getCheckedInAt())
+                        .build())
+                .toList();
+
+        String correlationId = correlationReference != null && !correlationReference.isBlank()
+                && correlationReference.length() <= 64 ? correlationReference : UUID.randomUUID().toString();
+        auditEventRepository.save(OperationsAuditEvent.builder()
+                .actorId(actor.accountId())
+                .action("MANAGER_BOOKING_LOOKUP")
+                .outcome("SUCCESS")
+                .correlationId(correlationId)
+                .metadata("{\"bookingCode\":" + jsonString(bookingCode) + "}")
+                .build());
+
+        return new ManagerBookingLookup(bookingCode, tickets);
+    }
+
+    private static String jsonString(String value) {
+        return "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
     }
 
     private WorkshopSession resolveSession(String sessionReference) {

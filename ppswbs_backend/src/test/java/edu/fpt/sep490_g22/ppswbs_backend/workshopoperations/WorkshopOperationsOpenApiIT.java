@@ -129,6 +129,7 @@ public class WorkshopOperationsOpenApiIT {
 
                 // Canonical Workshop Locations & Slots
                 "/workshop-locations",
+                "/workshop-locations/{locationId}",
                 "/workshop-locations/{locationId}/slots",
                 "/workshop-slots/{slotId}",
 
@@ -166,6 +167,17 @@ public class WorkshopOperationsOpenApiIT {
         // 1. Locations
         Map<String, Object> locations = (Map<String, Object>) paths.get("/workshop-locations");
         assertThat(locations).containsKeys("get", "post");
+        // T135/T137: PATCH /workshop-locations/{locationId} (Manager rename/address/active; code immutable)
+        Map<String, Object> locationById = (Map<String, Object>) paths.get("/workshop-locations/{locationId}");
+        assertThat(locationById).containsKey("patch");
+        Map<String, Object> locationPatch = (Map<String, Object>) locationById.get("patch");
+        assertThat(((Map<String, Object>) locationPatch.get("responses")).keySet())
+                .containsExactlyInAnyOrder("200", "400", "401", "403", "404", "409", "503");
+        Map<String, Object> schemas = (Map<String, Object>) ((Map<String, Object>) openApiSpec.get("components")).get("schemas");
+        Map<String, Object> locationUpdate = (Map<String, Object>) schemas.get("LocationUpdate");
+        assertThat(locationUpdate.get("minProperties")).isEqualTo(1);
+        assertThat(((Map<String, Object>) locationUpdate.get("properties")).keySet())
+                .containsExactlyInAnyOrder("name", "address", "active");
 
         // 2. Slots
         Map<String, Object> locationSlots = (Map<String, Object>) paths.get("/workshop-locations/{locationId}/slots");
