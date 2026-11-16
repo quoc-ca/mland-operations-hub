@@ -9,6 +9,7 @@ import {
   WorkshopApiError,
 } from '../api/workshops';
 import { CartBenefitPicker } from './CartBenefitPicker';
+import { contactForRequest, EMPTY_CONTACT, splitPhone, validateBookingContact } from './contactValidation';
 import { CartQuotePanel } from './CartQuotePanel';
 import { GroupDetailCard } from './GroupDetailCard';
 import { parseSelection, selectionProblem } from './bookingSelection';
@@ -62,7 +63,7 @@ export function WorkshopBookingPage({ packageId }) {
   const [loadingPkg, setLoadingPkg] = useState(true);
   const [pkgError, setPkgError] = useState(null);
 
-  const [contact, setContact] = useState({ contactEmail: '', contactPhone: '' });
+  const [contact, setContact] = useState(EMPTY_CONTACT);
   const [benefitSelection, setBenefitSelection] = useState({ choice: 'NONE', voucherCode: '', requestedPoints: '0' });
 
   // The choice made on the package detail page; this screen never edits it.
@@ -83,6 +84,7 @@ export function WorkshopBookingPage({ packageId }) {
   const loadingSessions = !sessionsReady;
   const [sessionsError, setSessionsError] = useState(null);
   const autoQuoted = useRef(false);
+  const userPicked = useRef(false);
 
   // Quote ("Đặt ngay"), confirmation and the created group
   const [quote, setQuote] = useState(null);
@@ -101,15 +103,17 @@ export function WorkshopBookingPage({ packageId }) {
   useEffect(() => {
     if (authStatus !== 'signed-in') {
       // Authenticated contact data is not kept after sign-out.
-      setContact({ contactEmail: '', contactPhone: '' });
+      setContact(EMPTY_CONTACT);
       return;
     }
     if (profile) {
-      setContact({ contactEmail: profile.email || '', contactPhone: profile.phone || '' });
+      setContact({ contactEmail: profile.email || '', ...splitPhone(profile.phone) });
     }
   }, [authStatus, profile]);
 
   // Kho Voucher and the running workshop vouchers for the picker; a failed load just leaves it empty.
+  // `vouchersLoaded` tells the auto pick that both lists were answered (or failed), so it does not run on half a list.
+  const [vouchersLoaded, setVouchersLoaded] = useState({ saved: false, offers: false });
   const [savedVouchers, setSavedVouchers] = useState([]);
   useEffect(() => {
     if (bookingMode !== 'MEMBER') { setSavedVouchers([]); return undefined; }
@@ -126,7 +130,8 @@ export function WorkshopBookingPage({ packageId }) {
           packageIds: item.promotion?.targets?.packageIds || [],
         })).filter(item => item.code));
       })
-      .catch(() => { if (active) setSavedVouchers([]); });
+      .catch(() => { if (active) setSavedVouchers([]); })
+      .finally(() => { if (active) setVouchersLoaded(current => ({ ...current, saved: true })); });
     return () => { active = false; };
   }, [bookingMode, http]);
 
@@ -144,7 +149,8 @@ export function WorkshopBookingPage({ packageId }) {
             || item.targets.packageIds.map(String).includes(String(packageId)))
           .map(item => ({ code: item.code, name: item.name || item.code, discount: item.discount })));
       })
-      .catch(() => { if (active) setWorkshopOffers([]); });
+      .catch(() => { if (active) setWorkshopOffers([]); })
+      .finally(() => { if (active) setVouchersLoaded(current => ({ ...current, offers: true })); });
     return () => { active = false; };
   }, [bookingMode, http, packageId]);
 
@@ -262,27 +268,82 @@ export function WorkshopBookingPage({ packageId }) {
    */
   const changeBenefitSelection = next => {
     const hadQuote = Boolean(quote);
+    userPicked.current = true; // a Member's own choice always wins over the automatic pick
     setBenefitSelection(next);
     invalidateQuote();
-    if (hadQuote) bookNow(next);
+    // A pick made while the automatic one is still running quotes too: the automatic run stands down on `userPicked`.
+    if (hadQuote || quoting) bookNow(next);
   };
 
   // Arriving from "Đặt ngay": quote the one line as soon as the account is known (a Member's benefits need the token).
   const identityKnown = authStatus !== 'loading' && !profileLoading && bookingMode !== null;
+
+  /**
+   * Auto pick (Shopee-style, as on the cart page): quote the line with no voucher, then with each candidate voucher
+   * (the Member's saved ones that fit this package, then the running workshop vouchers), and keep the one with the
+   * largest `voucherDiscountVnd`. Every figure is 006's quote; nothing is computed here. A voucher the quote refuses
+   * is simply not a candidate. Points stay off until the Member turns them on.
+   */
+  const autoPickAndQuote = async () => {
+    const problem = choiceProblem();
+    if (problem) {
+      setValidationErrors({ sessions: problem });
+      return;
+    }
+    setValidationErrors({});
+    setQuoting(true);
+    setQuoteError(null);
+    setConfirmError(null);
+    setFailingLines([]);
+    try {
+      const authorization = await memberAuthorization();
+      const ask = benefits => quoteWorkshopCart({
+        lines: [lineForCart()],
+        benefitSelection: benefits,
+        authorization: authorization || undefined,
+      });
+      const wholeBig = value => (/^\d+$/.test(String(value ?? '')) ? BigInt(value) : 0n);
+      // A Guest sends no benefits at all; a Member starts from "no voucher" and tries the candidates.
+      const base = bookingMode === 'MEMBER' ? benefitSelection : undefined;
+      let best = { selection: base, result: await ask(base), discount: 0n };
+      if (bookingMode === 'MEMBER') {
+        const fits = item => item.availability === 'ACTIVE'
+          && (!item.scope || item.scope === 'WORKSHOP')
+          && ((item.packageIds || []).length === 0 || item.packageIds.map(String).includes(String(packageId)));
+        const codes = [...new Set([
+          ...savedVouchers.filter(fits).map(item => item.code),
+          ...workshopOffers.map(item => item.code),
+        ])].slice(0, 5);
+        for (const code of codes) {
+          if (userPicked.current) return;
+          try {
+            const candidate = { choice: 'VOUCHER', voucherCode: code, requestedPoints: '0' };
+            const result = await ask(candidate);
+            const discount = wholeBig(result.voucherDiscountVnd);
+            if (discount > best.discount) best = { selection: candidate, result, discount };
+          } catch { /* refused by the quote: not a candidate */ }
+        }
+      }
+      if (userPicked.current) return;
+      if (bookingMode === 'MEMBER') setBenefitSelection(best.selection);
+      setQuote(best.result);
+    } catch (error) {
+      setQuote(null);
+      setQuoteError(describeBookingError(error));
+    } finally {
+      setQuoting(false);
+    }
+  };
+
+  const vouchersReady = bookingMode !== 'MEMBER' || (vouchersLoaded.saved && vouchersLoaded.offers);
   useEffect(() => {
-    if (autoQuoted.current || !pkg || !identityKnown || loadingSessions) return;
+    if (autoQuoted.current || !pkg || !identityKnown || loadingSessions || !vouchersReady) return;
     autoQuoted.current = true;
-    bookNow();
-  }, [pkg, identityKnown, loadingSessions]);
+    autoPickAndQuote();
+  }, [pkg, identityKnown, loadingSessions, vouchersReady]);
 
   const confirmQuote = async () => {
-    const errors = {};
-    if (!contact.contactEmail || !contact.contactEmail.includes('@')) {
-      errors.contactEmail = 'Email không hợp lệ (ví dụ: name@example.com).';
-    }
-    if (!contact.contactPhone || contact.contactPhone.replace(/\s+/g, '').length < 7) {
-      errors.contactPhone = 'Số điện thoại phải có ít nhất 7 chữ số.';
-    }
+    const errors = validateBookingContact(contact);
     setValidationErrors(errors);
     if (Object.keys(errors).length > 0) return;
 
@@ -297,8 +358,7 @@ export function WorkshopBookingPage({ packageId }) {
       const authorization = await memberAuthorization();
       const created = await createBookingGroup({
         quoteRef: quote.quoteRef,
-        contactEmail: contact.contactEmail,
-        contactPhone: contact.contactPhone,
+        ...contactForRequest(contact),
         idempotencyKey: confirmKey.current,
         authorization: authorization || undefined,
       });

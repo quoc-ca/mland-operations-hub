@@ -5,6 +5,7 @@ import {
   requestBuyerVerification,
   WorkshopApiError,
 } from '../api/workshops';
+import { isValidEmail, normalizeEmail } from './contactValidation';
 import {
   TICKET_NO_SHOW_NOTE,
   TICKET_STATUS_LABEL,
@@ -131,7 +132,7 @@ function RecipientForm({ ticket, groupCode, authorization, proof, onUpdated }) {
     setSuccess(null);
     try {
       const updated = await changeTicketRecipient(ticket.ticketCode, {
-        recipientEmail,
+        recipientEmail: normalizeEmail(recipientEmail),
         buyerVerificationReference: reference || undefined,
         authorization: authorization || undefined,
       });
@@ -185,7 +186,7 @@ function RecipientForm({ ticket, groupCode, authorization, proof, onUpdated }) {
           type="button"
           className="button primary small"
           onClick={submit}
-          disabled={pending || limitReached || needsVerification || !recipientEmail.includes('@')}
+          disabled={pending || limitReached || needsVerification || !isValidEmail(recipientEmail)}
         >
           {pending ? 'Đang gửi...' : 'Gửi vé'}
         </button>

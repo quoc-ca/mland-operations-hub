@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { createBookingGroup, quoteWorkshopCart } from '../api/workshops';
 import { CartBenefitPicker } from './CartBenefitPicker';
+import { contactForRequest, EMPTY_CONTACT, splitPhone, validateBookingContact } from './contactValidation';
 import { CartQuotePanel } from './CartQuotePanel';
 import { GroupDetailCard } from './GroupDetailCard';
 import {
@@ -50,7 +51,7 @@ export function WorkshopCartPage() {
   const previewRun = useRef(0);
   const userPicked = useRef(false);
   const [benefitSelection, setBenefitSelection] = useState({ choice: 'NONE', voucherCode: '', requestedPoints: '0' });
-  const [contact, setContact] = useState({ contactEmail: '', contactPhone: '' });
+  const [contact, setContact] = useState(EMPTY_CONTACT);
   const [quote, setQuote] = useState(null);
   const [quoting, setQuoting] = useState(false);
   const [quoteError, setQuoteError] = useState(null);
@@ -63,10 +64,10 @@ export function WorkshopCartPage() {
 
   useEffect(() => {
     if (authStatus !== 'signed-in') {
-      setContact({ contactEmail: '', contactPhone: '' });
+      setContact(EMPTY_CONTACT);
       return;
     }
-    if (profile) setContact({ contactEmail: profile.email || '', contactPhone: profile.phone || '' });
+    if (profile) setContact({ contactEmail: profile.email || '', ...splitPhone(profile.phone) });
   }, [authStatus, profile]);
 
   // Display only (FR-052): each line's per-ticket price after the automatic discount; the quote is the server's.
@@ -286,13 +287,7 @@ export function WorkshopCartPage() {
   };
 
   const confirm = async () => {
-    const errors = {};
-    if (!contact.contactEmail || !contact.contactEmail.includes('@')) {
-      errors.contactEmail = 'Email không hợp lệ (ví dụ: name@example.com).';
-    }
-    if (!contact.contactPhone || contact.contactPhone.replace(/\s+/g, '').length < 7) {
-      errors.contactPhone = 'Số điện thoại phải có ít nhất 7 chữ số.';
-    }
+    const errors = validateBookingContact(contact);
     setValidationErrors(errors);
     if (Object.keys(errors).length > 0) return;
 
@@ -307,8 +302,7 @@ export function WorkshopCartPage() {
       const authorization = await memberAuthorization();
       const created = await createBookingGroup({
         quoteRef: quote.quoteRef,
-        contactEmail: contact.contactEmail,
-        contactPhone: contact.contactPhone,
+        ...contactForRequest(contact),
         idempotencyKey: key,
         authorization: authorization || undefined,
       });

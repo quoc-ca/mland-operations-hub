@@ -77,7 +77,7 @@ describe('003.1 FR-042/FR-049 Guest lookup of a booking group', () => {
       expect(call).toBeTruthy();
       return call;
     });
-    expect(lookup.body).toEqual({ groupCode: 'WG-20261113-ABCD', contactPhone: '0901234567' });
+    expect(lookup.body).toEqual({ groupCode: 'WG-20261113-ABCD', contactPhone: '+84901234567' });
     expect(lookup.query).toEqual({});
 
     expect(await screen.findByText('WT-1')).toBeInTheDocument();

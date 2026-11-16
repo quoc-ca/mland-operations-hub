@@ -118,7 +118,7 @@ describe('003.1 FR-045 booking a group: pick on the package page, "Đặt ngay" 
     expect(createCall.body).toEqual({
       quoteRef: 'quote-ref-1',
       contactEmail: 'guest@mland.vn',
-      contactPhone: '0901234567',
+      contactPhone: '+84901234567',
     });
     expect(createCall.headers['Idempotency-Key']).toMatch(/.{16,128}/);
 

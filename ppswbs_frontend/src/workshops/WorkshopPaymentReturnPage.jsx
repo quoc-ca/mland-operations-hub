@@ -4,6 +4,8 @@ import { getOwnedBookingGroup, lookupGuestBookingGroup, WorkshopApiError } from 
 import { GroupDetailCard } from './GroupDetailCard';
 import { AWAITING_RESULT_MESSAGE, countdownText, groupHoldPhase } from './groupDisplay';
 import { useBookingIdentity } from './useBookingIdentity';
+import { buildContactProof, DEFAULT_PHONE_COUNTRY } from './contactValidation';
+import { PhoneInput } from './PhoneInput';
 import './figmaPublicShell.css';
 
 /**
@@ -65,6 +67,7 @@ export function WorkshopPaymentReturnPage({ groupCode }) {
   const vnpResponseCode = params.get('vnp_ResponseCode');
 
   const [contactProof, setContactProof] = useState('');
+  const [phoneCountry, setPhoneCountry] = useState(DEFAULT_PHONE_COUNTRY);
   const [proofType, setProofType] = useState('phone');
   const [isVerifying, setIsVerifying] = useState(false);
   const [group, setGroup] = useState(null);
@@ -91,6 +94,10 @@ export function WorkshopPaymentReturnPage({ groupCode }) {
       setVerifyError({ title: 'Cần thông tin xác minh', message: 'Nhập email hoặc số điện thoại đã dùng khi đặt.' });
       return;
     }
+    if (lookupMode === 'GUEST' && !guestProof.proof) {
+      setVerifyError({ title: 'Thông tin xác minh chưa đúng', message: guestProof.error });
+      return;
+    }
     setIsVerifying(true);
     setVerifyError(null);
     try {
@@ -101,11 +108,7 @@ export function WorkshopPaymentReturnPage({ groupCode }) {
         setAuthorization(bearer);
         result = await getOwnedBookingGroup(groupCode, { authorization: bearer });
       } else {
-        result = await lookupGuestBookingGroup({
-          groupCode,
-          contactEmail: proofType === 'email' ? contactProof.trim() : undefined,
-          contactPhone: proofType === 'phone' ? contactProof.trim() : undefined,
-        });
+        result = await lookupGuestBookingGroup({ groupCode, ...guestProof.proof });
       }
       setGroup(result);
     } catch (err) {
@@ -115,9 +118,10 @@ export function WorkshopPaymentReturnPage({ groupCode }) {
     }
   };
 
-  const guestProof = proofType === 'email'
-    ? { contactEmail: contactProof.trim() || undefined }
-    : { contactPhone: contactProof.trim() || undefined };
+  // The one proof the Guest typed, in the normalized form every call sends: { proof, error }.
+  const guestProof = buildContactProof(proofType === 'email'
+    ? { email: contactProof }
+    : { phone: contactProof, phoneCountry });
   const returnOutcome = classifyGroupPaymentOutcome({ responseCode: vnpResponseCode, groupStatus: group?.groupStatus });
 
   return (
@@ -179,15 +183,29 @@ export function WorkshopPaymentReturnPage({ groupCode }) {
             </div>
 
             <div hidden={lookupMode !== 'GUEST'} style={{ display: 'flex', gap: '10px' }}>
-              <input
-                type={proofType === 'email' ? 'email' : 'tel'}
-                placeholder={proofType === 'email' ? 'email@example.com' : '0901234567'}
-                value={contactProof}
-                onChange={event => setContactProof(event.target.value)}
-                style={{ flex: 1, padding: '10px 14px', border: '1px solid #ccc' }}
-                disabled={isVerifying}
-                required={lookupMode === 'GUEST'}
-              />
+              {proofType === 'email' ? (
+                <input
+                  type="email"
+                  placeholder="email@example.com"
+                  value={contactProof}
+                  onChange={event => setContactProof(event.target.value)}
+                  style={{ flex: 1, padding: '10px 14px', border: '1px solid #ccc' }}
+                  disabled={isVerifying}
+                  required={lookupMode === 'GUEST'}
+                />
+              ) : (
+                <div style={{ flex: 1 }}>
+                  <PhoneInput
+                    country={phoneCountry}
+                    value={contactProof}
+                    onCountryChange={setPhoneCountry}
+                    onValueChange={setContactProof}
+                    placeholder="0901234567"
+                    disabled={isVerifying}
+                    required={lookupMode === 'GUEST'}
+                  />
+                </div>
+              )}
               <button type="submit" className="button primary" disabled={isVerifying}>
                 {isVerifying ? 'Đang kiểm tra...' : 'Xem trạng thái nhóm'}
               </button>
@@ -223,7 +241,7 @@ export function WorkshopPaymentReturnPage({ groupCode }) {
             <GroupDetailCard
               group={group}
               authorization={lookupMode === 'MEMBER' ? authorization : null}
-              proof={lookupMode === 'GUEST' ? guestProof : undefined}
+              proof={lookupMode === 'GUEST' ? (guestProof.proof || undefined) : undefined}
               onRefresh={readGroup}
               onTicketUpdated={readGroup}
             />
