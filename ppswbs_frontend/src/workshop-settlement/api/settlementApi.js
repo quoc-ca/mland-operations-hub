@@ -14,10 +14,8 @@ export function createSettlementApi(http) {
   const ticket = code => `/api/v1/workshop-tickets/${enc(code)}`;
   const group = code => `/api/v1/workshop-booking-groups/${enc(code)}`;
   return {
-    // Manager case list and refund policy history (routes that are still served).
+    // Manager case list (route that is still served).
     listCases: (query = {}) => http('/api/v1/workshop-settlement-cases', { query }),
-    listRefundPolicies: () => http('/api/v1/workshop-refund-policies'),
-    createRefundPolicy: (body, key) => write('/api/v1/workshop-refund-policies', body, key),
 
     // Ticket folio (operator view with the bearer; Guest customer view through folio-lookups).
     getFolio: (code, opts) => http(`${ticket(code)}/folio`, opts),

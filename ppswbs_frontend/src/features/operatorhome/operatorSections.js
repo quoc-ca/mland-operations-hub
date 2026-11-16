@@ -39,7 +39,6 @@ const managerOnly = [
     id: 'settlement', vi: 'Quyết toán & hoàn tiền', en: 'Settlement & refunds',
     items: [
       item('/settlement/cases', 'Sự vụ & bồi hoàn', 'Cases & remedies', 'Hủy, bồi hoàn và điều chỉnh folio.', 'Cancellations, remedies and folio corrections.'),
-      item('/settlement/cases?tab=policies', 'Chính sách hoàn tiền', 'Refund policies', 'Các phiên bản chính sách hoàn tiền.', 'Refund policy revisions.'),
     ],
   },
   {

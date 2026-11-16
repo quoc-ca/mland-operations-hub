@@ -69,8 +69,6 @@ class WorkshopSettlementContractIT {
                 "POST /api/v1/workshop-change-requests/{requestReference}/decisions",
                 "GET /api/v1/workshop-tickets/{ticketCode}/mland-remedy",
                 "POST /api/v1/workshop-tickets/{ticketCode}/mland-remedy/answers",
-                "GET /api/v1/workshop-refund-policies",
-                "POST /api/v1/workshop-refund-policies",
                 "GET /api/v1/workshop-settlement-cases",
                 "GET /api/v1/workshop-cash-closes/expected-cash",
                 "POST /api/v1/workshop-cash-closes",
@@ -131,7 +129,7 @@ class WorkshopSettlementContractIT {
     private static Map<String, Method> controllerOperations() {
         List<Class<?>> controllers = List.of(TicketFolioController.class,
                 TicketCancellationController.class, TicketChangeController.class,
-                TicketMlandRemedyController.class, WorkshopRefundPolicyController.class,
+                TicketMlandRemedyController.class,
                 SettlementCaseListController.class, OtaAddonPaymentController.class,
                 FolioCollectionController.class);
         return controllers.stream()

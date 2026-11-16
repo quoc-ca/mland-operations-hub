@@ -181,18 +181,4 @@ public class WorkshopOperationsAdapter {
                                 .getBookingTicketProjection(new BookingTicketProjectionQuery(bookingReference));
         }
 
-        public RefundConsequenceOutcome applyVerifiedRefundConsequence(
-                        String bookingReference,
-                        String verifiedRefundReference,
-                        String operationReference,
-                        String correlationReference) {
-                log.info("WorkshopOperationsAdapter.applyVerifiedRefundConsequence: bookingRef={}, refundRef={}, opRef={}",
-                                bookingReference, verifiedRefundReference, operationReference);
-                return workshopOperationsFacade.applyVerifiedRefundConsequence(
-                                new ApplyVerifiedRefundConsequenceCommand(
-                                                bookingReference,
-                                                verifiedRefundReference,
-                                                operationReference,
-                                                correlationReference));
-        }
 }
