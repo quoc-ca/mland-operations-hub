@@ -64,6 +64,8 @@ public class FolioCollectionService {
     private final BankRefundService bankRefunds;
     private final PaymentOwnerRegistrationPort paymentOwners;
     private final PaymentGatewayCheckoutPort checkout;
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.WorkshopBookingSettlementAdapter booking;
+    private final MlandCancelledFolioCloser mlandFolioCloser;
 
     public record CollectionOutcome(String collectionReference, FolioCollectionMethod method, long amountVnd,
                                     long excessVnd, FolioCollectionStatus status, long balanceDue, long pendingVnd,
@@ -134,6 +136,7 @@ public class FolioCollectionService {
                 .billReference(folio.getBillReference())
                 .bookingReference(folio.getBookingReference())
                 .method(FolioCollectionMethod.BANK_TRANSFER)
+                .branchId(branchOf(folio))
                 .amountVnd(amountVnd)
                 .status(FolioCollectionStatus.PENDING_VERIFICATION)
                 .externalReference(customerTransactionReference.trim())
@@ -174,6 +177,7 @@ public class FolioCollectionService {
                 .billReference(folio.getBillReference())
                 .bookingReference(folio.getBookingReference())
                 .method(FolioCollectionMethod.VNPAY)
+                .branchId(branchOf(folio))
                 .amountVnd(amountVnd)
                 .status(FolioCollectionStatus.PENDING_VERIFICATION)
                 .externalReference(merchantReference)
@@ -302,12 +306,41 @@ public class FolioCollectionService {
         collection.setPaymentUrlSnapshot(null);
         collections.saveAndFlush(collection);
         audit(folio, action, actorAccountId, collection, reason, correlationReference);
+        // T158: a Mland-cancelled folio that was waiting on this part may now close.
+        mlandFolioCloser.closeIfSettled(folio.getBookingReference(), null,
+                actorAccountId == null ? "SYSTEM" : "account:" + actorAccountId, correlationReference, Instant.now());
+        return outcome(folio, collection);
+    }
+
+    /**
+     * T158, FR-034/FR-043: a part confirmed after Mland cancelled the ticket (or once the folio is no longer OPEN)
+     * is recorded in full, never applied to the balance, and owed back through the excess refund. The folio then
+     * closes if the cancellation refund is already {@code REFUNDED} and nothing else is pending.
+     */
+    private CollectionOutcome confirmAfterCancellation(SettlementFinalBill folio, SettlementFolioCollection collection,
+                                                       Long confirmingAccountId, String correlationReference) {
+        collection.setStatus(FolioCollectionStatus.CONFIRMED);
+        collection.setConfirmedByAccountId(confirmingAccountId);
+        collection.setConfirmedAt(Instant.now());
+        collection.setExcessVnd(collection.getAmountVnd());
+        collection.setPaymentUrlSnapshot(null);
+        collections.saveAndFlush(collection);
+        audit(folio, "FOLIO_COLLECTION_CONFIRMED_AFTER_CANCELLATION", confirmingAccountId, collection,
+                correlationReference);
+        flagExcess(folio, collection, confirmingAccountId, correlationReference);
+        mlandFolioCloser.closeIfSettled(folio.getBookingReference(), null,
+                confirmingAccountId == null ? "SYSTEM" : "account:" + confirmingAccountId, correlationReference,
+                Instant.now());
         return outcome(folio, collection);
     }
 
     private CollectionOutcome confirmCollection(SettlementFolioCollection collection, Long confirmingAccountId,
                                                 String action, String correlationReference) {
-        SettlementFinalBill folio = lockOpenFolio(collection.getBookingReference());
+        SettlementFinalBill folio = lockFolio(collection.getBookingReference());
+        if (!SettlementFinalBillLifecycleStatus.OPEN.name().equals(folio.getLifecycleStatus())
+                || mlandFolioCloser.isMlandCancelled(folio.getBookingReference())) {
+            return confirmAfterCancellation(folio, collection, confirmingAccountId, correlationReference);
+        }
         long excess = excessOver(folio, collection.getAmountVnd());
         collection.setStatus(FolioCollectionStatus.CONFIRMED);
         collection.setConfirmedByAccountId(confirmingAccountId);
@@ -404,6 +437,21 @@ public class FolioCollectionService {
         bankRefunds.open(folio.getBookingReference(), folio.getGroupReference(),
                 RefundReason.EXCESS_OR_DUPLICATE_MONEY, collection.getCollectionReference(),
                 collection.getExcessVnd(), correlationReference);
+    }
+
+    /**
+     * T133 (FR-056): every collection carries the ticket's canonical branch (workshop_location.id), read through the
+     * 003.1 folio context; unresolved stays null and is listed by the back-fill evidence rather than guessed.
+     */
+    private Long branchOf(SettlementFinalBill folio) {
+        try {
+            return booking.getTicketFolioContext(folio.getBookingReference())
+                    .map(edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.TicketFolioContext::locationReference)
+                    .orElse(null);
+        } catch (RuntimeException e) {
+            log.warn("Branch of ticket {} unresolved for a new collection: {}", folio.getBookingReference(), e.toString());
+            return null;
+        }
     }
 
     /** FR-036: cash taken after a branch's close belongs to the next working day. */

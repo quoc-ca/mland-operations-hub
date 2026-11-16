@@ -5,13 +5,11 @@ import userEvent from '@testing-library/user-event';
 import { json, mockFetch, renderRoutes } from '../../test/render';
 import { settlementRoutes } from '../routes';
 
-const emptyPolicies = json(200, { items: [] });
 
 describe('Settlement rendered UI evidence', () => {
   it('renders an empty settlement case list with supported filters', async () => {
     mockFetch({
       'GET /api/v1/workshop-settlement-cases': json(200, { items: [] }),
-      'GET /api/v1/workshop-refund-policies': emptyPolicies,
     });
     renderRoutes(settlementRoutes, { path: '/settlement/cases?tab=cases' });
     expect(await screen.findByText('All settlement cases')).toBeInTheDocument();
@@ -25,7 +23,6 @@ describe('Settlement rendered UI evidence', () => {
   it('renders a pending-provider case without treating it as resolved', async () => {
     mockFetch({
       'GET /api/v1/workshop-settlement-cases': json(200, { items: [{ caseReference: 'CASE-001', caseType: 'MLAND_CANCELLATION_REMEDY', status: 'PENDING_PROVIDER', bookingCode: 'BK-001' }] }),
-      'GET /api/v1/workshop-refund-policies': emptyPolicies,
     });
     renderRoutes(settlementRoutes, { path: '/settlement/cases?tab=cases' });
     expect(await screen.findByText('CASE-001')).toBeInTheDocument();
@@ -33,21 +30,9 @@ describe('Settlement rendered UI evidence', () => {
     expect(screen.getByText('BK-001')).toBeInTheDocument();
   });
 
-  it('renders refund policy history and an empty-state when no revisions exist', async () => {
-    mockFetch({
-      'GET /api/v1/workshop-settlement-cases': json(200, { items: [] }),
-      'GET /api/v1/workshop-refund-policies': json(200, { items: [] }),
-    });
-    renderRoutes(settlementRoutes, { path: '/settlement/cases?tab=policies' });
-    expect(await screen.findByText('Policy history')).toBeInTheDocument();
-    expect(screen.getByText('No policy revisions found.')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Create policy revision' })).toBeInTheDocument();
-  });
-
   it('renders a backend error with retry affordance instead of a fabricated case list', async () => {
     mockFetch({
       'GET /api/v1/workshop-settlement-cases': json(503, { code: 'SETTLEMENT_UNAVAILABLE', message: 'Settlement service unavailable', correlationId: 'corr-settlement-1' }),
-      'GET /api/v1/workshop-refund-policies': emptyPolicies,
     });
     renderRoutes(settlementRoutes, { path: '/settlement/cases?tab=cases' });
     expect(await screen.findByText('Hệ thống tạm thời chưa xử lý được. Bấm Thử lại để gửi lại đúng thao tác này.')).toBeInTheDocument();
@@ -58,7 +43,6 @@ describe('Settlement rendered UI evidence', () => {
   it('offers no booking lookup, required-session-change form or case-detail request after the booking-wide routes were removed', async () => {
     const calls = mockFetch({
       'GET /api/v1/workshop-settlement-cases': json(200, { items: [{ caseReference: 'CASE-9', caseType: 'CUSTOMER_CANCELLATION', status: 'OPEN', bookingCode: 'BK-9' }] }),
-      'GET /api/v1/workshop-refund-policies': emptyPolicies,
     });
     const user = userEvent.setup();
     renderRoutes(settlementRoutes, { path: '/settlement/cases?tab=cases' });

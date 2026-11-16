@@ -50,6 +50,7 @@ public class TicketMlandRemedyService {
     private final SettlementIdempotencyService idempotency;
     private final WorkshopSettlementAuthorizationService authorization;
     private final CancellationHandoffCompletionService handoffCompletion;
+    private final MlandCancelledFolioCloser folioCloser;
 
     /** One session of an offer (T112): the buyer chooses exactly one of them. */
     public record ReplacementOption(String sessionReference, Instant startAt, Instant endAt) {
@@ -644,7 +645,7 @@ public class TicketMlandRemedyService {
         final String effectiveActorRef = requesterAccountId != null ? "account:" + requesterAccountId
                 : (requesterRole != null ? requesterRole : "SYSTEM");
         if (refundRequestRef == null) {
-            closeFolio(ticketCode, effectiveActorRef, correlation, now);
+            folioCloser.closeIfSettled(ticketCode, true, effectiveActorRef, correlation, now);
         }
 
         // 6. Update remedy entity
@@ -692,28 +693,9 @@ public class TicketMlandRemedyService {
         remedyRepository.findByRemedyReference(event.sourceReference())
                 .filter(remedy -> "REFUND".equals(remedy.getOutcome()))
                 .filter(remedy -> event.requestReference().equals(remedy.getRefundRequestReference()))
-                .ifPresent(remedy -> closeFolio(remedy.getTicketCode(), "SYSTEM:bank-refund-confirmed",
-                        "REFUND-" + event.requestReference(),
+                .ifPresent(remedy -> folioCloser.closeIfSettled(remedy.getTicketCode(), true,
+                        "SYSTEM:bank-refund-confirmed", "REFUND-" + event.requestReference(),
                         event.confirmedAt() != null ? event.confirmedAt() : Instant.now()));
-    }
-
-    private void closeFolio(String ticketCode, String actorReference, String correlation, Instant now) {
-        bills.findByBookingReferenceForUpdate(ticketCode).ifPresent(bill -> {
-            if (SettlementFinalBillLifecycleStatus.CLOSED.name().equals(bill.getLifecycleStatus())) {
-                return;
-            }
-            bill.setLifecycleStatus(SettlementFinalBillLifecycleStatus.CLOSED.name());
-            bills.save(bill);
-            audits.save(SettlementBusinessAudit.builder()
-                    .auditReference("SETTLE-AUDIT-" + UUID.randomUUID())
-                    .aggregateType("SETTLEMENT_FINAL_BILL")
-                    .aggregateReference(bill.getBillReference())
-                    .actionCode("TICKET_FOLIO_CLOSED_MLAND_REMEDY")
-                    .actorReference(actorReference)
-                    .correlationReference(correlation)
-                    .createdAt(now)
-                    .build());
-        });
     }
 
     /**

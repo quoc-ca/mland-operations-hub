@@ -91,13 +91,16 @@ class FolioCollectionServiceTest {
                 rows.stream().filter(row -> invocation.getArgument(0).equals(row.getCollectionReference()))
                         .findFirst());
 
-        FolioBalanceService balances = new FolioBalanceService(charges, evidence, collections);
+        FolioBalanceService balances = new FolioBalanceService(charges, evidence, collections, mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementCashReversalRepository.class));
         finalization = new FolioFinalizationService(bills, audits, balances, booking);
         checkout = mock(PaymentGatewayCheckoutPort.class);
         when(checkout.createFinalPaymentUrl(anyString(), anyString(), anyLong(), any(), any(), anyString()))
                 .thenAnswer(invocation -> "https://pay.example/" + invocation.getArgument(0));
         service = new FolioCollectionService(bills, collections, cashCloses, audits, balances, finalization,
-                bankRefunds, paymentOwners, checkout);
+                bankRefunds, paymentOwners, checkout, booking,
+                new MlandCancelledFolioCloser(mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementTicketMlandRemedyRepository.class),
+                        mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementRefundRequestRepository.class),
+                        collections, bills, audits));
     }
 
     private SettlementFolioCollection row(String collectionReference) {
@@ -238,6 +241,22 @@ class FolioCollectionServiceTest {
         assertThat(confirmed.balanceDue()).isZero();
         assertThat(confirmed.pendingVnd()).isZero();
         assertThat(confirmed.folioStatus()).isEqualTo(SettlementFinalBillLifecycleStatus.FINALIZED.name());
+    }
+
+    @Test
+    void aPartConfirmedAfterTheFolioClosedIsRecordedInFullAndOwedBackAsExcess() {
+        // T158 / FR-034: the Mland cancellation did not wait for the pending part; confirming it later never throws
+        // and never reduces a balance, the whole amount goes to the excess refund.
+        var transfer = service.recordBankTransfer(TICKET, 200_000, "BANK-TX-LATE", null, STAFF, "corr");
+        folio.setLifecycleStatus(SettlementFinalBillLifecycleStatus.CLOSED.name());
+
+        var confirmed = service.confirmBankTransfer(transfer.collectionReference(), MANAGER, "corr");
+
+        assertThat(confirmed.status()).isEqualTo(FolioCollectionStatus.CONFIRMED);
+        assertThat(confirmed.excessVnd()).isEqualTo(200_000);
+        assertThat(folio.getLifecycleStatus()).isEqualTo(SettlementFinalBillLifecycleStatus.CLOSED.name());
+        verify(bankRefunds).open(eq(TICKET), any(), eq(RefundReason.EXCESS_OR_DUPLICATE_MONEY),
+                eq(transfer.collectionReference()), eq(200_000L), eq("corr"));
     }
 
     @Test

@@ -83,7 +83,10 @@ class TicketMlandRemedyServiceTest {
                 new WorkshopSettlementAuthorizationService(
                         mock(edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountFacade.class),
                         audits, operations),
-                handoffCompletion
+                handoffCompletion,
+                new MlandCancelledFolioCloser(remedyRepository,
+                        mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementRefundRequestRepository.class),
+                        collections, bills, audits)
         );
         lenient().when(idempotency.findOutcomeReference(anyString(), anyString())).thenReturn(Optional.empty());
         lenient().when(idempotency.execute(anyString(), anyString(), any())).thenAnswer(invocation -> {
@@ -592,6 +595,43 @@ class TicketMlandRemedyServiceTest {
         service.onBankRefundConfirmed(new edu.fpt.sep490_g22.ppswbs_backend.common.booking.MlandBankRefundConfirmedEvent(
                 "REFUND-M-01", TICKET_CODE, remedy.getRemedyReference(), 50_000L, Instant.now()));
         verify(bills, times(1)).save(any());
+    }
+
+    @Test
+    @DisplayName("T157: a REFUNDED Mland-cancel refund closes a FINALIZED folio")
+    void bankRefundConfirmed_closesAFinalizedFolio() {
+        SettlementTicketMlandRemedy remedy = createPendingRemedy(TICKET_CODE, Instant.now().plus(48, ChronoUnit.HOURS));
+        remedy.setOutcome("REFUND");
+        remedy.setRefundRequestReference("REFUND-M-02");
+        when(remedyRepository.findByRemedyReference(remedy.getRemedyReference())).thenReturn(Optional.of(remedy));
+        SettlementFinalBill bill = createBill(TICKET_CODE, 50_000L);
+        bill.setLifecycleStatus(SettlementFinalBillLifecycleStatus.FINALIZED.name());
+        lenient().when(bills.findByBookingReferenceForUpdate(TICKET_CODE)).thenReturn(Optional.of(bill));
+
+        service.onBankRefundConfirmed(new edu.fpt.sep490_g22.ppswbs_backend.common.booking.MlandBankRefundConfirmedEvent(
+                "REFUND-M-02", TICKET_CODE, remedy.getRemedyReference(), 50_000L, Instant.now()));
+
+        assertThat(bill.getLifecycleStatus()).isEqualTo(SettlementFinalBillLifecycleStatus.CLOSED.name());
+    }
+
+    @Test
+    @DisplayName("T158: a collection still PENDING_VERIFICATION keeps the folio open after the refund is REFUNDED")
+    void bankRefundConfirmed_withAPendingCollection_keepsTheFolioOpen() {
+        SettlementTicketMlandRemedy remedy = createPendingRemedy(TICKET_CODE, Instant.now().plus(48, ChronoUnit.HOURS));
+        remedy.setOutcome("REFUND");
+        remedy.setRefundRequestReference("REFUND-M-03");
+        when(remedyRepository.findByRemedyReference(remedy.getRemedyReference())).thenReturn(Optional.of(remedy));
+        SettlementFinalBill bill = createBill(TICKET_CODE, 50_000L);
+        lenient().when(bills.findByBookingReferenceForUpdate(TICKET_CODE)).thenReturn(Optional.of(bill));
+        when(collections.findByBillReferenceAndStatusOrderByIdAsc(bill.getBillReference(),
+                edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.FolioCollectionStatus.PENDING_VERIFICATION))
+                .thenReturn(List.of(new edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementFolioCollection()));
+
+        service.onBankRefundConfirmed(new edu.fpt.sep490_g22.ppswbs_backend.common.booking.MlandBankRefundConfirmedEvent(
+                "REFUND-M-03", TICKET_CODE, remedy.getRemedyReference(), 50_000L, Instant.now()));
+
+        assertThat(bill.getLifecycleStatus()).isNotEqualTo(SettlementFinalBillLifecycleStatus.CLOSED.name());
+        verify(audits).save(argThat(a -> "TICKET_FOLIO_CLOSE_DEFERRED_PENDING_COLLECTION".equals(a.getActionCode())));
     }
 
     // ---- T112: several sessions offered, the buyer chooses one (decided 2026-11-14) -------------------------

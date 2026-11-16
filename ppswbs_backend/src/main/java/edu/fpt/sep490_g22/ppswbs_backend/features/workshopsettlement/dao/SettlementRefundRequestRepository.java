@@ -20,6 +20,9 @@ public interface SettlementRefundRequestRepository extends JpaRepository<Settlem
     /** FR-039: the same money is never asked back twice. */
     Optional<SettlementRefundRequest> findByReasonAndSourceReference(RefundReason reason, String sourceReference);
 
+    /** T144: any refund request (whatever its reason or state) opened against this money. */
+    boolean existsBySourceReference(String sourceReference);
+
     List<SettlementRefundRequest> findByBookingReferenceOrderByIdAsc(String bookingReference);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)

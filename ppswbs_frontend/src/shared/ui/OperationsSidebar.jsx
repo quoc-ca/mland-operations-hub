@@ -8,9 +8,7 @@ import '../../ota-connectivity/ota-connectivity.css';
 
 export function OperationsSidebar() {
   const location = useLocation();
-  const { pathname, search } = location;
-  const searchParams = new URLSearchParams(search);
-  const tab = searchParams.get('tab');
+  const { pathname } = location;
 
   const { status, signOut } = useAuth();
   const { language, setLanguage } = useLanguage();
@@ -76,8 +74,7 @@ export function OperationsSidebar() {
   const isShopAddOnsActive = pathname.startsWith('/ota-connectivity/add-ons');
 
   const isBillsActive = pathname === '/settlement';
-  const isCasesActive = pathname === '/settlement/cases' && tab !== 'policies';
-  const isPoliciesActive = pathname === '/settlement/cases' && tab === 'policies';
+  const isCasesActive = pathname === '/settlement/cases';
   const isNotificationTemplatesActive = pathname.startsWith('/admin/notifications/templates');
   const isNotificationRequestsActive = pathname.startsWith('/admin/notifications/requests');
   const isProfileActive = pathname === '/profile';
@@ -232,9 +229,6 @@ export function OperationsSidebar() {
         </Link>
         <Link className={isCasesActive ? 'active' : ''} to="/settlement/cases?tab=cases">
           {isVi ? 'Sự vụ & bồi hoàn (Cases)' : 'Settlement cases'}
-        </Link>
-        <Link className={isPoliciesActive ? 'active' : ''} to="/settlement/cases?tab=policies">
-          {isVi ? 'Chính sách hoàn tiền' : 'Refund policies'}
         </Link>
         </>)}
 

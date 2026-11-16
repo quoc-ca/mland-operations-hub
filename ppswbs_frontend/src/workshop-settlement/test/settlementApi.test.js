@@ -4,15 +4,13 @@ import { createSettlementApi } from '../api/settlementApi';
 const post = (body, key) => ({ method: 'POST', body, idempotencyKey: key });
 
 describe('Workshop settlement API client (per ticket)', () => {
-  it('lists cases and refund policies through the routes that are still served', async () => {
+  it('lists cases through the route that is still served', async () => {
     const http = vi.fn().mockResolvedValue({ items: [] });
     const api = createSettlementApi(http);
     await api.listCases({ caseType: 'MLAND_CANCELLATION_REMEDY', status: 'OPEN' });
-    await api.listRefundPolicies();
-    await api.createRefundPolicy({ effectiveAt: '2026-11-03T00:00:00Z', wholeBookingRefundPercent: 100 }, 'policy-key-0000001');
     expect(http).toHaveBeenNthCalledWith(1, '/api/v1/workshop-settlement-cases', { query: { caseType: 'MLAND_CANCELLATION_REMEDY', status: 'OPEN' } });
-    expect(http).toHaveBeenNthCalledWith(2, '/api/v1/workshop-refund-policies');
-    expect(http).toHaveBeenNthCalledWith(3, '/api/v1/workshop-refund-policies', post({ effectiveAt: '2026-11-03T00:00:00Z', wholeBookingRefundPercent: 100 }, 'policy-key-0000001'));
+    expect(api.listRefundPolicies).toBeUndefined();
+    expect(api.createRefundPolicy).toBeUndefined();
   });
 
   it('never calls a removed booking-wide route', async () => {

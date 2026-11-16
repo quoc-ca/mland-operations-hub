@@ -274,11 +274,11 @@ class WorkshopSettlementMysqlIT {
         LocalDate today = LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh"));
         assertThat(cashClose.expectedCash(branch, today)).isEqualTo(120_000L);
 
-        assertThatThrownBy(() -> collectionApi.closeCashDay(new CashCloseRequest(branch, today, 100_000L, null), key(), "CORR", MANAGER))
+        assertThatThrownBy(() -> collectionApi.closeCashDay(new CashCloseRequest(branch, today, "100000", null), key(), "CORR", MANAGER))
                 .isInstanceOf(WorkshopSettlementValidationException.class).hasMessageContaining("CASH_DIFFERENCE_REASON_REQUIRED");
 
         String closeKey = key();
-        CashCloseRequest request = new CashCloseRequest(branch, today, 100_000L, "Counted 20,000 short");
+        CashCloseRequest request = new CashCloseRequest(branch, today, "100000", "Counted 20,000 short");
         CashCloseResponse closed = collectionApi.closeCashDay(request, closeKey, "CORR", MANAGER);
         assertThat(closed.differenceVnd()).isEqualTo(-20_000L);
         assertThat(closed.status()).isEqualTo("PENDING_MANAGER_CONFIRMATION");

@@ -76,13 +76,15 @@ public class FolioCollectionApiService {
     public CashCloseResponse closeCashDay(CashCloseRequest request, String idempotencyKey, String correlation,
                                           CurrentAccountActor actor) {
         requireKey(idempotencyKey);
-        CurrentAccountActor closer = authorization.requireManagerOrStaff(actor, request.branchId());
-        LocalDate day = CashDayCloseService.dayOrToday(request.businessDay());
-        String reason = request.reason() == null ? "" : request.reason().trim();
-        String op = "CASH_CLOSE:" + request.branchId() + ":" + idempotencyKey.trim();
-        String fp = "CASH_CLOSE:" + request.branchId() + ":" + day + ":" + request.countedCashVnd() + ":" + reason;
-        var outcome = idempotency.execute(op, fp, () -> cashCloses.close(request.branchId(), day,
-                request.countedCashVnd(), request.reason(), closer.accountId(), correlation).getCloseReference());
+        // T160 (FR-036): an active Staff member of this branch or a Manager closes; anyone else is 403.
+        CurrentAccountActor closer = authorization.requireManagerOrStaff(actor, request.locationId());
+        LocalDate day = CashDayCloseService.dayOrToday(request.workingDate());
+        long counted = request.countedAmountVnd();
+        String reason = request.differenceReason() == null ? "" : request.differenceReason().trim();
+        String op = "CASH_CLOSE:" + request.locationId() + ":" + idempotencyKey.trim();
+        String fp = "CASH_CLOSE:" + request.locationId() + ":" + day + ":" + counted + ":" + reason;
+        var outcome = idempotency.execute(op, fp, () -> cashCloses.close(request.locationId(), day,
+                counted, request.differenceReason(), closer.accountId(), correlation).getCloseReference());
         return response(cashCloses.findByReference(outcome.outcomeReference()));
     }
 
