@@ -2,6 +2,12 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.controller
 
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.CurrentAccountActor;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.TicketChangeDtos.ChangeAllowanceResponseDto;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.TicketChangeDtos.ChangeOptionsDto;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.TicketChangeDtos.GuestChangeOptionLookupRequest;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.TicketChangeDtos.TicketChangeType;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.TicketChangeOptionsApiService;
+import org.springframework.http.CacheControl;
+import java.util.UUID;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.TicketChangeDtos.ChangeRequestDecisionDto;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.TicketChangeDtos.ChangeRequestDto;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.TicketChangeDtos.ChangeResultDto;
@@ -28,6 +34,7 @@ public class TicketChangeController {
     private final TicketChangeService changeService;
     private final TicketChangeRequestService requestService;
     private final GroupTicketChangeService groupChangeService;
+    private final TicketChangeOptionsApiService optionsService;
 
     /** 200 when applied or when the buyer must confirm an increase; 202 when it waits in the Manager queue (T117). */
     @PostMapping("/api/v1/workshop-tickets/{ticketCode}/changes")
@@ -44,6 +51,26 @@ public class TicketChangeController {
         return result.changeRequestReference() != null && !result.applied()
                 ? ResponseEntity.status(HttpStatus.ACCEPTED).body(result)
                 : ResponseEntity.ok(result);
+    }
+
+    /** FR-044a (T177): the sessions a ticket may move to, for the owner Member, Staff in scope or a Manager. */
+    @GetMapping("/api/v1/workshop-tickets/{ticketCode}/change-options")
+    public ResponseEntity<ChangeOptionsDto> changeOptions(
+            @PathVariable("ticketCode") String ticketCode,
+            @RequestParam("type") TicketChangeType type,
+            @RequestParam(value = "from", required = false) List<UUID> from,
+            Authentication authentication) {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .body(optionsService.forActor(ticketCode, type, from, actor(authentication)));
+    }
+
+    /** FR-044a (T177): the Guest proves the group with one contact, as folio-lookups; never an OTP. */
+    @PostMapping("/api/v1/workshop-tickets/{ticketCode}/change-option-lookups")
+    public ResponseEntity<ChangeOptionsDto> lookupChangeOptions(
+            @PathVariable("ticketCode") String ticketCode,
+            @Valid @RequestBody GuestChangeOptionLookupRequest request) {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .body(optionsService.forGuest(ticketCode, request));
     }
 
     /** Several tickets of one group, all or none (T118, FR-044). */

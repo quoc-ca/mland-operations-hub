@@ -27,6 +27,7 @@ import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
@@ -49,6 +50,7 @@ class GroupConfirmationTest {
     private ApplicationEventPublisher events;
     private GroupLoyaltyOutcomeService loyaltyOutcome;
     private edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.GroupNotificationService notifications;
+    private GroupPaymentAttemptRepository paymentAttempts;
     private GroupConfirmationService service;
 
     private BookingGroup group;
@@ -64,6 +66,7 @@ class GroupConfirmationTest {
         magicLinks = mock(BookingGroupMagicLinkRepository.class);
         operations = mock(WorkshopOperationsAdapter.class);
         events = mock(ApplicationEventPublisher.class);
+        paymentAttempts = mock(GroupPaymentAttemptRepository.class);
         when(groups.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(lines.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(tickets.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
@@ -71,7 +74,7 @@ class GroupConfirmationTest {
         loyaltyOutcome = mock(GroupLoyaltyOutcomeService.class);
         notifications = mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.GroupNotificationService.class);
         service = new GroupConfirmationService(groups, lines, tickets, snapshots, magicLinks, operations,
-                loyaltyOutcome, events, notifications);
+                loyaltyOutcome, events, notifications, paymentAttempts);
     }
 
     // ---- internal confirmation ----
@@ -335,6 +338,69 @@ class GroupConfirmationTest {
         verify(notifications, times(1)).queue(eq(group), isNull(), eq("GROUP_HOLD_EXPIRED"), any(),
                 eq("MLAND – Đặt chỗ " + GROUP + " đã hết thời gian thanh toán"), contains("10 phút"),
                 eq(java.util.List.of()), isNull(), eq("corr-1"));
+    }
+
+    /** FR-032: the hold running out closes an unfinished payment attempt; a final one is left alone. */
+    @Test
+    void anExpiredHoldClosesOnlyUnfinishedPaymentAttempts() {
+        givenGroup(GroupPaymentMode.VNPAY, 400_000);
+        group.setHoldExpiresAt(Instant.now().minusSeconds(30));
+        givenLine(0, "Clay Workshop", 1, 203_000, 200_000, TicketCollectionKind.DEPOSIT, 3_000);
+        when(operations.releaseBookingHolds(anyString(), anyList(), anyString(), anyString()))
+                .thenReturn(CapacityReleaseOutcome.accepted());
+        GroupPaymentAttempt pending = attemptWith(PaymentAttemptStatus.PENDING);
+        GroupPaymentAttempt initiated = attemptWith(PaymentAttemptStatus.INITIATED);
+        GroupPaymentAttempt failed = attemptWith(PaymentAttemptStatus.FAILED);
+        GroupPaymentAttempt success = attemptWith(PaymentAttemptStatus.SUCCESS);
+        when(paymentAttempts.findByGroupIdOrderByCreatedAtDesc(1L))
+                .thenReturn(List.of(pending, initiated, failed, success));
+
+        assertThat(service.releaseExpiredGroup(GROUP, "op-1", "corr-1")).isTrue();
+
+        assertThat(pending.getAttemptStatus()).isEqualTo(PaymentAttemptStatus.EXPIRED);
+        assertThat(initiated.getAttemptStatus()).isEqualTo(PaymentAttemptStatus.EXPIRED);
+        assertThat(failed.getAttemptStatus()).isEqualTo(PaymentAttemptStatus.FAILED);
+        assertThat(success.getAttemptStatus()).isEqualTo(PaymentAttemptStatus.SUCCESS);
+        verify(paymentAttempts, times(2)).save(any());
+        // A replay returns before touching anything: no more attempt writes.
+        assertThat(service.releaseExpiredGroup(GROUP, "op-1", "corr-1")).isFalse();
+        verify(paymentAttempts, times(2)).save(any());
+    }
+
+    /** FR-040: an attempt already EXPIRED must not block a verified late payment from becoming SUCCESS. */
+    @Test
+    void aVerifiedLatePaymentOnAnExpiredAttemptStillBecomesSuccess() {
+        givenGroup(GroupPaymentMode.VNPAY, 150_000);
+        group.setGroupStatus(BookingStatus.EXPIRED);
+        group.setHoldExpiresAt(Instant.now().minusSeconds(60));
+        GroupPaymentAttemptRepository attempts = mock(GroupPaymentAttemptRepository.class);
+        GroupPaymentAttempt attempt = GroupPaymentAttempt.builder().group(group).amountVnd(150_000)
+                .merchantReference("GRP-M1").attemptStatus(PaymentAttemptStatus.EXPIRED).build();
+        when(attempts.findByMerchantReference("GRP-M1")).thenReturn(Optional.of(attempt));
+        when(attempts.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        var lateReviews = mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.LatePaymentReviewService.class);
+        when(lateReviews.isLate(any(), any())).thenReturn(true);
+        when(lateReviews.receive(anyString(), anyString(), anyLong(), anyString())).thenReturn(
+                edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.LatePaymentReview.builder()
+                        .outcome(edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.LatePaymentReview
+                                .PENDING_MANAGER).build());
+        GroupPaymentEvidenceService evidence = new GroupPaymentEvidenceService(attempts, service, groups, lateReviews,
+                mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.GroupExcessPaymentRepository.class),
+                mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.ExcessPaymentRefundPort.class),
+                mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.ManagerAlertService.class),
+                new edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.GroupConfirmationAttemptRunner(
+                        service, mock(org.springframework.transaction.PlatformTransactionManager.class)),
+                mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.GroupConfirmationRetryService.class));
+
+        evidence.apply(GROUP, "GRP-M1", 150_000, "VND", "VNPAY-TX-9", "op-1", "corr-1");
+
+        assertThat(attempt.getAttemptStatus()).isEqualTo(PaymentAttemptStatus.SUCCESS);
+        verify(lateReviews).receive(eq(GROUP), eq("GRP-M1"), eq(150_000L), eq("corr-1"));
+    }
+
+    private GroupPaymentAttempt attemptWith(PaymentAttemptStatus status) {
+        return GroupPaymentAttempt.builder().group(group).amountVnd(150_000)
+                .merchantReference("GRP-M-" + status).attemptStatus(status).build();
     }
 
     @Test

@@ -3,6 +3,13 @@ import { newCommandId } from '../../../shared/api/http';
 const id = value => encodeURIComponent(value);
 const CART = '/api/v1/members/me/ready-ring-cart';
 
+/** Tells the cart tabs and the topbar badge to recount after the product cart changes. */
+export const RETAIL_CART_CHANGED = 'mland:retail-cart-changed';
+const announce = result => {
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event(RETAIL_CART_CHANGED));
+  return result;
+};
+
 /**
  * Member-facing FE-08 API. Prices, stock and fulfilment remain server-authoritative;
  * the client only submits the member's selected variant, location and quantity.
@@ -10,9 +17,9 @@ const CART = '/api/v1/members/me/ready-ring-cart';
 export function retailApi(request) {
   return {
     getCart: () => request(CART),
-    addLine: body => request(`${CART}/lines`, { method: 'POST', body }),
-    updateLine: (lineId, quantity) => request(`${CART}/lines/${id(lineId)}`, { method: 'PATCH', body: { quantity } }),
-    removeLine: lineId => request(`${CART}/lines/${id(lineId)}`, { method: 'DELETE' }),
+    addLine: body => request(`${CART}/lines`, { method: 'POST', body }).then(announce),
+    updateLine: (lineId, quantity) => request(`${CART}/lines/${id(lineId)}`, { method: 'PATCH', body: { quantity } }).then(announce),
+    removeLine: lineId => request(`${CART}/lines/${id(lineId)}`, { method: 'DELETE' }).then(announce),
 
     listOrders: () => request('/api/v1/members/me/ready-ring-orders'),
     getOrder: orderId => request(`/api/v1/members/me/ready-ring-orders/${id(orderId)}`),

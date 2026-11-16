@@ -150,8 +150,8 @@ are kept for history and are read through this section.
   or retrying the payment never extends the hold, and a pending/unknown result
   never extends it. The customer sees only the 10-minute payment countdown;
   when it ends the page shows "Đang xác nhận kết quả thanh toán…" until
-  `holdExpiresAt`, then the final outcome. Screens and emails use the same
-  10-minute figure and never show the 2-minute buffer. *(Decided 2026-11-15,
+  `holdExpiresAt`, then the final outcome. *(Decided 2026-11-16, Hồ Hoàng Quốc)* After `holdExpiresAt` the page re-reads the group at once and then every 5 seconds, at most 6 reads in total, until the group leaves `PENDING_PAYMENT`; the customer can still refresh by hand. Screens and emails use the same
+  10-minute figure and never show the 2-minute buffer. *(Decided 2026-11-16, Hồ Hoàng Quốc)* When the hold expires and the whole group is released, every payment attempt of the group that is still `INITIATED` or `PENDING` becomes `EXPIRED` in the same transaction; a `SUCCESS` or `FAILED` attempt is final and unchanged. `EXPIRED` never blocks a verified late payment: it still moves the attempt to `SUCCESS` and enters the FR-040 review. *(Decided 2026-11-15,
   CHK012)* When the payment provider fails while the payment link is being
   created (no attempt exists yet), the answer is ~~502/503~~ **HTTP 503**
   *(decided 2026-11-15 by Hồ Hoàng Quốc, CHK012: one code, the same status as

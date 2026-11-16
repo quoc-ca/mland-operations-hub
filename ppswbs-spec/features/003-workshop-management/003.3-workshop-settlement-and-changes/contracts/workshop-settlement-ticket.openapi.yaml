@@ -1009,6 +1009,65 @@ paths:
         '404': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
         '422': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-tickets/{ticketCode}/change-options:
+    get:
+      summary: List the sessions a ticket may move to (FR-044a, T176; decided 2026-11-16 by Hồ Hoàng Quốc)
+      description: >-
+        Read only, no seat is held and nothing is consumed; POST /changes re-checks everything. Member: the group's
+        owner by the bearer token; Staff: ticket's location in scope; Manager: global. A Guest uses
+        POST /change-option-lookups instead. No buyerVerificationReference is needed to read (the OTP is only for
+        POST /changes). `from` repeats up to twice and names the ticket's current session(s) the customer wants to
+        move; without `from` every current session is listed one by one. A ticket with two sessions is answered one
+        from-session at a time (the other stays where it is); `pairs` is returned only when two `from` values are given
+        (both sessions move together). An option the system could only auto-approve with a Manager
+        (RESCHEDULE_QUOTA_EXHAUSTED, ADVANCE_CHANGE_WINDOW_EXPIRED, CHANGE_ALLOWANCE_EXHAUSTED) is listed with
+        requiresManager=true and the rule names; a full session, a package-rule break, an OTA ticket or a folio that
+        is not OPEN is never selectable. remainingCapacity is exact for every caller. Served Cache-Control no-store.
+      security: [{bearerAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/TicketCode'
+        - {name: type, in: query, required: true, schema: {type: string, enum: [ADVANCE, LATE_ARRIVAL]}}
+        - {name: from, in: query, required: false, style: form, explode: true, schema: {type: array, maxItems: 2, items: {type: string, format: uuid}}}
+      responses:
+        '200': {description: Options of the ticket, content: {application/json: {schema: {$ref: '#/components/schemas/ChangeOptions'}}}}
+        '400': {$ref: '#/components/responses/Problem'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '409': {description: 'TICKET_FOLIO_NOT_OPEN, or OTA_TICKET_NOT_SUPPORTED', content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}}
+        '422': {description: FROM_SESSION_NOT_OF_TICKET, content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}}
+  /api/v1/workshop-tickets/{ticketCode}/change-option-lookups:
+    post:
+      summary: Guest lists the sessions a ticket may move to, with one contact proof (decision 2026-11-16, FR-044a)
+      description: >-
+        Same proof, 404 and rate limits as POST /workshop-tickets/{ticketCode}/folio-lookups: exactly one of
+        contactEmail or contactPhone of the group; a wrong ticket code or proof answers the same 404. Read only,
+        never consumes a buyerVerificationReference. The answer is the ChangeOptions of GET /change-options.
+        Served Cache-Control no-store.
+      security: [{}]
+      parameters: [{$ref: '#/components/parameters/TicketCode'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type]
+              properties:
+                contactEmail: {type: string, format: email, maxLength: 254}
+                contactPhone: {type: string, maxLength: 32}
+                type: {type: string, enum: [ADVANCE, LATE_ARRIVAL]}
+                fromSessionReferences: {type: array, maxItems: 2, items: {type: string, format: uuid}}
+              oneOf:
+                - required: [contactEmail]
+                - required: [contactPhone]
+      responses:
+        '200': {description: Options of the ticket, content: {application/json: {schema: {$ref: '#/components/schemas/ChangeOptions'}}}}
+        '400': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '409': {description: 'TICKET_FOLIO_NOT_OPEN, or OTA_TICKET_NOT_SUPPORTED', content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}}
+        '422': {description: FROM_SESSION_NOT_OF_TICKET, content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}}
+        '429': {description: 'Rate limit of the 003.1 group lookup reached; retry later', content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}}
   /api/v1/workshop-booking-groups/{groupCode}/ticket-changes:
     post:
       summary: Change the sessions of several tickets of one group at once, all or none (FR-044, T118, decided 2026-11-14)
@@ -1470,6 +1529,82 @@ components:
         balanceDue: {allOf: [{$ref: '#/components/schemas/Vnd'}], description: The ticket folio balance after the change (or the current one when not applied); the increase need not be paid at the time of the change.}
         countedChange: {type: boolean, description: Whether this change used the ticket's one customer change.}
         changeRequestReference: {type: string, nullable: true, description: 'Set with 202 (T117): the queued request that a Manager decides.'}
+    ChangeOptions:
+      type: object
+      description: >-
+        FR-044a / T176 (decided 2026-11-16): advisory list of the sessions a ticket may move to; POST /changes
+        re-checks every rule. fromSessionReferences of POST /changes names only the sessions that really move (one per
+        target, same order); the server keeps the ticket's other session where it is.
+      required: [ticketCode, type, allowance, windowOpen, canSelfServe, perFromSession]
+      properties:
+        ticketCode: {type: string}
+        type: {type: string, enum: [ADVANCE, LATE_ARRIVAL]}
+        allowance:
+          type: object
+          required: [used, total, managerGranted, left, exhausted]
+          properties:
+            used: {type: integer}
+            total: {type: integer, description: 1 + managerGranted}
+            managerGranted: {type: integer}
+            left: {type: integer}
+            exhausted: {type: boolean}
+        advanceDeadline: {type: string, format: date-time, nullable: true, description: 'ADVANCE: earliest requested from-session start minus 24 h.'}
+        lateArrivalDeadline: {type: string, format: date-time, nullable: true, description: 'LATE_ARRIVAL: earliest requested from-session end plus 7 days.'}
+        windowOpen: {type: boolean, description: 'ADVANCE: now is before advanceDeadline. LATE_ARRIVAL: the from-session has started and the 7-day window has not closed.'}
+        canSelfServe: {type: boolean, description: 'True when allowance is left, the window is open and no option needs a Manager for a ticket-level rule.'}
+        perFromSession:
+          type: array
+          items:
+            type: object
+            required: [fromSessionReference, sourceChangeable, options]
+            properties:
+              fromSessionReference: {type: string, format: uuid}
+              start: {type: string, format: date-time}
+              end: {type: string, format: date-time}
+              sourceChangeable: {type: boolean, description: 'False when the current session cannot be moved (attended, finished, cancelled, or not running for LATE_ARRIVAL).'}
+              sourceReasonCode: {type: string, nullable: true}
+              options:
+                type: array
+                items: {$ref: '#/components/schemas/ChangeOption'}
+        pairs:
+          type: array
+          description: 'Only when two from values were given: the (first, second) target pairs that keep the package rules, ordered by start; at most 200, from the nearest 40 sessions of each slot.'
+          items:
+            type: object
+            required: [sessionReferences, selectable, requiresManager]
+            properties:
+              sessionReferences: {type: array, minItems: 2, maxItems: 2, items: {type: string, format: uuid}}
+              sessions:
+                type: array
+                minItems: 2
+                maxItems: 2
+                description: The same two sessions with their time and exact seats left, so a client can show them without a second lookup.
+                items:
+                  type: object
+                  required: [sessionReference, start, end, remainingCapacity]
+                  properties:
+                    sessionReference: {type: string, format: uuid}
+                    start: {type: string, format: date-time}
+                    end: {type: string, format: date-time}
+                    remainingCapacity: {type: integer, minimum: 0}
+              selectable: {type: boolean}
+              requiresManager: {type: boolean}
+              managerRules: {type: array, items: {type: string}}
+              priceIncreaseAmountVnd: {$ref: '#/components/schemas/Vnd'}
+    ChangeOption:
+      type: object
+      required: [sessionReference, start, end, remainingCapacity, selectable, requiresManager]
+      properties:
+        sessionReference: {type: string, format: uuid}
+        start: {type: string, format: date-time}
+        end: {type: string, format: date-time}
+        locationReference: {type: integer, format: int64}
+        remainingCapacity: {type: integer, minimum: 0, description: 'Exact seats left, shown to every caller (decision 2026-11-16).'}
+        selectable: {type: boolean, description: 'False for a full session; never lifted by a Manager. A target outside the package rules or past the LATE_ARRIVAL 7-day window is not listed at all; an OTA ticket or a folio that is not OPEN answers 409 for the whole request.'}
+        reasonCode: {type: string, nullable: true, description: 'Set when selectable is false: INSUFFICIENT_CAPACITY.'}
+        requiresManager: {type: boolean, description: 'True when only a Manager could allow it (the change is then queued, 202).'}
+        managerRules: {type: array, items: {type: string, enum: [CHANGE_ALLOWANCE_EXHAUSTED, ADVANCE_CHANGE_WINDOW_EXPIRED, RESCHEDULE_QUOTA_EXHAUSTED]}}
+        priceIncreaseAmountVnd: {$ref: '#/components/schemas/Vnd'}
     ChangeRequest:
       type: object
       description: A change only a Manager may allow, waiting in the Staff/Manager queue (T117, FR-045a).

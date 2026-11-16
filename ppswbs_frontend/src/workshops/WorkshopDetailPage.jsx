@@ -34,6 +34,8 @@ export function WorkshopDetailPage({ packageId }) {
   const [searchParams] = useSearchParams();
   const initial = useRef(parseSelection(searchParams)).current;
   const navigate = useNavigate();
+  // The list card's "Chọn ca & đặt" passes ?focus=schedule so the page opens at the session picker.
+  const focusTarget = useRef(searchParams.get('focus')).current;
 
   const [locationId, setLocationId] = useState(initial.locationId);
   const [locations, setLocations] = useState([]);
@@ -128,6 +130,20 @@ export function WorkshopDetailPage({ packageId }) {
     }
   }, [pkg, locationId, from, to]);
 
+  const scrolledToFocus = useRef(false);
+  useEffect(() => {
+    if (!pkg || scrolledToFocus.current || !focusTarget) return;
+    if (focusTarget !== 'schedule') return;
+    const frame = requestAnimationFrame(() => {
+      const el = document.getElementById('session-choice-label');
+      if (el) {
+        scrolledToFocus.current = true;
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [pkg]);
+
   if (loadingPkg) {
     return (
       <main className="container public-page">
@@ -214,7 +230,11 @@ export function WorkshopDetailPage({ packageId }) {
       minParticipants,
       maxParticipants: effectiveMax,
     });
-    setCartMessage('Đã thêm gói này vào giỏ. Bạn có thể chọn thêm gói khác rồi thanh toán một lần.');
+    const labels = chosenRefs.map(ref => {
+      const found = sessions.find(item => item.sessionReference === ref);
+      return found ? formatSessionWindow(found.scheduledStart, found.scheduledEnd) : ref;
+    });
+    setCartMessage(`✓ Đã thêm vào giỏ: ${pkg.name || 'gói workshop'} – ${ticketCount} vé, ${labels.join('; ')}. Bạn có thể chọn thêm ca hoặc gói khác rồi thanh toán một lần.`);
   };
 
   return (
@@ -297,7 +317,7 @@ export function WorkshopDetailPage({ packageId }) {
             </div>
             {locationsError && <p className="status" style={{ color: '#b00', borderColor: '#b00' }}>{locationsError}</p>}
 
-            <h3 id="session-choice-label" style={{ margin: '0 0 4px', fontSize: '16px' }}>
+            <h3 id="session-choice-label" style={{ margin: '0 0 4px', fontSize: '16px', scrollMarginTop: '96px' }}>
               Chọn {requiredSessions} ca workshop <small className="muted">(đã chọn {chosenRefs.length}/{requiredSessions})</small>
             </h3>
             <p className="muted" style={{ margin: '0 0 10px', fontSize: '12px' }}>
@@ -400,7 +420,7 @@ export function WorkshopDetailPage({ packageId }) {
               </button>
             </div>
             {cartMessage && (
-              <p role="status" style={{ marginTop: '10px' }}>
+              <p role="status" style={{ marginTop: '10px', padding: '10px 12px', background: '#f0faf4', border: '1px solid #2e9e5b', color: '#1b5e37' }}>
                 {cartMessage} <Link className="text-link" to="/workshop-booking/cart">Mở giỏ workshop ({cartCount})</Link>
               </p>
             )}

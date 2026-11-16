@@ -5,7 +5,7 @@ import { useHttp } from '../api/useHttp';
 import { useCurrentAccount } from '../../features/accountmanagement/hooks/useCurrentAccount';
 import { firebaseAuthClient } from '../../features/accountmanagement/auth/FirebaseAuthClient';
 import { LanguageSwitch } from './components';
-import { cartLineCount, subscribeToCart } from '../../workshops/cartStorage';
+import { useCartCounts } from './useCartCounts';
 import './topbar.css';
 
 /**
@@ -26,8 +26,7 @@ export default function MainTopbar() {
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [signOutError, setSignOutError] = useState(null);
   const dropdownRef = useRef(null);
-  const [workshopCartCount, setWorkshopCartCount] = useState(() => cartLineCount());
-  useEffect(() => subscribeToCart(lines => setWorkshopCartCount(lines.length)), []);
+  const cartCounts = useCartCounts();
 
   const handleSignOut = async () => {
     if (isSigningOut) return;
@@ -184,7 +183,7 @@ export default function MainTopbar() {
           </Link>
           <Link
             to="/workshop-booking/lookup"
-            className={`main-topbar-link ${location.pathname.startsWith('/workshop-booking') ? 'active' : ''}`}
+            className={`main-topbar-link ${location.pathname.startsWith('/workshop-booking') && location.pathname !== '/workshop-booking/cart' ? 'active' : ''}`}
           >
             Tra cứu
           </Link>
@@ -204,13 +203,13 @@ export default function MainTopbar() {
 
         <div className="main-topbar-tools">
           <Link
-            to="/workshop-booking/cart"
+            to="/cart"
             className="main-topbar-cart"
-            aria-label={`Giỏ workshop (${workshopCartCount})`}
-            title="Giỏ workshop"
+            aria-label={`Giỏ hàng (${cartCounts.product} sản phẩm, ${cartCounts.workshop} workshop)`}
+            title={`Giỏ hàng: ${cartCounts.product} sản phẩm · ${cartCounts.workshop} workshop`}
           >
             <span aria-hidden="true">🛒</span>
-            {workshopCartCount > 0 && <span className="main-topbar-cart-badge">{workshopCartCount}</span>}
+            {cartCounts.total > 0 && <span className="main-topbar-cart-badge">{cartCounts.total}</span>}
           </Link>
           <LanguageSwitch />
 
@@ -255,9 +254,6 @@ export default function MainTopbar() {
                   </Link>
                   <Link to="/member/orders" className="main-topbar-dropdown-item" role="menuitem">
                     <span>📦</span> Đơn hàng của tôi
-                  </Link>
-                  <Link to="/member/cart" className="main-topbar-dropdown-item" role="menuitem">
-                    <span>🛒</span> Giỏ hàng
                   </Link>
                   <Link to="/me/loyalty" className="main-topbar-dropdown-item" role="menuitem">
                     <span>💎</span> Điểm thưởng tích lũy

@@ -113,7 +113,9 @@ public class IdentityGateFilter extends OncePerRequestFilter {
                 || ("POST".equalsIgnoreCase(request.getMethod())
                 && path.matches("/api/v1/workshop-tickets/[^/]+/changes"))
                 || ("POST".equalsIgnoreCase(request.getMethod())
-                && path.matches("/api/v1/workshop-tickets/[^/]+/folio-lookups"));
+                && path.matches("/api/v1/workshop-tickets/[^/]+/folio-lookups"))
+                || ("POST".equalsIgnoreCase(request.getMethod())
+                && path.matches("/api/v1/workshop-tickets/[^/]+/change-option-lookups"));
         if (guestRecipientRoute && request.getHeader(HttpHeaders.AUTHORIZATION) == null) return true;
         // 003.3 FR-040: the refund-account link token is the credential; the service checks it, its state and expiry.
         if ("POST".equalsIgnoreCase(request.getMethod()) && path.matches("/api/v1/refund-account-links/[^/]+")

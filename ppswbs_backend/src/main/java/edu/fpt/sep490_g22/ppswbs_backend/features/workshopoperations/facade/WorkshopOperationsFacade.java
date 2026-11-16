@@ -27,6 +27,9 @@ public interface WorkshopOperationsFacade {
     /** Replaces the sessions of the selected tickets, all or none (003.2 FR-034, quota FR-035). */
     TicketSessionReplacementOutcome replaceTicketSessions(ReplaceTicketSessionsCommand command);
 
+    /** The sessions a ticket may move to, by 003.2 own rules; read only and advisory (003.3 FR-044a, T176). */
+    TicketChangeOptions listTicketChangeOptions(ListTicketChangeOptionsQuery query);
+
     /** Every valid equivalent replacement for one cancelled session of a ticket; read only, no seat held (003.3 T112, FR-043). */
     EquivalentReplacementSessions findEquivalentReplacementSessions(FindEquivalentReplacementSessionsQuery query);
 

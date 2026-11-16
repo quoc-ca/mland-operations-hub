@@ -8,10 +8,15 @@ import {
   vnd,
 } from './groupDisplay';
 
+// After the hold ends the server releases the group on its own sweep (every 30 s), so one refresh can still read
+// PENDING_PAYMENT. Re-read every 5 s, at most 6 times; the panel unmounts once the group leaves PENDING_PAYMENT.
+export const HOLD_ENDED_POLL_MS = 5000;
+export const HOLD_ENDED_POLL_MAX = 6;
+
 /**
  * The single booking-time payment of a held group (003.1 FR-032, FR-038). The customer sees only the 10-minute
  * countdown to `paymentDeadlineAt`; when it ends the panel says the result is being confirmed until the internal hold
- * ends, and then asks for a refresh. The 12-minute hold and the 2-minute buffer are never shown. A retry reuses the
+ * ends, and then re-reads the group until the server settles it. The 12-minute hold and the 2-minute buffer are never shown. A retry reuses the
  * same command key, so it never opens a second attempt.
  */
 export function GroupHoldPanel({ group, authorization, proof, onHoldEnded }) {
@@ -19,22 +24,31 @@ export function GroupHoldPanel({ group, authorization, proof, onHoldEnded }) {
   const [isPaying, setIsPaying] = useState(false);
   const [payError, setPayError] = useState(null);
   const requestKey = useRef(null);
-  const endedNotified = useRef(false);
 
   useEffect(() => {
-    endedNotified.current = false;
     const tick = () => setPhase(groupHoldPhase(group));
     tick();
     const timer = setInterval(tick, 1000);
     return () => clearInterval(timer);
   }, [group?.paymentDeadlineAt, group?.holdExpiresAt]);
 
+  const onHoldEndedRef = useRef(onHoldEnded);
+  onHoldEndedRef.current = onHoldEnded;
+  const ended = phase.phase === 'ENDED';
   useEffect(() => {
-    if (phase.phase === 'ENDED' && !endedNotified.current) {
-      endedNotified.current = true;
-      onHoldEnded?.();
-    }
-  }, [phase.phase, onHoldEnded]);
+    if (!ended) return undefined;
+    onHoldEndedRef.current?.();
+    let reads = 1;
+    const timer = setInterval(() => {
+      if (reads >= HOLD_ENDED_POLL_MAX) {
+        clearInterval(timer);
+        return;
+      }
+      reads += 1;
+      onHoldEndedRef.current?.();
+    }, HOLD_ENDED_POLL_MS);
+    return () => clearInterval(timer);
+  }, [ended]);
 
   const pay = async () => {
     if (!group?.groupCode || phase.phase !== 'PAYABLE') return;
