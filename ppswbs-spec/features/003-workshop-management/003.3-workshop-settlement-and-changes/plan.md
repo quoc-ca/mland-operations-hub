@@ -522,7 +522,7 @@ re-reading the safe resource/case projection.
 (Clarifications "Session 2026-11-17"). **Source:** 003.2 spec FR-037–FR-046, 003.2 plan
 Phase 18 "Cross-feature impact", 003.2 `design/architecture.md` and `design/workflows.md`
 (WF-06, WF-07, WF-08) and `../contracts/workshop-interfeature-facades.md`. **Status:
-DRAFT/PROPOSED.** 003.3 is an *exclusion* in the 003.2 `approval.md` (partial approval of
+APPROVED 2026-11-17 by Hồ Hoàng Quốc (scope in the spec header).** 003.3 is an *exclusion* in the 003.2 `approval.md` (partial approval of
 2026-11-17); this plan is the 003.3 side that approval asks for and is not approved yet.
 Tasks: Phase 14, T182–T193 in `tasks.md`. Code written in this phase is in 003.3 only; the
 003.2 changes are 003.2 T144–T162, the 003.1 change of `getTicketFolioContext` is a 003.1
@@ -599,7 +599,7 @@ restoration code is touched, not here.
 | 003.2 T149 (`PACKAGE_NOT_AVAILABLE_AT_LOCATION`), T151 (`locationName`), T153, T154, T155 | Open, in the backend session (003.2 Phase 18) | T183–T185, T188 compile and test against fakes first; real behaviour after them. |
 | 003.1 task: `getTicketFolioContext` derives location from the current session | Open, in the 003.1 session (number not yet given) | T186 and SC-022 cannot pass for real before it. |
 | 003.2 FR-042 and `approval.md` amended (no Manager for another location) | Open | Blocks T184 until 003.2 is amended. |
-| 003.2 `approval.md` excludes 003.3 | Open | No approval for 003.3 yet: the whole phase stays `DRAFT/PROPOSED`, not ready for implementation. |
+| 003.2 `approval.md` excludes 003.3 | Closed 2026-11-17 | Approved for 003.3 by Hồ Hoàng Quốc; the 003.2 row B3 is updated to match. |
 
 ## Design Challenge Review
 

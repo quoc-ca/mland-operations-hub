@@ -17,10 +17,7 @@ reversal, refund failure path, account-entry confirmation, optional receipt
 image after plan decision O-1, voucher restoration outcome, folio close rule);
 T005 and T035 blocked on VNPay merchant configuration
 
-**Draft addition (2026-11-17, not approved for 003.3)**: "Changes across locations"
-(FR-058–FR-063, SC-021–SC-023) applies 003.2 Package availability per location and the
-calendar-date change window; planned as tasks T182–T193 (Phase 14);
-no open question remains in Clarifications "Session 2026-11-17" (Q1–Q7 decided or withdrawn).
+**Approved addition (2026-11-17)**: "Changes across locations" (FR-058–FR-063, SC-021–SC-023) and the decisions Q1–Q7 of Clarifications "Session 2026-11-17" (Q7 withdrawn), applying 003.2 Package availability per location and the calendar-date change window, planned as tasks T182–T193 (Phase 14). Approved 2026-11-17 by Hồ Hoàng Quốc (owner Feature 003 and 003.3), on request in the working session, for the text at commit `dbfd8a14` of branch `claude/pkg-location-003-3-tasks-325d2e`. Scope: requirements, decisions, plan section and Phase 14 tasks of 003.3, and the matching amendment of 003.2 FR-042 (commit `1071a65b`). **Not covered:** screen wording and layout (no Figma; T189/T192), the OpenAPI changes (written in T183/T184), and the 003.1 tasks this depends on (`getTicketFolioContext` from the current session; payment-time location in `listBookingTimePayments`), which the 003.1 owner session must add and approve.
 
 **Approval**: Session 2026-11-15 (Clarifications and "Checklist follow-up") approved
 2026-11-15 by Hồ Hoàng Quốc (owner Feature 003), on request in the working

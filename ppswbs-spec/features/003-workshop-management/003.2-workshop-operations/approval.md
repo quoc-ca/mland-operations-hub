@@ -51,7 +51,7 @@ loại trừ bên dưới vẫn bị chặn.
 - **Chưa duyệt, vẫn bị chặn:**
   - Giao diện trang ma trận và chữ hiển thị (chưa có Figma). Chỉ quyền và dữ liệu được duyệt.
   - Thay đổi của 003.1: đổi `getTicketFolioContext` để suy location từ buổi hiện tại của vé; xử lý lý do từ chối mới ở giỏ; hiển thị location.
-  - Thay đổi của 003.3: bỏ ghim location trong tùy chọn đổi vé đã tính ở 003.3, yêu cầu Manager khi khác location, áp hệ quả FR-045.
+  - Thay đổi của 003.3: bỏ ghim location trong tùy chọn đổi vé đã tính ở 003.3, không cần Manager khi khác location (sửa 2026-11-17), áp hệ quả FR-045. *(003.3 được duyệt ngày 2026-11-17 bởi Hồ Hoàng Quốc, xem header spec 003.3 "Approved addition".)*
   - Bước "đẩy cập nhật lên OTA" của 003.4 (ngoài phạm vi).
   Mỗi phần cần task, thiết kế và duyệt trong feature của nó.
 - **Chưa kiểm:** số phiên bản migration (chọn sau khi fetch `origin/develop`; hiện mới nhất V177) và tên gói trong DB thật (đã khớp `V161__add_data.sql`, chưa truy vấn DB).
