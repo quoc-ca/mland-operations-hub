@@ -173,3 +173,36 @@ Trigger độc lập khác nhau được tách thành workflow riêng, kể cả
 
 1. Tên gói hoặc mã location không khớp thì dòng đó không được chèn và phải bị phát hiện bằng kiểm tra sau migration (đếm dòng: 8). Không âm thầm bỏ qua.
 2. Phục hồi: bỏ bảng; chỉ mất ma trận. Kiểm chứng: MySQL IT đếm 5 + 3 dòng ACTIVE, 0 dòng cho Đà Nẵng.
+
+## WF-10: Manager đọc audit vận hành (US7, added 2026-11-17)
+
+- Trigger và actor: Manager mở tab Vận hành, đổi bộ lọc hoặc bấm Tải thêm.
+- Luồng dữ liệu: DF-10.
+
+1. Controller nhận `Authorization`, bộ lọc, `cursor`, `limit`; service gọi `requireGlobalManager`.
+2. Kiểm bộ lọc: `from` sau `to`, `limit` ngoài 1–100, con trỏ hỏng → 400. Không có `from` thì dùng 7 ngày gần nhất.
+3. Repository lấy `limit + 1` dòng có `id` nhỏ hơn con trỏ, `id` giảm dần; dòng thứ `limit + 1` chỉ để biết còn trang sau (`nextCursor`).
+4. Whitelist lọc metadata (JSON hỏng → rỗng); tên actor lấy một lần cho mỗi actor khác nhau; trả trang. Không ghi audit khi đọc thành công.
+
+### Failure, recovery, and integrity
+
+1. Không phải Manager đang hoạt động: 403, Operations ghi một dòng `DENIED` (giao dịch riêng); không trả dữ liệu.
+2. Tra tên actor lỗi hoặc không có: trả id, không làm hỏng trang.
+3. Lỗi DB: 503 an toàn có mã tương quan; giao diện giữ bộ lọc, có Thử lại.
+4. Đồng thời: dòng mới ghi trong lúc duyệt có `id` lớn hơn con trỏ nên không làm trùng hoặc sót dòng trang đã tải.
+
+## WF-11: Manager đọc audit quyết toán (US7, added 2026-11-17)
+
+- Trigger và actor: Manager mở tab Quyết toán, lọc hoặc Tải thêm.
+- Luồng dữ liệu: DF-11. Thực hiện trong module 003.3.
+
+1. `SettlementAuditReviewController` nhận bộ lọc riêng (mã hành động, actor, loại và mã đối tượng, thời gian); `SettlementAuditReviewService` kiểm Manager như WF-10 bước 1–2 qua `WorkshopSettlementAuthorizationService`.
+2. Repository settlement lấy `limit + 1` dòng theo `id` giảm dần; bộ lọc actor khớp `actor_reference = account:<id>`.
+3. Service tách `account:<id>` để lấy tên; `SYSTEM` và giá trị khác hiện nguyên văn; trả trang gồm lý do đầy đủ.
+
+### Failure, recovery, and integrity
+
+1. Không phải Manager: 403 và ghi `DENIED_<reason>` theo cách 003.3 đang làm (không phải dòng `DENIED` của Operations); bộ lọc hỏng: 400 `VALIDATION_ERROR`.
+2. Lỗi DB: 503 an toàn; không trả một nửa trang; tab Vận hành không bị ảnh hưởng.
+3. Lý do (tối đa 500 ký tự) chỉ có trong phản hồi cho Manager; không đưa vào log, thông báo lỗi hay `toString`.
+4. Hành động mới của 003.3 xuất hiện tự động vì không có danh sách action cố định.

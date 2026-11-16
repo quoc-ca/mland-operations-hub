@@ -589,3 +589,7 @@ Operations data, introduce the logical unique identity and fields needed for
 fingerprint, status, original correlation, claim version, lease and retention,
 and be verified on MySQL for concurrent claim/reclaim/finalisation. The specific
 migration version is selected only at implementation time.
+
+## Audit review for Manager (added 2026-11-17, FR-047–FR-055)
+
+No new entity, column or migration. Read-only views over `operations_audit_events` (id, session_id, actor_id, action, outcome, correlation_id, metadata JSON, occurred_at) and, through a route inside 003.3, `settlement_business_audits` (id, audit_reference, aggregate_type, aggregate_reference, action_code, actor_reference, correlation_reference, evidence_reference, reason_reference, created_at). DTOs are `OperationsAuditRow` and `SettlementAuditRow` in the OpenAPI contract; entities are never exposed. `metadata` leaves the server only through the whitelist in the plan (Phase 19, decision 4).

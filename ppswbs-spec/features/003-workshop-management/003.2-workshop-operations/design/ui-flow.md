@@ -102,3 +102,7 @@ Manager tắt một ô (spec không yêu cầu, Tech Lead duyệt theo Figma). B
 
 - Figma của trang ma trận đã có node ID (xem trên). **DRAFT** còn lại: Figma cho phần hiển thị 003.1/003.3 và chữ chính thức của các banner lỗi vận hành khác.
 - **Traceability gap**: map each screen to its existing `tasks.md` task and UI verification case before regeneration.
+
+## Trang audit workshop (US7, duyệt 2026-11-17)
+
+Mockup `design/audit-review-mockup.html` (SHA-256 12 ký tự `930ab62b658b`) được Hồ Hoàng Quốc duyệt ngày 2026-11-17 thay cho Figma; chi tiết trong `approval.md`. Route `/operations/audit`, chỉ Manager, hai tab Vận hành và Quyết toán, bộ lọc riêng từng tab, tải thêm bằng con trỏ, các trạng thái tải/rỗng/lỗi/lỗi lọc, dạng thẻ dưới 768 px.

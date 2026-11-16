@@ -169,3 +169,33 @@ error: REJECTED(PACKAGE_NOT_AVAILABLE_AT_LOCATION | INVALID_REPLACEMENT | …) �
 | 5 | Số phiên bản migration | Chọn sau khi fetch `origin/develop` (hiện mới nhất V177) | Triển khai | Triển khai | Không |
 | 7 | ĐÃ CHỐT 2026-11-17 (chủ feature 003): đặt chỗ OTA (`acceptOtaBooking`) KHÔNG bị chặn khi cặp INACTIVE; ma trận không tự cập nhật listing OTA. Cập nhật lên OTA là một bước riêng, tường minh của 003.4, ngoài phạm vi feature này | spec FR-039 | `acceptOtaBooking` không đổi; không thêm kiểm availability vào đường OTA | — | Không. Việc theo dõi: chủ 003.4 quyết có làm bước "đẩy cập nhật lên OTA" hay không |
 | 6 | Chưa có `approval.md` | `ppswbs-spec/AGENT.md` §5 | Toàn bộ | Tech Lead | Có |
+
+## Audit review for Manager (US7, added 2026-11-17, status: proposed → approval in `approval.md`)
+
+Spec FR-047–FR-055; plan Phase 19. Không thêm bảng hay migration. BE = `workshopoperations/` trừ khi ghi khác.
+
+| Path | Type / status | Responsibility | Class / export | Draft public / use-case methods | Allowed dependencies | Source |
+| --- | --- | --- | --- | --- | --- | --- |
+| `controller/` | Controller — proposed | HTTP cho route audit vận hành, chỉ Manager | `AuditReviewController` | `getOperationsEvents` | `AuditReviewService` | OpenAPI `/workshop-audit/operations-events` |
+| `dto/` | DTO — proposed | Dòng, trang, actor | `AuditReviewDtos` | (record) | Không | OpenAPI |
+| `service/` | Service — proposed | Guard Manager, kiểm bộ lọc, đọc, whitelist, ghép tên actor | `AuditReviewService` | `readOperationsEvents(auth, filter, cursor, limit)` | `WorkshopOperationsAuthorizationService` (existing), `OperationsDeniedAttemptRecorder` (existing), `OperationsAuditEventRepository` (existing), `AuditMetadataWhitelist`, `AuditCursorCodec`, `AccountFacade` (existing) | plan Phase 19 |
+| `service/` | Service — proposed | Lọc khóa metadata được phép, parse JSON dung sai | `AuditMetadataWhitelist` | `filter(rawJson)` | Không | FR-051 |
+| `service/` | Service — proposed | Mã hóa/giải mã con trỏ id | `AuditCursorCodec` | `encode(id)`; `decode(token)` | Không | FR-050 |
+| `dao/OperationsAuditEventRepository` | Repository — existing | Thêm một truy vấn lọc theo con trỏ, không SQL thô | (giữ tên) | `findPage(filter, beforeId, limit+1)` | Entity | data-model |
+| `workshopsettlement/controller/` | Controller — proposed (module 003.3, chủ đã đồng ý, B5) | HTTP cho route audit quyết toán, chỉ Manager | `SettlementAuditReviewController` | `getSettlementRecords` | `SettlementAuditReviewService` | OpenAPI `/workshop-audit/settlement-records` |
+| `workshopsettlement/service/` | Service — proposed (003.3) | Guard Manager, lọc, tách `account:<id>`, ghép tên actor | `SettlementAuditReviewService` | `readRecords(auth, filter, cursor, limit)` | `WorkshopSettlementAuthorizationService` (existing), `SettlementBusinessAuditRepository` (existing, thêm truy vấn), `AccountFacade` | FR-052 |
+| `ppswbs_frontend/src/workshop-operations/api/` | Client — proposed | Gọi hai route | `auditReviewApi.js` | `readOperationsEvents`; `readSettlementRecords` | http client hiện có | OpenAPI |
+| `…/pages/` | Page — proposed | Trang hai tab, bộ lọc, bảng, tải thêm, trạng thái | `AuditReviewPage` | (component) | api, `OperationsSidebar` | mockup đã duyệt |
+
+**DF-10 (WF-10) Đọc audit vận hành**
+```text
+AuditReviewPage → auditReviewApi.readOperationsEvents → AuditReviewController.getOperationsEvents → AuditReviewService.readOperationsEvents
+  → WorkshopOperationsAuthorizationService.requireGlobalManager (error: 403 + OperationsDeniedAttemptRecorder DENIED)
+  → OperationsAuditEventRepository.findPage → AuditMetadataWhitelist.filter → AccountFacade.findAccountFullName (mỗi actor khác nhau một lần) → AuditReviewDtos
+```
+**DF-11 (WF-11) Đọc audit quyết toán**
+```text
+AuditReviewPage → auditReviewApi.readSettlementRecords → SettlementAuditReviewController.getSettlementRecords → SettlementAuditReviewService.readRecords
+  → WorkshopSettlementAuthorizationService (error: 403, ghi `DENIED_<reason>` theo cách 003.3 đang làm) → SettlementBusinessAuditRepository (truy vấn con trỏ) → AccountFacade.findAccountFullName → dto settlement
+```
+Hướng phụ thuộc: **không thêm phụ thuộc giữa hai module**. `workshopsettlement` đã phụ thuộc `workshopoperations :: facade` nên route quyết toán nằm trong 003.3; Operations không gọi 003.3 (gọi sẽ tạo vòng và fail `ApplicationModules.verify()`, phát hiện F1 của analyze 2026-11-17). `actor_reference` của settlement có dạng `account:<id>` hoặc `SYSTEM` (xác minh trong code 2026-11-17: `AbsorbedUnderchargeService`, `BankRefundService`, `CashDayCloseService`, `CancellationHandoffCompletionService`): `account:<id>` được tách ra thành id để lấy tên; giá trị khác hiện nguyên văn.
