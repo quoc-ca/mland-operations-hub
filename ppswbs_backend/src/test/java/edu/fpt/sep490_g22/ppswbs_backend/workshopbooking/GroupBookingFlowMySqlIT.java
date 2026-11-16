@@ -255,7 +255,7 @@ class GroupBookingFlowMySqlIT {
     }
 
     private static String createBody(String quoteRef) {
-        return "{\"quoteRef\":\"" + quoteRef + "\",\"contactEmail\":\"" + EMAIL + "\",\"contactPhone\":\"0900000000\"}";
+        return "{\"quoteRef\":\"" + quoteRef + "\",\"contactEmail\":\"" + EMAIL + "\",\"contactPhone\":\"+84900000000\"}";
     }
 
     private static String line(Long packageId, WorkshopSession session, int participants) {

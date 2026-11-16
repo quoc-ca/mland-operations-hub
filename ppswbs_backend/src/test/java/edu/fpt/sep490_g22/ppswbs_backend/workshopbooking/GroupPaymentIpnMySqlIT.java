@@ -281,7 +281,7 @@ class GroupPaymentIpnMySqlIT {
                         .header("Idempotency-Key", "ipn-key-" + UUID.randomUUID())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"quoteRef\":\"" + quoteRef + "\",\"contactEmail\":\"ipn.buyer@example.com\","
-                                + "\"contactPhone\":\"0900000144\"}"))
+                                + "\"contactPhone\":\"+84900000144\"}"))
                 .andExpect(status().isCreated()).andReturn();
         return JSON.readTree(created.getResponse().getContentAsString()).get("groupCode").asText();
     }

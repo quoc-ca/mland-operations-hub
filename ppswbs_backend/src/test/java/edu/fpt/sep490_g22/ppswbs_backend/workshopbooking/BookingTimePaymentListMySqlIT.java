@@ -280,7 +280,7 @@ class BookingTimePaymentListMySqlIT {
         MvcResult created = mockMvc.perform(post("/api/v1/workshop-booking-groups")
                         .header("Idempotency-Key", "list-key-" + UUID.randomUUID())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"quoteRef\":\"" + quoteRef + "\",\"contactEmail\":\"" + EMAIL + "\",\"contactPhone\":\"0900000150\"}"))
+                        .content("{\"quoteRef\":\"" + quoteRef + "\",\"contactEmail\":\"" + EMAIL + "\",\"contactPhone\":\"+84900000150\"}"))
                 .andExpect(status().isCreated()).andReturn();
         return JSON.readTree(created.getResponse().getContentAsString()).get("groupCode").asText();
     }

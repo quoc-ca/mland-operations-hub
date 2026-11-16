@@ -52,7 +52,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class BookingGroupRecoveryMySqlIT {
 
     private static final String EMAIL = "recovery.buyer@example.com";
-    private static final String PHONE = "0900000001";
+    private static final String PHONE = "+84900000001";
     private static final ObjectMapper JSON = new ObjectMapper();
 
     @Autowired private MockMvc mockMvc;

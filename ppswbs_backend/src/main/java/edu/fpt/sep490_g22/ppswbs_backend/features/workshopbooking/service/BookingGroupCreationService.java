@@ -151,7 +151,8 @@ public class BookingGroupCreationService {
         BookingGroup group = groups.save(BookingGroup.builder()
                 .groupCode(groupCode)
                 .buyerMemberAccountId(quote.getBuyerMemberAccountId())
-                .contactEmail(request.contactEmail().trim())
+                // One stored form (trim + lower case), the same one the idempotency key and every lookup compare by.
+                .contactEmail(request.contactEmail().trim().toLowerCase(java.util.Locale.ROOT))
                 .contactPhone(ContactPhones.canonical(request.contactPhone().trim()))
                 .groupStatus(BookingStatus.PENDING_PAYMENT)
                 .paymentMode(cart.allocation().paymentMode())
