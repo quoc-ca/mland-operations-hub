@@ -41,7 +41,9 @@ public class SessionResponse {
     private Instant scheduledEndAt;
 
     private CheckInOpeningSource checkInOpeningSource;
-    private Long operationalLeadAccountId;
+
+    /** True from checkInOpensAt while a PUBLISHED, SALES_PAUSED or IN_PROGRESS session has no active Staff assignment (T115). */
+    private Boolean missingStaff;
 
     /** Accounts of the Staff currently assigned to this session (empty when none). */
     private java.util.List<Long> assignedStaffAccountIds;

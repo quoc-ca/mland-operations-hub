@@ -5,7 +5,8 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseToken;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountSummary;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.SessionOperationalLeadRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorStatus;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.TargetAccountSnapshot;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.SessionStaffAssignmentRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.WorkshopSessionRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.WorkshopSession;
@@ -15,6 +16,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.function.Supplier;
 
 @Service
 @RequiredArgsConstructor
@@ -23,7 +26,6 @@ public class WorkshopOperationsAuthorizationService {
 
     private final AccountFacade accountFacade;
     private final SessionStaffAssignmentRepository staffAssignmentRepository;
-    private final SessionOperationalLeadRepository operationalLeadRepository;
     private final WorkshopSessionRepository sessionRepository;
 
     @Value("${workshop.operations.auth.allow-test-tokens:false}")
@@ -33,7 +35,7 @@ public class WorkshopOperationsAuthorizationService {
         String token = extractBearerToken(authHeader);
         String firebaseUid = verifyTokenAndGetUid(token);
 
-        AccountSummary account = accountFacade.resolveAccount(firebaseUid)
+        AccountSummary account = resolveAccount(firebaseUid)
             .orElseThrow(() -> new WorkshopForbiddenException("No registered Mland account found for verified identity"));
 
         if (account.status() == null || !"ACTIVE".equalsIgnoreCase(account.status().name())) {
@@ -44,38 +46,12 @@ public class WorkshopOperationsAuthorizationService {
         return account;
     }
 
-    public AccountSummary requireAllLocationActor(String authHeader) {
-        AccountSummary account = authenticate(authHeader);
-
-        if (!isAllLocationActor(account)) {
-            log.warn("Access denied for accountId={}: expected all-location/higher-privilege actor, found role={}",
-                    account.accountId(), account.role());
-            throw new WorkshopForbiddenException("Access requires all-location higher-privilege authority");
-        }
-
-        return account;
-    }
-
-    public AccountSummary requireAllBranchActor(String authHeader) {
-        return requireAllLocationActor(authHeader);
-    }
-
-    public boolean isAllLocationActor(AccountSummary account) {
-        return account != null && account.role() != null && "ADMIN".equalsIgnoreCase(account.role().name());
-    }
-
     /**
-     * Workshop Operations V1 authority: an active Manager is global, while
-     * ADMIN remains an all-location actor for compatibility.
+     * Workshop Operations V1 authority: only an active Manager is global (FR-012c). ADMIN holds no business
+     * authority in this feature; it is refused with 403 like any other non-Manager, non-assigned-Staff role.
      */
     public boolean isGlobalWorkshopActor(AccountSummary account) {
-        return account != null && account.role() != null
-                && ("ADMIN".equalsIgnoreCase(account.role().name())
-                || "MANAGER".equalsIgnoreCase(account.role().name()));
-    }
-
-    public boolean isAllBranchActor(AccountSummary account) {
-        return isAllLocationActor(account);
+        return isManager(account);
     }
 
     public boolean isManager(AccountSummary account) {
@@ -114,7 +90,7 @@ public class WorkshopOperationsAuthorizationService {
 
         Long locationId = session.getLocation().getId();
 
-        // Active Manager/Admin actors are global. Staff are authorized by active account status, membership in the
+        // An active Manager is global. Staff are authorized by active account status, membership in the
         // session location scope AND an active assignment to this session (owner decision 2026-11-06: a Staff
         // sees and operates only the sessions they are assigned to).
         if (isGlobalWorkshopActor(account)) {
@@ -122,7 +98,7 @@ public class WorkshopOperationsAuthorizationService {
         }
 
         if (isStaff(account)) {
-            List<Long> locationScope = accountFacade.getLocationScope(account.accountId());
+            List<Long> locationScope = getLocationScope(account.accountId());
             if (locationScope == null || !locationScope.contains(locationId)) {
                 log.warn("Staff location scope check failed for accountId={}, locationId={}, allowedScope={}",
                     account.accountId(), locationId, locationScope);
@@ -133,7 +109,7 @@ public class WorkshopOperationsAuthorizationService {
             return account;
         }
 
-        log.warn("Access denied for accountId={}, role={}: not an active Staff or global Manager/Admin",
+        log.warn("Access denied for accountId={}, role={}: not an active Staff or global Manager",
             account.accountId(), account.role());
         throw new WorkshopForbiddenException("Access denied: Actor is not authorized for this workshop session");
     }
@@ -146,7 +122,7 @@ public class WorkshopOperationsAuthorizationService {
         }
 
         if (isStaff(account)) {
-            List<Long> locationScope = accountFacade.getLocationScope(account.accountId());
+            List<Long> locationScope = getLocationScope(account.accountId());
             if (locationScope == null || !locationScope.contains(locationId)) {
                 throw new WorkshopLocationScopeException("Location ID " + locationId + " is outside Staff active location scope");
             }
@@ -158,6 +134,34 @@ public class WorkshopOperationsAuthorizationService {
         }
 
         throw new WorkshopForbiddenException("Access denied: Actor role " + account.role() + " cannot perform this operation");
+    }
+
+    // ---- Account facade access: fail closed with 503 DEPENDENCY_UNAVAILABLE (T128, FR-012a) -------------------
+    // No cache and no fallback: an exception from the facade never turns into a grant or a plain 403/500.
+
+    public Optional<AccountSummary> resolveAccount(String firebaseUid) {
+        return callAccountFacade(() -> accountFacade.resolveAccount(firebaseUid));
+    }
+
+    public List<Long> getLocationScope(Long accountId) {
+        return callAccountFacade(() -> accountFacade.getLocationScope(accountId));
+    }
+
+    public Optional<ActorStatus> getAccountStatus(Long accountId) {
+        return callAccountFacade(() -> accountFacade.getAccountStatus(accountId));
+    }
+
+    public Optional<TargetAccountSnapshot> getTargetAccount(Long accountId) {
+        return callAccountFacade(() -> accountFacade.getTargetAccount(accountId));
+    }
+
+    private <T> T callAccountFacade(Supplier<T> call) {
+        try {
+            return call.get();
+        } catch (RuntimeException ex) {
+            log.error("Account facade call failed; failing closed: {}", ex.toString());
+            throw new WorkshopDependencyUnavailableException("The account service is temporarily unavailable", ex);
+        }
     }
 
     private String extractBearerToken(String authHeader) {

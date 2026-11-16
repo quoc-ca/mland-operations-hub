@@ -1,6 +1,5 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service;
 
-import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountSummary;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.OperationsAuditEventRepository;
@@ -30,7 +29,6 @@ import java.util.UUID;
 @Slf4j
 public class WorkshopLifecycleService {
 
-    private final AccountFacade accountFacade;
     private final WorkshopOperationsAuthorizationService authorizationService;
     private final WorkshopSessionRepository sessionRepository;
     private final WorkshopResponsibilityService responsibilityService;
@@ -53,7 +51,7 @@ public class WorkshopLifecycleService {
 
         // 1. Authenticate actor and verify ACTIVE status at command time
         AccountSummary actor = authorizationService.authenticate(authHeader);
-        ActorStatus currentStatus = accountFacade.getAccountStatus(actor.accountId())
+        ActorStatus currentStatus = authorizationService.getAccountStatus(actor.accountId())
                 .orElseThrow(() -> new WorkshopForbiddenException("Actor account not found"));
         if (currentStatus != ActorStatus.ACTIVE) {
             log.warn("Command rejected: Actor accountId={} status is {}", actor.accountId(), currentStatus);
@@ -66,7 +64,7 @@ public class WorkshopLifecycleService {
 
         // 3. Enforce Staff location scope at command time; Managers are global.
         if (!authorizationService.isGlobalWorkshopActor(actor)) {
-            List<Long> locationScope = accountFacade.getLocationScope(actor.accountId());
+            List<Long> locationScope = authorizationService.getLocationScope(actor.accountId());
             if (locationScope == null || !locationScope.contains(sessionLocationId)) {
                 log.warn("Location scope denied for accountId={} on session reference={} (locationId={})",
                         actor.accountId(), sessionReference, sessionLocationId);
@@ -121,8 +119,8 @@ public class WorkshopLifecycleService {
             throw new WorkshopLifecycleException("Cannot transition to PUBLISHED from state " + currentState);
         }
 
-        // Active Manager or Admin can publish or resume sales globally.
-        if (!authorizationService.isAllLocationActor(actor) && !authorizationService.isManager(actor)) {
+        // Only an active Manager can publish or resume sales globally.
+        if (!authorizationService.isManager(actor)) {
             throw new WorkshopForbiddenException("Only a Manager can publish or resume sales for a session");
         }
         // Note: In DRAFT -> PUBLISHED, Staff assignment is explicitly not required before publication.
@@ -134,8 +132,8 @@ public class WorkshopLifecycleService {
             throw new WorkshopLifecycleException("Cannot transition to SALES_PAUSED from state " + currentState);
         }
 
-        // Active Manager or Admin can pause sales globally.
-        if (!authorizationService.isAllLocationActor(actor) && !authorizationService.isManager(actor)) {
+        // Only an active Manager can pause sales globally.
+        if (!authorizationService.isManager(actor)) {
             throw new WorkshopForbiddenException("Only a Manager can pause session sales");
         }
     }

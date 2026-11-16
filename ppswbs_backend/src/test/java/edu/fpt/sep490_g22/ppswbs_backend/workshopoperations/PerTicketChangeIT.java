@@ -77,7 +77,7 @@ class PerTicketChangeIT {
         for (String table : List.of("facade_command_idempotency_records", "attendance_actions",
                 "ticket_session_replacements", "ticket_entitlement_releases", "ticket_qr_generations",
                 "ticket_session_entitlements", "attendance_tickets", "capacity_holds",
-                "workshop_booking_package_policy_snapshots", "session_operational_leads",
+                "workshop_booking_package_policy_snapshots",
                 "session_staff_assignments", "cancellation_handoffs", "operations_audit_events",
                 "workshop_sessions", "workshop_slots", "workshop_locations")) {
             jdbcTemplate.execute("TRUNCATE TABLE " + table);

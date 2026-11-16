@@ -49,7 +49,6 @@ public class CancellationHandoffService {
     private final CapacityHoldRepository holdRepository;
     private final CancellationHandoffRepository cancellationHandoffRepository;
     private final OperationsAuditEventRepository auditEventRepository;
-    private final SessionOperationalLeadRepository operationalLeadRepository;
     private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.SessionStaffAssignmentRepository staffAssignmentRepository;
     private final WorkshopOperationsAuthorizationService authorizationService;
     private final CancellationHandoffOutboxRepository outboxRepository;
@@ -341,10 +340,6 @@ public class CancellationHandoffService {
     }
 
     private SessionResponse toSessionResponse(WorkshopSession session) {
-        Long operationalLeadId = operationalLeadRepository.findBySessionIdAndActiveTrue(session.getId())
-                .map(SessionOperationalLead::getManagerAccountId)
-                .orElse(null);
-
         return SessionResponse.builder()
                 .id(session.getReference())
                 .locationId(session.getLocation().getId())
@@ -356,7 +351,7 @@ public class CancellationHandoffService {
                 .checkInOpeningSource(session.getCheckInOpeningSource())
                 .capacity(session.getCapacity())
                 .state(session.getState())
-                .operationalLeadAccountId(operationalLeadId)
+                .missingStaff(false) // finalized / cancellation-requested sessions are outside the staffing-watched states
                 .assignedStaffAccountIds(staffAssignmentRepository.findBySessionIdAndActiveTrue(session.getId()).stream().map(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.SessionStaffAssignment::getAccountId).sorted().toList())
                 .build();
     }

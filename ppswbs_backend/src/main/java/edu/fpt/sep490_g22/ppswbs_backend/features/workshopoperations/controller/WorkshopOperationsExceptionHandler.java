@@ -15,6 +15,9 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.Wor
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopIdempotencyInProgressException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopRateLimitException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopTicketResendRefusedException;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopStaffNotEligibleException;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopLastStaffAssignmentException;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopDependencyUnavailableException;
 import jakarta.persistence.OptimisticLockException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
@@ -112,6 +115,34 @@ public class WorkshopOperationsExceptionHandler {
         String correlationId = resolveCorrelationId(request);
         return buildResponse(HttpStatus.CONFLICT, "INVALID_STATE", "Invalid Lifecycle State", ex.getMessage(),
                 correlationId, ex.getReason().name());
+    }
+
+    /** T130: the Staff assignment target is not eligible; the closed reason tells the Manager why. */
+    @ExceptionHandler(WorkshopStaffNotEligibleException.class)
+    public ResponseEntity<ProblemDetailResponse> handleStaffNotEligible(
+            WorkshopStaffNotEligibleException ex, HttpServletRequest request) {
+        String correlationId = resolveCorrelationId(request);
+        log.warn("Staff assignment refused [correlationId={}, reason={}]", correlationId, ex.getReason());
+        return buildResponse(HttpStatus.CONFLICT, "STAFF_NOT_ELIGIBLE", "Staff Not Eligible", ex.getMessage(), correlationId, ex.getReason().name());
+    }
+
+    /** T115: removing the last Staff assignment after check-in opened needs confirmLastAssignmentRemoval=true. */
+    @ExceptionHandler(WorkshopLastStaffAssignmentException.class)
+    public ResponseEntity<ProblemDetailResponse> handleLastStaffAssignment(
+            WorkshopLastStaffAssignmentException ex, HttpServletRequest request) {
+        String correlationId = resolveCorrelationId(request);
+        return buildResponse(HttpStatus.CONFLICT, "LAST_STAFF_ASSIGNMENT_CONFIRMATION_REQUIRED",
+                "Last Staff Assignment Confirmation Required", ex.getMessage(), correlationId);
+    }
+
+    /** T128: a dependency failure fails closed (no cache, no fallback, no audit). */
+    @ExceptionHandler(WorkshopDependencyUnavailableException.class)
+    public ResponseEntity<ProblemDetailResponse> handleDependencyUnavailable(
+            WorkshopDependencyUnavailableException ex, HttpServletRequest request) {
+        String correlationId = resolveCorrelationId(request);
+        log.error("Workshop dependency unavailable [correlationId={}]: {}", correlationId, ex.getMessage());
+        return buildResponse(HttpStatus.SERVICE_UNAVAILABLE, "DEPENDENCY_UNAVAILABLE", "Dependency Unavailable",
+                "A required service is temporarily unavailable. Please retry.", correlationId);
     }
 
     /** A missing required header is the caller's mistake (400), never a server error. */
