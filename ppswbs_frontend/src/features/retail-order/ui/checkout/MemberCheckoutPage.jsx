@@ -236,12 +236,23 @@ function CheckoutContent() {
     // The fee or preview expired on the server in the meantime: refresh quietly and let the Member confirm again.
     if (result.error?.status === 409) {
       createCommand.reset();
+      // FE-06 refused the voucher at order time (used up, expired, other branch): drop it and fall back to the
+      // automatic discount, so the next click does not hit the same refusal (Session 2026-11-17).
+      if (result.error?.code === 'RETAIL_VOUCHER_REFUSED' && selection.choice === 'VOUCHER' && selection.voucherCode) {
+        const refused = selection.voucherCode;
+        setRejectedCodes(current => new Set([...current, refused]));
+        autoPickVoucher.current = false;
+        setSelection(current => ({ ...current, choice: 'AUTO', voucherCode: '', requestedPoints: '0' }));
+        setPointsOn(false);
+      }
       for (const group of groups) {
         if (methodFor(group.locationId) === 'GHTK') await quoteDelivery(group.locationId); // eslint-disable-line no-await-in-loop
       }
       setQuotedKey(null); setRefreshTick(tick => tick + 1);
-      const reason = result.error?.message ? ` (${result.error.message})` : '';
-      setToast(`Thông tin đơn hàng vừa được cập nhật${reason}. Kiểm tra lại tổng tiền rồi bấm Đặt hàng.`);
+      // The server message is already a Vietnamese sentence for benefit refusals; other conflicts keep the generic text.
+      const specific = ['RETAIL_VOUCHER_REFUSED', 'RETAIL_POINTS_CHANGED'].includes(result.error?.code) || /^(Voucher|Ưu đãi|Số điểm)/.test(result.error?.message || '');
+      setToast(specific ? result.error.message
+        : `Thông tin đơn hàng vừa được cập nhật${result.error?.message ? ` (${result.error.message})` : ''}. Kiểm tra lại tổng tiền rồi bấm Đặt hàng.`);
     }
   };
   const create = async () => {
