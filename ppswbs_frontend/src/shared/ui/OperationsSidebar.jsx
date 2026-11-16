@@ -67,6 +67,7 @@ export function OperationsSidebar() {
     pathname.startsWith('/operations/packages') ||
     pathname === '/workshop-packages';
   const isPackageAddOnsActive = pathname.startsWith('/operations/package-add-ons');
+  const isPackageAvailabilityActive = pathname.startsWith('/operations/package-availability');
 
   const isChannelsActive = pathname.startsWith('/ota-connectivity/channels');
   const isReconciliationActive = pathname.startsWith('/ota-connectivity/reconciliation');
@@ -196,6 +197,9 @@ export function OperationsSidebar() {
         </Link>
         <Link className={isPackageAddOnsActive ? 'active' : ''} to="/operations/package-add-ons">
           {isVi ? 'Add-on gói' : 'Package add-ons'}
+        </Link>
+        <Link className={isPackageAvailabilityActive ? 'active' : ''} to="/operations/package-availability">
+          {isVi ? 'Ma trận gói × chi nhánh' : 'Package availability'}
         </Link>
         </>)}
 

@@ -7,6 +7,7 @@ import OperationsSessionPage from './pages/OperationsSessionPage';
 import WorkshopPackageManagementPage from './pages/WorkshopPackageManagementPage';
 import OperationsAdministrationPage from './pages/OperationsAdministrationPage';
 import PackageAddOnCataloguePage from './pages/PackageAddOnCataloguePage';
+import PackageAvailabilityMatrixPage from './pages/PackageAvailabilityMatrixPage';
 
 /** Staff/Manager area: without a session the page shows a sign-in link back to itself (the backend still decides every permission). */
 function StaffArea({ children }) {
@@ -23,6 +24,7 @@ export const operationsRoutes = [
   { path: '/operations/locations', element: <StaffArea><OperationsAdministrationPage /></StaffArea> },
   { path: '/operations/slots', element: <StaffArea><OperationsAdministrationPage /></StaffArea> },
   { path: '/operations/package-add-ons', element: <StaffArea><PackageAddOnCataloguePage /></StaffArea> },
+  { path: '/operations/package-availability', element: <StaffArea><PackageAvailabilityMatrixPage /></StaffArea> },
 ];
 
 export { StaffArea };
