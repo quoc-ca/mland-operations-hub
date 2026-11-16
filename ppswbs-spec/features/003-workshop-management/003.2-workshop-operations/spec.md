@@ -867,13 +867,13 @@ and CHK035. Code and test work: tasks T115–T117, T140, T141.)*
   scan; no active Manager means WARN and no marker. (2) Template code
   `WORKSHOP_CANCELLATION_UNRESOLVED_ALERT`, `owning_module` `workshopoperations`;
   `allowed_placeholders`: `sessionReference`, `sessionName`, `locationName`,
-  `scheduledEndAt`, `unresolvedTicketCount`, `hoursSinceScheduledEnd`; no
+  `scheduledEndAt`, `hoursSinceScheduledEnd`; no
   credentials, no buyer personal data. Subject: `[Mland] Buổi workshop
-  {{sessionName}} còn {{unresolvedTicketCount}} vé chưa xử lý sau khi bị hủy`.
+  {{sessionName}} vẫn còn vé chưa xử lý sau khi bị hủy`.
   Body (plain + simple HTML): "Kính gửi Quản lý chi nhánh {{locationName}}, Buổi
   workshop {{sessionName}} (mã {{sessionReference}}) kết thúc theo lịch lúc
   {{scheduledEndAt}} nhưng vẫn ở trạng thái chờ hủy sau {{hoursSinceScheduledEnd}}
-  giờ. Còn {{unresolvedTicketCount}} vé chưa được giải quyết (đổi buổi hoặc mở yêu
+  giờ. Vẫn còn vé chưa được giải quyết (đổi buổi hoặc mở yêu
   cầu hoàn tiền). Vui lòng kiểm tra các vé của buổi này trong màn hình quản lý và
   xử lý. Đây là cảnh báo gửi một lần cho mỗi buổi. Trân trọng, Hệ thống Mland."
   (3) Recipients: every active Manager (global scope, decision D) via the Account
@@ -882,7 +882,14 @@ and CHK035. Code and test work: tasks T115–T117, T140, T141.)*
   `<sessionReference>:CANCELLATION_UNRESOLVED:<managerAccountId>` (idempotent).
   Audit `CANCELLATION_UNRESOLVED_ALERT` outcome `SENT` is written only when all
   intents were accepted (partial failure means WARN, no marker, retry next scan;
-  idempotent references prevent duplicate mails). T133 acceptance adds the
+  idempotent references prevent duplicate mails). *Amended 2026-11-16 by the 003
+  owner (T133, option c): the `unresolvedTicketCount` placeholder is removed from
+  the allowlist, subject and body, because Operations does not know which tickets
+  003.3 has resolved and no count facade exists; the email only states that
+  tickets remain unresolved. `businessEventReference` is
+  `<sessionReference>:CANCELLATION_UNRESOLVED` (the Account facade returns emails
+  only, no account id; Notification already de-duplicates per recipient
+  fingerprint).* T133 acceptance adds the
   migration, a preview check and an allowlist test.
 - Q (F14): How is a late auto-start (more than 5 minutes) reported? → A: option
   A: an `ERROR` log plus a metric for operations monitoring; no email.

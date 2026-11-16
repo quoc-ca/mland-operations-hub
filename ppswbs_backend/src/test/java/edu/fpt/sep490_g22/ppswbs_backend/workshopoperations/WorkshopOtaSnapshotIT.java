@@ -58,7 +58,7 @@ class WorkshopOtaSnapshotIT {
     private static final OtaMigrationTestSupport OTA_DB = OtaMigrationTestSupport.fromEnvironment().orElse(null);
     private static final String OTA_SCHEMA = initializeOtaSchema();
     @Autowired private JdbcTemplate jdbcTemplate;
-    @Autowired private WorkshopOtaSnapshotService snapshotService;
+    @org.springframework.boot.test.mock.mockito.SpyBean private WorkshopOtaSnapshotService snapshotService;
     @Autowired private WorkshopOtaResyncFacade resyncFacade;
     @Autowired private WorkshopSessionOtaSnapshotRepository snapshotRepository;
     @Autowired private WorkshopSessionRepository sessionRepository;
@@ -69,6 +69,7 @@ class WorkshopOtaSnapshotIT {
     @Autowired private WorkshopOperationsFacade operationsFacade;
     @Autowired private CapacityHoldService capacityHoldService;
     @Autowired private WorkshopSessionStartScheduler sessionStartScheduler;
+    @Autowired private io.micrometer.core.instrument.MeterRegistry meterRegistry;
 
     private WorkshopSession session;
     private String packageReference;
@@ -225,6 +226,92 @@ class WorkshopOtaSnapshotIT {
                 Integer.class, session.getId(), "SESSION_AUTO_STARTED")).isEqualTo(1);
     }
 
+
+    @Test
+    void failingSessionStartRollsBackOnlyThatSessionNotTheBatch() {
+        WorkshopSlot otherSlot = slotRepository.save(WorkshopSlot.builder()
+                .location(session.getLocation()).label("OTA Slot 2").startTime(LocalTime.of(11, 0))
+                .endTime(LocalTime.of(12, 0)).defaultCapacity(10).build());
+        WorkshopSession other = sessionRepository.save(WorkshopSession.builder()
+                .location(session.getLocation()).slot(otherSlot).workshopDate(session.getWorkshopDate())
+                .scheduledStartAt(Instant.now().minusSeconds(1)).scheduledEndAt(Instant.now().plusSeconds(3599))
+                .checkInOpensAt(Instant.now().minusSeconds(600)).capacity(10)
+                .state(SessionState.PUBLISHED).build());
+        session.setScheduledStartAt(Instant.now().minusSeconds(1));
+        session.setScheduledEndAt(Instant.now().plusSeconds(3599));
+        session = sessionRepository.saveAndFlush(session);
+        String failingReference = session.getReference();
+        org.mockito.Mockito.doThrow(new IllegalStateException("snapshot store down")).when(snapshotService)
+                .publishForObservableChange(org.mockito.ArgumentMatchers.argThat(s -> s != null
+                        && failingReference.equals(s.getReference())), org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.any());
+        try {
+            sessionStartScheduler.transitionDueSessions();
+        } finally {
+            org.mockito.Mockito.reset(snapshotService);
+        }
+
+        assertThat(sessionRepository.findByReference(other.getReference()).orElseThrow().getState())
+                .isEqualTo(SessionState.IN_PROGRESS);
+        assertThat(sessionRepository.findByReference(failingReference).orElseThrow().getState())
+                .isEqualTo(SessionState.PUBLISHED);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM operations_audit_events WHERE session_id = ? AND action = ?",
+                Integer.class, session.getId(), "SESSION_AUTO_STARTED")).isZero();
+
+        // the failed session is picked up again by the next run
+        sessionStartScheduler.transitionDueSessions();
+        assertThat(sessionRepository.findByReference(failingReference).orElseThrow().getState())
+                .isEqualTo(SessionState.IN_PROGRESS);
+    }
+
+    @Test
+    void missedStartIsRecoveredAndCountedAsLate() {
+        double before = meterRegistry.counter(WorkshopSessionStartScheduler.LATE_START_METRIC).count();
+        session.setScheduledStartAt(Instant.now().minusSeconds(600));
+        session.setScheduledEndAt(Instant.now().plusSeconds(3000));
+        session = sessionRepository.saveAndFlush(session);
+
+        sessionStartScheduler.transitionDueSessions();
+
+        assertThat(sessionRepository.findByReference(session.getReference()).orElseThrow().getState())
+                .isEqualTo(SessionState.IN_PROGRESS);
+        assertThat(meterRegistry.counter(WorkshopSessionStartScheduler.LATE_START_METRIC).count())
+                .isEqualTo(before + 1);
+    }
+
+    @Test
+    void scheduledStartOfPausedSessionPublishesClosedSnapshotOnceAndBumpsVersionOnce() {
+        Instant now = Instant.now();
+        session.setScheduledStartAt(now.plusSeconds(3600));
+        session.setScheduledEndAt(now.plusSeconds(7200));
+        session = sessionRepository.saveAndFlush(session);
+        snapshotService.publishForObservableChange(session, "published", now);
+        session.setState(SessionState.SALES_PAUSED);
+        session = sessionRepository.saveAndFlush(session);
+        var paused = snapshotService.publishForObservableChange(session, "paused", now.plusSeconds(1));
+        assertThat(paused.saleState()).isEqualTo("SALES_PAUSED");
+        long versionBefore = latestSnapshot().sourceVersion();
+        int publicationsBefore = publicationCount(session.getReference());
+
+        session.setScheduledStartAt(Instant.now().minusSeconds(1));
+        session = sessionRepository.saveAndFlush(session);
+        sessionStartScheduler.transitionDueSessions();
+        sessionStartScheduler.transitionDueSessions();
+
+        WorkshopSession persisted = sessionRepository.findByReference(session.getReference()).orElseThrow();
+        assertThat(persisted.getState()).isEqualTo(SessionState.IN_PROGRESS);
+        // the manual schedule change above is not published; only the start is
+        assertThat(latestSnapshot().saleState()).isEqualTo("CLOSED");
+        assertThat(latestSnapshot().sourceVersion()).isEqualTo(versionBefore + 1);
+        assertThat(publicationCount(session.getReference())).isEqualTo(publicationsBefore + 1);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM operations_audit_events WHERE session_id = ? AND action = ?",
+                Integer.class, session.getId(), "SESSION_AUTO_STARTED")).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT metadata FROM operations_audit_events WHERE session_id = ? AND action = ?",
+                String.class, session.getId(), "SESSION_AUTO_STARTED")).contains("SALES_PAUSED");
+    }
     @Test
     void attendanceFinalizationDoesNotRepublishAlreadyClosedSaleState() {
         session.setState(SessionState.IN_PROGRESS);

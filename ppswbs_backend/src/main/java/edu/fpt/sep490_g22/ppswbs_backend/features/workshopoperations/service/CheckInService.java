@@ -36,7 +36,7 @@ public class CheckInService {
      * Executes atomic normal check-in via QR reference or exact ticket-code.
      * Requires:
      * - Online request;
-     * - Session in PUBLISHED or IN_PROGRESS;
+     * - Session in PUBLISHED, SALES_PAUSED or IN_PROGRESS;
      * - Check-in window open (now >= checkInOpensAt);
      * - Ticket validityState == ACTIVE;
      * - Valid entitlement for the target session and location;
@@ -49,9 +49,10 @@ public class CheckInService {
 
         AccountSummary actor = authorizationService.requireStaffSessionAssignment(authHeader, session.getId());
 
-        if (session.getState() != SessionState.PUBLISHED && session.getState() != SessionState.IN_PROGRESS) {
+        if (session.getState() != SessionState.PUBLISHED && session.getState() != SessionState.SALES_PAUSED
+                && session.getState() != SessionState.IN_PROGRESS) {
             log.warn("Check-in rejected: session {} is in state {}", sessionReference, session.getState());
-            throw new WorkshopLifecycleException("Session is in state " + session.getState() + ", check-in requires PUBLISHED or IN_PROGRESS");
+            throw new WorkshopLifecycleException("Session is in state " + session.getState() + ", check-in requires PUBLISHED, SALES_PAUSED or IN_PROGRESS");
         }
 
         Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);

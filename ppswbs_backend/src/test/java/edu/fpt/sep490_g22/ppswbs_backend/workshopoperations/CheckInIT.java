@@ -419,6 +419,32 @@ public class CheckInIT {
         assertThat(actions).hasSize(1);
     }
 
+
+    @Test
+    @DisplayName("T114: Check-in is accepted for a SALES_PAUSED session and refused once it is cancelled")
+    void checkIn_salesPausedSession_isAccepted() throws Exception {
+        WorkshopSession session = createPublishedSession(locationA, slotMorning, null);
+        String bookingRef = "BK-PAUSE-" + UUID.randomUUID().toString().substring(0, 8);
+        DeliverySafeTicket ticket = issueTicketsForBooking(bookingRef, List.of(session), 1).tickets().get(0);
+        session = sessionRepository.findByReference(session.getReference()).orElseThrow();
+        session.setState(SessionState.SALES_PAUSED);
+        session = sessionRepository.saveAndFlush(session);
+
+        mockMvc.perform(post("/api/v1/workshop-sessions/{sessionId}/check-ins", session.getReference())
+                        .header("Authorization", STAFF_A_TOKEN)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(CheckInRequest.builder().ticketCode(ticket.ticketCode()).build())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.checkInResult").value("CHECKED_IN"));
+
+        session.setState(SessionState.CANCELLATION_REQUESTED);
+        sessionRepository.saveAndFlush(session);
+        mockMvc.perform(post("/api/v1/workshop-sessions/{sessionId}/check-ins", session.getReference())
+                        .header("Authorization", STAFF_A_TOKEN)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(CheckInRequest.builder().ticketCode(ticket.ticketCode()).build())))
+                .andExpect(status().isConflict());
+    }
     // =========================================================================
     // 3. Wrong Location or Session Scan Rejected with 409 TICKET_CONFLICT
     // =========================================================================
