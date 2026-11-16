@@ -49,8 +49,8 @@ const guestHandlers = {
 async function pickFirstOption(user) {
   await user.click(await screen.findByRole('button', { name: 'Đổi lịch' }));
   await user.click((await screen.findAllByRole('radio'))[0]);
-  const to = (await screen.findAllByRole('radio')).find(radio => radio.getAttribute('name') === `to-${TICKET}` && !radio.disabled);
-  await user.click(to);
+  const select = (await screen.findAllByRole('combobox')).find(item => item.getAttribute('name') === `to-${TICKET}`);
+  await user.selectOptions(select, Array.from(select.options).find(option => option.value && !option.disabled).value);
 }
 
 async function verifyGuest(user) {
@@ -74,8 +74,8 @@ describe('003.3 FR-044a customer ticket change', () => {
     await user.click(await screen.findByRole('button', { name: 'Đổi lịch' }));
     await user.click((await screen.findAllByRole('radio'))[0]);
     expect(await screen.findByText(/còn 4 chỗ/)).toBeInTheDocument();
-    const radios = await screen.findAllByRole('radio');
-    expect(radios.find(radio => radio.getAttribute('name') === `to-${TICKET}` && radio.disabled)).toBeTruthy();
+    const select = (await screen.findAllByRole('combobox')).find(item => item.getAttribute('name') === `to-${TICKET}`);
+    expect(Array.from(select.options).find(option => option.value && option.disabled)).toBeTruthy();
     expect(screen.getByText(/Hết chỗ/)).toBeInTheDocument();
 
     // The list was read with the contact only: no OTP and no verification call yet.
@@ -83,7 +83,7 @@ describe('003.3 FR-044a customer ticket change', () => {
     expect(lookup.body).toEqual({ type: 'ADVANCE', contactEmail: 'guest@mland.vn' });
     expect(calls.some(call => call.path.endsWith('/buyer-verifications'))).toBe(false);
 
-    await user.click(radios.find(radio => radio.getAttribute('name') === `to-${TICKET}` && !radio.disabled));
+    await user.selectOptions(select, Array.from(select.options).find(option => option.value && !option.disabled).value);
     expect(screen.getByRole('button', { name: 'Xác nhận đổi lịch' })).toBeDisabled(); // OTP first
     await verifyGuest(user);
     await user.click(await screen.findByRole('button', { name: 'Xác nhận đổi lịch' }));
@@ -148,7 +148,7 @@ describe('003.3 FR-044a customer ticket change', () => {
     render(<GroupDetailCard group={confirmedGroup()} authorization="Bearer member-token" onTicketUpdated={() => {}} />);
 
     await pickFirstOption(user);
-    expect(screen.getByText(/Cần quản lý duyệt/, { selector: 'span' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /Cần quản lý duyệt/ })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Gửi yêu cầu đổi lịch' }));
 
     expect(await screen.findByText(/Đã gửi yêu cầu đổi lịch cho quản lý duyệt/)).toBeInTheDocument();

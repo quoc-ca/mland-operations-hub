@@ -132,7 +132,7 @@ describe('003.1 FR-012b/FR-012c group payment attempt failures (T149)', () => {
     expect(screen.queryByRole('button', { name: /Gửi lại email xác nhận/ })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Hủy giữ chỗ' })).toBeNull();
     if (groupStatus === 'EXPIRED') {
-      expect(screen.getByRole('link', { name: 'Đặt lại workshop' })).toHaveAttribute('href', '/workshops');
+      expect(screen.getByRole('link', { name: 'Đặt lại workshop' })).toHaveAttribute('href', '/workshops/5?focus=schedule&participants=2');
     }
   });
 });

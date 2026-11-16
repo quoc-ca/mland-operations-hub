@@ -24,6 +24,7 @@ const EN = {
     RESCHEDULE_QUOTA_EXHAUSTED: 'the session’s reschedule quota is full',
   },
   choose: 'Choose the new session',
+  pickPlaceholder: 'Select a session…',
 };
 
 const defaultWindow = (start, end) => {
@@ -110,19 +111,13 @@ export function TicketSessionPicker({ ticketCode, type, loadOptions, onSelect, l
   const both = sessions.length === 2 && sessions.every(item => item.sourceChangeable);
   const managerNote = rules => (rules || []).map(rule => text.rule[rule] || rule).join('; ');
 
-  const optionLabel = option => (
-    <>
-      <span>{formatWindow(option.start, option.end)}</span>
-      {' · '}
-      <span>{option.selectable === false && option.remainingCapacity <= 0 ? text.full : text.seatsLeft(option.remainingCapacity)}</span>
-      {option.requiresManager && (
-        <span style={{ color: '#874d00' }}>{' · '}{text.needsManager}{option.managerRules?.length ? ` (${managerNote(option.managerRules)})` : ''}</span>
-      )}
-      {Number(option.priceIncreaseAmountVnd) > 0 && (
-        <span style={{ color: '#b00' }}>{' · '}{text.priceIncrease(formatMoney(option.priceIncreaseAmountVnd))}</span>
-      )}
-    </>
-  );
+  // <option> holds text only, so the label is built as a string here.
+  const optionText = option => [
+    formatWindow(option.start, option.end),
+    option.selectable === false && option.remainingCapacity <= 0 ? text.full : text.seatsLeft(option.remainingCapacity),
+    option.requiresManager ? `${text.needsManager}${option.managerRules?.length ? ` (${managerNote(option.managerRules)})` : ''}` : null,
+    Number(option.priceIncreaseAmountVnd) > 0 ? text.priceIncrease(formatMoney(option.priceIncreaseAmountVnd)) : null,
+  ].filter(Boolean).join(' · ');
 
   const selected = scope && scope !== BOTH ? sessions.find(item => item.fromSessionReference === scope) : null;
 
@@ -157,24 +152,32 @@ export function TicketSessionPicker({ ticketCode, type, loadOptions, onSelect, l
         <fieldset style={{ border: 'none', padding: 0, margin: '8px 0' }}>
           <legend style={{ fontSize: '13px', fontWeight: 600 }}>{text.choose}</legend>
           {selected.options.length === 0 && <p className="muted" style={{ fontSize: '13px' }}>{text.noOptions}</p>}
-          {selected.options.map(option => (
-            <label key={option.sessionReference} style={{ display: 'block', fontSize: '13px', margin: '4px 0', opacity: option.selectable ? 1 : 0.6 }}>
-              <input
-                type="radio"
-                name={`to-${ticketCode}`}
-                checked={picked === option.sessionReference}
-                disabled={!option.selectable}
-                onChange={() => choose(option.sessionReference, {
+          {selected.options.length > 0 && (
+            <select
+              aria-label={text.choose}
+              name={`to-${ticketCode}`}
+              value={picked || ''}
+              style={{ width: '100%', fontSize: '13px' }}
+              onChange={event => {
+                const option = selected.options.find(item => item.sessionReference === event.target.value);
+                if (!option) return;
+                choose(option.sessionReference, {
                   fromSessionReferences: [selected.fromSessionReference],
                   targetSessionReferences: [option.sessionReference],
                   requiresManager: option.requiresManager,
                   managerRules: option.managerRules || [],
                   priceIncreaseAmountVnd: option.priceIncreaseAmountVnd,
-                })}
-              />
-              {' '}{optionLabel(option)}
-            </label>
-          ))}
+                });
+              }}
+            >
+              <option value="" disabled>{text.pickPlaceholder}</option>
+              {selected.options.map(option => (
+                <option key={option.sessionReference} value={option.sessionReference} disabled={!option.selectable}>
+                  {optionText(option)}
+                </option>
+              ))}
+            </select>
+          )}
         </fieldset>
       )}
 
@@ -183,31 +186,40 @@ export function TicketSessionPicker({ ticketCode, type, loadOptions, onSelect, l
           <legend style={{ fontSize: '13px', fontWeight: 600 }}>{text.choose}</legend>
           {!pairData && <p className="muted" role="status" style={{ fontSize: '13px' }}>{text.loading}</p>}
           {pairData && (pairData.pairs || []).length === 0 && <p className="muted" style={{ fontSize: '13px' }}>{text.noPairs}</p>}
-          {pairData && (pairData.pairs || []).map(pair => {
-            const key = pair.sessionReferences.join('>');
-            const [firstWindow, secondWindow] = (pair.sessions || []).map(item => `${formatWindow(item.start, item.end)} (${text.seatsLeft(item.remainingCapacity)})`);
-            return (
-              <label key={key} style={{ display: 'block', fontSize: '13px', margin: '4px 0', opacity: pair.selectable ? 1 : 0.6 }}>
-                <input
-                  type="radio"
-                  name={`pair-${ticketCode}`}
-                  checked={picked === key}
-                  disabled={!pair.selectable}
-                  onChange={() => choose(key, {
-                    fromSessionReferences: sessions.map(item => item.fromSessionReference),
-                    targetSessionReferences: pair.sessionReferences,
-                    requiresManager: pair.requiresManager,
-                    managerRules: pair.managerRules || [],
-                    priceIncreaseAmountVnd: pair.priceIncreaseAmountVnd,
-                  })}
-                />
-                {' '}{firstWindow} → {secondWindow}
-                {!pair.selectable && ` · ${text.full}`}
-                {pair.requiresManager && <span style={{ color: '#874d00' }}>{' · '}{text.needsManager}</span>}
-                {Number(pair.priceIncreaseAmountVnd) > 0 && <span style={{ color: '#b00' }}>{' · '}{text.priceIncrease(formatMoney(pair.priceIncreaseAmountVnd))}</span>}
-              </label>
-            );
-          })}
+          {pairData && (pairData.pairs || []).length > 0 && (
+            <select
+              aria-label={text.choose}
+              name={`pair-${ticketCode}`}
+              value={picked || ''}
+              style={{ width: '100%', fontSize: '13px' }}
+              onChange={event => {
+                const pair = pairData.pairs.find(item => item.sessionReferences.join('>') === event.target.value);
+                if (!pair) return;
+                choose(event.target.value, {
+                  fromSessionReferences: sessions.map(item => item.fromSessionReference),
+                  targetSessionReferences: pair.sessionReferences,
+                  requiresManager: pair.requiresManager,
+                  managerRules: pair.managerRules || [],
+                  priceIncreaseAmountVnd: pair.priceIncreaseAmountVnd,
+                });
+              }}
+            >
+              <option value="" disabled>{text.pickPlaceholder}</option>
+              {pairData.pairs.map(pair => {
+                const [firstWindow, secondWindow] = (pair.sessions || []).map(item => `${formatWindow(item.start, item.end)} (${text.seatsLeft(item.remainingCapacity)})`);
+                const notes = [
+                  !pair.selectable ? text.full : null,
+                  pair.requiresManager ? text.needsManager : null,
+                  Number(pair.priceIncreaseAmountVnd) > 0 ? text.priceIncrease(formatMoney(pair.priceIncreaseAmountVnd)) : null,
+                ].filter(Boolean);
+                return (
+                  <option key={pair.sessionReferences.join('>')} value={pair.sessionReferences.join('>')} disabled={!pair.selectable}>
+                    {firstWindow} → {secondWindow}{notes.length ? ` · ${notes.join(' · ')}` : ''}
+                  </option>
+                );
+              })}
+            </select>
+          )}
         </fieldset>
       )}
     </div>

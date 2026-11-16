@@ -33,8 +33,8 @@ async function addTicketToChange(user, code) {
   await user.click(screen.getByRole('button', { name: 'Show sessions' }));
   const fromRadio = (await screen.findAllByRole('radio')).find(radio => radio.getAttribute('name') === `from-${code}`);
   await user.click(fromRadio);
-  const toRadio = (await screen.findAllByRole('radio')).find(radio => radio.getAttribute('name') === `to-${code}`);
-  await user.click(toRadio);
+  const toSelect = (await screen.findAllByRole('combobox')).find(item => item.getAttribute('name') === `to-${code}`);
+  await user.selectOptions(toSelect, Array.from(toSelect.options).find(option => option.value && !option.disabled).value);
   await user.click(screen.getByRole('button', { name: 'Add ticket to the change' }));
 }
 
@@ -77,8 +77,8 @@ describe('Staff ticket cancellation and change', () => {
     await user.type(await screen.findByLabelText('Ticket code to change'), 'TK-1');
     await user.click(screen.getByRole('button', { name: 'Show sessions' }));
     await user.click((await screen.findAllByRole('radio'))[0]);
-    const full = (await screen.findAllByRole('radio')).find(radio => radio.getAttribute('name') === 'to-TK-1');
-    expect(full).toBeDisabled();
+    const full = (await screen.findAllByRole('combobox')).find(item => item.getAttribute('name') === 'to-TK-1');
+    expect(Array.from(full.options).find(option => option.value && option.disabled)).toBeTruthy();
     expect(screen.getByText(/Full/)).toBeInTheDocument();
 
     await user.clear(screen.getByLabelText('Ticket code to change'));
@@ -87,7 +87,8 @@ describe('Staff ticket cancellation and change', () => {
     await user.click((await screen.findAllByRole('radio'))[0]);
     expect(await screen.findByText(/4 seats left/)).toBeInTheDocument();
     expect(screen.getByText(/Needs a Manager to approve/)).toBeInTheDocument();
-    await user.click((await screen.findAllByRole('radio')).find(radio => radio.getAttribute('name') === 'to-TK-2'));
+    const second = (await screen.findAllByRole('combobox')).find(item => item.getAttribute('name') === 'to-TK-2');
+    await user.selectOptions(second, Array.from(second.options).find(option => option.value && !option.disabled).value);
     expect(screen.getByRole('note')).toHaveTextContent('queued');
   });
 
