@@ -187,7 +187,7 @@ class WorkshopSettlementMysqlIT {
     }
 
     private void walkRefundToReconciliation(SettlementRefundRequest request) {
-        bankRefunds.submitAccountAtCounter(request.getRequestReference(), "VCB", "0123456789", "NGUYEN VAN A", 300L, "CORR");
+        bankRefunds.submitAccountAtCounter(request.getRequestReference(), "VCB", "0123456789", "NGUYEN VAN A", true, 300L, "CORR");
         bankRefunds.approve(request.getRequestReference(), 300L, "Checked against the ticket", "CORR");
         bankRefunds.recordTransfer(request.getRequestReference(), 300L, "BANK-TXN-" + SEQ.incrementAndGet(),
                 "PROOF-" + SEQ.get(), "CORR");

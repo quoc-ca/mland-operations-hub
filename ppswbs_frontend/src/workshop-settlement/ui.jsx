@@ -151,3 +151,29 @@ export function VoucherNotRestoredNotice({ voucherRestoration }) {
     </div>
   );
 }
+
+/**
+ * T151 (FR-040): the review step of an account entry. It shows bank, account number and holder name back and requires the
+ * explicit "These details are correct" confirmation before the caller may submit; the caller sends accountDetailsConfirmed
+ * only from this checkbox. The number is shown only here, from the entered values, and the caller clears them after sending.
+ */
+export function AccountReviewStep({ details, confirmed, onConfirmedChange, onEdit, pending, submitLabel, onSubmit }) {
+  return (
+    <form className="ota-form" aria-label="Review account details" onSubmit={event => { event.preventDefault(); if (confirmed) onSubmit(); }}>
+      <p className="muted">Check the details below with the account owner before sending.</p>
+      <dl className="ops-facts">
+        <div><dt>Bank</dt><dd>{details.bankCode}</dd></div>
+        <div><dt>Account number</dt><dd>{details.accountNumber}</dd></div>
+        <div><dt>Account holder name</dt><dd>{details.holderName}</dd></div>
+      </dl>
+      <label className="settlement-addon-consent">
+        <input type="checkbox" checked={confirmed} onChange={event => onConfirmedChange(event.target.checked)} />
+        <span>These details are correct</span>
+      </label>
+      <div className="ops-actions">
+        <button className="button outline" type="button" disabled={pending} onClick={onEdit}>Edit details</button>
+        <button className="button primary" type="submit" disabled={pending || !confirmed}>{submitLabel}</button>
+      </div>
+    </form>
+  );
+}

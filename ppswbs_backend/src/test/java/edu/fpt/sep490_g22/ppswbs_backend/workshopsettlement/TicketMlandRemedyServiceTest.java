@@ -145,7 +145,7 @@ class TicketMlandRemedyServiceTest {
     void createOffer_success() {
         TicketFolioContext ctx = createContext(TICKET_CODE, OPS_TICKET_REF, 500L, "L1-T1");
         when(booking.getTicketFolioContext(TICKET_CODE)).thenReturn(Optional.of(ctx));
-        when(bills.findByBookingReference(TICKET_CODE)).thenReturn(Optional.of(createBill(TICKET_CODE, 100_000L)));
+        lenient().when(bills.findByBookingReference(TICKET_CODE)).thenReturn(Optional.of(createBill(TICKET_CODE, 100_000L)));
         when(remedyRepository.findByTicketCodeAndOutcome(TICKET_CODE, "PENDING_ANSWER")).thenReturn(Optional.empty());
         when(remedyRepository.save(any(SettlementTicketMlandRemedy.class))).thenAnswer(i -> i.getArgument(0));
 
@@ -187,7 +187,7 @@ class TicketMlandRemedyServiceTest {
         when(booking.getTicketFolioContext(TICKET_CODE)).thenReturn(Optional.of(ctx));
         SettlementFinalBill bill = createBill(TICKET_CODE, 100_000L);
         bill.setLifecycleStatus("FINALIZED");
-        when(bills.findByBookingReference(TICKET_CODE)).thenReturn(Optional.of(bill));
+        lenient().when(bills.findByBookingReference(TICKET_CODE)).thenReturn(Optional.of(bill));
 
         assertThatThrownBy(() -> service.createOffer(TICKET_CODE, "S1", List.of("S2"), Instant.now().plus(48, ChronoUnit.HOURS), "CORR"))
                 .isInstanceOf(WorkshopSettlementConflictException.class)
@@ -247,19 +247,19 @@ class TicketMlandRemedyServiceTest {
         when(booking.consumeBuyerProof(any())).thenReturn(ConsumeBuyerProofResult.accepted());
 
         // Collections: 50,000 deposit + 20,000 counter confirmed = 70,000 VND
-        when(bills.findByBookingReference(TICKET_CODE)).thenReturn(Optional.of(createBill(TICKET_CODE, 50_000L)));
+        lenient().when(bills.findByBookingReference(TICKET_CODE)).thenReturn(Optional.of(createBill(TICKET_CODE, 50_000L)));
         lenient().when(bills.findByBookingReferenceForUpdate(TICKET_CODE)).thenReturn(Optional.of(createBill(TICKET_CODE, 50_000L)));
-        when(collections.findByBookingReferenceOrderByIdAsc(TICKET_CODE)).thenReturn(List.of(
+        lenient().when(collections.findByBookingReferenceOrderByIdAsc(TICKET_CODE)).thenReturn(List.of(
                 SettlementFolioCollection.builder().amountVnd(20_000L).status(FolioCollectionStatus.CONFIRMED).build()
         ));
-        when(evidence.findByBookingReferenceAndConclusion(eq(TICKET_CODE), anyString())).thenReturn(List.of());
+        lenient().when(evidence.findByBookingReferenceAndConclusion(eq(TICKET_CODE), anyString())).thenReturn(List.of());
 
         SettlementRefundRequest refundReq = SettlementRefundRequest.builder()
                 .requestReference("REFUND-M-01")
                 .amountVnd(70_000L)
                 .status(RefundRequestStatus.PENDING_ACCOUNT)
                 .build();
-        when(bankRefunds.open(eq(TICKET_CODE), eq(GROUP_CODE), eq(RefundReason.MLAND_CANCELLATION), anyString(), eq(70_000L), anyString()))
+        when(bankRefunds.openRemainder(eq(TICKET_CODE), eq(GROUP_CODE), eq(RefundReason.MLAND_CANCELLATION), anyString(), anyString()))
                 .thenReturn(new BankRefundService.OpenedRefund(refundReq, "token-123"));
 
         when(operations.cancelTicket(eq(OPS_TICKET_REF), anyString(), anyString(), anyString()))
@@ -291,7 +291,7 @@ class TicketMlandRemedyServiceTest {
         assertThat(response.pointsReturned()).isEqualTo(300L);
         assertThat(response.voucherRestored()).isTrue();
 
-        verify(bankRefunds).open(eq(TICKET_CODE), eq(GROUP_CODE), eq(RefundReason.MLAND_CANCELLATION), anyString(), eq(70_000L), anyString());
+        verify(bankRefunds).openRemainder(eq(TICKET_CODE), eq(GROUP_CODE), eq(RefundReason.MLAND_CANCELLATION), anyString(), anyString());
         verify(operations).cancelTicket(eq(OPS_TICKET_REF), anyString(), anyString(), anyString());
         verify(loyalty).restoreVoucherForCancelledTicket(new RestoreVoucherCommand(GROUP_CODE, TICKET_CODE,
                 TicketCancellationKind.MLAND_CANCELLED));
@@ -313,17 +313,17 @@ class TicketMlandRemedyServiceTest {
         when(remedyRepository.findByTicketCodeAndOutcome(TICKET_CODE, "PENDING_ANSWER")).thenReturn(Optional.of(offer));
         when(booking.consumeBuyerProof(any())).thenReturn(ConsumeBuyerProofResult.accepted());
 
-        when(bills.findByBookingReference(TICKET_CODE)).thenReturn(Optional.of(createBill(TICKET_CODE, 50_000L)));
+        lenient().when(bills.findByBookingReference(TICKET_CODE)).thenReturn(Optional.of(createBill(TICKET_CODE, 50_000L)));
         lenient().when(bills.findByBookingReferenceForUpdate(TICKET_CODE)).thenReturn(Optional.of(createBill(TICKET_CODE, 50_000L)));
-        when(collections.findByBookingReferenceOrderByIdAsc(TICKET_CODE)).thenReturn(List.of());
-        when(evidence.findByBookingReferenceAndConclusion(eq(TICKET_CODE), anyString())).thenReturn(List.of());
+        lenient().when(collections.findByBookingReferenceOrderByIdAsc(TICKET_CODE)).thenReturn(List.of());
+        lenient().when(evidence.findByBookingReferenceAndConclusion(eq(TICKET_CODE), anyString())).thenReturn(List.of());
 
         SettlementRefundRequest refundReq = SettlementRefundRequest.builder()
                 .requestReference("REFUND-G-01")
                 .amountVnd(50_000L)
                 .status(RefundRequestStatus.PENDING_ACCOUNT)
                 .build();
-        when(bankRefunds.open(eq(TICKET_CODE), eq(GROUP_CODE), eq(RefundReason.MLAND_CANCELLATION), anyString(), eq(50_000L), anyString()))
+        when(bankRefunds.openRemainder(eq(TICKET_CODE), eq(GROUP_CODE), eq(RefundReason.MLAND_CANCELLATION), anyString(), anyString()))
                 .thenReturn(new BankRefundService.OpenedRefund(refundReq, "token-456"));
 
         when(operations.cancelTicket(eq(OPS_TICKET_REF), anyString(), anyString(), anyString()))
@@ -358,17 +358,17 @@ class TicketMlandRemedyServiceTest {
         when(remedyRepository.findByTicketCodeAndOutcome(TICKET_CODE, "PENDING_ANSWER")).thenReturn(Optional.of(offer));
         when(booking.consumeBuyerProof(any())).thenReturn(ConsumeBuyerProofResult.accepted());
 
-        when(bills.findByBookingReference(TICKET_CODE)).thenReturn(Optional.of(createBill(TICKET_CODE, 50_000L)));
+        lenient().when(bills.findByBookingReference(TICKET_CODE)).thenReturn(Optional.of(createBill(TICKET_CODE, 50_000L)));
         lenient().when(bills.findByBookingReferenceForUpdate(TICKET_CODE)).thenReturn(Optional.of(createBill(TICKET_CODE, 50_000L)));
-        when(collections.findByBookingReferenceOrderByIdAsc(TICKET_CODE)).thenReturn(List.of());
-        when(evidence.findByBookingReferenceAndConclusion(eq(TICKET_CODE), anyString())).thenReturn(List.of());
+        lenient().when(collections.findByBookingReferenceOrderByIdAsc(TICKET_CODE)).thenReturn(List.of());
+        lenient().when(evidence.findByBookingReferenceAndConclusion(eq(TICKET_CODE), anyString())).thenReturn(List.of());
 
         SettlementRefundRequest refundReq = SettlementRefundRequest.builder()
                 .requestReference("REFUND-S-01")
                 .amountVnd(50_000L)
                 .status(RefundRequestStatus.PENDING_ACCOUNT)
                 .build();
-        when(bankRefunds.open(eq(TICKET_CODE), eq(GROUP_CODE), eq(RefundReason.MLAND_CANCELLATION), anyString(), eq(50_000L), anyString()))
+        when(bankRefunds.openRemainder(eq(TICKET_CODE), eq(GROUP_CODE), eq(RefundReason.MLAND_CANCELLATION), anyString(), anyString()))
                 .thenReturn(new BankRefundService.OpenedRefund(refundReq, "token-789"));
 
         when(operations.cancelTicket(eq(OPS_TICKET_REF), anyString(), anyString(), anyString()))
@@ -427,7 +427,7 @@ class TicketMlandRemedyServiceTest {
                 .isInstanceOf(WorkshopSettlementAuthorizationException.class);
 
         verify(booking, never()).consumeBuyerProof(any());
-        verify(bankRefunds, never()).open(any(), any(), any(), any(), anyLong(), any());
+        verify(bankRefunds, never()).openRemainder(any(), any(), any(), any(), any());
     }
 
     @Test
@@ -498,17 +498,17 @@ class TicketMlandRemedyServiceTest {
         when(remedyRepository.findByOutcomeAndAnswerDeadlineAtLessThanEqual(eq("PENDING_ANSWER"), any(Instant.class)))
                 .thenReturn(List.of(offer));
 
-        when(bills.findByBookingReference(TICKET_CODE)).thenReturn(Optional.of(createBill(TICKET_CODE, 100_000L)));
+        lenient().when(bills.findByBookingReference(TICKET_CODE)).thenReturn(Optional.of(createBill(TICKET_CODE, 100_000L)));
         lenient().when(bills.findByBookingReferenceForUpdate(TICKET_CODE)).thenReturn(Optional.of(createBill(TICKET_CODE, 100_000L)));
-        when(collections.findByBookingReferenceOrderByIdAsc(TICKET_CODE)).thenReturn(List.of());
-        when(evidence.findByBookingReferenceAndConclusion(eq(TICKET_CODE), anyString())).thenReturn(List.of());
+        lenient().when(collections.findByBookingReferenceOrderByIdAsc(TICKET_CODE)).thenReturn(List.of());
+        lenient().when(evidence.findByBookingReferenceAndConclusion(eq(TICKET_CODE), anyString())).thenReturn(List.of());
 
         SettlementRefundRequest refundReq = SettlementRefundRequest.builder()
                 .requestReference("REFUND-AUTO-01")
                 .amountVnd(100_000L)
                 .status(RefundRequestStatus.PENDING_ACCOUNT)
                 .build();
-        when(bankRefunds.open(eq(TICKET_CODE), eq(GROUP_CODE), eq(RefundReason.MLAND_CANCELLATION), anyString(), eq(100_000L), anyString()))
+        when(bankRefunds.openRemainder(eq(TICKET_CODE), eq(GROUP_CODE), eq(RefundReason.MLAND_CANCELLATION), anyString(), anyString()))
                 .thenReturn(new BankRefundService.OpenedRefund(refundReq, "token-auto"));
 
         when(operations.cancelTicket(eq(OPS_TICKET_REF), anyString(), anyString(), anyString()))
@@ -530,7 +530,7 @@ class TicketMlandRemedyServiceTest {
         assertThat(offer.getPointsReturned()).isEqualTo(200L);
         assertThat(offer.isVoucherRestored()).isTrue();
 
-        verify(bankRefunds).open(eq(TICKET_CODE), eq(GROUP_CODE), eq(RefundReason.MLAND_CANCELLATION), anyString(), eq(100_000L), anyString());
+        verify(bankRefunds).openRemainder(eq(TICKET_CODE), eq(GROUP_CODE), eq(RefundReason.MLAND_CANCELLATION), anyString(), anyString());
         verify(operations).cancelTicket(eq(OPS_TICKET_REF), anyString(), anyString(), anyString());
         verify(loyalty).restoreVoucherForCancelledTicket(new RestoreVoucherCommand(GROUP_CODE, TICKET_CODE,
                 TicketCancellationKind.MLAND_CANCELLED));
@@ -652,7 +652,7 @@ class TicketMlandRemedyServiceTest {
     void createOffer_manySessions_deadlineFromLatest() {
         TicketFolioContext ctx = createContext(TICKET_CODE, OPS_TICKET_REF, 0L, "L1-T1");
         when(booking.getTicketFolioContext(TICKET_CODE)).thenReturn(Optional.of(ctx));
-        when(bills.findByBookingReference(TICKET_CODE)).thenReturn(Optional.of(createBill(TICKET_CODE, 100_000L)));
+        lenient().when(bills.findByBookingReference(TICKET_CODE)).thenReturn(Optional.of(createBill(TICKET_CODE, 100_000L)));
         when(remedyRepository.save(any(SettlementTicketMlandRemedy.class))).thenAnswer(i -> i.getArgument(0));
 
         Instant early = Instant.now().plus(50, ChronoUnit.HOURS).truncatedTo(ChronoUnit.MICROS);
@@ -804,14 +804,14 @@ class TicketMlandRemedyServiceTest {
     void openDirectRefund_refundsAtOnce() {
         TicketFolioContext ctx = createContext(TICKET_CODE, OPS_TICKET_REF, 0L, "L1-T1");
         when(booking.getTicketFolioContext(TICKET_CODE)).thenReturn(Optional.of(ctx));
-        when(bills.findByBookingReference(TICKET_CODE)).thenReturn(Optional.of(createBill(TICKET_CODE, 80_000L)));
+        lenient().when(bills.findByBookingReference(TICKET_CODE)).thenReturn(Optional.of(createBill(TICKET_CODE, 80_000L)));
         lenient().when(bills.findByBookingReferenceForUpdate(TICKET_CODE)).thenReturn(Optional.of(createBill(TICKET_CODE, 80_000L)));
-        when(collections.findByBookingReferenceOrderByIdAsc(TICKET_CODE)).thenReturn(List.of());
-        when(evidence.findByBookingReferenceAndConclusion(eq(TICKET_CODE), anyString())).thenReturn(List.of());
+        lenient().when(collections.findByBookingReferenceOrderByIdAsc(TICKET_CODE)).thenReturn(List.of());
+        lenient().when(evidence.findByBookingReferenceAndConclusion(eq(TICKET_CODE), anyString())).thenReturn(List.of());
         when(remedyRepository.save(any(SettlementTicketMlandRemedy.class))).thenAnswer(i -> i.getArgument(0));
         SettlementRefundRequest refundReq = SettlementRefundRequest.builder().requestReference("REFUND-DIRECT-01")
                 .amountVnd(80_000L).status(RefundRequestStatus.PENDING_ACCOUNT).build();
-        when(bankRefunds.open(eq(TICKET_CODE), eq(GROUP_CODE), eq(RefundReason.MLAND_CANCELLATION), anyString(), eq(80_000L), anyString()))
+        when(bankRefunds.openRemainder(eq(TICKET_CODE), eq(GROUP_CODE), eq(RefundReason.MLAND_CANCELLATION), anyString(), anyString()))
                 .thenReturn(new BankRefundService.OpenedRefund(refundReq, "token-direct"));
         when(operations.cancelTicket(eq(OPS_TICKET_REF), anyString(), anyString(), anyString()))
                 .thenReturn(TicketCancellationOutcome.accepted(OPS_TICKET_REF, List.of()));
@@ -855,14 +855,14 @@ class TicketMlandRemedyServiceTest {
         SettlementTicketMlandRemedy offer = createPendingRemedy(ticketCode, Instant.now().plus(48, ChronoUnit.HOURS));
         when(remedyRepository.findByTicketCodeAndOutcome(ticketCode, "PENDING_ANSWER")).thenReturn(Optional.of(offer));
         when(booking.consumeBuyerProof(any())).thenReturn(ConsumeBuyerProofResult.accepted());
-        when(bills.findByBookingReference(ticketCode)).thenReturn(Optional.of(createBill(ticketCode, deposit)));
+        lenient().when(bills.findByBookingReference(ticketCode)).thenReturn(Optional.of(createBill(ticketCode, deposit)));
         lenient().when(bills.findByBookingReferenceForUpdate(ticketCode)).thenReturn(Optional.of(createBill(ticketCode, deposit)));
-        when(collections.findByBookingReferenceOrderByIdAsc(ticketCode)).thenReturn(List.of());
-        when(evidence.findByBookingReferenceAndConclusion(eq(ticketCode), anyString())).thenReturn(List.of());
+        lenient().when(collections.findByBookingReferenceOrderByIdAsc(ticketCode)).thenReturn(List.of());
+        lenient().when(evidence.findByBookingReferenceAndConclusion(eq(ticketCode), anyString())).thenReturn(List.of());
         if (deposit > 0) {
             SettlementRefundRequest refundReq = SettlementRefundRequest.builder()
                     .requestReference("REFUND-" + ticketCode).amountVnd(deposit).status(RefundRequestStatus.PENDING_ACCOUNT).build();
-            when(bankRefunds.open(eq(ticketCode), eq(GROUP_CODE), eq(RefundReason.MLAND_CANCELLATION), anyString(), eq(deposit), anyString()))
+            when(bankRefunds.openRemainder(eq(ticketCode), eq(GROUP_CODE), eq(RefundReason.MLAND_CANCELLATION), anyString(), anyString()))
                     .thenReturn(new BankRefundService.OpenedRefund(refundReq, "token-" + ticketCode));
         }
         when(operations.cancelTicket(eq(opsRef), anyString(), anyString(), anyString()))
@@ -892,7 +892,7 @@ class TicketMlandRemedyServiceTest {
         assertThat(response.voucherRestored()).isFalse();
         assertThat(response.voucherRestoration()).isEqualTo(new VoucherRestorationDto(false, "EXPIRED"));
         assertThat(offer.getVoucherRestorationOutcome()).isEqualTo("EXPIRED");
-        verify(bankRefunds).open(eq(TICKET_CODE), eq(GROUP_CODE), eq(RefundReason.MLAND_CANCELLATION), anyString(), eq(80_000L), anyString());
+        verify(bankRefunds).openRemainder(eq(TICKET_CODE), eq(GROUP_CODE), eq(RefundReason.MLAND_CANCELLATION), anyString(), anyString());
     }
 
     @Test
@@ -921,7 +921,7 @@ class TicketMlandRemedyServiceTest {
 
         TicketRemedyAnswerResponseDto response = answerRefund("TK-FREE");
 
-        verify(bankRefunds, never()).open(any(), any(), any(), any(), anyLong(), any());
+        verify(bankRefunds).openRemainder(any(), any(), any(), any(), any()); // nothing collected: the remainder is null and no request exists
         assertThat(response.refundRequestReference()).isNull();
         assertThat(response.voucherRestoration()).isEqualTo(new VoucherRestorationDto(true, null));
         verify(loyalty, times(1)).restoreVoucherForCancelledTicket(any());

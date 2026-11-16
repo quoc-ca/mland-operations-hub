@@ -25,6 +25,9 @@ export function createSettlementApi(http) {
     failCollection: (code, collectionId, body, key) => write(`${ticket(code)}/folio/collections/${enc(collectionId)}/failures`, body, key),
     voidLine: (code, lineId, body, key) => write(`${ticket(code)}/folio/lines/${enc(lineId)}/voids`, body, key),
     voidCollection: (code, collectionId, body, key) => write(`${ticket(code)}/folio/collections/${enc(collectionId)}/voids`, body, key),
+    reverseCashCollection: (code, collectionId, body, key) => write(`${ticket(code)}/folio/collections/${enc(collectionId)}/cash-reversals`, body, key),
+    recordAbsorbedUndercharge: (code, body, key) => write(`${ticket(code)}/folio/absorbed-undercharges`, body, key),
+    voidAbsorbedUndercharge: (code, reference, body, key) => write(`${ticket(code)}/folio/absorbed-undercharges/${enc(reference)}/voids`, body, key),
     grantChangeAllowance: (code, body, key) => write(`${ticket(code)}/change-allowances`, body, key),
     allowHandover:(code, body, key) => write(`${ticket(code)}/folio/handover-exceptions`, body, key),
     listAddOns: code => http(`${ticket(code)}/folio/add-ons`),
@@ -40,13 +43,24 @@ export function createSettlementApi(http) {
     closeCash: (body, key) => write('/api/v1/workshop-cash-closes', body, key),
     confirmCashDifference: (cashCloseId, body, key) => write(`/api/v1/workshop-cash-closes/${enc(cashCloseId)}/difference-confirmations`, body, key),
 
+    // Manager read-only lists (FR-056, FR-057).
+    listReconciliation: query => http('/api/v1/workshop-reconciliation-collections', { query }),
+    listAbsorbedUndercharges: query => http('/api/v1/workshop-absorbed-undercharges', { query }),
+
     // Bank refunds.
     listRefunds: query => http('/api/v1/workshop-refund-requests', { query }),
     transitionRefund: (refundId, body, key) => write(`/api/v1/workshop-refund-requests/${enc(refundId)}/transitions`, body, key),
     putRefundAccount: (refundId, body, key) => http(`/api/v1/workshop-refund-requests/${enc(refundId)}/account`, { method: 'PUT', body, idempotencyKey: key || newCommandId() }),
     resendAccountLink: (refundId, key) => write(`/api/v1/workshop-refund-requests/${enc(refundId)}/account-link-resends`, undefined, key),
+    // T154: optional receipt image. The upload is multipart (the browser sets the boundary); the image is streamed same-origin.
+    uploadReceiptImage: (refundId, file, key) => {
+      const form = new FormData();
+      form.append('file', file);
+      return http(`/api/v1/workshop-refund-requests/${enc(refundId)}/receipt-images`, { method: 'POST', form, idempotencyKey: key || newCommandId() });
+    },
+    getReceiptImage: refundId => http(`/api/v1/workshop-refund-requests/${enc(refundId)}/receipt-image`, { responseType: 'blob', headers: { Accept: 'image/*' } }),
     getRefundAccountNumber: refundId => http(`/api/v1/workshop-refund-requests/${enc(refundId)}/account-number`),
-    submitRefundAccount: (token, body) => http(`/api/v1/refund-account-links/${enc(token)}`, { method: 'POST', body, auth: false }),
+    submitRefundAccount: (token, body, key) => http(`/api/v1/refund-account-links/${enc(token)}`, { method: 'POST', body, auth: false, idempotencyKey: key || newCommandId() }),
 
     // Cancellation and change (buyer proof: bearer for a Member, buyerVerificationReference otherwise).
     cancelTicket: (code, body, key, opts) => write(`${ticket(code)}/cancellations`, body, key, opts),

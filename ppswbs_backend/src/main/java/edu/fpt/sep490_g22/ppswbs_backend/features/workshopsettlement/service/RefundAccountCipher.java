@@ -91,6 +91,23 @@ public final class RefundAccountCipher {
         return "****" + digits.substring(digits.length() - 4);
     }
 
+    /**
+     * Keyed fingerprint (HMAC-SHA-256, hex) of a value that must never be stored, such as a request carrying an
+     * account number (T169). Domain-separated from the encryption use of the same key.
+     */
+    public static String fingerprint(String value) {
+        try {
+            javax.crypto.Mac mac = javax.crypto.Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(key().getEncoded(), "HmacSHA256"));
+            mac.update("refund-account-link-idempotency|".getBytes(StandardCharsets.UTF_8));
+            return java.util.HexFormat.of().formatHex(mac.doFinal(value.getBytes(StandardCharsets.UTF_8)));
+        } catch (GeneralSecurityFailure failure) {
+            throw failure;
+        } catch (Exception failure) {
+            throw new GeneralSecurityFailure("The request fingerprint could not be computed", failure);
+        }
+    }
+
     static void useKeyForTests(String base64Key) {
         overrideKey = base64Key;
     }

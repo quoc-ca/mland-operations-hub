@@ -262,6 +262,24 @@ public class FolioCollectionService {
     }
 
     /**
+     * T149, FR-034: 24 hours after the attempt was created VNPay still reports no successful payment, so the
+     * pending part is failed as {@code SYSTEM} and the balance it locked is free again. Money signed after this
+     * is kept in full and routed to an excess refund by {@link #routeUnappliedGatewayMoney}.
+     */
+    @Transactional
+    public boolean autoFailGatewayCollection(String merchantReference, String providerOutcome,
+                                             String correlationReference) {
+        SettlementFolioCollection collection = collections
+                .findByMethodAndExternalReference(FolioCollectionMethod.VNPAY, merchantReference)
+                .orElse(null);
+        if (collection == null || !collection.isPending()) {
+            return false;
+        }
+        fail(collection, null, "FOLIO_GATEWAY_COLLECTION_AUTO_FAILED", providerOutcome, correlationReference);
+        return true;
+    }
+
+    /**
      * T110/T121, FR-034: signed VNPay money that cannot settle a pending part of an OPEN folio — the folio is no
      * longer OPEN, the part is no longer pending, or no VNPAY part has that merchant reference — is never
      * rejected. The caller has already recorded the verified evidence; here it is kept in full as money owed

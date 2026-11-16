@@ -582,31 +582,17 @@ public class TicketMlandRemedyService {
     ) {
         String ticketCode = offer.getTicketCode();
 
-        // 1. Calculate 100% collected money
-        long counterCollections = collections.findByBookingReferenceOrderByIdAsc(ticketCode).stream()
-                .filter(c -> c.getStatus() == FolioCollectionStatus.CONFIRMED)
-                .mapToLong(SettlementFolioCollection::getAmountVnd)
-                .sum();
-        long bookingDeposit = bills.findByBookingReference(ticketCode)
-                .map(SettlementFinalBill::getAcceptedDepositAmountVnd)
-                .orElse(0L);
-        long gatewayCollections = Stream.of("FINAL_PAYMENT_VERIFIED", "SHOP_ADDON_VERIFIED")
-                .flatMap(c -> evidence.findByBookingReferenceAndConclusion(ticketCode, c).stream())
-                .mapToLong(e -> e.getAmountVnd() == null ? 0L : e.getAmountVnd())
-                .sum();
-        long totalCollected = Math.addExact(bookingDeposit, Math.addExact(gatewayCollections, counterCollections));
-
-        // 2. Open bank refund for 100% collected money
+        // 1-2. Open the bank refund for what is still owed back for this ticket (FR-043, T170): all collected money
+        // (excess kept on the folio included) minus the ticket's other refund requests, under the folio lock.
         String refundRequestRef = null;
-        if (totalCollected > 0) {
-            BankRefundService.OpenedRefund opened = bankRefunds.open(
-                    ticketCode,
-                    ctx.groupCode(),
-                    RefundReason.MLAND_CANCELLATION,
-                    offer.getRemedyReference(),
-                    totalCollected,
-                    correlation
-            );
+        BankRefundService.OpenedRefund opened = bankRefunds.openRemainder(
+                ticketCode,
+                ctx.groupCode(),
+                RefundReason.MLAND_CANCELLATION,
+                offer.getRemedyReference(),
+                correlation
+        );
+        if (opened != null) {
             refundRequestRef = opened.request().getRequestReference();
         }
 

@@ -134,7 +134,7 @@ This section is the current acceptance path (added 2026-11-16, R29); the scenari
 
 ## Vận hành hiện hành 003.3
 
-*(Added 2026-11-16, fix A14. The scenarios above are historical; this section is the current operations runbook outline for the per-ticket model. Task T137 completes and tests it.)*
+*(Added 2026-11-16, fix A14; completed by task T137 on 2026-11-16. The scenarios above are historical; this section is the current operations runbook for the per-ticket model.)*
 
 ### Thay khóa mã hóa số tài khoản hoàn tiền (`WORKSHOP_REFUND_ACCOUNT_KEY`, FR-040, T137)
 
@@ -146,7 +146,7 @@ This section is the current acceptance path (added 2026-11-16, R29); the scenari
 6. Gọi lại cùng route là an toàn: chỉ tác động các yêu cầu còn giữ bản mã (chạy lại không đổi gì).
 7. Theo dõi: người nhận nhập lại số tài khoản qua link mới; Manager duyệt lại sau khi có tài khoản mới.
 
-Trước khi thực hiện, kiểm tra cột nào đang lưu bản mã và có cần migration không (T137).
+Cột lưu bản mã là `settlement_refund_requests.recipient_account_encrypted` (V122, nullable): route đặt cột này về `NULL` và giữ `recipient_account_masked`, nên **không cần migration**. Phản hồi `200` chỉ có số lượng: `requestsReset`, `linksSent` và `failed` (yêu cầu không xử lý được vẫn giữ bản mã; gọi lại với `Idempotency-Key` mới để thử lại). Mỗi yêu cầu có hai bản ghi audit: `REFUND_ACCOUNT_KEY_REPLACED` (kèm lý do) và `REFUND_ACCOUNT_LINK_RESENT`. Kiểm chứng bằng `RefundAccountMysqlIT`, `BankRefundServiceTest` và `RefundAccountKeyReplacementControllerTest`.
 
 ## Evidence to Retain
 

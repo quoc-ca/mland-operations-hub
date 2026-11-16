@@ -365,6 +365,26 @@ class FolioCollectionServiceTest {
     }
 
     @Test
+    void theAutomaticFailureAfter24HoursIsAuditedAsSystemAndOnlyFailsAPendingPart() {
+        var attempt = service.recordGatewayAttempt(TICKET, 300_000, null, STAFF, "corr");
+        String merchant = row(attempt.collectionReference()).getExternalReference();
+
+        assertThat(service.autoFailGatewayCollection(merchant, "VNPAY_QUERYDR_NO_PAYMENT_AFTER_24H", "FQDR-1"))
+                .isTrue();
+        assertThat(service.autoFailGatewayCollection(merchant, "VNPAY_QUERYDR_NO_PAYMENT_AFTER_24H", "FQDR-2"))
+                .isFalse();
+
+        assertThat(row(attempt.collectionReference()).getStatus()).isEqualTo(FolioCollectionStatus.FAILED);
+        ArgumentCaptor<SettlementBusinessAudit> saved = ArgumentCaptor.forClass(SettlementBusinessAudit.class);
+        verify(audits, atLeastOnce()).save(saved.capture());
+        assertThat(saved.getAllValues()).filteredOn(a -> "FOLIO_GATEWAY_COLLECTION_AUTO_FAILED".equals(a.getActionCode()))
+                .singleElement().satisfies(audit -> {
+                    assertThat(audit.getActorReference()).isEqualTo("SYSTEM");
+                    assertThat(audit.getReasonReference()).isEqualTo("VNPAY_QUERYDR_NO_PAYMENT_AFTER_24H");
+                });
+    }
+
+    @Test
     void failingAPartNeedsAReason() {
         var attempt = service.recordGatewayAttempt(TICKET, 300_000, null, STAFF, "corr");
 

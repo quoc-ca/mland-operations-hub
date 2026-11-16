@@ -30,11 +30,17 @@ public class RefundAccountReminderScheduler {
 
     private final SettlementRefundRequestRepository requests;
     private final BankRefundService bankRefunds;
+    /** Replaced only by tests, to move through the 3 and 7 day thresholds without waiting. */
+    private java.time.Clock clock = java.time.Clock.systemUTC();
+
+    void useClockForTests(java.time.Clock testClock) {
+        this.clock = testClock;
+    }
 
     @Scheduled(fixedDelayString = "${workshop.settlement.refund-reminder-sweep:PT1H}")
     @Transactional
     public void remindPayersWithoutAnAccount() {
-        Instant now = Instant.now();
+        Instant now = Instant.now(clock);
         List<SettlementRefundRequest> waiting = requests.findUnansweredSince(now.minus(FIRST_REMINDER));
         for (SettlementRefundRequest request : waiting) {
             try {
@@ -44,6 +50,15 @@ public class RefundAccountReminderScheduler {
                         failure.getMessage());
             }
         }
+    }
+
+    /** T169: link idempotency records live 30 days past the link expiry. */
+    @Scheduled(fixedDelayString = "${workshop.settlement.refund-link-submission-sweep:PT1H}")
+    public void purgeExpiredLinkSubmissions() {
+        Instant now = Instant.now(clock);
+        bankRefunds.purgeExpiredLinkSubmissions(now);
+        // T159: and the tokens of links that expired unused leave the stored notification payloads.
+        bankRefunds.scrubExpiredLinkTokens(now);
     }
 
     private void remind(SettlementRefundRequest request, Instant now) {

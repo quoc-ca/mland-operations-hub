@@ -4,6 +4,9 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.Curre
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.RefundRequestStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementRefundRequest;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.BankRefundService;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.RefundCounterEntryAuthorizer;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.RefundReceiptImageService;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.SettlementUnprocessableException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.SettlementIdempotencyResult;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.SettlementIdempotencyService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.WorkshopSettlementAuthorizationException;
@@ -23,6 +26,8 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -39,35 +44,43 @@ public class RefundRequestController {
     private final BankRefundService bankRefunds;
     private final WorkshopSettlementAuthorizationService authorization;
     private final SettlementIdempotencyService idempotency;
+    private final RefundCounterEntryAuthorizer counterEntry;
+    private final RefundReceiptImageService receiptImages;
 
     @Autowired
     public RefundRequestController(BankRefundService bankRefunds,
                                    WorkshopSettlementAuthorizationService authorization,
-                                   @Autowired(required = false) SettlementIdempotencyService idempotency) {
+                                   @Autowired(required = false) SettlementIdempotencyService idempotency,
+                                   RefundCounterEntryAuthorizer counterEntry,
+                                   RefundReceiptImageService receiptImages) {
         this.bankRefunds = bankRefunds;
         this.authorization = authorization;
         this.idempotency = idempotency;
+        this.counterEntry = counterEntry;
+        this.receiptImages = receiptImages;
     }
 
-    public RefundRequestController(BankRefundService bankRefunds,
-                                   WorkshopSettlementAuthorizationService authorization) {
-        this(bankRefunds, authorization, null);
-    }
-
-    public enum RefundTransition {APPROVE, RECORD_TRANSFER, CONFIRM_REFUNDED, CLOSE_UNREACHABLE, REOPEN}
+    public enum RefundTransition {APPROVE, RECORD_TRANSFER, CONFIRM_REFUNDED, CLOSE_UNREACHABLE, REOPEN, RETURN_TO_PENDING_ACCOUNT}
 
     public record TransitionRequest(
             @NotNull RefundTransition action,
             @Size(max = 128) String bankTransactionReference,
             @Size(max = 256) String proofReference,
-            @Size(max = 1000) String reason
+            @Size(max = 1000) String reason,
+            /** T154: the optional receipt image uploaded for this request; RECORD_TRANSFER only. */
+            @Size(max = 36) String proofImageReference
     ) {
+        public TransitionRequest(RefundTransition action, String bankTransactionReference, String proofReference,
+                                 String reason) {
+            this(action, bankTransactionReference, proofReference, reason, null);
+        }
     }
 
     public record CounterAccountRequest(
             @NotBlank @Size(max = 32) String bankCode,
             @NotBlank @Size(max = 32) String accountNumber,
-            @NotBlank @Size(max = 128) String holderName
+            @NotBlank @Size(max = 128) String holderName,
+            Boolean accountDetailsConfirmed
     ) {
     }
 
@@ -83,9 +96,14 @@ public class RefundRequestController {
             long amount,
             String status,
             String accountNumberMasked,
-            String holderName
+            String holderName,
+            boolean receiptImageAttached
     ) {
         static RefundRequestResponse of(SettlementRefundRequest request) {
+            return of(request, false);
+        }
+
+        static RefundRequestResponse of(SettlementRefundRequest request, boolean receiptImageAttached) {
             String group = request.getGroupReference();
             boolean groupLevel = group != null && group.equals(request.getBookingReference());
             return new RefundRequestResponse(
@@ -96,7 +114,8 @@ public class RefundRequestController {
                     request.getAmountVnd(),
                     request.getStatus().name(),
                     request.getRecipientAccountMasked(),
-                    request.getRecipientHolderName());
+                    request.getRecipientHolderName(),
+                    receiptImageAttached);
         }
     }
 
@@ -105,7 +124,10 @@ public class RefundRequestController {
             @RequestParam(required = false) RefundRequestStatus status,
             Authentication authentication) {
         authorization.requireManager(actor(authentication));
-        return bankRefunds.list(status).stream().map(RefundRequestResponse::of).toList();
+        List<SettlementRefundRequest> rows = bankRefunds.list(status);
+        Set<Long> withImage = receiptImages.requestIdsWithAttachedImage(
+                rows.stream().map(SettlementRefundRequest::getId).filter(Objects::nonNull).toList());
+        return rows.stream().map(row -> RefundRequestResponse.of(row, withImage.contains(row.getId()))).toList();
     }
 
     @PostMapping("/api/v1/workshop-refund-requests/{refundId}/transitions")
@@ -119,18 +141,28 @@ public class RefundRequestController {
         SettlementRefundRequest result = switch (request.action()) {
             case APPROVE -> bankRefunds.approve(refundId, actor.accountId(), request.reason(), correlation);
             case RECORD_TRANSFER -> {
-                if (request.proofReference() == null || request.proofReference().isBlank()) {
-                    throw new WorkshopSettlementValidationException("TRANSFER_PROOF_REQUIRED");
+                // FR-039 (fix A08): only the bank reference is required; the text note and the image are optional.
+                if (request.bankTransactionReference() == null || request.bankTransactionReference().isBlank()) {
+                    throw new SettlementUnprocessableException("BANK_TRANSACTION_REFERENCE_REQUIRED");
                 }
-                yield bankRefunds.recordTransfer(refundId, actor.accountId(), request.bankTransactionReference(),
-                        request.proofReference(), correlation);
+                String proofNote = request.proofReference() == null || request.proofReference().isBlank()
+                        ? null : request.proofReference().trim();
+                if (request.proofImageReference() == null || request.proofImageReference().isBlank()) {
+                    yield bankRefunds.recordTransfer(refundId, actor.accountId(), request.bankTransactionReference(),
+                            proofNote, correlation);
+                }
+                yield receiptImages.recordTransferWithImage(refundId, actor.accountId(),
+                        request.bankTransactionReference(), proofNote, request.proofImageReference(), correlation);
             }
             case CONFIRM_REFUNDED -> bankRefunds.confirmRefunded(refundId, actor.accountId(), correlation);
             case CLOSE_UNREACHABLE -> bankRefunds.closeUnreachable(refundId, actor.accountId(), request.reason(),
                     correlation);
             case REOPEN -> bankRefunds.reopen(refundId, actor.accountId(), correlation).request();
+            case RETURN_TO_PENDING_ACCOUNT -> bankRefunds.returnToPendingAccount(refundId, actor.accountId(),
+                    request.reason(), correlation).request();
         };
-        return RefundRequestResponse.of(result);
+        return RefundRequestResponse.of(result, result.getId() != null
+                && receiptImages.requestIdsWithAttachedImage(List.of(result.getId())).contains(result.getId()));
     }
 
     /** FR-038a, FR-022d: Staff enters account at the counter; Idempotency-Key required. */
@@ -142,18 +174,20 @@ public class RefundRequestController {
             @Valid @RequestBody CounterAccountRequest request,
             Authentication authentication) {
         requireIdempotencyKey(idempotencyKey);
-        CurrentAccountActor actor = authorization.requireManagerOrAnyStaff(actor(authentication));
+        CurrentAccountActor actor = counterEntry.requireCounterEntry(actor(authentication), refundId);
         String correlation = correlation(correlationId);
         if (idempotency == null) {
             return RefundRequestResponse.of(bankRefunds.submitAccountAtCounter(refundId, request.bankCode(),
-                    request.accountNumber(), request.holderName(), actor.accountId(), correlation));
+                    request.accountNumber(), request.holderName(),
+                    Boolean.TRUE.equals(request.accountDetailsConfirmed()), actor.accountId(), correlation));
         }
         String opRef = "REFUND-ACC-" + digest(refundId + "|" + idempotencyKey.trim());
         String fingerprint = digest(refundId + "|" + request.bankCode().trim() + "|"
                 + request.accountNumber().trim() + "|" + request.holderName().trim());
         SettlementIdempotencyResult result = idempotency.execute(opRef, fingerprint, () -> {
             SettlementRefundRequest submitted = bankRefunds.submitAccountAtCounter(refundId, request.bankCode(),
-                    request.accountNumber(), request.holderName(), actor.accountId(), correlation);
+                    request.accountNumber(), request.holderName(),
+                    Boolean.TRUE.equals(request.accountDetailsConfirmed()), actor.accountId(), correlation);
             return submitted.getRequestReference();
         });
         return RefundRequestResponse.of(bankRefunds.require(result.outcomeReference()));
