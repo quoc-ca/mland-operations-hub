@@ -6,7 +6,8 @@ import CartTabs from '../../../../shared/ui/CartTabs';
 import { ErrorNotice, Loading, useCommand, useResource } from '../../../../shared/ui/components';
 import { useRetailApi } from '../../application/useRetailApi';
 import { VoucherPicker } from '../checkout/VoucherPicker';
-import { bestVoucherCode as bestOf, usePublicProductVouchers, useVoucherOptions, voucherCheckBase, withPublicVouchers } from '../checkout/voucherOptions';
+import { ProductThumb } from '../ProductThumb';
+import { bestVoucherCode as bestOf, savedProductVouchers, usePublicProductVouchers, useVoucherOptions, voucherCheckBase, withPublicVouchers } from '../checkout/voucherOptions';
 
 const MAX_QUANTITY = 99;
 const initialSelection = { choice: 'AUTO', voucherCode: '', requestedPoints: '0' };
@@ -62,12 +63,13 @@ function CartContent() {
     return [...byLocation.entries()];
   }, [lines]);
 
-  // Ticked lines: default to every sellable line once the cart loads; drop ids that left the cart.
+  // Ticked lines: nothing is ticked when the cart opens, the Member ticks what to buy (Session 2026-11-16);
+  // ids that left the cart or stopped being sellable are dropped.
   const selectable = line => line.saleEligible && line.indicativePrice != null;
   useEffect(() => {
     if (!cart.data) return;
     setSelectedIds(current => {
-      if (current == null) return new Set(lines.filter(selectable).map(line => line.id));
+      if (current == null) return new Set();
       const present = new Set(lines.filter(selectable).map(line => line.id));
       return new Set([...current].filter(id => present.has(id)));
     });
@@ -93,10 +95,7 @@ function CartContent() {
   const subtotal = selectedLines.reduce((total, line) => total + BigInt(line.indicativePrice || '0') * BigInt(line.quantity || 0), 0n).toString();
   const availablePoints = loyalty.data ? String(loyalty.data.availablePoints ?? loyalty.data.balancePoints ?? '0') : null;
   const publicVouchers = usePublicProductVouchers(api);
-  const savedVouchers = withPublicVouchers((savedVoucherResource.data?.items || savedVoucherResource.data || [])
-    .map(item => ({ code: item.promotion?.code || item.code, name: item.promotion?.name || item.name || item.promotion?.code || item.code, availability: item.availability,
-      discount: item.promotion?.discount || null, minimumEligibleAmount: item.promotion?.minimumEligibleAmount || '0', endAt: item.promotion?.endAt || null }))
-    .filter(item => item.code), publicVouchers);
+  const savedVouchers = withPublicVouchers(savedProductVouchers(savedVoucherResource.data?.items || savedVoucherResource.data || []), publicVouchers);
   // Best saved voucher for the ticked lines by its real FE-06 saving (products, branches and minimum included).
   const voucherOptions = useVoucherOptions(api, savedVouchers, voucherCheckBase(selectedLines));
   const bestVoucherCode = bestOf(voucherOptions);
@@ -250,7 +249,7 @@ function CartContent() {
             <article className={`cart-sp-line${selectable(line) ? '' : ' unavailable'}`} key={line.id}>
               <div className="cart-sp-product">
                 <Checkbox checked={selected.has(line.id)} disabled={!selectable(line)} onChange={checked => toggleIds([line.id], checked)} label={`Chọn ${line.productName || 'sản phẩm'}`} />
-                <div className="retail-product-placeholder" aria-hidden="true">◇</div>
+                <ProductThumb className="retail-product-placeholder" productId={line.productId} />
                 <div className="cart-sp-product-text">
                   <strong>{line.productName || `Sản phẩm #${line.variantId}`}</strong>
                   <span className="muted">Size {line.size ?? '—'} · {line.sku || 'SKU chưa có'}</span>

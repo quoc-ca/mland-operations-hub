@@ -141,7 +141,7 @@ public class CartService {
                 }
                 return new CartDtos.CartLineView(line.getId(), line.getVariantId(), line.getLocationId(), line.getQuantity(),
                     fact.productName(), fact.sku(), fact.size(), fact.indicativePrice(), fact.currency(),
-                    fact.availableQuantity(), fact.saleEligible());
+                    fact.availableQuantity(), fact.saleEligible(), fact.productId());
             })
             .toList();
         return new CartDtos.RetailCartView(cart.getVersion() == null ? 0L : cart.getVersion(), lines);

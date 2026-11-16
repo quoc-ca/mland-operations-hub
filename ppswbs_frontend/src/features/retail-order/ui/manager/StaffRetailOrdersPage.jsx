@@ -7,6 +7,7 @@ import { newCommandId } from '../../../../shared/api/http';
 import { useRetailApi } from '../../application/useRetailApi';
 import { OperationsSidebar } from '../../../../shared/ui/OperationsSidebar';
 import { cardToggleProps, displayTime, orderCode, OrderMoneyRows } from '../orderCode';
+import { ProductThumb } from '../ProductThumb';
 
 /**
  * FE-08 FR-08-051: one Staff page for the branch's retail work. Tabs follow the day's tasks; each card offers only
@@ -174,7 +175,7 @@ function PickupCard({ item, open, onToggle, busy, format, branchName, received, 
       <span className={`order-pill pill-${item.tab.toLowerCase()}`}>{pill}</span>
     </div>
     <ul className="order-items">{(order.items || []).map(line => <li key={`${order.id}-${line.variantId}`}>
-      <span className="order-thumb" aria-hidden="true">◇</span>
+      <ProductThumb className="order-thumb" productId={line.productId} />
       <span className="order-item-name"><strong>{line.productName || `Sản phẩm #${line.variantId}`}</strong><small>Size {line.size ?? '—'} · x{line.quantity}</small></span>
       <b>{line.lineTotal ? format.money(line.lineTotal) : ''}</b>
     </li>)}</ul>

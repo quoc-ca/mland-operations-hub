@@ -206,6 +206,18 @@ scheduled aggregation, or Admin analytics.
 
 ---
 
+## Phase 7: Trends (Session 2026-11-16, supervisor request)
+
+**Goal**: Retail and workshop trends by hour/day/month against the previous
+period (FR-027 to FR-030).
+
+- [X] T051 [P] Trend bucketing, previous-period and unavailable-source tests in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/features/reporting/service/ExecutiveTrendServiceTest.java`
+- [X] T052 Read-only trend queries (retail orders and revenue, workshop tickets, attendance places, workshop revenue) in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/reporting/source/JdbcReportingTrendAdapter.java`, sharing the folio facts with the KPI query in `WorkshopFolioSql.java`
+- [X] T053 Branch of a group-booking ticket folio and finalization audit by bill reference in `WorkshopFolioSql.java` (KPI and trends)
+- [X] T054 `ExecutiveTrendService` and `GET /api/v1/executive-reports/trends` in `ExecutiveTrendController.java`
+- [X] T055 [P] Trend charts and change indicators in `ppswbs_frontend/src/features/manager-dashboard/TrendCharts.jsx` and `ManagerDashboardPage.jsx`, with tests in `ManagerDashboardPage.test.jsx`
+- [ ] T056 Source owners review the trend SQL (FE-08 retail, FE-03 workshop) and confirm whether a no-show's retained deposit should count as workshop revenue
+
 ## Dependencies and execution order
 
 ### Phase dependencies

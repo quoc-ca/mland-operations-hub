@@ -35,7 +35,7 @@ public class RetailOrderQueryService {
         var items = order.getItems().stream().map(item -> {
             var current = facts.computeIfAbsent(new VariantLocationKey(item.getVariantId(), order.getLocationId()), this::currentProduct);
             return new RetailOrderHistoryView.Item(item.getVariantId(), current.productName(), current.sku(), current.size(),
-                item.getQuantity(), money(item.getUnitPrice()), money(item.getLineTotal()));
+                item.getQuantity(), money(item.getUnitPrice()), money(item.getLineTotal()), current.productId());
         }).toList();
         // Current checkout creation assigns READY_FOR_PICKUP without a Staff handover; it is not evidence of readiness.
         String fulfilment = "READY_FOR_PICKUP".equals(order.getFulfilmentState()) && !order.isPickupReadyConfirmed()
