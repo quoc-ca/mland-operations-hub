@@ -21,6 +21,8 @@ import { branchSale, productLabel, sizeLabel } from '../../domain/promotionRules
 export function ProductTargetPicker({ api, value, onChange, errors = {}, branchIds = [] }) {
   const t = useT(messages);
   const [query, setQuery] = useState('');
+  // Publication filter (Session 2026-11-16): '' = every product, 'true' = public, 'false' = not public yet or hidden.
+  const [published, setPublished] = useState('');
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -30,12 +32,12 @@ export function ProductTargetPicker({ api, value, onChange, errors = {}, branchI
   // A new branch choice makes the shown page stale: search again with it.
   useEffect(() => { if (result) search(0); }, [branchKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const search = async (page = 0) => {
+  const search = async (page = 0, publishedFilter = published) => {
     setLoading(true);
     setError(null);
     try {
       const locationId = branchIds.length === 1 ? branchIds[0] : undefined;
-      const found = await api.searchCatalogueProducts({ q: query.trim() || undefined, page, locationId });
+      const found = await api.searchCatalogueProducts({ q: query.trim() || undefined, page, locationId, published: publishedFilter || undefined });
       setResult(found);
       setKnown(current => {
         const next = { ...current };
@@ -65,6 +67,27 @@ export function ProductTargetPicker({ api, value, onChange, errors = {}, branchI
     }
     onChange({ products, variants, sizesOf });
   };
+  // "Choose all" / "Clear all" act on the products shown on this page only (Session 2026-11-16): each product is chosen
+  // whole, which already covers its sizes; deleted products are skipped as for a single tick.
+  const setPageChosen = choose => {
+    const products = { ...value.products };
+    let variants = { ...value.variants };
+    const sizesOf = { ...(value.sizesOf || {}) };
+    shown.forEach(product => {
+      const sizes = (product.variants || []).map(variant => String(variant.id));
+      if (choose) {
+        if (productState(product) === 'deleted' || products[product.id]) return;
+        products[product.id] = productLabel(product);
+        sizesOf[product.id] = sizes;
+        variants = dropSizesOf(variants, product.id, result);
+      } else {
+        delete products[product.id];
+        delete sizesOf[product.id];
+        variants = dropSizesOf(variants, product.id, result);
+      }
+    });
+    onChange({ products, variants, sizesOf });
+  };
   const mixed = Object.keys(value.products).length > 0 && Object.keys(value.variants).length > 0;
 
   const chosen = [
@@ -75,6 +98,8 @@ export function ProductTargetPicker({ api, value, onChange, errors = {}, branchI
   const pages = result ? Math.ceil(Number(result.totalElements) / Number(result.pageSize)) : 0;
   const limited = branchIds.length > 0;
   const shown = (result?.items || []).filter(product => branchSale(product, branchIds).atBranch);
+  const canChooseAll = shown.some(product => productState(product) !== 'deleted' && !value.products[product.id]);
+  const canClearAll = shown.some(product => value.products[product.id] || (product.variants || []).some(variant => value.variants[variant.id]));
   const offBranchChosen = limited && Object.keys(value.variants).some(id => known[id] && branchSale(known[id], branchIds).offSizes.has(String(id)));
 
   return (
@@ -84,12 +109,26 @@ export function ProductTargetPicker({ api, value, onChange, errors = {}, branchI
           <span>{t('picker.search')}</span>
           <input value={query} onChange={event => setQuery(event.target.value)} onKeyDown={onKey} placeholder={t('picker.searchHint')} />
         </label>
+        <label className="field target-filter">
+          <span>{t('picker.status')}</span>
+          <select value={published} onChange={event => { setPublished(event.target.value); search(0, event.target.value); }} disabled={loading}>
+            <option value="">{t('picker.status.all')}</option>
+            <option value="true">{t('picker.status.public')}</option>
+            <option value="false">{t('picker.status.notPublic')}</option>
+          </select>
+        </label>
         <button type="button" className="button outline" onClick={() => search(0)} disabled={loading}>{loading ? t('picker.searching') : t('picker.find')}</button>
       </div>
       <ErrorNotice error={error} messages={messages} onRetry={() => search(page)} />
 
       {limited && <p className="muted small">{t('picker.branchFilter')}</p>}
       {result && shown.length === 0 && <p className="muted small">{t('picker.none')}</p>}
+      {result && shown.length > 0 && (
+        <div className="actions target-bulk">
+          <button type="button" className="button outline small" disabled={!canChooseAll} onClick={() => setPageChosen(true)}>{t('picker.chooseAll')}</button>
+          <button type="button" className="button outline small" disabled={!canClearAll} onClick={() => setPageChosen(false)}>{t('picker.clearAll')}</button>
+        </div>
+      )}
       {result && shown.length > 0 && (
         <ul className="target-results" aria-label={t('picker.results')}>
           {shown.map(product => {

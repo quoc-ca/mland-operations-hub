@@ -68,13 +68,14 @@ public class ManagementProductQueryService {
     private final ObjectProvider<VariantHoldReader> holdReader;
     private final ObjectProvider<VariantBranchStockRepository> branchStocks;
     private final ObjectProvider<ProductBranchStockService> branchStockService;
+    private final ObjectProvider<CatalogueActorNames> actorNames;
 
     /** Without branch data (unit tests of the base read). */
     public ManagementProductQueryService(ProductRepository products, ProductVariantRepository variants,
                                          ProductCategoryRepository categories, ProductImageRepository images,
                                          ProductReviewRepository reviews, PriceProposalRepository proposals,
                                          ObjectProvider<VariantHoldReader> holdReader) {
-        this(products, variants, categories, images, reviews, proposals, holdReader, null, null);
+        this(products, variants, categories, images, reviews, proposals, holdReader, null, null, null);
     }
 
     /**
@@ -87,7 +88,9 @@ public class ManagementProductQueryService {
                                          ProductReviewRepository reviews, PriceProposalRepository proposals,
                                          ObjectProvider<VariantHoldReader> holdReader,
                                          ObjectProvider<VariantBranchStockRepository> branchStocks,
-                                         ObjectProvider<ProductBranchStockService> branchStockService) {
+                                         ObjectProvider<ProductBranchStockService> branchStockService,
+                                         ObjectProvider<CatalogueActorNames> actorNames) {
+        this.actorNames = actorNames;
         this.branchStocks = branchStocks;
         this.branchStockService = branchStockService;
         this.products = products;
@@ -191,6 +194,7 @@ public class ManagementProductQueryService {
         Map<Long, SellingLocation> activeBranches = branchService == null ? Map.of() : branchService.activeBranchesOrEmpty();
         Map<BranchVariant, BigInteger> heldByBranch = branchHeldQuantities(productById.values(), variantsByProduct,
                 stocksByVariant);
+        Map<String, ManagementProductDtos.ActorRef> actors = actorLabels(reviewsByProduct, proposalsByVariant);
 
         List<ManagementProduct> result = new ArrayList<>(productIds.size());
         for (Long id : productIds) {
@@ -201,9 +205,30 @@ public class ManagementProductQueryService {
             result.add(toDto(product, categoryById.get(product.getCategoryId()),
                     variantsByProduct.getOrDefault(id, List.of()), imagesByProduct.getOrDefault(id, List.of()),
                     reviewsByProduct.getOrDefault(id, List.of()), proposalsByVariant, heldByVariant,
-                    stocksByVariant, activeBranches, heldByBranch));
+                    stocksByVariant, activeBranches, heldByBranch, actors));
         }
         return result;
+    }
+
+    /** FR-060: labels of every submitter/decider of the loaded rows, one identity lookup per distinct actor. */
+    private Map<String, ManagementProductDtos.ActorRef> actorLabels(Map<Long, List<ProductReview>> reviewsByProduct,
+                                                                    Map<Long, List<PriceProposal>> proposalsByVariant) {
+        java.util.Set<String> ids = new java.util.LinkedHashSet<>();
+        reviewsByProduct.values().forEach(rows -> rows.forEach(review -> {
+            ids.add(review.getSubmittedBy());
+            ids.add(review.getDecidedBy());
+        }));
+        proposalsByVariant.values().forEach(rows -> rows.forEach(proposal -> {
+            ids.add(proposal.getSubmittedBy());
+            ids.add(proposal.getDecidedBy());
+        }));
+        ids.remove(null);
+        CatalogueActorNames names = actorNames == null ? null : actorNames.getIfAvailable();
+        return names == null || ids.isEmpty() ? Map.of() : names.resolve(ids);
+    }
+
+    private static ManagementProductDtos.ActorRef actor(Map<String, ManagementProductDtos.ActorRef> actors, String actorId) {
+        return actorId == null ? null : actors.getOrDefault(actorId, CatalogueActorNames.fallback(actorId));
     }
 
     /**
@@ -280,7 +305,8 @@ public class ManagementProductQueryService {
                                            Map<Long, BigInteger> heldByVariant,
                                            Map<Long, List<VariantBranchStock>> stocksByVariant,
                                            Map<Long, SellingLocation> activeBranches,
-                                           Map<BranchVariant, BigInteger> heldByBranch) {
+                                           Map<BranchVariant, BigInteger> heldByBranch,
+                                           Map<String, ManagementProductDtos.ActorRef> actors) {
         if (category == null) {
             throw new IllegalStateException("Product " + product.getId() + " references a missing category");
         }
@@ -302,12 +328,15 @@ public class ManagementProductQueryService {
                 productVariants.stream()
                         .map(variant -> toDto(variant, heldByVariant.get(variant.getId()),
                                 proposalsByVariant.getOrDefault(variant.getId(), List.of()),
-                                stocksByVariant.getOrDefault(variant.getId(), List.of()), heldByBranch))
+                                stocksByVariant.getOrDefault(variant.getId(), List.of()), heldByBranch, actors))
                         .toList(),
                 productReviews.stream()
                         .map(review -> new ManagementProductDtos.Review(CatalogueValues.format(review.getId()),
                                 review.getRevision(), review.getContentVersion(), review.getState().name(),
-                                review.isEffective(), review.getRejectionReason()))
+                                review.isEffective(), review.getRejectionReason(),
+                                actor(actors, review.getSubmittedBy()), review.getSubmittedAt(),
+                                SubmitterBranchSnapshot.read(review.getSubmitterBranches(), review.getSubmittedBy()),
+                                actor(actors, review.getDecidedBy()), review.getDecidedAt()))
                         .toList(),
                 branchesOf(productVariants, stocksByVariant, activeBranches));
     }
@@ -315,7 +344,8 @@ public class ManagementProductQueryService {
     private static ManagementProductDtos.ManagementVariant toDto(ProductVariant variant, BigInteger held,
                                                                  List<PriceProposal> variantProposals,
                                                                  List<VariantBranchStock> variantStocks,
-                                                                 Map<BranchVariant, BigInteger> heldByBranch) {
+                                                                 Map<BranchVariant, BigInteger> heldByBranch,
+                                                                 Map<String, ManagementProductDtos.ActorRef> actors) {
         BigInteger available = variant.getRemainingUnsold().subtract(held).max(BigInteger.ZERO);
         return new ManagementProductDtos.ManagementVariant(
                 CatalogueValues.format(variant.getId()),
@@ -341,7 +371,11 @@ public class ManagementProductQueryService {
                                         : CatalogueValues.format(proposal.getApprovedAmount()),
                                 proposal.getBaseAppliedSequence(),
                                 proposal.getId().equals(variant.getAppliedProposalId()),
-                                proposal.getReason()))
+                                proposal.getReason(),
+                                actor(actors, proposal.getSubmittedBy()), proposal.getSubmittedAt(),
+                                SubmitterBranchSnapshot.read(proposal.getSubmitterBranches(),
+                                        proposal.getSubmittedBy()),
+                                actor(actors, proposal.getDecidedBy()), proposal.getDecidedAt()))
                         .toList(),
                 variantStocks.stream()
                         .map(stock -> branchStockDto(stock,

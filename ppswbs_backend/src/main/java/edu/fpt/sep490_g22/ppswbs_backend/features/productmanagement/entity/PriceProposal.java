@@ -15,6 +15,8 @@ import jakarta.persistence.Version;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigInteger;
 import java.time.Instant;
@@ -88,6 +90,11 @@ public class PriceProposal {
     @Column(name = "submitted_at")
     private Instant submittedAt;
 
+    /** FR-061: branch scope of the submitter at submit time (JSON value data); null before submit or when unknown. */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "submitter_branches")
+    private String submitterBranches;
+
     @Column(name = "decided_by", length = 128)
     private String decidedBy;
 
@@ -121,10 +128,16 @@ public class PriceProposal {
     }
 
     public void submit(String actorId, Instant at) {
+        submit(actorId, at, null);
+    }
+
+    /** {@code submitterBranchesJson}: FR-061 snapshot, null when not recorded (system actor). Never rewritten. */
+    public void submit(String actorId, Instant at, String submitterBranchesJson) {
         requireEffective();
         requireState(ReviewState.DRAFT);
         this.submittedBy = Objects.requireNonNull(actorId, "actorId");
         this.submittedAt = Objects.requireNonNull(at, "at");
+        this.submitterBranches = submitterBranchesJson;
         this.state = ReviewState.PENDING;
     }
 
