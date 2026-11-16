@@ -47,6 +47,8 @@ const CHANGE_ERROR_MESSAGE = {
   TICKET_FOLIO_NOT_OPEN: 'Hóa đơn của vé đã đóng nên không thể đổi lịch.',
   OTA_TICKET_NOT_SUPPORTED: 'Vé đặt qua đại lý (OTA) đổi lịch theo chính sách của đại lý.',
   FROM_SESSION_NOT_OF_TICKET: 'Buổi cần đổi không thuộc vé này.',
+  PACKAGE_NOT_AVAILABLE_AT_LOCATION: 'Gói này hiện không còn bán tại chi nhánh bạn chọn. Vé của bạn chưa bị thay đổi và chưa mất lượt đổi. Hãy chọn buổi ở chi nhánh khác.',
+  LATE_ARRIVAL_WINDOW_EXPIRED: 'Đã quá thời hạn đổi lịch: bạn chỉ có thể đổi đến hết ngày thứ 7 sau ngày buổi học kết thúc (theo ngày ở Việt Nam). Vé của bạn chưa bị thay đổi.',
   FROM_SESSIONS_MISMATCH: 'Lựa chọn đổi lịch không hợp lệ. Hãy chọn lại.',
 };
 
@@ -274,6 +276,7 @@ function ChangeScheduleForm({ ticket, groupCode, authorization, proof, onUpdated
   const [error, setError] = useState(null);
   const [increase, setIncrease] = useState(null);
   const [outcome, setOutcome] = useState(null);
+  const [pickerKey, setPickerKey] = useState(0);
   const needsVerification = !authorization && !reference;
   const code = ticket.ticketCode;
 
@@ -315,6 +318,8 @@ function ChangeScheduleForm({ ticket, groupCode, authorization, proof, onUpdated
     } catch (err) {
       if (String(err?.code || '').startsWith('BUYER_VERIFICATION_')) setReference(null);
       setIncrease(null);
+      // The pair stopped being sold at that location: re-read the list and clear the choice (FR-059 d).
+      if (err?.code === 'PACKAGE_NOT_AVAILABLE_AT_LOCATION') { setSelection(null); setPickerKey(value => value + 1); }
       setError(describeChangeError(err));
     } finally {
       setPending(false);
@@ -351,15 +356,16 @@ function ChangeScheduleForm({ ticket, groupCode, authorization, proof, onUpdated
     <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px dashed #dcdfe6' }}>
       <label style={{ display: 'block', fontSize: '13px' }}>
         Loại đổi lịch
-        <select value={type} onChange={event => { setType(event.target.value); setSelection(null); setIncrease(null); }} disabled={pending}>
+        <select value={type} onChange={event => { setType(event.target.value); setSelection(null); setIncrease(null); setError(null); }} disabled={pending}>
           {CHANGE_TYPES.map(item => <option key={item.value} value={item.value}>{item.label}</option>)}
         </select>
       </label>
       <TicketSessionPicker
+        key={pickerKey}
         ticketCode={code}
         type={type}
         loadOptions={loadOptions}
-        onSelect={next => { setSelection(next); setIncrease(null); setError(null); }}
+        onSelect={next => { setSelection(next); setIncrease(null); if (next) setError(null); }}
         labels={PICKER_LABELS}
         formatWindow={formatSessionWindow}
         formatMoney={vnd}

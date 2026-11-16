@@ -47,6 +47,38 @@ export function vnpayWarning(method, amountText, balanceDue) {
   return '';
 }
 
+/**
+ * FR-060, T187: a Manager sees the catalogue add-ons sold at a location the ticket no longer belongs to. Read only;
+ * rendered only when the list is not empty. A non-Manager never calls the route.
+ */
+function PreviousLocationAddOns({ api, ticketCode, enabled }) {
+  const list = useResource(() => (enabled && ticketCode ? api.listPreviousLocationAddOns(ticketCode) : Promise.resolve([])), [ticketCode, enabled]);
+  if (!enabled) return null;
+  if (list.loading) return <p className="muted small" role="status">Loading add-ons from the previous location…</p>;
+  if (list.error) {
+    return (
+      <div className="notice error" role="note">
+        <p>The add-ons sold at the previous location could not be loaded.</p>
+        <button type="button" className="button outline small" onClick={list.reload}>Try again</button>
+      </div>
+    );
+  }
+  const items = asList(list.data);
+  if (items.length === 0) return null;
+  return (
+    <section aria-label="Add-ons sold at the previous location" className="ota-panel">
+      <h3>Add-ons sold at the previous location</h3>
+      <ul>
+        {items.map(item => (
+          <li key={item.chargeReference}>
+            {item.description} · {money(item.amount)} · Sold at location {item.addOnLocationReference} · ticket now at location {item.ticketLocationReference}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 export default function SettlementWorkspacePage() {
   const http = useHttp();
   const api = createSettlementApi(http);
@@ -174,6 +206,7 @@ export default function SettlementWorkspacePage() {
       </section>
 
       {folio.loading && ticketCode ? <Loading /> : null}
+      {ticketCode && bill ? <PreviousLocationAddOns api={api} ticketCode={ticketCode} enabled={isManager} /> : null}
       {ticketCode && bill ? (
         <section className="settlement-grid">
           <article className="ota-panel settlement-summary">

@@ -180,3 +180,38 @@ describe('003.3 FR-044a customer ticket change', () => {
     expect(screen.getByRole('button', { name: 'Thử lại' })).toBeInTheDocument();
   });
 });
+
+describe('003.3 Phase 14 (T189) customer change across locations', () => {
+  afterEach(() => { vi.unstubAllGlobals(); });
+
+  it('shows the location name, seats and changes left on each row', async () => {
+    mockFetch({ [`GET /api/v1/workshop-tickets/${TICKET}/change-options`]: options({ locationName: 'Mland Hà Nội', locationReference: 11, remainingRescheduleQuota: 2 }) });
+    const user = userEvent.setup();
+    render(<GroupDetailCard group={confirmedGroup()} authorization="Bearer member-token" onTicketUpdated={() => {}} />);
+    await user.click(await screen.findByRole('button', { name: 'Đổi lịch' }));
+    await user.click((await screen.findAllByRole('radio'))[0]);
+    const select = (await screen.findAllByRole('combobox')).find(item => item.getAttribute('name') === `to-${TICKET}`);
+    const text = Array.from(select.options).find(option => option.value && !option.disabled).textContent;
+    expect(text).toMatch(/^Mland Hà Nội – .* · còn 4 chỗ · còn 2 lượt đổi$/);
+  });
+
+  it.each([
+    ['PACKAGE_NOT_AVAILABLE_AT_LOCATION', 'không còn bán tại chi nhánh bạn chọn'],
+    ['LATE_ARRIVAL_WINDOW_EXPIRED', 'ngày thứ 7 sau ngày buổi học kết thúc'],
+  ])('explains %s and keeps the ticket unchanged', async (code, text) => {
+    const calls = mockFetch({
+      [`GET /api/v1/workshop-tickets/${TICKET}/change-options`]: options({ locationName: 'Mland Hà Nội' }),
+      [`POST /api/v1/workshop-tickets/${TICKET}/changes`]: json(409, { code }),
+    });
+    const user = userEvent.setup();
+    render(<GroupDetailCard group={confirmedGroup()} authorization="Bearer member-token" onTicketUpdated={() => {}} />);
+    await pickFirstOption(user);
+    await user.click(screen.getByRole('button', { name: 'Xác nhận đổi lịch' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(text);
+    if (code === 'PACKAGE_NOT_AVAILABLE_AT_LOCATION') {
+      // The list is re-read and the choice cleared.
+      await screen.findAllByRole('radio');
+      expect(calls.filter(call => call.method === 'GET' && call.path.endsWith('/change-options')).length).toBeGreaterThan(1);
+    }
+  });
+});

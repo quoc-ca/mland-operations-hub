@@ -72,6 +72,9 @@ export function createSettlementApi(http) {
     listChangeRequests: query => http('/api/v1/workshop-change-requests', { query }),
     decideChangeRequest: (reference, body, key) => write(`/api/v1/workshop-change-requests/${enc(reference)}/decisions`, body, key),
 
+    // FR-060, T187: Manager-only read of the add-ons sold at a location the ticket no longer belongs to.
+    listPreviousLocationAddOns: code => http(`${ticket(code)}/folio/previous-location-add-ons`),
+
     // Mland remedy (buyer answer).
     getMlandRemedy: (code, opts) => http(`${ticket(code)}/mland-remedy`, opts),
     answerMlandRemedy: (code, body, key, opts) => write(`${ticket(code)}/mland-remedy/answers`, body, key, opts),

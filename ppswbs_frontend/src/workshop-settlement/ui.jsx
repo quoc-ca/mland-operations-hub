@@ -29,13 +29,19 @@ const STATUS_TEXT = {
   429: 'Too many attempts. Wait a moment before trying again.',
 };
 
+// FR-059, FR-062 (approved UI rows of 2026-11-17): specific text for the two cross-location refusals.
+const CODE_TEXT = {
+  PACKAGE_NOT_AVAILABLE_AT_LOCATION: 'This package is no longer sold at the chosen location. Nothing was changed and no change was used. Choose a session at another location (for a queued request, reject it).',
+  LATE_ARRIVAL_WINDOW_EXPIRED: 'The change window has closed: a change must land by the end of the 7th calendar day after the replaced session ends (Vietnam date). It cannot be queued or lifted by a Manager.',
+};
+
 /** 409, 422 and 429 get an explicit message (with the server code and failing tickets); other errors use the shared notice. */
 export function ProblemNotice({ error, onRetry, onReload }) {
   if (!error) return null;
   if (!STATUS_TEXT[error.status]) return <ErrorNotice error={error} onRetry={onRetry} onReload={onReload} />;
   return (
     <div className="notice error" role="alert">
-      <p>{STATUS_TEXT[error.status]}</p>
+      <p>{CODE_TEXT[error.code] || STATUS_TEXT[error.status]}</p>
       {error.code && <p className="muted small">Code: {error.code}</p>}
       {error.failingTicketCodes?.length > 0 && <p>Blocked tickets: {error.failingTicketCodes.join(', ')}</p>}
       {error.correlationId && <p className="muted small">Correlation: {error.correlationId}</p>}

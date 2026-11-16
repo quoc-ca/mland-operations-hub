@@ -88,6 +88,7 @@ export default function TicketActionsPage() {
       fromSessionReferences: selection.fromSessionReferences,
       targetSessionReferences: selection.targetSessionReferences,
       requiresManager: selection.requiresManager,
+      targetLocationNames: selection.targetLocationNames || [],
     }]);
     setLoadedCode(''); setBuilderCode(''); setSelection(null);
   };
@@ -139,7 +140,7 @@ export default function TicketActionsPage() {
               <ul aria-label="Tickets to change">
                 {changes.map(item => (
                   <li key={item.ticketCode}>
-                    {item.ticketCode}: {item.fromSessionReferences.length === 2 ? 'both sessions' : 'one session'} moved{item.requiresManager ? ' (needs a Manager)' : ''}
+                    {item.ticketCode}: {item.fromSessionReferences.length === 2 ? 'both sessions' : 'one session'} moved{item.targetLocationNames?.length ? ` to ${[...new Set(item.targetLocationNames)].join(', ')}` : ''}{item.requiresManager ? ' (needs a Manager)' : ''}
                     {' '}<button className="button outline small" type="button" onClick={() => setChanges(list => list.filter(entry => entry.ticketCode !== item.ticketCode))}>Remove</button>
                   </li>
                 ))}
