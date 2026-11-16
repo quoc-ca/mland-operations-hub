@@ -40,6 +40,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.Ref
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.TicketChangeRequestService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.TicketChangeService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.TicketMlandRemedyService;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.WorkshopSettlementAuthorizationException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.WorkshopSettlementConflictException;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -339,5 +340,40 @@ class CrossLocationChangeMysqlIT {
                 TicketRemedyAnswer.ACCEPT_REPLACEMENT, null, sessionB.toString()), key(), "CORR-ML", BUYER))
                 .hasMessageContaining("REPLACEMENT_SESSION_UNAVAILABLE");
         assertThat(remedies.findByTicketCodeAndOutcome(second, "PENDING_ANSWER")).isPresent();
+    }
+
+    @Test
+    @DisplayName("T191/FR-060: Staff of the old location change a ticket to another location with no Manager, then lose access; Staff of the new location (assigned) are allowed")
+    void staffOfTheOldLocationLoseAccessAfterTheMove() {
+        String group = unique("G-STAFF-");
+        String ticket = unique("T-STAFF-");
+        long a = branch();
+        long b = a + 1;
+        UUID ops = UUID.randomUUID();
+        UUID f1 = UUID.randomUUID();
+        UUID target = UUID.randomUUID();
+        folio(ticket, group, 100_000, 100_000);
+        ticketAt(ticket, group, a, ops, List.of(f1.toString()));
+        targetsAt(b);
+        when(operationsFacade.isStaffAssignedToBooking(any())).thenReturn(true);
+        when(operationsFacade.replaceTicketSessions(any())).thenReturn(TicketSessionReplacementOutcome.accepted());
+        CurrentAccountActor staffA = new CurrentAccountActor(401L, ActorRole.STAFF, ActorStatus.ACTIVE, false, List.of(a));
+        CurrentAccountActor staffB = new CurrentAccountActor(402L, ActorRole.STAFF, ActorStatus.ACTIVE, false, List.of(b));
+        TicketChangeRequestDto request = new TicketChangeRequestDto(TicketChangeType.ADVANCE, List.of(target), List.of(f1),
+                null, "bvr-0123456789abcdef", "counter");
+
+        ChangeResultDto moved = changeService.changeTicketSessions(ticket, request, key(), "CORR-STAFF-1", staffA);
+        assertThat(moved.applied()).as("no Manager for another location").isTrue();
+
+        // 003.1 now reads the new current session: the ticket belongs to B.
+        ticketAt(ticket, group, b, ops, List.of(target.toString()));
+        TicketChangeRequestDto again = new TicketChangeRequestDto(TicketChangeType.ADVANCE, List.of(UUID.randomUUID()),
+                List.of(target), null, "bvr-0123456789abcdef", "counter");
+        assertThatThrownBy(() -> changeService.changeTicketSessions(ticket, again, key(), "CORR-STAFF-2", staffA))
+                .isInstanceOf(WorkshopSettlementAuthorizationException.class);
+        assertThat(changes.countByTicketCodeAndCountedTrueAndAppliedTrue(ticket)).isEqualTo(1L);
+        // Staff of B, assigned, pass the access check: the ticket's one change is used, so the request is queued for a Manager.
+        assertThat(changeService.changeTicketSessions(ticket, again, key(), "CORR-STAFF-3", staffB).changeRequestReference())
+                .isNotBlank();
     }
 }

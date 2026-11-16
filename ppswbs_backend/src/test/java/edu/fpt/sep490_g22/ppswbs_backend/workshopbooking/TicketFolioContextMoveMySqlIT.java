@@ -109,7 +109,9 @@ class TicketFolioContextMoveMySqlIT {
                 "booking_groups", "workshop_cart_quotes", "booking_idempotency_records", "booking_audit_evidence",
                 "facade_command_idempotency_records", "ticket_session_entitlements", "attendance_tickets",
                 "capacity_holds", "operations_audit_events", "workshop_sessions", "workshop_slots",
-                "workshop_packages", "workshop_locations")) {
+                "attendance_actions", "cancellation_handoffs", "session_staff_assignments", "ticket_entitlement_releases",
+                "ticket_qr_generations", "ticket_session_replacements", "workshop_addons",
+                "workshop_package_location_availability", "workshop_packages", "workshop_locations")) {
             jdbc.execute("TRUNCATE TABLE " + table);
         }
         jdbc.execute("SET FOREIGN_KEY_CHECKS = 1");
