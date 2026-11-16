@@ -39,7 +39,9 @@ import java.util.UUID;
  *   <li>Each entry is the body of {@code POST /api/v1/promotion-programs}, parsed by the same
  *       {@link PromotionWriteDtos#parseCreate} and created by {@link PromotionCreationService} (same validation,
  *       target checks through 002/003, audit and command receipt). Only times (days from now) and targets (category
- *       names, product names, 003.2 branch codes) are written in a portable form and resolved here.</li>
+ *       names, product names, 003.2 branch codes, or {@code publishedPackages} for every workshop package published
+ *       at creation time) are written in a portable form and resolved here. A workshop automatic discount takes
+ *       packages only (FR-044); with no published package it is skipped and tried again at the next start-up.</li>
  *   <li>Targets are fixed when a programme is created, so it waits until the sample products stop appearing (the
  *       catalogue seed runs at the same time): the product count of the target categories must stay the same for
  *       three checks in a row, at most {@value #WAIT_MINUTES} minutes. Product ids are read from the catalogue tables
@@ -121,7 +123,7 @@ public class PromotionSeedRunner {
             try {
                 ObjectNode body = body(program, now);
                 if (body == null) {
-                    log.warn("Promotion seed: '{}' skipped, its products or branches do not exist.", label);
+                    log.warn("Promotion seed: '{}' skipped, its products, packages or branches do not exist.", label);
                     continue;
                 }
                 creation.create(manager, key(program), PromotionWriteDtos.parseCreate(body));
@@ -167,6 +169,15 @@ public class PromotionSeedRunner {
             }
             ArrayNode ids = targets.putArray("productIds");
             productIds.forEach(id -> ids.add(Long.toString(id)));
+        }
+        if (wanted.path("publishedPackages").asBoolean(false)) {
+            List<Long> packageIds = jdbc.queryForList("SELECT id FROM workshop_packages WHERE state = 'PUBLISHED'"
+                    + " ORDER BY id", Long.class);
+            if (packageIds.isEmpty()) {
+                return null;
+            }
+            ArrayNode ids = targets.putArray("packageIds");
+            packageIds.forEach(id -> ids.add(Long.toString(id)));
         }
         if (!branchIds.isEmpty()) {
             ArrayNode ids = targets.putArray("branchIds");
