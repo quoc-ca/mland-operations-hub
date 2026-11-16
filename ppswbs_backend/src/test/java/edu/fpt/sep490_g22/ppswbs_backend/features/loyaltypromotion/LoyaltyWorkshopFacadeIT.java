@@ -487,7 +487,10 @@ class LoyaltyWorkshopFacadeIT {
     @Test
     void anAutomaticSelectionWithoutAWorkshopProgrammeGivesNoDiscount() {
         long memberId = member(1);
-        BenefitPreview preview = loyalty.previewBenefits(booking(memberId, 1L, DAY),
+        // A package no programme targets: package 1 is a real package that the V161 seed gives a workshop automatic
+        // discount, and the other tests here use 500_000-900_000.
+        long packageId = ThreadLocalRandom.current().nextLong(900_001L, 999_999L);
+        BenefitPreview preview = loyalty.previewBenefits(booking(memberId, packageId, DAY),
                 new BenefitSelection(SelectionChoice.AUTO, null, BigInteger.ZERO));
         assertThat(preview.programId()).isNull();
         assertThat(preview.reasons()).isNotEmpty();

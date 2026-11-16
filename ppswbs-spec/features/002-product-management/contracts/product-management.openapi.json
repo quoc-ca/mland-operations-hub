@@ -2583,6 +2583,25 @@
               "default": 0
             },
             "description": "Zero-based page."
+          },
+          {
+            "in": "query",
+            "name": "active",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "description": "FR-062: true = only active categories, false = only inactive ones, omitted = every category. Applied before paging."
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "description": "FR-062: only categories whose name contains this text, ignoring case; trimmed, blank = no name filter. Combines with active; applied before paging."
           }
         ],
         "responses": {
@@ -5017,6 +5036,40 @@
             "minLength": 0,
             "maxLength": 2000,
             "nullable": true
+          },
+          "submittedBy": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ActorRef"
+              }
+            ],
+            "nullable": true
+          },
+          "submittedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "submitterBranches": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SubmitterBranches"
+              }
+            ],
+            "nullable": true
+          },
+          "decidedBy": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ActorRef"
+              }
+            ],
+            "nullable": true
+          },
+          "decidedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
           }
         },
         "required": [
@@ -5060,6 +5113,40 @@
             "type": "string",
             "minLength": 0,
             "maxLength": 2000,
+            "nullable": true
+          },
+          "submittedBy": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ActorRef"
+              }
+            ],
+            "nullable": true
+          },
+          "submittedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "submitterBranches": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SubmitterBranches"
+              }
+            ],
+            "nullable": true
+          },
+          "decidedBy": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ActorRef"
+              }
+            ],
+            "nullable": true
+          },
+          "decidedAt": {
+            "type": "string",
+            "format": "date-time",
             "nullable": true
           }
         },
@@ -5834,6 +5921,72 @@
           "locationId",
           "canBuy",
           "availableQuantity"
+        ]
+      },
+      "ActorRef": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "FR-060 (approved 2026-11-16). displayName is the final label: account full name via AccountFacade, else 'Tài khoản #{id}'; SYSTEM is 'Hệ thống'. No raw id, email or Firebase UID.",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "ACCOUNT",
+              "SYSTEM"
+            ]
+          },
+          "displayName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "kind",
+          "displayName"
+        ]
+      },
+      "SubmitterBranches": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "FR-061 (approved 2026-11-16). Snapshot of the submitter branch scope at submit time. ALL = Manager; LISTED = Staff assigned branches; SYSTEM = system actor; NOT_RECORDED = submitted before the snapshot existed.",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "ALL",
+              "LISTED",
+              "SYSTEM",
+              "NOT_RECORDED"
+            ]
+          },
+          "branches": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubmitterBranch"
+            }
+          }
+        },
+        "required": [
+          "kind",
+          "branches"
+        ]
+      },
+      "SubmitterBranch": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "locationId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "locationId"
         ]
       }
     }

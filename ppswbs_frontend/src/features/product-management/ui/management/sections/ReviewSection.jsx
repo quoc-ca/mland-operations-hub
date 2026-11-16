@@ -9,6 +9,7 @@ import { newCommandId } from '../../../../../shared/api/http';
 import { ApplyApproved, ApplyNowToggle, approvedRows, BulkPriceBar, PriceGap, SelectCell } from './BatchPrices';
 import { NoticeAt } from '../notices';
 import { useRole } from '../../../../../shared/auth/useRole';
+import { SubmitterInfo } from './SubmitterInfo';
 
 /**
  * T034 initial review, before the first publication: submit freezes the content and every size's proposal;
@@ -40,6 +41,7 @@ export function ReviewSection({ product, api, reload, setNotice, deleted, missin
     <section className="workspace-card" aria-labelledby="review-title">
       <h2 id="review-title">{t('section.review')}</h2>
       <p>{t('review.current')}: <strong>{review ? t(`state.${review.state}`) : t('review.none')}</strong></p>
+      {review && <SubmitterInfo item={review} />}
       {review?.state === 'REJECTED' && review.reason && <p className="notice error pre-line">{t('review.rejectedBecause', { reason: review.reason })}</p>}
       {review?.state === 'APPROVED' && <p className="notice success">{t(approvedRows(product).length ? 'review.approvedNext' : 'review.approvedPublishNext')}</p>}
       {review?.state === 'APPROVED' && !deleted && <ApplyApproved product={product} api={api} reload={reload} setNotice={setNotice} />}
@@ -77,6 +79,7 @@ export function ReviewSection({ product, api, reload, setNotice, deleted, missin
               <li key={item.id}>
                 {t('review.historyItem', { revision: item.revision, state: t(`state.${item.state}`), contentVersion: item.contentVersion })}
                 {item.reason && <span className="pre-line"> — {item.reason}</span>}
+                <SubmitterInfo item={item} />
               </li>
             ))}
           </ul>

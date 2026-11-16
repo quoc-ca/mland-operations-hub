@@ -100,7 +100,7 @@ class CatalogueContractIT {
     }
 
     @Test
-    void everyContractOperationIsMappedAndTheContractHas56Schemas() {
+    void everyContractOperationIsMappedAndTheContractHas59Schemas() {
         Set<String> mapped = new HashSet<>();
         for (RequestMappingInfo info : mappings.getHandlerMethods().keySet()) {
             for (String pattern : info.getPatternValues()) {
@@ -112,7 +112,8 @@ class CatalogueContractIT {
         // 33 operations + getManagementProductMedia (T103, 2026-11-03) + 3 branch operations (US10, 2026-11-08).
         assertThat(operations).hasSize(37);
         assertThat(mapped).containsAll(operations);
-        assertThat(contract.get("components").get("schemas").size()).isEqualTo(56);
+        // 56 + ActorRef, SubmitterBranches, SubmitterBranch (FR-060/061, approved 2026-11-16).
+        assertThat(contract.get("components").get("schemas").size()).isEqualTo(59);
     }
 
     @Test

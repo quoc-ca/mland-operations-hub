@@ -10,6 +10,9 @@ import { PageTop } from '../ManagementLayout';
 import { Pager } from '../Pager';
 import { NoticeAt, NoticeContext, PageNotice } from '../notices';
 
+/** URL value of the status filter (FR-062) → `active` query sent to the list; '' = every category. */
+const STATUS_FILTER = { active: { active: true }, inactive: { active: false } };
+
 /**
  * T079 categories: unique names, edit, and activation only after the impact (affected products, version) has
  * been shown and confirmed. Cancel sends nothing; deactivating keeps product publication flags and history.
@@ -19,7 +22,19 @@ export default function CategoriesPage() {
   const api = useCatalogueApi();
   const [params, setParams] = useSearchParams();
   const page = Number(params.get('page') || 0);
-  const categories = useResource(() => api.listCategories(page || undefined), [page]);
+  // FR-062: the status filter (`active`) and the name search (`q`) are kept in the URL; changing either goes back to
+  // the first page. The name is sent when Tìm or Enter is pressed, not on every key.
+  const status = Object.hasOwn(STATUS_FILTER, params.get('status') || '') ? params.get('status') : '';
+  const q = (params.get('q') || '').trim();
+  const [draft, setDraft] = useState(q);
+  useEffect(() => { setDraft(q); }, [q]);
+  const categories = useResource(() => api.listCategories(page || undefined, STATUS_FILTER[status]?.active, q || undefined), [page, status, q]);
+  const go = ({ status: nextStatus = status, q: nextQ = q, page: nextPage = 0 }) => setParams({
+    ...(nextQ ? { q: nextQ } : {}),
+    ...(nextStatus ? { status: nextStatus } : {}),
+    ...(nextPage > 0 ? { page: String(nextPage) } : {}),
+  });
+  const filtered = Boolean(status || q);
   const [notice, setNotice] = useState(null);
   const done = notice => { setNotice(notice); categories.reload(); };
   // A new action replaces the previous outcome (Session 2026-11-04): clear it before the command runs, so a failure
@@ -35,12 +50,25 @@ export default function CategoriesPage() {
       <NoticeAt at="category-new" />
       {categories.loading && !data && <Loading />}
       {categories.error && <ErrorNotice error={categories.error} messages={messages} onRetry={categories.reload} />}
-      {data && (data.items.length === 0
+      {data && (data.items.length === 0 && !filtered
         ? <div className="empty-state">{t('category.empty')}</div>
         : <section className="workspace-card">
-          <h2>{t('category.list')}</h2>
+          <div className="card-head category-head">
+            <h2>{t('category.list')}</h2>
+            <form className="category-tools" role="search" onSubmit={event => { event.preventDefault(); go({ q: draft.trim() }); }}>
+              <input type="search" value={draft} onChange={event => setDraft(event.target.value)} maxLength={LIMITS.nameMax}
+                aria-label={t('category.search')} placeholder={t('category.searchHint')} />
+              <select value={status} aria-label={t('category.filter')} onChange={event => go({ status: event.target.value, q: draft.trim() })}>
+                <option value="">{t('category.filterAll')}</option>
+                <option value="active">{t('category.active')}</option>
+                <option value="inactive">{t('category.inactive')}</option>
+              </select>
+              <button type="submit" className="button outline">{t('category.find')}</button>
+            </form>
+          </div>
+          {data.items.length === 0 && <p className="muted">{t('category.emptyFiltered')}</p>}
           {data.items.map(category => <CategoryRow key={category.id} category={category} api={api} onStart={clearNotice} onDone={done} reload={categories.reload} />)}
-          <Pager page={page} pageSize={data.pageSize} total={data.totalElements} onChange={next => setParams(next > 0 ? { page: String(next) } : {})} />
+          <Pager page={page} pageSize={data.pageSize} total={data.totalElements} onChange={next => go({ page: next })} />
         </section>)}
     </NoticeContext.Provider>
   );

@@ -69,7 +69,7 @@ export function catalogueApi(request) {
     applyPrice: (key, proposalId, expectedVersion) => write('POST', `/price-proposals/${id(proposalId)}/applications`, key, { expectedVersion }),
 
     // Categories (T079)
-    listCategories: page => read('/categories', { page }),
+    listCategories: (page, active, q) => read('/categories', { page, active, q }),
     createCategory: (key, body) => write('POST', '/categories', key, body),
     updateCategory: (key, categoryId, body) => write('PUT', `/categories/${id(categoryId)}`, key, body),
     categoryImpact: (categoryId, page) => read(`/categories/${id(categoryId)}/impact`, { page }),
