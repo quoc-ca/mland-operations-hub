@@ -1,5 +1,19 @@
 # Tech Lead Approval Record: Account Management (FE-001)
 
+## Revision R-NAD — Nationwide Administrative Divisions, 401 Orphan Token Handling & Google Redirect Synchronization
+
+**Revision date**: 2026-11-16
+**Approved by (Tech Lead)**: **Phan Sơn**
+**Authority/evidence**: explicit Tech Lead update in session on 2026-11-16 adding requirements FR-041 (Directory VN-2026-V1 covering all 63 provinces and WARD/COMMUNE/SPECIAL_ZONE nationwide), FR-046 (401 ACCOUNT_NOT_FOUND terminal failure handling without retry storm), and FR-047 (Google Redirect Sign-In & Bootstrap Synchronization).
+**Decision**: **APPROVED FOR SPECIFICATION & ARCHITECTURE DESIGN**.
+
+This approval covers:
+- Administrative Directory Version `VN-2026-V1` expansion to all 63 provinces and nationwide communes/wards/special zones (including Hoàng Sa, Trường Sa, Phú Quốc, Côn Đảo, Lý Sơn, Cô Tô, Cát Hải, Bạch Long Vĩ, Cồn Cỏ, Phú Quý...).
+- Terminal session handling for `401 ACCOUNT_NOT_FOUND` without forced token refresh retries.
+- Google Redirect Sign-In synchronization ensuring account bootstrap (`PUT /api/v1/accounts/me`) completes before global session readiness.
+
+---
+
 ## Revision R-MAR — Internal Alert Recipients Facade (FR-045)
 
 **Revision date**: 2026-11-14

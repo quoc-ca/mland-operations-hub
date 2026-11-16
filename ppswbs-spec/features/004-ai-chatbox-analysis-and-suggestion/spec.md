@@ -1,12 +1,12 @@
-﻿# Feature Specification: AI Chatbox Analysis and Suggestion
+# Feature Specification: AI Chatbox Analysis and Suggestion
 
 **Date created**: 2026-10-21
-**Date updated**: 2026-11-05
+**Date updated**: 2026-11-16
 **Author**: Ngô Tiến Đạt
-**Last updated by**: Ngô Tiến Đạt
+**Last updated by**: Phan Sơn
 
 **Feature**: `004-ai-chatbox-analysis-and-suggestion`
-**Status**: Independent frontend behavior synchronized; backend/API integration gates remain open
+**Status**: Independent frontend behavior synchronized (updated 2026-11-16 for Section 3.1 Unauthenticated Access & Session Guard at /design-requests/new); backend/API integration gates remain open
 **Source alignment**: Feature-004 design, current React/Vite slice, Report 1 FE-04/FE-05 and Report 3
 
 ## 1. Scope and independent boundary
@@ -56,6 +56,12 @@ The request contains no booking fields.
 When an image is supplied, the Member must submit the current consent version and
 purpose. When no image is supplied, image consent fields are omitted and no image
 storage/provider image call occurs.
+
+### 3.1 Unauthenticated access and session guard
+When an unauthenticated guest or user with expired session accesses `/design-requests/new`:
+1. The route MUST NOT render a blank/empty container or hang silently.
+2. It MUST render an inline empty-state notice (`<RequireSession requiredText="...">`) stating: "Vui lòng đăng nhập để tạo yêu cầu thiết kế tùy chỉnh".
+3. It MUST provide an accessible "Đăng nhập" action button (`<SignInLink>`) directly routing to `/login`.
 
 ## 4. Basic AI Support
 
