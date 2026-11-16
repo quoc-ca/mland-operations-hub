@@ -1,7 +1,7 @@
 # Feature Specification: Customer Workshop Booking Core
 
 **Date created**: 2026-10-06
-**Date updated**: 2026-11-15
+**Date updated**: 2026-11-17
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -656,6 +656,145 @@ T105 (commit 193d2f30: every cart gets the automatic discount, the quote reports
 > and OpenAPI of 003.1/003.2 name the same value `locationId`; it is one
 > identifier, not two, and no contract is renamed. "Branch" in this spec and in
 > audit text is the older word for the workshop location.
+
+## Package availability per location — effect on 003.1 (2026-11-17)
+
+**Source:** 003.2 spec "Package availability per location" (FR-037–FR-046,
+SC-009–SC-012, owner request of Hồ Hoàng Quốc 2026-11-17), 003.2 plan Phase 18
+"Cross-feature impact" and 003.2 `design/architecture.md` Open decisions 1–2.
+**Status: owner decisions recorded 2026-11-17, formal approval of the 003.1
+section by the Tech Lead still to be recorded.** FR-053 records the owner
+decision (the ticket's location is read from its current session in
+Operations, no second copy). FR-054–FR-057 apply the 003.2 rules to 003.1
+screens and error mapping; Hồ Hoàng Quốc agreed to every proposal in
+"Owner answers" below (Q1–Q7). 003.1 adds no Package availability state, no matrix and no
+price or rule per location: all of that belongs to 003.2. The cart snapshots
+stay unchanged because price and Package rules are identical at every location.
+
+**Observed baseline (facts from the code, 2026-11-17, not decisions):**
+`WorkshopBookingFacadeImpl.getTicketFolioContext` takes `locationReference` and
+`sessionReferences` from `BookingGroupLineSession` (`location_reference` is
+`updatable=false`), copied from the Operations session when the group is
+created. One line has one set of sessions shared by every ticket of the line,
+and a ticket change in 003.3 does not update it. Today every Package is
+`sameLocationRequired`, so a change never left the original location and the
+copy stayed correct; 003.2 FR-042 allows a move to another location, after
+which the copy is wrong. The cart error mapping
+(`BookingGroupCreationService.requireHeld`) knows four reasons and sends any
+other Operations rejection to `PACKAGE_SELECTION_INVALID`.
+
+- **FR-053** *(Location of a ticket is read from its current session; owner
+  decision Hồ Hoàng Quốc, 2026-11-17, 003.2 FR-045)*:
+  `WorkshopBookingFacade.getTicketFolioContext` MUST derive `locationReference`
+  and `sessionReferences` from the ticket's **current** sessions in Operations,
+  read through `WorkshopOperationsFacade` (`getBookingTicketProjection`: the
+  ticket's `sessionEntitlements`, matched by `operationsTicketReference`), and
+  MUST NOT keep a second stored copy of the location per ticket. The
+  Operations session wins over the line copy whenever both exist. The value is
+  read by 003.3 (Staff authority, folio, `branch_id` of every new collection,
+  booking-time payment audit) and by 003.1's own audit rows written after a
+  move. `BookingGroupLineSession.location_reference` stays as the **booking-time
+  location**: it is the location where the group was held and paid; it is never
+  rewritten by a ticket change. *(Mechanism proposed; the
+  fallback and failure behaviour decided 2026-11-17, Q1–Q3.)*
+- **FR-054** *(Other readers of the booking-time copy, impact found in code
+  2026-11-17)*: Each place that reads `BookingGroupLineSession.locationReference`
+  or `BookingSessionCommitment.locationId` is classified in the plan table
+  "Readers of the location copy". Booking-time attribution (the booking-time
+  payment list, hold and payment audit, late-payment review of a group that has
+  no confirmed ticket) keeps the copy, because money collected keeps the
+  location where it was collected (003.2 FR-045, owner decision 2026-11-17).
+  Access decisions about a confirmed ticket or its line (Staff scope of
+  group-level operations) are the open question Q4; the booking-time payment
+  list is Q5. Decided 2026-11-17 in Q4 and Q5.
+- **FR-055** *(Cart and checkout refusal `PACKAGE_NOT_AVAILABLE_AT_LOCATION`;
+  003.2 FR-039)*: When Operations refuses the atomic group reserve with
+  `PACKAGE_NOT_AVAILABLE_AT_LOCATION` (the Package is `INACTIVE` at the
+  location of at least one selected session), group creation MUST refuse the
+  whole cart with HTTP 409, code `PACKAGE_NOT_AVAILABLE_AT_LOCATION`, the
+  failing lines (FR-031 shape), no hold and no group, and keep the cart
+  editable. `PACKAGE_NOT_PUBLISHED` is still decided first by Operations, so it
+  wins over this code. The reason MUST NOT be reported as
+  `PACKAGE_SELECTION_INVALID` (that code means bounds, session count or the
+  one-location rule). The late-payment re-hold (003.2 reserve for a group whose
+  hold expired) treats this reason as a failed re-hold exactly like a lack of
+  capacity: no hold, the review follows the existing failed-re-hold path. The
+  cart screen shows a message that names the failing line and invites the
+  customer to pick another branch or remove the line; the browser cart and
+  every typed field are kept. *(Proposed: message wording and the late-payment
+  effect; the code, the 409 and the all-or-none rule come from 003.2 FR-039.)*
+- **FR-056** *(Branch list and branch change on the customer pages; 003.2
+  FR-039, FR-044)*: The branch picker of the Package page and of the "Đặt ngay"
+  page MUST list only the locations returned by
+  `GET /api/v1/workshop-packages/{packageId}/locations` (003.2 now returns only
+  locations where the Package is `ACTIVE`), never a list built in the browser or
+  taken from the URL. When `GET …/sessions` answers 409
+  `PACKAGE_NOT_AVAILABLE_AT_LOCATION` (a stale page or a typed URL), the page
+  MUST drop the selected branch and its sessions, reload the branch list, show a
+  short message and return the customer to the branch choice; it MUST NOT show
+  the 409 as a technical error or retry the same call. A branch carried in the
+  "Đặt ngay" URL that is not in the reloaded list is treated the same way. An
+  empty branch list means the Package is sold nowhere: the page says so and
+  offers no booking control.
+- **FR-057** *(Branch name on the session list; 003.2 FR-044)*: Every session
+  the customer sees on the Package page, the "Đặt ngay" review and the cart
+  MUST show the location display name (`locationName` of the 003.2 session
+  read) together with date, time and seats left, so two sessions of the same
+  slot at different locations can be told apart. The name shown is the one
+  returned by Operations at read time; the browser cart stores only identifiers
+  and re-reads the name. `locationId` stays the value used in requests.
+
+**Owner answers (Hồ Hoàng Quốc, 2026-11-17: agreed to every proposal of Q1–Q7; the proposal in each item is the decision, the alternative is rejected):**
+
+- **Q1 (FR-053) — fallback before an Operations ticket exists.** A group in
+  `PENDING_PAYMENT`, or a ticket with no `operationsTicketReference`, has no
+  Operations ticket, so there is no "current session" to read. **Decided:** use
+  the line copy (hold sessions) only in that state; once the ticket exists,
+  always read Operations. *Rejected alternative:* return no context until a ticket
+  exists. Which?
+- **Q2 (FR-053) — ticket not `ACTIVE` in Operations.** The projection returns
+  only `ACTIVE` tickets, so a cancelled or revoked ticket has no current
+  session, yet 003.3 still needs a location for refund or correction folio
+  lines. **Decided:** for such a ticket use the line copy and report the copy as
+  the location of record at cancellation. *Rejected alternative:* 003.2 returns inactive
+  tickets' last session too (a 003.2 contract change). Which?
+- **Q3 (FR-053) — Operations unavailable.** `getTicketFolioContext` returns an
+  `Optional` today and is called on settlement and audit paths. **Decided:**
+  fail closed with the existing 503 `DEPENDENCY_UNAVAILABLE` handling and never
+  fall back to the copy for a confirmed ticket, because a stale location would
+  grant or deny Staff access wrongly. *Rejected alternative:* fall back to the copy and
+  log. Which?
+- **Q4 (FR-054) — Staff scope of group-level operations.**
+  `GroupStaffScopeService.staffCovers` (resend, recipient change,
+  buyer-verification routes; CHK025) checks Staff location scope against the
+  line copy while checking the assignment through Operations by line reference.
+  After a ticket moves to location B, the assignment follows the new session but
+  the scope check still reads A, so a Staff member of B can be refused and a
+  Staff member of A still passes. **Decided:** check the scope against the
+  current location of the session the Staff member is assigned to (CHK025 text
+  unchanged, source of the location changed to FR-053). Needs the owner's
+  confirmation because it changes who may operate on a group.
+- **Q5 (FR-054) — booking-time payment list.** `listBookingTimePayments`
+  (T150; `GroupPaymentAttemptRepository`, `BookingTimePaymentQueryService`)
+  lists payments by the copy. **Decided:** keep the copy, because the money was
+  collected at the booking-time location (003.2 FR-045, decision 2026-11-17).
+  Confirm.
+- **Q6 (FR-055) — quote step.** `WorkshopCartPricingService` reads Package
+  selection and sale eligibility per session; `SaleEligibilitySnapshot` carries
+  no availability of the Package at the location, and 003.2 FR-039 names only
+  discovery and reserve. A cart can therefore be quoted for an `INACTIVE` pair
+  and refused only at confirmation. **Decided:** accept that (reserve is
+  authoritative, FR-039 "a stale result never authorizes a selection"), and ask
+  003.2 only if the owner wants an earlier refusal at quote time. Which?
+- **Q7 (FR-056) — empty branch list message** and the exact wording of the 409
+  return message : the draft wording of the spec is accepted.
+
+**Edge cases:** a cart line whose Package is deactivated between quote and
+confirmation fails only that confirmation (all or none, FR-031); an existing
+confirmed group, ticket, hold or payment is untouched when a pair is set
+`INACTIVE` (003.2 FR-040), so 003.1 never cancels or hides them; an OTA booking
+is not affected (003.2 FR-039, 003.4). A ticket whose sessions all moved to
+location B is read as B at once, with no job and no data backfill.
 
 ## Scope and source alignment
 
@@ -2485,6 +2624,18 @@ definitions are in [data-model.md](data-model.md).)*
   match this rule and the body holds no group, ticket, contact or payment
   field. 100%, no tolerance. The earlier "the same safe error" for all
   classes is superseded.
+- **SC-009** *(added 2026-11-17, proposed, FR-053–FR-057; serves 003.2
+  SC-009/SC-012)*: (a) After a ticket moves to another location, 100% of reads
+  of `getTicketFolioContext` for that ticket return the new location and the
+  new session references, and none returns the booking-time copy; (b) a cart
+  refused with `PACKAGE_NOT_AVAILABLE_AT_LOCATION` holds no seat, leaves no
+  group, returns the failing lines and is never reported as
+  `PACKAGE_SELECTION_INVALID`; (c) the branch picker never offers a location
+  that `GET /workshop-packages/{packageId}/locations` did not return, and a 409
+  from `…/sessions` ends on the branch choice with no technical error shown;
+  (d) every session row on the Package page, review and cart shows its location
+  name. Counted by the tests of T154–T163 (MySQL integration for (a) and (b),
+  component tests for (c) and (d)); 100%, no tolerance.
 
 ## Assumptions
 
@@ -2521,7 +2672,12 @@ definitions are in [data-model.md](data-model.md).)*
 - **003.2 Workshop Operations** — `WorkshopOperationsFacade`: published-Package
   snapshot, sale eligibility, group capacity reserve/commit/release, ticket
   issuance and QR rotation (FR-019a, FR-031, FR-038, FR-041);
-  `TicketAttendanceFinalizedEvent` per ticket (FR-050).
+  `TicketAttendanceFinalizedEvent` per ticket (FR-050). *(Added 2026-11-17,
+  proposed, 003.2 FR-037–FR-046)* The rejection reason
+  `PACKAGE_NOT_AVAILABLE_AT_LOCATION`, the location-name field of the session
+  read, the 409 of `GET …/sessions`, the `locations` list limited to `ACTIVE`
+  pairs and the current-session read of a ticket (FR-053–FR-057); 003.2 backend
+  Phase 18 (T144–T162) lands them, so T154–T163 follow it.
 - **003.3 Workshop Settlement and Changes** — consumes `MlandTicketConfirmedEvent`
   to open one folio per ticket (FR-038); bank refund for a late payment
   (FR-040). 003.3 T099/T106 need the 003.1 facade operations

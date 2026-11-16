@@ -1,7 +1,7 @@
 # Implementation Plan: Customer Workshop Booking Core
 
 **Date created**: 2026-10-07
-**Date updated**: 2026-11-15
+**Date updated**: 2026-11-17
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -252,6 +252,77 @@ No applied migration may be edited. Only dev/test data exists (FR-043);
 environments were reseeded after V132/V133. Deployment topology, origins,
 provider credentials, monitoring ownership and SLOs remain outside this plan's
 decision authority.
+
+## Package availability per location (Phase 18, plan 2026-11-17)
+
+**Spec:** "Package availability per location — effect on 003.1", FR-053–FR-057,
+SC-009, questions Q1–Q7. **Source:** 003.2 plan Phase 18 "Cross-feature impact"
+and `design/architecture.md` Open decisions 1–2. **Owner decisions recorded 2026-11-17 (Q1–Q7)**,
+not yet formally approved. No new table, no
+migration, no new module dependency: `workshopbooking` already reads
+`WorkshopOperationsFacade`; `ApplicationModules.verify()` must stay green.
+
+**Design (proposed):**
+
+1. **Current location of a ticket (FR-053).** In `getTicketFolioContext`, after
+   the ticket and its line are found, ask Operations for the line's ticket
+   projection (`WorkshopOperationsAdapter.getBookingTicketProjection(lineReference)`,
+   already used by `BookingGroupProjectionService.currentTickets`), pick the
+   `DeliverySafeTicket` whose `ticketReference` equals
+   `ticket.operationsTicketReference`, order its `sessionEntitlements` by start
+   and fill `sessionReferences` and `locationReference` (the first session's
+   location; all are equal under `sameLocationRequired`). The context record
+   `TicketFolioContext` keeps its shape, so 003.3 callers are unchanged.
+   `firstSessionStart` is read from the same projection for the same reason
+   (the first session also changes on a reschedule; to confirm in T155 whether
+   003.3 relies on the old value). No Operations facade method is added.
+2. **Cost and failure.** One read per call. The method is used on settlement and
+   audit paths (about nine call sites in `workshopsettlement` and three in
+   `WorkshopBookingFacadeImpl`), not per page view, so no cache is proposed. A
+   projection failure follows Q3.
+3. **Readers of the location copy** (verified in code 2026-11-17; the copy is
+   `BookingGroupLineSession.locationReference`, written once by
+   `BookingGroupCreationService` and read as follows):
+
+   | Reader | Use | Effect of a cross-location move | Proposed treatment |
+   | --- | --- | --- | --- |
+   | `WorkshopBookingFacadeImpl.getTicketFolioContext` | 003.3 Staff authority, folio, `branch_id`; also its own audit | Wrong location after a move | Change (FR-053) |
+   | `WorkshopBookingFacadeImpl` ticket-conclusion audits (final balance, refund status) | `BookingAuditEvidence.locationId` via the context | Follows the new location automatically; past rows unchanged | No separate change; tested in T156 |
+   | `GroupStaffScopeService.staffCovers` | Staff scope of group-level operations | Scope read from the old location while assignment follows the new one | Open: Q4 |
+   | `TicketRecipientService.locationOf`, `BookingGroupRecoveryService.locationOf` | Audit and denied-attempt `locationId` of group-level commands | Old location in audit text | Open with Q4 (audit only, no access effect) |
+   | `GroupPaymentAttemptRepository` query, `BookingTimePaymentQueryService` (T150) | Booking-time payment list by location | Payments would move with the ticket | Keep the copy: Q5 |
+   | `LatePaymentReviewService` (workshop date, location, audit, re-hold) | Group not yet confirmed, or its first confirmation | No ticket has moved | No change |
+   | `BookingGroupProjectionService.sessions` | Group view | Already prefers the current Operations entitlement and falls back to the copy | No change |
+   | `BookingSessionCommitment.locationId` | Written only by `acceptOtaBooking`; no reader found in `workshopbooking` | OTA tickets are not changeable (003.2 FR-036) | No change |
+   | `WorkshopCartPricingService`, `WorkshopCartBenefitService`, `WorkshopCartQuoteService` | Cart, benefits at quote time | None (before booking) | No change |
+4. **Cart refusal (FR-055).** The Operations rejection reaches Booking
+   unchanged through `WorkshopOperationsAdapter.reserveGroupCapacity`; the
+   mapping is not in the adapter but in
+   `BookingGroupCreationService.requireHeld`, which sends every reason other
+   than capacity, not-published and not-eligible to `PACKAGE_SELECTION_INVALID`.
+   Add the new reason there (and in `RejectionReason` use once 003.2 lands it),
+   answered by `CartHoldRejectedException` → 409 `CartHoldRejectionResponse`
+   with `failingLines`, unchanged shape. `LatePaymentReviewService` already
+   treats any non-`ACCEPTED` reserve as a failed re-hold; only a test is added.
+   Quote and the OpenAPI example list the new code
+   (`workshop-booking.openapi.yaml` describes the 409 of
+   `POST /workshop-booking-groups` only as "capacity failure"; the new code is added there).
+5. **Frontend (FR-056, FR-057), `ppswbs_frontend/src/workshops`.**
+   `WorkshopDetailPage` and `WorkshopBookingPage` already read branches from
+   `listWorkshopLocations` (`api/workshops.js` →
+   `GET /workshop-packages/{packageId}/locations`); the work is: a 409 branch in
+   the sessions load that clears the branch and reloads the list, a message for
+   the new code in `BOOKING_ERROR_MESSAGE` (booking page) and
+   `CART_ERROR_MESSAGE` (cart page), `locationName` on session rows, and an
+   empty-list state. `cartStorage.js` keeps `locationId` only; the name is
+   re-read. No new route and no new client library.
+6. **Not in scope here:** the Manager matrix screen and the location name in
+   003.3 ticket-change options (003.2 and 003.3); the OTA listing (003.4).
+
+**Verification:** MySQL integration for FR-053 and FR-055 (a ticket moved by
+`replaceTicketSessions` reads the new location; the old copy is untouched; a
+cart over an `INACTIVE` pair holds nothing); component tests for FR-056 and
+FR-057; `ApplicationModules.verify()` and `WorkshopBookingContractIT`.
 
 ## Verification plan
 
