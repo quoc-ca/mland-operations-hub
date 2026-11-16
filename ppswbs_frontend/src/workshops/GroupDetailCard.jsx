@@ -173,6 +173,8 @@ export function GroupDetailCard({
           proof={proof}
           onTicketUpdated={onTicketUpdated}
           allowRecipientChange={allowRecipientChange && confirmed}
+          allowCancel={allowRecipientChange && confirmed}
+          allowChange={allowRecipientChange && confirmed}
         />
         {renderTicketExtra ? renderTicketExtra(group) : null}
       </div>

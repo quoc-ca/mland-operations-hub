@@ -185,6 +185,13 @@ public class WorkshopPackageReservationPolicy {
      * 003.2 FR-034: the structural package rules of a per-ticket replacement. The participant bounds are not
      * re-checked here, because moving one ticket of a booking group changes no participant count.
      */
+    /** Whether the booking's package policy snapshot requires one branch; empty when the booking has no snapshot. */
+    @Transactional(readOnly = true)
+    public java.util.Optional<Boolean> sameLocationRequired(String bookingReference) {
+        return bookingPolicySnapshotRepository.findByBookingReference(bookingReference)
+                .map(WorkshopBookingPackagePolicySnapshot::isSameLocationRequired);
+    }
+
     @Transactional(readOnly = true)
     public boolean isValidTicketReplacement(String bookingReference, List<WorkshopSession> targets) {
         WorkshopBookingPackagePolicySnapshot snapshot = bookingPolicySnapshotRepository

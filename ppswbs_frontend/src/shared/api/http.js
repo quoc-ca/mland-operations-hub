@@ -42,7 +42,8 @@ export function newCommandId() {
 function buildUrl(baseUrl, path, query) {
   const url = new URL(`${baseUrl}${path}`);
   Object.entries(query || {}).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== '') url.searchParams.set(key, String(value));
+    if (Array.isArray(value)) value.forEach(item => url.searchParams.append(key, String(item)));
+    else if (value !== undefined && value !== null && value !== '') url.searchParams.set(key, String(value));
   });
   return url.toString();
 }

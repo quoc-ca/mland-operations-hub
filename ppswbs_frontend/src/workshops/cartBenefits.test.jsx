@@ -165,7 +165,7 @@ describe('003.1 FR-033/FR-034 cart benefits of a Member', () => {
     await user.click(await screen.findByRole('link', { name: /Mở giỏ workshop/i }));
 
     expect(await screen.findByRole('button', { name: /Voucher MLAND/i })).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Tiếp tục đặt chỗ' }));
+    await user.click(screen.getByRole('button', { name: 'Đặt chỗ ngay' }));
 
     await waitFor(() => {
       const quoteCall = calls.filter(item => item.path === '/api/v1/workshop-cart-quotes').at(-1);
@@ -186,8 +186,8 @@ describe('003.1 cart line selection (Shopee-style)', () => {
     renderRoutes(workshopRoutes, { path: '/workshop-booking/cart', session: fakeSession('signed-in') });
 
     await user.click(await screen.findByRole('checkbox', { name: 'Chọn dòng 2' }));
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Tiếp tục đặt chỗ' })).toBeEnabled());
-    await user.click(screen.getByRole('button', { name: 'Tiếp tục đặt chỗ' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Đặt chỗ ngay' })).toBeEnabled());
+    await user.click(screen.getByRole('button', { name: 'Đặt chỗ ngay' }));
 
     await waitFor(() => {
       const quoteCall = calls.filter(item => item.path === '/api/v1/workshop-cart-quotes').at(-1);
@@ -197,7 +197,7 @@ describe('003.1 cart line selection (Shopee-style)', () => {
   });
 });
 
-describe('003.1 cart "Tiếp tục đặt chỗ" reuses the auto-picked quote', () => {
+describe('003.1 cart "Đặt chỗ ngay" reuses the auto-picked quote', () => {
   it('opens the confirmation without quoting again while the preview is still valid', async () => {
     const user = userEvent.setup();
     const calls = mockFetch(memberHandlers(json(201, quote())));
@@ -207,7 +207,7 @@ describe('003.1 cart "Tiếp tục đặt chỗ" reuses the auto-picked quote', 
     await screen.findByText(/Tổng sau ưu đãi/);
     const quoteCount = () => calls.filter(item => item.path === '/api/v1/workshop-cart-quotes').length;
     const before = quoteCount();
-    await user.click(screen.getByRole('button', { name: 'Tiếp tục đặt chỗ' }));
+    await user.click(screen.getByRole('button', { name: 'Đặt chỗ ngay' }));
 
     expect((await screen.findAllByText(/liên hệ/i)).length).toBeGreaterThan(0);
     expect(quoteCount()).toBe(before);

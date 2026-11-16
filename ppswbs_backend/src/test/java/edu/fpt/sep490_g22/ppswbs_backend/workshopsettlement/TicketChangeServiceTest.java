@@ -418,6 +418,10 @@ class TicketChangeServiceTest {
                 Instant.now().plus(50, ChronoUnit.HOURS), 5, LocalDate.now().plusDays(2)
         );
         when(operations.saleEligibility(TARGET_SESSION_1)).thenReturn(targetSessionSnap);
+        // FR-044a: 006 is asked about the ticket's whole new set, so the session that stays needs its facts too.
+        lenient().when(operations.saleEligibility(FROM_SESSION_2)).thenReturn(new SaleEligibilitySnapshot(FROM_SESSION_2, true,
+                "ACTIVE", 10L, Instant.now().plus(72, ChronoUnit.HOURS), Instant.now().plus(74, ChronoUnit.HOURS), 5,
+                LocalDate.now().plusDays(3)));
         // 006 decides scope (BE-DESIGN-0007): the ticket leaves the voucher's scope and loses its 50,000 share.
         when(loyalty.checkTicketVoucherScope(any())).thenReturn(new TicketVoucherScope(true, false, BigInteger.valueOf(50_000L)));
 
@@ -462,6 +466,10 @@ class TicketChangeServiceTest {
                 Instant.now().plus(50, ChronoUnit.HOURS), 5, LocalDate.now().plusDays(2)
         );
         when(operations.saleEligibility(TARGET_SESSION_1)).thenReturn(targetSessionSnap);
+        // FR-044a: 006 is asked about the ticket's whole new set, so the session that stays needs its facts too.
+        lenient().when(operations.saleEligibility(FROM_SESSION_2)).thenReturn(new SaleEligibilitySnapshot(FROM_SESSION_2, true,
+                "ACTIVE", 10L, Instant.now().plus(72, ChronoUnit.HOURS), Instant.now().plus(74, ChronoUnit.HOURS), 5,
+                LocalDate.now().plusDays(3)));
         // 006 decides scope (BE-DESIGN-0007): the ticket leaves the voucher's scope and loses its 50,000 share.
         when(loyalty.checkTicketVoucherScope(any())).thenReturn(new TicketVoucherScope(true, false, BigInteger.valueOf(50_000L)));
 
@@ -510,6 +518,10 @@ class TicketChangeServiceTest {
         when(operations.saleEligibility(TARGET_SESSION_1)).thenReturn(new SaleEligibilitySnapshot(
                 TARGET_SESSION_1, true, "ACTIVE", 20L, Instant.now().plus(48, ChronoUnit.HOURS),
                 Instant.now().plus(50, ChronoUnit.HOURS), 5, day));
+        // FR-044a: 006 is asked about the ticket's whole new set, so the session that stays needs its facts too.
+        lenient().when(operations.saleEligibility(FROM_SESSION_2)).thenReturn(new SaleEligibilitySnapshot(FROM_SESSION_2, true,
+                "ACTIVE", 10L, Instant.now().plus(72, ChronoUnit.HOURS), Instant.now().plus(74, ChronoUnit.HOURS), 5,
+                LocalDate.now().plusDays(3)));
         when(loyalty.checkTicketVoucherScope(any())).thenReturn(new TicketVoucherScope(true, true, BigInteger.ZERO));
         when(folioBalanceService.balanceOf(any())).thenReturn(new FolioBalanceService.FolioBalance(100_000L, 0L, 100_000L));
         when(operations.replaceTicketSessions(any())).thenReturn(TicketSessionReplacementOutcome.accepted());
@@ -527,11 +539,11 @@ class TicketChangeServiceTest {
         assertThat(query.getValue().sourceRef()).isEqualTo(GROUP_CODE);
         assertThat(query.getValue().ticketRef()).isEqualTo("L1-T1");
         assertThat(query.getValue().packageId()).isEqualTo(7L);
-        assertThat(query.getValue().proposedSessions()).singleElement().satisfies(session -> {
-            assertThat(session.sessionRef()).isEqualTo(TARGET_SESSION_1.toString());
-            assertThat(session.branchId()).isEqualTo(20L);
-            assertThat(session.workshopDate()).isEqualTo(day);
-        });
+        assertThat(query.getValue().proposedSessions()).hasSize(2);
+        assertThat(query.getValue().proposedSessions().get(0).sessionRef()).isEqualTo(TARGET_SESSION_1.toString());
+        assertThat(query.getValue().proposedSessions().get(0).branchId()).isEqualTo(20L);
+        assertThat(query.getValue().proposedSessions().get(0).workshopDate()).isEqualTo(day);
+        assertThat(query.getValue().proposedSessions().get(1).sessionRef()).isEqualTo(FROM_SESSION_2.toString());
     }
 
     @Test
@@ -853,6 +865,73 @@ class TicketChangeServiceTest {
         assertThatThrownBy(() -> service.changeTicketSessions(TICKET_CODE, new TicketChangeRequestDto(
                 TicketChangeType.ADVANCE, List.of(TARGET_SESSION_1, TARGET_SESSION_2), List.of(FROM_SESSION_1), null, null, null),
                 IDEMPOTENCY_KEY, "CORR-T130z", member))
+                .isInstanceOf(WorkshopSettlementValidationException.class).hasMessageContaining("FROM_SESSIONS_MISMATCH");
+        verify(operations, never()).replaceTicketSessions(any());
+    }
+
+    // ---- FR-044a: from names only the sessions that move; the other session of the ticket stays -----------------
+
+    private void openFolioForChange() {
+        when(finalBills.findByBookingReference(TICKET_CODE)).thenReturn(Optional.of(createDefaultFolio(100_000L)));
+        when(folioBalanceService.balanceOf(any())).thenReturn(new FolioBalanceService.FolioBalance(100_000L, 0L, 100_000L));
+        when(changeRepository.countByTicketCodeAndCountedTrueAndAppliedTrue(TICKET_CODE)).thenReturn(0L);
+        when(changeRepository.countByTicketCodeAndChangeTypeAndAppliedTrue(TICKET_CODE, "MANAGER_GRANTED")).thenReturn(0L);
+        when(operations.replaceTicketSessions(any())).thenReturn(TicketSessionReplacementOutcome.accepted());
+    }
+
+    @Test
+    @DisplayName("FR-044a: moving only session 1 of a two-session ticket sends 003.2 the whole new set, the other stays")
+    void movingOneSession_sendsTheWholeNewSetToOperations() {
+        TicketFolioContext ctx = createDefaultContext(0L, Instant.now().plus(72, ChronoUnit.HOURS));
+        when(booking.getTicketFolioContext(TICKET_CODE)).thenReturn(Optional.of(ctx));
+        openFolioForChange();
+        CurrentAccountActor member = new CurrentAccountActor(BUYER_ACCOUNT_ID, ActorRole.MEMBER, ActorStatus.ACTIVE, false, List.of(10L));
+
+        ChangeResultDto result = service.changeTicketSessions(TICKET_CODE, new TicketChangeRequestDto(
+                TicketChangeType.ADVANCE, List.of(TARGET_SESSION_1), List.of(FROM_SESSION_1), null, null, null),
+                IDEMPOTENCY_KEY, "CORR-FR044a", member);
+
+        assertThat(result.applied()).isTrue();
+        assertThat(result.targetSessionReferences()).containsExactly(TARGET_SESSION_1);
+        ArgumentCaptor<ReplaceTicketSessionsCommand> command = ArgumentCaptor.forClass(ReplaceTicketSessionsCommand.class);
+        verify(operations).replaceTicketSessions(command.capture());
+        assertThat(command.getValue().lines().get(0).targetSessionReferences())
+                .containsExactly(TARGET_SESSION_1, FROM_SESSION_2);
+    }
+
+    @Test
+    @DisplayName("FR-044a: the old shape (the unmoved session repeated as from and target) still works and ignores the pair")
+    void repeatedUnmovedSession_isIgnored() {
+        TicketFolioContext ctx = createDefaultContext(0L, Instant.now().plus(72, ChronoUnit.HOURS));
+        when(booking.getTicketFolioContext(TICKET_CODE)).thenReturn(Optional.of(ctx));
+        openFolioForChange();
+        CurrentAccountActor member = new CurrentAccountActor(BUYER_ACCOUNT_ID, ActorRole.MEMBER, ActorStatus.ACTIVE, false, List.of(10L));
+
+        ChangeResultDto result = service.changeTicketSessions(TICKET_CODE, new TicketChangeRequestDto(
+                TicketChangeType.ADVANCE, List.of(TARGET_SESSION_1, FROM_SESSION_2),
+                List.of(FROM_SESSION_1, FROM_SESSION_2), null, null, null), IDEMPOTENCY_KEY, "CORR-FR044b", member);
+
+        assertThat(result.applied()).isTrue();
+        ArgumentCaptor<ReplaceTicketSessionsCommand> command = ArgumentCaptor.forClass(ReplaceTicketSessionsCommand.class);
+        verify(operations).replaceTicketSessions(command.capture());
+        assertThat(command.getValue().lines().get(0).targetSessionReferences())
+                .containsExactly(TARGET_SESSION_1, FROM_SESSION_2);
+    }
+
+    @Test
+    @DisplayName("FR-044a: a request in which nothing moves, or that targets a session the ticket already holds, is 422")
+    void nothingMoves_orDuplicate_isRefused() {
+        TicketFolioContext ctx = createDefaultContext(0L, Instant.now().plus(72, ChronoUnit.HOURS));
+        when(booking.getTicketFolioContext(TICKET_CODE)).thenReturn(Optional.of(ctx));
+        CurrentAccountActor member = new CurrentAccountActor(BUYER_ACCOUNT_ID, ActorRole.MEMBER, ActorStatus.ACTIVE, false, List.of(10L));
+
+        assertThatThrownBy(() -> service.changeTicketSessions(TICKET_CODE, new TicketChangeRequestDto(
+                TicketChangeType.ADVANCE, List.of(FROM_SESSION_1), List.of(FROM_SESSION_1), null, null, null),
+                IDEMPOTENCY_KEY, "CORR-FR044c", member))
+                .isInstanceOf(WorkshopSettlementValidationException.class).hasMessageContaining("FROM_SESSIONS_MISMATCH");
+        assertThatThrownBy(() -> service.changeTicketSessions(TICKET_CODE, new TicketChangeRequestDto(
+                TicketChangeType.ADVANCE, List.of(FROM_SESSION_2), List.of(FROM_SESSION_1), null, null, null),
+                IDEMPOTENCY_KEY, "CORR-FR044d", member))
                 .isInstanceOf(WorkshopSettlementValidationException.class).hasMessageContaining("FROM_SESSIONS_MISMATCH");
         verify(operations, never()).replaceTicketSessions(any());
     }

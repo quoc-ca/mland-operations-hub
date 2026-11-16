@@ -65,6 +65,8 @@ export function createSettlementApi(http) {
     // Cancellation and change (buyer proof: bearer for a Member, buyerVerificationReference otherwise).
     cancelTicket: (code, body, key, opts) => write(`${ticket(code)}/cancellations`, body, key, opts),
     cancelGroupTickets: (groupCode, body, key, opts) => write(`${group(groupCode)}/cancellations`, body, key, opts),
+    // FR-044a: the sessions a ticket may move to (operator view with the bearer); `from` repeats up to twice.
+    getChangeOptions: (code, { type, from = [] } = {}) => http(`${ticket(code)}/change-options`, { query: { type, from } }),
     changeTicket: (code, body, key, opts) => write(`${ticket(code)}/changes`, body, key, opts),
     changeGroupTickets: (groupCode, body, key, opts) => write(`${group(groupCode)}/ticket-changes`, body, key, opts),
     listChangeRequests: query => http('/api/v1/workshop-change-requests', { query }),

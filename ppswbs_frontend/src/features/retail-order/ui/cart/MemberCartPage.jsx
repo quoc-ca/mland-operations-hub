@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { RequireSession } from '../../../../shared/auth/RequireSession';
 import { useFormat } from '../../../../shared/i18n/I18nProvider';
+import CartTabs from '../../../../shared/ui/CartTabs';
 import { ErrorNotice, Loading, useCommand, useResource } from '../../../../shared/ui/components';
 import { useRetailApi } from '../../application/useRetailApi';
 import { VoucherPicker } from '../checkout/VoucherPicker';
@@ -22,10 +23,13 @@ const isPositive = value => /^[1-9][0-9]*$/.test(String(value ?? ''));
  */
 export default function MemberCartPage() {
   return (
+    <>
+    <CartTabs active="products" />
     <main className="container public-page retail-page retail-shopping retail-cart-page">
       <div className="retail-page-heading"><div><p className="retail-kicker">MLAND / MUA SẮM</p><h1>Giỏ hàng</h1></div><Link to="/products" className="retail-back-link">← Tiếp tục mua sắm</Link></div>
       <RequireSession requiredText="Đăng nhập để xem giỏ hàng của bạn."><CartContent /></RequireSession>
     </main>
+    </>
   );
 }
 

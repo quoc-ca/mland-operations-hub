@@ -51,6 +51,7 @@ class WorkshopOperationsSnapshotTest {
             mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.TicketCancellationService.class),
             mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.TicketSessionReplacementService.class),
             mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.EquivalentReplacementSessionService.class),
+            mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.TicketChangeOptionsService.class),
             mock(AttendanceTicketService.class),
             mock(WorkshopOtaSnapshotService.class),
             packagePolicy,

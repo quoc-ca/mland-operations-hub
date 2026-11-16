@@ -61,6 +61,13 @@ public class WorkshopOperationsSettlementAdapter {
                 new FindEquivalentReplacementSessionsQuery(ticketReference, cancelledSessionReference));
     }
 
+    /** The sessions a ticket may move to by 003.2's own rules; read only and advisory (FR-044a, T176). */
+    public TicketChangeOptions ticketChangeOptions(java.util.UUID ticketReference, TicketReplacementType type,
+            java.util.List<java.util.UUID> fromSessionReferences) {
+        return operations.listTicketChangeOptions(
+                new ListTicketChangeOptionsQuery(ticketReference, type, fromSessionReferences));
+    }
+
     public SaleEligibilitySnapshot saleEligibility(java.util.UUID sessionReference) {
         return operations.getSaleEligibility(new SaleEligibilityQuery(sessionReference));
     }

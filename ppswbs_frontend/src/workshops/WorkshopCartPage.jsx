@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
+import CartTabs from '../shared/ui/CartTabs';
 import { createBookingGroup, quoteWorkshopCart } from '../api/workshops';
 import { CartBenefitPicker } from './CartBenefitPicker';
 import { contactForRequest, EMPTY_CONTACT, splitPhone, validateBookingContact } from './contactValidation';
@@ -340,6 +341,8 @@ export function WorkshopCartPage() {
   }
 
   return (
+    <>
+    <CartTabs active="workshop" />
     <main className="public-page figma-public-page">
       <p className="eyebrow">GIỎ WORKSHOP</p>
       <h1>Giỏ đặt workshop</h1>
@@ -510,7 +513,7 @@ export function WorkshopCartPage() {
               onClick={proceed}
               disabled={quoting || confirming || autoPicking || selectedLines.length === 0 || bookingMode === null || profileLoading}
             >
-              {quoting ? 'Đang báo giá...' : 'Tiếp tục đặt chỗ'}
+              {quoting ? 'Đang báo giá...' : 'Đặt chỗ ngay'}
             </button>
           </div>
         </section>
@@ -552,5 +555,6 @@ export function WorkshopCartPage() {
         title="Báo giá giỏ workshop"
       />
     </main>
+    </>
   );
 }

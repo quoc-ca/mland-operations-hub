@@ -135,7 +135,11 @@ public class TicketChangeService {
                 .orElseThrow(() -> new WorkshopSettlementNotFoundException("TICKET_NOT_FOUND"));
 
         // FR-044/FR-045a (T130): the session(s) being replaced, each one of the ticket's sessions (422 otherwise).
-        List<UUID> fromSessions = checkedFromSessions(ctx, request.fromSessionReferences(), request.targetSessionReferences());
+        List<UUID> declaredFrom = checkedFromSessions(ctx, request.fromSessionReferences(), request.targetSessionReferences());
+        // FR-044a: only the sessions that really move count for the window and the expiry; the other one stays.
+        ChangeSet set = changeSet(ctx, declaredFrom, request.targetSessionReferences());
+        List<UUID> fromSessions = set.from();
+        List<UUID> movedTargets = set.targets();
 
         SettlementFinalBill folio = finalBills.findByBookingReference(ticket)
                 .orElseThrow(() -> new WorkshopSettlementConflictException("TICKET_FOLIO_NOT_FOUND"));
@@ -160,14 +164,14 @@ public class TicketChangeService {
         }
 
         // 6. Price effect evaluation (FR-045); the buyer confirms an increase before anything is applied or queued.
-        long priceIncreaseAmount = lostVoucherShare(ticket, ctx, request.targetSessionReferences());
+        long priceIncreaseAmount = lostVoucherShare(ticket, ctx, set.newSessions());
         FolioBalanceService.FolioBalance currentBalance = folioBalanceService.balanceOf(folio);
         boolean confirmed = Boolean.TRUE.equals(request.confirmIncrease());
         if (priceIncreaseAmount > 0 && !confirmed) {
             return new ChangeResultDto(
                     ticket,
                     false, // not applied
-                    request.targetSessionReferences(),
+                    movedTargets,
                     String.valueOf(priceIncreaseAmount),
                     true,  // confirmIncreaseRequired
                     String.valueOf(currentBalance.balanceDue()),
@@ -176,18 +180,18 @@ public class TicketChangeService {
         }
 
         if (!blocked.isEmpty()) {
-            return queueOrRefuse(ticket, ctx, request.type(), fromSessions, request.targetSessionReferences(), blocked,
+            return queueOrRefuse(ticket, ctx, request.type(), fromSessions, movedTargets, blocked,
                     priceIncreaseAmount, confirmed, requester, request.reason(), key, correlation, now, currentBalance);
         }
 
         // 7. Call 003.2 Operations to replace sessions
         String opRef = "TCHG-" + UUID.randomUUID();
-        TicketSessionReplacementOutcome outcome = replaceSessions(ctx, request.type(), request.targetSessionReferences(),
+        TicketSessionReplacementOutcome outcome = replaceSessions(ctx, request.type(), set.newSessions(),
                 opRef, correlation);
         if (outcome.status() != OutcomeStatus.ACCEPTED) {
             if (outcome.reason() == RejectionReason.RESCHEDULE_QUOTA_EXHAUSTED) {
                 // Only a Manager can lift a full quota, so the request waits in the queue (FR-045a).
-                return queueOrRefuse(ticket, ctx, request.type(), fromSessions, request.targetSessionReferences(),
+                return queueOrRefuse(ticket, ctx, request.type(), fromSessions, movedTargets,
                         List.of(RULE_QUOTA), priceIncreaseAmount, confirmed, requester, request.reason(), key,
                         correlation, now, currentBalance);
             }
@@ -199,7 +203,7 @@ public class TicketChangeService {
         consumeProof(ctx, requester);
 
         // 9-10. Apply the price increase and record the change
-        return recordAppliedChange(ticket, ctx, folio, request.type(), request.targetSessionReferences(),
+        return recordAppliedChange(ticket, ctx, folio, request.type(), movedTargets,
                 priceIncreaseAmount, confirmed, requester, request.reason(), key, opRef, correlation, now);
     }
 
@@ -360,6 +364,41 @@ public class TicketChangeService {
         return List.copyOf(from);
     }
 
+    /**
+     * FR-044a: the sessions that really move (a pair whose from equals its target is ignored), their targets, and the
+     * ticket's complete new session set (the other session stays), which 003.2 and 006 need as one set.
+     */
+    record ChangeSet(List<UUID> from, List<UUID> targets, List<UUID> newSessions) {
+    }
+
+    ChangeSet changeSet(TicketFolioContext ctx, List<UUID> from, List<UUID> targets) {
+        List<UUID> movedFrom = new ArrayList<>();
+        List<UUID> movedTo = new ArrayList<>();
+        for (int i = 0; i < from.size(); i++) {
+            if (!from.get(i).equals(targets.get(i))) {
+                movedFrom.add(from.get(i));
+                movedTo.add(targets.get(i));
+            }
+        }
+        if (movedFrom.isEmpty() || new java.util.HashSet<>(movedFrom).size() != movedFrom.size()) {
+            throw new WorkshopSettlementValidationException("FROM_SESSIONS_MISMATCH");
+        }
+        List<UUID> next = new ArrayList<>(ctx.sessionReferences() == null ? List.<String>of() : ctx.sessionReferences())
+                .stream().map(UUID::fromString).collect(Collectors.toCollection(ArrayList::new));
+        List<UUID> current = List.copyOf(next);
+        for (int i = 0; i < movedFrom.size(); i++) {
+            int index = current.indexOf(movedFrom.get(i));
+            if (index < 0) {
+                throw new WorkshopSettlementValidationException("FROM_SESSION_NOT_OF_TICKET");
+            }
+            next.set(index, movedTo.get(i));
+        }
+        if (new java.util.HashSet<>(next).size() != next.size()) {
+            throw new WorkshopSettlementValidationException("FROM_SESSIONS_MISMATCH");
+        }
+        return new ChangeSet(List.copyOf(movedFrom), List.copyOf(movedTo), List.copyOf(next));
+    }
+
     /** Start of the earliest session being changed, from 003.2 (FR-044: the 24 h window and the expiry use it). */
     Instant earliestStart(List<UUID> fromSessions) {
         return fromSessions.stream().map(this::snapshotOf).map(SaleEligibilitySnapshot::scheduledStart)
@@ -415,18 +454,22 @@ public class TicketChangeService {
         List<UUID> targets = Arrays.stream(request.getTargetSessionReferences().split(","))
                 .map(UUID::fromString).toList();
         TicketChangeType type = TicketChangeType.valueOf(request.getChangeType());
+        List<UUID> newSessions = request.getFromSessionReferences() == null || request.getFromSessionReferences().isBlank()
+                ? targets
+                : changeSet(ctx, Arrays.stream(request.getFromSessionReferences().split(",")).map(UUID::fromString).toList(),
+                        targets).newSessions();
 
         saveGrant(ticket, ctx, "REQ-GRANT-" + request.getRequestReference(), manager.accountId(),
                 decisionReason, now);
         recordAudit(ticket, "MANAGER_CHANGE_ALLOWANCE_GRANTED", correlation, manager.accountId(), "MANAGER");
 
-        long priceIncrease = lostVoucherShare(ticket, ctx, targets);
+        long priceIncrease = lostVoucherShare(ticket, ctx, newSessions);
         if (priceIncrease > 0 && !request.isBuyerConfirmedIncrease()) {
             // The scope loss appeared after the buyer asked; the buyer must confirm the new amount first.
             throw new WorkshopSettlementConflictException("CONFIRM_INCREASE_REQUIRED");
         }
         String opRef = "TCHG-" + UUID.randomUUID();
-        TicketSessionReplacementOutcome outcome = replaceSessions(ctx, type, targets, opRef, correlation);
+        TicketSessionReplacementOutcome outcome = replaceSessions(ctx, type, newSessions, opRef, correlation);
         if (outcome.status() != OutcomeStatus.ACCEPTED) {
             throw new WorkshopSettlementConflictException(
                     outcome.reason() != null ? outcome.reason().name() : "REPLACEMENT_REJECTED");

@@ -118,11 +118,31 @@ export function WorkshopPaymentReturnPage({ groupCode }) {
     }
   };
 
+  // A signed-in Member needs no proof: show the group they just paid for without a click.
+  useEffect(() => {
+    if (lookupMode === 'MEMBER' && groupCode && !group && !isVerifying && !verifyError) readGroup();
+  }, [lookupMode, groupCode]);
+
+  // The gateway said yes but the verified evidence (IPN) can take a few seconds: re-read quietly a few times.
+  const [rechecks, setRechecks] = useState(0);
+  useEffect(() => {
+    if (!group || group.groupStatus !== 'PENDING_PAYMENT' || vnpResponseCode !== '00' || rechecks >= 15) return undefined;
+    const timer = setTimeout(() => { setRechecks(count => count + 1); readGroup(); }, 4000);
+    return () => clearTimeout(timer);
+  }, [group, rechecks, vnpResponseCode]);
+
   // The one proof the Guest typed, in the normalized form every call sends: { proof, error }.
   const guestProof = buildContactProof(proofType === 'email'
     ? { email: contactProof }
     : { phone: contactProof, phoneCountry });
-  const returnOutcome = classifyGroupPaymentOutcome({ responseCode: vnpResponseCode, groupStatus: group?.groupStatus });
+  const confirmed = group?.groupStatus === 'CONFIRMED';
+  const returnOutcome = confirmed
+    ? {
+      kind: 'CONFIRMED',
+      title: 'Thanh toán thành công',
+      message: 'Đặt chỗ của bạn đã được xác nhận. Vé được liệt kê bên dưới và cũng được gửi qua email.',
+    }
+    : classifyGroupPaymentOutcome({ responseCode: vnpResponseCode, groupStatus: group?.groupStatus });
 
   return (
     <main className="public-page figma-public-page">
@@ -131,20 +151,24 @@ export function WorkshopPaymentReturnPage({ groupCode }) {
 
       <div className="workspace-card" style={{ padding: '24px', borderLeft: '4px solid #002967', marginTop: '20px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-          <span className={vnpResponseCode === '00' ? 'status ok' : 'status'}>
-            Mã phản hồi cổng: {vnpResponseCode || 'N/A'}
-          </span>
+          {!confirmed && (
+            <span className={vnpResponseCode === '00' ? 'status ok' : 'status'}>
+              Mã phản hồi cổng: {vnpResponseCode || 'N/A'}
+            </span>
+          )}
           <strong>{returnOutcome.title}</strong>
         </div>
         <p className="prototype-note" style={{ margin: '14px 0 0', lineHeight: '1.6' }}>
-          <strong>{returnOutcome.message}</strong> Trang chuyển hướng chỉ để hiển thị: nhóm đặt chỗ chỉ được xác nhận
-          sau khi backend MLAND nhận và xác minh bằng chứng IPN có chữ ký từ VNPay. Không có token hay dữ liệu bí mật
-          nào đi qua lần chuyển hướng này.
+          <strong>{returnOutcome.message}</strong>
+          {!confirmed && (
+            <> Nhóm đặt chỗ chỉ được xác nhận sau khi MLAND nhận và xác minh kết quả có chữ ký từ VNPay; việc này thường
+            mất vài giây.</>
+          )}
         </p>
       </div>
 
       <section className="workspace-card" style={{ marginTop: '24px' }}>
-        <h2>Kiểm tra trạng thái nhóm đặt chỗ</h2>
+        <h2>{group ? 'Vé của bạn' : 'Kiểm tra trạng thái nhóm đặt chỗ'}</h2>
         <p className="muted" style={{ margin: '0 0 16px' }}>
           Mã nhóm: <strong>{groupCode || 'Chưa xác định'}</strong>
         </p>
@@ -245,6 +269,10 @@ export function WorkshopPaymentReturnPage({ groupCode }) {
               onRefresh={readGroup}
               onTicketUpdated={readGroup}
             />
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginTop: '20px' }}>
+              <Link className="button primary" to="/workshop-booking/lookup">Xem tất cả đặt chỗ của tôi</Link>
+              <Link className="button outline" to="/workshops">Đặt thêm workshop</Link>
+            </div>
           </>
         )}
       </section>

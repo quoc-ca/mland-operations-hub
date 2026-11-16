@@ -135,7 +135,7 @@ describe('003.1 FR-045 booking a group: pick on the package page, "Đặt ngay" 
     await pickSessionAndTwoTickets(user);
     await user.click(screen.getByRole('button', { name: 'Thêm vào giỏ' }));
 
-    expect(await screen.findByText(/Đã thêm gói này vào giỏ/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Đã thêm vào giỏ/i)).toBeInTheDocument();
     expect(readCart()).toHaveLength(1);
     expect(readCart()[0]).toMatchObject({ packageId: 5, participantCount: 2, sessionReferences: [SESSION_ONE] });
     expect(calls.some(call => call.path.startsWith('/api/v1/workshop-cart-quotes'))).toBe(false);
@@ -207,7 +207,7 @@ describe('003.1 FR-031/FR-045 the cart page', () => {
     await user.click(screen.getByRole('button', { name: 'Thêm vào giỏ' }));
     await user.click(await screen.findByRole('link', { name: /Mở giỏ workshop/i }));
 
-    await user.click(await screen.findByRole('button', { name: 'Tiếp tục đặt chỗ' }));
+    await user.click(await screen.findByRole('button', { name: 'Đặt chỗ ngay' }));
     expect(await screen.findByText('Báo giá giỏ workshop')).toBeInTheDocument();
     const quoteCall = calls.find(call => call.path === '/api/v1/workshop-cart-quotes');
     expect(quoteCall.body).toEqual({ lines: [{ packageId: 5, sessionReferences: [SESSION_ONE], participantCount: 2 }] });
@@ -237,7 +237,7 @@ describe('003.1 FR-031/FR-045 the cart page', () => {
     await pickSessionAndTwoTickets(user);
     await user.click(screen.getByRole('button', { name: 'Thêm vào giỏ' }));
     await user.click(await screen.findByRole('link', { name: /Mở giỏ workshop/i }));
-    await user.click(await screen.findByRole('button', { name: 'Tiếp tục đặt chỗ' }));
+    await user.click(await screen.findByRole('button', { name: 'Đặt chỗ ngay' }));
     await user.type(await screen.findByLabelText(/Email nhận vé/i), 'guest@mland.vn');
     await user.type(screen.getByLabelText(/Số điện thoại liên hệ/i), '0901234567');
     await user.click(screen.getByRole('button', { name: 'Xác nhận và giữ chỗ' }));
@@ -246,7 +246,7 @@ describe('003.1 FR-031/FR-045 the cart page', () => {
     expect(screen.getByText(/dòng 1/)).toBeInTheDocument();
     // Nothing was held, so the cart survives and can be edited again.
     expect(readCart()).toHaveLength(1);
-    expect(screen.getByRole('button', { name: 'Tiếp tục đặt chỗ' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Đặt chỗ ngay' })).toBeEnabled();
   });
 });
 
@@ -280,6 +280,34 @@ describe('003.1 FR-032 the hold the customer sees', () => {
       rerender(<GroupHoldPanel group={ended} />);
       expect(screen.getByRole('status').textContent).toBe(AWAITING_RESULT_MESSAGE);
       unmount();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('re-reads the group every 5 s after the hold ends, at most 6 times, and stops when unmounted', async () => {
+    vi.useFakeTimers();
+    try {
+      const { GroupHoldPanel, HOLD_ENDED_POLL_MS, HOLD_ENDED_POLL_MAX } = await import('./GroupHoldPanel');
+      const { render } = await import('@testing-library/react');
+      const onHoldEnded = vi.fn();
+      const ended = heldGroup({
+        paymentDeadlineAt: new Date(Date.now() - 130_000).toISOString(),
+        holdExpiresAt: new Date(Date.now() - 10_000).toISOString(),
+      });
+      const { unmount } = render(<GroupHoldPanel group={ended} onHoldEnded={onHoldEnded} />);
+      expect(onHoldEnded).toHaveBeenCalledTimes(1);
+      vi.advanceTimersByTime(HOLD_ENDED_POLL_MS * 2);
+      expect(onHoldEnded).toHaveBeenCalledTimes(3);
+      vi.advanceTimersByTime(HOLD_ENDED_POLL_MS * 20);
+      expect(onHoldEnded).toHaveBeenCalledTimes(HOLD_ENDED_POLL_MAX);
+      unmount();
+
+      const again = vi.fn();
+      const second = render(<GroupHoldPanel group={ended} onHoldEnded={again} />);
+      second.unmount();
+      vi.advanceTimersByTime(HOLD_ENDED_POLL_MS * 3);
+      expect(again).toHaveBeenCalledTimes(1);
     } finally {
       vi.useRealTimers();
     }
