@@ -17,9 +17,16 @@ public final class CartDtos {
 
     public record CartLineView(String id, Long variantId, Long locationId, int quantity,
                                String productName, String sku, Integer size, String indicativePrice,
-                               String currency, String availableQuantity, boolean saleEligible) {
+                               String currency, String availableQuantity, boolean saleEligible, Long productId) {
         public CartLineView(String id, Long variantId, Long locationId, int quantity) {
-            this(id, variantId, locationId, quantity, null, null, null, null, null, null, false);
+            this(id, variantId, locationId, quantity, null, null, null, null, null, null, false, null);
+        }
+
+        public CartLineView(String id, Long variantId, Long locationId, int quantity, String productName, String sku,
+                            Integer size, String indicativePrice, String currency, String availableQuantity,
+                            boolean saleEligible) {
+            this(id, variantId, locationId, quantity, productName, sku, size, indicativePrice, currency,
+                availableQuantity, saleEligible, null);
         }
     }
 

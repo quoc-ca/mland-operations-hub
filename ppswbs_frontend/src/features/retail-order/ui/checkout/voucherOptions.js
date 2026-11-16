@@ -39,8 +39,9 @@ export function usePublicProductVouchers(api) {
     api.listPublicProductPromotions()
       .then(result => {
         if (!live) return;
+        // NO_USES_LEFT (FE-06 Session 2026-11-14): every use is taken, so it is shown greyed, never suggested.
         setItems((result?.items || []).filter(item => item.kind === 'VOUCHER' && item.code).map(item => ({
-          code: item.code, name: item.name || item.code, availability: 'ACTIVE', discount: item.discount || null,
+          code: item.code, name: item.name || item.code, availability: item.availability === 'NO_USES_LEFT' ? 'NO_USES_LEFT' : 'ACTIVE', discount: item.discount || null,
           minimumEligibleAmount: item.minimumEligibleAmount || '0', endAt: item.endAt || null,
         })));
       })
@@ -48,6 +49,18 @@ export function usePublicProductVouchers(api) {
     return () => { live = false; };
   }, [api]);
   return items;
+}
+
+/**
+ * Saved product vouchers as picker options. A saved workshop voucher (scope WORKSHOP) can never be used on ring
+ * orders, so it is left out of the retail picker (Session 2026-11-16); a saved item without a scope is kept.
+ */
+export function savedProductVouchers(items) {
+  return (items || [])
+    .filter(item => (item.promotion?.scope || item.scope || 'PRODUCT') === 'PRODUCT')
+    .map(item => ({ code: item.promotion?.code || item.code, name: item.promotion?.name || item.name || item.promotion?.code || item.code, availability: item.availability,
+      discount: item.promotion?.discount || null, minimumEligibleAmount: item.promotion?.minimumEligibleAmount || '0', endAt: item.promotion?.endAt || null }))
+    .filter(item => item.code);
 }
 
 /** Saved vouchers first (they keep their own availability), then public vouchers not saved yet. */

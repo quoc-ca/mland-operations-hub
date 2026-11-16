@@ -37,6 +37,12 @@ public record RetailOrderHistoryView(String id, Long locationId, String fulfilme
         this(id, locationId, fulfilmentMethod, paymentState, fulfilmentState, subtotal, shippingCharge,
             payableAmount, orderedAt, items, null, "VNPAY", null);
     }
+    /** {@code productId} lets the screens show the product's public image; null when unknown. */
     public record Item(Long variantId, String productName, String sku, Integer size,
-                       int quantity, String unitPrice, String lineTotal) { }
+                       int quantity, String unitPrice, String lineTotal, Long productId) {
+        public Item(Long variantId, String productName, String sku, Integer size,
+                    int quantity, String unitPrice, String lineTotal) {
+            this(variantId, productName, sku, size, quantity, unitPrice, lineTotal, null);
+        }
+    }
 }

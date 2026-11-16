@@ -32,7 +32,7 @@ public class CatalogueRetailAdapter implements RetailCataloguePort {
             BranchCartSaleFact fact = facts.getFirst();
             return new CartProductFact(fact.productName(), fact.sku(), fact.size(),
                 fact.appliedPrice() == null ? null : fact.appliedPrice().toString(), fact.currency(),
-                fact.availableQuantity().toString(), fact.saleEligible());
+                fact.availableQuantity().toString(), fact.saleEligible(), fact.productId());
         } catch (CatalogueSalesException exception) {
             if (exception.reason() == CatalogueSalesException.Reason.NOT_FOUND) {
                 return unavailable();
