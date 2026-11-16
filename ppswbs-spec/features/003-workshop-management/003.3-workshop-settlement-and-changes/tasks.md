@@ -371,3 +371,9 @@ T133, T135, T137, T144 → T161              T150 → T165
 T145, T151, T154, T163 → T164 → T138 (fix A22)              T146 → T162 (return/reopen path)
 ```
 T147 → T172 → T164. T169 → T165 order free (extends it; needs T150); T170 is independent (extends T158's excess path); T161 → T171 (T171 extends it). T142 now only verifies and tests the rule decided in FR-043 (restoration when the refund request is opened; a move never triggers it). T167 (added 2026-11-15) is independent within 003.3 and comes before 003.2 T122. T157 also relies on done T113 (folio closes at `REFUNDED`). T153 is a decision task and blocks T154 only; every other Phase 11 task can start independently.
+
+## Phase 12: Convergence
+
+- [ ] T173 Write the acceptance integration test `DirectBookingFolioLifecycleAcceptanceIT` that T105 cites as evidence (no-show per ticket, loyalty emitted once), or re-point T105's evidence to a test that exists, per SC-004a, FR-046 (missing)
+- [ ] T174 Review and remove the dead legacy entities `SettlementFinalPaymentAttempt`, `SettlementCustomerCancellationSnapshot`, `SettlementMlandRemedySnapshot` and their repositories in `features/workshopsettlement/entity`, dropping their tables with a new append-only migration (next free version; never edit an applied one), per plan: booking-wide model removed (unrequested)
+- [ ] T175 After T139 lands, remove or move the legacy `/workshop-bookings/{bookingCode}/...` path blocks in `contracts/workshop-settlement.openapi.yaml` so the contract lists only routes the code serves, per T123, T139 (partial)
