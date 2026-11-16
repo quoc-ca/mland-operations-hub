@@ -78,14 +78,15 @@ public class AttendanceFinalizationService {
 
         WorkshopSession session = resolveSessionForUpdate(sessionReference);
 
+        // Authorization (T121): assigned Staff in location scope or any active Manager globally. Authority comes
+        // before state, so an unassigned Staff gets 403 whatever the session state and learns nothing about it.
+        AccountSummary actor = authorizationService.requireStaffSessionAssignment(authHeader, session.getId());
+
         // Guard: session must be IN_PROGRESS
         if (session.getState() != SessionState.IN_PROGRESS) {
             log.warn("Finalization rejected: session {} is in state {}", sessionReference, session.getState());
             throw new WorkshopLifecycleException("Session is in state " + session.getState() + "; finalization requires IN_PROGRESS");
         }
-
-        // Authorization: assigned Staff in location scope or any active Manager globally.
-        AccountSummary actor = authorizationService.requireStaffSessionAssignment(authHeader, session.getId());
 
         Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
 

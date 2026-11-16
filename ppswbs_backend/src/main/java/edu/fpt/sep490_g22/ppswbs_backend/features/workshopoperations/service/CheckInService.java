@@ -165,6 +165,49 @@ public class CheckInService {
                 .toList();
     }
 
+    /**
+     * T116 (FR-003b): Manager-only, audited, read-only lookup of a booking's full ticket set across sessions and
+     * locations. Unknown code is 404 RESOURCE_NOT_FOUND (a Manager may see every booking, nothing is concealed).
+     * The result never carries contact data, a QR value or payment data. The success audit row holds the actor and
+     * the booking code only. The denied-attempt audit is T131.
+     */
+    @Transactional
+    public ManagerBookingLookup managerBookingLookup(String authHeader, String correlationReference, String bookingCode) {
+        AccountSummary actor = authorizationService.requireGlobalManager(authHeader);
+
+        List<TicketSessionEntitlement> entitlements = entitlementRepository.findAllByBookingReferenceOrdered(bookingCode);
+        if (entitlements.isEmpty()) {
+            throw new WorkshopNotFoundException("Booking not found for the specified booking code");
+        }
+
+        List<Ticket> tickets = entitlements.stream()
+                .<Ticket>map(e -> (Ticket) Ticket.builder()
+                        .ticketCode(e.getTicket().getTicketCode())
+                        .sessionId(e.getSession().getReference())
+                        .locationId(e.getSession().getLocation().getId())
+                        .validityState(e.getTicket().getValidityState())
+                        .attendanceState(e.getAttendanceState())
+                        .checkedInAt(e.getCheckedInAt())
+                        .build())
+                .toList();
+
+        String correlationId = correlationReference != null && !correlationReference.isBlank()
+                && correlationReference.length() <= 64 ? correlationReference : UUID.randomUUID().toString();
+        auditEventRepository.save(OperationsAuditEvent.builder()
+                .actorId(actor.accountId())
+                .action("MANAGER_BOOKING_LOOKUP")
+                .outcome("SUCCESS")
+                .correlationId(correlationId)
+                .metadata("{\"bookingCode\":" + jsonString(bookingCode) + "}")
+                .build());
+
+        return new ManagerBookingLookup(bookingCode, tickets);
+    }
+
+    private static String jsonString(String value) {
+        return "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
+    }
+
     private WorkshopSession resolveSession(String sessionReference) {
         return sessionRepository.findByReference(sessionReference)
                 .or(() -> {

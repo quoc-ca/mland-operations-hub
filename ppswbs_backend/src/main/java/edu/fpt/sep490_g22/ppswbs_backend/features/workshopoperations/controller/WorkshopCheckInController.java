@@ -50,6 +50,15 @@ public class WorkshopCheckInController {
         return ResponseEntity.ok(tickets);
     }
 
+    /** T116: Manager-only audited cross-session booking lookup (FR-003b). */
+    @GetMapping("/workshop-booking-lookups/{bookingCode}")
+    public ResponseEntity<edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.ManagerBookingLookup> managerBookingLookup(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @RequestHeader(value = "X-Correlation-Id", required = false) String correlationReference,
+            @PathVariable("bookingCode") String bookingCode) {
+        return ResponseEntity.ok(checkInService.managerBookingLookup(authHeader, correlationReference, bookingCode));
+    }
+
     @GetMapping("/workshop-sessions/{sessionId}/attendance-roster")
     public ResponseEntity<List<edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.AttendanceRosterEntry>> attendanceRoster(
             @RequestHeader(value = "Authorization", required = false) String authHeader,

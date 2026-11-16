@@ -248,6 +248,10 @@ through this section.
   Mland-caused replacements do not consume or check the quota (capacity only).
   The quota never replaces the capacity check; a moved ticket takes one seat.
   The 25% default is a starting value to review after operating data exists.
+  **Decided 2026-11-16 (Hồ Hoàng Quốc, owner Feature 003):** a quota change requires a free-text
+  reason (required, at most 500 characters, as in `RescheduleQuotaRequest`); it is not a code of the
+  FR-007a catalogue, which covers only check-in override, finalized-attendance correction and session
+  cancellation. The audit event `RESCHEDULE_QUOTA_SET` records that text.
 - **FR-036**: OTA tickets keep the OTA's policy; these customer change and
   cancellation rules do not apply to them.
   **Decided 2026-11-14 (Hồ Hoàng Quốc, owner Feature 003): 003.2 refuses.**
@@ -1593,7 +1597,7 @@ correction, with before/after audit evidence.
   | Create a session, individually or in bulk (FR-001f) | one event per created session, plus the created/skipped report |
   | Publish, pause or resume sales, change a session's capacity (FR-010, Business model; a location change is deferred, V1 — see T112) | one event with prior and new state |
   | Create or edit a workshop location (FR-012c) | one event per applied change, prior and new values |
-  | Set or clear a session's reschedule quota (FR-035) | one event `RESCHEDULE_QUOTA_SET`, prior and new quota, reason code |
+  | Set or clear a session's reschedule quota (FR-035) | one event `RESCHEDULE_QUOTA_SET`, prior and new quota, reason text (free text, FR-035) |
   | Assign or revoke a Staff member (Staff session-assignment access) | one event per assignment or removal; a refused removal of the last Staff and the confirmed one are both audited (Q3) |
   | Reverse a check-in (FR-002b) | before/after, reason code |
   | Correct finalized attendance (FR-008) | before/after, reason code |
