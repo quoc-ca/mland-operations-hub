@@ -361,7 +361,7 @@ and per location, whether it is sold there.
   `PACKAGE_SELECTION_INVALID`, which belongs to reserve). A
   Staff member can change a ticket only inside a location in their
   `activeLocationIds` (and under the existing assignment rule); a change whose
-  target is in a different location needs an active Manager. A target at an
+  target is in a different location needs no Manager (amended 2026-11-17, owner Hồ Hoàng Quốc; the Staff scope and assignment rules above still apply and the Staff member of the old location loses access after the move, FR-045). A target at an
   `INACTIVE` location is never offered and is refused at commit
   (`PACKAGE_NOT_AVAILABLE_AT_LOCATION`), including a change request approved
   before the pair was set `INACTIVE`. The existing seat, quota, QR and

@@ -41,7 +41,7 @@ loại trừ bên dưới vẫn bị chặn.
 | Tắt ô | Không bị chặn bởi đơn đang có; đơn, vé, hold còn hiệu lực giữ nguyên | Chỉ thị trong phiên; spec FR-040 | spec |
 | Khám phá ở ô INACTIVE | `409 PACKAGE_NOT_AVAILABLE_AT_LOCATION` (mặc định, hiếm gặp) | Chỉ thị trong phiên; OpenAPI | OpenAPI |
 | OTA | Không chặn đơn OTA; ma trận không tự cập nhật listing OTA | Chỉ thị trong phiên; spec FR-039 | spec |
-| Đổi vé khác location | Cho phép khi gói ACTIVE ở đó; Wax Casting đổi cả hai buổi cùng location; Staff chỉ trong location của mình, khác location cần Manager | Chỉ thị trong phiên; spec FR-042 | spec, facade contract |
+| Đổi vé khác location | Cho phép khi gói ACTIVE ở đó; Wax Casting đổi cả hai buổi cùng location; Staff trong location của mình và được gán vào buổi của vé; khác location KHÔNG cần Manager, sau khi đổi Staff location cũ mất quyền, có audit (sửa 2026-11-17, Hồ Hoàng Quốc; trước đó ghi "khác location cần Manager") | Chỉ thị trong phiên 2026-11-17; spec FR-042 | spec, facade contract |
 | Mland thay buổi | Gợi ý mọi location còn bán gói; vé hai buổi ở location của buổi còn lại | Chỉ thị trong phiên; spec FR-046 | spec, facade contract |
 | Tiền và location của vé | Tiền đã thu giữ chi nhánh nơi thu; khoản mới theo chi nhánh mới; location của vé đọc từ buổi hiện tại ở Operations | Chỉ thị trong phiên; spec FR-045 | spec, plan |
 | Audit | `WORKSHOP_PACKAGE_AVAILABILITY_CHANGED`, không ghi khi không đổi | Chỉ thị trong phiên; plan | plan, data-model |

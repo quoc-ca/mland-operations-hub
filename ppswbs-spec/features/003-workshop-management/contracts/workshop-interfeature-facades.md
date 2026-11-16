@@ -169,8 +169,7 @@ configuration preflight is approved.
    locationIds`, lists the locations where the Package is sellable, for 003.3
    change options. `replaceTicketSessions` accepts targets at another location
    when the Package is `ACTIVE` there and, under `sameLocationRequired`, all of
-   the ticket's sessions end at one location; it has no actor, so 003.3 requires
-   an active Manager for a location change. `findEquivalentReplacementSessions`
+   the ticket's sessions end at one location; it has no actor, so 003.3 applies the Staff scope and assignment rule and needs no Manager for a location change (amended 2026-11-17, owner Hồ Hoàng Quốc). `findEquivalentReplacementSessions`
    drops the "same branch" filter and returns candidates at every location where
    the Package is `ACTIVE`, each with `locationId` and `locationName` (spec
    FR-046, owner decision 2026-11-17). Ticket-level operations (`cancelTicket`, `reissueTicketQr`,

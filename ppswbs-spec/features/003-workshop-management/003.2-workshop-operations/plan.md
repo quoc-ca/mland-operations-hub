@@ -635,8 +635,8 @@ step stay excluded there. Tasks: Phase 18 (T144–T162) in `tasks.md`.
    candidate filter that pins a change to the old location is replaced by an
    availability filter (003.3 impact below).
 6. **Staff scope of a change stays with 003.3**, which knows the actor:
-   `replaceTicketSessions` has no actor. 003.3 requires an active Manager when
-   the target location differs from the ticket's current location (FR-042);
+   `replaceTicketSessions` has no actor. 003.3 applies the Staff scope and assignment rule and needs no Manager when
+   the target location differs (FR-042, amended 2026-11-17, owner Hồ Hoàng Quốc);
    003.2 enforces availability, one-location and quota.
 7. **Location name** is added to the customer session read, the Manager/Staff
    session list and the change options (FR-044). `locationId` stays.
@@ -660,8 +660,8 @@ new module dependency, no cycle. `ApplicationModules.verify()` must still pass.
   folio and collection branch read this value unchanged.
 - **003.3:** `TicketChangeOptionsService.candidatesFor` stops filtering by the
   old location and filters by the active-locations read; options carry the
-  location name; `TicketChangeService` requires an active Manager when the
-  target location differs; a cross-location move updates the ticket's location
+  location name; `TicketChangeService` needs no Manager when the
+  target location differs (amended 2026-11-17); a cross-location move updates the ticket's location
   of record, re-attributes the folio to the new location and lists the old-
   location add-ons to the Manager (FR-045). The change-option wording of
   003.3 FR-044/FR-044a needs a matching edit.
