@@ -2677,7 +2677,7 @@ definitions are in [data-model.md](data-model.md).)*
   `PACKAGE_NOT_AVAILABLE_AT_LOCATION`, the location-name field of the session
   read, the 409 of `GET …/sessions`, the `locations` list limited to `ACTIVE`
   pairs and the current-session read of a ticket (FR-053–FR-057); 003.2 backend
-  Phase 18 (T144–T162) lands them, so T154–T163 follow it.
+  Phase 18 (T144–T162) lands them, so T154–T164 follow it.
 - **003.3 Workshop Settlement and Changes** — consumes `MlandTicketConfirmedEvent`
   to open one folio per ticket (FR-038); bank refund for a late payment
   (FR-040). 003.3 T099/T106 need the 003.1 facade operations
@@ -2693,7 +2693,7 @@ definitions are in [data-model.md](data-model.md).)*
   waiting for the FR-040 late-payment review) or `UNVERIFIED` (attempt `PENDING`),
   with `amountVnd` = the stored requested amount (no separate received amount; a
   mismatched IPN is rejected and never listed), no VNPay call, no write and no
-  buyer contact data (task T150).
+  buyer contact data (task T150). *(Added 2026-11-17, T164)* The `locationIds[]` of a row are the locations at the time of payment (the booking-time copy); a later ticket move never changes a paid row.
 - **006 Loyalty and Promotion (FE-06)** — cart benefit contract (006 T098,
   D-010), automatic workshop discount (006 FR-044/FR-045, D-013, D-014; FE-06
   baseline re-approved by Đặng Thị Khương 2026-11-14), FE-06 display component

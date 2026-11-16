@@ -16,15 +16,15 @@ giữ trạng thái duyệt riêng (spec.md ghi "Approved 2026-11-15", không th
 
 - Design revision: working tree trên commit `803e83bc` (nhánh `claude/pkg-location-003-1-tasks-050dab`), các thay đổi
   đã commit ở `6a53a31c`. Nội dung được duyệt nhận diện bằng SHA-256 (12 ký tự đầu) của từng file ngày 2026-11-17:
-  - `spec.md` — `6e69e7e70063` (mục "Package availability per location — effect on 003.1": FR-053–FR-057, SC-009, "Owner answers" Q1–Q7)
+  - `spec.md` — `21c7be68b64e` (mục "Package availability per location — effect on 003.1": FR-053–FR-057, SC-009, "Owner answers" Q1–Q7)
   - `plan.md` — `db222c192c65` (mục "Package availability per location (Phase 18)")
   - `data-model.md` — `c242ea36c2a0` (ghi chú `booking_group_line_sessions.location_reference`)
-  - `tasks.md` — `a7bb53924cb8` (Phase 18, T154–T163)
-  Sửa các file này sau ngày duyệt thì phần bị ảnh hưởng phải được đánh giá lại; mã băm đổi là dấu hiệu. Nội dung các file trên nằm trong commit `6a53a31c`.
-- Approved scope: T154–T163 — `getTicketFolioContext` đọc buổi hiện tại qua Operations; quyền Staff cấp nhóm theo location hiện tại; giữ bản
+  - `tasks.md` — `c35ef2aaa321` (Phase 18, T154–T164)
+  Sửa các file này sau ngày duyệt thì phần bị ảnh hưởng phải được đánh giá lại; mã băm đổi là dấu hiệu. Bản đầu (T154–T163) ở commit `6a53a31c`; T164 (thêm 2026-11-17 theo yêu cầu của Tech Lead, cập nhật hash spec.md và tasks.md) nằm trong commit ghi ở lịch sử git của file này.
+- Approved scope: T154–T164 — `getTicketFolioContext` đọc buổi hiện tại qua Operations; quyền Staff cấp nhóm theo location hiện tại; giữ bản
   sao booking-time cho danh sách thanh toán lúc đặt; ánh xạ `PACKAGE_NOT_AVAILABLE_AT_LOCATION` ở giỏ; frontend chọn chi nhánh từ
   `GET /workshop-packages/{packageId}/locations`, xử lý 409 của `…/sessions`, hiện `locationName`; cập nhật mô tả 409 trong
-  `contracts/workshop-booking.openapi.yaml`.
+  `contracts/workshop-booking.openapi.yaml`; `listBookingTimePayments` trả location tại lúc thanh toán (T164).
 - Phụ thuộc, không thuộc phê duyệt này: 003.2 Phase 18 (lý do từ chối, `locationName`, `locations` chỉ ACTIVE, 409 của sessions,
   `replaceTicketSessions` sang location khác) phải có trước T155, T158–T162; phạm vi triển khai của 003.2 xem `003.2-workshop-operations/approval.md`.
 - Approval date: 2026-11-17
