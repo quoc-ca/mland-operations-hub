@@ -18,16 +18,17 @@
 
 .main-topbar {
   width: 100%;
-  max-width: 976px;
+  max-width: 1480px;
   background-color: #ffffff;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
-  height: 64px;
-  padding: 0 20px;
+  min-height: 64px;
+  padding: 6px 20px;
+  flex-wrap: wrap;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 6px 16px;
   box-sizing: border-box;
   position: relative;
   z-index: 50;
@@ -46,7 +47,7 @@
 .main-topbar-nav {
   display: flex;
   align-items: center;
-  gap: clamp(10px, 1.6vw, 20px);
+  gap: clamp(8px, 1.2vw, 16px);
 }
 
 .main-topbar-link {
@@ -250,3 +251,11 @@
     padding: 0 10px;
   }
 }
+
+.main-topbar-cart { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; font-size: 20px; text-decoration: none; }
+.main-topbar-cart-badge { position: absolute; top: 0; right: 0; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: #e11d48; color: #fff; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; }
+
+/* A long display name must not push the chip past the bar */
+.main-topbar-chip-name { max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.main-topbar-user-chip { max-width: 100%; white-space: nowrap; }
+.main-topbar-user-chip .main-topbar-chip-points { flex-shrink: 0; }

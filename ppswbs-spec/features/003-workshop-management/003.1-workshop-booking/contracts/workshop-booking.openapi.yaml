@@ -594,6 +594,7 @@ components:
         remainingVnd: {$ref: '#/components/schemas/Vnd'}
         recipientEmailMasked: {type: string, nullable: true}
         onlineRecipientChangesRemaining: {type: integer, minimum: 0, maximum: 3, nullable: true}
+        mlandRemedyPending: {type: boolean, description: "True only for the owning Member while a Mland replacement-session offer (003.3 FR-043) waits for the answer; a display hint, Settlement decides."}
         attendanceStatus:
           type: string
           nullable: true

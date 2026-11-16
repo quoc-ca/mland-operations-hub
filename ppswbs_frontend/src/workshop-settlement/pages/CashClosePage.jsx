@@ -11,8 +11,8 @@ export default function CashClosePage() {
   const api = createSettlementApi(useHttp());
   const role = useRole();
   const isManager = role === 'MANAGER' || role === 'ADMIN';
-  const [branchId, setBranchId] = useState('');
-  const [businessDay, setBusinessDay] = useState('');
+  const [locationId, setLocationId] = useState('');
+  const [workingDate, setWorkingDate] = useState('');
   const [expected, setExpected] = useState(null);
   const [counted, setCounted] = useState('');
   const [differenceReason, setDifferenceReason] = useState('');
@@ -24,7 +24,7 @@ export default function CashClosePage() {
   const loadExpected = async event => {
     event.preventDefault();
     setMessage(''); setClose(null);
-    const out = await command.run(() => api.getExpectedCash({ branchId: branchId.trim(), ...(businessDay ? { businessDay } : {}) }));
+    const out = await command.run(() => api.getExpectedCash({ locationId: locationId.trim(), ...(workingDate ? { workingDate } : {}) }));
     if (out.ok) setExpected(out.result);
   };
 
@@ -32,8 +32,8 @@ export default function CashClosePage() {
     event.preventDefault();
     setMessage('');
     const body = {
-      locationId: Number(branchId),
-      workingDate: expected?.businessDay || businessDay,
+      locationId: Number(locationId),
+      workingDate: expected?.workingDate || workingDate,
       countedAmount: counted.trim(),
       ...(differenceReason.trim() ? { differenceReason: differenceReason.trim() } : {}),
     };
@@ -52,13 +52,13 @@ export default function CashClosePage() {
       <ProblemNotice error={command.error} onRetry={command.retry} />
       <section className="ota-panel">
         <form className="ota-inline-form" aria-label="Expected cash" onSubmit={loadExpected}>
-          <label>Branch ID<input inputMode="numeric" value={branchId} onChange={event => setBranchId(event.target.value)} /></label>
-          <label>Working day<input type="date" value={businessDay} onChange={event => setBusinessDay(event.target.value)} /></label>
-          <button className="button outline" type="submit" disabled={command.pending || !/^[0-9]+$/.test(branchId.trim())}>Show expected cash</button>
+          <label>Branch ID<input inputMode="numeric" value={locationId} onChange={event => setLocationId(event.target.value)} /></label>
+          <label>Working day<input type="date" value={workingDate} onChange={event => setWorkingDate(event.target.value)} /></label>
+          <button className="button outline" type="submit" disabled={command.pending || !/^[0-9]+$/.test(locationId.trim())}>Show expected cash</button>
         </form>
         {expected && (
           <dl className="ops-facts">
-            <div><dt>Working day</dt><dd>{expected.businessDay}</dd></div>
+            <div><dt>Working day</dt><dd>{expected.workingDate}</dd></div>
             <div><dt>Expected cash</dt><dd>{money(expected.expectedCashVnd)}</dd></div>
           </dl>
         )}
@@ -81,6 +81,7 @@ export default function CashClosePage() {
             <div><dt>Difference</dt><dd>{money(close.differenceVnd)}</dd></div>
             {close.differenceReason ? <div><dt>Reason</dt><dd>{close.differenceReason}</dd></div> : null}
           </dl>
+          <p className="notice" role="status" aria-label="Cash close cut-off">Cash recorded from now on belongs to the next working day{close.status === 'PENDING_MANAGER_CONFIRMATION' ? ', even while this difference waits for the Manager’s confirmation' : ''}. The figures above are the server’s.</p>
           {close.status === 'PENDING_MANAGER_CONFIRMATION' && (isManager
             ? <button className="button danger" type="button" onClick={() => setConfirming(true)}>Confirm difference</button>
             : <p className="muted">A Manager must confirm this difference before the day is closed.</p>)}

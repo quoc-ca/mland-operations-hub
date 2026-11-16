@@ -109,7 +109,7 @@ const vi = {
   'offer.voucherLine': '{name}: mã {code}, giảm {value}{minimum}.', 'offer.voucherMinimum': ' cho đơn từ {minimum}',
   'offer.view': 'Xem và lưu mã', 'offer.notice': 'Giá giảm tính cho 1 sản phẩm; số tiền cuối cùng được tính lại khi đặt đơn.',
   'wsOffer.title': 'Ưu đãi cho gói này', 'wsOffer.autoLine': '{name}: giảm {value}, đã trừ vào giá mỗi vé.',
-  'wsOffer.voucherLine': '{name}: mã giảm {value}{minimum}, dành cho thành viên.', 'wsOffer.signInHint': 'Đăng nhập để dùng mã giảm',
+  'wsOffer.voucherLine': '{name}: mã giảm {value}{minimum}, dành cho thành viên.', 'wsOffer.signInHint': 'Đăng nhập để dùng mã giảm', 'wsOffer.afterVoucher': 'Giá sau voucher {code}',
   'wsOffer.signIn': 'Đăng nhập để dùng mã giảm cho thành viên', 'wsOffer.notice': 'Giá giảm tính cho 1 vé; số tiền cuối cùng được tính lại khi đặt chỗ.',
 
   'checkout.title': 'Ưu đãi và điểm', 'checkout.choice': 'Chọn ưu đãi', 'checkout.choice.NONE': 'Không dùng ưu đãi',
@@ -276,7 +276,7 @@ const en = {
   'offer.voucherLine': '{name}: code {code}, {value} off{minimum}.', 'offer.voucherMinimum': ' on orders from {minimum}',
   'offer.view': 'View and save code', 'offer.notice': 'The reduced price is for one item; the final amount is worked out again at checkout.',
   'wsOffer.title': 'Offers on this package', 'wsOffer.autoLine': '{name}: {value} off, already taken off each ticket.',
-  'wsOffer.voucherLine': '{name}: code for {value} off{minimum}, for members.', 'wsOffer.signInHint': 'Sign in to use a code',
+  'wsOffer.voucherLine': '{name}: code for {value} off{minimum}, for members.', 'wsOffer.signInHint': 'Sign in to use a code', 'wsOffer.afterVoucher': 'Price after voucher {code}',
   'wsOffer.signIn': 'Sign in to use member codes', 'wsOffer.notice': 'The reduced price is for one ticket; the final amount is worked out again when you book.',
 
   'checkout.title': 'Offers and points', 'checkout.choice': 'Choose an offer', 'checkout.choice.NONE': 'No offer',

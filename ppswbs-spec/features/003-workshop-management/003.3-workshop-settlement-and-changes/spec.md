@@ -607,6 +607,23 @@ self-service (FR-018 and Scope); whole-booking Mland remedy (FR-020, FR-021).
   earlier first session, never make it expire. **LATE_ARRIVAL (decided 2026-11-15, owner Ho Hoang Quoc):** the session being changed has already started when the request is made, so it expires at the earliest of the end of the FR-044 7-day window (the changed session's end + 7 days) and the start of any requested target session. Each request carries `fromSessionReferences`, and each reference must belong to the ticket, otherwise it is refused (422). Several tickets of one group change together, all or none,
   through `POST /workshop-booking-groups/{groupCode}/ticket-changes`.
 
+
+- **FR-044a — listing the sessions a ticket may move to** *(decided 2026-11-16 by Hồ Hoàng Quốc, owner Feature 003; tasks T176–T181)*:
+  the system MUST offer read-only `GET /workshop-tickets/{ticketCode}/change-options` (Member who owns the group, Staff in
+  the ticket's location, Manager) and `POST /workshop-tickets/{ticketCode}/change-option-lookups` (Guest, one contact proof
+  of the group; same proof, uniform 404 and rate limit as `folio-lookups`; never an OTP), so a customer or Staff picks from
+  valid sessions instead of typing identifiers. (1) A ticket with two sessions is answered one from-session at a time (the
+  other stays); `pairs` appears only when both sessions are requested together. (2) A candidate must pass the same checks
+  as 003.2 FR-034 (published, future, package order/gap/branch rule, type-specific source rule, LATE_ARRIVAL target no
+  later than the old session's end + 7 days); a candidate that breaks the package rules is not listed. A target at another
+  branch is listed when the package does not require one branch, with its own price increase (006 voucher scope, read
+  only). (3) A candidate that only a Manager could allow (reschedule quota full, 24 h window closed, allowance used) is
+  listed with `requiresManager=true` and the rule names; a full session, an OTA ticket or a folio that is not `OPEN` is
+  never selectable. (4) The exact remaining seats are shown to every caller. (5) The list is advisory: `POST /changes` still
+  re-checks everything. `fromSessionReferences` of `POST /changes` names only the sessions that really move (one per
+  target, same order); the server builds the ticket's new session set by keeping the other session, and ignores a pair
+  whose from equals its target.
+
 *(Superseded 2026-11-14 by FR-045a.)* **Decided 2026-11-14 (formerly "Open before implementation"):** the exact
 auto-approval conditions for online
 changes. Customer email content was approved 2026-11-12 in

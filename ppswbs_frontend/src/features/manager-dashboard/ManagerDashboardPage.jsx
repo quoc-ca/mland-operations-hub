@@ -114,8 +114,13 @@ function Dashboard() {
         <h1>Dashboard điều hành</h1>
         <p>Doanh thu đã xác minh và hiệu suất workshop của các chi nhánh bạn phụ trách.</p>
       </div>
-      <div className="md-refresh">
-        <span>Cập nhật lúc <strong>{vnTime(data?.lastUpdatedAt)}</strong></span>
+      <div className="md-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+        <Link to="/review-moderation" className="button outline md-reviews-link" style={{ textDecoration: 'none' }}>
+          Quản lý đánh giá
+        </Link>
+        <div className="md-refresh">
+          <span>Cập nhật lúc <strong>{vnTime(data?.lastUpdatedAt)}</strong></span>
+        </div>
       </div>
     </header>
 

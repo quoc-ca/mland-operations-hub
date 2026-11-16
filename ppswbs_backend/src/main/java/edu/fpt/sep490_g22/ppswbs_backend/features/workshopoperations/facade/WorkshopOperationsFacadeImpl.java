@@ -46,6 +46,7 @@ public class WorkshopOperationsFacadeImpl implements WorkshopOperationsFacade {
     private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.TicketCancellationService ticketCancellationService;
     private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.TicketSessionReplacementService ticketSessionReplacementService;
     private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.EquivalentReplacementSessionService equivalentReplacementSessionService;
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.TicketChangeOptionsService ticketChangeOptionsService;
     private final AttendanceTicketService attendanceTicketService;
     private final WorkshopOtaSnapshotService otaSnapshotService;
     private final WorkshopPackageReservationPolicy packageReservationPolicy;
@@ -140,6 +141,11 @@ public class WorkshopOperationsFacadeImpl implements WorkshopOperationsFacade {
     @Override
     public TicketSessionReplacementOutcome replaceTicketSessions(ReplaceTicketSessionsCommand command) {
         return ticketSessionReplacementService.replace(command);
+    }
+
+    @Override
+    public TicketChangeOptions listTicketChangeOptions(ListTicketChangeOptionsQuery query) {
+        return ticketChangeOptionsService.list(query);
     }
 
     @Override

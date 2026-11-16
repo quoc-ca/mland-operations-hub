@@ -1,5 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import { getWorkshopPackage, listWorkshopLocations, listWorkshopSessions } from '../api/workshops';
+import { getEffectiveParticipantMax } from './bookingCapacity';
+import { buildCheckoutPath, parseSelection, selectionProblem } from './bookingSelection';
+import { addCartLine, cartLineCount, subscribeToCart } from './cartStorage';
+import { formatSessionWindow } from './groupDisplay';
+import './figmaPublicShell.css';
 import PackageReviewSummary from '../features/reviewmanagement/ui/PackageReviewSummary';
 import { offersForPackage, usePublicWorkshopPrograms, WorkshopOfferList, WorkshopOfferPrice } from '../features/loyalty-promotion/publicOffers';
 
@@ -13,24 +19,6 @@ function formatDate(date) {
   return `${y}-${m}-${d}`;
 }
 
-function formatSessionDateTime(isoString) {
-  if (!isoString) return '';
-  const d = new Date(isoString);
-  return d.toLocaleDateString('vi-VN', {
-    weekday: 'short',
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  });
-}
-
-function formatSessionTime(isoStart, isoEnd) {
-  if (!isoStart || !isoEnd) return '';
-  const start = new Date(isoStart).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-  const end = new Date(isoEnd).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-  return `${start} - ${end}`;
-}
-
 export function WorkshopDetailPage({ packageId }) {
   const programs = usePublicWorkshopPrograms();
   const [pkg, setPkg] = useState(null);
@@ -42,12 +30,27 @@ export function WorkshopDetailPage({ packageId }) {
   const nextTwoWeeks = new Date();
   nextTwoWeeks.setDate(today.getDate() + 14);
 
-  const [locationId, setLocationId] = useState(null);
+  // A selection made earlier (back from checkout, or a shared link) comes back in the URL.
+  const [searchParams] = useSearchParams();
+  const initial = useRef(parseSelection(searchParams)).current;
+  const navigate = useNavigate();
+  // The list card's "Chọn ca & đặt" passes ?focus=schedule so the page opens at the session picker.
+  const focusTarget = useRef(searchParams.get('focus')).current;
+
+  const [locationId, setLocationId] = useState(initial.locationId);
   const [locations, setLocations] = useState([]);
   const [loadingLocations, setLoadingLocations] = useState(false);
   const [locationsError, setLocationsError] = useState(null);
-  const [from, setFrom] = useState(formatDate(today));
-  const [to, setTo] = useState(formatDate(nextTwoWeeks));
+  const [from, setFrom] = useState(initial.from || formatDate(today));
+  const [to, setTo] = useState(initial.to || formatDate(nextTwoWeeks));
+
+  // Shopee-style purchase panel: pick the required sessions and the ticket count, then "Thêm vào giỏ" or "Đặt ngay".
+  const [selectedRefs, setSelectedRefs] = useState(initial.sessionReferences);
+  const [participantCount, setParticipantCount] = useState(initial.participantCount);
+  const [selectionError, setSelectionError] = useState(null);
+  const [cartMessage, setCartMessage] = useState(null);
+  const [cartCount, setCartCount] = useState(() => cartLineCount());
+  useEffect(() => subscribeToCart(lines => setCartCount(lines.length)), []);
 
   const [sessions, setSessions] = useState([]);
   const [loadingSessions, setLoadingSessions] = useState(false);
@@ -127,6 +130,20 @@ export function WorkshopDetailPage({ packageId }) {
     }
   }, [pkg, locationId, from, to]);
 
+  const scrolledToFocus = useRef(false);
+  useEffect(() => {
+    if (!pkg || scrolledToFocus.current || !focusTarget) return;
+    if (focusTarget !== 'schedule') return;
+    const frame = requestAnimationFrame(() => {
+      const el = document.getElementById('session-choice-label');
+      if (el) {
+        scrolledToFocus.current = true;
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [pkg]);
+
   if (loadingPkg) {
     return (
       <main className="container public-page">
@@ -158,6 +175,68 @@ export function WorkshopDetailPage({ packageId }) {
 
   const offers = offersForPackage(pkg, programs);
 
+  // Only sessions that are really on the list count; a stale reference from the URL is ignored.
+  const sessionsKnown = sessions.length > 0 && !loadingSessions;
+  const chosenRefs = sessionsKnown ? selectedRefs.filter(ref => sessions.some(item => item.sessionReference === ref)) : [];
+  const requiredSessions = Math.max(1, Number(pkg.requiredSessionCount) || 1);
+  const minParticipants = Math.max(1, Number(pkg.minParticipants) || 1);
+  const sessionSelectionComplete = chosenRefs.length >= requiredSessions;
+  const effectiveMax = getEffectiveParticipantMax(pkg, sessions, chosenRefs);
+  const canChooseCount = sessionSelectionComplete && effectiveMax >= minParticipants;
+  const ticketCount = canChooseCount ? Math.min(Math.max(minParticipants, participantCount), effectiveMax) : 1;
+  const problem = selectionProblem({ requiredSessions, selectedCount: chosenRefs.length, effectiveMax, minParticipants, participantCount: ticketCount });
+
+  const toggleSession = reference => {
+    setSelectionError(null);
+    setCartMessage(null);
+    setSelectedRefs(previous => {
+      const current = previous.filter(ref => sessions.some(item => item.sessionReference === ref));
+      if (current.includes(reference)) return current.filter(ref => ref !== reference);
+      if (requiredSessions === 1) return [reference];
+      if (current.length >= requiredSessions) return [...current.slice(1), reference];
+      return [...current, reference];
+    });
+  };
+
+  const changeCount = next => {
+    setSelectionError(null);
+    setCartMessage(null);
+    setParticipantCount(Math.min(Math.max(minParticipants, next), effectiveMax));
+  };
+
+  const resetSelection = () => { setSelectedRefs([]); setSelectionError(null); setCartMessage(null); };
+
+  const buyNow = () => {
+    if (problem) { setSelectionError(problem); return; }
+    // The ticket count and sessions only travel to the checkout; its quote is the server's (FR-045).
+    navigate(buildCheckoutPath(pkg.packageId ?? packageId, { locationId, sessionReferences: chosenRefs, participantCount: ticketCount, from, to }));
+  };
+
+  const addToCart = () => {
+    if (problem) { setSelectionError(problem); return; }
+    setSelectionError(null);
+    addCartLine({
+      packageId: Number(pkg.packageId ?? packageId),
+      sessionReferences: chosenRefs,
+      participantCount: ticketCount,
+      packageName: pkg.name || '',
+      pricePerParticipantVnd: Number(pkg.publicPrice || 0),
+      locationId,
+      locationName: locations.find(item => Number(item.id) === Number(locationId))?.name || '',
+      sessionLabels: chosenRefs.map(ref => {
+        const found = sessions.find(item => item.sessionReference === ref);
+        return found ? formatSessionWindow(found.scheduledStart, found.scheduledEnd) : ref;
+      }),
+      minParticipants,
+      maxParticipants: effectiveMax,
+    });
+    const labels = chosenRefs.map(ref => {
+      const found = sessions.find(item => item.sessionReference === ref);
+      return found ? formatSessionWindow(found.scheduledStart, found.scheduledEnd) : ref;
+    });
+    setCartMessage(`✓ Đã thêm vào giỏ: ${pkg.name || 'gói workshop'} – ${ticketCount} vé, ${labels.join('; ')}. Bạn có thể chọn thêm ca hoặc gói khác rồi thanh toán một lần.`);
+  };
+
   return (
     <main className="container public-page">
       <div style={{ marginBottom: '16px' }}>
@@ -175,7 +254,10 @@ export function WorkshopDetailPage({ packageId }) {
         <div>
           {/* FR-052: one ticket after the best automatic discount (006's public gate); plain price when none. */}
           <p className="price" style={{ fontSize: '32px', margin: '0 0 16px' }}>
-            <WorkshopOfferPrice offers={offers} fallback={`${Number(pkg.publicPrice || 0).toLocaleString('vi-VN')} ₫`} /> <small style={{ fontSize: '16px', fontWeight: 'normal', color: '#595959' }}>/ người</small>
+            <WorkshopOfferPrice offers={offers} fallback={`${Number(pkg.publicPrice || 0).toLocaleString('vi-VN')} ₫`} /> <small style={{ fontSize: '16px', fontWeight: 'normal', color: '#595959' }}>/ vé</small>
+          </p>
+          <p className="muted" style={{ margin: '-8px 0 16px', fontSize: '13px' }}>
+            Giá tham khảo đã áp mã giảm tốt nhất; giá cuối do hệ thống báo giá khi đặt.
           </p>
           <p className="lead" style={{ fontSize: '16px', lineHeight: '1.6', marginBottom: '20px' }}>
             {pkg.description}
@@ -213,151 +295,138 @@ export function WorkshopDetailPage({ packageId }) {
             </ul>
           </div>
 
-          <div style={{ marginTop: '24px' }}>
-                <a className="button primary" aria-disabled={!locationId} style={{ width: '100%', textAlign: 'center', fontSize: '16px', padding: '14px 20px', opacity: locationId ? 1 : 0.55 }} href={locationId ? `/workshops/${pkg.packageId}/book?locationId=${locationId}` : undefined} onClick={event => { if (!locationId) event.preventDefault(); }}>
-              Đặt gói workshop này ngay →
-            </a>
-          </div>
-        </div>
-      </div>
+          <section className="workspace-card workshop-buy-panel" aria-label="Chọn ca và số lượng" style={{ marginTop: '24px', padding: '18px' }}>
+            <div className="filter-bar" style={{ margin: '0 0 14px', padding: '12px' }}>
+              <label style={{ flex: '1 1 200px' }}>
+                Chi nhánh
+                <select value={locationId ?? ''} disabled={loadingLocations || locations.length === 0} onChange={e => { setLocationId(Number(e.target.value)); resetSelection(); }}>
+                  <option value="" disabled>{loadingLocations ? 'Đang tải chi nhánh...' : 'Chọn chi nhánh'}</option>
+                  {locations.map(loc => (
+                    <option key={loc.id} value={loc.id}>{loc.name}</option>
+                  ))}
+                </select>
+              </label>
+              <label style={{ flex: '1 1 130px' }}>
+                Từ ngày
+                <input type="date" value={from} onChange={e => { setFrom(e.target.value); resetSelection(); }} />
+              </label>
+              <label style={{ flex: '1 1 130px' }}>
+                Đến ngày
+                <input type="date" value={to} onChange={e => { setTo(e.target.value); resetSelection(); }} />
+              </label>
+            </div>
+            {locationsError && <p className="status" style={{ color: '#b00', borderColor: '#b00' }}>{locationsError}</p>}
 
-      {/* Discovery filter section */}
-      <section style={{ marginTop: '56px' }}>
-        <div className="card-head">
-          <div>
-            <p className="eyebrow">LỊCH CA KHẢ DỤNG</p>
-            <h2>Tra cứu lịch & ca trống tại chi nhánh</h2>
-          </div>
-          <span className="muted" style={{ fontSize: '13px' }}>Dữ liệu thời gian thực từ Workshop Operations</span>
-        </div>
-
-        <div className="filter-bar" style={{ marginTop: '16px' }}>
-          <label style={{ flex: '2 1 280px' }}>
-            Chi nhánh
-            <select value={locationId ?? ''} disabled={loadingLocations || locations.length === 0} onChange={e => setLocationId(Number(e.target.value))}>
-              <option value="" disabled>{loadingLocations ? 'Đang tải chi nhánh...' : 'Chọn chi nhánh'}</option>
-              {locations.map(loc => (
-                <option key={loc.id} value={loc.id}>{loc.name}</option>
-              ))}
-            </select>
-          </label>
-
-          {locationsError && <p className="status" style={{ color: '#b00', borderColor: '#b00' }}>{locationsError}</p>}
-
-          <label style={{ flex: '1 1 160px' }}>
-            Từ ngày
-            <input type="date" value={from} onChange={e => setFrom(e.target.value)} />
-          </label>
-
-          <label style={{ flex: '1 1 160px' }}>
-            Đến ngày
-            <input type="date" value={to} onChange={e => setTo(e.target.value)} />
-          </label>
-
-          <button type="button" className="button primary" onClick={fetchSessions} style={{ height: '45px' }}>
-            Tìm ca
-          </button>
-        </div>
-
-        {loadingSessions && (
-          <div className="empty-state">
-            <p>Đang tìm các ca workshop khả dụng...</p>
-          </div>
-        )}
-
-        {sessionsError && !loadingSessions && (
-          <div className="empty-state">
-            <p className="status" style={{ color: '#b00', borderColor: '#b00' }}>
-              {sessionsError}
+            <h3 id="session-choice-label" style={{ margin: '0 0 4px', fontSize: '16px', scrollMarginTop: '96px' }}>
+              Chọn {requiredSessions} ca workshop <small className="muted">(đã chọn {chosenRefs.length}/{requiredSessions})</small>
+            </h3>
+            <p className="muted" style={{ margin: '0 0 10px', fontSize: '12px' }}>
+              Số chỗ còn lại là thông tin tham khảo; việc giữ chỗ thực tế được đảm bảo khi hoàn tất bước đặt chỗ.
             </p>
-          </div>
-        )}
 
-        {!loadingSessions && !sessionsError && sessions.length === 0 && (
-          <div className="empty-state">
-            <p>Không có ca workshop nào phù hợp trong khoảng thời gian đã chọn tại chi nhánh này.</p>
-            <p className="muted" style={{ marginTop: '8px' }}>Vui lòng chọn khoảng thời gian khác hoặc chi nhánh khác.</p>
-          </div>
-        )}
+            {loadingSessions && <p className="muted">Đang tìm các ca workshop khả dụng...</p>}
+            {sessionsError && !loadingSessions && (
+              <p className="status" role="alert" style={{ color: '#b00', borderColor: '#b00' }}>{sessionsError}</p>
+            )}
+            {!loadingSessions && !sessionsError && sessions.length === 0 && (
+              <p className="muted">Không có ca workshop nào phù hợp trong khoảng thời gian đã chọn tại chi nhánh này. Vui lòng chọn khoảng thời gian hoặc chi nhánh khác.</p>
+            )}
 
-        {!loadingSessions && !sessionsError && sessions.length > 0 && (
-          <div style={{ marginTop: '24px' }}>
-            <p className="prototype-note" style={{ marginBottom: '16px' }}>
-              * Lưu ý: Số chỗ khả dụng là thông tin tham khảo (snapshot); việc giữ chỗ thực tế được đảm bảo khi hoàn tất bước đặt chỗ.
-            </p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(310px, 1fr))', gap: '16px' }}>
-              {pagedSessions.map(s => (
-                <article
-                  key={s.sessionReference}
-                  className="workspace-card"
-                  style={{
-                    margin: 0,
-                    border: '1px solid #e3e3e3',
-                    opacity: s.customerSelectable && s.remainingCapacity > 0 ? 1 : 0.6,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'space-between',
-                  }}
-                >
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                      <span className="muted" style={{ fontSize: '13px' }}>
-                        {formatSessionDateTime(s.scheduledStart)}
-                      </span>
-                      <span className={s.customerSelectable && s.remainingCapacity > 0 ? 'status ok' : 'status'}>
-                        {s.remainingCapacity > 0 ? 'Mở đăng ký' : 'Hết chỗ'}
-                      </span>
-                    </div>
+            {!loadingSessions && !sessionsError && sessions.length > 0 && (
+              <>
+                <div role="group" aria-labelledby="session-choice-label" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px' }}>
+                  {pagedSessions.map(s => {
+                    const isSelected = chosenRefs.includes(s.sessionReference);
+                    const open = s.customerSelectable && s.remainingCapacity > 0;
+                    const selectable = open && (isSelected || s.remainingCapacity >= minParticipants);
+                    return (
+                      <button
+                        key={s.sessionReference}
+                        type="button"
+                        aria-pressed={isSelected}
+                        disabled={!selectable}
+                        onClick={() => toggleSession(s.sessionReference)}
+                        style={{
+                          textAlign: 'left',
+                          padding: '10px 12px',
+                          border: isSelected ? '2px solid #ee4d2d' : '1px solid #dcdfe6',
+                          background: isSelected ? '#fff5f2' : '#fff',
+                          color: '#1e1e1e',
+                          cursor: selectable ? 'pointer' : 'not-allowed',
+                          opacity: selectable ? 1 : 0.5,
+                        }}
+                      >
+                        <strong style={{ display: 'block', fontSize: '14px' }}>{formatSessionWindow(s.scheduledStart, s.scheduledEnd)}</strong>
+                        <span style={{ fontSize: '12px', color: '#595959' }}>{open ? `Còn ${s.remainingCapacity} chỗ` : 'Hết chỗ'}</span>
+                      </button>
+                    );
+                  })}
+                </div>
 
-                    <strong style={{ fontSize: '18px', color: '#002967', display: 'block', margin: '4px 0 10px' }}>
-                      {formatSessionTime(s.scheduledStart, s.scheduledEnd)}
-                    </strong>
+                {pageCount > 1 && (
+                  <nav aria-label="Phân trang các ca workshop" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', marginTop: '14px', flexWrap: 'wrap' }}>
+                    <button type="button" className="button outline small" disabled={currentPage === 0} onClick={() => setSessionPage(currentPage - 1)}>
+                      ‹ Trước
+                    </button>
+                    <span style={{ display: 'inline-flex', flexDirection: 'row', alignItems: 'center', gap: '8px', whiteSpace: 'nowrap', margin: 0 }}>
+                      Trang
+                      <select value={currentPage} onChange={e => setSessionPage(Number(e.target.value))} aria-label="Chọn trang" style={{ width: 'auto', minWidth: '64px', margin: 0 }}>
+                        {Array.from({ length: pageCount }, (_, index) => (
+                          <option key={index} value={index}>{index + 1}</option>
+                        ))}
+                      </select>
+                      / {pageCount}
+                    </span>
+                    <button type="button" className="button outline small" disabled={currentPage >= pageCount - 1} onClick={() => setSessionPage(currentPage + 1)}>
+                      Sau ›
+                    </button>
+                  </nav>
+                )}
+              </>
+            )}
 
-                    <div style={{ fontSize: '13px', color: '#595959' }}>
-                      <span>Chỗ còn lại: <strong>{s.remainingCapacity} chỗ</strong> (snapshot)</span>
-                    </div>
-                  </div>
-
-                  <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid #eee' }}>
-                    <a
-                      className="button outline"
-                      style={{
-                        width: '100%',
-                        textAlign: 'center',
-                        pointerEvents: s.customerSelectable && s.remainingCapacity > 0 ? 'auto' : 'none',
-                        opacity: s.customerSelectable && s.remainingCapacity > 0 ? 1 : 0.5,
-                      }}
-                      href={locationId ? `/workshops/${pkg.packageId}/book?locationId=${locationId}&session=${encodeURIComponent(s.sessionReference)}&from=${from}&to=${to}` : undefined}
-                    >
-                      {s.customerSelectable && s.remainingCapacity > 0 ? 'Chọn lịch này để đặt' : 'Ca không khả dụng'}
-                    </a>
-                  </div>
-                </article>
-              ))}
+            <div className="participant-field" style={{ marginTop: '16px' }}>
+              <span className="participant-label" id="participant-label">Số lượng vé</span>
+              <div className="participant-stepper" role="group" aria-labelledby="participant-label">
+                <button type="button" aria-label="Giảm số vé" disabled={!canChooseCount || ticketCount <= minParticipants} onClick={() => changeCount(ticketCount - 1)}>−</button>
+                <input
+                  type="number"
+                  min={minParticipants}
+                  max={canChooseCount ? effectiveMax : 1}
+                  value={ticketCount}
+                  disabled={!canChooseCount}
+                  aria-labelledby="participant-label"
+                  onChange={e => { const next = Number(e.target.value); if (Number.isFinite(next)) changeCount(next); }}
+                />
+                <button type="button" aria-label="Tăng số vé" disabled={!canChooseCount || ticketCount >= effectiveMax} onClick={() => changeCount(ticketCount + 1)}>+</button>
+              </div>
+              <small className="participant-hint">
+                {!sessionSelectionComplete
+                  ? `Chọn đủ ${requiredSessions} ca trước, sau đó mới chọn số vé. Số vé tạm thời: 1.`
+                  : canChooseCount
+                    ? `Tối đa ${effectiveMax} vé theo các ca đã chọn (gói cho ${minParticipants} - ${pkg.maxParticipants} vé).`
+                    : 'Các ca đã chọn không còn đủ số vé tối thiểu của gói. Vui lòng chọn ca khác.'}
+              </small>
             </div>
 
-            {pageCount > 1 && (
-              <nav aria-label="Phân trang các ca workshop" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', marginTop: '20px', flexWrap: 'wrap' }}>
-                <button type="button" className="button outline small" disabled={currentPage === 0} onClick={() => setSessionPage(currentPage - 1)}>
-                  ‹ Trước
-                </button>
-                <span style={{ display: 'inline-flex', flexDirection: 'row', alignItems: 'center', gap: '8px', whiteSpace: 'nowrap', margin: 0 }}>
-                  Trang
-                  <select value={currentPage} onChange={e => setSessionPage(Number(e.target.value))} aria-label="Chọn trang" style={{ width: 'auto', minWidth: '64px', margin: 0 }}>
-                    {Array.from({ length: pageCount }, (_, index) => (
-                      <option key={index} value={index}>{index + 1}</option>
-                    ))}
-                  </select>
-                  / {pageCount}
-                </span>
-                <button type="button" className="button outline small" disabled={currentPage >= pageCount - 1} onClick={() => setSessionPage(currentPage + 1)}>
-                  Sau ›
-                </button>
-              </nav>
+            {selectionError && <p role="alert" style={{ color: '#b00', fontSize: '14px', margin: '8px 0 0' }}>{selectionError}</p>}
+
+            <div className="actions" style={{ marginTop: '12px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+              <button type="button" className="button outline" onClick={addToCart} style={{ flex: '1 1 160px', minHeight: '48px', borderColor: '#ee4d2d', color: '#ee4d2d' }}>
+                Thêm vào giỏ
+              </button>
+              <button type="button" className="button primary" onClick={buyNow} style={{ flex: '1 1 160px', minHeight: '48px', background: '#ee4d2d', borderColor: '#ee4d2d' }}>
+                Đặt ngay
+              </button>
+            </div>
+            {cartMessage && (
+              <p role="status" style={{ marginTop: '10px', padding: '10px 12px', background: '#f0faf4', border: '1px solid #2e9e5b', color: '#1b5e37' }}>
+                {cartMessage} <Link className="text-link" to="/workshop-booking/cart">Mở giỏ workshop ({cartCount})</Link>
+              </p>
             )}
-          </div>
-        )}
-      </section>
+          </section>
+        </div>
+      </div>
 
       <div ref={reviewRef} style={{ scrollMarginTop: '24px' }}>
         <PackageReviewSummary packageId={pkg.packageId ?? packageId} packageName={pkg.name} />

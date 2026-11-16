@@ -9,6 +9,8 @@ import TicketActionsPage from './pages/TicketActionsPage';
 import RefundAccountPage from './pages/RefundAccountPage';
 import MlandRemedyPage from './pages/MlandRemedyPage';
 import CustomerFolioPage from './pages/CustomerFolioPage';
+import ReconciliationPage from './pages/ReconciliationPage';
+import AbsorbedUnderchargesPage from './pages/AbsorbedUnderchargesPage';
 
 // Staff/Manager screens (the backend decides every permission) and the public customer screens of 003.3.
 export const settlementRoutes = [
@@ -16,6 +18,8 @@ export const settlementRoutes = [
   { path: '/settlement/cases', element: <StaffArea><SettlementCasesPage /></StaffArea> },
   { path: '/settlement/cash-close', element: <StaffArea><CashClosePage /></StaffArea> },
   { path: '/settlement/refunds', element: <StaffArea><RefundQueuePage /></StaffArea> },
+  { path: '/settlement/reconciliation', element: <StaffArea><ReconciliationPage /></StaffArea> },
+  { path: '/settlement/absorbed-undercharges', element: <StaffArea><AbsorbedUnderchargesPage /></StaffArea> },
   { path: '/settlement/change-requests', element: <StaffArea><ChangeRequestsPage /></StaffArea> },
   { path: '/settlement/ticket-actions', element: <StaffArea><TicketActionsPage /></StaffArea> },
   // Customer screens: no sign-in is required; a Member is recognized by the session, a Guest by proof in a request body.

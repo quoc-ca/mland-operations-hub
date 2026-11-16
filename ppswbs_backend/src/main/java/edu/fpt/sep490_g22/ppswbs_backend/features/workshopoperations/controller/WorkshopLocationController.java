@@ -2,6 +2,7 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.controller
 
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.LocationRequest;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.LocationResponse;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.LocationUpdateRequest;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.SlotRequest;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.SlotResponse;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopLocationService;
@@ -19,6 +20,7 @@ import java.util.List;
  * Corresponds to OpenAPI paths:
  * - GET  /api/v1/workshop-locations
  * - POST /api/v1/workshop-locations
+ * - PATCH /api/v1/workshop-locations/{locationId}
  * - GET  /api/v1/workshop-locations/{locationId}/slots
  * - POST /api/v1/workshop-locations/{locationId}/slots
  */
@@ -46,6 +48,18 @@ public class WorkshopLocationController {
         LocationResponse response = restIdempotency.execute(idempotencyKey, "REST:POST:/api/v1/workshop-locations", "location:create", request,
                 LocationResponse.class, () -> locationService.createLocation(authHeader, request));
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @PatchMapping("/{locationId}")
+    public ResponseEntity<LocationResponse> updateLocation(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @PathVariable("locationId") Long locationId,
+            @RequestHeader(value = "Idempotency-Key", required = true) String idempotencyKey,
+            @RequestBody LocationUpdateRequest request) {
+        LocationResponse response = restIdempotency.execute(idempotencyKey, "REST:PATCH:/api/v1/workshop-locations/{locationId}",
+                "location:update:" + locationId, request, LocationResponse.class,
+                () -> locationService.updateLocation(authHeader, locationId, request));
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/{locationId}/slots")

@@ -3,6 +3,7 @@
 const PUBLIC = '/api/v1';
 const MANAGEMENT = '/api/v1/catalogue-management';
 const id = value => encodeURIComponent(value);
+const activeLocations = data => (Array.isArray(data) ? data.filter(item => item.active !== false) : data);
 
 /** Backend action names of the writes, the scope of a command receipt (FR-028). */
 export const ACTIONS = {
@@ -56,7 +57,8 @@ export function catalogueApi(request) {
 
     // Branches (US10, Session 2026-11-08). The list is the canonical branch list of 003.2, already limited to the
     // Manager's active branches or the Staff member's assigned ones; the backend checks the scope again.
-    listBranches: () => request('/api/v1/workshop-locations'),
+    // Manager's list also carries inactive locations (003.2 FR-012c); a picker offers active ones only.
+    listBranches: async () => activeLocations(await request('/api/v1/workshop-locations')),
     addBranch: (key, productId, expectedVersion, locationId, quantities) => write('POST', `/products/${id(productId)}/branches`, key, { expectedVersion, locationId, quantities }),
     setBranchQuantity: (key, variantId, locationId, expectedVersion, quantity) => write('PUT', `/variants/${id(variantId)}/branches/${id(locationId)}/quantity`, key, { expectedVersion, quantity }),
     setBranchSale: (key, productId, locationId, saleEnabled, expectedSaleEnabled) => write('PUT', `/products/${id(productId)}/branches/${id(locationId)}/sale-status`, key, { saleEnabled, expectedSaleEnabled }),

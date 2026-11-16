@@ -38,7 +38,8 @@ public record BookingGroupView(
             String attendanceStatus,
             String qrReference,
             String ticketReference,
-            List<SessionView> sessions) {
+            List<SessionView> sessions,
+            boolean mlandRemedyPending) {
     }
 
     public record SessionView(

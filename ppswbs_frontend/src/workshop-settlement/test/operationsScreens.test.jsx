@@ -9,10 +9,10 @@ import { PROFILE, asRole, useFreshRole } from './helpers';
 useFreshRole();
 
 describe('Cash close', () => {
-  const CLOSE = { closeReference: 'CLOSE-1', branchId: 3, businessDay: '2026-11-14', expectedCashVnd: 1000000, countedCashVnd: 990000, differenceVnd: -10000, differenceReason: 'miscount', status: 'PENDING_MANAGER_CONFIRMATION' };
+  const CLOSE = { closeReference: 'CLOSE-1', locationId: 3, workingDate: '2026-11-14', expectedCashVnd: 1000000, countedCashVnd: 990000, differenceVnd: -10000, differenceReason: 'miscount', status: 'PENDING_MANAGER_CONFIRMATION' };
   const handlers = {
     [PROFILE]: asRole('MANAGER'),
-    'GET /api/v1/workshop-cash-closes/expected-cash': json(200, { branchId: 3, businessDay: '2026-11-14', expectedCashVnd: 1000000 }),
+    'GET /api/v1/workshop-cash-closes/expected-cash': json(200, { locationId: 3, workingDate: '2026-11-14', expectedCashVnd: 1000000 }),
     'POST /api/v1/workshop-cash-closes': json(201, CLOSE),
     'POST /api/v1/workshop-cash-closes/CLOSE-1/difference-confirmations': json(200, { ...CLOSE, status: 'CLOSED' }),
   };
@@ -31,6 +31,9 @@ describe('Cash close', () => {
     const close = calls.find(call => call.method === 'POST');
     expect(close.body).toEqual({ locationId: 3, workingDate: '2026-11-14', countedAmount: '990000', differenceReason: 'miscount' });
     expect(close.headers['Idempotency-Key']).toBeTruthy();
+    expect(calls.find(call => call.path.endsWith('/expected-cash')).query).toEqual({ locationId: '3' });
+    // T172: the cut-off note is shown while the difference waits, and after the Manager closes the day.
+    expect(screen.getByRole('status', { name: 'Cash close cut-off' })).toHaveTextContent(/belongs to the next working day, even while this difference waits/);
 
     await user.click(await screen.findByRole('button', { name: 'Confirm difference' }));
     const dialog = screen.getByRole('dialog');
@@ -42,6 +45,9 @@ describe('Cash close', () => {
     const confirm = calls.filter(call => call.method === 'POST')[1];
     expect(confirm.body).toEqual({ reason: 'recounted by two people' });
     expect(confirm.headers['Idempotency-Key']).toBeTruthy();
+    const note = screen.getByRole('status', { name: 'Cash close cut-off' });
+    expect(note).toHaveTextContent(/belongs to the next working day/);
+    expect(note).not.toHaveTextContent(/even while/);
   });
 
   it('does not offer the confirmation to Staff', async () => {
@@ -106,7 +112,7 @@ describe('Refund queue', () => {
     expect(screen.queryByText('0123456789')).not.toBeInTheDocument();
   });
 
-  it('records the transfer with a bank reference and a proof reference', async () => {
+  it('records the transfer with the bank reference alone; the proof note and the receipt image are optional', async () => {
     const calls = mockFetch({
       [PROFILE]: asRole('MANAGER'),
       'GET /api/v1/workshop-refund-requests': json(200, [refund({ status: 'PENDING_TRANSFER' })]),
@@ -118,10 +124,10 @@ describe('Refund queue', () => {
     const submit = await screen.findByRole('button', { name: 'Record transfer' });
     expect(submit).toBeDisabled();
     await user.type(screen.getByLabelText('Bank transaction reference'), 'FT123');
-    await user.type(screen.getByLabelText('Proof reference'), 'proof-1');
+    expect(submit).toBeEnabled();
     await user.click(submit);
     expect(await screen.findByText('Transfer recorded.')).toBeInTheDocument();
-    expect(calls.find(call => call.method === 'POST').body).toEqual({ action: 'RECORD_TRANSFER', bankTransactionReference: 'FT123', proofReference: 'proof-1' });
+    expect(calls.find(call => call.method === 'POST').body).toEqual({ action: 'RECORD_TRANSFER', bankTransactionReference: 'FT123' });
   });
 
   it('closing as unreachable needs a confirmation with a reason, and a 409 is explained', async () => {
@@ -155,9 +161,15 @@ describe('Refund queue', () => {
     await user.type(await screen.findByLabelText('Bank code'), 'VCB');
     await user.type(screen.getByLabelText('Account number'), '0123456789');
     await user.type(screen.getByLabelText(/Holder name/), 'NGUYEN VAN A');
+    await user.click(screen.getByRole('button', { name: 'Review details' }));
+    expect(screen.getByText('0123456789')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save account' })).toBeDisabled();
+    await user.click(screen.getByRole('checkbox', { name: 'These details are correct' }));
     await user.click(screen.getByRole('button', { name: 'Save account' }));
     expect(await screen.findByText('Account recorded.')).toBeInTheDocument();
-    expect(calls.find(call => call.method === 'PUT').headers['Idempotency-Key']).toBeTruthy();
+    const put = calls.find(call => call.method === 'PUT');
+    expect(put.headers['Idempotency-Key']).toBeTruthy();
+    expect(put.body).toEqual({ bankCode: 'VCB', accountNumber: '0123456789', holderName: 'NGUYEN VAN A', accountDetailsConfirmed: true });
     expect(screen.queryByRole('button', { name: 'Close as unreachable' })).not.toBeInTheDocument();
   });
 });

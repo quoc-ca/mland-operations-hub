@@ -132,7 +132,8 @@ public class TicketRecipientService {
                     "Only a confirmed ticket can be sent to a recipient");
         }
 
-        String newEmail = recipientEmail.trim();
+        // One stored form (trim + lower case), the same one every email comparison in this feature uses.
+        String newEmail = EmailMasking.normalize(recipientEmail);
         TicketRecipient recipient = recipients.findByTicketId(ticket.getId()).orElse(null);
         boolean online = "ONLINE".equals(channel);
         if (recipient != null && EmailMasking.normalize(recipient.getRecipientEmail()).equals(EmailMasking.normalize(newEmail))) {

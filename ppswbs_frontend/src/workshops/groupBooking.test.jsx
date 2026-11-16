@@ -79,7 +79,7 @@ async function pickSessionAndTwoTickets(user) {
   await user.click(await screen.findByRole('button', { name: 'Tăng số vé' }));
 }
 
-describe('003.1 FR-045 booking a group from the package screen', () => {
+describe('003.1 FR-045 booking a group: pick on the package page, "Đặt ngay" opens the checkout', () => {
   beforeEach(() => { clearCart(); });
 
   it('"Đặt ngay" quotes this one line and confirms it into a booking group, with no cart page', async () => {
@@ -89,7 +89,7 @@ describe('003.1 FR-045 booking a group from the package screen', () => {
       'POST /api/v1/workshop-cart-quotes': json(201, QUOTE),
       'POST /api/v1/workshop-booking-groups': json(201, heldGroup()),
     });
-    renderRoutes(workshopRoutes, { path: '/workshops/5/book', session: fakeSession('signed-out') });
+    renderRoutes(workshopRoutes, { path: '/workshops/5', session: fakeSession('signed-out') });
 
     await pickSessionAndTwoTickets(user);
     await user.click(screen.getByRole('button', { name: 'Đặt ngay' }));
@@ -118,7 +118,7 @@ describe('003.1 FR-045 booking a group from the package screen', () => {
     expect(createCall.body).toEqual({
       quoteRef: 'quote-ref-1',
       contactEmail: 'guest@mland.vn',
-      contactPhone: '0901234567',
+      contactPhone: '+84901234567',
     });
     expect(createCall.headers['Idempotency-Key']).toMatch(/.{16,128}/);
 
@@ -130,16 +130,39 @@ describe('003.1 FR-045 booking a group from the package screen', () => {
   it('"Thêm vào giỏ" keeps the line in this browser and opens no booking call', async () => {
     const user = userEvent.setup();
     const calls = mockFetch(discoveryHandlers());
-    renderRoutes(workshopRoutes, { path: '/workshops/5/book', session: fakeSession('signed-out') });
+    renderRoutes(workshopRoutes, { path: '/workshops/5', session: fakeSession('signed-out') });
 
     await pickSessionAndTwoTickets(user);
     await user.click(screen.getByRole('button', { name: 'Thêm vào giỏ' }));
 
-    expect(await screen.findByText(/Đã thêm gói này vào giỏ/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Đã thêm vào giỏ/i)).toBeInTheDocument();
     expect(readCart()).toHaveLength(1);
     expect(readCart()[0]).toMatchObject({ packageId: 5, participantCount: 2, sessionReferences: [SESSION_ONE] });
     expect(calls.some(call => call.path.startsWith('/api/v1/workshop-cart-quotes'))).toBe(false);
     expect(calls.some(call => call.path.startsWith('/api/v1/workshop-booking-groups'))).toBe(false);
+  });
+
+  it('the checkout opened without a chosen session quotes nothing and sends the customer back to pick one', async () => {
+    const calls = mockFetch(discoveryHandlers());
+    renderRoutes(workshopRoutes, { path: '/workshops/5/book', session: fakeSession('signed-out') });
+
+    expect(await screen.findByText('Bạn chưa chọn ca workshop nào.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Chọn ca' })).toHaveAttribute('href', '/workshops/5');
+    await new Promise(resolve => setTimeout(resolve, 100));
+    expect(calls.some(call => call.path === '/api/v1/workshop-cart-quotes')).toBe(false);
+  });
+
+  it('the checkout shows the chosen session and quotes the chosen line once, on arrival', async () => {
+    const calls = mockFetch({ ...discoveryHandlers(), 'POST /api/v1/workshop-cart-quotes': json(201, QUOTE) });
+    renderRoutes(workshopRoutes, { path: `/workshops/5/book?locationId=2&session=${SESSION_ONE}&participants=2`, session: fakeSession('signed-out') });
+
+    expect(await screen.findByText('Báo giá đặt ngay')).toBeInTheDocument();
+    expect(screen.getByText('1. Ca workshop đã chọn')).toBeInTheDocument();
+    expect(screen.getByText('MLAND Quận 1')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Thêm vào giỏ' })).toBeNull();
+    const quoteCalls = calls.filter(call => call.path === '/api/v1/workshop-cart-quotes');
+    expect(quoteCalls).toHaveLength(1);
+    expect(quoteCalls[0].body).toEqual({ lines: [{ packageId: 5, sessionReferences: [SESSION_ONE], participantCount: 2 }] });
   });
 
   it('shows the counter notice and no non-refundable notice for a deferred group (FR-036, FR-037)', async () => {
@@ -158,7 +181,7 @@ describe('003.1 FR-045 booking a group from the package screen', () => {
         }],
       }),
     });
-    renderRoutes(workshopRoutes, { path: '/workshops/5/book', session: fakeSession('signed-out') });
+    renderRoutes(workshopRoutes, { path: '/workshops/5', session: fakeSession('signed-out') });
 
     await user.click(await screen.findByText(/\d{2}\/\d{2}\/\d{4}/));
     await user.click(screen.getByRole('button', { name: 'Đặt ngay' }));
@@ -179,12 +202,12 @@ describe('003.1 FR-031/FR-045 the cart page', () => {
       'POST /api/v1/workshop-cart-quotes': json(201, QUOTE),
       'POST /api/v1/workshop-booking-groups': json(201, heldGroup()),
     });
-    renderRoutes(workshopRoutes, { path: '/workshops/5/book', session: fakeSession('signed-out') });
+    renderRoutes(workshopRoutes, { path: '/workshops/5', session: fakeSession('signed-out') });
     await pickSessionAndTwoTickets(user);
     await user.click(screen.getByRole('button', { name: 'Thêm vào giỏ' }));
     await user.click(await screen.findByRole('link', { name: /Mở giỏ workshop/i }));
 
-    await user.click(await screen.findByRole('button', { name: 'Báo giá giỏ' }));
+    await user.click(await screen.findByRole('button', { name: 'Đặt chỗ ngay' }));
     expect(await screen.findByText('Báo giá giỏ workshop')).toBeInTheDocument();
     const quoteCall = calls.find(call => call.path === '/api/v1/workshop-cart-quotes');
     expect(quoteCall.body).toEqual({ lines: [{ packageId: 5, sessionReferences: [SESSION_ONE], participantCount: 2 }] });
@@ -210,11 +233,11 @@ describe('003.1 FR-031/FR-045 the cart page', () => {
         failingLines: [0],
       }),
     });
-    renderRoutes(workshopRoutes, { path: '/workshops/5/book', session: fakeSession('signed-out') });
+    renderRoutes(workshopRoutes, { path: '/workshops/5', session: fakeSession('signed-out') });
     await pickSessionAndTwoTickets(user);
     await user.click(screen.getByRole('button', { name: 'Thêm vào giỏ' }));
     await user.click(await screen.findByRole('link', { name: /Mở giỏ workshop/i }));
-    await user.click(await screen.findByRole('button', { name: 'Báo giá giỏ' }));
+    await user.click(await screen.findByRole('button', { name: 'Đặt chỗ ngay' }));
     await user.type(await screen.findByLabelText(/Email nhận vé/i), 'guest@mland.vn');
     await user.type(screen.getByLabelText(/Số điện thoại liên hệ/i), '0901234567');
     await user.click(screen.getByRole('button', { name: 'Xác nhận và giữ chỗ' }));
@@ -223,7 +246,7 @@ describe('003.1 FR-031/FR-045 the cart page', () => {
     expect(screen.getByText(/dòng 1/)).toBeInTheDocument();
     // Nothing was held, so the cart survives and can be edited again.
     expect(readCart()).toHaveLength(1);
-    expect(screen.getByRole('button', { name: 'Báo giá giỏ' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Đặt chỗ ngay' })).toBeEnabled();
   });
 });
 
@@ -257,6 +280,34 @@ describe('003.1 FR-032 the hold the customer sees', () => {
       rerender(<GroupHoldPanel group={ended} />);
       expect(screen.getByRole('status').textContent).toBe(AWAITING_RESULT_MESSAGE);
       unmount();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('re-reads the group every 5 s after the hold ends, at most 6 times, and stops when unmounted', async () => {
+    vi.useFakeTimers();
+    try {
+      const { GroupHoldPanel, HOLD_ENDED_POLL_MS, HOLD_ENDED_POLL_MAX } = await import('./GroupHoldPanel');
+      const { render } = await import('@testing-library/react');
+      const onHoldEnded = vi.fn();
+      const ended = heldGroup({
+        paymentDeadlineAt: new Date(Date.now() - 130_000).toISOString(),
+        holdExpiresAt: new Date(Date.now() - 10_000).toISOString(),
+      });
+      const { unmount } = render(<GroupHoldPanel group={ended} onHoldEnded={onHoldEnded} />);
+      expect(onHoldEnded).toHaveBeenCalledTimes(1);
+      vi.advanceTimersByTime(HOLD_ENDED_POLL_MS * 2);
+      expect(onHoldEnded).toHaveBeenCalledTimes(3);
+      vi.advanceTimersByTime(HOLD_ENDED_POLL_MS * 20);
+      expect(onHoldEnded).toHaveBeenCalledTimes(HOLD_ENDED_POLL_MAX);
+      unmount();
+
+      const again = vi.fn();
+      const second = render(<GroupHoldPanel group={ended} onHoldEnded={again} />);
+      second.unmount();
+      vi.advanceTimersByTime(HOLD_ENDED_POLL_MS * 3);
+      expect(again).toHaveBeenCalledTimes(1);
     } finally {
       vi.useRealTimers();
     }

@@ -79,7 +79,7 @@ class OtaTicketGuardTest {
         TicketSessionReplacementService service = new TicketSessionReplacementService(tickets, entitlements,
                 mock(TicketSessionReplacementRepository.class), mock(CapacityHoldRepository.class), sessions,
                 mock(OperationsAuditEventRepository.class), idempotency, mock(WorkshopOtaSnapshotService.class),
-                mock(WorkshopPackageReservationPolicy.class));
+                mock(WorkshopPackageReservationPolicy.class), new TicketReplacementRules());
 
         TicketSessionReplacementOutcome outcome = service.replace(new ReplaceTicketSessionsCommand(
                 List.of(new ReplaceTicketSessionsCommand.Line(ticketRef, List.of(target))),

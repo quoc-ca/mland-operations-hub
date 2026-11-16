@@ -119,15 +119,7 @@ export function WorkshopListPage() {
                   </p>
                   <WorkshopOfferBadges offers={offers} />
                   <div className="wk-actions">
-                    <a className="button outline" href={`/workshops/${pkg.packageId}`}>Xem lịch ca</a>
-                    <a
-                      className="button outline"
-                      href={`/workshops/${pkg.packageReference || 'PKG-COUPLE-SILVER'}/design`}
-                      title="Cấu hình mẫu nhẫn cho workshop này"
-                    >
-                      Cấu hình nhẫn
-                    </a>
-                    <a className="button primary" href={`/workshops/${pkg.packageId}/book`}>Đặt ngay</a>
+                    <a className="button primary" href={`/workshops/${pkg.packageId}?focus=schedule`}>Chọn ca &amp; đặt</a>
                   </div>
                 </div>
               </article>

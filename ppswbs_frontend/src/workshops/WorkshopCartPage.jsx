@@ -1,7 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
+import CartTabs from '../shared/ui/CartTabs';
 import { createBookingGroup, quoteWorkshopCart } from '../api/workshops';
 import { CartBenefitPicker } from './CartBenefitPicker';
+import { contactForRequest, EMPTY_CONTACT, splitPhone, validateBookingContact } from './contactValidation';
 import { CartQuotePanel } from './CartQuotePanel';
 import { GroupDetailCard } from './GroupDetailCard';
 import {
@@ -16,6 +18,7 @@ import { useBookingIdentity } from './useBookingIdentity';
 import { useHttp } from '../shared/api/useHttp';
 import { offersForPackage, usePublicWorkshopPrograms, WorkshopOfferBadges, WorkshopOfferPrice } from '../features/loyalty-promotion/publicOffers';
 import './figmaPublicShell.css';
+import './cartShopee.css';
 
 const CART_ERROR_MESSAGE = {
   CART_HOLD_REJECTED: 'Giỏ chưa được giữ chỗ vì có dòng không còn đủ chỗ. Hệ thống không giữ chỗ nào; vui lòng sửa giỏ rồi báo giá lại.',
@@ -40,8 +43,16 @@ export function WorkshopCartPage() {
   const { authStatus, mode: bookingMode, profile, profileLoading, profileError, memberAuthorization } = useBookingIdentity();
   const http = useHttp();
   const [lines, setLines] = useState(() => readCart());
+  // Shopee-style line selection: only ticked lines are quoted and booked; the rest stay in the cart.
+  const [unselectedIds, setUnselectedIds] = useState([]);
+  const selectedLines = lines.filter(line => !unselectedIds.includes(line.lineId));
+  const allSelected = lines.length > 0 && selectedLines.length === lines.length;
+  const [preview, setPreview] = useState(null);
+  const [autoPicking, setAutoPicking] = useState(false);
+  const previewRun = useRef(0);
+  const userPicked = useRef(false);
   const [benefitSelection, setBenefitSelection] = useState({ choice: 'NONE', voucherCode: '', requestedPoints: '0' });
-  const [contact, setContact] = useState({ contactEmail: '', contactPhone: '' });
+  const [contact, setContact] = useState(EMPTY_CONTACT);
   const [quote, setQuote] = useState(null);
   const [quoting, setQuoting] = useState(false);
   const [quoteError, setQuoteError] = useState(null);
@@ -54,10 +65,10 @@ export function WorkshopCartPage() {
 
   useEffect(() => {
     if (authStatus !== 'signed-in') {
-      setContact({ contactEmail: '', contactPhone: '' });
+      setContact(EMPTY_CONTACT);
       return;
     }
-    if (profile) setContact({ contactEmail: profile.email || '', contactPhone: profile.phone || '' });
+    if (profile) setContact({ contactEmail: profile.email || '', ...splitPhone(profile.phone) });
   }, [authStatus, profile]);
 
   // Display only (FR-052): each line's per-ticket price after the automatic discount; the quote is the server's.
@@ -113,18 +124,139 @@ export function WorkshopCartPage() {
     setConfirmKey(null);
   };
 
+  const lineUnit = line => Number(lineOffers(line)?.finalPrice ?? line.pricePerParticipantVnd ?? 0);
+  const totalTickets = selectedLines.reduce((sum, line) => sum + Number(line.participantCount || 0), 0);
+  const estimatedTotal = selectedLines.reduce((sum, line) => sum + lineUnit(line) * Number(line.participantCount || 0), 0);
+
+  const wholeBig = value => (/^\d+$/.test(String(value ?? '')) ? BigInt(value) : 0n);
+  const quoteFor = (selection, authorization) => quoteWorkshopCart({
+    lines: cartQuoteLines(selectedLines),
+    benefitSelection: selection,
+    authorization: authorization || undefined,
+  });
+  const noBenefit = { choice: 'NONE', voucherCode: '', requestedPoints: '0' };
+
+  // Candidate vouchers for the auto pick: the Member's saved ones that fit this cart, then the running workshop vouchers.
+  const selectionKey = selectedLines.map(line => `${line.lineId}:${line.participantCount}`).join('|');
+  const candidateCodes = useMemo(() => {
+    const cartPackages = selectedLines.map(line => String(line.packageId));
+    const fits = item => {
+      if (item.scope && item.scope !== 'WORKSHOP') return false;
+      const limited = (item.packageIds || []).map(String);
+      return limited.length === 0 || limited.some(id => cartPackages.includes(id));
+    };
+    const codes = [
+      ...savedVouchers.filter(item => item.availability === 'ACTIVE' && fits(item)).map(item => item.code),
+      ...workshopOffers.map(item => item.code),
+    ];
+    return [...new Set(codes)].slice(0, 5);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [savedVouchers, workshopOffers, selectionKey]);
+  const candidateKey = candidateCodes.join('|');
+
+  // Auto pick (Shopee-style): quote the cart with each candidate voucher, keep the one with the largest voucher
+  // discount, then ask for the most points the quote allows. Every figure is 006's quote; nothing is computed here.
+  useEffect(() => {
+    if (bookingMode !== 'MEMBER' || selectedLines.length === 0) {
+      previewRun.current += 1;
+      setPreview(null);
+      setAutoPicking(false);
+      return undefined;
+    }
+    if (userPicked.current) return undefined;
+    const run = ++previewRun.current;
+    const current = () => run === previewRun.current;
+    setAutoPicking(true);
+    (async () => {
+      try {
+        const authorization = await memberAuthorization();
+        let best = { selection: noBenefit, result: await quoteFor(noBenefit, authorization), discount: 0n };
+        for (const code of candidateCodes) {
+          if (!current()) return;
+          try {
+            const selection = { choice: 'VOUCHER', voucherCode: code, requestedPoints: '0' };
+            const result = await quoteFor(selection, authorization);
+            const discount = wholeBig(result.voucherDiscountVnd);
+            if (discount > best.discount) best = { selection, result, discount };
+          } catch { /* a voucher the quote refuses is simply not a candidate */ }
+        }
+        const max = wholeBig(best.result.maxPoints);
+        const min = wholeBig(best.result.minRedeemPoints);
+        let final = best;
+        if (max > 0n && max >= min) {
+          try {
+            const selection = { ...best.selection, requestedPoints: String(max) };
+            final = { selection, result: await quoteFor(selection, authorization) };
+          } catch { /* keep the voucher-only quote */ }
+        }
+        if (!current()) return;
+        setBenefitSelection(final.selection);
+        setPreview(final.result);
+      } catch {
+        if (current()) setPreview(null);
+      } finally {
+        if (current()) setAutoPicking(false);
+      }
+    })();
+    return () => { previewRun.current += 1; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookingMode, selectionKey, candidateKey]);
+
+  const runPreview = async selection => {
+    if (bookingMode !== 'MEMBER' || selectedLines.length === 0) return;
+    const run = ++previewRun.current;
+    try {
+      const authorization = await memberAuthorization();
+      const result = await quoteFor(selection, authorization);
+      if (run === previewRun.current) setPreview(result);
+    } catch {
+      if (run === previewRun.current) setPreview(null);
+    }
+  };
+
+  // The auto-picked preview is already 006's quote for exactly these lines and benefits, so while it is still valid
+  // the button opens the confirmation at once; otherwise (Guest, expired, refused) it quotes as before.
+  const proceed = () => {
+    const usable = preview?.quoteRef && Date.parse(preview.expiresAt) - Date.now() > 60 * 1000;
+    if (usable && bookingMode === 'MEMBER') {
+      setQuoteError(null);
+      setConfirmError(null);
+      setQuote(preview);
+      return;
+    }
+    requestQuote();
+  };
+
+  const toggleLine = lineId => {
+    setUnselectedIds(ids => (ids.includes(lineId) ? ids.filter(id => id !== lineId) : [...ids, lineId]));
+    userPicked.current = false;
+    setPreview(null);
+    invalidateQuote();
+  };
+  const toggleAll = () => {
+    setUnselectedIds(allSelected ? lines.map(line => line.lineId) : []);
+    userPicked.current = false;
+    setPreview(null);
+    invalidateQuote();
+  };
+
+
   const changeParticipants = (lineId, participantCount) => {
     setLines(updateCartLineParticipants(lineId, participantCount));
+    userPicked.current = false;
+    setPreview(null);
     invalidateQuote();
   };
 
   const remove = lineId => {
     setLines(removeCartLine(lineId));
+    userPicked.current = false;
+    setPreview(null);
     invalidateQuote();
   };
 
   const requestQuote = async (selectionOverride) => {
-    if (lines.length === 0) return;
+    if (selectedLines.length === 0) return;
     setQuoting(true);
     setQuoteError(null);
     setConfirmError(null);
@@ -132,7 +264,7 @@ export function WorkshopCartPage() {
     try {
       const authorization = await memberAuthorization();
       const result = await quoteWorkshopCart({
-        lines: cartQuoteLines(lines),
+        lines: cartQuoteLines(selectedLines),
         benefitSelection: bookingMode === 'MEMBER' ? (selectionOverride || benefitSelection) : undefined,
         authorization: authorization || undefined,
       });
@@ -148,19 +280,15 @@ export function WorkshopCartPage() {
   /** A new voucher or point choice changes every amount, so the quote on screen is replaced at once (FR-033, FR-034). */
   const changeBenefitSelection = next => {
     const hadQuote = Boolean(quote);
+    userPicked.current = true;
     setBenefitSelection(next);
     invalidateQuote();
+    runPreview(next);
     if (hadQuote) requestQuote(next);
   };
 
   const confirm = async () => {
-    const errors = {};
-    if (!contact.contactEmail || !contact.contactEmail.includes('@')) {
-      errors.contactEmail = 'Email không hợp lệ (ví dụ: name@example.com).';
-    }
-    if (!contact.contactPhone || contact.contactPhone.replace(/\s+/g, '').length < 7) {
-      errors.contactPhone = 'Số điện thoại phải có ít nhất 7 chữ số.';
-    }
+    const errors = validateBookingContact(contact);
     setValidationErrors(errors);
     if (Object.keys(errors).length > 0) return;
 
@@ -175,17 +303,19 @@ export function WorkshopCartPage() {
       const authorization = await memberAuthorization();
       const created = await createBookingGroup({
         quoteRef: quote.quoteRef,
-        contactEmail: contact.contactEmail,
-        contactPhone: contact.contactPhone,
+        ...contactForRequest(contact),
         idempotencyKey: key,
         authorization: authorization || undefined,
       });
       setGroup(created);
       setQuote(null);
-      clearCart();
-      setLines([]);
+      selectedLines.forEach(line => removeCartLine(line.lineId));
+      setLines(readCart());
+      setUnselectedIds([]);
     } catch (error) {
-      const failing = failingLinesOf(error);
+      const failing = failingLinesOf(error)
+        .map(position => lines.findIndex(line => line.lineId === selectedLines[position]?.lineId))
+        .filter(position => position >= 0);
       if (failing.length > 0) setFailingLines(failing);
       setConfirmKey(null);
       setConfirmError(describe(error));
@@ -211,6 +341,8 @@ export function WorkshopCartPage() {
   }
 
   return (
+    <>
+    <CartTabs active="workshop" />
     <main className="public-page figma-public-page">
       <p className="eyebrow">GIỎ WORKSHOP</p>
       <h1>Giỏ đặt workshop</h1>
@@ -241,72 +373,102 @@ export function WorkshopCartPage() {
         </div>
       ) : (
         <section className="workspace-card" aria-label="Các dòng trong giỏ">
-          <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: '12px' }}>
+          <div className="cart-head">
+            <input type="checkbox" aria-label="Chọn tất cả các dòng" checked={allSelected} onChange={toggleAll} disabled={quoting || confirming} />
+            <span>Gói workshop</span><span>Đơn giá</span><span>Số vé</span><span>Thành tiền</span><span>Thao tác</span>
+          </div>
+          <ul className="cart-rows">
             {lines.map((line, index) => {
               const failed = failingLines.includes(index);
+              const offers = lineOffers(line);
+              const unit = Number(offers?.finalPrice ?? line.pricePerParticipantVnd ?? 0);
+              // The server's own per-ticket result (006): what this line costs after the voucher and points picked.
+              const shownQuote = quote || preview;
+              const quotedLine = shownQuote?.lines?.find(item => item.lineIndex === selectedLines.findIndex(picked => picked.lineId === line.lineId));
+              const sumOf = key => (quotedLine?.tickets || []).reduce((sum, ticket) => sum + Number(ticket[key] || 0), 0);
+              const lineQuoted = quotedLine && quotedLine.tickets?.length && !unselectedIds.includes(line.lineId)
+                ? { gross: sumOf('packagePriceVnd'), final: sumOf('finalPriceVnd'), voucher: sumOf('voucherDiscountVnd'), points: sumOf('pointDiscountVnd') }
+                : null;
               return (
-                <li
-                  key={line.lineId}
-                  style={{ border: failed ? '2px solid #b00' : '1px solid #e3e3e3', padding: '14px 16px', background: '#fff' }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
-                    <div>
-                      <strong style={{ color: '#002967' }}>{line.packageName || `Gói #${line.packageId}`}</strong>
-                      <p className="muted" style={{ margin: '4px 0 0', fontSize: '13px' }}>
-                        Dòng {index + 1}
-                        {line.locationName ? ` · ${line.locationName}` : ''}
-                        {/* FR-052: per-ticket price after the automatic discount (006's public gate); display only. */}
-                        {line.pricePerParticipantVnd ? (
-                          <>
-                            {' · '}
-                            <WorkshopOfferPrice offers={lineOffers(line)} fallback={vnd(line.pricePerParticipantVnd)} /> / vé
-                          </>
-                        ) : ''}
-                      </p>
-                      {line.pricePerParticipantVnd ? <WorkshopOfferBadges offers={lineOffers(line)} /> : null}
-                      {line.sessionLabels?.length > 0 && (
-                        <ul className="muted" style={{ margin: '6px 0 0', paddingLeft: '18px', fontSize: '12px' }}>
-                          {line.sessionLabels.map((label, position) => (
-                            <li key={`${line.lineId}-${position}`}>Buổi {position + 1}: {label}</li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <div className="participant-stepper" role="group" aria-label={`Số người của dòng ${index + 1}`}>
-                        <button
-                          type="button"
-                          aria-label={`Giảm số vé dòng ${index + 1}`}
-                          disabled={line.participantCount <= (line.minParticipants || 1) || quoting || confirming}
-                          onClick={() => changeParticipants(line.lineId, line.participantCount - 1)}
-                        >
-                          −
-                        </button>
-                        <input
-                          type="number"
-                          min={line.minParticipants || 1}
-                          max={line.maxParticipants || undefined}
-                          value={line.participantCount}
-                          aria-label={`Số vé dòng ${index + 1}`}
-                          onChange={event => changeParticipants(line.lineId, Number(event.target.value))}
-                          disabled={quoting || confirming}
-                        />
-                        <button
-                          type="button"
-                          aria-label={`Tăng số vé dòng ${index + 1}`}
-                          disabled={Boolean(line.maxParticipants) && line.participantCount >= line.maxParticipants}
-                          onClick={() => changeParticipants(line.lineId, line.participantCount + 1)}
-                        >
-                          +
-                        </button>
-                      </div>
-                      <button type="button" className="button outline small" onClick={() => remove(line.lineId)} disabled={quoting || confirming}>
-                        Xóa dòng
+                <li key={line.lineId} className={`cart-row${failed ? ' failed' : ''}`}>
+                  <div className="cart-cell cart-check">
+                    <input
+                      type="checkbox"
+                      aria-label={`Chọn dòng ${index + 1}`}
+                      checked={!unselectedIds.includes(line.lineId)}
+                      onChange={() => toggleLine(line.lineId)}
+                      disabled={quoting || confirming}
+                    />
+                  </div>
+                  <div className="cart-cell cart-product">
+                    <strong>{line.packageName || `Gói #${line.packageId}`}</strong>
+                    <p className="muted">
+                      Dòng {index + 1}{line.locationName ? ` · ${line.locationName}` : ''}
+                    </p>
+                    {line.sessionLabels?.length > 0 && (
+                      <ul className="muted cart-sessions">
+                        {line.sessionLabels.map((label, position) => (
+                          <li key={`${line.lineId}-${position}`}>Buổi {position + 1}: {label}</li>
+                        ))}
+                      </ul>
+                    )}
+                    {line.pricePerParticipantVnd ? <WorkshopOfferBadges offers={offers} /> : null}
+                  </div>
+                  <div className="cart-cell cart-unit" data-label="Đơn giá">
+                    {line.pricePerParticipantVnd ? (
+                      <WorkshopOfferPrice offers={offers} voucher={false} fallback={<span className="price">{vnd(line.pricePerParticipantVnd)}</span>} />
+                    ) : '—'}
+                  </div>
+                  <div className="cart-cell" data-label="Số vé">
+                    <div className="participant-stepper" role="group" aria-label={`Số người của dòng ${index + 1}`}>
+                      <button
+                        type="button"
+                        aria-label={`Giảm số vé dòng ${index + 1}`}
+                        disabled={line.participantCount <= (line.minParticipants || 1) || quoting || confirming}
+                        onClick={() => changeParticipants(line.lineId, line.participantCount - 1)}
+                      >
+                        −
+                      </button>
+                      <input
+                        type="number"
+                        min={line.minParticipants || 1}
+                        max={line.maxParticipants || undefined}
+                        value={line.participantCount}
+                        aria-label={`Số vé dòng ${index + 1}`}
+                        onChange={event => changeParticipants(line.lineId, Number(event.target.value))}
+                        disabled={quoting || confirming}
+                      />
+                      <button
+                        type="button"
+                        aria-label={`Tăng số vé dòng ${index + 1}`}
+                        disabled={Boolean(line.maxParticipants) && line.participantCount >= line.maxParticipants}
+                        onClick={() => changeParticipants(line.lineId, line.participantCount + 1)}
+                      >
+                        +
                       </button>
                     </div>
                   </div>
+                  <div className="cart-cell cart-subtotal" data-label="Thành tiền">
+                    {lineQuoted ? (
+                      <>
+                        {lineQuoted.final < lineQuoted.gross && <s className="cart-was">{vnd(lineQuoted.gross)}</s>}
+                        <span>{vnd(lineQuoted.final)}</span>
+                        {(lineQuoted.voucher > 0 || lineQuoted.points > 0) && (
+                          <small className="cart-saved">
+                            {lineQuoted.voucher > 0 ? `Voucher −${vnd(lineQuoted.voucher)}` : ''}
+                            {lineQuoted.points > 0 ? `${lineQuoted.voucher > 0 ? ' · ' : ''}Điểm −${vnd(lineQuoted.points)}` : ''}
+                          </small>
+                        )}
+                      </>
+                    ) : (line.pricePerParticipantVnd ? vnd(unit * line.participantCount) : '—')}
+                  </div>
+                  <div className="cart-cell">
+                    <button type="button" className="cart-remove" onClick={() => remove(line.lineId)} disabled={quoting || confirming}>
+                      Xóa dòng
+                    </button>
+                  </div>
                   {failed && (
-                    <p role="alert" style={{ color: '#b00', margin: '8px 0 0', fontSize: '13px' }}>
+                    <p role="alert" className="cart-row-alert">
                       Dòng này không còn đủ chỗ. Hãy giảm số người hoặc chọn ca khác.
                     </p>
                   )}
@@ -315,24 +477,45 @@ export function WorkshopCartPage() {
             })}
           </ul>
 
-          <div className="actions" style={{ marginTop: '16px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              className="button primary"
-              onClick={() => requestQuote()}
-              disabled={quoting || confirming || bookingMode === null || profileLoading}
-            >
-              {quoting ? 'Đang báo giá...' : 'Báo giá giỏ'}
-            </button>
-            <Link className="button outline" to="/workshops">Thêm gói khác</Link>
-          </div>
-
           {quoteError && (
             <div role="alert" style={{ marginTop: '12px', color: '#b00' }}>
               <strong>{quoteError.code}</strong>
               <p style={{ margin: '4px 0 0' }}>{quoteError.message}</p>
             </div>
           )}
+
+          <div className="cart-bar">
+            <label className="cart-bar-all">
+              <input type="checkbox" checked={allSelected} onChange={toggleAll} disabled={quoting || confirming} /> Chọn tất cả ({lines.length})
+            </label>
+            <Link className="cart-bar-add" to="/workshops">+ Thêm gói khác</Link>
+            <div className="cart-bar-total" aria-live="polite">
+              {(quote || preview) ? (
+                <>
+                  <span className="muted">Tổng sau ưu đãi ({totalTickets} vé)</span>
+                  <strong>{vnd((quote || preview).finalTotalVnd)}</strong>
+                  <small className="muted">
+                    {Number((quote || preview).voucherDiscountVnd || 0) > 0 ? `Voucher −${vnd((quote || preview).voucherDiscountVnd)}` : 'Chưa có voucher phù hợp'}
+                    {Number((quote || preview).pointDiscountVnd || 0) > 0 ? ` · Điểm −${vnd((quote || preview).pointDiscountVnd)} (${Number((quote || preview).pointsUsed || 0).toLocaleString('vi-VN')} điểm)` : ''}
+                  </small>
+                </>
+              ) : (
+                <>
+                  <span className="muted">{autoPicking ? 'Đang chọn ưu đãi tốt nhất…' : `Tạm tính (${totalTickets} vé)`}</span>
+                  <strong>{vnd(estimatedTotal)}</strong>
+                  <small className="muted">Chưa gồm voucher/điểm; số tiền cuối do bước báo giá quyết định.</small>
+                </>
+              )}
+            </div>
+            <button
+              type="button"
+              className="button primary"
+              onClick={proceed}
+              disabled={quoting || confirming || autoPicking || selectedLines.length === 0 || bookingMode === null || profileLoading}
+            >
+              {quoting ? 'Đang báo giá...' : 'Đặt chỗ ngay'}
+            </button>
+          </div>
         </section>
       )}
 
@@ -351,10 +534,10 @@ export function WorkshopCartPage() {
             onChange={changeBenefitSelection}
             savedVouchers={savedVouchers}
             offers={workshopOffers}
-            packageIds={lines.map(line => line.packageId)}
+            packageIds={selectedLines.map(line => line.packageId)}
             account={loyaltyAccount}
-            quote={quote}
-            pending={quoting || confirming}
+            quote={quote || preview}
+            pending={quoting || confirming || autoPicking}
           />
         </section>
       )}
@@ -364,7 +547,6 @@ export function WorkshopCartPage() {
         contact={contact}
         onContactChange={setContact}
         onConfirm={confirm}
-        onCancel={invalidateQuote}
         confirming={confirming}
         confirmError={confirmError}
         validationErrors={validationErrors}
@@ -372,5 +554,6 @@ export function WorkshopCartPage() {
         title="Báo giá giỏ workshop"
       />
     </main>
+    </>
   );
 }

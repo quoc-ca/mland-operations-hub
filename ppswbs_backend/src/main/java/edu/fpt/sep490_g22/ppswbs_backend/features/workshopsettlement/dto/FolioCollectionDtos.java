@@ -46,21 +46,26 @@ public final class FolioCollectionDtos {
             @NotBlank @Size(max = 1000) String reason) {
     }
 
+    /** T131 (C2): the contract body; {@code countedAmount} is the contract's whole-VND string. */
     public record CashCloseRequest(
-            @NotNull Long branchId,
-            LocalDate businessDay,
-            @NotNull @PositiveOrZero Long countedCashVnd,
-            @Size(max = 1000) String reason) {
+            @NotNull Long locationId,
+            @NotNull LocalDate workingDate,
+            @NotNull @Pattern(regexp = "^(0|[1-9][0-9]{0,14})$") String countedAmount,
+            @Size(max = 1000) String differenceReason) {
+
+        public long countedAmountVnd() {
+            return Long.parseLong(countedAmount);
+        }
     }
 
     /** T120: what the system expects in a branch's drawer for one Vietnam working day, before anyone counts. */
-    public record ExpectedCashResponse(Long branchId, LocalDate businessDay, long expectedCashVnd) {
+    public record ExpectedCashResponse(Long locationId, LocalDate workingDate, long expectedCashVnd) {
     }
 
     public record CashCloseResponse(
             String closeReference,
-            Long branchId,
-            LocalDate businessDay,
+            Long locationId,
+            LocalDate workingDate,
             long expectedCashVnd,
             long countedCashVnd,
             long differenceVnd,

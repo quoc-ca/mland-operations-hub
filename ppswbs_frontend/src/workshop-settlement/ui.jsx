@@ -1,6 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { ConfirmDialog, ErrorNotice, Field } from '../shared/ui/components';
 import { confirmBuyerVerification, requestBuyerVerification } from '../api/workshops';
+import { buildContactProof, EMPTY_CONTACT } from '../workshops/contactValidation';
+import { PhoneInput } from '../workshops/PhoneInput';
+
+const EMPTY_PROOF = { ...EMPTY_CONTACT };
 
 /** Whole-VND text as the server sent it, with thousands dots; never rounds or recalculates. */
 export function money(value) {
@@ -71,21 +75,20 @@ export function ReasonDialog({ open, title, children, confirmLabel, pending, onC
  * The contact value and the code never reach a URL or a log.
  */
 export function BuyerProof({ groupCode, onReference }) {
-  const [contact, setContact] = useState({ contactEmail: '', contactPhone: '' });
+  const [contact, setContact] = useState(EMPTY_PROOF);
   const [verificationId, setVerificationId] = useState(null);
   const [otp, setOtp] = useState('');
   const [done, setDone] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
 
-  const oneContact = Boolean(contact.contactEmail.trim()) !== Boolean(contact.contactPhone.trim());
+  // One contact only, in the normalized form the server compares by; null while it is empty or malformed.
+  const { proof } = buildContactProof({ email: contact.contactEmail, phone: contact.contactPhone, phoneCountry: contact.contactPhoneCountry });
+  const oneContact = Boolean(proof);
   const send = async () => {
     setPending(true); setError('');
     try {
-      const challenge = await requestBuyerVerification(groupCode, {
-        contactEmail: contact.contactEmail.trim() || undefined,
-        contactPhone: contact.contactPhone.trim() || undefined,
-      });
+      const challenge = await requestBuyerVerification(groupCode, proof);
       setVerificationId(challenge?.verificationId || null);
     } catch (err) {
       setError(err?.status === 429 ? 'Too many attempts. Wait a moment before trying again.' : 'The code could not be sent. Check the contact and try again.');
@@ -95,7 +98,7 @@ export function BuyerProof({ groupCode, onReference }) {
     setPending(true); setError('');
     try {
       const result = await confirmBuyerVerification(groupCode, verificationId, { otp });
-      setOtp(''); setContact({ contactEmail: '', contactPhone: '' });
+      setOtp(''); setContact(EMPTY_PROOF);
       setDone(true);
       onReference(result?.buyerVerificationReference || null);
     } catch (err) {
@@ -111,7 +114,17 @@ export function BuyerProof({ groupCode, onReference }) {
         <>
           <p className="muted small">Enter exactly one contact of the booking; a code is sent to the contact on file.</p>
           <label>Contact email<input type="email" autoComplete="off" value={contact.contactEmail} onChange={event => setContact(v => ({ ...v, contactEmail: event.target.value }))} /></label>
-          <label>Contact phone<input autoComplete="off" value={contact.contactPhone} onChange={event => setContact(v => ({ ...v, contactPhone: event.target.value }))} /></label>
+          <label htmlFor="proof-contact-phone">Contact phone</label>
+          <PhoneInput
+            id="proof-contact-phone"
+            country={contact.contactPhoneCountry}
+            value={contact.contactPhone}
+            onCountryChange={contactPhoneCountry => setContact(v => ({ ...v, contactPhoneCountry }))}
+            onValueChange={contactPhone => setContact(v => ({ ...v, contactPhone }))}
+          />
+          {!oneContact && (contact.contactEmail.trim() || contact.contactPhone.trim()) && (
+            <p className="field-error small">Enter one valid email or one valid phone number.</p>
+          )}
           <button type="button" className="button outline" disabled={pending || !groupCode || !oneContact} onClick={send}>Send code</button>
         </>
       ) : (
@@ -123,5 +136,44 @@ export function BuyerProof({ groupCode, onReference }) {
       )}
       {error && <p role="alert" className="field-error">{error}</p>}
     </fieldset>
+  );
+}
+
+/**
+ * T163 (FR-042/FR-043): shown only when the stored voucher restoration reason is EXPIRED (never for ALREADY_RESTORED or a
+ * restored voucher). The voucher is never extended and the money already paid is refunded by bank whatever happened to it.
+ */
+export function VoucherNotRestoredNotice({ voucherRestoration }) {
+  if (voucherRestoration?.reason !== 'EXPIRED') return null;
+  return (
+    <div className="notice" role="status" aria-label="Voucher not restored">
+      <p>The voucher had expired, so it was not restored. Your refund is not affected.</p>
+    </div>
+  );
+}
+
+/**
+ * T151 (FR-040): the review step of an account entry. It shows bank, account number and holder name back and requires the
+ * explicit "These details are correct" confirmation before the caller may submit; the caller sends accountDetailsConfirmed
+ * only from this checkbox. The number is shown only here, from the entered values, and the caller clears them after sending.
+ */
+export function AccountReviewStep({ details, confirmed, onConfirmedChange, onEdit, pending, submitLabel, onSubmit }) {
+  return (
+    <form className="ota-form" aria-label="Review account details" onSubmit={event => { event.preventDefault(); if (confirmed) onSubmit(); }}>
+      <p className="muted">Check the details below with the account owner before sending.</p>
+      <dl className="ops-facts">
+        <div><dt>Bank</dt><dd>{details.bankCode}</dd></div>
+        <div><dt>Account number</dt><dd>{details.accountNumber}</dd></div>
+        <div><dt>Account holder name</dt><dd>{details.holderName}</dd></div>
+      </dl>
+      <label className="settlement-addon-consent">
+        <input type="checkbox" checked={confirmed} onChange={event => onConfirmedChange(event.target.checked)} />
+        <span>These details are correct</span>
+      </label>
+      <div className="ops-actions">
+        <button className="button outline" type="button" disabled={pending} onClick={onEdit}>Edit details</button>
+        <button className="button primary" type="submit" disabled={pending || !confirmed}>{submitLabel}</button>
+      </div>
+    </form>
   );
 }

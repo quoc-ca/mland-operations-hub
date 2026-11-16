@@ -43,7 +43,7 @@ public class WorkshopBookingGroupController {
         Long buyerMemberAccountId = creationService.requireBuyer(authorization, request.quoteRef());
         String semanticContent = request.quoteRef() + "|"
                 + request.contactEmail().trim().toLowerCase(java.util.Locale.ROOT)
-                + "|" + request.contactPhone().trim();
+                + "|" + edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.ContactPhones.canonical(request.contactPhone().trim());
         BookingIdempotencyClaim claim = idempotency.acquireClaim(idempotencyKey, COMMAND_ACTION, semanticContent,
                 correlation);
         if (claim.cachedOutcome()) {

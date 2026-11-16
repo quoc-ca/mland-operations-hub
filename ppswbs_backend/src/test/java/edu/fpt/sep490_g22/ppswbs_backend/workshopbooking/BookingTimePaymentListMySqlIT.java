@@ -152,6 +152,20 @@ class BookingTimePaymentListMySqlIT {
     }
 
     @Test
+    @DisplayName("T150-2b: an attempt closed as EXPIRED when its hold ran out is still listed as UNVERIFIED")
+    void expiredAttemptStaysListedAsUnverified() throws Exception {
+        String code = pendingGroup(List.of(new Line(120_000, one, 1)));
+        attempt(code, 120_000, PaymentAttemptStatus.EXPIRED, Instant.now());
+
+        List<BookingTimePayment> listed = facade.listBookingTimePayments(one.getId(), today);
+
+        assertThat(listed).hasSize(1);
+        assertThat(by(listed, code).verificationStatus()).isEqualTo(BookingTimePaymentStatus.UNVERIFIED);
+        assertThat(by(listed, code).amountVnd()).isEqualTo(120_000);
+        assertThat(by(listed, code).confirmedAt()).isNull();
+    }
+
+    @Test
     @DisplayName("T150-3: a three-ticket group at two locations appears under both with both locationIds and counts once")
     void multiLocationGroupCountsOnce() throws Exception {
         String code = pendingGroup(List.of(new Line(100_000, one, 2), new Line(50_000, two, 1)));
@@ -280,7 +294,7 @@ class BookingTimePaymentListMySqlIT {
         MvcResult created = mockMvc.perform(post("/api/v1/workshop-booking-groups")
                         .header("Idempotency-Key", "list-key-" + UUID.randomUUID())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"quoteRef\":\"" + quoteRef + "\",\"contactEmail\":\"" + EMAIL + "\",\"contactPhone\":\"0900000150\"}"))
+                        .content("{\"quoteRef\":\"" + quoteRef + "\",\"contactEmail\":\"" + EMAIL + "\",\"contactPhone\":\"+84900000150\"}"))
                 .andExpect(status().isCreated()).andReturn();
         return JSON.readTree(created.getResponse().getContentAsString()).get("groupCode").asText();
     }

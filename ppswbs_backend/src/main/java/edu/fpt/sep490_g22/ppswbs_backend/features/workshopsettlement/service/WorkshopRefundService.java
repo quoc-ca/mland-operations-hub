@@ -2,7 +2,6 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service;
 
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingRefundStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingServiceOutcome;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.OutcomeStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementBusinessAuditRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementCaseRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementFinalBillRepository;
@@ -265,13 +264,10 @@ public class WorkshopRefundService {
             });
             return;
         }
-        String evidenceReference = "VERIFIED-CANCEL-REFUND-" + digest(caseReference).substring(0, 32);
-        String operationReference = "OPS-REFUND-CONSEQUENCE-" + digest(caseReference).substring(0, 32);
+        // T168 (FR-038, 003.2 FR-010aa): a refund reaching REFUNDED is not an entitlement-revocation trigger, so no call
+        // is made to the 003.2 facade here. Ticket entitlements and QR stay as cancelTicket left them.
         try {
-            var outcome = operations.applyRefund(settlementCase.getBookingReference(), evidenceReference,
-                    operationReference, settlementCase.getCorrelationReference());
-            if (outcome == null || outcome.status() == OutcomeStatus.IN_PROGRESS) return;
-            if (outcome.status() == OutcomeStatus.ACCEPTED) {
+            {
                 transaction.executeWithoutResult(status -> {
                     SettlementCase latest = cases.findByCaseReferenceForUpdate(caseReference).orElse(null);
                     if (!isPendingRefundCase(latest)) return;
@@ -314,15 +310,9 @@ public class WorkshopRefundService {
                         }
                     }
                 });
-            } else {
-                transaction.executeWithoutResult(status -> {
-                    SettlementCase latest = cases.findByCaseReference(caseReference).orElse(null);
-                    if (isPendingRefundCase(latest))
-                        updateCase(latest, CASE_PENDING, "REFUND_VERIFIED_CANCELLATION_CONSEQUENCE_RETRY");
-                });
             }
         } catch (RuntimeException failure) {
-            log.warn("Verified refund consequence is pending retry; caseReference={} exceptionType={}",
+            log.warn("Verified refund resolution is pending retry; caseReference={} exceptionType={}",
                     caseReference, failure.getClass().getSimpleName());
         }
     }

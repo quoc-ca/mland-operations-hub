@@ -74,7 +74,6 @@ export default function PublicReviewListPage() {
     <div className="review-container">
       <header className="page-header">
         <h1>{packageName ? `${t('packageReviewsTitle')}: ${packageName}` : t('publicTitle')}</h1>
-        <p className="muted">{t('publicSubtitle')}</p>
         {packageName && (
           <p>
             <Link to="/reviews">{t('showAllPackages')}</Link>

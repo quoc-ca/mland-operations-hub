@@ -8,9 +8,7 @@ import '../../ota-connectivity/ota-connectivity.css';
 
 export function OperationsSidebar() {
   const location = useLocation();
-  const { pathname, search } = location;
-  const searchParams = new URLSearchParams(search);
-  const tab = searchParams.get('tab');
+  const { pathname } = location;
 
   const { status, signOut } = useAuth();
   const { language, setLanguage } = useLanguage();
@@ -76,14 +74,15 @@ export function OperationsSidebar() {
   const isShopAddOnsActive = pathname.startsWith('/ota-connectivity/add-ons');
 
   const isBillsActive = pathname === '/settlement';
-  const isCasesActive = pathname === '/settlement/cases' && tab !== 'policies';
-  const isPoliciesActive = pathname === '/settlement/cases' && tab === 'policies';
+  const isCasesActive = pathname === '/settlement/cases';
   const isNotificationTemplatesActive = pathname.startsWith('/admin/notifications/templates');
   const isNotificationRequestsActive = pathname.startsWith('/admin/notifications/requests');
   const isProfileActive = pathname === '/profile';
   const isRetailOrdersActive = pathname.startsWith('/staff/retail-');
   const isRetailReconciliationActive = pathname.startsWith('/manager/retail-payment-reconciliations');
   const isDashboardActive = pathname === '/manager/dashboard';
+  const isDesignReviewActive = pathname.startsWith('/design-review-requests');
+  const isReviewModerationActive = pathname.startsWith('/review-moderation');
 
   const isVi = language === 'vi';
 
@@ -145,6 +144,17 @@ export function OperationsSidebar() {
 
         </>)}
 
+        {canManageProducts && (<>
+        {/* CUSTOMER DESIGN REVIEW (Feature 004): Manager and Staff; the backend decides the permission */}
+        <div className="ota-sidebar-label">
+          {isVi ? 'THIẾT KẾ KHÁCH HÀNG' : 'CUSTOMER DESIGNS'}
+        </div>
+        <Link className={isDesignReviewActive ? 'active' : ''} to="/design-review-requests">
+          {isVi ? 'Duyệt thiết kế' : 'Design review'}
+        </Link>
+
+        </>)}
+
         {/* RETAIL (FE-08) */}
         <div className="ota-sidebar-label">
           {isVi ? 'BÁN LẺ' : 'RETAIL'}
@@ -157,6 +167,16 @@ export function OperationsSidebar() {
           {isVi ? 'Đối soát thanh toán bán lẻ' : 'Retail payment reconciliation'}
         </Link>
         )}
+
+        {/* REVIEW MODERATION */}
+        {canManageProducts && (<>
+        <div className="ota-sidebar-label">
+          {isVi ? 'ĐÁNH GIÁ KHÁCH HÀNG' : 'CUSTOMER REVIEWS'}
+        </div>
+        <Link className={isReviewModerationActive ? 'active' : ''} to="/review-moderation">
+          {isVi ? 'Quản lý đánh giá' : 'Review moderation'}
+        </Link>
+        </>)}
 
         {/* WORKSHOP OPERATIONS */}
         {showOperations && (<>
@@ -218,11 +238,14 @@ export function OperationsSidebar() {
         <Link className={pathname === '/settlement/refunds' ? 'active' : ''} to="/settlement/refunds">
           {isVi ? 'Hàng đợi hoàn tiền' : 'Refund queue'}
         </Link>
+        <Link className={pathname === '/settlement/reconciliation' ? 'active' : ''} to="/settlement/reconciliation">
+          {isVi ? 'Đối soát thu tiền' : 'Reconciliation list'}
+        </Link>
+        <Link className={pathname === '/settlement/absorbed-undercharges' ? 'active' : ''} to="/settlement/absorbed-undercharges">
+          {isVi ? 'Khoản thiếu Mland chịu' : 'Absorbed undercharges'}
+        </Link>
         <Link className={isCasesActive ? 'active' : ''} to="/settlement/cases?tab=cases">
           {isVi ? 'Sự vụ & bồi hoàn (Cases)' : 'Settlement cases'}
-        </Link>
-        <Link className={isPoliciesActive ? 'active' : ''} to="/settlement/cases?tab=policies">
-          {isVi ? 'Chính sách hoàn tiền' : 'Refund policies'}
         </Link>
         </>)}
 

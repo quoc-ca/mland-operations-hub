@@ -19,14 +19,18 @@ export function isValidUuid(val) {
 export function getApiBaseUrl() {
   const envUrl = (typeof import.meta !== 'undefined' && import.meta?.env?.VITE_API_BASE_URL)
     || (typeof process !== 'undefined' && process?.env?.VITE_API_BASE_URL);
-  return (envUrl || 'http://localhost:8080').replace(/\/$/, '');
+  if (envUrl !== undefined && envUrl !== '') return envUrl.replace(/\/$/, '');
+  return (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8080');
 }
 
 async function request(path, { params = {}, method = 'GET', headers = {}, body = null } = {}) {
   const base = getApiBaseUrl();
-  const url = new URL(`${base}${path}`);
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  const url = new URL(`${base}${normalizedPath}`);
   Object.entries(params).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== '') {
+    if (Array.isArray(value)) {
+      value.forEach(item => url.searchParams.append(key, String(item)));
+    } else if (value !== undefined && value !== null && value !== '') {
       url.searchParams.set(key, String(value));
     }
   });
@@ -420,6 +424,23 @@ export async function changeTicketRecipient(ticketCode, {
   });
 }
 
+/**
+ * The buyer cancels one unused ticket (003.3 FR-041, FR-042; POST /workshop-tickets/{code}/cancellations). A Member
+ * sends the bearer; a Guest sends the single-use buyerVerificationReference. The booking-time payment is not refunded;
+ * the answer reports the 24-hour outcome, the points returned and the voucher restoration.
+ */
+export async function cancelTicket(ticketCode, { reason, buyerVerificationReference, authorization, idempotencyKey, correlationId } = {}) {
+  if (!ticketCode || typeof ticketCode !== 'string' || !ticketCode.trim()) throw new Error('TICKET_CODE_REQUIRED');
+  if (!reason || !reason.trim()) throw new Error('CANCELLATION_REASON_REQUIRED');
+  const body = { reason: reason.trim() };
+  if (buyerVerificationReference) body.buyerVerificationReference = buyerVerificationReference.trim();
+  return request(`/api/v1/workshop-tickets/${encodeURIComponent(ticketCode.trim())}/cancellations`, {
+    method: 'POST',
+    headers: commandHeaders({ idempotencyKey, correlationId, authorization }),
+    body,
+  });
+}
+
 /** Manager queue of late-payment reviews (FR-040a); it carries no buyer contact data. */
 export async function listLatePaymentReviews({ status, authorization } = {}) {
   const headers = {};
@@ -456,4 +477,59 @@ export async function decideLatePaymentReview(groupCode, reviewId, {
       body: { decision, reason: reason.trim() },
     },
   );
+}
+
+/**
+ * The sessions a ticket may move to (003.3 FR-044a, GET /workshop-tickets/{code}/change-options): the owner Member sends the
+ * bearer. `fromSessionReferences` empty lists every session of the ticket one by one; two ask for the valid pairs too.
+ * The list is advisory: changeTicketSessions re-checks everything.
+ */
+export async function getTicketChangeOptions(ticketCode, { type, fromSessionReferences = [], authorization } = {}) {
+  if (!ticketCode || typeof ticketCode !== 'string' || !ticketCode.trim()) throw new Error('TICKET_CODE_REQUIRED');
+  return request(`/api/v1/workshop-tickets/${encodeURIComponent(ticketCode.trim())}/change-options`, {
+    params: { type, from: fromSessionReferences },
+    headers: authorization ? { Authorization: authorization } : {},
+  });
+}
+
+/** The same list for a Guest, proved with exactly one contact of the group (POST /change-option-lookups; no OTP). */
+export async function lookupTicketChangeOptions(ticketCode, { contactEmail, contactPhone, type, fromSessionReferences = [] } = {}) {
+  if (!ticketCode || typeof ticketCode !== 'string' || !ticketCode.trim()) throw new Error('TICKET_CODE_REQUIRED');
+  const body = { type };
+  if (contactEmail) body.contactEmail = contactEmail;
+  else if (contactPhone) body.contactPhone = contactPhone;
+  if (fromSessionReferences.length > 0) body.fromSessionReferences = fromSessionReferences;
+  return request(`/api/v1/workshop-tickets/${encodeURIComponent(ticketCode.trim())}/change-option-lookups`, {
+    method: 'POST',
+    body,
+  });
+}
+
+/**
+ * Changes the sessions of one ticket (003.3 FR-044, FR-045; POST /workshop-tickets/{code}/changes). `fromSessionReferences`
+ * names only the sessions that move, one per target in the same order. A Member sends the bearer; a Guest sends the
+ * single-use buyerVerificationReference. 200 with confirmIncreaseRequired asks the buyer to confirm a price increase and the
+ * call is repeated with confirmIncrease and a NEW idempotency key; 202 carries changeRequestReference (waits for a Manager).
+ */
+export async function changeTicketSessions(ticketCode, {
+  type,
+  fromSessionReferences,
+  targetSessionReferences,
+  confirmIncrease,
+  buyerVerificationReference,
+  reason,
+  authorization,
+  idempotencyKey,
+  correlationId,
+} = {}) {
+  if (!ticketCode || typeof ticketCode !== 'string' || !ticketCode.trim()) throw new Error('TICKET_CODE_REQUIRED');
+  const body = { type, fromSessionReferences, targetSessionReferences };
+  if (confirmIncrease) body.confirmIncrease = true;
+  if (buyerVerificationReference) body.buyerVerificationReference = buyerVerificationReference.trim();
+  if (reason?.trim()) body.reason = reason.trim();
+  return request(`/api/v1/workshop-tickets/${encodeURIComponent(ticketCode.trim())}/changes`, {
+    method: 'POST',
+    headers: commandHeaders({ idempotencyKey, correlationId, authorization }),
+    body,
+  });
 }

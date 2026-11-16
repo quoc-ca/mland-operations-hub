@@ -54,7 +54,7 @@
 .roster-panel .roster-row{grid-template-columns:minmax(0,1.1fr) minmax(0,1.4fr) 112px minmax(0,1fr);gap:14px;padding:12px 8px;min-width:0;font-size:13px}
 .roster-panel .roster-row:not(.roster-head):hover{background:#f9fafb}
 .roster-panel .roster-row strong{font-weight:700;letter-spacing:.01em}
-.roster-panel .roster-row code{display:block;font-size:11px;color:#6b7280;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.roster-panel .roster-row code{display:block;font-size:11px;color:#6b7280;overflow:visible;text-overflow:clip;white-space:normal;overflow-wrap:anywhere;user-select:all}
 .roster-panel .roster-row time{color:#4b5563;font-size:12px;white-space:nowrap}
 .roster-panel .roster-head{padding:10px 8px;border-bottom:1px solid #d1d5db}
 .roster-panel .roster-tab{line-height:1.2;font-family:inherit}

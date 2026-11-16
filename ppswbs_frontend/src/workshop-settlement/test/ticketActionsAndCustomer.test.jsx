@@ -4,7 +4,6 @@ import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { fakeSession, json, mockFetch, renderRoutes } from '../../test/render';
 import { settlementRoutes } from '../routes';
-import { parseChangeLines } from '../pages/TicketActionsPage';
 import { PROFILE, asRole, useFreshRole } from './helpers';
 
 useFreshRole();
@@ -15,6 +14,29 @@ const verifyHandlers = {
   [`POST ${VERIFY}/V-1/confirmations`]: json(200, { buyerVerificationReference: 'proof-ref-1' }),
 };
 const S1 = '7c1f0c2e-0000-4000-8000-000000000001';
+const F1 = '7c1f0c2e-0000-4000-8000-0000000000f1';
+
+/** GET change-options of one ticket: its session F1 can move to S1 (4 seats left). */
+const optionsOf = (code, over = {}) => json(200, {
+  ticketCode: code, type: 'ADVANCE', allowance: { used: 0, total: 1, managerGranted: 0, left: 1, exhausted: false },
+  windowOpen: true, canSelfServe: true,
+  perFromSession: [{
+    fromSessionReference: F1, start: '2026-12-01T02:00:00Z', end: '2026-12-01T04:00:00Z', sourceChangeable: true,
+    options: [{ sessionReference: S1, start: '2026-12-03T02:00:00Z', end: '2026-12-03T04:00:00Z', remainingCapacity: 4,
+      selectable: true, requiresManager: false, managerRules: [], priceIncreaseAmountVnd: '0', ...over }],
+  }],
+});
+
+/** Staff picks the replacement from the list instead of typing identifiers, then adds the ticket to the change. */
+async function addTicketToChange(user, code) {
+  await user.type(screen.getByLabelText('Ticket code to change'), code);
+  await user.click(screen.getByRole('button', { name: 'Show sessions' }));
+  const fromRadio = (await screen.findAllByRole('radio')).find(radio => radio.getAttribute('name') === `from-${code}`);
+  await user.click(fromRadio);
+  const toRadio = (await screen.findAllByRole('radio')).find(radio => radio.getAttribute('name') === `to-${code}`);
+  await user.click(toRadio);
+  await user.click(screen.getByRole('button', { name: 'Add ticket to the change' }));
+}
 
 async function verifyBuyer(user) {
   await user.type(screen.getByLabelText('Contact email'), 'buyer@example.com');
@@ -25,11 +47,48 @@ async function verifyBuyer(user) {
 }
 
 describe('Staff ticket cancellation and change', () => {
-  it('parses one change per line', () => {
-    expect(parseChangeLines(`TK-1: ${S1}\nTK-2: a, b`)).toEqual([
-      { ticketCode: 'TK-1', targetSessionReferences: [S1] },
-      { ticketCode: 'TK-2', targetSessionReferences: ['a', 'b'] },
-    ]);
+  it('keeps Change tickets disabled until a ticket with a chosen session is added, and shows the 422 refusal', async () => {
+    const calls = mockFetch({
+      [PROFILE]: asRole('STAFF'), ...verifyHandlers,
+      'GET /api/v1/workshop-tickets/TK-1/change-options': optionsOf('TK-1'),
+      'POST /api/v1/workshop-tickets/TK-1/changes': json(422, { code: 'SETTLEMENT_VALIDATION_ERROR', correlationId: 'c-422' }),
+    });
+    const user = userEvent.setup();
+    renderRoutes(settlementRoutes, { path: '/settlement/ticket-actions?tab=change' });
+    await user.type(await screen.findByLabelText('Booking group code'), 'GRP-1');
+    await user.type(screen.getByLabelText('Reason (required)'), 'x');
+    await verifyBuyer(user);
+    expect(screen.getByRole('button', { name: 'Change tickets' })).toBeDisabled(); // nothing chosen yet
+    await addTicketToChange(user, 'TK-1');
+    await user.click(screen.getByRole('button', { name: 'Change tickets' }));
+    expect(await screen.findByText('The server refused this request.')).toBeInTheDocument();
+    expect(calls.filter(call => call.path.endsWith('/changes'))).toHaveLength(1);
+    expect(calls.find(call => call.path.endsWith('/change-options')).query).toEqual({ type: 'ADVANCE' });
+  });
+
+  it('shows the seats left and marks a full session as not selectable, and a Manager-only choice as such', async () => {
+    mockFetch({
+      [PROFILE]: asRole('STAFF'),
+      'GET /api/v1/workshop-tickets/TK-1/change-options': optionsOf('TK-1', { remainingCapacity: 0, selectable: false, reasonCode: 'INSUFFICIENT_CAPACITY' }),
+      'GET /api/v1/workshop-tickets/TK-2/change-options': optionsOf('TK-2', { requiresManager: true, managerRules: ['RESCHEDULE_QUOTA_EXHAUSTED'] }),
+    });
+    const user = userEvent.setup();
+    renderRoutes(settlementRoutes, { path: '/settlement/ticket-actions?tab=change' });
+    await user.type(await screen.findByLabelText('Ticket code to change'), 'TK-1');
+    await user.click(screen.getByRole('button', { name: 'Show sessions' }));
+    await user.click((await screen.findAllByRole('radio'))[0]);
+    const full = (await screen.findAllByRole('radio')).find(radio => radio.getAttribute('name') === 'to-TK-1');
+    expect(full).toBeDisabled();
+    expect(screen.getByText(/Full/)).toBeInTheDocument();
+
+    await user.clear(screen.getByLabelText('Ticket code to change'));
+    await user.type(screen.getByLabelText('Ticket code to change'), 'TK-2');
+    await user.click(screen.getByRole('button', { name: 'Show sessions' }));
+    await user.click((await screen.findAllByRole('radio'))[0]);
+    expect(await screen.findByText(/4 seats left/)).toBeInTheDocument();
+    expect(screen.getByText(/Needs a Manager to approve/)).toBeInTheDocument();
+    await user.click((await screen.findAllByRole('radio')).find(radio => radio.getAttribute('name') === 'to-TK-2'));
+    expect(screen.getByRole('note')).toHaveTextContent('queued');
   });
 
   it('cancels several tickets of a group all or none after verification, a reason and a confirmation', async () => {
@@ -81,6 +140,7 @@ describe('Staff ticket cancellation and change', () => {
     let call = 0;
     const calls = mockFetch({
       [PROFILE]: asRole('STAFF'), ...verifyHandlers,
+      'GET /api/v1/workshop-tickets/TK-1/change-options': optionsOf('TK-1'),
       'POST /api/v1/workshop-tickets/TK-1/changes': () => (++call === 1
         ? json(200, { ticketCode: 'TK-1', applied: false, priceIncreaseAmount: '30000', confirmIncreaseRequired: true, balanceDue: '0' })
         : json(200, { ticketCode: 'TK-1', applied: true, priceIncreaseAmount: '30000', confirmIncreaseRequired: false, balanceDue: '30000' })),
@@ -88,7 +148,7 @@ describe('Staff ticket cancellation and change', () => {
     const user = userEvent.setup();
     renderRoutes(settlementRoutes, { path: '/settlement/ticket-actions?tab=change' });
     await user.type(await screen.findByLabelText('Booking group code'), 'GRP-1');
-    await user.type(screen.getByLabelText('Tickets and target sessions'), `TK-1: ${S1}`);
+    await addTicketToChange(user, 'TK-1');
     await user.type(screen.getByLabelText('Reason (required)'), 'Buyer asked at the counter');
     await verifyBuyer(user);
     await user.click(screen.getByRole('button', { name: 'Change tickets' }));
@@ -96,7 +156,7 @@ describe('Staff ticket cancellation and change', () => {
     await user.click(screen.getByRole('button', { name: 'Buyer confirms the increase' }));
     expect(await screen.findByText('Change applied.')).toBeInTheDocument();
     const posts = calls.filter(item => item.path.endsWith('/changes'));
-    expect(posts[0].body).toEqual({ type: 'ADVANCE', reason: 'Buyer asked at the counter', buyerVerificationReference: 'proof-ref-1', targetSessionReferences: [S1] });
+    expect(posts[0].body).toEqual({ type: 'ADVANCE', reason: 'Buyer asked at the counter', buyerVerificationReference: 'proof-ref-1', fromSessionReferences: [F1], targetSessionReferences: [S1] });
     expect(posts[1].body.confirmIncrease).toBe(true);
     expect(posts[1].headers['Idempotency-Key']).not.toBe(posts[0].headers['Idempotency-Key']);
   });
@@ -104,12 +164,13 @@ describe('Staff ticket cancellation and change', () => {
   it('reports a change queued for a Manager (202)', async () => {
     mockFetch({
       [PROFILE]: asRole('STAFF'), ...verifyHandlers,
+      'GET /api/v1/workshop-tickets/TK-1/change-options': optionsOf('TK-1'),
       'POST /api/v1/workshop-tickets/TK-1/changes': json(202, { ticketCode: 'TK-1', applied: false, priceIncreaseAmount: '0', confirmIncreaseRequired: false, balanceDue: '0', changeRequestReference: 'CR-5' }),
     });
     const user = userEvent.setup();
     renderRoutes(settlementRoutes, { path: '/settlement/ticket-actions?tab=change' });
     await user.type(await screen.findByLabelText('Booking group code'), 'GRP-1');
-    await user.type(screen.getByLabelText('Tickets and target sessions'), `TK-1: ${S1}`);
+    await addTicketToChange(user, 'TK-1');
     await user.type(screen.getByLabelText('Reason (required)'), 'late');
     await verifyBuyer(user);
     await user.click(screen.getByRole('button', { name: 'Change tickets' }));
@@ -117,9 +178,34 @@ describe('Staff ticket cancellation and change', () => {
     expect(screen.getByRole('link', { name: 'change request queue' })).toHaveAttribute('href', '/settlement/change-requests');
   });
 
+
+  it('tells the buyer an expired voucher was not restored, only for the stored reason EXPIRED (T163)', async () => {
+    mockFetch({
+      [PROFILE]: asRole('STAFF'), ...verifyHandlers,
+      'POST /api/v1/workshop-booking-groups/GRP-1/cancellations': json(201, { groupCode: 'GRP-1', tickets: [
+        { ticketCode: 'TK-1', benefitOutcome: 'VALID_CANCELLATION', pointsReturned: 0, voucherRestoration: { restored: false, reason: 'EXPIRED' } },
+        { ticketCode: 'TK-2', benefitOutcome: 'VALID_CANCELLATION', pointsReturned: 0, voucherRestoration: { restored: false, reason: null } },
+      ] }),
+    });
+    const user = userEvent.setup();
+    renderRoutes(settlementRoutes, { path: '/settlement/ticket-actions?tab=cancel' });
+    await user.type(await screen.findByLabelText('Booking group code'), 'GRP-1');
+    await user.type(screen.getByLabelText('Ticket codes'), 'TK-1, TK-2');
+    await user.type(screen.getByLabelText('Reason (required)'), 'Customer cannot attend');
+    await verifyBuyer(user);
+    await user.click(screen.getByRole('button', { name: 'Cancel selected tickets' }));
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel tickets' }));
+    const result = await screen.findByLabelText('Cancellation result');
+    // Only the ticket whose stored reason is EXPIRED carries the notice; ALREADY_RESTORED (reason null) shows nothing.
+    expect(within(result).getAllByLabelText('Voucher not restored')).toHaveLength(1);
+    expect(within(result).getByText(/voucher had expired, so it was not restored. Your refund is not affected/)).toBeInTheDocument();
+  });
+
   it('changes several tickets of one group on the group route', async () => {
     const calls = mockFetch({
       [PROFILE]: asRole('STAFF'), ...verifyHandlers,
+      'GET /api/v1/workshop-tickets/TK-1/change-options': optionsOf('TK-1'),
+      'GET /api/v1/workshop-tickets/TK-2/change-options': optionsOf('TK-2'),
       'POST /api/v1/workshop-booking-groups/GRP-1/ticket-changes': json(200, { groupCode: 'GRP-1', applied: true, totalPriceIncrease: '0', confirmIncreaseRequired: false, tickets: [
         { ticketCode: 'TK-1', applied: true, priceIncreaseAmount: '0', confirmIncreaseRequired: false, balanceDue: '0' },
         { ticketCode: 'TK-2', applied: true, priceIncreaseAmount: '0', confirmIncreaseRequired: false, balanceDue: '0' },
@@ -128,12 +214,14 @@ describe('Staff ticket cancellation and change', () => {
     const user = userEvent.setup();
     renderRoutes(settlementRoutes, { path: '/settlement/ticket-actions?tab=change' });
     await user.type(await screen.findByLabelText('Booking group code'), 'GRP-1');
-    await user.type(screen.getByLabelText('Tickets and target sessions'), `TK-1: ${S1}{Enter}TK-2: ${S1}`);
+    await addTicketToChange(user, 'TK-1');
+    await addTicketToChange(user, 'TK-2');
     await user.type(screen.getByLabelText('Reason (required)'), 'Whole family moves');
     await verifyBuyer(user);
     await user.click(screen.getByRole('button', { name: 'Change tickets' }));
     expect(await screen.findByText('Change applied.')).toBeInTheDocument();
     expect(calls.find(call => call.path.endsWith('/ticket-changes')).body.changes).toHaveLength(2);
+    expect(calls.find(call => call.path.endsWith('/ticket-changes')).body.changes[1]).toEqual({ ticketCode: 'TK-2', fromSessionReferences: [F1], targetSessionReferences: [S1] });
   });
 });
 
@@ -145,9 +233,11 @@ describe('Customer refund-account page', () => {
     await user.type(await screen.findByLabelText('Bank'), 'VCB');
     await user.type(screen.getByLabelText('Account number'), '0123456789');
     await user.type(screen.getByLabelText('Account holder name'), 'NGUYEN VAN A');
+    await user.click(screen.getByRole('button', { name: 'Review details' }));
+    await user.click(screen.getByRole('checkbox', { name: 'These details are correct' }));
     await user.click(screen.getByRole('button', { name: 'Send account' }));
     expect(await screen.findByText(/Your bank account was received/)).toBeInTheDocument();
-    expect(calls[0].body).toEqual({ bankCode: 'VCB', accountNumber: '0123456789', holderName: 'NGUYEN VAN A' });
+    expect(calls[0].body).toEqual({ bankCode: 'VCB', accountNumber: '0123456789', holderName: 'NGUYEN VAN A', accountDetailsConfirmed: true });
     expect(calls[0].headers.Authorization).toBeUndefined();
     expect(container.textContent).not.toContain('0123456789');
     expect(container.textContent).not.toContain('tok123');
@@ -160,6 +250,8 @@ describe('Customer refund-account page', () => {
     await user.type(await screen.findByLabelText('Bank'), 'VCB');
     await user.type(screen.getByLabelText('Account number'), '1');
     await user.type(screen.getByLabelText('Account holder name'), 'A');
+    await user.click(screen.getByRole('button', { name: 'Review details' }));
+    await user.click(screen.getByRole('checkbox', { name: 'These details are correct' }));
     await user.click(screen.getByRole('button', { name: 'Send account' }));
     expect(await screen.findByText(/already used, replaced or has expired/)).toBeInTheDocument();
   });
@@ -238,6 +330,19 @@ describe('Customer Mland remedy page', () => {
     expect(await screen.findByText(/moved to the replacement session/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Send my answer' })).not.toBeInTheDocument();
   });
+
+  it('shows the expired-voucher notice on an answered refund, and nothing for ALREADY_RESTORED (T163)', async () => {
+    mockFetch({ 'GET /api/v1/workshop-tickets/TK-1/mland-remedy': json(200, { ...OFFER, outcome: 'REFUND', voucherRestoration: { restored: false, reason: 'EXPIRED' } }) });
+    renderRoutes(settlementRoutes, { path: '/workshop-tickets/TK-1/remedy', session: fakeSession('signed-out') });
+    expect(await screen.findByLabelText('Voucher not restored')).toHaveTextContent('Your refund is not affected');
+  });
+
+  it('shows no voucher notice for a restored or already restored voucher', async () => {
+    mockFetch({ 'GET /api/v1/workshop-tickets/TK-1/mland-remedy': json(200, { ...OFFER, outcome: 'REFUND', voucherRestoration: { restored: false, reason: null } }) });
+    renderRoutes(settlementRoutes, { path: '/workshop-tickets/TK-1/remedy', session: fakeSession('signed-out') });
+    expect(await screen.findByText(/being refunded/)).toBeInTheDocument();
+    expect(screen.queryByLabelText('Voucher not restored')).not.toBeInTheDocument();
+  });
 });
 
 describe('Customer ticket folio', () => {
@@ -248,6 +353,19 @@ describe('Customer ticket folio', () => {
     renderRoutes(settlementRoutes, { path: '/workshop-tickets/TK-1/folio' });
     expect(await screen.findByLabelText('Ticket folio')).toHaveTextContent('450.000 VND');
     expect(calls[0].headers.Authorization).toBe('Bearer test-token');
+  });
+
+  it('tells the Member an expired voucher was not restored when the folio carries reason EXPIRED (T163)', async () => {
+    mockFetch({ 'GET /api/v1/workshop-tickets/TK-1/folio': json(200, { ...FOLIO, status: 'CLOSED', voucherRestoration: { restored: false, reason: 'EXPIRED' } }) });
+    renderRoutes(settlementRoutes, { path: '/workshop-tickets/TK-1/folio' });
+    expect(await screen.findByLabelText('Voucher not restored')).toBeInTheDocument();
+  });
+
+  it('shows no voucher notice on a folio without an expired voucher', async () => {
+    mockFetch({ 'GET /api/v1/workshop-tickets/TK-1/folio': json(200, { ...FOLIO, voucherRestoration: { restored: false, reason: null } }) });
+    renderRoutes(settlementRoutes, { path: '/workshop-tickets/TK-1/folio' });
+    expect(await screen.findByLabelText('Ticket folio')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Voucher not restored')).not.toBeInTheDocument();
   });
 
   it('gives a Guest a lookup form that sends one contact in the body, never in the URL, and clears it', async () => {

@@ -178,7 +178,45 @@ public class LoyaltyPartLifecycleService {
         boolean mland = outcome.outcome() == OutcomeKind.WORKSHOP_TICKET_MLAND_CANCELLATION;
         require(outcome, mland || outcome.outcome() == OutcomeKind.WORKSHOP_TICKET_VALID_CANCELLATION,
                 "This outcome does not cancel a ticket.");
-        BenefitEffectSupport.Locked locked = effects.lockFor(outcome);
+        return cancelTicket(outcome, effects.lockFor(outcome), true);
+    }
+
+    /** The group voucher states around one Mland ticket cancellation (006 T110). */
+    public record TicketRestoration(ComponentState voucherBefore, ComponentState voucherAfter, boolean expired) {
+    }
+
+    /**
+     * 006 T110: the Mland cancellation of one ticket, decided by the group code and ticket code alone. The version and
+     * references of the outcome come from the locked benefit itself, so a concurrent outcome never makes this call
+     * look stale. {@code voucherExpired} is asked only while the voucher is CONSUMED: an expired voucher is not
+     * given back, a held one is always released.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public TicketRestoration cancelTicketByMland(String groupCode, String ticketCode, java.time.Instant now,
+                                                 java.util.function.Predicate<AcceptedBenefit> voucherExpired) {
+        AuthoritativeOutcome probe = ticketMlandOutcome(groupCode, ticketCode, now, 0, "restore");
+        BenefitEffectSupport.Locked locked = effects.lockFor(probe);
+        AcceptedBenefit benefit = locked.benefit();
+        AuthoritativeOutcome outcome = ticketMlandOutcome(groupCode, ticketCode, now,
+                benefit.getSourceOutcomeVersion(), benefit.getAcceptedTermsDigest());
+        ComponentState before = benefit.getVoucherState();
+        boolean expired = before == ComponentState.CONSUMED && voucherExpired.test(benefit);
+        cancelTicket(outcome, locked, !expired);
+        return new TicketRestoration(before, benefit.getVoucherState(), expired);
+    }
+
+    private static AuthoritativeOutcome ticketMlandOutcome(String groupCode, String ticketCode, java.time.Instant now,
+                                                           long version, String snapshotRef) {
+        return new AuthoritativeOutcome(edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.SourceKind.WORKSHOP,
+                groupCode, "workshopsettlement", "mland-cancel-" + ticketCode, version,
+                OutcomeKind.WORKSHOP_TICKET_MLAND_CANCELLATION, now, null,
+                snapshotRef == null || snapshotRef.isBlank() ? "restore" : snapshotRef, true,
+                "cancellation:" + ticketCode, ticketCode);
+    }
+
+    private BenefitResult cancelTicket(AuthoritativeOutcome outcome, BenefitEffectSupport.Locked locked,
+                                       boolean voucherMayComeBack) {
+        boolean mland = outcome.outcome() == OutcomeKind.WORKSHOP_TICKET_MLAND_CANCELLATION;
         AcceptedBenefit benefit = locked.benefit();
         List<AcceptedBenefitPart> parts = ticketPartsFor(benefit);
         AcceptedBenefitPart part = find(parts, outcome.partRef());
@@ -201,7 +239,8 @@ public class LoyaltyPartLifecycleService {
                         debit.getId()));
             }
         }
-        boolean voucherBack = mland || parts.stream().allMatch(AcceptedBenefitPart::isCancelledForVoucher);
+        boolean voucherBack = voucherMayComeBack
+                && (mland || parts.stream().allMatch(AcceptedBenefitPart::isCancelledForVoucher));
         if (voucherBack) {
             ComponentState voucher = benefit.giveBackVoucherForTickets(outcome.decisionAt());
             if (voucher == ComponentState.RESTORED) {

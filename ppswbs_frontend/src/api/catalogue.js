@@ -1,7 +1,9 @@
-const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080').replace(/\/$/, '');
+const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8080')).replace(/\/$/, '');
 
 function request(path, params = {}) {
-  const url = new URL(`${apiBaseUrl}${path}`);
+  const origin = apiBaseUrl || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8080');
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  const url = new URL(`${origin}${normalizedPath}`);
   Object.entries(params).forEach(([key, value]) => {
     if (value !== undefined && value !== null && value !== '') url.searchParams.set(key, String(value));
   });

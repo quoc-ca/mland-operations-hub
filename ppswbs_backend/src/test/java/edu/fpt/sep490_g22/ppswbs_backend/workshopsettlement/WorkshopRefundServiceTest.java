@@ -2,8 +2,6 @@ package edu.fpt.sep490_g22.ppswbs_backend.workshopsettlement;
 
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingRefundStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingServiceOutcome;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.OutcomeStatus;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.RefundConsequenceOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementBusinessAuditRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementCaseRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementFinalBillRepository;
@@ -71,8 +69,6 @@ class WorkshopRefundServiceTest {
         when(allocations.findAllByCaseReferenceOrderByCreatedAtAsc(CASE_REF)).thenAnswer(invocation ->
                 allocationRows.values().stream().sorted(java.util.Comparator.comparing(
                         SettlementRefundAllocation::getCreatedAt)).toList());
-        when(operations.applyRefund(eq(BOOKING_REF), anyString(), anyString(), anyString()))
-                .thenReturn(RefundConsequenceOutcome.accepted());
     }
 
     @Test
@@ -86,7 +82,7 @@ class WorkshopRefundServiceTest {
 
         assertThat(cancellationCase.getLifecycleStatus()).isEqualTo("REJECTED");
         assertThat(cancellationCase.getReasonReference()).isEqualTo("CUSTOMER_CANCELLATION_NON_REFUNDABLE");
-        verify(operations, never()).applyRefund(anyString(), anyString(), anyString(), anyString());
+        verifyNoInteractions(operations);
     }
 
     // Removed 2026-11-14 with T099: acceptedRefundIsImmediatelyQueriedAndOnlyVerifiedQueryAppliesCancellation,
@@ -140,6 +136,8 @@ class WorkshopRefundServiceTest {
         verify(booking).recordBookingRefundStatus(eq(BOOKING_REF), eq(BookingRefundStatus.REFUNDED), eq(CASE_REF),
                 anyString(), eq("CORR-1"));
         assertThat(openFolio.getLifecycleStatus()).isEqualTo("CLOSED");
+        // T168: REFUNDED is not an entitlement-revocation trigger; the 003.2 facade is not called at all.
+        verifyNoInteractions(operations);
     }
 
 
@@ -187,7 +185,7 @@ class WorkshopRefundServiceTest {
         assertThat(corrCase.getLifecycleStatus()).isEqualTo("RESOLVED");
 
         // A folio correction still touches no booking, folio or cancellation consequence.
-        verify(operations, never()).applyRefund(anyString(), anyString(), anyString(), anyString());
+        verifyNoInteractions(operations);
         verify(booking, never()).recordBookingRefundStatus(anyString(), any(), anyString(), anyString(), anyString());
         verify(booking, never()).recordBookingServiceOutcome(anyString(), any(), anyString(), anyString(), anyString());
         verify(bills, never()).saveAndFlush(any());
@@ -228,7 +226,7 @@ class WorkshopRefundServiceTest {
         assertThat(addonCase.getLifecycleStatus()).isEqualTo("RESOLVED");
 
         // Verify consequences were NEVER invoked
-        verify(operations, never()).applyRefund(anyString(), anyString(), anyString(), anyString());
+        verifyNoInteractions(operations);
         verify(booking, never()).recordBookingRefundStatus(anyString(), any(), anyString(), anyString(), anyString());
         verify(booking, never()).recordBookingServiceOutcome(anyString(), any(), anyString(), anyString(), anyString());
         verify(bills, never()).saveAndFlush(any());

@@ -126,6 +126,14 @@ function resendRefusalText(error) {
   return null;
 }
 
+/** T126: staff-facing text of 409 CHECK_IN_NOT_OPEN ("check-in opens at ..."); null for any other failure. */
+export function checkInNotOpenText(error) {
+  if (error?.status !== 409 || error.code !== 'CHECK_IN_NOT_OPEN') return null;
+  const opensAt = error.checkInOpensAt ? new Date(error.checkInOpensAt) : null;
+  const when = opensAt && !Number.isNaN(opensAt.getTime()) ? opensAt.toLocaleString('vi-VN') : null;
+  return `Check-in opens at ${when || 'a later time'}. Nếu khách đến sớm, dùng "Override check-in" với lý do EARLY_CHECKIN.`;
+}
+
 export default function OperationsSessionPage() {
   const { sessionId } = useParams();
   const { status, user } = useAuth();
@@ -146,6 +154,9 @@ export default function OperationsSessionPage() {
   const [lookupBookingCode, setLookupBookingCode] = useState('');
   const [resendBookingCode, setResendBookingCode] = useState('');
   const [resendError, setResendError] = useState(null);
+  // T126: the refused normal check-in (409 CHECK_IN_NOT_OPEN) and whether the exceptions panel (override) is open.
+  const [checkInNotOpen, setCheckInNotOpen] = useState(null);
+  const [exceptionsOpen, setExceptionsOpen] = useState(false);
   const [lookup, setLookup] = useState(null);
   const [otaBooking, setOtaBooking] = useState(null);
   const [lookupError, setLookupError] = useState('');
@@ -226,6 +237,20 @@ export default function OperationsSessionPage() {
     setMessage('');
     const result = await command.run(key => action(key));
     if (result.ok) { setMessage(success); resource.reload(); roster.reload(); }
+  }
+
+  // T126: a check-in refused before checkInOpensAt is explained in the desk (opens-at time, EARLY_CHECKIN override).
+  async function runCheckIn(body, success) {
+    setMessage('');
+    setCheckInNotOpen(null);
+    const result = await command.run(key => api.checkIn(sessionId, body, key));
+    if (result.ok) { setMessage(success); resource.reload(); roster.reload(); return; }
+    if (checkInNotOpenText(result.error)) { setCheckInNotOpen(result.error); command.reset(); }
+  }
+
+  function prepareEarlyCheckInOverride() {
+    setReasonCode('EARLY_CHECKIN');
+    setExceptionsOpen(true);
   }
 
   // T127 / T139: a resend refusal is explained inside the Ticket delivery panel (wait time, no eligible ticket, Booking
@@ -318,8 +343,8 @@ export default function OperationsSessionPage() {
           className="ota-form"
           onSubmit={e => {
             e.preventDefault();
-            if (ticketCode.trim()) run(key => api.checkIn(sessionId, { ticketCode: ticketCode.trim() }, key), 'Check-in recorded.');
-            else if (qrToken.trim()) run(key => api.checkIn(sessionId, { qrToken: qrToken.trim() }, key), 'QR check-in recorded.');
+            if (ticketCode.trim()) runCheckIn({ ticketCode: ticketCode.trim() }, 'Check-in recorded.');
+            else if (qrToken.trim()) runCheckIn({ qrToken: qrToken.trim() }, 'QR check-in recorded.');
           }}
         >
           <label>
@@ -346,6 +371,12 @@ export default function OperationsSessionPage() {
             Check in
           </button>
         </form>
+        {checkInNotOpen && (
+          <div className="notice error" role="alert">
+            <p>{checkInNotOpenText(checkInNotOpen)}</p>
+            <button type="button" className="button outline small" onClick={prepareEarlyCheckInOverride}>Chuẩn bị override EARLY_CHECKIN</button>
+          </div>
+        )}
 
         <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid #e5e7eb' }}>
           <p style={{ margin: '0 0 8px', fontSize: '13px', fontWeight: 600, color: '#374151' }}>
@@ -569,7 +600,7 @@ export default function OperationsSessionPage() {
         </div>
       </article>
       </>)}
-      <details className="ops-exceptions">
+      <details className="ops-exceptions" open={exceptionsOpen} onToggle={e => setExceptionsOpen(e.currentTarget.open)}>
         <summary>Xử lý ngoại lệ <small>điều chỉnh check-in, gửi lại vé, khôi phục đặt chỗ, hủy ca, điều chỉnh folio</small></summary>
         <div className="ops-detail-grid">
       <article className="ota-panel">

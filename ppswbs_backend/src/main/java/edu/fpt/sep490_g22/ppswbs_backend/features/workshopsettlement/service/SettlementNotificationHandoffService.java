@@ -76,6 +76,17 @@ public class SettlementNotificationHandoffService {
         return notificationReference;
     }
 
+    /** T159: the private link leaves the stored payload (the rest stays for its 30 days). */
+    @Transactional
+    public int scrubActionLinks(String settlementReference, String notificationKind) {
+        return handoffs.scrubActionLinks(settlementReference, notificationKind);
+    }
+
+    @Transactional
+    public int scrubExpiredActionLinks(String notificationKind, Instant now) {
+        return handoffs.scrubExpiredActionLinks(notificationKind, now);
+    }
+
     @Transactional
     public int deleteExpiredPayloads(Instant now) {
         return handoffs.deleteExpiredPayloads(now);

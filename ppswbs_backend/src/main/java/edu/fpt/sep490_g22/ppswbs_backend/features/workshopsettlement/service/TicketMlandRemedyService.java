@@ -2,12 +2,10 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service;
 
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorRole;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.CurrentAccountActor;
-import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.AuthoritativeOutcome;
-import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.BenefitResult;
-import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.ComponentState;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.LoyaltyFacade;
-import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.OutcomeKind;
-import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.SourceKind;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.RestoreVoucherCommand;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.TicketCancellationKind;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.VoucherRestorationOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.ConsumeBuyerProofCommand;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.ConsumeBuyerProofResult;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.TicketFolioContext;
@@ -51,6 +49,8 @@ public class TicketMlandRemedyService {
     private final SettlementCustomerNotifier notifier;
     private final SettlementIdempotencyService idempotency;
     private final WorkshopSettlementAuthorizationService authorization;
+    private final CancellationHandoffCompletionService handoffCompletion;
+    private final MlandCancelledFolioCloser folioCloser;
 
     /** One session of an offer (T112): the buyer chooses exactly one of them. */
     public record ReplacementOption(String sessionReference, Instant startAt, Instant endAt) {
@@ -279,7 +279,8 @@ public class TicketMlandRemedyService {
                 .toList();
         return new TicketRemedyOfferDto(remedy.getRemedyReference(), remedy.getTicketCode(), remedy.getGroupCode(),
                 remedy.getCancelledSessionReference(), remedy.getOutcome(), remedy.getAnswerDeadlineAt(), sessions,
-                remedy.getSelectedReplacementSessionReference());
+                remedy.getSelectedReplacementSessionReference(),
+                VoucherRestorationDto.of(remedy.getVoucherRestorationOutcome()));
     }
 
     /** Sessions 003.2 still has a seat for now; null when it cannot be asked (then only the 24 h rule applies). */
@@ -533,6 +534,9 @@ public class TicketMlandRemedyService {
             );
         }
 
+        // T167: this ticket is resolved (replacement accepted, or refund request opened / no-money answer recorded).
+        handoffCompletion.completeIfResolved(offer.getCancelledSessionReference(), correlation);
+
         // Complete idempotency claim
         idempotency.execute(opRef, fingerprint, offer::getRemedyReference);
 
@@ -578,31 +582,17 @@ public class TicketMlandRemedyService {
     ) {
         String ticketCode = offer.getTicketCode();
 
-        // 1. Calculate 100% collected money
-        long counterCollections = collections.findByBookingReferenceOrderByIdAsc(ticketCode).stream()
-                .filter(c -> c.getStatus() == FolioCollectionStatus.CONFIRMED)
-                .mapToLong(SettlementFolioCollection::getAmountVnd)
-                .sum();
-        long bookingDeposit = bills.findByBookingReference(ticketCode)
-                .map(SettlementFinalBill::getAcceptedDepositAmountVnd)
-                .orElse(0L);
-        long gatewayCollections = Stream.of("FINAL_PAYMENT_VERIFIED", "SHOP_ADDON_VERIFIED")
-                .flatMap(c -> evidence.findByBookingReferenceAndConclusion(ticketCode, c).stream())
-                .mapToLong(e -> e.getAmountVnd() == null ? 0L : e.getAmountVnd())
-                .sum();
-        long totalCollected = Math.addExact(bookingDeposit, Math.addExact(gatewayCollections, counterCollections));
-
-        // 2. Open bank refund for 100% collected money
+        // 1-2. Open the bank refund for what is still owed back for this ticket (FR-043, T170): all collected money
+        // (excess kept on the folio included) minus the ticket's other refund requests, under the folio lock.
         String refundRequestRef = null;
-        if (totalCollected > 0) {
-            BankRefundService.OpenedRefund opened = bankRefunds.open(
-                    ticketCode,
-                    ctx.groupCode(),
-                    RefundReason.MLAND_CANCELLATION,
-                    offer.getRemedyReference(),
-                    totalCollected,
-                    correlation
-            );
+        BankRefundService.OpenedRefund opened = bankRefunds.openRemainder(
+                ticketCode,
+                ctx.groupCode(),
+                RefundReason.MLAND_CANCELLATION,
+                offer.getRemedyReference(),
+                correlation
+        );
+        if (opened != null) {
             refundRequestRef = opened.request().getRequestReference();
         }
 
@@ -620,38 +610,20 @@ public class TicketMlandRemedyService {
             }
         }
 
-        // 4. Return points and restore voucher once via Loyalty
+        // 4. Points and the group voucher through the shared voucher and points facade (T155, FR-042/FR-043). 003.3
+        // only triggers it and stores the answer: the voucher comes back once per group and only while it is still
+        // valid, a repeat answers ALREADY_RESTORED, and the bank refund above never depends on the outcome.
         long pointsReturned = 0L;
         boolean voucherRestoredOnTicket = false;
+        String voucherOutcome = null;
         var loyaltySource = booking.groupLoyaltyOutcomeSource(ctx.groupCode());
         boolean hasLoyalty = loyaltySource != null && loyaltySource.memberOrigin() && loyaltySource.snapshotRef() != null;
         if (hasLoyalty) {
-            var beforeResult = findBenefitResultSafe(ctx.groupCode());
-            boolean voucherAlreadyRestored = beforeResult != null
-                    && (beforeResult.voucherState() == ComponentState.RESTORED
-                        || beforeResult.voucherState() == ComponentState.RELEASED);
-
-            String partRef = ctx.partRef() != null ? ctx.partRef() : ticketCode;
-            AuthoritativeOutcome authOutcome = new AuthoritativeOutcome(
-                    SourceKind.WORKSHOP,
-                    ctx.groupCode(),
-                    "workshopsettlement",
-                    "mland-remedy-" + ticketCode,
-                    loyaltySource.nextOutcomeVersion(),
-                    OutcomeKind.WORKSHOP_TICKET_MLAND_CANCELLATION,
-                    now,
-                    loyaltySource.originalDeadline(),
-                    loyaltySource.snapshotRef(),
-                    true,
-                    "mland-remedy:" + ticketCode,
-                    partRef
-            );
-            BenefitResult afterResult = loyalty.restoreCancelledWorkshopBenefits(authOutcome);
+            VoucherRestorationOutcome restoration = loyalty.restoreVoucherForCancelledTicket(
+                    new RestoreVoucherCommand(ctx.groupCode(), ticketCode, TicketCancellationKind.MLAND_CANCELLED));
+            voucherOutcome = restoration == null ? null : restoration.name();
             pointsReturned = ctx.pointsUsed();
-            if (afterResult != null && !voucherAlreadyRestored) {
-                voucherRestoredOnTicket = afterResult.voucherState() == ComponentState.RESTORED
-                        || afterResult.voucherState() == ComponentState.RELEASED;
-            }
+            voucherRestoredOnTicket = restoration == VoucherRestorationOutcome.RESTORED;
         }
 
         // 5. Close the ticket folio without debt. T113 (FR-039, US7/AC2): when money goes back, the folio closes
@@ -659,7 +631,7 @@ public class TicketMlandRemedyService {
         final String effectiveActorRef = requesterAccountId != null ? "account:" + requesterAccountId
                 : (requesterRole != null ? requesterRole : "SYSTEM");
         if (refundRequestRef == null) {
-            closeFolio(ticketCode, effectiveActorRef, correlation, now);
+            folioCloser.closeIfSettled(ticketCode, true, effectiveActorRef, correlation, now);
         }
 
         // 6. Update remedy entity
@@ -669,6 +641,7 @@ public class TicketMlandRemedyService {
         offer.setRefundRequestReference(refundRequestRef);
         offer.setPointsReturned(pointsReturned);
         offer.setVoucherRestored(voucherRestoredOnTicket);
+        offer.setVoucherRestorationOutcome(voucherOutcome);
         offer.setRequesterAccountId(requesterAccountId);
         offer.setRequesterRole(requesterRole);
         offer.setChannel(channel);
@@ -706,28 +679,9 @@ public class TicketMlandRemedyService {
         remedyRepository.findByRemedyReference(event.sourceReference())
                 .filter(remedy -> "REFUND".equals(remedy.getOutcome()))
                 .filter(remedy -> event.requestReference().equals(remedy.getRefundRequestReference()))
-                .ifPresent(remedy -> closeFolio(remedy.getTicketCode(), "SYSTEM:bank-refund-confirmed",
-                        "REFUND-" + event.requestReference(),
+                .ifPresent(remedy -> folioCloser.closeIfSettled(remedy.getTicketCode(), true,
+                        "SYSTEM:bank-refund-confirmed", "REFUND-" + event.requestReference(),
                         event.confirmedAt() != null ? event.confirmedAt() : Instant.now()));
-    }
-
-    private void closeFolio(String ticketCode, String actorReference, String correlation, Instant now) {
-        bills.findByBookingReferenceForUpdate(ticketCode).ifPresent(bill -> {
-            if (SettlementFinalBillLifecycleStatus.CLOSED.name().equals(bill.getLifecycleStatus())) {
-                return;
-            }
-            bill.setLifecycleStatus(SettlementFinalBillLifecycleStatus.CLOSED.name());
-            bills.save(bill);
-            audits.save(SettlementBusinessAudit.builder()
-                    .auditReference("SETTLE-AUDIT-" + UUID.randomUUID())
-                    .aggregateType("SETTLEMENT_FINAL_BILL")
-                    .aggregateReference(bill.getBillReference())
-                    .actionCode("TICKET_FOLIO_CLOSED_MLAND_REMEDY")
-                    .actorReference(actorReference)
-                    .correlationReference(correlation)
-                    .createdAt(now)
-                    .build());
-        });
     }
 
     /**
@@ -743,6 +697,7 @@ public class TicketMlandRemedyService {
         for (SettlementTicketMlandRemedy remedy : expired) {
             try {
                 defaultSingleRemedy(remedy, now);
+                handoffCompletion.completeIfResolved(remedy.getCancelledSessionReference(), null);
                 count++;
             } catch (Exception ex) {
                 log.error("Failed to default remedy to refund for remedyReference={}: {}",
@@ -787,16 +742,9 @@ public class TicketMlandRemedyService {
                 entity.getRefundRequestReference(),
                 entity.getPointsReturned(),
                 entity.isVoucherRestored(),
-                entity.getSelectedReplacementSessionReference()
+                entity.getSelectedReplacementSessionReference(),
+                VoucherRestorationDto.of(entity.getVoucherRestorationOutcome())
         );
-    }
-
-    private BenefitResult findBenefitResultSafe(String groupCode) {
-        try {
-            return loyalty.findBenefitResult(SourceKind.WORKSHOP, groupCode);
-        } catch (Exception ex) {
-            return null;
-        }
     }
 
     private void requireIdempotencyKey(String key) {

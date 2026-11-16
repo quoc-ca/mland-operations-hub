@@ -15,6 +15,7 @@ import org.springframework.stereotype.Component;
 public class MlandRemedyAutoRefundScheduler {
 
     private final TicketMlandRemedyService remedyService;
+    private final CancellationHandoffCompletionService handoffCompletion;
 
     @Scheduled(fixedDelayString = "${workshop.settlement.remedy-auto-refund-interval-ms:60000}")
     public void scanAndDefaultUnansweredRemedies() {
@@ -25,6 +26,14 @@ public class MlandRemedyAutoRefundScheduler {
             }
         } catch (Exception ex) {
             log.error("Error processing unanswered Mland remedies: {}", ex.getMessage(), ex);
+        }
+        try {
+            int completed = handoffCompletion.sweep();
+            if (completed > 0) {
+                log.info("Completed {} session cancellation handoff(s) with 003.2", completed);
+            }
+        } catch (Exception ex) {
+            log.error("Error completing session cancellation handoffs: {}", ex.getMessage(), ex);
         }
     }
 }

@@ -89,6 +89,8 @@ class TicketChangeServiceTest {
     private static final String IDEMPOTENCY_KEY = "idem-key-ticket-change-001";
     private static final UUID TARGET_SESSION_1 = UUID.randomUUID();
     private static final UUID TARGET_SESSION_2 = UUID.randomUUID();
+    private static final UUID FROM_SESSION_1 = UUID.randomUUID();
+    private static final UUID FROM_SESSION_2 = UUID.randomUUID();
 
     @BeforeEach
     void setUp() {
@@ -115,7 +117,7 @@ class TicketChangeServiceTest {
         TicketFolioContext ctx = createDefaultContext(0L, Instant.now().plus(48, ChronoUnit.HOURS));
         when(booking.getTicketFolioContext(TICKET_CODE)).thenReturn(Optional.of(ctx));
         when(finalBills.findByBookingReference(TICKET_CODE)).thenReturn(Optional.of(createDefaultFolio(100_000L)));
-        TicketChangeRequestDto req = new TicketChangeRequestDto(TicketChangeType.ADVANCE, List.of(TARGET_SESSION_1),
+        TicketChangeRequestDto req = new TicketChangeRequestDto(TicketChangeType.ADVANCE, List.of(TARGET_SESSION_1), List.of(FROM_SESSION_1),
                 null, "bvr-proof-1234567890", "Counter request");
 
         CurrentAccountActor otherBranch = new CurrentAccountActor(STAFF_ACCOUNT_ID, ActorRole.STAFF, ActorStatus.ACTIVE, false, List.of(99L));
@@ -130,13 +132,16 @@ class TicketChangeServiceTest {
     }
 
     private TicketFolioContext createDefaultContext(long voucherDiscountVnd, Instant firstSessionStart) {
+        Instant fromStart = firstSessionStart != null ? firstSessionStart : Instant.now().plus(48, ChronoUnit.HOURS);
+        lenient().when(operations.saleEligibility(FROM_SESSION_1)).thenReturn(new SaleEligibilitySnapshot(FROM_SESSION_1,
+                true, "ACTIVE", 10L, fromStart, fromStart.plus(2, ChronoUnit.HOURS), 5, null));
         return new TicketFolioContext(
                 TICKET_CODE,
                 GROUP_CODE,
                 "L1",
                 "7",
                 10L,
-                List.of("session-1", "session-2"),
+                List.of(FROM_SESSION_1.toString(), FROM_SESSION_2.toString()),
                 BUYER_ACCOUNT_ID,
                 OPS_TICKET_REF.toString(),
                 firstSessionStart != null ? firstSessionStart : Instant.now().plus(48, ChronoUnit.HOURS),
@@ -177,7 +182,7 @@ class TicketChangeServiceTest {
         CurrentAccountActor memberActor = new CurrentAccountActor(BUYER_ACCOUNT_ID, ActorRole.MEMBER, ActorStatus.ACTIVE, false, List.of(10L));
         TicketChangeRequestDto request = new TicketChangeRequestDto(
                 TicketChangeType.ADVANCE,
-                List.of(TARGET_SESSION_1),
+                List.of(TARGET_SESSION_1), List.of(FROM_SESSION_1),
                 null,
                 null,
                 null
@@ -215,7 +220,7 @@ class TicketChangeServiceTest {
         CurrentAccountActor memberActor = new CurrentAccountActor(BUYER_ACCOUNT_ID, ActorRole.MEMBER, ActorStatus.ACTIVE, false, List.of(10L));
         TicketChangeRequestDto request = new TicketChangeRequestDto(
                 TicketChangeType.ADVANCE,
-                List.of(TARGET_SESSION_2),
+                List.of(TARGET_SESSION_2), List.of(FROM_SESSION_1),
                 null,
                 null,
                 null
@@ -264,7 +269,7 @@ class TicketChangeServiceTest {
         CurrentAccountActor memberActor = new CurrentAccountActor(BUYER_ACCOUNT_ID, ActorRole.MEMBER, ActorStatus.ACTIVE, false, List.of(10L));
         TicketChangeRequestDto request = new TicketChangeRequestDto(
                 TicketChangeType.ADVANCE,
-                List.of(TARGET_SESSION_1),
+                List.of(TARGET_SESSION_1), List.of(FROM_SESSION_1),
                 null,
                 null,
                 null
@@ -291,7 +296,7 @@ class TicketChangeServiceTest {
         when(finalBills.findByBookingReference(TICKET_CODE)).thenReturn(Optional.of(createDefaultFolio(100_000L)));
         when(folioBalanceService.balanceOf(any())).thenReturn(new FolioBalanceService.FolioBalance(100_000L, 0L, 100_000L));
         CurrentAccountActor memberActor = new CurrentAccountActor(BUYER_ACCOUNT_ID, ActorRole.MEMBER, ActorStatus.ACTIVE, false, List.of(10L));
-        TicketChangeRequestDto request = new TicketChangeRequestDto(TicketChangeType.ADVANCE, List.of(TARGET_SESSION_1), null, null, null);
+        TicketChangeRequestDto request = new TicketChangeRequestDto(TicketChangeType.ADVANCE, List.of(TARGET_SESSION_1), List.of(FROM_SESSION_1), null, null, null);
 
         assertThatThrownBy(() -> service.changeTicketSessions(TICKET_CODE, request, IDEMPOTENCY_KEY, "CORR-05b", memberActor))
                 .isInstanceOf(WorkshopSettlementConflictException.class)
@@ -308,7 +313,7 @@ class TicketChangeServiceTest {
         when(folioBalanceService.balanceOf(any())).thenReturn(new FolioBalanceService.FolioBalance(100_000L, 0L, 100_000L));
         when(requestRepository.existsByTicketCodeAndStatus(TICKET_CODE, "PENDING")).thenReturn(true);
         CurrentAccountActor memberActor = new CurrentAccountActor(BUYER_ACCOUNT_ID, ActorRole.MEMBER, ActorStatus.ACTIVE, false, List.of(10L));
-        TicketChangeRequestDto request = new TicketChangeRequestDto(TicketChangeType.ADVANCE, List.of(TARGET_SESSION_1), null, null, null);
+        TicketChangeRequestDto request = new TicketChangeRequestDto(TicketChangeType.ADVANCE, List.of(TARGET_SESSION_1), List.of(FROM_SESSION_1), null, null, null);
 
         assertThatThrownBy(() -> service.changeTicketSessions(TICKET_CODE, request, IDEMPOTENCY_KEY, "CORR-05c", memberActor))
                 .isInstanceOf(WorkshopSettlementConflictException.class)
@@ -323,7 +328,7 @@ class TicketChangeServiceTest {
         when(finalBills.findByBookingReference(TICKET_CODE)).thenReturn(Optional.of(createDefaultFolio(100_000L)));
         when(folioBalanceService.balanceOf(any())).thenReturn(new FolioBalanceService.FolioBalance(100_000L, 0L, 100_000L));
         when(booking.consumeBuyerProof(any())).thenReturn(ConsumeBuyerProofResult.accepted());
-        TicketChangeRequestDto request = new TicketChangeRequestDto(TicketChangeType.ADVANCE, List.of(TARGET_SESSION_1), null,
+        TicketChangeRequestDto request = new TicketChangeRequestDto(TicketChangeType.ADVANCE, List.of(TARGET_SESSION_1), List.of(FROM_SESSION_1), null,
                 "bvr-" + "a".repeat(20), null);
 
         ChangeResultDto queued = service.changeTicketSessions(TICKET_CODE, request, IDEMPOTENCY_KEY, "CORR-05d", null);
@@ -350,7 +355,7 @@ class TicketChangeServiceTest {
         CurrentAccountActor memberActor = new CurrentAccountActor(BUYER_ACCOUNT_ID, ActorRole.MEMBER, ActorStatus.ACTIVE, false, List.of(10L));
         TicketChangeRequestDto request = new TicketChangeRequestDto(
                 TicketChangeType.LATE_ARRIVAL,
-                List.of(TARGET_SESSION_1),
+                List.of(TARGET_SESSION_1), List.of(FROM_SESSION_1),
                 null,
                 null,
                 null
@@ -379,7 +384,7 @@ class TicketChangeServiceTest {
         CurrentAccountActor memberActor = new CurrentAccountActor(BUYER_ACCOUNT_ID, ActorRole.MEMBER, ActorStatus.ACTIVE, false, List.of(10L));
         TicketChangeRequestDto request = new TicketChangeRequestDto(
                 TicketChangeType.ADVANCE,
-                List.of(TARGET_SESSION_1),
+                List.of(TARGET_SESSION_1), List.of(FROM_SESSION_1),
                 null,
                 null,
                 null
@@ -413,6 +418,10 @@ class TicketChangeServiceTest {
                 Instant.now().plus(50, ChronoUnit.HOURS), 5, LocalDate.now().plusDays(2)
         );
         when(operations.saleEligibility(TARGET_SESSION_1)).thenReturn(targetSessionSnap);
+        // FR-044a: 006 is asked about the ticket's whole new set, so the session that stays needs its facts too.
+        lenient().when(operations.saleEligibility(FROM_SESSION_2)).thenReturn(new SaleEligibilitySnapshot(FROM_SESSION_2, true,
+                "ACTIVE", 10L, Instant.now().plus(72, ChronoUnit.HOURS), Instant.now().plus(74, ChronoUnit.HOURS), 5,
+                LocalDate.now().plusDays(3)));
         // 006 decides scope (BE-DESIGN-0007): the ticket leaves the voucher's scope and loses its 50,000 share.
         when(loyalty.checkTicketVoucherScope(any())).thenReturn(new TicketVoucherScope(true, false, BigInteger.valueOf(50_000L)));
 
@@ -421,7 +430,7 @@ class TicketChangeServiceTest {
         CurrentAccountActor memberActor = new CurrentAccountActor(BUYER_ACCOUNT_ID, ActorRole.MEMBER, ActorStatus.ACTIVE, false, List.of(10L));
         TicketChangeRequestDto request = new TicketChangeRequestDto(
                 TicketChangeType.ADVANCE,
-                List.of(TARGET_SESSION_1),
+                List.of(TARGET_SESSION_1), List.of(FROM_SESSION_1),
                 false, // NOT confirmed yet
                 null,
                 null
@@ -457,6 +466,10 @@ class TicketChangeServiceTest {
                 Instant.now().plus(50, ChronoUnit.HOURS), 5, LocalDate.now().plusDays(2)
         );
         when(operations.saleEligibility(TARGET_SESSION_1)).thenReturn(targetSessionSnap);
+        // FR-044a: 006 is asked about the ticket's whole new set, so the session that stays needs its facts too.
+        lenient().when(operations.saleEligibility(FROM_SESSION_2)).thenReturn(new SaleEligibilitySnapshot(FROM_SESSION_2, true,
+                "ACTIVE", 10L, Instant.now().plus(72, ChronoUnit.HOURS), Instant.now().plus(74, ChronoUnit.HOURS), 5,
+                LocalDate.now().plusDays(3)));
         // 006 decides scope (BE-DESIGN-0007): the ticket leaves the voucher's scope and loses its 50,000 share.
         when(loyalty.checkTicketVoucherScope(any())).thenReturn(new TicketVoucherScope(true, false, BigInteger.valueOf(50_000L)));
 
@@ -469,7 +482,7 @@ class TicketChangeServiceTest {
         CurrentAccountActor memberActor = new CurrentAccountActor(BUYER_ACCOUNT_ID, ActorRole.MEMBER, ActorStatus.ACTIVE, false, List.of(10L));
         TicketChangeRequestDto request = new TicketChangeRequestDto(
                 TicketChangeType.ADVANCE,
-                List.of(TARGET_SESSION_1),
+                List.of(TARGET_SESSION_1), List.of(FROM_SESSION_1),
                 true, // CONFIRMED increase
                 null,
                 null
@@ -505,13 +518,17 @@ class TicketChangeServiceTest {
         when(operations.saleEligibility(TARGET_SESSION_1)).thenReturn(new SaleEligibilitySnapshot(
                 TARGET_SESSION_1, true, "ACTIVE", 20L, Instant.now().plus(48, ChronoUnit.HOURS),
                 Instant.now().plus(50, ChronoUnit.HOURS), 5, day));
+        // FR-044a: 006 is asked about the ticket's whole new set, so the session that stays needs its facts too.
+        lenient().when(operations.saleEligibility(FROM_SESSION_2)).thenReturn(new SaleEligibilitySnapshot(FROM_SESSION_2, true,
+                "ACTIVE", 10L, Instant.now().plus(72, ChronoUnit.HOURS), Instant.now().plus(74, ChronoUnit.HOURS), 5,
+                LocalDate.now().plusDays(3)));
         when(loyalty.checkTicketVoucherScope(any())).thenReturn(new TicketVoucherScope(true, true, BigInteger.ZERO));
         when(folioBalanceService.balanceOf(any())).thenReturn(new FolioBalanceService.FolioBalance(100_000L, 0L, 100_000L));
         when(operations.replaceTicketSessions(any())).thenReturn(TicketSessionReplacementOutcome.accepted());
 
         CurrentAccountActor memberActor = new CurrentAccountActor(BUYER_ACCOUNT_ID, ActorRole.MEMBER, ActorStatus.ACTIVE, false, List.of(10L));
         ChangeResultDto result = service.changeTicketSessions(TICKET_CODE, new TicketChangeRequestDto(
-                TicketChangeType.ADVANCE, List.of(TARGET_SESSION_1), null, null, null), IDEMPOTENCY_KEY, "CORR-SCOPE", memberActor);
+                TicketChangeType.ADVANCE, List.of(TARGET_SESSION_1), List.of(FROM_SESSION_1), null, null, null), IDEMPOTENCY_KEY, "CORR-SCOPE", memberActor);
 
         assertThat(result.applied()).isTrue();
         assertThat(result.priceIncreaseAmount()).isEqualTo("0");
@@ -522,11 +539,11 @@ class TicketChangeServiceTest {
         assertThat(query.getValue().sourceRef()).isEqualTo(GROUP_CODE);
         assertThat(query.getValue().ticketRef()).isEqualTo("L1-T1");
         assertThat(query.getValue().packageId()).isEqualTo(7L);
-        assertThat(query.getValue().proposedSessions()).singleElement().satisfies(session -> {
-            assertThat(session.sessionRef()).isEqualTo(TARGET_SESSION_1.toString());
-            assertThat(session.branchId()).isEqualTo(20L);
-            assertThat(session.workshopDate()).isEqualTo(day);
-        });
+        assertThat(query.getValue().proposedSessions()).hasSize(2);
+        assertThat(query.getValue().proposedSessions().get(0).sessionRef()).isEqualTo(TARGET_SESSION_1.toString());
+        assertThat(query.getValue().proposedSessions().get(0).branchId()).isEqualTo(20L);
+        assertThat(query.getValue().proposedSessions().get(0).workshopDate()).isEqualTo(day);
+        assertThat(query.getValue().proposedSessions().get(1).sessionRef()).isEqualTo(FROM_SESSION_2.toString());
     }
 
     @Test
@@ -542,7 +559,7 @@ class TicketChangeServiceTest {
 
         CurrentAccountActor memberActor = new CurrentAccountActor(BUYER_ACCOUNT_ID, ActorRole.MEMBER, ActorStatus.ACTIVE, false, List.of(10L));
         service.changeTicketSessions(TICKET_CODE, new TicketChangeRequestDto(
-                TicketChangeType.ADVANCE, List.of(TARGET_SESSION_1), null, null, null), IDEMPOTENCY_KEY, "CORR-NOV", memberActor);
+                TicketChangeType.ADVANCE, List.of(TARGET_SESSION_1), List.of(FROM_SESSION_1), null, null, null), IDEMPOTENCY_KEY, "CORR-NOV", memberActor);
 
         verifyNoInteractions(loyalty);
     }
@@ -559,7 +576,7 @@ class TicketChangeServiceTest {
         CurrentAccountActor recipientActor = new CurrentAccountActor(OTHER_MEMBER_ID, ActorRole.MEMBER, ActorStatus.ACTIVE, false, List.of(10L));
         TicketChangeRequestDto request = new TicketChangeRequestDto(
                 TicketChangeType.ADVANCE,
-                List.of(TARGET_SESSION_1),
+                List.of(TARGET_SESSION_1), List.of(FROM_SESSION_1),
                 null,
                 null,
                 null
@@ -581,7 +598,7 @@ class TicketChangeServiceTest {
 
         TicketChangeRequestDto request = new TicketChangeRequestDto(
                 TicketChangeType.ADVANCE,
-                List.of(TARGET_SESSION_1),
+                List.of(TARGET_SESSION_1), List.of(FROM_SESSION_1),
                 null,
                 null, // missing proof
                 null
@@ -606,7 +623,7 @@ class TicketChangeServiceTest {
         // Missing reason -> 422 REASON_REQUIRED
         TicketChangeRequestDto noReasonReq = new TicketChangeRequestDto(
                 TicketChangeType.ADVANCE,
-                List.of(TARGET_SESSION_1),
+                List.of(TARGET_SESSION_1), List.of(FROM_SESSION_1),
                 null,
                 "bvr-proof-1234567890",
                 null
@@ -617,7 +634,7 @@ class TicketChangeServiceTest {
         // Missing proof -> 409 BUYER_VERIFICATION_REQUIRED
         TicketChangeRequestDto noProofReq = new TicketChangeRequestDto(
                 TicketChangeType.ADVANCE,
-                List.of(TARGET_SESSION_1),
+                List.of(TARGET_SESSION_1), List.of(FROM_SESSION_1),
                 null,
                 null,
                 "Customer requested session change at counter"
@@ -635,7 +652,7 @@ class TicketChangeServiceTest {
 
         TicketChangeRequestDto validStaffReq = new TicketChangeRequestDto(
                 TicketChangeType.ADVANCE,
-                List.of(TARGET_SESSION_1),
+                List.of(TARGET_SESSION_1), List.of(FROM_SESSION_1),
                 null,
                 "bvr-proof-1234567890",
                 "Customer requested session change at counter"
@@ -666,7 +683,7 @@ class TicketChangeServiceTest {
 
         TicketChangeRequestDto request = new TicketChangeRequestDto(
                 TicketChangeType.ADVANCE,
-                List.of(TARGET_SESSION_1),
+                List.of(TARGET_SESSION_1), List.of(FROM_SESSION_1),
                 null,
                 null,
                 null
@@ -707,7 +724,7 @@ class TicketChangeServiceTest {
         CurrentAccountActor memberActor = new CurrentAccountActor(BUYER_ACCOUNT_ID, ActorRole.MEMBER, ActorStatus.ACTIVE, false, List.of(10L));
         TicketChangeRequestDto request = new TicketChangeRequestDto(
                 TicketChangeType.ADVANCE,
-                List.of(TARGET_SESSION_1),
+                List.of(TARGET_SESSION_1), List.of(FROM_SESSION_1),
                 null,
                 null,
                 null
@@ -717,5 +734,205 @@ class TicketChangeServiceTest {
                 .isInstanceOf(WorkshopSettlementConflictException.class)
                 .hasMessageContaining("TICKET_FOLIO_NOT_OPEN");
     }
-}
 
+    // ---- T130 (FR-044, FR-045a): the session being changed decides the window and the expiry --------------------
+
+    private void snapshot(UUID session, Instant start, Instant end) {
+        lenient().when(operations.saleEligibility(session)).thenReturn(new SaleEligibilitySnapshot(session, true,
+                "ACTIVE", 10L, start, end, 5, null));
+    }
+
+    private ChangeResultDto queueChange(TicketChangeType type, UUID from, UUID target, String key) {
+        when(finalBills.findByBookingReference(TICKET_CODE)).thenReturn(Optional.of(createDefaultFolio(100_000L)));
+        when(folioBalanceService.balanceOf(any())).thenReturn(new FolioBalanceService.FolioBalance(100_000L, 0L, 100_000L));
+        // The allowance is spent, so the request waits in the Manager queue and its expiry can be read.
+        when(changeRepository.countByTicketCodeAndCountedTrueAndAppliedTrue(TICKET_CODE)).thenReturn(1L);
+        CurrentAccountActor member = new CurrentAccountActor(BUYER_ACCOUNT_ID, ActorRole.MEMBER, ActorStatus.ACTIVE, false, List.of(10L));
+        return service.changeTicketSessions(TICKET_CODE, new TicketChangeRequestDto(type, List.of(target), List.of(from),
+                null, null, null), key, "CORR-T130", member);
+    }
+
+    private Instant savedExpiry() {
+        ArgumentCaptor<SettlementTicketChangeRequest> saved = ArgumentCaptor.forClass(SettlementTicketChangeRequest.class);
+        verify(requestRepository).save(saved.capture());
+        return saved.getValue().getExpiresAt();
+    }
+
+    @Test
+    @DisplayName("T130(a): changing session 2 while session 1 is still ahead expires at session 2's start, not session 1's")
+    void expiry_usesSessionBeingChanged_notFirstSession() {
+        Instant now = Instant.now();
+        TicketFolioContext ctx = createDefaultContext(0L, now.plus(12, ChronoUnit.HOURS));
+        when(booking.getTicketFolioContext(TICKET_CODE)).thenReturn(Optional.of(ctx));
+        Instant session2 = now.plus(30, ChronoUnit.HOURS);
+        snapshot(FROM_SESSION_2, session2, session2.plus(2, ChronoUnit.HOURS));
+        snapshot(TARGET_SESSION_1, now.plus(60, ChronoUnit.HOURS), now.plus(62, ChronoUnit.HOURS));
+
+        ChangeResultDto queued = queueChange(TicketChangeType.ADVANCE, FROM_SESSION_2, TARGET_SESSION_1, IDEMPOTENCY_KEY);
+
+        assertThat(queued.changeRequestReference()).isNotBlank();
+        assertThat(savedExpiry()).isEqualTo(session2);
+    }
+
+    @Test
+    @DisplayName("T130(b): a target earlier than the old session expires at the target's start")
+    void expiry_targetEarlierThanOldSession() {
+        Instant now = Instant.now();
+        TicketFolioContext ctx = createDefaultContext(0L, now.plus(12, ChronoUnit.HOURS));
+        when(booking.getTicketFolioContext(TICKET_CODE)).thenReturn(Optional.of(ctx));
+        snapshot(FROM_SESSION_2, now.plus(40, ChronoUnit.HOURS), now.plus(42, ChronoUnit.HOURS));
+        Instant target = now.plus(26, ChronoUnit.HOURS);
+        snapshot(TARGET_SESSION_1, target, target.plus(2, ChronoUnit.HOURS));
+
+        queueChange(TicketChangeType.ADVANCE, FROM_SESSION_2, TARGET_SESSION_1, IDEMPOTENCY_KEY);
+
+        assertThat(savedExpiry()).isEqualTo(target);
+    }
+
+    @Test
+    @DisplayName("T130(c): a target later than the old session expires at the old session's start")
+    void expiry_targetLaterThanOldSession() {
+        Instant now = Instant.now();
+        TicketFolioContext ctx = createDefaultContext(0L, now.plus(12, ChronoUnit.HOURS));
+        when(booking.getTicketFolioContext(TICKET_CODE)).thenReturn(Optional.of(ctx));
+        Instant old = now.plus(28, ChronoUnit.HOURS);
+        snapshot(FROM_SESSION_2, old, old.plus(2, ChronoUnit.HOURS));
+        snapshot(TARGET_SESSION_1, now.plus(90, ChronoUnit.HOURS), now.plus(92, ChronoUnit.HOURS));
+
+        queueChange(TicketChangeType.ADVANCE, FROM_SESSION_2, TARGET_SESSION_1, IDEMPOTENCY_KEY);
+
+        assertThat(savedExpiry()).isEqualTo(old);
+    }
+
+    @Test
+    @DisplayName("T130: LATE_ARRIVAL expires at the earliest of the changed session's end + 7 days and the target's start")
+    void expiry_lateArrival_endPlusSevenDays_orTargetStart() {
+        Instant now = Instant.now();
+        Instant end = now.plus(1, ChronoUnit.HOURS);
+        TicketFolioContext ctx = createDefaultContext(0L, now.minus(1, ChronoUnit.HOURS));
+        when(booking.getTicketFolioContext(TICKET_CODE)).thenReturn(Optional.of(ctx));
+        snapshot(FROM_SESSION_1, now.minus(1, ChronoUnit.HOURS), end);
+        snapshot(TARGET_SESSION_1, now.plus(10, ChronoUnit.DAYS), now.plus(10, ChronoUnit.DAYS).plus(2, ChronoUnit.HOURS));
+
+        queueChange(TicketChangeType.LATE_ARRIVAL, FROM_SESSION_1, TARGET_SESSION_1, IDEMPOTENCY_KEY);
+        assertThat(savedExpiry()).isEqualTo(end.plus(7, ChronoUnit.DAYS));
+
+        clearInvocations(requestRepository);
+        Instant nearTarget = now.plus(3, ChronoUnit.DAYS);
+        snapshot(TARGET_SESSION_2, nearTarget, nearTarget.plus(2, ChronoUnit.HOURS));
+        queueChange(TicketChangeType.LATE_ARRIVAL, FROM_SESSION_1, TARGET_SESSION_2, "idem-key-ticket-change-002");
+        assertThat(savedExpiry()).isEqualTo(nearTarget);
+    }
+
+    @Test
+    @DisplayName("T130: the 24 h window is measured from the session being changed: session 2 on the day of session 1 is not blocked")
+    void advanceWindow_usesSessionBeingChanged() {
+        Instant now = Instant.now();
+        // Session 1 starts in 12 h (inside 24 h), session 2 in 30 h; the buyer changes session 2.
+        TicketFolioContext ctx = createDefaultContext(0L, now.plus(12, ChronoUnit.HOURS));
+        when(booking.getTicketFolioContext(TICKET_CODE)).thenReturn(Optional.of(ctx));
+        when(finalBills.findByBookingReference(TICKET_CODE)).thenReturn(Optional.of(createDefaultFolio(100_000L)));
+        when(folioBalanceService.balanceOf(any())).thenReturn(new FolioBalanceService.FolioBalance(100_000L, 0L, 100_000L));
+        snapshot(FROM_SESSION_2, now.plus(30, ChronoUnit.HOURS), now.plus(32, ChronoUnit.HOURS));
+        snapshot(TARGET_SESSION_1, now.plus(60, ChronoUnit.HOURS), now.plus(62, ChronoUnit.HOURS));
+        when(operations.replaceTicketSessions(any())).thenReturn(TicketSessionReplacementOutcome.accepted());
+        CurrentAccountActor member = new CurrentAccountActor(BUYER_ACCOUNT_ID, ActorRole.MEMBER, ActorStatus.ACTIVE, false, List.of(10L));
+
+        ChangeResultDto result = service.changeTicketSessions(TICKET_CODE, new TicketChangeRequestDto(
+                TicketChangeType.ADVANCE, List.of(TARGET_SESSION_1), List.of(FROM_SESSION_2), null, null, null),
+                IDEMPOTENCY_KEY, "CORR-T130w", member);
+
+        assertThat(result.applied()).isTrue();
+        verify(requestRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("T130: a from session that is not one of the ticket's sessions, or a missing/mismatched list, is refused 422")
+    void fromSessions_notOfTicket_refused422() {
+        TicketFolioContext ctx = createDefaultContext(0L, null);
+        when(booking.getTicketFolioContext(TICKET_CODE)).thenReturn(Optional.of(ctx));
+        CurrentAccountActor member = new CurrentAccountActor(BUYER_ACCOUNT_ID, ActorRole.MEMBER, ActorStatus.ACTIVE, false, List.of(10L));
+        UUID stranger = UUID.randomUUID();
+
+        assertThatThrownBy(() -> service.changeTicketSessions(TICKET_CODE, new TicketChangeRequestDto(
+                TicketChangeType.ADVANCE, List.of(TARGET_SESSION_1), List.of(stranger), null, null, null),
+                IDEMPOTENCY_KEY, "CORR-T130x", member))
+                .isInstanceOf(WorkshopSettlementValidationException.class).hasMessageContaining("FROM_SESSION_NOT_OF_TICKET");
+        assertThatThrownBy(() -> service.changeTicketSessions(TICKET_CODE, new TicketChangeRequestDto(
+                TicketChangeType.ADVANCE, List.of(TARGET_SESSION_1), null, null, null, null),
+                IDEMPOTENCY_KEY, "CORR-T130y", member))
+                .isInstanceOf(WorkshopSettlementValidationException.class).hasMessageContaining("FROM_SESSIONS_REQUIRED");
+        assertThatThrownBy(() -> service.changeTicketSessions(TICKET_CODE, new TicketChangeRequestDto(
+                TicketChangeType.ADVANCE, List.of(TARGET_SESSION_1, TARGET_SESSION_2), List.of(FROM_SESSION_1), null, null, null),
+                IDEMPOTENCY_KEY, "CORR-T130z", member))
+                .isInstanceOf(WorkshopSettlementValidationException.class).hasMessageContaining("FROM_SESSIONS_MISMATCH");
+        verify(operations, never()).replaceTicketSessions(any());
+    }
+
+    // ---- FR-044a: from names only the sessions that move; the other session of the ticket stays -----------------
+
+    private void openFolioForChange() {
+        when(finalBills.findByBookingReference(TICKET_CODE)).thenReturn(Optional.of(createDefaultFolio(100_000L)));
+        when(folioBalanceService.balanceOf(any())).thenReturn(new FolioBalanceService.FolioBalance(100_000L, 0L, 100_000L));
+        when(changeRepository.countByTicketCodeAndCountedTrueAndAppliedTrue(TICKET_CODE)).thenReturn(0L);
+        when(changeRepository.countByTicketCodeAndChangeTypeAndAppliedTrue(TICKET_CODE, "MANAGER_GRANTED")).thenReturn(0L);
+        when(operations.replaceTicketSessions(any())).thenReturn(TicketSessionReplacementOutcome.accepted());
+    }
+
+    @Test
+    @DisplayName("FR-044a: moving only session 1 of a two-session ticket sends 003.2 the whole new set, the other stays")
+    void movingOneSession_sendsTheWholeNewSetToOperations() {
+        TicketFolioContext ctx = createDefaultContext(0L, Instant.now().plus(72, ChronoUnit.HOURS));
+        when(booking.getTicketFolioContext(TICKET_CODE)).thenReturn(Optional.of(ctx));
+        openFolioForChange();
+        CurrentAccountActor member = new CurrentAccountActor(BUYER_ACCOUNT_ID, ActorRole.MEMBER, ActorStatus.ACTIVE, false, List.of(10L));
+
+        ChangeResultDto result = service.changeTicketSessions(TICKET_CODE, new TicketChangeRequestDto(
+                TicketChangeType.ADVANCE, List.of(TARGET_SESSION_1), List.of(FROM_SESSION_1), null, null, null),
+                IDEMPOTENCY_KEY, "CORR-FR044a", member);
+
+        assertThat(result.applied()).isTrue();
+        assertThat(result.targetSessionReferences()).containsExactly(TARGET_SESSION_1);
+        ArgumentCaptor<ReplaceTicketSessionsCommand> command = ArgumentCaptor.forClass(ReplaceTicketSessionsCommand.class);
+        verify(operations).replaceTicketSessions(command.capture());
+        assertThat(command.getValue().lines().get(0).targetSessionReferences())
+                .containsExactly(TARGET_SESSION_1, FROM_SESSION_2);
+    }
+
+    @Test
+    @DisplayName("FR-044a: the old shape (the unmoved session repeated as from and target) still works and ignores the pair")
+    void repeatedUnmovedSession_isIgnored() {
+        TicketFolioContext ctx = createDefaultContext(0L, Instant.now().plus(72, ChronoUnit.HOURS));
+        when(booking.getTicketFolioContext(TICKET_CODE)).thenReturn(Optional.of(ctx));
+        openFolioForChange();
+        CurrentAccountActor member = new CurrentAccountActor(BUYER_ACCOUNT_ID, ActorRole.MEMBER, ActorStatus.ACTIVE, false, List.of(10L));
+
+        ChangeResultDto result = service.changeTicketSessions(TICKET_CODE, new TicketChangeRequestDto(
+                TicketChangeType.ADVANCE, List.of(TARGET_SESSION_1, FROM_SESSION_2),
+                List.of(FROM_SESSION_1, FROM_SESSION_2), null, null, null), IDEMPOTENCY_KEY, "CORR-FR044b", member);
+
+        assertThat(result.applied()).isTrue();
+        ArgumentCaptor<ReplaceTicketSessionsCommand> command = ArgumentCaptor.forClass(ReplaceTicketSessionsCommand.class);
+        verify(operations).replaceTicketSessions(command.capture());
+        assertThat(command.getValue().lines().get(0).targetSessionReferences())
+                .containsExactly(TARGET_SESSION_1, FROM_SESSION_2);
+    }
+
+    @Test
+    @DisplayName("FR-044a: a request in which nothing moves, or that targets a session the ticket already holds, is 422")
+    void nothingMoves_orDuplicate_isRefused() {
+        TicketFolioContext ctx = createDefaultContext(0L, Instant.now().plus(72, ChronoUnit.HOURS));
+        when(booking.getTicketFolioContext(TICKET_CODE)).thenReturn(Optional.of(ctx));
+        CurrentAccountActor member = new CurrentAccountActor(BUYER_ACCOUNT_ID, ActorRole.MEMBER, ActorStatus.ACTIVE, false, List.of(10L));
+
+        assertThatThrownBy(() -> service.changeTicketSessions(TICKET_CODE, new TicketChangeRequestDto(
+                TicketChangeType.ADVANCE, List.of(FROM_SESSION_1), List.of(FROM_SESSION_1), null, null, null),
+                IDEMPOTENCY_KEY, "CORR-FR044c", member))
+                .isInstanceOf(WorkshopSettlementValidationException.class).hasMessageContaining("FROM_SESSIONS_MISMATCH");
+        assertThatThrownBy(() -> service.changeTicketSessions(TICKET_CODE, new TicketChangeRequestDto(
+                TicketChangeType.ADVANCE, List.of(FROM_SESSION_2), List.of(FROM_SESSION_1), null, null, null),
+                IDEMPOTENCY_KEY, "CORR-FR044d", member))
+                .isInstanceOf(WorkshopSettlementValidationException.class).hasMessageContaining("FROM_SESSIONS_MISMATCH");
+        verify(operations, never()).replaceTicketSessions(any());
+    }
+}
