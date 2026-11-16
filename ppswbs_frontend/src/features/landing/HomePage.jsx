@@ -288,20 +288,22 @@ export default function HomePage() {
     if (!isAuthenticated) return;
     let active = true;
 
-    // Lấy số lượng đơn hàng thực tế từ Feature 008 (Ready Ring Sales & Orders)
-    http('/api/v1/members/me/ready-ring-orders')
-      .then((data) => {
-        if (!active) return;
-        const orders = Array.isArray(data) ? data : data?.items || [];
-        setOrderCount(orders.length);
-      })
-      .catch(() => {});
-
     // Lấy họ và tên hồ sơ thực tế từ Feature 001 (Account Management)
     http('/api/v1/accounts/me/profile')
       .then((prof) => {
-        if (active && prof?.fullName?.trim()) {
+        if (!active) return;
+        if (prof?.fullName?.trim()) {
           setLiveFullName(prof.fullName.trim());
+        }
+        // Chỉ lấy đơn hàng nếu người dùng có vai trò MEMBER
+        if (prof?.role === 'MEMBER') {
+          http('/api/v1/members/me/ready-ring-orders')
+            .then((data) => {
+              if (!active) return;
+              const orders = Array.isArray(data) ? data : data?.items || [];
+              setOrderCount(orders.length);
+            })
+            .catch(() => {});
         }
       })
       .catch(() => {});

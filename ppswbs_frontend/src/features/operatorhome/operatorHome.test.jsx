@@ -18,6 +18,7 @@ describe('Staff and Manager home pages', () => {
     expect(screen.getByText(/Xin chào, Test User/)).toBeInTheDocument();
     expect(main().getByRole('link', { name: /Ca của tôi/ })).toHaveAttribute('href', '/operations/sessions');
     expect(main().getByRole('link', { name: /Hóa đơn quyết toán/ })).toHaveAttribute('href', '/settlement');
+    expect(main().getByRole('link', { name: /Quản lý đánh giá/ })).toHaveAttribute('href', '/review-moderation');
     // Staff and Manager both manage products.
     expect(main().getByRole('link', { name: /^Sản phẩm/ })).toHaveAttribute('href', '/catalogue-management/products');
     expect(main().queryByRole('link', { name: /Chương trình ưu đãi/ })).not.toBeInTheDocument();
@@ -30,6 +31,7 @@ describe('Staff and Manager home pages', () => {
 
     expect(await screen.findByRole('heading', { name: /Trang chủ Manager/ })).toBeInTheDocument();
     expect(main().getByRole('link', { name: /Bảng điều phối ca/ })).toBeInTheDocument();
+    expect(main().getByRole('link', { name: /Quản lý đánh giá/ })).toHaveAttribute('href', '/review-moderation');
     expect(main().getByRole('link', { name: /Gói workshop/ })).toHaveAttribute('href', '/operations/packages');
     expect(main().getByRole('link', { name: /Kênh đối tác/ })).toHaveAttribute('href', '/ota-connectivity/channels');
   });

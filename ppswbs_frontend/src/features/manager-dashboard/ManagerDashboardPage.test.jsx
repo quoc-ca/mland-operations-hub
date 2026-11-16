@@ -38,6 +38,7 @@ describe('FE-10 Manager dashboard', () => {
     renderRoutes(managerDashboardRoutes, { path: '/manager/dashboard' });
 
     expect(await screen.findByRole('heading', { name: 'Dashboard điều hành' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Quản lý đánh giá' })).toHaveAttribute('href', '/review-moderation');
     expect(await kpis().findByText('Tổng doanh thu')).toBeInTheDocument();
     expect(kpis().getAllByRole('article')).toHaveLength(5);
     expect(kpis().getByText('55%')).toBeInTheDocument();

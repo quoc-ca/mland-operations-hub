@@ -1,7 +1,8 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { fakeSession, json, mockFetch, renderRoutes } from '../../../test/render';
+import { clearRoleCache } from '../../../shared/auth/useRole';
 import { reviewManagementRoutes } from '../routes';
 
 const open = (path, options) => renderRoutes(reviewManagementRoutes, { path, ...options });
@@ -445,5 +446,48 @@ describe('F11-MODERATION-DETAIL Screen (/review-moderation/:id)', () => {
     expect(replyCall.body).toMatchObject({
       bodyText: 'Mland xin lỗi và sẽ cải thiện ngay lập tức.',
     });
+  });
+
+  it('enforces Staff limitations on moderation detail screen', async () => {
+    clearRoleCache();
+    mockFetch({
+      'GET /api/v1/accounts/me/profile': json(200, { role: 'STAFF', fullName: 'Staff User' }),
+      'GET /api/v1/reviews/rev-mod-04': json(200, {
+        id: 'rev-mod-04',
+        status: 'PUBLIC',
+        rating: 2,
+        bodyText: 'Chờ đợi quá lâu.',
+        version: 1,
+        maskedDisplayName: 'Khách #5***67',
+      }),
+    });
+
+    open('/review-moderation/rev-mod-04', { session: fakeSession('signed-in') });
+    expect(await screen.findByText('Quản lý đánh giá')).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Ẩn đánh giá' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Gỡ đánh giá' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Lưu phản hồi' })).not.toBeInTheDocument();
+    expect(screen.getByText(/Chỉ Quản lý \(Manager\) mới có quyền gửi phản hồi chính thức/)).toBeInTheDocument();
+  });
+
+  it('shows Manager full moderation and reply capabilities', async () => {
+    clearRoleCache();
+    mockFetch({
+      'GET /api/v1/accounts/me/profile': json(200, { role: 'MANAGER', fullName: 'Manager User' }),
+      'GET /api/v1/reviews/rev-mod-05': json(200, {
+        id: 'rev-mod-05',
+        status: 'HIDDEN',
+        rating: 1,
+        bodyText: 'Đánh giá đã bị ẩn.',
+        version: 2,
+        maskedDisplayName: 'Khách #9***88',
+      }),
+    });
+
+    open('/review-moderation/rev-mod-05', { session: fakeSession('signed-in') });
+    expect(await screen.findByText('Quản lý đánh giá')).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Khôi phục công khai' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Gỡ đánh giá' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Lưu phản hồi' })).toBeInTheDocument();
   });
 });

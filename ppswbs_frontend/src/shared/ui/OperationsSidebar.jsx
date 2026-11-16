@@ -82,6 +82,7 @@ export function OperationsSidebar() {
   const isRetailReconciliationActive = pathname.startsWith('/manager/retail-payment-reconciliations');
   const isDashboardActive = pathname === '/manager/dashboard';
   const isDesignReviewActive = pathname.startsWith('/design-review-requests');
+  const isReviewModerationActive = pathname.startsWith('/review-moderation');
 
   const isVi = language === 'vi';
 
@@ -166,6 +167,16 @@ export function OperationsSidebar() {
           {isVi ? 'Đối soát thanh toán bán lẻ' : 'Retail payment reconciliation'}
         </Link>
         )}
+
+        {/* REVIEW MODERATION */}
+        {canManageProducts && (<>
+        <div className="ota-sidebar-label">
+          {isVi ? 'ĐÁNH GIÁ KHÁCH HÀNG' : 'CUSTOMER REVIEWS'}
+        </div>
+        <Link className={isReviewModerationActive ? 'active' : ''} to="/review-moderation">
+          {isVi ? 'Quản lý đánh giá' : 'Review moderation'}
+        </Link>
+        </>)}
 
         {/* WORKSHOP OPERATIONS */}
         {showOperations && (<>

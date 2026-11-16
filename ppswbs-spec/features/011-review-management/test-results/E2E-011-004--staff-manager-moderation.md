@@ -106,12 +106,17 @@ requests --filter "/api/v1/review-moderation"
 
 <!-- EXECUTION:START -->
 - Latest status: PASS
-- Executed at: 2026-11-13 19:10:00
+- Executed at: 2026-11-16 12:38:00
 - Executed by: Senior QA & System Verification Engineer
 - Browser tool: browsermcp
 - Failure step: NONE
-- Actual result: Nhân viên Staff staff.test@mland.vn mở /review-moderation, chọn review và thực hiện Ẩn đánh giá (HIDE) thành công (HTTP 200, status chuyển thành HIDDEN trong DB). Thao tác Staff bấm Gỡ đánh giá bị backend từ chối chính xác với HTTP 403 Forbidden (PASS RBAC). Sau khi fix BUG-E2E-0006 (cho phép internal moderators xem chi tiết review không phải PUBLIC kèm header Bearer xác thực), Quản lý manager.test@mland.vn lọc trạng thái HIDDEN, mở chi tiết /review-moderation/:id thành công với HTTP 200. Manager nhập lý do "Đánh giá hợp lệ sau khi kiểm tra thông tin workshop." và bấm "Khôi phục công khai" (RESTORE), trạng thái đánh giá được khôi phục thành công sang PUBLIC trong cơ sở dữ liệu.
-- Evidence screenshot: screenshots/E2E-011-004--moderation-row.jpg, screenshots/E2E-011-004--manager-filter-hidden.jpg, screenshots/E2E-011-004--moderation-success.jpg
-- Bug reference: BUG-E2E-0006 (RESOLVED & VERIFIED)
+- Actual result: Đã kiểm thử thành công toàn diện:
+  1. Nút "Quản lý đánh giá" trên Staff Dashboard (/staff/home) và Sidebar (/review-moderation) hiển thị đúng và điều hướng thành công.
+  2. Nút "Quản lý đánh giá" trên Manager Dashboard (/manager/dashboard), Manager Home (/manager/home) và Sidebar hiển thị đúng và điều hướng thành công.
+  3. Phân quyền và tương tác:
+     - Nhân viên (Staff): chỉ có quyền Ẩn đánh giá (HIDE) kèm lý do. Giao diện ẩn nút Gỡ bỏ, ẩn nút Khôi phục và khóa tính năng phản hồi chính thức với thông báo hướng dẫn rõ ràng. Thao tác Ẩn hoạt động hoàn hảo và lưu DB.
+     - Quản lý (Manager): có toàn quyền Ẩn (HIDE), Khôi phục (RESTORE), Gỡ bỏ (REMOVE) và Viết phản hồi chính thức (POST /reply). Thao tác khôi phục review từ HIDDEN -> PUBLIC và đăng phản hồi từ Ban Quản lý thành công 100%.
+- Evidence screenshot: screenshots/E2E-011-staff-dashboard-button.jpg, screenshots/E2E-011-staff-moderation-queue.jpg, screenshots/E2E-011-staff-hidden-review.jpg, screenshots/E2E-011-manager-dashboard-button.jpg, screenshots/E2E-011-manager-moderation-detail.jpg, screenshots/E2E-011-manager-reply-success.jpg, screenshots/E2E-011-manager-home-card.jpg
+- Bug reference: NONE
 <!-- EXECUTION:END -->
 
