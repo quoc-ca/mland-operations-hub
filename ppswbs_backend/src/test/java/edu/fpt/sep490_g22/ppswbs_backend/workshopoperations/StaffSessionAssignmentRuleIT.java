@@ -138,6 +138,7 @@ class StaffSessionAssignmentRuleIT {
                 .sameLocationRequired(true).minimumSameDaySlotGap(0)
                 .state(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.WorkshopPackageState.PUBLISHED)
                 .build()).getId();
+        PackageAvailabilityFixture.activateEverywhere(jdbcTemplate, packageId);
         CapacityHoldOutcome hold = operationsFacade.reserveBookingCapacity(new ReserveBookingCapacityCommand(bookingRef,
                 String.valueOf(packageId), List.of(UUID.fromString(s.getReference())), 1, "op-hold-" + UUID.randomUUID(), "corr"));
         assertThat(hold.status()).isEqualTo(OutcomeStatus.ACCEPTED);

@@ -280,6 +280,7 @@ public class CheckInIT {
                 .minimumSameDaySlotGap(0)
                 .state(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.WorkshopPackageState.PUBLISHED)
                 .build()).getId();
+        PackageAvailabilityFixture.activateAtSessionLocations(jdbcTemplate, packageId, sessionRefs);
 
         CapacityHoldOutcome hold = operationsFacade.reserveBookingCapacity(
                 new ReserveBookingCapacityCommand(bookingRef, String.valueOf(packageId), sessionRefs,

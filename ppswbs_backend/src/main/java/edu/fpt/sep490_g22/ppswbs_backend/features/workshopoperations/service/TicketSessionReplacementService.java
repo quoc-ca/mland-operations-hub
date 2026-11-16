@@ -140,9 +140,11 @@ public class TicketSessionReplacementService {
                 reason = reason == null ? RejectionReason.INVALID_REPLACEMENT : reason;
                 continue;
             }
-            if (!packageReservationPolicy.isValidTicketReplacement(locked.getBookingReference(), targets)) {
+            RejectionReason structureReason = packageReservationPolicy
+                    .checkTicketReplacement(locked.getBookingReference(), targets);
+            if (structureReason != null) {
                 failing.add(i);
-                reason = reason == null ? RejectionReason.INVALID_REPLACEMENT : reason;
+                reason = reason == null ? structureReason : reason;
                 continue;
             }
 

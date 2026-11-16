@@ -644,6 +644,7 @@ class TicketRecipientIT {
         Long packageId = packages.save(WorkshopPackage.builder().name("Recipient package").description("fixture")
                 .publicPrice(100000L).minParticipants(1).maxParticipants(10).requiredSessionCount(1)
                 .sameLocationRequired(true).minimumSameDaySlotGap(0).state(WorkshopPackageState.PUBLISHED).build()).getId();
+        edu.fpt.sep490_g22.ppswbs_backend.workshopoperations.PackageAvailabilityFixture.activateEverywhere(jdbc, packageId);
         String lineReference = "LINE-" + UUID.randomUUID().toString().substring(0, 8);
         CapacityHoldOutcome hold = operations.reserveBookingCapacity(new ReserveBookingCapacityCommand(lineReference,
                 String.valueOf(packageId), List.of(UUID.fromString(session.getReference())), 1,

@@ -34,7 +34,13 @@ public record TicketChangeOptions(Status status, List<FromSession> perFromSessio
      * {@code remainingCapacity} and {@code remainingRescheduleQuota} are at least 1 here.
      */
     public record Option(UUID sessionReference, Instant start, Instant end, Long locationReference,
-                         int remainingCapacity, int remainingRescheduleQuota, String reasonCode) {
+                         int remainingCapacity, int remainingRescheduleQuota, String reasonCode, String locationName) {
+        /** Without the location display name (003.2 FR-044 adds it; consumers built earlier keep compiling). */
+        public Option(UUID sessionReference, Instant start, Instant end, Long locationReference,
+                      int remainingCapacity, int remainingRescheduleQuota, String reasonCode) {
+            this(sessionReference, start, end, locationReference, remainingCapacity, remainingRescheduleQuota,
+                    reasonCode, null);
+        }
     }
 
     /** Both sessions of a two-session ticket moving together; each session has a seat and quota left. */
@@ -42,6 +48,10 @@ public record TicketChangeOptions(Status status, List<FromSession> perFromSessio
     }
 
     public record PairSession(UUID sessionReference, Instant start, Instant end, int remainingCapacity,
-                              int remainingRescheduleQuota) {
+                              int remainingRescheduleQuota, Long locationReference, String locationName) {
+        public PairSession(UUID sessionReference, Instant start, Instant end, int remainingCapacity,
+                           int remainingRescheduleQuota) {
+            this(sessionReference, start, end, remainingCapacity, remainingRescheduleQuota, null, null);
+        }
     }
 }

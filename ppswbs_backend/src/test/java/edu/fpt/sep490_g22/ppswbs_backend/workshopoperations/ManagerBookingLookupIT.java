@@ -126,6 +126,8 @@ class ManagerBookingLookupIT {
                 .sameLocationRequired(false).minimumSameDaySlotGap(0)
                 .state(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.WorkshopPackageState.PUBLISHED)
                 .build()).getId();
+        PackageAvailabilityFixture.activateAtSessionLocations(jdbcTemplate, packageId,
+                sessions.stream().map(s -> UUID.fromString(s.getReference())).toList());
         CapacityHoldOutcome hold = operationsFacade.reserveBookingCapacity(new ReserveBookingCapacityCommand(bookingRef,
                 String.valueOf(packageId), sessions.stream().map(s -> UUID.fromString(s.getReference())).toList(),
                 seats, "op-hold-" + UUID.randomUUID(), "corr-hold"));

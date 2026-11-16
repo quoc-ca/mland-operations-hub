@@ -96,6 +96,7 @@ class PerTicketChangeIT {
                 .description("Synthetic fixture").publicPrice(1000L).minParticipants(1).maxParticipants(10)
                 .requiredSessionCount(1).sameLocationRequired(true).minimumSameDaySlotGap(0)
                 .state(WorkshopPackageState.PUBLISHED).build()).getId();
+        PackageAvailabilityFixture.activateEverywhere(jdbcTemplate, packageId);
 
         when(accountFacade.resolveAccount("ptc-manager")).thenReturn(Optional.of(new AccountSummary(
                 301L, ActorRole.MANAGER, ActorStatus.ACTIVE, "ptcmanager@mland.vn", Instant.now(), Instant.now())));

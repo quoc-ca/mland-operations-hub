@@ -13,6 +13,9 @@ public interface WorkshopOperationsFacade {
     /** The fixed-price add-ons currently sellable for a package at a location (empty when none or not sellable). */
     java.util.List<WorkshopAddOnPriceSnapshot> listWorkshopAddOns(WorkshopAddOnListQuery query);
 
+    /** The locations where the Package is sellable now (003.2 FR-039); read only, used by 003.3 change options. */
+    ActivePackageLocations activeLocationsForPackage(String packageReference);
+
     CapacityHoldOutcome reserveBookingCapacity(ReserveBookingCapacityCommand command);
 
     /** Reserves every line of a booking group all or none, one seat per ticket per session (003.2 FR-030). */

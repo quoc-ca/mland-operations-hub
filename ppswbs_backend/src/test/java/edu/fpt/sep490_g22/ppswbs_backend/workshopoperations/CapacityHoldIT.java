@@ -569,6 +569,7 @@ public class CapacityHoldIT {
                 .sameLocationRequired(false).minimumSameDaySlotGap(0)
                 .state(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.WorkshopPackageState.PUBLISHED)
                 .build()).getId();
+        PackageAvailabilityFixture.activateAtSessionLocations(jdbcTemplate, packageId, sessionReferences);
         return new ReserveBookingCapacityCommand(bookingReference, String.valueOf(packageId), sessionReferences, participants,
                 operationReference, correlationReference);
     }
