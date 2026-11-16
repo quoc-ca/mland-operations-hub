@@ -476,6 +476,29 @@ public class WorkshopLifecycleIT {
                 .anyMatch(event -> "SESSION_AUTO_STARTED".equals(event.getAction()));
     }
 
+
+    @Test
+    @DisplayName("T114: scheduler starts a SALES_PAUSED session at its scheduled time and audits it")
+    void shouldAutoStartSalesPausedSession() {
+        Instant now = Instant.now();
+        sessionA.setState(SessionState.SALES_PAUSED);
+        sessionA.setCheckInOpensAt(now.minusSeconds(60));
+        sessionA.setScheduledStartAt(now.plusSeconds(60));
+        sessionA = sessionRepository.saveAndFlush(sessionA);
+        sessionStartScheduler.transitionDueSessions();
+        assertThat(sessionRepository.findByReference(sessionA.getReference()).orElseThrow().getState())
+                .isEqualTo(SessionState.SALES_PAUSED);
+
+        sessionA.setScheduledStartAt(now.minusSeconds(1));
+        sessionA = sessionRepository.saveAndFlush(sessionA);
+        sessionStartScheduler.transitionDueSessions();
+
+        WorkshopSession started = sessionRepository.findByReference(sessionA.getReference()).orElseThrow();
+        assertThat(started.getState()).isEqualTo(SessionState.IN_PROGRESS);
+        assertThat(auditEventRepository.findBySessionIdOrderByOccurredAtDesc(started.getId()))
+                .anyMatch(event -> "SESSION_AUTO_STARTED".equals(event.getAction())
+                        && event.getMetadata().contains("SALES_PAUSED"));
+    }
     @Test
     @DisplayName("T025-6: SALES_PAUSED blocks new hold creation while preserving and committing existing unexpired holds")
     void shouldPreserveHoldsAcrossSalesPause() throws Exception {

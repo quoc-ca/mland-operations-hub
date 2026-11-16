@@ -46,6 +46,10 @@ public interface WorkshopSessionRepository extends JpaRepository<WorkshopSession
 
     List<WorkshopSession> findByStateAndScheduledStartAtLessThanEqual(SessionState state, Instant cutoff);
 
+    List<WorkshopSession> findByStateInAndScheduledStartAtLessThanEqual(Collection<SessionState> states, Instant cutoff);
+
+    List<WorkshopSession> findByStateAndScheduledEndAtLessThanEqual(SessionState state, Instant cutoff);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT s FROM WorkshopSession s WHERE s.id IN :ids ORDER BY s.id")
     List<WorkshopSession> findByIdsWithLock(@Param("ids") Collection<Long> ids);
