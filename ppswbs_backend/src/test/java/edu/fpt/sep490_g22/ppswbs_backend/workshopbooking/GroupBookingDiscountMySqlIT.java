@@ -269,7 +269,7 @@ class GroupBookingDiscountMySqlIT {
                 .header("Idempotency-Key", "disc-key-" + UUID.randomUUID())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"quoteRef\":\"" + quoteRef + "\",\"contactEmail\":\"" + EMAIL
-                        + "\",\"contactPhone\":\"0900000000\"}");
+                        + "\",\"contactPhone\":\"+84900000000\"}");
         if (bearer != null) request.header("Authorization", bearer);
         MvcResult result = mockMvc.perform(request).andExpect(status().isCreated()).andReturn();
         return JSON.readTree(result.getResponse().getContentAsString());

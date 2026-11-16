@@ -8,6 +8,8 @@ import {
   isFreeGroup,
   vnd,
 } from './groupDisplay';
+import { EMPTY_CONTACT } from './contactValidation';
+import { PhoneInput } from './PhoneInput';
 
 /**
  * The quote of a cart, shown before confirmation (003.1 FR-030, FR-033–FR-037). Every amount is a server fact from
@@ -29,7 +31,7 @@ export function CartQuotePanel({
   if (!quote) return null;
   const deferred = isDeferredGroup(quote.paymentMode);
   const free = isFreeGroup(quote.paymentMode);
-  const contactValue = contact || { contactEmail: '', contactPhone: '' };
+  const contactValue = contact || EMPTY_CONTACT;
 
   return (
     <section className="workspace-card cart-quote" aria-label={title} style={{ marginTop: '20px', borderTop: '4px solid #002967' }}>
@@ -133,17 +135,20 @@ export function CartQuotePanel({
           />
           {validationErrors.contactEmail && <small style={{ color: '#b00' }}>{validationErrors.contactEmail}</small>}
         </label>
-        <label>
-          Số điện thoại liên hệ *
-          <input
-            type="tel"
+        {/* A div, not a label: a label around the country select would name it "Số điện thoại liên hệ" too. */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <label htmlFor="booking-contact-phone">Số điện thoại liên hệ *</label>
+          <PhoneInput
+            id="booking-contact-phone"
+            country={contactValue.contactPhoneCountry}
             value={contactValue.contactPhone}
-            onChange={event => onContactChange({ ...contactValue, contactPhone: event.target.value })}
+            onCountryChange={contactPhoneCountry => onContactChange({ ...contactValue, contactPhoneCountry })}
+            onValueChange={contactPhone => onContactChange({ ...contactValue, contactPhone })}
             disabled={confirming}
             required
           />
           {validationErrors.contactPhone && <small style={{ color: '#b00' }}>{validationErrors.contactPhone}</small>}
-        </label>
+        </div>
       </div>
       <p className="muted" style={{ fontSize: '13px' }}>
         Thông tin người đi cùng không cần khai lúc này; sau khi xác nhận bạn có thể gửi từng vé cho họ qua email.

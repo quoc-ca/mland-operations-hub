@@ -127,7 +127,7 @@ export function WorkshopListPage() {
                     >
                       Cấu hình nhẫn
                     </a>
-                    <a className="button primary" href={`/workshops/${pkg.packageId}/book`}>Đặt ngay</a>
+                    <a className="button primary" href={`/workshops/${pkg.packageId}`}>Chọn ca &amp; đặt</a>
                   </div>
                 </div>
               </article>

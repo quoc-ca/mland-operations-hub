@@ -5,6 +5,7 @@ import { useHttp } from '../api/useHttp';
 import { useCurrentAccount } from '../../features/accountmanagement/hooks/useCurrentAccount';
 import { firebaseAuthClient } from '../../features/accountmanagement/auth/FirebaseAuthClient';
 import { LanguageSwitch } from './components';
+import { cartLineCount, subscribeToCart } from '../../workshops/cartStorage';
 import './topbar.css';
 
 /**
@@ -25,6 +26,8 @@ export default function MainTopbar() {
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [signOutError, setSignOutError] = useState(null);
   const dropdownRef = useRef(null);
+  const [workshopCartCount, setWorkshopCartCount] = useState(() => cartLineCount());
+  useEffect(() => subscribeToCart(lines => setWorkshopCartCount(lines.length)), []);
 
   const handleSignOut = async () => {
     if (isSigningOut) return;
@@ -200,6 +203,15 @@ export default function MainTopbar() {
         </nav>
 
         <div className="main-topbar-tools">
+          <Link
+            to="/workshop-booking/cart"
+            className="main-topbar-cart"
+            aria-label={`Giỏ workshop (${workshopCartCount})`}
+            title="Giỏ workshop"
+          >
+            <span aria-hidden="true">🛒</span>
+            {workshopCartCount > 0 && <span className="main-topbar-cart-badge">{workshopCartCount}</span>}
+          </Link>
           <LanguageSwitch />
 
           {isAuthenticated ? (

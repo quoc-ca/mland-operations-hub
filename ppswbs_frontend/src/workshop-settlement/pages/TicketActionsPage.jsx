@@ -5,20 +5,33 @@ import { ConfirmDialog, Field, SuccessNotice, useCommand } from '../../shared/ui
 import { createSettlementApi } from '../api/settlementApi';
 import { OpsPage } from '../OpsPage';
 import { useRole } from '../../shared/auth/useRole';
-import { BuyerProof, ProblemNotice, ReasonDialog, money, splitList } from '../ui';
+import { BuyerProof, ProblemNotice, ReasonDialog, VoucherNotRestoredNotice, money, splitList } from '../ui';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** One change per line: "TICKET-CODE: session-uuid[, session-uuid]". */
+/**
+ * One change per line: "TICKET-CODE: from-session>target-session[, from-session>target-session]". Each pair names the
+ * ticket's current session being replaced and its replacement (FR-044, T141): the server needs both, one from per target.
+ */
 export function parseChangeLines(text) {
   return text.split('\n').map(line => line.trim()).filter(Boolean).map(line => {
     const [ticketCode, sessions = ''] = line.split(':');
-    return { ticketCode: ticketCode.trim(), targetSessionReferences: splitList(sessions) };
+    const pairs = splitList(sessions.replace(/\s*>\s*/g, '>')).map(pair => {
+      const [from, target = ''] = pair.split('>');
+      return { from, target };
+    });
+    return {
+      ticketCode: ticketCode.trim(),
+      fromSessionReferences: pairs.map(pair => pair.from),
+      targetSessionReferences: pairs.map(pair => pair.target),
+    };
   });
 }
 
 const validChanges = changes => changes.length > 0 && changes.every(change => change.ticketCode
-  && change.targetSessionReferences.length >= 1 && change.targetSessionReferences.length <= 2 && change.targetSessionReferences.every(ref => UUID.test(ref)));
+  && change.targetSessionReferences.length >= 1 && change.targetSessionReferences.length <= 2
+  && change.fromSessionReferences.length === change.targetSessionReferences.length
+  && [...change.fromSessionReferences, ...change.targetSessionReferences].every(ref => UUID.test(ref)));
 
 /**
  * Staff or Manager cancels or changes tickets for the buyer (FR-041–FR-045, FR-055): one ticket on the ticket route, several
@@ -67,7 +80,7 @@ export default function TicketActionsPage() {
     setMessage(''); setResult(null);
     const base = { type: changeType, reason: reason.trim(), ...proofBody, ...(confirmIncrease ? { confirmIncrease: true } : {}) };
     const out = await command.run(key => (changes.length === 1
-      ? api.changeTicket(changes[0].ticketCode, { ...base, targetSessionReferences: changes[0].targetSessionReferences }, key)
+      ? api.changeTicket(changes[0].ticketCode, { ...base, fromSessionReferences: changes[0].fromSessionReferences, targetSessionReferences: changes[0].targetSessionReferences }, key)
       : api.changeGroupTickets(groupCode.trim(), { ...base, changes }, key)));
     if (!out.ok) return;
     const data = out.result;
@@ -115,8 +128,8 @@ export default function TicketActionsPage() {
                 <option value="LATE_ARRIVAL">Late arrival</option>
               </select>
             </Field>
-            <Field label="Tickets and target sessions" hint="One line per ticket: ticket code, colon, one or two session references.">
-              <textarea value={changeText} onChange={event => setChangeText(event.target.value)} placeholder="TK-1: 7c1f0c2e-0000-4000-8000-000000000001" />
+            <Field label="Tickets and target sessions" hint="One line per ticket: ticket code, colon, then one or two pairs 'current session>new session' (session references, no spaces inside a pair). The current session must be one of the ticket's sessions.">
+              <textarea value={changeText} onChange={event => setChangeText(event.target.value)} placeholder="TK-1: 7c1f0c2e-0000-4000-8000-000000000001>7c1f0c2e-0000-4000-8000-000000000002" />
             </Field>
           </>)}
           <Field label="Reason (required)"><textarea value={reason} maxLength={1000} onChange={event => setReason(event.target.value)} /></Field>
@@ -164,6 +177,7 @@ export default function TicketActionsPage() {
             {result.tickets.map(item => (
               <li key={item.ticketCode}>
                 {item.ticketCode}: {item.benefitOutcome === 'VALID_CANCELLATION' ? 'valid cancellation (24 hours or more before the first session)' : 'late cancellation (counts as a no-show for benefits)'}; points returned {item.pointsReturned}{item.voucherRestored ? '; voucher restored' : ''}
+                <VoucherNotRestoredNotice voucherRestoration={item.voucherRestoration} />
               </li>
             ))}
           </ul>

@@ -9,6 +9,8 @@ import {
 import { GroupDetailCard } from './GroupDetailCard';
 import { MyBookingGroupsList } from './MyBookingGroupsList';
 import { ReviewCta } from './ReviewCta';
+import { buildContactProof, DEFAULT_PHONE_COUNTRY } from './contactValidation';
+import { PhoneInput } from './PhoneInput';
 import { useBookingIdentity } from './useBookingIdentity';
 import { useReviewManagementApi } from '../features/reviewmanagement/api/useReviewManagementApi';
 import './figmaPublicShell.css';
@@ -24,6 +26,7 @@ export function WorkshopLookupPage() {
   const [groupCode, setGroupCode] = useState('');
   const [contactEmail, setContactEmail] = useState('');
   const [contactPhone, setContactPhone] = useState('');
+  const [phoneCountry, setPhoneCountry] = useState(DEFAULT_PHONE_COUNTRY);
 
   const [myGroups, setMyGroups] = useState(null);
   const [myGroupsLoading, setMyGroupsLoading] = useState(false);
@@ -96,12 +99,7 @@ export function WorkshopLookupPage() {
         fresh = await getOwnedBookingGroup(code, { authorization });
         loadMyGroups.current();
       } else {
-        const hasEmail = Boolean(contactEmail.trim());
-        fresh = await lookupGuestBookingGroup({
-          groupCode: code,
-          contactEmail: hasEmail ? contactEmail.trim() : undefined,
-          contactPhone: hasEmail ? undefined : contactPhone.trim(),
-        });
+        fresh = await lookupGuestBookingGroup({ groupCode: code, ...guestProof });
       }
       if (fresh) setGroup(fresh);
     } catch {
@@ -128,18 +126,13 @@ export function WorkshopLookupPage() {
         if (!authorization) throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
         result = await getOwnedBookingGroup(groupCode.trim(), { authorization });
       } else {
-        const hasEmail = Boolean(contactEmail.trim());
-        const hasPhone = Boolean(contactPhone.trim());
-        if ((hasEmail && hasPhone) || (!hasEmail && !hasPhone)) {
-          setError('Khách vãng lai vui lòng cung cấp đúng một trong hai: Email HOẶC Số điện thoại đã đặt.');
+        const { proof, error: proofError } = buildContactProof({ email: contactEmail, phone: contactPhone, phoneCountry });
+        if (!proof) {
+          setError(proofError);
           setLoading(false);
           return;
         }
-        result = await lookupGuestBookingGroup({
-          groupCode: groupCode.trim(),
-          contactEmail: hasEmail ? contactEmail.trim() : undefined,
-          contactPhone: hasPhone ? contactPhone.trim() : undefined,
-        });
+        result = await lookupGuestBookingGroup({ groupCode: groupCode.trim(), ...proof });
       }
       setGroup(result);
     } catch (err) {
@@ -160,10 +153,8 @@ export function WorkshopLookupPage() {
     }
   };
 
-  const guestProof = {
-    contactEmail: contactEmail.trim() || undefined,
-    contactPhone: contactPhone.trim() || undefined,
-  };
+  // The proof the Guest typed, in the normalized form every call sends (empty until it is well formed).
+  const guestProof = buildContactProof({ email: contactEmail, phone: contactPhone, phoneCountry }).proof || {};
   const [cardAuthorization, setCardAuthorization] = useState(null);
   useEffect(() => {
     let active = true;
@@ -236,15 +227,18 @@ export function WorkshopLookupPage() {
                         disabled={loading}
                       />
                     </label>
-                    <label>
-                      Số điện thoại khi đặt
-                      <input
-                        type="tel"
+                    {/* A div, not a label: a label around the country select would name it like the phone field. */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <label htmlFor="lookup-contact-phone">Số điện thoại khi đặt</label>
+                      <PhoneInput
+                        id="lookup-contact-phone"
+                        country={phoneCountry}
                         value={contactPhone}
-                        onChange={event => { setContactPhone(event.target.value); if (event.target.value) setContactEmail(''); }}
+                        onCountryChange={setPhoneCountry}
+                        onValueChange={value => { setContactPhone(value); if (value) setContactEmail(''); }}
                         disabled={loading}
                       />
-                    </label>
+                    </div>
                   </div>
                 </div>
               )}

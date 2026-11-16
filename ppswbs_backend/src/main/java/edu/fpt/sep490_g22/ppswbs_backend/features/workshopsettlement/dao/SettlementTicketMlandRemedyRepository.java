@@ -21,5 +21,7 @@ public interface SettlementTicketMlandRemedyRepository extends JpaRepository<Set
             String ticketCode, String cancelledSessionReference);
 
     boolean existsByTicketCodeAndOutcome(String ticketCode, String outcome);
+
+    boolean existsByCancelledSessionReferenceIgnoreCaseAndOutcome(String cancelledSessionReference, String outcome);
 }
 

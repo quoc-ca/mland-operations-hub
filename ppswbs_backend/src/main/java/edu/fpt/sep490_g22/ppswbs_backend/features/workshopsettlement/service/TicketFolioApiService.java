@@ -9,6 +9,8 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.Settlem
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementChargeRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementFinalBillRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementFolioCollectionRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementTicketMlandRemedyRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.TicketRemedyDtos;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.ChargeCommandDto;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.FolioCollectionDtos;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.TicketFolioDtos.*;
@@ -47,6 +49,7 @@ public class TicketFolioApiService {
     private final FolioFinalizationService folioFinalizationService;
     private final CashDayCloseService cashCloses;
     private final SettlementIdempotencyService idempotency;
+    private final SettlementTicketMlandRemedyRepository mlandRemedies;
 
     @Transactional(readOnly = true)
     public TicketFolioDto readFolio(String ticketCode, CurrentAccountActor actor) {
@@ -515,8 +518,17 @@ public class TicketFolioApiService {
                 String.valueOf(pendingAmount),
                 String.valueOf(balanceDue),
                 collectionDtos,
-                chargeDtos
+                chargeDtos,
+                voucherRestorationOf(folio.getBookingReference())
         );
+    }
+
+    /** T163: what the group voucher did when this ticket was Mland-cancelled and refunded; null when nothing was triggered. */
+    private TicketRemedyDtos.VoucherRestorationDto voucherRestorationOf(String ticketCode) {
+        return mlandRemedies.findByTicketCodeOrderByCreatedAtDesc(ticketCode).stream()
+                .map(SettlementTicketMlandRemedy::getVoucherRestorationOutcome)
+                .filter(java.util.Objects::nonNull).findFirst()
+                .map(TicketRemedyDtos.VoucherRestorationDto::of).orElse(null);
     }
 
     private static CollectionDto toCollectionDto(SettlementFolioCollection c) {

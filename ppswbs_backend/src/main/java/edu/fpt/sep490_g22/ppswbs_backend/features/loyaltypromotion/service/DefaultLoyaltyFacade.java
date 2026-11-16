@@ -46,12 +46,15 @@ public class DefaultLoyaltyFacade implements LoyaltyFacade {
     private final LoyaltyPartLifecycleService partLifecycle;
     private final BenefitPartSupport partSupport;
     private final TicketVoucherScopeService ticketScopes;
+    private final LoyaltyTicketRestorationService ticketRestorations;
 
     public DefaultLoyaltyFacade(LoyaltyQuoteService quotes, LoyaltyReservationService reservations,
                                 LoyaltySettlementService settlements, LoyaltyEarnService earn,
                                 LoyaltyReleaseService releases, LoyaltyRestorationService restorations,
                                 AcceptedBenefitRepository benefits, LoyaltyPartLifecycleService partLifecycle,
-                                BenefitPartSupport partSupport, TicketVoucherScopeService ticketScopes) {
+                                BenefitPartSupport partSupport, TicketVoucherScopeService ticketScopes,
+                                LoyaltyTicketRestorationService ticketRestorations) {
+        this.ticketRestorations = ticketRestorations;
         this.ticketScopes = ticketScopes;
         this.partLifecycle = partLifecycle;
         this.partSupport = partSupport;
@@ -133,6 +136,14 @@ public class DefaultLoyaltyFacade implements LoyaltyFacade {
     @Transactional(readOnly = true)
     public TicketVoucherScope checkTicketVoucherScope(TicketVoucherScopeQuery query) {
         return ticketScopes.check(query);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.VoucherRestorationOutcome
+            restoreVoucherForCancelledTicket(
+                    edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.RestoreVoucherCommand command) {
+        return contended(() -> ticketRestorations.restore(command));
     }
 
     private static boolean isDuplicateSource(DataIntegrityViolationException e) {

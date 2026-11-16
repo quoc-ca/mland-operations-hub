@@ -1,5 +1,6 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade;
 
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.ContactPhones;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.BookingAuditEvidenceRepository;
@@ -177,7 +178,7 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade, Worksho
                     ? query.memberAccountId().equals(booking.getMemberAccountId())
                     : emailMode
                         ? query.contactEmail().trim().equalsIgnoreCase(booking.getContactEmail())
-                        : query.contactPhone().trim().equals(booking.getContactPhone());
+                        : ContactPhones.sameContact(query.contactPhone(), booking.getContactPhone());
             return new CustomerBookingAccessDecision(authorized);
         }
         var ticket = ticketBookingRepository.findByTicketCode(ref).orElse(null);
@@ -187,7 +188,7 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade, Worksho
                     ? java.util.Objects.equals(query.memberAccountId(), group.getBuyerMemberAccountId())
                     : emailMode
                         ? query.contactEmail().trim().equalsIgnoreCase(group.getContactEmail())
-                        : query.contactPhone().trim().equals(group.getContactPhone());
+                        : ContactPhones.sameContact(query.contactPhone(), group.getContactPhone());
             return new CustomerBookingAccessDecision(authorized);
         }
         var group = bookingGroupRepository.findByGroupCode(ref).orElse(null);
@@ -196,7 +197,7 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade, Worksho
                     ? java.util.Objects.equals(query.memberAccountId(), group.getBuyerMemberAccountId())
                     : emailMode
                         ? query.contactEmail().trim().equalsIgnoreCase(group.getContactEmail())
-                        : query.contactPhone().trim().equals(group.getContactPhone());
+                        : ContactPhones.sameContact(query.contactPhone(), group.getContactPhone());
             return new CustomerBookingAccessDecision(authorized);
         }
         return new CustomerBookingAccessDecision(false);

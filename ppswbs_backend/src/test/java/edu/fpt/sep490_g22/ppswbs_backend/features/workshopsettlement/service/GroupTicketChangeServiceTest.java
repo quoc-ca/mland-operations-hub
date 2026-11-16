@@ -63,6 +63,8 @@ class GroupTicketChangeServiceTest {
 
     private final UUID sessionA = UUID.randomUUID();
     private final UUID sessionB = UUID.randomUUID();
+    private final UUID fromA = UUID.randomUUID();
+    private final UUID fromB = UUID.randomUUID();
     private final UUID opsTicket1 = UUID.randomUUID();
     private final UUID opsTicket2 = UUID.randomUUID();
 
@@ -79,7 +81,7 @@ class GroupTicketChangeServiceTest {
     }
 
     private TicketFolioContext ticket(String code, UUID opsRef, long voucher, String group) {
-        return new TicketFolioContext(code, group, "L1", "7", 10L, List.of(UUID.randomUUID().toString()), null,
+        return new TicketFolioContext(code, group, "L1", "7", 10L, List.of((code.equals("T2") ? fromB : fromA).toString()), null,
                 opsRef.toString(), Instant.now().plus(72, ChronoUnit.HOURS), 0L, "L1-" + code, voucher);
     }
 
@@ -90,6 +92,10 @@ class GroupTicketChangeServiceTest {
     }
 
     private void givenTwoOpenTickets(long voucher1, long voucher2) {
+        for (UUID from : List.of(fromA, fromB)) {
+            when(operations.saleEligibility(from)).thenReturn(new SaleEligibilitySnapshot(from, true, "ACTIVE", 10L,
+                    Instant.now().plus(72, ChronoUnit.HOURS), Instant.now().plus(74, ChronoUnit.HOURS), 5, null));
+        }
         when(booking.getTicketFolioContext("T1")).thenReturn(Optional.of(ticket("T1", opsTicket1, voucher1, GROUP)));
         when(booking.getTicketFolioContext("T2")).thenReturn(Optional.of(ticket("T2", opsTicket2, voucher2, GROUP)));
         when(finalBills.findByBookingReference("T1")).thenReturn(Optional.of(folio("T1")));
@@ -98,8 +104,8 @@ class GroupTicketChangeServiceTest {
 
     private GroupTicketChangeRequestDto request(Boolean confirm) {
         return new GroupTicketChangeRequestDto(TicketChangeType.ADVANCE, List.of(
-                new GroupTicketChangeItemDto("T1", List.of(sessionA)),
-                new GroupTicketChangeItemDto("T2", List.of(sessionB))), confirm, PROOF, null);
+                new GroupTicketChangeItemDto("T1", List.of(sessionA), List.of(fromA)),
+                new GroupTicketChangeItemDto("T2", List.of(sessionB), List.of(fromB))), confirm, PROOF, null);
     }
 
     private void outOfScope(long lost) {
@@ -190,11 +196,11 @@ class GroupTicketChangeServiceTest {
         when(booking.getTicketFolioContext("T1")).thenReturn(Optional.of(ticket("T1", opsTicket1, 0L, "OTHER-GROUP")));
 
         assertThatThrownBy(() -> service.changeGroupTickets(GROUP, new GroupTicketChangeRequestDto(
-                TicketChangeType.ADVANCE, List.of(new GroupTicketChangeItemDto("T1", List.of(sessionA))), null, PROOF, null),
+                TicketChangeType.ADVANCE, List.of(new GroupTicketChangeItemDto("T1", List.of(sessionA), List.of(fromA))), null, PROOF, null),
                 KEY, "CORR", null)).isInstanceOf(WorkshopSettlementNotFoundException.class);
         assertThatThrownBy(() -> service.changeGroupTickets(GROUP, new GroupTicketChangeRequestDto(
-                TicketChangeType.ADVANCE, List.of(new GroupTicketChangeItemDto("T1", List.of(sessionA)),
-                new GroupTicketChangeItemDto("T1", List.of(sessionB))), null, PROOF, null), KEY, "CORR", null))
+                TicketChangeType.ADVANCE, List.of(new GroupTicketChangeItemDto("T1", List.of(sessionA), List.of(fromA)),
+                new GroupTicketChangeItemDto("T1", List.of(sessionB), List.of(fromA))), null, PROOF, null), KEY, "CORR", null))
                 .isInstanceOf(WorkshopSettlementValidationException.class).hasMessageContaining("DUPLICATE_TICKET");
     }
 
@@ -213,5 +219,59 @@ class GroupTicketChangeServiceTest {
         assertThat(result.applied()).isTrue();
         assertThat(result.tickets()).hasSize(2);
         verify(operations, never()).replaceTicketSessions(any());
+    }
+
+    @Test
+    @DisplayName("T130: a ticket whose session 2 is changed on the day of session 1 (more than 24 h ahead) is not refused by the window")
+    void window_usesSessionBeingChanged_notFirstSession() {
+        givenTwoOpenTickets(0L, 0L);
+        for (String code : List.of("T1", "T2")) {
+            TicketFolioContext base = ticket(code, code.equals("T2") ? opsTicket2 : opsTicket1, 0L, GROUP);
+            // session 1 starts in 12 h, but the change concerns session 2 (30 h ahead, see the stubs below)
+            when(booking.getTicketFolioContext(code)).thenReturn(Optional.of(new TicketFolioContext(code, GROUP, "L1", "7",
+                    10L, base.sessionReferences(), null, base.operationsTicketReference(),
+                    Instant.now().plus(12, ChronoUnit.HOURS), 0L, "L1-" + code, 0L)));
+        }
+        for (UUID from : List.of(fromA, fromB)) {
+            when(operations.saleEligibility(from)).thenReturn(new SaleEligibilitySnapshot(from, true, "ACTIVE", 10L,
+                    Instant.now().plus(30, ChronoUnit.HOURS), Instant.now().plus(32, ChronoUnit.HOURS), 5, null));
+        }
+        when(operations.replaceTicketSessions(any())).thenReturn(TicketSessionReplacementOutcome.accepted());
+
+        GroupTicketChangeResultDto result = service.changeGroupTickets(GROUP, request(null), KEY, "CORR", null);
+
+        assertThat(result.applied()).isTrue();
+        verify(operations, times(1)).replaceTicketSessions(any());
+    }
+
+    @Test
+    @DisplayName("T130: one ticket whose changed session starts within 24 h refuses the whole group, nothing is changed")
+    void window_closedForOneTicket_refusesAll() {
+        givenTwoOpenTickets(0L, 0L);
+        when(operations.saleEligibility(fromB)).thenReturn(new SaleEligibilitySnapshot(fromB, true, "ACTIVE", 10L,
+                Instant.now().plus(10, ChronoUnit.HOURS), Instant.now().plus(12, ChronoUnit.HOURS), 5, null));
+
+        assertThatThrownBy(() -> service.changeGroupTickets(GROUP, request(null), KEY, "CORR", null))
+                .isInstanceOfSatisfying(GroupCancellationConflictException.class, error -> {
+                    assertThat(error.getCode()).isEqualTo("ADVANCE_CHANGE_WINDOW_EXPIRED");
+                    assertThat(error.getFailingTicketCodes()).containsExactly("T2");
+                });
+        verify(operations, never()).replaceTicketSessions(any());
+        verify(changeRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("T130: a from session that is not the ticket's is refused 422 before anything else")
+    void fromSessionNotOfTicket_refused422() {
+        givenTwoOpenTickets(0L, 0L);
+        GroupTicketChangeRequestDto request = new GroupTicketChangeRequestDto(TicketChangeType.ADVANCE, List.of(
+                new GroupTicketChangeItemDto("T1", List.of(sessionA), List.of(UUID.randomUUID())),
+                new GroupTicketChangeItemDto("T2", List.of(sessionB), List.of(fromB))), null, PROOF, null);
+
+        assertThatThrownBy(() -> service.changeGroupTickets(GROUP, request, KEY, "CORR", null))
+                .isInstanceOf(WorkshopSettlementValidationException.class)
+                .hasMessageContaining("FROM_SESSION_NOT_OF_TICKET");
+        verify(operations, never()).replaceTicketSessions(any());
+        verify(booking, never()).consumeBuyerProof(any());
     }
 }

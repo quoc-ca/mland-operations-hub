@@ -22,6 +22,7 @@ public final class TicketChangeDtos {
     public record TicketChangeRequestDto(
             @NotNull TicketChangeType type,
             @NotEmpty @Size(min = 1, max = 2) List<UUID> targetSessionReferences,
+            @NotEmpty @Size(min = 1, max = 2) List<UUID> fromSessionReferences,
             Boolean confirmIncrease,
             String buyerVerificationReference,
             @Size(max = 1000) String reason
@@ -78,6 +79,7 @@ public final class TicketChangeDtos {
             String groupCode,
             TicketChangeType type,
             List<UUID> targetSessionReferences,
+            List<UUID> fromSessionReferences,
             List<String> blockedRules,
             String status,
             String priceIncreaseAmount,
@@ -93,6 +95,7 @@ public final class TicketChangeDtos {
     ) {
         public ChangeRequestDto {
             targetSessionReferences = targetSessionReferences == null ? List.of() : List.copyOf(targetSessionReferences);
+            fromSessionReferences = fromSessionReferences == null ? List.of() : List.copyOf(fromSessionReferences);
             blockedRules = blockedRules == null ? List.of() : List.copyOf(blockedRules);
         }
     }
@@ -101,7 +104,8 @@ public final class TicketChangeDtos {
 
     public record GroupTicketChangeItemDto(
             @NotBlank String ticketCode,
-            @NotEmpty @Size(min = 1, max = 2) List<UUID> targetSessionReferences
+            @NotEmpty @Size(min = 1, max = 2) List<UUID> targetSessionReferences,
+            @NotEmpty @Size(min = 1, max = 2) List<UUID> fromSessionReferences
     ) {}
 
     public record GroupTicketChangeRequestDto(

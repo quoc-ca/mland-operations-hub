@@ -5,7 +5,7 @@ import { useHttp } from '../../shared/api/useHttp';
 import { ConfirmDialog, Loading, SuccessNotice, useCommand, useResource } from '../../shared/ui/components';
 import { createSettlementApi } from '../api/settlementApi';
 import { CustomerPage } from '../OpsPage';
-import { BuyerProof, ProblemNotice, when } from '../ui';
+import { BuyerProof, ProblemNotice, VoucherNotRestoredNotice, when } from '../ui';
 
 const CODE_TEXT = {
   REPLACEMENT_SESSION_UNAVAILABLE: 'That session has no seat left. Choose another session or ask for a refund.',
@@ -65,6 +65,7 @@ export default function MlandRemedyPage() {
         <p>Ticket {data.ticketCode}</p>
         {pending ? <p>Answer before <strong>{when(data.answerDeadlineAt)}</strong>. Without an answer the ticket is refunded.</p>
           : <p role="status">{data.outcome === 'MOVED' ? 'Your ticket was moved to the replacement session.' : 'Your ticket is being refunded.'}</p>}
+        <VoucherNotRestoredNotice voucherRestoration={data.voucherRestoration} />
         {pending && (
           <fieldset className="settlement-addon-options">
             <legend>Choose one</legend>

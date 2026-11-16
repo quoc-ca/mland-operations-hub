@@ -26,7 +26,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class GroupCommandErrorContractTest {
 
     private static final String KEY = "0123456789abcdef0123";
-    private static final String BODY = "{\"quoteRef\":\"Q-1\",\"contactEmail\":\"buyer@example.com\",\"contactPhone\":\"0901234567\"}";
+    private static final String BODY = "{\"quoteRef\":\"Q-1\",\"contactEmail\":\"buyer@example.com\",\"contactPhone\":\"+84901234567\"}";
 
     private BookingGroupCreationService creation;
     private BookingIdempotencyService idempotency;

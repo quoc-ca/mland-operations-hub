@@ -160,7 +160,8 @@ public class WorkshopLifecycleContractIT {
         Map<String, Object> properties = (Map<String, Object>) stateTransitionSchema.get("properties");
         Map<String, Object> targetStateProp = (Map<String, Object>) properties.get("targetState");
         List<String> allowedEnums = (List<String>) targetStateProp.get("enum");
-        assertThat(allowedEnums).containsExactlyInAnyOrder("PUBLISHED", "SALES_PAUSED", "IN_PROGRESS", "ATTENDANCE_FINALIZED");
+        // Contract decided 2026-11-15: finalization only via attendance-finalizations, cancellation via cancellation-requests.
+        assertThat(allowedEnums).containsExactlyInAnyOrder("PUBLISHED", "SALES_PAUSED", "IN_PROGRESS");
 
         // DTO Validation: permitted states
         for (String stateName : allowedEnums) {

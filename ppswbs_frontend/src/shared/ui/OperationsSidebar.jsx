@@ -84,6 +84,7 @@ export function OperationsSidebar() {
   const isRetailOrdersActive = pathname.startsWith('/staff/retail-');
   const isRetailReconciliationActive = pathname.startsWith('/manager/retail-payment-reconciliations');
   const isDashboardActive = pathname === '/manager/dashboard';
+  const isDesignReviewActive = pathname.startsWith('/design-review-requests');
 
   const isVi = language === 'vi';
 
@@ -141,6 +142,17 @@ export function OperationsSidebar() {
         </Link>
         <Link className={isPointPolicyActive ? 'active' : ''} to="/promotion-management/point-policy">
           {isVi ? 'Chính sách điểm' : 'Point policy'}
+        </Link>
+
+        </>)}
+
+        {canManageProducts && (<>
+        {/* CUSTOMER DESIGN REVIEW (Feature 004): Manager and Staff; the backend decides the permission */}
+        <div className="ota-sidebar-label">
+          {isVi ? 'THIẾT KẾ KHÁCH HÀNG' : 'CUSTOMER DESIGNS'}
+        </div>
+        <Link className={isDesignReviewActive ? 'active' : ''} to="/design-review-requests">
+          {isVi ? 'Duyệt thiết kế' : 'Design review'}
         </Link>
 
         </>)}

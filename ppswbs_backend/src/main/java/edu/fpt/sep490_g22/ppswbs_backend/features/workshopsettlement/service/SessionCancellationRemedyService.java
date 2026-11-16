@@ -33,6 +33,7 @@ public class SessionCancellationRemedyService {
     private final WorkshopBookingSettlementAdapter booking;
     private final TicketMlandRemedyService remedies;
     private final SettlementCustomerNotifier notifier;
+    private final CancellationHandoffCompletionService handoffCompletion;
 
     /** @return the number of tickets that now have a remedy from this handoff */
     @Transactional
@@ -83,6 +84,8 @@ public class SessionCancellationRemedyService {
             }
         }
         log.info("Mland remedies opened for cancelled session {}: {} ticket(s)", sessionReference, opened);
+        // T167: every ticket already resolved (direct refunds, no ticket at all) completes the handoff on receipt.
+        handoffCompletion.completeIfResolved(sessionReference, correlationReference);
         return opened;
     }
 }

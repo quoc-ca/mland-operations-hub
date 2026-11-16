@@ -12,3 +12,7 @@
 .offer-list li{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:13px}
 .offer-applies{font-size:12px;font-weight:600;color:#b45309}
 .offer-list .text-link{font-size:12px;font-weight:600}
+
+.offer-price.ws-offer-price{display:inline-flex;flex-direction:column;flex-wrap:nowrap;align-items:flex-start;gap:2px}
+.ws-offer-line{display:inline-flex;align-items:baseline;gap:4px 10px;flex-wrap:wrap}
+.offer-voucher-tag{font-size:12px;font-weight:600;color:#e11d48;white-space:normal}

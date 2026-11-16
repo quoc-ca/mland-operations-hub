@@ -124,6 +124,8 @@ public class TicketChangeRequestService {
                 request.getGroupCode(),
                 TicketChangeType.valueOf(request.getChangeType()),
                 Arrays.stream(request.getTargetSessionReferences().split(",")).map(UUID::fromString).toList(),
+                request.getFromSessionReferences() == null || request.getFromSessionReferences().isBlank() ? List.of()
+                        : Arrays.stream(request.getFromSessionReferences().split(",")).map(UUID::fromString).toList(),
                 Arrays.stream(request.getBlockedRules().split(",")).filter(rule -> !rule.isBlank()).toList(),
                 request.getStatus(),
                 String.valueOf(request.getPriceIncreaseAmountVnd()),

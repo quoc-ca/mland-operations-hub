@@ -79,6 +79,9 @@ public class GroupTicketChangeService {
                     || item.targetSessionReferences() == null || item.targetSessionReferences().isEmpty()) {
                 throw new WorkshopSettlementValidationException("TARGET_SESSIONS_REQUIRED");
             }
+            if (item.fromSessionReferences() == null || item.fromSessionReferences().isEmpty()) {
+                throw new WorkshopSettlementValidationException("FROM_SESSIONS_REQUIRED");
+            }
             if (!seen.add(item.ticketCode().trim())) {
                 throw new WorkshopSettlementValidationException("DUPLICATE_TICKET");
             }
@@ -106,6 +109,7 @@ public class GroupTicketChangeService {
             TicketFolioContext ctx = booking.getTicketFolioContext(ticket)
                     .filter(found -> group.equals(found.groupCode()))
                     .orElseThrow(() -> new WorkshopSettlementNotFoundException("TICKET_NOT_FOUND"));
+            List<UUID> fromSessions = changes.checkedFromSessions(ctx, item.fromSessionReferences(), item.targetSessionReferences());
             requester = changes.authorizeRequester(actor, ctx, request.reason(), request.buyerVerificationReference());
 
             SettlementFinalBill folio = finalBills.findByBookingReference(ticket).orElse(null);
@@ -115,8 +119,7 @@ public class GroupTicketChangeService {
             } else if (1 + changeRepository.countByTicketCodeAndChangeTypeAndAppliedTrue(ticket, "MANAGER_GRANTED")
                     - changeRepository.countByTicketCodeAndCountedTrueAndAppliedTrue(ticket) <= 0) {
                 code = TicketChangeService.RULE_ALLOWANCE;
-            } else if (request.type() == TicketChangeType.ADVANCE && ctx.firstSessionStart() != null
-                    && !now.isBefore(ctx.firstSessionStart().minus(24, ChronoUnit.HOURS))) {
+            } else if (request.type() == TicketChangeType.ADVANCE && changes.advanceWindowClosed(fromSessions, now)) {
                 code = TicketChangeService.RULE_WINDOW;
             } else if (ctx.operationsTicketReference() == null || ctx.operationsTicketReference().isBlank()) {
                 code = "TICKET_NOT_FOUND";

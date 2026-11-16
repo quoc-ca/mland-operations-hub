@@ -22,4 +22,8 @@ public class ProblemDetailResponse {
     @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
     private String reason;
     private String correlationId;
+
+    /** Only with CHECK_IN_NOT_OPEN (T126); omitted otherwise. */
+    @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+    private java.time.Instant checkInOpensAt;
 }
