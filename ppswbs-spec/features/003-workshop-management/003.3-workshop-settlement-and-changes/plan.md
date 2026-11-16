@@ -1,7 +1,7 @@
 # Implementation Plan: Workshop Settlement and Changes
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-16
+**Date updated**: 2026-11-17
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -515,6 +515,91 @@ re-reading the safe resource/case projection.
 | 003.1 T150, read-only facade "list booking-time payments by day and location" (R11) | Not done | Blocks T133 and T134 (BOOKING_TIME rows); the rest of FR-056 can be built without it. |
 | 006 T110, voucher restoration operation | Not done | Real call of T155 and T163 needs it; T155 tests use a fake facade. |
 | 003.2 `completeCancellation` and T122 | Not done (no 003.3 service calls it) | T167 calls it; 003.2 T122 verifies the transition afterwards. |
+
+## Changes across locations (Phase 14, proposed 2026-11-17)
+
+**Spec:** "Changes across locations", FR-058–FR-063, SC-021–SC-023, Q1–Q7 decided or withdrawn
+(Clarifications "Session 2026-11-17"). **Source:** 003.2 spec FR-037–FR-046, 003.2 plan
+Phase 18 "Cross-feature impact", 003.2 `design/architecture.md` and `design/workflows.md`
+(WF-06, WF-07, WF-08) and `../contracts/workshop-interfeature-facades.md`. **Status:
+DRAFT/PROPOSED.** 003.3 is an *exclusion* in the 003.2 `approval.md` (partial approval of
+2026-11-17); this plan is the 003.3 side that approval asks for and is not approved yet.
+Tasks: Phase 14, T182–T193 in `tasks.md`. Code written in this phase is in 003.3 only; the
+003.2 changes are 003.2 T144–T162, the 003.1 change of `getTicketFolioContext` is a 003.1
+task.
+
+**Boundary (Modulith):** 003.3 reaches Operations only through
+`WorkshopOperationsFacade` (`activeLocationsForPackage`, `listTicketChangeOptions`,
+`replaceTicketSessions`, `findEquivalentReplacementSessions`, new reason
+`PACKAGE_NOT_AVAILABLE_AT_LOCATION`) and Booking only through `WorkshopBookingFacade`
+(`getTicketFolioContext`). No new module dependency and no cycle; 003.3 stores no
+availability and never filters candidates by location. `ModulithArchitectureTests` stays
+the check (T193).
+
+**Design (proposed):**
+
+1. **Options.** `TicketChangeOptionsApiService.build` already maps 003.2's
+   `TicketChangeOptions` to `ChangeOptionDto`; once 003.2 T154 drops the old-location pin
+   the list widens by itself. 003.3 adds `locationName` to `ChangeOptionDto` and to the pair
+   members (`SessionSeatsDto`), and the OpenAPI schemas `ChangeOption`/`SessionSeats`
+   (FR-058). `remainingCapacity` and `remainingRescheduleQuota` are already returned
+   (FR-063); no new field.
+2. **Cross-location change (decided 2026-11-17, "option 2").** No Manager rule and no new refusal code. `TicketChangeService` and the option rows treat a target at another location like any other target: the Staff scope rule (`authorization.requireManagerOrAssignedStaff`, ticket current location in scope and an assignment) stays the only Staff check, and availability and the one-location rule come from 003.2. What 003.3 adds is an audit record when the target location differs from `TicketFolioContext.locationReference` (actor, from, to, time). Checked 2026-11-17: `SettlementBusinessAudit` suffices with no schema change: `aggregate_type` `TICKET_CHANGE`, `aggregate_reference` the ticket code, `action_code` `TICKET_LOCATION_CHANGED`, `actor_reference`, `correlation_reference`, and `reason_reference` (500 characters) carrying `from=<locationId>;to=<locationId>`; `created_at` gives the time. **Divergence to clear first:** 003.2 FR-042 and its `approval.md` still say a Manager is needed, so 003.2 must be amended before implementation.
+3. **Refusal map.** `replaceSessions` already returns any 003.2 refusal other than
+   `RESCHEDULE_QUOTA_EXHAUSTED` as `409` with the refusal name; `PACKAGE_NOT_AVAILABLE_AT_LOCATION`
+   and `LATE_ARRIVAL_WINDOW_EXPIRED` need only the contract (`responses` and error enum)
+   and a test, not new code, plus the approval recheck of FR-059(d): the queue approval
+   path (`TicketChangeService` approve, step "applied now") passes through the same
+   `replaceSessions`, so the recheck is free; the test proves a refused approval leaves
+   the request `PENDING` and consumes no allowance (to verify, not assumed).
+4. **Window by date.** Replace the two `end + LATE_ARRIVAL_WINDOW_DAYS × 24 h` computations
+   (`TicketChangeOptionsApiService.build` `lateDeadline`; `TicketChangeService` queue expiry)
+   with one helper that returns the instant at which the 7th calendar day after the
+   replaced session's end date ends in `Asia/Ho_Chi_Minh` (the start of day 8, exclusive).
+   Same rule as 003.2 `TicketReplacementRules.checkLateArrivalWindow`, which is the
+   authority; the helper must not be a second source of truth, so a test compares them on
+   the day boundary. For an advance change the helper also bounds the option list
+   (003.2 already omits targets past it).
+5. **Money and location.** No new code is expected: `getTicketFolioContext` is read per
+   request, so a collection, charge, add-on or final bill created after the move takes the
+   new branch once 003.1 derives it from the current session. `branch_id` of existing
+   collections is immutable. The risk is a place that copies the location earlier:
+   `SettlementTicketChangeRequest.locationReference` (set when queued) and any list that
+   joins through the booking line. T186 reviews each reader (queue visibility, cash close,
+   FR-056 rows) and adds tests; it changes code only where a stale copy is found.
+6. **Old-location add-ons (decided 2026-11-17, Q3/Q4).** No schema change: a read-only Manager route finds the ticket's `CATALOGUE_ADD_ON` charges, reads the catalogue add-on location through the 003.2 facade from `CATALOGUE-ADDON:<ref>`, and lists those that differ from the ticket's current location.
+7. **Mland offer.** `TicketMlandRemedyService` already stores the facade's candidate list;
+   it adds the location name to what is shown (stored in the offer or read at render; to
+   decide in T188 with the offer table, no schema change if read from the facade at
+   render). The answer re-asks the facade (unchanged), which now drops a candidate whose
+   pair became `INACTIVE`.
+
+**Not changed:** price, voucher scope rule (a cross-location move can change voucher scope;
+the existing 006 scope check on the new session set stays and its price-increase
+confirmation applies), refund and bank-refund branch handling, OTA tickets (not
+supported by customer change), the 24-hour advance rule.
+
+**Design challenge (2026-11-17):** (a) "Money collected keeps its branch" holds for
+`settlement_folio_collections` but not for rows that read their branch at query time (FR-056
+`EXCESS`, `BOOKING_TIME`): decided 2026-11-17 (Q5): keep the branch of receipt. (b) 003.2 and 003.3 compute the 7-day window separately
+today and already disagree (calendar date vs 168 h); the same-rule test in T185 prevents
+drift. (c) A stale queued request: the approval path must recheck availability, location
+rule and window because the pair, the Manager and the date can all change after queuing.
+(d) Staff of the old location lose access at the moment of the move; a Staff member with a
+queued request loses sight of it if the queue is filtered by the stored location (T186).
+(e) The 006 voucher scope check reads the location of the new sessions, so a move can raise
+the price with a confirmation; 006 T110 (restoration) is a different path and is done by
+Hồ Hoàng Quốc himself (delegated by Đặng Thị Khương), relevant again when T155-type
+restoration code is touched, not here.
+
+**Readiness:**
+
+| Dependency | Status | Consequence |
+| --- | --- | --- |
+| 003.2 T149 (`PACKAGE_NOT_AVAILABLE_AT_LOCATION`), T151 (`locationName`), T153, T154, T155 | Open, in the backend session (003.2 Phase 18) | T183–T185, T188 compile and test against fakes first; real behaviour after them. |
+| 003.1 task: `getTicketFolioContext` derives location from the current session | Open, in the 003.1 session (number not yet given) | T186 and SC-022 cannot pass for real before it. |
+| 003.2 FR-042 and `approval.md` amended (no Manager for another location) | Open | Blocks T184 until 003.2 is amended. |
+| 003.2 `approval.md` excludes 003.3 | Open | No approval for 003.3 yet: the whole phase stays `DRAFT/PROPOSED`, not ready for implementation. |
 
 ## Design Challenge Review
 
