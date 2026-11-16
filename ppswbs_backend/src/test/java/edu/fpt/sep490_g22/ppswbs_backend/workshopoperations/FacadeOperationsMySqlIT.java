@@ -76,6 +76,8 @@ class FacadeOperationsMySqlIT {
             assumeTrue(connection.getMetaData().getDatabaseProductName().toLowerCase().contains("mysql"),
                     "FacadeOperationsMySqlIT requires real MySQL evidence");
         }
+        // Other ITs TRUNCATE tickets and reset their ids; stale release rows would then collide on (ticket, session).
+        jdbc.update("DELETE FROM ticket_entitlement_releases");
         location = locationRepository.saveAndFlush(WorkshopLocation.builder()
                 .code("S4-" + UUID.randomUUID()).displayName("S4 Facade Location").addressSnapshot("test").build());
         sequence = 0;
