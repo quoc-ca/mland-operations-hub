@@ -98,7 +98,8 @@ export function createHttpClient({ baseUrl = apiBaseUrl, getIdToken, onSessionEx
   const doFetch = (...args) => (fetchImpl || globalThis.fetch)(...args);
 
   async function send(url, { method, headers, body, signal }, token) {
-    const allHeaders = { Accept: 'application/json', ...headers };
+    // 'ngrok-skip-browser-warning' skips ngrok's free-tier warning page, which has no CORS headers and breaks every call.
+    const allHeaders = { Accept: 'application/json', 'ngrok-skip-browser-warning': '1', ...headers };
     if (token) allHeaders.Authorization = `Bearer ${token}`;
     try {
       return await doFetch(url, { method, headers: allHeaders, body, signal });
