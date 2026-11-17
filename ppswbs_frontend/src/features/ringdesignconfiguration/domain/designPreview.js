@@ -116,6 +116,32 @@ export function calculateDefaultAngles(count) {
   return Array.from({ length: count }, (_, i) => Math.round((start + i * step) * 10) / 10);
 }
 
+export function findNextAvailableAngle(existingPositions = [], stepDeg = 22, minSeparationDeg = 16) {
+  const occupied = (existingPositions || []).map((p) => {
+    const deg = typeof p === 'number' ? p : p?.angleDeg;
+    return ((Number(deg || 0) % 360) + 360) % 360;
+  });
+
+  const isAngleFree = (candidate) => {
+    const normCand = ((candidate % 360) + 360) % 360;
+    return !occupied.some((ang) => {
+      let diff = Math.abs(ang - normCand);
+      if (diff > 180) diff = 360 - diff;
+      return diff < minSeparationDeg;
+    });
+  };
+
+  if (isAngleFree(270)) return 270;
+
+  for (let step = 1; step <= 15; step++) {
+    const right = (270 + step * stepDeg + 360) % 360;
+    if (isAngleFree(right)) return right;
+    const left = (270 - step * stepDeg + 360) % 360;
+    if (isAngleFree(left)) return left;
+  }
+  return 270;
+}
+
 export function derivePreviewModel(draft) {
   if (!draft) {
     return {
@@ -167,8 +193,18 @@ export function derivePreviewModel(draft) {
     for (let i = 0; i < qty; i++) {
       const stoneId = `gem-${comp.reference}-${i}`;
       const existingPos = rawPositions.find((p) => p.id === stoneId || (p.reference === comp.reference && p.index === i));
-      const angleDeg = existingPos ? existingPos.angleDeg : (defaultAngles[angleIndex] ?? 270);
+      let angleDeg = existingPos ? existingPos.angleDeg : (defaultAngles[angleIndex] ?? 270);
       angleIndex++;
+
+      // Prevent overlap if multiple different stones share the exact same initial angle
+      const isOverlapping = stones.some((s) => {
+        let diff = Math.abs((((s.angleDeg % 360) + 360) % 360) - (((angleDeg % 360) + 360) % 360));
+        if (diff > 180) diff = 360 - diff;
+        return diff < 16;
+      });
+      if (isOverlapping) {
+        angleDeg = findNextAvailableAngle(stones);
+      }
 
       const rad = (angleDeg * Math.PI) / 180;
       const cx = Math.round((150 + 85 * Math.cos(rad)) * 10) / 10;

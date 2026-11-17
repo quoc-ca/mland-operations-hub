@@ -326,7 +326,7 @@ export default function DesignEvaluationPage() {
                 onClick={handleProceedBooking}
                 data-testid="proceed-booking-btn"
               >
-                {t.proceedToBooking} →
+                {t.proceedToBooking}
               </button>
             )}
 

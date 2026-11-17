@@ -31,6 +31,7 @@ public class ReviewDto {
     private Integer rating;
     private String bodyText;
     private ReviewStatus status;
+    private java.util.List<String> imageUrls;
     private Long version;
     private Instant createdAt;
     private Instant updatedAt;

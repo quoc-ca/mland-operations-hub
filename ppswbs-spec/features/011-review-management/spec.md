@@ -1,7 +1,7 @@
 # Feature-011 — Review Management Specification
 
 Date created: 2026-11-03  
-Date updated: 2026-11-05
+Date updated: 2026-11-17
 Author: Ngô Tiến Đạt  
 Last updated by: Ngô Tiến Đạt
 
@@ -16,9 +16,9 @@ The feature is independent of Google Places. Google data remains read-only exter
 
 ## 2. Scope and non-goals
 
-In scope: eligibility lookup, review creation/editing, public listing/filtering, public aggregates, Staff hiding, Manager removal and one current Manager reply with audit history.
+In scope: eligibility lookup, review creation/editing, photo attachment (up to 3 photos, maximum total size 10MB, validated client & server-side), public listing/filtering (by newest, workshop session, retail product, star rating), direct "Viết đánh giá" CTA for verified sources, public aggregates, Staff hiding, Manager removal and one current Manager reply with audit history.
 
-Out of scope: branch/location reviews, Google review ingestion/write-back, AI moderation, notifications, image/video uploads, threaded replies, OTP, Guest rate limiting and hard deletion of review history.
+Out of scope: branch/location reviews, Google review ingestion/write-back, AI moderation, notifications, video uploads, threaded replies, OTP, Guest rate limiting and hard deletion of review history.
 
 ## 3. Actors and permission matrix
 
@@ -77,13 +77,13 @@ Required invariants:
 
 ## 6. Submission and edit behavior
 
-Input is validated before eligibility and persistence: rating is an integer `1..5`; text is optional and at most 2,000 characters; no media fields are accepted. A valid create commits the review as `PUBLIC` and an audit/revision record atomically. A duplicate source returns a stable conflict response and does not create another review. An owner edit validates ownership and the same content limits, keeps `PUBLIC`, and appends a revision/audit record atomically.
+Input is validated before eligibility and persistence: rating is an integer `1..5`; text is optional and at most 2,000 characters; photo attachments are optional (maximum 3 images, total size <= 10MB across all attachments, accepting JPEG, PNG, WebP format). Images are validated client-side prior to submission and server-side via `@Size(max = 3)`. Image URLs/data URLs are persisted as serialized JSON in the `reviews.image_urls` column (added via migration `V180__review_images.sql`). A valid create commits the review as `PUBLIC` and an audit/revision record atomically. A duplicate source returns a stable conflict response and does not create another review. An owner edit validates ownership and the same content and image limits, keeps `PUBLIC`, and appends a revision/audit record atomically.
 
 Display name (decision 2026-11-06): a Member's public review shows the account name partly masked (first letter of the family name and the last word, for example "H*** Quốc"), or an anonymous label when the reviewer ticks the anonymous option at creation. The internal account number is never shown, not even partly; a Member whose account has no name is shown as anonymous. The choice is stored as the display text, fixed at creation, and an edit does not change it. The same option applies to a Guest, whose masked contact is replaced by the anonymous label.
 
 ## 7. Public listing and aggregates
 
-Public listing supports target filtering, package filtering, rating filtering and stable pagination. A workshop review carries the package of the attended booking (id and the name at that time, decision 2026-11-06), so the list shows which package each review is about and a package page can show its reviews across all of that package's sessions; the review's target stays the session. A retail review has no package. Homepage, Product Details and Workshop Details may feature the newest five-star reviews first, while the general list remains filterable. Aggregate average/count is calculated or projected from `PUBLIC` rows only. Hidden and removed reviews are excluded from public output and aggregates.
+Public listing supports target filtering (All, Workshop, Retail Product), sort ordering (Newest/recent, Best to worse, Worse to best), package filtering, rating filtering (1-5 stars) and stable pagination. A workshop review carries the package of the attended booking (id and the name at that time, decision 2026-11-06), so the list shows which package each review is about and a package page can show its reviews across all of that package's sessions; the review's target stays the session. A retail review has no package. Homepage, Product Details and Workshop Details may feature the newest five-star reviews first, while the general list remains filterable. Aggregate average/count is calculated or projected from `PUBLIC` rows only. Hidden and removed reviews are excluded from public output and aggregates. Attached photos are displayed as thumbnails directly in the review card and full-size on click. Verified members have direct access to "Viết đánh giá" leading to eligible source selection.
 
 ### 7.1 Retail Product Detail Review Integration & Scoped Filtering
 
