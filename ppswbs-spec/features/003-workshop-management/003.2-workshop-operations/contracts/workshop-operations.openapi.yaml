@@ -504,8 +504,8 @@ paths:
         TICKET_QR_REVOKED and records no attendance; the ticket's current QR
         or exact ticket code still checks in. A check-in before checkInOpensAt is
         refused with 409 CHECK_IN_NOT_OPEN and Problem.checkInOpensAt (spec FR-005,
-        decided 2026-11-15, CHK014, task T126); the EARLY_CHECKIN override remains
-        available. Check-in is accepted while the session is PUBLISHED, SALES_PAUSED or IN_PROGRESS
+        decided 2026-11-15, CHK014, task T126); there is no early-check-in override
+        (EARLY_CHECKIN removed 2026-11-17; a Manager sets an earlier checkInOpensAt). Check-in is accepted while the session is PUBLISHED, SALES_PAUSED or IN_PROGRESS
         (T114); a paused session still checks in. A session that is not open for check-in (for example
         ATTENDANCE_FINALIZED or CANCELLED) is 409 INVALID_STATE.
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CheckInRequest' } } } }
@@ -996,7 +996,7 @@ components:
       properties:
         reasonCode:
           type: string
-          enum: [TICKET_REDELIVERY_UNAVAILABLE, CUSTOMER_DEVICE_UNAVAILABLE, EARLY_CHECKIN, PHYSICAL_VOUCHER_VERIFIED, INSTRUCTOR_UNAVAILABLE, FACILITY_ISSUE, WEATHER_EMERGENCY, RECORDING_ERROR, OTHER_REQUIRES_NOTE]
+          enum: [TICKET_REDELIVERY_UNAVAILABLE, CUSTOMER_DEVICE_UNAVAILABLE, PHYSICAL_VOUCHER_VERIFIED, INSTRUCTOR_UNAVAILABLE, FACILITY_ISSUE, WEATHER_EMERGENCY, RECORDING_ERROR, OTHER_REQUIRES_NOTE]
         reasonNote: { type: string }
         evidenceReference: { type: string }
     ManagerBookingLookup:

@@ -611,6 +611,7 @@ components:
       properties:
         sessionReference: {type: string, format: uuid}
         locationId: {type: integer, format: int64, nullable: true}
+        locationName: {type: string, nullable: true, description: Display name of the session's location, read by Operations (2026-11-17); null while the ticket has no Operations ticket yet.}
         ordinal: {type: integer, minimum: 1}
         scheduledStart: {type: string, format: date-time}
         scheduledEnd: {type: string, format: date-time}
@@ -676,6 +677,7 @@ components:
       type: object
       required: [verificationId, expiresAt]
       properties:
+        maskedEmail: {type: string, nullable: true, description: 'The booking email, masked (ho***@gmail.com). Present only in the answer to a Staff or Manager request (2026-11-17) so they can tell the buyer where the code went; never returned to a buyer.'}
         verificationId: {type: string, format: uuid}
         expiresAt: {type: string, format: date-time}
     BuyerVerificationConfirmation:

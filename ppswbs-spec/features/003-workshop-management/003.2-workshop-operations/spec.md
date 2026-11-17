@@ -537,6 +537,10 @@ answers are marked inline.)*
 - Q: How is the settlement reason text shown? → A: Full text, visible only to the global Manager and never logged (FR-052). Risk noted: free text up to 500 characters may hold personal data.
 - Q: Who may see the Settlement tab? → A: Global Manager only (FR-048).
 
+### Session 2026-11-17 ticket codes at the counter (owner Hồ Hoàng Quốc; temporary)
+
+- Q: Which ticket code does the counter type for check-in and attendance actions? → A: The ticket carries two codes, the group ticket code of 003.1 (`GRP-…-L2-T1`, what the customer sees) and the Operations code (`TK-…`, shown in the attendance roster). Every route that takes a `ticketCode` (check-in, check-in override, attendance correction, check-in reversal) accepts **either**: the Operations code is tried first, then a group ticket code is translated by its line reference (`bookingReference`) and person number (`ticketSequence`). A QR token still works as before. **Temporary:** the owner intends to replace the `TK-…` code by the group ticket code later (one code per ticket); until then both are accepted and the screens suggest the group ticket code.
+
 ### Session 2026-10-23
 
 - Q: Who may finalize attendance for a session and correct it later? → A: A Staff member assigned to that session or a Manager may finalize attendance. Only a Manager may correct attendance after finalization, and the correction requires audit evidence.
@@ -959,8 +963,10 @@ T167.)*
   an early check-in told apart? → A: The "Error catalogue" below is the closed
   list and the OpenAPI `Problem.code` enum. A normal check-in before
   `checkInOpensAt` answers `409 CHECK_IN_NOT_OPEN` with `checkInOpensAt` in the
-  body, so the Staff screen can say when check-in opens or suggest the
-  `EARLY_CHECKIN` override (FR-005; T126).
+  body, so the Staff screen can say when check-in opens (FR-005; T126). *(The
+  `EARLY_CHECKIN` override was removed 2026-11-17, owner decision Hồ Hoàng Quốc:
+  to admit customers earlier Manager sets an earlier `checkInOpensAt` for that
+  session.)*
 - Q (CHK020): What does a fourth resend inside 15 minutes return? → A: `429
   REDELIVERY_THROTTLED` with a `Retry-After` header: the seconds until the
   15-minute window counted from the first request of that window ends; the
@@ -1344,7 +1350,6 @@ scope. The target implementation and all public contracts use `location` and
   |---|---|:-:|:-:|
   | `TICKET_REDELIVERY_UNAVAILABLE` | Check-in override after a failed ticket redelivery | Required | Required (failed-redelivery correlation reference) |
   | `CUSTOMER_DEVICE_UNAVAILABLE` | Check-in override: customer device dead, damaged or unavailable onsite | — | — |
-  | `EARLY_CHECKIN` | Check-in override: customer admitted before the check-in window opens | — | — |
   | `PHYSICAL_VOUCHER_VERIFIED` | Check-in override: printed confirmation verified by Staff | — | — |
   | `INSTRUCTOR_UNAVAILABLE` | Session cancellation: instructor/craftsperson unavailable | Required | — |
   | `FACILITY_ISSUE` | Session cancellation: facility, power, tool or equipment failure | Required | — |
@@ -1791,8 +1796,11 @@ correction, with before/after audit evidence.
   CHK014, T126)* A normal check-in before `check_in_opens_at` MUST be refused
   with `409 CHECK_IN_NOT_OPEN` whose body carries `checkInOpensAt`, distinct
   from the `409 INVALID_STATE` of a session that is not open for check-in
-  (for example finalized or cancelled); the Staff screen shows the opening time
-  and may offer the `EARLY_CHECKIN` override.
+  (for example finalized or cancelled); the Staff screen shows the opening time.
+  *(Decided 2026-11-17, owner Hồ Hoàng Quốc: there is no early-check-in override;
+  the former `EARLY_CHECKIN` reason is removed. A customer who must be admitted
+  before the window opens is handled by a Manager setting an earlier
+  `check_in_opens_at` for that session, FR-005a.)*
 - **FR-005a**: The system MUST default `check_in_opens_at` to 60 minutes before
   session start and allow Manager to configure it per session only while the
   session is `DRAFT`, `PUBLISHED` or `SALES_PAUSED`; it MUST lock the value when

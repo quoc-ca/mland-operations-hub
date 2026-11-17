@@ -1173,7 +1173,7 @@ paths:
         '422': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-change-requests:
     get:
-      summary: The Staff/Manager queue of changes only a Manager may allow (FR-045a, T117, decided 2026-11-14)
+      summary: The Staff/Manager queue of changes a Staff member or a Manager may allow (FR-045a, T117; Staff decide since 2026-11-17)
       description: >-
         Manager sees every request; Staff only those of their locations. status
         defaults to PENDING (PENDING, APPROVED, REJECTED, EXPIRED). A pending
@@ -1193,9 +1193,10 @@ paths:
         '422': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-change-requests/{requestReference}/decisions:
     post:
-      summary: A Manager approves or rejects a queued change (FR-045a, T117, decided 2026-11-14)
+      summary: A Staff member or a Manager approves or rejects a queued change (FR-045a, T117; decided 2026-11-17)
       description: >-
-        Manager only, reason and Idempotency-Key required, audited. APPROVE is
+        Manager, or a Staff member for a request of a location in their scope (LOCATION_SCOPE_DENIED otherwise); an
+        Admin gets 403 STAFF_OR_MANAGER_REQUIRED. Reason and Idempotency-Key required, audited. APPROVE is
         equivalent to a Manager-granted allowance (FR-054) followed by one
         counted change applied now; 003.2 still checks capacity, the package
         rules and a quota that is still full (409, request stays PENDING), so a

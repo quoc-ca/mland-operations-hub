@@ -617,6 +617,10 @@ self-service (FR-018 and Scope); whole-booking Mland remedy (FR-020, FR-021).
   *(Amended 2026-11-17: "the end of the FR-044 7-day window" is the end of the 7th
   calendar day after the day the changed session ends, `Asia/Ho_Chi_Minh` (FR-062); a
   change to another location needs no Manager (FR-059, decided 2026-11-17).)*
+  *(Amended 2026-11-17, owner Hồ Hoàng Quốc: the queue is decided by a **Staff member or a Manager**, not by a Manager
+  only. A Staff member decides only requests of a location in their scope (`LOCATION_SCOPE_DENIED` otherwise); a
+  Manager is global. An **Admin has no part in it**: no menu entry, no queue, `403 STAFF_OR_MANAGER_REQUIRED` on both
+  routes. A decision is recorded under the deciding account.)*
 
 
 - **FR-044a — listing the sessions a ticket may move to** *(decided 2026-11-16 by Hồ Hoàng Quốc, owner Feature 003; tasks T176–T181)*:

@@ -1,7 +1,7 @@
 # Quickstart: Workshop Operations Verification
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-16
+**Date updated**: 2026-11-17
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -194,8 +194,8 @@ run is not sufficient proof of index, lock or migration behaviour.
 12a. Error and access checks (spec "Error catalogue", Checklist follow-up
    2026-11-15; tasks T126–T131, T135):
    - Send a normal check-in before `checkInOpensAt` and verify `409
-     CHECK_IN_NOT_OPEN` with `checkInOpensAt` in the body (the `EARLY_CHECKIN`
-     override stays available); a session not open for check-in answers `409
+     CHECK_IN_NOT_OPEN` with `checkInOpensAt` in the body (there is no
+     early-check-in override; a Manager sets an earlier `checkInOpensAt`); a session not open for check-in answers `409
      INVALID_STATE`.
    - Request a ticket resend four times for one booking within 15 minutes and
      verify the fourth answers `429 REDELIVERY_THROTTLED` with a `Retry-After`

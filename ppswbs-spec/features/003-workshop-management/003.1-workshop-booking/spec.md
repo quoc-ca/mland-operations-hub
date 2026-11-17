@@ -744,6 +744,20 @@ other Operations rejection to `PACKAGE_SELECTION_INVALID`.
   returned by Operations at read time; the browser cart stores only identifiers
   and re-reads the name. `locationId` stays the value used in requests.
 
+- **FR-058** *(Pending-payment notice in the site header; decided 2026-11-17 by Hồ Hoàng Quốc, owner of Feature 003)*:
+  A signed-in Member who has at least one booking group in `PENDING_PAYMENT` whose payment deadline
+  (`paymentDeadlineAt`, the 10-minute figure of FR-032) has not passed MUST see a notice on every page, in a slim line directly under the header card (never among the header's own
+  controls, so the header layout is unchanged), saying how many transactions wait for payment and counting down to the nearest deadline, with one link to the
+  payment screen of the group with the nearest deadline (`/workshop-booking/{groupCode}/payment-return?resume=1`),
+  where the countdown and the pay control of FR-032 already live; with `resume=1` and no gateway answer that
+  screen is titled "Tiếp tục thanh toán" and shows no gateway result. The countdown uses the same clock rate as
+  the hold panel, so both show the same second. The notice never shows the 2-minute buffer of FR-032 and
+  disappears as soon as no group is inside its payment deadline (paid, expired, cancelled, released). It is not shown
+  on the payment-return page of that same group. The data is the Member's own list of groups (FR-046,
+  `GET /api/v1/members/me/workshop-booking-groups`); there is no new endpoint, and the header reads it on load and at
+  most once every 60 seconds afterwards. A Guest has no such list and gets no notice (a Guest uses the lookup of
+  FR-048). The notice is navigation only: the server still decides every payment and release.
+
 **Owner answers (Hồ Hoàng Quốc, 2026-11-17: agreed to every proposal of Q1–Q7; the proposal in each item is the decision, the alternative is rejected):**
 
 - **Q1 (FR-053) — fallback before an Operations ticket exists.** A group in
@@ -2436,6 +2450,42 @@ deadline.
   FR-014a-g, FR-014i, FR-018, FR-019, FR-019a, FR-021, FR-022 and FR-025 are
   covered by Phases 1-7 and 8-13 of tasks.md without naming the FR id; see the
   Dependencies note of tasks.md.
+
+### Owner decisions 2026-11-17 — interface behaviour (Hồ Hoàng Quốc; no new business rule)
+
+Recorded after the fact so the spec matches the screens. Each item is a decision on how an existing rule is shown or
+reached; none changes a price, a quota, a status or a permission. Code: `ppswbs_frontend/src/workshops/` unless noted.
+
+- **Cart selection.** The cart page opens with no line ticked. The customer ticks the lines to book ("Chọn tất cả"
+  ticks or clears all); only ticked lines are quoted and booked (FR-045). Lines added later also start unticked.
+- **Add to cart.** The confirmation is a pop-up in the middle of the screen, "Đã thêm vào giỏ hàng thành công", that
+  closes by itself after one second. The inline message and its "Mở giỏ workshop" link are removed; the header cart
+  icon is the way to the cart.
+- **Removed controls.** "+ Thêm gói khác" is removed from the cart bar; "Xem đặt chỗ của tôi" and "Đặt thêm
+  workshop" are removed from the cart's "held" screen (the header already links to workshops and to the lookup).
+- **Quote window.** The cart button reads "Xem báo giá và đặt chỗ" (it was "Đặt chỗ ngay"). The quote and its
+  confirmation (FR-030, FR-031) open in a modal window over the cart: closed by ×, Esc, a click on the dim
+  background or "Chọn lại", and not closable while the booking is being confirmed. The cart page also follows the
+  stored cart, so after a reload the account's lines appear once the session is restored.
+- **Back button keeps the choice.** The package page writes branch, sessions, ticket count and dates into its own
+  URL (replace, no extra history entry), so Back from "Đặt ngay" returns with the choice intact; the checkout's
+  "← Quay lại chọn ca và số vé" and "Đổi ca" return with it too. List screens of Operations and Settlement keep
+  their filters in the URL the same way (003.2/003.3 screens).
+- **Held-group screen.** The heading follows the real status and ticket count: "Đã giữ chỗ cho N vé" while
+  `PENDING_PAYMENT`, "Giữ chỗ đã hết hạn" (`EXPIRED`), "Đặt chỗ đã được hủy" (`CANCELLED`), "Đặt chỗ đã được xác nhận"
+  (`CONFIRMED`). When the hold ends the screen reads the group again (a Member by their session, a Guest by one
+  contact proof) until the server has released it, so the status changes and the "Hủy giữ chỗ" button disappears
+  on `EXPIRED`; "Cập nhật trạng thái" reads it on demand. The 2-minute buffer is still never counted down (FR-032).
+- **Package page.** The left column (image and the package rules) stays in view while the right column scrolls. The
+  offers are two labelled groups: "Giảm giá của cửa hàng" (automatic, already taken off the ticket price) and "Mã
+  giảm giá (voucher)" (for Members, saved and chosen at booking, not yet in the shown price), one card per offer. The
+  branch fills a row and the two date filters share the next row at equal width.
+- **Code names on every screen (customer, Staff, Manager).** Three codes, one name each: **Mã đặt chỗ** is the group code `GRP-…` (one per order); **Mã vé** is the ticket code `GRP-…-L1-T1` (booking code, line number, person number); **Mã QR check-in** is the QR reference `QR-…` the customer shows at the counter. Screens never call the group code a "ticket code" or the ticket code a "booking code". The Operations code `TK-…` is internal: it is not named or suggested on any screen (the attendance roster shows it only as a hover hint), and check-in, check-in override, attendance correction, booking lookup and ticket resend accept the `GRP-…` codes (003.2, temporary until `TK-…` is dropped).
+- **Amounts.** A non-breaking space joins the number and "₫" everywhere, so the symbol never wraps to its own line.
+- **Related screens of 003.1 and 003.2.** The late-payment queue of FR-040a has its own Manager menu item
+  ("Thanh toán về trễ", `/operations/late-payments`) besides the panel on the session page. The session board opens
+  with From = today and has a "Xóa lọc" button. The Manager dashboard branch table says "Chưa có buổi đã chốt điểm
+  danh" when a branch has no finalized session, because fill rate counts finalized sessions only.
 
 ### Key Entities
 
