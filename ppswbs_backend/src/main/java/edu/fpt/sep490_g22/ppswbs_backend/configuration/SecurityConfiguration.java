@@ -153,7 +153,9 @@ public class SecurityConfiguration {
         configuration.setAllowedOrigins(allowedOrigins);
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Correlation-Id", "Idempotency-Key",
-                "If-Match-Version", "X-Guest-Design-Session", "X-Guest-Session-Id"));
+                "If-Match-Version", "X-Guest-Design-Session", "X-Guest-Session-Id",
+                // Lets the FE bypass the ngrok free-tier browser warning page when the API is reached through ngrok.
+                "ngrok-skip-browser-warning"));
         configuration.setExposedHeaders(List.of("X-Correlation-Id"));
         configuration.setAllowCredentials(false);
 

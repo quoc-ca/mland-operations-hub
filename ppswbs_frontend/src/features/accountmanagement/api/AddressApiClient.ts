@@ -114,6 +114,7 @@ export class AddressApiClient {
 
     const headers: Record<string, string> = {
       Accept: 'application/json',
+      'ngrok-skip-browser-warning': '1',
       'X-Correlation-Id': correlationId,
     };
 
