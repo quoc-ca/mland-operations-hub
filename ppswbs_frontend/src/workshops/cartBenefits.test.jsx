@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { screen, waitFor, within } from '@testing-library/react';
+import { screen, waitFor, within, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { fakeSession, json, mockFetch, renderRoutes } from '../test/render';
 import { workshopRoutes } from './routes';
@@ -158,14 +158,15 @@ describe('003.1 FR-033/FR-034 cart benefits of a Member', () => {
   it('offers the same voucher and point picker on the cart page (FR-033)', async () => {
     const user = userEvent.setup();
     const calls = mockFetch(memberHandlers(json(201, quote())));
-    renderRoutes(workshopRoutes, { path: '/workshops/5', session: fakeSession('signed-in') });
+    const { router } = renderRoutes(workshopRoutes, { path: '/workshops/5', session: fakeSession('signed-in') });
 
     await user.click(await screen.findByText(/\d{2}\/\d{2}\/\d{4}/));
     await user.click(screen.getByRole('button', { name: 'Thêm vào giỏ' }));
-    await user.click(await screen.findByRole('link', { name: /Mở giỏ workshop/i }));
+    await act(async () => { await router.navigate('/workshop-booking/cart'); }); // the header cart icon is outside these routes
+    await user.click(await screen.findByRole('checkbox', { name: 'Chọn tất cả các dòng' })); // nothing is ticked when the cart opens
 
     expect(await screen.findByRole('button', { name: /Voucher MLAND/i })).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Đặt chỗ ngay' }));
+    await user.click(screen.getByRole('button', { name: 'Xem báo giá và đặt chỗ' }));
 
     await waitFor(() => {
       const quoteCall = calls.filter(item => item.path === '/api/v1/workshop-cart-quotes').at(-1);
@@ -185,9 +186,9 @@ describe('003.1 cart line selection (Shopee-style)', () => {
     addCartLine({ packageId: 6, packageName: 'Gói B', pricePerParticipantVnd: 300000, sessionReferences: ['22222222-2222-4222-8222-222222222222'], participantCount: 1 });
     renderRoutes(workshopRoutes, { path: '/workshop-booking/cart', session: fakeSession('signed-in') });
 
-    await user.click(await screen.findByRole('checkbox', { name: 'Chọn dòng 2' }));
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Đặt chỗ ngay' })).toBeEnabled());
-    await user.click(screen.getByRole('button', { name: 'Đặt chỗ ngay' }));
+    await user.click(await screen.findByRole('checkbox', { name: 'Chọn dòng 1' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Xem báo giá và đặt chỗ' })).toBeEnabled());
+    await user.click(screen.getByRole('button', { name: 'Xem báo giá và đặt chỗ' }));
 
     await waitFor(() => {
       const quoteCall = calls.filter(item => item.path === '/api/v1/workshop-cart-quotes').at(-1);
@@ -197,17 +198,18 @@ describe('003.1 cart line selection (Shopee-style)', () => {
   });
 });
 
-describe('003.1 cart "Đặt chỗ ngay" reuses the auto-picked quote', () => {
+describe('003.1 cart "Xem báo giá và đặt chỗ" reuses the auto-picked quote', () => {
   it('opens the confirmation without quoting again while the preview is still valid', async () => {
     const user = userEvent.setup();
     const calls = mockFetch(memberHandlers(json(201, quote())));
     addCartLine({ packageId: 5, packageName: 'Gói A', pricePerParticipantVnd: 500000, sessionReferences: ['11111111-1111-4111-8111-111111111111'], participantCount: 1 });
     renderRoutes(workshopRoutes, { path: '/workshop-booking/cart', session: fakeSession('signed-in') });
 
+    await user.click(await screen.findByRole('checkbox', { name: 'Chọn tất cả các dòng' })); // nothing is ticked when the cart opens
     await screen.findByText(/Tổng sau ưu đãi/);
     const quoteCount = () => calls.filter(item => item.path === '/api/v1/workshop-cart-quotes').length;
     const before = quoteCount();
-    await user.click(screen.getByRole('button', { name: 'Đặt chỗ ngay' }));
+    await user.click(screen.getByRole('button', { name: 'Xem báo giá và đặt chỗ' }));
 
     expect((await screen.findAllByText(/liên hệ/i)).length).toBeGreaterThan(0);
     expect(quoteCount()).toBe(before);

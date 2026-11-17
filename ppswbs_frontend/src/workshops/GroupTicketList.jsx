@@ -496,7 +496,7 @@ function RecipientForm({ ticket, groupCode, authorization, proof, onUpdated }) {
  * booking, balance left at checkout, collection kind, masked recipient, attendance and — for the buyer only — the QR
  * reference. An action on one ticket never touches another ticket of the group (FR-030).
  */
-export function GroupTicketList({ group, authorization, proof, onTicketUpdated, allowRecipientChange = true, allowCancel = true, allowChange = allowCancel }) {
+export function GroupTicketList({ group, authorization, proof, onTicketUpdated, allowRecipientChange = true, allowCancel = true, allowChange = allowCancel, renderTicketAction }) {
   const tickets = group?.tickets || [];
   if (tickets.length === 0) {
     return <p className="muted">Nhóm này chưa có vé nào được phát hành.</p>;
@@ -528,6 +528,7 @@ export function GroupTicketList({ group, authorization, proof, onTicketUpdated, 
                 {ticket.sessions.map(session => (
                   <li key={session.sessionReference}>
                     Buổi {session.ordinal}: {formatSessionWindow(session.scheduledStart, session.scheduledEnd)}
+                    {session.locationName ? ` · ${session.locationName}` : ''}
                   </li>
                 ))}
               </ul>
@@ -546,7 +547,7 @@ export function GroupTicketList({ group, authorization, proof, onTicketUpdated, 
 
             {ticket.qrReference && (
               <>
-                <span className="muted" style={{ fontSize: '12px', marginTop: '6px', display: 'block' }}>Mã quét check-in</span>
+                <span className="muted" style={{ fontSize: '12px', marginTop: '6px', display: 'block' }}>Mã QR check-in</span>
                 <code style={{ fontSize: '12px', background: '#f5f5f5', padding: '2px 6px' }}>{ticket.qrReference}</code>
               </>
             )}
@@ -588,7 +589,7 @@ export function GroupTicketList({ group, authorization, proof, onTicketUpdated, 
               />
             )}
 
-            {allowRecipientChange && ticket.ticketStatus === 'CONFIRMED' && !noShow && (
+            {allowRecipientChange && ticket.ticketStatus === 'CONFIRMED' && !noShow && !ticket.attendanceStatus && (
               <RecipientForm
                 ticket={ticket}
                 groupCode={group.groupCode}
@@ -597,6 +598,7 @@ export function GroupTicketList({ group, authorization, proof, onTicketUpdated, 
                 onUpdated={onTicketUpdated}
               />
             )}
+            {renderTicketAction ? renderTicketAction(ticket) : null}
           </article>
         );
       })}

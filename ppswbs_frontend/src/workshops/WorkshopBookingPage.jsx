@@ -12,9 +12,12 @@ import { CartBenefitPicker } from './CartBenefitPicker';
 import { contactForRequest, EMPTY_CONTACT, splitPhone, validateBookingContact } from './contactValidation';
 import { CartQuotePanel } from './CartQuotePanel';
 import { GroupDetailCard } from './GroupDetailCard';
+import { refreshBookingGroup } from './refreshGroup';
+import { invalidatePendingPayments } from './pendingPayments';
 import { parseSelection, selectionProblem } from './bookingSelection';
 import { cartLineCount, clearCart, subscribeToCart } from './cartStorage';
 import { failingLinesOf, formatSessionWindow, vnd } from './groupDisplay';
+import { GroupResultHeading } from './GroupResultHeading';
 import { useBookingIdentity } from './useBookingIdentity';
 import { useHttp } from '../shared/api/useHttp';
 import { getEffectiveParticipantMax } from './bookingCapacity';
@@ -397,6 +400,7 @@ export function WorkshopBookingPage({ packageId }) {
         authorization: authorization || undefined,
       });
       setGroup(created);
+      invalidatePendingPayments();
       setQuote(null);
       // The cart this booking came from is gone (FR-045).
       clearCart();
@@ -461,14 +465,16 @@ export function WorkshopBookingPage({ packageId }) {
     );
   }
 
+  const refreshGroup = async () => {
+    const next = await refreshBookingGroup({ groupCode: group?.groupCode, mode: bookingMode, memberAuthorization, contact });
+    if (next) { setGroup(next); invalidatePendingPayments(); }
+  };
+
   if (group) {
     return (
       <main className="public-page figma-public-page">
-        <p className="eyebrow">{group.groupStatus === 'CONFIRMED' ? 'ĐẶT CHỖ THÀNH CÔNG' : 'GIỮ CHỖ THÀNH CÔNG'}</p>
-        <h1 style={{ color: '#002967' }}>
-          {group.groupStatus === 'CONFIRMED' ? 'Nhóm đặt chỗ đã được xác nhận' : 'Đã giữ chỗ cho nhóm đặt chỗ'}
-        </h1>
-        <GroupDetailCard group={group} authorization={null} proof={contact} allowRecipientChange={false} />
+        <GroupResultHeading group={group} />
+        <GroupDetailCard group={group} authorization={null} proof={contact} allowRecipientChange={false} onRefresh={refreshGroup} />
       </main>
     );
   }
@@ -476,7 +482,7 @@ export function WorkshopBookingPage({ packageId }) {
   return (
     <main className="public-page figma-public-page">
       <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
-        <a href={`/workshops/${pkg.packageId}`} className="text-link">← Xem lại chi tiết gói workshop</a>
+        <Link to={changeChoiceHref} className="text-link">← Quay lại chọn ca và số vé</Link>
         <Link className="text-link" to="/workshop-booking/cart">Giỏ workshop ({cartCount})</Link>
       </div>
 
@@ -575,7 +581,7 @@ export function WorkshopBookingPage({ packageId }) {
           )}
           {validationErrors.sessions && (
             <p role="alert" style={{ color: '#b00', fontSize: '14px', margin: '12px 0 0' }}>
-              {validationErrors.sessions} <a className="text-link" href={changeChoiceHref}>Đổi ca</a>
+              {validationErrors.sessions} <Link className="text-link" to={changeChoiceHref}>Đổi ca</Link>
             </p>
           )}
         </section>

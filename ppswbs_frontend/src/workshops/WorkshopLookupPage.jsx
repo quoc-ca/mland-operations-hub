@@ -200,7 +200,7 @@ export function WorkshopLookupPage() {
           <form onSubmit={handleLookup}>
             <fieldset disabled={authStatus === 'loading' || profileLoading || lookupMode === null} style={{ border: 0, padding: 0, margin: 0, minInlineSize: 0 }}>
               <label style={{ display: 'block', marginBottom: '14px' }}>
-                Mã nhóm đặt chỗ *
+                Mã đặt chỗ *
                 <input
                   type="text"
                   placeholder="e.g. WG-20261113-ABCD"
@@ -261,11 +261,9 @@ export function WorkshopLookupPage() {
             proof={lookupMode === 'GUEST' ? guestProof : undefined}
             onRefresh={refresh}
             onTicketUpdated={refresh}
-            renderTicketExtra={current => (lookupMode === 'MEMBER' ? (
-              <div style={{ marginTop: '12px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                {(current.tickets || []).map(ticket => (
-                  <ReviewCta key={`review-${ticket.ticketCode}`} ticket={ticket} sources={reviewSources} onReview={startReview} />
-                ))}
+            renderTicketAction={ticket => (lookupMode === 'MEMBER' ? (
+              <div style={{ marginTop: '12px' }}>
+                <ReviewCta ticket={ticket} sources={reviewSources} onReview={startReview} />
               </div>
             ) : null)}
           />
