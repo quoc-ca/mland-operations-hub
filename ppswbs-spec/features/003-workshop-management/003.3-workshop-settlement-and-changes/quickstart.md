@@ -134,7 +134,7 @@ This section is the current acceptance path (added 2026-11-16, R29); the scenari
 
 ## Vận hành hiện hành 003.3
 
-*(Added 2026-11-16, fix A14. The scenarios above are historical; this section is the current operations runbook outline for the per-ticket model. Task T137 completes and tests it.)*
+*(Added 2026-11-16, fix A14; completed by task T137 on 2026-11-16. The scenarios above are historical; this section is the current operations runbook for the per-ticket model.)*
 
 ### Thay khóa mã hóa số tài khoản hoàn tiền (`WORKSHOP_REFUND_ACCOUNT_KEY`, FR-040, T137)
 
@@ -146,7 +146,21 @@ This section is the current acceptance path (added 2026-11-16, R29); the scenari
 6. Gọi lại cùng route là an toàn: chỉ tác động các yêu cầu còn giữ bản mã (chạy lại không đổi gì).
 7. Theo dõi: người nhận nhập lại số tài khoản qua link mới; Manager duyệt lại sau khi có tài khoản mới.
 
-Trước khi thực hiện, kiểm tra cột nào đang lưu bản mã và có cần migration không (T137).
+Cột lưu bản mã là `settlement_refund_requests.recipient_account_encrypted` (V122, nullable): route đặt cột này về `NULL` và giữ `recipient_account_masked`, nên **không cần migration**. Phản hồi `200` chỉ có số lượng: `requestsReset`, `linksSent` và `failed` (yêu cầu không xử lý được vẫn giữ bản mã; gọi lại với `Idempotency-Key` mới để thử lại). Mỗi yêu cầu có hai bản ghi audit: `REFUND_ACCOUNT_KEY_REPLACED` (kèm lý do) và `REFUND_ACCOUNT_LINK_RESENT`. Kiểm chứng bằng `RefundAccountMysqlIT`, `BankRefundServiceTest` và `RefundAccountKeyReplacementControllerTest`.
+
+## Changes across locations (Phase 14, FR-058–FR-063, T192; added 2026-11-17)
+
+Validate with a package sold (`ACTIVE`) at two locations A and B, and a two-session package with `sameLocationRequired`.
+
+1. **Options (FR-058, FR-063):** `GET /workshop-tickets/{code}/change-options` lists sessions at A and B, each with `locationName`, seats left and changes left (UI: `<Location> – <date time> · còn N chỗ · còn M lượt đổi`); a session with no seat or no quota is not listed; a location where the pair is `INACTIVE` is never listed.
+2. **Move without a Manager (FR-059):** an online buyer, or Staff in scope and assigned, changes a ticket from A to B: applied at once (200), one counted change, audit action `TICKET_LOCATION_CHANGED` with `from=<A id>;to=<B id>`. Staff of A are then refused (`403`), assigned Staff of B allowed.
+3. **Two-session package:** both sessions move together to B; moving one alone is `409 INVALID_REPLACEMENT` (003.2 rule, passed on unchanged).
+4. **Pair switched off (FR-059 d):** a target whose pair is `INACTIVE` is `409 PACKAGE_NOT_AVAILABLE_AT_LOCATION` at `POST /changes` and when an older queued request is approved; the request stays `PENDING`, no allowance is used.
+5. **Window boundary (FR-062, SC-023):** a change must land by 23:59 of the 7th calendar day (`Asia/Ho_Chi_Minh`) after the replaced session's end date; a target at 00:00 of day 8 is `409 LATE_ARRIVAL_WINDOW_EXPIRED` (never queued, a Manager cannot lift it). A session ending 09:00 and one ending 23:00 the same day share the limit. Mland replacements are exempt.
+6. **Money (FR-060, SC-022):** a collection made before the move keeps branch A (`branch_id` immutable); one made after takes B; each branch's cash close counts its own cash. A Manager reads `GET /workshop-tickets/{code}/folio/previous-location-add-ons` (Staff/Member `403`; empty almost always).
+7. **Mland offer (FR-061):** the offer lists candidates at several locations with `locationName`; the buyer's pick at B moves the ticket with no Manager and no counted change; if B was switched off before the answer the answer is `409 REPLACEMENT_SESSION_UNAVAILABLE` (003.2 rejects the replacement at commit; 003.3 does not re-query) and the offer stays open.
+
+Evidence of the current run: `quickstart-verification-evidence.md` (T193 entry). Acceptance criteria SC-021–SC-023 are handed to `ppswbs-testing/` for detailed scenarios (`$e2e-test-specify`, `$unit-test-specify`); none are written here.
 
 ## Evidence to Retain
 

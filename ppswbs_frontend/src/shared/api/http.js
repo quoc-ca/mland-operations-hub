@@ -1,10 +1,10 @@
 // Shared HTTP client (proposal §8, 002 T089). It never caches responses, never retries on its own and never
 // writes the token anywhere: the token is read from the session for each request and sent only as a header.
-export const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080').replace(/\/$/, '');
+export const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8080')).replace(/\/$/, '');
 
 /** Typed failure built from common.ErrorResponse: code, safe message, correlationId, fieldErrors. */
 export class ApiError extends Error {
-  constructor({ status, code, message, correlationId = null, fieldErrors = [], method = 'GET', failingTicketCodes = [], reason = null, retryAfterSeconds = null }) {
+  constructor({ status, code, message, correlationId = null, fieldErrors = [], method = 'GET', failingTicketCodes = [], reason = null, retryAfterSeconds = null, checkInOpensAt = null }) {
     super(message || code);
     this.name = 'ApiError';
     this.status = status;
@@ -16,6 +16,8 @@ export class ApiError extends Error {
     // Closed `reason` of a 409 INVALID_STATE / STAFF_NOT_ELIGIBLE and whole seconds of a 429 Retry-After header.
     this.reason = reason;
     this.retryAfterSeconds = retryAfterSeconds;
+    // Only with 409 CHECK_IN_NOT_OPEN: ISO instant when normal check-in opens (T126).
+    this.checkInOpensAt = checkInOpensAt;
   }
 
   /** 503 and lost responses may be retried with the same Idempotency-Key. */
@@ -38,9 +40,12 @@ export function newCommandId() {
 }
 
 function buildUrl(baseUrl, path, query) {
-  const url = new URL(`${baseUrl}${path}`);
+  const origin = baseUrl || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8080');
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  const url = new URL(`${origin}${normalizedPath}`);
   Object.entries(query || {}).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== '') url.searchParams.set(key, String(value));
+    if (Array.isArray(value)) value.forEach(item => url.searchParams.append(key, String(item)));
+    else if (value !== undefined && value !== null && value !== '') url.searchParams.set(key, String(value));
   });
   return url.toString();
 }
@@ -64,6 +69,7 @@ async function errorFrom(response, method) {
     failingTicketCodes: Array.isArray(payload.failingTicketCodes) ? payload.failingTicketCodes : [],
     reason: typeof payload.reason === 'string' ? payload.reason : null,
     retryAfterSeconds: retryAfterOf(response.headers.get('Retry-After')),
+    checkInOpensAt: typeof payload.checkInOpensAt === 'string' ? payload.checkInOpensAt : null,
   });
 }
 
@@ -103,7 +109,7 @@ export function createHttpClient({ baseUrl = apiBaseUrl, getIdToken, onSessionEx
   }
 
   return async function request(path, {
-    method = 'GET', query, body, form, idempotencyKey, auth = true, responseType = 'json', signal, headers: customHeaders,
+    method = 'GET', query, body, form, idempotencyKey, auth = true, responseType = 'json', signal, headers: customHeaders, suppressAccessDenied = false,
   } = {}) {
     const url = buildUrl(baseUrl, path, query);
     const headers = { ...(customHeaders || {}) };
@@ -120,16 +126,29 @@ export function createHttpClient({ baseUrl = apiBaseUrl, getIdToken, onSessionEx
     }
     let response = await send(url, init, token);
     if (auth && response.status === 401) {
+      let initialError = null;
+      try {
+        const cloned = typeof response.clone === 'function' ? response.clone() : response;
+        initialError = await errorFrom(cloned, method);
+      } catch {
+        initialError = null;
+      }
+      if (initialError?.code === 'ACCOUNT_NOT_FOUND') {
+        // FR-046: 401 ACCOUNT_NOT_FOUND is terminal; MUST NOT retry getIdToken(true)
+        onSessionExpired?.(initialError);
+        throw initialError;
+      }
       const refreshed = await getIdToken(true);
       if (refreshed) response = await send(url, init, refreshed);
       if (response.status === 401) {
         const error = await errorFrom(response, method);
-        onSessionExpired?.();
+        onSessionExpired?.(error);
         throw error;
       }
     }
     if (!response.ok) {
-      if (response.status === 403) {
+      // A command that explains its own refusal on its screen (suppressAccessDenied) is not a reason to leave the page.
+      if (response.status === 403 && !suppressAccessDenied) {
         onAccessDenied?.();
       }
       throw await errorFrom(response, method);

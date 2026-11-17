@@ -54,6 +54,17 @@ public class BankRefundService {
     private final SettlementBusinessAuditRepository audits;
     private final org.springframework.context.ApplicationEventPublisher events;
     private final SettlementCustomerNotifier notifier;
+    private final SettlementRefundLinkSubmissionRepository linkSubmissions;
+    /** Replaced only by tests, to move through the 3, 7 and 30 day thresholds without waiting. */
+    private java.time.Clock clock = java.time.Clock.systemUTC();
+
+    void useClockForTests(java.time.Clock testClock) {
+        this.clock = testClock;
+    }
+
+    private Instant now() {
+        return Instant.now(clock);
+    }
 
     /** A newly opened request, with the raw link value when one was created for it. */
     public record OpenedRefund(SettlementRefundRequest request, String rawAccountLinkToken) {
@@ -76,12 +87,43 @@ public class BankRefundService {
             // There is no 5,000 VND minimum for a bank refund, but there is no refund of nothing either.
             throw new WorkshopSettlementValidationException("REFUND_AMOUNT_INVALID");
         }
+        // T170: the folio lock is the first read, so the snapshot of this transaction starts after any request opened
+        // before it and two requests opened together never pass the cap.
+        bills.findByBookingReferenceForUpdate(bookingReference.trim());
         var existing = requests.findByReasonAndSourceReference(reason, sourceReference);
         if (existing.isPresent()) {
             return new OpenedRefund(existing.get(), null);
         }
         requireWithinCollected(bookingReference, amountVnd);
         return createRequest(bookingReference, groupReference, reason, sourceReference, amountVnd,
+                correlationReference);
+    }
+
+    /**
+     * T170 (FR-038, FR-043, CHK002): opens the refund of everything still owed back for one ticket: what was collected
+     * for it (excess kept on the folio included) minus every other request of the ticket that is {@code REFUNDED} or
+     * open ({@code CLOSED_UNREACHABLE} counts as open). Computed under the ticket folio lock. A remainder of 0 creates
+     * nothing and returns the ticket's existing request; null when the ticket has none and nothing was collected.
+     * Idempotent on (reason, source).
+     */
+    @Transactional
+    public OpenedRefund openRemainder(String bookingReference, String groupReference, RefundReason reason,
+                                      String sourceReference, String correlationReference) {
+        if (bookingReference == null || bookingReference.isBlank() || sourceReference == null
+                || sourceReference.isBlank()) {
+            throw new WorkshopSettlementValidationException("REFUND_REFERENCES_REQUIRED");
+        }
+        bills.findByBookingReferenceForUpdate(bookingReference.trim());
+        var existing = requests.findByReasonAndSourceReference(reason, sourceReference);
+        if (existing.isPresent()) {
+            return new OpenedRefund(existing.get(), null);
+        }
+        long remainder = collectedForTicket(bookingReference) - requests.sumRefundedOrPending(bookingReference);
+        if (remainder <= 0) {
+            List<SettlementRefundRequest> others = requests.findByBookingReferenceOrderByIdAsc(bookingReference);
+            return others.isEmpty() ? null : new OpenedRefund(others.get(others.size() - 1), null);
+        }
+        return createRequest(bookingReference, groupReference, reason, sourceReference, remainder,
                 correlationReference);
     }
 
@@ -148,7 +190,7 @@ public class BankRefundService {
                 .status(RefundRequestStatus.PENDING_ACCOUNT)
                 .build());
         String token = issueLink(request);
-        notifier.notifyRefundAccountRequest(request, token, Instant.now().plus(LINK_LIFETIME), false, correlationReference);
+        notifier.notifyRefundAccountRequest(request, token, now().plus(LINK_LIFETIME), false, correlationReference);
         audit(request, "REFUND_REQUEST_OPENED", null, reason.name(), correlationReference);
         log.info("Opened bank refund {} for {} of {} VND", request.getRequestReference(), bookingReference,
                 amountVnd);
@@ -163,7 +205,7 @@ public class BankRefundService {
             throw new WorkshopSettlementConflictException("REFUND_ACCOUNT_ALREADY_ON_FILE");
         }
         String token = issueLink(request);
-        notifier.notifyRefundAccountRequest(request, token, Instant.now().plus(LINK_LIFETIME), false, correlationReference);
+        notifier.notifyRefundAccountRequest(request, token, now().plus(LINK_LIFETIME), false, correlationReference);
         audit(request, "REFUND_ACCOUNT_LINK_RESENT", actorAccountId, null, correlationReference);
         return token;
     }
@@ -178,29 +220,62 @@ public class BankRefundService {
             return;
         }
         String token = issueLink(request);
-        notifier.notifyRefundAccountRequest(request, token, Instant.now().plus(LINK_LIFETIME), true, correlationReference);
+        notifier.notifyRefundAccountRequest(request, token, now().plus(LINK_LIFETIME), true, correlationReference);
         audit(request, "REFUND_ACCOUNT_REMINDED", null, null, correlationReference);
     }
 
     // ---- the recipient account ----
 
-    /** The customer answers the link. One use only: the link is spent whether or not it is used again. */
+    /** FR-040: how long the idempotency record of a link submission outlives the link (T169). */
+    public static final Duration LINK_SUBMISSION_RETENTION = Duration.ofDays(30);
+
+    /**
+     * The customer answers the link (T165, T169). One use only: the link is spent when the account is recorded.
+     * The same Idempotency-Key with the same content replays with no second write or email; changed content under
+     * the same key is {@code IDEMPOTENCY_CONFLICT}; a new key on a link already used, revoked or expired is
+     * {@code REFUND_ACCOUNT_LINK_NOT_USABLE}; an unknown token is not found.
+     */
     @Transactional
-    public SettlementRefundRequest submitAccountByLink(String rawToken, String bankCode, String accountNumber,
-                                                       String holderName, String correlationReference) {
-        SettlementRefundAccountLink link = links.findByTokenHash(hash(rawToken))
+    public SettlementRefundRequest submitAccountByLink(String rawToken, String idempotencyKey, String bankCode,
+                                                       String accountNumber, String holderName,
+                                                       boolean accountDetailsConfirmed,
+                                                       String correlationReference) {
+        if (idempotencyKey == null || idempotencyKey.isBlank()) {
+            throw new SettlementUnprocessableException("IDEMPOTENCY_KEY_REQUIRED");
+        }
+        String tokenHash = hash(rawToken);
+        SettlementRefundAccountLink link = links.findByTokenHash(tokenHash)
                 .orElseThrow(WorkshopSettlementNotFoundException::new);
-        Instant now = Instant.now();
+        // The link no longer exists for the request: the same answer as a spent link.
+        SettlementRefundRequest request = requests.findById(link.getRequestId())
+                .orElseThrow(() -> new WorkshopSettlementConflictException("REFUND_ACCOUNT_LINK_NOT_USABLE"));
+        request = lock(request.getRequestReference());
+        String key = idempotencyKey.trim();
+        String fingerprint = RefundAccountCipher.fingerprint(String.join("|", tokenHash, String.valueOf(bankCode),
+                String.valueOf(accountNumber), String.valueOf(holderName), String.valueOf(accountDetailsConfirmed)));
+        var earlier = linkSubmissions.findByTokenHashAndIdempotencyKey(tokenHash, key);
+        if (earlier.isPresent()) {
+            if (!earlier.get().getRequestFingerprint().equals(fingerprint)) {
+                throw new WorkshopSettlementConflictException("IDEMPOTENCY_CONFLICT");
+            }
+            return request; // a lost-response retry: no second write, no second email
+        }
+        Instant now = now();
         if (!link.isUsable(now)) {
             throw new WorkshopSettlementConflictException("REFUND_ACCOUNT_LINK_NOT_USABLE");
         }
-        SettlementRefundRequest request = requests.findById(link.getRequestId())
-                .orElseThrow(WorkshopSettlementNotFoundException::new);
-        applyAccount(request, bankCode, accountNumber, holderName,
+        applyAccount(request, bankCode, accountNumber, holderName, accountDetailsConfirmed,
                 RefundAccountEntryChannel.LINK, null, correlationReference);
         link.setLifecycleStatus(RefundAccountLinkStatus.USED);
         link.setUsedAt(now);
         links.saveAndFlush(link);
+        notifier.scrubRefundAccountLink(request.getRequestReference());
+        linkSubmissions.saveAndFlush(SettlementRefundLinkSubmission.builder()
+                .tokenHash(tokenHash)
+                .idempotencyKey(key)
+                .requestFingerprint(fingerprint)
+                .retainUntil(link.getExpiresAt().plus(LINK_SUBMISSION_RETENTION))
+                .build());
         return request;
     }
 
@@ -208,11 +283,12 @@ public class BankRefundService {
     @Transactional
     public SettlementRefundRequest submitAccountAtCounter(String requestReference, String bankCode,
                                                           String accountNumber, String holderName,
+                                                          boolean accountDetailsConfirmed,
                                                           Long actorAccountId, String correlationReference) {
         SettlementRefundRequest request = lock(requestReference);
-        applyAccount(request, bankCode, accountNumber, holderName,
+        applyAccount(request, bankCode, accountNumber, holderName, accountDetailsConfirmed,
                 RefundAccountEntryChannel.COUNTER, actorAccountId, correlationReference);
-        revokeActiveLinks(request, Instant.now());
+        revokeActiveLinks(request, now());
         return request;
     }
 
@@ -243,7 +319,7 @@ public class BankRefundService {
             throw new WorkshopSettlementConflictException("REFUND_NOT_AWAITING_APPROVAL");
         }
         request.setApprovedByAccountId(managerAccountId);
-        request.setApprovedAt(Instant.now());
+        request.setApprovedAt(now());
         request.setApprovalReason(reason.trim());
         request.setStatus(RefundRequestStatus.PENDING_TRANSFER);
         SettlementRefundRequest saved = requests.saveAndFlush(request);
@@ -260,14 +336,14 @@ public class BankRefundService {
                                                   String bankTransferReference, String proofReference,
                                                   String correlationReference) {
         if (bankTransferReference == null || bankTransferReference.isBlank()) {
-            throw new WorkshopSettlementValidationException("BANK_TRANSFER_REFERENCE_REQUIRED");
+            throw new SettlementUnprocessableException("BANK_TRANSACTION_REFERENCE_REQUIRED");
         }
         SettlementRefundRequest request = lock(requestReference);
         if (request.getStatus() != RefundRequestStatus.PENDING_TRANSFER) {
             throw new WorkshopSettlementConflictException("REFUND_NOT_AWAITING_TRANSFER");
         }
         request.setTransferredByAccountId(actorAccountId);
-        request.setTransferredAt(Instant.now());
+        request.setTransferredAt(now());
         request.setBankTransferReference(bankTransferReference.trim());
         request.setTransferProofReference(proofReference);
         request.setStatus(RefundRequestStatus.PENDING_RECONCILIATION);
@@ -291,7 +367,7 @@ public class BankRefundService {
             throw new WorkshopSettlementConflictException("REFUND_NOT_AWAITING_RECONCILIATION");
         }
         request.setConfirmedByAccountId(managerAccountId);
-        request.setConfirmedAt(Instant.now());
+        request.setConfirmedAt(now());
         request.setStatus(RefundRequestStatus.REFUNDED);
         request.setRecipientAccountEncrypted(null);
         SettlementRefundRequest saved = requests.saveAndFlush(request);
@@ -302,6 +378,81 @@ public class BankRefundService {
                 saved.getAmountVnd(), saved.getConfirmedAt()));
         log.info("Refund {} confirmed against the bank statement", saved.getRequestReference());
         return saved;
+    }
+
+    /**
+     * FR-040 (T146): the single path back when a bank returns the transfer, the statement does not match at
+     * reconciliation or a Manager refuses the recipient. In one transaction the reason is recorded, the encrypted
+     * number is deleted (the mask stays), the approval is void, the old link is revoked and a new one is sent.
+     * There is no terminal rejection state, and the refund entitlement (amount) is unchanged. A request that is
+     * already {@code REFUNDED} (a late return is handled outside the system) or still waiting for an account
+     * answers 409 and nothing changes.
+     */
+    @Transactional
+    public OpenedRefund returnToPendingAccount(String requestReference, Long managerAccountId, String reason,
+                                               String correlationReference) {
+        if (reason == null || reason.isBlank()) {
+            throw new WorkshopSettlementValidationException("REFUND_RETURN_REASON_REQUIRED");
+        }
+        SettlementRefundRequest request = lock(requestReference);
+        RefundRequestStatus status = request.getStatus();
+        if (status != RefundRequestStatus.PENDING_APPROVAL && status != RefundRequestStatus.PENDING_TRANSFER
+                && status != RefundRequestStatus.PENDING_RECONCILIATION) {
+            throw new WorkshopSettlementConflictException("REFUND_NOT_RETURNABLE");
+        }
+        // The audit row still shows the bank reference of the transfer that came back.
+        audit(request, "REFUND_RETURNED_TO_PENDING_ACCOUNT", managerAccountId, reason.trim(), correlationReference);
+        SettlementRefundRequest saved = returnRequestToPendingAccount(request);
+        String token = issueLink(saved);
+        notifier.notifyRefundAccountRequest(saved, token, now().plus(LINK_LIFETIME), false, correlationReference);
+        return new OpenedRefund(saved, token);
+    }
+
+    /** T137: references of the requests that still hold an encrypted account number. */
+    @Transactional(readOnly = true)
+    public List<String> referencesHoldingAccountNumber() {
+        return requests.findReferencesHoldingAccountNumber();
+    }
+
+    /**
+     * T137 (FR-040, decided 2026-11-15; merged T148): after the encryption key was replaced one request goes back to
+     * {@code PENDING_ACCOUNT} in its own transaction. The ciphertext is deleted (mask kept), the Manager approval is
+     * void, the old link is revoked and a new one is sent through {@link #resendAccountLink} and its audit. A
+     * request that no longer holds a ciphertext is left alone, so a rerun changes nothing.
+     *
+     * @return true when this request was returned, false when it held no ciphertext
+     */
+    @Transactional
+    public boolean returnForKeyReplacement(String requestReference, Long adminAccountId, String reason,
+                                           String correlationReference) {
+        SettlementRefundRequest request = lock(requestReference);
+        if (request.getRecipientAccountEncrypted() == null) {
+            return false;
+        }
+        audit(request, "REFUND_ACCOUNT_KEY_REPLACED", adminAccountId, reason, correlationReference);
+        returnRequestToPendingAccount(request);
+        resendAccountLink(requestReference, adminAccountId, correlationReference);
+        return true;
+    }
+
+    /**
+     * Shared by {@link #returnToPendingAccount} and the key replacement (T137): the stored number is gone (mask kept),
+     * the Manager approval and any recorded transfer are void, and the reminders restart from now.
+     */
+    SettlementRefundRequest returnRequestToPendingAccount(SettlementRefundRequest request) {
+        request.setRecipientAccountEncrypted(null);
+        request.setApprovedByAccountId(null);
+        request.setApprovedAt(null);
+        request.setApprovalReason(null);
+        request.setTransferredByAccountId(null);
+        request.setTransferredAt(null);
+        request.setBankTransferReference(null);
+        request.setTransferProofReference(null);
+        request.setStatus(RefundRequestStatus.PENDING_ACCOUNT);
+        request.setReopenedAt(now());
+        request.setReminderDay3At(null);
+        request.setReminderDay7At(null);
+        return requests.saveAndFlush(request);
     }
 
     // ---- unreachable customers ----
@@ -317,7 +468,7 @@ public class BankRefundService {
         if (request.getStatus() != RefundRequestStatus.PENDING_ACCOUNT) {
             throw new WorkshopSettlementConflictException("REFUND_NOT_AWAITING_ACCOUNT");
         }
-        Instant now = Instant.now();
+        Instant now = now();
         if (request.getCreatedAt().plus(UNREACHABLE_AFTER).isAfter(now)) {
             throw new WorkshopSettlementConflictException("REFUND_NOT_UNREACHABLE_YET");
         }
@@ -339,14 +490,26 @@ public class BankRefundService {
             throw new WorkshopSettlementConflictException("REFUND_NOT_CLOSED");
         }
         request.setStatus(RefundRequestStatus.PENDING_ACCOUNT);
-        request.setReopenedAt(Instant.now());
+        request.setReopenedAt(now());
         request.setReminderDay3At(null);
         request.setReminderDay7At(null);
         SettlementRefundRequest saved = requests.saveAndFlush(request);
         String token = issueLink(saved);
-        notifier.notifyRefundAccountRequest(saved, token, Instant.now().plus(LINK_LIFETIME), false, correlationReference);
+        notifier.notifyRefundAccountRequest(saved, token, now().plus(LINK_LIFETIME), false, correlationReference);
         audit(saved, "REFUND_REOPENED", managerAccountId, null, correlationReference);
         return new OpenedRefund(saved, token);
+    }
+
+    /** T159: tokens of links that expired unused leave the stored payloads. */
+    @Transactional
+    public int scrubExpiredLinkTokens(Instant now) {
+        return notifier.scrubExpiredRefundAccountLinks(now);
+    }
+
+    /** T169: removes the link idempotency records whose 30 days after the link expiry have passed. */
+    @Transactional
+    public int purgeExpiredLinkSubmissions(Instant now) {
+        return linkSubmissions.deleteRetainedBefore(now);
     }
 
     @Transactional(readOnly = true)
@@ -385,11 +548,15 @@ public class BankRefundService {
     // ---- internals ----
 
     private void applyAccount(SettlementRefundRequest request, String bankCode, String accountNumber,
-                              String holderName,
+                              String holderName, boolean accountDetailsConfirmed,
                               RefundAccountEntryChannel channel, Long actorAccountId,
                               String correlationReference) {
         if (request.getStatus() != RefundRequestStatus.PENDING_ACCOUNT) {
             throw new WorkshopSettlementConflictException("REFUND_NOT_AWAITING_ACCOUNT");
+        }
+        // FR-040 (CHK005/006): the form showed bank, number and holder name back and the user confirmed them.
+        if (!accountDetailsConfirmed) {
+            throw new SettlementUnprocessableException("ACCOUNT_CONFIRMATION_REQUIRED");
         }
         if (bankCode == null || bankCode.isBlank() || accountNumber == null || accountNumber.isBlank()
                 || holderName == null || holderName.isBlank()) {
@@ -401,15 +568,25 @@ public class BankRefundService {
         request.setRecipientHolderName(holderName.trim());
         request.setAccountEntryChannel(channel);
         request.setAccountEnteredByAccountId(actorAccountId);
-        request.setAccountEnteredAt(Instant.now());
+        request.setAccountEnteredAt(now());
         request.setStatus(RefundRequestStatus.PENDING_APPROVAL);
         requests.saveAndFlush(request);
         // The number itself never reaches an audit row; only its mask does.
-        audit(request, "REFUND_ACCOUNT_RECORDED", actorAccountId, channel.name(), correlationReference);
+        audit(request, "REFUND_ACCOUNT_RECORDED", actorAccountId, channel.name() + ";ACCOUNT_DETAILS_CONFIRMED",
+                correlationReference);
     }
 
     /** FR-038: the money refunded or pending for one ticket never exceeds what was collected for it. */
     private void requireWithinCollected(String bookingReference, long amountVnd) {
+        long collected = collectedForTicket(bookingReference);
+        long alreadyOwed = requests.sumRefundedOrPending(bookingReference);
+        if (Math.addExact(alreadyOwed, amountVnd) > collected) {
+            throw new WorkshopSettlementConflictException("REFUND_EXCEEDS_COLLECTED_FOR_TICKET");
+        }
+    }
+
+    /** Everything collected for one ticket: booking-time deposit, verified gateway money (excess included) and the counter. */
+    private long collectedForTicket(String bookingReference) {
         long counterCollections = collections.findByBookingReferenceOrderByIdAsc(bookingReference).stream()
                 .filter(collection -> collection.getStatus() == FolioCollectionStatus.CONFIRMED)
                 .mapToLong(collection -> collection.getAmountVnd())
@@ -423,16 +600,11 @@ public class BankRefundService {
                 .flatMap(conclusion -> evidence.findByBookingReferenceAndConclusion(bookingReference, conclusion).stream())
                 .mapToLong(item -> item.getAmountVnd() == null ? 0L : item.getAmountVnd())
                 .sum();
-        long collected = Math.addExact(bookingTimeCollection,
-                Math.addExact(verifiedGatewayCollections, counterCollections));
-        long alreadyOwed = requests.sumRefundedOrPending(bookingReference);
-        if (Math.addExact(alreadyOwed, amountVnd) > collected) {
-            throw new WorkshopSettlementConflictException("REFUND_EXCEEDS_COLLECTED_FOR_TICKET");
-        }
+        return Math.addExact(bookingTimeCollection, Math.addExact(verifiedGatewayCollections, counterCollections));
     }
 
     private String issueLink(SettlementRefundRequest request) {
-        Instant now = Instant.now();
+        Instant now = now();
         revokeActiveLinks(request, now);
         String rawToken = UUID.randomUUID().toString();
         links.saveAndFlush(SettlementRefundAccountLink.builder()
@@ -445,6 +617,9 @@ public class BankRefundService {
     }
 
     private void revokeActiveLinks(SettlementRefundRequest request, Instant now) {
+        // T159: whatever revokes a link (resend, return, key replacement, counter entry, closing) also takes the token
+        // out of the stored email, before any new one is created.
+        notifier.scrubRefundAccountLink(request.getRequestReference());
         for (SettlementRefundAccountLink link : links.findByRequestIdAndLifecycleStatus(request.getId(),
                 RefundAccountLinkStatus.ACTIVE)) {
             link.setLifecycleStatus(RefundAccountLinkStatus.REVOKED);
@@ -473,7 +648,7 @@ public class BankRefundService {
                         ? "CORR-" + UUID.randomUUID() : correlationReference)
                 .evidenceReference(request.getBankTransferReference())
                 .reasonReference(reason)
-                .createdAt(Instant.now())
+                .createdAt(now())
                 .build());
     }
 

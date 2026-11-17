@@ -5,6 +5,7 @@ import { useHttp } from '../../shared/api/useHttp';
 import { useFormat } from '../../shared/i18n/I18nProvider';
 import { Loading, useResource } from '../../shared/ui/components';
 import { OperationsSidebar } from '../../shared/ui/OperationsSidebar';
+import { Change, TrendChart, UNIT_LABEL, rate } from './TrendCharts';
 import '../../ota-connectivity/ota-connectivity.css';
 import './managerDashboard.css';
 
@@ -80,32 +81,31 @@ function Dashboard() {
   const [filter, setFilter] = useState({ period: 'MONTH', anchor: null, locations: [] }); // [] = every assigned branch
   const [branchOptions, setBranchOptions] = useState([]);
 
+  const query = {
+    periodType: filter.period,
+    anchorDate: filter.anchor || undefined,
+    locationId: filter.locations.length ? filter.locations.join(',') : undefined,
+  };
   const report = useResource(async () => {
-    const data = await http('/api/v1/executive-reports', {
-      query: {
-        periodType: filter.period,
-        anchorDate: filter.anchor || undefined,
-        locationId: filter.locations.length ? filter.locations.join(',') : undefined,
-      },
-    });
+    const data = await http('/api/v1/executive-reports', { query });
     // The default view lists every branch the Manager may filter (Session 2026-11-14).
     if (!filter.locations.length && data?.branches) {
       setBranchOptions(data.branches.map(branch => ({ id: branch.locationId, name: branch.branchName })));
     }
     return data;
   }, [filter]);
+  // Trends read the same filters on their own, so a slow trend never holds back the KPI cards.
+  const trend = useResource(() => http('/api/v1/executive-reports/trends', { query }), [filter]);
 
   const data = report.data;
   const anchor = filter.anchor || todayInVietnam();
   const choosePeriod = period => setFilter(current => ({ ...current, period }));
   // Picking a date shows exactly that day.
   const chooseDate = value => { if (value) setFilter(current => ({ ...current, period: 'DAY', anchor: value })); };
-  const toggleBranch = id => setFilter(current => {
-    const next = current.locations.includes(id) ? current.locations.filter(x => x !== id) : [...current.locations, id];
-    // Unselecting the last branch, or selecting every branch, is the same as "all".
-    const all = branchOptions.length > 0 && next.length === branchOptions.length;
-    return { ...current, locations: all ? [] : next.sort((a, b) => a - b) };
-  });
+  // One click shows exactly that branch (Session 2026-11-16); clicking the shown branch again goes back to "all".
+  const toggleBranch = id => setFilter(current => ({
+    ...current, locations: current.locations.length === 1 && current.locations[0] === id ? [] : [id],
+  }));
 
   return <>
     <header className="ota-page-heading">
@@ -114,8 +114,13 @@ function Dashboard() {
         <h1>Dashboard điều hành</h1>
         <p>Doanh thu đã xác minh và hiệu suất workshop của các chi nhánh bạn phụ trách.</p>
       </div>
-      <div className="md-refresh">
-        <span>Cập nhật lúc <strong>{vnTime(data?.lastUpdatedAt)}</strong></span>
+      <div className="md-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+        <Link to="/review-moderation" className="button outline md-reviews-link" style={{ textDecoration: 'none' }}>
+          Quản lý đánh giá
+        </Link>
+        <div className="md-refresh">
+          <span>Cập nhật lúc <strong>{vnTime(data?.lastUpdatedAt)}</strong></span>
+        </div>
       </div>
     </header>
 
@@ -147,11 +152,11 @@ function Dashboard() {
       {report.error.status !== 401 && report.error.status !== 403 && <button type="button" className="button small outline" onClick={report.reload}>Thử lại</button>}
     </div>}
     {report.loading && !data && <Loading />}
-    {data && <div className={report.loading ? 'md-reloading' : ''}><Report data={data} format={format} /></div>}
+    {data && <div className={report.loading ? 'md-reloading' : ''}><Report data={data} format={format} trend={trend} /></div>}
   </>;
 }
 
-function Report({ data, format }) {
+function Report({ data, format, trend }) {
   const totals = data.totals || {};
   const scope = data.scope || {};
   const branchCount = (scope.locationIds || []).length;
@@ -180,8 +185,113 @@ function Report({ data, format }) {
         missing={totals.completedSessionCapacity == null} meter={totals.workshopUtilizationPercent} />
     </section>
 
+    <Trends trend={trend} format={format} />
+
     <BranchTable branches={data.branches || []} total={totals.totalRevenue} format={format} />
   </>;
+}
+
+const TREND_SOURCES = {
+  RETAIL_ORDERS: 'Đơn bán lẻ', RETAIL_REVENUE: 'Doanh thu bán lẻ', WORKSHOP_BOOKINGS: 'Vé workshop',
+  ATTENDANCE: 'Check-in workshop', WORKSHOP_REVENUE: 'Doanh thu workshop',
+};
+
+const C = { dark: '#111827', green: '#16a34a', red: '#dc2626', amber: '#f59e0b', gray: '#9ca3af', blue: '#2563eb' };
+
+/** FE-10 trends (Session 2026-11-16): retail and workshop, by hour, day or month, against the previous period. */
+function Trends({ trend, format }) {
+  const t = trend.data;
+  if (trend.error) return <section className="md-panel md-trends" aria-label="Xu hướng">
+    <div className="md-panel-head"><h2>Xu hướng</h2></div>
+    <div className="notice error md-notice" role="alert"><p>Không tải được biểu đồ xu hướng.</p>
+      <button type="button" className="button small outline" onClick={trend.reload}>Thử lại</button></div>
+  </section>;
+  if (!t) return <section className="md-panel md-trends" aria-label="Xu hướng" aria-busy="true">
+    <div className="md-panel-head"><h2>Xu hướng</h2></div><Loading />
+  </section>;
+
+  const unit = UNIT_LABEL[t.granularity] || 'ngày';
+  const points = t.points || [];
+  const col = key => points.map(p => p.values?.[key] ?? null);
+  const cur = t.current || {};
+  const prev = t.previous || {};
+  const money = value => format.money(value);
+  const count = value => format.number(value);
+  const pct = value => percent(value);
+  const retailDropped = v => v.retailCancelled == null ? null : Number(v.retailCancelled) + Number(v.retailExpired);
+  const workshopDropped = v => v.workshopCancelled == null ? null : Number(v.workshopCancelled) + Number(v.workshopAbandoned);
+  const attended = v => v.placesCheckedIn == null ? null : Number(v.placesCheckedIn) + Number(v.placesNoShow);
+
+  return <section className={`md-trends${trend.loading ? ' md-reloading' : ''}`} aria-label="Xu hướng">
+    {(t.unavailable || []).length > 0 && <div className="md-quality warn" role="status">
+      <strong>Một số biểu đồ chưa đủ dữ liệu:</strong> {t.unavailable.map(s => TREND_SOURCES[s] || s).join(', ')} tạm thời không đọc được.
+    </div>}
+
+    <div className="md-panel">
+      <div className="md-panel-head"><h2>Xu hướng bán lẻ</h2><span className="muted">Theo {unit} · so với kỳ trước cùng độ dài</span></div>
+      <div className="md-trend-stats">
+        <Stat label="Đơn đặt" value={cur.retailPlaced} show={count}><Change current={cur.retailPlaced} previous={prev.retailPlaced} /></Stat>
+        <Stat label="Đơn đã thanh toán" value={cur.retailPaid} show={count}><Change current={cur.retailPaid} previous={prev.retailPaid} /></Stat>
+        <Stat label="Đơn hủy / hết hạn" value={retailDropped(cur)} show={count}
+          note={`Tỷ lệ ${pct(rate(retailDropped(cur), cur.retailPlaced))}`}><Change current={retailDropped(cur)} previous={retailDropped(prev)} inverse /></Stat>
+        <Stat label="Doanh thu bán lẻ" value={cur.retailRevenue} show={money}><Change current={cur.retailRevenue} previous={prev.retailRevenue} /></Stat>
+      </div>
+      <div className="md-chart-grid">
+        <TrendChart title={`Doanh thu bán lẻ theo ${unit}`} kind="bar" points={points} format={money}
+          series={[{ key: 'r', label: 'Doanh thu', color: C.amber, values: col('retailRevenue') }]} />
+        <TrendChart title={`Đơn đặt và đơn bị hủy theo ${unit}`} points={points} format={count}
+          series={[
+            { key: 'placed', label: 'Đặt', color: C.dark, values: col('retailPlaced') },
+            { key: 'paid', label: 'Đã thanh toán', color: C.green, values: col('retailPaid') },
+            { key: 'cancelled', label: 'Hủy', color: C.red, values: col('retailCancelled') },
+            { key: 'expired', label: 'Hết hạn TT', color: C.amber, values: col('retailExpired') },
+          ]} />
+      </div>
+    </div>
+
+    <div className="md-panel">
+      <div className="md-panel-head"><h2>Xu hướng workshop</h2><span className="muted">Theo {unit} · so với kỳ trước cùng độ dài</span></div>
+      <div className="md-trend-stats">
+        <Stat label="Vé đặt" value={cur.workshopBooked} show={count}
+          note={`Hủy / bỏ dở ${count(workshopDropped(cur) ?? 0)}`}><Change current={cur.workshopBooked} previous={prev.workshopBooked} /></Stat>
+        <Stat label="Lượt check-in" value={cur.placesCheckedIn} show={count}
+          note={`Trên ${count(cur.placesRegistered ?? 0)} lượt đăng ký`}><Change current={cur.placesCheckedIn} previous={prev.placesCheckedIn} /></Stat>
+        <Stat label="Tỷ lệ vắng mặt" value={rate(cur.placesNoShow, attended(cur))} show={pct}
+          note={`${count(cur.placesNoShow ?? 0)} lượt không đến`}><Change current={rate(cur.placesNoShow, attended(cur))} previous={rate(prev.placesNoShow, attended(prev))} inverse /></Stat>
+        <Stat label="Doanh thu workshop" value={cur.workshopRevenue} show={money}><Change current={cur.workshopRevenue} previous={prev.workshopRevenue} /></Stat>
+      </div>
+      <div className="md-chart-grid">
+        <TrendChart title={`Doanh thu workshop theo ${unit}`} kind="bar" points={points} format={money}
+          empty="Chưa có hóa đơn workshop nào được thanh toán đủ trong kỳ này."
+          series={[{ key: 'w', label: 'Doanh thu', color: C.dark, values: col('workshopRevenue') }]} />
+        <TrendChart title={`Người tham gia theo ${unit} diễn ra buổi học`} points={points} format={count}
+          series={[
+            { key: 'reg', label: 'Đăng ký', color: C.blue, values: col('placesRegistered') },
+            { key: 'in', label: 'Check-in', color: C.green, values: col('placesCheckedIn') },
+            { key: 'no', label: 'Không đến', color: C.amber, values: col('placesNoShow') },
+            { key: 'cx', label: 'Hủy vé', color: C.red, values: col('placesCancelled') },
+          ]} />
+        <TrendChart title={`Vé đặt và vé bị hủy theo ${unit} đặt chỗ`} points={points} format={count}
+          series={[
+            { key: 'booked', label: 'Đặt', color: C.dark, values: col('workshopBooked') },
+            { key: 'ok', label: 'Đã thanh toán', color: C.green, values: col('workshopConfirmed') },
+            { key: 'cx', label: 'Hủy', color: C.red, values: col('workshopCancelled') },
+            { key: 'ab', label: 'Bỏ dở', color: C.amber, values: col('workshopAbandoned') },
+          ]} />
+      </div>
+      <p className="md-footnote">Một lượt = một vé ở một buổi (gói 2 buổi tính 2 lượt). “Không đến” chỉ có sau khi buổi đã chốt điểm danh.
+        Doanh thu workshop tính khi hóa đơn được thanh toán đủ; tiền cọc của khách không đến chưa được tính.</p>
+    </div>
+  </section>;
+}
+
+function Stat({ label, value, show, note, children }) {
+  return <article className="md-stat">
+    <span className="md-kpi-label">{label}</span>
+    <strong>{value == null ? '—' : show(value)}</strong>
+    {children}
+    {note && value != null && <small className="md-stat-note">{note}</small>}
+  </article>;
 }
 
 function Kpi({ label, value, hint, missing, strong, meter }) {
@@ -213,7 +323,7 @@ function BranchTable({ branches, total, format }) {
             <td data-label="Tổng doanh thu"><strong>{format.money(v.totalRevenue)}</strong>
               {share != null && <span className="md-share" title={`${percent(share)} tổng doanh thu`}><span style={{ width: `${share}%` }} /></span>}</td>
             <td data-label="Đơn đã TT">{v.paidRetailOrderCount == null ? '—' : format.number(v.paidRetailOrderCount)}</td>
-            <td data-label="Lấp đầy">{v.workshopUtilizationPercent == null ? <span className="muted">{v.completedSessionCapacity === 0 ? 'Chưa có buổi' : '—'}</span>
+            <td data-label="Lấp đầy">{v.workshopUtilizationPercent == null ? <span className="muted">{v.completedSessionCapacity === 0 ? 'Chưa có buổi đã chốt điểm danh' : '—'}</span>
               : <span className="md-util"><span className="md-meter small"><span style={{ width: `${Math.min(100, v.workshopUtilizationPercent)}%` }} /></span>{percent(v.workshopUtilizationPercent)}</span>}</td>
           </tr>;
         })}</tbody>

@@ -31,6 +31,15 @@ public class WorkshopAddOnService {
     private final OperationsAuditEventRepository audits;
     private final ObjectMapper objectMapper;
 
+    /** The location the add-on belongs to, or null for an unknown reference (003.3 T187 read; no state check). */
+    @Transactional(readOnly = true)
+    public Long locationOf(String addOnReference) {
+        if (addOnReference == null || addOnReference.isBlank()) {
+            return null;
+        }
+        return addOns.findByReference(addOnReference.trim()).map(WorkshopAddOn::getLocationId).orElse(null);
+    }
+
     @Transactional(readOnly = true)
     public List<AddOnResponse> listCustomerSelectable(Long packageId, Long locationId) {
         requirePublishedPackageAndActiveLocation(packageId, locationId);

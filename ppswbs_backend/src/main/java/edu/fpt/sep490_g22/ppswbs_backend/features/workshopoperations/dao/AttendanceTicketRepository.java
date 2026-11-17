@@ -18,6 +18,28 @@ public interface AttendanceTicketRepository extends JpaRepository<AttendanceTick
 
     Optional<AttendanceTicket> findByTicketCode(String ticketCode);
 
+    /** A group ticket code (GRP-…-L2-T1) is the line reference plus the person's number (see GroupTicketCode). */
+    Optional<AttendanceTicket> findByBookingReferenceAndTicketSequence(String bookingReference, Integer ticketSequence);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select t from AttendanceTicket t where t.bookingReference = :bookingReference and t.ticketSequence = :ticketSequence")
+    Optional<AttendanceTicket> findByBookingReferenceAndTicketSequenceWithLock(@Param("bookingReference") String bookingReference, @Param("ticketSequence") Integer ticketSequence);
+
+    /** The ticket for a TK-… code, or else for a group ticket code. */
+    default Optional<AttendanceTicket> findByAnyTicketCode(String code) {
+        Optional<AttendanceTicket> own = findByTicketCode(code);
+        if (own.isPresent()) return own;
+        return edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.GroupTicketCode.parse(code)
+                .flatMap(group -> findByBookingReferenceAndTicketSequence(group.bookingReference(), group.ticketSequence()));
+    }
+
+    default Optional<AttendanceTicket> findByAnyTicketCodeWithLock(String code) {
+        Optional<AttendanceTicket> own = findByTicketCodeWithLock(code);
+        if (own.isPresent()) return own;
+        return edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.GroupTicketCode.parse(code)
+                .flatMap(group -> findByBookingReferenceAndTicketSequenceWithLock(group.bookingReference(), group.ticketSequence()));
+    }
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select t from AttendanceTicket t where t.reference = :reference")
     Optional<AttendanceTicket> findByReferenceWithLock(@Param("reference") String reference);
@@ -35,7 +57,7 @@ public interface AttendanceTicketRepository extends JpaRepository<AttendanceTick
     List<AttendanceTicket> findByBookingReference(String bookingReference);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("select t from AttendanceTicket t where t.bookingReference = :bookingReference")
+    @Query("select t from AttendanceTicket t where t.bookingReference = :bookingReference or t.bookingReference like concat(:bookingReference, '-L%') order by t.bookingReference, t.ticketSequence")
     List<AttendanceTicket> findByBookingReferenceWithLock(@Param("bookingReference") String bookingReference);
 
     boolean existsByTicketCode(String ticketCode);

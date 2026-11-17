@@ -1,11 +1,71 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router';
+import { newCommandId } from '../../shared/api/http';
 import { useAuth } from '../../shared/auth/AuthProvider';
 import { useOtaConnectivityApi } from '../api/useOtaConnectivityApi';
 import { ErrorNotice, Loading, SuccessNotice } from '../../shared/ui/components';
 import { OperationsSidebar } from '../../shared/ui/OperationsSidebar';
 import { OperationsAuthWorkspace } from '../../shared/ui/OperationsAuthWorkspace';
 import '../ota-connectivity.css';
+
+/** Manager refund of a paid add-on bill (POST /ota-addon-bills/{ref}/refunds); the server decides what is refundable. */
+function AddonRefundPanel({ api, billStatus, onDone }) {
+  const [amount, setAmount] = useState('');
+  const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const [done, setDone] = useState(null);
+  // One key per attempt: a retry after a lost response replays the same refund instead of opening a second one.
+  const [key, setKey] = useState(() => newCommandId());
+  const refunds = billStatus?.refunds || [];
+  const open = refunds.some(r => r.status === 'OPEN' || r.status === 'PENDING_PROVIDER');
+  const amountOk = /^[1-9][0-9]*$/.test(amount.trim());
+
+  async function submit(event) {
+    event.preventDefault();
+    if (!amountOk || !reason.trim() || busy) return;
+    setBusy(true); setError(null); setDone(null);
+    try {
+      const refund = await api.createAddonRefund(billStatus.billReference, { amountVnd: amount.trim(), reason }, key);
+      setDone(refund); setAmount(''); setReason(''); setKey(newCommandId());
+      if (onDone) onDone();
+    } catch (err) {
+      setError(err);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div style={{ marginTop: '14px', paddingTop: '14px', borderTop: '1px solid #e3e3e3' }}>
+      <h3 style={{ margin: '0 0 8px', fontSize: '15px' }}>Hoàn tiền add-on</h3>
+      {refunds.length > 0 && (
+        <ul style={{ margin: '0 0 10px', paddingLeft: '18px', fontSize: '13px' }}>
+          {refunds.map(r => (
+            <li key={r.refundReference}>{Number(r.amountVnd).toLocaleString('vi-VN')} ₫ · {r.status} · {r.reason}</li>
+          ))}
+        </ul>
+      )}
+      {open ? (
+        <p className="muted" style={{ fontSize: '13px' }}>Đang có một yêu cầu hoàn tiền chờ xử lý; chờ xong rồi mới tạo yêu cầu mới.</p>
+      ) : (
+        <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <label style={{ fontSize: '13px' }}>Số tiền hoàn (VND)
+            <input value={amount} onChange={e => setAmount(e.target.value)} inputMode="numeric" disabled={busy} style={{ display: 'block', width: '100%', padding: '8px' }} />
+          </label>
+          <label style={{ fontSize: '13px' }}>Lý do
+            <input value={reason} onChange={e => setReason(e.target.value)} disabled={busy} style={{ display: 'block', width: '100%', padding: '8px' }} />
+          </label>
+          <button type="submit" className="button outline" disabled={busy || !amountOk || !reason.trim()}>
+            {busy ? 'Đang gửi…' : 'Tạo yêu cầu hoàn tiền'}
+          </button>
+        </form>
+      )}
+      {error && <ErrorNotice error={error} />}
+      {done && <SuccessNotice>Đã tạo yêu cầu hoàn tiền {done.refundReference}.</SuccessNotice>}
+    </div>
+  );
+}
 
 export default function OtaAddonPage() {
   const { status } = useAuth();
@@ -61,6 +121,11 @@ export default function OtaAddonPage() {
       clearInterval(interval);
     };
   }, [billResult?.settlementBillReference, billStatus?.lifecycleStatus]);
+
+  async function refreshBill() {
+    if (!billResult?.settlementBillReference) return;
+    try { setBillStatus(await api.getAddonBillStatus(billResult.settlementBillReference)); } catch (ignored) {}
+  }
 
   async function createQuote(event) {
     event.preventDefault();
@@ -293,6 +358,9 @@ export default function OtaAddonPage() {
                       <p style={{ margin: 0, color: '#166534', fontWeight: 600, fontSize: '13px' }}>
                         Thanh toán add-on đã được hoàn tất và ghi nhận thành công.
                       </p>
+                    )}
+                    {isPaid && (
+                      <AddonRefundPanel api={api} billStatus={billStatus} onDone={refreshBill} />
                     )}
                   </div>
                 )}

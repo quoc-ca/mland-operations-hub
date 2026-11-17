@@ -40,6 +40,7 @@ public class WorkshopPackageReservationPolicy {
     private final WorkshopSessionRepository sessionRepository;
     private final WorkshopSlotRepository slotRepository;
     private final WorkshopBookingPackagePolicySnapshotRepository bookingPolicySnapshotRepository;
+    private final WorkshopPackageAvailabilityService availabilityService;
 
     @Transactional(readOnly = true)
     public PublishedPackageSelectionSnapshot readPublishedSnapshot(PublishedPackageSelectionQuery query) {
@@ -75,6 +76,15 @@ public class WorkshopPackageReservationPolicy {
 
     @Transactional
     public RejectionReason validate(ReserveBookingCapacityCommand command) {
+        return validate(command, true);
+    }
+
+    /**
+     * @param enforceAvailability false only for OTA acceptance, which is never refused at an INACTIVE pair
+     *                            (003.2 FR-039: the order is already sold on the external platform)
+     */
+    @Transactional
+    public RejectionReason validate(ReserveBookingCapacityCommand command, boolean enforceAvailability) {
         Long packageId = parsePackageReference(command.packageReference());
         if (packageId == null) {
             return RejectionReason.PACKAGE_SELECTION_INVALID;
@@ -85,6 +95,15 @@ public class WorkshopPackageReservationPolicy {
         }
 
         List<UUID> selectedReferences = command.orderedRequiredSessionReferences();
+        List<String> sortedReferences = selectedReferences.stream().map(UUID::toString).sorted().toList();
+        List<WorkshopSession> locked = sessionRepository.findByReferenceInWithLock(sortedReferences);
+        // 003.2 FR-039: PACKAGE_NOT_PUBLISHED wins; then one INACTIVE pair refuses the whole command, before any hold.
+        // Not rechecked at hold commit (FR-040) and not applied to OTA acceptance (FR-039).
+        if (enforceAvailability && locked.size() == selectedReferences.size() && locked.stream().anyMatch(session ->
+                session.getLocation() == null
+                        || !availabilityService.isSellable(packageId, session.getLocation().getId()))) {
+            return RejectionReason.PACKAGE_NOT_AVAILABLE_AT_LOCATION;
+        }
         if (command.participantCount() < workshopPackage.getMinParticipants()
                 || command.participantCount() > workshopPackage.getMaxParticipants()
                 || selectedReferences.size() != workshopPackage.getRequiredSessionCount()
@@ -92,8 +111,6 @@ public class WorkshopPackageReservationPolicy {
             return RejectionReason.PACKAGE_SELECTION_INVALID;
         }
 
-        List<String> sortedReferences = selectedReferences.stream().map(UUID::toString).sorted().toList();
-        List<WorkshopSession> locked = sessionRepository.findByReferenceInWithLock(sortedReferences);
         if (locked.size() != selectedReferences.size()) {
             return RejectionReason.PACKAGE_SELECTION_INVALID;
         }
@@ -185,12 +202,47 @@ public class WorkshopPackageReservationPolicy {
      * 003.2 FR-034: the structural package rules of a per-ticket replacement. The participant bounds are not
      * re-checked here, because moving one ticket of a booking group changes no participant count.
      */
+    /** Whether the booking's package policy snapshot requires one branch; empty when the booking has no snapshot. */
+    @Transactional(readOnly = true)
+    public java.util.Optional<Boolean> sameLocationRequired(String bookingReference) {
+        return bookingPolicySnapshotRepository.findByBookingReference(bookingReference)
+                .map(WorkshopBookingPackagePolicySnapshot::isSameLocationRequired);
+    }
+
+    /** The Package of the booking, from its booking-time policy snapshot; empty without a snapshot. */
+    @Transactional(readOnly = true)
+    public java.util.Optional<Long> packageIdOf(String bookingReference) {
+        return bookingPolicySnapshotRepository.findByBookingReference(bookingReference)
+                .map(snapshot -> parsePackageReference(snapshot.getPackageReference()));
+    }
+
     @Transactional(readOnly = true)
     public boolean isValidTicketReplacement(String bookingReference, List<WorkshopSession> targets) {
+        return checkTicketReplacement(bookingReference, targets) == null;
+    }
+
+    /**
+     * Same check as {@link #isValidTicketReplacement} with the reason: {@code INVALID_REPLACEMENT} for the package
+     * structure (including the one-location rule of {@code sameLocationRequired}, FR-041), then
+     * {@code PACKAGE_NOT_AVAILABLE_AT_LOCATION} when the Package is not sellable at the location of any target
+     * session (FR-042); {@code null} when the target set is valid.
+     */
+    @Transactional(readOnly = true)
+    public RejectionReason checkTicketReplacement(String bookingReference, List<WorkshopSession> targets) {
         WorkshopBookingPackagePolicySnapshot snapshot = bookingPolicySnapshotRepository
                 .findByBookingReference(bookingReference).orElse(null);
-        if (snapshot == null || targets.size() != snapshot.getRequiredSessionCount()) return false;
-        return satisfiesPackageStructure(snapshot, targets);
+        if (snapshot == null || targets.size() != snapshot.getRequiredSessionCount()
+                || !satisfiesPackageStructure(snapshot, targets)) {
+            return RejectionReason.INVALID_REPLACEMENT;
+        }
+        Long packageId = parsePackageReference(snapshot.getPackageReference());
+        for (WorkshopSession target : targets) {
+            if (packageId == null || target.getLocation() == null
+                    || !availabilityService.isSellable(packageId, target.getLocation().getId())) {
+                return RejectionReason.PACKAGE_NOT_AVAILABLE_AT_LOCATION;
+            }
+        }
+        return null;
     }
 
     private boolean satisfiesPackageStructure(WorkshopBookingPackagePolicySnapshot snapshot,

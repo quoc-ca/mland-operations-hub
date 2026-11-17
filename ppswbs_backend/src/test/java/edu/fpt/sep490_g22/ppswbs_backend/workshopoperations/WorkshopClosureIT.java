@@ -568,6 +568,11 @@ public class WorkshopClosureIT {
         TicketSessionEntitlement updatedA = entitlementRepository.findById(entA.getId()).orElseThrow();
         assertThat(updatedA.getAttendanceState()).isEqualTo(AttendanceState.CHECKED_IN);
         assertThat(updatedA.getCheckedInAt()).isNotNull();
+        // T141 / FR-007c: the correction is audited once with the before/after state and the reason code.
+        List<OperationsAuditEvent> correctionAudits = auditEventRepository.findBySessionIdOrderByOccurredAtDesc(session.getId()).stream()
+                .filter(a -> "ATTENDANCE_CORRECTED".equals(a.getAction())).toList();
+        assertThat(correctionAudits).hasSize(1);
+        assertThat(correctionAudits.get(0).getMetadata()).contains("NO_SHOW").contains("CHECKED_IN").contains("RECORDING_ERROR");
 
         // Ticket B: Attempt invalid correction to NOT_CHECKED_IN -> 400 Bad Request
         AttendanceCorrectionRequest reqInvalid = AttendanceCorrectionRequest.builder()

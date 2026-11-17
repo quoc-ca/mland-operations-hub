@@ -38,7 +38,8 @@ public record BookingGroupView(
             String attendanceStatus,
             String qrReference,
             String ticketReference,
-            List<SessionView> sessions) {
+            List<SessionView> sessions,
+            boolean mlandRemedyPending) {
     }
 
     public record SessionView(
@@ -46,6 +47,7 @@ public record BookingGroupView(
             Long locationId,
             int ordinal,
             Instant scheduledStart,
-            Instant scheduledEnd) {
+            Instant scheduledEnd,
+            String locationName) {
     }
 }

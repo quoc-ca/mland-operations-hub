@@ -104,7 +104,7 @@ class GroupBookingDiscountMySqlIT {
                     "GroupBookingDiscountMySqlIT requires real MySQL evidence");
         }
         jdbc.execute("SET FOREIGN_KEY_CHECKS = 0");
-        for (String table : List.of("late_payment_reviews", "booking_group_notification_intents",
+        for (String table : List.of("promotion_revision_target", "promotion_revision", "promotion_program", "late_payment_reviews", "booking_group_notification_intents",
                 "group_payment_attempts", "booking_group_magic_links", "ticket_price_snapshots", "ticket_bookings",
                 "booking_group_line_sessions", "booking_group_lines", "booking_groups", "workshop_cart_quotes",
                 "booking_idempotency_records", "booking_audit_evidence", "facade_command_idempotency_records",
@@ -269,7 +269,7 @@ class GroupBookingDiscountMySqlIT {
                 .header("Idempotency-Key", "disc-key-" + UUID.randomUUID())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"quoteRef\":\"" + quoteRef + "\",\"contactEmail\":\"" + EMAIL
-                        + "\",\"contactPhone\":\"0900000000\"}");
+                        + "\",\"contactPhone\":\"+84900000000\"}");
         if (bearer != null) request.header("Authorization", bearer);
         MvcResult result = mockMvc.perform(request).andExpect(status().isCreated()).andReturn();
         return JSON.readTree(result.getResponse().getContentAsString());
@@ -285,10 +285,12 @@ class GroupBookingDiscountMySqlIT {
     }
 
     private Long packageOf(long price) {
-        return packages.save(WorkshopPackage.builder().name("Disc package " + price + "-" + UUID.randomUUID())
+        Long packageId = packages.save(WorkshopPackage.builder().name("Disc package " + price + "-" + UUID.randomUUID())
                 .description("fixture").publicPrice(price).minParticipants(1).maxParticipants(10)
                 .requiredSessionCount(1).sameLocationRequired(true).minimumSameDaySlotGap(0)
                 .state(WorkshopPackageState.PUBLISHED).build()).getId();
+        edu.fpt.sep490_g22.ppswbs_backend.workshopoperations.PackageAvailabilityFixture.activateEverywhere(jdbc, packageId);
+        return packageId;
     }
 
     private WorkshopSession session(int daysAhead) {

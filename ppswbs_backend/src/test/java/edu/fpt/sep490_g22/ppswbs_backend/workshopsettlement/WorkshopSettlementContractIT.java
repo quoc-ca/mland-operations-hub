@@ -48,6 +48,7 @@ class WorkshopSettlementContractIT {
                 "GET /api/v1/workshop-tickets/{ticketCode}/folio",
                 "POST /api/v1/workshop-tickets/{ticketCode}/folio-lookups",
                 "GET /api/v1/workshop-tickets/{ticketCode}/folio/add-ons",
+                "GET /api/v1/workshop-tickets/{ticketCode}/folio/previous-location-add-ons",
                 "POST /api/v1/workshop-tickets/{ticketCode}/folio/charges",
                 "POST /api/v1/workshop-tickets/{ticketCode}/folio/finalizations",
                 "POST /api/v1/workshop-tickets/{ticketCode}/folio/debts",
@@ -64,13 +65,13 @@ class WorkshopSettlementContractIT {
                 "POST /api/v1/workshop-booking-groups/{groupCode}/cancellations",
                 "POST /api/v1/workshop-tickets/{ticketCode}/changes",
                 "POST /api/v1/workshop-tickets/{ticketCode}/change-allowances",
+                "GET /api/v1/workshop-tickets/{ticketCode}/change-options",
+                "POST /api/v1/workshop-tickets/{ticketCode}/change-option-lookups",
                 "POST /api/v1/workshop-booking-groups/{groupCode}/ticket-changes",
                 "GET /api/v1/workshop-change-requests",
                 "POST /api/v1/workshop-change-requests/{requestReference}/decisions",
                 "GET /api/v1/workshop-tickets/{ticketCode}/mland-remedy",
                 "POST /api/v1/workshop-tickets/{ticketCode}/mland-remedy/answers",
-                "GET /api/v1/workshop-refund-policies",
-                "POST /api/v1/workshop-refund-policies",
                 "GET /api/v1/workshop-settlement-cases",
                 "GET /api/v1/workshop-cash-closes/expected-cash",
                 "POST /api/v1/workshop-cash-closes",
@@ -80,7 +81,7 @@ class WorkshopSettlementContractIT {
                 "POST /api/v1/ota-addon-bills/{billReference}/refunds"));
 
         actual.forEach((operation, method) -> {
-            if (operation.startsWith("POST ") && !operation.endsWith("/folio-lookups")) {
+            if (operation.startsWith("POST ") && !operation.endsWith("/folio-lookups") && !operation.endsWith("/change-option-lookups")) {
                 assertThat(hasIdempotencyKey(method))
                         .as("OpenAPI Idempotency-Key parameter on %s", operation)
                 .isTrue();
@@ -131,9 +132,9 @@ class WorkshopSettlementContractIT {
     private static Map<String, Method> controllerOperations() {
         List<Class<?>> controllers = List.of(TicketFolioController.class,
                 TicketCancellationController.class, TicketChangeController.class,
-                TicketMlandRemedyController.class, WorkshopRefundPolicyController.class,
+                TicketMlandRemedyController.class,
                 SettlementCaseListController.class, OtaAddonPaymentController.class,
-                FolioCollectionController.class);
+                FolioCollectionController.class, TicketPreviousLocationAddOnController.class);
         return controllers.stream()
                 .flatMap(controller -> {
                     RequestMapping mapping = controller.getAnnotation(RequestMapping.class);
@@ -169,5 +170,25 @@ class WorkshopSettlementContractIT {
             }
         }
         return false;
+    }
+
+    /** T190 (FR-058, FR-061, FR-062): the cross-location fields and refusal codes are in the OpenAPI contract. */
+    @Test
+    void ticketOpenApiCarriesLocationNamesAndTheNewRefusalCodes() throws Exception {
+        java.nio.file.Path yaml = java.nio.file.Path.of("..", "ppswbs-spec", "features", "003-workshop-management",
+                "003.3-workshop-settlement-and-changes", "contracts", "workshop-settlement-ticket.openapi.yaml");
+        String contract = java.nio.file.Files.readString(yaml);
+
+        for (Class<?> dto : List.of(
+                edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.TicketChangeDtos.ChangeOptionDto.class,
+                edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.TicketChangeDtos.SessionSeatsDto.class,
+                edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.TicketRemedyDtos.OfferedSessionDto.class)) {
+            for (var component : dto.getRecordComponents()) {
+                assertThat(contract).as("%s.%s in the ticket OpenAPI", dto.getSimpleName(), component.getName())
+                        .contains(component.getName() + ":");
+            }
+        }
+        assertThat(contract).contains("PACKAGE_NOT_AVAILABLE_AT_LOCATION").contains("LATE_ARRIVAL_WINDOW_EXPIRED")
+                .contains("TICKET_LOCATION_CHANGED");
     }
 }

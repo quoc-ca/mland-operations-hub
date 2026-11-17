@@ -95,6 +95,7 @@ class WaxCastingBookingIntegrationIT {
                 .requiredFoundryWorkingDaysBetweenSessions(2)
                 .state(WorkshopPackageState.PUBLISHED)
                 .build());
+        PackageAvailabilityFixture.activateEverywhere(jdbcTemplate, waxCastingPackage.getId());
 
         // Anchor to a future Monday at least 2 weeks out
         baseMonday = LocalDate.now(ZONE).plusWeeks(2).with(TemporalAdjusters.nextOrSame(DayOfWeek.MONDAY));

@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { useHttp } from '../../shared/api/useHttp';
 import { useRole } from '../../shared/auth/useRole';
-import { Loading, SuccessNotice, useCommand, useResource } from '../../shared/ui/components';
+import { Field, Loading, SuccessNotice, useCommand, useResource } from '../../shared/ui/components';
 import { createSettlementApi } from '../api/settlementApi';
 import FolioCorrectionLookup from '../FolioCorrectionLookup';
 import { OpsPage } from '../OpsPage';
@@ -9,6 +10,20 @@ import { ProblemNotice, ReasonDialog, asList, isWholeVnd, money, when } from '..
 
 const METHOD_ORDER = { BOOKING_TIME: 0, VNPAY: 1, CASH: 2, BANK_TRANSFER: 3 };
 const VNPAY_MINIMUM = 5000;
+// T145: what each refusal of a cash reversal means (409 codes of FR-036/FR-053).
+const REVERSAL_PROBLEMS = {
+  FINAL_BILL_NOT_OPEN: 'The folio is already FINALIZED or CLOSED, so a cash entry cannot be reversed here. Use the folio correction and the bank refund.',
+  COLLECTION_UNDER_REFUND: 'A refund request already exists for this money, so the entry cannot be reversed.',
+  CASH_DAY_NOT_CLOSED: 'The cash day of this entry is still open. Use Void instead of a reversal.',
+  COLLECTION_NOT_CASH: 'Only a cash collection can be reversed.',
+  COLLECTION_ALREADY_VOIDED: 'This collection was already voided.',
+  COLLECTION_ALREADY_REVERSED: 'This collection was already reversed.',
+  COLLECTION_NOT_CONFIRMED: 'Only a confirmed collection can be reversed.',
+};
+const UNDERCHARGE_PROBLEMS = {
+  FOLIO_NOT_FINALIZED: 'An absorbed undercharge can only be recorded on a FINALIZED folio.',
+  UNDERCHARGE_EXCEEDS_FOLIO_TOTAL: 'The amount, together with the earlier records of this ticket, exceeds the folio total.',
+};
 
 /** Collections in the order VNPay, cash, bank transfer (booking-time payment first); the amounts are the server's. */
 export const orderedCollections = collections => [...(collections || [])]
@@ -33,13 +48,54 @@ export function vnpayWarning(method, amountText, balanceDue) {
   return '';
 }
 
+/**
+ * FR-060, T187: a Manager sees the catalogue add-ons sold at a location the ticket no longer belongs to. Read only;
+ * rendered only when the list is not empty. A non-Manager never calls the route.
+ */
+function PreviousLocationAddOns({ api, ticketCode, enabled }) {
+  const list = useResource(() => (enabled && ticketCode ? api.listPreviousLocationAddOns(ticketCode) : Promise.resolve([])), [ticketCode, enabled]);
+  if (!enabled) return null;
+  if (list.loading) return <p className="muted small" role="status">Loading add-ons from the previous location…</p>;
+  if (list.error) {
+    return (
+      <div className="notice error" role="note">
+        <p>The add-ons sold at the previous location could not be loaded.</p>
+        <button type="button" className="button outline small" onClick={list.reload}>Try again</button>
+      </div>
+    );
+  }
+  const items = asList(list.data);
+  if (items.length === 0) return null;
+  return (
+    <section aria-label="Add-ons sold at the previous location" className="ota-panel">
+      <h3>Add-ons sold at the previous location</h3>
+      <ul>
+        {items.map(item => (
+          <li key={item.chargeReference}>
+            {item.description} · {money(item.amount)} · Sold at location {item.addOnLocationReference} · ticket now at location {item.ticketLocationReference}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/** A long reference (SETTLE-CHARGE-<uuid>) shortened for a table cell; the full value stays in the hover text. */
+export const shortReference = value => {
+  const text = String(value || '');
+  return text.length > 22 ? `${text.slice(0, 22)}…` : text;
+};
+
 export default function SettlementWorkspacePage() {
   const http = useHttp();
   const api = createSettlementApi(http);
   const role = useRole();
   const isManager = role === 'MANAGER' || role === 'ADMIN';
-  const [ticketInput, setTicketInput] = useState('');
-  const [ticketCode, setTicketCode] = useState('');
+  // A link from another screen (the attendance roster) opens the folio of a ticket: ?ticket=GRP-…-L1-T1.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const linkedTicket = (searchParams.get('ticket') || '').trim();
+  const [ticketInput, setTicketInput] = useState(linkedTicket);
+  const [ticketCode, setTicketCode] = useState(linkedTicket);
   const [message, setMessage] = useState('');
   const [collection, setCollection] = useState({ method: 'CASH', amount: '', cashReceived: '', reference: '' });
   const [transferRefs, setTransferRefs] = useState({});
@@ -47,6 +103,10 @@ export default function SettlementWorkspacePage() {
   const [failing, setFailing] = useState(null);
   const [dangerous, setDangerous] = useState(null); // { kind: 'debt' | 'closeDebt' | 'handover' }
   const [voiding, setVoiding] = useState(null); // { kind: 'line' | 'collection', id, label }
+  const [reversing, setReversing] = useState(null); // the CONFIRMED cash collection of a closed day
+  const [undercharge, setUndercharge] = useState(null); // { amount, amountError } while the record dialog is open
+  const [voidingUndercharge, setVoidingUndercharge] = useState(null);
+  const [undercharges, setUndercharges] = useState([]); // records made or voided on this screen for this ticket
   const [addOn, setAddOn] = useState('');
   const [consent, setConsent] = useState(false);
   const [charge, setCharge] = useState({ description: '', amount: '', reason: '' });
@@ -66,7 +126,7 @@ export default function SettlementWorkspacePage() {
     return out;
   }
 
-  const lookup = event => { event.preventDefault(); setTicketCode(ticketInput.trim()); setCheckout(null); setMessage(''); command.reset(); };
+  const lookup = event => { event.preventDefault(); setSearchParams(ticketInput.trim() ? { ticket: ticketInput.trim() } : {}, { replace: true }); setTicketCode(ticketInput.trim()); setCheckout(null); setMessage(''); setUndercharges([]); command.reset(); };
 
   const submitCollection = event => {
     event.preventDefault();
@@ -83,6 +143,25 @@ export default function SettlementWorkspacePage() {
     key => api.confirmTransfer(ticketCode, item.collectionId, { bankTransactionReference: (transferRefs[item.collectionId] || '').trim() }, key),
     'Transfer confirmed.',
   );
+
+  const confirmReversal = async reason => {
+    const out = await run(key => api.reverseCashCollection(ticketCode, reversing.collectionId, { reason }, key), 'Cash entry reversed.',
+      result => setMessage(`Cash entry reversed: ${money(result?.amountVnd)} recorded on working day ${result?.workingDate}. The original collection stays visible; the balance below is the server's.`));
+    if (out.ok) setReversing(null);
+  };
+
+  const confirmUndercharge = async reason => {
+    if (!isWholeVnd(undercharge.amount)) { setUndercharge(v => ({ ...v, amountError: 'Enter a whole VND amount above 0.' })); return; }
+    const out = await run(key => api.recordAbsorbedUndercharge(ticketCode, { amountVnd: undercharge.amount.trim(), reason }, key), 'Absorbed undercharge recorded.',
+      result => result && setUndercharges(list => [...list, result]));
+    if (out.ok) setUndercharge(null);
+  };
+
+  const confirmVoidUndercharge = async reason => {
+    const out = await run(key => api.voidAbsorbedUndercharge(ticketCode, voidingUndercharge.underchargeReference, { reason }, key), 'Absorbed undercharge voided.',
+      result => result && setUndercharges(list => list.map(item => (item.underchargeReference === result.underchargeReference ? result : item))));
+    if (out.ok) setVoidingUndercharge(null);
+  };
 
   const confirmDangerous = async reason => {
     if (failing) {
@@ -125,15 +204,19 @@ export default function SettlementWorkspacePage() {
   return (
     <OpsPage eyebrow="TICKET FOLIO" title="Ticket folio" intro="Collect, verify and finalize one ticket. Amounts and statuses come from the server only.">
       <SuccessNotice>{message}</SuccessNotice>
+      {(REVERSAL_PROBLEMS[command.error?.code] || UNDERCHARGE_PROBLEMS[command.error?.code]) && (
+        <div className="notice error" role="alert"><p>{REVERSAL_PROBLEMS[command.error.code] || UNDERCHARGE_PROBLEMS[command.error.code]}</p></div>
+      )}
       <ProblemNotice error={folio.error || command.error} onRetry={command.retry} onReload={folio.reload} />
       <section className="ota-panel">
         <form className="ota-inline-form" onSubmit={lookup}>
-          <label>Ticket code<input value={ticketInput} onChange={event => setTicketInput(event.target.value)} placeholder="TK-..." /></label>
+          <label>Mã vé<input value={ticketInput} onChange={event => setTicketInput(event.target.value)} placeholder="GRP-…-L0-T1" /></label>
           <button className="button primary" type="submit" disabled={!ticketInput.trim()}>Open folio</button>
         </form>
       </section>
 
       {folio.loading && ticketCode ? <Loading /> : null}
+      {ticketCode && bill ? <PreviousLocationAddOns api={api} ticketCode={ticketCode} enabled={isManager} /> : null}
       {ticketCode && bill ? (
         <section className="settlement-grid">
           <article className="ota-panel settlement-summary">
@@ -149,18 +232,20 @@ export default function SettlementWorkspacePage() {
               {isManager && <button className="button outline" type="button" onClick={() => setDangerous({ kind: 'debt' })}>Record debt</button>}
               {isManager && <button className="button outline" type="button" onClick={() => setDangerous({ kind: 'closeDebt' })}>Close debt</button>}
               {isManager && unsettled && <button className="button outline" type="button" onClick={() => setDangerous({ kind: 'handover' })}>Allow handover</button>}
+              {isManager && bill.status === 'FINALIZED' && <button className="button outline" type="button" onClick={() => setUndercharge({ amount: '', amountError: '' })}>Record absorbed undercharge</button>}
             </div>
           </article>
 
           <article className="ota-panel">
             <div className="ota-panel-head"><h2>Collections</h2><span className="muted">VNPay, cash, then bank transfer</span></div>
             {(bill.collections || []).length === 0 ? <p className="muted">No collection recorded.</p> : (
-              <table className="ops-table">
-                <thead><tr><th>Method</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead>
+              <div className="ops-table-wrap"><table className="ops-table fl-table">
+                <colgroup><col className="c-main" /><col className="c-desc" /><col className="c-amount" /><col className="c-status" /><col className="c-actions" /></colgroup>
+                <thead><tr><th colSpan={2}>Method</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead>
                 <tbody>
                   {orderedCollections(bill.collections).map(item => (
                     <tr key={item.collectionId}>
-                      <td>{item.method}</td>
+                      <td colSpan={2}>{item.method}{item.method === 'BOOKING_TIME' && <small className="muted"> allocation of the booking-time payment (view only)</small>}</td>
                       <td>{money(item.amount)}{item.changeReturned && item.changeReturned !== '0' ? <small> (change {money(item.changeReturned)})</small> : null}</td>
                       <td>
                         <span className="ops-status">{item.status}</span>
@@ -178,23 +263,27 @@ export default function SettlementWorkspacePage() {
                           <button type="button" className="button danger" onClick={() => setFailing(item)}>Mark as failed</button>
                         )}
                         {item.status === 'PENDING_VERIFICATION' && !isManager && <small className="muted">Manager verifies</small>}
-                        {open && isManager && item.status === 'CONFIRMED' && (
+                        {isManager && item.status === 'CONFIRMED' && item.method === 'CASH' && item.cashDayClosed && (
+                          <button type="button" className="button outline" onClick={() => setReversing(item)}>Reverse cash entry</button>
+                        )}
+                        {open && isManager && item.status === 'CONFIRMED' && !item.cashDayClosed && (
                           <button type="button" className="button outline" onClick={() => setVoiding({ kind: 'collection', id: item.collectionId })}>Void</button>
                         )}
                       </td>
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></div>
             )}
             {(bill.charges || []).length > 0 && (
-              <table className="ops-table" aria-label="Folio lines">
+              <div className="ops-table-wrap"><table className="ops-table fl-table" aria-label="Folio lines">
+                <colgroup><col className="c-main" /><col className="c-desc" /><col className="c-amount" /><col className="c-status" /><col className="c-actions" /></colgroup>
                 <thead><tr><th>Line</th><th>Description</th><th>Amount</th><th>Status</th><th /></tr></thead>
                 <tbody>
                   {bill.charges.map(line => (
                     <tr key={line.chargeReference}>
-                      <td>{line.chargeReference}</td>
-                      <td>{line.description}</td>
+                      <td title={line.chargeReference}><code className="fl-ref">{shortReference(line.chargeReference)}</code></td>
+                      <td className="fl-wrap">{line.description}</td>
                       <td>{money(line.amount)}</td>
                       <td><span className="ops-status">{line.status}</span></td>
                       <td>
@@ -205,7 +294,7 @@ export default function SettlementWorkspacePage() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></div>
             )}
             {checkout ? (
               <div className="settlement-payment-state pending" role="status">
@@ -265,6 +354,27 @@ export default function SettlementWorkspacePage() {
             </article>
           )}
 
+          {isManager && undercharges.length > 0 && (
+            <article className="ota-panel" aria-label="Absorbed undercharges of this ticket">
+              <div className="ota-panel-head"><h2>Absorbed undercharges</h2><span className="muted">Documentation only; nothing is collected</span></div>
+              <table className="ops-table">
+                <thead><tr><th>Reference</th><th>Amount</th><th>Reason</th><th>Status</th><th /></tr></thead>
+                <tbody>
+                  {undercharges.map(record => (
+                    <tr key={record.underchargeReference}>
+                      <td>{record.underchargeReference}</td>
+                      <td>{money(record.amountVnd)}</td>
+                      <td>{record.reason}</td>
+                      <td><span className="ops-status">{record.status}</span></td>
+                      <td>{record.status === 'ACTIVE' && <button type="button" className="button outline" onClick={() => setVoidingUndercharge(record)}>Void record</button>}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="muted small">All records of a branch and period are listed under Absorbed undercharges.</p>
+            </article>
+          )}
+
           <article className="ota-panel">
             <FolioCorrectionLookup key={ticketCode} api={api} ticketCode={ticketCode} />
           </article>
@@ -272,6 +382,18 @@ export default function SettlementWorkspacePage() {
       ) : null}
       {ticketCode && !folio.loading && !bill && !folio.error ? <div className="empty-state"><p>No folio was found for this ticket.</p></div> : null}
 
+      <ReasonDialog open={Boolean(reversing)} title="Reverse this cash entry" confirmLabel="Reverse cash entry" pending={command.pending} onCancel={() => setReversing(null)} onConfirm={confirmReversal}>
+        <p>This cash day is already closed and is never edited. A negative cash entry of the same amount is recorded on the current working day and the balance is recomputed by the server. This is audited.</p>
+      </ReasonDialog>
+      <ReasonDialog open={Boolean(undercharge)} title="Record an absorbed undercharge" confirmLabel="Record undercharge" pending={command.pending} onCancel={() => setUndercharge(null)} onConfirm={confirmUndercharge}>
+        <p>Mland absorbs this amount. Nothing is collected and the folio, its balance and Loyalty earn do not change. A mistake is voided once and re-recorded as a new record.</p>
+        <Field label="Amount (VND)" error={undercharge?.amountError || undefined}>
+          <input inputMode="numeric" value={undercharge?.amount || ''} onChange={event => setUndercharge(v => ({ ...v, amount: event.target.value, amountError: '' }))} />
+        </Field>
+      </ReasonDialog>
+      <ReasonDialog open={Boolean(voidingUndercharge)} title="Void this absorbed-undercharge record" confirmLabel="Void record" pending={command.pending} onCancel={() => setVoidingUndercharge(null)} onConfirm={confirmVoidUndercharge}>
+        <p>The record keeps its content, is marked VOIDED and stops counting in totals. It can be voided once.</p>
+      </ReasonDialog>
       <ReasonDialog open={dialogOpen} title={dialogTitle} confirmLabel="Confirm" pending={command.pending}
         onCancel={() => { setFailing(null); setDangerous(null); setVoiding(null); }} onConfirm={confirmDangerous}>
         <p>{dangerous?.kind === 'handover' ? 'The customer may take the product now. The balance stays owed and no payment is recorded; the exception is audited with your reason.' : voiding ? 'The original row is kept as an audited reversal and the balance is recomputed by the server. A collection already counted into a closed cash day is refused.' : failing ?'The part becomes FAILED so another method can take the balance. Signed VNPay money that still arrives is kept and refunded to the payer by bank transfer.' : 'This is audited and cannot be undone from this screen.'}</p>

@@ -1,6 +1,7 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service;
 
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementChargeRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementCashReversalRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementEvidenceConclusionRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementFolioCollectionRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.FolioCollectionStatus;
@@ -27,6 +28,7 @@ public class FolioBalanceService {
     private final SettlementChargeRepository charges;
     private final SettlementEvidenceConclusionRepository evidence;
     private final SettlementFolioCollectionRepository collections;
+    private final SettlementCashReversalRepository cashReversals;
 
     /**
      * @param balanceDue      what is still owed, never negative
@@ -56,7 +58,9 @@ public class FolioBalanceService {
         long pending = sum(folioCollections, FolioCollectionStatus.PENDING_VERIFICATION);
 
         long gross = Math.addExact(folio.getRemainingAmountVnd(), chargeTotal);
-        long settled = Math.addExact(verifiedFinalPayments, confirmed);
+        // T144: a cash reversal is a negative entry; the reversed collection keeps its CONFIRMED row.
+        long reversed = cashReversals.sumByBillReference(folio.getBillReference());
+        long settled = Math.addExact(Math.addExact(verifiedFinalPayments, confirmed), reversed);
         long balanceDue = Math.max(0L, Math.subtractExact(gross, settled));
         long unassigned = Math.max(0L, Math.subtractExact(balanceDue, pending));
         return new FolioBalance(balanceDue, pending, unassigned);

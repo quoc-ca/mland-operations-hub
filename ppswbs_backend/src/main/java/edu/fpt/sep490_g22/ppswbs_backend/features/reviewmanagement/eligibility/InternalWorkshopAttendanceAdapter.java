@@ -26,20 +26,33 @@ public class InternalWorkshopAttendanceAdapter implements WorkshopAttendanceRevi
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
 
+    /**
+     * Checked-in tickets of both booking models as one derived table: a single booking (workshop_bookings, keyed by the
+     * ticket's booking reference) and a booking group (ticket_bookings + booking_groups, keyed by the ticket's operations
+     * reference; the group's buyer and contact stand in for the booking's). A group ticket's booking reference is a line
+     * reference, so it never matches workshop_bookings.
+     */
     private static final String BASE_SELECT =
-            "SELECT at.reference AS ticket_ref, " +
-            "       ws.reference AS session_ref, " +
-            "       wb.package_name_snapshot AS target_name, " +
-            "       wb.package_id AS package_id, " +
-            "       tse.checked_in_at AS checked_in_at, " +
-            "       wb.member_account_id AS member_account_id, " +
-            "       wb.contact_email AS contact_email, " +
-            "       wb.contact_phone AS contact_phone " +
+            "SELECT src.* FROM (" +
+            "SELECT at.reference AS ticket_ref, ws.reference AS session_ref, " +
+            "       wb.package_name_snapshot AS target_name, wb.package_id AS package_id, " +
+            "       tse.checked_in_at AS checked_in_at, wb.member_account_id AS member_account_id, " +
+            "       wb.contact_email AS contact_email, wb.contact_phone AS contact_phone " +
             "FROM attendance_tickets at " +
             "JOIN ticket_session_entitlements tse ON tse.ticket_id = at.id " +
             "JOIN workshop_sessions ws ON ws.id = tse.session_id " +
             "JOIN workshop_bookings wb ON wb.booking_code = at.booking_reference " +
-            "WHERE tse.attendance_state = 'CHECKED_IN' ";
+            "WHERE tse.attendance_state = 'CHECKED_IN' " +
+            "UNION ALL " +
+            "SELECT at.reference, ws.reference, tb.package_name_snapshot, tb.package_id, tse.checked_in_at, " +
+            "       bg.buyer_member_account_id, bg.contact_email, bg.contact_phone " +
+            "FROM attendance_tickets at " +
+            "JOIN ticket_session_entitlements tse ON tse.ticket_id = at.id " +
+            "JOIN workshop_sessions ws ON ws.id = tse.session_id " +
+            "JOIN ticket_bookings tb ON tb.operations_ticket_reference = at.reference " +
+            "JOIN booking_groups bg ON bg.id = tb.group_id " +
+            "WHERE tse.attendance_state = 'CHECKED_IN'" +
+            ") src WHERE 1 = 1 ";
 
     private final RowMapper<EligibleSourceItem> rowMapper = new RowMapper<EligibleSourceItem>() {
         @Override
@@ -69,7 +82,7 @@ public class InternalWorkshopAttendanceAdapter implements WorkshopAttendanceRevi
         if (memberAccountId == null) {
             return Collections.emptyList();
         }
-        String sql = BASE_SELECT + "AND wb.member_account_id = :memberAccountId ORDER BY tse.checked_in_at DESC";
+        String sql = BASE_SELECT + "AND src.member_account_id = :memberAccountId ORDER BY src.checked_in_at DESC";
         MapSqlParameterSource params = new MapSqlParameterSource("memberAccountId", memberAccountId);
         try {
             return jdbcTemplate.query(sql, params, rowMapper);
@@ -84,8 +97,8 @@ public class InternalWorkshopAttendanceAdapter implements WorkshopAttendanceRevi
         if (contactType == null || contactValue == null || contactValue.isBlank()) {
             return Collections.emptyList();
         }
-        String condition = contactType == ContactType.EMAIL ? "AND wb.contact_email = :contactValue " : "AND wb.contact_phone = :contactValue ";
-        String sql = BASE_SELECT + condition + "ORDER BY tse.checked_in_at DESC";
+        String condition = contactType == ContactType.EMAIL ? "AND src.contact_email = :contactValue " : "AND src.contact_phone = :contactValue ";
+        String sql = BASE_SELECT + condition + "ORDER BY src.checked_in_at DESC";
         MapSqlParameterSource params = new MapSqlParameterSource("contactValue", contactValue.trim());
         try {
             return jdbcTemplate.query(sql, params, rowMapper);
@@ -100,7 +113,7 @@ public class InternalWorkshopAttendanceAdapter implements WorkshopAttendanceRevi
         if (sourceReference == null || sourceReference.isBlank()) {
             return Optional.empty();
         }
-        String sql = BASE_SELECT + "AND at.reference = :sourceReference";
+        String sql = BASE_SELECT + "AND src.ticket_ref = :sourceReference";
         MapSqlParameterSource params = new MapSqlParameterSource("sourceReference", sourceReference.trim());
         try {
             List<EligibleSourceItem> list = jdbcTemplate.query(sql, params, rowMapper);
@@ -134,7 +147,7 @@ public class InternalWorkshopAttendanceAdapter implements WorkshopAttendanceRevi
         }
         try {
             List<EligibleSourceItem> list = jdbcTemplate.query(
-                    BASE_SELECT + "AND at.reference = :sourceReference",
+                    BASE_SELECT + "AND src.ticket_ref = :sourceReference",
                     new MapSqlParameterSource("sourceReference", sourceReference.trim()), rowMapper);
             return list.stream().findFirst();
         } catch (DataAccessException ex) {

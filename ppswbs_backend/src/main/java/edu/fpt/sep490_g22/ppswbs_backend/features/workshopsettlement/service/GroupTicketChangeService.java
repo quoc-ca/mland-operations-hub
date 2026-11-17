@@ -54,7 +54,7 @@ public class GroupTicketChangeService {
     private final TicketChangeService changes;
 
     private record Prepared(String ticketCode, TicketFolioContext ctx, SettlementFinalBill folio,
-                            List<UUID> targets, long priceIncrease) {
+                            List<UUID> targets, List<UUID> newSessions, long priceIncrease) {
     }
 
     @Transactional
@@ -78,6 +78,9 @@ public class GroupTicketChangeService {
             if (item == null || item.ticketCode() == null || item.ticketCode().isBlank()
                     || item.targetSessionReferences() == null || item.targetSessionReferences().isEmpty()) {
                 throw new WorkshopSettlementValidationException("TARGET_SESSIONS_REQUIRED");
+            }
+            if (item.fromSessionReferences() == null || item.fromSessionReferences().isEmpty()) {
+                throw new WorkshopSettlementValidationException("FROM_SESSIONS_REQUIRED");
             }
             if (!seen.add(item.ticketCode().trim())) {
                 throw new WorkshopSettlementValidationException("DUPLICATE_TICKET");
@@ -106,6 +109,9 @@ public class GroupTicketChangeService {
             TicketFolioContext ctx = booking.getTicketFolioContext(ticket)
                     .filter(found -> group.equals(found.groupCode()))
                     .orElseThrow(() -> new WorkshopSettlementNotFoundException("TICKET_NOT_FOUND"));
+            List<UUID> declaredFrom = changes.checkedFromSessions(ctx, item.fromSessionReferences(), item.targetSessionReferences());
+            TicketChangeService.ChangeSet set = changes.changeSet(ctx, declaredFrom, item.targetSessionReferences());
+            List<UUID> fromSessions = set.from();
             requester = changes.authorizeRequester(actor, ctx, request.reason(), request.buyerVerificationReference());
 
             SettlementFinalBill folio = finalBills.findByBookingReference(ticket).orElse(null);
@@ -115,8 +121,7 @@ public class GroupTicketChangeService {
             } else if (1 + changeRepository.countByTicketCodeAndChangeTypeAndAppliedTrue(ticket, "MANAGER_GRANTED")
                     - changeRepository.countByTicketCodeAndCountedTrueAndAppliedTrue(ticket) <= 0) {
                 code = TicketChangeService.RULE_ALLOWANCE;
-            } else if (request.type() == TicketChangeType.ADVANCE && ctx.firstSessionStart() != null
-                    && !now.isBefore(ctx.firstSessionStart().minus(24, ChronoUnit.HOURS))) {
+            } else if (request.type() == TicketChangeType.ADVANCE && changes.advanceWindowClosed(fromSessions, now)) {
                 code = TicketChangeService.RULE_WINDOW;
             } else if (ctx.operationsTicketReference() == null || ctx.operationsTicketReference().isBlank()) {
                 code = "TICKET_NOT_FOUND";
@@ -126,7 +131,7 @@ public class GroupTicketChangeService {
                 failureCode = failureCode == null ? code : failureCode;
                 continue;
             }
-            prepared.add(new Prepared(ticket, ctx, folio, item.targetSessionReferences(), 0L));
+            prepared.add(new Prepared(ticket, ctx, folio, set.targets(), set.newSessions(), 0L));
         }
         if (!failing.isEmpty()) {
             throw new GroupCancellationConflictException(failureCode, "One or more tickets cannot be changed", failing);
@@ -136,9 +141,9 @@ public class GroupTicketChangeService {
         List<Prepared> priced = new ArrayList<>();
         long total = 0L;
         for (Prepared item : prepared) {
-            long increase = changes.lostVoucherShare(item.ticketCode(), item.ctx(), item.targets());
+            long increase = changes.lostVoucherShare(item.ticketCode(), item.ctx(), item.newSessions());
             total = Math.addExact(total, increase);
-            priced.add(new Prepared(item.ticketCode(), item.ctx(), item.folio(), item.targets(), increase));
+            priced.add(new Prepared(item.ticketCode(), item.ctx(), item.folio(), item.targets(), item.newSessions(), increase));
         }
         boolean confirmed = Boolean.TRUE.equals(request.confirmIncrease());
         if (total > 0 && !confirmed) {
@@ -157,7 +162,7 @@ public class GroupTicketChangeService {
                 ? TicketReplacementType.CUSTOMER_ADVANCE : TicketReplacementType.CUSTOMER_LATE_ARRIVAL;
         List<ReplaceTicketSessionsCommand.Line> lines = priced.stream()
                 .map(item -> new ReplaceTicketSessionsCommand.Line(
-                        UUID.fromString(item.ctx().operationsTicketReference()), item.targets()))
+                        UUID.fromString(item.ctx().operationsTicketReference()), item.newSessions()))
                 .toList();
         TicketSessionReplacementOutcome outcome = operations.replaceTicketSessions(
                 new ReplaceTicketSessionsCommand(lines, opType, opRef, correlation));

@@ -86,6 +86,7 @@ class LatePaymentReviewIT {
     @Autowired private WorkshopPackageRepository packages;
     @Autowired private WorkshopSessionRepository sessions;
     @Autowired private WorkshopOperationsFacade operations;
+    @Autowired private edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.WorkshopPackageLocationAvailabilityRepository availability;
 
     @MockBean private AccountFacade accountFacade;
     @MockBean private TokenVerificationService tokenVerificationService;
@@ -103,7 +104,7 @@ class LatePaymentReviewIT {
         jdbc.execute("SET FOREIGN_KEY_CHECKS = 0");
         for (String table : List.of("settlement_notification_handoffs", "settlement_business_audits", "notification_deliveries",
                 "settlement_refund_account_links", "settlement_refund_requests",
-                "late_payment_reviews", "booking_group_notification_intents", "group_payment_attempts",
+                "promotion_revision_target", "promotion_revision", "promotion_program", "late_payment_reviews", "booking_group_notification_intents", "group_payment_attempts",
                 "booking_group_magic_links", "ticket_price_snapshots", "ticket_bookings", "booking_group_line_sessions",
                 "booking_group_lines", "booking_groups", "booking_idempotency_records", "booking_audit_evidence",
                 "facade_command_idempotency_records", "ticket_session_entitlements", "attendance_tickets",
@@ -122,6 +123,7 @@ class LatePaymentReviewIT {
         packageId = packages.save(WorkshopPackage.builder().name("Late package").description("fixture")
                 .publicPrice(AMOUNT).minParticipants(1).maxParticipants(10).requiredSessionCount(1)
                 .sameLocationRequired(true).minimumSameDaySlotGap(0).state(WorkshopPackageState.PUBLISHED).build()).getId();
+        sellAtLocation(packageId);
 
         when(accountFacade.resolveAccount("manager")).thenReturn(Optional.of(new AccountSummary(MANAGER_ID,
                 ActorRole.MANAGER, ActorStatus.ACTIVE, "manager@mland.test", Instant.now(), Instant.now())));
@@ -359,6 +361,41 @@ class LatePaymentReviewIT {
                 .containsExactly(GroupNotificationService.KIND_GROUP_HOLD_EXPIRED, GroupNotificationService.KIND_LATE_PAYMENT_PENDING);
     }
 
+    /**
+     * T159 (FR-055, FR-040; 003.2 FR-039): the late-payment re-hold is refused with PACKAGE_NOT_AVAILABLE_AT_LOCATION when the
+     * Package became INACTIVE at the group's location after the hold ran out. It is a failed re-hold like a lack of
+     * capacity: no hold, group unchanged (EXPIRED), the review waits for the Manager on the existing path, no exception.
+     */
+    @Test
+    @DisplayName("T159: re-hold refused because the Package is INACTIVE at the location -> failed re-hold, no hold, group unchanged")
+    void inactivePairAtReholdIsAFailedReholdLikeNoCapacity() {
+        WorkshopSession session = session(Duration.ofDays(3), 10);
+        Fixture group = pendingGroup(session, 2, Duration.ofMinutes(10), BUYER_EMAIL);
+        expire(group);
+        // The fixture gives a two-ticket group its own Package, so the pair to switch off is the line's, not the default one.
+        Long linePackageId = lines.findByGroupIdOrderByLineIndexAsc(group.id()).getFirst().getPackageId();
+        var pair = availability.findByPackageIdAndLocationId(linePackageId, location.getId()).orElseThrow();
+        assertThat(pair.isActive()).isTrue();
+        pair.setActive(false);
+        availability.save(pair);
+        try {
+            apply(group);
+        } finally {
+            // The rows are shared by the other cases of this class: put the pair back (re-read: apply bumped nothing, but be safe).
+            var again = availability.findByPackageIdAndLocationId(linePackageId, location.getId()).orElseThrow();
+            again.setActive(true);
+            availability.save(again);
+        }
+
+        LatePaymentReview review = onlyReview();
+        assertThat(review.getOutcome()).isEqualTo(LatePaymentReview.PENDING_MANAGER);
+        assertThat(review.getFailedConditions()).contains("CAPACITY");
+        assertThat(groups.findByGroupCode(group.code()).orElseThrow().getGroupStatus()).isEqualTo(BookingStatus.EXPIRED);
+        assertThat(count("capacity_holds WHERE state = 'ACTIVE'")).isZero();
+        assertThat(tickets.findByGroupIdOrderByLineIndexAscParticipantOrdinalAsc(group.id()))
+                .noneMatch(t -> t.getTicketStatus() == BookingStatus.CONFIRMED);
+    }
+
     @Test
     @DisplayName("T094-4: two late groups race for the last seat -> exactly one winner")
     void capacityRace_hasExactlyOneWinner() throws Exception {
@@ -476,12 +513,12 @@ class LatePaymentReviewIT {
         assertThat(String.join("|", jdbc.queryForList("SELECT CONCAT_WS('|', action_code, IFNULL(actor_reference,''), IFNULL(evidence_reference,''), IFNULL(reason_reference,'')) FROM settlement_business_audits", String.class)))
                 .doesNotContain(token);
 
-        String account = "{\"bankCode\":\"VCB\",\"accountNumber\":\"0123456789\",\"holderName\":\"Nguyen Van A\"}";
-        mockMvc.perform(post("/api/v1/refund-account-links/{t}", "unknown-token").contentType(MediaType.APPLICATION_JSON).content(account))
+        String account = "{\"bankCode\":\"VCB\",\"accountNumber\":\"0123456789\",\"holderName\":\"Nguyen Van A\",\"accountDetailsConfirmed\":true}";
+        mockMvc.perform(post("/api/v1/refund-account-links/{t}", "unknown-token").header("Idempotency-Key", key()).contentType(MediaType.APPLICATION_JSON).content(account))
                 .andExpect(status().isNotFound());
-        mockMvc.perform(post("/api/v1/refund-account-links/{t}", token).contentType(MediaType.APPLICATION_JSON).content(account))
+        mockMvc.perform(post("/api/v1/refund-account-links/{t}", token).header("Idempotency-Key", key()).contentType(MediaType.APPLICATION_JSON).content(account))
                 .andExpect(status().isNoContent());
-        mockMvc.perform(post("/api/v1/refund-account-links/{t}", token).contentType(MediaType.APPLICATION_JSON).content(account))
+        mockMvc.perform(post("/api/v1/refund-account-links/{t}", token).header("Idempotency-Key", key()).contentType(MediaType.APPLICATION_JSON).content(account))
                 .andExpect(status().isGone())
                 .andExpect(jsonPath("$.code").value("REFUND_ACCOUNT_LINK_NOT_USABLE"));
         Map<String, Object> request = jdbc.queryForMap("SELECT status, recipient_account_masked FROM settlement_refund_requests");
@@ -515,7 +552,7 @@ class LatePaymentReviewIT {
 
         assertThat(groups.findByGroupCode(group.code()).orElseThrow().getGroupStatus()).isEqualTo(BookingStatus.EXPIRED);
         assertThat(count("capacity_holds WHERE state = 'ACTIVE'")).isZero();
-        assertThat(count("group_payment_attempts WHERE attempt_status = 'PENDING'")).isEqualTo(1);
+        assertThat(count("group_payment_attempts WHERE attempt_status = 'EXPIRED'")).isEqualTo(1);
         assertThat(reviews.findAll()).isEmpty();
 
         apply(group);
@@ -634,6 +671,16 @@ class LatePaymentReviewIT {
 
     record Fixture(Long id, String code, String merchant) { }
 
+    /** 003.2 FR-037: the Package must be ACTIVE at the location or the reserve refuses it; a seeded row of a recycled id is updated. */
+    private void sellAtLocation(Long pkgId) {
+        var row = availability.findByPackageIdAndLocationId(pkgId, location.getId())
+                .orElseGet(() -> edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.WorkshopPackageLocationAvailability
+                        .builder().packageId(pkgId).locationId(location.getId()).version(0L).createdAt(Instant.now()).build());
+        row.setActive(true);
+        row.setUpdatedAt(Instant.now());
+        availability.save(row);
+    }
+
     private void expire(Fixture group) {
         tx.executeWithoutResult(status -> confirmation.releaseExpiredGroup(group.code(), "op-exp-" + group.code(), "corr"));
     }
@@ -710,6 +757,7 @@ class LatePaymentReviewIT {
                     .description("fixture").publicPrice(perTicket).minParticipants(1).maxParticipants(10)
                     .requiredSessionCount(1).sameLocationRequired(true).minimumSameDaySlotGap(0)
                     .state(WorkshopPackageState.PUBLISHED).build()).getId();
+            sellAtLocation(linePackageId);
         }
         String code = "GRP-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase(Locale.ROOT);
         List<ReserveGroupCapacityCommand.Line> commandLines = new ArrayList<>();

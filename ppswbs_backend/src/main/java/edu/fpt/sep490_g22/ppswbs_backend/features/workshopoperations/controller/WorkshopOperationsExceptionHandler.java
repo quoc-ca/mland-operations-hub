@@ -176,6 +176,25 @@ public class WorkshopOperationsExceptionHandler {
         return buildResponse(HttpStatus.CONFLICT, "INVALID_STATE", "Invalid Lifecycle State", ex.getMessage(), correlationId);
     }
 
+    /** T126: normal check-in before checkInOpensAt; the body carries checkInOpensAt for the Staff screen. */
+    @ExceptionHandler(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopCheckInNotOpenException.class)
+    public ResponseEntity<ProblemDetailResponse> handleCheckInNotOpen(
+            edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopCheckInNotOpenException ex,
+            HttpServletRequest request) {
+        String correlationId = resolveCorrelationId(request);
+        log.warn("Check-in not open [correlationId={}]: {}", correlationId, ex.getMessage());
+        ProblemDetailResponse body = ProblemDetailResponse.builder()
+                .type(URI.create(PROBLEM_BASE_URI + "check-in-not-open"))
+                .title("Check-in Not Open")
+                .status(HttpStatus.CONFLICT.value())
+                .code("CHECK_IN_NOT_OPEN")
+                .detail(ex.getMessage())
+                .checkInOpensAt(ex.getCheckInOpensAt())
+                .correlationId(correlationId)
+                .build();
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
+
     @ExceptionHandler(WorkshopCapacityConflictException.class)
     public ResponseEntity<ProblemDetailResponse> handleCapacityConflict(
             WorkshopCapacityConflictException ex, HttpServletRequest request) {
@@ -220,6 +239,16 @@ public class WorkshopOperationsExceptionHandler {
         String correlationId = resolveCorrelationId(request);
         log.warn("Optimistic lock conflict [correlationId={}]", correlationId);
         return buildResponse(HttpStatus.CONFLICT, "OPTIMISTIC_LOCK_CONFLICT", "Conflict", "The record was updated by another transaction. Please retry.", correlationId);
+    }
+
+    /** 003.2 FR-039: the Package is INACTIVE at the requested location; the page goes back to the location list. */
+    @ExceptionHandler(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopPackageNotAvailableException.class)
+    public ResponseEntity<ProblemDetailResponse> handlePackageNotAvailable(
+            edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopPackageNotAvailableException ex,
+            HttpServletRequest request) {
+        String correlationId = resolveCorrelationId(request);
+        return buildResponse(HttpStatus.CONFLICT, "PACKAGE_NOT_AVAILABLE_AT_LOCATION", "Package Not Available At Location",
+                "The Workshop Package is not sold at this location", correlationId);
     }
 
     @ExceptionHandler(IllegalStateException.class)

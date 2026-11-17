@@ -16,6 +16,18 @@ public interface SettlementNotificationHandoffRepository extends JpaRepository<S
     List<SettlementNotificationHandoff> findTop100ByDispatchedAtIsNullAndPayloadExpiresAtAfterOrderByCreatedAtAsc(
             Instant now);
 
+    /** T159: clears the private link of every stored notification of one kind about one subject. */
+    @Modifying(flushAutomatically = true)
+    @Query("update SettlementNotificationHandoff h set h.actionLink = null where h.settlementReference = :reference"
+            + " and h.notificationKind = :kind and h.actionLink is not null")
+    int scrubActionLinks(@Param("reference") String reference, @Param("kind") String kind);
+
+    /** T159: clears the private link of every notification of one kind whose link expired. */
+    @Modifying(flushAutomatically = true)
+    @Query("update SettlementNotificationHandoff h set h.actionLink = null where h.notificationKind = :kind"
+            + " and h.actionLink is not null and h.actionLinkExpiresAt <= :now")
+    int scrubExpiredActionLinks(@Param("kind") String kind, @Param("now") Instant now);
+
     @Modifying
     @Query("delete from SettlementNotificationHandoff h where h.payloadExpiresAt <= :now")
     int deleteExpiredPayloads(@Param("now") Instant now);

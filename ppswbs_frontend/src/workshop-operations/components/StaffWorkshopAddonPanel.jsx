@@ -47,7 +47,7 @@ export default function StaffWorkshopAddonPanel({ http }) {
     )}
     {createCommand.pending && <p role="status" aria-live="polite" className="muted small">Submitting folio correction...</p>}
     <form className="ota-form" onSubmit={submit}>
-      <label>Folio ticket code<input value={ticketCode} onChange={event => setTicketCode(event.target.value)} placeholder="TK-..." autoComplete="off" /></label>
+      <label>Mã vé (hóa đơn cần sửa)<input value={ticketCode} onChange={event => setTicketCode(event.target.value)} placeholder="GRP-…-L0-T1" autoComplete="off" /></label>
       <label>Overcharge refund amount (VND)<input inputMode="numeric" value={amountVnd} onChange={event => setAmountVnd(event.target.value)} placeholder="50000" autoComplete="off" /></label>
       <label>Correction reason<input value={reason} onChange={event => setReason(event.target.value)} placeholder="Staff overcharge at counter..." autoComplete="off" maxLength={1000} /></label>
       <button className="button primary" type="submit" disabled={createCommand.pending || !!correction || !isValid}>{createCommand.pending ? 'Submitting...' : 'Submit folio correction'}</button>

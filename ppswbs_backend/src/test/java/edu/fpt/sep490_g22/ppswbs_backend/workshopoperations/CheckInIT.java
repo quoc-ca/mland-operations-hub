@@ -280,6 +280,7 @@ public class CheckInIT {
                 .minimumSameDaySlotGap(0)
                 .state(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.WorkshopPackageState.PUBLISHED)
                 .build()).getId();
+        PackageAvailabilityFixture.activateAtSessionLocations(jdbcTemplate, packageId, sessionRefs);
 
         CapacityHoldOutcome hold = operationsFacade.reserveBookingCapacity(
                 new ReserveBookingCapacityCommand(bookingRef, String.valueOf(packageId), sessionRefs,
@@ -487,8 +488,8 @@ public class CheckInIT {
     // =========================================================================
 
     @Test
-    @DisplayName("T033-4: Early scan before check_in_opens_at is rejected with 409 INVALID_STATE")
-    void earlyScan_beforeOpeningTime_rejectedWithInvalidState() throws Exception {
+    @DisplayName("T033-4 / T126: Early scan before check_in_opens_at is rejected with 409 CHECK_IN_NOT_OPEN carrying checkInOpensAt")
+    void earlyScan_beforeOpeningTime_rejectedWithCheckInNotOpen() throws Exception {
         // Create session with check-in opening 2 hours in the future
         Instant futureOpening = Instant.now().plus(2, ChronoUnit.HOURS);
         WorkshopSession session = createPublishedSession(locationA, slotMorning, futureOpening);
@@ -507,9 +508,81 @@ public class CheckInIT {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("INVALID_STATE"));
+                .andExpect(jsonPath("$.code").value("CHECK_IN_NOT_OPEN"))
+                .andExpect(jsonPath("$.checkInOpensAt").isNotEmpty());
+
+        // The stored instant (microsecond precision) is what the body reports.
+        MvcResult early = mockMvc.perform(post("/api/v1/workshop-sessions/{sessionId}/check-ins", session.getReference())
+                        .header("Authorization", STAFF_A_TOKEN)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andReturn();
+        Instant reported = Instant.parse(objectMapper.readTree(early.getResponse().getContentAsString())
+                .get("checkInOpensAt").asText());
+        assertThat(reported).isEqualTo(sessionRepository.findById(session.getId()).orElseThrow().getCheckInOpensAt());
 
         assertThat(attendanceActionRepository.findAll()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("T126: a session not open for check-in stays 409 INVALID_STATE without checkInOpensAt")
+    void checkInOnCancelledSession_staysInvalidState() throws Exception {
+        WorkshopSession session = createPublishedSession(locationA, slotMorning, null);
+        session.setState(SessionState.CANCELLED);
+        sessionRepository.save(session);
+
+        mockMvc.perform(post("/api/v1/workshop-sessions/{sessionId}/check-ins", session.getReference())
+                        .header("Authorization", STAFF_A_TOKEN)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(CheckInRequest.builder().ticketCode("TK-ANY").build())))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("INVALID_STATE"))
+                .andExpect(jsonPath("$.checkInOpensAt").doesNotExist());
+    }
+
+    // =========================================================================
+    // FR-003d (T126): unknown code, booking of another session and booking of another location look the same
+    // =========================================================================
+
+    @Test
+    @DisplayName("T126 / FR-003d: unknown booking, booking of another session and booking of another location give the same 404")
+    void bookingLookup_unknownOtherSessionOtherLocation_sameNotFound() throws Exception {
+        WorkshopSession session = createPublishedSession(locationA, slotMorning, null);
+        WorkshopSession otherSession = createPublishedSession(locationA, slotAfternoon, null);
+        WorkshopSlot slotB = slotRepository.save(WorkshopSlot.builder()
+                .reference(UUID.randomUUID().toString())
+                .location(locationB)
+                .label("Morning Slot B")
+                .startTime(LocalTime.of(9, 0))
+                .endTime(LocalTime.of(12, 0))
+                .defaultCapacity(10)
+                .active(true)
+                .build());
+        WorkshopSession otherLocationSession = createPublishedSession(locationB, slotB, null);
+
+        String otherSessionBooking = "BK-OTHERSESSION-" + UUID.randomUUID().toString().substring(0, 6);
+        issueTicketsForBooking(otherSessionBooking, List.of(otherSession), 1);
+        String otherLocationBooking = "BK-OTHERLOC-" + UUID.randomUUID().toString().substring(0, 6);
+        issueTicketsForBooking(otherLocationBooking, List.of(otherLocationSession), 1);
+
+        List<JsonNode> bodies = new ArrayList<>();
+        for (String code : List.of("BK-NONEXISTENT", otherSessionBooking, otherLocationBooking)) {
+            MvcResult result = mockMvc.perform(get("/api/v1/workshop-sessions/{sessionId}/booking-lookups/{bookingCode}",
+                            session.getReference(), code)
+                            .header("Authorization", STAFF_A_TOKEN))
+                    .andExpect(status().isNotFound())
+                    .andReturn();
+            bodies.add(objectMapper.readTree(result.getResponse().getContentAsString()));
+        }
+        JsonNode unknown = bodies.get(0);
+        assertThat(unknown.get("code").asText()).isEqualTo("RESOURCE_NOT_FOUND");
+        for (JsonNode other : bodies.subList(1, bodies.size())) {
+            for (String field : List.of("status", "code", "title", "detail", "type")) {
+                assertThat(other.get(field)).as(field).isEqualTo(unknown.get(field));
+            }
+            assertThat(other.has("reason")).isFalse();
+        }
+        assertThat(unknown.get("detail").asText()).doesNotContain(otherSessionBooking, otherLocationBooking, "BK-NONEXISTENT");
     }
 
     // =========================================================================

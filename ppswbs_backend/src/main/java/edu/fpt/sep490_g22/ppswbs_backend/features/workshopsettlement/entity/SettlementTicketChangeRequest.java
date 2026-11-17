@@ -48,6 +48,10 @@ public class SettlementTicketChangeRequest {
     @Column(name = "target_session_references", nullable = false, length = 512)
     private String targetSessionReferences;
 
+    /** Comma-separated sessions the request replaces, one per target (T130); null on requests stored before V164. */
+    @Column(name = "from_session_references", length = 512)
+    private String fromSessionReferences;
+
     /** Comma-separated rule codes that blocked the change (CHANGE_ALLOWANCE_EXHAUSTED, ...). */
     @Column(name = "blocked_rules", nullable = false, length = 255)
     private String blockedRules;

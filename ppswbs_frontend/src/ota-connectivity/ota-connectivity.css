@@ -44,7 +44,7 @@
 .ota-sidebar::-webkit-scrollbar-thumb{background:#282c35;border-radius:4px}
 .ota-sidebar::-webkit-scrollbar-thumb:hover{background:#3f4453}
 .ota-sidebar a{color:#c4c7cf;padding:8px 12px;border-radius:6px;font-size:12px;font-weight:600;text-decoration:none;transition:background 0.15s, color 0.15s;line-height:1.4}
-.ota-sidebar a:hover,.ota-sidebar a.active{background:#eedc35;color:#1a1a1a}
+.ota-sidebar a:hover,.ota-sidebar a.active{background:#eedc35;color:#1a1a1a}.ota-sidebar a.active{font-weight:700;box-shadow:inset 4px 0 0 #1a1a1a}
 .ota-sidebar-nav{display:flex;flex-direction:column;gap:3px;flex:1}
 .ota-brand{display:grid;grid-template-columns:32px 1fr;column-gap:12px;align-items:center;margin-bottom:18px}
 .ota-brand span{grid-row:span 2;display:grid;place-items:center;width:32px;height:32px;background:#eedc35;color:#1a1a1a;font-weight:800;font-size:20px}

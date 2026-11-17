@@ -46,7 +46,7 @@ public class BookingTimePaymentQueryService {
         Instant from = workingDate.atStartOfDay(TimezoneConfiguration.ZONE_ID_VIETNAM).toInstant();
         Instant to = workingDate.plusDays(1).atStartOfDay(TimezoneConfiguration.ZONE_ID_VIETNAM).toInstant();
         List<GroupPaymentAttempt> found = attempts.findBookingTimePayments(locationId,
-                List.of(PaymentAttemptStatus.SUCCESS, PaymentAttemptStatus.PENDING),
+                List.of(PaymentAttemptStatus.SUCCESS, PaymentAttemptStatus.PENDING, PaymentAttemptStatus.EXPIRED),
                 PaymentAttemptStatus.SUCCESS, BookingStatus.CONFIRMED, from, to);
         if (found.isEmpty()) return List.of();
 

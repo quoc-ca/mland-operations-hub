@@ -315,6 +315,10 @@ public class TicketSettlementCancellationService {
 
             // 4d. Close ticket folio without debt (FR-041)
             bills.findByBookingReferenceForUpdate(ticketCode).ifPresent(bill -> {
+                // A customer cancellation closes an OPEN folio and leaves a FINALIZED one unchanged (FR-043, T157).
+                if (!SettlementFinalBillLifecycleStatus.OPEN.name().equals(bill.getLifecycleStatus())) {
+                    return;
+                }
                 bill.setLifecycleStatus(SettlementFinalBillLifecycleStatus.CLOSED.name());
                 bills.save(bill);
                 audits.save(SettlementBusinessAudit.builder()

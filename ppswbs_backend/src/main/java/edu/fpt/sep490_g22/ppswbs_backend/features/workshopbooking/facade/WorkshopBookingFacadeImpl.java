@@ -1,5 +1,9 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade;
 
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.ContactPhones;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.DependencyGuard;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.DeliverySafeTicketSet;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.SessionEntitlementProjection;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.BookingAuditEvidenceRepository;
@@ -62,6 +66,13 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade, Worksho
         return mismatchedEvidence.record(command);
     }
 
+    /**
+     * Guard (003.1 FR-054, Q5, T164; 003.2 FR-045): the location(s) of a row are the booking-time
+     * {@code BookingGroupLineSession.locationReference} values of the paid group, i.e. where the money was collected.
+     * They MUST NOT be re-read from Operations' current sessions: a later cross-location ticket change never moves
+     * or duplicates a paid row between branches. (Contrast {@link #getTicketFolioContext}, which reads the current
+     * session on purpose.)
+     */
     @Override
     public List<BookingTimePayment> listBookingTimePayments(Long locationId, java.time.LocalDate workingDate) {
         return bookingTimePayments.list(locationId, workingDate);
@@ -177,7 +188,7 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade, Worksho
                     ? query.memberAccountId().equals(booking.getMemberAccountId())
                     : emailMode
                         ? query.contactEmail().trim().equalsIgnoreCase(booking.getContactEmail())
-                        : query.contactPhone().trim().equals(booking.getContactPhone());
+                        : ContactPhones.sameContact(query.contactPhone(), booking.getContactPhone());
             return new CustomerBookingAccessDecision(authorized);
         }
         var ticket = ticketBookingRepository.findByTicketCode(ref).orElse(null);
@@ -187,7 +198,7 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade, Worksho
                     ? java.util.Objects.equals(query.memberAccountId(), group.getBuyerMemberAccountId())
                     : emailMode
                         ? query.contactEmail().trim().equalsIgnoreCase(group.getContactEmail())
-                        : query.contactPhone().trim().equals(group.getContactPhone());
+                        : ContactPhones.sameContact(query.contactPhone(), group.getContactPhone());
             return new CustomerBookingAccessDecision(authorized);
         }
         var group = bookingGroupRepository.findByGroupCode(ref).orElse(null);
@@ -196,7 +207,7 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade, Worksho
                     ? java.util.Objects.equals(query.memberAccountId(), group.getBuyerMemberAccountId())
                     : emailMode
                         ? query.contactEmail().trim().equalsIgnoreCase(group.getContactEmail())
-                        : query.contactPhone().trim().equals(group.getContactPhone());
+                        : ContactPhones.sameContact(query.contactPhone(), group.getContactPhone());
             return new CustomerBookingAccessDecision(authorized);
         }
         return new CustomerBookingAccessDecision(false);
@@ -525,12 +536,22 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade, Worksho
                         .sorted(java.util.Comparator.comparingInt(BookingGroupLineSession::getOrdinal))
                         .toList()
                 : List.of();
+        // FR-053 (owner decision 2026-11-17): once the Operations ticket exists and is ACTIVE, the location, the
+        // sessions and the first start are the ticket's CURRENT sessions in Operations, never the booking-time copy
+        // on the line (which stays the location where the group was held and paid). Q1/Q2: the copy is the answer
+        // only when there is no ACTIVE Operations ticket. Q3: Operations unavailable fails closed (503).
         Long locationReference = sessions.isEmpty() ? null : sessions.getFirst().getLocationReference();
         List<String> sessionReferences = sessions.stream()
                 .map(BookingGroupLineSession::getSessionReference)
                 .toList();
-        Long buyerMemberAccountId = group.getBuyerMemberAccountId();
         Instant firstSessionStart = sessions.isEmpty() ? null : sessions.getFirst().getScheduledStart();
+        List<SessionEntitlementProjection> current = currentSessionsOf(ticket, line);
+        if (!current.isEmpty()) {
+            locationReference = current.getFirst().locationReference();
+            sessionReferences = current.stream().map(s -> String.valueOf(s.sessionReference())).toList();
+            firstSessionStart = current.getFirst().scheduledStart();
+        }
+        Long buyerMemberAccountId = group.getBuyerMemberAccountId();
         long pointsUsed = 0L;
         long voucherDiscountVnd = 0L;
         if (ticketPriceSnapshotRepository != null && ticket.getId() != null) {
@@ -556,6 +577,31 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade, Worksho
                 partRef,
                 voucherDiscountVnd
         ));
+    }
+
+    /**
+     * The ticket's current sessions in Operations ordered by start (003.1 FR-053), or an empty list when there is no
+     * ACTIVE Operations ticket to read (no {@code operationsTicketReference} yet, or the projection, which lists
+     * ACTIVE tickets only, does not hold it): the caller then keeps the booking-time copy (Q1, Q2).
+     */
+    private List<SessionEntitlementProjection> currentSessionsOf(TicketBooking ticket, BookingGroupLine line) {
+        String operationsReference = ticket.getOperationsTicketReference();
+        if (operationsReference == null || operationsReference.isBlank() || line.getLineReference() == null) {
+            return List.of();
+        }
+        DeliverySafeTicketSet projection = DependencyGuard.call("Workshop Operations",
+                () -> operationsAdapter.getBookingTicketProjection(line.getLineReference()));
+        if (projection == null || projection.tickets() == null) {
+            return List.of();
+        }
+        return projection.tickets().stream()
+                .filter(t -> t.ticketReference() != null && operationsReference.equals(t.ticketReference().toString()))
+                .findFirst()
+                .map(t -> t.sessionEntitlements().stream()
+                        .sorted(java.util.Comparator.comparing(SessionEntitlementProjection::scheduledStart,
+                                java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder())))
+                        .toList())
+                .orElse(List.of());
     }
 
     @Override

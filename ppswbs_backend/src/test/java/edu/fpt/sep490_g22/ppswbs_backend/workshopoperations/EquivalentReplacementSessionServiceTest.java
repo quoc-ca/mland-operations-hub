@@ -29,6 +29,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -43,12 +44,13 @@ class EquivalentReplacementSessionServiceTest {
     private final TicketSessionEntitlementRepository entitlements = mock(TicketSessionEntitlementRepository.class);
     private final WorkshopSessionRepository sessions = mock(WorkshopSessionRepository.class);
     private final WorkshopPackageReservationPolicy policy = mock(WorkshopPackageReservationPolicy.class);
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopPackageAvailabilityService availability = mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopPackageAvailabilityService.class);
     private final TicketSessionReplacementService replacement = mock(TicketSessionReplacementService.class);
     private final EquivalentReplacementSessionService service =
-            new EquivalentReplacementSessionService(tickets, entitlements, sessions, policy, replacement);
+            new EquivalentReplacementSessionService(tickets, entitlements, sessions, policy, availability, replacement);
 
     private final AtomicLong ids = new AtomicLong(1);
-    private final WorkshopLocation branch = WorkshopLocation.builder().id(7L).build();
+    private final WorkshopLocation branch = WorkshopLocation.builder().id(7L).displayName("Hoan Kiem").build();
     private AttendanceTicket ticket;
 
     @BeforeEach
@@ -56,6 +58,8 @@ class EquivalentReplacementSessionServiceTest {
         ticket = AttendanceTicket.builder().id(100L).reference(UUID.randomUUID().toString())
                 .bookingReference(BOOKING_LINE).validityState(TicketValidityState.ACTIVE).build();
         when(tickets.findByReference(ticket.getReference())).thenReturn(Optional.of(ticket));
+        when(policy.packageIdOf(BOOKING_LINE)).thenReturn(Optional.of(5L));
+        when(availability.activeLocationIds(5L)).thenReturn(List.of(7L));
         when(policy.isValidTicketReplacement(eq(BOOKING_LINE), any())).thenReturn(true);
         when(replacement.remainingCapacity(any(), any())).thenReturn(5);
     }
@@ -74,8 +78,8 @@ class EquivalentReplacementSessionServiceTest {
     }
 
     private void branchOffers(WorkshopSession... offered) {
-        when(sessions.findByLocationIdAndStateAndWorkshopDateGreaterThanEqualOrderByScheduledStartAtAsc(
-                eq(7L), eq(SessionState.PUBLISHED), any(LocalDate.class))).thenReturn(List.of(offered));
+        when(sessions.findByLocationIdInAndStateAndWorkshopDateGreaterThanEqualOrderByScheduledStartAtAsc(
+                anyCollection(), eq(SessionState.PUBLISHED), any(LocalDate.class))).thenReturn(List.of(offered));
     }
 
     private EquivalentReplacementSessions find(WorkshopSession cancelled) {
@@ -115,6 +119,39 @@ class EquivalentReplacementSessionServiceTest {
 
         assertThat(find(cancelled).candidates()).extracting(EquivalentReplacementSessions.Candidate::sessionReference)
                 .containsExactly(UUID.fromString(good.getReference()));
+    }
+
+    @Test
+    @DisplayName("003.2 FR-046: candidates come from every location where the package is ACTIVE, each with its name")
+    void candidatesAtEveryActiveLocation() {
+        WorkshopLocation otherBranch = WorkshopLocation.builder().id(8L).displayName("Tay Ho").build();
+        WorkshopSession cancelled = session(30, SessionState.CANCELLATION_REQUESTED);
+        WorkshopSession sameBranch = session(60, SessionState.PUBLISHED);
+        WorkshopSession elsewhere = session(50, SessionState.PUBLISHED);
+        elsewhere.setLocation(otherBranch);
+        ticketHolds(cancelled);
+        when(availability.activeLocationIds(5L)).thenReturn(List.of(7L, 8L));
+        when(sessions.findByLocationIdInAndStateAndWorkshopDateGreaterThanEqualOrderByScheduledStartAtAsc(
+                eq(List.of(7L, 8L)), eq(SessionState.PUBLISHED), any(LocalDate.class)))
+                .thenReturn(List.of(sameBranch, elsewhere));
+
+        List<EquivalentReplacementSessions.Candidate> found = find(cancelled).candidates();
+
+        assertThat(found).extracting(EquivalentReplacementSessions.Candidate::sessionReference)
+                .containsExactly(UUID.fromString(elsewhere.getReference()), UUID.fromString(sameBranch.getReference()));
+        assertThat(found).extracting(EquivalentReplacementSessions.Candidate::locationName)
+                .containsExactly("Tay Ho", "Hoan Kiem");
+        assertThat(found).extracting(EquivalentReplacementSessions.Candidate::locationId).containsExactly(8L, 7L);
+    }
+
+    @Test
+    @DisplayName("003.2 FR-046: no ACTIVE location for the package gives an empty list (refund path)")
+    void emptyWhenNoLocationSellsThePackage() {
+        WorkshopSession cancelled = session(30, SessionState.CANCELLATION_REQUESTED);
+        ticketHolds(cancelled);
+        when(availability.activeLocationIds(5L)).thenReturn(List.of());
+
+        assertThat(find(cancelled).candidates()).isEmpty();
     }
 
     @Test

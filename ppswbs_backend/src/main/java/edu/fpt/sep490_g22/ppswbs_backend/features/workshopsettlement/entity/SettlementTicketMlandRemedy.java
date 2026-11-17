@@ -70,6 +70,10 @@ public class SettlementTicketMlandRemedy {
     @Builder.Default
     private boolean voucherRestored = false;
 
+    /** What the voucher and points facade answered (RESTORED, EXPIRED, ALREADY_RESTORED); null when nothing was triggered (T155). */
+    @Column(name = "voucher_restoration_outcome", length = 24)
+    private String voucherRestorationOutcome;
+
     @Column(name = "requester_account_id")
     private Long requesterAccountId;
 

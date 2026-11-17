@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { fakeSession, json, mockFetch, renderRoutes } from '../test/render';
 import { workshopRoutes } from './routes';
@@ -52,7 +52,7 @@ describe('003.1 FR-012b/FR-012c group payment attempt failures (T149)', () => {
     vi.stubGlobal('fetch', fetchMock);
     render(<GroupHoldPanel group={group()} proof={PROOF} />);
 
-    await user.click(screen.getByRole('button', { name: /Thanh toán 400.000 ₫ qua VNPay/ }));
+    await user.click(screen.getByRole('button', { name: /Thanh toán 400.000\s₫ qua VNPay/ }));
 
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent('Chưa xác định kết quả');
@@ -78,7 +78,7 @@ describe('003.1 FR-012b/FR-012c group payment attempt failures (T149)', () => {
     });
     render(<GroupHoldPanel group={group()} proof={PROOF} />);
 
-    await user.click(screen.getByRole('button', { name: /Thanh toán 400.000 ₫ qua VNPay/ }));
+    await user.click(screen.getByRole('button', { name: /Thanh toán 400.000\s₫ qua VNPay/ }));
 
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent('Không thể thanh toán');
@@ -96,7 +96,7 @@ describe('003.1 FR-012b/FR-012c group payment attempt failures (T149)', () => {
     });
     render(<GroupHoldPanel group={group()} proof={PROOF} />);
 
-    await user.click(screen.getByRole('button', { name: /Thanh toán 400.000 ₫ qua VNPay/ }));
+    await user.click(screen.getByRole('button', { name: /Thanh toán 400.000\s₫ qua VNPay/ }));
 
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent('Không thể thanh toán');
@@ -132,7 +132,7 @@ describe('003.1 FR-012b/FR-012c group payment attempt failures (T149)', () => {
     expect(screen.queryByRole('button', { name: /Gửi lại email xác nhận/ })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Hủy giữ chỗ' })).toBeNull();
     if (groupStatus === 'EXPIRED') {
-      expect(screen.getByRole('link', { name: 'Đặt lại workshop' })).toHaveAttribute('href', '/workshops');
+      expect(screen.getByRole('link', { name: 'Đặt lại workshop' })).toHaveAttribute('href', '/workshops/5?focus=schedule&participants=2');
     }
   });
 });
@@ -155,6 +155,7 @@ describe('003.1 FR-012b the payment-return page (T149)', () => {
     expect(screen.queryByText('Đã xác nhận')).toBeNull();
     expect(screen.queryByRole('button', { name: /qua VNPay/ })).toBeNull();
   });
+it('resumes a pending payment from the header notice without showing a gateway result that does not exist (FR-058)', async () => {    await openReturn(group(), '?resume=1');    expect(await screen.findByRole('heading', { name: 'Tiếp tục thanh toán' })).toBeInTheDocument();    expect(screen.queryByText(/Mã phản hồi cổng/)).toBeNull();    expect(screen.queryByText('Không nhận được phản hồi từ cổng')).toBeNull();  });  it('keeps the gateway result when the browser comes back from the gateway, even with resume in the address', async () => {    await openReturn(group(), '?resume=1&vnp_ResponseCode=00');    expect(await screen.findByRole('heading', { name: 'Kết quả chuyển hướng thanh toán' })).toBeInTheDocument();    expect(screen.getByText('Cổng thanh toán báo thành công')).toBeInTheDocument();  });
 
   it('shows the server state of an expired group even when the gateway reported success', async () => {
     const { user, calls } = await openReturn(group({ groupStatus: 'EXPIRED', holdExpiresAt: null, paymentDeadlineAt: null, tickets: [ticket(1, 'EXPIRED'), ticket(2, 'EXPIRED')] }));
@@ -166,6 +167,57 @@ describe('003.1 FR-012b the payment-return page (T149)', () => {
     expect(await screen.findByText('Thời hạn thanh toán đã kết thúc')).toBeInTheDocument();
     expect(screen.queryByText('Cổng thanh toán báo thành công')).toBeNull();
     expect(payButton()).toBeNull();
+  });
+
+  it('shows a confirmed group as a result page with its tickets and next actions', async () => {
+    const { user } = await openReturn(group({ groupStatus: 'CONFIRMED', holdExpiresAt: null, paymentDeadlineAt: null, tickets: [{ ...ticket(1, 'CONFIRMED'), mlandRemedyPending: true }, ticket(2, 'CONFIRMED')] }));
+
+    await user.type(await screen.findByPlaceholderText('0901234567'), '0901234567');
+    await user.click(screen.getByRole('button', { name: 'Xem trạng thái nhóm' }));
+
+    expect(await screen.findByText('Thanh toán thành công')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Vé của bạn' })).toBeInTheDocument();
+    expect(screen.getByText('WT-1')).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: 'Xem hóa đơn thanh toán của vé' })[0]).toHaveAttribute('href', '/workshop-tickets/WT-1/folio');
+    const remedy = screen.getAllByRole('link', { name: 'Chọn buổi thay thế hoặc hoàn tiền' });
+    expect(remedy).toHaveLength(1);
+    expect(remedy[0]).toHaveAttribute('href', '/workshop-tickets/WT-1/remedy');
+  });
+
+  it('lets a signed-out buyer cancel an unused ticket after the OTP check and shows the benefit outcome', async () => {
+    const future = new Date(Date.now() + 72 * 3600 * 1000).toISOString();
+    const confirmedTicket = { ...ticket(1, 'CONFIRMED'), sessions: [{ sessionReference: SESSION_ONE, ordinal: 1, scheduledStart: future, scheduledEnd: future }] };
+    window.history.replaceState(null, '', `/workshop-booking/${GROUP_CODE}/payment-return?vnp_ResponseCode=00`);
+    const user = userEvent.setup();
+    const calls = mockFetch({
+      'POST /api/v1/workshop-booking-group-lookups': json(200, group({ groupStatus: 'CONFIRMED', holdExpiresAt: null, paymentDeadlineAt: null, tickets: [confirmedTicket] })),
+      [`POST /api/v1/workshop-booking-groups/${GROUP_CODE}/buyer-verifications`]: json(201, { verificationId: 'V-1' }),
+      [`POST /api/v1/workshop-booking-groups/${GROUP_CODE}/buyer-verifications/V-1/confirmations`]: json(200, { buyerVerificationReference: 'BVR-1' }),
+      'POST /api/v1/workshop-tickets/WT-1/cancellations': json(201, { ticketCode: 'WT-1', benefitOutcome: 'VALID_CANCELLATION', pointsReturned: 120, voucherRestoration: { restored: false, reason: 'EXPIRED' } }),
+    });
+    renderRoutes(workshopRoutes, { path: `/workshop-booking/${GROUP_CODE}/payment-return`, session: fakeSession('signed-out') });
+    await user.type(await screen.findByPlaceholderText('0901234567'), '0901234567');
+    await user.click(screen.getByRole('button', { name: 'Xem trạng thái nhóm' }));
+
+    await user.click(await screen.findByRole('button', { name: 'Hủy vé' }));
+    expect(screen.getByRole('note', { name: '' })).toBeTruthy();
+    expect(screen.getByText(/không được hoàn lại/)).toBeInTheDocument();
+    expect(screen.getByText(/đây là hủy hợp lệ/)).toBeInTheDocument();
+    await user.type(screen.getByLabelText('Lý do hủy'), 'Bận việc');
+    expect(screen.getByRole('button', { name: 'Xác nhận hủy vé' })).toBeDisabled();
+
+    await user.click(screen.getByRole('button', { name: 'Gửi mã xác minh' }));
+    await user.type(await screen.findByLabelText(/Mã xác minh/), '123456');
+    await user.click(screen.getByRole('button', { name: 'Xác minh' }));
+    await user.click(await screen.findByRole('button', { name: 'Xác nhận hủy vé' }));
+
+    expect(await screen.findByText(/Đã hủy vé WT-1/)).toBeInTheDocument();
+    expect(screen.getByText(/đã trả lại 120 điểm/)).toBeInTheDocument();
+    expect(screen.getByText(/đã hết hạn nên không được khôi phục/)).toBeInTheDocument();
+    const cancel = calls.filter(call => call.path === '/api/v1/workshop-tickets/WT-1/cancellations');
+    expect(cancel).toHaveLength(1);
+    expect(cancel[0].headers['Idempotency-Key']).toBeTruthy();
+    expect(cancel[0].body).toEqual({ reason: 'Bận việc', buyerVerificationReference: 'BVR-1' });
   });
 
   it('shows the waiting message for a held group past its payment deadline, with no pay control', async () => {
@@ -217,18 +269,19 @@ describe('003.1 FR-031/FR-045 503 DEPENDENCY_UNAVAILABLE on quote and group crea
   it('cart quote: shows "try again later", keeps the cart, creates no group, sends no retry', async () => {
     const user = userEvent.setup();
     const calls = mockFetch({ ...discovery(), 'POST /api/v1/workshop-cart-quotes': UNAVAILABLE });
-    renderRoutes(workshopRoutes, { path: '/workshops/5/book', session: fakeSession('signed-out') });
+    const { router } = renderRoutes(workshopRoutes, { path: '/workshops/5', session: fakeSession('signed-out') });
     await pickTwoTickets(user);
     await user.click(screen.getByRole('button', { name: 'Thêm vào giỏ' }));
-    await user.click(await screen.findByRole('link', { name: /Mở giỏ workshop/i }));
-    await user.click(await screen.findByRole('button', { name: 'Báo giá giỏ' }));
+    await act(async () => { await router.navigate('/workshop-booking/cart'); }); // the header cart icon is outside these routes
+    await user.click(await screen.findByRole('checkbox', { name: 'Chọn tất cả các dòng' })); // nothing is ticked when the cart opens
+    await user.click(await screen.findByRole('button', { name: 'Xem báo giá và đặt chỗ' }));
 
     expect(await screen.findByText(TRY_LATER)).toBeInTheDocument();
     await new Promise(resolve => setTimeout(resolve, 150));
     expect(calls.filter(call => call.path === '/api/v1/workshop-cart-quotes')).toHaveLength(1);
     expect(calls.some(call => call.path === '/api/v1/workshop-booking-groups')).toBe(false);
     expect(readCart()).toHaveLength(1);
-    expect(screen.getByRole('button', { name: 'Báo giá giỏ' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Xem báo giá và đặt chỗ' })).toBeEnabled();
     expect(screen.queryByText(GROUP_CODE)).toBeNull();
   });
 
@@ -239,11 +292,12 @@ describe('003.1 FR-031/FR-045 503 DEPENDENCY_UNAVAILABLE on quote and group crea
       'POST /api/v1/workshop-cart-quotes': json(201, QUOTE),
       'POST /api/v1/workshop-booking-groups': UNAVAILABLE,
     });
-    renderRoutes(workshopRoutes, { path: '/workshops/5/book', session: fakeSession('signed-out') });
+    const { router } = renderRoutes(workshopRoutes, { path: '/workshops/5', session: fakeSession('signed-out') });
     await pickTwoTickets(user);
     await user.click(screen.getByRole('button', { name: 'Thêm vào giỏ' }));
-    await user.click(await screen.findByRole('link', { name: /Mở giỏ workshop/i }));
-    await user.click(await screen.findByRole('button', { name: 'Báo giá giỏ' }));
+    await act(async () => { await router.navigate('/workshop-booking/cart'); }); // the header cart icon is outside these routes
+    await user.click(await screen.findByRole('checkbox', { name: 'Chọn tất cả các dòng' })); // nothing is ticked when the cart opens
+    await user.click(await screen.findByRole('button', { name: 'Xem báo giá và đặt chỗ' }));
     await user.type(await screen.findByLabelText(/Email nhận vé/i), 'guest@mland.vn');
     await user.type(screen.getByLabelText(/Số điện thoại liên hệ/i), '0901234567');
     await user.click(screen.getByRole('button', { name: 'Xác nhận và giữ chỗ' }));
@@ -261,7 +315,7 @@ describe('003.1 FR-031/FR-045 503 DEPENDENCY_UNAVAILABLE on quote and group crea
   it('"Đặt ngay" quote: shows "try again later" and keeps the chosen session and ticket count', async () => {
     const user = userEvent.setup();
     const calls = mockFetch({ ...discovery(), 'POST /api/v1/workshop-cart-quotes': UNAVAILABLE });
-    renderRoutes(workshopRoutes, { path: '/workshops/5/book', session: fakeSession('signed-out') });
+    renderRoutes(workshopRoutes, { path: '/workshops/5', session: fakeSession('signed-out') });
     await pickTwoTickets(user);
     await user.click(screen.getByRole('button', { name: 'Đặt ngay' }));
 
@@ -269,8 +323,10 @@ describe('003.1 FR-031/FR-045 503 DEPENDENCY_UNAVAILABLE on quote and group crea
     await new Promise(resolve => setTimeout(resolve, 150));
     expect(calls.filter(call => call.path === '/api/v1/workshop-cart-quotes')).toHaveLength(1);
     expect(calls.some(call => call.path === '/api/v1/workshop-booking-groups')).toBe(false);
-    expect(screen.getByRole('button', { name: 'Đặt ngay' })).toBeEnabled();
-    expect(screen.getByRole('button', { name: 'Giảm số vé' })).toBeEnabled();
+    // The chosen session and ticket count stay on the checkout, and the quote can be asked again by hand.
+    expect(screen.getByRole('button', { name: 'Báo giá lại' })).toBeEnabled();
+    expect(screen.getByText(/\d{2}\/\d{2}\/\d{4}/)).toBeInTheDocument();
+    expect(screen.getByText(/Số vé:/).textContent).toContain('2');
   });
 
   it('"Đặt ngay" confirm: keeps the quote and typed fields, creates no group view, no retry', async () => {
@@ -280,7 +336,7 @@ describe('003.1 FR-031/FR-045 503 DEPENDENCY_UNAVAILABLE on quote and group crea
       'POST /api/v1/workshop-cart-quotes': json(201, QUOTE),
       'POST /api/v1/workshop-booking-groups': UNAVAILABLE,
     });
-    renderRoutes(workshopRoutes, { path: '/workshops/5/book', session: fakeSession('signed-out') });
+    renderRoutes(workshopRoutes, { path: '/workshops/5', session: fakeSession('signed-out') });
     await pickTwoTickets(user);
     await user.click(screen.getByRole('button', { name: 'Đặt ngay' }));
     await user.type(await screen.findByLabelText(/Email nhận vé/i), 'guest@mland.vn');
@@ -295,4 +351,43 @@ describe('003.1 FR-031/FR-045 503 DEPENDENCY_UNAVAILABLE on quote and group crea
     expect(screen.getByText('Báo giá đặt ngay')).toBeInTheDocument();
     expect(screen.queryByText(GROUP_CODE)).toBeNull();
   });
+});
+
+describe('003.1 the payment-return page for a signed-in Member', () => {
+  const originalUrl = window.location.href;
+  afterEach(() => { window.history.replaceState(null, '', originalUrl); vi.unstubAllGlobals(); });
+  const GROUP_PATH = `GET /api/v1/workshop-booking-groups/${GROUP_CODE}`;
+  const profile = json(200, { accountId: 11, role: 'MEMBER', email: 'member@mland.vn', phone: '0901234567' });
+
+  function openAsMember(groupHandler) {
+    window.history.replaceState(null, '', `/workshop-booking/${GROUP_CODE}/payment-return?vnp_ResponseCode=00`);
+    const calls = mockFetch({ 'GET /api/v1/accounts/me/profile': profile, [GROUP_PATH]: groupHandler });
+    renderRoutes(workshopRoutes, { path: `/workshop-booking/${GROUP_CODE}/payment-return`, session: fakeSession('signed-in') });
+    return calls;
+  }
+
+  it('loads the group itself with the bearer and asks for no contact proof', async () => {
+    const confirmed = group({ groupStatus: 'CONFIRMED', holdExpiresAt: null, paymentDeadlineAt: null, tickets: [ticket(1, 'CONFIRMED')] });
+    const calls = openAsMember(() => json(200, confirmed));
+
+    expect(await screen.findByText('Thanh toán thành công')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Vé của bạn' })).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('0901234567')).toBeNull();
+    const read = calls.find(call => call.path === `/api/v1/workshop-booking-groups/${GROUP_CODE}`);
+    expect(read).toBeTruthy();
+  });
+
+  it('re-reads quietly while the gateway said 00 but the group is still pending, then shows the confirmation', async () => {
+    let reads = 0;
+    const calls = openAsMember(() => {
+      reads += 1;
+      return reads === 1
+        ? json(200, group())
+        : json(200, group({ groupStatus: 'CONFIRMED', holdExpiresAt: null, paymentDeadlineAt: null, tickets: [ticket(1, 'CONFIRMED')] }));
+    });
+
+    expect(await screen.findByText('Cổng thanh toán báo thành công')).toBeInTheDocument();
+    expect(await screen.findByText('Thanh toán thành công', {}, { timeout: 8000 })).toBeInTheDocument();
+    expect(calls.filter(call => call.path === `/api/v1/workshop-booking-groups/${GROUP_CODE}`).length).toBe(2);
+  }, 15000);
 });

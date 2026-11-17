@@ -27,9 +27,6 @@ public class TicketSessionReplacementService {
 
     static final String ACTION_REPLACE_TICKET_SESSIONS = "REPLACE_TICKET_SESSIONS";
 
-    /** FR-034: the replacement of a missed session must start within this window after its end. */
-    private static final Duration LATE_ARRIVAL_WINDOW = Duration.ofDays(7);
-
     private final AttendanceTicketRepository ticketRepository;
     private final TicketSessionEntitlementRepository entitlementRepository;
     private final TicketSessionReplacementRepository replacementRepository;
@@ -39,6 +36,7 @@ public class TicketSessionReplacementService {
     private final FacadeCommandIdempotencyManager idempotencyManager;
     private final WorkshopOtaSnapshotService otaSnapshotService;
     private final WorkshopPackageReservationPolicy packageReservationPolicy;
+    private final TicketReplacementRules rules;
 
     @Transactional
     public TicketSessionReplacementOutcome replace(ReplaceTicketSessionsCommand command) {
@@ -142,9 +140,11 @@ public class TicketSessionReplacementService {
                 reason = reason == null ? RejectionReason.INVALID_REPLACEMENT : reason;
                 continue;
             }
-            if (!packageReservationPolicy.isValidTicketReplacement(locked.getBookingReference(), targets)) {
+            RejectionReason structureReason = packageReservationPolicy
+                    .checkTicketReplacement(locked.getBookingReference(), targets);
+            if (structureReason != null) {
                 failing.add(i);
-                reason = reason == null ? RejectionReason.INVALID_REPLACEMENT : reason;
+                reason = reason == null ? structureReason : reason;
                 continue;
             }
 
@@ -163,15 +163,13 @@ public class TicketSessionReplacementService {
                     lineReason = RejectionReason.INVALID_STATE;
                     break;
                 }
-                lineReason = checkSource(command.type(), source, entitlement, now);
+                lineReason = rules.checkSource(command.type(), source, entitlement, now);
                 if (lineReason == null) {
-                    lineReason = checkTarget(target, now);
+                    lineReason = rules.checkTarget(target, now);
                 }
-                if (lineReason == null && isLateArrival(command.type(), source, now)) {
+                if (lineReason == null) {
                     // FR-034: only the missed session's own replacement must fall inside the 7-day window.
-                    if (target.getScheduledStartAt().isAfter(source.getScheduledEndAt().plus(LATE_ARRIVAL_WINDOW))) {
-                        lineReason = RejectionReason.LATE_ARRIVAL_WINDOW_EXPIRED;
-                    }
+                    lineReason = rules.checkLateArrivalWindow(command.type(), source, target, now);
                 }
                 if (lineReason == null) {
                     moves.add(new Move(locked, entitlement, source, target));
@@ -247,50 +245,6 @@ public class TicketSessionReplacementService {
         audit(command, movedTickets, "SUCCESS");
         log.info("Replaced sessions of {} ticket(s) as {}", movedTickets, command.type());
         return finish(claim, TicketSessionReplacementOutcome.accepted());
-    }
-
-    /** FR-034: a source may be left behind only when the ticket has no attendance there. */
-    private RejectionReason checkSource(TicketReplacementType type, WorkshopSession source,
-                                        TicketSessionEntitlement entitlement, Instant now) {
-        if (source.getScheduledStartAt() == null || source.getScheduledEndAt() == null) {
-            return RejectionReason.INVALID_STATE;
-        }
-        if (entitlement.getCheckedInAt() != null
-                || entitlement.getAttendanceState() != AttendanceState.NOT_CHECKED_IN) {
-            return RejectionReason.INVALID_REPLACEMENT;
-        }
-        if (source.getState() == SessionState.ATTENDANCE_FINALIZED) {
-            return RejectionReason.INVALID_REPLACEMENT;
-        }
-        if (type == TicketReplacementType.MLAND) {
-            // The Mland case is exactly the disrupted session, so a cancelled or running source is expected.
-            return null;
-        }
-        if (type == TicketReplacementType.CUSTOMER_LATE_ARRIVAL) {
-            boolean runningAndNotEnded = source.getState() == SessionState.IN_PROGRESS
-                    && source.getScheduledEndAt().isAfter(now);
-            boolean future = source.getScheduledStartAt().isAfter(now);
-            return runningAndNotEnded || future ? null : RejectionReason.INVALID_REPLACEMENT;
-        }
-        boolean future = source.getScheduledStartAt().isAfter(now)
-                && source.getState() != SessionState.IN_PROGRESS
-                && source.getState() != SessionState.CANCELLATION_REQUESTED
-                && source.getState() != SessionState.CANCELLED;
-        return future ? null : RejectionReason.INVALID_REPLACEMENT;
-    }
-
-    /** FR-034: every target must be future, published and customer-selectable. */
-    private RejectionReason checkTarget(WorkshopSession target, Instant now) {
-        if (target.getScheduledStartAt() == null || !target.getScheduledStartAt().isAfter(now)
-                || target.getState() != SessionState.PUBLISHED) {
-            return RejectionReason.INVALID_REPLACEMENT;
-        }
-        return null;
-    }
-
-    private boolean isLateArrival(TicketReplacementType type, WorkshopSession source, Instant now) {
-        return type == TicketReplacementType.CUSTOMER_LATE_ARRIVAL
-                && !source.getScheduledStartAt().isAfter(now);
     }
 
     /** Locking reads, as in {@code GroupCapacityService}: an older snapshot must not take the last seat twice. */

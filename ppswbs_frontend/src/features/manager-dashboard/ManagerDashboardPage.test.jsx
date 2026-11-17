@@ -28,16 +28,43 @@ const report = (overrides = {}) => ({
   ...overrides,
 });
 
+const tv = (o = {}) => ({
+  retailPlaced: 0, retailPaid: 0, retailCancelled: 0, retailExpired: 0, retailRevenue: '0',
+  workshopBooked: 0, workshopConfirmed: 0, workshopCancelled: 0, workshopAbandoned: 0,
+  placesRegistered: 0, placesCheckedIn: 0, placesNoShow: 0, placesCancelled: 0, workshopRevenue: '0', ...o,
+});
+
+const trend = (overrides = {}) => ({
+  scope: { periodType: 'MONTH', startAt: '2026-10-31T17:00:00Z', endAt: '2026-11-14T03:00:00Z', timezone: 'Asia/Ho_Chi_Minh', locationIds: [1, 2] },
+  granularity: 'DAY',
+  points: [
+    { startAt: '2026-10-31T17:00:00Z', label: '01/11', values: tv({ retailPlaced: 6, retailPaid: 4, retailCancelled: 1, retailExpired: 1, retailRevenue: '900000' }) },
+    { startAt: '2026-11-01T17:00:00Z', label: '02/11', values: tv({ placesRegistered: 10, placesCheckedIn: 8, placesNoShow: 2, workshopBooked: 4 }) },
+  ],
+  current: tv({ retailPlaced: 6, retailPaid: 4, retailCancelled: 1, retailExpired: 1, retailRevenue: '900000',
+    placesRegistered: 10, placesCheckedIn: 8, placesNoShow: 2, workshopBooked: 4 }),
+  previous: tv({ retailPlaced: 4, retailPaid: 4, placesCheckedIn: 8, placesNoShow: 0 }),
+  previousStartAt: '2026-09-30T17:00:00Z', previousEndAt: '2026-10-14T03:00:00Z',
+  unavailable: [], lastUpdatedAt: '2026-11-14T03:00:00Z',
+  ...overrides,
+});
+
+const routes = (reportBody = report(), trendBody = trend()) => ({
+  'GET /api/v1/executive-reports': json(200, reportBody),
+  'GET /api/v1/executive-reports/trends': json(200, trendBody),
+});
+
 // The sidebar also asks for the profile; count only the dashboard reads.
 const reads = calls => calls.filter(call => call.path === '/api/v1/executive-reports');
 const kpis = () => within(screen.getByRole('region', { name: 'Chỉ số chính' }));
 
 describe('FE-10 Manager dashboard', () => {
   it('loads the current month for every assigned branch and shows exactly five KPI cards', async () => {
-    const calls = mockFetch({ 'GET /api/v1/executive-reports': json(200, report()) });
+    const calls = mockFetch(routes());
     renderRoutes(managerDashboardRoutes, { path: '/manager/dashboard' });
 
     expect(await screen.findByRole('heading', { name: 'Dashboard điều hành' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Quản lý đánh giá' })).toHaveAttribute('href', '/review-moderation');
     expect(await kpis().findByText('Tổng doanh thu')).toBeInTheDocument();
     expect(kpis().getAllByRole('article')).toHaveLength(5);
     expect(kpis().getByText('55%')).toBeInTheDocument();
@@ -48,7 +75,7 @@ describe('FE-10 Manager dashboard', () => {
   });
 
   it('applies the period, the branch and a picked day as soon as they are chosen', async () => {
-    const calls = mockFetch({ 'GET /api/v1/executive-reports': json(200, report()) });
+    const calls = mockFetch(routes());
     renderRoutes(managerDashboardRoutes, { path: '/manager/dashboard' });
     await screen.findByRole('rowheader', { name: 'MLAND Hoan Kiem' });
 
@@ -93,7 +120,7 @@ describe('FE-10 Manager dashboard', () => {
 
   it('never reloads on a timer and has no refresh button (F5 refreshes)', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
-    const calls = mockFetch({ 'GET /api/v1/executive-reports': json(200, report()) });
+    const calls = mockFetch(routes());
     renderRoutes(managerDashboardRoutes, { path: '/manager/dashboard' });
     await screen.findByRole('rowheader', { name: 'MLAND Hoan Kiem' });
 
@@ -101,5 +128,37 @@ describe('FE-10 Manager dashboard', () => {
     expect(reads(calls)).toHaveLength(1);
     expect(screen.queryByRole('button', { name: 'Làm mới' })).not.toBeInTheDocument();
     vi.useRealTimers();
+  });
+
+  it('shows retail and workshop trends against the previous period with the same filters', async () => {
+    const calls = mockFetch(routes());
+    renderRoutes(managerDashboardRoutes, { path: '/manager/dashboard' });
+
+    const trends = within(await screen.findByRole('region', { name: 'Xu hướng' }));
+    expect(await trends.findByRole('img', { name: 'Doanh thu bán lẻ theo ngày' })).toBeInTheDocument();
+    expect(trends.getByRole('img', { name: 'Đơn đặt và đơn bị hủy theo ngày' })).toBeInTheDocument();
+    expect(trends.getByRole('img', { name: 'Người tham gia theo ngày diễn ra buổi học' })).toBeInTheDocument();
+    expect(trends.getByRole('img', { name: 'Vé đặt và vé bị hủy theo ngày đặt chỗ' })).toBeInTheDocument();
+    // 6 orders against 4 the period before; 2 of 6 dropped; 2 no-shows of 10 who were due.
+    expect(trends.getByText('▲ 50% so với kỳ trước')).toBeInTheDocument();
+    expect(trends.getByText('Tỷ lệ 33,3%')).toBeInTheDocument();
+    expect(trends.getByText('20%')).toBeInTheDocument();
+    expect(calls.filter(c => c.path === '/api/v1/executive-reports/trends')[0].query).toEqual({ periodType: 'MONTH' });
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Năm' }));
+    await waitFor(() => expect(calls.filter(c => c.path === '/api/v1/executive-reports/trends')).toHaveLength(2));
+    expect(calls.filter(c => c.path === '/api/v1/executive-reports/trends')[1].query.periodType).toBe('YEAR');
+  });
+
+  it('names a trend source that could not be read and draws it as unknown', async () => {
+    mockFetch(routes(report(), trend({
+      unavailable: ['ATTENDANCE'],
+      current: tv({ placesRegistered: null, placesCheckedIn: null, placesNoShow: null, placesCancelled: null }),
+    })));
+    renderRoutes(managerDashboardRoutes, { path: '/manager/dashboard' });
+
+    expect(await screen.findByText(/Check-in workshop tạm thời không đọc được/)).toBeInTheDocument();
+    const stat = screen.getByText('Lượt check-in').closest('article');
+    expect(within(stat).getByText('—', { selector: 'strong' })).toBeInTheDocument();
   });
 });

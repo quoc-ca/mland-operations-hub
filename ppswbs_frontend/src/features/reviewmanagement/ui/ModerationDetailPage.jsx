@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { useParams } from 'react-router';
+import { Link, useParams } from 'react-router';
 import { useT } from '../../../shared/i18n/I18nProvider';
+import { useRole } from '../../../shared/auth/useRole';
 import { ErrorNotice, Field, Loading, SuccessNotice, useCommand, useResource } from '../../../shared/ui/components';
 import { useReviewManagementApi } from '../api/useReviewManagementApi';
 import { reviewManagementMessages } from '../messages';
@@ -10,6 +11,8 @@ export default function ModerationDetailPage() {
   const t = useT(reviewManagementMessages);
   const { reviewId } = useParams();
   const api = useReviewManagementApi();
+  const role = useRole();
+  const isStaff = role === 'STAFF';
 
   const resource = useResource(() => api.getReview(reviewId, true), [reviewId]);
   const command = useCommand();
@@ -85,6 +88,11 @@ export default function ModerationDetailPage() {
   return (
     <div className="review-container">
       <header className="page-header">
+        <div style={{ marginBottom: '0.75rem' }}>
+          <Link to="/review-moderation" className="button outline small" style={{ textDecoration: 'none' }}>
+            ← Danh sách kiểm duyệt
+          </Link>
+        </div>
         <h1>{t('moderationTitle')}</h1>
         <p className="muted">
           {review.maskedDisplayName} · {review.status}
@@ -138,37 +146,58 @@ export default function ModerationDetailPage() {
         />
 
         <div className="actions">
-          {review.status !== 'HIDDEN' && (
-            <button
-              type="button"
-              className="button outline"
-              onClick={() => handleVisibility('HIDDEN')}
-              disabled={command.pending}
-            >
-              {t('hide')}
-            </button>
-          )}
+          {isStaff ? (
+            <>
+              {review.status !== 'HIDDEN' ? (
+                <button
+                  type="button"
+                  className="button outline"
+                  onClick={() => handleVisibility('HIDDEN')}
+                  disabled={command.pending}
+                >
+                  {t('hide')}
+                </button>
+              ) : (
+                <span className="muted" style={{ fontStyle: 'italic', fontSize: '0.9rem' }}>
+                  Đánh giá đang ở trạng thái ẨN. Chỉ Quản lý (Manager) mới có quyền Khôi phục hoặc Gỡ bỏ.
+                </span>
+              )}
+            </>
+          ) : (
+            <>
+              {review.status !== 'HIDDEN' && (
+                <button
+                  type="button"
+                  className="button outline"
+                  onClick={() => handleVisibility('HIDDEN')}
+                  disabled={command.pending}
+                >
+                  {t('hide')}
+                </button>
+              )}
 
-          {review.status === 'HIDDEN' && (
-            <button
-              type="button"
-              className="button outline"
-              onClick={() => handleVisibility('PUBLIC')}
-              disabled={command.pending}
-            >
-              {t('restore')}
-            </button>
-          )}
+              {review.status === 'HIDDEN' && (
+                <button
+                  type="button"
+                  className="button outline"
+                  onClick={() => handleVisibility('PUBLIC')}
+                  disabled={command.pending}
+                >
+                  {t('restore')}
+                </button>
+              )}
 
-          {review.status !== 'REMOVED' && (
-            <button
-              type="button"
-              className="button danger"
-              onClick={() => handleVisibility('REMOVED')}
-              disabled={command.pending}
-            >
-              {t('remove')}
-            </button>
+              {review.status !== 'REMOVED' && (
+                <button
+                  type="button"
+                  className="button danger"
+                  onClick={() => handleVisibility('REMOVED')}
+                  disabled={command.pending}
+                >
+                  {t('remove')}
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -186,38 +215,46 @@ export default function ModerationDetailPage() {
           </div>
         )}
 
-        <Field
-          label={t('reply')}
-          hint={`${reply.length}/${LIMITS.replyMax.toLocaleString()}`}
-        >
-          <textarea
-            value={reply}
-            onChange={e => setReply(e.target.value)}
-            placeholder={t('replyPlaceholder')}
-            rows={5}
-            disabled={replyCommand.pending}
-          />
-        </Field>
+        {isStaff ? (
+          <p className="muted" style={{ fontStyle: 'italic', margin: '0.5rem 0' }}>
+            Chỉ Quản lý (Manager) mới có quyền gửi phản hồi chính thức cho khách hàng.
+          </p>
+        ) : (
+          <>
+            <Field
+              label={t('reply')}
+              hint={`${reply.length}/${LIMITS.replyMax.toLocaleString()}`}
+            >
+              <textarea
+                value={reply}
+                onChange={e => setReply(e.target.value)}
+                placeholder={t('replyPlaceholder')}
+                rows={5}
+                disabled={replyCommand.pending}
+              />
+            </Field>
 
-        {replyError && (
-          <div className="notice error" role="alert">
-            {replyError}
-          </div>
+            {replyError && (
+              <div className="notice error" role="alert">
+                {replyError}
+              </div>
+            )}
+
+            <ErrorNotice
+              error={replyCommand.error}
+              messages={reviewManagementMessages}
+              onRetry={replyCommand.retry}
+            />
+
+            <button
+              type="submit"
+              className="button primary"
+              disabled={replyCommand.pending}
+            >
+              {t('saveReply')}
+            </button>
+          </>
         )}
-
-        <ErrorNotice
-          error={replyCommand.error}
-          messages={reviewManagementMessages}
-          onRetry={replyCommand.retry}
-        />
-
-        <button
-          type="submit"
-          className="button primary"
-          disabled={replyCommand.pending}
-        >
-          {t('saveReply')}
-        </button>
       </form>
     </div>
   );

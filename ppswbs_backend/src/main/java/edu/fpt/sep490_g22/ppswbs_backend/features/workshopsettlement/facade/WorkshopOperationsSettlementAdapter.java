@@ -29,14 +29,13 @@ public class WorkshopOperationsSettlementAdapter {
         return operations.listWorkshopAddOns(new WorkshopAddOnListQuery(packageReference, locationReference));
     }
 
-    public WorkshopAddOnPriceSnapshot addOnPrice(String packageReference, Long locationReference, String addOnReference) {
-        return operations.getWorkshopAddOnPrice(new WorkshopAddOnPriceQuery(packageReference, locationReference, addOnReference));
+    /** The location a catalogue add-on belongs to, or null when unknown (T187). */
+    public Long addOnLocation(String addOnReference) {
+        return operations.getWorkshopAddOnLocation(addOnReference);
     }
 
-    public RefundConsequenceOutcome applyRefund(String bookingReference, String verifiedRefundReference,
-            String operationReference, String correlationReference) {
-        return operations.applyVerifiedRefundConsequence(new ApplyVerifiedRefundConsequenceCommand(
-                bookingReference, verifiedRefundReference, operationReference, correlationReference));
+    public WorkshopAddOnPriceSnapshot addOnPrice(String packageReference, Long locationReference, String addOnReference) {
+        return operations.getWorkshopAddOnPrice(new WorkshopAddOnPriceQuery(packageReference, locationReference, addOnReference));
     }
 
     public CancellationCompletionOutcome completeCancellation(String sessionReference,
@@ -65,6 +64,13 @@ public class WorkshopOperationsSettlementAdapter {
             java.util.UUID cancelledSessionReference) {
         return operations.findEquivalentReplacementSessions(
                 new FindEquivalentReplacementSessionsQuery(ticketReference, cancelledSessionReference));
+    }
+
+    /** The sessions a ticket may move to by 003.2's own rules; read only and advisory (FR-044a, T176). */
+    public TicketChangeOptions ticketChangeOptions(java.util.UUID ticketReference, TicketReplacementType type,
+            java.util.List<java.util.UUID> fromSessionReferences) {
+        return operations.listTicketChangeOptions(
+                new ListTicketChangeOptionsQuery(ticketReference, type, fromSessionReferences));
     }
 
     public SaleEligibilitySnapshot saleEligibility(java.util.UUID sessionReference) {

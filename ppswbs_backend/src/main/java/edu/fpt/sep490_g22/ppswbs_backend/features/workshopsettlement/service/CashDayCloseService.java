@@ -1,6 +1,7 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service;
 
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementBusinessAuditRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementCashReversalRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementCashDayCloseRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementFolioCollectionRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.CashDayCloseStatus;
@@ -34,11 +35,12 @@ public class CashDayCloseService {
     private final SettlementCashDayCloseRepository closes;
     private final SettlementFolioCollectionRepository collections;
     private final SettlementBusinessAuditRepository audits;
+    private final SettlementCashReversalRepository cashReversals;
 
     /** What the system expects in the drawer for a branch and day, before anyone counts. */
     @Transactional(readOnly = true)
     public long expectedCash(Long branchId, LocalDate businessDay) {
-        return collections.sumConfirmedCash(branchId, dayOrToday(businessDay));
+        return cashOf(branchId, dayOrToday(businessDay));
     }
 
     /**
@@ -61,7 +63,7 @@ public class CashDayCloseService {
         if (closes.findForUpdate(branchId, day).isPresent()) {
             throw new WorkshopSettlementConflictException("CASH_DAY_ALREADY_CLOSED");
         }
-        long expected = collections.sumConfirmedCash(branchId, day);
+        long expected = cashOf(branchId, day);
         long difference = Math.subtractExact(countedCashVnd, expected);
         if (difference != 0 && (reason == null || reason.isBlank())) {
             throw new WorkshopSettlementValidationException("CASH_DIFFERENCE_REASON_REQUIRED");
@@ -152,6 +154,21 @@ public class CashDayCloseService {
     @Transactional(readOnly = true)
     public SettlementCashDayClose findByReference(String closeReference) {
         return closes.findByCloseReference(closeReference).orElseThrow(WorkshopSettlementNotFoundException::new);
+    }
+
+    /** FR-036: confirmed cash of the day net of change, plus the day's cash reversals (negative, T144). */
+    private long cashOf(Long branchId, LocalDate day) {
+        return Math.addExact(collections.sumConfirmedCash(branchId, day), cashReversals.sumForBranchDay(branchId, day));
+    }
+
+    /**
+     * FR-036 cut-off: the working day a cash entry recorded now belongs to. Once the counted amount of today was
+     * submitted (a close row exists, confirmed or not) it is the next day.
+     */
+    @Transactional(readOnly = true)
+    public LocalDate currentCashDay(Long branchId) {
+        LocalDate today = LocalDate.now(VIETNAM);
+        return closes.findByBranchIdAndBusinessDay(branchId, today).isPresent() ? today.plusDays(1) : today;
     }
 
     static LocalDate dayOrToday(LocalDate businessDay) {

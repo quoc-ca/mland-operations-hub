@@ -51,9 +51,11 @@ class WorkshopOperationsSnapshotTest {
             mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.TicketCancellationService.class),
             mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.TicketSessionReplacementService.class),
             mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.EquivalentReplacementSessionService.class),
+            mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.TicketChangeOptionsService.class),
             mock(AttendanceTicketService.class),
             mock(WorkshopOtaSnapshotService.class),
             packagePolicy,
+            mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopPackageAvailabilityService.class),
             mock(BookingAttendanceOutcomeService.class),
             mock(WorkshopAddOnService.class),
             mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.SessionStaffAssignmentRepository.class),
@@ -117,7 +119,8 @@ class WorkshopOperationsSnapshotTest {
         when(packages.findById(42L)).thenReturn(Optional.of(workshopPackage));
         WorkshopPackageReservationPolicy policy = new WorkshopPackageReservationPolicy(
                 packages, sessions, mock(WorkshopSlotRepository.class),
-                mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.WorkshopBookingPackagePolicySnapshotRepository.class));
+                mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.WorkshopBookingPackagePolicySnapshotRepository.class),
+                mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopPackageAvailabilityService.class));
 
         assertThat(policy.readPublishedSnapshot(42L))
                 .extracting(PublishedPackageSelectionSnapshot::packageName)
@@ -133,7 +136,7 @@ class WorkshopOperationsSnapshotTest {
     void bookingPolicySnapshotEnforcesChronologyLocationAndSameDaySlotGap() {
         var snapshots = mock(WorkshopBookingPackagePolicySnapshotRepository.class);
         var slots = mock(WorkshopSlotRepository.class);
-        WorkshopPackageReservationPolicy policy = new WorkshopPackageReservationPolicy(packages, sessions, slots, snapshots);
+        WorkshopPackageReservationPolicy policy = new WorkshopPackageReservationPolicy(packages, sessions, slots, snapshots, mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopPackageAvailabilityService.class));
         WorkshopBookingPackagePolicySnapshot silverclay = WorkshopBookingPackagePolicySnapshot.builder()
                 .bookingReference("BK-SILVERCLAY")
                 .packageReference("42")
@@ -174,7 +177,7 @@ class WorkshopOperationsSnapshotTest {
     void replacementWithoutBookingTimeSnapshotFailsClosed() {
         var snapshots = mock(WorkshopBookingPackagePolicySnapshotRepository.class);
         WorkshopPackageReservationPolicy policy = new WorkshopPackageReservationPolicy(
-                packages, sessions, mock(WorkshopSlotRepository.class), snapshots);
+                packages, sessions, mock(WorkshopSlotRepository.class), snapshots, mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopPackageAvailabilityService.class));
         when(snapshots.findByBookingReference("BK-LEGACY")).thenReturn(Optional.empty());
 
         assertThat(policy.isValidReplacement("BK-LEGACY", List.of(), 1)).isFalse();
@@ -184,7 +187,7 @@ class WorkshopOperationsSnapshotTest {
     void bookingPolicySnapshotPreservesFoundryWorkingDaysAfterPackageMasterIsModified() {
         var snapshots = mock(WorkshopBookingPackagePolicySnapshotRepository.class);
         var slots = mock(WorkshopSlotRepository.class);
-        WorkshopPackageReservationPolicy policy = new WorkshopPackageReservationPolicy(packages, sessions, slots, snapshots);
+        WorkshopPackageReservationPolicy policy = new WorkshopPackageReservationPolicy(packages, sessions, slots, snapshots, mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopPackageAvailabilityService.class));
 
         // Wax Casting booking snapshot freezes requiredFoundryWorkingDaysBetweenSessions = 2
         WorkshopBookingPackagePolicySnapshot waxCastingSnapshot = WorkshopBookingPackagePolicySnapshot.builder()

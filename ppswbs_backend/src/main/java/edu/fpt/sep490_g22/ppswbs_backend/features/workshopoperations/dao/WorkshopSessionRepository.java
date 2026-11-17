@@ -34,6 +34,11 @@ public interface WorkshopSessionRepository extends JpaRepository<WorkshopSession
 
     boolean existsByLocationIdAndWorkshopDateAndSlotId(Long locationId, LocalDate workshopDate, Long slotId);
 
+    /** T135: true while a session of the location is in a state outside {@code excludedStates}. */
+    boolean existsByLocationIdAndStateNotIn(Long locationId, Collection<SessionState> excludedStates);
+
+    List<WorkshopSession> findByWorkshopDateGreaterThanEqualAndStateIn(LocalDate from, Collection<SessionState> states);
+
     List<WorkshopSession> findByLocationIdAndWorkshopDateBetween(Long locationId, LocalDate from, LocalDate to);
 
     List<WorkshopSession> findByLocationIdAndStateAndWorkshopDateGreaterThanEqualOrderByScheduledStartAtAsc(
@@ -41,6 +46,13 @@ public interface WorkshopSessionRepository extends JpaRepository<WorkshopSession
 
     List<WorkshopSession> findByLocationIdAndStateAndWorkshopDateBetweenOrderByScheduledStartAtAsc(
             Long locationId, SessionState state, LocalDate from, LocalDate to);
+
+    /** 003.2 FR-042/FR-046: sessions at any of the given (sellable) locations, nearest first. */
+    List<WorkshopSession> findByLocationIdInAndStateAndWorkshopDateGreaterThanEqualOrderByScheduledStartAtAsc(
+            Collection<Long> locationIds, SessionState state, LocalDate from);
+
+    List<WorkshopSession> findByStateAndWorkshopDateGreaterThanEqualOrderByScheduledStartAtAsc(
+            SessionState state, LocalDate from);
 
     List<WorkshopSession> findByLocationIdAndState(Long locationId, SessionState state);
 

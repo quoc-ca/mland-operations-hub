@@ -112,6 +112,33 @@ An Admin may receive a separate, purpose-limited `Parameter Impact Summary` for 
   branches returned for the default (all authorized branches) view; no extra
   endpoint is needed.
 
+### Session 2026-11-16 (trends requested by the supervisor)
+
+- Q: Does the dashboard show trends, not only totals? → A: Yes (Thinh,
+  2026-11-16, supervisor request). For the chosen period and branches the
+  dashboard shows retail and workshop trends by hour (a day), by day (a week
+  or a month) or by month (a year), each compared with the previous period of
+  the same length (FR-027 to FR-030).
+- Q: Which retail trends? → A: Orders placed, and of those orders how many
+  were paid, cancelled or expired unpaid, by the time the order was placed;
+  retail revenue by the time it was paid (the same facts as the revenue KPI).
+- Q: Which workshop trends? → A: Tickets booked, and of those how many were
+  paid, cancelled or abandoned (group expired unpaid), by the time the booking
+  group was placed; participant places registered, checked in, no-show and
+  cancelled, by the scheduled start of the session; workshop revenue by the
+  time the folio became fully paid (the same facts as the revenue KPI). One
+  place is one ticket at one session, so a two-session package counts twice.
+  "No-show" exists only after the session's attendance is finalized.
+- Q: How is a group-booking ticket folio placed in a branch? → A: 003.3 opens
+  one folio per 003.1 ticket and uses the ticket code as the folio reference.
+  The branch is the session of that ticket's Operations ticket; older direct
+  booking folios keep the previous rule. A finalization audit recorded under
+  the folio bill reference counts as the fully-paid time.
+- Q: May the dashboard link to review moderation? → A: Yes, for now (Thinh,
+  2026-11-16). FE-11 added a "Quản lý đánh giá" button in the dashboard header
+  that opens `/review-moderation`; it is the only navigation shortcut allowed
+  on the dashboard (FR-016). The sidebar link stays the main entry.
+
 ## User Scenarios & Testing
 
 ### User Story 1 - View Executive Manager Dashboard (Priority: P1)
@@ -207,9 +234,11 @@ and complete source states and verifies that each state is represented distinctl
 - **FR-014**: The system MUST allow an eligible Manager to retry an unavailable dashboard view.
 - **FR-015**: The system MUST keep dashboard viewing and filtering read-only; these actions MUST NOT change orders, payments, workshop records, products, promotions, or other operational master data.
 - **FR-016**: The V1 dashboard MUST contain only its period/branch filters,
-  five KPI cards, per-branch KPI rows, data-quality notices, and a Retry
-  action after a failed load (page reload is the refresh control, Session
-  2026-11-14); it MUST NOT include operational-list navigation cards,
+  five KPI cards, the trend section (FR-027, Session 2026-11-16), per-branch
+  KPI rows, data-quality notices, a Retry action after a failed load (page
+  reload is the refresh control, Session 2026-11-14), and one header shortcut
+  to FE-11 review moderation (`/review-moderation`, kept for now, Session
+  2026-11-16); it MUST NOT include other operational-list navigation cards,
   pending-work cards, or metrics owned by another feature.
 - **FR-017**: The system MUST deny access without revealing executive revenue values when the user is unauthenticated, locked, no longer authorized, or outside the Manager role boundary.
 - **FR-018**: The system MUST provide a clear safe state when the session expires or authorization changes during dashboard use.
@@ -231,6 +260,21 @@ and complete source states and verifies that each state is represented distinctl
   expired cash orders MUST NOT contribute to any KPI. A Manager refresh MUST
   read the latest committed verified facts; pending or failed payment attempts
   MUST NOT contribute to any KPI.
+- **FR-027**: For the selected period and branches the system MUST show
+  trends bucketed in Vietnam time by hour for a day, by day for a week or a
+  month, and by month for a year, up to the current time, read through
+  `GET /api/v1/executive-reports/trends` with the same filters and the same
+  Manager scope rule as the KPI report (Session 2026-11-16).
+- **FR-028**: Retail trends MUST show orders placed with how many were paid,
+  cancelled and expired, by placement time, and retail revenue by payment
+  time using the FR-020/FR-026 facts.
+- **FR-029**: Workshop trends MUST show tickets booked with how many were
+  paid, cancelled and abandoned, by booking time; participant places
+  registered, checked in, no-show and cancelled, by session start; and
+  workshop revenue by fully-paid time using the FR-019 facts.
+- **FR-030**: Each trend summary MUST compare with the previous period of the
+  same length. A trend source that cannot be read MUST be named and shown as
+  unknown, never as zero (FR-013).
 
 ### Key Entities
 

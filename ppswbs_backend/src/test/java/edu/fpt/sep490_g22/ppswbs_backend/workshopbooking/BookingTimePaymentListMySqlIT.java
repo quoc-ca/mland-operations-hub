@@ -15,6 +15,11 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.GroupC
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.GroupPaymentEvidenceService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.*;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.OutcomeStatus;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.ReplaceTicketSessionsCommand;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.TicketReplacementType;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.TicketSessionReplacementOutcome;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.WorkshopOperationsFacade;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -67,6 +72,9 @@ class BookingTimePaymentListMySqlIT {
     @Autowired private WorkshopSlotRepository slots;
     @Autowired private WorkshopPackageRepository packages;
     @Autowired private WorkshopSessionRepository sessions;
+    @Autowired private WorkshopPackageLocationAvailabilityRepository availability;
+    @Autowired private TicketBookingRepository ticketBookings;
+    @Autowired private WorkshopOperationsFacade operations;
 
     @MockBean private AccountFacade accountFacade;
     @MockBean private TokenVerificationService tokenVerificationService;
@@ -127,6 +135,40 @@ class BookingTimePaymentListMySqlIT {
         assertThat(facade.listBookingTimePayments(one.getId(), today.plusDays(1))).isEmpty();
     }
 
+    /**
+     * T157 / T164 (FR-054, Q5; 003.2 FR-045): money keeps the branch where it was collected. A group paid at location
+     * one has one ticket moved to location two by the real 003.2 replaceTicketSessions; the list of one still holds
+     * the row with locationIds=[one] and the list of two does not hold it.
+     */
+    @Test
+    @DisplayName("T157/T164: a later cross-location ticket move never moves or duplicates a paid row between branches")
+    void paidRowKeepsTheBookingTimeLocationAfterATicketMove() throws Exception {
+        String code = pendingGroup(List.of(new Line(3_000_000, one, 2, true)));
+        long collected = groups.findByGroupCode(code).orElseThrow().getGroupCollectionVnd();
+        confirmation.confirmPaidGroup(code, collected, "ipn-" + code, "op-" + code, "corr");
+        attempt(code, collected, PaymentAttemptStatus.SUCCESS, Instant.now());
+        assertThat(facade.listBookingTimePayments(one.getId(), today)).hasSize(1);
+        assertThat(facade.listBookingTimePayments(two.getId(), today)).isEmpty();
+
+        TicketBooking moving = ticketBookings.findByGroupIdOrderByLineIndexAscParticipantOrdinalAsc(
+                groups.findByGroupCode(code).orElseThrow().getId()).get(0);
+        WorkshopSession target = session(two, 12);
+        TicketSessionReplacementOutcome outcome = operations.replaceTicketSessions(new ReplaceTicketSessionsCommand(
+                List.of(new ReplaceTicketSessionsCommand.Line(UUID.fromString(moving.getOperationsTicketReference()),
+                        List.of(UUID.fromString(target.getReference())))),
+                TicketReplacementType.MLAND, "op-" + UUID.randomUUID(), "corr-move"));
+        assertThat(outcome.status()).isEqualTo(OutcomeStatus.ACCEPTED);
+        // The ticket really reads location two now (T154), so the list is not just unaware of the move.
+        assertThat(facade.getTicketFolioContext(moving.getTicketCode()).orElseThrow().locationReference())
+                .isEqualTo(two.getId());
+
+        List<BookingTimePayment> atOne = facade.listBookingTimePayments(one.getId(), today);
+        assertThat(atOne).hasSize(1);
+        assertThat(atOne.get(0).bookingGroupCode()).isEqualTo(code);
+        assertThat(atOne.get(0).locationIds()).containsExactly(one.getId());
+        assertThat(facade.listBookingTimePayments(two.getId(), today)).isEmpty();
+    }
+
     @Test
     @DisplayName("T150-2: the three statuses show the stored amount; confirmedAt is set only for CONFIRMED")
     void threeStatuses() throws Exception {
@@ -149,6 +191,20 @@ class BookingTimePaymentListMySqlIT {
         assertThat(by(listed, unverified).verificationStatus()).isEqualTo(BookingTimePaymentStatus.UNVERIFIED);
         assertThat(by(listed, unverified).amountVnd()).isEqualTo(300_000);
         assertThat(by(listed, unverified).confirmedAt()).isNull();
+    }
+
+    @Test
+    @DisplayName("T150-2b: an attempt closed as EXPIRED when its hold ran out is still listed as UNVERIFIED")
+    void expiredAttemptStaysListedAsUnverified() throws Exception {
+        String code = pendingGroup(List.of(new Line(120_000, one, 1)));
+        attempt(code, 120_000, PaymentAttemptStatus.EXPIRED, Instant.now());
+
+        List<BookingTimePayment> listed = facade.listBookingTimePayments(one.getId(), today);
+
+        assertThat(listed).hasSize(1);
+        assertThat(by(listed, code).verificationStatus()).isEqualTo(BookingTimePaymentStatus.UNVERIFIED);
+        assertThat(by(listed, code).amountVnd()).isEqualTo(120_000);
+        assertThat(by(listed, code).confirmedAt()).isNull();
     }
 
     @Test
@@ -236,7 +292,12 @@ class BookingTimePaymentListMySqlIT {
 
     // ---- helpers ----
 
-    private record Line(long price, WorkshopLocation location, int participants) { }
+    /** {@code movable}: the Package may be changed to another location (sameLocationRequired false) and is sold at both. */
+    private record Line(long price, WorkshopLocation location, int participants, boolean movable) {
+        Line(long price, WorkshopLocation location, int participants) {
+            this(price, location, participants, false);
+        }
+    }
 
     private BookingTimePayment by(List<BookingTimePayment> list, String code) {
         return list.stream().filter(p -> p.bookingGroupCode().equals(code)).findFirst().orElseThrow();
@@ -265,8 +326,12 @@ class BookingTimePaymentListMySqlIT {
             Line line = lines.get(i);
             Long pkg = packages.save(WorkshopPackage.builder().name("List package " + UUID.randomUUID())
                     .description("fixture").publicPrice(line.price()).minParticipants(1).maxParticipants(10)
-                    .requiredSessionCount(1).sameLocationRequired(true).minimumSameDaySlotGap(0)
+                    .requiredSessionCount(1).sameLocationRequired(!line.movable()).minimumSameDaySlotGap(0)
                     .state(WorkshopPackageState.PUBLISHED).build()).getId();
+            if (line.movable()) {
+                sellAt(pkg, one);
+                sellAt(pkg, two);
+            }
             WorkshopSession session = session(line.location(), 10);
             if (i > 0) json.append(',');
             json.append("{\"packageId\":").append(pkg).append(",\"sessionReferences\":[\"")
@@ -280,9 +345,19 @@ class BookingTimePaymentListMySqlIT {
         MvcResult created = mockMvc.perform(post("/api/v1/workshop-booking-groups")
                         .header("Idempotency-Key", "list-key-" + UUID.randomUUID())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"quoteRef\":\"" + quoteRef + "\",\"contactEmail\":\"" + EMAIL + "\",\"contactPhone\":\"0900000150\"}"))
+                        .content("{\"quoteRef\":\"" + quoteRef + "\",\"contactEmail\":\"" + EMAIL + "\",\"contactPhone\":\"+84900000150\"}"))
                 .andExpect(status().isCreated()).andReturn();
         return JSON.readTree(created.getResponse().getContentAsString()).get("groupCode").asText();
+    }
+
+    /** Pair ACTIVE at the location; the V178 seed may already hold a row for a recycled id, so it is updated, not duplicated. */
+    private void sellAt(Long packageId, WorkshopLocation location) {
+        WorkshopPackageLocationAvailability row = availability.findByPackageIdAndLocationId(packageId, location.getId())
+                .orElseGet(() -> WorkshopPackageLocationAvailability.builder().packageId(packageId)
+                        .locationId(location.getId()).version(0L).createdAt(Instant.now()).build());
+        row.setActive(true);
+        row.setUpdatedAt(Instant.now());
+        availability.save(row);
     }
 
     private WorkshopSession session(WorkshopLocation location, int daysAhead) {

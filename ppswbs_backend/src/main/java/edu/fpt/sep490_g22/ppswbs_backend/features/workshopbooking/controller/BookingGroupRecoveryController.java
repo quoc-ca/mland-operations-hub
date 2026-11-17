@@ -139,7 +139,7 @@ public class BookingGroupRecoveryController {
 
     /** A digest of the proof, so the idempotency record never keeps contact data in clear. */
     private String proofKey(String email, String phone) {
-        String raw = (email == null ? "" : email.trim().toLowerCase(Locale.ROOT)) + "|" + (phone == null ? "" : phone.trim());
+        String raw = (email == null ? "" : email.trim().toLowerCase(Locale.ROOT)) + "|" + (phone == null ? "" : edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.ContactPhones.canonical(phone.trim()));
         return idempotency.computeFingerprint(raw);
     }
 

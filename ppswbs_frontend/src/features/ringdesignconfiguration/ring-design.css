@@ -8,6 +8,7 @@
   color: #1e293b;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  min-height: calc(100vh - 220px);
 }
 
 .ring-design-container button,

@@ -13,7 +13,7 @@ beforeEach(() => clearRoleCache());
 const session = id => json(200, { id, state: 'IN_PROGRESS', locationId: 4, capacity: 10 });
 
 async function fillForm(user, bookingCode, amountVnd, reason = null) {
-  await user.type(screen.getByLabelText('Folio ticket code'), bookingCode);
+  await user.type(screen.getByLabelText('Mã vé (hóa đơn cần sửa)'), bookingCode);
   await user.type(screen.getByLabelText('Overcharge refund amount (VND)'), amountVnd);
   if (reason) {
     await user.type(screen.getByLabelText('Correction reason'), reason);

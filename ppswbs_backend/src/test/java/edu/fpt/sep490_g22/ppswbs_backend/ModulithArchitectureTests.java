@@ -194,11 +194,9 @@ public class ModulithArchitectureTests {
     }
 
     @Test
-    @DisplayName("T123: applyVerifiedRefundConsequence is called by 003.4; the two remaining adapter wrappers are pending removal by 003.3 T168 and no new caller may appear")
+    @DisplayName("T123/T168: applyVerifiedRefundConsequence is called by 003.4 only")
     void applyVerifiedRefundConsequenceHasNoNewCaller() {
-        // The contract allows 003.4 only. WorkshopOperationsSettlementAdapter (003.3, removed by 003.3 T168) and
-        // WorkshopOperationsAdapter (003.1) still wrap it; this list must only shrink.
-        assertOnlyCalledBy("applyVerifiedRefundConsequence", "..features.otaconnectivity..",
-                "..features.workshopsettlement.facade..", "..features.workshopbooking.facade..");
+        // 003.3 T168 removed the settlement and booking adapter wrappers; only 003.4 may call it.
+        assertOnlyCalledBy("applyVerifiedRefundConsequence", "..features.otaconnectivity..");
     }
 }

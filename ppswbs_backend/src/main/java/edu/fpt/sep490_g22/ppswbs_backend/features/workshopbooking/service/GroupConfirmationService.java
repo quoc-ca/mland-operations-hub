@@ -51,6 +51,7 @@ public class GroupConfirmationService {
     private final GroupLoyaltyOutcomeService loyaltyOutcome;
     private final ApplicationEventPublisher events;
     private final GroupNotificationService notifications;
+    private final GroupPaymentAttemptRepository paymentAttempts;
 
     /** How long after the last session a group's Magic Link stays usable when no session end is known. */
     private static final Duration FALLBACK_LINK_LIFETIME = Duration.ofDays(30);
@@ -130,6 +131,7 @@ public class GroupConfirmationService {
             return false;
         }
         releaseWholeGroup(group, BookingStatus.EXPIRED, operationReference, correlationReference);
+        expireOpenPaymentAttempts(group);
         // Approved template 5 (FR-039). Queued in this transaction and handed off after commit; a replayed expiry
         // returns above because the group is no longer PENDING_PAYMENT, so it can never queue a second email.
         notifications.queue(group, null, GroupNotificationService.KIND_GROUP_HOLD_EXPIRED, group.getContactEmail(),
@@ -162,6 +164,21 @@ public class GroupConfirmationService {
         }
         releaseWholeGroup(lockedGroup, BookingStatus.CANCELLED, operationReference, correlationReference);
         log.info("Released booking group {} at the buyer's request", lockedGroup.getGroupCode());
+    }
+
+    /**
+     * FR-032: a payment attempt that never finished when the hold ran out is closed as EXPIRED with the group. A
+     * SUCCESS or FAILED attempt is final and untouched. A late verified payment still moves the attempt to SUCCESS
+     * through the late-payment path (FR-040), so EXPIRED never blocks it.
+     */
+    private void expireOpenPaymentAttempts(BookingGroup group) {
+        for (GroupPaymentAttempt attempt : paymentAttempts.findByGroupIdOrderByCreatedAtDesc(group.getId())) {
+            if (attempt.getAttemptStatus() == PaymentAttemptStatus.INITIATED
+                    || attempt.getAttemptStatus() == PaymentAttemptStatus.PENDING) {
+                attempt.setAttemptStatus(PaymentAttemptStatus.EXPIRED);
+                paymentAttempts.save(attempt);
+            }
+        }
     }
 
     private void releaseWholeGroup(BookingGroup group, BookingStatus terminalStatus, String operationReference,

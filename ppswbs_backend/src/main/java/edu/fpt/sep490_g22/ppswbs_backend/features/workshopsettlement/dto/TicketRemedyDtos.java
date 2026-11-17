@@ -36,7 +36,9 @@ public final class TicketRemedyDtos {
             String sessionReference,
             Instant startAt,
             Instant endAt,
-            boolean selectable
+            boolean selectable,
+            Long locationReference,
+            String locationName
     ) {}
 
     public record TicketRemedyAnswerResponseDto(
@@ -49,14 +51,40 @@ public final class TicketRemedyDtos {
             String refundRequestReference,
             long pointsReturned,
             boolean voucherRestored,
-            String selectedReplacementSessionReference
+            String selectedReplacementSessionReference,
+            VoucherRestorationDto voucherRestoration
     ) {
+        public TicketRemedyAnswerResponseDto(String remedyReference, String ticketCode, String groupCode,
+                                             TicketRemedyAnswer answer, String outcome, Instant answeredAt,
+                                             String refundRequestReference, long pointsReturned,
+                                             boolean voucherRestored, String selectedReplacementSessionReference) {
+            this(remedyReference, ticketCode, groupCode, answer, outcome, answeredAt, refundRequestReference,
+                    pointsReturned, voucherRestored, selectedReplacementSessionReference, null);
+        }
         public TicketRemedyAnswerResponseDto(String remedyReference, String ticketCode, String groupCode,
                                              TicketRemedyAnswer answer, String outcome, Instant answeredAt,
                                              String refundRequestReference, long pointsReturned,
                                              boolean voucherRestored) {
             this(remedyReference, ticketCode, groupCode, answer, outcome, answeredAt, refundRequestReference,
-                    pointsReturned, voucherRestored, null);
+                    pointsReturned, voucherRestored, null, null);
+        }
+    }
+
+    /**
+     * What the group voucher did when a Mland-cancelled ticket was refunded or closed (T155, FR-042/FR-043):
+     * RESTORED -> {restored:true, reason:null}; EXPIRED -> {false, "EXPIRED"}; ALREADY_RESTORED -> {false, null}.
+     * Null when nothing was triggered (a ticket moved to a replacement session, or no loyalty benefit).
+     */
+    public record VoucherRestorationDto(boolean restored, String reason) {
+        public static VoucherRestorationDto of(String outcome) {
+            if (outcome == null) {
+                return null;
+            }
+            return switch (outcome) {
+                case "RESTORED" -> new VoucherRestorationDto(true, null);
+                case "EXPIRED" -> new VoucherRestorationDto(false, "EXPIRED");
+                default -> new VoucherRestorationDto(false, null);
+            };
         }
     }
 
@@ -69,8 +97,16 @@ public final class TicketRemedyDtos {
             String outcome,
             Instant answerDeadlineAt,
             List<OfferedSessionDto> offeredSessions,
-            String selectedReplacementSessionReference
+            String selectedReplacementSessionReference,
+            VoucherRestorationDto voucherRestoration
     ) {
+        public TicketRemedyOfferDto(String remedyReference, String ticketCode, String groupCode,
+                                    String cancelledSessionReference, String outcome, Instant answerDeadlineAt,
+                                    List<OfferedSessionDto> offeredSessions, String selectedReplacementSessionReference) {
+            this(remedyReference, ticketCode, groupCode, cancelledSessionReference, outcome, answerDeadlineAt,
+                    offeredSessions, selectedReplacementSessionReference, null);
+        }
+
         public TicketRemedyOfferDto {
             offeredSessions = offeredSessions == null ? List.of() : List.copyOf(offeredSessions);
         }

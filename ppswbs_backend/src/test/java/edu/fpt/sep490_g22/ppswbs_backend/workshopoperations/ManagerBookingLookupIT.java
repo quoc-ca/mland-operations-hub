@@ -126,6 +126,8 @@ class ManagerBookingLookupIT {
                 .sameLocationRequired(false).minimumSameDaySlotGap(0)
                 .state(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.WorkshopPackageState.PUBLISHED)
                 .build()).getId();
+        PackageAvailabilityFixture.activateAtSessionLocations(jdbcTemplate, packageId,
+                sessions.stream().map(s -> UUID.fromString(s.getReference())).toList());
         CapacityHoldOutcome hold = operationsFacade.reserveBookingCapacity(new ReserveBookingCapacityCommand(bookingRef,
                 String.valueOf(packageId), sessions.stream().map(s -> UUID.fromString(s.getReference())).toList(),
                 seats, "op-hold-" + UUID.randomUUID(), "corr-hold"));
@@ -213,7 +215,11 @@ class ManagerBookingLookupIT {
         mockMvc.perform(get(ROUTE, bookingRef).header("Authorization", ADMIN)).andExpect(status().isForbidden());
         mockMvc.perform(get(ROUTE, bookingRef)).andExpect(status().isUnauthorized());
 
-        assertThat(auditEventRepository.findAll()).noneMatch(ManagerBookingLookupIT::isLookupAudit);
+        // No success audit on refusal; the Staff and Admin 403s are denied-attempt audits (T131), the 401 is not audited.
+        List<OperationsAuditEvent> lookupAudits = auditEventRepository.findAll().stream()
+                .filter(ManagerBookingLookupIT::isLookupAudit).toList();
+        assertThat(lookupAudits).noneMatch(e -> "SUCCESS".equals(e.getOutcome()));
+        assertThat(lookupAudits).hasSize(2).allMatch(e -> "DENIED".equals(e.getOutcome()));
     }
 
     @Test

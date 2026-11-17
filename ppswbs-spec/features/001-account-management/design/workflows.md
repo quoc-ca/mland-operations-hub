@@ -1,11 +1,11 @@
 # Workflow Design: Account Management (FE-001)
 
 **Date created**: 2026-10-28
-**Date updated**: 2026-11-14
+**Date updated**: 2026-11-16
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
-**Design status**: Approved for T078–T081 — the 2026-11-14 Manager-global workflow is approved by Revision R-MGA in `approval.md`. Historical approval remains limited to its recorded scope.
+**Design status**: Approved for T078–T081 — updated 2026-11-16 for WF-01, WF-02, WF-06, WF-11 (401 ACCOUNT_NOT_FOUND recovery, Google redirect bootstrap sync, and guest guard recovery); see Revision R-NAD in `approval.md`. Historical approval remains limited to its recorded scope.
 
 ## Workflow index
 
@@ -37,7 +37,7 @@
 
 ### Failure, recovery, and integrity
 
-1. Missing/invalid/revoked bearer is security-owned `401`; valid identity without eligible Account/lifecycle/role/scope is security-owned or receiving-feature `403` according to the approved error model. Neither exposes token/provider detail.
+1. Missing/invalid/revoked bearer is security-owned `401`; valid identity without eligible Account/lifecycle/role/scope is security-owned or receiving-feature `403` according to the approved error model. Neither exposes token/provider detail. When a valid Firebase token belongs to an identity that has no Account in the backend database (orphan token), the gate returns `401` with error code `ACCOUNT_NOT_FOUND`. The client MUST NOT invoke `getIdToken(true)` to retry, and must immediately clear local session state and navigate to `/login` to prevent server thread pool starvation.
 2. If the minimal actor cannot be resolved, fail closed for the protected request. If effective scope cannot be resolved, only the location-scoped action fails closed with `UNAVAILABLE`/`503`; there is no cached scope fallback.
 3. Recheck occurs per request. A suspended Account cannot retain capability simply because a UI page or older bearer existed.
 
@@ -47,7 +47,7 @@
 - **Preconditions and authorization**: Identity is verified by WF-01. Profile actions require the owner’s own Account; verified-email-required functions check that condition independently.
 - **Related architecture flow**: Architecture §Data flows 2.
 
-1. Authentication is performed via Firebase Web SDK using either Email/Password or Google (`signInWithRedirect`). For Google sign-in, the browser redirects to Google and on return `getRedirectResult` resolves the Firebase user. `AccountBootstrapService.bootstrap` finds Account by verified Firebase UID. For an unknown UID with a valid identity email (verified or unverified), it creates exactly one `MEMBER`/`ACTIVE` Account and its Account Profile; the Profile full name is derived from the email local part. An unknown UID without a valid email creates neither record and receives safe alternative-method/recovery guidance.
+1. Authentication is performed via Firebase Web SDK using either Email/Password or Google (`signInWithRedirect`). For Google sign-in, the browser redirects to Google and on return `getRedirectResult` (or active `currentUser` resolution) resolves the Firebase user. To prevent race conditions where global components immediately query `/api/v1/accounts/me/profile` and receive `401 ACCOUNT_NOT_FOUND`, bootstrap (`PUT /api/v1/accounts/me`) must complete before global session state notifies components. `AccountBootstrapService.bootstrap` finds Account by verified Firebase UID. For an unknown UID with a valid identity email (verified or unverified), it creates exactly one `MEMBER`/`ACTIVE` Account and its Account Profile; the Profile full name is derived from the email local part. An unknown UID without a valid email creates neither record and receives safe alternative-method/recovery guidance.
 2. If that UID owns a pending internal Account, it activates only when email is verified and effective Workshop scope meets the role rule; it never creates/replaces a Member Account.
 3. `ProfileService` reads/replaces full name and optional phone only; `EmailSyncService` accepts the current verified identity email, never a browser value.
 4. A committed Account mutation attempts a redacted `SUCCESS` audit event. Credential actions remain Firebase-owned; FE-001 never receives a password. For password change: available only for accounts where `user.providerData` contains `password`; form requires `currentPassword`, `newPassword` ($\ge 6$ chars), and `confirmPassword`. The FE performs in-place re-authentication via `reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, currentPassword))` before calling `updatePassword`, ensuring a fresh credential and avoiding `auth/requires-recent-login`.
@@ -126,7 +126,7 @@
 
 ### Failure, recovery, and integrity
 
-1. `401`: report shared session loss, discard private draft/state and return Home; do not retain navigation/form context for restoration. `403`: retain session, safe Home notice, and do not auto-retry. `409`: reload/reconcile. `503`: explicit retry with safe input retained.
+1. `401`: report shared session loss, discard private draft/state and return Home; do not retain navigation/form context for restoration. In particular, for `ACCOUNT_NOT_FOUND` (orphan token), FE must NOT invoke `getIdToken(true)` retry loop to prevent server thread pool starvation; it immediately clears client session tokens and routes to `/login`. `403`: retain session, safe Home notice, and do not auto-retry. `409`: reload/reconcile. `503`: explicit retry with safe input retained.
 2. No response contains stack trace, raw token, Firebase UID or unauthorized target detail.
 3. Preview/staging/production origin and operational behavior are not defined by this local decision and remain blocked.
 
@@ -223,11 +223,11 @@
 - **Preconditions and authorization**: `AuthProvider` is the sole session source. Backend remains the authority for every protected request and feature-specific role/scope decision.
 
 1. `AuthProvider` exposes `loading`, `unconfigured`, `signed-out`, or `signed-in`; `RequireSession` renders no PII during `loading` and safe unavailable UI during `unconfigured` without navigation.
-2. For a resolved `signed-out` user attempting a Member/internal route, `RequireSession` performs `replace('/login')`. `/sign-in` independently performs `replace('/login')`. A successful email/password or Google redirect sign-in always `replace`s to `/`; no `returnTo` state is carried.
+2. For a resolved `signed-out` user attempting a Member/internal route, `RequireSession` performs `replace('/login')` or renders the route-specific unauthenticated Empty State with login action (when `requiredText` is passed, e.g. on `/design-requests/new`). `/sign-in` independently performs `replace('/login')`. A successful email/password or Google redirect sign-in always `replace`s to `/`; no `returnTo` state is carried.
 3. Explicit sign-out disables the initiating entry point. On Firebase success it emits `USER_SIGN_OUT`. `SessionNavigationBoundary` consumes it once, clears registered private state/drafts, and `replace`s to `/` with transient “Đã đăng xuất” notice. A Firebase-null observer callback caused by that call is ignored for navigation.
-4. Firebase-null after initial resolution or the first authenticated `401` emits `SESSION_LOST`. The boundary consumes the first such outcome only until a later signed-in snapshot, discards private state/drafts, and `replace`s to `/` with generic “Phiên đã kết thúc, vui lòng đăng nhập lại” notice.
+4. Firebase-null after initial resolution or the first authenticated `401` emits `SESSION_LOST`. The boundary consumes the first such outcome only until a later signed-in snapshot, discards private state/drafts, and `replace`s to `/` with generic “Phiên đã kết thúc, vui lòng đăng nhập lại” notice. When `401 ACCOUNT_NOT_FOUND` occurs, the client immediately aborts token refresh retries, purges all local session cache/tokens, and directs the user to `/login` with an informative error rather than causing a cascading retry storm.
 5. A sign-out failure emits no terminal outcome: the current page remains interactive, the pending control re-enables, and a safe retry error is shown.
 6. A `403` is not a sign-out. The boundary retains session/private input, `replace`s to `/`, and passes only a generic access-denied notice. It reveals no role, lifecycle, or Workshop-scope detail.
 7. Home displays the navigation-state notice until dismissal or leaving Home. It never writes the notice to storage. Cleanup and recovery never store/restore passwords, ID tokens, refresh credentials, or private drafts.
 
-**Google branch:** AuthPage starts only `signInWithRedirect`; on return it calls `getRedirectResult`, bootstraps the account, then follows step 2. `auth/account-exists-with-different-credential` directs to Email/Password with no merge/link. Any other redirect error is safe generic retry/alternative-method guidance. No popup branch exists.
+**Google branch:** AuthPage starts only `signInWithRedirect`; on return `getRedirectResult` resolves the Firebase user. If `getRedirectResult()` returns null but `auth.currentUser` is already present (e.g. after internal redirect completion / component remount), the page still bootstraps the account (`PUT /api/v1/accounts/me`). Bootstrap must complete before global session is marked ready for profile queries, avoiding race conditions where parallel calls to `/api/v1/accounts/me/profile` return 401 `ACCOUNT_NOT_FOUND` and prematurely trigger sign-out. Following bootstrap, follow step 2 (`replace('/')`). `auth/account-exists-with-different-credential` directs to Email/Password with no merge/link. Any other redirect error is safe generic retry/alternative-method guidance. No popup branch exists.

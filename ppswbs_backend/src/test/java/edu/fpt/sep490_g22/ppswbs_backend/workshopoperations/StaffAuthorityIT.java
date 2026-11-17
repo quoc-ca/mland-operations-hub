@@ -172,6 +172,33 @@ class StaffAuthorityIT {
         assertThat(staffAssignmentRepository.findBySessionIdAndActiveTrue(session.getId())).isEmpty();
     }
 
+    @Test
+    @DisplayName("FR-001e/FR-001f: Admin and Staff get 403 on slot create/update and session create/bulk/update; a Manager creates a slot")
+    void slotAndSessionAdministrationIsManagerOnly() throws Exception {
+        String slotBody = "{\"label\":\"Late\",\"startsAtLocal\":\"14:00\",\"endsAtLocal\":\"16:00\",\"defaultCapacity\":10,\"active\":true}";
+        String slotsPath = "/api/v1/workshop-locations/" + location.getId() + "/slots";
+        String sessionBody = "{\"locationId\":" + location.getId() + ",\"slotId\":\"" + UUID.randomUUID() + "\",\"workshopDate\":\""
+                + LocalDate.now().plusDays(5) + "\",\"capacity\":5}";
+        String bulkBody = "{\"locationId\":" + location.getId() + ",\"slotIds\":[\"" + slotRepository.findAll().get(0).getReference() + "\"],\"from\":\"" + LocalDate.now().plusDays(2)
+                + "\",\"to\":\"" + LocalDate.now().plusDays(3) + "\",\"weekdays\":[\"MONDAY\"]}";
+        long slotsBefore = slotRepository.count();
+        long sessionsBefore = sessionRepository.count();
+        String existingSlot = slotRepository.findAll().get(0).getReference();
+        for (String token : List.of(ADMIN, STAFF)) {
+            for (MockHttpServletRequestBuilder route : List.of(
+                    json(post(slotsPath), token, slotBody),
+                    json(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch("/api/v1/workshop-slots/" + existingSlot), token, slotBody),
+                    json(post("/api/v1/workshop-sessions"), token, sessionBody),
+                    json(post("/api/v1/workshop-sessions/bulk"), token, bulkBody),
+                    json(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch(sessionPath("")), token, "{\"capacity\":12}"))) {
+                mockMvc.perform(route).andExpect(status().isForbidden());
+            }
+        }
+        assertThat(slotRepository.count()).isEqualTo(slotsBefore);
+        assertThat(sessionRepository.count()).isEqualTo(sessionsBefore);
+        mockMvc.perform(json(post(slotsPath), MANAGER, slotBody)).andExpect(status().isCreated());
+    }
+
     // ---- T128 -------------------------------------------------------------------------------------------------
 
     @Test

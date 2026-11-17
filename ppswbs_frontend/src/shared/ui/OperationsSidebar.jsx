@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router';
 import { useAuth } from '../auth/AuthProvider';
 import { useRole } from '../auth/useRole';
@@ -8,9 +8,13 @@ import '../../ota-connectivity/ota-connectivity.css';
 
 export function OperationsSidebar() {
   const location = useLocation();
-  const { pathname, search } = location;
-  const searchParams = new URLSearchParams(search);
-  const tab = searchParams.get('tab');
+  const { pathname } = location;
+  const sidebarRef = useRef(null);
+  // The menu is long and scrolls: bring the current screen's entry into view, so it is always the highlighted one you see.
+  useEffect(() => {
+    const current = sidebarRef.current?.querySelector('a.active');
+    current?.scrollIntoView?.({ block: 'center' });
+  }, [pathname, location.search]);
 
   const { status, signOut } = useAuth();
   const { language, setLanguage } = useLanguage();
@@ -69,6 +73,8 @@ export function OperationsSidebar() {
     pathname.startsWith('/operations/packages') ||
     pathname === '/workshop-packages';
   const isPackageAddOnsActive = pathname.startsWith('/operations/package-add-ons');
+  const isPackageAvailabilityActive = pathname.startsWith('/operations/package-availability');
+  const isLatePaymentsActive = pathname.startsWith('/operations/late-payments');
 
   const isChannelsActive = pathname.startsWith('/ota-connectivity/channels');
   const isReconciliationActive = pathname.startsWith('/ota-connectivity/reconciliation');
@@ -76,19 +82,20 @@ export function OperationsSidebar() {
   const isShopAddOnsActive = pathname.startsWith('/ota-connectivity/add-ons');
 
   const isBillsActive = pathname === '/settlement';
-  const isCasesActive = pathname === '/settlement/cases' && tab !== 'policies';
-  const isPoliciesActive = pathname === '/settlement/cases' && tab === 'policies';
+  const isCasesActive = pathname === '/settlement/cases';
   const isNotificationTemplatesActive = pathname.startsWith('/admin/notifications/templates');
   const isNotificationRequestsActive = pathname.startsWith('/admin/notifications/requests');
   const isProfileActive = pathname === '/profile';
   const isRetailOrdersActive = pathname.startsWith('/staff/retail-');
   const isRetailReconciliationActive = pathname.startsWith('/manager/retail-payment-reconciliations');
   const isDashboardActive = pathname === '/manager/dashboard';
+  const isDesignReviewActive = pathname.startsWith('/design-review-requests');
+  const isReviewModerationActive = pathname.startsWith('/review-moderation');
 
   const isVi = language === 'vi';
 
   return (
-    <aside className="ota-sidebar" aria-label="Operations Navigation">
+    <aside className="ota-sidebar" aria-label="Operations Navigation" ref={sidebarRef}>
       <div className="ota-brand">
         <span>M</span>
         <strong>MLAND</strong>
@@ -145,6 +152,17 @@ export function OperationsSidebar() {
 
         </>)}
 
+        {canManageProducts && (<>
+        {/* CUSTOMER DESIGN REVIEW (Feature 004): Manager and Staff; the backend decides the permission */}
+        <div className="ota-sidebar-label">
+          {isVi ? 'THIẾT KẾ KHÁCH HÀNG' : 'CUSTOMER DESIGNS'}
+        </div>
+        <Link className={isDesignReviewActive ? 'active' : ''} to="/design-review-requests">
+          {isVi ? 'Duyệt thiết kế' : 'Design review'}
+        </Link>
+
+        </>)}
+
         {/* RETAIL (FE-08) */}
         <div className="ota-sidebar-label">
           {isVi ? 'BÁN LẺ' : 'RETAIL'}
@@ -157,6 +175,16 @@ export function OperationsSidebar() {
           {isVi ? 'Đối soát thanh toán bán lẻ' : 'Retail payment reconciliation'}
         </Link>
         )}
+
+        {/* REVIEW MODERATION */}
+        {canManageProducts && (<>
+        <div className="ota-sidebar-label">
+          {isVi ? 'ĐÁNH GIÁ KHÁCH HÀNG' : 'CUSTOMER REVIEWS'}
+        </div>
+        <Link className={isReviewModerationActive ? 'active' : ''} to="/review-moderation">
+          {isVi ? 'Quản lý đánh giá' : 'Review moderation'}
+        </Link>
+        </>)}
 
         {/* WORKSHOP OPERATIONS */}
         {showOperations && (<>
@@ -176,6 +204,12 @@ export function OperationsSidebar() {
         </Link>
         <Link className={isPackageAddOnsActive ? 'active' : ''} to="/operations/package-add-ons">
           {isVi ? 'Add-on gói' : 'Package add-ons'}
+        </Link>
+        <Link className={isPackageAvailabilityActive ? 'active' : ''} to="/operations/package-availability">
+          {isVi ? 'Ma trận gói × chi nhánh' : 'Package availability'}
+        </Link>
+        <Link className={isLatePaymentsActive ? 'active' : ''} to="/operations/late-payments">
+          {isVi ? 'Thanh toán về trễ' : 'Late payments'}
         </Link>
         </>)}
 
@@ -211,18 +245,23 @@ export function OperationsSidebar() {
         <Link className={pathname === '/settlement/ticket-actions' ? 'active' : ''} to="/settlement/ticket-actions">
           {isVi ? 'Huỷ & đổi vé' : 'Cancel & change tickets'}
         </Link>
+        {role !== 'ADMIN' && (
         <Link className={pathname === '/settlement/change-requests' ? 'active' : ''} to="/settlement/change-requests">
           {isVi ? 'Yêu cầu đổi vé' : 'Change requests'}
         </Link>
+        )}
         {canManage && (<>
         <Link className={pathname === '/settlement/refunds' ? 'active' : ''} to="/settlement/refunds">
           {isVi ? 'Hàng đợi hoàn tiền' : 'Refund queue'}
         </Link>
+        <Link className={pathname === '/settlement/reconciliation' ? 'active' : ''} to="/settlement/reconciliation">
+          {isVi ? 'Đối soát thu tiền' : 'Reconciliation list'}
+        </Link>
+        <Link className={pathname === '/settlement/absorbed-undercharges' ? 'active' : ''} to="/settlement/absorbed-undercharges">
+          {isVi ? 'Khoản thiếu Mland chịu' : 'Absorbed undercharges'}
+        </Link>
         <Link className={isCasesActive ? 'active' : ''} to="/settlement/cases?tab=cases">
           {isVi ? 'Sự vụ & bồi hoàn (Cases)' : 'Settlement cases'}
-        </Link>
-        <Link className={isPoliciesActive ? 'active' : ''} to="/settlement/cases?tab=policies">
-          {isVi ? 'Chính sách hoàn tiền' : 'Refund policies'}
         </Link>
         </>)}
 

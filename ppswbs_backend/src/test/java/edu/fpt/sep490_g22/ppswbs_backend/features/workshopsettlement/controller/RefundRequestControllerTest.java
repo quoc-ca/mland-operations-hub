@@ -7,6 +7,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.Refu
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.RefundRequestStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementRefundRequest;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.BankRefundService;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.RefundCounterEntryAuthorizer;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.SettlementIdempotencyResult;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.SettlementIdempotencyService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.WorkshopSettlementAuthorizationException;
@@ -23,6 +24,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
@@ -38,7 +40,10 @@ class RefundRequestControllerTest {
     private final WorkshopSettlementAuthorizationService authorization =
             mock(WorkshopSettlementAuthorizationService.class);
     private final SettlementIdempotencyService idempotency = mock(SettlementIdempotencyService.class);
-    private final RefundRequestController controller = new RefundRequestController(bankRefunds, authorization, idempotency);
+    private final RefundCounterEntryAuthorizer counterEntry = mock(RefundCounterEntryAuthorizer.class);
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.RefundReceiptImageService receiptImages =
+            mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.RefundReceiptImageService.class);
+    private final RefundRequestController controller = new RefundRequestController(bankRefunds, authorization, idempotency, counterEntry, receiptImages);
 
     private static final CurrentAccountActor MANAGER =
             new CurrentAccountActor(22L, ActorRole.MANAGER, ActorStatus.ACTIVE, true, List.of(1L));
@@ -47,6 +52,7 @@ class RefundRequestControllerTest {
 
     @BeforeEach
     void setUp() {
+        when(counterEntry.requireCounterEntry(eq(STAFF), anyString())).thenReturn(STAFF);
         when(idempotency.execute(any(), any(), any())).thenAnswer(invocation -> {
             java.util.function.Supplier<String> supplier = invocation.getArgument(2);
             String ref = supplier != null ? supplier.get() : null;
@@ -120,34 +126,82 @@ class RefundRequestControllerTest {
     }
 
     @Test
-    void recordingTheTransferNeedsBothTheBankReferenceAndTheProof() {
+    void recordingTheTransferNeedsOnlyTheBankReference() {
         when(authorization.requireManager(MANAGER)).thenReturn(MANAGER);
 
+        // FR-039 (fix A08): no bank reference is the named 422; the proof note and the image are optional.
         assertThatThrownBy(() -> controller.applyTransition("REFUND-1", "corr-1",
                 new RefundRequestController.TransitionRequest(
-                        RefundRequestController.RefundTransition.RECORD_TRANSFER, "BANK-9", null, null),
+                        RefundRequestController.RefundTransition.RECORD_TRANSFER, " ", "proof-9", null),
                 auth(MANAGER)))
                 .isInstanceOf(WorkshopSettlementValidationException.class)
-                .hasMessage("TRANSFER_PROOF_REQUIRED");
-        verify(bankRefunds, never()).recordTransfer(anyString(), any(), anyString(), anyString(), anyString());
+                .hasMessage("BANK_TRANSACTION_REFERENCE_REQUIRED");
+        verify(bankRefunds, never()).recordTransfer(anyString(), any(), anyString(), any(), anyString());
 
-        when(bankRefunds.recordTransfer(eq("REFUND-1"), eq(22L), eq("BANK-9"), eq("proof-9"), anyString()))
+        when(bankRefunds.recordTransfer(eq("REFUND-1"), eq(22L), eq("BANK-9"), isNull(), anyString()))
                 .thenReturn(ticketRefund(RefundRequestStatus.PENDING_RECONCILIATION));
         assertThat(controller.applyTransition("REFUND-1", "corr-1",
                 new RefundRequestController.TransitionRequest(
-                        RefundRequestController.RefundTransition.RECORD_TRANSFER, "BANK-9", "proof-9", null),
+                        RefundRequestController.RefundTransition.RECORD_TRANSFER, "BANK-9", null, null),
                 auth(MANAGER)).status()).isEqualTo("PENDING_RECONCILIATION");
+        verifyNoInteractions(receiptImages);
+    }
+
+    @Test
+    void recordingTheTransferWithAnImageAttachesItInTheSameCall() {
+        when(authorization.requireManager(MANAGER)).thenReturn(MANAGER);
+        when(receiptImages.recordTransferWithImage(eq("REFUND-1"), eq(22L), eq("BANK-9"), isNull(), eq("IMG-1"),
+                anyString())).thenReturn(ticketRefund(RefundRequestStatus.PENDING_RECONCILIATION));
+
+        controller.applyTransition("REFUND-1", "corr-1",
+                new RefundRequestController.TransitionRequest(
+                        RefundRequestController.RefundTransition.RECORD_TRANSFER, "BANK-9", null, null, "IMG-1"),
+                auth(MANAGER));
+
+        verify(bankRefunds, never()).recordTransfer(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void returnToPendingAccountIsManagerOnlyAndCarriesTheReason() {
+        when(authorization.requireManager(MANAGER)).thenReturn(MANAGER);
+        when(bankRefunds.returnToPendingAccount(eq("REFUND-1"), eq(22L), eq("Ngan hang tra lai"), anyString()))
+                .thenReturn(new BankRefundService.OpenedRefund(ticketRefund(RefundRequestStatus.PENDING_ACCOUNT), "tok"));
+
+        var response = controller.applyTransition("REFUND-1", "corr-1", new RefundRequestController.TransitionRequest(
+                RefundRequestController.RefundTransition.RETURN_TO_PENDING_ACCOUNT, null, null, "Ngan hang tra lai"),
+                auth(MANAGER));
+
+        assertThat(response.status()).isEqualTo("PENDING_ACCOUNT");
+        // The new link never appears in the response.
+        assertThat(response.toString()).doesNotContain("tok");
+
+        when(authorization.requireManager(STAFF)).thenThrow(new WorkshopSettlementAuthorizationException("MANAGER_REQUIRED"));
+        assertThatThrownBy(() -> controller.applyTransition("REFUND-1", "corr-1", new RefundRequestController.TransitionRequest(
+                RefundRequestController.RefundTransition.RETURN_TO_PENDING_ACCOUNT, null, null, "x"), auth(STAFF)))
+                .isInstanceOf(WorkshopSettlementAuthorizationException.class);
+    }
+
+    @Test
+    void theCounterEntryIsAuthorizedPerRequestBeforeAnythingIsWritten() {
+        when(counterEntry.requireCounterEntry(eq(STAFF), eq("REFUND-9")))
+                .thenThrow(new WorkshopSettlementAuthorizationException("SESSION_ASSIGNMENT_REQUIRED"));
+
+        assertThatThrownBy(() -> controller.recordAccountAtCounter("REFUND-9", "idemp-key-12345678", "corr-1",
+                new RefundRequestController.CounterAccountRequest("VCB", "0123456789", "NGUYEN VAN A", true), auth(STAFF)))
+                .isInstanceOf(WorkshopSettlementAuthorizationException.class)
+                .hasMessage("SESSION_ASSIGNMENT_REQUIRED");
+        verify(bankRefunds, never()).submitAccountAtCounter(any(), any(), any(), any(), anyBoolean(), any(), any());
     }
 
     @Test
     void staffMayEnterTheAccountAtTheCounterAndResendTheLink() {
         when(authorization.requireManagerOrAnyStaff(STAFF)).thenReturn(STAFF);
         when(bankRefunds.submitAccountAtCounter(eq("REFUND-1"), eq("VCB"), eq("0123456789"), eq("NGUYEN VAN A"),
-                eq(11L), anyString())).thenReturn(ticketRefund(RefundRequestStatus.PENDING_APPROVAL));
+                eq(true), eq(11L), anyString())).thenReturn(ticketRefund(RefundRequestStatus.PENDING_APPROVAL));
         when(bankRefunds.require("REFUND-1")).thenReturn(ticketRefund(RefundRequestStatus.PENDING_APPROVAL));
 
         var response = controller.recordAccountAtCounter("REFUND-1", "idemp-key-12345678", "corr-1",
-                new RefundRequestController.CounterAccountRequest("VCB", "0123456789", "NGUYEN VAN A"), auth(STAFF));
+                new RefundRequestController.CounterAccountRequest("VCB", "0123456789", "NGUYEN VAN A", true), auth(STAFF));
 
         assertThat(response.status()).isEqualTo("PENDING_APPROVAL");
         // The response carries the mask only, never what was just entered.
@@ -161,7 +215,7 @@ class RefundRequestControllerTest {
     @Test
     void recordAccountAndResendLinkRequireValidIdempotencyKey() {
         when(authorization.requireManagerOrAnyStaff(STAFF)).thenReturn(STAFF);
-        var body = new RefundRequestController.CounterAccountRequest("VCB", "0123456789", "NGUYEN VAN A");
+        var body = new RefundRequestController.CounterAccountRequest("VCB", "0123456789", "NGUYEN VAN A", true);
 
         assertThatThrownBy(() -> controller.recordAccountAtCounter("REFUND-1", null, "corr-1", body, auth(STAFF)))
                 .isInstanceOf(WorkshopSettlementValidationException.class)
@@ -185,10 +239,10 @@ class RefundRequestControllerTest {
         doReturn(new SettlementIdempotencyResult(true, "REFUND-1")).when(idempotency).execute(any(), any(), any());
 
         var response = controller.recordAccountAtCounter("REFUND-1", "idemp-key-12345678", "corr-1",
-                new RefundRequestController.CounterAccountRequest("VCB", "0123456789", "NGUYEN VAN A"), auth(STAFF));
+                new RefundRequestController.CounterAccountRequest("VCB", "0123456789", "NGUYEN VAN A", true), auth(STAFF));
 
         assertThat(response.status()).isEqualTo("PENDING_APPROVAL");
-        verify(bankRefunds, never()).submitAccountAtCounter(any(), any(), any(), any(), any(), any());
+        verify(bankRefunds, never()).submitAccountAtCounter(any(), any(), any(), any(), anyBoolean(), any(), any());
     }
 
     @Test

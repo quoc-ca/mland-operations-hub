@@ -185,11 +185,11 @@ class WorkshopPackageContractIT {
         assertThat((Map<String, Object>) properties.get("locationId")).containsEntry("type", "integer")
                 .containsEntry("format", "int64");
 
-        CustomerSessionAvailabilityResponse projection = new CustomerSessionAvailabilityResponse(UUID.randomUUID(), 7L,
+        CustomerSessionAvailabilityResponse projection = new CustomerSessionAvailabilityResponse(UUID.randomUUID(), 7L, "Hoan Kiem",
                 Instant.parse("2026-11-01T02:00:00Z"), Instant.parse("2026-11-01T03:00:00Z"),
                 "OPEN", true, 12);
         assertThat(validator.validate(projection)).isEmpty();
-        assertThat(validator.validate(new CustomerSessionAvailabilityResponse(null, 7L, Instant.now(), Instant.now(),
+        assertThat(validator.validate(new CustomerSessionAvailabilityResponse(null, 7L, "Hoan Kiem", Instant.now(), Instant.now(),
                 "OPEN", true, -1))).isNotEmpty();
     }
 

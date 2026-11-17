@@ -50,7 +50,9 @@ paths:
         only deadline a customer is shown) when the group collection is at least
         5,000 VND; returns `CONFIRMED` when the group is 0 VND or deferred below
         5,000 VND (FR-036, FR-038). A capacity failure returns 409 with
-        `failingLines` and holds nothing. The quote is accepted once under a row
+        `failingLines` and holds nothing; so does 409 `PACKAGE_NOT_AVAILABLE_AT_LOCATION`
+        (the Package is INACTIVE at the location of a selected session, 003.2 FR-039;
+        `PACKAGE_NOT_PUBLISHED` wins when both apply), never `PACKAGE_SELECTION_INVALID`. The quote is accepted once under a row
         lock: `QUOTE_EXPIRED`, `QUOTE_ALREADY_ACCEPTED` and `QUOTE_CHANGED` are
         409. A replay with the same `Idempotency-Key` returns the stored 201; a
         reused key with different content returns 409 `IDEMPOTENCY_CONFLICT`
@@ -66,7 +68,7 @@ paths:
         '400': {$ref: '#/components/responses/Problem'}
         '401': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
-        '409': {description: "Quote or capacity refusal (a capacity refusal carries failingLines), or IDEMPOTENCY_CONFLICT for a reused key with different content.", content: {application/json: {schema: {$ref: '#/components/schemas/CartHoldRejection'}}}}
+        '409': {description: "Quote, capacity or location-availability refusal (`INSUFFICIENT_CAPACITY` and `PACKAGE_NOT_AVAILABLE_AT_LOCATION` carry failingLines), or IDEMPOTENCY_CONFLICT for a reused key with different content.", content: {application/json: {schema: {$ref: '#/components/schemas/CartHoldRejection'}}}}
         '503': {description: "DEPENDENCY_UNAVAILABLE: Loyalty (006) or Operations (003.2) unavailable; nothing held (FR-031; status decided 2026-11-15).", content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}}
   /api/v1/workshop-booking-groups/{groupCode}/payment-attempts:
     post:
@@ -594,6 +596,7 @@ components:
         remainingVnd: {$ref: '#/components/schemas/Vnd'}
         recipientEmailMasked: {type: string, nullable: true}
         onlineRecipientChangesRemaining: {type: integer, minimum: 0, maximum: 3, nullable: true}
+        mlandRemedyPending: {type: boolean, description: "True only for the owning Member while a Mland replacement-session offer (003.3 FR-043) waits for the answer; a display hint, Settlement decides."}
         attendanceStatus:
           type: string
           nullable: true
@@ -608,6 +611,7 @@ components:
       properties:
         sessionReference: {type: string, format: uuid}
         locationId: {type: integer, format: int64, nullable: true}
+        locationName: {type: string, nullable: true, description: Display name of the session's location, read by Operations (2026-11-17); null while the ticket has no Operations ticket yet.}
         ordinal: {type: integer, minimum: 1}
         scheduledStart: {type: string, format: date-time}
         scheduledEnd: {type: string, format: date-time}
@@ -673,6 +677,7 @@ components:
       type: object
       required: [verificationId, expiresAt]
       properties:
+        maskedEmail: {type: string, nullable: true, description: 'The booking email, masked (ho***@gmail.com). Present only in the answer to a Staff or Manager request (2026-11-17) so they can tell the buyer where the code went; never returned to a buyer.'}
         verificationId: {type: string, format: uuid}
         expiresAt: {type: string, format: date-time}
     BuyerVerificationConfirmation:

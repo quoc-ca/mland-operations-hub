@@ -4,6 +4,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.Sett
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -13,6 +14,8 @@ public interface SettlementTicketMlandRemedyRepository extends JpaRepository<Set
 
     Optional<SettlementTicketMlandRemedy> findByTicketCodeAndOutcome(String ticketCode, String outcome);
 
+    List<SettlementTicketMlandRemedy> findByTicketCodeInAndOutcome(Collection<String> ticketCodes, String outcome);
+
     List<SettlementTicketMlandRemedy> findByTicketCodeOrderByCreatedAtDesc(String ticketCode);
 
     List<SettlementTicketMlandRemedy> findByOutcomeAndAnswerDeadlineAtLessThanEqual(String outcome, Instant deadline);
@@ -21,5 +24,7 @@ public interface SettlementTicketMlandRemedyRepository extends JpaRepository<Set
             String ticketCode, String cancelledSessionReference);
 
     boolean existsByTicketCodeAndOutcome(String ticketCode, String outcome);
+
+    boolean existsByCancelledSessionReferenceIgnoreCaseAndOutcome(String cancelledSessionReference, String outcome);
 }
 

@@ -9,6 +9,8 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.Settlem
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementChargeRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementFinalBillRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementFolioCollectionRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementTicketMlandRemedyRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.TicketRemedyDtos;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.ChargeCommandDto;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.FolioCollectionDtos;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.TicketFolioDtos.*;
@@ -47,6 +49,7 @@ public class TicketFolioApiService {
     private final FolioFinalizationService folioFinalizationService;
     private final CashDayCloseService cashCloses;
     private final SettlementIdempotencyService idempotency;
+    private final SettlementTicketMlandRemedyRepository mlandRemedies;
 
     @Transactional(readOnly = true)
     public TicketFolioDto readFolio(String ticketCode, CurrentAccountActor actor) {
@@ -73,6 +76,29 @@ public class TicketFolioApiService {
             return toDto(folio, true);
         }
         throw new WorkshopSettlementAuthorizationException("FORBIDDEN");
+    }
+
+    /** Roster badge: the lifecycle of each requested ticket folio, limited to what the actor may open (Manager, or Staff assigned to the ticket). */
+    @Transactional(readOnly = true)
+    public FolioStatusResponse readFolioStatuses(List<String> ticketCodes, CurrentAccountActor actor) {
+        if (actor == null) throw new WorkshopSettlementAuthorizationException("ACTIVE_ACCOUNT_REQUIRED");
+        if (actor.role() != ActorRole.MANAGER && actor.role() != ActorRole.STAFF) {
+            throw new WorkshopSettlementAuthorizationException("FORBIDDEN");
+        }
+        java.util.Map<String, String> statuses = new java.util.LinkedHashMap<>();
+        for (String raw : ticketCodes) {
+            String code = required(raw, "ticketCode");
+            var ctx = booking.getTicketFolioContext(code).orElse(null);
+            var folio = ctx == null ? null : bills.findByBookingReference(code).orElse(null);
+            if (folio == null) continue;
+            try {
+                authorization.requireManagerOrAssignedStaff(actor, ctx.locationReference(), ctx.lineReference());
+            } catch (WorkshopSettlementAuthorizationException outOfScope) {
+                continue;
+            }
+            statuses.put(code, folio.getLifecycleStatus());
+        }
+        return new FolioStatusResponse(statuses);
     }
 
     @Transactional(readOnly = true)
@@ -515,11 +541,20 @@ public class TicketFolioApiService {
                 String.valueOf(pendingAmount),
                 String.valueOf(balanceDue),
                 collectionDtos,
-                chargeDtos
+                chargeDtos,
+                voucherRestorationOf(folio.getBookingReference())
         );
     }
 
-    private static CollectionDto toCollectionDto(SettlementFolioCollection c) {
+    /** T163: what the group voucher did when this ticket was Mland-cancelled and refunded; null when nothing was triggered. */
+    private TicketRemedyDtos.VoucherRestorationDto voucherRestorationOf(String ticketCode) {
+        return mlandRemedies.findByTicketCodeOrderByCreatedAtDesc(ticketCode).stream()
+                .map(SettlementTicketMlandRemedy::getVoucherRestorationOutcome)
+                .filter(java.util.Objects::nonNull).findFirst()
+                .map(TicketRemedyDtos.VoucherRestorationDto::of).orElse(null);
+    }
+
+    private CollectionDto toCollectionDto(SettlementFolioCollection c) {
         // T108: the checkout is shown only while the VNPay part can still be paid.
         boolean payable = c.getMethod() == FolioCollectionMethod.VNPAY && c.isPending()
                 && c.getPaymentUrlSnapshot() != null && c.getPaymentExpiresAt() != null
@@ -531,8 +566,15 @@ public class TicketFolioApiService {
                 c.getStatus().name(),
                 c.getCashChangeVnd() == null ? null : String.valueOf(c.getCashChangeVnd()),
                 payable ? c.getPaymentUrlSnapshot() : null,
-                payable ? c.getPaymentExpiresAt().toString() : null
+                payable ? c.getPaymentExpiresAt().toString() : null,
+                cashDayClosed(c)
         );
+    }
+
+    /** T144 (A17): a CASH collection whose working day has a close, confirmed or not (FR-036 cut-off). */
+    private boolean cashDayClosed(SettlementFolioCollection c) {
+        return c.getMethod() == FolioCollectionMethod.CASH && c.getCashBusinessDay() != null
+                && cashCloses.isClosed(c.getBranchId(), c.getCashBusinessDay());
     }
 
     private SettlementCharge findCharge(String lineId) {

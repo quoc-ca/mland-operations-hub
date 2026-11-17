@@ -7,9 +7,8 @@ export function useHttp() {
   const { getIdToken, signOut, reportSessionLost, reportAccessDenied } = useAuth();
   return useMemo(() => createHttpClient({
     getIdToken,
-    onSessionExpired: () => {
-      reportSessionLost?.();
-      signOut?.().catch?.(() => {});
+    onSessionExpired: (err) => {
+      reportSessionLost?.({ code: err?.code });
     },
     onAccessDenied: () => {
       reportAccessDenied?.();

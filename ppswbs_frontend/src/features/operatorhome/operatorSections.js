@@ -16,6 +16,8 @@ const dailyWork = {
       'Ghi nhận add-on cho khách đặt qua OTA.', 'Record add-ons for customers who booked through an OTA.'),
     item('/staff/retail-orders', 'Đơn bán lẻ chi nhánh', 'Branch retail orders',
       'Thu tiền mặt, giao hàng tại quầy, gửi hàng GHTK.', 'Collect counter cash, hand over pickups, ship with GHTK.'),
+    item('/review-moderation', 'Quản lý đánh giá', 'Review moderation',
+      'Kiểm duyệt và phản hồi đánh giá của khách hàng.', 'Moderate and reply to customer reviews.'),
   ],
 };
 
@@ -39,7 +41,6 @@ const managerOnly = [
     id: 'settlement', vi: 'Quyết toán & hoàn tiền', en: 'Settlement & refunds',
     items: [
       item('/settlement/cases', 'Sự vụ & bồi hoàn', 'Cases & remedies', 'Hủy, bồi hoàn và điều chỉnh folio.', 'Cancellations, remedies and folio corrections.'),
-      item('/settlement/cases?tab=policies', 'Chính sách hoàn tiền', 'Refund policies', 'Các phiên bản chính sách hoàn tiền.', 'Refund policy revisions.'),
     ],
   },
   {

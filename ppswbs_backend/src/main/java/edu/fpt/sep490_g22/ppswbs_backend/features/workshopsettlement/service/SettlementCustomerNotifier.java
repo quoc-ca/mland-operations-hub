@@ -71,10 +71,26 @@ public class SettlementCustomerNotifier {
         String target = request.getBookingReference().equals(order) ? "đơn " + order : "vé " + request.getBookingReference();
         String body = "MLAND sẽ hoàn " + amount + " cho " + target + " với lý do: " + reasonLabel(request.getReason())
                 + ". Vui lòng nhập ngân hàng, số tài khoản và tên chủ tài khoản tại liên kết dưới đây trong 7 ngày. "
-                + "Vui lòng nhập tài khoản của chính người đã thanh toán và ghi đúng tên chủ tài khoản như ngân hàng hiển thị. MLAND đối chiếu tên trước khi chuyển; nếu không khớp, chúng tôi sẽ dừng lại và liên hệ với bạn.\n\n"
+                + "Vui lòng nhập tài khoản của chính người đã thanh toán và kiểm tra lại ngân hàng, số tài khoản, tên chủ tài khoản trước khi gửi.\n\n"
                 + "Bạn cũng có thể cung cấp tại quầy MLAND.";
         return handoffs.create(request.getRequestReference(), REFUND_ACCOUNT_REQUEST, correlationReference, recipient,
                 body, subject, REFUND_ACCOUNT_PATH + rawLinkToken, linkExpiresAt);
+    }
+
+    /**
+     * T159 (FR-012a): the account-link token is cleared from every stored email of this refund request once the link
+     * is used or revoked (resend, return to PENDING_ACCOUNT, key replacement, counter entry, closing). The rest of the
+     * payload stays for its 30 days. Nothing here logs or publishes the token.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void scrubRefundAccountLink(String requestReference) {
+        handoffs.scrubActionLinks(requestReference, REFUND_ACCOUNT_REQUEST);
+    }
+
+    /** T159: the sweep for links that expired without being used or revoked. */
+    @Transactional
+    public int scrubExpiredRefundAccountLinks(java.time.Instant now) {
+        return handoffs.scrubExpiredActionLinks(REFUND_ACCOUNT_REQUEST, now);
     }
 
     private static String reasonLabel(edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.RefundReason reason) {

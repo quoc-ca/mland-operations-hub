@@ -151,7 +151,8 @@ public class BookingGroupCreationService {
         BookingGroup group = groups.save(BookingGroup.builder()
                 .groupCode(groupCode)
                 .buyerMemberAccountId(quote.getBuyerMemberAccountId())
-                .contactEmail(request.contactEmail().trim())
+                // One stored form (trim + lower case), the same one the idempotency key and every lookup compare by.
+                .contactEmail(request.contactEmail().trim().toLowerCase(java.util.Locale.ROOT))
                 .contactPhone(ContactPhones.canonical(request.contactPhone().trim()))
                 .groupStatus(BookingStatus.PENDING_PAYMENT)
                 .paymentMode(cart.allocation().paymentMode())
@@ -264,6 +265,9 @@ public class BookingGroupCreationService {
             String code = reason == RejectionReason.INSUFFICIENT_CAPACITY ? "INSUFFICIENT_CAPACITY"
                     : reason == RejectionReason.PACKAGE_NOT_PUBLISHED ? "PACKAGE_NOT_PUBLISHED"
                     : reason == RejectionReason.SALE_NOT_ELIGIBLE ? "SALE_NOT_ELIGIBLE"
+                    // 003.1 FR-055 (003.2 FR-039): the Package is INACTIVE at a selected session's location. It is not a
+                    // selection-bounds problem, so it must not fall into PACKAGE_SELECTION_INVALID.
+                    : reason == RejectionReason.PACKAGE_NOT_AVAILABLE_AT_LOCATION ? "PACKAGE_NOT_AVAILABLE_AT_LOCATION"
                     : "PACKAGE_SELECTION_INVALID";
             throw new CartHoldRejectedException(code,
                     "No seat was held; the cart is unchanged and the listed lines need attention",

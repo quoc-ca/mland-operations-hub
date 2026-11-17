@@ -25,7 +25,9 @@ const auto = patch => ({
 });
 const voucher = patch => auto({ id: '3', kind: 'VOUCHER', code: 'MLWS2026', name: 'Voucher workshop', targets: {}, discount: { kind: 'PERCENT', percentage: '30', maxDiscountAmount: '200000' }, ...patch });
 
+// One price after the best voucher: 500 000 -10 % automatic = 450 000, then the 30 % voucher = 315 000.
 const DISCOUNTED = /450[.,\s]?000/;
+const AFTER_VOUCHER = /315[.,\s]?000/;
 const ORIGINAL = /500[.,\s]?000/;
 
 function renderPage(element, handlers, session = fakeSession('signed-out')) {
@@ -43,8 +45,8 @@ function renderPage(element, handlers, session = fakeSession('signed-out')) {
 const promotions = items => ({ 'GET /api/v1/promotions': json(200, { items }) });
 const promotionsDown = { 'GET /api/v1/promotions': json(503, { code: 'UNAVAILABLE' }) };
 
-async function expectDiscounted(container) {
-  const now = await within(container).findByText(DISCOUNTED, { selector: '.offer-now' });
+async function expectDiscounted(container, amount = DISCOUNTED) {
+  const now = await within(container).findByText(amount, { selector: '.offer-now' });
   expect(now).toBeInTheDocument();
   expect(within(container).getByText(ORIGINAL, { selector: 's' })).toHaveAccessibleName(/Giá gốc/);
 }
@@ -58,7 +60,7 @@ describe('003.1 FR-052 discounted price on the public package surfaces', () => {
       ...promotions([auto(), voucher()]),
     });
     const card = (await screen.findByRole('heading', { name: 'Silverclay 2 phiên' })).closest('article');
-    await expectDiscounted(card);
+    await expectDiscounted(card, AFTER_VOUCHER);
     expect(within(card).getByText('Giảm 10%')).toBeInTheDocument();
     expect(within(card).getByText('Mã giảm 30%')).toBeInTheDocument();
     expect(within(card).getByText('Đăng nhập để dùng mã giảm')).toBeInTheDocument();
@@ -87,9 +89,12 @@ describe('003.1 FR-052 discounted price on the public package surfaces', () => {
       ]),
     });
     const main = await screen.findByRole('main');
-    await expectDiscounted(main);
+    await expectDiscounted(main, AFTER_VOUCHER);
     const list = await screen.findByRole('region', { name: 'Ưu đãi cho gói này' });
-    expect(within(list).getByText(/Giảm đơn lớn: giảm .* cho đơn từ/)).toBeInTheDocument();
+    expect(within(list).getByText('Giảm đơn lớn')).toBeInTheDocument();
+    expect(within(list).getByText(/Tự trừ khi đơn từ/)).toBeInTheDocument();
+    expect(within(list).getByText('Giảm giá của cửa hàng')).toBeInTheDocument();
+    expect(within(list).getByText('Mã giảm giá (voucher)')).toBeInTheDocument();
     expect(within(list).getByRole('link', { name: 'Xem và lưu mã' })).toHaveAttribute('href', '/promotions/3');
     expect(within(list).getByRole('link', { name: 'Đăng nhập để dùng mã giảm cho thành viên' })).toBeInTheDocument();
   });
@@ -108,7 +113,8 @@ describe('003.1 FR-052 discounted price on the public package surfaces', () => {
   it('booking screen: the package summary shows the discounted unit price and no quote is computed on screen', async () => {
     const calls = renderPage(<WorkshopBookingPage packageId="7" />, {
       'GET /api/v1/workshop-packages/7': json(200, PACKAGE),
-      'GET /api/v1/workshop-packages/7/locations': json(200, []),
+      // FR-056: an empty branch list means "sold nowhere" and hides the booking controls, so one branch is sold here.
+      'GET /api/v1/workshop-packages/7/locations': json(200, [{ id: 1, name: 'Thủ Đức' }]),
       ...promotions([auto()]),
     });
     const summary = (await screen.findByText(/Đơn giá:/)).closest('p');
@@ -123,7 +129,7 @@ describe('003.1 FR-052 discounted price on the public package surfaces', () => {
     renderPage(<WorkshopCartPage />, promotions([auto()]));
     const [first, second] = await screen.findAllByRole('listitem').then(items => items.filter(item => item.querySelector('strong')));
     await expectDiscounted(first);
-    expect(within(second).getByText(/300[.,\s]?000/)).toBeInTheDocument();
+    expect(within(second.querySelector('.cart-unit')).getByText(/300[.,\s]?000/)).toBeInTheDocument();
     expect(second.querySelector('s')).toBeNull();
   });
 
@@ -135,5 +141,22 @@ describe('003.1 FR-052 discounted price on the public package surfaces', () => {
     const card = (await screen.findByRole('heading', { name: 'Silverclay 2 phiên' })).closest('article');
     await expectDiscounted(card);
     expect(within(card).getByText('Giảm 10%')).toBeInTheDocument();
+  });
+});
+
+describe('best-voucher estimate and minimum on voucher labels', () => {
+  it('shows the price after the largest eligible voucher and the "cho đơn từ" minimum', async () => {
+    renderPage(<WorkshopListPage />, {
+      'GET /api/v1/workshop-packages': json(200, [{ ...PACKAGE, publicPrice: 900000 }]),
+      ...promotions([
+        voucher({ id: '8', code: 'BIG', targets: {}, minimumEligibleAmount: '1000000', discount: { kind: 'PERCENT', percentage: '15', maxDiscountAmount: '200000' } }),
+        voucher({ id: '7', code: 'FIX', targets: {}, discount: { kind: 'FIXED', amount: '100000', maxDiscountAmount: '100000' } }),
+      ]),
+    });
+    const card = (await screen.findByRole('heading', { name: 'Silverclay 2 phiên' })).closest('article');
+    expect(await within(card).findByText(/800[.,\s]?000/, { selector: '.offer-now' })).toBeInTheDocument();
+    expect(within(card).getByText(/Giá sau voucher FIX/)).toBeInTheDocument();
+    expect(card.querySelectorAll('.offer-now')).toHaveLength(1);
+    expect(within(card).getByText(/Mã giảm 15%.*cho đơn từ 1[.,\s]?000[.,\s]?000/)).toBeInTheDocument();
   });
 });

@@ -46,9 +46,11 @@ public class WorkshopOperationsFacadeImpl implements WorkshopOperationsFacade {
     private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.TicketCancellationService ticketCancellationService;
     private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.TicketSessionReplacementService ticketSessionReplacementService;
     private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.EquivalentReplacementSessionService equivalentReplacementSessionService;
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.TicketChangeOptionsService ticketChangeOptionsService;
     private final AttendanceTicketService attendanceTicketService;
     private final WorkshopOtaSnapshotService otaSnapshotService;
     private final WorkshopPackageReservationPolicy packageReservationPolicy;
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopPackageAvailabilityService packageAvailabilityService;
     private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.BookingAttendanceOutcomeService bookingAttendanceOutcomeService;
     private final WorkshopAddOnService addOnService;
     private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.SessionStaffAssignmentRepository staffAssignmentRepository;
@@ -59,6 +61,12 @@ public class WorkshopOperationsFacadeImpl implements WorkshopOperationsFacade {
     public WorkshopAddOnPriceSnapshot getWorkshopAddOnPrice(WorkshopAddOnPriceQuery query) {
         if (query == null) return null;
         return addOnService.getEligibleSnapshot(query.packageReference(), query.locationReference(), query.addOnReference());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Long getWorkshopAddOnLocation(String addOnReference) {
+        return addOnService.locationOf(addOnReference);
     }
 
     @Override
@@ -143,6 +151,19 @@ public class WorkshopOperationsFacadeImpl implements WorkshopOperationsFacade {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public ActivePackageLocations activeLocationsForPackage(String packageReference) {
+        Long packageId = packageReservationPolicy.parsePackageReference(packageReference);
+        return new ActivePackageLocations(packageId == null ? java.util.List.of()
+                : packageAvailabilityService.activeLocationIds(packageId));
+    }
+
+    @Override
+    public TicketChangeOptions listTicketChangeOptions(ListTicketChangeOptionsQuery query) {
+        return ticketChangeOptionsService.list(query);
+    }
+
+    @Override
     public EquivalentReplacementSessions findEquivalentReplacementSessions(FindEquivalentReplacementSessionsQuery query) {
         return equivalentReplacementSessionService.find(query);
     }
@@ -196,7 +217,8 @@ public class WorkshopOperationsFacadeImpl implements WorkshopOperationsFacade {
                 command.correlationReference());
         CapacityHoldOutcome holdOutcome = capacityHoldService.reserveBookingCapacity(
                 reserveCommand,
-                () -> packageReservationPolicy.validate(reserveCommand),
+                // 003.2 FR-039: an OTA booking is never refused at an INACTIVE Package x location pair.
+                () -> packageReservationPolicy.validate(reserveCommand, false),
                 () -> packageReservationPolicy.snapshotForBooking(reserveCommand));
 
         if (holdOutcome.status() == OutcomeStatus.IN_PROGRESS) {

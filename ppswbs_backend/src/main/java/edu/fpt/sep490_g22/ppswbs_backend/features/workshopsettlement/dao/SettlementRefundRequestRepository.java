@@ -20,6 +20,9 @@ public interface SettlementRefundRequestRepository extends JpaRepository<Settlem
     /** FR-039: the same money is never asked back twice. */
     Optional<SettlementRefundRequest> findByReasonAndSourceReference(RefundReason reason, String sourceReference);
 
+    /** T144: any refund request (whatever its reason or state) opened against this money. */
+    boolean existsBySourceReference(String sourceReference);
+
     List<SettlementRefundRequest> findByBookingReferenceOrderByIdAsc(String bookingReference);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
@@ -34,10 +37,14 @@ public interface SettlementRefundRequestRepository extends JpaRepository<Settlem
 
     List<SettlementRefundRequest> findByStatusOrderByCreatedAtDesc(RefundRequestStatus status);
 
+    /** T137: the requests that still hold an encrypted account number, oldest first. */
+    @Query("select r.requestReference from SettlementRefundRequest r where r.recipientAccountEncrypted is not null order by r.id asc")
+    List<String> findReferencesHoldingAccountNumber();
+
+    /** T170: REFUNDED or open; CLOSED_UNREACHABLE counts as open because the entitlement stays. */
     @Query("""
             select coalesce(sum(r.amountVnd), 0) from SettlementRefundRequest r
-            where r.bookingReference = :bookingReference
-              and r.status <> edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.RefundRequestStatus.CLOSED_UNREACHABLE""")
+            where r.bookingReference = :bookingReference""")
     long sumRefundedOrPending(@Param("bookingReference") String bookingReference);
 
     @Query("""

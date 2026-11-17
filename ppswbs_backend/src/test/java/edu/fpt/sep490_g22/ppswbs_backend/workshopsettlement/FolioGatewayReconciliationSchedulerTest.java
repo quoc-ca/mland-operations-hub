@@ -26,6 +26,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 /**
@@ -158,6 +159,78 @@ class FolioGatewayReconciliationSchedulerTest {
         verify(folioCollections, never()).failGatewayCollectionFromProvider(any(), any(), any());
     }
 
+
+    // ---- T149: automatic FAILED after 24 hours, QueryDR through a fake transport (port mock) ----
+
+    @Test
+    void after24HoursFromCreationAnUnpaidPartIsAutoFailedAsSystemWhenQueryDrFindsNoTransaction() {
+        part.setCreatedAt(Instant.now().minus(Duration.ofHours(24)).minusSeconds(60));
+        when(merchant.queryTransaction(any())).thenReturn(result("91", null, null, 0L, true, null));
+        when(folioCollections.autoFailGatewayCollection(anyString(), anyString(), anyString())).thenReturn(true);
+
+        scheduler.reconcilePendingGatewayParts();
+
+        verify(folioCollections).autoFailGatewayCollection(eq(MERCHANT), eq("VNPAY_QUERYDR_NO_PAYMENT_AFTER_24H"),
+                anyString());
+        verify(folioCollections, never()).failGatewayCollectionFromProvider(any(), any(), any());
+        verifyNoInteractions(finalPayments);
+    }
+
+    @Test
+    void after24HoursAStillPendingOrFailedAnswerAlsoFailsThePart() {
+        part.setCreatedAt(Instant.now().minus(Duration.ofHours(25)));
+        when(merchant.queryTransaction(any()))
+                .thenReturn(result("00", "01", MERCHANT, 80_000L, true, null))
+                .thenReturn(result("00", "02", MERCHANT, 80_000L, true, null));
+
+        scheduler.reconcilePendingGatewayParts();
+        scheduler.reconcilePendingGatewayParts();
+
+        verify(folioCollections, times(2)).autoFailGatewayCollection(eq(MERCHANT),
+                eq("VNPAY_QUERYDR_NO_PAYMENT_AFTER_24H"), anyString());
+    }
+
+    @Test
+    void before24HoursFromCreationNothingIsAutoFailedEvenWhenQueryDrFindsNoTransaction() {
+        part.setCreatedAt(Instant.now().minus(Duration.ofHours(23)));
+        when(merchant.queryTransaction(any())).thenReturn(result("91", null, null, 0L, true, null));
+
+        scheduler.reconcilePendingGatewayParts();
+
+        verify(folioCollections, never()).autoFailGatewayCollection(any(), any(), any());
+    }
+
+    @Test
+    void after24HoursAPaidAnswerPreventsFailedAndIsApplied() {
+        part.setCreatedAt(Instant.now().minus(Duration.ofHours(30)));
+        when(merchant.queryTransaction(any())).thenReturn(result("00", "00", MERCHANT, 80_000L, true, "14420001"));
+        when(finalPayments.apply(any())).thenReturn(SettlementPaymentEvidenceOutcome.accepted());
+
+        scheduler.reconcilePendingGatewayParts();
+
+        verify(finalPayments).apply(any());
+        verify(folioCollections, never()).autoFailGatewayCollection(any(), any(), any());
+    }
+
+    @Test
+    void after24HoursAnInconclusiveQueryDrIsRetriedNotFailed() {
+        part.setCreatedAt(Instant.now().minus(Duration.ofHours(30)));
+        part.setPaymentExpiresAt(Instant.now().minus(Duration.ofHours(29))); // past the normal query window
+        when(merchant.queryTransaction(any()))
+                .thenReturn(result("00", "02", MERCHANT, 80_000L, false, null))   // unsigned
+                .thenReturn(result("99", null, MERCHANT, 80_000L, true, null))    // unavailable
+                .thenReturn(result("00", "02", "FOL-OTHER", 80_000L, true, null)) // another payment
+                .thenReturn(result("00", "04", MERCHANT, 80_000L, true, null))    // reversed: money did move
+                .thenReturn(null);                                                // no answer
+
+        for (int i = 0; i < 5; i++) {
+            scheduler.reconcilePendingGatewayParts();
+        }
+
+        verify(merchant, times(5)).queryTransaction(any());
+        verify(folioCollections, never()).autoFailGatewayCollection(any(), any(), any());
+        verifyNoInteractions(finalPayments);
+    }
     @Test
     void withoutTheMerchantApiAddressNoQueryIsSent() {
         scheduler = new FolioGatewayReconciliationScheduler(collections, ingress, merchant, folioCollections,

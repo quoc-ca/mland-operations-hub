@@ -80,13 +80,18 @@ class LoyaltyWorkshopFacadeIT {
 
     /** Fixed 100.000 on the package, limited to the given workshop dates. */
     private String workshopVoucher(long packageId, List<LocalDate> days) {
+        return workshopVoucher(packageId, days, ChronoUnit.DAYS.getDuration());
+    }
+
+    /** As above, but the revision window ends {@code validFor} after now (a short one lets a test outlive it). */
+    private String workshopVoucher(long packageId, List<LocalDate> days, java.time.Duration validFor) {
         String code = "WK" + UUID.randomUUID().toString().replace("-", "").substring(0, 10).toUpperCase();
         Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
         transaction.executeWithoutResult(status -> {
             PromotionProgram program = programs.saveAndFlush(
                     PromotionProgram.voucher(TargetScope.WORKSHOP, code, code, 10, 1, now, 1L));
             PromotionRevision revision = revisions.saveAndFlush(PromotionRevision.create(program.getId(), 1,
-                    ProgramKind.VOUCHER, "Workshop IT", now.minus(1, ChronoUnit.DAYS), now.plus(1, ChronoUnit.DAYS),
+                    ProgramKind.VOUCHER, "Workshop IT", now.minus(1, ChronoUnit.DAYS), now.plus(validFor),
                     DiscountTerms.fixed(n(100_000), n(100_000), BigInteger.ZERO), true, now, 1L));
             targets.save(PromotionTarget.create(revision.getId(), TargetScope.WORKSHOP, TargetDimension.PACKAGE,
                     Long.toString(packageId)));
@@ -364,8 +369,12 @@ class LoyaltyWorkshopFacadeIT {
 
     /** Three 500.000 tickets t-1..t-3 of the voucher package on DAY, voucher 100.000 and 100 points; deposit settled. */
     private TicketCart acceptAndSettleThreeTickets() {
+        return acceptAndSettleThreeTickets(ChronoUnit.DAYS.getDuration());
+    }
+
+    private TicketCart acceptAndSettleThreeTickets(java.time.Duration voucherValidFor) {
         long packageId = ThreadLocalRandom.current().nextLong(1_000_000L, 9_000_000L);
-        String code = workshopVoucher(packageId);
+        String code = workshopVoucher(packageId, List.of(DAY), voucherValidFor);
         long memberId = member(1_000);
         List<WorkshopTicketFact> tickets = List.of("t-1", "t-2", "t-3").stream()
                 .map(t -> new WorkshopTicketFact(t, packageId, n(500_000), List.of(WorkshopSessionFact.of(SESSION_1, 2L, DAY))))
@@ -602,5 +611,99 @@ class LoyaltyWorkshopFacadeIT {
                 ticketOutcome(ref, OutcomeKind.WORKSHOP_TICKET_COMPLETED_AND_FULLY_PAID, "done-1", "t-1")));
         assertThat(result.voucherState()).isEqualTo(ComponentState.NONE);
         assertThat(benefits.findBySourceKindAndSourceRef(SourceKind.WORKSHOP, ref).orElseThrow().getMemberId()).isNull();
+    }
+
+    // ---- 006 T110: restoreVoucherForCancelledTicket (003.3 FR-042/FR-043, T155) ----
+
+    private static edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.RestoreVoucherCommand mlandCancel(
+            String group, String ticket) {
+        return new edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.RestoreVoucherCommand(group,
+                ticket, edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.TicketCancellationKind.MLAND_CANCELLED);
+    }
+
+    private edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.VoucherRestorationOutcome restoreVoucher(
+            String group, String ticket) {
+        return transaction.execute(status -> loyalty.restoreVoucherForCancelledTicket(mlandCancel(group, ticket)));
+    }
+
+    @Test
+    void restoreVoucherGivesTheVoucherBackOnceAndEachTicketItsPoints() {
+        var restored = edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.VoucherRestorationOutcome.RESTORED;
+        var already = edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.VoucherRestorationOutcome.ALREADY_RESTORED;
+        TicketCart cart = acceptAndSettleThreeTickets();
+        long consumedBefore = programs.findByCodeKey(cart.code()).orElseThrow().getConsumedCount();
+
+        assertThat(restoreVoucher(cart.ref(), "t-1")).isEqualTo(restored);
+        assertThat(programs.findByCodeKey(cart.code()).orElseThrow().getConsumedCount()).isEqualTo(consumedBefore - 1);
+        assertThat(balance(cart.memberId())).as("t-1 points back").isEqualTo(n(900 + 33));
+
+        assertThat(restoreVoucher(cart.ref(), "t-2")).isEqualTo(already);
+        assertThat(programs.findByCodeKey(cart.code()).orElseThrow().getConsumedCount())
+                .as("never a second time").isEqualTo(consumedBefore - 1);
+        assertThat(balance(cart.memberId())).as("t-2 still gets its own points").isEqualTo(n(900 + 33 + 34));
+    }
+
+    @Test
+    void restoreVoucherRepeatedForTheSameTicketRestoresNothingTwice() {
+        TicketCart cart = acceptAndSettleThreeTickets();
+        restoreVoucher(cart.ref(), "t-1");
+        long consumed = programs.findByCodeKey(cart.code()).orElseThrow().getConsumedCount();
+        BigInteger balance = balance(cart.memberId());
+        var again = restoreVoucher(cart.ref(), "t-1");
+        assertThat(again).isEqualTo(
+                edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.VoucherRestorationOutcome.ALREADY_RESTORED);
+        assertThat(programs.findByCodeKey(cart.code()).orElseThrow().getConsumedCount()).isEqualTo(consumed);
+        assertThat(balance(cart.memberId())).isEqualTo(balance);
+    }
+
+    @Test
+    void restoreVoucherDoesNotGiveAnExpiredVoucherBackButStillReturnsThePoints() throws InterruptedException {
+        TicketCart cart = acceptAndSettleThreeTickets(java.time.Duration.ofSeconds(4));
+        long consumedBefore = programs.findByCodeKey(cart.code()).orElseThrow().getConsumedCount();
+        Thread.sleep(4_500);
+
+        var expired = restoreVoucher(cart.ref(), "t-1");
+        assertThat(expired).isEqualTo(
+                edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.VoucherRestorationOutcome.EXPIRED);
+        assertThat(programs.findByCodeKey(cart.code()).orElseThrow().getConsumedCount())
+                .as("an expired voucher is not given back").isEqualTo(consumedBefore);
+        assertThat(balance(cart.memberId())).as("points are not tied to the voucher").isEqualTo(n(900 + 33));
+        assertThat(restoreVoucher(cart.ref(), "t-1")).as("EXPIRED is stable on a repeat").isEqualTo(expired);
+    }
+
+    @Test
+    void twoConcurrentRestoresOfTheSameGroupGiveTheVoucherBackOnce() throws Exception {
+        TicketCart cart = acceptAndSettleThreeTickets();
+        long consumedBefore = programs.findByCodeKey(cart.code()).orElseThrow().getConsumedCount();
+        var pool = java.util.concurrent.Executors.newFixedThreadPool(2);
+        try {
+            var start = new java.util.concurrent.CountDownLatch(1);
+            java.util.concurrent.Callable<Object> one = () -> {
+                start.await();
+                return restoreVoucher(cart.ref(), "t-1");
+            };
+            java.util.concurrent.Callable<Object> two = () -> {
+                start.await();
+                return restoreVoucher(cart.ref(), "t-2");
+            };
+            var first = pool.submit(one);
+            var second = pool.submit(two);
+            start.countDown();
+            List<Object> results = List.of(first.get(30, java.util.concurrent.TimeUnit.SECONDS),
+                    second.get(30, java.util.concurrent.TimeUnit.SECONDS));
+            assertThat(results).containsExactlyInAnyOrder(
+                    edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.VoucherRestorationOutcome.RESTORED,
+                    edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.VoucherRestorationOutcome.ALREADY_RESTORED);
+        } finally {
+            pool.shutdownNow();
+        }
+        assertThat(programs.findByCodeKey(cart.code()).orElseThrow().getConsumedCount()).isEqualTo(consumedBefore - 1);
+        assertThat(balance(cart.memberId())).isEqualTo(n(900 + 33 + 34));
+    }
+
+    @Test
+    void restoreVoucherOutsideATransactionIsRefused() {
+        assertThatThrownBy(() -> loyalty.restoreVoucherForCancelledTicket(mlandCancel("no-group", "t-1")))
+                .isInstanceOf(org.springframework.transaction.IllegalTransactionStateException.class);
     }
 }

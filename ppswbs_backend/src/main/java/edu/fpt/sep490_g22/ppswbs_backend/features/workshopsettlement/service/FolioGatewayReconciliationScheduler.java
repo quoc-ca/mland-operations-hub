@@ -34,6 +34,11 @@ import java.util.Optional;
  *       checkout expired, the cadence 003.3 already uses for refund reconciliation; after that the part is left
  *       to the Manager failure route.</li>
  * </ul>
+ * <ul>
+ *   <li>T149: 24 hours after the attempt was created (not after the checkout expiry), a signed QueryDR answer
+ *       that reports no successful payment fails the part as {@code SYSTEM} (audit
+ *       {@code FOLIO_GATEWAY_COLLECTION_AUTO_FAILED}); an unavailable or inconclusive answer is retried.</li>
+ * </ul>
  * Closing the QR or the screen is never treated as failure.
  */
 @Service
@@ -42,6 +47,9 @@ public class FolioGatewayReconciliationScheduler {
 
     static final Duration QUERY_INTERVAL = Duration.ofMinutes(5);
     static final Duration QUERY_WINDOW = Duration.ofHours(24);
+    static final Duration AUTO_FAIL_AFTER = Duration.ofHours(24);
+    private static final String NOT_FOUND = "91";
+    private static final String PAYMENT_PENDING = "01";
     private static final String PAYMENT_FAILED = "02";
     private static final String PAYMENT_SUCCEEDED = "00";
 
@@ -96,8 +104,14 @@ public class FolioGatewayReconciliationScheduler {
             return;
         }
         Instant expiresAt = candidate.getPaymentExpiresAt();
-        if (expiresAt == null || candidate.getProviderCreateDate() == null || now.isBefore(expiresAt)
-                || now.isAfter(expiresAt.plus(QUERY_WINDOW))) {
+        if (expiresAt == null || candidate.getProviderCreateDate() == null || now.isBefore(expiresAt)) {
+            return;
+        }
+        // T149, FR-034: the 24 hours run from the attempt creation, not from the checkout expiry. From then on the
+        // part is asked about on every pass until VNPay gives a conclusive answer, even past QUERY_WINDOW.
+        boolean autoFailDue = candidate.getCreatedAt() != null
+                && !now.isBefore(candidate.getCreatedAt().plus(AUTO_FAIL_AFTER));
+        if (now.isAfter(expiresAt.plus(QUERY_WINDOW)) && !autoFailDue) {
             return;
         }
         if (merchantApiIpAddress == null || merchantApiIpAddress.isBlank()) {
@@ -109,6 +123,14 @@ public class FolioGatewayReconciliationScheduler {
         VnpayMerchantOperationResult result = merchantOperations.queryTransaction(new VnpayQueryDrCommand(
                 operationReference, merchant, candidate.getProviderCreateDate(),
                 "Workshop folio " + candidate.getBookingReference(), merchantApiIpAddress));
+        if (autoFailDue && noPaymentReported(result, candidate)) {
+            if (folioCollections.autoFailGatewayCollection(merchant, "VNPAY_QUERYDR_NO_PAYMENT_AFTER_24H",
+                    operationReference)) {
+                log.info("Folio collection {} failed automatically: QueryDR reports no payment after 24 hours",
+                        candidate.getCollectionReference());
+            }
+            return;
+        }
         if (!aboutThisPart(result, candidate)) {
             return;
         }
@@ -126,6 +148,24 @@ public class FolioGatewayReconciliationScheduler {
             log.info("Folio collection {} reconciled as paid by QueryDR ({})", candidate.getCollectionReference(),
                     outcome == null ? "no outcome" : outcome.status());
         }
+    }
+
+    /**
+     * T149: a signed answer that VNPay has no successful payment for this part: "transaction not found" (code 91),
+     * or a found transaction about exactly this reference and amount that is failed (02) or still pending (01).
+     * An unsigned, unavailable, mismatched or any other answer is inconclusive and is retried.
+     * (91, 02 and 01 are still to be confirmed against VNPay's documentation and sandbox, T005.)
+     */
+    private static boolean noPaymentReported(VnpayMerchantOperationResult result, SettlementFolioCollection candidate) {
+        if (result == null || !result.responseSignatureVerified()) {
+            return false;
+        }
+        if (NOT_FOUND.equals(result.providerResponseCode())) {
+            return result.merchantReference() == null
+                    || candidate.getExternalReference().equals(result.merchantReference());
+        }
+        return aboutThisPart(result, candidate)
+                && (PAYMENT_FAILED.equals(result.transactionStatus()) || PAYMENT_PENDING.equals(result.transactionStatus()));
     }
 
     /** Only a signed, successful query about exactly this merchant reference and amount counts. */

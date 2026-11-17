@@ -43,7 +43,8 @@ class GroupBuyerReleaseTest {
         loyalty = mock(GroupLoyaltyOutcomeService.class);
         service = new GroupConfirmationService(groups, lines, tickets, mock(TicketPriceSnapshotRepository.class),
                 mock(BookingGroupMagicLinkRepository.class), operations, loyalty,
-                mock(ApplicationEventPublisher.class), mock(GroupNotificationService.class));
+                mock(ApplicationEventPublisher.class), mock(GroupNotificationService.class),
+                mock(GroupPaymentAttemptRepository.class));
 
         group = BookingGroup.builder().id(1L).groupCode("GRP-R1").groupStatus(BookingStatus.PENDING_PAYMENT)
                 .paymentMode(GroupPaymentMode.VNPAY).holdExpiresAt(Instant.now().plusSeconds(300)).build();

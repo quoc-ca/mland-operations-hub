@@ -10,6 +10,8 @@ export function createOperationsAdminApi(http) {
   return {
     listLocations: () => http('/api/v1/workshop-locations'),
     createLocation: (body, key) => command('/api/v1/workshop-locations', 'POST', body, key),
+    // 003.2 T135/T136: Manager-only PATCH of name, address and active; the code is immutable.
+    updateLocation: (locationId, body, key) => command(`/api/v1/workshop-locations/${encodeURIComponent(locationId)}`, 'PATCH', body, key),
     listSlots: locationId => http(`/api/v1/workshop-locations/${encodeURIComponent(locationId)}/slots`),
     createSlot: (locationId, body, key) => command(`/api/v1/workshop-locations/${encodeURIComponent(locationId)}/slots`, 'POST', body, key),
     updateSlot: (slotId, body, key) => command(`/api/v1/workshop-slots/${encodeURIComponent(slotId)}`, 'PATCH', body, key),

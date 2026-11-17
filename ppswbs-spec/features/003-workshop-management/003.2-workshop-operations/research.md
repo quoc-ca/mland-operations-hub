@@ -1,9 +1,34 @@
 # Research: Workshop Operations Design
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-26
+**Date updated**: 2026-11-17
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
+
+## Decision 16 — Package availability per location (proposed 2026-11-17)
+
+**Decision:** one Operations-owned row per Package and location with an `active`
+flag; a missing row means `INACTIVE`. Sellable means `PUBLISHED` + pair `ACTIVE` +
+location active, answered by one service used by discovery, reserve, ticket
+change and change options.
+
+**Rationale:** price and rules are identical across locations, so only a yes/no
+per pair is needed; missing-row-means-inactive gives the owner's "new pairs
+start inactive" rule without writes; a single check prevents the four paths from
+disagreeing. The reserve needs no extra lock because a reserve that commits
+before a deactivation is an ordinary earlier sale (FR-040).
+
+**Alternatives considered:** a `location_id` column on the Package (rejected: a
+Package is sold at several locations); a per-location price/rule table (rejected:
+owner says prices are identical); clearing `sameLocationRequired` to allow
+cross-location moves (rejected: Wax Casting still needs both sessions at one
+location, so the flag keeps its meaning, FR-041); blocking a toggle while
+bookings exist (rejected by the owner, FR-040).
+
+**Resolved 2026-11-17:** audit action is a free string, named
+`WORKSHOP_PACKAGE_AVAILABILITY_CHANGED`; seed names match `V161__add_data.sql`;
+Mland-caused replacement offers sessions at every location where the Package is
+`ACTIVE` (spec FR-046, owner decision). Still open: the live DB was not queried.
 
 ## Decision 1 — Operational ownership
 

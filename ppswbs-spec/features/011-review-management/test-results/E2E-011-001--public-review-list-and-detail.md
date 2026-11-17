@@ -87,11 +87,11 @@ requests --filter "/api/v1/reviews"
 
 <!-- EXECUTION:START -->
 - Latest status: PASS
-- Executed at: 2026-11-12 19:53:54
+- Executed at: 2026-11-15 16:32:34
 - Executed by: Senior QA & System Verification Engineer
-- Browser tool: browsermcp
+- Browser tool: Chrome DevTools / headless
 - Failure step: None
-- Actual result: Trang danh sách đánh giá công khai hiển thị chuẩn xác với bộ lọc số sao (1-5 sao), thống kê điểm trung bình và kết nối API GET /api/v1/reviews trả về HTTP 200 OK.
+- Actual result: Trang danh sách đánh giá công khai (/reviews) hiển thị phông chữ tiếng Việt chuẩn xác 100% (đã khắc phục lỗi encoding mojibake), hiển thị đúng họ tên che mờ (Phạm D***, Nguyễn V***, Trần H***, Lê M***), bộ lọc sao hoạt động chuẩn, điều hướng sang chi tiết /reviews/rev-101-5star thành công.
 - Evidence screenshot: screenshots/E2E-011-001--success.jpg
 - Bug reference: NONE
 <!-- EXECUTION:END -->

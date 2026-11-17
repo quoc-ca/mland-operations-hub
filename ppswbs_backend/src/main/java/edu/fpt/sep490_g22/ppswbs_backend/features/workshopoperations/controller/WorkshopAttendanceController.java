@@ -9,6 +9,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.Ticket;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.AttendanceCorrectionService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.AttendanceFinalizationService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.CancellationHandoffService;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.OperationsDeniedAttemptRecorder;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.CancellationHandoffService.CancellationResult;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -41,6 +42,7 @@ public class WorkshopAttendanceController {
     private final AttendanceFinalizationService finalizationService;
     private final AttendanceCorrectionService correctionService;
     private final CancellationHandoffService cancellationHandoffService;
+    private final OperationsDeniedAttemptRecorder deniedAttemptRecorder;
 
     /**
      * Finalises the whole session's attendance.
@@ -57,7 +59,8 @@ public class WorkshopAttendanceController {
                 ? request
                 : AttendanceFinalizationRequest.builder().confirmedSessionEnded(Boolean.TRUE).build();
 
-        SessionResponse response = finalizationService.finalizeAttendance(authHeader, correlationId, sessionId, effectiveRequest);
+        SessionResponse response = deniedAttemptRecorder.guard("ATTENDANCE_FINALIZED", sessionId, authHeader, correlationId,
+                () -> finalizationService.finalizeAttendance(authHeader, correlationId, sessionId, effectiveRequest));
         return ResponseEntity.ok(response);
     }
 
@@ -73,7 +76,8 @@ public class WorkshopAttendanceController {
             @Valid @RequestBody CheckInReversalRequest request) {
         log.info("REST: check-in reversal requested for ticket {} at session {}",
                 request != null ? request.getTicketCode() : "null", sessionId);
-        Ticket response = correctionService.reverseCheckIn(authHeader, correlationId, sessionId, request);
+        Ticket response = deniedAttemptRecorder.guard("CHECK_IN_REVERSED", sessionId, authHeader, correlationId,
+                () -> correctionService.reverseCheckIn(authHeader, correlationId, sessionId, request));
         return ResponseEntity.ok(response);
     }
 
@@ -91,7 +95,8 @@ public class WorkshopAttendanceController {
                 request != null ? request.getTicketCode() : "null",
                 request != null ? request.getCorrectedAttendanceState() : "null",
                 sessionId);
-        Ticket response = correctionService.correctFinalizedAttendance(authHeader, correlationId, sessionId, request);
+        Ticket response = deniedAttemptRecorder.guard("ATTENDANCE_CORRECTED", sessionId, authHeader, correlationId,
+                () -> correctionService.correctFinalizedAttendance(authHeader, correlationId, sessionId, request));
         return ResponseEntity.ok(response);
     }
 
@@ -108,8 +113,9 @@ public class WorkshopAttendanceController {
             @Valid @RequestBody SessionCancellationRequest request) {
         log.info("REST: session cancellation requested for session {} with reason {}",
                 sessionId, request != null ? request.getReasonCode() : "null");
-        CancellationResult result = cancellationHandoffService.requestSessionCancellation(
-                authHeader, operationReference, correlationId, sessionId, request
+        CancellationResult result = deniedAttemptRecorder.guard("SESSION_CANCELLATION_REQUESTED", sessionId, authHeader, correlationId,
+                () -> cancellationHandoffService.requestSessionCancellation(
+                authHeader, operationReference, correlationId, sessionId, request)
         );
 
         if (result.getStatusCode() == 202) {

@@ -121,6 +121,7 @@ public class SecurityConfiguration {
                         .requestMatchers(HttpMethod.POST, "/api/v1/ota-provider/booking-events").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/ota-provider/cancellation-events").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/workshop-tickets/*/folio-lookups").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/workshop-tickets/*/change-option-lookups").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/review-eligibility/lookup").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/reviews/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/reviews").permitAll()

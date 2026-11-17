@@ -52,7 +52,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class BookingGroupRecoveryMySqlIT {
 
     private static final String EMAIL = "recovery.buyer@example.com";
-    private static final String PHONE = "0900000001";
+    private static final String PHONE = "+84900000001";
     private static final ObjectMapper JSON = new ObjectMapper();
 
     @Autowired private MockMvc mockMvc;
@@ -80,7 +80,7 @@ class BookingGroupRecoveryMySqlIT {
                     "BookingGroupRecoveryMySqlIT requires real MySQL evidence");
         }
         jdbc.execute("SET FOREIGN_KEY_CHECKS = 0");
-        for (String table : List.of("late_payment_reviews", "booking_group_notification_intents",
+        for (String table : List.of("promotion_revision_target", "promotion_revision", "promotion_program", "late_payment_reviews", "booking_group_notification_intents",
                 "group_payment_attempts", "booking_group_magic_links", "ticket_price_snapshots", "ticket_bookings",
                 "booking_group_line_sessions", "booking_group_lines", "booking_groups", "workshop_cart_quotes",
                 "booking_idempotency_records", "booking_audit_evidence", "facade_command_idempotency_records",

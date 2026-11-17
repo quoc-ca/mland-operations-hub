@@ -26,7 +26,8 @@ class TicketSessionReplacementReplayTest {
             mock(AttendanceTicketRepository.class), mock(TicketSessionEntitlementRepository.class),
             mock(TicketSessionReplacementRepository.class), mock(CapacityHoldRepository.class),
             mock(WorkshopSessionRepository.class), mock(OperationsAuditEventRepository.class), idempotency,
-            mock(WorkshopOtaSnapshotService.class), mock(WorkshopPackageReservationPolicy.class));
+            mock(WorkshopOtaSnapshotService.class), mock(WorkshopPackageReservationPolicy.class),
+            new edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.TicketReplacementRules());
 
     private static ReplaceTicketSessionsCommand command() {
         UUID ticket = UUID.randomUUID();

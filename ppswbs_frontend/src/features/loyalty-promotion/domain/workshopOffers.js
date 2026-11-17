@@ -50,6 +50,23 @@ export function offersForPackage(pkg, programs) {
     }
   }
 
+  // Estimate for one ticket: the voucher with the largest discount on the price after the automatic discount, among
+  // those whose minimum the ticket reaches. Shown as a Member-only "with code" price; the quote stays the truth.
+  const afterAuto = price === null ? null : price - discount;
+  let bestVoucher = null;
+  if (afterAuto !== null && afterAuto > 0n) {
+    for (const program of vouchers) {
+      const value = unitDiscount(program, afterAuto);
+      if (value > 0n && (!bestVoucher || value > bestVoucher.discount)) {
+        bestVoucher = { program, discount: value, priceAfter: afterAuto - value };
+      }
+    }
+  }
+  // The best voucher is listed first so a card showing only two labels never hides it.
+  const orderedVouchers = bestVoucher
+    ? [bestVoucher.program, ...vouchers.filter(program => program !== bestVoucher.program)]
+    : vouchers;
+
   return {
     price,
     discount,
@@ -57,6 +74,7 @@ export function offersForPackage(pkg, programs) {
     discounted: discount > 0n,
     auto,
     autoForBiggerOrder,
-    vouchers,
+    vouchers: orderedVouchers,
+    bestVoucher,
   };
 }

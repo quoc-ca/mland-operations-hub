@@ -205,6 +205,7 @@ public class WorkshopResponsibilityService {
         return SessionResponse.builder()
                 .id(session.getReference())
                 .locationId(session.getLocation().getId())
+                .locationName(session.getLocation().getDisplayName())
                 .slotId(session.getSlot().getReference())
                 .workshopDate(session.getWorkshopDate())
                 .scheduledStartAt(session.getScheduledStartAt())

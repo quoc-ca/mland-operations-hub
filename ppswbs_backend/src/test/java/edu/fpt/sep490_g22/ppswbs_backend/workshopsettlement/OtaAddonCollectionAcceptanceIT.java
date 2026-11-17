@@ -261,7 +261,7 @@ class OtaAddonCollectionAcceptanceIT {
     private void completeBankRefund(String bookingReference) {
         var refund = bankRefunds.listForBooking(bookingReference).get(0);
         String reference = refund.getRequestReference();
-        bankRefunds.submitAccountAtCounter(reference, "BIDV", "8608150999", "OTA payer",
+        bankRefunds.submitAccountAtCounter(reference, "BIDV", "8608150999", "OTA payer", true,
                 staffInScope.accountId(), "CORR-ACCOUNT-" + reference);
         bankRefunds.approve(reference, manager.accountId(), "Approved add-on refund",
                 "CORR-APPROVE-" + reference);

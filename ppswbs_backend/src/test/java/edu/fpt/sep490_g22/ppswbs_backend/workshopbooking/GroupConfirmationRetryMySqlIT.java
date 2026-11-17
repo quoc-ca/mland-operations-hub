@@ -310,7 +310,7 @@ class GroupConfirmationRetryMySqlIT {
                         .header("Idempotency-Key", "retry-key-" + UUID.randomUUID())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"quoteRef\":\"" + quoteRef + "\",\"contactEmail\":\"retry.buyer@example.com\","
-                                + "\"contactPhone\":\"0900000145\"}"))
+                                + "\"contactPhone\":\"+84900000145\"}"))
                 .andExpect(status().isCreated()).andReturn();
         return JSON.readTree(created.getResponse().getContentAsString()).get("groupCode").asText();
     }

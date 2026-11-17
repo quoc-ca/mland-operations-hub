@@ -36,11 +36,12 @@ public class WorkshopSessionService {
     private final CapacityHoldService capacityHoldService;
     private final WorkshopOtaSnapshotService otaSnapshotService;
     private final WorkshopVisibleLocationPolicy visibleLocationPolicy;
+    private final StaffAutoAssignmentService staffAutoAssignmentService;
     private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.SessionStaffAssignmentRepository staffAssignmentRepository;
 
     @Transactional
     public SessionResponse createSession(String authHeader, SessionRequest request) {
-        AccountSummary actor = authorizationService.authenticate(authHeader);
+        AccountSummary actor = authorizationService.requireGlobalManager(authHeader);
         validateSessionRequest(request);
 
         WorkshopLocation location = locationService.requireLocationEntityInScope(authHeader, request.getLocationId());
@@ -109,6 +110,8 @@ public class WorkshopSessionService {
         log.info("Created workshop session id={}, reference={}, state={}, location={}",
                 saved.getId(), saved.getReference(), saved.getState(), location.getCode());
 
+        recordSessionCreated(saved, actor.accountId());
+        staffAutoAssignmentService.assignRosterToNewSession(saved, actor.accountId());
         if (openingSource == CheckInOpeningSource.MANAGER_SET) {
             recordAudit(saved.getId(), actor.accountId(), "CHECK_IN_OVERRIDE_CONFIGURED", "SUCCESS",
                     "{\"checkInOpensAt\":\"" + checkInOpensAt + "\"}");
@@ -123,7 +126,7 @@ public class WorkshopSessionService {
 
     @Transactional
     public BulkGenerationResponse generateBulkSessions(String authHeader, BulkSessionRequest request) {
-        AccountSummary actor = authorizationService.authenticate(authHeader);
+        AccountSummary actor = authorizationService.requireGlobalManager(authHeader);
         validateBulkRequest(request);
 
         ZonedDateTime now = Instant.now().atZone(WORKSHOP_ZONE);
@@ -182,6 +185,8 @@ public class WorkshopSessionService {
                                 .build();
 
                         WorkshopSession saved = sessionRepository.save(session);
+                        recordSessionCreated(saved, actor.accountId());
+                        staffAutoAssignmentService.assignRosterToNewSession(saved, actor.accountId());
                         if (saved.getState() == SessionState.PUBLISHED) {
                             otaSnapshotService.publishForObservableChange(saved, "SESSION_PUBLISHED", Instant.now());
                         }
@@ -255,7 +260,7 @@ public class WorkshopSessionService {
 
     @Transactional
     public SessionResponse updateSession(String authHeader, String sessionReference, SessionRequest request) {
-        AccountSummary actor = authorizationService.authenticate(authHeader);
+        AccountSummary actor = authorizationService.requireGlobalManager(authHeader);
         WorkshopSession session = requireSessionEntityInScope(authHeader, sessionReference);
 
         if (request == null) {
@@ -282,7 +287,12 @@ public class WorkshopSessionService {
                 throw new WorkshopValidationException("Capacity must be at least 1");
             }
             capacityHoldService.validateCapacityReduction(session.getId(), request.getCapacity());
+            int priorCapacity = session.getCapacity();
             session.setCapacity(request.getCapacity());
+            if (priorCapacity != request.getCapacity()) {
+                recordAudit(session.getId(), actor.accountId(), "SESSION_CAPACITY_CHANGED", "SUCCESS",
+                        "{\"priorCapacity\":" + priorCapacity + ",\"newCapacity\":" + request.getCapacity() + "}");
+            }
         }
 
         if (request.getCheckInOpensAt() != null) {
@@ -388,6 +398,14 @@ public class WorkshopSessionService {
         }
     }
 
+    /** FR-007c: one audit event per created session (single or bulk), with the values it was created with. */
+    private void recordSessionCreated(WorkshopSession saved, Long actorId) {
+        recordAudit(saved.getId(), actorId, "SESSION_CREATED", "SUCCESS",
+                "{\"locationId\":" + saved.getLocation().getId() + ",\"slotReference\":\"" + saved.getSlot().getReference()
+                        + "\",\"workshopDate\":\"" + saved.getWorkshopDate() + "\",\"capacity\":" + saved.getCapacity()
+                        + ",\"state\":\"" + saved.getState() + "\"}");
+    }
+
     private void recordAudit(Long sessionId, Long actorId, String action, String outcome, String metadata) {
         try {
             OperationsAuditEvent event = OperationsAuditEvent.builder()
@@ -409,6 +427,7 @@ public class WorkshopSessionService {
         return SessionResponse.builder()
                 .id(session.getReference())
                 .locationId(session.getLocation().getId())
+                .locationName(session.getLocation().getDisplayName())
                 .slotId(session.getSlot().getReference())
                 .workshopDate(session.getWorkshopDate())
                 .scheduledStartAt(session.getScheduledStartAt())

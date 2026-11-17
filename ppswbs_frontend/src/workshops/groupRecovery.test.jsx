@@ -68,7 +68,7 @@ describe('003.1 FR-042/FR-049 Guest lookup of a booking group', () => {
     });
     renderRoutes(workshopRoutes, { path: '/workshop-booking/lookup', session: fakeSession('signed-out') });
 
-    await user.type(await screen.findByLabelText(/Mã nhóm đặt chỗ/i), 'WG-20261113-ABCD');
+    await user.type(await screen.findByLabelText(/Mã đặt chỗ/i), 'WG-20261113-ABCD');
     await user.type(screen.getByLabelText(/Số điện thoại khi đặt/i), '0901234567');
     await user.click(screen.getByRole('button', { name: 'Tra cứu nhóm đặt chỗ' }));
 
@@ -77,7 +77,7 @@ describe('003.1 FR-042/FR-049 Guest lookup of a booking group', () => {
       expect(call).toBeTruthy();
       return call;
     });
-    expect(lookup.body).toEqual({ groupCode: 'WG-20261113-ABCD', contactPhone: '0901234567' });
+    expect(lookup.body).toEqual({ groupCode: 'WG-20261113-ABCD', contactPhone: '+84901234567' });
     expect(lookup.query).toEqual({});
 
     expect(await screen.findByText('WT-1')).toBeInTheDocument();
@@ -92,7 +92,7 @@ describe('003.1 FR-042/FR-049 Guest lookup of a booking group', () => {
     const user = userEvent.setup();
     mockFetch({});
     renderRoutes(workshopRoutes, { path: '/workshop-booking/lookup', session: fakeSession('signed-out') });
-    await user.type(await screen.findByLabelText(/Mã nhóm đặt chỗ/i), 'WG-1');
+    await user.type(await screen.findByLabelText(/Mã đặt chỗ/i), 'WG-1');
     await user.click(screen.getByRole('button', { name: 'Tra cứu nhóm đặt chỗ' }));
     expect(await screen.findByRole('alert')).toHaveTextContent(/đúng một trong hai/i);
   });
@@ -113,7 +113,7 @@ describe('003.1 FR-042/FR-049 Guest lookup of a booking group', () => {
       }),
     });
     renderRoutes(workshopRoutes, { path: '/workshop-booking/lookup', session: fakeSession('signed-out') });
-    await user.type(await screen.findByLabelText(/Mã nhóm đặt chỗ/i), 'WG-20261113-ABCD');
+    await user.type(await screen.findByLabelText(/Mã đặt chỗ/i), 'WG-20261113-ABCD');
     await user.type(screen.getByLabelText(/Email khi đặt/i), 'guest@mland.vn');
     await user.click(screen.getByRole('button', { name: 'Tra cứu nhóm đặt chỗ' }));
 
@@ -140,7 +140,7 @@ describe('003.1 FR-042/FR-049 Guest lookup of a booking group', () => {
       }),
     });
     renderRoutes(workshopRoutes, { path: '/workshop-booking/lookup', session: fakeSession('signed-out') });
-    await user.type(await screen.findByLabelText(/Mã nhóm đặt chỗ/i), 'WG-20261113-ABCD');
+    await user.type(await screen.findByLabelText(/Mã đặt chỗ/i), 'WG-20261113-ABCD');
     await user.type(screen.getByLabelText(/Email khi đặt/i), 'guest@mland.vn');
     await user.click(screen.getByRole('button', { name: 'Tra cứu nhóm đặt chỗ' }));
 
@@ -177,7 +177,7 @@ describe('003.1 FR-041 sending one ticket to a recipient', () => {
       }),
     });
     renderRoutes(workshopRoutes, { path: '/workshop-booking/lookup', session: fakeSession('signed-out') });
-    await user.type(await screen.findByLabelText(/Mã nhóm đặt chỗ/i), 'WG-20261113-ABCD');
+    await user.type(await screen.findByLabelText(/Mã đặt chỗ/i), 'WG-20261113-ABCD');
     await user.type(screen.getByLabelText(/Email khi đặt/i), 'guest@mland.vn');
     await user.click(screen.getByRole('button', { name: 'Tra cứu nhóm đặt chỗ' }));
 

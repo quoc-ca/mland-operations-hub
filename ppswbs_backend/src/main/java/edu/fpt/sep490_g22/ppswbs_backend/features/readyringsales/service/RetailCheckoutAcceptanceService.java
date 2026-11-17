@@ -70,8 +70,26 @@ public class RetailCheckoutAcceptanceService {
             if (exception.code() == LoyaltyErrorCode.DEPENDENCY_UNAVAILABLE || exception.code() == LoyaltyErrorCode.RETRYABLE_CONTENTION) {
                 throw new RetailIntegrationUnavailableException("Loyalty checkout integration is unavailable");
             }
-            throw new RetailConflictException("Benefit terms changed; review a new quote");
+            org.slf4j.LoggerFactory.getLogger(RetailCheckoutAcceptanceService.class)
+                .warn("FE-06 refused the benefit of checkout quote {} (voucher {}): {}", quote.getId(), quote.getVoucherCode(), exception.code());
+            throw benefitRefused(exception.code());
         }
+    }
+
+    /**
+     * Why FE-06 refused the benefit at order time, in words the Member can act on (Session 2026-11-17). A refused voucher
+     * gets its own code so the checkout drops it instead of retrying it forever.
+     */
+    static RetailConflictException benefitRefused(LoyaltyErrorCode code) {
+        return switch (code) {
+            case QUOTA_LIMIT_CONFLICT -> new RetailConflictException("RETAIL_VOUCHER_REFUSED",
+                "Voucher đã hết lượt dùng, hoặc bạn đã dùng hết số lần được phép (một đơn chưa thanh toán cũng đang giữ lượt). Hãy chọn voucher khác.");
+            case PROMOTION_INELIGIBLE, PROMOTION_NOT_FOUND -> new RetailConflictException("RETAIL_VOUCHER_REFUSED",
+                "Voucher không còn áp dụng cho đơn này (hết hạn, đã tắt, hoặc không đúng sản phẩm/chi nhánh). Hãy chọn voucher khác.");
+            case POINTS_LIMIT_CHANGED, POINTS_USE_NOT_ALLOWED -> new RetailConflictException("RETAIL_POINTS_CHANGED",
+                "Số điểm được dùng cho đơn này vừa thay đổi. Kiểm tra lại điểm rồi bấm Đặt hàng.");
+            default -> new RetailConflictException("Ưu đãi của đơn vừa thay đổi. Kiểm tra lại tổng tiền rồi bấm Đặt hàng.");
+        };
     }
 
     private CheckoutDtos.GroupedCheckoutView acceptLocked(Long memberId, String key, CheckoutDtos.CreateGroupedCheckoutRequest request,
@@ -165,7 +183,11 @@ public class RetailCheckoutAcceptanceService {
                 || !accepted.pointDiscount().equals(quote.getPointsDiscount())
                 || !accepted.grossAmount().subtract(accepted.programDiscount()).subtract(accepted.pointDiscount())
                     .add(quote.getShippingTotal()).equals(quote.getPayableTotal())) {
-                throw new RetailConflictException("Benefit terms changed; review a new quote");
+                org.slf4j.LoggerFactory.getLogger(RetailCheckoutAcceptanceService.class).warn(
+                    "FE-06 amounts differ from checkout quote {}: gross {} vs {}, discount {} vs {}, points {} vs {}",
+                    quote.getId(), accepted.grossAmount(), quote.getMerchandiseSubtotal(), accepted.programDiscount(),
+                    quote.getProgramDiscount(), accepted.pointDiscount(), quote.getPointsDiscount());
+                throw new RetailConflictException("Ưu đãi của đơn vừa thay đổi. Kiểm tra lại tổng tiền rồi bấm Đặt hàng.");
             }
             if (!parts.isEmpty()) applyPartShares(checkout, accepted.parts());
             if (zeroTotal) {

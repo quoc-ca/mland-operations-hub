@@ -19,9 +19,76 @@ public final class TicketChangeDtos {
         LATE_ARRIVAL
     }
 
+    /** Guest proof for {@code POST /workshop-tickets/{ticketCode}/change-option-lookups} (FR-044a): one contact. */
+    public record GuestChangeOptionLookupRequest(
+            @jakarta.validation.constraints.Email @Size(max = 254) String contactEmail,
+            @Size(max = 32) String contactPhone,
+            @NotNull TicketChangeType type,
+            @Size(max = 2) List<UUID> fromSessionReferences
+    ) {
+        public boolean hasOneProof() {
+            boolean hasEmail = contactEmail != null && !contactEmail.isBlank();
+            boolean hasPhone = contactPhone != null && !contactPhone.isBlank();
+            return hasEmail != hasPhone;
+        }
+    }
+
+    /** FR-044a: advisory list of the sessions a ticket may move to; POST /changes re-checks everything. */
+    public record ChangeOptionsDto(
+            String ticketCode,
+            TicketChangeType type,
+            AllowanceDto allowance,
+            Instant advanceDeadline,
+            Instant lateArrivalDeadline,
+            boolean windowOpen,
+            boolean canSelfServe,
+            List<FromSessionOptionsDto> perFromSession,
+            List<PairOptionDto> pairs
+    ) {}
+
+    public record AllowanceDto(long used, long total, long managerGranted, long left, boolean exhausted) {}
+
+    public record FromSessionOptionsDto(
+            UUID fromSessionReference,
+            Instant start,
+            Instant end,
+            boolean sourceChangeable,
+            String sourceReasonCode,
+            List<ChangeOptionDto> options
+    ) {}
+
+    public record ChangeOptionDto(
+            UUID sessionReference,
+            Instant start,
+            Instant end,
+            Long locationReference,
+            String locationName,
+            int remainingCapacity,
+            int remainingRescheduleQuota,
+            boolean selectable,
+            String reasonCode,
+            boolean requiresManager,
+            List<String> managerRules,
+            String priceIncreaseAmountVnd
+    ) {}
+
+    public record SessionSeatsDto(UUID sessionReference, Instant start, Instant end, int remainingCapacity,
+                                  int remainingRescheduleQuota, Long locationReference, String locationName) {}
+
+    public record PairOptionDto(
+            List<UUID> sessionReferences,
+            List<SessionSeatsDto> sessions,
+            boolean selectable,
+            String reasonCode,
+            boolean requiresManager,
+            List<String> managerRules,
+            String priceIncreaseAmountVnd
+    ) {}
+
     public record TicketChangeRequestDto(
             @NotNull TicketChangeType type,
             @NotEmpty @Size(min = 1, max = 2) List<UUID> targetSessionReferences,
+            @NotEmpty @Size(min = 1, max = 2) List<UUID> fromSessionReferences,
             Boolean confirmIncrease,
             String buyerVerificationReference,
             @Size(max = 1000) String reason
@@ -78,6 +145,7 @@ public final class TicketChangeDtos {
             String groupCode,
             TicketChangeType type,
             List<UUID> targetSessionReferences,
+            List<UUID> fromSessionReferences,
             List<String> blockedRules,
             String status,
             String priceIncreaseAmount,
@@ -93,6 +161,7 @@ public final class TicketChangeDtos {
     ) {
         public ChangeRequestDto {
             targetSessionReferences = targetSessionReferences == null ? List.of() : List.copyOf(targetSessionReferences);
+            fromSessionReferences = fromSessionReferences == null ? List.of() : List.copyOf(fromSessionReferences);
             blockedRules = blockedRules == null ? List.of() : List.copyOf(blockedRules);
         }
     }
@@ -101,7 +170,8 @@ public final class TicketChangeDtos {
 
     public record GroupTicketChangeItemDto(
             @NotBlank String ticketCode,
-            @NotEmpty @Size(min = 1, max = 2) List<UUID> targetSessionReferences
+            @NotEmpty @Size(min = 1, max = 2) List<UUID> targetSessionReferences,
+            @NotEmpty @Size(min = 1, max = 2) List<UUID> fromSessionReferences
     ) {}
 
     public record GroupTicketChangeRequestDto(

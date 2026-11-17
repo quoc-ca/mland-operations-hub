@@ -59,7 +59,7 @@ export function formatMoney(amount, language) {
   if (amount === null || amount === undefined || amount === '') return '—';
   const text = String(amount);
   if (!/^\d+$/.test(text)) return text;
-  return `${formatNumber(text, language)} ₫`;
+  return `${formatNumber(text, language)}\u00a0₫`;
 }
 
 export function formatDateTime(value, language) {

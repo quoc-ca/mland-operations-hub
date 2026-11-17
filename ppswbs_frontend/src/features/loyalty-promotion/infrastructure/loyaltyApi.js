@@ -1,6 +1,7 @@
 // REST operations of 006 (contracts/loyalty-promotion.openapi.json). IDs, amounts, points, percentages and
 // versions are strings; expectedVersion is a JSON string here. Every write takes the key of its user action.
 const id = value => encodeURIComponent(value);
+const activeLocations = data => (Array.isArray(data) ? data.filter(item => item.active !== false) : data);
 
 export function loyaltyApi(request) {
   const write = (method, path, key, body) => request(path, { method, idempotencyKey: key, body });
@@ -27,7 +28,7 @@ export function loyaltyApi(request) {
 
     // Workshop targets for the Manager picker: read-only use of 003 reads (packages, branches, sessions).
     listWorkshopPackages: () => request('/api/v1/workshop-package-management/packages'),
-    listWorkshopBranches: () => request('/api/v1/workshop-locations'),
+    listWorkshopBranches: async () => activeLocations(await request('/api/v1/workshop-locations')),
     listWorkshopSessions: ({ from } = {}) => request('/api/v1/workshop-sessions', { query: { from } }),
 
     // Product targets for the Manager picker: read-only use of 002 management reads (productmanagement REST).

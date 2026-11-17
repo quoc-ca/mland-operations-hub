@@ -173,6 +173,29 @@ describe('OTA finance and shop add-on screens', () => {
       const polledAfter = calls.filter(call => call.path === '/api/v1/ota-addon-bills/BILL-PAY').length;
       expect(polledAfter - polledWhenPaid).toBeLessThanOrEqual(1);
     }, 15000);
+
+    it('lets a Manager refund a PAID add-on bill with one idempotent request', async () => {
+      const status = { current: 'PAID' };
+      const calls = mockFetch({
+        ...handlers(status, {}),
+        'POST /api/v1/ota-addon-bills/BILL-PAY/refunds': json(201, { refundReference: 'OAR-1', billReference: 'BILL-PAY', amountVnd: 20000, status: 'PENDING_PROVIDER' }),
+      });
+      const user = userEvent.setup();
+      renderRoutes(otaConnectivityRoutes, { path: '/ota-connectivity/add-ons' });
+      await billAPaidAddOn(user);
+
+      const submit = await screen.findByRole('button', { name: 'Tạo yêu cầu hoàn tiền' });
+      expect(submit).toBeDisabled();
+      await user.type(screen.getByLabelText(/Số tiền hoàn/), '20000');
+      await user.type(screen.getByLabelText(/Lý do/), 'Khách đổi ý');
+      await user.click(submit);
+
+      expect(await screen.findByText(/Đã tạo yêu cầu hoàn tiền OAR-1/)).toBeInTheDocument();
+      const refundCalls = calls.filter(call => call.path === '/api/v1/ota-addon-bills/BILL-PAY/refunds');
+      expect(refundCalls).toHaveLength(1);
+      expect(refundCalls[0].headers['Idempotency-Key']).toBeTruthy();
+      expect(refundCalls[0].body).toEqual({ amountVnd: 20000, reason: 'Khách đổi ý' });
+    });
   });
 
   it('records free laser engraving and never offers a direct bill action', async () => {

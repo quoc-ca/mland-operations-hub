@@ -108,8 +108,8 @@ const vi = {
   'offer.autoLine': '{name}: giảm {value}, đã trừ vào giá.', 'offer.autoFromLine': '{name}: giảm {value} cho đơn từ {minimum}, tự trừ khi đặt.',
   'offer.voucherLine': '{name}: mã {code}, giảm {value}{minimum}.', 'offer.voucherMinimum': ' cho đơn từ {minimum}',
   'offer.view': 'Xem và lưu mã', 'offer.notice': 'Giá giảm tính cho 1 sản phẩm; số tiền cuối cùng được tính lại khi đặt đơn.',
-  'wsOffer.title': 'Ưu đãi cho gói này', 'wsOffer.autoLine': '{name}: giảm {value}, đã trừ vào giá mỗi vé.',
-  'wsOffer.voucherLine': '{name}: mã giảm {value}{minimum}, dành cho thành viên.', 'wsOffer.signInHint': 'Đăng nhập để dùng mã giảm',
+  'wsOffer.title': 'Ưu đãi cho gói này', 'wsOffer.groupAuto': 'Giảm giá của cửa hàng', 'wsOffer.groupAutoHint': 'Tự động áp dụng và đã trừ vào giá vé. Không cần nhập mã.', 'wsOffer.autoDetail': 'Đã trừ vào giá mỗi vé', 'wsOffer.autoFromDetail': 'Tự trừ khi đơn từ {minimum}', 'wsOffer.groupVoucher': 'Mã giảm giá (voucher)', 'wsOffer.groupVoucherHint': 'Dành cho thành viên. Lưu mã rồi chọn khi đặt chỗ. Giá đã giảm ở trên chưa trừ mã này.', 'wsOffer.voucherDetail': 'Áp dụng cho đơn từ {minimum}', 'wsOffer.voucherNoMinimum': 'Không yêu cầu đơn tối thiểu', 'wsOffer.autoLine': '{name}: giảm {value}, đã trừ vào giá mỗi vé.',
+  'wsOffer.voucherLine': '{name}: mã giảm {value}{minimum}, dành cho thành viên.', 'wsOffer.signInHint': 'Đăng nhập để dùng mã giảm', 'wsOffer.afterVoucher': 'Giá sau voucher {code}',
   'wsOffer.signIn': 'Đăng nhập để dùng mã giảm cho thành viên', 'wsOffer.notice': 'Giá giảm tính cho 1 vé; số tiền cuối cùng được tính lại khi đặt chỗ.',
 
   'checkout.title': 'Ưu đãi và điểm', 'checkout.choice': 'Chọn ưu đãi', 'checkout.choice.NONE': 'Không dùng ưu đãi',
@@ -275,8 +275,8 @@ const en = {
   'offer.autoLine': '{name}: {value} off, already taken off the price.', 'offer.autoFromLine': '{name}: {value} off orders from {minimum}, applied at checkout.',
   'offer.voucherLine': '{name}: code {code}, {value} off{minimum}.', 'offer.voucherMinimum': ' on orders from {minimum}',
   'offer.view': 'View and save code', 'offer.notice': 'The reduced price is for one item; the final amount is worked out again at checkout.',
-  'wsOffer.title': 'Offers on this package', 'wsOffer.autoLine': '{name}: {value} off, already taken off each ticket.',
-  'wsOffer.voucherLine': '{name}: code for {value} off{minimum}, for members.', 'wsOffer.signInHint': 'Sign in to use a code',
+  'wsOffer.title': 'Offers on this package', 'wsOffer.groupAuto': 'Shop discounts', 'wsOffer.groupAutoHint': 'Applied automatically and already taken off the ticket price. No code needed.', 'wsOffer.autoDetail': 'Already taken off each ticket', 'wsOffer.autoFromDetail': 'Applied on orders from {minimum}', 'wsOffer.groupVoucher': 'Vouchers', 'wsOffer.groupVoucherHint': 'For members. Save a code, then choose it when you book. The price above does not include it yet.', 'wsOffer.voucherDetail': 'For orders from {minimum}', 'wsOffer.voucherNoMinimum': 'No minimum order', 'wsOffer.autoLine': '{name}: {value} off, already taken off each ticket.',
+  'wsOffer.voucherLine': '{name}: code for {value} off{minimum}, for members.', 'wsOffer.signInHint': 'Sign in to use a code', 'wsOffer.afterVoucher': 'Price after voucher {code}',
   'wsOffer.signIn': 'Sign in to use member codes', 'wsOffer.notice': 'The reduced price is for one ticket; the final amount is worked out again when you book.',
 
   'checkout.title': 'Offers and points', 'checkout.choice': 'Choose an offer', 'checkout.choice.NONE': 'No offer',

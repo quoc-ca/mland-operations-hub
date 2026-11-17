@@ -10,7 +10,7 @@ const tickets = json(200, [{ ticketCode: 'TK-1', participantName: 'Guest', sessi
 
 async function lookUp(user, bookingCode) {
   // The check-in lookup is the first booking-code field on the page (ticket resend has another).
-  await user.type(screen.getAllByPlaceholderText('BK-...')[0], bookingCode);
+  await user.type(screen.getAllByPlaceholderText('GRP-…')[0], bookingCode);
   await user.click(screen.getByRole('button', { name: 'Look up' }));
 }
 

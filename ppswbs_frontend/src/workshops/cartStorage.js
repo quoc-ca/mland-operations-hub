@@ -3,13 +3,27 @@
  * once a booking group is created. There is no server cart resource, so nothing here is authoritative: a line only
  * records what the customer picked, and every price, discount and collection comes from
  * `POST /api/v1/workshop-cart-quotes` when the cart is quoted.
+ *
+ * The browser copy is kept per signed-in account (key suffixed with the Firebase uid; a visitor who is not signed in
+ * uses `guest`), so two accounts on one browser never see each other's cart. The guest cart is not merged on sign-in.
  */
+import { getFirebaseAuth, watchSession } from '../shared/auth/firebaseSession';
 
-const STORAGE_KEY = 'mland.workshop.cart.v1';
+const STORAGE_KEY_PREFIX = 'mland.workshop.cart.v1';
+
+function storageKey() {
+  let uid = null;
+  try {
+    uid = (typeof getFirebaseAuth === 'function' ? getFirebaseAuth() : null)?.currentUser?.uid || null;
+  } catch {
+    uid = null;
+  }
+  return `${STORAGE_KEY_PREFIX}.${uid || 'guest'}`;
+}
 
 function read() {
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw = window.localStorage.getItem(storageKey());
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed.filter(isUsableLine) : [];
@@ -21,7 +35,7 @@ function read() {
 
 function write(lines) {
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(lines));
+    window.localStorage.setItem(storageKey(), JSON.stringify(lines));
   } catch {
     // A cart that cannot be stored is kept only for this screen; booking still works through "Đặt ngay".
   }
@@ -43,8 +57,23 @@ function notify(lines) {
   });
 }
 
+// The signed-in account changes which stored cart is current (also when Firebase restores the session after load),
+// so listeners are told again with the cart of the new account.
+let watchingSession = false;
+
+function watchAccountChanges() {
+  if (watchingSession || typeof watchSession !== 'function') return;
+  watchingSession = true;
+  try {
+    watchSession(() => notify(read()));
+  } catch {
+    watchingSession = false;
+  }
+}
+
 export function subscribeToCart(listener) {
   listeners.add(listener);
+  watchAccountChanges();
   return () => listeners.delete(listener);
 }
 
@@ -66,7 +95,6 @@ export function addCartLine(line) {
     packageName: line.packageName || '',
     pricePerParticipantVnd: Number(line.pricePerParticipantVnd || 0),
     locationId: line.locationId ?? null,
-    locationName: line.locationName || '',
     sessionReferences: [...line.sessionReferences],
     sessionLabels: Array.isArray(line.sessionLabels) ? [...line.sessionLabels] : [],
     participantCount: Number(line.participantCount),
@@ -94,7 +122,7 @@ export function removeCartLine(lineId) {
 /** Called once a booking group exists: the cart it came from is gone (FR-045). */
 export function clearCart() {
   try {
-    window.localStorage.removeItem(STORAGE_KEY);
+    window.localStorage.removeItem(storageKey());
   } catch { /* nothing to clear */ }
   notify([]);
 }

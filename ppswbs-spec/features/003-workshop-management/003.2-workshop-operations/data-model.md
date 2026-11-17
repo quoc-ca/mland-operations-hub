@@ -1,7 +1,7 @@
 # Data Model: Workshop Operations
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-16
+**Date updated**: 2026-11-17
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -529,6 +529,50 @@ model each ticket belongs to one ticket booking instead of a booking with many
 tickets. Only dev/test data exists, so no ticket reissue run is needed for the
 per-ticket model.
 
+## Package availability per location (2026-11-17, spec FR-037–FR-046; backend scope partially approved in `approval.md`)
+
+### WorkshopPackageLocationAvailability
+
+Table name `workshop_package_location_availability` (confirmed 2026-11-17, owner Hồ Hoàng Quốc).
+
+Operations-owned. One row per Package and location that has ever been set.
+
+| Field | Rule |
+| --- | --- |
+| `package_id` | FK to the Package; part of the unique key. |
+| `location_id` | FK to `WorkshopLocation`; part of the unique key. |
+| `active` | `true` = `ACTIVE`. A missing row means `INACTIVE`. |
+| `version` | Optimistic lock for concurrent Manager edits. |
+| `updated_by_account_reference`, `created_at`, `updated_at` | Who and when; account reference is an opaque Account Management identifier, no foreign key to that module. |
+
+Invariants: unique (`package_id`, `location_id`); no hard delete; changing
+`active` writes one `OperationsAuditEvent` (actor, Package, location, prior,
+new, time) and an unchanged value writes neither a row change nor an event.
+Sellable = Package `PUBLISHED` **and** row `active` **and** location active.
+No price, rule or lifecycle column exists here: they stay on the Package.
+
+### Package-discovery boundary additions
+
+Public discovery by (Package, location) returns sessions only when sellable;
+`GET /workshop-packages/{packageId}/locations` lists only locations where the
+Package is sellable. The facade gains a read `activeLocationsForPackage(
+packageReference) → locationIds` for 003.3. Customer session reads, Manager and
+Staff session lists and change options add `locationName` next to `locationId`.
+Existing bookings, tickets, sessions and unexpired holds are not changed by a
+toggle (FR-040).
+
+### Migration (proposed)
+
+Append-only; do not edit earlier migrations. Create the table, then seed rows
+`active = true` for: Hoàn Kiếm (`HN-HOANKIEM`) × all five Packages; Tây Hồ
+(`HN-TAYHO`) × `Signature Workshop - Brass`, `Signature Workshop - Silver 925`,
+`Wax Casting Workshop`. No row for `Silver Clay Workshop - 5g`/`- 7g` at Tây Hồ,
+and none for Đà Nẵng (`DN-HAICHAU`). Match Packages by these names and locations
+by code (as seeded by `V161__add_data.sql`); the next free version after `V177`
+is chosen at implementation after fetching `origin/develop`. Audit action
+`WORKSHOP_PACKAGE_AVAILABILITY_CHANGED` (free-text column, `session_id` null). Rollback: drop the table (no
+other table depends on it); data loss is limited to the matrix itself.
+
 ## Migration Rules
 
 Select the next Flyway version only when implementation begins, after inspecting
@@ -545,3 +589,7 @@ Operations data, introduce the logical unique identity and fields needed for
 fingerprint, status, original correlation, claim version, lease and retention,
 and be verified on MySQL for concurrent claim/reclaim/finalisation. The specific
 migration version is selected only at implementation time.
+
+## Audit review for Manager (added 2026-11-17, FR-047–FR-055)
+
+No new entity, column or migration. Read-only views over `operations_audit_events` (id, session_id, actor_id, action, outcome, correlation_id, metadata JSON, occurred_at) and, through a route inside 003.3, `settlement_business_audits` (id, audit_reference, aggregate_type, aggregate_reference, action_code, actor_reference, correlation_reference, evidence_reference, reason_reference, created_at). DTOs are `OperationsAuditRow` and `SettlementAuditRow` in the OpenAPI contract; entities are never exposed. `metadata` leaves the server only through the whitelist in the plan (Phase 19, decision 4).

@@ -6,6 +6,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.Worksho
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.CustomerSessionAvailabilityResponse;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.LocationResponse;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.SessionState;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.WorkshopLocation;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.WorkshopPackageState;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.SaleEligibilitySnapshot;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.SaleEligibilityQuery;
@@ -32,6 +33,7 @@ public class WorkshopPackageDiscoveryService {
     private final WorkshopSessionRepository sessionRepository;
     private final WorkshopOperationsFacade operationsFacade;
     private final WorkshopVisibleLocationPolicy visibleLocationPolicy;
+    private final WorkshopPackageAvailabilityService availabilityService;
 
     @Transactional(readOnly = true)
     public List<CustomerSessionAvailabilityResponse> discoverSessions(Long packageId, Long locationId,
@@ -42,8 +44,12 @@ public class WorkshopPackageDiscoveryService {
         if (!isVisibleLocation(locationId)) {
             throw new WorkshopNotFoundException("Workshop Location not found");
         }
-        locationRepository.findByIdAndActiveTrue(locationId)
+        WorkshopLocation location = locationRepository.findByIdAndActiveTrue(locationId)
                 .orElseThrow(() -> new WorkshopNotFoundException("Workshop Location not found"));
+        // 003.2 FR-039: an INACTIVE pair is refused with 409 (architecture Open decision 1 default).
+        if (!availabilityService.isSellable(packageId, locationId)) {
+            throw new WorkshopPackageNotAvailableException("Workshop Package is not sold at this location");
+        }
 
         LocalDate effectiveFrom = from != null ? from : LocalDate.now(WORKSHOP_ZONE);
         if (to != null && to.isBefore(effectiveFrom)) {
@@ -61,7 +67,7 @@ public class WorkshopPackageDiscoveryService {
                 .map(session -> new AbstractMap.SimpleImmutableEntry<>(session, operationsFacade.getSaleEligibility(
                         new SaleEligibilityQuery(UUID.fromString(session.getReference())))))
                 .filter(entry -> entry.getValue() != null && entry.getValue().customerSelectable())
-                .map(entry -> toAvailability(entry.getKey(), entry.getValue()))
+                .map(entry -> toAvailability(entry.getKey(), entry.getValue(), location.getDisplayName()))
                 .toList();
     }
 
@@ -77,7 +83,10 @@ public class WorkshopPackageDiscoveryService {
                 .filter(workshopPackage -> workshopPackage.getState() == WorkshopPackageState.PUBLISHED)
                 .orElseThrow(() -> new WorkshopNotFoundException("Workshop Package not found"));
 
+        // 003.2 FR-039: only locations where the Package is sellable (pair ACTIVE); an empty list is valid.
+        java.util.Set<Long> sellable = new java.util.HashSet<>(availabilityService.activeLocationIds(packageId));
         return locationRepository.findByActiveTrue().stream()
+                .filter(location -> sellable.contains(location.getId()))
                 .filter(location -> isVisibleLocation(location.getId()))
                 .sorted(java.util.Comparator.comparing(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.WorkshopLocation::getId))
                 .map(location -> LocationResponse.builder()
@@ -96,10 +105,11 @@ public class WorkshopPackageDiscoveryService {
 
     private static CustomerSessionAvailabilityResponse toAvailability(
             edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.WorkshopSession session,
-            SaleEligibilitySnapshot eligibility) {
+            SaleEligibilitySnapshot eligibility, String locationName) {
         return new CustomerSessionAvailabilityResponse(
                 UUID.fromString(session.getReference()),
                 eligibility.locationReference(),
+                locationName,
                 eligibility.scheduledStart(),
                 eligibility.scheduledEnd(),
                 eligibility.saleState(),

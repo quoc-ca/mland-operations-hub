@@ -5,20 +5,8 @@ import { ConfirmDialog, Field, SuccessNotice, useCommand } from '../../shared/ui
 import { createSettlementApi } from '../api/settlementApi';
 import { OpsPage } from '../OpsPage';
 import { useRole } from '../../shared/auth/useRole';
-import { BuyerProof, ProblemNotice, ReasonDialog, money, splitList } from '../ui';
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-/** One change per line: "TICKET-CODE: session-uuid[, session-uuid]". */
-export function parseChangeLines(text) {
-  return text.split('\n').map(line => line.trim()).filter(Boolean).map(line => {
-    const [ticketCode, sessions = ''] = line.split(':');
-    return { ticketCode: ticketCode.trim(), targetSessionReferences: splitList(sessions) };
-  });
-}
-
-const validChanges = changes => changes.length > 0 && changes.every(change => change.ticketCode
-  && change.targetSessionReferences.length >= 1 && change.targetSessionReferences.length <= 2 && change.targetSessionReferences.every(ref => UUID.test(ref)));
+import { BuyerProof, ProblemNotice, ReasonDialog, VoucherNotRestoredNotice, money, splitList } from '../ui';
+import { TicketSessionPicker } from '../../shared/ui/TicketSessionPicker';
 
 /**
  * Staff or Manager cancels or changes tickets for the buyer (FR-041–FR-045, FR-055): one ticket on the ticket route, several
@@ -31,7 +19,10 @@ export default function TicketActionsPage() {
   const tab = params.get('tab') === 'change' ? 'change' : 'cancel';
   const [groupCode, setGroupCode] = useState('');
   const [ticketText, setTicketText] = useState('');
-  const [changeText, setChangeText] = useState('');
+  const [changes, setChanges] = useState([]);
+  const [builderCode, setBuilderCode] = useState('');
+  const [loadedCode, setLoadedCode] = useState('');
+  const [selection, setSelection] = useState(null);
   const [changeType, setChangeType] = useState('ADVANCE');
   const [reason, setReason] = useState('');
   const [proof, setProof] = useState(null);
@@ -45,7 +36,6 @@ export default function TicketActionsPage() {
   const command = useCommand();
 
   const tickets = splitList(ticketText);
-  const changes = parseChangeLines(changeText);
   const proofBody = proof ? { buyerVerificationReference: proof } : {};
   const needsGroup = tab === 'cancel' ? tickets.length > 1 : changes.length > 1;
   const groupReady = Boolean(groupCode.trim());
@@ -66,9 +56,10 @@ export default function TicketActionsPage() {
   const change = async confirmIncrease => {
     setMessage(''); setResult(null);
     const base = { type: changeType, reason: reason.trim(), ...proofBody, ...(confirmIncrease ? { confirmIncrease: true } : {}) };
+    const items = changes.map(({ ticketCode, fromSessionReferences, targetSessionReferences }) => ({ ticketCode, fromSessionReferences, targetSessionReferences }));
     const out = await command.run(key => (changes.length === 1
-      ? api.changeTicket(changes[0].ticketCode, { ...base, targetSessionReferences: changes[0].targetSessionReferences }, key)
-      : api.changeGroupTickets(groupCode.trim(), { ...base, changes }, key)));
+      ? api.changeTicket(items[0].ticketCode, { ...base, fromSessionReferences: items[0].fromSessionReferences, targetSessionReferences: items[0].targetSessionReferences }, key)
+      : api.changeGroupTickets(groupCode.trim(), { ...base, changes: items }, key)));
     if (!out.ok) return;
     const data = out.result;
     setResult({ kind: 'change', data, grouped: changes.length > 1 });
@@ -88,7 +79,20 @@ export default function TicketActionsPage() {
   const awaiting =result?.kind === 'change' && !result.data.applied && result.data.confirmIncreaseRequired;
   const increase = result?.grouped ? result.data.totalPriceIncrease : result?.data?.priceIncreaseAmount;
   const cancelReady = tickets.length > 0 && reason.trim() && (tickets.length === 1 || groupReady);
-  const changeReady = validChanges(changes) && reason.trim() && (changes.length === 1 || groupReady);
+  const changeReady = changes.length > 0 && reason.trim() && (changes.length === 1 || groupReady);
+
+  const addToChange = () => {
+    if (!selection || !loadedCode) return;
+    setChanges(list => [...list.filter(item => item.ticketCode !== loadedCode), {
+      ticketCode: loadedCode,
+      fromSessionReferences: selection.fromSessionReferences,
+      targetSessionReferences: selection.targetSessionReferences,
+      requiresManager: selection.requiresManager,
+      targetLocationNames: selection.targetLocationNames || [],
+    }]);
+    setLoadedCode(''); setBuilderCode(''); setSelection(null);
+  };
+  const changeTypeTo = value => { setChangeType(value); setChanges([]); setLoadedCode(''); setSelection(null); };
 
   return (
     <OpsPage eyebrow="TICKET CANCELLATION AND CHANGE" title={tab === 'change' ? 'Change tickets' : 'Cancel tickets'}
@@ -101,26 +105,50 @@ export default function TicketActionsPage() {
       <ProblemNotice error={command.error} onRetry={command.retry} />
       <section className="ota-panel">
         <div className="ota-form">
-          <Field label="Booking group code" hint={needsGroup ? 'Required for several tickets and for the buyer code.' : 'Needed to send the buyer code.'}>
+          <Field label="Mã đặt chỗ" hint={needsGroup ? 'Required for several tickets and for the buyer code.' : 'Needed to send the buyer code.'}>
             <input value={groupCode} onChange={event => setGroupCode(event.target.value)} />
           </Field>
           {tab === 'cancel' ? (
-            <Field label="Ticket codes" hint="One ticket, or several of the same group (all or none).">
-              <textarea value={ticketText} onChange={event => setTicketText(event.target.value)} placeholder="TK-1, TK-2" />
+            <Field label="Mã vé" hint="One ticket, or several of the same group (all or none).">
+              <textarea value={ticketText} onChange={event => setTicketText(event.target.value)} placeholder="GRP-…-L0-T1, GRP-…-L0-T2" />
             </Field>
           ) : (<>
             <Field label="Change type">
-              <select value={changeType} onChange={event => setChangeType(event.target.value)}>
+              <select value={changeType} onChange={event => changeTypeTo(event.target.value)}>
                 <option value="ADVANCE">Advance (before the session)</option>
                 <option value="LATE_ARRIVAL">Late arrival</option>
               </select>
             </Field>
-            <Field label="Tickets and target sessions" hint="One line per ticket: ticket code, colon, one or two session references.">
-              <textarea value={changeText} onChange={event => setChangeText(event.target.value)} placeholder="TK-1: 7c1f0c2e-0000-4000-8000-000000000001" />
+            <Field label="Mã vé cần đổi" hint="Enter a ticket code and show its sessions, pick the new session, then add the ticket. Several tickets of one group change together, all or none.">
+              <input value={builderCode} onChange={event => setBuilderCode(event.target.value)} placeholder="GRP-…-L0-T1" />
             </Field>
+            <button className="button outline" type="button" disabled={!builderCode.trim()} onClick={() => { setSelection(null); setLoadedCode(builderCode.trim()); }}>Show sessions</button>
+            {loadedCode && (
+              <section aria-label="Session options">
+                <h3>{loadedCode}</h3>
+                <TicketSessionPicker
+                  ticketCode={loadedCode}
+                  type={changeType}
+                  loadOptions={from => api.getChangeOptions(loadedCode, { type: changeType, from })}
+                  onSelect={setSelection}
+                />
+                {selection?.requiresManager && <p className="muted small" role="note">This choice needs a Manager: the request is queued and the ticket changes only when a Manager approves it.</p>}
+                <button className="button primary" type="button" disabled={!selection} onClick={addToChange}>Add ticket to the change</button>
+              </section>
+            )}
+            {changes.length > 0 && (
+              <ul aria-label="Tickets to change">
+                {changes.map(item => (
+                  <li key={item.ticketCode}>
+                    {item.ticketCode}: {item.fromSessionReferences.length === 2 ? 'both sessions' : 'one session'} moved{item.targetLocationNames?.length ? ` to ${[...new Set(item.targetLocationNames)].join(', ')}` : ''}{item.requiresManager ? ' (needs a Manager)' : ''}
+                    {' '}<button className="button outline small" type="button" onClick={() => setChanges(list => list.filter(entry => entry.ticketCode !== item.ticketCode))}>Remove</button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </>)}
           <Field label="Reason (required)"><textarea value={reason} maxLength={1000} onChange={event => setReason(event.target.value)} /></Field>
-          <BuyerProof groupCode={groupCode.trim()} onReference={setProof} />
+          <BuyerProof groupCode={groupCode.trim()} onReference={setProof} staffRequest={code => api.requestBuyerVerification(code)} />
           {tab === 'cancel'
             ? <button className="button danger" type="button" disabled={command.pending || !cancelReady || !proof} onClick={() => setConfirmCancel(true)}>Cancel selected tickets</button>
             : <button className="button primary" type="button" disabled={command.pending || !changeReady || !proof} onClick={() => change(false)}>Change tickets</button>}
@@ -132,7 +160,7 @@ export default function TicketActionsPage() {
           <h2>Grant one extra change</h2>
           <p className="muted small">Gives a ticket one more counted change (FR-054). It never performs the change; the buyer or Staff on the buyer's behalf still changes the ticket above.</p>
           <div className="ota-inline-form">
-            <label>Ticket code<input value={allowanceTicket} onChange={event => setAllowanceTicket(event.target.value)} placeholder="TK-..." /></label>
+            <label>Mã vé<input value={allowanceTicket} onChange={event => setAllowanceTicket(event.target.value)} placeholder="GRP-…-L0-T1" /></label>
             <button className="button outline" type="button" disabled={command.pending || !allowanceTicket.trim()} onClick={() => setGranting(true)}>Grant extra change</button>
           </div>
         </section>
@@ -163,7 +191,8 @@ export default function TicketActionsPage() {
           <ul>
             {result.tickets.map(item => (
               <li key={item.ticketCode}>
-                {item.ticketCode}: {item.benefitOutcome === 'VALID_CANCELLATION' ? 'valid cancellation (24 hours or more before the first session)' : 'late cancellation (counts as a no-show for benefits)'}; points returned {item.pointsReturned}{item.voucherRestored ? '; voucher restored' : ''}
+                {item.ticketCode}: {item.benefitOutcome === 'VALID_CANCELLATION' ? 'valid cancellation (24 hours or more before the first session)' : 'late cancellation (counts as a no-show for benefits)'}; points returned {item.pointsReturned}{(item.voucherRestoration?.restored ?? item.voucherRestored) ? '; voucher restored' : ''}
+                <VoucherNotRestoredNotice voucherRestoration={item.voucherRestoration} />
               </li>
             ))}
           </ul>

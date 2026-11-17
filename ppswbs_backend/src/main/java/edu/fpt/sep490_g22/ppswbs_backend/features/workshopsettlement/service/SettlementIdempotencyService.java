@@ -17,8 +17,9 @@ public class SettlementIdempotencyService {
 
     @Transactional(readOnly = true)
     public Optional<String> findOutcomeReference(String operationReference, String requestFingerprint) {
-        return repository.findByOperationReference(operationReference).map(outcome -> {
-            if (!requestFingerprint.equals(outcome.getRequestFingerprint())) {
+        String fingerprint = fit(requestFingerprint);
+        return repository.findByOperationReference(fitOperation(operationReference)).map(outcome -> {
+            if (!fingerprint.equals(outcome.getRequestFingerprint())) {
                 throw new WorkshopSettlementConflictException("IDEMPOTENCY_CONFLICT");
             }
             if (outcome.getOutcomeReference() == null || outcome.getOutcomeReference().isBlank()) {
@@ -33,6 +34,8 @@ public class SettlementIdempotencyService {
                                                Supplier<String> outcomeReferenceSupplier) {
         require(operationReference, "operationReference");
         require(requestFingerprint, "requestFingerprint");
+        requestFingerprint = fit(requestFingerprint);
+        operationReference = fitOperation(operationReference);
         Objects.requireNonNull(outcomeReferenceSupplier, "outcomeReferenceSupplier");
 
         var existing = repository.findByOperationReference(operationReference);
@@ -59,6 +62,24 @@ public class SettlementIdempotencyService {
                 .completedAt(java.time.Instant.now())
                 .build());
         return new SettlementIdempotencyResult(false, outcomeReference);
+    }
+
+    /** The column holds 64 characters: a longer fingerprint (a reason is part of it) is stored as its SHA-256 hex. */
+    static String fit(String fingerprint) {
+        if (fingerprint == null || fingerprint.length() <= 64) return fingerprint;
+        try {
+            byte[] digest = java.security.MessageDigest.getInstance("SHA-256")
+                    .digest(fingerprint.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            return java.util.HexFormat.of().formatHex(digest);
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    /** The operation column holds 128 characters: a longer operation key (ticket, reference and client key) is stored as "H:" plus its SHA-256 hex. */
+    static String fitOperation(String operationReference) {
+        if (operationReference == null || operationReference.length() <= 128) return operationReference;
+        return "H:" + fit(operationReference);
     }
 
     private static void require(String value, String field) {

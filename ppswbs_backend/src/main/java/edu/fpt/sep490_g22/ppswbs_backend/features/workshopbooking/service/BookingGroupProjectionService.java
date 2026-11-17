@@ -1,5 +1,6 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service;
 
+import edu.fpt.sep490_g22.ppswbs_backend.common.settlement.TicketRemedyPendingPort;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.BookingGroupLineRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.TicketBookingRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.TicketPriceSnapshotRepository;
@@ -28,6 +29,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -45,6 +47,7 @@ public class BookingGroupProjectionService {
     private final TicketPriceSnapshotRepository snapshots;
     private final TicketRecipientRepository recipients;
     private final WorkshopOperationsAdapter operations;
+    private final TicketRemedyPendingPort remedyPending;
 
     /** @param forOwningMember adds each ticket's opaque reference; only the owning Member may receive it. */
     @Transactional(readOnly = true)
@@ -63,8 +66,10 @@ public class BookingGroupProjectionService {
             }
         }
 
+        List<TicketBooking> groupTickets = tickets.findByGroupIdOrderByLineIndexAscParticipantOrdinalAsc(group.getId());
+        Set<String> pendingRemedies = forOwningMember ? pendingRemedies(groupTickets) : Set.of();
         List<BookingGroupView.TicketView> ticketViews = new ArrayList<>();
-        for (TicketBooking ticket : tickets.findByGroupIdOrderByLineIndexAscParticipantOrdinalAsc(group.getId())) {
+        for (TicketBooking ticket : groupTickets) {
             TicketPriceSnapshot snapshot = snapshots.findByTicketId(ticket.getId()).orElse(null);
             TicketRecipient recipient = recipients.findByTicketId(ticket.getId()).orElse(null);
             boolean confirmed = ticket.getTicketStatus() == BookingStatus.CONFIRMED;
@@ -88,12 +93,23 @@ public class BookingGroupProjectionService {
                     confirmed ? attendance(ticket) : null,
                     confirmed ? ticket.getQrReference() : null,
                     forOwningMember && confirmed ? ticket.getOperationsTicketReference() : null,
-                    sessions(current, lineByIndex.get(ticket.getLineIndex()))));
+                    sessions(current, lineByIndex.get(ticket.getLineIndex())),
+                    confirmed && pendingRemedies.contains(ticket.getTicketCode())));
         }
         return new BookingGroupView(group.getGroupCode(), group.getGroupStatus().name(),
                 group.getPaymentMode() == null ? null : group.getPaymentMode().name(), group.getGroupCollectionVnd(),
                 group.getHoldExpiresAt(), group.getPaymentDeadlineAt(), group.getCreatedAt(), group.getConfirmedAt(),
                 List.copyOf(lineViews), List.copyOf(ticketViews));
+    }
+
+    /** Display hint only: when Settlement cannot answer, no ticket is flagged and the buyer still has the e-mail link. */
+    private Set<String> pendingRemedies(List<TicketBooking> groupTickets) {
+        try {
+            return remedyPending.pendingTicketCodes(groupTickets.stream().map(TicketBooking::getTicketCode).toList());
+        } catch (RuntimeException failure) {
+            log.warn("Pending Mland remedy hint unavailable: {}", failure.getMessage());
+            return Set.of();
+        }
     }
 
     private Map<String, DeliverySafeTicket> currentTickets(BookingGroupLine line) {
@@ -113,12 +129,14 @@ public class BookingGroupProjectionService {
         return result;
     }
 
-    /** ATTENDED, NO_SHOW or PARTIAL once final; null while attendance can still change. */
+    /** ATTENDED, NO_SHOW or PARTIAL once final; CHECKED_IN, ATTENDED or NO_SHOW_PENDING while it can still change; null before any record. */
     private String attendance(TicketBooking ticket) {
         if (ticket.getOperationsTicketReference() == null) return null;
         try {
             TicketAttendanceOutcome outcome = operations.getTicketAttendanceOutcome(ticket.getOperationsTicketReference());
-            return outcome != null && outcome.terminal() && outcome.outcome() != null ? outcome.outcome().name() : null;
+            if (outcome == null) return null;
+            if (outcome.terminal() && outcome.outcome() != null) return outcome.outcome().name();
+            return outcome.live() == null ? null : outcome.live().name();
         } catch (RuntimeException failure) {
             log.warn("Attendance unavailable for ticket {}: {}", ticket.getTicketCode(), failure.getClass().getSimpleName());
             return null;
@@ -134,14 +152,14 @@ public class BookingGroupProjectionService {
             for (int i = 0; i < ordered.size(); i++) {
                 SessionEntitlementProjection s = ordered.get(i);
                 result.add(new BookingGroupView.SessionView(s.sessionReference(), s.locationReference(), i + 1,
-                        s.scheduledStart(), s.scheduledEnd()));
+                        s.scheduledStart(), s.scheduledEnd(), s.locationName()));
             }
             return List.copyOf(result);
         }
         if (line == null) return List.of();
         return orderedSessions(line).stream()
                 .map(s -> new BookingGroupView.SessionView(uuid(s.getSessionReference()), s.getLocationReference(),
-                        s.getOrdinal(), s.getScheduledStart(), null))
+                        s.getOrdinal(), s.getScheduledStart(), null, null))
                 .toList();
     }
 

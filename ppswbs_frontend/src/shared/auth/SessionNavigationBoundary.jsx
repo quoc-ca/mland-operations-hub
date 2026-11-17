@@ -28,10 +28,22 @@ export function SessionNavigationBoundary() {
         });
       } else if (outcome.type === 'SESSION_LOST') {
         executePrivateStateCleanup();
-        navigate('/', {
-          replace: true,
-          state: { sessionNotice: 'Phiên đã kết thúc, vui lòng đăng nhập lại' },
-        });
+        if (outcome.code === 'ACCOUNT_NOT_FOUND') {
+          try {
+            sessionStorage.clear();
+          } catch {
+            // best effort storage purge
+          }
+          navigate('/login', {
+            replace: true,
+            state: { sessionNotice: 'Tài khoản không tồn tại trên hệ thống, vui lòng đăng nhập lại' },
+          });
+        } else {
+          navigate('/', {
+            replace: true,
+            state: { sessionNotice: 'Phiên đã kết thúc, vui lòng đăng nhập lại' },
+          });
+        }
       } else if (outcome.type === 'ACCESS_DENIED') {
         // Safe generic notice; no role, lifecycle, or Workshop-scope detail is disclosed
         navigate('/', {

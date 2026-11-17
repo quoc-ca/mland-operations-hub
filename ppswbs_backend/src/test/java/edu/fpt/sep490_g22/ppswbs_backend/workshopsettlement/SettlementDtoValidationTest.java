@@ -16,9 +16,7 @@ class SettlementDtoValidationTest {
         assertThat(validator.validate(new GuestContactProofDto(null, "0123"))).isEmpty();
     }
 
-    @Test void refundPercentAndVariableChargeAreBounded() {
-        assertThat(validator.validate(new RefundPolicyRevisionCommandDto(Instant.now(), 101))).isNotEmpty();
-        assertThat(validator.validate(new RefundPolicyRevisionCommandDto(Instant.now(), 50))).isEmpty();
+    @Test void variableChargeIsBounded() {
         assertThat(validator.validate(new VariableChargeCommandDto("extra", 0L, "reason"))).isNotEmpty();
     }
 

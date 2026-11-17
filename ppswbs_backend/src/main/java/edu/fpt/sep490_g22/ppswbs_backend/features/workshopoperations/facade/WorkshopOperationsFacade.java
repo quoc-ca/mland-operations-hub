@@ -10,8 +10,14 @@ public interface WorkshopOperationsFacade {
     /** Returns null unless this UUID add-on is active for the published package and active location. */
     WorkshopAddOnPriceSnapshot getWorkshopAddOnPrice(WorkshopAddOnPriceQuery query);
 
+    /** The location a catalogue add-on belongs to (any state); null when unknown. Read only (003.3 T187, FR-060). */
+    Long getWorkshopAddOnLocation(String addOnReference);
+
     /** The fixed-price add-ons currently sellable for a package at a location (empty when none or not sellable). */
     java.util.List<WorkshopAddOnPriceSnapshot> listWorkshopAddOns(WorkshopAddOnListQuery query);
+
+    /** The locations where the Package is sellable now (003.2 FR-039); read only, used by 003.3 change options. */
+    ActivePackageLocations activeLocationsForPackage(String packageReference);
 
     CapacityHoldOutcome reserveBookingCapacity(ReserveBookingCapacityCommand command);
 
@@ -26,6 +32,9 @@ public interface WorkshopOperationsFacade {
 
     /** Replaces the sessions of the selected tickets, all or none (003.2 FR-034, quota FR-035). */
     TicketSessionReplacementOutcome replaceTicketSessions(ReplaceTicketSessionsCommand command);
+
+    /** The sessions a ticket may move to, by 003.2 own rules; read only and advisory (003.3 FR-044a, T176). */
+    TicketChangeOptions listTicketChangeOptions(ListTicketChangeOptionsQuery query);
 
     /** Every valid equivalent replacement for one cancelled session of a ticket; read only, no seat held (003.3 T112, FR-043). */
     EquivalentReplacementSessions findEquivalentReplacementSessions(FindEquivalentReplacementSessionsQuery query);

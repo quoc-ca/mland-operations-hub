@@ -86,6 +86,57 @@ class GroupStaffScopeServiceTest {
         assertThat(scope.canOperate(onlyScope, group)).isFalse();
     }
 
+    private void movedTo(String lineReference, long location) {
+        var entitlement = new edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.SessionEntitlementProjection(
+                java.util.UUID.randomUUID(), location, Instant.now(), Instant.now().plusSeconds(3600));
+        when(operations.getBookingTicketProjection(lineReference)).thenReturn(
+                new edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.DeliverySafeTicketSet(List.of(
+                        new edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.DeliverySafeTicket(
+                                java.util.UUID.randomUUID(), "QR", "TK", List.of(entitlement)))));
+    }
+
+    /** T156 / Q4: a ticket moved from A to B is judged at B; the assignment follows the new session. */
+    @Test
+    void staffOfTheNewLocationWithTheAssignmentOperatesOnAMovedTicket() {
+        movedTo("L-A", LOCATION_B);
+        AccountSummary staffB = staff(8L, List.of(LOCATION_B), true, false);
+
+        assertThat(scope.canOperateOnLine(staffB, lineA)).isTrue();
+        assertThat(scope.canOperate(staffB, group)).isTrue();
+    }
+
+    @Test
+    void staffOfTheOldLocationIsRefusedOnceTheTicketMovedAway() {
+        movedTo("L-A", LOCATION_B);
+        AccountSummary staffA = staff(9L, List.of(LOCATION_A), false, false);
+        AccountSummary staffAAssignedBeforeTheMove = staff(10L, List.of(LOCATION_A), true, false);
+
+        assertThat(scope.canOperateOnLine(staffA, lineA)).isFalse();
+        // Scope A no longer covers the line (its current location is B), whatever the assignment says.
+        assertThat(scope.canOperateOnLine(staffAAssignedBeforeTheMove, lineA)).isFalse();
+    }
+
+    @Test
+    void operationsUnavailableFailsClosedWith503ForStaffButNotForTheManager() {
+        when(operations.getBookingTicketProjection("L-A")).thenThrow(new org.springframework.dao.QueryTimeoutException("down"));
+        AccountSummary staffA = staff(11L, List.of(LOCATION_A), true, false);
+        AccountSummary manager = new AccountSummary(12L, ActorRole.MANAGER, ActorStatus.ACTIVE, "m.test", Instant.now(), Instant.now());
+        when(authorization.isManager(manager)).thenReturn(true);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> scope.canOperateOnLine(staffA, lineA))
+                .isInstanceOf(edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.WorkshopBookingProblemException.class);
+        assertThat(scope.canOperateOnLine(manager, lineA)).isTrue();
+    }
+
+    @Test
+    void theAuditLocationIsTheCurrentOneAndFallsBackToTheCopyWhenOperationsFails() {
+        movedTo("L-A", LOCATION_B);
+        assertThat(scope.auditLocationOf(lineA, null)).isEqualTo(LOCATION_B);
+
+        when(operations.getBookingTicketProjection("L-B")).thenThrow(new RuntimeException("down"));
+        assertThat(scope.auditLocationOf(lineB, null)).isEqualTo(LOCATION_B);
+    }
+
     @Test
     void anInactiveOrScopelessStaffMemberIsRefused() {
         AccountSummary noScope = staff(4L, List.of(), true, true);
