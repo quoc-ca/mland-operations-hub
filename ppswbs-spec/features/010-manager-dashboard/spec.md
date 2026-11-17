@@ -134,6 +134,10 @@ An Admin may receive a separate, purpose-limited `Parameter Impact Summary` for 
   The branch is the session of that ticket's Operations ticket; older direct
   booking folios keep the previous rule. A finalization audit recorded under
   the folio bill reference counts as the fully-paid time.
+- Q: May the dashboard link to review moderation? → A: Yes, for now (Thinh,
+  2026-11-16). FE-11 added a "Quản lý đánh giá" button in the dashboard header
+  that opens `/review-moderation`; it is the only navigation shortcut allowed
+  on the dashboard (FR-016). The sidebar link stays the main entry.
 
 ## User Scenarios & Testing
 
@@ -231,10 +235,11 @@ and complete source states and verifies that each state is represented distinctl
 - **FR-015**: The system MUST keep dashboard viewing and filtering read-only; these actions MUST NOT change orders, payments, workshop records, products, promotions, or other operational master data.
 - **FR-016**: The V1 dashboard MUST contain only its period/branch filters,
   five KPI cards, the trend section (FR-027, Session 2026-11-16), per-branch
-  KPI rows, data-quality notices, and a Retry action after a failed load (page
-  reload is the refresh control, Session 2026-11-14); it MUST NOT include
-  operational-list navigation cards, pending-work cards, or metrics owned by
-  another feature.
+  KPI rows, data-quality notices, a Retry action after a failed load (page
+  reload is the refresh control, Session 2026-11-14), and one header shortcut
+  to FE-11 review moderation (`/review-moderation`, kept for now, Session
+  2026-11-16); it MUST NOT include other operational-list navigation cards,
+  pending-work cards, or metrics owned by another feature.
 - **FR-017**: The system MUST deny access without revealing executive revenue values when the user is unauthenticated, locked, no longer authorized, or outside the Manager role boundary.
 - **FR-018**: The system MUST provide a clear safe state when the session expires or authorization changes during dashboard use.
 - **FR-019**: The system MUST recognize workshop revenue from the final invoice total only after that invoice is fully paid, including recorded actual surcharges and excluding a second count of the earlier 50% deposit; the fully-paid date MUST determine the reporting period.
