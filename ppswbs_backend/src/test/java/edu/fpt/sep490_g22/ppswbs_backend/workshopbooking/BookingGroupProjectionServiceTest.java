@@ -75,7 +75,7 @@ class BookingGroupProjectionServiceTest {
                 .recipientEmail("friend@example.com").changeCount(1).build()));
         when(operations.getCurrentEntitlementProjection("LINE-1")).thenReturn(new DeliverySafeTicketSet(List.of(
                 new DeliverySafeTicket(TICKET_REF, "QR-1", "TK-1", List.of(new SessionEntitlementProjection(
-                        REPLACED_SESSION, 4L, START.plusSeconds(86_400), START.plusSeconds(90_000)))))));
+                        REPLACED_SESSION, 4L, START.plusSeconds(86_400), START.plusSeconds(90_000), "MLAND Tây Hồ"))))));
         when(operations.getTicketAttendanceOutcome(TICKET_REF.toString()))
                 .thenReturn(new TicketAttendanceOutcome(true, TicketAttendanceOutcome.Outcome.ATTENDED));
     }
@@ -105,6 +105,15 @@ class BookingGroupProjectionServiceTest {
 
         assertThat(session.sessionReference()).isEqualTo(REPLACED_SESSION);
         assertThat(session.scheduledEnd()).isNotNull();
+    }
+
+    @Test
+    void theCurrentSessionCarriesTheLocationNameFromOperationsAndTheBookingTimeCopyHasNone() {
+        assertThat(service.project(group, true).tickets().get(0).sessions().get(0).locationName()).isEqualTo("MLAND Tây Hồ");
+
+        group.setGroupStatus(BookingStatus.PENDING_PAYMENT);
+        ticket.setTicketStatus(BookingStatus.PENDING_PAYMENT);
+        assertThat(service.project(group, true).tickets().get(0).sessions().get(0).locationName()).isNull();
     }
 
     @Test

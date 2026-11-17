@@ -99,6 +99,36 @@ class BookingAttendanceOutcomeServiceTest {
         assertThat(evaluation.outcome().windowClosesAt()).isNull();
     }
 
+    @Test
+    void showsCheckedInLiveWhileTheSessionIsStillOpen() {
+        TicketSessionEntitlement open = item(AttendanceState.CHECKED_IN);
+        open.getSession().setState(SessionState.IN_PROGRESS);
+        when(repository.findActiveByTicketReference("TKT-7")).thenReturn(List.of(open));
+
+        var outcome = service.evaluateTicket("TKT-7", sessionFinalizedAt).outcome();
+        assertThat(outcome.terminal()).isFalse();
+        assertThat(outcome.live()).isEqualTo(TicketAttendanceOutcome.Live.CHECKED_IN);
+    }
+
+    @Test
+    void showsAttendedAndNoShowPendingLiveInsideTheCorrectionWindow() {
+        Instant inside = Instant.parse("2026-11-05T11:59:59Z");
+        when(repository.findActiveByTicketReference("TKT-8")).thenReturn(List.of(item(AttendanceState.CHECKED_IN)));
+        when(repository.findActiveByTicketReference("TKT-9")).thenReturn(List.of(item(AttendanceState.NO_SHOW)));
+
+        assertThat(service.evaluateTicket("TKT-8", inside).outcome().live()).isEqualTo(TicketAttendanceOutcome.Live.ATTENDED);
+        assertThat(service.evaluateTicket("TKT-9", inside).outcome().live()).isEqualTo(TicketAttendanceOutcome.Live.NO_SHOW_PENDING);
+    }
+
+    @Test
+    void showsNothingWhenNobodyCheckedInYet() {
+        TicketSessionEntitlement open = item(AttendanceState.NOT_CHECKED_IN);
+        open.getSession().setState(SessionState.IN_PROGRESS);
+        when(repository.findActiveByTicketReference("TKT-10")).thenReturn(List.of(open));
+
+        assertThat(service.evaluateTicket("TKT-10", sessionFinalizedAt).outcome().live()).isNull();
+    }
+
     private TicketSessionEntitlement item(AttendanceState state) {
         return item(state, sessionFinalizedAt);
     }

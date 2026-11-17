@@ -129,12 +129,14 @@ public class BookingGroupProjectionService {
         return result;
     }
 
-    /** ATTENDED, NO_SHOW or PARTIAL once final; null while attendance can still change. */
+    /** ATTENDED, NO_SHOW or PARTIAL once final; CHECKED_IN, ATTENDED or NO_SHOW_PENDING while it can still change; null before any record. */
     private String attendance(TicketBooking ticket) {
         if (ticket.getOperationsTicketReference() == null) return null;
         try {
             TicketAttendanceOutcome outcome = operations.getTicketAttendanceOutcome(ticket.getOperationsTicketReference());
-            return outcome != null && outcome.terminal() && outcome.outcome() != null ? outcome.outcome().name() : null;
+            if (outcome == null) return null;
+            if (outcome.terminal() && outcome.outcome() != null) return outcome.outcome().name();
+            return outcome.live() == null ? null : outcome.live().name();
         } catch (RuntimeException failure) {
             log.warn("Attendance unavailable for ticket {}: {}", ticket.getTicketCode(), failure.getClass().getSimpleName());
             return null;
@@ -150,14 +152,14 @@ public class BookingGroupProjectionService {
             for (int i = 0; i < ordered.size(); i++) {
                 SessionEntitlementProjection s = ordered.get(i);
                 result.add(new BookingGroupView.SessionView(s.sessionReference(), s.locationReference(), i + 1,
-                        s.scheduledStart(), s.scheduledEnd()));
+                        s.scheduledStart(), s.scheduledEnd(), s.locationName()));
             }
             return List.copyOf(result);
         }
         if (line == null) return List.of();
         return orderedSessions(line).stream()
                 .map(s -> new BookingGroupView.SessionView(uuid(s.getSessionReference()), s.getLocationReference(),
-                        s.getOrdinal(), s.getScheduledStart(), null))
+                        s.getOrdinal(), s.getScheduledStart(), null, null))
                 .toList();
     }
 

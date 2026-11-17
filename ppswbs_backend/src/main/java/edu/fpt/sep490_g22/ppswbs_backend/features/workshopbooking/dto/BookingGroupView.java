@@ -47,6 +47,7 @@ public record BookingGroupView(
             Long locationId,
             int ordinal,
             Instant scheduledStart,
-            Instant scheduledEnd) {
+            Instant scheduledEnd,
+            String locationName) {
     }
 }
