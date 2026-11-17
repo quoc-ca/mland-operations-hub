@@ -35,7 +35,6 @@ public class WorkshopSessionService {
     private final OperationsAuditEventRepository auditEventRepository;
     private final CapacityHoldService capacityHoldService;
     private final WorkshopOtaSnapshotService otaSnapshotService;
-    private final WorkshopVisibleLocationPolicy visibleLocationPolicy;
     private final StaffAutoAssignmentService staffAutoAssignmentService;
     private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.SessionStaffAssignmentRepository staffAssignmentRepository;
 
@@ -239,17 +238,12 @@ public class WorkshopSessionService {
         List<WorkshopSession> sessions = sessionRepository.findAll();
         return sessions.stream()
                 .filter(session -> assignedSessionIds == null || assignedSessionIds.contains(session.getId()))
-                .filter(session -> isVisibleLocation(session.getLocation().getId()))
                 .filter(s -> allowedLocationIds == null || allowedLocationIds.contains(s.getLocation().getId()))
                 .filter(s -> from == null || !s.getWorkshopDate().isBefore(from))
                 .filter(s -> to == null || !s.getWorkshopDate().isAfter(to))
                 .filter(s -> state == null || s.getState() == state)
                 .map(this::toSessionResponse)
                 .toList();
-    }
-
-    private boolean isVisibleLocation(Long locationId) {
-        return visibleLocationPolicy == null || visibleLocationPolicy.allows(locationId);
     }
 
     @Transactional(readOnly = true)
