@@ -328,7 +328,6 @@ class WorkshopPackageFacadeIT {
                 .label("Package test slot " + slotIndex)
                 .startTime(start)
                 .endTime(start.plusMinutes(45))
-                .defaultCapacity(Math.max(1, capacity))
                 .active(true)
                 .build());
         Instant scheduledStart = day.atTime(start).atZone(ZONE).toInstant();

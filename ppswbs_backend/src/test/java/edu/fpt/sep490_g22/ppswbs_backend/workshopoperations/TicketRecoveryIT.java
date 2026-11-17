@@ -296,8 +296,7 @@ class TicketRecoveryIT {
 
     private WorkshopSlot slot(WorkshopLocation location) {
         return WorkshopSlot.builder().reference(UUID.randomUUID().toString()).location(location)
-                .label("Recovery Slot").startTime(LocalTime.of(9, 0)).endTime(LocalTime.of(12, 0))
-                .defaultCapacity(10).active(true).build();
+                .label("Recovery Slot").startTime(LocalTime.of(9, 0)).endTime(LocalTime.of(12, 0)).active(true).build();
     }
 
     private WorkshopSession session(WorkshopLocation location, WorkshopSlot slot) {

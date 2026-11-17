@@ -230,7 +230,7 @@ class WorkshopPackageIT {
         LocalTime start = LocalTime.of(slotNumber + 7, 0);
         WorkshopSlot slot = slotRepository.saveAndFlush(WorkshopSlot.builder()
                 .reference(UUID.randomUUID().toString()).location(location).label("Package IT slot")
-                .startTime(start).endTime(start.plusMinutes(45)).defaultCapacity(capacity).active(true).build());
+                .startTime(start).endTime(start.plusMinutes(45)).active(true).build());
         Instant startAt = date.atTime(start).atZone(ZONE).toInstant();
         return sessionRepository.saveAndFlush(WorkshopSession.builder().reference(UUID.randomUUID().toString())
                 .location(location).slot(slot).workshopDate(date).scheduledStartAt(startAt)

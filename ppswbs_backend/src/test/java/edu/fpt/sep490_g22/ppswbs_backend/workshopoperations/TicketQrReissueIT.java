@@ -94,8 +94,7 @@ class TicketQrReissueIT {
         location = locationRepository.save(WorkshopLocation.builder().code("LOC-QR-01")
                 .displayName("QR Hub").addressSnapshot("1 Test St").active(true).build());
         slot = slotRepository.save(WorkshopSlot.builder().reference(UUID.randomUUID().toString())
-                .location(location).label("Morning").startTime(LocalTime.of(9, 0)).endTime(LocalTime.of(12, 0))
-                .defaultCapacity(10).active(true).build());
+                .location(location).label("Morning").startTime(LocalTime.of(9, 0)).endTime(LocalTime.of(12, 0)).active(true).build());
 
         when(accountFacade.resolveAccount("qr-staff")).thenReturn(Optional.of(
                 new AccountSummary(201L, ActorRole.STAFF, ActorStatus.ACTIVE, "qrstaff@mland.vn", Instant.now(), Instant.now())));
