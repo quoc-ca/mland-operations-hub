@@ -613,7 +613,7 @@ answers are marked inline.)*
 - Q: Who manages fixed slots and what happens when a slot time changes? → A: Manager manages slots per branch. A slot-time change applies only to sessions created after the change; an existing session keeps its inherited scheduled times.
 - Q: What happens to existing future sessions when a configured slot is stopped? → A: The slot becomes unavailable for new sessions only. Existing sessions, including future sessions, remain unchanged; Manager uses the audited session-cancellation flow if one must be cancelled.
 - Q: How are future sessions created in V1? → A: Manager may create an individual session or bulk-create independent sessions by branch, selected slots, date range and applicable weekdays. Bulk creation is a one-time generator, not an indefinitely running recurrence; later schedule or slot changes never alter sessions already created.
-- Q: Where does a new session's capacity come from? → A: Each branch slot has a default capacity. A new session copies it and Manager may adjust that session's capacity subject to the capacity-commitment rule, without changing the slot or other sessions.
+- Q: Where does a new session's capacity come from? → A: A slot carries no capacity (decision 2026-11-17, Owner 003: supersedes the earlier "slot default capacity"). Manager MUST enter `capacity` (>= 1) for every session when creating it, singly or in bulk generation, and may later adjust it subject to the capacity-commitment rule, without changing any other session.
 - Q: What happens when bulk session generation encounters an existing branch/date/slot combination? → A: It creates every missing session, skips each existing combination without overwriting it and reports the created and skipped results.
 
 ### Session 2026-10-24
@@ -1269,10 +1269,10 @@ scope. The target implementation and all public contracts use `location` and
   cancels an existing session.
   V1 never permanently deletes a configured slot; Manager only changes whether
   it is active or inactive.
-- Each configured branch slot has a default capacity. A new session copies that
-  value as its own capacity; changing the session capacity does not change its
-  slot or any other session. Slot and session capacity must be at least one;
-  `SALES_PAUSED`, not zero capacity, stops new booking.
+- A configured branch slot is only a time window and carries no capacity. Manager
+  enters each session's capacity when creating it (single or bulk); changing a
+  session capacity does not change any other session. Session capacity must be at
+  least one; `SALES_PAUSED`, not zero capacity, stops new booking.
 - A Staff member normally checks in one ticket by QR. Individual `ticket_code`
   is a manual fallback; `booking_code` only finds a booking and never checks in
   an unspecified ticket. In a Staff check-in flow, a booking-code lookup returns
@@ -1440,7 +1440,7 @@ sessions; they never alter or cancel an existing session. If a future session
 must be cancelled, Manager uses the audited session-cancellation flow.
 V1 retains each configured slot and uses active/inactive status rather than
 permanent deletion.
-Each slot has a default capacity, which a new session copies as its own capacity.
+A slot is only a time window and carries no capacity; each session owns its own capacity, which Manager enters when creating the session.
 Slots begin and end on the same local calendar date; the initial daily slot
 configuration is `09:00–12:00`, `13:00–16:00` and `16:00–19:00`. The expected
 workshop activity duration is 2 hours 30 minutes, with 30 minutes contingency
@@ -1657,10 +1657,11 @@ correction, with before/after audit evidence.
   retain the start and end times inherited when it was created. Stopping a slot
   MUST prevent only new-session creation and MUST NOT alter or cancel existing
   sessions; session cancellation MUST use the audited session lifecycle. Each
-  slot MUST have a default capacity, which a new session copies as its own
-  capacity; a later session-capacity change MUST NOT alter the slot or another
-  session. Slot and session capacity MUST be at least one; Manager MUST use
-  `SALES_PAUSED`, not zero capacity, to stop accepting new bookings. V1 MUST
+  slot MUST NOT carry a capacity; each session MUST have its own capacity, which
+  Manager enters when creating the session (single or bulk); a later
+  session-capacity change MUST NOT alter another
+  session.
+  Session capacity MUST be at least one; Manager MUST use `SALES_PAUSED`, not zero capacity, to stop accepting new bookings. V1 MUST
   retain each configured slot and allow only active/inactive state changes, not
   permanent deletion.
 - **FR-001f**: The system MUST allow only Manager to create a session either

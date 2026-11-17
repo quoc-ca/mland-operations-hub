@@ -181,7 +181,7 @@ public class WorkshopSessionContractIT {
     }
 
     // =========================================================================
-    // 3. Slot Endpoint and DTO Contract (Asia/Ho_Chi_Minh same-day, defaultCapacity >= 1)
+    // 3. Slot Endpoint and DTO Contract (Asia/Ho_Chi_Minh same-day, no capacity)
     // =========================================================================
 
     @Test
@@ -206,56 +206,42 @@ public class WorkshopSessionContractIT {
 
         Map<String, Object> slotWrite = (Map<String, Object>) schemas.get("SlotWrite");
         List<String> requiredFields = (List<String>) slotWrite.get("required");
-        assertThat(requiredFields).containsExactlyInAnyOrder("label", "startsAtLocal", "endsAtLocal", "defaultCapacity", "active");
+        assertThat(requiredFields).containsExactlyInAnyOrder("label", "startsAtLocal", "endsAtLocal", "active");
 
         Map<String, Object> properties = (Map<String, Object>) slotWrite.get("properties");
-        assertThat(properties).containsKeys("label", "startsAtLocal", "endsAtLocal", "defaultCapacity", "active");
+        assertThat(properties).containsKeys("label", "startsAtLocal", "endsAtLocal", "active");
 
-        Map<String, Object> defaultCapacityProp = (Map<String, Object>) properties.get("defaultCapacity");
-        assertThat(defaultCapacityProp.get("minimum")).isEqualTo(1);
+        assertThat(properties).doesNotContainKey("defaultCapacity");
 
-        // DTO validation: SlotRequest enforces Asia/Ho_Chi_Minh same-day timing and capacity >= 1
+        // DTO validation: SlotRequest enforces Asia/Ho_Chi_Minh same-day timing
         assertThat(SlotRequest.WORKSHOP_ZONE).isEqualTo(ZoneId.of("Asia/Ho_Chi_Minh"));
 
         SlotRequest validSlot = SlotRequest.builder()
                 .label("Standard Morning Slot")
                 .startsAtLocal(LocalTime.of(9, 0))
                 .endsAtLocal(LocalTime.of(12, 0))
-                .defaultCapacity(30)
                 .active(true)
                 .build();
         assertThat(validator.validate(validSlot)).isEmpty();
         assertThat(validSlot.isSameDayTimingValid()).isTrue();
-
-        // Rejection: defaultCapacity < 1
-        SlotRequest zeroCapacity = SlotRequest.builder()
-                .label("Invalid Capacity")
-                .startsAtLocal(LocalTime.of(9, 0))
-                .endsAtLocal(LocalTime.of(12, 0))
-                .defaultCapacity(0)
-                .active(true)
-                .build();
-        assertThat(validator.validate(zeroCapacity)).isNotEmpty();
 
         // Rejection: startsAtLocal >= endsAtLocal (overnight or zero duration)
         SlotRequest overnightSlot = SlotRequest.builder()
                 .label("Overnight Slot")
                 .startsAtLocal(LocalTime.of(20, 0))
                 .endsAtLocal(LocalTime.of(1, 0))
-                .defaultCapacity(10)
                 .active(true)
                 .build();
         assertThat(validator.validate(overnightSlot)).isNotEmpty();
         assertThat(overnightSlot.isSameDayTimingValid()).isFalse();
 
-        // SlotResponse shape matches OpenAPI Slot schema (id, locationId, label, startsAtLocal, endsAtLocal, defaultCapacity, active)
+        // SlotResponse shape matches OpenAPI Slot schema (id, locationId, label, startsAtLocal, endsAtLocal, active)
         SlotResponse slotResp = SlotResponse.builder()
                 .id(UUID.randomUUID().toString())
                 .locationId(1L)
                 .label("Afternoon")
                 .startsAtLocal(LocalTime.of(13, 0))
                 .endsAtLocal(LocalTime.of(16, 0))
-                .defaultCapacity(25)
                 .active(true)
                 .build();
         assertThat(slotResp.getId()).isNotNull();
@@ -368,7 +354,7 @@ public class WorkshopSessionContractIT {
 
         Map<String, Object> bulkReqSchema = (Map<String, Object>) schemas.get("BulkSessionRequest");
         List<String> requiredFields = (List<String>) bulkReqSchema.get("required");
-        assertThat(requiredFields).containsExactlyInAnyOrder("locationId", "slotIds", "from", "to", "weekdays");
+        assertThat(requiredFields).containsExactlyInAnyOrder("locationId", "slotIds", "from", "to", "weekdays", "capacity");
 
         Map<String, Object> properties = (Map<String, Object>) bulkReqSchema.get("properties");
         assertThat(properties).containsKeys("locationId", "slotIds", "from", "to", "weekdays", "initialState");
@@ -385,6 +371,7 @@ public class WorkshopSessionContractIT {
                 .from(LocalDate.now().plusDays(1))
                 .to(LocalDate.now().plusDays(14))
                 .weekdays(List.of(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY))
+                .capacity(10)
                 .initialState(SessionState.DRAFT)
                 .build();
         assertThat(validator.validate(validBulk)).isEmpty();
@@ -398,6 +385,7 @@ public class WorkshopSessionContractIT {
                 .from(LocalDate.now().plusDays(14))
                 .to(LocalDate.now().plusDays(1))
                 .weekdays(List.of(DayOfWeek.MONDAY))
+                .capacity(10)
                 .build();
         assertThat(validator.validate(invertedDates)).isNotEmpty();
         assertThat(invertedDates.isDateRangeValid()).isFalse();

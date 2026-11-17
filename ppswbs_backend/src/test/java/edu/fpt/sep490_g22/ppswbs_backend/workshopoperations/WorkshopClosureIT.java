@@ -183,7 +183,6 @@ public class WorkshopClosureIT {
                 .label("Standard Morning Slot")
                 .startTime(LocalTime.of(9, 0))
                 .endTime(LocalTime.of(12, 0))
-                .defaultCapacity(15)
                 .active(true)
                 .build());
 

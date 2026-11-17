@@ -299,7 +299,7 @@ class GroupBookingDiscountMySqlIT {
         ZoneId zone = ZoneId.of("Asia/Ho_Chi_Minh");
         LocalTime startTime = start.atZone(zone).toLocalTime();
         WorkshopSlot slot = slots.save(WorkshopSlot.builder().reference(UUID.randomUUID().toString()).location(location)
-                .label("Slot").startTime(startTime).endTime(startTime.plusHours(1)).defaultCapacity(10).active(true).build());
+                .label("Slot").startTime(startTime).endTime(startTime.plusHours(1)).active(true).build());
         return sessions.save(WorkshopSession.builder().reference(UUID.randomUUID().toString()).location(location)
                 .slot(slot).workshopDate(start.atZone(zone).toLocalDate()).scheduledStartAt(start)
                 .scheduledEndAt(start.plus(Duration.ofHours(1))).checkInOpensAt(start.minus(Duration.ofMinutes(30)))

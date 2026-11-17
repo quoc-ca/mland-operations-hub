@@ -122,8 +122,7 @@ class RepeatedOperationalCommandsMySqlIT {
         location = locations.save(WorkshopLocation.builder().code("LOC-REP").displayName("Repeat Hub")
                 .addressSnapshot("1 Repeat St").active(true).build());
         slot = slots.save(WorkshopSlot.builder().reference(UUID.randomUUID().toString()).location(location)
-                .label("Repeat Slot").startTime(LocalTime.of(9, 0)).endTime(LocalTime.of(12, 0))
-                .defaultCapacity(15).active(true).build());
+                .label("Repeat Slot").startTime(LocalTime.of(9, 0)).endTime(LocalTime.of(12, 0)).active(true).build());
 
         when(accountFacade.resolveAccount("rep-mgr")).thenReturn(Optional.of(
                 new AccountSummary(901L, ActorRole.MANAGER, ActorStatus.ACTIVE, "m@mland.vn", Instant.now(), Instant.now())));

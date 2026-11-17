@@ -125,7 +125,6 @@ public class WorkshopSessionManagementIT {
                 .label("Standard Morning Slot")
                 .startTime(LocalTime.of(9, 0))
                 .endTime(LocalTime.of(12, 0))
-                .defaultCapacity(25)
                 .active(true)
                 .build());
 
@@ -176,7 +175,6 @@ public class WorkshopSessionManagementIT {
                 .label("Unauthorized Slot")
                 .startsAtLocal(LocalTime.of(13, 0))
                 .endsAtLocal(LocalTime.of(16, 0))
-                .defaultCapacity(20)
                 .active(true)
                 .build();
 
@@ -200,7 +198,6 @@ public class WorkshopSessionManagementIT {
                 .label("Overlapping Mid-Morning Slot")
                 .startsAtLocal(LocalTime.of(10, 0))
                 .endsAtLocal(LocalTime.of(13, 0))
-                .defaultCapacity(20)
                 .active(true)
                 .build();
 
@@ -221,7 +218,6 @@ public class WorkshopSessionManagementIT {
                 .label("Overlap Inactive Slot")
                 .startsAtLocal(LocalTime.of(11, 0))
                 .endsAtLocal(LocalTime.of(14, 0))
-                .defaultCapacity(20)
                 .active(true)
                 .build();
 
@@ -238,7 +234,6 @@ public class WorkshopSessionManagementIT {
                 .label("Afternoon Slot")
                 .startsAtLocal(LocalTime.of(13, 0))
                 .endsAtLocal(LocalTime.of(16, 0))
-                .defaultCapacity(30)
                 .active(true)
                 .build();
 
@@ -313,6 +308,7 @@ public class WorkshopSessionManagementIT {
                 .from(from)
                 .to(to)
                 .weekdays(List.of(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY))
+                .capacity(10)
                 .initialState(SessionState.DRAFT)
                 .build();
 
@@ -378,7 +374,6 @@ public class WorkshopSessionManagementIT {
                 .label("Early Morning Slot")
                 .startsAtLocal(LocalTime.of(8, 30))
                 .endsAtLocal(LocalTime.of(11, 30))
-                .defaultCapacity(30)
                 .active(true)
                 .build();
 

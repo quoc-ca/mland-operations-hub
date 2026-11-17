@@ -647,7 +647,6 @@ public class AttendanceTicketContractIT {
                 .label("Contract Slot")
                 .startTime(LocalTime.of(9, 0))
                 .endTime(LocalTime.of(12, 0))
-                .defaultCapacity(10)
                 .active(true)
                 .build());
 
