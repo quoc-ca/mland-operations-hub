@@ -98,3 +98,53 @@ describe('Operations sidebar by role', () => {
     await waitFor(() => expect(sidebar().queryByRole('link', { name: 'Gói workshop' })).not.toBeInTheDocument());
   });
 });
+
+describe('Late payments sidebar link', () => {
+  beforeEach(() => clearRoleCache());
+
+  it('shows a Manager the late payments link', async () => {
+    open('MANAGER');
+    const link = await sidebar().findByRole('link', { name: 'Thanh toán về trễ' });
+    expect(link).toHaveAttribute('href', '/operations/late-payments');
+  });
+
+  it.each(['STAFF', 'ADMIN'])('hides the late payments link from %s', async role => {
+    open(role);
+    await waitFor(() => expect(sidebar().getByRole('link', { name: /Ca của tôi|Bảng điều phối ca/ })).toBeInTheDocument());
+    expect(sidebar().queryByRole('link', { name: 'Thanh toán về trễ' })).not.toBeInTheDocument();
+  });
+});
+
+describe('Change requests sidebar link', () => {
+  beforeEach(() => clearRoleCache());
+
+  it.each(['STAFF', 'MANAGER'])('shows the change requests link to %s', async role => {
+    open(role);
+    expect(await sidebar().findByRole('link', { name: 'Yêu cầu đổi vé' })).toHaveAttribute('href', '/settlement/change-requests');
+  });
+
+  it('hides the change requests link from an Admin', async () => {
+    open('ADMIN');
+    await waitFor(() => expect(sidebar().getByRole('link', { name: 'Trang chủ' })).toBeInTheDocument());
+    expect(sidebar().queryByRole('link', { name: 'Yêu cầu đổi vé' })).not.toBeInTheDocument();
+  });
+});
+
+describe('Sidebar current entry', () => {
+  beforeEach(() => clearRoleCache());
+
+  it('marks the current screen as active and brings it into view', async () => {
+    const original = Element.prototype.scrollIntoView;
+    const scrolled = [];
+    Element.prototype.scrollIntoView = function track(options) { scrolled.push({ text: this.textContent, options }); };
+    try {
+      open('MANAGER');
+      const current = await sidebar().findByRole('link', { name: 'Bảng điều phối ca' });
+      expect(current).toHaveClass('active');
+      expect(sidebar().getByRole('link', { name: 'Gói workshop' })).not.toHaveClass('active');
+      expect(scrolled.some(item => item.text.includes('Bảng điều phối ca') && item.options?.block === 'center')).toBe(true);
+    } finally {
+      Element.prototype.scrollIntoView = original;
+    }
+  });
+});

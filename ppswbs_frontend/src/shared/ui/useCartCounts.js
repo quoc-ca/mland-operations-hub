@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useLocation } from 'react-router';
 import { useAuth } from '../auth/AuthProvider';
+import { useRole } from '../auth/useRole';
 import { useHttp } from '../api/useHttp';
 import { cartLineCount, subscribeToCart } from '../../workshops/cartStorage';
 import { RETAIL_CART_CHANGED, retailApi } from '../../features/retail-order/infrastructure/retailApi';
@@ -13,7 +14,10 @@ export function useCartCounts() {
   const { status } = useAuth();
   const http = useHttp();
   const location = useLocation();
-  const signedIn = status === 'signed-in';
+  // The product cart is a Member's: a Staff, Manager or Admin who is signed in gets 403 there, which the app treats as
+  // "no access" and sends home. So it is read only once the role is known to be Member.
+  const role = useRole();
+  const signedIn = status === 'signed-in' && role === 'MEMBER';
   const [workshop, setWorkshop] = useState(() => cartLineCount());
   const [product, setProduct] = useState(0);
 
