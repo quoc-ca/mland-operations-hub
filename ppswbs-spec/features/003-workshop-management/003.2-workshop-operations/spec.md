@@ -1258,7 +1258,7 @@ scope. The target implementation and all public contracts use `location` and
   date. The initial daily slot configuration is `09:00–12:00`, `13:00–16:00`
   and `16:00–19:00`. Workshop activity normally takes about 2 hours 30 minutes;
   each slot retains 30 minutes of contingency time. Slots for the same branch
-  must not overlap.
+  must not overlap; only ACTIVE slots are compared, an inactive slot holds no time (owner decision Hồ Hoàng Quốc 2026-11-17).
 - A session may be created only when its configured slot start is in the future.
   This does not set a booking cutoff; feature 003.1 controls whether booking is
   still available close to the start time.
@@ -1444,7 +1444,7 @@ A slot is only a time window and carries no capacity; each session owns its own 
 Slots begin and end on the same local calendar date; the initial daily slot
 configuration is `09:00–12:00`, `13:00–16:00` and `16:00–19:00`. The expected
 workshop activity duration is 2 hours 30 minutes, with 30 minutes contingency
-time in each slot. Slots for the same location do not overlap. Capacity must be
+time in each slot. Active slots for the same location do not overlap (inactive slots are not compared). Capacity must be
 at least one; Manager pauses sales rather than setting capacity to zero.
 
 ### Shop organizes groups within a session
@@ -1681,7 +1681,7 @@ correction, with before/after audit evidence.
 - **FR-001j**: The system MUST reject a configured slot whose end is not on the
   same `Asia/Ho_Chi_Minh` calendar date as its start. The initial daily slot
   configuration MUST provide `09:00–12:00`, `13:00–16:00` and `16:00–19:00`.
-  The system MUST reject overlapping configured slots for the same location.
+  The system MUST reject overlapping configured slots for the same location, comparing only ACTIVE slots: creating or changing an active slot, or re-activating an inactive one, is refused when it overlaps another active slot; an inactive slot never blocks another slot (owner decision Hồ Hoàng Quốc 2026-11-17).
 - **FR-001i**: The system MUST allow Manager to choose `DRAFT` or `PUBLISHED`
   as the initial state for an individual or bulk session creation, and MUST
   default the chosen state to `DRAFT` when none is supplied.
@@ -2286,7 +2286,7 @@ reveals another session, location, ticket or customer contact data.)*
 | 409 | `TICKET_CONFLICT` | The ticket is not valid for check-in (cancelled — including after `cancelTicket`, FR-031, CHK010 — revoked, refunded). |
 | 409 | `TICKET_QR_REVOKED` | A QR revoked by a recipient change (FR-033). |
 | 409 | `INSUFFICIENT_CAPACITY` | Capacity below commitments or no seat left. |
-| 409 | `SLOT_OVERLAP_CONFLICT` | A slot overlaps another slot of the location. |
+| 409 | `SLOT_OVERLAP_CONFLICT` | An active slot would overlap another ACTIVE slot of the location (create, change times, or re-activate). Inactive slots are never compared. |
 | 409 | `DUPLICATE_SESSION` | A session already exists for the location, date and slot. |
 | 409 | `OPTIMISTIC_LOCK_CONFLICT` | Stale `version` on session PATCH (T112). |
 | 409 | `IDEMPOTENCY_CONFLICT` | Same `Idempotency-Key` with a different command. |

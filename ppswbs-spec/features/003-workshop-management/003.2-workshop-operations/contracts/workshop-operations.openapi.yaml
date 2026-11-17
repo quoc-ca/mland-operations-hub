@@ -323,7 +323,7 @@ paths:
         '403': { $ref: '#/components/responses/Problem' }
         '503': { $ref: '#/components/responses/Problem' }
     post:
-      summary: Create a reusable non-overlapping slot
+      summary: Create a reusable slot (409 SLOT_OVERLAP_CONFLICT only against another ACTIVE slot)
       parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/SlotWrite' } } } }
       responses:
@@ -336,7 +336,7 @@ paths:
   /workshop-slots/{slotId}:
     parameters: [ { $ref: '#/components/parameters/SlotId' } ]
     patch:
-      summary: Edit a reusable slot or change its active flag
+      summary: Edit a reusable slot or change its active flag (409 SLOT_OVERLAP_CONFLICT when the result is active and overlaps another ACTIVE slot, including re-activation)
       parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/SlotWrite' } } } }
       responses:
