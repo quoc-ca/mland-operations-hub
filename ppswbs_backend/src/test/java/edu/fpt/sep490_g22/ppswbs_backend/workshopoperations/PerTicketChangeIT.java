@@ -87,11 +87,9 @@ class PerTicketChangeIT {
         location = locationRepository.save(WorkshopLocation.builder().code("LOC-PTC-01")
                 .displayName("Per-ticket Hub").addressSnapshot("2 Test St").active(true).build());
         morning = slotRepository.save(WorkshopSlot.builder().reference(UUID.randomUUID().toString())
-                .location(location).label("Morning").startTime(LocalTime.of(9, 0)).endTime(LocalTime.of(12, 0))
-                .defaultCapacity(10).active(true).build());
+                .location(location).label("Morning").startTime(LocalTime.of(9, 0)).endTime(LocalTime.of(12, 0)).active(true).build());
         afternoon = slotRepository.save(WorkshopSlot.builder().reference(UUID.randomUUID().toString())
-                .location(location).label("Afternoon").startTime(LocalTime.of(14, 0)).endTime(LocalTime.of(17, 0))
-                .defaultCapacity(10).active(true).build());
+                .location(location).label("Afternoon").startTime(LocalTime.of(14, 0)).endTime(LocalTime.of(17, 0)).active(true).build());
         packageId = packageRepository.save(WorkshopPackage.builder().name("Per-ticket test package")
                 .description("Synthetic fixture").publicPrice(1000L).minParticipants(1).maxParticipants(10)
                 .requiredSessionCount(1).sameLocationRequired(true).minimumSameDaySlotGap(0)

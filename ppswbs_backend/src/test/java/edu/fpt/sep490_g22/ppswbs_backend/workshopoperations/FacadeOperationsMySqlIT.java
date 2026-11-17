@@ -520,7 +520,7 @@ class FacadeOperationsMySqlIT {
         Instant start = date.atTime(startTime).atZone(ZONE).toInstant();
         WorkshopSlot slot = slotRepository.saveAndFlush(WorkshopSlot.builder()
                 .location(location).label("S4 slot " + UUID.randomUUID())
-                .startTime(startTime).endTime(startTime.plusMinutes(15)).defaultCapacity(capacity).build());
+                .startTime(startTime).endTime(startTime.plusMinutes(15)).build());
         return sessionRepository.saveAndFlush(WorkshopSession.builder()
                 .location(location).slot(slot).workshopDate(date)
                 .scheduledStartAt(start).scheduledEndAt(start.plusSeconds(900))
@@ -557,7 +557,7 @@ class FacadeOperationsMySqlIT {
         Instant start = date.atTime(startTime).atZone(ZONE).toInstant();
         WorkshopSlot slot = slotRepository.saveAndFlush(WorkshopSlot.builder()
                 .location(place).label("P18 slot " + UUID.randomUUID())
-                .startTime(startTime).endTime(startTime.plusMinutes(15)).defaultCapacity(capacity).build());
+                .startTime(startTime).endTime(startTime.plusMinutes(15)).build());
         return sessionRepository.saveAndFlush(WorkshopSession.builder()
                 .location(place).slot(slot).workshopDate(date)
                 .scheduledStartAt(start).scheduledEndAt(start.plusSeconds(900))

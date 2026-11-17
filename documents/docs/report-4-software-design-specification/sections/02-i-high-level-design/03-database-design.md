@@ -307,7 +307,6 @@ Defines recurring daily time slots and baseline capacity for workshop session sc
 |label|varchar(100)|NOT NULL|Stores label value.|
 |start_time|time|NOT NULL|Stores start time value.|
 |end_time|time|NOT NULL|Stores end time value.|
-|default_capacity|int|NOT NULL|Numerical count, quota, or capacity (default capacity).|
 |active|tinyint(1)|NOT NULL, DEFAULT 1|Active status indicator (1=active, 0=inactive).|
 |version|bigint|NOT NULL, DEFAULT 0|Optimistic concurrency locking version counter.|
 |created_at|datetime(6)|NOT NULL, DEFAULT CURRENT_TIMESTAMP|Record creation timestamp (UTC).|

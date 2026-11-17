@@ -3,6 +3,7 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.SessionState;
 import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
@@ -37,6 +38,10 @@ public class BulkSessionRequest {
 
     @NotEmpty(message = "weekdays must contain at least one weekday")
     private List<DayOfWeek> weekdays;
+
+    @NotNull(message = "capacity is required")
+    @Min(value = 1, message = "capacity must be at least 1")
+    private Integer capacity;
 
     @Builder.Default
     private SessionState initialState = SessionState.DRAFT;

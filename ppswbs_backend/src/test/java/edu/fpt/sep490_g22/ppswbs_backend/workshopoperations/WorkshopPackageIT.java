@@ -56,8 +56,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-// A local .env demo filter (WORKSHOP_OPERATIONS_VISIBLE_LOCATION_IDS) must not hide test locations.
-@TestPropertySource(properties = "workshop.operations.visible-location-ids=")
 class WorkshopPackageIT {
 
     private static final ZoneId ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
@@ -230,7 +228,7 @@ class WorkshopPackageIT {
         LocalTime start = LocalTime.of(slotNumber + 7, 0);
         WorkshopSlot slot = slotRepository.saveAndFlush(WorkshopSlot.builder()
                 .reference(UUID.randomUUID().toString()).location(location).label("Package IT slot")
-                .startTime(start).endTime(start.plusMinutes(45)).defaultCapacity(capacity).active(true).build());
+                .startTime(start).endTime(start.plusMinutes(45)).active(true).build());
         Instant startAt = date.atTime(start).atZone(ZONE).toInstant();
         return sessionRepository.saveAndFlush(WorkshopSession.builder().reference(UUID.randomUUID().toString())
                 .location(location).slot(slot).workshopDate(date).scheduledStartAt(startAt)

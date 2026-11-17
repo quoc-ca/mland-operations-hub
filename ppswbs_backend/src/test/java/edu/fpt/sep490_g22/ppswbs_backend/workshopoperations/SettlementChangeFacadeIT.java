@@ -103,7 +103,6 @@ class SettlementChangeFacadeIT {
                 .label("Settlement Slot " + UUID.randomUUID())
                 .startTime(startTime)
                 .endTime(startTime.plusHours(1))
-                .defaultCapacity(capacity)
                 .build());
         return sessionRepository.saveAndFlush(WorkshopSession.builder()
                 .location(sessionLocation)
@@ -123,7 +122,6 @@ class SettlementChangeFacadeIT {
                 .label("Settlement Gap Slot " + UUID.randomUUID())
                 .startTime(startTime)
                 .endTime(startTime.plusHours(1))
-                .defaultCapacity(10)
                 .build());
     }
 

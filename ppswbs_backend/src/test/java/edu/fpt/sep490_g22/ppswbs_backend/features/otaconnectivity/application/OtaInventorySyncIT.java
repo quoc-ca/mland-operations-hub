@@ -89,7 +89,7 @@ class OtaInventorySyncIT {
                 var location=locations.saveAndFlush(WorkshopLocation.builder().code("REPLAY-TEST")
                         .displayName("Replay fixture").addressSnapshot("test").build());
                 var slot=slots.saveAndFlush(WorkshopSlot.builder().location(location).label("Test")
-                        .startTime(LocalTime.of(9,0)).endTime(LocalTime.of(10,0)).defaultCapacity(10).build());
+                        .startTime(LocalTime.of(9,0)).endTime(LocalTime.of(10,0)).build());
                 Instant start=Instant.parse("2035-01-01T02:00:00Z");
                 var session=sessions.saveAndFlush(WorkshopSession.builder().location(location).slot(slot)
                         .workshopDate(LocalDate.of(2035,1,1)).scheduledStartAt(start).scheduledEndAt(start.plusSeconds(3600))

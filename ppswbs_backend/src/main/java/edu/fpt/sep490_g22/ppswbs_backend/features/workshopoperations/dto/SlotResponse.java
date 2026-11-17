@@ -24,6 +24,5 @@ public class SlotResponse {
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "HH:mm[:ss]")
     private LocalTime endsAtLocal;
 
-    private Integer defaultCapacity;
     private Boolean active;
 }

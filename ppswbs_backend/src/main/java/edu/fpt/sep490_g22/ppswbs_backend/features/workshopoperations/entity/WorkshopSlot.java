@@ -36,9 +36,6 @@ public class WorkshopSlot {
     @Column(name = "end_time", nullable = false)
     private LocalTime endTime;
 
-    @Column(name = "default_capacity", nullable = false)
-    private Integer defaultCapacity;
-
     @Column(name = "active", nullable = false)
     @Builder.Default
     private boolean active = true;

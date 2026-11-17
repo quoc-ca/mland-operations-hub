@@ -93,8 +93,7 @@ class DeniedAttemptAuditIT {
         location = locationRepository.save(WorkshopLocation.builder().code("LOC-DENY").displayName("Deny Location")
                 .addressSnapshot("1 Test Street").active(true).build());
         WorkshopSlot slot = slotRepository.save(WorkshopSlot.builder().reference(UUID.randomUUID().toString())
-                .location(location).label("Morning").startTime(LocalTime.of(9, 0)).endTime(LocalTime.of(12, 0))
-                .defaultCapacity(20).active(true).build());
+                .location(location).label("Morning").startTime(LocalTime.of(9, 0)).endTime(LocalTime.of(12, 0)).active(true).build());
         session = sessionRepository.save(WorkshopSession.builder().reference(UUID.randomUUID().toString())
                 .location(location).slot(slot).workshopDate(LocalDate.now().plusDays(2)).capacity(20)
                 .state(SessionState.PUBLISHED)

@@ -70,7 +70,6 @@ public class WorkshopSlotService {
                 .label(request.getLabel().trim())
                 .startTime(request.getStartsAtLocal())
                 .endTime(request.getEndsAtLocal())
-                .defaultCapacity(request.getDefaultCapacity())
                 .active(request.getActive() != null ? request.getActive() : true)
                 .build();
 
@@ -98,12 +97,6 @@ public class WorkshopSlotService {
             slot.setLabel(request.getLabel().trim());
         }
 
-        if (request.getDefaultCapacity() != null) {
-            if (request.getDefaultCapacity() < 1) {
-                throw new WorkshopValidationException("Slot default capacity must be at least 1");
-            }
-            slot.setDefaultCapacity(request.getDefaultCapacity());
-        }
 
         if (request.getActive() != null) {
             slot.setActive(request.getActive());
@@ -149,7 +142,6 @@ public class WorkshopSlotService {
         values.put("label", slot.getLabel());
         values.put("startsAtLocal", String.valueOf(slot.getStartTime()));
         values.put("endsAtLocal", String.valueOf(slot.getEndTime()));
-        values.put("defaultCapacity", slot.getDefaultCapacity());
         values.put("active", slot.isActive());
         return values;
     }
@@ -200,9 +192,6 @@ public class WorkshopSlotService {
         if (!request.isSameDayTimingValid()) {
             throw new WorkshopValidationException("Slot startsAtLocal must be strictly before endsAtLocal on the same day");
         }
-        if (request.getDefaultCapacity() == null || request.getDefaultCapacity() < 1) {
-            throw new WorkshopValidationException("Slot default capacity must be at least 1");
-        }
     }
 
     private boolean isOverlapping(LocalTime start1, LocalTime end1,
@@ -217,7 +206,6 @@ public class WorkshopSlotService {
                 .label(slot.getLabel())
                 .startsAtLocal(slot.getStartTime())
                 .endsAtLocal(slot.getEndTime())
-                .defaultCapacity(slot.getDefaultCapacity())
                 .active(slot.isActive())
                 .build();
     }
