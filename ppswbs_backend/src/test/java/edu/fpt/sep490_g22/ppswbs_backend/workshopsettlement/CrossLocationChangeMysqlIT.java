@@ -85,8 +85,7 @@ import static org.mockito.Mockito.when;
 @ActiveProfiles({"test", "workshopoperations-mysql-test"})
 @TestPropertySource(properties = {
         "vnpay.merchant-api-ip-address=127.0.0.1",
-        "vnpay.merchant-api-created-by=it-merchant",
-        "workshop.operations.visible-location-ids="})
+        "vnpay.merchant-api-created-by=it-merchant"})
 class CrossLocationChangeMysqlIT {
 
     private static final AtomicLong SEQ = new AtomicLong(System.nanoTime() % 1_000_000);

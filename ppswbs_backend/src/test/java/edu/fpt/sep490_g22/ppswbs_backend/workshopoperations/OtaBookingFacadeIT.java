@@ -194,7 +194,6 @@ class OtaBookingFacadeIT {
                 .label("OTA test slot")
                 .startTime(startTime)
                 .endTime(startTime.plusHours(1))
-                .defaultCapacity(capacity)
                 .active(true)
                 .build());
         LocalDate workshopDate = LocalDate.now(WORKSHOP_ZONE).plusDays(14);

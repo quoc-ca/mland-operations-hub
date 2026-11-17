@@ -292,7 +292,7 @@ class GroupPaymentIpnMySqlIT {
         var zone = TimezoneConfiguration.ZONE_ID_VIETNAM;
         LocalTime startTime = start.atZone(zone).toLocalTime();
         WorkshopSlot slot = slots.save(WorkshopSlot.builder().reference(UUID.randomUUID().toString()).location(location)
-                .label("Slot").startTime(startTime).endTime(startTime.plusHours(1)).defaultCapacity(10)
+                .label("Slot").startTime(startTime).endTime(startTime.plusHours(1))
                 .active(true).build());
         return sessions.save(WorkshopSession.builder().reference(UUID.randomUUID().toString()).location(location)
                 .slot(slot).workshopDate(start.atZone(zone).toLocalDate()).scheduledStartAt(start)

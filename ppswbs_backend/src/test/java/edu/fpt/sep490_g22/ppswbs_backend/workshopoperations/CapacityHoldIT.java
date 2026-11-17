@@ -105,7 +105,6 @@ public class CapacityHoldIT {
                 .label("Morning Slot")
                 .startTime(LocalTime.of(9, 0))
                 .endTime(LocalTime.of(12, 0))
-                .defaultCapacity(10)
                 .active(true)
                 .build());
 
@@ -115,7 +114,6 @@ public class CapacityHoldIT {
                 .label("Afternoon Slot")
                 .startTime(LocalTime.of(13, 0))
                 .endTime(LocalTime.of(16, 0))
-                .defaultCapacity(10)
                 .active(true)
                 .build());
 

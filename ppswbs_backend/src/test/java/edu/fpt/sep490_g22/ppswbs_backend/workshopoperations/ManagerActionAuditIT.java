@@ -95,7 +95,7 @@ class ManagerActionAuditIT {
         location = locationRepository.save(WorkshopLocation.builder().code("LOC-AUD").displayName("Audit Location")
                 .addressSnapshot("1 Audit Street").active(true).build());
         slot = slotRepository.save(WorkshopSlot.builder().reference(UUID.randomUUID().toString()).location(location)
-                .label("Morning").startTime(LocalTime.of(9, 0)).endTime(LocalTime.of(12, 0)).defaultCapacity(20).active(true).build());
+                .label("Morning").startTime(LocalTime.of(9, 0)).endTime(LocalTime.of(12, 0)).active(true).build());
 
         when(accountFacade.resolveAccount("manager")).thenReturn(Optional.of(
                 new AccountSummary(10L, ActorRole.MANAGER, ActorStatus.ACTIVE, "manager@mland.vn", Instant.now(), Instant.now())));
@@ -154,21 +154,19 @@ class ManagerActionAuditIT {
     @DisplayName("T141: create, change and stop a slot write one event per change with prior and new values")
     void slotCreateChangeAndStop() throws Exception {
         mockMvc.perform(json(post("/api/v1/workshop-locations/" + location.getId() + "/slots"),
-                        "{\"label\":\"Evening\",\"startsAtLocal\":\"18:00\",\"endsAtLocal\":\"20:00\",\"defaultCapacity\":15,\"active\":true}"))
+                        "{\"label\":\"Evening\",\"startsAtLocal\":\"18:00\",\"endsAtLocal\":\"20:00\",\"active\":true}"))
                 .andExpect(status().isCreated());
         JsonNode created = objectMapper.readTree(single("SLOT_CREATED").getMetadata());
         assertThat(created.at("/new/label").asText()).isEqualTo("Evening");
         String reference = created.get("slotReference").asText();
 
-        mockMvc.perform(json(patch("/api/v1/workshop-slots/" + reference), "{\"label\":\"Late Evening\",\"startsAtLocal\":\"18:00\",\"endsAtLocal\":\"20:00\",\"defaultCapacity\":12,\"active\":true}"))
+        mockMvc.perform(json(patch("/api/v1/workshop-slots/" + reference), "{\"label\":\"Late Evening\",\"startsAtLocal\":\"18:00\",\"endsAtLocal\":\"20:00\",\"active\":true}"))
                 .andExpect(status().isOk());
         JsonNode changed = objectMapper.readTree(single("SLOT_UPDATED").getMetadata());
         assertThat(changed.at("/prior/label").asText()).isEqualTo("Evening");
         assertThat(changed.at("/new/label").asText()).isEqualTo("Late Evening");
-        assertThat(changed.at("/prior/defaultCapacity").asInt()).isEqualTo(15);
-        assertThat(changed.at("/new/defaultCapacity").asInt()).isEqualTo(12);
 
-        mockMvc.perform(json(patch("/api/v1/workshop-slots/" + reference), "{\"label\":\"Late Evening\",\"startsAtLocal\":\"18:00\",\"endsAtLocal\":\"20:00\",\"defaultCapacity\":12,\"active\":false}")).andExpect(status().isOk());
+        mockMvc.perform(json(patch("/api/v1/workshop-slots/" + reference), "{\"label\":\"Late Evening\",\"startsAtLocal\":\"18:00\",\"endsAtLocal\":\"20:00\",\"active\":false}")).andExpect(status().isOk());
         JsonNode stopped = objectMapper.readTree(single("SLOT_DEACTIVATED").getMetadata());
         assertThat(stopped.at("/prior/active").asBoolean()).isTrue();
         assertThat(stopped.at("/new/active").asBoolean()).isFalse();
@@ -193,7 +191,7 @@ class ManagerActionAuditIT {
     void createSessionsInBulk() throws Exception {
         mockMvc.perform(json(post("/api/v1/workshop-sessions/bulk"), "{\"locationId\":" + location.getId() + ",\"slotIds\":[\"" + slot.getReference()
                         + "\"],\"from\":\"" + LocalDate.now().plusDays(2) + "\",\"to\":\"" + LocalDate.now().plusDays(4)
-                        + "\",\"weekdays\":[\"MONDAY\",\"TUESDAY\",\"WEDNESDAY\",\"THURSDAY\",\"FRIDAY\",\"SATURDAY\",\"SUNDAY\"],\"initialState\":\"DRAFT\"}"))
+                        + "\",\"capacity\":10,\"weekdays\":[\"MONDAY\",\"TUESDAY\",\"WEDNESDAY\",\"THURSDAY\",\"FRIDAY\",\"SATURDAY\",\"SUNDAY\"],\"initialState\":\"DRAFT\"}"))
                 .andExpect(status().is2xxSuccessful());
         assertThat(events("SESSION_CREATED")).hasSize(3);
         assertThat(events("SESSION_CREATED")).allSatisfy(e -> {

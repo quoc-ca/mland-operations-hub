@@ -32,7 +32,6 @@ public class WorkshopPackageDiscoveryService {
     private final WorkshopLocationRepository locationRepository;
     private final WorkshopSessionRepository sessionRepository;
     private final WorkshopOperationsFacade operationsFacade;
-    private final WorkshopVisibleLocationPolicy visibleLocationPolicy;
     private final WorkshopPackageAvailabilityService availabilityService;
 
     @Transactional(readOnly = true)
@@ -41,9 +40,6 @@ public class WorkshopPackageDiscoveryService {
         packageRepository.findById(packageId)
                 .filter(workshopPackage -> workshopPackage.getState() == WorkshopPackageState.PUBLISHED)
                 .orElseThrow(() -> new WorkshopNotFoundException("Workshop Package not found"));
-        if (!isVisibleLocation(locationId)) {
-            throw new WorkshopNotFoundException("Workshop Location not found");
-        }
         WorkshopLocation location = locationRepository.findByIdAndActiveTrue(locationId)
                 .orElseThrow(() -> new WorkshopNotFoundException("Workshop Location not found"));
         // 003.2 FR-039: an INACTIVE pair is refused with 409 (architecture Open decision 1 default).
@@ -87,7 +83,6 @@ public class WorkshopPackageDiscoveryService {
         java.util.Set<Long> sellable = new java.util.HashSet<>(availabilityService.activeLocationIds(packageId));
         return locationRepository.findByActiveTrue().stream()
                 .filter(location -> sellable.contains(location.getId()))
-                .filter(location -> isVisibleLocation(location.getId()))
                 .sorted(java.util.Comparator.comparing(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.WorkshopLocation::getId))
                 .map(location -> LocationResponse.builder()
                         .id(location.getId())
@@ -97,10 +92,6 @@ public class WorkshopPackageDiscoveryService {
                         .active(location.isActive())
                         .build())
                 .toList();
-    }
-
-    private boolean isVisibleLocation(Long locationId) {
-        return visibleLocationPolicy == null || visibleLocationPolicy.allows(locationId);
     }
 
     private static CustomerSessionAvailabilityResponse toAvailability(

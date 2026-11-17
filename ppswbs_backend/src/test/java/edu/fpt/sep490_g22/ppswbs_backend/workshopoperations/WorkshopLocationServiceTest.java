@@ -205,7 +205,7 @@ public class WorkshopLocationServiceTest {
         private edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.OperationsAuditEventRepository auditEventRepository;
 
         private WorkshopLocationService service() {
-            return new WorkshopLocationService(locationRepository, authorizationService, null, sessionRepository, auditEventRepository);
+            return new WorkshopLocationService(locationRepository, authorizationService, sessionRepository, auditEventRepository);
         }
 
         private void manager() {

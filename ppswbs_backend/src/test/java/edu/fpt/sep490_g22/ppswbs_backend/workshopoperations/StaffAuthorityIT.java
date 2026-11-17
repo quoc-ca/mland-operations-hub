@@ -94,7 +94,7 @@ class StaffAuthorityIT {
         location = locationRepository.save(WorkshopLocation.builder().code("LOC-AUTH").displayName("Auth Location")
                 .addressSnapshot("1 Test Street").active(true).build());
         WorkshopSlot slot = slotRepository.save(WorkshopSlot.builder().reference(UUID.randomUUID().toString()).location(location)
-                .label("Morning").startTime(LocalTime.of(9, 0)).endTime(LocalTime.of(12, 0)).defaultCapacity(20).active(true).build());
+                .label("Morning").startTime(LocalTime.of(9, 0)).endTime(LocalTime.of(12, 0)).active(true).build());
         LocalDate date = LocalDate.now().plusDays(2);
         session = sessionRepository.save(WorkshopSession.builder().reference(UUID.randomUUID().toString()).location(location).slot(slot)
                 .workshopDate(date).capacity(20).state(SessionState.PUBLISHED)
@@ -175,12 +175,12 @@ class StaffAuthorityIT {
     @Test
     @DisplayName("FR-001e/FR-001f: Admin and Staff get 403 on slot create/update and session create/bulk/update; a Manager creates a slot")
     void slotAndSessionAdministrationIsManagerOnly() throws Exception {
-        String slotBody = "{\"label\":\"Late\",\"startsAtLocal\":\"14:00\",\"endsAtLocal\":\"16:00\",\"defaultCapacity\":10,\"active\":true}";
+        String slotBody = "{\"label\":\"Late\",\"startsAtLocal\":\"14:00\",\"endsAtLocal\":\"16:00\",\"active\":true}";
         String slotsPath = "/api/v1/workshop-locations/" + location.getId() + "/slots";
         String sessionBody = "{\"locationId\":" + location.getId() + ",\"slotId\":\"" + UUID.randomUUID() + "\",\"workshopDate\":\""
                 + LocalDate.now().plusDays(5) + "\",\"capacity\":5}";
         String bulkBody = "{\"locationId\":" + location.getId() + ",\"slotIds\":[\"" + slotRepository.findAll().get(0).getReference() + "\"],\"from\":\"" + LocalDate.now().plusDays(2)
-                + "\",\"to\":\"" + LocalDate.now().plusDays(3) + "\",\"weekdays\":[\"MONDAY\"]}";
+                + "\",\"to\":\"" + LocalDate.now().plusDays(3) + "\",\"capacity\":10,\"weekdays\":[\"MONDAY\"]}";
         long slotsBefore = slotRepository.count();
         long sessionsBefore = sessionRepository.count();
         String existingSlot = slotRepository.findAll().get(0).getReference();

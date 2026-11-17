@@ -149,7 +149,6 @@ class WorkshopOperationsMySQLIT {
                 .label("Afternoon Verification Slot")
                 .startTime(LocalTime.of(14, 0))
                 .endTime(LocalTime.of(17, 0))
-                .defaultCapacity(30)
                 .active(true)
                 .build());
 

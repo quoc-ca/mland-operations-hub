@@ -166,7 +166,6 @@ public class CheckInIT {
                 .label("Morning Slot")
                 .startTime(LocalTime.of(9, 0))
                 .endTime(LocalTime.of(12, 0))
-                .defaultCapacity(10)
                 .active(true)
                 .build());
 
@@ -176,7 +175,6 @@ public class CheckInIT {
                 .label("Afternoon Slot")
                 .startTime(LocalTime.of(13, 0))
                 .endTime(LocalTime.of(16, 0))
-                .defaultCapacity(10)
                 .active(true)
                 .build());
 
@@ -457,7 +455,6 @@ public class CheckInIT {
                 .label("Slot Loc B")
                 .startTime(LocalTime.of(9, 0))
                 .endTime(LocalTime.of(12, 0))
-                .defaultCapacity(10)
                 .active(true)
                 .build());
         WorkshopSession sessionB = createPublishedSession(locationB, slotB, null);
@@ -555,7 +552,6 @@ public class CheckInIT {
                 .label("Morning Slot B")
                 .startTime(LocalTime.of(9, 0))
                 .endTime(LocalTime.of(12, 0))
-                .defaultCapacity(10)
                 .active(true)
                 .build());
         WorkshopSession otherLocationSession = createPublishedSession(locationB, slotB, null);

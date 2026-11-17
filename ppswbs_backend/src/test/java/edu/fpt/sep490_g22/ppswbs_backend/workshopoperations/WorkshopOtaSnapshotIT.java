@@ -126,7 +126,7 @@ class WorkshopOtaSnapshotIT {
                 .build());
         WorkshopSlot slot = slotRepository.save(WorkshopSlot.builder()
                 .location(location).label("OTA Slot").startTime(LocalTime.of(9, 0))
-                .endTime(LocalTime.of(10, 0)).defaultCapacity(10).build());
+                .endTime(LocalTime.of(10, 0)).build());
         Instant start = LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh")).plusDays(2)
                 .atTime(9, 0).atZone(ZoneId.of("Asia/Ho_Chi_Minh")).toInstant();
         session = sessionRepository.save(WorkshopSession.builder()
@@ -231,7 +231,7 @@ class WorkshopOtaSnapshotIT {
     void failingSessionStartRollsBackOnlyThatSessionNotTheBatch() {
         WorkshopSlot otherSlot = slotRepository.save(WorkshopSlot.builder()
                 .location(session.getLocation()).label("OTA Slot 2").startTime(LocalTime.of(11, 0))
-                .endTime(LocalTime.of(12, 0)).defaultCapacity(10).build());
+                .endTime(LocalTime.of(12, 0)).build());
         WorkshopSession other = sessionRepository.save(WorkshopSession.builder()
                 .location(session.getLocation()).slot(otherSlot).workshopDate(session.getWorkshopDate())
                 .scheduledStartAt(Instant.now().minusSeconds(1)).scheduledEndAt(Instant.now().plusSeconds(3599))

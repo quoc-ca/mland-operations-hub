@@ -2,7 +2,6 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.validation.constraints.AssertTrue;
-import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
@@ -31,10 +30,6 @@ public class SlotRequest {
     @NotNull(message = "endsAtLocal is required")
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "HH:mm[:ss]")
     private LocalTime endsAtLocal;
-
-    @NotNull(message = "defaultCapacity is required")
-    @Min(value = 1, message = "defaultCapacity must be at least 1")
-    private Integer defaultCapacity;
 
     @NotNull(message = "active flag is required")
     private Boolean active;

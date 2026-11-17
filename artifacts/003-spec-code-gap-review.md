@@ -24,7 +24,6 @@ Mục đích: bổ sung các hành vi đã có trong code vào spec **trước**
 | # | Hành vi trong code | Commit | Spec hiện tại | Cần bổ sung |
 |---|---|---|---|---|
 | B1 | Danh mục reason code cố định gồm 9 mã: `TICKET_REDELIVERY_UNAVAILABLE` (cần ghi chú + evidence), `CUSTOMER_DEVICE_UNAVAILABLE`, `EARLY_CHECKIN`, `PHYSICAL_VOUCHER_VERIFIED`, `INSTRUCTOR_UNAVAILABLE` (cần ghi chú), `FACILITY_ISSUE` (cần ghi chú), `WEATHER_EMERGENCY` (cần ghi chú), `RECORDING_ERROR` (cần ghi chú), `OTHER_REQUIRES_NOTE` (cần ghi chú) | 97301e1 và trước đó | Spec chỉ nêu có danh mục cố định, `OTHER_REQUIRES_NOTE`, `TICKET_REDELIVERY_UNAVAILABLE`; OpenAPI không có enum | spec.md, OpenAPI enum |
-| B2 | Cấu hình `workshop.operations.visible-location-ids` (env `WORKSHOP_OPERATIONS_VISIBLE_LOCATION_IDS`) lọc các location được hiển thị ở discovery công khai và vận hành; rỗng = tất cả | 8d8e5a4 | Không có | spec.md (assumption/cấu hình), quickstart |
 | B4 | UI làm mờ nút chuyển trạng thái session mà lifecycle không cho phép | 0a21bcb | Không có | ui-flow |
 | B5 | `WorkshopOperationsFacade` cung cấp `SellingLocationPort` cho Feature 002 (location workshop dùng làm chi nhánh bán) và lệnh huỷ booking đã xác nhận (`CancelBookingCommand`) | ed92c6b | `workshop-interfeature-facades.md` không có | contracts/workshop-interfeature-facades.md |
 
@@ -49,10 +48,10 @@ Mục đích: bổ sung các hành vi đã có trong code vào spec **trước**
 
 ## Trạng thái bổ sung (12/11/2026)
 
-Đã bổ sung vào spec các mục A1–A10, B1, B2, B4, B5, C1–C6, D1:
+Đã bổ sung vào spec các mục A1–A10, B1, B4, B5, C1–C6, D1:
 
 - 003.1: `spec.md` (FR-006a, FR-006b, FR-017j, FR-021a, FR-021b, FR-021c), `contracts/workshop-booking.openapi.yaml` (danh sách Member, `attendanceStatus`, `ticketReferences`, `reasonDetails`, mô tả release), `design/ui-flow.md` (mục "Behaviour backfilled from implementation").
-- 003.2: `spec.md` (bảng reason code, cấu hình visible-location), `contracts/workshop-operations.openapi.yaml` (enum `reasonCode`), `design/ui-flow.md` (nút trạng thái session).
+- 003.2: `spec.md` (bảng reason code), `contracts/workshop-operations.openapi.yaml` (enum `reasonCode`), `design/ui-flow.md` (nút trạng thái session).
 - 003 chung: `contracts/workshop-interfeature-facades.md` (`CancelBookingCommand`, `CancelConfirmedBookingCommand`, nguồn Loyalty, `SellingLocationPort`).
 - 003.3: `contracts/workshop-settlement.openapi.yaml` (`final-bill/operator`, `final-bill/add-ons`), `data-model.md` (`loyaltyProcessedAt`, bằng chứng xác nhận operator, bill add-on OTA), `spec.md` (xử lý kết quả Loyalty).
 - 003.4: `contracts/ota-connectivity.openapi.yaml` và `spec.md` (`POST /ota-provider/booking-events`, ghi rõ là ingress tạm).
@@ -77,3 +76,5 @@ Tất cả mục bổ sung đều gắn nhãn "backfilled 2026-11-12" kèm commi
 - Endpoint còn lại của 003.1–003.4 đều có trong OpenAPI tương ứng.
 - Đối soát cọc (`BookingDepositReconciliation`, 69bc88c): đã có trong 003.1 data-model.
 - Quy tắc ngày làm việc xưởng của Wax Casting (V89): đã có trong 003.2 data-model và T089.
+
+> B2 (bộ lọc location hiển thị theo cấu hình) đã bị bỏ hoàn toàn theo quyết định của owner 003 (2026-11-17): mọi location `active` đều hiển thị; phạm vi location của Staff vẫn giữ nguyên.

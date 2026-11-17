@@ -34,7 +34,6 @@ public class WorkshopLocationService {
 
     private final WorkshopLocationRepository locationRepository;
     private final WorkshopOperationsAuthorizationService authorizationService;
-    private final WorkshopVisibleLocationPolicy visibleLocationPolicy;
     private final WorkshopSessionRepository sessionRepository;
     private final OperationsAuditEventRepository auditEventRepository;
 
@@ -64,13 +63,8 @@ public class WorkshopLocationService {
         }
 
         return locations.stream()
-                .filter(location -> isVisibleLocation(location.getId()))
                 .map(this::toLocationResponse)
                 .toList();
-    }
-
-    private boolean isVisibleLocation(Long locationId) {
-        return visibleLocationPolicy == null || visibleLocationPolicy.allows(locationId);
     }
 
     @Transactional
