@@ -98,7 +98,7 @@ three default non-overlapping slots, create and publish one future session, then
 bulk-create a bounded range twice and observe only missing location/date/slot
 combinations created using the same `workshop_location.id` present in the actor's `activeLocationIds`.
 
-- [X] T013 [P] [US1] Replace legacy branch request/response DTOs in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopoperations/dto/` with Location, Slot and Session DTOs using canonical `locationId` (`int64`), `Asia/Ho_Chi_Minh` same-day slot times, `defaultCapacity >= 1`, session `capacity >= 1`, and no free-form session start/end fields.
+- [X] T013 [P] [US1] Replace legacy branch request/response DTOs in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopoperations/dto/` with Location, Slot and Session DTOs using canonical `locationId` (`int64`), `Asia/Ho_Chi_Minh` same-day slot times, no slot capacity (removed 2026-11-17), session `capacity >= 1`, and no free-form session start/end fields.
 - [X] T014 [P] [US1] Replace branch-slot/session contract coverage in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/workshopoperations/WorkshopSessionContractIT.java` with tests for `/workshop-locations`, `locationId` (`int64`) and the current `contracts/workshop-operations.openapi.yaml`; reject the retired branch routes and fields.
 - [X] T015 [US1] Replace `WorkshopBranchService.java` with canonical workshop-location creation/listing in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopoperations/service/`; preserve location history, allow active Managers to list/access every active location, and keep Staff listing/access limited to `activeLocationIds`.
 - [X] T016 [US1] Rebase slot creation/edit and active/inactive behavior in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/workshopoperations/service/WorkshopSlotService.java`; reject overlap with every configured slot at the same canonical location, including inactive slots, apply slot changes only to later sessions and never permanently delete a slot.
@@ -587,6 +587,12 @@ T140 after T139 and T127 (resend behaviour settled first); T141 after T116, T115
 
 - [ ] T173 [FE] [US7] Audit page in `…/fe`: `api/auditReviewApi.js` (`readOperationsEvents`, `readSettlementRecords`) with tests; `pages/AuditReviewPage.jsx` and components for the two tabs, filter bar, table, cursor "load more", empty/loading/error states with correlation id and retry, filters preserved (FR-049, FR-050, FR-055), wording and layout only from the approved mockup; route `/operations/audit` in `routes.jsx` as `<StaffArea><AuditReviewPage /></StaffArea>` and a Manager-only menu entry in `OperationsSidebar.jsx` beside the matrix entry (follow FE-DESIGN-0006 for non-Managers), updating `operationsSidebarRoles.test.jsx`.
 - [ ] T174 [Test] [FE] [US7] FE gate (`npm test`, lint, `vite build`) and a real-backend run: Manager filters and pages, Staff and Admin refused, 375 px layout per design; record actual results; also check by hand that a lost session returns to sign-in and back to the same filtered view (FR-055) and that a Manager finds a given day's denied attempt in under one minute (SC-013).
+
+## Phase 20: Drop slot default capacity (decision 2026-11-17, Owner 003 Hồ Hoàng Quốc)
+
+A slot is only a time window; capacity belongs to each session and is entered when the session is created (single and bulk).
+
+- [X] T175 [US2] Remove `defaultCapacity` from Slot DTOs/entity/service/contract/DB doc; migration `V180__drop_workshop_slot_default_capacity.sql` drops `workshop_slots.default_capacity`; session create and bulk generation require `capacity >= 1`; update backend tests, FE slot form (no capacity field) and session forms (capacity input), and seed scripts (fixed capacity 8).
 
 ### Dependencies for Phase 18 (added 2026-11-17)
 
