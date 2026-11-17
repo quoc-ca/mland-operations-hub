@@ -56,8 +56,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-// A local .env demo filter (WORKSHOP_OPERATIONS_VISIBLE_LOCATION_IDS) must not hide test locations.
-@TestPropertySource(properties = "workshop.operations.visible-location-ids=")
 class WorkshopPackageIT {
 
     private static final ZoneId ZONE = ZoneId.of("Asia/Ho_Chi_Minh");

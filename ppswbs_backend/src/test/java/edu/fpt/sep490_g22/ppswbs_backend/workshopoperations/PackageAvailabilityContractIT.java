@@ -57,8 +57,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("workshopoperations-mysql-test")
-@TestPropertySource(properties = {"workshop.operations.auth.allow-test-tokens=true",
-        "workshop.operations.visible-location-ids="})
+@TestPropertySource(properties = {"workshop.operations.auth.allow-test-tokens=true"})
 class PackageAvailabilityContractIT {
 
     private static final ZoneId ZONE = ZoneId.of("Asia/Ho_Chi_Minh");

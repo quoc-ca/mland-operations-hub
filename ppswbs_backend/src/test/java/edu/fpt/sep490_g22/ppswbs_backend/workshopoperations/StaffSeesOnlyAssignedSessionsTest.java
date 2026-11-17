@@ -36,7 +36,7 @@ class StaffSeesOnlyAssignedSessionsTest {
     private final SessionStaffAssignmentRepository assignments = mock(SessionStaffAssignmentRepository.class);
     private final WorkshopSessionService service = new WorkshopSessionService(sessions, locations, mock(WorkshopSlotService.class),
             authorization, mock(OperationsAuditEventRepository.class), mock(CapacityHoldService.class),
-            mock(WorkshopOtaSnapshotService.class), null,
+            mock(WorkshopOtaSnapshotService.class),
             mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.StaffAutoAssignmentService.class),
             assignments);
 
