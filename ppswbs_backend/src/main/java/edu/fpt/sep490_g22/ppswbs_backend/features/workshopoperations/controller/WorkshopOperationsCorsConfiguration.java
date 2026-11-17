@@ -38,7 +38,8 @@ public class WorkshopOperationsCorsConfiguration {
         // permits the header through CORS; semantic replay protection is owned by
         // the application-level command contract (T087).
         configuration.setAllowedHeaders(List.of(
-            "Authorization", "Content-Type", "X-Correlation-Id", "Idempotency-Key"));
+            "Authorization", "Content-Type", "X-Correlation-Id", "Idempotency-Key",
+            "ngrok-skip-browser-warning"));
         configuration.setExposedHeaders(List.of("X-Correlation-Id"));
         // Deny credentialed CORS by default per Constitution and T010
         configuration.setAllowCredentials(false);

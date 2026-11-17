@@ -37,6 +37,8 @@ async function request(path, { params = {}, method = 'GET', headers = {}, body =
 
   const requestHeaders = {
     Accept: 'application/json, application/problem+json',
+    // Skips ngrok's free-tier browser warning page, which has no CORS headers and breaks every call.
+    'ngrok-skip-browser-warning': '1',
     ...headers,
   };
   if (body !== null && body !== undefined && !requestHeaders['Content-Type']) {
