@@ -1359,13 +1359,6 @@ scope. The target implementation and all public contracts use `location` and
 
   An unrecognized code is rejected. The catalogue is fixed in code; changing it
   is a spec change.
-- **Visible-location configuration (backfilled 2026-11-12 from 8d8e5a4):** the
-  deployment setting `workshop.operations.visible-location-ids`
-  (environment `WORKSHOP_OPERATIONS_VISIBLE_LOCATION_IDS`) lists the location
-  IDs shown by public package/session/location discovery and Operations lists.
-  Empty means every active location is visible. It is an environment filter
-  (for example to hide test locations), not a business permission, and it does
-  not replace Staff location scope.
 
 ## User scenarios
 
