@@ -107,7 +107,7 @@ run is not sufficient proof of index, lock or migration behaviour.
    `GET /api/v1/workshop-sessions` remains protected and is not a public
    discovery fallback.
 4. Create the three default non-overlapping slots at a workshop location. Attempt an
-   overlapping slot and verify it is rejected. Deactivate a slot and verify
+   overlapping slot and verify it is rejected; an overlap with an inactive slot is allowed, and re-activating it then is rejected. Deactivate a slot and verify
    existing sessions remain intact while new generation cannot use it.
 5. Create a future `DRAFT` session, then publish it. Run a bulk generation for
    at most 90 future days twice: the first creates sessions and the second

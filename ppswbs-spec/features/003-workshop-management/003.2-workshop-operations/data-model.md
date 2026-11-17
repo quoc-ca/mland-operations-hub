@@ -103,8 +103,8 @@ Operations. *(Decided 2026-11-16, conditional on T138: only if FE-001 calls `GET
 ### WorkshopSlot
 
 `id`, `location_id`, label, local start/end time, default capacity, active flag,
-version and timestamps. Configured slots for a location may not overlap whether
-they are active or inactive. Updating a slot affects only future session
+version and timestamps. Configured slots for a location may not overlap; only active slots are compared (an inactive slot holds no time and is checked again when re-activated). *(Changed 2026-11-17, owner Hồ Hoàng Quốc; was: whether
+they are active or inactive.)* Updating a slot affects only future session
 creation; it never rewrites an existing session.
 
 ### WorkshopSession
