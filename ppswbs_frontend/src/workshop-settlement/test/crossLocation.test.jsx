@@ -35,15 +35,15 @@ const verifyHandlers = {
 };
 
 async function verifyBuyer(user) {
-  await user.type(screen.getByLabelText('Contact email'), 'buyer@example.com');
-  await user.click(screen.getByRole('button', { name: 'Send code' }));
+  // Staff and Manager send no contact value: the code goes to the booking's own email.
+  await user.click(screen.getByRole('button', { name: "Send code to the buyer's email" }));
   await user.type(await screen.findByLabelText('Code (6 digits)'), '123456');
   await user.click(screen.getByRole('button', { name: 'Verify' }));
   await screen.findByText(/Buyer verified/);
 }
 
 async function pickTarget(user) {
-  await user.type(await screen.findByLabelText('Ticket code to change'), 'TK-1');
+  await user.type(await screen.findByLabelText('Mã vé cần đổi'), 'TK-1');
   await user.click(screen.getByRole('button', { name: 'Show sessions' }));
   await user.click((await screen.findAllByRole('radio'))[0]);
   return (await screen.findAllByRole('combobox')).find(item => item.getAttribute('name') === 'to-TK-1');
@@ -87,7 +87,7 @@ describe('Staff ticket change across locations', () => {
     });
     const user = userEvent.setup();
     renderRoutes(settlementRoutes, { path: '/settlement/ticket-actions?tab=change' });
-    await user.type(await screen.findByLabelText('Ticket code to change'), 'TK-1');
+    await user.type(await screen.findByLabelText('Mã vé cần đổi'), 'TK-1');
     await user.click(screen.getByRole('button', { name: 'Show sessions' }));
     await user.click(await screen.findByRole('radio', { name: /Both sessions together/ }));
     const pair = (await screen.findAllByRole('combobox')).find(item => item.getAttribute('name') === 'pair-TK-1');
@@ -111,7 +111,7 @@ describe('Staff ticket change across locations', () => {
     await user.selectOptions(select, HN);
     await user.click(screen.getByRole('button', { name: 'Add ticket to the change' }));
     await user.type(screen.getByLabelText('Reason (required)'), 'counter');
-    await user.type(screen.getByLabelText('Booking group code'), 'GRP-1');
+    await user.type(screen.getByLabelText('Mã đặt chỗ'), 'GRP-1');
     await verifyBuyer(user);
     await user.click(screen.getByRole('button', { name: 'Change tickets' }));
     const alert = await screen.findByRole('alert');
@@ -179,7 +179,7 @@ describe('Manager: add-ons sold at the previous location', () => {
   const ADDON = { chargeReference: 'CH-1', catalogueAddOnReference: 'A-1', description: 'Clay set', amount: '50000', addOnLocationReference: 11, ticketLocationReference: 22 };
 
   async function open(user) {
-    await user.type(await screen.findByPlaceholderText('TK-...'), 'TK-1');
+    await user.type(await screen.findByPlaceholderText('GRP-…-L0-T1'), 'TK-1');
     await user.click(screen.getByRole('button', { name: 'Open folio' }));
   }
 

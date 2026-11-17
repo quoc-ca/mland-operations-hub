@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { useHttp } from '../../shared/api/useHttp';
 import { useRole } from '../../shared/auth/useRole';
 import { Field, Loading, SuccessNotice, useCommand, useResource } from '../../shared/ui/components';
@@ -79,13 +80,22 @@ function PreviousLocationAddOns({ api, ticketCode, enabled }) {
   );
 }
 
+/** A long reference (SETTLE-CHARGE-<uuid>) shortened for a table cell; the full value stays in the hover text. */
+export const shortReference = value => {
+  const text = String(value || '');
+  return text.length > 22 ? `${text.slice(0, 22)}…` : text;
+};
+
 export default function SettlementWorkspacePage() {
   const http = useHttp();
   const api = createSettlementApi(http);
   const role = useRole();
   const isManager = role === 'MANAGER' || role === 'ADMIN';
-  const [ticketInput, setTicketInput] = useState('');
-  const [ticketCode, setTicketCode] = useState('');
+  // A link from another screen (the attendance roster) opens the folio of a ticket: ?ticket=GRP-…-L1-T1.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const linkedTicket = (searchParams.get('ticket') || '').trim();
+  const [ticketInput, setTicketInput] = useState(linkedTicket);
+  const [ticketCode, setTicketCode] = useState(linkedTicket);
   const [message, setMessage] = useState('');
   const [collection, setCollection] = useState({ method: 'CASH', amount: '', cashReceived: '', reference: '' });
   const [transferRefs, setTransferRefs] = useState({});
@@ -116,7 +126,7 @@ export default function SettlementWorkspacePage() {
     return out;
   }
 
-  const lookup = event => { event.preventDefault(); setTicketCode(ticketInput.trim()); setCheckout(null); setMessage(''); setUndercharges([]); command.reset(); };
+  const lookup = event => { event.preventDefault(); setSearchParams(ticketInput.trim() ? { ticket: ticketInput.trim() } : {}, { replace: true }); setTicketCode(ticketInput.trim()); setCheckout(null); setMessage(''); setUndercharges([]); command.reset(); };
 
   const submitCollection = event => {
     event.preventDefault();
@@ -200,7 +210,7 @@ export default function SettlementWorkspacePage() {
       <ProblemNotice error={folio.error || command.error} onRetry={command.retry} onReload={folio.reload} />
       <section className="ota-panel">
         <form className="ota-inline-form" onSubmit={lookup}>
-          <label>Ticket code<input value={ticketInput} onChange={event => setTicketInput(event.target.value)} placeholder="TK-..." /></label>
+          <label>Mã vé<input value={ticketInput} onChange={event => setTicketInput(event.target.value)} placeholder="GRP-…-L0-T1" /></label>
           <button className="button primary" type="submit" disabled={!ticketInput.trim()}>Open folio</button>
         </form>
       </section>
@@ -229,12 +239,13 @@ export default function SettlementWorkspacePage() {
           <article className="ota-panel">
             <div className="ota-panel-head"><h2>Collections</h2><span className="muted">VNPay, cash, then bank transfer</span></div>
             {(bill.collections || []).length === 0 ? <p className="muted">No collection recorded.</p> : (
-              <table className="ops-table">
-                <thead><tr><th>Method</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead>
+              <div className="ops-table-wrap"><table className="ops-table fl-table">
+                <colgroup><col className="c-main" /><col className="c-desc" /><col className="c-amount" /><col className="c-status" /><col className="c-actions" /></colgroup>
+                <thead><tr><th colSpan={2}>Method</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead>
                 <tbody>
                   {orderedCollections(bill.collections).map(item => (
                     <tr key={item.collectionId}>
-                      <td>{item.method}{item.method === 'BOOKING_TIME' && <small className="muted"> allocation of the booking-time payment (view only)</small>}</td>
+                      <td colSpan={2}>{item.method}{item.method === 'BOOKING_TIME' && <small className="muted"> allocation of the booking-time payment (view only)</small>}</td>
                       <td>{money(item.amount)}{item.changeReturned && item.changeReturned !== '0' ? <small> (change {money(item.changeReturned)})</small> : null}</td>
                       <td>
                         <span className="ops-status">{item.status}</span>
@@ -262,16 +273,17 @@ export default function SettlementWorkspacePage() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></div>
             )}
             {(bill.charges || []).length > 0 && (
-              <table className="ops-table" aria-label="Folio lines">
+              <div className="ops-table-wrap"><table className="ops-table fl-table" aria-label="Folio lines">
+                <colgroup><col className="c-main" /><col className="c-desc" /><col className="c-amount" /><col className="c-status" /><col className="c-actions" /></colgroup>
                 <thead><tr><th>Line</th><th>Description</th><th>Amount</th><th>Status</th><th /></tr></thead>
                 <tbody>
                   {bill.charges.map(line => (
                     <tr key={line.chargeReference}>
-                      <td>{line.chargeReference}</td>
-                      <td>{line.description}</td>
+                      <td title={line.chargeReference}><code className="fl-ref">{shortReference(line.chargeReference)}</code></td>
+                      <td className="fl-wrap">{line.description}</td>
                       <td>{money(line.amount)}</td>
                       <td><span className="ops-status">{line.status}</span></td>
                       <td>
@@ -282,7 +294,7 @@ export default function SettlementWorkspacePage() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></div>
             )}
             {checkout ? (
               <div className="settlement-payment-state pending" role="status">

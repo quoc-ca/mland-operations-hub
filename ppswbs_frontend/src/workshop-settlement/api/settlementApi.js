@@ -14,6 +14,9 @@ export function createSettlementApi(http) {
   const ticket = code => `/api/v1/workshop-tickets/${enc(code)}`;
   const group = code => `/api/v1/workshop-booking-groups/${enc(code)}`;
   return {
+    // Staff or Manager (bearer): sends the buyer's code to the booking's own email, with no contact value (FR-048, T148).
+    requestBuyerVerification: code => http(`${group(code)}/buyer-verifications`, { method: 'POST', body: {} }),
+
     // Manager case list (route that is still served).
     listCases: (query = {}) => http('/api/v1/workshop-settlement-cases', { query }),
 
@@ -31,7 +34,7 @@ export function createSettlementApi(http) {
     grantChangeAllowance: (code, body, key) => write(`${ticket(code)}/change-allowances`, body, key),
     allowHandover:(code, body, key) => write(`${ticket(code)}/folio/handover-exceptions`, body, key),
     listAddOns: code => http(`${ticket(code)}/folio/add-ons`),
-    addCharge: (code, body, key) => write(`${ticket(code)}/folio/charges`, body, key),
+    addCharge: (code, body, key) => write(`${ticket(code)}/folio/charges`, body, key, { suppressAccessDenied: true }),
     finalize: (code, key) => write(`${ticket(code)}/folio/finalizations`, undefined, key),
     recordDebt: (code, body, key) => write(`${ticket(code)}/folio/debts`, body, key),
     closeDebt: (code, body, key) => write(`${ticket(code)}/folio/debts/closures`, body, key),

@@ -19,7 +19,7 @@ const folio = (status = 'OPEN') => json(200, {
 });
 
 async function openFolio(user) {
-  await user.type(await screen.findByPlaceholderText('TK-...'), 'TK-1');
+  await user.type(await screen.findByPlaceholderText('GRP-…-L0-T1'), 'TK-1');
   await user.click(screen.getByRole('button', { name: 'Open folio' }));
 }
 
@@ -91,7 +91,7 @@ describe('Manager extra change allowance (FR-054)', () => {
     const user = userEvent.setup();
     renderRoutes(settlementRoutes, { path: '/settlement/ticket-actions?tab=change' });
     const panel = await screen.findByRole('region', { name: 'Extra change allowance' });
-    await user.type(within(panel).getByLabelText('Ticket code'), 'TK-1');
+    await user.type(within(panel).getByLabelText('Mã vé'), 'TK-1');
     await user.click(within(panel).getByRole('button', { name: 'Grant extra change' }));
     const dialog = screen.getByRole('dialog');
     await user.click(within(dialog).getByRole('button', { name: 'Grant' }));
@@ -108,7 +108,7 @@ describe('Manager extra change allowance (FR-054)', () => {
   it('is not shown to Staff', async () => {
     mockFetch({ [PROFILE]: asRole('STAFF') });
     renderRoutes(settlementRoutes, { path: '/settlement/ticket-actions?tab=change' });
-    await screen.findByLabelText('Booking group code');
+    await screen.findByLabelText('Mã đặt chỗ');
     expect(screen.queryByRole('region', { name: 'Extra change allowance' })).not.toBeInTheDocument();
   });
 });

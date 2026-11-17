@@ -105,12 +105,12 @@ export default function TicketActionsPage() {
       <ProblemNotice error={command.error} onRetry={command.retry} />
       <section className="ota-panel">
         <div className="ota-form">
-          <Field label="Booking group code" hint={needsGroup ? 'Required for several tickets and for the buyer code.' : 'Needed to send the buyer code.'}>
+          <Field label="Mã đặt chỗ" hint={needsGroup ? 'Required for several tickets and for the buyer code.' : 'Needed to send the buyer code.'}>
             <input value={groupCode} onChange={event => setGroupCode(event.target.value)} />
           </Field>
           {tab === 'cancel' ? (
-            <Field label="Ticket codes" hint="One ticket, or several of the same group (all or none).">
-              <textarea value={ticketText} onChange={event => setTicketText(event.target.value)} placeholder="TK-1, TK-2" />
+            <Field label="Mã vé" hint="One ticket, or several of the same group (all or none).">
+              <textarea value={ticketText} onChange={event => setTicketText(event.target.value)} placeholder="GRP-…-L0-T1, GRP-…-L0-T2" />
             </Field>
           ) : (<>
             <Field label="Change type">
@@ -119,8 +119,8 @@ export default function TicketActionsPage() {
                 <option value="LATE_ARRIVAL">Late arrival</option>
               </select>
             </Field>
-            <Field label="Ticket code to change" hint="Enter a ticket code and show its sessions, pick the new session, then add the ticket. Several tickets of one group change together, all or none.">
-              <input value={builderCode} onChange={event => setBuilderCode(event.target.value)} placeholder="TK-..." />
+            <Field label="Mã vé cần đổi" hint="Enter a ticket code and show its sessions, pick the new session, then add the ticket. Several tickets of one group change together, all or none.">
+              <input value={builderCode} onChange={event => setBuilderCode(event.target.value)} placeholder="GRP-…-L0-T1" />
             </Field>
             <button className="button outline" type="button" disabled={!builderCode.trim()} onClick={() => { setSelection(null); setLoadedCode(builderCode.trim()); }}>Show sessions</button>
             {loadedCode && (
@@ -148,7 +148,7 @@ export default function TicketActionsPage() {
             )}
           </>)}
           <Field label="Reason (required)"><textarea value={reason} maxLength={1000} onChange={event => setReason(event.target.value)} /></Field>
-          <BuyerProof groupCode={groupCode.trim()} onReference={setProof} />
+          <BuyerProof groupCode={groupCode.trim()} onReference={setProof} staffRequest={code => api.requestBuyerVerification(code)} />
           {tab === 'cancel'
             ? <button className="button danger" type="button" disabled={command.pending || !cancelReady || !proof} onClick={() => setConfirmCancel(true)}>Cancel selected tickets</button>
             : <button className="button primary" type="button" disabled={command.pending || !changeReady || !proof} onClick={() => change(false)}>Change tickets</button>}
@@ -160,7 +160,7 @@ export default function TicketActionsPage() {
           <h2>Grant one extra change</h2>
           <p className="muted small">Gives a ticket one more counted change (FR-054). It never performs the change; the buyer or Staff on the buyer's behalf still changes the ticket above.</p>
           <div className="ota-inline-form">
-            <label>Ticket code<input value={allowanceTicket} onChange={event => setAllowanceTicket(event.target.value)} placeholder="TK-..." /></label>
+            <label>Mã vé<input value={allowanceTicket} onChange={event => setAllowanceTicket(event.target.value)} placeholder="GRP-…-L0-T1" /></label>
             <button className="button outline" type="button" disabled={command.pending || !allowanceTicket.trim()} onClick={() => setGranting(true)}>Grant extra change</button>
           </div>
         </section>

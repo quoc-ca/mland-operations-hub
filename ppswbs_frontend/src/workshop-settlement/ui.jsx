@@ -31,6 +31,18 @@ const STATUS_TEXT = {
 
 // FR-059, FR-062 (approved UI rows of 2026-11-17): specific text for the two cross-location refusals.
 const CODE_TEXT = {
+  // Folio add-ons and charges at the counter (owner request 2026-11-17: say why, so anyone can act on it).
+  OUTSTANDING_BALANCE: 'Chưa chốt được folio vì khách còn nợ (Balance due khác 0). Hãy thu đủ số còn nợ ở mục "Record a collection" (tiền mặt, VNPay hoặc chuyển khoản) cho tới khi Balance due bằng 0, rồi bấm Finalize folio lại.',
+  COLLECTION_PENDING_VERIFICATION: 'Chưa chốt được folio vì còn khoản thu đang chờ xác minh (Pending verification). Hãy xác minh hoặc đánh dấu không thanh toán khoản đó trước, rồi chốt lại.',
+  SESSION_NOT_STARTED: 'Chưa thêm được add-on hoặc khoản phụ vì ca của vé này chưa bắt đầu (đang ở trạng thái bán). Hãy vào chi tiết ca và chuyển ca sang IN PROGRESS (Manager hoặc Staff được gán vào ca làm được; ca tự bắt đầu khi tới giờ), rồi thêm lại.',
+  FINAL_BILL_NOT_OPEN: 'Folio của vé này đã đóng (đã chốt), nên không thêm được add-on hay khoản phụ nữa.',
+  TICKET_FOLIO_NOT_OPEN: 'Folio của vé này đã đóng (đã chốt), nên không thêm được add-on hay khoản phụ nữa.',
+  CUSTOMER_CONSENT_REQUIRED: 'Cần khách đồng ý trước khi thêm add-on: hãy tick ô xác nhận khách đồng ý.',
+  SESSION_ASSIGNMENT_REQUIRED: 'Bạn chưa được gán vào ca của vé này. Nhờ Manager phân công bạn vào ca rồi thử lại.',
+  LOCATION_SCOPE_DENIED: 'Vé này thuộc chi nhánh ngoài phạm vi của bạn. Chỉ Staff của chi nhánh đó hoặc Manager thao tác được.',
+  BUYER_VERIFICATION_REQUIRED: 'Cần xác minh người mua trước: bấm gửi mã tới email của đặt chỗ, rồi nhập mã khách đọc.',
+  REASON_REQUIRED: 'Cần nhập lý do để ghi vào nhật ký.',
+  TICKET_NOT_ACTIVE: 'Vé này không còn hiệu lực (đã hủy hoặc bị thu hồi).',
   PACKAGE_NOT_AVAILABLE_AT_LOCATION: 'This package is no longer sold at the chosen location. Nothing was changed and no change was used. Choose a session at another location (for a queued request, reject it).',
   LATE_ARRIVAL_WINDOW_EXPIRED: 'The change window has closed: a change must land by the end of the 7th calendar day after the replaced session ends (Vietnam date). It cannot be queued or lifted by a Manager.',
 };
@@ -38,7 +50,9 @@ const CODE_TEXT = {
 /** 409, 422 and 429 get an explicit message (with the server code and failing tickets); other errors use the shared notice. */
 export function ProblemNotice({ error, onRetry, onReload }) {
   if (!error) return null;
-  if (!STATUS_TEXT[error.status]) return <ErrorNotice error={error} onRetry={onRetry} onReload={onReload} />;
+  // A 403 with a code we can explain stays on this screen; any other 403 keeps the shared "no access" handling.
+  const explained403 = error.status === 403 && CODE_TEXT[error.code];
+  if (!STATUS_TEXT[error.status] && !explained403) return <ErrorNotice error={error} onRetry={onRetry} onReload={onReload} />;
   return (
     <div className="notice error" role="alert">
       <p>{CODE_TEXT[error.code] || STATUS_TEXT[error.status]}</p>
@@ -80,9 +94,10 @@ export function ReasonDialog({ open, title, children, confirmLabel, pending, onC
  * code, the code returns a single-use buyerVerificationReference that is kept in memory only and handed to onReference.
  * The contact value and the code never reach a URL or a log.
  */
-export function BuyerProof({ groupCode, onReference }) {
+export function BuyerProof({ groupCode, onReference, staffRequest }) {
   const [contact, setContact] = useState(EMPTY_PROOF);
   const [verificationId, setVerificationId] = useState(null);
+  const [maskedEmail, setMaskedEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [done, setDone] = useState(false);
   const [pending, setPending] = useState(false);
@@ -90,12 +105,14 @@ export function BuyerProof({ groupCode, onReference }) {
 
   // One contact only, in the normalized form the server compares by; null while it is empty or malformed.
   const { proof } = buildContactProof({ email: contact.contactEmail, phone: contact.contactPhone, phoneCountry: contact.contactPhoneCountry });
-  const oneContact = Boolean(proof);
+  // A Staff or Manager caller needs no contact value: the code goes to the booking's own email (FR-048, T148).
+  const oneContact = staffRequest ? Boolean(groupCode) : Boolean(proof);
   const send = async () => {
     setPending(true); setError('');
     try {
-      const challenge = await requestBuyerVerification(groupCode, proof);
+      const challenge = staffRequest ? await staffRequest(groupCode) : await requestBuyerVerification(groupCode, proof);
       setVerificationId(challenge?.verificationId || null);
+      setMaskedEmail(challenge?.maskedEmail || '');
     } catch (err) {
       setError(err?.status === 429 ? 'Too many attempts. Wait a moment before trying again.' : 'The code could not be sent. Check the contact and try again.');
     } finally { setPending(false); }
@@ -116,17 +133,22 @@ export function BuyerProof({ groupCode, onReference }) {
   return (
     <fieldset className="settlement-proof">
       <legend>Buyer verification</legend>
-      {!verificationId ? (
+      {!verificationId && staffRequest ? (
         <>
-          <p className="muted small">Enter exactly one contact of the booking; a code is sent to the contact on file.</p>
-          <label>Contact email<input type="email" autoComplete="off" value={contact.contactEmail} onChange={event => setContact(v => ({ ...v, contactEmail: event.target.value }))} /></label>
+          <p className="muted small">The code is sent to the email the buyer gave when booking. Ask the buyer to read it to you; you do not need to know the email.</p>
+          <button type="button" className="button outline" disabled={pending || !oneContact} onClick={send}>Send code to the buyer's email</button>
+        </>
+      ) : !verificationId ? (
+        <>
+          <p className="muted small">Enter exactly one contact of the booking (email or phone) to prove it is the buyer's. The code is always sent to the booking's email on file, not by SMS.</p>
+          <label>Contact email<input type="email" autoComplete="off" value={contact.contactEmail} onChange={event => setContact(v => ({ ...v, contactEmail: event.target.value, contactPhone: '' }))} /></label>
           <label htmlFor="proof-contact-phone">Contact phone</label>
           <PhoneInput
             id="proof-contact-phone"
             country={contact.contactPhoneCountry}
             value={contact.contactPhone}
             onCountryChange={contactPhoneCountry => setContact(v => ({ ...v, contactPhoneCountry }))}
-            onValueChange={contactPhone => setContact(v => ({ ...v, contactPhone }))}
+            onValueChange={contactPhone => setContact(v => ({ ...v, contactPhone, contactEmail: '' }))}
           />
           {!oneContact && (contact.contactEmail.trim() || contact.contactPhone.trim()) && (
             <p className="field-error small">Enter one valid email or one valid phone number.</p>
@@ -135,6 +157,7 @@ export function BuyerProof({ groupCode, onReference }) {
         </>
       ) : (
         <>
+          {maskedEmail && <p className="muted small" role="status">Code sent to <strong>{maskedEmail}</strong>. Ask the buyer to read it from that mailbox.</p>}
           <label>Code (6 digits)<input inputMode="numeric" maxLength={6} autoComplete="off" value={otp} onChange={event => setOtp(event.target.value.replace(/\D/g, ''))} /></label>
           <button type="button" className="button primary" disabled={pending || otp.length !== 6} onClick={confirm}>Verify</button>
           <button type="button" className="button outline" disabled={pending || !oneContact} onClick={send}>Send again</button>

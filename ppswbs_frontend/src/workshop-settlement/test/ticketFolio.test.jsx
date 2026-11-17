@@ -23,9 +23,19 @@ const folio = (over = {}) => json(200, {
 const amountField = async () => within(await screen.findByRole('form', { name: 'Record collection' })).getByLabelText('Amount (VND)');
 
 async function openFolio(user, code = 'TK-1') {
-  await user.type(await screen.findByPlaceholderText('TK-...'), code);
+  await user.type(await screen.findByPlaceholderText('GRP-…-L0-T1'), code);
   await user.click(screen.getByRole('button', { name: 'Open folio' }));
 }
+
+describe('Ticket folio opened from a link', () => {
+  it('opens the folio of the ticket named in ?ticket= without typing it, and keeps the code in the box', async () => {
+    const calls = mockFetch({ [PROFILE]: asRole('MANAGER'), [`GET ${FOLIO}`]: folio(), 'GET /api/v1/workshop-tickets/TK-1/folio/add-ons': json(200, []) });
+    renderRoutes(settlementRoutes, { path: '/settlement?ticket=TK-1' });
+    expect(await screen.findByRole('form', { name: 'Record collection' })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('GRP-…-L0-T1')).toHaveValue('TK-1');
+    expect(calls.some(call => call.path === FOLIO)).toBe(true);
+  });
+});
 
 describe('Ticket folio (Staff/Manager)', () => {
   it('orders collections VNPay, cash, transfer and shows the server amounts', () => {
@@ -135,6 +145,57 @@ describe('Ticket folio (Staff/Manager)', () => {
     expect(await screen.findByText('The server refused this request.')).toBeInTheDocument();
     expect(screen.getByText(/VNPAY_MINIMUM_NOT_MET/)).toBeInTheDocument();
     expect(screen.getByText(/corr-422/)).toBeInTheDocument();
+  });
+
+  it('explains a finalize refused because money is still owed, and what to do', async () => {
+    mockFetch({
+      [PROFILE]: asRole('STAFF'), [`GET ${FOLIO}`]: folio(),
+      'GET /api/v1/workshop-tickets/TK-1/folio/add-ons': json(200, []),
+      [`POST ${FOLIO}/finalizations`]: json(409, { code: 'OUTSTANDING_BALANCE', correlationId: 'corr-3' }),
+    });
+    const user = userEvent.setup();
+    renderRoutes(settlementRoutes, { path: '/settlement' });
+    await openFolio(user);
+    await user.click(await screen.findByRole('button', { name: 'Finalize folio' }));
+    expect(await screen.findByText(/khách còn nợ/)).toBeInTheDocument();
+    expect(screen.getByText(/Record a collection/, { selector: 'p' })).toBeInTheDocument();
+    expect(screen.getByText('Code: OUTSTANDING_BALANCE')).toBeInTheDocument();
+  });
+
+  it('explains an add-on refused because the session has not started, and what to do', async () => {
+    mockFetch({
+      [PROFILE]: asRole('STAFF'), [`GET ${FOLIO}`]: folio({ collections: [] }),
+      'GET /api/v1/workshop-tickets/TK-1/folio/add-ons': json(200, [{ catalogueAddOnReference: 'ADD-2', name: 'Engraved name tag', price: '80000' }]),
+      [`POST ${FOLIO}/charges`]: json(409, { code: 'SESSION_NOT_STARTED', correlationId: 'corr-1' }),
+    });
+    const user = userEvent.setup();
+    renderRoutes(settlementRoutes, { path: '/settlement' });
+    await openFolio(user);
+    const form = await screen.findByRole('form', { name: 'Catalogue add-on' });
+    await user.click(await screen.findByRole('radio', { name: /Engraved name tag/ }));
+    await user.click(within(form).getByRole('checkbox', { name: /Khách đã đồng ý/ }));
+    await user.click(screen.getByRole('button', { name: 'Add selected add-on' }));
+    expect(await screen.findByText(/ca của vé này chưa bắt đầu/)).toBeInTheDocument();
+    expect(screen.getByText(/chuyển ca sang IN PROGRESS/)).toBeInTheDocument();
+    expect(screen.getByText('Code: SESSION_NOT_STARTED')).toBeInTheDocument();
+    expect(screen.getByText('Correlation: corr-1')).toBeInTheDocument();
+  });
+
+  it('keeps an unassigned Staff member on the folio with the reason, instead of sending them to the home page', async () => {
+    mockFetch({
+      [PROFILE]: asRole('STAFF'), [`GET ${FOLIO}`]: folio({ collections: [] }),
+      'GET /api/v1/workshop-tickets/TK-1/folio/add-ons': json(200, [{ catalogueAddOnReference: 'ADD-2', name: 'Engraved name tag', price: '80000' }]),
+      [`POST ${FOLIO}/charges`]: json(403, { code: 'SESSION_ASSIGNMENT_REQUIRED', correlationId: 'corr-2' }),
+    });
+    const user = userEvent.setup();
+    const { router } = renderRoutes(settlementRoutes, { path: '/settlement' });
+    await openFolio(user);
+    const form = await screen.findByRole('form', { name: 'Catalogue add-on' });
+    await user.click(await screen.findByRole('radio', { name: /Engraved name tag/ }));
+    await user.click(within(form).getByRole('checkbox', { name: /Khách đã đồng ý/ }));
+    await user.click(screen.getByRole('button', { name: 'Add selected add-on' }));
+    expect(await screen.findByText(/Bạn chưa được gán vào ca của vé này/)).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/settlement');
   });
 
   it('adds a catalogue add-on by reference only, after the customer-agreed tick', async () => {
