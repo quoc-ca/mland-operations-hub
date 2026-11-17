@@ -31,29 +31,45 @@ description: "A bilingual design system for Mland customer booking and commerce 
 # used by managers and employees for daily operational workflows."
 
 colors:
-  # Brand Primary: Màu vàng nghệ đặc trưng từ biển hiệu M.land (dùng cho CTA chính, highlight)
-  primary: "#EEDC35"
-  primary-hover: "#D6C526"
+  # Brand Primary: Xanh dương hiện đại (#4C86DC) làm màu nhận diện chính & nút thao tác nghiệp vụ
+  primary: "#4C86DC"
+  primary-hover: "#3669B8"
 
-  # Nền tối mang phong cách xưởng chế tác thủ công (Workshop Craft Canvas)
-  canvas-dark: "#121316"
+  # Brand Accent: Vàng nghệ xưởng kim hoàn (#EEDC35) chuyên dùng cho CTA chuyển đổi cao
+  accent: "#EEDC35"
+  accent-hover: "#D6C526"
+
+  # Nền giao diện 100% Light Theme (Loại bỏ hoàn toàn Dark Theme)
   surface: "#FFFFFF"
   surface-secondary: "#F4F5F7"
 
   # Phân cấp màu chữ
   text-primary: "#1A1A1A"
   text-secondary: "#6B7280"
-  text-on-dark: "#FFFFFF"
   text-disabled: "#9CA3AF"
 
   border: "#E5E7EB"
-  border-dark: "#2A2B30"
 
-  # Trạng thái hệ thống (Semantic)
+  # Trạng thái hệ thống (Semantic Sets 4 lớp: Color, BG Tint, Text, Border)
   success: "#16A34A"
-  warning: "#EAB308"
+  success-bg: "#DCFCE7"
+  success-text: "#166534"
+  success-border: "#BBF7D0"
+
+  warning: "#D97706"
+  warning-bg: "#FEF3C7"
+  warning-text: "#92400E"
+  warning-border: "#FDE68A"
+
   error: "#DC2626"
+  error-bg: "#FEF2F2"
+  error-text: "#991B1B"
+  error-border: "#FECACA"
+
   info: "#2563EB"
+  info-bg: "#EFF6FF"
+  info-text: "#1E40AF"
+  info-border: "#BFDBFE"
 
 typography:
   # Heading XL & LG dùng font Condensed Bold (All-caps) tương tự tiêu đề "RING MAKING WORKSHOP"
@@ -107,16 +123,22 @@ spacing:
   2xl: 48px
 
 rounded:
-  sm: 4px
-  md: 8px
-  lg: 12px
-  full: 9999px
+  none: 0px
+  full: 9999px # CHỈ dùng cho avatar hình tròn tuyệt đối khi Figma yêu cầu rõ ràng
 
 components:
   button-primary:
     backgroundColor: "{colors.primary}"
+    textColor: "#FFFFFF"
+    rounded: "{rounded.none}"
+    height: "44px"
+    fontWeight: 700
+    padding: "0 20px"
+
+  button-accent:
+    backgroundColor: "{colors.accent}"
     textColor: "{colors.text-primary}"
-    rounded: "{rounded.md}"
+    rounded: "{rounded.none}"
     height: "44px"
     fontWeight: 700
     padding: "0 20px"
@@ -124,13 +146,13 @@ components:
   input:
     backgroundColor: "{colors.surface}"
     textColor: "{colors.text-primary}"
-    rounded: "{rounded.md}"
+    rounded: "{rounded.none}"
     height: "40px"
     padding: "0 12px"
 
   card:
     backgroundColor: "{colors.surface}"
-    rounded: "{rounded.lg}"
+    rounded: "{rounded.none}"
     padding: "16px"
 
 ---
@@ -225,95 +247,65 @@ DESIGN.md không có rule cụ thể.
 
 ---
 
-# Colors
+# Colors (100% Light Theme Mandate)
 
 ## Color Usage
 
-Use light neutral surfaces as the default canvas, with dark canvas (#121316) for workshop craft atmosphere. The signature brand primary yellow (#EEDC35) communicates the primary action, CTA highlight, and active state; semantic colors communicate real status only. Customer imagery may provide warmth and character, while controls and data remain visually quiet.
+The entire Mland application runs strictly in a **100% Light Theme**. The interface is built on clean white surfaces (`#FFFFFF`) layered over a soft neutral gray page canvas (`#F4F5F7`), separated by precise neutral borders (`#E5E7EB`).
 
-<!--
-Giải thích cách sử dụng màu.
+- **Brand Primary (`#4C86DC`):** Modern, clear, approachable blue used for system branding, active navigation, key data indicators, and default primary action buttons across operational and public views.
+- **Brand Accent (`#EEDC35`):** Warm artisan gold/yellow dedicated exclusively to high-conversion customer call-to-actions (e.g. "Đặt lịch workshop", "Thanh toán ngay", VIP badges).
+- **Semantic Colors:** Multi-layered status sets (Border, Text, Background Tint) used strictly for real domain state feedback.
 
-Không chỉ ghi màu nào là màu gì.
+## Primary & Accent Actions
 
-Ví dụ:
+### Brand Primary (`#4C86DC`)
+- Used for:
+  - Primary operational actions (Save, Confirm, Filter, Submit).
+  - Active navigation state and sidebar indicator.
+  - Interactive link highlights and keyboard focus ring.
+- **Text Color Rule:** Must always pair with White text (`#FFFFFF`) for WCAG AAA contrast.
+- Hover state: `#3669B8`.
 
-Primary color represents actionable emphasis rather than decoration.
+### Brand Accent (`#EEDC35`)
+- Used exclusively for:
+  - High-conversion customer action buttons (e.g. Hero CTA "Đặt lịch ngay", Checkout "Xác nhận thanh toán").
+  - Member loyalty tier badges (VIP / Gold tier).
+- **CRITICAL CONTRAST RULE:** NEVER use white text on yellow. Must ALWAYS pair with Dark text (`#1A1A1A`) to ensure readable contrast.
+- Hover state: `#D6C526`.
 
-Neutral surfaces should dominate the interface.
+## Surfaces & Canvas
 
-Semantic colors should only communicate semantic state.
--->
+- **Page Canvas (`surface-secondary: "#F4F5F7"`):** Full-width background for the application viewport and outer workspace.
+- **Component Surface (`surface: "#FFFFFF"`):** Pure white background for all cards, panels, data tables, modals, dialogs, dropdowns, and form sections.
+- **Borders (`border: "#E5E7EB"`):** 1px solid crisp border separating component surfaces from canvas without artificial heavy drop shadows.
 
-## Primary
+## Text Hierarchy
 
-Use brand primary yellow (#EEDC35) for the single most important action in a region, active navigation, selected controls and keyboard focus. Do not use it as a decorative fill or to represent destructive actions.
+- **`text-primary: "#1A1A1A"`:** Deep charcoal black for page titles, section headings, primary values, and body text.
+- **`text-secondary: "#6B7280"`:** Neutral gray for supporting metadata, descriptions, timestamps, and table column headers.
+- **`text-disabled: "#9CA3AF"`:** Soft gray for form placeholders and disabled control states.
 
-<!--
-Agent cần biết primary được dùng khi nào.
+## Semantic Status Sets (4-Layer Governance)
 
-Ví dụ:
+Every status indicator, alert box, or tag MUST use the complete 4-layer token set to guarantee accessible contrast:
 
-Use primary for:
-- primary CTA
-- active navigation
-- selected interactive states
+| Status | Border (`*-border`) | Background Tint (`*-bg`) | Text Color (`*-text`) | Primary Accent (`*`) |
+| :--- | :--- | :--- | :--- | :--- |
+| **Success** | `#BBF7D0` | `#DCFCE7` | `#166534` | `#16A34A` |
+| **Warning** | `#FDE68A` | `#FEF3C7` | `#92400E` | `#D97706` |
+| **Error** | `#FECACA` | `#FEF2F2` | `#991B1B` | `#DC2626` |
+| **Info** | `#BFDBFE` | `#EFF6FF` | `#1E40AF` | `#2563EB` |
 
-Do not use primary purely as decoration.
--->
+*Note on Warning:* Amber `#D97706` is deliberately distinct from Brand Accent Yellow `#EEDC35` to prevent confusion between marketing CTAs and system alerts.
 
-## Surfaces
+## Color Constraints for Frontend Agent
 
-Use surface-secondary (or canvas-dark for craft workshop scenes) for the page canvas and low-emphasis grouped regions. Use surface for cards, forms, dialogs and tables. Separate adjacent surfaces with spacing and the border token (border or border-dark) before adding elevation.
-
-<!--
-Ví dụ:
-
-Page background
-→ secondary surface
-
-Cards/forms/dialogs
-→ primary surface
--->
-
-## Text Colors
-
-Use text-primary for headings, values and instructions (or text-on-dark on dark surfaces). Use text-secondary for descriptions, metadata and supporting context. Use text-disabled only for unavailable controls and never for information that must be read.
-
-<!--
-Giải thích:
-
-text-primary → main information
-text-secondary → supporting information
-text-disabled → unavailable state
--->
-
-## Semantic Colors
-
-success communicates a completed or approved outcome; warning communicates a pending state or required attention; error communicates failure, rejection or a destructive action; info communicates neutral guidance. Pair every semantic color with a readable text label.
-
-<!--
-Ví dụ:
-
-success → completed / approved
-warning → pending / attention
-error → failed / rejected / destructive
-info → neutral informational state
--->
-
-## Color Constraints
-
-* Do not invent new semantic colors.
-* Do not communicate status using color alone.
-* Do not use gradients unless Feature/Spec explicitly requires them.
-
-<!--
-Ví dụ:
-
-- Do not invent new semantic colors.
-- Do not communicate status using color alone.
-- Do not use gradients unless explicitly required.
--->
+* **FORBIDDEN: Dark Theme.** Never introduce dark canvases (`#121316`), dark surface cards, or inverted dark themes. The application is 100% Light Theme.
+* **FORBIDDEN: White Text on Yellow.** Never place white text on `#EEDC35` or `#FFFB03`. Always use `#1A1A1A`.
+* **FORBIDDEN: Arbitrary Status Tints.** Never invent background colors or opacity hacks for alerts/badges; strictly use the 4-layer semantic tokens defined above.
+* **FORBIDDEN: Color as Sole Status Indicator.** Status messages must always pair color with explicit, readable text labels.
+* **FORBIDDEN: Gradients.** Do not use decorative gradients unless explicitly specified by an approved Figma spec.
 
 ---
 
@@ -378,31 +370,19 @@ Mobile:
 Top Navigation + Drawer Navigation + Main Content
 -->
 
-## Content Width
+## Content Width (100% Fluid Width Mandate)
 
-Customer content uses a maximum width of 1200px, with focused forms limited to 640px. Operational tables may use the available desktop width; detail and edit views should remain comfortably readable rather than stretch content needlessly.
+All views, app shells, main content areas, cards, sections, data tables, and forms MUST be 100% width (`width: 100%`). The interface stretches to fill the available display width fluidly.
 
-<!--
-Ví dụ:
-
-Maximum main content width: 1440px.
-
-Data-heavy pages may use full available width.
-
-Focused forms should use a narrower content column.
--->
+CRITICAL RULES FOR FRONTEND AGENT:
+- FORBIDDEN: Using `max-width` (e.g. `max-width: 1200px`, `1056px`, `1000px`, `640px`, or `width: min(...)`) on page containers or layout wrappers.
+- FORBIDDEN: Centering containers with `margin: 0 auto` or `margin: auto` that create artificial empty gutters or large side margins.
+- Do not constrain forms or operational views into narrow centered boxes unless a specific Figma design frame explicitly mandates an exact fixed pixel container.
 
 ## Page Padding
 
-Desktop: 24–32px. Tablet: 20–24px. Mobile: 16px. Retain enough vertical spacing to separate tasks without creating empty decorative space.
-
-<!--
-Ví dụ:
-
-Desktop: 24–32px
-Tablet: 20–24px
-Mobile: 16px
--->
+Desktop: 24px (left/right). Tablet: 20px (left/right). Mobile: 16px (left/right).
+This padding serves purely as a minimal safety boundary to keep text and interactive controls from colliding with physical display bezels. If a Figma design specifies full edge-to-edge layout for a section, use 0px padding. Do not inject excessive horizontal padding or outer gap margins.
 
 ## Grid
 
@@ -515,37 +495,24 @@ Ví dụ:
 
 ---
 
-# Shapes
+# Shapes (Zero Border-Radius Baseline)
 
 ## Corner Strategy
 
-Inputs and buttons use rounded.md; cards and dialogs use rounded.lg; badges and compact status chips may use rounded.full. Keep radius restrained and consistent.
+DEFAULT: `border-radius: 0px` (sharp rectangular / góc vuông) for ALL components, containers, boxes, rects, cards, dialogs, modals, alerts, inputs, and buttons.
 
-<!--
-Ví dụ:
-
-Inputs/buttons → rounded.md
-Cards/dialogs → rounded.lg
-Badges → rounded.full
--->
+CRITICAL RULES FOR FRONTEND AGENT:
+- FORBIDDEN: Adding `border-radius` (e.g. `border-radius: 4px/6px/8px/12px`, `rounded`, `rounded-md`, `rounded-lg`) to any box, rectangle, card, table, or control without explicit permission.
+- PERMITTED ONLY WHEN: A specific component is unequivocally shown as rounded or circular in an approved Figma specification (e.g., circular user avatar `rounded.full`). If Figma shows sharp corners or does not explicitly specify a radius, use `0px`.
 
 ## Shape Character
 
-Use modest rounding, clean borders and compact controls. The interface should feel contemporary and approachable without becoming playful or overly soft.
-
-<!--
-Ví dụ:
-
-Use restrained rounding to maintain a professional operational appearance.
-
-Avoid excessive pill-shaped containers.
--->
+Crisp, architectural, craft-inspired rectangular precision with clean borders and zero rounded corners by default. The visual identity reflects the authentic precision of an artisan jewelry workshop.
 
 ## Shape Constraints
 
-* Use the approved design tokens and the closest established pattern.
-* Keep customer choices and operational actions easy to scan.
-* Do not add decoration, component variants or layouts without a user task.
+* Every container, card, modal, button, and input defaults to 0px border-radius.
+* Never soften edges or round rects for aesthetic preference or assumption.
 
 ---
 
@@ -569,23 +536,19 @@ Mỗi component nên trả lời:
 
 ### Variants
 
-* Primary
-* Secondary
-* Ghost
-* Destructive
-
-<!--
-Ví dụ:
-
-Primary
-Secondary
-Ghost
-Destructive
--->
+* Primary (`#4C86DC`, white text)
+* Accent (`#EEDC35`, dark text `#1A1A1A`)
+* Secondary (Outline / White background, `#4C86DC` or `#1A1A1A` border)
+* Ghost (Transparent background)
+* Destructive (`#DC2626`, white text)
 
 ### Primary Button
 
-Use for the one action that advances the current customer journey or completes the main operational task. Only one primary button should dominate a region.
+Use for the one action that advances the current operational task or workflow (Save, Confirm, Submit, Filter). Uses `primary: "#4C86DC"` with white text `#FFFFFF`. Only one primary button should dominate a region.
+
+### Accent Button
+
+Use exclusively for high-conversion customer call-to-actions (Hero "Đặt lịch ngay", Checkout "Xác nhận thanh toán"). Uses `accent: "#EEDC35"` with dark text `#1A1A1A`. Never use white text on accent yellow.
 
 ### Secondary Button
 
@@ -593,13 +556,13 @@ Use for a valid alternative action that does not compete with the primary outcom
 
 ### Destructive Button
 
-Use only for a confirmed destructive action, such as cancel, reject or delete; it must use the error token rather than primary yellow.
+Use only for a confirmed destructive action, such as cancel, reject or delete; it must use the error token (`#DC2626`) rather than brand primary or accent yellow.
 
 ### Button Rules
 
-* Do not add decoration, component variants or layouts without a user task.
-* Do not add decoration, component variants or layouts without a user task.
-* Do not add decoration, component variants or layouts without a user task.
+* Every button defaults to `border-radius: 0px` (sharp rectangular corners).
+* Only one primary or accent CTA should dominate a single page region.
+* Icon-only buttons require accessible `aria-label` attributes.
 
 <!--
 Ví dụ:
@@ -791,16 +754,13 @@ Do not use tabs as a substitute for primary navigation.
 
 ## Badge / Status
 
-Use a compact badge or status label with semantic color, readable text and optional supporting icon. Status labels must remain understandable in monochrome and in screen-reader output.
+Use a compact rectangular status label with semantic color and readable text ONLY when bound to an authentic business status field from the domain model or backend API (e.g. `ORDER_PAID`, `BOOKING_CONFIRMED`, `ROLE_STAFF`).
 
-<!--
-Agent cần biết:
-
-- semantic color mapping
-- text requirements
-- whether icon is allowed
-- size/density
--->
+CRITICAL RULES FOR FRONTEND AGENT:
+- FORBIDDEN: Inventing arbitrary tags, category pills, rating badges, or decorative chips (e.g., fake marketing tags, ungrounded tags like "Phôi bạc 925", "Độc bản" wrapped in pill tags).
+- FORBIDDEN: Using rounded pill borders (`border-radius: 9999px`) for status tags unless explicitly mandated by Figma. Default to sharp rectangular tags (`border-radius: 0px`).
+- FORBIDDEN: Embedding Unicode emojis inside status badges or tags.
+- Status labels must remain understandable in monochrome and in screen-reader output.
 
 ---
 
@@ -1248,33 +1208,24 @@ State the problem, the affected action and the next recovery step without exposi
 
 ---
 
-# Icons
+# Icons & Emojis
+
+## Zero-Tolerance Emoji Policy
+
+CRITICAL ENFORCEMENT:
+- ABSOLUTELY NO UNICODE EMOJIS anywhere in the frontend codebase (JSX text, HTML, string literals, placeholders, buttons, headings, card metadata, alert boxes, badges).
+- BANNED EXAMPLES: `📍`, `🔍`, `💎`, `✨`, `🪐`, `💍`, `🔨`, `⏱️`, `🎟️`, `📦`, `🔄`, `💡`, `★★★★★`, etc.
+- Text must use plain, professional typography. Real ratings must be displayed as numeric text (e.g., "5.0 / 5.0") or using approved SVG vector star icons from the standard icon set.
 
 ## Icon System
 
-Use a single consistent outline icon library or equivalent existing SVG set. Icons use the current text or semantic color token and are sized to support, not dominate, their label.
+Use a single consistent outline SVG icon library (Lucide React SVG) or explicit SVG assets from Figma. Icons use current text or semantic color tokens and are sized to support, not dominate, their label.
 
-<!--
-Ví dụ:
-
-Use Lucide icons.
-
-Do not mix icon libraries unless required by existing codebase.
--->
-
-## Icon Rules
-
-* Do not add decoration, component variants or layouts without a user task.
-* Do not add decoration, component variants or layouts without a user task.
-* Do not add decoration, component variants or layouts without a user task.
-
-<!--
-Ví dụ:
-
-Icons supplement labels; they do not replace ambiguous actions.
-
-Keep stroke style consistent.
--->
+CRITICAL RULES FOR FRONTEND AGENT:
+- Icons are ONLY permitted where explicitly shown in the Figma design or specified in feature documentation.
+- FORBIDDEN: Adding arbitrary decorative icons to button labels, card headers, navigation links, or list items.
+- FORBIDDEN: Using emoji characters as icon replacements.
+- Icon-only buttons must provide accessible aria-labels.
 
 ---
 
@@ -1458,47 +1409,48 @@ Implement only the behavior explicitly supported by existing domain/API behavior
 
 ---
 
+# Non-Negotiable Frontend Hard Constraints (Iron Rules)
+
+Every Frontend Implementation Agent MUST strictly enforce these three non-negotiable architectural rules. Violating any of these rules is considered a critical implementation defect:
+
+1. **100% Fluid Width Mandate (No Artificial Side Margins/Gutters):**
+   - Every page container, App Shell, section, card, table, and form MUST be 100% width (`width: 100%`).
+   - STRICTLY PROHIBITED: `max-width` (e.g. `max-width: 1200px`, `1056px`, `1000px`, `640px`, or `width: min(...)`) and centering with `margin: 0 auto` or `margin: auto`.
+   - The UI must fluidly fill the screen. Use only minimal safe padding (24px desktop, 20px tablet, 16px mobile) to prevent text from touching physical screen bezels.
+
+2. **Zero-Tolerance Emoji Policy & Icon/Tag Governance:**
+   - ZERO UNICODE EMOJIS: Absolutely forbidden to insert emojis (`📍`, `🔍`, `💎`, `✨`, `🪐`, `💍`, `🔨`, `⏱️`, `🎟️`, `📦`, `🔄`, `💡`, `★★★★★`, etc.) in any JSX, HTML, text, placeholder, button, or badge.
+   - SVG Icons: Only use standard outline SVG icons (Lucide React SVG) when and where explicitly depicted in the Figma design or spec. Never invent decorative icons.
+   - Status Badges / Tags: Only render tags/badges when directly representing an authentic business status field from the domain model/backend. Never invent ungrounded decorative tags, category pills, or fake marketing chips.
+
+3. **Zero Border-Radius Baseline (Sharp Rectangular Edges):**
+   - DEFAULT `border-radius: 0px` for ALL components, containers, boxes, rects, cards, buttons, inputs, tables, modals, and alerts.
+   - STRICTLY PROHIBITED: Adding `border-radius`, `rounded`, `rounded-md`, or rounded corners without explicit Figma instruction.
+   - Circular elements (such as `rounded.full` for user profile avatars) are permitted ONLY when explicitly specified by Figma.
+
+---
+
 # Do's
 
-* Reuse existing components and approved tokens.
-* Follow the applicable page pattern and include required UI states.
+* Enforce `width: 100%` fluid layout for all views and containers.
+* Default to `border-radius: 0px` (sharp rectangular corners) everywhere.
+* Use clean SVG icons (Lucide) strictly when specified by Figma/Spec.
+* Render status badges ONLY for authentic domain status values.
+* Reuse existing components and approved design tokens.
+* Follow the applicable page pattern and include required UI states (loading, empty, error, disabled).
 * Preserve domain terminology and keep repeated workflows consistent.
-
-<!--
-Recommended baseline:
-
-- Reuse existing components.
-- Use design tokens.
-- Follow established page patterns.
-- Preserve domain terminology.
-- Design loading, empty, error and disabled states.
-- Maintain accessible contrast.
-- Keep repeated workflows visually consistent.
-- Optimize important workflows for scanning and efficiency.
--->
 
 ---
 
 # Don'ts
 
-* Do not invent arbitrary colors, spacing or component variants.
-* Do not change business behavior for visual convenience.
-* Do not duplicate an existing pattern with only minor styling differences.
-
-<!--
-Recommended baseline:
-
-- Don't invent colors.
-- Don't invent arbitrary spacing.
-- Don't invent component variants without need.
-- Don't create unique layouts for every feature.
-- Don't place everything inside cards.
-- Don't use excessive shadows.
-- Don't use decorative gradients unless specified.
-- Don't hide important actions unnecessarily.
-- Don't change business behavior for visual convenience.
-- Don't duplicate an existing component with slightly different styling.
--->
+* DO NOT use `max-width` or `margin: 0 auto` to restrict page containers or create wide side gaps.
+* DO NOT use Unicode emojis anywhere in the codebase or UI text.
+* DO NOT add `border-radius` to boxes, rects, cards, inputs, or buttons unless explicitly mandated by Figma.
+* DO NOT invent arbitrary decorative tags, badges, or category pills without backend status backing.
+* DO NOT invent arbitrary colors, spacing, or component variants.
+* DO NOT change business behavior for visual convenience.
+* DO NOT duplicate an existing pattern with only minor styling differences.
 
 ---
 
