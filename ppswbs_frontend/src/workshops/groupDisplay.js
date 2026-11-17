@@ -29,7 +29,7 @@ export const TICKET_STATUS_LABEL = {
 /** FR-037: the booking-time payment is not refunded on customer self-cancellation or no-show. */
 export const NON_REFUNDABLE_NOTICE = 'Khoản thanh toán lúc đặt không được hoàn lại nếu bạn tự hủy hoặc không tham dự.';
 
-export const vnd = value => `${Number(value || 0).toLocaleString('vi-VN')} ₫`;
+export const vnd = value => `${Number(value || 0).toLocaleString('vi-VN')}\u00a0₫`;
 
 export const collectionKindLabel = kind => COLLECTION_KIND_LABEL[kind] || kind || '';
 
@@ -63,7 +63,7 @@ export function groupHoldPhase(group, now = Date.now()) {
   return { phase: 'ENDED', secondsLeft: null };
 }
 
-export const AWAITING_RESULT_MESSAGE = 'Đang xác nhận kết quả thanh toán…';
+export const AWAITING_RESULT_MESSAGE = 'Đã hết thời hạn thanh toán. Hệ thống đang chờ cổng thanh toán xác nhận kết quả, phòng khi bạn vừa thanh toán xong. Trang này tự cập nhật, bạn không cần làm gì thêm. Nếu không có thanh toán hợp lệ, chỗ giữ sẽ được trả lại.';
 
 export function countdownText(secondsLeft) {
   if (secondsLeft === null || secondsLeft === undefined) return '';
@@ -110,4 +110,20 @@ export function formatSessionWindow(scheduledStart, scheduledEnd) {
 export function failingLinesOf(error) {
   const lines = error?.data?.failingLines;
   return Array.isArray(lines) ? lines : [];
+}
+
+/** The heading of the result screen after "giữ chỗ", worded for the group's real status and ticket count. */
+export function groupResultHeading(group, now = Date.now()) {
+  const count = Array.isArray(group?.tickets) ? group.tickets.length : 0;
+  switch (group?.groupStatus) {
+    case 'CONFIRMED': return { eyebrow: 'ĐẶT CHỖ THÀNH CÔNG', title: 'Đặt chỗ đã được xác nhận' };
+    case 'EXPIRED': return { eyebrow: 'HẾT HẠN GIỮ CHỖ', title: 'Giữ chỗ đã hết hạn' };
+    case 'CANCELLED': return { eyebrow: 'ĐÃ HỦY ĐẶT CHỖ', title: 'Đặt chỗ đã được hủy' };
+    case 'PENDING_PAYMENT':
+      if (group.paymentDeadlineAt && Date.parse(group.paymentDeadlineAt) <= now) {
+        return { eyebrow: 'HẾT THỜI HẠN THANH TOÁN', title: 'Đang chờ kết quả thanh toán' };
+      }
+      return { eyebrow: 'GIỮ CHỖ THÀNH CÔNG', title: count > 0 ? `Đã giữ chỗ cho ${count} vé` : 'Đã giữ chỗ' };
+    default: return { eyebrow: 'ĐẶT CHỖ', title: 'Đặt chỗ của bạn' };
+  }
 }

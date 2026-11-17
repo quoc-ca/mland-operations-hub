@@ -25,7 +25,7 @@ import java.util.UUID;
 /**
  * 003.3 T112 / FR-043: finds every session that could replace one cancelled session of a ticket.
  * <p>
- * A candidate is valid when it is published, at the cancelled session's branch, starts after now (the cancellation
+ * A candidate is valid when it is published, at a location where the Package is ACTIVE (003.2 FR-046), starts after now (the cancellation
  * moment), has a seat and a unit of reschedule quota left, is not already one of the ticket's sessions, and the
  * ticket's session set with the candidate in place of the cancelled session keeps the package rules (order, gaps,
  * branch) and the same position, so the ticket's other session stays exactly where it is. Read only: nothing is held.
@@ -40,6 +40,7 @@ public class EquivalentReplacementSessionService {
     private final TicketSessionEntitlementRepository entitlementRepository;
     private final WorkshopSessionRepository sessionRepository;
     private final WorkshopPackageReservationPolicy packageReservationPolicy;
+    private final WorkshopPackageAvailabilityService availabilityService;
     private final TicketSessionReplacementService replacementService;
 
     @Transactional(readOnly = true)
@@ -66,10 +67,17 @@ public class EquivalentReplacementSessionService {
         Instant now = Instant.now();
         LocalDate fromDate = now.atZone(WORKSHOP_ZONE).toLocalDate().minusDays(1);
 
+        // 003.2 FR-046: any location where the Package is ACTIVE, not only the cancelled session's branch. A
+        // two-session ticket keeps its other session, so the one-location rule leaves candidates at that location.
+        List<Long> sellableLocationIds = packageReservationPolicy.packageIdOf(ticket.getBookingReference())
+                .map(availabilityService::activeLocationIds).orElse(List.of());
+        if (sellableLocationIds.isEmpty()) {
+            return EquivalentReplacementSessions.none();
+        }
         List<EquivalentReplacementSessions.Candidate> found = new ArrayList<>();
         for (WorkshopSession candidate : sessionRepository
-                .findByLocationIdAndStateAndWorkshopDateGreaterThanEqualOrderByScheduledStartAtAsc(
-                        cancelled.getLocation().getId(), SessionState.PUBLISHED, fromDate)) {
+                .findByLocationIdInAndStateAndWorkshopDateGreaterThanEqualOrderByScheduledStartAtAsc(
+                        sellableLocationIds, SessionState.PUBLISHED, fromDate)) {
             if (candidate.getScheduledStartAt() == null || !candidate.getScheduledStartAt().isAfter(now)
                     || sources.stream().anyMatch(source -> source.getId().equals(candidate.getId()))) {
                 continue;
@@ -86,8 +94,11 @@ public class EquivalentReplacementSessionService {
                 continue;
             }
             found.add(new EquivalentReplacementSessions.Candidate(UUID.fromString(candidate.getReference()),
-                    candidate.getScheduledStartAt(), candidate.getScheduledEndAt()));
+                    candidate.getScheduledStartAt(), candidate.getScheduledEndAt(),
+                    candidate.getLocation() != null ? candidate.getLocation().getId() : null,
+                    candidate.getLocation() != null ? candidate.getLocation().getDisplayName() : null));
         }
+        found.sort(Comparator.comparing(EquivalentReplacementSessions.Candidate::startAt));
         return new EquivalentReplacementSessions(found);
     }
 

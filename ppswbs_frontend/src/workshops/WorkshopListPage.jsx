@@ -114,7 +114,7 @@ export function WorkshopListPage() {
                   <p className="wk-price">
                     <WorkshopOfferPrice
                       offers={offers}
-                      fallback={`${Number(pkg.publicPrice || 0).toLocaleString('vi-VN')} ₫`}
+                      fallback={`${Number(pkg.publicPrice || 0).toLocaleString('vi-VN')}\u00a0₫`}
                     /> <small>/ người</small>
                   </p>
                   <WorkshopOfferBadges offers={offers} />

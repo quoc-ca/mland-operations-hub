@@ -28,7 +28,7 @@ export function GroupHoldPanel({ group, authorization, proof, onHoldEnded }) {
   useEffect(() => {
     const tick = () => setPhase(groupHoldPhase(group));
     tick();
-    const timer = setInterval(tick, 1000);
+    const timer = setInterval(tick, 250); // the header notice ticks at the same rate, so both show the same second
     return () => clearInterval(timer);
   }, [group?.paymentDeadlineAt, group?.holdExpiresAt]);
 
@@ -107,7 +107,7 @@ export function GroupHoldPanel({ group, authorization, proof, onHoldEnded }) {
 
       {phase.phase === 'ENDED' && (
         <p role="status">
-          Thời hạn thanh toán đã kết thúc. Hệ thống đang cập nhật kết quả cuối cùng của đơn.
+          Thời hạn giữ chỗ đã kết thúc. Hệ thống đang cập nhật kết quả cuối cùng của đơn; trang này tự cập nhật.
         </p>
       )}
 

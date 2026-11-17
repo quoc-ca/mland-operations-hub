@@ -24,6 +24,8 @@ public interface WorkshopAddOnRepository extends JpaRepository<WorkshopAddOn, Lo
     Optional<WorkshopAddOn> findByReferenceAndScopeWithLock(@Param("reference") String reference,
             @Param("packageId") Long packageId, @Param("locationId") Long locationId);
 
+    Optional<WorkshopAddOn> findByReference(String reference);
+
     Optional<WorkshopAddOn> findByReferenceAndPackageIdAndLocationIdAndState(
             String reference, Long packageId, Long locationId, WorkshopAddOnState state);
 }

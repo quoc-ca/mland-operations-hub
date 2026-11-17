@@ -441,3 +441,7 @@ Per-ticket rules (spec FR-030–FR-051, decisions 2026-11-12 to 2026-11-14):
     never extended); 003.3 triggers, the voucher owner restores once per
     `groupCode` (FR-042). An absorbed undercharge never exceeds the ticket's
     folio total, per record and per ticket in total (FR-057).
+
+## Phase 14 note: changes across locations (T192, 2026-11-17)
+
+No table or column is added (decided 2026-11-17, Q3/Q4, T187). `settlement_folio_collections.branch_id` stays immutable per collection; the location of a ticket is always read from 003.1 `getTicketFolioContext` (current Operations session). A move is recorded only as a `settlement_business_audit` row, action `TICKET_LOCATION_CHANGED`, `reason_reference` `from=<id>;to=<id>`. The Manager list of add-ons sold at the old location is a read computed from `CATALOGUE-ADDON:<ref>` charges and the 003.2 facade, not stored. The Mland offer's `replacement_options` JSON carries `locationReference`/`locationName` per option (null for offers saved earlier).

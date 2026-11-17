@@ -16,6 +16,9 @@ import './product-offers.css';
 
 const text = value => (value === null || value === undefined ? null : value.toString());
 
+/** A programme name may contain an amount ("giảm 100.000 đ"): keep the number and its currency on one line. */
+const keepMoneyTogether = name => (name ? String(name).replace(/(\d)\s+(đ|₫)(?![\p{L}])/giu, '$1\u00a0$2') : name);
+
 function useValue() {
   const format = useFormat();
   return discount => (discount?.kind === 'PERCENT' ? `${discount.percentage}%` : format.money(discount?.amount));
@@ -80,27 +83,48 @@ export function WorkshopOfferList({ offers }) {
   const value = useValue();
   const { status } = useAuth();
   if (!offers || (!offers.auto && !offers.autoForBiggerOrder.length && !offers.vouchers.length)) return null;
-  const minimum = program => (Number(program.minimumEligibleAmount || 0) > 0 ? t('offer.voucherMinimum', { minimum: format.money(program.minimumEligibleAmount) }) : '');
+  const hasAuto = Boolean(offers.auto) || offers.autoForBiggerOrder.length > 0;
+  const voucherDetail = program => (Number(program.minimumEligibleAmount || 0) > 0
+    ? t('wsOffer.voucherDetail', { minimum: format.money(program.minimumEligibleAmount) })
+    : t('wsOffer.voucherNoMinimum'));
   return (
-    <section className="offer-list" aria-label={t('wsOffer.title')}>
+    <section className="offer-list ws-offer-list" aria-label={t('wsOffer.title')}>
       <h2 className="section-title">{t('wsOffer.title')}</h2>
-      <ul>
-        {offers.auto && (
-          <li><span className="offer-badge auto">{t('offer.auto', { value: value(offers.auto.discount) })}</span>
-            <span>{t('wsOffer.autoLine', { name: offers.auto.name, value: value(offers.auto.discount) })}</span></li>
-        )}
-        {offers.autoForBiggerOrder.map(program => (
-          <li key={program.id}><span className="offer-badge auto">{t('offer.auto', { value: value(program.discount) })}</span>
-            <span>{t('offer.autoFromLine', { name: program.name, value: value(program.discount), minimum: format.money(program.minimumEligibleAmount) })}</span></li>
-        ))}
-        {offers.vouchers.map(program => (
-          <li key={program.id}><span className="offer-badge voucher">{t('offer.voucher', { value: value(program.discount) })}</span>
-            <span>{t('wsOffer.voucherLine', { name: program.name, value: value(program.discount), minimum: minimum(program) })}</span>
-            <Link className="text-link" to={`/promotions/${encodeURIComponent(program.id)}`}>{t('offer.view')}</Link></li>
-        ))}
-      </ul>
-      {offers.vouchers.length > 0 && status !== 'signed-in' && (
-        <p className="small"><SignInLink className="text-link">{t('wsOffer.signIn')}</SignInLink></p>
+      {hasAuto && (
+        <div className="ws-offer-group">
+          <h3>{t('wsOffer.groupAuto')}</h3>
+          <p className="muted small">{t('wsOffer.groupAutoHint')}</p>
+          <ul>
+            {offers.auto && (
+              <li className="ws-offer-card">
+                <span className="offer-badge auto">{t('offer.auto', { value: value(offers.auto.discount) })}</span>
+                <span className="ws-offer-body"><strong>{keepMoneyTogether(offers.auto.name)}</strong><small>{t('wsOffer.autoDetail')}</small></span>
+              </li>
+            )}
+            {offers.autoForBiggerOrder.map(program => (
+              <li key={program.id} className="ws-offer-card">
+                <span className="offer-badge auto">{t('offer.auto', { value: value(program.discount) })}</span>
+                <span className="ws-offer-body"><strong>{keepMoneyTogether(program.name)}</strong><small>{t('wsOffer.autoFromDetail', { minimum: format.money(program.minimumEligibleAmount) })}</small></span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {offers.vouchers.length > 0 && (
+        <div className="ws-offer-group">
+          <h3>{t('wsOffer.groupVoucher')}</h3>
+          <p className="muted small">{t('wsOffer.groupVoucherHint')}</p>
+          <ul>
+            {offers.vouchers.map(program => (
+              <li key={program.id} className="ws-offer-card">
+                <span className="offer-badge voucher">{t('offer.voucher', { value: value(program.discount) })}</span>
+                <span className="ws-offer-body"><strong>{keepMoneyTogether(program.name)}</strong><small>{voucherDetail(program)}</small></span>
+                <Link className="text-link ws-offer-action" to={`/promotions/${encodeURIComponent(program.id)}`}>{t('offer.view')}</Link>
+              </li>
+            ))}
+          </ul>
+          {status !== 'signed-in' && <p className="small"><SignInLink className="text-link">{t('wsOffer.signIn')}</SignInLink></p>}
+        </div>
       )}
       <p className="muted small">{t('wsOffer.notice')}</p>
     </section>

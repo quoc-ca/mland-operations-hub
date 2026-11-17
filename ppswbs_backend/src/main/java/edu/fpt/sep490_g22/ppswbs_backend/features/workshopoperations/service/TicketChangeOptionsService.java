@@ -34,7 +34,8 @@ import java.util.UUID;
  * source, target and late-arrival window, {@code remainingCapacity} for seats and
  * {@link WorkshopPackageReservationPolicy#isValidTicketReplacement} for the package structure. A candidate that
  * breaks the package structure, the position of the session it replaces or the late-arrival window is not listed;
- * a full session is listed as not selectable. Reschedule quota is reported, not applied (a Manager may lift it).
+ * a session with no free seat or no reschedule quota left is not listed (decision 2026-11-16); the quota left is
+ * reported. The replacement itself still rechecks both when the change is confirmed.
  */
 @Service
 @RequiredArgsConstructor
@@ -49,6 +50,7 @@ public class TicketChangeOptionsService {
     private final TicketSessionEntitlementRepository entitlementRepository;
     private final WorkshopSessionRepository sessionRepository;
     private final WorkshopPackageReservationPolicy packageReservationPolicy;
+    private final WorkshopPackageAvailabilityService availabilityService;
     private final TicketSessionReplacementService replacementService;
     private final TicketReplacementRules rules;
 
@@ -89,9 +91,11 @@ public class TicketChangeOptionsService {
         }
 
         Instant now = Instant.now();
-        Optional<Boolean> sameLocationRule = packageReservationPolicy.sameLocationRequired(ticket.getBookingReference());
-        boolean structureKnown = sameLocationRule.isPresent();
-        boolean sameLocation = sameLocationRule.orElse(true);
+        Optional<Long> packageId = packageReservationPolicy.packageIdOf(ticket.getBookingReference());
+        boolean structureKnown = packageId.isPresent();
+        // 003.2 FR-042: candidates come from every location where the Package is sellable, not the old location.
+        List<Long> sellableLocationIds = structureKnown ? availabilityService.activeLocationIds(packageId.get())
+                : List.of();
         List<TicketChangeOptions.FromSession> perFrom = new ArrayList<>();
         List<WorkshopSession> changeable = new ArrayList<>();
         for (WorkshopSession from : froms) {
@@ -107,7 +111,7 @@ public class TicketChangeOptionsService {
             List<TicketChangeOptions.Option> options = new ArrayList<>();
             if (structureKnown) {
                 int index = indexOf(sources, from);
-                for (WorkshopSession candidate : candidatesFor(from, sameLocation, now)) {
+                for (WorkshopSession candidate : candidatesFor(sellableLocationIds, now)) {
                     if (isSource(sources, candidate)
                             || rules.checkTarget(candidate, now) != null
                             || rules.checkLateArrivalWindow(query.type(), from, candidate, now) != null) {
@@ -121,7 +125,8 @@ public class TicketChangeOptionsService {
                             || !packageReservationPolicy.isValidTicketReplacement(ticket.getBookingReference(), sorted)) {
                         continue;
                     }
-                    options.add(option(candidate, now));
+                    Optional<TicketChangeOptions.Option> listed = option(candidate, now);
+                    listed.ifPresent(options::add);
                 }
             }
             perFrom.add(new TicketChangeOptions.FromSession(UUID.fromString(from.getReference()),
@@ -131,16 +136,16 @@ public class TicketChangeOptionsService {
         List<TicketChangeOptions.Pair> pairs = List.of();
         if (structureKnown && query.fromSessionReferences().size() >= 2 && froms.size() == 2
                 && changeable.size() == 2 && sources.size() == 2) {
-            pairs = pairs(ticket, query.type(), sources, froms, sameLocation, now);
+            pairs = pairs(ticket, query.type(), sources, froms, sellableLocationIds, now);
         }
         return new TicketChangeOptions(Status.OK, perFrom, pairs);
     }
 
     private List<TicketChangeOptions.Pair> pairs(AttendanceTicket ticket, TicketReplacementType type,
                                                  List<WorkshopSession> sources, List<WorkshopSession> froms,
-                                                 boolean sameLocation, Instant now) {
-        List<WorkshopSession> firstPool = pool(froms.get(0), type, sources, sameLocation, now);
-        List<WorkshopSession> secondPool = pool(froms.get(1), type, sources, sameLocation, now);
+                                                 List<Long> sellableLocationIds, Instant now) {
+        List<WorkshopSession> firstPool = pool(froms.get(0), type, sources, sellableLocationIds, now);
+        List<WorkshopSession> secondPool = pool(froms.get(1), type, sources, sellableLocationIds, now);
         List<TicketChangeOptions.Pair> pairs = new ArrayList<>();
         for (WorkshopSession first : firstPool) {
             for (WorkshopSession second : secondPool) {
@@ -155,44 +160,62 @@ public class TicketChangeOptionsService {
                 }
                 int firstSeats = replacementService.remainingCapacity(first, now);
                 int secondSeats = replacementService.remainingCapacity(second, now);
-                boolean quota = first.remainingRescheduleQuota() >= 1 && second.remainingRescheduleQuota() >= 1;
+                // A pair is listed only when both sessions still have a seat and reschedule quota.
+                if (firstSeats < 1 || secondSeats < 1
+                        || first.remainingRescheduleQuota() < 1 || second.remainingRescheduleQuota() < 1) {
+                    continue;
+                }
                 pairs.add(new TicketChangeOptions.Pair(
                         new TicketChangeOptions.PairSession(UUID.fromString(first.getReference()),
-                                first.getScheduledStartAt(), first.getScheduledEndAt(), Math.max(0, firstSeats)),
+                                first.getScheduledStartAt(), first.getScheduledEndAt(), firstSeats,
+                                first.remainingRescheduleQuota(), locationIdOf(first), locationNameOf(first)),
                         new TicketChangeOptions.PairSession(UUID.fromString(second.getReference()),
-                                second.getScheduledStartAt(), second.getScheduledEndAt(), Math.max(0, secondSeats)), quota,
-                        firstSeats < 1 || secondSeats < 1 ? RejectionReason.INSUFFICIENT_CAPACITY.name() : null));
+                                second.getScheduledStartAt(), second.getScheduledEndAt(), secondSeats,
+                                second.remainingRescheduleQuota(), locationIdOf(second), locationNameOf(second)),
+                        null));
             }
         }
         return pairs;
     }
 
     private List<WorkshopSession> pool(WorkshopSession from, TicketReplacementType type, List<WorkshopSession> sources,
-                                       boolean sameLocation, Instant now) {
-        return candidatesFor(from, sameLocation, now).stream()
+                                       List<Long> sellableLocationIds, Instant now) {
+        return candidatesFor(sellableLocationIds, now).stream()
                 .filter(candidate -> !isSource(sources, candidate)
                         && rules.checkTarget(candidate, now) == null
                         && rules.checkLateArrivalWindow(type, from, candidate, now) == null)
                 .limit(PAIR_POOL_LIMIT).toList();
     }
 
-    private List<WorkshopSession> candidatesFor(WorkshopSession from, boolean sameLocation, Instant now) {
+    /** Sessions at the sellable locations only, so the availability filter runs before the pair pool limit. */
+    private List<WorkshopSession> candidatesFor(List<Long> sellableLocationIds, Instant now) {
+        if (sellableLocationIds.isEmpty()) {
+            return List.of();
+        }
         LocalDate fromDate = now.atZone(WORKSHOP_ZONE).toLocalDate().minusDays(1);
-        List<WorkshopSession> found = sameLocation && from.getLocation() != null
-                ? sessionRepository.findByLocationIdAndStateAndWorkshopDateGreaterThanEqualOrderByScheduledStartAtAsc(
-                        from.getLocation().getId(), SessionState.PUBLISHED, fromDate)
-                : sessionRepository.findByStateAndWorkshopDateGreaterThanEqualOrderByScheduledStartAtAsc(
-                        SessionState.PUBLISHED, fromDate);
-        return found.stream().filter(session -> session.getScheduledStartAt() != null).toList();
+        return sessionRepository.findByLocationIdInAndStateAndWorkshopDateGreaterThanEqualOrderByScheduledStartAtAsc(
+                        sellableLocationIds, SessionState.PUBLISHED, fromDate).stream()
+                .filter(session -> session.getScheduledStartAt() != null).toList();
     }
 
-    private TicketChangeOptions.Option option(WorkshopSession candidate, Instant now) {
-        int seats = Math.max(0, replacementService.remainingCapacity(candidate, now));
-        return new TicketChangeOptions.Option(UUID.fromString(candidate.getReference()),
+    private static Long locationIdOf(WorkshopSession session) {
+        return session.getLocation() != null ? session.getLocation().getId() : null;
+    }
+
+    private static String locationNameOf(WorkshopSession session) {
+        return session.getLocation() != null ? session.getLocation().getDisplayName() : null;
+    }
+
+    /** Empty when the session has no free seat or no reschedule quota left: it is not offered at all. */
+    private Optional<TicketChangeOptions.Option> option(WorkshopSession candidate, Instant now) {
+        int seats = replacementService.remainingCapacity(candidate, now);
+        int quota = candidate.remainingRescheduleQuota();
+        if (seats < 1 || quota < 1) {
+            return Optional.empty();
+        }
+        return Optional.of(new TicketChangeOptions.Option(UUID.fromString(candidate.getReference()),
                 candidate.getScheduledStartAt(), candidate.getScheduledEndAt(),
-                candidate.getLocation() != null ? candidate.getLocation().getId() : null, seats,
-                candidate.remainingRescheduleQuota() >= 1,
-                seats < 1 ? RejectionReason.INSUFFICIENT_CAPACITY.name() : null);
+                locationIdOf(candidate), seats, quota, null, locationNameOf(candidate)));
     }
 
     private static int indexOf(List<WorkshopSession> sources, WorkshopSession session) {

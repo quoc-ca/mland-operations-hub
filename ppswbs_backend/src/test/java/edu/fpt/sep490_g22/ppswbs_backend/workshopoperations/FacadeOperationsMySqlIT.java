@@ -447,11 +447,13 @@ class FacadeOperationsMySqlIT {
     }
 
     private String packageWith(int min, int max) {
-        return String.valueOf(packageRepository.save(WorkshopPackage.builder()
+        Long packageId = packageRepository.save(WorkshopPackage.builder()
                 .name("S4 package " + UUID.randomUUID()).description("fixture").publicPrice(1000L)
                 .minParticipants(min).maxParticipants(max).requiredSessionCount(1)
                 .sameLocationRequired(false).minimumSameDaySlotGap(0)
-                .state(WorkshopPackageState.PUBLISHED).build()).getId());
+                .state(WorkshopPackageState.PUBLISHED).build()).getId();
+        PackageAvailabilityFixture.activateAt(jdbc, packageId, location.getId());
+        return String.valueOf(packageId);
     }
 
     private ReserveGroupCapacityCommand.Line line(String booking, String pkg, WorkshopSession session, int tickets) {
@@ -539,5 +541,222 @@ class FacadeOperationsMySqlIT {
         }
         entitlementRepository.flush();
         return saved;
+    }
+
+    // ---------------------------------------------------------------- 003.2 Phase 18 (T160)
+
+    @Autowired private edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopPackageAvailabilityService availabilityService;
+    @Autowired private TicketSessionReplacementRepository replacementRepository;
+
+    private WorkshopLocation otherLocation() {
+        return locationRepository.saveAndFlush(WorkshopLocation.builder()
+                .code("S4B-" + UUID.randomUUID()).displayName("S4 Other Location").addressSnapshot("test").build());
+    }
+
+    private WorkshopSession sessionAt(WorkshopLocation place, LocalDate date, LocalTime startTime, int capacity) {
+        Instant start = date.atTime(startTime).atZone(ZONE).toInstant();
+        WorkshopSlot slot = slotRepository.saveAndFlush(WorkshopSlot.builder()
+                .location(place).label("P18 slot " + UUID.randomUUID())
+                .startTime(startTime).endTime(startTime.plusMinutes(15)).defaultCapacity(capacity).build());
+        return sessionRepository.saveAndFlush(WorkshopSession.builder()
+                .location(place).slot(slot).workshopDate(date)
+                .scheduledStartAt(start).scheduledEndAt(start.plusSeconds(900))
+                .checkInOpensAt(start.minusSeconds(1800)).capacity(capacity).state(SessionState.PUBLISHED).build());
+    }
+
+    /** A Package of {@code sessionCount} sessions, ACTIVE at the given locations. */
+    private String availablePackage(int sessionCount, boolean sameLocation, WorkshopPackageState state,
+                                    WorkshopLocation... activeAt) {
+        Long id = packageRepository.save(WorkshopPackage.builder()
+                .name("P18 package " + UUID.randomUUID()).description("fixture").publicPrice(1000L)
+                .minParticipants(1).maxParticipants(100).requiredSessionCount(sessionCount)
+                .sameLocationRequired(sameLocation).minimumSameDaySlotGap(0).state(state).build()).getId();
+        for (WorkshopLocation place : activeAt) {
+            PackageAvailabilityFixture.activateAt(jdbc, id, place.getId());
+        }
+        return String.valueOf(id);
+    }
+
+    private CapacityHoldOutcome reserveAll(String booking, String pkg, int tickets, WorkshopSession... sessions) {
+        return facade.reserveBookingCapacity(new ReserveBookingCapacityCommand(booking, pkg,
+                java.util.Arrays.stream(sessions).map(s -> UUID.fromString(s.getReference())).toList(), tickets,
+                "op-" + UUID.randomUUID(), "corr"));
+    }
+
+    private AttendanceTicket booked(String pkg, WorkshopSession... sessions) {
+        String booking = "BK-" + UUID.randomUUID();
+        CapacityHoldOutcome hold = reserveAll(booking, pkg, 1, sessions);
+        assertThat(hold.status()).as("reserve " + hold.reason()).isEqualTo(OutcomeStatus.ACCEPTED);
+        assertThat(commit(booking, hold, "op-" + UUID.randomUUID()).status()).isEqualTo(OutcomeStatus.ACCEPTED);
+        return ticketRepository.findByBookingReference(booking).getFirst();
+    }
+
+    private TicketSessionReplacementOutcome replace(AttendanceTicket ticket, String operationReference,
+                                                    WorkshopSession... targets) {
+        return facade.replaceTicketSessions(new ReplaceTicketSessionsCommand(
+                List.of(new ReplaceTicketSessionsCommand.Line(uuid(ticket),
+                        java.util.Arrays.stream(targets).map(s -> UUID.fromString(s.getReference())).toList())),
+                TicketReplacementType.CUSTOMER_ADVANCE, operationReference, "corr"));
+    }
+
+    private List<UUID> sessionsOf(AttendanceTicket ticket) {
+        return jdbc.queryForList("SELECT s.reference FROM ticket_session_entitlements e JOIN workshop_sessions s "
+                + "ON s.id = e.session_id WHERE e.ticket_id = ?", String.class, ticket.getId()).stream()
+                .map(UUID::fromString).sorted().toList();
+    }
+
+    private void setPair(String pkg, WorkshopLocation place, boolean active) {
+        availabilityService.setAvailability(1L, Long.parseLong(pkg), place.getId(), active
+                ? edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.PackageAvailabilityDtos.State.ACTIVE
+                : edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.PackageAvailabilityDtos.State.INACTIVE,
+                null, "corr-p18");
+    }
+
+    @Test
+    @DisplayName("P18: reserve (single and cart) is refused at an INACTIVE pair with no hold; PACKAGE_NOT_PUBLISHED wins")
+    void reserveRefusedAtInactivePairWithoutAnyHold() {
+        WorkshopLocation other = otherLocation();
+        String pkg = availablePackage(1, false, WorkshopPackageState.PUBLISHED, location);
+        WorkshopSession here = session(SessionState.PUBLISHED, 10, 10);
+        WorkshopSession there = sessionAt(other, LocalDate.now(ZONE).plusDays(10), LocalTime.of(10, 0), 10);
+        String booking = "BK-" + UUID.randomUUID();
+
+        CapacityHoldOutcome refused = reserveAll(booking, pkg, 1, there);
+
+        assertThat(refused.status()).isEqualTo(OutcomeStatus.REJECTED);
+        assertThat(refused.reason()).isEqualTo(RejectionReason.PACKAGE_NOT_AVAILABLE_AT_LOCATION);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM capacity_holds WHERE booking_reference = ?", Integer.class,
+                booking)).isZero();
+        assertThat(remaining(there)).isEqualTo(10);
+
+        String okBooking = "BK-" + UUID.randomUUID();
+        String badBooking = "BK-" + UUID.randomUUID();
+        GroupCapacityOutcome cart = facade.reserveGroupCapacity(group("cart-" + UUID.randomUUID(), List.of(
+                line(okBooking, pkg, here, 1), line(badBooking, pkg, there, 1))));
+        assertThat(cart.status()).isEqualTo(OutcomeStatus.REJECTED);
+        assertThat(cart.reason()).isEqualTo(RejectionReason.PACKAGE_NOT_AVAILABLE_AT_LOCATION);
+        assertThat(cart.failingLines()).containsExactly(1);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM capacity_holds WHERE booking_reference IN (?, ?)",
+                Integer.class, okBooking, badBooking)).isZero();
+        assertThat(remaining(here)).isEqualTo(10);
+
+        String draft = availablePackage(1, false, WorkshopPackageState.DRAFT);
+        CapacityHoldOutcome notPublished = reserveAll("BK-" + UUID.randomUUID(), draft, 1, there);
+        assertThat(notPublished.reason()).isEqualTo(RejectionReason.PACKAGE_NOT_PUBLISHED);
+    }
+
+    @Test
+    @DisplayName("P18: a one-session ticket moves to another ACTIVE location; an INACTIVE target is refused at commit and never listed; replay is idempotent")
+    void ticketMovesOnlyToActiveLocations() {
+        WorkshopLocation other = otherLocation();
+        String pkg = availablePackage(1, true, WorkshopPackageState.PUBLISHED, location, other);
+        WorkshopSession source = session(SessionState.PUBLISHED, 10, 10);
+        WorkshopSession target = sessionAt(other, LocalDate.now(ZONE).plusDays(11), LocalTime.of(10, 0), 10);
+        AttendanceTicket ticket = booked(pkg, source);
+
+        TicketChangeOptions options = facade.listTicketChangeOptions(new ListTicketChangeOptionsQuery(
+                uuid(ticket), TicketReplacementType.CUSTOMER_ADVANCE, List.of()));
+        assertThat(options.perFromSession().getFirst().options())
+                .anySatisfy(option -> {
+                    assertThat(option.sessionReference()).isEqualTo(UUID.fromString(target.getReference()));
+                    assertThat(option.locationReference()).isEqualTo(other.getId());
+                    assertThat(option.locationName()).isEqualTo("S4 Other Location");
+                });
+        assertThat(facade.activeLocationsForPackage(pkg).locationIds()).containsExactlyInAnyOrder(
+                location.getId(), other.getId());
+
+        setPair(pkg, other, false);
+        assertThat(facade.activeLocationsForPackage(pkg).locationIds()).containsExactly(location.getId());
+        assertThat(facade.listTicketChangeOptions(new ListTicketChangeOptionsQuery(
+                uuid(ticket), TicketReplacementType.CUSTOMER_ADVANCE, List.of())).perFromSession().getFirst().options())
+                .noneMatch(option -> option.sessionReference().equals(UUID.fromString(target.getReference())));
+        TicketSessionReplacementOutcome refused = replace(ticket, "op-" + UUID.randomUUID(), target);
+        assertThat(refused.status()).isEqualTo(OutcomeStatus.REJECTED);
+        assertThat(refused.reason()).isEqualTo(RejectionReason.PACKAGE_NOT_AVAILABLE_AT_LOCATION);
+        assertThat(sessionsOf(ticket)).containsExactly(UUID.fromString(source.getReference()));
+
+        setPair(pkg, other, true);
+        String opRef = "op-" + UUID.randomUUID();
+        TicketSessionReplacementOutcome accepted = replace(ticket, opRef, target);
+        assertThat(accepted.status()).isEqualTo(OutcomeStatus.ACCEPTED);
+        assertThat(sessionsOf(ticket)).containsExactly(UUID.fromString(target.getReference()));
+        setPair(pkg, other, false); // a replay by operationReference returns the stored outcome, nothing re-checked
+        TicketSessionReplacementOutcome replay = replace(ticket, opRef, target);
+        assertThat(replay.status()).isEqualTo(OutcomeStatus.ACCEPTED);
+        assertThat(replacementRepository.findByTicketIdOrderByIdAsc(ticket.getId())).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("P18: a two-session (Wax Casting) ticket moves both sessions to one ACTIVE location or none; one session to another location is INVALID_REPLACEMENT")
+    void twoSessionTicketMovesToOneLocationOrNone() {
+        WorkshopLocation other = otherLocation();
+        String pkg = availablePackage(2, true, WorkshopPackageState.PUBLISHED, location, other);
+        LocalDate day = LocalDate.now(ZONE);
+        WorkshopSession first = sessionAt(location, day.plusDays(10), LocalTime.of(9, 0), 10);
+        WorkshopSession second = sessionAt(location, day.plusDays(12), LocalTime.of(9, 0), 10);
+        WorkshopSession otherFirst = sessionAt(other, day.plusDays(14), LocalTime.of(9, 0), 10);
+        WorkshopSession otherSecond = sessionAt(other, day.plusDays(16), LocalTime.of(9, 0), 10);
+        AttendanceTicket ticket = booked(pkg, first, second);
+
+        TicketSessionReplacementOutcome split = replace(ticket, "op-" + UUID.randomUUID(), otherFirst, second);
+        assertThat(split.status()).isEqualTo(OutcomeStatus.REJECTED);
+        assertThat(split.reason()).isEqualTo(RejectionReason.INVALID_REPLACEMENT);
+
+        setPair(pkg, other, false);
+        TicketSessionReplacementOutcome inactive = replace(ticket, "op-" + UUID.randomUUID(), otherFirst, otherSecond);
+        assertThat(inactive.reason()).isEqualTo(RejectionReason.PACKAGE_NOT_AVAILABLE_AT_LOCATION);
+
+        setPair(pkg, other, true);
+        TicketSessionReplacementOutcome both = replace(ticket, "op-" + UUID.randomUUID(), otherFirst, otherSecond);
+        assertThat(both.status()).isEqualTo(OutcomeStatus.ACCEPTED);
+        assertThat(sessionsOf(ticket)).containsExactlyInAnyOrder(UUID.fromString(otherFirst.getReference()),
+                UUID.fromString(otherSecond.getReference()));
+    }
+
+    @Test
+    @DisplayName("P18 FR-043: two sessions of one date and time at different locations are independent; the quota used is the target session own")
+    void sameTimeSessionsAtDifferentLocationsKeepTheirOwnQuota() {
+        WorkshopLocation other = otherLocation();
+        String pkg = availablePackage(1, true, WorkshopPackageState.PUBLISHED, location, other);
+        LocalDate day = LocalDate.now(ZONE).plusDays(11);
+        WorkshopSession source = session(SessionState.PUBLISHED, 10, 10);
+        WorkshopSession here = sessionAt(location, day, LocalTime.of(15, 0), 10);
+        WorkshopSession there = sessionAt(other, day, LocalTime.of(15, 0), 10);
+        AttendanceTicket ticket = booked(pkg, source);
+
+        TicketSessionReplacementOutcome moved = replace(ticket, "op-" + UUID.randomUUID(), there);
+
+        assertThat(moved.status()).isEqualTo(OutcomeStatus.ACCEPTED);
+        assertThat(sessionRepository.findByReference(there.getReference()).orElseThrow().getRescheduleQuotaUsed())
+                .isEqualTo(1);
+        assertThat(sessionRepository.findByReference(here.getReference()).orElseThrow().getRescheduleQuotaUsed())
+                .isZero();
+    }
+
+    @Test
+    @DisplayName("P18 FR-046: Mland replacement candidates come from every ACTIVE location, carry the location, and are empty when none sells the Package")
+    void mlandReplacementListsEveryActiveLocation() {
+        WorkshopLocation other = otherLocation();
+        String pkg = availablePackage(1, true, WorkshopPackageState.PUBLISHED, location, other);
+        LocalDate day = LocalDate.now(ZONE);
+        WorkshopSession cancelled = session(SessionState.PUBLISHED, 10, 10);
+        WorkshopSession here = sessionAt(location, day.plusDays(12), LocalTime.of(9, 0), 10);
+        WorkshopSession there = sessionAt(other, day.plusDays(11), LocalTime.of(9, 0), 10);
+        AttendanceTicket ticket = booked(pkg, cancelled);
+        FindEquivalentReplacementSessionsQuery query = new FindEquivalentReplacementSessionsQuery(uuid(ticket),
+                UUID.fromString(cancelled.getReference()));
+
+        EquivalentReplacementSessions all = facade.findEquivalentReplacementSessions(query);
+        assertThat(all.candidates()).extracting(EquivalentReplacementSessions.Candidate::sessionReference)
+                .containsExactly(UUID.fromString(there.getReference()), UUID.fromString(here.getReference()));
+        assertThat(all.candidates()).extracting(EquivalentReplacementSessions.Candidate::locationName)
+                .containsExactly("S4 Other Location", "S4 Facade Location");
+
+        setPair(pkg, other, false);
+        assertThat(facade.findEquivalentReplacementSessions(query).candidates())
+                .extracting(EquivalentReplacementSessions.Candidate::sessionReference)
+                .containsExactly(UUID.fromString(here.getReference()));
+        setPair(pkg, location, false);
+        assertThat(facade.findEquivalentReplacementSessions(query).candidates()).isEmpty();
     }
 }

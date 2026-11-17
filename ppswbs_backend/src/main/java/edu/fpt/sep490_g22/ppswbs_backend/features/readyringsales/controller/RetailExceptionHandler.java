@@ -50,7 +50,7 @@ public class RetailExceptionHandler {
     @ExceptionHandler(RetailConflictException.class)
     ResponseEntity<RetailErrorResponse> conflict(RetailConflictException exception, HttpServletRequest request) {
         log.warn("Retail conflict on {} {}: {}", request.getMethod(), request.getRequestURI(), exception.getMessage());
-        return response(HttpStatus.CONFLICT, "RETAIL_CONFLICT", exception.getMessage(), request);
+        return response(HttpStatus.CONFLICT, exception.code(), exception.getMessage(), request);
     }
 
     @ExceptionHandler(OptimisticLockingFailureException.class)

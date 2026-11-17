@@ -64,6 +64,17 @@ class BuyerVerificationLimitsConfigTest {
     }
 
     @Test
+    @DisplayName("a Staff or Manager request is answered with the masked booking email; a buyer request never is")
+    void maskedEmailOnlyForStaff() {
+        BuyerVerificationService.Challenge forStaff = defaults().requestChallengeForStaff(CODE, "c-staff");
+        assertThat(forStaff.maskedEmail()).isEqualTo(edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.EmailMasking.mask(EMAIL));
+        assertThat(forStaff.maskedEmail()).contains("***@").doesNotContain(EMAIL);
+
+        BuyerVerificationService.Challenge forBuyer = defaults().requestChallenge(CODE, EMAIL, null, "c-buyer");
+        assertThat(forBuyer.maskedEmail()).isNull();
+    }
+
+    @Test
     @DisplayName("T123: OTP lifetime follows the configured otp-ttl (default 10 min, override 3 min)")
     void otpTtl_isConfigurable() {
         Instant before = Instant.now();

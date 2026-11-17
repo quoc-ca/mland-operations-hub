@@ -65,6 +65,8 @@ export function WorkshopPaymentReturnPage({ groupCode }) {
   const { authStatus, mode: lookupMode, profileLoading, operatorRole, memberAuthorization } = useBookingIdentity();
   const params = new URLSearchParams(window.location.search);
   const vnpResponseCode = params.get('vnp_ResponseCode');
+  // "Tiếp tục thanh toán" from the header notice (FR-058): no gateway answer exists yet, so no outcome is shown.
+  const resuming = params.get('resume') === '1' && !vnpResponseCode;
 
   const [contactProof, setContactProof] = useState('');
   const [phoneCountry, setPhoneCountry] = useState(DEFAULT_PHONE_COUNTRY);
@@ -147,9 +149,9 @@ export function WorkshopPaymentReturnPage({ groupCode }) {
   return (
     <main className="public-page figma-public-page">
       <p className="eyebrow">THANH TOÁN NHÓM ĐẶT CHỖ WORKSHOP</p>
-      <h1>Kết quả chuyển hướng thanh toán</h1>
+      <h1>{resuming ? 'Tiếp tục thanh toán' : 'Kết quả chuyển hướng thanh toán'}</h1>
 
-      <div className="workspace-card" style={{ padding: '24px', borderLeft: '4px solid #002967', marginTop: '20px' }}>
+      {!resuming && <div className="workspace-card" style={{ padding: '24px', borderLeft: '4px solid #002967', marginTop: '20px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
           {!confirmed && (
             <span className={vnpResponseCode === '00' ? 'status ok' : 'status'}>
@@ -165,12 +167,12 @@ export function WorkshopPaymentReturnPage({ groupCode }) {
             mất vài giây.</>
           )}
         </p>
-      </div>
+      </div>}
 
       <section className="workspace-card" style={{ marginTop: '24px' }}>
-        <h2>{group ? 'Vé của bạn' : 'Kiểm tra trạng thái nhóm đặt chỗ'}</h2>
+        <h2>{group ? (resuming ? 'Giao dịch đang chờ thanh toán' : 'Vé của bạn') : 'Kiểm tra trạng thái nhóm đặt chỗ'}</h2>
         <p className="muted" style={{ margin: '0 0 16px' }}>
-          Mã nhóm: <strong>{groupCode || 'Chưa xác định'}</strong>
+          Mã đặt chỗ: <strong>{groupCode || 'Chưa xác định'}</strong>
         </p>
 
         {!group && operatorRole ? (
@@ -269,10 +271,6 @@ export function WorkshopPaymentReturnPage({ groupCode }) {
               onRefresh={readGroup}
               onTicketUpdated={readGroup}
             />
-            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginTop: '20px' }}>
-              <Link className="button primary" to="/workshop-booking/lookup">Xem tất cả đặt chỗ của tôi</Link>
-              <Link className="button outline" to="/workshops">Đặt thêm workshop</Link>
-            </div>
           </>
         )}
       </section>

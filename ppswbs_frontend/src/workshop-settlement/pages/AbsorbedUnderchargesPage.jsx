@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useUrlFilters } from '../../shared/ui/useUrlFilters';
 import { useHttp } from '../../shared/api/useHttp';
 import { useRole } from '../../shared/auth/useRole';
 import { Loading, SuccessNotice, useCommand } from '../../shared/ui/components';
@@ -14,7 +15,7 @@ export default function AbsorbedUnderchargesPage() {
   const api = createSettlementApi(useHttp());
   const role = useRole();
   const isManager = role === 'MANAGER' || role === 'ADMIN';
-  const [filters, setFilters] = useState({ locationId: '', from: '', to: '' });
+  const [filters, setFilters] = useUrlFilters({ locationId: '', from: '', to: '' });
   const [result, setResult] = useState(null);
   const [voiding, setVoiding] = useState(null);
   const [message, setMessage] = useState('');

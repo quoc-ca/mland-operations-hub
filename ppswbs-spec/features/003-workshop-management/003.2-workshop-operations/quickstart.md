@@ -1,7 +1,7 @@
 # Quickstart: Workshop Operations Verification
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-16
+**Date updated**: 2026-11-17
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -194,8 +194,8 @@ run is not sufficient proof of index, lock or migration behaviour.
 12a. Error and access checks (spec "Error catalogue", Checklist follow-up
    2026-11-15; tasks T126–T131, T135):
    - Send a normal check-in before `checkInOpensAt` and verify `409
-     CHECK_IN_NOT_OPEN` with `checkInOpensAt` in the body (the `EARLY_CHECKIN`
-     override stays available); a session not open for check-in answers `409
+     CHECK_IN_NOT_OPEN` with `checkInOpensAt` in the body (there is no
+     early-check-in override; a Manager sets an earlier `checkInOpensAt`); a session not open for check-in answers `409
      INVALID_STATE`.
    - Request a ticket resend four times for one booking within 15 minutes and
      verify the fourth answers `429 REDELIVERY_THROTTLED` with a `Retry-After`
@@ -235,6 +235,32 @@ run is not sufficient proof of index, lock or migration behaviour.
     Operations change, survives a consumer failure/restart for at-least-once
     handling, and does not make an external OTA call inside the Operations
     transaction.
+
+## Package availability per location (proposed 2026-11-17)
+
+Validation scenarios for spec FR-037–FR-045 (contract: `PUT
+/workshop-packages/{packageId}/locations/{locationId}/availability`, `GET
+/workshop-package-availability`; data: data-model "Package availability per
+location"). Prerequisites: an active Manager, a Staff member and a Member
+account; the seeded matrix (Hoàn Kiếm all five Packages, Tây Hồ Signature Brass,
+Signature Silver 925 and Wax Casting, Đà Nẵng none).
+
+1. Manager reads the matrix: 5 Packages × 3 locations, 8 cells `ACTIVE`; Staff and
+   Admin get `403` on read and write.
+2. Silver Clay 5g discovery at Tây Hồ returns `409
+   PACKAGE_NOT_AVAILABLE_AT_LOCATION`; at Hoàn Kiếm it returns sessions; the
+   Package's locations list excludes Tây Hồ.
+3. Manager sets Silver Clay 5g `ACTIVE` at Tây Hồ twice: the first call writes one
+   audit event, the second changes nothing and writes none.
+4. Manager sets Wax Casting `INACTIVE` at Hoàn Kiếm while a booking exists: the
+   call succeeds, the booking, tickets and an unexpired hold are untouched, a new
+   reserve there is refused.
+5. A ticket change moves a one-session ticket from Hoàn Kiếm to Tây Hồ (active
+   there) as Manager; a Staff caller is refused; a Wax Casting change to Tây Hồ
+   moves both sessions or none; a target at an `INACTIVE` pair is never offered and
+   is refused at commit.
+6. Concurrent deactivation and reserve give either a committed reserve or a
+   refusal, never a partial reserve.
 
 ## Release Safety
 

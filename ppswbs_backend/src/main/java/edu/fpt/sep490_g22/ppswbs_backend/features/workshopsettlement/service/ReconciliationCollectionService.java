@@ -139,7 +139,11 @@ public class ReconciliationCollectionService {
                         e.toString());
                 throw new ReconciliationSourceUnavailableException(e);
             }
-            if (context == null || context.isEmpty() || !locationId.equals(context.get().locationReference())) {
+            // T186 (FR-060): the branch stamped when the evidence was recorded wins; only a row older than V179
+            // reads the ticket's current location.
+            Long rowBranch = item.getBranchId() != null ? item.getBranchId()
+                    : (context == null || context.isEmpty() ? null : context.get().locationReference());
+            if (context == null || context.isEmpty() || !locationId.equals(rowBranch)) {
                 continue;
             }
             rows.add(new ReconciliationCollectionDto(null, item.getCreatedAt(), item.getBookingReference(),

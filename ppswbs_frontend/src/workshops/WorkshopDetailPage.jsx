@@ -9,6 +9,10 @@ import './figmaPublicShell.css';
 import PackageReviewSummary from '../features/reviewmanagement/ui/PackageReviewSummary';
 import { offersForPackage, usePublicWorkshopPrograms, WorkshopOfferList, WorkshopOfferPrice } from '../features/loyalty-promotion/publicOffers';
 
+// 003.1 FR-056 (003.2 FR-039): short messages, shown without the technical error (proposed copy, Q7).
+const BRANCH_UNAVAILABLE_MESSAGE = 'Gói này hiện không còn bán tại chi nhánh bạn đã chọn. Vui lòng chọn chi nhánh khác.';
+const SOLD_NOWHERE_MESSAGE = 'Gói này hiện chưa được bán tại chi nhánh nào. Vui lòng quay lại sau.';
+
 /** Sessions shown per page: two rows of three on a wide screen, so the page stays short. */
 const SESSIONS_PER_PAGE = 6;
 
@@ -31,7 +35,7 @@ export function WorkshopDetailPage({ packageId }) {
   nextTwoWeeks.setDate(today.getDate() + 14);
 
   // A selection made earlier (back from checkout, or a shared link) comes back in the URL.
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const initial = useRef(parseSelection(searchParams)).current;
   const navigate = useNavigate();
   // The list card's "Chọn ca & đặt" passes ?focus=schedule so the page opens at the session picker.
@@ -41,6 +45,12 @@ export function WorkshopDetailPage({ packageId }) {
   const [locations, setLocations] = useState([]);
   const [loadingLocations, setLoadingLocations] = useState(false);
   const [locationsError, setLocationsError] = useState(null);
+  // FR-056: a branch the server no longer sells this Package at is dropped with a short message (never a 409 screen).
+  const [branchNotice, setBranchNotice] = useState(null);
+  const [locationsLoaded, setLocationsLoaded] = useState(false);
+  const [locationsReload, setLocationsReload] = useState(0);
+  // After a conflict the customer returns to the branch choice: the first branch must not be picked for them.
+  const skipAutoSelect = useRef(false);
   const [from, setFrom] = useState(initial.from || formatDate(today));
   const [to, setTo] = useState(initial.to || formatDate(nextTwoWeeks));
 
@@ -49,6 +59,12 @@ export function WorkshopDetailPage({ packageId }) {
   const [participantCount, setParticipantCount] = useState(initial.participantCount);
   const [selectionError, setSelectionError] = useState(null);
   const [cartMessage, setCartMessage] = useState(null);
+  // The add-to-cart confirmation is a centred pop-up that closes itself after one second.
+  useEffect(() => {
+    if (!cartMessage) return undefined;
+    const timer = setTimeout(() => setCartMessage(null), 1000);
+    return () => clearTimeout(timer);
+  }, [cartMessage]);
   const [cartCount, setCartCount] = useState(() => cartLineCount());
   useEffect(() => subscribeToCart(lines => setCartCount(lines.length)), []);
 
@@ -62,6 +78,19 @@ export function WorkshopDetailPage({ packageId }) {
   const currentPage = Math.min(sessionPage, pageCount - 1);
   const pagedSessions = sessions.slice(currentPage * SESSIONS_PER_PAGE, (currentPage + 1) * SESSIONS_PER_PAGE);
   useEffect(() => { setSessionPage(0); }, [sessions]);
+
+  // Keep the pick in this page's own URL (replace, no new history entry), so the browser Back button from checkout
+  // returns here with the branch, sessions, ticket count and dates still chosen.
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams);
+    ['locationId', 'session', 'participants', 'from', 'to'].forEach(key => next.delete(key));
+    if (locationId) next.set('locationId', String(locationId));
+    selectedRefs.forEach(ref => next.append('session', ref));
+    if (participantCount > 1) next.set('participants', String(participantCount));
+    if (from) next.set('from', from);
+    if (to) next.set('to', to);
+    if (next.toString() !== searchParams.toString()) setSearchParams(next, { replace: true });
+  }, [locationId, selectedRefs, participantCount, from, to]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // The package's reviews are always shown at the bottom of this page; the button only scrolls down to them.
   const reviewRef = useRef(null);
@@ -93,17 +122,29 @@ export function WorkshopDetailPage({ packageId }) {
         if (!active) return;
         const next = Array.isArray(data) ? data : [];
         setLocations(next);
-        setLocationId(current => next.some(item => Number(item.id) === Number(current)) ? current : (next[0]?.id ?? null));
+        setLocationsLoaded(true);
+        setLocationId(current => {
+          if (current && next.some(item => Number(item.id) === Number(current))) return current;
+          // A branch from the URL (or an earlier pick) that is no longer in the list is dropped, not replaced silently.
+          if (current) {
+            setBranchNotice(BRANCH_UNAVAILABLE_MESSAGE);
+            setSelectedRefs([]);
+            return null;
+          }
+          if (skipAutoSelect.current) return null;
+          return next[0]?.id ?? null;
+        });
       })
       .catch(err => {
         if (!active) return;
         setLocations([]);
+        setLocationsLoaded(false);
         setLocationId(null);
         setLocationsError(err?.detail || err?.message || 'Không thể tải danh sách chi nhánh.');
       })
       .finally(() => { if (active) setLoadingLocations(false); });
     return () => { active = false; };
-  }, [packageId, pkg, from, to]);
+  }, [packageId, pkg, from, to, locationsReload]);
 
   // Load sessions when packageId, locationId, from, to change
   const fetchSessions = () => {
@@ -115,6 +156,16 @@ export function WorkshopDetailPage({ packageId }) {
         setSessions(Array.isArray(data) ? data : []);
       })
       .catch(err => {
+        if (err?.code === 'PACKAGE_NOT_AVAILABLE_AT_LOCATION') {
+          // Stale page or typed URL (FR-056): drop the branch and its sessions, reload the branch list, no retry.
+          skipAutoSelect.current = true;
+          setSessions([]);
+          setSelectedRefs([]);
+          setLocationId(null);
+          setBranchNotice(BRANCH_UNAVAILABLE_MESSAGE);
+          setLocationsReload(count => count + 1);
+          return;
+        }
         setSessionsError(err?.detail || err?.message || 'Không thể tải danh sách ca workshop. Vui lòng thử lại.');
       })
       .finally(() => {
@@ -123,12 +174,13 @@ export function WorkshopDetailPage({ packageId }) {
   };
 
   useEffect(() => {
-    if (pkg && locationId) {
+    // The sessions of a branch are read only after the branch list confirmed the branch (FR-056).
+    if (pkg && locationId && locationsLoaded) {
       fetchSessions();
     } else {
       setSessions([]);
     }
-  }, [pkg, locationId, from, to]);
+  }, [pkg, locationId, from, to, locationsLoaded]);
 
   const scrolledToFocus = useRef(false);
   useEffect(() => {
@@ -204,7 +256,9 @@ export function WorkshopDetailPage({ packageId }) {
     setParticipantCount(Math.min(Math.max(minParticipants, next), effectiveMax));
   };
 
-  const resetSelection = () => { setSelectedRefs([]); setSelectionError(null); setCartMessage(null); };
+  const resetSelection = () => { setSelectedRefs([]); setSelectionError(null); setCartMessage(null); setBranchNotice(null); };
+  // An empty branch list means the Package is sold nowhere: no booking control is offered (FR-056).
+  const soldNowhere = locationsLoaded && !loadingLocations && !locationsError && locations.length === 0;
 
   const buyNow = () => {
     if (problem) { setSelectionError(problem); return; }
@@ -222,7 +276,6 @@ export function WorkshopDetailPage({ packageId }) {
       packageName: pkg.name || '',
       pricePerParticipantVnd: Number(pkg.publicPrice || 0),
       locationId,
-      locationName: locations.find(item => Number(item.id) === Number(locationId))?.name || '',
       sessionLabels: chosenRefs.map(ref => {
         const found = sessions.find(item => item.sessionReference === ref);
         return found ? formatSessionWindow(found.scheduledStart, found.scheduledEnd) : ref;
@@ -234,7 +287,7 @@ export function WorkshopDetailPage({ packageId }) {
       const found = sessions.find(item => item.sessionReference === ref);
       return found ? formatSessionWindow(found.scheduledStart, found.scheduledEnd) : ref;
     });
-    setCartMessage(`✓ Đã thêm vào giỏ: ${pkg.name || 'gói workshop'} – ${ticketCount} vé, ${labels.join('; ')}. Bạn có thể chọn thêm ca hoặc gói khác rồi thanh toán một lần.`);
+    setCartMessage('Đã thêm vào giỏ hàng thành công');
   };
 
   return (
@@ -247,14 +300,30 @@ export function WorkshopDetailPage({ packageId }) {
       <h1>{pkg.name}</h1>
 
       <div className="detail-grid" style={{ alignItems: 'start', marginTop: '24px' }}>
-        <div className="ring-visual gold" aria-label="Minh họa gói workshop" style={{ height: '320px' }}>
-          <span />
+        {/* The left column stays in view while the long right column scrolls, and carries the package rules so it is not an empty gap. */}
+        <div style={{ position: 'sticky', top: '125px', display: 'grid', gap: '16px' }}>
+          <div className="ring-visual gold" aria-label="Minh họa gói workshop" style={{ height: '320px' }}>
+            <span />
+          </div>
+
+          <div className="workspace-card" style={{ padding: '18px', backgroundColor: '#fafafa' }}>
+            <h3 style={{ margin: '0 0 12px', fontSize: '16px' }}>Quy định của gói workshop</h3>
+            <ul style={{ margin: 0, paddingLeft: '20px', lineHeight: '1.8', fontSize: '14px', color: '#333' }}>
+              <li>Số buổi thực hiện: <strong>{pkg.requiredSessionCount || 1} buổi</strong></li>
+              <li>Quy định số vé / booking: <strong>{pkg.minParticipants} - {pkg.maxParticipants} vé</strong></li>
+              <li>Quy định địa điểm: <strong>{pkg.sameLocationRequired ? 'Bắt buộc chọn cùng một chi nhánh' : 'Có thể chọn linh hoạt giữa các chi nhánh'}</strong></li>
+              {pkg.minimumSameDaySlotGap > 0 && (
+                <li>Khoảng cách tối thiểu nếu học cùng ngày: <strong>cách ít nhất {pkg.minimumSameDaySlotGap} ca</strong></li>
+              )}
+              <li>Chính sách cọc: <strong>Đặt cọc 50%</strong> khi giữ chỗ, phần còn lại thanh toán tại chi nhánh.</li>
+            </ul>
+          </div>
         </div>
 
         <div>
           {/* FR-052: one ticket after the best automatic discount (006's public gate); plain price when none. */}
           <p className="price" style={{ fontSize: '32px', margin: '0 0 16px' }}>
-            <WorkshopOfferPrice offers={offers} fallback={`${Number(pkg.publicPrice || 0).toLocaleString('vi-VN')} ₫`} /> <small style={{ fontSize: '16px', fontWeight: 'normal', color: '#595959' }}>/ vé</small>
+            <WorkshopOfferPrice offers={offers} fallback={`${Number(pkg.publicPrice || 0).toLocaleString('vi-VN')}\u00a0₫`} /> <small style={{ fontSize: '16px', fontWeight: 'normal', color: '#595959' }}>/ vé</small>
           </p>
           <p className="muted" style={{ margin: '-8px 0 16px', fontSize: '13px' }}>
             Giá tham khảo đã áp mã giảm tốt nhất; giá cuối do hệ thống báo giá khi đặt.
@@ -282,22 +351,9 @@ export function WorkshopDetailPage({ packageId }) {
             </a>
           </p>
 
-          <div className="workspace-card" style={{ padding: '18px', backgroundColor: '#fafafa' }}>
-            <h3 style={{ margin: '0 0 12px', fontSize: '16px' }}>Quy định của gói workshop</h3>
-            <ul style={{ margin: 0, paddingLeft: '20px', lineHeight: '1.8', fontSize: '14px', color: '#333' }}>
-              <li>Số buổi thực hiện: <strong>{pkg.requiredSessionCount || 1} buổi</strong></li>
-              <li>Quy định số vé / booking: <strong>{pkg.minParticipants} - {pkg.maxParticipants} vé</strong></li>
-              <li>Quy định địa điểm: <strong>{pkg.sameLocationRequired ? 'Bắt buộc chọn cùng một chi nhánh' : 'Có thể chọn linh hoạt giữa các chi nhánh'}</strong></li>
-              {pkg.minimumSameDaySlotGap > 0 && (
-                <li>Khoảng cách tối thiểu nếu học cùng ngày: <strong>cách ít nhất {pkg.minimumSameDaySlotGap} ca</strong></li>
-              )}
-              <li>Chính sách cọc: <strong>Đặt cọc 50%</strong> khi giữ chỗ, phần còn lại thanh toán tại chi nhánh.</li>
-            </ul>
-          </div>
-
           <section className="workspace-card workshop-buy-panel" aria-label="Chọn ca và số lượng" style={{ marginTop: '24px', padding: '18px' }}>
-            <div className="filter-bar" style={{ margin: '0 0 14px', padding: '12px' }}>
-              <label style={{ flex: '1 1 200px' }}>
+            <div className="filter-bar ws-filter-grid" style={{ margin: '0 0 14px', padding: '12px' }}>
+              <label className="ws-filter-branch">
                 Chi nhánh
                 <select value={locationId ?? ''} disabled={loadingLocations || locations.length === 0} onChange={e => { setLocationId(Number(e.target.value)); resetSelection(); }}>
                   <option value="" disabled>{loadingLocations ? 'Đang tải chi nhánh...' : 'Chọn chi nhánh'}</option>
@@ -306,17 +362,20 @@ export function WorkshopDetailPage({ packageId }) {
                   ))}
                 </select>
               </label>
-              <label style={{ flex: '1 1 130px' }}>
+              <label>
                 Từ ngày
                 <input type="date" value={from} onChange={e => { setFrom(e.target.value); resetSelection(); }} />
               </label>
-              <label style={{ flex: '1 1 130px' }}>
+              <label>
                 Đến ngày
                 <input type="date" value={to} onChange={e => { setTo(e.target.value); resetSelection(); }} />
               </label>
             </div>
             {locationsError && <p className="status" style={{ color: '#b00', borderColor: '#b00' }}>{locationsError}</p>}
+            {branchNotice && <p role="status" className="status">{branchNotice}</p>}
+            {soldNowhere && <p role="status" className="status">{SOLD_NOWHERE_MESSAGE}</p>}
 
+            {!soldNowhere && (<>
             <h3 id="session-choice-label" style={{ margin: '0 0 4px', fontSize: '16px', scrollMarginTop: '96px' }}>
               Chọn {requiredSessions} ca workshop <small className="muted">(đã chọn {chosenRefs.length}/{requiredSessions})</small>
             </h3>
@@ -356,6 +415,7 @@ export function WorkshopDetailPage({ packageId }) {
                           opacity: selectable ? 1 : 0.5,
                         }}
                       >
+                        {s.locationName && <small style={{ display: 'block', fontSize: '12px', color: '#002967' }}>{s.locationName}</small>}
                         <strong style={{ display: 'block', fontSize: '14px' }}>{formatSessionWindow(s.scheduledStart, s.scheduledEnd)}</strong>
                         <span style={{ fontSize: '12px', color: '#595959' }}>{open ? `Còn ${s.remainingCapacity} chỗ` : 'Hết chỗ'}</span>
                       </button>
@@ -420,10 +480,11 @@ export function WorkshopDetailPage({ packageId }) {
               </button>
             </div>
             {cartMessage && (
-              <p role="status" style={{ marginTop: '10px', padding: '10px 12px', background: '#f0faf4', border: '1px solid #2e9e5b', color: '#1b5e37' }}>
-                {cartMessage} <Link className="text-link" to="/workshop-booking/cart">Mở giỏ workshop ({cartCount})</Link>
-              </p>
+              <div className="toast-center" role="status" aria-live="polite">
+                <span aria-hidden="true">✓</span> {cartMessage}
+              </div>
             )}
+            </>)}
           </section>
         </div>
       </div>

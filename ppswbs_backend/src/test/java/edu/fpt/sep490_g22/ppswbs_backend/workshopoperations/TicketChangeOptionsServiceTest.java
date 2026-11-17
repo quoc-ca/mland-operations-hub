@@ -34,6 +34,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -47,13 +48,14 @@ class TicketChangeOptionsServiceTest {
     private final TicketSessionEntitlementRepository entitlements = mock(TicketSessionEntitlementRepository.class);
     private final WorkshopSessionRepository sessions = mock(WorkshopSessionRepository.class);
     private final WorkshopPackageReservationPolicy policy = mock(WorkshopPackageReservationPolicy.class);
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopPackageAvailabilityService availability = mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopPackageAvailabilityService.class);
     private final TicketSessionReplacementService replacement = mock(TicketSessionReplacementService.class);
     private final TicketChangeOptionsService service = new TicketChangeOptionsService(tickets, entitlements,
-            sessions, policy, replacement, new TicketReplacementRules());
+            sessions, policy, availability, replacement, new TicketReplacementRules());
 
     private final AtomicLong ids = new AtomicLong(1);
-    private final WorkshopLocation branch = WorkshopLocation.builder().id(7L).build();
-    private final WorkshopLocation otherBranch = WorkshopLocation.builder().id(8L).build();
+    private final WorkshopLocation branch = WorkshopLocation.builder().id(7L).displayName("Hoan Kiem").build();
+    private final WorkshopLocation otherBranch = WorkshopLocation.builder().id(8L).displayName("Tay Ho").build();
     private AttendanceTicket ticket;
 
     @BeforeEach
@@ -62,7 +64,8 @@ class TicketChangeOptionsServiceTest {
                 .bookingReference(BOOKING_LINE).validityState(TicketValidityState.ACTIVE)
                 .salesChannel(TicketSalesChannel.DIRECT).build();
         when(tickets.findByReference(ticket.getReference())).thenReturn(Optional.of(ticket));
-        when(policy.sameLocationRequired(BOOKING_LINE)).thenReturn(Optional.of(true));
+        when(policy.packageIdOf(BOOKING_LINE)).thenReturn(Optional.of(5L));
+        when(availability.activeLocationIds(5L)).thenReturn(List.of(7L));
         when(policy.isValidTicketReplacement(eq(BOOKING_LINE), any())).thenReturn(true);
         when(replacement.remainingCapacity(any(), any())).thenReturn(5);
     }
@@ -86,8 +89,8 @@ class TicketChangeOptionsServiceTest {
     }
 
     private void branchOffers(WorkshopSession... offered) {
-        when(sessions.findByLocationIdAndStateAndWorkshopDateGreaterThanEqualOrderByScheduledStartAtAsc(
-                eq(7L), eq(SessionState.PUBLISHED), any(LocalDate.class))).thenReturn(List.of(offered));
+        when(sessions.findByLocationIdInAndStateAndWorkshopDateGreaterThanEqualOrderByScheduledStartAtAsc(
+                anyCollection(), eq(SessionState.PUBLISHED), any(LocalDate.class))).thenReturn(List.of(offered));
     }
 
     private static UUID ref(WorkshopSession session) {
@@ -100,7 +103,7 @@ class TicketChangeOptionsServiceTest {
     }
 
     @Test
-    @DisplayName("lists a candidate with its exact seats, full ones as not selectable, quota reported")
+    @DisplayName("lists a candidate with its exact seats and quota left; full or no-quota sessions are not listed")
     void listsCandidatesWithSeatsAndQuota() {
         WorkshopSession old = session(80, SessionState.PUBLISHED);
         WorkshopSession open = session(100, SessionState.PUBLISHED);
@@ -119,12 +122,10 @@ class TicketChangeOptionsServiceTest {
         TicketChangeOptions.FromSession entry = result.perFromSession().get(0);
         assertThat(entry.sourceChangeable()).isTrue();
         assertThat(entry.options()).extracting(TicketChangeOptions.Option::sessionReference)
-                .containsExactly(ref(open), ref(full), ref(noQuota));
+                .containsExactly(ref(open));
         assertThat(entry.options().get(0).remainingCapacity()).isEqualTo(3);
+        assertThat(entry.options().get(0).remainingRescheduleQuota()).isEqualTo(open.remainingRescheduleQuota());
         assertThat(entry.options().get(0).reasonCode()).isNull();
-        assertThat(entry.options().get(1).reasonCode()).isEqualTo("INSUFFICIENT_CAPACITY");
-        assertThat(entry.options().get(2).quotaAvailable()).isFalse();
-        assertThat(entry.options().get(2).reasonCode()).isNull();
         assertThat(result.pairs()).isEmpty();
     }
 
@@ -170,7 +171,6 @@ class TicketChangeOptionsServiceTest {
         WorkshopSession b = session(200, SessionState.PUBLISHED);
         ticketHolds(first, second);
         branchOffers(first, second, a, b);
-        when(replacement.remainingCapacity(eq(b), any())).thenReturn(0);
 
         TicketChangeOptions result = list(TicketReplacementType.CUSTOMER_ADVANCE, first, second);
 
@@ -178,8 +178,8 @@ class TicketChangeOptionsServiceTest {
         TicketChangeOptions.Pair pair = result.pairs().get(0);
         assertThat(pair.first().sessionReference()).isEqualTo(ref(a));
         assertThat(pair.second().sessionReference()).isEqualTo(ref(b));
-        assertThat(pair.second().remainingCapacity()).isZero();
-        assertThat(pair.reasonCode()).isEqualTo("INSUFFICIENT_CAPACITY");
+        assertThat(pair.second().remainingCapacity()).isPositive();
+        assertThat(pair.reasonCode()).isNull();
     }
 
     @Test
@@ -197,21 +197,53 @@ class TicketChangeOptionsServiceTest {
     }
 
     @Test
-    @DisplayName("another branch is listed only when the package does not require one branch")
-    void otherBranchOnlyWhenAllowed() {
+    @DisplayName("003.2 FR-042/FR-044: a location where the package is sellable is listed, with its name")
+    void otherSellableLocationIsListedWithItsName() {
         WorkshopSession old = session(80, SessionState.PUBLISHED);
         WorkshopSession elsewhere = session(100, SessionState.PUBLISHED, otherBranch);
         ticketHolds(old);
-        branchOffers(old);
-        when(policy.sameLocationRequired(BOOKING_LINE)).thenReturn(Optional.of(false));
-        when(sessions.findByStateAndWorkshopDateGreaterThanEqualOrderByScheduledStartAtAsc(
-                eq(SessionState.PUBLISHED), any(LocalDate.class))).thenReturn(List.of(old, elsewhere));
+        when(availability.activeLocationIds(5L)).thenReturn(List.of(7L, 8L));
+        when(sessions.findByLocationIdInAndStateAndWorkshopDateGreaterThanEqualOrderByScheduledStartAtAsc(
+                eq(List.of(7L, 8L)), eq(SessionState.PUBLISHED), any(LocalDate.class)))
+                .thenReturn(List.of(old, elsewhere));
 
         TicketChangeOptions.Option option = list(TicketReplacementType.CUSTOMER_ADVANCE, old)
                 .perFromSession().get(0).options().get(0);
 
         assertThat(option.sessionReference()).isEqualTo(ref(elsewhere));
         assertThat(option.locationReference()).isEqualTo(8L);
+        assertThat(option.locationName()).isEqualTo("Tay Ho");
+    }
+
+    @Test
+    @DisplayName("003.2 FR-042: only sellable locations are queried, so an inactive location is never listed")
+    void inactiveLocationIsNeverQueriedOrListed() {
+        WorkshopSession old = session(80, SessionState.PUBLISHED);
+        WorkshopSession here = session(100, SessionState.PUBLISHED);
+        WorkshopSession elsewhere = session(110, SessionState.PUBLISHED, otherBranch);
+        ticketHolds(old);
+        // the pair is INACTIVE at location 8: the availability answer holds location 7 only
+        when(sessions.findByLocationIdInAndStateAndWorkshopDateGreaterThanEqualOrderByScheduledStartAtAsc(
+                eq(List.of(7L)), eq(SessionState.PUBLISHED), any(LocalDate.class))).thenReturn(List.of(old, here));
+        when(sessions.findByLocationIdInAndStateAndWorkshopDateGreaterThanEqualOrderByScheduledStartAtAsc(
+                eq(List.of(7L, 8L)), eq(SessionState.PUBLISHED), any(LocalDate.class)))
+                .thenReturn(List.of(old, here, elsewhere));
+
+        assertThat(list(TicketReplacementType.CUSTOMER_ADVANCE, old).perFromSession().get(0).options())
+                .extracting(TicketChangeOptions.Option::sessionReference).containsExactly(ref(here));
+    }
+
+    @Test
+    @DisplayName("003.2 FR-042: no sellable location gives an empty list without querying sessions")
+    void noSellableLocationGivesNoOptions() {
+        WorkshopSession old = session(80, SessionState.PUBLISHED);
+        ticketHolds(old);
+        when(availability.activeLocationIds(5L)).thenReturn(List.of());
+
+        TicketChangeOptions result = list(TicketReplacementType.CUSTOMER_ADVANCE, old);
+
+        assertThat(result.status()).isEqualTo(TicketChangeOptions.Status.OK);
+        assertThat(result.perFromSession().get(0).options()).isEmpty();
     }
 
     @Test

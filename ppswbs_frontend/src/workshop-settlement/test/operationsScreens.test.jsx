@@ -211,10 +211,20 @@ describe('Change request queue', () => {
     expect(await screen.findByText(/Reload the latest data/)).toBeInTheDocument();
   });
 
-  it('gives Staff the queue without decision buttons', async () => {
+  it('gives Staff the queue with the decision buttons (owner decision 2026-11-17)', async () => {
     mockFetch({ [PROFILE]: asRole('STAFF'), 'GET /api/v1/workshop-change-requests': json(200, [request]) });
     renderRoutes(settlementRoutes, { path: '/settlement/change-requests' });
     expect(await screen.findByText('CR-1')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Approve' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Reject' })).toBeInTheDocument();
+  });
+
+  it('gives an Admin no queue and no decision buttons, and reads nothing', async () => {
+    const calls = mockFetch({ [PROFILE]: asRole('ADMIN'), 'GET /api/v1/workshop-change-requests': json(200, [request]) });
+    renderRoutes(settlementRoutes, { path: '/settlement/change-requests' });
+    expect(await screen.findByText(/Admin accounts have no part in ticket changes/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument();
+    expect(screen.queryByText('CR-1')).not.toBeInTheDocument();
+    expect(calls.filter(call => call.path === '/api/v1/workshop-change-requests')).toHaveLength(0);
   });
 });

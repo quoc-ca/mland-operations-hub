@@ -10,6 +10,8 @@ public class SettlementEvidenceConclusion {
  @Column(name="original_provider_create_date",length=14) private String originalProviderCreateDate;
  @Column(name="conclusion",nullable=false,length=32) private String conclusion;
  @Column(name="amount_vnd") private Long amountVnd;
+ /** Branch when the evidence was recorded (T186, FR-060); null for rows written before V179. */
+ @Column(name="branch_id") private Long branchId;
  @Column(name="currency_code",nullable=false,length=3) private String currencyCode;
  @Column(name="operation_reference",nullable=false,unique=true,length=128) private String operationReference;
  @Column(name="created_at",nullable=false,updatable=false) private Instant createdAt;

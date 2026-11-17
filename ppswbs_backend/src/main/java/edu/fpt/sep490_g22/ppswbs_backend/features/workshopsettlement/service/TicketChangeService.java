@@ -61,8 +61,6 @@ public class TicketChangeService {
     static final String RULE_ALLOWANCE = "CHANGE_ALLOWANCE_EXHAUSTED";
     static final String RULE_WINDOW = "ADVANCE_CHANGE_WINDOW_EXPIRED";
     static final String RULE_QUOTA = "RESCHEDULE_QUOTA_EXHAUSTED";
-    /** FR-044: a late arrival may be moved up to 7 days after the changed session ends. */
-    static final long LATE_ARRIVAL_WINDOW_DAYS = 7;
 
     private final WorkshopBookingFacade booking;
     private final WorkshopOperationsSettlementAdapter operations;
@@ -327,7 +325,7 @@ public class TicketChangeService {
         if (type == TicketChangeType.LATE_ARRIVAL) {
             fromSessions.stream().map(this::snapshotOf).map(SaleEligibilitySnapshot::scheduledEnd)
                     .filter(java.util.Objects::nonNull).min(Comparator.naturalOrder())
-                    .map(end -> end.plus(LATE_ARRIVAL_WINDOW_DAYS, ChronoUnit.DAYS))
+                    .map(TicketChangeWindow::firstInstantAfterWindow)
                     .filter(limit -> limit.isAfter(now)).ifPresent(limits::add);
         } else {
             Instant start = earliestStart(fromSessions);
@@ -496,9 +494,10 @@ public class TicketChangeService {
             return new Requester(actor.accountId(), "MEMBER", "ONLINE", "MEMBER_OWNER");
         }
         if (actor != null && (actor.role() == ActorRole.STAFF || actor.role() == ActorRole.MANAGER)) {
-            // Staff acting on buyer's behalf at counter (FR-055); T116, FR-002/FR-051: active account and,
-            // for Staff, the ticket's location in scope (Manager is global).
-            authorization.requireManagerOrStaff(actor, ctx.locationReference());
+            // Staff acting on buyer's behalf at counter (FR-055); T116, FR-002/FR-051: active account and, for Staff,
+            // the ticket's location in scope AND an active assignment to a session the ticket holds (owner decision
+            // 2026-11-06, applied to ticket changes 2026-11-16). Manager is global.
+            authorization.requireManagerOrAssignedStaff(actor, ctx.locationReference(), ctx.lineReference());
             if (reason == null || reason.isBlank()) {
                 throw new WorkshopSettlementValidationException("REASON_REQUIRED");
             }
@@ -573,6 +572,7 @@ public class TicketChangeService {
                 .build());
 
         recordAudit(ticket, "TICKET_CHANGE_APPLIED", correlation, requester.accountId(), requester.role());
+        recordLocationChange(ticket, ctx, targets, correlation, requester);
         return new ChangeResultDto(ticket, true, targets, String.valueOf(priceIncrease), false,
                 String.valueOf(newBalance.balanceDue()), true);
     }
@@ -611,6 +611,10 @@ public class TicketChangeService {
     }
 
     void recordAudit(String ticketCode, String action, String correlation, Long actorId, String role) {
+        recordAudit(ticketCode, action, correlation, actorId, role, null);
+    }
+
+    void recordAudit(String ticketCode, String action, String correlation, Long actorId, String role, String reason) {
         auditRepository.save(SettlementBusinessAudit.builder()
                 .auditReference("SETTLE-CHG-" + UUID.randomUUID())
                 .aggregateType("TICKET_CHANGE")
@@ -618,11 +622,32 @@ public class TicketChangeService {
                 .actionCode(action)
                 .actorReference(actorId != null ? String.valueOf(actorId) : role)
                 .correlationReference(correlation)
+                .reasonReference(reason)
                 .build());
     }
 
     /**
-     * FR-045 (BE-DESIGN-0007, decided 2026-11-14): 006 decides whether the ticket with its proposed sessions leaves the
+     * FR-045 (BE-DESIGN-0007    /**
+     * FR-059 (decided 2026-11-17): a move to another location needs no Manager and is not a new rule; it is only
+     * recorded. Reason holds both ids ("from=<id>;to=<id>"), the existing audit columns, no migration. 003.2 already
+     * refused a location where the pair is not ACTIVE, so reaching here means the move is valid.
+     */
+    void recordLocationChange(String ticket, TicketFolioContext ctx, List<UUID> targets, String correlation,
+                              Requester requester) {
+        Long from = ctx.locationReference();
+        for (UUID target : targets) {
+            SaleEligibilitySnapshot snapshot = operations.saleEligibility(target);
+            Long to = snapshot == null ? null : snapshot.locationReference();
+            if (from != null && to != null && !from.equals(to)) {
+                recordAudit(ticket, "TICKET_LOCATION_CHANGED", correlation, requester.accountId(), requester.role(),
+                        "from=" + from + ";to=" + to);
+                return;
+            }
+        }
+    }
+
+    /**
+     * FR-045 (BE-DESIGN-0007), decided 2026-11-14): 006 decides whether the ticket with its proposed sessions leaves the
      * accepted voucher's scope (package, branch, date, session; every session must match) and returns the ticket's
      * allocated share it then loses. 003.3 neither reads voucher targets nor recomputes the share. A ticket with no
      * programme discount has nothing to lose; an automatic discount is never lost (006 answers no voucher).

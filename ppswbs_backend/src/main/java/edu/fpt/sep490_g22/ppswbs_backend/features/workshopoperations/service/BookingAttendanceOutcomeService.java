@@ -31,10 +31,14 @@ public class BookingAttendanceOutcomeService {
     }
 
     private Evaluation evaluate(List<TicketSessionEntitlement> items, Instant now) {
-        if (items.isEmpty() || items.stream().anyMatch(item -> item.getSession() == null
+        if (items.isEmpty()) return Evaluation.pending();
+        if (items.stream().anyMatch(item -> item.getSession() == null
                 || item.getSession().getState() != SessionState.ATTENDANCE_FINALIZED
                 || item.getSession().getAttendanceFinalizedAt() == null)) {
-            return Evaluation.pending();
+            boolean anyCheckedIn = items.stream().anyMatch(item -> item.getAttendanceState() == AttendanceState.CHECKED_IN);
+            return anyCheckedIn
+                    ? new Evaluation(TicketAttendanceOutcome.pending(null, TicketAttendanceOutcome.Live.CHECKED_IN), null)
+                    : Evaluation.pending();
         }
         var closeAt = AttendanceCorrectionWindowPolicy.closesAt(items.stream()
                 .map(item -> item.getSession().getAttendanceFinalizedAt()).toList());
@@ -42,11 +46,15 @@ public class BookingAttendanceOutcomeService {
             return Evaluation.pending();
         }
         Instant windowClosesAt = closeAt.get();
-        if (now.isBefore(windowClosesAt)) {
-            return new Evaluation(TicketAttendanceOutcome.pending(windowClosesAt), windowClosesAt);
-        }
         boolean allNoShow = items.stream().allMatch(item -> item.getAttendanceState() == AttendanceState.NO_SHOW);
         boolean allAttended = items.stream().allMatch(item -> item.getAttendanceState() == AttendanceState.CHECKED_IN);
+        if (now.isBefore(windowClosesAt)) {
+            boolean anyCheckedIn = items.stream().anyMatch(item -> item.getAttendanceState() == AttendanceState.CHECKED_IN);
+            TicketAttendanceOutcome.Live live = allNoShow ? TicketAttendanceOutcome.Live.NO_SHOW_PENDING
+                    : allAttended ? TicketAttendanceOutcome.Live.ATTENDED
+                    : anyCheckedIn ? TicketAttendanceOutcome.Live.CHECKED_IN : null;
+            return new Evaluation(TicketAttendanceOutcome.pending(windowClosesAt, live), windowClosesAt);
+        }
         TicketAttendanceOutcome.Outcome outcome = allNoShow ? TicketAttendanceOutcome.Outcome.NO_SHOW
                 : allAttended ? TicketAttendanceOutcome.Outcome.ATTENDED : TicketAttendanceOutcome.Outcome.PARTIAL;
         return new Evaluation(new TicketAttendanceOutcome(true, outcome, windowClosesAt), windowClosesAt);

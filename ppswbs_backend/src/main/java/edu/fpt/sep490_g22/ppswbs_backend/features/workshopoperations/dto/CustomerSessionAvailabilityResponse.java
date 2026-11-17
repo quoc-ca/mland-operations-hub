@@ -9,6 +9,7 @@ import java.util.UUID;
 public record CustomerSessionAvailabilityResponse(
         @NotNull UUID sessionReference,
         @NotNull Long locationId,
+        String locationName,
         @NotNull Instant scheduledStart,
         @NotNull Instant scheduledEnd,
         @NotNull String saleState,

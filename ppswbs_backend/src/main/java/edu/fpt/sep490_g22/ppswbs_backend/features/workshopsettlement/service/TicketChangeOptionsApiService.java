@@ -51,7 +51,7 @@ public class TicketChangeOptionsApiService {
     private final TicketChangeService changes;
     private final WorkshopSettlementAuthorizationService authorization;
 
-    /** Member who owns the group, Staff in the ticket's location, Manager. */
+    /** Member who owns the group, Staff in the ticket's location assigned to one of its sessions, Manager. */
     @Transactional(readOnly = true)
     public ChangeOptionsDto forActor(String ticketCode, TicketChangeType type, List<UUID> from,
                                      CurrentAccountActor actor) {
@@ -68,7 +68,7 @@ public class TicketChangeOptionsApiService {
                 throw new WorkshopSettlementAuthorizationException("NOT_BUYER");
             }
         } else if (actor.role() == ActorRole.STAFF || actor.role() == ActorRole.MANAGER) {
-            authorization.requireManagerOrStaff(actor, ctx.locationReference());
+            authorization.requireManagerOrAssignedStaff(actor, ctx.locationReference(), ctx.lineReference());
         } else {
             throw new WorkshopSettlementAuthorizationException("ACTIVE_ACCOUNT_REQUIRED");
         }
@@ -147,7 +147,7 @@ public class TicketChangeOptionsApiService {
         } else {
             lateDeadline = basis.stream().map(TicketChangeOptions.FromSession::end).filter(Objects::nonNull)
                     .min(Comparator.naturalOrder())
-                    .map(end -> end.plus(TicketChangeService.LATE_ARRIVAL_WINDOW_DAYS, ChronoUnit.DAYS)).orElse(null);
+                    .map(TicketChangeWindow::firstInstantAfterWindow).orElse(null);
             windowOpen = lateDeadline != null && now.isBefore(lateDeadline);
         }
 
@@ -164,15 +164,14 @@ public class TicketChangeOptionsApiService {
             List<ChangeOptionDto> options = new ArrayList<>();
             for (TicketChangeOptions.Option option : item.options()) {
                 boolean selectable = option.reasonCode() == null;
+                // A session without quota is never listed, so only the ticket's own rules can need a Manager here.
                 List<String> rules = new ArrayList<>();
                 if (selectable) {
                     rules.addAll(ticketRules);
-                    if (!option.quotaAvailable()) {
-                        rules.add(TicketChangeService.RULE_QUOTA);
-                    }
                 }
                 options.add(new ChangeOptionDto(option.sessionReference(), option.start(), option.end(),
-                        option.locationReference(), option.remainingCapacity(), selectable, option.reasonCode(),
+                        option.locationReference(), option.locationName(), option.remainingCapacity(), option.remainingRescheduleQuota(),
+                        selectable, option.reasonCode(),
                         !rules.isEmpty(), List.copyOf(rules),
                         priceOf(ticket, ctx, List.of(item.sessionReference()), List.of(option.sessionReference()))));
             }
@@ -188,16 +187,15 @@ public class TicketChangeOptionsApiService {
             List<String> rules = new ArrayList<>();
             if (selectable) {
                 rules.addAll(ticketRules);
-                if (!pair.quotaAvailable()) {
-                    rules.add(TicketChangeService.RULE_QUOTA);
-                }
             }
             List<UUID> targets = List.of(pair.first().sessionReference(), pair.second().sessionReference());
             pairs.add(new PairOptionDto(targets, List.of(
                     new SessionSeatsDto(pair.first().sessionReference(), pair.first().start(), pair.first().end(),
-                            pair.first().remainingCapacity()),
+                            pair.first().remainingCapacity(), pair.first().remainingRescheduleQuota(),
+                            pair.first().locationReference(), pair.first().locationName()),
                     new SessionSeatsDto(pair.second().sessionReference(), pair.second().start(), pair.second().end(),
-                            pair.second().remainingCapacity())), selectable, pair.reasonCode(), !rules.isEmpty(), List.copyOf(rules),
+                            pair.second().remainingCapacity(), pair.second().remainingRescheduleQuota(),
+                            pair.second().locationReference(), pair.second().locationName())), selectable, pair.reasonCode(), !rules.isEmpty(), List.copyOf(rules),
                     priceOf(ticket, ctx, pairFrom, targets)));
         }
 

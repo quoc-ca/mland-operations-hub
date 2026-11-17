@@ -99,6 +99,31 @@ class TicketFolioApiServiceTest {
     }
 
     @Test
+    void readFolioStatuses_returnsLifecycleOnlyForTicketsTheActorMayOpen() {
+        TicketFolioContext ctx = new TicketFolioContext("TK-1", "GRP-1", "LINE-1", "PKG-1", 1L, List.of("SES-1"), 30L);
+        TicketFolioContext other = new TicketFolioContext("TK-2", "GRP-1", "LINE-2", "PKG-1", 1L, List.of("SES-2"), 30L);
+        when(booking.getTicketFolioContext("TK-1")).thenReturn(Optional.of(ctx));
+        when(booking.getTicketFolioContext("TK-2")).thenReturn(Optional.of(other));
+        when(booking.getTicketFolioContext("TK-3")).thenReturn(Optional.empty());
+        when(bills.findByBookingReference("TK-1")).thenReturn(Optional.of(SettlementFinalBill.builder()
+                .bookingReference("TK-1").lifecycleStatus("FINALIZED").build()));
+        when(bills.findByBookingReference("TK-2")).thenReturn(Optional.of(SettlementFinalBill.builder()
+                .bookingReference("TK-2").lifecycleStatus("OPEN").build()));
+        when(authorization.requireManagerOrAssignedStaff(staff, 1L, "LINE-2"))
+                .thenThrow(new WorkshopSettlementAuthorizationException("SESSION_ASSIGNMENT_REQUIRED"));
+
+        var response = service.readFolioStatuses(List.of("TK-1", "TK-2", "TK-3"), staff);
+
+        assertThat(response.statuses()).containsOnlyKeys("TK-1").containsEntry("TK-1", "FINALIZED");
+    }
+
+    @Test
+    void readFolioStatuses_refusesAMember() {
+        assertThatThrownBy(() -> service.readFolioStatuses(List.of("TK-1"), memberBuyer))
+                .isInstanceOf(WorkshopSettlementAuthorizationException.class);
+    }
+
+    @Test
     void readFolio_asNonOwningMember_throwsException() {
         TicketFolioContext ctx = new TicketFolioContext(
                 "TK-1", "GRP-1", "LINE-1", "PKG-1", 1L, List.of("SES-1"), 30L

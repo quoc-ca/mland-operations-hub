@@ -56,6 +56,20 @@ class GroupCommandErrorContractTest {
                 .andExpect(jsonPath("$.code").value(code));
     }
 
+    /** T158 / FR-055: the location refusal answers 409 with its own code and the failing lines (FR-031 shape). */
+    @Test
+    void anInactiveLocationAnswers409WithItsOwnCodeAndTheFailingLines() throws Exception {
+        when(creation.create(any(), any(), anyString(), any())).thenThrow(new edu.fpt.sep490_g22.ppswbs_backend
+                .features.workshopbooking.service.CartHoldRejectedException("PACKAGE_NOT_AVAILABLE_AT_LOCATION",
+                "No seat was held", java.util.List.of(1)));
+
+        mvc.perform(post("/api/v1/workshop-booking-groups").header("Idempotency-Key", KEY)
+                        .accept(MediaType.APPLICATION_JSON).contentType(MediaType.APPLICATION_JSON).content(BODY))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("PACKAGE_NOT_AVAILABLE_AT_LOCATION"))
+                .andExpect(jsonPath("$.failingLines[0]").value(1));
+    }
+
     /** T138: a reused key with different content on a group command answers 409 IDEMPOTENCY_CONFLICT. */
     @Test
     void aReusedKeyWithDifferentContentAnswersIdempotencyConflict() throws Exception {

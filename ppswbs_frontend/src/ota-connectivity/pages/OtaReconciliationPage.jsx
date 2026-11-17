@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { useUrlFilters } from '../../shared/ui/useUrlFilters';
 import { Link } from 'react-router';
 import { useAuth } from '../../shared/auth/AuthProvider';
 import { useOtaConnectivityApi } from '../api/useOtaConnectivityApi';
@@ -15,7 +16,9 @@ export default function OtaReconciliationPage() {
   const api = useOtaConnectivityApi();
 
   const [workItems, setWorkItems] = useState([]);
-  const [selectedStatus, setSelectedStatus] = useState('ALL');
+  const [{ status: selectedStatus, category: selectedCategory }, setUrlFilters] = useUrlFilters({ status: 'ALL', category: '' });
+  const setSelectedStatus = value => setUrlFilters(previous => ({ ...previous, status: value }));
+  const setSelectedCategory = value => setUrlFilters(previous => ({ ...previous, category: value }));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
@@ -23,8 +26,7 @@ export default function OtaReconciliationPage() {
   const [resolveModal, setResolveModal] = useState({ open: false, item: null });
 
   // 003.4 T119: the applied category filter (sent as `category`) and what is typed before applying it.
-  const [selectedCategory, setSelectedCategory] = useState('');
-  const [categoryInput, setCategoryInput] = useState('');
+  const [categoryInput, setCategoryInput] = useState(selectedCategory);
 
   const loadWorkItems = useCallback(async (status, category) => {
     try {

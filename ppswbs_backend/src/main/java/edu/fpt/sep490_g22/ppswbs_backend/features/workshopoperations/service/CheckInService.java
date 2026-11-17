@@ -232,7 +232,7 @@ public class CheckInService {
                             : new WorkshopNotFoundException("Ticket not found for provided QR token"));
         }
         if (request.getTicketCode() != null && !request.getTicketCode().isBlank()) {
-            return ticketRepository.findByTicketCode(request.getTicketCode())
+            return ticketRepository.findByAnyTicketCode(request.getTicketCode())
                     .orElseThrow(() -> new WorkshopNotFoundException("Ticket not found for ticket code: " + request.getTicketCode()));
         }
         throw new WorkshopValidationException("Either qrToken or ticketCode must be provided");

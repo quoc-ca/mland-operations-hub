@@ -63,11 +63,15 @@ public interface TicketSessionEntitlementRepository extends JpaRepository<Ticket
 
     List<TicketSessionEntitlement> findBySessionIdAndAttendanceState(Long sessionId, AttendanceState state);
 
-    /** T116: every entitlement of a booking in every session and location, whatever the ticket validity state. */
-    @Query("SELECT tse FROM TicketSessionEntitlement tse WHERE tse.ticket.bookingReference = :bookingReference "
-            + "ORDER BY tse.ticket.ticketSequence, tse.id")
+    /**
+     * T116: every entitlement of a booking in every session and location, whatever the ticket validity state. The booking
+     * reference is a line reference (GRP-…-L2) or the group code (GRP-…), which covers every line of the group.
+     */
+    @Query("SELECT tse FROM TicketSessionEntitlement tse WHERE (tse.ticket.bookingReference = :bookingReference "
+            + "OR tse.ticket.bookingReference LIKE CONCAT(:bookingReference, '-L%')) "
+            + "ORDER BY tse.ticket.bookingReference, tse.ticket.ticketSequence, tse.id")
     List<TicketSessionEntitlement> findAllByBookingReferenceOrdered(@Param("bookingReference") String bookingReference);
 
-    @Query("SELECT tse FROM TicketSessionEntitlement tse WHERE tse.session.id = :sessionId AND tse.ticket.bookingReference = :bookingReference AND tse.ticket.validityState = 'ACTIVE'")
+    @Query("SELECT tse FROM TicketSessionEntitlement tse WHERE tse.session.id = :sessionId AND (tse.ticket.bookingReference = :bookingReference OR tse.ticket.bookingReference LIKE CONCAT(:bookingReference, '-L%')) AND tse.ticket.validityState = 'ACTIVE'")
     List<TicketSessionEntitlement> findActiveEntitlementsBySessionIdAndBookingReference(@Param("sessionId") Long sessionId, @Param("bookingReference") String bookingReference);
 }

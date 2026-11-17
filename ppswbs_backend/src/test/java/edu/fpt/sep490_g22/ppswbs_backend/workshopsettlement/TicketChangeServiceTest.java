@@ -610,6 +610,22 @@ class TicketChangeServiceTest {
     }
 
     @Test
+    @DisplayName("Staff in the ticket's location but not assigned to a session of the ticket is refused (2026-11-06 rule)")
+    void staffNotAssignedToTicketSession_isRefused() {
+        TicketFolioContext ctx = createDefaultContext(0L, Instant.now().plus(48, ChronoUnit.HOURS));
+        when(booking.getTicketFolioContext(TICKET_CODE)).thenReturn(Optional.of(ctx));
+        when(finalBills.findByBookingReference(TICKET_CODE)).thenReturn(Optional.of(createDefaultFolio(100_000L)));
+        when(operations.staffAssignedToBooking(eq(STAFF_ACCOUNT_ID), any())).thenReturn(false);
+        CurrentAccountActor staff = new CurrentAccountActor(STAFF_ACCOUNT_ID, ActorRole.STAFF, ActorStatus.ACTIVE, false, List.of(10L));
+        TicketChangeRequestDto req = new TicketChangeRequestDto(TicketChangeType.ADVANCE, List.of(TARGET_SESSION_1),
+                List.of(FROM_SESSION_1), null, "bvr-proof-1234567890", "Counter request");
+
+        assertThatThrownBy(() -> service.changeTicketSessions(TICKET_CODE, req, IDEMPOTENCY_KEY, "CORR-NA", staff))
+                .isInstanceOf(WorkshopSettlementAuthorizationException.class)
+                .hasMessageContaining("SESSION_ASSIGNMENT_REQUIRED");
+    }
+
+    @Test
     @DisplayName("changeTicketSessions: Staff at counter requires reason and buyerVerificationReference (FR-055)")
     void staffAtCounter_requiresReasonAndProof() {
         TicketFolioContext ctx = createDefaultContext(0L, Instant.now().plus(48, ChronoUnit.HOURS));
@@ -619,6 +635,7 @@ class TicketChangeServiceTest {
         when(finalBills.findByBookingReference(TICKET_CODE)).thenReturn(Optional.of(folio));
 
         CurrentAccountActor staffActor = new CurrentAccountActor(STAFF_ACCOUNT_ID, ActorRole.STAFF, ActorStatus.ACTIVE, false, List.of(10L));
+        when(operations.staffAssignedToBooking(eq(STAFF_ACCOUNT_ID), any())).thenReturn(true);
 
         // Missing reason -> 422 REASON_REQUIRED
         TicketChangeRequestDto noReasonReq = new TicketChangeRequestDto(
@@ -805,7 +822,7 @@ class TicketChangeServiceTest {
     }
 
     @Test
-    @DisplayName("T130: LATE_ARRIVAL expires at the earliest of the changed session's end + 7 days and the target's start")
+    @DisplayName("T130: LATE_ARRIVAL expires at the earliest of the changed session's end date + 7 calendar days (VN) and the target's start")
     void expiry_lateArrival_endPlusSevenDays_orTargetStart() {
         Instant now = Instant.now();
         Instant end = now.plus(1, ChronoUnit.HOURS);
@@ -815,7 +832,9 @@ class TicketChangeServiceTest {
         snapshot(TARGET_SESSION_1, now.plus(10, ChronoUnit.DAYS), now.plus(10, ChronoUnit.DAYS).plus(2, ChronoUnit.HOURS));
 
         queueChange(TicketChangeType.LATE_ARRIVAL, FROM_SESSION_1, TARGET_SESSION_1, IDEMPOTENCY_KEY);
-        assertThat(savedExpiry()).isEqualTo(end.plus(7, ChronoUnit.DAYS));
+        // FR-062: the start of the 8th calendar day (Asia/Ho_Chi_Minh) after the end date, not end + 168 h.
+        assertThat(savedExpiry()).isEqualTo(end.atZone(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).toLocalDate()
+                .plusDays(8).atStartOfDay(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).toInstant());
 
         clearInvocations(requestRepository);
         Instant nearTarget = now.plus(3, ChronoUnit.DAYS);
@@ -934,5 +953,66 @@ class TicketChangeServiceTest {
                 IDEMPOTENCY_KEY, "CORR-FR044d", member))
                 .isInstanceOf(WorkshopSettlementValidationException.class).hasMessageContaining("FROM_SESSIONS_MISMATCH");
         verify(operations, never()).replaceTicketSessions(any());
+    }
+
+    private void stubCrossLocationChange(Long targetLocation) {
+        TicketFolioContext ctx = createDefaultContext(0L, Instant.now().plus(72, ChronoUnit.HOURS));
+        when(booking.getTicketFolioContext(TICKET_CODE)).thenReturn(Optional.of(ctx));
+        when(finalBills.findByBookingReference(TICKET_CODE)).thenReturn(Optional.of(createDefaultFolio(100_000L)));
+        when(folioBalanceService.balanceOf(any())).thenReturn(new FolioBalanceService.FolioBalance(100_000L, 0L, 100_000L));
+        Instant start = Instant.now().plus(96, ChronoUnit.HOURS);
+        lenient().when(operations.saleEligibility(TARGET_SESSION_1)).thenReturn(new SaleEligibilitySnapshot(TARGET_SESSION_1,
+                true, "ACTIVE", targetLocation, start, start.plus(2, ChronoUnit.HOURS), 5, null));
+    }
+
+    private ChangeResultDto changeToTarget() {
+        CurrentAccountActor member = new CurrentAccountActor(BUYER_ACCOUNT_ID, ActorRole.MEMBER, ActorStatus.ACTIVE, false, List.of(10L));
+        return service.changeTicketSessions(TICKET_CODE, new TicketChangeRequestDto(TicketChangeType.ADVANCE,
+                List.of(TARGET_SESSION_1), List.of(FROM_SESSION_1), null, null, null), IDEMPOTENCY_KEY, "CORR-LOC", member);
+    }
+
+    @Test
+    @DisplayName("T184: a change to another location needs no Manager and writes TICKET_LOCATION_CHANGED with both ids")
+    void crossLocationChange_appliesAndAudits() {
+        stubCrossLocationChange(20L);
+        when(operations.replaceTicketSessions(any())).thenReturn(TicketSessionReplacementOutcome.accepted());
+
+        ChangeResultDto result = changeToTarget();
+
+        assertThat(result.applied()).isTrue();
+        ArgumentCaptor<edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementBusinessAudit> audit =
+                ArgumentCaptor.forClass(edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementBusinessAudit.class);
+        verify(auditRepository, atLeastOnce()).save(audit.capture());
+        assertThat(audit.getAllValues()).anySatisfy(a -> {
+            assertThat(a.getActionCode()).isEqualTo("TICKET_LOCATION_CHANGED");
+            assertThat(a.getReasonReference()).isEqualTo("from=10;to=20");
+        });
+        verify(requestRepository, never()).save(any(SettlementTicketChangeRequest.class));
+    }
+
+    @Test
+    @DisplayName("T184: a change inside the same location writes no TICKET_LOCATION_CHANGED")
+    void sameLocationChange_noLocationAudit() {
+        stubCrossLocationChange(10L);
+        when(operations.replaceTicketSessions(any())).thenReturn(TicketSessionReplacementOutcome.accepted());
+
+        assertThat(changeToTarget().applied()).isTrue();
+
+        verify(auditRepository, never()).save(argThat(a -> "TICKET_LOCATION_CHANGED".equals(a.getActionCode())));
+    }
+
+    @Test
+    @DisplayName("T184: a pair not ACTIVE at the target location is 409 PACKAGE_NOT_AVAILABLE_AT_LOCATION, nothing recorded")
+    void crossLocationChange_packageNotAvailable_isRefused() {
+        stubCrossLocationChange(20L);
+        when(operations.replaceTicketSessions(any())).thenReturn(
+                TicketSessionReplacementOutcome.rejected(RejectionReason.PACKAGE_NOT_AVAILABLE_AT_LOCATION, List.of(0)));
+
+        assertThatThrownBy(this::changeToTarget).isInstanceOf(WorkshopSettlementConflictException.class)
+                .hasMessageContaining("PACKAGE_NOT_AVAILABLE_AT_LOCATION");
+
+        verify(changeRepository, never()).save(any(SettlementTicketChange.class));
+        verify(requestRepository, never()).save(any(SettlementTicketChangeRequest.class));
+        verify(auditRepository, never()).save(argThat(a -> "TICKET_LOCATION_CHANGED".equals(a.getActionCode())));
     }
 }

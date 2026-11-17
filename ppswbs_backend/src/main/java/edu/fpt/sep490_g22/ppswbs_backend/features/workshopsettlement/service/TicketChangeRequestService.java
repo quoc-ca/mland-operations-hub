@@ -63,7 +63,7 @@ public class TicketChangeRequestService {
     public ChangeRequestDto decide(String requestReference, ChangeRequestDecisionDto body, String idempotencyKey,
                                    String correlationId, CurrentAccountActor actor) {
         changes.requireIdempotencyKey(idempotencyKey);
-        authorization.requireManager(actor);
+        authorization.requireManagerOrAnyStaff(actor);
         if (body == null || body.decision() == null) {
             throw new WorkshopSettlementValidationException("DECISION_REQUIRED");
         }
@@ -75,6 +75,8 @@ public class TicketChangeRequestService {
         }
         SettlementTicketChangeRequest request = requests.findByRequestReferenceForUpdate(requestReference.trim())
                 .orElseThrow(() -> new WorkshopSettlementNotFoundException("CHANGE_REQUEST_NOT_FOUND"));
+        // Owner decision 2026-11-17: a Staff member decides too, for a request of a location in their scope; a Manager is global.
+        authorization.requireManagerOrStaff(actor, request.getLocationReference());
         String key = idempotencyKey.trim();
         if (key.equals(request.getDecisionIdempotencyKey())) {
             return toDto(request); // replay of the same decision

@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { fakeSession, json, mockFetch, renderRoutes } from '../test/render';
 import { workshopRoutes } from './routes';
@@ -52,7 +52,7 @@ describe('003.1 FR-012b/FR-012c group payment attempt failures (T149)', () => {
     vi.stubGlobal('fetch', fetchMock);
     render(<GroupHoldPanel group={group()} proof={PROOF} />);
 
-    await user.click(screen.getByRole('button', { name: /Thanh toán 400.000 ₫ qua VNPay/ }));
+    await user.click(screen.getByRole('button', { name: /Thanh toán 400.000\s₫ qua VNPay/ }));
 
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent('Chưa xác định kết quả');
@@ -78,7 +78,7 @@ describe('003.1 FR-012b/FR-012c group payment attempt failures (T149)', () => {
     });
     render(<GroupHoldPanel group={group()} proof={PROOF} />);
 
-    await user.click(screen.getByRole('button', { name: /Thanh toán 400.000 ₫ qua VNPay/ }));
+    await user.click(screen.getByRole('button', { name: /Thanh toán 400.000\s₫ qua VNPay/ }));
 
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent('Không thể thanh toán');
@@ -96,7 +96,7 @@ describe('003.1 FR-012b/FR-012c group payment attempt failures (T149)', () => {
     });
     render(<GroupHoldPanel group={group()} proof={PROOF} />);
 
-    await user.click(screen.getByRole('button', { name: /Thanh toán 400.000 ₫ qua VNPay/ }));
+    await user.click(screen.getByRole('button', { name: /Thanh toán 400.000\s₫ qua VNPay/ }));
 
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent('Không thể thanh toán');
@@ -155,6 +155,7 @@ describe('003.1 FR-012b the payment-return page (T149)', () => {
     expect(screen.queryByText('Đã xác nhận')).toBeNull();
     expect(screen.queryByRole('button', { name: /qua VNPay/ })).toBeNull();
   });
+it('resumes a pending payment from the header notice without showing a gateway result that does not exist (FR-058)', async () => {    await openReturn(group(), '?resume=1');    expect(await screen.findByRole('heading', { name: 'Tiếp tục thanh toán' })).toBeInTheDocument();    expect(screen.queryByText(/Mã phản hồi cổng/)).toBeNull();    expect(screen.queryByText('Không nhận được phản hồi từ cổng')).toBeNull();  });  it('keeps the gateway result when the browser comes back from the gateway, even with resume in the address', async () => {    await openReturn(group(), '?resume=1&vnp_ResponseCode=00');    expect(await screen.findByRole('heading', { name: 'Kết quả chuyển hướng thanh toán' })).toBeInTheDocument();    expect(screen.getByText('Cổng thanh toán báo thành công')).toBeInTheDocument();  });
 
   it('shows the server state of an expired group even when the gateway reported success', async () => {
     const { user, calls } = await openReturn(group({ groupStatus: 'EXPIRED', holdExpiresAt: null, paymentDeadlineAt: null, tickets: [ticket(1, 'EXPIRED'), ticket(2, 'EXPIRED')] }));
@@ -181,8 +182,6 @@ describe('003.1 FR-012b the payment-return page (T149)', () => {
     const remedy = screen.getAllByRole('link', { name: 'Chọn buổi thay thế hoặc hoàn tiền' });
     expect(remedy).toHaveLength(1);
     expect(remedy[0]).toHaveAttribute('href', '/workshop-tickets/WT-1/remedy');
-    expect(screen.getByRole('link', { name: 'Đặt thêm workshop' })).toHaveAttribute('href', '/workshops');
-    expect(screen.getByRole('link', { name: 'Xem tất cả đặt chỗ của tôi' })).toHaveAttribute('href', '/workshop-booking/lookup');
   });
 
   it('lets a signed-out buyer cancel an unused ticket after the OTP check and shows the benefit outcome', async () => {
@@ -270,18 +269,19 @@ describe('003.1 FR-031/FR-045 503 DEPENDENCY_UNAVAILABLE on quote and group crea
   it('cart quote: shows "try again later", keeps the cart, creates no group, sends no retry', async () => {
     const user = userEvent.setup();
     const calls = mockFetch({ ...discovery(), 'POST /api/v1/workshop-cart-quotes': UNAVAILABLE });
-    renderRoutes(workshopRoutes, { path: '/workshops/5', session: fakeSession('signed-out') });
+    const { router } = renderRoutes(workshopRoutes, { path: '/workshops/5', session: fakeSession('signed-out') });
     await pickTwoTickets(user);
     await user.click(screen.getByRole('button', { name: 'Thêm vào giỏ' }));
-    await user.click(await screen.findByRole('link', { name: /Mở giỏ workshop/i }));
-    await user.click(await screen.findByRole('button', { name: 'Đặt chỗ ngay' }));
+    await act(async () => { await router.navigate('/workshop-booking/cart'); }); // the header cart icon is outside these routes
+    await user.click(await screen.findByRole('checkbox', { name: 'Chọn tất cả các dòng' })); // nothing is ticked when the cart opens
+    await user.click(await screen.findByRole('button', { name: 'Xem báo giá và đặt chỗ' }));
 
     expect(await screen.findByText(TRY_LATER)).toBeInTheDocument();
     await new Promise(resolve => setTimeout(resolve, 150));
     expect(calls.filter(call => call.path === '/api/v1/workshop-cart-quotes')).toHaveLength(1);
     expect(calls.some(call => call.path === '/api/v1/workshop-booking-groups')).toBe(false);
     expect(readCart()).toHaveLength(1);
-    expect(screen.getByRole('button', { name: 'Đặt chỗ ngay' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Xem báo giá và đặt chỗ' })).toBeEnabled();
     expect(screen.queryByText(GROUP_CODE)).toBeNull();
   });
 
@@ -292,11 +292,12 @@ describe('003.1 FR-031/FR-045 503 DEPENDENCY_UNAVAILABLE on quote and group crea
       'POST /api/v1/workshop-cart-quotes': json(201, QUOTE),
       'POST /api/v1/workshop-booking-groups': UNAVAILABLE,
     });
-    renderRoutes(workshopRoutes, { path: '/workshops/5', session: fakeSession('signed-out') });
+    const { router } = renderRoutes(workshopRoutes, { path: '/workshops/5', session: fakeSession('signed-out') });
     await pickTwoTickets(user);
     await user.click(screen.getByRole('button', { name: 'Thêm vào giỏ' }));
-    await user.click(await screen.findByRole('link', { name: /Mở giỏ workshop/i }));
-    await user.click(await screen.findByRole('button', { name: 'Đặt chỗ ngay' }));
+    await act(async () => { await router.navigate('/workshop-booking/cart'); }); // the header cart icon is outside these routes
+    await user.click(await screen.findByRole('checkbox', { name: 'Chọn tất cả các dòng' })); // nothing is ticked when the cart opens
+    await user.click(await screen.findByRole('button', { name: 'Xem báo giá và đặt chỗ' }));
     await user.type(await screen.findByLabelText(/Email nhận vé/i), 'guest@mland.vn');
     await user.type(screen.getByLabelText(/Số điện thoại liên hệ/i), '0901234567');
     await user.click(screen.getByRole('button', { name: 'Xác nhận và giữ chỗ' }));

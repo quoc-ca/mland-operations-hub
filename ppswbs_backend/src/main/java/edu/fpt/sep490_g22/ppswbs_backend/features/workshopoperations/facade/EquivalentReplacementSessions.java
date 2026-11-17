@@ -17,6 +17,11 @@ public record EquivalentReplacementSessions(List<Candidate> candidates) {
         return new EquivalentReplacementSessions(List.of());
     }
 
-    public record Candidate(UUID sessionReference, Instant startAt, Instant endAt) {
+    public record Candidate(UUID sessionReference, Instant startAt, Instant endAt, Long locationId,
+                            String locationName) {
+        /** Without the location (003.2 FR-046 adds it; consumers built earlier keep compiling). */
+        public Candidate(UUID sessionReference, Instant startAt, Instant endAt) {
+            this(sessionReference, startAt, endAt, null, null);
+        }
     }
 }

@@ -32,7 +32,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/** 003.3 T117 (FR-045a): the Staff/Manager queue of changes only a Manager may allow. */
+/** 003.3 T117 (FR-045a): the Staff/Manager queue of changes; owner decision 2026-11-17: Staff decide inside their locations, Admin has no part. */
 class TicketChangeRequestServiceTest {
 
     private static final String KEY = "idem-key-decision-0001";
@@ -105,6 +105,19 @@ class TicketChangeRequestServiceTest {
     }
 
     @Test
+    @DisplayName("decide: a Staff member of the request's location approves and the decision is recorded under their account")
+    void staffInScopeApproves() {
+        SettlementTicketChangeRequest request = pending(REQUEST_REF, 7L, Instant.now().plus(1, ChronoUnit.DAYS));
+        when(requests.findByRequestReferenceForUpdate(REQUEST_REF)).thenReturn(Optional.of(request));
+        when(changes.applyApproved(eq(request), eq(staffAtBranch7), anyString(), anyString(), any())).thenReturn("TCHG-2");
+
+        ChangeRequestDto result = service.decide(REQUEST_REF, decision(ChangeRequestDecision.APPROVE), KEY, null, staffAtBranch7);
+
+        assertThat(result.status()).isEqualTo("APPROVED");
+        assertThat(request.getDecidedByAccountId()).isEqualTo(200L);
+    }
+
+    @Test
     @DisplayName("decide REJECT: nothing is applied and the request is closed with the reason")
     void reject_appliesNothing() {
         SettlementTicketChangeRequest request = pending(REQUEST_REF, 7L, Instant.now().plus(1, ChronoUnit.DAYS));
@@ -133,13 +146,17 @@ class TicketChangeRequestServiceTest {
     }
 
     @Test
-    @DisplayName("decide: Staff cannot decide, a reason is required, and a decided or expired request is a 409")
+    @DisplayName("decide: Staff of another location and an Admin cannot decide, a reason is required, and a decided or expired request is a 409")
     void decide_refusals() {
         SettlementTicketChangeRequest request = pending(REQUEST_REF, 7L, Instant.now().plus(1, ChronoUnit.DAYS));
         when(requests.findByRequestReferenceForUpdate(REQUEST_REF)).thenReturn(Optional.of(request));
 
-        assertThatThrownBy(() -> service.decide(REQUEST_REF, decision(ChangeRequestDecision.APPROVE), KEY, null, staffAtBranch7))
-                .isInstanceOf(WorkshopSettlementAuthorizationException.class).hasMessageContaining("MANAGER_REQUIRED");
+        CurrentAccountActor staffAtBranch9 = new CurrentAccountActor(201L, ActorRole.STAFF, ActorStatus.ACTIVE, true, List.of(9L));
+        CurrentAccountActor admin = new CurrentAccountActor(400L, ActorRole.ADMIN, ActorStatus.ACTIVE, true, List.of());
+        assertThatThrownBy(() -> service.decide(REQUEST_REF, decision(ChangeRequestDecision.APPROVE), KEY, null, staffAtBranch9))
+                .isInstanceOf(WorkshopSettlementAuthorizationException.class).hasMessageContaining("LOCATION_SCOPE_DENIED");
+        assertThatThrownBy(() -> service.decide(REQUEST_REF, decision(ChangeRequestDecision.APPROVE), KEY, null, admin))
+                .isInstanceOf(WorkshopSettlementAuthorizationException.class).hasMessageContaining("STAFF_OR_MANAGER_REQUIRED");
         assertThatThrownBy(() -> service.decide(REQUEST_REF,
                 new ChangeRequestDecisionDto(ChangeRequestDecision.APPROVE, " "), KEY, null, manager))
                 .isInstanceOf(WorkshopSettlementValidationException.class).hasMessageContaining("REASON_REQUIRED");

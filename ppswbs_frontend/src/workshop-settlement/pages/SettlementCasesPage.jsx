@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { useUrlFilters } from '../../shared/ui/useUrlFilters';
 import { Link } from 'react-router';
 import { useHttp } from '../../shared/api/useHttp';
 import { ErrorNotice, Loading, useResource } from '../../shared/ui/components';
@@ -14,7 +15,7 @@ import { asList } from '../ui';
  */
 export default function SettlementCasesPage() {
   const api = createSettlementApi(useHttp());
-  const [filters, setFilters] = useState({ caseType: '', status: '' });
+  const [filters, setFilters] = useUrlFilters({ caseType: '', status: '' });
   const caseList = useResource(() => api.listCases({ ...(filters.caseType ? { caseType: filters.caseType } : {}), ...(filters.status ? { status: filters.status } : {}) }), [filters.caseType, filters.status]);
   const cases = useMemo(() => asList(caseList.data), [caseList.data]);
 

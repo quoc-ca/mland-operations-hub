@@ -53,7 +53,11 @@ public class TicketMlandRemedyService {
     private final MlandCancelledFolioCloser folioCloser;
 
     /** One session of an offer (T112): the buyer chooses exactly one of them. */
-    public record ReplacementOption(String sessionReference, Instant startAt, Instant endAt) {
+    public record ReplacementOption(String sessionReference, Instant startAt, Instant endAt, Long locationReference,
+                                      String locationName) {
+        public ReplacementOption(String sessionReference, Instant startAt, Instant endAt) {
+            this(sessionReference, startAt, endAt, null, null);
+        }
     }
 
     /** The buyer must answer at least this long before the chosen session starts (FR-043). */
@@ -126,7 +130,8 @@ public class TicketMlandRemedyService {
         }
 
         List<ReplacementOption> ordered = options.stream()
-                .map(option -> new ReplacementOption(option.sessionReference().trim(), option.startAt(), option.endAt()))
+                .map(option -> new ReplacementOption(option.sessionReference().trim(), option.startAt(), option.endAt(),
+                        option.locationReference(), option.locationName()))
                 .sorted(Comparator.comparing(ReplacementOption::startAt).thenComparing(ReplacementOption::sessionReference))
                 .toList();
         Instant latestStart = ordered.get(ordered.size() - 1).startAt();
@@ -275,7 +280,8 @@ public class TicketMlandRemedyService {
         List<OfferedSessionDto> sessions = optionsOf(remedy).stream()
                 .map(option -> new OfferedSessionDto(option.sessionReference(), option.startAt(), option.endAt(),
                         pending && startsInTime(option, now)
-                                && (stillAvailable == null || stillAvailable.contains(option.sessionReference()))))
+                                && (stillAvailable == null || stillAvailable.contains(option.sessionReference())),
+                        option.locationReference(), option.locationName()))
                 .toList();
         return new TicketRemedyOfferDto(remedy.getRemedyReference(), remedy.getTicketCode(), remedy.getGroupCode(),
                 remedy.getCancelledSessionReference(), remedy.getOutcome(), remedy.getAnswerDeadlineAt(), sessions,
@@ -311,7 +317,9 @@ public class TicketMlandRemedyService {
     static String encodeOptions(List<ReplacementOption> options) {
         return options.stream()
                 .map(option -> option.sessionReference() + "|" + option.startAt()
-                        + "|" + (option.endAt() == null ? "" : option.endAt()))
+                        + "|" + (option.endAt() == null ? "" : option.endAt())
+                        + "|" + (option.locationReference() == null ? "" : option.locationReference())
+                        + "|" + safeName(option.locationName()))
                 .collect(java.util.stream.Collectors.joining(";"));
     }
 
@@ -325,7 +333,9 @@ public class TicketMlandRemedyService {
                 String[] fields = part.split("\\|", -1);
                 parsed.add(new ReplacementOption(fields[0],
                         fields.length > 1 && !fields[1].isBlank() ? Instant.parse(fields[1]) : null,
-                        fields.length > 2 && !fields[2].isBlank() ? Instant.parse(fields[2]) : null));
+                        fields.length > 2 && !fields[2].isBlank() ? Instant.parse(fields[2]) : null,
+                        fields.length > 3 && !fields[3].isBlank() ? Long.valueOf(fields[3]) : null,
+                        fields.length > 4 && !fields[4].isBlank() ? fields[4] : null));
             }
             return parsed;
         }
@@ -338,12 +348,20 @@ public class TicketMlandRemedyService {
                 .map(reference -> new ReplacementOption(reference, remedy.getReplacementStartAt(), null)).toList();
     }
 
+    /** The separators of the stored list never appear inside a name (FR-061: the name is stored with the offer). */
+    private static String safeName(String name) {
+        return name == null ? "" : name.replace(';', ',').replace('|', '/').trim();
+    }
+
     private static String describeOptions(List<ReplacementOption> options) {
         StringBuilder text = new StringBuilder();
         for (int i = 0; i < options.size(); i++) {
             ReplacementOption option = options.get(i);
             text.append(i == 0 ? "" : "\n").append("- ").append(option.sessionReference()).append(": ")
                     .append(DISPLAY_FORMAT.format(option.startAt().atZone(DISPLAY_ZONE)));
+            if (option.locationName() != null && !option.locationName().isBlank()) {
+                text.append(" (").append(option.locationName()).append(")");
+            }
             if (option.endAt() != null) {
                 text.append(" - ").append(DISPLAY_FORMAT.format(option.endAt().atZone(DISPLAY_ZONE)));
             }
@@ -488,7 +506,8 @@ public class TicketMlandRemedyService {
                 TicketSessionReplacementOutcome outcome = operations.replaceTicketSessions(cmd);
                 if (outcome.status() != OutcomeStatus.ACCEPTED) {
                     if (outcome.reason() == RejectionReason.INSUFFICIENT_CAPACITY
-                            || outcome.reason() == RejectionReason.INVALID_REPLACEMENT) {
+                            || outcome.reason() == RejectionReason.INVALID_REPLACEMENT
+                            || outcome.reason() == RejectionReason.PACKAGE_NOT_AVAILABLE_AT_LOCATION) {
                         // No seat is held while the buyer decides; the buyer may choose another session or a refund.
                         throw new WorkshopSettlementConflictException("REPLACEMENT_SESSION_UNAVAILABLE");
                     }

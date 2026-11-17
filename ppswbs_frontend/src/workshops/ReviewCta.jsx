@@ -39,7 +39,7 @@ export function ReviewCta({ ticket, sources, onReview }) {
       </button>
     );
   }
-  const notAttendedYet = ticket?.ticketStatus === 'CONFIRMED' && !ticket.attendanceStatus;
+  const notAttendedYet = ticket?.ticketStatus === 'CONFIRMED' && (!ticket.attendanceStatus || ticket.attendanceStatus === 'CHECKED_IN');
   if (!notAttendedYet) return null;
   return (
     <button

@@ -51,6 +51,7 @@ class WaxCastingScheduleValidationTest {
     private WorkshopSlotRepository slotRepository;
     private WorkshopBookingPackagePolicySnapshotRepository bookingPolicySnapshotRepository;
     private WorkshopPackageReservationPolicy policy;
+    private edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopPackageAvailabilityService availabilityService;
 
     private WorkshopLocation locationA;
     private WorkshopLocation locationB;
@@ -65,7 +66,9 @@ class WaxCastingScheduleValidationTest {
         sessionRepository = mock(WorkshopSessionRepository.class);
         slotRepository = mock(WorkshopSlotRepository.class);
         bookingPolicySnapshotRepository = mock(WorkshopBookingPackagePolicySnapshotRepository.class);
-        policy = new WorkshopPackageReservationPolicy(packageRepository, sessionRepository, slotRepository, bookingPolicySnapshotRepository);
+        availabilityService = mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopPackageAvailabilityService.class);
+        when(availabilityService.isSellable(any(), any())).thenReturn(true);
+        policy = new WorkshopPackageReservationPolicy(packageRepository, sessionRepository, slotRepository, bookingPolicySnapshotRepository, availabilityService);
 
         locationA = WorkshopLocation.builder().id(101L).code("LOC-A").displayName("Saigon Center").active(true).build();
         locationB = WorkshopLocation.builder().id(102L).code("LOC-B").displayName("Thao Dien Hub").active(true).build();

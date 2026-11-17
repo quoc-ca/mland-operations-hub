@@ -91,7 +91,10 @@ describe('003.1 FR-052 discounted price on the public package surfaces', () => {
     const main = await screen.findByRole('main');
     await expectDiscounted(main, AFTER_VOUCHER);
     const list = await screen.findByRole('region', { name: 'Ưu đãi cho gói này' });
-    expect(within(list).getByText(/Giảm đơn lớn: giảm .* cho đơn từ/)).toBeInTheDocument();
+    expect(within(list).getByText('Giảm đơn lớn')).toBeInTheDocument();
+    expect(within(list).getByText(/Tự trừ khi đơn từ/)).toBeInTheDocument();
+    expect(within(list).getByText('Giảm giá của cửa hàng')).toBeInTheDocument();
+    expect(within(list).getByText('Mã giảm giá (voucher)')).toBeInTheDocument();
     expect(within(list).getByRole('link', { name: 'Xem và lưu mã' })).toHaveAttribute('href', '/promotions/3');
     expect(within(list).getByRole('link', { name: 'Đăng nhập để dùng mã giảm cho thành viên' })).toBeInTheDocument();
   });
@@ -110,7 +113,8 @@ describe('003.1 FR-052 discounted price on the public package surfaces', () => {
   it('booking screen: the package summary shows the discounted unit price and no quote is computed on screen', async () => {
     const calls = renderPage(<WorkshopBookingPage packageId="7" />, {
       'GET /api/v1/workshop-packages/7': json(200, PACKAGE),
-      'GET /api/v1/workshop-packages/7/locations': json(200, []),
+      // FR-056: an empty branch list means "sold nowhere" and hides the booking controls, so one branch is sold here.
+      'GET /api/v1/workshop-packages/7/locations': json(200, [{ id: 1, name: 'Thủ Đức' }]),
       ...promotions([auto()]),
     });
     const summary = (await screen.findByText(/Đơn giá:/)).closest('p');

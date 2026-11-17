@@ -8,8 +8,8 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.Reje
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.TicketReplacementType;
 import org.springframework.stereotype.Component;
 
-import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneId;
 
 /**
  * 003.2 FR-034: the per-move rules of a ticket session replacement. One place used both by
@@ -19,8 +19,9 @@ import java.time.Instant;
 @Component
 public class TicketReplacementRules {
 
-    /** FR-034: the replacement of a missed session must start within this window after its end. */
-    public static final Duration LATE_ARRIVAL_WINDOW = Duration.ofDays(7);
+    /** The replacement must start by the end of the 7th calendar day (Vietnam time) after the replaced session's end. */
+    public static final int CHANGE_WINDOW_DAYS = 7;
+    private static final ZoneId WORKSHOP_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
 
     /** FR-034: a source may be left behind only when the ticket has no attendance there. */
     public RejectionReason checkSource(TicketReplacementType type, WorkshopSession source,
@@ -66,11 +67,16 @@ public class TicketReplacementRules {
                 && !source.getScheduledStartAt().isAfter(now);
     }
 
-    /** FR-034: only the missed session's own replacement must fall inside the 7-day window. */
+    /**
+     * A customer change (advance or late arrival) must land by the end of the 7th day after the day the replaced
+     * session ends, by calendar date in Vietnam (user decision 2026-11-16, widening FR-034); Mland replacements are
+     * exempt. Dates, not 168 hours, so every session of one day is in or out together.
+     */
     public RejectionReason checkLateArrivalWindow(TicketReplacementType type, WorkshopSession source,
                                                   WorkshopSession target, Instant now) {
-        if (isLateArrival(type, source, now)
-                && target.getScheduledStartAt().isAfter(source.getScheduledEndAt().plus(LATE_ARRIVAL_WINDOW))) {
+        if (type != TicketReplacementType.MLAND
+                && target.getScheduledStartAt().atZone(WORKSHOP_ZONE).toLocalDate().isAfter(
+                        source.getScheduledEndAt().atZone(WORKSHOP_ZONE).toLocalDate().plusDays(CHANGE_WINDOW_DAYS))) {
             return RejectionReason.LATE_ARRIVAL_WINDOW_EXPIRED;
         }
         return null;

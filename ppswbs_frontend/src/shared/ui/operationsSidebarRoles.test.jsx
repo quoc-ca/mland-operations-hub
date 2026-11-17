@@ -46,11 +46,105 @@ describe('Operations sidebar by role', () => {
     }
   });
 
+  it('shows the package availability link to a Manager only', async () => {
+    open('MANAGER');
+    const link = await sidebar().findByRole('link', { name: 'Ma trận gói × chi nhánh' });
+    expect(link).toHaveAttribute('href', '/operations/package-availability');
+  });
+
+  it.each(['STAFF', 'ADMIN'])('hides the package availability link from %s', async role => {
+    open(role);
+    await waitFor(() => expect(sidebar().getByRole('link', { name: /Ca của tôi|Bảng điều phối ca/ })).toBeInTheDocument());
+    expect(sidebar().queryByRole('link', { name: 'Ma trận gói × chi nhánh' })).not.toBeInTheDocument();
+  });
+
+  it('hides the package availability link while the role is unknown', async () => {
+    mockFetch({ 'GET /api/v1/workshop-sessions': json(200, []) });
+    renderRoutes(operationsRoutes, { path: '/operations/sessions' });
+    expect(await sidebar().findByRole('link', { name: 'Bảng điều phối ca' })).toBeInTheDocument();
+    expect(sidebar().queryByRole('link', { name: 'Ma trận gói × chi nhánh' })).not.toBeInTheDocument();
+  });
+
+  it('renders the matrix page at its route for a Manager and the denial page on a backend 403', async () => {
+    mockFetch({
+      'GET /api/v1/accounts/me/profile': profile('MANAGER'),
+      'GET /api/v1/workshop-package-availability': json(200, {
+        packages: [{ id: 1, name: 'Brass', lifecycleState: 'PUBLISHED' }],
+        locations: [{ id: 10, name: 'Hoàn Kiếm', active: true }],
+        cells: [{ packageId: 1, locationId: 10, state: 'ACTIVE', version: 1 }],
+      }),
+    });
+    renderRoutes(operationsRoutes, { path: '/operations/package-availability' });
+    expect(await screen.findByRole('checkbox', { name: 'Brass tại Hoàn Kiếm' })).toBeChecked();
+    expect(sidebar().getByRole('link', { name: 'Ma trận gói × chi nhánh' })).toHaveClass('active');
+  });
+
+  it.each(['STAFF', 'ADMIN'])('shows the denial page to %s when the backend answers 403', async role => {
+    mockFetch({
+      'GET /api/v1/accounts/me/profile': profile(role),
+      'GET /api/v1/workshop-package-availability': json(403, { code: 'FORBIDDEN', message: 'no' }),
+    });
+    renderRoutes(operationsRoutes, { path: '/operations/package-availability' });
+    expect(await screen.findByText('Bạn không có quyền xem trang này')).toBeInTheDocument();
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+    expect(sidebar().queryByRole('link', { name: 'Ma trận gói × chi nhánh' })).not.toBeInTheDocument();
+  });
+
   it('shows only the daily work while the role is unknown', async () => {
     mockFetch({ 'GET /api/v1/workshop-sessions': json(200, []) });
     renderRoutes(operationsRoutes, { path: '/operations/sessions' });
 
     expect(await sidebar().findByRole('link', { name: 'Bảng điều phối ca' })).toBeInTheDocument();
     await waitFor(() => expect(sidebar().queryByRole('link', { name: 'Gói workshop' })).not.toBeInTheDocument());
+  });
+});
+
+describe('Late payments sidebar link', () => {
+  beforeEach(() => clearRoleCache());
+
+  it('shows a Manager the late payments link', async () => {
+    open('MANAGER');
+    const link = await sidebar().findByRole('link', { name: 'Thanh toán về trễ' });
+    expect(link).toHaveAttribute('href', '/operations/late-payments');
+  });
+
+  it.each(['STAFF', 'ADMIN'])('hides the late payments link from %s', async role => {
+    open(role);
+    await waitFor(() => expect(sidebar().getByRole('link', { name: /Ca của tôi|Bảng điều phối ca/ })).toBeInTheDocument());
+    expect(sidebar().queryByRole('link', { name: 'Thanh toán về trễ' })).not.toBeInTheDocument();
+  });
+});
+
+describe('Change requests sidebar link', () => {
+  beforeEach(() => clearRoleCache());
+
+  it.each(['STAFF', 'MANAGER'])('shows the change requests link to %s', async role => {
+    open(role);
+    expect(await sidebar().findByRole('link', { name: 'Yêu cầu đổi vé' })).toHaveAttribute('href', '/settlement/change-requests');
+  });
+
+  it('hides the change requests link from an Admin', async () => {
+    open('ADMIN');
+    await waitFor(() => expect(sidebar().getByRole('link', { name: 'Trang chủ' })).toBeInTheDocument());
+    expect(sidebar().queryByRole('link', { name: 'Yêu cầu đổi vé' })).not.toBeInTheDocument();
+  });
+});
+
+describe('Sidebar current entry', () => {
+  beforeEach(() => clearRoleCache());
+
+  it('marks the current screen as active and brings it into view', async () => {
+    const original = Element.prototype.scrollIntoView;
+    const scrolled = [];
+    Element.prototype.scrollIntoView = function track(options) { scrolled.push({ text: this.textContent, options }); };
+    try {
+      open('MANAGER');
+      const current = await sidebar().findByRole('link', { name: 'Bảng điều phối ca' });
+      expect(current).toHaveClass('active');
+      expect(sidebar().getByRole('link', { name: 'Gói workshop' })).not.toHaveClass('active');
+      expect(scrolled.some(item => item.text.includes('Bảng điều phối ca') && item.options?.block === 'center')).toBe(true);
+    } finally {
+      Element.prototype.scrollIntoView = original;
+    }
   });
 });

@@ -36,6 +36,7 @@ public class WorkshopSessionService {
     private final CapacityHoldService capacityHoldService;
     private final WorkshopOtaSnapshotService otaSnapshotService;
     private final WorkshopVisibleLocationPolicy visibleLocationPolicy;
+    private final StaffAutoAssignmentService staffAutoAssignmentService;
     private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.SessionStaffAssignmentRepository staffAssignmentRepository;
 
     @Transactional
@@ -110,6 +111,7 @@ public class WorkshopSessionService {
                 saved.getId(), saved.getReference(), saved.getState(), location.getCode());
 
         recordSessionCreated(saved, actor.accountId());
+        staffAutoAssignmentService.assignRosterToNewSession(saved, actor.accountId());
         if (openingSource == CheckInOpeningSource.MANAGER_SET) {
             recordAudit(saved.getId(), actor.accountId(), "CHECK_IN_OVERRIDE_CONFIGURED", "SUCCESS",
                     "{\"checkInOpensAt\":\"" + checkInOpensAt + "\"}");
@@ -184,6 +186,7 @@ public class WorkshopSessionService {
 
                         WorkshopSession saved = sessionRepository.save(session);
                         recordSessionCreated(saved, actor.accountId());
+                        staffAutoAssignmentService.assignRosterToNewSession(saved, actor.accountId());
                         if (saved.getState() == SessionState.PUBLISHED) {
                             otaSnapshotService.publishForObservableChange(saved, "SESSION_PUBLISHED", Instant.now());
                         }
@@ -424,6 +427,7 @@ public class WorkshopSessionService {
         return SessionResponse.builder()
                 .id(session.getReference())
                 .locationId(session.getLocation().getId())
+                .locationName(session.getLocation().getDisplayName())
                 .slotId(session.getSlot().getReference())
                 .workshopDate(session.getWorkshopDate())
                 .scheduledStartAt(session.getScheduledStartAt())

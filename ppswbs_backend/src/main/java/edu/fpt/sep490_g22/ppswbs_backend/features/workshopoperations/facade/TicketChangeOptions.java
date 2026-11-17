@@ -30,17 +30,28 @@ public record TicketChangeOptions(Status status, List<FromSession> perFromSessio
     }
 
     /**
-     * {@code reasonCode} is null when 003.2 would accept it, else INSUFFICIENT_CAPACITY. {@code quotaAvailable} false
-     * means the reschedule quota is full (a Manager rule, not 003.2's refusal of a Manager approval).
+     * Only a session with a free seat and reschedule quota left is listed (decision 2026-11-16), so both
+     * {@code remainingCapacity} and {@code remainingRescheduleQuota} are at least 1 here.
      */
     public record Option(UUID sessionReference, Instant start, Instant end, Long locationReference,
-                         int remainingCapacity, boolean quotaAvailable, String reasonCode) {
+                         int remainingCapacity, int remainingRescheduleQuota, String reasonCode, String locationName) {
+        /** Without the location display name (003.2 FR-044 adds it; consumers built earlier keep compiling). */
+        public Option(UUID sessionReference, Instant start, Instant end, Long locationReference,
+                      int remainingCapacity, int remainingRescheduleQuota, String reasonCode) {
+            this(sessionReference, start, end, locationReference, remainingCapacity, remainingRescheduleQuota,
+                    reasonCode, null);
+        }
     }
 
-    /** Both sessions of a two-session ticket moving together. */
-    public record Pair(PairSession first, PairSession second, boolean quotaAvailable, String reasonCode) {
+    /** Both sessions of a two-session ticket moving together; each session has a seat and quota left. */
+    public record Pair(PairSession first, PairSession second, String reasonCode) {
     }
 
-    public record PairSession(UUID sessionReference, Instant start, Instant end, int remainingCapacity) {
+    public record PairSession(UUID sessionReference, Instant start, Instant end, int remainingCapacity,
+                              int remainingRescheduleQuota, Long locationReference, String locationName) {
+        public PairSession(UUID sessionReference, Instant start, Instant end, int remainingCapacity,
+                           int remainingRescheduleQuota) {
+            this(sessionReference, start, end, remainingCapacity, remainingRescheduleQuota, null, null);
+        }
     }
 }

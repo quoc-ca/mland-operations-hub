@@ -14,7 +14,10 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.Acce
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.OtaBookingCapacityOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.RejectionReason;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.WorkshopOperationsFacade;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.PackageAvailabilityDtos;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopPackageAvailabilityService;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -38,6 +41,7 @@ class OtaBookingFacadeIT {
 
     @Autowired private JdbcTemplate jdbcTemplate;
     @Autowired private WorkshopOperationsFacade operationsFacade;
+    @Autowired private WorkshopPackageAvailabilityService availabilityService;
     @Autowired private WorkshopLocationRepository locationRepository;
     @Autowired private WorkshopPackageRepository packageRepository;
     @Autowired private WorkshopSessionRepository sessionRepository;
@@ -117,6 +121,40 @@ class OtaBookingFacadeIT {
         assertThat(invalidParticipants.reason()).isEqualTo(RejectionReason.PACKAGE_SELECTION_INVALID);
         assertThat(holdCount(bookingReference)).isZero();
         assertThat(bookingTicketCount(bookingReference)).isZero();
+    }
+
+    @Test
+    @DisplayName("T156 (FR-039): an OTA booking is accepted at an INACTIVE pair and the matrix never touches the OTA session projection")
+    void otaAcceptanceIgnoresAvailabilityAndToggleLeavesOtaSnapshotsAlone() {
+        WorkshopPackage basicRing = createPackage(1, true, 0, 1, 4);
+        WorkshopSession session = createSession(4);
+        Long locationId = session.getLocation().getId();
+        availabilityService.setAvailability(77001L, basicRing.getId(), locationId,
+                PackageAvailabilityDtos.State.ACTIVE, null, "corr-ota-on");
+        long snapshotsBefore = snapshotCount(session);
+        long versionBefore = latestSnapshotVersion(session);
+
+        availabilityService.setAvailability(77001L, basicRing.getId(), locationId,
+                PackageAvailabilityDtos.State.INACTIVE, null, "corr-ota-off");
+
+        assertThat(availabilityService.isSellable(basicRing.getId(), locationId)).isFalse();
+        assertThat(snapshotCount(session)).isEqualTo(snapshotsBefore);
+        assertThat(latestSnapshotVersion(session)).isEqualTo(versionBefore);
+        OtaBookingCapacityOutcome accepted = operationsFacade.acceptOtaBooking(command("OTA-INACTIVE-" + UUID.randomUUID(),
+                basicRing, session, 2, UUID.randomUUID().toString()));
+        assertThat(accepted.status().name()).isEqualTo("ACCEPTED");
+        assertThat(accepted.ticketReferences()).hasSize(2);
+    }
+
+    private long snapshotCount(WorkshopSession session) {
+        return jdbcTemplate.queryForObject("select count(*) from workshop_session_ota_snapshots where session_reference = ?",
+                Long.class, session.getReference());
+    }
+
+    private long latestSnapshotVersion(WorkshopSession session) {
+        return jdbcTemplate.queryForObject(
+                "select coalesce(max(source_version), 0) from workshop_session_ota_snapshots where session_reference = ?",
+                Long.class, session.getReference());
     }
 
     private AcceptOtaBookingCommand command(String bookingReference, WorkshopPackage workshopPackage,

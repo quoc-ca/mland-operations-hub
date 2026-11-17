@@ -106,7 +106,8 @@ public class AttendanceTicketService {
                             UUID.fromString(e.getSession().getReference()),
                             e.getSession().getLocation() != null ? e.getSession().getLocation().getId() : null,
                             e.getSession().getScheduledStartAt(),
-                            e.getSession().getScheduledEndAt()
+                            e.getSession().getScheduledEndAt(),
+                            e.getSession().getLocation() != null ? e.getSession().getLocation().getDisplayName() : null
                     ))
                     .toList();
 

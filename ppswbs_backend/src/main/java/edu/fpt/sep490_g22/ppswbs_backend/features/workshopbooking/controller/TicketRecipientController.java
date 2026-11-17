@@ -52,7 +52,7 @@ public class TicketRecipientController {
                     request.contactEmail(), request.contactPhone(), correlation(correlationId));
         }
         return ResponseEntity.status(HttpStatus.ACCEPTED)
-                .body(new BuyerVerificationChallenge(challenge.verificationId(), challenge.expiresAt()));
+                .body(new BuyerVerificationChallenge(challenge.verificationId(), challenge.expiresAt(), challenge.maskedEmail()));
     }
 
     @PostMapping("/workshop-booking-groups/{groupCode}/buyer-verifications/{verificationId}/confirmations")
