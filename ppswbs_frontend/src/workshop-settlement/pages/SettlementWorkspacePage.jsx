@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { useHttp } from '../../shared/api/useHttp';
 import { useRole } from '../../shared/auth/useRole';
@@ -97,7 +97,7 @@ export default function SettlementWorkspacePage() {
   const [ticketInput, setTicketInput] = useState(linkedTicket);
   const [ticketCode, setTicketCode] = useState(linkedTicket);
   const [message, setMessage] = useState('');
-  const [collection, setCollection] = useState({ method: 'CASH', amount: '', cashReceived: '', reference: '' });
+  const [collection, setCollection] = useState({ method: 'VNPAY', amount: '', cashReceived: '', reference: '' });
   const [transferRefs, setTransferRefs] = useState({});
   const [checkout, setCheckout] = useState(null);
   const [failing, setFailing] = useState(null);
@@ -107,7 +107,7 @@ export default function SettlementWorkspacePage() {
   const [undercharge, setUndercharge] = useState(null); // { amount, amountError } while the record dialog is open
   const [voidingUndercharge, setVoidingUndercharge] = useState(null);
   const [undercharges, setUndercharges] = useState([]); // records made or voided on this screen for this ticket
-  const [addOn, setAddOn] = useState('');
+  const [addOn, setAddOn] = useState([]); // catalogue references the customer agreed to
   const [consent, setConsent] = useState(false);
   const [charge, setCharge] = useState({ description: '', amount: '', reason: '' });
   const command = useCommand();
@@ -118,6 +118,12 @@ export default function SettlementWorkspacePage() {
 
   const bill = folio.data;
   const warning = vnpayWarning(collection.method, collection.amount, bill?.balanceDue);
+
+  // The amount defaults to what is still unassigned (balance due minus pending parts), so it is never typed by hand.
+  const unassignedDue = bill ? Math.max(0, Number(bill.balanceDue) - Number(bill.pendingAmount || 0)) : 0;
+  useEffect(() => {
+    setCollection(v => ({ ...v, amount: unassignedDue > 0 ? String(unassignedDue) : '' }));
+  }, [ticketCode, unassignedDue]);
 
   async function run(send, success, onDone) {
     setMessage('');
@@ -183,10 +189,23 @@ export default function SettlementWorkspacePage() {
     }
   };
 
-  const submitAddOn = event => {
-    event.preventDefault();
-    run(key => api.addCharge(ticketCode, { catalogueAddOnReference: addOn, customerConsentConfirmed: true }, key), 'Add-on added.', () => { setAddOn(''); setConsent(false); });
-  };
+  const submitAddOn = event => { event.preventDefault(); submitAddOns(); };
+  // One charge per add-on (the contract takes a single reference), each with its own Idempotency-Key; stops at the first refusal.
+  async function submitAddOns() {
+    setMessage('');
+    const added = [];
+    for (const reference of addOn) {
+      const out = await command.run(key => api.addCharge(ticketCode, { catalogueAddOnReference: reference, customerConsentConfirmed: true }, key));
+      if (!out.ok) break;
+      added.push(reference);
+    }
+    if (added.length > 0) {
+      setMessage(added.length === 1 ? 'Add-on added.' : `${added.length} add-ons added.`);
+      setAddOn(v => v.filter(reference => !added.includes(reference)));
+      if (added.length === addOn.length) setConsent(false);
+      folio.reload();
+    }
+  }
   const submitCharge = event => {
     event.preventDefault();
     run(key => api.addCharge(ticketCode, { description: charge.description.trim(), amount: Number(charge.amount), reason: charge.reason.trim(), customerConsentConfirmed: true }, key),
@@ -209,7 +228,7 @@ export default function SettlementWorkspacePage() {
       )}
       <ProblemNotice error={folio.error || command.error} onRetry={command.retry} onReload={folio.reload} />
       <section className="ota-panel">
-        <form className="ota-inline-form" onSubmit={lookup}>
+        <form className="ota-inline-form settlement-lookup" onSubmit={lookup}>
           <label>Mã vé<input value={ticketInput} onChange={event => setTicketInput(event.target.value)} placeholder="GRP-…-L0-T1" /></label>
           <button className="button primary" type="submit" disabled={!ticketInput.trim()}>Open folio</button>
         </form>
@@ -324,7 +343,7 @@ export default function SettlementWorkspacePage() {
           </article>
 
           {open && (
-            <article className="ota-panel">
+            <article className="ota-panel settlement-addons">
               <div className="ota-panel-head"><h2>Add-ons and charges</h2></div>
               <form className="ota-form settlement-form" aria-label="Catalogue add-on" onSubmit={submitAddOn}>
                 <h3>Add-on from catalogue</h3>
@@ -332,20 +351,21 @@ export default function SettlementWorkspacePage() {
                   : addOns.error ? <p className="muted" role="status">Could not load the add-on catalogue for this ticket.</p>
                     : addOnOptions.length === 0 ? <p className="muted">No add-on is available for this package at this location.</p> : (
                       <fieldset className="settlement-addon-options">
-                        <legend className="muted">Tick the add-on the customer agreed to.</legend>
+                        <legend className="muted">Tick every add-on the customer agreed to.</legend>
                         {addOnOptions.map(option => (
                           <label key={option.catalogueAddOnReference} className="settlement-addon-option">
-                            <input type="radio" name="catalogue-add-on" value={option.catalogueAddOnReference} checked={addOn === option.catalogueAddOnReference} onChange={() => setAddOn(option.catalogueAddOnReference)} />
+                            <input type="checkbox" name="catalogue-add-on" value={option.catalogueAddOnReference} checked={addOn.includes(option.catalogueAddOnReference)} onChange={event => setAddOn(v => (event.target.checked ? [...v, option.catalogueAddOnReference] : v.filter(reference => reference !== option.catalogueAddOnReference)))} />
                             <span>{option.name}</span><strong>{money(option.price)}</strong>
                           </label>
                         ))}
                       </fieldset>
                     )}
                 <label className="settlement-addon-consent"><input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)} /><span>Khách đã đồng ý (customer agreed)</span></label>
-                <button className="button primary" type="submit" disabled={command.pending || !addOn || !consent}>Add selected add-on</button>
+                <button className="button primary" type="submit" disabled={command.pending || addOn.length === 0 || !consent}>Add selected add-on</button>
               </form>
               <form className="ota-form settlement-form" aria-label="Variable charge" onSubmit={submitCharge}>
                 <h3>Variable charge</h3>
+                <p className="muted small">A one-off charge that is not in the add-on catalogue, such as custom work the customer asked for at the counter. Enter what it is, the amount and why; tick “customer agreed” first.</p>
                 <label>Description<input value={charge.description} maxLength={200} onChange={event => setCharge(v => ({ ...v, description: event.target.value }))} /></label>
                 <label>Amount (VND)<input inputMode="numeric" value={charge.amount} onChange={event => setCharge(v => ({ ...v, amount: event.target.value }))} /></label>
                 <label>Reason<input value={charge.reason} maxLength={255} onChange={event => setCharge(v => ({ ...v, reason: event.target.value }))} /></label>

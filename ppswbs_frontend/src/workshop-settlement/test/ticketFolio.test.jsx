@@ -60,7 +60,9 @@ describe('Ticket folio (Staff/Manager)', () => {
     expect(rows).toEqual(['VNPAY', 'CASH', 'BANK_TRANSFER']);
     expect(screen.getAllByText('Awaiting verification').length).toBeGreaterThan(0);
     await user.selectOptions(screen.getByLabelText('Method'), 'VNPAY');
-    await user.type(within(screen.getByRole('form', { name: 'Record collection' })).getByLabelText('Amount (VND)'), '4000');
+    const amountInput = within(screen.getByRole('form', { name: 'Record collection' })).getByLabelText('Amount (VND)');
+    await user.clear(amountInput);
+    await user.type(amountInput, '4000');
     expect(await screen.findByRole('alert')).toHaveTextContent(/at least 5,000/);
   });
 
@@ -73,7 +75,11 @@ describe('Ticket folio (Staff/Manager)', () => {
     const user = userEvent.setup();
     renderRoutes(settlementRoutes, { path: '/settlement' });
     await openFolio(user);
-    await user.type(await amountField(), '300000');
+    const amountInput = await amountField();
+    await user.selectOptions(within(screen.getByRole('form', { name: 'Record collection' })).getByLabelText('Method'), 'CASH');
+    expect(amountInput).toHaveValue('250000');
+    await user.clear(amountInput);
+    await user.type(amountInput, '300000');
     await user.type(screen.getByLabelText('Cash received (VND)'), '500000');
     await user.click(screen.getByRole('button', { name: 'Record collection' }));
     expect(await screen.findByText('Collection recorded.')).toBeInTheDocument();
@@ -172,7 +178,7 @@ describe('Ticket folio (Staff/Manager)', () => {
     renderRoutes(settlementRoutes, { path: '/settlement' });
     await openFolio(user);
     const form = await screen.findByRole('form', { name: 'Catalogue add-on' });
-    await user.click(await screen.findByRole('radio', { name: /Engraved name tag/ }));
+    await user.click(await screen.findByRole('checkbox', { name: /Engraved name tag/ }));
     await user.click(within(form).getByRole('checkbox', { name: /Khách đã đồng ý/ }));
     await user.click(screen.getByRole('button', { name: 'Add selected add-on' }));
     expect(await screen.findByText(/ca của vé này chưa bắt đầu/)).toBeInTheDocument();
@@ -191,7 +197,7 @@ describe('Ticket folio (Staff/Manager)', () => {
     const { router } = renderRoutes(settlementRoutes, { path: '/settlement' });
     await openFolio(user);
     const form = await screen.findByRole('form', { name: 'Catalogue add-on' });
-    await user.click(await screen.findByRole('radio', { name: /Engraved name tag/ }));
+    await user.click(await screen.findByRole('checkbox', { name: /Engraved name tag/ }));
     await user.click(within(form).getByRole('checkbox', { name: /Khách đã đồng ý/ }));
     await user.click(screen.getByRole('button', { name: 'Add selected add-on' }));
     expect(await screen.findByText(/Bạn chưa được gán vào ca của vé này/)).toBeInTheDocument();
@@ -208,7 +214,7 @@ describe('Ticket folio (Staff/Manager)', () => {
     renderRoutes(settlementRoutes, { path: '/settlement' });
     await openFolio(user);
     const form = await screen.findByRole('form', { name: 'Catalogue add-on' });
-    await user.click(await screen.findByRole('radio', { name: /Engraved name tag/ }));
+    await user.click(await screen.findByRole('checkbox', { name: /Engraved name tag/ }));
     expect(screen.getByRole('button', { name: 'Add selected add-on' })).toBeDisabled();
     await user.click(within(form).getByRole('checkbox', { name: /Khách đã đồng ý/ }));
     await user.click(screen.getByRole('button', { name: 'Add selected add-on' }));

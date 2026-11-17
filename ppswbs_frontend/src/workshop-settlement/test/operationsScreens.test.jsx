@@ -219,6 +219,36 @@ describe('Change request queue', () => {
     expect(screen.getByRole('button', { name: 'Reject' })).toBeInTheDocument();
   });
 
+  it('opens a detail row with both sessions, the reason and the dates', async () => {
+    mockFetch({
+      [PROFILE]: asRole('MANAGER'),
+      'GET /api/v1/workshop-change-requests': json(200, [{ ...request, groupCode: 'GRP-1', reason: 'Customer is sick', requesterRole: 'MEMBER', channel: 'WEB', fromSessionReferences: ['from-1'], targetSessionReferences: ['to-1'] }]),
+      'GET /api/v1/workshop-sessions/from-1': json(200, { id: 'from-1', workshopDate: '2026-12-01', scheduledStartAt: '2026-12-01T02:00:00Z', scheduledEndAt: '2026-12-01T04:00:00Z', locationName: 'Mland Hà Nội' }),
+      'GET /api/v1/workshop-sessions/to-1': json(200, { id: 'to-1', workshopDate: '2026-12-08', scheduledStartAt: '2026-12-08T07:00:00Z', scheduledEndAt: '2026-12-08T09:00:00Z', locationName: 'Mland TP.HCM' }),
+    });
+    const user = userEvent.setup();
+    renderRoutes(settlementRoutes, { path: '/settlement/change-requests' });
+    await user.click(await screen.findByRole('button', { name: 'Details' }));
+    expect(await screen.findByText('Customer is sick')).toBeInTheDocument();
+    expect(screen.getByText('MEMBER · WEB')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Hide details' }));
+    expect(screen.queryByText('Customer is sick')).not.toBeInTheDocument();
+  });
+
+  it('shows the date, time and branch of the current and the requested session', async () => {
+    mockFetch({
+      [PROFILE]: asRole('MANAGER'),
+      'GET /api/v1/workshop-change-requests': json(200, [{ ...request, fromSessionReferences: ['from-1'], targetSessionReferences: ['to-1'] }]),
+      'GET /api/v1/workshop-sessions/from-1': json(200, { id: 'from-1', workshopDate: '2026-12-01', scheduledStartAt: '2026-12-01T02:00:00Z', scheduledEndAt: '2026-12-01T04:00:00Z', locationName: 'Mland Hà Nội' }),
+      'GET /api/v1/workshop-sessions/to-1': json(200, { id: 'to-1', workshopDate: '2026-12-08', scheduledStartAt: '2026-12-08T07:00:00Z', scheduledEndAt: '2026-12-08T09:00:00Z', locationName: 'Mland TP.HCM' }),
+    });
+    renderRoutes(settlementRoutes, { path: '/settlement/change-requests' });
+    expect(await screen.findByText('2026-12-01')).toBeInTheDocument();
+    expect(await screen.findByText('2026-12-08')).toBeInTheDocument();
+    expect(screen.getByText('Mland Hà Nội')).toBeInTheDocument();
+    expect(screen.getByText('Mland TP.HCM')).toBeInTheDocument();
+  });
+
   it('gives an Admin no queue and no decision buttons, and reads nothing', async () => {
     const calls = mockFetch({ [PROFILE]: asRole('ADMIN'), 'GET /api/v1/workshop-change-requests': json(200, [request]) });
     renderRoutes(settlementRoutes, { path: '/settlement/change-requests' });
