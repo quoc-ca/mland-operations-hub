@@ -1,207 +1,299 @@
 ---
 id: JOURNEY-PHASE-4
-feature: 004-ai-chatbox-analysis-and-suggestion
+feature: 004-ring-design-configuration
 journey_phase: 4
 test_level: master_e2e
-test_case_type: Dual-Actor-Interactive
-source_ref: spec.md#FE-04; designreview; spec-general.md#§2,§3; 008-spec.md
-target_url: http://localhost:5173/design-requests/new
-actor_primary: MEMBER (Browser 1)
-actor_secondary: MANAGER (Browser 2)
-browser_tool: browsermcp
+test_case_type: First-Time-User-Parametric-Design-Discovery
+source_ref: spec.md#FE-04; ringdesignconfiguration; spec-general.md#§2,§3
+target_url: https://mland-operations-hub-git-develop-mland-team.vercel.app/workshops/PKG-COUPLE-SILVER/design
 health_urls:
-  - http://localhost:5173
-  - http://localhost:8080
+  - https://mland-operations-hub-git-develop-mland-team.vercel.app/workshops/PKG-COUPLE-SILVER/design
+actor_role: MEMBER
+actor_primary: MEMBER (Browser 1 - Chrome)
+actor_secondary: null
+browser_tool: browsermcp
+environment: mock-prod
 test_data:
-  member_email: inherited_from_phase_1
-  custom_sketch_image: "test-assets/custom-lotus-ring-sketch.jpg"
-  custom_quote_price: 3000000
-  custom_deposit_amount: 1500000
-  vnpay_card_number: "9704198526191432198"
-  vnpay_card_holder: "NGUYEN VAN A"
-  vnpay_card_issue_date: "07/15"
-  vnpay_otp: "123456"
-  isolation_key: MASTER-E2E-P4-20261114
+  isolation_key: "e2e_phase4_parametric_ring"
+  package_reference: "PKG-COUPLE-SILVER"
+  base_model_reference: "MOD-WS-SILVER-CLASSIC"
+  material_choice: "Bạc Ý 925"
+  band_shape: "Tròn cổ điển"
+  intended_size: 16
+  gemstone_choice: "Đá CZ Xanh Lam 2mm"
+  engraving_option: "Khắc chữ tiêu chuẩn"
+  band_thickness_mm: 1.8
+  band_width_mm: 3.5
+  expected_weight_grams_range: [3.8, 4.3]
+  expected_difficulty_range: [1.5, 3.0]
 cleanup:
   required: false
   method: handoff-to-phase-5
 ---
 
-# JOURNEY-PHASE-4: Yêu cầu Thiết kế Nhẫn Riêng Độc bản, AI Tham vấn, Quản lý Thẩm định & Đặt cọc Sản xuất
+# JOURNEY-PHASE-4: Khám phá Cấu hình Nhẫn Workshop, Mô phỏng 2D Trực quan, Thẩm định Kỹ thuật & Sổ tay Thiết kế Độc bản
 
-**Ngày tạo**: 2026-11-14 | **Cập nhật**: 2026-11-14  
+**Phiên bản**: 3.0 (Parametric Ring Design & Wayfinding Discovery) | **Cập nhật**: 2026-11-17  
 **Người phụ trách**: Senior QA & System Verification Engineer  
-**Trình duyệt sử dụng**: 
-- **Browser 1**: Khách hàng Hội viên (`MEMBER`)
-- **Browser 2**: Quản lý xưởng kim hoàn (`MANAGER`)
-**Mục tiêu**: Kiểm thử toàn diện hành trình đặt làm nhẫn theo thiết kế riêng (Custom Ring Manufacturing): Từ việc khách hàng tải lên bản vẽ phác thảo, xử lý bẫy upload file sai quy chuẩn, AI Gemini phân tích sơ bộ thành phần kỹ thuật, cam kết bản quyền, Quản lý xưởng thẩm định tính khả thi và duyệt báo giá gia công, đến bước khách hàng chốt báo giá và thanh toán tiền cọc 50% qua cổng VNPay để chuyển sang sản xuất thực tế.
+**Tâm thế kiểm thử (Mindset)**: Người dùng mới muốn tự tay phối màu, chọn phôi nhẫn, gắn đá và khắc tên trước khi đến workshop thực tế; chủ động dò tìm lối vào, thử nghiệm độ mượt của các thanh trượt tham số (Slider), đánh giá tính trực quan của bản vẽ mô phỏng 2D và kiểm tra báo cáo độ khó chế tác từ hệ thống.  
+**Trình duyệt sử dụng**: **Browser 1 (Khách hàng / Client View - Chrome)**  
+**Môi trường**: Mock Prod (`https://mland-operations-hub-git-develop-mland-team.vercel.app/`)
 
 ---
 
-## 1. Tiền điều kiện (Preconditions)
+## 1. Mục tiêu Kịch bản (Scenario Objective)
 
-- [x] Tài khoản Member đang đăng nhập tại **Browser 1**.
-- [x] Tài khoản Quản lý (`MANAGER`) đang đăng nhập tại **Browser 2**.
-- [x] File ảnh phác thảo hợp lệ `custom-lotus-ring-sketch.jpg` sẵn sàng trong thư mục test.
-- [x] Cổng Gemini AI hỗ trợ phân tích bản vẽ nhẫn đang mở kết nối.
-- [x] Cổng thanh toán VNPay Sandbox phản hồi ổn định.
-
----
-
-## 2. Đánh giá Đa chiều qua 2 Góc nhìn (2 POVs Evaluation)
-
-### POV 1 — Khách hàng Hội viên (Non-tech Member Experience):
-- **Trực quan & Dễ hiểu**: Khi tải ảnh lên có ngay khung ảnh thu nhỏ xem trước (thumbnail preview), thanh tiến trình tải ảnh mượt mà, nút "Xóa/Thay đổi ảnh" nếu chọn nhầm.
-- **Cam kết pháp lý trang nhã**: Cam kết bản quyền thiết kế được viết ngắn gọn trong 2 câu dễ hiểu, không dùng văn phong pháp lý rườm rà gây ngột ngạt.
-- **Trạng thái minh bạch**: Sau khi gửi yêu cầu, giao diện hiển thị thẻ thông báo rõ ràng: *"Yêu cầu của bạn đang được Quản lý xưởng thẩm định kỹ thuật (Dự kiến phản hồi trong 24 giờ)"*. Khi có báo giá, khách thấy rõ số tiền cọc 50% cần thanh toán để bắt đầu đúc khuôn.
-
-### POV 2 — Kỹ thuật viên Kiểm định (Senior QA Technical Verification):
-- **Nguyên tắc Quyết định của Con người (Human-in-the-loop Guard)**: Tuân thủ tuyệt đối `spec-general.md#§2, §3`: AI chỉ đóng vai trò phân tích sơ bộ và gợi ý tham vấn; **AI tuyệt đối không được tự ý duyệt giá, chấp thuận hay từ chối đơn hàng**. Mọi quyết định thương mại và kỹ thuật bắt buộc phải do tài khoản `MANAGER` phê duyệt.
-- **Bảo mật Tải tệp (File Upload & MIME Validation)**: Form tải ảnh bắt buộc kiểm tra định dạng và dung lượng tại cả client và backend; chặn đứng các tệp `.exe`, `.pdf`, `.svg` chứa script độc hại.
-- **Ràng buộc Quyền Thành viên (Member-Only Route Guard)**: Tuyến đường `/design-requests/new` là đặc quyền chỉ dành riêng cho tài khoản đã xác thực (`MEMBER`).
+Kiểm chứng toàn diện năng lực Dẫn dắt (Wayfinding), Tính trực quan (Visual Affordance) và Trải nghiệm Tương tác (UX Interactivity) của tính năng Cấu hình Nhẫn Tham số Xưởng (Parametric Ring Configurator):
+- Khách hàng Hội viên tiếp cận cổng cấu hình nhẫn từ thanh Header công khai hoặc liên kết chéo từ trang Workshop.
+- Trải nghiệm khám phá Thư viện mẫu gợi ý theo gói (`/design/models`) với 12 mẫu phôi đa chất liệu (Bạc, Đồng, Thép).
+- Thử nghiệm phối hợp các tham số kim hoàn thực tế tại xưởng ảo (`/design/configure`): Chất liệu (Bạc Ý 925), Dáng đai (Tròn cổ điển), Size ngón tay (Size 16), Đính đá CZ xanh lam, Khắc chữ laser cá nhân hóa và kéo thanh trượt Độ dày/Độ rộng bản nhẫn.
+- Đo lường độ trễ phản hồi (Latency $\le 8s$) và độ rung giật (Screen Jitter $< 3$ fliks) khi kéo slider và cập nhật giá tức thì.
+- Phân tích bản vẽ mô phỏng 2D trực quan (Mặt chính diện Top View, Mặt cắt cạnh Side View) và bảng chỉ số thẩm định kỹ thuật: Khối lượng ước tính, Độ khó gia công (thang đo 1-10) và Chi phí tham khảo.
+- Lưu trữ thiết kế thành công vào Sổ tay thiết kế cá nhân (`/my/designs`) và kiểm tra tính liên tục của dữ liệu.
 
 ---
 
-## 3. Các bước Thực thi trên Trình duyệt (Browser Action Steps)
+## 2. Phạm vi Kiểm thử (Scope Boundaries)
 
-### Bước 1: [Browser 1 - Member] Mở Cổng Yêu cầu Thiết kế Riêng (Feature 004)
-```browser
-# Điều hướng tới cổng tạo yêu cầu thiết kế riêng
-goto http://localhost:5173/design-requests/new
-wait getByRole('heading', { name: /Đặt Chế Tác Nhẫn Theo Yêu Cầu/i })
+### 2.1. Trong phạm vi kiểm thử (In-Scope):
+- Khả năng nhận diện lối vào tính năng từ Navbar ("Cấu hình nhẫn" $\rightarrow$ `/workshops/PKG-COUPLE-SILVER/design`).
+- Bộ sưu tập mẫu nhẫn gợi ý theo gói workshop và trang lựa chọn điểm bắt đầu (Mẫu gợi ý vs Phôi trắng).
+- Bộ công cụ cấu hình tham số: Radio button chọn chất liệu, Dáng đai, Lưới chọn Size tay (Size 6 đến 29), Thêm/Bớt đá quý, Checkbox khắc chữ, Slider điều chỉnh độ dày (1.0 - 3.0mm) và độ rộng (1.5 - 6.0mm).
+- Độ mượt UI, layout shifts, không xuất hiện hiện tượng giật chớp màn hình ($\ge 3$ fliks).
+- Màn hình kết quả thẩm định kỹ thuật (`/workshops/:packageReference/design/:designId`): Tỷ lệ bản vẽ 2D, thông số kỹ thuật, ghi chú độ khó chế tác.
+- Chức năng xác nhận lưu trữ thiết kế (Dialog confirm) và hiển thị trong danh sách "💍 Mẫu nhẫn đã lưu" tại `/my/designs`.
 
-# Điền tiêu đề và mô tả ý tưởng
-fill getByLabel(/Tên ý tưởng thiết kế/i) "Nhẫn Cưới Hoa Văn Sen Cổ Điển"
-fill getByLabel(/Mô tả chi tiết ý tưởng/i) "Nhẫn đôi vàng 10K hoặc bạc phủ rhodium, đai nhẫn khắc họa tiết cánh sen chìm, ổ chấu 4 giữ viên đá chủ 4mm"
-```
+### 2.2. Ngoài phạm vi kiểm thử (Out-of-Scope — Tuyệt đối không thực hiện):
+- Không kiểm tra mô hình 3D WebGL/Three.js nặng nếu môi trường mock prod đang sử dụng bản vẽ phẳng SVG/Canvas 2D.
+- Không thử nghiệm spam kéo slider hàng trăm lần/giây dạng DDoS làm nghẽn tiến trình render của trình duyệt.
+- Không can thiệp mã nguồn backend/frontend khi gặp sai lệch tính toán khối lượng; chỉ ghi nhận hiện trạng và công thức hiển thị.
 
-### Bước 2: [Browser 1 - Member] Thử thách Đối nghịch (Adversarial Step 4) — Chặn Tệp Sai Quy Chuẩn
-```browser
-# 🛑 Thử thách Đối nghịch: Cố tình tải lên file PDF hoặc file dung lượng quá 10MB
-# (Giả lập chọn tệp tài liệu sai định dạng)
-setInputFiles getByLabel(/Tải lên hình ảnh phác thảo/i) "test-assets/invalid-document.pdf"
-wait 1000
+---
 
-# Xác minh thông báo lỗi validation tức thì
-find /Định dạng tệp không được hỗ trợ|Vui lòng tải tệp ảnh JPG, PNG hoặc WEBP/i
-screenshot --path ppswbs-spec/features/004-ai-chatbox-analysis-and-suggestion/test-results/screenshots/P4-01--adversarial-invalid-file.jpg
-```
+## 3. Tiền điều kiện & Dữ liệu Kiểm thử (Preconditions & Test Data)
 
-### Bước 3: [Browser 1 - Member] Phục hồi & Tải Ảnh Hợp lệ, AI Phân tích & Gửi Yêu cầu
-```browser
-# Tải tệp ảnh phác thảo hợp lệ
-setInputFiles getByLabel(/Tải lên hình ảnh phác thảo/i) "test-assets/custom-lotus-ring-sketch.jpg"
-wait 2500
+- **Trình duyệt**: Browser 1 (Chrome), phiên đăng nhập của Hội viên (`minikie456@gmail.com`).
+- **Gói Workshop liên kết**: `PKG-COUPLE-SILVER` (Workshop Làm Nhẫn Đôi Bạc Ý 925).
+- **Mẫu tham chiếu cơ sở**: `MOD-WS-SILVER-CLASSIC` (Nhẫn Bạc Tròn Cổ Điển).
+- **Bộ thông số cấu hình thử nghiệm**:
+  - Chất liệu: `Bạc Ý 925 (Sterling Silver)` (Đơn giá cơ sở: 250.000 ₫).
+  - Dáng đai: `Dáng tròn cổ điển (Classic Round)`.
+  - Size tay: `Size 16 (56 mm)`.
+  - Đá đính: `Đá CZ Xanh Lam 2mm (Sapphire Blue)` (+30.000 ₫).
+  - Khắc chữ: Bật `Khắc chữ & biểu tượng tiêu chuẩn` (+80.000 ₫).
+  - Độ dày đai nhẫn: `1.8 mm` (Tiêu chuẩn).
+  - Độ rộng bề mặt: `3.5 mm` (Vừa vặn).
+- **Ngưỡng thẩm định kỳ vọng (Expected Technical Specs)**:
+  - Khối lượng ước tính: $\approx 4.02\text{ g}$.
+  - Độ khó chế tác: $2.0 / 10$ (Mức: "Dễ").
+  - Chi phí tham khảo: $\approx 372.400\text{ ₫}$.
 
-# Xác minh ảnh thu nhỏ (Thumbnail preview) hiển thị sắc nét
-find getByRole('img', { name: /Ảnh phác thảo thiết kế/i })
+---
 
-# AI phân tích sơ bộ thành phần kỹ thuật
-wait getByText(/Phân tích sơ bộ từ AI Mland/i)
-find /Kiểu dáng: Nhẫn họa tiết chạm khắc|Ổ chấu: 4 chấu|Độ khó chế tác: Trung bình/i
-screenshot --path ppswbs-spec/features/004-ai-chatbox-analysis-and-suggestion/test-results/screenshots/P4-02--ai-analysis-preview.jpg
+## 4. Chu trình Khám phá & Dò tìm Lối đi (Discovery & Wayfinding Flow)
 
-# Tick chọn cam kết bản quyền hợp lệ
-click getByLabel(/Tôi cam kết sở hữu hoặc có quyền sử dụng hình ảnh thiết kế này/i)
+### Bước 1 (P4-S01): Dò tìm Lối vào Cấu hình Nhẫn từ Header & Trang chủ
 
-# Bấm Gửi yêu cầu thẩm định
-click getByRole('button', { name: /Gửi yêu cầu tới Quản lý xưởng/i })
-wait 3000
+- **(a) Quan sát & Dò tìm (Visual Discovery)**:
+  - Mở trang chủ Mland Atelier tại `/`. Mắt người dùng tìm kiếm lối đi tạo nhẫn riêng.
+  - Trên thanh điều hướng (Navbar): Có thấy link **"Cấu hình nhẫn"** (`/workshops/PKG-COUPLE-SILVER/design`) nằm ngay cạnh menu "Workshop" không?
+  - Click vào liên kết "Cấu hình nhẫn".
+  - Tiêu điểm mắt nhìn vào chính giữa màn hình (Center of Screen): Có thấy tiêu đề lớn *"Cấu hình mẫu nhẫn Workshop"* và 2 thẻ lựa chọn lớn:
+    1. Thẻ 1: **"Mẫu gợi ý theo gói"** (kèm nút "Chọn mẫu này").
+    2. Thẻ 2: **"Tự thiết kế từ phôi trắng"** (kèm nút "Bắt đầu cấu hình").
+- **(b) Thử nghiệm & Kiểm tra Ngõ cụt (Dead-end Probing)**:
+  - Kiểm tra xem 2 thẻ này có trạng thái hover rõ nét (đổi màu viền, nâng bóng đổ) để báo hiệu cho người dùng biết là có thể click được không?
+  - Kiểm tra nếu người dùng chưa chọn gói nào thì hệ thống có tự động fallback về gói mặc định `PKG-COUPLE-SILVER` an toàn không.
+- **(c) Hành động Đi tiếp & Trạng thái kế tiếp (Next Step Transition)**:
+  - Bấm vào nút **"Chọn mẫu này"** tại thẻ *"Mẫu gợi ý theo gói"*.
+- **Đánh giá & Mức độ Dừng**:
+  - **HARD STOP**: Nếu trang tải ra màn hình trắng, báo lỗi 404 hoặc không có nút đi tiếp.
+  - **SOFT FAIL**: Nếu thẻ không có hiệu ứng hover hoặc ảnh minh họa gói bị mờ.
 
-# Xác minh gửi thành công, cấp mã REQ-XXXX
-find /Gửi yêu cầu thành công/i
-find /Mã yêu cầu: REQ-/i
-find /Trạng thái: CHỜ THẨM ĐỊNH|PENDING_REVIEW/i
-screenshot --path ppswbs-spec/features/004-ai-chatbox-analysis-and-suggestion/test-results/screenshots/P4-03--request-submitted.jpg
-```
+---
 
-### Bước 4: [Browser 2 - Manager] Quản lý Thẩm định Kỹ thuật & Phát hành Báo giá Gia công
-```browser
-# Mở Browser 2: Quản lý vào màn hình kiểm duyệt thiết kế riêng
-goto http://localhost:5173/operator/design-review
-wait getByRole('heading', { name: /Thẩm định Yêu cầu Thiết kế Riêng/i })
+### Bước 2 (P4-S02): Khám phá Thư viện Mẫu Gợi ý (`/design/models`) & Lựa chọn Mẫu Phôi
 
-# Chọn yêu cầu REQ-XXXX vừa gửi của học viên Phương Uyên
-click getByText(/Nhẫn Cưới Hoa Văn Sen Cổ Điển/i)
-wait getByRole('heading', { name: /Chi tiết thẩm định yêu cầu/i })
+- **(a) Quan sát & Dò tìm (Visual Discovery)**:
+  - Chuyển hướng sang URL: `/workshops/PKG-COUPLE-SILVER/design/models`.
+  - Màn hình hiển thị tiêu đề: *"Mẫu gợi ý theo gói"*, bên dưới là nút điều hướng *"← Quay lại chọn mẫu"*.
+  - Quan sát bố cục lưới: Có hiển thị danh sách 12 mẫu phôi nhẫn đa dạng chất liệu (Bạc Tròn Cổ Điển, Bạc Xoắn Vô Cực, Bạc Lượn Sóng Đại Dương, Đồng Mộc Vintage, Thép Phay Xước...) không?
+- **(b) Thử nghiệm & Kiểm tra Ngõ cụt (Dead-end Probing)**:
+  - Thử cuộn duyệt các thẻ mẫu: Kiểm tra xem mỗi thẻ có ghi rõ tên mẫu, ảnh render và nút "Chọn mẫu này" không.
+  - Kiểm tra nút *"← Quay lại chọn mẫu"*: Click thử xem có quay về trang bước 1 mà không làm mất trạng thái hay không.
+- **(c) Hành động Đi tiếp & Trạng thái kế tiếp (Next Step Transition)**:
+  - Tìm và bấm nút **"Chọn mẫu này"** tại thẻ đầu tiên: **"Mẫu nhẫn Bạc Tròn Cổ Điển"** (`MOD-WS-SILVER-CLASSIC`).
+- **Đánh giá & Mức độ Dừng**:
+  - **HARD STOP**: Nếu danh sách mẫu bị trống rỗng hoặc bấm chọn không chuyển trang.
+  - **SOFT FAIL**: Nếu thẻ hiển thị chữ quá sát viền (Spacing Density kém).
 
-# Quản lý xem xét bản vẽ và ghi nhận đánh giá chuyên môn
-fill getByLabel(/Đánh giá kỹ thuật của xưởng/i) "Bản vẽ sắc nét, họa tiết hoa sen khả thi với kỹ thuật đúc sáp tay truyền thống. Đề xuất đúc Bạc 925 phủ Rhodium cao cấp"
-fill getByLabel(/Thời gian gia công dự kiến \(ngày\)/i) "7"
-fill getByLabel(/Tổng chi phí gia công \(VNĐ\)/i) "3000000"
+---
 
-# Bấm Phê duyệt & Phát hành Báo giá
-click getByRole('button', { name: /Phê duyệt & Gửi báo giá cho khách/i })
+### Bước 3 (P4-S03): Tinh chỉnh Tham số Nhẫn & Kiểm tra Jitter (`/design/configure`)
+
+- **(a) Quan sát & Dò tìm (Visual Discovery)**:
+  - Chuyển hướng sang `/workshops/PKG-COUPLE-SILVER/design/configure?mode=MODEL&modelRef=MOD-WS-SILVER-CLASSIC`.
+  - Quan sát cấu trúc trang: Bố cục chia phân mục khoa học:
+    - *Mục 1*: Chất liệu nhẫn (Bạc Ý 925, Đồng, Thép).
+    - *Mục 2*: Dáng đai & Lưới chọn Size tay (Size 6 đến 29).
+    - *Mục 3*: Đá quý đính kèm.
+    - *Mục 4*: Họa tiết trang trí.
+    - *Mục 5*: Khắc chữ & Hình ảnh cá nhân hóa.
+    - *Mục 6*: Thanh trượt (Slider) tùy chỉnh Độ dày và Độ rộng bề mặt.
+    - *Cột phải / Dưới cùng*: Hộp "Tóm tắt thông số cấu hình" với nút CTA chính **"Lưu & Thẩm định"**.
+- **(b) Thử nghiệm & Đo lường Trải nghiệm (UX Interaction Probing)**:
+  - **Thao tác 1 (Chọn Size)**: Bấm chọn nút **"Size 16 (56 mm)"** $\rightarrow$ Kiểm tra nút có đổi sang trạng thái active (viền đen đậm / nền tương phản) ngay lập tức không.
+  - **Thao tác 2 (Thêm Đá quý)**: Tại ô "Đá CZ Xanh Lam 2mm", bấm nút **"+ Thêm đá"** $\rightarrow$ Kiểm tra thông số tóm tắt có hiển thị thêm đá không.
+  - **Thao tác 3 (Khắc chữ)**: Tích chọn checkbox *"Khắc chữ & biểu tượng tiêu chuẩn (Phí 1 lần: +80.000 đ)"*.
+  - **Thao tác 4 (Kéo Slider - Kiểm tra Jitter & Latency)**:
+    + Kéo slider *"Độ dày nhẫn mm"* về giá trị `1.8 mm`.
+    + Kéo slider *"Độ rộng bề mặt mm"* về giá trị `3.5 mm`.
+    + **Đo lường độ rung lắc (Flickering/Jitter)**: Khi kéo thanh trượt, các con số và giao diện có cập nhật mượt mà dưới $100\text{ms}$ không, hay màn hình bị chớp giật layout ($\ge 3$ fliks)?
+- **(c) Hành động Đi tiếp & Trạng thái kế tiếp (Next Step Transition)**:
+  - Sau khi kiểm tra toàn bộ thông số trong hộp tóm tắt đã phản ánh đúng các tùy chọn, bấm nút **"Lưu & Thẩm định"**.
+- **Đánh giá & Mức độ Dừng**:
+  - **HARD STOP**: Nếu kéo slider gây crash React hoặc nút "Lưu & Thẩm định" bị đơ không phản hồi.
+  - **SOFT FAIL**: Nếu slider hơi khó kéo bằng chuột trên laptop hoặc bước nhảy số quá thô.
+
+---
+
+### Bước 4 (P4-S04): Đánh giá Kết quả Thẩm định Kỹ thuật Thời gian thực (`/design/:designId`)
+
+- **(a) Quan sát & Dò tìm (Visual Discovery)**:
+  - Hệ thống chuyển hướng sang URL dạng: `/workshops/PKG-COUPLE-SILVER/design/DSG-[uuid]`.
+  - Tiêu điểm mắt nhìn vào chính giữa màn hình (Center of Screen):
+    - Tiêu đề: *"Kết quả thẩm định thiết kế"*, mã thiết kế `DSG-...`, nhãn badge `Đã thẩm định`.
+    - Dòng ghi chú màu xanh: *"ℹ️ Giá và độ khó tính toán mang tính chất tham khảo (Advisory)..."*.
+- **(b) Kiểm tra Chi tiết & Tính Trực quan (Affordance & Density Probing)**:
+  - **Kiểm tra Bản vẽ mô phỏng 2D**:
+    + Thẻ 1: *Mặt chính diện (Top View)* — Hiển thị hình tròn nhẫn size 16 kèm thông số đường kính $\varnothing \sim 17.8\text{ mm}$, chu vi $56\text{ mm}$.
+    + Thẻ 2: *Mặt cạnh / Tiết diện (Side View)* — Hiển thị mặt cắt đai nhẫn với bề rộng $3.5\text{ mm}$ và độ dày $1.8\text{ mm}$.
+  - **Kiểm tra Bảng Chỉ số Kỹ thuật**:
+    + *Chi phí tham khảo*: $\approx 372.400\text{ ₫}$.
+    + *Khối lượng ước tính*: $\approx 4.02\text{ g}$.
+    + *Độ khó chế tác*: $2.0 / 10$ kèm nhãn chữ *"Dễ"* và giải thích thang đo rõ ràng ($1-3$: Dễ, $>3-6$: Trung bình, $>6-9$: Khó).
+- **(c) Hành động Đi tiếp & Trạng thái kế tiếp (Next Step Transition)**:
+  - Quan sát 3 nút hành động ở cuối trang:
+    1. "Khám phá các workshop"
+    2. "Chỉnh sửa thiết kế"
+    3. **"Lưu trữ mẫu thiết kế"** (Nút hành động mục tiêu).
+- **Đánh giá & Mức độ Dừng**:
+  - **HARD STOP**: Nếu trang kết quả thẩm định bị 500 hoặc các trường chỉ số hiển thị `NaN` / `undefined`.
+  - **SOFT FAIL**: Nếu hình vẽ mô phỏng 2D bị lệch tâm nhẹ.
+
+---
+
+### Bước 5 (P4-S05): Lưu trữ Mẫu Thiết kế & Quản lý Sổ tay Cá nhân (`/my/designs`)
+
+- **(a) Thao tác Lưu trữ & Bắt Hội thoại Xác nhận (Dialog Confirmation)**:
+  - Bấm vào nút **"Lưu trữ mẫu thiết kế"**.
+  - Một hộp thoại xác nhận gốc (Confirm dialog) xuất hiện: *"Bạn có chắc chắn muốn lưu trữ mẫu thiết kế này không?"*.
+  - Bấm nút **OK / Chấp nhận (Dialog Accept)**.
+  - Quan sát trạng thái trên màn hình: Nhãn badge chuyển từ `Đã thẩm định` sang **`Đã lưu trữ`**.
+- **(b) Dò tìm Lối vào Sổ tay Thiết kế (Wayfinding to Saved Designs)**:
+  - Người dùng muốn xem lại mẫu đã lưu: Bấm mở menu tài khoản cá nhân ở góc trên bên phải (Tùy chọn tài khoản).
+  - Tìm và bấm vào dòng: **"💍 Mẫu nhẫn đã lưu"** (Điều hướng tới `/my/designs`).
+- **(c) Kiểm chứng Dữ liệu & Tính Toàn vẹn (Integrity Verification)**:
+  - Tại trang `/my/designs` (Lịch sử thiết kế nhẫn của bạn):
+    - Tab *"💍 Mẫu nhẫn Workshop"* đang được chọn.
+    - Thẻ thiết kế vừa tạo xuất hiện trên đầu danh sách với đúng mã `DSG-...`, trạng thái `Đã lưu trữ`.
+    - Thông tin tóm tắt hiển thị chuẩn xác: *Gói: PKG-COUPLE-SILVER · Chất liệu: Bạc Ý 925 · Dáng: Tròn cổ điển · Size: 16 · Chi phí tham khảo: 372.400 đ*.
+    - Thử kiểm tra có đầy đủ 2 nút: **"Xem chi tiết →"** và **"Chỉnh sửa"**.
+- **Đánh giá & Mức độ Dừng**:
+  - **HARD STOP**: Nếu sau khi lưu mà danh sách `/my/designs` trống trơn (mất dữ liệu thiết kế).
+  - **SOFT FAIL**: Nếu thẻ thiết kế không hiển thị ảnh thumbnail thu nhỏ.
+
+---
+
+## 5. Ma trận Các bước Thực thi Nghiệp vụ (Business Step Matrix)
+
+| Bước | Actor | Thao tác chính | Dữ liệu đầu vào | Kết quả mong đợi | Mức dừng |
+| :---: | :--- | :--- | :--- | :--- | :---: |
+| **P4-S01** | MEMBER | Dò tìm lối vào từ Header | Click link "Cấu hình nhẫn" trên Navbar | Mở trang `/workshops/PKG-COUPLE-SILVER/design`, thấy 2 thẻ bắt đầu | HARD STOP nếu 404 |
+| **P4-S02** | MEMBER | Khám phá thư viện mẫu | Click "Chọn mẫu này" tại thẻ gợi ý | Mở `/design/models`, hiển thị lưới 12 mẫu nhẫn đa dạng | HARD STOP nếu trống |
+| **P4-S03** | MEMBER | Tùy biến tham số xưởng | Size 16, Bạc 925, Đá CZ, Khắc chữ, Kéo Slider dày 1.8mm/rộng 3.5mm | Form phản hồi mượt, Jitter < 3, giá cộng dồn chuẩn xác | HARD STOP nếu crash |
+| **P4-S04** | MEMBER | Đánh giá kết quả thẩm định | Bấm "Lưu & Thẩm định" | Mở `/design/:id`, hiển thị 2 bản vẽ 2D, Khối lượng 4.02g, Độ khó 2.0/10 | HARD STOP nếu NaN |
+| **P4-S05** | MEMBER | Lưu sổ tay & Kiểm tra lịch sử | Bấm "Lưu trữ mẫu", Accept dialog, mở `/my/designs` | Thiết kế lưu thành công, hiển thị đầy đủ thông số tại Sổ tay cá nhân | HARD STOP nếu mất data |
+
+---
+
+### 5.1. Browser Action Steps
+```bash
+# Step 1: Dò tìm Lối vào Cấu hình từ Header & Trang chủ
+goto "https://mland-operations-hub-git-develop-mland-team.vercel.app/"
 wait 2000
-find /Báo giá đã được gửi tới khách hàng/i
-screenshot --path ppswbs-spec/features/004-ai-chatbox-analysis-and-suggestion/test-results/screenshots/P4-04--manager-quote-approved.jpg
-```
+click getByRole('link', { name: 'Cấu hình nhẫn' }).first()
+wait 2000
 
-### Bước 5: [Browser 1 - Member] Chấp thuận Báo giá & Thanh toán Cọc Sản xuất 50%
-```browser
-# Quay lại Browser 1: Member mở trang theo dõi yêu cầu thiết kế riêng
-goto http://localhost:5173/design-requests
-wait getByText(/Báo giá đã sẵn sàng/i)
+# Step 2: Khám phá Thư viện Mẫu Gợi ý
+click getByRole('button', { name: 'Chọn mẫu này' }).first()
+wait 2000
+click getByRole('button', { name: 'Chọn mẫu này' }).first()
+wait 2000
 
-# Bấm xem chi tiết báo giá
-click getByRole('button', { name: /Xem báo giá & Tiến độ/i })
-wait getByRole('heading', { name: /Chi tiết báo giá gia công/i })
-
-# Xác minh thông tin chi phí minh bạch
-find /Tổng chi phí: 3.000.000 VNĐ/i
-find /Tiền cọc cần thanh toán \(50%\): 1.500.000 VNĐ/i
-find /Thời gian dự kiến hoàn thành: 7 ngày/i
-screenshot --path ppswbs-spec/features/004-ai-chatbox-analysis-and-suggestion/test-results/screenshots/P4-05--member-view-quote.jpg
-
-# Bấm Đồng ý & Đặt cọc 50% qua VNPay
-click getByRole('button', { name: /Chấp thuận & Đặt cọc 1.500.000 VNĐ/i })
+# Step 3: Tinh chỉnh Tham số Nhẫn & Kéo Slider
+click getByRole('button', { name: 'Size 16 (56 mm)' })
+wait 500
+click getByRole('button', { name: '+ Thêm đá' }).nth(1)
+wait 500
+check getByRole('checkbox', { name: /Khắc chữ & biểu tượng tiêu chuẩn/i })
+wait 500
+click getByRole('button', { name: 'Lưu & Thẩm định' })
 wait 3000
 
-# Nhập thẻ NCB test tại cổng VNPay Sandbox
-fill getByPlaceholder(/Số thẻ/i) "9704198526191432198"
-fill getByPlaceholder(/Tên chủ thẻ/i) "NGUYEN VAN A"
-fill getByPlaceholder(/Ngày phát hành/i) "07/15"
-click getByRole('button', { name: /Tiếp tục/i })
-wait 1500
-fill getByPlaceholder(/OTP/i) "123456"
-click getByRole('button', { name: /Xác nhận/i })
-wait 4000
+# Step 4: Đánh giá Kết quả Thẩm định & Lưu trữ
+click getByRole('button', { name: 'Lưu trữ mẫu thiết kế' })
+dialog accept
+wait 2000
 
-# Xác minh đơn hàng chuyển sang trạng thái ĐANG SẢN XUẤT
-find /Đặt cọc thành công|Đã chuyển sang xưởng sản xuất/i
-find /Trạng thái: ĐANG CHẾ TÁC|IN_PRODUCTION/i
-screenshot --path ppswbs-spec/features/004-ai-chatbox-analysis-and-suggestion/test-results/screenshots/P4-06--custom-order-in-production.jpg
+# Step 5: Kiểm tra Lịch sử Sổ tay Cá nhân
+goto "https://mland-operations-hub-git-develop-mland-team.vercel.app/my/designs"
+wait 2000
+snapshot -i
+```
+
+### 5.2. Expected Assertions
+```bash
+# Assertion Step 1: Trang Cấu hình nhẫn hiển thị thành công
+get url
+get text getByRole('heading', { level: 1 })
+find "Cấu hình mẫu nhẫn Workshop"
+
+# Assertion Step 2: Mở kho mẫu gợi ý
+get url
+find "Mẫu nhẫn Bạc Tròn Cổ Điển"
+
+# Assertion Step 3 & 4: Mở trang kết quả thẩm định
+get url
+get text getByRole('heading', { level: 1 })
+find "Chi phí tham khảo ước tính"
+find "Độ khó chế tác"
+find "Đã lưu trữ"
+
+# Assertion Step 5: Mẫu thiết kế xuất hiện trong Sổ tay cá nhân
+get url
+find "DSG-"
+find "PKG-COUPLE-SILVER"
+find "Bạc Ý 925"
 ```
 
 ---
 
-## 4. Kết quả Kỳ vọng theo 5 Trụ Cột (Strict Expected Assertions)
+## 6. Tiêu chuẩn Đo lường Trải nghiệm Con người (Human UX Criteria Checklist)
 
-### Trụ cột 1: Bố cục & Tính Toàn vẹn Dữ liệu (Layout & Content)
-- [x] Đầy đủ thông tin báo giá: Chi phí 3,000,000đ, tiền cọc 1,500,000đ, thời hạn gia công 7 ngày, mã yêu cầu `REQ-XXXX`.
-- [x] Trạng thái đơn hàng chuyển đổi đúng quy trình: `PENDING_REVIEW` ➔ `QUOTED` ➔ `IN_PRODUCTION`.
+- [ ] **Default Eye Focus**: Người dùng khi vào trang cấu hình có nhìn thấy ngay các lựa chọn then chốt ở trung tâm không? Bản vẽ mô phỏng 2D có đặt ở vị trí thuận mắt nhất không?
+- [ ] **Response Latency**: Thời gian hệ thống tính toán lại khối lượng và đơn giá khi kéo slider có đạt $\le 100\text{ms}$ không? Thời gian nộp thẩm định có $\le 2\text{ giây}$ không?
+- [ ] **Screen Flickering / Jitter**: Quá trình thay đổi chất liệu, kiểu đai hay kéo thanh trượt có làm giật chớp layout ($\ge 3$ fliks) không?
+- [ ] **Typography & Spacing Density**: Các nút bấm chọn size (từ size 6 đến 29) có đủ khoảng cách bấm (touch target $\ge 40\text{px}$) không, hay bị dí sát nhau gây bấm nhầm?
+- [ ] **Visual Color & Styling Overload**: Màu sắc mô phỏng bạc, đồng, thép có chân thực, sang trọng không? Độ tương phản nhãn chữ có đạt chuẩn dễ đọc WCAG AA không?
 
-### Trụ cột 2: Chống Che khuất & Tràn vỡ Giao diện (Visual Clipping)
-- [x] Khung ảnh xem trước giữ đúng tỷ lệ khung hình (Aspect Ratio), không bị méo mó ảnh gốc; nút "Xóa ảnh" dễ bấm.
-- [x] Bảng báo giá hiển thị dạng Card trang trọng, các số liệu tài chính căn chỉnh lề phải rõ ràng.
-
-### Trụ cột 3: Đa thiết bị Laptop & Smartphone (Multi-Viewport)
-- [x] Form tải ảnh trên Smartphone (390px) cho phép người dùng chọn ảnh từ thư viện máy hoặc chụp trực tiếp từ camera.
-- [x] Nút "Đặt cọc 1.500.000 VNĐ" hiển thị dạng thanh nổi cố định trên di động.
-
-### Trụ cột 4: Cỡ chữ & Song ngữ Việt - Anh (Typography & i18n)
-- [x] Câu gợi ý của AI và nhận xét của Quản lý hiển thị bằng tiếng Việt chuẩn ngữ pháp, font chữ dễ đọc, cỡ chữ tối thiểu 14px.
-- [x] Các thuật ngữ chuyên ngành (Bạc 925, Rhodium, 4 chấu) được chú thích rõ ràng.
-
-### Trụ cột 5: Tối ưu Thao tác & Tải Nhận thức (Ergonomics & Cognitive Load)
-- [x] Quy trình gửi ảnh chỉ gồm 3 trường nhập liệu chính (Tên ý tưởng, Mô tả, Tải ảnh), không bắt khách trả lời bảng câu hỏi dài dòng.
-- [x] Tiền cọc 50% được tính sẵn tự động, khách không phải tự chia đôi số tiền 3,000,000 VNĐ.
-
----
-
-## 5. Dữ liệu Bàn giao sang Pha 5 (Data Handoff)
-
-| Khóa dữ liệu | Giá trị thực tế sinh ra | Mục đích sử dụng ở Pha 5 |
-| :--- | :--- | :--- |
-| `MEMBER_EMAIL` | Kế thừa từ Pha 1 | Đăng nhập tài khoản để viết Đánh giá (Review) và kiểm tra bảo mật ở Pha 5. |
-| `CUSTOM_ORDER_ID` | Đơn hàng thiết kế riêng đang chế tác | Bổ sung vào hồ sơ hoạt động của Member. |
+<!-- EXECUTION:START -->
+- Latest status: FAIL
+- Executed at: 2026-11-17 23:46:40
+- Executed by: Senior QA & System Verification Engineer
+- Browser tool: Computer Use (Cốc Cốc; not browsermcp)
+- Failure step: Step 4 — expected 372.400 đ and difficulty 2.0/10, observed 502.400 đ and 3.3/10; Step 5 — archive click produced no dialog or visible status change
+- Actual result: Design DSG-8874b27b-5d24-4575-b410-b8c7af856b73 was assessed. Weight 4.02 g, size 16, material, shape, stone, engraving, thickness 1.8 mm, and width 3.5 mm were visible. Slider values were already at target defaults; drag interaction and latency/jitter were not verified. Archive remained unconfirmed, so /my/designs was not tested.
+- Evidence screenshot: Not persisted (Computer Use captures were inline-only; no repository JPEG export was available)
+- Bug reference: BUG-E2E-0016, BUG-E2E-0017
+<!-- EXECUTION:END -->
