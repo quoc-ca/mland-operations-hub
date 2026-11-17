@@ -77,7 +77,7 @@ class CatalogueEntityRulesTests {
         @Test
         void managerMayAdjustTheFinalAmount() {
             PriceProposal proposal = draft();
-            proposal.submit("staff-1", NOW);
+            proposal.submit("staff-1", NOW, null);
             assertThat(proposal.isCurrentPending()).isTrue();
             proposal.approve("manager-1", NOW, BigInteger.valueOf(95_000));
             assertThat(proposal.getState()).isEqualTo(ReviewState.APPROVED);
@@ -88,7 +88,7 @@ class CatalogueEntityRulesTests {
         @Test
         void selfApprovalIsAllowed() {
             PriceProposal proposal = draft();
-            proposal.submit("manager-1", NOW);
+            proposal.submit("manager-1", NOW, null);
             proposal.approve("manager-1", NOW, BigInteger.valueOf(100_000));
             assertThat(proposal.getDecidedBy()).isEqualTo("manager-1");
         }
@@ -96,7 +96,7 @@ class CatalogueEntityRulesTests {
         @Test
         void rejectionNeedsAReasonAndRecordsNoAmount() {
             PriceProposal proposal = draft();
-            proposal.submit("staff-1", NOW);
+            proposal.submit("staff-1", NOW, null);
             assertThatThrownBy(() -> proposal.reject("manager-1", NOW, "  "))
                     .isInstanceOf(CatalogueException.class);
             proposal.reject("manager-1", NOW, " Giá quá thấp ");
@@ -109,7 +109,7 @@ class CatalogueEntityRulesTests {
         void onlyCurrentPendingCanBeDecided() {
             PriceProposal proposal = draft();
             assertCode(() -> proposal.approve("manager-1", NOW, BigInteger.TEN), CatalogueErrorCode.STALE_VERSION);
-            proposal.submit("staff-1", NOW);
+            proposal.submit("staff-1", NOW, null);
             proposal.makeIneffective();
             assertCode(() -> proposal.approve("manager-1", NOW, BigInteger.TEN), CatalogueErrorCode.STALE_VERSION);
         }
@@ -128,7 +128,7 @@ class CatalogueEntityRulesTests {
         void draftHasNoSnapshotUntilSubmitted() {
             ProductReview review = ProductReview.draft(1L, 1, 0);
             assertThat(review.getSnapshot()).isNull();
-            review.submit("staff-1", NOW, "{\"name\":\"Nhẫn\"}");
+            review.submit("staff-1", NOW, "{\"name\":\"Nhẫn\"}", null);
             assertThat(review.getState()).isEqualTo(ReviewState.PENDING);
             assertThat(review.getSnapshot()).contains("Nhẫn");
         }
@@ -136,7 +136,7 @@ class CatalogueEntityRulesTests {
         @Test
         void rejectionReasonUpToTwoThousand() {
             ProductReview review = ProductReview.draft(1L, 1, 0);
-            review.submit("staff-1", NOW, "{}");
+            review.submit("staff-1", NOW, "{}", null);
             assertThatThrownBy(() -> review.reject("manager-1", NOW, "x".repeat(2001)))
                     .isInstanceOf(CatalogueException.class);
             review.reject("manager-1", NOW, "x".repeat(2000));
@@ -146,7 +146,7 @@ class CatalogueEntityRulesTests {
         @Test
         void ineffectiveRevisionKeepsDecisionButIsNotCurrent() {
             ProductReview review = ProductReview.draft(1L, 1, 0);
-            review.submit("staff-1", NOW, "{}");
+            review.submit("staff-1", NOW, "{}", null);
             review.approve("manager-1", NOW);
             assertThat(review.isEffectiveApproval()).isTrue();
             review.makeIneffective();

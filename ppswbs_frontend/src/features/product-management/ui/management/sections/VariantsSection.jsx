@@ -32,10 +32,12 @@ export function VariantsSection({ product, ...context }) {
   const current = branches.find(branch => branch.locationId === selected) || branches[0] || null;
   const addable = myBranches.filter(branch => !branches.some(item => item.locationId === String(branch.id)));
   // FR-021 with FR-050 (T134): stopping a size acts at every branch, so Staff need every branch selling the product
-  // (a product without a branch: at least one of their own). The backend refuses otherwise.
+  // (a product without a branch: at least one of their own). A branch no longer active sells nothing and is left out
+  // (T173), as the backend does. The backend refuses otherwise.
   const isManager = useRole() === 'MANAGER';
+  const activeBranches = branches.filter(branch => branch.active !== false);
   const sizeSaleEditable = !context.deleted && (isManager
-    || (branches.length ? branches.every(branch => canEdit(branch.locationId)) : myBranches.length > 0));
+    || (activeBranches.length ? activeBranches.every(branch => canEdit(branch.locationId)) : myBranches.length > 0));
 
   return (
     <section className="workspace-card" aria-labelledby="variants-title">

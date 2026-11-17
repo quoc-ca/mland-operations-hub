@@ -113,7 +113,10 @@ export function WorkshopOfferList({ offers }) {
       {offers.vouchers.length > 0 && (
         <div className="ws-offer-group">
           <h3>{t('wsOffer.groupVoucher')}</h3>
-          <p className="muted small">{t('wsOffer.groupVoucherHint')}</p>
+          {/* The detail page's price counts the best voucher when one reaches its minimum (FR-045(4), Session 2026-11-17). */}
+          <p className="muted small">{offers.bestVoucher
+            ? t('wsOffer.groupVoucherHintCounted', { code: offers.bestVoucher.program.code || offers.bestVoucher.program.name })
+            : t('wsOffer.groupVoucherHint')}</p>
           <ul>
             {offers.vouchers.map(program => (
               <li key={program.id} className="ws-offer-card">

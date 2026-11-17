@@ -58,7 +58,7 @@ export default function CategoriesPage() {
             <form className="category-tools" role="search" onSubmit={event => { event.preventDefault(); go({ q: draft.trim() }); }}>
               <input type="search" value={draft} onChange={event => setDraft(event.target.value)} maxLength={LIMITS.nameMax}
                 aria-label={t('category.search')} placeholder={t('category.searchHint')} />
-              <select value={status} aria-label={t('category.filter')} onChange={event => go({ status: event.target.value, q: draft.trim() })}>
+              <select value={status} aria-label={t('category.filter')} onChange={event => go({ status: event.target.value })}>
                 <option value="">{t('category.filterAll')}</option>
                 <option value="active">{t('category.active')}</option>
                 <option value="inactive">{t('category.inactive')}</option>

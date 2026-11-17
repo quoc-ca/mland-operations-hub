@@ -277,6 +277,34 @@ describe('US10 branches on the detail page', () => {
     expect(screen.queryByRole('button', { name: 'Ngừng bán tại chi nhánh này' })).toBeNull();
   });
 
+  it('a branch no longer active is read-only, for a Manager too (T169), and does not block a Staff size stop (T173)', async () => {
+    const user = userEvent.setup();
+    const withClosedBranch = managementProduct({
+      branches: [atTwoBranches.branches[0], { locationId: '2', name: null, active: false, saleEnabled: true }],
+      variants: atTwoBranches.variants,
+    });
+    mockFetch({
+      [PROFILE]: json(200, { role: 'MANAGER' }), [`GET ${M}/categories`]: json(200, categoryPage),
+      [LOCATIONS]: json(200, [HK, { ...TH, active: false }]),
+      [`GET ${M}/products/42`]: json(200, withClosedBranch),
+    });
+    const view = renderRoutes(productManagementRoutes, { path: '/catalogue-management/products/42' });
+
+    await user.click(await screen.findByRole('tab', { name: /Chi nhánh #2/ }));
+    const table = screen.getByRole('table', { name: 'Size và số lượng' });
+    expect(within(table).queryByRole('button', { name: 'Sửa' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Ngừng bán tại chi nhánh này' })).toBeNull();
+    view.unmount();
+
+    clearRoleCache();
+    mockFetch({
+      [PROFILE]: json(200, { role: 'STAFF' }), [`GET ${M}/categories`]: json(200, categoryPage), [LOCATIONS]: json(200, [HK]),
+      [`GET ${M}/products/42`]: json(200, withClosedBranch),
+    });
+    renderRoutes(productManagementRoutes, { path: '/catalogue-management/products/42' });
+    expect(await screen.findByRole('button', { name: 'Ngừng bán size' })).toBeInTheDocument();
+  });
+
   it('stopping sale at a branch sends the state shown, so a stale screen gets a conflict (T142)', async () => {
     const user = userEvent.setup();
     const calls = mockFetch({

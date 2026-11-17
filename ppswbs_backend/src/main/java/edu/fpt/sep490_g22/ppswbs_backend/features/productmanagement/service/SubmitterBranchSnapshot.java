@@ -120,7 +120,8 @@ public class SubmitterBranchSnapshot {
                 }
             }
         } catch (RuntimeException e) {
-            // Names are a convenience of the snapshot; the ids are what was assigned.
+            // FR-061 (T170, decided 2026-11-17): the submission goes through without names; the ids are what was
+            // assigned and the screens show "Chi nhánh #id", as FR-060 does for a name that cannot be read.
             return Map.of();
         }
         return names;

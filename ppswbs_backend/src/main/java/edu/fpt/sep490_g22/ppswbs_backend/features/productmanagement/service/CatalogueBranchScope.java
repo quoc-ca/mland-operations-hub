@@ -7,12 +7,18 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.Curre
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.PriceProposalRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.ProductVariantRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.VariantBranchStockRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.SellingLocation;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.SellingLocationPort;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Branch scope of the current actor (FR-050, Q-B3, Session 2026-11-08).
@@ -43,12 +49,54 @@ public class CatalogueBranchScope {
     private final ProductVariantRepository variants;
     private final PriceProposalRepository proposals;
 
+    private final ObjectProvider<SellingLocationPort> locations;
+
+    /** Without a branch source: every branch counts as active (as when the source is down, T156). */
     public CatalogueBranchScope(AccountFacade accounts, VariantBranchStockRepository stocks,
                                 ProductVariantRepository variants, PriceProposalRepository proposals) {
+        this(accounts, stocks, variants, proposals, null);
+    }
+
+    @Autowired
+    public CatalogueBranchScope(AccountFacade accounts, VariantBranchStockRepository stocks,
+                                ProductVariantRepository variants, PriceProposalRepository proposals,
+                                ObjectProvider<SellingLocationPort> locations) {
         this.accounts = accounts;
         this.stocks = stocks;
         this.variants = variants;
         this.proposals = proposals;
+        this.locations = locations;
+    }
+
+    /**
+     * Ids of the active branches, or empty when the branch source is missing or failing: callers then treat every
+     * branch as active, the same rule as the public read when the source is down (T156).
+     */
+    Optional<Set<Long>> activeBranchIds() {
+        SellingLocationPort source = locations == null ? null : locations.getIfAvailable();
+        if (source == null) {
+            return Optional.empty();
+        }
+        try {
+            List<SellingLocation> list = source.activeSellingLocations();
+            return list == null ? Optional.empty()
+                    : Optional.of(list.stream().map(SellingLocation::id).collect(Collectors.toUnmodifiableSet()));
+        } catch (RuntimeException e) {
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * T169 (FR-050, decided 2026-11-17): stock at a branch that is no longer active is read-only, for a Manager too;
+     * a quantity or sale-status change there is {@code BRANCH_NOT_FOUND}, as adding that branch is. When the branch
+     * source cannot answer, nothing is refused here.
+     */
+    public void requireActiveBranch(long locationId) {
+        activeBranchIds().ifPresent(active -> {
+            if (!active.contains(locationId)) {
+                throw new CatalogueException(CatalogueErrorCode.BRANCH_NOT_FOUND);
+            }
+        });
     }
 
     /**
@@ -102,7 +150,8 @@ public class CatalogueBranchScope {
 
     /**
      * FR-021 with FR-050: stopping or resuming a size acts at every branch that sells it, so a Staff member needs every
-     * one of those branches in scope. A size not yet assigned to any branch needs at least one assigned branch.
+     * one of those branches in scope; a branch no longer active is left out (T173). A size not yet assigned to any
+     * (active) branch needs at least one assigned branch.
      */
     public void requireEveryBranchOfVariant(String variantId) {
         if (current().all()) {
@@ -110,8 +159,12 @@ public class CatalogueBranchScope {
         }
         long id = CatalogueValues.parseId("variantId", variantId);
         variants.findProductIdById(id).orElseThrow(() -> new CatalogueException(CatalogueErrorCode.VARIANT_NOT_FOUND));
+        // T173: a branch that is no longer active sells nothing (CatalogueSalesService), so it is not in the way.
+        Optional<Set<Long>> active = activeBranchIds();
         List<Long> sold = stocks.findByVariantIdInOrderByVariantIdAscLocationIdAsc(List.of(id)).stream()
-                .map(row -> row.getLocationId()).toList();
+                .map(row -> row.getLocationId())
+                .filter(locationId -> active.map(ids -> ids.contains(locationId)).orElse(true))
+                .toList();
         if (sold.isEmpty()) {
             requireAnyBranch();
             return;

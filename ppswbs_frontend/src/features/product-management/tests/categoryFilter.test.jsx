@@ -62,6 +62,20 @@ describe('FR-062 category status filter', () => {
     await waitFor(() => expect(listCalls(calls).at(-1).query).toEqual({ active: 'true' }));
   });
 
+  it('changing the status keeps the sent search, not text typed without Tìm (T174)', async () => {
+    const user = userEvent.setup();
+    const calls = mockFetch({ [`GET ${M}/categories`]: json(200, categoryPage) });
+    open('/catalogue-management/categories?q=Nh%E1%BA%ABn');
+    const search = await screen.findByLabelText('Tìm danh mục');
+    await waitFor(() => expect(listCalls(calls)[0].query).toEqual({ q: 'Nhẫn' }));
+    await user.clear(search);
+    await user.type(search, 'đá');
+
+    await user.selectOptions(screen.getByLabelText('Trạng thái'), 'inactive');
+
+    await waitFor(() => expect(listCalls(calls).at(-1).query).toEqual({ active: 'false', q: 'Nhẫn' }));
+  });
+
   it('reads the name search from the URL', async () => {
     const calls = mockFetch({ [`GET ${M}/categories`]: json(200, categoryPage) });
     open('/catalogue-management/categories?q=v%C3%A0ng');
