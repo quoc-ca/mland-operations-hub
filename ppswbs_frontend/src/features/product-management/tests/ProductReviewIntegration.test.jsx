@@ -64,7 +64,7 @@ describe('Feature-011 Product Review Integration on Product Detail Page', () => 
 
     expect(await screen.findByTestId('product-reviews-section')).toBeInTheDocument();
     expect(screen.getByText(/Nhẫn Bạc Ý Đính Đá Moissanite/)).toBeInTheDocument();
-    expect(screen.getByText(/3 đánh giá công khai/)).toBeInTheDocument();
+    expect(await screen.findByText(/3 đánh giá công khai/)).toBeInTheDocument();
     expect(screen.getByText('Sản phẩm tuyệt vời, nhẫn sáng bóng tinh xảo!')).toBeInTheDocument();
     expect(screen.getByText('Nhẫn đẹp vừa tay nhưng hộp đựng hơi móp.')).toBeInTheDocument();
     expect(screen.getByText('Thời gian giao hàng hơi lâu so với dự kiến.')).toBeInTheDocument();

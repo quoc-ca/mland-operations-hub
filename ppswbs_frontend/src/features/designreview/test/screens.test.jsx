@@ -128,9 +128,27 @@ describe('F04-DESIGN-WORKSPACE Screen (/design-requests/new)', () => {
       expect(router.state.location.pathname).toBe('/design-requests/req-new-999');
     });
 
+    expect(await screen.findByText('Yêu cầu đã được gửi thành công, đang đợi phản hồi của nhân viên')).toBeInTheDocument();
+
     const postCall = calls.find(c => c.path === '/api/v1/design-requests');
     expect(postCall).toBeDefined();
     expect(postCall.headers['Idempotency-Key']).toBeDefined();
+  });
+
+  it('does not render catalogue reference input and validates invalid image files', async () => {
+    const user = userEvent.setup();
+    mockFetch({});
+    open('/design-requests/new', { session: fakeSession('signed-in') });
+
+    // 1. First requirement: Catalogue reference input is removed
+    expect(screen.queryByPlaceholderText(/RING-SILVER-CLASSIC-01/)).not.toBeInTheDocument();
+
+    // 2. Third requirement: Validate empty image file (0 bytes)
+    const fileInput = screen.getByLabelText(/Hình ảnh tham khảo mẫu thiết kế/);
+    const emptyFile = new File([], 'empty.png', { type: 'image/png' });
+    await user.upload(fileInput, emptyFile);
+
+    expect(await screen.findByText(/Tệp ảnh rỗng hoặc bị lỗi/)).toBeInTheDocument();
   });
 
   it('displays rate-limit error (429) when image rate limit is exceeded', async () => {
@@ -201,6 +219,26 @@ describe('F04-ANALYSIS-STATUS & F04-RESULT Screen (/design-requests/:id)', () =>
     expect(screen.getByText('925 Sterling Silver')).toBeInTheDocument();
     expect(screen.getByText(/1\.800\.000/)).toBeInTheDocument();
     expect(screen.getByText('Thiết kế nhẫn phong cách Solitaire đơn giản với đá chủ topaz.')).toBeInTheDocument();
+  });
+
+  it('allows Guest to view request details and review status without being blocked', async () => {
+    mockFetch({
+      'GET /api/v1/design-requests/guest-req-1': json(200, {
+        id: 'guest-req-1',
+        requestReference: 'DR-GUEST-01',
+        requestVersion: 1,
+        requestStatus: 'ACTIVE',
+        analysisStatus: 'SUCCEEDED',
+        reviewStatus: 'NEED_REVIEW',
+        description: 'Nhẫn bạc đính đá topaz tự nhiên.',
+      }),
+    });
+
+    open('/design-requests/guest-req-1', { session: fakeSession('signed-out') });
+
+    expect(await screen.findByText('Chi tiết Yêu cầu Thiết kế')).toBeInTheDocument();
+    expect(screen.getByText('Nhẫn bạc đính đá topaz tự nhiên.')).toBeInTheDocument();
+    expect(screen.getByText(/Đang đợi phản hồi của nhân viên/)).toBeInTheDocument();
   });
 });
 

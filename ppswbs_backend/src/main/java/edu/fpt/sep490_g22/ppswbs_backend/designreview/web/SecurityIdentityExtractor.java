@@ -11,9 +11,9 @@ public final class SecurityIdentityExtractor {
 
     private SecurityIdentityExtractor() {}
 
-    public static String requireUid(Authentication authentication) {
+    public static Optional<String> extractUid(Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
-            throw DesignReviewException.unauthorized("AUTHENTICATION_REQUIRED", "Yêu cầu xác thực tài khoản.");
+            return Optional.empty();
         }
 
         return ActorContext.getVerifiedUid()
@@ -29,7 +29,11 @@ public final class SecurityIdentityExtractor {
                         return Optional.of(str);
                     }
                     return Optional.empty();
-                })
+                });
+    }
+
+    public static String requireUid(Authentication authentication) {
+        return extractUid(authentication)
                 .orElseThrow(() -> DesignReviewException.unauthorized("AUTHENTICATION_REQUIRED", "Không tìm thấy danh tính Firebase UID hợp lệ."));
     }
 }

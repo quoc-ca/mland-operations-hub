@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { useT } from '../../../shared/i18n/I18nProvider';
 import { ErrorNotice, Field, Loading, useCommand } from '../../../shared/ui/components';
 import { useDesignReviewApi } from '../api/useDesignReviewApi';
@@ -9,6 +9,8 @@ import {
   CONSENT_PURPOSE,
   CONSENT_VERSION,
   LIMITS,
+  formatFileSize,
+  validateImageDimensions,
   validateImageFile,
 } from '../rules';
 
@@ -20,20 +22,29 @@ export default function DesignWorkspacePage() {
   const fileInputRef = useRef(null);
 
   const [description, setDescription] = useState('');
-  const [catalogueReference, setCatalogueReference] = useState('');
   const [imageFile, setImageFile] = useState(null);
   const [consentAgreed, setConsentAgreed] = useState(false);
   const [errors, setErrors] = useState({});
 
   const charCount = [...description].length;
 
-  function handleFileChange(e) {
+  async function handleFileChange(e) {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Validate image format, size, and non-empty
     const fileError = validateImageFile(file);
     if (fileError) {
       setErrors(prev => ({ ...prev, image: t(fileError) }));
+      setImageFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
+    // Validate image resolution
+    const dimensionError = await validateImageDimensions(file);
+    if (dimensionError) {
+      setErrors(prev => ({ ...prev, image: t(dimensionError) }));
       setImageFile(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
@@ -71,8 +82,22 @@ export default function DesignWorkspacePage() {
     if (description && [...description].length > LIMITS.descriptionMax) {
       newErrors.description = t('validation.descriptionTooLong');
     }
-    if (imageFile && !consentAgreed) {
-      newErrors.consent = t('validation.consentRequired');
+
+    // Validate image before submission
+    if (imageFile) {
+      const fileError = validateImageFile(imageFile);
+      if (fileError) {
+        newErrors.image = t(fileError);
+      } else {
+        const dimError = await validateImageDimensions(imageFile);
+        if (dimError) {
+          newErrors.image = t(dimError);
+        }
+      }
+
+      if (!consentAgreed) {
+        newErrors.consent = t('validation.consentRequired');
+      }
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -84,7 +109,6 @@ export default function DesignWorkspacePage() {
     const res = await command.run(key =>
       api.submitDesignRequest(key, {
         description: description.trim(),
-        catalogueReference: catalogueReference.trim(),
         consentVersion: imageFile ? CONSENT_VERSION : null,
         consentPurpose: imageFile ? CONSENT_PURPOSE : null,
         designVersion: 1,
@@ -93,15 +117,24 @@ export default function DesignWorkspacePage() {
     );
 
     if (res.ok && res.result?.id) {
-      navigate(`/design-requests/${encodeURIComponent(res.result.id)}`);
+      navigate(`/design-requests/${encodeURIComponent(res.result.id)}`, {
+        state: { successMessage: 'Yêu cầu đã được gửi thành công, đang đợi phản hồi của nhân viên' },
+      });
     }
   }
 
   return (
     <div className="design-container">
       <header className="page-header">
-        <h1>{t('workspace.title')}</h1>
-        <p className="muted">{t('workspace.subtitle')}</p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
+          <div>
+            <h1>{t('workspace.title')}</h1>
+            <p className="muted">{t('workspace.subtitle')}</p>
+          </div>
+          <Link to="/my/designs?tab=custom" className="button outline small" style={{ textDecoration: 'none' }}>
+            <span>📋</span> Xem yêu cầu của tôi
+          </Link>
+        </div>
       </header>
 
       <div className="boundary-banner" role="status">
@@ -126,22 +159,10 @@ export default function DesignWorkspacePage() {
             onChange={e => {
               setDescription(e.target.value);
               if (errors.description) setErrors(prev => ({ ...prev, description: null }));
+              if (errors.form) setErrors(prev => ({ ...prev, form: null }));
             }}
             placeholder={t('workspace.descriptionPlaceholder')}
             rows={5}
-            disabled={command.pending}
-          />
-        </Field>
-
-        <Field
-          label={t('workspace.catalogueRefLabel')}
-          error={errors.catalogueReference || command.error?.fieldError?.('catalogueReference')}
-        >
-          <input
-            type="text"
-            value={catalogueReference}
-            onChange={e => setCatalogueReference(e.target.value)}
-            placeholder={t('workspace.catalogueRefPlaceholder')}
             disabled={command.pending}
           />
         </Field>
@@ -165,7 +186,7 @@ export default function DesignWorkspacePage() {
             <span>
               {t('workspace.fileSelected', {
                 name: imageFile.name,
-                size: `${(imageFile.size / 1024 / 1024).toFixed(2)} MB`,
+                size: formatFileSize(imageFile.size),
               })}
             </span>
             <button

@@ -137,6 +137,8 @@ public class SecurityConfiguration {
                         .requestMatchers(HttpMethod.POST, "/api/v1/workshop-designs/*/evaluate").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/workshop-designs/*/archive").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/workshop-designs/*/attach-to-booking").permitAll()
+                        // Feature-004 Independent Design Requests (safe read for guest lookup and member view)
+                        .requestMatchers(HttpMethod.GET, "/api/v1/design-requests/**").permitAll()
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().denyAll());
 

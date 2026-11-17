@@ -32,6 +32,20 @@ export default function ReviewCard({ review, onOpen }) {
         <div className="review-body">{review.bodyText}</div>
       )}
 
+      {review.imageUrls && review.imageUrls.length > 0 && (
+        <div className="review-card-images" data-testid="review-images">
+          {review.imageUrls.map((url, idx) => (
+            <img
+              key={idx}
+              src={url}
+              alt={`Review attachment ${idx + 1}`}
+              className="review-card-img"
+              onClick={() => window.open(url, '_blank')}
+            />
+          ))}
+        </div>
+      )}
+
       {review.reply && (
         <div className="manager-reply-box">
           <div className="manager-reply-header">

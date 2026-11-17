@@ -84,14 +84,15 @@ prototype slice during documentation synchronization.
 | ID | Route | Actor | Required states |
 | --- | --- | --- | --- |
 | `F04-AI-CHAT` | `/ai-support` | Guest/Member | Empty, pending, validation, provider failure, retry, advisory scope label. |
-| `F04-DESIGN-WORKSPACE` | `/design-requests/new` | Member | Description-only, image-only, combined input, validation, consent, pending, unauthenticated empty state with login CTA (`RequireSession requiredText`), and recoverable failure. |
+| `F04-DESIGN-WORKSPACE` | `/design-requests/new` | Member | Description-only, image-only, combined input, client pre-validation (size, MIME, empty file, resolution), consent, pending, unauthenticated empty state with login CTA (`RequireSession requiredText`), and recoverable failure with clear error messages. (Note: catalogue reference input field is removed). |
 | `F04-CONSENT` | Inline workspace state | Member | Purpose/version display, affirmative consent, consent-required error. |
-| `F04-IMAGE-UPLOAD` | Inline workspace state | Member | JPEG/PNG/WEBP, 10 MB, 4096×4096, rate-limit and file validation states. |
-| `F04-ANALYSIS-STATUS` | `/design-requests/:designRequestId` | Member owner | `PROCESSING`, `SUCCEEDED`, `FAILED`, retry and safe failure evidence. |
-| `F04-RESULT` | Same detail route | Member owner | Candidate features, image quality, confidence/uncertainty and review status; never raw provider payload. |
+| `F04-IMAGE-UPLOAD` | Inline workspace state | Member | JPEG/PNG/WEBP, 10 MB, 4096×4096, rate-limit, empty-file check, and file validation states. |
+| `F04-ANALYSIS-STATUS` | `/design-requests/:designRequestId` | Member owner / Guest lookup | `PROCESSING`, `SUCCEEDED`, `FAILED`, retry and safe failure evidence. Displays success confirmation: "Yêu cầu đã được gửi thành công, đang đợi phản hồi của nhân viên". |
+| `F04-RESULT` | Same detail route | Member owner / Guest lookup | Candidate features, image quality, confidence/uncertainty and review status (`NEED_REVIEW` - Awaiting staff review, `ACCEPTED`, `REJECTED`, `CLARIFICATION_REQUIRED`); never raw provider payload. |
 | `F04-REVIEW-QUEUE` | `/design-review-requests` | Staff/Manager | Loading, empty, forbidden and API failure states. |
 | `F04-REVIEW-DETAIL` | `/design-review-requests/:reviewRequestId` | Staff/Manager | Decision form, reason validation, stale version and conflict recovery. |
 | `F04-PRICE-PROPOSAL` | `/price-proposals/:proposalId/ai-suggestions` | Manager/Admin projection | Advisory suggestion, manual fallback, decision and technical-audit view. |
+| `F04-MEMBER-CUSTOM-LIST` | `/my/designs?tab=custom` | Member | List of member's own custom design requests with real-time review/analysis status badges and link to detail. |
 
 ## 5. Screen and API mapping
 

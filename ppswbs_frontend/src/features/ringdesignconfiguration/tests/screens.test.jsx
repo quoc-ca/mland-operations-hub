@@ -150,7 +150,8 @@ describe('Feature-012 Workshop Ring Design Configuration Screens', () => {
 
       expect(await screen.findByText('Mẫu Nhẫn Cưới Classic')).toBeInTheDocument();
       expect(screen.getByText('Mẫu Nhẫn Xoắn Đôi')).toBeInTheDocument();
-      expect(screen.getByText('Độ khó ước tính: 2 / 10')).toBeInTheDocument();
+      expect(screen.getByText(/2\.0 \/ 10/i)).toBeInTheDocument();
+      expect(screen.getByText(/Dễ/i)).toBeInTheDocument();
     });
 
     it('navigates to configurator with selected model reference on card click', async () => {
@@ -261,7 +262,11 @@ describe('Feature-012 Workshop Ring Design Configuration Screens', () => {
 
       // Select OUTER_BAND
       const outerBtn = await screen.findByTestId('placement-outer');
+      const innerBtn = screen.getByTestId('placement-inner');
+      expect(outerBtn).toHaveClass('ring-placement-pill');
+      expect(innerBtn).toHaveClass('ring-placement-pill');
       await user.click(outerBtn);
+      expect(outerBtn).toHaveClass('selected');
 
       // Surface texture warning must be visible
       expect(await screen.findByTestId('surface-texture-warning')).toBeInTheDocument();
@@ -330,7 +335,30 @@ describe('Feature-012 Workshop Ring Design Configuration Screens', () => {
       expect(screen.getByText('DSG-EVAL-789')).toBeInTheDocument();
       expect(screen.getByText('350.000 đ')).toBeInTheDocument();
       expect(screen.getByText('3.5 / 10')).toBeInTheDocument();
+      expect(screen.getByTestId('difficulty-badge')).toHaveTextContent('Trung bình');
+      expect(screen.getByTestId('difficulty-note')).toHaveTextContent('Trung bình');
       expect(screen.getByTestId('proceed-booking-btn')).toBeInTheDocument();
+    });
+
+    it('renders very hard difficulty score (> 9.0) with warning advice', async () => {
+      const veryHardData = {
+        ...mockDesignData,
+        evaluation: {
+          ...mockDesignData.evaluation,
+          difficultyScore: '9.4',
+        },
+      };
+      mockFetch({
+        'GET /api/v1/workshop-designs/DSG-EVAL-789': json(200, veryHardData),
+      });
+
+      open('/workshops/PKG-COUPLE-01/design/DSG-EVAL-789', { session: fakeSession('signed-out') });
+
+      expect(await screen.findByTestId('design-evaluation-page')).toBeInTheDocument();
+      expect(screen.getByText('9.4 / 10')).toBeInTheDocument();
+      expect(screen.getByTestId('difficulty-badge')).toHaveTextContent('Rất khó');
+      expect(screen.getByTestId('difficulty-note')).toHaveTextContent('Khuyến cáo người dùng đổi lại mẫu thiết kế');
+      expect(screen.getByTestId('difficulty-very-hard-warning')).toBeInTheDocument();
     });
 
     it('navigates to workshop booking flow when clicking proceed to booking', async () => {

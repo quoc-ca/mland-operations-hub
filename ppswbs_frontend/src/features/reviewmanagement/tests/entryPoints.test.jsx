@@ -18,7 +18,7 @@ describe('who is offered which way into reviewing', () => {
     mockFetch({ [PROFILE]: json(200, { role: 'MEMBER' }), [LIST]: empty });
     open('/reviews');
 
-    expect(await screen.findByRole('link', { name: 'Nguồn đủ điều kiện' })).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: 'Viết đánh giá' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Tìm giao dịch đủ điều kiện' })).toBeNull();
   });
 
@@ -27,7 +27,7 @@ describe('who is offered which way into reviewing', () => {
     open('/reviews', { session: fakeSession('signed-out') });
 
     expect(await screen.findByRole('link', { name: 'Tìm giao dịch đủ điều kiện' })).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: 'Nguồn đủ điều kiện' })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Viết đánh giá' })).toBeNull();
   });
 
   it('offers neither to a Staff, who moderates instead', async () => {
@@ -37,7 +37,7 @@ describe('who is offered which way into reviewing', () => {
     await screen.findByText('Đánh giá từ khách hàng');
     await new Promise(resolve => setTimeout(resolve, 50));
     expect(screen.queryByRole('link', { name: 'Tìm giao dịch đủ điều kiện' })).toBeNull();
-    expect(screen.queryByRole('link', { name: 'Nguồn đủ điều kiện' })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Viết đánh giá' })).toBeNull();
   });
 
   it('sends a signed-in Member who opens the Guest lookup to their own list', async () => {

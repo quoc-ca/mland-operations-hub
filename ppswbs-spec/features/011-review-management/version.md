@@ -1,11 +1,11 @@
-# Version 1.2 — Feature-011: Review Management (Product Detail Integration, Isolation Enforcement & Multi-Criteria Sorting)
+# Version 1.3 — Feature-011: Review Management (Photo Attachments, Public Filtering & UX Enhancements)
 
 - **Feature**: 011 — Review Management
 - **Author**: Ngô Tiến Đạt
 - **Last updated by**: Ngô Tiến Đạt
 - **Date created**: 2026-11-03
-- **Date updated**: 2026-11-14
-- **Source of truth**: Feature-011 `spec.md`, `data-model.md`, backend implementation, `V91__review_management.sql`, `V100__review_history_retention.sql`, OpenAPI contract (`review-management.openapi.yaml`) and synchronized project specifications
+- **Date updated**: 2026-11-17
+- **Source of truth**: Feature-011 `spec.md`, `data-model.md`, backend implementation, `V91__review_management.sql`, `V100__review_history_retention.sql`, `V180__review_images.sql`, OpenAPI contract (`review-management.openapi.yaml`) and synchronized project specifications
 
 > This file is an implementation status index. Detailed behavior remains in
 > the Feature-011 artifacts and source code. Phase labels are retained for
@@ -14,6 +14,21 @@
 ---
 
 ## 1. Completed
+
+### Phase I — Photo Attachments, Public Filtering & UX Enhancements (V1.3)
+
+- **Đính kèm hình ảnh khi tạo và chỉnh sửa đánh giá (`ReviewForm.jsx`, `ReviewCard.jsx`)**:
+  - Người dùng có thể gắn tối đa 3 ảnh cho mỗi đánh giá.
+  - Tổng dung lượng ảnh tối đa 10MB across all attachments.
+  - Client-side validation: chặn khi chọn quá 3 ảnh (`t('errMaxPhotos')`), định dạng không phải ảnh (`t('errPhotoType')`), hoặc tổng dung lượng > 10MB (`t('errMaxPhotoSize')`).
+  - Giao diện xem trước hình ảnh kèm nút xóa ảnh (x).
+  - Backend schema: Thêm cột `image_urls TEXT` qua migration `V180__review_images.sql`, cập nhật `Review.java`, `ReviewDto.java`, `CreateReviewRequest.java`, `EditReviewRequest.java` với `@Size(max = 3)`.
+  - Hiển thị danh sách ảnh đính kèm dạng thumbnail trên `ReviewCard.jsx` và phóng to khi click.
+- **Bộ lọc công khai và điều hướng trải nghiệm (`PublicReviewListPage.jsx`)**:
+  - Sửa nút "Nguồn đủ điều kiện" thành "Viết đánh giá" (`{t('writeReview')}`) dẫn trực tiếp tới trang chọn nguồn trải nghiệm cho hội viên.
+  - Bổ sung bộ lọc trải nghiệm: "Tất cả trải nghiệm", "Đánh giá dành cho Workshop" (`WORKSHOP_SESSION`), "Đánh giá dành cho Sản phẩm" (`RETAIL_PRODUCT`).
+  - Bổ sung bộ lọc sắp xếp: "Mới nhất" (`recent`), "Đánh giá cao nhất" (`best_to_worse`), "Đánh giá thấp nhất" (`worse_to_best`).
+  - Tích hợp đồng bộ với bộ lọc số sao (1–5 sao).
 
 ### Phase H — Retail Product Detail Review Integration & Scoped Sorting (V1.2)
 

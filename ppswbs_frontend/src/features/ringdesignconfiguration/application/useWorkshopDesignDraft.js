@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
 import { createDefaultDraft, normalizeDraftForSave, validateDraftClient } from '../domain/designDraft';
-import { derivePreviewModel } from '../domain/designPreview';
+import { derivePreviewModel, findNextAvailableAngle } from '../domain/designPreview';
 
 export function useWorkshopDesignDraft(packageReference, initialModel = null) {
   const [draft, setDraft] = useState(() => createDefaultDraft(packageReference, initialModel));
@@ -74,9 +74,7 @@ export function useWorkshopDesignDraft(packageReference, initialModel = null) {
           for (let i = 0; i < needed; i++) {
             const stoneIndex = matching.length + i;
             const stoneId = `gem-${componentReference}-${stoneIndex}`;
-            // Space slightly from top center (270)
-            const angleOffset = (stoneIndex % 2 === 0 ? 1 : -1) * Math.ceil((stoneIndex + 1) / 2) * 20;
-            const newAngle = (270 + angleOffset + 360) % 360;
+            const newAngle = findNextAvailableAngle(nextPositions);
             nextPositions.push({
               id: stoneId,
               reference: componentReference,
@@ -107,12 +105,14 @@ export function useWorkshopDesignDraft(packageReference, initialModel = null) {
         };
       }
       const stoneId = `gem-${componentReference}-0`;
+      const currentPositions = prev.gemstonePositions || [];
+      const newAngle = findNextAvailableAngle(currentPositions);
       return {
         ...prev,
         components: [...prev.components, { reference: componentReference, quantity: 1, placement: 'CENTER' }],
         gemstonePositions: [
-          ...(prev.gemstonePositions || []),
-          { id: stoneId, reference: componentReference, index: 0, angleDeg: 270 },
+          ...currentPositions,
+          { id: stoneId, reference: componentReference, index: 0, angleDeg: newAngle },
         ],
       };
     });

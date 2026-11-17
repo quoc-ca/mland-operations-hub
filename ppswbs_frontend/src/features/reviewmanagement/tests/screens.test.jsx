@@ -1,6 +1,6 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fakeSession, json, mockFetch, renderRoutes } from '../../../test/render';
 import { clearRoleCache } from '../../../shared/auth/useRole';
 import { reviewManagementRoutes } from '../routes';
@@ -489,5 +489,55 @@ describe('F11-MODERATION-DETAIL Screen (/review-moderation/:id)', () => {
     expect(await screen.findByRole('button', { name: 'Khôi phục công khai' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Gỡ đánh giá' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Lưu phản hồi' })).toBeInTheDocument();
+  });
+
+  it('renders review card with attached images and supports toolbar filters', async () => {
+    mockFetch({
+      'GET /api/v1/reviews': json(200, {
+        aggregate: { count: 1, averageRating: 5.0 },
+        items: [
+          {
+            id: 'rev-photo-01',
+            targetType: 'WORKSHOP_SESSION',
+            targetReference: 'SESS-PHOTO',
+            rating: 5,
+            bodyText: 'Buổi làm nhẫn kèm ảnh sản phẩm thực tế.',
+            imageUrls: ['data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='],
+            status: 'PUBLIC',
+            maskedDisplayName: 'k***h@gmail.com',
+            createdAt: '2026-11-05T12:00:00Z',
+          },
+        ],
+      }),
+    });
+
+    open('/reviews', { session: fakeSession('signed-out') });
+    expect(await screen.findByText('Buổi làm nhẫn kèm ảnh sản phẩm thực tế.')).toBeInTheDocument();
+    expect(screen.getByTestId('review-images')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Review attachment 1' })).toBeInTheDocument();
+
+    expect(screen.getByTestId('filter-sort')).toBeInTheDocument();
+    expect(screen.getByTestId('filter-target-type')).toBeInTheDocument();
+    expect(screen.getByTestId('filter-rating')).toBeInTheDocument();
+  });
+
+  it('validates image attachments in ReviewForm (max 3 photos limit)', async () => {
+    const onSaved = vi.fn();
+    const source = { sourceType: 'WORKSHOP_ATTENDANCE', sourceReference: 'ATT-1', targetType: 'WORKSHOP_SESSION', targetReference: 'SESS-1' };
+    renderRoutes(reviewManagementRoutes, {
+      path: '/reviews/new',
+      state: { source },
+      session: fakeSession('signed-in'),
+    });
+
+    const fileInput = await screen.findByTestId('review-image-input');
+    const f1 = new File(['a'], '1.png', { type: 'image/png' });
+    const f2 = new File(['b'], '2.png', { type: 'image/png' });
+    const f3 = new File(['c'], '3.png', { type: 'image/png' });
+    const f4 = new File(['d'], '4.png', { type: 'image/png' });
+
+    // Selecting 4 files exceeds max 3
+    fireEvent.change(fileInput, { target: { files: [f1, f2, f3, f4] } });
+    expect(await screen.findByText('Tối đa 3 hình ảnh cho mỗi đánh giá.')).toBeInTheDocument();
   });
 });

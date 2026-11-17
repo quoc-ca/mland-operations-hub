@@ -588,7 +588,7 @@ export default function RingConfigurationPage() {
                             <div className="ring-pills-row">
                               <button
                                 type="button"
-                                className={`ring-size-pill ${item.placement === 'INNER_BAND' ? 'selected' : ''}`}
+                                className={`ring-size-pill ring-placement-pill ${item.placement === 'INNER_BAND' ? 'selected' : ''}`}
                                 onClick={() => updateItem({ placement: 'INNER_BAND' })}
                                 data-testid={idx === 0 ? 'placement-inner' : `placement-inner-${idx}`}
                               >
@@ -596,7 +596,7 @@ export default function RingConfigurationPage() {
                               </button>
                               <button
                                 type="button"
-                                className={`ring-size-pill ${item.placement === 'OUTER_BAND' ? 'selected' : ''}`}
+                                className={`ring-size-pill ring-placement-pill ${item.placement === 'OUTER_BAND' ? 'selected' : ''}`}
                                 onClick={() => updateItem({ placement: 'OUTER_BAND' })}
                                 data-testid={idx === 0 ? 'placement-outer' : `placement-outer-${idx}`}
                               >

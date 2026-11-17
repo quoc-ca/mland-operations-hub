@@ -1,19 +1,25 @@
 import React from 'react';
-import { Link, useParams } from 'react-router';
+import { Link, useLocation, useParams } from 'react-router';
+import { useAuth } from '../../../shared/auth/AuthProvider';
 import { useT } from '../../../shared/i18n/I18nProvider';
-import { ErrorNotice, Loading, useResource } from '../../../shared/ui/components';
+import { ErrorNotice, Loading, SuccessNotice, useResource } from '../../../shared/ui/components';
 import { useDesignReviewApi } from '../api/useDesignReviewApi';
 import { designReviewMessages } from '../messages';
 import { formatVnd } from '../rules';
 
 export default function DesignDetailPage() {
   const { designRequestId } = useParams();
+  const location = useLocation();
+  const { status, userId } = useAuth();
+  const isAuthenticated = status === 'signed-in' || Boolean(userId);
   const t = useT(designReviewMessages);
   const api = useDesignReviewApi();
 
+  const successMessage = location.state?.successMessage;
+
   const { loading, error, data, reload } = useResource(
-    () => api.getDesignRequest(designRequestId),
-    [designRequestId]
+    () => api.getDesignRequest(designRequestId, isAuthenticated),
+    [designRequestId, isAuthenticated]
   );
 
   if (loading) return <div className="design-container"><Loading /></div>;
@@ -32,8 +38,23 @@ export default function DesignDetailPage() {
   const confidence = data.confidence || safeResult.confidence || {};
   const safeExplanation = data.safeExplanation || safeResult.safeExplanation || safeResult.explanation || '';
 
+  const reviewStatusKey = `status.${data.reviewStatus}`;
+  const reviewStatusText = t(reviewStatusKey) !== reviewStatusKey ? t(reviewStatusKey) : (data.reviewStatus || 'NEED_REVIEW');
+  const reviewStatusBadgeClass =
+    data.reviewStatus === 'ACCEPTED'
+      ? 'badge-success'
+      : data.reviewStatus === 'REJECTED'
+      ? 'badge-danger'
+      : 'badge-warning';
+
   return (
     <div className="design-container">
+      {successMessage && (
+        <div style={{ marginBottom: '1.5rem' }}>
+          <SuccessNotice>{successMessage}</SuccessNotice>
+        </div>
+      )}
+
       <header className="page-header">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
@@ -56,8 +77,8 @@ export default function DesignDetailPage() {
           <span className={`badge-tag ${data.analysisStatus === 'SUCCEEDED' ? 'badge-success' : data.analysisStatus === 'FAILED' ? 'badge-danger' : 'badge-warning'}`}>
             {t('detail.analysisStatusLabel', { status: data.analysisStatus || 'PENDING' })}
           </span>
-          <span className={`badge-tag ${data.reviewStatus === 'ACCEPTED' ? 'badge-success' : data.reviewStatus === 'REJECTED' ? 'badge-danger' : 'badge-warning'}`}>
-            {t('detail.reviewStatusLabel', { status: data.reviewStatus || 'NEED_REVIEW' })}
+          <span className={`badge-tag ${reviewStatusBadgeClass}`}>
+            {t('detail.reviewStatusLabel', { status: reviewStatusText })}
           </span>
           {data.nextAction && (
             <span className="badge-tag badge-status">
@@ -139,9 +160,12 @@ export default function DesignDetailPage() {
         </section>
       )}
 
-      <div className="actions" style={{ marginTop: '2rem' }}>
+      <div className="actions" style={{ marginTop: '2rem', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
         <Link to="/design-requests/new" className="button primary">
           {t('detail.createNew')}
+        </Link>
+        <Link to="/my/designs?tab=custom" className="button outline">
+          Lịch sử yêu cầu thiết kế
         </Link>
       </div>
     </div>

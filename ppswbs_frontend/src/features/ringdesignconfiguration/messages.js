@@ -71,7 +71,7 @@ export const messages = {
     // Actions
     saveAndEvaluate: 'Lưu & Thẩm định',
     saving: 'Đang lưu & thẩm định...',
-    proceedToBooking: 'Tiếp tục đặt lịch Workshop',
+    proceedToBooking: 'Khám phá các workshop',
     editDesign: 'Chỉnh sửa thiết kế',
     archiveDesign: 'Lưu trữ mẫu thiết kế',
     archiving: 'Đang lưu trữ...',
