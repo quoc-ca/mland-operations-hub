@@ -1,16 +1,17 @@
 import { newCommandId } from '../../shared/api/http';
 
 export function createOperationsApi(http) {
-  const command = (path, body, key) => http(path, { method: 'POST', body, idempotencyKey: key || newCommandId() });
+  const command = (path, body, key, opts = {}) => http(path, { method: 'POST', body, idempotencyKey: key || newCommandId(), ...opts });
   return {
     listSessions: query => http('/api/v1/workshop-sessions', { query }),
     getSession: id => http(`/api/v1/workshop-sessions/${id}`),
-    transition: (id, targetState, key) => command(`/api/v1/workshop-sessions/${id}/state-transitions`, { targetState }, key),
+    transition: (id, targetState, key) => command(`/api/v1/workshop-sessions/${id}/state-transitions`, { targetState }, key, { suppressAccessDenied: true }),
     finalizeAttendance: (id, key) => command(`/api/v1/workshop-sessions/${id}/attendance-finalizations`, { confirmedSessionEnded: true }, key),
     checkIn: (id, body, key) => command(`/api/v1/workshop-sessions/${id}/check-ins`, body, key),
     overrideCheckIn: (id, body, key) => command(`/api/v1/workshop-sessions/${id}/check-in-overrides`, body, key),
     lookupBooking: (id, bookingCode) => http(`/api/v1/workshop-sessions/${id}/booking-lookups/${encodeURIComponent(bookingCode)}`),
     attendanceRoster: id => http(`/api/v1/workshop-sessions/${id}/attendance-roster`),
+    folioStatuses: ticketCodes => command('/api/v1/workshop-ticket-folio-statuses', { ticketCodes }, null, { suppressAccessDenied: true }),
     resendTickets: (id, bookingCode, key) => command(`/api/v1/workshop-sessions/${id}/ticket-resends`, { bookingCode }, key),
     correctAttendance: (id, body, key) => command(`/api/v1/workshop-sessions/${id}/attendance-corrections`, body, key),
     reverseCheckIn: (id, body, key) => command(`/api/v1/workshop-sessions/${id}/check-in-reversals`, body, key),

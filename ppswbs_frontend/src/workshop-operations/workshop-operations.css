@@ -104,3 +104,33 @@
 .pam-denied{text-align:center;padding:56px 16px}
 .pam-denied-code{font-size:40px;font-weight:800;color:#991b1b;margin:0}
 .pam-denied h2{margin:8px 0}.pam-denied p{color:#6b7280}
+
+/* Session board filter bar: every control shares one height so labels and fields line up on one baseline. */
+.ops-filter-form { align-items: flex-end; }
+.ops-filter-form input,
+.ops-filter-form select,
+.ops-filter-form .button { box-sizing: border-box; height: 42px; }
+.ops-filter-form select {
+  border: 1px solid #d5d7dc; border-radius: 6px; background: #fff; padding: 0 12px; color: #1a1a1a; min-width: 160px;
+}
+.ops-filter-form input { min-width: 150px; }
+.ops-filter-form .button.primary { margin-left: auto; }
+
+/* Attendance roster: the ticket code (GRP-…-L1-T1) is long, so its column is the widest and the text may break anywhere instead of running into the next column. */
+.roster-panel .roster-row{grid-template-columns:minmax(0,1.8fr) minmax(0,1.3fr) 112px minmax(0,.9fr) auto}
+.roster-folio{white-space:nowrap;font-size:12px;font-weight:600}
+.roster-row>*{min-width:0}
+.roster-row strong{overflow-wrap:anywhere;word-break:break-all}
+@media(max-width:1100px){.roster-panel .roster-row{grid-template-columns:minmax(0,1fr) 112px}.roster-panel .roster-row .roster-folio{grid-column:1/-1}}
+
+/* Session page: the check-in desk and the session facts sit side by side on the first row; the attendance roster is long, so it has the whole row below. */
+.ops-detail-grid>.roster-panel{grid-column:1/-1}
+
+/* ---- Roster: five aligned columns (code, booking, badges, time, action) and the payment badge ---- */
+.roster-panel .roster-row{grid-template-columns:minmax(0,1.2fr) minmax(0,1.3fr) minmax(190px,auto) minmax(130px,.8fr) 110px;align-items:center}
+.roster-panel .roster-row>strong{overflow-wrap:anywhere}
+.roster-panel .roster-badges{display:flex;flex-wrap:wrap;gap:6px}
+.roster-panel .roster-row .roster-folio{justify-self:end;text-align:right;white-space:nowrap}
+.roster-pay-paid{background:#dbeafe;color:#1e40af}
+.roster-pay-unpaid{background:#fef3c7;color:#92400e}
+@media(max-width:1100px){.roster-panel .roster-row{grid-template-columns:minmax(0,1fr) auto}.roster-panel .roster-row .roster-badges,.roster-panel .roster-row .roster-folio{grid-column:1/-1;justify-self:start}}

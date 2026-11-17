@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useUrlFilters } from '../../shared/ui/useUrlFilters';
 import { Link, useParams } from 'react-router';
 import { useAuth } from '../../shared/auth/AuthProvider';
 import { useRole } from '../../shared/auth/useRole';
@@ -7,6 +8,7 @@ import { ErrorNotice, Loading, SuccessNotice, useCommand, useResource } from '..
 import { OperationsSidebar } from '../../shared/ui/OperationsSidebar';
 import { OperationsAuthWorkspace } from '../../shared/ui/OperationsAuthWorkspace';
 import { createOperationsApi } from '../api/operationsApi';
+import { sessionTimeRange } from './OperationsDashboardPage';
 import { useOtaConnectivityApi } from '../../ota-connectivity/api/useOtaConnectivityApi';
 import { decideLatePaymentReview, listLatePaymentReviews, submitGroupMagicLinkIncident } from '../../api/workshops';
 import StaffWorkshopAddonPanel from '../components/StaffWorkshopAddonPanel';
@@ -15,7 +17,6 @@ import '../../ota-connectivity/ota-connectivity.css';
 import '../workshop-operations.css';
 
 const CHECKIN_CORRECTION_REASONS = [
-  { code: 'EARLY_CHECKIN', label: 'EARLY_CHECKIN — Khách đến check-in sớm (trước giờ mở quầy)' },
   { code: 'CUSTOMER_DEVICE_UNAVAILABLE', label: 'CUSTOMER_DEVICE_UNAVAILABLE — Khách hết pin / thiết bị không dùng được' },
   { code: 'RECORDING_ERROR', label: 'RECORDING_ERROR — Lỗi thao tác quét vé / ghi nhận nhầm' },
   { code: 'TICKET_REDELIVERY_UNAVAILABLE', label: 'TICKET_REDELIVERY_UNAVAILABLE — Không gửi lại được vé điện tử (yêu cầu note & ref)' },
@@ -59,6 +60,35 @@ const transitionBlockedReason = (current, target) => {
   if (current === 'IN_PROGRESS') return 'Ca đã bắt đầu (IN PROGRESS) nên không quay lại trạng thái bán. Chỉ có thể chốt điểm danh hoặc hủy ca.';
   return 'Không thể chuyển ca từ trạng thái hiện tại sang trạng thái này.';
 };
+/**
+ * Why a state change was refused, in words anyone can act on. The server's English detail is matched by what it says;
+ * the code and correlation stay visible under the text for whoever investigates.
+ */
+export function transitionProblemText(error, target) {
+  if (!error) return '';
+  const detail = String(error.message || error.detail || '');
+  if (error.code === 'LOCATION_SCOPE_DENIED' || /outside .*scope/i.test(detail)) {
+    return 'Ca này thuộc chi nhánh ngoài phạm vi của bạn. Chỉ Staff của chi nhánh đó hoặc Manager đổi được trạng thái ca.';
+  }
+  if (error.status === 403) {
+    if (/not assigned/i.test(detail)) {
+      return 'Bạn chưa được gán vào ca này nên chưa đổi được trạng thái. Nhờ Manager phân công bạn vào ca (mục phân công nhân sự trong chi tiết ca) rồi thử lại.';
+    }
+    if (/only a manager/i.test(detail) || target === 'PUBLISHED' || target === 'SALES_PAUSED') {
+      return 'Chỉ Manager được mở bán lại hoặc tạm dừng bán ca. Staff chỉ bắt đầu ca (IN PROGRESS).';
+    }
+    if (/staff member in the session location/i.test(detail) || target === 'IN_PROGRESS') {
+      return 'Chỉ Manager, hoặc Staff của chi nhánh này đã được gán vào ca, mới bắt đầu được ca. Kiểm tra bạn có được gán vào ca này không.';
+    }
+    return 'Bạn không có quyền đổi trạng thái ca này.';
+  }
+  if (error.status === 409) {
+    if (/already in state/i.test(detail)) return 'Ca đã ở trạng thái này rồi. Tải lại trang để xem trạng thái mới nhất.';
+    return `Không chuyển được ca sang ${String(target || '').replaceAll('_', ' ')} từ trạng thái hiện tại. Tải lại trang để xem trạng thái mới nhất của ca.`;
+  }
+  return '';
+}
+
 const ROSTER_FILTERS = [
   { key: 'ALL', label: 'Tất cả' },
   { key: 'CHECKED_IN', label: 'Đã check-in' },
@@ -74,11 +104,11 @@ function ReasonFields({ ticketCode, setTicketCode, reasonCode, setReasonCode, re
   return (
     <div className="ota-form-grid">
       <label>
-        Ticket code *
+        Mã vé *
         <input
           value={ticketCode}
           onChange={e => setTicketCode(e.target.value)}
-          placeholder="TK-..."
+          placeholder="GRP-…-L0-T1"
           required
         />
       </label>
@@ -131,7 +161,29 @@ export function checkInNotOpenText(error) {
   if (error?.status !== 409 || error.code !== 'CHECK_IN_NOT_OPEN') return null;
   const opensAt = error.checkInOpensAt ? new Date(error.checkInOpensAt) : null;
   const when = opensAt && !Number.isNaN(opensAt.getTime()) ? opensAt.toLocaleString('vi-VN') : null;
-  return `Check-in opens at ${when || 'a later time'}. Nếu khách đến sớm, dùng "Override check-in" với lý do EARLY_CHECKIN.`;
+  return `Check-in opens at ${when || 'a later time'}.`;
+}
+
+/**
+ * The codes of a roster row as the customer knows them: the ticket code GRP-…-L1-T1 (line reference + person number)
+ * and the booking code GRP-… (the group). A direct booking without a line suffix keeps its stored codes.
+ */
+export function rosterCodes(row) {
+  const line = String(row?.bookingReference || '');
+  const grouped = /^(.+)-L\d+$/.exec(line);
+  if (!grouped || !row?.ticketSequence) return { ticket: row?.ticketCode, booking: line, internal: null };
+  return { ticket: `${line}-T${row.ticketSequence}`, booking: grouped[1], internal: row.ticketCode };
+}
+
+/**
+ * Payment badge of a roster row, next to the attendance state: "Đã thanh toán" once the ticket folio is FINALIZED
+ * (or CLOSED), "Chưa thanh toán" once the session attendance is finalized and the folio is not, nothing before that.
+ */
+export function paymentBadge(folioStatus, sessionState) {
+  if (folioStatus === 'FINALIZED' || folioStatus === 'CLOSED') return { key: 'paid', label: 'Đã thanh toán' };
+  // An unknown folio (the read failed or the ticket has none) never claims "unpaid".
+  if (folioStatus && sessionState === 'ATTENDANCE_FINALIZED') return { key: 'unpaid', label: 'Chưa thanh toán' };
+  return null;
 }
 
 export default function OperationsSessionPage() {
@@ -142,11 +194,19 @@ export default function OperationsSessionPage() {
   const otaApi = useOtaConnectivityApi();
   const resource = useResource(() => api.getSession(sessionId), [sessionId]);
   const roster = useResource(() => api.attendanceRoster(sessionId), [sessionId]);
+  // Folio lifecycle per ticket for the payment badge; a failed read only hides the badge.
+  const folioCodes = (Array.isArray(roster.data) ? roster.data : []).map(row => rosterCodes(row).ticket).filter(Boolean);
+  const folioCodesKey = folioCodes.join(',');
+  const sessionState = resource.data?.state;
+  const folioStatuses = useResource(
+    () => (folioCodes.length ? api.folioStatuses(folioCodes).catch(() => ({ statuses: {} })) : Promise.resolve({ statuses: {} })),
+    [folioCodesKey, sessionState]);
   // Staff assignment, booking recovery, session cancellation and folio correction are Manager actions (the backend
   // refuses a Staff there); the role is unknown until the profile arrives, so they appear only once it is known.
   const role = useRole();
   const isManager = role === 'MANAGER';
-  const [rosterFilter, setRosterFilter] = useState('ALL');
+  const [{ roster: rosterFilter }, setUrlFilters] = useUrlFilters({ roster: 'ALL' });
+  const setRosterFilter = value => setUrlFilters({ roster: value });
   const command = useCommand();
   const [message, setMessage] = useState('');
   const [ticketCode, setTicketCode] = useState('');
@@ -161,7 +221,7 @@ export default function OperationsSessionPage() {
   const [otaBooking, setOtaBooking] = useState(null);
   const [lookupError, setLookupError] = useState('');
   const [lookupLoading, setLookupLoading] = useState(false);
-  const [reasonCode, setReasonCode] = useState('EARLY_CHECKIN');
+  const [reasonCode, setReasonCode] = useState('CUSTOMER_DEVICE_UNAVAILABLE');
   const [reasonNote, setReasonNote] = useState('');
   const [evidenceReference, setEvidenceReference] = useState('');
   const [cancelReasonCode, setCancelReasonCode] = useState('INSTRUCTOR_UNAVAILABLE');
@@ -182,9 +242,12 @@ export default function OperationsSessionPage() {
   const [lateReviews, setLateReviews] = useState(null);
   const [lateReviewsError, setLateReviewsError] = useState('');
   const [lateReviewsLoading, setLateReviewsLoading] = useState(false);
+  const [transitionError, setTransitionError] = useState(null);
 
+  // The account list is a Manager read (a Staff caller gets 403, which the app treats as "no access" and sends home), and
+  // only the Manager's assignment panel uses it, so only a Manager asks for it.
   React.useEffect(() => {
-    if (status !== 'signed-in') return;
+    if (status !== 'signed-in' || !isManager) return undefined;
     let mounted = true;
     setLoadingStaff(true);
     http('/api/v1/accounts?role=STAFF&status=ACTIVE&size=100')
@@ -202,7 +265,7 @@ export default function OperationsSessionPage() {
         if (mounted) setLoadingStaff(false);
       });
     return () => { mounted = false; };
-  }, [status]);
+  }, [status, isManager]);
 
   if (status === 'loading') return <Loading />;
   if (status !== 'signed-in') {
@@ -239,18 +302,23 @@ export default function OperationsSessionPage() {
     if (result.ok) { setMessage(success); resource.reload(); roster.reload(); }
   }
 
-  // T126: a check-in refused before checkInOpensAt is explained in the desk (opens-at time, EARLY_CHECKIN override).
+  // A refused state change is explained here instead of the generic notice (and a 403 does not send the user home).
+  async function runTransition(state) {
+    setMessage('');
+    setTransitionError(null);
+    const result = await command.run(key => api.transition(sessionId, state, key));
+    if (result.ok) { setMessage(`Session moved to ${state}.`); resource.reload(); roster.reload(); return; }
+    const text = transitionProblemText(result.error, state);
+    if (text) { setTransitionError({ error: result.error, text }); command.reset(); }
+  }
+
+  // T126: a check-in refused before checkInOpensAt is explained in the desk (opens-at time).
   async function runCheckIn(body, success) {
     setMessage('');
     setCheckInNotOpen(null);
     const result = await command.run(key => api.checkIn(sessionId, body, key));
     if (result.ok) { setMessage(success); resource.reload(); roster.reload(); return; }
     if (checkInNotOpenText(result.error)) { setCheckInNotOpen(result.error); command.reset(); }
-  }
-
-  function prepareEarlyCheckInOverride() {
-    setReasonCode('EARLY_CHECKIN');
-    setExceptionsOpen(true);
   }
 
   // T127 / T139: a resend refusal is explained inside the Ticket delivery panel (wait time, no eligible ticket, Booking
@@ -329,7 +397,7 @@ export default function OperationsSessionPage() {
     <header className="ota-page-heading session-hero">
       <div>
         <p className="ota-eyebrow">SESSION CONTROL</p>
-        <h1>{session.workshopDate ? `Buổi workshop ngày ${session.workshopDate}` : (session.slotId || session.id)}</h1>
+        <h1>{session.workshopDate ? `Buổi workshop ngày ${session.workshopDate}${sessionTimeRange(session) ? `, ${sessionTimeRange(session)}` : ''}` : (session.slotId || session.id)}</h1>
         <p>Location {session.locationId || '—'} · <code>{session.id}</code></p>
       </div>
       <span className={`ops-status large session-state session-state-${String(session.state).toLowerCase()}`}>{session.state}</span>
@@ -348,15 +416,15 @@ export default function OperationsSessionPage() {
           }}
         >
           <label>
-            Ticket code
+            Mã vé
             <input
               value={ticketCode}
               onChange={e => setTicketCode(e.target.value)}
-              placeholder="TK-..."
+              placeholder="GRP-…-L0-T1"
             />
           </label>
           <label>
-            or QR token
+            hoặc Mã QR check-in
             <input
               value={qrToken}
               onChange={e => setQrToken(e.target.value)}
@@ -374,13 +442,12 @@ export default function OperationsSessionPage() {
         {checkInNotOpen && (
           <div className="notice error" role="alert">
             <p>{checkInNotOpenText(checkInNotOpen)}</p>
-            <button type="button" className="button outline small" onClick={prepareEarlyCheckInOverride}>Chuẩn bị override EARLY_CHECKIN</button>
           </div>
         )}
 
         <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid #e5e7eb' }}>
           <p style={{ margin: '0 0 8px', fontSize: '13px', fontWeight: 600, color: '#374151' }}>
-            Tra cứu vé theo Mã đặt chỗ (Booking code)
+            Tra cứu vé theo Mã đặt chỗ
           </p>
           <form
             className="ota-inline-form ops-lookup"
@@ -410,7 +477,7 @@ export default function OperationsSessionPage() {
             <input
               value={lookupBookingCode}
               onChange={e => setLookupBookingCode(e.target.value)}
-              placeholder="BK-..."
+              placeholder="GRP-…"
             />
             <button className="button outline" type="submit" disabled={lookupLoading || !lookupBookingCode.trim()}>
               {lookupLoading ? 'Đang tra...' : 'Look up'}
@@ -471,6 +538,7 @@ export default function OperationsSessionPage() {
           )}
         </div>
       </article>
+      <article className="ota-panel"><div className="ota-panel-head"><h2>Session facts</h2></div><dl className="ops-facts"><div><dt>Capacity</dt><dd>{session.capacity}</dd></div><div><dt>Check-in opens</dt><dd>{session.checkInOpensAt ? new Date(session.checkInOpensAt).toLocaleString() : '—'}</dd></div><div><dt>Assigned Staff</dt><dd>{assignedStaffLabel}</dd></div></dl>{transitionError && (<div className="notice error" role="alert"><p>{transitionError.text}</p>{transitionError.error.code && <p className="muted small">Code: {transitionError.error.code}</p>}{transitionError.error.correlationId && <p className="muted small">Correlation: {transitionError.error.correlationId}</p>}<div className="notice-actions"><button type="button" className="button outline" onClick={() => { setTransitionError(null); resource.reload(); }}>Tải lại trạng thái ca</button></div></div>)}<div className="ops-actions">{/* ATTENDANCE_FINALIZED is not a plain state change: only "Finalize attendance" marks no-shows and records the finalization time. */SALES_STATES.map(state => <button key={state} className="button outline" disabled={Boolean(transitionBlockedReason(session.state, state)) || command.pending} title={transitionBlockedReason(session.state, state)} onClick={() => runTransition(state)}>{state.replaceAll('_', ' ')}</button>)}<button className="button primary" disabled={command.pending || session.state !== 'IN_PROGRESS'} title={session.state !== 'IN_PROGRESS' ? 'Attendance can be finalized only while the session is IN PROGRESS.' : undefined} onClick={() => run(key => api.finalizeAttendance(sessionId, key), 'Attendance finalized.')}>Finalize attendance</button></div></article>
       <article className="ota-panel roster-panel" aria-label="Attendance roster">
         <div className="ota-panel-head">
           <h2>Attendance roster</h2>
@@ -497,20 +565,26 @@ export default function OperationsSessionPage() {
             : visibleRosterRows.length === 0 ? <p className="muted">Không có vé nào ở trạng thái này.</p> : (
               <div className="ota-ledger roster-list">
                 <div className="ota-ledger-row roster-row roster-head" aria-hidden="true">
-                  <span>Mã vé</span><span>Mã đặt chỗ</span><span>Trạng thái</span><span>Giờ check-in</span>
+                  <span>Mã vé</span><span>Mã đặt chỗ</span><span>Trạng thái</span><span>Giờ check-in</span><span>Thao tác</span>
                 </div>
-                {visibleRosterRows.map(row => (
+                {visibleRosterRows.map(row => {
+                  const pay = paymentBadge(folioStatuses.data?.statuses?.[rosterCodes(row).ticket], session.state);
+                  return (
                   <div className="ota-ledger-row roster-row" key={`${row.ticketCode}`}>
-                    <strong>{row.ticketCode}</strong>
-                    <code>{row.bookingReference}</code>
-                    <span className={`roster-state roster-${String(row.attendanceState).toLowerCase()}`}>{ROSTER_LABELS[row.attendanceState] || row.attendanceState}</span>
+                    <strong title={rosterCodes(row).internal || undefined}>{rosterCodes(row).ticket}</strong>
+                    <code>{rosterCodes(row).booking}</code>
+                    <span className="roster-badges">
+                      <span className={`roster-state roster-${String(row.attendanceState).toLowerCase()}`}>{ROSTER_LABELS[row.attendanceState] || row.attendanceState}</span>
+                      {pay && <span className={`roster-state roster-pay-${pay.key}`}>{pay.label}</span>}
+                    </span>
                     <time>{row.checkedInAt ? new Date(row.checkedInAt).toLocaleString() : '—'}</time>
+                    <Link className="text-link roster-folio" to={`/settlement?ticket=${encodeURIComponent(rosterCodes(row).ticket)}`}>Folio / Add-on</Link>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
       </article>
-      <article className="ota-panel"><div className="ota-panel-head"><h2>Session facts</h2></div><dl className="ops-facts"><div><dt>Capacity</dt><dd>{session.capacity}</dd></div><div><dt>Check-in opens</dt><dd>{session.checkInOpensAt ? new Date(session.checkInOpensAt).toLocaleString() : '—'}</dd></div><div><dt>Assigned Staff</dt><dd>{assignedStaffLabel}</dd></div></dl><div className="ops-actions">{/* ATTENDANCE_FINALIZED is not a plain state change: only "Finalize attendance" marks no-shows and records the finalization time. */SALES_STATES.map(state => <button key={state} className="button outline" disabled={Boolean(transitionBlockedReason(session.state, state)) || command.pending} title={transitionBlockedReason(session.state, state)} onClick={() => run(key => api.transition(sessionId, state, key), `Session moved to ${state}.`)}>{state.replaceAll('_', ' ')}</button>)}<button className="button primary" disabled={command.pending || session.state !== 'IN_PROGRESS'} title={session.state !== 'IN_PROGRESS' ? 'Attendance can be finalized only while the session is IN PROGRESS.' : undefined} onClick={() => run(key => api.finalizeAttendance(sessionId, key), 'Attendance finalized.')}>Finalize attendance</button></div></article>
       {isManager && (<>
       <RescheduleQuotaPanel api={api} session={session} onSaved={resource.reload} onReload={resource.reload} />
       <article className="ota-panel">
@@ -622,7 +696,7 @@ export default function OperationsSessionPage() {
           <input
             value={resendBookingCode}
             onChange={e => setResendBookingCode(e.target.value)}
-            placeholder="BK-... (Mã đặt chỗ)"
+            placeholder="GRP-… (Mã đặt chỗ)"
           />
           <button
             className="button outline"
@@ -640,11 +714,11 @@ export default function OperationsSessionPage() {
         <p className="muted">Thu hồi hoặc đổi magic link truy cập của một nhóm đặt chỗ (003.1 FR-048). Thanh toán về trễ được xử lý ở hàng đợi bên dưới.</p>
         <div className="ota-form-grid" style={{ marginBottom: '16px' }}>
           <label className="full-width">
-            Recovery group code *
+            Mã đặt chỗ cần xử lý *
             <input
               value={bookingCode}
               onChange={e => setBookingCode(e.target.value)}
-              placeholder="WG-... (Mã nhóm đặt chỗ cần xử lý)"
+              placeholder="GRP-… (Mã đặt chỗ cần xử lý)"
               required
             />
           </label>

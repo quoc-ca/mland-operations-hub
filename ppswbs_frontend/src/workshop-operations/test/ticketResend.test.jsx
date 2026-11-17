@@ -16,7 +16,7 @@ beforeEach(() => clearRoleCache());
 
 async function openAndType(user) {
   renderRoutes(operationsRoutes, { path: '/operations/sessions/session-1' });
-  await user.type(await screen.findByPlaceholderText('BK-... (Mã đặt chỗ)'), 'BK-1');
+  await user.type(await screen.findByPlaceholderText('GRP-… (Mã đặt chỗ)'), 'BK-1');
   return screen.getByRole('button', { name: 'Resend ticket' });
 }
 
@@ -118,11 +118,11 @@ describe('Operational commands are locked while a request is pending (T140)', ()
 
     await waitFor(() => expect(screen.getByRole('button', { name: 'Finalize attendance' })).toBeDisabled());
     // Typed input alone must not re-enable a command button while the request is pending.
-    await user.type(screen.getAllByPlaceholderText('TK-...')[0], 'TK-1');
+    await user.type(screen.getAllByPlaceholderText('GRP-…-L0-T1')[0], 'TK-1');
     for (const name of ['Override check-in', 'Mark checked-in', 'Reverse check-in']) {
       expect(screen.getByRole('button', { name })).toBeDisabled();
     }
-    await user.type(screen.getByPlaceholderText('BK-... (Mã đặt chỗ)'), 'BK-1');
+    await user.type(screen.getByPlaceholderText('GRP-… (Mã đặt chỗ)'), 'BK-1');
     expect(screen.getByRole('button', { name: 'Resend ticket' })).toBeDisabled();
     release();
     await waitFor(() => expect(screen.getByRole('button', { name: 'Resend ticket' })).toBeEnabled());
