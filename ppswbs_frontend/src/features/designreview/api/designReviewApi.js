@@ -48,9 +48,20 @@ export function designReviewApi(request) {
 
     /**
      * Read owner-safe Design Request projection (F04-ANALYSIS-STATUS / F04-RESULT).
+     * Accessible by authenticated Member, Staff/Manager, or public guest lookup.
      */
-    getDesignRequest(designRequestId) {
+    getDesignRequest(designRequestId, auth = true) {
       return request(`/api/v1/design-requests/${encodeURIComponent(designRequestId)}`, {
+        method: 'GET',
+        auth,
+      });
+    },
+
+    /**
+     * Read list of custom design requests owned by the authenticated member.
+     */
+    getMyDesignRequests() {
+      return request('/api/v1/design-requests', {
         method: 'GET',
         auth: true,
       });

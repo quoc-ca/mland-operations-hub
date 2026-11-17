@@ -54,6 +54,14 @@ describe('Feature-004 REST operations', () => {
     ]);
   });
 
+  it('getMyDesignRequests calls GET /api/v1/design-requests with auth', async () => {
+    await api.getMyDesignRequests();
+    expect(last()).toEqual([
+      '/api/v1/design-requests',
+      { method: 'GET', auth: true },
+    ]);
+  });
+
   it('getReviewQueue calls GET /api/v1/design-review-requests with auth', async () => {
     await api.getReviewQueue();
     expect(last()).toEqual([

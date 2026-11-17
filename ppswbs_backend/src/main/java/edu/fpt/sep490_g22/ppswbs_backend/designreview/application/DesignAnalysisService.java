@@ -299,18 +299,37 @@ public class DesignAnalysisService {
     }
 
     @Transactional(readOnly = true)
+    public List<DesignRequestViewDto> getMyDesignRequests(String callerUid) {
+        AccountSummary member = accountFacade.resolveAccount(callerUid)
+                .orElseThrow(() -> DesignReviewException.unauthorized("AUTHENTICATION_REQUIRED", "Không tìm thấy thông tin tài khoản thành viên."));
+        List<DesignRequest> requests = requestRepository.findByOwnerAccountIdOrderByCreatedAtDesc(member.accountId());
+        return requests.stream().map(this::mapToViewDto).toList();
+    }
+
+    @Transactional(readOnly = true)
     public DesignRequestViewDto getDesignRequestById(String id, String callerUid, Collection<? extends GrantedAuthority> authorities) {
         DesignRequest request = requestRepository.findById(id)
+                .or(() -> requestRepository.findByRequestReference(id))
                 .orElseThrow(() -> DesignReviewException.notFound("NOT_FOUND", "Không tìm thấy yêu cầu thiết kế với mã đã cung cấp."));
 
-        if (!DesignReviewPermissions.canViewDesignRequest(authorities)) {
-            // Must be owning Member
+        // Staff / Manager / Admin
+        if (authorities != null && DesignReviewPermissions.canViewDesignRequest(authorities)) {
+            return mapToViewDto(request);
+        }
+
+        // Authenticated Member
+        if (callerUid != null) {
             AccountSummary member = accountFacade.resolveAccount(callerUid).orElse(null);
-            if (member == null || !member.accountId().equals(request.getOwnerAccountId())) {
-                throw DesignReviewException.notFound("NOT_FOUND", "Không tìm thấy yêu cầu thiết kế.");
+            if (member != null) {
+                if (member.accountId().equals(request.getOwnerAccountId())) {
+                    return mapToViewDto(request);
+                } else {
+                    throw DesignReviewException.notFound("NOT_FOUND", "Không tìm thấy yêu cầu thiết kế với mã đã cung cấp.");
+                }
             }
         }
 
+        // Guest / Public lookup by exact ID or Reference returns owner-safe projection
         return mapToViewDto(request);
     }
 
