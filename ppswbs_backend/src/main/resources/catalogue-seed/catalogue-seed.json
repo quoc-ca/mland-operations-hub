@@ -1,5 +1,6 @@
 {
-  "_comment": "Dữ liệu sản phẩm mẫu của 002 (2026-11-13), tạo qua CatalogueSeedRunner khi backend khởi động. Chi nhánh theo mã của 003.2; sản phẩm đã có (cùng tên, cùng danh mục) thì bỏ qua.",
+  "_comment": "Dữ liệu sản phẩm mẫu của 002 (2026-11-13), tạo qua CatalogueSeedRunner khi backend khởi động. Chi nhánh: mỗi mã dùng trong quantities được khai báo trong branches kèm tên hiển thị của chi nhánh 003.2 và được tra qua SellingLocationPort (không chạy SQL trên bảng của 003.2); sản phẩm đã có (cùng tên, cùng danh mục) thì bỏ qua.",
+  "branches": { "HN-HOANKIEM": "Mland Hà Nội – Hoàn Kiếm", "HN-TAYHO": "Mland Hà Nội – Tây Hồ" },
   "categories": [
     { "name": "Nhẫn bạc trơn", "description": "Nhẫn bạc 925 không đính đá, rèn và đánh vân thủ công tại xưởng Mland." },
     { "name": "Nhẫn đá quý", "description": "Nhẫn bạc đính đá quý tự nhiên đã mài: thạch anh tím, peridot, garnet, citrine, hổ phách." },

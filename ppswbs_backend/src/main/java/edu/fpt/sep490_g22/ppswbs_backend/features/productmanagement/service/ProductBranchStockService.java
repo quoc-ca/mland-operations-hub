@@ -240,6 +240,7 @@ public class ProductBranchStockService {
                 CatalogueCommandExecutor.digest(request));
         return executor.execute(key, () -> {
             scope.requireBranches(List.of(location));
+            scope.requireActiveBranch(location);
             Long productId = variants.findProductIdById(id)
                     .orElseThrow(() -> new CatalogueException(CatalogueErrorCode.VARIANT_NOT_FOUND));
             var locked = locks.lockProduct(productId);
@@ -318,6 +319,7 @@ public class ProductBranchStockService {
                 CatalogueCommandExecutor.digest(request));
         return executor.execute(key, () -> {
             scope.requireBranches(List.of(location));
+            scope.requireActiveBranch(location);
             var locked = locks.lockProduct(id);
             Product product = locked.product();
             product.requireNotDeleted();
