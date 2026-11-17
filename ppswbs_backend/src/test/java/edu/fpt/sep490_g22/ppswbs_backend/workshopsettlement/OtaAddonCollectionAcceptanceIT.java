@@ -59,8 +59,7 @@ import static org.mockito.Mockito.*;
 @ActiveProfiles({"test", "workshopoperations-mysql-test"})
 @TestPropertySource(properties = {
         "vnpay.merchant-api-ip-address=127.0.0.1",
-        "vnpay.merchant-api-created-by=it-merchant",
-        "workshop.operations.visible-location-ids="})
+        "vnpay.merchant-api-created-by=it-merchant"})
 class OtaAddonCollectionAcceptanceIT {
 
     private static final long LOCATION = 777_001L;

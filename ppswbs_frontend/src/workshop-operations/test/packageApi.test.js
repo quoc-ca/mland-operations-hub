@@ -103,7 +103,6 @@ describe('Workshop package management API client', () => {
       label: 'Morning',
       startsAtLocal: '09:00',
       endsAtLocal: '12:00',
-      defaultCapacity: 10,
       active: false,
     }, 'slot-update-1');
     await api.transitionSession('session-1', 'PUBLISHED', 'session-publish-1');
@@ -114,7 +113,6 @@ describe('Workshop package management API client', () => {
         label: 'Morning',
         startsAtLocal: '09:00',
         endsAtLocal: '12:00',
-        defaultCapacity: 10,
         active: false,
       },
       idempotencyKey: 'slot-update-1',

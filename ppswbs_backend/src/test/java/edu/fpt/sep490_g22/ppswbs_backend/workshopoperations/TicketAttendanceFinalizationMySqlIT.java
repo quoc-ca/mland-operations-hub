@@ -89,7 +89,7 @@ class TicketAttendanceFinalizationMySqlIT {
         location = locationRepository.save(WorkshopLocation.builder().code("LOC-T092-01")
                 .displayName("Finalization Hub").addressSnapshot("3 Test St").active(true).build());
         slot = slotRepository.save(WorkshopSlot.builder().reference(UUID.randomUUID().toString()).location(location)
-                .label("Morning").startTime(LocalTime.of(9, 0)).endTime(LocalTime.of(12, 0)).defaultCapacity(10)
+                .label("Morning").startTime(LocalTime.of(9, 0)).endTime(LocalTime.of(12, 0))
                 .active(true).build());
         day = 0;
     }

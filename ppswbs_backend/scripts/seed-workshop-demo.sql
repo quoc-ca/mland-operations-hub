@@ -111,10 +111,10 @@ SET active = 0, updated_at = CURRENT_TIMESTAMP(6)
 WHERE location_id = @demo_location_id AND label = 'Standard Morning Slot';
 
 INSERT INTO workshop_slots (
-  reference, location_id, label, start_time, end_time, default_capacity,
+  reference, location_id, label, start_time, end_time,
   active, version, created_at, updated_at
 )
-SELECT UUID(), @demo_location_id, 'Morning (09:30-12:00)', '09:30:00', '12:00:00', 8,
+SELECT UUID(), @demo_location_id, 'Morning (09:30-12:00)', '09:30:00', '12:00:00',
        1, 0, CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6)
 WHERE NOT EXISTS (
   SELECT 1 FROM workshop_slots
@@ -122,10 +122,10 @@ WHERE NOT EXISTS (
 );
 
 INSERT INTO workshop_slots (
-  reference, location_id, label, start_time, end_time, default_capacity,
+  reference, location_id, label, start_time, end_time,
   active, version, created_at, updated_at
 )
-SELECT UUID(), @demo_location_id, 'Afternoon (13:00-16:00)', '13:00:00', '16:00:00', 8,
+SELECT UUID(), @demo_location_id, 'Afternoon (13:00-16:00)', '13:00:00', '16:00:00',
        1, 0, CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6)
 WHERE NOT EXISTS (
   SELECT 1 FROM workshop_slots
@@ -133,10 +133,10 @@ WHERE NOT EXISTS (
 );
 
 INSERT INTO workshop_slots (
-  reference, location_id, label, start_time, end_time, default_capacity,
+  reference, location_id, label, start_time, end_time,
   active, version, created_at, updated_at
 )
-SELECT UUID(), @demo_location_id, 'Evening (16:00-19:00)', '16:00:00', '19:00:00', 8,
+SELECT UUID(), @demo_location_id, 'Evening (16:00-19:00)', '16:00:00', '19:00:00',
        1, 0, CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6)
 WHERE NOT EXISTS (
   SELECT 1 FROM workshop_slots
@@ -162,7 +162,7 @@ SELECT UUID(), s.location_id, s.id, d.workshop_date,
        TIMESTAMP(d.workshop_date, s.start_time),
        TIMESTAMP(d.workshop_date, s.end_time),
        TIMESTAMP(d.workshop_date, s.start_time) - INTERVAL 30 MINUTE,
-       'DEFAULT', s.default_capacity, 'PUBLISHED', 0,
+       'DEFAULT', 8, 'PUBLISHED', 0,
        CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6)
 FROM demo_dates d
 JOIN workshop_slots s ON s.location_id = @demo_location_id AND s.active = 1
