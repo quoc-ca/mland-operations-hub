@@ -593,6 +593,7 @@ T140 after T139 and T127 (resend behaviour settled first); T141 after T116, T115
 A slot is only a time window; capacity belongs to each session and is entered when the session is created (single and bulk).
 
 - [X] T175 [US2] Remove `defaultCapacity` from Slot DTOs/entity/service/contract/DB doc; migration `V180__drop_workshop_slot_default_capacity.sql` drops `workshop_slots.default_capacity`; session create and bulk generation require `capacity >= 1`; update backend tests, FE slot form (no capacity field) and session forms (capacity input), and seed scripts (fixed capacity 8).
+- [X] T176 [FE] [US1] Manager slot edit (FR-001e "change ... configured fixed slots"; backend `PATCH /workshop-slots/{id}` already supports it, no OpenAPI change): `Edit` action per row of the Slots tab opens `SlotEditForm` (`components/SlotEditForm.jsx`) for label and same-day start/end time (validated start < end before the call; Active stays with Activate/Deactivate), shows the backend refusal (e.g. overlap 409), then "Slot updated." and reloads the list. Evidence: `workshop-operations/test/slotEdit.test.jsx` 6/6, with `locationEdit`/`sessionAdministration` tests 30/30; `vite build` green (no ESLint config in the frontend, so lint is not applicable). Responsible member: Hồ Hoàng Quốc.
 
 ### Dependencies for Phase 18 (added 2026-11-17)
 
