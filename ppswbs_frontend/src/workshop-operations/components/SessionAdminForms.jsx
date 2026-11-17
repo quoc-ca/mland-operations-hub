@@ -19,7 +19,7 @@ export const sessionAdminMessages = {
   },
 };
 
-const emptyBulk = { locationId: '', slotIds: [], from: '', to: '', weekdays: [], initialState: 'DRAFT' };
+const emptyBulk = { locationId: '', slotIds: [], from: '', to: '', weekdays: [], capacity: '10', initialState: 'DRAFT' };
 
 /**
  * 003.2 T108 / FR-001f: a Manager generates sessions for a location over a date range, for the chosen slots and
@@ -45,12 +45,17 @@ export function BulkSessionForm({ api, locations, onDone }) {
       setFormError('Location, at least one slot, a date range and at least one weekday are required.');
       return;
     }
+    const capacity = Number(form.capacity);
+    if (!Number.isInteger(capacity) || capacity < 1) {
+      setFormError('Capacity must be a whole number of at least 1.');
+      return;
+    }
     if (form.from > form.to) {
       setFormError('The start date must not be after the end date.');
       return;
     }
     setFormError('');
-    const body = { ...form, locationId: Number(form.locationId) };
+    const body = { ...form, locationId: Number(form.locationId), capacity };
     const outcome = await command.run(key => api.bulkCreateSessions(body, key));
     if (outcome.ok) {
       setResult({
@@ -78,6 +83,7 @@ export function BulkSessionForm({ api, locations, onDone }) {
         </Field>
         <Field label="From"><input type="date" value={form.from} onChange={e => setForm({ ...form, from: e.target.value })} /></Field>
         <Field label="To"><input type="date" value={form.to} onChange={e => setForm({ ...form, to: e.target.value })} /></Field>
+        <Field label="Capacity per session"><input type="number" min="1" value={form.capacity} onChange={e => setForm({ ...form, capacity: e.target.value })} /></Field>
         <Field label="Initial state">
           <select value={form.initialState} onChange={e => setForm({ ...form, initialState: e.target.value })}>
             <option value="DRAFT">DRAFT</option>

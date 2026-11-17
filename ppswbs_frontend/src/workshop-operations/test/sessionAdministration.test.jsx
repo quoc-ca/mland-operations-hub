@@ -21,8 +21,8 @@ function adminHandlers(role, extra = {}) {
     'GET /api/v1/accounts/me/profile': json(200, { role }),
     'GET /api/v1/workshop-locations': json(200, [{ id: 4, code: 'Q1', name: 'MLAND Quận 1', active: true }]),
     'GET /api/v1/workshop-locations/4/slots': json(200, [
-      { id: SLOT_A, locationId: 4, label: 'Morning', startsAtLocal: '09:00', endsAtLocal: '12:00', defaultCapacity: 10, active: true },
-      { id: SLOT_B, locationId: 4, label: 'Afternoon', startsAtLocal: '14:00', endsAtLocal: '17:00', defaultCapacity: 10, active: true },
+      { id: SLOT_A, locationId: 4, label: 'Morning', startsAtLocal: '09:00', endsAtLocal: '12:00', active: true },
+      { id: SLOT_B, locationId: 4, label: 'Afternoon', startsAtLocal: '14:00', endsAtLocal: '17:00', active: true },
     ]),
     'GET /api/v1/workshop-sessions': json(200, [SESSION]),
     ...extra,
@@ -57,7 +57,7 @@ describe('003.2 T108 Manager bulk session generation', () => {
     expect(await screen.findByText('3 sessions created; 1 skipped as duplicates.')).toBeInTheDocument();
     expect(within(screen.getByRole('list', { name: 'Skipped duplicates' })).getByText('2026-12-07 Morning')).toBeInTheDocument();
     const post = calls.find(call => call.method === 'POST' && call.path === '/api/v1/workshop-sessions/bulk');
-    expect(post.body).toEqual({ locationId: 4, slotIds: [SLOT_A, SLOT_B], from: '2026-12-01', to: '2026-12-31', weekdays: ['SATURDAY', 'SUNDAY'], initialState: 'PUBLISHED' });
+    expect(post.body).toEqual({ locationId: 4, slotIds: [SLOT_A, SLOT_B], from: '2026-12-01', to: '2026-12-31', weekdays: ['SATURDAY', 'SUNDAY'], capacity: 10, initialState: 'PUBLISHED' });
     expect(post.headers['Idempotency-Key'].length).toBeGreaterThanOrEqual(16);
     // The session list is read again after generation.
     expect(calls.filter(call => call.method === 'GET' && call.path === '/api/v1/workshop-sessions').length).toBeGreaterThan(1);
