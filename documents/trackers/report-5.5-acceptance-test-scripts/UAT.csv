@@ -1,0 +1,3 @@
+Script ID,BF-ID,Title,Actor / Role,Scenario (business language steps),Expected Business Outcome,Priority,Result,Feedback / Comments
+UAT-BOOK-001,BF-BOOK,Guest workshop booking,Guest,"Choose a configured session; provide required contact; pay deposit through gateway flow",Booking is confirmed only after valid payment confirmation,High,Not Executed,Gateway provider contract TBD
+UAT-RET-001,BF-RETAIL,Ready-ring retail,Member,"Choose a ready ring; complete full payment; choose pickup or carrier handoff",One ready ring is reserved after confirmed payment,High,Not Executed,Delivery ends at handoff

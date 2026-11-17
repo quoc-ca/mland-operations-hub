@@ -1,0 +1,36 @@
+@startuml
+!pragma charset UTF-8
+title Shared Use Case — Staff and Manager Booking-Design Review
+left to right direction
+skinparam shadowing false
+skinparam usecase {
+  BackgroundColor #FCF9F8
+  BorderColor #807663
+  ArrowColor #5B5E67
+}
+
+actor "Staff" as Staff
+actor "Manager" as Manager
+
+rectangle "Personalized Product Sales and Workshop Booking System" {
+  usecase "Review feasibility request" as Review
+usecase "Record review outcome" as Decision
+  usecase "Record actor, reason\nand decision context" as Audit
+  usecase "Return reviewed outcome\nto customer" as Outcome
+}
+
+Staff --> Review
+Manager --> Review
+Staff --> Decision
+Manager --> Decision
+Review .> Audit : <<include>>
+Decision .> Audit : <<include>>
+Review .> Outcome : <<include>>
+
+note bottom of Review
+Staff reviews estimated values at or below 3,000,000 VND. Manager reviews higher-value
+or Manager-authority requests. Outcomes are Accepted, Rejected, or Clarification Required.
+No AI auto-accept or auto-reject is permitted.
+end note
+@enduml
+

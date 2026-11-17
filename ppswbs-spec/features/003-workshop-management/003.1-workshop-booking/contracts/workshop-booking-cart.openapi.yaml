@@ -1,0 +1,19 @@
+openapi: 3.0.3
+info:
+  title: Workshop Booking Cart API (moved)
+  version: 1.0.0-moved
+  description: >-
+    This file held the planned cart and booking-group routes of spec
+    FR-030–FR-043 (decision 2026-11-12) and FR-044–FR-051 (decision
+    2026-11-13), on the rule that each route moves to
+    workshop-booking.openapi.yaml once its controller is implemented.
+    T104 (2026-11-14): every route here is implemented, so they all moved to
+    workshop-booking.openapi.yaml, with the field names of the implemented
+    controllers (`groupStatus`, the `…Vnd` money fields as integers, and a cart
+    quote nesting its tickets under `lines[].tickets[]`), and the FR-046
+    single-booking paths were deleted from that file.
+    Nothing is served from this file any more: it is kept only so the earlier
+    references to it in spec.md, tasks.md and the code comments still resolve.
+    Read workshop-booking.openapi.yaml instead.
+paths: {}
+components: {}

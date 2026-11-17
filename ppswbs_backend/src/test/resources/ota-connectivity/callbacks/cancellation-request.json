@@ -1,0 +1,9 @@
+{
+  "fixturePurpose": "SIMULATOR_ONLY_NOT_PROVIDER_CONTRACT",
+  "provider": "SIMULATOR",
+  "eventReference": "SIM-EVENT-CANCEL-001",
+  "eventKind": "CANCELLATION_REQUESTED",
+  "externalBookingReference": "SIM-BOOKING-001",
+  "outcomeConfirmed": false,
+  "reasonReference": "SIM-REASON-CUSTOMER-REQUEST"
+}

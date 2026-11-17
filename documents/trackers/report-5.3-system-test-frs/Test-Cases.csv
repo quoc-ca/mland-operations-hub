@@ -1,0 +1,3 @@
+No,Workflow Name,Sheet Name,Description,Pre-Condition
+1,Guest and Member booking,Guest-Member-Booking,Workshop booking and deposit confirmation,Configured capacity and payment implementation
+2,Member ready-ring retail,Member-Retail,Member-only purchase/reservation/handoff,Ready-ring data and payment implementation

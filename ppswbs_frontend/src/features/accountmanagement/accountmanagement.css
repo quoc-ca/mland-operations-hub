@@ -1,0 +1,720 @@
+/* Account Management Stylesheet (FE-001) - Mland Design System */
+
+.account-page-container {
+  max-width: 1000px;
+  margin: 1.5rem auto 3rem auto;
+  padding: 0 1rem;
+  font-family: inherit;
+  color: #1a1a1a;
+}
+
+.account-page-header {
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid #eceef1;
+  padding-bottom: 1rem;
+}
+
+.account-page-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0 0 0.375rem 0;
+  color: #1a1a1a;
+  letter-spacing: -0.01em;
+}
+
+.account-page-description {
+  font-size: 0.9rem;
+  color: #6b717f;
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* Card Containers */
+.account-card {
+  background: #ffffff;
+  border: 1px solid #eceef1;
+  border-radius: 6px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.account-card-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-top: 0;
+  margin-bottom: 1rem;
+  color: #1a1a1a;
+}
+
+/* Notice & Alert Boxes matching Figma tokens */
+.account-alert {
+  padding: 0.875rem 1rem;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.account-alert-info {
+  background-color: #e8f2ff;
+  border: 1px solid #bfdbfe;
+  color: #1e40af;
+}
+
+.account-alert-warning {
+  background-color: #fff8d1;
+  border: 1px solid #fde68a;
+  color: #1a1a1a;
+}
+
+.account-alert-error {
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+}
+
+.account-alert-success {
+  background-color: #e5f7eb;
+  border: 1px solid #bbf7d0;
+  color: #15803d;
+}
+
+/* Form Controls */
+.account-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.account-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.account-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #6b717f;
+}
+
+.account-label-required::after {
+  content: ' *';
+  color: #dc2626;
+}
+
+.account-input,
+.account-select,
+.account-textarea {
+  padding: 0.625rem 0.875rem;
+  border: 1px solid #eceef1;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  color: #1a1a1a;
+  background-color: #ffffff;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.account-input:focus,
+.account-select:focus,
+.account-textarea:focus {
+  outline: none;
+  border-color: #1a1a1a;
+  box-shadow: 0 0 0 1px #1a1a1a;
+}
+
+.account-input[aria-invalid='true'],
+.account-select[aria-invalid='true'] {
+  border-color: #dc2626;
+  background-color: #fef2f2;
+}
+
+.account-field-error {
+  font-size: 0.8125rem;
+  color: #dc2626;
+  margin-top: 0.25rem;
+}
+
+.account-field-hint {
+  font-size: 0.8125rem;
+  color: #6b717f;
+  margin-top: 0.25rem;
+}
+
+/* Buttons per Figma design: Mland signature yellow primary #eddc35 */
+.account-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+.account-btn:disabled {
+  background-color: #eceef1 !important;
+  color: #6b717f !important;
+  border-color: #eceef1 !important;
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.account-btn-primary {
+  background-color: #eddc35;
+  color: #1a1a1a;
+  border-color: #eddc35;
+}
+
+.account-btn-primary:hover:not(:disabled) {
+  background-color: #e5d42f;
+  border-color: #e5d42f;
+}
+
+.account-btn-secondary {
+  background-color: #ffffff;
+  color: #1a1a1a;
+  border-color: #d1d5db;
+}
+
+.account-btn-secondary:hover:not(:disabled) {
+  background-color: #f4f5f7;
+  border-color: #9ca3af;
+}
+
+.account-btn-danger {
+  background-color: #dc2626;
+  color: #ffffff;
+  border-color: #dc2626;
+}
+
+.account-btn-danger:hover:not(:disabled) {
+  background-color: #b91c1c;
+}
+
+.account-btn-sm {
+  padding: 0.375rem 0.75rem;
+  font-size: 0.8125rem;
+}
+
+/* Status Badges */
+.account-badge {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+.account-badge-active {
+  background-color: #e5f7eb;
+  color: #2e915c;
+}
+
+.account-badge-pending {
+  background-color: #fff8d1;
+  color: #b45309;
+}
+
+.account-badge-suspended {
+  background-color: #fef2f2;
+  color: #dc2626;
+}
+
+.account-badge-readonly {
+  background-color: #f4f5f7;
+  color: #6b717f;
+}
+
+/* Verification Reload / Gate Affordance */
+.account-gate-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background-color: #f4f5f7;
+  border: 1px solid #eceef1;
+  border-radius: 4px;
+  margin-bottom: 1.25rem;
+}
+
+.account-reload-btn {
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  color: #1a1a1a;
+  transition: all 0.15s ease;
+}
+
+.account-reload-btn:hover:not(:disabled) {
+  background-color: #f4f5f7;
+  border-color: #1a1a1a;
+}
+
+/* Admin Navigation Tabs (Figma F08-F11) */
+.admin-nav-tabs {
+  display: flex;
+  gap: 1.5rem;
+  border-bottom: 1px solid #e4e7eb;
+  margin-bottom: 1.5rem;
+}
+
+.admin-nav-tab {
+  padding: 0.5rem 0.25rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #6b717f;
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: all 0.15s ease;
+}
+
+.admin-nav-tab:hover {
+  color: #1a1a1a;
+}
+
+.admin-nav-tab.active {
+  color: #1a1a1a;
+  border-bottom-color: #eddc35;
+}
+
+/* Back navigation button */
+.account-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  background-color: #ffffff;
+  border: 1px solid #eceef1;
+  border-radius: 4px;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #1a1a1a;
+  text-decoration: none;
+  margin-bottom: 1rem;
+  transition: all 0.15s ease;
+}
+
+.account-back-btn:hover {
+  background-color: #f4f5f7;
+  border-color: #d1d5db;
+}
+
+/* Table styles */
+.account-table-wrapper {
+  overflow-x: auto;
+  border: 1px solid #eceef1;
+  border-radius: 4px;
+}
+
+.account-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.875rem;
+}
+
+.account-table th {
+  background-color: #f4f5f7;
+  padding: 0.75rem 1rem;
+  font-weight: 600;
+  color: #6b717f;
+  border-bottom: 1px solid #eceef1;
+}
+
+.account-table td {
+  padding: 0.875rem 1rem;
+  border-bottom: 1px solid #eceef1;
+  color: #1a1a1a;
+}
+
+.account-table tr:hover {
+  background-color: #f9fafb;
+}
+
+/* Pagination */
+.account-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 1rem;
+  font-size: 0.875rem;
+  color: #6b717f;
+}
+
+.account-pagination-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* Profile Overview and Tabs (Personal Profile & Edit Profile) */
+.profile-tabs {
+  display: flex;
+  gap: 0.5rem;
+  border-bottom: 2px solid #eceef1;
+  margin-bottom: 1.5rem;
+  overflow-x: auto;
+}
+
+.profile-tab {
+  padding: 0.75rem 1.25rem;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #6b717f;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.profile-tab:hover {
+  color: #1a1a1a;
+}
+
+.profile-tab-active {
+  color: #1a1a1a;
+  border-bottom-color: #eddc35;
+  font-weight: 600;
+}
+
+.profile-overview-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.profile-hero {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid #eceef1;
+}
+
+.profile-avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background-color: #eddc35;
+  color: #1a1a1a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  flex-shrink: 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.profile-hero-info h2 {
+  margin: 0 0 0.25rem 0;
+  font-size: 1.35rem;
+  color: #1a1a1a;
+}
+
+.profile-hero-info p {
+  margin: 0;
+  color: #6b717f;
+  font-size: 0.9rem;
+}
+
+.profile-details-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.25rem;
+}
+
+.profile-detail-item {
+  padding: 0.875rem 1rem;
+  background-color: #f4f5f7;
+  border-radius: 4px;
+  border: 1px solid #eceef1;
+}
+
+.profile-detail-label {
+  display: block;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6b717f;
+  margin-bottom: 0.25rem;
+  font-weight: 600;
+}
+
+.profile-detail-value {
+  font-size: 1rem;
+  font-weight: 500;
+  color: #1a1a1a;
+}
+
+.profile-actions-bar {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding-top: 1rem;
+  border-top: 1px solid #eceef1;
+}
+
+/* Back Link */
+.account-back-link {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.875rem;
+  color: #1a1a1a;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.account-back-link:hover {
+  text-decoration: underline;
+}
+
+/* Quota Badge */
+.account-quota-badge {
+  display: inline-block;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.8125rem;
+  background-color: #f4f5f7;
+  border: 1px solid #eceef1;
+  border-radius: 4px;
+  color: #6b717f;
+}
+
+/* Alert Dismiss Button */
+.account-alert-dismiss {
+  margin-left: auto;
+  background: transparent;
+  border: none;
+  font-size: 1rem;
+  cursor: pointer;
+  color: inherit;
+  opacity: 0.7;
+  padding: 0 0.25rem;
+}
+
+.account-alert-dismiss:hover {
+  opacity: 1;
+}
+
+/* Address Book Cards */
+.account-address-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.25rem;
+}
+
+.account-address-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  border-left: 4px solid #eceef1;
+  transition: box-shadow 0.15s ease;
+  margin-bottom: 0;
+}
+
+.account-address-card:hover {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.08);
+}
+
+.account-address-card-default {
+  border-left-color: #eddc35;
+  background-color: #fefefb;
+}
+
+.account-address-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.75rem;
+  gap: 0.5rem;
+}
+
+.account-address-name {
+  font-weight: 600;
+  font-size: 1rem;
+  color: #1a1a1a;
+}
+
+.account-address-phone {
+  font-size: 0.875rem;
+  color: #6b717f;
+}
+
+.account-address-card-body {
+  margin-bottom: 1.25rem;
+  flex-grow: 1;
+}
+
+.account-address-detail {
+  font-size: 0.95rem;
+  margin: 0 0 0.375rem 0;
+  color: #1a1a1a;
+  line-height: 1.4;
+}
+
+.account-address-division {
+  font-size: 0.85rem;
+  margin: 0;
+  color: #6b717f;
+  line-height: 1.4;
+}
+
+.account-address-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  border-top: 1px solid #eceef1;
+  padding-top: 0.75rem;
+  flex-wrap: wrap;
+}
+
+/* Modal Styles */
+.account-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(26, 26, 26, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.account-modal-container {
+  background: #ffffff;
+  border-radius: 6px;
+  width: 100%;
+  max-width: 640px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+}
+
+.account-modal-sm {
+  max-width: 440px;
+}
+
+.account-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid #eceef1;
+}
+
+.account-modal-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.account-modal-close-btn {
+  background: transparent;
+  border: none;
+  font-size: 1.25rem;
+  cursor: pointer;
+  color: #6b717f;
+  padding: 0.25rem;
+  line-height: 1;
+}
+
+.account-modal-close-btn:hover {
+  color: #1a1a1a;
+}
+
+.account-modal-body {
+  padding: 1.5rem;
+}
+
+.account-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid #eceef1;
+  background-color: #f4f5f7;
+}
+
+/* Modal Form Grids */
+.account-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.account-form-grid-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.75rem;
+}
+
+@media (max-width: 640px) {
+  .account-form-grid,
+  .account-form-grid-3 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Google Auth & Divider */
+.account-btn-google {
+  background-color: #ffffff;
+  color: #1a1a1a;
+  border-color: #eceef1;
+  width: 100%;
+}
+
+.account-btn-google:hover:not(:disabled) {
+  background-color: #f4f5f7;
+  border-color: #d1d5db;
+}
+
+.account-divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: 1.25rem 0;
+}
+
+.account-divider::before,
+.account-divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid #eceef1;
+}
+
+.account-divider span {
+  padding: 0 0.75rem;
+  font-size: 0.8125rem;
+  color: #6b717f;
+  text-transform: lowercase;
+}

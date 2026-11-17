@@ -1,0 +1,23 @@
+CREATE TABLE vnpay_merchant_operations (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    operation_reference VARCHAR(128) NOT NULL,
+    request_fingerprint CHAR(64) NOT NULL,
+    operation_kind VARCHAR(16) NOT NULL,
+    provider_request_id VARCHAR(32) NOT NULL,
+    merchant_reference VARCHAR(128) NOT NULL,
+    operation_status VARCHAR(16) NOT NULL,
+    provider_response_code CHAR(2) NULL,
+    provider_transaction_type CHAR(2) NULL,
+    provider_transaction_status CHAR(2) NULL,
+    provider_transaction_number VARCHAR(15) NULL,
+    amount_vnd BIGINT NULL,
+    created_at TIMESTAMP(6) NOT NULL,
+    updated_at TIMESTAMP(6) NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_vnpay_operation_reference (operation_reference),
+    UNIQUE KEY uq_vnpay_provider_request_id (provider_request_id),
+    KEY ix_vnpay_operation_merchant (merchant_reference, operation_kind),
+    CONSTRAINT ck_vnpay_operation_kind CHECK (operation_kind IN ('QUERYDR', 'REFUND')),
+    CONSTRAINT ck_vnpay_operation_status CHECK (operation_status IN ('IN_FLIGHT', 'ACCEPTED', 'REJECTED', 'UNKNOWN', 'RECONCILED')),
+    CONSTRAINT ck_vnpay_operation_amount CHECK (amount_vnd IS NULL OR amount_vnd > 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

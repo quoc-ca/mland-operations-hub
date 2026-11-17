@@ -1,0 +1,62 @@
+package edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto;
+
+import com.fasterxml.jackson.annotation.JsonFormat;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.CheckInOpeningSource;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.SessionState;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.time.Instant;
+import java.time.LocalDate;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class SessionResponse {
+
+    private String id;
+    private Long locationId;
+
+    /** 003.2 FR-044: the location display name, next to locationId. */
+    private String locationName;
+    private String slotId;
+
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
+    private LocalDate workshopDate;
+
+    private Integer capacity;
+
+    /** Optimistic-lock version; send it back on PATCH so a stale edit is refused (T112). */
+    private Long version;
+
+    @JsonFormat(shape = JsonFormat.Shape.STRING)
+    private Instant checkInOpensAt;
+
+    private SessionState state;
+
+    @JsonFormat(shape = JsonFormat.Shape.STRING)
+    private Instant scheduledStartAt;
+
+    @JsonFormat(shape = JsonFormat.Shape.STRING)
+    private Instant scheduledEndAt;
+
+    private CheckInOpeningSource checkInOpeningSource;
+
+    /** True from checkInOpensAt while a PUBLISHED, SALES_PAUSED or IN_PROGRESS session has no active Staff assignment (T115). */
+    private Boolean missingStaff;
+
+    /** Accounts of the Staff currently assigned to this session (empty when none). */
+    private java.util.List<Long> assignedStaffAccountIds;
+
+    /** 003.2 FR-035: tickets this session may still receive by customer change. */
+    private Integer rescheduleQuota;
+
+    /** True when a Manager set the quota, so a capacity change no longer recomputes it. */
+    private Boolean rescheduleQuotaOverridden;
+
+    /** Tickets this session has already received by customer change. */
+    private Integer rescheduleQuotaUsed;
+}

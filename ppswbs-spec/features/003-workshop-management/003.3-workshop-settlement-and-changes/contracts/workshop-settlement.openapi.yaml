@@ -1,0 +1,318 @@
+openapi: 3.0.3
+info:
+  title: Mland Workshop Settlement API
+  version: 1.0.0-draft
+  description: >-
+    Direct-Mland workshop settlement contract. Internal facades between 003.1,
+    003.2 and 003.3 are not HTTP APIs. Shared VNPay ingress is documented in
+    ../../contracts/vnpay-payment-ingress.openapi.yaml. Browser return URLs never
+    settle payment.
+    T123/T139/T175 (2026-11-16): the booking-wide /workshop-bookings/{bookingCode}/... blocks and the
+    /workshop-refund-policies routes are removed from this file; per-ticket routes are in
+    workshop-settlement-ticket.openapi.yaml. Still served from this file:
+    /workshop-settlement-cases and the OTA add-on bill routes.
+paths:
+  /api/v1/workshop-settlement-cases:
+    get:
+      summary: List settlement cases for Manager operations
+      description: >-
+        Returns safe settlement-case projections ordered newest first. This
+        central operations view is Manager-only because settlement cases do not
+        carry a location scope. Optional filters are exact caseType/status;
+        limit defaults to 100 and is capped at 100.
+      security: [{bearerAuth: []}]
+      parameters:
+        - name: caseType
+          in: query
+          required: false
+          schema: {type: string}
+        - name: status
+          in: query
+          required: false
+          schema: {type: string}
+        - name: limit
+          in: query
+          required: false
+          schema: {type: integer, minimum: 1, maximum: 100, default: 100}
+      responses:
+        '200':
+          description: Safe settlement-case projections
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/SettlementCaseProjection'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+  /api/v1/ota-addon-bills/{billReference}:
+    parameters:
+      - name: billReference
+        in: path
+        required: true
+        schema: {type: string}
+    get:
+      summary: Read OTA add-on bill details and latest payment attempt
+      description: "Staff assigned to the booking's session, or Manager (fix A26, 2026-11-16)."
+      security: [{bearerAuth: []}]
+      responses:
+        '200': {$ref: '#/components/responses/OtaAddonBill'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+  /api/v1/ota-addon-bills/{billReference}/payment-attempts:
+    parameters:
+      - name: billReference
+        in: path
+        required: true
+        schema: {type: string}
+    post:
+      summary: Create a short-lived VNPay payment checkout attempt for an OTA add-on bill (SHOP_ADDON)
+      description: >-
+        Staff assigned to the booking's session, or Manager (fix A26, 2026-11-16), may initiate checkout for an OPEN OTA add-on bill.
+        Exact bill amount only. Only one active pending attempt per bill. Idempotent on Idempotency-Key.
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      responses:
+        '201': {$ref: '#/components/responses/OtaAddonPaymentAttempt'}
+        '400': {$ref: '#/components/responses/Problem'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+  /api/v1/ota-addon-bills/{billReference}/refunds:
+    parameters:
+      - name: billReference
+        in: path
+        required: true
+        schema: {type: string}
+    post:
+      summary: Manager-only overcharge refund for a paid OTA add-on bill (ADDON_REFUND)
+      description: >-
+        Only an active Manager (global scope) may open a refund for an overcharge on a PAID OTA add-on bill,
+        with a required reason. Refund amount must be <= unrefunded verified SHOP_ADDON collections.
+        Superseded 2026-11-12 (FR-038a, T104): no VNPay partial refund or QueryDR is used. The refund
+        opens a bank refund request (reason OTA_ADDON_OVERCHARGE) that follows the FR-039/FR-040 lifecycle
+        (PENDING_ACCOUNT, PENDING_APPROVAL, PENDING_TRANSFER, PENDING_RECONCILIATION, REFUNDED, CLOSED_UNREACHABLE)
+        under /workshop-refund-requests; Staff may enter the account at the counter, and the case resolves only
+        when a Manager confirms REFUNDED. (Earlier wording: executed via VNPay partial refund adapter and
+        completed upon signed QueryDR verification.)
+        Idempotent on Idempotency-Key.
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/OtaAddonRefundCommand'}
+      responses:
+        '201': {$ref: '#/components/responses/OtaAddonRefund'}
+        '400': {$ref: '#/components/responses/Problem'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+components:
+  securitySchemes:
+    bearerAuth: {type: http, scheme: bearer, bearerFormat: Firebase-ID-token}
+  parameters:
+    IdempotencyKey: {name: Idempotency-Key, in: header, required: true, schema: {type: string, minLength: 16, maxLength: 128}}
+  schemas:
+    GuestContactProof:
+      type: object
+      oneOf:
+        - required: [contactEmail]
+        - required: [contactPhone]
+      properties:
+        contactEmail: {type: string, format: email}
+        contactPhone: {type: string}
+    ChargeCommand:
+      oneOf:
+        - type: object
+          required: [catalogueAddOnReference]
+          properties:
+            catalogueAddOnReference: {type: string}
+          description: >-
+            Fixed catalogue add-on recorded by in-scope Staff or any active
+            Manager after workshop consent (FR-004a/FR-004b). Member and Guest
+            cannot call this command; no customer contact proof is accepted.
+        - type: object
+          required: [description, amount, reason]
+          properties:
+            description: {type: string}
+            amount: {type: integer, format: int64, minimum: 1}
+            reason: {type: string}
+          description: Internal Staff/Manager variable charge only; currency is VND.
+    RequiredSessionChangeCommand:
+      type: object
+      required: [targetRequiredSessionReferences, reason]
+      properties:
+        targetRequiredSessionReferences: {type: array, minItems: 1, items: {type: string}}
+        reason: {type: string}
+        cancellationHandoffReference: {type: string, description: Required when this is an Mland-caused replacement.}
+    FinalizationCommand:
+      type: object
+      additionalProperties: false
+      description: Empty command. Finalization has no unpaid-balance override.
+    FolioCorrectionCommand:
+      type: object
+      additionalProperties: false
+      required: [amountVnd, reason]
+      properties:
+        amountVnd: {type: integer, format: int64, minimum: 1}
+        reason: {type: string, minLength: 1, maxLength: 255}
+    FolioCorrectionProjection:
+      type: object
+      required: [correctionReference, bookingReference, billReference, amountVnd, currency, reason, lifecycleStatus, createdAt]
+      properties:
+        correctionReference: {type: string}
+        bookingReference: {type: string}
+        billReference: {type: string}
+        amountVnd: {type: integer, format: int64, minimum: 1}
+        currency: {type: string, enum: [VND]}
+        reason: {type: string}
+        lifecycleStatus: {type: string, enum: [OPEN, PENDING_PROVIDER, RESOLVED, REJECTED, FAILED]}
+        createdAt: {type: string, format: date-time}
+        updatedAt: {type: string, format: date-time}
+    MlandRemedyCommand:
+      type: object
+      required: [reason, replacementOutcome, cancellationHandoffReference]
+      properties:
+        reason: {type: string}
+        replacementOutcome: {type: string, enum: [UNAVAILABLE, DECLINED]}
+        cancellationHandoffReference: {type: string}
+    FinalBillProjection:
+      type: object
+      required: [bookingCode, status, currency, outstandingAmount]
+      properties:
+        bookingCode: {type: string}
+        status:
+          type: string
+          description: >-
+            Direct folio state per owner decision D4 (2026-11-05): OPEN,
+            FINALIZED (checkout, zero balance) or CLOSED (ordinary
+            cancellation/full no-show at the verified collected amount, or a
+            verified Mland-caused remedy refund per D11).
+        currency: {type: string, enum: [VND]}
+        outstandingAmount: {type: integer, format: int64, minimum: 0}
+        paidAmount: {type: integer, format: int64, minimum: 0}
+        refundedAmount: {type: integer, format: int64, minimum: 0}
+        charges: {type: array, items: {$ref: '#/components/schemas/CustomerVisibleCharge'}}
+    FinalPaymentAttempt:
+      type: object
+      required: [attemptReference, merchantReference, amountVnd, currency, paymentUrl, expiresAt, status]
+      properties:
+        attemptReference: {type: string}
+        merchantReference: {type: string}
+        amountVnd: {type: integer, format: int64, minimum: 1}
+        currency: {type: string, enum: [VND]}
+        paymentUrl: {type: string, format: uri, nullable: true, description: Null after expiry or reconciliation; never log or persist in notification payloads.}
+        expiresAt: {type: string, format: date-time}
+        status: {type: string, enum: [PENDING, UNKNOWN, EXPIRED, VERIFIED_PAID, VERIFIED_UNPAID]}
+    CustomerVisibleCharge:
+      type: object
+      required: [description, amount]
+      properties:
+        description: {type: string, nullable: true, description: Null only for a legacy charge created before descriptions were retained.}
+        amount: {type: integer, format: int64, minimum: 0}
+    SettlementCaseProjection:
+      type: object
+      required: [caseReference, caseType, status, bookingCode, correlationReference]
+      properties:
+        caseReference: {type: string}
+        caseType: {type: string}
+        status: {type: string, enum: [OPEN, PENDING_PROVIDER, RESOLVED, REJECTED, FAILED]}
+        bookingCode: {type: string}
+        correlationReference: {type: string}
+        policyOrAmountOutcome: {type: string, description: Present only when authorized for that outcome.}
+    OtaAddonPaymentAttemptResponse:
+      type: object
+      required: [attemptReference, billReference, merchantReference, amountVnd, currency, expiresAt, status]
+      properties:
+        attemptReference: {type: string}
+        billReference: {type: string}
+        merchantReference: {type: string}
+        amountVnd: {type: integer, format: int64, minimum: 1}
+        currency: {type: string}
+        paymentUrl: {type: string, nullable: true}
+        expiresAt: {type: string, format: date-time}
+        status: {type: string}
+    OtaAddonRefundCommand:
+      type: object
+      required: [amountVnd, reason]
+      properties:
+        amountVnd: {type: integer, format: int64, minimum: 1}
+        reason: {type: string}
+    OtaAddonRefundProjection:
+      type: object
+      required: [refundReference, caseReference, billReference, channelBookingReference, amountVnd, currency, reason, lifecycleStatus, createdAt, updatedAt]
+      properties:
+        refundReference: {type: string}
+        caseReference: {type: string}
+        billReference: {type: string}
+        channelBookingReference: {type: string}
+        amountVnd: {type: integer, format: int64, minimum: 1}
+        currency: {type: string}
+        reason: {type: string}
+        lifecycleStatus: {type: string}
+        createdAt: {type: string, format: date-time}
+        updatedAt: {type: string, format: date-time}
+    OtaAddonBillProjection:
+      type: object
+      required: [billReference, channelBookingReference, quoteReference, itemCode, itemDescription, amountVnd, currency, lifecycleStatus, locationId, createdAt, refunds]
+      properties:
+        billReference: {type: string}
+        channelBookingReference: {type: string}
+        quoteReference: {type: string}
+        itemCode: {type: string}
+        itemDescription: {type: string}
+        amountVnd: {type: integer, format: int64, minimum: 1}
+        currency: {type: string}
+        lifecycleStatus: {type: string}
+        locationId: {type: string}
+        createdAt: {type: string, format: date-time}
+        latestPaymentAttempt: {$ref: '#/components/schemas/OtaAddonPaymentAttemptResponse'}
+        refunds:
+          type: array
+          items: {$ref: '#/components/schemas/OtaAddonRefundProjection'}
+    Problem:
+      type: object
+      required: [code, correlationReference]
+      properties:
+        code: {type: string}
+        correlationReference: {type: string}
+        fieldErrors:
+          type: array
+          description: Safe validation metadata; never includes rejected values.
+          items:
+            type: object
+            required: [field, message]
+            properties:
+              field: {type: string}
+              message: {type: string}
+  responses:
+    FinalBill:
+      description: Customer-safe final bill projection
+      content: {application/json: {schema: {$ref: '#/components/schemas/FinalBillProjection'}}}
+    FinalPaymentAttempt:
+      description: Short-lived final-payment checkout attempt
+      content: {application/json: {schema: {$ref: '#/components/schemas/FinalPaymentAttempt'}}}
+    FolioCorrection:
+      description: Customer-safe folio correction projection
+      content: {application/json: {schema: {$ref: '#/components/schemas/FolioCorrectionProjection'}}}
+    SettlementCase:
+      description: Safe settlement case projection
+      content: {application/json: {schema: {$ref: '#/components/schemas/SettlementCaseProjection'}}}
+    OtaAddonBill:
+      description: OTA add-on bill projection
+      content: {application/json: {schema: {$ref: '#/components/schemas/OtaAddonBillProjection'}}}
+    OtaAddonPaymentAttempt:
+      description: Short-lived payment checkout attempt for OTA add-on bill
+      content: {application/json: {schema: {$ref: '#/components/schemas/OtaAddonPaymentAttemptResponse'}}}
+    OtaAddonRefund:
+      description: Overcharge refund projection for OTA add-on bill
+      content: {application/json: {schema: {$ref: '#/components/schemas/OtaAddonRefundProjection'}}}
+    Problem:
+      description: Safe typed error
+      content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}

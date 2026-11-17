@@ -1,0 +1,2 @@
+Test Case ID,Scenario Name,Role / Session,Given,When,Then (Expected),Priority,Status,Defect ID,Notes
+ST-NFR-SEC-001,Admin Technical cannot mutate business invoice,Admin Technical session,An invoice exists,Attempt business-record mutation,System denies the operation and preserves audit boundary,High,Not Run,,Implementation TBD

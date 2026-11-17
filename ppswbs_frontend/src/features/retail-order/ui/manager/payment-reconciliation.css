@@ -1,0 +1,28 @@
+.payment-reconciliation { padding-top: 3rem; padding-bottom: 4rem; }
+.payment-reconciliation-heading { margin-bottom: 1.5rem; }
+.payment-reconciliation-heading h1 { margin: .35rem 0; }
+.payment-reconciliation-heading p:last-child { color: #646a73; }
+.reconciliation-panel { padding: 1.5rem; }
+.reconciliation-toolbar, .reconciliation-pagination { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.reconciliation-toolbar h2 { margin: 0 0 .4rem; }
+.reconciliation-toolbar p { margin: 0; }
+.reconciliation-filters { display: grid; grid-template-columns: 2fr 1fr; gap: 1rem; margin: 1.5rem 0; }
+.reconciliation-filters label { display: grid; gap: .45rem; font-weight: 600; }
+.reconciliation-filters input, .reconciliation-filters select { width: 100%; padding: .7rem; border: 1px solid #cbd0d7; background: white; color: #171a20; }
+.reconciliation-table-wrap { overflow-x: auto; }
+.reconciliation-table-wrap table { width: 100%; border-collapse: collapse; text-align: left; }
+.reconciliation-table-wrap th, .reconciliation-table-wrap td { padding: .9rem .7rem; border-bottom: 1px solid #e3e5e8; vertical-align: top; overflow-wrap: anywhere; }
+.reconciliation-table-wrap th { color: #59616b; font-size: .85rem; }
+.reconciliation-reason { display: inline-block; padding: .3rem .5rem; background: #fff9d9; color: #665800; }
+.reconciliation-empty { padding: 2rem 0; text-align: center; color: #646a73; }
+.reconciliation-pagination { justify-content: flex-end; margin-top: 1.5rem; }
+@media (max-width: 700px) {
+  .payment-reconciliation { padding-top: 1.5rem; }
+  .reconciliation-panel { padding: 1rem; }
+  .reconciliation-toolbar { align-items: flex-start; flex-direction: column; }
+  .reconciliation-filters { grid-template-columns: 1fr; }
+  .reconciliation-table-wrap thead { display: none; }
+  .reconciliation-table-wrap tr { display: block; padding: .5rem 0; border-bottom: 1px solid #e3e5e8; }
+  .reconciliation-table-wrap td { display: grid; grid-template-columns: 7rem minmax(0, 1fr); gap: .5rem; border: 0; padding: .4rem 0; }
+  .reconciliation-table-wrap td::before { content: attr(data-label); color: #646a73; font-weight: 600; }
+}

@@ -1,0 +1,194 @@
+package edu.fpt.sep490_g22.ppswbs_backend.workshopsettlement;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.controller.*;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementCancellationCaseRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementChargeRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementEvidenceConclusionRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementFinalBillRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementHandoffIdempotencyRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementNotificationHandoffRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.HandoffIdempotencyStatus;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementHandoffIdempotency;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.CancellationHandoffOutcome;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.OpenCancellationHandoffCommand;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.FinalPaymentService;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.WorkshopSettlementFacadeImpl;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+
+import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
+import java.util.*;
+import java.util.stream.Collectors;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+class WorkshopSettlementContractIT {
+    @Mock SettlementCancellationCaseRepository caseRepository;
+    @Mock SettlementHandoffIdempotencyRepository idempotencyRepository;
+    @Mock SettlementEvidenceConclusionRepository evidenceRepository;
+    @Mock SettlementFinalBillRepository billRepository;
+    @Mock SettlementChargeRepository chargeRepository;
+
+    @Test
+    void publicControllerOperationsStayAlignedWithSettlementOpenApiRoutesAndRequireIdempotency() {
+        Map<String, Method> actual = controllerOperations();
+
+        assertThat(actual.keySet()).containsExactlyInAnyOrderElementsOf(Set.of(
+                "GET /api/v1/workshop-tickets/{ticketCode}/folio",
+                "POST /api/v1/workshop-tickets/{ticketCode}/folio-lookups",
+                "GET /api/v1/workshop-tickets/{ticketCode}/folio/add-ons",
+                "GET /api/v1/workshop-tickets/{ticketCode}/folio/previous-location-add-ons",
+                "POST /api/v1/workshop-tickets/{ticketCode}/folio/charges",
+                "POST /api/v1/workshop-tickets/{ticketCode}/folio/finalizations",
+                "POST /api/v1/workshop-tickets/{ticketCode}/folio/debts",
+                "POST /api/v1/workshop-tickets/{ticketCode}/folio/debts/closures",
+                "POST /api/v1/workshop-tickets/{ticketCode}/folio/corrections",
+                "GET /api/v1/workshop-tickets/{ticketCode}/folio/corrections/{correctionReference}",
+                "POST /api/v1/workshop-tickets/{ticketCode}/folio/collections",
+                "POST /api/v1/workshop-tickets/{ticketCode}/folio/collections/{collectionId}/confirmations",
+                "POST /api/v1/workshop-tickets/{ticketCode}/folio/collections/{collectionId}/failures",
+                "POST /api/v1/workshop-tickets/{ticketCode}/folio/handover-exceptions",
+                "POST /api/v1/workshop-tickets/{ticketCode}/folio/lines/{lineId}/voids",
+                "POST /api/v1/workshop-tickets/{ticketCode}/folio/collections/{collectionId}/voids",
+                "POST /api/v1/workshop-tickets/{ticketCode}/cancellations",
+                "POST /api/v1/workshop-booking-groups/{groupCode}/cancellations",
+                "POST /api/v1/workshop-tickets/{ticketCode}/changes",
+                "POST /api/v1/workshop-tickets/{ticketCode}/change-allowances",
+                "GET /api/v1/workshop-tickets/{ticketCode}/change-options",
+                "POST /api/v1/workshop-tickets/{ticketCode}/change-option-lookups",
+                "POST /api/v1/workshop-booking-groups/{groupCode}/ticket-changes",
+                "GET /api/v1/workshop-change-requests",
+                "POST /api/v1/workshop-change-requests/{requestReference}/decisions",
+                "GET /api/v1/workshop-tickets/{ticketCode}/mland-remedy",
+                "POST /api/v1/workshop-tickets/{ticketCode}/mland-remedy/answers",
+                "GET /api/v1/workshop-settlement-cases",
+                "GET /api/v1/workshop-cash-closes/expected-cash",
+                "POST /api/v1/workshop-cash-closes",
+                "POST /api/v1/workshop-cash-closes/{cashCloseId}/difference-confirmations",
+                "GET /api/v1/ota-addon-bills/{billReference}",
+                "POST /api/v1/ota-addon-bills/{billReference}/payment-attempts",
+                "POST /api/v1/ota-addon-bills/{billReference}/refunds"));
+
+        actual.forEach((operation, method) -> {
+            if (operation.startsWith("POST ") && !operation.endsWith("/folio-lookups") && !operation.endsWith("/change-option-lookups")) {
+                assertThat(hasIdempotencyKey(method))
+                        .as("OpenAPI Idempotency-Key parameter on %s", operation)
+                .isTrue();
+            }
+        });
+    }
+
+    @Test
+    void acceptedHandoffUsesTypedBoundaryAndPersistsNoEntityOutsideModule() {
+        when(idempotencyRepository.findByOperationReference("OP-1")).thenReturn(Optional.empty());
+        WorkshopSettlementFacadeImpl facade = new WorkshopSettlementFacadeImpl(
+                caseRepository, idempotencyRepository, new ObjectMapper(), org.mockito.Mockito.mock(FinalPaymentService.class),
+                org.mockito.Mockito.mock(SettlementNotificationHandoffRepository.class));
+
+        CancellationHandoffOutcome outcome = facade.openCancellationHandoff(
+                new OpenCancellationHandoffCommand("SES-1", List.of("BK-1"),
+                        "FACILITY_ISSUE", "OP-1", "CORR-1"));
+
+        assertThat(outcome.status()).isEqualTo(CancellationHandoffOutcome.Status.ACCEPTED);
+        assertThat(outcome.cancellationCaseReference()).startsWith("SETTLE-CASE-");
+        verify(caseRepository).save(any());
+        verify(idempotencyRepository).saveAndFlush(any());
+    }
+
+    @Test
+    void sameOperationAndDifferentSemanticContentReturnsTypedConflict() {
+        SettlementHandoffIdempotency existing = SettlementHandoffIdempotency.builder()
+                .operationReference("OP-1")
+                .requestFingerprint("different")
+                .correlationReference("CORR-1")
+                .lifecycleStatus(HandoffIdempotencyStatus.COMPLETED)
+                .cancellationCaseReference("CASE-1")
+                .build();
+        when(idempotencyRepository.findByOperationReference("OP-1")).thenReturn(Optional.of(existing));
+        WorkshopSettlementFacadeImpl facade = new WorkshopSettlementFacadeImpl(
+                caseRepository, idempotencyRepository, new ObjectMapper(), org.mockito.Mockito.mock(FinalPaymentService.class),
+                org.mockito.Mockito.mock(SettlementNotificationHandoffRepository.class));
+
+        CancellationHandoffOutcome outcome = facade.openCancellationHandoff(
+                new OpenCancellationHandoffCommand("SES-1", List.of("BK-1"),
+                        "FACILITY_ISSUE", "OP-1", "CORR-1"));
+
+        assertThat(outcome.status()).isEqualTo(CancellationHandoffOutcome.Status.REJECTED);
+        assertThat(outcome.rejectionReason()).isEqualTo("IDEMPOTENCY_CONFLICT");
+        verifyNoInteractions(caseRepository);
+    }
+
+    private static Map<String, Method> controllerOperations() {
+        List<Class<?>> controllers = List.of(TicketFolioController.class,
+                TicketCancellationController.class, TicketChangeController.class,
+                TicketMlandRemedyController.class,
+                SettlementCaseListController.class, OtaAddonPaymentController.class,
+                FolioCollectionController.class, TicketPreviousLocationAddOnController.class);
+        return controllers.stream()
+                .flatMap(controller -> {
+                    RequestMapping mapping = controller.getAnnotation(RequestMapping.class);
+                    String basePath = mapping != null && mapping.value().length > 0 ? mapping.value()[0] : "";
+                    return List.of(controller.getDeclaredMethods()).stream()
+                            .flatMap(method -> {
+                                GetMapping get = method.getAnnotation(GetMapping.class);
+                                PostMapping post = method.getAnnotation(PostMapping.class);
+                                if (get != null) {
+                                    return java.util.stream.Stream.of(Map.entry(
+                                            "GET " + basePath + suffix(get.value(), get.path()), method));
+                                }
+                                if (post != null) {
+                                    return java.util.stream.Stream.of(Map.entry(
+                                            "POST " + basePath + suffix(post.value(), post.path()), method));
+                                }
+                                return java.util.stream.Stream.empty();
+                            });
+                })
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    }
+
+    private static String suffix(String[] value, String[] path) {
+        String[] candidates = path.length > 0 ? path : value;
+        return candidates.length == 0 ? "" : candidates[0];
+    }
+
+    private static boolean hasIdempotencyKey(Method method) {
+        for (Parameter parameter : method.getParameters()) {
+            RequestHeader header = parameter.getAnnotation(RequestHeader.class);
+            if (header != null && ("Idempotency-Key".equals(header.value()) || "Idempotency-Key".equals(header.name()))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** T190 (FR-058, FR-061, FR-062): the cross-location fields and refusal codes are in the OpenAPI contract. */
+    @Test
+    void ticketOpenApiCarriesLocationNamesAndTheNewRefusalCodes() throws Exception {
+        java.nio.file.Path yaml = java.nio.file.Path.of("..", "ppswbs-spec", "features", "003-workshop-management",
+                "003.3-workshop-settlement-and-changes", "contracts", "workshop-settlement-ticket.openapi.yaml");
+        String contract = java.nio.file.Files.readString(yaml);
+
+        for (Class<?> dto : List.of(
+                edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.TicketChangeDtos.ChangeOptionDto.class,
+                edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.TicketChangeDtos.SessionSeatsDto.class,
+                edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.TicketRemedyDtos.OfferedSessionDto.class)) {
+            for (var component : dto.getRecordComponents()) {
+                assertThat(contract).as("%s.%s in the ticket OpenAPI", dto.getSimpleName(), component.getName())
+                        .contains(component.getName() + ":");
+            }
+        }
+        assertThat(contract).contains("PACKAGE_NOT_AVAILABLE_AT_LOCATION").contains("LATE_ARRIVAL_WINDOW_EXPIRED")
+                .contains("TICKET_LOCATION_CHANGED");
+    }
+}

@@ -1,0 +1,137 @@
+{
+  "_comment": "Dữ liệu sản phẩm mẫu của 002 (2026-11-13), tạo qua CatalogueSeedRunner khi backend khởi động. Chi nhánh theo mã của 003.2; sản phẩm đã có (cùng tên, cùng danh mục) thì bỏ qua.",
+  "categories": [
+    { "name": "Nhẫn bạc trơn", "description": "Nhẫn bạc 925 không đính đá, rèn và đánh vân thủ công tại xưởng Mland." },
+    { "name": "Nhẫn đá quý", "description": "Nhẫn bạc đính đá quý tự nhiên đã mài: thạch anh tím, peridot, garnet, citrine, hổ phách." },
+    { "name": "Nhẫn mã não", "description": "Nhẫn bạc gắn mã não cây và mã não rêu; mỗi viên một hoa văn tự nhiên, không chiếc nào giống chiếc nào." },
+    { "name": "Nhẫn đá thô", "description": "Nhẫn bạc giữ nguyên dáng tinh thể hoặc viên đá thô, ôm đá bằng chấu và dây bạc." }
+  ],
+  "products": [
+    {
+      "name": "Nhẫn bạc vân búa bản nhọn", "category": "Nhẫn bạc trơn", "sizes": "7-14", "price": "390000",
+      "quantities": { "HN-HOANKIEM": 3, "HN-TAYHO": 2 },
+      "description": "Nhẫn bạc 925 bản dẹt, mặt trên vuốt nhọn nhẹ và đánh vân búa thủ công nên bắt sáng lấp lánh. Đeo hằng ngày hoặc đeo chồng cùng nhẫn khác đều hợp.",
+      "images": [ { "file": "van-bua-1.jpg", "alt": "Nhẫn bạc vân búa bản nhọn trong hộp" }, { "file": "van-bua-2.jpg", "alt": "Nhẫn bạc vân búa nhìn nghiêng" } ]
+    },
+    {
+      "name": "Nhẫn bạc mèo xoắn", "category": "Nhẫn bạc trơn", "sizes": "6-12", "price": "420000",
+      "quantities": { "HN-HOANKIEM": 2, "HN-TAYHO": 1 },
+      "description": "Nhẫn hở bằng bạc 925: một đầu là dáng mèo ngồi cắt từ tấm bạc, đầu kia cuộn xoắn ốc như đuôi mèo. Kiểu hở nên nới hoặc khép nhẹ được cho vừa tay.",
+      "images": [ { "file": "meo-xoan.jpg", "alt": "Nhẫn bạc hở hình mèo và đuôi xoắn ốc" } ]
+    },
+    {
+      "name": "Nhẫn bạc trăng khuyết thạch anh tím", "category": "Nhẫn đá quý", "sizes": "6-13", "price": "520000",
+      "quantities": { "HN-HOANKIEM": 2, "HN-TAYHO": 2 },
+      "description": "Vầng trăng khuyết bạc ôm một viên thạch anh tím vuông nhỏ, đai nhẫn mảnh. Thiết kế tối giản, hợp đeo ngón áp út hoặc ngón út.",
+      "images": [ { "file": "trang-khuyet-thach-anh-tim.jpg", "alt": "Nhẫn bạc trăng khuyết đính thạch anh tím" } ]
+    },
+    {
+      "name": "Nhẫn bạc sóng nước peridot", "category": "Nhẫn đá quý", "sizes": "6-13", "price": "560000",
+      "quantities": { "HN-HOANKIEM": 2, "HN-TAYHO": 2 },
+      "description": "Đai bạc uốn lượn như con sóng, giữa sóng là viên peridot xanh lá mài giác, chấu giữ đá gọn gàng.",
+      "images": [ { "file": "song-nuoc-peridot.jpg", "alt": "Nhẫn bạc sóng nước đính peridot xanh lá" } ]
+    },
+    {
+      "name": "Nhẫn bạc mắt garnet", "category": "Nhẫn đá quý", "sizes": "7-14", "price": "540000",
+      "quantities": { "HN-HOANKIEM": 3, "HN-TAYHO": 1 },
+      "description": "Hai sợi bạc tách ra rồi khép lại thành hình con mắt, ở giữa là viên garnet tím đỏ tròn trong ổ bạc.",
+      "images": [ { "file": "mat-garnet.jpg", "alt": "Nhẫn bạc hình con mắt đính garnet" } ]
+    },
+    {
+      "name": "Nhẫn bạc xoáy citrine", "category": "Nhẫn đá quý", "sizes": "6-13", "price": "520000",
+      "quantities": { "HN-HOANKIEM": 2, "HN-TAYHO": 2 },
+      "description": "Hai vòng bạc mảnh xoáy quanh một viên citrine vàng chanh, tạo cảm giác nhẹ và trong.",
+      "images": [ { "file": "xoay-citrine.jpg", "alt": "Nhẫn bạc hai vòng xoáy đính citrine vàng" } ]
+    },
+    {
+      "name": "Nhẫn bạc garnet tròn", "category": "Nhẫn đá quý", "sizes": "6-12", "price": "480000",
+      "quantities": { "HN-HOANKIEM": 2, "HN-TAYHO": 2 },
+      "description": "Viên garnet đỏ rượu mài giác tròn, viền chấu hoa nhỏ trên đai bạc mảnh; món quà dễ chọn cho người sinh tháng Một.",
+      "images": [ { "file": "garnet-tron.jpg", "alt": "Nhẫn bạc đính garnet đỏ tròn" } ]
+    },
+    {
+      "name": "Nhẫn bạc hổ phách", "category": "Nhẫn đá quý", "sizes": "6-13", "price": "590000",
+      "quantities": { "HN-HOANKIEM": 2, "HN-TAYHO": 1 },
+      "description": "Viên hổ phách cam mài cabochon trong ổ bạc tròn, đai nhẫn đánh vân búa nhẹ. Màu ấm, càng đeo càng bóng.",
+      "images": [ { "file": "ho-phach.jpg", "alt": "Nhẫn bạc đính hổ phách cam" } ]
+    },
+    {
+      "name": "Nhẫn bạc cành lá citrine", "category": "Nhẫn đá quý", "sizes": "6-12", "price": "560000",
+      "quantities": { "HN-HOANKIEM": 2, "HN-TAYHO": 2 },
+      "description": "Cành bạc nhỏ có lá ôm lấy viên citrine vàng hổ phách, đai nhẫn mảnh như nhánh cây.",
+      "images": [ { "file": "canh-la-citrine.jpg", "alt": "Nhẫn bạc cành lá đính citrine" } ]
+    },
+    {
+      "name": "Nhẫn bạc peridot oval", "category": "Nhẫn đá quý", "sizes": "7-14", "price": "550000",
+      "quantities": { "HN-HOANKIEM": 2, "HN-TAYHO": 2 },
+      "description": "Viên peridot xanh ô liu mài oval trong ổ bạc, hai đầu đai nhẫn xoắn nhẹ ôm lấy ổ đá.",
+      "images": [ { "file": "peridot-oval.jpg", "alt": "Nhẫn bạc đính peridot oval" } ]
+    },
+    {
+      "name": "Nhẫn hoa văn vàng thạch anh tím", "category": "Nhẫn đá quý", "sizes": "6-12", "price": "690000",
+      "quantities": { "HN-HOANKIEM": 2, "HN-TAYHO": 1 },
+      "description": "Đai nhẫn mạ vàng chạm hoa lá cổ điển, đính viên thạch anh tím mài hình hạt thóc bằng bốn chấu.",
+      "images": [ { "file": "hoa-van-vang-thach-anh-tim.jpg", "alt": "Nhẫn mạ vàng hoa văn đính thạch anh tím" } ]
+    },
+    {
+      "name": "Nhẫn bạc lá ngọc xanh", "category": "Nhẫn đá quý", "sizes": "6-12", "price": "520000",
+      "quantities": { "HN-HOANKIEM": 2, "HN-TAYHO": 2 },
+      "description": "Viên chalcedony xanh ngọc mài cabochon, hai bên điểm lá bạc chạm gân, nhẹ nhàng và tươi mát.",
+      "images": [ { "file": "la-ngoc-xanh.jpg", "alt": "Nhẫn bạc đá xanh ngọc điểm lá bạc" } ]
+    },
+    {
+      "name": "Nhẫn bạc mã não cây chữ nhật", "category": "Nhẫn mã não", "sizes": "8-15", "price": "750000",
+      "quantities": { "HN-HOANKIEM": 1, "HN-TAYHO": 1 },
+      "description": "Mặt mã não cây cắt chữ nhật, vân đen như cành cây in trong đá trong; hai vai nhẫn chạm hoa văn nhỏ. Mỗi viên một hoa văn riêng.",
+      "images": [ { "file": "ma-nao-cay-chu-nhat-1.jpg", "alt": "Nhẫn bạc mã não cây mặt chữ nhật" }, { "file": "ma-nao-cay-chu-nhat-2.jpg", "alt": "Nhẫn bạc mã não cây mặt chữ nhật nhìn chéo" } ]
+    },
+    {
+      "name": "Nhẫn bạc mã não cây vuông", "category": "Nhẫn mã não", "sizes": "7-14", "price": "680000",
+      "quantities": { "HN-HOANKIEM": 1, "HN-TAYHO": 1 },
+      "description": "Mặt mã não cây vuông bo góc, nền đá sáng với vân cành nâu nhạt, viền bạc mảnh.",
+      "images": [ { "file": "ma-nao-cay-vuong.jpg", "alt": "Nhẫn bạc mã não cây mặt vuông" } ]
+    },
+    {
+      "name": "Nhẫn bạc mã não cây oval ngang", "category": "Nhẫn mã não", "sizes": "8-15", "price": "720000",
+      "quantities": { "HN-HOANKIEM": 1, "HN-TAYHO": 1 },
+      "description": "Mặt mã não cây oval đặt ngang, vân đen loang như tranh thủy mặc trên nền đá xám trong.",
+      "images": [ { "file": "ma-nao-cay-oval-ngang.jpg", "alt": "Nhẫn bạc mã não cây oval đặt ngang" } ]
+    },
+    {
+      "name": "Nhẫn bạc mã não cây oval dọc", "category": "Nhẫn mã não", "sizes": "7-14", "price": "680000",
+      "quantities": { "HN-HOANKIEM": 1, "HN-TAYHO": 1 },
+      "description": "Mặt mã não cây oval đặt dọc theo ngón tay, vân cành mảnh, làm ngón tay trông thon dài hơn.",
+      "images": [ { "file": "ma-nao-cay-oval-doc.jpg", "alt": "Nhẫn bạc mã não cây oval đặt dọc" } ]
+    },
+    {
+      "name": "Nhẫn bạc mã não rêu trái tim", "category": "Nhẫn mã não", "sizes": "6-13", "price": "620000",
+      "quantities": { "HN-HOANKIEM": 2, "HN-TAYHO": 1 },
+      "description": "Mã não rêu mài trái tim, bên trong có những mảng xanh rêu như khu vườn thu nhỏ, ổ bạc ôm sát.",
+      "images": [ { "file": "ma-nao-reu-trai-tim.jpg", "alt": "Nhẫn bạc mã não rêu hình trái tim" } ]
+    },
+    {
+      "name": "Nhẫn bạc mã não rêu giọt nước", "category": "Nhẫn mã não", "sizes": "7-14", "price": "650000",
+      "quantities": { "HN-HOANKIEM": 1, "HN-TAYHO": 2 },
+      "description": "Viên mã não rêu lớn mài giọt nước, vân xanh đậm nhạt đan xen; đai bạc trơn để đá làm điểm nhấn.",
+      "images": [ { "file": "ma-nao-reu-giot-nuoc.jpg", "alt": "Nhẫn bạc mã não rêu hình giọt nước" } ]
+    },
+    {
+      "name": "Nhẫn bạc ngọc xanh quấn thừng", "category": "Nhẫn đá thô", "sizes": "7-14", "price": "480000",
+      "quantities": { "HN-HOANKIEM": 2, "HN-TAYHO": 2 },
+      "description": "Viên chalcedony xanh ngọc thuôn dài được giữ bằng sợi bạc xoắn thừng quấn quanh đai nhẫn bản dẹt.",
+      "images": [ { "file": "ngoc-xanh-quan-thung.jpg", "alt": "Nhẫn bạc ngọc xanh quấn dây bạc xoắn" } ]
+    },
+    {
+      "name": "Nhẫn bạc thạch anh thô", "category": "Nhẫn đá thô", "sizes": "6-12", "price": "590000",
+      "quantities": { "HN-HOANKIEM": 2, "HN-TAYHO": 1 },
+      "description": "Viên thạch anh thô còn nguyên mặt tinh thể, trong lòng có ánh xanh tím, ôm bằng viền bạc gò tay.",
+      "images": [ { "file": "thach-anh-tho-1.jpg", "alt": "Nhẫn bạc thạch anh thô trong hộp" }, { "file": "thach-anh-tho-2.jpg", "alt": "Nhẫn bạc thạch anh thô nhìn nghiêng" } ]
+    },
+    {
+      "name": "Nhẫn bạc hở tourmaline xanh", "category": "Nhẫn đá thô", "sizes": "6-12", "price": "640000",
+      "quantities": { "HN-HOANKIEM": 1, "HN-TAYHO": 1 },
+      "description": "Nhẫn hở với hai thanh tourmaline xanh lá thô ở hai đầu, kẹp bằng khâu bạc; nới khép nhẹ cho vừa tay.",
+      "images": [ { "file": "tourmaline-mo.jpg", "alt": "Nhẫn bạc hở hai thanh tourmaline xanh" } ]
+    }
+  ]
+}

@@ -1,0 +1,55 @@
+@startuml
+!pragma charset UTF-8
+title Shared Use Cases — Guest and Member Booking Journey
+left to right direction
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam usecase {
+  BackgroundColor #FCF9F8
+  BorderColor #807663
+  ArrowColor #5B5E67
+}
+
+actor Guest
+actor Member
+
+rectangle "Personalized Product Sales and Workshop Booking System" {
+  usecase "View locations and\navailable sessions" as ViewSessions
+  usecase "Book workshop" as Book
+  usecase "Select date, session\nand package" as SelectSession
+  usecase "Provide / verify\ncontact information" as Contact
+  usecase "Choose ring design\npath" as Design
+  usecase "Select approved model" as Model
+  usecase "Configure approved\ncomponents" as Configure
+  usecase "Submit consented\nreference image" as Image
+  usecase "Create booking invoice\nwith 50% deposit due" as Invoice
+  usecase "Initiate deposit payment" as Deposit
+  usecase "Track booking with\ncode and contact information" as Track
+  usecase "Open Google review\nlink / QR" as ReviewLink
+}
+
+Guest --> ViewSessions
+Guest --> Book
+Guest --> Design
+Guest --> Track
+Guest --> ReviewLink
+
+Member --> ViewSessions
+Member --> Book
+Member --> Design
+Member --> Track
+Member --> ReviewLink
+
+Book .> SelectSession : <<include>>
+Book .> Contact : <<include>>
+Book .> Invoice : <<include>>
+Book .> Deposit : <<include>>
+Design .> Model : <<extend>>\n[model path]
+Design .> Configure : <<extend>>\n[configurator path]
+Design .> Image : <<extend>>\n[reference-image path]
+
+note bottom of Deposit
+Payment confirmation is handled in the dedicated Payment Gateway diagram.
+end note
+@enduml
+

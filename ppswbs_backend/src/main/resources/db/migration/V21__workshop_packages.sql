@@ -1,0 +1,22 @@
+CREATE TABLE workshop_packages (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    name LONGTEXT NOT NULL,
+    description LONGTEXT NOT NULL,
+    public_price BIGINT NOT NULL,
+    min_participants INT NOT NULL,
+    max_participants INT NOT NULL,
+    required_session_count INT NOT NULL,
+    same_location_required BOOLEAN NOT NULL,
+    minimum_same_day_slot_gap INT NOT NULL,
+    state VARCHAR(16) NOT NULL,
+    created_at DATETIME(6) NOT NULL,
+    updated_at DATETIME(6) NOT NULL,
+    PRIMARY KEY (id),
+    KEY idx_workshop_packages_state (state),
+    CONSTRAINT chk_workshop_packages_public_price CHECK (public_price >= 0),
+    CONSTRAINT chk_workshop_packages_min_participants CHECK (min_participants >= 1),
+    CONSTRAINT chk_workshop_packages_max_participants CHECK (max_participants >= min_participants),
+    CONSTRAINT chk_workshop_packages_required_sessions CHECK (required_session_count >= 1),
+    CONSTRAINT chk_workshop_packages_slot_gap CHECK (minimum_same_day_slot_gap >= 0),
+    CONSTRAINT chk_workshop_packages_state CHECK (state IN ('DRAFT', 'PUBLISHED', 'RETIRED'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -1,0 +1,30 @@
+@startuml
+!pragma charset UTF-8
+title AI Vision API Use Cases
+left to right direction
+skinparam shadowing false
+skinparam usecase {
+  BackgroundColor #FCF9F8
+  BorderColor #807663
+  ArrowColor #5B5E67
+}
+
+actor "AI Vision API\n(TBD provider)" as AI
+
+rectangle "Personalized Product Sales and Workshop Booking System" {
+  usecase "Receive consented\nreference image" as ReceiveImage
+  usecase "Return image quality" as Quality
+  usecase "Return candidate ring\nfeatures" as Features
+}
+
+AI --> ReceiveImage
+AI --> Quality
+AI --> Features
+ReceiveImage .> Quality : <<include>>
+ReceiveImage .> Features : <<include>>
+
+note bottom of AI
+The API does not generate a design, decide feasibility or decide price.
+end note
+@enduml
+

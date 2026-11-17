@@ -1,0 +1,2 @@
+Test Case ID,Test Case Description,Test Case Procedure,Expected Results,Pre-conditions,Round 1,Test date,Tester,Round 2,Test date,Tester,Round 3,Test date,Tester,Defect IDs,Note
+ST-FR-BOOK-001,Guest booking is confirmed only after deposit confirmation,"Select configured session; create invoice; receive valid payment event",Confirmed booking with lookup code is available,Application implementation and configured capacity,Not Run,,,,,,,,,,Gateway provider contract TBD
