@@ -31,4 +31,6 @@ public interface SettlementTicketChangeRequestRepository extends JpaRepository<S
     List<SettlementTicketChangeRequest> findByStatusAndExpiresAtLessThanEqual(String status, Instant expiresAt);
 
     List<SettlementTicketChangeRequest> findByTicketCodeAndStatus(String ticketCode, String status);
+
+    Optional<SettlementTicketChangeRequest> findFirstByTicketCodeOrderByCreatedAtDesc(String ticketCode);
 }

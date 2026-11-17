@@ -494,6 +494,17 @@ export async function getTicketChangeOptions(ticketCode, { type, fromSessionRefe
   });
 }
 
+/**
+ * The latest schedule-change request of a ticket, for the Member who bought it: { requestReference, status
+ * (PENDING | APPROVED | REJECTED | EXPIRED), decisionReason, decidedAt }, or null when it never had one (204).
+ */
+export async function getTicketChangeRequestStatus(ticketCode, { authorization } = {}) {
+  if (!ticketCode || typeof ticketCode !== 'string' || !ticketCode.trim()) throw new Error('TICKET_CODE_REQUIRED');
+  return request(`/api/v1/workshop-tickets/${encodeURIComponent(ticketCode.trim())}/change-request-status`, {
+    headers: authorization ? { Authorization: authorization } : {},
+  });
+}
+
 /** The same list for a Guest, proved with exactly one contact of the group (POST /change-option-lookups; no OTP). */
 export async function lookupTicketChangeOptions(ticketCode, { contactEmail, contactPhone, type, fromSessionReferences = [] } = {}) {
   if (!ticketCode || typeof ticketCode !== 'string' || !ticketCode.trim()) throw new Error('TICKET_CODE_REQUIRED');

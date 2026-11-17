@@ -4,7 +4,10 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.Accou
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorRole;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.CurrentAccountActor;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.TicketFolioContext;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.WorkshopBookingFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementBusinessAuditRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.TicketChangeDtos.ChangeRequestStatusDto;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementTicketChangeRequestRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.TicketChangeDtos.ChangeRequestDecision;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.TicketChangeDtos.ChangeRequestDecisionDto;
@@ -41,9 +44,10 @@ class TicketChangeRequestServiceTest {
     private final SettlementTicketChangeRequestRepository requests = mock(SettlementTicketChangeRequestRepository.class);
     private final TicketChangeService changes = mock(TicketChangeService.class);
     private final SettlementBusinessAuditRepository audits = mock(SettlementBusinessAuditRepository.class);
+    private final WorkshopBookingFacade booking = mock(WorkshopBookingFacade.class);
     private final TicketChangeRequestService service = new TicketChangeRequestService(requests, changes,
             new WorkshopSettlementAuthorizationService(mock(AccountFacade.class), audits,
-                    mock(WorkshopOperationsSettlementAdapter.class)), audits);
+                    mock(WorkshopOperationsSettlementAdapter.class)), audits, booking);
 
     private final CurrentAccountActor manager =
             new CurrentAccountActor(300L, ActorRole.MANAGER, ActorStatus.ACTIVE, true, List.of());
@@ -189,5 +193,64 @@ class TicketChangeRequestServiceTest {
         assertThat(request.getStatus()).isEqualTo(SettlementTicketChangeRequest.PENDING);
         assertThat(request.getDecisionIdempotencyKey()).isNull();
         verify(requests, never()).save(any());
+    }
+
+    private final CurrentAccountActor buyer =
+            new CurrentAccountActor(77L, ActorRole.MEMBER, ActorStatus.ACTIVE, true, List.of());
+
+    private void ticketBoughtBy(String ticket, Long buyerAccountId) {
+        when(booking.getTicketFolioContext(ticket)).thenReturn(Optional.of(new TicketFolioContext(
+                ticket, "GRP-1", "L1", "7", 7L, List.of(UUID.randomUUID().toString()), buyerAccountId)));
+    }
+
+    @Test
+    @DisplayName("latestStatusForBuyer: the buyer sees the state and the Manager reason of the latest request")
+    void latestStatusForBuyer_returnsLatestState() {
+        ticketBoughtBy("T-A", 77L);
+        SettlementTicketChangeRequest approved = pending("A", 7L, Instant.now().plus(1, ChronoUnit.DAYS));
+        approved.setStatus(SettlementTicketChangeRequest.APPROVED);
+        approved.setDecisionReason("ok");
+        approved.setDecidedAt(Instant.now());
+        when(requests.findFirstByTicketCodeOrderByCreatedAtDesc("T-A")).thenReturn(Optional.of(approved));
+
+        Optional<ChangeRequestStatusDto> status = service.latestStatusForBuyer("T-A", buyer);
+
+        assertThat(status).get().extracting(ChangeRequestStatusDto::status, ChangeRequestStatusDto::decisionReason)
+                .containsExactly("APPROVED", "ok");
+    }
+
+    @Test
+    @DisplayName("latestStatusForBuyer: a pending request past its expiry is reported as EXPIRED, without writing")
+    void latestStatusForBuyer_reportsLapsedPendingAsExpired() {
+        ticketBoughtBy("T-B", 77L);
+        when(requests.findFirstByTicketCodeOrderByCreatedAtDesc("T-B"))
+                .thenReturn(Optional.of(pending("B", 7L, Instant.now().minus(1, ChronoUnit.HOURS))));
+
+        assertThat(service.latestStatusForBuyer("T-B", buyer)).get()
+                .extracting(ChangeRequestStatusDto::status).isEqualTo("EXPIRED");
+        verify(requests, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("latestStatusForBuyer: no request yet gives an empty answer")
+    void latestStatusForBuyer_emptyWhenNeverRequested() {
+        ticketBoughtBy("T-C", 77L);
+        when(requests.findFirstByTicketCodeOrderByCreatedAtDesc("T-C")).thenReturn(Optional.empty());
+
+        assertThat(service.latestStatusForBuyer("T-C", buyer)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("latestStatusForBuyer: only the Member who bought the ticket may read it")
+    void latestStatusForBuyer_rejectsOtherActors() {
+        ticketBoughtBy("T-D", 99L);
+
+        assertThatThrownBy(() -> service.latestStatusForBuyer("T-D", buyer))
+                .isInstanceOf(WorkshopSettlementAuthorizationException.class).hasMessage("NOT_BUYER");
+        assertThatThrownBy(() -> service.latestStatusForBuyer("T-D", manager))
+                .isInstanceOf(WorkshopSettlementAuthorizationException.class);
+        assertThatThrownBy(() -> service.latestStatusForBuyer("T-D", null))
+                .isInstanceOf(WorkshopSettlementAuthorizationException.class);
+        verify(requests, never()).findFirstByTicketCodeOrderByCreatedAtDesc(any());
     }
 }

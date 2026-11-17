@@ -155,6 +155,41 @@ describe('003.3 FR-044a customer ticket change', () => {
     expect(screen.getByText('CHG-REQ-9')).toBeInTheDocument();
   });
 
+  const STATUS = `GET /api/v1/workshop-tickets/${TICKET}/change-request-status`;
+
+  it('a Member who reloads still sees that a change request is waiting for the Manager', async () => {
+    const calls = mockFetch({
+      [STATUS]: json(200, { requestReference: 'CHG-REQ-9', status: 'PENDING', decisionReason: null, decidedAt: null }),
+    });
+    render(<GroupDetailCard group={confirmedGroup()} authorization="Bearer member-token" onTicketUpdated={() => {}} />);
+
+    expect(await screen.findByText(/Đã gửi yêu cầu đổi lịch cho quản lý duyệt/)).toBeInTheDocument();
+    expect(screen.getByText('CHG-REQ-9')).toBeInTheDocument();
+    expect(calls.find(call => call.path.endsWith('/change-request-status')).headers.Authorization).toBe('Bearer member-token');
+  });
+
+  it('the "waiting" notice turns into the Manager decision and the ticket is read again', async () => {
+    let decided = false;
+    mockFetch({
+      [`GET /api/v1/workshop-tickets/${TICKET}/change-options`]: options({ requiresManager: true, managerRules: ['RESCHEDULE_QUOTA_EXHAUSTED'] }),
+      [`POST /api/v1/workshop-tickets/${TICKET}/changes`]: json(202, { ticketCode: TICKET, applied: false, priceIncreaseAmount: '0', confirmIncreaseRequired: false, balanceDue: '0', countedChange: false, changeRequestReference: 'CHG-REQ-9' }),
+      [STATUS]: () => (decided
+        ? json(200, { requestReference: 'CHG-REQ-9', status: 'REJECTED', decisionReason: 'Hết chỗ', decidedAt: new Date().toISOString() })
+        : new Response(null, { status: 204 })),
+    });
+    const onTicketUpdated = vi.fn();
+    const user = userEvent.setup();
+    render(<GroupDetailCard group={confirmedGroup()} authorization="Bearer member-token" onTicketUpdated={onTicketUpdated} />);
+
+    await pickFirstOption(user);
+    decided = true;
+    await user.click(screen.getByRole('button', { name: 'Gửi yêu cầu đổi lịch' }));
+
+    expect(await screen.findByText(/Quản lý đã từ chối yêu cầu đổi lịch/)).toBeInTheDocument();
+    expect(screen.getByText(/Lý do: Hết chỗ/)).toBeInTheDocument();
+    expect(screen.queryByText(/Đã gửi yêu cầu đổi lịch cho quản lý duyệt/)).toBeNull();
+  });
+
   it('shows a clear message when the server refuses the change (409 INSUFFICIENT_CAPACITY) and keeps the choice', async () => {
     mockFetch({
       [`GET /api/v1/workshop-tickets/${TICKET}/change-options`]: options(),
