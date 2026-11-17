@@ -18,7 +18,7 @@ export default function BranchCompatibilityPage() {
     <div className="ring-design-container" data-testid="branch-compatibility-page">
       <div className="ring-recovery-card" role="region" aria-label="Branch compatibility warning">
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}>
-          <div style={{ fontSize: '2rem' }}>⚠️</div>
+          <div>Lưu ý</div>
           <div>
             <h2 style={{ fontSize: '1.25rem', fontWeight: 600, margin: '0 0 0.5rem', color: '#92400e' }}>
               {t.branchRecoveryTitle}
@@ -42,7 +42,7 @@ export default function BranchCompatibilityPage() {
                   )
                 }
               >
-                🛠️ {t.branchRecoveryAction}
+                {t.branchRecoveryAction}
               </button>
               <button
                 type="button"
@@ -51,7 +51,7 @@ export default function BranchCompatibilityPage() {
                   navigate(`/workshops/booking?packageReference=${encodeURIComponent(packageReference)}&designId=${encodeURIComponent(designId)}`)
                 }
               >
-                📍 {t.changeBranchAction}
+                {t.changeBranchAction}
               </button>
             </div>
           </div>

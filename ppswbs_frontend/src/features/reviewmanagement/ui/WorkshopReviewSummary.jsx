@@ -59,7 +59,7 @@ export default function WorkshopReviewSummary({
           {reviews.map(review => (
             <article className="workshop-review-card" key={review.id}>
               <div className="review-stars" aria-label={`${review.rating} / 5 stars`}>
-                {'★'.repeat(Math.max(0, Math.min(5, Number(review.rating) || 0)))}
+                {Number(review.rating || 0).toFixed(1)} / 5
               </div>
               {review.bodyText && <p>{review.bodyText}</p>}
               <strong>{review.maskedDisplayName || 'Khách hàng Mland'}</strong>

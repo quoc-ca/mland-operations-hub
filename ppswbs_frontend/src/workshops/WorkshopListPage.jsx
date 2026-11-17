@@ -64,7 +64,7 @@ export function WorkshopListPage() {
           onClick={() => setSelectedBranch('danang')}
           data-node-id="521:591"
         >
-          📍 Chi nhánh Đà Nẵng (45 Bạch Đằng)
+          Chi nhánh Đà Nẵng (45 Bạch Đằng)
         </button>
         <button
           type="button"
@@ -72,14 +72,14 @@ export function WorkshopListPage() {
           onClick={() => setSelectedBranch('hcm')}
           data-node-id="521:593"
         >
-          📍 Chi nhánh TP.HCM (123 Nguyễn Huệ)
+          Chi nhánh TP.HCM (123 Nguyễn Huệ)
         </button>
       </div>
 
       {/* Interactive ring design callout */}
       <div className="wk-config-callout">
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <span style={{ fontSize: '1.4rem' }}>💍</span>
+          <span aria-hidden="true" />
           <span style={{ fontSize: '13px', color: '#1e293b' }}>
             Bạn muốn tùy chọn dáng nhẫn, chất liệu hoặc tự tay thiết kế mẫu trước khi đến lớp?
           </span>
@@ -152,8 +152,8 @@ export function WorkshopListPage() {
                   </div>
                   <div className="wk-chips">
                     <span className="wk-chip">⏱ {sessionCount} buổi</span>
-                    <span className="wk-chip">👥 {pkg.minParticipants === pkg.maxParticipants ? `${pkg.maxParticipants} vé` : `${pkg.minParticipants}–${pkg.maxParticipants} vé`}</span>
-                    {sessionCount > 1 && pkg.sameLocationRequired && <span className="wk-chip">📍 Cùng một chi nhánh</span>}
+                    <span className="wk-chip">{pkg.minParticipants === pkg.maxParticipants ? `${pkg.maxParticipants} vé` : `${pkg.minParticipants}–${pkg.maxParticipants} vé`}</span>
+                    {sessionCount > 1 && pkg.sameLocationRequired && <span className="wk-chip">Cùng một chi nhánh</span>}
                   </div>
                   <WorkshopOfferBadges offers={offers} />
                   <div className="wk-actions wk-card-actions">

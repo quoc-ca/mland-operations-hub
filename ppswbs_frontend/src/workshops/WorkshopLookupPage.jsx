@@ -312,7 +312,7 @@ export function WorkshopLookupPage() {
                 VÉ THAM GIA WORKSHOP HỢP LỆ
               </p>
               <p className="wk-ticket-preview-status" data-node-id="521:847">
-                Trạng thái: ✅ {group.groupStatus === 'CONFIRMED' ? 'ĐÃ XÁC NHẬN (CONFIRMED)' : group.groupStatus}
+                Trạng thái: {group.groupStatus === 'CONFIRMED' ? 'ĐÃ XÁC NHẬN (CONFIRMED)' : group.groupStatus}
               </p>
               <div className="wk-ticket-preview-details" data-node-id="521:848">
                 <p>• Mã đặt chỗ: <strong>{group.groupCode}</strong></p>
@@ -323,7 +323,7 @@ export function WorkshopLookupPage() {
             </div>
             <div className="wk-ticket-qr-container" data-node-id="521:849">
               <div className="wk-ticket-qr-box" data-node-id="521:850">
-                <span style={{ fontSize: '32px' }}>📱</span>
+                <span style={{ fontSize: '14px' }}>Điện thoại</span>
                 <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#7a8696', fontWeight: 600 }}>QR Check-in</p>
               </div>
             </div>

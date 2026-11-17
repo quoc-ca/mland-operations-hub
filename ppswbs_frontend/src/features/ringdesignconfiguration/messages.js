@@ -43,7 +43,7 @@ export const messages = {
     dragFrameHelp: 'Kéo thả khung viền đỏ 160px x 160px trên ảnh để chọn vùng khắc mong muốn:',
     laserPreviewTitle: 'Bản xem trước khắc laser (Trắng - Đen 160px x 160px):',
     deleteCustomImageBtn: 'Xóa ảnh này',
-    surfaceTextureWarning: '⚠️ Lưu ý: Đai nhẫn đang chọn có kết cấu bề mặt gồ ghề (đập búa / búa bi / xoắn / lượn sóng). Hình khắc ở mặt ngoài có thể bị biến dạng hoặc không hiển thị sắc nét như mong muốn trên bề mặt thực tế. Bạn nên ưu tiên chọn khắc ở mặt trong để đảm bảo chất lượng tinh xảo.',
+    surfaceTextureWarning: 'Lưu ý: Đai nhẫn đang chọn có kết cấu bề mặt gồ ghề (đập búa / búa bi / xoắn / lượn sóng). Hình khắc ở mặt ngoài có thể bị biến dạng hoặc không hiển thị sắc nét như mong muốn trên bề mặt thực tế. Bạn nên ưu tiên chọn khắc ở mặt trong để đảm bảo chất lượng tinh xảo.',
 
     // Fields
     ringSizeLabel: 'Size nhẫn (Kích thước ngón tay)',
@@ -159,7 +159,7 @@ export const messages = {
     dragFrameHelp: 'Drag the 160px x 160px red frame over the image to select the engraving region:',
     laserPreviewTitle: 'Laser Engraving Preview (B&W 160x160):',
     deleteCustomImageBtn: 'Delete image',
-    surfaceTextureWarning: '⚠️ Notice: The current ring shape has a textured/hammered surface (ball-peen / hammer / wave / twist). Outer band engraving may appear distorted or less defined than expected. Inner band engraving is strongly recommended for fine details.',
+    surfaceTextureWarning: 'Notice: The current ring shape has a textured/hammered surface (ball-peen / hammer / wave / twist). Outer band engraving may appear distorted or less defined than expected. Inner band engraving is strongly recommended for fine details.',
 
     ringSizeLabel: 'Ring Size',
     ringSizeHelper: 'Standard sizes from 6 (46 mm) to 29 (69 mm).',

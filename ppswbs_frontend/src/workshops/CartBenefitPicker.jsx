@@ -179,7 +179,7 @@ export function CartBenefitPicker({ selection, onChange, savedVouchers = [], off
                   <strong>{item.name}</strong>
                   <small>{item.code}{item.benefit ? ` · ${item.benefit}` : ''}{item.saved ? ' · Trong Voucher của tôi' : ''}</small>
                 </span>
-                <span>{item.code === selection.voucherCode && voucherChosen ? '✓' : '○'}</span>
+                <span>{item.code === selection.voucherCode && voucherChosen ? 'Đã chọn' : 'Chọn'}</span>
               </button>
             ))}
           </section>

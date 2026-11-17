@@ -5,6 +5,7 @@ import { AuthProvider } from '../shared/auth/AuthProvider';
 import { I18nProvider } from '../shared/i18n/I18nProvider';
 import '../style.css';
 import '../shared/ui/ui.css';
+import '../design-system.css';
 
 /** Application composition root: providers and routing only. */
 export default function App() {

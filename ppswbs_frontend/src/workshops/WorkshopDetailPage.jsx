@@ -228,7 +228,7 @@ export function WorkshopDetailPage({ packageId }) {
           {/* Inclusions & Gifts - Figma node 521:697 */}
           <div className="wk-inclusions-box" data-node-id="521:697">
             <p style={{ margin: '0 0 4px' }} data-node-id="521:698">
-              🎁 <strong>Thành phẩm mang về:</strong> 01 chiếc nhẫn bạc 925 do chính tay bạn làm
+              <strong>Thành phẩm mang về:</strong> 01 chiếc nhẫn bạc 925 do chính tay bạn làm
             </p>
             <p style={{ margin: 0 }}>
               Kèm túi hộp nhung cao cấp &amp; Khắc tên laser kỷ niệm miễn phí.
@@ -264,7 +264,7 @@ export function WorkshopDetailPage({ packageId }) {
               className="button outline"
               style={{ fontSize: '12px', height: '36px' }}
             >
-              💍 Cấu hình mẫu nhẫn
+              Cấu hình mẫu nhẫn
             </a>
           </div>
 

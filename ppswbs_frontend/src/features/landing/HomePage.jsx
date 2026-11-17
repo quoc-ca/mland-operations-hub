@@ -22,7 +22,7 @@ const DEFAULT_WORKSHOP_PACKAGES = [
     title: 'Workshop Làm Nhẫn Bạc Cơ Bản · 2 Giờ (Phôi bạc 925 & hướng dẫn 1-1)',
     mobileTitle: 'Nhẫn Bạc Cơ Bản (2 Giờ)',
     description: 'Phôi bạc 925, thợ kim hoàn kèm 1-1.',
-    durationAndMaterial: '⏱️ 2 Giờ | 💎 Phôi bạc 925',
+    durationAndMaterial: '2 Giờ | Phôi bạc 925',
     price: '490,000 đ',
     actionLabel: 'Xem chi tiết & Đặt slot →',
     actionUrl: '/workshops',
@@ -35,7 +35,7 @@ const DEFAULT_WORKSHOP_PACKAGES = [
     title: 'Workshop Nhẫn Cặp Đính Đá Phong Thuỷ · 3.5 Giờ (Khắc laser miễn phí)',
     mobileTitle: 'Nhẫn Cặp Phong Thuỷ (3.5 Giờ)',
     description: 'Đính đá hộ mệnh, khắc tên laser miễn phí.',
-    durationAndMaterial: '⏱️ 3.5 Giờ | ✨ Bạc 925 & Đá',
+    durationAndMaterial: '3.5 Giờ | Bạc 925 & Đá',
     price: '890,000 đ',
     actionLabel: 'Xem chi tiết & Đặt slot →',
     actionUrl: '/workshops',
@@ -48,7 +48,7 @@ const DEFAULT_WORKSHOP_PACKAGES = [
     title: 'Khoá Masterclass Nghệ Nhân & Chế Tác Riêng (Đặt slot trước 24h)',
     mobileTitle: 'Masterclass Nghệ Nhân (Riêng)',
     description: 'Tạo hình nhẫn độc bản theo ý tưởng.',
-    durationAndMaterial: '⏱️ Theo yêu cầu | 🪐 Độc bản',
+    durationAndMaterial: 'Theo yêu cầu | Độc bản',
     price: '1,500,000 đ',
     actionLabel: 'Xem chi tiết & Đặt slot →',
     actionUrl: '/workshops',
@@ -64,21 +64,21 @@ const FEATURED_REVIEWS = [
   {
     quote:
       '"Lần đầu tự tay gò bạc và hàn nhẫn, nghệ nhân kèm 1-1 cực kỳ tận tâm. Chiếc nhẫn hoàn thiện sáng bóng vượt mong đợi!"',
-    rating: '★★★★★ 5.0 / 5.0',
+    rating: '5.0 / 5.0',
     author: 'M*** A*** (Đà Nẵng)',
     experience: 'Khách trải nghiệm · Nhẫn Bạc Cơ Bản',
   },
   {
     quote:
       '"Đặt làm nhẫn cặp đính đá nhân dịp kỷ niệm. Trải nghiệm rất ý nghĩa, khắc tên laser sắc nét và tư vấn chọn size tuyệt vời."',
-    rating: '★★★★★ 5.0 / 5.0',
+    rating: '5.0 / 5.0',
     author: 'T*** H*** (TP.HCM)',
     experience: 'Khách trải nghiệm · Nhẫn Cặp Phong Thuỷ',
   },
   {
     quote:
       '"Wonderful bespoke jewelry experience! The staff spoke fluent English and guided me through traditional goldsmith techniques."',
-    rating: '★★★★★ 5.0 / 5.0',
+    rating: '5.0 / 5.0',
     author: 'D*** L*** (Du khách Anh)',
     experience: 'Khách trải nghiệm · Masterclass Nghệ Nhân',
   },
@@ -168,7 +168,7 @@ export default function HomePage() {
           title: pkg.name || DEFAULT_WORKSHOP_PACKAGES[idx]?.title || 'Workshop',
           mobileTitle: pkg.name || DEFAULT_WORKSHOP_PACKAGES[idx]?.mobileTitle || 'Workshop',
           description: pkg.description || DEFAULT_WORKSHOP_PACKAGES[idx]?.description || '',
-          durationAndMaterial: `⏱️ ${pkg.requiredSessionCount || 2} Giờ | 💎 ${pkg.minParticipants || 1}-${pkg.maxParticipants || 4} người`,
+          durationAndMaterial: `${pkg.requiredSessionCount || 2} Giờ | ${pkg.minParticipants || 1}-${pkg.maxParticipants || 4} người`,
           price: pkg.publicPrice ? `${format.money(pkg.publicPrice)}` : DEFAULT_WORKSHOP_PACKAGES[idx]?.price || '490,000 đ',
           actionLabel: 'Xem chi tiết & Đặt slot →',
           actionUrl: `/workshops/${encodeURIComponent(pkg.packageId || '')}`,
@@ -274,11 +274,11 @@ export default function HomePage() {
                   to={`/workshop-booking/lookup?code=${encodeURIComponent(nextTicket.bookingCode)}`}
                   className="landing-quick-btn"
                 >
-                  🎟️ Xem vé &amp; QR
+                  Xem vé &amp; QR
                 </Link>
               )}
               <Link to="/member/orders" className="landing-quick-btn">
-                📦 Đơn hàng ({orderCount})
+                Đơn hàng ({orderCount})
               </Link>
             </div>
           </section>
@@ -317,7 +317,7 @@ export default function HomePage() {
 
             <div className="hero-brand-box" data-node-id="521:184">
               <div className="hero-brand-holder" data-node-id="521:185">
-                <span className="holder-icon">💍</span>
+                <span className="holder-icon">MLAND</span>
                 <p className="holder-text">img-holder · Brand Logo</p>
               </div>
             </div>
@@ -358,7 +358,7 @@ export default function HomePage() {
                     <img src={pkg.imageUrl} alt={pkg.title} className="thumb-image" />
                   ) : (
                     <div className="thumb-placeholder">
-                      <span className="placeholder-icon">🔨</span>
+                      <span className="placeholder-icon">Workshop</span>
                       <span className="placeholder-label">
                         img-holder · {pkg.thumbnailType || 'Workshop'}
                       </span>
@@ -419,7 +419,7 @@ export default function HomePage() {
                     />
                   ) : (
                     <div className="showcase-placeholder">
-                      <span className="placeholder-icon">✨</span>
+                      <span className="placeholder-icon">Sản phẩm</span>
                       <p className="placeholder-label">img-holder · Product Slider</p>
                     </div>
                   )}
@@ -434,7 +434,7 @@ export default function HomePage() {
                 </div>
               ) : (
                 <div className="showcase-placeholder" data-node-id="521:204">
-                  <span className="placeholder-icon">💍</span>
+                  <span className="placeholder-icon">Sản phẩm</span>
                   <p className="placeholder-label">img-holder · Product Slider</p>
                   <div className="showcase-overlay-caption">
                     <strong>Signature Collection · Rings</strong>

@@ -412,7 +412,7 @@ export default function LaserEngravingImageCropper({ customImages = [], onChange
         }}
         data-testid="upload-engraving-image-btn"
       >
-        📷 {t.uploadCustomImageBtn || 'Tải ảnh lên để khắc laser (+100.000 đ)'}
+        {t.uploadCustomImageBtn || 'Tải ảnh lên để khắc laser (+100.000 đ)'}
       </button>
 
       {/* List of uploaded custom image crop cards */}

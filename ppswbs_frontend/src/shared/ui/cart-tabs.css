@@ -1,7 +1,7 @@
 .cart-tabs { display: flex; gap: 8px; max-width: 1200px; margin: 24px auto 0; padding: 0 16px; border-bottom: 1px solid #e3e3e3; }
 .cart-tab { display: flex; flex-direction: column; gap: 2px; padding: 10px 20px; border-bottom: 3px solid transparent; color: #595959; text-decoration: none; margin-bottom: -1px; }
-.cart-tab:hover { color: #002967; }
-.cart-tab.active { color: #002967; border-bottom-color: #002967; }
+.cart-tab:hover { color: var(--mland-primary); }
+.cart-tab.active { color: var(--mland-primary); border-bottom-color: var(--mland-primary); }
 .cart-tab-label { font-weight: 700; font-size: 16px; }
 .cart-tab-hint { font-size: 12px; }
 @media (max-width: 600px) { .cart-tab { padding: 8px 12px; } .cart-tab-hint { display: none; } }

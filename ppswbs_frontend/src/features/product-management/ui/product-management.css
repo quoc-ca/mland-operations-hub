@@ -1,4 +1,4 @@
-/* 002 screens, on top of the prototype tokens (square buttons, #002967, grey borders). */
+/* 002 screens, on top of the prototype tokens (square buttons, var(--mland-primary), grey borders). */
 
 /* Management shell and screens per Figma "002-006" frames 01–06: dark side menu, yellow actions, rounded cards. */
 .pm-theme{--pm-bg:#f4f5f7;--pm-side:#121316;--pm-accent:#eedc35;--pm-ink:#1a1a1a;--pm-text:#1e1e1e;--pm-muted:#6b7280;--pm-line:#e5e7eb;--pm-input:#d9d9d9;--pm-danger:#a1260d;--pm-ok-bg:#dbfae5;--pm-ok:#16a34a;--pm-media:#fef6c3;--pm-radius:10px;--pm-control-radius:8px;background:var(--pm-bg);color:var(--pm-ink)}
@@ -113,7 +113,7 @@
 .image-gallery img,.image-gallery .image-placeholder{width:120px;height:120px;object-fit:cover;background:#f5f5f5;border:1px solid #e3e3e3;display:flex;align-items:center;justify-content:center}
 .thumbs{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
 .thumb{padding:0;border:2px solid transparent;background:none;cursor:pointer}
-.thumb.active{border-color:#002967}
+.thumb.active{border-color:var(--mland-primary)}
 .thumb img{width:64px;height:64px;object-fit:cover;display:block}
 .size-list{list-style:none;padding:0;margin:0 0 14px;border-top:1px solid #e3e3e3}
 .size-list li{display:grid;grid-template-columns:90px 1fr auto;gap:12px;padding:10px 0;border-bottom:1px solid #e3e3e3;font-size:14px}
@@ -482,7 +482,7 @@
   margin-bottom: 24px;
 }
 .pm-catalogue-title {
-  color: #0e0069 !important;
+  color: var(--mland-primary) !important;
   font-size: 24px !important;
   font-weight: 700 !important;
   margin: 0 0 8px 0 !important;
@@ -521,13 +521,13 @@
   font-family: inherit;
 }
 .pm-category-chip:hover {
-  border-color: #0e0069;
-  color: #0e0069;
+  border-color: var(--mland-primary);
+  color: var(--mland-primary);
 }
 .pm-category-chip.active {
-  background-color: #0e0069;
-  border-color: #0e0069;
-  color: #fffb03;
+  background-color: var(--mland-primary);
+  border-color: var(--mland-primary);
+  color: var(--mland-accent);
   font-weight: 700;
 }
 
@@ -539,9 +539,9 @@
   padding: 16px;
 }
 .pm-btn-apply {
-  background-color: #0e0069 !important;
-  border-color: #0e0069 !important;
-  color: #fffb03 !important;
+  background-color: var(--mland-primary) !important;
+  border-color: var(--mland-primary) !important;
+  color: var(--mland-accent) !important;
   font-weight: 700 !important;
 }
 
@@ -620,7 +620,7 @@
 .pm-price-wrap {
   font-size: 15px;
   font-weight: 700;
-  color: #0e0069;
+  color: var(--mland-primary);
 }
 .pm-card-material {
   font-size: 11px;
@@ -637,8 +637,8 @@
 .pm-view-detail-btn {
   flex: 1;
   height: 32px;
-  background-color: #0e0069;
-  color: #fffb03;
+  background-color: var(--mland-primary);
+  color: var(--mland-accent);
   border-radius: 6px;
   font-size: 11px;
   font-weight: 700;
@@ -681,7 +681,7 @@
   text-decoration: none;
 }
 .pm-detail-breadcrumb a:hover {
-  color: #0e0069;
+  color: var(--mland-primary);
   text-decoration: underline;
 }
 .breadcrumb-separator {
@@ -739,7 +739,7 @@
   cursor: pointer;
 }
 .pm-thumb-btn.active {
-  border-color: #0e0069;
+  border-color: var(--mland-primary);
 }
 .pm-thumb-btn img {
   width: 100%;
@@ -754,7 +754,7 @@
 .pm-material-eyebrow {
   font-size: 11px !important;
   font-weight: 700 !important;
-  color: #0e0069 !important;
+  color: var(--mland-primary) !important;
   letter-spacing: 0.05em;
   margin: 0 !important;
 }
@@ -781,7 +781,7 @@
 .pm-detail-price-line {
   font-size: 24px;
   font-weight: 700;
-  color: #0e0069;
+  color: var(--mland-primary);
 }
 .pm-detail-desc {
   font-size: 13px;
@@ -817,7 +817,7 @@
 .pm-specs-heading {
   font-size: 13px;
   font-weight: 700;
-  color: #0e0069;
+  color: var(--mland-primary);
   margin: 0 0 16px 0;
   letter-spacing: 0.05em;
 }

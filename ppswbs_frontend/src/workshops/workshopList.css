@@ -4,11 +4,11 @@
 .wk-card .ring-visual{height:150px;border-radius:0;margin:0}
 .wk-card .ring-visual span{width:72px;height:72px;border-width:14px}
 .wk-body{display:flex;flex-direction:column;gap:10px;padding:20px 22px 22px;flex:1}
-.wk-name{margin:0;font-size:16px;font-weight:700;line-height:1.25;color:#0e0069}
+.wk-name{margin:0;font-size:16px;font-weight:700;line-height:1.25;color:var(--mland-primary)}
 .wk-desc{margin:0;color:#1c1c1c;font-size:12px;line-height:1.55;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;min-height:50px}
 .wk-chips{display:flex;flex-wrap:wrap;gap:8px}
 .wk-chip{padding:4px 10px;border-radius:6px;background:#f3f4f6;color:#374151;font-size:11px;white-space:nowrap}
-.wk-price{margin-top:auto;padding-top:6px;font-size:18px;font-weight:700;color:#0e0069}
+.wk-price{margin-top:auto;padding-top:6px;font-size:18px;font-weight:700;color:var(--mland-primary)}
 .wk-price small{font-size:12px;font-weight:400;color:#6b7280}
 .wk-actions{display:flex;gap:10px;margin-top:6px}
 .wk-actions .button{flex:1;text-align:center}
@@ -35,7 +35,7 @@
 .wk-banner-title {
   font-size: 22px;
   font-weight: 700;
-  color: #0e0069;
+  color: var(--mland-primary);
   margin: 0 0 8px 0;
   letter-spacing: -0.2px;
 }
@@ -68,12 +68,12 @@
   transition: all 0.15s ease;
 }
 .wk-branch-chip:hover {
-  border-color: #0e0069;
+  border-color: var(--mland-primary);
 }
 .wk-branch-chip.active {
-  background: #0e0069;
-  color: #fffb03;
-  border-color: #0e0069;
+  background: var(--mland-primary);
+  color: var(--mland-accent);
+  border-color: var(--mland-primary);
   font-weight: 700;
 }
 
@@ -162,14 +162,14 @@
 .wk-card-title {
   font-size: 15px;
   font-weight: 700;
-  color: #0e0069;
+  color: var(--mland-primary);
   margin: 0;
   flex: 1;
 }
 .wk-card-price {
   font-size: 15px;
   font-weight: 700;
-  color: #0e0069;
+  color: var(--mland-primary);
   white-space: nowrap;
 }
 .wk-card-desc {
@@ -196,8 +196,8 @@
   gap: 10px;
 }
 .wk-btn-book {
-  background: #fffb03 !important;
-  color: #0e0069 !important;
+  background: var(--mland-accent) !important;
+  color: var(--mland-primary) !important;
   font-size: 12px !important;
   font-weight: 700 !important;
   padding: 10px 24px !important;
@@ -309,7 +309,7 @@
 .wk-detail-eyebrow {
   font-size: 11px;
   font-weight: 700;
-  color: #0e0069;
+  color: var(--mland-primary);
   margin: 0;
   text-transform: uppercase;
 }
@@ -323,7 +323,7 @@
 .wk-detail-price {
   font-size: 16px;
   font-weight: 700;
-  color: #0e0069;
+  color: var(--mland-primary);
   margin: 0;
 }
 .wk-steps-box {
@@ -350,12 +350,12 @@
   padding: 12px 16px;
   font-size: 11px;
   font-weight: 500;
-  color: #0e0069;
+  color: var(--mland-primary);
   line-height: 1.6;
 }
 .wk-btn-primary-book {
-  background: #fffb03 !important;
-  color: #0e0069 !important;
+  background: var(--mland-accent) !important;
+  color: var(--mland-primary) !important;
   font-size: 13px !important;
   font-weight: 700 !important;
   padding: 14px 24px !important;
@@ -387,7 +387,7 @@
 .wk-lookup-title {
   font-size: 20px !important;
   font-weight: 700 !important;
-  color: #0e0069 !important;
+  color: var(--mland-primary) !important;
   margin: 0 0 8px 0 !important;
 }
 .wk-lookup-desc {
@@ -404,8 +404,8 @@
   box-shadow: none !important;
 }
 .wk-btn-lookup {
-  background: #fffb03 !important;
-  color: #0e0069 !important;
+  background: var(--mland-accent) !important;
+  color: var(--mland-primary) !important;
   border: none !important;
   border-radius: 6px !important;
   cursor: pointer;
@@ -418,7 +418,7 @@
 /* Verified Booking Ticket Preview (Figma Node 521:845) */
 .wk-ticket-preview-box {
   background: #fafafa;
-  border: 1.5px solid #0e0069;
+  border: 1.5px solid var(--mland-primary);
   border-radius: 8px;
   padding: 24px;
   position: relative;
@@ -434,7 +434,7 @@
 .wk-ticket-preview-title {
   font-size: 13px;
   font-weight: 700;
-  color: #0e0069;
+  color: var(--mland-primary);
   margin: 0 0 6px 0;
   letter-spacing: 0.5px;
 }

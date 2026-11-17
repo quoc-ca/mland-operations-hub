@@ -122,7 +122,7 @@ export default function RingPreview({
 
         {!readOnly && stonesToRender.length > 0 && (
           <div className="ring-drag-help-pill" data-testid="gemstone-drag-hint">
-            <span>💡 Nhấn giữ và kéo viên đá để bố trí quanh đường tròn nhẫn</span>
+            <span>Nhấn giữ và kéo viên đá để bố trí quanh đường tròn nhẫn</span>
           </div>
         )}
 
@@ -574,7 +574,7 @@ export default function RingPreview({
               <g transform={`translate(${sideStartX + 18}, ${sideCenterY - 6})`}>
                 <rect width="12" height="12" rx="2" fill="none" stroke="#ef4444" strokeWidth="1" strokeDasharray="1 1" />
                 <text x="6" y="9" textAnchor="middle" fontSize="7" fill="#ef4444" fontWeight="bold">
-                  📷
+                  Ảnh
                 </text>
               </g>
             )}

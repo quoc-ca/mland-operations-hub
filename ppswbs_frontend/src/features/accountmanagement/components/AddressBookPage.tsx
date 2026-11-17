@@ -118,7 +118,7 @@ export const AddressBookPage: React.FC = () => {
             onClick={() => setSuccessNotice(null)}
             aria-label="Đóng thông báo"
           >
-            ✕
+            Đóng
           </button>
         </div>
       )}
@@ -135,7 +135,7 @@ export const AddressBookPage: React.FC = () => {
             onClick={() => setError(null)}
             aria-label="Đóng lỗi"
           >
-            ✕
+            Đóng
           </button>
         </div>
       )}
@@ -159,7 +159,7 @@ export const AddressBookPage: React.FC = () => {
       {/* Empty State */}
       {!loading && addresses.length === 0 && (
         <div className="account-card" style={{ textAlign: 'center', padding: '3.5rem 1rem' }}>
-          <div style={{ fontSize: '3rem', marginBottom: '1rem', color: '#9ca3af' }}>📍</div>
+          <div style={{ fontSize: '1rem', marginBottom: '1rem', color: '#6b7280' }}>Địa chỉ</div>
           <h2 style={{ fontSize: '1.25rem', marginBottom: '0.5rem', color: '#111827' }}>
             Bạn chưa có địa chỉ nhận hàng nào
           </h2>
@@ -297,7 +297,7 @@ export const AddressBookPage: React.FC = () => {
                 onClick={() => setDeleteConfirmTarget(null)}
                 aria-label="Đóng"
               >
-                ✕
+                Đóng
               </button>
             </div>
 

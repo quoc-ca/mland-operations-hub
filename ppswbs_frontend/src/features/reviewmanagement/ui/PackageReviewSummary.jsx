@@ -9,7 +9,7 @@ const SHOWN = 3;
 /** First letter of a masked name ("H*** Quốc" -> "H") for the round avatar. */
 const initialOf = name => {
   const letter = String(name || '').trim().charAt(0);
-  return letter && letter !== '*' ? letter.toUpperCase() : '★';
+  return letter && letter !== '*' ? letter.toUpperCase() : 'M';
 };
 
 /**

@@ -161,19 +161,19 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background-color: #fffb03;
-  color: #0e0069;
+  background-color: var(--mland-accent);
+  color: var(--mland-primary);
   font-size: 14px;
   font-weight: 700;
   padding: 12px 24px;
   border-radius: 8px;
   text-decoration: none;
-  border: 1px solid #e5e000;
+  border: 1px solid var(--mland-accent-hover);
   transition: transform 0.15s ease, background-color 0.15s ease;
 }
 
 .hero-cta-btn:hover {
-  background-color: #f7f300;
+  background-color: var(--mland-accent-hover);
   transform: translateY(-1px);
 }
 
@@ -182,18 +182,18 @@
   align-items: center;
   justify-content: center;
   background-color: #ffffff;
-  color: #0e0069;
+  color: var(--mland-primary);
   font-size: 14px;
   font-weight: 600;
   padding: 12px 24px;
   border-radius: 8px;
   text-decoration: none;
-  border: 1px solid #0e0069;
+  border: 1px solid var(--mland-primary);
   transition: all 0.15s ease;
 }
 
 .hero-secondary-btn:hover {
-  background-color: #0e0069;
+  background-color: var(--mland-primary);
   color: #ffffff;
 }
 
@@ -244,7 +244,7 @@
 .section-eyebrow {
   font-size: 12px;
   font-weight: 700;
-  color: #0e0069;
+  color: var(--mland-primary);
   letter-spacing: 0.05em;
   text-transform: uppercase;
   display: block;
@@ -261,7 +261,7 @@
 .section-see-all-link {
   font-size: 13px;
   font-weight: 600;
-  color: #0e0069;
+  color: var(--mland-primary);
   text-decoration: none;
   transition: text-decoration 0.15s ease;
 }
@@ -368,14 +368,14 @@
 .workshop-card-price {
   font-size: 18px;
   font-weight: 700;
-  color: #0e0069;
+  color: var(--mland-primary);
 }
 
 .workshop-card-action {
   align-self: flex-start;
   font-size: 13px;
   font-weight: 700;
-  color: #0e0069;
+  color: var(--mland-primary);
   text-decoration: none;
   margin-top: 8px;
   transition: color 0.15s ease;
@@ -490,7 +490,7 @@
 
 .dot-indicator.active {
   opacity: 1;
-  background-color: #fffb03;
+  background-color: var(--mland-accent);
   transform: scale(1.2);
 }
 
@@ -561,7 +561,7 @@
 .reviewer-name {
   font-size: 13px;
   font-weight: 700;
-  color: #0e0069;
+  color: var(--mland-primary);
   margin: 0 0 4px 0;
 }
 

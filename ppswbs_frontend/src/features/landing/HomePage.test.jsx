@@ -210,7 +210,7 @@ describe('Landing HomePage (Figma Page 01 · Public & Guest Node 55:5)', () => {
     expect(screen.getByText('M*** A*** (Đà Nẵng)')).toBeInTheDocument();
     expect(screen.getByText('T*** H*** (TP.HCM)')).toBeInTheDocument();
     expect(screen.getByText('D*** L*** (Du khách Anh)')).toBeInTheDocument();
-    expect(screen.getAllByText('★★★★★ 5.0 / 5.0')).toHaveLength(3);
+    expect(screen.getAllByText('5.0 / 5.0')).toHaveLength(3);
   });
 
   it('renders Section 5 Footer with brand, services, policies, and branches', () => {

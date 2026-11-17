@@ -210,7 +210,7 @@ function ShipmentCard({ item, open, onToggle, busy, format, branchName, detail, 
       <span className={`order-pill pill-${item.tab.toLowerCase()}`}>{shipmentLabels[row.status]}</span>
     </div>
     <div className="order-recipient">
-      <span className="order-thumb" aria-hidden="true">⛟</span>
+      <span className="order-thumb" aria-hidden="true" />
       <span className="order-item-name"><strong>{row.recipientName || 'Chưa có tên người nhận'}</strong><small>{[row.wardName, row.districtName, row.provinceName].filter(Boolean).join(', ')}</small></span>
       {row.itemQuantity ? <b>{row.itemQuantity} sản phẩm</b> : null}
     </div>

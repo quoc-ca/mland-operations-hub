@@ -6,11 +6,11 @@
 .promo-card{background:#fff;border:1px solid #e3e3e3;padding:20px;display:flex;flex-direction:column;gap:10px}
 .promo-card h2{font-size:19px;margin:0}
 .promo-card .facts{grid-template-columns:1fr 1fr;font-size:14px}
-.code-chip{display:inline-block;align-self:flex-start;border:1px dashed #002967;padding:4px 10px;color:#002967;margin:0}
+.code-chip{display:inline-block;align-self:flex-start;border:1px dashed var(--mland-primary);padding:4px 10px;color:var(--mland-primary);margin:0}
 .points-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
 .points-grid div{border:1px solid #e3e3e3;padding:16px;display:flex;flex-direction:column;gap:6px}
 .points-grid span{font-size:13px;color:#595959}
-.points-grid strong{font-size:28px;color:#002967}
+.points-grid strong{font-size:28px;color:var(--mland-primary)}
 .rules{font-size:14px;line-height:1.8;padding-left:20px}
 .benefit-selector{background:#fff;border:1px solid #e3e3e3;padding:20px;display:flex;flex-direction:column;gap:12px}
 .benefit-selector h2{margin:0;font-size:19px}

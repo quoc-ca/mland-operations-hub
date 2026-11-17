@@ -154,7 +154,7 @@ export default function ReviewForm({ source, handle, existing, onSaved }) {
         >
           {[5, 4, 3, 2, 1].map(value => (
             <option key={value} value={value}>
-              {'★'.repeat(value)} ({value} / 5)
+              {value} / 5
             </option>
           ))}
         </select>
@@ -183,7 +183,7 @@ export default function ReviewForm({ source, handle, existing, onSaved }) {
 
         {images.length < MAX_IMAGES && (
           <label className="review-file-upload-label" style={{ marginTop: '4px' }}>
-            <span>📷 {t('attachPhotos')} ({images.length}/{MAX_IMAGES})</span>
+            <span>{t('attachPhotos')} ({images.length}/{MAX_IMAGES})</span>
             <input
               type="file"
               accept="image/png,image/jpeg,image/webp"

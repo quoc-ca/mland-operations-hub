@@ -312,7 +312,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
           aria-label="Kiểm tra lại trạng thái xác thực email"
           title="Tải lại trạng thái xác thực từ hệ thống"
         >
-          <span aria-hidden="true">🔄</span>
+          <span aria-hidden="true" />
           <span>{gateState === 'checking' ? 'Đang kiểm tra…' : 'Tải lại xác thực'}</span>
         </button>
       </div>

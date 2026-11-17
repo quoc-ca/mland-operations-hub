@@ -109,7 +109,7 @@ export default function MemberDesignHistoryPage() {
       >
         <form onSubmit={handleLookupSubmit} style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
           <label htmlFor="quick-lookup-input" style={{ fontWeight: 600, fontSize: '0.9rem', color: '#1e293b' }}>
-            🔍 Tra cứu nhanh yêu cầu custom bằng mã:
+            Tra cứu nhanh yêu cầu custom bằng mã:
           </label>
           <input
             id="quick-lookup-input"
@@ -160,7 +160,7 @@ export default function MemberDesignHistoryPage() {
             marginBottom: '-2px',
           }}
         >
-          💍 Mẫu nhẫn Workshop
+          Mẫu nhẫn Workshop
         </button>
         <button
           type="button"
@@ -177,7 +177,7 @@ export default function MemberDesignHistoryPage() {
             marginBottom: '-2px',
           }}
         >
-          ✍️ Yêu cầu tùy chỉnh (Custom)
+          Yêu cầu tùy chỉnh (Custom)
         </button>
       </div>
 

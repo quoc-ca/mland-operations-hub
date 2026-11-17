@@ -18,6 +18,7 @@ describe('F11 booking workshop review summary', () => {
     ], { path: '/booking-review', session: fakeSession('signed-out') });
 
     expect(await screen.findByText('Workshop tuyệt vời')).toBeInTheDocument();
+    expect(screen.getByLabelText('5 / 5 stars')).toHaveTextContent('5.0 / 5');
     expect(screen.getByRole('button', { name: /Available after attendance/i })).toBeDisabled();
     expect(calls).toHaveLength(1);
     expect(calls[0].query).toMatchObject({

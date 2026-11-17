@@ -4,7 +4,7 @@
 
 .main-footer {
   width: 100%;
-  background-color: #0e0069;
+  background-color: var(--mland-primary);
   color: #ffffff;
   padding: 48px 0 24px;
   box-sizing: border-box;
@@ -27,7 +27,7 @@
 }
 
 .main-footer-brand-title {
-  color: #fffb03;
+  color: var(--mland-accent);
   font-size: 15px;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -42,7 +42,7 @@
 }
 
 .main-footer-heading {
-  color: #fffb03;
+  color: var(--mland-accent);
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.05em;
@@ -69,7 +69,7 @@
 }
 
 .main-footer-list li a:hover {
-  color: #fffb03;
+  color: var(--mland-accent);
 }
 
 .main-footer-branch-item {

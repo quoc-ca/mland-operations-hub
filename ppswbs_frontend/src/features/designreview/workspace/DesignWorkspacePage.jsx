@@ -132,7 +132,7 @@ export default function DesignWorkspacePage() {
             <p className="muted">{t('workspace.subtitle')}</p>
           </div>
           <Link to="/my/designs?tab=custom" className="button outline small" style={{ textDecoration: 'none' }}>
-            <span>📋</span> Xem yêu cầu của tôi
+            <span aria-hidden="true" /> Xem yêu cầu của tôi
           </Link>
         </div>
       </header>

@@ -65,7 +65,7 @@
 .figma-booking-steps .active { color: #17181b; border-color: var(--figma-yellow); }
 .figma-public-page .workspace-card,
 .figma-public-page .empty-state { background: var(--figma-panel); border: 1px solid #e0e2e6; box-shadow: none; }
-.figma-public-page .button.primary { background: #002967; border-color: #002967; }
+.figma-public-page .button.primary { background: var(--mland-primary); border-color: var(--mland-primary); }
 .figma-public-page .button.primary:hover { background: #001d49; }
 .figma-public-page .form-grid input,
 .figma-public-page .form-grid select,
@@ -87,7 +87,7 @@
   flex: 0 0 18px !important;
   margin: 0 !important;
   cursor: pointer;
-  accent-color: #002967;
+  accent-color: var(--mland-primary);
 }
 
 .figma-booking-layout .check-row {
@@ -190,8 +190,8 @@
   padding: 8px 22px;
   font-size: 14px;
   font-weight: 600;
-  color: #002967;
-  border: 1.5px solid #002967;
+  color: var(--mland-primary);
+  border: 1.5px solid var(--mland-primary);
   background: #ffffff;
   border-radius: 4px;
   cursor: pointer;
@@ -199,7 +199,7 @@
 }
 
 #member-benefits-section .benefit-selector button.button.outline:hover:not(:disabled) {
-  background: #002967;
+  background: var(--mland-primary);
   color: #ffffff;
 }
 
@@ -240,8 +240,8 @@
 }
 
 #member-benefits-section .benefit-selector .breakdown dl div.total {
-  border-bottom: 2px solid #002967;
-  border-top: 1px solid #002967;
+  border-bottom: 2px solid var(--mland-primary);
+  border-top: 1px solid var(--mland-primary);
   padding: 12px 0;
   margin-top: 4px;
 }
@@ -249,13 +249,13 @@
 #member-benefits-section .benefit-selector .breakdown dl div.total dt {
   font-size: 15px;
   font-weight: bold;
-  color: #002967;
+  color: var(--mland-primary);
 }
 
 #member-benefits-section .benefit-selector .breakdown dl div.total dd {
   font-size: 17px;
   font-weight: bold;
-  color: #002967;
+  color: var(--mland-primary);
 }
 
 #member-benefits-section .benefit-selector .breakdown .check-row {
@@ -265,7 +265,7 @@
   border: 1.5px solid #2f54eb;
   border-radius: 6px;
   font-weight: 600;
-  color: #002967;
+  color: var(--mland-primary);
   display: flex;
   align-items: center;
   gap: 12px;
@@ -298,7 +298,7 @@
   border-radius: 14px;
   background: #bbb;
 }
-.figma-booking-layout .retail-benefits input.switch[type="checkbox"]:checked { background: #002967; }
+.figma-booking-layout .retail-benefits input.switch[type="checkbox"]:checked { background: var(--mland-primary); }
 .figma-booking-layout .retail-benefits input.switch[type="checkbox"]:disabled { opacity: .45; cursor: not-allowed; }
 .retail-benefits .point-balance { cursor: default; }
 .retail-benefits .point-balance-value { text-align: right; font-size: 14px; color: #0b5c34; }
@@ -311,7 +311,7 @@
 .participant-field { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
 .participant-label { font-weight: 700; font-size: 14px; }
 .participant-stepper { display: inline-flex; align-items: stretch; width: max-content; border: 1px solid #c9ccd2; border-radius: 10px; background: #fff; overflow: hidden; }
-.participant-stepper button { width: 44px; border: 0; background: #f3f4f6; color: #002967; font-size: 20px; font-weight: 700; cursor: pointer; }
+.participant-stepper button { width: 44px; border: 0; background: #f3f4f6; color: var(--mland-primary); font-size: 20px; font-weight: 700; cursor: pointer; }
 .participant-stepper button:hover:not(:disabled) { background: #e5e9f2; }
 .participant-stepper button:disabled { color: #b4b8c0; cursor: not-allowed; }
 .participant-stepper input { width: 72px; min-width: 0; height: 44px; padding: 0; border: 0; border-left: 1px solid #e0e2e6; border-right: 1px solid #e0e2e6; border-radius: 0; text-align: center; font-size: 18px; font-weight: 700; background: #fff; -moz-appearance: textfield; }
@@ -319,7 +319,7 @@
 .participant-stepper input:disabled { background: #f7f7f8; color: #9aa0a8; }
 .participant-hint { color: #6b7280; font-size: 13px; line-height: 1.4; }
 .hold-pay { margin-top: 22px; padding: 20px 22px; border: 1px solid #ffe58f; border-radius: 12px; background: #fffbe6; display: flex; flex-direction: column; gap: 10px; }
-.hold-pay-timer { margin: 0; font-size: 16px; color: #002967; }
+.hold-pay-timer { margin: 0; font-size: 16px; color: var(--mland-primary); }
 .hold-pay-timer.urgent { color: #b00; }
 .hold-pay-button { width: 100%; min-height: 52px; font-size: 16px; }
 .hold-pay-note { margin: 0; font-size: 13px; }

@@ -233,7 +233,7 @@ export const AddressModal: React.FC<AddressModalProps> = ({
             aria-label="Đóng"
             disabled={submitting}
           >
-            ✕
+            Đóng
           </button>
         </div>
 
@@ -349,7 +349,7 @@ export const AddressModal: React.FC<AddressModalProps> = ({
                   type="text"
                   className="account-input"
                   style={{ marginBottom: '0.375rem', fontSize: '0.85rem' }}
-                  placeholder="🔍 Lọc nhanh phường, xã..."
+                  placeholder="Lọc nhanh phường, xã..."
                   value={communeFilter}
                   onChange={e => setCommuneFilter(e.target.value)}
                   disabled={submitting || !isProvinceValid || loadingCommunes}

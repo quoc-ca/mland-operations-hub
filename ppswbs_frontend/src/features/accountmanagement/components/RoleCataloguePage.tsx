@@ -118,7 +118,7 @@ export const RoleCataloguePage: React.FC = () => {
               <li>ADMIN là vai trò quản trị hệ thống cao nhất, quản lý tài khoản nội bộ và danh mục vai trò; không thể bị tạm khóa hoặc sửa đổi từ giao diện này.</li>
             </ul>
             <p style={{ margin: '0.75rem 0 0 0', fontSize: '0.85rem', color: '#1a1a1a', fontWeight: 500 }}>
-              💡 Để phân công vai trò STAFF hoặc MANAGER, mở chi tiết tài khoản và chọn cơ sở phù hợp. Phân công cơ sở của Manager hỗ trợ tổ chức và không giới hạn quyền quản lý toàn hệ thống.
+              Để phân công vai trò STAFF hoặc MANAGER, mở chi tiết tài khoản và chọn cơ sở phù hợp. Phân công cơ sở của Manager hỗ trợ tổ chức và không giới hạn quyền quản lý toàn hệ thống.
             </p>
           </div>
         </div>

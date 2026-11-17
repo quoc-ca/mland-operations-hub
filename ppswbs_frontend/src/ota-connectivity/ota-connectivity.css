@@ -113,12 +113,12 @@
 }
 
 .ota-nav-tab:hover {
-  color: #002967;
+  color: var(--mland-primary);
 }
 
 .ota-nav-tab.active {
-  color: #002967;
-  border-bottom-color: #002967;
+  color: var(--mland-primary);
+  border-bottom-color: var(--mland-primary);
 }
 
 /* Status Badges */

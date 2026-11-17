@@ -91,7 +91,7 @@ export function PublicProductCard({ product, programs, onAdded }) {
             <img className="product-image pm-card-image" src={publicImageUrl(image.url)} alt={image.altText || product.name} />
           ) : (
             <div className="pm-card-placeholder">
-              <span className="pm-card-placeholder-icon">💍</span>
+              <span className="pm-card-placeholder-icon">Ảnh sản phẩm</span>
               <span className="pm-card-placeholder-text">img-holder · Product Preview</span>
             </div>
           )}

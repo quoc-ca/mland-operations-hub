@@ -135,7 +135,7 @@ export default function RingConfigurationPage() {
             <h1 className="ring-design-title">{t.featureTitle}</h1>
             <p className="ring-design-subtitle">{t.featureSubtitle}</p>
             <div className="ring-notice-banner" role="note">
-              <span>⚠️</span>
+              <span>Lưu ý:</span>
               <span>{t.advisoryWarning}</span>
             </div>
           </div>
@@ -262,7 +262,7 @@ export default function RingConfigurationPage() {
                 <p className="ring-section-desc">{t.gemstoneSectionDesc}</p>
 
                 <div className="ring-gemstone-instruction" data-testid="gemstone-drag-instruction">
-                  ✨ <strong>Tùy chỉnh số lượng & vị trí:</strong> Chọn số lượng từng loại đá, sau đó <strong>nhấn giữ & kéo thả viên đá</strong> trực tiếp trên cửa sổ <em>Mặt chính diện (Top View)</em> để đặt vị trí bất kỳ quanh đường tròn nhẫn!
+                  <strong>Tùy chỉnh số lượng & vị trí:</strong> Chọn số lượng từng loại đá, sau đó <strong>nhấn giữ & kéo thả viên đá</strong> trực tiếp trên cửa sổ <em>Mặt chính diện (Top View)</em> để đặt vị trí bất kỳ quanh đường tròn nhẫn!
                 </div>
 
                 <div className="ring-cards-grid">
@@ -372,7 +372,7 @@ export default function RingConfigurationPage() {
                             +{Number(att.unitPrice).toLocaleString('vi-VN')} đ
                           </div>
                           {isSelected && (
-                            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#166534' }}>✓ Đã chọn</span>
+                            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#166534' }}>Đã chọn</span>
                           )}
                         </div>
                       </div>
@@ -564,7 +564,7 @@ export default function RingConfigurationPage() {
                             <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
                               {t.quickSymbols || 'Ký hiệu nhanh:'}
                             </span>
-                            {['♥', '∞', '★', '✿', '💍'].map((sym) => (
+                            {['♥', '∞', '★', '✿'].map((sym) => (
                               <button
                                 key={sym}
                                 type="button"

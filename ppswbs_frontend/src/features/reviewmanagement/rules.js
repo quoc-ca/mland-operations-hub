@@ -42,7 +42,7 @@ export function formatDateTime(isoString, locale = 'vi-VN') {
 
 export function formatStars(rating) {
   const valid = Math.max(1, Math.min(5, Math.round(Number(rating) || 5)));
-  return '★'.repeat(valid) + '☆'.repeat(5 - valid);
+  return `${valid} / 5`;
 }
 
 export function validateRating(rating) {

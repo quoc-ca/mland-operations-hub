@@ -48,12 +48,12 @@ export default function MainFooter() {
           <div className="main-footer-col branches-col">
             <h5 className="main-footer-heading">HỆ THỐNG CHI NHÁNH</h5>
             <div className="main-footer-branch-item">
-              <p className="branch-title">📍 Chi nhánh Đà Nẵng:</p>
+              <p className="branch-title">Chi nhánh Đà Nẵng:</p>
               <p className="branch-detail">45 Bạch Đằng, Q. Hải Châu</p>
               <p className="branch-hotline">Hotline: 0905.123.xxx</p>
             </div>
             <div className="main-footer-branch-item">
-              <p className="branch-title">📍 Chi nhánh TP.HCM:</p>
+              <p className="branch-title">Chi nhánh TP.HCM:</p>
               <p className="branch-detail">123 Nguyễn Huệ, Quận 1</p>
               <p className="branch-hotline">Hotline: 0908.456.xxx</p>
             </div>

@@ -203,7 +203,7 @@ export default function DesignEvaluationPage() {
                     <div style={{ fontSize: '0.75rem', color: '#475569', marginTop: '0.35rem', lineHeight: 1.4 }} data-testid="difficulty-note">
                       {diffMeta.isVeryHard ? (
                         <span style={{ color: '#b91c1c', fontWeight: 600 }}>
-                          ⚠️ Ghi chú: {diffMeta.note}
+                          Ghi chú: {diffMeta.note}
                         </span>
                       ) : (
                         <span>Ghi chú: {diffMeta.note}</span>
@@ -226,7 +226,7 @@ export default function DesignEvaluationPage() {
                         }}
                         data-testid="difficulty-very-hard-warning"
                       >
-                        💡 <strong>Khuyến cáo:</strong> {diffMeta.advice}
+                        <strong>Khuyến cáo:</strong> {diffMeta.advice}
                       </div>
                     )}
                   </div>

@@ -87,7 +87,7 @@ export default function PublicProductDetailPage() {
               />
             ) : (
               <div className="pm-detail-image-placeholder" data-node-id="521:498">
-                <span className="placeholder-icon">💍</span>
+                <span className="placeholder-icon">Ảnh sản phẩm</span>
                 <p className="placeholder-label">img-holder · Main Gallery Hi-res (Bạc 925)</p>
               </div>
             )}
@@ -120,7 +120,7 @@ export default function PublicProductDetailPage() {
 
           <div className="pm-detail-rating-line" data-node-id="521:509">
             <span className="pm-sku-label">SKU: {primarySku}</span>
-            <span className="pm-rating-stars">★★★★★ 4.9 / 5.0 (38 đánh giá)</span>
+            <span className="pm-rating-stars">4.9 / 5.0 (38 đánh giá)</span>
           </div>
 
           <div className="pm-detail-price-line" data-node-id="521:510">
@@ -151,10 +151,10 @@ export default function PublicProductDetailPage() {
           {/* Trust & Warranty Box (Node 521:530) */}
           <div className="pm-trust-warranty-box" data-node-id="521:530" data-name="Box_Trust_Warranty">
             <p className="trust-line" data-node-id="521:531">
-              ✨ <strong>Bảo hành phôi bạc 925 trọn đời</strong> &nbsp;|&nbsp; 🚚 <strong>Miễn phí ship toàn quốc</strong>
+              <strong>Bảo hành phôi bạc 925 trọn đời</strong> &nbsp;|&nbsp; <strong>Miễn phí ship toàn quốc</strong>
             </p>
             <p className="trust-line">
-              💎 <strong>Đánh bóng làm mới miễn phí</strong> tại xưởng Đà Nẵng &amp; TP.HCM
+              <strong>Đánh bóng làm mới miễn phí</strong> tại xưởng Đà Nẵng &amp; TP.HCM
             </p>
           </div>
         </div>

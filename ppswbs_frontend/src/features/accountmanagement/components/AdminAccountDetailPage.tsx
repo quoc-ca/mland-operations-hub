@@ -583,7 +583,7 @@ export const AdminAccountDetailPage: React.FC = () => {
                   setSuspendError(null);
                 }}
               >
-                ✕
+                Đóng
               </button>
             </div>
 

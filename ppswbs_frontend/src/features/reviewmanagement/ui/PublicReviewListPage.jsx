@@ -166,7 +166,7 @@ export default function PublicReviewListPage() {
               <option value="">{t('all')}</option>
               {[5, 4, 3, 2, 1].map(v => (
                 <option key={v} value={v}>
-                  {'★'.repeat(v)} ({v})
+                  {v} / 5
                 </option>
               ))}
             </select>

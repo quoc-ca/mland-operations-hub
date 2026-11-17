@@ -40,7 +40,7 @@ export default function RingDesignEntryPage() {
             onClick={() => navigate(`/workshops/${encodeURIComponent(packageReference)}/design/models`)}
           >
             <div>
-              <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>💍</div>
+              <div style={{ fontSize: '1rem', marginBottom: '1rem' }}>Mẫu nhẫn</div>
               <h3 style={{ fontSize: '1.2rem', fontWeight: 600, color: '#0f172a', margin: '0 0 0.5rem' }}>
                 {t.modelChoiceTitle}
               </h3>
@@ -75,7 +75,7 @@ export default function RingDesignEntryPage() {
             onClick={() => navigate(`/workshops/${encodeURIComponent(packageReference)}/design/configure?mode=BLANK`)}
           >
             <div>
-              <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>✨</div>
+              <div style={{ fontSize: '1rem', marginBottom: '1rem' }}>Thiết kế</div>
               <h3 style={{ fontSize: '1.2rem', fontWeight: 600, color: '#0f172a', margin: '0 0 0.5rem' }}>
                 {t.blankChoiceTitle}
               </h3>

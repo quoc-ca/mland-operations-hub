@@ -108,7 +108,7 @@ export default function PublicProductListPage() {
               value={draft.q}
               onChange={set('q')}
               maxLength={200}
-              placeholder="🔍 Tìm kiếm theo tên, SKU..."
+              placeholder="Tìm kiếm theo tên, SKU..."
               data-node-id="521:356"
             />
           </label>

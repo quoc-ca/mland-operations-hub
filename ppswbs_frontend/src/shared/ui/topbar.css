@@ -61,7 +61,7 @@
 
 .main-topbar-link:hover,
 .main-topbar-link.active {
-  color: #0e0069;
+  color: var(--mland-primary);
 }
 
 /* Header Utility */
@@ -84,7 +84,7 @@
   border-radius: 17px;
   font-size: 12px;
   font-weight: 600;
-  color: #0e0069;
+  color: var(--mland-primary);
 }
 
 .main-topbar-lang-box .lang-icon {
@@ -94,7 +94,7 @@
 .main-topbar-lang-box .language-switch select {
   border: none;
   background: transparent;
-  color: #0e0069;
+  color: var(--mland-primary);
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -105,8 +105,8 @@
 .main-topbar-member-pill {
   height: 34px;
   padding: 0 16px;
-  background-color: #0e0069;
-  color: #fffb03;
+  background-color: var(--mland-primary);
+  color: var(--mland-accent);
   border-radius: 17px;
   border: none;
   cursor: pointer;
@@ -136,8 +136,8 @@
 }
 
 .main-topbar-member-pill .member-role-badge {
-  background-color: #fffb03;
-  color: #0e0069;
+  background-color: var(--mland-accent);
+  color: var(--mland-primary);
   font-size: 9px;
   font-weight: 700;
   padding: 2px 4px;
@@ -148,8 +148,8 @@
 .main-topbar-login-pill {
   height: 34px;
   padding: 0 16px;
-  border: 1px solid #0e0069;
-  color: #0e0069;
+  border: 1px solid var(--mland-primary);
+  color: var(--mland-primary);
   background-color: #ffffff;
   border-radius: 17px;
   font-size: 12px;
@@ -162,8 +162,8 @@
 }
 
 .main-topbar-login-pill:hover {
-  background-color: #0e0069;
-  color: #fffb03;
+  background-color: var(--mland-primary);
+  color: var(--mland-accent);
 }
 
 /* Text Action Links */
@@ -286,7 +286,7 @@
   border-radius: 6px;
   font-size: 16px;
   font-weight: 700;
-  color: #0e0069;
+  color: var(--mland-primary);
   cursor: pointer;
   padding: 0;
 }
@@ -333,7 +333,7 @@
 .drawer-brand {
   font-size: 16px;
   font-weight: 700;
-  color: #0e0069;
+  color: var(--mland-primary);
   margin: 0;
 }
 
@@ -361,7 +361,7 @@
 .drawer-login-link {
   font-size: 13px;
   font-weight: 600;
-  color: #0e0069;
+  color: var(--mland-primary);
   text-decoration: none;
 }
 
@@ -383,7 +383,7 @@
 
 .drawer-menu-item:hover {
   background-color: #f3f4f6;
-  color: #0e0069;
+  color: var(--mland-primary);
 }
 
 /* Floating Action Button (FAB) AI */
@@ -430,7 +430,7 @@
 
   .main-topbar-brand {
     font-size: 18px;
-    color: #0e0069;
+    color: var(--mland-primary);
     position: absolute;
     left: 50%;
     transform: translateX(-50%);

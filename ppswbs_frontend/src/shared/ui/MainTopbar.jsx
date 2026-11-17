@@ -147,7 +147,7 @@ export default function MainTopbar() {
             aria-expanded={isMobileDrawerOpen}
             data-node-id="521:242"
           >
-            <span>☰</span>
+            <span>Menu</span>
           </button>
 
           {/* Brand Logo */}
@@ -192,7 +192,7 @@ export default function MainTopbar() {
           <div className="main-topbar-utility" data-node-id="521:177">
             {/* Lang Switcher */}
             <div className="main-topbar-lang-box" data-node-id="521:178">
-              <span className="lang-icon">🌐</span>
+              <span className="lang-icon" aria-hidden="true" />
               <LanguageSwitch />
             </div>
 
@@ -230,29 +230,29 @@ export default function MainTopbar() {
                     </div>
 
                     <Link to="/profile" className="main-topbar-dropdown-item" role="menuitem">
-                      <span>👤</span> Hồ sơ cá nhân
+                      <span aria-hidden="true" /> Hồ sơ cá nhân
                     </Link>
                     <Link to="/my/designs" className="main-topbar-dropdown-item" role="menuitem">
-                      <span>💍</span> Mẫu nhẫn đã lưu
+                      <span aria-hidden="true" /> Mẫu nhẫn đã lưu
                     </Link>
                     <Link to="/member/orders" className="main-topbar-dropdown-item" role="menuitem">
-                      <span>📦</span> Đơn hàng của tôi
+                      <span aria-hidden="true" /> Đơn hàng của tôi
                     </Link>
                     <Link to="/member/cart" className="main-topbar-dropdown-item" role="menuitem">
-                      <span>🛒</span> Giỏ hàng
+                      <span aria-hidden="true" /> Giỏ hàng
                     </Link>
                     <Link to="/me/loyalty" className="main-topbar-dropdown-item" role="menuitem">
-                      <span>💎</span> Điểm thưởng tích lũy
+                      <span aria-hidden="true" /> Điểm thưởng tích lũy
                     </Link>
                     <Link to="/me/saved-vouchers" className="main-topbar-dropdown-item" role="menuitem">
-                      <span>🎟️</span> Voucher của tôi
+                      <span aria-hidden="true" /> Voucher của tôi
                     </Link>
                     <Link
                       to="/workshop-booking/lookup"
                       className="main-topbar-dropdown-item"
                       role="menuitem"
                     >
-                      <span>🎫</span> Tra cứu vé &amp; Booking
+                      <span aria-hidden="true" /> Tra cứu vé &amp; Booking
                     </Link>
 
                     {/* Lối tắt quản trị nội bộ */}
@@ -269,14 +269,14 @@ export default function MainTopbar() {
                               className="main-topbar-dropdown-item"
                               role="menuitem"
                             >
-                              <span>🏢</span> Staff Vận hành
+                              <span aria-hidden="true" /> Staff Vận hành
                             </Link>
                             <Link
                               to="/staff/retail-orders"
                               className="main-topbar-dropdown-item"
                               role="menuitem"
                             >
-                              <span>🏪</span> Đơn bán lẻ chi nhánh
+                              <span aria-hidden="true" /> Đơn bán lẻ chi nhánh
                             </Link>
                           </>
                         )}
@@ -287,14 +287,14 @@ export default function MainTopbar() {
                               className="main-topbar-dropdown-item"
                               role="menuitem"
                             >
-                              <span>🛍️</span> Quản trị Sản phẩm
+                              <span aria-hidden="true" /> Quản trị Sản phẩm
                             </Link>
                             <Link
                               to="/promotion-management/programs"
                               className="main-topbar-dropdown-item"
                               role="menuitem"
                             >
-                              <span>🏷️</span> Quản lý Ưu đãi
+                              <span aria-hidden="true" /> Quản lý Ưu đãi
                             </Link>
                             {userRole === 'MANAGER' && (
                               <Link
@@ -302,7 +302,7 @@ export default function MainTopbar() {
                                 className="main-topbar-dropdown-item"
                                 role="menuitem"
                               >
-                                <span>💳</span> Đối soát thanh toán
+                                <span aria-hidden="true" /> Đối soát thanh toán
                               </Link>
                             )}
                           </>
@@ -313,7 +313,7 @@ export default function MainTopbar() {
                             className="main-topbar-dropdown-item"
                             role="menuitem"
                           >
-                            <span>⭐</span> Kiểm duyệt Đánh giá
+                            <span aria-hidden="true" /> Kiểm duyệt Đánh giá
                           </Link>
                         )}
                         {userRole === 'ADMIN' && (
@@ -322,7 +322,7 @@ export default function MainTopbar() {
                             className="main-topbar-dropdown-item"
                             role="menuitem"
                           >
-                            <span>👥</span> Admin Tài khoản
+                            <span aria-hidden="true" /> Admin Tài khoản
                           </Link>
                         )}
                       </>
@@ -337,7 +337,7 @@ export default function MainTopbar() {
                       aria-busy={isSigningOut}
                       role="menuitem"
                     >
-                      <span>🚪</span> {isSigningOut ? 'Đang đăng xuất…' : 'Đăng xuất'}
+                      <span aria-hidden="true" /> {isSigningOut ? 'Đang đăng xuất…' : 'Đăng xuất'}
                     </button>
                     {signOutError && (
                       <div className="main-topbar-error-alert" role="alert">
@@ -394,7 +394,7 @@ export default function MainTopbar() {
             onClick={() => setIsMobileDrawerOpen(false)}
             aria-label="Đóng menu"
           >
-            ✕
+            Đóng
           </button>
         </div>
 
@@ -410,7 +410,7 @@ export default function MainTopbar() {
               className="drawer-login-link"
               onClick={() => setIsMobileDrawerOpen(false)}
             >
-              🔑 Đăng nhập / Đăng ký
+              Đăng nhập / Đăng ký
             </Link>
           )}
         </div>
@@ -422,7 +422,7 @@ export default function MainTopbar() {
             onClick={() => setIsMobileDrawerOpen(false)}
             data-node-id="521:250"
           >
-            ✨ Workshops Trải Nghiệm
+            Workshops Trải Nghiệm
           </Link>
           <Link
             to="/products"
@@ -430,7 +430,7 @@ export default function MainTopbar() {
             onClick={() => setIsMobileDrawerOpen(false)}
             data-node-id="521:252"
           >
-            💍 Trang Sức Chế Tác Sẵn
+            Trang Sức Chế Tác Sẵn
           </Link>
           <Link
             to="/workshops/PKG-COUPLE-SILVER/design"
@@ -438,7 +438,7 @@ export default function MainTopbar() {
             onClick={() => setIsMobileDrawerOpen(false)}
             data-node-id="521:254"
           >
-            🔨 Đặt Thiết Kế Nhẫn Riêng
+            Đặt Thiết Kế Nhẫn Riêng
           </Link>
           <Link
             to="/workshop-booking/lookup"
@@ -446,7 +446,7 @@ export default function MainTopbar() {
             onClick={() => setIsMobileDrawerOpen(false)}
             data-node-id="521:256"
           >
-            🔍 Tra Cứu Lịch Hẹn Đặt
+            Tra Cứu Lịch Hẹn Đặt
           </Link>
           <Link
             to="/ai-support"
@@ -454,14 +454,14 @@ export default function MainTopbar() {
             onClick={() => setIsMobileDrawerOpen(false)}
             data-node-id="521:258"
           >
-            💬 Tư Vấn Thiết Kế AI
+            Tư Vấn Thiết Kế AI
           </Link>
           <Link
             to="/reviews"
             className="drawer-menu-item"
             onClick={() => setIsMobileDrawerOpen(false)}
           >
-            ⭐ Đánh Giá Khách Hàng
+            Đánh Giá Khách Hàng
           </Link>
         </nav>
       </div>

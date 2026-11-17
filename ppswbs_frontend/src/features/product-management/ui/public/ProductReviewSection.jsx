@@ -122,7 +122,7 @@ export default function ProductReviewSection({ productId, productName }) {
               onClick={() => setRatingFilter(ratingFilter === star ? null : star)}
               data-testid={`filter-star-${star}`}
             >
-              {star} ★
+              {star}
             </button>
           ))}
         </div>
@@ -142,7 +142,7 @@ export default function ProductReviewSection({ productId, productName }) {
 
       {!loading && !error && filteredReviews.length === 0 && (
         <div className="product-reviews-empty" data-testid="product-reviews-empty">
-          <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>💬</div>
+          <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>Đánh giá</div>
           <h3 style={{ fontSize: '1.15rem', color: '#334155', marginBottom: '0.25rem' }}>
             Chưa có đánh giá nào cho sản phẩm này
           </h3>

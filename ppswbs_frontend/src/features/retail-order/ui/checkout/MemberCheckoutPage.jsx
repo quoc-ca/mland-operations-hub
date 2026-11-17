@@ -304,7 +304,7 @@ function CheckoutContent() {
       {addresses.loading && !addresses.data && <Loading />}
       {addresses.error && <ErrorNotice error={addresses.error} onRetry={addresses.reload} />}
       {selectedAddress ? <button type="button" className="retail-address-row" disabled={Boolean(checkout)} onClick={openAddressPicker} aria-label="Đổi địa chỉ nhận hàng">
-        <span className="retail-address-pin" aria-hidden="true">📍</span>
+        <span className="retail-address-pin" aria-hidden="true" />
         <span className="retail-address-lines">
           <span className="retail-address-who"><strong>{selectedAddress.recipientName}</strong><span>{selectedAddress.phoneNumber}</span>{selectedAddress.isDefault && <span className="retail-address-default">Mặc định</span>}</span>
           <span>{[wardOf(selectedAddress), selectedAddress.districtName, selectedAddress.provinceName].filter(Boolean).join(', ')}</span>
@@ -312,7 +312,7 @@ function CheckoutContent() {
         </span>
         <span className="retail-address-chevron" aria-hidden="true">›</span>
       </button> : addresses.data && <button type="button" className="retail-address-row" onClick={() => openAddressForm(null)}>
-        <span className="retail-address-pin" aria-hidden="true">📍</span>
+        <span className="retail-address-pin" aria-hidden="true" />
         <span className="retail-address-lines"><strong>Thêm địa chỉ nhận hàng</strong></span>
         <span className="retail-address-chevron" aria-hidden="true">›</span>
       </button>}
