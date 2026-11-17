@@ -200,7 +200,7 @@ class ManagementProductQueryServiceTests {
         ProductVariant variant = variant(10L, 123L, 12, 7);
         PriceProposal seeded = PriceProposal.draft(10L, null, 1, BigInteger.valueOf(150_000), 0, "d", null);
         setField(seeded, "id", 98L);
-        seeded.submit("system:catalogue-seed", Instant.parse("2026-11-16T03:00:00Z"));
+        seeded.submit("system:catalogue-seed", Instant.parse("2026-11-16T03:00:00Z"), null);
         stubSearch(List.of(123L), 1);
         when(products.findAllById(List.of(123L))).thenReturn(List.of(draft));
         when(categories.findAllById(any())).thenReturn(List.of(category(5L)));

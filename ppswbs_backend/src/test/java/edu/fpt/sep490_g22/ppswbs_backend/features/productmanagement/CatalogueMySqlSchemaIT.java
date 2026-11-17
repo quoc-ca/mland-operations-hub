@@ -99,10 +99,10 @@ class CatalogueMySqlSchemaIT {
             ProductVariant variant = variants.saveAndFlush(
                     ProductVariant.create(product.getId(), 12, new BigInteger("9999999999999999999")));
             ProductReview review = reviews.saveAndFlush(ProductReview.draft(product.getId(), 1, 0));
-            review.submit("staff-1", NOW, "{\"name\":\"Nhẫn bạc\"}");
+            review.submit("staff-1", NOW, "{\"name\":\"Nhẫn bạc\"}", null);
             PriceProposal proposal = PriceProposal.draft(variant.getId(), review.getId(), 1,
                     new BigInteger("1234567890123456789"), 0, "d".repeat(64), null);
-            proposal.submit("staff-1", NOW);
+            proposal.submit("staff-1", NOW, null);
             proposal.approve("manager-1", NOW, BigInteger.valueOf(150_000));
             proposals.saveAndFlush(proposal);
             variant.applyApprovedPrice(proposal.getId(), proposal.getApprovedAmount(), 0);

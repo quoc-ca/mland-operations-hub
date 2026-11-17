@@ -94,12 +94,11 @@ public class ProductReview {
         return review;
     }
 
-    /** Freezes the snapshot JSON prepared by the submission service and moves to PENDING. */
-    public void submit(String actorId, Instant at, String snapshotJson) {
-        submit(actorId, at, snapshotJson, null);
-    }
-
-    /** {@code submitterBranchesJson}: FR-061 snapshot, null when not recorded (system actor). Never rewritten. */
+    /**
+     * Freezes the snapshot JSON prepared by the submission service and moves to PENDING.
+     * {@code submitterBranchesJson}: FR-061 snapshot, null only for a system actor. Never rewritten. There is no
+     * overload without it (T178), so a new submission cannot leave the snapshot out by mistake.
+     */
     public void submit(String actorId, Instant at, String snapshotJson, String submitterBranchesJson) {
         requireCurrent(ReviewState.DRAFT);
         this.snapshot = Objects.requireNonNull(snapshotJson, "snapshotJson");

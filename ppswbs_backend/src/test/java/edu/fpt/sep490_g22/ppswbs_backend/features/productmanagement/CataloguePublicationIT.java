@@ -117,7 +117,7 @@ class CataloguePublicationIT {
             ProductVariant variant = variants.findById(variantId).orElseThrow();
             PriceProposal stale = PriceProposal.draft(variantId, null, 2, BigInteger.valueOf(90_000), 0,
                     ProposalTerms.digest(variant, null), null);
-            stale.submit(STAFF, Instant.now());
+            stale.submit(STAFF, Instant.now(), null);
             stale.approve(MANAGER, Instant.now(), BigInteger.valueOf(90_000));
             return proposals.saveAndFlush(stale).getId();
         });
