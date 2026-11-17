@@ -73,7 +73,7 @@ public class WorkshopSessionService {
         Instant scheduledStartAt = sessionStart.toInstant();
         Instant scheduledEndAt = workshopDate.atTime(slot.getEndTime()).atZone(WORKSHOP_ZONE).toInstant();
 
-        int capacity = request.getCapacity() != null ? request.getCapacity() : slot.getDefaultCapacity();
+        int capacity = request.getCapacity() == null ? 0 : request.getCapacity();
         if (capacity < 1) {
             throw new WorkshopValidationException("Session capacity must be at least 1");
         }
@@ -180,7 +180,7 @@ public class WorkshopSessionService {
                                 .scheduledEndAt(scheduledEndAt)
                                 .checkInOpensAt(checkInOpensAt)
                                 .checkInOpeningSource(CheckInOpeningSource.DEFAULT)
-                                .capacity(slot.getDefaultCapacity())
+                                .capacity(request.getCapacity())
                                 .state(initialState)
                                 .build();
 
@@ -395,6 +395,9 @@ public class WorkshopSessionService {
         }
         if (request.getWeekdays() == null || request.getWeekdays().isEmpty()) {
             throw new WorkshopValidationException("At least one weekday must be specified");
+        }
+        if (request.getCapacity() == null || request.getCapacity() < 1) {
+            throw new WorkshopValidationException("Session capacity must be at least 1");
         }
     }
 
