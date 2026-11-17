@@ -208,6 +208,37 @@
   color: #cbd5e1;
 }
 
+/* Laser Engraving Placement Selection Buttons (Mặt trong / Mặt ngoài) */
+.ring-placement-pill {
+  min-width: 96px;
+  font-weight: 600;
+  color: #1e293b !important;
+  background: #ffffff;
+  border: 1.5px solid #cbd5e1;
+  padding: 0.45rem 0.85rem;
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.ring-placement-pill:hover:not(.selected) {
+  background: #fef9c3;
+  border-color: #facc15;
+  color: #713f12 !important;
+}
+
+.ring-placement-pill.selected {
+  background: #facc15 !important; /* Vàng tươi nổi bật thay vì màu đen */
+  border-color: #ca8a04 !important;
+  color: #0f172a !important; /* Chữ đậm rõ nét, tương phản tối đa trên nền vàng */
+  font-weight: 700 !important;
+  box-shadow: 0 2px 8px rgba(234, 179, 8, 0.45);
+}
+
+
 /* Preview & Summary Panel (Right Column) */
 .ring-preview-panel {
   position: sticky;

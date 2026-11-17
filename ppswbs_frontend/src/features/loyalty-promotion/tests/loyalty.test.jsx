@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fakeSession, json, mockFetch, renderRoutes } from '../../../test/render';
 import { I18nProvider } from '../../../shared/i18n/I18nProvider';
+import { clearRoleCache } from '../../../shared/auth/useRole';
 import { loyaltyApi } from '../infrastructure/loyaltyApi';
 import { BenefitSelector } from '../ui/checkout/BenefitSelector';
 import { loyaltyPromotionRoutes } from '../routes/loyaltyPromotionRoutes';
@@ -20,6 +21,9 @@ const catalogue = {
   page: 0, pageSize: 20, totalElements: '2',
 };
 const open = (path, options) => renderRoutes(loyaltyPromotionRoutes, { path, ...options });
+// Only a Member has a voucher wallet (T115); the role is read from the profile and remembered per page, so forget it.
+const MEMBER_PROFILE = { 'GET /api/v1/accounts/me/profile': json(200, { role: 'MEMBER' }) };
+beforeEach(() => clearRoleCache());
 
 describe('006 REST operations', () => {
   const request = vi.fn(async () => ({}));
@@ -537,6 +541,7 @@ describe('T070 public offers and voucher wallet', () => {
   it('a Member saves a voucher with a key', async () => {
     const user = userEvent.setup();
     const calls = mockFetch({
+      ...MEMBER_PROFILE,
       'GET /api/v1/promotions': json(200, { items: [publicPromotion()], nextCursor: null }),
       'PUT /api/v1/members/me/saved-vouchers/5': json(200, { promotion: publicPromotion(), savedAt: '2026-11-01T00:00:00Z', availability: 'ACTIVE' }),
     });
@@ -887,6 +892,7 @@ describe('workshop target picker', () => {
 describe('Kho Voucher and Voucher của tôi: saved state and tabs', () => {
   it('a voucher saved earlier reads "Đã lưu" after a reload, without saving again', async () => {
     const calls = mockFetch({
+      ...MEMBER_PROFILE,
       'GET /api/v1/promotions': json(200, { items: [publicPromotion()], nextCursor: null }),
       'GET /api/v1/members/me/saved-vouchers': json(200, { items: [{ promotion: publicPromotion(), savedAt: '2026-11-01T00:00:00Z', availability: 'ACTIVE' }], nextCursor: null }),
     });
@@ -901,6 +907,22 @@ describe('Kho Voucher and Voucher của tôi: saved state and tabs', () => {
     open('/promotions', { session: fakeSession('signed-out') });
     expect(await screen.findByRole('link', { name: 'Đăng nhập để lưu' })).toBeInTheDocument();
     expect(calls.some(call => call.path === '/api/v1/members/me/saved-vouchers')).toBe(false);
+  });
+
+  it('a signed-in Manager does not read the wallet and is not offered Lưu voucher (T115)', async () => {
+    const calls = mockFetch({
+      'GET /api/v1/accounts/me/profile': json(200, { role: 'MANAGER' }),
+      'GET /api/v1/promotions': json(200, { items: [publicPromotion()], nextCursor: null }),
+      'GET /api/v1/promotions/5': json(200, publicPromotion()),
+    });
+    const { router } = open('/promotions');
+    expect(await screen.findByText('Chỉ thành viên lưu được voucher.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Lưu voucher' })).not.toBeInTheDocument();
+    await router.navigate('/promotions/5');
+    expect(await screen.findByRole('heading', { name: 'Chi tiết mã giảm giá' })).toBeInTheDocument();
+    expect(await screen.findByText('Chỉ thành viên lưu được voucher.')).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/promotions/5');
+    expect(calls.some(call => call.path.startsWith('/api/v1/members/me/saved-vouchers'))).toBe(false);
   });
 
   it('the wallet splits valid from expired or unusable vouchers, with counts', async () => {
@@ -958,6 +980,7 @@ describe('Kho Voucher and Voucher của tôi: saved state and tabs', () => {
 
   it('a saved voucher with no use left reads "Đã hết mã" and cannot be saved again', async () => {
     mockFetch({
+      ...MEMBER_PROFILE,
       'GET /api/v1/promotions': json(200, { items: [publicPromotion({ id: '5' }), publicPromotion({ id: '6', code: 'MLAND20' })], nextCursor: null }),
       'GET /api/v1/members/me/saved-vouchers': json(200, { items: [
         { promotion: publicPromotion({ id: '5' }), savedAt: '2026-11-01T00:00:00Z', availability: 'NO_USES_LEFT' },

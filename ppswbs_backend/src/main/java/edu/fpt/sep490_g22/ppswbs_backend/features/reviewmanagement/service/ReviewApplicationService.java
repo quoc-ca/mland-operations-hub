@@ -167,6 +167,7 @@ public class ReviewApplicationService {
                 .createdAt(now)
                 .updatedAt(now)
                 .build();
+        review.setImageList(request.getImageUrls());
 
         ReviewRevision revision = ReviewRevision.builder()
                 .id(UUID.randomUUID().toString())
@@ -252,6 +253,9 @@ public class ReviewApplicationService {
         Instant now = Instant.now();
         review.setRating(request.getRating());
         review.setBodyText(request.getBodyText() != null ? request.getBodyText().trim() : null);
+        if (request.getImageUrls() != null) {
+            review.setImageList(request.getImageUrls());
+        }
         review.setUpdatedAt(now);
 
         Integer latestRevNumber = revisionRepository.findTopByReviewIdOrderByRevisionNumberDesc(reviewId)
@@ -322,6 +326,7 @@ public class ReviewApplicationService {
                 .rating(review.getRating())
                 .bodyText(review.getBodyText())
                 .status(review.getStatus())
+                .imageUrls(review.getImageList())
                 .version(review.getVersion())
                 .createdAt(review.getCreatedAt())
                 .updatedAt(review.getUpdatedAt())

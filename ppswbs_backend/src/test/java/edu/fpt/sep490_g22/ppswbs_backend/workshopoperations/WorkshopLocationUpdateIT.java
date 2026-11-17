@@ -89,7 +89,7 @@ class WorkshopLocationUpdateIT {
         location = locationRepository.save(WorkshopLocation.builder().code("LOC-EDIT").displayName("Original Name")
                 .addressSnapshot("1 Old Street").active(true).build());
         slot = slotRepository.save(WorkshopSlot.builder().reference(UUID.randomUUID().toString()).location(location)
-                .label("Morning").startTime(LocalTime.of(9, 0)).endTime(LocalTime.of(12, 0)).defaultCapacity(20).active(true).build());
+                .label("Morning").startTime(LocalTime.of(9, 0)).endTime(LocalTime.of(12, 0)).active(true).build());
         path = "/api/v1/workshop-locations/" + location.getId();
 
         account("admin", 90L, ActorRole.ADMIN);

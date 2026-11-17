@@ -114,4 +114,14 @@ describe('workshop offer display', () => {
     expect(screen.getAllByRole('link', { name: 'Xem và lưu mã' })).toHaveLength(3);
     expect(screen.queryByText(/Đăng nhập để dùng mã giảm/)).toBeNull();
   });
+
+  it('the voucher note says whether the price above already counts a voucher (FR-045(4), Session 2026-11-17)', async () => {
+    const { unmount } = show(<WorkshopOfferList offers={offers} />);
+    expect(await screen.findByText(/Giá ở trên đã tính mã MLWS2026/)).toBeInTheDocument();
+    expect(screen.queryByText(/chưa trừ mã này/)).toBeNull();
+    unmount();
+    // No voucher reaches its minimum fee: the price counts none, so the note says so.
+    show(<WorkshopOfferList offers={offersForPackage(pkg, [program(), voucher({ minimumEligibleAmount: '1000000' })])} />);
+    expect(await screen.findByText(/Giá đã giảm ở trên chưa trừ mã này/)).toBeInTheDocument();
+  });
 });

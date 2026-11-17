@@ -7,6 +7,8 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.ProductC
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.ProductRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.ProductReviewRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dto.ManagementProductDtos;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.SellingLocation;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.SellingLocationPort;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.PriceProposal;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.ProductCategory;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.ProductReview;
@@ -16,7 +18,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.core.io.ClassPathResource;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.ClassUtils;
@@ -42,7 +43,9 @@ import java.util.UUID;
  *       command has a key derived from the product name, so a run cut off half way resumes without duplicates.</li>
  *   <li>Images go to the media storage configured on that machine (Cloudinary). Without it the run stops with a
  *       warning and creates nothing, because a product cannot be published without an image (FR-017).</li>
- *   <li>Branches are found by their 003.2 code; a missing code is left out, no other branch is guessed.</li>
+ *   <li>Branches are found through {@link SellingLocationPort} (Constitution I: no SQL on another feature's
+ *       tables): the seed file names each branch code with the display name of the 003.2 branch; a code whose
+ *       name matches no active branch is left out, no other branch is guessed.</li>
  *   <li>Off with {@code app.catalogue.seed.enabled=false}; never runs in tests (JUnit on the class path).</li>
  * </ul>
  * The actor is an internal one ({@value #ACTOR}): without an HTTP actor the branch scope is unrestricted, as for
@@ -56,7 +59,7 @@ public class CatalogueSeedRunner {
     private static final Logger log = LoggerFactory.getLogger(CatalogueSeedRunner.class);
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    record Seed(List<SeedCategory> categories, List<SeedProduct> products) {
+    record Seed(Map<String, String> branches, List<SeedCategory> categories, List<SeedProduct> products) {
     }
 
     record SeedCategory(String name, String description) {
@@ -71,7 +74,7 @@ public class CatalogueSeedRunner {
 
     private final boolean enabled;
     private final ObjectMapper json;
-    private final JdbcTemplate jdbc;
+    private final SellingLocationPort locations;
     private final TransactionTemplate transaction;
     private final ProductCategoryRepository categories;
     private final ProductRepository products;
@@ -86,7 +89,7 @@ public class CatalogueSeedRunner {
     private final ManagementProductQueryService query;
 
     public CatalogueSeedRunner(@Value("${app.catalogue.seed.enabled:true}") boolean enabled, ObjectMapper json,
-                               JdbcTemplate jdbc, TransactionTemplate transaction,
+                               SellingLocationPort locations, TransactionTemplate transaction,
                                ProductCategoryRepository categories, ProductRepository products,
                                ProductReviewRepository reviews, PriceProposalRepository proposals,
                                ProductCategoryService categoryService, CatalogueMediaService media,
@@ -95,7 +98,7 @@ public class CatalogueSeedRunner {
                                ManagementProductQueryService query) {
         this.enabled = enabled;
         this.json = json;
-        this.jdbc = jdbc;
+        this.locations = locations;
         this.transaction = transaction;
         this.categories = categories;
         this.products = products;
@@ -140,9 +143,9 @@ public class CatalogueSeedRunner {
         try (InputStream in = new ClassPathResource(RESOURCE).getInputStream()) {
             seed = json.readValue(in, Seed.class);
         }
-        Map<String, Long> branchIds = branchIds(seed);
+        Map<String, Long> branchIds = branchIds(seed.branches(), locations.activeSellingLocations());
         if (branchIds.isEmpty()) {
-            log.warn("Catalogue seed skipped: none of the branch codes of {} exists.", RESOURCE);
+            log.warn("Catalogue seed skipped: none of the branches named in {} is an active branch.", RESOURCE);
             return 0;
         }
         Map<String, String> categoryIds = new LinkedHashMap<>();
@@ -161,11 +164,16 @@ public class CatalogueSeedRunner {
         return created;
     }
 
-    private Map<String, Long> branchIds(Seed seed) {
+    /** The id of each seed branch code whose display name is an active branch; other codes are left out. */
+    static Map<String, Long> branchIds(Map<String, String> names, List<SellingLocation> active) {
         Map<String, Long> ids = new LinkedHashMap<>();
-        seed.products().stream().flatMap(product -> product.quantities().keySet().stream()).distinct()
-                .forEach(code -> jdbc.query("SELECT id FROM workshop_locations WHERE code = ? AND active = 1",
-                        row -> { ids.put(code, row.getLong(1)); }, code));
+        if (names == null) {
+            return ids;
+        }
+        names.forEach((code, name) -> active.stream()
+                .filter(location -> name != null && location.displayName().strip().equals(name.strip()))
+                .findFirst()
+                .ifPresent(location -> ids.put(code, location.id())));
         return ids;
     }
 

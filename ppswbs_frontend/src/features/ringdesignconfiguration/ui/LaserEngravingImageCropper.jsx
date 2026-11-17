@@ -303,7 +303,7 @@ function CustomImageCard({ item, onUpdate, onRemove, t }) {
             <div className="ring-pills-row" style={{ gap: '0.5rem' }}>
               <button
                 type="button"
-                className={`ring-size-pill ${item.placement === 'INNER_BAND' ? 'selected' : ''}`}
+                className={`ring-size-pill ring-placement-pill ${item.placement === 'INNER_BAND' ? 'selected' : ''}`}
                 onClick={() => onUpdate({ ...item, placement: 'INNER_BAND' })}
                 style={{ padding: '0.35rem 0.65rem', fontSize: '0.8rem' }}
                 data-testid={`placement-inner-${item.id}`}
@@ -312,7 +312,7 @@ function CustomImageCard({ item, onUpdate, onRemove, t }) {
               </button>
               <button
                 type="button"
-                className={`ring-size-pill ${item.placement === 'OUTER_BAND' ? 'selected' : ''}`}
+                className={`ring-size-pill ring-placement-pill ${item.placement === 'OUTER_BAND' ? 'selected' : ''}`}
                 onClick={() => onUpdate({ ...item, placement: 'OUTER_BAND' })}
                 style={{ padding: '0.35rem 0.65rem', fontSize: '0.8rem' }}
                 data-testid={`placement-outer-${item.id}`}

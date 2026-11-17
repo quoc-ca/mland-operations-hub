@@ -613,7 +613,7 @@ answers are marked inline.)*
 - Q: Who manages fixed slots and what happens when a slot time changes? → A: Manager manages slots per branch. A slot-time change applies only to sessions created after the change; an existing session keeps its inherited scheduled times.
 - Q: What happens to existing future sessions when a configured slot is stopped? → A: The slot becomes unavailable for new sessions only. Existing sessions, including future sessions, remain unchanged; Manager uses the audited session-cancellation flow if one must be cancelled.
 - Q: How are future sessions created in V1? → A: Manager may create an individual session or bulk-create independent sessions by branch, selected slots, date range and applicable weekdays. Bulk creation is a one-time generator, not an indefinitely running recurrence; later schedule or slot changes never alter sessions already created.
-- Q: Where does a new session's capacity come from? → A: Each branch slot has a default capacity. A new session copies it and Manager may adjust that session's capacity subject to the capacity-commitment rule, without changing the slot or other sessions.
+- Q: Where does a new session's capacity come from? → A: A slot carries no capacity (decision 2026-11-17, Owner 003: supersedes the earlier "slot default capacity"). Manager MUST enter `capacity` (>= 1) for every session when creating it, singly or in bulk generation, and may later adjust it subject to the capacity-commitment rule, without changing any other session.
 - Q: What happens when bulk session generation encounters an existing branch/date/slot combination? → A: It creates every missing session, skips each existing combination without overwriting it and reports the created and skipped results.
 
 ### Session 2026-10-24
@@ -1258,7 +1258,7 @@ scope. The target implementation and all public contracts use `location` and
   date. The initial daily slot configuration is `09:00–12:00`, `13:00–16:00`
   and `16:00–19:00`. Workshop activity normally takes about 2 hours 30 minutes;
   each slot retains 30 minutes of contingency time. Slots for the same branch
-  must not overlap.
+  must not overlap; only ACTIVE slots are compared, an inactive slot holds no time (owner decision Hồ Hoàng Quốc 2026-11-17).
 - A session may be created only when its configured slot start is in the future.
   This does not set a booking cutoff; feature 003.1 controls whether booking is
   still available close to the start time.
@@ -1269,10 +1269,10 @@ scope. The target implementation and all public contracts use `location` and
   cancels an existing session.
   V1 never permanently deletes a configured slot; Manager only changes whether
   it is active or inactive.
-- Each configured branch slot has a default capacity. A new session copies that
-  value as its own capacity; changing the session capacity does not change its
-  slot or any other session. Slot and session capacity must be at least one;
-  `SALES_PAUSED`, not zero capacity, stops new booking.
+- A configured branch slot is only a time window and carries no capacity. Manager
+  enters each session's capacity when creating it (single or bulk); changing a
+  session capacity does not change any other session. Session capacity must be at
+  least one; `SALES_PAUSED`, not zero capacity, stops new booking.
 - A Staff member normally checks in one ticket by QR. Individual `ticket_code`
   is a manual fallback; `booking_code` only finds a booking and never checks in
   an unspecified ticket. In a Staff check-in flow, a booking-code lookup returns
@@ -1359,13 +1359,6 @@ scope. The target implementation and all public contracts use `location` and
 
   An unrecognized code is rejected. The catalogue is fixed in code; changing it
   is a spec change.
-- **Visible-location configuration (backfilled 2026-11-12 from 8d8e5a4):** the
-  deployment setting `workshop.operations.visible-location-ids`
-  (environment `WORKSHOP_OPERATIONS_VISIBLE_LOCATION_IDS`) lists the location
-  IDs shown by public package/session/location discovery and Operations lists.
-  Empty means every active location is visible. It is an environment filter
-  (for example to hide test locations), not a business permission, and it does
-  not replace Staff location scope.
 
 ## User scenarios
 
@@ -1447,11 +1440,11 @@ sessions; they never alter or cancel an existing session. If a future session
 must be cancelled, Manager uses the audited session-cancellation flow.
 V1 retains each configured slot and uses active/inactive status rather than
 permanent deletion.
-Each slot has a default capacity, which a new session copies as its own capacity.
+A slot is only a time window and carries no capacity; each session owns its own capacity, which Manager enters when creating the session.
 Slots begin and end on the same local calendar date; the initial daily slot
 configuration is `09:00–12:00`, `13:00–16:00` and `16:00–19:00`. The expected
 workshop activity duration is 2 hours 30 minutes, with 30 minutes contingency
-time in each slot. Slots for the same location do not overlap. Capacity must be
+time in each slot. Active slots for the same location do not overlap (inactive slots are not compared). Capacity must be
 at least one; Manager pauses sales rather than setting capacity to zero.
 
 ### Shop organizes groups within a session
@@ -1664,10 +1657,11 @@ correction, with before/after audit evidence.
   retain the start and end times inherited when it was created. Stopping a slot
   MUST prevent only new-session creation and MUST NOT alter or cancel existing
   sessions; session cancellation MUST use the audited session lifecycle. Each
-  slot MUST have a default capacity, which a new session copies as its own
-  capacity; a later session-capacity change MUST NOT alter the slot or another
-  session. Slot and session capacity MUST be at least one; Manager MUST use
-  `SALES_PAUSED`, not zero capacity, to stop accepting new bookings. V1 MUST
+  slot MUST NOT carry a capacity; each session MUST have its own capacity, which
+  Manager enters when creating the session (single or bulk); a later
+  session-capacity change MUST NOT alter another
+  session.
+  Session capacity MUST be at least one; Manager MUST use `SALES_PAUSED`, not zero capacity, to stop accepting new bookings. V1 MUST
   retain each configured slot and allow only active/inactive state changes, not
   permanent deletion.
 - **FR-001f**: The system MUST allow only Manager to create a session either
@@ -1687,7 +1681,7 @@ correction, with before/after audit evidence.
 - **FR-001j**: The system MUST reject a configured slot whose end is not on the
   same `Asia/Ho_Chi_Minh` calendar date as its start. The initial daily slot
   configuration MUST provide `09:00–12:00`, `13:00–16:00` and `16:00–19:00`.
-  The system MUST reject overlapping configured slots for the same location.
+  The system MUST reject overlapping configured slots for the same location, comparing only ACTIVE slots: creating or changing an active slot, or re-activating an inactive one, is refused when it overlaps another active slot; an inactive slot never blocks another slot (owner decision Hồ Hoàng Quốc 2026-11-17).
 - **FR-001i**: The system MUST allow Manager to choose `DRAFT` or `PUBLISHED`
   as the initial state for an individual or bulk session creation, and MUST
   default the chosen state to `DRAFT` when none is supplied.
@@ -2292,7 +2286,7 @@ reveals another session, location, ticket or customer contact data.)*
 | 409 | `TICKET_CONFLICT` | The ticket is not valid for check-in (cancelled — including after `cancelTicket`, FR-031, CHK010 — revoked, refunded). |
 | 409 | `TICKET_QR_REVOKED` | A QR revoked by a recipient change (FR-033). |
 | 409 | `INSUFFICIENT_CAPACITY` | Capacity below commitments or no seat left. |
-| 409 | `SLOT_OVERLAP_CONFLICT` | A slot overlaps another slot of the location. |
+| 409 | `SLOT_OVERLAP_CONFLICT` | An active slot would overlap another ACTIVE slot of the location (create, change times, or re-activate). Inactive slots are never compared. |
 | 409 | `DUPLICATE_SESSION` | A session already exists for the location, date and slot. |
 | 409 | `OPTIMISTIC_LOCK_CONFLICT` | Stale `version` on session PATCH (T112). |
 | 409 | `IDEMPOTENCY_CONFLICT` | Same `Idempotency-Key` with a different command. |

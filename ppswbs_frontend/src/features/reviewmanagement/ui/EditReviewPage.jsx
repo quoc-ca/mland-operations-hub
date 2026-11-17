@@ -48,9 +48,9 @@ export default function EditReviewPage() {
       <div className="review-panel">
         <ReviewForm
           existing={resource.data}
-          onSaved={({ key, rating, bodyText, version }) =>
+          onSaved={({ key, rating, bodyText, imageUrls, version }) =>
             api
-              .editReview(key, reviewId, { rating, bodyText }, version)
+              .editReview(key, reviewId, { rating, bodyText, imageUrls }, version)
               .then(result => {
                 navigate(`/reviews/${encodeURIComponent(result.id)}`);
                 return result;

@@ -103,7 +103,8 @@ export class AddressApiClient {
       requireAuth = true,
     } = options;
 
-    const url = new URL(`${this.baseUrl}${path}`);
+    const origin = this.baseUrl || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8080');
+    const url = new URL(`${origin}${path}`);
     if (query) {
       Object.entries(query).forEach(([k, v]) => {
         if (v !== undefined && v !== null && v !== '') {
@@ -114,6 +115,7 @@ export class AddressApiClient {
 
     const headers: Record<string, string> = {
       Accept: 'application/json',
+      'ngrok-skip-browser-warning': '1',
       'X-Correlation-Id': correlationId,
     };
 

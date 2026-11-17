@@ -1,3 +1,24 @@
+# Version 1.6 — Feature 004: Custom Design Workspace Refinement & Request Tracking Enhancements
+
+- **Feature**: 004 — AI Chatbox Analysis and Suggestion
+- **Author**: Ngô Tiến Đạt
+- **Last updated by**: Phan Sơn
+- **Date created**: 2026-10-24
+- **Date updated**: 2026-11-17
+- **Source of truth**: Feature-004 `spec.md`, `design.md`, OpenAPI contract and `FE-004-DESIGN-INDEPENDENT-HANDOFF.md`
+
+### Phase F — Custom Design Usability & Request Tracking (2026-11-17)
+1. **Removed Catalogue Reference Field**: Dropped `catalogueReference` input from `/design-requests/new`. Custom requests represent independent ideas without requiring pre-binding to catalogue items.
+2. **Pre-submission Image Validation**: Client-side validation checks allowed MIME types (JPEG, PNG, WEBP), file size (<= 10MB), non-empty (0 bytes check), and image dimensions (<= 4096×4096px) before submission.
+3. **Clear Localized Error Messages**: Replaced generic error codes with informative Vietnamese error notices detailing the exact issue and recovery actions (e.g. rate limit, file size, empty file, consent requirement).
+4. **Updated Success Feedback**: Updated success notification to *"Yêu cầu đã được gửi thành công, đang đợi phản hồi của nhân viên"* and prominently display it upon transitioning to the request detail page.
+5. **Guest and Member Request Tracking**:
+   - Added Member Custom Requests tab at `/my/designs?tab=custom` backed by `GET /api/v1/design-requests`, displaying real-time review status (`Đang đợi phản hồi của nhân viên`, `Đã duyệt`, `Từ chối`, `Cần làm rõ`) and analysis status.
+   - Enabled Guest safe lookup on `/design-requests/:designRequestId` by removing `<RequireSession>` barrier and permitting safe unauthenticated read in `SecurityConfiguration`.
+   - Verified Staff and Manager review access and decision recording through `/design-review-requests` and `/design-review-requests/:reviewRequestId`.
+
+---
+
 # Version 1.5 — Feature 004: AI Chatbox Analysis and Suggestion (JDK 21 Verification, Contract Audit & 7 Blockers Resolution Plan)
 
 - **Feature**: 004 — AI Chatbox Analysis and Suggestion

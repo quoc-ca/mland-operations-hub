@@ -1,4 +1,4 @@
-const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8080')).replace(/\/$/, '');
+const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8080')).replace(/\/$/, '');
 
 function request(path, params = {}) {
   const origin = apiBaseUrl || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8080');
@@ -7,7 +7,7 @@ function request(path, params = {}) {
   Object.entries(params).forEach(([key, value]) => {
     if (value !== undefined && value !== null && value !== '') url.searchParams.set(key, String(value));
   });
-  return fetch(url, { headers: { Accept: 'application/json' } }).then(async response => {
+  return fetch(url, { headers: { Accept: 'application/json', 'ngrok-skip-browser-warning': '1' } }).then(async response => {
     if (!response.ok) throw new Error(`CATALOGUE_${response.status}`);
     return response.json();
   });

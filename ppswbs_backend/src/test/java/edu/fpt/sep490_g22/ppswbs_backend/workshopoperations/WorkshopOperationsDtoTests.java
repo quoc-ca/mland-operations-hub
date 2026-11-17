@@ -37,7 +37,7 @@ class WorkshopOperationsDtoTests {
     }
 
     @Test
-    @DisplayName("T013-1: SlotRequest enforces Asia/Ho_Chi_Minh same-day timing and defaultCapacity >= 1")
+    @DisplayName("T013-1: SlotRequest enforces Asia/Ho_Chi_Minh same-day timing and carries no capacity")
     void slotRequestValidation() {
         assertThat(SlotRequest.WORKSHOP_ZONE).isEqualTo(ZoneId.of("Asia/Ho_Chi_Minh"));
 
@@ -46,31 +46,17 @@ class WorkshopOperationsDtoTests {
                 .label("Morning Slot")
                 .startsAtLocal(LocalTime.of(9, 0))
                 .endsAtLocal(LocalTime.of(12, 0))
-                .defaultCapacity(30)
                 .active(true)
                 .build();
         Set<ConstraintViolation<SlotRequest>> violations = validator.validate(validSlot);
         assertThat(violations).isEmpty();
         assertThat(validSlot.isSameDayTimingValid()).isTrue();
 
-        // Invalid: defaultCapacity < 1
-        SlotRequest zeroCapacity = SlotRequest.builder()
-                .label("Zero Capacity Slot")
-                .startsAtLocal(LocalTime.of(9, 0))
-                .endsAtLocal(LocalTime.of(12, 0))
-                .defaultCapacity(0)
-                .active(true)
-                .build();
-        Set<ConstraintViolation<SlotRequest>> zeroViolations = validator.validate(zeroCapacity);
-        assertThat(zeroViolations).hasSize(1);
-        assertThat(zeroViolations.iterator().next().getMessage()).contains("at least 1");
-
         // Invalid: startsAtLocal is after endsAtLocal (spans midnight or backwards)
         SlotRequest overnightSlot = SlotRequest.builder()
                 .label("Overnight Slot")
                 .startsAtLocal(LocalTime.of(22, 0))
                 .endsAtLocal(LocalTime.of(2, 0))
-                .defaultCapacity(20)
                 .active(true)
                 .build();
         Set<ConstraintViolation<SlotRequest>> overnightViolations = validator.validate(overnightSlot);
@@ -82,7 +68,6 @@ class WorkshopOperationsDtoTests {
                 .label("Zero Duration Slot")
                 .startsAtLocal(LocalTime.of(14, 0))
                 .endsAtLocal(LocalTime.of(14, 0))
-                .defaultCapacity(20)
                 .active(true)
                 .build();
         Set<ConstraintViolation<SlotRequest>> zeroDurationViolations = validator.validate(zeroDurationSlot);
@@ -150,6 +135,7 @@ class WorkshopOperationsDtoTests {
                 .from(today.plusDays(1))
                 .to(today.plusDays(30))
                 .weekdays(List.of(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY, DayOfWeek.FRIDAY))
+                .capacity(10)
                 .initialState(SessionState.DRAFT)
                 .build();
         assertThat(validator.validate(validBulk)).isEmpty();
@@ -163,6 +149,7 @@ class WorkshopOperationsDtoTests {
                 .from(today.plusDays(30))
                 .to(today.plusDays(1))
                 .weekdays(List.of(DayOfWeek.SATURDAY))
+                .capacity(10)
                 .build();
         assertThat(validator.validate(invertedDates)).isNotEmpty();
         assertThat(invertedDates.isDateRangeValid()).isFalse();
@@ -174,6 +161,7 @@ class WorkshopOperationsDtoTests {
                 .from(today.plusDays(1))
                 .to(today.plusDays(5))
                 .weekdays(List.of(DayOfWeek.SUNDAY))
+                .capacity(10)
                 .initialState(SessionState.CANCELLED)
                 .build();
         assertThat(validator.validate(invalidState)).isNotEmpty();
@@ -256,14 +244,12 @@ class WorkshopOperationsDtoTests {
                 .label("Afternoon Slot")
                 .startsAtLocal(LocalTime.of(13, 0))
                 .endsAtLocal(LocalTime.of(16, 0))
-                .defaultCapacity(25)
                 .active(true)
                 .build();
         String slotJson = objectMapper.writeValueAsString(slotReq);
         SlotRequest deserializedSlot = objectMapper.readValue(slotJson, SlotRequest.class);
         assertThat(deserializedSlot.getStartsAtLocal()).isEqualTo(LocalTime.of(13, 0));
         assertThat(deserializedSlot.getEndsAtLocal()).isEqualTo(LocalTime.of(16, 0));
-        assertThat(deserializedSlot.getDefaultCapacity()).isEqualTo(25);
 
         // SessionResponse roundtrip
         SessionResponse sessionResp = SessionResponse.builder()
@@ -302,6 +288,7 @@ class WorkshopOperationsDtoTests {
                 .from(LocalDate.of(2026, 11, 1))
                 .to(LocalDate.of(2026, 11, 30))
                 .weekdays(List.of(DayOfWeek.MONDAY, DayOfWeek.FRIDAY))
+                .capacity(10)
                 .initialState(SessionState.PUBLISHED)
                 .build();
         String bulkReqJson = objectMapper.writeValueAsString(bulkReq);

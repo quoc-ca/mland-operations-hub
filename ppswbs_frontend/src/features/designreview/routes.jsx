@@ -21,11 +21,7 @@ export const designReviewRoutes = [
   },
   {
     path: '/design-requests/:designRequestId',
-    element: (
-      <RequireSession>
-        <DesignDetailPage />
-      </RequireSession>
-    ),
+    element: <DesignDetailPage />,
   },
   {
     path: '/design-review-requests',

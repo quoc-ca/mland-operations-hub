@@ -289,7 +289,7 @@ class TicketRecipientIT {
         jdbc.update("UPDATE workshop_packages SET same_location_required = 0 WHERE id = ?", ticket.getPackageId());
         edu.fpt.sep490_g22.ppswbs_backend.workshopoperations.PackageAvailabilityFixture.activateEverywhere(jdbc, ticket.getPackageId());
         WorkshopSlot slot = slots.save(WorkshopSlot.builder().reference(UUID.randomUUID().toString()).location(otherLocation)
-                .label("Afternoon").startTime(LocalTime.of(14, 0)).endTime(LocalTime.of(17, 0)).defaultCapacity(10)
+                .label("Afternoon").startTime(LocalTime.of(14, 0)).endTime(LocalTime.of(17, 0))
                 .active(true).build());
         LocalDate date = LocalDate.now().plusDays(4);
         ZoneId zone = ZoneId.of("Asia/Ho_Chi_Minh");
@@ -677,7 +677,7 @@ class TicketRecipientIT {
     /** A confirmed one-ticket group whose ticket is issued by Operations (real QR and entitlement). */
     private TicketBooking confirmedTicket(Long memberId) {
         WorkshopSlot slot = slots.save(WorkshopSlot.builder().reference(UUID.randomUUID().toString()).location(location)
-                .label("Morning").startTime(LocalTime.of(9, 0)).endTime(LocalTime.of(12, 0)).defaultCapacity(10)
+                .label("Morning").startTime(LocalTime.of(9, 0)).endTime(LocalTime.of(12, 0))
                 .active(true).build());
         LocalDate date = LocalDate.now().plusDays(3);
         ZoneId zone = ZoneId.of("Asia/Ho_Chi_Minh");

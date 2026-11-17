@@ -63,6 +63,28 @@ When an unauthenticated guest or user with expired session accesses `/design-req
 2. It MUST render an inline empty-state notice (`<RequireSession requiredText="...">`) stating: "Vui lòng đăng nhập để tạo yêu cầu thiết kế tùy chỉnh".
 3. It MUST provide an accessible "Đăng nhập" action button (`<SignInLink>`) directly routing to `/login`.
 
+### 3.2 Removal of catalogue reference field
+To streamline customer workflow, the input field for catalogue reference (`catalogueReference`) has been removed from the Custom Design screen (`/design-requests/new`). Independent custom designs focus purely on customer descriptions and reference imagery without requiring pre-association with catalogue products.
+
+### 3.3 Pre-submission image validation and error clarity
+Before dispatching a design request:
+1. The client performs strict pre-submission image validation:
+   - File format check: allowed MIME types `image/jpeg`, `image/png`, `image/webp`. Rejects invalid formats with explicit notice.
+   - Non-empty check: rejects 0-byte or corrupted image files.
+   - Size limit: enforces maximum 10 MB limit with human-readable file size reporting.
+   - Resolution check: validates that dimensions do not exceed 4096×4096px.
+2. Clear error messaging: All client validation and server error codes (e.g. rate limit `429 IMAGE_RATE_LIMITED`, consent requirement, descriptive limits) are translated into explicit Vietnamese messages detailing the specific issue and recovery steps.
+
+### 3.4 Submission feedback
+Upon successful submission, the system returns and displays the confirmation notice:
+> *"Yêu cầu đã được gửi thành công, đang đợi phản hồi của nhân viên"*
+The customer is transitioned to the Design Request detail view (`/design-requests/:designRequestId`) with the active success banner.
+
+### 3.5 Guest and Member request tracking
+1. **Member Tracking**: Authenticated Members can view the full history and real-time status of their custom design requests via `/my/designs?tab=custom`, displaying request references, dates, AI analysis status, and staff review decisions (`NEED_REVIEW`, `ACCEPTED`, `REJECTED`, `CLARIFICATION_REQUIRED`).
+2. **Guest Lookup & Review Visibility**: Guests possessing their opaque request reference or direct link can view their design request details and staff review feedback directly at `/design-requests/:designRequestId` without session gating.
+3. **Staff & Manager Review**: Staff and Manager actors review custom design requests through the standard review queue (`/design-review-requests`) and detail decision screen (`/design-review-requests/:reviewRequestId`), mirroring the evaluation workflow of blank ring designs.
+
 ## 4. Basic AI Support
 
 ```text

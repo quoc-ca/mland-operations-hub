@@ -116,6 +116,32 @@ export function calculateDefaultAngles(count) {
   return Array.from({ length: count }, (_, i) => Math.round((start + i * step) * 10) / 10);
 }
 
+export function findNextAvailableAngle(existingPositions = [], stepDeg = 22, minSeparationDeg = 16) {
+  const occupied = (existingPositions || []).map((p) => {
+    const deg = typeof p === 'number' ? p : p?.angleDeg;
+    return ((Number(deg || 0) % 360) + 360) % 360;
+  });
+
+  const isAngleFree = (candidate) => {
+    const normCand = ((candidate % 360) + 360) % 360;
+    return !occupied.some((ang) => {
+      let diff = Math.abs(ang - normCand);
+      if (diff > 180) diff = 360 - diff;
+      return diff < minSeparationDeg;
+    });
+  };
+
+  if (isAngleFree(270)) return 270;
+
+  for (let step = 1; step <= 15; step++) {
+    const right = (270 + step * stepDeg + 360) % 360;
+    if (isAngleFree(right)) return right;
+    const left = (270 - step * stepDeg + 360) % 360;
+    if (isAngleFree(left)) return left;
+  }
+  return 270;
+}
+
 export function derivePreviewModel(draft) {
   if (!draft) {
     return {
@@ -167,8 +193,18 @@ export function derivePreviewModel(draft) {
     for (let i = 0; i < qty; i++) {
       const stoneId = `gem-${comp.reference}-${i}`;
       const existingPos = rawPositions.find((p) => p.id === stoneId || (p.reference === comp.reference && p.index === i));
-      const angleDeg = existingPos ? existingPos.angleDeg : (defaultAngles[angleIndex] ?? 270);
+      let angleDeg = existingPos ? existingPos.angleDeg : (defaultAngles[angleIndex] ?? 270);
       angleIndex++;
+
+      // Prevent overlap if multiple different stones share the exact same initial angle
+      const isOverlapping = stones.some((s) => {
+        let diff = Math.abs((((s.angleDeg % 360) + 360) % 360) - (((angleDeg % 360) + 360) % 360));
+        if (diff > 180) diff = 360 - diff;
+        return diff < 16;
+      });
+      if (isOverlapping) {
+        angleDeg = findNextAvailableAngle(stones);
+      }
 
       const rad = (angleDeg * Math.PI) / 180;
       const cx = Math.round((150 + 85 * Math.cos(rad)) * 10) / 10;
@@ -261,4 +297,64 @@ export function derivePreviewModel(draft) {
     isNeutral: false,
   };
 }
+
+/**
+ * Classifies crafting difficulty score (1-10) formatted to 1 decimal place with notes & recommendations.
+ * - 1.0 to 3.0: Dễ
+ * - > 3.0 to 6.0: Trung bình
+ * - > 6.0 to 9.0: Khó
+ * - > 9.0: Rất khó (Khuyến cáo người dùng đổi lại mẫu thiết kế)
+ */
+export function getDifficultyMeta(rawScore) {
+  const num = typeof rawScore === 'number' ? rawScore : parseFloat(rawScore);
+  const score = isNaN(num) || num <= 0 ? 1.0 : num;
+  const formattedScore = score.toFixed(1);
+
+  if (score <= 3.0) {
+    return {
+      score: formattedScore,
+      level: 'EASY',
+      label: 'Dễ',
+      note: 'Dễ',
+      badgeColor: '#166534',
+      badgeBg: '#dcfce7',
+      isVeryHard: false,
+      advice: null,
+    };
+  } else if (score <= 6.0) {
+    return {
+      score: formattedScore,
+      level: 'MEDIUM',
+      label: 'Trung bình',
+      note: 'Trung bình',
+      badgeColor: '#854d0e',
+      badgeBg: '#fef3c7',
+      isVeryHard: false,
+      advice: null,
+    };
+  } else if (score <= 9.0) {
+    return {
+      score: formattedScore,
+      level: 'HARD',
+      label: 'Khó',
+      note: 'Khó',
+      badgeColor: '#c2410c',
+      badgeBg: '#ffedd5',
+      isVeryHard: false,
+      advice: null,
+    };
+  } else {
+    return {
+      score: formattedScore,
+      level: 'VERY_HARD',
+      label: 'Rất khó',
+      note: 'Rất khó (Khuyến cáo người dùng đổi lại mẫu thiết kế)',
+      badgeColor: '#b91c1c',
+      badgeBg: '#fee2e2',
+      isVeryHard: true,
+      advice: 'Độ khó rất cao (> 9.0). Khuyến cáo người dùng đổi lại mẫu thiết kế để đảm bảo trải nghiệm hoàn thiện tốt nhất tại workshop.',
+    };
+  }
+}
+
 

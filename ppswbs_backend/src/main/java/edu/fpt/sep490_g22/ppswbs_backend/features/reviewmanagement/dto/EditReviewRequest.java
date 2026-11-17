@@ -23,6 +23,9 @@ public class EditReviewRequest {
     @Size(max = 2000, message = "bodyText cannot exceed 2000 characters")
     private String bodyText;
 
+    @Size(max = 3, message = "Tối đa 3 hình ảnh cho mỗi đánh giá")
+    private java.util.List<String> imageUrls;
+
     @Size(max = 1000, message = "reason cannot exceed 1000 characters")
     private String reason;
 

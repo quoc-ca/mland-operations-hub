@@ -57,8 +57,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("workshopoperations-mysql-test")
-@TestPropertySource(properties = {"workshop.operations.auth.allow-test-tokens=true",
-        "workshop.operations.visible-location-ids="})
+@TestPropertySource(properties = {"workshop.operations.auth.allow-test-tokens=true"})
 class PackageAvailabilityContractIT {
 
     private static final ZoneId ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
@@ -256,8 +255,7 @@ class PackageAvailabilityContractIT {
         LocalTime startTime = LocalTime.of(9, 0);
         Instant start = date.atTime(startTime).atZone(ZONE).toInstant();
         WorkshopSlot slot = slotRepository.saveAndFlush(WorkshopSlot.builder().location(location)
-                .label("PAC slot " + UUID.randomUUID()).startTime(startTime).endTime(startTime.plusMinutes(30))
-                .defaultCapacity(5).build());
+                .label("PAC slot " + UUID.randomUUID()).startTime(startTime).endTime(startTime.plusMinutes(30)).build());
         return sessionRepository.saveAndFlush(WorkshopSession.builder().location(location).slot(slot)
                 .workshopDate(date).scheduledStartAt(start).scheduledEndAt(start.plusSeconds(1800))
                 .checkInOpensAt(start.minusSeconds(1800)).capacity(5).state(SessionState.PUBLISHED).build());

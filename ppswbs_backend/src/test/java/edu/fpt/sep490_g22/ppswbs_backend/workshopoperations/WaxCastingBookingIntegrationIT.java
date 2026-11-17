@@ -276,7 +276,6 @@ class WaxCastingBookingIntegrationIT {
                 .label("Wax Slot " + UUID.randomUUID())
                 .startTime(startTime)
                 .endTime(startTime.plusHours(2))
-                .defaultCapacity(capacity)
                 .active(true)
                 .build());
         return sessionRepository.saveAndFlush(WorkshopSession.builder()

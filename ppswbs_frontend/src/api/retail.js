@@ -6,7 +6,7 @@ export class RetailApiError extends Error {
 
 async function protectedRequest(path, { method = 'GET', token, body, idempotencyKey } = {}) {
   if (!token) throw new RetailApiError('AUTHENTICATION_REQUIRED', 'Đăng nhập Member để tiếp tục.');
-  const response = await fetch(`${apiBaseUrl}${path}`, { method, headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}) }, body: body ? JSON.stringify(body) : undefined });
+  const response = await fetch(`${apiBaseUrl}${path}`, { method, headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': '1', ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}) }, body: body ? JSON.stringify(body) : undefined });
   if (!response.ok) { const payload = await response.json().catch(() => ({})); throw new RetailApiError(payload.code || `HTTP_${response.status}`, payload.message || 'Không thể xử lý yêu cầu.', payload.correlationId); }
   return response.status === 204 ? undefined : response.json();
 }

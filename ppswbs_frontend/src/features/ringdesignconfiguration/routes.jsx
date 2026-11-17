@@ -27,6 +27,10 @@ export const ringDesignConfigurationRoutes = [
     element: <RingModelSelectionPage />,
   },
   {
+    path: '/workshops/:packageReference/design/blank',
+    element: <RingConfigurationPage />,
+  },
+  {
     path: '/workshops/:packageReference/design/configure',
     element: <RingConfigurationPage />,
   },

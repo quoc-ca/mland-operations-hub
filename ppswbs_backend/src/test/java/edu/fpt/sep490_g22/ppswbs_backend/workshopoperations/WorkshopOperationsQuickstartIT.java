@@ -140,7 +140,6 @@ public class WorkshopOperationsQuickstartIT {
                 .label("Morning Slot")
                 .startTime(LocalTime.of(9, 0))
                 .endTime(LocalTime.of(12, 0))
-                .defaultCapacity(10)
                 .active(true)
                 .build());
 
@@ -150,7 +149,6 @@ public class WorkshopOperationsQuickstartIT {
                 .label("Afternoon Slot")
                 .startTime(LocalTime.of(14, 0))
                 .endTime(LocalTime.of(17, 0))
-                .defaultCapacity(10)
                 .active(true)
                 .build());
 

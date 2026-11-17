@@ -8,7 +8,10 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.PricePro
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.ProductVariantRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.VariantBranchStockRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.VariantBranchStock;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.SellingLocation;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.SellingLocationPort;
 import org.junit.jupiter.api.AfterEach;
+import org.springframework.beans.factory.ObjectProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -93,6 +96,62 @@ class CatalogueBranchScopeTests {
         assertThatThrownBy(scope::requireNoBranchAllowed)
                 .isInstanceOfSatisfying(CatalogueException.class,
                         e -> org.assertj.core.api.Assertions.assertThat(e.code()).isEqualTo(CatalogueErrorCode.BRANCH_SCOPE_EMPTY));
+    }
+
+    @Test
+    void staffMayStopASizeWhenTheOtherBranchIsNoLongerActive() {
+        CatalogueBranchScope withSource = scopeWithActive(List.of(1L));
+        actAs(ActorRole.STAFF, List.of(1L));
+        soldAt(1L, 2L);
+        assertThatCode(() -> withSource.requireEveryBranchOfVariant(Long.toString(VARIANT_ID))).doesNotThrowAnyException();
+    }
+
+    @Test
+    void aSizeSoldOnlyAtInactiveBranchesNeedsAnAssignedBranch() {
+        CatalogueBranchScope withSource = scopeWithActive(List.of(1L));
+        actAs(ActorRole.STAFF, List.of());
+        soldAt(2L);
+        assertThatThrownBy(() -> withSource.requireEveryBranchOfVariant(Long.toString(VARIANT_ID)))
+                .isInstanceOfSatisfying(CatalogueException.class,
+                        e -> org.assertj.core.api.Assertions.assertThat(e.code()).isEqualTo(CatalogueErrorCode.BRANCH_SCOPE_EMPTY));
+    }
+
+    @Test
+    void withTheBranchSourceDownEveryBranchStillCounts() {
+        @SuppressWarnings("unchecked")
+        ObjectProvider<SellingLocationPort> provider = mock(ObjectProvider.class);
+        SellingLocationPort port = mock(SellingLocationPort.class);
+        when(provider.getIfAvailable()).thenReturn(port);
+        when(port.activeSellingLocations()).thenThrow(new IllegalStateException("down"));
+        CatalogueBranchScope withSource = new CatalogueBranchScope(accounts, stocks, variants,
+                mock(PriceProposalRepository.class), provider);
+        actAs(ActorRole.STAFF, List.of(1L));
+        soldAt(1L, 2L);
+        assertThatThrownBy(() -> withSource.requireEveryBranchOfVariant(Long.toString(VARIANT_ID)))
+                .isInstanceOfSatisfying(CatalogueException.class,
+                        e -> org.assertj.core.api.Assertions.assertThat(e.code()).isEqualTo(CatalogueErrorCode.BRANCH_OUT_OF_SCOPE));
+        assertThatCode(() -> withSource.requireActiveBranch(2L)).doesNotThrowAnyException();
+    }
+
+    @Test
+    void stockAtABranchNoLongerActiveIsReadOnlyForAManagerToo() {
+        CatalogueBranchScope withSource = scopeWithActive(List.of(1L));
+        actAs(ActorRole.MANAGER, List.of());
+        assertThatCode(() -> withSource.requireActiveBranch(1L)).doesNotThrowAnyException();
+        assertThatThrownBy(() -> withSource.requireActiveBranch(2L))
+                .isInstanceOfSatisfying(CatalogueException.class,
+                        e -> org.assertj.core.api.Assertions.assertThat(e.code()).isEqualTo(CatalogueErrorCode.BRANCH_NOT_FOUND));
+        assertThatCode(() -> scope.requireActiveBranch(2L)).doesNotThrowAnyException(); // no source wired
+    }
+
+    private CatalogueBranchScope scopeWithActive(List<Long> activeIds) {
+        @SuppressWarnings("unchecked")
+        ObjectProvider<SellingLocationPort> provider = mock(ObjectProvider.class);
+        SellingLocationPort port = mock(SellingLocationPort.class);
+        when(provider.getIfAvailable()).thenReturn(port);
+        when(port.activeSellingLocations()).thenReturn(activeIds.stream()
+                .map(id -> new SellingLocation(id, "Chi nhánh " + id, "Địa chỉ " + id)).toList());
+        return new CatalogueBranchScope(accounts, stocks, variants, mock(PriceProposalRepository.class), provider);
     }
 
     private void actAs(ActorRole role, List<Long> branches) {

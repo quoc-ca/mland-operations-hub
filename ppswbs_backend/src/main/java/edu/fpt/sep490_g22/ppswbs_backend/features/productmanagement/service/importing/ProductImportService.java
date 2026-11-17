@@ -406,6 +406,16 @@ public class ProductImportService {
         return branchHeaders(chosenBranches(locationIds));
     }
 
+    /**
+     * The import template (T171, Constitution I: the service owns the read and its transaction): active categories
+     * and one quantity column per chosen branch, in the order sent.
+     */
+    public byte[] template(List<String> locationIds) {
+        List<String> branchHeaders = templateBranchHeaders(locationIds);
+        return transaction.execute(status -> ImportTemplateWriter.write(
+                categories.findByActiveTrueOrderByNameAscIdAsc(), branchHeaders));
+    }
+
     private static ProductImportDtos.ImportError view(ProductImportValidator.ImportError error) {
         return new ProductImportDtos.ImportError(error.row(), error.column(), error.value(), error.code(),
                 error.message());

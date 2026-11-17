@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { getOwnedBookingGroup, lookupGuestBookingGroup, WorkshopApiError } from '../api/workshops';
 import { GroupDetailCard } from './GroupDetailCard';
@@ -7,6 +7,8 @@ import { useBookingIdentity } from './useBookingIdentity';
 import { buildContactProof, DEFAULT_PHONE_COUNTRY } from './contactValidation';
 import { PhoneInput } from './PhoneInput';
 import './figmaPublicShell.css';
+
+const GROUP_POLL_MS = 20000;
 
 /**
  * What the browser return from the gateway means (003.1 FR-038): nothing. A group is confirmed only on verified
@@ -132,6 +134,24 @@ export function WorkshopPaymentReturnPage({ groupCode }) {
     const timer = setTimeout(() => { setRechecks(count => count + 1); readGroup(); }, 4000);
     return () => clearTimeout(timer);
   }, [group, rechecks, vnpResponseCode]);
+
+  // Staff/Manager decisions (e.g. a schedule-change request) happen elsewhere, so the open group is read again every
+  // GROUP_POLL_MS while the tab is visible, and right away when the tab becomes visible again.
+  const readGroupRef = useRef(readGroup);
+  readGroupRef.current = readGroup;
+  const polling = useRef(false);
+  const hasGroup = Boolean(group);
+  useEffect(() => {
+    if (!hasGroup) return undefined;
+    const poll = async () => {
+      if (document.visibilityState === 'hidden' || polling.current) return;
+      polling.current = true;
+      try { await readGroupRef.current(); } finally { polling.current = false; }
+    };
+    const timer = setInterval(poll, GROUP_POLL_MS);
+    document.addEventListener('visibilitychange', poll);
+    return () => { clearInterval(timer); document.removeEventListener('visibilitychange', poll); };
+  }, [hasGroup]);
 
   // The one proof the Guest typed, in the normalized form every call sends: { proof, error }.
   const guestProof = buildContactProof(proofType === 'email'

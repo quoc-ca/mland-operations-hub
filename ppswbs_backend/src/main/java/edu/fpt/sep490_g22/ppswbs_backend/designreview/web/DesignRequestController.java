@@ -8,8 +8,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/design-requests")
@@ -50,17 +55,31 @@ public class DesignRequestController {
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
     }
 
+    @GetMapping
+    public ResponseEntity<List<DesignAnalysisService.DesignRequestViewDto>> getMyDesignRequests(
+            Authentication authentication
+    ) {
+        String callerUid = SecurityIdentityExtractor.requireUid(authentication);
+        List<DesignAnalysisService.DesignRequestViewDto> list = designAnalysisService.getMyDesignRequests(callerUid);
+        return ResponseEntity.ok(list);
+    }
+
     @GetMapping("/{designRequestId}")
     public ResponseEntity<DesignAnalysisService.DesignRequestViewDto> getDesignRequest(
             @PathVariable("designRequestId") String designRequestId,
             Authentication authentication
     ) {
-        String callerUid = SecurityIdentityExtractor.requireUid(authentication);
+        String callerUid = (authentication != null && authentication.isAuthenticated())
+                ? SecurityIdentityExtractor.extractUid(authentication).orElse(null)
+                : null;
+        Collection<? extends GrantedAuthority> authorities = authentication != null
+                ? authentication.getAuthorities()
+                : Collections.emptyList();
 
         DesignAnalysisService.DesignRequestViewDto view = designAnalysisService.getDesignRequestById(
                 designRequestId,
                 callerUid,
-                authentication.getAuthorities()
+                authorities
         );
 
         return ResponseEntity.ok(view);

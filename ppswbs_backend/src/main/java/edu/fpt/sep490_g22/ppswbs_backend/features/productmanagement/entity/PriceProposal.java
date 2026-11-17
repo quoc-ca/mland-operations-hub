@@ -127,11 +127,10 @@ public class PriceProposal {
         return proposal;
     }
 
-    public void submit(String actorId, Instant at) {
-        submit(actorId, at, null);
-    }
-
-    /** {@code submitterBranchesJson}: FR-061 snapshot, null when not recorded (system actor). Never rewritten. */
+    /**
+     * {@code submitterBranchesJson}: FR-061 snapshot, null only for a system actor. Never rewritten. There is no
+     * overload without it (T178), so a new submission cannot leave the snapshot out by mistake.
+     */
     public void submit(String actorId, Instant at, String submitterBranchesJson) {
         requireEffective();
         requireState(ReviewState.DRAFT);

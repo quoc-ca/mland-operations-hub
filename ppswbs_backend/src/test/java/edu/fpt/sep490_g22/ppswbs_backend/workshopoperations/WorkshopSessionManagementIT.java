@@ -41,7 +41,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * <p>
  * Verifies against MySQL persistence:
  * 1. Location scope denial across Managers.
- * 2. Slot overlap rejection against both active and inactive slots in the location.
+ * 2. Slot overlap rejection against active slots only; inactive slots do not block (FR-001j).
  * 3. 90-day future limit on session creation and bulk generation.
  * 4. Bulk generation duplicate skip and report behavior without duplicate rows.
  * 5. Inherited schedule snapshot immutability (editing slot hours does not alter existing session snapshots).
@@ -125,7 +125,6 @@ public class WorkshopSessionManagementIT {
                 .label("Standard Morning Slot")
                 .startTime(LocalTime.of(9, 0))
                 .endTime(LocalTime.of(12, 0))
-                .defaultCapacity(25)
                 .active(true)
                 .build());
 
@@ -176,7 +175,6 @@ public class WorkshopSessionManagementIT {
                 .label("Unauthorized Slot")
                 .startsAtLocal(LocalTime.of(13, 0))
                 .endsAtLocal(LocalTime.of(16, 0))
-                .defaultCapacity(20)
                 .active(true)
                 .build();
 
@@ -189,18 +187,17 @@ public class WorkshopSessionManagementIT {
     }
 
     // =========================================================================
-    // 2. Slot Overlap Rejection Against Active AND Inactive Slots
+    // 2. Slot Overlap Rejection Against Active Slots Only
     // =========================================================================
 
     @Test
-    @DisplayName("Slot overlap is rejected (409) against active and inactive configured slots in the location")
-    void slotOverlapRejectedAgainstActiveAndInactiveSlots() throws Exception {
+    @DisplayName("Slot overlap is rejected (409) against active slots only; an inactive slot does not block")
+    void slotOverlapRejectedAgainstActiveSlotsOnly() throws Exception {
         // 1. Attempt overlapping slot with active slotMorning (09:00-12:00): requested 10:00-13:00
         SlotRequest overlapping = SlotRequest.builder()
                 .label("Overlapping Mid-Morning Slot")
                 .startsAtLocal(LocalTime.of(10, 0))
                 .endsAtLocal(LocalTime.of(13, 0))
-                .defaultCapacity(20)
                 .active(true)
                 .build();
 
@@ -216,12 +213,11 @@ public class WorkshopSessionManagementIT {
         slotMorning.setActive(false);
         slotRepository.save(slotMorning);
 
-        // 3. Attempt overlapping slot (11:00-14:00) with inactive slotMorning (09:00-12:00)
+        // 3. Overlapping slot (11:00-14:00) with inactive slotMorning (09:00-12:00) is allowed
         SlotRequest overlapInactive = SlotRequest.builder()
                 .label("Overlap Inactive Slot")
                 .startsAtLocal(LocalTime.of(11, 0))
                 .endsAtLocal(LocalTime.of(14, 0))
-                .defaultCapacity(20)
                 .active(true)
                 .build();
 
@@ -230,15 +226,13 @@ public class WorkshopSessionManagementIT {
                         .header("Authorization", MGR_A_TOKEN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(overlapInactive)))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("SLOT_OVERLAP_CONFLICT"));
+                .andExpect(status().isCreated());
 
-        // 4. Non-overlapping slot (13:00-16:00) succeeds
+        // 4. Slot adjacent to the new 11:00-14:00 slot (14:00-16:00) succeeds; it overlaps no active slot
         SlotRequest nonOverlapping = SlotRequest.builder()
                 .label("Afternoon Slot")
-                .startsAtLocal(LocalTime.of(13, 0))
+                .startsAtLocal(LocalTime.of(14, 0))
                 .endsAtLocal(LocalTime.of(16, 0))
-                .defaultCapacity(30)
                 .active(true)
                 .build();
 
@@ -313,6 +307,7 @@ public class WorkshopSessionManagementIT {
                 .from(from)
                 .to(to)
                 .weekdays(List.of(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY))
+                .capacity(10)
                 .initialState(SessionState.DRAFT)
                 .build();
 
@@ -378,7 +373,6 @@ public class WorkshopSessionManagementIT {
                 .label("Early Morning Slot")
                 .startsAtLocal(LocalTime.of(8, 30))
                 .endsAtLocal(LocalTime.of(11, 30))
-                .defaultCapacity(30)
                 .active(true)
                 .build();
 

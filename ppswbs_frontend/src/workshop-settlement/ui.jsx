@@ -34,6 +34,7 @@ const CODE_TEXT = {
   // Folio add-ons and charges at the counter (owner request 2026-11-17: say why, so anyone can act on it).
   OUTSTANDING_BALANCE: 'Chưa chốt được folio vì khách còn nợ (Balance due khác 0). Hãy thu đủ số còn nợ ở mục "Record a collection" (tiền mặt, VNPay hoặc chuyển khoản) cho tới khi Balance due bằng 0, rồi bấm Finalize folio lại.',
   COLLECTION_PENDING_VERIFICATION: 'Chưa chốt được folio vì còn khoản thu đang chờ xác minh (Pending verification). Hãy xác minh hoặc đánh dấu không thanh toán khoản đó trước, rồi chốt lại.',
+  PENDING_GATEWAY_PART_MUST_BE_RECONCILED: 'Chưa ghi nhận được khoản thu mới vì folio còn một khoản VNPay đang chờ xác minh (Pending verification). Manager cần đợi VNPay xác nhận hoặc bấm "Mark as failed" cho khoản đó trước, rồi mới thu tiếp bằng cách khác.',
   SESSION_NOT_STARTED: 'Chưa thêm được add-on hoặc khoản phụ vì ca của vé này chưa bắt đầu (đang ở trạng thái bán). Hãy vào chi tiết ca và chuyển ca sang IN PROGRESS (Manager hoặc Staff được gán vào ca làm được; ca tự bắt đầu khi tới giờ), rồi thêm lại.',
   FINAL_BILL_NOT_OPEN: 'Folio của vé này đã đóng (đã chốt), nên không thêm được add-on hay khoản phụ nữa.',
   TICKET_FOLIO_NOT_OPEN: 'Folio của vé này đã đóng (đã chốt), nên không thêm được add-on hay khoản phụ nữa.',

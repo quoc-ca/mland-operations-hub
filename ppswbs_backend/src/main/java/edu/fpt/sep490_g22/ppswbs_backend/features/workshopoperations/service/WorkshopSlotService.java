@@ -51,17 +51,9 @@ public class WorkshopSlotService {
         WorkshopLocation location = locationService.requireLocationEntityInScope(authHeader, locationId);
         validateSlotRequest(request);
 
-        List<WorkshopSlot> existingSlots = slotRepository.findByLocationId(location.getId());
-        for (WorkshopSlot existing : existingSlots) {
-            if (isOverlapping(request.getStartsAtLocal(), request.getEndsAtLocal(),
-                    existing.getStartTime(), existing.getEndTime())) {
-                log.warn("Slot overlap conflict: requested {}-{} overlaps with existing slot '{}' ({}-{}) in location {}",
-                        request.getStartsAtLocal(), request.getEndsAtLocal(),
-                        existing.getLabel(), existing.getStartTime(), existing.getEndTime(), location.getCode());
-                throw new WorkshopSlotConflictException("Slot interval " + request.getStartsAtLocal() + " - " +
-                        request.getEndsAtLocal() + " overlaps with configured slot '" + existing.getLabel() + "' (" +
-                        existing.getStartTime() + " - " + existing.getEndTime() + ")");
-            }
+        boolean willBeActive = request.getActive() != null ? request.getActive() : true;
+        if (willBeActive) {
+            requireNoActiveOverlap(location, null, request.getStartsAtLocal(), request.getEndsAtLocal());
         }
 
         WorkshopSlot slot = WorkshopSlot.builder()
@@ -70,7 +62,6 @@ public class WorkshopSlotService {
                 .label(request.getLabel().trim())
                 .startTime(request.getStartsAtLocal())
                 .endTime(request.getEndsAtLocal())
-                .defaultCapacity(request.getDefaultCapacity())
                 .active(request.getActive() != null ? request.getActive() : true)
                 .build();
 
@@ -98,31 +89,21 @@ public class WorkshopSlotService {
             slot.setLabel(request.getLabel().trim());
         }
 
-        if (request.getDefaultCapacity() != null) {
-            if (request.getDefaultCapacity() < 1) {
-                throw new WorkshopValidationException("Slot default capacity must be at least 1");
-            }
-            slot.setDefaultCapacity(request.getDefaultCapacity());
-        }
 
-        if (request.getActive() != null) {
-            slot.setActive(request.getActive());
+        boolean timesChanged = request.getStartsAtLocal() != null || request.getEndsAtLocal() != null;
+        LocalTime start = request.getStartsAtLocal() != null ? request.getStartsAtLocal() : slot.getStartTime();
+        LocalTime end = request.getEndsAtLocal() != null ? request.getEndsAtLocal() : slot.getEndTime();
+        if (timesChanged && !start.isBefore(end)) {
+            throw new WorkshopValidationException("Slot start time must be strictly before end time");
         }
-
-        if (request.getStartsAtLocal() != null || request.getEndsAtLocal() != null) {
-            LocalTime start = request.getStartsAtLocal() != null ? request.getStartsAtLocal() : slot.getStartTime();
-            LocalTime end = request.getEndsAtLocal() != null ? request.getEndsAtLocal() : slot.getEndTime();
-            if (!start.isBefore(end)) {
-                throw new WorkshopValidationException("Slot start time must be strictly before end time");
-            }
-            List<WorkshopSlot> existingSlots = slotRepository.findByLocationId(location.getId());
-            for (WorkshopSlot existing : existingSlots) {
-                if (!existing.getId().equals(slot.getId()) && isOverlapping(start, end, existing.getStartTime(), existing.getEndTime())) {
-                    throw new WorkshopSlotConflictException("Updated slot interval " + start + " - " + end +
-                            " overlaps with configured slot '" + existing.getLabel() + "' (" +
-                            existing.getStartTime() + " - " + existing.getEndTime() + ")");
-                }
-            }
+        boolean willBeActive = request.getActive() != null ? request.getActive() : priorActive;
+        boolean reactivated = willBeActive && !priorActive;
+        // Only ACTIVE slots hold their time: an inactive slot neither blocks others nor needs a check itself.
+        if (willBeActive && (timesChanged || reactivated)) {
+            requireNoActiveOverlap(location, slot.getId(), start, end);
+        }
+        slot.setActive(willBeActive);
+        if (timesChanged) {
             slot.setStartTime(start);
             slot.setEndTime(end);
         }
@@ -149,7 +130,6 @@ public class WorkshopSlotService {
         values.put("label", slot.getLabel());
         values.put("startsAtLocal", String.valueOf(slot.getStartTime()));
         values.put("endsAtLocal", String.valueOf(slot.getEndTime()));
-        values.put("defaultCapacity", slot.getDefaultCapacity());
         values.put("active", slot.isActive());
         return values;
     }
@@ -200,8 +180,19 @@ public class WorkshopSlotService {
         if (!request.isSameDayTimingValid()) {
             throw new WorkshopValidationException("Slot startsAtLocal must be strictly before endsAtLocal on the same day");
         }
-        if (request.getDefaultCapacity() == null || request.getDefaultCapacity() < 1) {
-            throw new WorkshopValidationException("Slot default capacity must be at least 1");
+    }
+
+    /** FR-001j: slots of one location must not overlap; only ACTIVE slots are compared (inactive ones hold no time). */
+    private void requireNoActiveOverlap(WorkshopLocation location, Long selfId, LocalTime start, LocalTime end) {
+        for (WorkshopSlot existing : slotRepository.findByLocationIdAndActiveTrue(location.getId())) {
+            if (!existing.getId().equals(selfId)
+                    && isOverlapping(start, end, existing.getStartTime(), existing.getEndTime())) {
+                log.warn("Slot overlap conflict: {}-{} overlaps active slot '{}' ({}-{}) in location {}",
+                        start, end, existing.getLabel(), existing.getStartTime(), existing.getEndTime(), location.getCode());
+                throw new WorkshopSlotConflictException("Slot interval " + start + " - " + end +
+                        " overlaps with active slot '" + existing.getLabel() + "' (" +
+                        existing.getStartTime() + " - " + existing.getEndTime() + ")");
+            }
         }
     }
 
@@ -217,7 +208,6 @@ public class WorkshopSlotService {
                 .label(slot.getLabel())
                 .startsAtLocal(slot.getStartTime())
                 .endsAtLocal(slot.getEndTime())
-                .defaultCapacity(slot.getDefaultCapacity())
                 .active(slot.isActive())
                 .build();
     }

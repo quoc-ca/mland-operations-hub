@@ -57,6 +57,30 @@ public class Review {
     @Column(name = "body_text", columnDefinition = "TEXT")
     private String bodyText;
 
+    @Column(name = "image_urls", columnDefinition = "TEXT")
+    private String imageUrls;
+
+    public java.util.List<String> getImageList() {
+        if (imageUrls == null || imageUrls.isBlank()) return java.util.List.of();
+        try {
+            return new com.fasterxml.jackson.databind.ObjectMapper().readValue(imageUrls, new com.fasterxml.jackson.core.type.TypeReference<java.util.List<String>>() {});
+        } catch (Exception e) {
+            return java.util.List.of();
+        }
+    }
+
+    public void setImageList(java.util.List<String> list) {
+        if (list == null || list.isEmpty()) {
+            this.imageUrls = null;
+            return;
+        }
+        try {
+            this.imageUrls = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(list);
+        } catch (Exception e) {
+            this.imageUrls = null;
+        }
+    }
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 16, nullable = false)
     private ReviewStatus status;

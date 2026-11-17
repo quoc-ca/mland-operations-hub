@@ -139,6 +139,14 @@ public final class TicketChangeDtos {
             @NotBlank @Size(min = 1, max = 1000) String reason
     ) {}
 
+    /** What the buyer sees of the latest change request of a ticket: its state and the Manager's reason, nothing else. */
+    public record ChangeRequestStatusDto(
+            String requestReference,
+            String status,
+            String decisionReason,
+            Instant decidedAt
+    ) { }
+
     public record ChangeRequestDto(
             String requestReference,
             String ticketCode,

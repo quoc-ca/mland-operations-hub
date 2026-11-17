@@ -90,9 +90,9 @@ class ManagerBookingLookupIT {
         locationB = locationRepository.save(WorkshopLocation.builder().code("LOC-LK-02").displayName("Lookup Hub B")
                 .addressSnapshot("2 Test St").active(true).build());
         slotA = slotRepository.save(WorkshopSlot.builder().reference(UUID.randomUUID().toString()).location(locationA)
-                .label("Morning").startTime(LocalTime.of(9, 0)).endTime(LocalTime.of(12, 0)).defaultCapacity(10).active(true).build());
+                .label("Morning").startTime(LocalTime.of(9, 0)).endTime(LocalTime.of(12, 0)).active(true).build());
         slotB = slotRepository.save(WorkshopSlot.builder().reference(UUID.randomUUID().toString()).location(locationB)
-                .label("Morning B").startTime(LocalTime.of(9, 0)).endTime(LocalTime.of(12, 0)).defaultCapacity(10).active(true).build());
+                .label("Morning B").startTime(LocalTime.of(9, 0)).endTime(LocalTime.of(12, 0)).active(true).build());
 
         account("mgr-a", 10L, ActorRole.MANAGER);
         account("staff-a", 101L, ActorRole.STAFF);

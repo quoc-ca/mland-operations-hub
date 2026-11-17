@@ -38,6 +38,9 @@ public class CreateReviewRequest {
     @Size(max = 2000, message = "bodyText cannot exceed 2000 characters")
     private String bodyText;
 
+    @Size(max = 3, message = "Tối đa 3 hình ảnh cho mỗi đánh giá")
+    private java.util.List<String> imageUrls;
+
     private String guestEligibilityHandle;
 
     /**

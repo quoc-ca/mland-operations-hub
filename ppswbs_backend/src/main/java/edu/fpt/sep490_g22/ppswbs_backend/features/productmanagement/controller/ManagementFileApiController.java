@@ -1,6 +1,5 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.controller;
 
-import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.ProductCategoryRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dto.CatalogueRequests;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dto.ProductImportDtos;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.CatalogueAuthorization;
@@ -9,7 +8,6 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.Cata
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.CatalogueException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.CatalogueMediaService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.PublicMediaService;
-import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.importing.ImportTemplateWriter;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service.importing.ProductImportService;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.CacheControl;
@@ -17,7 +15,6 @@ import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -55,18 +52,13 @@ class ManagementFileApiController {
     private final CatalogueMediaService media;
     private final PublicMediaService mediaPreview;
     private final ProductImportService imports;
-    private final ProductCategoryRepository categories;
-    private final TransactionTemplate transaction;
 
     ManagementFileApiController(CatalogueAuthorization authorization, CatalogueMediaService media,
-                                PublicMediaService mediaPreview, ProductImportService imports,
-                                ProductCategoryRepository categories, TransactionTemplate transaction) {
+                                PublicMediaService mediaPreview, ProductImportService imports) {
         this.authorization = authorization;
         this.media = media;
         this.mediaPreview = mediaPreview;
         this.imports = imports;
-        this.categories = categories;
-        this.transaction = transaction;
     }
 
     /** Preview of a product image for staff, draft or hidden products included; {@code no-store}, never the provider URL. */
@@ -92,10 +84,7 @@ class ManagementFileApiController {
     @GetMapping("/product-imports/template")
     ResponseEntity<byte[]> template(@RequestParam(required = false) List<String> locationIds) {
         authorization.require(Capability.PRODUCT_CREATE);
-        List<String> branchHeaders = imports.templateBranchHeaders(locationIds);
-        byte[] file = transaction.execute(status -> ImportTemplateWriter.write(
-                categories.findByActiveTrueOrderByNameAscIdAsc(), branchHeaders));
-        return attachment(file, "mau-import-san-pham.xlsx");
+        return attachment(imports.template(locationIds), "mau-import-san-pham.xlsx");
     }
 
     @PostMapping(path = "/product-imports", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
