@@ -1,6 +1,7 @@
 import React from 'react';
 import { useParams, useNavigate } from 'react-router';
 import { useWorkshopDesignOptions } from '../application/useWorkshopDesignOptions';
+import { getDifficultyMeta } from '../domain/designPreview';
 import { messages } from '../messages';
 import '../ring-design.css';
 
@@ -114,11 +115,14 @@ export default function RingModelSelectionPage() {
               <p style={{ fontSize: '0.85rem', color: '#64748b', lineHeight: 1.4, margin: '0 0 0.5rem' }}>
                 {model.description}
               </p>
-              {model.difficultyScore !== undefined && (
-                <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '0.5rem' }}>
-                  Độ khó ước tính: {model.difficultyScore} / 10
-                </div>
-              )}
+              {model.difficultyScore !== undefined && (() => {
+                const diff = getDifficultyMeta(model.difficultyScore);
+                return (
+                  <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '0.5rem' }}>
+                    Độ khó ước tính: <strong>{diff.score} / 10</strong> ({diff.label})
+                  </div>
+                );
+              })()}
             </div>
             <button
               type="button"

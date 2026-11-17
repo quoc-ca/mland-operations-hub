@@ -262,3 +262,63 @@ export function derivePreviewModel(draft) {
   };
 }
 
+/**
+ * Classifies crafting difficulty score (1-10) formatted to 1 decimal place with notes & recommendations.
+ * - 1.0 to 3.0: Dễ
+ * - > 3.0 to 6.0: Trung bình
+ * - > 6.0 to 9.0: Khó
+ * - > 9.0: Rất khó (Khuyến cáo người dùng đổi lại mẫu thiết kế)
+ */
+export function getDifficultyMeta(rawScore) {
+  const num = typeof rawScore === 'number' ? rawScore : parseFloat(rawScore);
+  const score = isNaN(num) || num <= 0 ? 1.0 : num;
+  const formattedScore = score.toFixed(1);
+
+  if (score <= 3.0) {
+    return {
+      score: formattedScore,
+      level: 'EASY',
+      label: 'Dễ',
+      note: 'Dễ',
+      badgeColor: '#166534',
+      badgeBg: '#dcfce7',
+      isVeryHard: false,
+      advice: null,
+    };
+  } else if (score <= 6.0) {
+    return {
+      score: formattedScore,
+      level: 'MEDIUM',
+      label: 'Trung bình',
+      note: 'Trung bình',
+      badgeColor: '#854d0e',
+      badgeBg: '#fef3c7',
+      isVeryHard: false,
+      advice: null,
+    };
+  } else if (score <= 9.0) {
+    return {
+      score: formattedScore,
+      level: 'HARD',
+      label: 'Khó',
+      note: 'Khó',
+      badgeColor: '#c2410c',
+      badgeBg: '#ffedd5',
+      isVeryHard: false,
+      advice: null,
+    };
+  } else {
+    return {
+      score: formattedScore,
+      level: 'VERY_HARD',
+      label: 'Rất khó',
+      note: 'Rất khó (Khuyến cáo người dùng đổi lại mẫu thiết kế)',
+      badgeColor: '#b91c1c',
+      badgeBg: '#fee2e2',
+      isVeryHard: true,
+      advice: 'Độ khó rất cao (> 9.0). Khuyến cáo người dùng đổi lại mẫu thiết kế để đảm bảo trải nghiệm hoàn thiện tốt nhất tại workshop.',
+    };
+  }
+}
+
+

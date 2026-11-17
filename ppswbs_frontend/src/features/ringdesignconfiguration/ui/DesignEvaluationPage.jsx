@@ -4,7 +4,7 @@ import { useWorkshopRingDesignApi } from '../api/useWorkshopRingDesignApi';
 import { useWorkshopDesignCommand } from '../application/useWorkshopDesignCommand';
 import { useAuth } from '../../../shared/auth/AuthProvider';
 import RingPreview from './RingPreview';
-import { derivePreviewModel } from '../domain/designPreview';
+import { derivePreviewModel, getDifficultyMeta } from '../domain/designPreview';
 import { getErrorMessage } from '../domain/designErrors';
 import { messages } from '../messages';
 import '../ring-design.css';
@@ -172,17 +172,66 @@ export default function DesignEvaluationPage() {
                 </div>
               </div>
 
-              <div style={{ background: '#f8fafc', padding: '1.25rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                <div style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '0.35rem' }}>
-                  {t.difficultyLabel}
-                </div>
-                <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a' }}>
-                  {evalData.difficultyScore ? `${evalData.difficultyScore} / 10` : '1.0 / 10'}
-                </div>
-                <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.25rem' }}>
-                  Quy tắc: {evalData.rulesVersion || 'v1.0'}
-                </div>
-              </div>
+              {(() => {
+                const diffMeta = getDifficultyMeta(evalData.difficultyScore);
+                return (
+                  <div
+                    style={{ background: '#f8fafc', padding: '1.25rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}
+                    data-testid="evaluation-difficulty-card"
+                  >
+                    <div style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '0.35rem' }}>
+                      {t.difficultyLabel}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
+                      <span style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a' }}>
+                        {diffMeta.score} / 10
+                      </span>
+                      <span
+                        style={{
+                          fontSize: '0.8rem',
+                          fontWeight: 600,
+                          color: diffMeta.badgeColor,
+                          backgroundColor: diffMeta.badgeBg,
+                          padding: '0.15rem 0.5rem',
+                          borderRadius: '4px',
+                        }}
+                        data-testid="difficulty-badge"
+                      >
+                        {diffMeta.label}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: '#475569', marginTop: '0.35rem', lineHeight: 1.4 }} data-testid="difficulty-note">
+                      {diffMeta.isVeryHard ? (
+                        <span style={{ color: '#b91c1c', fontWeight: 600 }}>
+                          ⚠️ Ghi chú: {diffMeta.note}
+                        </span>
+                      ) : (
+                        <span>Ghi chú: {diffMeta.note}</span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '0.25rem' }}>
+                      Thang đo: 1-3: Dễ · &gt;3-6: Trung bình · &gt;6-9: Khó · &gt;9: Rất khó
+                    </div>
+                    {diffMeta.isVeryHard && (
+                      <div
+                        style={{
+                          marginTop: '0.6rem',
+                          padding: '0.5rem 0.75rem',
+                          background: '#fef2f2',
+                          border: '1px solid #fecaca',
+                          borderRadius: '6px',
+                          color: '#991b1b',
+                          fontSize: '0.75rem',
+                          lineHeight: 1.4,
+                        }}
+                        data-testid="difficulty-very-hard-warning"
+                      >
+                        💡 <strong>Khuyến cáo:</strong> {diffMeta.advice}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           </div>
 

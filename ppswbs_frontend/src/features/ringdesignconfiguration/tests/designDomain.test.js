@@ -6,6 +6,7 @@ import {
 } from '../domain/designDraft';
 import {
   derivePreviewModel,
+  getDifficultyMeta,
   MATERIAL_PALETTES,
   SHAPE_STROKES,
 } from '../domain/designPreview';
@@ -215,4 +216,60 @@ describe('Design Error Formatting', () => {
     expect(getErrorMessage(null, 'Mặc định')).toBe('Mặc định');
   });
 });
+
+describe('Difficulty Score Classification & Meta', () => {
+  it('formats score to 1 decimal place and classifies 1-3 as Easy (Dễ)', () => {
+    const meta1 = getDifficultyMeta(1);
+    expect(meta1.score).toBe('1.0');
+    expect(meta1.label).toBe('Dễ');
+    expect(meta1.note).toBe('Dễ');
+    expect(meta1.isVeryHard).toBe(false);
+    expect(meta1.advice).toBeNull();
+
+    const meta2 = getDifficultyMeta('2.456');
+    expect(meta2.score).toBe('2.5');
+    expect(meta2.label).toBe('Dễ');
+
+    const meta3 = getDifficultyMeta(3.0);
+    expect(meta3.score).toBe('3.0');
+    expect(meta3.label).toBe('Dễ');
+  });
+
+  it('classifies > 3 to 6 as Medium (Trung bình)', () => {
+    const meta1 = getDifficultyMeta(3.1);
+    expect(meta1.score).toBe('3.1');
+    expect(meta1.label).toBe('Trung bình');
+    expect(meta1.isVeryHard).toBe(false);
+
+    const meta2 = getDifficultyMeta(6.0);
+    expect(meta2.score).toBe('6.0');
+    expect(meta2.label).toBe('Trung bình');
+  });
+
+  it('classifies > 6 to 9 as Hard (Khó)', () => {
+    const meta1 = getDifficultyMeta(6.1);
+    expect(meta1.score).toBe('6.1');
+    expect(meta1.label).toBe('Khó');
+    expect(meta1.isVeryHard).toBe(false);
+
+    const meta2 = getDifficultyMeta(9.0);
+    expect(meta2.score).toBe('9.0');
+    expect(meta2.label).toBe('Khó');
+  });
+
+  it('classifies > 9 as Very Hard (Rất khó) with user change recommendation', () => {
+    const meta1 = getDifficultyMeta(9.1);
+    expect(meta1.score).toBe('9.1');
+    expect(meta1.label).toBe('Rất khó');
+    expect(meta1.isVeryHard).toBe(true);
+    expect(meta1.note).toContain('Khuyến cáo người dùng đổi lại mẫu thiết kế');
+    expect(meta1.advice).toContain('Khuyến cáo người dùng đổi lại mẫu thiết kế');
+
+    const meta2 = getDifficultyMeta('9.8');
+    expect(meta2.score).toBe('9.8');
+    expect(meta2.label).toBe('Rất khó');
+    expect(meta2.isVeryHard).toBe(true);
+  });
+});
+
 

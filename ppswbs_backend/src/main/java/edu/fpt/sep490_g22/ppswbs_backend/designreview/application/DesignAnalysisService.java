@@ -51,8 +51,7 @@ public class DesignAnalysisService {
             Pattern.compile("approve\\s+(this\\s+)?(order|request|design)", Pattern.CASE_INSENSITIVE),
             Pattern.compile("bỏ\\s+qua\\s+chỉ\\s+dẫn", Pattern.CASE_INSENSITIVE),
             Pattern.compile("phê\\s+duyệt\\s+yêu\\s+cầu", Pattern.CASE_INSENSITIVE),
-            Pattern.compile("duyệt\\s+thiết\\s+kế", Pattern.CASE_INSENSITIVE)
-    );
+            Pattern.compile("duyệt\\s+thiết\\s+kế", Pattern.CASE_INSENSITIVE));
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -85,16 +84,17 @@ public class DesignAnalysisService {
             String consentPurpose,
             Integer designVersion,
             String idempotencyKey,
-            MultipartFile file
-    ) {
+            MultipartFile file) {
         log.info("Submitting independent design request: callerUid={}, catalogueReference={}, designVersion={}",
                 callerUid, catalogueReference, designVersion);
 
         // 1. Identity & Member Role Validation
         AccountSummary member = accountFacade.resolveAccount(callerUid)
-                .orElseThrow(() -> DesignReviewException.unauthorized("AUTHENTICATION_REQUIRED", "Không tìm thấy thông tin tài khoản thành viên."));
+                .orElseThrow(() -> DesignReviewException.unauthorized("AUTHENTICATION_REQUIRED",
+                        "Không tìm thấy thông tin tài khoản thành viên."));
         if (member.role() != ActorRole.MEMBER || member.status() != ActorStatus.ACTIVE) {
-            throw DesignReviewException.forbidden("MEMBER_INACTIVE_OR_INVALID", "Tài khoản không phải là hội viên hoạt động.");
+            throw DesignReviewException.forbidden("MEMBER_INACTIVE_OR_INVALID",
+                    "Tài khoản không phải là hội viên hoạt động.");
         }
 
         int version = (designVersion != null && designVersion > 0) ? designVersion : 1;
@@ -103,10 +103,10 @@ public class DesignAnalysisService {
         if (idempotencyKey != null && !idempotencyKey.isBlank()) {
             Optional<DesignRequest> existing = requestRepository
                     .findByOwnerAccountIdAndRequestVersionAndIdempotencyKey(
-                            member.accountId(), version, idempotencyKey
-                    );
+                            member.accountId(), version, idempotencyKey);
             if (existing.isPresent()) {
-                log.info("Duplicate idempotency key detected: returning existing design request {}", existing.get().getId());
+                log.info("Duplicate idempotency key detected: returning existing design request {}",
+                        existing.get().getId());
                 return mapToViewDto(existing.get());
             }
         } else {
@@ -118,25 +118,29 @@ public class DesignAnalysisService {
         boolean hasImage = (file != null && !file.isEmpty());
 
         if (!hasDescription && !hasImage) {
-            throw DesignReviewException.badRequest("AI_INPUT_INVALID", "Yêu cầu phải có mô tả thiết kế hoặc tệp hình ảnh đính kèm.");
+            throw DesignReviewException.badRequest("AI_INPUT_INVALID",
+                    "Yêu cầu phải có mô tả thiết kế hoặc tệp hình ảnh đính kèm.");
         }
 
         String sanitizedDescription = null;
         if (hasDescription) {
             sanitizedDescription = description.trim();
             if (sanitizedDescription.length() > MAX_DESCRIPTION_LENGTH) {
-                throw DesignReviewException.badRequest("AI_INPUT_INVALID", "Mô tả thiết kế không được vượt quá 4.000 ký tự.");
+                throw DesignReviewException.badRequest("AI_INPUT_INVALID",
+                        "Mô tả thiết kế không được vượt quá 4.000 ký tự.");
             }
             for (Pattern p : PROMPT_INJECTION_PATTERNS) {
                 if (p.matcher(sanitizedDescription).find()) {
                     log.warn("Prompt injection attempt detected in design description: callerUid={}", callerUid);
-                    throw DesignReviewException.unprocessable("AI_PROMPT_INJECTION_DETECTED", "Nội dung mô tả vi phạm chính sách an toàn của hệ thống.");
+                    throw DesignReviewException.unprocessable("AI_PROMPT_INJECTION_DETECTED",
+                            "Nội dung mô tả vi phạm chính sách an toàn của hệ thống.");
                 }
             }
         }
 
         String sanitizedCatalogueRef = (catalogueReference != null && !catalogueReference.isBlank())
-                ? catalogueReference.trim() : null;
+                ? catalogueReference.trim()
+                : null;
 
         String requestId = UUID.randomUUID().toString();
         String requestRef = "DR-" + requestId.substring(0, 8).toUpperCase();
@@ -149,7 +153,8 @@ public class DesignAnalysisService {
         if (hasImage) {
             // Consent Validation
             if (consentVersion == null || consentVersion.isBlank()) {
-                throw DesignReviewException.unprocessable("CONSENT_REQUIRED", "Bạn cần đồng ý với điều khoản phân tích hình ảnh của dịch vụ.");
+                throw DesignReviewException.unprocessable("CONSENT_REQUIRED",
+                        "Bạn cần đồng ý với điều khoản phân tích hình ảnh của dịch vụ.");
             }
 
             // Atomic Rate Limiting (3 attempts per rolling 5 minutes)
@@ -158,17 +163,18 @@ public class DesignAnalysisService {
                 throw DesignReviewException.rateLimited(
                         "IMAGE_RATE_LIMITED",
                         "Bạn đã gửi quá 3 lượt phân tích ảnh trong vòng 5 phút. Vui lòng chờ để thử lại.",
-                        rateCheck.retryAfterSeconds()
-                );
+                        rateCheck.retryAfterSeconds());
             }
 
             if (file.getSize() > MAX_FILE_SIZE) {
-                throw DesignReviewException.unprocessable("IMAGE_TOO_LARGE", "Kích thước hình ảnh vượt quá giới hạn 10 MB.");
+                throw DesignReviewException.unprocessable("IMAGE_TOO_LARGE",
+                        "Kích thước hình ảnh vượt quá giới hạn 10 MB.");
             }
 
             contentType = file.getContentType();
             if (contentType == null || !ALLOWED_MIME_TYPES.contains(contentType.toLowerCase())) {
-                throw DesignReviewException.unprocessable("IMAGE_INVALID", "Định dạng hình ảnh không hợp lệ. Chỉ chấp nhận JPEG, PNG hoặc WEBP.");
+                throw DesignReviewException.unprocessable("IMAGE_INVALID",
+                        "Định dạng hình ảnh không hợp lệ. Chỉ chấp nhận JPEG, PNG hoặc WEBP.");
             }
 
             try {
@@ -176,11 +182,13 @@ public class DesignAnalysisService {
                 BufferedImage bufferedImage = ImageIO.read(new ByteArrayInputStream(imageBytes));
                 if (bufferedImage != null) {
                     if (bufferedImage.getWidth() > MAX_DIMENSION || bufferedImage.getHeight() > MAX_DIMENSION) {
-                        throw DesignReviewException.unprocessable("IMAGE_INVALID", "Độ phân giải ảnh vượt quá kích thước cho phép (tối đa 4096×4096).");
+                        throw DesignReviewException.unprocessable("IMAGE_INVALID",
+                                "Độ phân giải ảnh vượt quá kích thước cho phép (tối đa 4096×4096).");
                     }
                 }
             } catch (IOException e) {
-                throw DesignReviewException.unprocessable("IMAGE_INVALID", "Tệp hình ảnh bị lỗi hoặc không thể đọc được.");
+                throw DesignReviewException.unprocessable("IMAGE_INVALID",
+                        "Tệp hình ảnh bị lỗi hoặc không thể đọc được.");
             }
 
             originalFilename = file.getOriginalFilename() != null ? file.getOriginalFilename() : "design.jpg";
@@ -234,8 +242,7 @@ public class DesignAnalysisService {
             ImageFeatureAnalysisPort.FeatureAnalysisResult analysisResult;
             try {
                 analysisResult = featureAnalysisPort.analyzeRingImage(
-                        imageBytes, contentType, sanitizedCatalogueRef, requestId
-                );
+                        imageBytes, contentType, sanitizedCatalogueRef, requestId);
             } finally {
                 // Immediate deletion of temporary image on both success and failure
                 storagePort.deleteTemporary(storageKey);
@@ -262,7 +269,8 @@ public class DesignAnalysisService {
                 analysisResultRepository.save(resultEntity);
             } else {
                 designRequest.setAnalysisStatus(AnalysisStatus.FAILED);
-                designRequest.setSafeFailureCode(analysisResult.failureCode() != null ? analysisResult.failureCode() : "AI_RESPONSE_INVALID");
+                designRequest.setSafeFailureCode(
+                        analysisResult.failureCode() != null ? analysisResult.failureCode() : "AI_RESPONSE_INVALID");
                 designRequest.setNextAction("SAFE_RETRY_AVAILABLE");
                 requestRepository.save(designRequest);
             }
@@ -301,16 +309,19 @@ public class DesignAnalysisService {
     @Transactional(readOnly = true)
     public List<DesignRequestViewDto> getMyDesignRequests(String callerUid) {
         AccountSummary member = accountFacade.resolveAccount(callerUid)
-                .orElseThrow(() -> DesignReviewException.unauthorized("AUTHENTICATION_REQUIRED", "Không tìm thấy thông tin tài khoản thành viên."));
+                .orElseThrow(() -> DesignReviewException.unauthorized("AUTHENTICATION_REQUIRED",
+                        "Không tìm thấy thông tin tài khoản thành viên."));
         List<DesignRequest> requests = requestRepository.findByOwnerAccountIdOrderByCreatedAtDesc(member.accountId());
         return requests.stream().map(this::mapToViewDto).toList();
     }
 
     @Transactional(readOnly = true)
-    public DesignRequestViewDto getDesignRequestById(String id, String callerUid, Collection<? extends GrantedAuthority> authorities) {
+    public DesignRequestViewDto getDesignRequestById(String id, String callerUid,
+            Collection<? extends GrantedAuthority> authorities) {
         DesignRequest request = requestRepository.findById(id)
                 .or(() -> requestRepository.findByRequestReference(id))
-                .orElseThrow(() -> DesignReviewException.notFound("NOT_FOUND", "Không tìm thấy yêu cầu thiết kế với mã đã cung cấp."));
+                .orElseThrow(() -> DesignReviewException.notFound("NOT_FOUND",
+                        "Không tìm thấy yêu cầu thiết kế với mã đã cung cấp."));
 
         // Staff / Manager / Admin
         if (authorities != null && DesignReviewPermissions.canViewDesignRequest(authorities)) {
@@ -324,7 +335,8 @@ public class DesignAnalysisService {
                 if (member.accountId().equals(request.getOwnerAccountId())) {
                     return mapToViewDto(request);
                 } else {
-                    throw DesignReviewException.notFound("NOT_FOUND", "Không tìm thấy yêu cầu thiết kế với mã đã cung cấp.");
+                    throw DesignReviewException.notFound("NOT_FOUND",
+                            "Không tìm thấy yêu cầu thiết kế với mã đã cung cấp.");
                 }
             }
         }
@@ -346,13 +358,16 @@ public class DesignAnalysisService {
             explanation = res.getSafeExplanation();
             try {
                 if (res.getCandidateFeaturesJson() != null) {
-                    candidateFeatures = objectMapper.readValue(res.getCandidateFeaturesJson(), new TypeReference<>() {});
+                    candidateFeatures = objectMapper.readValue(res.getCandidateFeaturesJson(), new TypeReference<>() {
+                    });
                 }
                 if (res.getImageQualityJson() != null) {
-                    imageQuality = objectMapper.readValue(res.getImageQualityJson(), new TypeReference<>() {});
+                    imageQuality = objectMapper.readValue(res.getImageQualityJson(), new TypeReference<>() {
+                    });
                 }
                 if (res.getConfidenceJson() != null) {
-                    confidence = objectMapper.readValue(res.getConfidenceJson(), new TypeReference<>() {});
+                    confidence = objectMapper.readValue(res.getConfidenceJson(), new TypeReference<>() {
+                    });
                 }
             } catch (Exception e) {
                 log.warn("Failed to parse json projections: {}", e.getMessage());
@@ -362,10 +377,14 @@ public class DesignAnalysisService {
         Map<String, Object> safeResult = null;
         if (candidateFeatures != null || imageQuality != null || confidence != null || explanation != null) {
             safeResult = new LinkedHashMap<>();
-            if (candidateFeatures != null) safeResult.put("candidateFeatures", candidateFeatures);
-            if (imageQuality != null) safeResult.put("imageQuality", imageQuality);
-            if (confidence != null) safeResult.put("confidence", confidence);
-            if (explanation != null) safeResult.put("safeExplanation", explanation);
+            if (candidateFeatures != null)
+                safeResult.put("candidateFeatures", candidateFeatures);
+            if (imageQuality != null)
+                safeResult.put("imageQuality", imageQuality);
+            if (confidence != null)
+                safeResult.put("confidence", confidence);
+            if (explanation != null)
+                safeResult.put("safeExplanation", explanation);
         }
 
         return DesignRequestViewDto.builder()

@@ -12,11 +12,6 @@ export default defineConfig({
         target: 'http://localhost:8080',
         changeOrigin: true,
       },
-    },
-    headers: {
-      'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
-    },
-    proxy: {
       '/__/auth': {
         target: 'https://mland-operation-hub.firebaseapp.com',
         changeOrigin: true,
@@ -25,6 +20,9 @@ export default defineConfig({
         target: 'https://mland-operation-hub.firebaseapp.com',
         changeOrigin: true,
       },
+    },
+    headers: {
+      'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
     },
     watch: {
       usePolling: process.env.USE_POLLING === 'true',
