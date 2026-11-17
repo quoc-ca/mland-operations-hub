@@ -123,6 +123,45 @@ Accessibility and browsers for these rows follow SC-015 (T138, extended by T164)
 
 **QA list verified by T138 (extended by T164, 2026-11-16):** every row of the table above, that is: ticket folio (including the Reverse cash entry dialog, the absorbed-undercharge record and void dialogs, and the booking-time allocation label), cash close (including the cut-off note in both states), refund queue (counter account review step, Return to account entry dialog, optional receipt image upload and view, record transfer with the bank reference only), refund account page (review step and its 404/410/422 states), ticket cancellation/change and the EXPIRED voucher notice, change requests, Mland remedy, customer folio, settlement case list, reconciliation list (`/settlement/reconciliation`, including the 503 and multi-branch warning states) and absorbed undercharges (`/settlement/absorbed-undercharges`). Each is checked against WCAG 2.2 AA on the two latest major desktop Chrome, Edge and Firefox.
 
+### Changes across locations (FR-058–FR-063; rows for T189) — APPROVED 2026-11-17 by Hồ Hoàng Quốc (in session, as proposed)
+
+**Status: APPROVED 2026-11-17 by Hồ Hoàng Quốc in the implementation session, "as proposed" (all three open questions at their defaults; no Figma).** Written from spec FR-058–FR-063 and the contract
+(`ChangeOption.locationName`, `SessionSeats.locationName`, Mland `offeredSessions[].locationName`,
+`previous-location-add-ons`); not shown in Figma (no node IDs). Approval is the owner's direct answer in the session; it covers
+the rows and the proposed copy below. `approval.md` is not edited here.
+Existing screens, routes and the existing picker behaviour stay as in the rows above; only what is listed changes.
+
+**Row format (FR-063).** Every offered session shows, in this order and separated by " – " / " · ", the location name,
+date and time, seats left and changes left, for example `Mland Hà Nội – Hoàn Kiếm – 09:00 20/11 – còn 3 chỗ – còn 2 lượt đổi`.
+A pair row shows the location name once per session with its own numbers (`<Chi nhánh A> 09:00 20/11 (còn 3 chỗ, còn 2 lượt đổi) → <Chi nhánh B> 14:00 20/11 (còn 5 chỗ, còn 1 lượt đổi)`).
+A session with no free seat or no quota is not returned by the server, so the UI never invents a row for it. No sorting or
+filtering by location in the client. If `locationName` is null the row shows `Chi nhánh <locationReference>` (never an empty
+name); the Staff/Manager pages are English (existing convention), the customer pages Vietnamese.
+
+| Screen (route) | Actor | Change (T189) | Loading | Empty | Failure and recovery | Task |
+| --- | --- | --- | --- | --- | --- | --- |
+| Customer ticket card, "Đổi lịch" picker (`GroupTicketList` → `TicketSessionPicker`) | Buyer (Member bearer; Guest with contact then OTP) | Each option and each pair member shows the location name per the row format; options of several locations are mixed in one list as the server returns them. No "needs a Manager" note appears because of a location (FR-059); the existing note stays for the three Manager rules only. | Existing "Đang tải các buổi có thể đổi…" | Existing "Hiện chưa có buổi nào thay thế được buổi này." (now meaning no location has a free session) | `409 PACKAGE_NOT_AVAILABLE_AT_LOCATION` → message below; the picker is reloaded, the choice cleared, the ticket unchanged and no change is consumed. `409 LATE_ARRIVAL_WINDOW_EXPIRED` → message below; the form stays open with the type "Tôi đến muộn hoặc đã lỡ buổi" and the user may close it; the request is not queued. | T189 |
+| Staff ticket actions, tab `change` (`/settlement/ticket-actions?tab=change`, `TicketActionsPage` → `TicketSessionPicker`) | Staff in scope and assigned; Manager | Same row format (English labels: `<location> – <date time> – N seats left – M changes left`). The "added to the change" list also shows the target location name. After a successful cross-location move the page says the ticket now belongs to the new location and the Staff of the old location can no longer open it (FR-060). | Existing spinner text | Existing "No other session can replace this one right now." | Same two codes, shown by the existing `ProblemNotice` with the English text below and the correlation ID; `SESSION_ASSIGNMENT_REQUIRED` stays as today. A group change is all-or-none: `failingTicketCodes` listed as today. | T189 |
+| Mland remedy (`/workshop-tickets/:ticketCode/remedy`, `MlandRemedyPage`) | Buyer | Each offered session line shows `<location name> – <date time>` (the offer's `locationName`; for an offer saved before 2026-11-17 `locationName` is null and the line shows the time only, as today). The confirm dialog names the chosen location. No Manager, no change count. | Existing spinner | Existing "no offer" notice; an empty offered list shows only the refund choice | `REPLACEMENT_SESSION_UNAVAILABLE` text widened to cover a session whose location was switched off (below); `LATE_ARRIVAL_WINDOW_EXPIRED` never occurs (Mland exempt, FR-062). | T189 |
+| Manager change-request queue (`/settlement/change-requests`, `ChangeRequestsPage`) | Manager; Staff view | **Proposed: no new column.** The `ChangeRequest` contract carries no location, so the queue cannot show one without a backend field. Approval that fails with `PACKAGE_NOT_AVAILABLE_AT_LOCATION` shows the message below, the request stays `PENDING` (unapplied, no allowance used) and the Manager may reject it. `LATE_ARRIVAL_WINDOW_EXPIRED` is not expected here (such a request is never queued). | Existing | Existing | Message below; "Load latest" re-reads the queue. | T189 |
+| Add-ons sold at the old location (Manager panel on the ticket folio, `/settlement`, `GET /workshop-tickets/{ticketCode}/folio/previous-location-add-ons`) | Manager only; not requested for Staff or Member | A read-only block "Add-ons sold at the previous location" shown **only when the list is non-empty** (almost always empty): one line per charge with description, amount and both location references. The contract returns location **ids only** (`addOnLocationReference`, `ticketLocationReference`), no names, so the lines read `Sold at location <id> · ticket now at location <id>`. No action buttons (nothing about the add-ons changes, decided Q3/Q4). | "Loading add-ons from the previous location…" (not blocking the folio) | Block not rendered | `403` for a non-Manager: block not rendered, no error shown; `404`/other: small inline notice with a "Try again" button; the folio itself is unaffected. | T189 (after T187) |
+
+**Copy (proposed).**
+
+| Code | Customer (vi) | Staff / Manager (en) |
+| --- | --- | --- |
+| `PACKAGE_NOT_AVAILABLE_AT_LOCATION` | "Gói này hiện không còn bán tại chi nhánh bạn chọn. Vé của bạn chưa bị thay đổi và chưa mất lượt đổi. Hãy chọn buổi ở chi nhánh khác." | "This package is no longer sold at the chosen location. Nothing was changed and no change was used. Choose a session at another location (for a queued request, reject it)." |
+| `LATE_ARRIVAL_WINDOW_EXPIRED` | "Đã quá thời hạn đổi lịch: bạn chỉ có thể đổi đến hết ngày thứ 7 sau ngày buổi học kết thúc (theo ngày ở Việt Nam). Vé của bạn chưa bị thay đổi." | "The change window has closed: a change must land by the end of the 7th calendar day after the replaced session ends (Vietnam date). It cannot be queued or lifted by a Manager." |
+| `REPLACEMENT_SESSION_UNAVAILABLE` (Mland, widened) | "Buổi này không còn chỗ hoặc không còn mở bán tại chi nhánh đó. Hãy chọn buổi khác hoặc nhận hoàn tiền." | (customer page only) |
+
+**Accessibility and states.** Location name is part of the option text (a native `<option>` has text only, so no icon or
+colour carries it); the two error messages use the existing `role="alert"`. WCAG 2.2 AA and browsers per SC-015 (T138);
+T138's QA list gains these five rows.
+
+**Open questions for the approver** (each has the default above if not answered):
+(1) change-request queue without a location column (default) or a backend field first; (2) add-on block with location
+ids (default) or a backend field with names first; (3) customer wording of the two messages above.
+
 ## Session, data handling, and accessibility
 
 - Customer views must expose only their own booking/bill/case data.

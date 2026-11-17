@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mockup trang Audit workshop (US7, DRAFT 2026-11-17)</title>
+<style>
+:root{--navy:#002967;--ink:#111827;--mut:#6b7280;--line:#e5e7eb;--bg:#f3f4f6;--ok:#166534;--okbg:#dcfce7;--bad:#991b1b;--badbg:#fee2e2;--warn:#92400e;--warnbg:#fef3c7;--info:#1e40af;--infobg:#dbeafe}
+*{box-sizing:border-box}body{margin:0;font:14px/1.45 system-ui,Segoe UI,sans-serif;color:var(--ink);background:#e5e7eb}
+h1{font-size:18px;margin:16px}h1 small{font-weight:400;color:var(--mut)}
+.frame{margin:0 16px 28px}.cap{font-weight:600;margin:0 0 6px}.cap span{color:var(--mut);font-weight:400}
+.screen{background:#fff;border:1px solid var(--line);border-radius:8px;overflow:hidden;display:flex;max-width:1440px}
+.side{width:220px;background:var(--navy);color:#fff;padding:16px 0;flex:none}.side b{display:block;padding:4px 16px;font-size:11px;opacity:.7;letter-spacing:.05em}
+.side a{display:block;padding:8px 16px;color:#fff;opacity:.85}.side a.on{background:rgba(255,255,255,.15);opacity:1;font-weight:600}
+.main{flex:1;padding:20px 24px;min-width:0}.main h2{margin:0 0 4px;font-size:20px;color:var(--navy)}.sub{color:var(--mut);margin:0 0 14px}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:14px}.tabs button{border:0;background:none;padding:8px 14px;font:inherit;cursor:pointer;border-bottom:3px solid transparent;color:var(--mut)}
+.tabs button.on{color:var(--navy);border-color:var(--navy);font-weight:600}
+.filters{display:grid;grid-template-columns:repeat(6,1fr) auto;gap:8px;align-items:end;margin-bottom:12px}
+.filters.s{grid-template-columns:repeat(5,1fr) auto}
+label{display:block;font-size:12px;color:var(--mut);margin-bottom:2px}
+.f{width:100%;border:1px solid #d1d5db;border-radius:6px;padding:7px 8px;background:#fff;font:inherit;color:var(--ink);min-height:36px}
+.btn{border:1px solid var(--navy);background:var(--navy);color:#fff;border-radius:6px;padding:8px 14px;font:inherit;cursor:pointer;min-height:36px}.btn.o{background:#fff;color:var(--navy)}
+.note{font-size:12px;color:var(--mut);margin:0 0 8px}
+table{width:100%;border-collapse:collapse}th{text-align:left;font-size:12px;color:var(--mut);padding:8px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:top}tr.x td{background:#f9fafb}
+.mono{font-family:ui-monospace,Consolas,monospace;font-size:12px}
+.pill{display:inline-block;border-radius:999px;padding:1px 9px;font-size:12px;font-weight:600}
+.SUCCESS{background:var(--okbg);color:var(--ok)}.DENIED{background:var(--badbg);color:var(--bad)}.FAILURE{background:var(--warnbg);color:var(--warn)}.SENT{background:var(--infobg);color:var(--info)}
+.meta{display:grid;grid-template-columns:max-content 1fr;gap:2px 14px;font-size:13px}.meta dt{color:var(--mut)}.meta dd{margin:0}
+.more{text-align:center;padding:14px}
+.state{padding:48px 16px;text-align:center;color:var(--mut)}.state b{display:block;color:var(--ink);font-size:16px;margin-bottom:4px}
+.err{border:1px solid #fca5a5;background:var(--badbg);color:var(--bad);border-radius:6px;padding:12px 14px;display:flex;justify-content:space-between;gap:12px;align-items:center}
+.skel{height:14px;background:linear-gradient(90deg,#e5e7eb,#f3f4f6,#e5e7eb);background-size:200% 100%;animation:s 1.2s infinite;border-radius:4px;margin:14px 8px}
+@keyframes s{to{background-position:-200% 0}}@media (prefers-reduced-motion:reduce){.skel{animation:none}}
+.phone{width:375px;border:1px solid var(--line);border-radius:12px;background:#fff;padding:14px}.phone h2{font-size:18px;margin:0 0 8px;color:var(--navy)}
+.card{border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:8px}.card .r{display:flex;justify-content:space-between;gap:8px}.card small{color:var(--mut)}
+.spec{background:#fff;border:1px solid var(--line);border-radius:8px;padding:12px 16px;max-width:1440px;font-size:13px}.spec li{margin:3px 0}
+</style></head><body>
+<h1>Trang Audit workshop <small>— mockup DRAFT 2026-11-17, route <code>/operations/audit</code>, chỉ Manager. Dữ liệu minh họa là giả.</small></h1>
+
+<div class="frame"><p class="cap">01 · Tab Vận hành, mặc định <span>(desktop 1440, 7 ngày gần nhất)</span></p>
+<div class="screen"><nav class="side"><b>VẬN HÀNH WORKSHOP</b><a>Bảng điều phối ca</a><a>Chi nhánh &amp; khung giờ</a><a>Gói workshop</a><a>Add-on gói</a><a>Ma trận gói × chi nhánh</a><a class="on">Nhật ký audit</a></nav>
+<div class="main"><h2>Nhật ký audit workshop</h2><p class="sub">Chỉ đọc. Dòng mới nhất ở trên. Việc xem nhật ký không được ghi lại.</p>
+<div class="tabs"><button class="on">Vận hành</button><button>Quyết toán</button></div>
+<div class="filters"><div><label>Hành động</label><input class="f" placeholder="VD: SESSION_CREATED"></div><div><label>Kết quả</label><select class="f"><option>Tất cả</option></select></div><div><label>Người thực hiện (ID)</label><input class="f" placeholder="ID tài khoản"></div><div><label>Ca (ID)</label><input class="f" placeholder="ID ca"></div><div><label>Từ</label><input class="f" value="10/11/2026 00:00"></div><div><label>Đến</label><input class="f" placeholder="Hiện tại"></div><button class="btn">Lọc</button></div>
+<p class="note">Đang hiển thị 7 ngày gần nhất vì chưa chọn “Từ”.</p>
+<table><thead><tr><th>Thời gian</th><th>Người thực hiện</th><th>Hành động</th><th>Kết quả</th><th>Ca</th><th>Mã tương quan</th><th></th></tr></thead><tbody>
+<tr><td>17/11/2026 14:32:08</td><td>Nguyễn Văn A <span class="mono">#12</span></td><td class="mono">WORKSHOP_PACKAGE_AVAILABILITY_CHANGED</td><td><span class="pill SUCCESS">SUCCESS</span></td><td>—</td><td class="mono">c1f3…9a2</td><td><button class="btn o">Chi tiết</button></td></tr>
+<tr><td>17/11/2026 14:30:51</td><td>Trần Thị B <span class="mono">#47</span></td><td class="mono">PACKAGE_AVAILABILITY_MATRIX_READ</td><td><span class="pill DENIED">DENIED</span></td><td>—</td><td class="mono">7be0…44d</td><td><button class="btn o">Chi tiết</button></td></tr>
+<tr class="x"><td>17/11/2026 13:05:12</td><td>Lê Văn C <span class="mono">#31</span></td><td class="mono">TICKET_CHECK_IN_OVERRIDE</td><td><span class="pill SUCCESS">SUCCESS</span></td><td class="mono">#2334</td><td class="mono">a90d…e17</td><td><button class="btn o">Thu gọn</button></td></tr>
+<tr class="x"><td></td><td colspan="6"><dl class="meta"><dt>ticketCode</dt><dd class="mono">TK-20261117-0042</dd><dt>reasonCode</dt><dd class="mono">QR_DAMAGED</dd><dt>qrGeneration</dt><dd>2</dd></dl><p class="note">Chỉ hiện các khóa được phép. Không có email, số điện thoại hay họ tên khách.</p></td></tr>
+<tr><td>17/11/2026 09:00:03</td><td>Hệ thống</td><td class="mono">SESSION_AUTO_STARTED</td><td><span class="pill SUCCESS">SUCCESS</span></td><td class="mono">#2340</td><td class="mono">3d21…b08</td><td><button class="btn o">Chi tiết</button></td></tr>
+</tbody></table><div class="more"><button class="btn o">Tải thêm</button></div></div></div></div>
+
+<div class="frame"><p class="cap">02 · Tab Quyết toán <span>(bộ lọc riêng; không có Kết quả và Ca)</span></p>
+<div class="screen"><nav class="side"><b>VẬN HÀNH WORKSHOP</b><a>Bảng điều phối ca</a><a class="on">Nhật ký audit</a></nav>
+<div class="main"><h2>Nhật ký audit workshop</h2><p class="sub">Chỉ đọc. Dòng mới nhất ở trên.</p>
+<div class="tabs"><button>Vận hành</button><button class="on">Quyết toán</button></div>
+<div class="filters s"><div><label>Mã hành động</label><input class="f" placeholder="VD: REFUND_APPROVED"></div><div><label>Người thực hiện (ID)</label><input class="f"></div><div><label>Loại đối tượng</label><input class="f" placeholder="VD: SETTLEMENT_REFUND_REQUEST"></div><div><label>Mã đối tượng</label><input class="f"></div><div><label>Từ – Đến</label><input class="f" value="10/11/2026 – nay"></div><button class="btn">Lọc</button></div>
+<table><thead><tr><th>Thời gian</th><th>Người thực hiện</th><th>Mã hành động</th><th>Đối tượng</th><th>Tham chiếu chứng từ</th><th>Lý do</th><th>Mã tương quan</th></tr></thead><tbody>
+<tr><td>17/11/2026 15:10:44</td><td>Nguyễn Văn A <span class="mono">#12</span></td><td class="mono">REFUND_APPROVED</td><td class="mono">SETTLEMENT_REFUND_REQUEST<br>RR-1042</td><td class="mono">EV-8812</td><td>Khách hủy do ca bị hủy bởi Mland.</td><td class="mono">5ac2…10f</td></tr>
+<tr><td>17/11/2026 15:02:19</td><td>Trần Thị B <span class="mono">#47</span></td><td class="mono">DENIED_NOT_MANAGER</td><td class="mono">AUTHORIZATION<br>47</td><td>—</td><td>—</td><td class="mono">91ee…c33</td></tr>
+</tbody></table><p class="note">Lý do hiện đầy đủ (tối đa 500 ký tự); có thể chứa thông tin cá nhân, chỉ Manager xem.</p><div class="more"><button class="btn o">Tải thêm</button></div></div></div></div>
+
+<div class="frame"><p class="cap">03 · Đang tải <span>(giữ bộ lọc, nút Lọc vô hiệu)</span></p>
+<div class="screen"><div class="main"><div class="tabs"><button class="on">Vận hành</button><button>Quyết toán</button></div><div class="skel"></div><div class="skel"></div><div class="skel"></div><p class="note" role="status">Đang tải nhật ký…</p></div></div></div>
+
+<div class="frame"><p class="cap">04 · Không có kết quả</p>
+<div class="screen"><div class="main"><div class="tabs"><button class="on">Vận hành</button><button>Quyết toán</button></div><div class="state"><b>Không có dòng audit nào khớp bộ lọc</b>Thử bỏ bớt bộ lọc hoặc mở rộng khoảng thời gian.<br><br><button class="btn o">Xóa bộ lọc</button></div></div></div></div>
+
+<div class="frame"><p class="cap">05 · Lỗi tải <span>(giữ bộ lọc; có mã tham chiếu và Thử lại)</span></p>
+<div class="screen"><div class="main"><div class="tabs"><button class="on">Vận hành</button><button>Quyết toán</button></div><div class="err" role="alert"><span>Không tải được nhật ký. Mã tham chiếu: <span class="mono">c1f3…9a2</span></span><button class="btn o">Thử lại</button></div><div class="filters" style="margin-top:12px"><div><label>Hành động</label><input class="f" value="SESSION_CREATED"></div></div></div></div></div>
+
+<div class="frame"><p class="cap">06 · Lỗi lọc <span>(Từ sau Đến → 400, bộ lọc giữ nguyên)</span></p>
+<div class="screen"><div class="main"><div class="filters"><div><label>Từ</label><input class="f" value="17/11/2026" style="border-color:var(--bad)"></div><div><label>Đến</label><input class="f" value="10/11/2026" style="border-color:var(--bad)"></div></div><p style="color:var(--bad);margin:0" role="alert">“Từ” phải trước hoặc bằng “Đến”.</p></div></div></div>
+
+<div class="frame"><p class="cap">07 · Điện thoại 375 px <span>(dòng thành thẻ; bộ lọc gập trong “Bộ lọc”)</span></p>
+<div class="phone"><h2>Nhật ký audit</h2><div class="tabs"><button class="on">Vận hành</button><button>Quyết toán</button></div><button class="btn o" style="width:100%;margin-bottom:10px">Bộ lọc (0)</button>
+<div class="card"><div class="r"><b class="mono" style="font-size:11px">WORKSHOP_PACKAGE_AVAILABILITY_CHANGED</b><span class="pill SUCCESS">SUCCESS</span></div><small>17/11/2026 14:32 · Nguyễn Văn A #12</small></div>
+<div class="card"><div class="r"><b class="mono" style="font-size:11px">PACKAGE_AVAILABILITY_MATRIX_READ</b><span class="pill DENIED">DENIED</span></div><small>17/11/2026 14:30 · Trần Thị B #47</small></div>
+<button class="btn o" style="width:100%">Tải thêm</button></div></div>
+
+<div class="frame"><div class="spec"><b>Ghi chú thiết kế (đề xuất, chờ duyệt)</b><ul>
+<li>Route <code>/operations/audit</code>, mục menu “Nhật ký audit” chỉ hiện với Manager, đặt sau “Ma trận gói × chi nhánh”. Staff/Admin gõ URL: theo quyết định FE-DESIGN-0006; backend vẫn trả 403.</li>
+<li>Màu theo token hiện có (navy #002967, xám #6b7280, viền #e5e7eb); nhãn Kết quả dùng màu và chữ, không chỉ màu.</li>
+<li>Tải thêm bằng con trỏ (không có số trang) để dòng mới ghi không làm trùng hoặc sót dòng.</li>
+<li>Mỗi tab giữ bộ lọc riêng; đổi tab không mất bộ lọc của tab kia. Lỗi tải giữ nguyên bộ lọc.</li>
+<li>Khả năng truy cập: tab dùng vai trò tab, bảng có tiêu đề cột, trạng thái tải/lỗi dùng vùng thông báo; nhãn có label; focus nhìn thấy được; tôn trọng prefers-reduced-motion.</li>
+<li>Dưới 768 px: dòng thành thẻ như trang ma trận; bộ lọc gập; chi tiết mở bên dưới thẻ.</li></ul></div></div>
+</body></html>

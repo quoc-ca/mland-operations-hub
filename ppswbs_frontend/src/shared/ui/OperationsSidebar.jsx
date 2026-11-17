@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router';
 import { useAuth } from '../auth/AuthProvider';
 import { useRole } from '../auth/useRole';
@@ -9,6 +9,12 @@ import '../../ota-connectivity/ota-connectivity.css';
 export function OperationsSidebar() {
   const location = useLocation();
   const { pathname } = location;
+  const sidebarRef = useRef(null);
+  // The menu is long and scrolls: bring the current screen's entry into view, so it is always the highlighted one you see.
+  useEffect(() => {
+    const current = sidebarRef.current?.querySelector('a.active');
+    current?.scrollIntoView?.({ block: 'center' });
+  }, [pathname, location.search]);
 
   const { status, signOut } = useAuth();
   const { language, setLanguage } = useLanguage();
@@ -67,6 +73,8 @@ export function OperationsSidebar() {
     pathname.startsWith('/operations/packages') ||
     pathname === '/workshop-packages';
   const isPackageAddOnsActive = pathname.startsWith('/operations/package-add-ons');
+  const isPackageAvailabilityActive = pathname.startsWith('/operations/package-availability');
+  const isLatePaymentsActive = pathname.startsWith('/operations/late-payments');
 
   const isChannelsActive = pathname.startsWith('/ota-connectivity/channels');
   const isReconciliationActive = pathname.startsWith('/ota-connectivity/reconciliation');
@@ -87,7 +95,7 @@ export function OperationsSidebar() {
   const isVi = language === 'vi';
 
   return (
-    <aside className="ota-sidebar" aria-label="Operations Navigation">
+    <aside className="ota-sidebar" aria-label="Operations Navigation" ref={sidebarRef}>
       <div className="ota-brand">
         <span>M</span>
         <strong>MLAND</strong>
@@ -197,6 +205,12 @@ export function OperationsSidebar() {
         <Link className={isPackageAddOnsActive ? 'active' : ''} to="/operations/package-add-ons">
           {isVi ? 'Add-on gói' : 'Package add-ons'}
         </Link>
+        <Link className={isPackageAvailabilityActive ? 'active' : ''} to="/operations/package-availability">
+          {isVi ? 'Ma trận gói × chi nhánh' : 'Package availability'}
+        </Link>
+        <Link className={isLatePaymentsActive ? 'active' : ''} to="/operations/late-payments">
+          {isVi ? 'Thanh toán về trễ' : 'Late payments'}
+        </Link>
         </>)}
 
         {/* OTA CONNECTIVITY */}
@@ -231,9 +245,11 @@ export function OperationsSidebar() {
         <Link className={pathname === '/settlement/ticket-actions' ? 'active' : ''} to="/settlement/ticket-actions">
           {isVi ? 'Huỷ & đổi vé' : 'Cancel & change tickets'}
         </Link>
+        {role !== 'ADMIN' && (
         <Link className={pathname === '/settlement/change-requests' ? 'active' : ''} to="/settlement/change-requests">
           {isVi ? 'Yêu cầu đổi vé' : 'Change requests'}
         </Link>
+        )}
         {canManage && (<>
         <Link className={pathname === '/settlement/refunds' ? 'active' : ''} to="/settlement/refunds">
           {isVi ? 'Hàng đợi hoàn tiền' : 'Refund queue'}

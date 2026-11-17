@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useUrlFilters } from '../../shared/ui/useUrlFilters';
 import { newCommandId } from '../../shared/api/http';
 import { useHttp } from '../../shared/api/useHttp';
 import { useRole } from '../../shared/auth/useRole';
@@ -26,7 +27,8 @@ export default function RefundQueuePage() {
   const api = createSettlementApi(useHttp());
   const role = useRole();
   const isManager = role === 'MANAGER' || role === 'ADMIN';
-  const [status, setStatus] = useState('');
+  const [{ status }, setUrlFilters] = useUrlFilters({ status: '' });
+  const setStatus = value => setUrlFilters({ status: value });
   const [selected, setSelected] = useState(null);
   const [account, setAccount] = useState({ bankCode: '', accountNumber: '', holderName: '' });
   const [transfer, setTransfer] = useState({ bankTransactionReference: '', proofReference: '' });

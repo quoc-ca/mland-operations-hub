@@ -85,7 +85,7 @@ public class AttendanceCorrectionService {
         // Authorization: strictly active Manager globally (Staff denied)
         AccountSummary actor = authorizationService.requireGlobalManager(authHeader);
 
-        AttendanceTicket ticket = ticketRepository.findByTicketCode(request.getTicketCode())
+        AttendanceTicket ticket = ticketRepository.findByAnyTicketCode(request.getTicketCode())
                 .orElseThrow(() -> new WorkshopNotFoundException("Ticket not found for ticket code: " + request.getTicketCode()));
 
         if (ticket.getValidityState() != TicketValidityState.ACTIVE) {
@@ -200,7 +200,7 @@ public class AttendanceCorrectionService {
         // Authorization: strictly active Manager globally (Staff denied)
         AccountSummary actor = authorizationService.requireGlobalManager(authHeader);
 
-        AttendanceTicket ticket = ticketRepository.findByTicketCode(request.getTicketCode())
+        AttendanceTicket ticket = ticketRepository.findByAnyTicketCode(request.getTicketCode())
                 .orElseThrow(() -> new WorkshopNotFoundException("Ticket not found for ticket code: " + request.getTicketCode()));
 
         if (ticket.getValidityState() != TicketValidityState.ACTIVE) {

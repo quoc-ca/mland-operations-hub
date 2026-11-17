@@ -635,8 +635,8 @@ step stay excluded there. Tasks: Phase 18 (T144–T162) in `tasks.md`.
    candidate filter that pins a change to the old location is replaced by an
    availability filter (003.3 impact below).
 6. **Staff scope of a change stays with 003.3**, which knows the actor:
-   `replaceTicketSessions` has no actor. 003.3 requires an active Manager when
-   the target location differs from the ticket's current location (FR-042);
+   `replaceTicketSessions` has no actor. 003.3 applies the Staff scope and assignment rule and needs no Manager when
+   the target location differs (FR-042, amended 2026-11-17, owner Hồ Hoàng Quốc);
    003.2 enforces availability, one-location and quota.
 7. **Location name** is added to the customer session read, the Manager/Staff
    session list and the change options (FR-044). `locationId` stays.
@@ -660,8 +660,8 @@ new module dependency, no cycle. `ApplicationModules.verify()` must still pass.
   folio and collection branch read this value unchanged.
 - **003.3:** `TicketChangeOptionsService.candidatesFor` stops filtering by the
   old location and filters by the active-locations read; options carry the
-  location name; `TicketChangeService` requires an active Manager when the
-  target location differs; a cross-location move updates the ticket's location
+  location name; `TicketChangeService` needs no Manager when the
+  target location differs (amended 2026-11-17); a cross-location move updates the ticket's location
   of record, re-attributes the folio to the new location and lists the old-
   location add-ons to the Manager (FR-045). The change-option wording of
   003.3 FR-044/FR-044a needs a matching edit.
@@ -705,6 +705,76 @@ Tây Hồ 3, Đà Nẵng 0) and for the reserve/toggle race; contract tests for 
 Staff/Admin read and write, 409 on inactive discovery, no-op audit; Modulith
 verify; 003.3 tests for cross-location change, Wax Casting both sessions at one
 location, and Staff refused on a different location.
+
+## Audit review for Manager (Phase 19, plan 2026-11-17)
+
+**Spec:** "Audit review for Manager", FR-047–FR-055, SC-013, US7 (owner answers
+2026-11-17 in Clarifications). **Status: DRAFT/PROPOSED**; no approval in
+`approval.md` yet. Tasks: Phase 19 (T169–T174) in `tasks.md`.
+
+**Design decisions (proposed):**
+
+1. **No new table, no migration.** Both sources already exist
+   (`operations_audit_events` V7/V66, `settlement_business_audits` V30/V36). The
+   feature adds read paths only. Verified in code on 2026-11-17: no controller or
+   paged query reads either table today.
+2. **Two read routes in `workshopoperations`** (OpenAPI): `GET
+   /workshop-audit/operations-events` and `GET /workshop-audit/settlement-records`,
+   active global Manager only via `WorkshopOperationsAuthorizationService.
+   requireGlobalManager`; the refused Operations read is wrapped by
+   `OperationsDeniedAttemptRecorder.guard` (FR-048). The Settlement route is
+   served by **`workshopsettlement` (003.3) itself**, not by Operations: 003.3 already
+   depends on `workshopoperations :: facade` (11 files; `package-info.java`), so an
+   Operations call into a 003.3 facade would close a module cycle and fail
+   `ApplicationModules.verify()` (analysis finding F1, 2026-11-17). 003.3 reuses the
+   Operations guard through the existing Operations facade or its own
+   `WorkshopSettlementAuthorizationService` (global active Manager, Staff and Admin 403)
+   and `AccountFacade` for names; Operations does not know about the Settlement route.
+   The screen calls both routes independently.
+3. **Keyset paging by `id desc`** with an opaque `cursor`, `limit` 1–100, default
+   50. Chosen over offset paging because rows are appended while the Manager
+   browses (FR-050), and `occurred_at` alone is not unique. Existing indexes
+   cover actor, session and time filters; the action and outcome filters scan
+   within the time bound, so a default time window is applied when no `from` is
+   given (proposal: last 7 days; owner may change) and is shown on the screen.
+4. **Metadata whitelist** in one class, applied after parsing the stored JSON
+   with a tolerant parser (invalid JSON → empty metadata, FR-051 edge case).
+   Whitelist starts with the keys seen today: `fromState`, `toState`,
+   `bookingCode`, `ticketCode`, `bookingReference`, `reasonCode`,
+   `ticketReference`, `qrGeneration`, `ticketCount`, `releasedSeats`,
+   `movedTickets`, `recipientCount`, `code`, `status`. Unknown keys are dropped
+   so a future writer cannot leak a field by accident. `assignedAccountId` is
+   also on the list and is shown as an account id only. All metadata values are returned
+   as strings.
+5. **Actor display** through the account owner's facade (`findAccountFullName`
+   exists for one id). One call per distinct actor on the page, at most the page
+   size; a batch method is a proposal for the account owner, not assumed. A failed
+   or empty lookup shows the id only; it never fails the page.
+6. **Settlement reason text** is returned in full to the Manager (owner decision)
+   and never logged; DTO `toString` and request/response logging exclude it.
+7. **Frontend:** one Manager-only page `/operations/audit` under
+   `StaffArea`, two tabs, filter bar, table, cursor "load more", empty/error/
+   loading states; menu entry in `OperationsSidebar` inside `canManageOperations`.
+   **Blocked until a Figma or equivalent approved UI exists** (frontend gate F01,
+   F05). Staff typing the URL follows the open decision FE-DESIGN-0006
+   (redirect vs denial page); this page adopts whatever is decided there.
+
+**Module impact:** no new dependency between modules. The Settlement route, service and
+repository query are added inside `workshopsettlement` (003.3 owner agreed 2026-11-17, B5);
+`workshopoperations` gains none. Both modules keep one-way dependencies.
+No change to 003.1. Existing audit writers are unchanged.
+
+**Failure and recovery:** 400 `VALIDATION_ERROR` (existing code; no new code is added to the closed error
+catalogue) for `from` after `to`, bad `limit` or malformed
+cursor; 401/403 as for the matrix; 503 safe error with correlation id; the screen
+keeps filters on error (FR-055).
+
+**Verification plan:** unit tests for the whitelist, cursor encoding and filter
+combinations; MySQL IT for keyset paging with concurrent inserts (no duplicate,
+no skipped row), for the 7-day default window and for 403 on Staff/Admin with a
+`DENIED` row written for the Operations route; contract test that no
+non-whitelisted metadata key and no e-mail-like value is returned; Modulith
+verify; FE component and page tests, then a real-backend run against the dev DB.
 
 ## Validation Strategy
 

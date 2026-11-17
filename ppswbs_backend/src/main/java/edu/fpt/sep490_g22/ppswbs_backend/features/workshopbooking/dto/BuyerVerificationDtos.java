@@ -20,7 +20,9 @@ public final class BuyerVerificationDtos {
     ) {
     }
 
-    public record BuyerVerificationChallenge(String verificationId, Instant expiresAt) {
+    /** {@code maskedEmail} (ho***@gmail.com) is present only in the answer to a Staff or Manager request. */
+    @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+    public record BuyerVerificationChallenge(String verificationId, Instant expiresAt, String maskedEmail) {
     }
 
     public record BuyerVerificationConfirmation(@NotBlank @Pattern(regexp = "^[0-9]{6}$") String otp) {

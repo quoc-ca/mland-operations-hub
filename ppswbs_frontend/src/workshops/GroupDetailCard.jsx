@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   releaseGroupPendingHold,
   requestGroupConfirmationDelivery,
@@ -43,6 +43,7 @@ export function GroupDetailCard({
   allowResend = true,
   allowRecipientChange = true,
   renderTicketExtra,
+  renderTicketAction,
 }) {
   const [releaseOpen, setReleaseOpen] = useState(false);
   const [releaseReason, setReleaseReason] = useState('');
@@ -54,6 +55,15 @@ export function GroupDetailCard({
 
   if (!group) return null;
   const pending = group.groupStatus === 'PENDING_PAYMENT';
+  // Once the payment deadline has passed the server is only waiting for a late result: the hold panel reads the group by
+  // itself then, and releasing or refreshing by hand is no longer offered (FR-032: the buffer is never shown).
+  const [clock, setClock] = useState(() => Date.now());
+  useEffect(() => {
+    if (!pending || !group.paymentDeadlineAt) return undefined;
+    const timer = setInterval(() => setClock(Date.now()), 250);
+    return () => clearInterval(timer);
+  }, [pending, group.paymentDeadlineAt]);
+  const deadlinePassed = pending && Boolean(group.paymentDeadlineAt) && Date.parse(group.paymentDeadlineAt) <= clock;
   const confirmed = group.groupStatus === 'CONFIRMED';
   const remaining = groupRemainingVnd(group);
 
@@ -112,7 +122,7 @@ export function GroupDetailCard({
     <section className="workspace-card group-detail" style={{ marginTop: '24px', borderTop: '4px solid #002967' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #eee', paddingBottom: '16px', gap: '12px', flexWrap: 'wrap' }}>
         <div>
-          <span className="muted" style={{ fontSize: '13px' }}>Mã nhóm đặt chỗ</span>
+          <span className="muted" style={{ fontSize: '13px' }}>Mã đặt chỗ</span>
           <strong style={{ display: 'block', fontSize: '24px', color: '#002967', letterSpacing: '0.05em' }}>
             {group.groupCode}
           </strong>
@@ -185,6 +195,7 @@ export function GroupDetailCard({
           allowRecipientChange={allowRecipientChange && confirmed}
           allowCancel={allowRecipientChange && confirmed}
           allowChange={allowRecipientChange && confirmed}
+          renderTicketAction={renderTicketAction}
         />
         {renderTicketExtra ? renderTicketExtra(group) : null}
       </div>
@@ -195,13 +206,13 @@ export function GroupDetailCard({
             {resending ? 'Đang gửi...' : 'Gửi lại email xác nhận'}
           </button>
         )}
-        {allowRelease && pending && (
+        {allowRelease && pending && !deadlinePassed && (
           <button type="button" className="button outline" style={{ color: '#b00', borderColor: '#b00' }} onClick={() => setReleaseOpen(true)}>
             Hủy giữ chỗ
           </button>
         )}
         {/* Expired and cancelled are final: refreshing can never change them. */}
-        {onRefresh && group.groupStatus !== 'EXPIRED' && group.groupStatus !== 'CANCELLED' && (
+        {onRefresh && group.groupStatus !== 'EXPIRED' && group.groupStatus !== 'CANCELLED' && !deadlinePassed && (
           <button type="button" className="button outline" onClick={onRefresh}>Cập nhật trạng thái</button>
         )}
       </div>

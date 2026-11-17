@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { fakeSession, json, mockFetch, renderRoutes } from '../test/render';
 import { workshopRoutes } from './routes';
@@ -186,7 +186,7 @@ describe('003.1 FR-045 booking a group: pick on the package page, "Đặt ngay" 
     await user.click(await screen.findByText(/\d{2}\/\d{2}\/\d{4}/));
     await user.click(screen.getByRole('button', { name: 'Đặt ngay' }));
 
-    expect(await screen.findByText(/Không cần thanh toán online, thanh toán 3.000 ₫ tại quầy khi checkout/)).toBeInTheDocument();
+    expect(await screen.findByText(/Không cần thanh toán online, thanh toán 3.000\s₫ tại quầy khi checkout/)).toBeInTheDocument();
     expect(screen.getByText('Thanh toán tại quầy')).toBeInTheDocument();
     expect(screen.queryByText(/không được hoàn lại/i)).toBeNull();
   });
@@ -202,12 +202,13 @@ describe('003.1 FR-031/FR-045 the cart page', () => {
       'POST /api/v1/workshop-cart-quotes': json(201, QUOTE),
       'POST /api/v1/workshop-booking-groups': json(201, heldGroup()),
     });
-    renderRoutes(workshopRoutes, { path: '/workshops/5', session: fakeSession('signed-out') });
+    const { router } = renderRoutes(workshopRoutes, { path: '/workshops/5', session: fakeSession('signed-out') });
     await pickSessionAndTwoTickets(user);
     await user.click(screen.getByRole('button', { name: 'Thêm vào giỏ' }));
-    await user.click(await screen.findByRole('link', { name: /Mở giỏ workshop/i }));
+    await act(async () => { await router.navigate('/workshop-booking/cart'); }); // the header cart icon is outside these routes
+    await user.click(await screen.findByRole('checkbox', { name: 'Chọn tất cả các dòng' })); // nothing is ticked when the cart opens
 
-    await user.click(await screen.findByRole('button', { name: 'Đặt chỗ ngay' }));
+    await user.click(await screen.findByRole('button', { name: 'Xem báo giá và đặt chỗ' }));
     expect(await screen.findByText('Báo giá giỏ workshop')).toBeInTheDocument();
     const quoteCall = calls.find(call => call.path === '/api/v1/workshop-cart-quotes');
     expect(quoteCall.body).toEqual({ lines: [{ packageId: 5, sessionReferences: [SESSION_ONE], participantCount: 2 }] });
@@ -233,11 +234,12 @@ describe('003.1 FR-031/FR-045 the cart page', () => {
         failingLines: [0],
       }),
     });
-    renderRoutes(workshopRoutes, { path: '/workshops/5', session: fakeSession('signed-out') });
+    const { router } = renderRoutes(workshopRoutes, { path: '/workshops/5', session: fakeSession('signed-out') });
     await pickSessionAndTwoTickets(user);
     await user.click(screen.getByRole('button', { name: 'Thêm vào giỏ' }));
-    await user.click(await screen.findByRole('link', { name: /Mở giỏ workshop/i }));
-    await user.click(await screen.findByRole('button', { name: 'Đặt chỗ ngay' }));
+    await act(async () => { await router.navigate('/workshop-booking/cart'); }); // the header cart icon is outside these routes
+    await user.click(await screen.findByRole('checkbox', { name: 'Chọn tất cả các dòng' })); // nothing is ticked when the cart opens
+    await user.click(await screen.findByRole('button', { name: 'Xem báo giá và đặt chỗ' }));
     await user.type(await screen.findByLabelText(/Email nhận vé/i), 'guest@mland.vn');
     await user.type(screen.getByLabelText(/Số điện thoại liên hệ/i), '0901234567');
     await user.click(screen.getByRole('button', { name: 'Xác nhận và giữ chỗ' }));
@@ -246,7 +248,7 @@ describe('003.1 FR-031/FR-045 the cart page', () => {
     expect(screen.getByText(/dòng 1/)).toBeInTheDocument();
     // Nothing was held, so the cart survives and can be edited again.
     expect(readCart()).toHaveLength(1);
-    expect(screen.getByRole('button', { name: 'Đặt chỗ ngay' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Xem báo giá và đặt chỗ' })).toBeEnabled();
   });
 });
 
@@ -270,7 +272,7 @@ describe('003.1 FR-032 the hold the customer sees', () => {
       const group = heldGroup();
       const { rerender, unmount } = render(<GroupHoldPanel group={group} />);
       expect(screen.getByRole('timer').textContent).toMatch(/9 phút|10 phút/);
-      expect(screen.getByRole('button', { name: /Thanh toán 400.000 ₫ qua VNPay/ })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Thanh toán 400.000\s₫ qua VNPay/ })).toBeInTheDocument();
       expect(screen.queryByText(/12 phút/)).toBeNull();
 
       const ended = heldGroup({
@@ -311,5 +313,117 @@ describe('003.1 FR-032 the hold the customer sees', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+const SESSION_TWO = 'a81d4fae-7dec-11d0-a765-00a0c91e6bf7';
+const namedSessions = [
+  { ...SESSIONS[0], locationId: 2, locationName: 'MLAND Hoàn Kiếm' },
+  { ...SESSIONS[0], sessionReference: SESSION_TWO, locationId: 3, locationName: 'MLAND Tây Hồ' },
+];
+
+describe('003.1 FR-057 the branch name on every session row (T161)', () => {
+  beforeEach(() => { clearCart(); });
+
+  it('the Package page tells two sessions of the same slot at two branches apart', async () => {
+    mockFetch({
+      ...discoveryHandlers(),
+      'GET /api/v1/workshop-packages/5/sessions': json(200, namedSessions),
+    });
+    renderRoutes(workshopRoutes, { path: '/workshops/5', session: fakeSession('signed-out') });
+
+    expect(await screen.findByText('MLAND Hoàn Kiếm', { selector: 'small' })).toBeInTheDocument();
+    expect(screen.getByText('MLAND Tây Hồ', { selector: 'small' })).toBeInTheDocument();
+  });
+
+  it('the "Đặt ngay" review shows the branch name of the chosen session', async () => {
+    mockFetch({
+      ...discoveryHandlers(),
+      'GET /api/v1/workshop-packages/5/sessions': json(200, namedSessions),
+    });
+    renderRoutes(workshopRoutes, {
+      path: `/workshops/5/book?locationId=2&session=${SESSION_ONE}&participants=1`,
+      session: fakeSession('signed-out'),
+    });
+
+    expect(await screen.findByText('MLAND Hoàn Kiếm', { selector: 'small' })).toBeInTheDocument();
+  });
+
+  it('the cart stores only the branch id and re-reads the name from the branch list', async () => {
+    const user = userEvent.setup();
+    mockFetch(discoveryHandlers());
+    const { router } = renderRoutes(workshopRoutes, { path: '/workshops/5', session: fakeSession('signed-out') });
+    await pickSessionAndTwoTickets(user);
+    await user.click(screen.getByRole('button', { name: 'Thêm vào giỏ' }));
+
+    const stored = readCart()[0];
+    expect(stored.locationId).toBe(2);
+    expect(stored).not.toHaveProperty('locationName');
+    await act(async () => { await router.navigate('/workshop-booking/cart'); }); // the header cart icon is outside these routes
+    await user.click(await screen.findByRole('checkbox', { name: 'Chọn tất cả các dòng' })); // nothing is ticked when the cart opens
+    expect(await screen.findByText(/Dòng 1 · MLAND Quận 1/)).toBeInTheDocument();
+  });
+});
+
+describe('003.1 FR-055 a branch that stopped selling the Package refuses the whole cart (T162)', () => {
+  beforeEach(() => { clearCart(); });
+
+  const REFUSED = json(409, {
+    code: 'PACKAGE_NOT_AVAILABLE_AT_LOCATION',
+    detail: 'No seat was held',
+    correlationId: 'corr-loc',
+    failingLines: [0],
+  });
+
+  it('cart: names the failing line, says no seat was held, keeps the cart and the fields, one call, no group', async () => {
+    const user = userEvent.setup();
+    const calls = mockFetch({
+      ...discoveryHandlers(),
+      'POST /api/v1/workshop-cart-quotes': json(201, QUOTE),
+      'POST /api/v1/workshop-booking-groups': REFUSED,
+    });
+    const { router } = renderRoutes(workshopRoutes, { path: '/workshops/5', session: fakeSession('signed-out') });
+    await pickSessionAndTwoTickets(user);
+    await user.click(screen.getByRole('button', { name: 'Thêm vào giỏ' }));
+    await act(async () => { await router.navigate('/workshop-booking/cart'); }); // the header cart icon is outside these routes
+    await user.click(await screen.findByRole('checkbox', { name: 'Chọn tất cả các dòng' })); // nothing is ticked when the cart opens
+    await user.click(await screen.findByRole('button', { name: 'Xem báo giá và đặt chỗ' }));
+    await user.type(await screen.findByLabelText(/Email nhận vé/i), 'guest@mland.vn');
+    await user.type(screen.getByLabelText(/Số điện thoại liên hệ/i), '0901234567');
+    await user.click(screen.getByRole('button', { name: 'Xác nhận và giữ chỗ' }));
+
+    // Row alert and quote panel both name the failing line.
+    expect((await screen.findAllByText(/không còn bán tại chi nhánh đã chọn/)).length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText(/Dòng 1: gói không còn bán tại chi nhánh đã chọn/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Hệ thống không giữ chỗ nào; giỏ và thông tin bạn đã nhập vẫn được giữ\./).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByRole('link', { name: /Chọn chi nhánh khác/ })[0]).toHaveAttribute('href', '/workshops/5');
+    // The cart and every typed field stay; no group view; no automatic retry.
+    expect(readCart()).toHaveLength(1);
+    expect(screen.getByLabelText(/Email nhận vé/i)).toHaveValue('guest@mland.vn');
+    expect(screen.queryByText('WG-20261113-ABCD')).toBeNull();
+    await new Promise(resolve => setTimeout(resolve, 150));
+    expect(calls.filter(call => call.path === '/api/v1/workshop-booking-groups')).toHaveLength(1);
+  });
+
+  it('"Đặt ngay": the same refusal keeps the typed fields and offers the way back to the Package page', async () => {
+    const user = userEvent.setup();
+    const calls = mockFetch({
+      ...discoveryHandlers(),
+      'POST /api/v1/workshop-cart-quotes': json(201, QUOTE),
+      'POST /api/v1/workshop-booking-groups': REFUSED,
+    });
+    renderRoutes(workshopRoutes, { path: '/workshops/5', session: fakeSession('signed-out') });
+    await pickSessionAndTwoTickets(user);
+    await user.click(screen.getByRole('button', { name: 'Đặt ngay' }));
+    await user.type(await screen.findByLabelText(/Email nhận vé/i), 'guest@mland.vn');
+    await user.type(screen.getByLabelText(/Số điện thoại liên hệ/i), '0901234567');
+    await user.click(screen.getByRole('button', { name: 'Xác nhận và giữ chỗ' }));
+
+    expect(await screen.findByText(/không còn bán tại chi nhánh bạn đã chọn\. Hệ thống không giữ chỗ nào/)).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: /Chọn chi nhánh khác/ })[0]).toHaveAttribute('href', '/workshops/5');
+    expect(screen.getByLabelText(/Email nhận vé/i)).toHaveValue('guest@mland.vn');
+    expect(screen.queryByText('WG-20261113-ABCD')).toBeNull();
+    await new Promise(resolve => setTimeout(resolve, 150));
+    expect(calls.filter(call => call.path === '/api/v1/workshop-booking-groups')).toHaveLength(1);
   });
 });

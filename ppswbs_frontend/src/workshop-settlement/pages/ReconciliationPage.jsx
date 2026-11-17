@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useUrlFilters } from '../../shared/ui/useUrlFilters';
 import { useHttp } from '../../shared/api/useHttp';
 import { useRole } from '../../shared/auth/useRole';
 import { Loading, useCommand } from '../../shared/ui/components';
@@ -20,7 +21,7 @@ export default function ReconciliationPage() {
   const api = createSettlementApi(useHttp());
   const role = useRole();
   const isManager = role === 'MANAGER' || role === 'ADMIN';
-  const [filters, setFilters] = useState({ locationId: '', workingDate: '', method: '', state: '' });
+  const [filters, setFilters] = useUrlFilters({ locationId: '', workingDate: '', method: '', state: '' });
   const [rows, setRows] = useState(null);
   const command = useCommand();
   const ready = /^[0-9]+$/.test(filters.locationId.trim()) && filters.workingDate;

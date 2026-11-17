@@ -38,3 +38,11 @@
 - Section is DRAFT/PROPOSED; not owner-approved.
 - Impact not yet edited: 003.1 spec (discovery, reserve), 003.3 spec FR-044 (change options), contracts, data-model.
 - The three open markers are resolved in `$speckit-clarify`.
+
+## Audit review for Manager (US7, added 2026-11-17)
+
+- [x] No implementation details in FR-047 to FR-055 and SC-013
+- [x] No `[NEEDS CLARIFICATION]` markers remain (owner answers in Clarifications, session 2026-11-17 audit review)
+- [x] Requirements testable; access, filters, paging, data shown, failure covered
+- [x] Owner/Tech Lead approval recorded 2026-11-17 (approval.md)
+- [x] Approved UI for the screen (mockup approved 2026-11-17, see approval.md)

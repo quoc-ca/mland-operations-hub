@@ -271,6 +271,35 @@ paths:
         '401': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-tickets/{ticketCode}/folio/previous-location-add-ons:
+    get:
+      summary: Manager-only list of the catalogue add-ons sold at a location the ticket no longer belongs to (FR-060, T187)
+      description: >-
+        Read only; nothing about the add-ons or their charges changes (decided 2026-11-17, Q3/Q4). A charge is listed
+        when its CATALOGUE-ADDON reference belongs, per 003.2, to a location other than the ticket's current one; a
+        variable charge is never listed. Staff and Members get 403.
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/TicketCode'}]
+      responses:
+        '200':
+          description: Add-ons sold at the old location
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required: [chargeReference, catalogueAddOnReference, description, amount, addOnLocationReference, ticketLocationReference]
+                  properties:
+                    chargeReference: {type: string}
+                    catalogueAddOnReference: {type: string}
+                    description: {type: string}
+                    amount: {$ref: '#/components/schemas/Vnd'}
+                    addOnLocationReference: {type: integer, format: int64}
+                    ticketLocationReference: {type: integer, format: int64}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-tickets/{ticketCode}/folio/charges:
     post:
       summary: Add a catalogue add-on or a variable charge to an OPEN ticket folio (decision 2026-11-14, T106)
@@ -985,6 +1014,13 @@ paths:
         price increase is confirmed first, and a second request while one is
         pending is 409 CHANGE_REQUEST_PENDING. Nothing to wait for (the old and
         the new sessions have started) is refused as before.
+        Decided 2026-11-17 (spec FR-059, FR-062): a target at another location
+        needs no Manager when the Package is ACTIVE there; a target whose pair is
+        not sold at that location is 409 PACKAGE_NOT_AVAILABLE_AT_LOCATION (also
+        when an older queued request is approved), and a target past the end of the
+        7th calendar day (Asia/Ho_Chi_Minh) after the replaced session ends is 409
+        LATE_ARRIVAL_WINDOW_EXPIRED; neither consumes the allowance. A move to
+        another location writes the audit action TICKET_LOCATION_CHANGED.
       security: [{}, {bearerAuth: []}]
       parameters: [{$ref: '#/components/parameters/TicketCode'}, {$ref: '#/components/parameters/IdempotencyKey'}]
       requestBody:
@@ -1137,7 +1173,7 @@ paths:
         '422': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-change-requests:
     get:
-      summary: The Staff/Manager queue of changes only a Manager may allow (FR-045a, T117, decided 2026-11-14)
+      summary: The Staff/Manager queue of changes a Staff member or a Manager may allow (FR-045a, T117; Staff decide since 2026-11-17)
       description: >-
         Manager sees every request; Staff only those of their locations. status
         defaults to PENDING (PENDING, APPROVED, REJECTED, EXPIRED). A pending
@@ -1157,9 +1193,10 @@ paths:
         '422': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-change-requests/{requestReference}/decisions:
     post:
-      summary: A Manager approves or rejects a queued change (FR-045a, T117, decided 2026-11-14)
+      summary: A Staff member or a Manager approves or rejects a queued change (FR-045a, T117; decided 2026-11-17)
       description: >-
-        Manager only, reason and Idempotency-Key required, audited. APPROVE is
+        Manager, or a Staff member for a request of a location in their scope (LOCATION_SCOPE_DENIED otherwise); an
+        Admin gets 403 STAFF_OR_MANAGER_REQUIRED. Reason and Idempotency-Key required, audited. APPROVE is
         equivalent to a Manager-granted allowance (FR-054) followed by one
         counted change applied now; 003.2 still checks capacity, the package
         rules and a quota that is still full (409, request stays PENDING), so a
@@ -1254,6 +1291,8 @@ paths:
                         startAt: {type: string, format: date-time}
                         endAt: {type: string, format: date-time, nullable: true}
                         selectable: {type: boolean}
+                        locationReference: {type: integer, format: int64, nullable: true, description: "FR-061: the location of the offered session; null for an offer saved before 2026-11-17."}
+                        locationName: {type: string, nullable: true, description: "FR-061: shown next to the session; the buyer's choice moves the ticket there with no Manager."}
         '401': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
@@ -1549,7 +1588,7 @@ components:
             left: {type: integer}
             exhausted: {type: boolean}
         advanceDeadline: {type: string, format: date-time, nullable: true, description: 'ADVANCE: earliest requested from-session start minus 24 h.'}
-        lateArrivalDeadline: {type: string, format: date-time, nullable: true, description: 'LATE_ARRIVAL: earliest requested from-session end plus 7 days.'}
+        lateArrivalDeadline: {type: string, format: date-time, nullable: true, description: 'LATE_ARRIVAL: the start of the 8th calendar day (Asia/Ho_Chi_Minh) after the date the earliest requested from-session ends, so the 7th day is open until 23:59 (FR-062); not 168 hours.'}
         windowOpen: {type: boolean, description: 'ADVANCE: now is before advanceDeadline. LATE_ARRIVAL: the from-session has started and the 7-day window has not closed.'}
         canSelfServe: {type: boolean, description: 'True when allowance is left, the window is open and no option needs a Manager for a ticket-level rule.'}
         perFromSession:
@@ -1587,6 +1626,9 @@ components:
                     start: {type: string, format: date-time}
                     end: {type: string, format: date-time}
                     remainingCapacity: {type: integer, minimum: 0}
+                    remainingRescheduleQuota: {type: integer, minimum: 0}
+                    locationReference: {type: integer, format: int64}
+                    locationName: {type: string, nullable: true}
               selectable: {type: boolean}
               requiresManager: {type: boolean}
               managerRules: {type: array, items: {type: string}}
@@ -1599,6 +1641,7 @@ components:
         start: {type: string, format: date-time}
         end: {type: string, format: date-time}
         locationReference: {type: integer, format: int64}
+        locationName: {type: string, nullable: true, description: 'Display name of the location (003.2 FR-044). A change to another location where the package is ACTIVE needs no Manager (FR-059); the client shows the name next to every row (FR-058, FR-063).'}
         remainingCapacity: {type: integer, minimum: 1, description: 'Exact seats left, shown to every caller (decision 2026-11-16). A session with no free seat is not listed.'}
         remainingRescheduleQuota: {type: integer, minimum: 1, description: 'Customer-change quota left on the target session (003.2 FR-035). A session whose quota is used up is not listed (user decision 2026-11-16); the quota is still rechecked on confirm, so RESCHEDULE_QUOTA_EXHAUSTED can only come from a race.'}
         selectable: {type: boolean, description: 'False for a full session; never lifted by a Manager. A target outside the package rules or past the LATE_ARRIVAL 7-day window is not listed at all; an OTA ticket or a folio that is not OPEN answers 409 for the whole request.'}

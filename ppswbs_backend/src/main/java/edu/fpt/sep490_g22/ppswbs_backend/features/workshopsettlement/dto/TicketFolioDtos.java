@@ -71,6 +71,14 @@ public final class TicketFolioDtos {
             String status
     ) {}
 
+    /** The roster asks for many tickets at once; each answer is only the folio lifecycle, never an amount. */
+    public record FolioStatusRequest(
+            @jakarta.validation.constraints.NotEmpty @Size(max = 200) List<@NotBlank String> ticketCodes
+    ) {}
+
+    /** Folio lifecycle per ticket code (OPEN, FINALIZED, CLOSED); a ticket with no folio or out of scope is absent. */
+    public record FolioStatusResponse(java.util.Map<String, String> statuses) {}
+
     public record GuestFolioLookupRequest(
             @Email @Size(max = 254) String contactEmail,
             @Size(max = 32) String contactPhone

@@ -315,11 +315,10 @@ public class BookingGroupRecoveryService {
         return groupCode.trim();
     }
 
+    /** FR-054, Q4 (audit only): current location of the group's first line from Operations, the copy as fallback. */
     private Long locationOf(BookingGroup group) {
-        return lines.findByGroupIdOrderByLineIndexAsc(group.getId()).stream()
-                .flatMap(line -> line.getSessions().stream())
-                .map(BookingGroupLineSession::getLocationReference)
-                .filter(Objects::nonNull).findFirst().orElse(null);
+        return lines.findByGroupIdOrderByLineIndexAsc(group.getId()).stream().findFirst()
+                .map(line -> staffScope.auditLocationOf(line, null)).orElse(null);
     }
 
     private void audit(BookingGroup group, Long locationId, String actorType, Actor actor, String action,

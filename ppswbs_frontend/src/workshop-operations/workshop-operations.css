@@ -61,3 +61,76 @@
 .roster-panel .ota-panel-head{margin-bottom:12px}
 .roster-panel .ota-panel-head .muted{font-size:13px;font-weight:600;color:#166534}
 @media(max-width:1100px){.roster-panel .roster-row{grid-template-columns:minmax(0,1fr) 112px}.roster-panel .roster-row code,.roster-panel .roster-row time{grid-column:1/-1}.roster-panel .roster-head span:nth-child(n+3){display:none}}
+
+/* ---- Package availability matrix (003.2 T164) ---- */
+.pam-table-wrap{border:1px solid #e5e7eb;border-radius:10px;overflow:auto;background:#fff}
+.pam-table{width:100%;border-collapse:collapse;font-size:13px}
+.pam-table th,.pam-table td{padding:14px 12px;border-bottom:1px solid #e5e7eb;text-align:center;vertical-align:middle}
+.pam-table thead th{background:#f9fafb;color:#6b7280;font-size:12px;font-weight:600}
+.pam-table thead th:first-child,.pam-table tbody th{text-align:left}
+.pam-table tbody tr:last-child th,.pam-table tbody tr:last-child td{border-bottom:0}
+.pam-location-name{display:block;font-weight:600;color:#111827;margin-bottom:6px}
+.pam-badge{display:inline-flex;padding:3px 8px;border-radius:999px;font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
+.pam-badge.is-active{background:#dcfce7;color:#166534}
+.pam-badge.is-inactive{background:#f3f4f6;color:#4b5563}
+.pam-cell{display:inline-flex;flex-direction:column;align-items:center;gap:4px;min-width:44px;min-height:32px;justify-content:center;border-radius:6px}
+.pam-cell input[type=checkbox]{width:20px;height:20px;margin:0;accent-color:#002967;cursor:pointer}
+.pam-cell input[type=checkbox]:focus-visible{outline:2px solid #002967;outline-offset:2px}
+.pam-cell input[aria-disabled=true]{opacity:.35;cursor:progress}
+.pam-cell.has-conflict input{outline:2px solid #d97706;outline-offset:1px}
+.pam-cell.has-error input{outline:2px solid #dc2626;outline-offset:1px}
+.pam-saving{display:inline-flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;color:#4b5563}
+.pam-spinner{width:14px;height:14px;border:2px solid #cbd5e1;border-top-color:#002967;border-radius:50%;animation:pam-spin .8s linear infinite}
+@keyframes pam-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.pam-spinner{animation:none}}
+.pam-cards{display:grid;gap:12px}
+.pam-card{border:1px solid #e5e7eb;border-radius:10px;background:#fff;padding:14px}
+.pam-card header{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}
+.pam-card h3{margin:0;font-size:15px}
+.pam-card ul{list-style:none;margin:0;padding:0}
+.pam-card li{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0;border-top:1px solid #f1f5f9;font-size:13px}
+.pam-skeleton{border:1px solid #e5e7eb;border-radius:10px;background:#fff;padding:16px;display:grid;gap:12px}
+.pam-skeleton span{display:block;height:28px;border-radius:6px;background:#eef0f3}
+.pam-banner{display:flex;justify-content:space-between;align-items:center;gap:12px;border-radius:8px;padding:12px 16px;margin-bottom:14px;font-size:13px}
+.pam-banner strong{display:block}
+.pam-banner.is-success{background:#dcfce7;color:#166534}
+.pam-banner.is-conflict{background:#fef3c7;color:#92400e}
+.pam-banner.is-error{background:#fee2e2;color:#991b1b}
+.pam-note{color:#6b7280;font-size:12px;margin:12px 0 0}
+.pam-banner.is-saving{background:#dbeafe;color:#1e40af}
+.pam-ref{display:block;font-size:12px;margin-top:4px}
+.pam-empty{border:1px solid #e5e7eb;border-radius:10px;padding:40px 16px;text-align:center}
+.pam-empty h3{margin:0 0 8px}.pam-empty p{color:#6b7280;max-width:520px;margin:0 auto 16px}.pam-empty .ops-actions{justify-content:center}
+.pam-denied{text-align:center;padding:56px 16px}
+.pam-denied-code{font-size:40px;font-weight:800;color:#991b1b;margin:0}
+.pam-denied h2{margin:8px 0}.pam-denied p{color:#6b7280}
+
+/* Session board filter bar: every control shares one height so labels and fields line up on one baseline. */
+.ops-filter-form { align-items: flex-end; }
+.ops-filter-form input,
+.ops-filter-form select,
+.ops-filter-form .button { box-sizing: border-box; height: 42px; }
+.ops-filter-form select {
+  border: 1px solid #d5d7dc; border-radius: 6px; background: #fff; padding: 0 12px; color: #1a1a1a; min-width: 160px;
+}
+.ops-filter-form input { min-width: 150px; }
+.ops-filter-form .button.primary { margin-left: auto; }
+
+/* Attendance roster: the ticket code (GRP-…-L1-T1) is long, so its column is the widest and the text may break anywhere instead of running into the next column. */
+.roster-panel .roster-row{grid-template-columns:minmax(0,1.8fr) minmax(0,1.3fr) 112px minmax(0,.9fr) auto}
+.roster-folio{white-space:nowrap;font-size:12px;font-weight:600}
+.roster-row>*{min-width:0}
+.roster-row strong{overflow-wrap:anywhere;word-break:break-all}
+@media(max-width:1100px){.roster-panel .roster-row{grid-template-columns:minmax(0,1fr) 112px}.roster-panel .roster-row .roster-folio{grid-column:1/-1}}
+
+/* Session page: the check-in desk and the session facts sit side by side on the first row; the attendance roster is long, so it has the whole row below. */
+.ops-detail-grid>.roster-panel{grid-column:1/-1}
+
+/* ---- Roster: five aligned columns (code, booking, badges, time, action) and the payment badge ---- */
+.roster-panel .roster-row{grid-template-columns:minmax(0,1.2fr) minmax(0,1.3fr) minmax(190px,auto) minmax(130px,.8fr) 110px;align-items:center}
+.roster-panel .roster-row>strong{overflow-wrap:anywhere}
+.roster-panel .roster-badges{display:flex;flex-wrap:wrap;gap:6px}
+.roster-panel .roster-row .roster-folio{justify-self:end;text-align:right;white-space:nowrap}
+.roster-pay-paid{background:#dbeafe;color:#1e40af}
+.roster-pay-unpaid{background:#fef3c7;color:#92400e}
+@media(max-width:1100px){.roster-panel .roster-row{grid-template-columns:minmax(0,1fr) auto}.roster-panel .roster-row .roster-badges,.roster-panel .roster-row .roster-folio{grid-column:1/-1;justify-self:start}}

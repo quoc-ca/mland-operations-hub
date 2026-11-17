@@ -103,7 +103,7 @@ public class CheckInOverrideService {
 
     private AttendanceTicket resolveLockedTicket(CheckInOverrideRequest request) {
         Optional<AttendanceTicket> ticket = request.getTicketCode() != null && !request.getTicketCode().isBlank()
-                ? ticketRepository.findByTicketCodeWithLock(request.getTicketCode())
+                ? ticketRepository.findByAnyTicketCodeWithLock(request.getTicketCode())
                 : ticketRepository.findByQrReferenceWithLock(request.getQrToken());
         return ticket.orElseThrow(() -> request.getQrToken() != null
                 && qrGenerationRepository.existsByQrReference(request.getQrToken())

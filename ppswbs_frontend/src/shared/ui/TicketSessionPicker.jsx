@@ -26,6 +26,7 @@ const EN = {
   },
   choose: 'Choose the new session',
   pickPlaceholder: 'Select a session…',
+  locationFallback: reference => `Location ${reference}`,
 };
 
 const defaultWindow = (start, end) => {
@@ -36,6 +37,9 @@ const defaultWindow = (start, end) => {
   const clock = value => value.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   return Number.isNaN(to.getTime()) ? `${day} ${clock(from)}` : `${day} ${clock(from)}–${clock(to)}`;
 };
+
+// FR-058/FR-063: every row names its location; a null name falls back to the reference, never to an empty label.
+const locationText = (item, text) => item.locationName || (item.locationReference != null ? text.locationFallback(item.locationReference) : '');
 
 const defaultMoney = value => `${Number(value || 0).toLocaleString()} VND`;
 
@@ -114,7 +118,7 @@ export function TicketSessionPicker({ ticketCode, type, loadOptions, onSelect, l
 
   // <option> holds text only, so the label is built as a string here.
   const optionText = option => [
-    formatWindow(option.start, option.end),
+    [locationText(option, text), formatWindow(option.start, option.end)].filter(Boolean).join(' – '),
     option.selectable === false && option.remainingCapacity <= 0 ? text.full : text.seatsLeft(option.remainingCapacity),
     Number.isFinite(option.remainingRescheduleQuota) ? text.quotaLeft(option.remainingRescheduleQuota) : null,
     option.requiresManager ? `${text.needsManager}${option.managerRules?.length ? ` (${managerNote(option.managerRules)})` : ''}` : null,
@@ -166,6 +170,7 @@ export function TicketSessionPicker({ ticketCode, type, loadOptions, onSelect, l
                 choose(option.sessionReference, {
                   fromSessionReferences: [selected.fromSessionReference],
                   targetSessionReferences: [option.sessionReference],
+                  targetLocationNames: [locationText(option, text)],
                   requiresManager: option.requiresManager,
                   managerRules: option.managerRules || [],
                   priceIncreaseAmountVnd: option.priceIncreaseAmountVnd,
@@ -200,6 +205,7 @@ export function TicketSessionPicker({ ticketCode, type, loadOptions, onSelect, l
                 choose(event.target.value, {
                   fromSessionReferences: sessions.map(item => item.fromSessionReference),
                   targetSessionReferences: pair.sessionReferences,
+                  targetLocationNames: (pair.sessions || []).map(item => locationText(item, text)),
                   requiresManager: pair.requiresManager,
                   managerRules: pair.managerRules || [],
                   priceIncreaseAmountVnd: pair.priceIncreaseAmountVnd,
@@ -208,7 +214,7 @@ export function TicketSessionPicker({ ticketCode, type, loadOptions, onSelect, l
             >
               <option value="" disabled>{text.pickPlaceholder}</option>
               {pairData.pairs.map(pair => {
-                const [firstWindow, secondWindow] = (pair.sessions || []).map(item => `${formatWindow(item.start, item.end)} (${[text.seatsLeft(item.remainingCapacity), Number.isFinite(item.remainingRescheduleQuota) ? text.quotaLeft(item.remainingRescheduleQuota) : null].filter(Boolean).join(', ')})`);
+                const [firstWindow, secondWindow] = (pair.sessions || []).map(item => `${[locationText(item, text), formatWindow(item.start, item.end)].filter(Boolean).join(' – ')} (${[text.seatsLeft(item.remainingCapacity), Number.isFinite(item.remainingRescheduleQuota) ? text.quotaLeft(item.remainingRescheduleQuota) : null].filter(Boolean).join(', ')})`);
                 const notes = [
                   !pair.selectable ? text.full : null,
                   pair.requiresManager ? text.needsManager : null,

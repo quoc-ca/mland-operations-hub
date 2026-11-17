@@ -1,19 +1,24 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import CartTabs from '../shared/ui/CartTabs';
-import { createBookingGroup, quoteWorkshopCart } from '../api/workshops';
+import { createBookingGroup, listWorkshopLocations, quoteWorkshopCart } from '../api/workshops';
 import { CartBenefitPicker } from './CartBenefitPicker';
 import { contactForRequest, EMPTY_CONTACT, splitPhone, validateBookingContact } from './contactValidation';
 import { CartQuotePanel } from './CartQuotePanel';
+import { CartQuoteDialog } from './CartQuoteDialog';
 import { GroupDetailCard } from './GroupDetailCard';
+import { refreshBookingGroup } from './refreshGroup';
+import { invalidatePendingPayments } from './pendingPayments';
 import {
   cartQuoteLines,
   clearCart,
   readCart,
   removeCartLine,
+  subscribeToCart,
   updateCartLineParticipants,
 } from './cartStorage';
 import { failingLinesOf, vnd } from './groupDisplay';
+import { GroupResultHeading } from './GroupResultHeading';
 import { useBookingIdentity } from './useBookingIdentity';
 import { useHttp } from '../shared/api/useHttp';
 import { offersForPackage, usePublicWorkshopPrograms, WorkshopOfferBadges, WorkshopOfferPrice } from '../features/loyalty-promotion/publicOffers';
@@ -21,6 +26,8 @@ import './figmaPublicShell.css';
 import './cartShopee.css';
 
 const CART_ERROR_MESSAGE = {
+  // 003.1 FR-055 (003.2 FR-039): nothing was held; the cart and the typed fields are kept (proposed copy, Q7).
+  PACKAGE_NOT_AVAILABLE_AT_LOCATION: 'Có dòng trong giỏ là gói hiện không còn bán tại chi nhánh đã chọn. Hệ thống không giữ chỗ nào; giỏ và thông tin bạn đã nhập vẫn được giữ. Hãy chọn chi nhánh khác ở trang gói hoặc xóa dòng đó.',
   CART_HOLD_REJECTED: 'Giỏ chưa được giữ chỗ vì có dòng không còn đủ chỗ. Hệ thống không giữ chỗ nào; vui lòng sửa giỏ rồi báo giá lại.',
   INSUFFICIENT_CAPACITY: 'Có dòng trong giỏ không còn đủ chỗ. Hệ thống không giữ chỗ nào.',
   QUOTE_EXPIRED: 'Báo giá đã hết hạn. Vui lòng báo giá lại.',
@@ -43,9 +50,13 @@ export function WorkshopCartPage() {
   const { authStatus, mode: bookingMode, profile, profileLoading, profileError, memberAuthorization } = useBookingIdentity();
   const http = useHttp();
   const [lines, setLines] = useState(() => readCart());
+  // The stored cart belongs to the signed-in account, and Firebase restores the session after the first render (a reload):
+  // follow the storage, or the page would keep the empty guest cart while the header shows the account's lines.
+  useEffect(() => subscribeToCart(next => setLines(next)), []);
   // Shopee-style line selection: only ticked lines are quoted and booked; the rest stay in the cart.
-  const [unselectedIds, setUnselectedIds] = useState([]);
-  const selectedLines = lines.filter(line => !unselectedIds.includes(line.lineId));
+  // Nothing is ticked when the cart opens: the customer picks the lines to book.
+  const [selectedIds, setSelectedIds] = useState([]);
+  const selectedLines = lines.filter(line => selectedIds.includes(line.lineId));
   const allSelected = lines.length > 0 && selectedLines.length === lines.length;
   const [preview, setPreview] = useState(null);
   const [autoPicking, setAutoPicking] = useState(false);
@@ -59,6 +70,25 @@ export function WorkshopCartPage() {
   const [confirming, setConfirming] = useState(false);
   const [confirmError, setConfirmError] = useState(null);
   const [failingLines, setFailingLines] = useState([]);
+  const [failingCode, setFailingCode] = useState(null);
+  // FR-057: the cart stores only the branch id; the display name is re-read from the branch list of each Package.
+  const [locationNames, setLocationNames] = useState({});
+  const packageIdsKey = [...new Set(lines.map(line => line.packageId))].join(',');
+  useEffect(() => {
+    let active = true;
+    packageIdsKey.split(',').filter(Boolean).forEach(packageId => {
+      listWorkshopLocations(packageId)
+        .then(data => {
+          if (!active || !Array.isArray(data)) return;
+          setLocationNames(previous => ({
+            ...previous,
+            ...Object.fromEntries(data.map(item => [`${packageId}:${item.id}`, item.name])),
+          }));
+        })
+        .catch(() => { /* no name is shown when the read fails */ });
+    });
+    return () => { active = false; };
+  }, [packageIdsKey]);
   const [validationErrors, setValidationErrors] = useState({});
   const [group, setGroup] = useState(null);
   const [confirmKey, setConfirmKey] = useState(null);
@@ -228,13 +258,13 @@ export function WorkshopCartPage() {
   };
 
   const toggleLine = lineId => {
-    setUnselectedIds(ids => (ids.includes(lineId) ? ids.filter(id => id !== lineId) : [...ids, lineId]));
+    setSelectedIds(ids => (ids.includes(lineId) ? ids.filter(id => id !== lineId) : [...ids, lineId]));
     userPicked.current = false;
     setPreview(null);
     invalidateQuote();
   };
   const toggleAll = () => {
-    setUnselectedIds(allSelected ? lines.map(line => line.lineId) : []);
+    setSelectedIds(allSelected ? [] : lines.map(line => line.lineId));
     userPicked.current = false;
     setPreview(null);
     invalidateQuote();
@@ -308,15 +338,16 @@ export function WorkshopCartPage() {
         authorization: authorization || undefined,
       });
       setGroup(created);
+      invalidatePendingPayments();
       setQuote(null);
       selectedLines.forEach(line => removeCartLine(line.lineId));
       setLines(readCart());
-      setUnselectedIds([]);
+      setSelectedIds([]);
     } catch (error) {
       const failing = failingLinesOf(error)
         .map(position => lines.findIndex(line => line.lineId === selectedLines[position]?.lineId))
         .filter(position => position >= 0);
-      if (failing.length > 0) setFailingLines(failing);
+      if (failing.length > 0) { setFailingLines(failing); setFailingCode(error?.code || null); }
       setConfirmKey(null);
       setConfirmError(describe(error));
     } finally {
@@ -324,18 +355,16 @@ export function WorkshopCartPage() {
     }
   };
 
+  const refreshGroup = async () => {
+    const next = await refreshBookingGroup({ groupCode: group?.groupCode, mode: bookingMode, memberAuthorization, contact });
+    if (next) { setGroup(next); invalidatePendingPayments(); }
+  };
+
   if (group) {
     return (
       <main className="public-page figma-public-page">
-        <p className="eyebrow">{group.groupStatus === 'CONFIRMED' ? 'ĐẶT CHỖ THÀNH CÔNG' : 'GIỮ CHỖ THÀNH CÔNG'}</p>
-        <h1 style={{ color: '#002967' }}>
-          {group.groupStatus === 'CONFIRMED' ? 'Nhóm đặt chỗ đã được xác nhận' : 'Đã giữ chỗ cho nhóm đặt chỗ'}
-        </h1>
-        <GroupDetailCard group={group} authorization={null} proof={contact} allowRecipientChange={false} />
-        <div className="actions" style={{ marginTop: '20px' }}>
-          <a className="button outline" href="/workshop-booking/lookup">Xem đặt chỗ của tôi</a>
-          <a className="button outline" href="/workshops">Đặt thêm workshop</a>
-        </div>
+        <GroupResultHeading group={group} />
+        <GroupDetailCard group={group} authorization={null} proof={contact} allowRecipientChange={false} onRefresh={refreshGroup} />
       </main>
     );
   }
@@ -386,7 +415,7 @@ export function WorkshopCartPage() {
               const shownQuote = quote || preview;
               const quotedLine = shownQuote?.lines?.find(item => item.lineIndex === selectedLines.findIndex(picked => picked.lineId === line.lineId));
               const sumOf = key => (quotedLine?.tickets || []).reduce((sum, ticket) => sum + Number(ticket[key] || 0), 0);
-              const lineQuoted = quotedLine && quotedLine.tickets?.length && !unselectedIds.includes(line.lineId)
+              const lineQuoted = quotedLine && quotedLine.tickets?.length && selectedIds.includes(line.lineId)
                 ? { gross: sumOf('packagePriceVnd'), final: sumOf('finalPriceVnd'), voucher: sumOf('voucherDiscountVnd'), points: sumOf('pointDiscountVnd') }
                 : null;
               return (
@@ -395,7 +424,7 @@ export function WorkshopCartPage() {
                     <input
                       type="checkbox"
                       aria-label={`Chọn dòng ${index + 1}`}
-                      checked={!unselectedIds.includes(line.lineId)}
+                      checked={selectedIds.includes(line.lineId)}
                       onChange={() => toggleLine(line.lineId)}
                       disabled={quoting || confirming}
                     />
@@ -403,7 +432,7 @@ export function WorkshopCartPage() {
                   <div className="cart-cell cart-product">
                     <strong>{line.packageName || `Gói #${line.packageId}`}</strong>
                     <p className="muted">
-                      Dòng {index + 1}{line.locationName ? ` · ${line.locationName}` : ''}
+                      Dòng {index + 1}{locationNames[`${line.packageId}:${line.locationId}`] ? ` · ${locationNames[`${line.packageId}:${line.locationId}`]}` : ''}
                     </p>
                     {line.sessionLabels?.length > 0 && (
                       <ul className="muted cart-sessions">
@@ -469,7 +498,9 @@ export function WorkshopCartPage() {
                   </div>
                   {failed && (
                     <p role="alert" className="cart-row-alert">
-                      Dòng này không còn đủ chỗ. Hãy giảm số người hoặc chọn ca khác.
+                      {failingCode === 'PACKAGE_NOT_AVAILABLE_AT_LOCATION'
+                        ? <>Gói này không còn bán tại chi nhánh đã chọn. <a className="text-link" href={`/workshops/${line.packageId}`}>Chọn chi nhánh khác</a></>
+                        : 'Dòng này không còn đủ chỗ. Hãy giảm số người hoặc chọn ca khác.'}
                     </p>
                   )}
                 </li>
@@ -488,7 +519,6 @@ export function WorkshopCartPage() {
             <label className="cart-bar-all">
               <input type="checkbox" checked={allSelected} onChange={toggleAll} disabled={quoting || confirming} /> Chọn tất cả ({lines.length})
             </label>
-            <Link className="cart-bar-add" to="/workshops">+ Thêm gói khác</Link>
             <div className="cart-bar-total" aria-live="polite">
               {(quote || preview) ? (
                 <>
@@ -513,7 +543,7 @@ export function WorkshopCartPage() {
               onClick={proceed}
               disabled={quoting || confirming || autoPicking || selectedLines.length === 0 || bookingMode === null || profileLoading}
             >
-              {quoting ? 'Đang báo giá...' : 'Đặt chỗ ngay'}
+              {quoting ? 'Đang báo giá...' : 'Xem báo giá và đặt chỗ'}
             </button>
           </div>
         </section>
@@ -542,6 +572,7 @@ export function WorkshopCartPage() {
         </section>
       )}
 
+      <CartQuoteDialog open={Boolean(quote)} title="Báo giá giỏ workshop" busy={confirming} onClose={invalidateQuote}>
       <CartQuotePanel
         quote={quote}
         contact={contact}
@@ -551,8 +582,12 @@ export function WorkshopCartPage() {
         confirmError={confirmError}
         validationErrors={validationErrors}
         failingLines={failingLines}
+        failingCode={failingCode}
+        onCancel={invalidateQuote}
+        packageHrefOf={index => `/workshops/${lines[index]?.packageId}`}
         title="Báo giá giỏ workshop"
       />
+      </CartQuoteDialog>
     </main>
     </>
   );

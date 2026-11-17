@@ -617,6 +617,48 @@ class WorkshopCartBookingTest {
         assertThat(saved.get(0).getQuoteState()).isEqualTo(CartQuoteState.OPEN);
     }
 
+    /**
+     * T158 / FR-055 / Q6: a quote is accepted for any pair (no availability in the quote), the reserve is the
+     * authority. An INACTIVE pair refuses the whole cart: its own code, the failing line, no hold, no group, no
+     * ticket, quote still OPEN so the cart stays editable.
+     */
+    @Test
+    void anInactiveLocationRefusesTheCartWithItsOwnCodeAndHoldsNothing() {
+        UUID clay = publishedLine("7", 203_000, 1, 6, 1, "Clay Workshop");
+        UUID wax = publishedLine("9", 500_000, 1, 4, 1, "Wax Casting");
+        WorkshopCartQuoteResponse quote = quoteService.quote(null, cart(line(7L, clay, 2), line(9L, wax, 1)));
+        openQuote(quote.quoteRef());
+        when(operations.reserveGroupCapacity(anyString(), any(), anyString(), anyString())).thenReturn(
+                GroupCapacityOutcome.rejected(RejectionReason.PACKAGE_NOT_AVAILABLE_AT_LOCATION, List.of(1)));
+
+        assertThatThrownBy(() -> creationService.create(new CreateBookingGroupRequest(quote.quoteRef(),
+                "buyer@example.com", "0901234567"), null, "corr-loc", null))
+                .isInstanceOf(CartHoldRejectedException.class)
+                .hasFieldOrPropertyWithValue("code", "PACKAGE_NOT_AVAILABLE_AT_LOCATION")
+                .hasFieldOrPropertyWithValue("failingLines", List.of(1));
+
+        verifyNoInteractions(groups);
+        verifyNoInteractions(tickets);
+        verifyNoInteractions(snapshots);
+        assertThat(saved.get(0).getQuoteState()).isEqualTo(CartQuoteState.OPEN);
+    }
+
+    /** FR-055: Operations decides PACKAGE_NOT_PUBLISHED first, and 003.1 passes it on as itself, not as the new code. */
+    @Test
+    void packageNotPublishedStillAnswersItsOwnCode() {
+        UUID clay = publishedLine("7", 203_000, 1, 6, 1, "Clay Workshop");
+        WorkshopCartQuoteResponse quote = quoteService.quote(null, cart(line(7L, clay, 1)));
+        openQuote(quote.quoteRef());
+        when(operations.reserveGroupCapacity(anyString(), any(), anyString(), anyString())).thenReturn(
+                GroupCapacityOutcome.rejected(RejectionReason.PACKAGE_NOT_PUBLISHED, List.of(0)));
+
+        assertThatThrownBy(() -> creationService.create(new CreateBookingGroupRequest(quote.quoteRef(),
+                "buyer@example.com", "0901234567"), null, "corr-pub", null))
+                .isInstanceOf(CartHoldRejectedException.class)
+                .hasFieldOrPropertyWithValue("code", "PACKAGE_NOT_PUBLISHED");
+        verifyNoInteractions(groups);
+    }
+
     @Test
     void aQuoteIsConfirmedOnlyOnce() {
         UUID session = publishedLine("7", 203_000, 1, 6, 1, "Clay Workshop");

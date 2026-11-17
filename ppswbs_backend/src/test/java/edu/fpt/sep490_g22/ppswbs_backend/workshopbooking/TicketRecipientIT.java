@@ -275,6 +275,52 @@ class TicketRecipientIT {
         return mockMvc.perform(request);
     }
 
+    /**
+     * T156 (FR-054, Q4; 003.2 FR-045): the Staff scope of a group-level operation is judged at the CURRENT location of
+     * the ticket's session. After a move to the other location, the Staff member of that location who is assigned to
+     * the new session may change the recipient; the Staff member of the old location is refused and the denied attempt
+     * is audited at the current location. A Manager stays global.
+     */
+    @Test
+    @DisplayName("T156: after a ticket moved to another location, Staff of the new location (assigned) operate, Staff of the old one are refused and audited")
+    void staffScopeFollowsTheCurrentLocationOfAMovedTicket() throws Exception {
+        TicketBooking ticket = confirmedTicket(null);
+        // Only a Package that may change location can be moved (003.2 FR-041); it is sold at both locations.
+        jdbc.update("UPDATE workshop_packages SET same_location_required = 0 WHERE id = ?", ticket.getPackageId());
+        edu.fpt.sep490_g22.ppswbs_backend.workshopoperations.PackageAvailabilityFixture.activateEverywhere(jdbc, ticket.getPackageId());
+        WorkshopSlot slot = slots.save(WorkshopSlot.builder().reference(UUID.randomUUID().toString()).location(otherLocation)
+                .label("Afternoon").startTime(LocalTime.of(14, 0)).endTime(LocalTime.of(17, 0)).defaultCapacity(10)
+                .active(true).build());
+        LocalDate date = LocalDate.now().plusDays(4);
+        ZoneId zone = ZoneId.of("Asia/Ho_Chi_Minh");
+        WorkshopSession target = sessions.save(WorkshopSession.builder().reference(UUID.randomUUID().toString())
+                .location(otherLocation).slot(slot).workshopDate(date)
+                .scheduledStartAt(date.atTime(14, 0).atZone(zone).toInstant())
+                .scheduledEndAt(date.atTime(17, 0).atZone(zone).toInstant())
+                .checkInOpensAt(Instant.now().minus(30, ChronoUnit.MINUTES))
+                .checkInOpeningSource(CheckInOpeningSource.DEFAULT).capacity(10).state(SessionState.PUBLISHED).build());
+        assertThat(operations.replaceTicketSessions(new ReplaceTicketSessionsCommand(
+                List.of(new ReplaceTicketSessionsCommand.Line(UUID.fromString(ticket.getOperationsTicketReference()),
+                        List.of(UUID.fromString(target.getReference())))),
+                TicketReplacementType.MLAND, "op-" + UUID.randomUUID(), "corr-move")).status())
+                .isEqualTo(OutcomeStatus.ACCEPTED);
+        jdbc.update("INSERT INTO session_staff_assignments (session_id, account_id, assigned_by_id, active) VALUES (?, ?, ?, 1)",
+                target.getId(), STAFF_OTHER_LOCATION_ID, 1L);
+        account("manager-global", MANAGER_ID, ActorRole.MANAGER, List.of());
+
+        // The Staff member of the old location (assigned to the old session before the move) is refused and audited.
+        recipient(ticket, "r1@example.com", verifyBuyer(ticket), "Buyer at the counter", "staff-shop", key())
+                .andExpect(status().isForbidden());
+        assertThat(count("booking_audit_evidence WHERE action = 'TICKET_RECIPIENT_CHANGE' AND outcome = 'DENIED' AND actor_id = "
+                + STAFF_ID + " AND location_id = " + otherLocation.getId())).isEqualTo(1);
+        // The Staff member of the new location, assigned to the new session, may change the recipient.
+        recipient(ticket, "r1@example.com", verifyBuyer(ticket), "Buyer at the counter", "staff-elsewhere", key())
+                .andExpect(status().isOk());
+        // A Manager stays global.
+        recipient(ticket, "r2@example.com", verifyBuyer(ticket), "Head office", "manager-global", key())
+                .andExpect(status().isOk());
+    }
+
     @Test
     @DisplayName("T148: Staff in scope and assigned, and any Manager, request and confirm the OTP; others are refused per class")
     void internalBuyerVerificationAuthorization() throws Exception {
@@ -644,6 +690,7 @@ class TicketRecipientIT {
         Long packageId = packages.save(WorkshopPackage.builder().name("Recipient package").description("fixture")
                 .publicPrice(100000L).minParticipants(1).maxParticipants(10).requiredSessionCount(1)
                 .sameLocationRequired(true).minimumSameDaySlotGap(0).state(WorkshopPackageState.PUBLISHED).build()).getId();
+        edu.fpt.sep490_g22.ppswbs_backend.workshopoperations.PackageAvailabilityFixture.activateEverywhere(jdbc, packageId);
         String lineReference = "LINE-" + UUID.randomUUID().toString().substring(0, 8);
         CapacityHoldOutcome hold = operations.reserveBookingCapacity(new ReserveBookingCapacityCommand(lineReference,
                 String.valueOf(packageId), List.of(UUID.fromString(session.getReference())), 1,

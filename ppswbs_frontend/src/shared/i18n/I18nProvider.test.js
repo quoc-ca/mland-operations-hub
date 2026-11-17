@@ -11,9 +11,9 @@ describe('i18n', () => {
   });
 
   it('formats decimal-string VND amounts without losing digits', () => {
-    expect(formatMoney('1250000', 'vi')).toBe('1.250.000 ₫');
-    expect(formatMoney('1250000', 'en')).toBe('1,250,000 ₫');
-    expect(formatMoney('9223372036854775807', 'vi')).toBe('9.223.372.036.854.775.807 ₫');
+    expect(formatMoney('1250000', 'vi')).toBe('1.250.000\u00a0₫');
+    expect(formatMoney('1250000', 'en')).toBe('1,250,000\u00a0₫');
+    expect(formatMoney('9223372036854775807', 'vi')).toBe('9.223.372.036.854.775.807\u00a0₫');
     expect(formatMoney(null, 'vi')).toBe('—');
   });
 });

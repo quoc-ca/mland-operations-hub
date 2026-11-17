@@ -16,7 +16,7 @@ const folio = (over = {}) => json(200, {
   ...over,
 });
 async function openFolio(user) {
-  await user.type(await screen.findByPlaceholderText('TK-...'), 'TK-1');
+  await user.type(await screen.findByPlaceholderText('GRP-…-L0-T1'), 'TK-1');
   await user.click(screen.getByRole('button', { name: 'Open folio' }));
 }
 

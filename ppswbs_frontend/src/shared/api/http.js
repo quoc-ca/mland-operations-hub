@@ -109,7 +109,7 @@ export function createHttpClient({ baseUrl = apiBaseUrl, getIdToken, onSessionEx
   }
 
   return async function request(path, {
-    method = 'GET', query, body, form, idempotencyKey, auth = true, responseType = 'json', signal, headers: customHeaders,
+    method = 'GET', query, body, form, idempotencyKey, auth = true, responseType = 'json', signal, headers: customHeaders, suppressAccessDenied = false,
   } = {}) {
     const url = buildUrl(baseUrl, path, query);
     const headers = { ...(customHeaders || {}) };
@@ -147,7 +147,8 @@ export function createHttpClient({ baseUrl = apiBaseUrl, getIdToken, onSessionEx
       }
     }
     if (!response.ok) {
-      if (response.status === 403) {
+      // A command that explains its own refusal on its screen (suppressAccessDenied) is not a reason to leave the page.
+      if (response.status === 403 && !suppressAccessDenied) {
         onAccessDenied?.();
       }
       throw await errorFrom(response, method);

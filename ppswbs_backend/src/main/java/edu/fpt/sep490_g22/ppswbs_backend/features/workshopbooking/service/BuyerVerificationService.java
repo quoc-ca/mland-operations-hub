@@ -65,7 +65,12 @@ public class BuyerVerificationService {
         this.maxAttempts = maxAttempts;
     }
 
-    public record Challenge(String verificationId, Instant expiresAt) { }
+    /** {@code maskedEmail} is set only for a Staff or Manager request (they do not know the booking's email); never for a buyer. */
+    public record Challenge(String verificationId, Instant expiresAt, String maskedEmail) {
+        public Challenge(String verificationId, Instant expiresAt) {
+            this(verificationId, expiresAt, null);
+        }
+    }
 
     public record VerifiedReference(String buyerVerificationReference, Instant expiresAt) { }
 
@@ -117,7 +122,7 @@ public class BuyerVerificationService {
         String verificationId = UUID.randomUUID().toString();
         Instant expiresAt = now.plus(otpTtl);
         issue(group, verificationId, now, expiresAt, correlationReference);
-        return new Challenge(verificationId, expiresAt);
+        return new Challenge(verificationId, expiresAt, EmailMasking.mask(group.getContactEmail()));
     }
 
     private void requireWithinSendLimits(BookingGroup group, Instant now) {

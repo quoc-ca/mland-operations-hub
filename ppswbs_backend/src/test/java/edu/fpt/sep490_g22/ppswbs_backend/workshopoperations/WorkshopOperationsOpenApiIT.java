@@ -379,7 +379,8 @@ public class WorkshopOperationsOpenApiIT {
                 WorkshopLocationController.class,
                 WorkshopSessionController.class,
                 WorkshopCheckInController.class,
-                WorkshopAttendanceController.class
+                WorkshopAttendanceController.class,
+                edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.controller.WorkshopPackageAvailabilityController.class
         };
 
         List<String> controllerPaths = new ArrayList<>();
@@ -427,5 +428,70 @@ public class WorkshopOperationsOpenApiIT {
             assertThat(openApiPaths).as("OpenAPI must declare controller endpoint: " + pathWithoutPrefix)
                     .containsKey(pathWithoutPrefix);
         }
+    }
+
+    // =========================================================================
+    // 4. Phase 18: Package availability per location (T159)
+    // =========================================================================
+
+    @Test
+    @DisplayName("T159: the two availability routes, PackageAvailability* schemas, locationName and the new Problem code match the backend")
+    @SuppressWarnings("unchecked")
+    void verifyPackageAvailabilityContractMatchesBackend() {
+        Map<String, Object> paths = (Map<String, Object>) openApiSpec.get("paths");
+        Map<String, Object> matrixPath = (Map<String, Object>) paths.get("/workshop-package-availability");
+        assertThat(matrixPath).containsKey("get");
+        Map<String, Object> cellPath = (Map<String, Object>) paths.get(
+                "/workshop-packages/{packageId}/locations/{locationId}/availability");
+        assertThat(cellPath).containsKey("put");
+        Map<String, Object> put = (Map<String, Object>) cellPath.get("put");
+        assertThat(put.get("parameters").toString()).contains("IdempotencyKey");
+        assertThat(((Map<String, Object>) put.get("responses")).keySet())
+                .contains("200", "400", "401", "403", "404");
+        assertThat(((Map<String, Object>) ((Map<String, Object>) matrixPath.get("get")).get("responses")).keySet())
+                .contains("200", "401", "403", "503");
+
+        Map<String, Object> schemas = (Map<String, Object>) ((Map<String, Object>) openApiSpec.get("components")).get("schemas");
+        assertThat(schemas).containsKeys("PackageAvailabilityState", "PackageAvailabilityCell",
+                "PackageAvailabilityWrite", "PackageAvailabilityMatrix");
+        assertThat(((Map<String, Object>) schemas.get("PackageAvailabilityState")).get("enum").toString())
+                .isEqualTo(java.util.Arrays.toString(
+                        edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.PackageAvailabilityDtos.State.values()));
+        assertSchemaMatchesRecord(schemas, "PackageAvailabilityCell",
+                edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.PackageAvailabilityDtos.Cell.class);
+        assertSchemaMatchesRecord(schemas, "PackageAvailabilityWrite",
+                edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.PackageAvailabilityDtos.Write.class);
+        assertSchemaMatchesRecord(schemas, "PackageAvailabilityMatrix",
+                edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.PackageAvailabilityDtos.Matrix.class);
+
+        // FR-044: the location display name sits next to locationId in the customer read and the session read.
+        assertThat(((Map<String, Object>) ((Map<String, Object>) schemas.get("CustomerSessionAvailability"))
+                .get("properties"))).containsKey("locationName");
+        assertThat(java.util.Arrays.stream(
+                edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.CustomerSessionAvailabilityResponse.class
+                        .getRecordComponents()).map(java.lang.reflect.RecordComponent::getName)).contains("locationName");
+        assertThat(java.util.Arrays.stream(
+                edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.SessionResponse.class
+                        .getDeclaredFields()).map(java.lang.reflect.Field::getName)).contains("locationName");
+
+        // FR-039: the new 409 code is in the Problem.code enum (the handler side is WorkshopErrorCatalogueContractTest).
+        Map<String, Object> problem = (Map<String, Object>) schemas.get("Problem");
+        Map<String, Object> code = (Map<String, Object>) ((Map<String, Object>) problem.get("properties")).get("code");
+        assertThat((List<String>) code.get("enum")).contains("PACKAGE_NOT_AVAILABLE_AT_LOCATION");
+        assertThat(java.util.Arrays.stream(
+                edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.RejectionReason.values())
+                .map(Enum::name)).contains("PACKAGE_NOT_AVAILABLE_AT_LOCATION");
+    }
+
+    private static void assertSchemaMatchesRecord(Map<String, Object> schemas, String schemaName, Class<?> record) {
+        @SuppressWarnings("unchecked")
+        Map<String, Object> schema = (Map<String, Object>) schemas.get(schemaName);
+        @SuppressWarnings("unchecked")
+        Set<String> properties = ((Map<String, Object>) schema.get("properties")).keySet();
+        Set<String> components = new java.util.TreeSet<>();
+        for (java.lang.reflect.RecordComponent component : record.getRecordComponents()) {
+            components.add(component.getName());
+        }
+        assertThat(properties).as(schemaName + " properties").containsExactlyInAnyOrderElementsOf(components);
     }
 }

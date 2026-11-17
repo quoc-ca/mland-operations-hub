@@ -135,6 +135,50 @@ paths:
         '404': { $ref: '#/components/responses/Problem' }
         '409': { $ref: '#/components/responses/Problem' }   # IDEMPOTENCY_CONFLICT / IDEMPOTENCY_IN_PROGRESS / OPTIMISTIC_LOCK_CONFLICT
         '503': { $ref: '#/components/responses/Problem' }
+  /workshop-audit/operations-events:
+    get:
+      summary: List Operations audit rows as an active Manager, newest first (spec FR-047 to FR-051, proposed 2026-11-17)
+      description: >-
+        Active Manager only; Staff, Admin and every other role get 403 and the refused attempt is audited
+        DENIED (FR-007b). Keyset paging by id so rows written while browsing never duplicate or skip a row
+        (FR-050). Metadata is returned only for whitelisted keys (FR-051). Reading writes no audit row (FR-053).
+      parameters:
+        - { name: action, in: query, required: false, schema: { type: string, maxLength: 80 } }
+        - { name: outcome, in: query, required: false, schema: { type: string, enum: [SUCCESS, FAILURE, DENIED, SENT] } }
+        - { name: actorId, in: query, required: false, schema: { type: integer, format: int64 } }
+        - { name: sessionId, in: query, required: false, schema: { type: integer, format: int64 } }
+        - { name: from, in: query, required: false, schema: { type: string, format: date-time } }
+        - { name: to, in: query, required: false, schema: { type: string, format: date-time } }
+        - { $ref: '#/components/parameters/AuditCursor' }
+        - { $ref: '#/components/parameters/AuditLimit' }
+      responses:
+        '200': { description: One page, content: { application/json: { schema: { $ref: '#/components/schemas/OperationsAuditPage' } } } }
+        '400': { $ref: '#/components/responses/Problem' }   # from after to; limit out of range; malformed cursor
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /workshop-audit/settlement-records:
+    get:
+      summary: List 003.3 settlement audit records as an active Manager, newest first (spec FR-047 to FR-052, proposed 2026-11-17)
+      description: >-
+        Active Manager only. Served by the `workshopsettlement` module (003.3) itself; Operations does not call 003.3 (that would form a module cycle). actorId matches the stored reference account:<id>. reasonText is the full free text of up to 500 characters and may hold
+        personal data, so it is Manager-only and never logged (FR-052). Same keyset paging and no-audit-on-read
+        rules as the Operations list.
+      parameters:
+        - { name: actionCode, in: query, required: false, schema: { type: string, maxLength: 64 } }
+        - { name: actorId, in: query, required: false, schema: { type: integer, format: int64 } }
+        - { name: aggregateType, in: query, required: false, schema: { type: string, maxLength: 64 } }
+        - { name: aggregateReference, in: query, required: false, schema: { type: string, maxLength: 128 } }
+        - { name: from, in: query, required: false, schema: { type: string, format: date-time } }
+        - { name: to, in: query, required: false, schema: { type: string, format: date-time } }
+        - { $ref: '#/components/parameters/AuditCursor' }
+        - { $ref: '#/components/parameters/AuditLimit' }
+      responses:
+        '200': { description: One page, content: { application/json: { schema: { $ref: '#/components/schemas/SettlementAuditPage' } } } }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
   /workshop-packages/{packageId}/locations:
     parameters: [ { $ref: '#/components/parameters/PackageId' } ]
     get:
@@ -460,8 +504,8 @@ paths:
         TICKET_QR_REVOKED and records no attendance; the ticket's current QR
         or exact ticket code still checks in. A check-in before checkInOpensAt is
         refused with 409 CHECK_IN_NOT_OPEN and Problem.checkInOpensAt (spec FR-005,
-        decided 2026-11-15, CHK014, task T126); the EARLY_CHECKIN override remains
-        available. Check-in is accepted while the session is PUBLISHED, SALES_PAUSED or IN_PROGRESS
+        decided 2026-11-15, CHK014, task T126); there is no early-check-in override
+        (EARLY_CHECKIN removed 2026-11-17; a Manager sets an earlier checkInOpensAt). Check-in is accepted while the session is PUBLISHED, SALES_PAUSED or IN_PROGRESS
         (T114); a paused session still checks in. A session that is not open for check-in (for example
         ATTENDANCE_FINALIZED or CANCELLED) is 409 INVALID_STATE.
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CheckInRequest' } } } }
@@ -630,6 +674,8 @@ components:
   securitySchemes:
     bearerAuth: { type: http, scheme: bearer, bearerFormat: Firebase-ID-token }
   parameters:
+    AuditCursor: { name: cursor, in: query, required: false, description: Opaque id of the last row of the previous page; omit for the first page, schema: { type: string, maxLength: 64 } }
+    AuditLimit: { name: limit, in: query, required: false, description: Page size, default 50, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
     PackageId: { name: packageId, in: path, required: true, schema: { type: integer, format: int64 } }
     LocationId: { name: locationId, in: path, required: true, schema: { type: integer, format: int64 } }
     SlotId: { name: slotId, in: path, required: true, schema: { type: string, format: uuid } }
@@ -666,6 +712,50 @@ components:
       description: Whole seconds (rounded up, at least 1) until the 15-minute resend window counted from its first request ends.
       schema: { type: integer, minimum: 1 }
   schemas:
+    AuditActor:
+      type: object
+      required: [accountId]
+      properties:
+        accountId: { type: integer, format: int64 }
+        displayName: { type: string, nullable: true, description: Null when the account no longer exists or has no name }
+    OperationsAuditRow:
+      type: object
+      required: [id, action, outcome, correlationId, occurredAt]
+      properties:
+        id: { type: integer, format: int64 }
+        occurredAt: { type: string, format: date-time }
+        actor: { allOf: [ { $ref: '#/components/schemas/AuditActor' } ], nullable: true, description: Null for system actions }
+        action: { type: string }
+        outcome: { type: string, enum: [SUCCESS, FAILURE, DENIED, SENT] }
+        sessionId: { type: integer, format: int64, nullable: true }
+        correlationId: { type: string }
+        metadata: { type: object, additionalProperties: { type: string }, description: All values returned as strings. Whitelisted keys only; empty when none or when the stored value is not valid JSON }
+    OperationsAuditPage:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/OperationsAuditRow' } }
+        nextCursor: { type: string, nullable: true, description: Null on the last page }
+    SettlementAuditRow:
+      type: object
+      required: [id, occurredAt, actionCode, aggregateType, aggregateReference, correlationReference]
+      properties:
+        id: { type: integer, format: int64 }
+        occurredAt: { type: string, format: date-time }
+        actionCode: { type: string }
+        aggregateType: { type: string }
+        aggregateReference: { type: string }
+        actor: { allOf: [ { $ref: '#/components/schemas/AuditActor' } ], nullable: true }
+        actorReference: { type: string, nullable: true, description: "Stored actor reference, for example account:12 or SYSTEM; shown as is when it is not an account" }
+        correlationReference: { type: string }
+        evidenceReference: { type: string, nullable: true }
+        reasonText: { type: string, nullable: true, maxLength: 500, description: Full text; Manager only; never logged }
+    SettlementAuditPage:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/SettlementAuditRow' } }
+        nextCursor: { type: string, nullable: true }
     PackageState:
       type: string
       enum: [DRAFT, PUBLISHED, RETIRED]
@@ -906,7 +996,7 @@ components:
       properties:
         reasonCode:
           type: string
-          enum: [TICKET_REDELIVERY_UNAVAILABLE, CUSTOMER_DEVICE_UNAVAILABLE, EARLY_CHECKIN, PHYSICAL_VOUCHER_VERIFIED, INSTRUCTOR_UNAVAILABLE, FACILITY_ISSUE, WEATHER_EMERGENCY, RECORDING_ERROR, OTHER_REQUIRES_NOTE]
+          enum: [TICKET_REDELIVERY_UNAVAILABLE, CUSTOMER_DEVICE_UNAVAILABLE, PHYSICAL_VOUCHER_VERIFIED, INSTRUCTOR_UNAVAILABLE, FACILITY_ISSUE, WEATHER_EMERGENCY, RECORDING_ERROR, OTHER_REQUIRES_NOTE]
         reasonNote: { type: string }
         evidenceReference: { type: string }
     ManagerBookingLookup:

@@ -202,6 +202,7 @@ public class WorkshopLifecycleIT {
                 .minimumSameDaySlotGap(0)
                 .state(WorkshopPackageState.PUBLISHED)
                 .build());
+        PackageAvailabilityFixture.activateEverywhere(jdbcTemplate, testPackage.getId());
         testPackageReference = testPackage.getId().toString();
 
         // Setup Manager A (accountId=10) with Location A scope

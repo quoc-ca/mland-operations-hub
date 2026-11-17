@@ -173,6 +173,7 @@ public class WorkshopOperationsFoundationIT {
                 .minimumSameDaySlotGap(0)
                 .state(WorkshopPackageState.PUBLISHED)
                 .build());
+        PackageAvailabilityFixture.activateEverywhere(jdbcTemplate, testPackage.getId());
         testPackageReference = testPackage.getId().toString();
 
         when(tokenVerificationService.verify("test-token")).thenReturn(

@@ -48,7 +48,7 @@ describe('Settlement rendered UI evidence', () => {
     renderRoutes(settlementRoutes, { path: '/settlement/cases?tab=cases' });
     await user.click(await screen.findByText('CASE-9'));
     expect(screen.queryByRole('link', { name: 'Required session change' })).not.toBeInTheDocument();
-    expect(screen.queryByPlaceholderText('BK-...')).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('GRP-…')).not.toBeInTheDocument();
     expect(calls.some(call => /\/workshop-bookings\//.test(call.path))).toBe(false);
   });
 });

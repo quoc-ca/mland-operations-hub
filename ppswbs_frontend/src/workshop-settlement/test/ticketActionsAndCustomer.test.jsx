@@ -29,7 +29,7 @@ const optionsOf = (code, over = {}) => json(200, {
 
 /** Staff picks the replacement from the list instead of typing identifiers, then adds the ticket to the change. */
 async function addTicketToChange(user, code) {
-  await user.type(screen.getByLabelText('Ticket code to change'), code);
+  await user.type(screen.getByLabelText('Mã vé cần đổi'), code);
   await user.click(screen.getByRole('button', { name: 'Show sessions' }));
   const fromRadio = (await screen.findAllByRole('radio')).find(radio => radio.getAttribute('name') === `from-${code}`);
   await user.click(fromRadio);
@@ -38,15 +38,35 @@ async function addTicketToChange(user, code) {
   await user.click(screen.getByRole('button', { name: 'Add ticket to the change' }));
 }
 
-async function verifyBuyer(user) {
-  await user.type(screen.getByLabelText('Contact email'), 'buyer@example.com');
-  await user.click(screen.getByRole('button', { name: 'Send code' }));
+async function verifyBuyer(user, { guest = false } = {}) {
+  if (guest) {
+    await user.type(screen.getByLabelText('Contact email'), 'buyer@example.com');
+    await user.click(screen.getByRole('button', { name: 'Send code' }));
+  } else {
+    // Staff and Manager send no contact value: the code goes to the booking's own email.
+    await user.click(screen.getByRole('button', { name: "Send code to the buyer's email" }));
+  }
   await user.type(await screen.findByLabelText('Code (6 digits)'), '123456');
   await user.click(screen.getByRole('button', { name: 'Verify' }));
   await screen.findByText(/Buyer verified/);
 }
 
 describe('Staff ticket cancellation and change', () => {
+  it('a Staff or Manager asks for the buyer code with no contact value and is told it goes to the booking email', async () => {
+    const calls = mockFetch({ [PROFILE]: asRole('STAFF'), ...verifyHandlers, [`POST ${VERIFY}`]: json(200, { verificationId: 'V-1', maskedEmail: 'ho***@gmail.com' }) });
+    const user = userEvent.setup();
+    renderRoutes(settlementRoutes, { path: '/settlement/ticket-actions?tab=change' });
+    await user.type(await screen.findByLabelText('Mã đặt chỗ'), 'GRP-1');
+    expect(screen.getByText(/The code is sent to the email the buyer gave when booking/)).toBeInTheDocument();
+    expect(screen.queryByLabelText('Contact email')).toBeNull();
+    await user.click(screen.getByRole('button', { name: "Send code to the buyer's email" }));
+    await screen.findByLabelText('Code (6 digits)');
+    const request = calls.find(call => call.path === VERIFY);
+    expect(request.body).toEqual({});
+    // The masked booking email tells the Staff member where the code went, so they can ask the buyer for it.
+    expect(screen.getByText('ho***@gmail.com')).toBeInTheDocument();
+  });
+
   it('keeps Change tickets disabled until a ticket with a chosen session is added, and shows the 422 refusal', async () => {
     const calls = mockFetch({
       [PROFILE]: asRole('STAFF'), ...verifyHandlers,
@@ -55,7 +75,7 @@ describe('Staff ticket cancellation and change', () => {
     });
     const user = userEvent.setup();
     renderRoutes(settlementRoutes, { path: '/settlement/ticket-actions?tab=change' });
-    await user.type(await screen.findByLabelText('Booking group code'), 'GRP-1');
+    await user.type(await screen.findByLabelText('Mã đặt chỗ'), 'GRP-1');
     await user.type(screen.getByLabelText('Reason (required)'), 'x');
     await verifyBuyer(user);
     expect(screen.getByRole('button', { name: 'Change tickets' })).toBeDisabled(); // nothing chosen yet
@@ -74,15 +94,15 @@ describe('Staff ticket cancellation and change', () => {
     });
     const user = userEvent.setup();
     renderRoutes(settlementRoutes, { path: '/settlement/ticket-actions?tab=change' });
-    await user.type(await screen.findByLabelText('Ticket code to change'), 'TK-1');
+    await user.type(await screen.findByLabelText('Mã vé cần đổi'), 'TK-1');
     await user.click(screen.getByRole('button', { name: 'Show sessions' }));
     await user.click((await screen.findAllByRole('radio'))[0]);
     const full = (await screen.findAllByRole('combobox')).find(item => item.getAttribute('name') === 'to-TK-1');
     expect(Array.from(full.options).find(option => option.value && option.disabled)).toBeTruthy();
     expect(screen.getByText(/Full/)).toBeInTheDocument();
 
-    await user.clear(screen.getByLabelText('Ticket code to change'));
-    await user.type(screen.getByLabelText('Ticket code to change'), 'TK-2');
+    await user.clear(screen.getByLabelText('Mã vé cần đổi'));
+    await user.type(screen.getByLabelText('Mã vé cần đổi'), 'TK-2');
     await user.click(screen.getByRole('button', { name: 'Show sessions' }));
     await user.click((await screen.findAllByRole('radio'))[0]);
     expect(await screen.findByText(/4 seats left/)).toBeInTheDocument();
@@ -102,8 +122,8 @@ describe('Staff ticket cancellation and change', () => {
     });
     const user = userEvent.setup();
     renderRoutes(settlementRoutes, { path: '/settlement/ticket-actions?tab=cancel' });
-    await user.type(await screen.findByLabelText('Booking group code'), 'GRP-1');
-    await user.type(screen.getByLabelText('Ticket codes'), 'TK-1, TK-2');
+    await user.type(await screen.findByLabelText('Mã đặt chỗ'), 'GRP-1');
+    await user.type(screen.getByLabelText('Mã vé'), 'TK-1, TK-2');
     await user.type(screen.getByLabelText('Reason (required)'), 'Customer cannot attend');
     const cancel = screen.getByRole('button', { name: 'Cancel selected tickets' });
     expect(cancel).toBeDisabled(); // no buyer proof yet
@@ -127,8 +147,8 @@ describe('Staff ticket cancellation and change', () => {
     });
     const user = userEvent.setup();
     renderRoutes(settlementRoutes, { path: '/settlement/ticket-actions?tab=cancel' });
-    await user.type(await screen.findByLabelText('Booking group code'), 'GRP-1');
-    await user.type(screen.getByLabelText('Ticket codes'), 'TK-1 TK-2');
+    await user.type(await screen.findByLabelText('Mã đặt chỗ'), 'GRP-1');
+    await user.type(screen.getByLabelText('Mã vé'), 'TK-1 TK-2');
     await user.type(screen.getByLabelText('Reason (required)'), 'x');
     await verifyBuyer(user);
     await user.click(screen.getByRole('button', { name: 'Cancel selected tickets' }));
@@ -148,7 +168,7 @@ describe('Staff ticket cancellation and change', () => {
     });
     const user = userEvent.setup();
     renderRoutes(settlementRoutes, { path: '/settlement/ticket-actions?tab=change' });
-    await user.type(await screen.findByLabelText('Booking group code'), 'GRP-1');
+    await user.type(await screen.findByLabelText('Mã đặt chỗ'), 'GRP-1');
     await addTicketToChange(user, 'TK-1');
     await user.type(screen.getByLabelText('Reason (required)'), 'Buyer asked at the counter');
     await verifyBuyer(user);
@@ -170,7 +190,7 @@ describe('Staff ticket cancellation and change', () => {
     });
     const user = userEvent.setup();
     renderRoutes(settlementRoutes, { path: '/settlement/ticket-actions?tab=change' });
-    await user.type(await screen.findByLabelText('Booking group code'), 'GRP-1');
+    await user.type(await screen.findByLabelText('Mã đặt chỗ'), 'GRP-1');
     await addTicketToChange(user, 'TK-1');
     await user.type(screen.getByLabelText('Reason (required)'), 'late');
     await verifyBuyer(user);
@@ -190,8 +210,8 @@ describe('Staff ticket cancellation and change', () => {
     });
     const user = userEvent.setup();
     renderRoutes(settlementRoutes, { path: '/settlement/ticket-actions?tab=cancel' });
-    await user.type(await screen.findByLabelText('Booking group code'), 'GRP-1');
-    await user.type(screen.getByLabelText('Ticket codes'), 'TK-1, TK-2');
+    await user.type(await screen.findByLabelText('Mã đặt chỗ'), 'GRP-1');
+    await user.type(screen.getByLabelText('Mã vé'), 'TK-1, TK-2');
     await user.type(screen.getByLabelText('Reason (required)'), 'Customer cannot attend');
     await verifyBuyer(user);
     await user.click(screen.getByRole('button', { name: 'Cancel selected tickets' }));
@@ -214,7 +234,7 @@ describe('Staff ticket cancellation and change', () => {
     });
     const user = userEvent.setup();
     renderRoutes(settlementRoutes, { path: '/settlement/ticket-actions?tab=change' });
-    await user.type(await screen.findByLabelText('Booking group code'), 'GRP-1');
+    await user.type(await screen.findByLabelText('Mã đặt chỗ'), 'GRP-1');
     await addTicketToChange(user, 'TK-1');
     await addTicketToChange(user, 'TK-2');
     await user.type(screen.getByLabelText('Reason (required)'), 'Whole family moves');
@@ -285,7 +305,7 @@ describe('Customer Mland remedy page', () => {
     const send = screen.getByRole('button', { name: 'Send my answer' });
     await user.click(radios[0]);
     expect(send).toBeDisabled(); // a Guest still needs the buyer proof
-    await verifyBuyer(user);
+    await verifyBuyer(user, { guest: true });
     await user.click(send);
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Confirm' }));
     expect(await screen.findByText('Your new session is booked.')).toBeInTheDocument();

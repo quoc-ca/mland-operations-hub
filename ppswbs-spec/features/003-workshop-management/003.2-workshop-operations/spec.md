@@ -361,7 +361,7 @@ and per location, whether it is sold there.
   `PACKAGE_SELECTION_INVALID`, which belongs to reserve). A
   Staff member can change a ticket only inside a location in their
   `activeLocationIds` (and under the existing assignment rule); a change whose
-  target is in a different location needs an active Manager. A target at an
+  target is in a different location needs no Manager (amended 2026-11-17, owner Hồ Hoàng Quốc; the Staff scope and assignment rules above still apply and the Staff member of the old location loses access after the move, FR-045). A target at an
   `INACTIVE` location is never offered and is refused at commit
   (`PACKAGE_NOT_AVAILABLE_AT_LOCATION`), including a change request approved
   before the pair was set `INACTIVE`. The existing seat, quota, QR and
@@ -418,6 +418,99 @@ treated as a duplicate booking.
 a per-location Package lifecycle; those stay out of scope. The safe error code
 name is a proposal until the contract is drafted.
 
+## Audit review for Manager (owner request 2026-11-17)
+
+**Source:** request of Hồ Hoàng Quốc (owner Feature 003), 2026-11-17, raised
+while checking where the package availability changes (FR-038) can be reviewed.
+**Status: DRAFT/PROPOSED** — owner answers of 2026-11-17 are recorded below
+(Clarifications, session 2026-11-17 audit review); no Tech Lead approval yet.
+
+**Observed baseline (facts, not decisions):** Operations already records audit
+rows for session, attendance, check-in override, check-in reversal, attendance
+correction, Staff auto-assignment, master-data and package availability changes,
+and for denied attempts (FR-007, FR-007b, FR-038). Each row carries the actor,
+the session when there is one, the action, the outcome (`SUCCESS`, `FAILURE`,
+`DENIED`, `SENT`), the correlation id, a small set of business identifiers and
+the time. Feature 003.3 keeps separate settlement audit records (aggregate type
+and reference, action code, actor reference, correlation reference, evidence and
+reason reference, time) with no outcome and no session. Today both can only be
+read by querying the database; no screen and no read route exists.
+
+**Intent:** a Manager can review who did what, when and with what outcome, without
+database access, so that denied attempts, overrides, reversals, availability
+changes and settlement actions can be checked after the fact.
+
+**Owner decisions 2026-11-17 (Hồ Hoàng Quốc):** (1) both sources are in scope,
+shown as two tabs; (2) the Manager sees row metadata through a whitelist of known
+keys; (3) the actor shows as id plus display name; (4) the proposed defaults
+(Manager-only, filters, paging, no export, no retention change, reads not
+audited) are accepted; (5) the settlement tab shows the full reason text; (6)
+Manager-only for both tabs.
+
+- **FR-047** *(audit review screen)*: An active Manager can open an audit review
+  screen with two tabs, **Operations** and **Settlement** (FR-052), each listing
+  rows newest first. The screen only reads; nothing on it changes an audit row or
+  any business data.
+- **FR-048** *(access)*: Only an active Manager, with global authority under the
+  Feature 003 authorization decision, can read audit rows from either source.
+  Staff, Admin, Member and unauthenticated callers are refused with the existing
+  forbidden or unauthenticated response and see no audit data. The server decides;
+  hiding the menu entry is not the control. A refused Operations-tab read is itself
+  audited `DENIED` under FR-007b; a refused Settlement-tab read is recorded the way
+  003.3 already records its authorization denials (`DENIED_<reason>`).
+- **FR-049** *(filters)*: The Operations tab filters by action, outcome, actor,
+  session and a time range, alone or combined. The Settlement tab filters by
+  action code, actor, aggregate type, aggregate reference and a time range (no
+  outcome or session filter exists for that source). The default view is the last 7 days
+  with no other filter (shown on the screen). An empty result shows an empty state, not an
+  error. A reversed time range is refused with a validation error and the filters
+  stay filled.
+- **FR-050** *(paging)*: Each tab is paged with a bounded page size and a stable
+  order, so rows written while the Manager browses do not duplicate or skip a row
+  between pages.
+- **FR-051** *(data shown)*: The Operations tab shows time, actor, action, outcome,
+  session when present, correlation id and the metadata keys on a documented
+  whitelist (state change, booking code, ticket code, reason code and similar
+  business identifiers); any key not on the whitelist is not returned. Personal
+  data (e-mail, phone, full name) is never shown from Operations metadata, which
+  FR-007b already forbids storing. The actor appears as account id plus display
+  name; an account that no longer exists appears by id only.
+- **FR-052** *(settlement tab)*: The Settlement tab shows time, action code,
+  aggregate type and reference, actor reference with the same actor display as
+  FR-051, correlation reference, evidence reference and the **full reason text**
+  (owner decision). Because that reason is free text of up to 500 characters that
+  may contain personal data typed by the actor, it is visible only to the global
+  Manager (FR-048) and is never written to logs. The settlement data is served by a route inside 003.3, which owns its tables;
+  Operations does not call 003.3 (a call from Operations into 003.3 would form a module
+  cycle). The Settlement actor filter matches the stored reference `account:<id>`. **New actions need no change here** (request 2026-11-17): the tab lists
+  every settlement audit row by its stored action code, with no fixed action list,
+  so actions 003.3 adds later (for example `TICKET_LOCATION_CHANGED` once 003.3
+  T184 is done) appear automatically; until then it shows every row that exists
+  today. **Placement:** the screen and the Operations route live in 003.2 (Operations owns
+  its audit table, the Manager guard and the Operations menu); the Settlement route
+  lives in 003.3 (owner agreed, B5). The page calls both.
+- **FR-053** *(reading is not audited)*: Reading either list does not write an audit
+  row, because every read would otherwise grow the table it reads. The refused
+  read of FR-048 is the only audited read event.
+- **FR-054** *(no export, no retention change)*: There is no file export and no
+  edit or delete of audit rows from the screen. Existing retention of audit rows is
+  unchanged; this section sets no retention period.
+- **FR-055** *(failure and recovery)*: If a read fails, the Manager sees a safe
+  error with the correlation id and a retry, with filters preserved. A lost
+  session returns the Manager to sign-in and back to the same filtered view.
+
+**Edge cases:** metadata that is not valid structured data is shown as no metadata,
+never as an error for the whole page; a row with no session or no actor (system
+action) lists with those cells empty; rows for a deleted account or session still
+list by id; a very large range returns only the first bounded page; an unknown
+action string in the filter returns an empty list, not an error.
+
+**Assumptions:** no new audit action is introduced here; the Manager is trusted
+with every location's rows under the global Manager decision; the actor display
+name comes from the account owner feature's published read operation, not from
+account tables; screen design needs a Figma or equivalent approved UI before any
+frontend work (frontend gate F01, F05); the Settlement route and its filter contract belong to feature 003.3 (owner agreed 2026-11-17).
+
 ## Scope
 
 This feature owns the Workshop Package catalogue/configuration and publication,
@@ -434,6 +527,19 @@ location scope alone is superseded by the 2026-11-06 "Staff session-assignment
 access" amendment: a Staff member needs the session location in
 `activeLocationIds` **and** an active assignment to the session. Affected
 answers are marked inline.)*
+
+### Session 2026-11-17 audit review (owner Hồ Hoàng Quốc)
+
+- Q: Which audit sources does the Manager screen read? → A: Operations audit rows and 003.3 settlement audit records, as two tabs with their own filters (FR-047, FR-049, FR-052).
+- Q: Does the Manager see row metadata? → A: Yes, through a whitelist of known keys; unknown keys are not returned (FR-051).
+- Q: How is the actor shown? → A: Account id plus display name; id only when the account is gone (FR-051).
+- Q: Defaults (global Manager only, Staff/Admin 403 and `DENIED`, filters, paging, no export, retention unchanged, reads not audited)? → A: Accepted (FR-048 to FR-050, FR-053, FR-054).
+- Q: How is the settlement reason text shown? → A: Full text, visible only to the global Manager and never logged (FR-052). Risk noted: free text up to 500 characters may hold personal data.
+- Q: Who may see the Settlement tab? → A: Global Manager only (FR-048).
+
+### Session 2026-11-17 ticket codes at the counter (owner Hồ Hoàng Quốc; temporary)
+
+- Q: Which ticket code does the counter type for check-in and attendance actions? → A: The ticket carries two codes, the group ticket code of 003.1 (`GRP-…-L2-T1`, what the customer sees) and the Operations code (`TK-…`, shown in the attendance roster). Every route that takes a `ticketCode` (check-in, check-in override, attendance correction, check-in reversal) accepts **either**: the Operations code is tried first, then a group ticket code is translated by its line reference (`bookingReference`) and person number (`ticketSequence`). A QR token still works as before. **Temporary:** the owner intends to replace the `TK-…` code by the group ticket code later (one code per ticket); until then both are accepted and the screens suggest the group ticket code.
 
 ### Session 2026-10-23
 
@@ -857,8 +963,10 @@ T167.)*
   an early check-in told apart? → A: The "Error catalogue" below is the closed
   list and the OpenAPI `Problem.code` enum. A normal check-in before
   `checkInOpensAt` answers `409 CHECK_IN_NOT_OPEN` with `checkInOpensAt` in the
-  body, so the Staff screen can say when check-in opens or suggest the
-  `EARLY_CHECKIN` override (FR-005; T126).
+  body, so the Staff screen can say when check-in opens (FR-005; T126). *(The
+  `EARLY_CHECKIN` override was removed 2026-11-17, owner decision Hồ Hoàng Quốc:
+  to admit customers earlier Manager sets an earlier `checkInOpensAt` for that
+  session.)*
 - Q (CHK020): What does a fourth resend inside 15 minutes return? → A: `429
   REDELIVERY_THROTTLED` with a `Retry-After` header: the seconds until the
   15-minute window counted from the first request of that window ends; the
@@ -1242,7 +1350,6 @@ scope. The target implementation and all public contracts use `location` and
   |---|---|:-:|:-:|
   | `TICKET_REDELIVERY_UNAVAILABLE` | Check-in override after a failed ticket redelivery | Required | Required (failed-redelivery correlation reference) |
   | `CUSTOMER_DEVICE_UNAVAILABLE` | Check-in override: customer device dead, damaged or unavailable onsite | — | — |
-  | `EARLY_CHECKIN` | Check-in override: customer admitted before the check-in window opens | — | — |
   | `PHYSICAL_VOUCHER_VERIFIED` | Check-in override: printed confirmation verified by Staff | — | — |
   | `INSTRUCTOR_UNAVAILABLE` | Session cancellation: instructor/craftsperson unavailable | Required | — |
   | `FACILITY_ISSUE` | Session cancellation: facility, power, tool or equipment failure | Required | — |
@@ -1272,6 +1379,7 @@ scope. The target implementation and all public contracts use `location` and
 | US4 | P2 | Staff recovers ticket access and handles authorized exceptions. | A resend returns only active unused tickets to the existing delivery channel and an override cannot cross session/branch. |
 | US5 | P2 | Authorized actor finalizes attendance and Manager handles cancellation/correction. | Finalization marks only unchecked active tickets `NO_SHOW`; cancellation with commitments creates a 003.3 handoff without settlement side effects. |
 | US6 | P1 | Manager decides which Package is sold at which location; customers and ticket changes follow it. | A Manager sets a Package `INACTIVE` at location A: discovery at A returns no session, reserve at A is refused, existing bookings at A are unchanged, and a ticket change can still move that Package to location B where it is `ACTIVE`. |
+| US7 | P2 | Manager reviews workshop audit (Operations and Settlement tabs). | A Manager opens the audit screen, filters by action `WORKSHOP_PACKAGE_AVAILABILITY_CHANGED` and outcome `DENIED`, and sees each row with actor, time and correlation id; Staff and Admin get 403 and no data. |
 
 ### Manager configures an operable session
 
@@ -1688,8 +1796,11 @@ correction, with before/after audit evidence.
   CHK014, T126)* A normal check-in before `check_in_opens_at` MUST be refused
   with `409 CHECK_IN_NOT_OPEN` whose body carries `checkInOpensAt`, distinct
   from the `409 INVALID_STATE` of a session that is not open for check-in
-  (for example finalized or cancelled); the Staff screen shows the opening time
-  and may offer the `EARLY_CHECKIN` override.
+  (for example finalized or cancelled); the Staff screen shows the opening time.
+  *(Decided 2026-11-17, owner Hồ Hoàng Quốc: there is no early-check-in override;
+  the former `EARLY_CHECKIN` reason is removed. A customer who must be admitted
+  before the window opens is handled by a Manager setting an earlier
+  `check_in_opens_at` for that session, FR-005a.)*
 - **FR-005a**: The system MUST default `check_in_opens_at` to 60 minutes before
   session start and allow Manager to configure it per session only while the
   session is `DRAFT`, `PUBLISHED` or `SALES_PAUSED`; it MUST lock the value when
@@ -2244,6 +2355,8 @@ row above; T115 implements it and the contract test keeps the code in the closed
 - **SC-012** *(added 2026-11-17, FR-044)*: Every session shown to a customer or
   to staff in discovery, change options and lists carries its location name, so
   two sessions at the same date and slot are never indistinguishable.
+
+- **SC-013** *(added 2026-11-17, FR-047 to FR-050)*: A Manager finds every denied attempt, availability change or settlement action of a chosen day in under one minute without database access, and no non-Manager can read any audit row.
 
 ## Out of scope
 

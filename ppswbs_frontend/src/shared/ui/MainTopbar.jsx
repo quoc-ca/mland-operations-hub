@@ -6,6 +6,7 @@ import { useCurrentAccount } from '../../features/accountmanagement/hooks/useCur
 import { firebaseAuthClient } from '../../features/accountmanagement/auth/FirebaseAuthClient';
 import { LanguageSwitch } from './components';
 import { useCartCounts } from './useCartCounts';
+import { PendingPaymentNotice } from '../../workshops/PendingPaymentNotice';
 import './topbar.css';
 
 /**
@@ -14,7 +15,7 @@ import './topbar.css';
  * Reusable across Landing Page and all application feature pages.
  */
 export default function MainTopbar() {
-  const { status, signOut } = useAuth();
+  const { status, signOut, getIdToken } = useAuth();
   const http = useHttp();
   const location = useLocation();
   const { account } = useCurrentAccount();
@@ -368,6 +369,7 @@ export default function MainTopbar() {
           )}
         </div>
       </header>
+      <PendingPaymentNotice enabled={isAuthenticated && account?.role === 'MEMBER'} userKey={currentUser?.uid || null} getIdToken={getIdToken} />
     </div>
   );
 }

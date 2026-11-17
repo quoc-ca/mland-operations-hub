@@ -28,6 +28,21 @@ describe('Attendance roster on the session page', () => {
     expect(panel.getByText('BK-B')).toBeInTheDocument();
   });
 
+  it('links each roster row to the folio of its ticket, where add-ons are sold', async () => {
+    mockFetch({
+      'GET /api/v1/workshop-sessions/session-1': session,
+      'GET /api/v1/workshop-sessions/session-1/attendance-roster': json(200, [
+        { ticketCode: 'TK-D0198954', bookingReference: 'GRP-5E849940018F442D8C9C-L1', ticketSequence: 1, attendanceState: 'CHECKED_IN', checkedInAt: new Date().toISOString() },
+      ]),
+    });
+    renderRoutes(operationsRoutes, { path: '/operations/sessions/session-1' });
+
+    const panel = within(await screen.findByRole('article', { name: 'Attendance roster' }));
+    const link = await panel.findByRole('link', { name: 'Folio / Add-on' });
+    expect(link).toHaveAttribute('href', '/settlement?ticket=GRP-5E849940018F442D8C9C-L1-T1');
+    expect(panel.getByText('GRP-5E849940018F442D8C9C-L1-T1')).toBeInTheDocument();
+  });
+
   it('says so when the session has no valid ticket', async () => {
     mockFetch({
       'GET /api/v1/workshop-sessions/session-1': session,
@@ -51,7 +66,7 @@ describe('Attendance roster on the session page', () => {
     const panel = within(await screen.findByRole('article', { name: 'Attendance roster' }));
     expect(await panel.findByText('Chưa check-in')).toBeInTheDocument();
 
-    await user.type(screen.getAllByPlaceholderText('TK-...')[0], 'TK-1');
+    await user.type(screen.getAllByPlaceholderText('GRP-…-L0-T1')[0], 'TK-1');
     await user.click(screen.getByRole('button', { name: 'Check in' }));
 
     expect(await panel.findByText('Đã check-in')).toBeInTheDocument();
@@ -68,7 +83,7 @@ describe('Attendance roster on the session page', () => {
     renderRoutes(operationsRoutes, { path: '/operations/sessions/session-1' });
     await screen.findByText('Check-in desk');
 
-    await user.type(screen.getAllByPlaceholderText('TK-...')[0], 'TK-1');
+    await user.type(screen.getAllByPlaceholderText('GRP-…-L0-T1')[0], 'TK-1');
     const button = screen.getByRole('button', { name: 'Check in' });
     expect(button).toBeEnabled();
     await user.click(button);

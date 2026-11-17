@@ -323,7 +323,7 @@ function BranchTable({ branches, total, format }) {
             <td data-label="Tổng doanh thu"><strong>{format.money(v.totalRevenue)}</strong>
               {share != null && <span className="md-share" title={`${percent(share)} tổng doanh thu`}><span style={{ width: `${share}%` }} /></span>}</td>
             <td data-label="Đơn đã TT">{v.paidRetailOrderCount == null ? '—' : format.number(v.paidRetailOrderCount)}</td>
-            <td data-label="Lấp đầy">{v.workshopUtilizationPercent == null ? <span className="muted">{v.completedSessionCapacity === 0 ? 'Chưa có buổi' : '—'}</span>
+            <td data-label="Lấp đầy">{v.workshopUtilizationPercent == null ? <span className="muted">{v.completedSessionCapacity === 0 ? 'Chưa có buổi đã chốt điểm danh' : '—'}</span>
               : <span className="md-util"><span className="md-meter small"><span style={{ width: `${Math.min(100, v.workshopUtilizationPercent)}%` }} /></span>{percent(v.workshopUtilizationPercent)}</span>}</td>
           </tr>;
         })}</tbody>

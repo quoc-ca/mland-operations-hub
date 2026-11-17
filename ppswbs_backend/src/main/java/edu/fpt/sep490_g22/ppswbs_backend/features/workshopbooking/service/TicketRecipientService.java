@@ -102,7 +102,7 @@ public class TicketRecipientService {
                 channel = "ONLINE";
             } else if (authorization.isStaff(account) || authorization.isManager(account)) {
                 if (!staffScope.canOperateOnLine(account, line)) {
-                    authorization.recordDeniedAttempt(group.getGroupCode(), orZero(locationOf(line)),
+                    authorization.recordDeniedAttempt(group.getGroupCode(), orZero(locationOf(line, ticket)),
                             account.role().name(), account.accountId(), "TICKET_RECIPIENT_CHANGE", correlation,
                             "Outside the Staff scope or assignment");
                     throw forbidden();
@@ -113,7 +113,7 @@ public class TicketRecipientService {
                 try {
                     buyerVerification.consume(group, buyerVerificationReference);
                 } catch (WorkshopBookingProblemException refused) {
-                    authorization.recordDeniedAttempt(group.getGroupCode(), orZero(locationOf(line)),
+                    authorization.recordDeniedAttempt(group.getGroupCode(), orZero(locationOf(line, ticket)),
                             account.role().name(), account.accountId(), "TICKET_RECIPIENT_CHANGE", correlation,
                             "Buyer verification reference refused");
                     throw refused;
@@ -141,7 +141,7 @@ public class TicketRecipientService {
             notifications.queue(group, ticket, GroupNotificationService.KIND_TICKET_RESEND, recipient.getRecipientEmail(),
                     recipientSubject(group, ticket) + " (gửi lại)", recipientBody(group, ticket, line),
                     artifacts(ticket), null, correlation);
-            audit(group, locationOf(line), actorType, actorReference, "TICKET_RECIPIENT_RESENT", correlation, auditReason);
+            audit(group, locationOf(line, ticket), actorType, actorReference, "TICKET_RECIPIENT_RESENT", correlation, auditReason);
         } else if (recipient == null) {
             recipient = recipients.save(TicketRecipient.builder().ticket(ticket).recipientEmail(newEmail)
                     .changeCount(0).qrGeneration(1).build());
@@ -185,9 +185,9 @@ public class TicketRecipientService {
         return value == null ? 0L : value;
     }
 
-    private Long locationOf(BookingGroupLine line) {
-        return line.getSessions().stream().map(BookingGroupLineSession::getLocationReference)
-                .filter(java.util.Objects::nonNull).findFirst().orElse(null);
+    /** FR-054, Q4 (audit only): the ticket's current location from Operations, the booking-time copy as fallback. */
+    private Long locationOf(BookingGroupLine line, TicketBooking ticket) {
+        return staffScope.auditLocationOf(line, ticket == null ? null : ticket.getOperationsTicketReference());
     }
 
     private static WorkshopBookingProblemException forbidden() {
