@@ -40,6 +40,7 @@
 | SSO Provider | External identity service | Firebase Authentication is the current identity baseline; configured sign-in methods establish identity and issue Firebase ID tokens. Provider identity/claims do not confer Mland roles. |
 | Payment Gateway | External provider | VNPay, the sole V1 payment provider for workshop deposits, retail orders, and custom-order deposit/balance. |
 | AI API | External provider | Paid Gemini API for basic text support, independent Design Request image analysis, and price suggestions for new workshop packages or retail products. Suggestions support human decisions only. |
+| Consultation Chat | Internal Feature-013 module | Stores Member text consultations with Staff/Manager against safe Feature-004/012 design context projections. It does not make design, price, booking or payment decisions. |
 | Mail Gateway | External provider | Mland-domain SMTP service for account-security and workflow messages such as QR tickets, payment requests/receipts, review results, and order-status messages. It is not a notification centre. |
 | Cloud Storage Service | External provider | Stores catalogue media and eligible custom-manufacturing reference images subject to retention/deletion rules. |
 | Google Maps API | External provider | Google Maps Embed and Places provide read-only map and permitted public review/rating information with attribution and a link to Google Maps. |
@@ -117,6 +118,8 @@ The following system-level requirements summarize Report 2/3 and their [business
 * Admin manages accounts, fixed-role reference, account lock status, operating parameters, and approved third-party credentials. Managers own the specified workshop and business-approval operations.
 * The executive dashboard summarizes business revenue, workshop utilization, and branch KPIs for authorized roles.
 * Workflow messages are system responses delivered through the Mland-domain Mail Gateway where applicable. V1 does not add a standalone notification centre.
+* Feature-013 consultation is authenticated Member-to-Staff/Manager plain-text chat. It is context-bound to a safe Feature-004 or Feature-012 projection, uses Staff Workshop Location scope and Manager global authority, and does not mutate booking, payment, order, design approval or catalogue price state.
+* Feature-013 stores chat text as UTF-8 business history for three years. Application and audit logs contain only safe metadata and never raw message text, credentials, tokens or unnecessary PII.
 
 ### Public store information
 

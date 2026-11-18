@@ -14,6 +14,7 @@ databases.
 | [`006-loyalty-promotion`](006-loyalty-promotion/spec.md) | FE-06 Loyalty & Promotion (backend module `loyaltypromotion`): vouchers, automatic discounts, points wallet/ledger and loyalty policy. | Draft spec/plan/tasks after speckit-analyze; not implemented. Same 001 authentication dependency; depends on FE-02 T091 for the PRODUCT target provider. |
 | [`007-notification-management`](007-notification-management/research.md) | FE-07 Notification Management: business email templates (SMTP); Firebase Auth keeps its own verification/reset emails. | Research only; no spec/plan/tasks yet. |
 | [`012-workshop-ring-design-configuration`](012-workshop-ring-design-configuration/spec.md) | FE-05 workshop ring parameter configuration for Guest and Member, with a Feature-003 booking facade boundary. | Draft — SPEC/DESIGN ready for review; not implementation-ready. |
+| [`013-staff-consultation-chat`](013-staff-consultation-chat/spec.md) | Human text consultation between Member customers and Staff/Manager, linked to approved design contexts. | Draft — SPEC/DESIGN ready for review; facade and migration approval pending. |
 
 ## 003 — Workshop Management
 

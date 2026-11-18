@@ -24,6 +24,9 @@ public class DesignReviewExceptionHandler {
             headers.add("X-AI-Quota-Remaining", String.valueOf(ex.getQuota().getRemaining()));
             headers.add("X-AI-Quota-Reset-At", ex.getQuota().getResetAt());
         }
+        if (ex.getGuestSessionToken() != null && !ex.getGuestSessionToken().isBlank()) {
+            headers.add("X-Guest-AI-Session", ex.getGuestSessionToken());
+        }
 
         DesignReviewDtos.ErrorResponse body = DesignReviewDtos.ErrorResponse.builder()
                 .code(ex.getCode())
@@ -31,6 +34,7 @@ public class DesignReviewExceptionHandler {
                 .retryAfterSeconds(ex.getRetryAfterSeconds())
                 .correlationId(ex.getCorrelationId())
                 .quota(ex.getQuota())
+                .guestSessionToken(ex.getGuestSessionToken())
                 .build();
 
         return new ResponseEntity<>(body, headers, ex.getStatus());

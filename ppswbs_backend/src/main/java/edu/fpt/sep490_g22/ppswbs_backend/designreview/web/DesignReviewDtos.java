@@ -128,5 +128,6 @@ public class DesignReviewDtos {
         private Long retryAfterSeconds;
         private String correlationId;
         private AiQuotaDto quota;
+        private String guestSessionToken;
     }
 }

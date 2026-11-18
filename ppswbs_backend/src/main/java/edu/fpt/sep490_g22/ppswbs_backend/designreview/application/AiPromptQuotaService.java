@@ -6,8 +6,8 @@ import edu.fpt.sep490_g22.ppswbs_backend.designreview.web.DesignReviewDtos;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.crypto.Mac;
@@ -52,7 +52,12 @@ public class AiPromptQuotaService {
         }
     }
 
-    @Transactional
+    /**
+     * Quota accounting must commit independently from the provider call. A
+     * provider timeout or policy rejection is still a consumed prompt and
+     * must not roll the counter back with the outer AI interaction transaction.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public QuotaResult consumeQuota(String actorScope, String rawIdentifier, String correlationId) {
         ZoneId zone = ZoneId.of(timeZone);
         LocalDate today = LocalDate.now(zone);
@@ -63,48 +68,25 @@ public class AiPromptQuotaService {
         int limit = "MEMBER".equalsIgnoreCase(actorScope) ? memberDailyLimit : guestDailyLimit;
         String keyDigest = computeKeyDigest(actorScope, rawIdentifier);
 
-        Optional<AiPromptQuotaUsage> opt = quotaRepository.findForUpdate(actorScope, keyDigest, today);
-        if (opt.isPresent()) {
-            AiPromptQuotaUsage usage = opt.get();
-            if (usage.getUsedCount() >= usage.getLimitCount()) {
-                log.warn("AI daily prompt quota exceeded: actor={}, keyDigestPrefix={}...",
-                        actorScope, keyDigest.substring(0, Math.min(10, keyDigest.length())));
-                DesignReviewDtos.AiQuotaDto quotaDto = new DesignReviewDtos.AiQuotaDto(actorScope, usage.getLimitCount(), 0, resetAt);
-                throw DesignReviewException.quotaExceeded("Bạn đã sử dụng hết số lượt hỏi AI trong ngày.",
-                        retryAfterSeconds, quotaDto, correlationId);
-            }
+        // INSERT IGNORE is safe for concurrent first requests because the
+        // unique key is followed by the atomic conditional UPDATE.
+        quotaRepository.insertIfAbsent(actorScope, keyDigest, today, limit);
+        int incremented = quotaRepository.incrementIfAvailable(actorScope, keyDigest, today);
+        AiPromptQuotaUsage usage = quotaRepository
+                .findByQuotaScopeAndQuotaKeyDigestAndQuotaDate(actorScope, keyDigest, today)
+                .orElseThrow(() -> new IllegalStateException("AI quota row disappeared after atomic update"));
 
-            usage.setUsedCount(usage.getUsedCount() + 1);
-            quotaRepository.save(usage);
-            int remaining = usage.getLimitCount() - usage.getUsedCount();
-            return new QuotaResult(actorScope, usage.getLimitCount(), remaining, resetAt, retryAfterSeconds);
+        if (incremented == 0) {
+            log.warn("AI daily prompt quota exceeded: actor={}, keyDigestPrefix={}...",
+                    actorScope, keyDigest.substring(0, Math.min(10, keyDigest.length())));
+            DesignReviewDtos.AiQuotaDto quotaDto = new DesignReviewDtos.AiQuotaDto(
+                    actorScope, usage.getLimitCount(), 0, resetAt);
+            throw DesignReviewException.quotaExceeded("Bạn đã sử dụng hết số lượt hỏi AI trong ngày.",
+                    retryAfterSeconds, quotaDto, correlationId);
         }
 
-        // Create initial usage record
-        AiPromptQuotaUsage newUsage = AiPromptQuotaUsage.builder()
-                .quotaScope(actorScope)
-                .quotaKeyDigest(keyDigest)
-                .quotaDate(today)
-                .limitCount(limit)
-                .usedCount(1)
-                .build();
-
-        try {
-            quotaRepository.save(newUsage);
-            return new QuotaResult(actorScope, limit, limit - 1, resetAt, retryAfterSeconds);
-        } catch (DataIntegrityViolationException ex) {
-            // Concurrent creation collision, recover and increment
-            AiPromptQuotaUsage existing = quotaRepository.findForUpdate(actorScope, keyDigest, today)
-                    .orElseThrow(() -> new RuntimeException("Unexpected concurrency error during quota insert", ex));
-            if (existing.getUsedCount() >= existing.getLimitCount()) {
-                DesignReviewDtos.AiQuotaDto quotaDto = new DesignReviewDtos.AiQuotaDto(actorScope, existing.getLimitCount(), 0, resetAt);
-                throw DesignReviewException.quotaExceeded("Bạn đã sử dụng hết số lượt hỏi AI trong ngày.",
-                        retryAfterSeconds, quotaDto, correlationId);
-            }
-            existing.setUsedCount(existing.getUsedCount() + 1);
-            quotaRepository.save(existing);
-            return new QuotaResult(actorScope, existing.getLimitCount(), existing.getLimitCount() - existing.getUsedCount(), resetAt, retryAfterSeconds);
-        }
+        return new QuotaResult(actorScope, usage.getLimitCount(),
+                Math.max(0, usage.getLimitCount() - usage.getUsedCount()), resetAt, retryAfterSeconds);
     }
 
     @Transactional(readOnly = true)
