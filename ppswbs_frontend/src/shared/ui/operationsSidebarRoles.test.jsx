@@ -115,6 +115,54 @@ describe('Late payments sidebar link', () => {
   });
 });
 
+describe('Audit log sidebar link (003.2 US7)', () => {
+  beforeEach(() => clearRoleCache());
+
+  it('shows a Manager the audit log link, right after the package availability matrix', async () => {
+    open('MANAGER');
+    const link = await sidebar().findByRole('link', { name: 'Nhật ký audit' });
+    expect(link).toHaveAttribute('href', '/operations/audit');
+    const matrix = sidebar().getByRole('link', { name: 'Ma trận gói × chi nhánh' });
+    expect(matrix.compareDocumentPosition(link) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const between = Array.from(matrix.parentElement.children);
+    expect(between.indexOf(link) - between.indexOf(matrix)).toBe(1);
+  });
+
+  it.each(['STAFF', 'ADMIN'])('hides the audit log link from %s', async role => {
+    open(role);
+    await waitFor(() => expect(sidebar().getByRole('link', { name: /Ca của tôi|Bảng điều phối ca/ })).toBeInTheDocument());
+    expect(sidebar().queryByRole('link', { name: 'Nhật ký audit' })).not.toBeInTheDocument();
+  });
+
+  it('hides the audit log link while the role is unknown', async () => {
+    mockFetch({ 'GET /api/v1/workshop-sessions': json(200, []) });
+    renderRoutes(operationsRoutes, { path: '/operations/sessions' });
+    expect(await sidebar().findByRole('link', { name: 'Bảng điều phối ca' })).toBeInTheDocument();
+    expect(sidebar().queryByRole('link', { name: 'Nhật ký audit' })).not.toBeInTheDocument();
+  });
+
+  it('renders the audit page at /operations/audit for a Manager with its entry highlighted', async () => {
+    mockFetch({
+      'GET /api/v1/accounts/me/profile': profile('MANAGER'),
+      'GET /api/v1/workshop-audit/operations-events': json(200, { items: [], nextCursor: null }),
+    });
+    renderRoutes(operationsRoutes, { path: '/operations/audit' });
+    expect(await screen.findByRole('heading', { name: 'Nhật ký audit workshop' })).toBeInTheDocument();
+    expect(await sidebar().findByRole('link', { name: 'Nhật ký audit' })).toHaveClass('active');
+  });
+
+  it('shows a Staff who types the URL no audit rows: the backend answers 403', async () => {
+    mockFetch({
+      'GET /api/v1/accounts/me/profile': profile('STAFF'),
+      'GET /api/v1/workshop-audit/operations-events': json(403, { code: 'FORBIDDEN', message: 'no' }),
+    });
+    renderRoutes(operationsRoutes, { path: '/operations/audit' });
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Chi tiết' })).not.toBeInTheDocument();
+    expect(sidebar().queryByRole('link', { name: 'Nhật ký audit' })).not.toBeInTheDocument();
+  });
+});
+
 describe('Change requests sidebar link', () => {
   beforeEach(() => clearRoleCache());
 
