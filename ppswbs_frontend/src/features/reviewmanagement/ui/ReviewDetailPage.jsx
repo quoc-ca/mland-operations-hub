@@ -13,7 +13,7 @@ export default function ReviewDetailPage() {
   const api = useReviewManagementApi();
   const { status } = useAuth();
 
-  const resource = useResource(() => api.getReview(reviewId), [reviewId]);
+  const resource = useResource(() => api.getReview(reviewId, status === 'signed-in'), [reviewId, status]);
 
   if (resource.loading) {
     return (
@@ -45,16 +45,16 @@ export default function ReviewDetailPage() {
 
       <ReviewCard review={review} />
 
-      <div className="review-panel" style={{ marginTop: '1.25rem' }}>
-        {status === 'signed-in' && (
+      {status === 'signed-in' && Boolean(review?.canEdit) && (
+        <div className="review-panel" style={{ marginTop: '1.25rem' }}>
           <Link
             className="button outline"
             to={`/reviews/${encodeURIComponent(reviewId)}/edit`}
           >
             {t('editOwnReview')}
           </Link>
-        )}
-      </div>
+        </div>
+      )}
 
       <div className="review-actions">
         <Link className="button outline" to="/reviews">

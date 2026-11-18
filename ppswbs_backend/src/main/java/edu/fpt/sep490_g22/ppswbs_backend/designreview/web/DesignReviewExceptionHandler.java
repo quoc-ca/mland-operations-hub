@@ -19,10 +19,18 @@ public class DesignReviewExceptionHandler {
             headers.add("Retry-After", String.valueOf(ex.getRetryAfterSeconds()));
         }
 
+        if (ex.getQuota() != null) {
+            headers.add("X-AI-Quota-Limit", String.valueOf(ex.getQuota().getLimit()));
+            headers.add("X-AI-Quota-Remaining", String.valueOf(ex.getQuota().getRemaining()));
+            headers.add("X-AI-Quota-Reset-At", ex.getQuota().getResetAt());
+        }
+
         DesignReviewDtos.ErrorResponse body = DesignReviewDtos.ErrorResponse.builder()
                 .code(ex.getCode())
                 .message(ex.getMessage())
                 .retryAfterSeconds(ex.getRetryAfterSeconds())
+                .correlationId(ex.getCorrelationId())
+                .quota(ex.getQuota())
                 .build();
 
         return new ResponseEntity<>(body, headers, ex.getStatus());

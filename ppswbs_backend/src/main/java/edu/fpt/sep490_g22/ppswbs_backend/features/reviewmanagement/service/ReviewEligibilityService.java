@@ -105,13 +105,13 @@ public class ReviewEligibilityService {
         }
 
         // Kiểm tra các item đã được review chưa
-        Set<String> reviewedSet = new HashSet<>();
+        Map<String, String> reviewedReviewIdMap = new HashMap<>();
         for (SourceType sourceType : SourceType.values()) {
             List<String> refs = items.stream().filter(item -> item.getSourceType() == sourceType)
                     .map(EligibleSourceItem::getSourceReference).toList();
             if (!refs.isEmpty()) {
-                reviewedSet.addAll(reviewRepository.findBySourceTypeAndSourceReferenceIn(sourceType, refs)
-                        .stream().map(review -> sourceKey(sourceType, review.getSourceReference())).collect(Collectors.toSet()));
+                reviewRepository.findBySourceTypeAndSourceReferenceIn(sourceType, refs)
+                        .forEach(r -> reviewedReviewIdMap.put(sourceKey(sourceType, r.getSourceReference()), r.getId()));
             }
         }
 
@@ -119,7 +119,8 @@ public class ReviewEligibilityService {
         List<String> unreviewedRefs = new ArrayList<>();
 
         for (EligibleSourceItem item : items) {
-            boolean alreadyReviewed = reviewedSet.contains(sourceKey(item.getSourceType(), item.getSourceReference()));
+            String revId = reviewedReviewIdMap.get(sourceKey(item.getSourceType(), item.getSourceReference()));
+            boolean alreadyReviewed = revId != null;
             if (!alreadyReviewed) {
                 unreviewedRefs.add(sourceKey(item.getSourceType(), item.getSourceReference()));
             }
@@ -132,6 +133,7 @@ public class ReviewEligibilityService {
                     .completedAt(item.getCompletedAt())
                     .eligible(item.isEligible())
                     .alreadyReviewed(alreadyReviewed)
+                    .reviewId(revId)
                     .reasonCode(alreadyReviewed ? "ALREADY_REVIEWED" : null)
                     .build());
         }
@@ -194,19 +196,22 @@ public class ReviewEligibilityService {
         List<String> workshopRefs = workshopItems.stream().map(EligibleSourceItem::getSourceReference).toList();
         List<Review> existingWorkshopReviews = workshopRefs.isEmpty() ? Collections.emptyList() :
                 reviewRepository.findBySourceTypeAndSourceReferenceIn(SourceType.WORKSHOP_ATTENDANCE, workshopRefs);
-        Set<String> reviewedWorkshopSet = existingWorkshopReviews.stream().map(Review::getSourceReference).collect(Collectors.toSet());
+        Map<String, String> reviewedWorkshopMap = existingWorkshopReviews.stream()
+                .collect(Collectors.toMap(Review::getSourceReference, Review::getId, (a, b) -> a));
 
         // Kiểm tra retail đã review
         List<String> retailRefs = retailItems.stream().map(EligibleSourceItem::getSourceReference).toList();
         List<Review> existingRetailReviews = retailRefs.isEmpty() ? Collections.emptyList() :
                 reviewRepository.findBySourceTypeAndSourceReferenceIn(SourceType.RETAIL_ORDER_LINE, retailRefs);
-        Set<String> reviewedRetailSet = existingRetailReviews.stream().map(Review::getSourceReference).collect(Collectors.toSet());
+        Map<String, String> reviewedRetailMap = existingRetailReviews.stream()
+                .collect(Collectors.toMap(Review::getSourceReference, Review::getId, (a, b) -> a));
 
         List<EligibleSourceDto> dtos = new ArrayList<>();
         for (EligibleSourceItem item : allItems) {
-            boolean already = item.getSourceType() == SourceType.WORKSHOP_ATTENDANCE
-                    ? reviewedWorkshopSet.contains(item.getSourceReference())
-                    : reviewedRetailSet.contains(item.getSourceReference());
+            String revId = item.getSourceType() == SourceType.WORKSHOP_ATTENDANCE
+                    ? reviewedWorkshopMap.get(item.getSourceReference())
+                    : reviewedRetailMap.get(item.getSourceReference());
+            boolean already = revId != null;
 
             dtos.add(EligibleSourceDto.builder()
                     .sourceType(item.getSourceType())
@@ -217,6 +222,7 @@ public class ReviewEligibilityService {
                     .completedAt(item.getCompletedAt())
                     .eligible(item.isEligible())
                     .alreadyReviewed(already)
+                    .reviewId(revId)
                     .reasonCode(already ? "ALREADY_REVIEWED" : null)
                     .build());
         }

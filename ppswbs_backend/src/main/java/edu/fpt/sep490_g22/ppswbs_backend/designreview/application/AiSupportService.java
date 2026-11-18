@@ -2,6 +2,7 @@ package edu.fpt.sep490_g22.ppswbs_backend.designreview.application;
 
 import edu.fpt.sep490_g22.ppswbs_backend.designreview.domain.*;
 import edu.fpt.sep490_g22.ppswbs_backend.designreview.infrastructure.AiTextInteractionRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.designreview.web.DesignReviewDtos;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -9,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
@@ -19,6 +21,8 @@ public class AiSupportService {
 
     private final AiTextSupportPort aiTextSupportPort;
     private final AiTextInteractionRepository aiTextInteractionRepository;
+    private final AiGuestSessionService aiGuestSessionService;
+    private final AiPromptQuotaService aiPromptQuotaService;
 
     private static final int MAX_PROMPT_LENGTH = 2000;
 
@@ -43,14 +47,23 @@ public class AiSupportService {
     public record SupportResponseDto(
             String message,
             String scope,
-            String providerCorrelationId
+            String providerCorrelationId,
+            DesignReviewDtos.AiQuotaDto quota,
+            String guestSessionToken
     ) {}
 
     @Transactional
     public SupportResponseDto askSupport(String message, Long memberId, String correlationId) {
+        return askSupport(message, memberId, null, null, correlationId);
+    }
+
+    @Transactional
+    public SupportResponseDto askSupport(String message, Long memberId, String guestSessionHeader,
+                                         String clientIp, String correlationId) {
         String effectiveCorrelationId = (correlationId != null && !correlationId.isBlank())
                 ? correlationId : UUID.randomUUID().toString();
 
+        // 1. Basic validation (empty or > 2000 chars does NOT consume quota)
         if (message == null || message.trim().isEmpty()) {
             throw DesignReviewException.badRequest("AI_INPUT_INVALID", "Nội dung câu hỏi không được để trống.");
         }
@@ -60,25 +73,59 @@ public class AiSupportService {
             throw DesignReviewException.badRequest("AI_INPUT_INVALID", "Nội dung câu hỏi vượt quá độ dài cho phép (tối đa 2.000 ký tự).");
         }
 
-        // Screen for prompt injection
+        // 2. Resolve Guest session vs Member
+        String actorScope;
+        String quotaIdentifier;
+        String responseGuestSessionToken = null;
+
+        if (memberId != null) {
+            actorScope = "MEMBER";
+            quotaIdentifier = String.valueOf(memberId);
+        } else {
+            actorScope = "GUEST";
+            if (guestSessionHeader != null && !guestSessionHeader.trim().isBlank()) {
+                Optional<AiGuestSessionService.GuestSessionResult> sessionOpt =
+                        aiGuestSessionService.validateAndTouch(guestSessionHeader.trim());
+                if (sessionOpt.isEmpty()) {
+                    log.warn("Guest provided invalid or expired AI session");
+                    throw DesignReviewException.unauthorized("AI_GUEST_SESSION_INVALID",
+                            "Phiên AI của khách vãng lai không hợp lệ hoặc đã hết hạn.");
+                }
+                quotaIdentifier = sessionOpt.get().sessionDigest();
+                responseGuestSessionToken = sessionOpt.get().rawSessionToken();
+            } else {
+                // First guest request without session -> create new session
+                AiGuestSessionService.GuestSessionResult newSession = aiGuestSessionService.createGuestSession();
+                quotaIdentifier = newSession.sessionDigest();
+                responseGuestSessionToken = newSession.rawSessionToken();
+            }
+        }
+
+        // 3. Atomically consume daily quota
+        AiPromptQuotaService.QuotaResult quotaResult =
+                aiPromptQuotaService.consumeQuota(actorScope, quotaIdentifier, effectiveCorrelationId);
+
+        // 4. Screen for prompt injection (consumes quota)
         for (Pattern p : PROMPT_INJECTION_PATTERNS) {
             if (p.matcher(sanitized).find()) {
                 log.warn("Prompt injection attempt detected: correlationId={}", effectiveCorrelationId);
                 recordFailedInteraction(sanitized, memberId, "AI_PROMPT_INJECTION_DETECTED", effectiveCorrelationId);
-                throw DesignReviewException.unprocessable("AI_PROMPT_INJECTION_DETECTED", "Nội dung yêu cầu vi phạm chính sách an toàn của hệ thống.");
+                throw DesignReviewException.unprocessable("AI_PROMPT_INJECTION_DETECTED",
+                        "Nội dung yêu cầu vi phạm chính sách an toàn của hệ thống.");
             }
         }
 
-        // Screen for forbidden business contexts
+        // 5. Screen for forbidden business contexts (consumes quota)
         for (Pattern p : FORBIDDEN_CONTEXT_PATTERNS) {
             if (p.matcher(sanitized).find()) {
                 log.warn("Forbidden business context requested: correlationId={}", effectiveCorrelationId);
                 recordFailedInteraction(sanitized, memberId, "AI_CONTEXT_NOT_ALLOWED", effectiveCorrelationId);
-                throw DesignReviewException.unprocessable("AI_CONTEXT_NOT_ALLOWED", "Trợ lý AI chỉ giải đáp thông tin công khai và không xử lý thanh toán hay gia công riêng.");
+                throw DesignReviewException.unprocessable("AI_CONTEXT_NOT_ALLOWED",
+                        "Trợ lý AI chỉ giải đáp thông tin công khai và không xử lý thanh toán hay gia công riêng.");
             }
         }
 
-        // Call Port
+        // 6. Call Port
         AiTextSupportPort.TextSupportResult result = aiTextSupportPort.generateSupportResponse(sanitized, effectiveCorrelationId);
 
         if (!result.success()) {
@@ -89,7 +136,7 @@ public class AiSupportService {
             throw DesignReviewException.unprocessable(result.failureCode() != null ? result.failureCode() : "AI_RESPONSE_INVALID", "Không thể xử lý phản hồi từ AI.");
         }
 
-        // Persist interaction with 30-day retention
+        // 7. Persist interaction with 30-day retention
         AiTextInteraction interaction = AiTextInteraction.builder()
                 .actorScope(memberId != null ? ActorScope.MEMBER : ActorScope.GUEST)
                 .memberId(memberId)
@@ -102,7 +149,13 @@ public class AiSupportService {
                 .build();
         aiTextInteractionRepository.save(interaction);
 
-        return new SupportResponseDto(result.responseText(), result.scope().name(), result.providerCorrelationId());
+        return new SupportResponseDto(
+                result.responseText(),
+                result.scope().name(),
+                result.providerCorrelationId(),
+                quotaResult.toDto(),
+                responseGuestSessionToken
+        );
     }
 
     private void recordFailedInteraction(String prompt, Long memberId, String failureCode, String correlationId) {

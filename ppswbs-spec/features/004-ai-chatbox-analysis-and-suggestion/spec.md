@@ -28,17 +28,29 @@ only when the backend contract explicitly permits it.
 
 | Actor | Allowed capability |
 | --- | --- |
-| Guest | Basic AI Support in public scope only. Cannot create or upload a Design Request. |
-| Member | Basic AI Support; create and view own Independent Design Requests. |
-| Staff | Review requests only within server-authorized scope. |
-| Manager | Review requests requiring Manager authority; request and decide advisory catalogue price suggestions. |
-| Admin | Technical configuration and approved technical/audit projection only; no business review or price decision. |
+| Guest | Basic AI Support in public scope only (Tối đa 3 prompt/ngày lịch Việt Nam `Asia/Ho_Chi_Minh`, reset lúc 00:00; quản lý qua `X-Guest-AI-Session`). Không được sử dụng dữ liệu Member hoặc operational data. Cannot create or upload a Design Request. |
+| Member | Basic AI Support in public scope (Tối đa 10 prompt/ngày lịch Việt Nam `Asia/Ho_Chi_Minh`, reset lúc 00:00; gắn với active Firebase Member account); create and view own Independent Design Requests. |
+| Staff | Review requests only within server-authorized scope. Không thuộc nhóm sử dụng Basic AI Support (trả `403 AI_ACTOR_NOT_ALLOWED`). |
+| Manager | Review requests requiring Manager authority; request and decide advisory catalogue price suggestions. Không thuộc nhóm sử dụng Basic AI Support (trả `403 AI_ACTOR_NOT_ALLOWED`). |
+| Admin | Technical configuration and approved technical/audit projection only; no business review or price decision. Không thuộc nhóm sử dụng Basic AI Support (trả `403 AI_ACTOR_NOT_ALLOWED`). |
 | AI provider | Returns validated safe output only; cannot mutate Mland state. |
 | Cloud storage | Temporary image storage/deletion only. |
 
 The frontend route guard is a navigation aid. Firebase identity, Mland role/status,
 ownership, reviewer authority and resource scope are enforced by the backend.
 Client-provided role, owner, reviewer, price, status or decision is untrusted.
+
+### 2.1 Demo AI Chat Quota and Session Rules
+1. **Quota Boundary**:
+   - Guest: 3 prompts per calendar day (`Asia/Ho_Chi_Minh`), reset at 00:00.
+   - Active Member: 10 prompts per calendar day (`Asia/Ho_Chi_Minh`), reset at 00:00.
+   - Staff/Manager/Admin: Gated with HTTP 403 `AI_ACTOR_NOT_ALLOWED`.
+2. **Session and Accounting Lifecycle**:
+   - Guest requests use an opaque session token sent via `X-Guest-AI-Session`. If absent, backend generates a new 24h TTL session and returns it in `X-Guest-AI-Session` header.
+   - If `X-Guest-AI-Session` is expired or invalid, backend returns HTTP 401 `AI_GUEST_SESSION_INVALID`.
+   - Quota usage is consumed atomically by backend authority upon passing initial length/non-empty validation. Prompt injection, forbidden context, and provider errors consume quota once validated.
+   - Quota metadata is returned in response headers (`X-AI-Quota-Limit`, `X-AI-Quota-Remaining`, `X-AI-Quota-Reset-At`) and response body (`quota` object).
+   - When quota is exhausted, backend returns HTTP 429 `AI_DAILY_QUOTA_EXCEEDED` with `Retry-After: <seconds-to-midnight>` and quota metadata.
 
 ## 3. Independent Design Request behavior
 
@@ -88,17 +100,33 @@ The customer is transitioned to the Design Request detail view (`/design-request
 ## 4. Basic AI Support
 
 ```text
-Guest/Member opens AI Chat
-→ validates non-empty prompt and 2,000-character limit
-→ screens scope and prompt-injection patterns
-→ sends allowlisted public context to the provider
-→ validates safe response
-→ displays advisory response and scope
+Receive request
+→ Resolve Firebase Member or Guest AI session
+→ Validate actor/status (Staff/Manager/Admin -> 403 AI_ACTOR_NOT_ALLOWED)
+→ Normalize prompt
+→ Validate non-empty and max 2,000 characters (invalid -> 400 AI_INPUT_INVALID)
+→ Atomically consume daily quota (exceeded -> 429 AI_DAILY_QUOTA_EXCEEDED with Retry-After)
+→ Screen scope and prompt injection (violation -> 422 AI_PROMPT_INJECTION_DETECTED / AI_CONTEXT_NOT_ALLOWED)
+→ Build fixed system prompt with allowlisted public context
+→ Call Gemini adapter
+→ Validate provider output
+→ Persist safe interaction/audit with 30-day retention
+→ Return response and quota metadata
 ```
 
 The assistant may answer catalogue, workshop package/session, store-information and
 approved FAQ questions. It cannot confirm booking/payment, publish a price, decide
 feasibility, accept/reject a custom order or expose private/operational data.
+
+Error codes and status mapping:
+- `AI_INPUT_INVALID`: 400 (Bad Request - empty prompt or > 2,000 chars)
+- `AI_GUEST_SESSION_INVALID`: 401 (Unauthorized - missing/expired/revoked session)
+- `AI_ACTOR_NOT_ALLOWED`: 403 (Forbidden - internal staff/manager/admin roles)
+- `AI_PROMPT_INJECTION_DETECTED`: 422 (Unprocessable - prompt injection)
+- `AI_CONTEXT_NOT_ALLOWED`: 422 (Unprocessable - forbidden private/payment contexts)
+- `AI_OUTPUT_POLICY_VIOLATION`: 422 (Unprocessable - unsafe provider output)
+- `AI_DAILY_QUOTA_EXCEEDED`: 429 (Too Many Requests - daily quota exhausted, includes `Retry-After`)
+- `AI_UNAVAILABLE`: 503 (Service Unavailable - provider timeout or offline)
 
 ## 5. Analysis and review states
 
