@@ -12,7 +12,7 @@ export default function EditReviewPage() {
   const api = useReviewManagementApi();
   const navigate = useNavigate();
 
-  const resource = useResource(() => api.getReview(reviewId), [reviewId]);
+  const resource = useResource(() => api.getReview(reviewId, true), [reviewId]);
 
   if (resource.loading) {
     return (
@@ -30,6 +30,37 @@ export default function EditReviewPage() {
           messages={reviewManagementMessages}
           onReload={resource.reload}
         />
+      </div>
+    );
+  }
+
+  if (!resource.data?.canEdit) {
+    return (
+      <div className="review-container">
+        <header className="page-header">
+          <h1>{t('editTitle')}</h1>
+        </header>
+
+        <div className="notice error" role="alert" data-testid="edit-review-forbidden">
+          {t('notAuthorizedToEdit')}
+        </div>
+
+        <div className="review-actions">
+          <button
+            type="button"
+            className="button outline"
+            onClick={() => navigate('/reviews')}
+          >
+            &larr; {t('back')}
+          </button>
+          <button
+            type="button"
+            className="button primary"
+            onClick={() => navigate(`/reviews/${encodeURIComponent(reviewId)}`)}
+          >
+            {t('open')}
+          </button>
+        </div>
       </div>
     );
   }

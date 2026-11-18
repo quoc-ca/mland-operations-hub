@@ -122,6 +122,7 @@ export default function MainTopbar() {
 
   const userRole = profileData?.role || account?.role || 'MEMBER';
   const isInternal = ['STAFF', 'MANAGER', 'ADMIN'].includes(userRole);
+  const isStaffOrAdmin = isAuthenticated && (userRole === 'STAFF' || userRole === 'ADMIN');
 
   const isRingDesignActive =
     (location.pathname.includes('/design') &&

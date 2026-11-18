@@ -5,8 +5,8 @@ export const reviewManagementMessages = {
     publicSubtitle: 'Chỉ đánh giá PUBLIC được hiển thị và tính vào điểm tổng hợp.',
     lookupTitle: 'Tìm giao dịch đủ điều kiện',
     lookupSubtitle: 'Nhập email hoặc số điện thoại để tìm trải nghiệm có thể đánh giá.',
-    eligibleTitle: 'Nguồn đủ điều kiện',
-    eligibleSubtitle: 'Chỉ attendance hoặc order line của bạn được hiển thị.',
+    eligibleTitle: 'Các sản phẩm, trải nghiệm có thể đánh giá',
+    eligibleSubtitle: '',
     createTitle: 'Chia sẻ trải nghiệm của bạn',
     createSubtitle: 'Đánh giá trải nghiệm thực tế từ buổi workshop hoặc sản phẩm bán lẻ đã nhận.',
     editTitle: 'Chỉnh sửa đánh giá',
@@ -60,6 +60,7 @@ export const reviewManagementMessages = {
     errMaxPhotoSize: 'Tổng dung lượng ảnh không được vượt quá 10MB.',
     errPhotoType: 'Chỉ chấp nhận tệp hình ảnh (JPEG, PNG, WebP).',
     removePhoto: 'Xóa ảnh',
+    notAuthorizedToEdit: 'Bạn không có quyền chỉnh sửa đánh giá này. Chỉ chủ sở hữu đánh giá mới có thể chỉnh sửa.',
 
     // Nguồn & Phân loại
     sourceWorkshop: 'Buổi trải nghiệm Workshop',
@@ -67,6 +68,7 @@ export const reviewManagementMessages = {
     target_WORKSHOP_SESSION: 'Buổi trải nghiệm Workshop',
     target_RETAIL_PRODUCT: 'Sản phẩm nhẫn thủ công',
     verified: 'Nguồn đã xác minh',
+    alreadyReviewedBadge: 'Đã viết đánh giá',
     sourceReference: 'Mã tham chiếu',
 
     // Trạng thái kiểm duyệt
@@ -128,8 +130,8 @@ export const reviewManagementMessages = {
     publicSubtitle: 'Only PUBLIC reviews are shown and included in the aggregate.',
     lookupTitle: 'Find an eligible transaction',
     lookupSubtitle: 'Enter an email or phone number to find a reviewable experience.',
-    eligibleTitle: 'Eligible experiences',
-    eligibleSubtitle: 'Only your attendance or order lines are shown.',
+    eligibleTitle: 'Reviewable products and experiences',
+    eligibleSubtitle: '',
     createTitle: 'Share your experience',
     createSubtitle: 'Review your actual experience from a checked-in workshop or delivered order.',
     editTitle: 'Edit review',
@@ -183,6 +185,7 @@ export const reviewManagementMessages = {
     errMaxPhotoSize: 'Total photo size cannot exceed 10MB.',
     errPhotoType: 'Only image files are accepted (JPEG, PNG, WebP).',
     removePhoto: 'Remove photo',
+    notAuthorizedToEdit: 'You are not allowed to edit this review. Only the owner can edit their own review.',
 
     // Sources & Categories
     sourceWorkshop: 'Workshop session',
@@ -190,6 +193,7 @@ export const reviewManagementMessages = {
     target_WORKSHOP_SESSION: 'Workshop Session',
     target_RETAIL_PRODUCT: 'Handcrafted Ring Product',
     verified: 'Verified source',
+    alreadyReviewedBadge: 'Already reviewed',
     sourceReference: 'Source reference',
 
     // Moderation

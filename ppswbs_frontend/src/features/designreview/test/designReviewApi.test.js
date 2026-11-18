@@ -10,13 +10,13 @@ describe('Feature-004 REST operations', () => {
     await api.askAiSupport({ message: 'Hello AI', auth: false });
     expect(last()).toEqual([
       '/api/v1/ai-support/messages',
-      { method: 'POST', body: { message: 'Hello AI' }, auth: false },
+      { method: 'POST', body: { message: 'Hello AI' }, auth: false, headers: {}, suppressAccessDenied: true },
     ]);
 
     await api.askAiSupport({ message: 'Hello Member', auth: true });
     expect(last()).toEqual([
       '/api/v1/ai-support/messages',
-      { method: 'POST', body: { message: 'Hello Member' }, auth: true },
+      { method: 'POST', body: { message: 'Hello Member' }, auth: true, headers: {}, suppressAccessDenied: true },
     ]);
   });
 

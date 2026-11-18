@@ -7,6 +7,7 @@ import { AuthProvider } from '../../shared/auth/AuthProvider';
 import * as workshopApi from '../../api/workshops';
 import * as catalogueApi from '../../api/catalogue';
 import { firebaseAuthClient } from '../accountmanagement/auth/FirebaseAuthClient';
+import * as useCurrentAccountModule from '../accountmanagement/hooks/useCurrentAccount';
 
 function renderHomePage({
   initialAuthState = { status: 'signed-out' },
@@ -237,5 +238,23 @@ describe('Landing HomePage (Figma Page 01 · Public & Guest Node 55:5)', () => {
       'href',
       '/ai-support',
     );
+  });
+
+  it('hides ring design, custom, and AI support links for staff and admin roles', () => {
+    vi.spyOn(useCurrentAccountModule, 'useCurrentAccount').mockReturnValue({
+      account: { role: 'STAFF' },
+      status: 'authenticated',
+      refetch: vi.fn(),
+    });
+    renderHomePage({ initialAuthState: { status: 'signed-in' } });
+    const nav = screen.getByRole('navigation', { name: 'Khám phá' });
+    expect(within(nav).queryByRole('link', { name: 'Cấu hình nhẫn' })).not.toBeInTheDocument();
+    expect(within(nav).queryByRole('link', { name: 'Custom' })).not.toBeInTheDocument();
+    expect(within(nav).queryByRole('link', { name: 'Trợ lý AI' })).not.toBeInTheDocument();
+    expect(within(nav).getByRole('link', { name: 'Workshop' })).toBeInTheDocument();
+    expect(within(nav).getByRole('link', { name: 'Ready Rings' })).toBeInTheDocument();
+
+    expect(screen.queryByText('🎨 Chế tác theo yêu cầu')).not.toBeInTheDocument();
+    expect(screen.queryByText('🤖 Trợ lý AI tư vấn')).not.toBeInTheDocument();
   });
 });

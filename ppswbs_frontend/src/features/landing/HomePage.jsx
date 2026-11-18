@@ -113,6 +113,13 @@ export default function HomePage() {
     'Thành viên';
 
   const userRole = account?.role || 'MEMBER';
+  const isStaffOrAdmin = isAuthenticated && (userRole === 'STAFF' || userRole === 'ADMIN');
+  const visibleEcosystemServices = ECOSYSTEM_SERVICES.filter((srv) => {
+    if (isStaffOrAdmin && (srv.id === 'custom' || srv.id === 'ai-support')) {
+      return false;
+    }
+    return true;
+  });
 
   // Lấy vé workshop sắp tới khi thành viên đã đăng nhập
   useEffect(() => {

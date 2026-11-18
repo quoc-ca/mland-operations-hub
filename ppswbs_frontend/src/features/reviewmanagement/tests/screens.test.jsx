@@ -135,9 +135,33 @@ describe('F11-ELIGIBLE-SOURCES Screen (/reviews/eligible-sources)', () => {
     });
 
     open('/reviews/eligible-sources', { session: fakeSession('signed-in') });
-    expect(await screen.findByText('Nguồn đủ điều kiện')).toBeInTheDocument();
+    expect(await screen.findByText('Các sản phẩm, trải nghiệm có thể đánh giá')).toBeInTheDocument();
     expect(screen.getByText('Nhẫn bạc đính đá Topaz')).toBeInTheDocument();
     expect(screen.getByText('ITEM-888')).toBeInTheDocument();
+  });
+
+  it('renders already reviewed status and view details button when source already has a review', async () => {
+    mockFetch({
+      'GET /api/v1/reviews/eligible-sources': json(200, {
+        sources: [
+          {
+            sourceType: 'RETAIL_ORDER_LINE',
+            sourceReference: 'ITEM-888',
+            targetType: 'RETAIL_PRODUCT',
+            targetReference: 'PROD-777',
+            label: 'Nhẫn bạc đính đá Topaz',
+            eligible: true,
+            alreadyReviewed: true,
+            reviewId: 'rev-existing-123',
+          },
+        ],
+      }),
+    });
+
+    open('/reviews/eligible-sources', { session: fakeSession('signed-in') });
+    expect(await screen.findByText('Các sản phẩm, trải nghiệm có thể đánh giá')).toBeInTheDocument();
+    expect(screen.getByText('Đã viết đánh giá')).toBeInTheDocument();
+    expect(screen.getByText(/Xem chi tiết/i)).toBeInTheDocument();
   });
 });
 
@@ -251,6 +275,7 @@ describe('F11-EDIT-REVIEW Screen (/reviews/:id/edit)', () => {
         version: 2,
         status: 'PUBLIC',
         maskedDisplayName: 'Hội viên #1***45',
+        canEdit: true,
       }),
       'PATCH /api/v1/reviews/rev-edit-01': json(200, {
         id: 'rev-edit-01',
@@ -259,6 +284,7 @@ describe('F11-EDIT-REVIEW Screen (/reviews/:id/edit)', () => {
         version: 3,
         status: 'PUBLIC',
         maskedDisplayName: 'Hội viên #1***45',
+        canEdit: true,
       }),
     });
 
@@ -294,6 +320,7 @@ describe('F11-EDIT-REVIEW Screen (/reviews/:id/edit)', () => {
         bodyText: 'Đang sửa thì bị conflict',
         version: 1,
         status: 'PUBLIC',
+        canEdit: true,
       }),
       'PATCH /api/v1/reviews/rev-edit-02': json(409, {
         code: 'REVIEW_STATE_CONFLICT',
@@ -309,10 +336,31 @@ describe('F11-EDIT-REVIEW Screen (/reviews/:id/edit)', () => {
 
     expect(await screen.findByText(/Dữ liệu đã thay đổi/)).toBeInTheDocument();
   });
+
+  it('blocks editing of another user review when canEdit is false and displays forbidden notice', async () => {
+    mockFetch({
+      'GET /api/v1/reviews/rev-other-user': json(200, {
+        id: 'rev-other-user',
+        rating: 5,
+        bodyText: 'Đánh giá của người khác',
+        version: 1,
+        status: 'PUBLIC',
+        maskedDisplayName: 'Người khác #8***88',
+        canEdit: false,
+      }),
+    });
+
+    open('/reviews/rev-other-user/edit', { session: fakeSession('signed-in') });
+
+    expect(await screen.findByTestId('edit-review-forbidden')).toBeInTheDocument();
+    expect(screen.getByText(/Bạn không có quyền chỉnh sửa đánh giá này/)).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText(/Viết đánh giá tối đa 2.000 ký tự/)).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Lưu thay đổi' })).toBeNull();
+  });
 });
 
 describe('F11-REVIEW-DETAIL Screen (/reviews/:id)', () => {
-  it('renders review detail and manager reply when present', async () => {
+  it('renders review detail and manager reply when present and shows edit button only if owner', async () => {
     mockFetch({
       'GET /api/v1/reviews/rev-detail-01': json(200, {
         id: 'rev-detail-01',
@@ -323,6 +371,7 @@ describe('F11-REVIEW-DETAIL Screen (/reviews/:id)', () => {
         status: 'PUBLIC',
         maskedDisplayName: 'Hội viên #9***99',
         createdAt: '2026-11-05T09:00:00Z',
+        canEdit: true,
         reply: {
           id: 'rep-01',
           bodyText: 'Mland rất vui vì bạn hài lòng!',
@@ -336,6 +385,28 @@ describe('F11-REVIEW-DETAIL Screen (/reviews/:id)', () => {
     expect(screen.getByText('Cảm ơn nghệ nhân đã hướng dẫn tận tình!')).toBeInTheDocument();
     expect(screen.getByText('Mland rất vui vì bạn hài lòng!')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Chỉnh sửa đánh giá của bạn' })).toBeInTheDocument();
+  });
+
+  it('hides edit button on review detail when viewer is not the owner (canEdit is false)', async () => {
+    mockFetch({
+      'GET /api/v1/reviews/rev-detail-02': json(200, {
+        id: 'rev-detail-02',
+        targetType: 'RETAIL_PRODUCT',
+        targetReference: 'PROD-101',
+        rating: 4,
+        bodyText: 'Nhẫn rất đẹp nhưng người khác đánh giá.',
+        status: 'PUBLIC',
+        maskedDisplayName: 'Khách hàng khác',
+        createdAt: '2026-11-05T10:00:00Z',
+        canEdit: false,
+      }),
+    });
+
+    open('/reviews/rev-detail-02', { session: fakeSession('signed-in') });
+
+    expect(await screen.findByText('Chi tiết đánh giá')).toBeInTheDocument();
+    expect(screen.getByText('Nhẫn rất đẹp nhưng người khác đánh giá.')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Chỉnh sửa đánh giá của bạn' })).toBeNull();
   });
 });
 
