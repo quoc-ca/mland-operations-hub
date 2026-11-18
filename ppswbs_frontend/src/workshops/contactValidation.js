@@ -115,3 +115,14 @@ export function buildContactProof({ email, phone, phoneCountry }) {
     ? { proof: { contactPhone: toInternationalPhone(phoneCountry, phone) }, error: null }
     : { proof: null, error: phoneError(phoneCountry) };
 }
+
+/**
+ * The one contact a Guest proves a group with (the server refuses two): the e-mail when there is one, else the phone in
+ * international form. Empty object when the contact holds neither.
+ */
+export function guestContactProof(contact) {
+  const email = normalizeEmail(contact?.contactEmail);
+  if (email) return { contactEmail: email };
+  const phone = toInternationalPhone(contact?.contactPhoneCountry, contact?.contactPhone);
+  return phone ? { contactPhone: phone } : {};
+}
