@@ -535,7 +535,7 @@ components:
         sessionReferences: {type: array, items: {type: string, format: uuid}}
     BookingGroup:
       type: object
-      required: [groupCode, groupStatus, paymentMode, groupCollectionVnd, lines, tickets]
+      required: [groupCode, groupStatus, paymentMode, groupCollectionVnd, hasLivePaymentAttempt, lines, tickets]
       description: The group as group creation returns it (FR-030..FR-032, FR-036).
       properties:
         groupCode: {type: string}
@@ -577,6 +577,7 @@ components:
         paymentDeadlineAt: {type: string, format: date-time, nullable: true}
         createdAt: {type: string, format: date-time, nullable: true, description: List ordering, newest first.}
         confirmedAt: {type: string, format: date-time, nullable: true}
+        hasLivePaymentAttempt: {type: boolean, description: "True while an INITIATED or PENDING payment attempt of the group exists (FR-032, FR-048). When false on a PENDING_PAYMENT group the buyer may pay again or release the hold; true means release is refused with 409 PAYMENT_ATTEMPT_EXISTS. Added 2026-11-19 for T172."}
         lines: {type: array, items: {$ref: '#/components/schemas/GroupLine'}}
         tickets: {type: array, items: {$ref: '#/components/schemas/TicketView'}}
     TicketView:

@@ -44,7 +44,7 @@ class BookingGroupRecoveryServiceTest {
     private BookingGroupRecoveryService service;
     private BookingGroup group;
     private final BookingIdempotencyClaim claim = BookingIdempotencyClaim.live(7L, 1L);
-    private final BookingGroupView view = new BookingGroupView(CODE, "CONFIRMED", "VNPAY", 0, null, null, null, null,
+    private final BookingGroupView view = new BookingGroupView(CODE, "CONFIRMED", "VNPAY", 0, null, null, null, null, false,
             List.of(), List.of());
 
     @BeforeEach
