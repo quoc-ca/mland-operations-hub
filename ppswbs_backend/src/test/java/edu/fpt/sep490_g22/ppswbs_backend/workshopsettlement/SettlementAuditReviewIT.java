@@ -235,4 +235,23 @@ class SettlementAuditReviewIT {
             assertThat(problem.get("correlationReference").asText()).isNotBlank();
         }
     }
+
+    @Test
+    @DisplayName("013 R-5: denied=true returns only DENIED_* rows; absent or false returns everything; a bad value is 400; Staff is refused")
+    void deniedFilterKeepsOnlyDeniedAttempts() throws Exception {
+        Instant now = Instant.now();
+        save("DENIED_MANAGER_REQUIRED", "account:101", "REFUND_REQUEST", "RR-1", now.minusSeconds(30), null);
+        save("REFUND_APPROVED", "account:10", "REFUND_REQUEST", "RR-1", now.minusSeconds(20), REASON);
+        save("DENIED_ACTOR_INACTIVE", "account:55", "FOLIO", "F-9", now.minusSeconds(10), null);
+        save("DENIEDX_NOT_A_DENIAL", "account:10", "FOLIO", "F-8", now.minusSeconds(5), null);
+
+        JsonNode denied = body(read(MANAGER, "denied=true"), 200).get("items");
+        assertThat(denied).hasSize(2);
+        denied.forEach(item -> assertThat(item.get("actionCode").asText()).startsWith("DENIED_"));
+        assertThat(body(read(MANAGER, "denied=false"), 200).get("items")).hasSize(4);
+        assertThat(body(read(MANAGER, null), 200).get("items")).hasSize(4);
+        assertThat(body(read(MANAGER, "denied=true&limit=1"), 200).get("nextCursor").isNull()).isFalse();
+        body(read(MANAGER, "denied=maybe"), 400);
+        mockMvc.perform(read(STAFF, "denied=true")).andExpect(status().isForbidden());
+    }
 }

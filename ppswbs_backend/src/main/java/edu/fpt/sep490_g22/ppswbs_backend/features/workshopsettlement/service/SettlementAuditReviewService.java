@@ -49,16 +49,28 @@ public class SettlementAuditReviewService {
     public SettlementAuditPage readRecords(CurrentAccountActor actor, String actionCode, String actorId,
                                            String aggregateType, String aggregateReference, String from, String to,
                                            String cursor, String limit) {
+        return readRecords(actor, actionCode, actorId, aggregateType, aggregateReference, from, to, cursor, limit, null);
+    }
+
+    /** {@code denied=true} keeps only denied attempts (action code {@code DENIED_*}); absent or {@code false} changes nothing. */
+    public SettlementAuditPage readRecords(CurrentAccountActor actor, String actionCode, String actorId,
+                                           String aggregateType, String aggregateReference, String from, String to,
+                                           String cursor, String limit, String denied) {
         authorization.requireManager(actor);
+        boolean deniedOnly = parseBoolean("denied", denied);
 
         int pageSize = pageSize(parseInt("limit", limit));
         Long beforeId = cursorCodec.decode(cursor);
         SettlementAuditFilter filter = filter(actionCode, parseLong("actorId", actorId), aggregateType,
                 aggregateReference, parseInstant("from", from), parseInstant("to", to));
 
-        List<SettlementBusinessAudit> rows = auditRepository.findPage(filter.actionCode(), filter.actorReference(),
-                filter.aggregateType(), filter.aggregateReference(), filter.from(), filter.to(), beforeId,
-                PageRequest.of(0, pageSize + 1));
+        PageRequest pageRequest = PageRequest.of(0, pageSize + 1);
+        List<SettlementBusinessAudit> rows = deniedOnly
+                ? auditRepository.findDeniedPage(filter.actionCode(), filter.actorReference(), filter.aggregateType(),
+                        filter.aggregateReference(), filter.from(), filter.to(), beforeId, pageRequest)
+                : auditRepository.findPage(filter.actionCode(), filter.actorReference(),
+                        filter.aggregateType(), filter.aggregateReference(), filter.from(), filter.to(), beforeId,
+                        pageRequest);
         boolean hasMore = rows.size() > pageSize;
         List<SettlementBusinessAudit> page = hasMore ? rows.subList(0, pageSize) : rows;
 
@@ -123,6 +135,16 @@ public class SettlementAuditReviewService {
             throw new SettlementAuditQueryException("limit", "limit must be between 1 and " + MAX_LIMIT);
         }
         return limit;
+    }
+
+    private static boolean parseBoolean(String name, String value) {
+        if (value == null || value.isBlank() || "false".equalsIgnoreCase(value.trim())) {
+            return false;
+        }
+        if ("true".equalsIgnoreCase(value.trim())) {
+            return true;
+        }
+        throw new SettlementAuditQueryException(name, name + " must be true or false");
     }
 
     private static Long parseLong(String name, String value) {

@@ -36,6 +36,23 @@ public class OtaReconciliationController {
         return new OtaReconciliationWorkItemListResponse(reconciliationService.listWorkItems(status, category, actor));
     }
 
+    /** Manager home (013 R-4): {@code ?needsAttention=true} lists exactly what the card counts (OPEN and ESCALATED). */
+    @GetMapping(params = "needsAttention=true")
+    public OtaReconciliationWorkItemListResponse listNeedingAttention(
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        var actor = authorizationService.requireManagerOrAdmin(authorization);
+        return new OtaReconciliationWorkItemListResponse(reconciliationService.listNeedingAttention(actor));
+    }
+
+    /** Manager home (013 R-4): {"waiting": n}, the size of the list returned by {@code ?needsAttention=true}. */
+    @GetMapping("/needing-attention-count")
+    public java.util.Map<String, Long> needingAttentionCount(
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        // Manager only (owner decision 2026-11-18, contract): an Admin gets the usual refusal and no number.
+        var actor = authorizationService.requireManager(authorization);
+        return java.util.Map.of("waiting", reconciliationService.countNeedingAttention(actor));
+    }
+
     @PostMapping(value = "/{workItemId}/resolve", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<OtaReconciliationWorkItemViewResponse> resolve(
             @PathVariable String workItemId,

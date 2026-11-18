@@ -1,7 +1,9 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao;
 
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.AttendanceState;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.SessionState;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.TicketSessionEntitlement;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.TicketValidityState;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
@@ -74,4 +76,16 @@ public interface TicketSessionEntitlementRepository extends JpaRepository<Ticket
 
     @Query("SELECT tse FROM TicketSessionEntitlement tse WHERE tse.session.id = :sessionId AND (tse.ticket.bookingReference = :bookingReference OR tse.ticket.bookingReference LIKE CONCAT(:bookingReference, '-L%')) AND tse.ticket.validityState = 'ACTIVE'")
     List<TicketSessionEntitlement> findActiveEntitlementsBySessionIdAndBookingReference(@Param("sessionId") Long sessionId, @Param("bookingReference") String bookingReference);
+
+    /**
+     * Manager home (013 R-1): people holding a valid (ACTIVE) ticket for the not-cancelled sessions of one day, i.e.
+     * the roster size summed over those sessions. Pass a null {@code attendanceState} for everyone expected.
+     */
+    @Query("SELECT COUNT(tse) FROM TicketSessionEntitlement tse WHERE tse.session.workshopDate = :day "
+            + "AND tse.session.state <> :cancelled AND tse.ticket.validityState = :active "
+            + "AND (:locationId IS NULL OR tse.session.location.id = :locationId) "
+            + "AND (:attendanceState IS NULL OR tse.attendanceState = :attendanceState)")
+    long countRosterOfDay(@Param("day") java.time.LocalDate day, @Param("locationId") Long locationId,
+                          @Param("cancelled") SessionState cancelled, @Param("active") TicketValidityState active,
+                          @Param("attendanceState") AttendanceState attendanceState);
 }

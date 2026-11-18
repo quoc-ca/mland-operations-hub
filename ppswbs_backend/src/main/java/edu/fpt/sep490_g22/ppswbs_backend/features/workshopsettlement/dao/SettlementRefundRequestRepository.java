@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -36,6 +37,11 @@ public interface SettlementRefundRequestRepository extends JpaRepository<Settlem
     List<SettlementRefundRequest> findByOrderByCreatedAtDesc();
 
     List<SettlementRefundRequest> findByStatusOrderByCreatedAtDesc(RefundRequestStatus status);
+
+    /** Manager home (013 R-2): the requests in any of these statuses, newest first. */
+    List<SettlementRefundRequest> findByStatusInOrderByCreatedAtDesc(Collection<RefundRequestStatus> statuses);
+
+    long countByStatusIn(Collection<RefundRequestStatus> statuses);
 
     /** T137: the requests that still hold an encrypted account number, oldest first. */
     @Query("select r.requestReference from SettlementRefundRequest r where r.recipientAccountEncrypted is not null order by r.id asc")

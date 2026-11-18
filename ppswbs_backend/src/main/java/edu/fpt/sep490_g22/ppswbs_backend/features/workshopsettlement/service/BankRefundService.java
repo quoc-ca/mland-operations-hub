@@ -524,6 +524,24 @@ public class BankRefundService {
                 : requests.findByStatusOrderByCreatedAtDesc(status);
     }
 
+    /**
+     * Manager home (013 R-2): the one meaning of "waiting" for the refund queue, used by both the card count and the
+     * list the card opens (FR-004): the four PENDING_* statuses. REFUNDED and CLOSED_UNREACHABLE are not waiting.
+     */
+    public static final java.util.Set<RefundRequestStatus> WAITING_STATUSES = java.util.EnumSet.of(
+            RefundRequestStatus.PENDING_ACCOUNT, RefundRequestStatus.PENDING_APPROVAL,
+            RefundRequestStatus.PENDING_TRANSFER, RefundRequestStatus.PENDING_RECONCILIATION);
+
+    @Transactional(readOnly = true)
+    public List<SettlementRefundRequest> listWaiting() {
+        return requests.findByStatusInOrderByCreatedAtDesc(WAITING_STATUSES);
+    }
+
+    @Transactional(readOnly = true)
+    public long countWaiting() {
+        return requests.countByStatusIn(WAITING_STATUSES);
+    }
+
     @Transactional(readOnly = true)
     public SettlementRefundRequest require(String requestReference) {
         return requests.findByRequestReference(requestReference)

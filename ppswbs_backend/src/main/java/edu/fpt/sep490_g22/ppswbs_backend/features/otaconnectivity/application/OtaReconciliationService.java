@@ -59,6 +59,34 @@ public class OtaReconciliationService {
         return listWorkItems(status, null, actor);
     }
 
+    /**
+     * Manager home (013 R-4): the one meaning of "needing attention" for reconciliation, used by both the card count
+     * and the list the card opens (FR-004): OPEN and ESCALATED. IN_PROGRESS is being handled and RESOLVED is closed.
+     */
+    public static final List<String> NEEDS_ATTENTION = List.of(OPEN, ESCALATED);
+
+    @Transactional(readOnly = true)
+    public List<OtaReconciliationWorkItemView> listNeedingAttention(AccountSummary actor) {
+        requireManagerOrAdmin(actor);
+        return workItemRepository.findByStatusInOrderByCreatedAtAsc(NEEDS_ATTENTION).stream().map(this::view).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public long countNeedingAttention(AccountSummary actor) {
+        requireManager(actor);
+        return workItemRepository.countByStatusIn(NEEDS_ATTENTION);
+    }
+
+    private OtaReconciliationWorkItemView view(OtaReconciliationWorkItem item) {
+        return new OtaReconciliationWorkItemView(
+                UUID.fromString(item.getPublicReference()),
+                item.getMapping() != null && item.getMapping().getPublicReference() != null
+                        ? UUID.fromString(item.getMapping().getPublicReference()) : null,
+                item.getStatus(),
+                item.getAuditReference() != null ? UUID.fromString(item.getAuditReference()) : null,
+                item.getCategory(), item.getCategory());
+    }
+
     @Transactional
     public List<OtaReconciliationWorkItemView> listWorkItems(String status, String category, AccountSummary actor) {
         requireManagerOrAdmin(actor);

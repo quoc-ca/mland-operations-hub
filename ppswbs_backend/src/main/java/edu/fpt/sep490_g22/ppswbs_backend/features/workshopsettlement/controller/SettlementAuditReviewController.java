@@ -31,9 +31,10 @@ public class SettlementAuditReviewController {
             @RequestParam(required = false) String to,
             @RequestParam(required = false) String cursor,
             @RequestParam(required = false) String limit,
+            @RequestParam(required = false) String denied,
             Authentication authentication) {
         return service.readRecords(actor(authentication), actionCode, actorId, aggregateType, aggregateReference,
-                from, to, cursor, limit);
+                from, to, cursor, limit, denied);
     }
 
     private static CurrentAccountActor actor(Authentication authentication) {
