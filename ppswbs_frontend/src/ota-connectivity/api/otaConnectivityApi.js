@@ -147,6 +147,11 @@ export function createOtaConnectivityClient(httpClient) {
      * List authorized mapping sync and recovery work items.
      */
     async listReconciliationWorkItems(status = null, category = null) {
+      // Manager home (013 R-4): NEEDS_ATTENTION is the set the home card counts (OPEN and ESCALATED), served as one list.
+      if (status === 'NEEDS_ATTENTION') {
+        const attention = await httpClient('/api/v1/ota-reconciliation-work-items', { query: { needsAttention: true } });
+        return attention?.items || [];
+      }
       const query = status && status !== 'ALL' ? { status } : {};
       // 003.4 T119 / C2: optional category filter; the contract types it as a free string (INBOUND_EVENT is its example).
       const trimmedCategory = typeof category === 'string' ? category.trim() : '';

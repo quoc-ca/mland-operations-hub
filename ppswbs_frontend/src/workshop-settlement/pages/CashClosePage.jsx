@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useHttp } from '../../shared/api/useHttp';
 import { useRole } from '../../shared/auth/useRole';
-import { SuccessNotice, useCommand } from '../../shared/ui/components';
+import { Loading, SuccessNotice, useCommand, useResource } from '../../shared/ui/components';
+import { useUrlFilters } from '../../shared/ui/useUrlFilters';
 import { createSettlementApi } from '../api/settlementApi';
 import { OpsPage } from '../OpsPage';
 import { ProblemNotice, ReasonDialog, money } from '../ui';
@@ -18,6 +19,11 @@ export default function CashClosePage() {
   const [differenceReason, setDifferenceReason] = useState('');
   const [close, setClose] = useState(null);
   const [confirming, setConfirming] = useState(false);
+  const [target, setTarget] = useState(null); // a difference chosen from the confirmation view
+  // Manager home opens this view (013 R-3): the differences waiting for a Manager, the set its card counts.
+  const [{ view }] = useUrlFilters({ view: '' });
+  const showQueue = view === 'confirmation' && isManager;
+  const queue = useResource(() => (showQueue ? api.listCashClosesAwaitingConfirmation() : Promise.resolve([])), [showQueue]);
   const [message, setMessage] = useState('');
   const command = useCommand();
 
@@ -42,14 +48,39 @@ export default function CashClosePage() {
   };
 
   const confirmDifference = async reason => {
-    const out = await command.run(key => api.confirmCashDifference(close.closeReference, { reason }, key));
-    if (out.ok) { setClose(out.result); setConfirming(false); setMessage('Difference confirmed; the day is closed.'); }
+    const subject = target || close;
+    const out = await command.run(key => api.confirmCashDifference(subject.closeReference, { reason }, key));
+    if (out.ok) {
+      if (target) { setTarget(null); queue.reload(); } else setClose(out.result);
+      setConfirming(false); setMessage('Difference confirmed; the day is closed.');
+    }
   };
 
   return (
     <OpsPage eyebrow="CASH BOOK" title="Cash close" intro="Count the drawer for one branch and day. A difference waits for a Manager's confirmation.">
       <SuccessNotice>{message}</SuccessNotice>
       <ProblemNotice error={command.error} onRetry={command.retry} />
+      {showQueue && (
+        <section className="ota-panel" aria-label="Differences awaiting confirmation">
+          <div className="ota-panel-head"><h2>Differences awaiting confirmation</h2><span>{queue.data ? queue.data.length : ''}</span></div>
+          <ProblemNotice error={queue.error} onRetry={queue.reload} onReload={queue.reload} />
+          {queue.loading ? <Loading /> : queue.error ? null : (queue.data || []).length === 0
+            ? <div className="empty-state"><p>No cash-close difference is waiting for confirmation.</p></div>
+            : (
+              <table className="ops-table">
+                <thead><tr><th>Close</th><th>Branch</th><th>Day</th><th>Expected</th><th>Counted</th><th>Difference</th><th>Reason</th><th /></tr></thead>
+                <tbody>{queue.data.map(item => (
+                  <tr key={item.closeReference}>
+                    <td>{item.closeReference}</td><td>{item.locationId}</td><td>{item.workingDate}</td>
+                    <td>{money(item.expectedCashVnd)}</td><td>{money(item.countedCashVnd)}</td><td>{money(item.differenceVnd)}</td>
+                    <td>{item.differenceReason || '—'}</td>
+                    <td><button className="button danger small" type="button" onClick={() => { setTarget(item); setConfirming(true); }}>Confirm difference</button></td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            )}
+        </section>
+      )}
       <section className="ota-panel">
         <form className="ota-inline-form" aria-label="Expected cash" onSubmit={loadExpected}>
           <label>Branch ID<input inputMode="numeric" value={locationId} onChange={event => setLocationId(event.target.value)} /></label>
@@ -88,7 +119,7 @@ export default function CashClosePage() {
         </section>
       )}
       <ReasonDialog open={confirming} title="Confirm the cash-close difference" confirmLabel="Confirm difference" pending={command.pending}
-        onCancel={() => setConfirming(false)} onConfirm={confirmDifference}>
+        onCancel={() => { setConfirming(false); setTarget(null); }} onConfirm={confirmDifference}>
         <p>The day closes with this difference on record. This is audited.</p>
       </ReasonDialog>
     </OpsPage>

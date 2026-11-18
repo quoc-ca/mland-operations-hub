@@ -584,6 +584,19 @@ paths:
         '401': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-cash-closes:
+    get:
+      summary: List the cash-close differences awaiting a Manager (Manager home, 013 R-3)
+      description: >-
+        With awaitingConfirmation=true: the closes in state PENDING_MANAGER_CONFIRMATION, oldest first, i.e. exactly the
+        set counted by /workshop-cash-closes/awaiting-confirmation-count. Manager only; read-only; no audit row. Each
+        item has the CashCloseResponse shape of the close call.
+      security: [{bearerAuth: []}]
+      parameters:
+        - {name: awaitingConfirmation, in: query, required: true, schema: {type: boolean}}
+      responses:
+        '200': {description: Closes awaiting confirmation, content: {application/json: {schema: {type: array, items: {type: object}}}}}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
     post:
       summary: Close a branch's cash book for one working day (FR-036)
       description: >-
@@ -672,8 +685,31 @@ paths:
       security: [{bearerAuth: []}]
       parameters:
         - {name: status, in: query, required: false, schema: {$ref: '#/components/schemas/RefundStatus'}}
+        - {name: waiting, in: query, required: false, schema: {type: boolean}, description: 'Manager home (013 R-2). With true the list holds exactly the requests counted by /workshop-refund-requests/waiting-count (the four PENDING_* statuses); it cannot be combined with status (422 WAITING_AND_STATUS_EXCLUSIVE).'}
       responses:
         '200': {description: Refund requests, content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/RefundRequest'}}}}}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-refund-requests/waiting-count:
+    get:
+      summary: Count refund requests waiting for a Manager (Manager home, 013 R-2)
+      description: >-
+        PENDING_ACCOUNT, PENDING_APPROVAL, PENDING_TRANSFER and PENDING_RECONCILIATION; REFUNDED and CLOSED_UNREACHABLE are
+        not waiting. Equals the size of GET /workshop-refund-requests?waiting=true. Manager only; read-only; no audit row.
+      security: [{bearerAuth: []}]
+      responses:
+        '200': {description: Waiting count, content: {application/json: {schema: {type: object, required: [waiting], properties: {waiting: {type: integer, minimum: 0}}}}}}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-cash-closes/awaiting-confirmation-count:
+    get:
+      summary: Count cash-close differences awaiting a Manager (Manager home, 013 R-3)
+      description: >-
+        Closes in state PENDING_MANAGER_CONFIRMATION. Count only: no list of these closes exists yet, so the Manager home
+        shows no card for it. Manager only; read-only; no audit row.
+      security: [{bearerAuth: []}]
+      responses:
+        '200': {description: Waiting count, content: {application/json: {schema: {type: object, required: [waiting], properties: {waiting: {type: integer, minimum: 0}}}}}}
         '401': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-refund-requests/{refundId}/transitions:

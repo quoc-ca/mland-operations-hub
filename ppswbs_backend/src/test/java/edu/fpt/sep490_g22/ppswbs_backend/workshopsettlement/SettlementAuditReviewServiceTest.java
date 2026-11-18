@@ -192,4 +192,36 @@ class SettlementAuditReviewServiceTest {
                 .correlationReference("corr-" + id).evidenceReference(null).reasonReference(reason)
                 .createdAt(Instant.parse("2026-11-17T10:00:00Z")).build();
     }
+
+    @Test
+    void deniedOnlyReadsTheDeniedQueryAndNeverTheGeneralOne() {
+        when(repository.findDeniedPage(any(), any(), any(), any(), any(), any(), any(), any(Pageable.class)))
+                .thenReturn(List.of(row(7L, null, null)));
+
+        SettlementAuditPage page = service.readRecords(MANAGER, null, null, null, null, null, null, null, null, "true");
+
+        assertThat(page.items()).hasSize(1);
+        verify(repository).findDeniedPage(any(), any(), any(), any(), any(), any(), any(), any(Pageable.class));
+        verify(repository, never()).findPage(any(), any(), any(), any(), any(), any(), any(), any(Pageable.class));
+    }
+
+    @Test
+    void deniedFalseOrAbsentKeepsTheGeneralQueryAndABadValueIsAValidationError() {
+        service.readRecords(MANAGER, null, null, null, null, null, null, null, null, "false");
+        verify(repository).findPage(any(), any(), any(), any(), any(), any(), any(), any(Pageable.class));
+        verify(repository, never()).findDeniedPage(any(), any(), any(), any(), any(), any(), any(), any(Pageable.class));
+
+        assertThatThrownBy(() -> service.readRecords(MANAGER, null, null, null, null, null, null, null, null, "maybe"))
+                .isInstanceOfSatisfying(SettlementAuditQueryException.class,
+                        ex -> assertThat(ex.getField()).isEqualTo("denied"));
+    }
+
+    @Test
+    void aNonManagerIsRefusedBeforeTheDeniedFlagIsRead() {
+        when(authorization.requireManager(STAFF)).thenThrow(new WorkshopSettlementAuthorizationException("MANAGER_REQUIRED"));
+
+        assertThatThrownBy(() -> service.readRecords(STAFF, null, null, null, null, null, null, null, null, "maybe"))
+                .isInstanceOf(WorkshopSettlementAuthorizationException.class);
+        verifyNoInteractions(repository);
+    }
 }

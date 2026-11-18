@@ -104,6 +104,7 @@ public class OtaConnectivityOpenApiIT {
 
                 // Reconciliation & Sync Recovery
                 "/ota-reconciliation-work-items",
+                "/ota-reconciliation-work-items/needing-attention-count",
                 "/ota-reconciliation-work-items/{workItemId}/resolve",
 
                 // Financial Evidence & Payout Reconciliation

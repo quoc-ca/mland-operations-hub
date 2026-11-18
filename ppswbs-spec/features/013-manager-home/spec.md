@@ -29,7 +29,7 @@ not replace any screen it links to.
 | 010 Manager Dashboard | Stays a separate page and is unchanged. Manager Home shows one revenue figure that must equal the dashboard's figure and links to it. 010 states that its V1 contains no pending-work cards or operational-list cards, which is the gap this page fills. |
 | 003.1 / 003.2 / 003.3 / 003.4 | Own the queues and workshop data the home counts: late payments, refund queue, ticket change requests, cash-close differences, OTA reconciliation, and today's sessions. The home never owns or edits them. |
 | 003.2 US7 Audit review | Source of the "recent events" rows and the link to the audit log. |
-| 004 Customer design review, 011 Review management | Own the design-review and review-moderation queues that the home counts. |
+| 004 Customer design review | Owns the design-review queue that the home counts. Review moderation (011) is not a queue of the home (Clarifications 2026-11-18). |
 | 001 Account management | Role and sign-in. Staff keep their own home. |
 
 **Out of scope:** the Staff home (unchanged), the dashboard's own content, any change of
@@ -39,7 +39,8 @@ the queues themselves, push notifications or alerts outside the page, and any fi
 
 ### Session 2026-11-18
 
-- Q: Must the first version show all seven queue cards at once, or may cards appear as their counts become available? → A: Cards ship incrementally. A card appears only when its count matches the owning list (FR-004); a queue without a working count is hidden entirely, not shown as unavailable.
+- Q: Must the first version show all six queue cards at once, or may cards appear as their counts become available? → A: Cards ship incrementally. A card appears only when its count matches the owning list (FR-004); a queue without a working count is hidden entirely, not shown as unavailable.
+- Q: Does the home get a card for reviews awaiting moderation? → A: No. Feature 011 has no "awaiting moderation" concept, so that card is dropped from Manager Home (owner decision Hồ Hoàng Quốc, 2026-11-18); the home has six queues and does not wait for the 011 owner.
 - Q: Are cancelled sessions counted in "sessions today" on the today strip? → A: Yes. All of today's sessions are counted, cancelled ones included, with the number of cancelled ones shown separately ("of which N cancelled"). Check-in progress is measured over the sessions that are not cancelled.
 - Q: Does the recent-events section include refused attempts from the Settlement audit as well as the Operations audit? → A: Yes, both sources, merged newest first. If one source cannot be read, the other is still shown with a note that part of the data is missing.
 - Q: Should a queue card be highlighted when an item has waited too long, or show the count only? → A: Count only in the first version. No "waiting too long" marker; it can be added later once each queue's owner decides a threshold.
@@ -177,7 +178,7 @@ A Manager has a short row of shortcuts to the screens used most.
   recent events (FR-010), shortcuts (FR-011).
 - **FR-003** *(queues)*: The page shows one card for each of these queues, each with the number of items waiting and a link to the
   owning list: late payments, refund queue, ticket change requests awaiting a decision, cash-close differences awaiting
-  confirmation, OTA reconciliation items needing attention, customer designs awaiting review, reviews awaiting moderation.
+  confirmation, OTA reconciliation items needing attention, customer designs awaiting review (six queues; review moderation is not one of them).
   The cards ship incrementally: a card is shown only once its queue has a count that satisfies FR-004. A queue without such a count is
   hidden entirely; it is neither shown as unavailable (FR-006) nor as zero (FR-005). Adding a queue's card later does not change the others.
 - **FR-004** *(count equals list)*: A card's number MUST equal the number of items the linked list shows when it is opened from the

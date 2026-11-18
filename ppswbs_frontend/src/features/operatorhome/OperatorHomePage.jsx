@@ -36,11 +36,9 @@ export default function OperatorHomePage({ role }) {
   if (actualRole !== 'STAFF' && actualRole !== 'MANAGER') return <Navigate to="/" replace />;
   if (actualRole !== role) return <Navigate to={roleHomePath(actualRole)} replace />;
 
-  const sections = operatorSections(role);
+  const sections = operatorSections();
   const name = profile.data?.fullName || profile.data?.email || '';
-  const title = vi
-    ? (role === 'MANAGER' ? 'Trang chủ Manager' : 'Trang chủ nhân viên')
-    : (role === 'MANAGER' ? 'Manager home' : 'Staff home');
+  const title = vi ? 'Trang chủ nhân viên' : 'Staff home';
   return (
     <div className="ota-workspace">
       <OperationsSidebar />
