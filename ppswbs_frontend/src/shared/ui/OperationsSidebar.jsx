@@ -161,6 +161,9 @@ export function OperationsSidebar() {
         <Link className={isDesignReviewActive ? 'active' : ''} to="/design-review-requests">
           {isVi ? 'Duyệt thiết kế' : 'Design review'}
         </Link>
+        <Link className={pathname.startsWith('/operations/consultations') ? 'active' : ''} to="/operations/consultations">
+          {isVi ? 'Tư vấn khách hàng' : 'Customer consultation'}
+        </Link>
 
         </>)}
 

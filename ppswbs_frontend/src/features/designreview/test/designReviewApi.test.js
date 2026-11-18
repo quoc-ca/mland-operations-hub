@@ -20,6 +20,20 @@ describe('Feature-004 REST operations', () => {
     ]);
   });
 
+  it('keeps a guest session returned on a post-admission error', async () => {
+    const failingRequest = vi.fn(async () => {
+      const error = new Error('provider unavailable');
+      error.status = 503;
+      error.guestSessionToken = 'opaque-session-from-error';
+      throw error;
+    });
+    const failingApi = designReviewApi(failingRequest);
+    sessionStorage.removeItem('mland_guest_ai_session');
+
+    await expect(failingApi.askAiSupport({ message: 'Retry me', auth: false })).rejects.toThrow('provider unavailable');
+    expect(sessionStorage.getItem('mland_guest_ai_session')).toBe('opaque-session-from-error');
+  });
+
   it('submitDesignRequest sends multipart FormData with Idempotency-Key', async () => {
     const file = new File(['fake-image-bytes'], 'ring.png', { type: 'image/png' });
     await api.submitDesignRequest('key-123', {

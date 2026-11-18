@@ -102,16 +102,20 @@ public class AiSupportService {
         }
 
         // 3. Atomically consume daily quota
-        AiPromptQuotaService.QuotaResult quotaResult =
-                aiPromptQuotaService.consumeQuota(actorScope, quotaIdentifier, effectiveCorrelationId);
+        AiPromptQuotaService.QuotaResult quotaResult;
+        try {
+            quotaResult = aiPromptQuotaService.consumeQuota(actorScope, quotaIdentifier, effectiveCorrelationId);
+        } catch (DesignReviewException ex) {
+            throw ex.withGuestSessionToken(responseGuestSessionToken);
+        }
 
         // 4. Screen for prompt injection (consumes quota)
         for (Pattern p : PROMPT_INJECTION_PATTERNS) {
             if (p.matcher(sanitized).find()) {
                 log.warn("Prompt injection attempt detected: correlationId={}", effectiveCorrelationId);
                 recordFailedInteraction(sanitized, memberId, "AI_PROMPT_INJECTION_DETECTED", effectiveCorrelationId);
-                throw DesignReviewException.unprocessable("AI_PROMPT_INJECTION_DETECTED",
-                        "Nội dung yêu cầu vi phạm chính sách an toàn của hệ thống.");
+            throw withGuestSession(DesignReviewException.unprocessable("AI_PROMPT_INJECTION_DETECTED",
+                    "Nội dung yêu cầu vi phạm chính sách an toàn của hệ thống."), responseGuestSessionToken);
             }
         }
 
@@ -120,8 +124,8 @@ public class AiSupportService {
             if (p.matcher(sanitized).find()) {
                 log.warn("Forbidden business context requested: correlationId={}", effectiveCorrelationId);
                 recordFailedInteraction(sanitized, memberId, "AI_CONTEXT_NOT_ALLOWED", effectiveCorrelationId);
-                throw DesignReviewException.unprocessable("AI_CONTEXT_NOT_ALLOWED",
-                        "Trợ lý AI chỉ giải đáp thông tin công khai và không xử lý thanh toán hay gia công riêng.");
+            throw withGuestSession(DesignReviewException.unprocessable("AI_CONTEXT_NOT_ALLOWED",
+                    "Trợ lý AI chỉ giải đáp thông tin công khai và không xử lý thanh toán hay gia công riêng."), responseGuestSessionToken);
             }
         }
 
@@ -131,9 +135,9 @@ public class AiSupportService {
         if (!result.success()) {
             recordFailedInteraction(sanitized, memberId, result.failureCode(), effectiveCorrelationId);
             if ("AI_UNAVAILABLE".equals(result.failureCode())) {
-                throw DesignReviewException.serviceUnavailable("AI_UNAVAILABLE", "Dịch vụ AI tạm thời không phản hồi. Vui lòng thử lại sau.");
+                throw withGuestSession(DesignReviewException.serviceUnavailable("AI_UNAVAILABLE", "Dịch vụ AI tạm thời không phản hồi. Vui lòng thử lại sau."), responseGuestSessionToken);
             }
-            throw DesignReviewException.unprocessable(result.failureCode() != null ? result.failureCode() : "AI_RESPONSE_INVALID", "Không thể xử lý phản hồi từ AI.");
+            throw withGuestSession(DesignReviewException.unprocessable(result.failureCode() != null ? result.failureCode() : "AI_RESPONSE_INVALID", "Không thể xử lý phản hồi từ AI."), responseGuestSessionToken);
         }
 
         // 7. Persist interaction with 30-day retention
@@ -174,5 +178,9 @@ public class AiSupportService {
         } catch (Exception e) {
             log.error("Failed to record failed AI text interaction: {}", e.getMessage());
         }
+    }
+
+    private DesignReviewException withGuestSession(DesignReviewException exception, String token) {
+        return exception.withGuestSessionToken(token);
     }
 }

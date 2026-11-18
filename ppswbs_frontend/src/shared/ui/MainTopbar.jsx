@@ -207,6 +207,14 @@ export default function MainTopbar() {
           >
             Đánh giá
           </Link>
+          {userRole === 'MEMBER' && (
+            <Link
+              to="/member/consultations"
+              className={`main-topbar-link ${location.pathname.startsWith('/member/consultations') ? 'active' : ''}`}
+            >
+              Tư vấn
+            </Link>
+          )}
         </nav>
 
         <div className="main-topbar-tools">
@@ -260,6 +268,11 @@ export default function MainTopbar() {
                   {!isStaffOrAdmin && (
                     <Link to="/my/designs" className="main-topbar-dropdown-item" role="menuitem">
                       <span>💍</span> Mẫu nhẫn đã lưu
+                    </Link>
+                  )}
+                  {userRole === 'MEMBER' && (
+                    <Link to="/member/consultations" className="main-topbar-dropdown-item" role="menuitem">
+                      <span>💬</span> Tư vấn thiết kế
                     </Link>
                   )}
                   <Link to="/member/orders" className="main-topbar-dropdown-item" role="menuitem">

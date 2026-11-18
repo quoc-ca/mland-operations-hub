@@ -492,6 +492,18 @@ Giá proposal, approval, application và publication là các hành động riê
 
 ### B2. Workshop, design review, retail/custom operations và consultation
 
+Feature-013 adds the following consultation screens without changing the booking,
+payment or design approval flows:
+
+- `Consultation Context Selector`: Member selects an owned workshop design or independent Design Request; code, name, version and preview are shown as one unit.
+- `Consultation Conversation`: Member, Staff or Manager reads immutable text history, sends text and sees polling/unread/error states.
+- `Consultation Inbox`: Staff sees only current-location conversations; Manager sees global conversations.
+- `Consultation Claim/Assignment`: Staff/Manager claims or releases; Manager assigns an unscoped conversation to a valid location.
+- `Consultation Closed State`: blocks new messages while preserving history and offers authorized reopen.
+
+The consultation target is the design context, not a branch, booking, order or
+payment. Staff scope remains location-scoped and Admin has no business chat action.
+
 ```mermaid
 flowchart LR
     B["B. Staff Dashboard"]

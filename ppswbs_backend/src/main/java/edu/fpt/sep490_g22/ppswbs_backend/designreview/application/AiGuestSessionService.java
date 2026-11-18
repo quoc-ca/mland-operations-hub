@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -33,7 +34,7 @@ public class AiGuestSessionService {
             boolean isNew
     ) {}
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public GuestSessionResult createGuestSession() {
         String rawToken = UUID.randomUUID().toString().replace("-", "")
                 + UUID.randomUUID().toString().replace("-", "");
@@ -56,7 +57,7 @@ public class AiGuestSessionService {
         return new GuestSessionResult(rawToken, digest, true);
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public Optional<GuestSessionResult> validateAndTouch(String rawToken) {
         if (rawToken == null || rawToken.trim().isBlank()) {
             return Optional.empty();

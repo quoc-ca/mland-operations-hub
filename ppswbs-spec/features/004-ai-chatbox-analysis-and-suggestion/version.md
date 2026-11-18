@@ -27,6 +27,21 @@
 5. **Database Migration**:
    - Added Flyway migration `V182__ai_guest_sessions_and_prompt_quota.sql`.
 
+### Phase G.1 — Quota Transaction and Concurrency Hardening (2026-11-18)
+1. Quota consumption now runs in an independent `REQUIRES_NEW` transaction, so
+   provider timeout, unsafe output, unsupported context and other post-validation
+   failures cannot roll back an already-consumed prompt.
+2. Daily quota creation and increment use MySQL atomic statements guarded by the
+   `(quota_scope, quota_key_digest, quota_date)` unique key. Concurrent first
+   requests therefore cannot create duplicate rows or exceed the configured
+   limit through an insert race.
+3. Guest session creation and touch also commit independently before the provider
+   call. A failed AI request cannot discard the session that owns the quota key.
+4. No migration was added: the hardening only changes transaction and repository
+   behavior and remains compatible with `V182__ai_guest_sessions_and_prompt_quota.sql`.
+5. Backend Maven verification remains pending because the repository wrapper cannot
+   start Maven in the current Windows environment and Maven is not installed on PATH.
+
 ---
 
 # Version 1.6 — Feature 004: Custom Design Workspace Refinement & Request Tracking Enhancements
