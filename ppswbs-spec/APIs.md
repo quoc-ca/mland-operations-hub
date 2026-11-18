@@ -209,6 +209,7 @@ no business chat mutation authority.
 | `POST /api/v1/consultations/{conversationReference}/assign` | Manager | Assign an unscoped conversation to an active Workshop Location. | Draft |
 | `POST /api/v1/consultations/{conversationReference}/read` | Authorized participant | Update unread projection. | Draft |
 | `POST /api/v1/consultations/{conversationReference}/close` / `reopen` | Authorized participant | Change `OPEN`/`CLOSED` state. | Draft |
+| `DELETE /api/v1/consultations/{conversationReference}` | Member | Soft-hide closed conversation from Member list; operational history retained. | Draft |
 
 All write commands use `Idempotency-Key`; state commands also use
 `If-Match-Version`. Message length is 2,000 Unicode code points and Member sends
