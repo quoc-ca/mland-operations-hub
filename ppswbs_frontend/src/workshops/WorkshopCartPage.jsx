@@ -9,6 +9,7 @@ import { CartQuoteDialog } from './CartQuoteDialog';
 import { GroupDetailCard } from './GroupDetailCard';
 import { useGroupCardIdentity } from './useGroupCardIdentity';
 import { refreshBookingGroup } from './refreshGroup';
+import { GroupAutoRefresh } from './GroupAutoRefresh';
 import { invalidatePendingPayments } from './pendingPayments';
 import {
   cartQuoteLines,
@@ -366,7 +367,8 @@ export function WorkshopCartPage() {
     return (
       <main className="public-page figma-public-page">
         <GroupResultHeading group={group} />
-        <GroupDetailCard group={group} authorization={cardIdentity.authorization} proof={cardIdentity.proof} allowRecipientChange={false} onRefresh={refreshGroup} />
+        <GroupDetailCard group={group} authorization={cardIdentity.authorization} proof={cardIdentity.proof} allowRecipientChange={false} onRefresh={refreshGroup} allowManualRefresh={false} />
+        <GroupAutoRefresh onRefresh={refreshGroup} groupStatus={group.groupStatus} />
       </main>
     );
   }

@@ -41,6 +41,7 @@ export function GroupDetailCard({
   onTicketUpdated,
   allowRelease = true,
   allowResend = true,
+  allowManualRefresh = true,
   allowRecipientChange = true,
   renderTicketExtra,
   renderTicketAction,
@@ -212,7 +213,7 @@ export function GroupDetailCard({
           </button>
         )}
         {/* Expired and cancelled are final: refreshing can never change them. */}
-        {onRefresh && group.groupStatus !== 'EXPIRED' && group.groupStatus !== 'CANCELLED' && !deadlinePassed && (
+        {allowManualRefresh && onRefresh && group.groupStatus !== 'EXPIRED' && group.groupStatus !== 'CANCELLED' && !deadlinePassed && (
           <button type="button" className="button outline" onClick={onRefresh}>Cập nhật trạng thái</button>
         )}
       </div>

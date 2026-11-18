@@ -289,6 +289,7 @@ export function WorkshopPaymentReturnPage({ groupCode }) {
               authorization={lookupMode === 'MEMBER' ? authorization : null}
               proof={lookupMode === 'GUEST' ? (guestProof.proof || undefined) : undefined}
               onRefresh={readGroup}
+              allowManualRefresh={false}
               onTicketUpdated={readGroup}
             />
           </>
