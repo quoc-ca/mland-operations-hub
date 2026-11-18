@@ -205,4 +205,100 @@ public class SettlementCustomerNotifier {
         return handoffs.create(ticketCode, "MLAND_REMEDY_RECIPIENT", correlationReference, recipientEmail.trim(),
                 body, subject, null, null);
     }
+
+    static final String TICKET_CHANGED = "TICKET_CHANGED";
+    static final String TICKET_CHANGE_REJECTED = "TICKET_CHANGE_REJECTED";
+    static final String TICKET_CHANGE_EXPIRED = "TICKET_CHANGE_EXPIRED";
+    static final String RECIPIENT_SUFFIX = "_RECIPIENT";
+    /** Public lookup page (no token in it), so the link needs no expiry. */
+    static final String TICKET_LOOKUP_PATH = "/workshop-booking/lookup";
+
+    /**
+     * Template 10 (approved 2026-11-12, owner decision 2026-11-18): "Đã đổi lịch" to the buyer's contact email and to the
+     * ticket's own recipient, if any. The ticket code and QR do not change (003.2 FR-010z), so no ticket email is sent.
+     * One handoff per email, keyed by the change reference. Never throws: a failed lookup skips that email.
+     *
+     * @return the buyer notification reference, or null when the order has no contact email
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public String notifyTicketChanged(String ticketCode, String changeReference, String oldSchedule,
+                                      String newSchedule, String locationName, long priceIncreaseVnd,
+                                      String correlationReference) {
+        String where = locationName == null || locationName.isBlank() ? "" : " tại " + locationName.trim();
+        String head = "Vé " + ticketCode + " đã chuyển từ " + oldSchedule + " sang " + newSchedule + where + ".";
+        String tail = " Đây là lần đổi duy nhất của vé này. Mã vé và mã QR không đổi, bạn tiếp tục dùng QR đã có để check-in."
+                + " Bạn có thể xem lại vé tại liên kết bên dưới.";
+        String increase = priceIncreaseVnd > 0
+                ? " Do lịch mới nằm ngoài phạm vi voucher, số tiền cần thanh toán thêm là " + vnd(priceIncreaseVnd)
+                + ", sẽ thu khi checkout."
+                : "";
+        String subject = "MLAND – Đã đổi lịch vé " + ticketCode;
+        return sendTicketChangeNotices(ticketCode, changeReference, TICKET_CHANGED, subject,
+                head + increase + tail, head + tail, correlationReference);
+    }
+
+    /** A queued change was refused: the ticket keeps its current schedule and QR (owner decision 2026-11-18). */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public String notifyTicketChangeRejected(String ticketCode, String requestReference, String currentSchedule,
+                                             String requestedSchedule, String locationName,
+                                             String correlationReference) {
+        return sendUnchangedNotice(ticketCode, requestReference, TICKET_CHANGE_REJECTED, "không được chấp nhận",
+                currentSchedule, requestedSchedule, locationName, correlationReference);
+    }
+
+    /** A queued change ran out of time without a decision: the ticket keeps its current schedule and QR. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public String notifyTicketChangeExpired(String ticketCode, String requestReference, String currentSchedule,
+                                            String requestedSchedule, String locationName,
+                                            String correlationReference) {
+        return sendUnchangedNotice(ticketCode, requestReference, TICKET_CHANGE_EXPIRED, "đã hết hạn xử lý",
+                currentSchedule, requestedSchedule, locationName, correlationReference);
+    }
+
+    private String sendUnchangedNotice(String ticketCode, String requestReference, String kind, String outcome,
+                                       String currentSchedule, String requestedSchedule, String locationName,
+                                       String correlationReference) {
+        String where = locationName == null || locationName.isBlank() ? "" : " tại " + locationName.trim();
+        String body = "Yêu cầu đổi lịch vé " + ticketCode + " sang " + requestedSchedule + where + " " + outcome + ". "
+                + "Vé giữ nguyên lịch cũ: " + currentSchedule + ". Mã QR hiện tại vẫn dùng được. "
+                + "Nếu cần hỗ trợ, vui lòng liên hệ quầy MLAND hoặc xem lại vé tại liên kết bên dưới.";
+        String subject = "MLAND – Yêu cầu đổi lịch vé " + ticketCode + " " + outcome;
+        return sendTicketChangeNotices(ticketCode, requestReference, kind, subject, body, body, correlationReference);
+    }
+
+    /** Buyer first, then the ticket's own recipient (null when none or the same address as the buyer). */
+    private String sendTicketChangeNotices(String ticketCode, String reference, String kind, String subject,
+                                           String buyerBody, String recipientBody, String correlationReference) {
+        String buyerRef = null;
+        String buyer = null;
+        try {
+            buyer = booking.notificationRecipient(ticketCode);
+        } catch (RuntimeException failure) {
+            log.warn("Ticket change email skipped for the buyer, recipient lookup failed: ticketCode={} kind={} ({})",
+                    ticketCode, kind, failure.getClass().getSimpleName());
+        }
+        if (buyer != null && !buyer.isBlank()) {
+            buyerRef = handoffs.create(reference, kind, correlationReference, buyer.trim(), buyerBody, subject,
+                    TICKET_LOOKUP_PATH, null);
+        } else {
+            log.info("Ticket change email skipped, no buyer contact email: ticketCode={} kind={}", ticketCode, kind);
+        }
+        String recipient = null;
+        try {
+            recipient = booking.ticketRecipientEmail(ticketCode);
+        } catch (RuntimeException failure) {
+            log.warn("Ticket change email skipped for the ticket recipient, lookup failed: ticketCode={} kind={} ({})",
+                    ticketCode, kind, failure.getClass().getSimpleName());
+        }
+        if (recipient != null && !recipient.isBlank()
+                && (buyer == null || !recipient.trim().equalsIgnoreCase(buyer.trim()))) {
+            handoffs.create(reference, kind + RECIPIENT_SUFFIX, correlationReference, recipient.trim(), recipientBody,
+                    subject, TICKET_LOOKUP_PATH, null);
+        }
+        return buyerRef;
+    }
+
+    private static String vnd(long amountVnd) {
+        return NumberFormat.getIntegerInstance(Locale.forLanguageTag("vi-VN")).format(amountVnd) + " VND";
+    }
 }

@@ -76,6 +76,8 @@ class TicketChangeServiceTest {
     private LoyaltyFacade loyalty;
     @Mock
     private SettlementTicketChangeRequestRepository requestRepository;
+    @Mock
+    private edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.TicketChangeNotifier notifier;
 
     private TicketChangeService service;
 
@@ -105,7 +107,8 @@ class TicketChangeServiceTest {
                 new WorkshopSettlementAuthorizationService(
                         mock(edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountFacade.class),
                         auditRepository, operations),
-                requestRepository
+                requestRepository,
+                notifier
         );
         lenient().when(requestRepository.save(any(SettlementTicketChangeRequest.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
@@ -202,6 +205,8 @@ class TicketChangeServiceTest {
         assertThat(cmdCaptor.getValue().lines().getFirst().ticketReference()).isEqualTo(OPS_TICKET_REF);
 
         verify(changeRepository).save(any(SettlementTicketChange.class));
+        // Owner decision 2026-11-18: the customer is told by email, once, with the change reference and no price rise.
+        verify(notifier).applied(eq(TICKET_CODE), eq(ctx), eq(List.of(TARGET_SESSION_1)), eq(0L), anyString(), eq("CORR-01"));
     }
 
     @Test
