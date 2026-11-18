@@ -15,12 +15,18 @@ export default function AiSupportPage() {
   const [inputMessage, setInputMessage] = useState('');
   const [messages, setMessages] = useState([]);
   const [clientError, setClientError] = useState('');
+  const [quota, setQuota] = useState(null);
 
   const isMember = status === 'signed-in';
+  const defaultLimit = isMember ? 10 : 3;
+  const currentLimit = quota ? quota.limit : defaultLimit;
+  const currentRemaining = quota ? quota.remaining : defaultLimit;
+  const isQuotaExceeded = (quota && quota.remaining <= 0) || command.error?.code === 'AI_DAILY_QUOTA_EXCEEDED';
   const charCount = [...inputMessage].length;
 
   async function handleSend(e) {
     e.preventDefault();
+    if (isQuotaExceeded) return;
     const trimmed = inputMessage.trim();
     if (!trimmed) {
       setClientError(t('validation.required'));
@@ -35,19 +41,28 @@ export default function AiSupportPage() {
     const userEntry = { sender: 'user', text: trimmed, timestamp: new Date().toISOString() };
     setMessages(prev => [...prev, userEntry]);
 
-    const res = await command.run(async () => {
-      const result = await api.askAiSupport({ message: trimmed, auth: isMember });
-      const assistantEntry = {
-        sender: 'assistant',
-        text: result.answer || result.message,
-        scope: result.scope,
-        correlationId: result.correlationId || result.providerCorrelationId,
-        timestamp: new Date().toISOString(),
-      };
-      setMessages(prev => [...prev, assistantEntry]);
-      setInputMessage('');
-      return result;
-    });
+    try {
+      await command.run(async () => {
+        const result = await api.askAiSupport({ message: trimmed, auth: isMember });
+        if (result?.quota) {
+          setQuota(result.quota);
+        }
+        const assistantEntry = {
+          sender: 'assistant',
+          text: result.answer || result.message,
+          scope: result.scope,
+          correlationId: result.correlationId || result.providerCorrelationId,
+          timestamp: new Date().toISOString(),
+        };
+        setMessages(prev => [...prev, assistantEntry]);
+        setInputMessage('');
+        return result;
+      });
+    } catch (err) {
+      if (err?.quota) {
+        setQuota(err.quota);
+      }
+    }
   }
 
   return (
@@ -57,6 +72,12 @@ export default function AiSupportPage() {
         <p className="muted">{t('aiChat.subtitle')}</p>
         <span className={`badge-tag ${isMember ? 'badge-success' : 'badge-status'}`}>
           {isMember ? t('aiChat.memberBadge') : t('aiChat.guestBadge')}
+        </span>
+        <span
+          className="badge-tag"
+          style={{ marginLeft: '0.5rem', background: '#f3f4f6', color: '#374151', border: '1px solid #d1d5db' }}
+        >
+          {t('aiChat.quotaNotice', { remaining: currentRemaining, limit: currentLimit })}
         </span>
       </header>
 
@@ -88,6 +109,11 @@ export default function AiSupportPage() {
         <form onSubmit={handleSend} className="chat-form">
           <ErrorNotice error={command.error} messages={designReviewMessages} onRetry={command.retry} />
           {clientError && <div className="notice error">{clientError}</div>}
+          {isQuotaExceeded && (
+            <div className="notice warning" style={{ marginBottom: '1rem' }} role="status">
+              {t('aiChat.quotaExceeded')}
+            </div>
+          )}
 
           <div className="chat-input-row">
             <Field label={t('aiChat.title')} hint={t('aiChat.charCount', { count: charCount })}>
@@ -98,7 +124,7 @@ export default function AiSupportPage() {
                   if (clientError) setClientError('');
                 }}
                 placeholder={t('aiChat.inputPlaceholder')}
-                disabled={command.pending}
+                disabled={command.pending || isQuotaExceeded}
                 rows={2}
                 aria-label={t('aiChat.inputPlaceholder')}
               />
@@ -106,7 +132,7 @@ export default function AiSupportPage() {
             <button
               type="submit"
               className="button primary"
-              disabled={command.pending || !inputMessage.trim()}
+              disabled={command.pending || !inputMessage.trim() || isQuotaExceeded}
               style={{ marginTop: '1.5rem' }}
             >
               {t('aiChat.send')}

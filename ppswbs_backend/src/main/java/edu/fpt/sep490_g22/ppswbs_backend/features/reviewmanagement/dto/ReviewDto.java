@@ -36,5 +36,6 @@ public class ReviewDto {
     private Instant createdAt;
     private Instant updatedAt;
     private ReplyDto reply;
+    private Boolean canEdit;
 }
 

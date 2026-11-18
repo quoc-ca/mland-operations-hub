@@ -1,3 +1,34 @@
+# Version 1.7 — Feature 004: AI Chatbox Daily Quota & Session Accounting (Demo Quota & Gemini Integration)
+
+- **Feature**: 004 — AI Chatbox Analysis and Suggestion
+- **Author**: Ngô Tiến Đạt
+- **Last updated by**: Phan Sơn
+- **Date created**: 2026-10-24
+- **Date updated**: 2026-11-18
+- **Source of truth**: Feature-004 `spec.md`, `design.md`, OpenAPI contract, `V182__ai_guest_sessions_and_prompt_quota.sql` and synchronized project specifications
+
+### Phase G — AI Chatbox Daily Quota & Session Accounting (2026-11-18)
+1. **Calendar-Day Quota Enforcement (Asia/Ho_Chi_Minh)**:
+   - Guest: 3 prompts / day; Member: 10 prompts / day. Resets at 00:00.
+   - Staff/Manager/Admin roles blocked with HTTP 403 `AI_ACTOR_NOT_ALLOWED`.
+   - Atomic quota consumption in database via `ai_prompt_quota_usage` table.
+   - Validates non-empty and 2,000 char limit before consuming quota.
+   - HTTP 429 `AI_DAILY_QUOTA_EXCEEDED` returned with `Retry-After: <seconds-to-midnight>` when quota exhausted.
+2. **Guest Session Lifecycle (`X-Guest-AI-Session`)**:
+   - Backend auto-creates opaque 24h TTL session in `ai_guest_sessions` table and returns via response header.
+   - Rejects invalid or expired guest session with HTTP 401 `AI_GUEST_SESSION_INVALID`.
+   - Frontend stores and manages session in `sessionStorage` (`mland_guest_ai_session`).
+3. **Frontend Quota Display & UX**:
+   - Shows remaining quota badge in `/ai-support`: "Còn X/Y lượt hỏi hôm nay • Reset lúc 00:00".
+   - Automatically disables input and send button upon reaching daily limit or receiving 429.
+   - Clears session on 401 and shows clear error notice on 403 without signing out user.
+4. **Gemini AI Integration**:
+   - Configured Gemini API key with live REST API integration and graceful fallback to domain-allowlisted knowledge.
+5. **Database Migration**:
+   - Added Flyway migration `V182__ai_guest_sessions_and_prompt_quota.sql`.
+
+---
+
 # Version 1.6 — Feature 004: Custom Design Workspace Refinement & Request Tracking Enhancements
 
 - **Feature**: 004 — AI Chatbox Analysis and Suggestion

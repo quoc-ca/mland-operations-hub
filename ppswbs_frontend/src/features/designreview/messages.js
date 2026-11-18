@@ -16,6 +16,8 @@ export const designReviewMessages = {
     'aiChat.memberBadge': 'Hội viên Mland',
     'aiChat.empty': 'Hãy đặt câu hỏi để bắt đầu trò chuyện cùng Trợ lý AI.',
     'aiChat.charCount': '{count}/2.000 ký tự',
+    'aiChat.quotaNotice': 'Còn {remaining}/{limit} lượt hỏi hôm nay • Reset lúc 00:00',
+    'aiChat.quotaExceeded': 'Bạn đã sử dụng hết số lượt hỏi AI trong ngày. Lượt hỏi sẽ được làm mới vào lúc 00:00.',
 
     // F04-DESIGN-WORKSPACE
     'workspace.title': 'Không gian Thiết kế Độc lập',
@@ -142,6 +144,11 @@ export const designReviewMessages = {
     'error.AI_PROVIDER_ERROR': 'Dịch vụ phân tích AI đang gặp sự cố kết nối. Vui lòng thử lại sau.',
     'error.AI_PROVIDER_TIMEOUT': 'Thời gian phản hồi của dịch vụ AI đã hết hạn. Vui lòng thử lại.',
     'error.AI_OUTPUT_INVALID': 'Kết quả từ nhà cung cấp AI không hợp lệ.',
+    'error.AI_DAILY_QUOTA_EXCEEDED': 'Bạn đã sử dụng hết số lượt hỏi AI trong ngày.',
+    'error.AI_GUEST_SESSION_INVALID': 'Phiên AI của khách vãng lai không hợp lệ hoặc đã hết hạn.',
+    'error.AI_ACTOR_NOT_ALLOWED': 'Tài khoản nhân viên và quản trị viên không thuộc nhóm sử dụng Trợ lý AI khách hàng.',
+    'error.AI_UNAVAILABLE': 'Dịch vụ AI tạm thời không phản hồi. Vui lòng thử lại sau.',
+    'error.AI_OUTPUT_POLICY_VIOLATION': 'Kết quả từ AI vi phạm chính sách an toàn của hệ thống.',
   },
   en: {
     // Shared & Navigation
@@ -160,6 +167,8 @@ export const designReviewMessages = {
     'aiChat.memberBadge': 'Mland Member',
     'aiChat.empty': 'Ask a question to start chatting with the AI Assistant.',
     'aiChat.charCount': '{count}/2,000 characters',
+    'aiChat.quotaNotice': '{remaining}/{limit} prompts left today • Resets at 00:00',
+    'aiChat.quotaExceeded': 'You have reached your daily AI prompt limit. Quota resets at 00:00.',
 
     // F04-DESIGN-WORKSPACE
     'workspace.title': 'Independent Design Workspace',
@@ -286,6 +295,11 @@ export const designReviewMessages = {
     'error.AI_PROVIDER_ERROR': 'AI analysis provider is currently experiencing issues. Please try again later.',
     'error.AI_PROVIDER_TIMEOUT': 'AI provider request timed out. Please try again.',
     'error.AI_OUTPUT_INVALID': 'Invalid response received from AI provider.',
+    'error.AI_DAILY_QUOTA_EXCEEDED': 'You have used all your AI prompts for today.',
+    'error.AI_GUEST_SESSION_INVALID': 'Your guest AI session is invalid or has expired.',
+    'error.AI_ACTOR_NOT_ALLOWED': 'Staff, Manager, and Admin roles are not permitted to use Basic AI Support.',
+    'error.AI_UNAVAILABLE': 'AI service is temporarily unavailable. Please try again later.',
+    'error.AI_OUTPUT_POLICY_VIOLATION': 'AI response violated system safety policies.',
   },
 };
 

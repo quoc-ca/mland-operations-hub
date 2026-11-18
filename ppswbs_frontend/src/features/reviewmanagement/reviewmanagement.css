@@ -198,6 +198,12 @@
   color: #047857;
 }
 
+.badge-tag.badge-reviewed {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+}
+
 /* Manager Reply Card */
 .manager-reply-box {
   background: #f8fafc;

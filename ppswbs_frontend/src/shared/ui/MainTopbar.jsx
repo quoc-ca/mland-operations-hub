@@ -131,6 +131,7 @@ export default function MainTopbar() {
 
   const userRole = profileData?.role || account?.role || 'MEMBER';
   const isInternal = ['STAFF', 'MANAGER', 'ADMIN'].includes(userRole);
+  const isStaffOrAdmin = isAuthenticated && (userRole === 'STAFF' || userRole === 'ADMIN');
 
   const isRingDesignActive =
     (location.pathname.includes('/design') &&
@@ -157,25 +158,29 @@ export default function MainTopbar() {
           >
             Workshop
           </Link>
-          <Link
-            to="/workshops/PKG-COUPLE-SILVER/design"
-            className={`main-topbar-link ${isRingDesignActive ? 'active' : ''}`}
-            title="Tự tay phối dáng nhẫn, chất liệu, kích thước và khắc chữ"
-          >
-            Cấu hình nhẫn
-          </Link>
+          {!isStaffOrAdmin && (
+            <Link
+              to="/workshops/PKG-COUPLE-SILVER/design"
+              className={`main-topbar-link ${isRingDesignActive ? 'active' : ''}`}
+              title="Tự tay phối dáng nhẫn, chất liệu, kích thước và khắc chữ"
+            >
+              Cấu hình nhẫn
+            </Link>
+          )}
           <Link
             to="/products"
             className={`main-topbar-link ${location.pathname.startsWith('/products') ? 'active' : ''}`}
           >
             Ready Rings
           </Link>
-          <Link
-            to="/design-requests/new"
-            className={`main-topbar-link ${location.pathname.startsWith('/design-requests') ? 'active' : ''}`}
-          >
-            Custom
-          </Link>
+          {!isStaffOrAdmin && (
+            <Link
+              to="/design-requests/new"
+              className={`main-topbar-link ${location.pathname.startsWith('/design-requests') ? 'active' : ''}`}
+            >
+              Custom
+            </Link>
+          )}
           <Link
             to="/promotions"
             className={`main-topbar-link ${location.pathname.startsWith('/promotions') ? 'active' : ''}`}
@@ -188,12 +193,14 @@ export default function MainTopbar() {
           >
             Tra cứu
           </Link>
-          <Link
-            to="/ai-support"
-            className={`main-topbar-link ${location.pathname.startsWith('/ai-support') ? 'active' : ''}`}
-          >
-            Trợ lý AI
-          </Link>
+          {!isStaffOrAdmin && (
+            <Link
+              to="/ai-support"
+              className={`main-topbar-link ${location.pathname.startsWith('/ai-support') ? 'active' : ''}`}
+            >
+              Trợ lý AI
+            </Link>
+          )}
           <Link
             to="/reviews"
             className={`main-topbar-link ${location.pathname.startsWith('/reviews') ? 'active' : ''}`}
@@ -250,9 +257,11 @@ export default function MainTopbar() {
                   <Link to="/profile" className="main-topbar-dropdown-item" role="menuitem">
                     <span>👤</span> Hồ sơ cá nhân
                   </Link>
-                  <Link to="/my/designs" className="main-topbar-dropdown-item" role="menuitem">
-                    <span>💍</span> Mẫu nhẫn đã lưu
-                  </Link>
+                  {!isStaffOrAdmin && (
+                    <Link to="/my/designs" className="main-topbar-dropdown-item" role="menuitem">
+                      <span>💍</span> Mẫu nhẫn đã lưu
+                    </Link>
+                  )}
                   <Link to="/member/orders" className="main-topbar-dropdown-item" role="menuitem">
                     <span>📦</span> Đơn hàng của tôi
                   </Link>
