@@ -60,10 +60,11 @@ public class ConsultationApplicationService {
         if (snapshot == null) {
             snapshotJson = null;
         } else {
-        try {
-            snapshotJson = objectMapper.writeValueAsString(snapshot);
-        } catch (JsonProcessingException e) {
-            throw ConsultationException.unavailable("CHAT_UNAVAILABLE", "Lỗi tạo snapshot ngữ cảnh.");
+            try {
+                snapshotJson = objectMapper.writeValueAsString(snapshot);
+            } catch (JsonProcessingException e) {
+                throw ConsultationException.unavailable("CHAT_UNAVAILABLE", "Lỗi tạo snapshot ngữ cảnh.");
+            }
         }
 
         String conversationReference = "CONV-" + UUID.randomUUID();

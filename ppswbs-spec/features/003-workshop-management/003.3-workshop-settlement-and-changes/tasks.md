@@ -426,3 +426,14 @@ T184, T185, T188 → T190      T187 → T189 (add-on list)    T190, T191, T192 �
 ```
 
 Mapping: FR-058 → T183, T189; FR-059 → T184, T189; FR-060 → T186, T187; FR-061 → T188; FR-062 → T185; FR-063 → T183, T189; SC-021 → T183, T184, T188, T191; SC-022 → T186, T187, T191; SC-023 → T185.
+
+## Phase 15: Ticket change emails (spec FR-064, decided 2026-11-18 by Hồ Hoàng Quốc, owner Feature 003)
+
+- [x] T194 **Done 2026-11-18 (BE):** [BE] `SettlementCustomerNotifier.notifyTicketChanged`, `notifyTicketChangeRejected`, `notifyTicketChangeExpired` (template 10; buyer + ticket recipient, kinds `TICKET_CHANGED`/`TICKET_CHANGE_REJECTED`/`TICKET_CHANGE_EXPIRED` and `_RECIPIENT`, link `/workshop-booking/lookup`; skipped without email). Verified by `TicketChangeEmailTest` (14, with the notifier cases).
+- [x] T195 **Done 2026-11-18 (BE):** [BE] `TicketChangeNotifier` builds old/new schedule and branch name text (Asia/Ho_Chi_Minh) and never throws; called from `TicketChangeService.recordAppliedChange` (the one step shared by the self-approved change, `applyApproved` from the queue and `GroupTicketChangeService`), `TicketChangeRequestService.decide` (REJECT) and `TicketChangeService.expire`. `TicketChangeServiceTest` 32, `TicketChangeRequestServiceTest` 12, `GroupTicketChangeServiceTest` 9.
+- [x] T196 **Done 2026-11-18 (BE):** [BE] `TicketChangeRequestExpiryScheduler` + `TicketChangeService.expireIfDue` (row lock, re-check, one audit and one email); the queue listing now uses `expireIfDue`.
+- [x] T197 **Done 2026-11-18:** [BE] 003.4 delivery path checked: the existing settlement composer uses the handoff's own subject, so `notificationmanagement` (`BookingMailDeliveryService`, `SettlementMailComposer`) needed no change.
+- [ ] T198 [Test] MySQL integration on the approved environment: a self-approved change, a queue approval, a rejection and an expiry each create the expected handoffs (buyer and recipient) and none on replay; the failing-mail case leaves the change committed. Not run yet.
+- [x] T199 **Done 2026-11-18 (QA doc):** [QA] `ppswbs-testing/master-e2e/JOURNEY-PHASE-2--workshop-booking-and-fulfillment.md` P2-S05b/c/d now assert the emails. Not executed yet (needs a mail capture on the test environment).
+
+Mapping: FR-064 → T194–T199.

@@ -74,7 +74,8 @@ class TicketChangeOptionsApiServiceTest {
         TicketChangeService changes = new TicketChangeService(booking, operations, finalBills, changeRepository,
                 mock(FolioBalanceService.class), audits, loyalty,
                 new WorkshopSettlementAuthorizationService(mock(AccountFacade.class), audits, operations),
-                mock(SettlementTicketChangeRequestRepository.class));
+                mock(SettlementTicketChangeRequestRepository.class),
+                mock(TicketChangeNotifier.class));
         service = new TicketChangeOptionsApiService(booking, access, operations, finalBills, changeRepository, changes,
                 new WorkshopSettlementAuthorizationService(mock(AccountFacade.class), audits, operations));
         firstStart = Instant.now().plus(72, ChronoUnit.HOURS);

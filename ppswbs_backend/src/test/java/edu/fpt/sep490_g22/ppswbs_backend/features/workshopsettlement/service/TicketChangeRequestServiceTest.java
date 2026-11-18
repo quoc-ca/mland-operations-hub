@@ -45,9 +45,10 @@ class TicketChangeRequestServiceTest {
     private final TicketChangeService changes = mock(TicketChangeService.class);
     private final SettlementBusinessAuditRepository audits = mock(SettlementBusinessAuditRepository.class);
     private final WorkshopBookingFacade booking = mock(WorkshopBookingFacade.class);
+    private final TicketChangeNotifier notifier = mock(TicketChangeNotifier.class);
     private final TicketChangeRequestService service = new TicketChangeRequestService(requests, changes,
             new WorkshopSettlementAuthorizationService(mock(AccountFacade.class), audits,
-                    mock(WorkshopOperationsSettlementAdapter.class)), audits, booking);
+                    mock(WorkshopOperationsSettlementAdapter.class)), audits, booking, notifier);
 
     private final CurrentAccountActor manager =
             new CurrentAccountActor(300L, ActorRole.MANAGER, ActorStatus.ACTIVE, true, List.of());
@@ -79,7 +80,7 @@ class TicketChangeRequestServiceTest {
         assertThat(service.list(staffAtBranch7, null)).extracting(ChangeRequestDto::requestReference).containsExactly("A");
         assertThat(service.list(manager, "pending")).extracting(ChangeRequestDto::requestReference)
                 .containsExactly("A", "B");
-        verify(changes, times(2)).expire(eq(stale), any());
+        verify(changes, times(2)).expireIfDue(eq("C"), any());
     }
 
     @Test
@@ -106,6 +107,7 @@ class TicketChangeRequestServiceTest {
         assertThat(request.getDecidedByAccountId()).isEqualTo(300L);
         assertThat(request.getDecisionIdempotencyKey()).isEqualTo(KEY);
         verify(audits).save(org.mockito.ArgumentMatchers.argThat(a -> "TICKET_CHANGE_REQUEST_APPROVED".equals(a.getActionCode())));
+        verify(notifier, never()).rejected(any(), any());
     }
 
     @Test
@@ -131,6 +133,7 @@ class TicketChangeRequestServiceTest {
 
         assertThat(result.status()).isEqualTo("REJECTED");
         assertThat(result.decisionReason()).isEqualTo("Customer is a long-standing member");
+        verify(notifier).rejected(eq(request), anyString());
         verify(changes, never()).applyApproved(any(), any(), any(), any(), any());
         verify(audits).save(org.mockito.ArgumentMatchers.argThat(a -> "TICKET_CHANGE_REQUEST_REJECTED".equals(a.getActionCode())));
     }
