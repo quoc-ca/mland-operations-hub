@@ -17,6 +17,5 @@ function RoleHomeRedirect() {
 
 export const operatorHomeRoutes = [
   { path: '/staff/home', element: <OperatorHomePage role="STAFF" /> },
-  { path: '/manager/home', element: <OperatorHomePage role="MANAGER" /> },
   { path: '/home', element: <RoleHomeRedirect /> },
 ];
