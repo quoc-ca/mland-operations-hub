@@ -68,6 +68,7 @@ class WorkshopSettlementContractIT {
                 "GET /api/v1/workshop-tickets/{ticketCode}/change-options",
                 "POST /api/v1/workshop-tickets/{ticketCode}/change-option-lookups",
                 "POST /api/v1/workshop-booking-groups/{groupCode}/ticket-changes",
+                "GET /api/v1/workshop-tickets/{ticketCode}/change-request-status",
                 "GET /api/v1/workshop-change-requests",
                 "POST /api/v1/workshop-change-requests/{requestReference}/decisions",
                 "GET /api/v1/workshop-tickets/{ticketCode}/mland-remedy",

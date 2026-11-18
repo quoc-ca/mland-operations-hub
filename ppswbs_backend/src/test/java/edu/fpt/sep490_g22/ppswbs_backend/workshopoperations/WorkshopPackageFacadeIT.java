@@ -247,6 +247,8 @@ class WorkshopPackageFacadeIT {
         WorkshopPackage published = createPackage(WorkshopPackageState.PUBLISHED, 1, 4, 1, true, 0);
         WorkshopSession oneSeatSession = createSession(location("PKG-RACE"), 3, 1,
                 LocalDate.now(ZONE).plusDays(12));
+        PackageAvailabilityFixture.activateAtSessionLocations(jdbcTemplate, published.getId(),
+                List.of(UUID.fromString(oneSeatSession.getReference())));
         String firstBooking = bookingReference("PKG-RACE-A");
         String secondBooking = bookingReference("PKG-RACE-B");
         CountDownLatch ready = new CountDownLatch(2);
@@ -285,10 +287,13 @@ class WorkshopPackageFacadeIT {
 
     private CapacityHoldOutcome reserve(WorkshopPackage workshopPackage, List<WorkshopSession> sessions,
                                        int participants, String booking) {
+        List<UUID> references = sessions.stream().map(session -> UUID.fromString(session.getReference())).toList();
+        // A Package is sellable only where its pair row is ACTIVE (003.2 Phase 18), so switch it on for these sessions.
+        PackageAvailabilityFixture.activateAtSessionLocations(jdbcTemplate, workshopPackage.getId(), references);
         return operationsFacade.reserveBookingCapacity(new ReserveBookingCapacityCommand(
                 booking,
                 workshopPackage.getId().toString(),
-                sessions.stream().map(session -> UUID.fromString(session.getReference())).toList(),
+                references,
                 participants,
                 UUID.randomUUID().toString(),
                 UUID.randomUUID().toString()));
