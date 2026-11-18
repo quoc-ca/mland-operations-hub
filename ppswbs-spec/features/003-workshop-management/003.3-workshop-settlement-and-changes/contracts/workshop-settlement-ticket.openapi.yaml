@@ -690,6 +690,20 @@ paths:
         '200': {description: Refund requests, content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/RefundRequest'}}}}}
         '401': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
+  /api/v1/workshop-tickets/{ticketCode}/change-request-status:
+    get:
+      summary: The buyer Member's view of the latest change request of a ticket (FR-045a)
+      description: >-
+        Documented 2026-11-18 (the route came with develop and was missing here). 200 with the status of the latest
+        change request; 204 when the ticket never had one. Cache-Control no-store.
+      security: [{bearerAuth: []}]
+      parameters:
+        - {name: ticketCode, in: path, required: true, schema: {type: string}}
+      responses:
+        '200': {description: Latest change-request status, content: {application/json: {schema: {type: object}}}}
+        '204': {description: The ticket never had a change request}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-refund-requests/waiting-count:
     get:
       summary: Count refund requests waiting for a Manager (Manager home, 013 R-2)
