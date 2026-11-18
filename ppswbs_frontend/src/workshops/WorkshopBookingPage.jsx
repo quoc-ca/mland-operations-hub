@@ -14,6 +14,7 @@ import { CartQuotePanel } from './CartQuotePanel';
 import { GroupDetailCard } from './GroupDetailCard';
 import { useGroupCardIdentity } from './useGroupCardIdentity';
 import { refreshBookingGroup } from './refreshGroup';
+import { GroupAutoRefresh } from './GroupAutoRefresh';
 import { invalidatePendingPayments } from './pendingPayments';
 import { parseSelection, selectionProblem } from './bookingSelection';
 import { cartLineCount, clearCart, subscribeToCart } from './cartStorage';
@@ -476,7 +477,8 @@ export function WorkshopBookingPage({ packageId }) {
     return (
       <main className="public-page figma-public-page">
         <GroupResultHeading group={group} />
-        <GroupDetailCard group={group} authorization={cardIdentity.authorization} proof={cardIdentity.proof} allowRecipientChange={false} onRefresh={refreshGroup} />
+        <GroupDetailCard group={group} authorization={cardIdentity.authorization} proof={cardIdentity.proof} allowRecipientChange={false} onRefresh={refreshGroup} allowManualRefresh={false} />
+        <GroupAutoRefresh onRefresh={refreshGroup} groupStatus={group.groupStatus} />
       </main>
     );
   }

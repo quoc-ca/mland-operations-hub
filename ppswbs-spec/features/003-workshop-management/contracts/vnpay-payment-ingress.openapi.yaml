@@ -38,7 +38,7 @@ paths:
             (Message "Already received"; decided 2026-11-15 by Hồ Hoàng Quốc, was 00); 97 invalid checksum (Message INVALID_SIGNATURE);
             01 merchant reference not found (UNKNOWN_REFERENCE); 04 amount or currency mismatch
             (AMOUNT_CURRENCY_MISMATCH); 99 any other unverifiable outcome (UNVERIFIED_OUTCOME). A rejected
-            callback has no Booking or Settlement side effect.
+            callback has no Booking or Settlement side effect. A verified IPN with a definite-failure code (003.1 FR-032; decided 2026-11-19) is reported to the owning booking so the attempt becomes FAILED; it never confirms a booking.
           content:
             application/json:
               schema: {$ref: '#/components/schemas/VnPayAcknowledgement'}

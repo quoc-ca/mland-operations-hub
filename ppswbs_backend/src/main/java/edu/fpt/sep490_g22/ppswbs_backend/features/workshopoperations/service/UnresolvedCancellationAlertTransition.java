@@ -1,9 +1,7 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service;
 
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountFacade;
-import edu.fpt.sep490_g22.ppswbs_backend.features.notificationmanagement.facade.NotificationFacade;
-import edu.fpt.sep490_g22.ppswbs_backend.features.notificationmanagement.facade.NotificationIntentResult;
-import edu.fpt.sep490_g22.ppswbs_backend.features.notificationmanagement.facade.SubmitNotificationIntentCommand;
+import edu.fpt.sep490_g22.ppswbs_backend.common.notification.NotificationIntentPort;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.OperationsAuditEventRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.WorkshopSessionRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.OperationsAuditEvent;
@@ -48,7 +46,7 @@ public class UnresolvedCancellationAlertTransition {
     private final WorkshopSessionRepository sessionRepository;
     private final OperationsAuditEventRepository auditEventRepository;
     private final AccountFacade accountFacade;
-    private final NotificationFacade notificationFacade;
+    private final NotificationIntentPort notificationPort;
 
     /** @return true when the {@code SENT} marker was written by this call */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -74,14 +72,7 @@ public class UnresolvedCancellationAlertTransition {
         String businessEventReference = reference + ":CANCELLATION_UNRESOLVED";
         int rejected = 0;
         for (String email : emails) {
-            NotificationIntentResult result = notificationFacade.submitNotificationIntent(
-                    SubmitNotificationIntentCommand.builder()
-                            .businessEventReference(businessEventReference)
-                            .templateCode(TEMPLATE_CODE)
-                            .recipientEmail(email)
-                            .businessDataSnapshot(snapshot)
-                            .build());
-            if (result == null || result.getStatus() == NotificationIntentResult.Status.OPERATIONAL_FAILURE) {
+            if (!notificationPort.submitIntent(businessEventReference, TEMPLATE_CODE, email, snapshot)) {
                 rejected++;
             }
         }

@@ -62,7 +62,7 @@ class GroupPaymentServiceTest {
                 .paymentDeadlineAt(Instant.now().plusSeconds(300)).build();
         when(groups.findByGroupCode("GRP-P1")).thenReturn(Optional.of(group));
         when(groups.findByGroupCodeForUpdate("GRP-P1")).thenReturn(Optional.of(group));
-        when(attempts.findByGroupIdOrderByCreatedAtDesc(1L)).thenReturn(List.of());
+        when(attempts.lockByGroupIdAndStatuses(eq(1L), anyCollection())).thenReturn(List.of());
         when(attempts.saveAndFlush(any())).thenAnswer(i -> i.getArgument(0));
         when(gateway.createDepositUrl(anyString(), anyString(), anyLong(), any(), any(), any()))
                 .thenReturn("https://pay.example/test");
@@ -160,7 +160,7 @@ class GroupPaymentServiceTest {
         GroupPaymentAttempt live = GroupPaymentAttempt.builder().group(group).attemptReference("GATT-1")
                 .merchantReference("GRP-P1-m1").amountVnd(30_000).paymentUrlSnapshot("https://pay.example/live")
                 .attemptStatus(PaymentAttemptStatus.PENDING).expiresAt(Instant.now().plusSeconds(120)).build();
-        when(attempts.findByGroupIdOrderByCreatedAtDesc(1L)).thenReturn(List.of(live));
+        when(attempts.lockByGroupIdAndStatuses(eq(1L), anyCollection())).thenReturn(List.of(live));
 
         for (int i = 0; i < 5; i++) {
             assertThat(service.initiate("GRP-P1", KEY, "127.0.0.1", GUEST, "a@b.test", null).attemptReference())
@@ -181,12 +181,43 @@ class GroupPaymentServiceTest {
                     .attemptStatus(i == 5 ? PaymentAttemptStatus.PENDING : PaymentAttemptStatus.EXPIRED)
                     .expiresAt(Instant.now().minusSeconds(30)).build());
         }
-        when(attempts.findByGroupIdOrderByCreatedAtDesc(1L)).thenReturn(history);
+        when(attempts.lockByGroupIdAndStatuses(eq(1L), anyCollection())).thenReturn(history);
 
         var response = service.initiate("GRP-P1", KEY, "127.0.0.1", GUEST, "a@b.test", null);
 
         assertThat(history.get(0).getAttemptStatus()).isEqualTo(PaymentAttemptStatus.EXPIRED);
         assertThat(response.attemptReference()).startsWith("GATT-").isNotEqualTo("GATT-OLD-5");
+    }
+
+    /** FR-032 "One live attempt" (T169): after FAILED a new attempt with a new merchantReference; hold never extended. */
+    @Test
+    void afterAFailedAttemptTheNextRequestCreatesANewAttemptWithTheSameDeadline() {
+        tickets(30_000);
+        GroupPaymentAttempt failed = GroupPaymentAttempt.builder().group(group).attemptReference("GATT-F")
+                .merchantReference("GRP-P1-failed").amountVnd(30_000)
+                .attemptStatus(PaymentAttemptStatus.FAILED).expiresAt(group.getPaymentDeadlineAt()).build();
+        when(attempts.lockByGroupIdAndStatuses(eq(1L), anyCollection())).thenReturn(List.of(failed));
+
+        var response = service.initiate("GRP-P1", KEY, "127.0.0.1", GUEST, "a@b.test", null);
+
+        assertThat(response.attemptReference()).isNotEqualTo("GATT-F");
+        assertThat(response.merchantReference()).isNotEqualTo("GRP-P1-failed");
+        assertThat(response.expiresAt()).isEqualTo(group.getPaymentDeadlineAt());
+        assertThat(failed.getAttemptStatus()).isEqualTo(PaymentAttemptStatus.FAILED);
+    }
+
+    /** An INITIATED attempt is live too and is handed back. */
+    @Test
+    void aLiveInitiatedAttemptIsHandedBack() {
+        tickets(30_000);
+        GroupPaymentAttempt live = GroupPaymentAttempt.builder().group(group).attemptReference("GATT-I")
+                .merchantReference("GRP-P1-init").amountVnd(30_000).paymentUrlSnapshot("https://pay.example/i")
+                .attemptStatus(PaymentAttemptStatus.INITIATED).expiresAt(Instant.now().plusSeconds(120)).build();
+        when(attempts.lockByGroupIdAndStatuses(eq(1L), anyCollection())).thenReturn(List.of(live));
+
+        assertThat(service.initiate("GRP-P1", KEY, "127.0.0.1", GUEST, "a@b.test", null).attemptReference())
+                .isEqualTo("GATT-I");
+        verifyNoInteractions(gateway, owners);
     }
 
     /** T131 / FR-032: a provider failure answers 503 PAYMENT_LINK_UNAVAILABLE, creates no attempt, extends nothing. */

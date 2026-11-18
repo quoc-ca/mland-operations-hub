@@ -168,6 +168,8 @@ class RefundReceiptImageMysqlIT {
         String reference = refundAwaitingTransfer();
         var first = receiptImages.upload(reference, MANAGER, "it-upload-key-" + UUID.randomUUID(), "image/png", png());
         var second = receiptImages.upload(reference, MANAGER, "it-upload-key-" + UUID.randomUUID(), "image/png", png());
+        // Unique per run: attached images of an earlier run can survive a reused request id on a shared test database.
+        String transfer = "FT-Y-" + SEQ.incrementAndGet();
 
         assertThatThrownBy(() -> receiptImages.recordTransferWithImage(reference, 33L, "FT-X", null,
                 UUID.randomUUID().toString(), "CORR")).isInstanceOf(RuntimeException.class);
@@ -175,8 +177,8 @@ class RefundReceiptImageMysqlIT {
         assertThat(refunds.findByRequestReference(reference).orElseThrow().getStatus())
                 .isEqualTo(RefundRequestStatus.PENDING_TRANSFER);
 
-        receiptImages.recordTransferWithImage(reference, 33L, "FT-Y", null, first.receiptImageId(), "CORR");
-        assertThatThrownBy(() -> receiptImages.recordTransferWithImage(reference, 33L, "FT-Y", null,
+        receiptImages.recordTransferWithImage(reference, 33L, transfer, null, first.receiptImageId(), "CORR");
+        assertThatThrownBy(() -> receiptImages.recordTransferWithImage(reference, 33L, transfer, null,
                 second.receiptImageId(), "CORR")).isInstanceOf(WorkshopSettlementConflictException.class);
 
         String plain = refundAwaitingTransfer();

@@ -41,6 +41,7 @@ export function GroupDetailCard({
   onTicketUpdated,
   allowRelease = true,
   allowResend = true,
+  allowManualRefresh = true,
   allowRecipientChange = true,
   renderTicketExtra,
   renderTicketAction,
@@ -206,13 +207,18 @@ export function GroupDetailCard({
             {resending ? 'Đang gửi...' : 'Gửi lại email xác nhận'}
           </button>
         )}
-        {allowRelease && pending && !deadlinePassed && (
+        {allowRelease && pending && !deadlinePassed && group.hasLivePaymentAttempt !== true && (
           <button type="button" className="button outline" style={{ color: '#b00', borderColor: '#b00' }} onClick={() => setReleaseOpen(true)}>
             Hủy giữ chỗ
           </button>
         )}
+        {allowRelease && pending && !deadlinePassed && group.hasLivePaymentAttempt === true && (
+          <p role="note" className="muted" style={{ margin: 0 }}>
+            Đang có thanh toán thực hiện cho nhóm này nên chưa thể hủy giữ chỗ. Nếu thanh toán không hoàn tất, bạn có thể hủy giữ chỗ sau khi trang cập nhật.
+          </p>
+        )}
         {/* Expired and cancelled are final: refreshing can never change them. */}
-        {onRefresh && group.groupStatus !== 'EXPIRED' && group.groupStatus !== 'CANCELLED' && !deadlinePassed && (
+        {allowManualRefresh && onRefresh && group.groupStatus !== 'EXPIRED' && group.groupStatus !== 'CANCELLED' && !deadlinePassed && (
           <button type="button" className="button outline" onClick={onRefresh}>Cập nhật trạng thái</button>
         )}
       </div>

@@ -1,9 +1,7 @@
 package edu.fpt.sep490_g22.ppswbs_backend.workshopoperations;
 
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountFacade;
-import edu.fpt.sep490_g22.ppswbs_backend.features.notificationmanagement.facade.NotificationFacade;
-import edu.fpt.sep490_g22.ppswbs_backend.features.notificationmanagement.facade.NotificationIntentResult;
-import edu.fpt.sep490_g22.ppswbs_backend.features.notificationmanagement.facade.SubmitNotificationIntentCommand;
+import edu.fpt.sep490_g22.ppswbs_backend.common.notification.NotificationIntentPort;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.OperationsAuditEventRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.WorkshopSessionRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.OperationsAuditEvent;
@@ -42,7 +40,7 @@ class UnresolvedCancellationAlertTransitionTest {
     private final WorkshopSessionRepository sessions = mock(WorkshopSessionRepository.class);
     private final OperationsAuditEventRepository audits = mock(OperationsAuditEventRepository.class);
     private final AccountFacade accounts = mock(AccountFacade.class);
-    private final NotificationFacade notifications = mock(NotificationFacade.class);
+    private final NotificationIntentPort notifications = mock(NotificationIntentPort.class);
     private final UnresolvedCancellationAlertTransition transition =
             new UnresolvedCancellationAlertTransition(sessions, audits, accounts, notifications);
     private WorkshopSession session;
@@ -55,17 +53,13 @@ class UnresolvedCancellationAlertTransitionTest {
                 .workshopDate(LocalDate.of(2026, 11, 10)).scheduledEndAt(END).build();
         when(sessions.findByReferenceWithLock(REF)).thenReturn(Optional.of(session));
         when(accounts.listActiveManagerEmails()).thenReturn(List.of("a@mland.test", "b@mland.test"));
-        when(notifications.submitNotificationIntent(any())).thenReturn(result(NotificationIntentResult.Status.ENQUEUED));
-    }
-
-    private static NotificationIntentResult result(NotificationIntentResult.Status status) {
-        return NotificationIntentResult.builder().status(status).build();
+        when(notifications.submitIntent(any(), any(), any(), any())).thenReturn(true);
     }
 
     @Test
     void doesNotAlertBefore24Hours() {
         assertThat(transition.alertIfStillDue(REF, END.plus(Duration.ofHours(24)).minusSeconds(60))).isFalse();
-        verify(notifications, never()).submitNotificationIntent(any());
+        verify(notifications, never()).submitIntent(any(), any(), any(), any());
         verify(audits, never()).save(any());
     }
 
@@ -73,16 +67,18 @@ class UnresolvedCancellationAlertTransitionTest {
     void alertsEveryManagerAtExactly24HoursAndWritesSentMarker() {
         assertThat(transition.alertIfStillDue(REF, END.plus(Duration.ofHours(24)))).isTrue();
 
-        ArgumentCaptor<SubmitNotificationIntentCommand> sent = ArgumentCaptor.forClass(SubmitNotificationIntentCommand.class);
-        verify(notifications, org.mockito.Mockito.times(2)).submitNotificationIntent(sent.capture());
-        assertThat(sent.getAllValues()).extracting(SubmitNotificationIntentCommand::getRecipientEmail)
-                .containsExactly("a@mland.test", "b@mland.test");
-        SubmitNotificationIntentCommand first = sent.getAllValues().get(0);
-        assertThat(first.getTemplateCode()).isEqualTo("WORKSHOP_CANCELLATION_UNRESOLVED_ALERT");
-        assertThat(first.getBusinessEventReference()).isEqualTo(REF + ":CANCELLATION_UNRESOLVED");
-        assertThat(first.getBusinessDataSnapshot().keySet()).isSubsetOf(
+        ArgumentCaptor<String> events = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> templates = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> recipients = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<java.util.Map<String, Object>> snapshots = ArgumentCaptor.forClass(java.util.Map.class);
+        verify(notifications, org.mockito.Mockito.times(2)).submitIntent(events.capture(), templates.capture(),
+                recipients.capture(), snapshots.capture());
+        assertThat(recipients.getAllValues()).containsExactly("a@mland.test", "b@mland.test");
+        assertThat(templates.getValue()).isEqualTo("WORKSHOP_CANCELLATION_UNRESOLVED_ALERT");
+        assertThat(events.getValue()).isEqualTo(REF + ":CANCELLATION_UNRESOLVED");
+        assertThat(snapshots.getValue().keySet()).isSubsetOf(
                 "sessionReference", "sessionName", "locationName", "scheduledEndAt", "hoursSinceScheduledEnd");
-        assertThat(first.getBusinessDataSnapshot()).containsEntry("hoursSinceScheduledEnd", 24L);
+        assertThat(snapshots.getValue()).containsEntry("hoursSinceScheduledEnd", 24L);
 
         ArgumentCaptor<OperationsAuditEvent> audit = ArgumentCaptor.forClass(OperationsAuditEvent.class);
         verify(audits).save(audit.capture());
@@ -97,7 +93,7 @@ class UnresolvedCancellationAlertTransitionTest {
     void secondRunAfterSentMarkerSendsNothing() {
         when(audits.existsBySessionIdAndAction(7L, "CANCELLATION_UNRESOLVED_ALERT")).thenReturn(true);
         assertThat(transition.alertIfStillDue(REF, END.plus(Duration.ofHours(30)))).isFalse();
-        verify(notifications, never()).submitNotificationIntent(any());
+        verify(notifications, never()).submitIntent(any(), any(), any(), any());
         verify(audits, never()).save(any());
     }
 
@@ -105,31 +101,31 @@ class UnresolvedCancellationAlertTransitionTest {
     void noActiveManagerWritesNoMarkerSoNextScanRetries() {
         when(accounts.listActiveManagerEmails()).thenReturn(List.of());
         assertThat(transition.alertIfStillDue(REF, END.plus(Duration.ofHours(25)))).isFalse();
-        verify(notifications, never()).submitNotificationIntent(any());
+        verify(notifications, never()).submitIntent(any(), any(), any(), any());
         verify(audits, never()).save(any());
     }
 
     @Test
     void failedSendWritesNoMarker() {
-        when(notifications.submitNotificationIntent(any()))
-                .thenReturn(result(NotificationIntentResult.Status.OPERATIONAL_FAILURE));
+        when(notifications.submitIntent(any(), any(), any(), any()))
+                .thenReturn(false);
         assertThat(transition.alertIfStillDue(REF, END.plus(Duration.ofHours(25)))).isFalse();
         verify(audits, never()).save(any());
     }
 
     @Test
     void oneRejectedIntentWritesNoMarker() {
-        when(notifications.submitNotificationIntent(any()))
-                .thenReturn(result(NotificationIntentResult.Status.ENQUEUED))
-                .thenReturn(result(NotificationIntentResult.Status.OPERATIONAL_FAILURE));
+        when(notifications.submitIntent(any(), any(), any(), any()))
+                .thenReturn(true)
+                .thenReturn(false);
         assertThat(transition.alertIfStillDue(REF, END.plus(Duration.ofHours(25)))).isFalse();
         verify(audits, never()).save(any());
     }
 
     @Test
     void duplicateIgnoredCountsAsAccepted() {
-        when(notifications.submitNotificationIntent(any()))
-                .thenReturn(result(NotificationIntentResult.Status.DUPLICATE_IGNORED));
+        when(notifications.submitIntent(any(), any(), any(), any()))
+                .thenReturn(true);
         assertThat(transition.alertIfStillDue(REF, END.plus(Duration.ofHours(25)))).isTrue();
         verify(audits).save(any());
     }
@@ -140,7 +136,7 @@ class UnresolvedCancellationAlertTransitionTest {
             session.setState(state);
             assertThat(transition.alertIfStillDue(REF, END.plus(Duration.ofHours(48)))).isFalse();
         }
-        verify(notifications, never()).submitNotificationIntent(any());
+        verify(notifications, never()).submitIntent(any(), any(), any(), any());
         verify(audits, never()).save(any());
     }
 

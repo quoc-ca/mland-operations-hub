@@ -92,4 +92,31 @@ class FacadeCommandIdempotencyManagerTest {
                 .isInstanceOf(DataIntegrityViolationException.class)
                 .hasMessageContaining("Data too long");
     }
+
+    @Test
+    void fingerprintLongerThanColumnIsStoredAsStableDigestAndStillMatchesOnReplay() {
+        String longFingerprint = "GRP-X|" + "SESSION-UUID-36-CHARS-XXXXXXXXXXXXXXXX:".repeat(40);
+        assertThat(longFingerprint.length()).isGreaterThan(255);
+        when(repository.findByFacadeActionAndOperationReference("RESERVE", "op-1")).thenReturn(Optional.empty());
+        when(repository.saveAndFlush(any())).thenAnswer(i -> {
+            FacadeCommandIdempotencyRecord r = i.getArgument(0);
+            r.setId(5L);
+            return r;
+        });
+
+        var result = manager.acquireClaim("RESERVE", "op-1", "corr", longFingerprint);
+
+        assertThat(result.getStatus()).isEqualTo(ClaimStatus.ACQUIRED);
+        org.mockito.ArgumentCaptor<FacadeCommandIdempotencyRecord> saved =
+                org.mockito.ArgumentCaptor.forClass(FacadeCommandIdempotencyRecord.class);
+        org.mockito.Mockito.verify(repository).saveAndFlush(saved.capture());
+        String stored = saved.getValue().getSemanticFingerprint();
+        assertThat(stored.length()).isLessThanOrEqualTo(255);
+
+        FacadeCommandIdempotencyRecord existing = saved.getValue();
+        existing.setLeaseExpiresAt(Instant.now().plusSeconds(60));
+        when(repository.findByFacadeActionAndOperationReference("RESERVE", "op-1")).thenReturn(Optional.of(existing));
+        assertThat(manager.acquireClaim("RESERVE", "op-1", "corr", longFingerprint).getStatus())
+                .isEqualTo(ClaimStatus.IN_PROGRESS);
+    }
 }
