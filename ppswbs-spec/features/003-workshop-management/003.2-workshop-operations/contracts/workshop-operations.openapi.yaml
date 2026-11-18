@@ -171,6 +171,7 @@ paths:
         - { name: aggregateReference, in: query, required: false, schema: { type: string, maxLength: 128 } }
         - { name: from, in: query, required: false, schema: { type: string, format: date-time } }
         - { name: to, in: query, required: false, schema: { type: string, format: date-time } }
+        - { name: denied, in: query, required: false, schema: { type: boolean }, description: 'Manager home (013 R-5). With true only denied attempts are returned (action code starting with DENIED_); false or absent changes nothing; any other value is 400 VALIDATION_ERROR.' }
         - { $ref: '#/components/parameters/AuditCursor' }
         - { $ref: '#/components/parameters/AuditLimit' }
       responses:
@@ -370,6 +371,20 @@ paths:
         '403': { $ref: '#/components/responses/Problem' }
         '409': { $ref: '#/components/responses/Problem' }
         '503': { $ref: '#/components/responses/Problem' }
+  /workshop-day-summaries:
+    get:
+      summary: Sessions and check-in progress of one Vietnam day (Manager home, 013 R-1)
+      description: >-
+        Manager only. date defaults to today in Vietnam time. sessions includes cancelled sessions; checkedIn and expected
+        count people holding a valid (ACTIVE) ticket for the sessions that are not cancelled, not the capacity of the sessions.
+        Read-only; writes no audit row.
+      parameters:
+        - { name: date, in: query, required: false, schema: { type: string, format: date } }
+        - { name: locationId, in: query, required: false, schema: { type: integer, format: int64 } }
+      responses:
+        '200': { description: Day summary, content: { application/json: { schema: { type: object, required: [date, sessions, cancelledSessions, checkedIn, expected], properties: { date: { type: string, format: date }, sessions: { type: integer, minimum: 0 }, cancelledSessions: { type: integer, minimum: 0 }, checkedIn: { type: integer, minimum: 0 }, expected: { type: integer, minimum: 0 } } } } } }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
   /workshop-sessions/bulk:
     post:
       summary: Generate bounded future sessions and report duplicates skipped
