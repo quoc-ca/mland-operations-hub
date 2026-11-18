@@ -60,6 +60,13 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade, Worksho
             bookingTimePayments;
     private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.GroupMismatchedEvidenceService
             mismatchedEvidence;
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.GroupPaymentFailureService
+            paymentFailures;
+
+    @Override
+    public PaymentFailureOutcome recordDefinitePaymentFailure(RecordDefinitePaymentFailureCommand command) {
+        return paymentFailures.record(command);
+    }
 
     @Override
     public boolean recordMismatchedGroupPaymentEvidence(RecordMismatchedGroupPaymentEvidenceCommand command) {

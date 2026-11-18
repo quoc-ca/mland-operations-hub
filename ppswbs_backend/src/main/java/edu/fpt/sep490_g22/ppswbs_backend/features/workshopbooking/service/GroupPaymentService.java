@@ -88,12 +88,16 @@ public class GroupPaymentService {
                     "The payment window of this group has closed");
         }
 
-        Optional<GroupPaymentAttempt> latest = attempts.findByGroupIdOrderByCreatedAtDesc(group.getId())
-                .stream().findFirst();
-        if (latest.isPresent() && latest.get().getAttemptStatus() == PaymentAttemptStatus.PENDING) {
-            GroupPaymentAttempt current = latest.get();
+        // FR-032 "One live attempt": only an INITIATED/PENDING attempt is reused (group row lock held, so two requests
+        // create at most one). A FAILED/EXPIRED attempt never is; a new one gets a new merchantReference below and
+        // the hold is never extended. No QueryDR call on this path.
+        for (GroupPaymentAttempt current : attempts.lockByGroupIdAndStatuses(group.getId(),
+                java.util.List.of(PaymentAttemptStatus.INITIATED, PaymentAttemptStatus.PENDING))) {
+            if (current.getAttemptStatus() != PaymentAttemptStatus.PENDING
+                    && current.getAttemptStatus() != PaymentAttemptStatus.INITIATED) {
+                continue;
+            }
             if (current.getExpiresAt().isAfter(now)) {
-                // Retrying never extends the hold, so the live attempt is handed back unchanged (FR-032).
                 return complete(claim, response(current));
             }
             current.setAttemptStatus(PaymentAttemptStatus.EXPIRED);

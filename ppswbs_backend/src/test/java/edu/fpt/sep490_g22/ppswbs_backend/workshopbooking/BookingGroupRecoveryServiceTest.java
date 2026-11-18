@@ -34,6 +34,7 @@ class BookingGroupRecoveryServiceTest {
     private BookingGroupMagicLinkRepository magicLinks;
     private GroupPaymentAttemptRepository attempts;
     private BookingAuditEvidenceRepository audit;
+    private LatePaymentReviewRepository lateReviews;
     private BookingGroupProjectionService projection;
     private GroupConfirmationService confirmation;
     private GroupNotificationService notifications;
@@ -59,7 +60,8 @@ class BookingGroupRecoveryServiceTest {
         authorization = mock(WorkshopBookingAuthorizationService.class);
         idempotency = mock(BookingIdempotencyService.class);
         staffScope = mock(GroupStaffScopeService.class);
-        service = new BookingGroupRecoveryService(groups, lines, magicLinks, attempts, audit, projection, confirmation,
+        lateReviews = mock(LatePaymentReviewRepository.class);
+        service = new BookingGroupRecoveryService(groups, lines, magicLinks, attempts, lateReviews, audit, projection, confirmation,
                 notifications, authorization, staffScope, idempotency, new ObjectMapper());
         ReflectionTestUtils.setField(service, "selfServiceResendLimit", 3);
         ReflectionTestUtils.setField(service, "selfServiceResendWindowSeconds", 3600L);
@@ -175,12 +177,12 @@ class BookingGroupRecoveryServiceTest {
     @Test
     void aGuestWithTheRightPhoneReleasesTheGroupAndTheClaimRecords204() {
         group.setGroupStatus(BookingStatus.PENDING_PAYMENT);
-        when(attempts.findByGroupIdOrderByCreatedAtDesc(1L)).thenReturn(List.of());
+        when(attempts.existsByGroupIdAndAttemptStatusIn(eq(1L), anyCollection())).thenReturn(false);
 
         service.releasePendingHold(CODE, new BookingGroupRecoveryService.Actor(null), null, "0900000001",
                 "Đổi ý", "corr", claim);
 
-        verify(confirmation).releasePendingGroupByBuyer(eq(group), eq(false), anyString(), eq("corr"));
+        verify(confirmation).releasePendingGroupByBuyer(eq(group), eq(false), eq(false), anyString(), eq("corr"));
         verify(idempotency).completeClaimWithinTransaction(7L, 1L, 204, "");
         ArgumentCaptor<BookingAuditEvidence> saved = ArgumentCaptor.forClass(BookingAuditEvidence.class);
         verify(audit).save(saved.capture());
@@ -191,15 +193,30 @@ class BookingGroupRecoveryServiceTest {
     @Test
     void releaseTellsTheGroupServiceWhenAPaymentAttemptExists() {
         group.setGroupStatus(BookingStatus.PENDING_PAYMENT);
-        when(attempts.findByGroupIdOrderByCreatedAtDesc(1L)).thenReturn(List.of(new GroupPaymentAttempt()));
+        when(attempts.existsByGroupIdAndAttemptStatusIn(eq(1L), anyCollection())).thenReturn(true);
         BookingGroupRecoveryService.Actor member = new BookingGroupRecoveryService.Actor(account(42L, ActorRole.MEMBER));
         when(authorization.isOwner(member.account(), 42L)).thenReturn(true);
         doThrow(new WorkshopBookingProblemException(HttpStatus.CONFLICT, "PAYMENT_ATTEMPT_EXISTS", "x"))
-                .when(confirmation).releasePendingGroupByBuyer(eq(group), eq(true), anyString(), anyString());
+                .when(confirmation).releasePendingGroupByBuyer(eq(group), eq(true), eq(false), anyString(), anyString());
 
         assertThatThrownBy(() -> service.releasePendingHold(CODE, member, null, null, "r", "corr", claim))
                 .satisfies(e -> assertThat(status(e)).isEqualTo(409));
         verify(idempotency, never()).completeClaimWithinTransaction(anyLong(), anyLong(), anyInt(), any());
+    }
+
+    @Test
+    void onlyALiveAttemptBlocksTheReleaseAndLateEvidenceKeepsTheBenefits() {
+        group.setGroupStatus(BookingStatus.PENDING_PAYMENT);
+        when(attempts.existsByGroupIdAndAttemptStatusIn(eq(1L), anyCollection())).thenReturn(false);
+        when(lateReviews.findFirstByGroupIdOrderByIdDesc(1L))
+                .thenReturn(Optional.of(new edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.LatePaymentReview()));
+
+        service.releasePendingHold(CODE, new BookingGroupRecoveryService.Actor(null), null, "0900000001",
+                "Đổi ý", "corr", claim);
+
+        verify(attempts).existsByGroupIdAndAttemptStatusIn(1L, List.of(PaymentAttemptStatus.INITIATED,
+                PaymentAttemptStatus.PENDING));
+        verify(confirmation).releasePendingGroupByBuyer(eq(group), eq(false), eq(true), anyString(), eq("corr"));
     }
 
     @Test
