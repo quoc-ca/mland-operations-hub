@@ -110,7 +110,8 @@ class CatalogueBranchSalesIT {
         retail.hold(retail.newCheckout(), size5, 1);
 
         List<BranchCartSaleFact> facts = sales.readBranchSaleFacts(List.of(
-                new BranchVariant(size5, branchC), new BranchVariant(size5, branchA), new BranchVariant(size5, branchB)));
+                new BranchVariant(size5, branchC), new BranchVariant(size5, branchA), new BranchVariant(size5, branchB))).stream()
+                .sorted(java.util.Comparator.comparingInt(fact -> branchRank(fact.locationId()))).toList();
 
         assertThat(facts).extracting(BranchCartSaleFact::locationId).containsExactly(branchA, branchB, branchC);
         // per-size source: the 1 held counts at every branch (upper bound) → A 3−1, B 2−1; C does not sell the size
@@ -225,7 +226,13 @@ class CatalogueBranchSalesIT {
 
     private List<BigInteger> rows(long variantId) {
         return transaction.execute(status -> stocks.findByVariantIdInOrderByVariantIdAscLocationIdAsc(List.of(variantId)))
-                .stream().map(VariantBranchStock::getRemainingUnsold).toList();
+                .stream().sorted(java.util.Comparator.comparingInt(row -> branchRank(row.getLocationId())))
+                .map(VariantBranchStock::getRemainingUnsold).toList();
+    }
+
+    /** Branch A, then B: the ids of the shared test branches are not created in this order on a reused database. */
+    private int branchRank(long locationId) {
+        return locationId == branchA ? 0 : locationId == branchB ? 1 : 2;
     }
 
     private BigInteger total(long variantId) {

@@ -82,7 +82,8 @@ class RetailBranchHoldIT {
         List<BranchCartSaleFact> facts = sales.readBranchSaleFacts(List.of(
             new BranchVariant(size5, branchA), new BranchVariant(size5, branchB)));
         assertThat(facts).extracting(BranchCartSaleFact::availableQuantity)
-            .containsExactly(BigInteger.ONE, BigInteger.TWO);
+            .containsExactlyElementsOf(branchA < branchB ? List.of(BigInteger.ONE, BigInteger.TWO)
+                : List.of(BigInteger.TWO, BigInteger.ONE));
         assertThat(retail.held(size5)).isEqualTo(BigInteger.TWO);
     }
 
@@ -139,7 +140,13 @@ class RetailBranchHoldIT {
 
     private List<BigInteger> rows(long variantId) {
         return transaction.execute(status -> stocks.findByVariantIdInOrderByVariantIdAscLocationIdAsc(List.of(variantId)))
-            .stream().map(VariantBranchStock::getRemainingUnsold).toList();
+            .stream().sorted(java.util.Comparator.comparingInt(row -> branchRank(row.getLocationId())))
+            .map(VariantBranchStock::getRemainingUnsold).toList();
+    }
+
+    /** Branch A, then B: the ids of the shared test branches are not created in this order on a reused database. */
+    private int branchRank(long locationId) {
+        return locationId == branchA ? 0 : locationId == branchB ? 1 : 2;
     }
 
     private long branch(String code) {
