@@ -4,7 +4,7 @@ export const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || (typeof window !
 
 /** Typed failure built from common.ErrorResponse: code, safe message, correlationId, fieldErrors. */
 export class ApiError extends Error {
-  constructor({ status, code, message, correlationId = null, fieldErrors = [], method = 'GET', failingTicketCodes = [], reason = null, retryAfterSeconds = null, checkInOpensAt = null, quota = null }) {
+  constructor({ status, code, message, correlationId = null, fieldErrors = [], method = 'GET', failingTicketCodes = [], reason = null, retryAfterSeconds = null, checkInOpensAt = null, quota = null, guestSessionToken = null }) {
     super(message || code);
     this.name = 'ApiError';
     this.status = status;
@@ -19,6 +19,7 @@ export class ApiError extends Error {
     // Only with 409 CHECK_IN_NOT_OPEN: ISO instant when normal check-in opens (T126).
     this.checkInOpensAt = checkInOpensAt;
     this.quota = quota;
+    this.guestSessionToken = guestSessionToken;
   }
 
   /** 503 and lost responses may be retried with the same Idempotency-Key. */
@@ -72,6 +73,7 @@ async function errorFrom(response, method) {
     retryAfterSeconds: retryAfterOf(response.headers.get('Retry-After')),
     checkInOpensAt: typeof payload.checkInOpensAt === 'string' ? payload.checkInOpensAt : null,
     quota: payload.quota || null,
+    guestSessionToken: payload.guestSessionToken || response.headers.get('X-Guest-AI-Session'),
   });
 }
 

@@ -12,6 +12,7 @@ public class DesignReviewException extends RuntimeException {
     private final Long retryAfterSeconds;
     private final DesignReviewDtos.AiQuotaDto quota;
     private final String correlationId;
+    private String guestSessionToken;
 
     public DesignReviewException(String code, String message, HttpStatus status) {
         this(code, message, status, null, null, null);
@@ -67,5 +68,10 @@ public class DesignReviewException extends RuntimeException {
 
     public static DesignReviewException serviceUnavailable(String code, String message) {
         return new DesignReviewException(code, message, HttpStatus.SERVICE_UNAVAILABLE);
+    }
+
+    public DesignReviewException withGuestSessionToken(String token) {
+        this.guestSessionToken = token;
+        return this;
     }
 }

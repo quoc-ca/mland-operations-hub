@@ -48,7 +48,7 @@ Client-provided role, owner, reviewer, price, status or decision is untrusted.
 2. **Session and Accounting Lifecycle**:
    - Guest requests use an opaque session token sent via `X-Guest-AI-Session`. If absent, backend generates a new 24h TTL session and returns it in `X-Guest-AI-Session` header.
    - If `X-Guest-AI-Session` is expired or invalid, backend returns HTTP 401 `AI_GUEST_SESSION_INVALID`.
-   - Quota usage is consumed atomically by backend authority upon passing initial length/non-empty validation. Prompt injection, forbidden context, and provider errors consume quota once validated.
+   - Quota usage is consumed atomically by backend authority upon passing initial length/non-empty validation. The quota write commits independently before downstream screening/provider work, so prompt injection, forbidden context, unsafe output and provider errors consume quota once validated and cannot roll it back.
    - Quota metadata is returned in response headers (`X-AI-Quota-Limit`, `X-AI-Quota-Remaining`, `X-AI-Quota-Reset-At`) and response body (`quota` object).
    - When quota is exhausted, backend returns HTTP 429 `AI_DAILY_QUOTA_EXCEEDED` with `Retry-After: <seconds-to-midnight>` and quota metadata.
 

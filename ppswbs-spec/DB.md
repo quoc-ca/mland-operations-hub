@@ -2267,3 +2267,27 @@ greater than `V102` after repository and `flyway_schema_history` verification.
 - `catalogue_variants.remaining_unsold` được giữ và luôn bằng tổng các dòng chi nhánh của size (cập nhật cùng transaction, dưới khóa size) cho tới khi FE-08 chuyển hẳn sang hàm theo chi nhánh; size chưa có dòng chi nhánh (dữ liệu trước US10) giữ tổng cũ.
 - V109 chuyển số lượng cũ sang chi nhánh có mã `HN-HOANKIEM` (Q-B1). Database không có mã này thì không chuyển gì (không dừng migration); sản phẩm cũ được gán chi nhánh trên giao diện.
 - Chi tiết: `features/002-product-management/data-model.md` mục "Branch stock".
+
+## Feature-013 — Staff consultation chat (logical model, draft)
+
+Feature-013 owns the logical conversation, immutable message, unread/read-state,
+claim/release, and audit records for Member-to-Staff/Manager consultation.
+It does not own workshop-design or independent-design-request data and must use
+safe facade projections from Feature-012 and Feature-004.
+
+The proposed logical tables are `consultation_conversations`,
+`consultation_messages`, `consultation_read_states`, `consultation_claim_events`,
+and `consultation_audit_events`. Conversations are bound to one supported design
+context, messages are UTF-8 text only, and the current state is `OPEN` or
+`CLOSED`. Messages are immutable; audit records store metadata and correlation
+references, never raw message text. Staff access is limited to the active
+Workshop Location scope, while Manager access is global. A context without a
+valid location remains Manager-visible until assigned.
+
+The proposed retention period for conversation and message history is three
+years under the business-history policy. No Feature-013 migration has been
+created. A future migration must be append-only and use a version greater than
+the current repository maximum (`V182`) after repository and
+`flyway_schema_history` verification. Physical foreign keys, idempotency
+storage, and facade projections require implementation approval before schema
+creation.

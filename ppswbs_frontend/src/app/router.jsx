@@ -6,6 +6,7 @@ import { designReviewRoutes } from '../features/designreview/routes';
 import { readyRingSalesRoutes } from '../features/retail-order';
 import { reviewManagementRoutes } from '../features/reviewmanagement/routes';
 import { ringDesignConfigurationRoutes } from '../features/ringdesignconfiguration/routes';
+import { consultationRoutes } from '../features/consultationchat/routes';
 import { loyaltyPromotionRoutes } from '../features/loyalty-promotion';
 import { productManagementRoutes } from '../features/product-management';
 import { workshopRoutes } from '../workshops/routes';
@@ -39,6 +40,7 @@ export const routes = [
           ...designReviewRoutes,
           ...reviewManagementRoutes,
           ...ringDesignConfigurationRoutes,
+          ...consultationRoutes,
           ...productManagementRoutes,
           ...loyaltyPromotionRoutes,
           ...notificationRoutes,
