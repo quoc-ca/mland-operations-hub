@@ -74,6 +74,8 @@ class WorkshopSettlementContractIT {
                 "POST /api/v1/workshop-tickets/{ticketCode}/mland-remedy/answers",
                 "GET /api/v1/workshop-settlement-cases",
                 "GET /api/v1/workshop-cash-closes/expected-cash",
+                "GET /api/v1/workshop-cash-closes/awaiting-confirmation-count",
+                "GET /api/v1/workshop-cash-closes",
                 "POST /api/v1/workshop-cash-closes",
                 "POST /api/v1/workshop-cash-closes/{cashCloseId}/difference-confirmations",
                 "GET /api/v1/ota-addon-bills/{billReference}",

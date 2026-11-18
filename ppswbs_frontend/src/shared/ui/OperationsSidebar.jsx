@@ -75,6 +75,7 @@ export function OperationsSidebar() {
   const isPackageAddOnsActive = pathname.startsWith('/operations/package-add-ons');
   const isPackageAvailabilityActive = pathname.startsWith('/operations/package-availability');
   const isLatePaymentsActive = pathname.startsWith('/operations/late-payments');
+  const isAuditActive = pathname.startsWith('/operations/audit');
 
   const isChannelsActive = pathname.startsWith('/ota-connectivity/channels');
   const isReconciliationActive = pathname.startsWith('/ota-connectivity/reconciliation');
@@ -210,6 +211,9 @@ export function OperationsSidebar() {
         </Link>
         <Link className={isPackageAvailabilityActive ? 'active' : ''} to="/operations/package-availability">
           {isVi ? 'Ma trận gói × chi nhánh' : 'Package availability'}
+        </Link>
+        <Link className={isAuditActive ? 'active' : ''} to="/operations/audit">
+          {isVi ? 'Nhật ký audit' : 'Audit log'}
         </Link>
         <Link className={isLatePaymentsActive ? 'active' : ''} to="/operations/late-payments">
           {isVi ? 'Thanh toán về trễ' : 'Late payments'}

@@ -124,6 +124,13 @@ public class WorkshopSettlementProblemHandler {
         return respond(HttpStatus.SERVICE_UNAVAILABLE, "RECONCILIATION_SOURCE_UNAVAILABLE", List.of(), request);
     }
 
+    /** Audit review (003.2 FR-049/FR-050): a malformed filter, cursor or limit is a plain 400 VALIDATION_ERROR. */
+    @ExceptionHandler(SettlementAuditQueryException.class)
+    ResponseEntity<SettlementProblem> auditQuery(SettlementAuditQueryException error, HttpServletRequest request) {
+        return respond(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR",
+                List.of(new SettlementProblem.FieldError(error.getField(), safe(error.getMessage()))), request);
+    }
+
     @ExceptionHandler(WorkshopSettlementValidationException.class)
     ResponseEntity<SettlementProblem> businessValidation(WorkshopSettlementValidationException error, HttpServletRequest request) {
         return respond(HttpStatus.UNPROCESSABLE_ENTITY, "SETTLEMENT_VALIDATION_ERROR", List.of(), request);

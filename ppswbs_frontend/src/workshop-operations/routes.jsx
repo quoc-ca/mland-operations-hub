@@ -9,6 +9,7 @@ import OperationsAdministrationPage from './pages/OperationsAdministrationPage';
 import PackageAddOnCataloguePage from './pages/PackageAddOnCataloguePage';
 import PackageAvailabilityMatrixPage from './pages/PackageAvailabilityMatrixPage';
 import LatePaymentReviewsPage from './pages/LatePaymentReviewsPage';
+import AuditReviewPage from './pages/AuditReviewPage';
 
 /** Staff/Manager area: without a session the page shows a sign-in link back to itself (the backend still decides every permission). */
 function StaffArea({ children }) {
@@ -27,6 +28,7 @@ export const operationsRoutes = [
   { path: '/operations/package-add-ons', element: <StaffArea><PackageAddOnCataloguePage /></StaffArea> },
   { path: '/operations/package-availability', element: <StaffArea><PackageAvailabilityMatrixPage /></StaffArea> },
   { path: '/operations/late-payments', element: <StaffArea><LatePaymentReviewsPage /></StaffArea> },
+  { path: '/operations/audit', element: <StaffArea><AuditReviewPage /></StaffArea> },
 ];
 
 export { StaffArea };

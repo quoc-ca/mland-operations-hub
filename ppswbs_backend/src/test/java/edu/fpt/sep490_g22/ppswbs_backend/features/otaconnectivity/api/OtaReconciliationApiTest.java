@@ -223,6 +223,39 @@ class OtaReconciliationApiTest {
         verify(decisions, times(1)).saveAndFlush(any());
     }
 
+    @Test
+    void needingAttentionCountEqualsTheSizeOfTheListTheCardOpens() throws Exception {
+        authenticate(ActorRole.MANAGER, ActorStatus.ACTIVE);
+        when(items.findByStatusInOrderByCreatedAtAsc(List.of("OPEN", "ESCALATED"))).thenReturn(List.of(item, item));
+        when(items.countByStatusIn(List.of("OPEN", "ESCALATED"))).thenReturn(2L);
+
+        mvc.perform(get(PATH + "/needing-attention-count").header("Authorization", "Bearer test-uid:actor"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.waiting").value(2));
+        mvc.perform(get(PATH).param("needsAttention", "true").header("Authorization", "Bearer test-uid:actor"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(2));
+        verify(items, never()).save(any());
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = ActorRole.class, names = {"MEMBER", "STAFF"})
+    void needingAttentionCountAndListGiveNothingToOtherRoles(ActorRole role) throws Exception {
+        authenticate(role, ActorStatus.ACTIVE);
+        mvc.perform(get(PATH + "/needing-attention-count").header("Authorization", "Bearer test-uid:actor"))
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.waiting").doesNotExist());
+        mvc.perform(get(PATH).param("needsAttention", "true").header("Authorization", "Bearer test-uid:actor"))
+                .andExpect(status().isForbidden());
+        verify(items, never()).countByStatusIn(any());
+        verify(items, never()).findByStatusInOrderByCreatedAtAsc(any());
+    }
+
+    @Test
+    void anAdminIsRefusedTheNeedingAttentionCountWithNoNumber() throws Exception {
+        authenticate(ActorRole.ADMIN, ActorStatus.ACTIVE);
+        mvc.perform(get(PATH + "/needing-attention-count").header("Authorization", "Bearer test-uid:actor"))
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.waiting").doesNotExist());
+        verify(items, never()).countByStatusIn(any());
+    }
+
     private void authenticate(ActorRole role, ActorStatus status) {
         when(accounts.resolveAccount("actor")).thenReturn(Optional.of(new AccountSummary(7L, role, status, null, null, null)));
     }
