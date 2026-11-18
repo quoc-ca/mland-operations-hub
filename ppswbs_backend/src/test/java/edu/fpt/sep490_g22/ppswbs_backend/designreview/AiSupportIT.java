@@ -153,6 +153,100 @@ public class AiSupportIT {
     }
 
     @Test
+    void whenGuestFirstRequest_thenReturnsSessionHeaderAndQuotaMetadata() throws Exception {
+        mockMvc.perform(post("/api/v1/ai-support/messages")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "message": "Workshop chế tác nhẫn bạc tổ chức lúc mấy giờ?" }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.quota.actor").value("GUEST"))
+                .andExpect(jsonPath("$.quota.limit").value(3))
+                .andExpect(jsonPath("$.quota.remaining").value(2))
+                .andExpect(jsonPath("$.quota.resetAt").isNotEmpty());
+    }
+
+    @Test
+    void whenGuestExceedsDailyQuota_thenReturns429DailyQuotaExceeded() throws Exception {
+        // First request creates session
+        var mvcResult = mockMvc.perform(post("/api/v1/ai-support/messages")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "message": "Câu hỏi 1" }
+                                """))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        String sessionToken = mvcResult.getResponse().getHeader("X-Guest-AI-Session");
+        assertThat(sessionToken).isNotBlank();
+
+        // Second request
+        mockMvc.perform(post("/api/v1/ai-support/messages")
+                        .header("X-Guest-AI-Session", sessionToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "message": "Câu hỏi 2" }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.quota.remaining").value(1));
+
+        // Third request (remaining = 0)
+        mockMvc.perform(post("/api/v1/ai-support/messages")
+                        .header("X-Guest-AI-Session", sessionToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "message": "Câu hỏi 3" }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.quota.remaining").value(0));
+
+        // Fourth request (exceeded -> 429)
+        mockMvc.perform(post("/api/v1/ai-support/messages")
+                        .header("X-Guest-AI-Session", sessionToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "message": "Câu hỏi 4 vượt quota" }
+                                """))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.code").value("AI_DAILY_QUOTA_EXCEEDED"))
+                .andExpect(jsonPath("$.quota.remaining").value(0));
+    }
+
+    @Test
+    void whenInvalidGuestSessionProvided_thenReturns401GuestSessionInvalid() throws Exception {
+        mockMvc.perform(post("/api/v1/ai-support/messages")
+                        .header("X-Guest-AI-Session", "invalid-expired-guest-session-999")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "message": "Workshop mở cửa lúc mấy giờ?" }
+                                """))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("AI_GUEST_SESSION_INVALID"));
+    }
+
+    @Test
+    void whenStaffCallsAiSupport_thenReturns403ActorNotAllowed() throws Exception {
+        String token = "staff-token-123";
+        String uid = "uid-staff-789";
+
+        when(tokenVerificationService.verify(token)).thenReturn(
+                new VerifiedIdentity(uid, "staff@mland.vn", true, Instant.now()));
+        when(accountFacade.resolveActor(uid, true)).thenReturn(Optional.of(
+                new CurrentAccountActor(789L, ActorRole.STAFF, ActorStatus.ACTIVE, true, List.of())));
+        when(accountFacade.resolveAccount(uid)).thenReturn(Optional.of(
+                new AccountSummary(789L, ActorRole.STAFF, ActorStatus.ACTIVE, "staff@mland.vn", Instant.now(), Instant.now())));
+
+        mockMvc.perform(post("/api/v1/ai-support/messages")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "message": "Workshop mở cửa lúc mấy giờ?" }
+                                """))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("AI_ACTOR_NOT_ALLOWED"));
+    }
+
+    @Test
     void whenGuestAttemptsToUploadDesignImage_thenReturns401Unauthorized() throws Exception {
         MockMultipartFile file = new MockMultipartFile("image", "ring.jpg", "image/jpeg", "image-content".getBytes());
 

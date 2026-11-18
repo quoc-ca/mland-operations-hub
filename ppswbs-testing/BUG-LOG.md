@@ -30,6 +30,48 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
 
 ## Danh sách lỗi đã đóng / nghiệm thu (Resolved & Closed Defects)
 
+## BUG-E2E-0010 — CLOSED
+
+- Ngày mở: 2026-11-18
+- Ngày đóng / nghiệm thu: 2026-11-18
+- Phát hiện bởi: User & Senior QA / System Verification Engineer
+- Xác minh đóng lỗi bởi: Senior QA & System Verification Engineer
+- Feature: 011-review-management
+- Kịch bản liên quan: [E2E-011-006](../ppswbs-spec/features/011-review-management/test-results/E2E-011-006--review-edit-ownership-authorization.md)
+- Mức độ nghiêm trọng: MAJOR / IDOR (Insecure Direct Object Reference)
+- Phân loại / Gán cho: Frontend & Backend (Review Detail & Edit Form Authorization Guard)
+- Mô tả lỗi ban đầu: Người dùng đã đăng nhập có thể truy cập vào màn hình chỉnh sửa đánh giá (`/reviews/:reviewId/edit`) của người dùng khác bằng cách sửa URL hoặc bấm nút "Chỉnh sửa đánh giá của bạn" (nút này luôn render cho bất kỳ user nào đã đăng nhập tại trang chi tiết `/reviews/:reviewId`, bất kể ai là người tạo đánh giá). Mặc dù Backend `PATCH` từ chối cập nhật khi kiểm tra quyền, giao diện Frontend vẫn để lộ form sửa với toàn bộ nội dung đánh giá của người khác và cho phép gửi request.
+- Các bước tái hiện ban đầu:
+  1. Đăng nhập tài khoản Member (`member.test@mland.vn` / `Member@123456`).
+  2. Mở đánh giá của người dùng khác tại `http://localhost:5173/reviews/rev-101-5star`.
+  3. Thấy nút "Chỉnh sửa đánh giá của bạn" vẫn hiển thị.
+  4. Bấm nút hoặc truy cập trực tiếp `http://localhost:5173/reviews/rev-101-5star/edit`: Form chỉnh sửa mở ra và pre-fill toàn bộ nội dung của người khác.
+- Biện pháp khắc phục đã triển khai:
+  1. **Backend**:
+     - Cập nhật `ReviewDto` bổ sung trường `private Boolean canEdit;`.
+     - Trong `ReviewApplicationService.java`, logic kiểm tra quyền xác định: `boolean owner = actor != null && actor.role() == ActorRole.MEMBER && review.getOwnerType() == OwnerType.MEMBER && String.valueOf(actor.accountId()).equals(review.getOwnerReference());`.
+     - Tính toán `boolean canEdit = owner && review.getStatus() != ReviewStatus.REMOVED;` và truyền qua `mapToReviewDto(...)` để trả về cho client.
+  2. **Frontend**:
+     - `ReviewDetailPage.jsx`:
+       * Truyền cờ xác thực vào `api.getReview(reviewId, status === 'signed-in')` để gửi kèm Bearer token giúp backend nhận diện `actor`.
+       * Ẩn hoàn toàn nút chỉnh sửa nếu `!review?.canEdit`: `{status === 'signed-in' && Boolean(review?.canEdit) && (<Link to={...}>...)}`.
+     - `EditReviewPage.jsx`:
+       * Gọi `api.getReview(reviewId, true)` kèm Bearer token.
+       * Thiết lập Route / Component Guard: Nếu `!resource.data?.canEdit`, chặn render `ReviewForm` và hiển thị màn hình thông báo từ chối truy cập:
+         *"Bạn không có quyền chỉnh sửa đánh giá này. Chỉ chủ sở hữu đánh giá mới có thể chỉnh sửa."* kèm nút điều hướng quay lại.
+- Kết quả kiểm chứng lại (QA Re-test 2026-11-18 qua Browser MCP):
+  - Kịch bản `E2E-011-006` được thực thi trên Chrome thực tế bằng `browsermcp`:
+    + Đăng nhập `member.test@mland.vn` và mở đánh giá của người khác (`/reviews/rev-101-5star`): Nút "Chỉnh sửa đánh giá của bạn" hoàn toàn biến mất (chỉ còn nút "Quay lại").
+    + Cố tình đổi URL sang `/reviews/rev-101-5star/edit`: Form chỉnh sửa bị chặn hoàn toàn, hiển thị thông báo lỗi quyền sở hữu tiếng Việt rõ ràng, không để lộ dữ liệu form.
+    + Mở đánh giá của chính mình (`/reviews/cc6446de-4851-4c95-8b81-7965213da398`): Nút "Chỉnh sửa đánh giá của bạn" hiển thị bình thường.
+    + Bấm sửa: Form mở ra đầy đủ thông tin, chỉnh sửa nội dung và lưu thay đổi thành công (HTTP 200).
+  - Trạng thái kiểm chứng: **PASS 100%**.
+  - Bằng chứng screenshot:
+    + [E2E-011-006--forbidden-edit-url-tampering.jpg](../ppswbs-spec/features/011-review-management/test-results/screenshots/E2E-011-006--forbidden-edit-url-tampering.jpg)
+    + [E2E-011-006--other-user-no-edit-btn.jpg](../ppswbs-spec/features/011-review-management/test-results/screenshots/E2E-011-006--other-user-no-edit-btn.jpg)
+    + [E2E-011-006--owner-edit-allowed.jpg](../ppswbs-spec/features/011-review-management/test-results/screenshots/E2E-011-006--owner-edit-allowed.jpg)
+- Trạng thái xử lý: **CLOSED**
+
 ## BUG-E2E-0008 — CLOSED
 
 - Ngày mở: 2026-11-14

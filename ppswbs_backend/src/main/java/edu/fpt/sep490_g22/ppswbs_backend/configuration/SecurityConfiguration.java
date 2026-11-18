@@ -155,8 +155,9 @@ public class SecurityConfiguration {
         configuration.setAllowedOrigins(allowedOrigins);
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Correlation-Id", "Idempotency-Key",
-                "If-Match-Version", "X-Guest-Design-Session", "X-Guest-Session-Id"));
-        configuration.setExposedHeaders(List.of("X-Correlation-Id"));
+                "If-Match-Version", "X-Guest-Design-Session", "X-Guest-Session-Id", "X-Guest-AI-Session"));
+        configuration.setExposedHeaders(List.of("X-Correlation-Id", "X-Guest-AI-Session", "X-AI-Quota-Limit",
+                "X-AI-Quota-Remaining", "X-AI-Quota-Reset-At", "Retry-After"));
         configuration.setAllowCredentials(false);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

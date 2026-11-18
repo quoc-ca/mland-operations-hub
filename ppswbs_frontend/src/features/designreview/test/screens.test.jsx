@@ -58,6 +58,57 @@ describe('F04-AI-CHAT Screen (/ai-support)', () => {
 
     expect(await screen.findByText('Chào bạn, Mland hỗ trợ lại rồi!')).toBeInTheDocument();
   });
+
+  it('displays quota for guest and updates remaining quota after prompt', async () => {
+    const user = userEvent.setup();
+    mockFetch({
+      'POST /api/v1/ai-support/messages': json(200, {
+        message: 'Mland có workshop cuối tuần.',
+        scope: 'WORKSHOP',
+        correlationId: 'corr-q1',
+        quota: {
+          actor: 'GUEST',
+          limit: 3,
+          remaining: 2,
+          resetAt: '2026-11-19T00:00:00+07:00',
+        },
+      }),
+    });
+
+    open('/ai-support', { session: fakeSession('signed-out') });
+    expect(await screen.findByText(/Còn 3\/3 lượt hỏi hôm nay/)).toBeInTheDocument();
+
+    const textarea = screen.getByLabelText(/Nhập câu hỏi của bạn/);
+    await user.type(textarea, 'Có workshop nào?');
+    await user.click(screen.getByRole('button', { name: 'Gửi câu hỏi' }));
+
+    expect(await screen.findByText(/Còn 2\/3 lượt hỏi hôm nay/)).toBeInTheDocument();
+  });
+
+  it('disables input and displays warning when daily quota is exceeded (429)', async () => {
+    const user = userEvent.setup();
+    mockFetch({
+      'POST /api/v1/ai-support/messages': json(429, {
+        code: 'AI_DAILY_QUOTA_EXCEEDED',
+        message: 'Bạn đã sử dụng hết số lượt hỏi AI trong ngày.',
+        quota: {
+          actor: 'GUEST',
+          limit: 3,
+          remaining: 0,
+          resetAt: '2026-11-19T00:00:00+07:00',
+        },
+      }),
+    });
+
+    open('/ai-support', { session: fakeSession('signed-out') });
+    const textarea = screen.getByLabelText(/Nhập câu hỏi của bạn/);
+    await user.type(textarea, 'Câu hỏi vượt hạn mức');
+    await user.click(screen.getByRole('button', { name: 'Gửi câu hỏi' }));
+
+    expect(await screen.findByText(/Lượt hỏi sẽ được làm mới vào lúc 00:00/)).toBeInTheDocument();
+    expect(textarea).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Gửi câu hỏi' })).toBeDisabled();
+  });
 });
 
 describe('F04-DESIGN-WORKSPACE Screen (/design-requests/new)', () => {

@@ -181,6 +181,15 @@ components:
         advisory: { type: boolean, const: true }
         scope: { type: string, enum: [PRODUCT, WORKSHOP, STORE, FAQ] }
         correlationId: { type: string }
+        quota: { $ref: '#/components/schemas/AiQuota' }
+    AiQuota:
+      type: object
+      required: [actor, limit, remaining, resetAt]
+      properties:
+        actor: { type: string, enum: [GUEST, MEMBER] }
+        limit: { type: integer, example: 3 }
+        remaining: { type: integer, example: 2 }
+        resetAt: { type: string, format: date-time, example: '2026-11-19T00:00:00+07:00' }
     IndependentDesignRequest:
       type: object
       properties:

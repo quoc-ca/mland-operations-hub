@@ -11,13 +11,12 @@ export default function EligibleSourcesPage() {
   const navigate = useNavigate();
 
   const resource = useResource(() => api.listEligibleSources(), []);
-  const items = resource.data?.items || [];
+  const items = resource.data?.items || resource.data?.sources || [];
 
   return (
     <div className="review-container">
       <header className="page-header">
         <h1>{t('eligibleTitle')}</h1>
-        <p className="muted">{t('eligibleSubtitle')}</p>
       </header>
 
       {resource.loading && <Loading />}
@@ -32,24 +31,39 @@ export default function EligibleSourcesPage() {
       )}
 
       <div className="source-list">
-        {items.map(source => (
-          <button
-            type="button"
-            className="source-card"
-            key={`${source.sourceType}:${source.sourceReference}`}
-            onClick={() => navigate('/reviews/new', { state: { source } })}
-          >
-            <strong>
-              {source.label ||
-                (source.targetType === 'WORKSHOP_SESSION'
-                  ? t('sourceWorkshop')
-                  : t('sourceRetail'))}
-            </strong>
-            <span>{source.sourceReference}</span>
-            <span className="badge-tag badge-verified">{t('verified')}</span>
-            <span className="action-label">{t('writeReview')} &rarr;</span>
-          </button>
-        ))}
+        {items.map(source => {
+          const isReviewed = Boolean(source.alreadyReviewed || source.reviewId);
+          return (
+            <button
+              type="button"
+              className="source-card"
+              key={`${source.sourceType}:${source.sourceReference}`}
+              onClick={() => {
+                if (isReviewed && source.reviewId) {
+                  navigate(`/reviews/${source.reviewId}`);
+                } else {
+                  navigate('/reviews/new', { state: { source } });
+                }
+              }}
+            >
+              <strong>
+                {source.label ||
+                  (source.targetType === 'WORKSHOP_SESSION'
+                    ? t('sourceWorkshop')
+                    : t('sourceRetail'))}
+              </strong>
+              <span>{source.sourceReference}</span>
+              {isReviewed ? (
+                <span className="badge-tag badge-reviewed">{t('alreadyReviewedBadge')}</span>
+              ) : (
+                <span className="badge-tag badge-verified">{t('verified')}</span>
+              )}
+              <span className="action-label">
+                {(isReviewed ? t('open') : t('writeReview'))} &rarr;
+              </span>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
