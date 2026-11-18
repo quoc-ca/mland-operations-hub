@@ -56,3 +56,31 @@ Message content remains only in transcript storage. Application/audit logs recei
 safe metadata and correlation IDs. A retention job may process records after three
 years only under the approved policy and never cascades required audit evidence.
 
+## W7 — Sidebar pagination
+
+1. The client requests a page with optional status, opaque cursor and limit.
+2. Backend applies actor scope, Member-hidden filtering where applicable and stable ordering.
+3. The client renders the page and preserves the selected conversation.
+4. Load more requests `nextCursor` and merges by conversation reference.
+5. Polling refreshes the first page without duplicating loaded items.
+
+## W8 — Contextless conversation
+
+1. Member selects General consultation instead of a design context.
+2. Client submits all context fields as null with an optional initial message.
+3. Backend validates the all-null shape, creates a null context snapshot and keeps the conversation Manager-visible until assignment.
+
+## W9 — Member soft hide
+
+1. Member selects a CLOSED conversation and requests removal from their list.
+2. Client asks for confirmation and sends DELETE with idempotency and optimistic-version headers.
+3. Backend verifies ownership, CLOSED state and version, sets the Member-hidden marker, writes `MEMBER_HIDE` audit metadata and commits atomically.
+4. Member sidebar removes the item; Staff and Manager operational reads retain it.
+
+## W10 — Operational close
+
+1. Staff or Manager opens an authorized OPEN conversation.
+2. Staff passes active-location scope; Manager passes global role authorization.
+3. Client confirms close and sends the current aggregate version.
+4. Backend transitions to CLOSED, records audit evidence and rejects stale concurrent commands with `409 CHAT_STATE_CONFLICT`.
+

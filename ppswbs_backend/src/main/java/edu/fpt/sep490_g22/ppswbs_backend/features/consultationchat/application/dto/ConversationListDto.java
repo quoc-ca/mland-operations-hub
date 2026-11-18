@@ -12,4 +12,5 @@ import java.util.List;
 public class ConversationListDto {
     private List<ConversationDto> items;
     private String nextCursor;
+    private boolean hasMore;
 }

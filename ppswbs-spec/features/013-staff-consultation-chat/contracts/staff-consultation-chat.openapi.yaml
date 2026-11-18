@@ -42,10 +42,23 @@ paths:
       parameters:
         - { name: status, in: query, schema: { type: string, enum: [OPEN, CLOSED] } }
         - { name: cursor, in: query, schema: { type: string } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 50, default: 20 } }
       responses:
         '200': { description: Scoped inbox, content: { application/json: { schema: { $ref: '#/components/schemas/ConversationList' } } } }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+    delete:
+      tags: [consultation-chat]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/ConversationReference' }
+        - { $ref: '#/components/parameters/IfMatchVersion' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      responses:
+        '204': { description: Hidden from Member list; operational history retained }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
   /consultations/{conversationReference}:
     parameters: [{ $ref: '#/components/parameters/ConversationReference' }]
     get:
@@ -134,11 +147,10 @@ components:
     ContextOptionList: { type: object, required: [items], properties: { items: { type: array, items: { $ref: '#/components/schemas/ContextOption' } } } }
     CreateConversationRequest:
       type: object
-      required: [contextType, contextReference, contextVersion]
       properties:
-        contextType: { type: string, enum: [WORKSHOP_RING_DESIGN, INDEPENDENT_DESIGN_REQUEST] }
-        contextReference: { type: string }
-        contextVersion: { type: integer, minimum: 1 }
+        contextType: { type: string, nullable: true, enum: [WORKSHOP_RING_DESIGN, INDEPENDENT_DESIGN_REQUEST] }
+        contextReference: { type: string, nullable: true }
+        contextVersion: { type: integer, nullable: true, minimum: 1 }
         initialMessage: { type: string, maxLength: 2000 }
     SendMessageRequest:
       type: object
@@ -173,7 +185,7 @@ components:
         - type: object
           required: [messages]
           properties: { messages: { type: array, items: { $ref: '#/components/schemas/Message' } } }
-    ConversationList: { type: object, required: [items], properties: { items: { type: array, items: { $ref: '#/components/schemas/Conversation' } }, nextCursor: { type: string, nullable: true } } }
+    ConversationList: { type: object, required: [items, hasMore], properties: { items: { type: array, items: { $ref: '#/components/schemas/Conversation' } }, nextCursor: { type: string, nullable: true }, hasMore: { type: boolean } } }
     ErrorResponse:
       type: object
       required: [code, message]

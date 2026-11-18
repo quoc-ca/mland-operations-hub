@@ -3,6 +3,8 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.consultationchat.infrastructu
 import edu.fpt.sep490_g22.ppswbs_backend.features.consultationchat.domain.ConsultationConversation;
 import edu.fpt.sep490_g22.ppswbs_backend.features.consultationchat.domain.ConsultationStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -35,4 +37,26 @@ public interface ConsultationConversationRepository extends JpaRepository<Consul
     List<ConsultationConversation> findAllByOrderByUpdatedAtDesc();
 
     List<ConsultationConversation> findByStatusOrderByUpdatedAtDesc(ConsultationStatus status);
+
+    Page<ConsultationConversation> findByMemberUserIdAndMemberHiddenAtIsNullOrderByUpdatedAtDescConversationReferenceDesc(
+            Long memberUserId, Pageable pageable
+    );
+
+    Page<ConsultationConversation> findByMemberUserIdAndStatusAndMemberHiddenAtIsNullOrderByUpdatedAtDescConversationReferenceDesc(
+            Long memberUserId, ConsultationStatus status, Pageable pageable
+    );
+
+    Page<ConsultationConversation> findByAssignedLocationIdInOrderByUpdatedAtDescConversationReferenceDesc(
+            List<Long> locationIds, Pageable pageable
+    );
+
+    Page<ConsultationConversation> findByAssignedLocationIdInAndStatusOrderByUpdatedAtDescConversationReferenceDesc(
+            List<Long> locationIds, ConsultationStatus status, Pageable pageable
+    );
+
+    Page<ConsultationConversation> findByOrderByUpdatedAtDescConversationReferenceDesc(Pageable pageable);
+
+    Page<ConsultationConversation> findByStatusOrderByUpdatedAtDescConversationReferenceDesc(
+            ConsultationStatus status, Pageable pageable
+    );
 }

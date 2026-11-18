@@ -27,16 +27,16 @@ public class ConsultationConversation {
     private Long memberUserId;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "context_type", nullable = false, length = 32)
+    @Column(name = "context_type", length = 32)
     private ConsultationContextType contextType;
 
-    @Column(name = "context_reference", nullable = false, length = 64)
+    @Column(name = "context_reference", length = 64)
     private String contextReference;
 
-    @Column(name = "context_version", nullable = false)
+    @Column(name = "context_version")
     private Integer contextVersion;
 
-    @Column(name = "context_snapshot", columnDefinition = "JSON", nullable = false)
+    @Column(name = "context_snapshot", columnDefinition = "JSON")
     private String contextSnapshot;
 
     @Column(name = "assigned_location_id")
@@ -64,4 +64,10 @@ public class ConsultationConversation {
 
     @Column(name = "closed_at")
     private Instant closedAt;
+
+    @Column(name = "member_hidden_at")
+    private Instant memberHiddenAt;
+
+    @Column(name = "member_hidden_by_user_id")
+    private Long memberHiddenByUserId;
 }

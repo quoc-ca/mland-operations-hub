@@ -21,6 +21,7 @@ html, body, * {
 .consultation-sidebar {
   width: 380px;
   min-width: 320px;
+  flex: 0 0 380px;
   background: #ffffff;
   border-right: 1px solid #e7e5e0;
   display: flex;
@@ -66,6 +67,21 @@ html, body, * {
   list-style: none;
   margin: 0;
   padding: 0;
+}
+
+.consultation-sidebar > .btn-secondary-consultation {
+  width: calc(100% - 2rem);
+  margin: 0.75rem 1rem 1rem;
+}
+
+.consultation-loading-state,
+.consultation-empty-list-state {
+  width: 100%;
+  min-height: 8rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
 }
 
 .consultation-item {

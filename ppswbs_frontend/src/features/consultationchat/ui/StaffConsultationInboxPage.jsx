@@ -14,6 +14,9 @@ export function StaffConsultationInboxPage({ lang = 'vi', currentUser = {} }) {
   const isManager = (currentUser?.role || userRole) === 'MANAGER';
 
   const [conversations, setConversations] = useState([]);
+  const [nextCursor, setNextCursor] = useState(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [selectedRef, setSelectedRef] = useState(null);
   const [activeConversation, setActiveConversation] = useState(null);
   const [statusFilter, setStatusFilter] = useState('');
@@ -37,22 +40,34 @@ export function StaffConsultationInboxPage({ lang = 'vi', currentUser = {} }) {
   selectedRefRef.current = selectedRef;
   const statusFilterRef = useRef(statusFilter);
   statusFilterRef.current = statusFilter;
+  const nextCursorRef = useRef(nextCursor);
+  nextCursorRef.current = nextCursor;
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
   };
 
-  const loadConversations = useCallback(async (silent = false) => {
+  const loadConversations = useCallback(async (silent = false, append = false) => {
     if (!silent) setLoadingList(true);
+    if (append) setLoadingMore(true);
     try {
-      const res = await apiRef.current.listConversations({ status: statusFilterRef.current || undefined });
+      const res = await apiRef.current.listConversations({
+        status: statusFilterRef.current || undefined,
+        cursor: append ? nextCursorRef.current : undefined,
+        limit: 20,
+      });
       const items = res?.items || [];
-      setConversations(items);
+      setConversations((prev) => append
+        ? Array.from(new Map([...prev, ...items].map((item) => [item.conversationReference, item])).values())
+        : items);
+      setNextCursor(res?.nextCursor || null);
+      setHasMore(Boolean(res?.hasMore));
       setSelectedRef((prev) => prev || (items.length > 0 ? items[0].conversationReference : null));
     } catch (err) {
       if (!silent) setError(err.message || t.errorGeneral);
     } finally {
       if (!silent) setLoadingList(false);
+      if (append) setLoadingMore(false);
     }
   }, [t.errorGeneral]);
 
@@ -294,6 +309,11 @@ export function StaffConsultationInboxPage({ lang = 'vi', currentUser = {} }) {
             })
           )}
         </ul>
+        {hasMore && (
+          <button type="button" className="btn-secondary-consultation" onClick={() => loadConversations(false, true)} disabled={loadingMore}>
+            {loadingMore ? '...' : t.loadMore}
+          </button>
+        )}
       </div>
 
       {/* Main View */}

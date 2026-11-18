@@ -19,15 +19,16 @@ It uses Account, Feature-004 and Feature-012 ports; it never reads their reposit
 | `conversation_id` | Internal primary key; never exposed directly. |
 | `conversation_reference` | Required opaque unique public reference. |
 | `member_user_id` | Required owner FK to the Member account. |
-| `context_type` | `WORKSHOP_RING_DESIGN` or `INDEPENDENT_DESIGN_REQUEST`. |
-| `context_reference` | Opaque safe reference returned by the owning facade. |
-| `context_version` | Required immutable version selected by Member. |
-| `context_snapshot` | Server-built safe JSON snapshot; never client-built. |
+| `context_type` | Nullable; `WORKSHOP_RING_DESIGN` or `INDEPENDENT_DESIGN_REQUEST` when a design is attached. |
+| `context_reference` | Nullable opaque safe reference returned by the owning facade. |
+| `context_version` | Nullable immutable version selected by Member. |
+| `context_snapshot` | Nullable server-built safe JSON snapshot; never client-built. |
 | `assigned_location_id` | Nullable until Manager routes an unscoped context. |
 | `claimed_by_user_id` | Nullable current claimant; history is separate. |
 | `status` | `OPEN` or `CLOSED`. |
 | `aggregate_version` | Optimistic concurrency version. |
 | `created_at`, `updated_at`, `closed_at` | Required lifecycle timestamps as applicable. |
+| `member_hidden_at`, `member_hidden_by_user_id` | Member-side soft-hide marker; never deletes operational history. |
 
 ### `consultation_messages`
 
@@ -58,7 +59,7 @@ Never store raw message, token, email, phone or private preview URL.
 
 ## Invariants
 
-- One conversation has exactly one Member owner and one immutable context snapshot.
+- One conversation has exactly one Member owner and either one immutable context snapshot or an explicitly null context.
 - Context target and version cannot be changed after creation.
 - A conversation cannot reference an inaccessible or invalid context.
 - Staff reads/writes require current active location scope; Manager reads/writes are global.
@@ -68,11 +69,14 @@ Never store raw message, token, email, phone or private preview URL.
 - One current claimant is protected by optimistic locking.
 - Audit rows use `ON DELETE RESTRICT` semantics and are not cascade-deleted.
 - Retention cleanup never deletes a live conversation while message/audit history remains required.
+- Context fields are either all null or all valid; no partial context is persisted.
+- Member queries exclude `member_hidden_at IS NOT NULL`; Staff and Manager queries do not.
+- Soft hide is allowed only for `CLOSED` conversations owned by the Member.
 
 ## Migration requirements
 
-Current repository migration maximum is `V182`; verify `flyway_schema_history` before
-selecting a new version, expected to be `V183` or higher. Do not modify applied SQL,
+Current repository migration maximum is `V183`; verify `flyway_schema_history` before
+selecting a new version, expected to be `V184` or higher. Do not modify applied SQL,
 use `baseline`, `repair`, `outOfOrder` or ignore patterns to hide a conflict. Verify
 fresh install, upgrade, rerun and `flyway validate()` after approval.
 
