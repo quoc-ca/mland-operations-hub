@@ -2275,19 +2275,20 @@ claim/release, and audit records for Member-to-Staff/Manager consultation.
 It does not own workshop-design or independent-design-request data and must use
 safe facade projections from Feature-012 and Feature-004.
 
-The proposed logical tables are `consultation_conversations`,
+The logical tables are `consultation_conversations`,
 `consultation_messages`, `consultation_read_states`, `consultation_claim_events`,
-and `consultation_audit_events`. Conversations are bound to one supported design
-context, messages are UTF-8 text only, and the current state is `OPEN` or
+`consultation_audit_events`, and `consultation_idempotency_records`. Conversations
+may have a supported design context or an explicitly null context, messages are UTF-8 text only, and the current state is `OPEN` or
 `CLOSED`. Messages are immutable; audit records store metadata and correlation
 references, never raw message text. Staff access is limited to the active
 Workshop Location scope, while Manager access is global. A context without a
-valid location remains Manager-visible until assigned.
+valid location remains Manager-visible until assigned. Member-side soft delete is
+represented by `member_hidden_at` and `member_hidden_by_user_id`; it hides the
+conversation only from that Member and does not delete operational history.
 
 The proposed retention period for conversation and message history is three
-years under the business-history policy. No Feature-013 migration has been
-created. A future migration must be append-only and use a version greater than
-the current repository maximum (`V182`) after repository and
-`flyway_schema_history` verification. Physical foreign keys, idempotency
-storage, and facade projections require implementation approval before schema
-creation.
+years under the business-history policy. `V183__staff_consultation_chat.sql`
+creates the base schema and `V184__consultation_member_soft_delete.sql` adds
+nullable context support and Member-side hiding. Any future migration must be
+append-only and use a version greater than `V184` after repository and
+`flyway_schema_history` verification.

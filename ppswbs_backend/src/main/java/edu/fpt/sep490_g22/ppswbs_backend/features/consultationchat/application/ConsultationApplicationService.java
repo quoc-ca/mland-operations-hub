@@ -9,6 +9,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 
 import java.text.Normalizer;
 import java.time.Instant;
@@ -46,16 +49,22 @@ public class ConsultationApplicationService {
             return idempotencyService.deserialize(replay.get().getResponseBody(), ConversationDto.class);
         }
 
-        // Validate context and build immutable snapshot
-        ContextOptionDto snapshot = contextService.validateAndGetSnapshot(
-                caller.accountId(), req.getContextType(), req.getContextReference(), req.getContextVersion()
-        );
+        validateContextShape(req);
+        ContextOptionDto snapshot = req.getContextType() == null
+                ? null
+                : contextService.validateAndGetSnapshot(
+                    caller.accountId(), req.getContextType(), req.getContextReference(), req.getContextVersion()
+                );
 
         String snapshotJson;
-        try {
-            snapshotJson = objectMapper.writeValueAsString(snapshot);
-        } catch (JsonProcessingException e) {
-            throw ConsultationException.unavailable("CHAT_UNAVAILABLE", "Lỗi tạo snapshot ngữ cảnh.");
+        if (snapshot == null) {
+            snapshotJson = null;
+        } else {
+            try {
+                snapshotJson = objectMapper.writeValueAsString(snapshot);
+            } catch (JsonProcessingException e) {
+                throw ConsultationException.unavailable("CHAT_UNAVAILABLE", "Lỗi tạo snapshot ngữ cảnh.");
+            }
         }
 
         String conversationReference = "CONV-" + UUID.randomUUID();
@@ -64,7 +73,7 @@ public class ConsultationApplicationService {
                 .conversationReference(conversationReference)
                 .memberUserId(caller.accountId())
                 .contextType(req.getContextType())
-                .contextReference(req.getContextReference().trim())
+                .contextReference(req.getContextReference() == null ? null : req.getContextReference().trim())
                 .contextVersion(req.getContextVersion())
                 .contextSnapshot(snapshotJson)
                 .status(ConsultationStatus.OPEN)
@@ -101,7 +110,7 @@ public class ConsultationApplicationService {
         auditService.recordAudit(
                 saved.getId(), caller.accountId(), caller.role(),
                 ConsultationAuditAction.CREATE, ConsultationAuditOutcome.SUCCESS,
-                saved.getContextType().name(), null, null, correlationId
+                saved.getContextType() == null ? null : saved.getContextType().name(), null, null, correlationId
         );
 
         ConversationDto result = mapToConversationDto(saved, caller);
@@ -115,41 +124,55 @@ public class ConsultationApplicationService {
             String cursor,
             AccountActorPort.CallerActor caller
     ) {
-        validateCallerNotAdmin(caller);
+        return listConversations(status, cursor, null, caller);
+    }
 
-        List<ConsultationConversation> conversations;
+    @Transactional(readOnly = true)
+    public ConversationListDto listConversations(
+            ConsultationStatus status,
+            String cursor,
+            Integer limit,
+            AccountActorPort.CallerActor caller
+    ) {
+        validateCallerNotAdmin(caller);
+        int pageSize = Math.min(Math.max(limit == null ? 20 : limit, 1), 50);
+        int pageNumber = decodeCursor(cursor);
+        PageRequest pageRequest = PageRequest.of(pageNumber, pageSize,
+                Sort.by(Sort.Order.desc("updatedAt"), Sort.Order.desc("conversationReference")));
+        Page<ConsultationConversation> page;
         if ("MEMBER".equals(caller.role())) {
             if (status != null) {
-                conversations = conversationRepository.findByMemberUserIdAndStatusOrderByUpdatedAtDesc(caller.accountId(), status);
+                page = conversationRepository.findByMemberUserIdAndStatusAndMemberHiddenAtIsNullOrderByUpdatedAtDescConversationReferenceDesc(caller.accountId(), status, pageRequest);
             } else {
-                conversations = conversationRepository.findByMemberUserIdOrderByUpdatedAtDesc(caller.accountId());
+                page = conversationRepository.findByMemberUserIdAndMemberHiddenAtIsNullOrderByUpdatedAtDescConversationReferenceDesc(caller.accountId(), pageRequest);
             }
         } else if ("STAFF".equals(caller.role())) {
             List<Long> activeLocs = caller.activeLocationIds();
             if (activeLocs == null || activeLocs.isEmpty()) {
-                conversations = Collections.emptyList();
+                page = Page.empty(pageRequest);
             } else if (status != null) {
-                conversations = conversationRepository.findByAssignedLocationIdInAndStatusOrderByUpdatedAtDesc(activeLocs, status);
+                page = conversationRepository.findByAssignedLocationIdInAndStatusOrderByUpdatedAtDescConversationReferenceDesc(activeLocs, status, pageRequest);
             } else {
-                conversations = conversationRepository.findByAssignedLocationIdInOrderByUpdatedAtDesc(activeLocs);
+                page = conversationRepository.findByAssignedLocationIdInOrderByUpdatedAtDescConversationReferenceDesc(activeLocs, pageRequest);
             }
         } else if ("MANAGER".equals(caller.role())) {
             if (status != null) {
-                conversations = conversationRepository.findByStatusOrderByUpdatedAtDesc(status);
+                page = conversationRepository.findByStatusOrderByUpdatedAtDescConversationReferenceDesc(status, pageRequest);
             } else {
-                conversations = conversationRepository.findAllByOrderByUpdatedAtDesc();
+                page = conversationRepository.findByOrderByUpdatedAtDescConversationReferenceDesc(pageRequest);
             }
         } else {
             throw ConsultationException.forbidden("CHAT_ACCESS_DENIED", "Vai trò không có quyền truy cập.");
         }
 
-        List<ConversationDto> dtos = conversations.stream()
+        List<ConversationDto> dtos = page.getContent().stream()
                 .map(c -> mapToConversationDto(c, caller))
                 .toList();
 
         return ConversationListDto.builder()
                 .items(dtos)
-                .nextCursor(null)
+                .nextCursor(page.hasNext() ? encodeCursor(page.getNumber() + 1) : null)
+                .hasMore(page.hasNext())
                 .build();
     }
 
@@ -413,6 +436,38 @@ public class ConsultationApplicationService {
     }
 
     @Transactional
+    public void hideForMember(
+            String conversationReference,
+            Long ifMatchVersion,
+            AccountActorPort.CallerActor caller,
+            String idempotencyKey,
+            String correlationId
+    ) {
+        validateCallerRole(caller, List.of("MEMBER"));
+        String actorScope = "MEMBER:" + caller.accountId();
+        Map<String, Object> command = Map.of("conversationReference", conversationReference, "version", ifMatchVersion);
+        if (idempotencyService.checkReplay(idempotencyKey, "HIDE_CONVERSATION", actorScope, command).isPresent()) {
+            return;
+        }
+        ConsultationConversation conv = findAndAuthorizeConversation(conversationReference, caller);
+        checkOptimisticLock(conv, ifMatchVersion);
+        if (conv.getStatus() != ConsultationStatus.CLOSED) {
+            throw ConsultationException.conflict("CHAT_DELETE_REQUIRES_CLOSED", "Vui lÃ²ng Ä‘Ã³ng cuá»™c trÃ² chuyá»‡n trÆ°á»›c khi xÃ³a.");
+        }
+        if (conv.getMemberHiddenAt() != null) {
+            throw ConsultationException.conflict("CHAT_ALREADY_HIDDEN", "Cuá»™c trÃ² chuyá»‡n Ä‘Ã£ Ä‘Æ°á»£c áº©n.");
+        }
+        conv.setMemberHiddenAt(Instant.now());
+        conv.setMemberHiddenByUserId(caller.accountId());
+        conv.setAggregateVersion(conv.getAggregateVersion() + 1);
+        ConsultationConversation saved = conversationRepository.save(conv);
+        auditService.recordAudit(saved.getId(), caller.accountId(), caller.role(),
+                ConsultationAuditAction.MEMBER_HIDE, ConsultationAuditOutcome.SUCCESS,
+                saved.getContextType() == null ? null : saved.getContextType().name(), null, null, correlationId);
+        idempotencyService.record(idempotencyKey, "HIDE_CONVERSATION", actorScope, command, Map.of("hidden", true));
+    }
+
+    @Transactional
     public ConversationDto reopen(
             String conversationReference,
             Long ifMatchVersion,
@@ -481,6 +536,9 @@ public class ConsultationApplicationService {
                 .orElseThrow(() -> ConsultationException.notFound("CHAT_NOT_FOUND", "Không tìm thấy cuộc trò chuyện."));
 
         if ("MEMBER".equals(caller.role())) {
+            if (conv.getMemberHiddenAt() != null) {
+                throw ConsultationException.notFound("CHAT_NOT_FOUND", "Conversation not found.");
+            }
             if (!conv.getMemberUserId().equals(caller.accountId())) {
                 throw ConsultationException.notFound("CHAT_NOT_FOUND", "Không tìm thấy cuộc trò chuyện.");
             }
@@ -520,6 +578,28 @@ public class ConsultationApplicationService {
             );
         }
         return normalized;
+    }
+
+    private void validateContextShape(CreateConversationRequestDto req) {
+        boolean any = req.getContextType() != null || req.getContextReference() != null || req.getContextVersion() != null;
+        boolean complete = req.getContextType() != null && req.getContextReference() != null
+                && !req.getContextReference().isBlank() && req.getContextVersion() != null;
+        if (any && !complete) {
+            throw ConsultationException.badRequest("CHAT_CONTEXT_INVALID", "Ngá»¯ cáº£nh thiáº¿t káº¿ pháº£i Ä‘Æ°á»£c gá»­i Ä‘á»§ thÃ´ng tin.");
+        }
+    }
+
+    private int decodeCursor(String cursor) {
+        if (cursor == null || cursor.isBlank()) return 0;
+        try {
+            return Math.max(Integer.parseInt(new String(Base64.getUrlDecoder().decode(cursor))), 0);
+        } catch (Exception e) {
+            throw ConsultationException.badRequest("CHAT_CURSOR_INVALID", "Cursor khÃ´ng há»£p lá»‡.");
+        }
+    }
+
+    private String encodeCursor(int offset) {
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(String.valueOf(offset).getBytes());
     }
 
     private void validateCallerRole(AccountActorPort.CallerActor caller, List<String> allowedRoles) {

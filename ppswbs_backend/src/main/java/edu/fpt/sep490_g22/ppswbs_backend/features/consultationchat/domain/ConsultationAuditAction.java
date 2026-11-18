@@ -8,5 +8,6 @@ public enum ConsultationAuditAction {
     ASSIGN,
     CLOSE,
     REOPEN,
-    READ
+    READ,
+    MEMBER_HIDE
 }

@@ -129,3 +129,26 @@ conversation history accidentally.
 - Threaded messages, reactions, read receipts visible to customers beyond unread state.
 - Booking/order/payment support actions or final quote approval.
 
+## 11. Sidebar, contextless conversations and Member-side hiding
+
+The sidebar lists only `OPEN` and `CLOSED` conversations. Member-hidden
+conversations are excluded from Member list/detail responses but remain visible
+to Staff and Manager. Listing uses opaque cursor pagination with default limit
+20 and maximum limit 50; polling must merge by conversation reference without
+duplicating items or losing the selected conversation.
+
+Member may create a conversation without a design. In that case
+`contextType`, `contextReference`, `contextVersion`, and `contextSnapshot` are
+all null. Partial context is invalid. An unassigned contextless conversation is
+Manager-visible until assigned to a valid Workshop Location.
+
+Member may soft-hide only an owned `CLOSED` conversation. The command requires
+confirmation in the UI, `Idempotency-Key`, and `If-Match-Version`. An `OPEN`
+conversation returns `CHAT_DELETE_REQUIRES_CLOSED`. Soft hiding never deletes
+messages, claims, read states, or audit history and has no Member restore action
+in V1.
+
+Staff may close conversations within active Workshop Location scope. Manager
+may close any authorized conversation. Both actions remain protected by
+optimistic locking and audit evidence.
+

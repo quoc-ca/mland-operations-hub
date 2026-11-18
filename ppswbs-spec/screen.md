@@ -503,6 +503,11 @@ payment or design approval flows:
 
 The consultation target is the design context, not a branch, booking, order or
 payment. Staff scope remains location-scoped and Admin has no business chat action.
+The Member sidebar shows only OPEN/CLOSED conversations not hidden by that Member,
+supports cursor-based Load more pagination, and keeps a fixed width during loading,
+empty and loaded states. A Member can start a general consultation without a design,
+and can remove only a CLOSED conversation after confirmation; the store retains its
+history. Staff and Manager can close conversations within their respective scopes.
 
 ```mermaid
 flowchart LR

@@ -52,3 +52,15 @@
 - [x] T013-046 Prepare E2E-013-001 through E2E-013-005 with isolation/cleanup.
 - [x] T013-047 Execute Browser MCP scenarios and archive screenshots.
 
+## Version 1.1 — Sidebar and Member lifecycle
+
+- [x] T013-050 Add cursor pagination and `hasMore` response contract.
+- [x] T013-051 Allow contextless Member conversation creation.
+- [x] T013-052 Add Member-only closed-conversation soft hide and audit action.
+- [x] T013-053 Allow Staff/Manager close with scope and optimistic locking.
+- [x] T013-054 Add fixed-width loading and empty sidebar states.
+- [ ] T013-055 Add backend unit/integration tests for pagination, soft hide and close scope.
+- [ ] T013-056 Add frontend component tests for pagination, confirmation and layout states.
+- [ ] T013-057 Execute Browser MCP E2E-013-006 through E2E-013-013.
+- [ ] T013-058 Validate V184 on clean and existing databases.
+

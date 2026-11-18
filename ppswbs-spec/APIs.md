@@ -214,6 +214,12 @@ All write commands use `Idempotency-Key`; state commands also use
 `If-Match-Version`. Message length is 2,000 Unicode code points and Member sends
 are limited to 30 per rolling minute. The API returns safe projections only and
 does not expose raw database IDs, private context data, tokens or raw log payloads.
+The conversation list uses opaque cursor pagination (`limit` default 20, maximum
+50). Member-hidden conversations are excluded only from Member reads. Member may
+create a conversation with all context fields null, and may soft-hide only a
+closed conversation through `DELETE /api/v1/consultations/{conversationReference}`.
+Staff may close conversations within active location scope; Manager may close
+globally.
 
 | Owner | Boundary | Route family | Access | UC | Purpose | Maturity |
 | --- | --- | --- | --- | --- | --- | --- |

@@ -1,6 +1,12 @@
 // Feature-013 Bilingual Messages
 export const consultationMessages = {
   vi: {
+    generalConsultation: 'TÆ° váº¥n chung',
+    loadMore: 'Táº£i thÃªm',
+    deleteChat: 'XÃ³a khá»i danh sÃ¡ch cá»§a tÃ´i',
+    deleteChatConfirm: 'Cuá»™c trÃ² chuyá»‡n sáº½ chá»‰ bá»‹ áº©n khá»i danh sÃ¡ch cá»§a báº¡n. Cá»­a hÃ ng váº«n giá»¯ láº¡i lá»‹ch sá»­. Báº¡n cÃ³ cháº¯c muá»‘n tiáº¿p tá»¥c?',
+    deleteRequiresClosed: 'Vui lÃ²ng Ä‘Ã³ng cuá»™c trÃ² chuyá»‡n trÆ°á»›c khi xÃ³a.',
+    deleteSuccess: 'Cuá»™c trÃ² chuyá»‡n Ä‘Ã£ Ä‘Æ°á»£c áº©n khá»i danh sÃ¡ch.',
     title: 'Tư vấn thiết kế',
     inboxTitle: 'Hộp thư tư vấn',
     newConsultation: 'Tạo cuộc tư vấn mới',
@@ -52,6 +58,12 @@ export const consultationMessages = {
     unreadBadge: '{count} tin chưa đọc',
   },
   en: {
+    generalConsultation: 'General consultation',
+    loadMore: 'Load more',
+    deleteChat: 'Remove from my list',
+    deleteChatConfirm: 'This conversation will only be hidden from your list. The store will retain the history. Continue?',
+    deleteRequiresClosed: 'Please close the conversation before removing it.',
+    deleteSuccess: 'The conversation was removed from your list.',
     title: 'Design Consultation',
     inboxTitle: 'Consultation Inbox',
     newConsultation: 'New Consultation',

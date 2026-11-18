@@ -37,3 +37,11 @@ Accessibility requirements include labelled context controls, keyboard-send-safe
 composer, visible focus, status announcements for new messages and a non-colour-only
 indicator for unread/claimed/closed states.
 
+The sidebar uses a stable desktop width and full-width loading skeleton, empty
+state, error state and Load more control. Hidden Member conversations are not
+rendered. The create modal includes a General consultation option with no design
+preview. Member delete is available only for CLOSED conversations and requires a
+confirmation dialog explaining that the store retains the transcript. Staff and
+Manager conversation detail includes a close action within their authorization
+scope.
+

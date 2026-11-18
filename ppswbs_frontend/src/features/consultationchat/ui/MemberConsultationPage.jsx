@@ -11,6 +11,9 @@ export function MemberConsultationPage({ lang = 'vi' }) {
   const api = useConsultationChatApi();
 
   const [conversations, setConversations] = useState([]);
+  const [nextCursor, setNextCursor] = useState(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [selectedRef, setSelectedRef] = useState(null);
   const [activeConversation, setActiveConversation] = useState(null);
   const [loadingList, setLoadingList] = useState(true);
@@ -27,23 +30,31 @@ export function MemberConsultationPage({ lang = 'vi' }) {
   apiRef.current = api;
   const selectedRefRef = useRef(selectedRef);
   selectedRefRef.current = selectedRef;
+  const nextCursorRef = useRef(nextCursor);
+  nextCursorRef.current = nextCursor;
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
   };
 
   // Fetch conversations list
-  const loadConversations = useCallback(async (silent = false) => {
+  const loadConversations = useCallback(async (silent = false, append = false) => {
     if (!silent) setLoadingList(true);
+    if (append) setLoadingMore(true);
     try {
-      const res = await apiRef.current.listConversations();
+      const res = await apiRef.current.listConversations({ cursor: append ? nextCursorRef.current : undefined, limit: 20 });
       const items = res?.items || [];
-      setConversations(items);
+      setConversations((prev) => append
+        ? Array.from(new Map([...prev, ...items].map((item) => [item.conversationReference, item])).values())
+        : items);
+      setNextCursor(res?.nextCursor || null);
+      setHasMore(Boolean(res?.hasMore));
       setSelectedRef((prev) => prev || (items.length > 0 ? items[0].conversationReference : null));
     } catch (err) {
       if (!silent) setError(err.message || t.errorGeneral);
     } finally {
       if (!silent) setLoadingList(false);
+      if (append) setLoadingMore(false);
     }
   }, [t.errorGeneral]);
 
@@ -182,6 +193,24 @@ export function MemberConsultationPage({ lang = 'vi' }) {
     setSelectedRef(newConv.conversationReference);
   };
 
+  const handleHide = async () => {
+    if (!activeConversation) return;
+    if (activeConversation.status !== 'CLOSED') {
+      setError(t.deleteRequiresClosed);
+      return;
+    }
+    if (!window.confirm(t.deleteChatConfirm)) return;
+    try {
+      await api.hideForMember(newCommandId(), activeConversation.aggregateVersion, activeConversation.conversationReference);
+      setConversations((prev) => prev.filter((item) => item.conversationReference !== activeConversation.conversationReference));
+      setSelectedRef(null);
+      setActiveConversation(null);
+      setError(null);
+    } catch (err) {
+      setError(err.code === 'CHAT_DELETE_REQUIRES_CLOSED' ? t.deleteRequiresClosed : (err.message || t.errorGeneral));
+    }
+  };
+
   const currentCount = countCodePoints(messageInput);
   const isClosed = activeConversation?.status === 'CLOSED';
 
@@ -247,6 +276,11 @@ export function MemberConsultationPage({ lang = 'vi' }) {
             })
           )}
         </ul>
+        {hasMore && (
+          <button type="button" className="btn-secondary-consultation" onClick={() => loadConversations(false, true)} disabled={loadingMore}>
+            {loadingMore ? '...' : t.loadMore}
+          </button>
+        )}
       </div>
 
       {/* Main View */}
@@ -309,6 +343,16 @@ export function MemberConsultationPage({ lang = 'vi' }) {
                     style={{ fontSize: '0.85rem' }}
                   >
                     {t.reopen}
+                  </button>
+                )}
+                {isClosed && (
+                  <button
+                    type="button"
+                    className="btn-secondary-consultation"
+                    onClick={handleHide}
+                    style={{ fontSize: '0.85rem' }}
+                  >
+                    {t.deleteChat}
                   </button>
                 )}
               </div>

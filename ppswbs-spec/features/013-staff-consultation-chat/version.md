@@ -7,27 +7,31 @@
 
 ## Version 1.0 — Approved, Implemented and Verified
 
-- Confirmed separate Feature-013 boundary for human consultation chat.
-- Confirmed Member-only customer access; Guest chat is out of scope.
-- Confirmed Staff and Manager participation with shared inbox and claim mechanism.
-- Preserved Staff Workshop Location scope; Manager has global access and assignment authority.
-- Implemented REST + 10s visible-tab polling; no WebSocket/SSE.
-- Restricted content to immutable UTF-8 text, maximum 2,000 Unicode code points.
-- Enforced 30-message/minute Member rate limit, idempotency and optimistic version control (`If-Match-Version`).
-- Enforced context attachment for Feature-012 workshop designs and Feature-004 independent requests.
-- Server-owned context preview/code/version projection with immutable JSON snapshot.
-- 3-year transcript retention and metadata-only audit logging (no raw message text in audit/logs).
-- Created database migration `V183__staff_consultation_chat.sql`.
-- Added OpenAPI contract, domain entities, repositories, application services, web controllers, exception handlers, and frontend components.
-- Executed Spring Modulith architectural verification (`ModulithArchitectureTests`: BUILD SUCCESS).
-- Executed Backend unit tests (`ConsultationApplicationServiceTest`: 6/6 tests PASSED).
-- Executed Frontend unit tests (`vitest run src/features/consultationchat`: 9/9 tests PASSED).
-- Executed Browser MCP E2E test scenarios (`E2E-013-001` through `E2E-013-005`: 5/5 PASSED, all screenshot evidence recorded).
+- Separate Feature-013 boundary for Member-to-Staff/Manager consultation chat.
+- Member-only customer access; Guest chat remains out of scope.
+- Staff is location-scoped; Manager has global access and assignment authority.
+- REST + visible-tab polling; no WebSocket/SSE.
+- Immutable NFC-normalized UTF-8 text, maximum 2,000 Unicode code points.
+- Member rate limit, idempotency, optimistic locking and metadata-only audit logging.
+- Created `V183__staff_consultation_chat.sql` and implemented backend/frontend chat flow.
+- Existing Version 1.0 unit and E2E evidence remains the historical baseline.
 
-## Current Blockers
+## Version 1.1 — Sidebar and customer-side lifecycle update
 
-- None.
+- Added cursor pagination with default page size 20 and maximum 50.
+- Excluded Member-hidden conversations from the Member sidebar while retaining them for Staff and Manager operational history.
+- Allowed Member to create a general consultation without a design context.
+- Added Member-only soft hide for `CLOSED` conversations and confirmation UI.
+- Added `MEMBER_HIDE` audit action and migration `V184__consultation_member_soft_delete.sql`.
+- Confirmed Staff can close conversations within active location scope and Manager can close globally.
+- Added fixed-width loading, empty and loaded sidebar states.
+- Added E2E scenarios for pagination, contextless chat, Member hide, Staff scope, Manager close and layout exceptions.
+
+## Current Verification
+
+- Backend, frontend and E2E verification for Version 1.1 is pending.
+- Flyway `V184` must be validated against `flyway_schema_history` before deployment.
 
 ## Status
 
-`COMPLETED — FULLY IMPLEMENTED AND VERIFIED`
+`IMPLEMENTED — VERIFICATION PENDING FOR VERSION 1.1`

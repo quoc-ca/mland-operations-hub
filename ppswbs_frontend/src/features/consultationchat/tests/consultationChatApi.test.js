@@ -63,4 +63,32 @@ describe('Feature-013 consultationChatApi adapter', () => {
       auth: true,
     });
   });
+
+  it('calls paginated list with cursor and limit', async () => {
+    const mockRequest = vi.fn().mockResolvedValue({ items: [], hasMore: false });
+    const api = consultationChatApi(mockRequest);
+
+    await api.listConversations({ cursor: 'opaque-cursor', limit: 20 });
+
+    expect(mockRequest).toHaveBeenCalledWith('/api/v1/consultations', {
+      method: 'GET',
+      query: { status: undefined, cursor: 'opaque-cursor', limit: 20 },
+      auth: true,
+    });
+  });
+
+  it('soft hides a member conversation with idempotency and version headers', async () => {
+    const mockRequest = vi.fn().mockResolvedValue(undefined);
+    const api = consultationChatApi(mockRequest);
+
+    await api.hideForMember('hide-key-123456789012', 4, 'CONV-123');
+
+    expect(mockRequest).toHaveBeenCalledWith('/api/v1/consultations/CONV-123', {
+      method: 'DELETE',
+      body: undefined,
+      idempotencyKey: 'hide-key-123456789012',
+      headers: { 'If-Match-Version': '4' },
+      auth: true,
+    });
+  });
 });

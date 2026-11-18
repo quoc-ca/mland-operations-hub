@@ -17,12 +17,16 @@ export function consultationChatApi(request) {
       return command('/api/v1/consultations', 'POST', body, key);
     },
 
-    listConversations({ status, cursor } = {}) {
+    listConversations({ status, cursor, limit } = {}) {
       return request('/api/v1/consultations', {
         method: 'GET',
-        query: { status, cursor },
+        query: { status, cursor, limit },
         auth: true,
       });
+    },
+
+    hideForMember(key, version, conversationReference) {
+      return command(`/api/v1/consultations/${encodeURIComponent(conversationReference)}`, 'DELETE', undefined, key, version);
     },
 
     getConversation(conversationReference) {

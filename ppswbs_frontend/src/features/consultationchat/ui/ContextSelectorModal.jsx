@@ -12,12 +12,14 @@ export function ContextSelectorModal({ isOpen, onClose, onCreated, lang = 'vi' }
   const [submitting, setSubmitting] = useState(false);
   const [options, setOptions] = useState([]);
   const [selectedContext, setSelectedContext] = useState(null);
+  const [useGeneralConsultation, setUseGeneralConsultation] = useState(false);
   const [initialMessage, setInitialMessage] = useState('');
   const [error, setError] = useState(null);
 
   useEffect(() => {
     if (!isOpen) {
       setSelectedContext(null);
+      setUseGeneralConsultation(false);
       setInitialMessage('');
       setError(null);
       return;
@@ -45,7 +47,7 @@ export function ContextSelectorModal({ isOpen, onClose, onCreated, lang = 'vi' }
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!selectedContext) {
+    if (!selectedContext && !useGeneralConsultation) {
       setError(t.selectContext);
       return;
     }
@@ -64,9 +66,9 @@ export function ContextSelectorModal({ isOpen, onClose, onCreated, lang = 'vi' }
     try {
       const key = newCommandId();
       const body = {
-        contextType: selectedContext.contextType,
-        contextReference: selectedContext.contextReference,
-        contextVersion: selectedContext.designVersion,
+        contextType: useGeneralConsultation ? null : selectedContext.contextType,
+        contextReference: useGeneralConsultation ? null : selectedContext.contextReference,
+        contextVersion: useGeneralConsultation ? null : selectedContext.designVersion,
         initialMessage: initialMessage.trim() || undefined,
       };
 
@@ -100,6 +102,14 @@ export function ContextSelectorModal({ isOpen, onClose, onCreated, lang = 'vi' }
 
             <p style={{ margin: 0, color: '#555' }}>{t.selectContextPrompt}</p>
 
+            <button
+              type="button"
+              className={`consultation-context-card ${useGeneralConsultation ? 'selected' : ''}`}
+              onClick={() => { setUseGeneralConsultation(true); setSelectedContext(null); }}
+            >
+              {t.generalConsultation}
+            </button>
+
             {loading ? (
               <div style={{ textAlign: 'center', padding: '2rem', color: '#888' }}>
                 Đang tải danh sách thiết kế...
@@ -117,7 +127,7 @@ export function ContextSelectorModal({ isOpen, onClose, onCreated, lang = 'vi' }
                     <div
                       key={`${opt.contextType}-${opt.contextReference}-v${opt.designVersion}`}
                       className={`consultation-context-card ${isSelected ? 'selected' : ''}`}
-                      onClick={() => setSelectedContext(opt)}
+                      onClick={() => { setUseGeneralConsultation(false); setSelectedContext(opt); }}
                     >
                       <div className="consultation-context-thumbnail">
                         {opt.preview?.imageUrl ? (
@@ -184,7 +194,7 @@ export function ContextSelectorModal({ isOpen, onClose, onCreated, lang = 'vi' }
             <button
               type="submit"
               className="btn-primary-consultation"
-              disabled={submitting || loading || options.length === 0}
+              disabled={submitting || loading || (!useGeneralConsultation && options.length === 0)}
             >
               {submitting ? 'Đang tạo...' : t.confirm}
             </button>

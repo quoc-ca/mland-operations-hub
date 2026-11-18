@@ -55,10 +55,11 @@ public class ConsultationController {
     @GetMapping
     public ResponseEntity<ConversationListDto> listConversations(
             @RequestParam(value = "status", required = false) ConsultationStatus status,
-            @RequestParam(value = "cursor", required = false) String cursor
+            @RequestParam(value = "cursor", required = false) String cursor,
+            @RequestParam(value = "limit", required = false) Integer limit
     ) {
         AccountActorPort.CallerActor caller = requireCaller();
-        ConversationListDto result = applicationService.listConversations(status, cursor, caller);
+        ConversationListDto result = applicationService.listConversations(status, cursor, limit, caller);
         return ResponseEntity.ok(result);
     }
 
@@ -142,6 +143,18 @@ public class ConsultationController {
         AccountActorPort.CallerActor caller = requireCaller();
         ConversationDto result = applicationService.close(conversationReference, ifMatchVersion, caller, idempotencyKey, correlationId);
         return ResponseEntity.ok(result);
+    }
+
+    @DeleteMapping("/{conversationReference}")
+    public ResponseEntity<Void> hideForMember(
+            @PathVariable("conversationReference") String conversationReference,
+            @RequestHeader("Idempotency-Key") String idempotencyKey,
+            @RequestHeader("If-Match-Version") Long ifMatchVersion,
+            @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId
+    ) {
+        AccountActorPort.CallerActor caller = requireCaller();
+        applicationService.hideForMember(conversationReference, ifMatchVersion, caller, idempotencyKey, correlationId);
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/{conversationReference}/reopen")
