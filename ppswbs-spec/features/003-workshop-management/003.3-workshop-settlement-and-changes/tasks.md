@@ -437,3 +437,7 @@ Mapping: FR-058 → T183, T189; FR-059 → T184, T189; FR-060 → T186, T187; FR
 - [x] T199 **Done 2026-11-18 (QA doc):** [QA] `ppswbs-testing/master-e2e/JOURNEY-PHASE-2--workshop-booking-and-fulfillment.md` P2-S05b/c/d now assert the emails. Not executed yet (needs a mail capture on the test environment).
 
 Mapping: FR-064 → T194–T199.
+
+## Phase 16: Bugfix — ticket cancel always returned HTTP 409 (2026-11-18, reported by Hồ Hoàng Quốc)
+
+- [x] T200 **Done 2026-11-18 (BE):** [BE] Group-ticket cancel built the operations reference `CANCEL-<ticketCode>-<Idempotency-Key>` (74 chars for `GRP-…-L0-T1` + UUID), but `facade_command_idempotency_records.operation_reference` was `VARCHAR(64)` (V8), so the insert failed; `FacadeCommandIdempotencyManager.acquireClaim` treated every `DataIntegrityViolationException` as a "concurrent insert race", found no record and returned `IN_PROGRESS` → HTTP 409. Fix: migration `V185__widen_facade_idempotency_operation_reference.sql` (column → `VARCHAR(128)`, matches settlement tables; `uq_fci_action_op_ref` and `uq_fci_operation_reference` verified on a scratch MySQL 8.4 schema), entity length 128, and `acquireClaim` now rethrows the original error unless a competing record exists. Test: `FacadeCommandIdempotencyManagerTest` (red before the fix, 4/4 after). The running backend needs a restart so Flyway applies V185. Other references (`MLAND-CANCEL-`, `MLAND-REPLACE-` ≤ 14+40+1+36 = 91 with a UUID key) fit 128; a client key longer than ~70 chars would still overflow — see follow-up in the report.
