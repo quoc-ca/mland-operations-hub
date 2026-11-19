@@ -33,8 +33,7 @@ public class WorkshopRingDesignApplicationService {
             CreateDesignRequest request,
             Long memberAccountId,
             String guestSessionHeader,
-            String idempotencyKey
-    ) {
+            String idempotencyKey) {
         String actorScope = resolveActorScope(memberAccountId, guestSessionHeader);
 
         // Check idempotency replay
@@ -56,16 +55,21 @@ public class WorkshopRingDesignApplicationService {
 
         if ("PUBLISHED_MODEL".equalsIgnoreCase(request.getStartMode())) {
             if (request.getSourceModelReference() == null || request.getSourceModelReference().isBlank()) {
-                throw RingDesignException.badRequest("DESIGN_INPUT_INVALID", "sourceModelReference bắt buộc khi chọn startMode = PUBLISHED_MODEL.");
+                throw RingDesignException.badRequest("DESIGN_INPUT_INVALID",
+                        "sourceModelReference bắt buộc khi chọn startMode = PUBLISHED_MODEL.");
             }
-            RingCatalogueModel model = catalogueModelRepository.findByModelCode(request.getSourceModelReference().trim())
-                    .orElseThrow(() -> RingDesignException.businessInvalid("DESIGN_OPTION_INVALID", "Mẫu thiết kế catalogue không tồn tại.", List.of(request.getSourceModelReference())));
+            RingCatalogueModel model = catalogueModelRepository
+                    .findByModelCode(request.getSourceModelReference().trim())
+                    .orElseThrow(() -> RingDesignException.businessInvalid("DESIGN_OPTION_INVALID",
+                            "Mẫu thiết kế catalogue không tồn tại.", List.of(request.getSourceModelReference())));
             materialRef = model.getMaterialReference();
             shapeRef = model.getShapeReference();
             if (model.getDefaultComponents() != null) {
                 try {
-                    snapshotMap = objectMapper.readValue(model.getDefaultComponents(), new TypeReference<>() {});
-                } catch (Exception ignored) {}
+                    snapshotMap = objectMapper.readValue(model.getDefaultComponents(), new TypeReference<>() {
+                    });
+                } catch (Exception ignored) {
+                }
             }
         }
 
@@ -85,7 +89,9 @@ public class WorkshopRingDesignApplicationService {
         RingDesign initialDesign = RingDesign.builder()
                 .designReference(designReference)
                 .designVersion(1)
-                .designName("PUBLISHED_MODEL".equalsIgnoreCase(request.getStartMode()) ? request.getSourceModelReference() : "Thiết kế nhẫn tùy chỉnh")
+                .designName(
+                        "PUBLISHED_MODEL".equalsIgnoreCase(request.getStartMode()) ? request.getSourceModelReference()
+                                : "Thiết kế nhẫn tùy chỉnh")
                 .designType(RingDesignType.configured_design)
                 .ownerType(binding.ownerType)
                 .ownerReference(binding.ownerReference)
@@ -95,9 +101,11 @@ public class WorkshopRingDesignApplicationService {
                 .shapeReference(shapeRef)
                 .ringSize(ringSize)
                 .componentSnapshot(serializeSnapshot(snapshotMap))
-                .estimatedPrice(eval.getEstimatedPrice() != null ? new BigDecimal(eval.getEstimatedPrice()) : BigDecimal.ZERO)
+                .estimatedPrice(
+                        eval.getEstimatedPrice() != null ? new BigDecimal(eval.getEstimatedPrice()) : BigDecimal.ZERO)
                 .currency(eval.getCurrency())
-                .difficultyScore(eval.getDifficultyScore() != null ? new BigDecimal(eval.getDifficultyScore()) : BigDecimal.ONE)
+                .difficultyScore(
+                        eval.getDifficultyScore() != null ? new BigDecimal(eval.getDifficultyScore()) : BigDecimal.ONE)
                 .rulesVersion(eval.getRulesVersion())
                 .status(RingDesignStatus.DRAFT)
                 .build();
@@ -165,7 +173,8 @@ public class WorkshopRingDesignApplicationService {
                     .currency(d.getCurrency() != null ? d.getCurrency() : "VND")
                     .advisory(true)
                     .build();
-            ValidationResultDto val = ValidationResultDto.builder().valid(true).reasons(Collections.emptyList()).build();
+            ValidationResultDto val = ValidationResultDto.builder().valid(true).reasons(Collections.emptyList())
+                    .build();
             return mapToResponse(d, val, eval, snapshot);
         }).toList();
     }
@@ -182,7 +191,8 @@ public class WorkshopRingDesignApplicationService {
         ValidationResultDto val = rulesPort.validateCompatibility(mockReq, null);
         EvaluationResultDto eval = rulesPort.evaluate(mockReq);
 
-        // Preserve actual persisted estimated price and difficulty from record to prevent arbitrary fallback
+        // Preserve actual persisted estimated price and difficulty from record to
+        // prevent arbitrary fallback
         if (latest.getEstimatedPrice() != null && latest.getEstimatedPrice().compareTo(BigDecimal.ZERO) > 0) {
             eval.setEstimatedPrice(latest.getEstimatedPrice().toPlainString());
         }
@@ -200,8 +210,7 @@ public class WorkshopRingDesignApplicationService {
             Long memberAccountId,
             String guestSessionHeader,
             Long ifMatchVersion,
-            String idempotencyKey
-    ) {
+            String idempotencyKey) {
         String actorScope = resolveActorScope(memberAccountId, guestSessionHeader);
         var replay = idempotencyService.checkReplay(idempotencyKey, "SAVE_VERSION", actorScope, request);
         if (replay.isPresent()) {
@@ -214,18 +223,21 @@ public class WorkshopRingDesignApplicationService {
         verifyOwnership(latest, memberAccountId, guestSessionHeader);
 
         if (latest.getStatus() == RingDesignStatus.LOCKED || latest.getStatus() == RingDesignStatus.ARCHIVED) {
-            throw RingDesignException.conflict("DESIGN_LOCKED", "Thiết kế nhẫn đã bị khóa hoặc lưu trữ, không thể cập nhật phiên bản mới.");
+            throw RingDesignException.conflict("DESIGN_LOCKED",
+                    "Thiết kế nhẫn đã bị khóa hoặc lưu trữ, không thể cập nhật phiên bản mới.");
         }
 
         if (ifMatchVersion != null && !latest.getDesignVersion().equals(ifMatchVersion.intValue())) {
-            throw RingDesignException.versionConflict("Phiên bản thiết kế không khớp (stale version). Vui lòng tải lại trước khi lưu.");
+            throw RingDesignException
+                    .versionConflict("Phiên bản thiết kế không khớp (stale version). Vui lòng tải lại trước khi lưu.");
         }
 
         // Validate compatibility
         ValidationResultDto val = rulesPort.validateCompatibility(request, null);
         if (!val.isValid()) {
             String errorCode = determineValidationErrorCode(val.getReasons());
-            throw RingDesignException.businessInvalid(errorCode, "Tùy chọn thiết kế không hợp lệ hoặc không tương thích.", val.getReasons());
+            throw RingDesignException.businessInvalid(errorCode,
+                    "Tùy chọn thiết kế không hợp lệ hoặc không tương thích.", val.getReasons());
         }
 
         EvaluationResultDto eval = rulesPort.evaluate(request);
@@ -276,8 +288,7 @@ public class WorkshopRingDesignApplicationService {
             Long memberAccountId,
             String guestSessionHeader,
             Long ifMatchVersion,
-            String idempotencyKey
-    ) {
+            String idempotencyKey) {
         return saveVersion(designId, request, memberAccountId, guestSessionHeader, ifMatchVersion, idempotencyKey);
     }
 
@@ -287,8 +298,7 @@ public class WorkshopRingDesignApplicationService {
             Long memberAccountId,
             String guestSessionHeader,
             Long ifMatchVersion,
-            String idempotencyKey
-    ) {
+            String idempotencyKey) {
         String actorScope = resolveActorScope(memberAccountId, guestSessionHeader);
         var replay = idempotencyService.checkReplay(idempotencyKey, "ARCHIVE_DESIGN", actorScope, designId);
         if (replay.isPresent()) {
@@ -300,12 +310,15 @@ public class WorkshopRingDesignApplicationService {
 
         verifyOwnership(latest, memberAccountId, guestSessionHeader);
 
-        if (latest.getStatus() == RingDesignStatus.LOCKED || latest.getStatus() == RingDesignStatus.ATTACHED_TO_BOOKING) {
-            throw RingDesignException.conflict("DESIGN_CANNOT_ARCHIVE", "Không thể lưu trữ thiết kế đã gắn với lịch đặt hoặc đã bị khóa.");
+        if (latest.getStatus() == RingDesignStatus.LOCKED
+                || latest.getStatus() == RingDesignStatus.ATTACHED_TO_BOOKING) {
+            throw RingDesignException.conflict("DESIGN_CANNOT_ARCHIVE",
+                    "Không thể lưu trữ thiết kế đã gắn với lịch đặt hoặc đã bị khóa.");
         }
 
         if (ifMatchVersion != null && !latest.getDesignVersion().equals(ifMatchVersion.intValue())) {
-            throw RingDesignException.versionConflict("Phiên bản thiết kế không khớp. Vui lòng tải lại trước khi lưu trữ.");
+            throw RingDesignException
+                    .versionConflict("Phiên bản thiết kế không khớp. Vui lòng tải lại trước khi lưu trữ.");
         }
 
         latest.setStatus(RingDesignStatus.ARCHIVED);
@@ -315,9 +328,11 @@ public class WorkshopRingDesignApplicationService {
         DesignResponseDto response = mapToResponse(saved,
                 ValidationResultDto.builder().valid(true).reasons(Collections.emptyList()).build(),
                 EvaluationResultDto.builder()
-                        .estimatedPrice(saved.getEstimatedPrice() != null ? saved.getEstimatedPrice().toPlainString() : null)
+                        .estimatedPrice(
+                                saved.getEstimatedPrice() != null ? saved.getEstimatedPrice().toPlainString() : null)
                         .currency(saved.getCurrency())
-                        .difficultyScore(saved.getDifficultyScore() != null ? saved.getDifficultyScore().toPlainString() : null)
+                        .difficultyScore(
+                                saved.getDifficultyScore() != null ? saved.getDifficultyScore().toPlainString() : null)
                         .rulesVersion(saved.getRulesVersion())
                         .advisory(true)
                         .build(),
@@ -334,8 +349,7 @@ public class WorkshopRingDesignApplicationService {
             Long memberAccountId,
             String guestSessionHeader,
             Long ifMatchVersion,
-            String idempotencyKey
-    ) {
+            String idempotencyKey) {
         String actorScope = resolveActorScope(memberAccountId, guestSessionHeader);
         var replay = idempotencyService.checkReplay(idempotencyKey, "ATTACH_DESIGN", actorScope, request);
         if (replay.isPresent()) {
@@ -348,7 +362,8 @@ public class WorkshopRingDesignApplicationService {
         verifyOwnership(latest, memberAccountId, guestSessionHeader);
 
         if (latest.getStatus() != RingDesignStatus.VALIDATED) {
-            throw RingDesignException.conflict("DESIGN_NOT_VALIDATED", "Chỉ thiết kế đã được thẩm định (VALIDATED) mới có thể gắn vào lịch đặt.");
+            throw RingDesignException.conflict("DESIGN_NOT_VALIDATED",
+                    "Chỉ thiết kế đã được thẩm định (VALIDATED) mới có thể gắn vào lịch đặt.");
         }
 
         if (ifMatchVersion != null && !latest.getDesignVersion().equals(ifMatchVersion.intValue())) {
@@ -404,7 +419,8 @@ public class WorkshopRingDesignApplicationService {
         return "ANONYMOUS";
     }
 
-    private record ActorBinding(RingDesignOwnerType ownerType, String ownerReference, GuestDesignSession guestSession) {}
+    private record ActorBinding(RingDesignOwnerType ownerType, String ownerReference, GuestDesignSession guestSession) {
+    }
 
     private ActorBinding resolveActorBinding(Long memberAccountId, String guestSessionHeader) {
         if (memberAccountId != null) {
@@ -423,8 +439,7 @@ public class WorkshopRingDesignApplicationService {
             RingDesign design,
             ValidationResultDto val,
             EvaluationResultDto eval,
-            Map<String, Object> snapshot
-    ) {
+            Map<String, Object> snapshot) {
         return DesignResponseDto.builder()
                 .designId(design.getDesignReference())
                 .packageReference(design.getPackageReference())
@@ -445,9 +460,11 @@ public class WorkshopRingDesignApplicationService {
     }
 
     private Map<String, Object> deserializeSnapshot(String json) {
-        if (json == null || json.isBlank()) return Collections.emptyMap();
+        if (json == null || json.isBlank())
+            return Collections.emptyMap();
         try {
-            return objectMapper.readValue(json, new TypeReference<>() {});
+            return objectMapper.readValue(json, new TypeReference<>() {
+            });
         } catch (Exception e) {
             return Collections.emptyMap();
         }
@@ -461,38 +478,47 @@ public class WorkshopRingDesignApplicationService {
 
         if (snapshot.get("components") instanceof List<?> list) {
             try {
-                components = objectMapper.convertValue(list, new TypeReference<>() {});
-            } catch (Exception ignored) {}
+                components = objectMapper.convertValue(list, new TypeReference<>() {
+                });
+            } catch (Exception ignored) {
+            }
         }
         if (snapshot.get("attachments") instanceof List<?> list) {
             try {
-                attachments = objectMapper.convertValue(list, new TypeReference<>() {});
-            } catch (Exception ignored) {}
+                attachments = objectMapper.convertValue(list, new TypeReference<>() {
+                });
+            } catch (Exception ignored) {
+            }
         }
         if (snapshot.get("engraving") instanceof Map<?, ?> map) {
             try {
                 engraving = objectMapper.convertValue(map, EngravingInputDto.class);
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+            }
         }
 
         BigDecimal thickness = null;
         if (snapshot.get("thicknessMm") != null) {
             try {
                 thickness = new BigDecimal(snapshot.get("thicknessMm").toString());
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+            }
         }
         BigDecimal bandWidth = null;
         if (snapshot.get("bandWidthMm") != null) {
             try {
                 bandWidth = new BigDecimal(snapshot.get("bandWidthMm").toString());
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+            }
         }
 
         List<GemstonePositionDto> gemstonePositions = new ArrayList<>();
         if (snapshot.get("gemstonePositions") instanceof List<?> list) {
             try {
-                gemstonePositions = objectMapper.convertValue(list, new TypeReference<>() {});
-            } catch (Exception ignored) {}
+                gemstonePositions = objectMapper.convertValue(list, new TypeReference<>() {
+                });
+            } catch (Exception ignored) {
+            }
         }
 
         return SaveDesignVersionRequest.builder()
@@ -510,7 +536,8 @@ public class WorkshopRingDesignApplicationService {
     }
 
     private String determineValidationErrorCode(List<String> reasons) {
-        if (reasons == null) return "DESIGN_OPTION_INVALID";
+        if (reasons == null)
+            return "DESIGN_OPTION_INVALID";
         for (String r : reasons) {
             if (r.contains("GEMSTONE_TOTAL_LIMIT_EXCEEDED")) {
                 return "GEMSTONE_TOTAL_LIMIT_EXCEEDED";
@@ -531,4 +558,3 @@ public class WorkshopRingDesignApplicationService {
         return "DESIGN_OPTION_INVALID";
     }
 }
-
