@@ -323,6 +323,11 @@ class RetailCatalogueMySqlIntegrationTest {
 
     private record CallbackFixture(String checkout, String merchant, long variant, long member) { }
 
+    /** The branch the catalogue fixture publishes its products at; it is not always location id 1 on a reused database. */
+    private long branch() {
+        return fixture.testBranch();
+    }
+
     private CallbackFixture retailCallbackFixture(boolean expired) {
         return retailCallbackFixture(expired, false);
     }
@@ -333,9 +338,9 @@ class RetailCatalogueMySqlIntegrationTest {
         String random = UUID.randomUUID().toString();
         long member = accounts.saveAndFlush(Account.builder().firebaseUid("callback-" + random)
                 .loginEmail("callback-" + random + "@example.test").build()).getId();
-        cart.addLine(member, new CartDtos.AddCartLineRequest(variant, 1L, 1));
+        cart.addLine(member, new CartDtos.AddCartLineRequest(variant, branch(), 1));
         var selection = new CheckoutDtos.BenefitSelection("NONE", null, "0");
-        var choices = List.of(new CheckoutDtos.BranchOrderCheckoutInput(1L, "PICKUP", null));
+        var choices = List.of(new CheckoutDtos.BranchOrderCheckoutInput(branch(), "PICKUP", null));
         var preview = quotePreview.preview(member, new CheckoutDtos.BenefitPreviewRequest(selection, choices));
         var checkout = acceptance.accept(member, "callback-" + random,
                 new CheckoutDtos.CreateGroupedCheckoutRequest(choices, preview.previewId(), selection, true));
@@ -428,9 +433,9 @@ class RetailCatalogueMySqlIntegrationTest {
             wallet.earn(BigInteger.valueOf(500));
             wallets.saveAndFlush(wallet);
         });
-        cart.addLine(member, new CartDtos.AddCartLineRequest(variant, 1L, 1));
+        cart.addLine(member, new CartDtos.AddCartLineRequest(variant, branch(), 1));
         var selection = new CheckoutDtos.BenefitSelection("VOUCHER", code, "100");
-        var choices = List.of(new CheckoutDtos.BranchOrderCheckoutInput(1L, "PICKUP", null));
+        var choices = List.of(new CheckoutDtos.BranchOrderCheckoutInput(branch(), "PICKUP", null));
         var preview = quotePreview.preview(member, new CheckoutDtos.BenefitPreviewRequest(selection, choices));
         var accepted = acceptance.accept(member, "verify-" + random,
             new CheckoutDtos.CreateGroupedCheckoutRequest(choices, preview.previewId(), selection, true));
@@ -506,9 +511,9 @@ class RetailCatalogueMySqlIntegrationTest {
             wallet.earn(BigInteger.valueOf(500));
             wallets.saveAndFlush(wallet);
         });
-        cart.addLine(member, new CartDtos.AddCartLineRequest(variant, 1L, 1));
+        cart.addLine(member, new CartDtos.AddCartLineRequest(variant, branch(), 1));
         var selection = new CheckoutDtos.BenefitSelection("VOUCHER", code, "100");
-        var choices = List.of(new CheckoutDtos.BranchOrderCheckoutInput(1L, "PICKUP", null));
+        var choices = List.of(new CheckoutDtos.BranchOrderCheckoutInput(branch(), "PICKUP", null));
         var preview = quotePreview.preview(member, new CheckoutDtos.BenefitPreviewRequest(selection, choices));
         var accepted = acceptance.accept(member, "expiry-" + random,
             new CheckoutDtos.CreateGroupedCheckoutRequest(choices, preview.previewId(), selection, true));
@@ -551,9 +556,9 @@ class RetailCatalogueMySqlIntegrationTest {
         String random = UUID.randomUUID().toString();
         long member = accounts.saveAndFlush(Account.builder().firebaseUid("fe08-expiry-pending-" + random)
             .loginEmail("fe08-expiry-pending-" + random + "@example.test").build()).getId();
-        cart.addLine(member, new CartDtos.AddCartLineRequest(variant, 1L, 1));
+        cart.addLine(member, new CartDtos.AddCartLineRequest(variant, branch(), 1));
         var selection = new CheckoutDtos.BenefitSelection("NONE", null, "0");
-        var choices = List.of(new CheckoutDtos.BranchOrderCheckoutInput(1L, "PICKUP", null));
+        var choices = List.of(new CheckoutDtos.BranchOrderCheckoutInput(branch(), "PICKUP", null));
         var preview = quotePreview.preview(member, new CheckoutDtos.BenefitPreviewRequest(selection, choices));
         var accepted = acceptance.accept(member, "pending-" + random,
             new CheckoutDtos.CreateGroupedCheckoutRequest(choices, preview.previewId(), selection, true));
@@ -577,9 +582,9 @@ class RetailCatalogueMySqlIntegrationTest {
         String random = UUID.randomUUID().toString();
         long member = accounts.saveAndFlush(Account.builder().firebaseUid("fe08-http-" + random)
             .loginEmail("fe08-http-" + random + "@example.test").build()).getId();
-        cart.addLine(member, new CartDtos.AddCartLineRequest(variant, 1L, 1));
+        cart.addLine(member, new CartDtos.AddCartLineRequest(variant, branch(), 1));
         var selection = new CheckoutDtos.BenefitSelection("NONE", null, "0");
-        var choices = List.of(new CheckoutDtos.BranchOrderCheckoutInput(1L, "PICKUP", null));
+        var choices = List.of(new CheckoutDtos.BranchOrderCheckoutInput(branch(), "PICKUP", null));
         var preview = quotePreview.preview(member, new CheckoutDtos.BenefitPreviewRequest(selection, choices));
         var actor = mock(RetailActorResolver.class);
         when(actor.requireActiveMember(any(HttpServletRequest.class))).thenReturn(new RetailMemberActor(member));
@@ -589,7 +594,7 @@ class RetailCatalogueMySqlIntegrationTest {
         var controller = new CheckoutController(actor, mock(RetailCheckoutService.class), mock(RetailPaymentService.class), previewProvider, acceptanceProvider);
         org.springframework.test.util.ReflectionTestUtils.setField(controller, "testAcceptanceEnabled", true);
         var mvc = MockMvcBuilders.standaloneSetup(controller).setControllerAdvice(new RetailExceptionHandler()).build();
-        String body = "{\"branchOrders\":[{\"locationId\":1,\"method\":\"PICKUP\"}],\"benefitPreviewId\":\""
+        String body = "{\"branchOrders\":[{\"locationId\":" + branch() + ",\"method\":\"PICKUP\"}],\"benefitPreviewId\":\""
             + preview.previewId() + "\",\"benefitSelection\":{\"choice\":\"NONE\",\"requestedPoints\":\"0\"},\"benefitTermsAccepted\":true}";
         String key = "http-" + random;
         String first = mvc.perform(post("/api/v1/ready-ring-orders").header("Idempotency-Key", key)
@@ -609,7 +614,7 @@ class RetailCatalogueMySqlIntegrationTest {
         String random = UUID.randomUUID().toString();
         long member = accounts.saveAndFlush(Account.builder().firebaseUid("fe08-reasons-" + random)
             .loginEmail("fe08-reasons-" + random + "@example.test").build()).getId();
-        cart.addLine(member, new CartDtos.AddCartLineRequest(variant, 1L, 1));
+        cart.addLine(member, new CartDtos.AddCartLineRequest(variant, branch(), 1));
         var actor = mock(RetailActorResolver.class);
         when(actor.requireActiveMember(any(HttpServletRequest.class))).thenReturn(new RetailMemberActor(member));
         @SuppressWarnings("unchecked") ObjectProvider<RetailCheckoutQuotePreviewService> provider = mock(ObjectProvider.class);
@@ -617,7 +622,7 @@ class RetailCatalogueMySqlIntegrationTest {
         var mvc = MockMvcBuilders.standaloneSetup(new CheckoutController(actor, mock(RetailCheckoutService.class),
             mock(RetailPaymentService.class), provider, mock(ObjectProvider.class))).setControllerAdvice(new RetailExceptionHandler()).build();
         String route = "/api/v1/ready-ring-benefit-previews";
-        String branch = ",\"branchOrders\":[{\"locationId\":1,\"method\":\"PICKUP\"}]}";
+        String branch = ",\"branchOrders\":[{\"locationId\":" + branch() + ",\"method\":\"PICKUP\"}]}";
         String missingCode = "MISSING" + random.replace("-", "");
         int before = jdbc.queryForObject("select count(*) from retail_checkout_quotes where member_account_id = ?", Integer.class, member);
 
@@ -650,13 +655,13 @@ class RetailCatalogueMySqlIntegrationTest {
             .loginEmail("fe08-pickup-member-" + random + "@example.test").build()).getId();
         long staffId = accounts.saveAndFlush(Account.builder().firebaseUid("fe08-pickup-staff-" + random)
             .loginEmail("fe08-pickup-staff-" + random + "@example.test").build()).getId();
-        var staff = new CurrentAccountActor(staffId, ActorRole.STAFF, ActorStatus.ACTIVE, true, List.of(1L));
+        var staff = new CurrentAccountActor(staffId, ActorRole.STAFF, ActorStatus.ACTIVE, true, List.of(branch()));
         var otherBranch = new CurrentAccountActor(staffId, ActorRole.STAFF, ActorStatus.ACTIVE, true, List.of(2L));
-        var suspended = new CurrentAccountActor(staffId, ActorRole.STAFF, ActorStatus.SUSPENDED, true, List.of(1L));
-        var customer = new CurrentAccountActor(member, ActorRole.MEMBER, ActorStatus.ACTIVE, true, List.of(1L));
-        cart.addLine(member, new CartDtos.AddCartLineRequest(variant, 1L, 1));
+        var suspended = new CurrentAccountActor(staffId, ActorRole.STAFF, ActorStatus.SUSPENDED, true, List.of(branch()));
+        var customer = new CurrentAccountActor(member, ActorRole.MEMBER, ActorStatus.ACTIVE, true, List.of(branch()));
+        cart.addLine(member, new CartDtos.AddCartLineRequest(variant, branch(), 1));
         var selection = new CheckoutDtos.BenefitSelection("NONE", null, "0");
-        var choices = List.of(new CheckoutDtos.BranchOrderCheckoutInput(1L, "PICKUP", null));
+        var choices = List.of(new CheckoutDtos.BranchOrderCheckoutInput(branch(), "PICKUP", null));
         var preview = quotePreview.preview(member, new CheckoutDtos.BenefitPreviewRequest(selection, choices));
         var accepted = acceptance.accept(member, "pickup-" + random,
             new CheckoutDtos.CreateGroupedCheckoutRequest(choices, preview.previewId(), selection, true));
@@ -696,9 +701,9 @@ class RetailCatalogueMySqlIntegrationTest {
             .loginEmail("fe08-history-" + random + "@example.test").build()).getId();
         long other = accounts.saveAndFlush(Account.builder().firebaseUid("fe08-history-other-" + random)
             .loginEmail("fe08-history-other-" + random + "@example.test").build()).getId();
-        cart.addLine(member, new CartDtos.AddCartLineRequest(variant, 1L, 2));
+        cart.addLine(member, new CartDtos.AddCartLineRequest(variant, branch(), 2));
         var selection = new CheckoutDtos.BenefitSelection("NONE", null, "0");
-        var choices = List.of(new CheckoutDtos.BranchOrderCheckoutInput(1L, "PICKUP", null));
+        var choices = List.of(new CheckoutDtos.BranchOrderCheckoutInput(branch(), "PICKUP", null));
         var preview = quotePreview.preview(member, new CheckoutDtos.BenefitPreviewRequest(selection, choices));
         var accepted = acceptance.accept(member, "history-" + random,
             new CheckoutDtos.CreateGroupedCheckoutRequest(choices, preview.previewId(), selection, true));
@@ -742,9 +747,9 @@ class RetailCatalogueMySqlIntegrationTest {
             wallet.earn(BigInteger.valueOf(500));
             wallets.saveAndFlush(wallet);
         });
-        cart.addLine(member, new CartDtos.AddCartLineRequest(variant, 1L, 1));
+        cart.addLine(member, new CartDtos.AddCartLineRequest(variant, branch(), 1));
         var selection = new CheckoutDtos.BenefitSelection("VOUCHER", code, "100");
-        var choices = List.of(new CheckoutDtos.BranchOrderCheckoutInput(1L, "PICKUP", null));
+        var choices = List.of(new CheckoutDtos.BranchOrderCheckoutInput(branch(), "PICKUP", null));
         var preview = quotePreview.preview(member, new CheckoutDtos.BenefitPreviewRequest(selection, choices));
         BigDecimal payable = new BigDecimal(preview.payableAmount());
         var accepted = acceptance.accept(member, "paid-" + random,
@@ -786,9 +791,9 @@ class RetailCatalogueMySqlIntegrationTest {
         String random = UUID.randomUUID().toString();
         long member = accounts.saveAndFlush(Account.builder().firebaseUid("fe08-late-" + random)
             .loginEmail("fe08-late-" + random + "@example.test").build()).getId();
-        cart.addLine(member, new CartDtos.AddCartLineRequest(variant, 1L, 1));
+        cart.addLine(member, new CartDtos.AddCartLineRequest(variant, branch(), 1));
         var selection = new CheckoutDtos.BenefitSelection("NONE", null, "0");
-        var choices = List.of(new CheckoutDtos.BranchOrderCheckoutInput(1L, "PICKUP", null));
+        var choices = List.of(new CheckoutDtos.BranchOrderCheckoutInput(branch(), "PICKUP", null));
         var preview = quotePreview.preview(member, new CheckoutDtos.BenefitPreviewRequest(selection, choices));
         var accepted = acceptance.accept(member, "late-" + random,
             new CheckoutDtos.CreateGroupedCheckoutRequest(choices, preview.previewId(), selection, true));
@@ -820,9 +825,9 @@ class RetailCatalogueMySqlIntegrationTest {
             targets.save(PromotionTarget.create(revision.getId(), TargetScope.PRODUCT, TargetDimension.PRODUCT, Long.toString(product)));
             program.pointToRevision(revision.getId());
         });
-        cart.addLine(member, new CartDtos.AddCartLineRequest(variant, 1L, 1));
+        cart.addLine(member, new CartDtos.AddCartLineRequest(variant, branch(), 1));
         var selection = new CheckoutDtos.BenefitSelection("VOUCHER", code, "0");
-        var choices = List.of(new CheckoutDtos.BranchOrderCheckoutInput(1L, "PICKUP", null));
+        var choices = List.of(new CheckoutDtos.BranchOrderCheckoutInput(branch(), "PICKUP", null));
         var preview = quotePreview.preview(member, new CheckoutDtos.BenefitPreviewRequest(selection, choices));
         assertThat(preview.payableAmount()).isEqualTo("0");
         var command = new CheckoutDtos.CreateGroupedCheckoutRequest(choices, preview.previewId(), selection, true);
@@ -856,9 +861,9 @@ class RetailCatalogueMySqlIntegrationTest {
             wallet.earn(BigInteger.valueOf(500));
             wallets.saveAndFlush(wallet);
         });
-        cart.addLine(member, new CartDtos.AddCartLineRequest(variant, 1L, 1));
+        cart.addLine(member, new CartDtos.AddCartLineRequest(variant, branch(), 1));
         var selection = new CheckoutDtos.BenefitSelection("VOUCHER", code, "100");
-        var choices = List.of(new CheckoutDtos.BranchOrderCheckoutInput(1L, "PICKUP", null));
+        var choices = List.of(new CheckoutDtos.BranchOrderCheckoutInput(branch(), "PICKUP", null));
         var preview = quotePreview.preview(member, new CheckoutDtos.BenefitPreviewRequest(selection, choices));
         var accepted = acceptance.accept(member, "benefits-" + random,
             new CheckoutDtos.CreateGroupedCheckoutRequest(choices, preview.previewId(), selection, true));
@@ -884,9 +889,9 @@ class RetailCatalogueMySqlIntegrationTest {
         String random = UUID.randomUUID().toString();
         long member = accounts.saveAndFlush(Account.builder().firebaseUid("fe08-cancel-" + random)
             .loginEmail("fe08-cancel-" + random + "@example.test").build()).getId();
-        cart.addLine(member, new CartDtos.AddCartLineRequest(variant, 1L, 1));
+        cart.addLine(member, new CartDtos.AddCartLineRequest(variant, branch(), 1));
         var selection = new CheckoutDtos.BenefitSelection("NONE", null, "0");
-        var choices = List.of(new CheckoutDtos.BranchOrderCheckoutInput(1L, "PICKUP", null));
+        var choices = List.of(new CheckoutDtos.BranchOrderCheckoutInput(branch(), "PICKUP", null));
         var preview = quotePreview.preview(member, new CheckoutDtos.BenefitPreviewRequest(selection, choices));
         var accepted = acceptance.accept(member, "cancel-accept-" + random,
             new CheckoutDtos.CreateGroupedCheckoutRequest(choices, preview.previewId(), selection, true));
@@ -917,9 +922,9 @@ class RetailCatalogueMySqlIntegrationTest {
         String random = UUID.randomUUID().toString();
         long member = accounts.saveAndFlush(Account.builder().firebaseUid("fe08-started-" + random)
             .loginEmail("fe08-started-" + random + "@example.test").build()).getId();
-        cart.addLine(member, new CartDtos.AddCartLineRequest(variant, 1L, 1));
+        cart.addLine(member, new CartDtos.AddCartLineRequest(variant, branch(), 1));
         var selection = new CheckoutDtos.BenefitSelection("NONE", null, "0");
-        var choices = List.of(new CheckoutDtos.BranchOrderCheckoutInput(1L, "PICKUP", null));
+        var choices = List.of(new CheckoutDtos.BranchOrderCheckoutInput(branch(), "PICKUP", null));
         var preview = quotePreview.preview(member, new CheckoutDtos.BenefitPreviewRequest(selection, choices));
         var accepted = acceptance.accept(member, "started-" + random,
             new CheckoutDtos.CreateGroupedCheckoutRequest(choices, preview.previewId(), selection, true));
@@ -939,10 +944,10 @@ class RetailCatalogueMySqlIntegrationTest {
             .loginEmail("fe08-race1-" + random + "@example.test").build()).getId();
         long secondMember = accounts.saveAndFlush(Account.builder().firebaseUid("fe08-race2-" + random)
             .loginEmail("fe08-race2-" + random + "@example.test").build()).getId();
-        cart.addLine(firstMember, new CartDtos.AddCartLineRequest(variant, 1L, 3));
-        cart.addLine(secondMember, new CartDtos.AddCartLineRequest(variant, 1L, 3));
+        cart.addLine(firstMember, new CartDtos.AddCartLineRequest(variant, branch(), 3));
+        cart.addLine(secondMember, new CartDtos.AddCartLineRequest(variant, branch(), 3));
         var selection = new CheckoutDtos.BenefitSelection("NONE", null, "0");
-        var choices = List.of(new CheckoutDtos.BranchOrderCheckoutInput(1L, "PICKUP", null));
+        var choices = List.of(new CheckoutDtos.BranchOrderCheckoutInput(branch(), "PICKUP", null));
         var firstQuote = quotePreview.preview(firstMember, new CheckoutDtos.BenefitPreviewRequest(selection, choices));
         var secondQuote = quotePreview.preview(secondMember, new CheckoutDtos.BenefitPreviewRequest(selection, choices));
         var firstCommand = new CheckoutDtos.CreateGroupedCheckoutRequest(choices, firstQuote.previewId(), selection, true);
@@ -978,9 +983,9 @@ class RetailCatalogueMySqlIntegrationTest {
         String random = UUID.randomUUID().toString();
         long member = accounts.saveAndFlush(Account.builder().firebaseUid("fe08-rollback-" + random)
             .loginEmail("fe08-rollback-" + random + "@example.test").build()).getId();
-        cart.addLine(member, new CartDtos.AddCartLineRequest(variant, 1L, 1));
+        cart.addLine(member, new CartDtos.AddCartLineRequest(variant, branch(), 1));
         var selection = new CheckoutDtos.BenefitSelection("NONE", null, "0");
-        var choices = List.of(new CheckoutDtos.BranchOrderCheckoutInput(1L, "PICKUP", null));
+        var choices = List.of(new CheckoutDtos.BranchOrderCheckoutInput(branch(), "PICKUP", null));
         var preview = quotePreview.preview(member, new CheckoutDtos.BenefitPreviewRequest(selection, choices));
         jdbc.update("update retail_checkout_quotes set terms_digest = ? where id = ?", "changed-terms", preview.previewId());
         var command = new CheckoutDtos.CreateGroupedCheckoutRequest(choices, preview.previewId(), selection, true);
@@ -1003,9 +1008,9 @@ class RetailCatalogueMySqlIntegrationTest {
         String random = UUID.randomUUID().toString();
         long member = accounts.saveAndFlush(Account.builder().firebaseUid("fe08-accept-" + random)
             .loginEmail("fe08-accept-" + random + "@example.test").build()).getId();
-        cart.addLine(member, new CartDtos.AddCartLineRequest(variant, 1L, 1));
+        cart.addLine(member, new CartDtos.AddCartLineRequest(variant, branch(), 1));
         var selection = new CheckoutDtos.BenefitSelection("NONE", null, "0");
-        var choices = List.of(new CheckoutDtos.BranchOrderCheckoutInput(1L, "PICKUP", null));
+        var choices = List.of(new CheckoutDtos.BranchOrderCheckoutInput(branch(), "PICKUP", null));
         var preview = quotePreview.preview(member, new CheckoutDtos.BenefitPreviewRequest(selection, choices));
         var command = new CheckoutDtos.CreateGroupedCheckoutRequest(choices, preview.previewId(), selection, true);
 
@@ -1030,9 +1035,9 @@ class RetailCatalogueMySqlIntegrationTest {
         String random = UUID.randomUUID().toString();
         long member = accounts.saveAndFlush(Account.builder().firebaseUid("fe08-stale-" + random)
             .loginEmail("fe08-stale-" + random + "@example.test").build()).getId();
-        var initial = cart.addLine(member, new CartDtos.AddCartLineRequest(variant, 1L, 1));
+        var initial = cart.addLine(member, new CartDtos.AddCartLineRequest(variant, branch(), 1));
         var selection = new CheckoutDtos.BenefitSelection("NONE", null, "0");
-        var choices = List.of(new CheckoutDtos.BranchOrderCheckoutInput(1L, "PICKUP", null));
+        var choices = List.of(new CheckoutDtos.BranchOrderCheckoutInput(branch(), "PICKUP", null));
         var preview = quotePreview.preview(member, new CheckoutDtos.BenefitPreviewRequest(selection, choices));
         cart.updateLine(member, initial.lines().getFirst().id(), new CartDtos.UpdateCartLineRequest(2));
         var command = new CheckoutDtos.CreateGroupedCheckoutRequest(choices, preview.previewId(), selection, true);
@@ -1053,10 +1058,10 @@ class RetailCatalogueMySqlIntegrationTest {
         String random = UUID.randomUUID().toString();
         long member = accounts.saveAndFlush(Account.builder().firebaseUid("fe08-preview-" + random)
             .loginEmail("fe08-preview-" + random + "@example.test").build()).getId();
-        cart.addLine(member, new CartDtos.AddCartLineRequest(variant, 1L, 1));
+        cart.addLine(member, new CartDtos.AddCartLineRequest(variant, branch(), 1));
         var result = quotePreview.preview(member, new CheckoutDtos.BenefitPreviewRequest(
             new CheckoutDtos.BenefitSelection("NONE", null, "0"),
-            List.of(new CheckoutDtos.BranchOrderCheckoutInput(1L, "PICKUP", null))));
+            List.of(new CheckoutDtos.BranchOrderCheckoutInput(branch(), "PICKUP", null))));
 
         assertThat(result.merchandiseSubtotal()).isEqualTo("150000");
         assertThat(result.shippingTotal()).isEqualTo("0");
@@ -1079,7 +1084,7 @@ class RetailCatalogueMySqlIntegrationTest {
         String random = UUID.randomUUID().toString();
         long member = accounts.saveAndFlush(Account.builder().firebaseUid("fe08-quote-" + random)
             .loginEmail("fe08-quote-" + random + "@example.test").build()).getId();
-        cart.addLine(member, new CartDtos.AddCartLineRequest(variant, 1L, 1));
+        cart.addLine(member, new CartDtos.AddCartLineRequest(variant, branch(), 1));
         String quoteId = transaction.execute(status -> {
             var source = carts.findByMemberAccountId(member).orElseThrow();
             Instant now = Instant.now();
@@ -1148,7 +1153,7 @@ class RetailCatalogueMySqlIntegrationTest {
         long member = accounts.saveAndFlush(Account.builder().firebaseUid("fe08-" + id)
             .loginEmail("fe08-" + id + "@example.test").build()).getId();
 
-        var line = cart.addLine(member, new CartDtos.AddCartLineRequest(variant, 1L, 2)).lines().getFirst();
+        var line = cart.addLine(member, new CartDtos.AddCartLineRequest(variant, branch(), 2)).lines().getFirst();
 
         assertThat(line.indicativePrice()).isEqualTo("150000");
         assertThat(line.availableQuantity()).isEqualTo("3");

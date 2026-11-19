@@ -389,7 +389,7 @@ public class TicketMlandRemedyService {
         TicketFolioContext ctx = booking.getTicketFolioContext(ticket)
                 .orElseThrow(() -> new WorkshopSettlementNotFoundException("TICKET_NOT_FOUND"));
 
-        String opRef = "MREMEDY-ANSWER-" + idempotencyKey.trim();
+        String opRef = OperationReferences.of("MREMEDY-ANSWER-", idempotencyKey.trim());
         String chosenReference = request.replacementSessionReference() == null ? ""
                 : request.replacementSessionReference().trim().toLowerCase(Locale.ROOT);
         String fingerprint = digest(ticket + "|" + request.answer().name() + "|"
@@ -406,7 +406,8 @@ public class TicketMlandRemedyService {
         }
 
         Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
-        String correlation = correlationId != null && !correlationId.isBlank() ? correlationId.trim() : UUID.randomUUID().toString();
+        String correlation = correlationId != null && !correlationId.isBlank() && correlationId.trim().length() <= 64
+                ? correlationId.trim() : UUID.randomUUID().toString();
 
         SettlementTicketMlandRemedy offer = remedyRepository.findByTicketCodeAndOutcome(ticket, "PENDING_ANSWER")
                 .orElse(null);
@@ -500,7 +501,7 @@ public class TicketMlandRemedyService {
                                 targetSessions
                         )),
                         TicketReplacementType.MLAND,
-                        "MLAND-REPLACE-" + ticket + "-" + idempotencyKey.trim(),
+                        OperationReferences.of("MLAND-REPLACE-" + ticket + "-", idempotencyKey.trim()),
                         correlation
                 );
                 TicketSessionReplacementOutcome outcome = operations.replaceTicketSessions(cmd);
@@ -617,7 +618,7 @@ public class TicketMlandRemedyService {
 
         // 3. Cancel ticket entitlements in 003.2 Operations
         if (ctx.operationsTicketReference() != null && !ctx.operationsTicketReference().isBlank()) {
-            String opsOpRef = "MLAND-CANCEL-" + ticketCode + "-" + (idempotencyKey != null ? idempotencyKey.trim() : UUID.randomUUID().toString());
+            String opsOpRef = OperationReferences.of("MLAND-CANCEL-" + ticketCode + "-", idempotencyKey != null ? idempotencyKey.trim() : UUID.randomUUID().toString());
             TicketCancellationOutcome opsOutcome = operations.cancelTicket(
                     UUID.fromString(ctx.operationsTicketReference()),
                     offer.getRemedyReference(),

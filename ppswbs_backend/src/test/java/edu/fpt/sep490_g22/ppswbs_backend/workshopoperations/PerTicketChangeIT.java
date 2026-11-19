@@ -137,6 +137,23 @@ class PerTicketChangeIT {
     }
 
     @Test
+    @DisplayName("T091-1b: a 74-char operation reference (group ticket cancel) is accepted end to end, snapshot included")
+    void cancelTicket_longOperationReference_isAcceptedAndRecordedInSnapshot() {
+        WorkshopSession session = publishedSession(2, morning, 5);
+        AttendanceTicket ticket = confirmGroup(session, 1).getFirst();
+        String operation = "CANCEL-GRP-2A7021232623405FAAE9-L0-T1-" + UUID.randomUUID();
+        assertThat(operation).hasSize(74);
+
+        TicketCancellationOutcome outcome = facade.cancelTicket(new CancelTicketCommand(
+                UUID.fromString(ticket.getReference()), "case-ptc-long", operation, "corr-ptc"));
+
+        assertThat(outcome.status()).isEqualTo(OutcomeStatus.ACCEPTED);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM workshop_session_ota_snapshots WHERE change_reference = ?",
+                Integer.class, operation)).isEqualTo(1);
+    }
+
+    @Test
     @DisplayName("T091-2: replaying the same cancellation reports the same seats and frees nothing twice")
     void cancelTicket_replay_isIdempotent() {
         WorkshopSession session = publishedSession(3, morning, 5);

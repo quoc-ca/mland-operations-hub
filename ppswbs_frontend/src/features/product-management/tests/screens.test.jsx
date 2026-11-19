@@ -1,6 +1,6 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { clearRoleCache } from '../../../shared/auth/useRole';
 import { fakeSession, json, mockFetch, renderRoutes } from '../../../test/render';
 import { productManagementRoutes } from '../routes/productManagementRoutes';
@@ -12,7 +12,14 @@ const BRANCHES = { 'GET /api/v1/workshop-locations': json(200, [{ id: 1, code: '
 const open = (path, options) => renderRoutes(productManagementRoutes, { path, ...options });
 // Only a Manager sees the price and review decisions (FR-002); a Staff member would only get 403 for them.
 const AS_MANAGER = { 'GET /api/v1/accounts/me/profile': json(200, { role: 'MANAGER' }) };
-beforeEach(() => clearRoleCache());
+// jsdom has no scrolling; the detail page scrolls to the top when it opens.
+let scrollTo;
+beforeEach(() => {
+  clearRoleCache();
+  scrollTo = vi.fn();
+  vi.stubGlobal('scrollTo', scrollTo);
+});
+afterEach(() => vi.unstubAllGlobals());
 
 describe('management shell', () => {
   it('asks to sign in without a session and sends no request', async () => {
@@ -829,9 +836,10 @@ describe('T071 public catalogue', () => {
     open('/products/42');
     expect(await screen.findByText('Chỉ áp dụng cho size 14.')).toBeInTheDocument();
     expect(screen.getByText('Giảm 10% · size 14')).toBeInTheDocument();
-    // The chosen size's price sits under the size boxes: size 14 shows its price after the offer.
+    // The big price becomes the chosen size's price: size 14 shows its price after the offer, nothing under the sizes.
     await user.click(screen.getByRole('button', { name: 'Size 14' }));
-    expect(screen.getByText('1.170.000 ₫', { selector: '.buy-sizes-price *' })).toBeInTheDocument();
+    expect(screen.getByText('1.170.000 ₫', { selector: '.detail-price *' })).toBeInTheDocument();
+    expect(document.querySelector('.buy-sizes-price')).toBeNull();
   });
 
   it('shows normal prices when offers cannot be read', async () => {
@@ -850,13 +858,17 @@ describe('T071 public catalogue', () => {
     mockFetch({ 'GET /api/v1/products/42': json(200, publicProduct()) });
     open('/products/42');
     expect(await screen.findByRole('heading', { level: 1, name: 'Nhẫn bạc' })).toBeInTheDocument();
+    // The page opens at the top, not where the previous page was scrolled to.
+    expect(scrollTo).toHaveBeenCalledWith(0, 0);
+    // Before a size is chosen the big price is the product's range.
+    expect(screen.getByText('1.250.000 ₫ – 1.300.000 ₫', { selector: '.detail-price *' })).toBeInTheDocument();
     // Sizes are boxes: none is chosen at first; the one not on sale is faded and cannot be pressed.
     const sizes = await screen.findByRole('group', { name: 'Size' });
     expect(within(sizes).getByRole('button', { name: 'Size 12' })).toHaveAttribute('aria-pressed', 'false');
     expect(within(sizes).getByRole('button', { name: 'Size 14 (Ngừng bán)' })).toBeDisabled();
     await user.click(within(sizes).getByRole('button', { name: 'Size 12' }));
     expect(within(sizes).getByRole('button', { name: 'Size 12' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByText('1.250.000 ₫', { selector: '.buy-sizes-price *' })).toBeInTheDocument();
+    expect(screen.getByText('1.250.000 ₫', { selector: '.detail-price *' })).toBeInTheDocument();
   });
 
   it('a sold-out size is faded, and with no size to buy the boxes stay with the notice', async () => {

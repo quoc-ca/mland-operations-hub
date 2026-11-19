@@ -280,6 +280,7 @@ export function WorkshopLookupPage() {
             authorization={lookupMode === 'MEMBER' ? cardAuthorization : null}
             proof={lookupMode === 'GUEST' ? guestProof : undefined}
             onRefresh={refresh}
+            allowManualRefresh={false}
             onTicketUpdated={refresh}
             renderTicketAction={ticket => (lookupMode === 'MEMBER' ? (
               <div style={{ marginTop: '12px' }}>

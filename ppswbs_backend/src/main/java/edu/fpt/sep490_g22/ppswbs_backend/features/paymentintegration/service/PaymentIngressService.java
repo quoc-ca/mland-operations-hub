@@ -21,6 +21,9 @@ public class PaymentIngressService {
     private final WorkshopBookingFacade booking;
     private final WorkshopSettlementFacade settlement;
     private final RetailPaymentEvidenceFacade retail;
+    /** 003.1 FR-032 "Definite failure" (explicit list, decided 2026-11-19); no other code and no rule of "not 00". */
+    private static final java.util.Set<String> DEFINITE_FAILURE_CODES =
+            java.util.Set.of("09", "10", "11", "12", "13", "24", "51", "65", "79");
 
     @Transactional
     public Outcome receive(Map<String,String> params) {
@@ -48,6 +51,7 @@ public class PaymentIngressService {
         }
         boolean terminal = !"01".equals(transactionStatus);
         boolean verifiedSuccess = "00".equals(responseCode) && "00".equals(transactionStatus);
+        boolean definiteFailure = DEFINITE_FAILURE_CODES.contains(responseCode) || "02".equals(transactionStatus);
         String providerTransaction = params.getOrDefault("vnp_TransactionNo", "");
         if (owner.getPaymentKind() == PaymentOwnerKind.RETAIL && verifiedSuccess && providerTransaction.isBlank()) {
             throw new IllegalStateException("RETAIL_PROVIDER_TRANSACTION_MISSING");
@@ -60,6 +64,7 @@ public class PaymentIngressService {
             // facades own the business idempotency boundary and this path does
             // not create another payment receipt or provider settlement.
             if (verifiedSuccess) dispatchVerifiedSuccess(owner, merchant, amount, params);
+            if (definiteFailure) dispatchDefiniteFailure(owner, merchant, responseCode, transactionStatus, delivery);
             return Outcome.duplicate();
         }
         try {
@@ -72,6 +77,7 @@ public class PaymentIngressService {
             return Outcome.duplicate();
         }
         if (verifiedSuccess) dispatchVerifiedSuccess(owner, merchant, amount, params);
+        if (definiteFailure) dispatchDefiniteFailure(owner, merchant, responseCode, transactionStatus, delivery);
         return Outcome.accept();
     }
 
@@ -98,6 +104,18 @@ public class PaymentIngressService {
                 .responseCode("00").transactionStatus("00").terminalOutcome(true).amountVnd(amount)
                 .currencyCode(currency).providerTransactionNumber(transaction.isBlank() ? null : transaction)
                 .createdAt(Instant.now()).build());
+    }
+
+    /**
+     * FR-032: a verified IPN (signature, owner, exact amount and currency already checked) with a definite-failure code is
+     * reported to Booking, which sets the matching group attempt FAILED. Only a booking-group (DEPOSIT) owner is told;
+     * the return URL never reaches this method. Booking answers a repeated delivery idempotently.
+     */
+    private void dispatchDefiniteFailure(PaymentOwnerRegistration owner, String merchant, String responseCode,
+                                         String transactionStatus, String delivery) {
+        if (owner.getPaymentKind() != PaymentOwnerKind.DEPOSIT) return;
+        booking.recordDefinitePaymentFailure(new RecordDefinitePaymentFailureCommand(merchant, responseCode,
+                transactionStatus, delivery));
     }
 
     private void dispatchVerifiedSuccess(PaymentOwnerRegistration owner, String merchant, long amount,

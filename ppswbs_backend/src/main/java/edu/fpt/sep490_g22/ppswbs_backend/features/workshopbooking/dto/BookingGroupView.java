@@ -6,7 +6,8 @@ import java.util.UUID;
 
 /**
  * The buyer's read-only view of a booking group (003.1 FR-042, FR-049, decision 2026-11-13): every ticket with its
- * own status, price breakdown, schedule, masked recipient and attendance. {@code qrReference} is given to the buyer
+ * own status, price breakdown, schedule, masked recipient and attendance. {@code hasLivePaymentAttempt} is true while an INITIATED or PENDING payment attempt exists (FR-032, FR-048): the buyer UI
+ * offers "pay again" or "release the hold" only when it is false. {@code qrReference} is given to the buyer
  * only while the ticket is confirmed; {@code ticketReference} only to the owning Member (Feature 011 review matching).
  */
 public record BookingGroupView(
@@ -18,6 +19,7 @@ public record BookingGroupView(
         Instant paymentDeadlineAt,
         Instant createdAt,
         Instant confirmedAt,
+        boolean hasLivePaymentAttempt,
         List<BookingGroupResponse.GroupLine> lines,
         List<TicketView> tickets) {
 

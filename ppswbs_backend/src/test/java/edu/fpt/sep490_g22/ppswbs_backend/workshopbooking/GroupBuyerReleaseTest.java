@@ -71,6 +71,15 @@ class GroupBuyerReleaseTest {
     }
 
     @Test
+    void lateEvidenceKeepsTheVoucherAndPointsHeldButStillReleasesTheSeats() {
+        service.releasePendingGroupByBuyer(group, false, true, "REL-1", "corr");
+
+        assertThat(group.getGroupStatus()).isEqualTo(BookingStatus.CANCELLED);
+        assertThat(line.getSessions()).allSatisfy(s -> assertThat(s.getHoldStatus()).isEqualTo(LineHoldStatus.RELEASED));
+        verify(loyalty, org.mockito.Mockito.never()).releaseExpiredGroup(group);
+    }
+
+    @Test
     void aStartedPaymentIsNeverOrphaned() {
         assertThatThrownBy(() -> service.releasePendingGroupByBuyer(group, true, "REL-1", "corr"))
                 .isInstanceOf(WorkshopBookingProblemException.class).hasMessageContaining("payment");

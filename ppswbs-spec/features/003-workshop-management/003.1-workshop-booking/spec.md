@@ -1,7 +1,7 @@
 # Feature Specification: Customer Workshop Booking Core
 
 **Date created**: 2026-10-06
-**Date updated**: 2026-11-17
+**Date updated**: 2026-11-19
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -151,7 +151,7 @@ are kept for history and are read through this section.
   never extends it. The customer sees only the 10-minute payment countdown;
   when it ends the page shows "Đang xác nhận kết quả thanh toán…" until
   `holdExpiresAt`, then the final outcome. *(Decided 2026-11-16, Hồ Hoàng Quốc)* After `holdExpiresAt` the page re-reads the group at once and then every 5 seconds, at most 6 reads in total, until the group leaves `PENDING_PAYMENT`; the customer can still refresh by hand. Screens and emails use the same
-  10-minute figure and never show the 2-minute buffer. *(Decided 2026-11-16, Hồ Hoàng Quốc)* When the hold expires and the whole group is released, every payment attempt of the group that is still `INITIATED` or `PENDING` becomes `EXPIRED` in the same transaction; a `SUCCESS` or `FAILED` attempt is final and unchanged. `EXPIRED` never blocks a verified late payment: it still moves the attempt to `SUCCESS` and enters the FR-040 review. *(Decided 2026-11-15,
+  10-minute figure and never show the 2-minute buffer. *(Decided 2026-11-16, Hồ Hoàng Quốc)* When the hold expires and the whole group is released, every payment attempt of the group that is still `INITIATED` or `PENDING` becomes `EXPIRED` in the same transaction; a `SUCCESS` or `FAILED` attempt is final and unchanged. `EXPIRED` never blocks a verified late payment: it still moves the attempt to `SUCCESS` and enters the FR-040 review. *(Decided 2026-11-19, Hồ Hoàng Quốc, owner Feature 003, in the session; drafted 2026-11-18; cause: after the customer cancels at VNPay, `vnp_ResponseCode=24`, the attempt stayed `PENDING` and "Hủy giữ chỗ" returned 409 `PAYMENT_ATTEMPT_EXISTS` until the hold ended)* **Definite failure:** an attempt moves from `INITIATED`/`PENDING` to `FAILED` only when an IPN that passed the signature and exact-amount checks reports a definite failure, that is `vnp_ResponseCode` in {`09`, `10`, `11`, `12`, `13`, `24`, `51`, `65`, `79`} or `vnp_TransactionStatus=02` *(list extended 2026-11-18, Hồ Hoàng Quốc's directive; each code is a failure in VNPay's documentation)*, from this explicit list and no other rule (not "anything other than `00`"). The return URL carries no trusted signature for this purpose and never sets `FAILED`. `vnp_TransactionStatus=01` (pending) and `vnp_ResponseCode=07` (suspected fraud, money may have been taken) are not failures, and `75` (bank maintenance), `99` (other errors) and any unknown code keep the attempt `PENDING`. *Checked 2026-11-18 against VNPay's sandbox documentation (`sandbox.vnpayment.vn/apis/docs/bang-ma-loi/` and `.../thanh-toan-pay/pay.html`): `24` = "Khách hàng hủy giao dịch", `07` = money taken but suspected fraud, `vnp_TransactionStatus` `01` = not yet complete and `02` = transaction error are confirmed. The other documented definite failures (`09`, `10`, `11`, `12`, `13`, `51`, `65`, `79`) were added to the list on 2026-11-18; `75` and `99` stay out because they do not say the customer's attempt ended. The documentation does not say which field decides success, and its samples disagree (PHP: either is `00`; C#: both are `00`).* **One live attempt:** a group has at most one `INITIATED`/`PENDING` attempt at a time, enforced under the group row's pessimistic write lock (the same lock every group command takes; T169 confirms it in the code); a new attempt is created only when every earlier attempt is `FAILED` or `EXPIRED`, and a retry while one is live returns it unchanged. After `FAILED` the customer may pay again at once, inside the 10-minute window, with a new `merchantReference`, and the hold is not extended. A verified success (`00`/`00`, matching reference, amount and VND) arriving for a `FAILED` attempt is handled by the state of the group *(decided 2026-11-19, Hồ Hoàng Quốc)*: group still `PENDING_PAYMENT` before `holdExpiresAt` → it confirms the group as usual (FR-038) and the attempt moves `FAILED` → `SUCCESS`; group `CANCELLED` or expired → FR-040 review; group already `CONFIRMED` by another attempt → excess payment, 100% refund (FR-013a). Money received is never lost because an attempt was marked `FAILED`. QueryDR is not part of this path (the sandbox QueryDR answers `99`); it may be added when VNPay opens the merchant API, and the minute 10/11 QueryDR is unchanged. *(Decided 2026-11-15,
   CHK012)* When the payment provider fails while the payment link is being
   created (no attempt exists yet), the answer is ~~502/503~~ **HTTP 503**
   *(decided 2026-11-15 by Hồ Hoàng Quốc, CHK012: one code, the same status as
@@ -279,7 +279,7 @@ are kept for history and are read through this section.
   whose verified payment waits for a confirmation retry (FR-038) is not
   "without verified payment": before `holdExpiresAt` nothing releases its
   seats, voucher or points (the expiry release does not run before the hold
-  ends, and the buyer's pending-hold release is already refused once a payment
+  ends, and the buyer's pending-hold release is already refused once a live payment
   attempt exists, FR-048 "Pending-hold release"). At `holdExpiresAt` the retry stops, the recorded
   evidence is handed to FR-040 as evidence for an expired group, and the group
   is then released by this requirement like any expired group (the release
@@ -574,8 +574,12 @@ FR-030–FR-043 or below. **Not changed:** OTA bookings (003.4) keep
   - Pending-hold release: Guest with one contact proof, or owning Member, plus
     a reason; releases every line's hold and, when the group has no payment
     attempt and no late evidence, its held voucher/points (FR-017j).
-    *Decided 2026-11-13 (new rule):* it is refused once a group payment attempt exists,
-    so a payment in flight is never orphaned; the hold then ends by expiry.
+    *Decided 2026-11-13 (new rule):* it is refused once a live (`INITIATED` or
+    `PENDING`) group payment attempt exists, so a payment in flight is never
+    orphaned; the hold then ends by expiry. *(Decided 2026-11-19, Hồ Hoàng Quốc, FR-032)* An attempt
+    that is `FAILED` or `EXPIRED` does not block the release: with only such
+    attempts the release is accepted (204) and, like the no-attempt case, frees the
+    held voucher/points unless late evidence exists (FR-017j).
   - Confirmation resend: sends the buyer confirmation (every ticket) again to
     the stored contact email only; Guest proof, Member ownership, scoped Staff
     or any Manager; limits as FR-014e (3 accepted self-service resends per
@@ -1567,8 +1571,8 @@ or a valid group Magic Link reads only that group's projection.
    FR-049).
 5. **Given** a pending group with no payment attempt, **When** the Guest (with
    proof) or owning Member releases it with a reason, **Then** every line's hold
-   is released; **Given** a payment attempt exists, **Then** release is refused
-   and the hold ends by expiry (FR-048).
+   is released; **Given** a live (`INITIATED`/`PENDING`) payment attempt exists, **Then** release is refused
+   and the hold ends by expiry; **Given** every attempt is `FAILED` or `EXPIRED`, **Then** release is accepted (FR-048, FR-032).
 6. **Given** a confirmed group, **When** an authorized actor requests a resend,
    **Then** the buyer confirmation is sent again to the stored contact email
    only, within the resend limits (FR-048).
@@ -1940,7 +1944,7 @@ deadline.
   verified callback with both `vnp_ResponseCode=00` and
   `vnp_TransactionStatus=00`, matching immutable merchant reference, amount,
   and VND currency may confirm a booking. Other verified terminal outcomes
-  stop QueryDR but never confirm the booking.
+  stop QueryDR but never confirm the booking. *(Decided 2026-11-19, Hồ Hoàng Quốc)* For a booking group a verified terminal outcome that is a definite failure (FR-032 list) also sets the matching attempt `FAILED`; every other terminal outcome leaves the attempt as it is.
   **Rewritten for booking groups, decided 2026-11-15 (Hồ Hoàng Quốc, CHK003;
   the text above is history for direct bookings, FR-044):** a group is
   confirmed (FR-038) or re-confirmed late (FR-040) only by verified evidence
@@ -2003,7 +2007,7 @@ deadline.
   CHK002; T125)*. The old wording "within
   the hold" is superseded for groups. There is **no limit on the number of
   attempts** for a group, but at most one attempt is `PENDING` at a time: a
-  retry while a valid `PENDING` attempt exists returns that attempt instead of
+  retry while a valid `PENDING` attempt exists (or `INITIATED`, FR-032 "One live attempt") returns that attempt instead of
   creating a second one. The attempt statuses are those of the code
   (`INITIATED`, `PENDING`, `SUCCESS`, `FAILED`, `EXPIRED`); `UNKNOWN` is a
   client-side classification of FR-012b, not an attempt status, and the
@@ -2371,13 +2375,13 @@ deadline.
   evidence exists for the booking, the release MUST also give back the points
   and voucher held by the Member quote, exactly as an unpaid expiry does. When a
   payment attempt was already started, the release MUST NOT release those
-  benefits; the verified payment outcome decides them.
+  benefits; the verified payment outcome decides them. *(Decided 2026-11-19, Hồ Hoàng Quốc, FR-032/FR-048)* The same give-back applies when every attempt is `FAILED` or `EXPIRED` and no late-payment evidence exists; a live attempt still blocks the release, so this branch never runs while a payment is in flight.
 - **FR-017k** *(2026-11-12, fixes E1)*: Deposit reconciliation MUST give back
   the Member quote's held points and voucher, exactly once, when every payment
   attempt of a booking whose hold ended unpaid has a verified no-money outcome.
   "Ended unpaid" means `EXPIRED`, or `CANCELLED` by a pending-hold release with
   financial status `UNPAID`. A verified no-money outcome is either a signed
-  VNPay failure (`vnp_TransactionStatus = 02`, from IPN or QueryDR) or a signed
+  VNPay failure (`vnp_TransactionStatus = 02`, from IPN or QueryDR, or any other definite-failure code of the FR-032 list in a verified IPN; an attempt set to `FAILED` by FR-032 is such an outcome, *decided 2026-11-19*) or a signed
   QueryDR answer `vnp_ResponseCode = 91` (no transaction) for an attempt whose
   link has already expired, meaning the link was opened but never paid. Late
   payment evidence for the booking keeps the benefits for the late-payment
@@ -2419,8 +2423,8 @@ deadline.
   (409 on `POST /workshop-booking-groups` with the failing lines, FR-055; added
   2026-11-17, T163), `GROUP_COLLECTION_MISMATCH` and
   `GROUP_COLLECTION_BELOW_MINIMUM` (409 on a payment attempt, FR-036; T109),
-  `PAYMENT_ATTEMPT_EXISTS` (409 on pending-hold release once an attempt
-  exists), `INVALID_STATE` (409 on release of a non-releasable group),
+  `PAYMENT_ATTEMPT_EXISTS` (409 on pending-hold release while a live
+  `INITIATED`/`PENDING` attempt exists; not for `FAILED`/`EXPIRED`, FR-032, FR-048), `INVALID_STATE` (409 on release of a non-releasable group),
   `ACCESS_LINK_UNAVAILABLE` (confirmation resend with no active Magic Link,
   FR-048), the recipient/ticket codes `BUYER_VERIFICATION_REQUIRED`,
   `RECIPIENT_CHANGE_FORBIDDEN`, `TICKET_NOT_FOUND`, `TICKET_NOT_CONFIRMED`,

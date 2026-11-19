@@ -130,7 +130,7 @@ public class GroupConfirmationService {
         if (group.getHoldExpiresAt() == null || group.getHoldExpiresAt().isAfter(Instant.now())) {
             return false;
         }
-        releaseWholeGroup(group, BookingStatus.EXPIRED, operationReference, correlationReference);
+        releaseWholeGroup(group, BookingStatus.EXPIRED, operationReference, correlationReference, true);
         expireOpenPaymentAttempts(group);
         // Approved template 5 (FR-039). Queued in this transaction and handed off after commit; a replayed expiry
         // returns above because the group is no longer PENDING_PAYMENT, so it can never queue a second email.
@@ -153,6 +153,17 @@ public class GroupConfirmationService {
     @Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
     public void releasePendingGroupByBuyer(BookingGroup lockedGroup, boolean paymentAttemptExists,
                                            String operationReference, String correlationReference) {
+        releasePendingGroupByBuyer(lockedGroup, paymentAttemptExists, false, operationReference, correlationReference);
+    }
+
+    /**
+     * Same. {@code paymentAttemptExists} means a LIVE (INITIATED/PENDING) attempt (FR-048, decided 2026-11-19: FAILED and
+     * EXPIRED do not block). {@code lateEvidenceExists} keeps the voucher/points held for the verified outcome (FR-017j).
+     */
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public void releasePendingGroupByBuyer(BookingGroup lockedGroup, boolean paymentAttemptExists,
+                                           boolean lateEvidenceExists, String operationReference,
+                                           String correlationReference) {
         if (lockedGroup.getGroupStatus() != BookingStatus.PENDING_PAYMENT || lockedGroup.getHoldExpiresAt() == null
                 || !lockedGroup.getHoldExpiresAt().isAfter(Instant.now())) {
             throw new WorkshopBookingProblemException(org.springframework.http.HttpStatus.CONFLICT, "INVALID_STATE",
@@ -162,7 +173,7 @@ public class GroupConfirmationService {
             throw new WorkshopBookingProblemException(org.springframework.http.HttpStatus.CONFLICT,
                     "PAYMENT_ATTEMPT_EXISTS", "A payment was already started; the hold ends by itself");
         }
-        releaseWholeGroup(lockedGroup, BookingStatus.CANCELLED, operationReference, correlationReference);
+        releaseWholeGroup(lockedGroup, BookingStatus.CANCELLED, operationReference, correlationReference, !lateEvidenceExists);
         log.info("Released booking group {} at the buyer's request", lockedGroup.getGroupCode());
     }
 
@@ -182,7 +193,7 @@ public class GroupConfirmationService {
     }
 
     private void releaseWholeGroup(BookingGroup group, BookingStatus terminalStatus, String operationReference,
-                                   String correlationReference) {
+                                   String correlationReference, boolean giveBackBenefits) {
         for (BookingGroupLine line : lines.findByGroupIdOrderByLineIndexAsc(group.getId())) {
             List<UUID> holdReferences = holdReferencesOf(line);
             if (!holdReferences.isEmpty()) {
@@ -198,7 +209,7 @@ public class GroupConfirmationService {
         }
         group.setGroupStatus(terminalStatus);
         groups.save(group);
-        loyaltyOutcome.releaseExpiredGroup(group);
+        if (giveBackBenefits) loyaltyOutcome.releaseExpiredGroup(group);
         for (TicketBooking ticket : tickets.findByGroupIdOrderByLineIndexAscParticipantOrdinalAsc(group.getId())) {
             ticket.setTicketStatus(terminalStatus);
             tickets.save(ticket);
