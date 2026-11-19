@@ -29,3 +29,19 @@ cleanup:
 - The UI displays a localized limit message and keeps existing items.
 - Removing an item releases only that item type's quota.
 - A bypassed API payload returns the matching limit error.
+
+## Execution History
+
+<!-- EXECUTION:START -->
+- Latest status: PASS
+- Executed at: 2026-11-19 23:15:35
+- Executed by: Antigravity Verification Agent
+- Browser tool: browsermcp
+- Failure step: None
+- Actual result:
+  1. Enabled standard engraving, entered text, clicked `+ Thêm dòng chữ`. Counter reached `TEXT 2/2` and disabled `add-text-engraving-btn`.
+  2. Clicked `+ Thêm biểu tượng` twice. Counter reached `SYMBOL 2/2` and disabled `add-symbol-engraving-btn`.
+  3. Uploaded 2 custom laser images via `upload-engraving-image-input`. Counter reached `2 / 2`, banner displayed "Số lượng ảnh khắc laser đã đạt tối đa (2/2)", and `upload-engraving-image-btn` was disabled.
+  4. Removed one symbol item and one image. Quotas updated independently to `SYMBOL 1/2` and `1 / 2`, and their respective add buttons became enabled again immediately.
+- Bug reference: NONE
+<!-- EXECUTION:END -->

@@ -1,7 +1,9 @@
 import React from 'react';
 import { useParams, useNavigate } from 'react-router';
 import { useWorkshopDesignOptions } from '../application/useWorkshopDesignOptions';
+import { useLanguage } from '../../../shared/i18n/I18nProvider';
 import { getDifficultyMeta } from '../domain/designPreview';
+import { getTranslatedOption } from '../domain/designTranslations';
 import { messages } from '../messages';
 import '../ring-design.css';
 
@@ -9,8 +11,9 @@ export default function RingModelSelectionPage() {
   const { packageReference } = useParams();
   const navigate = useNavigate();
   const { options, loading, error } = useWorkshopDesignOptions(packageReference);
-  const lang = 'vi';
-  const t = messages[lang];
+  const { language } = useLanguage();
+  const lang = language === 'en' ? 'en' : 'vi';
+  const t = messages[lang] || messages.vi;
 
   const models = options?.models || [];
 
@@ -30,19 +33,21 @@ export default function RingModelSelectionPage() {
 
       {loading && (
         <div style={{ textAlign: 'center', padding: '3rem', color: '#64748b' }}>
-          Đang tải danh sách mẫu thiết kế...
+          {language === 'en' ? 'Loading design models...' : 'Đang tải danh sách mẫu thiết kế...'}
         </div>
       )}
 
       {error && (
         <div className="ring-error-card" role="alert">
-          {error.message || 'Không thể tải danh sách mẫu thiết kế.'}
+          {error.message || (language === 'en' ? 'Unable to load design models.' : 'Không thể tải danh sách mẫu thiết kế.')}
         </div>
       )}
 
       {!loading && !error && models.length === 0 && (
         <div style={{ textAlign: 'center', padding: '3rem', color: '#64748b' }}>
-          Gói workshop này chưa có mẫu gợi ý sẵn. Bạn có thể bắt đầu với phôi trắng.
+          {language === 'en'
+            ? 'This workshop package does not have curated templates. You can start with a blank design.'
+            : 'Gói workshop này chưa có mẫu gợi ý sẵn. Bạn có thể bắt đầu với phôi trắng.'}
           <div style={{ marginTop: '1rem' }}>
             <button
               type="button"
@@ -106,7 +111,9 @@ export default function RingModelSelectionPage() {
                     color: model.materialReference === 'MAT-COPPER' ? '#c2410c' : model.materialReference === 'MAT-STAINLESS-STEEL' ? '#334155' : '#0369a1',
                   }}
                 >
-                  {model.materialReference === 'MAT-COPPER' ? 'Đồng' : model.materialReference === 'MAT-STAINLESS-STEEL' ? 'Thép không gỉ' : 'Bạc Ý 925'}
+                  {getTranslatedOption('materials', model.materialReference, language, {
+                    name: model.materialReference === 'MAT-COPPER' ? 'Đồng' : model.materialReference === 'MAT-STAINLESS-STEEL' ? 'Thép không gỉ' : 'Bạc Ý 925'
+                  }).name}
                 </span>
               </div>
               <h3 style={{ fontSize: '1.15rem', fontWeight: 600, color: '#0f172a', margin: '0 0 0.4rem' }}>
@@ -116,10 +123,10 @@ export default function RingModelSelectionPage() {
                 {model.description}
               </p>
               {model.difficultyScore !== undefined && (() => {
-                const diff = getDifficultyMeta(model.difficultyScore);
+                const diff = getDifficultyMeta(model.difficultyScore, language);
                 return (
                   <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '0.5rem' }}>
-                    Độ khó ước tính: <strong>{diff.score} / 10</strong> ({diff.label})
+                    {language === 'en' ? 'Estimated difficulty' : 'Độ khó ước tính'}: <strong>{diff.score} / 10</strong> ({diff.label})
                   </div>
                 );
               })()}

@@ -1,18 +1,21 @@
 import React from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
+import { useLanguage } from '../../../shared/i18n/I18nProvider';
 import { messages } from '../messages';
 import '../ring-design.css';
 
 export default function BranchCompatibilityPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { language } = useLanguage();
+  const lang = language === 'en' ? 'en' : 'vi';
+  const t = messages[lang] || messages.vi;
 
   const packageReference = searchParams.get('packageReference') || '';
   const designId = searchParams.get('designId') || '';
-  const reason = searchParams.get('reason') || 'Chi nhánh này chưa hỗ trợ một số vật liệu kim hoàn đặc thù của mẫu nhẫn.';
-
-  const lang = 'vi';
-  const t = messages[lang];
+  const reason = searchParams.get('reason') || (language === 'en'
+    ? 'This branch does not currently support certain jewelry materials or techniques required for this design.'
+    : 'Chi nhánh này chưa hỗ trợ một số vật liệu kim hoàn đặc thù của mẫu nhẫn.');
 
   return (
     <div className="ring-design-container" data-testid="branch-compatibility-page">
@@ -27,7 +30,7 @@ export default function BranchCompatibilityPage() {
               {t.branchRecoveryDesc}
             </p>
             <div style={{ background: '#fef3c7', padding: '0.75rem 1rem', borderRadius: '6px', marginBottom: '1.5rem', fontWeight: 500 }}>
-              Lý do từ hệ thống: <em>{reason}</em>
+              {language === 'en' ? 'System reason' : 'Lý do từ hệ thống'}: <em>{reason}</em>
             </div>
             <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
               <button

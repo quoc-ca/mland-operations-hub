@@ -1,4 +1,52 @@
 import React from 'react';
+import { useLanguage } from '../../../shared/i18n/I18nProvider';
+import { messages } from '../messages';
+
+function LaserEngravingPreviewItem({ img, index, t, language = 'vi' }) {
+  const [hasError, setHasError] = React.useState(false);
+  const resolvedUrl = img.previewDataUrl || img.processedPreviewReference || img.imageUrl;
+
+  return (
+    <div style={{ textAlign: 'center' }} data-testid={`preview-engraving-card-${img.id || index}`}>
+      <div
+        style={{
+          width: '160px',
+          height: '160px',
+          border: '2px solid #0f172a',
+          borderRadius: '6px',
+          background: '#ffffff',
+          overflow: 'hidden',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+        data-testid={`preview-engraving-frame-${img.id || index}`}
+      >
+        {hasError || !resolvedUrl ? (
+          <span
+            style={{ fontSize: '0.75rem', color: '#ef4444', padding: '0.5rem', textAlign: 'center' }}
+            data-testid={`preview-engraving-error-${img.id || index}`}
+          >
+            {t?.imageLoadError || (language === 'en' ? 'Unable to load engraving image.' : 'Không thể tải ảnh khắc.')}
+          </span>
+        ) : (
+          <img
+            src={resolvedUrl}
+            alt="B&W Laser Engraving Preview"
+            onError={() => setHasError(true)}
+            style={{ width: '160px', height: '160px', objectFit: 'contain', imageRendering: 'pixelated' }}
+            data-testid={`preview-engraving-img-${img.id || index}`}
+          />
+        )}
+      </div>
+      <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block', marginTop: '0.25rem', fontWeight: 500 }}>
+        {img.placement === 'OUTER_BAND'
+          ? (language === 'en' ? 'Outer band (+100k)' : 'Mặt ngoài (+100k)')
+          : (language === 'en' ? 'Inner band (+100k)' : 'Mặt trong (+100k)')}
+      </span>
+    </div>
+  );
+}
 
 /**
  * 2D Interactive SVG Live Ring Preview with Dual Views:
@@ -13,6 +61,8 @@ export default function RingPreview({
   onGemstoneMove,
   readOnly = false,
 }) {
+  const { language } = useLanguage();
+  const t = messages[language] || messages.vi;
   const [draggingStoneId, setDraggingStoneId] = React.useState(null);
   const svgRef = React.useRef(null);
   const {
@@ -114,15 +164,15 @@ export default function RingPreview({
           ========================================================================= */}
       <div className="ring-view-card">
         <div className="ring-view-header">
-          <span className="ring-view-badge">Mặt chính diện (Top View)</span>
+          <span className="ring-view-badge">{t.topViewLabel || 'Mặt chính diện (Top View)'}</span>
           <span className="ring-view-meta">
-            Size {ringSize} · {circumferenceMm} mm {stonesToRender.length > 0 && `· ${stonesToRender.length} đá`}
+            Size {ringSize} · {circumferenceMm} mm {stonesToRender.length > 0 && `· ${stonesToRender.length} ${language === 'en' ? (stonesToRender.length > 1 ? 'stones' : 'stone') : 'đá'}`}
           </span>
         </div>
 
         {!readOnly && stonesToRender.length > 0 && (
           <div className="ring-drag-help-pill" data-testid="gemstone-drag-hint">
-            <span>💡 Nhấn giữ và kéo viên đá để bố trí quanh đường tròn nhẫn</span>
+            <span>{language === 'en' ? '💡 Click and drag stones to arrange along the ring band' : '💡 Nhấn giữ và kéo viên đá để bố trí quanh đường tròn nhẫn'}</span>
           </div>
         )}
 
@@ -165,7 +215,7 @@ export default function RingPreview({
               stroke="url(#ringTopMetallicGrad)"
               strokeWidth={topStrokeWidth}
               strokeLinecap="round"
-              strokeDasharray={shape?.style === 'twisted' ? '32 8' : shape?.style === 'single-twist' ? '60 12' : 'none'}
+              strokeDasharray={shape?.style === 'twisted' ? '32 8' : shape?.style === 'single-twist' ? '60 12' : shape?.style === 'braided' ? '12 6' : 'none'}
             />
 
             {/* Inner Ring Depth Shadow */}
@@ -177,6 +227,32 @@ export default function RingPreview({
               stroke="rgba(0,0,0,0.12)"
               strokeWidth="1.5"
             />
+
+            {/* Knife Edge Center Ridge */}
+            {shape?.style === 'knife-edge' && (
+              <circle
+                cx="150"
+                cy="135"
+                r="85"
+                fill="none"
+                stroke="#FFFFFF"
+                strokeWidth="1.5"
+                opacity="0.85"
+              />
+            )}
+
+            {/* Beveled Edge Highlight Chamfers */}
+            {shape?.style === 'beveled' && (
+              <g>
+                <circle cx="150" cy="135" r={85 - topStrokeWidth * 0.35} fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="1" />
+                <circle cx="150" cy="135" r={85 + topStrokeWidth * 0.35} fill="none" stroke="rgba(0,0,0,0.15)" strokeWidth="1" />
+              </g>
+            )}
+
+            {/* Concave Band Inner Trough */}
+            {shape?.style === 'concave' && (
+              <circle cx="150" cy="135" r="85" fill="none" stroke="rgba(0,0,0,0.22)" strokeWidth={topStrokeWidth * 0.3} />
+            )}
 
             {/* Ball-peen Hammered Texture (Small Circular Dimples / Lỗ tròn nhỏ) */}
             {(shape?.style === 'ball-peen' || shape?.reference === 'SHP-BALL-PEEN') && (
@@ -239,14 +315,43 @@ export default function RingPreview({
               />
             )}
 
-            {/* Inner Engraving Text Arc */}
-            {engravingText && (
+            {/* Inner Engraving Text Arc / Items */}
+            {engravingItems.length > 0 ? (
+              <g>
+                <path id="topEngravingArc" d="M 95,150 A 55,55 0 0,0 205,150" fill="none" />
+                {engravingItems.map((item, idx) => (
+                  <text
+                    key={item.id || idx}
+                    x={150}
+                    y={145 + idx * 10}
+                    textAnchor="middle"
+                    fill="#475569"
+                    fontSize="7"
+                    fontWeight="600"
+                    letterSpacing="0.8"
+                    data-testid={`preview-engraving-text-${idx}`}
+                  >
+                    {item.content}
+                  </text>
+                ))}
+              </g>
+            ) : engravingText ? (
               <g>
                 <path id="topEngravingArc" d="M 95,150 A 55,55 0 0,0 205,150" fill="none" />
                 <text fill="#475569" fontSize="8" fontWeight="600" letterSpacing="1.2">
-                  <textPath href="#topEngravingArc" startOffset="50%" textAnchor="middle">
+                  <textPath href="#topEngravingArc" startOffset="50%" textAnchor="middle" data-testid="preview-engraving-text-0">
                     {engravingText}
                   </textPath>
+                </text>
+              </g>
+            ) : null}
+
+            {/* Inner Band Custom Laser Engraving Marker */}
+            {customImages.some((img) => img.placement === 'INNER_BAND') && (
+              <g transform="translate(136, 168)" data-testid="top-inner-laser-marker">
+                <rect x="-6" y="-5" width="40" height="13" rx="3" fill="#ffffff" stroke="#ef4444" strokeWidth="0.8" opacity="0.9" />
+                <text x="14" y="4" textAnchor="middle" fontSize="6.5" fill="#ef4444" fontWeight="bold">
+                  ⚡ LASER
                 </text>
               </g>
             )}
@@ -351,7 +456,7 @@ export default function RingPreview({
 
             {/* Center Size & Diameter Watermark */}
             <text x="150" y="132" textAnchor="middle" fontSize="14" fontWeight="600" fill="#64748B">
-              {isNeutral ? 'Mẫu chuẩn' : `Size ${ringSize}`}
+              {isNeutral ? (language === 'en' ? 'Standard Model' : 'Mẫu chuẩn') : `Size ${ringSize}`}
             </text>
             <text x="150" y="150" textAnchor="middle" fontSize="11" fontWeight="500" fill="#94A3B8">
               Ø ~{diameterMm} mm · C {circumferenceMm} mm
@@ -365,9 +470,11 @@ export default function RingPreview({
           ========================================================================= */}
       <div className="ring-view-card" data-testid="ring-side-view-card">
         <div className="ring-view-header">
-          <span className="ring-view-badge">Mặt cạnh / Tiết diện (Side View)</span>
+          <span className="ring-view-badge">{t.sideViewLabel || 'Mặt cạnh / Tiết diện (Side View)'}</span>
           <span className="ring-view-meta">
-            Rộng {bandWidthMm.toFixed(1)} mm · Dày {thicknessMm.toFixed(1)} mm
+            {language === 'en'
+              ? `Width ${bandWidthMm.toFixed(1)} mm · Thick ${thicknessMm.toFixed(1)} mm`
+              : `Rộng ${bandWidthMm.toFixed(1)} mm · Dày ${thicknessMm.toFixed(1)} mm`}
           </span>
         </div>
 
@@ -571,11 +678,29 @@ export default function RingPreview({
 
             {/* Outer Band Custom Image Mark */}
             {customImages.some((img) => img.placement === 'OUTER_BAND') && (
-              <g transform={`translate(${sideStartX + 18}, ${sideCenterY - 6})`}>
-                <rect width="12" height="12" rx="2" fill="none" stroke="#ef4444" strokeWidth="1" strokeDasharray="1 1" />
-                <text x="6" y="9" textAnchor="middle" fontSize="7" fill="#ef4444" fontWeight="bold">
-                  📷
-                </text>
+              <g transform={`translate(${sideStartX + 18}, ${sideCenterY - 7})`} data-testid="side-outer-laser-marker">
+                <rect width="14" height="14" rx="2" fill="#ffffff" stroke="#ef4444" strokeWidth="1" />
+                {(() => {
+                  const outerImg = customImages.find((img) => img.placement === 'OUTER_BAND');
+                  const src = outerImg?.previewDataUrl || outerImg?.processedPreviewReference || outerImg?.imageUrl;
+                  if (src) {
+                    return (
+                      <image
+                        href={src}
+                        x="1"
+                        y="1"
+                        width="12"
+                        height="12"
+                        preserveAspectRatio="xMidYMid slice"
+                      />
+                    );
+                  }
+                  return (
+                    <text x="7" y="10" textAnchor="middle" fontSize="7" fill="#ef4444" fontWeight="bold">
+                      📷
+                    </text>
+                  );
+                })()}
               </g>
             )}
 
@@ -606,13 +731,13 @@ export default function RingPreview({
           2 SLIDERS ĐIỀU CHỈNH ĐỘ DÀY & ĐỘ RỘNG NHẪN
           ========================================================================= */}
       <div className="ring-dimension-sliders-card" data-testid="ring-dimension-sliders">
-        <h4 className="ring-dimension-title">Tùy chỉnh thông số kích thước</h4>
+        <h4 className="ring-dimension-title">{t.dimensionsHeading || 'Tùy chỉnh thông số kích thước'}</h4>
 
         {/* Slider 1: Độ dày nhẫn (1.0mm - 3.0mm, step 0.1) */}
         <div className="ring-slider-group">
           <div className="ring-slider-meta">
             <label htmlFor="thickness-range" className="ring-slider-label">
-              Độ dày nhẫn (Thickness)
+              {t.thicknessLabel || 'Độ dày nhẫn (Thickness)'}
             </label>
             <span className="ring-slider-value" data-testid="thickness-value">
               {thicknessMm.toFixed(1)} mm
@@ -632,9 +757,9 @@ export default function RingPreview({
             data-testid="thickness-slider"
           />
           <div className="ring-slider-ticks">
-            <span>1.0 mm (Mỏng)</span>
-            <span>2.0 mm (Tiêu chuẩn)</span>
-            <span>3.0 mm (Dày dặn)</span>
+            <span>{language === 'en' ? '1.0 mm (Thin)' : '1.0 mm (Mỏng)'}</span>
+            <span>{language === 'en' ? '2.0 mm (Standard)' : '2.0 mm (Tiêu chuẩn)'}</span>
+            <span>{language === 'en' ? '3.0 mm (Thick)' : '3.0 mm (Dày dặn)'}</span>
           </div>
         </div>
 
@@ -642,7 +767,7 @@ export default function RingPreview({
         <div className="ring-slider-group" style={{ marginTop: '1rem' }}>
           <div className="ring-slider-meta">
             <label htmlFor="bandwidth-range" className="ring-slider-label">
-              Độ rộng bề mặt (Band Width)
+              {t.bandWidthLabel || 'Độ rộng bề mặt (Band Width)'}
             </label>
             <span className="ring-slider-value" data-testid="bandwidth-value">
               {bandWidthMm.toFixed(1)} mm
@@ -662,9 +787,9 @@ export default function RingPreview({
             data-testid="bandwidth-slider"
           />
           <div className="ring-slider-ticks">
-            <span>1.5 mm (Thanh mảnh)</span>
-            <span>3.5 mm (Vừa vặn)</span>
-            <span>6.0 mm (Bản to)</span>
+            <span>{language === 'en' ? '1.5 mm (Delicate)' : '1.5 mm (Thanh mảnh)'}</span>
+            <span>{language === 'en' ? '3.5 mm (Medium)' : '3.5 mm (Vừa vặn)'}</span>
+            <span>{language === 'en' ? '6.0 mm (Wide)' : '6.0 mm (Bản to)'}</span>
           </div>
         </div>
       </div>
@@ -685,38 +810,11 @@ export default function RingPreview({
           data-testid="laser-preview-gallery"
         >
           <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '0.9rem', color: '#1e293b' }}>
-            Bản xem trước khắc laser (160px × 160px)
+            {t.laserPreviewTitle || 'Bản xem trước khắc laser (160px × 160px)'}
           </h4>
           <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-            {customImages.map((img) => (
-              <div key={img.id} style={{ textAlign: 'center' }}>
-                <div
-                  style={{
-                    width: '160px',
-                    height: '160px',
-                    border: '2px solid #0f172a',
-                    borderRadius: '6px',
-                    background: '#ffffff',
-                    overflow: 'hidden',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  {img.previewDataUrl ? (
-                    <img
-                      src={img.previewDataUrl}
-                      alt="B&W Laser Engraving Preview"
-                      style={{ width: '160px', height: '160px', imageRendering: 'pixelated' }}
-                    />
-                  ) : (
-                    <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>160 × 160 B&W</span>
-                  )}
-                </div>
-                <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block', marginTop: '0.25rem' }}>
-                  {img.placement === 'OUTER_BAND' ? 'Mặt ngoài (+100k)' : 'Mặt trong (+100k)'}
-                </span>
-              </div>
+            {customImages.map((img, idx) => (
+              <LaserEngravingPreviewItem key={img.id || idx} img={img} index={idx} t={t} language={language} />
             ))}
           </div>
         </div>

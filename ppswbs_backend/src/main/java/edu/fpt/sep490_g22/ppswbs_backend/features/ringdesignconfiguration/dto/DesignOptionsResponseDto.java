@@ -113,7 +113,33 @@ public class DesignOptionsResponseDto {
         private String priceAdjustment;
         private String customImagePrice;
         private Integer imageFrameSizePx;
+        @Builder.Default
+        private Integer maxTextItems = 2;
+        @Builder.Default
+        private Integer maxSymbolItems = 2;
+        @Builder.Default
+        private Integer maxCustomImageItems = 2;
+        private ImagePreprocessingConfigDto imagePreprocessing;
         private String currency;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class ImagePreprocessingConfigDto {
+        @Builder.Default
+        private Integer contrastMin = 0;
+        @Builder.Default
+        private Integer contrastMax = 100;
+        @Builder.Default
+        private Integer contrastDefault = 50;
+        @Builder.Default
+        private Integer sharpnessMin = 0;
+        @Builder.Default
+        private Integer sharpnessMax = 100;
+        @Builder.Default
+        private Integer sharpnessDefault = 50;
     }
 
     @Data

@@ -3,7 +3,9 @@ import { useNavigate, useSearchParams } from 'react-router';
 import { useWorkshopRingDesignApi } from '../api/useWorkshopRingDesignApi';
 import { useDesignReviewApi } from '../../designreview/api/useDesignReviewApi';
 import { useAuth } from '../../../shared/auth/AuthProvider';
+import { useLanguage } from '../../../shared/i18n/I18nProvider';
 import { MATERIAL_PALETTES, SHAPE_STROKES } from '../domain/designPreview';
+import { getTranslatedOption } from '../domain/designTranslations';
 import { messages } from '../messages';
 import '../ring-design.css';
 
@@ -14,6 +16,9 @@ export default function MemberDesignHistoryPage() {
   const designReviewApi = useDesignReviewApi();
   const { status, userId } = useAuth();
   const isAuthenticated = status === 'signed-in' || Boolean(userId);
+  const { language } = useLanguage();
+  const lang = language === 'en' ? 'en' : 'vi';
+  const t = messages[lang] || messages.vi;
 
   const activeTab = searchParams.get('tab') === 'custom' ? 'custom' : 'workshop';
 
@@ -23,9 +28,6 @@ export default function MemberDesignHistoryPage() {
   const [error, setError] = useState(null);
   const [lookupCode, setLookupCode] = useState('');
   const [lookupError, setLookupError] = useState('');
-
-  const lang = 'vi';
-  const t = messages[lang];
 
   useEffect(() => {
     let active = true;
@@ -49,7 +51,7 @@ export default function MemberDesignHistoryPage() {
         }
       } catch (err) {
         if (active) {
-          setError(err.message || 'Không thể tải lịch sử thiết kế.');
+          setError(err.message || (language === 'en' ? 'Unable to load design history.' : 'Không thể tải lịch sử thiết kế.'));
         }
       } finally {
         if (active) setLoading(false);
@@ -59,7 +61,7 @@ export default function MemberDesignHistoryPage() {
     return () => {
       active = false;
     };
-  }, [ringApi, designReviewApi, isAuthenticated, activeTab]);
+  }, [ringApi, designReviewApi, isAuthenticated, activeTab, language]);
 
   const handleTabChange = (newTab) => {
     setSearchParams(newTab === 'custom' ? { tab: 'custom' } : {});
@@ -69,7 +71,7 @@ export default function MemberDesignHistoryPage() {
     e.preventDefault();
     const code = lookupCode.trim();
     if (!code) {
-      setLookupError('Vui lòng nhập mã yêu cầu thiết kế để tra cứu.');
+      setLookupError(language === 'en' ? 'Please enter a design request code to lookup.' : 'Vui lòng nhập mã yêu cầu thiết kế để tra cứu.');
       return;
     }
     setLookupError('');
@@ -79,14 +81,14 @@ export default function MemberDesignHistoryPage() {
   const getReviewStatusBadge = (reviewStatus) => {
     switch (reviewStatus) {
       case 'ACCEPTED':
-        return { label: 'Đã được chấp thuận', className: 'ring-status-badge active' };
+        return { label: language === 'en' ? 'Approved' : 'Đã được chấp thuận', className: 'ring-status-badge active' };
       case 'REJECTED':
-        return { label: 'Đã từ chối', className: 'ring-status-badge archived' };
+        return { label: language === 'en' ? 'Rejected' : 'Đã từ chối', className: 'ring-status-badge archived' };
       case 'CLARIFICATION_REQUIRED':
-        return { label: 'Cần làm rõ thêm', className: 'ring-status-badge draft' };
+        return { label: language === 'en' ? 'Clarification Needed' : 'Cần làm rõ thêm', className: 'ring-status-badge draft' };
       case 'NEED_REVIEW':
       default:
-        return { label: 'Đang đợi phản hồi của nhân viên', className: 'ring-status-badge validated' };
+        return { label: language === 'en' ? 'Awaiting Staff Review' : 'Đang đợi phản hồi của nhân viên', className: 'ring-status-badge validated' };
     }
   };
 
@@ -109,7 +111,7 @@ export default function MemberDesignHistoryPage() {
       >
         <form onSubmit={handleLookupSubmit} style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
           <label htmlFor="quick-lookup-input" style={{ fontWeight: 600, fontSize: '0.9rem', color: '#1e293b' }}>
-            🔍 Tra cứu nhanh yêu cầu custom bằng mã:
+            {language === 'en' ? '🔍 Quick lookup custom request by code:' : '🔍 Tra cứu nhanh yêu cầu custom bằng mã:'}
           </label>
           <input
             id="quick-lookup-input"
@@ -119,7 +121,7 @@ export default function MemberDesignHistoryPage() {
               setLookupCode(e.target.value);
               if (lookupError) setLookupError('');
             }}
-            placeholder="Nhập mã yêu cầu (VD: REQ-... hoặc DR-...)"
+            placeholder={language === 'en' ? 'Enter request code (e.g. REQ-... or DR-...)' : 'Nhập mã yêu cầu (VD: REQ-... hoặc DR-...)'}
             style={{
               flex: '1',
               minWidth: '220px',
@@ -130,7 +132,7 @@ export default function MemberDesignHistoryPage() {
             }}
           />
           <button type="submit" className="ring-btn-secondary" style={{ padding: '0.5rem 1rem' }}>
-            Tra cứu
+            {language === 'en' ? 'Lookup' : 'Tra cứu'}
           </button>
         </form>
         {lookupError && <div style={{ color: '#dc2626', fontSize: '0.85rem', marginTop: '0.5rem' }}>{lookupError}</div>}
@@ -160,7 +162,7 @@ export default function MemberDesignHistoryPage() {
             marginBottom: '-2px',
           }}
         >
-          💍 Mẫu nhẫn Workshop
+          {language === 'en' ? '💍 Workshop Ring Designs' : '💍 Mẫu nhẫn Workshop'}
         </button>
         <button
           type="button"
@@ -177,13 +179,13 @@ export default function MemberDesignHistoryPage() {
             marginBottom: '-2px',
           }}
         >
-          ✍️ Yêu cầu tùy chỉnh (Custom)
+          {language === 'en' ? '✍️ Custom Requests' : '✍️ Yêu cầu tùy chỉnh (Custom)'}
         </button>
       </div>
 
       {loading && (
         <div style={{ textAlign: 'center', padding: '3rem', color: '#64748b' }}>
-          Đang tải dữ liệu thiết kế...
+          {language === 'en' ? 'Loading design data...' : 'Đang tải dữ liệu thiết kế...'}
         </div>
       )}
 
@@ -213,8 +215,10 @@ export default function MemberDesignHistoryPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             {designs.map((d) => {
               const snapshot = d.componentSnapshot || {};
-              const matLabel = MATERIAL_PALETTES[snapshot.materialReference]?.label || snapshot.materialReference || 'Bạc Ý 925';
-              const shapeLabel = SHAPE_STROKES[snapshot.shapeReference]?.label || snapshot.shapeReference || 'Tròn cổ điển';
+              const rawMatLabel = MATERIAL_PALETTES[snapshot.materialReference]?.label || snapshot.materialReference || 'Bạc Ý 925';
+              const rawShapeLabel = SHAPE_STROKES[snapshot.shapeReference]?.label || snapshot.shapeReference || 'Tròn cổ điển';
+              const matLabel = getTranslatedOption('materials', snapshot.materialReference, language, { name: rawMatLabel }).name;
+              const shapeLabel = getTranslatedOption('shapes', snapshot.shapeReference, language, { name: rawShapeLabel }).name;
               const sizeVal = snapshot.ringSize || '8';
               const price = d.evaluation?.estimatedPrice || d.estimatedPrice || '0.00';
               const gemCount = (snapshot.components || []).reduce((sum, c) => sum + (Number(c.quantity) || 1), 0);
@@ -240,8 +244,8 @@ export default function MemberDesignHistoryPage() {
                       </span>
                     </div>
                     <div style={{ fontSize: '0.9rem', color: '#64748b' }}>
-                      Gói: <strong>{d.packageReference}</strong> · Chất liệu: <strong>{matLabel}</strong> · Dáng: <strong>{shapeLabel}</strong> · Size: <strong>{sizeVal}</strong>
-                      {gemCount > 0 && <span> · Đá: <strong>{gemCount} viên</strong></span>}
+                      {language === 'en' ? 'Package' : 'Gói'}: <strong>{d.packageReference}</strong> · {language === 'en' ? 'Material' : 'Chất liệu'}: <strong>{matLabel}</strong> · {language === 'en' ? 'Shape' : 'Dáng'}: <strong>{shapeLabel}</strong> · Size: <strong>{sizeVal}</strong>
+                      {gemCount > 0 && <span> · {language === 'en' ? `Gemstones: ${gemCount} stones` : `Đá: ${gemCount} viên`}</span>}
                     </div>
                   </div>
 
@@ -249,7 +253,7 @@ export default function MemberDesignHistoryPage() {
                     <div style={{ textAlign: 'right' }}>
                       <div style={{ fontSize: '0.8rem', color: '#64748b' }}>{t.estimatedPriceLabel}</div>
                       <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#b45309' }}>
-                        {Number(price).toLocaleString('vi-VN')} đ
+                        {Number(price).toLocaleString(language === 'en' ? 'en-US' : 'vi-VN')} {language === 'en' ? 'VND' : 'đ'}
                       </div>
                     </div>
 
@@ -261,7 +265,7 @@ export default function MemberDesignHistoryPage() {
                           navigate(`/workshops/${encodeURIComponent(d.packageReference)}/design/${encodeURIComponent(d.designId)}`)
                         }
                       >
-                        Xem chi tiết →
+                        {language === 'en' ? 'View Details →' : 'Xem chi tiết →'}
                       </button>
                       <button
                         type="button"
@@ -274,7 +278,7 @@ export default function MemberDesignHistoryPage() {
                           )
                         }
                       >
-                        Chỉnh sửa
+                        {language === 'en' ? 'Edit' : 'Chỉnh sửa'}
                       </button>
                     </div>
                   </div>
@@ -290,14 +294,14 @@ export default function MemberDesignHistoryPage() {
         <>
           {!loading && !error && customRequests.length === 0 && (
             <div style={{ textAlign: 'center', padding: '3rem', color: '#64748b' }}>
-              <p>Bạn chưa gửi yêu cầu thiết kế tùy chỉnh nào.</p>
+              <p>{language === 'en' ? 'You have not submitted any custom design requests.' : 'Bạn chưa gửi yêu cầu thiết kế tùy chỉnh nào.'}</p>
               <button
                 type="button"
                 className="ring-btn-primary"
                 style={{ width: 'auto', marginTop: '1rem' }}
                 onClick={() => navigate('/design-requests/new')}
               >
-                Tạo yêu cầu thiết kế mới
+                {language === 'en' ? 'Create New Design Request' : 'Tạo yêu cầu thiết kế mới'}
               </button>
             </div>
           )}
@@ -344,7 +348,7 @@ export default function MemberDesignHistoryPage() {
                       className="ring-btn-secondary"
                       onClick={() => navigate(`/design-requests/${encodeURIComponent(req.id)}`)}
                     >
-                      Xem chi tiết →
+                      {language === 'en' ? 'View Details →' : 'Xem chi tiết →'}
                     </button>
                   </div>
                 </div>

@@ -29,3 +29,25 @@ cleanup:
 - Vietnamese diacritics and symbols render correctly in form, preview and saved view.
 - Font loading does not replace characters with tofu or broken glyphs.
 - Capture screenshots for both locales and the saved preview.
+
+## Execution History
+
+<!-- EXECUTION:START -->
+- Latest status: PASS
+- Executed at: 2026-11-19 23:18:30
+- Executed by: Antigravity Verification Agent
+- Browser tool: browsermcp
+- Failure step: None
+- Actual result:
+  1. Tested Vietnamese input with rich diacritics and symbols: "Kỷ niệm ngày cưới 2026 ♥∞★✿💍". Form and SVG arc rendered identical matching strings (`inputVal === previewText: true`) with zero mojibake or glyph corruption.
+  2. Switched language to English (`EN`) via `Language` combobox. Verified complete English localization rendered across all sections without Vietnamese residual strings:
+     - "Workshop Ring Design Configuration"
+     - "1. Ring Material"
+     - "2. Band Shape & Sizing"
+     - "3. Gemstone & Components"
+     - "5. Custom Engraving & Laser Image"
+     - "Standard Text & Symbol Engraving (+80,000 VND flat fee)"
+     - "Custom Laser Image Engraving (+100,000 VND / image) 1 / 2"
+  3. Switched back to Vietnamese (`VI`), verified instant dynamic translation back to Vietnamese.
+- Bug reference: NONE
+<!-- EXECUTION:END -->
