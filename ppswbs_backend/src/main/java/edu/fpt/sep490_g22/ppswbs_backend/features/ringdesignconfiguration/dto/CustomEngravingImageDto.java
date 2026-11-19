@@ -45,4 +45,3 @@ public class CustomEngravingImageDto {
     @Builder.Default
     private BigDecimal price = new BigDecimal("100000.00");
 }
-
