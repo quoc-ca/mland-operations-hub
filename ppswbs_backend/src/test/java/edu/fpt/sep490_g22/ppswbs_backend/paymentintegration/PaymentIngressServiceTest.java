@@ -177,7 +177,10 @@ class PaymentIngressServiceTest {
         var saved = org.mockito.ArgumentCaptor.forClass(PaymentIngressReceipt.class);
         verify(receipts).saveAndFlush(saved.capture());
         assertThat(saved.getValue().isTerminalOutcome()).isTrue();
-        verifyNoInteractions(booking, settlement);
+        // FR-032 (2026-11-19): a verified failure is reported to Booking, never a confirmation.
+        verify(booking).recordDefinitePaymentFailure(any());
+        verifyNoMoreInteractions(booking);
+        verifyNoInteractions(settlement);
     }
 
     @Test void acknowledgesStatus01AsNonterminalWithoutDispatch() {
@@ -211,7 +214,10 @@ class PaymentIngressServiceTest {
         var saved = org.mockito.ArgumentCaptor.forClass(PaymentIngressReceipt.class);
         verify(receipts).saveAndFlush(saved.capture());
         assertThat(saved.getValue().isTerminalOutcome()).isTrue();
-        verifyNoInteractions(booking, settlement);
+        // FR-032 (2026-11-19): a verified failure is reported to Booking, never a confirmation.
+        verify(booking).recordDefinitePaymentFailure(any());
+        verifyNoMoreInteractions(booking);
+        verifyNoInteractions(settlement);
     }
 
     @Test void allowsLaterSuccessAfterSameTransactionWasPreviouslyReportedAsStatus01() {
@@ -227,6 +233,53 @@ class PaymentIngressServiceTest {
 
         verify(receipts, times(2)).saveAndFlush(any());
         verify(booking).applyVerifiedDepositPaymentEvidence(any());
+    }
+
+    // ---- 003.1 FR-032 definite failure (T168/T171) ----
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"09", "10", "11", "12", "13", "24", "51", "65", "79"})
+    void aVerifiedIpnWithAListedFailureCodeIsReportedToBookingAsADefiniteFailure(String code) {
+        when(checksum.valid(anyMap(), any())).thenReturn(true);
+        when(registry.lockOwner("DEP-BK-1-1")).thenReturn(Optional.of(owner(50_000L)));
+        when(receipts.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        var callback = params("DEP-BK-1-1", "5000000", code, "TX-1");
+        callback.put("vnp_TransactionStatus", "01");
+        assertThat(service().receive(callback).rspCode()).isEqualTo("00");
+        verify(booking).recordDefinitePaymentFailure(new edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking
+                .facade.RecordDefinitePaymentFailureCommand("DEP-BK-1-1", code, "01", "DEP-BK-1-1|TX-1|" + code + "|01"));
+        verify(booking, never()).applyVerifiedDepositPaymentEvidence(any());
+    }
+
+    @Test void transactionStatus02IsADefiniteFailureWhateverTheResponseCode() {
+        when(checksum.valid(anyMap(), any())).thenReturn(true);
+        when(registry.lockOwner("DEP-BK-1-1")).thenReturn(Optional.of(owner(50_000L)));
+        when(receipts.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        var callback = params("DEP-BK-1-1", "5000000", "99", "TX-1");
+        callback.put("vnp_TransactionStatus", "02");
+        service().receive(callback);
+        verify(booking).recordDefinitePaymentFailure(any());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"01", "07", "75", "99", "42"})
+    void pendingSuspectedBankMaintenanceOtherAndUnknownCodesChangeNothing(String code) {
+        when(checksum.valid(anyMap(), any())).thenReturn(true);
+        when(registry.lockOwner("DEP-BK-1-1")).thenReturn(Optional.of(owner(50_000L)));
+        when(receipts.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        var callback = params("DEP-BK-1-1", "5000000", code, "TX-1");
+        callback.put("vnp_TransactionStatus", "01");
+        service().receive(callback);
+        verify(booking, never()).recordDefinitePaymentFailure(any());
+    }
+
+    @Test void aWrongAmountOrSignatureNeverReportsAFailure() {
+        when(checksum.valid(anyMap(), any())).thenReturn(true);
+        when(registry.lockOwner("DEP-BK-1-1")).thenReturn(Optional.of(owner(50_000L)));
+        service().receive(params("DEP-BK-1-1", "5100000", "24", "TX-1"));
+        when(checksum.valid(anyMap(), any())).thenReturn(false);
+        service().receive(params("DEP-BK-1-1", "5000000", "24", "TX-2"));
+        verify(booking, never()).recordDefinitePaymentFailure(any());
     }
 
     private PaymentIngressService service() { return new PaymentIngressService(checksum, registry, receipts, booking, settlement, retail); }

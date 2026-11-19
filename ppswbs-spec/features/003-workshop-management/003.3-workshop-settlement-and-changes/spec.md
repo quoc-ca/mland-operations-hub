@@ -744,12 +744,35 @@ branch (`branch_id`), while charges, add-ons, final bills and change records sto
   the numbers per session. The numbers are advisory; `POST /changes` rechecks capacity
   and quota, and a race answers `RESCHEDULE_QUOTA_EXHAUSTED` as before (queued) or
   `INSUFFICIENT_CAPACITY`.
+- **FR-064 — Customer emails for a ticket change** *(decided 2026-11-18, owner Hồ Hoàng Quốc, Feature 003;
+  template 10 of `artifacts/workshop-email-templates-draft.md`, approved 2026-11-12; tasks T194–T199)*:
+  the system tells the customer by email whenever a ticket's change request reaches an end state.
+  (a) **Changed** — when a change is applied (the buyer's own change, a change approved from the queue by
+  Staff/Manager under FR-045a, and each ticket of a group change): the email "MLAND – Đã đổi lịch vé {mãVé}"
+  names the old schedule → the new schedule, the branch, the price rise when there is one (the FR-045 amount,
+  collected at checkout), says the ticket code and the QR are unchanged and still work, and links to the ticket
+  lookup page `/workshop-booking/lookup` (no token in the link). **No ticket-with-QR email is sent**, because the
+  code and QR do not change (003.2 FR-010z). (b) **Refused** — when Staff/Manager reject a queued request: the
+  email says the request for {requested schedule} was not approved, the ticket keeps its old schedule and its QR
+  still works. The Manager's internal reason is not included. (c) **Expired** — when a queued request passes
+  `expiresAt` undecided: same wording with "đã hết hạn xử lý". (d) **Recipients** — the buyer (the order's
+  contact email) and, when the ticket has its own recipient (003.1 `getTicketRecipientEmail`), that recipient
+  too; the recipient's copy never shows the price rise; a recipient with the buyer's address gets no second
+  email; an order without a contact email skips the buyer's copy, and a ticket without a recipient has no second
+  copy. (e) **Mechanism** — the same post-commit settlement notification handoff as the Mland remedy emails
+  (`SettlementCustomerNotifier`; kinds `TICKET_CHANGED`, `TICKET_CHANGE_REJECTED`, `TICKET_CHANGE_EXPIRED`, each
+  with a `_RECIPIENT` copy); the handoff is created in the transaction that records the outcome, so an email
+  exists only for a change that committed, and a replay with the same `Idempotency-Key` sends none. A failed
+  lookup or rendering never fails the change. (f) **Expiry on time** — a scheduler
+  (`TicketChangeRequestExpiryScheduler`, default every 60 s,
+  `workshop.settlement.change-request-expiry-interval-ms`) marks due `PENDING` requests `EXPIRED` and sends (c);
+  the queue listing does the same under the row lock, so a request is expired, audited and emailed once.
 
 *(Superseded 2026-11-14 by FR-045a.)* **Decided 2026-11-14 (formerly "Open before implementation"):** the exact
 auto-approval conditions for online
 changes. Customer email content was approved 2026-11-12 in
-`artifacts/workshop-email-templates-draft.md` (filename retained; not yet
-implemented). Reschedule quota values were decided 2026-11-12 (003.2 FR-035)
+`artifacts/workshop-email-templates-draft.md` (filename retained; the change emails are
+implemented by FR-064, 2026-11-18). Reschedule quota values were decided 2026-11-12 (003.2 FR-035)
 and the OTA add-on refund in FR-038a.
 
 **Decided 2026-11-14 (formerly "Open (owner decision needed, re-check

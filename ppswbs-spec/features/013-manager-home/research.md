@@ -19,7 +19,7 @@ This file records what the codebase already offers for each card (surveyed 2026-
 | 4 | Cash-close differences | none (only `POST` close and `POST /{id}/difference-confirmations`) | State `PENDING_MANAGER_CONFIRMATION` | No list or count exists | NEW_READ |
 | 5 | OTA reconciliation | `GET /api/v1/ota-reconciliation-work-items` (`features/otaconnectivity/api/OtaReconciliationController.java:30`) | Statuses `OPEN`, `IN_PROGRESS`, `RESOLVED`, `ESCALATED`; no status returns resolved items too | Wrapper list, uncapped | NEEDS_COUNT (owner defines "needing attention") |
 | 6 | Design review | `GET /api/v1/design-review-requests` (`designreview/web/DesignReviewController.java:17`) | `NEED_REVIEW`; a Manager sees all (Staff only up to 3,000,000 VND) | Wrapper `{items}`, uncapped | READY (for a Manager) |
-| 7 | Review moderation | `GET /api/v1/review-moderation` (`features/reviewmanagement/controller/ReviewModerationController.java:40`) | **No "awaiting" status exists.** Review status is only `PUBLIC`, `HIDDEN`, `REMOVED`; the screen lists everything | Paged, `totalElements` counts all reviews | NOT_A_QUEUE |
+| 7 | Review moderation | `GET /api/v1/review-moderation` (`features/reviewmanagement/controller/ReviewModerationController.java:40`) | **No "awaiting" status exists.** Review status is only `PUBLIC`, `HIDDEN`, `REMOVED`; the screen lists everything | Paged, `totalElements` counts all reviews | NOT_A_QUEUE (card dropped, D3) |
 | 8 | Today's sessions | `GET /api/v1/workshop-sessions?from=&to=&locationId=&state=` (`features/workshopoperations/controller/WorkshopSessionController.java:52`) | `from`/`to` are plain dates on `workshopDate`; cancelled sessions included unless `state` is given | Plain list: session count and cancelled count are derivable | READY for the counts |
 | 8b | Check-in progress | per-session `GET /workshop-sessions/{id}/attendance-roster` | n/a | `SessionResponse` has no checked-in or expected counts; a roster per session is N+1 calls | NEW_READ |
 | 8c | Branch picker | `GET /api/v1/workshop-locations` | Lists the locations visible to the actor (a Manager sees all) | Plain list of locations | READY |
@@ -36,7 +36,7 @@ This file records what the codebase already offers for each card (surveyed 2026-
 **D2. Cards ship in waves (spec Clarification 1).** Wave 1 shows the cards that are READY: late payments, change requests, design review. The other queue cards appear only when their owner's count exists. A card whose count does not exist is not rendered at all.
 *Rationale:* the clarification forbids both an "unavailable" placeholder and a zero for a not-shipped queue.
 
-**D3. Review moderation has no "waiting" meaning today.** The review feature (011) has no state that marks a review as awaiting moderation. The card cannot be built until the 011 owner decides what "awaiting moderation" means (for example, reported or flagged reviews) and exposes it. Recorded as an open decision for the 011 owner; the card stays hidden.
+**D3. Review moderation card is dropped.** The review feature (011) has no state that marks a review as awaiting moderation. By owner decision (Hồ Hoàng Quốc, 2026-11-18) the home has no such card and does not wait for the 011 owner; there is no R-6.
 
 **D4. Check-in progress needs one aggregate read.** The 003.2 owner adds `GET /api/v1/workshop-day-summaries` returning sessions, cancelled sessions, checked-in and expected counts for one Vietnam-time date and an optional branch. Until it exists the strip shows only the session and cancelled counts that the existing list already gives.
 *Rationale:* a per-session roster call for every session today is N+1 and would break the independent-card and speed goals.
@@ -60,12 +60,10 @@ This file records what the codebase already offers for each card (surveyed 2026-
 | R-3 | 003.3 settlement | cash-close differences awaiting confirmation: count | card 4 | card 4 |
 | R-4 | 003.4 OTA connectivity | reconciliation items needing attention: count | card 5 | card 5 |
 | R-5 | 003.3 settlement | denied-only filter on `GET /api/v1/workshop-audit/settlement-records` | Settlement half of recent events | spec FR-010 Settlement part |
-| R-6 | 011 review management | definition and count of "awaiting moderation" | card 7 | card 7 |
 
-Exact route names for R-2 to R-4 and R-6 are the owner's to choose; the response shape and rules the home needs are in [contracts/reads.md](contracts/reads.md).
+Exact route names for R-2 to R-4 are the owner's to choose; the response shape and rules the home needs are in [contracts/reads.md](contracts/reads.md).
 
 ## 4. Unknowns left open
 
-- The 011 owner's meaning of "awaiting moderation" (D3).
 - Which refund and OTA statuses count as "waiting" (R-2, R-4); proposed in the contract, to be confirmed by the 003.3 and 003.4 owners.
 - Whether a Manager with several branches should see counts limited to their branches; today the sources return everything a Manager may see, and the plan keeps that.

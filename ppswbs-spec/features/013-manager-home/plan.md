@@ -35,7 +35,7 @@ Approach (from [research.md](research.md)): a new frontend slice reads each owne
 
 **Constraints**: Read-only; no timer refresh (load on open and explicit refresh); no new cross-module dependency; the server decides every permission; Vietnam time (UTC+7) for "today" and the 24-hour window.
 
-**Scale/Scope**: One page, up to seven queue cards, one strip, one revenue card, five recent rows, four shortcuts. The existing lists are uncapped; V1 counts them on the client, which is acceptable until an owner supplies a count (risk below).
+**Scale/Scope**: One page, up to six queue cards, one strip, one revenue card, five recent rows, four shortcuts. The existing lists are uncapped; V1 counts them on the client, which is acceptable until an owner supplies a count (risk below).
 
 ## Constitution Check
 
@@ -89,7 +89,7 @@ ppswbs_frontend/src/features/managerhome/
 │   └── messages.js             # Vietnamese and English labels
 ├── application/
 │   ├── useHomeCards.js         # one independent load per card; hides cards with no read
-│   ├── queues.js               # registry of the seven queues: owning list target and count read (null until the owner delivers it)
+│   ├── queues.js               # registry of the six queues: owning list target and count read (null until the owner delivers it)
 │   └── vietnamTime.js          # today and the 24-hour window in Vietnam time (UTC+7)
 ├── infrastructure/
 │   └── homeReads.js            # owner reads in section A and B of contracts/reads.md; maps DTOs
@@ -98,7 +98,7 @@ ppswbs_frontend/src/features/managerhome/
 
 The Manager branch of `ppswbs_frontend/src/features/operatorhome/` (`OperatorHomePage.jsx` role `MANAGER`, the Manager part of `operatorSections.js`) is retired once the new route replaces it; the Staff home is untouched. The slice's route is registered in `ppswbs_frontend/src/app/router.jsx` (the composition root) and the old `/manager/home` entry is removed from `operatorhome/routes.jsx` in the same change. `ppswbs_frontend/src/shared/ui/OperationsSidebar.jsx` is unchanged.
 
-Backend: only where an owner adds a read (R-1 to R-6): a controller method and a repository count in that owner's own `features/<owner>/` package, with its tests. No change to `common` and no new module.
+Backend: only where an owner adds a read (R-1 to R-5): a controller method and a repository count in that owner's own `features/<owner>/` package, with its tests. No change to `common` and no new module.
 
 **Structure Decision**: One new frontend feature slice plus small owner-side reads. This keeps ownership of "waiting" with the owners and avoids a backend module that would depend on seven others (research D1).
 
@@ -107,7 +107,7 @@ Backend: only where an owner adds a read (R-1 to R-6): a controller method and a
 0. **Design gate first (T001):** `$feature-design` for this feature, agreement of the owners to the reads in [contracts/reads.md](contracts/reads.md), and Tech Lead approval recorded in `approval.md`. No code task starts before it.
 1. **Wave 1 (no backend change):** page shell, late payments, change requests, design review, session and cancelled counts, revenue, Operations audit events, shortcuts, refresh, last-updated, session recovery. The owner-less cards stay hidden.
 2. **Wave 2 (owner reads):** R-1 check-in progress, R-5 Settlement denials, then R-2, R-3, R-4 as each owner delivers. Each new card appears only after its read is merged.
-3. **Open decision:** R-6 (review moderation). The card stays hidden until the 011 owner defines "awaiting moderation".
+3. **Dropped:** review moderation. Feature 011 has no "awaiting moderation" concept, so there is no card and no R-6 (owner decision 2026-11-18).
 
 ## Risks and how the plan handles them
 
@@ -118,7 +118,7 @@ Backend: only where an owner adds a read (R-1 to R-6): a controller method and a
 | One slow source delays the page | Every card loads independently; the page never waits for all of them (spec FR-006, SC-003). |
 | The Settlement audit read cannot select denials | Settlement half of recent events waits for R-5; until then the section states the Settlement source is "not yet included" (spec FR-010). |
 | The revenue figure and the dashboard drift apart | The card calls the dashboard's own read, so they match by construction (spec SC-004). |
-| Review moderation has no "waiting" state | Card hidden; owner decision tracked in research D3. |
+| Review moderation has no "waiting" state | Card dropped by owner decision 2026-11-18 (research D3). |
 
 ## Verification plan
 

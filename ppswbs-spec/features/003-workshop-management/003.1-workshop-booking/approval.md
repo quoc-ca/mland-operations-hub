@@ -1,7 +1,7 @@
 # Implementation Design Approval: 003.1 — Gói bán theo location (Phase 18)
 
 **Date created**: 2026-11-17
-**Date updated**: 2026-11-17
+**Date updated**: 2026-11-19
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -55,3 +55,7 @@ giữ trạng thái duyệt riêng (spec.md ghi "Approved 2026-11-15", không th
 Hồ Hoàng Quốc (owner of Feature 003) decided in the session of 2026-11-17: (1) FR-058, the pending-payment notice in the site header, with tasks T165–T166; (2) the section "Owner decisions 2026-11-17 — interface behaviour" of `spec.md`, which records the interface changes already made that day (no new business rule). Hashes of the LF-normalised files after the edit: `spec.md` — `26b822bf55c9`; `tasks.md` — `5d3d890f3cca`. `plan.md`, `data-model.md` and the contracts are unchanged (FR-058 uses the existing `GET /members/me/workshop-booking-groups`).
 
 Revision after the owner's review of the first screen (same day): the notice moved from the header's tool row to a slim line under the header card (the tool row wrapped and broke the header), the link carries `resume=1`, and the header and hold-panel clocks tick at the same rate. Hashes above are those of the revised files.
+
+## Owner decision 2026-11-19 — failed payment attempt after a VNPay cancel (FR-032, FR-048)
+
+Hồ Hoàng Quốc (owner of Feature 003) approved in the session of 2026-11-19, in answer to the report listing the decisions: (1) an attempt becomes `FAILED` only from a signature- and amount-verified IPN with `vnp_ResponseCode` in {09, 10, 11, 12, 13, 24, 51, 65, 79} or `vnp_TransactionStatus=02` (list checked against VNPay's sandbox documentation 2026-11-18; 01, 07, 75, 99 and unknown codes keep `PENDING`); (2) one live attempt per group under the group row lock, pay-again after `FAILED` with a new `merchantReference`; (3) pending-hold release blocked only by a live attempt, FR-017j/FR-017k aligned (F2, F3); (4) a verified success on a `FAILED` attempt follows the group state: still `PENDING_PAYMENT` confirms, `CANCELLED`/expired goes to FR-040, `CONFIRMED` goes to FR-013a (F4); (5) no QueryDR in the pay-again path. Scope: `spec.md` FR-032, FR-048, FR-010f, FR-017j, FR-017k, US8 scenario 5; `plan.md`; `data-model.md`; the OpenAPI `pending-hold-release` text; the ingress OpenAPI note and the facade contract note; `tasks.md` Phase 19 (T167–T173; T167 done). The facade command `RecordDefinitePaymentFailureCommand(merchantReference, providerResponseCode, providerTransactionStatus, eventReference)` → `PaymentFailureOutcome` was approved by Hồ Hoàng Quốc in the same session ("dùng đề xuất này") and recorded in `../contracts/workshop-interfeature-facades.md`. No code is written or approved by this entry; the approval is a chat directive ("duyệt"), not a content hash.

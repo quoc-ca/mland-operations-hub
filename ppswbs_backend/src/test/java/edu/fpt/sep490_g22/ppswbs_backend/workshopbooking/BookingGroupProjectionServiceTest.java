@@ -40,6 +40,7 @@ class BookingGroupProjectionServiceTest {
     private TicketRecipientRepository recipients;
     private WorkshopOperationsAdapter operations;
     private TicketRemedyPendingPort remedyPending;
+    private edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.GroupPaymentAttemptRepository attempts;
     private BookingGroupProjectionService service;
     private BookingGroup group;
     private TicketBooking ticket;
@@ -52,8 +53,9 @@ class BookingGroupProjectionServiceTest {
         recipients = mock(TicketRecipientRepository.class);
         operations = mock(WorkshopOperationsAdapter.class);
         remedyPending = mock(TicketRemedyPendingPort.class);
+        attempts = mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.GroupPaymentAttemptRepository.class);
         when(remedyPending.pendingTicketCodes(any())).thenReturn(java.util.Set.of());
-        service = new BookingGroupProjectionService(lines, tickets, snapshots, recipients, operations, remedyPending);
+        service = new BookingGroupProjectionService(lines, tickets, snapshots, recipients, operations, remedyPending, attempts);
 
         group = BookingGroup.builder().id(1L).groupCode("GRP-P1").groupStatus(BookingStatus.CONFIRMED)
                 .paymentMode(GroupPaymentMode.VNPAY).groupCollectionVnd(200_000).build();
@@ -92,6 +94,15 @@ class BookingGroupProjectionServiceTest {
         assertThat(view.attendanceStatus()).isEqualTo("ATTENDED");
         assertThat(view.qrReference()).isEqualTo("QR-1");
         assertThat(view.ticketReference()).isEqualTo(TICKET_REF.toString());
+    }
+
+    @Test
+    void theViewTellsWhetherALivePaymentAttemptExists() {
+        assertThat(service.project(group, false).hasLivePaymentAttempt()).isFalse();
+
+        when(attempts.existsByGroupIdAndAttemptStatusIn(eq(1L), anyCollection())).thenReturn(true);
+
+        assertThat(service.project(group, false).hasLivePaymentAttempt()).isTrue();
     }
 
     @Test

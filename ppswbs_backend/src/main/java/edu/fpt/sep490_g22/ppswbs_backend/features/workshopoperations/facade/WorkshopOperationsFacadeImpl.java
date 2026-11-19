@@ -55,6 +55,8 @@ public class WorkshopOperationsFacadeImpl implements WorkshopOperationsFacade {
     private final WorkshopAddOnService addOnService;
     private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.SessionStaffAssignmentRepository staffAssignmentRepository;
     private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.OtaTicketRevocationService otaTicketRevocationService;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private WorkshopLocationRepository locationRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -584,5 +586,30 @@ public class WorkshopOperationsFacadeImpl implements WorkshopOperationsFacade {
             } catch (IllegalArgumentException ignored) {}
         }
         return CancellationCompletionOutcome.rejected(reason);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<WorkshopLocationSnapshot> findLocationByCode(String code) {
+        if (locationRepository == null || code == null || code.isBlank()) return Optional.empty();
+        return locationRepository.findByCode(code.trim())
+                .map(loc -> new WorkshopLocationSnapshot(loc.getId(), loc.getCode(), loc.getDisplayName(), loc.isActive()));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<WorkshopLocationSnapshot> findLocationById(Long id) {
+        if (locationRepository == null || id == null) return Optional.empty();
+        return locationRepository.findById(id)
+                .map(loc -> new WorkshopLocationSnapshot(loc.getId(), loc.getCode(), loc.getDisplayName(), loc.isActive()));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<WorkshopLocationSnapshot> listActiveLocations() {
+        if (locationRepository == null) return List.of();
+        return locationRepository.findByActiveTrue().stream()
+                .map(loc -> new WorkshopLocationSnapshot(loc.getId(), loc.getCode(), loc.getDisplayName(), loc.isActive()))
+                .toList();
     }
 }

@@ -182,6 +182,10 @@ components:
         scope: { type: string, enum: [PRODUCT, WORKSHOP, STORE, FAQ] }
         correlationId: { type: string }
         quota: { $ref: '#/components/schemas/AiQuota' }
+        guestSessionToken:
+          type: string
+          nullable: true
+          description: Opaque guest session token mirrored by the X-Guest-AI-Session response header.
     AiQuota:
       type: object
       required: [actor, limit, remaining, resetAt]
@@ -262,6 +266,12 @@ components:
         code: { type: string }
         message: { type: string }
         correlationId: { type: string }
+        retryAfterSeconds: { type: integer, minimum: 1, nullable: true }
+        quota: { $ref: '#/components/schemas/AiQuota' }
+        guestSessionToken:
+          type: string
+          nullable: true
+          description: Opaque guest session returned when a first guest command fails after session creation.
     ProblemResponse:
       allOf:
         - $ref: '#/components/schemas/ErrorResponse'

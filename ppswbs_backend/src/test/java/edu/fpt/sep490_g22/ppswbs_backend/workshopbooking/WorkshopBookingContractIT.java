@@ -144,7 +144,7 @@ class WorkshopBookingContractIT {
 
     /** The body of one schema under {@code components.schemas}, up to the next sibling schema. */
     private static String schema(String name) throws IOException {
-        String contract = Files.readString(CONTRACT, StandardCharsets.UTF_8);
+        String contract = Files.readString(CONTRACT, StandardCharsets.UTF_8).replace("" + (char) 13 + (char) 10, "" + (char) 10); // CRLF checkouts
         Matcher matcher = Pattern.compile("(?ms)^ {4}" + Pattern.quote(name) + ":\\n(.*?)(?=^ {4}\\S|\\z)")
                 .matcher(contract);
         assertThat(matcher.find()).as("the contract must declare schema %s", name).isTrue();

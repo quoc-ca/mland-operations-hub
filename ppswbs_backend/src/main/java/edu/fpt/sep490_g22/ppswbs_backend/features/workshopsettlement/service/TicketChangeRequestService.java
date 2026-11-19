@@ -44,6 +44,7 @@ public class TicketChangeRequestService {
     private final WorkshopSettlementAuthorizationService authorization;
     private final SettlementBusinessAuditRepository audits;
     private final WorkshopBookingFacade booking;
+    private final TicketChangeNotifier notifier;
 
     /**
      * The state of the latest change request of a ticket, for the Member who bought it (FR-045a): the buyer's page
@@ -84,7 +85,7 @@ public class TicketChangeRequestService {
         }
         Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
         requests.findByStatusAndExpiresAtLessThanEqual(SettlementTicketChangeRequest.PENDING, now)
-                .forEach(stale -> changes.expire(stale, now));
+                .forEach(stale -> changes.expireIfDue(stale.getRequestReference(), now));
         return requests.findByStatusOrderByCreatedAtAsc(wanted).stream()
                 .filter(request -> actor.role() == ActorRole.MANAGER
                         || (request.getLocationReference() != null && actor.activeLocationIds() != null
@@ -150,6 +151,9 @@ public class TicketChangeRequestService {
                 .actorReference(String.valueOf(actor.accountId()))
                 .correlationReference(correlation)
                 .build());
+        if (body.decision() != ChangeRequestDecision.APPROVE) {
+            notifier.rejected(request, correlation);
+        }
         return toDto(request);
     }
 

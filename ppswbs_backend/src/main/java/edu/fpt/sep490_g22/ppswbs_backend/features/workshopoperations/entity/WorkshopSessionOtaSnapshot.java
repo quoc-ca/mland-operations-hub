@@ -40,7 +40,7 @@ public class WorkshopSessionOtaSnapshot {
     @Column(name = "source_version", nullable = false)
     private Long sourceVersion;
 
-    @Column(name = "change_reference", nullable = false, length = 64)
+    @Column(name = "change_reference", nullable = false, length = 128)
     private String changeReference;
 
     @Column(name = "effective_at", nullable = false)

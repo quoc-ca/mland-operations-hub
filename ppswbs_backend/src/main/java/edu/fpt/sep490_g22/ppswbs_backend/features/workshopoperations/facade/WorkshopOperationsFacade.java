@@ -68,4 +68,10 @@ public interface WorkshopOperationsFacade {
     /** Revokes named tickets of an OTA-origin booking after the OTA confirmed their cancellation (003.2 T123; 003.4 only). */
     OtaTicketRevocationOutcome revokeOtaTickets(RevokeOtaTicketsCommand command);
 
+    java.util.Optional<WorkshopLocationSnapshot> findLocationByCode(String code);
+
+    java.util.Optional<WorkshopLocationSnapshot> findLocationById(Long id);
+
+    java.util.List<WorkshopLocationSnapshot> listActiveLocations();
+
 }

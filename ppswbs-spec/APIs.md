@@ -130,6 +130,12 @@ explicit implementation gates from the independent handoff.
 
 #### Feature-04 endpoint detail
 
+For `POST /api/v1/ai-support/messages`, quota admission is committed before
+screening/provider work. If a first Guest command fails after a session is
+created, the opaque session is returned in `X-Guest-AI-Session` and the safe
+error projection so the client cannot bypass the daily quota by starting a new
+session. The response also exposes `Retry-After` on quota exhaustion.
+
 The following is the API catalog-level contract for Feature-04. The feature
 OpenAPI contract remains authoritative for exact schemas, field types, enum values,
 headers and error payloads.
@@ -183,7 +189,38 @@ unresolved dependencies.
 | `readyringsales` | Protected client REST | `POST /api/v1/ready-ring-orders/{orderId}/pickup-confirmations` | Order-owning Member | UC-04 | Record the Member's pickup of an eligible prepared pickup order exactly once. | Draft |
 | `fulfilment` | Inbound integration | `POST /api/v1/integrations/ghtk/webhooks` | GHTK callback authentication, not Firebase | UC-04 | Validate, deduplicate, and persist normalized GHTK shipment status; stale events cannot regress current status. Production exposure remains gated by approved callback authentication. | Draft; development/test mock only |
 
-### 3.6 Business catalogue, rules, and audit review
+### 3.6 Staff consultation chat (Feature-013)
+
+Feature-013 owns Member-to-Staff/Manager consultation conversations. It uses the
+Account actor/location facade and safe context projections from Feature-004 and
+Feature-012; it never accesses another feature's repository or entity. Only Member,
+active Staff within location scope and active Manager are business actors. Admin has
+no business chat mutation authority.
+
+| Method and route | Access | Purpose | Maturity |
+|---|---|---|---|
+| `GET /api/v1/consultations/context-options` | Member | List owned Feature-004/012 contexts with atomic code/name/version/preview projection. | Draft |
+| `POST /api/v1/consultations` | Member | Create a context-bound conversation and optional initial message. | Draft |
+| `GET /api/v1/consultations` | Member/Staff/Manager | Return owner- or scope-filtered inbox. | Draft |
+| `GET /api/v1/consultations/{conversationReference}` | Authorized participant | Read safe conversation and messages. | Draft |
+| `POST /api/v1/consultations/{conversationReference}/messages` | Member/Staff/Manager | Append immutable normalized UTF-8 text. | Draft |
+| `POST /api/v1/consultations/{conversationReference}/claim` | Staff/Manager | Claim with optimistic version and scope checks. | Draft |
+| `POST /api/v1/consultations/{conversationReference}/release` | Staff/Manager | Release current claim. | Draft |
+| `POST /api/v1/consultations/{conversationReference}/assign` | Manager | Assign an unscoped conversation to an active Workshop Location. | Draft |
+| `POST /api/v1/consultations/{conversationReference}/read` | Authorized participant | Update unread projection. | Draft |
+| `POST /api/v1/consultations/{conversationReference}/close` / `reopen` | Authorized participant | Change `OPEN`/`CLOSED` state. | Draft |
+| `DELETE /api/v1/consultations/{conversationReference}` | Member | Soft-hide closed conversation from Member list; operational history retained. | Draft |
+
+All write commands use `Idempotency-Key`; state commands also use
+`If-Match-Version`. Message length is 2,000 Unicode code points and Member sends
+are limited to 30 per rolling minute. The API returns safe projections only and
+does not expose raw database IDs, private context data, tokens or raw log payloads.
+The conversation list uses opaque cursor pagination (`limit` default 20, maximum
+50). Member-hidden conversations are excluded only from Member reads. Member may
+create a conversation with all context fields null, and may soft-hide only a
+closed conversation through `DELETE /api/v1/consultations/{conversationReference}`.
+Staff may close conversations within active location scope; Manager may close
+globally.
 
 | Owner | Boundary | Route family | Access | UC | Purpose | Maturity |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -209,7 +246,9 @@ other business records. Secrets are never returned through these APIs. The
 configuration model, integration-monitoring data, and technical-auth mechanism
 remain unapproved.
 
-### 3.8 Executive reporting (`reporting`)
+### 3.8 Business catalogue, rules, and audit review
+
+### 3.9 Executive reporting (`reporting`)
 
 | Owner | Boundary | Method and route | Access | UC | Purpose | Maturity |
 | --- | --- | --- | --- | --- | --- | --- |

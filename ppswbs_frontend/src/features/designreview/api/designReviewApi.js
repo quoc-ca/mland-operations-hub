@@ -32,6 +32,9 @@ export function designReviewApi(request) {
 
         return result;
       } catch (err) {
+        if (err.guestSessionToken && typeof sessionStorage !== 'undefined') {
+          sessionStorage.setItem('mland_guest_ai_session', err.guestSessionToken);
+        }
         if (err.status === 401 && typeof sessionStorage !== 'undefined') {
           sessionStorage.removeItem('mland_guest_ai_session');
         }

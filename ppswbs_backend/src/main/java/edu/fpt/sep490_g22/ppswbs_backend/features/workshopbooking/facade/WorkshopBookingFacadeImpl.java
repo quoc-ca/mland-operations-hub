@@ -60,6 +60,13 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade, Worksho
             bookingTimePayments;
     private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.GroupMismatchedEvidenceService
             mismatchedEvidence;
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service.GroupPaymentFailureService
+            paymentFailures;
+
+    @Override
+    public PaymentFailureOutcome recordDefinitePaymentFailure(RecordDefinitePaymentFailureCommand command) {
+        return paymentFailures.record(command);
+    }
 
     @Override
     public boolean recordMismatchedGroupPaymentEvidence(RecordMismatchedGroupPaymentEvidenceCommand command) {
@@ -305,7 +312,23 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade, Worksho
         ticket.setTicketStatus(target);
         ticketBookingRepository.save(ticket);
         recordTicketConclusionAudit(ticket, "TICKET_SERVICE_" + target.name(), command.settlementReference(), command.correlationReference());
+        if (target == BookingStatus.CANCELLED) cancelGroupWhenEveryTicketCancelled(ticket);
         return BookingServiceOutcomeResult.accepted();
+    }
+
+    /**
+     * T205: the group is CANCELLED once every one of its tickets is CANCELLED; while any ticket is still live the group
+     * keeps its status. Only a CONFIRMED group is rolled up, and an empty ticket list never counts as "all cancelled".
+     */
+    private void cancelGroupWhenEveryTicketCancelled(TicketBooking cancelled) {
+        BookingGroup group = cancelled.getGroup();
+        if (group == null || group.getGroupStatus() != BookingStatus.CONFIRMED) return;
+        var tickets = ticketBookingRepository.findByGroupIdOrderByLineIndexAscParticipantOrdinalAsc(group.getId());
+        boolean allCancelled = !tickets.isEmpty() && tickets.stream()
+                .allMatch(t -> t.getId().equals(cancelled.getId()) || t.getTicketStatus() == BookingStatus.CANCELLED);
+        if (!allCancelled) return;
+        group.setGroupStatus(BookingStatus.CANCELLED);
+        bookingGroupRepository.save(group);
     }
 
     /** FR-050: REFUND_PENDING only from DEPOSIT_PAID or FULLY_PAID, REFUNDED only from REFUND_PENDING, once each. */

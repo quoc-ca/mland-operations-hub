@@ -1,7 +1,7 @@
 # 003 Workshop Management — Internal Facade Contract
 
 **Date created**: 2026-10-25
-**Date updated**: 2026-11-17
+**Date updated**: 2026-11-19
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -82,7 +82,7 @@ durable and immutable for the payment-attempt lifetime.
 
 The technical module retains only redacted outcome fields after signature,
 owner, amount and currency verification. `vnp_TransactionStatus=01` is
-nonterminal; a verified two-digit status other than `01` is terminal. The
+nonterminal; a verified two-digit status other than `01` is terminal. *(Decided 2026-11-19, Hồ Hoàng Quốc, 003.1 FR-032)* A verified IPN with a definite-failure code (003.1 FR-032 list) is also reported to Booking through its facade so the matching group attempt becomes `FAILED`; the command is `RecordDefinitePaymentFailureCommand` (see the facade table). The
 read-only `PaymentIngressOutcomeQueryPort` in `common.payment` lets Booking
 check that state without depending on the `paymentintegration` module. For a
 verified successful deposit that arrives after its hold is released, Booking
@@ -256,6 +256,7 @@ changes". The table below is kept for history; the current status of every
 | Record final-balance resolution | `RecordFinalBalanceResolvedCommand(bookingReference, settlementReference, operationReference, correlationReference)` | `FinalBalanceResolutionOutcome(ACCEPTED or prior equivalent outcome, or REJECTED reason)` | Only Booking changes its financial state to `FULLY_PAID`, exactly once; it receives no raw final-payment detail. |
 | Record booking service outcome (approved 2026-11-05, D13) | `RecordBookingServiceOutcomeCommand(bookingReference, outcome: COMPLETED, CANCELLED or NO_SHOW, settlementReference, operationReference, correlationReference)` | `BookingServiceOutcomeResult(ACCEPTED or prior equivalent outcome, or REJECTED reason)` | Called only by 003.3 after the folio becomes `FINALIZED` (→ `COMPLETED`) or `CLOSED` (customer cancellation or Mland remedy → `CANCELLED`; full no-show → `NO_SHOW`). Only Booking changes its service status, exactly once per outcome; no attendance, payment or PII payload. |
 | Record booking refund status (approved 2026-11-05, D14) | `RecordBookingRefundStatusCommand(bookingReference, status: REFUND_PENDING or REFUNDED, settlementReference, operationReference, correlationReference)` | `BookingRefundStatusResult(ACCEPTED or prior equivalent outcome, or REJECTED reason)` | Called only by 003.3 for a Mland-caused remedy: `REFUND_PENDING` when the first allocation is dispatched, `REFUNDED` when every allocation is verified. Never used for a post-`FINALIZED` overcharge correction. Monotonic; no provider payload. |
+| Record definite payment failure (decided 2026-11-19, Hồ Hoàng Quốc, 003.1 FR-032) | `RecordDefinitePaymentFailureCommand(merchantReference, providerResponseCode, providerTransactionStatus, eventReference)` | `PaymentFailureOutcome(ACCEPTED or prior equivalent outcome, or REJECTED reason)` | Called only by `paymentintegration` after the IPN passed the signature, owner, amount and currency checks and its code is in the 003.1 FR-032 failure list; never for `01`, `07`, `75`, `99`, unknown codes or the return URL. Booking resolves the group attempt by `merchantReference`, sets an `INITIATED`/`PENDING` attempt to `FAILED` under the group row lock and leaves the group `PENDING_PAYMENT`, `UNPAID` and the hold unchanged. Idempotent: a repeated `eventReference` or an attempt already `FAILED` answers the prior outcome; a `SUCCESS` or `EXPIRED` attempt is unchanged. Never receives the raw VNPay payload or checksum. |
 | Apply verified deposit evidence | `ApplyVerifiedDepositPaymentEvidenceCommand(bookingReference, verifiedEvidenceReference, operationReference, correlationReference)` | `DepositPaymentEvidenceOutcome(ACCEPTED or prior equivalent outcome, or REJECTED reason)` | Called only by `paymentintegration` after one successful verified dispatch. Booking checks its frozen reference/amount/currency, commits capacity atomically, and never receives raw VNPay payload or checksum. |
 | Cancel a confirmed booking (backfilled 2026-11-12, ed92c6b) | `CancelConfirmedBookingCommand(bookingReference, cancellationCaseReference, operationReference, correlationReference)` | `BookingCancellationOutcome(ACCEPTED, or REJECTED reason)` | Called only by 003.3 for an accepted direct customer cancellation; idempotent by operation reference. |
 | Read Loyalty outcome source (backfilled 2026-11-12, 4fa224e) | Booking's Loyalty outcome source query used by 003.3 | Member Loyalty source or none | Answers for a Member booking in `CONFIRMED`, `COMPLETED`, `NO_SHOW` or `CANCELLED`, so an outcome decided after attendance or cancellation still reaches Loyalty; a Guest booking has none. |

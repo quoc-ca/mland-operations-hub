@@ -43,6 +43,8 @@ export function createSettlementApi(http) {
 
     // Cash book.
     getExpectedCash: query => http('/api/v1/workshop-cash-closes/expected-cash', { query }),
+    // Manager home (013 R-3): the differences waiting for a Manager, exactly what the home card counts.
+    listCashClosesAwaitingConfirmation: () => http('/api/v1/workshop-cash-closes', { query: { awaitingConfirmation: true } }),
     closeCash: (body, key) => write('/api/v1/workshop-cash-closes', body, key),
     confirmCashDifference: (cashCloseId, body, key) => write(`/api/v1/workshop-cash-closes/${enc(cashCloseId)}/difference-confirmations`, body, key),
 

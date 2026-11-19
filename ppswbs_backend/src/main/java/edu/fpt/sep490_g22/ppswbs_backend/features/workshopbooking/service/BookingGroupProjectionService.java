@@ -48,6 +48,7 @@ public class BookingGroupProjectionService {
     private final TicketRecipientRepository recipients;
     private final WorkshopOperationsAdapter operations;
     private final TicketRemedyPendingPort remedyPending;
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.GroupPaymentAttemptRepository attempts;
 
     /** @param forOwningMember adds each ticket's opaque reference; only the owning Member may receive it. */
     @Transactional(readOnly = true)
@@ -98,8 +99,14 @@ public class BookingGroupProjectionService {
         }
         return new BookingGroupView(group.getGroupCode(), group.getGroupStatus().name(),
                 group.getPaymentMode() == null ? null : group.getPaymentMode().name(), group.getGroupCollectionVnd(),
-                group.getHoldExpiresAt(), group.getPaymentDeadlineAt(), group.getCreatedAt(), group.getConfirmedAt(),
+                group.getHoldExpiresAt(), group.getPaymentDeadlineAt(), group.getCreatedAt(), group.getConfirmedAt(), hasLiveAttempt(group),
                 List.copyOf(lineViews), List.copyOf(ticketViews));
+    }
+
+    private boolean hasLiveAttempt(BookingGroup group) {
+        return group.getId() != null && attempts.existsByGroupIdAndAttemptStatusIn(group.getId(),
+                List.of(edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.PaymentAttemptStatus.INITIATED,
+                        edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.PaymentAttemptStatus.PENDING));
     }
 
     /** Display hint only: when Settlement cannot answer, no ticket is flagged and the buyer still has the e-mail link. */
