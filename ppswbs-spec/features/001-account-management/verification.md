@@ -1,7 +1,7 @@
 # Verification Report: Account Management (FE-001)
 
 **Date created**: 2026-11-03
-**Date updated**: 2026-11-14
+**Date updated**: 2026-11-20
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
@@ -234,3 +234,9 @@ Do **NOT** sign off FE-001 or hand off to production until:
 - [x] 5. V-13 is executed and its evidence is recorded for the implementation revision.
 - [x] 6. Revision R-MGA (Phase 11, T078–T081) Manager-global authorization alignment is executed and verified.
 - [x] 7. Revision R-MAR (Phase 12, T082–T083) Manager alert recipients facade implemented and covered by unit/integration tests per FR-045.
+
+## 4.9 Revision R-CAR — CARRIER account evidence (NOT RUN)
+
+**Verification status:** R-CAR authorizes implementation, but no CARRIER code or migration has been executed yet.
+
+Future evidence must cover fresh/upgrade Flyway validation; idempotent no-location CARRIER creation; Firebase email/password provisioning and partial-failure reconciliation; duplicate-email and retry/collision denial; password exclusion from persistence, logs, audit, and responses; standard email/password sign-in and direct `/carrier` routing; suspension/restoration; Admin UI contract; the R-CAR demo fixture `ghtk.test@mland.vn` / `CarrierTest@123456` with Firebase-issued UID and no location; and the FE-08 facade's ACTIVE CARRIER authorization without customer pricing, voucher, or points data.

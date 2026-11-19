@@ -1,11 +1,11 @@
 # Workflow Design: Account Management (FE-001)
 
 **Date created**: 2026-10-28
-**Date updated**: 2026-11-16
+**Date updated**: 2026-11-20
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
-**Design status**: Approved for T078–T081 — updated 2026-11-16 for WF-01, WF-02, WF-06, WF-11 (401 ACCOUNT_NOT_FOUND recovery, Google redirect bootstrap sync, and guest guard recovery); see Revision R-NAD in `approval.md`. Historical approval remains limited to its recorded scope.
+**Design status**: Approved for the historical baseline through R-NAD and for WF-12/T084–T088 through Revision R-CAR; see scoped records in `approval.md`.
 
 ## Workflow index
 
@@ -16,7 +16,7 @@
 | WF-03 | Provision and activate internal Account | Admin / intended internal identity | FR-011–018, 023–025 | Flow 4 | Designed; FE-07/Location contracts are dependencies |
 | WF-04 | Suspend and restore | Admin / affected Account | FR-019–021, 023–027 | Flow 5 | Designed; provider reconciliation evidence pending |
 | WF-05 | Target facts and roster | Authorized FE-003 actor/service | FR-028–033 | Flow 6 | Designed & implemented; contract defined in interfaces.md |
-| WF-08 | Profile verification gate | Owner opens Profile / activates reload icon | FR-004–006 | Flow 3 | proposed |
+| WF-08 | Profile verification gate | Owner opens Profile / activates reload icon | FR-004–006 | Flow 3 | Designed & implemented; V-12 evidence |
 | WF-06 | Browser transport and typed errors | Browser/API caller | FR-025, 027 | Flows 1–4 | Local policy approved; non-local operations open |
 | WF-07 | Schema/configuration startup | Service runtime/operator | Constitution; data-model | Persistence/config boundary | Designed & implemented; V52 and V89 migrations verified |
 | WF-09 | Member shipping address book | Authenticated Member | FR-036–039 | Flow 7 | Designed |
@@ -223,11 +223,17 @@
 - **Preconditions and authorization**: `AuthProvider` is the sole session source. Backend remains the authority for every protected request and feature-specific role/scope decision.
 
 1. `AuthProvider` exposes `loading`, `unconfigured`, `signed-out`, or `signed-in`; `RequireSession` renders no PII during `loading` and safe unavailable UI during `unconfigured` without navigation.
-2. For a resolved `signed-out` user attempting a Member/internal route, `RequireSession` performs `replace('/login')` or renders the route-specific unauthenticated Empty State with login action (when `requiredText` is passed, e.g. on `/design-requests/new`). `/sign-in` independently performs `replace('/login')`. A successful email/password or Google redirect sign-in always `replace`s to `/`; no `returnTo` state is carried.
+2. For a resolved `signed-out` user attempting a Member/internal route, `RequireSession` performs `replace('/login')` or renders the route-specific unauthenticated Empty State with login action (when `requiredText` is passed, e.g. on `/design-requests/new`). `/sign-in` independently performs `replace('/login')`. After successful sign-in and Account resolution, CARRIER `replace`s to `/carrier`; every other role `replace`s to `/`. No `returnTo` state is carried.
 3. Explicit sign-out disables the initiating entry point. On Firebase success it emits `USER_SIGN_OUT`. `SessionNavigationBoundary` consumes it once, clears registered private state/drafts, and `replace`s to `/` with transient “Đã đăng xuất” notice. A Firebase-null observer callback caused by that call is ignored for navigation.
 4. Firebase-null after initial resolution or the first authenticated `401` emits `SESSION_LOST`. The boundary consumes the first such outcome only until a later signed-in snapshot, discards private state/drafts, and `replace`s to `/` with generic “Phiên đã kết thúc, vui lòng đăng nhập lại” notice. When `401 ACCOUNT_NOT_FOUND` occurs, the client immediately aborts token refresh retries, purges all local session cache/tokens, and directs the user to `/login` with an informative error rather than causing a cascading retry storm.
 5. A sign-out failure emits no terminal outcome: the current page remains interactive, the pending control re-enables, and a safe retry error is shown.
 6. A `403` is not a sign-out. The boundary retains session/private input, `replace`s to `/`, and passes only a generic access-denied notice. It reveals no role, lifecycle, or Workshop-scope detail.
 7. Home displays the navigation-state notice until dismissal or leaving Home. It never writes the notice to storage. Cleanup and recovery never store/restore passwords, ID tokens, refresh credentials, or private drafts.
 
-**Google branch:** AuthPage starts only `signInWithRedirect`; on return `getRedirectResult` resolves the Firebase user. If `getRedirectResult()` returns null but `auth.currentUser` is already present (e.g. after internal redirect completion / component remount), the page still bootstraps the account (`PUT /api/v1/accounts/me`). Bootstrap must complete before global session is marked ready for profile queries, avoiding race conditions where parallel calls to `/api/v1/accounts/me/profile` return 401 `ACCOUNT_NOT_FOUND` and prematurely trigger sign-out. Following bootstrap, follow step 2 (`replace('/')`). `auth/account-exists-with-different-credential` directs to Email/Password with no merge/link. Any other redirect error is safe generic retry/alternative-method guidance. No popup branch exists.
+**Google branch:** AuthPage starts only `signInWithRedirect`; on return `getRedirectResult` resolves the Firebase user. If `getRedirectResult()` returns null but `auth.currentUser` is already present (e.g. after internal redirect completion / component remount), the page still bootstraps the account (`PUT /api/v1/accounts/me`). Bootstrap must complete before global session is marked ready for profile queries, avoiding race conditions where parallel calls to `/api/v1/accounts/me/profile` return 401 `ACCOUNT_NOT_FOUND` and prematurely trigger sign-out. Following bootstrap, follow step 2 (CARRIER `/carrier`; all other roles `/`). `auth/account-exists-with-different-credential` directs to Email/Password with no merge/link. Any other redirect error is safe generic retry/alternative-method guidance. No popup branch exists.
+
+---
+
+## WF-12: Admin provision and sign in a CARRIER (approved by R-CAR)
+
+ADMIN submits CARRIER email, password, display name and phone with no location. The service rejects missing data, location input, weak password, and an existing Mland/Firebase email. It uses the existing idempotent provisioning/reconciliation mechanism to create the Firebase email/password identity, records no password, then commits one ACTIVE CARRIER and Profile without invitation. CARRIER signs in through the standard email/password UI; UID-first resolution returns the existing CARRIER and never creates a Member Account. Partial provisioning failure is reconciled safely without credentials in persistence, logs, audit, or responses. Suspend/restore follows WF-04.
