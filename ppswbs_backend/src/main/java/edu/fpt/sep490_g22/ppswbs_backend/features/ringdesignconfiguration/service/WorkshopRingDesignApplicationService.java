@@ -219,7 +219,8 @@ public class WorkshopRingDesignApplicationService {
         // Validate compatibility
         ValidationResultDto val = rulesPort.validateCompatibility(request, null);
         if (!val.isValid()) {
-            throw RingDesignException.businessInvalid("DESIGN_OPTION_INVALID", "Tùy chọn thiết kế không hợp lệ hoặc không tương thích.", val.getReasons());
+            String errorCode = determineValidationErrorCode(val.getReasons());
+            throw RingDesignException.businessInvalid(errorCode, "Tùy chọn thiết kế không hợp lệ hoặc không tương thích.", val.getReasons());
         }
 
         EvaluationResultDto eval = rulesPort.evaluate(request);
@@ -501,6 +502,28 @@ public class WorkshopRingDesignApplicationService {
                 .engraving(engraving)
                 .gemstonePositions(gemstonePositions)
                 .build();
+    }
+
+    private String determineValidationErrorCode(List<String> reasons) {
+        if (reasons == null) return "DESIGN_OPTION_INVALID";
+        for (String r : reasons) {
+            if (r.contains("GEMSTONE_TOTAL_LIMIT_EXCEEDED")) {
+                return "GEMSTONE_TOTAL_LIMIT_EXCEEDED";
+            }
+            if (r.contains("TEXT_ENGRAVING_LIMIT_EXCEEDED")) {
+                return "TEXT_ENGRAVING_LIMIT_EXCEEDED";
+            }
+            if (r.contains("SYMBOL_ENGRAVING_LIMIT_EXCEEDED")) {
+                return "SYMBOL_ENGRAVING_LIMIT_EXCEEDED";
+            }
+            if (r.contains("IMAGE_ENGRAVING_LIMIT_EXCEEDED")) {
+                return "IMAGE_ENGRAVING_LIMIT_EXCEEDED";
+            }
+            if (r.contains("IMAGE_PREPROCESSING_INVALID")) {
+                return "IMAGE_PREPROCESSING_INVALID";
+            }
+        }
+        return "DESIGN_OPTION_INVALID";
     }
 }
 

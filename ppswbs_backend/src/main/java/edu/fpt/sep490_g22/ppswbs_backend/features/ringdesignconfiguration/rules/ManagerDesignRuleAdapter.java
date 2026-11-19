@@ -119,7 +119,17 @@ public class ManagerDesignRuleAdapter implements DesignOptionRulesPort {
                         .customImagePrice(CUSTOM_ENGRAVING_IMAGE_PRICE.toPlainString())
                         .imageFrameSizePx(160)
                         .currency("VND")
+                        .contrastMin(0)
+                        .contrastMax(100)
+                        .contrastDefault(50)
+                        .sharpnessMin(0)
+                        .sharpnessMax(100)
+                        .sharpnessDefault(50)
+                        .maxTextItems(2)
+                        .maxSymbolItems(2)
+                        .maxCustomImages(2)
                         .build())
+                .totalGemstoneLimit(10)
                 .models(models.stream().map(mod -> DesignOptionsResponseDto.ModelOptionDto.builder()
                         .modelReference(mod.getModelCode())
                         .name(mod.getName())
@@ -165,17 +175,20 @@ public class ManagerDesignRuleAdapter implements DesignOptionRulesPort {
         // Validate Components
         if (request.getComponents() != null) {
             Set<String> seenComponentRefs = new HashSet<>();
+            int totalGemstoneQuantity = 0;
             for (ComponentSelectionDto comp : request.getComponents()) {
                 if (comp.getReference() == null || comp.getReference().isBlank()) {
                     reasons.add("Mã thành phần đính kèm không được để trống.");
                     continue;
                 }
+                int qty = comp.getQuantity() != null ? comp.getQuantity() : 1;
+                totalGemstoneQuantity += qty;
                 Optional<RingGemstone> gemOpt = gemstoneRepository.findByGemstoneCode(comp.getReference());
                 if (gemOpt.isEmpty() || !Boolean.TRUE.equals(gemOpt.get().getIsActive())) {
                     reasons.add("Đá quý/thành phần không tồn tại hoặc đã ngừng hoạt động: " + comp.getReference());
                 } else {
                     int maxQty = gemOpt.get().getMaxQuantity() != null ? gemOpt.get().getMaxQuantity() : 10;
-                    if (comp.getQuantity() != null && comp.getQuantity() > maxQty) {
+                    if (qty > maxQty) {
                         reasons.add("Số lượng đá quý " + comp.getReference() + " vượt quá giới hạn tối đa (" + maxQty + ").");
                     }
                 }
@@ -183,6 +196,9 @@ public class ManagerDesignRuleAdapter implements DesignOptionRulesPort {
                         && !ALLOWED_COMPONENT_PLACEMENTS.contains(comp.getPlacement().trim())) {
                     reasons.add("Vị trí gắn đá quý không hợp lệ: " + comp.getPlacement());
                 }
+            }
+            if (totalGemstoneQuantity > 10) {
+                reasons.add("GEMSTONE_TOTAL_LIMIT_EXCEEDED: Tổng số lượng đá quý không được vượt quá 10 viên (hiện tại: " + totalGemstoneQuantity + ").");
             }
         }
 
@@ -213,7 +229,15 @@ public class ManagerDesignRuleAdapter implements DesignOptionRulesPort {
         if (request.getEngraving() != null) {
             if (Boolean.TRUE.equals(request.getEngraving().getEnabled())) {
                 if (request.getEngraving().getItems() != null && !request.getEngraving().getItems().isEmpty()) {
+                    int textCount = 0;
+                    int symbolCount = 0;
                     for (EngravingItemDto item : request.getEngraving().getItems()) {
+                        String type = item.getType() != null ? item.getType().trim().toUpperCase() : "TEXT";
+                        if ("SYMBOL".equals(type)) {
+                            symbolCount++;
+                        } else {
+                            textCount++;
+                        }
                         if (item.getContent() == null || item.getContent().trim().isEmpty()) {
                             reasons.add("Nội dung khắc không được để trống khi có mục khắc.");
                         } else if (item.getContent().trim().length() > MAX_ENGRAVING_CHARS) {
@@ -223,6 +247,12 @@ public class ManagerDesignRuleAdapter implements DesignOptionRulesPort {
                                 && !ALLOWED_ENGRAVING_PLACEMENTS.contains(item.getPlacement().trim())) {
                             reasons.add("Vị trí khắc không hợp lệ: " + item.getPlacement());
                         }
+                    }
+                    if (textCount > 2) {
+                        reasons.add("TEXT_ENGRAVING_LIMIT_EXCEEDED: Số lượng nội dung chữ khắc vượt quá giới hạn tối đa 2 mục (hiện tại: " + textCount + ").");
+                    }
+                    if (symbolCount > 2) {
+                        reasons.add("SYMBOL_ENGRAVING_LIMIT_EXCEEDED: Số lượng biểu tượng khắc vượt quá giới hạn tối đa 2 mục (hiện tại: " + symbolCount + ").");
                     }
                 } else {
                     String text = request.getEngraving().getText();
@@ -239,10 +269,19 @@ public class ManagerDesignRuleAdapter implements DesignOptionRulesPort {
             }
 
             if (request.getEngraving().getCustomImages() != null) {
+                if (request.getEngraving().getCustomImages().size() > 2) {
+                    reasons.add("IMAGE_ENGRAVING_LIMIT_EXCEEDED: Số lượng ảnh khắc laser vượt quá giới hạn tối đa 2 ảnh (hiện tại: " + request.getEngraving().getCustomImages().size() + ").");
+                }
                 for (CustomEngravingImageDto img : request.getEngraving().getCustomImages()) {
                     if (img.getPlacement() != null && !img.getPlacement().isBlank()
                             && !ALLOWED_ENGRAVING_PLACEMENTS.contains(img.getPlacement().trim())) {
                         reasons.add("Vị trí khắc ảnh không hợp lệ: " + img.getPlacement());
+                    }
+                    if (img.getContrast() != null && (img.getContrast() < 0 || img.getContrast() > 100)) {
+                        reasons.add("IMAGE_PREPROCESSING_INVALID: Độ tương phản phải nằm trong khoảng từ 0 đến 100.");
+                    }
+                    if (img.getSharpness() != null && (img.getSharpness() < 0 || img.getSharpness() > 100)) {
+                        reasons.add("IMAGE_PREPROCESSING_INVALID: Độ sắc nét phải nằm trong khoảng từ 0 đến 100.");
                     }
                 }
             }

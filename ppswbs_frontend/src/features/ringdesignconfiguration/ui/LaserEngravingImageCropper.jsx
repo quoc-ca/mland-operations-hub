@@ -1,9 +1,10 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 
 /**
- * Converts a 160x160 slice of an image to high-contrast black-and-white (monochrome laser engraving).
+ * Converts a 160x160 slice of an image to high-contrast black-and-white (monochrome laser engraving)
+ * with adjustable contrast and sharpness.
  */
-export function generateBwLaserPreview(imgElement, cropX, cropY, frameSize = 160) {
+export function generateBwLaserPreview(imgElement, cropX, cropY, frameSize = 160, contrast = 50, sharpness = 50) {
   const canvas = document.createElement('canvas');
   canvas.width = frameSize;
   canvas.height = frameSize;
@@ -21,31 +22,65 @@ export function generateBwLaserPreview(imgElement, cropX, cropY, frameSize = 160
     return '';
   }
 
-  // Grayscale thresholding to pure black and white
+  // Grayscale thresholding to pure black and white with contrast & sharpness
   try {
     const imgData = ctx.getImageData(0, 0, frameSize, frameSize);
     const data = imgData.data;
-    for (let i = 0; i < data.length; i += 4) {
-      const r = data[i];
-      const g = data[i + 1];
-      const b = data[i + 2];
-      const a = data[i + 3];
 
+    // 1. Contrast adjustment factor (0..100, default 50)
+    const cVal = (Math.max(0, Math.min(100, contrast)) - 50) * 2; // -100..100
+    const factor = (259 * (cVal + 255)) / (255 * (259 - cVal));
+
+    for (let i = 0; i < data.length; i += 4) {
+      const a = data[i + 3];
       if (a < 64) {
-        // Transparent becomes white
         data[i] = 255;
         data[i + 1] = 255;
         data[i + 2] = 255;
         data[i + 3] = 255;
       } else {
+        let r = factor * (data[i] - 128) + 128;
+        let g = factor * (data[i + 1] - 128) + 128;
+        let b = factor * (data[i + 2] - 128) + 128;
+        r = Math.max(0, Math.min(255, r));
+        g = Math.max(0, Math.min(255, g));
+        b = Math.max(0, Math.min(255, b));
         const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
-        const bw = luminance < 140 ? 0 : 255;
-        data[i] = bw;
-        data[i + 1] = bw;
-        data[i + 2] = bw;
-        data[i + 3] = 255;
+        data[i] = luminance;
+        data[i + 1] = luminance;
+        data[i + 2] = luminance;
       }
     }
+
+    // 2. Sharpness adjustment via 3x3 convolution (0..100, default 50)
+    const sAmount = (Math.max(0, Math.min(100, sharpness)) - 50) / 50; // -1.0 to 1.0
+    const grayBuffer = new Uint8ClampedArray(frameSize * frameSize);
+    for (let i = 0; i < frameSize * frameSize; i++) {
+      grayBuffer[i] = data[i * 4];
+    }
+
+    const threshold = 140;
+    for (let y = 0; y < frameSize; y++) {
+      for (let x = 0; x < frameSize; x++) {
+        const idx = y * frameSize + x;
+        let lum = grayBuffer[idx];
+        if (sAmount !== 0 && x > 0 && x < frameSize - 1 && y > 0 && y < frameSize - 1) {
+          const up = grayBuffer[(y - 1) * frameSize + x];
+          const down = grayBuffer[(y + 1) * frameSize + x];
+          const left = grayBuffer[y * frameSize + (x - 1)];
+          const right = grayBuffer[y * frameSize + (x + 1)];
+          const laplace = 4 * lum - (up + down + left + right);
+          lum = Math.max(0, Math.min(255, lum + sAmount * laplace));
+        }
+        const bw = lum < threshold ? 0 : 255;
+        const pIdx = idx * 4;
+        data[pIdx] = bw;
+        data[pIdx + 1] = bw;
+        data[pIdx + 2] = bw;
+        data[pIdx + 3] = 255;
+      }
+    }
+
     ctx.putImageData(imgData, 0, 0);
   } catch {
     // Canvas tainted or unavailable in unit test
@@ -61,18 +96,52 @@ function CustomImageCard({ item, onUpdate, onRemove, t }) {
   const imgRef = useRef(null);
   const containerRef = useRef(null);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const [dragStart, setDragStart] = useState({ mouseX: 0, mouseY: 0, initialCropX: 0, initialCropY: 0 });
-  const [previewUrl, setPreviewUrl] = useState(item.previewDataUrl || '');
+  const [previewUrl, setPreviewUrl] = useState(item.previewDataUrl || item.processedPreviewReference || '');
 
   const frameSize = 160;
+  const contrast = item.contrast !== undefined ? Number(item.contrast) : 50;
+  const sharpness = item.sharpness !== undefined ? Number(item.sharpness) : 50;
+
+  const renderBwPreview = useCallback(
+    (cropX, cropY, cVal, sVal) => {
+      if (!imgRef.current) return;
+      const url = generateBwLaserPreview(imgRef.current, cropX, cropY, frameSize, cVal, sVal);
+      if (url) {
+        setPreviewUrl(url);
+        onUpdate({
+          ...item,
+          cropX,
+          cropY,
+          contrast: cVal,
+          sharpness: sVal,
+          previewDataUrl: url,
+          processedPreviewReference: url,
+        });
+      }
+    },
+    [item, onUpdate]
+  );
 
   const handleImageLoad = () => {
     setIsLoaded(true);
+    setLoadError(false);
     if (imgRef.current) {
-      const url = generateBwLaserPreview(imgRef.current, item.cropX || 0, item.cropY || 0, frameSize);
-      setPreviewUrl(url);
-      onUpdate({ ...item, previewDataUrl: url });
+      renderBwPreview(item.cropX || 0, item.cropY || 0, contrast, sharpness);
+    }
+  };
+
+  const handleImageError = () => {
+    setLoadError(true);
+    setIsLoaded(false);
+  };
+
+  const handleRetry = () => {
+    setLoadError(false);
+    if (imgRef.current) {
+      imgRef.current.src = item.imageUrl;
     }
   };
 
@@ -84,17 +153,20 @@ function CustomImageCard({ item, onUpdate, onRemove, t }) {
       const clampedX = Math.max(0, Math.min(maxX, Math.round(newX)));
       const clampedY = Math.max(0, Math.min(maxY, Math.round(newY)));
 
-      const url = generateBwLaserPreview(imgRef.current, clampedX, clampedY, frameSize);
-      setPreviewUrl(url);
-      onUpdate({
-        ...item,
-        cropX: clampedX,
-        cropY: clampedY,
-        previewDataUrl: url,
-      });
+      renderBwPreview(clampedX, clampedY, contrast, sharpness);
     },
-    [item, onUpdate]
+    [contrast, sharpness, renderBwPreview]
   );
+
+  const handleContrastChange = (newVal) => {
+    const clamped = Math.max(0, Math.min(100, Math.round(newVal)));
+    renderBwPreview(item.cropX || 0, item.cropY || 0, clamped, sharpness);
+  };
+
+  const handleSharpnessChange = (newVal) => {
+    const clamped = Math.max(0, Math.min(100, Math.round(newVal)));
+    renderBwPreview(item.cropX || 0, item.cropY || 0, contrast, clamped);
+  };
 
   const handleMouseDown = (e) => {
     e.preventDefault();
@@ -192,26 +264,58 @@ function CustomImageCard({ item, onUpdate, onRemove, t }) {
               background: '#f8fafc',
               maxHeight: '320px',
               maxWidth: '380px',
-              cursor: 'crosshair',
+              minHeight: '160px',
+              minWidth: '160px',
+              cursor: loadError ? 'default' : 'crosshair',
             }}
           >
-            <img
-              ref={imgRef}
-              src={item.imageUrl}
-              alt="Custom uploaded"
-              onLoad={handleImageLoad}
-              style={{
-                display: 'block',
-                maxWidth: '100%',
-                maxHeight: '320px',
-                objectFit: 'contain',
-                userSelect: 'none',
-                pointerEvents: 'none',
-              }}
-            />
+            {loadError ? (
+              <div
+                style={{
+                  padding: '2rem 1rem',
+                  textAlign: 'center',
+                  color: '#e11d48',
+                  fontSize: '0.85rem',
+                }}
+                data-testid={`image-error-${item.id}`}
+              >
+                <div>⚠️ {t.imageLoadError || 'Không thể tải ảnh khắc.'}</div>
+                <button
+                  type="button"
+                  onClick={handleRetry}
+                  style={{
+                    marginTop: '0.5rem',
+                    padding: '0.25rem 0.75rem',
+                    background: '#f1f5f9',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                  }}
+                  data-testid={`retry-load-image-${item.id}`}
+                >
+                  {t.imageRetry || 'Thử lại'}
+                </button>
+              </div>
+            ) : (
+              <img
+                ref={imgRef}
+                src={item.imageUrl}
+                alt="Custom uploaded"
+                onLoad={handleImageLoad}
+                onError={handleImageError}
+                style={{
+                  display: 'block',
+                  maxWidth: '100%',
+                  maxHeight: '320px',
+                  objectFit: 'contain',
+                  userSelect: 'none',
+                  pointerEvents: 'none',
+                }}
+              />
+            )}
 
             {/* Draggable 160x160 Frame */}
-            {isLoaded && (
+            {isLoaded && !loadError && (
               <div
                 onMouseDown={handleMouseDown}
                 data-testid={`crop-frame-${item.id}`}
@@ -263,7 +367,7 @@ function CustomImageCard({ item, onUpdate, onRemove, t }) {
           </div>
         </div>
 
-        {/* 160x160 Black & White Laser Preview Box */}
+        {/* 160x160 Black & White Laser Preview Box and Preprocessing Sliders */}
         <div style={{ flex: '1', minWidth: '180px' }}>
           <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: '0.5rem' }}>
             {t.laserPreviewTitle || 'Bản xem trước khắc laser (Trắng - Đen 160px x 160px):'}
@@ -284,7 +388,9 @@ function CustomImageCard({ item, onUpdate, onRemove, t }) {
             }}
             data-testid={`laser-preview-${item.id}`}
           >
-            {previewUrl ? (
+            {loadError ? (
+              <span style={{ fontSize: '0.75rem', color: '#e11d48' }}>Lỗi tải ảnh</span>
+            ) : previewUrl ? (
               <img
                 src={previewUrl}
                 alt="Laser preview"
@@ -293,6 +399,48 @@ function CustomImageCard({ item, onUpdate, onRemove, t }) {
             ) : (
               <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Đang tải...</span>
             )}
+          </div>
+
+          {/* Contrast Slider */}
+          <div style={{ marginTop: '0.75rem' }} data-testid={`contrast-slider-container-${item.id}`}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', fontWeight: 500, color: '#334155', marginBottom: '0.25rem' }}>
+              <span>{t.contrastLabel || 'Độ tương phản'}</span>
+              <span data-testid={`contrast-value-${item.id}`}>{contrast}</span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              step="1"
+              value={contrast}
+              onChange={(e) => handleContrastChange(Number(e.target.value))}
+              style={{ width: '100%', cursor: 'pointer' }}
+              data-testid={`contrast-slider-${item.id}`}
+            />
+            <div style={{ fontSize: '0.7rem', color: '#64748b' }}>
+              {t.contrastHelper || '0 - 100, mặc định 50'}
+            </div>
+          </div>
+
+          {/* Sharpness Slider */}
+          <div style={{ marginTop: '0.5rem' }} data-testid={`sharpness-slider-container-${item.id}`}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', fontWeight: 500, color: '#334155', marginBottom: '0.25rem' }}>
+              <span>{t.sharpnessLabel || 'Độ sắc nét'}</span>
+              <span data-testid={`sharpness-value-${item.id}`}>{sharpness}</span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              step="1"
+              value={sharpness}
+              onChange={(e) => handleSharpnessChange(Number(e.target.value))}
+              style={{ width: '100%', cursor: 'pointer' }}
+              data-testid={`sharpness-slider-${item.id}`}
+            />
+            <div style={{ fontSize: '0.7rem', color: '#64748b' }}>
+              {t.sharpnessHelper || '0 - 100, mặc định 50'}
+            </div>
           </div>
 
           {/* Placement Picker */}
@@ -329,10 +477,18 @@ function CustomImageCard({ item, onUpdate, onRemove, t }) {
 
 export default function LaserEngravingImageCropper({ customImages = [], onChangeCustomImages, t }) {
   const fileInputRef = useRef(null);
+  const isImageLimitReached = customImages.length >= 2;
 
   const handleFileUpload = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (customImages.length >= 2) {
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      return;
+    }
 
     const reader = new FileReader();
     reader.onload = (uploadEvent) => {
@@ -343,10 +499,14 @@ export default function LaserEngravingImageCropper({ customImages = [], onChange
       const newItem = {
         id: newId,
         imageUrl: dataUrl,
+        imageReference: dataUrl,
+        processedPreviewReference: '',
         cropX: 0,
         cropY: 0,
         cropWidth: 160,
         cropHeight: 160,
+        contrast: 50,
+        sharpness: 50,
         placement: 'INNER_BAND',
         price: 100000,
         previewDataUrl: '',
@@ -372,12 +532,27 @@ export default function LaserEngravingImageCropper({ customImages = [], onChange
     <div style={{ marginTop: '1.25rem', paddingTop: '1.25rem', borderTop: '1px dashed #cbd5e1' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
         <div>
-          <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#1e293b', margin: 0 }}>
-            {t.customImageSectionTitle || 'Khắc hình ảnh cá nhân hóa (+100.000 đ / ảnh)'}
-          </h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#1e293b', margin: 0 }}>
+              {t.customImageSectionTitle || 'Khắc hình ảnh cá nhân hóa (+100.000 đ / ảnh)'}
+            </h3>
+            <span
+              style={{
+                fontSize: '0.8rem',
+                background: isImageLimitReached ? '#fee2e2' : '#f1f5f9',
+                color: isImageLimitReached ? '#e11d48' : '#475569',
+                padding: '0.15rem 0.5rem',
+                borderRadius: '999px',
+                fontWeight: 600,
+              }}
+              data-testid="engraving-image-counter"
+            >
+              {(t.imageEngravingCounter || 'Ảnh laser: {count}/2').replace('{count}', customImages.length)}
+            </span>
+          </div>
           <p style={{ fontSize: '0.85rem', color: '#64748b', margin: '0.25rem 0 0 0' }}>
             {t.customImageSectionDesc ||
-              'Tải lên ảnh mẫu (chữ ký, logo). Hệ thống chuyển sang màu đen trắng và đóng khung 160px x 160px để bạn chọn vị trí khắc đẹp nhất.'}
+              'Tải lên ảnh mẫu (chữ ký, logo). Hệ thống chuyển sang màu đen trắng và đóng khung 160px x 160px để bạn chọn vị trí khắc đẹp nhất (tối đa 2 ảnh).'}
           </p>
         </div>
       </div>
@@ -392,28 +567,39 @@ export default function LaserEngravingImageCropper({ customImages = [], onChange
         data-testid="upload-engraving-image-input"
       />
 
-      <button
-        type="button"
-        onClick={() => fileInputRef.current?.click()}
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: '0.5rem',
-          padding: '0.5rem 1rem',
-          background: '#f1f5f9',
-          border: '1px solid #cbd5e1',
-          borderRadius: '8px',
-          color: '#334155',
-          fontSize: '0.9rem',
-          fontWeight: 500,
-          cursor: 'pointer',
-          marginTop: '0.5rem',
-          marginBottom: '1rem',
-        }}
-        data-testid="upload-engraving-image-btn"
-      >
-        📷 {t.uploadCustomImageBtn || 'Tải ảnh lên để khắc laser (+100.000 đ)'}
-      </button>
+      <div style={{ marginTop: '0.5rem', marginBottom: '1rem' }}>
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={isImageLimitReached}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            padding: '0.5rem 1rem',
+            background: isImageLimitReached ? '#f8fafc' : '#f1f5f9',
+            border: '1px solid #cbd5e1',
+            borderRadius: '8px',
+            color: isImageLimitReached ? '#94a3b8' : '#334155',
+            fontSize: '0.9rem',
+            fontWeight: 500,
+            cursor: isImageLimitReached ? 'not-allowed' : 'pointer',
+            opacity: isImageLimitReached ? 0.6 : 1,
+          }}
+          data-testid="upload-engraving-image-btn"
+        >
+          📷 {t.uploadCustomImageBtn || 'Tải ảnh lên để khắc laser (+100.000 đ)'}
+        </button>
+
+        {isImageLimitReached && (
+          <div
+            style={{ color: '#e11d48', fontSize: '0.85rem', marginTop: '0.25rem', fontWeight: 500 }}
+            data-testid="image-engraving-limit-message"
+          >
+            {t.imageEngravingLimitReached || 'Đã đạt tối đa 2 ảnh khắc laser.'}
+          </div>
+        )}
+      </div>
 
       {/* List of uploaded custom image crop cards */}
       {customImages.map((item) => (

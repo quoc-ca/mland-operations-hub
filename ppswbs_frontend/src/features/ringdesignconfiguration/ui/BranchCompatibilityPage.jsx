@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
+import { useLanguage } from '../../../shared/i18n/I18nProvider';
 import { messages } from '../messages';
 import '../ring-design.css';
 
@@ -11,7 +12,8 @@ export default function BranchCompatibilityPage() {
   const designId = searchParams.get('designId') || '';
   const reason = searchParams.get('reason') || 'Chi nhánh này chưa hỗ trợ một số vật liệu kim hoàn đặc thù của mẫu nhẫn.';
 
-  const lang = 'vi';
+  const { language } = useLanguage();
+  const lang = language === 'en' ? 'en' : 'vi';
   const t = messages[lang];
 
   return (

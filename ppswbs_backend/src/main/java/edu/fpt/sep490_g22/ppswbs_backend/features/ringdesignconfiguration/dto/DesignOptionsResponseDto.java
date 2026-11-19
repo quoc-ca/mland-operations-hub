@@ -30,6 +30,9 @@ public class DesignOptionsResponseDto {
     private List<ComponentOptionDto> components = new ArrayList<>();
 
     @Builder.Default
+    private Integer totalGemstoneLimit = 10;
+
+    @Builder.Default
     private List<AttachmentOptionDto> attachments = new ArrayList<>();
 
     private EngravingConfigDto engravingConfig;
@@ -114,6 +117,26 @@ public class DesignOptionsResponseDto {
         private String customImagePrice;
         private Integer imageFrameSizePx;
         private String currency;
+
+        @Builder.Default
+        private Integer contrastMin = 0;
+        @Builder.Default
+        private Integer contrastMax = 100;
+        @Builder.Default
+        private Integer contrastDefault = 50;
+        @Builder.Default
+        private Integer sharpnessMin = 0;
+        @Builder.Default
+        private Integer sharpnessMax = 100;
+        @Builder.Default
+        private Integer sharpnessDefault = 50;
+
+        @Builder.Default
+        private Integer maxTextItems = 2;
+        @Builder.Default
+        private Integer maxSymbolItems = 2;
+        @Builder.Default
+        private Integer maxCustomImages = 2;
     }
 
     @Data

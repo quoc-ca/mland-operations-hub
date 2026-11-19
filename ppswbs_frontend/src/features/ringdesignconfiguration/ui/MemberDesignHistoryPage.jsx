@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router';
 import { useWorkshopRingDesignApi } from '../api/useWorkshopRingDesignApi';
 import { useDesignReviewApi } from '../../designreview/api/useDesignReviewApi';
 import { useAuth } from '../../../shared/auth/AuthProvider';
+import { useLanguage } from '../../../shared/i18n/I18nProvider';
 import { MATERIAL_PALETTES, SHAPE_STROKES } from '../domain/designPreview';
 import { messages } from '../messages';
 import '../ring-design.css';
@@ -14,6 +15,9 @@ export default function MemberDesignHistoryPage() {
   const designReviewApi = useDesignReviewApi();
   const { status, userId } = useAuth();
   const isAuthenticated = status === 'signed-in' || Boolean(userId);
+  const { language } = useLanguage();
+  const lang = language === 'en' ? 'en' : 'vi';
+  const t = messages[lang];
 
   const activeTab = searchParams.get('tab') === 'custom' ? 'custom' : 'workshop';
 
@@ -23,9 +27,6 @@ export default function MemberDesignHistoryPage() {
   const [error, setError] = useState(null);
   const [lookupCode, setLookupCode] = useState('');
   const [lookupError, setLookupError] = useState('');
-
-  const lang = 'vi';
-  const t = messages[lang];
 
   useEffect(() => {
     let active = true;

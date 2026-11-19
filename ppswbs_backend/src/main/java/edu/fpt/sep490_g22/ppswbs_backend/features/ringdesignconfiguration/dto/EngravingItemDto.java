@@ -1,5 +1,6 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.ringdesignconfiguration.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.validation.constraints.Size;
 import lombok.*;
 
@@ -7,6 +8,7 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class EngravingItemDto {
 
     private String id;
