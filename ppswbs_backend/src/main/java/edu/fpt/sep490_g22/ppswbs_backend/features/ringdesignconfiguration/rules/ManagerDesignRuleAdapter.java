@@ -21,16 +21,15 @@ public class ManagerDesignRuleAdapter implements DesignOptionRulesPort {
     public static final List<String> STANDARD_SIZES = List.of(
             "6", "7", "8", "9", "10", "11", "12", "13", "14", "15",
             "16", "17", "18", "19", "20", "21", "22", "23", "24", "25",
-            "26", "27", "28", "29"
-    );
+            "26", "27", "28", "29");
     public static final int MAX_ENGRAVING_CHARS = 50;
     public static final BigDecimal ENGRAVING_PRICE = new BigDecimal("80000.00");
     public static final BigDecimal CUSTOM_ENGRAVING_IMAGE_PRICE = new BigDecimal("100000.00");
     public static final Set<String> TEXTURED_SURFACE_SHAPES = Set.of(
-            "SHP-HAMMERED", "SHP-BALL-PEEN", "SHP-SINGLE-TWIST", "SHP-TWISTED", "SHP-WAVE"
-    );
+            "SHP-HAMMERED", "SHP-BALL-PEEN", "SHP-SINGLE-TWIST", "SHP-TWISTED", "SHP-WAVE");
     public static final List<String> ALLOWED_ENGRAVING_PLACEMENTS = List.of("INNER_BAND", "OUTER_BAND");
-    public static final List<String> ALLOWED_COMPONENT_PLACEMENTS = List.of("CENTER", "ACCENT_LEFT", "ACCENT_RIGHT", "HALO", "CUSTOM");
+    public static final List<String> ALLOWED_COMPONENT_PLACEMENTS = List.of("CENTER", "ACCENT_LEFT", "ACCENT_RIGHT",
+            "HALO", "CUSTOM");
     public static final List<String> ALLOWED_ATTACHMENT_PLACEMENTS = List.of("OUTER_SURFACE", "EDGES", "PRONGS");
 
     public static final BigDecimal BASE_WEIGHT_LIMIT_GRAMS = new BigDecimal("3.00");
@@ -41,8 +40,7 @@ public class ManagerDesignRuleAdapter implements DesignOptionRulesPort {
     public static final Map<String, BigDecimal> MATERIAL_DENSITIES = Map.of(
             "MAT-SILVER-925", new BigDecimal("10.36"),
             "MAT-COPPER", new BigDecimal("8.96"),
-            "MAT-STAINLESS-STEEL", new BigDecimal("7.99")
-    );
+            "MAT-STAINLESS-STEEL", new BigDecimal("7.99"));
 
     private final RingMaterialRepository materialRepository;
     private final RingShapeRepository shapeRepository;
@@ -60,7 +58,8 @@ public class ManagerDesignRuleAdapter implements DesignOptionRulesPort {
         List<RingShape> shapes = shapeRepository.findAllByIsActiveTrue();
         List<RingGemstone> gemstones = gemstoneRepository.findAllByIsActiveTrue();
         List<RingAttachment> attachments = attachmentRepository.findAllByIsActiveTrue();
-        List<RingCatalogueModel> models = catalogueModelRepository.findAllByPackageReferenceAndIsActiveTrue(packageReference);
+        List<RingCatalogueModel> models = catalogueModelRepository
+                .findAllByPackageReferenceAndIsActiveTrue(packageReference);
 
         return DesignOptionsResponseDto.builder()
                 .packageReference(packageReference)
@@ -189,7 +188,8 @@ public class ManagerDesignRuleAdapter implements DesignOptionRulesPort {
                 } else {
                     int maxQty = gemOpt.get().getMaxQuantity() != null ? gemOpt.get().getMaxQuantity() : 10;
                     if (qty > maxQty) {
-                        reasons.add("Số lượng đá quý " + comp.getReference() + " vượt quá giới hạn tối đa (" + maxQty + ").");
+                        reasons.add("Số lượng đá quý " + comp.getReference() + " vượt quá giới hạn tối đa (" + maxQty
+                                + ").");
                     }
                 }
                 if (comp.getPlacement() != null && !comp.getPlacement().isBlank()
@@ -198,7 +198,9 @@ public class ManagerDesignRuleAdapter implements DesignOptionRulesPort {
                 }
             }
             if (totalGemstoneQuantity > 10) {
-                reasons.add("GEMSTONE_TOTAL_LIMIT_EXCEEDED: Tổng số lượng đá quý không được vượt quá 10 viên (hiện tại: " + totalGemstoneQuantity + ").");
+                reasons.add(
+                        "GEMSTONE_TOTAL_LIMIT_EXCEEDED: Tổng số lượng đá quý không được vượt quá 10 viên (hiện tại: "
+                                + totalGemstoneQuantity + ").");
             }
         }
 
@@ -215,7 +217,8 @@ public class ManagerDesignRuleAdapter implements DesignOptionRulesPort {
                 } else {
                     int maxQty = attOpt.get().getMaxQuantity() != null ? attOpt.get().getMaxQuantity() : 10;
                     if (att.getQuantity() != null && att.getQuantity() > maxQty) {
-                        reasons.add("Số lượng phụ kiện " + att.getReference() + " vượt quá giới hạn tối đa (" + maxQty + ").");
+                        reasons.add("Số lượng phụ kiện " + att.getReference() + " vượt quá giới hạn tối đa (" + maxQty
+                                + ").");
                     }
                 }
                 if (att.getPlacement() != null && !att.getPlacement().isBlank()
@@ -249,10 +252,19 @@ public class ManagerDesignRuleAdapter implements DesignOptionRulesPort {
                         }
                     }
                     if (textCount > 2) {
-                        reasons.add("TEXT_ENGRAVING_LIMIT_EXCEEDED: Số lượng nội dung chữ khắc vượt quá giới hạn tối đa 2 mục (hiện tại: " + textCount + ").");
+                        reasons.add(
+                                "TEXT_ENGRAVING_LIMIT_EXCEEDED: Số lượng nội dung chữ khắc vượt quá giới hạn tối đa 2 mục (hiện tại: "
+                                        + textCount + ").");
                     }
                     if (symbolCount > 2) {
-                        reasons.add("SYMBOL_ENGRAVING_LIMIT_EXCEEDED: Số lượng biểu tượng khắc vượt quá giới hạn tối đa 2 mục (hiện tại: " + symbolCount + ").");
+                        reasons.add(
+                                "SYMBOL_ENGRAVING_LIMIT_EXCEEDED: Số lượng biểu tượng khắc vượt quá giới hạn tối đa 2 mục (hiện tại: "
+                                        + symbolCount + ").");
+                    }
+                    if (request.getEngraving().getItems().size() > 2 && textCount <= 2 && symbolCount <= 2) {
+                        reasons.add(
+                                "TEXT_ENGRAVING_LIMIT_EXCEEDED: Số lượng mục khắc chữ & biểu tượng không được vượt quá 2 mục (hiện tại: "
+                                        + request.getEngraving().getItems().size() + ").");
                     }
                 } else {
                     String text = request.getEngraving().getText();
@@ -261,7 +273,8 @@ public class ManagerDesignRuleAdapter implements DesignOptionRulesPort {
                     } else if (text.trim().length() > MAX_ENGRAVING_CHARS) {
                         reasons.add("Độ dài nội dung khắc chữ vượt quá giới hạn " + MAX_ENGRAVING_CHARS + " ký tự.");
                     }
-                    if (request.getEngraving().getPlacement() != null && !request.getEngraving().getPlacement().isBlank()
+                    if (request.getEngraving().getPlacement() != null
+                            && !request.getEngraving().getPlacement().isBlank()
                             && !ALLOWED_ENGRAVING_PLACEMENTS.contains(request.getEngraving().getPlacement().trim())) {
                         reasons.add("Vị trí khắc chữ không hợp lệ: " + request.getEngraving().getPlacement());
                     }
@@ -270,7 +283,9 @@ public class ManagerDesignRuleAdapter implements DesignOptionRulesPort {
 
             if (request.getEngraving().getCustomImages() != null) {
                 if (request.getEngraving().getCustomImages().size() > 2) {
-                    reasons.add("IMAGE_ENGRAVING_LIMIT_EXCEEDED: Số lượng ảnh khắc laser vượt quá giới hạn tối đa 2 ảnh (hiện tại: " + request.getEngraving().getCustomImages().size() + ").");
+                    reasons.add(
+                            "IMAGE_ENGRAVING_LIMIT_EXCEEDED: Số lượng ảnh khắc laser vượt quá giới hạn tối đa 2 ảnh (hiện tại: "
+                                    + request.getEngraving().getCustomImages().size() + ").");
                 }
                 for (CustomEngravingImageDto img : request.getEngraving().getCustomImages()) {
                     if (img.getPlacement() != null && !img.getPlacement().isBlank()
@@ -312,17 +327,20 @@ public class ManagerDesignRuleAdapter implements DesignOptionRulesPort {
         if (request.getRingSize() != null) {
             try {
                 sizeNum = Integer.parseInt(request.getRingSize().trim());
-            } catch (NumberFormatException ignored) {}
+            } catch (NumberFormatException ignored) {
+            }
         }
         double perimeterMm = sizeNum + 40.0;
         double thicknessMm = request.getThicknessMm() != null ? request.getThicknessMm().doubleValue() : 1.8;
         double bandWidthMm = request.getBandWidthMm() != null ? request.getBandWidthMm().doubleValue() : 3.5;
 
-        // Geometric volume of hollow cylindrical ring band: V = (P + π*T) * T * W in mm³
+        // Geometric volume of hollow cylindrical ring band: V = (P + π*T) * T * W in
+        // mm³
         double volumeMm3 = (perimeterMm + Math.PI * thicknessMm) * thicknessMm * bandWidthMm;
         double volumeCm3 = volumeMm3 / 1000.0;
 
-        String matRef = request.getMaterialReference() != null ? request.getMaterialReference().trim() : "MAT-SILVER-925";
+        String matRef = request.getMaterialReference() != null ? request.getMaterialReference().trim()
+                : "MAT-SILVER-925";
         BigDecimal density = MATERIAL_DENSITIES.getOrDefault(matRef, new BigDecimal("10.36"));
         BigDecimal estimatedWeight = BigDecimal.valueOf(volumeCm3).multiply(density).setScale(2, RoundingMode.HALF_UP);
 
@@ -368,7 +386,8 @@ public class ManagerDesignRuleAdapter implements DesignOptionRulesPort {
                 if (gemOpt.isPresent()) {
                     int qty = comp.getQuantity() != null ? comp.getQuantity() : 1;
                     totalEstimate = totalEstimate.add(gemOpt.get().getUnitPrice().multiply(BigDecimal.valueOf(qty)));
-                    totalDifficulty = totalDifficulty.add(gemOpt.get().getDifficultyScore().multiply(BigDecimal.valueOf(qty)));
+                    totalDifficulty = totalDifficulty
+                            .add(gemOpt.get().getDifficultyScore().multiply(BigDecimal.valueOf(qty)));
                 }
             }
         }
@@ -380,7 +399,8 @@ public class ManagerDesignRuleAdapter implements DesignOptionRulesPort {
                 if (attOpt.isPresent()) {
                     int qty = att.getQuantity() != null ? att.getQuantity() : 1;
                     totalEstimate = totalEstimate.add(attOpt.get().getUnitPrice().multiply(BigDecimal.valueOf(qty)));
-                    totalDifficulty = totalDifficulty.add(attOpt.get().getDifficultyScore().multiply(BigDecimal.valueOf(qty)));
+                    totalDifficulty = totalDifficulty
+                            .add(attOpt.get().getDifficultyScore().multiply(BigDecimal.valueOf(qty)));
                 }
             }
         }
@@ -409,7 +429,8 @@ public class ManagerDesignRuleAdapter implements DesignOptionRulesPort {
             }
 
             // 2. Custom uploaded images at 100,000 VND / image
-            if (request.getEngraving().getCustomImages() != null && !request.getEngraving().getCustomImages().isEmpty()) {
+            if (request.getEngraving().getCustomImages() != null
+                    && !request.getEngraving().getCustomImages().isEmpty()) {
                 int imgCount = request.getEngraving().getCustomImages().size();
                 BigDecimal customImgCost = CUSTOM_ENGRAVING_IMAGE_PRICE.multiply(BigDecimal.valueOf(imgCount));
                 engravingCost = engravingCost.add(customImgCost);
@@ -428,11 +449,13 @@ public class ManagerDesignRuleAdapter implements DesignOptionRulesPort {
         // Check textured surface warning on outer band engraving
         String shapeRef = request.getShapeReference() != null ? request.getShapeReference().trim() : "";
         if (hasOuterEngraving && TEXTURED_SURFACE_SHAPES.contains(shapeRef)) {
-            warnings.add("Lưu ý: Mặt ngoài đai nhẫn có thiết kế kết cấu bề mặt gồ ghề (đập búa / búa bi / xoắn / lượn sóng). Hình khắc ở mặt ngoài có thể không đạt độ sắc nét hoặc bị biến dạng so với mong muốn.");
+            warnings.add(
+                    "Lưu ý: Mặt ngoài đai nhẫn có thiết kế kết cấu bề mặt gồ ghề (đập búa / búa bi / xoắn / lượn sóng). Hình khắc ở mặt ngoài có thể không đạt độ sắc nét hoặc bị biến dạng so với mong muốn.");
         }
 
         int customImgCount = (request.getEngraving() != null && request.getEngraving().getCustomImages() != null)
-                ? request.getEngraving().getCustomImages().size() : 0;
+                ? request.getEngraving().getCustomImages().size()
+                : 0;
 
         return EvaluationResultDto.builder()
                 .estimatedPrice(totalEstimate.setScale(2, RoundingMode.HALF_UP).toPlainString())
@@ -450,4 +473,3 @@ public class ManagerDesignRuleAdapter implements DesignOptionRulesPort {
                 .build();
     }
 }
-

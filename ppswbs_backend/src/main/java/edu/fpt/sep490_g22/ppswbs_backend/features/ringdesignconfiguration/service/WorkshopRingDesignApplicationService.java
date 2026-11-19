@@ -143,7 +143,12 @@ public class WorkshopRingDesignApplicationService {
             }
         }
 
-        List<RingDesign> latestList = new ArrayList<>(latestByRef.values());
+        List<RingDesign> latestList = new ArrayList<>();
+        for (RingDesign d : latestByRef.values()) {
+            if (d.getStatus() != RingDesignStatus.ARCHIVED) {
+                latestList.add(d);
+            }
+        }
         latestList.sort((a, b) -> {
             if (b.getCreatedAt() != null && a.getCreatedAt() != null) {
                 return b.getCreatedAt().compareTo(a.getCreatedAt());

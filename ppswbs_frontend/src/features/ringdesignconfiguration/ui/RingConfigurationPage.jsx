@@ -478,65 +478,39 @@ export default function RingConfigurationPage() {
 
                 {draft.engraving?.enabled && (() => {
                   const rawItems = draft.engraving?.items || [];
-                  const textItems = rawItems.filter((it) => (it.type || 'TEXT').toUpperCase() !== 'SYMBOL');
-                  const symbolItems = rawItems.filter((it) => (it.type || 'TEXT').toUpperCase() === 'SYMBOL');
-                  const textCount = textItems.length;
-                  const symbolCount = symbolItems.length;
-                  const isTextLimitReached = textCount >= 2;
-                  const isSymbolLimitReached = symbolCount >= 2;
+                  const totalCount = rawItems.length;
+                  const isLimitReached = totalCount >= 2;
 
                   return (
                     <div style={{ marginLeft: '1.5rem', marginBottom: '1.5rem' }}>
-                      {/* Quota Counters */}
+                      {/* Quota Counter */}
                       <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
                         <span
                           style={{
                             fontSize: '0.8rem',
-                            background: isTextLimitReached ? '#fee2e2' : '#f1f5f9',
-                            color: isTextLimitReached ? '#e11d48' : '#475569',
+                            background: isLimitReached ? '#fee2e2' : '#f1f5f9',
+                            color: isLimitReached ? '#e11d48' : '#475569',
                             padding: '0.15rem 0.5rem',
                             borderRadius: '999px',
                             fontWeight: 600,
                           }}
                           data-testid="engraving-text-counter"
                         >
-                          {(t.textEngravingCounter || 'Chữ: {count}/2').replace('{count}', textCount)}
-                        </span>
-                        <span
-                          style={{
-                            fontSize: '0.8rem',
-                            background: isSymbolLimitReached ? '#fee2e2' : '#f1f5f9',
-                            color: isSymbolLimitReached ? '#e11d48' : '#475569',
-                            padding: '0.15rem 0.5rem',
-                            borderRadius: '999px',
-                            fontWeight: 600,
-                          }}
-                          data-testid="engraving-symbol-counter"
-                        >
-                          {(t.symbolEngravingCounter || 'Biểu tượng: {count}/2').replace('{count}', symbolCount)}
+                          {(t.engravingItemsCounter || 'Khắc chữ & biểu tượng: {count}/2').replace('{count}', totalCount)}
                         </span>
                       </div>
 
-                      {isTextLimitReached && (
+                      {isLimitReached && (
                         <div
                           style={{ color: '#e11d48', fontSize: '0.85rem', marginBottom: '0.5rem', fontWeight: 500 }}
                           data-testid="text-engraving-limit-message"
                         >
-                          {t.textEngravingLimitReached || 'Đã đạt tối đa 2 mục chữ khắc.'}
-                        </div>
-                      )}
-                      {isSymbolLimitReached && (
-                        <div
-                          style={{ color: '#e11d48', fontSize: '0.85rem', marginBottom: '0.5rem', fontWeight: 500 }}
-                          data-testid="symbol-engraving-limit-message"
-                        >
-                          {t.symbolEngravingLimitReached || 'Đã đạt tối đa 2 biểu tượng khắc.'}
+                          {t.engravingItemsLimitReached || 'Đã đạt tối đa 2 vị trí khắc chữ & biểu tượng.'}
                         </div>
                       )}
 
                       {/* Standard Engraving Items */}
                       {rawItems.map((item, idx) => {
-                        const isSymbol = (item.type || 'TEXT').toUpperCase() === 'SYMBOL';
                         const updateItem = (patch) => {
                           const currentItems = [...rawItems];
                           currentItems[idx] = { ...currentItems[idx], ...patch };
@@ -582,20 +556,7 @@ export default function RingConfigurationPage() {
                             >
                               <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                                 <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#334155' }}>
-                                  {lang === 'en' ? `Position #${idx + 1}` : `Vị trí #${idx + 1}`}
-                                </span>
-                                <span
-                                  style={{
-                                    fontSize: '0.75rem',
-                                    padding: '0.1rem 0.4rem',
-                                    borderRadius: '4px',
-                                    background: isSymbol ? '#fef3c7' : '#e0f2fe',
-                                    color: isSymbol ? '#92400e' : '#0369a1',
-                                    fontWeight: 500,
-                                  }}
-                                  data-testid={`engraving-type-badge-${idx}`}
-                                >
-                                  {isSymbol ? (lang === 'en' ? 'Symbol' : 'Biểu tượng') : (lang === 'en' ? 'Text' : 'Chữ khắc')}
+                                  {lang === 'en' ? `Placement #${idx + 1}` : `Vị trí #${idx + 1}`}
                                 </span>
                               </div>
                               <button
@@ -615,13 +576,13 @@ export default function RingConfigurationPage() {
                             </div>
 
                             <DesignControlField
-                              label={isSymbol ? (lang === 'en' ? 'Symbol content' : 'Nội dung biểu tượng') : t.engravingTextInputLabel}
+                              label={t.engravingTextInputLabel || (lang === 'en' ? 'Engraving content (up to 50 characters)' : 'Nội dung khắc (tối đa 50 ký tự)')}
                               errorText={idx === 0 ? clientValidation.errors.engravingText : undefined}
                             >
                               <input
                                 type="text"
                                 maxLength={50}
-                                placeholder={isSymbol ? '♥, ★, ∞...' : t.engravingPlaceholder}
+                                placeholder={t.engravingPlaceholder || 'Ví dụ: Forever Love 2026 ♥'}
                                 value={item.content || ''}
                                 onChange={(e) => updateItem({ content: e.target.value })}
                                 style={{
@@ -652,7 +613,12 @@ export default function RingConfigurationPage() {
                                 <button
                                   key={sym}
                                   type="button"
-                                  onClick={() => updateItem({ content: `${item.content || ''}${sym}` })}
+                                  onClick={() => {
+                                    const current = item.content || '';
+                                    if (current.length + sym.length <= 50) {
+                                      updateItem({ content: `${current}${sym}` });
+                                    }
+                                  }}
                                   style={{
                                     border: '1px solid #cbd5e1',
                                     background: '#ffffff',
@@ -692,16 +658,16 @@ export default function RingConfigurationPage() {
                         );
                       })}
 
-                      {/* Add Buttons */}
+                      {/* Add Button */}
                       <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.5rem' }}>
                         <button
                           type="button"
-                          disabled={isTextLimitReached}
+                          disabled={isLimitReached}
                           onClick={() => {
-                            if (textCount >= 2) return;
+                            if (totalCount >= 2) return;
                             const currentItems = [...rawItems];
                             currentItems.push({
-                              id: `eng-txt-${Date.now().toString().slice(-4)}`,
+                              id: `eng-${Date.now().toString().slice(-4)}`,
                               type: 'TEXT',
                               content: '',
                               placement: 'INNER_BAND',
@@ -712,90 +678,18 @@ export default function RingConfigurationPage() {
                           }}
                           style={{
                             padding: '0.4rem 0.8rem',
-                            background: isTextLimitReached ? '#f8fafc' : '#f1f5f9',
+                            background: isLimitReached ? '#f8fafc' : '#f1f5f9',
                             border: '1px dashed #94a3b8',
                             borderRadius: '6px',
-                            color: isTextLimitReached ? '#94a3b8' : '#334155',
+                            color: isLimitReached ? '#94a3b8' : '#334155',
                             fontSize: '0.85rem',
-                            cursor: isTextLimitReached ? 'not-allowed' : 'pointer',
+                            cursor: isLimitReached ? 'not-allowed' : 'pointer',
                             fontWeight: 500,
-                            opacity: isTextLimitReached ? 0.6 : 1,
-                          }}
-                          data-testid="add-text-engraving-btn"
-                        >
-                          {t.addTextEngravingBtn || '+ Thêm chữ khắc (Tối đa 2)'}
-                        </button>
-
-                        <button
-                          type="button"
-                          disabled={isSymbolLimitReached}
-                          onClick={() => {
-                            if (symbolCount >= 2) return;
-                            const currentItems = [...rawItems];
-                            currentItems.push({
-                              id: `eng-sym-${Date.now().toString().slice(-4)}`,
-                              type: 'SYMBOL',
-                              content: '♥',
-                              placement: 'INNER_BAND',
-                            });
-                            const firstText = currentItems[0]?.content || '';
-                            const firstPlacement = currentItems[0]?.placement || 'INNER_BAND';
-                            updateEngraving({ items: currentItems, text: firstText, placement: firstPlacement });
-                          }}
-                          style={{
-                            padding: '0.4rem 0.8rem',
-                            background: isSymbolLimitReached ? '#f8fafc' : '#f1f5f9',
-                            border: '1px dashed #94a3b8',
-                            borderRadius: '6px',
-                            color: isSymbolLimitReached ? '#94a3b8' : '#334155',
-                            fontSize: '0.85rem',
-                            cursor: isSymbolLimitReached ? 'not-allowed' : 'pointer',
-                            fontWeight: 500,
-                            opacity: isSymbolLimitReached ? 0.6 : 1,
-                          }}
-                          data-testid="add-symbol-engraving-btn"
-                        >
-                          {t.addSymbolEngravingBtn || '+ Thêm biểu tượng khắc (Tối đa 2)'}
-                        </button>
-
-                        <button
-                          type="button"
-                          disabled={isTextLimitReached && isSymbolLimitReached}
-                          onClick={() => {
-                            if (textCount < 2) {
-                              const currentItems = [...rawItems];
-                              currentItems.push({
-                                id: `eng-${Date.now().toString().slice(-4)}`,
-                                type: 'TEXT',
-                                content: '',
-                                placement: 'INNER_BAND',
-                              });
-                              updateEngraving({ items: currentItems });
-                            } else if (symbolCount < 2) {
-                              const currentItems = [...rawItems];
-                              currentItems.push({
-                                id: `eng-${Date.now().toString().slice(-4)}`,
-                                type: 'SYMBOL',
-                                content: '♥',
-                                placement: 'INNER_BAND',
-                              });
-                              updateEngraving({ items: currentItems });
-                            }
-                          }}
-                          style={{
-                            padding: '0.4rem 0.8rem',
-                            background: '#f1f5f9',
-                            border: '1px dashed #94a3b8',
-                            borderRadius: '6px',
-                            color: '#334155',
-                            fontSize: '0.85rem',
-                            cursor: 'pointer',
-                            fontWeight: 500,
-                            display: 'none',
+                            opacity: isLimitReached ? 0.6 : 1,
                           }}
                           data-testid="add-engraving-item-btn"
                         >
-                          {t.addEngravingItem || '+ Thêm vị trí/nội dung khắc'}
+                          {t.addEngravingItem || '+ Thêm vị trí khắc (Tối đa 2)'}
                         </button>
                       </div>
                     </div>

@@ -245,6 +245,38 @@ class WorkshopRingDesignApplicationServiceTest {
     }
 
     @Test
+    @DisplayName("listMyDesigns should filter out ARCHIVED designs for soft delete behavior")
+    void listMyDesigns_ShouldExcludeArchivedDesigns() {
+        RingDesign activeDesign = RingDesign.builder()
+                .designReference("DSG-ACTIVE-01")
+                .designVersion(1)
+                .ownerType(RingDesignOwnerType.MEMBER)
+                .ownerReference("101")
+                .packageReference("PKG-01")
+                .status(RingDesignStatus.VALIDATED)
+                .createdAt(Instant.now())
+                .build();
+
+        RingDesign archivedDesign = RingDesign.builder()
+                .designReference("DSG-ARCHIVED-02")
+                .designVersion(1)
+                .ownerType(RingDesignOwnerType.MEMBER)
+                .ownerReference("101")
+                .packageReference("PKG-01")
+                .status(RingDesignStatus.ARCHIVED)
+                .createdAt(Instant.now().minusSeconds(60))
+                .build();
+
+        when(designRepository.findAllByOwner(RingDesignOwnerType.MEMBER, "101"))
+                .thenReturn(List.of(activeDesign, archivedDesign));
+
+        List<DesignResponseDto> results = applicationService.listMyDesigns(101L, null);
+
+        assertThat(results).hasSize(1);
+        assertThat(results.get(0).getDesignId()).isEqualTo("DSG-ACTIVE-01");
+    }
+
+    @Test
     @DisplayName("attachToBooking should revalidate branch compatibility and transition to ATTACHED_TO_BOOKING")
     void attachToBooking_Success() {
         String designId = "DSG-attach-01";

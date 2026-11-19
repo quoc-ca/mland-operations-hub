@@ -605,6 +605,26 @@ export default function LaserEngravingImageCropper({ customImages = [], onChange
       {customImages.map((item) => (
         <CustomImageCard key={item.id} item={item} onUpdate={handleUpdate} onRemove={handleRemove} t={t} />
       ))}
+
+      {/* Fingerprint laser engraving notice */}
+      <div
+        style={{
+          marginTop: '1rem',
+          padding: '0.65rem 0.85rem',
+          borderRadius: '8px',
+          background: '#f8fafc',
+          border: '1px solid #cbd5e1',
+          fontSize: '0.85rem',
+          color: '#475569',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+        }}
+        data-testid="fingerprint-notice"
+      >
+        <span>💡</span>
+        <span>{t.fingerprintNotice || 'Để có thể khắc lazer vân tay, các bạn hãy đến cửa hàng lấy vân tay trực tiếp nhé'}</span>
+      </div>
     </div>
   );
 }

@@ -60,8 +60,7 @@ export default function DesignEvaluationPage() {
   };
 
   const handleProceedBooking = () => {
-    // Navigate to Workshop booking flow with package and design context
-    navigate(`/workshops/booking?packageReference=${encodeURIComponent(packageReference)}&designId=${encodeURIComponent(designId)}`);
+    navigate('/workshops');
   };
 
   if (loading) {
@@ -303,12 +302,12 @@ export default function DesignEvaluationPage() {
                             fontSize: '0.7rem',
                             padding: '1px 5px',
                             borderRadius: '4px',
-                            background: item.type === 'SYMBOL' ? '#f3e8ff' : '#e0e7ff',
-                            color: item.type === 'SYMBOL' ? '#7e22ce' : '#3730a3',
+                            background: '#e0e7ff',
+                            color: '#3730a3',
                             marginRight: '0.35rem',
                             fontWeight: 600
                           }}>
-                            {item.type === 'SYMBOL' ? (lang === 'en' ? 'Symbol' : 'Biểu tượng') : (lang === 'en' ? 'Text' : 'Chữ')}
+                            {lang === 'en' ? `Pos #${idx + 1}` : `Vị trí #${idx + 1}`}
                           </span>
                           <strong>"{item.content}"</strong>
                           <span style={{ color: '#64748b', fontSize: '0.75rem', marginLeft: '0.35rem' }}>
@@ -377,16 +376,14 @@ export default function DesignEvaluationPage() {
           <RingPreview previewModel={previewModel} readOnly={true} />
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1rem' }}>
-            {design?.status !== 'ARCHIVED' && design?.status !== 'LOCKED' && (
-              <button
-                type="button"
-                className="ring-btn-primary"
-                onClick={handleProceedBooking}
-                data-testid="proceed-booking-btn"
-              >
-                {t.proceedToBooking}
-              </button>
-            )}
+            <button
+              type="button"
+              className="ring-btn-primary"
+              onClick={handleProceedBooking}
+              data-testid="proceed-booking-btn"
+            >
+              {t.proceedToBooking}
+            </button>
 
             {design?.status !== 'LOCKED' && design?.status !== 'ARCHIVED' && (
               <button

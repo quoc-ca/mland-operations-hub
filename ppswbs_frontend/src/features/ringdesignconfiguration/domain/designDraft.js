@@ -91,11 +91,14 @@ export function validateDraftClient(draft, lang = 'vi') {
     const textItems = items.filter((it) => (it.type || 'TEXT').toUpperCase() !== 'SYMBOL');
     const symbolItems = items.filter((it) => (it.type || 'TEXT').toUpperCase() === 'SYMBOL');
 
-    if (textItems.length > 2) {
-      errors.engravingText = isEn ? 'Maximum 2 text engraving items allowed.' : 'Số lượng chữ khắc không được vượt quá 2 mục.';
-    }
-    if (symbolItems.length > 2) {
-      errors.engravingSymbol = isEn ? 'Maximum 2 symbol engraving items allowed.' : 'Số lượng biểu tượng khắc không được vượt quá 2 mục.';
+    if (items.length > 2) {
+      errors.engravingText = isEn ? 'Maximum 2 engraving items allowed.' : 'Số lượng mục khắc chữ & biểu tượng không được vượt quá 2 mục.';
+      if (textItems.length > 2) {
+        errors.engravingText = isEn ? 'Maximum 2 text engraving items allowed.' : 'Số lượng chữ khắc không được vượt quá 2 mục.';
+      }
+      if (symbolItems.length > 2) {
+        errors.engravingSymbol = isEn ? 'Maximum 2 symbol engraving items allowed.' : 'Số lượng biểu tượng khắc không được vượt quá 2 mục.';
+      }
     }
 
     if (items.length > 0) {
