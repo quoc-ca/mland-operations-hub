@@ -1,12 +1,15 @@
 # Feature Specification: Workshop Ring Design Configuration
 
 Date created: 2026-11-08
-Date updated: 2026-11-14
+Date updated: 2026-11-19
 Author: Ngô Tiến Đạt
 Last updated by: Ngô Tiến Đạt
 
 **Feature:** 012 — Workshop Ring Design Configuration  
-**Status:** IMPLEMENTED AND VERIFIED (5/5 E2E PASS) — SPEC SYNCHRONIZED
+**Status:** IMPLEMENTED BASELINE — CHANGE REQUEST PENDING IMPLEMENTATION AND NEW E2E VERIFICATION
+
+> **Change baseline 2026-11-19:** The quota, image preprocessing, preview restoration and locale rules below supersede earlier wording that allowed unlimited engraving items or only validated per-component gemstone quantities. Existing E2E evidence predates these changes.
+
 **Parent business scope:** FE-05 Personalized Design and Quote Workflow  
 **Source priority:** This feature contract, approved Feature-003 contracts,
 `spec-general.md`, `DB.md`, and approved Report 3 requirements. Existing code or
@@ -138,7 +141,7 @@ pills or equivalent accessible controls.
 
 - **Multi-Gemstone Quantities**:
   - Each gemstone type card includes an interactive stepper (`[-] {count} [+]`), permitting customers to add multiple stones of that type rather than only a single stone.
-  - Quantities are validated against `maxQuantity` per component (`maxQuantity = 10` for CZ stones, `maxQuantity = 4` for Moissanite).
+  - Quantities are validated against each component `maxQuantity` and the aggregate `totalGemstoneQuantity <= 10` rule.
   - Subtotal per component type is dynamically calculated as $\text{unitPrice} \times \text{quantity}$.
 - **Constrained Circular Drag-and-Drop**:
   - Each selected gemstone instance is rendered on the Top View SVG preview with an index label, color tint, and highlight.
@@ -174,7 +177,7 @@ pills or equivalent accessible controls.
 
 1. **One-Time Flat Standard Engraving Fee (Khắc chữ & biểu tượng tiêu chuẩn - Phí 1 lần 80.000 ₫)**:
    - Khách hàng chỉ trả phí dịch vụ khắc tiêu chuẩn **1 lần duy nhất (+80.000 ₫)**.
-   - Khi đã bật tùy chọn khắc, khách hàng được phép thêm **nhiều vị trí và nội dung khắc** (chữ, ngày tháng, biểu tượng nhanh: ♥, ∞, ★, ✿, 💍).
+   - Khi đã bật tùy chọn khắc, khách hàng được phép thêm tối đa 2 mục `TEXT`, 2 mục `SYMBOL` và 2 ảnh khắc laser; mỗi loại có bộ đếm và thông báo giới hạn riêng.
    - Mỗi mục khắc có thể chỉ định vị trí độc lập: **Mặt trong (`INNER_BAND`)** hoặc **Mặt ngoài (`OUTER_BAND`)**.
 2. **Cảnh báo kết cấu bề mặt gồ ghề (Surface Texture Collision Warning)**:
    - Khi khách hàng cấu hình khắc (khắc chữ tiêu chuẩn hoặc hình ảnh) tại **Mặt ngoài (`OUTER_BAND`)** trên đai nhẫn có dáng hoặc kết cấu gồ ghề (`SHP-HAMMERED`, `SHP-BALL-PEEN`, `SHP-SINGLE-TWIST`, `SHP-TWISTED`, `SHP-WAVE`), hệ thống hiển thị banner cảnh báo kỹ thuật nổi bật:
@@ -244,6 +247,63 @@ After branch selection, the backend revalidates the design against branch
 material/component support. Failure returns a safe compatibility error and keeps
 the design available for correction.
 
+## 4A. Change request: cardinality, preprocessing and preview integrity
+
+### 4A.1 Gemstone aggregate limit
+
+The total number of selected gemstone instances across all component types must
+not exceed 10:
+
+```text
+totalGemstoneQuantity = sum(component.quantity) <= 10
+```
+
+The server is authoritative. The UI shows the current total, disables the add
+controls at 10, leaves the draft unchanged after an eleventh-add attempt and
+shows a localized limit message. Catalogue `maxQuantity` remains applicable as
+an additional per-component constraint.
+
+### 4A.2 Engraving cardinality
+
+The quotas are independent:
+
+| Engraving type | Maximum |
+| --- | ---: |
+| `TEXT` | 2 |
+| `SYMBOL` | 2 |
+| `CUSTOM_IMAGE` | 2 |
+
+When a quota is reached, its add action is disabled and the server rejects
+out-of-range payloads even if the client is bypassed.
+
+### 4A.3 Image preprocessing
+
+Each custom image supports persisted integer controls:
+
+```text
+contrast: 0..100, default 50
+sharpness: 0..100, default 50
+```
+
+The controls update the local laser preview immediately and are restored when a
+saved design is reopened. They do not change package price or deposit.
+
+### 4A.4 Preview completeness
+
+Preview consumers render every text item, symbol item and custom image. The
+legacy scalar `engravingText` cannot be the rendering source of truth. A saved
+design must return a safe retrievable image or processed-preview reference;
+transient browser-only `previewDataUrl` is insufficient. An unavailable image
+must show an explicit error state rather than silently rendering white.
+
+### 4A.5 Locale and encoding
+
+Each session uses one active locale. Vietnamese mode renders all Feature-012
+strings in Vietnamese and English mode renders all strings in English. Shared
+i18n resources are mandatory; cross-locale fallback, hard-coded UI strings and
+mojibake are prohibited. All messages, SVG labels, symbols and fixtures use
+valid UTF-8.
+
 ## 5. Estimate and difficulty
 
 Estimate and difficulty are derived server-side from the approved Manager-owned
@@ -257,7 +317,7 @@ catalogue/rule set (`ManagerDesignRuleAdapter`). They are advisory context only:
   - **Mẫu thiết kế đai nhẫn (Shape Adjustment)**: **$0.00\text{ ₫}$ (Miễn phí toàn bộ các mẫu dáng thiết kế)**. Khách hàng tự do chọn bất kỳ mẫu thiết kế nào (Tròn cổ điển, Comfort Fit, Xoắn vô cực, Búa gõ, Xoắn đơn, Lượn sóng, Búa bi, Đai phẳng) mà không bị phụ thu thêm chi phí mẫu.
   - **Đá quý (Gemstones)**: **Đồng giá $50.000\text{ ₫/viên}$ cho tất cả các loại đá quý** (CZ Trắng, CZ Lam Biển, CZ Đỏ Ruby, Moissanite). Phí đá tính theo số lượng: $\sum (50.000\text{ ₫} \times \text{Qty}_i)$.
   - **Họa tiết trang trí (Attachments)**: **Đồng giá $100.000\text{ ₫/họa tiết}$ cho tất cả các loại họa tiết** (Hàng viền bi Milgrain, Phay xước Satin mờ, Dập chìm họa tiết Trái Tim).
-  - **Phí khắc (Engraving Price)**: Khắc tiêu chuẩn 1 lần trả phí $80.000\text{ ₫}$ (khắc không giới hạn chữ/ký hiệu cả trong và ngoài); Upload ảnh khắc theo yêu cầu $100.000\text{ ₫/ảnh}$.
+  - **Phí khắc (Engraving Price)**: Khắc tiêu chuẩn 1 lần trả phí $80.000\text{ ₫}$ trong giới hạn 2 mục `TEXT` và 2 mục `SYMBOL`; upload ảnh khắc theo yêu cầu $100.000\text{ ₫/ảnh}$, tối đa 2 ảnh.
 - They do not change the workshop package price.
 - They do not change the 50% package deposit.
 - They are not an invoice, quote acceptance or final manufacturing amount.
