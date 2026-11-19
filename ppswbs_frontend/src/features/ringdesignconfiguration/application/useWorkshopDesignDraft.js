@@ -37,23 +37,10 @@ export function useWorkshopDesignDraft(packageReference, initialModel = null) {
   }, []);
 
   const setComponentQuantity = useCallback((componentReference, rawQuantity, maxQuantity = 10) => {
+    const qty = Math.max(0, Math.min(Number(maxQuantity) || 10, Number(rawQuantity) || 0));
     setDraft((prev) => {
       let nextComponents;
       const existing = prev.components.find((c) => c.reference === componentReference);
-      const currentQty = existing ? Number(existing.quantity) || 1 : 0;
-      const otherTotal = prev.components
-        .filter((c) => c.reference !== componentReference)
-        .reduce((sum, c) => sum + (Number(c.quantity) || 0), 0);
-
-      let targetQty = Math.max(0, Math.min(Number(maxQuantity) || 10, Number(rawQuantity) || 0));
-
-      // Aggregate gemstone limit: total <= 10
-      // If trying to increase beyond 10, do not modify draft
-      if (targetQty > currentQty && otherTotal + targetQty > 10) {
-        return prev;
-      }
-
-      const qty = targetQty;
 
       if (qty <= 0) {
         nextComponents = prev.components.filter((c) => c.reference !== componentReference);
@@ -116,10 +103,6 @@ export function useWorkshopDesignDraft(packageReference, initialModel = null) {
           components: prev.components.filter((c) => c.reference !== componentReference),
           gemstonePositions: (prev.gemstonePositions || []).filter((p) => p.reference !== componentReference),
         };
-      }
-      const totalGemstones = prev.components.reduce((sum, c) => sum + (Number(c.quantity) || 0), 0);
-      if (totalGemstones >= 10) {
-        return prev;
       }
       const stoneId = `gem-${componentReference}-0`;
       const currentPositions = prev.gemstonePositions || [];
@@ -215,14 +198,7 @@ export function useWorkshopDesignDraft(packageReference, initialModel = null) {
         text: snapshot.engraving?.text || '',
         placement: snapshot.engraving?.placement || 'INNER_BAND',
         items: snapshot.engraving?.items || [],
-        customImages: (snapshot.engraving?.customImages || snapshot.customImages || []).map((img, idx) => ({
-          ...img,
-          id: img.id || `img-${idx + 1}`,
-          contrast: img.contrast !== undefined ? Number(img.contrast) : 50,
-          sharpness: img.sharpness !== undefined ? Number(img.sharpness) : 50,
-          previewDataUrl: img.previewDataUrl || img.processedPreviewReference || img.imageUrl,
-          processedPreviewReference: img.processedPreviewReference || null,
-        })),
+        customImages: snapshot.engraving?.customImages || [],
       },
     });
     setIsDirty(false);

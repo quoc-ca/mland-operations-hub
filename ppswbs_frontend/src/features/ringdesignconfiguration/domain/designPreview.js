@@ -49,11 +49,6 @@ export const SHAPE_STROKES = {
   'SHP-WAVE': { strokeWidth: 15, style: 'wave', label: 'Dáng lượn sóng' },
   'SHP-BALL-PEEN': { strokeWidth: 16, style: 'ball-peen', label: 'Bề mặt búa bi hạt tròn' },
   'SHP-FLAT-BAND': { strokeWidth: 14, style: 'flat', label: 'Đai phẳng công thái học' },
-  'SHP-KNIFE-EDGE': { strokeWidth: 16, style: 'knife-edge', label: 'Đai sống dao vát nhọn' },
-  'SHP-D-SHAPE': { strokeWidth: 17, style: 'd-shape', label: 'Đai chữ D truyền thống' },
-  'SHP-BRAIDED': { strokeWidth: 16, style: 'braided', label: 'Đai bện xoắn dây thừng' },
-  'SHP-MATTE-BEVEL': { strokeWidth: 15, style: 'beveled', label: 'Đai vát cạnh hiện đại' },
-  'SHP-CONCAVE': { strokeWidth: 15, style: 'concave', label: 'Đai lòng máng cong lõm' },
 };
 
 export const GEMSTONE_PALETTES = {
@@ -61,12 +56,6 @@ export const GEMSTONE_PALETTES = {
   'GEM-CZ-BLUE-2MM': { fill: '#38BDF8', stroke: '#0284C7', glow: '#BAE6FD', label: 'CZ Lam 2mm' },
   'GEM-CZ-RED-2MM': { fill: '#F43F5E', stroke: '#BE123C', glow: '#FECDD3', label: 'CZ Đỏ 2mm' },
   'GEM-MOISSANITE-3MM': { fill: '#FFFFFF', stroke: '#6366F1', glow: '#C7D2FE', label: 'Moissanite 3mm' },
-  'GEM-CZ-EMERALD-2MM': { fill: '#10B981', stroke: '#047857', glow: '#A7F3D0', label: 'CZ Xanh Lục Bảo 2mm' },
-  'GEM-CZ-PURPLE-2MM': { fill: '#A855F7', stroke: '#7E22CE', glow: '#E9D5FF', label: 'CZ Tím Thạch Anh 2mm' },
-  'GEM-CZ-BLACK-2MM': { fill: '#1E293B', stroke: '#0F172A', glow: '#64748B', label: 'CZ Đen Huyền Bí 2mm' },
-  'GEM-CZ-PINK-2MM': { fill: '#F472B6', stroke: '#DB2777', glow: '#FBCFE8', label: 'CZ Hồng Ngọt Ngào 2mm' },
-  'GEM-CZ-YELLOW-2MM': { fill: '#FBBF24', stroke: '#D97706', glow: '#FDE68A', label: 'CZ Vàng Hổ Phách 2mm' },
-  'GEM-CZ-CHAMPAGNE-2MM': { fill: '#F5D0A9', stroke: '#B45309', glow: '#FDE68A', label: 'CZ Champagne 2mm' },
 };
 
 export function getRingCircumferenceMm(size) {
@@ -261,7 +250,7 @@ export function derivePreviewModel(draft) {
     }
   }
 
-  const TEXTURED_SHAPES = ['SHP-HAMMERED', 'SHP-BALL-PEEN', 'SHP-SINGLE-TWIST', 'SHP-TWISTED', 'SHP-WAVE', 'SHP-BRAIDED'];
+  const TEXTURED_SHAPES = ['SHP-HAMMERED', 'SHP-BALL-PEEN', 'SHP-SINGLE-TWIST', 'SHP-TWISTED', 'SHP-WAVE'];
   const isTexturedSurface = TEXTURED_SHAPES.includes(draft.shapeReference) ||
     Boolean(draft.sourceModelReference && (
       draft.sourceModelReference.includes('HAMMERED') ||
@@ -311,13 +300,12 @@ export function derivePreviewModel(draft) {
 
 /**
  * Classifies crafting difficulty score (1-10) formatted to 1 decimal place with notes & recommendations.
- * - 1.0 to 3.0: Dễ / Easy
- * - > 3.0 to 6.0: Trung bình / Medium
- * - > 6.0 to 9.0: Khó / Hard
- * - > 9.0: Rất khó / Very Hard (Khuyến cáo người dùng đổi lại mẫu thiết kế / Recommended to choose a simpler design)
+ * - 1.0 to 3.0: Dễ
+ * - > 3.0 to 6.0: Trung bình
+ * - > 6.0 to 9.0: Khó
+ * - > 9.0: Rất khó (Khuyến cáo người dùng đổi lại mẫu thiết kế)
  */
-export function getDifficultyMeta(rawScore, lang = 'vi') {
-  const isEn = lang === 'en';
+export function getDifficultyMeta(rawScore) {
   const num = typeof rawScore === 'number' ? rawScore : parseFloat(rawScore);
   const score = isNaN(num) || num <= 0 ? 1.0 : num;
   const formattedScore = score.toFixed(1);
@@ -326,8 +314,8 @@ export function getDifficultyMeta(rawScore, lang = 'vi') {
     return {
       score: formattedScore,
       level: 'EASY',
-      label: isEn ? 'Easy' : 'Dễ',
-      note: isEn ? 'Easy' : 'Dễ',
+      label: 'Dễ',
+      note: 'Dễ',
       badgeColor: '#166534',
       badgeBg: '#dcfce7',
       isVeryHard: false,
@@ -337,8 +325,8 @@ export function getDifficultyMeta(rawScore, lang = 'vi') {
     return {
       score: formattedScore,
       level: 'MEDIUM',
-      label: isEn ? 'Medium' : 'Trung bình',
-      note: isEn ? 'Medium' : 'Trung bình',
+      label: 'Trung bình',
+      note: 'Trung bình',
       badgeColor: '#854d0e',
       badgeBg: '#fef3c7',
       isVeryHard: false,
@@ -348,8 +336,8 @@ export function getDifficultyMeta(rawScore, lang = 'vi') {
     return {
       score: formattedScore,
       level: 'HARD',
-      label: isEn ? 'Hard' : 'Khó',
-      note: isEn ? 'Hard' : 'Khó',
+      label: 'Khó',
+      note: 'Khó',
       badgeColor: '#c2410c',
       badgeBg: '#ffedd5',
       isVeryHard: false,
@@ -359,14 +347,12 @@ export function getDifficultyMeta(rawScore, lang = 'vi') {
     return {
       score: formattedScore,
       level: 'VERY_HARD',
-      label: isEn ? 'Very Hard' : 'Rất khó',
-      note: isEn ? 'Very Hard (Recommended to choose a simpler design)' : 'Rất khó (Khuyến cáo người dùng đổi lại mẫu thiết kế)',
+      label: 'Rất khó',
+      note: 'Rất khó (Khuyến cáo người dùng đổi lại mẫu thiết kế)',
       badgeColor: '#b91c1c',
       badgeBg: '#fee2e2',
       isVeryHard: true,
-      advice: isEn
-        ? 'Difficulty score is very high (> 9.0). We recommend selecting a simpler ring design to ensure a great crafting experience at the workshop.'
-        : 'Độ khó rất cao (> 9.0). Khuyến cáo người dùng đổi lại mẫu thiết kế để đảm bảo trải nghiệm hoàn thiện tốt nhất tại workshop.',
+      advice: 'Độ khó rất cao (> 9.0). Khuyến cáo người dùng đổi lại mẫu thiết kế để đảm bảo trải nghiệm hoàn thiện tốt nhất tại workshop.',
     };
   }
 }

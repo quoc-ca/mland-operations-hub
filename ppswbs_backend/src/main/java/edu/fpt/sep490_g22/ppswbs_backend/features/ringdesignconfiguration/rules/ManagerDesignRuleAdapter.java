@@ -27,7 +27,7 @@ public class ManagerDesignRuleAdapter implements DesignOptionRulesPort {
     public static final BigDecimal ENGRAVING_PRICE = new BigDecimal("80000.00");
     public static final BigDecimal CUSTOM_ENGRAVING_IMAGE_PRICE = new BigDecimal("100000.00");
     public static final Set<String> TEXTURED_SURFACE_SHAPES = Set.of(
-            "SHP-HAMMERED", "SHP-BALL-PEEN", "SHP-SINGLE-TWIST", "SHP-TWISTED", "SHP-WAVE", "SHP-BRAIDED"
+            "SHP-HAMMERED", "SHP-BALL-PEEN", "SHP-SINGLE-TWIST", "SHP-TWISTED", "SHP-WAVE"
     );
     public static final List<String> ALLOWED_ENGRAVING_PLACEMENTS = List.of("INNER_BAND", "OUTER_BAND");
     public static final List<String> ALLOWED_COMPONENT_PLACEMENTS = List.of("CENTER", "ACCENT_LEFT", "ACCENT_RIGHT", "HALO", "CUSTOM");
@@ -118,17 +118,6 @@ public class ManagerDesignRuleAdapter implements DesignOptionRulesPort {
                         .priceAdjustment(ENGRAVING_PRICE.toPlainString())
                         .customImagePrice(CUSTOM_ENGRAVING_IMAGE_PRICE.toPlainString())
                         .imageFrameSizePx(160)
-                        .maxTextItems(2)
-                        .maxSymbolItems(2)
-                        .maxCustomImageItems(2)
-                        .imagePreprocessing(DesignOptionsResponseDto.ImagePreprocessingConfigDto.builder()
-                                .contrastMin(0)
-                                .contrastMax(100)
-                                .contrastDefault(50)
-                                .sharpnessMin(0)
-                                .sharpnessMax(100)
-                                .sharpnessDefault(50)
-                                .build())
                         .currency("VND")
                         .build())
                 .models(models.stream().map(mod -> DesignOptionsResponseDto.ModelOptionDto.builder()
@@ -175,11 +164,8 @@ public class ManagerDesignRuleAdapter implements DesignOptionRulesPort {
 
         // Validate Components
         if (request.getComponents() != null) {
-            int totalGemstones = 0;
+            Set<String> seenComponentRefs = new HashSet<>();
             for (ComponentSelectionDto comp : request.getComponents()) {
-                if (comp.getQuantity() != null) {
-                    totalGemstones += comp.getQuantity();
-                }
                 if (comp.getReference() == null || comp.getReference().isBlank()) {
                     reasons.add("Mã thành phần đính kèm không được để trống.");
                     continue;
@@ -197,9 +183,6 @@ public class ManagerDesignRuleAdapter implements DesignOptionRulesPort {
                         && !ALLOWED_COMPONENT_PLACEMENTS.contains(comp.getPlacement().trim())) {
                     reasons.add("Vị trí gắn đá quý không hợp lệ: " + comp.getPlacement());
                 }
-            }
-            if (totalGemstones > 10) {
-                reasons.add("GEMSTONE_TOTAL_LIMIT_EXCEEDED: Tổng số lượng đá quý không được vượt quá 10 viên (hiện tại: " + totalGemstones + ").");
             }
         }
 
@@ -228,39 +211,8 @@ public class ManagerDesignRuleAdapter implements DesignOptionRulesPort {
 
         // Validate Engraving
         if (request.getEngraving() != null) {
-            boolean hasCustomImages = request.getEngraving().getCustomImages() != null && !request.getEngraving().getCustomImages().isEmpty();
-            boolean hasItems = request.getEngraving().getItems() != null && !request.getEngraving().getItems().isEmpty();
-            boolean hasText = request.getEngraving().getText() != null && !request.getEngraving().getText().trim().isEmpty();
-
-            // Check independent quotas: TEXT <= 2, SYMBOL <= 2, CUSTOM_IMAGE <= 2
-            if (hasItems) {
-                int textCount = 0;
-                int symbolCount = 0;
-                for (EngravingItemDto item : request.getEngraving().getItems()) {
-                    if ("SYMBOL".equalsIgnoreCase(item.getType())) {
-                        symbolCount++;
-                    } else {
-                        textCount++;
-                    }
-                }
-                if (textCount > 2) {
-                    reasons.add("TEXT_ENGRAVING_LIMIT_EXCEEDED: Số lượng mục khắc chữ tối đa là 2 (hiện tại: " + textCount + ").");
-                }
-                if (symbolCount > 2) {
-                    reasons.add("SYMBOL_ENGRAVING_LIMIT_EXCEEDED: Số lượng mục khắc biểu tượng tối đa là 2 (hiện tại: " + symbolCount + ").");
-                }
-            }
-
-            if (hasCustomImages) {
-                int imgCount = request.getEngraving().getCustomImages().size();
-                if (imgCount > 2) {
-                    reasons.add("IMAGE_ENGRAVING_LIMIT_EXCEEDED: Số lượng ảnh khắc laser tối đa là 2 (hiện tại: " + imgCount + ").");
-                }
-            }
-
-            // Standard text engraving validation
             if (Boolean.TRUE.equals(request.getEngraving().getEnabled())) {
-                if (hasItems) {
+                if (request.getEngraving().getItems() != null && !request.getEngraving().getItems().isEmpty()) {
                     for (EngravingItemDto item : request.getEngraving().getItems()) {
                         if (item.getContent() == null || item.getContent().trim().isEmpty()) {
                             reasons.add("Nội dung khắc không được để trống khi có mục khắc.");
@@ -272,32 +224,25 @@ public class ManagerDesignRuleAdapter implements DesignOptionRulesPort {
                             reasons.add("Vị trí khắc không hợp lệ: " + item.getPlacement());
                         }
                     }
-                } else if (hasText) {
+                } else {
                     String text = request.getEngraving().getText();
-                    if (text.trim().length() > MAX_ENGRAVING_CHARS) {
+                    if (text == null || text.trim().isEmpty()) {
+                        reasons.add("Nội dung khắc chữ không được để trống khi đã bật tùy chọn khắc.");
+                    } else if (text.trim().length() > MAX_ENGRAVING_CHARS) {
                         reasons.add("Độ dài nội dung khắc chữ vượt quá giới hạn " + MAX_ENGRAVING_CHARS + " ký tự.");
                     }
                     if (request.getEngraving().getPlacement() != null && !request.getEngraving().getPlacement().isBlank()
                             && !ALLOWED_ENGRAVING_PLACEMENTS.contains(request.getEngraving().getPlacement().trim())) {
                         reasons.add("Vị trí khắc chữ không hợp lệ: " + request.getEngraving().getPlacement());
                     }
-                } else if (!hasCustomImages) {
-                    reasons.add("Nội dung khắc chữ không được để trống khi đã bật tùy chọn khắc.");
                 }
             }
 
-            // Custom images validation
-            if (hasCustomImages) {
+            if (request.getEngraving().getCustomImages() != null) {
                 for (CustomEngravingImageDto img : request.getEngraving().getCustomImages()) {
                     if (img.getPlacement() != null && !img.getPlacement().isBlank()
                             && !ALLOWED_ENGRAVING_PLACEMENTS.contains(img.getPlacement().trim())) {
                         reasons.add("Vị trí khắc ảnh không hợp lệ: " + img.getPlacement());
-                    }
-                    if (img.getContrast() != null && (img.getContrast() < 0 || img.getContrast() > 100)) {
-                        reasons.add("IMAGE_PREPROCESSING_INVALID: Độ tương phản phải nằm trong khoảng từ 0 đến 100 (hiện tại: " + img.getContrast() + ").");
-                    }
-                    if (img.getSharpness() != null && (img.getSharpness() < 0 || img.getSharpness() > 100)) {
-                        reasons.add("IMAGE_PREPROCESSING_INVALID: Độ sắc nét phải nằm trong khoảng từ 0 đến 100 (hiện tại: " + img.getSharpness() + ").");
                     }
                 }
             }
@@ -407,12 +352,8 @@ public class ManagerDesignRuleAdapter implements DesignOptionRulesPort {
         boolean hasOuterEngraving = false;
 
         if (request.getEngraving() != null) {
-            boolean hasCustomImages = request.getEngraving().getCustomImages() != null && !request.getEngraving().getCustomImages().isEmpty();
-            boolean hasItems = request.getEngraving().getItems() != null && !request.getEngraving().getItems().isEmpty();
-            boolean hasText = request.getEngraving().getText() != null && !request.getEngraving().getText().trim().isEmpty();
-
-            // 1. Standard engraving paid once (+80k) only if text/symbol engraving is active
-            if (Boolean.TRUE.equals(request.getEngraving().getEnabled()) && (hasItems || hasText || !hasCustomImages)) {
+            // 1. Standard engraving paid once
+            if (Boolean.TRUE.equals(request.getEngraving().getEnabled())) {
                 engravingCost = engravingCost.add(ENGRAVING_PRICE);
                 totalDifficulty = totalDifficulty.add(new BigDecimal("0.5000"));
 

@@ -1,10 +1,9 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 
 /**
- * Converts a 160x160 slice of an image to high-contrast black-and-white (monochrome laser engraving)
- * with contrast and sharpness adjustments.
+ * Converts a 160x160 slice of an image to high-contrast black-and-white (monochrome laser engraving).
  */
-export function generateBwLaserPreview(imgElement, cropX, cropY, frameSize = 160, contrast = 50, sharpness = 50) {
+export function generateBwLaserPreview(imgElement, cropX, cropY, frameSize = 160) {
   const canvas = document.createElement('canvas');
   canvas.width = frameSize;
   canvas.height = frameSize;
@@ -22,55 +21,31 @@ export function generateBwLaserPreview(imgElement, cropX, cropY, frameSize = 160
     return '';
   }
 
+  // Grayscale thresholding to pure black and white
   try {
     const imgData = ctx.getImageData(0, 0, frameSize, frameSize);
     const data = imgData.data;
-
-    const clampedContrast = Math.max(0, Math.min(100, Number(contrast) !== undefined && !isNaN(Number(contrast)) ? Number(contrast) : 50));
-    const clampedSharpness = Math.max(0, Math.min(100, Number(sharpness) !== undefined && !isNaN(Number(sharpness)) ? Number(sharpness) : 50));
-
-    // Contrast factor: 0 -> 0.4, 50 -> 1.0, 100 -> 2.6
-    const factor = (259 * ((clampedContrast - 50) * 2.55 + 255)) / (255 * (259 - (clampedContrast - 50) * 2.55));
-    const sharpWeight = (clampedSharpness - 50) / 50; // -1.0 to 1.0
-
-    // Temporary luminance map for sharpening
-    const lum = new Float32Array(frameSize * frameSize);
     for (let i = 0; i < data.length; i += 4) {
-      const idx = i / 4;
-      if (data[i + 3] < 64) {
-        lum[idx] = 255;
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+      const a = data[i + 3];
+
+      if (a < 64) {
+        // Transparent becomes white
+        data[i] = 255;
+        data[i + 1] = 255;
+        data[i + 2] = 255;
+        data[i + 3] = 255;
       } else {
-        lum[idx] = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+        const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+        const bw = luminance < 140 ? 0 : 255;
+        data[i] = bw;
+        data[i + 1] = bw;
+        data[i + 2] = bw;
+        data[i + 3] = 255;
       }
     }
-
-    for (let y = 0; y < frameSize; y++) {
-      for (let x = 0; x < frameSize; x++) {
-        const idx = y * frameSize + x;
-        let l = lum[idx];
-
-        // Apply 3x3 sharpening edge enhancement if sharpWeight != 0
-        if (sharpWeight !== 0 && x > 0 && x < frameSize - 1 && y > 0 && y < frameSize - 1) {
-          const neighborAvg = (lum[idx - 1] + lum[idx + 1] + lum[idx - frameSize] + lum[idx + frameSize]) / 4;
-          const edge = l - neighborAvg;
-          l = l + edge * sharpWeight * 1.5;
-        }
-
-        // Apply contrast factor around 128
-        let adj = factor * (l - 128) + 128;
-        adj = Math.max(0, Math.min(255, adj));
-
-        // Threshold to pure black and white (laser engraving)
-        const bw = adj < 140 ? 0 : 255;
-
-        const p = idx * 4;
-        data[p] = bw;
-        data[p + 1] = bw;
-        data[p + 2] = bw;
-        data[p + 3] = 255;
-      }
-    }
-
     ctx.putImageData(imgData, 0, 0);
   } catch {
     // Canvas tainted or unavailable in unit test
@@ -86,35 +61,19 @@ function CustomImageCard({ item, onUpdate, onRemove, t }) {
   const imgRef = useRef(null);
   const containerRef = useRef(null);
   const [isLoaded, setIsLoaded] = useState(false);
-  const [hasError, setHasError] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const [dragStart, setDragStart] = useState({ mouseX: 0, mouseY: 0, initialCropX: 0, initialCropY: 0 });
   const [previewUrl, setPreviewUrl] = useState(item.previewDataUrl || '');
 
   const frameSize = 160;
-  const currentContrast = item.contrast !== undefined ? item.contrast : 50;
-  const currentSharpness = item.sharpness !== undefined ? item.sharpness : 50;
 
   const handleImageLoad = () => {
     setIsLoaded(true);
-    setHasError(false);
     if (imgRef.current) {
-      const url = generateBwLaserPreview(
-        imgRef.current,
-        item.cropX || 0,
-        item.cropY || 0,
-        frameSize,
-        currentContrast,
-        currentSharpness
-      );
+      const url = generateBwLaserPreview(imgRef.current, item.cropX || 0, item.cropY || 0, frameSize);
       setPreviewUrl(url);
       onUpdate({ ...item, previewDataUrl: url });
     }
-  };
-
-  const handleImageError = () => {
-    setIsLoaded(false);
-    setHasError(true);
   };
 
   const updateCropPosition = useCallback(
@@ -125,14 +84,7 @@ function CustomImageCard({ item, onUpdate, onRemove, t }) {
       const clampedX = Math.max(0, Math.min(maxX, Math.round(newX)));
       const clampedY = Math.max(0, Math.min(maxY, Math.round(newY)));
 
-      const url = generateBwLaserPreview(
-        imgRef.current,
-        clampedX,
-        clampedY,
-        frameSize,
-        currentContrast,
-        currentSharpness
-      );
+      const url = generateBwLaserPreview(imgRef.current, clampedX, clampedY, frameSize);
       setPreviewUrl(url);
       onUpdate({
         ...item,
@@ -141,32 +93,8 @@ function CustomImageCard({ item, onUpdate, onRemove, t }) {
         previewDataUrl: url,
       });
     },
-    [item, currentContrast, currentSharpness, onUpdate]
+    [item, onUpdate]
   );
-
-  const handleSettingChange = (patch) => {
-    const updated = { ...item, ...patch };
-    const nextContrast = patch.contrast !== undefined ? patch.contrast : currentContrast;
-    const nextSharpness = patch.sharpness !== undefined ? patch.sharpness : currentSharpness;
-
-    let url = previewUrl;
-    if (imgRef.current && isLoaded) {
-      url = generateBwLaserPreview(
-        imgRef.current,
-        item.cropX || 0,
-        item.cropY || 0,
-        frameSize,
-        nextContrast,
-        nextSharpness
-      );
-      setPreviewUrl(url);
-    }
-
-    onUpdate({
-      ...updated,
-      previewDataUrl: url,
-    });
-  };
 
   const handleMouseDown = (e) => {
     e.preventDefault();
@@ -272,7 +200,6 @@ function CustomImageCard({ item, onUpdate, onRemove, t }) {
               src={item.imageUrl}
               alt="Custom uploaded"
               onLoad={handleImageLoad}
-              onError={handleImageError}
               style={{
                 display: 'block',
                 maxWidth: '100%',
@@ -284,7 +211,7 @@ function CustomImageCard({ item, onUpdate, onRemove, t }) {
             />
 
             {/* Draggable 160x160 Frame */}
-            {isLoaded && !hasError && (
+            {isLoaded && (
               <div
                 onMouseDown={handleMouseDown}
                 data-testid={`crop-frame-${item.id}`}
@@ -336,7 +263,7 @@ function CustomImageCard({ item, onUpdate, onRemove, t }) {
           </div>
         </div>
 
-        {/* 160x160 Black & White Laser Preview Box & Sliders */}
+        {/* 160x160 Black & White Laser Preview Box */}
         <div style={{ flex: '1', minWidth: '180px' }}>
           <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: '0.5rem' }}>
             {t.laserPreviewTitle || 'Bản xem trước khắc laser (Trắng - Đen 160px x 160px):'}
@@ -357,14 +284,7 @@ function CustomImageCard({ item, onUpdate, onRemove, t }) {
             }}
             data-testid={`laser-preview-${item.id}`}
           >
-            {hasError ? (
-              <span
-                style={{ fontSize: '0.75rem', color: '#ef4444', padding: '0.5rem', textAlign: 'center' }}
-                data-testid={`laser-preview-error-${item.id}`}
-              >
-                {t.imageLoadError || 'Không thể tải ảnh khắc.'}
-              </span>
-            ) : previewUrl ? (
+            {previewUrl ? (
               <img
                 src={previewUrl}
                 alt="Laser preview"
@@ -373,48 +293,6 @@ function CustomImageCard({ item, onUpdate, onRemove, t }) {
             ) : (
               <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Đang tải...</span>
             )}
-          </div>
-
-          {/* Contrast Slider */}
-          <div style={{ marginTop: '0.75rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', fontWeight: 500, color: '#334155' }}>
-              <span>{t.contrastLabel || 'Độ tương phản (Contrast)'}</span>
-              <span style={{ fontWeight: 600 }}>{currentContrast}</span>
-            </div>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              step={1}
-              value={currentContrast}
-              onChange={(e) => handleSettingChange({ contrast: Number(e.target.value) })}
-              data-testid={`engraving-image-contrast-slider-${item.id}`}
-              style={{ width: '100%', accentColor: '#0284c7' }}
-            />
-            <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
-              {t.contrastHelper || 'Min 0 — Max 100 (Mặc định: 50)'}
-            </div>
-          </div>
-
-          {/* Sharpness Slider */}
-          <div style={{ marginTop: '0.5rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', fontWeight: 500, color: '#334155' }}>
-              <span>{t.sharpnessLabel || 'Độ sắc nét (Sharpness)'}</span>
-              <span style={{ fontWeight: 600 }}>{currentSharpness}</span>
-            </div>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              step={1}
-              value={currentSharpness}
-              onChange={(e) => handleSettingChange({ sharpness: Number(e.target.value) })}
-              data-testid={`engraving-image-sharpness-slider-${item.id}`}
-              style={{ width: '100%', accentColor: '#0284c7' }}
-            />
-            <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
-              {t.sharpnessHelper || 'Min 0 — Max 100 (Mặc định: 50)'}
-            </div>
           </div>
 
           {/* Placement Picker */}
@@ -452,10 +330,7 @@ function CustomImageCard({ item, onUpdate, onRemove, t }) {
 export default function LaserEngravingImageCropper({ customImages = [], onChangeCustomImages, t }) {
   const fileInputRef = useRef(null);
 
-  const isLimitReached = customImages.length >= 2;
-
   const handleFileUpload = (e) => {
-    if (isLimitReached) return;
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -472,8 +347,6 @@ export default function LaserEngravingImageCropper({ customImages = [], onChange
         cropY: 0,
         cropWidth: 160,
         cropHeight: 160,
-        contrast: 50,
-        sharpness: 50,
         placement: 'INNER_BAND',
         price: 100000,
         previewDataUrl: '',
@@ -497,23 +370,10 @@ export default function LaserEngravingImageCropper({ customImages = [], onChange
 
   return (
     <div style={{ marginTop: '1.25rem', paddingTop: '1.25rem', borderTop: '1px dashed #cbd5e1' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
         <div>
-          <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#1e293b', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>{t.customImageSectionTitle || 'Khắc hình ảnh cá nhân hóa (+100.000 đ / ảnh)'}</span>
-            <span
-              style={{
-                fontSize: '0.75rem',
-                fontWeight: 600,
-                color: isLimitReached ? '#ef4444' : '#0284c7',
-                background: isLimitReached ? '#fee2e2' : '#e0f2fe',
-                padding: '0.15rem 0.5rem',
-                borderRadius: '999px',
-              }}
-              data-testid="engraving-image-counter"
-            >
-              {customImages.length} / 2
-            </span>
+          <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#1e293b', margin: 0 }}>
+            {t.customImageSectionTitle || 'Khắc hình ảnh cá nhân hóa (+100.000 đ / ảnh)'}
           </h3>
           <p style={{ fontSize: '0.85rem', color: '#64748b', margin: '0.25rem 0 0 0' }}>
             {t.customImageSectionDesc ||
@@ -522,23 +382,12 @@ export default function LaserEngravingImageCropper({ customImages = [], onChange
         </div>
       </div>
 
-      {isLimitReached && (
-        <div
-          className="ring-error-card"
-          style={{ marginBottom: '0.75rem', fontSize: '0.85rem', padding: '0.5rem 0.75rem' }}
-          data-testid="engraving-image-quota-msg"
-        >
-          {t.imageEngravingLimitNotice || 'Số lượng ảnh khắc laser đã đạt tối đa (2/2).'}
-        </div>
-      )}
-
       {/* Hidden file input */}
       <input
         ref={fileInputRef}
         type="file"
         accept="image/*"
         onChange={handleFileUpload}
-        disabled={isLimitReached}
         style={{ display: 'none' }}
         data-testid="upload-engraving-image-input"
       />
@@ -546,22 +395,20 @@ export default function LaserEngravingImageCropper({ customImages = [], onChange
       <button
         type="button"
         onClick={() => fileInputRef.current?.click()}
-        disabled={isLimitReached}
         style={{
           display: 'inline-flex',
           alignItems: 'center',
           gap: '0.5rem',
           padding: '0.5rem 1rem',
-          background: isLimitReached ? '#f1f5f9' : '#ffffff',
+          background: '#f1f5f9',
           border: '1px solid #cbd5e1',
           borderRadius: '8px',
-          color: isLimitReached ? '#94a3b8' : '#334155',
+          color: '#334155',
           fontSize: '0.9rem',
           fontWeight: 500,
-          cursor: isLimitReached ? 'not-allowed' : 'pointer',
+          cursor: 'pointer',
           marginTop: '0.5rem',
           marginBottom: '1rem',
-          opacity: isLimitReached ? 0.6 : 1,
         }}
         data-testid="upload-engraving-image-btn"
       >

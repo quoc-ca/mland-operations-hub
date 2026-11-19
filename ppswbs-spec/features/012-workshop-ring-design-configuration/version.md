@@ -15,38 +15,6 @@
 
 ## 1. Completed
 
-### Phase H — Gemstone Aggregate Quota, Engraving Limits, Laser Preprocessing & Full Preview Restoration (V1.3)
-
-- **Quy tắc tổng số lượng đá quý:**
-  - Áp dụng bất biến toàn cục $\sum \text{quantity} \le 10$ trên toàn bộ các loại đá quý trong `components`.
-  - Frontend hiển thị bộ đếm `current / 10` (`gemstone-total-counter`), cảnh báo đỏ `gemstone-quota-warning` khi chạm ngưỡng 10/10, vô hiệu hóa toàn bộ nút tăng/thêm đá.
-  - Hành động thêm viên thứ 11 giữ nguyên bản nháp (no-op client-side). Backend xác thực chặt chẽ qua `validateCompatibility` và trả về mã lỗi `GEMSTONE_TOTAL_LIMIT_EXCEEDED` nếu bị bypass.
-- **Hạn ngạch độc lập cho các loại khắc:**
-  - Tách biệt hoàn toàn hạn ngạch: `TEXT <= 2`, `SYMBOL <= 2`, và `CUSTOM_IMAGE <= 2`.
-  - Hiển thị các bộ đếm độc lập `TEXT x/2`, `SYMBOL x/2` và `x / 2` cho ảnh laser.
-  - Vô hiệu hóa các nút thêm tương ứng khi chạm ngưỡng (`add-text-engraving-btn`, `add-symbol-engraving-btn`, `upload-engraving-image-btn`) kèm thông báo lỗi rõ ràng.
-  - Xóa 1 mục chỉ giải phóng đúng hạn ngạch của loại mục đó.
-  - Backend trả về mã lỗi tương ứng: `TEXT_ENGRAVING_LIMIT_EXCEEDED`, `SYMBOL_ENGRAVING_LIMIT_EXCEEDED`, `IMAGE_ENGRAVING_LIMIT_EXCEEDED`.
-- **Thanh trượt xử lý ảnh khắc laser:**
-  - Bổ sung 2 slider điều khiển số nguyên cho ảnh khắc laser: Độ tương phản (`contrast`: 0..100, default 50) và Độ sắc nét (`sharpness`: 0..100, default 50).
-  - Thuật toán client-side tích chập ma trận (convolution matrix) và đường cong tương phản tạo preview trắng đen tức thì không phụ thuộc API.
-  - Giá trị `contrast` và `sharpness` được lưu và khôi phục toàn vẹn khi xem lại thiết kế. Không làm thay đổi giá hay tiền cọc.
-  - Backend kiểm tra dải giá trị hợp lệ 0..100 (`IMAGE_PREPROCESSING_INVALID`).
-- **Phục hồi toàn diện Preview đa nội dung & Ngăn chặn ảnh trắng:**
-  - Render đầy đủ tất cả các dòng chữ và biểu tượng trên cung tròn Live Preview 2D SVG (`preview-engraving-text-${idx}`) thay vì chỉ hiển thị dòng chữ đầu tiên.
-  - Render đầy đủ tất cả các khung ảnh laser với chỉ báo vị trí (`top-inner-laser-marker` và `side-outer-laser-marker`).
-  - Trang thẩm định hiển thị chi tiết từng mục khắc và thông số tương phản/sắc nét (`eval-engraving-item-${idx}`, `eval-custom-img-${idx}`).
-  - Xử lý trạng thái lỗi ảnh hỏng hiển thị `preview-engraving-error-...` trực quan thay vì khung trắng.
-- **Sửa lỗi khắc ảnh tùy chọn không cần khắc chữ:**
-  - Khắc phục lỗi `DESIGN_OPTION_INVALID: Nội dung khắc chữ không được để trống khi đã bật tùy chọn khắc` bằng cách tách biệt hoàn toàn luồng upload ảnh custom image khỏi ràng buộc text tiêu chuẩn trong backend `ManagerDesignRuleAdapter.java`.
-- **Chuẩn hóa ngôn ngữ và mã hóa Unicode tiếng Việt:**
-  - Kết nối `useLanguage()` từ `I18nProvider`, hỗ trợ chuyển đổi tức thì giữa tiếng Việt (`vi`) và tiếng Anh (`en`) không lẫn fallback.
-  - Hỗ trợ toàn vẹn tiếng Việt có dấu và các ký tự đặc biệt `♥`, `∞`, `★`, `✿`, `💍` không bị lỗi font hay mojibake.
-- **Bằng chứng kiểm thử hoàn tất:**
-  - Backend unit & rule test: 25/25 tests PASS (100%).
-  - Frontend Vitest suite: 48/48 tests PASS (100%).
-  - E2E BrowserMCP Scenarios: `E2E-012-007` (PASS), `E2E-012-008` (PASS), `E2E-012-009` (PASS), `E2E-012-010` (PASS), `E2E-012-011` (PASS) kèm bằng chứng JPEG screenshots.
-
 ### Phase G — Multi-Design Storage, Full-Fidelity Restoration & Price Preservation (V1.2)
 
 - **Vấn đề 1.1: Khắc phục lỗi giá ước lượng nhảy về 250.000 ₫ khi view lại thiết kế:**

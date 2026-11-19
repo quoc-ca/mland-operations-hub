@@ -1,15 +1,13 @@
 import React from 'react';
 import { useParams, useNavigate } from 'react-router';
-import { useLanguage } from '../../../shared/i18n/I18nProvider';
 import { messages } from '../messages';
 import '../ring-design.css';
 
 export default function RingDesignEntryPage() {
   const { packageReference } = useParams();
   const navigate = useNavigate();
-  const { language } = useLanguage();
-  const lang = language === 'en' ? 'en' : 'vi';
-  const t = messages[lang] || messages.vi;
+  const lang = 'vi';
+  const t = messages[lang];
 
   return (
     <div className="ring-design-container" data-testid="ring-design-entry-page">

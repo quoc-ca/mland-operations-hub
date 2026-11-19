@@ -68,8 +68,6 @@
   }
   .ring-preview-panel {
     position: static;
-    max-height: none;
-    overflow-y: visible;
   }
 }
 
@@ -244,10 +242,7 @@
 /* Preview & Summary Panel (Right Column) */
 .ring-preview-panel {
   position: sticky;
-  top: 1rem;
-  max-height: calc(100vh - 2rem);
-  overflow-y: auto;
-  scrollbar-width: thin;
+  top: 2rem;
   background: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: 16px;

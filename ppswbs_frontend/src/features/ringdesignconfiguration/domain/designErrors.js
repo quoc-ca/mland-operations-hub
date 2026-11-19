@@ -8,21 +8,7 @@ export function getErrorMessage(error, defaultMessage = 'Đã xảy ra lỗi kh�
     case 'DESIGN_INPUT_INVALID':
       return 'Thông tin cấu hình nhẫn không hợp lệ. Vui lòng kiểm tra lại các trường nhập liệu.';
     case 'DESIGN_OPTION_INVALID':
-      return error.details && error.details.length > 0
-        ? `Một hoặc nhiều tùy chọn đã chọn không còn khả dụng hoặc không hợp lệ: ${error.details.join(', ')}`
-        : 'Một hoặc nhiều tùy chọn đã chọn không còn khả dụng hoặc không hợp lệ.';
-    case 'GEMSTONE_TOTAL_LIMIT_EXCEEDED':
-      return 'Tổng số lượng đá quý không được vượt quá 10 viên.';
-    case 'TEXT_ENGRAVING_LIMIT_EXCEEDED':
-      return 'Số lượng mục khắc chữ tối đa là 2.';
-    case 'SYMBOL_ENGRAVING_LIMIT_EXCEEDED':
-      return 'Số lượng mục khắc biểu tượng tối đa là 2.';
-    case 'IMAGE_ENGRAVING_LIMIT_EXCEEDED':
-      return 'Số lượng ảnh khắc laser tối đa là 2.';
-    case 'IMAGE_PREPROCESSING_INVALID':
-      return 'Thông số tiền xử lý ảnh không hợp lệ (độ tương phản và độ sắc nét từ 0 đến 100).';
-    case 'ENGRAVING_PREVIEW_UNAVAILABLE':
-      return 'Không thể tạo bản xem trước khắc laser. Vui lòng thử lại với ảnh khác.';
+      return 'Một hoặc nhiều tùy chọn đã chọn không còn khả dụng hoặc không hợp lệ.';
     case 'DESIGN_PACKAGE_INCOMPATIBLE':
       return 'Tùy chọn không tương thích với gói workshop đã chọn.';
     case 'DESIGN_BRANCH_INCOMPATIBLE':

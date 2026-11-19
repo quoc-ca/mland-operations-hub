@@ -3,10 +3,8 @@ import { useParams, useNavigate } from 'react-router';
 import { useWorkshopRingDesignApi } from '../api/useWorkshopRingDesignApi';
 import { useWorkshopDesignCommand } from '../application/useWorkshopDesignCommand';
 import { useAuth } from '../../../shared/auth/AuthProvider';
-import { useLanguage } from '../../../shared/i18n/I18nProvider';
 import RingPreview from './RingPreview';
 import { derivePreviewModel, getDifficultyMeta } from '../domain/designPreview';
-import { getTranslatedOption } from '../domain/designTranslations';
 import { getErrorMessage } from '../domain/designErrors';
 import { messages } from '../messages';
 import '../ring-design.css';
@@ -45,12 +43,11 @@ export default function DesignEvaluationPage() {
     return derivePreviewModel(design.componentSnapshot);
   }, [design]);
 
-  const { language } = useLanguage();
-  const lang = language === 'en' ? 'en' : 'vi';
-  const t = messages[lang] || messages.vi;
+  const lang = 'vi';
+  const t = messages[lang];
 
   const handleArchive = async () => {
-    if (!window.confirm(t.archiveConfirm || (language === 'en' ? 'Are you sure you want to archive this design?' : 'Bạn có chắc chắn muốn lưu trữ mẫu thiết kế này không?'))) return;
+    if (!window.confirm('Bạn có chắc chắn muốn lưu trữ mẫu thiết kế này không?')) return;
     try {
       const res = await executeArchive(designId, design.designVersion);
       setDesign(res);
@@ -67,7 +64,7 @@ export default function DesignEvaluationPage() {
   if (loading) {
     return (
       <div className="ring-design-container" style={{ textAlign: 'center', padding: '4rem' }}>
-        <p>{t.loadingEval || (language === 'en' ? 'Loading design evaluation...' : 'Đang tải kết quả thẩm định thiết kế...')}</p>
+        <p>Đang tải kết quả thẩm định thiết kế...</p>
       </div>
     );
   }
@@ -98,7 +95,7 @@ export default function DesignEvaluationPage() {
           <div>
             <h1 className="ring-design-title">{t.evaluationTitle}</h1>
             <p className="ring-design-subtitle">
-              {language === 'en' ? 'Design Code' : 'Mã thiết kế'}: <strong>{design?.designId}</strong> · {t.versionLabel} {design?.designVersion}
+              Mã thiết kế: <strong>{design?.designId}</strong> · {t.versionLabel} {design?.designVersion}
             </p>
           </div>
           <div>
@@ -143,9 +140,7 @@ export default function DesignEvaluationPage() {
         <div className="ring-controls-panel">
           {/* Card: Advisory Price & Difficulty */}
           <div className="ring-section-card">
-            <h2 className="ring-section-title">
-              {language === 'en' ? 'Technical Estimation Metrics' : 'Chỉ số ước tính kỹ thuật'}
-            </h2>
+            <h2 className="ring-section-title">Chỉ số ước tính kỹ thuật</h2>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginTop: '1rem' }}>
               <div style={{ background: '#f8fafc', padding: '1.25rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
                 <div style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '0.35rem' }}>
@@ -153,17 +148,17 @@ export default function DesignEvaluationPage() {
                 </div>
                 <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#b45309' }}>
                   {evalData.estimatedPrice
-                    ? `${Number(evalData.estimatedPrice).toLocaleString(language === 'en' ? 'en-US' : 'vi-VN')} ${language === 'en' ? 'VND' : 'đ'}`
-                    : (language === 'en' ? 'By package' : 'Theo gói')}
+                    ? `${Number(evalData.estimatedPrice).toLocaleString('vi-VN')} đ`
+                    : 'Theo gói'}
                 </div>
                 <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.25rem' }}>
-                  {t.advisoryBadge} ({t.depositUnchanged || (language === 'en' ? 'Deposit unchanged' : 'Không đổi cọc gói')})
+                  {t.advisoryBadge} (Không đổi cọc gói)
                 </div>
               </div>
 
               <div style={{ background: '#f8fafc', padding: '1.25rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
                 <div style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '0.35rem' }}>
-                  {t.weightSummary || (language === 'en' ? 'Estimated Weight' : 'Khối lượng ước tính')}
+                  Khối lượng ước tính
                 </div>
                 <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a' }}>
                   {evalData.estimatedWeightGrams
@@ -172,13 +167,13 @@ export default function DesignEvaluationPage() {
                 </div>
                 <div style={{ fontSize: '0.75rem', color: evalData.excessMaterialCost && Number(evalData.excessMaterialCost) > 0 ? '#b45309' : '#166534', marginTop: '0.25rem' }}>
                   {evalData.excessMaterialCost && Number(evalData.excessMaterialCost) > 0
-                    ? `${t.excessWeightNotice || (language === 'en' ? 'Excess weight' : 'Vượt mức')} (+${Number(evalData.excessMaterialCost).toLocaleString(language === 'en' ? 'en-US' : 'vi-VN')} ${language === 'en' ? 'VND' : 'đ'})`
-                    : (t.withinStandardWeight || (language === 'en' ? 'Within standard quota (≤ 3.0g)' : 'Trong định mức chuẩn (≤ 3.0g)'))}
+                    ? `Vượt mức (+${Number(evalData.excessMaterialCost).toLocaleString('vi-VN')} đ)`
+                    : 'Trong định mức chuẩn (≤ 3.0g)'}
                 </div>
               </div>
 
               {(() => {
-                const diffMeta = getDifficultyMeta(evalData.difficultyScore, language);
+                const diffMeta = getDifficultyMeta(evalData.difficultyScore);
                 return (
                   <div
                     style={{ background: '#f8fafc', padding: '1.25rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}
@@ -208,14 +203,14 @@ export default function DesignEvaluationPage() {
                     <div style={{ fontSize: '0.75rem', color: '#475569', marginTop: '0.35rem', lineHeight: 1.4 }} data-testid="difficulty-note">
                       {diffMeta.isVeryHard ? (
                         <span style={{ color: '#b91c1c', fontWeight: 600 }}>
-                          ⚠️ {language === 'en' ? 'Note:' : 'Ghi chú:'} {diffMeta.note}
+                          ⚠️ Ghi chú: {diffMeta.note}
                         </span>
                       ) : (
-                        <span>{language === 'en' ? 'Note:' : 'Ghi chú:'} {diffMeta.note}</span>
+                        <span>Ghi chú: {diffMeta.note}</span>
                       )}
                     </div>
                     <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '0.25rem' }}>
-                      {t.difficultyScaleNotice || (language === 'en' ? 'Scale: 1-3: Easy · >3-6: Medium · >6-9: Hard · >9: Very Hard' : 'Thang đo: 1-3: Dễ · >3-6: Trung bình · >6-9: Khó · >9: Rất khó')}
+                      Thang đo: 1-3: Dễ · &gt;3-6: Trung bình · &gt;6-9: Khó · &gt;9: Rất khó
                     </div>
                     {diffMeta.isVeryHard && (
                       <div
@@ -231,7 +226,7 @@ export default function DesignEvaluationPage() {
                         }}
                         data-testid="difficulty-very-hard-warning"
                       >
-                        💡 <strong>{language === 'en' ? 'Recommendation:' : 'Khuyến cáo:'}</strong> {diffMeta.advice}
+                        💡 <strong>Khuyến cáo:</strong> {diffMeta.advice}
                       </div>
                     )}
                   </div>
@@ -246,15 +241,11 @@ export default function DesignEvaluationPage() {
             <div className="ring-summary-box" style={{ background: 'transparent', padding: 0 }}>
               <div className="ring-summary-item">
                 <span className="ring-summary-label">{t.materialSummary}</span>
-                <span className="ring-summary-value">
-                  {getTranslatedOption('materials', design?.componentSnapshot?.materialReference, language, { name: previewModel.material?.label }).name}
-                </span>
+                <span className="ring-summary-value">{previewModel.material?.label}</span>
               </div>
               <div className="ring-summary-item">
                 <span className="ring-summary-label">{t.shapeSummary}</span>
-                <span className="ring-summary-value">
-                  {getTranslatedOption('shapes', design?.componentSnapshot?.shapeReference, language, { name: previewModel.shape?.label }).name}
-                </span>
+                <span className="ring-summary-value">{previewModel.shape?.label}</span>
               </div>
               <div className="ring-summary-item">
                 <span className="ring-summary-label">{t.sizeSummary}</span>
@@ -269,12 +260,12 @@ export default function DesignEvaluationPage() {
                 <span className="ring-summary-value">{previewModel.bandWidthMm?.toFixed(1)} mm</span>
               </div>
               <div className="ring-summary-item">
-                <span className="ring-summary-label">{t.weightSummary || (language === 'en' ? 'Estimated Weight' : 'Khối lượng ước tính')}</span>
+                <span className="ring-summary-label">{t.weightSummary}</span>
                 <span className="ring-summary-value">
                   {evalData.estimatedWeightGrams || previewModel.estimatedWeightGrams?.toFixed(2)} g
                   {evalData.excessMaterialCost && Number(evalData.excessMaterialCost) > 0 && (
                     <span style={{ fontSize: '0.8rem', color: '#b45309', display: 'block' }}>
-                      ({t.surchargeWeightLabel || (language === 'en' ? 'Excess weight surcharge' : 'Phụ phí khối lượng')}: +{Number(evalData.excessMaterialCost).toLocaleString(language === 'en' ? 'en-US' : 'vi-VN')} {language === 'en' ? 'VND' : 'đ'})
+                      (Phụ phí khối lượng: +{Number(evalData.excessMaterialCost).toLocaleString('vi-VN')} đ)
                     </span>
                   )}
                 </span>
@@ -283,9 +274,9 @@ export default function DesignEvaluationPage() {
                 <span className="ring-summary-label">{t.gemstonesSummary}</span>
                 <span className="ring-summary-value">
                   {previewModel.gemstoneGroups?.length > 0
-                    ? previewModel.gemstoneGroups.map((g) => `${g.quantity}x ${getTranslatedOption('components', g.reference, language, { name: g.label }).name}`).join(', ')
+                    ? previewModel.gemstoneGroups.map((g) => `${g.quantity}x ${g.label}`).join(', ')
                     : previewModel.gemstones?.length > 0
-                      ? previewModel.gemstones.map((g) => `${g.quantity || 1}x ${getTranslatedOption('components', g.reference, language, { name: g.label }).name}`).join(', ')
+                      ? previewModel.gemstones.map((g) => `${g.quantity || 1}x ${g.label}`).join(', ')
                       : t.none}
                 </span>
               </div>
@@ -293,46 +284,29 @@ export default function DesignEvaluationPage() {
                 <span className="ring-summary-label">{t.attachmentsSummary}</span>
                 <span className="ring-summary-value">
                   {previewModel.attachments.length > 0
-                    ? previewModel.attachments.map((a) => `${a.quantity}x ${getTranslatedOption('attachments', a.reference, language, { name: a.reference }).name}`).join(', ')
+                    ? previewModel.attachments.map((a) => `${a.quantity}x ${a.reference}`).join(', ')
                     : t.none}
                 </span>
               </div>
               <div className="ring-summary-item">
                 <span className="ring-summary-label">{t.engravingSummary}</span>
                 <span className="ring-summary-value">
-                  {previewModel.engravingItems?.length > 0 ? (
-                    <div>
-                      {previewModel.engravingItems.map((it, i) => (
-                        <div key={it.id || i} style={{ fontSize: '0.85rem' }} data-testid={`eval-engraving-item-${i}`}>
-                          #{i + 1}: {it.type === 'SYMBOL' ? (language === 'en' ? `Symbol "${it.content}"` : `Biểu tượng "${it.content}"`) : (language === 'en' ? `Text "${it.content}"` : `Chữ "${it.content}"`)} ({it.placement === 'OUTER_BAND' ? (language === 'en' ? 'Outer band' : 'Mặt ngoài') : (language === 'en' ? 'Inner band' : 'Mặt trong')})
-                        </div>
-                      ))}
-                    </div>
-                  ) : previewModel.engravingText ? (
-                    `"${previewModel.engravingText}"`
-                  ) : (
-                    t.none
-                  )}
+                  {previewModel.engravingText ? `"${previewModel.engravingText}"` : t.none}
                   {previewModel.standardEngravingCost > 0 && (
                     <span style={{ fontSize: '0.8rem', color: '#0369a1', display: 'block', fontWeight: 500 }}>
-                      (+{Number(80000).toLocaleString(language === 'en' ? 'en-US' : 'vi-VN')} {language === 'en' ? 'VND' : 'đ'})
+                      (+80.000 đ)
                     </span>
                   )}
                 </span>
               </div>
               {previewModel.customImages?.length > 0 && (
                 <div className="ring-summary-item" data-testid="eval-custom-images">
-                  <span className="ring-summary-label">{language === 'en' ? 'Laser Engraving' : 'Ảnh khắc laser'}</span>
+                  <span className="ring-summary-label">Ảnh khắc laser</span>
                   <span className="ring-summary-value">
-                    {previewModel.customImages.length} {language === 'en' ? (previewModel.customImages.length > 1 ? 'images' : 'image') : 'ảnh'}
+                    {previewModel.customImages.length} ảnh
                     <span style={{ fontSize: '0.8rem', color: '#0369a1', display: 'block', fontWeight: 500 }}>
-                      (+{(previewModel.customImages.length * 100000).toLocaleString(language === 'en' ? 'en-US' : 'vi-VN')} {language === 'en' ? 'VND' : 'đ'})
+                      (+{(previewModel.customImages.length * 100000).toLocaleString('vi-VN')} đ)
                     </span>
-                    {previewModel.customImages.map((img, i) => (
-                      <span key={img.id || i} style={{ display: 'block', fontSize: '0.75rem', color: '#64748b' }} data-testid={`eval-custom-img-${i}`}>
-                        #{i + 1}: {img.placement === 'OUTER_BAND' ? (language === 'en' ? 'Outer band' : 'Mặt ngoài') : (language === 'en' ? 'Inner band' : 'Mặt trong')} ({language === 'en' ? 'Contrast' : 'Tương phản'}: {img.contrast !== undefined ? img.contrast : 50}, {language === 'en' ? 'Sharpness' : 'Sắc nét'}: {img.sharpness !== undefined ? img.sharpness : 50})
-                      </span>
-                    ))}
                   </span>
                 </div>
               )}

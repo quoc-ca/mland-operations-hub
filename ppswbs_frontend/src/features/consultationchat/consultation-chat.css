@@ -1,5 +1,9 @@
 /* Feature-013 Consultation Chat Styling */
 
+html, body, * {
+  scroll-behavior: auto !important;
+}
+
 .consultation-layout {
   display: flex;
   height: calc(100vh - 120px);

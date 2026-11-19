@@ -1,18 +1,7 @@
 import React, { useEffect } from 'react';
-import { Outlet, useNavigate, useLocation } from 'react-router';
+import { Outlet, useNavigate } from 'react-router';
 import { useAuth } from './AuthProvider';
 import { executePrivateStateCleanup } from './privateStateCleanup';
-
-function ScrollToTopOnNavigation() {
-  const { pathname } = useLocation();
-
-  useEffect(() => {
-    // Only scroll to top when user actually navigates to a different page route
-    window.scrollTo(0, 0);
-  }, [pathname]);
-
-  return null;
-}
 
 /**
  * Router-level session navigation boundary (FR-041 / spec-general.md §2 / T070).
@@ -65,12 +54,7 @@ export function SessionNavigationBoundary() {
     });
   }, [navigate, subscribeOutcome]);
 
-  return (
-    <>
-      <ScrollToTopOnNavigation />
-      <Outlet />
-    </>
-  );
+  return <Outlet />;
 }
 
 export default SessionNavigationBoundary;

@@ -219,29 +219,7 @@ public class WorkshopRingDesignApplicationService {
         // Validate compatibility
         ValidationResultDto val = rulesPort.validateCompatibility(request, null);
         if (!val.isValid()) {
-            String errorCode = "DESIGN_OPTION_INVALID";
-            for (String reason : val.getReasons()) {
-                if (reason.contains("GEMSTONE_TOTAL_LIMIT_EXCEEDED")) {
-                    errorCode = "GEMSTONE_TOTAL_LIMIT_EXCEEDED";
-                    break;
-                } else if (reason.contains("TEXT_ENGRAVING_LIMIT_EXCEEDED")) {
-                    errorCode = "TEXT_ENGRAVING_LIMIT_EXCEEDED";
-                    break;
-                } else if (reason.contains("SYMBOL_ENGRAVING_LIMIT_EXCEEDED")) {
-                    errorCode = "SYMBOL_ENGRAVING_LIMIT_EXCEEDED";
-                    break;
-                } else if (reason.contains("IMAGE_ENGRAVING_LIMIT_EXCEEDED")) {
-                    errorCode = "IMAGE_ENGRAVING_LIMIT_EXCEEDED";
-                    break;
-                } else if (reason.contains("IMAGE_PREPROCESSING_INVALID")) {
-                    errorCode = "IMAGE_PREPROCESSING_INVALID";
-                    break;
-                } else if (reason.contains("ENGRAVING_PREVIEW_UNAVAILABLE")) {
-                    errorCode = "ENGRAVING_PREVIEW_UNAVAILABLE";
-                    break;
-                }
-            }
-            throw RingDesignException.businessInvalid(errorCode, "Tùy chọn thiết kế không hợp lệ hoặc không tương thích.", val.getReasons());
+            throw RingDesignException.businessInvalid("DESIGN_OPTION_INVALID", "Tùy chọn thiết kế không hợp lệ hoặc không tương thích.", val.getReasons());
         }
 
         EvaluationResultDto eval = rulesPort.evaluate(request);
