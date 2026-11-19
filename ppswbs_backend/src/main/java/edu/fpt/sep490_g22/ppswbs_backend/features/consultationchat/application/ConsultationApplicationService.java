@@ -452,10 +452,10 @@ public class ConsultationApplicationService {
         ConsultationConversation conv = findAndAuthorizeConversation(conversationReference, caller);
         checkOptimisticLock(conv, ifMatchVersion);
         if (conv.getStatus() != ConsultationStatus.CLOSED) {
-            throw ConsultationException.conflict("CHAT_DELETE_REQUIRES_CLOSED", "Vui lÃ²ng Ä‘Ã³ng cuá»™c trÃ² chuyá»‡n trÆ°á»›c khi xÃ³a.");
+            throw ConsultationException.conflict("CHAT_DELETE_REQUIRES_CLOSED", "Vui lòng đóng cuộc trò chuyện trước khi xóa.");
         }
         if (conv.getMemberHiddenAt() != null) {
-            throw ConsultationException.conflict("CHAT_ALREADY_HIDDEN", "Cuá»™c trÃ² chuyá»‡n Ä‘Ã£ Ä‘Æ°á»£c áº©n.");
+            throw ConsultationException.conflict("CHAT_ALREADY_HIDDEN", "Cuộc trò chuyện đã được ẩn.");
         }
         conv.setMemberHiddenAt(Instant.now());
         conv.setMemberHiddenByUserId(caller.accountId());
@@ -585,7 +585,7 @@ public class ConsultationApplicationService {
         boolean complete = req.getContextType() != null && req.getContextReference() != null
                 && !req.getContextReference().isBlank() && req.getContextVersion() != null;
         if (any && !complete) {
-            throw ConsultationException.badRequest("CHAT_CONTEXT_INVALID", "Ngá»¯ cáº£nh thiáº¿t káº¿ pháº£i Ä‘Æ°á»£c gá»­i Ä‘á»§ thÃ´ng tin.");
+            throw ConsultationException.badRequest("CHAT_CONTEXT_INVALID", "Ngữ cảnh thiết kế phải được gửi đủ thông tin.");
         }
     }
 
@@ -594,7 +594,7 @@ public class ConsultationApplicationService {
         try {
             return Math.max(Integer.parseInt(new String(Base64.getUrlDecoder().decode(cursor))), 0);
         } catch (Exception e) {
-            throw ConsultationException.badRequest("CHAT_CURSOR_INVALID", "Cursor khÃ´ng há»£p lá»‡.");
+            throw ConsultationException.badRequest("CHAT_CURSOR_INVALID", "Cursor không hợp lệ.");
         }
     }
 

@@ -47,18 +47,6 @@ paths:
         '200': { description: Scoped inbox, content: { application/json: { schema: { $ref: '#/components/schemas/ConversationList' } } } }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
-    delete:
-      tags: [consultation-chat]
-      security: [{ bearerAuth: [] }]
-      parameters:
-        - { $ref: '#/components/parameters/ConversationReference' }
-        - { $ref: '#/components/parameters/IfMatchVersion' }
-        - { $ref: '#/components/parameters/IdempotencyKey' }
-      responses:
-        '204': { description: Hidden from Member list; operational history retained }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '409': { $ref: '#/components/responses/Conflict' }
   /consultations/{conversationReference}:
     parameters: [{ $ref: '#/components/parameters/ConversationReference' }]
     get:
@@ -69,6 +57,17 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [consultation-chat]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/IfMatchVersion' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      responses:
+        '204': { description: Hidden from Member list; operational history retained }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
   /consultations/{conversationReference}/messages:
     parameters: [{ $ref: '#/components/parameters/ConversationReference' }]
     post:
