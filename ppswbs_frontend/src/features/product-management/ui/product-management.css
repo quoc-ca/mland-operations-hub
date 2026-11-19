@@ -254,6 +254,9 @@
 .pm-public .detail-grid{grid-template-columns:minmax(0,2fr) minmax(0,3fr);gap:32px;align-items:start;margin-top:0}
 .pm-public .detail-grid>.ring-visual,.pm-public .detail-grid .ring-visual,.pm-public .detail-image{height:auto;aspect-ratio:1/1}
 .pm-public .detail-grid .price{font-size:22px;font-weight:700;margin:0 0 16px}
+.pm-public .detail-grid .detail-price{margin:0 0 16px}
+.pm-public .detail-grid .detail-price .price{margin:0}
+.pm-public .detail-grid .detail-price .offer-now{font-size:22px;font-weight:700}
 .pm-public .detail-grid p{font-size:12px;line-height:1.6;margin:0 0 16px}
 .pm-public .detail-grid .section-title{font-size:15px;margin:24px 0 8px}
 .pm-public .size-list{border-top:1px solid var(--pm-line)}
