@@ -1,5 +1,7 @@
 # Feature-04 Entity Specification: Independent Design Analysis
 
+> **Deprecated historical artifact (2026-11-20):** This AI analysis model is retained for audit only.
+
 **Date created**: 2026-10-24  
 **Date updated**: 2026-11-05
 **Author**: Ngô Tiến Đạt  

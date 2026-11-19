@@ -340,6 +340,24 @@ the required state (`CHECKED_IN`, `PICKED_UP` or `DELIVERED`). Feature-011
 receives opaque references and sanitized evidence, not foreign repositories or
 full transaction records.
 
+## Feature-004 — Design Request and Human Review (supersedes AI contract)
+
+Owner: `designrequesthumanreview` (logical); the legacy directory/module name is
+retained temporarily for migration history.
+
+| Method | Endpoint | Actor | Contract boundary |
+| --- | --- | --- | --- |
+| POST | `/api/v1/design-requests` | Guest/Member | Create an independent request with description and up to five images. |
+| GET | `/api/v1/design-requests/{id}` | Guest token/Member owner | Safe status, quality and decision-explanation projection. |
+| GET | `/api/v1/design-requests` | Member | Own request history only. |
+| GET | `/api/v1/design-review-requests` | Staff/Manager | Pending review queue. |
+| GET | `/api/v1/design-review-requests/{id}` | Staff/Manager | Safe review detail. |
+| POST | `/api/v1/design-review-requests/{id}/decisions` | Staff/Manager | `ACCEPTED` or `REJECTED` with mandatory explanation. |
+
+All writes use `Idempotency-Key`; review decisions use `If-Match-Version`. No
+endpoint invokes AI or mutates booking, payment, catalogue, custom-manufacturing
+or Feature-012 configured-design state. The old AI OpenAPI contract is deprecated.
+
 ## Feature-012 — Workshop Ring Design Configuration
 
 Owner: `ringdesignconfiguration`.

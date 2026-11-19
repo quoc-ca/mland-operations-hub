@@ -2268,6 +2268,22 @@ greater than `V102` after repository and `flyway_schema_history` verification.
 - V109 chuyển số lượng cũ sang chi nhánh có mã `HN-HOANKIEM` (Q-B1). Database không có mã này thì không chuyển gì (không dừng migration); sản phẩm cũ được gán chi nhánh trên giao diện.
 - Chi tiết: `features/002-product-management/data-model.md` mục "Branch stock".
 
+## Feature-004 — Design Request and Human Review (logical model, 2026-11-20)
+
+Feature-004 owns `design_requests`, `design_request_images`,
+`guest_design_sessions`, `guest_request_quota`, `design_review_decisions`,
+`design_request_idempotency_records` and `design_request_audit_events`.
+
+The request supports Guest/Member ownership, at most five images, server-confirmed
+quality status and `NEED_REVIEW → ACCEPTED/REJECTED` lifecycle. Staff and Manager
+have equal business authority; Admin has no moderation authority. Every decision
+requires an explanation. Guest quota is five requests per calendar day and must be
+atomic. Tokens and image storage references are opaque and never raw-logged.
+
+No Feature-004 table references booking, payment, package/session, Feature-012
+configured design or an AI provider. This is a logical model only; no migration is
+approved in this documentation update.
+
 ## Feature-013 — Staff consultation chat (logical model, draft)
 
 Feature-013 owns the logical conversation, immutable message, unread/read-state,

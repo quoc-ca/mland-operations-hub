@@ -689,6 +689,26 @@ flowchart LR
 - Logout là hành động trong account menu của cả bốn Dashboard, kết thúc phiên và về Home/Login. Không cần một trang Logout riêng.
 - Dữ liệu recipient và media hiển thị theo chính sách retention; không lộ lại dữ liệu đã đến hạn retire qua màn details hoặc technical support.
 
+## Feature-004 replacement flow — Design Request and Human Review
+
+The previous AI image-analysis screens are retired. The current customer flow is:
+
+```text
+Guest/Member Design Request
+→ Description and up to five images
+→ Immediate image-quality feedback
+→ Replace/remove blurry images
+→ Submit
+→ NEED_REVIEW
+→ Staff/Manager Review
+→ ACCEPTED or REJECTED with mandatory explanation
+→ Customer Tracking/History and Decision Explanation
+```
+
+Guest uses an opaque tracking link; Member uses authenticated ownership. Staff and
+Manager have equal decision authority. Admin has technical/audit visibility only.
+This flow is independent from booking and Feature-012 ring configuration.
+
 ## Feature-012 workshop booking flow
 
 The customer flow is:

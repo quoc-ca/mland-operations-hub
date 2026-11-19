@@ -1,3 +1,5 @@
+# DEPRECATED 2026-11-20: superseded by contracts/design-request-human-review.openapi.yaml.
+# This legacy AI contract is retained only for migration history and must not be used for implementation.
 openapi: 3.1.0
 info:
   title: Feature-04 Independent AI Design API

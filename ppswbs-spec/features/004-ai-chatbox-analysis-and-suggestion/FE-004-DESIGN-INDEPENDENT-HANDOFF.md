@@ -1,5 +1,7 @@
 # FE-004 — Independent Design Capability Handoff
 
+> **Superseded (2026-11-20):** This handoff predates removal of AI from Feature-004. Use the current human-review `spec.md`, `design.md` and OpenAPI contract instead.
+
 **Date created**: 2026-10-24
 **Date updated**: 2026-11-05
 **Author**: Ngô Tiến Đạt
