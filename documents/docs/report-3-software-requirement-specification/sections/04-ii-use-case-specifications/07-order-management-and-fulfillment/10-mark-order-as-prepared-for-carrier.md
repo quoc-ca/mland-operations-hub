@@ -2,7 +2,7 @@
 
 #### Primary Actors
 
-Staff; Manager.
+Staff; Manager; GHTK partner (Đối tác vận chuyển).
 
 #### Secondary Actors
 
@@ -10,39 +10,39 @@ Delivery Service; Mail Gateway
 
 #### Description
 
-As an authorized shop actor, I want to record actual manual GHTK handoff of an already prepared paid order so that the shop's recorded responsibility ends at evidenced carrier custody. The inventory title is retained; preparation alone is the separate prepared_for_carrier milestone in UC50.
+As an authorized shop actor, I want to mark a packed paid GHTK order ready for the courier, and as the GHTK partner I want to record the courier pickup and the delivery, so that each step of the parcel is attributable. Packing alone never proves carrier custody.
 
 #### Preconditions
 
 1. The platform is available and the retail order exists.
 2. The actor is authenticated with verified identity, has an active account, and holds current authority for the requested action.
-3. The actor has current assigned-branch or applicable Manager handoff action/branch delegation.
-4. The order is verified paid, GHTK-selected and prepared_for_carrier, with necessary recipient name/phone/address. Actual manual carrier handoff must occur before completion is recorded.
+3. The shop actor has current assigned-branch or applicable Manager action/branch delegation; the GHTK partner uses an active partner account (role CARRIER).
+4. The order is verified paid and GHTK-selected, its shipment is in preparation, and necessary recipient name/phone/address exist. The actual courier pickup must occur before it is recorded.
 
 #### Postconditions
 
-- Successful confirmation records handed_to_carrier as the irreversible carrier terminal state, with carrier/handoff reference, confirming actor/time and safe minimized evidence.
+- The shipment moves READY_FOR_CARRIER → HANDED_TO_CARRIER → DELIVERED once each, with the platform tracking number, actor/time and safe minimized evidence; DELIVERED is terminal and sets the order received time.
 - The original actual handoff starts the 30-day recipient-data retirement clock; retry does not reset it.
-- No delivery/tracking/fee/API workflow, new payment/hold, repeat sale deduction, cancellation/refund or return is created. Rejected/failed requests preserve prior facts.
+- No GHTK shipment API, provider tracking, new payment/hold, repeat sale deduction, cancellation/refund or return is created. Rejected/failed requests preserve prior facts.
 
 #### Normal Flow
 
 **Mark Order as Prepared for Carrier**
 
-1. The actor opens the prepared GHTK order within authorized branch scope.
-2. The system checks current account/action/branch authority, verified paid state, fixed GHTK method and prepared_for_carrier readiness.
-3. The actor reviews the necessary order-specific recipient name/phone/address and carrier handoff information.
-4. The actor manually hands the prepared order to GHTK outside the platform.
-5. The actor submits actual handoff confirmation with carrier and handoff reference.
-6. The system rechecks current authority/state, required data and actual handoff evidence, then records prepared_for_carrier to handed_to_carrier once.
-7. The system retains original handoff time, actor, carrier/reference and minimized custody evidence, and sets recipient-data retirement at 30 days after that original actual handoff.
-8. The system displays the recorded terminal handoff; the shop's recorded responsibility ends there. Optional completion email follows the shared notification policy and never reverses completion.
+1. The shop actor opens the paid GHTK order in the Đang chuẩn bị hàng tab within authorized branch scope.
+2. The system checks current account/action/branch authority, verified paid state, fixed GHTK method and that the shipment is in preparation.
+3. The shop actor packs the order and presses Đã chuẩn bị xong; the system records READY_FOR_CARRIER, shows the order in Chờ ĐVVC lấy hàng and shows the Member Chờ GHTK lấy hàng.
+4. The GHTK courier collects the parcel at the branch. On the partner portal, which lists the GHTK shipments of every branch with the pickup branch, recipient name, phone and address, item count and shipping fee, the GHTK partner presses Đã lấy hàng.
+5. The system rechecks the partner account and the current shipment state and version, then records READY_FOR_CARRIER to HANDED_TO_CARRIER once; Staff sees Đã bàn giao cho ĐVVC and the Member sees Đang giao hàng.
+6. After delivering the parcel, the GHTK partner presses Giao thành công; the system rechecks state and version and records HANDED_TO_CARRIER to DELIVERED once.
+7. The system retains the original handoff and delivery times, actor, tracking number and minimized custody evidence, sets the order received time, and sets recipient-data retirement at 30 days after the original actual handoff.
+8. The system displays Hoàn thành to Staff and Đã giao to the Member. Optional completion email follows the shared notification policy and never reverses completion.
 
 #### Alternative Flows
 
 **Steps 2 and 6 — Unauthorized/wrong branch or revoked delegation**
 
-Reject without mutation/private exposure. Manager needs applicable handoff action/branch delegation; Admin has no business override.
+Reject without mutation/private exposure. Manager needs applicable action/branch delegation; Admin has no business override. The GHTK partner records only the two courier steps and never sees product prices, vouchers, points or Member account data.
 
 **Steps 2 and 6 — Unpaid/unprepared/pickup order or incompatible terminal state**
 
@@ -50,15 +50,15 @@ Reject without skipping readiness or moving from pickup/backwards. Use UC46/UC49
 
 **Steps 3 and 6 — Missing recipient data or handoff reference**
 
-Reject with safe correction guidance; do not invent recipient values or evidence. GHTK delivery is domestic Vietnam: recipient name 1–100 Unicode characters, address 10–500 Unicode characters, optional note at most 500 Unicode characters, with leading/trailing whitespace trimmed. Contact mobile number is 10 digits starting with 0 or its equivalent +84 form. Actual GHTK handoff requires a waybill or receipt reference of 1–100 characters on one line, carrier, order, recording actor and actual handoff time; no document-image upload is required. Method/recipient edits remain frozen after preparing; no correction override is invented.
+Reject with safe correction guidance; do not invent recipient values or evidence. The tracking number is generated by the platform; no waybill entry or document-image upload is required. GHTK delivery is domestic Vietnam: recipient name 1–100 Unicode characters, address 10–500 Unicode characters, optional note at most 500 Unicode characters, with leading/trailing whitespace trimmed. Contact mobile number is 10 digits starting with 0 or its equivalent +84 form. Method/recipient edits remain frozen after preparing; no correction override is invented.
 
 **Steps 4 to 6 — Packing/preparation recorded but no actual GHTK handoff**
 
-Retain prepared_for_carrier and do not assert carrier custody. The UC53 title does not make preparing/packing evidence equivalent to actual handoff.
+Retain READY_FOR_CARRIER and do not assert carrier custody until Đã lấy hàng is recorded. Until FE-01 provides the GHTK partner role, Staff records Đã lấy hàng and Giao thành công as a simulation with the same state checks.
 
 **Step 6 — Already-recorded handoff, duplicate or stale conflicting request**
 
-Never create a second terminal effect, repeat quantity/benefit settlement or reset original handoff/retirement time. The system returns no-change for an identical accepted effect and rejects stale/incompatible changes.
+Never create a second effect, repeat quantity/benefit settlement or reset original handoff/retirement time. The system returns no-change for an identical accepted effect and rejects stale/incompatible changes, including a stale shipment version, asking the actor to reload the list.
 
 **Steps 2 and 6 — Read/save failure, uncertain recording outcome**
 
@@ -80,10 +80,10 @@ BR-53-01, BR-53-02, BR-53-03, BR-53-04, BR-53-05, BR-53-06, BR-53-07, BR-53-08
 
 | ID | Rule Definition |
 | --- | --- |
-| BR-53-01 | Only assigned-branch Staff or explicitly handoff-action/branch-delegated Manager may record actual carrier handoff. |
-| BR-53-02 | UC50 records prepared_for_carrier; UC53 records actual manual GHTK handoff afterward. Preparation alone never proves carrier custody. |
-| BR-53-03 | Handoff requires verified paid GHTK readiness, valid recipient data, carrier, a 1–100-character single-line waybill/receipt reference, actor and actual handoff time. |
-| BR-53-04 | Handed_to_carrier is terminal for shop fulfilment; no backward/cross-terminal override, courier tracking, GHTK API, shipping quote or cancellation/refund workflow is added. |
+| BR-53-01 | Only assigned-branch Staff or explicitly action/branch-delegated Manager packs and marks ready; only the GHTK partner account (or Staff as a simulation until it exists) records the courier pickup and the delivery. |
+| BR-53-02 | Đã chuẩn bị xong records READY_FOR_CARRIER; Đã lấy hàng records HANDED_TO_CARRIER afterward; Giao thành công records DELIVERED. Packing alone never proves carrier custody. |
+| BR-53-03 | Courier pickup requires verified paid GHTK readiness, valid recipient data, the current shipment version, actor and actual pickup time; the platform tracking number identifies the parcel. |
+| BR-53-04 | Delivered is terminal for shop fulfilment; no backward/cross-terminal override, GHTK shipment API, provider tracking, delivery-failure/return or cancellation/refund workflow is added. |
 | BR-53-05 | Keep necessary recipient data while handoff is pending; retire private values/copies 30 days after original actual handoff, without resetting on retries. |
 | BR-53-06 | Keep minimized custody/payment/audit evidence under five-year retention without preserving retired recipient/contact/address values. |
 | BR-53-07 | Identical recorded handoff returns successful no-change; reject conflicts without another handoff, settlement or retirement-clock reset. |

@@ -10,7 +10,7 @@ None.
 
 #### Description
 
-As an authorized order viewer, I want the frozen retail purchase and recorded payment/internal fulfilment facts so that I can understand the order without repricing it or implying courier tracking.
+As an authorized order viewer, I want the frozen retail purchase and recorded payment/internal fulfilment facts so that I can understand the order without repricing it or implying GHTK provider tracking.
 
 #### Preconditions
 
@@ -30,7 +30,7 @@ As an authorized order viewer, I want the frozen retail purchase and recorded pa
 1. The actor opens a retail order reference for an authorized purpose.
 2. The system rechecks current ownership/action/branch/account authority before revealing protected data.
 3. For authorized business reads the system retrieves frozen purchase snapshots and reference/branch; for Admin technical support it retrieves only permitted technical diagnostics, excluding cart/product/options/customer data.
-4. The system retrieves recorded payment, original deadlines, hold disposition, method and internal preparation/readiness/completion evidence.
+4. The system retrieves recorded payment and paid time, original deadlines, hold disposition, method, internal preparation/readiness/completion evidence, the recorded GHTK shipment step and the received time.
 5. The system applies purpose-based access/minimization and recipient-data retirement, distinguishing unknown legacy values from current facts.
 6. The system displays permitted order details and eligible next-action links; each later action rechecks its own authority/state.
 
@@ -71,7 +71,7 @@ BR-48-01, BR-48-02, BR-48-03, BR-48-04, BR-48-05, BR-48-06, BR-48-07
 | BR-48-01 | Members read own orders; Staff reads assigned-branch orders and Manager requires explicit applicable action/branch delegation. Recheck current authority. |
 | BR-48-02 | Admin sees only shared-policy technical diagnostics, with no customer data, general detailed-order access, impersonation or business mutation. |
 | BR-48-03 | Keep purchase snapshots, payment, hold and fulfilment facts distinct; viewing never changes them or grants payment/completion authority. |
-| BR-48-04 | Preserve legacy snapshots without guessed options; new checkout requires configured variants. No public order lookup or courier tracking is provided. |
+| BR-48-04 | Preserve legacy snapshots without guessed options; new checkout requires configured variants. No public order lookup or GHTK provider tracking is provided; only the shipment step recorded in the platform is shown. |
 | BR-48-05 | Retain necessary carrier data until actual handoff, then retire private values/copies after 30 days while keeping minimized five-year evidence. |
 | BR-48-06 | Inactive branches block new checkout but retain accepted orders, deadlines and currently authorized processing; no automatic transfer occurs. |
 | BR-48-07 | Record each attempt and its actual outcome under the shared audit policy. |

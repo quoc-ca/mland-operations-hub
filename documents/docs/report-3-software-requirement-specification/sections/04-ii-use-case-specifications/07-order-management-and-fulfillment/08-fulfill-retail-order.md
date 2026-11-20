@@ -10,33 +10,33 @@ None.
 
 #### Description
 
-As a Member, I want to choose pickup or GHTK after verified payment and provide necessary order-specific data so that the shop can prepare the paid order for the chosen method.
+As a Member, I want the pickup or GHTK choice and recipient data I gave at checkout recorded on each paid order and its progress shown so that I know when to collect it or expect delivery.
 
 #### Preconditions
 
 1. The platform is available and the retail order exists.
 2. The actor is authenticated with verified identity, has an active account, and holds current authority for the requested action.
-3. The Member owns the verified paid order. Method/data can be chosen or changed only while paid and before preparing starts.
+3. The Member owns the verified paid order. Method/data were chosen at checkout (UC45) and cannot change after acceptance.
 4. The processing branch was selected and fixed at checkout; this use case cannot replace it.
 
 #### Postconditions
 
-- A valid owner submission records pickup or GHTK with necessary data without changing frozen purchase/payment/branch facts.
-- Subsequent authorized preparation freezes method/recipient editing and continues along the chosen chain; this use case does not assert actual completion.
-- Rejected/failed selections preserve existing data/state; no shipping fee, address book, provider call or new payment is created.
+- The paid order carries pickup or GHTK with necessary data without changing frozen purchase/payment/branch facts; a GHTK order carries one shipment with a platform tracking number.
+- Authorized preparation continues along the chosen chain; this use case does not itself assert actual completion.
+- No new shipping fee, GHTK shipment API call or new payment is created after checkout.
 
 #### Normal Flow
 
 **Fulfill Retail Order**
 
-1. The owning Member opens fulfilment selection for the paid retail order.
-2. The system rechecks owner/account authority, verified paid status and that preparing has not started.
-3. The system shows the fixed processing branch and available Pickup and GHTK choices.
-4. The Member chooses pickup or GHTK; for GHTK, supplies recipient name, phone and address with an optional note subject to the field policy.
-5. The Member submits the selected method/data.
-6. The system rechecks current ownership/state and validates method/required data.
-7. The system saves the valid choice/data, retains safe evidence and shows the selected method without repricing or changing branch.
-8. The order becomes eligible for authorized review/preparation in UC49 and readiness in UC50, followed by UC52 or UC53.
+1. At checkout the owning Member chose pickup or GHTK for each branch and, for GHTK, a saved or new recipient address (UC45).
+2. After verified payment the system records the choice on each paid branch order; for GHTK it records one prepaid shipment with a platform-generated tracking number.
+3. The system shows the fixed processing branch, the chosen method and the current step in Purchase Order History.
+4. Authorized Staff prepares the order (UC49) and marks it ready: Chờ khách nhận for pickup (UC50), Chờ ĐVVC lấy hàng for GHTK (UC53).
+5. Pickup: the Member sees Sẵn sàng nhận hàng and collects the order at the counter (UC52).
+6. GHTK: the Member sees Chờ GHTK lấy hàng, then Đang giao hàng once the courier collects the parcel, then Đã giao once the GHTK partner records the delivery (UC53).
+7. The system records the received time at the counter handover or the GHTK delivery, without repricing or changing branch.
+8. The order moves to the Đã giao tab with its paid and received times.
 
 #### Alternative Flows
 
@@ -44,13 +44,13 @@ As a Member, I want to choose pickup or GHTK after verified payment and provide 
 
 Reject without exposing another order, accepting data or changing payment facts. Staff/Manager/Admin cannot make the Member choice through customer impersonation.
 
-**Step 6 — Invalid method or incomplete GHTK data**
+**Step 1 — Invalid method or incomplete GHTK data**
 
-Identify missing/invalid fields and permit correction at Step 4 while the order remains editable. GHTK delivery is domestic Vietnam: recipient name 1–100 Unicode characters, address 10–500 Unicode characters, optional note at most 500 Unicode characters, with leading/trailing whitespace trimmed. Contact mobile number is 10 digits starting with 0 or its equivalent +84 form.
+Identify missing/invalid fields at checkout and permit correction before Đặt hàng. GHTK delivery is domestic Vietnam: recipient name 1–100 Unicode characters, address 10–500 Unicode characters, optional note at most 500 Unicode characters, with leading/trailing whitespace trimmed. Contact mobile number is 10 digits starting with 0 or its equivalent +84 form.
 
-**Step 6 — Preparing started, including a concurrent shop confirmation**
+**Steps 2 to 6 — Member wants a different method after Đặt hàng**
 
-Reject method/recipient changes and retain the existing choice/data. No reset, backward transition, branch transfer or special override; UC49 requires current valid method/data before starting preparing.
+Reject method/recipient changes and retain the existing choice/data. While the order is unpaid the Member may cancel it and order again; after payment there is no reset, backward transition, branch transfer or special override.
 
 **Steps 3 and 7 — Processing branch became inactive**
 
@@ -58,15 +58,15 @@ Preserve the recorded branch/history and do not silently relocate. An inactive b
 
 **Step 7 — Save failure**
 
-Report a safe error and preserve previously accepted data/payment facts. The owner may retry only while current state remains editable; do not invent another order/payment.
+Report a safe error and preserve previously accepted data/payment facts; do not invent another order/payment.
 
 **Steps 7 and 8 — Long wait before actual GHTK handoff**
 
 Keep only recipient name/phone/address necessary to fulfil the pending handoff. The 30-day retirement clock begins at the original actual handoff, not at entry/editing or preparation.
 
-**Steps 4 and 6 — GHTK changes to pickup before preparing**
+**Step 6 — GHTK partner account not yet available**
 
-Remove obsolete GHTK recipient data when the valid change is accepted. Pickup collects no extra address or separate contact; branch and frozen payment terms remain unchanged.
+Until FE-01 provides the GHTK partner role, Staff records the courier pickup and the delivery as a simulation with the same state checks. Pickup collects no extra address or separate contact; branch and frozen payment terms remain unchanged.
 
 #### Business Rules
 
@@ -76,10 +76,10 @@ BR-51-01, BR-51-02, BR-51-03, BR-51-04, BR-51-05, BR-51-06, BR-51-07
 
 | ID | Rule Definition |
 | --- | --- |
-| BR-51-01 | Only the active owning Member selects/edits method and recipient data after verified payment and before preparing; internal actors cannot impersonate the Member. |
-| BR-51-02 | Support pickup or manual domestic GHTK; GHTK requires valid name, phone and address with optional note under the shared field limits, without an address book. |
-| BR-51-03 | Fulfilment choice never changes the checkout branch, frozen prices/totals, shipping fees, payment or hold. |
-| BR-51-04 | Preparation requires valid current method/data and freezes later owner edits; only the selected method’s readiness/completion chain is permitted. |
-| BR-51-05 | Retain necessary pending GHTK data, retire it 30 days after original actual handoff, and remove obsolete data when switching to pickup before preparing. |
-| BR-51-06 | No GHTK fee quote, API, tracking, delivery-failure/return or cancellation/refund workflow is provided. |
+| BR-51-01 | Only the active owning Member chooses method and recipient data at checkout; they cannot change after acceptance, and internal actors cannot impersonate the Member. |
+| BR-51-02 | Support pickup or domestic GHTK; GHTK requires valid name, phone and address with optional note under the shared field limits, from a saved address or a new one. |
+| BR-51-03 | The method and GHTK fee are frozen at checkout; later progress never changes the branch, frozen prices/totals, shipping fee, payment or hold. |
+| BR-51-04 | Only the chosen method's chain is permitted: pickup Đang chuẩn bị hàng → Chờ khách nhận → Hoàn thành; GHTK Đang chuẩn bị hàng → Chờ ĐVVC lấy hàng → Đã bàn giao cho ĐVVC → Hoàn thành. |
+| BR-51-05 | Retain necessary pending GHTK data and retire it 30 days after original actual handoff. |
+| BR-51-06 | GHTK is called only for the delivery-fee quote; no GHTK shipment API, provider tracking, delivery-failure/return or cancellation/refund workflow is provided. |
 | BR-51-07 | Record each attempt and its actual outcome under the shared audit policy. |

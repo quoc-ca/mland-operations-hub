@@ -17,7 +17,7 @@ As an authorized shop actor, I want to verify the current authenticated owner an
 1. The platform is available and the retail order exists.
 2. The actor is authenticated with verified identity, has an active account, and holds current authority for the requested action.
 3. The actor has current assigned-branch or applicable Manager pickup delegation.
-4. The order is verified paid, selected for pickup and ready_for_pickup. The owner must sign in and open the current own order at the counter.
+4. The order is selected for pickup and ready_for_pickup (Chờ khách nhận), and is verified paid or paid in cash at the counter in this use case. The owner must sign in and open the current own order at the counter.
 
 #### Postconditions
 
@@ -34,7 +34,7 @@ As an authorized shop actor, I want to verify the current authenticated owner an
 4. The system verifies current Member identity/account authority and ownership of that matching order.
 5. The shop actor checks the matching ready order and confirms actual handover to that owner.
 6. The system rechecks current state and both applicable ownership/shop conditions, then records ready_for_pickup to picked_up once.
-7. The system stores safe confirming actor/time, verification method/result and minimized reference, and displays the recorded pickup completion. Optional completion email follows the shared notification policy and never reverses completion.
+7. The system stores safe confirming actor/time, verification method/result and minimized reference, records the received time, and displays the recorded pickup completion (Staff Hoàn thành, Member Đã giao). Optional completion email follows the shared notification policy and never reverses completion.
 
 #### Alternative Flows
 
@@ -45,6 +45,10 @@ Reject completion without private exposure or state change. Manager requires app
 **Steps 2 and 6 — Unpaid, unready, wrong method or incompatible terminal state**
 
 Reject without skipping milestones or changing another terminal result. A paid flag alone or preparing state is insufficient; use the appropriate preceding use case.
+
+**Steps 2 and 5 — Cash at the counter order (Chờ thu tiền mặt)**
+
+Before the hold deadline (72 hours) the actor enters the cash received; the system computes the change and records payment for that branch order. When Giao hàng cho khách ngay sau khi thu tiền is ticked, the handover is recorded in the same step; otherwise the order moves to preparation. After the deadline the unpaid order expires and its items return to the Member's cart.
 
 **Steps 3 and 4 — Screenshot/reference only, different Member or third-party collection**
 
@@ -78,6 +82,6 @@ BR-52-01, BR-52-02, BR-52-03, BR-52-04, BR-52-05, BR-52-06, BR-52-07
 | BR-52-02 | Only the signed-in owning Member opening the current matching order may collect; screenshots, references alone and third-party collection are insufficient. |
 | BR-52-03 | Record ready_for_pickup → picked_up only after verified payment, pickup readiness and actual handover to the authenticated owner. |
 | BR-52-04 | Retain actor/time, verification method/result and minimized order reference; collect no identity-document copy, pickup OTP, extra contact/address or raw credentials. |
-| BR-52-05 | Pickup never charges again, changes prices/deadlines or repeats quantity/benefit settlement. |
+| BR-52-05 | Pickup never charges again, changes prices/deadlines or repeats quantity/benefit settlement; a cash-at-the-counter order is charged once, at the counter. |
 | BR-52-06 | Identical recorded completion returns successful no-change; reject stale/conflicting requests without another handover effect. |
 | BR-52-07 | Record each attempt and its actual outcome under the shared audit policy. |
