@@ -9,6 +9,7 @@ import InternalAccountCreatePage from './components/InternalAccountCreatePage';
 import RoleCataloguePage from './components/RoleCataloguePage';
 import AddressBookPage from './components/AddressBookPage';
 import AdminRouteGuard from './components/AdminRouteGuard';
+import CarrierPortalPage from './components/CarrierPortalPage';
 
 export const accountManagementRoutes: RouteObject[] = [
   // Compatibility sign-in route (FR-041 / T071: replaces to canonical /login)
@@ -27,6 +28,9 @@ export const accountManagementRoutes: RouteObject[] = [
       </RequireSession>
     ),
     children: [
+      // CARRIER portal route (T087 / R-CAR)
+      { path: '/carrier', element: <CarrierPortalPage /> },
+
       // Personal Profile canonical route & aliases
       { path: '/profile', element: <ProfilePage initialMode="overview" /> },
       { path: '/personal-profile', element: <ProfilePage initialMode="overview" /> },

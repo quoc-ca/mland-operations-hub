@@ -130,6 +130,7 @@ export default function MainTopbar() {
     (userEmail ? userEmail.split('@')[0] : 'Tài khoản');
 
   const userRole = profileData?.role || account?.role || 'MEMBER';
+  const isCarrier = userRole === 'CARRIER';
   const isInternal = ['STAFF', 'MANAGER', 'ADMIN'].includes(userRole);
   const isStaffOrAdmin = isAuthenticated && (userRole === 'STAFF' || userRole === 'ADMIN');
 
@@ -152,81 +153,94 @@ export default function MainTopbar() {
         </Link>
 
         <nav className="main-topbar-nav" aria-label="Khám phá">
-          <Link
-            to="/workshops"
-            className={`main-topbar-link ${isWorkshopActive ? 'active' : ''}`}
-          >
-            Workshop
-          </Link>
-          {!isStaffOrAdmin && (
+          {isCarrier ? (
             <Link
-              to="/workshops/PKG-COUPLE-SILVER/design"
-              className={`main-topbar-link ${isRingDesignActive ? 'active' : ''}`}
-              title="Tự tay phối dáng nhẫn, chất liệu, kích thước và khắc chữ"
+              to="/carrier"
+              className={`main-topbar-link ${location.pathname.startsWith('/carrier') ? 'active' : ''}`}
             >
-              Cấu hình nhẫn
+              Cổng vận chuyển
             </Link>
-          )}
-          <Link
-            to="/products"
-            className={`main-topbar-link ${location.pathname.startsWith('/products') ? 'active' : ''}`}
-          >
-            Ready Rings
-          </Link>
-          {!isStaffOrAdmin && (
-            <Link
-              to="/design-requests/new"
-              className={`main-topbar-link ${location.pathname.startsWith('/design-requests') ? 'active' : ''}`}
-            >
-              Custom
-            </Link>
-          )}
-          <Link
-            to="/promotions"
-            className={`main-topbar-link ${location.pathname.startsWith('/promotions') ? 'active' : ''}`}
-          >
-            Kho Voucher
-          </Link>
-          <Link
-            to="/workshop-booking/lookup"
-            className={`main-topbar-link ${location.pathname.startsWith('/workshop-booking') && location.pathname !== '/workshop-booking/cart' ? 'active' : ''}`}
-          >
-            Tra cứu
-          </Link>
-          {!isStaffOrAdmin && (
-            <Link
-              to="/ai-support"
-              className={`main-topbar-link ${location.pathname.startsWith('/ai-support') ? 'active' : ''}`}
-            >
-              Trợ lý AI
-            </Link>
-          )}
-          <Link
-            to="/reviews"
-            className={`main-topbar-link ${location.pathname.startsWith('/reviews') ? 'active' : ''}`}
-          >
-            Đánh giá
-          </Link>
-          {userRole === 'MEMBER' && (
-            <Link
-              to="/member/consultations"
-              className={`main-topbar-link ${location.pathname.startsWith('/member/consultations') ? 'active' : ''}`}
-            >
-              Tư vấn
-            </Link>
+          ) : (
+            <>
+              <Link
+                to="/workshops"
+                className={`main-topbar-link ${isWorkshopActive ? 'active' : ''}`}
+              >
+                Workshop
+              </Link>
+              {!isStaffOrAdmin && (
+                <Link
+                  to="/workshops/PKG-COUPLE-SILVER/design"
+                  className={`main-topbar-link ${isRingDesignActive ? 'active' : ''}`}
+                  title="Tự tay phối dáng nhẫn, chất liệu, kích thước và khắc chữ"
+                >
+                  Cấu hình nhẫn
+                </Link>
+              )}
+              <Link
+                to="/products"
+                className={`main-topbar-link ${location.pathname.startsWith('/products') ? 'active' : ''}`}
+              >
+                Ready Rings
+              </Link>
+              {!isStaffOrAdmin && (
+                <Link
+                  to="/design-requests/new"
+                  className={`main-topbar-link ${location.pathname.startsWith('/design-requests') ? 'active' : ''}`}
+                >
+                  Custom
+                </Link>
+              )}
+              <Link
+                to="/promotions"
+                className={`main-topbar-link ${location.pathname.startsWith('/promotions') ? 'active' : ''}`}
+              >
+                Kho Voucher
+              </Link>
+              <Link
+                to="/workshop-booking/lookup"
+                className={`main-topbar-link ${location.pathname.startsWith('/workshop-booking') && location.pathname !== '/workshop-booking/cart' ? 'active' : ''}`}
+              >
+                Tra cứu
+              </Link>
+              {!isStaffOrAdmin && (
+                <Link
+                  to="/ai-support"
+                  className={`main-topbar-link ${location.pathname.startsWith('/ai-support') ? 'active' : ''}`}
+                >
+                  Trợ lý AI
+                </Link>
+              )}
+              <Link
+                to="/reviews"
+                className={`main-topbar-link ${location.pathname.startsWith('/reviews') ? 'active' : ''}`}
+              >
+                Đánh giá
+              </Link>
+              {userRole === 'MEMBER' && (
+                <Link
+                  to="/member/consultations"
+                  className={`main-topbar-link ${location.pathname.startsWith('/member/consultations') ? 'active' : ''}`}
+                >
+                  Tư vấn
+                </Link>
+              )}
+            </>
           )}
         </nav>
 
         <div className="main-topbar-tools">
-          <Link
-            to="/cart"
-            className="main-topbar-cart"
-            aria-label={`Giỏ hàng (${cartCounts.product} sản phẩm, ${cartCounts.workshop} workshop)`}
-            title={`Giỏ hàng: ${cartCounts.product} sản phẩm · ${cartCounts.workshop} workshop`}
-          >
-            <span aria-hidden="true">🛒</span>
-            {cartCounts.total > 0 && <span className="main-topbar-cart-badge">{cartCounts.total}</span>}
-          </Link>
+          {!isCarrier && (
+            <Link
+              to="/cart"
+              className="main-topbar-cart"
+              aria-label={`Giỏ hàng (${cartCounts.product} sản phẩm, ${cartCounts.workshop} workshop)`}
+              title={`Giỏ hàng: ${cartCounts.product} sản phẩm · ${cartCounts.workshop} workshop`}
+            >
+              <span aria-hidden="true">🛒</span>
+              {cartCounts.total > 0 && <span className="main-topbar-cart-badge">{cartCounts.total}</span>}
+            </Link>
+          )}
           <LanguageSwitch />
 
           {isAuthenticated ? (
@@ -245,7 +259,7 @@ export default function MainTopbar() {
                 {loyaltyPoints !== null && (
                   <span className="main-topbar-chip-points">({loyaltyPoints} pts)</span>
                 )}
-                {isInternal && (
+                {(isInternal || isCarrier) && (
                   <span className="main-topbar-role-badge">{userRole}</span>
                 )}
                 <span className="main-topbar-caret" aria-hidden="true">▼</span>
@@ -262,105 +276,118 @@ export default function MainTopbar() {
                     )}
                   </div>
 
-                  <Link to="/profile" className="main-topbar-dropdown-item" role="menuitem">
-                    <span>👤</span> Hồ sơ cá nhân
-                  </Link>
-                  {!isStaffOrAdmin && (
-                    <Link to="/my/designs" className="main-topbar-dropdown-item" role="menuitem">
-                      <span>💍</span> Mẫu nhẫn đã lưu
-                    </Link>
-                  )}
-                  {userRole === 'MEMBER' && (
-                    <Link to="/member/consultations" className="main-topbar-dropdown-item" role="menuitem">
-                      <span>💬</span> Tư vấn thiết kế
-                    </Link>
-                  )}
-                  <Link to="/member/orders" className="main-topbar-dropdown-item" role="menuitem">
-                    <span>📦</span> Đơn hàng của tôi
-                  </Link>
-                  <Link to="/me/loyalty" className="main-topbar-dropdown-item" role="menuitem">
-                    <span>💎</span> Điểm thưởng tích lũy
-                  </Link>
-                  <Link to="/me/saved-vouchers" className="main-topbar-dropdown-item" role="menuitem">
-                    <span>🎟️</span> Voucher của tôi
-                  </Link>
-                  <Link
-                    to="/workshop-booking/lookup"
-                    className="main-topbar-dropdown-item"
-                    role="menuitem"
-                  >
-                    <span>🎫</span> Tra cứu vé & Booking
-                  </Link>
-
-                  {/* Lối tắt quản trị cho nhân sự nội bộ */}
-                  {isInternal && (
+                  {isCarrier ? (
                     <>
-                      <div className="main-topbar-dropdown-divider" />
-                      <span className="main-topbar-dropdown-section-title">
-                        Cổng công việc
-                      </span>
-                      {userRole === 'STAFF' && (
-                        <>
-                          <Link
-                            to="/operations/sessions"
-                            className="main-topbar-dropdown-item"
-                            role="menuitem"
-                          >
-                            <span>🏢</span> Staff Vận hành
-                          </Link>
-                          <Link
-                            to="/staff/retail-orders"
-                            className="main-topbar-dropdown-item"
-                            role="menuitem"
-                          >
-                            <span>🏪</span> Đơn bán lẻ chi nhánh
-                          </Link>
-                        </>
+                      <Link to="/carrier" className="main-topbar-dropdown-item" role="menuitem">
+                        <span>🚚</span> Cổng đối tác vận chuyển
+                      </Link>
+                      <Link to="/security/password" className="main-topbar-dropdown-item" role="menuitem">
+                        <span>🔑</span> Đổi mật khẩu
+                      </Link>
+                    </>
+                  ) : (
+                    <>
+                      <Link to="/profile" className="main-topbar-dropdown-item" role="menuitem">
+                        <span>👤</span> Hồ sơ cá nhân
+                      </Link>
+                      {!isStaffOrAdmin && (
+                        <Link to="/my/designs" className="main-topbar-dropdown-item" role="menuitem">
+                          <span>💍</span> Mẫu nhẫn đã lưu
+                        </Link>
                       )}
-                      {(userRole === 'MANAGER' || userRole === 'ADMIN') && (
+                      {userRole === 'MEMBER' && (
+                        <Link to="/member/consultations" className="main-topbar-dropdown-item" role="menuitem">
+                          <span>💬</span> Tư vấn thiết kế
+                        </Link>
+                      )}
+                      <Link to="/member/orders" className="main-topbar-dropdown-item" role="menuitem">
+                        <span>📦</span> Đơn hàng của tôi
+                      </Link>
+                      <Link to="/me/loyalty" className="main-topbar-dropdown-item" role="menuitem">
+                        <span>💎</span> Điểm thưởng tích lũy
+                      </Link>
+                      <Link to="/me/saved-vouchers" className="main-topbar-dropdown-item" role="menuitem">
+                        <span>🎟️</span> Voucher của tôi
+                      </Link>
+                      <Link
+                        to="/workshop-booking/lookup"
+                        className="main-topbar-dropdown-item"
+                        role="menuitem"
+                      >
+                        <span>🎫</span> Tra cứu vé & Booking
+                      </Link>
+
+                      {/* Lối tắt quản trị cho nhân sự nội bộ */}
+                      {isInternal && (
                         <>
-                          <Link
-                            to="/catalogue-management/products"
-                            className="main-topbar-dropdown-item"
-                            role="menuitem"
-                          >
-                            <span>🛍️</span> Quản trị Sản phẩm
-                          </Link>
-                          <Link
-                            to="/promotion-management/programs"
-                            className="main-topbar-dropdown-item"
-                            role="menuitem"
-                          >
-                            <span>🏷️</span> Quản lý Ưu đãi
-                          </Link>
-                          {userRole === 'MANAGER' && (
+                          <div className="main-topbar-dropdown-divider" />
+                          <span className="main-topbar-dropdown-section-title">
+                            Cổng công việc
+                          </span>
+                          {userRole === 'STAFF' && (
+                            <>
+                              <Link
+                                to="/operations/sessions"
+                                className="main-topbar-dropdown-item"
+                                role="menuitem"
+                              >
+                                <span>🏢</span> Staff Vận hành
+                              </Link>
+                              <Link
+                                to="/staff/retail-orders"
+                                className="main-topbar-dropdown-item"
+                                role="menuitem"
+                              >
+                                <span>🏪</span> Đơn bán lẻ chi nhánh
+                              </Link>
+                            </>
+                          )}
+                          {(userRole === 'MANAGER' || userRole === 'ADMIN') && (
+                            <>
+                              <Link
+                                to="/catalogue-management/products"
+                                className="main-topbar-dropdown-item"
+                                role="menuitem"
+                              >
+                                <span>🛍️</span> Quản trị Sản phẩm
+                              </Link>
+                              <Link
+                                to="/promotion-management/programs"
+                                className="main-topbar-dropdown-item"
+                                role="menuitem"
+                              >
+                                <span>🏷️</span> Quản lý Ưu đãi
+                              </Link>
+                              {userRole === 'MANAGER' && (
+                                <Link
+                                  to="/manager/retail-payment-reconciliations"
+                                  className="main-topbar-dropdown-item"
+                                  role="menuitem"
+                                >
+                                  <span>💳</span> Đối soát thanh toán
+                                </Link>
+                              )}
+                            </>
+                          )}
+                          {(userRole === 'STAFF' || userRole === 'MANAGER' || userRole === 'ADMIN') && (
                             <Link
-                              to="/manager/retail-payment-reconciliations"
+                              to="/review-moderation"
                               className="main-topbar-dropdown-item"
                               role="menuitem"
                             >
-                              <span>💳</span> Đối soát thanh toán
+                              <span>⭐</span> Kiểm duyệt Đánh giá
+                            </Link>
+                          )}
+                          {userRole === 'ADMIN' && (
+                            <Link
+                              to="/admin/accounts"
+                              className="main-topbar-dropdown-item"
+                              role="menuitem"
+                            >
+                              <span>👥</span> Admin Tài khoản
                             </Link>
                           )}
                         </>
-                      )}
-                      {(userRole === 'STAFF' || userRole === 'MANAGER' || userRole === 'ADMIN') && (
-                        <Link
-                          to="/review-moderation"
-                          className="main-topbar-dropdown-item"
-                          role="menuitem"
-                        >
-                          <span>⭐</span> Kiểm duyệt Đánh giá
-                        </Link>
-                      )}
-                      {userRole === 'ADMIN' && (
-                        <Link
-                          to="/admin/accounts"
-                          className="main-topbar-dropdown-item"
-                          role="menuitem"
-                        >
-                          <span>👥</span> Admin Tài khoản
-                        </Link>
                       )}
                     </>
                   )}

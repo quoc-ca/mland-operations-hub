@@ -20,6 +20,10 @@ public interface AccountRepository extends JpaRepository<Account, Long> {
 
     boolean existsByFirebaseUid(String firebaseUid);
 
+    Optional<Account> findByLoginEmail(String loginEmail);
+
+    boolean existsByLoginEmail(String loginEmail);
+
     @Query("""
         SELECT a FROM Account a
         LEFT JOIN AccountProfile p ON p.accountId = a.id

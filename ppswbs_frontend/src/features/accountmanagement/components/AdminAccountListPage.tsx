@@ -150,6 +150,7 @@ export const AdminAccountListPage: React.FC = () => {
               <option value="MEMBER">MEMBER</option>
               <option value="STAFF">STAFF</option>
               <option value="MANAGER">MANAGER</option>
+              <option value="CARRIER">CARRIER</option>
               <option value="ADMIN">ADMIN</option>
             </select>
           </div>
