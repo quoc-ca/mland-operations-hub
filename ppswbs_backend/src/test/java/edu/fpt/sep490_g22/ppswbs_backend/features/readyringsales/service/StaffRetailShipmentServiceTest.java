@@ -118,15 +118,15 @@ class StaffRetailShipmentServiceTest {
         var service = new StaffRetailShipmentService(repository);
 
         StaffRetailShipmentTransitionResult result = service.transition(activeStaff(7L), SHIPMENT_ID,
-            RetailShipmentStatus.HANDED_TO_CARRIER, 0, "packed");
+            RetailShipmentStatus.READY_FOR_CARRIER, 0, "packed");
 
-        assertThat(result.status()).isEqualTo(RetailShipmentStatus.HANDED_TO_CARRIER);
-        assertThat(shipment.getStatus()).isEqualTo(RetailShipmentStatus.HANDED_TO_CARRIER);
+        assertThat(result.status()).isEqualTo(RetailShipmentStatus.READY_FOR_CARRIER);
+        assertThat(shipment.getStatus()).isEqualTo(RetailShipmentStatus.READY_FOR_CARRIER);
         assertThat(shipment.getHistory()).hasSize(1);
         assertThat(shipment.getHistory().get(0).getActorId()).isEqualTo(7L);
         assertThat(shipment.getHistory().get(0).getActorLabel()).isEqualTo("STAFF#7");
         assertThat(shipment.getHistory().get(0).getNote()).isEqualTo("packed");
-        assertThat(shipment.getBranchOrder().getFulfilmentState()).isEqualTo("HANDED_TO_CARRIER");
+        assertThat(shipment.getBranchOrder().getFulfilmentState()).isEqualTo("READY_FOR_CARRIER");
     }
 
     @Test
@@ -136,7 +136,7 @@ class StaffRetailShipmentServiceTest {
         when(repository.lockById(SHIPMENT_ID)).thenReturn(Optional.of(shipment));
         var service = new StaffRetailShipmentService(repository);
 
-        service.transition(activeManager(3L), SHIPMENT_ID, RetailShipmentStatus.HANDED_TO_CARRIER, 0, null);
+        service.transition(activeManager(3L), SHIPMENT_ID, RetailShipmentStatus.READY_FOR_CARRIER, 0, null);
         assertThat(shipment.getHistory().get(0).getActorLabel()).isEqualTo("MANAGER#3");
     }
 

@@ -10,7 +10,17 @@ public record RetailOrderHistoryView(String id, Long locationId, String fulfilme
     String paymentState, String fulfilmentState, String subtotal, String shippingCharge,
     String payableAmount, Instant orderedAt, List<Item> items, String checkoutId,
     String paymentMethod, Instant counterPaymentDeadline, String orderCode, String discountAmount,
-    int checkoutOrderCount) {
+    int checkoutOrderCount, Instant paymentDeadline) {
+    /** {@code paymentDeadline}: until when an unpaid VNPay order is held (Session 2026-11-18); null otherwise. */
+    public RetailOrderHistoryView(String id, Long locationId, String fulfilmentMethod,
+                                  String paymentState, String fulfilmentState, String subtotal, String shippingCharge,
+                                  String payableAmount, Instant orderedAt, List<Item> items, String checkoutId,
+                                  String paymentMethod, Instant counterPaymentDeadline, String orderCode,
+                                  String discountAmount, int checkoutOrderCount) {
+        this(id, locationId, fulfilmentMethod, paymentState, fulfilmentState, subtotal, shippingCharge, payableAmount,
+            orderedAt, items, checkoutId, paymentMethod, counterPaymentDeadline, orderCode, discountAmount,
+            checkoutOrderCount, null);
+    }
     /**
      * View without the branch discount share (voucher and points) and the number of branch orders placed together.
      * The discount defaults to "0" and the order is treated as the only one of its checkout.

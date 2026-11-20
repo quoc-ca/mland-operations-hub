@@ -17,8 +17,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Activated explicitly only after the VNPay environment has been configured, and never alongside the local demo profile. */
-@Service @Profile("retail-vnpay & !local") @RequiredArgsConstructor
+/**
+ * Real VNPay payment for every non-local run, like the workshop payments: {@code VNPAY_ENABLED=true} turns it on, with
+ * no extra Spring profile (Session 2026-11-18, the {@code retail-vnpay} profile was easy to forget on a server). While
+ * VNPay is disabled it answers "unavailable". Never active alongside the local demo profile.
+ */
+@Service @Profile("!local") @RequiredArgsConstructor
 public class VnpayRetailPaymentAdapter implements RetailPaymentPort {
     private static final DateTimeFormatter PROVIDER_DATE = DateTimeFormatter.ofPattern("yyyyMMddHHmmss").withZone(ZoneOffset.ofHours(7));
     private final PaymentGatewayCheckoutPort gateway;
@@ -38,7 +42,8 @@ public class VnpayRetailPaymentAdapter implements RetailPaymentPort {
         if (current.isEmpty() || current.stream().anyMatch(h -> h.getStatus() != RetailVariantHoldStatus.HELD || !now.isBefore(h.getExpiresAt())))
             throw new RetailConflictException("Checkout hold expired or is unavailable");
         Instant expiresAt = current.stream().map(h -> h.getExpiresAt()).min(Instant::compareTo).orElseThrow();
-        if (expiresAt.isAfter(now.plusSeconds(600))) expiresAt = now.plusSeconds(600);
+        // The link lives as long as the hold (at most 15 minutes, Session 2026-11-18), so it can be reopened from
+        // "Chờ thanh toán" until the order would expire.
         String merchantReference = "RETAIL-" + checkoutId;
         owners.registerOwner(merchantReference, checkoutId, "RETAIL", amountVnd, "VND", PROVIDER_DATE.format(now));
         String url = gateway.createRetailPaymentUrl(merchantReference, checkoutId, amountVnd, now, expiresAt, null);

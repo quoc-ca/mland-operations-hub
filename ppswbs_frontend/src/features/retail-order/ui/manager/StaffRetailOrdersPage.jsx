@@ -10,21 +10,32 @@ import { cardToggleProps, displayTime, orderCode, OrderMoneyRows } from '../orde
 import { ProductThumb } from '../ProductThumb';
 
 /**
- * FE-08 FR-08-051: one Staff page for the branch's retail work. Tabs follow the day's tasks; each card offers only
- * the action of its tab. The former pickup-desk and shipment pages open the matching tab.
+ * FE-08 FR-08-051: one Staff page for the branch's retail work. Tabs follow the order stages of Session 2026-11-18:
+ * Đang chuẩn bị hàng → (GHTK) Chờ ĐVVC lấy hàng → Đã bàn giao cho ĐVVC → Hoàn thành, or (pickup) Chờ khách nhận →
+ * Hoàn thành. Each card offers only the action of its stage. Until the GHTK partner account exists, Staff records the
+ * courier's two steps (collected, delivered) as a simulation.
  */
-export const shipmentLabels = { PREPARING: 'Đang chuẩn bị hàng', HANDED_TO_CARRIER: 'Đã giao cho GHTK', IN_TRANSIT: 'Đang vận chuyển', DELIVERED: 'Giao thành công' };
-export const nextShipmentStatus = { PREPARING: 'HANDED_TO_CARRIER', HANDED_TO_CARRIER: 'IN_TRANSIT', IN_TRANSIT: 'DELIVERED' };
-const nextShipmentAction = { PREPARING: 'Bàn giao GHTK', HANDED_TO_CARRIER: 'Xác nhận đang vận chuyển', IN_TRANSIT: 'Xác nhận đã giao' };
+export const shipmentLabels = {
+  PREPARING: 'Đang chuẩn bị hàng', READY_FOR_CARRIER: 'Chờ ĐVVC lấy hàng', HANDED_TO_CARRIER: 'Đã bàn giao cho ĐVVC',
+  IN_TRANSIT: 'Đã bàn giao cho ĐVVC', DELIVERED: 'Hoàn thành',
+};
+export const nextShipmentStatus = { PREPARING: 'READY_FOR_CARRIER', READY_FOR_CARRIER: 'HANDED_TO_CARRIER', HANDED_TO_CARRIER: 'DELIVERED', IN_TRANSIT: 'DELIVERED' };
+const nextShipmentAction = {
+  PREPARING: 'Đã chuẩn bị xong', READY_FOR_CARRIER: 'GHTK đã lấy hàng (mô phỏng)',
+  HANDED_TO_CARRIER: 'Giao thành công (mô phỏng)', IN_TRANSIT: 'Giao thành công (mô phỏng)',
+};
 const SHIPMENT_STATUSES = Object.keys(shipmentLabels);
 const TABS = [
   { key: 'AWAITING_CASH', label: 'Chờ thu tiền mặt' },
+  { key: 'PREPARING', label: 'Đang chuẩn bị hàng' },
   { key: 'TO_HAND_OVER', label: 'Chờ khách nhận' },
-  { key: 'TO_SHIP', label: 'Cần gửi hàng' },
-  { key: 'SHIPPING', label: 'Đang giao' },
-  { key: 'HISTORY', label: 'Lịch sử' },
+  { key: 'AWAITING_CARRIER', label: 'Chờ ĐVVC lấy hàng' },
+  { key: 'HANDED_OVER', label: 'Đã bàn giao ĐVVC' },
+  { key: 'HISTORY', label: 'Hoàn thành' },
 ];
-const OPEN_TASK_TABS = ['AWAITING_CASH', 'TO_HAND_OVER', 'TO_SHIP'];
+// Addresses and bookmarks of the former tabs keep working.
+const LEGACY_TABS = { TO_SHIP: 'PREPARING', SHIPPING: 'HANDED_OVER' };
+const OPEN_TASK_TABS = ['AWAITING_CASH', 'PREPARING', 'TO_HAND_OVER', 'AWAITING_CARRIER'];
 const DAY_MS = 24 * 60 * 60 * 1000;
 const timeLeft = deadline => {
   const ms = new Date(deadline).getTime() - Date.now();
@@ -35,11 +46,13 @@ const timeLeft = deadline => {
 
 function pickupTab(row) {
   if (row.order.paymentState === 'ACCEPTED_UNPAID') return 'AWAITING_CASH';
-  return row.fulfilmentState === 'PICKED_UP' ? 'HISTORY' : 'TO_HAND_OVER';
+  if (row.fulfilmentState === 'PICKED_UP') return 'HISTORY';
+  return row.pickupReadyConfirmed ? 'TO_HAND_OVER' : 'PREPARING';
 }
 function shipmentTab(row) {
-  if (row.status === 'PREPARING') return 'TO_SHIP';
-  return row.status === 'DELIVERED' ? 'HISTORY' : 'SHIPPING';
+  if (row.status === 'PREPARING') return 'PREPARING';
+  if (row.status === 'READY_FOR_CARRIER') return 'AWAITING_CARRIER';
+  return row.status === 'DELIVERED' ? 'HISTORY' : 'HANDED_OVER';
 }
 
 export default function StaffRetailOrdersPage({ initialTab = 'AWAITING_CASH' }) {
@@ -56,7 +69,8 @@ export default function StaffRetailOrdersPage({ initialTab = 'AWAITING_CASH' }) 
 function StaffOrders({ initialTab }) {
   const api = useRetailApi();
   const format = useFormat();
-  const [tab, setTab] = useState(TABS.some(item => item.key === initialTab) ? initialTab : 'AWAITING_CASH');
+  const wanted = LEGACY_TABS[initialTab] || initialTab;
+  const [tab, setTab] = useState(TABS.some(item => item.key === wanted) ? wanted : 'AWAITING_CASH');
   const [search, setSearch] = useState('');
   const [received, setReceived] = useState({});
   const [handOverNow, setHandOverNow] = useState(true);
@@ -115,6 +129,11 @@ function StaffOrders({ initialTab }) {
     }
     setNotice(message);
   });
+  // Pickup: the order is packed and waits at the counter (Đang chuẩn bị hàng → Chờ khách nhận).
+  const prepare = item => run(item.key, async () => {
+    await api.prepareOrder(item.row.order.id);
+    setNotice(`Đơn ${item.code} đã chuẩn bị xong, chờ khách đến nhận.`);
+  });
   const handOver = item => run(item.key, async () => {
     if (!item.row.pickupReadyConfirmed) await api.prepareOrder(item.row.order.id);
     await api.handOverOrder(item.row.order.id);
@@ -122,7 +141,8 @@ function StaffOrders({ initialTab }) {
   });
   const advance = item => {
     const next = nextShipmentStatus[item.row.status];
-    if (!next || !window.confirm(`Chuyển vận đơn ${item.row.mockTrackingNumber} sang “${shipmentLabels[next]}”? Đây là thao tác mô phỏng.`)) return;
+    const simulated = next !== 'READY_FOR_CARRIER';
+    if (!next || !window.confirm(`Chuyển vận đơn ${item.row.mockTrackingNumber} sang “${shipmentLabels[next]}”?${simulated ? ' Đây là thao tác mô phỏng thay cho GHTK.' : ''}`)) return;
     run(item.key, async () => {
       await api.transitionStaffShipment(item.row.id, { nextStatus: next, expectedVersion: item.row.version });
       setDetails(current => { const copy = { ...current }; delete copy[item.row.id]; return copy; });
@@ -155,19 +175,19 @@ function StaffOrders({ initialTab }) {
     {error && <ErrorNotice error={error} />}
     {visible.length === 0 && <div className="order-empty"><p>{term ? 'Không tìm thấy đơn phù hợp.' : 'Không còn việc nào ở mục này.'}</p></div>}
     {visible.map(item => item.kind === 'PICKUP'
-      ? <PickupCard key={item.key} item={item} open={openKey === item.key} onToggle={() => toggle(item)} busy={busyId === item.key} format={format} branchName={branchName} received={received} setReceived={setReceived} onConfirmCash={confirmCash} onHandOver={handOver} />
+      ? <PickupCard key={item.key} item={item} open={openKey === item.key} onToggle={() => toggle(item)} busy={busyId === item.key} format={format} branchName={branchName} received={received} setReceived={setReceived} onConfirmCash={confirmCash} onPrepare={prepare} onHandOver={handOver} />
       : <ShipmentCard key={item.key} item={item} open={openKey === item.key} onToggle={() => toggle(item)} busy={busyId === item.key} format={format} branchName={branchName} detail={details[item.row.id]} onAdvance={advance} />)}
   </section>;
 }
 
-function PickupCard({ item, open, onToggle, busy, format, branchName, received, setReceived, onConfirmCash, onHandOver }) {
+function PickupCard({ item, open, onToggle, busy, format, branchName, received, setReceived, onConfirmCash, onPrepare, onHandOver }) {
   const { row } = item;
   const order = row.order;
   const cash = order.paymentMethod === 'CASH_AT_COUNTER';
   const amount = received[order.id] ?? order.payableAmount;
   const change = /^[0-9]+$/.test(String(amount)) && BigInt(amount) >= BigInt(order.payableAmount) ? (BigInt(amount) - BigInt(order.payableAmount)).toString() : null;
   const urgent = item.tab === 'AWAITING_CASH' && order.counterPaymentDeadline && new Date(order.counterPaymentDeadline).getTime() - Date.now() < DAY_MS;
-  const pill = item.tab === 'HISTORY' ? 'Đã giao cho khách' : item.tab === 'AWAITING_CASH' ? 'Chờ thu tiền mặt' : cash ? 'Đã thu tiền mặt' : 'Đã trả VNPay';
+  const pill = { HISTORY: 'Hoàn thành', AWAITING_CASH: 'Chờ thu tiền mặt', PREPARING: 'Đang chuẩn bị hàng', TO_HAND_OVER: 'Chờ khách nhận' }[item.tab];
   return <article className={`order-card${urgent ? ' urgent' : ''}${open ? ' open' : ''}`} {...cardToggleProps(open, onToggle)}>
     <div className="order-card-top">
       <span className="order-code">{item.code}</span>
@@ -196,6 +216,7 @@ function PickupCard({ item, open, onToggle, busy, format, branchName, received, 
       <span className="muted">Tiền thối: {change == null ? '—' : format.money(change)}</span>
       <button type="button" className="button primary" disabled={busy} onClick={() => onConfirmCash(item)}>{busy ? 'Đang ghi nhận…' : 'Xác nhận đã thu'}</button>
     </div>}
+    {item.tab === 'PREPARING' && <div className="order-actions"><span className="muted">{cash ? 'Đã thu tiền mặt' : 'Đã thanh toán VNPay'}</span><button type="button" className="button primary" disabled={busy} onClick={() => onPrepare(item)}>{busy ? 'Đang ghi nhận…' : 'Đã chuẩn bị xong'}</button></div>}
     {item.tab === 'TO_HAND_OVER' && <div className="order-actions"><button type="button" className="button primary" disabled={busy} onClick={() => onHandOver(item)}>{busy ? 'Đang ghi nhận…' : 'Giao cho khách'}</button></div>}
   </article>;
 }
@@ -227,6 +248,6 @@ function ShipmentCard({ item, open, onToggle, busy, format, branchName, detail, 
       <span className="order-more">{open ? 'Thu gọn ▲' : 'Bấm để xem chi tiết ▼'}</span>
       {row.payableAmount && <span className="order-sum">Thành tiền <strong>{format.money(row.payableAmount)}</strong></span>}
     </div>
-    {next && <div className="order-actions"><button type="button" className="button primary" disabled={busy} onClick={() => onAdvance(item)}>{busy ? 'Đang lưu…' : nextShipmentAction[row.status]}</button></div>}
+    {next && <div className="order-actions">{next !== 'READY_FOR_CARRIER' && <span className="muted">Thao tác của GHTK, tạm thời Staff bấm thay</span>}<button type="button" className={`button ${next === 'READY_FOR_CARRIER' ? 'primary' : 'outline'}`} disabled={busy} onClick={() => onAdvance(item)}>{busy ? 'Đang lưu…' : nextShipmentAction[row.status]}</button></div>}
   </article>;
 }

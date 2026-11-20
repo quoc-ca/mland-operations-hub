@@ -347,6 +347,40 @@ configuration, accounting, or executive reporting in FE-10.
   ended, ran out or now gives a different discount since the preview is refused
   at order time, and the Member reviews the new total.
 
+### Session 2026-11-18
+
+- Q: What turns on real VNPay payment for Ready Rings on a server? → A:
+  `VNPAY_ENABLED=true`, as for workshop payments (Thinh, 2026-11-18). The
+  `retail-vnpay` Spring profile is no longer needed: the deployed server ran
+  the `default` profile and every Ready Rings payment was refused while
+  workshop payments worked. Any non-local run now uses the VNPay payment
+  adapter, which answers "unavailable" while VNPay is disabled; the
+  unpaid-expiry job runs only when VNPay is enabled. The `local` profile keeps
+  the demo payment adapter.
+- Q: How are Member orders grouped, and what happens after payment? → A:
+  (Thinh, 2026-11-18, supervisor feedback) Newest first, in tabs Tất cả, Chờ
+  thanh toán, Chờ lấy hàng, Chờ giao hàng, Chờ nhận tại cửa hàng, Đã giao and
+  Đã hủy; there is no return tab. After paying (or placing a cash or zero-total
+  order) the list opens the tab of that order: Chờ lấy hàng for GHTK, Chờ nhận
+  tại cửa hàng for pickup, Tất cả when one checkout mixes both. Leaving VNPay
+  without paying opens Chờ thanh toán.
+- Q: What are the order stages? → A: GHTK: Staff "Đang chuẩn bị hàng" (Member
+  Chờ lấy hàng) → Staff "Đã chuẩn bị xong" → "Chờ ĐVVC lấy hàng" (shipment
+  `READY_FOR_CARRIER`, Member "Chờ GHTK lấy hàng") → courier collected →
+  "Đã bàn giao cho ĐVVC" (Member Chờ giao hàng, "Đang giao hàng") → delivered →
+  Staff "Hoàn thành", Member "Đã giao". `IN_TRANSIT` stays only for older
+  shipments. Until the GHTK partner account exists, Staff records the two
+  courier steps as a simulation. Pickup: "Đang chuẩn bị hàng" → "Đã chuẩn bị
+  xong" → "Chờ khách nhận" (Member "Sẵn sàng nhận hàng") → handed over →
+  "Hoàn thành".
+- Q: How long is an unpaid VNPay order kept in Chờ thanh toán? → A: The
+  existing 15-minute hold, not 24 hours. The VNPay link now lives for the whole
+  hold and is stored; "Thanh toán" reopens it (one VNPay transaction per
+  checkout) and a countdown shows the time left. "Hủy đơn" also works after the
+  Member opened VNPay without paying; it returns the products to the cart and
+  releases the voucher and points. A payment that still arrives afterwards goes
+  to the Manager reconciliation queue.
+
 ## User Scenarios & Testing
 
 ### User Story 1 - Prepare a retail purchase (Priority: P1)

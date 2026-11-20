@@ -84,6 +84,7 @@ public class RetailOrder {
         }
         switch (shipmentStatus) {
             case PREPARING -> fulfilmentState = "SHIPMENT_PENDING";
+            case READY_FOR_CARRIER -> fulfilmentState = "READY_FOR_CARRIER";
             case HANDED_TO_CARRIER -> fulfilmentState = "HANDED_TO_CARRIER";
             case IN_TRANSIT -> fulfilmentState = "IN_TRANSIT";
             case DELIVERED -> fulfilmentState = "DELIVERED";
