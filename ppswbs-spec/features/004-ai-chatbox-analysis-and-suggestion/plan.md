@@ -1,6 +1,7 @@
 ﻿# Implementation Plan: Feature-004 Independent AI Design Workspace
 
 **Date created**: 2026-10-21
+> **Deprecated historical plan (2026-11-20):** Use `spec.md`, `research.md` and `contracts/design-request-human-review.openapi.yaml` for the current human-review baseline.
 **Date updated**: 2026-11-05
 **Author**: Ngô Tiến Đạt
 **Last updated by**: Ngô Tiến Đạt

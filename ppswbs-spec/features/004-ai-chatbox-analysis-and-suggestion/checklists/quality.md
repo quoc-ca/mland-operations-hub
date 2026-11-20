@@ -1,5 +1,7 @@
 # Quality Checklist: Independent Feature-04
 
+> **Historical checklist (2026-11-20):** Superseded by the human-review requirements in `spec.md` and `research.md`.
+
 - [ ] Member-only ownership, review-state handling and temporary-image policy are explicit and not hidden in code.
 - [ ] Independent flow has no booking prerequisite or booking side effect.
 - [ ] Account facade and ownership proof are the only identity boundary.

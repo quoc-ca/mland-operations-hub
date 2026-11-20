@@ -565,3 +565,36 @@ observable behaviors:
 
 Figma is a visual/layout source only. It does not authorize new API fields,
 catalogue values, pricing rules or business transitions.
+
+## 16. Cross-feature handoff to custom order
+
+Feature-012 may expose a configured design to Feature-004 through a public
+snapshot facade. This is a reference handoff, not an approval and not a booking
+mutation.
+
+```text
+DRAFT or VALIDATED design
+→ createCustomDesignReference(...)
+→ immutable CustomDesignReferenceSnapshot
+→ Feature-004 custom request review
+```
+
+Rules:
+
+- `DRAFT` and `VALIDATED` versions may be used as custom-order references.
+- `ATTACHED_TO_BOOKING` and `LOCKED` versions cannot be reused directly.
+- Reuse of a locked design requires a new cloned version with lineage evidence.
+- Feature-004 stores its own snapshot; later design edits do not change the
+  request under review.
+- Feature-012 does not approve, quote, reserve production capacity or initiate
+  payment for a custom order.
+
+## 17. Workshop recommendation and ticket assignment
+
+Recommendations are advisory and are derived from server-owned package/material,
+gemstone, engraving and difficulty rules. They never select a package, block a
+customer or create a booking.
+
+A group booking may use one default design, but the booking contract stores one
+design snapshot per ticket. Each ticket may override the group default before
+submission. Only `VALIDATED` versions may be attached to tickets.

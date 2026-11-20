@@ -20,6 +20,7 @@ import java.util.List;
 public class DesignReviewController {
 
     private final HumanReviewService humanReviewService;
+    private final DesignAnalysisService designAnalysisService;
 
     @GetMapping
     public ResponseEntity<DesignReviewDtos.ReviewQueueDto> getReviewQueue(
@@ -34,9 +35,25 @@ public class DesignReviewController {
         return ResponseEntity.ok(DesignReviewDtos.ReviewQueueDto.builder().items(queue).build());
     }
 
+    @GetMapping("/{reviewRequestId}")
+    public ResponseEntity<DesignAnalysisService.DesignRequestViewDto> getReviewDetail(
+            @PathVariable("reviewRequestId") String reviewRequestId,
+            Authentication authentication
+    ) {
+        String callerUid = SecurityIdentityExtractor.requireUid(authentication);
+        DesignAnalysisService.DesignRequestViewDto view = designAnalysisService.getDesignRequestById(
+                reviewRequestId,
+                callerUid,
+                authentication.getAuthorities()
+        );
+
+        return ResponseEntity.ok(view);
+    }
+
     @PostMapping("/{reviewRequestId}/decisions")
     public ResponseEntity<DesignAnalysisService.DesignRequestViewDto> recordDecision(
             @PathVariable("reviewRequestId") String reviewRequestId,
+            @RequestHeader(value = "If-Match-Version", required = false) Integer ifMatchVersionHeader,
             @Valid @RequestBody DesignReviewDtos.ReviewDecisionRequest body,
             Authentication authentication
     ) {
@@ -46,13 +63,15 @@ public class DesignReviewController {
         try {
             decision = ReviewDecision.valueOf(body.getDecision().trim().toUpperCase());
         } catch (IllegalArgumentException e) {
-            throw DesignReviewException.badRequest("AI_INPUT_INVALID", "Quyết định thẩm duyệt không hợp lệ. Phải là ACCEPTED, REJECTED, hoặc CLARIFICATION_REQUIRED.");
+            throw DesignReviewException.badRequest("DESIGN_REQUEST_INVALID", "Quyết định thẩm duyệt không hợp lệ. Phải là ACCEPTED hoặc REJECTED.");
         }
+
+        Integer version = ifMatchVersionHeader != null ? ifMatchVersionHeader : body.getRequestVersion();
 
         DesignAnalysisService.DesignRequestViewDto result = humanReviewService.recordDecision(
                 reviewRequestId,
                 decision,
-                body.getRequestVersion(),
+                version,
                 body.getReason(),
                 callerUid,
                 authentication.getAuthorities()

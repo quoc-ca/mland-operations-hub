@@ -609,3 +609,14 @@ The command carries opaque references only and uses `operationReference` for
 idempotency. A duplicate semantic command returns the prior outcome; changed
 payload with the same operation reference is a conflict. The facade does not
 create payment, capacity holds or tickets.
+
+### Ticket-level design assignment
+
+Booking may apply a configured design as a group default, but it must persist and
+validate the final design independently for every ticket. A ticket may override
+the group default before booking submission. Feature-003 calls the Feature-012
+facade for each resulting ticket assignment; it never reads Feature-012
+repositories or treats a group-level design as the ticket snapshot.
+
+Only a `VALIDATED` design version is eligible for workshop attachment. This is
+technical validation plus immutable snapshot creation, not Staff/Manager approval.

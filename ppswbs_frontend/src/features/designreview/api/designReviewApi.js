@@ -43,10 +43,20 @@ export function designReviewApi(request) {
     },
 
     /**
-     * Submit Independent Design Request (F04-DESIGN-WORKSPACE / F04-IMAGE-UPLOAD / F04-CONSENT).
+     * Submit Independent Design Request (F04-DESIGN-WORKSPACE / F04-IMAGE-UPLOAD / F04-CONSENT / HUMAN REVIEW).
      * Uses multipart/form-data with Idempotency-Key.
+     * Supports both Guests (auth = false) and Members (auth = true), and up to 5 images.
      */
-    submitDesignRequest(key, { description, catalogueReference, consentVersion, consentPurpose, designVersion = 1, image }) {
+    async submitDesignRequest(key, {
+      description,
+      catalogueReference,
+      consentVersion,
+      consentPurpose,
+      designVersion = 1,
+      image,
+      images = [],
+      guestSessionId,
+    }, auth = true) {
       const form = new FormData();
       if (description !== undefined && description !== null && description !== '') {
         form.append('description', description);
@@ -61,26 +71,96 @@ export function designReviewApi(request) {
         form.append('consentPurpose', consentPurpose);
       }
       form.append('designVersion', String(designVersion || 1));
-      if (image) {
-        form.append('image', image);
+
+      const fileList = Array.isArray(images) && images.length > 0
+        ? images
+        : (image ? [image] : []);
+
+      fileList.forEach(file => {
+        if (file) {
+          form.append('images', file);
+        }
+      });
+      if (fileList.length === 1 && fileList[0]) {
+        form.append('image', fileList[0]);
       }
 
-      return request('/api/v1/design-requests', {
+      const headers = {};
+      if (!auth) {
+        let gSession = guestSessionId;
+        if (!gSession && typeof sessionStorage !== 'undefined') {
+          gSession = sessionStorage.getItem('mland_guest_design_session');
+          if (!gSession) {
+            gSession = 'guest_' + crypto.randomUUID();
+            sessionStorage.setItem('mland_guest_design_session', gSession);
+          }
+        }
+        if (gSession) {
+          headers['X-Guest-Design-Session'] = gSession;
+        }
+      }
+
+      const options = {
         method: 'POST',
         form,
         idempotencyKey: key,
-        auth: true,
-      });
+        auth,
+      };
+      if (Object.keys(headers).length > 0) {
+        options.headers = headers;
+      }
+
+      const res = await request('/api/v1/design-requests', options);
+
+      if (res?.guestTrackingToken && typeof sessionStorage !== 'undefined') {
+        sessionStorage.setItem(`mland_tracking_${res.id}`, res.guestTrackingToken);
+      }
+
+      return res;
     },
 
     /**
      * Read owner-safe Design Request projection (F04-ANALYSIS-STATUS / F04-RESULT).
-     * Accessible by authenticated Member, Staff/Manager, or public guest lookup.
+     * Accessible by authenticated Member, Staff/Manager, or public guest lookup with tracking token.
      */
-    getDesignRequest(designRequestId, auth = true) {
-      return request(`/api/v1/design-requests/${encodeURIComponent(designRequestId)}`, {
+    getDesignRequest(designRequestId, authOrOptions = true, maybeToken = null) {
+      let auth = true;
+      let token = null;
+
+      if (typeof authOrOptions === 'boolean') {
+        auth = authOrOptions;
+        token = maybeToken;
+      } else if (authOrOptions && typeof authOrOptions === 'object') {
+        auth = authOrOptions.auth !== false;
+        token = authOrOptions.token || null;
+      }
+
+      if (!token && typeof sessionStorage !== 'undefined') {
+        token = sessionStorage.getItem(`mland_tracking_${designRequestId}`);
+      }
+
+      const options = {
         method: 'GET',
         auth,
+      };
+
+      if (token) {
+        options.headers = { 'X-Guest-Tracking-Token': token };
+        options.query = { token };
+      }
+
+      return request(`/api/v1/design-requests/${encodeURIComponent(designRequestId)}`, options);
+    },
+
+    /**
+     * Direct guest tracking endpoint.
+     */
+    getDesignRequestTracking(designRequestId, token) {
+      return request(`/api/v1/design-requests/${encodeURIComponent(designRequestId)}/tracking`, {
+        method: 'GET',
+        query: { token },
+        headers: { 'X-Guest-Tracking-Token': token },
+        auth: false,
       });
     },
 
@@ -108,11 +188,17 @@ export function designReviewApi(request) {
      * Record human review decision (F04-REVIEW-DETAIL).
      * Uses requestVersion/designVersion for optimistic concurrency control.
      */
-    recordReviewDecision(reviewRequestId, { decision, designVersion, requestVersion, reason }) {
+    recordReviewDecision(reviewRequestId, { decision, designVersion, requestVersion, explanation, reason }) {
       const ver = requestVersion ?? designVersion;
+      const text = reason !== undefined ? reason : (explanation !== undefined ? explanation : '');
+      const body = { decision, requestVersion: ver, designVersion: ver, reason: text };
+      if (explanation !== undefined && explanation !== text) {
+        body.explanation = explanation;
+      }
+
       return request(`/api/v1/design-review-requests/${encodeURIComponent(reviewRequestId)}/decisions`, {
         method: 'POST',
-        body: { decision, requestVersion: ver, designVersion: ver, reason },
+        body,
         auth: true,
       });
     },

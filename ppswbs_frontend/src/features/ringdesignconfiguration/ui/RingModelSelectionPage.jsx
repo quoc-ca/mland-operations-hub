@@ -2,6 +2,7 @@ import React from 'react';
 import { useParams, useNavigate } from 'react-router';
 import { useWorkshopDesignOptions } from '../application/useWorkshopDesignOptions';
 import { getDifficultyMeta } from '../domain/designPreview';
+import { useLanguage } from '../../../shared/i18n/I18nProvider';
 import { messages } from '../messages';
 import '../ring-design.css';
 
@@ -9,7 +10,8 @@ export default function RingModelSelectionPage() {
   const { packageReference } = useParams();
   const navigate = useNavigate();
   const { options, loading, error } = useWorkshopDesignOptions(packageReference);
-  const lang = 'vi';
+  const { language } = useLanguage();
+  const lang = language === 'en' ? 'en' : 'vi';
   const t = messages[lang];
 
   const models = options?.models || [];

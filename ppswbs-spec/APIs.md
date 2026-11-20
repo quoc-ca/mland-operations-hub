@@ -340,6 +340,39 @@ the required state (`CHECKED_IN`, `PICKED_UP` or `DELIVERED`). Feature-011
 receives opaque references and sanitized evidence, not foreign repositories or
 full transaction records.
 
+## Feature-004 — Design Request and Human Review (supersedes AI contract)
+
+Owner: `designrequesthumanreview` (logical); the legacy directory/module name is
+retained temporarily for migration history.
+
+| Method | Endpoint | Actor | Contract boundary |
+| --- | --- | --- | --- |
+| POST | `/api/v1/design-requests` | Guest/Member | Create an independent request with description and up to five images. |
+| GET | `/api/v1/design-requests/{id}` | Guest token/Member owner | Safe status, quality and decision-explanation projection. |
+| GET | `/api/v1/design-requests` | Member | Own request history only. |
+| GET | `/api/v1/design-review-requests` | Staff/Manager | Pending review queue. |
+| GET | `/api/v1/design-review-requests/{id}` | Staff/Manager | Safe review detail. |
+| POST | `/api/v1/design-review-requests/{id}/decisions` | Staff/Manager | `CLARIFICATION_REQUIRED`, `ACCEPTED` or `REJECTED` with mandatory explanation. |
+
+All writes use `Idempotency-Key`; review decisions and revisions use
+`If-Match-Version`. The custom-order intake contract is defined in
+`contracts/custom-design-order-intake.openapi.yaml`. Feature-004 receives
+immutable Feature-012 snapshots through a facade, then hands accepted requests
+to Custom Manufacturing for quote, payment and fulfilment. No direct repository
+access is permitted.
+
+### Feature-004 custom-order intake routes
+
+| Method | Endpoint | Actor | Contract boundary |
+| --- | --- | --- | --- |
+| POST | `/api/v1/custom-design-requests` | Member | Create request from description, images and/or Feature-012 snapshot. |
+| GET | `/api/v1/custom-design-requests/{requestId}` | Member owner | Read safe request, revision, decision and quote projection. |
+| POST | `/api/v1/custom-design-requests/{requestId}` | Member owner | Submit a revision after `CLARIFICATION_REQUIRED`. |
+| POST | `/api/v1/custom-design-requests/{requestId}/decisions` | Staff/Manager | Record clarification, acceptance or rejection with explanation. |
+| POST | `/api/v1/custom-design-requests/{requestId}/quote` | Authorized quote actor | Create a Manager-policy-bound quote handoff; no payment is confirmed by this call. |
+
+The detailed draft is `features/004-ai-chatbox-analysis-and-suggestion/contracts/custom-design-order-intake.openapi.yaml`.
+
 ## Feature-012 — Workshop Ring Design Configuration
 
 Owner: `ringdesignconfiguration`.

@@ -213,6 +213,19 @@ Proposed logical constraints:
 The exact physical indexes, FK actions, version column and idempotency table must
 be reconciled with repository Flyway history before migration.
 
+### 2.10 Custom-order reference snapshot
+
+Feature-004 receives a server-built immutable snapshot through the public facade.
+The snapshot records the selected design version, package context, material,
+shape, size, components, attachments, engraving, dimensions and evaluation
+metadata where available. It does not expose the Guest session value or private
+Member data.
+
+Only `DRAFT` and `VALIDATED` versions may create this snapshot. A version already
+attached to or locked by a workshop booking cannot be reused directly; cloning
+creates a new lineage version first. Changes to the source design never mutate an
+existing custom-order snapshot.
+
 ## 5. Retention and deletion
 
 - Guest session and unsubmitted draft data follows the 20-minute inactivity

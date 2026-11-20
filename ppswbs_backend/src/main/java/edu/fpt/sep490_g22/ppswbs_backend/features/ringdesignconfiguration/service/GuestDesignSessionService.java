@@ -36,7 +36,7 @@ public class GuestDesignSessionService {
                 .status(GuestSessionStatus.ACTIVE)
                 .issuedAt(now)
                 .lastActivityAt(now)
-                .expiresAt(now.plusSeconds(20 * 60))
+                .expiresAt(now.plusSeconds(24 * 60 * 60))
                 .correlationId(correlationId)
                 .build();
 

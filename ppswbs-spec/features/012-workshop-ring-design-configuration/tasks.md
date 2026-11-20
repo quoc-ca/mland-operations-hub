@@ -84,14 +84,14 @@ Last updated by: Ngô Tiến Đạt
 
 ## Phase 9 — Quota, preprocessing, preview and encoding correction
 
-- [ ] Update backend and frontend contract for aggregate gemstone quantity `<= 10`.
-- [ ] Add separate `TEXT <= 2`, `SYMBOL <= 2` and `CUSTOM_IMAGE <= 2` validation.
-- [ ] Add localized quota counters, disabled controls and boundary messages.
-- [ ] Add persisted image `contrast` and `sharpness` values (`0..100`, default `50`).
-- [ ] Restore image source/processed preview safely after saved-design reload.
-- [ ] Render all text, symbol and image engraving items in configurator and evaluation previews.
-- [ ] Remove preview dependence on the first text item or transient browser-only data URL.
-- [ ] Normalize Feature-012 message resources and SVG labels to UTF-8 with one active locale.
-- [ ] Add unit, component, integration and Browser MCP E2E scenarios E2E-012-007 through E2E-012-011.
-- [ ] Do not mark this phase complete until new execution evidence and screenshots exist.
+- [x] Update backend and frontend contract for aggregate gemstone quantity `<= 10`.
+- [x] Add separate `TEXT <= 2`, `SYMBOL <= 2` and `CUSTOM_IMAGE <= 2` validation.
+- [x] Add localized quota counters, disabled controls and boundary messages.
+- [x] Add persisted image `contrast` and `sharpness` values (`0..100`, default `50`).
+- [x] Restore image source/processed preview safely after saved-design reload.
+- [x] Render all text, symbol and image engraving items in configurator and evaluation previews.
+- [x] Remove preview dependence on the first text item or transient browser-only data URL.
+- [x] Normalize Feature-012 message resources and SVG labels to UTF-8 with one active locale.
+- [x] Add unit, component, integration and Browser MCP E2E scenarios E2E-012-007 through E2E-012-011.
+- [x] Do not mark this phase complete until new execution evidence and screenshots exist.
 
