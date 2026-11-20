@@ -1,7 +1,7 @@
 # Security Group cho EC2 Staging
 resource "aws_security_group" "staging_ec2" {
   name        = "${var.name_prefix}-sg"
-  description = "Tường lửa kiểm soát truy cập cho máy chủ staging EC2"
+  description = "Firewall controlling access to the staging EC2 server"
   vpc_id      = var.vpc_id
 
   # Inbound HTTPS (Caddy TLS)

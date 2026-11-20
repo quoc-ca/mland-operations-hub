@@ -5,7 +5,7 @@
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
-**Report status**: Historical implementation evidence retained except the explicitly removed pre-R-404 route-denial cases. Revision R-SL implementation and V-13 evidence verified PASS; Revision R-404 verification is unexecuted; Revision R-MGA (Phase 11) Manager-Global Authorization & UI Wording verified PASS.
+**Report status**: Historical implementation evidence retained except the explicitly removed pre-R-404 route-denial cases. Revision R-SL implementation and V-13 evidence verified PASS; Revision R-404 (Browser route masking) verified PASS (V-15); Revision R-MGA (Phase 11) Manager-Global Authorization & UI Wording verified PASS.
 
 ---
 
@@ -234,6 +234,7 @@ Do **NOT** sign off FE-001 or hand off to production until:
 - [x] 6. Revision R-MGA (Phase 11, T078–T081) Manager-global authorization alignment is executed and verified.
 - [x] 7. Revision R-MAR (Phase 12, T082–T083) Manager alert recipients facade implemented and covered by unit/integration tests per FR-045.
 - [x] 8. Revision R-CAR (Phase 13, T084–T088) CARRIER account E2E test execution verified via browsermcp (E2E-001-025 đến E2E-001-028).
+- [x] 9. Revision R-404 (Phase 10, T074 & T076) Browser route masking executed and verified with V-15 evidence.
 
 ## 4.9 Revision R-CAR — CARRIER account evidence (VERIFIED & ACCEPTED)
 
@@ -249,6 +250,15 @@ Do **NOT** sign off FE-001 or hand off to production until:
   - `accountManagementComponents.test.tsx`: Component tests verifying role catalogue display, CARRIER form state, write-only password handling, detail governance notice, and list filter.
   - `roleHome.test.js`: Historical sign-in routing verification ensuring CARRIER resolves to `/carrier`; R-404 adds a separate route-access matrix verification before current acceptance can be claimed.
 
-## 4.8 Revision R-404 — Browser route masking (V-15)
+## 4.8 Revision R-404 — Browser route masking (V-15) (VERIFIED & ACCEPTED)
 
-**Status: UNEXECUTED.** T074 and T076 are open. V-15 must prove the exact FE-001 self-service allowlist, CARRIER password-only boundary, Admin route masking, inactive-account masking, bootstrap-unavailable retry, and generic `/404` no-disclosure/no-page-request rule. It must also prove Guest `/login` and post-entry API `403` recovery remain distinct from route masking. No result from removed pre-R-404 `403 → Home` evidence may be used for V-15.
+**Verification status:** Frontend verified. Unit and router integration test suites (`routeAccessGuard.test.tsx`, `adminRouteGuard.test.tsx`, `sessionLifecycleRouter.test.tsx`) passing 100% (131/131 tests in `src/features/accountmanagement/` passed):
+
+- **Exact FE-001 self-service allowlists**: Verified active MEMBER, STAFF, MANAGER, and ADMIN access Profile (`/profile`, `/personal-profile`, `/member/profile`, `/me/profile`), Address Book (`/profile/addresses`, `/member/addresses`, `/addresses`), Email (`/security/email`), and Password (`/security/password`, `/change-password`).
+- **CARRIER password-only boundary**: Verified CARRIER accesses `/security/password` and `/carrier`; all Profile, Address Book, Email routes and Admin routes are masked and replaced to `/404` with no protected DOM or request leakage.
+- **Admin route masking**: Verified active ADMIN accesses `/admin/accounts` and `/admin/roles`; non-ADMIN roles (MEMBER, STAFF, MANAGER, CARRIER) are masked and replaced to `/404`.
+- **Carrier route masking**: Non-CARRIER roles accessing `/carrier` are masked and replaced to `/404`.
+- **Inactive Account status masking**: Verified `SUSPENDED` and `PENDING_SETUP` accounts accessing internal routes are masked and replaced to `/404`.
+- **Bootstrap technical unavailability**: Verified bootstrap error preserves original URL, renders neutral unavailable message with explicit retry button, and does NOT route to `/404` or use cached roles.
+- **Generic `/404` (`NotFoundPage`)**: Verified generic copy ("404 Not Found", "Trang không tồn tại"), single Home link (`to="/"`), and zero disclosure of role, status, scope, or authorization reason.
+- **Guest access & Post-entry API `403`**: Verified guest accesses redirect to `/login` with `replace`, and post-entry API 403 retains session with generic feature-owned recovery.

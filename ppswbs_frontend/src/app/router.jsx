@@ -20,6 +20,7 @@ import { notificationRoutes } from '../features/notification-management';
 import HomePage from '../features/landing/HomePage';
 import AppLayout from './AppLayout';
 import NotImplementedPage from './NotImplementedPage';
+import NotFoundPage from './NotFoundPage';
 
 export const routes = [
   {
@@ -46,7 +47,8 @@ export const routes = [
           ...productManagementRoutes,
           ...loyaltyPromotionRoutes,
           ...notificationRoutes,
-          { path: '*', element: <NotImplementedPage /> },
+          { path: '/404', element: <NotFoundPage /> },
+          { path: '*', element: <NotFoundPage /> },
         ],
       },
     ],

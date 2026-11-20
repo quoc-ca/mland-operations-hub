@@ -23,6 +23,7 @@ export { AdminAccountDetailPage } from './components/AdminAccountDetailPage';
 export { AdminAccountListPage } from './components/AdminAccountListPage';
 export { RoleCataloguePage } from './components/RoleCataloguePage';
 export { AdminRouteGuard } from './components/AdminRouteGuard';
+export { RouteAccessGuard } from './components/RouteAccessGuard';
 export { CarrierPortalPage } from './components/CarrierPortalPage';
 export type {
   AccountResponse,
