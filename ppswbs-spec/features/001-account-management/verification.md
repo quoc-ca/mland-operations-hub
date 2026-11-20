@@ -234,9 +234,19 @@ Do **NOT** sign off FE-001 or hand off to production until:
 - [x] 5. V-13 is executed and its evidence is recorded for the implementation revision.
 - [x] 6. Revision R-MGA (Phase 11, T078–T081) Manager-global authorization alignment is executed and verified.
 - [x] 7. Revision R-MAR (Phase 12, T082–T083) Manager alert recipients facade implemented and covered by unit/integration tests per FR-045.
+- [ ] 8. Revision R-CAR (Phase 13, T084–T088) CARRIER account E2E test execution verified via browsermcp (E2E-001-025 đến E2E-001-028).
 
-## 4.9 Revision R-CAR — CARRIER account evidence (NOT RUN)
+## 4.9 Revision R-CAR — CARRIER account evidence (IMPLEMENTED — E2E SPECIFIED)
 
-**Verification status:** R-CAR authorizes implementation, but no CARRIER code or migration has been executed yet.
+**Verification status:** Backend and Frontend implemented with Spring Boot integration suite (`CarrierAccountIT.java`) passing and Flyway migration V188 applied. E2E browser test scenarios specified and ready for execution:
 
-Future evidence must cover fresh/upgrade Flyway validation; idempotent no-location CARRIER creation; Firebase email/password provisioning and partial-failure reconciliation; duplicate-email and retry/collision denial; password exclusion from persistence, logs, audit, and responses; standard email/password sign-in and direct `/carrier` routing; suspension/restoration; Admin UI contract; the R-CAR demo fixture `ghtk.test@mland.vn` / `CarrierTest@123456` with Firebase-issued UID and no location; and the FE-08 facade's ACTIVE CARRIER authorization without customer pricing, voucher, or points data.
+- **E2E Test Specifications**:
+  - [E2E-001-025](test-results/E2E-001-025--admin-carrier-provisioning-and-form-guard.md): Quản trị cấp tài khoản CARRIER — Form guard, mật khẩu chỉ-ghi, loại trừ cơ sở và kích hoạt trực tiếp ACTIVE (`test_case_type: B`).
+  - [E2E-001-026](test-results/E2E-001-026--carrier-signin-direct-routing-and-ui-isolation.md): Đăng nhập tài khoản CARRIER — Điều hướng tức thì tới /carrier, cô lập Topbar và loại trừ dữ liệu Member (`test_case_type: N`).
+  - [E2E-001-027](test-results/E2E-001-027--carrier-authorization-guard-and-route-boundaries.md): Kiểm tra hàng rào phân quyền CARRIER — Chặn Member truy cập /carrier, chặn CARRIER tự sửa profile / địa chỉ và bảo vệ route Admin (`test_case_type: A`).
+  - [E2E-001-028](test-results/E2E-001-028--admin-carrier-lifecycle-governance-and-suspension.md): Vòng đời quản trị CARRIER — Lọc danh sách, bất biến vai trò, Admin bảo trì hồ sơ, tạm khóa và khôi phục (`test_case_type: B`).
+
+- **Integration & Unit Verification**:
+  - `CarrierAccountIT.java`: 10 integration test methods verifying role catalogue, admin provisioning, idempotency conflict, location rejection, weak password rejection, duplicate email conflict, role transition forbidden in both directions, admin profile maintenance vs member self-management, carrier self-edit forbidden, suspension & restoration, and facade/roster exclusion.
+  - `accountManagementComponents.test.tsx`: Component tests verifying role catalogue display, CARRIER form state, write-only password handling, detail governance notice, and list filter.
+  - `roleHome.test.js`: Sign-in routing verification ensuring CARRIER always resolves to `/carrier`.
