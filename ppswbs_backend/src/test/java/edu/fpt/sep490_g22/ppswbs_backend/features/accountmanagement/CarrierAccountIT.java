@@ -495,7 +495,7 @@ class CarrierAccountIT {
     @Test
     @DisplayName("T088: Demo seed fixture ghtk.test@mland.vn exists with CARRIER role and no locations")
     void demoSeedFixture_verified() {
-        // Create demo account matching V188 migration if not already in memory
+        // Create demo account matching V190 migration if not already in memory
         Account carrier = accountRepository.findByFirebaseUid("t4532Dx1ApddAQMBB3YtxMEisNH3")
             .orElseGet(() -> {
                 Account a = accountRepository.save(Account.builder()
