@@ -144,6 +144,12 @@ export default function ProductCreatePage() {
           </Field>
         </div>
         <SameNameWarning products={sameName} />
+        {/* T186 (FR-004, FR-038): no active category yet is an empty state, not an error; point to the category page. */}
+        {categories.data && !categories.error && activeCategories.length === 0 && (
+          <p className="notice" role="status">{t('create.noActiveCategory')}{' '}
+            <Link className="text-link" to="/catalogue-management/categories">{t('create.openCategories')}</Link>
+          </p>
+        )}
         {categories.error && <ErrorNotice error={categories.error} messages={messages} onRetry={categories.reload} />}
         <Field label={t('field.description')} error={errorOf('description')}><textarea value={form.description} onChange={set('description')} maxLength={LIMITS.descriptionMax} /></Field>
 

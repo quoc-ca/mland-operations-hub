@@ -87,9 +87,9 @@ public class CatalogueBranchScope {
     }
 
     /**
-     * T169 (FR-050, decided 2026-11-17): stock at a branch that is no longer active is read-only, for a Manager too;
-     * a quantity or sale-status change there is {@code BRANCH_NOT_FOUND}, as adding that branch is. When the branch
-     * source cannot answer, nothing is refused here.
+     * T169 (FR-050, decided 2026-11-17): a sale-status change at a branch that is no longer active is
+     * {@code BRANCH_NOT_FOUND}, for a Manager too, as adding that branch is. When the branch source cannot answer,
+     * nothing is refused here. Quantities follow {@link #requireQuantityEditableBranch(long)} (T180).
      */
     public void requireActiveBranch(long locationId) {
         activeBranchIds().ifPresent(active -> {
@@ -97,6 +97,18 @@ public class CatalogueBranchScope {
                 throw new CatalogueException(CatalogueErrorCode.BRANCH_NOT_FOUND);
             }
         });
+    }
+
+    /**
+     * T180 (FR-050, Session 2026-11-20, replaces T169 for quantities): a Manager (or an internal call) may change the
+     * quantity at a branch that is no longer active, to count stock or bring it to zero when the branch closes;
+     * nobody can buy there anyway (FR-020). A Staff member gets {@code BRANCH_NOT_FOUND} as in T169.
+     */
+    public void requireQuantityEditableBranch(long locationId) {
+        if (current().all()) {
+            return;
+        }
+        requireActiveBranch(locationId);
     }
 
     /**

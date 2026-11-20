@@ -4,10 +4,24 @@ import { useT } from '../../../../shared/i18n/I18nProvider';
 import { ErrorNotice, Loading, useResource } from '../../../../shared/ui/components';
 import { useCatalogueApi } from '../../application/useCatalogueApi';
 import { messages } from '../messages';
+import { serverFieldErrors } from '../../domain/productRules';
 import { PublicProductGrid } from './PublicProductGrid';
 
 const FILTERS = ['q', 'categoryId', 'minimumPrice', 'maximumPrice', 'canBuy', 'sort'];
 const SORTS = ['', 'name-asc', 'price-asc', 'price-desc', 'newest'];
+const PRICES = ['minimumPrice', 'maximumPrice'];
+
+/**
+ * T184 (US8 scenario 8, FR-032): a price filter is a whole number of 0 or more and the minimum is not above the
+ * maximum. Returns the fields to mark; empty when the filter can be sent.
+ */
+export function invalidPriceFields(minimum, maximum) {
+  const value = text => String(text ?? '').trim();
+  const wrong = PRICES.filter((name, index) => { const text = value(index ? maximum : minimum); return text && !/^\d+$/.test(text); });
+  if (wrong.length) return wrong;
+  const low = value(minimum); const high = value(maximum);
+  return low && high && BigInt(low) > BigInt(high) ? [...PRICES] : [];
+}
 
 /** T071: public list. Search, filter, sort and page live in the URL so a link or Back keeps them. */
 export default function PublicProductListPage() {
@@ -17,6 +31,7 @@ export default function PublicProductListPage() {
   const criteria = Object.fromEntries(FILTERS.map(name => [name, params.get(name) || '']));
   const page = Number(params.get('page') || 0);
   const [draft, setDraft] = useState(criteria);
+  const [priceHint, setPriceHint] = useState([]);
   // Back/Forward or a shared link changes the URL: show its criteria in the form again.
   useEffect(() => { setDraft(criteria); }, [params.toString()]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -25,6 +40,9 @@ export default function PublicProductListPage() {
 
   const apply = event => {
     event.preventDefault();
+    const wrong = invalidPriceFields(draft.minimumPrice, draft.maximumPrice);
+    setPriceHint(wrong);
+    if (wrong.length) return;
     const next = new URLSearchParams();
     FILTERS.forEach(name => { if (draft[name]) next.set(name, draft[name].trim ? draft[name].trim() : draft[name]); });
     setParams(next);
@@ -37,6 +55,10 @@ export default function PublicProductListPage() {
   const set = name => event => setDraft(current => ({ ...current, [name]: event.target.type === 'checkbox' ? (event.target.checked ? 'true' : '') : event.target.value }));
 
   const data = products.data;
+  // The backend checks again; its field errors mark the same price boxes (a shared link may carry a wrong filter).
+  const serverFields = serverFieldErrors(products.error);
+  const markedPrices = priceHint.length ? priceHint : PRICES.filter(name => serverFields[name]);
+  const priceError = markedPrices.length > 0;
   const total = Number(data?.totalElements || 0);
   const lastPage = data ? Math.max(0, Math.ceil(total / (data.pageSize || 20)) - 1) : 0;
 
@@ -57,10 +79,13 @@ export default function PublicProductListPage() {
             {SORTS.map(sort => <option key={sort || 'default'} value={sort}>{t(`public.sort.${sort || 'default'}`)}</option>)}
           </select>
         </label>
-        <label>{t('public.minimumPrice')}<input inputMode="numeric" value={draft.minimumPrice} onChange={set('minimumPrice')} /></label>
-        <label>{t('public.maximumPrice')}<input inputMode="numeric" value={draft.maximumPrice} onChange={set('maximumPrice')} /></label>
+        <label>{t('public.minimumPrice')}<input inputMode="numeric" value={draft.minimumPrice} onChange={set('minimumPrice')}
+          aria-invalid={markedPrices.includes('minimumPrice') || undefined} aria-describedby={priceError ? 'price-filter-error' : undefined} /></label>
+        <label>{t('public.maximumPrice')}<input inputMode="numeric" value={draft.maximumPrice} onChange={set('maximumPrice')}
+          aria-invalid={markedPrices.includes('maximumPrice') || undefined} aria-describedby={priceError ? 'price-filter-error' : undefined} /></label>
         <label className="check"><input type="checkbox" checked={draft.canBuy === 'true'} onChange={set('canBuy')} /> {t('public.onlyBuyable')}</label>
         <button className="button primary" type="submit">{t('public.apply')}</button>
+        {priceError && <p id="price-filter-error" className="field-error" role="alert">{t('public.priceInvalid')}</p>}
       </form>
 
       {categories.error && !products.error && <ErrorNotice error={categories.error} messages={messages} onRetry={categories.reload} />}

@@ -14,7 +14,7 @@ import { NoticeAt } from '../notices';
  * Missing prerequisites come back as PUBLICATION_PREREQUISITES_MISSING. Publishing does not open a checkout and
  * stock is not a condition. Hiding keeps every size and price.
  */
-export function PublicationSection({ product, api, reload, setNotice, deleted, flagMissing = () => {} }) {
+export function PublicationSection({ product, api, reload, setNotice, deleted, outOfScope = false, flagMissing = () => {} }) {
   const t = useT(messages);
   const format = useFormat();
   const command = useProductCommand({ reload, setNotice });
@@ -67,7 +67,7 @@ export function PublicationSection({ product, api, reload, setNotice, deleted, f
       {canPublishNow && (
         <button type="button" className="button primary" disabled={command.pending} onClick={publishNow}>{t('publication.publishNow')}</button>
       )}
-      {!deleted && !canPublishNow && !gate && (
+      {!deleted && !outOfScope && !canPublishNow && !gate && (
         <button type="button" className={target ? 'button primary' : 'button outline'} disabled={command.pending} onClick={toggle}>
           {target ? t('publication.publish') : t('publication.hide')}
         </button>

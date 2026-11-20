@@ -20,6 +20,8 @@ import { useRole } from '../../../../../shared/auth/useRole';
  * branch, and adding another branch. Buttons for a branch outside the account's scope are not shown (the branch list
  * is the account's own: every active branch for a Manager, the assigned ones for Staff); the backend checks again.
  * A product not yet at any branch (data from before US10) keeps the single quantity and offers to assign a branch.
+ * T180 (FR-050, FR-051, Session 2026-11-20): at a branch no longer active a Manager may still change the quantities
+ * (counting stock, bringing it to zero); its sale status stays read-only and Staff see no edit button there.
  */
 export function VariantsSection({ product, ...context }) {
   const t = useT(messages);
@@ -36,6 +38,7 @@ export function VariantsSection({ product, ...context }) {
   // (T173), as the backend does. The backend refuses otherwise.
   const isManager = useRole() === 'MANAGER';
   const activeBranches = branches.filter(branch => branch.active !== false);
+  const canEditQuantity = id => canEdit(id) || (isManager && branches.some(branch => branch.locationId === id));
   const sizeSaleEditable = !context.deleted && (isManager
     || (activeBranches.length ? activeBranches.every(branch => canEdit(branch.locationId)) : myBranches.length > 0));
 
@@ -56,7 +59,7 @@ export function VariantsSection({ product, ...context }) {
       {current && (
         <BranchBar product={product} branch={current} name={nameOf(current)} editable={canEdit(current.locationId) && !context.deleted} {...context} />
       )}
-      {!context.deleted && (!current || canEdit(current.locationId)) && (
+      {!context.deleted && (!current || canEditQuantity(current.locationId)) && (
         <BatchQuantities product={product} branch={current?.locationId || null} {...context} />
       )}
       <div className="data-table" role="table" aria-label={t('section.variants')}>
@@ -70,7 +73,7 @@ export function VariantsSection({ product, ...context }) {
         </div>
         {(product.variants || []).map(variant => (
           <VariantRow key={variant.id} variant={variant} branch={current?.locationId || null}
-            editable={!context.deleted && (!current || canEdit(current.locationId))} saleEditable={sizeSaleEditable} {...context} />
+            editable={!context.deleted && (!current || canEditQuantity(current.locationId))} saleEditable={sizeSaleEditable} {...context} />
         ))}
       </div>
       {!context.deleted && addable.length > 0 && (

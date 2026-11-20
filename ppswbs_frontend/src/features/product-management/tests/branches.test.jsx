@@ -277,7 +277,34 @@ describe('US10 branches on the detail page', () => {
     expect(screen.queryByRole('button', { name: 'Ngừng bán tại chi nhánh này' })).toBeNull();
   });
 
-  it('a branch no longer active is read-only, for a Manager too (T169), and does not block a Staff size stop (T173)', async () => {
+  it('a Staff member sees no edit, price, review, hide or delete button for a product sold at none of their branches (T182)', async () => {
+    const onlyAtHoanKiem = managementProduct({ branches: [atTwoBranches.branches[0]], variants: atTwoBranches.variants });
+    mockFetch({
+      [PROFILE]: json(200, { role: 'STAFF' }), [`GET ${M}/categories`]: json(200, categoryPage), [LOCATIONS]: json(200, [TH]),
+      [`GET ${M}/products/42`]: json(200, onlyAtHoanKiem),
+    });
+    const view = renderRoutes(productManagementRoutes, { path: '/catalogue-management/products/42' });
+
+    expect(await screen.findByRole('table', { name: 'Size và số lượng' })).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryAllByRole('button', { name: 'Sửa' })).toHaveLength(0));
+    expect(screen.queryByRole('button', { name: 'Đề xuất giá mới' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Sửa giá đề xuất nhiều size' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Xóa sản phẩm/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Ẩn sản phẩm|Công khai/ })).toBeNull();
+    view.unmount();
+
+    // The same product for a Staff member of that branch keeps every button.
+    clearRoleCache();
+    mockFetch({
+      [PROFILE]: json(200, { role: 'STAFF' }), [`GET ${M}/categories`]: json(200, categoryPage), [LOCATIONS]: json(200, [HK]),
+      [`GET ${M}/products/42`]: json(200, onlyAtHoanKiem),
+    });
+    renderRoutes(productManagementRoutes, { path: '/catalogue-management/products/42' });
+    expect((await screen.findAllByRole('button', { name: 'Sửa' })).length).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: /Xóa sản phẩm/ })).toBeInTheDocument();
+  });
+
+  it('at a branch no longer active only a Manager changes quantities (T180), its sale stays read-only (T169), and it does not block a Staff size stop (T173)', async () => {
     const user = userEvent.setup();
     const withClosedBranch = managementProduct({
       branches: [atTwoBranches.branches[0], { locationId: '2', name: null, active: false, saleEnabled: true }],
@@ -292,9 +319,21 @@ describe('US10 branches on the detail page', () => {
 
     await user.click(await screen.findByRole('tab', { name: /Chi nhánh #2/ }));
     const table = screen.getByRole('table', { name: 'Size và số lượng' });
-    expect(within(table).queryByRole('button', { name: 'Sửa' })).toBeNull();
+    expect(within(table).getAllByRole('button', { name: 'Sửa' }).length).toBeGreaterThan(0);
     expect(screen.queryByRole('button', { name: 'Ngừng bán tại chi nhánh này' })).toBeNull();
     view.unmount();
+
+    // A Staff member still assigned to the closed branch gets no edit button there (FR-050).
+    clearRoleCache();
+    mockFetch({
+      [PROFILE]: json(200, { role: 'STAFF' }), [`GET ${M}/categories`]: json(200, categoryPage),
+      [LOCATIONS]: json(200, [HK, { ...TH, active: false }]),
+      [`GET ${M}/products/42`]: json(200, withClosedBranch),
+    });
+    const staffView = renderRoutes(productManagementRoutes, { path: '/catalogue-management/products/42' });
+    await user.click(await screen.findByRole('tab', { name: /Chi nhánh #2/ }));
+    expect(within(screen.getByRole('table', { name: 'Size và số lượng' })).queryByRole('button', { name: 'Sửa' })).toBeNull();
+    staffView.unmount();
 
     clearRoleCache();
     mockFetch({
