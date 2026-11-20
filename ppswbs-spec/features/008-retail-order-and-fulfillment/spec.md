@@ -398,6 +398,24 @@ configuration, accounting, or executive reporting in FE-10.
   to delivery, shipping fees of delivered shipments, a trend chart and a
   per-branch table. No failed delivery or return. Until FE-01 adds the role,
   Staff keeps recording the two courier steps as a simulation.
+- Q: FE-01 now provides `CARRIER` (V190, Sơn). What changes? → A: (Thinh,
+  2026-11-20) The FE-01 partner home stays at `/carrier` and links to the
+  orders page, now `/carrier/orders`; statistics stay at `/carrier/stats`.
+  The Staff simulation is removed: Staff only records "Đã chuẩn bị xong"
+  (`READY_FOR_CARRIER`) and the server refuses any courier step from Staff.
+- Q: How does Staff finish a cash-at-the-counter order? → A: (Thinh,
+  2026-11-20) In "Chờ thu tiền mặt" Staff presses "Xác nhận đã thu <amount>"
+  once the customer pays the exact amount: payment and handover are recorded
+  in one transaction (`/counter-cash-handovers`) and the order goes to
+  "Hoàn thành"; if it fails nothing is recorded and Staff presses again. There is no cash-received or
+  change entry and no "hand over now" option, so "Chờ khách nhận" holds only
+  paid VNPay pickup orders. Staff tabs, in order: Đơn hàng cần chuẩn bị, Chờ
+  ĐVVC lấy hàng, Đã bàn giao ĐVVC, Chờ thu tiền mặt, Chờ khách nhận, Hoàn
+  thành; the page (and the GHTK partner's orders page) opens at the first
+  tab, left to right, that has orders. Success and information messages
+  appear at the top for about 5 seconds and disappear; errors stay. Moving
+  an order or shipment to its next step needs no confirmation dialog on the
+  GHTK partner page.
 - Q: Does the Member see when the order was received? → A: Yes (Thinh,
   2026-11-20). Each branch order records when it was received, at the counter
   handover or the GHTK delivery; Đơn mua shows it with the paid time, and the

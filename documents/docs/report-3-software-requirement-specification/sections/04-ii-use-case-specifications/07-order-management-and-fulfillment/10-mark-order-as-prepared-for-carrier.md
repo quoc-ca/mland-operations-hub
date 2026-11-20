@@ -29,7 +29,7 @@ As an authorized shop actor, I want to mark a packed paid GHTK order ready for t
 
 **Mark Order as Prepared for Carrier**
 
-1. The shop actor opens the paid GHTK order in the Đang chuẩn bị hàng tab within authorized branch scope.
+1. The shop actor opens the paid GHTK order in the Đơn hàng cần chuẩn bị tab within authorized branch scope.
 2. The system checks current account/action/branch authority, verified paid state, fixed GHTK method and that the shipment is in preparation.
 3. The shop actor packs the order and presses Đã chuẩn bị xong; the system records READY_FOR_CARRIER, shows the order in Chờ ĐVVC lấy hàng and shows the Member Chờ GHTK lấy hàng.
 4. The GHTK courier collects the parcel at the branch. On the partner portal, which lists the GHTK shipments of every branch with the pickup branch, recipient name, phone and address, item count and shipping fee, the GHTK partner presses Đã lấy hàng.
@@ -54,7 +54,7 @@ Reject with safe correction guidance; do not invent recipient values or evidence
 
 **Steps 4 to 6 — Packing/preparation recorded but no actual GHTK handoff**
 
-Retain READY_FOR_CARRIER and do not assert carrier custody until Đã lấy hàng is recorded. Until FE-01 provides the GHTK partner role, Staff records Đã lấy hàng and Giao thành công as a simulation with the same state checks.
+Retain READY_FOR_CARRIER and do not assert carrier custody until Đã lấy hàng is recorded. Staff cannot record Đã lấy hàng or Giao thành công; only the GHTK partner account can.
 
 **Step 6 — Already-recorded handoff, duplicate or stale conflicting request**
 
@@ -80,7 +80,7 @@ BR-53-01, BR-53-02, BR-53-03, BR-53-04, BR-53-05, BR-53-06, BR-53-07, BR-53-08
 
 | ID | Rule Definition |
 | --- | --- |
-| BR-53-01 | Only assigned-branch Staff or explicitly action/branch-delegated Manager packs and marks ready; only the GHTK partner account (or Staff as a simulation until it exists) records the courier pickup and the delivery. |
+| BR-53-01 | Only assigned-branch Staff or explicitly action/branch-delegated Manager packs and marks ready; only the GHTK partner account records the courier pickup and the delivery. |
 | BR-53-02 | Đã chuẩn bị xong records READY_FOR_CARRIER; Đã lấy hàng records HANDED_TO_CARRIER afterward; Giao thành công records DELIVERED. Packing alone never proves carrier custody. |
 | BR-53-03 | Courier pickup requires verified paid GHTK readiness, valid recipient data, the current shipment version, actor and actual pickup time; the platform tracking number identifies the parcel. |
 | BR-53-04 | Delivered is terminal for shop fulfilment; no backward/cross-terminal override, GHTK shipment API, provider tracking, delivery-failure/return or cancellation/refund workflow is added. |
