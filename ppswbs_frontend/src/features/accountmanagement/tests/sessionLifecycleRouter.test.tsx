@@ -102,16 +102,14 @@ describe('Revision R-SL: Shared Browser Session Lifecycle & Router Boundary (FR-
       }
     });
 
-    it('renders inline empty state notice and login CTA for guest accessing /design-requests/new', async () => {
+    it('allows guest to access /design-requests/new directly and renders design workspace for guest', async () => {
       const session = createControlledSession('signed-out');
       const { router } = renderRoutes(routes, { path: '/design-requests/new', session });
 
       expect(router.state.location.pathname).toBe('/design-requests/new');
-      expect(await screen.findByText('Vui lòng đăng nhập để tạo yêu cầu thiết kế tùy chỉnh')).toBeInTheDocument();
-      const loginLinks = screen.getAllByRole('link', { name: /đăng nhập/i });
-      const ctaLink = loginLinks.find(link => link.getAttribute('href') === '/login?returnTo=%2Fdesign-requests%2Fnew');
-      expect(ctaLink).toBeDefined();
-      expect(ctaLink).toHaveAttribute('href', '/login?returnTo=%2Fdesign-requests%2Fnew');
+      expect(await screen.findByText('Không gian Thiết kế Độc lập')).toBeInTheDocument();
+      expect(screen.getByText(/Bạn đang gửi yêu cầu với tư cách Khách/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Gửi yêu cầu thiết kế/i })).toBeInTheDocument();
     });
 
     it('renders inline session notice for Member-only /member/cart when signed out', async () => {
