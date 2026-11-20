@@ -100,7 +100,7 @@ export const CarrierPortalPage: React.FC = () => {
           </div>
           <div style={{ marginTop: '1.25rem' }}>
             <Link
-              to="/staff/retail-shipments"
+              to="/carrier/orders"
               className="account-btn account-btn-primary"
               style={{ display: 'inline-block' }}
             >
