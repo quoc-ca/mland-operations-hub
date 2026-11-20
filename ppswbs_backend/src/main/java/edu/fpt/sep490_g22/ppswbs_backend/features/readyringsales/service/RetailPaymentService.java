@@ -24,6 +24,13 @@ public class RetailPaymentService {
         if (checkout.getPaymentState() == PaymentState.PAID) {
             return new CheckoutDtos.PaymentRedirectView(checkoutId, null, null, PaymentState.PAID.name());
         }
+        // The Member left VNPay without paying: "Thanh toán" reopens the same link while the hold lasts
+        // (Session 2026-11-18), so one checkout never has two VNPay transactions.
+        String reusable = checkout.isCounterCash() ? null : checkout.reusablePaymentUrl(java.time.Instant.now());
+        if (reusable != null) {
+            return new CheckoutDtos.PaymentRedirectView(checkoutId, reusable, checkout.getPaymentUrlExpiresAt().toString(),
+                checkout.getPaymentState().name());
+        }
         if (checkout.getPaymentState() != PaymentState.ACCEPTED_UNPAID) {
             throw new RetailConflictException("Payment cannot be initiated in the current checkout state");
         }
@@ -34,6 +41,7 @@ public class RetailPaymentService {
         if (expiry != null) expiry.requirePaymentBeforeDeadline(checkoutId);
         checkout.beginPayment();
         RetailCheckoutPorts.PaymentInitiation initiation = paymentPort.initiate(checkout.getId(), checkout.getPayableAmount());
+        if (initiation.paymentUrl() != null) checkout.rememberPaymentLink(initiation.paymentUrl(), initiation.expiresAt());
         if (initiation.locallyVerified()) {
             checkout.markPaid();
             shipmentCreation.createShipmentsForPaidCheckout(checkout);

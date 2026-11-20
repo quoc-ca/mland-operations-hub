@@ -27,9 +27,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  * initiation under that combination failed with "Checkout hold expired or is unavailable".
  *
  * <p>This asserts the declared {@link Profile} expressions resolve the local adapter whenever {@code local}
- * is active, matching the already-correct sibling beans in this package
- * ({@code RetailQueryReconciliationService}, {@code RetailConfirmedUnpaidExpiryJob}), which both use
- * {@code "retail-vnpay & !local"}.
+ * is active. Since Session 2026-11-18 the VNPay adapter is {@code "!local"}: any non-local run uses it (like the
+ * workshop payments) and {@code VNPAY_ENABLED} decides whether it can pay, with no {@code retail-vnpay} profile.
  */
 class RetailPaymentPortProfileTest {
 
@@ -85,5 +84,13 @@ class RetailPaymentPortProfileTest {
     void retailVnPayWithoutLocalSelectsTheVnPayAdapter() {
         assertThat(activatesUnder(VnpayRetailPaymentAdapter.class, "retail-vnpay")).isTrue();
         assertThat(activatesUnder(LocalRetailPaymentAdapter.class, "retail-vnpay")).isFalse();
+    }
+
+    @Test
+    void aServerWithNoProfileStillSelectsTheVnPayAdapter() {
+        // The deploy bug of 2026-11-17: the server ran the "default" profile and Ready Rings payment was refused.
+        assertThat(activatesUnder(VnpayRetailPaymentAdapter.class)).isTrue();
+        assertThat(activatesUnder(VnpayRetailPaymentAdapter.class, "default")).isTrue();
+        assertThat(activatesUnder(LocalRetailPaymentAdapter.class)).isFalse();
     }
 }
