@@ -228,8 +228,8 @@ class StaffRetailShipmentServiceTest {
             return null;
         }).when(repository).flush();
 
-        service.transition(actor, SHIPMENT_ID, RetailShipmentStatus.HANDED_TO_CARRIER, 0, "handed");
-        service.transition(actor, SHIPMENT_ID, RetailShipmentStatus.IN_TRANSIT, 1, "transit");
+        service.transition(actor, SHIPMENT_ID, RetailShipmentStatus.READY_FOR_CARRIER, 0, "packed");
+        service.transition(actor, SHIPMENT_ID, RetailShipmentStatus.HANDED_TO_CARRIER, 1, "collected");
         service.transition(actor, SHIPMENT_ID, RetailShipmentStatus.DELIVERED, 2, "delivered");
 
         assertThat(shipment.getStatus()).isEqualTo(RetailShipmentStatus.DELIVERED);

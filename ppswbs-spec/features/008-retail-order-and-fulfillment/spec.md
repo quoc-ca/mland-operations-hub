@@ -381,6 +381,30 @@ configuration, accounting, or executive reporting in FE-10.
   releases the voucher and points. A payment that still arrives afterwards goes
   to the Manager reconciliation queue.
 
+### Session 2026-11-20
+
+- Q: Who records the courier's steps? → A: A simulated GHTK partner portal
+  (Thinh, 2026-11-20, supervisor request). An active account with role
+  `CARRIER` ("Đối tác vận chuyển (GHTK)", added by FE-01) opens `/carrier`
+  (orders) and `/carrier/stats` (statistics). It sees the GHTK shipments of
+  every branch with GHTK's own words: Đã tiếp nhận (`PREPARING`), Đang lấy
+  hàng (`READY_FOR_CARRIER`), Đang giao hàng (`HANDED_TO_CARRIER`), Đã giao
+  hàng (`DELIVERED`). It records only "Đã lấy hàng" and "Giao thành công"
+  through `/api/v1/carrier/shipments`; packing stays with Staff. It sees the
+  pickup branch, recipient name, phone and address, item count and shipping
+  fee, never product prices, vouchers, points or Member account data. The
+  statistics page shows, for a day, week, month or year in Vietnam time,
+  shipments received, picked up and delivered, the average time from pickup
+  to delivery, shipping fees of delivered shipments, a trend chart and a
+  per-branch table. No failed delivery or return. Until FE-01 adds the role,
+  Staff keeps recording the two courier steps as a simulation.
+- Q: Does the Member see when the order was received? → A: Yes (Thinh,
+  2026-11-20). Each branch order records when it was received, at the counter
+  handover or the GHTK delivery; Đơn mua shows it with the paid time, and the
+  Staff history shows "Giao cho khách lúc".
+- Q: Where does a cash order go after "Đặt hàng"? → A: Straight to Đơn mua
+  (Thinh, 2026-11-20), with a notice to pay at the counter before the deadline.
+
 ## User Scenarios & Testing
 
 ### User Story 1 - Prepare a retail purchase (Priority: P1)

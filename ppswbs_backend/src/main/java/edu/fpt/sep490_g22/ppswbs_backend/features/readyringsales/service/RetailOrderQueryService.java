@@ -47,7 +47,8 @@ public class RetailOrderQueryService {
             order.getPaymentState().name(), fulfilment, money(order.getSubtotal()),
             money(order.getShippingCharge()), money(order.getPayableAmount()), checkout.getCreatedAt(), items,
             checkout.getId(), checkout.getPaymentMethod(), checkout.getCounterPaymentDeadline(),
-            RetailOrderCodes.of(order.getId(), checkout.getCreatedAt()), money(discount), together, paymentDeadline(checkout));
+            RetailOrderCodes.of(order.getId(), checkout.getCreatedAt()), money(discount), together, paymentDeadline(checkout),
+            order.getPaidAt(), order.getCompletedAt());
     }
 
     private RetailCataloguePort.CartProductFact currentProduct(VariantLocationKey key) {

@@ -204,6 +204,7 @@ function PickupCard({ item, open, onToggle, busy, format, branchName, received, 
       <div><dt>Mã đơn</dt><dd>{item.code}</dd></div>
       <div><dt>Thời gian đặt</dt><dd>{displayTime(order.orderedAt)}</dd></div>
       <div><dt>Thanh toán</dt><dd>{cash ? 'Tiền mặt tại quầy' : 'VNPay'}</dd></div>
+      {order.completedAt && <div><dt>Giao cho khách lúc</dt><dd>{displayTime(order.completedAt)}</dd></div>}
       <OrderMoneyRows order={order} format={format} />
       {row.cashCollection && <div><dt>Tiền mặt</dt><dd>Thu {format.money(row.cashCollection.amountReceived)}, thối {format.money(row.cashCollection.changeReturned)} lúc {displayTime(row.cashCollection.confirmedAt)}</dd></div>}
     </dl>}

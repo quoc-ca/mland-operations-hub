@@ -35,6 +35,8 @@ public class RetailOrder {
     @Column(name = "pickup_ready_confirmed", nullable = false) private boolean pickupReadyConfirmed;
     /** When this branch order became PAID (verified VNPay, zero total, or Staff cash confirmation); FE-10 period key. */
     @Column(name = "paid_at") private Instant paidAt;
+    /** When the Member received it: picked up at the counter or delivered by GHTK (Session 2026-11-20). */
+    @Column(name = "completed_at") private Instant completedAt;
     @Column(nullable = false, precision = 19, scale = 2) private BigDecimal subtotal;
     @Column(name = "shipping_charge", nullable = false, precision = 19, scale = 2) private BigDecimal shippingCharge;
     @Column(name = "payable_amount", nullable = false, precision = 19, scale = 2) private BigDecimal payableAmount;
@@ -72,7 +74,7 @@ public class RetailOrder {
     }
     public BigDecimal getDiscountAmount() { return subtotal.add(shippingCharge).subtract(payableAmount); }
     public void markPickupReady() { fulfilmentState = "READY_FOR_PICKUP"; pickupReadyConfirmed = true; }
-    public void markPickedUp() { fulfilmentState = "PICKED_UP"; }
+    public void markPickedUp() { fulfilmentState = "PICKED_UP"; if (completedAt == null) completedAt = Instant.now(); }
     /**
      * Mirrors the fictional GHTK shipment status onto this branch order's fulfilment state.
      * Called by Staff shipment transitions; only meaningful for GHTK branch orders and a no-op for PICKUP.
@@ -87,7 +89,7 @@ public class RetailOrder {
             case READY_FOR_CARRIER -> fulfilmentState = "READY_FOR_CARRIER";
             case HANDED_TO_CARRIER -> fulfilmentState = "HANDED_TO_CARRIER";
             case IN_TRANSIT -> fulfilmentState = "IN_TRANSIT";
-            case DELIVERED -> fulfilmentState = "DELIVERED";
+            case DELIVERED -> { fulfilmentState = "DELIVERED"; if (completedAt == null) completedAt = Instant.now(); }
         }
     }
     public void cancel() { paymentState = PaymentState.CANCELLED; }

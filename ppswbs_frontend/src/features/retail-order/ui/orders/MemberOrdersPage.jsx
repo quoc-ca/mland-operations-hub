@@ -115,6 +115,14 @@ function OrdersContent() {
       return undefined;
     }
     setTab(tabAfterPlacing(placed));
+    // A cash order just placed: say where and until when to pay (the checkout page no longer does).
+    const cashPlaced = placed.filter(order => order.paymentMethod === 'CASH_AT_COUNTER' && order.paymentState === 'ACCEPTED_UNPAID');
+    if (!info.txnRef && cashPlaced.length) {
+      arrival.current = false;
+      const total = cashPlaced.reduce((sum, order) => sum + BigInt(order.payableAmount || '0'), 0n).toString();
+      setNotice({ kind: 'success', text: `Đã đặt hàng. Đến ${cashPlaced.length > 1 ? `${cashPlaced.length} chi nhánh` : branchName(cashPlaced[0].locationId)} trước ${displayTime(cashPlaced[0].counterPaymentDeadline)} để trả ${format.money(total)} tiền mặt và nhận hàng.` });
+      return undefined;
+    }
     // VNPay may confirm a moment after the browser returns: look again a few times before showing the result.
     if (info.txnRef && placed.some(order => order.paymentState !== 'PAID') && info.tries < 3) {
       info.tries += 1;
@@ -221,6 +229,7 @@ function OrdersContent() {
           : <p className="order-hint warn">Đã hết thời gian giữ hàng. Đơn sẽ tự hủy và hoàn lại voucher, điểm.</p>)}
         {current === 'AWAITING_PICKUP' && !cash && <p className="order-hint">{ready ? <>Hàng đã sẵn sàng. Đọc mã <strong>{orderCode(order)}</strong> tại quầy {branchName(order.locationId)} để nhận hàng.</> : 'Đã thanh toán. Mland đang chuẩn bị hàng, khi trạng thái là “Sẵn sàng nhận hàng” bạn có thể đến lấy.'}</p>}
         {current === 'AWAITING_PICKUP' && cash && <p className="order-hint warn">Đến {branchName(order.locationId)} trả <strong>{format.money(order.payableAmount)}</strong> tiền mặt trước <strong>{displayTime(order.counterPaymentDeadline)}</strong>. Quá hạn đơn tự hủy.</p>}
+        {current === 'COMPLETED' && order.completedAt && <p className="order-hint">{order.fulfilmentMethod === 'GHTK' ? 'Giao thành công' : 'Đã nhận tại cửa hàng'} lúc <strong>{displayTime(order.completedAt)}</strong>.</p>}
         {current === 'AWAITING_COLLECTION' && <p className="order-hint">{order.fulfilmentState === 'READY_FOR_CARRIER' ? 'Hàng đã đóng gói, đang chờ GHTK đến lấy.' : 'Mland đang chuẩn bị hàng để giao cho GHTK.'}</p>}
         {open && <dl className="order-detail">
           <div><dt>Mã đơn</dt><dd>{orderCode(order)}</dd></div>
@@ -228,6 +237,8 @@ function OrdersContent() {
           <div><dt>Chi nhánh</dt><dd>{branchName(order.locationId)}</dd></div>
           <div><dt>Nhận hàng</dt><dd>{order.fulfilmentMethod === 'GHTK' ? 'Giao tận nơi qua GHTK' : 'Nhận tại cửa hàng'}</dd></div>
           <div><dt>Thanh toán</dt><dd>{cash ? 'Tiền mặt tại quầy' : 'VNPay'}</dd></div>
+          {order.paidAt && <div><dt>Thời gian thanh toán</dt><dd>{displayTime(order.paidAt)}</dd></div>}
+          {order.completedAt && <div><dt>{order.fulfilmentMethod === 'GHTK' ? 'Giao thành công lúc' : 'Nhận hàng lúc'}</dt><dd>{displayTime(order.completedAt)}</dd></div>}
           {cash && order.counterPaymentDeadline && current !== 'COMPLETED' && current !== 'CANCELLED' && <div><dt>Hạn giữ hàng</dt><dd>{displayTime(order.counterPaymentDeadline)}</dd></div>}
           {unpaidVnpay && order.paymentDeadline && <div><dt>Hạn thanh toán</dt><dd>{displayTime(order.paymentDeadline)}</dd></div>}
           <OrderMoneyRows order={order} format={format} together={together} />

@@ -57,6 +57,9 @@ logical availability.
 - Payment lifecycle state: `ACCEPTED_UNPAID`, `PAYMENT_INITIATED`, `PAID`,
   `FAILED`, `EXPIRED`, `CANCELLED`, or `EXCEPTION`, with
   `paymentInitiatedAt` recorded when the server initiates VNPay
+- Stored VNPay link `payment_url` and `payment_url_expires_at` (V188,
+  Session 2026-11-18): the link lives until the hold deadline and is reused,
+  so one checkout has one VNPay transaction
 - Complete grouped quote and benefit snapshot
 
 The grouped checkout is the Member-facing payment unit. It must not replace
@@ -74,6 +77,9 @@ are decimal strings; quantities remain bounded integers.
 - Lifecycle/payment state and fulfilment state kept separately
 - Frozen currency, subtotal, discount, shipping charge, and payable amount
 - Checkout accepted time, payment-link deadline, and hold deadline
+- Paid time and `completed_at` (V189, Session 2026-11-20): when the Member
+  received the order, set by the counter handover or the GHTK delivery;
+  existing orders were backfilled from pickup evidence and shipment history
 - Accepted product/variant and benefit snapshots
 - Safe audit/correlation references
 
@@ -146,6 +152,10 @@ a new quote and explicit grouped-total reconfirmation.
 - Creation state: `PENDING`, `CREATED`, `FAILED`, `RECONCILIATION_REQUIRED`
 - Provider correlation and safe failure code
 - Normalized current status and last status time
+- Fulfilment status `PREPARING` → `READY_FOR_CARRIER` (packed, waiting for
+  the courier) → `HANDED_TO_CARRIER` → `DELIVERED`; `IN_TRANSIT` is kept only
+  for shipments moved before Session 2026-11-18. A version number guards
+  concurrent Staff and courier updates
 - Provider estimated delivery date when supplied
 - Created/updated timestamps
 
@@ -188,8 +198,8 @@ ACCEPTED_UNPAID -- Member cancels --> Hold released / cart restored
 Paid / fulfilment selected
         +-- Pickup --> Preparing --> Ready for pickup --> Picked up
         +-- GHTK --> Creating shipment --> Shipment created
-                                      --> Preparing --> Handed to carrier
-                                                     --> Carrier status updates
+                                      --> Preparing --> Ready for carrier
+                                      --> Handed to carrier --> Delivered
 ```
 
 1. One accepted grouped checkout creates exactly one complete branch order per
@@ -220,9 +230,15 @@ Paid / fulfilment selected
 12. The recipient draft and a shipping quote exist only for the current
     checkout session before acceptance. An immutable fulfilment/recipient
     snapshot is persisted only with accepted branch orders.
-13. A Member cancellation is allowed only while the grouped checkout is
-    `ACCEPTED_UNPAID`. The server transition to `PAYMENT_INITIATED` records
-    `paymentInitiatedAt`; after that point, provider evidence is reconciled
-    rather than self-cancelled. Cancellation releases the complete hold bundle
-    and restores the source cart.
+13. A Member cancellation is allowed while the grouped checkout is
+    `ACCEPTED_UNPAID` and, for VNPay, also in `PAYMENT_INITIATED` until the
+    hold deadline (Session 2026-11-18). The server transition to
+    `PAYMENT_INITIATED` records `paymentInitiatedAt`. Cancellation releases the
+    complete hold bundle and restores the source cart; a payment that still
+    arrives afterwards goes to the Manager reconciliation queue.
+14. Only Staff records packing (`PREPARING` → `READY_FOR_CARRIER`). The GHTK
+    partner (role `CARRIER`, Session 2026-11-20) records only "Đã lấy hàng"
+    (`READY_FOR_CARRIER` → `HANDED_TO_CARRIER`) and "Giao thành công"
+    (`HANDED_TO_CARRIER` → `DELIVERED`); `DELIVERED` completes the branch order
+    and sets `completed_at`.
 

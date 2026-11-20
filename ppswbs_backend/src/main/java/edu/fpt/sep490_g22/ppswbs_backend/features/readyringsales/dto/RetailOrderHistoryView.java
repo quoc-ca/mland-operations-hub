@@ -10,7 +10,17 @@ public record RetailOrderHistoryView(String id, Long locationId, String fulfilme
     String paymentState, String fulfilmentState, String subtotal, String shippingCharge,
     String payableAmount, Instant orderedAt, List<Item> items, String checkoutId,
     String paymentMethod, Instant counterPaymentDeadline, String orderCode, String discountAmount,
-    int checkoutOrderCount, Instant paymentDeadline) {
+    int checkoutOrderCount, Instant paymentDeadline, Instant paidAt, Instant completedAt) {
+    /** {@code paidAt} and {@code completedAt} (received by the Member) are shown in the order details (Session 2026-11-20). */
+    public RetailOrderHistoryView(String id, Long locationId, String fulfilmentMethod,
+                                  String paymentState, String fulfilmentState, String subtotal, String shippingCharge,
+                                  String payableAmount, Instant orderedAt, List<Item> items, String checkoutId,
+                                  String paymentMethod, Instant counterPaymentDeadline, String orderCode,
+                                  String discountAmount, int checkoutOrderCount, Instant paymentDeadline) {
+        this(id, locationId, fulfilmentMethod, paymentState, fulfilmentState, subtotal, shippingCharge, payableAmount,
+            orderedAt, items, checkoutId, paymentMethod, counterPaymentDeadline, orderCode, discountAmount,
+            checkoutOrderCount, paymentDeadline, null, null);
+    }
     /** {@code paymentDeadline}: until when an unpaid VNPay order is held (Session 2026-11-18); null otherwise. */
     public RetailOrderHistoryView(String id, Long locationId, String fulfilmentMethod,
                                   String paymentState, String fulfilmentState, String subtotal, String shippingCharge,
@@ -19,7 +29,7 @@ public record RetailOrderHistoryView(String id, Long locationId, String fulfilme
                                   String discountAmount, int checkoutOrderCount) {
         this(id, locationId, fulfilmentMethod, paymentState, fulfilmentState, subtotal, shippingCharge, payableAmount,
             orderedAt, items, checkoutId, paymentMethod, counterPaymentDeadline, orderCode, discountAmount,
-            checkoutOrderCount, null);
+            checkoutOrderCount, null, null, null);
     }
     /**
      * View without the branch discount share (voucher and points) and the number of branch orders placed together.

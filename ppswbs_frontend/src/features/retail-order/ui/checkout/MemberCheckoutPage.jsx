@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useLocation } from 'react-router';
+import { Link, useLocation, useNavigate } from 'react-router';
 import { RequireSession } from '../../../../shared/auth/RequireSession';
 import { useFormat } from '../../../../shared/i18n/I18nProvider';
 import { ErrorNotice, Loading, SuccessNotice, useCommand, useResource } from '../../../../shared/ui/components';
@@ -47,6 +47,7 @@ function CheckoutContent() {
   const createCommand = useCommand();
   const paymentCommand = useCommand();
   const location = useLocation();
+  const navigate = useNavigate();
   // Lines ticked on the cart page; null (direct visit) keeps the whole-cart checkout.
   const cartLineIds = Array.isArray(location.state?.cartLineIds) && location.state.cartLineIds.length ? location.state.cartLineIds.map(String) : null;
   const lineFilter = cartLineIds ? new Set(cartLineIds) : null;
@@ -241,7 +242,10 @@ function CheckoutContent() {
       setCheckout(result.result);
       // VNPay: go straight to the payment page after the order is placed, no second click (Session 2026-11-18).
       // If starting the payment fails, the page stays with the order and a "Thanh toán qua VNPay" retry.
-      if (result.result?.paymentMethod !== 'CASH_AT_COUNTER') await startPayment(result.result?.id);
+      // Cash: straight to "Đơn mua", which opens "Chờ nhận tại cửa hàng" and says where and until when to pay
+      // (Session 2026-11-20). VNPay: straight to the payment page.
+      if (result.result?.paymentMethod === 'CASH_AT_COUNTER') navigate(`/member/orders?checkout=${encodeURIComponent(result.result.id)}`, { replace: true });
+      else await startPayment(result.result?.id);
       return;
     }
     // The fee or preview expired on the server in the meantime: refresh quietly and let the Member confirm again.
