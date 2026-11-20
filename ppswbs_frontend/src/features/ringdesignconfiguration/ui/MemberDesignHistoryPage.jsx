@@ -521,9 +521,9 @@ export default function MemberDesignHistoryPage() {
                       <span className={statusInfo.className}>
                         {statusInfo.label}
                       </span>
-                      {req.analysisStatus && (
-                        <span style={{ fontSize: '0.85rem', color: '#64748b' }}>
-                          (AI: {req.analysisStatus})
+                      {req.decisionExplanation && (
+                        <span style={{ fontSize: '0.85rem', color: '#0369a1', fontWeight: 500 }}>
+                          (Đã có phản hồi)
                         </span>
                       )}
                     </div>

@@ -807,6 +807,12 @@ export default function RingConfigurationPage() {
               >
                 {saving ? t.saving : t.saveAndEvaluate}
               </button>
+
+              {commandError && (
+                <div className="ring-error-card" style={{ marginTop: '0.75rem' }} role="alert">
+                  {commandError}
+                </div>
+              )}
             </div>
           </div>
         </div>

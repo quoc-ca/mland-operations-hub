@@ -130,9 +130,13 @@ public class WorkshopRingDesignApplicationService {
             ownerType = RingDesignOwnerType.MEMBER;
             ownerReference = String.valueOf(memberAccountId);
         } else if (guestSessionHeader != null && !guestSessionHeader.isBlank()) {
-            GuestDesignSession guestSession = guestSessionService.resolveAndTouchSession(guestSessionHeader);
-            ownerType = RingDesignOwnerType.GUEST_SESSION;
-            ownerReference = guestSession.getSessionDigest();
+            try {
+                GuestDesignSession guestSession = guestSessionService.resolveAndTouchSession(guestSessionHeader);
+                ownerType = RingDesignOwnerType.GUEST_SESSION;
+                ownerReference = guestSession.getSessionDigest();
+            } catch (RingDesignException e) {
+                return Collections.emptyList();
+            }
         } else {
             return Collections.emptyList();
         }
@@ -428,7 +432,12 @@ public class WorkshopRingDesignApplicationService {
         }
         GuestDesignSession guestSession;
         if (guestSessionHeader != null && !guestSessionHeader.isBlank()) {
-            guestSession = guestSessionService.resolveAndTouchSession(guestSessionHeader);
+            try {
+                guestSession = guestSessionService.resolveAndTouchSession(guestSessionHeader);
+            } catch (RingDesignException e) {
+                log.info("Stale or expired guest session header ({}), issuing a fresh guest session for new design draft.", guestSessionHeader);
+                guestSession = guestSessionService.issueGuestSession(UUID.randomUUID().toString());
+            }
         } else {
             guestSession = guestSessionService.issueGuestSession(UUID.randomUUID().toString());
         }

@@ -135,15 +135,13 @@ export function normalizeDraftForSave(draft) {
     id: img.id || `img-${idx + 1}`,
     placement: img.placement || 'INNER_BAND',
     imageUrl: img.imageUrl,
-    imageReference: img.imageReference || img.imageUrl,
-    processedPreviewReference: img.processedPreviewReference || img.previewDataUrl || img.previewUrl || img.imageUrl,
-    previewDataUrl: img.previewDataUrl || img.processedPreviewReference || img.imageUrl,
     cropX: Math.round(img.cropX || 0),
     cropY: Math.round(img.cropY || 0),
     cropWidth: 160,
     cropHeight: 160,
     contrast: img.contrast !== undefined ? Math.round(Number(img.contrast)) : 50,
     sharpness: img.sharpness !== undefined ? Math.round(Number(img.sharpness)) : 50,
+    processedPreviewReference: img.processedPreviewReference || img.previewDataUrl || img.previewUrl || img.imageUrl,
     price: 100000,
   }));
 

@@ -15,9 +15,20 @@ export function generateBwLaserPreview(imgElement, cropX, cropY, frameSize = 160
   ctx.fillStyle = '#FFFFFF';
   ctx.fillRect(0, 0, frameSize, frameSize);
 
+  // Compute scale between natural image dimensions and displayed DOM dimensions
+  const dispW = (imgElement.clientWidth && imgElement.clientWidth > 0) ? imgElement.clientWidth : (imgElement.naturalWidth || frameSize);
+  const dispH = (imgElement.clientHeight && imgElement.clientHeight > 0) ? imgElement.clientHeight : (imgElement.naturalHeight || frameSize);
+  const scaleX = (imgElement.naturalWidth && imgElement.naturalWidth > 0) ? imgElement.naturalWidth / dispW : 1;
+  const scaleY = (imgElement.naturalHeight && imgElement.naturalHeight > 0) ? imgElement.naturalHeight / dispH : 1;
+
+  const sourceX = Math.max(0, cropX * scaleX);
+  const sourceY = Math.max(0, cropY * scaleY);
+  const sourceW = frameSize * scaleX;
+  const sourceH = frameSize * scaleY;
+
   // Draw the cropped slice
   try {
-    ctx.drawImage(imgElement, cropX, cropY, frameSize, frameSize, 0, 0, frameSize, frameSize);
+    ctx.drawImage(imgElement, sourceX, sourceY, sourceW, sourceH, 0, 0, frameSize, frameSize);
   } catch {
     return '';
   }
@@ -148,8 +159,10 @@ function CustomImageCard({ item, onUpdate, onRemove, t }) {
   const updateCropPosition = useCallback(
     (newX, newY) => {
       if (!imgRef.current) return;
-      const maxX = Math.max(0, imgRef.current.naturalWidth - frameSize);
-      const maxY = Math.max(0, imgRef.current.naturalHeight - frameSize);
+      const dispW = imgRef.current.clientWidth || imgRef.current.naturalWidth || frameSize;
+      const dispH = imgRef.current.clientHeight || imgRef.current.naturalHeight || frameSize;
+      const maxX = Math.max(0, dispW - frameSize);
+      const maxY = Math.max(0, dispH - frameSize);
       const clampedX = Math.max(0, Math.min(maxX, Math.round(newX)));
       const clampedY = Math.max(0, Math.min(maxY, Math.round(newY)));
 
@@ -492,29 +505,59 @@ export default function LaserEngravingImageCropper({ customImages = [], onChange
 
     const reader = new FileReader();
     reader.onload = (uploadEvent) => {
-      const dataUrl = uploadEvent.target?.result;
-      if (!dataUrl) return;
+      const rawDataUrl = uploadEvent.target?.result;
+      if (!rawDataUrl) return;
 
-      const newId = `img-${Date.now().toString().slice(-4)}`;
-      const newItem = {
-        id: newId,
-        imageUrl: dataUrl,
-        imageReference: dataUrl,
-        processedPreviewReference: '',
-        cropX: 0,
-        cropY: 0,
-        cropWidth: 160,
-        cropHeight: 160,
-        contrast: 50,
-        sharpness: 50,
-        placement: 'INNER_BAND',
-        price: 100000,
-        previewDataUrl: '',
+      const appendItem = (finalUrl) => {
+        const newId = `img-${Date.now().toString().slice(-4)}`;
+        const newItem = {
+          id: newId,
+          imageUrl: finalUrl,
+          processedPreviewReference: '',
+          cropX: 0,
+          cropY: 0,
+          cropWidth: 160,
+          cropHeight: 160,
+          contrast: 50,
+          sharpness: 50,
+          placement: 'INNER_BAND',
+          price: 100000,
+        };
+
+        onChangeCustomImages([...customImages, newItem]);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
       };
 
-      onChangeCustomImages([...customImages, newItem]);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
+      if (typeof window !== 'undefined' && typeof Image !== 'undefined') {
+        const tempImg = new Image();
+        tempImg.onload = () => {
+          try {
+            const MAX_DIM = 800;
+            let width = tempImg.width || 0;
+            let height = tempImg.height || 0;
+            if (width > MAX_DIM || height > MAX_DIM) {
+              const ratio = Math.min(MAX_DIM / width, MAX_DIM / height);
+              width = Math.max(160, Math.round(width * ratio));
+              height = Math.max(160, Math.round(height * ratio));
+              const canvas = document.createElement('canvas');
+              canvas.width = width;
+              canvas.height = height;
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(tempImg, 0, 0, width, height);
+              appendItem(canvas.toDataURL('image/jpeg', 0.85));
+            } else {
+              appendItem(rawDataUrl);
+            }
+          } catch {
+            appendItem(rawDataUrl);
+          }
+        };
+        tempImg.onerror = () => appendItem(rawDataUrl);
+        tempImg.src = rawDataUrl;
+      } else {
+        appendItem(rawDataUrl);
       }
     };
     reader.readAsDataURL(file);
