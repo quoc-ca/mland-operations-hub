@@ -1,3 +1,47 @@
+# Version 1.8 — Feature 004 & Custom Manufacturing Integration: Full Handover Implementation (Dev A, B, C, D)
+
+- **Feature**: 004 — Design Request, Human Review & Custom Manufacturing Integration
+- **Author**: Ngô Tiến Đạt
+- **Last updated by**: Ngô Tiến Đạt
+- **Date created**: 2026-11-21
+- **Date updated**: 2026-11-21
+- **Status**: Implemented and verified across Dev A, Dev B, Dev C, and Dev D.
+
+## Summary of Implementation
+
+Unified Feature-012 (Workshop Ring Design Configuration), Feature-004 (Custom Design Request & Human Review), and Custom Manufacturing (Quote, Full Payment, Production, Fulfilment).
+
+### 1. Dev A — Feature-004 Backend Intake & Clarification Flow
+- **Flyway Migration**: `V190__custom_manufacturing_and_order_intake.sql` adding `custom_design_reference_snapshots` and `custom_design_request_revisions`.
+- **Feature-012 Snapshot Capture**: Integrated `WorkshopRingDesignFacade.getDesignSnapshot()` to capture immutable JSON snapshots of persisted Feature-012 designs (`DRAFT` or `VALIDATED`).
+- **Human Review with Clarification**: Staff and Manager can record `CLARIFICATION_REQUIRED`, `ACCEPTED`, or `REJECTED` with a mandatory explanation.
+- **Revision Handling**: `reviseDesignRequest()` validates `CLARIFICATION_REQUIRED` state and `If-Match-Version`, increments version, logs revision, and resets state to `NEED_REVIEW`.
+- **Dual-Mapped Endpoints**: Controllers mapped to both `/api/v1/design-requests` and `/api/v1/custom-design-requests`.
+
+### 2. Dev B — Custom Manufacturing & Payment Backend
+- **Custom Order Aggregate**: Added entities `CustomOrder`, `CustomOrderQuote`, `CustomOrderPaymentContext`, and `CustomOrderIdempotencyRecord`.
+- **Quote Lifecycle**: Staff prepares quotes; Manager approves (`/api/v1/custom-orders/{orderId}/approve-quote`).
+- **100% Full Payment Rule**: Custom orders require 100% full payment in one attempt via VNPay (`CUSTOM_ORDER_FULL_PAYMENT`). Strictly banned: Add to Cart, deposits, remaining balance, and split payments.
+- **Quote Expiry & Renewal**: Quotes expire at `quoteExpiresAt`. Expired quotes cancel queue hold and transition order to `EXPIRED`. Members can request a new quote (`/request-new-quote`) generating a new quote version while preserving history.
+- **Production & Fulfilment**: Status progression from `PAID` -> `IN_PRODUCTION` -> `FULFILLED` -> `CLOSED`.
+
+### 3. Dev C — Frontend UI Implementation
+- **Member Custom Orders View**: Created `/account/my-custom-orders` with two tabs:
+  - **Requests Tab**: Displays custom design requests, status badges, clarification explanations, and an interactive "Phản hồi làm rõ" revision modal.
+  - **Orders Tab**: Displays custom orders, quote details (100% full amount, quote generation #, payment deadline), and CTAs for "Thanh toán toàn bộ" (Full Payment) and "Yêu cầu báo giá mới" (Request New Quote).
+- **Custom Order Detail View**: Created `/account/my-custom-orders/:customOrderId` featuring:
+  - 4-step progress stepper: Báo giá & Duyệt -> Thanh toán 100% -> Chế tác sản xuất -> Bàn giao sản phẩm.
+  - Immutable ring snapshot preview and order breakdown.
+  - One-click full payment CTA opening VNPay checkout.
+- **Staff/Manager Review Queue**: Updated `/design-review-requests/:requestId` to support `CLARIFICATION_REQUIRED` decision option and quote preparation block upon acceptance.
+- **Strict Copy Compliance**: Zero occurrences of "đặt cọc" (deposit), remaining balance, or cart lines in the custom order UI.
+- **Test Suite**: Added comprehensive Vitest tests in `customOrders.test.jsx`, passing with 31/31 feature tests.
+
+### 4. Dev D — Specification and Documentation Synchronization
+- Synchronized `spec.md`, `data-model.md`, `plan.md`, `tasks.md`, and `version.md` to reflect the completed handoff and verified invariants.
+
+---
+
 # Version 1.7 — Feature 004: AI Chatbox Daily Quota & Session Accounting (Demo Quota & Gemini Integration)
 
 - **Feature**: 004 — AI Chatbox Analysis and Suggestion

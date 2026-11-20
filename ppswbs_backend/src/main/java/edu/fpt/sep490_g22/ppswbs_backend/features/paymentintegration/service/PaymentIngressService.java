@@ -7,11 +7,13 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.facade.RetailPaymentEvidenceFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.facade.RetailVerifiedPayment;
+import edu.fpt.sep490_g22.ppswbs_backend.features.custommanufacturing.facade.CustomOrderPaymentFacade;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.Map;
+import java.util.Optional;
 
 @Service @RequiredArgsConstructor
 public class PaymentIngressService {
@@ -21,6 +23,7 @@ public class PaymentIngressService {
     private final WorkshopBookingFacade booking;
     private final WorkshopSettlementFacade settlement;
     private final RetailPaymentEvidenceFacade retail;
+    private final Optional<CustomOrderPaymentFacade> customOrderPaymentFacade;
     /** 003.1 FR-032 "Definite failure" (explicit list, decided 2026-11-19); no other code and no rule of "not 00". */
     private static final java.util.Set<String> DEFINITE_FAILURE_CODES =
             java.util.Set.of("09", "10", "11", "12", "13", "24", "51", "65", "79");
@@ -124,7 +127,10 @@ public class PaymentIngressService {
         String evidence = "VNPAY-" + providerTransaction;
         String operation = evidence;
         String correlation = evidence;
-        if (owner.getPaymentKind() == PaymentOwnerKind.RETAIL) {
+        if (owner.getPaymentKind() == PaymentOwnerKind.CUSTOM_ORDER_FULL_PAYMENT) {
+            customOrderPaymentFacade.ifPresent(facade -> facade.applyVerifiedFullPayment(
+                    owner.getBookingReference(), merchant, providerTransaction, amount, "VND"));
+        } else if (owner.getPaymentKind() == PaymentOwnerKind.RETAIL) {
             retail.applyVerifiedPayment(new RetailVerifiedPayment(owner.getBookingReference(), merchant,
                     providerTransaction, amount, "VND"));
         } else if (owner.getPaymentKind() == PaymentOwnerKind.DEPOSIT) {

@@ -40,7 +40,9 @@ public class VnpayBrowserReturnController {
         String bookingCode = extractBookingCode(params.getFirst("vnp_OrderInfo"));
         UriComponentsBuilder target = UriComponentsBuilder.fromUriString(frontendBaseUrl);
         String orderInfo = params.getFirst("vnp_OrderInfo");
-        if (orderInfo != null && orderInfo.startsWith(RETAIL_PREFIX)
+        if (orderInfo != null && (orderInfo.contains("CO-") || orderInfo.startsWith("Retail checkout CO-"))) {
+            target.path("/account/my-custom-orders");
+        } else if (orderInfo != null && orderInfo.startsWith(RETAIL_PREFIX)
                 && suffix(orderInfo, RETAIL_PREFIX) != null) {
             target.path("/member/orders");
         } else if (bookingCode != null) {

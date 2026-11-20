@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import { useAuth } from '../../../shared/auth/AuthProvider';
 import { useT } from '../../../shared/i18n/I18nProvider';
 import { ErrorNotice, Field, Loading, SuccessNotice, useCommand } from '../../../shared/ui/components';
@@ -25,6 +25,9 @@ export default function DesignWorkspacePage() {
   const isAuthenticated = authStatus === 'signed-in' || Boolean(userId);
 
   const fileInputRef = useRef(null);
+
+  const [searchParams] = useSearchParams();
+  const ringDesignRef = searchParams.get('designReference') || searchParams.get('ringDesignReference') || '';
 
   const [description, setDescription] = useState('');
   const [selectedImages, setSelectedImages] = useState([]);
@@ -170,6 +173,7 @@ export default function DesignWorkspacePage() {
         key,
         {
           description: description.trim(),
+          designReference: ringDesignRef || null,
           consentVersion: selectedImages.length > 0 ? CONSENT_VERSION : null,
           consentPurpose: selectedImages.length > 0 ? CONSENT_PURPOSE : null,
           designVersion: 1,

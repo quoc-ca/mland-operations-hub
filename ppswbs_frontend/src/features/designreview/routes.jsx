@@ -6,9 +6,11 @@ import ReviewDetailPage from './review/ReviewDetailPage';
 import ReviewQueuePage from './review/ReviewQueuePage';
 import DesignDetailPage from './workspace/DesignDetailPage';
 import DesignWorkspacePage from './workspace/DesignWorkspacePage';
+import MyCustomOrdersPage from './workspace/MyCustomOrdersPage';
+import CustomOrderDetailPage from './workspace/CustomOrderDetailPage';
 import './designreview.css';
 
-// Routes for Feature-004 AI Chatbox Analysis and Suggestion
+// Routes for Feature-004 Design Request and Custom Manufacturing
 export const designReviewRoutes = [
   { path: '/ai-support', element: <AiSupportPage /> },
   {
@@ -18,6 +20,22 @@ export const designReviewRoutes = [
   {
     path: '/design-requests/:designRequestId',
     element: <DesignDetailPage />,
+  },
+  {
+    path: '/account/my-custom-orders',
+    element: (
+      <RequireSession>
+        <MyCustomOrdersPage />
+      </RequireSession>
+    ),
+  },
+  {
+    path: '/account/my-custom-orders/:customOrderId',
+    element: (
+      <RequireSession>
+        <CustomOrderDetailPage />
+      </RequireSession>
+    ),
   },
   {
     path: '/design-review-requests',

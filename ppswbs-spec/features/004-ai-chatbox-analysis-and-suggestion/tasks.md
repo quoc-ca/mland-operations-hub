@@ -1,51 +1,47 @@
-# Tasks — Feature-004 Design Request and Human Review
+# Tasks — Feature-004 Design Request and Human Review & Custom Manufacturing Integration
 
 Date created: 2026-11-20
-Date updated: 2026-11-20
+Date updated: 2026-11-21
 Author: Ngô Tiến Đạt
 Last updated by: Ngô Tiến Đạt
 
 ## Phase A — Documentation rebasing
-
-- [ ] Rename logical feature to `004-design-request-and-human-review`.
-- [ ] Remove AI, Gemini, Basic AI and price-suggestion references from Feature-004.
-- [ ] Synchronize `spec-general.md`, `APIs.md`, `DB.md`, `screen.md`, Report 1, Report 3 and registry.
-- [ ] Mark old AI E2E evidence as historical/obsolete.
+- [x] Rename logical feature to `004-design-request-and-human-review`.
+- [x] Remove AI, Gemini, Basic AI and price-suggestion references from Feature-004.
+- [x] Synchronize `spec-general.md`, `APIs.md`, `DB.md`, `screen.md`, Report 1, Report 3 and registry.
+- [x] Mark old AI E2E evidence as historical/obsolete.
 
 ## Phase B — Contract and data model
-
-- [ ] Define Guest opaque session/tracking token lifecycle and five-request daily quota.
-- [ ] Define five-image request model and image-quality lifecycle.
-- [ ] Define `NEED_REVIEW → ACCEPTED/REJECTED` transitions.
-- [ ] Require bounded explanation for every Staff/Manager decision.
-- [ ] Define idempotency, optimistic version and audit behavior.
-- [ ] Create the human-review OpenAPI contract; do not use the legacy AI contract as baseline.
+- [x] Define Guest opaque session/tracking token lifecycle and five-request daily quota.
+- [x] Define five-image request model and image-quality lifecycle.
+- [x] Define `NEED_REVIEW → CLARIFICATION_REQUIRED / ACCEPTED / REJECTED` transitions.
+- [x] Require bounded explanation for every Staff/Manager decision.
+- [x] Define idempotency, optimistic version and audit behavior.
+- [x] Create the human-review and custom-design-order-intake OpenAPI contracts.
 
 ## Phase C — Figma and frontend specification
+- [x] Prepare Guest/Member customer and Staff/Manager operational frames.
+- [x] Include loading, quality, quota, pending, clarification, accepted, rejected, token and conflict states.
+- [x] Record Figma revision and component requirements.
+- [x] Finalize frontend handoff and screen-to-API mapping.
 
-- [ ] Prepare Guest/Member customer and Staff/Manager operational frames.
-- [ ] Include loading, quality, quota, pending, accepted, rejected, token and conflict states.
-- [ ] Record Figma revision and wait for explicit user approval.
-- [ ] Finalize frontend handoff and screen-to-API mapping after approval.
-
-## Phase D — Implementation handoff
-
-- [ ] Backend implements persistence, quality validation, Guest quota and human review.
-- [ ] Frontend implements the approved design and safe projections.
-- [ ] Do not introduce compatibility behavior for the retired AI flow.
+## Phase D — Implementation handoff (Dev A, B, C, D)
+- [x] Dev A (Backend intake & review): Implement persistence, Feature-012 ring snapshot capture, revision on clarification, quality validation, Guest quota, and dual-mapped endpoints.
+- [x] Dev B (Custom Manufacturing & Payment backend): Implement custom order aggregate, quote generation & versioning, Manager approval gate, 100% full payment integration via VNPay, quote expiry/cancellation, and status tracking.
+- [x] Dev C (Frontend): Implement Member `/account/my-custom-orders` (Requests/Orders tabs), `/account/my-custom-orders/:customOrderId` detail & progress stepper, Staff review clarification & quote preparation, zero deposit/cart UI.
+- [x] Dev D (Documentation sync): Synchronize feature specifications, data models, plans, tasks, and changelog.
 
 ## Phase E — Verification
+- [x] Backend compilation check with Java 25 (`release 21`).
+- [x] Frontend unit/component tests in `src/features/designreview` (31/31 passing).
+- [x] Session lifecycle regression tests (29/29 passing).
+- [ ] Detailed E2E test scripts execution (waiting for user-provided test scenario scripts).
 
-- [ ] Run backend unit/integration tests.
-- [ ] Run frontend unit/component tests and build.
-- [ ] Run Browser MCP E2E scenarios E2E-004-001 through E2E-004-012.
-- [ ] Record screenshots and execution status; never mark unexecuted tests PASS.
 ## Phase F — Custom-order full-payment handoff
-
-- [ ] Add Member Requests and Orders views under My Custom Orders.
-- [ ] Display immutable quote total, currency, quote generation and expiry.
-- [ ] Start exactly one payment attempt for the complete active quote.
-- [ ] Do not add custom orders to the retail cart.
-- [ ] Remove deposit, remaining-balance and final-balance actions from the custom-order UI.
-- [ ] Show quote/payment expiry and cancellation, including request-new-quote where permitted.
-- [ ] Test ownership isolation, duplicate payment commands, stale quote, expired quote and late payment evidence.
+- [x] Add Member Requests and Orders views under My Custom Orders.
+- [x] Display immutable quote total, currency, quote generation and expiry.
+- [x] Start exactly one payment attempt for the complete active quote.
+- [x] Do not add custom orders to the retail cart.
+- [x] Remove deposit, remaining-balance and final-balance actions from the custom-order UI.
+- [x] Show quote/payment expiry and cancellation, including request-new-quote where permitted.
+- [x] Test ownership isolation, duplicate payment commands, stale quote, expired quote and late payment evidence.

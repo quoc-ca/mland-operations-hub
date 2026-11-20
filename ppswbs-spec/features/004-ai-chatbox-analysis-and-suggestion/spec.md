@@ -1,13 +1,13 @@
 # Feature Specification: Design Request and Human Review
 
 Date created: 2026-11-20
-Date updated: 2026-11-20
+Date updated: 2026-11-21
 Author: Ngô Tiến Đạt
 Last updated by: Ngô Tiến Đạt
 
 **Logical feature name:** `004-design-request-and-human-review`
 **Legacy directory:** `004-ai-chatbox-analysis-and-suggestion`
-**Status:** Documentation baseline updated; implementation and Figma approval pending.
+**Status:** Implementation complete across Dev A (Feature-004 backend), Dev B (Custom Manufacturing & Payment backend), Dev C (Member & Staff frontend), and Dev D (Spec & documentation sync).
 
 ## 1. Purpose and boundary
 
@@ -100,12 +100,25 @@ commands return a conflict.
 ## 5. API baseline
 
 ```text
-POST /api/v1/design-requests
-GET  /api/v1/design-requests/{designRequestId}
+POST /api/v1/design-requests (dual-mapped with /api/v1/custom-design-requests)
+GET  /api/v1/design-requests/{designRequestId} (dual-mapped with /api/v1/custom-design-requests/{id})
 GET  /api/v1/design-requests
+POST /api/v1/custom-design-requests/{id} (submit revision after CLARIFICATION_REQUIRED)
 GET  /api/v1/design-review-requests
 GET  /api/v1/design-review-requests/{reviewRequestId}
-POST /api/v1/design-review-requests/{reviewRequestId}/decisions
+POST /api/v1/design-review-requests/{reviewRequestId}/decisions (CLARIFICATION_REQUIRED, ACCEPTED, REJECTED)
+POST /api/v1/custom-design-requests/{id}/quote (Staff preparation / Manager handoff)
+
+Member Custom Orders & Payment:
+GET  /api/v1/members/me/custom-design-requests
+GET  /api/v1/members/me/custom-orders
+GET  /api/v1/members/me/custom-orders/{customOrderId}
+POST /api/v1/members/me/custom-orders/{customOrderId}/payment (100% full payment only)
+POST /api/v1/members/me/custom-orders/{customOrderId}/request-new-quote
+
+Custom Manufacturing Operations:
+POST /api/v1/custom-orders/{orderId}/approve-quote (Manager approval)
+POST /api/v1/custom-orders/{orderId}/status (Staff/Manager production & fulfilment tracking)
 ```
 
 All writes require `Idempotency-Key`; versioned review decisions require

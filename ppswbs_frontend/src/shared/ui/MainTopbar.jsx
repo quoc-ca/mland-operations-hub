@@ -300,6 +300,11 @@ export default function MainTopbar() {
                           <span>💬</span> Tư vấn thiết kế
                         </Link>
                       )}
+                      {userRole === 'MEMBER' && (
+                        <Link to="/account/my-custom-orders" className="main-topbar-dropdown-item" role="menuitem">
+                          <span>🔨</span> Đơn hàng gia công tùy chỉnh
+                        </Link>
+                      )}
                       <Link to="/member/orders" className="main-topbar-dropdown-item" role="menuitem">
                         <span>📦</span> Đơn hàng của tôi
                       </Link>
