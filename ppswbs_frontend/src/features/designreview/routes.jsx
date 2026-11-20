@@ -13,11 +13,7 @@ export const designReviewRoutes = [
   { path: '/ai-support', element: <AiSupportPage /> },
   {
     path: '/design-requests/new',
-    element: (
-      <RequireSession requiredText="Vui lòng đăng nhập để tạo yêu cầu thiết kế tùy chỉnh">
-        <DesignWorkspacePage />
-      </RequireSession>
-    ),
+    element: <DesignWorkspacePage />,
   },
   {
     path: '/design-requests/:designRequestId',

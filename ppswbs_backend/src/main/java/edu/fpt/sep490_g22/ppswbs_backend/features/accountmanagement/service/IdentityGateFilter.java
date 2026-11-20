@@ -146,6 +146,9 @@ public class IdentityGateFilter extends OncePerRequestFilter {
         if (path.startsWith("/api/v1/workshop-designs") && request.getHeader(HttpHeaders.AUTHORIZATION) == null) {
             return true;
         }
+        if (path.startsWith("/api/v1/design-requests") && request.getHeader(HttpHeaders.AUTHORIZATION) == null) {
+            return true;
+        }
         return !path.startsWith("/api/");
     }
 

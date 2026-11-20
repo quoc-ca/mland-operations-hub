@@ -34,8 +34,23 @@ export function useWorkshopDesignCommand(isAuthenticated = false) {
       resetCommandKey();
       return res;
     } catch (err) {
+      resetCommandKey();
       if (err?.status === 401) {
         clearStoredGuestSession();
+        // If guest session expired, retry once with fresh guest session
+        if (!isAuthenticated) {
+          try {
+            const retryKey = newCommandId();
+            const retryRes = await api.createDesign(retryKey, createPayload, null, false);
+            if (retryRes && retryRes.guestSession) {
+              setStoredGuestSession(retryRes.guestSession);
+            }
+            return retryRes;
+          } catch (retryErr) {
+            setError(getErrorMessage(retryErr));
+            throw retryErr;
+          }
+        }
       }
       setError(getErrorMessage(err));
       throw err;
@@ -54,6 +69,7 @@ export function useWorkshopDesignCommand(isAuthenticated = false) {
       resetCommandKey();
       return res;
     } catch (err) {
+      resetCommandKey();
       if (err?.status === 401) {
         clearStoredGuestSession();
       }

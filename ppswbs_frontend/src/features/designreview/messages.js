@@ -116,11 +116,27 @@ export const designReviewMessages = {
     'validation.descriptionTooLong': 'Mô tả vượt quá giới hạn 4.000 ký tự.',
     'validation.reasonTooLong': 'Lý do vượt quá giới hạn 2.000 ký tự.',
     'validation.finalPriceRequired': 'Vui lòng nhập giá chốt cuối cùng khi chọn điều chỉnh.',
+    'validation.imageTooBlurry': 'Ảnh quá mờ! Vui lòng chọn ảnh khác rõ nét hơn để nhân viên có thể thẩm định.',
+    'validation.maxImagesExceeded': 'Chỉ được tải lên tối đa 5 ảnh cho mỗi yêu cầu.',
+    'validation.imageQualityChecking': 'Đang kiểm tra độ sắc nét của ảnh...',
+
+    // Guest & Tracking
+    'guest.trackingLink': 'Liên kết theo dõi yêu cầu',
+    'guest.trackingLinkDesc': 'Vui lòng lưu lại liên kết này để theo dõi tiến độ và phản hồi từ nhân viên:',
+    'guest.copyLink': 'Sao chép liên kết',
+    'guest.copied': 'Đã sao chép liên kết theo dõi vào bộ nhớ tạm!',
+    'guest.dailyLimitExceeded': 'Bạn đã sử dụng hết giới hạn 5 yêu cầu/ngày cho khách vãng lai. Vui lòng đăng nhập hoặc quay lại vào ngày mai.',
+
+    // Reviewer feedback
+    'detail.reviewerFeedback': 'Phản hồi từ nhân viên / quản lý',
+    'detail.decisionExplanation': 'Lý do & hướng dẫn từ chuyên viên thẩm duyệt',
+    'detail.imagesGallery': 'Danh sách ảnh mẫu thiết kế ({count}/5)',
+    'detail.guestBanner': 'Bạn đang xem yêu cầu với tư cách Khách thông qua mã bảo mật theo dõi.',
 
     // Status translations
-    'status.NEED_REVIEW': 'Đang đợi phản hồi của nhân viên',
-    'status.ACCEPTED': 'Đã được chấp thuận',
-    'status.REJECTED': 'Đã từ chối',
+    'status.NEED_REVIEW': 'Đang chờ nhân viên thẩm duyệt',
+    'status.ACCEPTED': 'Đã chấp nhận thiết kế',
+    'status.REJECTED': 'Từ chối thiết kế',
     'status.CLARIFICATION_REQUIRED': 'Cần làm rõ thêm',
     'status.SUCCEEDED': 'Hoàn thành phân tích',
     'status.PROCESSING': 'Đang phân tích',
@@ -128,6 +144,11 @@ export const designReviewMessages = {
     'status.PENDING': 'Đang chờ xử lý',
 
     // Server error codes
+    'error.DESIGN_REQUEST_GUEST_DAILY_LIMIT_EXCEEDED': 'Bạn đã gửi tối đa 5 yêu cầu trong ngày hôm nay. Vui lòng quay lại vào ngày mai hoặc đăng nhập tài khoản thành viên.',
+    'error.DESIGN_REQUEST_IMAGE_TOO_BLURRY': 'Ảnh gửi lên quá mờ, không đạt độ sắc nét để nhân viên thẩm định. Vui lòng chọn ảnh rõ nét hơn.',
+    'error.DESIGN_REQUEST_MAX_IMAGES_EXCEEDED': 'Mỗi yêu cầu chỉ được gửi tối đa 5 ảnh.',
+    'error.DESIGN_REVIEW_ALREADY_DECIDED': 'Yêu cầu này đã được thẩm duyệt trước đó (trạng thái cuối cùng).',
+    'error.DESIGN_REVIEW_EXPLANATION_REQUIRED': 'Vui lòng nhập đầy đủ văn bản giải thích lý do chấp nhận hoặc từ chối thiết kế.',
     'error.AI_INPUT_INVALID': 'Dữ liệu nhập vào không hợp lệ hoặc không đúng định dạng.',
     'error.AUTHENTICATION_REQUIRED': 'Bạn cần đăng nhập bằng tài khoản Hội viên để tiếp tục.',
     'error.MEMBER_INACTIVE_OR_INVALID': 'Tài khoản không phải là Hội viên đang hoạt động.',
@@ -267,6 +288,22 @@ export const designReviewMessages = {
     'validation.descriptionTooLong': 'Description exceeds the 4,000 character limit.',
     'validation.reasonTooLong': 'Reason exceeds the 2,000 character limit.',
     'validation.finalPriceRequired': 'Final price is required when adjusting the price.',
+    'validation.imageTooBlurry': 'Image is too blurry! Please select a sharper image for staff review.',
+    'validation.maxImagesExceeded': 'You can only upload up to 5 images per request.',
+    'validation.imageQualityChecking': 'Checking image sharpness...',
+
+    // Guest & Tracking
+    'guest.trackingLink': 'Design Request Tracking Link',
+    'guest.trackingLinkDesc': 'Please save this link to track your request status and staff feedback:',
+    'guest.copyLink': 'Copy Link',
+    'guest.copied': 'Tracking link copied to clipboard!',
+    'guest.dailyLimitExceeded': 'You have exceeded the daily limit of 5 requests for guests. Please sign in or try again tomorrow.',
+
+    // Reviewer feedback
+    'detail.reviewerFeedback': 'Staff / Manager Feedback',
+    'detail.decisionExplanation': 'Reviewer decision rationale & guidance',
+    'detail.imagesGallery': 'Reference Design Images ({count}/5)',
+    'detail.guestBanner': 'You are viewing this design request as a Guest using your secure tracking token.',
 
     // Status translations
     'status.NEED_REVIEW': 'Awaiting staff review',
@@ -279,6 +316,11 @@ export const designReviewMessages = {
     'status.PENDING': 'Pending',
 
     // Server error codes
+    'error.DESIGN_REQUEST_GUEST_DAILY_LIMIT_EXCEEDED': 'Guest daily limit of 5 design requests exceeded. Please try again tomorrow or sign in.',
+    'error.DESIGN_REQUEST_IMAGE_TOO_BLURRY': 'Image is too blurry to be reviewed. Please upload a clearer image.',
+    'error.DESIGN_REQUEST_MAX_IMAGES_EXCEEDED': 'Maximum of 5 images allowed per design request.',
+    'error.DESIGN_REVIEW_ALREADY_DECIDED': 'This design request has already been reviewed (terminal state).',
+    'error.DESIGN_REVIEW_EXPLANATION_REQUIRED': 'A detailed explanation is required for approving or rejecting the design request.',
     'error.AI_INPUT_INVALID': 'Invalid or malformed input provided.',
     'error.AUTHENTICATION_REQUIRED': 'You must sign in with a Member account to continue.',
     'error.MEMBER_INACTIVE_OR_INVALID': 'Account is not an active Member.',

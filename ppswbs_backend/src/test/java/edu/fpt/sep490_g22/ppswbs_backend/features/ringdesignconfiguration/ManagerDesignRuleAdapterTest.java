@@ -254,5 +254,155 @@ class ManagerDesignRuleAdapterTest {
         assertThat(eval.getWarnings()).isNotEmpty();
         assertThat(eval.getWarnings().get(0)).contains("bề mặt gồ ghề");
     }
+
+    @Test
+    @DisplayName("validateCompatibility should allow up to 10 total gemstones and reject 11")
+    void validateCompatibility_AggregateGemstoneLimit() {
+        // 5 CZ + 5 Moissanite = 10 -> Valid
+        SaveDesignVersionRequest validReq = SaveDesignVersionRequest.builder()
+                .packageReference("PKG-01")
+                .materialReference("MAT-SILVER-925")
+                .shapeReference("SHP-ROUND")
+                .ringSize("8")
+                .components(List.of(
+                        ComponentSelectionDto.builder().reference("GEM-CZ").quantity(5).placement("CENTER").build(),
+                        ComponentSelectionDto.builder().reference("GEM-MOISS").quantity(5).placement("HALO").build()
+                ))
+                .build();
+
+        when(materialRepository.findByMaterialCode("MAT-SILVER-925")).thenReturn(Optional.of(RingMaterial.builder().materialCode("MAT-SILVER-925").isActive(true).build()));
+        when(shapeRepository.findByShapeCode("SHP-ROUND")).thenReturn(Optional.of(RingShape.builder().shapeCode("SHP-ROUND").isActive(true).build()));
+        when(gemstoneRepository.findByGemstoneCode("GEM-CZ")).thenReturn(Optional.of(RingGemstone.builder().gemstoneCode("GEM-CZ").maxQuantity(10).isActive(true).build()));
+        when(gemstoneRepository.findByGemstoneCode("GEM-MOISS")).thenReturn(Optional.of(RingGemstone.builder().gemstoneCode("GEM-MOISS").maxQuantity(10).isActive(true).build()));
+
+        ValidationResultDto validResult = ruleAdapter.validateCompatibility(validReq, null);
+        assertThat(validResult.isValid()).isTrue();
+
+        // 6 CZ + 5 Moissanite = 11 -> Rejects with GEMSTONE_TOTAL_LIMIT_EXCEEDED
+        SaveDesignVersionRequest invalidReq = SaveDesignVersionRequest.builder()
+                .packageReference("PKG-01")
+                .materialReference("MAT-SILVER-925")
+                .shapeReference("SHP-ROUND")
+                .ringSize("8")
+                .components(List.of(
+                        ComponentSelectionDto.builder().reference("GEM-CZ").quantity(6).placement("CENTER").build(),
+                        ComponentSelectionDto.builder().reference("GEM-MOISS").quantity(5).placement("HALO").build()
+                ))
+                .build();
+
+        ValidationResultDto invalidResult = ruleAdapter.validateCompatibility(invalidReq, null);
+        assertThat(invalidResult.isValid()).isFalse();
+        assertThat(invalidResult.getReasons()).anyMatch(r -> r.contains("GEMSTONE_TOTAL_LIMIT_EXCEEDED"));
+    }
+
+    @Test
+    @DisplayName("validateCompatibility should enforce separate quotas: max 2 TEXT, max 2 SYMBOL, max 2 CUSTOM_IMAGE")
+    void validateCompatibility_EngravingQuotas() {
+        when(materialRepository.findByMaterialCode("MAT-SILVER-925")).thenReturn(Optional.of(RingMaterial.builder().materialCode("MAT-SILVER-925").isActive(true).build()));
+        when(shapeRepository.findByShapeCode("SHP-ROUND")).thenReturn(Optional.of(RingShape.builder().shapeCode("SHP-ROUND").isActive(true).build()));
+
+        // 3 TEXT items -> Rejects with TEXT_ENGRAVING_LIMIT_EXCEEDED
+        SaveDesignVersionRequest req3Text = SaveDesignVersionRequest.builder()
+                .packageReference("PKG-01")
+                .materialReference("MAT-SILVER-925")
+                .shapeReference("SHP-ROUND")
+                .ringSize("8")
+                .engraving(EngravingInputDto.builder()
+                        .enabled(true)
+                        .items(List.of(
+                                EngravingItemDto.builder().id("1").type("TEXT").content("A").placement("INNER_BAND").build(),
+                                EngravingItemDto.builder().id("2").type("TEXT").content("B").placement("INNER_BAND").build(),
+                                EngravingItemDto.builder().id("3").type("TEXT").content("C").placement("INNER_BAND").build()
+                        ))
+                        .build())
+                .build();
+
+        ValidationResultDto res3Text = ruleAdapter.validateCompatibility(req3Text, null);
+        assertThat(res3Text.isValid()).isFalse();
+        assertThat(res3Text.getReasons()).anyMatch(r -> r.contains("TEXT_ENGRAVING_LIMIT_EXCEEDED"));
+
+        // 3 SYMBOL items -> Rejects with SYMBOL_ENGRAVING_LIMIT_EXCEEDED
+        SaveDesignVersionRequest req3Symbol = SaveDesignVersionRequest.builder()
+                .packageReference("PKG-01")
+                .materialReference("MAT-SILVER-925")
+                .shapeReference("SHP-ROUND")
+                .ringSize("8")
+                .engraving(EngravingInputDto.builder()
+                        .enabled(true)
+                        .items(List.of(
+                                EngravingItemDto.builder().id("1").type("SYMBOL").content("♥").placement("INNER_BAND").build(),
+                                EngravingItemDto.builder().id("2").type("SYMBOL").content("★").placement("INNER_BAND").build(),
+                                EngravingItemDto.builder().id("3").type("SYMBOL").content("✿").placement("INNER_BAND").build()
+                        ))
+                        .build())
+                .build();
+
+        ValidationResultDto res3Symbol = ruleAdapter.validateCompatibility(req3Symbol, null);
+        assertThat(res3Symbol.isValid()).isFalse();
+        assertThat(res3Symbol.getReasons()).anyMatch(r -> r.contains("SYMBOL_ENGRAVING_LIMIT_EXCEEDED"));
+
+        // 3 Custom images -> Rejects with IMAGE_ENGRAVING_LIMIT_EXCEEDED
+        SaveDesignVersionRequest req3Images = SaveDesignVersionRequest.builder()
+                .packageReference("PKG-01")
+                .materialReference("MAT-SILVER-925")
+                .shapeReference("SHP-ROUND")
+                .ringSize("8")
+                .engraving(EngravingInputDto.builder()
+                        .enabled(false)
+                        .customImages(List.of(
+                                CustomEngravingImageDto.builder().id("1").placement("INNER_BAND").contrast(50).sharpness(50).build(),
+                                CustomEngravingImageDto.builder().id("2").placement("INNER_BAND").contrast(50).sharpness(50).build(),
+                                CustomEngravingImageDto.builder().id("3").placement("INNER_BAND").contrast(50).sharpness(50).build()
+                        ))
+                        .build())
+                .build();
+
+        ValidationResultDto res3Images = ruleAdapter.validateCompatibility(req3Images, null);
+        assertThat(res3Images.isValid()).isFalse();
+        assertThat(res3Images.getReasons()).anyMatch(r -> r.contains("IMAGE_ENGRAVING_LIMIT_EXCEEDED"));
+    }
+
+    @Test
+    @DisplayName("validateCompatibility should reject contrast or sharpness outside 0..100")
+    void validateCompatibility_ImagePreprocessingLimits() {
+        when(materialRepository.findByMaterialCode("MAT-SILVER-925")).thenReturn(Optional.of(RingMaterial.builder().materialCode("MAT-SILVER-925").isActive(true).build()));
+        when(shapeRepository.findByShapeCode("SHP-ROUND")).thenReturn(Optional.of(RingShape.builder().shapeCode("SHP-ROUND").isActive(true).build()));
+
+        // contrast = 105 -> Rejects with IMAGE_PREPROCESSING_INVALID
+        SaveDesignVersionRequest reqBadContrast = SaveDesignVersionRequest.builder()
+                .packageReference("PKG-01")
+                .materialReference("MAT-SILVER-925")
+                .shapeReference("SHP-ROUND")
+                .ringSize("8")
+                .engraving(EngravingInputDto.builder()
+                        .enabled(false)
+                        .customImages(List.of(
+                                CustomEngravingImageDto.builder().id("1").placement("INNER_BAND").contrast(105).sharpness(50).build()
+                        ))
+                        .build())
+                .build();
+
+        ValidationResultDto resBadContrast = ruleAdapter.validateCompatibility(reqBadContrast, null);
+        assertThat(resBadContrast.isValid()).isFalse();
+        assertThat(resBadContrast.getReasons()).anyMatch(r -> r.contains("IMAGE_PREPROCESSING_INVALID"));
+
+        // sharpness = -5 -> Rejects with IMAGE_PREPROCESSING_INVALID
+        SaveDesignVersionRequest reqBadSharpness = SaveDesignVersionRequest.builder()
+                .packageReference("PKG-01")
+                .materialReference("MAT-SILVER-925")
+                .shapeReference("SHP-ROUND")
+                .ringSize("8")
+                .engraving(EngravingInputDto.builder()
+                        .enabled(false)
+                        .customImages(List.of(
+                                CustomEngravingImageDto.builder().id("1").placement("INNER_BAND").contrast(50).sharpness(-5).build()
+                        ))
+                        .build())
+                .build();
+
+        ValidationResultDto resBadSharpness = ruleAdapter.validateCompatibility(reqBadSharpness, null);
+        assertThat(resBadSharpness.isValid()).isFalse();
+        assertThat(resBadSharpness.getReasons()).anyMatch(r -> r.contains("IMAGE_PREPROCESSING_INVALID"));
+    }
 }
 

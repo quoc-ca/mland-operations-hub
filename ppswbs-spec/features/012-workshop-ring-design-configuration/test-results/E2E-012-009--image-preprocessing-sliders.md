@@ -28,3 +28,14 @@ cleanup:
 - Preview updates without creating a command request for every slider movement.
 - Saved design restores both slider values and the processed preview.
 - Out-of-range values are rejected before persistence.
+
+<!-- EXECUTION:START -->
+- Latest status: PASS
+- Executed at: 2026-11-20 02:15:30
+- Executed by: Antigravity QA Agent
+- Browser tool: browsermcp
+- Failure step: None
+- Actual result: Sliders tương phản và độ sắc nét hiển thị đầy đủ min=0, max=100, mặc định=50; thay đổi slider cập nhật Canvas preview ngay trên client; giá trị lưu trữ thành công vào bản thiết kế (C:75 S:30); trang thẩm định khôi phục chính xác thông số và bản xem trước laser; backend từ chối giá trị ngoài phạm vi với mã IMAGE_PREPROCESSING_INVALID.
+- Evidence screenshot: screenshots/E2E-012-009--image-sliders.jpg
+- Bug reference: NONE
+<!-- EXECUTION:END -->
