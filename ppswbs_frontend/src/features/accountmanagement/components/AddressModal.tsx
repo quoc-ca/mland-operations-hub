@@ -13,6 +13,30 @@ import {
 } from '../hooks/useMemberAddresses';
 import '../accountmanagement.css';
 
+/**
+ * Why a phone number is not accepted, worded for the field, or '' when it is valid. The rule is the same as
+ * validatePhoneNumber (Vietnamese mobile, 10 digits, +84/spaces/dots/dashes normalised).
+ */
+export function phoneNumberProblem(raw: string): string {
+  const value = raw.trim();
+  if (!value) return 'Số điện thoại người nhận là bắt buộc';
+  if (/[^\d\s.\-()+]/.test(value)) return 'Số điện thoại chỉ được gồm chữ số (có thể bắt đầu bằng +84).';
+  const normalized = normalizePhoneNumber(value);
+  if (!/^\d+$/.test(normalized)) return 'Số điện thoại chỉ được gồm chữ số (có thể bắt đầu bằng +84).';
+  if (!normalized.startsWith('0')) return 'Số điện thoại phải bắt đầu bằng 0 hoặc +84.';
+  if (normalized.length !== 10) return `Số điện thoại phải có đúng 10 chữ số (bạn đã nhập ${normalized.length}).`;
+  if (!validatePhoneNumber(normalized)) return 'Đầu số không hợp lệ: số di động Việt Nam bắt đầu bằng 03, 05, 07, 08 hoặc 09.';
+  return '';
+}
+
+/** Show the phone problem while typing once it is certain: a wrong character, or 10 or more digits typed. */
+function phoneProblemIsCertain(raw: string): boolean {
+  const value = raw.trim();
+  if (!value) return false;
+  if (/[^\d\s.\-()+]/.test(value)) return true;
+  return normalizePhoneNumber(value).replace(/\D/g, '').length >= 10;
+}
+
 export interface AddressModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -42,6 +66,9 @@ export const AddressModal: React.FC<AddressModalProps> = ({
   const [isDefault, setIsDefault] = useState(false);
 
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  // Fields the Member has left at least once: their problem is shown under the field straight away.
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const touch = (field: string) => setTouched(prev => (prev[field] ? prev : { ...prev, [field]: true }));
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -84,6 +111,7 @@ export const AddressModal: React.FC<AddressModalProps> = ({
     if (!isOpen) return;
 
     setFieldErrors({});
+    setTouched({});
     setSubmitError(null);
     setCommuneFilter('');
 
@@ -205,6 +233,13 @@ export const AddressModal: React.FC<AddressModalProps> = ({
   };
 
   const isEditing = Boolean(initialAddress);
+  const nameError = fieldErrors.recipientName
+    || (touched.recipientName && !recipientName.trim() ? 'Họ và tên người nhận là bắt buộc' : '');
+  const phoneError = fieldErrors.phoneNumber
+    || (touched.phoneNumber || phoneProblemIsCertain(phoneNumber) ? phoneNumberProblem(phoneNumber) : '');
+  const detailError = fieldErrors.detailAddress
+    || (touched.detailAddress && isCommuneValid && !detailAddress.trim()
+      ? 'Địa chỉ chi tiết (số nhà, tên đường...) là bắt buộc' : '');
   const isDefaultFixed = isFirstAddress || (isEditing && Boolean(initialAddress?.isDefault));
 
   return (
@@ -260,14 +295,15 @@ export const AddressModal: React.FC<AddressModalProps> = ({
                   setRecipientName(e.target.value);
                   if (fieldErrors.recipientName) setFieldErrors(prev => ({ ...prev, recipientName: '' }));
                 }}
+                onBlur={() => touch('recipientName')}
                 maxLength={255}
-                aria-invalid={Boolean(fieldErrors.recipientName)}
+                aria-invalid={Boolean(nameError)}
                 disabled={submitting}
                 placeholder="Ví dụ: Nguyễn Văn A"
               />
-              {fieldErrors.recipientName && (
+              {nameError && (
                 <span className="account-field-error" role="alert">
-                  {fieldErrors.recipientName}
+                  {nameError}
                 </span>
               )}
             </div>
@@ -285,21 +321,24 @@ export const AddressModal: React.FC<AddressModalProps> = ({
                   setPhoneNumber(e.target.value);
                   if (fieldErrors.phoneNumber) setFieldErrors(prev => ({ ...prev, phoneNumber: '' }));
                 }}
+                onBlur={() => touch('phoneNumber')}
                 maxLength={30}
-                aria-invalid={Boolean(fieldErrors.phoneNumber)}
+                aria-invalid={Boolean(phoneError)}
+                aria-describedby="modal-phone-number-message"
                 disabled={submitting || !isNameValid}
                 placeholder={!isNameValid ? '— Nhập Họ và tên trước —' : 'Ví dụ: 0912345678'}
               />
-              {fieldErrors.phoneNumber && (
-                <span className="account-field-error" role="alert">
-                  {fieldErrors.phoneNumber}
+              {phoneError ? (
+                <span id="modal-phone-number-message" className="account-field-error" role="alert">
+                  {phoneError}
+                </span>
+              ) : (
+                <span id="modal-phone-number-message" className="account-field-hint">
+                  {!isNameValid
+                    ? 'Vui lòng nhập Họ tên để mở khóa trường này.'
+                    : 'Số di động 10 chữ số (tự chuẩn hóa +84/dấu cách).'}
                 </span>
               )}
-              <span className="account-field-hint">
-                {!isNameValid
-                  ? 'Vui lòng nhập Họ tên để mở khóa trường này.'
-                  : 'Số di động 10 chữ số (tự chuẩn hóa +84/dấu cách).'}
-              </span>
             </div>
           </div>
 
@@ -402,14 +441,15 @@ export const AddressModal: React.FC<AddressModalProps> = ({
                 setDetailAddress(e.target.value);
                 if (fieldErrors.detailAddress) setFieldErrors(prev => ({ ...prev, detailAddress: '' }));
               }}
+              onBlur={() => touch('detailAddress')}
               maxLength={255}
-              aria-invalid={Boolean(fieldErrors.detailAddress)}
+              aria-invalid={Boolean(detailError)}
               disabled={submitting || !isCommuneValid}
               placeholder={!isCommuneValid ? '— Vui lòng chọn Phường/Xã trước —' : 'Ví dụ: Số 25, Ngõ 12 Đội Cấn...'}
             />
-            {fieldErrors.detailAddress && (
+            {detailError && (
               <span className="account-field-error" role="alert">
-                {fieldErrors.detailAddress}
+                {detailError}
               </span>
             )}
           </div>

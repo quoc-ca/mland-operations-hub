@@ -186,6 +186,10 @@ function PickupCard({ item, open, onToggle, busy, format, branchName, received, 
   const cash = order.paymentMethod === 'CASH_AT_COUNTER';
   const amount = received[order.id] ?? order.payableAmount;
   const change = /^[0-9]+$/.test(String(amount)) && BigInt(amount) >= BigInt(order.payableAmount) ? (BigInt(amount) - BigInt(order.payableAmount)).toString() : null;
+  // Shown under the cash box while typing, so Staff sees the problem before pressing "Xác nhận đã thu".
+  const cashProblem = !/^[0-9]+$/.test(String(amount)) ? 'Nhập số tiền khách đưa (chỉ gồm chữ số).'
+    : /^0/.test(String(amount)) ? 'Số tiền không được bắt đầu bằng 0.'
+      : BigInt(amount) < BigInt(order.payableAmount) ? `Khách đưa chưa đủ, còn thiếu ${format.money((BigInt(order.payableAmount) - BigInt(amount)).toString())}.` : '';
   const urgent = item.tab === 'AWAITING_CASH' && order.counterPaymentDeadline && new Date(order.counterPaymentDeadline).getTime() - Date.now() < DAY_MS;
   const pill = { HISTORY: 'Hoàn thành', AWAITING_CASH: 'Chờ thu tiền mặt', PREPARING: 'Đang chuẩn bị hàng', TO_HAND_OVER: 'Chờ khách nhận' }[item.tab];
   return <article className={`order-card${urgent ? ' urgent' : ''}${open ? ' open' : ''}`} {...cardToggleProps(open, onToggle)}>
@@ -213,9 +217,10 @@ function PickupCard({ item, open, onToggle, busy, format, branchName, received, 
       <span className="order-sum">{item.tab === 'AWAITING_CASH' ? 'Cần thu' : 'Thành tiền'} <strong>{format.money(order.payableAmount)}</strong></span>
     </div>
     {item.tab === 'AWAITING_CASH' && <div className="order-actions">
-      <label className="cash-input">Khách đưa<input inputMode="numeric" value={amount} onChange={event => setReceived(current => ({ ...current, [order.id]: event.target.value.replace(/[^0-9]/g, '') }))} /></label>
+      <label className="cash-input">Khách đưa<input inputMode="numeric" maxLength={16} value={amount} aria-invalid={Boolean(cashProblem)} onChange={event => setReceived(current => ({ ...current, [order.id]: event.target.value.replace(/[^0-9]/g, '').slice(0, 16) }))} /></label>
       <span className="muted">Tiền thối: {change == null ? '—' : format.money(change)}</span>
-      <button type="button" className="button primary" disabled={busy} onClick={() => onConfirmCash(item)}>{busy ? 'Đang ghi nhận…' : 'Xác nhận đã thu'}</button>
+      {cashProblem && <small className="cash-input-error" role="alert">{cashProblem}</small>}
+      <button type="button" className="button primary" disabled={busy || Boolean(cashProblem)} onClick={() => onConfirmCash(item)}>{busy ? 'Đang ghi nhận…' : 'Xác nhận đã thu'}</button>
     </div>}
     {item.tab === 'PREPARING' && <div className="order-actions"><span className="muted">{cash ? 'Đã thu tiền mặt' : 'Đã thanh toán VNPay'}</span><button type="button" className="button primary" disabled={busy} onClick={() => onPrepare(item)}>{busy ? 'Đang ghi nhận…' : 'Đã chuẩn bị xong'}</button></div>}
     {item.tab === 'TO_HAND_OVER' && <div className="order-actions"><button type="button" className="button primary" disabled={busy} onClick={() => onHandOver(item)}>{busy ? 'Đang ghi nhận…' : 'Giao cho khách'}</button></div>}

@@ -73,6 +73,9 @@ export function VoucherPicker({ vouchers, selectedCode, subtotal, rejectedCodes,
   const applyTyped = () => {
     const code = typedCode.trim().toUpperCase();
     if (!code) { setTypedError('Nhập mã voucher trước.'); return; }
+    // Same rule as FE-06 promotion codes: 1-128 characters after trimming, no control characters.
+    if ([...code].length > 128) { setTypedError('Mã voucher tối đa 128 ký tự.'); return; }
+    if (/[\u0000-\u001F\u007F-\u009F]/.test(code)) { setTypedError('Mã voucher có ký tự không hợp lệ.'); return; }
     const known = vouchers.find(item => item.code.toUpperCase() === code);
     setTypedError('');
     setDraft(known ? known.code : code);
