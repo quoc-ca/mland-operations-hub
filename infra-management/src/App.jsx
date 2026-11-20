@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import './App.css'
-import { isFirebaseConfigured, loginWithGoogle, logoutFirebase } from './firebase.js'
+import { loginWithGoogle, logoutFirebase } from './firebase.js'
+import { parseEnvContent } from './envParser.js'
 
 const AUTH_KEY = 'infra-management-auth'
 const initialEnv = [{ key: '', value: '' }]
@@ -87,10 +88,15 @@ function Login({ onLogin }) {
 
 function StagingPage({ onNotice, currentUser }) {
   const [showStart, setShowStart] = useState(false)
+  const [gitBranch, setGitBranch] = useState('develop')
   const [envRows, setEnvRows] = useState(initialEnv)
   const [polling, setPolling] = useState(true)
   const [logState, setLogState] = useState('Waiting for API connection')
+  const [logContent, setLogContent] = useState('')
   const [serverStatus, setServerStatus] = useState('STOPPED')
+  const [serverIp, setServerIp] = useState('')
+  const [isDeploying, setIsDeploying] = useState(false)
+  const fileInputRef = useRef(null)
 
   const controlApiUrl = (import.meta.env.VITE_CONTROL_API_URL || '').replace(/\/$/, '')
 
@@ -99,24 +105,67 @@ function StagingPage({ onNotice, currentUser }) {
   const removeRow = (index) => setEnvRows((rows) => (rows.length === 1 ? initialEnv : rows.filter((_, i) => i !== index)))
   const notConnected = (action) => onNotice(`${action} is unavailable: Control API is not connected yet.`)
 
+  const handleFileUpload = (event) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const text = e.target?.result
+      if (typeof text === 'string') {
+        const parsed = parseEnvContent(text)
+        setEnvRows(parsed)
+        const valid = parsed.filter((r) => r.key.trim()).length
+        onNotice(`Đã import thành công ${valid} biến môi trường từ file "${file.name}"`)
+      }
+    }
+    reader.onerror = () => {
+      onNotice(`Không thể đọc file "${file.name}". Vui lòng thử lại.`)
+    }
+    reader.readAsText(file)
+    event.target.value = ''
+  }
+
+  const validCount = envRows.filter((r) => r.key.trim()).length
+
   useEffect(() => {
     if (!polling) return undefined
     let cancelled = false
 
-    const pollLogs = async () => {
+    const pollStatusAndLogs = async () => {
+      if (!controlApiUrl) return
+
+      // 1. Kiểm tra trạng thái máy chủ EC2 thực tế
       try {
-        const endpoint = controlApiUrl ? `${controlApiUrl}/staging/logs` : '/api/staging/logs'
-        const response = await fetch(endpoint, { headers: { Accept: 'application/json' } })
-        if (!response.ok) throw new Error('Control API is not connected')
-        const data = await response.json()
-        if (!cancelled) setLogState(data.logs ? 'Log snapshot updated' : 'Waiting for logs')
+        const statusRes = await fetch(`${controlApiUrl}/staging/status`, { headers: { Accept: 'application/json' } })
+        if (statusRes.ok) {
+          const statusData = await statusRes.json()
+          if (!cancelled && statusData.state) {
+            const normalized = statusData.state.toUpperCase()
+            setServerStatus(normalized === 'PENDING' ? 'STARTING' : normalized)
+            if (statusData.publicIp) setServerIp(statusData.publicIp)
+          }
+        }
+      } catch {
+        /* bỏ qua lỗi poll status */
+      }
+
+      // 2. Lấy snapshot log container / deploy
+      try {
+        const logsRes = await fetch(`${controlApiUrl}/staging/logs`, { headers: { Accept: 'application/json' } })
+        if (!logsRes.ok) throw new Error('Control API is not connected')
+        const logsData = await logsRes.json()
+        if (!cancelled) {
+          setLogContent(logsData.logs || '')
+          setLogState(logsData.logs ? 'Log snapshot updated' : 'Waiting for logs')
+        }
       } catch {
         if (!cancelled) setLogState('Control API is not connected')
       }
     }
 
-    pollLogs()
-    const timer = window.setInterval(pollLogs, 5000)
+    pollStatusAndLogs()
+    const timer = window.setInterval(pollStatusAndLogs, 5000)
     return () => {
       cancelled = true
       window.clearInterval(timer)
@@ -131,19 +180,84 @@ function StagingPage({ onNotice, currentUser }) {
       return
     }
 
+    const envPayload = envRows.reduce((acc, row) => {
+      const k = (row.key || '').trim()
+      if (k) acc[k] = row.value ?? ''
+      return acc
+    }, {})
+
     try {
       setServerStatus('STARTING')
-      onNotice('Lệnh khởi động Staging đã được gửi tới Lambda...')
+      onNotice(`Lệnh khởi động Staging (branch: ${gitBranch}) đã được gửi tới Lambda...`)
       const response = await fetch(`${controlApiUrl}/staging/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ owner: currentUser })
+        body: JSON.stringify({
+          owner: currentUser,
+          branch: gitBranch,
+          env: envPayload
+        })
       })
       if (!response.ok) throw new Error('Không thể khởi động qua Lambda')
-      onNotice('EC2 đang trong quá trình khởi động và kéo code...')
+      const data = await response.json().catch(() => ({}))
+      onNotice(data.message || 'EC2 đang trong quá trình khởi động...')
     } catch (err) {
       onNotice(`Lỗi khởi động: ${err.message}`)
       setServerStatus('STOPPED')
+    }
+  }
+
+  const handleDeploy = async () => {
+    if (!controlApiUrl) {
+      notConnected('Deploy')
+      return
+    }
+
+    const envPayload = envRows.reduce((acc, row) => {
+      const k = (row.key || '').trim()
+      if (k) acc[k] = row.value ?? ''
+      return acc
+    }, {})
+
+    try {
+      setIsDeploying(true)
+      onNotice(`Đang gửi lệnh kéo code branch "${gitBranch}" và build trên EC2...`)
+      const response = await fetch(`${controlApiUrl}/staging/deploy`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          owner: currentUser,
+          branch: gitBranch,
+          env: envPayload
+        })
+      })
+      if (!response.ok) throw new Error('Không thể gửi lệnh deploy tới Lambda')
+      const data = await response.json().catch(() => ({}))
+      onNotice(data.message || 'Lệnh deploy đã được gửi thành công. Đang tiến hành build container...')
+    } catch (err) {
+      onNotice(`Lỗi deploy: ${err.message}`)
+    } finally {
+      setIsDeploying(false)
+    }
+  }
+
+  const handleStop = async () => {
+    if (!controlApiUrl) {
+      notConnected('Stop')
+      return
+    }
+    try {
+      setServerStatus('STOPPING')
+      onNotice('Đang gửi lệnh dừng EC2 và container...')
+      const response = await fetch(`${controlApiUrl}/staging/stop`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      })
+      if (!response.ok) throw new Error('Không thể dừng qua Lambda')
+      const data = await response.json().catch(() => ({}))
+      onNotice(data.message || 'Lệnh dừng EC2 đã được gửi thành công.')
+    } catch (err) {
+      onNotice(`Lỗi dừng EC2: ${err.message}`)
     }
   }
 
@@ -169,12 +283,44 @@ function StagingPage({ onNotice, currentUser }) {
           <div>
             <p className="eyebrow">CURRENT STATE</p>
             <h3>Environment is {serverStatus.toLowerCase()}</h3>
-            <p className="muted">No EC2 compute charges while stopped. EBS and public IP charges may still apply.</p>
+            <p className="muted">
+              {serverStatus === 'RUNNING'
+                ? `EC2 đang chạy tại IP: ${serverIp || 'Đang lấy IP...'}. Cổng 80 phục vụ backend.`
+                : 'No EC2 compute charges while stopped. EBS and public IP charges may still apply.'}
+            </p>
           </div>
         </div>
         <div className="hero-actions">
-          <button className="button primary" onClick={() => setShowStart(true)}>Start staging</button>
-          <p className="action-hint">Chủ sở hữu hiện tại: {currentUser}</p>
+          {serverStatus === 'RUNNING' ? (
+            <div className="action-buttons-group">
+              <button
+                className="button primary deploy-btn"
+                onClick={handleDeploy}
+                disabled={isDeploying}
+                title="Kéo code mới nhất từ GitHub và rebuild backend"
+              >
+                {isDeploying ? 'Đang deploy...' : 'Deploy / Rebuild ⟳'}
+              </button>
+              <button
+                className="button secondary stop-btn"
+                onClick={handleStop}
+                title="Dừng EC2 và giải phóng containers"
+              >
+                Stop staging
+              </button>
+            </div>
+          ) : serverStatus === 'STARTING' || serverStatus === 'STOPPING' ? (
+            <button className="button primary" disabled>
+              {serverStatus === 'STARTING' ? 'Đang khởi động...' : 'Đang tắt máy...'}
+            </button>
+          ) : (
+            <button className="button primary" onClick={() => setShowStart(true)}>
+              Start staging
+            </button>
+          )}
+          <p className="action-hint">
+            Chủ sở hữu: <strong>{currentUser}</strong> · Branch: <code>{gitBranch}</code>
+          </p>
         </div>
       </section>
 
@@ -193,8 +339,20 @@ function StagingPage({ onNotice, currentUser }) {
               <dd>{currentUser}</dd>
             </div>
             <div>
-              <dt>Endpoint</dt>
-              <dd><code>api-staging.example.com</code></dd>
+              <dt>Active Branch</dt>
+              <dd><code>{gitBranch}</code></dd>
+            </div>
+            <div>
+              <dt>Backend HTTP</dt>
+              <dd>
+                {serverIp ? (
+                  <a href={`http://${serverIp}`} target="_blank" rel="noreferrer">
+                    <code>http://{serverIp}</code>
+                  </a>
+                ) : (
+                  <code>api-staging.example.com</code>
+                )}
+              </dd>
             </div>
             <div>
               <dt>Region</dt>
@@ -262,7 +420,9 @@ function StagingPage({ onNotice, currentUser }) {
         </div>
         <div className="terminal">
           <span className="terminal-cursor">$</span>
-          <span>{logState === 'Control API is not connected' ? 'Logs unavailable until the control API is connected.' : 'Waiting for the first log snapshot...'}</span>
+          <pre className="terminal-pre">
+            {logContent || (logState === 'Control API is not connected' ? 'Logs unavailable until the control API is connected.' : 'Waiting for the first log snapshot...')}
+          </pre>
         </div>
       </section>
 
@@ -281,13 +441,62 @@ function StagingPage({ onNotice, currentUser }) {
               <span>!</span>
               <p>Runtime values are sent to the control API and written to the EC2 runtime environment. They are not stored in this browser or returned in logs.</p>
             </div>
-            <div className="form-section">
+
+            <div className="form-section branch-section">
               <div className="form-section-title">
                 <div>
-                  <h3>Runtime environment</h3>
-                  <p className="muted">Optional key/value pairs, like a deployment environment.</p>
+                  <h3>Git Repository Branch</h3>
+                  <p className="muted">Nhánh code sẽ được tự động kéo từ GitHub về EC2 và build backend.</p>
                 </div>
-                <button type="button" className="text-button" onClick={addRow}>+ Add variable</button>
+              </div>
+              <div className="branch-input-row">
+                <span className="branch-tag">Branch</span>
+                <input
+                  aria-label="Git branch"
+                  value={gitBranch}
+                  onChange={(e) => setGitBranch(e.target.value)}
+                  placeholder="develop"
+                  spellCheck={false}
+                />
+              </div>
+            </div>
+            <div className="form-section">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".env,.env.*,text/plain"
+                style={{ display: 'none' }}
+                onChange={handleFileUpload}
+              />
+              <div className="form-section-title">
+                <div>
+                  <div className="env-title-row">
+                    <h3>Runtime environment</h3>
+                    <span className="env-count-badge">
+                      {validCount} {validCount === 1 ? 'variable' : 'variables'}
+                    </span>
+                  </div>
+                  <p className="muted">Optional key/value pairs. Import a .env file or enter variables manually.</p>
+                </div>
+                <div className="env-actions-group">
+                  <button
+                    type="button"
+                    className="import-button"
+                    onClick={() => fileInputRef.current?.click()}
+                    title="Upload file .env để nạp biến"
+                  >
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="17 8 12 3 7 8" />
+                      <line x1="12" y1="3" x2="12" y2="15" />
+                    </svg>
+                    <span>Import .env</span>
+                  </button>
+                  <button type="button" className="text-button" onClick={addRow}>+ Add variable</button>
+                  {envRows.length > 1 && (
+                    <button type="button" className="text-button text-muted-action" onClick={() => setEnvRows(initialEnv)}>Clear all</button>
+                  )}
+                </div>
               </div>
               <div className="env-table">
                 <div className="env-head">
@@ -295,13 +504,34 @@ function StagingPage({ onNotice, currentUser }) {
                   <span>VALUE</span>
                   <span />
                 </div>
-                {envRows.map((row, index) => (
-                  <div className="env-row" key={index}>
-                    <input aria-label={`Variable key ${index + 1}`} value={row.key} onChange={(event) => updateRow(index, 'key', event.target.value)} placeholder="DATABASE_URL" />
-                    <input aria-label={`Variable value ${index + 1}`} type="password" value={row.value} onChange={(event) => updateRow(index, 'value', event.target.value)} placeholder="Enter value" />
-                    <button type="button" className="remove-button" onClick={() => removeRow(index)} aria-label="Remove variable">×</button>
-                  </div>
-                ))}
+                <div className="env-table-body">
+                  {envRows.map((row, index) => (
+                    <div className="env-row" key={index}>
+                      <input
+                        aria-label={`Variable key ${index + 1}`}
+                        value={row.key}
+                        onChange={(event) => updateRow(index, 'key', event.target.value)}
+                        placeholder="DATABASE_URL"
+                        spellCheck={false}
+                      />
+                      <input
+                        aria-label={`Variable value ${index + 1}`}
+                        type="text"
+                        value={row.value}
+                        onChange={(event) => updateRow(index, 'value', event.target.value)}
+                        placeholder="Enter value"
+                        spellCheck={false}
+                      />
+                      <button
+                        type="button"
+                        className="remove-button"
+                        onClick={() => removeRow(index)}
+                        aria-label="Remove variable"
+                        title="Xóa biến này"
+                      >×</button>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
             <div className="modal-footer">
