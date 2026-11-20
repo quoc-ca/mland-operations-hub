@@ -207,3 +207,12 @@ This file records conflicts, missing details, and weak points identified while r
 **Unclear point:** The overview mentions recorded reasons and audit trails for several actions but does not define one consistent audit policy for design overrides, invoice adjustments, custody, payments, review imports, and role changes.
 
 **Suggested resolution:** Identify the audit events required for each business action, including actor, timestamp, reason, before/after context, customer consent, and correlation/reference identifiers. Keep immutable historical snapshots separate from mutable catalogue data.
+## Resolution note — custom-order payment (2026-11-20)
+
+The previous ambiguity about a 50% custom-order deposit and a later final
+balance is resolved. Custom orders now use one Manager-approved quote and one
+complete payment attempt from the Member's My Custom Orders detail page. They
+are not added to the retail cart. If full payment is not verified before the
+quote deadline, the quote/order expires or is cancelled and any temporary queue
+hold is released. Workshop booking deposit and workshop settlement rules remain
+separate.

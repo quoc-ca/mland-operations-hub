@@ -4,9 +4,16 @@
 
 This screen allows Members to:
 
-- Browse the Member's own custom orders and current progress.
+- Browse two separate views: requests/quotes and custom orders.
+- Browse only the Member's own custom requests, quotes and orders.
+- See whether a quote is awaiting full payment, paid, expired or cancelled.
 - Open a selected custom order's details.
 - Start a new custom-manufacturing request.
+
+The screen must not present an Add to Cart action. A ready quote is paid from
+the selected custom-order detail page as one complete payment. Expired quotes
+remain visible as history and may expose a request-new-quote action when the
+business policy permits it.
 
 | Field Name | Description |
 | --- | --- |

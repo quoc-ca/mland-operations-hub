@@ -4,7 +4,7 @@
 
 This screen allows authorized Staff to:
 
-- View custom progress separately from verified deposit and final-payment facts.
+- View custom progress separately from the verified full-payment fact.
 - Update permitted shop-side manufacturing progress.
 - Prepare and send a final-amount proposal to Manager.
 - Record actual pickup or manual GHTK handoff only after eligible verified final payment.

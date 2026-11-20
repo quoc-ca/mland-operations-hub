@@ -7,7 +7,12 @@ This screen allows Members to:
 - Submit a reference image or supported manual design configuration with material and contact information.
 - Choose a permitted fulfilment method and optionally request a completion date.
 - Receive eligibility feedback based on configured deadline rules and available custom queue capacity.
-- Review the applicable quote and pay a deposit equal to 50% of the wax-package price; AI does not accept or price the request.
+- Review the applicable quote and, after acceptance, pay the complete quoted
+  amount in one payment attempt; AI does not accept or price the request.
+- No Add to Cart action is available for a custom order. Payment starts from
+  the custom-order detail page and is subject to the quote deadline.
+- If the full payment is not verified before the deadline, the custom order is
+  expired/cancelled and the Member must request a new quote where permitted.
 
 | Field Name | Description |
 | --- | --- |

@@ -30,11 +30,11 @@
 | 26 | My Booking | Workshop Booking | Allows Members to browse their own workshop bookings and open booking details. |
 | 27 | Booking Details / QR Code | Workshop Booking | Displays booking and verified payment information and shows the check-in QR code only after booking confirmation. |
 | 28 | My Custom Orders | Custom Manufacturing | Allows Members to browse their own custom orders and access order details or a new request. |
-| 29 | Custom Order Details | Custom Manufacturing | Displays the Member's custom-order progress, Manager-approved final balance, payment status and recorded handoff information. |
+| 29 | Custom Order Details | Custom Manufacturing | Displays the Member's custom-order progress, complete Manager-approved quote, one-time payment status, expiry outcome and recorded handoff information. |
 | 30 | New Custom Order | Custom Manufacturing | Allows Members to submit design, material, contact and applicable completion-date information for a shop-manufacturing request. |
 | 31 | My Loyalty | Loyalty and Promotion Management | Displays the Member's loyalty information and provides access to point history. |
 | 32 | Point History | Loyalty and Promotion Management | Allows Members to review their own recorded point transactions. |
-| 33 | Payment Gateway Redirect | Payment | Routes an eligible retail, workshop-deposit or custom-order payment to the configured payment gateway. |
+| 33 | Payment Gateway Redirect | Payment | Routes an eligible retail, workshop-deposit or one-time custom-order quote payment to the configured payment gateway. |
 | 34 | Payment Page | Payment | Provides the external payment gateway interface for completing the selected payment. |
 | 35 | Payment Result | Payment | Displays system-verified payment status and links to the relevant booking or order; browser return alone does not confirm payment. |
 | 36 | Design Path Selection | Design Customization | Allows users to choose an existing ring design or supported ring configuration. The image-based design path is visible only to an eligible Member and requires the booking context and consent flow. |

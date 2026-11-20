@@ -48,7 +48,7 @@ Reject without skipping milestones or changing another terminal result. A paid f
 
 **Steps 2 and 5 — Cash at the counter order (Chờ thu tiền mặt)**
 
-Before the hold deadline (72 hours) the actor enters the cash received; the system computes the change and records payment for that branch order. When Giao hàng cho khách ngay sau khi thu tiền is ticked, the handover is recorded in the same step; otherwise the order moves to preparation. After the deadline the unpaid order expires and its items return to the Member's cart.
+Before the hold deadline (72 hours) the owner pays the exact amount at the counter and the actor presses Xác nhận đã thu; the system records payment for that branch order and the handover in the same step, so the order goes straight to Hoàn thành without waiting in Chờ khách nhận. No cash-received or change entry is recorded. After the deadline the unpaid order expires and its items return to the Member's cart.
 
 **Steps 3 and 4 — Screenshot/reference only, different Member or third-party collection**
 

@@ -40,3 +40,12 @@ Last updated by: Ngô Tiến Đạt
 - [ ] Run frontend unit/component tests and build.
 - [ ] Run Browser MCP E2E scenarios E2E-004-001 through E2E-004-012.
 - [ ] Record screenshots and execution status; never mark unexecuted tests PASS.
+## Phase F — Custom-order full-payment handoff
+
+- [ ] Add Member Requests and Orders views under My Custom Orders.
+- [ ] Display immutable quote total, currency, quote generation and expiry.
+- [ ] Start exactly one payment attempt for the complete active quote.
+- [ ] Do not add custom orders to the retail cart.
+- [ ] Remove deposit, remaining-balance and final-balance actions from the custom-order UI.
+- [ ] Show quote/payment expiry and cancellation, including request-new-quote where permitted.
+- [ ] Test ownership isolation, duplicate payment commands, stale quote, expired quote and late payment evidence.

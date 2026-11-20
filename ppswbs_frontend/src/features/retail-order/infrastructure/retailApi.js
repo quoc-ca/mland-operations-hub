@@ -30,9 +30,14 @@ export function retailApi(request) {
     transitionStaffShipment: (shipmentId, body) => request(`/api/v1/staff/retail-shipments/${id(shipmentId)}/transitions`, { method: 'POST', body }),
 
     listBranches: () => request('/api/v1/product-selling-locations', { auth: false }),
+    // Simulated GHTK partner portal (Session 2026-11-20).
+    listCarrierShipments: (query = {}) => request('/api/v1/carrier/shipments', { query }),
+    transitionCarrierShipment: (shipmentId, body) => request(`/api/v1/carrier/shipments/${id(shipmentId)}/transitions`, { method: 'POST', body }),
     // Counter cash (FR-08-045..047): Staff pickup desk, cash confirmation, pickup milestones, Manager daily cash.
     listStaffPickups: locationId => request('/api/v1/staff/retail-pickups', { query: locationId ? { locationId } : {} }),
     confirmCashCollection: (orderId, amountReceived, key = newCommandId()) => request(`/api/v1/ready-ring-orders/${id(orderId)}/cash-collections`, { method: 'POST', body: { amountReceived }, idempotencyKey: key }),
+    // Cash at the counter: payment and handover in one server transaction (Session 2026-11-20).
+    collectCashAndHandOver: (orderId, key = newCommandId()) => request(`/api/v1/ready-ring-orders/${id(orderId)}/counter-cash-handovers`, { method: 'POST', idempotencyKey: key }),
     prepareOrder: orderId => request(`/api/v1/ready-ring-orders/${id(orderId)}/preparation`, { method: 'POST' }),
     handOverOrder: orderId => request(`/api/v1/ready-ring-orders/${id(orderId)}/pickup-confirmations`, { method: 'POST' }),
     dailyCash: (locationId, businessDate) => request('/api/v1/manager/retail-cash-collections', { query: { locationId, businessDate } }),

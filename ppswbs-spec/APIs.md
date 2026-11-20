@@ -369,7 +369,12 @@ access is permitted.
 | GET | `/api/v1/custom-design-requests/{requestId}` | Member owner | Read safe request, revision, decision and quote projection. |
 | POST | `/api/v1/custom-design-requests/{requestId}` | Member owner | Submit a revision after `CLARIFICATION_REQUIRED`. |
 | POST | `/api/v1/custom-design-requests/{requestId}/decisions` | Staff/Manager | Record clarification, acceptance or rejection with explanation. |
-| POST | `/api/v1/custom-design-requests/{requestId}/quote` | Authorized quote actor | Create a Manager-policy-bound quote handoff; no payment is confirmed by this call. |
+| POST | `/api/v1/custom-design-requests/{requestId}/quote` | Authorized quote actor | Create a Manager-policy-bound full-payment quote handoff; no payment is confirmed by this call and no retail cart line is created. |
+| GET | `/api/v1/members/me/custom-design-requests` | Member owner | List the Member's own requests and quote summaries for the Requests view. |
+| GET | `/api/v1/members/me/custom-orders` | Member owner | List the Member's own custom orders for the Orders view, including quote/payment/production/fulfilment status. |
+| GET | `/api/v1/members/me/custom-orders/{customOrderId}` | Member owner | Read the safe custom-order detail and the current complete-payment quote. |
+| POST | `/api/v1/members/me/custom-orders/{customOrderId}/payment` | Member owner | Create one payment attempt for the complete active quote; no cart line, deposit or balance payment is created. |
+| POST | `/api/v1/members/me/custom-orders/{customOrderId}/request-new-quote` | Member owner | Request a new quote generation after expiry where business policy permits it; the previous quote remains immutable history. |
 
 The detailed draft is `features/004-ai-chatbox-analysis-and-suggestion/contracts/custom-design-order-intake.openapi.yaml`.
 

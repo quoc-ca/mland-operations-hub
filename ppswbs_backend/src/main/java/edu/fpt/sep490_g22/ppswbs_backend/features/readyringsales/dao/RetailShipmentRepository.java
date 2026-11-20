@@ -35,4 +35,8 @@ public interface RetailShipmentRepository extends JpaRepository<RetailShipment, 
     Optional<RetailShipment> findByIdAndLocationIdIn(String id, Collection<Long> locationIds);
 
     boolean existsByMockTrackingNumber(String mockTrackingNumber);
+
+    /** GHTK partner list (Session 2026-11-20): every branch, with an optional status filter. */
+    @Query("select s from RetailShipment s where (:status is null or s.status = :status)")
+    Page<RetailShipment> findCarrierShipments(RetailShipmentStatus status, Pageable pageable);
 }

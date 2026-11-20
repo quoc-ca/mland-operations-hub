@@ -64,9 +64,9 @@ Report a safe error and preserve previously accepted data/payment facts; do not 
 
 Keep only recipient name/phone/address necessary to fulfil the pending handoff. The 30-day retirement clock begins at the original actual handoff, not at entry/editing or preparation.
 
-**Step 6 — GHTK partner account not yet available**
+**Step 6 — Staff tries to record a courier step**
 
-Until FE-01 provides the GHTK partner role, Staff records the courier pickup and the delivery as a simulation with the same state checks. Pickup collects no extra address or separate contact; branch and frozen payment terms remain unchanged.
+Reject it. Only the GHTK partner account records the courier pickup and the delivery; Staff packs the order and marks it ready. Pickup collects no extra address or separate contact; branch and frozen payment terms remain unchanged.
 
 #### Business Rules
 
