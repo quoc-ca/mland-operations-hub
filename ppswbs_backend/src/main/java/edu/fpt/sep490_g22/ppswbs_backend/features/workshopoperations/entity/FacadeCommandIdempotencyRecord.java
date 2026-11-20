@@ -24,7 +24,7 @@ public class FacadeCommandIdempotencyRecord {
     @Column(name = "facade_action", nullable = false, length = 255)
     private String facadeAction;
 
-    @Column(name = "operation_reference", nullable = false, length = 64)
+    @Column(name = "operation_reference", nullable = false, length = 128)
     private String operationReference;
 
     @Column(name = "correlation_reference", nullable = false, length = 64)

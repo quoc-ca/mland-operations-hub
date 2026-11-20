@@ -4,7 +4,7 @@
 - **Author**: Ngô Tiến Đạt
 - **Last updated by**: Ngô Tiến Đạt
 - **Date created**: 2026-11-08
-- **Date updated**: 2026-11-14
+- **Date updated**: 2026-11-19
 - **Source of truth**: Feature-012 `spec.md`, `data-model.md`, `contracts/workshop-ring-design.openapi.yaml`, `V110__workshop_ring_design_configuration.sql`, `V143__ring_design_uniform_pricing.sql`, backend Spring Boot implementation, frontend React 19 + Vite implementation, and synchronized project specifications
 
 > This file is an implementation status index. Detailed behavior remains in
@@ -543,3 +543,44 @@ Toàn bộ 5 kịch bản E2E của Feature 012 đã được thực thi và ngh
 
 ### Giai đoạn 2: Phê duyệt chính thức Revision Figma
 - Cập nhật mã revision Figma chính thức khi Tech Lead và UI Designer hoàn thiện rà soát giao diện visual.
+
+### Phase L — Quota, image preprocessing, preview integrity and i18n correction (2026-11-19)
+
+#### Documentation changes
+
+- Replaced the previous per-component-only gemstone rule with an aggregate
+  maximum of 10 gemstone instances per design version.
+- Defined independent engraving quotas: 2 `TEXT`, 2 `SYMBOL` and 2 custom images.
+- Added persisted image preprocessing parameters: `contrast` and `sharpness`,
+  each integer `0..100` with default `50`.
+- Required safe image/processed-preview references so saved designs can restore
+  the selected image; transient browser `previewDataUrl` is not authoritative.
+- Required complete collection rendering for configurator and saved-design
+  previews. Legacy scalar `engravingText` cannot replace `engravingItems`.
+- Required one active locale per session, shared i18n resources, UTF-8 and no
+  mojibake in messages, SVG labels or test fixtures.
+- Updated the Feature-012 OpenAPI schemas, data model, UI flow, frontend handoff
+  and task list with the new limits and preprocessing fields.
+- Added E2E scenario specifications `E2E-012-007` through `E2E-012-011`.
+
+#### Current implementation status
+
+```text
+DOCUMENTATION UPDATED
+IMPLEMENTATION PENDING
+E2E VERIFICATION PENDING
+```
+
+The earlier E2E-012-001 through E2E-012-006 evidence does not verify this
+change set. It must remain historical evidence and must not be relabeled as
+passing the new requirements.
+
+#### Blockers for the implementation agent
+
+1. Backend must enforce aggregate gemstone and independent engraving limits.
+2. Backend/API must persist and return `contrast`, `sharpness` and a safe image
+   reference that survives saved-design reload.
+3. Frontend message resources currently require an explicit UTF-8/mojibake
+   audit before implementation is accepted.
+4. New unit/component/API/E2E execution evidence and JPEG screenshots are
+   required before Phase L can be marked complete.

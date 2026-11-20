@@ -16,6 +16,7 @@ function open(entry: string, role: string) {
         <Route path="/login" element={<AuthPage mode="signin" />} />
         <Route path="/staff/home" element={<p>Staff home</p>} />
         <Route path="/manager/home" element={<p>Manager home</p>} />
+        <Route path="/carrier" element={<p>Carrier portal</p>} />
         <Route path="/operations/sessions/abc" element={<p>Session page</p>} />
         <Route path="/" element={<p>General home</p>} />
       </Routes>
@@ -42,6 +43,16 @@ describe('After signing in (the real sign-in page)', () => {
   it('a Member keeps the general home', async () => {
     open('/login', 'MEMBER');
     expect(await screen.findByText('General home')).toBeInTheDocument();
+  });
+
+  it('a Carrier lands directly on the Carrier portal', async () => {
+    open('/login', 'CARRIER');
+    expect(await screen.findByText('Carrier portal')).toBeInTheDocument();
+  });
+
+  it('a Carrier ignores returnTo and lands directly on the Carrier portal (WF-11 / FR-003)', async () => {
+    open('/login?returnTo=%2Foperations%2Fsessions%2Fabc', 'CARRIER');
+    expect(await screen.findByText('Carrier portal')).toBeInTheDocument();
   });
 
   it('goes back to the page the user came from when that is a path on this site', async () => {

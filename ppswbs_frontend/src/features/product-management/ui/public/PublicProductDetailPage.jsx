@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { useFormat, useT } from '../../../../shared/i18n/I18nProvider';
 import { ErrorNotice, Loading, useResource } from '../../../../shared/ui/components';
@@ -22,6 +22,14 @@ export default function PublicProductDetailPage() {
   const product = useResource(() => api.getPublicProduct(productId), [productId]);
   const [imageIndex, setImageIndex] = useState(0);
   const programs = usePublicProductPrograms();
+  const [chosenVariant, setChosenVariant] = useState(null);
+
+  // Opening a product (from the list, a card or another product) starts at the top of the page, not at the scroll
+  // position the previous page was left at (which landed on the reviews).
+  useEffect(() => {
+    setChosenVariant(null);
+    if (typeof window.scrollTo === 'function') window.scrollTo(0, 0);
+  }, [productId]);
 
   if (product.loading) return <main className="container public-page pm-theme pm-public"><Loading /></main>;
   if (product.error) {
@@ -60,15 +68,18 @@ export default function PublicProductDetailPage() {
           )}
         </div>
         <div>
-          <OfferPrice offers={offers} fallback={<PriceRange range={data.priceRange} format={format} />} />
+          {/* The big price is the chosen size's price (after offers); before a size is chosen it is the product's range. */}
+          <div className="detail-price">
+            {chosenVariant
+              ? <SizeOfferPrice size={offers.sizes[chosenVariant.id]} fallback={<span className="price">{format.money(chosenVariant.appliedPrice)}</span>} />
+              : <OfferPrice offers={offers} fallback={<PriceRange range={data.priceRange} format={format} />} />}
+          </div>
           <OfferBadges offers={offers} />
           <p className="pre-line">{data.description}</p>
           <span className={data.canBuy ? 'status ok' : 'status'}>{data.canBuy ? t('public.canBuy') : t('public.cannotBuy')}</span>
           <ProductOfferList offers={offers} />
           {/* Sizes are boxes in the cart panel: in stock can be chosen, sold out or not on sale is faded. */}
-          <AddToCartPanel product={data} sizePrice={variant => (
-            <SizeOfferPrice size={offers.sizes[variant.id]} fallback={<span>{format.money(variant.appliedPrice)}</span>} />
-          )} />
+          <AddToCartPanel product={data} onSizeChange={setChosenVariant} />
           <p className="muted small">{t('public.priceNotice')}</p>
         </div>
       </div>

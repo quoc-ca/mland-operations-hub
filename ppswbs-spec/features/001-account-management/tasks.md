@@ -1,7 +1,7 @@
 # Tasks: Account Management (FE-001)
 
 **Date created**: 2026-11-01
-**Date updated**: 2026-11-14
+**Date updated**: 2026-11-20
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
@@ -498,3 +498,13 @@ After Phase 2 completes:
 **Parallel opportunities**: 32 tasks marked [P]
 **MVP scope**: Historical phases retain their original scope. Revision R-SL is a separate approved frontend handoff: T069–T077 and V-13 must be completed before this session/navigation revision is accepted. Phase 7 US5 (T038–T043) and WCAG scan (T047) remain deferred to full release.
 **Suggested MVP**: Complete US1 (Phase 3) alone first → validate independently → proceed to US2, US3, US4
+
+---
+
+## Phase 13: Convergence — CARRIER (GHTK) (approved by R-CAR; implemented and E2E specified)
+
+- [x] T084 Add `CARRIER` to the fixed role enum/catalogue and append-only Flyway role constraint migration; do not add a CARRIER enrollment table. (FR-009, FR-010)
+- [x] T085 Extend the existing idempotent provisioning/reconciliation mechanism and Admin creation service to provision Firebase email/password then persist an ACTIVE CARRIER with its UID. Enforce write-only password handling, no location/invitation, duplicate-email rejection, and recovery from partial failure. (FR-011–014, FR-022)
+- [x] T086 Extend Admin create/list/detail/profile/status contracts and UI: CARRIER requires immutable email, password, display name and phone; ADMIN may maintain only name/phone and suspend/restore it; CARRIER cannot transition roles or have a location. Covered by [E2E-001-025](test-results/E2E-001-025--admin-carrier-provisioning-and-form-guard.md) and [E2E-001-028](test-results/E2E-001-028--admin-carrier-lifecycle-governance-and-suspension.md). (FR-011–012, FR-016–019)
+- [x] T087 Update shared session routing and role guards so a resolved CARRIER redirects to FE-08 `/carrier`, sees neither Member nor internal navigation, retains only eligible `/security/password` self-service, and unknown-role handling fails safely. Covered by [E2E-001-026](test-results/E2E-001-026--carrier-signin-direct-routing-and-ui-isolation.md) and [E2E-001-027](test-results/E2E-001-027--carrier-authorization-guard-and-route-boundaries.md). (FR-003, FR-013, FR-017, FR-025–027)
+- [x] T088 Add migration, service, API and UI tests for V-14, including retries, duplicate/collision handling, no credential retention, provisioning reconciliation, direct CARRIER sign-in/routing, suspension and restoration; create the R-CAR demo/test fixture `ghtk.test@mland.vn` / `CarrierTest@123456` after Firebase issues its UID, then seed its Account/Profile without a location. (V-14, CarrierAccountIT, E2E-001-025..028)

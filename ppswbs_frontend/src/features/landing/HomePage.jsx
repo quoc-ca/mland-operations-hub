@@ -190,6 +190,13 @@ export default function HomePage() {
     'Thành viên';
 
   const userRole = account?.role || 'MEMBER';
+  const isStaffOrAdmin = isAuthenticated && (userRole === 'STAFF' || userRole === 'ADMIN');
+  const visibleEcosystemServices = ECOSYSTEM_SERVICES.filter((srv) => {
+    if (isStaffOrAdmin && (srv.id === 'custom' || srv.id === 'ai-support')) {
+      return false;
+    }
+    return true;
+  });
 
   useEffect(() => {
     if (!isAuthenticated || (account?.role && account.role !== 'MEMBER')) { setNextTicket(null); setTicketLookupDone(false); return undefined; }
@@ -531,7 +538,7 @@ export default function HomePage() {
             HỆ SINH THÁI DỊCH VỤ & TIỆN ÍCH HỆ THỐNG
           </h3>
           <div className="landing-services-grid">
-            {ECOSYSTEM_SERVICES.map((srv) => (
+            {visibleEcosystemServices.map((srv) => (
               <Link
                 key={srv.id}
                 to={srv.url}

@@ -49,7 +49,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
-@TestPropertySource(locations = "classpath:application-test.properties")
+@TestPropertySource(locations = "classpath:application-test.properties",
+        // @MockBean JavaMailSender replaces the JavaMailSenderImpl the mail health contributor needs ("Beans must not be empty").
+        properties = "management.health.mail.enabled=false")
 public class NotificationManagementIT {
 
     @Autowired

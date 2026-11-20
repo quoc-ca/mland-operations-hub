@@ -1,5 +1,24 @@
 # Tech Lead Approval Record: Account Management (FE-001)
 
+## Revision R-CAR — CARRIER (GHTK) account and demo fixture
+
+**Revision date**: 2026-11-20
+**Approved by (Tech Lead)**: **Phan Sơn**
+**Authority/evidence**: explicit Tech Lead decisions in this specification session: approve the CARRIER proposal and align its demo account with the existing repository demo-account pattern.
+**Decision**: **APPROVED FOR IMPLEMENTATION OF T084–T088 ONLY**.
+
+This approval covers:
+
+- Fixed role `CARRIER`, display name `Đối tác vận chuyển (GHTK)`, Admin-only provisioning, no Workshop Location assignment, and no transition to or from another role.
+- Immediate `ACTIVE` CARRIER creation through Firebase email/password identity provisioning; normal runtime password input remains write-only and is excluded from persistence, logs, audit records, and API responses.
+- Admin list/detail/filter/maintenance, immutable CARRIER email, Admin-only display-name/phone edit, standard suspension/restoration, and CARRIER password change through the eligible password-owner flow.
+- Shared sign-in routing/guards that send a resolved CARRIER to FE-08-owned `/carrier` without Member or internal navigation; FE-08 owns delivery behavior and enforces `CARRIER` plus `ACTIVE` through the Account facade.
+- The demo/test fixture `ghtk.test@mland.vn` / `CarrierTest@123456`, display name `Đối tác vận chuyển (GHTK)`, phone `0900000000`, and Firebase-issued UID. This credential is an explicit demo/test-only exception permitted in the existing seed/test documentation pattern; it is not a production credential policy.
+
+**Implementation condition**: create the Firebase demo identity first and use its issued UID in the append-only database seed/migration. Fresh V-14 evidence must prove the fixture sign-in and direct `/carrier` routing; production credential handling must retain the normal write-only rule.
+
+---
+
 ## Revision R-NAD — Nationwide Administrative Divisions, 401 Orphan Token Handling & Google Redirect Synchronization
 
 **Revision date**: 2026-11-16

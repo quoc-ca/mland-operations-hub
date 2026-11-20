@@ -1,7 +1,7 @@
 # Feature-012 UI Flow — Workshop Ring Design Configuration
 
 Date created: 2026-11-08
-Date updated: 2026-11-14
+Date updated: 2026-11-19
 Author: Ngô Tiến Đạt
 Last updated by: Ngô Tiến Đạt
 
@@ -135,3 +135,17 @@ references, server-returned option data and advisory evaluation labels. It must
 not display internal IDs, raw session values, private Member data or estimate as
 payable price. Frontend implementation waits for the approved API contract and
 Figma revision; no new UI business rule is introduced here.
+
+## 8. Quota, preprocessing and encoding states
+
+- Gemstone summary shows `current / 10`; the add control is disabled at 10 and
+  shows a localized explanation.
+- Text, symbol and image engraving controls show independent `0/2` counters.
+- Each image card includes contrast and sharpness sliders from 0 to 100,
+  default 50, with visible value and explanation.
+- Configurator and saved-design previews render every collection member. They
+  must not reduce the collection to the first text item or a blank image.
+- Loading and error placeholders reserve the same preview dimensions as loaded
+  content to avoid layout shift.
+- All labels and messages use the active locale; mixed-language fallback is
+  prohibited.

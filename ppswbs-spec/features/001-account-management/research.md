@@ -1,9 +1,17 @@
 # Research: Account Management (FE-001)
 
 **Date created**: 2026-10-26
-**Date updated**: 2026-11-14
+**Date updated**: 2026-11-20
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
+
+## D-24 — CARRIER email/password provisioning (2026-11-20, approved by R-CAR)
+
+**Decision**: `CARRIER` is a fixed, Admin-created role labelled `Đối tác vận chuyển (GHTK)`. It is immediately `ACTIVE`, has no Workshop Location, and holds only immutable login email plus required display name and phone. Admin provisions its Firebase email/password identity at creation. The password is write-only and is never persisted, logged, audited, or returned. No invitation, Google-only flow, pre-bind/enrollment, Member↔Carrier role change, automatic merge, or logistics permission is introduced.
+
+**Rationale**: The partner needs immediate operational onboarding through the existing email/password sign-in UI, while the existing UID-first ownership model must not be weakened into general email-based account merging.
+
+**Consequences**: No CARRIER-specific enrollment table/entity is needed. The existing idempotent internal-provisioning/reconciliation mechanism records safe progress without a password and handles Firebase/Account partial failure. A duplicate Mland or Firebase email is rejected at Admin creation. CARRIER is suspendable/restorable through the standard revocation lifecycle. The fixed demo/test fixture `ghtk.test@mland.vn` / `CarrierTest@123456` is permitted only in the existing demo seed/test-documentation pattern; its Firebase UID is created before the database fixture and it is not a production credential policy.
 
 **Purpose**: Consolidated Phase 0 research and decision log. All NEEDS CLARIFICATION items resolved through clarification sessions 2026-10-24 to 2026-11-01. This document is the source of record for design choices not directly derivable from the spec.
 

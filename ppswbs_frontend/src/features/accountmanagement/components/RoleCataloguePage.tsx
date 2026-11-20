@@ -61,7 +61,7 @@ export const RoleCataloguePage: React.FC = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
           <h1 className="account-page-title" style={{ margin: 0 }}>Danh mục vai trò hệ thống (Fixed Roles)</h1>
           <span className="account-badge account-badge-readonly">
-            Chỉ đọc · 4 vai trò cố định
+            Chỉ đọc · 5 vai trò cố định
           </span>
         </div>
         <p className="account-page-description" style={{ marginTop: '0.5rem' }}>
@@ -115,6 +115,7 @@ export const RoleCataloguePage: React.FC = () => {
               <li>MEMBER được tạo tự động thông qua đăng ký cá nhân tự phục vụ.</li>
               <li>STAFF được phân công đúng 1 cơ sở (giới hạn quyền truy cập vận hành trong cơ sở đó).</li>
               <li>MANAGER có một hoặc nhiều phân công cơ sở hỗ trợ tổ chức; phạm vi vận hành cho các tác vụ quản lý của Manager là toàn hệ thống.</li>
+              <li>CARRIER là vai trò đối tác vận chuyển (GHTK) do Quản trị viên khởi tạo trực tiếp ở trạng thái ACTIVE; không phân công cơ sở và không chuyển đổi vai trò.</li>
               <li>ADMIN là vai trò quản trị hệ thống cao nhất, quản lý tài khoản nội bộ và danh mục vai trò; không thể bị tạm khóa hoặc sửa đổi từ giao diện này.</li>
             </ul>
             <p style={{ margin: '0.75rem 0 0 0', fontSize: '0.85rem', color: '#1a1a1a', fontWeight: 500 }}>

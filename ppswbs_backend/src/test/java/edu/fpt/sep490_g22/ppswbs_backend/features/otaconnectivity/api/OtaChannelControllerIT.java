@@ -168,6 +168,28 @@ class OtaChannelControllerIT {
                 FROM.plusSeconds(3600), FROM.plusSeconds(7200), 10, "PUBLISHED", 1, "test-change-1", FROM));
     }
 
+    /** 013 R-4: on MySQL, the count equals the size of the list the card opens, and only OPEN and ESCALATED count. */
+    @Test void needingAttentionCountEqualsTheListTheCardOpens() throws Exception {
+        String reference = create().path("mappingId").asText();
+        var mapping = mappings.findByPublicReference(reference).orElseThrow();
+        var manager = new AccountSummary(91L, ActorRole.MANAGER, ActorStatus.ACTIVE, null, null, null);
+        long before = reconciliation.countNeedingAttention(manager);
+        for (String status : List.of("OPEN", "ESCALATED", "IN_PROGRESS", "RESOLVED")) {
+            items.saveAndFlush(OtaReconciliationWorkItem.builder().mapping(mapping).locationReference("42")
+                    .category("SOURCE_VERSION_GAP").status(status).build());
+        }
+        long after = reconciliation.countNeedingAttention(manager);
+        assertThat(after - before).as("only OPEN and ESCALATED need attention").isEqualTo(2);
+        var list = reconciliation.listNeedingAttention(manager);
+        assertThat(list).hasSize((int) after);
+        assertThat(list).allSatisfy(view -> assertThat(view.status()).isIn("OPEN", "ESCALATED"));
+        for (ActorRole other : List.of(ActorRole.STAFF, ActorRole.ADMIN)) {
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> reconciliation.countNeedingAttention(
+                    new AccountSummary(5L, other, ActorStatus.ACTIVE, null, null, null)))
+                    .as("only an active Manager gets the count: " + other).isInstanceOf(RuntimeException.class);
+        }
+    }
+
     @Test void emptyCreateAndExactReplayExposeOnlyPublicIdentifiers() throws Exception {
         mvc.perform(auth(get("/api/v1/ota-channels"), ActorRole.MANAGER)).andExpect(status().isOk())
                 .andExpect(content().json("{\"items\":[]}"));

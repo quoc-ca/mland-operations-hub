@@ -28,6 +28,7 @@ public class EligibleSourceDto {
     private Instant completedAt;
     private boolean eligible;
     private boolean alreadyReviewed;
+    private String reviewId;
     private String reasonCode;
 }
 

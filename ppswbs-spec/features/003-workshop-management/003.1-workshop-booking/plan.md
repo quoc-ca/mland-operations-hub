@@ -1,7 +1,7 @@
 # Implementation Plan: Customer Workshop Booking Core
 
 **Date created**: 2026-10-07
-**Date updated**: 2026-11-17
+**Date updated**: 2026-11-19
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -209,7 +209,7 @@ online (max 3); masked audit (V127).
 
 **Recovery flow.** Group read for the owning Member, Member list (30 newest,
 expired only within 24 h), Guest lookup with one contact proof, group Magic-Link
-exchange, pending-hold release (refused once a payment attempt exists), resend
+exchange, pending-hold release (refused while a live `INITIATED`/`PENDING` payment attempt exists; `FAILED`/`EXPIRED` do not block it, FR-032, FR-048), resend
 reusing the active link, and Manager revoke/rotate (FR-047–FR-049).
 
 **Removal of the single flow.** T100 removed the single-booking controllers,

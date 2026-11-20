@@ -15,6 +15,8 @@ export default function PublicReviewListPage() {
   const navigate = useNavigate();
 
   const [rating, setRating] = useState('');
+  const [targetType, setTargetType] = useState('');
+  const [sort, setSort] = useState('recent');
 
   // /reviews?packageId=145 lists the reviews of that workshop package (all of its sessions), e.g. from the package page.
   const [searchParams] = useSearchParams();
@@ -29,8 +31,13 @@ export default function PublicReviewListPage() {
   const isMember = authStatus === 'signed-in' && role === 'MEMBER';
 
   const resource = useResource(
-    () => api.listPublicReviews({ rating: rating || undefined, packageId }),
-    [rating, packageId]
+    () => api.listPublicReviews({
+      rating: rating || undefined,
+      targetType: targetType || undefined,
+      sort: sort || undefined,
+      packageId,
+    }),
+    [rating, targetType, sort, packageId]
   );
 
   const page = resource.data || {
@@ -51,7 +58,13 @@ export default function PublicReviewListPage() {
     setLoadingMore(true);
     setMoreError(null);
     try {
-      const next = await api.listPublicReviews({ rating: rating || undefined, packageId, cursor: nextCursor });
+      const next = await api.listPublicReviews({
+        rating: rating || undefined,
+        targetType: targetType || undefined,
+        sort: sort || undefined,
+        packageId,
+        cursor: nextCursor,
+      });
       setMore(current => ({
         firstPage: resource.data,
         items: [...(current.firstPage === resource.data ? current.items : []), ...(next.items || [])],
@@ -104,7 +117,7 @@ export default function PublicReviewListPage() {
           )}
           {isMember && (
             <Link className="button primary" to="/reviews/eligible-sources">
-              {t('eligibleTitle')}
+              {t('writeReview')}
             </Link>
           )}
         </div>
@@ -113,10 +126,37 @@ export default function PublicReviewListPage() {
       <div className="review-toolbar">
         <div className="toolbar-filters">
           <label>
+            {t('sortLabel')}
+            <select
+              value={sort}
+              onChange={e => setSort(e.target.value)}
+              data-testid="filter-sort"
+            >
+              <option value="recent">{t('sortRecent')}</option>
+              <option value="best_to_worse">{t('sortBest')}</option>
+              <option value="worse_to_best">{t('sortWorse')}</option>
+            </select>
+          </label>
+
+          <label>
+            {t('filterTarget')}
+            <select
+              value={targetType}
+              onChange={e => setTargetType(e.target.value)}
+              data-testid="filter-target-type"
+            >
+              <option value="">{t('filterAllTargets')}</option>
+              <option value="WORKSHOP_SESSION">{t('filterWorkshop')}</option>
+              <option value="RETAIL_PRODUCT">{t('filterProduct')}</option>
+            </select>
+          </label>
+
+          <label>
             {t('rating')}
             <select
               value={rating}
               onChange={e => setRating(e.target.value)}
+              data-testid="filter-rating"
             >
               <option value="">{t('all')}</option>
               {[5, 4, 3, 2, 1].map(v => (

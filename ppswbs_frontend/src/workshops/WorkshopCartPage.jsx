@@ -7,7 +7,9 @@ import { contactForRequest, EMPTY_CONTACT, splitPhone, validateBookingContact } 
 import { CartQuotePanel } from './CartQuotePanel';
 import { CartQuoteDialog } from './CartQuoteDialog';
 import { GroupDetailCard } from './GroupDetailCard';
+import { useGroupCardIdentity } from './useGroupCardIdentity';
 import { refreshBookingGroup } from './refreshGroup';
+import { GroupAutoRefresh } from './GroupAutoRefresh';
 import { invalidatePendingPayments } from './pendingPayments';
 import {
   cartQuoteLines,
@@ -64,6 +66,7 @@ export function WorkshopCartPage() {
   const userPicked = useRef(false);
   const [benefitSelection, setBenefitSelection] = useState({ choice: 'NONE', voucherCode: '', requestedPoints: '0' });
   const [contact, setContact] = useState(EMPTY_CONTACT);
+  const cardIdentity = useGroupCardIdentity({ mode: bookingMode, memberAuthorization, contact });
   const [quote, setQuote] = useState(null);
   const [quoting, setQuoting] = useState(false);
   const [quoteError, setQuoteError] = useState(null);
@@ -364,7 +367,8 @@ export function WorkshopCartPage() {
     return (
       <main className="public-page figma-public-page">
         <GroupResultHeading group={group} />
-        <GroupDetailCard group={group} authorization={null} proof={contact} allowRecipientChange={false} onRefresh={refreshGroup} />
+        <GroupDetailCard group={group} authorization={cardIdentity.authorization} proof={cardIdentity.proof} allowRecipientChange={false} onRefresh={refreshGroup} allowManualRefresh={false} />
+        <GroupAutoRefresh onRefresh={refreshGroup} groupStatus={group.groupStatus} />
       </main>
     );
   }

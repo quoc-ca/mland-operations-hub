@@ -73,7 +73,8 @@ class GroupTicketChangeServiceTest {
         TicketChangeService changes = new TicketChangeService(booking, operations, finalBills, changeRepository,
                 folioBalanceService, audits, loyalty,
                 new WorkshopSettlementAuthorizationService(mock(AccountFacade.class), audits, operations),
-                mock(SettlementTicketChangeRequestRepository.class));
+                mock(SettlementTicketChangeRequestRepository.class),
+                mock(TicketChangeNotifier.class));
         service = new GroupTicketChangeService(booking, operations, finalBills, changeRepository, folioBalanceService,
                 changes);
         when(folioBalanceService.balanceOf(any())).thenReturn(new FolioBalanceService.FolioBalance(100_000L, 0L, 100_000L));

@@ -101,6 +101,17 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     }
   }, [initialMode, initialSection]);
 
+  const isCarrier = profile?.role === 'CARRIER';
+
+  // CARRIER role navigation guard (T087 / FR-017 / WF-11):
+  // CARRIER has no Profile or Email self-service; only the eligible password-owner flow is retained.
+  // Direct any non-password mode to /carrier.
+  useEffect(() => {
+    if (isCarrier && initialMode !== 'password' && initialSection !== 'password') {
+      navigate('/carrier', { replace: true });
+    }
+  }, [isCarrier, initialMode, initialSection, navigate]);
+
   // Password change state (T066)
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -231,6 +242,107 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             Đăng nhập ngay
           </Link>
         </div>
+      </div>
+    );
+  }
+
+  if (isCarrier && (initialMode === 'password' || initialSection === 'password')) {
+    return (
+      <div className="account-page-container">
+        <div>
+          <Link to="/carrier" className="account-back-btn">
+            ← Quay lại cổng vận chuyển
+          </Link>
+        </div>
+
+        <header className="account-page-header">
+          <h1 className="account-page-title">Đổi mật khẩu đối tác vận chuyển</h1>
+          <p className="account-page-description">
+            Cập nhật mật khẩu đăng nhập cho tài khoản Đối tác vận chuyển (GHTK).
+          </p>
+        </header>
+
+        <section
+          ref={passwordSectionRef}
+          className="account-card"
+          aria-labelledby="password-heading"
+        >
+          <h2 id="password-heading" className="account-card-title">
+            Đổi mật khẩu
+          </h2>
+
+          {passwordSuccess && (
+            <div className="account-alert account-alert-success" role="status">
+              <span>{passwordSuccess}</span>
+            </div>
+          )}
+
+          {passwordError && (
+            <div className="account-alert account-alert-error" role="alert">
+              <span>{passwordError}</span>
+            </div>
+          )}
+
+          <form className="account-form" onSubmit={handlePasswordChange}>
+            <div className="account-field">
+              <label className="account-label account-label-required" htmlFor="current-password">
+                Mật khẩu hiện tại
+              </label>
+              <input
+                id="current-password"
+                type="password"
+                className="account-input"
+                value={currentPassword}
+                onChange={e => setCurrentPassword(e.target.value)}
+                disabled={passwordPending}
+                autoComplete="current-password"
+              />
+            </div>
+
+            <div className="account-field">
+              <label className="account-label account-label-required" htmlFor="new-password">
+                Mật khẩu mới
+              </label>
+              <input
+                id="new-password"
+                type="password"
+                className="account-input"
+                value={newPassword}
+                onChange={e => setNewPassword(e.target.value)}
+                minLength={6}
+                disabled={passwordPending}
+                autoComplete="new-password"
+              />
+              <span className="account-field-hint">Tối thiểu 6 ký tự.</span>
+            </div>
+
+            <div className="account-field">
+              <label className="account-label account-label-required" htmlFor="confirm-password">
+                Xác nhận mật khẩu mới
+              </label>
+              <input
+                id="confirm-password"
+                type="password"
+                className="account-input"
+                value={confirmPassword}
+                onChange={e => setConfirmPassword(e.target.value)}
+                minLength={6}
+                disabled={passwordPending}
+                autoComplete="new-password"
+              />
+            </div>
+
+            <div style={{ marginTop: '1rem' }}>
+              <button
+                type="submit"
+                className="account-btn account-btn-primary"
+                disabled={passwordPending}
+              >
+                {passwordPending ? 'Đang cập nhật…' : 'Cập nhật mật khẩu'}
+              </button>
+            </div>
+          </form>
+        </section>
       </div>
     );
   }

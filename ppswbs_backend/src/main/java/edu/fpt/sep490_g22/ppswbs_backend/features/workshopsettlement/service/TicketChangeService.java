@@ -71,6 +71,7 @@ public class TicketChangeService {
     private final LoyaltyFacade loyalty;
     private final WorkshopSettlementAuthorizationService authorization;
     private final SettlementTicketChangeRequestRepository requestRepository;
+    private final TicketChangeNotifier notifier;
 
     /** Who asks for the change and how the buyer's authority was shown (FR-041 / FR-055). */
     record Requester(Long accountId, String role, String channel, String proof) {
@@ -427,11 +428,29 @@ public class TicketChangeService {
         }
     }
 
+    /**
+     * Marks one pending request EXPIRED when its time has run out, under the row lock so the queue listing and the
+     * scheduler never both do it (one audit, one email). Its own transaction when called by the scheduler.
+     *
+     * @return true when this call expired it
+     */
+    @Transactional
+    public boolean expireIfDue(String requestReference, Instant now) {
+        return requestRepository.findByRequestReferenceForUpdate(requestReference)
+                .filter(request -> SettlementTicketChangeRequest.PENDING.equals(request.getStatus())
+                        && request.getExpiresAt() != null && !request.getExpiresAt().isAfter(now))
+                .map(request -> {
+                    expire(request, now);
+                    return true;
+                }).orElse(false);
+    }
+
     void expire(SettlementTicketChangeRequest request, Instant now) {
         request.setStatus(SettlementTicketChangeRequest.EXPIRED);
         request.setUpdatedAt(now);
         requestRepository.save(request);
         recordAudit(request.getTicketCode(), "TICKET_CHANGE_REQUEST_EXPIRED", request.getRequestReference(), null, "SYSTEM");
+        notifier.expired(request, request.getRequestReference());
     }
 
     /**
@@ -573,6 +592,8 @@ public class TicketChangeService {
 
         recordAudit(ticket, "TICKET_CHANGE_APPLIED", correlation, requester.accountId(), requester.role());
         recordLocationChange(ticket, ctx, targets, correlation, requester);
+        // Owner decision 2026-11-18: the customer is told by email; a failed email never undoes the change.
+        notifier.applied(ticket, ctx, targets, priceIncrease, changeReference, correlation);
         return new ChangeResultDto(ticket, true, targets, String.valueOf(priceIncrease), false,
                 String.valueOf(newBalance.balanceDue()), true);
     }

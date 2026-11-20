@@ -167,6 +167,7 @@ public class ReviewApplicationService {
                 .createdAt(now)
                 .updatedAt(now)
                 .build();
+        review.setImageList(request.getImageUrls());
 
         ReviewRevision revision = ReviewRevision.builder()
                 .id(UUID.randomUUID().toString())
@@ -193,7 +194,7 @@ public class ReviewApplicationService {
             throw ReviewManagementException.conflict("REVIEW_ALREADY_EXISTS", "Trải nghiệm này đã được gửi đánh giá.");
         }
 
-        ReviewDto responseDto = mapToReviewDto(review, null, true);
+        ReviewDto responseDto = mapToReviewDto(review, null, true, true);
 
         if (idempotencyKey != null && !idempotencyKey.isBlank()) {
             idempotencyService.recordSuccess(idempotencyKey, actorScope, responseDto);
@@ -252,6 +253,9 @@ public class ReviewApplicationService {
         Instant now = Instant.now();
         review.setRating(request.getRating());
         review.setBodyText(request.getBodyText() != null ? request.getBodyText().trim() : null);
+        if (request.getImageUrls() != null) {
+            review.setImageList(request.getImageUrls());
+        }
         review.setUpdatedAt(now);
 
         Integer latestRevNumber = revisionRepository.findTopByReviewIdOrderByRevisionNumberDesc(reviewId)
@@ -274,7 +278,7 @@ public class ReviewApplicationService {
         revisionRepository.save(revision);
 
         ReplyDto replyDto = replyRepository.findByReviewId(reviewId).map(this::mapToReplyDto).orElse(null);
-        ReviewDto result = mapToReviewDto(review, replyDto, true);
+        ReviewDto result = mapToReviewDto(review, replyDto, true, true);
         if (idempotencyService != null) idempotencyService.recordSuccess(idempotencyKey, actorScope, result);
         return result;
     }
@@ -296,7 +300,8 @@ public class ReviewApplicationService {
         }
         ReplyDto replyDto = replyRepository.findByReviewId(reviewId)
                 .map(reply -> mapToReplyDto(reply, owner || isInternalModerator)).orElse(null);
-        return mapToReviewDto(review, replyDto, owner || isInternalModerator);
+        boolean canEdit = owner && review.getStatus() != ReviewStatus.REMOVED;
+        return mapToReviewDto(review, replyDto, owner || isInternalModerator, canEdit);
     }
 
     @Deprecated
@@ -305,10 +310,14 @@ public class ReviewApplicationService {
     }
 
     public ReviewDto mapToReviewDto(Review review, ReplyDto reply) {
-        return mapToReviewDto(review, reply, false);
+        return mapToReviewDto(review, reply, false, false);
     }
 
     public ReviewDto mapToReviewDto(Review review, ReplyDto reply, boolean includeOwnerData) {
+        return mapToReviewDto(review, reply, includeOwnerData, false);
+    }
+
+    public ReviewDto mapToReviewDto(Review review, ReplyDto reply, boolean includeOwnerData, boolean canEdit) {
         return ReviewDto.builder()
                 .id(review.getId())
                 .sourceType(includeOwnerData ? review.getSourceType() : null)
@@ -322,10 +331,12 @@ public class ReviewApplicationService {
                 .rating(review.getRating())
                 .bodyText(review.getBodyText())
                 .status(review.getStatus())
+                .imageUrls(review.getImageList())
                 .version(review.getVersion())
                 .createdAt(review.getCreatedAt())
                 .updatedAt(review.getUpdatedAt())
                 .reply(reply)
+                .canEdit(canEdit)
                 .build();
     }
 

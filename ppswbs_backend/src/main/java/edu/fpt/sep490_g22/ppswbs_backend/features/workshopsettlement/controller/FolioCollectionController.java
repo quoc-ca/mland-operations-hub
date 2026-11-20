@@ -2,6 +2,7 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.controller
 
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.CurrentAccountActor;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.FolioCollectionDtos.*;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.WaitingCountResponse;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.FolioCollectionApiService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.WorkshopSettlementAuthorizationException;
 import jakarta.validation.Valid;
@@ -33,6 +34,18 @@ public class FolioCollectionController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate workingDate,
             Authentication authentication) {
         return service.expectedCash(locationId, workingDate, actor(authentication));
+    }
+
+    /** Manager home (013 R-3): {"waiting": n} cash-close differences awaiting a Manager. */
+    @GetMapping("/api/v1/workshop-cash-closes/awaiting-confirmation-count")
+    public WaitingCountResponse awaitingConfirmationCount(Authentication authentication) {
+        return service.countCashClosesAwaitingConfirmation(actor(authentication));
+    }
+
+    /** Manager home (013 R-3): {@code ?awaitingConfirmation=true} lists exactly the closes the count above counts. */
+    @GetMapping(value = "/api/v1/workshop-cash-closes", params = "awaitingConfirmation=true")
+    public java.util.List<CashCloseResponse> awaitingConfirmation(Authentication authentication) {
+        return service.listCashClosesAwaitingConfirmation(actor(authentication));
     }
 
     @PostMapping("/api/v1/workshop-cash-closes")

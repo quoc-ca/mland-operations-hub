@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { getOwnedBookingGroup, lookupGuestBookingGroup, WorkshopApiError } from '../api/workshops';
 import { GroupDetailCard } from './GroupDetailCard';
@@ -8,11 +8,13 @@ import { buildContactProof, DEFAULT_PHONE_COUNTRY } from './contactValidation';
 import { PhoneInput } from './PhoneInput';
 import './figmaPublicShell.css';
 
+const GROUP_POLL_MS = 20000;
+
 /**
  * What the browser return from the gateway means (003.1 FR-038): nothing. A group is confirmed only on verified
  * evidence the backend receives, so this page classifies the return for display and then reads the group itself.
  */
-export function classifyGroupPaymentOutcome({ responseCode, groupStatus, error } = {}) {
+export function classifyGroupPaymentOutcome({ responseCode, groupStatus, error, noLiveAttempt } = {}) {
   if (groupStatus === 'EXPIRED' || error?.code === 'HOLD_EXPIRED' || error?.code === 'BOOKING_EXPIRED') {
     return {
       kind: 'EXPIRED',
@@ -33,6 +35,15 @@ export function classifyGroupPaymentOutcome({ responseCode, groupStatus, error }
       kind: 'LOOKUP_ERROR',
       title: 'Chưa đọc được nhóm đặt chỗ',
       message: error.detail || error.message || 'MLAND chưa xác minh được nhóm đặt chỗ này.',
+    };
+  }
+  // FR-032 (T172): the browser came back from the gateway without success and the server reports no live attempt, so the
+  // attempt ended (cancelled or failed). Proposed copy; the server alone decided it (not the return code).
+  if (responseCode && responseCode !== '00' && noLiveAttempt) {
+    return {
+      kind: 'PAYMENT_NOT_COMPLETED',
+      title: 'Thanh toán chưa hoàn tất',
+      message: 'Giao dịch chưa được thực hiện. Bạn có thể thanh toán lại hoặc hủy giữ chỗ trong thời hạn thanh toán.',
     };
   }
   if (responseCode === '00') {
@@ -128,10 +139,29 @@ export function WorkshopPaymentReturnPage({ groupCode }) {
   // The gateway said yes but the verified evidence (IPN) can take a few seconds: re-read quietly a few times.
   const [rechecks, setRechecks] = useState(0);
   useEffect(() => {
-    if (!group || group.groupStatus !== 'PENDING_PAYMENT' || vnpResponseCode !== '00' || rechecks >= 15) return undefined;
+    if (!group || group.groupStatus !== 'PENDING_PAYMENT' || !vnpResponseCode || rechecks >= 15
+      || (vnpResponseCode !== '00' && group.hasLivePaymentAttempt !== true)) return undefined;
     const timer = setTimeout(() => { setRechecks(count => count + 1); readGroup(); }, 4000);
     return () => clearTimeout(timer);
   }, [group, rechecks, vnpResponseCode]);
+
+  // Staff/Manager decisions (e.g. a schedule-change request) happen elsewhere, so the open group is read again every
+  // GROUP_POLL_MS while the tab is visible, and right away when the tab becomes visible again.
+  const readGroupRef = useRef(readGroup);
+  readGroupRef.current = readGroup;
+  const polling = useRef(false);
+  const hasGroup = Boolean(group);
+  useEffect(() => {
+    if (!hasGroup) return undefined;
+    const poll = async () => {
+      if (document.visibilityState === 'hidden' || polling.current) return;
+      polling.current = true;
+      try { await readGroupRef.current(); } finally { polling.current = false; }
+    };
+    const timer = setInterval(poll, GROUP_POLL_MS);
+    document.addEventListener('visibilitychange', poll);
+    return () => { clearInterval(timer); document.removeEventListener('visibilitychange', poll); };
+  }, [hasGroup]);
 
   // The one proof the Guest typed, in the normalized form every call sends: { proof, error }.
   const guestProof = buildContactProof(proofType === 'email'
@@ -144,7 +174,11 @@ export function WorkshopPaymentReturnPage({ groupCode }) {
       title: 'Thanh toán thành công',
       message: 'Đặt chỗ của bạn đã được xác nhận. Vé được liệt kê bên dưới và cũng được gửi qua email.',
     }
-    : classifyGroupPaymentOutcome({ responseCode: vnpResponseCode, groupStatus: group?.groupStatus });
+    : classifyGroupPaymentOutcome({
+      responseCode: vnpResponseCode,
+      groupStatus: group?.groupStatus,
+      noLiveAttempt: group?.groupStatus === 'PENDING_PAYMENT' && group?.hasLivePaymentAttempt === false,
+    });
 
   return (
     <main className="public-page figma-public-page">
@@ -162,7 +196,7 @@ export function WorkshopPaymentReturnPage({ groupCode }) {
         </div>
         <p className="prototype-note" style={{ margin: '14px 0 0', lineHeight: '1.6' }}>
           <strong>{returnOutcome.message}</strong>
-          {!confirmed && (
+          {!confirmed && returnOutcome.kind !== 'PAYMENT_NOT_COMPLETED' && (
             <> Nhóm đặt chỗ chỉ được xác nhận sau khi MLAND nhận và xác minh kết quả có chữ ký từ VNPay; việc này thường
             mất vài giây.</>
           )}
@@ -269,6 +303,7 @@ export function WorkshopPaymentReturnPage({ groupCode }) {
               authorization={lookupMode === 'MEMBER' ? authorization : null}
               proof={lookupMode === 'GUEST' ? (guestProof.proof || undefined) : undefined}
               onRefresh={readGroup}
+              allowManualRefresh={false}
               onTicketUpdated={readGroup}
             />
           </>

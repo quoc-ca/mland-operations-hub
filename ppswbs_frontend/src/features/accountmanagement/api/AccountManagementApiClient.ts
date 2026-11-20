@@ -10,7 +10,7 @@ export interface AccountResponse {
   id: string;
   email: string;
   emailVerified: boolean;
-  role: 'MEMBER' | 'STAFF' | 'MANAGER' | 'ADMIN';
+  role: 'MEMBER' | 'STAFF' | 'MANAGER' | 'CARRIER' | 'ADMIN';
   status: 'ACTIVE' | 'SUSPENDED' | 'PENDING_SETUP';
   locations: LocationRef[];
   version: number;
@@ -30,7 +30,7 @@ export interface ProfileUpdateRequest {
 
 export interface AccountSummary {
   accountId: number;
-  role: 'MEMBER' | 'STAFF' | 'MANAGER' | 'ADMIN';
+  role: 'MEMBER' | 'STAFF' | 'MANAGER' | 'CARRIER' | 'ADMIN';
   status: 'ACTIVE' | 'SUSPENDED' | 'PENDING_SETUP';
   loginEmail: string;
   revocationStatus: 'NOT_APPLICABLE' | 'PENDING' | 'CONFIRMED';
@@ -56,7 +56,7 @@ export interface LocationAssignment {
 
 export interface AccountDetailResponse {
   accountId: number;
-  role: 'MEMBER' | 'STAFF' | 'MANAGER' | 'ADMIN';
+  role: 'MEMBER' | 'STAFF' | 'MANAGER' | 'CARRIER' | 'ADMIN';
   status: 'ACTIVE' | 'SUSPENDED' | 'PENDING_SETUP';
   loginEmail: string;
   revocationStatus: 'NOT_APPLICABLE' | 'PENDING' | 'CONFIRMED';
@@ -71,15 +71,17 @@ export interface AccountDetailResponse {
 }
 
 export interface InternalAccountCreateRequest {
-  role: 'STAFF' | 'MANAGER';
+  role: 'STAFF' | 'MANAGER' | 'CARRIER';
+  email?: string;
+  password?: string;
   fullName: string;
   phone?: string;
-  locationIds: number[];
+  locationIds?: number[];
 }
 
 export interface InternalAccountSummaryResponse {
   accountId: number;
-  role: 'MEMBER' | 'STAFF' | 'MANAGER' | 'ADMIN';
+  role: 'MEMBER' | 'STAFF' | 'MANAGER' | 'CARRIER' | 'ADMIN';
   status: 'ACTIVE' | 'SUSPENDED' | 'PENDING_SETUP';
   loginEmail: string;
   revocationStatus: 'NOT_APPLICABLE' | 'PENDING' | 'CONFIRMED';
@@ -90,9 +92,9 @@ export interface InternalAccountSummaryResponse {
 }
 
 export interface RoleCatalogueEntry {
-  code?: 'MEMBER' | 'STAFF' | 'MANAGER' | 'ADMIN';
+  code?: 'MEMBER' | 'STAFF' | 'MANAGER' | 'CARRIER' | 'ADMIN';
   displayName?: string;
-  role?: 'MEMBER' | 'STAFF' | 'MANAGER' | 'ADMIN';
+  role?: 'MEMBER' | 'STAFF' | 'MANAGER' | 'CARRIER' | 'ADMIN';
   description?: string;
 }
 
@@ -134,7 +136,8 @@ export class AccountManagementApiClient {
       forceFreshToken = false,
     } = options;
 
-    const url = new URL(`${this.baseUrl}${path}`);
+    const origin = this.baseUrl || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8080');
+    const url = new URL(`${origin}${path}`);
     if (query) {
       Object.entries(query).forEach(([k, v]) => {
         if (v !== undefined && v !== null && v !== '') {
@@ -145,6 +148,7 @@ export class AccountManagementApiClient {
 
     const headers: Record<string, string> = {
       Accept: 'application/json',
+      'ngrok-skip-browser-warning': '1',
       'X-Correlation-Id': correlationId,
     };
 

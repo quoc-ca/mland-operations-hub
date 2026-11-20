@@ -174,9 +174,29 @@ paths:
           in: query
           schema: { type: string }
           description: Optional filter by work item category (e.g. INBOUND_EVENT).
+        - name: needsAttention
+          in: query
+          schema: { type: boolean }
+          description: >-
+            Manager home (013 R-4). With true the list holds exactly the items counted by
+            /ota-reconciliation-work-items/needing-attention-count (status OPEN or ESCALATED, oldest first); status and
+            category are not combined with it.
       responses:
         '200': { $ref: '#/components/responses/ReconciliationWorkItemList' }
         '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+  /ota-reconciliation-work-items/needing-attention-count:
+    get:
+      operationId: countOtaReconciliationItemsNeedingAttention
+      summary: Count reconciliation items needing attention (Manager home, 013 R-4)
+      description: >-
+        Items in status OPEN or ESCALATED (IN_PROGRESS is being handled, RESOLVED is closed). The number equals the size of
+        the list returned by GET /ota-reconciliation-work-items?needsAttention=true. Active Manager only (owner decision 2026-11-18): an Admin or any other role gets 403 and no number.
+        Read-only; writes no audit row.
+      responses:
+        '200': { description: Count of items needing attention, content: { application/json: { schema: { type: object, required: [waiting], properties: { waiting: { type: integer, minimum: 0 } } } } } }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '503': { $ref: '#/components/responses/DependencyUnavailable' }

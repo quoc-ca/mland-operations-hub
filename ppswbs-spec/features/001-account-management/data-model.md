@@ -1,17 +1,17 @@
 # Account Management Data Model
 
 **Date created**: 2026-10-26
-**Date updated**: 2026-11-16
+**Date updated**: 2026-11-20
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
-**Status**: Proposed physical design (updated 2026-11-16 for VN-2026-V1 63 provinces, WARD/COMMUNE/SPECIAL_ZONE coverage); no migration is created by this document.
+**Status**: Approved physical-design baseline through Revision R-NAD (2026-11-16) and Revision R-CAR (2026-11-20). This document defines the migration target; it does not itself create a migration.
 
 ## Ownership and entities
 
 | Entity | Owner | Key fields and invariants |
 | --- | --- | --- |
-| Account | `accountmanagement` | `id`, immutable unique `firebase_uid`, current `login_email`, `email_verified_at` nullable, role, status, `resume_status` nullable, `revocation_pending`, `version`, timestamps. Exactly one role; UID is never merged by email. |
+| Account | `accountmanagement` | `id`, unique immutable `firebase_uid`, current immutable CARRIER `login_email`, `email_verified_at` nullable, role, status, `resume_status` nullable, `revocation_pending`, `version`, timestamps. Exactly one role; the Firebase identity (including a CARRIER email/password identity) exists before Account commit; UID is never merged by email. |
 | AccountProfile | `accountmanagement` | PK/FK `account_id`; required `full_name`, nullable `phone`, timestamps. It is created atomically with bootstrap only when an unknown verified UID has a valid identity email; initial `full_name` is that email's local part before `@`. Phone is optional/non-unique. |
 | AccountLocationAssignment | `accountmanagement` | `account_id`, `location_id`, active flag/timestamps. No local location entity or FK to another module table. Staff has exactly one active assignment, which defines Staff location scope. Manager has one or more organizational assignments; they do not narrow Manager-authorized actions. |
 | InternalAccountProvisioning | `accountmanagement` | Account creation request identity, idempotency key, normalized request digest, intended email/role/location snapshot, Firebase UID, Account ID, lifecycle/progress and retry diagnostics. Unique idempotency key; same key/different digest conflicts. |
@@ -24,7 +24,7 @@
 
 ## Enumerations and lifecycle
 
-- `AccountRole`: `MEMBER`, `STAFF`, `MANAGER`, `ADMIN` only.
+- `AccountRole`: `MEMBER`, `STAFF`, `MANAGER`, `CARRIER`, `ADMIN` only. CARRIER has no AccountLocationAssignment and cannot transition to/from another role.
 - `AccountStatus`: `ACTIVE`, `PENDING_SETUP`, `SUSPENDED` only.
 - `resume_status` is populated only when suspending an eligible `ACTIVE` or
   `PENDING_SETUP` account and is consumed on successful restoration.
@@ -36,6 +36,7 @@
 | --- | --- | --- |
 | Unknown verified UID → Member | Bootstrap | Create one `MEMBER`/`ACTIVE` Account unless a UID-owned internal record exists. |
 | `PENDING_SETUP` → `ACTIVE` | Intended verified identity + verified email + valid active scope | Activate internal Account and audit. |
+| New CARRIER → `ACTIVE` | Admin creates valid immutable email, password, display name, phone and no location | Provision Firebase email/password identity, then persist CARRIER immediately. No invitation, Google binding, or enrollment record exists. |
 | `ACTIVE` or `PENDING_SETUP` → `SUSPENDED` | Admin with reason | Preserve resume status; deny protected access immediately; queue revocation. |
 | `SUSPENDED` → prior status | Admin, only after revocation completion | Restore prior eligible status; require fresh sign-in. |
 
@@ -64,6 +65,9 @@
 - Provisioning records persist enough non-secret progress to reconcile Firebase
   partial failure. Firebase create/revoke/action-link calls are outside the DB
   transaction and are idempotently retried/reconciled.
+- A CARRIER creation password is sent only to Firebase as a write-only input. It
+  is excluded from Account/Profile/provisioning records, audit events, logs,
+  traces, error bodies, and all API responses.
 - A `SUCCESS` or authorized-domain `FAILURE` audit attempt contains outcome and
   safe failure classification, never uncommitted state or sensitive detail. An
   audit persistence failure does not roll back, block, or replace the original

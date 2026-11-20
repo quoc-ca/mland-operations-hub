@@ -391,3 +391,44 @@ describe('003.1 the payment-return page for a signed-in Member', () => {
     expect(calls.filter(call => call.path === `/api/v1/workshop-booking-groups/${GROUP_CODE}`).length).toBe(2);
   }, 15000);
 });
+
+describe('003.1 FR-032/FR-048 the payment-return page after the customer cancels at VNPay (T172)', () => {
+  const originalUrl = window.location.href;
+  afterEach(() => { window.history.replaceState(null, '', originalUrl); vi.unstubAllGlobals(); });
+
+  async function openCancelled(groupBody) {
+    window.history.replaceState(null, '', `/workshop-booking/${GROUP_CODE}/payment-return?vnp_ResponseCode=24`);
+    const user = userEvent.setup();
+    const calls = mockFetch({ 'POST /api/v1/workshop-booking-group-lookups': json(200, groupBody) });
+    renderRoutes(workshopRoutes, { path: `/workshop-booking/${GROUP_CODE}/payment-return`, session: fakeSession('signed-out') });
+    await user.type(await screen.findByPlaceholderText('0901234567'), '0901234567');
+    await user.click(screen.getByRole('button', { name: 'Xem trạng thái nhóm' }));
+    return calls;
+  }
+
+  it('says the payment was not completed and offers to pay again or release when the group has no live attempt', async () => {
+    await openCancelled(group({ hasLivePaymentAttempt: false }));
+
+    expect(await screen.findByText('Thanh toán chưa hoàn tất')).toBeInTheDocument();
+    expect(screen.getByText(/thanh toán lại hoặc hủy giữ chỗ/)).toBeInTheDocument();
+    expect(screen.queryByText(/chỉ được xác nhận sau khi MLAND nhận/)).toBeNull();
+    expect(screen.getByRole('button', { name: /Thanh toán .* qua VNPay/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Hủy giữ chỗ' })).toBeInTheDocument();
+  });
+
+  it('keeps the gateway message and hides the release button while an attempt is still live', async () => {
+    await openCancelled(group({ hasLivePaymentAttempt: true }));
+
+    expect(await screen.findByText('Cổng thanh toán trả mã 24')).toBeInTheDocument();
+    expect(screen.queryByText('Thanh toán chưa hoàn tất')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Hủy giữ chỗ' })).toBeNull();
+    expect(screen.getByText(/Đang có thanh toán thực hiện/)).toBeInTheDocument();
+  });
+
+  it('does not claim a failure when the server read has no live-attempt field', async () => {
+    await openCancelled(group());
+
+    expect(await screen.findByText('Cổng thanh toán trả mã 24')).toBeInTheDocument();
+    expect(screen.queryByText('Thanh toán chưa hoàn tất')).toBeNull();
+  });
+});

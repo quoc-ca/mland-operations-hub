@@ -12,8 +12,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
-/** QueryDR network calls run outside the source lock and are rechecked before applying. */
-@Service @Profile("retail-vnpay & !local")
+/**
+ * QueryDR network calls run outside the source lock and are rechecked before applying. Present on every non-local run
+ * (Session 2026-11-18); it does nothing towards VNPay while {@code vnpay.enabled} is false.
+ */
+@Service @Profile("!local")
 public class RetailQueryReconciliationService {
     private final PaymentOwnerRegistrationPort owners;
     private final PaymentIngressOutcomeQueryPort outcomes;

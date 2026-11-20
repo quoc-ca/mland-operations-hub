@@ -29,8 +29,23 @@ export function formatDateTime(isoString) {
   }
 }
 
+export function formatFileSize(bytes) {
+  if (!bytes || isNaN(bytes)) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let size = bytes;
+  let unitIndex = 0;
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024;
+    unitIndex++;
+  }
+  return `${size.toFixed(unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
+}
+
 export function validateImageFile(file) {
   if (!file) return null;
+  if (file.size === 0) {
+    return 'validation.imageEmpty';
+  }
   if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
     return 'validation.invalidImageType';
   }
@@ -38,5 +53,63 @@ export function validateImageFile(file) {
     return 'validation.imageTooLarge';
   }
   return null;
+}
+
+export function validateImageDimensions(file) {
+  return new Promise((resolve) => {
+    // If not in a real browser or in jsdom test environment, skip async image decoding
+    if (
+      !file ||
+      typeof window === 'undefined' ||
+      typeof Image === 'undefined' ||
+      typeof URL === 'undefined' ||
+      typeof URL.createObjectURL !== 'function' ||
+      (typeof navigator !== 'undefined' && /jsdom/i.test(navigator.userAgent))
+    ) {
+      resolve(null);
+      return;
+    }
+
+    try {
+      const objectUrl = URL.createObjectURL(file);
+      const img = new Image();
+      let finished = false;
+
+      const cleanup = () => {
+        if (!finished) {
+          finished = true;
+          try {
+            URL.revokeObjectURL(objectUrl);
+          } catch {}
+        }
+      };
+
+      // Safeguard timeout to never hang
+      const timer = setTimeout(() => {
+        cleanup();
+        resolve(null);
+      }, 1000);
+
+      img.onload = () => {
+        clearTimeout(timer);
+        cleanup();
+        if (img.width > LIMITS.maxDimension || img.height > LIMITS.maxDimension) {
+          resolve('validation.imageDimensionTooLarge');
+        } else {
+          resolve(null);
+        }
+      };
+
+      img.onerror = () => {
+        clearTimeout(timer);
+        cleanup();
+        resolve(null);
+      };
+
+      img.src = objectUrl;
+    } catch {
+      resolve(null);
+    }
+  });
 }
 

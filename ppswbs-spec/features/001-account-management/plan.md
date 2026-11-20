@@ -1,7 +1,7 @@
 # Implementation Plan: Account Management (FE-001)
 
 **Date created**: 2026-10-26
-**Date updated**: 2026-11-14
+**Date updated**: 2026-11-20
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
@@ -295,10 +295,16 @@ This revision adds the frontend-only shared lifecycle required by FR-041 and `sp
 | `shared/auth/AuthProvider` (revised) | Publishes the authoritative Firebase session state (`loading`, `unconfigured`, `signed-out`, `signed-in`) and emits an explicit terminal outcome for user sign-out or session loss. | Does not navigate or own account/role data. A user-sign-out outcome wins its matching Firebase-null observation. |
 | `shared/auth/SessionNavigationBoundary` (new) | Consumes the provider outcome once; clears registered private UI/draft state; invokes Router navigation and Home flash state. | The only client unit permitted to execute terminal session navigation. First `SESSION_LOST` wins until a new signed-in session. |
 | `shared/auth/RequireSession` (revised) | Guards declared authenticated routes after `AuthProvider` resolves. | `loading` renders neutral non-PII UI; `unconfigured` renders unavailable with no redirect; signed-out uses `/login` with `replace`. |
-| Router route configuration (revised) | Declares public/Member/internal route categories, canonical login and Account URLs, compatibility aliases. | `/sign-in` replaces to `/login`; aliases keep the same guard; public Feature-003.1 booking routes remain public. |
+| Router route configuration (revised) | Declares public/Member/internal/CARRIER route categories, canonical login and Account URLs, compatibility aliases. | `/sign-in` replaces to `/login`; a resolved CARRIER replaces to `/carrier`; aliases keep the same guard; public Feature-003.1 booking routes remain public. |
 | `Home` session notice presentation (new/revised) | Reads transient `location.state` session notice, renders localized safe notice, lets user dismiss it. | No browser storage; clear on dismiss/leave; never render token/provider detail. |
 | `FirebaseAuthClient` / `AuthPage` (revised) | Supports Google `signInWithRedirect` and `getRedirectResult`; maps redirect errors. | Popup APIs, popup handlers and popup acceptance are removed from supported scope. Collision directs to Email/Password; other errors offer safe retry/alternative method. |
 
-**Data flow:** UI sign-out / Firebase observer / authenticated HTTP client → `AuthProvider` outcome → `SessionNavigationBoundary` → registered private-state cleanup → `navigate('/', { replace: true, state: { sessionNotice } })` → Home notice. A guest route resolution flows `Router → RequireSession → navigate('/login', { replace: true })`; successful authentication flows `AuthPage → navigate('/', { replace: true })`. A `403` is an authorization outcome sent to the same boundary as a non-terminal safe-home notice and does not call Firebase sign-out.
+**Data flow:** UI sign-out / Firebase observer / authenticated HTTP client → `AuthProvider` outcome → `SessionNavigationBoundary` → registered private-state cleanup → `navigate('/', { replace: true, state: { sessionNotice } })` → Home notice. A guest route resolution flows `Router → RequireSession → navigate('/login', { replace: true })`; after Account resolution, successful authentication flows `AuthPage → navigate('/carrier', { replace: true })` for CARRIER or `navigate('/', { replace: true })` for every other role. A `403` is an authorization outcome sent to the same boundary as a non-terminal safe-home notice and does not call Firebase sign-out.
 
 **Revision-specific gate:** implementation starts only after the approval revision in `approval.md` is present. Completion requires the new unstarted tasks and V-13 verification evidence; historical task checkmarks and V-12 evidence do not prove FR-041 or redirect-only scope.
+
+---
+
+## Revision 2026-11-20 — CARRIER (GHTK) approved boundary
+
+Add fixed `CARRIER` to Admin catalogue/create/list/detail/status contracts. CARRIER is ACTIVE on ADMIN creation with immutable email, required password/display name/phone, no location, no invitation, and no role transition. ADMIN provisions a Firebase email/password identity before the Account commit; the runtime password is write-only and never stored, logged, audited, or returned. Reuse the existing idempotent internal-provisioning/reconciliation mechanism without adding an enrollment table. Existing UID-first ownership and Member bootstrap remain unchanged; CARRIER gains no logistics or FE-001 profile/email self-service capability and may use the existing password-change flow. For demo/test only, seed `ghtk.test@mland.vn` / `CarrierTest@123456` after Firebase issues its UID; this explicit fixture exception does not alter runtime or production credential handling. Revision R-CAR authorizes T084–T088.

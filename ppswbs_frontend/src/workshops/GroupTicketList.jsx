@@ -1,10 +1,11 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   cancelTicket,
   changeTicketRecipient,
   changeTicketSessions,
   confirmBuyerVerification,
   getTicketChangeOptions,
+  getTicketChangeRequestStatus,
   lookupTicketChangeOptions,
   requestBuyerVerification,
   WorkshopApiError,
@@ -267,6 +268,8 @@ const CHANGE_TYPES = [
  * to commit. A price increase is confirmed first and the call repeats with a new key; a change that only a Manager may
  * allow is queued (202) and reported as sent.
  */
+const REQUEST_POLL_MS = 20000;
+
 function ChangeScheduleForm({ ticket, groupCode, authorization, proof, onUpdated }) {
   const [open, setOpen] = useState(false);
   const [type, setType] = useState('ADVANCE');
@@ -279,6 +282,41 @@ function ChangeScheduleForm({ ticket, groupCode, authorization, proof, onUpdated
   const [pickerKey, setPickerKey] = useState(0);
   const needsVerification = !authorization && !reference;
   const code = ticket.ticketCode;
+
+  // A queued request is decided by a Manager elsewhere. The buyer Member reads its state from the server: on load (so a
+  // reload still shows "waiting") and every REQUEST_POLL_MS while it waits. Guests have no such read; their notice stays local.
+  const [decision, setDecision] = useState(null);
+  const onUpdatedRef = useRef(onUpdated);
+  onUpdatedRef.current = onUpdated;
+  const queuedReference = outcome?.queued ? outcome.reference : null;
+  useEffect(() => {
+    if (!authorization || decision) return undefined;
+    let active = true;
+    let busy = false;
+    const read = async () => {
+      if (busy || document.visibilityState === 'hidden') return;
+      busy = true;
+      try {
+        const latest = await getTicketChangeRequestStatus(code, { authorization });
+        if (!active || !latest) return;
+        if (latest.status === 'PENDING') {
+          setOutcome(current => (current?.queued ? current : { queued: true, reference: latest.requestReference }));
+        } else if (queuedReference && latest.requestReference === queuedReference) {
+          setDecision(latest);
+          onUpdatedRef.current?.();
+        }
+      } catch {
+        // The notice keeps what it shows; the next read tries again.
+      } finally {
+        busy = false;
+      }
+    };
+    read();
+    if (!queuedReference) return () => { active = false; };
+    const timer = setInterval(read, REQUEST_POLL_MS);
+    document.addEventListener('visibilitychange', read);
+    return () => { active = false; clearInterval(timer); document.removeEventListener('visibilitychange', read); };
+  }, [authorization, code, queuedReference, decision]);
 
   const loadOptions = useCallback(from => (authorization
     ? getTicketChangeOptions(code, { type, fromSessionReferences: from, authorization })
@@ -325,6 +363,19 @@ function ChangeScheduleForm({ ticket, groupCode, authorization, proof, onUpdated
       setPending(false);
     }
   };
+
+  if (decision) {
+    const approved = decision.status === 'APPROVED';
+    const title = approved ? 'Quản lý đã duyệt yêu cầu đổi lịch.'
+      : decision.status === 'REJECTED' ? 'Quản lý đã từ chối yêu cầu đổi lịch.' : 'Yêu cầu đổi lịch đã hết hạn.';
+    return (
+      <div role="status" style={{ marginTop: '10px', padding: '12px', fontSize: '13px', background: approved ? '#f0fdf4' : '#fef2f2', border: approved ? '1px solid #bbf7d0' : '1px solid #fecaca' }}>
+        <strong>{title}</strong>
+        <p style={{ margin: '6px 0 0' }}>Mã yêu cầu: <code>{decision.requestReference}</code>.</p>
+        {decision.decisionReason && <p style={{ margin: '6px 0 0' }}>Lý do: {decision.decisionReason}</p>}
+      </div>
+    );
+  }
 
   if (outcome) {
     return (

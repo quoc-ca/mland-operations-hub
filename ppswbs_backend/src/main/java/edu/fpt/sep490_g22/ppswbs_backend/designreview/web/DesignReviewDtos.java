@@ -27,6 +27,24 @@ public class DesignReviewDtos {
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
+    public static class AiQuotaDto {
+        @JsonProperty("actor")
+        private String actor;
+
+        @JsonProperty("limit")
+        private int limit;
+
+        @JsonProperty("remaining")
+        private int remaining;
+
+        @JsonProperty("resetAt")
+        private String resetAt;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class AiSupportResponse {
         @JsonProperty("answer")
         private String answer;
@@ -40,6 +58,12 @@ public class DesignReviewDtos {
 
         @JsonProperty("correlationId")
         private String correlationId;
+
+        @JsonProperty("quota")
+        private AiQuotaDto quota;
+
+        @JsonProperty("guestSessionToken")
+        private String guestSessionToken;
 
         // Dual-compatibility getters
         @JsonProperty("message")
@@ -102,5 +126,8 @@ public class DesignReviewDtos {
         private String code;
         private String message;
         private Long retryAfterSeconds;
+        private String correlationId;
+        private AiQuotaDto quota;
+        private String guestSessionToken;
     }
 }

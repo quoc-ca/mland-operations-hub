@@ -54,3 +54,10 @@
 .retail-staff-crumb a:hover{text-decoration:underline}
 @media(max-width:760px){.staff-summary,.order-detail{grid-template-columns:1fr}.order-pill{margin-left:0}}
 img.order-thumb{object-fit:cover;background:#f3f4f6}
+/* Session 2026-11-18: new Member and Staff order stages */
+.pill-awaiting_collection,.pill-preparing{background:#ede9fe;color:#5b21b6}
+.pill-awaiting_delivery,.pill-awaiting_carrier,.pill-handed_over{background:#e0e7ff;color:#3730a3}
+.order-card.just-placed{border-color:#f59e0b;box-shadow:0 0 0 2px #fde68a}
+.order-arrival{margin:0 0 12px}
+.pay-countdown{background:#fff3dc;color:#7a4a00}
+.pay-countdown .countdown{font-variant-numeric:tabular-nums;color:#c2410c}

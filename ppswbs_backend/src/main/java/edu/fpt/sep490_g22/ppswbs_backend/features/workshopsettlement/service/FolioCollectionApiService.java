@@ -2,6 +2,7 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service;
 
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.CurrentAccountActor;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.FolioCollectionDtos.*;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.WaitingCountResponse;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementCashDayClose;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -108,6 +109,18 @@ public class FolioCollectionApiService {
         var outcome = idempotency.execute(op, fp, () -> cashCloses.confirmDifferenceById(cashCloseId, reason,
                 manager.accountId(), correlation).getCloseReference());
         return response(cashCloses.findByReference(outcome.outcomeReference()));
+    }
+
+    /** Manager home (013 R-3): Manager only; the number of cash-close differences awaiting confirmation. */
+    public WaitingCountResponse countCashClosesAwaitingConfirmation(CurrentAccountActor actor) {
+        authorization.requireManager(actor);
+        return new WaitingCountResponse(cashCloses.countAwaitingConfirmation());
+    }
+
+    /** Manager home (013 R-3): Manager only; the differences the count above counts, so the card equals the list. */
+    public java.util.List<CashCloseResponse> listCashClosesAwaitingConfirmation(CurrentAccountActor actor) {
+        authorization.requireManager(actor);
+        return cashCloses.listAwaitingConfirmation().stream().map(FolioCollectionApiService::response).toList();
     }
 
     /** T120: the expected cash is read under the cash-close resource (Manager, or Staff of that branch). */

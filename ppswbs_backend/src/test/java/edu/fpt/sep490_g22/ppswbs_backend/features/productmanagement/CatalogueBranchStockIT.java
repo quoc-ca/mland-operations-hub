@@ -94,7 +94,7 @@ class CatalogueBranchStockIT {
 
         ManagementProductDtos.ManagementProduct dto = query.get(Long.toString(productId));
         assertThat(dto.branches()).extracting(ManagementProductDtos.Branch::locationId)
-                .containsExactly(Long.toString(branchA), Long.toString(branchB));
+                .containsExactlyElementsOf(inIdOrder(Long.toString(branchA), Long.toString(branchB)));
         assertThat(dto.variants().getFirst().branchStocks()).hasSize(2);
         assertThat(query.list(null, null, null, 0, Long.toString(branchB)).items())
                 .extracting(ManagementProductDtos.ManagementProduct::id).contains(Long.toString(productId));
@@ -155,7 +155,7 @@ class CatalogueBranchStockIT {
                 Long.toString(branchB), false);
 
         ManagementProductDtos.ManagementProduct dto = query.get(Long.toString(productId));
-        assertThat(dto.branches()).extracting(ManagementProductDtos.Branch::saleEnabled).containsExactly(true, false);
+        assertThat(dto.branches()).extracting(ManagementProductDtos.Branch::saleEnabled).containsExactlyElementsOf(inIdOrder(true, false));
     }
 
     @Test
@@ -168,7 +168,7 @@ class CatalogueBranchStockIT {
         branchStock.setSaleEnabled(CatalogueTestSupport.STAFF, UUID.randomUUID(), product, b, false, true);
         assertThatThrownBy(() -> branchStock.setSaleEnabled(CatalogueTestSupport.STAFF, UUID.randomUUID(), product, b, true, true))
                 .satisfies(error -> assertThat(((CatalogueException) error).code()).isEqualTo(CatalogueErrorCode.STALE_VERSION));
-        assertThat(query.get(product).branches()).extracting(ManagementProductDtos.Branch::saleEnabled).containsExactly(true, false);
+        assertThat(query.get(product).branches()).extracting(ManagementProductDtos.Branch::saleEnabled).containsExactlyElementsOf(inIdOrder(true, false));
 
         branchStock.setSaleEnabled(CatalogueTestSupport.STAFF, UUID.randomUUID(), product, b, true, false);
         assertThat(query.get(product).branches()).extracting(ManagementProductDtos.Branch::saleEnabled).containsExactly(true, true);
@@ -326,7 +326,17 @@ class CatalogueBranchStockIT {
 
     private List<VariantBranchStock> rows(long variantId) {
         return transaction.execute(status -> stocks.findByVariantIdInOrderByVariantIdAscLocationIdAsc(List.of(variantId)))
-                .stream().sorted(Comparator.comparing(VariantBranchStock::getLocationId)).toList();
+                .stream().sorted(Comparator.comparingInt(row -> branchRank(row.getLocationId()))).toList();
+    }
+
+    /** Branch A, then B: the ids of the shared test branches are not created in this order on a reused database. */
+    /** The management read lists branches by id; the shared test branches are not always created A before B. */
+    private <T> List<T> inIdOrder(T forA, T forB) {
+        return branchA < branchB ? List.of(forA, forB) : List.of(forB, forA);
+    }
+
+    private int branchRank(long locationId) {
+        return locationId == branchA ? 0 : locationId == branchB ? 1 : 2;
     }
 
     private static void actAsStaff(long accountId) {

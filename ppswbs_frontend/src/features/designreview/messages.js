@@ -16,6 +16,8 @@ export const designReviewMessages = {
     'aiChat.memberBadge': 'Hội viên Mland',
     'aiChat.empty': 'Hãy đặt câu hỏi để bắt đầu trò chuyện cùng Trợ lý AI.',
     'aiChat.charCount': '{count}/2.000 ký tự',
+    'aiChat.quotaNotice': 'Còn {remaining}/{limit} lượt hỏi hôm nay • Reset lúc 00:00',
+    'aiChat.quotaExceeded': 'Bạn đã sử dụng hết số lượt hỏi AI trong ngày. Lượt hỏi sẽ được làm mới vào lúc 00:00.',
 
     // F04-DESIGN-WORKSPACE
     'workspace.title': 'Không gian Thiết kế Độc lập',
@@ -28,6 +30,7 @@ export const designReviewMessages = {
     'workspace.imageLabel': 'Hình ảnh tham khảo mẫu thiết kế (không bắt buộc)',
     'workspace.imageHint': 'Định dạng JPEG, PNG, WEBP. Tối đa 10 MB. Độ phân giải tối đa 4096×4096.',
     'workspace.submit': 'Gửi yêu cầu thiết kế',
+    'workspace.success': 'Yêu cầu đã được gửi thành công, đang đợi phản hồi của nhân viên',
     'workspace.charCount': '{count}/4.000 ký tự',
     'workspace.fileSelected': 'Đã chọn ảnh: {name} ({size})',
     'workspace.removeImage': 'Gỡ bỏ ảnh',
@@ -105,12 +108,24 @@ export const designReviewMessages = {
     'validation.required': 'Trường này không được để trống.',
     'validation.invalidImageType': 'Định dạng ảnh không hợp lệ. Chỉ chấp nhận JPEG, PNG hoặc WEBP.',
     'validation.imageTooLarge': 'Dung lượng ảnh vượt quá giới hạn 10 MB.',
+    'validation.imageEmpty': 'Tệp ảnh rỗng hoặc bị lỗi (0 bytes). Vui lòng chọn tệp ảnh hợp lệ.',
+    'validation.imageDimensionTooLarge': 'Độ phân giải ảnh vượt quá giới hạn tối đa 4096×4096px. Vui lòng giảm kích thước ảnh.',
     'validation.consentRequired': 'Bạn phải tích chọn đồng ý xử lý hình ảnh trước khi gửi.',
     'validation.contentRequired': 'Vui lòng nhập mô tả ý tưởng hoặc tải lên hình ảnh tham khảo.',
     'validation.promptTooLong': 'Câu hỏi vượt quá giới hạn 2.000 ký tự.',
     'validation.descriptionTooLong': 'Mô tả vượt quá giới hạn 4.000 ký tự.',
     'validation.reasonTooLong': 'Lý do vượt quá giới hạn 2.000 ký tự.',
     'validation.finalPriceRequired': 'Vui lòng nhập giá chốt cuối cùng khi chọn điều chỉnh.',
+
+    // Status translations
+    'status.NEED_REVIEW': 'Đang đợi phản hồi của nhân viên',
+    'status.ACCEPTED': 'Đã được chấp thuận',
+    'status.REJECTED': 'Đã từ chối',
+    'status.CLARIFICATION_REQUIRED': 'Cần làm rõ thêm',
+    'status.SUCCEEDED': 'Hoàn thành phân tích',
+    'status.PROCESSING': 'Đang phân tích',
+    'status.FAILED': 'Phân tích thất bại',
+    'status.PENDING': 'Đang chờ xử lý',
 
     // Server error codes
     'error.AI_INPUT_INVALID': 'Dữ liệu nhập vào không hợp lệ hoặc không đúng định dạng.',
@@ -129,6 +144,11 @@ export const designReviewMessages = {
     'error.AI_PROVIDER_ERROR': 'Dịch vụ phân tích AI đang gặp sự cố kết nối. Vui lòng thử lại sau.',
     'error.AI_PROVIDER_TIMEOUT': 'Thời gian phản hồi của dịch vụ AI đã hết hạn. Vui lòng thử lại.',
     'error.AI_OUTPUT_INVALID': 'Kết quả từ nhà cung cấp AI không hợp lệ.',
+    'error.AI_DAILY_QUOTA_EXCEEDED': 'Bạn đã sử dụng hết số lượt hỏi AI trong ngày.',
+    'error.AI_GUEST_SESSION_INVALID': 'Phiên AI của khách vãng lai không hợp lệ hoặc đã hết hạn.',
+    'error.AI_ACTOR_NOT_ALLOWED': 'Tài khoản nhân viên và quản trị viên không thuộc nhóm sử dụng Trợ lý AI khách hàng.',
+    'error.AI_UNAVAILABLE': 'Dịch vụ AI tạm thời không phản hồi. Vui lòng thử lại sau.',
+    'error.AI_OUTPUT_POLICY_VIOLATION': 'Kết quả từ AI vi phạm chính sách an toàn của hệ thống.',
   },
   en: {
     // Shared & Navigation
@@ -147,6 +167,8 @@ export const designReviewMessages = {
     'aiChat.memberBadge': 'Mland Member',
     'aiChat.empty': 'Ask a question to start chatting with the AI Assistant.',
     'aiChat.charCount': '{count}/2,000 characters',
+    'aiChat.quotaNotice': '{remaining}/{limit} prompts left today • Resets at 00:00',
+    'aiChat.quotaExceeded': 'You have reached your daily AI prompt limit. Quota resets at 00:00.',
 
     // F04-DESIGN-WORKSPACE
     'workspace.title': 'Independent Design Workspace',
@@ -159,6 +181,7 @@ export const designReviewMessages = {
     'workspace.imageLabel': 'Reference design image (optional)',
     'workspace.imageHint': 'JPEG, PNG, WEBP. Max 10 MB. Max resolution 4096×4096.',
     'workspace.submit': 'Submit design request',
+    'workspace.success': 'Your request has been submitted successfully and is awaiting staff review.',
     'workspace.charCount': '{count}/4,000 characters',
     'workspace.fileSelected': 'Selected image: {name} ({size})',
     'workspace.removeImage': 'Remove image',
@@ -236,12 +259,24 @@ export const designReviewMessages = {
     'validation.required': 'This field is required.',
     'validation.invalidImageType': 'Invalid image format. Only JPEG, PNG, or WEBP are supported.',
     'validation.imageTooLarge': 'Image size exceeds the 10 MB limit.',
+    'validation.imageEmpty': 'Image file is empty or corrupted (0 bytes). Please choose a valid image file.',
+    'validation.imageDimensionTooLarge': 'Image resolution exceeds the 4096×4096px limit. Please reduce image dimensions.',
     'validation.consentRequired': 'You must give consent for image processing before submitting.',
     'validation.contentRequired': 'Please enter a description or upload a reference image.',
     'validation.promptTooLong': 'Prompt exceeds the 2,000 character limit.',
     'validation.descriptionTooLong': 'Description exceeds the 4,000 character limit.',
     'validation.reasonTooLong': 'Reason exceeds the 2,000 character limit.',
     'validation.finalPriceRequired': 'Final price is required when adjusting the price.',
+
+    // Status translations
+    'status.NEED_REVIEW': 'Awaiting staff review',
+    'status.ACCEPTED': 'Accepted',
+    'status.REJECTED': 'Rejected',
+    'status.CLARIFICATION_REQUIRED': 'Clarification required',
+    'status.SUCCEEDED': 'Analysis succeeded',
+    'status.PROCESSING': 'Processing',
+    'status.FAILED': 'Analysis failed',
+    'status.PENDING': 'Pending',
 
     // Server error codes
     'error.AI_INPUT_INVALID': 'Invalid or malformed input provided.',
@@ -260,6 +295,11 @@ export const designReviewMessages = {
     'error.AI_PROVIDER_ERROR': 'AI analysis provider is currently experiencing issues. Please try again later.',
     'error.AI_PROVIDER_TIMEOUT': 'AI provider request timed out. Please try again.',
     'error.AI_OUTPUT_INVALID': 'Invalid response received from AI provider.',
+    'error.AI_DAILY_QUOTA_EXCEEDED': 'You have used all your AI prompts for today.',
+    'error.AI_GUEST_SESSION_INVALID': 'Your guest AI session is invalid or has expired.',
+    'error.AI_ACTOR_NOT_ALLOWED': 'Staff, Manager, and Admin roles are not permitted to use Basic AI Support.',
+    'error.AI_UNAVAILABLE': 'AI service is temporarily unavailable. Please try again later.',
+    'error.AI_OUTPUT_POLICY_VIOLATION': 'AI response violated system safety policies.',
   },
 };
 

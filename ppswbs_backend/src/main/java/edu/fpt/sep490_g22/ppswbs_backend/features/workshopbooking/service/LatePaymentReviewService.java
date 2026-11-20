@@ -121,6 +121,9 @@ public class LatePaymentReviewService {
 
     /** Is this group past its hold, so that a verified payment for it is a late payment? Caller holds the lock. */
     public boolean isLate(BookingGroup group, Instant now) {
+        if (group.getGroupStatus() == BookingStatus.CANCELLED || group.getGroupStatus() == BookingStatus.EXPIRED) {
+            return true; // released: verified money is FR-040 evidence even before holdExpiresAt (FR-032 late success)
+        }
         return group.getGroupStatus() != BookingStatus.CONFIRMED
                 && (group.getHoldExpiresAt() == null || !group.getHoldExpiresAt().isAfter(now));
     }

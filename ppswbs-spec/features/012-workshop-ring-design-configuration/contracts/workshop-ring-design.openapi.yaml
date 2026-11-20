@@ -1,12 +1,12 @@
 # Date created: 2026-11-08
-# Date updated: 2026-11-14
+# Date updated: 2026-11-19
 # Author: Ngô Tiến Đạt
 # Last updated by: Ngô Tiến Đạt
 
 openapi: 3.1.0
 info:
   title: Feature-012 Workshop Ring Design Configuration API
-  version: 0.3.0
+  version: 0.4.0
   description: >-
     Authoritative contract for Guest and Member workshop ring configuration,
     supporting Silver/Copper/Stainless Steel, sizes 6-29 with perimeter in mm,
@@ -303,6 +303,19 @@ components:
             priceAdjustment: { type: string, nullable: true }
             customImagePrice: { type: string, nullable: true }
             imageFrameSizePx: { type: integer, nullable: true }
+            maxTextItems: { type: integer, minimum: 0, default: 2 }
+            maxSymbolItems: { type: integer, minimum: 0, default: 2 }
+            maxCustomImageItems: { type: integer, minimum: 0, default: 2 }
+            imagePreprocessing:
+              type: object
+              required: [contrastMin, contrastMax, contrastDefault, sharpnessMin, sharpnessMax, sharpnessDefault]
+              properties:
+                contrastMin: { type: integer, minimum: 0, maximum: 100, default: 0 }
+                contrastMax: { type: integer, minimum: 0, maximum: 100, default: 100 }
+                contrastDefault: { type: integer, minimum: 0, maximum: 100, default: 50 }
+                sharpnessMin: { type: integer, minimum: 0, maximum: 100, default: 0 }
+                sharpnessMax: { type: integer, minimum: 0, maximum: 100, default: 100 }
+                sharpnessDefault: { type: integer, minimum: 0, maximum: 100, default: 50 }
             currency: { type: string, nullable: true }
         models:
           type: array
@@ -359,7 +372,7 @@ components:
           type: integer
           minimum: 1
           maximum: 64
-          description: Selected stone quantity, validated against component maxQuantity
+          description: Selected stone quantity; each component maxQuantity and aggregate gemstone total limit of 10 are validated by the server.
         variant: { type: string, maxLength: 64, nullable: true }
         placement:
           type: string
@@ -385,13 +398,15 @@ components:
         placement: { type: string, maxLength: 100, nullable: true }
         items:
           type: array
+          maxItems: 4
           items: { $ref: '#/components/schemas/EngravingItem' }
         customImages:
           type: array
+          maxItems: 2
           items: { $ref: '#/components/schemas/CustomEngravingImage' }
     EngravingItem:
       type: object
-      required: [content]
+      required: [content, type]
       properties:
         id: { type: string, nullable: true }
         type: { type: string, enum: [TEXT, SYMBOL], default: TEXT }
@@ -408,6 +423,9 @@ components:
         cropY: { type: integer, default: 0 }
         cropWidth: { type: integer, default: 160 }
         cropHeight: { type: integer, default: 160 }
+        contrast: { type: integer, minimum: 0, maximum: 100, default: 50 }
+        sharpness: { type: integer, minimum: 0, maximum: 100, default: 50 }
+        processedPreviewReference: { type: string, nullable: true }
         price: { type: number, default: 100000.00 }
     DesignResponse:
       type: object
@@ -484,7 +502,9 @@ components:
       type: object
       required: [code, message, correlationId]
       properties:
-        code: { type: string }
+        code:
+          type: string
+          description: Existing contract error code or one of GEMSTONE_TOTAL_LIMIT_EXCEEDED, TEXT_ENGRAVING_LIMIT_EXCEEDED, SYMBOL_ENGRAVING_LIMIT_EXCEEDED, IMAGE_ENGRAVING_LIMIT_EXCEEDED, IMAGE_PREPROCESSING_INVALID, ENGRAVING_PREVIEW_UNAVAILABLE.
         message: { type: string }
         correlationId: { type: string }
         details: { type: array, items: { type: string } }

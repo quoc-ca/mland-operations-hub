@@ -2,6 +2,7 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.controller
 
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.CurrentAccountActor;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.RefundRequestStatus;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.WaitingCountResponse;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementRefundRequest;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.BankRefundService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.RefundCounterEntryAuthorizer;
@@ -128,6 +129,31 @@ public class RefundRequestController {
         Set<Long> withImage = receiptImages.requestIdsWithAttachedImage(
                 rows.stream().map(SettlementRefundRequest::getId).filter(Objects::nonNull).toList());
         return rows.stream().map(row -> RefundRequestResponse.of(row, withImage.contains(row.getId()))).toList();
+    }
+
+    /**
+     * Manager home (013 R-2): {@code ?waiting=true} lists exactly the requests the card counts (the four PENDING_*
+     * statuses), so the card number equals the list size (FR-004). It cannot be combined with {@code status}.
+     */
+    @GetMapping(value = "/api/v1/workshop-refund-requests", params = "waiting=true")
+    public List<RefundRequestResponse> listWaiting(
+            @RequestParam(required = false) RefundRequestStatus status,
+            Authentication authentication) {
+        authorization.requireManager(actor(authentication));
+        if (status != null) {
+            throw new WorkshopSettlementValidationException("WAITING_AND_STATUS_EXCLUSIVE");
+        }
+        List<SettlementRefundRequest> rows = bankRefunds.listWaiting();
+        Set<Long> withImage = receiptImages.requestIdsWithAttachedImage(
+                rows.stream().map(SettlementRefundRequest::getId).filter(Objects::nonNull).toList());
+        return rows.stream().map(row -> RefundRequestResponse.of(row, withImage.contains(row.getId()))).toList();
+    }
+
+    /** Manager home (013 R-2): {"waiting": n}, the size of the list returned by {@code ?waiting=true}. */
+    @GetMapping("/api/v1/workshop-refund-requests/waiting-count")
+    public WaitingCountResponse waitingCount(Authentication authentication) {
+        authorization.requireManager(actor(authentication));
+        return new WaitingCountResponse(bankRefunds.countWaiting());
     }
 
     @PostMapping("/api/v1/workshop-refund-requests/{refundId}/transitions")

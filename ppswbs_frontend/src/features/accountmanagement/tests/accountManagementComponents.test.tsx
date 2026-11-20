@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router';
 import AuthPage from '../components/AuthPage';
 import InternalAccountCreatePage from '../components/InternalAccountCreatePage';
@@ -467,6 +467,7 @@ describe('FE-001 Account Management Components & Hooks', () => {
           { code: 'MEMBER' as const, displayName: 'Khách hàng thành viên / Member' },
           { code: 'STAFF' as const, displayName: 'Nhân viên cơ sở / Staff' },
           { code: 'MANAGER' as const, displayName: 'Quản lý cơ sở / Manager' },
+          { code: 'CARRIER' as const, displayName: 'Đối tác vận chuyển (GHTK)' },
           { code: 'ADMIN' as const, displayName: 'Quản trị viên / Admin' },
         ],
       };
@@ -486,9 +487,141 @@ describe('FE-001 Account Management Components & Hooks', () => {
         expect(screen.getByText('Nhân viên cơ sở / Staff')).toBeInTheDocument();
         expect(screen.getByText('MANAGER')).toBeInTheDocument();
         expect(screen.getByText('Quản lý cơ sở / Manager')).toBeInTheDocument();
+        expect(screen.getByText('CARRIER')).toBeInTheDocument();
+        expect(screen.getByText('Đối tác vận chuyển (GHTK)')).toBeInTheDocument();
         expect(screen.getByText('ADMIN')).toBeInTheDocument();
         expect(screen.getByText('Quản trị viên / Admin')).toBeInTheDocument();
       });
+
+      expect(screen.getByText(/5 vai trò cố định/i)).toBeInTheDocument();
+      expect(screen.getByText(/CARRIER là vai trò đối tác vận chuyển \(GHTK\) do Quản trị viên khởi tạo/i)).toBeInTheDocument();
+    });
+  });
+
+  describe('Revision R-CAR: CARRIER Partner Account (T086, T087, T088)', () => {
+    it('creates an ACTIVE CARRIER account with write-only password and no locations (FR-011, FR-012)', async () => {
+      const createSpy = vi.spyOn(accountManagementApiClient, 'createInternalAccount').mockResolvedValue({
+        accountId: 101,
+        role: 'CARRIER',
+        status: 'ACTIVE',
+        loginEmail: 'ghtk.test@mland.vn',
+        revocationStatus: 'NOT_APPLICABLE',
+        createdAt: '2026-11-20',
+        updatedAt: '2026-11-20',
+        provisioningStatus: 'COMPLETED',
+        invitationLastSentAt: null,
+      });
+
+      render(
+        <MemoryRouter>
+          <InternalAccountCreatePage />
+        </MemoryRouter>
+      );
+
+      // Select CARRIER role
+      const roleSelect = screen.getByLabelText('Vai trò nội bộ');
+      fireEvent.change(roleSelect, { target: { value: 'CARRIER' } });
+
+      // Locations section and invitation checkbox must not be rendered
+      expect(screen.queryByText('Cơ sở làm việc (giới hạn quyền)')).toBeNull();
+      expect(screen.queryByText('Gửi thông báo hướng dẫn thiết lập tài khoản đến email công việc')).toBeNull();
+
+      // Email and Password fields must appear for CARRIER
+      const emailInput = screen.getByLabelText(/email đăng nhập/i);
+      const passwordInput = screen.getByLabelText(/mật khẩu khởi tạo/i);
+      const nameInput = screen.getByLabelText(/tên hiển thị đối tác/i);
+      const phoneInput = screen.getByLabelText(/số điện thoại liên hệ/i);
+
+      fireEvent.change(emailInput, { target: { value: 'ghtk.test@mland.vn' } });
+      fireEvent.change(passwordInput, { target: { value: 'CarrierTest@123456' } });
+      fireEvent.change(nameInput, { target: { value: 'Đối tác vận chuyển (GHTK)' } });
+      fireEvent.change(phoneInput, { target: { value: '0900000000' } });
+
+      const submitBtn = screen.getByRole('button', { name: 'Khởi tạo tài khoản' });
+      fireEvent.click(submitBtn);
+
+      await waitFor(() => {
+        expect(createSpy).toHaveBeenCalledWith(
+          {
+            role: 'CARRIER',
+            email: 'ghtk.test@mland.vn',
+            password: 'CarrierTest@123456',
+            fullName: 'Đối tác vận chuyển (GHTK)',
+            phone: '0900000000',
+          },
+          expect.any(String)
+        );
+      });
+
+      // Verify success screen shows ACTIVE status and write-only guidance
+      expect(await screen.findByText(/Trạng thái: ACTIVE \(Đang hoạt động\)/i)).toBeInTheDocument();
+      expect(screen.getByText(/Mật khẩu khởi tạo mang tính chất chỉ-ghi \(write-only\)/i)).toBeInTheDocument();
+      expect(screen.getByText(/bàn giao thông tin đăng nhập trực tiếp/i)).toBeInTheDocument();
+      expect(screen.getByText('ghtk.test@mland.vn')).toBeInTheDocument();
+    });
+
+    it('displays CARRIER account detail with governance notice, no locations, and no invitation resend button', async () => {
+      const mockCarrierDetail = {
+        accountId: 101,
+        role: 'CARRIER' as const,
+        status: 'ACTIVE' as const,
+        loginEmail: 'ghtk.test@mland.vn',
+        revocationStatus: 'NOT_APPLICABLE' as const,
+        createdAt: '2026-11-20',
+        updatedAt: '2026-11-20',
+        profile: {
+          fullName: 'Đối tác vận chuyển (GHTK)',
+          phone: '0900000000',
+        },
+        locationAssignments: [],
+        version: 1,
+      };
+
+      vi.spyOn(accountManagementApiClient, 'getAccountDetail').mockResolvedValue(mockCarrierDetail);
+
+      render(
+        <MemoryRouter initialEntries={['/admin/accounts/101']}>
+          <Routes>
+            <Route path="/admin/accounts/:accountId" element={<AdminAccountDetailPage />} />
+          </Routes>
+        </MemoryRouter>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText('ghtk.test@mland.vn')).toBeInTheDocument();
+      });
+
+      // Shows location row as "Không áp dụng (Đối tác giao vận toàn quốc)"
+      expect(screen.getByText('Không áp dụng (Đối tác giao vận toàn quốc)')).toBeInTheDocument();
+
+      // Shows governance notice
+      expect(screen.getByText(/Vai trò Đối tác vận chuyển \(GHTK\) là vai trò cố định/i)).toBeInTheDocument();
+
+      // No role & location assignment form
+      expect(screen.queryByText('Cập nhật vai trò & cơ sở')).toBeNull();
+
+      // No resend invitation button
+      expect(screen.queryByText(/Gửi lại thư mời/i)).toBeNull();
+
+      // Admin CAN suspend CARRIER
+      expect(screen.getByRole('button', { name: /Tạm khóa tài khoản/i })).toBeInTheDocument();
+    });
+
+    it('AdminAccountListPage includes CARRIER in role filter options', async () => {
+      vi.spyOn(accountManagementApiClient, 'listAccounts').mockResolvedValue({
+        data: [],
+        meta: { page: 0, size: 20, totalElements: 0, totalPages: 0 },
+      });
+
+      render(
+        <MemoryRouter>
+          <AdminAccountListPage />
+        </MemoryRouter>
+      );
+
+      const roleFilter = screen.getByLabelText('Vai trò');
+      const carrierOption = within(roleFilter as HTMLElement).getByText('CARRIER');
+      expect(carrierOption).toBeInTheDocument();
     });
   });
 });

@@ -48,8 +48,10 @@ export function stockOf(variant, locationId) {
  * @param onAdded    called after a successful add instead of opening the cart (the list's quick add)
  * @param sizePrice  optional render of the chosen size's price under the size boxes (the detail page passes the
  *                   price after offers)
+ * @param onSizeChange optional, called with the chosen size (or null) whenever it changes; the detail page shows that
+ *                   size's price as its big price
  */
-export function AddToCartPanel({ product, returnPath, onAdded, sizePrice }) {
+export function AddToCartPanel({ product, returnPath, onAdded, sizePrice, onSizeChange }) {
   const t = useT(messages);
   const errorText = useErrorText(messages);
   const api = useCatalogueApi();
@@ -88,6 +90,10 @@ export function AddToCartPanel({ product, returnPath, onAdded, sizePrice }) {
   // size is chosen the quantity stays at 1 and the line asks for a size.
   const stock = chosenVariant ? stockOf(chosenVariant, choice.locationId) : 0;
   const maxQuantity = chosenVariant ? Math.min(stock, MAX_LINE) : 1;
+
+  useEffect(() => {
+    if (onSizeChange) onSizeChange(chosenVariant || null);
+  }, [choice.variantId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // A branch from returnTo is kept only if something can be bought there.
   useEffect(() => {

@@ -1,50 +1,46 @@
 ---
 name: e2e-test-specify
-description: Create one traceable Markdown E2E/Integration test scenario for a PPSWBS feature tested with browsermcp.
+description: Create one traceable, black-box Markdown E2E scenario for a PPSWBS feature, executed through browsermcp.
 metadata:
-  short-description: Create E2E browser test scenario with Markdown case
+  short-description: Create an exploratory E2E browser scenario with step decisions
 ---
 
 # E2E Test Scenario Specify
 
-Dùng kỹ năng này để tạo một kịch bản kiểm thử End-to-End (E2E) hoặc UI Integration test chuẩn hóa cho một tính năng trong PPSWBS, được thiết kế để thực thi thông qua công cụ `browsermcp`.
+Use this skill to create a new E2E/UI integration scenario at `ppswbs-spec/features/<feature>/test-results/E2E-<feature-number>-<NNN>--<lowercase-slug>.md`.
 
-## 1. Khảo sát bắt buộc (Required Discovery)
+## 1. Required Discovery
 
-Trước khi soạn kịch bản, Agent phải đọc:
-1. File đặc tả tính năng `ppswbs-spec/features/<feature>/spec.md` (yêu cầu nghiệp vụ, acceptance criteria).
-2. Thiết kế giao diện `design/ui-flow.md` hoặc `screen.md` (các màn hình, route, button, input fields).
-3. Hợp đồng API liên quan `contracts/` (status code, payload kỳ vọng).
-4. **Phân tích rủi ro đối nghịch:** kiểm tra tối thiểu input sai định dạng, submit lặp, timeout/tải chậm, mất phiên, sai quyền, dữ liệu trùng và lỗi 5xx. Nếu rủi ro áp dụng, tạo hoặc nêu rõ ca `A` (Abnormal) hoặc `B` (Boundary); không coi mọi feature chỉ có happy path là đã đủ.
+Read the feature's `spec.md` to establish the actor, business goal, acceptance criteria, safe test data, and source traceability.
 
-## 2. Hợp đồng đầu ra (Output Contract)
+Create a **black-box journey**. Do not read product source code, `design/ui-flow.md`, `screen.md`, API contracts, internal routes, selectors, or existing test cases to pre-plan the UI path. The actor begins at the public `target_url` and discovers the available UI through observation during execution.
 
-- Đường dẫn file kịch bản: `ppswbs-spec/features/<feature>/test-results/E2E-<feature-number>-<NNN>--<lowercase-slug>.md`.
-- Sử dụng đúng cấu trúc trong [template kịch bản](references/e2e-case-template.md).
-- YAML Front matter bắt buộc gồm:
-  - `id`: Mã kịch bản (ví dụ `E2E-003-001`).
-  - `feature`: Tên thư mục feature (ví dụ `003-workshop-management`).
-  - `test_level`: `e2e` (hoặc `integration`).
-  - `test_case_type`: `N` (Normal/Happy path), `A` (Abnormal), hoặc `B` (Boundary).
-  - `source_ref`: Truy vết tới yêu cầu trong `spec.md#FR-xxx` hoặc `tasks.md#xxx`.
-  - `target_url`: Đường dẫn bắt đầu kiểm thử trên Vite frontend (ví dụ `http://localhost:5173/workshops`).
-  - `actor_role`: Vai trò người dùng (Guest, Customer, Staff, Manager).
-  - `browser_tool`: `browsermcp`.
-  - `health_urls`: Các endpoint thật sự cần cho ca test (ít nhất frontend; backend khi ca test gọi backend).
-  - `test_data`: Fixture/tài khoản test chuyên dụng và `isolation_key`; không ghi secret/mật khẩu thật.
-  - `cleanup`: Cách hoàn nguyên hoặc đánh dấu dữ liệu thử nghiệm sau ca test.
+Perform adversarial risk analysis for applicable invalid input, repeat submission, slow/failed loading, lost session, wrong role, duplicate data, and server error. Cover an applicable risk in an `A` (abnormal) or `B` (boundary) case; do not treat the happy path as sufficient by default.
 
-## 3. Quy chuẩn lệnh browser trong kịch bản
+## 2. Output Contract
 
-Các bước hành động phải được viết bằng cú pháp lệnh trực quan của `browsermcp`:
-- `goto <url>`: Mở đường dẫn trang.
-- `click <target>`: Nhấp chuột vào phần tử (`getByRole`, `getByLabel`, `getByText`, CSS).
-- `fill <target> "<text>"`: Nhập văn bản vào ô input.
-- `select <target> "<value>"`: Chọn giá trị trong dropdown.
-- `wait <ms>` hoặc `wait --text "<text>"`: Chờ xuất hiện văn bản hoặc chờ hiệu ứng animation.
-- `snapshot -i`: Chụp cấu trúc accessibility DOM để tìm phần tử và lấy ref mới sau điều hướng.
-- `get url`, `get text <target>`, `find "<text>"`: Đọc kết quả cần đối chiếu.
-- `console --errors`, `requests --filter "<path>"`: Kiểm tra lỗi runtime và request khi assertion yêu cầu.
+- Use [the v2 case template](references/e2e-case-template.md) exactly in shape.
+- Set `format_version: 2`; the execution skill accepts only this format.
+- Keep required YAML fields: `id`, `feature`, `test_level`, `test_case_type`, `source_ref`, `target_url`, `actor_role`, `browser_tool: browsermcp`, `health_urls`, `test_data.isolation_key`, and `cleanup`.
+- Do not record passwords, tokens, or other secrets in the case.
+- Do not modify existing E2E cases merely to conform to v2.
 
-Không dùng các câu mô tả chung chung như *"Người dùng thao tác phù hợp"*, assertion có lựa chọn mơ hồ như *"A hoặc B"*, hoặc selector XPath dễ vỡ. Chia action thành các tiêu đề Markdown `### Step N — <mục đích>`; các dòng trong fenced block chỉ chứa lệnh Browser MCP, không có tiền tố số. Mọi assertion phải nêu lệnh đọc và giá trị/kết quả chính xác cần quan sát.
+## 3. Step Contract
 
+Each `Step N` must contain:
+
+1. **User charter** — intent in the actor's language, not an implementation instruction.
+2. **Explore & act** — inspect live UI affordances and act through the one a real user can find. Do not prescribe a private route, selector, or source-derived click path.
+3. **Expected** — one or more concrete, observable bullets; no maximum. For a deliberate transition-only step, write `None — transition only`.
+4. **Decision rule** — explicit triggers for:
+   - `CONTINUE`: expectations allow the journey to move on.
+   - `LOG_AND_CONTINUE`: a non-blocking unexpected finding; execution continues after recording it.
+   - `STOP`: environment blocker, failed core expectation, data-integrity issue, or authorization/security concern.
+
+Expected results must be observable in UI or user-visible state. Browser commands, console output, and network traffic are evidence tools, not substitutes for user-facing expectations. Do not use ambiguous alternatives such as "A or B".
+
+## 4. Evidence and Completion Rules
+
+- Every `LOG_AND_CONTINUE` and `STOP` outcome requires a screenshot, concise problem description, and reproducible user actions.
+- Create a `BUG-LOG.md` reference when a finding is a confirmed product/spec defect.
+- The case begins with `NOT_RUN`; do not write execution results while specifying it.

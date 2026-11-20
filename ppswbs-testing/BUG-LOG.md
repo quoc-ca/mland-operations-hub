@@ -7,6 +7,160 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
 
 ## Danh sách lỗi đang theo dõi (Active Defects)
 
+## BUG-E2E-0016 — OPEN
+
+- Ngày: 2026-11-17
+- Phát hiện bởi: Senior QA & System Verification Engineer (Master E2E Phase 4 trên Mock Prod)
+- Feature: 004-ring-design-configuration (FE-04 - Cấu hình nhẫn Workshop)
+- Kịch bản liên quan: [JOURNEY-PHASE-4](master-e2e/JOURNEY-PHASE-4--custom-design-and-manufacturing.md)
+- Mức độ nghiêm trọng: MAJOR
+- Phân loại / Gán cho: Spec
+- Mô tả lỗi: Các giá trị kỳ vọng về chi phí và độ khó trong kịch bản Phase 4 không khớp kết quả thẩm định của cùng cấu hình. Cần đối chiếu đặc tả/công thức và cập nhật đúng nguồn; chưa đủ bằng chứng để kết luận phía ứng dụng hay expected value bị sai.
+- Các bước tái hiện:
+  1. Đăng nhập bằng tài khoản MEMBER và mở gói `PKG-COUPLE-SILVER`.
+  2. Chọn mẫu `MOD-WS-SILVER-CLASSIC`, Bạc Ý 925, dáng Tròn cổ điển, size 16, 1 viên CZ Lam 2 mm, khắc chữ, độ dày 1.8 mm và độ rộng 3.5 mm.
+  3. Bấm "Lưu & Thẩm định" và xem các chỉ số kỹ thuật.
+- Kết quả mong đợi: Theo kịch bản, chi phí tham khảo khoảng 372.400 đ, khối lượng 4.02 g và độ khó 2.0/10 (Dễ).
+- Thực tế quan sát: Chi phí tham khảo 502.400 đ và độ khó 3.3/10 (Trung bình); khối lượng 4.02 g khớp. Chênh lệch chi phí là 130.000 đ.
+- Bằng chứng:
+  - Screenshot: Không lưu được tệp; ảnh Computer Use chỉ xuất hiện inline trong phiên.
+  - Thiết kế: `DSG-8874b27b-5d24-4575-b410-b8c7af856b73`
+
+---
+
+## BUG-E2E-0017 — OPEN
+
+- Ngày: 2026-11-17
+- Phát hiện bởi: Senior QA & System Verification Engineer (Master E2E Phase 4 trên Mock Prod)
+- Feature: 004-ring-design-configuration (FE-04 - Cấu hình nhẫn Workshop)
+- Kịch bản liên quan: [JOURNEY-PHASE-4](master-e2e/JOURNEY-PHASE-4--custom-design-and-manufacturing.md)
+- Mức độ nghiêm trọng: MAJOR
+- Phân loại / Gán cho: Frontend
+- Mô tả lỗi: Trên trang kết quả thẩm định, bấm "Lưu trữ mẫu thiết kế" không mở hộp thoại xác nhận và không tạo thay đổi trạng thái quan sát được. Thiết kế vẫn ở trạng thái "ĐÃ THẨM ĐỊNH", khiến không thể hoàn tất bước lưu trữ/sổ tay cá nhân.
+- Các bước tái hiện:
+  1. Mở trang kết quả của thiết kế `DSG-8874b27b-5d24-4575-b410-b8c7af856b73`.
+  2. Bấm "Lưu trữ mẫu thiết kế".
+- Kết quả mong đợi: Hiện hộp thoại xác nhận; sau khi chấp nhận, badge chuyển thành "Đã lưu trữ".
+- Thực tế quan sát: Không có hộp thoại hoặc trạng thái mới; nút lưu trữ vẫn hiện và `/my/designs` chưa được kiểm tra.
+- Bằng chứng:
+  - Screenshot: Không lưu được tệp; ảnh Computer Use chỉ xuất hiện inline trong phiên.
+
+---
+
+## BUG-E2E-0014 — OPEN
+
+- Ngày: 2026-11-17
+- Phát hiện bởi: Senior QA & System Verification Engineer (Master E2E Phase 3 trên Mock Prod - UX Audit)
+- Feature: 008-retail-order-and-fulfillment (FE-08 - Thanh toán đơn bán lẻ `/member/checkout`)
+- Kịch bản liên quan: [JOURNEY-PHASE-3](master-e2e/JOURNEY-PHASE-3--retail-loyalty-and-fulfillment.md), [UX-AUDIT-LOG](master-e2e/UX-AUDIT-LOG.md)
+- Mức độ nghiêm trọng: CRITICAL (Gây bế tắc luồng thanh toán)
+- Phân loại / Gán cho: Frontend
+- Mô tả lỗi: Khi người dùng bấm nút "Đặt hàng" trên trang `/member/checkout`, nếu backend trả về HTTP 409 `RETAIL_CONFLICT` (`Checkout quote changed or expired; review a new quote`), frontend hoàn toàn KHÔNG hiển thị thông báo lỗi nào (không toast, không alert, không modal). Nút "Đặt hàng" chỉ dừng loading rồi trở lại trạng thái bình thường. Người dùng tưởng nút bị liệt hoặc click trượt nên bấm liên tục (Rage clicks), dẫn đến bị kẹt vô phương cứu chữa.
+- Các bước tái hiện:
+  1. Thêm một sản phẩm vào giỏ hàng và tiến hành vào trang `/member/checkout`.
+  2. Chọn phương thức giao hàng GHTK hoặc Pick-up, để quote hết hạn hoặc thay đổi.
+  3. Bấm "Đặt hàng".
+- Kết quả mong đợi: Hiển thị thông báo hoặc Modal: "Báo giá đơn hàng đã thay đổi hoặc hết hạn. Vui lòng bấm [Cập nhật lại] để tiếp tục thanh toán".
+- Thực tế quan sát: Bị nuốt lỗi hoàn toàn (Silent Failure), không có bất kỳ phản hồi thị giác nào.
+- Bằng chứng:
+  - Screenshot: ![Silent 409 Defect](master-e2e/screenshots/ux_p3_06_silent_409_defect.png)
+  - Network Request #785: `POST /api/v1/ready-ring-orders` -> Status `409` Body: `{"code":"RETAIL_CONFLICT","message":"Checkout quote changed or expired; review a new quote"}`
+
+---
+
+## BUG-E2E-0015 — OPEN
+
+- Ngày: 2026-11-17
+- Phát hiện bởi: Senior QA & System Verification Engineer (Master E2E Phase 2 trên Mock Prod - UX Audit)
+- Feature: 003.1-workshop-booking (FE-03 - Giữ chỗ & Thanh toán cọc Workshop)
+- Kịch bản liên quan: [JOURNEY-PHASE-2](master-e2e/JOURNEY-PHASE-2--workshop-booking-and-fulfillment.md), [UX-AUDIT-LOG](master-e2e/UX-AUDIT-LOG.md)
+- Mức độ nghiêm trọng: MAJOR
+- Phân loại / Gán cho: Frontend Layout / CSS Sticky
+- Mô tả lỗi: Trên màn hình xác nhận giữ chỗ workshop (`/workshops/:id/book`), sau khi hệ thống chuyển sang trạng thái "Đã giữ chỗ cho 1 vé" kèm thanh đếm ngược 10 phút, nút CTA chính "Thanh toán ... qua VNPay" bị thanh `div.main-topbar-wrapper` che khuất một phần hoặc toàn bộ ở vị trí cuộn tự nhiên. Trình duyệt tự động hoá báo lỗi: `button is covered by <div.main-topbar-wrapper>. Close or dismiss it first`. Người dùng trên laptop nếu không cuộn trang lên xuống sẽ click nhầm vào navbar thay vì nút thanh toán.
+- Các bước tái hiện:
+  1. Vào đặt chỗ 1 ca workshop bất kỳ, nhập số điện thoại và bấm "Xác nhận và giữ chỗ".
+  2. Quan sát nút "Thanh toán ... qua VNPay".
+- Kết quả mong đợi: Nút CTA nằm hoàn toàn trong vùng hiển thị an toàn, có khoảng cách đệm (padding/margin) cách xa header cố định.
+- Thực tế quan sát: Header cố định đè lên vị trí nút bấm, chặn sự kiện click tự nhiên.
+- Bằng chứng:
+  - Screenshot: ![Hold banner header cover](master-e2e/screenshots/ux_p2_06_hold_banner.png)
+
+---
+
+
+
+## BUG-E2E-0010 — OPEN
+
+- Ngày: 2026-11-17
+- Phát hiện bởi: Senior QA & System Verification Engineer (Master E2E Phase 3 trên Mock Prod)
+- Feature: 008-retail-order-and-fulfillment (FE-08 - Giỏ hàng)
+- Kịch bản liên quan: [JOURNEY-PHASE-3](master-e2e/JOURNEY-PHASE-3--retail-loyalty-and-fulfillment.md)
+- Mức độ nghiêm trọng: MAJOR
+- Phân loại / Gán cho: Frontend
+- Mô tả lỗi: Thanh Header cố định (`header.main-topbar`) che khuất hoàn toàn checkbox "Chọn tất cả sản phẩm" ở đầu danh sách giỏ hàng (`/member/cart`). Khi kiểm thử qua trình duyệt, lệnh click bị chặn với lỗi `is covered by <header.main-topbar>`. Người dùng trên laptop không thể click chọn nhanh mà bắt buộc phải cuộn chuột xuống mới thao tác được.
+- Các bước tái hiện:
+  1. Thêm 1 sản phẩm vào giỏ hàng và truy cập `https://mland-operations-hub-git-develop-mland-team.vercel.app/member/cart`.
+  2. Tại vị trí cuộn trang ở đỉnh (top: 0), bấm vào checkbox "Chọn tất cả sản phẩm" đầu tiên.
+- Kết quả mong đợi: Checkbox nằm dưới Header an toàn và nhận click bình thường.
+- Thực tế quan sát: Header đè lên checkbox, không nhận click.
+- Bằng chứng:
+  - Screenshot: ![Header che checkbox](master-e2e/screenshots/P3-04--cart-selected.jpg)
+
+---
+
+## BUG-E2E-0011 — OPEN
+
+- Ngày: 2026-11-17
+- Phát hiện bởi: Senior QA & System Verification Engineer (Master E2E Phase 2 trên Mock Prod)
+- Feature: 003.1-workshop-booking (VNPay Integration)
+- Kịch bản liên quan: [JOURNEY-PHASE-2](master-e2e/JOURNEY-PHASE-2--workshop-booking-and-fulfillment.md)
+- Mức độ nghiêm trọng: MAJOR
+- Phân loại / Gán cho: Backend / DevOps Environment Config
+- Mô tả lỗi: Sau khi thanh toán cọc Workshop qua cổng VNPay Sandbox, VNPay redirect về URL ngrok trung gian (`affront-copier-barrier.ngrok-free.dev/payment/vnpay/return`) thay vì domain Vercel chính thức. Vì dùng ngrok free tier, người dùng bị vướng màn hình cảnh báo `ERR_NGROK_6024` và phải bấm nút "Visit Site" thủ công mới trở về được website Mland. Trong khi đó, luồng đơn hàng bán lẻ (Phase 3) lại redirect trực tiếp về Vercel (`member/orders`) rất mượt mà.
+- Các bước tái hiện:
+  1. Đặt cọc 1 vé Workshop và chuyển sang cổng VNPay Sandbox.
+  2. Hoàn tất thanh toán OTP `123456`.
+- Kết quả mong đợi: Cổng VNPay chuyển hướng thẳng về `https://mland-operations-hub-git-develop-mland-team.vercel.app/...`.
+- Thực tế quan sát: Bị đá sang domain ngrok và hiện trang cảnh báo `ERR_NGROK_6024`.
+- Bằng chứng:
+  - Screenshot: ![Ngrok warning](master-e2e/screenshots/P2-06--ngrok-warning.jpg)
+
+---
+
+## BUG-E2E-0012 — OPEN
+
+- Ngày: 2026-11-17
+- Phát hiện bởi: Senior QA & System Verification Engineer (Master E2E Phase 3 trên Mock Prod)
+- Feature: 002-product-management (Trang chi tiết sản phẩm `/products/:id`)
+- Kịch bản liên quan: [JOURNEY-PHASE-3](master-e2e/JOURNEY-PHASE-3--retail-loyalty-and-fulfillment.md)
+- Mức độ nghiêm trọng: MINOR
+- Phân loại / Gán cho: Frontend
+- Mô tả lỗi: Trên trang chi tiết sản phẩm nhẫn (`/products/13`), combobox "Chi nhánh" hiển thị option đầu tiên ("Mland Hà Nội – Hoàn Kiếm") nhưng giá trị state nội bộ chưa được khởi tạo. Người dùng chọn Size nhẫn và bấm nút "Thêm Vào Giỏ Hàng" hoặc "Mua Ngay" thì không có phản ứng điều hướng, toast lỗi "Vui lòng chọn chi nhánh." biến mất quá nhanh và không có viền đỏ cảnh báo cạnh ô Chi nhánh, gây cảm giác tưởng như nút bấm bị đơ liệt.
+- Các bước tái hiện:
+  1. Mở `https://mland-operations-hub-git-develop-mland-team.vercel.app/products/13`.
+  2. Chọn "Size 10" (không click vào dropdown Chi nhánh vì thấy nó đã hiển thị Hoàn Kiếm).
+  3. Bấm "Thêm Vào Giỏ Hàng" hoặc "Mua Ngay".
+- Kết quả mong đợi: Hoặc tự động nhận chi nhánh đang hiển thị làm mặc định, hoặc hiển thị lỗi viền đỏ trực quan tại ô Chi nhánh.
+- Thực tế quan sát: Nút bấm không phản hồi, giỏ hàng vẫn giữ nguyên `(0)`.
+- Bằng chứng:
+  - Screenshot: ![Product detail](master-e2e/screenshots/P3-02--product-detail.jpg)
+
+---
+
+## BUG-E2E-0013 — OPEN
+
+- Ngày: 2026-11-17
+- Phát hiện bởi: Senior QA & System Verification Engineer (Master E2E Phase 1 trên Mock Prod)
+- Feature: 001-account-management (i18n Trang chủ)
+- Kịch bản liên quan: [JOURNEY-PHASE-1](master-e2e/JOURNEY-PHASE-1--guest-discovery-and-onboarding.md)
+- Mức độ nghiêm trọng: MINOR
+- Phân loại / Gán cho: Frontend
+- Mô tả lỗi: Khi chọn ngôn ngữ "EN" trên combobox Language, chỉ một số nút bấm của phần Ready Rings đổi sang tiếng Anh ("See all rings", "Add to cart"), trong khi toàn bộ tiêu đề chính ("MỘT CHIẾC NHẪN, MỘT CÂU CHUYỆN RIÊNG.", "HỆ SINH THÁI DỊCH VỤ..."), các nút CTA chính ("ĐẶT WORKSHOP NGAY", "KHÁM PHÁ READY RINGS") và menu Navbar "Khám phá" vẫn hiển thị tiếng Việt, gây tình trạng song ngữ nửa nạc nửa mỡ.
+- Bằng chứng:
+  - Screenshot: ![Home EN](master-e2e/screenshots/P1-02--home-en.jpg)
+
+---
+
 ## BUG-E2E-0009 — OPEN
 
 - Ngày: 2026-11-15
@@ -29,6 +183,48 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
 ---
 
 ## Danh sách lỗi đã đóng / nghiệm thu (Resolved & Closed Defects)
+
+## BUG-E2E-0010 — CLOSED
+
+- Ngày mở: 2026-11-18
+- Ngày đóng / nghiệm thu: 2026-11-18
+- Phát hiện bởi: User & Senior QA / System Verification Engineer
+- Xác minh đóng lỗi bởi: Senior QA & System Verification Engineer
+- Feature: 011-review-management
+- Kịch bản liên quan: [E2E-011-006](../ppswbs-spec/features/011-review-management/test-results/E2E-011-006--review-edit-ownership-authorization.md)
+- Mức độ nghiêm trọng: MAJOR / IDOR (Insecure Direct Object Reference)
+- Phân loại / Gán cho: Frontend & Backend (Review Detail & Edit Form Authorization Guard)
+- Mô tả lỗi ban đầu: Người dùng đã đăng nhập có thể truy cập vào màn hình chỉnh sửa đánh giá (`/reviews/:reviewId/edit`) của người dùng khác bằng cách sửa URL hoặc bấm nút "Chỉnh sửa đánh giá của bạn" (nút này luôn render cho bất kỳ user nào đã đăng nhập tại trang chi tiết `/reviews/:reviewId`, bất kể ai là người tạo đánh giá). Mặc dù Backend `PATCH` từ chối cập nhật khi kiểm tra quyền, giao diện Frontend vẫn để lộ form sửa với toàn bộ nội dung đánh giá của người khác và cho phép gửi request.
+- Các bước tái hiện ban đầu:
+  1. Đăng nhập tài khoản Member (`member.test@mland.vn` / `Member@123456`).
+  2. Mở đánh giá của người dùng khác tại `http://localhost:5173/reviews/rev-101-5star`.
+  3. Thấy nút "Chỉnh sửa đánh giá của bạn" vẫn hiển thị.
+  4. Bấm nút hoặc truy cập trực tiếp `http://localhost:5173/reviews/rev-101-5star/edit`: Form chỉnh sửa mở ra và pre-fill toàn bộ nội dung của người khác.
+- Biện pháp khắc phục đã triển khai:
+  1. **Backend**:
+     - Cập nhật `ReviewDto` bổ sung trường `private Boolean canEdit;`.
+     - Trong `ReviewApplicationService.java`, logic kiểm tra quyền xác định: `boolean owner = actor != null && actor.role() == ActorRole.MEMBER && review.getOwnerType() == OwnerType.MEMBER && String.valueOf(actor.accountId()).equals(review.getOwnerReference());`.
+     - Tính toán `boolean canEdit = owner && review.getStatus() != ReviewStatus.REMOVED;` và truyền qua `mapToReviewDto(...)` để trả về cho client.
+  2. **Frontend**:
+     - `ReviewDetailPage.jsx`:
+       * Truyền cờ xác thực vào `api.getReview(reviewId, status === 'signed-in')` để gửi kèm Bearer token giúp backend nhận diện `actor`.
+       * Ẩn hoàn toàn nút chỉnh sửa nếu `!review?.canEdit`: `{status === 'signed-in' && Boolean(review?.canEdit) && (<Link to={...}>...)}`.
+     - `EditReviewPage.jsx`:
+       * Gọi `api.getReview(reviewId, true)` kèm Bearer token.
+       * Thiết lập Route / Component Guard: Nếu `!resource.data?.canEdit`, chặn render `ReviewForm` và hiển thị màn hình thông báo từ chối truy cập:
+         *"Bạn không có quyền chỉnh sửa đánh giá này. Chỉ chủ sở hữu đánh giá mới có thể chỉnh sửa."* kèm nút điều hướng quay lại.
+- Kết quả kiểm chứng lại (QA Re-test 2026-11-18 qua Browser MCP):
+  - Kịch bản `E2E-011-006` được thực thi trên Chrome thực tế bằng `browsermcp`:
+    + Đăng nhập `member.test@mland.vn` và mở đánh giá của người khác (`/reviews/rev-101-5star`): Nút "Chỉnh sửa đánh giá của bạn" hoàn toàn biến mất (chỉ còn nút "Quay lại").
+    + Cố tình đổi URL sang `/reviews/rev-101-5star/edit`: Form chỉnh sửa bị chặn hoàn toàn, hiển thị thông báo lỗi quyền sở hữu tiếng Việt rõ ràng, không để lộ dữ liệu form.
+    + Mở đánh giá của chính mình (`/reviews/cc6446de-4851-4c95-8b81-7965213da398`): Nút "Chỉnh sửa đánh giá của bạn" hiển thị bình thường.
+    + Bấm sửa: Form mở ra đầy đủ thông tin, chỉnh sửa nội dung và lưu thay đổi thành công (HTTP 200).
+  - Trạng thái kiểm chứng: **PASS 100%**.
+  - Bằng chứng screenshot:
+    + [E2E-011-006--forbidden-edit-url-tampering.jpg](../ppswbs-spec/features/011-review-management/test-results/screenshots/E2E-011-006--forbidden-edit-url-tampering.jpg)
+    + [E2E-011-006--other-user-no-edit-btn.jpg](../ppswbs-spec/features/011-review-management/test-results/screenshots/E2E-011-006--other-user-no-edit-btn.jpg)
+    + [E2E-011-006--owner-edit-allowed.jpg](../ppswbs-spec/features/011-review-management/test-results/screenshots/E2E-011-006--owner-edit-allowed.jpg)
+- Trạng thái xử lý: **CLOSED**
 
 ## BUG-E2E-0008 — CLOSED
 

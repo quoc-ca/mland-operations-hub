@@ -5,6 +5,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dao.AccountR
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.Account;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.AuditOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.AccountProfile;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.enums.AccountRole;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.enums.AccountStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -34,6 +35,10 @@ public class ProfileService {
 
         if (account.getStatus() == AccountStatus.SUSPENDED) {
             throw new AccountSuspendedException("Account is SUSPENDED: " + accountId);
+        }
+
+        if (account.getRole() == AccountRole.CARRIER) {
+            throw new RoleAssignmentForbiddenException("CARRIER accounts cannot edit profile");
         }
 
         validateFullName(fullName);

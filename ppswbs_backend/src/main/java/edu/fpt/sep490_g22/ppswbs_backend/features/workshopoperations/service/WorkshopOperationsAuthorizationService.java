@@ -2,6 +2,7 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service;
 
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseAuthException;
 import com.google.firebase.auth.FirebaseToken;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountSummary;
@@ -188,7 +189,21 @@ public class WorkshopOperationsAuthorizationService {
             if (FirebaseApp.getApps().isEmpty()) {
                 throw new WorkshopUnauthorizedException("FirebaseApp is not configured");
             }
-            FirebaseToken decodedToken = FirebaseAuth.getInstance().verifyIdToken(token, true);
+            FirebaseAuth auth = FirebaseAuth.getInstance();
+            FirebaseToken decodedToken;
+            try {
+                decodedToken = auth.verifyIdToken(token, true);
+            } catch (FirebaseAuthException e) {
+                String errorCode = e.getAuthErrorCode() != null ? e.getAuthErrorCode().name() : "";
+                if ("REVOKED_ID_TOKEN".equalsIgnoreCase(errorCode) || "EXPIRED_ID_TOKEN".equalsIgnoreCase(errorCode)) {
+                    throw e;
+                }
+                log.warn("Firebase checkRevoked failed ({}: {}). Falling back to cryptographic verification.", errorCode, e.getMessage());
+                decodedToken = auth.verifyIdToken(token, false);
+            } catch (Exception e) {
+                log.warn("Firebase checkRevoked encountered exception: {}. Falling back to cryptographic verification.", e.getMessage());
+                decodedToken = auth.verifyIdToken(token, false);
+            }
             return decodedToken.getUid();
         } catch (Exception e) {
             log.warn("Firebase token verification failed");

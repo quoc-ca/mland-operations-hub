@@ -58,6 +58,57 @@ describe('F04-AI-CHAT Screen (/ai-support)', () => {
 
     expect(await screen.findByText('Chào bạn, Mland hỗ trợ lại rồi!')).toBeInTheDocument();
   });
+
+  it('displays quota for guest and updates remaining quota after prompt', async () => {
+    const user = userEvent.setup();
+    mockFetch({
+      'POST /api/v1/ai-support/messages': json(200, {
+        message: 'Mland có workshop cuối tuần.',
+        scope: 'WORKSHOP',
+        correlationId: 'corr-q1',
+        quota: {
+          actor: 'GUEST',
+          limit: 3,
+          remaining: 2,
+          resetAt: '2026-11-19T00:00:00+07:00',
+        },
+      }),
+    });
+
+    open('/ai-support', { session: fakeSession('signed-out') });
+    expect(await screen.findByText(/Còn 3\/3 lượt hỏi hôm nay/)).toBeInTheDocument();
+
+    const textarea = screen.getByLabelText(/Nhập câu hỏi của bạn/);
+    await user.type(textarea, 'Có workshop nào?');
+    await user.click(screen.getByRole('button', { name: 'Gửi câu hỏi' }));
+
+    expect(await screen.findByText(/Còn 2\/3 lượt hỏi hôm nay/)).toBeInTheDocument();
+  });
+
+  it('disables input and displays warning when daily quota is exceeded (429)', async () => {
+    const user = userEvent.setup();
+    mockFetch({
+      'POST /api/v1/ai-support/messages': json(429, {
+        code: 'AI_DAILY_QUOTA_EXCEEDED',
+        message: 'Bạn đã sử dụng hết số lượt hỏi AI trong ngày.',
+        quota: {
+          actor: 'GUEST',
+          limit: 3,
+          remaining: 0,
+          resetAt: '2026-11-19T00:00:00+07:00',
+        },
+      }),
+    });
+
+    open('/ai-support', { session: fakeSession('signed-out') });
+    const textarea = screen.getByLabelText(/Nhập câu hỏi của bạn/);
+    await user.type(textarea, 'Câu hỏi vượt hạn mức');
+    await user.click(screen.getByRole('button', { name: 'Gửi câu hỏi' }));
+
+    expect(await screen.findByText(/Lượt hỏi sẽ được làm mới vào lúc 00:00/)).toBeInTheDocument();
+    expect(textarea).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Gửi câu hỏi' })).toBeDisabled();
+  });
 });
 
 describe('F04-DESIGN-WORKSPACE Screen (/design-requests/new)', () => {
@@ -128,9 +179,27 @@ describe('F04-DESIGN-WORKSPACE Screen (/design-requests/new)', () => {
       expect(router.state.location.pathname).toBe('/design-requests/req-new-999');
     });
 
+    expect(await screen.findByText('Yêu cầu đã được gửi thành công, đang đợi phản hồi của nhân viên')).toBeInTheDocument();
+
     const postCall = calls.find(c => c.path === '/api/v1/design-requests');
     expect(postCall).toBeDefined();
     expect(postCall.headers['Idempotency-Key']).toBeDefined();
+  });
+
+  it('does not render catalogue reference input and validates invalid image files', async () => {
+    const user = userEvent.setup();
+    mockFetch({});
+    open('/design-requests/new', { session: fakeSession('signed-in') });
+
+    // 1. First requirement: Catalogue reference input is removed
+    expect(screen.queryByPlaceholderText(/RING-SILVER-CLASSIC-01/)).not.toBeInTheDocument();
+
+    // 2. Third requirement: Validate empty image file (0 bytes)
+    const fileInput = screen.getByLabelText(/Hình ảnh tham khảo mẫu thiết kế/);
+    const emptyFile = new File([], 'empty.png', { type: 'image/png' });
+    await user.upload(fileInput, emptyFile);
+
+    expect(await screen.findByText(/Tệp ảnh rỗng hoặc bị lỗi/)).toBeInTheDocument();
   });
 
   it('displays rate-limit error (429) when image rate limit is exceeded', async () => {
@@ -201,6 +270,26 @@ describe('F04-ANALYSIS-STATUS & F04-RESULT Screen (/design-requests/:id)', () =>
     expect(screen.getByText('925 Sterling Silver')).toBeInTheDocument();
     expect(screen.getByText(/1\.800\.000/)).toBeInTheDocument();
     expect(screen.getByText('Thiết kế nhẫn phong cách Solitaire đơn giản với đá chủ topaz.')).toBeInTheDocument();
+  });
+
+  it('allows Guest to view request details and review status without being blocked', async () => {
+    mockFetch({
+      'GET /api/v1/design-requests/guest-req-1': json(200, {
+        id: 'guest-req-1',
+        requestReference: 'DR-GUEST-01',
+        requestVersion: 1,
+        requestStatus: 'ACTIVE',
+        analysisStatus: 'SUCCEEDED',
+        reviewStatus: 'NEED_REVIEW',
+        description: 'Nhẫn bạc đính đá topaz tự nhiên.',
+      }),
+    });
+
+    open('/design-requests/guest-req-1', { session: fakeSession('signed-out') });
+
+    expect(await screen.findByText('Chi tiết Yêu cầu Thiết kế')).toBeInTheDocument();
+    expect(screen.getByText('Nhẫn bạc đính đá topaz tự nhiên.')).toBeInTheDocument();
+    expect(screen.getByText(/Đang đợi phản hồi của nhân viên/)).toBeInTheDocument();
   });
 });
 

@@ -8,6 +8,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.Compon
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.LoyaltyFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.OutcomeKind;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.SourceKind;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.BookingServiceOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.ConsumeBuyerProofCommand;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.ConsumeBuyerProofResult;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.TicketFolioContext;
@@ -104,7 +105,7 @@ public class TicketSettlementCancellationService {
             throw new WorkshopSettlementValidationException("DUPLICATE_TICKET_CODES");
         }
 
-        String opRef = "CANCEL-" + idempotencyKey.trim();
+        String opRef = OperationReferences.of("CANCEL-", idempotencyKey.trim());
         String fingerprint = digest(group + "|" + String.join(",", ticketCodes) + "|"
                 + request.reason().trim() + "|" + (request.buyerVerificationReference() == null ? "" : request.buyerVerificationReference().trim()));
 
@@ -121,7 +122,8 @@ public class TicketSettlementCancellationService {
         }
 
         Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
-        String correlation = correlationId == null || correlationId.isBlank() ? UUID.randomUUID().toString() : correlationId.trim();
+        String correlation = correlationId == null || correlationId.isBlank() || correlationId.trim().length() > 64
+                ? UUID.randomUUID().toString() : correlationId.trim();
 
         // 1. Validation phase (all or none)
         List<String> failingTickets = new ArrayList<>();
@@ -243,7 +245,7 @@ public class TicketSettlementCancellationService {
 
             // 4a. 003.2 Operations capacity release
             if (ctx.operationsTicketReference() != null && !ctx.operationsTicketReference().isBlank()) {
-                String opsOpRef = "CANCEL-" + ticketCode + "-" + idempotencyKey.trim();
+                String opsOpRef = OperationReferences.of("CANCEL-" + ticketCode + "-", idempotencyKey.trim());
                 TicketCancellationOutcome opsOutcome = operations.cancelTicket(
                         UUID.fromString(ctx.operationsTicketReference()),
                         cancellationReference,
@@ -350,6 +352,16 @@ public class TicketSettlementCancellationService {
                     .voucherRestored(voucherRestoredOnTicket)
                     .createdAt(now)
                     .build());
+
+            // 4f. Tell Booking the ticket is cancelled so lookups stop offering it (FR-050; replay-safe, ticket only).
+            // A failure here must not undo the cancellation itself; the ledger above is the source of truth.
+            try {
+                booking.recordBookingServiceOutcome(ticketCode, BookingServiceOutcome.CANCELLED,
+                        cancellationReference, "CUST-CANCEL-OUTCOME-" + cancellationReference, correlation);
+            } catch (RuntimeException ex) {
+                log.warn("Failed to notify booking of CANCELLED outcome; ticket={} cancellation={} ({})",
+                        ticketCode, cancellationReference, ex.getClass().getSimpleName());
+            }
 
             resultDtos.add(new TicketCancellationDto(ticketCode, benefitOutcome, pointsReturned, voucherRestoredOnTicket));
         }

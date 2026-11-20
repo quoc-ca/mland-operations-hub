@@ -146,6 +146,8 @@ class WorkshopOtaSnapshotIT {
                 .state(WorkshopPackageState.PUBLISHED)
                 .build());
         packageReference = publishedPackage.getId().toString();
+        // A Package is sellable only where its pair row is ACTIVE (003.2 Phase 18).
+        PackageAvailabilityFixture.activateAt(jdbcTemplate, publishedPackage.getId(), location.getId());
     }
 
     @Test

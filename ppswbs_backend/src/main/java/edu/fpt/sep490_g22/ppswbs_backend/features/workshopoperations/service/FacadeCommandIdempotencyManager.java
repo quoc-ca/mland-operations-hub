@@ -70,8 +70,9 @@ public class FacadeCommandIdempotencyManager {
         }
     }
 
-    public ClaimResult acquireClaim(String facadeAction, String operationReference, String correlationReference, String semanticFingerprint) {
+    public ClaimResult acquireClaim(String facadeAction, String operationReference, String correlationReference, String rawFingerprint) {
         Instant now = Instant.now();
+        final String semanticFingerprint = boundedFingerprint(rawFingerprint);
 
         try {
             ClaimResult initialResult = executeInNewTransaction(() -> {
@@ -100,7 +101,18 @@ public class FacadeCommandIdempotencyManager {
                 return initialResult;
             }
         } catch (DataIntegrityViolationException ex) {
+            // Only a duplicate key is a race. Re-read in a fresh transaction: if the record is not there,
+            // the violation was something else (e.g. value too long for the column) and must surface,
+            // not be reported to the caller as "in progress" (HTTP 409).
+            Optional<ClaimResult> raced = executeInNewTransaction(
+                    () -> repository.findByFacadeActionAndOperationReference(facadeAction, operationReference)
+                            .map(r -> evaluateExistingRecord(r, semanticFingerprint, now)));
+            if (raced.isEmpty()) {
+                log.error("Idempotency claim insert failed without a competing record for {}:{}", facadeAction, operationReference, ex);
+                throw ex;
+            }
             log.info("Concurrent insert race for {}:{}, rolling back failed child transaction", facadeAction, operationReference);
+            return raced.get();
         }
 
         return executeInNewTransaction(() -> {
@@ -108,6 +120,19 @@ public class FacadeCommandIdempotencyManager {
             return racedOpt.map(r -> evaluateExistingRecord(r, semanticFingerprint, now))
                     .orElseGet(ClaimResult::inProgress);
         });
+    }
+
+    /** semantic_fingerprint is VARCHAR(255); a group reserve lists every line and session, so long ones are stored as SHA-256 hex (stable across replays). */
+    private static String boundedFingerprint(String fingerprint) {
+        if (fingerprint == null || fingerprint.length() <= 255) {
+            return fingerprint;
+        }
+        try {
+            return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
+                    .digest(fingerprint.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     private <T> T executeInNewTransaction(Supplier<T> action) {

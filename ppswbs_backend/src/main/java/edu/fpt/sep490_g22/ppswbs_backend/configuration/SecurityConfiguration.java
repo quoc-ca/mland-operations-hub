@@ -137,6 +137,8 @@ public class SecurityConfiguration {
                         .requestMatchers(HttpMethod.POST, "/api/v1/workshop-designs/*/evaluate").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/workshop-designs/*/archive").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/workshop-designs/*/attach-to-booking").permitAll()
+                        // Feature-004 Independent Design Requests (safe read for guest lookup and member view)
+                        .requestMatchers(HttpMethod.GET, "/api/v1/design-requests/**").permitAll()
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().denyAll());
 
@@ -153,8 +155,11 @@ public class SecurityConfiguration {
         configuration.setAllowedOrigins(allowedOrigins);
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Correlation-Id", "Idempotency-Key",
-                "If-Match-Version", "X-Guest-Design-Session", "X-Guest-Session-Id"));
-        configuration.setExposedHeaders(List.of("X-Correlation-Id"));
+                "If-Match-Version", "X-Guest-Design-Session", "X-Guest-Session-Id", "X-Guest-AI-Session",
+                // Lets the FE bypass the ngrok free-tier browser warning page when the API is reached through ngrok.
+                "ngrok-skip-browser-warning"));
+        configuration.setExposedHeaders(List.of("X-Correlation-Id", "X-Guest-AI-Session", "X-AI-Quota-Limit",
+                "X-AI-Quota-Remaining", "X-AI-Quota-Reset-At", "Retry-After"));
         configuration.setAllowCredentials(false);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

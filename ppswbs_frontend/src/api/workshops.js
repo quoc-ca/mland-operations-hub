@@ -37,6 +37,8 @@ async function request(path, { params = {}, method = 'GET', headers = {}, body =
 
   const requestHeaders = {
     Accept: 'application/json, application/problem+json',
+    // Skips ngrok's free-tier browser warning page, which has no CORS headers and breaks every call.
+    'ngrok-skip-browser-warning': '1',
     ...headers,
   };
   if (body !== null && body !== undefined && !requestHeaders['Content-Type']) {
@@ -293,7 +295,8 @@ export async function exchangeGroupMagicLinkToken(token) {
 /**
  * Releases a PENDING_PAYMENT group's holds before payment (FR-048): a Guest sends exactly one stored contact proof and
  * no bearer, the owning Member sends the bearer and no proof; both give an audit reason. Refused with 409
- * PAYMENT_ATTEMPT_EXISTS once a group payment attempt exists.
+ * PAYMENT_ATTEMPT_EXISTS only while a live (INITIATED/PENDING) payment attempt exists; a FAILED or EXPIRED attempt does
+ * not block it (FR-032, FR-048)...
  */
 export async function releaseGroupPendingHold(groupCode, {
   contactEmail,
@@ -488,6 +491,17 @@ export async function getTicketChangeOptions(ticketCode, { type, fromSessionRefe
   if (!ticketCode || typeof ticketCode !== 'string' || !ticketCode.trim()) throw new Error('TICKET_CODE_REQUIRED');
   return request(`/api/v1/workshop-tickets/${encodeURIComponent(ticketCode.trim())}/change-options`, {
     params: { type, from: fromSessionReferences },
+    headers: authorization ? { Authorization: authorization } : {},
+  });
+}
+
+/**
+ * The latest schedule-change request of a ticket, for the Member who bought it: { requestReference, status
+ * (PENDING | APPROVED | REJECTED | EXPIRED), decisionReason, decidedAt }, or null when it never had one (204).
+ */
+export async function getTicketChangeRequestStatus(ticketCode, { authorization } = {}) {
+  if (!ticketCode || typeof ticketCode !== 'string' || !ticketCode.trim()) throw new Error('TICKET_CODE_REQUIRED');
+  return request(`/api/v1/workshop-tickets/${encodeURIComponent(ticketCode.trim())}/change-request-status`, {
     headers: authorization ? { Authorization: authorization } : {},
   });
 }

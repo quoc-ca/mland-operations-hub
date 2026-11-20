@@ -40,11 +40,12 @@ public class CartService {
             .findFirst()
             .orElse(null);
 
-        int existingVariantTotal = totalForVariantAtLocation(cart, request.variantId(), request.locationId());
-        int requestedTotal = existingVariantTotal + request.quantity();
-        if (requestedTotal > MAX_VARIANT_QUANTITY) {
-            throw new RetailConflictException("Variant quantity cannot exceed 99 for the selected location");
+        // FR-08-002: 1..99 per variant across all lines (every branch); availability below stays per branch.
+        if (totalForVariant(cart, request.variantId()) + request.quantity() > MAX_VARIANT_QUANTITY) {
+            throw new RetailConflictException("Variant quantity cannot exceed 99 across the cart");
         }
+        int requestedTotal = totalForVariantAtLocation(cart, request.variantId(), request.locationId())
+            + request.quantity();
         ensureAvailable(request.variantId(), request.locationId(), requestedTotal);
 
         if (existingLine == null) {
@@ -65,8 +66,8 @@ public class CartService {
         CartLine line = findOwnedLine(cart, lineId);
         int totalAfterUpdate = totalForVariantAtLocation(cart, line.getVariantId(), line.getLocationId())
             - line.getQuantity() + request.quantity();
-        if (totalAfterUpdate > MAX_VARIANT_QUANTITY) {
-            throw new RetailConflictException("Variant quantity cannot exceed 99 for the selected location");
+        if (totalForVariant(cart, line.getVariantId()) - line.getQuantity() + request.quantity() > MAX_VARIANT_QUANTITY) {
+            throw new RetailConflictException("Variant quantity cannot exceed 99 across the cart");
         }
         ensureAvailable(line.getVariantId(), line.getLocationId(), totalAfterUpdate);
         line.changeQuantity(request.quantity());
@@ -91,6 +92,13 @@ public class CartService {
             .filter(line -> line.getId().equals(lineId))
             .findFirst()
             .orElseThrow(() -> new RetailNotFoundException("Cart line does not exist"));
+    }
+
+    private int totalForVariant(RetailCart cart, Long variantId) {
+        return cart.getLines().stream()
+            .filter(line -> line.getVariantId().equals(variantId))
+            .mapToInt(CartLine::getQuantity)
+            .sum();
     }
 
     private int totalForVariantAtLocation(RetailCart cart, Long variantId, Long locationId) {

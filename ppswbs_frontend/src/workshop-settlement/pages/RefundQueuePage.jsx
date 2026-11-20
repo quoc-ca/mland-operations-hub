@@ -43,7 +43,7 @@ export default function RefundQueuePage() {
   const [closing, setClosing] = useState(false);
   const [message, setMessage] = useState('');
   const command = useCommand();
-  const queue = useResource(() => api.listRefunds(status ? { status } : undefined), [status]);
+  const queue = useResource(() => api.listRefunds(status === 'WAITING' ? { waiting: true } : status ? { status } : undefined), [status]);
   const refunds = useMemo(() => asList(queue.data), [queue.data]);
   const refund = refunds.find(item => item.refundId === selected) || null;
   const hideReceipt = () => setReceiptUrl(current => { if (current) URL.revokeObjectURL(current); return null; });
@@ -125,6 +125,7 @@ export default function RefundQueuePage() {
           <label>Status
             <select value={status} onChange={event => { setStatus(event.target.value); setSelected(null); }}>
               <option value="">All</option>
+              <option value="WAITING">Waiting (all pending)</option>
               {STATUSES.map(value => <option key={value} value={value}>{value}</option>)}
             </select>
           </label>

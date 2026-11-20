@@ -120,7 +120,11 @@ paths:
           $ref: '#/components/responses/Conflict'
   /ready-ring-checkouts/{checkoutId}/cancellations:
     post:
-      summary: Cancel an accepted unpaid checkout before VNPay payment initiation
+      summary: Cancel an accepted unpaid checkout, also after VNPay was opened but not paid
+      description: >-
+        Allowed in ACCEPTED_UNPAID and, for VNPay, in PAYMENT_INITIATED until the
+        hold deadline (Session 2026-11-18). A payment that still arrives later
+        goes to the Manager reconciliation queue.
       security:
         - firebaseBearer: []
       parameters:
@@ -138,6 +142,10 @@ paths:
   /ready-ring-checkouts/{checkoutId}/payment:
     post:
       summary: Initiate one VNPay payment for a grouped checkout
+      description: >-
+        The VNPay link lives until the 15-minute hold deadline and is stored;
+        a repeated call before that returns the same link, so one checkout has
+        one VNPay transaction (Session 2026-11-18).
       security:
         - firebaseBearer: []
       parameters:
@@ -379,6 +387,83 @@ paths:
           description: Read-only page of reconciliation records for permitted branches
         '403':
           $ref: '#/components/responses/Forbidden'
+  /carrier/shipments:
+    get:
+      summary: List GHTK shipments of every branch for the GHTK partner portal
+      description: >-
+        Session 2026-11-20. Only an active account with role CARRIER (added by
+        FE-01). Newest first. The partner sees where to collect, whom to
+        deliver to and the shipping fee; never product prices, vouchers,
+        points or Member account data. Not yet on develop: the code waits
+        for the FE-01 CARRIER role (tasks T079, T080).
+      security:
+        - firebaseBearer: []
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/RetailShipmentStatus'
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 100
+      responses:
+        '200':
+          description: One page of shipments
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CarrierShipmentPage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /carrier/shipments/{shipmentId}/transitions:
+    post:
+      summary: Record a courier step (Da lay hang or Giao thanh cong)
+      description: >-
+        PICKED_UP moves READY_FOR_CARRIER to HANDED_TO_CARRIER; DELIVERED moves
+        HANDED_TO_CARRIER (or an older IN_TRANSIT shipment) to DELIVERED and
+        completes the branch order. Packing stays with Staff. A stale
+        expectedVersion is refused.
+      security:
+        - firebaseBearer: []
+      parameters:
+        - name: shipmentId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CarrierTransitionRequest'
+      responses:
+        '200':
+          description: Step recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CarrierTransitionResult'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
   /integrations/ghtk/webhooks:
     post:
       summary: Receive a GHTK shipment status update
@@ -478,6 +563,11 @@ components:
         size:
           type: integer
           nullable: true
+        productId:
+          type: integer
+          format: int64
+          nullable: true
+          description: Catalogue product, used to show the product image.
         indicativePrice:
           type: string
           nullable: true
@@ -870,6 +960,20 @@ components:
         orderedAt:
           type: string
           format: date-time
+        paymentDeadline:
+          type: string
+          format: date-time
+          nullable: true
+          description: Until when an unpaid VNPay order is held (15 minutes); null otherwise.
+        paidAt:
+          type: string
+          format: date-time
+          nullable: true
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the Member received the order (counter handover or GHTK delivery).
         items:
           type: array
           items:
@@ -897,6 +1001,11 @@ components:
           $ref: '#/components/schemas/DecimalString'
         lineTotal:
           $ref: '#/components/schemas/DecimalString'
+        productId:
+          type: integer
+          format: int64
+          nullable: true
+          description: Catalogue product, used to show the product image.
     RetailOrderView:
       type: object
       required: [id, locationId, paymentState, fulfilmentState, subtotal, shippingCharge, payableAmount]
@@ -1001,12 +1110,118 @@ components:
           type: integer
         return_part_package:
           type: integer
+    RetailShipmentStatus:
+      type: string
+      description: >-
+        PREPARING (GHTK "Da tiep nhan"), READY_FOR_CARRIER (packed, "Dang lay
+        hang"), HANDED_TO_CARRIER ("Dang giao hang"), DELIVERED. IN_TRANSIT is
+        kept only for shipments moved before Session 2026-11-18.
+      enum: [PREPARING, READY_FOR_CARRIER, HANDED_TO_CARRIER, IN_TRANSIT, DELIVERED]
+    CarrierShipment:
+      type: object
+      required: [id, status, version, itemQuantity, shippingCharge, createdAt]
+      properties:
+        id:
+          type: string
+        trackingNumber:
+          type: string
+          nullable: true
+        status:
+          $ref: '#/components/schemas/RetailShipmentStatus'
+        version:
+          type: integer
+        orderCode:
+          type: string
+        pickupLocationId:
+          type: integer
+          format: int64
+        recipientName:
+          type: string
+        recipientPhone:
+          type: string
+        recipientAddress:
+          type: string
+        wardName:
+          type: string
+          nullable: true
+        districtName:
+          type: string
+          nullable: true
+        provinceName:
+          type: string
+          nullable: true
+        itemQuantity:
+          type: integer
+        shippingCharge:
+          $ref: '#/components/schemas/DecimalString'
+        createdAt:
+          type: string
+          format: date-time
+        readyAt:
+          type: string
+          format: date-time
+          nullable: true
+        pickedUpAt:
+          type: string
+          format: date-time
+          nullable: true
+        deliveredAt:
+          type: string
+          format: date-time
+          nullable: true
+        updatedAt:
+          type: string
+          format: date-time
+    CarrierShipmentPage:
+      type: object
+      required: [items, page, size, totalElements, totalPages]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CarrierShipment'
+        page:
+          type: integer
+        size:
+          type: integer
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+    CarrierTransitionRequest:
+      type: object
+      required: [action, expectedVersion]
+      properties:
+        action:
+          type: string
+          enum: [PICKED_UP, DELIVERED]
+        expectedVersion:
+          type: integer
+    CarrierTransitionResult:
+      type: object
+      required: [id, status, version, updatedAt]
+      properties:
+        id:
+          type: string
+        status:
+          $ref: '#/components/schemas/RetailShipmentStatus'
+        version:
+          type: integer
+        updatedAt:
+          type: string
+          format: date-time
     ErrorResponse:
       type: object
       required: [code, message, correlationId]
       properties:
         code:
           type: string
+          description: >-
+            Includes RETAIL_VOUCHER_REFUSED (the voucher can no longer be used,
+            for example its member limit is used up or held) and
+            RETAIL_POINTS_CHANGED (the point balance or rule changed); the
+            checkout drops the benefit and asks the Member to review again.
         message:
           type: string
         correlationId:

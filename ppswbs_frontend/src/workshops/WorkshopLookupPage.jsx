@@ -15,6 +15,8 @@ import { useBookingIdentity } from './useBookingIdentity';
 import { useReviewManagementApi } from '../features/reviewmanagement/api/useReviewManagementApi';
 import './figmaPublicShell.css';
 
+const GROUP_POLL_MS = 20000;
+
 /**
  * Lookup and management of a booking group (003.1 FR-042, FR-048, FR-049). A signed-in Member reads their own groups
  * from `GET /members/me/workshop-booking-groups` and opens one through `GET /workshop-booking-groups/{groupCode}`; a
@@ -106,6 +108,24 @@ export function WorkshopLookupPage() {
       // The card keeps what it has; the actor can ask again.
     }
   };
+
+  // Staff/Manager decisions (e.g. a schedule-change request) happen elsewhere, so the open group is read again every
+  // GROUP_POLL_MS while the tab is visible, and right away when the tab becomes visible again.
+  const refreshRef = useRef(refresh);
+  refreshRef.current = refresh;
+  const refreshing = useRef(false);
+  const openCode = group?.groupCode;
+  useEffect(() => {
+    if (!openCode) return undefined;
+    const poll = async () => {
+      if (document.visibilityState === 'hidden' || refreshing.current) return;
+      refreshing.current = true;
+      try { await refreshRef.current(); } finally { refreshing.current = false; }
+    };
+    const timer = setInterval(poll, GROUP_POLL_MS);
+    document.addEventListener('visibilitychange', poll);
+    return () => { clearInterval(timer); document.removeEventListener('visibilitychange', poll); };
+  }, [openCode]);
 
   const handleLookup = async event => {
     event.preventDefault();
@@ -260,6 +280,7 @@ export function WorkshopLookupPage() {
             authorization={lookupMode === 'MEMBER' ? cardAuthorization : null}
             proof={lookupMode === 'GUEST' ? guestProof : undefined}
             onRefresh={refresh}
+            allowManualRefresh={false}
             onTicketUpdated={refresh}
             renderTicketAction={ticket => (lookupMode === 'MEMBER' ? (
               <div style={{ marginTop: '12px' }}>

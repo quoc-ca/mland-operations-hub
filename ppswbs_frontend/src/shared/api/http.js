@@ -1,10 +1,10 @@
 // Shared HTTP client (proposal §8, 002 T089). It never caches responses, never retries on its own and never
 // writes the token anywhere: the token is read from the session for each request and sent only as a header.
-export const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8080')).replace(/\/$/, '');
+export const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8080')).replace(/\/$/, '');
 
 /** Typed failure built from common.ErrorResponse: code, safe message, correlationId, fieldErrors. */
 export class ApiError extends Error {
-  constructor({ status, code, message, correlationId = null, fieldErrors = [], method = 'GET', failingTicketCodes = [], reason = null, retryAfterSeconds = null, checkInOpensAt = null }) {
+  constructor({ status, code, message, correlationId = null, fieldErrors = [], method = 'GET', failingTicketCodes = [], reason = null, retryAfterSeconds = null, checkInOpensAt = null, quota = null, guestSessionToken = null }) {
     super(message || code);
     this.name = 'ApiError';
     this.status = status;
@@ -18,6 +18,8 @@ export class ApiError extends Error {
     this.retryAfterSeconds = retryAfterSeconds;
     // Only with 409 CHECK_IN_NOT_OPEN: ISO instant when normal check-in opens (T126).
     this.checkInOpensAt = checkInOpensAt;
+    this.quota = quota;
+    this.guestSessionToken = guestSessionToken;
   }
 
   /** 503 and lost responses may be retried with the same Idempotency-Key. */
@@ -70,6 +72,8 @@ async function errorFrom(response, method) {
     reason: typeof payload.reason === 'string' ? payload.reason : null,
     retryAfterSeconds: retryAfterOf(response.headers.get('Retry-After')),
     checkInOpensAt: typeof payload.checkInOpensAt === 'string' ? payload.checkInOpensAt : null,
+    quota: payload.quota || null,
+    guestSessionToken: payload.guestSessionToken || response.headers.get('X-Guest-AI-Session'),
   });
 }
 
@@ -98,7 +102,8 @@ export function createHttpClient({ baseUrl = apiBaseUrl, getIdToken, onSessionEx
   const doFetch = (...args) => (fetchImpl || globalThis.fetch)(...args);
 
   async function send(url, { method, headers, body, signal }, token) {
-    const allHeaders = { Accept: 'application/json', ...headers };
+    // 'ngrok-skip-browser-warning' skips ngrok's free-tier warning page, which has no CORS headers and breaks every call.
+    const allHeaders = { Accept: 'application/json', 'ngrok-skip-browser-warning': '1', ...headers };
     if (token) allHeaders.Authorization = `Bearer ${token}`;
     try {
       return await doFetch(url, { method, headers: allHeaders, body, signal });

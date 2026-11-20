@@ -1,11 +1,11 @@
 # Architecture Design: Account Management (FE-001)
 
 **Date created**: 2026-10-28
-**Date updated**: 2026-11-14
+**Date updated**: 2026-11-20
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
-**Design status**: Approved for T078–T081 — the 2026-11-14 Manager-global authorization flow is approved by Revision R-MGA in `approval.md`. Historical approvals, including Revision R-SL, remain limited to their recorded scopes.
+**Design status**: Approved for the historical baseline through R-NAD and for the CARRIER account/routing boundary through Revision R-CAR; see scoped records in `approval.md`.
 
 ## Scope and source map
 
@@ -20,6 +20,7 @@
 | Member shipping address book | [spec.md](../spec.md) FR-036–FR-039 | FE-001 owns MemberAddress entity, CRUD, quota (max 10), default address rules, phone normalization, and administrative division catalogue | T038–T045 | V-10 |
 | Timezone standardization (UTC+7) | [spec.md](../spec.md) FR-035 | System-wide UTC+7 (`Asia/Ho_Chi_Minh`) for MySQL `DATETIME(6)`, JDBC connection, JVM default timezone and Jackson | T001–T003 | V-11 |
 | Shipping address facade for FE-008 | [spec.md](../spec.md) FR-040; [interfaces.md](../contracts/interfaces.md) | Modulith facade methods returning immutable `MemberAddressSnapshot` for consumer checkout snapshotting | T043 | V-10 |
+| CARRIER account / FE-08 handoff | [spec.md](../spec.md) FR-003, FR-009–019; WF-12 | FE-001 owns identity, fixed role and lifecycle; FE-08 owns `/carrier` and delivery authorization/data projection | T084–T088 | V-14 |
 
 ## Approved decisions and non-decisions
 
@@ -156,7 +157,7 @@ Existing backend paths and completed task markers only show that code exists. Th
 
 ---
 
-## Revision R-SL: shared session-navigation boundary (proposed units; approved design scope)
+## Revision R-SL: shared session-navigation boundary (approved design scope; implemented evidence recorded)
 
 | Unit | Status | Public responsibility | Allowed dependencies |
 | --- | --- | --- | --- |

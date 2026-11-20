@@ -127,6 +127,7 @@ public class AdminAccountController {
             idempotencyKey.trim(),
             request.getRole(),
             request.getEmail() != null ? request.getEmail().trim() : null,
+            request.getPassword(),
             request.getFullName(),
             request.getPhone(),
             request.getLocationIds(),

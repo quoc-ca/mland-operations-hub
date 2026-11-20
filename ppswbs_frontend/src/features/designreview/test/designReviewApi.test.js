@@ -10,14 +10,28 @@ describe('Feature-004 REST operations', () => {
     await api.askAiSupport({ message: 'Hello AI', auth: false });
     expect(last()).toEqual([
       '/api/v1/ai-support/messages',
-      { method: 'POST', body: { message: 'Hello AI' }, auth: false },
+      { method: 'POST', body: { message: 'Hello AI' }, auth: false, headers: {}, suppressAccessDenied: true },
     ]);
 
     await api.askAiSupport({ message: 'Hello Member', auth: true });
     expect(last()).toEqual([
       '/api/v1/ai-support/messages',
-      { method: 'POST', body: { message: 'Hello Member' }, auth: true },
+      { method: 'POST', body: { message: 'Hello Member' }, auth: true, headers: {}, suppressAccessDenied: true },
     ]);
+  });
+
+  it('keeps a guest session returned on a post-admission error', async () => {
+    const failingRequest = vi.fn(async () => {
+      const error = new Error('provider unavailable');
+      error.status = 503;
+      error.guestSessionToken = 'opaque-session-from-error';
+      throw error;
+    });
+    const failingApi = designReviewApi(failingRequest);
+    sessionStorage.removeItem('mland_guest_ai_session');
+
+    await expect(failingApi.askAiSupport({ message: 'Retry me', auth: false })).rejects.toThrow('provider unavailable');
+    expect(sessionStorage.getItem('mland_guest_ai_session')).toBe('opaque-session-from-error');
   });
 
   it('submitDesignRequest sends multipart FormData with Idempotency-Key', async () => {
@@ -50,6 +64,14 @@ describe('Feature-004 REST operations', () => {
     await api.getDesignRequest('req-456');
     expect(last()).toEqual([
       '/api/v1/design-requests/req-456',
+      { method: 'GET', auth: true },
+    ]);
+  });
+
+  it('getMyDesignRequests calls GET /api/v1/design-requests with auth', async () => {
+    await api.getMyDesignRequests();
+    expect(last()).toEqual([
+      '/api/v1/design-requests',
       { method: 'GET', auth: true },
     ]);
   });

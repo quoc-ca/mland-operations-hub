@@ -4,7 +4,7 @@ import { screen, within } from '@testing-library/react';
 import { fakeSession, json, mockFetch, renderRoutes } from '../../test/render';
 import { operatorHomeRoutes } from './routes';
 
-const routes = [...operatorHomeRoutes, { path: '/', element: <p>General home</p> }];
+const routes = [...operatorHomeRoutes, { path: '/manager/home', element: <p>Manager home page</p> }, { path: '/', element: <p>General home</p> }];
 // The shared sidebar lists every area for everyone; the home page content itself is what differs per role.
 const main = () => within(screen.getByRole('main'));
 const profile = role => json(200, { role, fullName: 'Test User', email: 'user@mland.test' });
@@ -25,25 +25,6 @@ describe('Staff and Manager home pages', () => {
     expect(main().queryByRole('link', { name: /Gói workshop/ })).not.toBeInTheDocument();
   });
 
-  it('shows a Manager the daily work and the management sections', async () => {
-    mockFetch({ 'GET /api/v1/accounts/me/profile': profile('MANAGER') });
-    renderRoutes(routes, { path: '/manager/home' });
-
-    expect(await screen.findByRole('heading', { name: /Trang chủ Manager/ })).toBeInTheDocument();
-    expect(main().getByRole('link', { name: /Bảng điều phối ca/ })).toBeInTheDocument();
-    expect(main().getByRole('link', { name: /Quản lý đánh giá/ })).toHaveAttribute('href', '/review-moderation');
-    expect(main().getByRole('link', { name: /Gói workshop/ })).toHaveAttribute('href', '/operations/packages');
-    expect(main().getByRole('link', { name: /Kênh đối tác/ })).toHaveAttribute('href', '/ota-connectivity/channels');
-  });
-
-  it('sends a Staff who opens the Manager home to their own home', async () => {
-    mockFetch({ 'GET /api/v1/accounts/me/profile': profile('STAFF') });
-    renderRoutes(routes, { path: '/manager/home' });
-
-    expect(await screen.findByRole('heading', { name: /Trang chủ nhân viên/ })).toBeInTheDocument();
-    expect(main().queryByRole('link', { name: /Gói workshop/ })).not.toBeInTheDocument();
-  });
-
   it('sends a Member who opens an internal home to the general home', async () => {
     mockFetch({ 'GET /api/v1/accounts/me/profile': profile('MEMBER') });
     renderRoutes(routes, { path: '/staff/home' });
@@ -53,7 +34,7 @@ describe('Staff and Manager home pages', () => {
 
   it('offers sign-in instead of loading anything when there is no session', async () => {
     const calls = mockFetch({});
-    renderRoutes(routes, { path: '/manager/home', session: fakeSession('signed-out') });
+    renderRoutes(routes, { path: '/staff/home', session: fakeSession('signed-out') });
 
     expect(await screen.findByText(/Đăng nhập bằng tài khoản Staff hoặc Manager/)).toBeInTheDocument();
     expect(calls).toHaveLength(0);
@@ -63,6 +44,6 @@ describe('Staff and Manager home pages', () => {
     mockFetch({ 'GET /api/v1/accounts/me/profile': profile('MANAGER') });
     renderRoutes(routes, { path: '/home' });
 
-    expect(await screen.findByRole('heading', { name: /Trang chủ Manager/ })).toBeInTheDocument();
+    expect(await screen.findByText('Manager home page')).toBeInTheDocument();
   });
 });

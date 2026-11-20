@@ -99,31 +99,44 @@ export default function GuestLookupPage() {
       {sources && (
         <div className="source-list">
           {sources.items?.length ? (
-            sources.items.map(source => (
-              <button
-                type="button"
-                className="source-card"
-                key={`${source.sourceType}:${source.sourceReference}`}
-                onClick={() =>
-                  navigate('/reviews/new', {
-                    state: {
-                      source,
-                      handle: sources.eligibilityHandle,
-                    },
-                  })
-                }
-              >
-                <strong>
-                  {source.label ||
-                    (source.targetType === 'WORKSHOP_SESSION'
-                      ? t('sourceWorkshop')
-                      : t('sourceRetail'))}
-                </strong>
-                <span>{t('sourceReference')}: {source.sourceReference}</span>
-                <span className="badge-tag badge-verified">{t('verified')}</span>
-                <span className="action-label">{t('review')} &rarr;</span>
-              </button>
-            ))
+            sources.items.map(source => {
+              const isReviewed = Boolean(source.alreadyReviewed || source.reviewId);
+              return (
+                <button
+                  type="button"
+                  className="source-card"
+                  key={`${source.sourceType}:${source.sourceReference}`}
+                  onClick={() => {
+                    if (isReviewed && source.reviewId) {
+                      navigate(`/reviews/${source.reviewId}`);
+                    } else {
+                      navigate('/reviews/new', {
+                        state: {
+                          source,
+                          handle: sources.eligibilityHandle,
+                        },
+                      });
+                    }
+                  }}
+                >
+                  <strong>
+                    {source.label ||
+                      (source.targetType === 'WORKSHOP_SESSION'
+                        ? t('sourceWorkshop')
+                        : t('sourceRetail'))}
+                  </strong>
+                  <span>{t('sourceReference')}: {source.sourceReference}</span>
+                  {isReviewed ? (
+                    <span className="badge-tag badge-reviewed">{t('alreadyReviewedBadge')}</span>
+                  ) : (
+                    <span className="badge-tag badge-verified">{t('verified')}</span>
+                  )}
+                  <span className="action-label">
+                    {(isReviewed ? t('open') : t('review'))} &rarr;
+                  </span>
+                </button>
+              );
+            })
           ) : (
             <div className="empty-state">{t('noSources')}</div>
           )}

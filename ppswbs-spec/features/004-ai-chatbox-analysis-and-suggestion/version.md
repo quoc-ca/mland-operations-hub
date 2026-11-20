@@ -1,3 +1,70 @@
+# Version 1.7 — Feature 004: AI Chatbox Daily Quota & Session Accounting (Demo Quota & Gemini Integration)
+
+- **Feature**: 004 — AI Chatbox Analysis and Suggestion
+- **Author**: Ngô Tiến Đạt
+- **Last updated by**: Phan Sơn
+- **Date created**: 2026-10-24
+- **Date updated**: 2026-11-18
+- **Source of truth**: Feature-004 `spec.md`, `design.md`, OpenAPI contract, `V182__ai_guest_sessions_and_prompt_quota.sql` and synchronized project specifications
+
+### Phase G — AI Chatbox Daily Quota & Session Accounting (2026-11-18)
+1. **Calendar-Day Quota Enforcement (Asia/Ho_Chi_Minh)**:
+   - Guest: 3 prompts / day; Member: 10 prompts / day. Resets at 00:00.
+   - Staff/Manager/Admin roles blocked with HTTP 403 `AI_ACTOR_NOT_ALLOWED`.
+   - Atomic quota consumption in database via `ai_prompt_quota_usage` table.
+   - Validates non-empty and 2,000 char limit before consuming quota.
+   - HTTP 429 `AI_DAILY_QUOTA_EXCEEDED` returned with `Retry-After: <seconds-to-midnight>` when quota exhausted.
+2. **Guest Session Lifecycle (`X-Guest-AI-Session`)**:
+   - Backend auto-creates opaque 24h TTL session in `ai_guest_sessions` table and returns via response header.
+   - Rejects invalid or expired guest session with HTTP 401 `AI_GUEST_SESSION_INVALID`.
+   - Frontend stores and manages session in `sessionStorage` (`mland_guest_ai_session`).
+3. **Frontend Quota Display & UX**:
+   - Shows remaining quota badge in `/ai-support`: "Còn X/Y lượt hỏi hôm nay • Reset lúc 00:00".
+   - Automatically disables input and send button upon reaching daily limit or receiving 429.
+   - Clears session on 401 and shows clear error notice on 403 without signing out user.
+4. **Gemini AI Integration**:
+   - Configured Gemini API key with live REST API integration and graceful fallback to domain-allowlisted knowledge.
+5. **Database Migration**:
+   - Added Flyway migration `V182__ai_guest_sessions_and_prompt_quota.sql`.
+
+### Phase G.1 — Quota Transaction and Concurrency Hardening (2026-11-18)
+1. Quota consumption now runs in an independent `REQUIRES_NEW` transaction, so
+   provider timeout, unsafe output, unsupported context and other post-validation
+   failures cannot roll back an already-consumed prompt.
+2. Daily quota creation and increment use MySQL atomic statements guarded by the
+   `(quota_scope, quota_key_digest, quota_date)` unique key. Concurrent first
+   requests therefore cannot create duplicate rows or exceed the configured
+   limit through an insert race.
+3. Guest session creation and touch also commit independently before the provider
+   call. A failed AI request cannot discard the session that owns the quota key.
+4. No migration was added: the hardening only changes transaction and repository
+   behavior and remains compatible with `V182__ai_guest_sessions_and_prompt_quota.sql`.
+5. Backend Maven verification remains pending because the repository wrapper cannot
+   start Maven in the current Windows environment and Maven is not installed on PATH.
+
+---
+
+# Version 1.6 — Feature 004: Custom Design Workspace Refinement & Request Tracking Enhancements
+
+- **Feature**: 004 — AI Chatbox Analysis and Suggestion
+- **Author**: Ngô Tiến Đạt
+- **Last updated by**: Phan Sơn
+- **Date created**: 2026-10-24
+- **Date updated**: 2026-11-17
+- **Source of truth**: Feature-004 `spec.md`, `design.md`, OpenAPI contract and `FE-004-DESIGN-INDEPENDENT-HANDOFF.md`
+
+### Phase F — Custom Design Usability & Request Tracking (2026-11-17)
+1. **Removed Catalogue Reference Field**: Dropped `catalogueReference` input from `/design-requests/new`. Custom requests represent independent ideas without requiring pre-binding to catalogue items.
+2. **Pre-submission Image Validation**: Client-side validation checks allowed MIME types (JPEG, PNG, WEBP), file size (<= 10MB), non-empty (0 bytes check), and image dimensions (<= 4096×4096px) before submission.
+3. **Clear Localized Error Messages**: Replaced generic error codes with informative Vietnamese error notices detailing the exact issue and recovery actions (e.g. rate limit, file size, empty file, consent requirement).
+4. **Updated Success Feedback**: Updated success notification to *"Yêu cầu đã được gửi thành công, đang đợi phản hồi của nhân viên"* and prominently display it upon transitioning to the request detail page.
+5. **Guest and Member Request Tracking**:
+   - Added Member Custom Requests tab at `/my/designs?tab=custom` backed by `GET /api/v1/design-requests`, displaying real-time review status (`Đang đợi phản hồi của nhân viên`, `Đã duyệt`, `Từ chối`, `Cần làm rõ`) and analysis status.
+   - Enabled Guest safe lookup on `/design-requests/:designRequestId` by removing `<RequireSession>` barrier and permitting safe unauthenticated read in `SecurityConfiguration`.
+   - Verified Staff and Manager review access and decision recording through `/design-review-requests` and `/design-review-requests/:reviewRequestId`.
+
+---
+
 # Version 1.5 — Feature 004: AI Chatbox Analysis and Suggestion (JDK 21 Verification, Contract Audit & 7 Blockers Resolution Plan)
 
 - **Feature**: 004 — AI Chatbox Analysis and Suggestion

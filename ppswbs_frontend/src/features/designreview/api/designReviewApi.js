@@ -6,13 +6,40 @@ export function designReviewApi(request) {
     /**
      * Basic AI Support (F04-AI-CHAT).
      * Guest access does not send auth token (auth: false); authenticated members may send token.
+     * Manages X-Guest-AI-Session in sessionStorage.
      */
-    askAiSupport({ message, auth = false }) {
-      return request('/api/v1/ai-support/messages', {
-        method: 'POST',
-        body: { message },
-        auth,
-      });
+    async askAiSupport({ message, auth = false }) {
+      const headers = {};
+      if (!auth && typeof sessionStorage !== 'undefined') {
+        const guestSession = sessionStorage.getItem('mland_guest_ai_session');
+        if (guestSession) {
+          headers['X-Guest-AI-Session'] = guestSession;
+        }
+      }
+
+      try {
+        const result = await request('/api/v1/ai-support/messages', {
+          method: 'POST',
+          body: { message },
+          auth,
+          headers,
+          suppressAccessDenied: true,
+        });
+
+        if (result?.guestSessionToken && typeof sessionStorage !== 'undefined') {
+          sessionStorage.setItem('mland_guest_ai_session', result.guestSessionToken);
+        }
+
+        return result;
+      } catch (err) {
+        if (err.guestSessionToken && typeof sessionStorage !== 'undefined') {
+          sessionStorage.setItem('mland_guest_ai_session', err.guestSessionToken);
+        }
+        if (err.status === 401 && typeof sessionStorage !== 'undefined') {
+          sessionStorage.removeItem('mland_guest_ai_session');
+        }
+        throw err;
+      }
     },
 
     /**
@@ -48,9 +75,20 @@ export function designReviewApi(request) {
 
     /**
      * Read owner-safe Design Request projection (F04-ANALYSIS-STATUS / F04-RESULT).
+     * Accessible by authenticated Member, Staff/Manager, or public guest lookup.
      */
-    getDesignRequest(designRequestId) {
+    getDesignRequest(designRequestId, auth = true) {
       return request(`/api/v1/design-requests/${encodeURIComponent(designRequestId)}`, {
+        method: 'GET',
+        auth,
+      });
+    },
+
+    /**
+     * Read list of custom design requests owned by the authenticated member.
+     */
+    getMyDesignRequests() {
+      return request('/api/v1/design-requests', {
         method: 'GET',
         auth: true,
       });

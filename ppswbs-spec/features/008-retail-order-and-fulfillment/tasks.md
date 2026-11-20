@@ -133,7 +133,7 @@ callbacks, secrets, and expired recipient PII are absent.
 ## Phase 8: Polish and cross-cutting verification
 
 - [ ] T053 [P] **Open**: post-commit notification intents for retail orders and shipments; email is never proof.
-- [ ] T054 [P] **Open**: revalidate retail-order-and-fulfillment.openapi.yaml against the current DTOs (order code, discount share, per-branch cancellation endpoint, counter cash).
+- [ ] T054 [P] **Partial** (2026-11-20: payment link, cancellation in PAYMENT_INITIATED, refusal codes, productId, paymentDeadline/paidAt/completedAt, READY_FOR_CARRIER and the carrier endpoints added): revalidate retail-order-and-fulfillment.openapi.yaml against the current DTOs (order code, discount share, per-branch cancellation endpoint, counter cash).
 - [ ] T055 [P] **Partial**: every MySQL integration test migrates an empty `ppswbs_test` schema through V130 with Flyway, and the dev database upgraded to V124; there is no dedicated RetailMigrationTest.
 - [ ] T056 **Partial**: evidence from 2026-11-13 is recorded in ppswbs-spec/features/008-retail-order-and-fulfillment/verification.md; a full module/backend/frontend run is still to record.
 - [ ] T057 **Open**: execute QS-01–QS-27 with the timed QS-03 walkthrough and record them in verification.md.
@@ -172,3 +172,17 @@ callbacks, secrets, and expired recipient PII are absent.
 - [x] T068 Shopee-style cart, checkout bottom bar, voucher picker with greyed ineligible vouchers, and saved-address picker in ppswbs_frontend/src/features/retail-order/ui/cart/, ui/checkout/ and the related CSS.
 - [x] T069 Member and Staff order pages with status tabs, order code, and a detail panel that shows the discount line only when applied and a note when the discount was split across branches.
 - [x] T070 Local demo data: ppswbs_backend/scripts/local-seed-demo-catalogue-vouchers-points.sql (5 products, 3 vouchers, points, stock at every active branch).
+
+## Phase 11: Sessions 2026-11-18 and 2026-11-20
+
+- [x] T071 Real VNPay without the `retail-vnpay` profile: `VNPAY_ENABLED=true` as for workshop payments; ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/service/VnpayRetailPaymentAdapter.java is `@Profile("!local")`, the unpaid-expiry job runs only when VNPay is enabled.
+- [x] T072 Specific refusal codes RETAIL_VOUCHER_REFUSED and RETAIL_POINTS_CHANGED in ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/service/RetailConflictException.java and RetailCheckoutAcceptanceService.java; the checkout shows the notice above the button with "Cập nhật lại" and drops the refused benefit.
+- [x] T073 Product images: `productId` on cart lines and order items, shown by ppswbs_frontend/src/features/retail-order/ui/ProductThumb.jsx in the cart, checkout and order pages.
+- [x] T074 "Đặt hàng" with VNPay goes straight to VNPay; the stored link (ppswbs_backend/src/main/resources/db/migration/V188__retail_checkout_payment_link.sql, entity/GroupedCheckout.java) lives for the 15-minute hold and "Thanh toán" reopens it (GroupedCheckoutPaymentLinkTest). "Hủy đơn" also works in PAYMENT_INITIATED.
+- [x] T075 Member order tabs, newest first, opening the tab of the order after payment, with a countdown for Chờ thanh toán, in ppswbs_frontend/src/features/retail-order/ui/orders/MemberOrdersPage.jsx (orderStages.test.js). A cash order goes straight to Đơn mua with a notice.
+- [x] T076 Staff stages: shipment `READY_FOR_CARRIER` in ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/entity/RetailShipmentStatus.java and RetailOrder.syncShipmentFulfilmentState; Staff tabs in ppswbs_frontend/src/features/retail-order/ui/manager/StaffRetailOrdersPage.jsx (StaffRetailShipmentServiceTest walks PREPARING → READY_FOR_CARRIER → HANDED_TO_CARRIER → DELIVERED).
+- [x] T077 Cart opens with nothing ticked; "Mua lại" ticks only the rings it added back and lists the skipped ones; pages open at the top (`ScrollRestoration` in ppswbs_frontend/src/app/AppLayout.jsx).
+- [x] T078 Received time: ppswbs_backend/src/main/resources/db/migration/V189__retail_order_completed_at.sql and `RetailOrder.completedAt` set by the counter handover and the GHTK delivery; `paidAt` and `completedAt` in dto/RetailOrderHistoryView.java, shown in Đơn mua and the Staff history.
+- [ ] T079 **Ready locally, kept off `develop` until FE-01 adds the role (T080)**: GHTK partner portal: ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/readyringsales/controller/CarrierShipmentController.java, service/CarrierShipmentService.java and dto/CarrierShipmentDtos.java (`/api/v1/carrier/shipments`, CarrierShipmentServiceTest); ppswbs_frontend/src/features/retail-order/ui/carrier/CarrierPages.jsx with `/carrier` and `/carrier/stats` (carrier.test.jsx).
+- [ ] T080 **Blocked on FE-01**: role `CARRIER` in AccountRole (with migration) and ActorRole, admin account creation and login redirect to `/carrier`; then remove the Staff simulated courier buttons.
+- [ ] T081 **Open**: deployed server sets `VNPAY_RETURN_URL` and `VNPAY_IPN_URL` to its own domain.

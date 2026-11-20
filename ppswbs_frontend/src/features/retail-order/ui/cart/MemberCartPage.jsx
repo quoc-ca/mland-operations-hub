@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link, useLocation, useNavigate } from 'react-router';
 import { RequireSession } from '../../../../shared/auth/RequireSession';
 import { useFormat } from '../../../../shared/i18n/I18nProvider';
 import CartTabs from '../../../../shared/ui/CartTabs';
@@ -63,13 +63,20 @@ function CartContent() {
     return [...byLocation.entries()];
   }, [lines]);
 
-  // Ticked lines: nothing is ticked when the cart opens, the Member ticks what to buy (Session 2026-11-16);
-  // ids that left the cart or stopped being sellable are dropped.
+  // Ticked lines: nothing is ticked when the cart opens, the Member ticks what to buy (Session 2026-11-16), except
+  // the rings just put back by "Mua lại", which arrive ticked so the Member sees what they were (Session 2026-11-20).
+  // Ids that left the cart or stopped being sellable are dropped.
+  const location = useLocation();
+  const preselect = useRef(Array.isArray(location.state?.selectLineIds) ? location.state.selectLineIds.map(String) : []);
+  const skippedByBuyAgain = Array.isArray(location.state?.skipped) ? location.state.skipped : [];
   const selectable = line => line.saleEligible && line.indicativePrice != null;
   useEffect(() => {
     if (!cart.data) return;
     setSelectedIds(current => {
-      if (current == null) return new Set();
+      if (current == null) {
+        const wanted = new Set(preselect.current);
+        return new Set(lines.filter(line => selectable(line) && wanted.has(String(line.id))).map(line => line.id));
+      }
       const present = new Set(lines.filter(selectable).map(line => line.id));
       return new Set([...current].filter(id => present.has(id)));
     });
@@ -223,6 +230,7 @@ function CartContent() {
   if (cart.error) return <ErrorNotice error={cart.error} onRetry={cart.reload} />;
   if (lines.length === 0) return (
     <section className="workspace-card empty-state">
+      {skippedByBuyAgain.length > 0 && <p className="notice warning cart-sp-skipped" role="status">Không thêm lại được {skippedByBuyAgain.join(', ')} vì hiện không đủ hàng hoặc đã ngừng bán.</p>}
       <p>Giỏ hàng chưa có sản phẩm.</p>
       <Link className="button primary" to="/products">Xem sản phẩm</Link>
     </section>
@@ -230,6 +238,7 @@ function CartContent() {
 
   return (
     <section className="cart-sp">
+      {skippedByBuyAgain.length > 0 && <p className="notice warning cart-sp-skipped" role="status">Không thêm lại được {skippedByBuyAgain.join(', ')} vì hiện không đủ hàng hoặc đã ngừng bán. Các sản phẩm còn lại đã được tích sẵn.</p>}
       <div className="cart-sp-header">
         <label className="cart-sp-check-label"><Checkbox checked={allSelected} indeterminate={!allSelected && selectedLines.length > 0} disabled={!selectableLines.length} onChange={toggleAll} label="Chọn tất cả sản phẩm" /><span>Sản phẩm</span></label>
         <span>Đơn giá</span><span>Số lượng</span><span>Số tiền</span><span>Thao tác</span>

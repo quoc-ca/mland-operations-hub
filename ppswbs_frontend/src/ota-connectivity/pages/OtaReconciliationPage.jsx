@@ -9,7 +9,7 @@ import { OperationsAuthWorkspace } from '../../shared/ui/OperationsAuthWorkspace
 import { ResolveWorkItemModal } from '../components/ResolveWorkItemModal';
 import '../ota-connectivity.css';
 
-const FILTER_STATUSES = ['ALL', 'OPEN', 'IN_PROGRESS', 'RESOLVED', 'ESCALATED'];
+const FILTER_STATUSES = ['ALL', 'NEEDS_ATTENTION', 'OPEN', 'IN_PROGRESS', 'RESOLVED', 'ESCALATED'];
 
 export default function OtaReconciliationPage() {
   const { status: authStatus } = useAuth();

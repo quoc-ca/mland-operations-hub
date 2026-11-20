@@ -10,6 +10,7 @@ import org.springframework.http.CacheControl;
 import java.util.UUID;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.TicketChangeDtos.ChangeRequestDecisionDto;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.TicketChangeDtos.ChangeRequestDto;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.TicketChangeDtos.ChangeRequestStatusDto;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.TicketChangeDtos.ChangeResultDto;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.TicketChangeDtos.GrantChangeAllowanceRequestDto;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.TicketChangeDtos.GroupTicketChangeRequestDto;
@@ -97,6 +98,16 @@ public class TicketChangeController {
                 ticketCode, request, idempotencyKey, correlationId, actor
         );
         return ResponseEntity.status(HttpStatus.CREATED).body(result);
+    }
+
+    /** The buyer Member's view of the latest change request of a ticket; 204 when it never had one (FR-045a). */
+    @GetMapping("/api/v1/workshop-tickets/{ticketCode}/change-request-status")
+    public ResponseEntity<ChangeRequestStatusDto> latestChangeRequestStatus(
+            @PathVariable("ticketCode") String ticketCode,
+            Authentication authentication) {
+        return requestService.latestStatusForBuyer(ticketCode, actor(authentication))
+                .map(status -> ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(status))
+                .orElseGet(() -> ResponseEntity.noContent().cacheControl(CacheControl.noStore()).build());
     }
 
     /** The Staff/Manager queue of changes only a Manager may allow (T117, FR-045a). */

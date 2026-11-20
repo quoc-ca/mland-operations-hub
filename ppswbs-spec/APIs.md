@@ -130,13 +130,19 @@ explicit implementation gates from the independent handoff.
 
 #### Feature-04 endpoint detail
 
+For `POST /api/v1/ai-support/messages`, quota admission is committed before
+screening/provider work. If a first Guest command fails after a session is
+created, the opaque session is returned in `X-Guest-AI-Session` and the safe
+error projection so the client cannot bypass the daily quota by starting a new
+session. The response also exposes `Retry-After` on quota exhaustion.
+
 The following is the API catalog-level contract for Feature-04. The feature
 OpenAPI contract remains authoritative for exact schemas, field types, enum values,
 headers and error payloads.
 
 | Method and route | Input | Successful output | Allowed actors and conditions | Important errors / side effects |
 | --- | --- | --- | --- | --- |
-| `POST /api/v1/ai-support/messages` | JSON `{ message }`; normalized text up to 2,000 characters. | Validated text response with safe scope metadata and correlation data where permitted. | Guest or Member; only approved public catalogue, workshop, store and FAQ context. Provider timeout is 30 seconds. | `400/422` for invalid or unsupported input, prompt injection or unsafe output; `429` for AI rate limit; `503` for provider failure. No booking, payment, review or price mutation. |
+| `POST /api/v1/ai-support/messages` | Headers: optional `Authorization: Bearer <token>`, optional `X-Guest-AI-Session: <session>`; JSON `{ message }`; normalized text up to 2,000 characters. | Validated text response with safe scope metadata, correlation data, quota metadata (`actor`, `limit`, `remaining`, `resetAt`), and `X-AI-Quota-*` / `X-Guest-AI-Session` headers. | Guest (3 prompt/ngày) or Member (10 prompt/ngày); only approved public catalogue, workshop, store and FAQ context. Reset lúc 00:00 Asia/Ho_Chi_Minh. Staff/Manager/Admin forbidden (403 `AI_ACTOR_NOT_ALLOWED`). | `400` (`AI_INPUT_INVALID`); `401` (`AI_GUEST_SESSION_INVALID`); `403` (`AI_ACTOR_NOT_ALLOWED`); `422` (`AI_PROMPT_INJECTION_DETECTED`, `AI_CONTEXT_NOT_ALLOWED`); `429` (`AI_DAILY_QUOTA_EXCEEDED` with `Retry-After`); `503` (`AI_UNAVAILABLE`). No booking, payment, review or price mutation. |
 | `POST /api/v1/design-requests` | Multipart optional `description`, optional opaque `catalogueReference`, optional image/consent and `Idempotency-Key`; no booking/payment fields. | `202` independent versioned Design Request projection. | Approved owner policy; Member own data; Guest only after approved proof. Consent is required before image storage/provider call; maximum three image attempts per rolling five minutes. | `401/403/409/422/429`; invalid requests do not call Gemini or store image. |
 | `GET /api/v1/design-requests/{designRequestId}` | Path identifier; no request body. | Owner-safe or reviewer-scoped analysis/review projection. | Approved owner, in-scope Staff/Manager, or approved Admin audit access. | `401/403/404`; never returns raw image, raw provider payload, credentials or another owner's data. |
 | `GET /api/v1/design-review-requests` | Optional scope/filter and pagination query parameters defined by the feature contract. | Reviewer-scoped queue of requests requiring human action. | Staff or Manager with active status, branch/delegation scope and applicable authority. | `401/403`; read-only and must not broaden reviewer scope through client parameters. |
@@ -183,7 +189,38 @@ unresolved dependencies.
 | `readyringsales` | Protected client REST | `POST /api/v1/ready-ring-orders/{orderId}/pickup-confirmations` | Order-owning Member | UC-04 | Record the Member's pickup of an eligible prepared pickup order exactly once. | Draft |
 | `fulfilment` | Inbound integration | `POST /api/v1/integrations/ghtk/webhooks` | GHTK callback authentication, not Firebase | UC-04 | Validate, deduplicate, and persist normalized GHTK shipment status; stale events cannot regress current status. Production exposure remains gated by approved callback authentication. | Draft; development/test mock only |
 
-### 3.6 Business catalogue, rules, and audit review
+### 3.6 Staff consultation chat (Feature-013)
+
+Feature-013 owns Member-to-Staff/Manager consultation conversations. It uses the
+Account actor/location facade and safe context projections from Feature-004 and
+Feature-012; it never accesses another feature's repository or entity. Only Member,
+active Staff within location scope and active Manager are business actors. Admin has
+no business chat mutation authority.
+
+| Method and route | Access | Purpose | Maturity |
+|---|---|---|---|
+| `GET /api/v1/consultations/context-options` | Member | List owned Feature-004/012 contexts with atomic code/name/version/preview projection. | Draft |
+| `POST /api/v1/consultations` | Member | Create a context-bound conversation and optional initial message. | Draft |
+| `GET /api/v1/consultations` | Member/Staff/Manager | Return owner- or scope-filtered inbox. | Draft |
+| `GET /api/v1/consultations/{conversationReference}` | Authorized participant | Read safe conversation and messages. | Draft |
+| `POST /api/v1/consultations/{conversationReference}/messages` | Member/Staff/Manager | Append immutable normalized UTF-8 text. | Draft |
+| `POST /api/v1/consultations/{conversationReference}/claim` | Staff/Manager | Claim with optimistic version and scope checks. | Draft |
+| `POST /api/v1/consultations/{conversationReference}/release` | Staff/Manager | Release current claim. | Draft |
+| `POST /api/v1/consultations/{conversationReference}/assign` | Manager | Assign an unscoped conversation to an active Workshop Location. | Draft |
+| `POST /api/v1/consultations/{conversationReference}/read` | Authorized participant | Update unread projection. | Draft |
+| `POST /api/v1/consultations/{conversationReference}/close` / `reopen` | Authorized participant | Change `OPEN`/`CLOSED` state. | Draft |
+| `DELETE /api/v1/consultations/{conversationReference}` | Member | Soft-hide closed conversation from Member list; operational history retained. | Draft |
+
+All write commands use `Idempotency-Key`; state commands also use
+`If-Match-Version`. Message length is 2,000 Unicode code points and Member sends
+are limited to 30 per rolling minute. The API returns safe projections only and
+does not expose raw database IDs, private context data, tokens or raw log payloads.
+The conversation list uses opaque cursor pagination (`limit` default 20, maximum
+50). Member-hidden conversations are excluded only from Member reads. Member may
+create a conversation with all context fields null, and may soft-hide only a
+closed conversation through `DELETE /api/v1/consultations/{conversationReference}`.
+Staff may close conversations within active location scope; Manager may close
+globally.
 
 | Owner | Boundary | Route family | Access | UC | Purpose | Maturity |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -209,7 +246,9 @@ other business records. Secrets are never returned through these APIs. The
 configuration model, integration-monitoring data, and technical-auth mechanism
 remain unapproved.
 
-### 3.8 Executive reporting (`reporting`)
+### 3.8 Business catalogue, rules, and audit review
+
+### 3.9 Executive reporting (`reporting`)
 
 | Owner | Boundary | Method and route | Access | UC | Purpose | Maturity |
 | --- | --- | --- | --- | --- | --- | --- |

@@ -1,5 +1,6 @@
 package edu.fpt.sep490_g22.ppswbs_backend.designreview.application;
 
+import edu.fpt.sep490_g22.ppswbs_backend.designreview.web.DesignReviewDtos;
 import lombok.Getter;
 import org.springframework.http.HttpStatus;
 
@@ -9,20 +10,36 @@ public class DesignReviewException extends RuntimeException {
     private final String code;
     private final HttpStatus status;
     private final Long retryAfterSeconds;
+    private final DesignReviewDtos.AiQuotaDto quota;
+    private final String correlationId;
+    private String guestSessionToken;
 
     public DesignReviewException(String code, String message, HttpStatus status) {
-        this(code, message, status, null);
+        this(code, message, status, null, null, null);
     }
 
     public DesignReviewException(String code, String message, HttpStatus status, Long retryAfterSeconds) {
+        this(code, message, status, retryAfterSeconds, null, null);
+    }
+
+    public DesignReviewException(String code, String message, HttpStatus status, Long retryAfterSeconds,
+                                 DesignReviewDtos.AiQuotaDto quota, String correlationId) {
         super(message);
         this.code = code;
         this.status = status;
         this.retryAfterSeconds = retryAfterSeconds;
+        this.quota = quota;
+        this.correlationId = correlationId;
     }
 
     public static DesignReviewException rateLimited(String code, String message, long retryAfterSeconds) {
         return new DesignReviewException(code, message, HttpStatus.TOO_MANY_REQUESTS, retryAfterSeconds);
+    }
+
+    public static DesignReviewException quotaExceeded(String message, long retryAfterSeconds,
+                                                      DesignReviewDtos.AiQuotaDto quota, String correlationId) {
+        return new DesignReviewException("AI_DAILY_QUOTA_EXCEEDED", message, HttpStatus.TOO_MANY_REQUESTS,
+                retryAfterSeconds, quota, correlationId);
     }
 
     public static DesignReviewException badRequest(String code, String message) {
@@ -51,5 +68,10 @@ public class DesignReviewException extends RuntimeException {
 
     public static DesignReviewException serviceUnavailable(String code, String message) {
         return new DesignReviewException(code, message, HttpStatus.SERVICE_UNAVAILABLE);
+    }
+
+    public DesignReviewException withGuestSessionToken(String token) {
+        this.guestSessionToken = token;
+        return this;
     }
 }

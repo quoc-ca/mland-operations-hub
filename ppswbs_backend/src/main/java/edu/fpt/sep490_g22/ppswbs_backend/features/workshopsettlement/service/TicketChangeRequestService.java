@@ -2,7 +2,10 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service;
 
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorRole;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.CurrentAccountActor;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.TicketFolioContext;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.WorkshopBookingFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementBusinessAuditRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.TicketChangeDtos.ChangeRequestStatusDto;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementTicketChangeRequestRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.TicketChangeDtos.ChangeRequestDecision;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.TicketChangeDtos.ChangeRequestDecisionDto;
@@ -18,6 +21,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -39,6 +43,37 @@ public class TicketChangeRequestService {
     private final TicketChangeService changes;
     private final WorkshopSettlementAuthorizationService authorization;
     private final SettlementBusinessAuditRepository audits;
+    private final WorkshopBookingFacade booking;
+    private final TicketChangeNotifier notifier;
+
+    /**
+     * The state of the latest change request of a ticket, for the Member who bought it (FR-045a): the buyer's page
+     * shows pending / approved / rejected without waiting for the email. Empty when the ticket never had a request.
+     * A request past its expiry is reported as EXPIRED even before the queue job marks it.
+     */
+    @Transactional(readOnly = true)
+    public Optional<ChangeRequestStatusDto> latestStatusForBuyer(String ticketCode, CurrentAccountActor actor) {
+        if (actor == null || actor.role() != ActorRole.MEMBER) {
+            throw new WorkshopSettlementAuthorizationException("ACTIVE_ACCOUNT_REQUIRED");
+        }
+        if (ticketCode == null || ticketCode.isBlank()) {
+            throw new WorkshopSettlementValidationException("TICKET_CODE_REQUIRED");
+        }
+        String code = ticketCode.trim();
+        TicketFolioContext ctx = booking.getTicketFolioContext(code)
+                .orElseThrow(() -> new WorkshopSettlementNotFoundException("TICKET_NOT_FOUND"));
+        if (ctx.buyerMemberAccountId() == null || !ctx.buyerMemberAccountId().equals(actor.accountId())) {
+            throw new WorkshopSettlementAuthorizationException("NOT_BUYER");
+        }
+        Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
+        return requests.findFirstByTicketCodeOrderByCreatedAtDesc(code).map(request -> {
+            boolean lapsed = SettlementTicketChangeRequest.PENDING.equals(request.getStatus())
+                    && request.getExpiresAt() != null && !request.getExpiresAt().isAfter(now);
+            return new ChangeRequestStatusDto(request.getRequestReference(),
+                    lapsed ? SettlementTicketChangeRequest.EXPIRED : request.getStatus(),
+                    request.getDecisionReason(), request.getDecidedAt());
+        });
+    }
 
     @Transactional
     public List<ChangeRequestDto> list(CurrentAccountActor actor, String status) {
@@ -50,7 +85,7 @@ public class TicketChangeRequestService {
         }
         Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
         requests.findByStatusAndExpiresAtLessThanEqual(SettlementTicketChangeRequest.PENDING, now)
-                .forEach(stale -> changes.expire(stale, now));
+                .forEach(stale -> changes.expireIfDue(stale.getRequestReference(), now));
         return requests.findByStatusOrderByCreatedAtAsc(wanted).stream()
                 .filter(request -> actor.role() == ActorRole.MANAGER
                         || (request.getLocationReference() != null && actor.activeLocationIds() != null
@@ -116,6 +151,9 @@ public class TicketChangeRequestService {
                 .actorReference(String.valueOf(actor.accountId()))
                 .correlationReference(correlation)
                 .build());
+        if (body.decision() != ChangeRequestDecision.APPROVE) {
+            notifier.rejected(request, correlation);
+        }
         return toDto(request);
     }
 

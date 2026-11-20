@@ -95,4 +95,10 @@ public interface WorkshopBookingFacade {
      * reference is not a group payment, so the caller stores nothing for it.
      */
     boolean recordMismatchedGroupPaymentEvidence(RecordMismatchedGroupPaymentEvidenceCommand command);
+
+    /**
+     * FR-032 "Definite failure" (decided 2026-11-19): sets the group attempt of the merchant reference to FAILED under
+     * the group row lock; group, hold and benefits unchanged. Idempotent; a SUCCESS or EXPIRED attempt is unchanged.
+     */
+    PaymentFailureOutcome recordDefinitePaymentFailure(RecordDefinitePaymentFailureCommand command);
 }
