@@ -1,0 +1,6 @@
+.flash-toast{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:1000;display:flex;align-items:center;gap:12px;max-width:min(560px,calc(100vw - 32px));padding:12px 14px 12px 16px;border-radius:10px;font-size:14px;line-height:1.4;box-shadow:0 8px 24px rgba(17,24,39,.16);animation:flash-toast-in .2s ease-out}
+.flash-toast-success{background:#ecfdf5;color:#065f46;border:1px solid #6ee7b7}
+.flash-toast-info{background:#eff6ff;color:#1e3a8a;border:1px solid #93c5fd}
+.flash-toast-warn{background:#fffbeb;color:#7a4a00;border:1px solid #fcd34d}
+.flash-toast-close{border:0;background:transparent;color:inherit;font-size:20px;line-height:1;cursor:pointer;padding:0 2px}
+@keyframes flash-toast-in{from{opacity:0;transform:translate(-50%,-8px)}to{opacity:1;transform:translate(-50%,0)}}

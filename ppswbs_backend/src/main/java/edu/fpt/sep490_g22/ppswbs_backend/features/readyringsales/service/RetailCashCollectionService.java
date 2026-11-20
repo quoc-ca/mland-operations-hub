@@ -48,7 +48,7 @@ import java.util.UUID;
  */
 @Service
 @RequiredArgsConstructor
-public class RetailCashCollectionService {
+public class RetailCashCollectionService implements edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.facade.RetailCounterCashFacade {
     static final ZoneId VIETNAM = ZoneId.of("Asia/Ho_Chi_Minh");
 
     private final GroupedCheckoutRepository checkouts;
@@ -60,6 +60,29 @@ public class RetailCashCollectionService {
     private final AvailabilityGuardPort guard;
     private final LoyaltyFacade loyalty;
     private final RetailBranchPartService branchParts;
+
+    /** Staff confirms the exact amount due was paid (Session 2026-11-20); see {@link #confirm}. */
+    @Override
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public CashCollected collectExactAmount(CurrentAccountActor actor, String orderId, String idempotencyKey) {
+        try {
+            RetailOrder order = orders.findById(orderId)
+                .orElseThrow(() -> new RetailNotFoundException("Retail order does not exist"));
+            String due = order.getPayableAmount().stripTrailingZeros().toPlainString();
+            CheckoutDtos.CashCollectionView view = confirm(actor, orderId, due, idempotencyKey);
+            return new CashCollected(orderId, view.appliedAmount());
+        } catch (RetailUnauthorizedException ex) {
+            throw new Refused(401, ex.getMessage());
+        } catch (RetailAccessDeniedException ex) {
+            throw new Refused(403, ex.getMessage());
+        } catch (RetailNotFoundException ex) {
+            throw new Refused(404, ex.getMessage());
+        } catch (RetailConflictException ex) {
+            throw new Refused(409, ex.getMessage());
+        } catch (RetailIntegrationUnavailableException ex) {
+            throw new Refused(503, ex.getMessage());
+        }
+    }
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public CheckoutDtos.CashCollectionView confirm(CurrentAccountActor actor, String orderId, String amountReceived,
