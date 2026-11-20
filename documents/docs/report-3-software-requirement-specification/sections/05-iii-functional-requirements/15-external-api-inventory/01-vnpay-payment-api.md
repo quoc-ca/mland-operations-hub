@@ -3,7 +3,7 @@
 | Attr | Value |
 | --- | --- |
 | URL | TBD — approved HTTP method and endpoint pattern. |
-| Purpose | Creates payment requests and receives approved signed payment confirmations for workshop deposits, retail payments, custom-order deposits, and custom-order final balances. The system validates the signature, transaction reference, amount, success status, and duplicate-event status. A browser Return URL never confirms payment. |
+| Purpose | Creates payment requests and receives approved signed payment confirmations for workshop deposits, retail payments, and one-time custom-order quote payments. The system validates the signature, transaction reference, amount, success status, and duplicate-event status. A browser Return URL never confirms payment. |
 | Caller | System → VNPay / VNPay → System |
 | Auth | Configured VNPay signing/verification credentials; validate reference, amount, currency and result. Exact provider contract: TBD. |
 

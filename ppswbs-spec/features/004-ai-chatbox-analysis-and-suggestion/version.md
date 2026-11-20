@@ -7,6 +7,35 @@
 - **Date updated**: 2026-11-18
 - **Source of truth**: The 2026-11-20 human-review `spec.md`, `research.md`, `design.md` and `contracts/design-request-human-review.openapi.yaml`. The AI quota contract and `V182__ai_guest_sessions_and_prompt_quota.sql` are historical only.
 
+## Phase I — Custom-order one-time full-payment revision (2026-11-20)
+
+- Custom orders no longer use a deposit, remaining balance, final-balance
+  proposal, or retail cart line.
+- After a valid human review and Manager-approved quote, the Member pays the
+  complete quoted amount from the custom-order detail page in one payment
+  context.
+- The quote stores an immutable total, currency, quote generation and expiry.
+  If verified full payment is not received before expiry, the quote/order is
+  expired or cancelled and any temporary queue hold is released.
+- A new quote is a new immutable generation on the same custom order where the
+  policy permits it; the old quote remains history.
+- The custom-order customer page is split into `Requests` and `Orders` views.
+  It never exposes an Add to Cart action and never treats a custom order as a
+  ready-ring retail order.
+- Updated Feature-004 `spec.md`, `data-model.md`, custom-order OpenAPI,
+  `ppswbs-spec/APIs.md`, `spec-general.md`, `screen.md`, Report 2 scope and
+  Report 3 custom-manufacturing/payment references.
+- Workshop booking deposits and ready-ring retail full payment are unchanged.
+
+### Current status
+
+```text
+CUSTOM ORDER FULL-PAYMENT BASELINE DOCUMENTED
+NO DEPOSIT OR RETAIL CART
+QUOTE EXPIRY/CANCELLATION REQUIRED
+BACKEND/FRONTEND IMPLEMENTATION PENDING CONTRACT REVIEW
+```
+
 ### Phase G — AI Chatbox Daily Quota & Session Accounting (2026-11-18)
 1. **Calendar-Day Quota Enforcement (Asia/Ho_Chi_Minh)**:
    - Guest: 3 prompts / day; Member: 10 prompts / day. Resets at 00:00.

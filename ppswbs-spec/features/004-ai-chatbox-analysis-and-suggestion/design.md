@@ -17,6 +17,8 @@ result cards and price-suggestion screens are retired from Feature-004.
 /design-requests/new
 /design-requests/:designRequestId
 /my/designs?tab=custom
+/account/my-custom-orders
+/account/my-custom-orders/{customOrderId}
 /design-review-requests
 /design-review-requests/:reviewRequestId
 ```
@@ -29,14 +31,18 @@ approved technical projection.
 
 Customer screens: entry/form, five-image gallery, per-image quality feedback,
 submission confirmation, Guest tracking, Member history, request detail and
-accepted/rejected result.
+accepted/rejected result. The Member custom-order area has separate Requests and
+Orders views. A valid quote is paid in full from custom-order detail; there is
+no Add to Cart, deposit or balance-payment screen.
 
 Operational screens: review queue, review detail, image gallery, mandatory
 explanation form, decision confirmation, terminal conflict and access denied.
 
 Every screen covers loading, empty, invalid input, image processing, blurry image,
 five-image limit, Guest quota, pending review, accepted, rejected, token expiry,
-conflict, retry and service failure.
+conflict, retry and service failure. Custom-order screens also cover quote ready,
+full-payment pending, payment success, quote expiry/cancellation and request-new-
+quote states.
 
 ## UI behavior
 

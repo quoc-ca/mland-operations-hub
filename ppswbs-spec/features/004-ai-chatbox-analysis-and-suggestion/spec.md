@@ -134,13 +134,19 @@ DESIGN_REVIEW_ALREADY_DECIDED
 - `ACCEPTED` moves the request to quote preparation. It does not create a payment
   attempt or reserve a production queue slot.
 - Quotes carry Manager-configured `quoteExpiresAt`. An expired quote cannot be
-  paid and requires a new quote.
-- Queue reservation starts only when the Member starts deposit payment. The
-  custom-order queue hold is at most 15 minutes and the VNPay link is valid for
-  10 minutes. Deposit is 50% of the wax-package price.
-- Final balance is proposed by Staff and approved by Manager before payment.
+  paid and requires a new quote generation on the same custom order.
+- A custom order has no deposit, cart line or deferred balance. After a quote is
+  ready, the Member must pay the complete quoted amount in one payment attempt.
+- The custom-order payment link and any temporary queue hold expire together at
+  the configured deadline. If verified full payment is not received, the quote
+  and custom order are expired/cancelled, the queue hold is released, and the
+  Member must request a new quote where policy permits.
+- No `Add to Cart` action exists for custom orders. A quote creates a
+  single-order payment context directly from the Member's My Custom Orders
+  detail page.
 - Feature-004 owns intake, clarification, review and quote handoff; Custom
-  Manufacturing owns production, balance, fulfilment and closure.
+  Manufacturing owns full-payment settlement, production, fulfilment and
+  closure.
 
 ## 7. UI and Figma approval gate
 

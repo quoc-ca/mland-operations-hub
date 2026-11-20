@@ -20,7 +20,7 @@ This section specifies the 78 screen-flow entries, grouped by feature and subfea
 
 - Retail uses configured stable variants. Cart prices are indicative; accepted order terms are frozen. Whole-cart checkout creates no partial order. The original retail payment link lasts 10 minutes and the hold 15 minutes.
 - Signature workshop supports freestyle or supported album/options/image customization. Silver Clay permits direct booking. Wax scheduling means attendance at the branch, followed by shop completion and shipping; session count and booking–manufacturing linkage remain TBD.
-- Staff proposes the final custom amount. Manager approves the exact proposal version or returns it for revision before any balance-payment request. Product/package price review is a separate workflow, and retail price application/publication remain separate actions.
+- Staff may prepare the custom-order input for quoting; Manager approves the complete quote before the one-time payment request. There is no balance-payment request. Product/package price review is a separate workflow, and retail price application/publication remain separate actions.
 - Executive revenue is Manager-only. Admin provides supported technical/account configuration and minimized support, without revenue, customer impersonation, business-price approval or paid override.
 - Pickup and actual manual GHTK handoff end the shop-side fulfilment flow. No GHTK API, fee quote, courier tracking, cancellation or refund workflow is added.
 - Image consent precedes eligible storage/analysis. Apply purpose-specific media retention; Google Places content is read-only with attribution and is not persisted.
