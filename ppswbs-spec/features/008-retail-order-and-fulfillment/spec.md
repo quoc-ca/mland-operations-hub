@@ -1165,3 +1165,7 @@ not be inferred from a browser redirect.
 - Cart and recipient validation limits in this specification follow the current
   Report 3 rules. Retention behavior and typed error codes must remain aligned
   with the final contract before implementation.
+
+# Route masking synchronization (2026-11-20)
+
+The browser route allowlists are: `/member/cart`, `/member/checkout`, and `/member/orders` = `MEMBER`; `/staff/retail-orders`, `/staff/retail-shipments`, and `/staff/retail-pickups` = `STAFF`; `/manager/retail-payment-reconciliations` = `MANAGER`; `/carrier` and `/carrier/stats` = `CARRIER`. A signed-in role outside a route's allowlist is replaced to `/404` before that screen requests data. `CARRIER` has no Member commerce/history route; `ADMIN` has no implicit Staff/Manager/Carrier route. This does not alter FE-008's server-side order ownership, branch, payment, or fulfilment authorization.

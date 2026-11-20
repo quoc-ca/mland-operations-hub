@@ -2,14 +2,14 @@ import { EC2Client, StartInstancesCommand, StopInstancesCommand, DescribeInstanc
 import { SSMClient, SendCommandCommand, GetCommandInvocationCommand } from "@aws-sdk/client-ssm";
 
 const region = process.env.AWS_REGION || "ap-southeast-1";
-const ec2InstanceId = process.env.STAGING_EC2_ID;
-const teamKeyHash = process.env.TEAM_KEY || "";
-const allowedOrigins = (process.env.ALLOWED_ORIGINS || "*").split(",").map(o => o.trim());
+const getEc2InstanceId = () => process.env.STAGING_EC2_ID || "";
+const getAllowedOrigins = () => (process.env.ALLOWED_ORIGINS || "*").split(",").map(o => o.trim());
 
 const ec2 = new EC2Client({ region });
 const ssm = new SSMClient({ region });
 
 function buildCorsHeaders(requestOrigin) {
+  const allowedOrigins = getAllowedOrigins();
   let origin = "*";
   if (allowedOrigins.length > 0 && !allowedOrigins.includes("*")) {
     if (requestOrigin && allowedOrigins.includes(requestOrigin)) {
@@ -27,6 +27,7 @@ function buildCorsHeaders(requestOrigin) {
 }
 
 export const handler = async (event) => {
+  const ec2InstanceId = getEc2InstanceId();
   const requestOrigin = event.headers?.origin || event.headers?.Origin || "";
   const headers = buildCorsHeaders(requestOrigin);
 

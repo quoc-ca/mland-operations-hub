@@ -262,7 +262,7 @@ No REST endpoint, no generic Account directory, no cross-feature entity/DAO impo
 
 ### D-21: Shared browser session lifecycle and Router authority
 
-**Decision**: `AuthProvider` is the sole client session source. Firebase observation and authenticated HTTP transport only report outcomes; a Router-level `SessionNavigationBoundary` performs terminal cleanup, flash construction and `replace` navigation exactly once. `USER_SIGN_OUT` wins its consequent Firebase-null callback. The first session-loss signal wins duplicate `401`/Firebase-null events until a later signed-in observation. `401` is session loss; `403` retains the session and is a safe authorization recovery to Home.
+**Decision**: `AuthProvider` is the sole client session source. Firebase observation and authenticated HTTP transport only report outcomes; a Router-level `SessionNavigationBoundary` performs terminal cleanup, flash construction and `replace` navigation exactly once. `USER_SIGN_OUT` wins its consequent Firebase-null callback. The first session-loss signal wins duplicate `401`/Firebase-null events until a later signed-in observation. `401` is session loss. A signed-in actor outside an internal browser route's explicit allowlist is replaced to `/404` without rendering the route or retaining its attempted URL. An API `403` after a permitted route/action retains the session and is handled by that feature; it is not redirected to Home by the shared lifecycle.
 
 **Rationale**: Page-owned navigation allows competing redirects, duplicate cleanup, history leakage and inconsistent draft recovery. Separating source, signal and boundary preserves the existing backend authority while making browser recovery deterministic.
 

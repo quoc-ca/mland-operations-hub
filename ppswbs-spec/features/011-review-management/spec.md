@@ -266,3 +266,7 @@ The frontend target is the approved OpenAPI/spec. Backend integration must use
 header-based idempotency/version concurrency, Guest workshop and retail
 eligibility, owner-safe detail projection, Admin technical-only authority and
 the DTO/status/header shapes defined by the contract.
+
+# Route masking synchronization (2026-11-20)
+
+`/review-moderation*` is an internal moderation route family with browser allowlist `STAFF` and `MANAGER`. A signed-in `MEMBER`, `ADMIN`, or `CARRIER` direct navigation is replaced to `/404` before moderation data is requested. Public review routes and Member-owned review actions keep their documented feature rules; server-side moderation/resource authorization remains authoritative.

@@ -2292,3 +2292,7 @@ T103 on MySQL):
 | A36 | D4/FR-035 exception | decided: "(except FR-043)" (FR-041) |
 
 *(Mapping recorded 2026-11-16 as a pointer only; where a row says "decided", the decision text is the Q&A above. Rows A01, A06-A09, A13, A14, A16-A18 are mapped by code from the analyze list, not new decisions.)*
+
+# Route masking synchronization (2026-11-20)
+
+The internal `/settlement*` browser workspace family allows `STAFF` and `MANAGER`; a signed-in `MEMBER`, `ADMIN`, or `CARRIER` direct navigation is replaced to `/404` before protected data requests. The public/customer routes in this feature remain governed by their existing proof/ownership flow. This browser rule does not bypass action-level Staff assignment, Manager decision, resource non-disclosure, or typed server error rules.

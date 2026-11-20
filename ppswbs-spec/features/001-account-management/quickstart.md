@@ -401,6 +401,17 @@ Before handoff, retain evidence for:
 
 ---
 
+## Scenario V-15: Browser route masking
+
+1. For each of MEMBER, STAFF, MANAGER and ADMIN, open every FE-001 Profile, Address, Email and Password canonical route and alias. → each allowed self-service screen loads only after Account bootstrap resolves.
+2. Sign in as CARRIER and open `/security/password`. → password flow loads. Open any Profile, Address or Email route/alias. → exact URL becomes `/404` by replace; no protected page DOM or request occurs.
+3. Sign in as any non-ADMIN role and open `/admin/accounts` or `/admin/roles`; sign in as ADMIN and open those routes. → denied actor reaches generic `/404`, allowed ADMIN reaches its page.
+4. Use a `SUSPENDED` or `PENDING_SETUP` Account against an internal FE-001 route. → exact URL becomes `/404`; no protected request starts.
+5. Simulate Account-bootstrap technical unavailability after valid Firebase session. → keep the original URL, show non-PII unavailable state and explicit retry; do not use stale role data or route to `/404`.
+6. From an allowed page, make an authorized request return `403`. → session remains active and feature-owned recovery runs; it is not a route-mask redirect.
+
+---
+
 ## Scenario V-14: CARRIER (GHTK) Admin email/password provisioning
 
 **Demo/test fixture**: create the Firebase identity first, then seed the resulting UID with `ghtk.test@mland.vn` / `CarrierTest@123456`, display name `Đối tác vận chuyển (GHTK)`, phone `0900000000`, and no location. This is an R-CAR-approved demo/test exception matching existing fixtures; do not reuse it in production. Runtime/API password secrecy, audit, and logging rules still apply.

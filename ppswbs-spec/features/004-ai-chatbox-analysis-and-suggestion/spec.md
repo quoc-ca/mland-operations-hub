@@ -26,6 +26,10 @@ only when the backend contract explicitly permits it.
 
 ## 2. Actors and permissions
 
+### Route masking synchronization (2026-11-20)
+
+`/design-review-requests*` and `/price-proposals/:proposalId/ai-suggestions` are internal reviewer routes with browser allowlist `STAFF` and `MANAGER`; a signed-in `MEMBER`, `ADMIN`, or `CARRIER` is replaced to `/404` before page render/request. This does not convert the documented `AI_ACTOR_NOT_ALLOWED` API `403` for Basic AI Support into `404`: that endpoint's typed actor policy remains a server-side contract. Public/Member design-request routes retain their current feature rules.
+
 | Actor | Allowed capability |
 | --- | --- |
 | Guest | Basic AI Support in public scope only (Tối đa 3 prompt/ngày lịch Việt Nam `Asia/Ho_Chi_Minh`, reset lúc 00:00; quản lý qua `X-Guest-AI-Session`). Không được sử dụng dữ liệu Member hoặc operational data. Cannot create or upload a Design Request. |

@@ -1,5 +1,24 @@
 # Tech Lead Approval Record: Account Management (FE-001)
 
+## Revision R-404 — Browser route masking and five-role baseline
+
+**Revision date**: 2026-11-20
+**Approved by (Tech Lead)**: **Phan Sơn**
+**Authority/evidence**: explicit approval in this specification session on 2026-11-20.
+**Decision**: **APPROVED FOR IMPLEMENTATION OF RE-OPENED T074 AND T076 ONLY**.
+
+This approval covers:
+
+- The five fixed roles `MEMBER`, `STAFF`, `MANAGER`, `ADMIN`, and `CARRIER`; CARRIER inherits neither Member commerce/history nor internal operational authority.
+- The FE-001 self-service allowlist: MEMBER/STAFF/MANAGER/ADMIN may use Profile, Address, Email and Password; CARRIER may use Password only.
+- Existing account bootstrap is the sole role/status source for browser route masking. Technical resolution failure remains at the current URL with unavailable/retry; no role cache or new REST endpoint is introduced.
+- A signed-in actor outside an internal route allowlist, or with `SUSPENDED`/`PENDING_SETUP` status, is replaced to `/404` before protected page render/request. `/404` is generic and has only Home navigation. Post-entry API `403` remains feature-owned.
+- The approved revision artifacts are `spec-general.md`, `route-access-matrix.md`, and FE-001 `spec.md`, `plan.md`, `research.md`, `quickstart.md`, `tasks.md`, `verification.md`, and `design/{architecture,workflows,ui-flow}.md`.
+
+**Implementation condition**: T074/T076 must produce fresh V-15 evidence. The removed pre-R-404 `403 → Home` evidence must not be reused. This approval does not authorize REST/OpenAPI, schema, backend authorization, Firebase project or Hosting changes.
+
+---
+
 ## Revision R-CAR — CARRIER (GHTK) account and demo fixture
 
 **Revision date**: 2026-11-20
