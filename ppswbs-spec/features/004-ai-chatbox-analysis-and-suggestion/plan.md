@@ -1,6 +1,7 @@
 ﻿# Implementation Plan: Feature-004 Independent AI Design Workspace
 
 **Date created**: 2026-10-21
+> **Deprecated historical plan (2026-11-20):** Use `spec.md`, `research.md` and `contracts/design-request-human-review.openapi.yaml` for the current human-review baseline.
 **Date updated**: 2026-11-05
 **Author**: Ngô Tiến Đạt
 **Last updated by**: Ngô Tiến Đạt
@@ -9,7 +10,9 @@
 
 Feature-004 is an independent React/Vite frontend and Spring backend capability.
 The current frontend baseline is implemented under `src/features/designreview/`.
-It does not depend on Workshop Booking or Payment.
+It remains independent from Workshop Booking, but its accepted custom-order
+handoff depends on the approved Custom Manufacturing and Payment facades. It does
+not use a retail cart or workshop deposit flow.
 
 ## Confirmed frontend baseline
 
@@ -29,6 +32,8 @@ It does not depend on Workshop Booking or Payment.
 4. Maintain owner-safe result/status display and Staff/Manager review operations.
 5. Maintain Manager price suggestion and Admin technical-audit projection without auto-publication.
 6. Normalize the feature folder toward `ui/application/domain/infrastructure` only in a separately scoped refactor.
+7. Add Member `My Custom Orders` Requests/Orders views and route one complete
+   quote payment from custom-order detail; do not add cart, deposit or balance UI.
 
 ## Backend dependencies and blockers
 

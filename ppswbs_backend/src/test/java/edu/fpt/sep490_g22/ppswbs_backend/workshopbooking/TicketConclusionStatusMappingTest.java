@@ -37,6 +37,7 @@ class TicketConclusionStatusMappingTest {
     @Mock private BookingGroupLineRepository bookingGroupLineRepository;
     @Mock private BookingAuditEvidenceRepository auditEvidenceRepository;
     @Mock private WorkshopBookingRepository bookingRepository;
+    @Mock private edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.BookingGroupRepository bookingGroupRepository;
     @InjectMocks private WorkshopBookingFacadeImpl facade;
 
     private final BookingGroup group = BookingGroup.builder().id(10L).groupCode("GRP-20261116-001").build();
@@ -141,6 +142,48 @@ class TicketConclusionStatusMappingTest {
         assertThat(first.getFinancialStatus()).isEqualTo(PaymentStatus.REFUND_PENDING);
         assertThat(second.getTicketStatus()).isEqualTo(BookingStatus.CONFIRMED);
         assertThat(second.getFinancialStatus()).isEqualTo(PaymentStatus.FULLY_PAID);
+    }
+
+    @Test
+    @DisplayName("Cancelling the last CONFIRMED ticket of a group moves the group to CANCELLED")
+    void cancellingEveryTicketCancelsTheGroup() {
+        group.setGroupStatus(BookingStatus.CONFIRMED);
+        TicketBooking first = ticket(T1, BookingStatus.CANCELLED, PaymentStatus.FULLY_PAID);
+        TicketBooking second = ticket(T2, BookingStatus.CONFIRMED, PaymentStatus.FULLY_PAID);
+        when(ticketBookingRepository.findByGroupIdOrderByLineIndexAscParticipantOrdinalAsc(10L))
+                .thenReturn(java.util.List.of(first, second));
+
+        outcome(T2, BookingServiceOutcome.CANCELLED);
+
+        assertThat(group.getGroupStatus()).isEqualTo(BookingStatus.CANCELLED);
+        verify(bookingGroupRepository).save(group);
+    }
+
+    @Test
+    @DisplayName("Cancelling one ticket while another is still CONFIRMED leaves the group CONFIRMED")
+    void cancellingOneTicketKeepsTheGroupConfirmed() {
+        group.setGroupStatus(BookingStatus.CONFIRMED);
+        TicketBooking first = ticket(T1, BookingStatus.CONFIRMED, PaymentStatus.FULLY_PAID);
+        TicketBooking second = ticket(T2, BookingStatus.CONFIRMED, PaymentStatus.FULLY_PAID);
+        when(ticketBookingRepository.findByGroupIdOrderByLineIndexAscParticipantOrdinalAsc(10L))
+                .thenReturn(java.util.List.of(first, second));
+
+        outcome(T1, BookingServiceOutcome.CANCELLED);
+
+        assertThat(group.getGroupStatus()).isEqualTo(BookingStatus.CONFIRMED);
+        verify(bookingGroupRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("COMPLETED or NO_SHOW on the last ticket never rewrites the group status")
+    void nonCancelOutcomeDoesNotTouchTheGroup() {
+        group.setGroupStatus(BookingStatus.CONFIRMED);
+        ticket(T1, BookingStatus.CONFIRMED, PaymentStatus.FULLY_PAID);
+
+        outcome(T1, BookingServiceOutcome.NO_SHOW);
+
+        assertThat(group.getGroupStatus()).isEqualTo(BookingStatus.CONFIRMED);
+        verifyNoInteractions(bookingGroupRepository);
     }
 
     @Test

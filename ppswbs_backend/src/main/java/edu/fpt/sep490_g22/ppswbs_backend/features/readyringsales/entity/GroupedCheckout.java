@@ -38,6 +38,9 @@ public class GroupedCheckout {
     @Column(name = "payable_amount", nullable = false, precision = 19, scale = 2) private BigDecimal payableAmount;
     @Enumerated(EnumType.STRING) @Column(name = "payment_state", nullable = false, length = 32) private PaymentState paymentState;
     @Column(name = "payment_initiated_at") private Instant paymentInitiatedAt;
+    /** VNPay link of this checkout, reopened by "Thanh toán" until it expires (Session 2026-11-18). */
+    @Column(name = "payment_url", length = 2048) private String paymentUrl;
+    @Column(name = "payment_url_expires_at") private Instant paymentUrlExpiresAt;
     @Column(name = "cancellation_unrestored_quantity") private Integer cancellationUnrestoredQuantity;
     @Column(name = "payment_proof_ref", length = 128) private String paymentProofRef;
     /** VNPAY or CASH_AT_COUNTER (FR-08-041); see {@link RetailPaymentMethod}. */
@@ -70,6 +73,12 @@ public class GroupedCheckout {
     }
     public boolean isCounterCash() { return RetailPaymentMethod.CASH_AT_COUNTER.name().equals(paymentMethod); }
     public void beginPayment() { this.paymentState = PaymentState.PAYMENT_INITIATED; this.paymentInitiatedAt = Instant.now(); }
+    public void rememberPaymentLink(String url, Instant expiresAt) { this.paymentUrl = url; this.paymentUrlExpiresAt = expiresAt; }
+    /** The stored VNPay link while it can still be used, else null. */
+    public String reusablePaymentUrl(Instant now) {
+        return paymentState == PaymentState.PAYMENT_INITIATED && paymentUrl != null && paymentUrlExpiresAt != null
+            && now.isBefore(paymentUrlExpiresAt) ? paymentUrl : null;
+    }
     public void markPaid() { this.paymentState = PaymentState.PAID; orders.forEach(RetailOrder::markPaid); }
     public void markPaidWithProof(String proofRef) { this.paymentProofRef = proofRef; markPaid(); }
     public void cancel() { this.paymentState = PaymentState.CANCELLED; }

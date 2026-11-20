@@ -15,9 +15,11 @@ export const InternalAccountCreatePage: React.FC = () => {
   const navigate = useNavigate();
   const { createInternalAccount, loading, error } = useAdminAccounts();
 
-  const [role, setRole] = useState<'STAFF' | 'MANAGER'>('STAFF');
+  const [role, setRole] = useState<'STAFF' | 'MANAGER' | 'CARRIER'>('STAFF');
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [selectedLocations, setSelectedLocations] = useState<number[]>([1]);
   const [sendNotification, setSendNotification] = useState<boolean>(true);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -52,17 +54,39 @@ export const InternalAccountCreatePage: React.FC = () => {
       errors.fullName = 'Họ và tên không được vượt quá 100 ký tự.';
     }
 
-    if (phone && phone.trim()) {
+    if (role === 'CARRIER') {
+      const trimmedEmail = email.trim();
+      if (!trimmedEmail) {
+        errors.email = 'Email đăng nhập là bắt buộc đối với Đối tác vận chuyển.';
+      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+        errors.email = 'Địa chỉ email không đúng định dạng.';
+      }
+
+      if (!password) {
+        errors.password = 'Mật khẩu khởi tạo là bắt buộc đối với Đối tác vận chuyển.';
+      } else if (password.length < 6) {
+        errors.password = 'Mật khẩu phải chứa ít nhất 6 ký tự.';
+      }
+
       const trimmedPhone = phone.trim();
-      if (trimmedPhone.length < 7 || trimmedPhone.length > 30) {
+      if (!trimmedPhone) {
+        errors.phone = 'Số điện thoại là bắt buộc đối với Đối tác vận chuyển.';
+      } else if (trimmedPhone.length < 7 || trimmedPhone.length > 30) {
         errors.phone = 'Số điện thoại phải từ 7 đến 30 ký tự.';
       }
-    }
+    } else {
+      if (phone && phone.trim()) {
+        const trimmedPhone = phone.trim();
+        if (trimmedPhone.length < 7 || trimmedPhone.length > 30) {
+          errors.phone = 'Số điện thoại phải từ 7 đến 30 ký tự.';
+        }
+      }
 
-    if (selectedLocations.length === 0) {
-      errors.locations = 'Phải chọn ít nhất một cơ sở làm việc.';
-    } else if (role === 'STAFF' && selectedLocations.length !== 1) {
-      errors.locations = 'Nhân viên (Staff) chỉ được phân công chính xác 1 cơ sở.';
+      if (selectedLocations.length === 0) {
+        errors.locations = 'Phải chọn ít nhất một cơ sở làm việc.';
+      } else if (role === 'STAFF' && selectedLocations.length !== 1) {
+        errors.locations = 'Nhân viên (Staff) chỉ được phân công chính xác 1 cơ sở.';
+      }
     }
 
     setFieldErrors(errors);
@@ -73,15 +97,24 @@ export const InternalAccountCreatePage: React.FC = () => {
     e.preventDefault();
     if (!validate()) return;
 
-    const result = await createInternalAccount(
-      {
-        role,
-        fullName: fullName.trim(),
-        phone: phone.trim() || undefined,
-        locationIds: selectedLocations,
-      },
-      idempotencyKey
-    );
+    const payload: any = {
+      role,
+      fullName: fullName.trim(),
+      phone: phone.trim() || undefined,
+    };
+
+    if (role === 'CARRIER') {
+      payload.email = email.trim();
+      payload.password = password;
+      // locationIds must be omitted for CARRIER (FR-011, FR-012)
+    } else {
+      payload.locationIds = selectedLocations;
+    }
+
+    // Ephemeral write-only password handling: clear input from memory
+    setPassword('');
+
+    const result = await createInternalAccount(payload, idempotencyKey);
 
     if (result) {
       setCreatedSummary(result);
@@ -91,6 +124,8 @@ export const InternalAccountCreatePage: React.FC = () => {
   const handleResetForNew = () => {
     setFullName('');
     setPhone('');
+    setEmail('');
+    setPassword('');
     setSelectedLocations([1]);
     setRole('STAFF');
     setFieldErrors({});
@@ -118,9 +153,9 @@ export const InternalAccountCreatePage: React.FC = () => {
       </nav>
 
       <header className="account-page-header">
-        <h1 className="account-page-title">Cấp tài khoản nhân sự</h1>
+        <h1 className="account-page-title">Cấp tài khoản nhân sự & đối tác</h1>
         <p className="account-page-description">
-          Chỉ tạo STAFF hoặc MANAGER. Nhân sự tự thiết lập mật khẩu qua thư mời.
+          Chỉ tạo STAFF, MANAGER hoặc CARRIER (GHTK). Nhân sự tự thiết lập mật khẩu qua thư mời; CARRIER kích hoạt trực tiếp.
         </p>
       </header>
 
@@ -132,12 +167,21 @@ export const InternalAccountCreatePage: React.FC = () => {
 
           <div className="account-alert account-alert-info">
             <div>
-              <strong>Trạng thái: PENDING_SETUP (Chờ kích hoạt)</strong>
+              <strong>
+                Trạng thái:{' '}
+                {createdSummary.status === 'ACTIVE'
+                  ? 'ACTIVE (Đang hoạt động)'
+                  : 'PENDING_SETUP (Chờ kích hoạt)'}
+              </strong>
               <p style={{ margin: '0.25rem 0' }}>
-                Tài khoản nội bộ đã được ghi nhận. Thư mời kích hoạt đã được gửi tới người nhận qua hệ thống thông báo.
+                {createdSummary.role === 'CARRIER'
+                  ? 'Tài khoản Đối tác vận chuyển (GHTK) đã được kích hoạt trực tiếp. Mật khẩu khởi tạo mang tính chất chỉ-ghi (write-only) và không thể xem lại.'
+                  : 'Tài khoản nội bộ đã được ghi nhận. Thư mời kích hoạt đã được gửi tới người nhận qua hệ thống thông báo.'}
               </p>
               <p style={{ margin: '0.25rem 0', fontSize: '0.85rem', color: '#4b5563' }}>
-                * Quyền truy cập nội bộ chỉ có hiệu lực sau khi người được mời hoàn tất đăng ký với email được xác thực.
+                {createdSummary.role === 'CARRIER'
+                  ? '* Vui lòng bàn giao thông tin đăng nhập trực tiếp (out-of-band) cho đối tác vận chuyển.'
+                  : '* Quyền truy cập nội bộ chỉ có hiệu lực sau khi người được mời hoàn tất đăng ký với email được xác thực.'}
               </p>
             </div>
           </div>
@@ -161,7 +205,13 @@ export const InternalAccountCreatePage: React.FC = () => {
               <tr>
                 <th>Trạng thái tài khoản:</th>
                 <td>
-                  <span className="account-badge account-badge-pending">
+                  <span
+                    className={
+                      createdSummary.status === 'ACTIVE'
+                        ? 'account-badge account-badge-active'
+                        : 'account-badge account-badge-pending'
+                    }
+                  >
                     {createdSummary.status}
                   </span>
                 </td>
@@ -198,18 +248,63 @@ export const InternalAccountCreatePage: React.FC = () => {
 
           <form className="account-form" onSubmit={handleSubmit} noValidate>
             <h3 style={{ fontSize: '1.05rem', fontWeight: 600, margin: '0 0 0.5rem 0', color: '#1a1a1a', borderBottom: '1px solid #eceef1', paddingBottom: '0.5rem' }}>
-              Thông tin cá nhân
+              Thông tin cá nhân & định danh
             </h3>
+
+            {role === 'CARRIER' && (
+              <>
+                <div className="account-field">
+                  <label className="account-label account-label-required" htmlFor="carrier-email">
+                    Email đăng nhập (bất biến)
+                  </label>
+                  <input
+                    id="carrier-email"
+                    type="email"
+                    className="account-input"
+                    placeholder="Ví dụ: ghtk.test@mland.vn"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    aria-invalid={Boolean(fieldErrors.email)}
+                    disabled={loading}
+                  />
+                  {fieldErrors.email && (
+                    <span className="account-field-error" role="alert">{fieldErrors.email}</span>
+                  )}
+                </div>
+
+                <div className="account-field">
+                  <label className="account-label account-label-required" htmlFor="carrier-password">
+                    Mật khẩu khởi tạo
+                  </label>
+                  <input
+                    id="carrier-password"
+                    type="password"
+                    className="account-input"
+                    placeholder="Tối thiểu 6 ký tự…"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    aria-invalid={Boolean(fieldErrors.password)}
+                    disabled={loading}
+                  />
+                  <span className="account-field-hint">
+                    Mật khẩu mang tính chất chỉ-ghi (write-only), không được lưu trữ, ghi log hay hoàn trả sau khi tạo. Vui lòng ghi lại để bàn giao trực tiếp cho đối tác.
+                  </span>
+                  {fieldErrors.password && (
+                    <span className="account-field-error" role="alert">{fieldErrors.password}</span>
+                  )}
+                </div>
+              </>
+            )}
 
             <div className="account-field">
               <label className="account-label account-label-required" htmlFor="internal-name">
-                Họ và tên
+                {role === 'CARRIER' ? 'Tên hiển thị đối tác / Người đại diện' : 'Họ và tên'}
               </label>
               <input
                 id="internal-name"
                 type="text"
                 className="account-input"
-                placeholder="Nhập họ và tên nhân sự…"
+                placeholder={role === 'CARRIER' ? 'Ví dụ: Đối tác vận chuyển (GHTK)' : 'Nhập họ và tên nhân sự…'}
                 value={fullName}
                 onChange={e => setFullName(e.target.value)}
                 maxLength={100}
@@ -222,8 +317,11 @@ export const InternalAccountCreatePage: React.FC = () => {
             </div>
 
             <div className="account-field">
-              <label className="account-label" htmlFor="internal-phone">
-                Số điện thoại liên hệ
+              <label
+                className={`account-label ${role === 'CARRIER' ? 'account-label-required' : ''}`}
+                htmlFor="internal-phone"
+              >
+                {role === 'CARRIER' ? 'Số điện thoại liên hệ (bắt buộc)' : 'Số điện thoại liên hệ'}
               </label>
               <input
                 id="internal-phone"
@@ -254,7 +352,7 @@ export const InternalAccountCreatePage: React.FC = () => {
                 className="account-select"
                 value={role}
                 onChange={e => {
-                  const newRole = e.target.value as 'STAFF' | 'MANAGER';
+                  const newRole = e.target.value as 'STAFF' | 'MANAGER' | 'CARRIER';
                   setRole(newRole);
                   if (newRole === 'STAFF' && selectedLocations.length > 1) {
                     setSelectedLocations([selectedLocations[0]]);
@@ -264,59 +362,66 @@ export const InternalAccountCreatePage: React.FC = () => {
               >
                 <option value="STAFF">Nhân viên cơ sở (STAFF)</option>
                 <option value="MANAGER">Quản lý cơ sở (MANAGER)</option>
+                <option value="CARRIER">Đối tác vận chuyển (GHTK)</option>
               </select>
               <span className="account-field-hint" data-testid="role-scope-hint">
-                {role === 'MANAGER'
+                {role === 'CARRIER'
+                  ? 'Đối tác vận chuyển (GHTK) được kích hoạt trực tiếp ở trạng thái ACTIVE; không phân công cơ sở làm việc và không có thư mời kích hoạt.'
+                  : role === 'MANAGER'
                   ? 'Phân công cơ sở hỗ trợ ghi nhận tổ chức; phạm vi vận hành cho các tác vụ của Quản lý (Manager) là toàn hệ thống. Quản lý phân công 1 hoặc nhiều cơ sở.'
                   : 'Phân công cơ sở giới hạn phạm vi truy cập vận hành của Nhân viên (Staff). Nhân viên phân công đúng 1 cơ sở.'}
               </span>
             </div>
 
-            <div className="account-field">
-              <span className="account-label account-label-required">
-                {role === 'MANAGER' ? 'Cơ sở phân công tổ chức' : 'Cơ sở làm việc (giới hạn quyền)'}
-              </span>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.25rem' }}>
-                {AVAILABLE_LOCATIONS.map(loc => {
-                  const isChecked = selectedLocations.includes(loc.id);
-                  return (
-                    <label
-                      key={loc.id}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.5rem',
-                        fontSize: '0.9rem',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      <input
-                        type={role === 'STAFF' ? 'radio' : 'checkbox'}
-                        name="locations"
-                        checked={isChecked}
-                        onChange={() => handleLocationToggle(loc.id)}
-                        disabled={loading}
-                      />
-                      <span>{loc.name}</span>
-                    </label>
-                  );
-                })}
-              </div>
-              {fieldErrors.locations && (
-                <span className="account-field-error" role="alert">{fieldErrors.locations}</span>
-              )}
-            </div>
+            {role !== 'CARRIER' && (
+              <>
+                <div className="account-field">
+                  <span className="account-label account-label-required">
+                    {role === 'MANAGER' ? 'Cơ sở phân công tổ chức' : 'Cơ sở làm việc (giới hạn quyền)'}
+                  </span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.25rem' }}>
+                    {AVAILABLE_LOCATIONS.map(loc => {
+                      const isChecked = selectedLocations.includes(loc.id);
+                      return (
+                        <label
+                          key={loc.id}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            fontSize: '0.9rem',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <input
+                            type={role === 'STAFF' ? 'radio' : 'checkbox'}
+                            name="locations"
+                            checked={isChecked}
+                            onChange={() => handleLocationToggle(loc.id)}
+                            disabled={loading}
+                          />
+                          <span>{loc.name}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  {fieldErrors.locations && (
+                    <span className="account-field-error" role="alert">{fieldErrors.locations}</span>
+                  )}
+                </div>
 
-            <div className="account-field" style={{ marginTop: '0.5rem' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', cursor: 'pointer', color: '#1a1a1a' }}>
-                <input
-                  type="checkbox"
-                  checked={sendNotification}
-                  onChange={e => setSendNotification(e.target.checked)}
-                />
-                <span>Gửi thông báo hướng dẫn thiết lập tài khoản đến email công việc</span>
-              </label>
-            </div>
+                <div className="account-field" style={{ marginTop: '0.5rem' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', cursor: 'pointer', color: '#1a1a1a' }}>
+                    <input
+                      type="checkbox"
+                      checked={sendNotification}
+                      onChange={e => setSendNotification(e.target.checked)}
+                    />
+                    <span>Gửi thông báo hướng dẫn thiết lập tài khoản đến email công việc</span>
+                  </label>
+                </div>
+              </>
+            )}
 
             <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
               <button

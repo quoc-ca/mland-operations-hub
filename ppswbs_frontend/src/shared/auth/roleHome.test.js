@@ -2,9 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { afterSignInPath, roleHomePath, safeReturnTo } from './roleHome';
 
 describe('role home', () => {
-  it('sends Staff and Manager to their own home and everyone else to the general home', () => {
+  it('sends Staff, Manager, and Carrier to their own home and everyone else to the general home', () => {
     expect(roleHomePath('STAFF')).toBe('/staff/home');
     expect(roleHomePath('MANAGER')).toBe('/manager/home');
+    expect(roleHomePath('CARRIER')).toBe('/carrier');
     expect(roleHomePath('MEMBER')).toBe('/');
     expect(roleHomePath('ADMIN')).toBe('/');
     expect(roleHomePath(undefined)).toBe('/');
@@ -19,10 +20,12 @@ describe('role home', () => {
     expect(safeReturnTo(null)).toBeNull();
   });
 
-  it('prefers the page the user came from, else the role home', () => {
+  it('prefers the page the user came from, else the role home (CARRIER always goes to /carrier)', () => {
     expect(afterSignInPath('STAFF', '/settlement')).toBe('/settlement');
     expect(afterSignInPath('STAFF', 'https://evil.example')).toBe('/staff/home');
     expect(afterSignInPath('MANAGER', null)).toBe('/manager/home');
     expect(afterSignInPath('MEMBER', null)).toBe('/');
+    expect(afterSignInPath('CARRIER', '/operations/sessions/abc')).toBe('/carrier');
+    expect(afterSignInPath('CARRIER', null)).toBe('/carrier');
   });
 });

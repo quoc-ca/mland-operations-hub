@@ -95,6 +95,27 @@ public class DesignReviewDtos {
     }
 
     @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ImageProjectionDto {
+        @JsonProperty("imageReference")
+        private String imageReference;
+
+        @JsonProperty("qualityStatus")
+        private String qualityStatus;
+
+        @JsonProperty("qualityReason")
+        private String qualityReason;
+
+        @JsonProperty("originalFilename")
+        private String originalFilename;
+
+        @JsonProperty("fileSizeBytes")
+        private Long fileSizeBytes;
+    }
+
+    @Data
     @NoArgsConstructor
     @AllArgsConstructor
     public static class ReviewDecisionRequest {
@@ -105,9 +126,19 @@ public class DesignReviewDtos {
         @JsonProperty("requestVersion")
         private Integer requestVersion;
 
-        @NotBlank(message = "Reason must not be blank")
-        @Size(min = 1, max = 2000, message = "Reason length must be between 1 and 2000 characters")
-        private String reason;
+        @JsonAlias({"reason", "explanation"})
+        @JsonProperty("explanation")
+        @NotBlank(message = "Explanation/Reason must not be blank")
+        @Size(min = 1, max = 2000, message = "Explanation length must be between 1 and 2000 characters")
+        private String explanation;
+
+        public String getReason() {
+            return explanation;
+        }
+
+        public void setReason(String reason) {
+            this.explanation = reason;
+        }
 
         public Integer getDesignVersion() {
             return requestVersion;

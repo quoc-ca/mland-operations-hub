@@ -30,11 +30,11 @@ As an authorized shop actor, I want to review a verified paid retail order and b
 
 1. The actor opens a retail order within authorized processing scope.
 2. The system rechecks current action/branch authority and retrieves payment/hold/frozen purchase facts.
-3. The actor reviews the verified paid order, selected method and necessary recipient data.
+3. The actor reviews the verified paid order in the Đơn hàng cần chuẩn bị tab, its selected method and necessary recipient data.
 4. The actor submits confirmation to begin preparation.
 5. The system rechecks current account/delegation, verified paid state, selected valid method/data and current order state.
 6. The system records the paid-to-preparing transition and freezes Member method/recipient editing.
-7. The system records safe attributable evidence and displays preparing status; the actor may continue to UC50 for method-specific readiness.
+7. The system records safe attributable evidence and displays Đang chuẩn bị hàng; the Member sees Chờ lấy hàng for GHTK or Chờ nhận tại cửa hàng for pickup. The actor may continue to UC50 for method-specific readiness.
 
 #### Alternative Flows
 
@@ -44,7 +44,7 @@ Deny without mutation/private exposure. Manager requires applicable current dele
 
 **Step 5 — Pending/expired/exception-only payment or missing method/data**
 
-Reject preparation and preserve state. Staff cannot assert paid; eligible payment belongs to UC46 and owner method/data selection to UC51. Resume at Step 1 after prerequisites are met.
+Reject preparation and preserve state. Staff cannot assert paid; eligible payment belongs to UC46 or the counter cash collection in UC52, and owner method/data selection to UC45 checkout. Resume at Step 1 after prerequisites are met.
 
 **Steps 5 and 6 — Member method edit races with preparing**
 

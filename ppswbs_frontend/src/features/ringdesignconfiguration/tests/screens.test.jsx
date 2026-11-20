@@ -8,6 +8,10 @@ import { ringDesignConfigurationRoutes } from '../routes';
 const testRoutes = [
   ...ringDesignConfigurationRoutes,
   {
+    path: '/workshops',
+    element: <div data-testid="mock-workshops-page">Mock Workshops Page</div>,
+  },
+  {
     path: '/workshops/booking',
     element: <div data-testid="mock-booking-page">Mock Booking Page</div>,
   },
@@ -361,7 +365,7 @@ describe('Feature-012 Workshop Ring Design Configuration Screens', () => {
       expect(screen.getByTestId('difficulty-very-hard-warning')).toBeInTheDocument();
     });
 
-    it('navigates to workshop booking flow when clicking proceed to booking', async () => {
+    it('navigates to workshops page when clicking proceed to booking', async () => {
       const user = userEvent.setup();
       mockFetch({
         'GET /api/v1/workshop-designs/DSG-EVAL-789': json(200, mockDesignData),
@@ -374,9 +378,7 @@ describe('Feature-012 Workshop Ring Design Configuration Screens', () => {
       const proceedBtn = await screen.findByTestId('proceed-booking-btn');
       await user.click(proceedBtn);
 
-      expect(router.state.location.pathname).toBe('/workshops/booking');
-      expect(router.state.location.search).toContain('packageReference=PKG-COUPLE-01');
-      expect(router.state.location.search).toContain('designId=DSG-EVAL-789');
+      expect(router.state.location.pathname).toBe('/workshops');
     });
 
     it('archives design when user confirms archive action', async () => {
@@ -449,6 +451,107 @@ describe('Feature-012 Workshop Ring Design Configuration Screens', () => {
       expect(await screen.findByText('DSG-DEMO-MEMBER-01')).toBeInTheDocument();
       expect(screen.getByText('250.000 đ')).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Xem chi tiết →' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Chỉnh sửa' })).toBeInTheDocument();
+      expect(screen.getByTestId('delete-design-btn-DSG-DEMO-MEMBER-01')).toBeInTheDocument();
+    });
+
+    it('shows confirmation popup with warning when delete button is clicked and soft deletes on confirm', async () => {
+      const user = userEvent.setup();
+      let archivedDesignId = null;
+
+      mockFetch({
+        'GET /api/v1/workshop-designs': json(200, [
+          {
+            designId: 'DSG-TO-DELETE-01',
+            packageReference: 'PKG-COUPLE-01',
+            status: 'DRAFT',
+            designVersion: 1,
+            estimatedPrice: '300000.00',
+            difficultyScore: 1.5,
+            componentSnapshot: {
+              materialReference: 'MAT-SILVER-925',
+              shapeReference: 'SHP-CLASSIC-ROUND',
+              ringSize: '9',
+              components: [],
+            },
+            updatedAt: '2026-11-14T10:00:00Z',
+          },
+        ]),
+        'POST /api/v1/workshop-designs/DSG-TO-DELETE-01/archive': (req) => {
+          archivedDesignId = 'DSG-TO-DELETE-01';
+          return json(200, {
+            designId: 'DSG-TO-DELETE-01',
+            status: 'ARCHIVED',
+            designVersion: 1,
+          });
+        },
+      });
+
+      open('/my/designs', { session: fakeSession('signed-in') });
+
+      const deleteBtn = await screen.findByTestId('delete-design-btn-DSG-TO-DELETE-01');
+      expect(deleteBtn).toBeInTheDocument();
+
+      // Click delete button
+      await user.click(deleteBtn);
+
+      // Warning modal dialog should be displayed
+      const modal = await screen.findByTestId('delete-confirm-modal');
+      expect(modal).toBeInTheDocument();
+      expect(screen.getByText(/Cảnh báo: Mẫu thiết kế DSG-TO-DELETE-01 của bạn sẽ bị xóa vĩnh viễn/)).toBeInTheDocument();
+
+      // Confirm delete
+      const confirmBtn = screen.getByTestId('confirm-delete-btn');
+      await user.click(confirmBtn);
+
+      // Verify archive API was called and item is removed from view
+      expect(archivedDesignId).toBe('DSG-TO-DELETE-01');
+      await waitFor(() => {
+        expect(screen.queryByTestId('design-item-DSG-TO-DELETE-01')).not.toBeInTheDocument();
+      });
+    });
+
+    it('paginates workshop designs list with 5 items per page', async () => {
+      const user = userEvent.setup();
+      const mockItems = Array.from({ length: 12 }, (_, i) => ({
+        designId: `DSG-PAGE-${i + 1}`,
+        packageReference: 'PKG-COUPLE-01',
+        status: 'DRAFT',
+        designVersion: 1,
+        estimatedPrice: '200000.00',
+        difficultyScore: 1.0,
+        componentSnapshot: {
+          materialReference: 'MAT-SILVER-925',
+          shapeReference: 'SHP-CLASSIC-ROUND',
+          ringSize: '8',
+          components: [],
+        },
+        updatedAt: '2026-11-14T10:00:00Z',
+      }));
+
+      mockFetch({
+        'GET /api/v1/workshop-designs': json(200, mockItems),
+      });
+
+      open('/my/designs', { session: fakeSession('signed-in') });
+
+      // Page 1 should show first 5 items (DSG-PAGE-1 to DSG-PAGE-5)
+      expect(await screen.findByText('DSG-PAGE-1')).toBeInTheDocument();
+      expect(screen.getByText('DSG-PAGE-5')).toBeInTheDocument();
+      expect(screen.queryByText('DSG-PAGE-6')).not.toBeInTheDocument();
+
+      // Check pagination info
+      expect(screen.getByTestId('workshop-pagination-info')).toHaveTextContent('Hiển thị 1–5 trên tổng số 12 mục');
+
+      // Click Next
+      const nextBtn = screen.getByTestId('workshop-pagination-next');
+      await user.click(nextBtn);
+
+      // Page 2 should show DSG-PAGE-6 to DSG-PAGE-10
+      expect(await screen.findByText('DSG-PAGE-6')).toBeInTheDocument();
+      expect(screen.getByText('DSG-PAGE-10')).toBeInTheDocument();
+      expect(screen.queryByText('DSG-PAGE-1')).not.toBeInTheDocument();
+      expect(screen.getByTestId('workshop-pagination-info')).toHaveTextContent('Hiển thị 6–10 trên tổng số 12 mục');
     });
   });
 });

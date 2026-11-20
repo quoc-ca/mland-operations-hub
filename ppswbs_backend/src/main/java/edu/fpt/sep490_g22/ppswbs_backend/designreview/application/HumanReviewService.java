@@ -28,8 +28,6 @@ public class HumanReviewService {
     private final DesignAnalysisService designAnalysisService;
     private final AccountFacade accountFacade;
 
-    public static final long STAFF_MAX_ESTIMATED_VALUE = 3_000_000L; // 3,000,000 VND
-
     @Transactional(readOnly = true)
     public List<DesignAnalysisService.DesignRequestViewDto> getReviewQueue(
             String callerUid,
@@ -42,17 +40,10 @@ public class HumanReviewService {
             throw DesignReviewException.forbidden("REVIEW_NOT_AUTHORIZED", "Bạn không có quyền truy cập hàng đợi duyệt thiết kế.");
         }
 
+        // Staff and Manager have equal authority to view all items awaiting human review
         List<DesignRequest> queue = requestRepository.findByReviewStatusOrderByCreatedAtAsc(ReviewStatus.NEED_REVIEW);
 
         return queue.stream()
-                .filter(req -> {
-                    long val = req.getEstimatedValue() != null ? req.getEstimatedValue() : 0L;
-                    if (isManager) {
-                        return true; // Manager/Owner can review all
-                    }
-                    // Staff can only review <= 3,000,000 VND
-                    return val <= STAFF_MAX_ESTIMATED_VALUE;
-                })
                 .map(designAnalysisService::mapToViewDto)
                 .collect(Collectors.toList());
     }
@@ -66,7 +57,7 @@ public class HumanReviewService {
             String reviewerUid,
             Collection<? extends GrantedAuthority> authorities
     ) {
-        log.info("Recording review decision: reviewRequestId={}, decision={}, version={}, reviewerUid={}",
+        log.info("Recording human review decision: reviewRequestId={}, decision={}, version={}, reviewerUid={}",
                 reviewRequestId, decision, designVersion, reviewerUid);
 
         boolean isManager = DesignReviewPermissions.isManager(authorities);
@@ -77,14 +68,19 @@ public class HumanReviewService {
         }
 
         if (decision == null) {
-            throw DesignReviewException.badRequest("AI_INPUT_INVALID", "Thiếu quyết định thẩm duyệt (ACCEPTED, REJECTED, CLARIFICATION_REQUIRED).");
+            throw DesignReviewException.badRequest("DESIGN_REQUEST_INVALID", "Thiếu quyết định thẩm duyệt (ACCEPTED, REJECTED).");
         }
 
         if (reason == null || reason.trim().isEmpty()) {
-            throw DesignReviewException.badRequest("AI_INPUT_INVALID", "Lý do thẩm duyệt không được để trống.");
+            throw DesignReviewException.badRequest("DESIGN_REVIEW_REASON_REQUIRED", "Bắt buộc phải nhập lời giải thích / lý do cho quyết định thẩm duyệt.");
+        }
+
+        if (reason.trim().length() > 2000) {
+            throw DesignReviewException.badRequest("DESIGN_REQUEST_INVALID", "Lý do thẩm duyệt không được vượt quá 2000 ký tự.");
         }
 
         DesignRequest request = requestRepository.findById(reviewRequestId)
+                .or(() -> requestRepository.findByRequestReference(reviewRequestId))
                 .orElseThrow(() -> DesignReviewException.notFound("NOT_FOUND", "Không tìm thấy yêu cầu thẩm duyệt với ID đã cung cấp."));
 
         // Separation of duties: Reviewer cannot review own request
@@ -96,18 +92,12 @@ public class HumanReviewService {
 
         // Terminal state check
         if (request.getReviewStatus() == ReviewStatus.ACCEPTED || request.getReviewStatus() == ReviewStatus.REJECTED) {
-            throw DesignReviewException.conflict("REVIEW_STATE_CONFLICT", "Yêu cầu đã có quyết định cuối cùng và không thể thay đổi.");
+            throw DesignReviewException.conflict("DESIGN_REVIEW_ALREADY_DECIDED", "Yêu cầu đã có quyết định cuối cùng và không thể thay đổi.");
         }
 
         // Design version check
         if (designVersion != null && !designVersion.equals(request.getRequestVersion())) {
-            throw DesignReviewException.conflict("DESIGN_VERSION_STALE", "Phiên bản thiết kế đã thay đổi hoặc đã có cập nhật mới hơn.");
-        }
-
-        // Authority / Threshold check
-        long estimatedValue = request.getEstimatedValue() != null ? request.getEstimatedValue() : 0L;
-        if (estimatedValue > STAFF_MAX_ESTIMATED_VALUE && !isManager) {
-            throw DesignReviewException.forbidden("REVIEW_NOT_AUTHORIZED", "Giá trị ước tính vượt quá hạn mức thẩm quyền của Nhân viên (tối đa 3.000.000 VND). Cần Quản lý phê duyệt.");
+            throw DesignReviewException.conflict("DESIGN_REVIEW_STATE_CONFLICT", "Phiên bản thiết kế đã thay đổi hoặc đã có cập nhật mới hơn.");
         }
 
         // Record human review decision
@@ -119,7 +109,7 @@ public class HumanReviewService {
                 .designVersion(request.getRequestVersion())
                 .decision(decision)
                 .reason(reason.trim())
-                .estimatedValueSnapshot(estimatedValue)
+                .estimatedValueSnapshot(0L)
                 .decidedAt(Instant.now())
                 .build();
         decisionRepository.save(decisionEntity);
@@ -138,7 +128,9 @@ public class HumanReviewService {
         };
 
         request.setReviewStatus(nextReviewStatus);
+        request.setDecisionExplanation(reason.trim());
         request.setNextAction(nextAction);
+        request.setRequestVersion(request.getRequestVersion() + 1);
         request.setUpdatedAt(Instant.now());
         requestRepository.save(request);
 

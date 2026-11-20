@@ -1,9 +1,17 @@
 # Research: Account Management (FE-001)
 
 **Date created**: 2026-10-26
-**Date updated**: 2026-11-14
+**Date updated**: 2026-11-20
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
+
+## D-24 — CARRIER email/password provisioning (2026-11-20, approved by R-CAR)
+
+**Decision**: `CARRIER` is a fixed, Admin-created role labelled `Đối tác vận chuyển (GHTK)`. It is immediately `ACTIVE`, has no Workshop Location, and holds only immutable login email plus required display name and phone. Admin provisions its Firebase email/password identity at creation. The password is write-only and is never persisted, logged, audited, or returned. No invitation, Google-only flow, pre-bind/enrollment, Member↔Carrier role change, automatic merge, or logistics permission is introduced.
+
+**Rationale**: The partner needs immediate operational onboarding through the existing email/password sign-in UI, while the existing UID-first ownership model must not be weakened into general email-based account merging.
+
+**Consequences**: No CARRIER-specific enrollment table/entity is needed. The existing idempotent internal-provisioning/reconciliation mechanism records safe progress without a password and handles Firebase/Account partial failure. A duplicate Mland or Firebase email is rejected at Admin creation. CARRIER is suspendable/restorable through the standard revocation lifecycle. The fixed demo/test fixture `ghtk.test@mland.vn` / `CarrierTest@123456` is permitted only in the existing demo seed/test-documentation pattern; its Firebase UID is created before the database fixture and it is not a production credential policy.
 
 **Purpose**: Consolidated Phase 0 research and decision log. All NEEDS CLARIFICATION items resolved through clarification sessions 2026-10-24 to 2026-11-01. This document is the source of record for design choices not directly derivable from the spec.
 
@@ -254,7 +262,7 @@ No REST endpoint, no generic Account directory, no cross-feature entity/DAO impo
 
 ### D-21: Shared browser session lifecycle and Router authority
 
-**Decision**: `AuthProvider` is the sole client session source. Firebase observation and authenticated HTTP transport only report outcomes; a Router-level `SessionNavigationBoundary` performs terminal cleanup, flash construction and `replace` navigation exactly once. `USER_SIGN_OUT` wins its consequent Firebase-null callback. The first session-loss signal wins duplicate `401`/Firebase-null events until a later signed-in observation. `401` is session loss; `403` retains the session and is a safe authorization recovery to Home.
+**Decision**: `AuthProvider` is the sole client session source. Firebase observation and authenticated HTTP transport only report outcomes; a Router-level `SessionNavigationBoundary` performs terminal cleanup, flash construction and `replace` navigation exactly once. `USER_SIGN_OUT` wins its consequent Firebase-null callback. The first session-loss signal wins duplicate `401`/Firebase-null events until a later signed-in observation. `401` is session loss. A signed-in actor outside an internal browser route's explicit allowlist is replaced to `/404` without rendering the route or retaining its attempted URL. An API `403` after a permitted route/action retains the session and is handled by that feature; it is not redirected to Home by the shared lifecycle.
 
 **Rationale**: Page-owned navigation allows competing redirects, duplicate cleanup, history leakage and inconsistent draft recovery. Separating source, signal and boundary preserves the existing backend authority while making browser recovery deterministic.
 

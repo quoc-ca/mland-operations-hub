@@ -5,14 +5,15 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.entity.*;
 import java.time.Instant;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.context.annotation.Profile;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-@Component @Profile("retail-vnpay & !local") @RequiredArgsConstructor @Slf4j
-@ConditionalOnProperty(name = "retail.started-expiry.enabled", havingValue = "true", matchIfMissing = true)
+/** Runs on every non-local server where VNPay is enabled (Session 2026-11-18: no {@code retail-vnpay} profile needed). */
+@Component @Profile("!local") @RequiredArgsConstructor @Slf4j
+@ConditionalOnExpression("${retail.started-expiry.enabled:true} and ${vnpay.enabled:false}")
 public class RetailConfirmedUnpaidExpiryJob {
     private final RetailVariantHoldRepository holds;
     private final RetailQueryReconciliationService reconciliation;

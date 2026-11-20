@@ -1,0 +1,295 @@
+openapi: 3.1.0
+info:
+  title: Custom Design Request and Order Intake API
+  version: 0.1.0-draft
+  description: >-
+    Draft contract for the Feature-004 custom-manufacturing intake boundary.
+    It does not replace the Custom Manufacturing full-payment, production or
+    fulfilment contracts. Custom orders are paid in one complete payment and
+    are never added to a retail cart.
+servers:
+  - url: /api/v1
+security:
+  - firebaseBearer: []
+paths:
+  /custom-design-requests:
+    post:
+      operationId: createCustomDesignRequest
+      summary: Create a Member custom-design request
+      security:
+        - firebaseBearer: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCustomDesignRequest'
+      responses:
+        '201':
+          description: Request created in NEED_REVIEW
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomDesignRequestProjection'
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+  /custom-design-requests/{requestId}:
+    get:
+      operationId: getCustomDesignRequest
+      summary: Read the Member's safe request projection
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Safe owner projection
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomDesignRequestProjection'
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+    post:
+      operationId: reviseCustomDesignRequest
+      summary: Submit a revision after clarification
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatchVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomDesignRevision'
+      responses:
+        '200':
+          description: Revision accepted and returned to NEED_REVIEW
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomDesignRequestProjection'
+        '400': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+  /custom-design-requests/{requestId}/decisions:
+    post:
+      operationId: decideCustomDesignRequest
+      summary: Staff or Manager records a human review decision
+      security:
+        - firebaseBearer: []
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatchVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomDesignDecision'
+      responses:
+        '200':
+          description: Decision recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomDesignRequestProjection'
+        '400': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+  /custom-design-requests/{requestId}/quote:
+    post:
+      operationId: prepareCustomDesignQuote
+      summary: Prepare a Manager-approved quote handoff
+      security:
+        - firebaseBearer: []
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuoteCommand'
+      responses:
+        '200':
+          description: Quote ready for Member payment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuoteProjection'
+        '403': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+  /members/me/custom-design-requests:
+    get:
+      operationId: listMyCustomDesignRequests
+      summary: List the Member's own requests and quote summaries
+      responses:
+        '200':
+          description: Member-owned request list
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CustomRequestListProjection' }
+        '401': { $ref: '#/components/responses/Error' }
+  /members/me/custom-orders:
+    get:
+      operationId: listMyCustomOrders
+      summary: List the Member's own custom orders
+      responses:
+        '200':
+          description: Member-owned custom-order list
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CustomOrderListProjection' }
+        '401': { $ref: '#/components/responses/Error' }
+  /members/me/custom-orders/{customOrderId}:
+    get:
+      operationId: getMyCustomOrder
+      summary: Read a Member-owned custom-order detail
+      parameters:
+        - { name: customOrderId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Safe custom-order detail
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CustomOrderProjection' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /members/me/custom-orders/{customOrderId}/payment:
+    post:
+      operationId: startMyCustomOrderFullPayment
+      summary: Start one full payment for the active custom-order quote
+      parameters:
+        - { name: customOrderId, in: path, required: true, schema: { type: string } }
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '201':
+          description: Payment attempt created for the complete quote
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaymentAttemptProjection' }
+        '401': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /members/me/custom-orders/{customOrderId}/request-new-quote:
+    post:
+      operationId: requestNewCustomOrderQuote
+      summary: Request a new quote after expiry where permitted
+      parameters:
+        - { name: customOrderId, in: path, required: true, schema: { type: string } }
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '202':
+          description: New quote request accepted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CustomOrderProjection' }
+        '401': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+components:
+  securitySchemes:
+    firebaseBearer: { type: http, scheme: bearer, bearerFormat: Firebase }
+  parameters:
+    RequestId: { name: requestId, in: path, required: true, schema: { type: string } }
+    IdempotencyKey: { name: Idempotency-Key, in: header, required: true, schema: { type: string, minLength: 16, maxLength: 128 } }
+    IfMatchVersion: { name: If-Match-Version, in: header, required: true, schema: { type: integer, minimum: 1 } }
+  schemas:
+    CreateCustomDesignRequest:
+      type: object
+      additionalProperties: false
+      anyOf:
+        - required: [description]
+        - required: [designReference]
+        - required: [imageReferences]
+      properties:
+        description: { type: string, minLength: 1, maxLength: 4000 }
+        designReference: { type: string, nullable: true, description: Opaque Feature-012 design reference }
+        designVersion: { type: integer, minimum: 1, nullable: true }
+        imageReferences: { type: array, maxItems: 5, items: { type: string } }
+    CustomDesignRevision:
+      allOf:
+        - $ref: '#/components/schemas/CreateCustomDesignRequest'
+    CustomDesignDecision:
+      type: object
+      additionalProperties: false
+      required: [decision, explanation]
+      properties:
+        decision: { type: string, enum: [CLARIFICATION_REQUIRED, ACCEPTED, REJECTED] }
+        explanation: { type: string, minLength: 1, maxLength: 2000 }
+    QuoteCommand:
+      type: object
+      additionalProperties: false
+      required: [totalAmount, currency, quoteExpiresAt]
+      properties:
+        totalAmount: { type: string, pattern: '^[0-9]+$' }
+        currency: { type: string, enum: [VND] }
+        quoteExpiresAt: { type: string, format: date-time }
+        managerReason: { type: string, minLength: 1, maxLength: 2000 }
+    CustomDesignRequestProjection:
+      type: object
+      required: [requestReference, status, version]
+      properties:
+        requestReference: { type: string }
+        status: { type: string, enum: [NEED_REVIEW, CLARIFICATION_REQUIRED, ACCEPTED, REJECTED] }
+        version: { type: integer, minimum: 1 }
+        explanation: { type: string, nullable: true }
+        designSnapshot: { type: object, additionalProperties: false, nullable: true }
+        quoteReference: { type: string, nullable: true }
+    QuoteProjection:
+      type: object
+      required: [quoteReference, status, expiresAt, totalAmount, currency, paymentMode]
+      properties:
+        quoteReference: { type: string }
+        status: { type: string, enum: [QUOTE_READY, FULL_PAYMENT_PENDING, PAID, QUOTE_EXPIRED, PAYMENT_EXPIRED, CANCELLED] }
+        expiresAt: { type: string, format: date-time }
+        totalAmount: { type: string }
+        currency: { type: string, enum: [VND] }
+        paymentMode: { type: string, enum: [FULL_CUSTOM_ORDER_PAYMENT] }
+    CustomRequestListProjection:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/CustomDesignRequestProjection' } }
+    CustomOrderListProjection:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/CustomOrderProjection' } }
+    CustomOrderProjection:
+      type: object
+      required: [customOrderReference, status, quote]
+      properties:
+        customOrderReference: { type: string }
+        status: { type: string, enum: [QUOTE_PENDING, FULL_PAYMENT_PENDING, PAID, IN_PRODUCTION, READY_FOR_FULFILMENT, CLOSED, QUOTE_EXPIRED, CANCELLED] }
+        quote: { $ref: '#/components/schemas/QuoteProjection' }
+        designSnapshot: { type: object, nullable: true, additionalProperties: false }
+        nextAction: { type: string, nullable: true }
+    PaymentAttemptProjection:
+      type: object
+      required: [paymentAttemptReference, status, paymentUrl]
+      properties:
+        paymentAttemptReference: { type: string }
+        status: { type: string, enum: [INITIATED, PENDING, EXPIRED, PAID, FAILED] }
+        paymentUrl: { type: string, format: uri }
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code: { type: string }
+        message: { type: string }
+        correlationId: { type: string, nullable: true }
+  responses:
+    Error:
+      description: Safe error response
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }

@@ -4,17 +4,17 @@
 
 This screen allows authorized Staff to:
 
-- Review verified payment and the owner's selected fulfilment data before starting preparation.
-- Record preparing, then the readiness state appropriate to Pickup or GHTK; preparation freezes Member fulfilment edits.
-- Record actual owner pickup after confirming the signed-in owning Member and a ready order.
-- Record actual manual carrier handoff only after carrier preparation, keeping those events separate.
-- Use valid forward transitions without a manual paid override, courier tracking or automatic cancellation.
+- Collect cash for a cash-at-the-counter order: press Xác nhận đã thu for the amount due; payment and handover are recorded together and the order is completed.
+- Record preparation, then Đã chuẩn bị xong: a pickup order moves to Chờ khách nhận and a GHTK order to Chờ ĐVVC lấy hàng.
+- Record Giao cho khách after confirming the signed-in owning Member and a ready order; the received time is recorded.
+- Follow a GHTK order after packing: Chờ GHTK đến lấy hàng, then GHTK đang giao hàng, both recorded by the GHTK partner.
+- Use valid forward transitions without a manual paid override or automatic cancellation.
 
 | Field Name | Description |
 | --- | --- |
-| Order / type / branch / state | Read-only processing-context columns; assigned-branch and action restrictions apply. |
-| Open Operations | Opens an authorized order; it does not grant cross-branch access. |
-| Progress choices | Illustrative preparation, pickup/readiness and manual-carrier labels; valid transitions must be separate and state checked. |
-| Carrier reference / note | Optional evidence input only when applicable; no tracking, fee quote or carrier API is introduced. |
-| Save Progress | Records a permitted action after state/authority checks; there is no manual paid override. |
-| Final-amount notice | Staff submits a proposal; Manager must approve the exact final amount before a payment request. |
+| Order / type / branch / state | Read-only processing context; assigned-branch and action restrictions apply. |
+| Xác nhận đã thu | Shows the amount due; records payment of exactly that amount and the counter handover once, moving the order to Hoàn thành. |
+| Đã chuẩn bị xong | Marks a prepared order ready for pickup or for the GHTK courier after state checks. |
+| Giao cho khách | Records the counter handover once; Giao cho khách lúc is then shown. |
+| Điện thoại / Địa chỉ | GHTK recipient data needed for packing; retired 30 days after the original handoff. |
+| Courier notice | Read-only: the GHTK partner records Đã lấy hàng and Giao thành công on the partner portal; Staff cannot, and there is no GHTK shipment API. |

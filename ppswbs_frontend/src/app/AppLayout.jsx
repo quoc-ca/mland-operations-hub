@@ -1,5 +1,5 @@
 import React from 'react';
-import { Outlet, useLocation } from 'react-router';
+import { Outlet, ScrollRestoration, useLocation } from 'react-router';
 import MainTopbar from '../shared/ui/MainTopbar';
 
 /** Header and footer for production-oriented feature routes. */
@@ -14,17 +14,21 @@ export default function AppLayout() {
     location.pathname.startsWith('/workshop-packages') ||
     location.pathname.startsWith('/staff/') ||
     location.pathname.startsWith('/manager/') ||
+    location.pathname.startsWith('/carrier') ||
     location.pathname.startsWith('/admin/') ||
     location.pathname.startsWith('/promotion-management') ||
     location.pathname.startsWith('/catalogue-management') ||
     location.pathname === '/home';
 
+  // Every new page opens at the top; Back and Forward return to where the reader was (2026-11-20: the checkout used to
+  // open scrolled down because it kept the cart's scroll position).
   if (isAuthPage || isOperationsWorkspace) {
-    return <Outlet />;
+    return <><ScrollRestoration /><Outlet /></>;
   }
 
   return (
     <div className="app-layout-wrapper">
+      <ScrollRestoration />
       <MainTopbar />
       <main className="app-layout-content">
         <Outlet />

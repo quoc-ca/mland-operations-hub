@@ -16,6 +16,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.Booking
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.BookingGroupMagicLink;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.BookingStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.MagicLinkLifecycleStatus;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.PaymentAttemptStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -51,6 +52,7 @@ public class BookingGroupRecoveryService {
     private final BookingGroupLineRepository lines;
     private final BookingGroupMagicLinkRepository magicLinks;
     private final GroupPaymentAttemptRepository paymentAttempts;
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.LatePaymentReviewRepository lateReviews;
     private final BookingAuditEvidenceRepository auditEvidence;
     private final BookingGroupProjectionService projection;
     private final GroupConfirmationService confirmation;
@@ -148,8 +150,14 @@ public class BookingGroupRecoveryService {
                                    String reason, String correlation, BookingIdempotencyClaim claim) {
         BookingGroup group = groups.findByGroupCodeForUpdate(normalizedCode(groupCode)).orElseThrow(BookingGroupRecoveryService::notFound);
         String actorType = requireBuyer(group, actor, contactEmail, contactPhone);
-        boolean attemptExists = !paymentAttempts.findByGroupIdOrderByCreatedAtDesc(group.getId()).isEmpty();
-        confirmation.releasePendingGroupByBuyer(group, attemptExists, "REL-CUSTOMER-" + claim.recordId(), correlation);
+        // FR-048 (decided 2026-11-19): only a live (INITIATED/PENDING) attempt blocks; FAILED/EXPIRED do not.
+        boolean attemptExists = paymentAttempts.existsByGroupIdAndAttemptStatusIn(group.getId(),
+                List.of(PaymentAttemptStatus.INITIATED, PaymentAttemptStatus.PENDING));
+        // FR-017j: late-payment evidence of the group keeps its voucher/points for the verified outcome.
+        boolean lateEvidence = lateReviews.findFirstByGroupIdOrderByIdDesc(group.getId()).isPresent()
+                || auditEvidence.countByBookingCodeAndAction(group.getGroupCode(),
+                        GroupMismatchedEvidenceService.ACTION) > 0;
+        confirmation.releasePendingGroupByBuyer(group, attemptExists, lateEvidence, "REL-CUSTOMER-" + claim.recordId(), correlation);
         audit(group, locationOf(group), actorType, actor, "PENDING_HOLD_RELEASE", correlation, reason.trim());
         idempotency.completeClaimWithinTransaction(claim.recordId(), claim.claimVersion(), 204, "");
     }

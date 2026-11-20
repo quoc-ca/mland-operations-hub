@@ -1,7 +1,7 @@
 # Tasks: Account Management (FE-001)
 
 **Date created**: 2026-11-01
-**Date updated**: 2026-11-14
+**Date updated**: 2026-11-20
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
@@ -100,7 +100,7 @@
 - [x] T017 [US1] Implement `useCurrentAccount.ts` in `ppswbs_frontend/src/features/accountmanagement/hooks/useCurrentAccount.ts`:
   - On Firebase auth state change: calls `POST /accounts/me` with current bearer
   - Active account → navigate to Home
-  - Historical error-state note superseded for shared recovery by R-SL: `401` → shared Home session-loss flow; `403` → retain session and safe Home notice; `503` → explicit retry; never infer old role/scope
+  - Historical error-state note superseded for shared recovery by R-SL and then by route masking: `401` → shared Home session-loss flow; role-denied internal route → `/404` before mount/request; post-entry API `403` → feature-owned safe recovery with retained session; `503` → explicit retry; never infer old role/scope
 - [x] T018 [US1] Implement `AuthPage.tsx` in `ppswbs_frontend/src/features/accountmanagement/components/AuthPage.tsx`:
   - Email/password registration and sign-in forms; show configured provider buttons only when available
   - Duplicate-submit pending state; do not expose Account existence in error messages
@@ -341,7 +341,7 @@
 
 ---
 
-## Phase 10: Revision R-SL — Shared session lifecycle & Google redirect-only handoff (COMPLETED — FRONTEND ONLY)
+## Phase 10: Revision R-SL / R-404 — Shared session lifecycle, Google redirect-only and route masking handoff
 
 **Scope guard**: These tasks implement FR-041 and the shared contract in `spec-general.md`. They must not change REST/OpenAPI, database schema, Firebase project, emulator/Hosting setup, or backend role/scope authorization. Existing `[x]` tasks do not evidence this phase.
 
@@ -350,9 +350,9 @@
 - [x] T071 [R-SL] Revise `RequireSession` and route configuration: neutral non-PII `loading`, non-redirecting `unconfigured`, guest private-route `replace('/login')`, `/sign-in` compatibility `replace('/login')`, and login success `replace('/')` without `returnTo`.
 - [x] T072 [R-SL] Classify/apply guards to every Account/Profile/Address/Security canonical URL and alias, `/design-requests/new`, representative internal routes, while preserving public browsing, Basic AI, public review, and Feature-003.1 booking/lookup/access/payment-return routes.
 - [x] T073 [P] [R-SL] Replace page-owned logout/session navigation in Topbar, Sidebar, Profile and feature hooks with the shared action/outcome boundary; add Home transient localized notice UI. Do not use browser storage for notices/drafts or retain passwords/tokens.
-- [x] T074 [R-SL] Retain valid session for `403`, route Home with safe generic notice, and ensure no role/lifecycle/scope detail is rendered from the shared recovery path.
+- [x] T074 [R-404] Implement `RouteAccessGuard`, exact FE-001 route allowlists and `/404` handling. It uses only existing Account bootstrap; technical resolution failure keeps the URL and offers retry; `SUSPENDED`, `PENDING_SETUP` or a role outside the allowlist replaces to `/404` before protected DOM/API work; `/404` has generic copy and only Home navigation. Do not alter post-entry API `403` recovery. (FR-046)
 - [x] T075 [P] [R-SL] Remove Google popup helper/handler/UI/test coverage from supported code; retain and test only redirect initiation/result, collision password guidance, and generic redirect retry/Email-Password alternative.
-- [x] T076 [R-SL] Add Router integration tests: every Account/Address/Security alias, representative public/Member/internal routes, direct guest/private access, sign-in Home destination, `replace` history, loading/no-PII, unconfigured/no-redirect, `403`, duplicate `401`, cleanup, Topbar/Sidebar logout pending/double-click/failure-retry.
+- [x] T076 [R-404] Add router/component/E2E coverage for the FE-001 role × route matrix: allowed self-service for MEMBER/STAFF/MANAGER/ADMIN, CARRIER password-only, Admin routes, inactive Account `/404`, unavailable bootstrap retry, `/404` replace/no protected DOM or request/no disclosure, Guest `/login`, and post-entry API `403` recovery. Keep existing `401`, cleanup and logout coverage. (FR-046, V-15)
 - [x] T077 [R-SL] Record manual local Firebase evidence in `verification.md`: browser/origin/outcome for real logout and Google redirect; collision only if a suitable test identity exists. Do not record token, secret, action code, or password.
 
 **Checkpoint**: V-13 passes automated Router coverage and the required local Firebase evidence is recorded. Production Firebase Hosting/domain/`authDomain` remains a release decision and is not claimed by this checkpoint.
@@ -498,3 +498,13 @@ After Phase 2 completes:
 **Parallel opportunities**: 32 tasks marked [P]
 **MVP scope**: Historical phases retain their original scope. Revision R-SL is a separate approved frontend handoff: T069–T077 and V-13 must be completed before this session/navigation revision is accepted. Phase 7 US5 (T038–T043) and WCAG scan (T047) remain deferred to full release.
 **Suggested MVP**: Complete US1 (Phase 3) alone first → validate independently → proceed to US2, US3, US4
+
+---
+
+## Phase 13: Convergence — CARRIER (GHTK) (approved by R-CAR; implemented and E2E specified)
+
+- [x] T084 Add `CARRIER` to the fixed role enum/catalogue and append-only Flyway role constraint migration; do not add a CARRIER enrollment table. (FR-009, FR-010)
+- [x] T085 Extend the existing idempotent provisioning/reconciliation mechanism and Admin creation service to provision Firebase email/password then persist an ACTIVE CARRIER with its UID. Enforce write-only password handling, no location/invitation, duplicate-email rejection, and recovery from partial failure. (FR-011–014, FR-022)
+- [x] T086 Extend Admin create/list/detail/profile/status contracts and UI: CARRIER requires immutable email, password, display name and phone; ADMIN may maintain only name/phone and suspend/restore it; CARRIER cannot transition roles or have a location. Covered by [E2E-001-025](test-results/E2E-001-025--admin-carrier-provisioning-and-form-guard.md) and [E2E-001-028](test-results/E2E-001-028--admin-carrier-lifecycle-governance-and-suspension.md). (FR-011–012, FR-016–019)
+- [x] T087 Update shared session routing and role guards so a resolved CARRIER redirects to FE-08 `/carrier`, sees neither Member nor internal navigation, retains only eligible `/security/password` self-service, and unknown-role handling fails safely. Historical CARRIER routing evidence remains [E2E-001-026](test-results/E2E-001-026--carrier-signin-direct-routing-and-ui-isolation.md); the removed pre-R-404 route-denial evidence is replaced by V-15/T076. (FR-003, FR-013, FR-017, FR-025–027)
+- [x] T088 Add migration, service, API and UI tests for V-14, including retries, duplicate/collision handling, no credential retention, provisioning reconciliation, direct CARRIER sign-in/routing, suspension and restoration; create the R-CAR demo/test fixture `ghtk.test@mland.vn` / `CarrierTest@123456` after Firebase issues its UID, then seed its Account/Profile without a location. (V-14, CarrierAccountIT, E2E-001-025..028)

@@ -1,5 +1,43 @@
 # Tech Lead Approval Record: Account Management (FE-001)
 
+## Revision R-404 — Browser route masking and five-role baseline
+
+**Revision date**: 2026-11-20
+**Approved by (Tech Lead)**: **Phan Sơn**
+**Authority/evidence**: explicit approval in this specification session on 2026-11-20.
+**Decision**: **APPROVED FOR IMPLEMENTATION OF RE-OPENED T074 AND T076 ONLY**.
+
+This approval covers:
+
+- The five fixed roles `MEMBER`, `STAFF`, `MANAGER`, `ADMIN`, and `CARRIER`; CARRIER inherits neither Member commerce/history nor internal operational authority.
+- The FE-001 self-service allowlist: MEMBER/STAFF/MANAGER/ADMIN may use Profile, Address, Email and Password; CARRIER may use Password only.
+- Existing account bootstrap is the sole role/status source for browser route masking. Technical resolution failure remains at the current URL with unavailable/retry; no role cache or new REST endpoint is introduced.
+- A signed-in actor outside an internal route allowlist, or with `SUSPENDED`/`PENDING_SETUP` status, is replaced to `/404` before protected page render/request. `/404` is generic and has only Home navigation. Post-entry API `403` remains feature-owned.
+- The approved revision artifacts are `spec-general.md`, `route-access-matrix.md`, and FE-001 `spec.md`, `plan.md`, `research.md`, `quickstart.md`, `tasks.md`, `verification.md`, and `design/{architecture,workflows,ui-flow}.md`.
+
+**Implementation condition**: T074/T076 must produce fresh V-15 evidence. The removed pre-R-404 `403 → Home` evidence must not be reused. This approval does not authorize REST/OpenAPI, schema, backend authorization, Firebase project or Hosting changes.
+
+---
+
+## Revision R-CAR — CARRIER (GHTK) account and demo fixture
+
+**Revision date**: 2026-11-20
+**Approved by (Tech Lead)**: **Phan Sơn**
+**Authority/evidence**: explicit Tech Lead decisions in this specification session: approve the CARRIER proposal and align its demo account with the existing repository demo-account pattern.
+**Decision**: **APPROVED FOR IMPLEMENTATION OF T084–T088 ONLY**.
+
+This approval covers:
+
+- Fixed role `CARRIER`, display name `Đối tác vận chuyển (GHTK)`, Admin-only provisioning, no Workshop Location assignment, and no transition to or from another role.
+- Immediate `ACTIVE` CARRIER creation through Firebase email/password identity provisioning; normal runtime password input remains write-only and is excluded from persistence, logs, audit records, and API responses.
+- Admin list/detail/filter/maintenance, immutable CARRIER email, Admin-only display-name/phone edit, standard suspension/restoration, and CARRIER password change through the eligible password-owner flow.
+- Shared sign-in routing/guards that send a resolved CARRIER to FE-08-owned `/carrier` without Member or internal navigation; FE-08 owns delivery behavior and enforces `CARRIER` plus `ACTIVE` through the Account facade.
+- The demo/test fixture `ghtk.test@mland.vn` / `CarrierTest@123456`, display name `Đối tác vận chuyển (GHTK)`, phone `0900000000`, and Firebase-issued UID. This credential is an explicit demo/test-only exception permitted in the existing seed/test documentation pattern; it is not a production credential policy.
+
+**Implementation condition**: create the Firebase demo identity first and use its issued UID in the append-only database seed/migration. Fresh V-14 evidence must prove the fixture sign-in and direct `/carrier` routing; production credential handling must retain the normal write-only rule.
+
+---
+
 ## Revision R-NAD — Nationwide Administrative Divisions, 401 Orphan Token Handling & Google Redirect Synchronization
 
 **Revision date**: 2026-11-16

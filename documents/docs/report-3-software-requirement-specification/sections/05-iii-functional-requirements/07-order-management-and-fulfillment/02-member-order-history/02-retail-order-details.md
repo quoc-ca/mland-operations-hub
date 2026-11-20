@@ -5,17 +5,17 @@
 This screen allows Members to:
 
 - View the Member's frozen order branch, variants/options, quantities, discounts and amounts.
-- Read payment, hold and internal fulfilment states separately.
-- After verified full payment and before preparation, choose or edit Pickup or manual GHTK fulfilment.
-- For GHTK, provide name, phone, address and an optional note; fulfilment changes do not move the processing branch or reprice the order.
-- View recorded pickup or handoff facts without courier tracking.
+- Read payment, hold and fulfilment states separately, with the order time, payment deadline, paid time and received time.
+- See the pickup or GHTK choice made at checkout and, for GHTK, the recipient and the recorded shipment step.
+- For pickup, see when the order is ready to collect at the counter.
+- View recorded pickup or delivery facts without GHTK provider tracking.
 
 | Field Name | Description |
 | --- | --- |
-| Order value / total | Read-only amount; indicative for a cart and frozen after accepted checkout. Sample amounts are not operational prices. |
-| State | Read-only system facts; cart viewing alone creates no hold or accepted order. |
-| Payment | Read-only verified status; a browser return cannot mark paid. |
-| Item / variant | Shows product and exact configured variant; accepted-order identity and options remain frozen. |
-| Quantity / line amount / subtotal | Integer quantities and whole-VND amounts; calculate from applicable terms rather than mockup examples. |
-| Continue | Performs only the eligible next action for this screen and current order/payment state. |
-| Return-URL notice | Explains that payment confirmation comes from verified gateway evidence, not the browser redirect. |
+| Chi nhánh / Mã đơn | Fixed processing branch and order code. |
+| Thời gian đặt / Hạn thanh toán / Hạn giữ hàng | Order time and the hold deadline (15 minutes for VNPay, 3 days for cash at the counter). |
+| Thời gian thanh toán | When the verified VNPay payment or the counter cash was recorded. |
+| Nhận hàng lúc / Giao thành công lúc | When the order was handed over at the counter or delivered by GHTK. |
+| Nhận hàng | Nhận tại cửa hàng or Giao tận nơi qua GHTK with recipient name, phone and address; fixed at checkout. |
+| Discount | Shown only when a voucher or points applied, with a note when the discount was split across branches. |
+| Thành tiền | Frozen payable amount in whole VND. |

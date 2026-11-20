@@ -1,8 +1,9 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { RequireSession } from '../../../../shared/auth/RequireSession';
 import { useFormat } from '../../../../shared/i18n/I18nProvider';
-import { ErrorNotice, Loading, SuccessNotice, useResource } from '../../../../shared/ui/components';
+import { ErrorNotice, Loading, useResource } from '../../../../shared/ui/components';
+import { FlashToast } from '../FlashToast';
 import { newCommandId } from '../../../../shared/api/http';
 import { useRetailApi } from '../../application/useRetailApi';
 import { OperationsSidebar } from '../../../../shared/ui/OperationsSidebar';
@@ -10,21 +11,36 @@ import { cardToggleProps, displayTime, orderCode, OrderMoneyRows } from '../orde
 import { ProductThumb } from '../ProductThumb';
 
 /**
- * FE-08 FR-08-051: one Staff page for the branch's retail work. Tabs follow the day's tasks; each card offers only
- * the action of its tab. The former pickup-desk and shipment pages open the matching tab.
+ * FE-08 FR-08-051: one Staff page for the branch's retail work. Tabs follow the order stages of Session 2026-11-18:
+ * Đang chuẩn bị hàng → (GHTK) Chờ ĐVVC lấy hàng → Đã bàn giao cho ĐVVC → Hoàn thành, or (pickup) Chờ khách nhận →
+ * Hoàn thành. Each card offers only the action of its stage. Staff only packs a GHTK order; the GHTK partner records
+ * the courier pickup and the delivery on /carrier/orders (FE-01 role CARRIER, V190).
  */
-export const shipmentLabels = { PREPARING: 'Đang chuẩn bị hàng', HANDED_TO_CARRIER: 'Đã giao cho GHTK', IN_TRANSIT: 'Đang vận chuyển', DELIVERED: 'Giao thành công' };
-export const nextShipmentStatus = { PREPARING: 'HANDED_TO_CARRIER', HANDED_TO_CARRIER: 'IN_TRANSIT', IN_TRANSIT: 'DELIVERED' };
-const nextShipmentAction = { PREPARING: 'Bàn giao GHTK', HANDED_TO_CARRIER: 'Xác nhận đang vận chuyển', IN_TRANSIT: 'Xác nhận đã giao' };
+export const shipmentLabels = {
+  PREPARING: 'Đang chuẩn bị hàng', READY_FOR_CARRIER: 'Chờ ĐVVC lấy hàng', HANDED_TO_CARRIER: 'Đã bàn giao cho ĐVVC',
+  IN_TRANSIT: 'Đã bàn giao cho ĐVVC', DELIVERED: 'Hoàn thành',
+};
+export const nextShipmentStatus = { PREPARING: 'READY_FOR_CARRIER' };
+const nextShipmentAction = { PREPARING: 'Đã chuẩn bị xong' };
+/** What Staff is waiting for once the parcel is out of its hands. */
+const courierWaiting = {
+  READY_FOR_CARRIER: 'Chờ GHTK đến lấy hàng.',
+  HANDED_TO_CARRIER: 'GHTK đang giao hàng.',
+  IN_TRANSIT: 'GHTK đang giao hàng.',
+};
 const SHIPMENT_STATUSES = Object.keys(shipmentLabels);
+// GHTK work first, then the counter (cash, pickup), then history (Thinh, 2026-11-20).
 const TABS = [
+  { key: 'PREPARING', label: 'Đơn hàng cần chuẩn bị' },
+  { key: 'AWAITING_CARRIER', label: 'Chờ ĐVVC lấy hàng' },
+  { key: 'HANDED_OVER', label: 'Đã bàn giao ĐVVC' },
   { key: 'AWAITING_CASH', label: 'Chờ thu tiền mặt' },
   { key: 'TO_HAND_OVER', label: 'Chờ khách nhận' },
-  { key: 'TO_SHIP', label: 'Cần gửi hàng' },
-  { key: 'SHIPPING', label: 'Đang giao' },
-  { key: 'HISTORY', label: 'Lịch sử' },
+  { key: 'HISTORY', label: 'Hoàn thành' },
 ];
-const OPEN_TASK_TABS = ['AWAITING_CASH', 'TO_HAND_OVER', 'TO_SHIP'];
+// Addresses and bookmarks of the former tabs keep working.
+const LEGACY_TABS = { TO_SHIP: 'PREPARING', SHIPPING: 'HANDED_OVER' };
+const OPEN_TASK_TABS = ['AWAITING_CASH', 'PREPARING', 'TO_HAND_OVER'];
 const DAY_MS = 24 * 60 * 60 * 1000;
 const timeLeft = deadline => {
   const ms = new Date(deadline).getTime() - Date.now();
@@ -35,19 +51,21 @@ const timeLeft = deadline => {
 
 function pickupTab(row) {
   if (row.order.paymentState === 'ACCEPTED_UNPAID') return 'AWAITING_CASH';
-  return row.fulfilmentState === 'PICKED_UP' ? 'HISTORY' : 'TO_HAND_OVER';
+  if (row.fulfilmentState === 'PICKED_UP') return 'HISTORY';
+  return row.pickupReadyConfirmed ? 'TO_HAND_OVER' : 'PREPARING';
 }
 function shipmentTab(row) {
-  if (row.status === 'PREPARING') return 'TO_SHIP';
-  return row.status === 'DELIVERED' ? 'HISTORY' : 'SHIPPING';
+  if (row.status === 'PREPARING') return 'PREPARING';
+  if (row.status === 'READY_FOR_CARRIER') return 'AWAITING_CARRIER';
+  return row.status === 'DELIVERED' ? 'HISTORY' : 'HANDED_OVER';
 }
 
-export default function StaffRetailOrdersPage({ initialTab = 'AWAITING_CASH' }) {
+export default function StaffRetailOrdersPage({ initialTab }) {
   return <div className="ota-workspace">
     <OperationsSidebar />
     <main className="ota-main retail-staff-main">
       <div className="ota-topline"><span className="retail-staff-crumb"><Link to="/home">← Trang chủ</Link> MLAND / ĐƠN BÁN LẺ</span><span>● Backend-authorized</span></div>
-      <div className="ota-page-heading"><div><p className="ota-eyebrow">FE-08 · Bán lẻ</p><h1>Đơn bán lẻ tại chi nhánh</h1><p>Thu tiền mặt, giao hàng tại quầy và gửi hàng GHTK cho chi nhánh của bạn. Vận đơn GHTK là mô phỏng.</p></div></div>
+      <div className="ota-page-heading"><div><p className="ota-eyebrow">FE-08 · Bán lẻ</p><h1>Đơn bán lẻ tại chi nhánh</h1><p>Chuẩn bị hàng gửi GHTK, thu tiền mặt và giao hàng tại quầy cho chi nhánh của bạn.</p></div></div>
       <RequireSession requiredText="Đăng nhập Staff hoặc Manager được phân công chi nhánh."><StaffOrders initialTab={initialTab} /></RequireSession>
     </main>
   </div>;
@@ -56,10 +74,9 @@ export default function StaffRetailOrdersPage({ initialTab = 'AWAITING_CASH' }) 
 function StaffOrders({ initialTab }) {
   const api = useRetailApi();
   const format = useFormat();
-  const [tab, setTab] = useState(TABS.some(item => item.key === initialTab) ? initialTab : 'AWAITING_CASH');
+  const wanted = LEGACY_TABS[initialTab] || initialTab;
+  const [tab, setTab] = useState(TABS.some(item => item.key === wanted) ? wanted : 'PREPARING');
   const [search, setSearch] = useState('');
-  const [received, setReceived] = useState({});
-  const [handOverNow, setHandOverNow] = useState(true);
   const [busyId, setBusyId] = useState(null);
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState('');
@@ -79,6 +96,14 @@ function StaffOrders({ initialTab }) {
     ...(shipments.data || []).map(row => ({ kind: 'SHIPMENT', key: `s-${row.id}`, tab: shipmentTab(row), code: orderCode({ orderCode: row.orderCode, id: row.branchOrderId }), sortAt: row.updatedAt || row.createdAt, row })),
   ], [desk.data, shipments.data]);
   const counts = useMemo(() => rows.reduce((acc, item) => { acc[item.tab] = (acc[item.tab] || 0) + 1; return acc; }, {}), [rows]);
+  // Opening the page without a chosen tab shows the first tab, left to right, that has orders (Thinh, 2026-11-21).
+  const autoPick = useRef(!initialTab);
+  useEffect(() => {
+    if (!autoPick.current || !desk.data || !shipments.data) return;
+    autoPick.current = false;
+    const first = TABS.find(item => item.key !== 'HISTORY' && counts[item.key]);
+    if (first) setTab(first.key);
+  }, [desk.data, shipments.data, counts]);
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
   const cashToday = rows.filter(item => item.kind === 'PICKUP' && item.row.cashCollection
     && new Date(item.row.cashCollection.confirmedAt).toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }) === today)
@@ -102,18 +127,16 @@ function StaffOrders({ initialTab }) {
   };
   const confirmCash = item => run(item.key, async () => {
     const order = item.row.order;
-    const amount = String(received[order.id] ?? order.payableAmount).trim();
-    if (!/^[1-9][0-9]*$/.test(amount) || BigInt(amount) < BigInt(order.payableAmount)) {
-      throw new Error(`Tiền khách đưa phải từ ${format.money(order.payableAmount)} trở lên.`);
-    }
-    const result = await api.confirmCashCollection(order.id, amount, newCommandId());
-    let message = `Đơn ${item.code}: đã thu ${format.money(result.appliedAmount)}, tiền thối ${format.money(result.changeReturned)}.`;
-    if (handOverNow) {
-      await api.prepareOrder(order.id);
-      await api.handOverOrder(order.id);
-      message += ' Đã giao hàng cho khách.';
-    }
-    setNotice(message);
+    // Cash at the counter (Thinh, 2026-11-20): the customer pays the exact amount and one server call records the
+    // payment and the handover together, so the order goes straight to "Hoàn thành". If it fails nothing is
+    // recorded; Staff presses again when the connection is back.
+    await api.collectCashAndHandOver(order.id, newCommandId());
+    setNotice(`Đơn ${item.code}: đã thu ${format.money(order.payableAmount)}, đơn đã hoàn thành.`);
+  });
+  // Pickup: the order is packed and waits at the counter (Đang chuẩn bị hàng → Chờ khách nhận).
+  const prepare = item => run(item.key, async () => {
+    await api.prepareOrder(item.row.order.id);
+    setNotice(`Đơn ${item.code} đã chuẩn bị xong, chờ khách đến nhận.`);
   });
   const handOver = item => run(item.key, async () => {
     if (!item.row.pickupReadyConfirmed) await api.prepareOrder(item.row.order.id);
@@ -122,7 +145,7 @@ function StaffOrders({ initialTab }) {
   });
   const advance = item => {
     const next = nextShipmentStatus[item.row.status];
-    if (!next || !window.confirm(`Chuyển vận đơn ${item.row.mockTrackingNumber} sang “${shipmentLabels[next]}”? Đây là thao tác mô phỏng.`)) return;
+    if (!next || !window.confirm(`Chuyển vận đơn ${item.row.mockTrackingNumber} sang “${shipmentLabels[next]}”?`)) return;
     run(item.key, async () => {
       await api.transitionStaffShipment(item.row.id, { nextStatus: next, expectedVersion: item.row.version });
       setDetails(current => { const copy = { ...current }; delete copy[item.row.id]; return copy; });
@@ -150,24 +173,22 @@ function StaffOrders({ initialTab }) {
     <div className="order-tabs" role="tablist" aria-label="Việc của chi nhánh">{TABS.map(item => <button key={item.key} type="button" role="tab" aria-selected={tab === item.key} className={tab === item.key ? 'active' : ''} onClick={() => setTab(item.key)}>{item.label}{item.key !== 'HISTORY' && counts[item.key] ? <span className="order-tab-count">{counts[item.key]}</span> : null}</button>)}</div>
     {desk.error && <ErrorNotice error={desk.error} onRetry={desk.reload} />}
     {shipments.error && <ErrorNotice error={shipments.error} onRetry={shipments.reload} />}
-    {tab === 'AWAITING_CASH' && <label className="check-row"><input type="checkbox" checked={handOverNow} onChange={event => setHandOverNow(event.target.checked)} /> Giao hàng cho khách ngay sau khi thu tiền</label>}
-    {notice && <SuccessNotice>{notice}</SuccessNotice>}
+    {tab === 'AWAITING_CASH' && <p className="muted small">Khách đến quầy trả tiền: bấm "Xác nhận đã thu". Đơn chuyển thẳng sang Hoàn thành.</p>}
+    <FlashToast message={notice} onDone={() => setNotice('')} />
     {error && <ErrorNotice error={error} />}
     {visible.length === 0 && <div className="order-empty"><p>{term ? 'Không tìm thấy đơn phù hợp.' : 'Không còn việc nào ở mục này.'}</p></div>}
     {visible.map(item => item.kind === 'PICKUP'
-      ? <PickupCard key={item.key} item={item} open={openKey === item.key} onToggle={() => toggle(item)} busy={busyId === item.key} format={format} branchName={branchName} received={received} setReceived={setReceived} onConfirmCash={confirmCash} onHandOver={handOver} />
+      ? <PickupCard key={item.key} item={item} open={openKey === item.key} onToggle={() => toggle(item)} busy={busyId === item.key} format={format} branchName={branchName} onConfirmCash={confirmCash} onPrepare={prepare} onHandOver={handOver} />
       : <ShipmentCard key={item.key} item={item} open={openKey === item.key} onToggle={() => toggle(item)} busy={busyId === item.key} format={format} branchName={branchName} detail={details[item.row.id]} onAdvance={advance} />)}
   </section>;
 }
 
-function PickupCard({ item, open, onToggle, busy, format, branchName, received, setReceived, onConfirmCash, onHandOver }) {
+function PickupCard({ item, open, onToggle, busy, format, branchName, onConfirmCash, onPrepare, onHandOver }) {
   const { row } = item;
   const order = row.order;
   const cash = order.paymentMethod === 'CASH_AT_COUNTER';
-  const amount = received[order.id] ?? order.payableAmount;
-  const change = /^[0-9]+$/.test(String(amount)) && BigInt(amount) >= BigInt(order.payableAmount) ? (BigInt(amount) - BigInt(order.payableAmount)).toString() : null;
   const urgent = item.tab === 'AWAITING_CASH' && order.counterPaymentDeadline && new Date(order.counterPaymentDeadline).getTime() - Date.now() < DAY_MS;
-  const pill = item.tab === 'HISTORY' ? 'Đã giao cho khách' : item.tab === 'AWAITING_CASH' ? 'Chờ thu tiền mặt' : cash ? 'Đã thu tiền mặt' : 'Đã trả VNPay';
+  const pill = { HISTORY: 'Hoàn thành', AWAITING_CASH: 'Chờ thu tiền mặt', PREPARING: 'Đang chuẩn bị hàng', TO_HAND_OVER: 'Chờ khách nhận' }[item.tab];
   return <article className={`order-card${urgent ? ' urgent' : ''}${open ? ' open' : ''}`} {...cardToggleProps(open, onToggle)}>
     <div className="order-card-top">
       <span className="order-code">{item.code}</span>
@@ -184,6 +205,7 @@ function PickupCard({ item, open, onToggle, busy, format, branchName, received, 
       <div><dt>Mã đơn</dt><dd>{item.code}</dd></div>
       <div><dt>Thời gian đặt</dt><dd>{displayTime(order.orderedAt)}</dd></div>
       <div><dt>Thanh toán</dt><dd>{cash ? 'Tiền mặt tại quầy' : 'VNPay'}</dd></div>
+      {order.completedAt && <div><dt>Giao cho khách lúc</dt><dd>{displayTime(order.completedAt)}</dd></div>}
       <OrderMoneyRows order={order} format={format} />
       {row.cashCollection && <div><dt>Tiền mặt</dt><dd>Thu {format.money(row.cashCollection.amountReceived)}, thối {format.money(row.cashCollection.changeReturned)} lúc {displayTime(row.cashCollection.confirmedAt)}</dd></div>}
     </dl>}
@@ -192,10 +214,9 @@ function PickupCard({ item, open, onToggle, busy, format, branchName, received, 
       <span className="order-sum">{item.tab === 'AWAITING_CASH' ? 'Cần thu' : 'Thành tiền'} <strong>{format.money(order.payableAmount)}</strong></span>
     </div>
     {item.tab === 'AWAITING_CASH' && <div className="order-actions">
-      <label className="cash-input">Khách đưa<input inputMode="numeric" value={amount} onChange={event => setReceived(current => ({ ...current, [order.id]: event.target.value.replace(/[^0-9]/g, '') }))} /></label>
-      <span className="muted">Tiền thối: {change == null ? '—' : format.money(change)}</span>
-      <button type="button" className="button primary" disabled={busy} onClick={() => onConfirmCash(item)}>{busy ? 'Đang ghi nhận…' : 'Xác nhận đã thu'}</button>
+      <button type="button" className="button primary" disabled={busy} onClick={() => onConfirmCash(item)}>{busy ? 'Đang ghi nhận…' : `Xác nhận đã thu ${format.money(order.payableAmount)}`}</button>
     </div>}
+    {item.tab === 'PREPARING' && <div className="order-actions"><span className="muted">{cash ? 'Đã thu tiền mặt' : 'Đã thanh toán VNPay'}</span><button type="button" className="button primary" disabled={busy} onClick={() => onPrepare(item)}>{busy ? 'Đang ghi nhận…' : 'Đã chuẩn bị xong'}</button></div>}
     {item.tab === 'TO_HAND_OVER' && <div className="order-actions"><button type="button" className="button primary" disabled={busy} onClick={() => onHandOver(item)}>{busy ? 'Đang ghi nhận…' : 'Giao cho khách'}</button></div>}
   </article>;
 }
@@ -228,5 +249,6 @@ function ShipmentCard({ item, open, onToggle, busy, format, branchName, detail, 
       {row.payableAmount && <span className="order-sum">Thành tiền <strong>{format.money(row.payableAmount)}</strong></span>}
     </div>
     {next && <div className="order-actions"><button type="button" className="button primary" disabled={busy} onClick={() => onAdvance(item)}>{busy ? 'Đang lưu…' : nextShipmentAction[row.status]}</button></div>}
+    {courierWaiting[row.status] && <p className="order-hint">{courierWaiting[row.status]}</p>}
   </article>;
 }

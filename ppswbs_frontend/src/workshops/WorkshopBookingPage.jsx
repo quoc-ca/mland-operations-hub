@@ -12,7 +12,9 @@ import { CartBenefitPicker } from './CartBenefitPicker';
 import { contactForRequest, EMPTY_CONTACT, splitPhone, validateBookingContact } from './contactValidation';
 import { CartQuotePanel } from './CartQuotePanel';
 import { GroupDetailCard } from './GroupDetailCard';
+import { useGroupCardIdentity } from './useGroupCardIdentity';
 import { refreshBookingGroup } from './refreshGroup';
+import { GroupAutoRefresh } from './GroupAutoRefresh';
 import { invalidatePendingPayments } from './pendingPayments';
 import { parseSelection, selectionProblem } from './bookingSelection';
 import { cartLineCount, clearCart, subscribeToCart } from './cartStorage';
@@ -69,6 +71,7 @@ export function WorkshopBookingPage({ packageId }) {
   const [pkgError, setPkgError] = useState(null);
 
   const [contact, setContact] = useState(EMPTY_CONTACT);
+  const cardIdentity = useGroupCardIdentity({ mode: bookingMode, memberAuthorization, contact });
   const [benefitSelection, setBenefitSelection] = useState({ choice: 'NONE', voucherCode: '', requestedPoints: '0' });
 
   // The choice made on the package detail page; this screen never edits it.
@@ -474,7 +477,8 @@ export function WorkshopBookingPage({ packageId }) {
     return (
       <main className="public-page figma-public-page">
         <GroupResultHeading group={group} />
-        <GroupDetailCard group={group} authorization={null} proof={contact} allowRecipientChange={false} onRefresh={refreshGroup} />
+        <GroupDetailCard group={group} authorization={cardIdentity.authorization} proof={cardIdentity.proof} allowRecipientChange={false} onRefresh={refreshGroup} allowManualRefresh={false} />
+        <GroupAutoRefresh onRefresh={refreshGroup} groupStatus={group.groupStatus} />
       </main>
     );
   }

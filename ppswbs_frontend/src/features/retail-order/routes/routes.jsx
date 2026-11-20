@@ -7,6 +7,7 @@ import ManagerPaymentReconciliationPage from '../ui/manager/ManagerPaymentReconc
 import StaffShipmentPage from '../ui/manager/StaffShipmentPage';
 import StaffPickupPage from '../ui/manager/StaffPickupPage';
 import StaffRetailOrdersPage from '../ui/manager/StaffRetailOrdersPage';
+import { CarrierOrdersPage, CarrierStatsPage } from '../ui/carrier/CarrierPages';
 import '../ui/manager/payment-reconciliation.css';
 import '../ui/readyringsales.css';
 import '../ui/checkout-layout.css';
@@ -33,4 +34,7 @@ export const readyRingSalesRoutes = [
   // Former addresses open the matching tab of the Staff retail order page (FR-08-051).
   { path: '/staff/retail-shipments', element: <StaffShipmentPage /> },
   { path: '/staff/retail-pickups', element: <StaffPickupPage /> },
+  // Simulated GHTK partner portal, role CARRIER (Session 2026-11-20).
+  { path: '/carrier/orders', element: <CarrierOrdersPage /> },
+  { path: '/carrier/stats', element: <CarrierStatsPage /> },
 ];

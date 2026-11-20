@@ -14,6 +14,10 @@ document. Supporting evidence is retained locally in [research.md](research.md).
 
 ## Staff booking-assignment access (owner decision, 2026-11-06)
 
+### Route masking synchronization (2026-11-20)
+
+`/ota-connectivity/*` is internal. `ADMIN`, `MEMBER`, and `CARRIER` direct navigation is replaced to `/404` before any OTA page request because Admin has no FE-003.4 route. `STAFF` may open only the approved check-in/add-on browser surfaces; `MANAGER` may open channel, reconciliation, and finance surfaces. Until the route registry distinguishes those Staff and Manager pages, the feature must not treat a broad `STAFF`/`MANAGER` route wrapper as final authorization. This does not change the existing API contract: discovery lookup non-disclosure remains its approved `404`, while the specified add-on/financial command denials remain `403`.
+
 This amendment narrows decision D18. Wherever this document lets an in-scope
 Staff member look up an OTA booking at the shop, create or accept a paid-option
 quote, or create its direct bill, the Staff member must also be actively

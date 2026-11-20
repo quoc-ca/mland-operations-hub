@@ -28,15 +28,15 @@ As a Member, I want to pay the full frozen retail amount through VNPay so that m
 
 **Pay for Retail Order**
 
-1. The owning Member opens the accepted order's payment action.
+1. The owning Member is sent to VNPay right after Đặt hàng, or presses Thanh toán on an order in Chờ thanh toán.
 2. The system checks current human access and retrieves its frozen full payable amount/currency/reference, original hold/deadlines and eligible attempt.
-3. The system opens the original VNPay link and frozen full-amount attempt. The link expires 10 minutes after checkout acceptance and the hold after 15 minutes; opening payment creates no second attempt or new deadlines.
-4. The Member completes the external payment and may return to the order result page.
+3. The system opens the VNPay link stored for the checkout and its frozen full-amount attempt. The link lasts until the hold expires 15 minutes after checkout acceptance; pressing Thanh toán again reopens the same link and creates no second VNPay transaction or new deadlines.
+4. The Member completes the external payment and returns to Purchase Order History.
 5. VNPay sends successful signed IPN evidence, the normal confirmation channel.
 6. The system verifies signature, exact payment/order reference, frozen full amount/currency, successful status and current original attempt/hold/benefit bindings.
 7. The system accepts payment only if verification and payment acceptance finish strictly before original hold expiry with an eligible active hold, ensuring that sale settlement and expiry release cannot both apply.
 8. The system records one paid sale, consumes its held variant quantities and settles applicable bound benefits once, with safe evidence and preserved original terms.
-9. The system shows the owning Member the recorded verified result, removes only purchased unchanged cart lines while preserving subsequent edits/additions, permits UC51 method choice and uses the existing optional-email workflow at approved milestones.
+9. The system shows the owning Member the recorded verified result in Purchase Order History at the tab of that order (Chờ lấy hàng for GHTK, Chờ nhận tại cửa hàng for pickup, Tất cả when the checkout mixes both), removes only purchased unchanged cart lines while preserving subsequent edits/additions, lets Staff start preparation and uses the existing optional-email workflow at approved milestones.
 
 #### Alternative Flows
 
@@ -47,6 +47,10 @@ Deny initiation/private result access without exposing another order or creating
 **Step 3 — Initiation failure or uncertain provider response**
 
 Display the recorded pending/error state and retain the original eligible hold. Timeout or an unknown result creates no second attempt or new deadlines; the Member may reopen the existing link while valid.
+
+**Step 4 — Member leaves VNPay without paying**
+
+Purchase Order History opens Chờ thanh toán with a countdown to the hold deadline. The Member may press Thanh toán to reopen the same link, or Hủy đơn, which releases the held quantities, voucher and points and returns the rings to the cart. A payment that still arrives after the cancellation goes to the Manager reconciliation queue.
 
 **Step 4 — Browser return or Member claim reports success**
 
@@ -66,7 +70,7 @@ Preserve an already accepted sale and record a duplicate/no-change processing re
 
 **Step 7 — First payment acceptance exactly at/after expiry, or hold already released**
 
-Treat as a minimized payment exception for manual shop follow-up even if VNPay's payment timestamp or Mland's receipt was earlier. Never revive the hold, automatically mark an unpaid order paid, fulfil, settle a replacement order or add cancellation/refund/reconciliation.
+Treat as a minimized payment exception for manual shop follow-up even if VNPay's payment timestamp or Mland's receipt was earlier. Place it in the Manager reconciliation queue. Never revive the hold, automatically mark an unpaid order paid, fulfil, settle a replacement order or refund automatically.
 
 **Step 7 — No timely accepted success at original minute 15**
 
@@ -94,7 +98,7 @@ BR-46-01, BR-46-02, BR-46-03, BR-46-04, BR-46-05, BR-46-06, BR-46-07, BR-46-08, 
 | --- | --- |
 | BR-46-01 | Only a matching valid signed successful VNPay IPN or eligible signed QueryDR confirms payment; browser returns and human assertions never do. |
 | BR-46-02 | Verify the frozen full positive whole-VND amount, currency, reference and original variant/benefit bindings; never reprice or reassign accepted terms. |
-| BR-46-03 | Use the single checkout-created attempt and original 10-minute link/15-minute hold; eligible QueryDR recovery runs at minutes 10, 12 and 14. |
+| BR-46-03 | Use the single stored VNPay link of the checkout, valid until the original 15-minute hold expires; reopening it creates no second transaction. Eligible QueryDR recovery checks an opened but unconfirmed payment before the hold is released. |
 | BR-46-04 | Complete verification and payment acceptance strictly before original hold expiry; first acceptance at/after expiry is an exception regardless of earlier receipt/provider timestamps. |
 | BR-46-05 | Payment consumes held quantities/benefits once; duplicates, reordering, recovery and expiry races cannot repeat effects or both settle and release the same resources. |
 | BR-46-06 | Release unpaid holds at expiry; late or retired/replaced evidence cannot revive holds, settle replacements or automatically fulfil. |

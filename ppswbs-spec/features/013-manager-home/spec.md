@@ -247,3 +247,7 @@ A Manager has a short row of shortcuts to the screens used most.
 - The Staff home keeps its current fixed cards; any change to it is a separate decision.
 - No new notification channel, export, or saved preference is part of V1. A queue card shows its count only; marking items that have waited too long is out of scope for V1 (see Clarifications).
 - Users have the same connectivity and browser baseline as the rest of the staff area.
+
+# Route masking synchronization (2026-11-20)
+
+`/manager/home` has the exact browser-route allowlist `MANAGER`. Direct navigation by `MEMBER`, `STAFF`, `ADMIN`, or `CARRIER` is replaced to `/404` before any Manager-home card request. This does not infer that an authorized Manager has every linked operational action; every destination and API remains feature-authorized.

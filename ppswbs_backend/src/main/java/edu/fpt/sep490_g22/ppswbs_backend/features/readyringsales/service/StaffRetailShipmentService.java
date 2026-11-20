@@ -79,6 +79,11 @@ public class StaffRetailShipmentService {
         if (expectedVersion == null) {
             throw new RetailConflictException("The current shipment version is required");
         }
+        // Since FE-01 added the GHTK partner role (V190), Staff only packs; the courier pickup and the delivery are
+        // recorded by the partner on /api/v1/carrier/shipments.
+        if (nextStatus != RetailShipmentStatus.READY_FOR_CARRIER) {
+            throw new RetailConflictException("Bước này do đối tác GHTK ghi nhận trên cổng đối tác.");
+        }
         RetailShipment shipment = shipments.lockById(shipmentId)
             .orElseThrow(() -> new RetailNotFoundException("Retail shipment does not exist"));
         if (!actor.activeLocationIds().contains(shipment.getLocationId())) {

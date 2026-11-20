@@ -168,6 +168,8 @@ class TicketSettlementCancellationServiceTest {
                             && c.getPointsReturned() == 500L
                             && c.isVoucherRestored()
             ));
+            verify(booking).recordBookingServiceOutcome(eq(TICKET_1), eq(BookingServiceOutcome.CANCELLED),
+                    anyString(), anyString(), anyString());
         }
 
         @Test

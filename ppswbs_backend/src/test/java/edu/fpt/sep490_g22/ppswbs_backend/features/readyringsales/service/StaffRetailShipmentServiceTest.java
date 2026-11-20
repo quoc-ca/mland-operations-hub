@@ -118,15 +118,15 @@ class StaffRetailShipmentServiceTest {
         var service = new StaffRetailShipmentService(repository);
 
         StaffRetailShipmentTransitionResult result = service.transition(activeStaff(7L), SHIPMENT_ID,
-            RetailShipmentStatus.HANDED_TO_CARRIER, 0, "packed");
+            RetailShipmentStatus.READY_FOR_CARRIER, 0, "packed");
 
-        assertThat(result.status()).isEqualTo(RetailShipmentStatus.HANDED_TO_CARRIER);
-        assertThat(shipment.getStatus()).isEqualTo(RetailShipmentStatus.HANDED_TO_CARRIER);
+        assertThat(result.status()).isEqualTo(RetailShipmentStatus.READY_FOR_CARRIER);
+        assertThat(shipment.getStatus()).isEqualTo(RetailShipmentStatus.READY_FOR_CARRIER);
         assertThat(shipment.getHistory()).hasSize(1);
         assertThat(shipment.getHistory().get(0).getActorId()).isEqualTo(7L);
         assertThat(shipment.getHistory().get(0).getActorLabel()).isEqualTo("STAFF#7");
         assertThat(shipment.getHistory().get(0).getNote()).isEqualTo("packed");
-        assertThat(shipment.getBranchOrder().getFulfilmentState()).isEqualTo("HANDED_TO_CARRIER");
+        assertThat(shipment.getBranchOrder().getFulfilmentState()).isEqualTo("READY_FOR_CARRIER");
     }
 
     @Test
@@ -136,7 +136,7 @@ class StaffRetailShipmentServiceTest {
         when(repository.lockById(SHIPMENT_ID)).thenReturn(Optional.of(shipment));
         var service = new StaffRetailShipmentService(repository);
 
-        service.transition(activeManager(3L), SHIPMENT_ID, RetailShipmentStatus.HANDED_TO_CARRIER, 0, null);
+        service.transition(activeManager(3L), SHIPMENT_ID, RetailShipmentStatus.READY_FOR_CARRIER, 0, null);
         assertThat(shipment.getHistory().get(0).getActorLabel()).isEqualTo("MANAGER#3");
     }
 
@@ -167,7 +167,7 @@ class StaffRetailShipmentServiceTest {
         var service = new StaffRetailShipmentService(repository);
 
         assertThatThrownBy(() -> service.transition(activeStaff(7L), SHIPMENT_ID,
-            RetailShipmentStatus.HANDED_TO_CARRIER, 5, "stale"))
+            RetailShipmentStatus.READY_FOR_CARRIER, 5, "stale"))
             .isInstanceOf(RetailConflictException.class);
         assertThat(shipment.getStatus()).isEqualTo(RetailShipmentStatus.PREPARING);
     }
@@ -181,12 +181,12 @@ class StaffRetailShipmentServiceTest {
 
         var otherLocationStaff = new CurrentAccountActor(8L, ActorRole.STAFF, ActorStatus.ACTIVE, true, List.of(99L));
         assertThatThrownBy(() -> service.transition(otherLocationStaff, SHIPMENT_ID,
-            RetailShipmentStatus.HANDED_TO_CARRIER, 0, null))
+            RetailShipmentStatus.READY_FOR_CARRIER, 0, null))
             .isInstanceOf(RetailAccessDeniedException.class);
 
         assertThatThrownBy(() -> service.transition(
             new CurrentAccountActor(9L, ActorRole.MEMBER, ActorStatus.ACTIVE, true, LOCATIONS),
-            SHIPMENT_ID, RetailShipmentStatus.HANDED_TO_CARRIER, 0, null))
+            SHIPMENT_ID, RetailShipmentStatus.READY_FOR_CARRIER, 0, null))
             .isInstanceOf(RetailAccessDeniedException.class);
         assertThat(shipment.getStatus()).isEqualTo(RetailShipmentStatus.PREPARING);
     }
@@ -201,7 +201,7 @@ class StaffRetailShipmentServiceTest {
         assertThatThrownBy(() -> service.transition(activeStaff(7L), SHIPMENT_ID, null, 0, null))
             .isInstanceOf(RetailConflictException.class);
         assertThatThrownBy(() -> service.transition(activeStaff(7L), SHIPMENT_ID,
-            RetailShipmentStatus.HANDED_TO_CARRIER, null, null))
+            RetailShipmentStatus.READY_FOR_CARRIER, null, null))
             .isInstanceOf(RetailConflictException.class);
     }
 
@@ -212,12 +212,12 @@ class StaffRetailShipmentServiceTest {
         var service = new StaffRetailShipmentService(repository);
 
         assertThatThrownBy(() -> service.transition(activeStaff(7L), "missing",
-            RetailShipmentStatus.HANDED_TO_CARRIER, 0, null))
+            RetailShipmentStatus.READY_FOR_CARRIER, 0, null))
             .isInstanceOf(RetailNotFoundException.class);
     }
 
     @Test
-    void fullLifecycleReachesDelivered() {
+    void staffOnlyPacksTheCourierStepsBelongToTheGhtkPartner() {
         var repository = mock(RetailShipmentRepository.class);
         var shipment = newShipment(RetailShipmentStatus.PREPARING);
         when(repository.lockById(SHIPMENT_ID)).thenReturn(Optional.of(shipment));
@@ -228,18 +228,16 @@ class StaffRetailShipmentServiceTest {
             return null;
         }).when(repository).flush();
 
-        service.transition(actor, SHIPMENT_ID, RetailShipmentStatus.HANDED_TO_CARRIER, 0, "handed");
-        service.transition(actor, SHIPMENT_ID, RetailShipmentStatus.IN_TRANSIT, 1, "transit");
-        service.transition(actor, SHIPMENT_ID, RetailShipmentStatus.DELIVERED, 2, "delivered");
+        service.transition(actor, SHIPMENT_ID, RetailShipmentStatus.READY_FOR_CARRIER, 0, "packed");
+        assertThat(shipment.getStatus()).isEqualTo(RetailShipmentStatus.READY_FOR_CARRIER);
 
-        assertThat(shipment.getStatus()).isEqualTo(RetailShipmentStatus.DELIVERED);
-        assertThat(shipment.getBranchOrder().getFulfilmentState()).isEqualTo("DELIVERED");
-        assertThat(shipment.getHistory()).hasSize(3);
-        assertThat(shipment.getHistory().get(2).getStatus()).isEqualTo(RetailShipmentStatus.DELIVERED);
-
-        // terminal: no further move allowed
-        assertThatThrownBy(() -> service.transition(actor, SHIPMENT_ID,
-            RetailShipmentStatus.HANDED_TO_CARRIER, 3, "after"))
-            .isInstanceOf(RetailConflictException.class);
+        for (RetailShipmentStatus courierStep : List.of(RetailShipmentStatus.HANDED_TO_CARRIER,
+                RetailShipmentStatus.IN_TRANSIT, RetailShipmentStatus.DELIVERED)) {
+            assertThatThrownBy(() -> service.transition(actor, SHIPMENT_ID, courierStep, 1, "courier"))
+                .isInstanceOf(RetailConflictException.class)
+                .hasMessageContaining("đối tác GHTK");
+        }
+        assertThat(shipment.getStatus()).isEqualTo(RetailShipmentStatus.READY_FOR_CARRIER);
+        assertThat(shipment.getHistory()).hasSize(1);
     }
 }

@@ -152,3 +152,7 @@ Staff may close conversations within active Workshop Location scope. Manager
 may close any authorized conversation. Both actions remain protected by
 optimistic locking and audit evidence.
 
+# Route masking synchronization (2026-11-20)
+
+`/operations/consultations` has browser allowlist `STAFF` and `MANAGER`; direct navigation by `MEMBER`, `ADMIN`, or `CARRIER` is replaced to `/404` before inbox data is requested. The `STAFF` location-scope and `MANAGER` global authority checks remain server-side; this route rule does not authorize access to an individual consultation.
+

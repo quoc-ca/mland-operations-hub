@@ -112,11 +112,11 @@ describe('F04-AI-CHAT Screen (/ai-support)', () => {
 });
 
 describe('F04-DESIGN-WORKSPACE Screen (/design-requests/new)', () => {
-  it('requires session when signed out and renders inline empty state with login CTA', async () => {
+  it('allows Guest to access workspace without signing in and shows guest rate limit notice', async () => {
     mockFetch({});
     open('/design-requests/new', { session: fakeSession('signed-out') });
-    expect(await screen.findByText('Vui lòng đăng nhập để tạo yêu cầu thiết kế tùy chỉnh')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /đăng nhập/i })).toBeInTheDocument();
+    expect(await screen.findByText(/Không gian Thiết kế Độc lập/)).toBeInTheDocument();
+    expect(screen.getByText(/Bạn đang gửi yêu cầu với tư cách Khách — tối đa 5 yêu cầu\/ngày/)).toBeInTheDocument();
   });
 
   it('renders independent boundary notice and validates empty input', async () => {
@@ -233,31 +233,23 @@ describe('F04-DESIGN-WORKSPACE Screen (/design-requests/new)', () => {
 });
 
 describe('F04-ANALYSIS-STATUS & F04-RESULT Screen (/design-requests/:id)', () => {
-  it('displays safe candidate features, confidence, explanation without raw payload', async () => {
+  it('displays human review status, description, and reviewer feedback without AI', async () => {
     mockFetch({
       'GET /api/v1/design-requests/req-123': json(200, {
         id: 'req-123',
         requestReference: 'DR-REF-123',
         requestVersion: 1,
         requestStatus: 'ACTIVE',
-        analysisStatus: 'SUCCEEDED',
-        reviewStatus: 'NEED_REVIEW',
-        nextAction: 'AWAITING_STAFF_REVIEW',
+        reviewStatus: 'ACCEPTED',
         description: 'Nhẫn bạc đính đá topaz',
-        candidateFeatures: {
-          style: 'Solitaire Classic',
-          metal: '925 Sterling Silver',
-          gemstone: 'Blue Topaz',
-          estimatedValue: 1800000,
-        },
-        imageQuality: {
-          lighting: 'Good',
-          sharpness: 'High',
-        },
-        confidence: {
-          styleConfidence: 0.92,
-        },
-        safeExplanation: 'Thiết kế nhẫn phong cách Solitaire đơn giản với đá chủ topaz.',
+        decisionExplanation: 'Thiết kế nhẫn hoa văn rất đẹp, độ dày 1.8mm hoàn toàn phù hợp để gia công.',
+        images: [
+          {
+            imageReference: 'IMG-001',
+            originalFilename: 'topaz-ring.jpg',
+            fileSizeBytes: 204800,
+          },
+        ],
       }),
     });
 
@@ -265,31 +257,31 @@ describe('F04-ANALYSIS-STATUS & F04-RESULT Screen (/design-requests/:id)', () =>
 
     expect(await screen.findByText('Chi tiết Yêu cầu Thiết kế')).toBeInTheDocument();
     expect(screen.getByText('Mã tham chiếu: DR-REF-123')).toBeInTheDocument();
-    expect(screen.getByText('Trạng thái phân tích AI: SUCCEEDED')).toBeInTheDocument();
-    expect(screen.getByText('Solitaire Classic')).toBeInTheDocument();
-    expect(screen.getByText('925 Sterling Silver')).toBeInTheDocument();
-    expect(screen.getByText(/1\.800\.000/)).toBeInTheDocument();
-    expect(screen.getByText('Thiết kế nhẫn phong cách Solitaire đơn giản với đá chủ topaz.')).toBeInTheDocument();
+    expect(screen.getByText('Đã chấp nhận thiết kế')).toBeInTheDocument();
+    expect(screen.getByText('Nhẫn bạc đính đá topaz')).toBeInTheDocument();
+    expect(screen.getByText('Thiết kế nhẫn hoa văn rất đẹp, độ dày 1.8mm hoàn toàn phù hợp để gia công.')).toBeInTheDocument();
+    expect(screen.getByText('topaz-ring.jpg')).toBeInTheDocument();
   });
 
-  it('allows Guest to view request details and review status without being blocked', async () => {
+  it('allows Guest to view request details and review status with tracking token', async () => {
     mockFetch({
       'GET /api/v1/design-requests/guest-req-1': json(200, {
         id: 'guest-req-1',
         requestReference: 'DR-GUEST-01',
         requestVersion: 1,
         requestStatus: 'ACTIVE',
-        analysisStatus: 'SUCCEEDED',
         reviewStatus: 'NEED_REVIEW',
         description: 'Nhẫn bạc đính đá topaz tự nhiên.',
+        guestSessionId: 'guest-session-123',
       }),
     });
 
-    open('/design-requests/guest-req-1', { session: fakeSession('signed-out') });
+    open('/design-requests/guest-req-1?token=token-guest-xyz', { session: fakeSession('signed-out') });
 
     expect(await screen.findByText('Chi tiết Yêu cầu Thiết kế')).toBeInTheDocument();
     expect(screen.getByText('Nhẫn bạc đính đá topaz tự nhiên.')).toBeInTheDocument();
-    expect(screen.getByText(/Đang đợi phản hồi của nhân viên/)).toBeInTheDocument();
+    expect(screen.getByText('Đang chờ nhân viên thẩm duyệt')).toBeInTheDocument();
+    expect(screen.getByText(/Bạn đang xem yêu cầu với tư cách Khách thông qua mã bảo mật theo dõi/)).toBeInTheDocument();
   });
 });
 

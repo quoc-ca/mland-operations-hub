@@ -22,6 +22,7 @@ public class RoleCatalogueController {
             new RoleEntryResponse(AccountRole.MEMBER, "Khách hàng thành viên / Member"),
             new RoleEntryResponse(AccountRole.STAFF, "Nhân viên cơ sở / Staff"),
             new RoleEntryResponse(AccountRole.MANAGER, "Quản lý cơ sở / Manager"),
+            new RoleEntryResponse(AccountRole.CARRIER, "Đối tác vận chuyển (GHTK)"),
             new RoleEntryResponse(AccountRole.ADMIN, "Quản trị viên / Admin")
         );
 

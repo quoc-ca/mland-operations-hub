@@ -347,6 +347,82 @@ configuration, accounting, or executive reporting in FE-10.
   ended, ran out or now gives a different discount since the preview is refused
   at order time, and the Member reviews the new total.
 
+### Session 2026-11-18
+
+- Q: What turns on real VNPay payment for Ready Rings on a server? → A:
+  `VNPAY_ENABLED=true`, as for workshop payments (Thinh, 2026-11-18). The
+  `retail-vnpay` Spring profile is no longer needed: the deployed server ran
+  the `default` profile and every Ready Rings payment was refused while
+  workshop payments worked. Any non-local run now uses the VNPay payment
+  adapter, which answers "unavailable" while VNPay is disabled; the
+  unpaid-expiry job runs only when VNPay is enabled. The `local` profile keeps
+  the demo payment adapter.
+- Q: How are Member orders grouped, and what happens after payment? → A:
+  (Thinh, 2026-11-18, supervisor feedback) Newest first, in tabs Tất cả, Chờ
+  thanh toán, Chờ lấy hàng, Chờ giao hàng, Chờ nhận tại cửa hàng, Đã giao and
+  Đã hủy; there is no return tab. After paying (or placing a cash or zero-total
+  order) the list opens the tab of that order: Chờ lấy hàng for GHTK, Chờ nhận
+  tại cửa hàng for pickup, Tất cả when one checkout mixes both. Leaving VNPay
+  without paying opens Chờ thanh toán.
+- Q: What are the order stages? → A: GHTK: Staff "Đang chuẩn bị hàng" (Member
+  Chờ lấy hàng) → Staff "Đã chuẩn bị xong" → "Chờ ĐVVC lấy hàng" (shipment
+  `READY_FOR_CARRIER`, Member "Chờ GHTK lấy hàng") → courier collected →
+  "Đã bàn giao cho ĐVVC" (Member Chờ giao hàng, "Đang giao hàng") → delivered →
+  Staff "Hoàn thành", Member "Đã giao". `IN_TRANSIT` stays only for older
+  shipments. Until the GHTK partner account exists, Staff records the two
+  courier steps as a simulation. Pickup: "Đang chuẩn bị hàng" → "Đã chuẩn bị
+  xong" → "Chờ khách nhận" (Member "Sẵn sàng nhận hàng") → handed over →
+  "Hoàn thành".
+- Q: How long is an unpaid VNPay order kept in Chờ thanh toán? → A: The
+  existing 15-minute hold, not 24 hours. The VNPay link now lives for the whole
+  hold and is stored; "Thanh toán" reopens it (one VNPay transaction per
+  checkout) and a countdown shows the time left. "Hủy đơn" also works after the
+  Member opened VNPay without paying; it returns the products to the cart and
+  releases the voucher and points. A payment that still arrives afterwards goes
+  to the Manager reconciliation queue.
+
+### Session 2026-11-20
+
+- Q: Who records the courier's steps? → A: A simulated GHTK partner portal
+  (Thinh, 2026-11-20, supervisor request). An active account with role
+  `CARRIER` ("Đối tác vận chuyển (GHTK)", added by FE-01) opens `/carrier`
+  (orders) and `/carrier/stats` (statistics). It sees the GHTK shipments of
+  every branch with GHTK's own words: Đã tiếp nhận (`PREPARING`), Đang lấy
+  hàng (`READY_FOR_CARRIER`), Đang giao hàng (`HANDED_TO_CARRIER`), Đã giao
+  hàng (`DELIVERED`). It records only "Đã lấy hàng" and "Giao thành công"
+  through `/api/v1/carrier/shipments`; packing stays with Staff. It sees the
+  pickup branch, recipient name, phone and address, item count and shipping
+  fee, never product prices, vouchers, points or Member account data. The
+  statistics page shows, for a day, week, month or year in Vietnam time,
+  shipments received, picked up and delivered, the average time from pickup
+  to delivery, shipping fees of delivered shipments, a trend chart and a
+  per-branch table. No failed delivery or return. Until FE-01 adds the role,
+  Staff keeps recording the two courier steps as a simulation.
+- Q: FE-01 now provides `CARRIER` (V190, Sơn). What changes? → A: (Thinh,
+  2026-11-20) The FE-01 partner home stays at `/carrier` and links to the
+  orders page, now `/carrier/orders`; statistics stay at `/carrier/stats`.
+  The Staff simulation is removed: Staff only records "Đã chuẩn bị xong"
+  (`READY_FOR_CARRIER`) and the server refuses any courier step from Staff.
+- Q: How does Staff finish a cash-at-the-counter order? → A: (Thinh,
+  2026-11-20) In "Chờ thu tiền mặt" Staff presses "Xác nhận đã thu <amount>"
+  once the customer pays the exact amount: payment and handover are recorded
+  in one transaction (`/counter-cash-handovers`) and the order goes to
+  "Hoàn thành"; if it fails nothing is recorded and Staff presses again. There is no cash-received or
+  change entry and no "hand over now" option, so "Chờ khách nhận" holds only
+  paid VNPay pickup orders. Staff tabs, in order: Đơn hàng cần chuẩn bị, Chờ
+  ĐVVC lấy hàng, Đã bàn giao ĐVVC, Chờ thu tiền mặt, Chờ khách nhận, Hoàn
+  thành; the page (and the GHTK partner's orders page) opens at the first
+  tab, left to right, that has orders. Success and information messages
+  appear at the top for about 5 seconds and disappear; errors stay. Moving
+  an order or shipment to its next step needs no confirmation dialog on the
+  GHTK partner page.
+- Q: Does the Member see when the order was received? → A: Yes (Thinh,
+  2026-11-20). Each branch order records when it was received, at the counter
+  handover or the GHTK delivery; Đơn mua shows it with the paid time, and the
+  Staff history shows "Giao cho khách lúc".
+- Q: Where does a cash order go after "Đặt hàng"? → A: Straight to Đơn mua
+  (Thinh, 2026-11-20), with a notice to pay at the counter before the deadline.
+
 ## User Scenarios & Testing
 
 ### User Story 1 - Prepare a retail purchase (Priority: P1)
@@ -1107,3 +1183,7 @@ not be inferred from a browser redirect.
 - Cart and recipient validation limits in this specification follow the current
   Report 3 rules. Retention behavior and typed error codes must remain aligned
   with the final contract before implementation.
+
+# Route masking synchronization (2026-11-20)
+
+The browser route allowlists are: `/member/cart`, `/member/checkout`, and `/member/orders` = `MEMBER`; `/staff/retail-orders`, `/staff/retail-shipments`, and `/staff/retail-pickups` = `STAFF`; `/manager/retail-payment-reconciliations` = `MANAGER`; `/carrier` and `/carrier/stats` = `CARRIER`. A signed-in role outside a route's allowlist is replaced to `/404` before that screen requests data. `CARRIER` has no Member commerce/history route; `ADMIN` has no implicit Staff/Manager/Carrier route. This does not alter FE-008's server-side order ownership, branch, payment, or fulfilment authorization.

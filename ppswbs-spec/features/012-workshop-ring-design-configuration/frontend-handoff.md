@@ -1,7 +1,7 @@
 # Feature-012 Frontend Handoff
 
 Date created: 2026-11-09  
-Date updated: 2026-11-14  
+Date updated: 2026-11-19
 Author: Ngô Tiến Đạt  
 Last updated by: Ngô Tiến Đạt  
 
@@ -334,3 +334,22 @@ compatibility layer when:
 - Backend error codes or headers differ from the Feature-012 contract.
 - The Figma revision is changed in a way that affects route, state or permission
   behavior and has not been approved.
+
+## 11. Required change implementation
+
+The next frontend increment must implement the following against the updated
+contract:
+
+- Enforce and display the aggregate gemstone limit of 10.
+- Enforce separate quotas of 2 `TEXT`, 2 `SYMBOL` and 2 custom images.
+- Add persisted contrast and sharpness controls, each integer 0..100 with
+  default 50.
+- Derive all engraving previews from complete item/image collections.
+- Restore all engraving text and image previews from the saved response.
+- Never use transient `previewDataUrl` as the only restoration source.
+- Normalize all Feature-012 messages and labels to UTF-8 and the active locale.
+
+The implementation agent must add stable test IDs for counters, disabled add
+buttons, quota messages, both image sliders, every text preview and every image
+preview. Stop and report a contract blocker if the backend does not return a
+safe image reference that permits saved-preview restoration.

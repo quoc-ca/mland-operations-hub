@@ -209,6 +209,7 @@ no business chat mutation authority.
 | `POST /api/v1/consultations/{conversationReference}/assign` | Manager | Assign an unscoped conversation to an active Workshop Location. | Draft |
 | `POST /api/v1/consultations/{conversationReference}/read` | Authorized participant | Update unread projection. | Draft |
 | `POST /api/v1/consultations/{conversationReference}/close` / `reopen` | Authorized participant | Change `OPEN`/`CLOSED` state. | Draft |
+| `DELETE /api/v1/consultations/{conversationReference}` | Member | Soft-hide closed conversation from Member list; operational history retained. | Draft |
 
 All write commands use `Idempotency-Key`; state commands also use
 `If-Match-Version`. Message length is 2,000 Unicode code points and Member sends
@@ -338,6 +339,44 @@ fulfilment facades. Each facade must prove source ownership, target mapping and
 the required state (`CHECKED_IN`, `PICKED_UP` or `DELIVERED`). Feature-011
 receives opaque references and sanitized evidence, not foreign repositories or
 full transaction records.
+
+## Feature-004 — Design Request and Human Review (supersedes AI contract)
+
+Owner: `designrequesthumanreview` (logical); the legacy directory/module name is
+retained temporarily for migration history.
+
+| Method | Endpoint | Actor | Contract boundary |
+| --- | --- | --- | --- |
+| POST | `/api/v1/design-requests` | Guest/Member | Create an independent request with description and up to five images. |
+| GET | `/api/v1/design-requests/{id}` | Guest token/Member owner | Safe status, quality and decision-explanation projection. |
+| GET | `/api/v1/design-requests` | Member | Own request history only. |
+| GET | `/api/v1/design-review-requests` | Staff/Manager | Pending review queue. |
+| GET | `/api/v1/design-review-requests/{id}` | Staff/Manager | Safe review detail. |
+| POST | `/api/v1/design-review-requests/{id}/decisions` | Staff/Manager | `CLARIFICATION_REQUIRED`, `ACCEPTED` or `REJECTED` with mandatory explanation. |
+
+All writes use `Idempotency-Key`; review decisions and revisions use
+`If-Match-Version`. The custom-order intake contract is defined in
+`contracts/custom-design-order-intake.openapi.yaml`. Feature-004 receives
+immutable Feature-012 snapshots through a facade, then hands accepted requests
+to Custom Manufacturing for quote, payment and fulfilment. No direct repository
+access is permitted.
+
+### Feature-004 custom-order intake routes
+
+| Method | Endpoint | Actor | Contract boundary |
+| --- | --- | --- | --- |
+| POST | `/api/v1/custom-design-requests` | Member | Create request from description, images and/or Feature-012 snapshot. |
+| GET | `/api/v1/custom-design-requests/{requestId}` | Member owner | Read safe request, revision, decision and quote projection. |
+| POST | `/api/v1/custom-design-requests/{requestId}` | Member owner | Submit a revision after `CLARIFICATION_REQUIRED`. |
+| POST | `/api/v1/custom-design-requests/{requestId}/decisions` | Staff/Manager | Record clarification, acceptance or rejection with explanation. |
+| POST | `/api/v1/custom-design-requests/{requestId}/quote` | Authorized quote actor | Create a Manager-policy-bound full-payment quote handoff; no payment is confirmed by this call and no retail cart line is created. |
+| GET | `/api/v1/members/me/custom-design-requests` | Member owner | List the Member's own requests and quote summaries for the Requests view. |
+| GET | `/api/v1/members/me/custom-orders` | Member owner | List the Member's own custom orders for the Orders view, including quote/payment/production/fulfilment status. |
+| GET | `/api/v1/members/me/custom-orders/{customOrderId}` | Member owner | Read the safe custom-order detail and the current complete-payment quote. |
+| POST | `/api/v1/members/me/custom-orders/{customOrderId}/payment` | Member owner | Create one payment attempt for the complete active quote; no cart line, deposit or balance payment is created. |
+| POST | `/api/v1/members/me/custom-orders/{customOrderId}/request-new-quote` | Member owner | Request a new quote generation after expiry where business policy permits it; the previous quote remains immutable history. |
+
+The detailed draft is `features/004-ai-chatbox-analysis-and-suggestion/contracts/custom-design-order-intake.openapi.yaml`.
 
 ## Feature-012 — Workshop Ring Design Configuration
 

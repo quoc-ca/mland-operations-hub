@@ -12,6 +12,21 @@ public interface GroupPaymentAttemptRepository extends JpaRepository<GroupPaymen
 
     Optional<GroupPaymentAttempt> findByMerchantReference(String merchantReference);
 
+    /** FR-032 "One live attempt": a live attempt is `INITIATED` or `PENDING`. */
+    /**
+     * FR-032 "One live attempt" (T169): a locking read, so that after the group row lock a request sees the attempt a
+     * concurrent request committed (MySQL repeatable read would otherwise show the older snapshot).
+     */
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("select a from GroupPaymentAttempt a where a.group.id = :groupId "
+            + "and a.attemptStatus in :statuses order by a.createdAt desc")
+    List<GroupPaymentAttempt> lockByGroupIdAndStatuses(
+            @org.springframework.data.repository.query.Param("groupId") Long groupId,
+            @org.springframework.data.repository.query.Param("statuses")
+            java.util.Collection<edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.PaymentAttemptStatus> statuses);
+
+    boolean existsByGroupIdAndAttemptStatusIn(Long groupId, java.util.Collection<edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.entity.PaymentAttemptStatus> statuses);
+
     /** Attempts of groups that are still awaiting their single payment, for the bounded QueryDR checks. */
     @org.springframework.data.jpa.repository.Query("""
             select new edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.GroupPaymentRecoveryCandidate(

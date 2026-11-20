@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link, useLocation, useNavigate } from 'react-router';
 import { RequireSession } from '../../../../shared/auth/RequireSession';
 import { useFormat } from '../../../../shared/i18n/I18nProvider';
 import CartTabs from '../../../../shared/ui/CartTabs';
@@ -7,11 +7,22 @@ import { ErrorNotice, Loading, useCommand, useResource } from '../../../../share
 import { useRetailApi } from '../../application/useRetailApi';
 import { VoucherPicker } from '../checkout/VoucherPicker';
 import { ProductThumb } from '../ProductThumb';
+import { FlashToast } from '../FlashToast';
 import { bestVoucherCode as bestOf, savedProductVouchers, usePublicProductVouchers, useVoucherOptions, voucherCheckBase, withPublicVouchers } from '../checkout/voucherOptions';
 
 const MAX_QUANTITY = 99;
 const initialSelection = { choice: 'AUTO', voucherCode: '', requestedPoints: '0' };
 const validQuantity = value => Number.isInteger(value) && value >= 1 && value <= MAX_QUANTITY;
+/** Why a typed quantity is refused, or '' when it can be saved: a whole number from 1 to 99 and within branch stock. */
+export function quantityProblem(raw, availableQuantity) {
+  const text = String(raw ?? '').trim();
+  if (!text) return `Nhập số lượng từ 1 đến ${MAX_QUANTITY}.`;
+  if (!/^[0-9]+$/.test(text)) return 'Số lượng phải là số nguyên dương.';
+  const quantity = Number(text);
+  if (!validQuantity(quantity)) return `Số lượng phải từ 1 đến ${MAX_QUANTITY}.`;
+  if (availableQuantity != null && BigInt(quantity) > BigInt(availableQuantity)) return `Chi nhánh chỉ còn ${availableQuantity} sản phẩm này.`;
+  return '';
+}
 const lineTotal = line => (line.indicativePrice == null ? null : (BigInt(line.indicativePrice) * BigInt(line.quantity || 0)).toString());
 const isPositive = value => /^[1-9][0-9]*$/.test(String(value ?? ''));
 
@@ -44,6 +55,10 @@ function CartContent() {
   const savedVoucherResource = useResource(() => api.listSavedVouchers(), []);
   const command = useCommand();
   const [notice, setNotice] = useState('');
+  const [skipToastOpen, setSkipToastOpen] = useState(true);
+  // Per-line quantity problem shown under the quantity box; the reset counter puts the box back to the saved value.
+  const [quantityErrors, setQuantityErrors] = useState({});
+  const [quantityReset, setQuantityReset] = useState({});
   const [selection, setSelection] = useState(initialSelection);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [quote, setQuote] = useState(null);
@@ -63,13 +78,20 @@ function CartContent() {
     return [...byLocation.entries()];
   }, [lines]);
 
-  // Ticked lines: nothing is ticked when the cart opens, the Member ticks what to buy (Session 2026-11-16);
-  // ids that left the cart or stopped being sellable are dropped.
+  // Ticked lines: nothing is ticked when the cart opens, the Member ticks what to buy (Session 2026-11-16), except
+  // the rings just put back by "Mua lại", which arrive ticked so the Member sees what they were (Session 2026-11-20).
+  // Ids that left the cart or stopped being sellable are dropped.
+  const location = useLocation();
+  const preselect = useRef(Array.isArray(location.state?.selectLineIds) ? location.state.selectLineIds.map(String) : []);
+  const skippedByBuyAgain = Array.isArray(location.state?.skipped) ? location.state.skipped : [];
   const selectable = line => line.saleEligible && line.indicativePrice != null;
   useEffect(() => {
     if (!cart.data) return;
     setSelectedIds(current => {
-      if (current == null) return new Set();
+      if (current == null) {
+        const wanted = new Set(preselect.current);
+        return new Set(lines.filter(line => selectable(line) && wanted.has(String(line.id))).map(line => line.id));
+      }
       const present = new Set(lines.filter(selectable).map(line => line.id));
       return new Set([...current].filter(id => present.has(id)));
     });
@@ -180,12 +202,14 @@ function CartContent() {
   const total = quote?.payableAmount ?? subtotal;
 
   const changeQuantity = async (line, raw) => {
-    const quantity = Number(raw);
-    if (!validQuantity(quantity)) { setNotice(`Số lượng phải từ 1 đến ${MAX_QUANTITY}.`); return; }
-    if (line.availableQuantity != null && BigInt(quantity) > BigInt(line.availableQuantity)) {
-      setNotice(`Chi nhánh chỉ còn ${line.availableQuantity} sản phẩm này.`);
+    const problem = quantityProblem(raw, line.availableQuantity);
+    if (problem) {
+      setQuantityErrors(current => ({ ...current, [line.id]: problem }));
+      setQuantityReset(current => ({ ...current, [line.id]: (current[line.id] || 0) + 1 }));
       return;
     }
+    const quantity = Number(String(raw).trim());
+    setQuantityErrors(current => { const next = { ...current }; delete next[line.id]; return next; });
     setNotice('');
     const result = await command.run(key => api.updateLine(line.id, quantity, key));
     if (result.ok) cart.reload();
@@ -223,6 +247,7 @@ function CartContent() {
   if (cart.error) return <ErrorNotice error={cart.error} onRetry={cart.reload} />;
   if (lines.length === 0) return (
     <section className="workspace-card empty-state">
+      <FlashToast message={skipToastOpen && skippedByBuyAgain.length ? { kind: 'warn', text: `Không thêm lại được ${skippedByBuyAgain.join(', ')} vì hiện không đủ hàng hoặc đã ngừng bán.` } : null} onDone={() => setSkipToastOpen(false)} />
       <p>Giỏ hàng chưa có sản phẩm.</p>
       <Link className="button primary" to="/products">Xem sản phẩm</Link>
     </section>
@@ -230,6 +255,7 @@ function CartContent() {
 
   return (
     <section className="cart-sp">
+      <FlashToast message={skipToastOpen && skippedByBuyAgain.length ? { kind: 'warn', text: `Không thêm lại được ${skippedByBuyAgain.join(', ')} vì hiện không đủ hàng hoặc đã ngừng bán. Các sản phẩm còn lại đã được tích sẵn.` } : null} onDone={() => setSkipToastOpen(false)} />
       <div className="cart-sp-header">
         <label className="cart-sp-check-label"><Checkbox checked={allSelected} indeterminate={!allSelected && selectedLines.length > 0} disabled={!selectableLines.length} onChange={toggleAll} label="Chọn tất cả sản phẩm" /><span>Sản phẩm</span></label>
         <span>Đơn giá</span><span>Số lượng</span><span>Số tiền</span><span>Thao tác</span>
@@ -262,14 +288,14 @@ function CartContent() {
                 <b className="cart-sp-now">{format.money(((BigInt(lineTotal(line)) - lineDiscounts.get(line.id)) / BigInt(line.quantity || 1)).toString())}</b>
                 <small className="cart-sp-voucher-tag">{discountTag}</small>
               </> : format.money(line.indicativePrice)}</div>
-              <div className="cart-sp-qty" role="group" aria-label={`Số lượng ${line.productName || ''}`}>
+              <div className="cart-sp-qty-cell"><div className="cart-sp-qty" role="group" aria-label={`Số lượng ${line.productName || ''}`}>
                 <button type="button" aria-label="Giảm số lượng" disabled={command.pending || line.quantity <= 1} onClick={() => changeQuantity(line, line.quantity - 1)}>−</button>
-                <input key={`${line.id}-${line.quantity}`} type="number" min="1" max={line.availableQuantity == null ? MAX_QUANTITY : Math.min(MAX_QUANTITY, Number(line.availableQuantity))}
-                  defaultValue={line.quantity} disabled={command.pending} aria-label="Số lượng"
+                <input key={`${line.id}-${line.quantity}-${quantityReset[line.id] || 0}`} type="number" min="1" max={line.availableQuantity == null ? MAX_QUANTITY : Math.min(MAX_QUANTITY, Number(line.availableQuantity))}
+                  defaultValue={line.quantity} disabled={command.pending} aria-label="Số lượng" step="1" aria-invalid={Boolean(quantityErrors[line.id])}
                   onBlur={event => event.target.value !== String(line.quantity) && changeQuantity(line, event.target.value)}
                   onKeyDown={event => event.key === 'Enter' && event.currentTarget.blur()} />
                 <button type="button" aria-label="Tăng số lượng" disabled={command.pending || line.quantity >= MAX_QUANTITY || (line.availableQuantity != null && BigInt(line.quantity) >= BigInt(line.availableQuantity))} onClick={() => changeQuantity(line, line.quantity + 1)}>+</button>
-              </div>
+              </div>{quantityErrors[line.id] && <small className="cart-sp-qty-error" role="alert">{quantityErrors[line.id]}</small>}</div>
               <div className="cart-sp-amount"><span className="cart-sp-label">Số tiền</span>{lineTotal(line) == null ? '—' : format.money((BigInt(lineTotal(line)) - (lineDiscounts.get(line.id) || 0n)).toString())}</div>
               <div className="cart-sp-actions"><button type="button" className="text-link" disabled={command.pending} onClick={() => remove(line)}>Xóa</button></div>
             </article>

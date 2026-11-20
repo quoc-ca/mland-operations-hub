@@ -1,21 +1,22 @@
-# E2E Test Case Template
+# E2E Test Case Template v2
 
-Sử dụng cấu trúc template này khi tạo mới kịch bản kiểm thử E2E với `browsermcp`.  
-File kịch bản được lưu tại: `ppswbs-spec/features/<feature>/test-results/E2E-<feature-number>-<NNN>--<lowercase-slug>.md`.
+Use this template for every new browser-driven E2E case. It is a black-box test: the feature spec supplies the user goal and observable outcome, while the tester discovers the UI path in the live product.
+
+Save the case at `ppswbs-spec/features/<feature>/test-results/E2E-<feature-number>-<NNN>--<lowercase-slug>.md`.
 
 ```markdown
 ---
+format_version: 2
 id: E2E-001-001
 feature: 001-account-management
 test_level: e2e
 test_case_type: N
 source_ref: spec.md#FR-001
-target_url: http://localhost:5173/login
-actor_role: Customer
+target_url: http://localhost:5173/
+actor_role: Guest
 browser_tool: browsermcp
 health_urls:
   - http://localhost:5173
-  - http://localhost:8080/v3/api-docs
 test_data:
   fixture: customer-e2e-001-001
   account_ref: E2E_CUSTOMER_001
@@ -25,63 +26,69 @@ cleanup:
   method: delete-record-via-api
 ---
 
-# E2E-001-001: [Mô tả ngắn gọn kịch bản kiểm thử]
+# E2E-001-001: [Short user-facing scenario title]
 
-**Ngày tạo**: YYYY-MM-DD  
-**Ngày cập nhật**: YYYY-MM-DD  
-**Người phụ trách**: [Tên thành viên hoặc QA]  
-**Người cập nhật cuối**: [Tên thành viên hoặc QA]  
+**Created**: YYYY-MM-DD
+**Updated**: YYYY-MM-DD
+**Owner**: [QA / team member]
 
-## 1. Tiền điều kiện (Preconditions)
+## 1. Scenario Charter
 
-- [ ] Môi trường Backend Spring Boot đang chạy tại `http://localhost:8080`.
-- [ ] Môi trường Frontend Vite đang chạy tại `http://localhost:5173`.
-- [ ] Dữ liệu mồi: fixture `customer-e2e-001-001`, với `isolation_key` ở YAML front matter.
-- [ ] Tài khoản test chuyên dụng: `E2E_CUSTOMER_001`; secret lấy từ secret store/biến môi trường, không ghi vào file này.
-- [ ] Phiên đăng nhập: Chưa đăng nhập.
+- **User goal**: [What the actor is trying to accomplish.]
+- **Starting context**: [What the actor knows before opening `target_url`; do not reveal internal routes or UI controls.]
+- **Scope**: [Observable journey and risks covered.]
+- **Out of scope**: [What this case intentionally does not assess.]
 
-## 2. Các bước kiểm thử trên trình duyệt (Browser Action Steps)
+## 2. Preconditions and Test Data
 
-### Step 1 — Đăng nhập bằng tài khoản test
+- [ ] Required services in `health_urls` are ready.
+- [ ] Fixture `[fixture]` is available and isolated by `[isolation_key]`.
+- [ ] Test account/role is available; obtain secrets from the approved secret store.
+- [ ] Starting session: [anonymous / authenticated as role].
 
-```browser
-goto http://localhost:5173/login
-wait getByLabel('Email')
-fill getByLabel('Email') "<email-tài-khoản-test>"
-fill getByLabel('Mật khẩu') "<mật-khẩu-từ-secret-store>"
-click getByRole('button', { name: 'Đăng nhập' })
-wait getByRole('heading', { name: 'Bảng điều khiển' })
-```
+## 3. Exploratory Step Contract
 
-## 3. Kết quả kỳ vọng (Expected Assertions)
+### Step 1 — [User intent]
 
-```browser
-get url
-# Expected: http://localhost:5173/dashboard
-find "Bảng điều khiển"
-# Expected: one or more matches
-console --errors
-# Expected: no output
-requests --filter "/api/auth/login"
-# Expected: POST 200
-```
+- **User charter**: [The outcome the actor is trying to find or complete.]
+- **Explore & act**: [Observe rendered UI, choose an affordance a real actor can find, then act. Do not prescribe private routes, DOM selectors, source-code knowledge, or a hidden click path.]
+- **Expected**:
+  - [Observable UI, state, or feedback expected by the actor.]
+  - [Add as many assertions as needed.]
+  - [Use `None — transition only` when this step intentionally has no assertion.]
+- **Decision rule**:
+  - `CONTINUE`: [Conditions showing this step can proceed.]
+  - `LOG_AND_CONTINUE`: [Non-blocking unexpected finding to record.]
+  - `STOP`: [Core expectation, data integrity, authorization/security, or environment condition that makes the journey invalid or impossible to continue.]
 
-## 4. Bằng chứng kiểm thử (Evidence)
+### Step 2 — [Next user intent]
 
-- Đường dẫn ảnh chụp màn hình: `screenshots/E2E-001-001--success.jpg`
-- Lệnh lưu bằng chứng: `screenshot --full --path "ppswbs-spec/features/001-account-management/test-results/screenshots/E2E-001-001--success.jpg"`
+- **User charter**: [...]
+- **Explore & act**: [...]
+- **Expected**:
+  - [...]
+- **Decision rule**:
+  - `CONTINUE`: [...]
+  - `LOG_AND_CONTINUE`: [...]
+  - `STOP`: [...]
 
-## 5. Kết quả thực thi (Execution History)
+## 4. Evidence and Findings
+
+- Capture a screenshot for every `LOG_AND_CONTINUE` or `STOP` outcome.
+- A `LOG_AND_CONTINUE` record contains: problem description, reproduction steps, screenshot path, and (when confirmed defect) its `BUG-LOG.md` reference.
+- Capture console or network output only when it materially helps classify or reproduce the finding.
+
+## 5. Execution History
 
 <!-- EXECUTION:START -->
-- Latest status: NOT_RUN
+- Latest status: NOT_RUN | PASS | PASS_WITH_FINDINGS | FAIL | BLOCKED
 - Executed at: NOT_RUN
 - Executed by: NOT_RUN
 - Browser tool: browsermcp
-- Failure step: NOT_RUN
+- Final step: NOT_RUN
 - Actual result: NOT_RUN
-- Evidence screenshot: NOT_RUN
-- Bug reference: NONE
+- Findings: NONE
+- Evidence screenshots: NONE
+- Bug references: NONE
 <!-- EXECUTION:END -->
 ```
-

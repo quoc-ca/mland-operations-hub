@@ -297,9 +297,12 @@ paths:
 
   /api/v1/internal-accounts:
     post:
-      summary: Create pending internal Staff or Manager account
+      summary: Create internal Staff, Manager, or CARRIER account
       description: >
-        Admin creates a Staff or Manager account in PENDING_SETUP state.
+        Admin creates a Staff or Manager account in PENDING_SETUP state, or an ACTIVE
+        CARRIER account with a Firebase email/password identity. CARRIER requires
+        email, password, fullName and phone, and must omit locationIds; it receives
+        no invitation. The password is write-only and is never returned.
         Requires an Idempotency-Key header.
         Validates workshopLocationId(s) against authoritative Workshop Location facade.
       operationId: createInternalAccount
@@ -334,7 +337,7 @@ paths:
 
   /api/v1/admin/accounts/internal:
     post:
-      summary: Create pending internal account (Admin alias)
+      summary: Create internal account (Admin alias)
       description: Alias to POST /api/v1/internal-accounts.
       operationId: createInternalAccountAdminAlias
       security:
@@ -423,7 +426,7 @@ paths:
   /api/v1/accounts/{id}/profile:
     put:
       summary: Admin update internal account profile
-      description: Updates full name and phone for a Staff or Manager account. Requires optimistic lock version.
+      description: Updates full name and phone for a Staff, Manager, or CARRIER account. Requires optimistic lock version.
       operationId: updateAccountProfileAdmin
       security:
         - bearerAuth: []
@@ -949,6 +952,7 @@ components:
         - MEMBER
         - STAFF
         - MANAGER
+        - CARRIER
         - ADMIN
       description: Canonical fixed business roles. Exactly one per account.
 
@@ -1231,14 +1235,19 @@ components:
         - role
         - email
         - fullName
-        - locationIds
       properties:
         role:
           $ref: '#/components/schemas/AccountRole'
-          description: Must be STAFF or MANAGER.
+          description: Must be STAFF, MANAGER, or CARRIER. CARRIER requires email, password, fullName, and phone, and must omit locationIds. STAFF/MANAGER retain their existing location requirement.
         email:
           type: string
           format: email
+        password:
+          type: string
+          format: password
+          minLength: 6
+          writeOnly: true
+          description: Required only for CARRIER. Write-only; never returned, persisted, logged, or audited.
         fullName:
           type: string
           minLength: 1
@@ -1252,7 +1261,7 @@ components:
           items:
             type: integer
             format: int64
-          description: Exactly 1 location for STAFF; 1 or more for MANAGER.
+          description: Required: exactly 1 location for STAFF; 1 or more for MANAGER. Must be omitted for CARRIER.
 
     InternalProfileUpdateRequest:
       type: object

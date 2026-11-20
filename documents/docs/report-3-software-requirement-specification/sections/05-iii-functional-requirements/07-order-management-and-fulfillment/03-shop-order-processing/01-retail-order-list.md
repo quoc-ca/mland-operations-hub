@@ -4,15 +4,17 @@
 
 This screen allows authorized Staff to:
 
-- Browse retail orders within Staff's assigned branches.
-- View current order references and processing states.
-- Open authorized Retail Order Operations.
+- Browse retail orders within Staff's assigned branches in the tabs Đơn hàng cần chuẩn bị, Chờ ĐVVC lấy hàng, Đã bàn giao ĐVVC, Chờ thu tiền mặt, Chờ khách nhận and Hoàn thành; the page opens at the first tab, left to right, that has orders.
+- See the number of open tasks, Tiền mặt đã thu hôm nay and cash orders whose hold ends in under 24 hours.
+- Search by order code, tracking number or recipient name.
+- Open an order's details and Retail Order Operations.
 
 | Field Name | Description |
 | --- | --- |
-| Order / type / branch / state | Read-only processing-context columns; assigned-branch and action restrictions apply. |
-| Open Operations | Opens an authorized order; it does not grant cross-branch access. |
-| Progress choices | Illustrative preparation, pickup/readiness and manual-carrier labels; valid transitions must be separate and state checked. |
-| Carrier reference / note | Optional evidence input only when applicable; no tracking, fee quote or carrier API is introduced. |
-| Save Progress | Records a permitted action after state/authority checks; there is no manual paid override. |
-| Final-amount notice | Staff submits a proposal; Manager must approve the exact final amount before a payment request. |
+| Mã đơn / Thời gian đặt / Chi nhánh | Read-only processing-context columns; assigned-branch and action restrictions apply. |
+| Status | Current Staff step of the order. |
+| Thanh toán | Đã thanh toán VNPay, Tiền mặt tại quầy or Đã thu tiền mặt. |
+| Cần thu / Thành tiền | Amount to collect for an unpaid cash order, otherwise the frozen order total. |
+| Hạn giữ hàng | For a cash order, the hold deadline and the time left. |
+| Mã vận đơn | Platform-generated GHTK tracking number; no GHTK provider tracking. |
+| Chi tiết | Opens an authorized order; it does not grant cross-branch access. |

@@ -4,10 +4,17 @@
 
 This screen allows Members to:
 
-- View the Member's custom design/request, deposit and internal progress.
-- Review the final balance approved by Manager.
-- Open eligible balance payment for the exact approved amount.
+- View the Member's custom design/request and internal progress.
+- Review the complete quote approved by the authorized Manager.
+- Open a single full-payment action for the exact quoted amount while the quote
+  is valid.
+- See the payment deadline and the expired/cancelled outcome when payment was
+  not verified in time.
 - View recorded actual pickup or manual carrier-handoff information.
+
+This screen does not show deposit, remaining balance, final-balance approval,
+or Add to Cart controls. A custom order is not treated as a retail order even
+when it uses the same payment gateway or fulfilment method.
 
 | Field Name | Description |
 | --- | --- |

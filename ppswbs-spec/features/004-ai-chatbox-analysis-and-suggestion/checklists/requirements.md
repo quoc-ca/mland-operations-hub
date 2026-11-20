@@ -1,5 +1,7 @@
 # Requirements Checklist: Independent Feature-04
 
+> **Historical checklist (2026-11-20):** Superseded by the human-review requirements in `spec.md` and `research.md`.
+
 - [ ] Guest Design Request is denied; only authenticated Member ownership is supported.
 - [ ] Description-only, image-only and combined request policy is explicit.
 - [ ] Human-review behavior is taken from the backend response; the frontend does not invent a review path.

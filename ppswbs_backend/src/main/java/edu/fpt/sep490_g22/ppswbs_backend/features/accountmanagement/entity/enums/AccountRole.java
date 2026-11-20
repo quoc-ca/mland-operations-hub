@@ -4,5 +4,6 @@ public enum AccountRole {
     MEMBER,
     STAFF,
     MANAGER,
+    CARRIER,
     ADMIN
 }

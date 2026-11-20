@@ -1,0 +1,19 @@
+/* Simulated GHTK partner portal (Session 2026-11-20): operations layout with a green partner accent. */
+.carrier-brand span{background:#069255}
+.carrier-sim{color:#b45309;font-weight:600}
+.carrier-main .ota-topline a{color:#6b7280;text-decoration:none}
+.carrier-orders .order-tabs .active{border-bottom-color:#069255}
+.carrier-route{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:12px 20px}
+.carrier-route>div{display:flex;flex-direction:column;gap:3px;padding:10px 12px;border:1px solid #eef0f3;border-radius:8px;background:#fafbfc;min-width:0}
+.carrier-route span{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#6b7280}
+.carrier-route strong{font-size:14px;color:#1a1a1a;overflow-wrap:anywhere}
+.carrier-route small{font-size:12px;color:#4b5563;overflow-wrap:anywhere}
+.carrier-times{margin:0 20px 8px}
+.carrier-pill-received{background:#f1f2f4;color:#374151}
+.carrier-pill-collecting{background:#fff3dc;color:#92400e}
+.carrier-pill-delivering{background:#e0e7ff;color:#3730a3}
+.carrier-pill-delivered{background:#e6f4ea;color:#14532d}
+.carrier-kpis{grid-template-columns:repeat(5,minmax(0,1fr))}
+.carrier-trend{margin-bottom:18px}
+@media (max-width:760px){.carrier-route{grid-template-columns:1fr}}
+.carrier-cod{font-size:14px;color:#065f46}.carrier-cod strong{font-weight:700}

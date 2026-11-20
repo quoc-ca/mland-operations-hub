@@ -3,6 +3,7 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.service;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dao.AccountRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.Account;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.AuditOutcome;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.enums.AccountRole;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.enums.AccountStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.VerifiedIdentity;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +24,10 @@ public class EmailSyncService {
 
         if (account.getStatus() == AccountStatus.SUSPENDED) {
             throw new AccountSuspendedException("Account is SUSPENDED: " + accountId);
+        }
+
+        if (account.getRole() == AccountRole.CARRIER) {
+            throw new RoleAssignmentForbiddenException("CARRIER email is immutable");
         }
 
         if (!account.getFirebaseUid().equals(identity.uid())) {

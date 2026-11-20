@@ -28,6 +28,10 @@ When a Booking or Retail Order is validly confirmed, the owning business feature
 
 An Admin or Manager manages the presentation and lifecycle of globally shared, pre-registered transactional templates without creating a new workflow, recipient rule, or template code.
 
+### Route masking synchronization (2026-11-20)
+
+The current browser routes `/admin/notifications/*` have the explicit shared allowlist `ADMIN` and `MANAGER`, matching this feature's approved operational capability. Therefore the `/admin` prefix is not a general authorization rule. `MEMBER`, `STAFF`, and `CARRIER` direct navigation is replaced to `/404` before page requests; an eventual neutral route rename requires a separate compatibility decision. Server-side Admin/Manager distinctions, including Admin-only `UNKNOWN_OUTCOME` resend, remain enforced per action.
+
 **Why this priority**: The dashboard must control the content customers see while business features remain the authority for the event and data.
 
 **Independent Test**: Create a draft revision, validate/preview it with safe fixture data, activate it, and verify a newly created request uses the activated version while an earlier request remains pinned to its original version.
