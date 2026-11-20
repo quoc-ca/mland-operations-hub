@@ -9,12 +9,12 @@ import { messages } from '../../messages';
  * T064 delete: a separate confirmation; Cancel sends nothing. Deleting is a soft delete with history kept and is
  * different from hiding (publication) or stopping a size's sale. A 409 shows the latest product to confirm again.
  */
-export function DeleteSection({ product, api, reload, deleted }) {
+export function DeleteSection({ product, api, reload, deleted, outOfScope = false }) {
   const t = useT(messages);
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const command = useCatalogueCommand();
-  if (deleted) return null;
+  if (deleted || outOfScope) return null;
 
   const finish = outcome => {
     if (outcome?.ok) navigate('/catalogue-management/products', { state: { notice: { key: 'delete.done', params: { name: product.name } } } });

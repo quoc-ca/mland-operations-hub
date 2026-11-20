@@ -10,7 +10,7 @@ import { NoticeAt } from '../notices';
 import { StaffImage } from '../StaffImage';
 
 /** T050 / FR images: replaces the whole ordered list (PUT products/{id}/images) after uploads are READY. */
-export function ImagesSection({ product, api, reload, setNotice, deleted, missing = {} }) {
+export function ImagesSection({ product, api, reload, setNotice, deleted, outOfScope = false, missing = {} }) {
   const t = useT(messages);
   const [images, setImages] = useState(null);
   const [hints, setHints] = useState({});
@@ -37,7 +37,7 @@ export function ImagesSection({ product, api, reload, setNotice, deleted, missin
     <section className={sectionClass(missing.images)} aria-labelledby="images-title">
       <div className="card-head">
         <h2 id="images-title">{t('section.images')}</h2>
-        {!editing && !deleted && <button type="button" className="button outline" onClick={() => setImages(fromProductImages(product.images))}>{t('edit')}</button>}
+        {!editing && !deleted && !outOfScope && <button type="button" className="button outline" onClick={() => setImages(fromProductImages(product.images))}>{t('edit')}</button>}
       </div>
       <MissingNote messageKey={missing.images} />
       {!editing ? (

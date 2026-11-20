@@ -99,7 +99,7 @@ export function SizePicker({ variants, onChange, errorOf, disabled, priceLabel, 
                 <div className="data-row size-rows" role="row" key={variant.size} style={columns}>
                   <span role="cell"><strong>{t('size', { size: variant.size })}</strong>{sizeError && <span className="field-error">{sizeError}</span>}</span>
                   <span role="cell">
-                    <input inputMode="numeric" aria-label={t('size.priceFor', { size: variant.size })} value={variant.proposedPrice} disabled={disabled}
+                    <input inputMode="numeric" aria-label={t(priceLabel ? 'size.sellingPriceFor' : 'size.priceFor', { size: variant.size })} value={variant.proposedPrice} disabled={disabled}
                       aria-invalid={priceError ? true : undefined} onChange={setRow(index, 'proposedPrice')} />
                     {priceError && <span className="field-error">{priceError}</span>}
                   </span>

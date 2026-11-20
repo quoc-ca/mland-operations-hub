@@ -25,13 +25,13 @@ export function PriceSection({ product, missing = {}, ...context }) {
       <h2 id="price-title">{t('section.prices')}</h2>
       <MissingNote messageKey={missing.prices} />
       {!product.firstPublishedAt && <p className="muted small">{t(isManager ? 'price.initialHintManager' : 'price.initialHint')}</p>}
-      {!context.deleted && <BatchPrices product={product} isManager={isManager} {...context} />}
+      {!context.deleted && !context.outOfScope && <BatchPrices product={product} isManager={isManager} {...context} />}
       {(product.variants || []).map(variant => <VariantPrices key={variant.id} product={product} variant={variant} isManager={isManager} {...context} />)}
     </section>
   );
 }
 
-function VariantPrices({ product, variant, api, reload, setNotice, deleted, isManager = true }) {
+function VariantPrices({ product, variant, api, reload, setNotice, deleted, outOfScope = false, isManager = true }) {
   const t = useT(messages);
   const format = useFormat();
   const current = effectiveProposal(variant);
@@ -73,7 +73,7 @@ function VariantPrices({ product, variant, api, reload, setNotice, deleted, isMa
         </div>
       ) : <p className="muted">{t('price.none')}</p>}
 
-      {!deleted && (
+      {!deleted && !outOfScope && (
         <div className="price-actions">
           {canRevise
             ? <AmountForm label={t('price.revise')} hint={state === 'PENDING' ? t('price.reviseWithdraws') : null} initial={current.proposedPrice}
