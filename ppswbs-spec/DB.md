@@ -2280,9 +2280,10 @@ have equal business authority; Admin has no moderation authority. Every decision
 requires an explanation. Guest quota is five requests per calendar day and must be
 atomic. Tokens and image storage references are opaque and never raw-logged.
 
-No Feature-004 table references booking, payment, package/session, Feature-012
-configured design or an AI provider. This is a logical model only; no migration is
-approved in this documentation update.
+Feature-004 accesses Feature-012 only through a public snapshot facade and does
+not reference its repositories or entities. The current request lifecycle also
+supports non-terminal `CLARIFICATION_REQUIRED` revisions and quote handoff
+metadata. This is a logical model only; no migration is approved in this update.
 
 ## Feature-013 — Staff consultation chat (logical model, draft)
 

@@ -26,6 +26,20 @@ to five requests per calendar day. Staff and Manager have equal authority to acc
 or reject, and every decision requires an explanation. Older AI wording is historical
 and is not an implementation contract.
 
+**Cross-feature integration baseline (2026-11-20):** The current Feature-004
+boundary is `Custom Design Request and Order Intake`, not AI support or image
+analysis. Feature-012 owns configured-design validation and exposes immutable
+snapshots. Feature-004 owns Member intake, clarification, human review and quote
+handoff. Custom Manufacturing owns deposit, production, final balance and
+fulfilment. A quote has Manager-configured expiry; no queue slot is held until
+deposit starts, after which the queue hold is at most 15 minutes and the VNPay
+link is valid for 10 minutes. Feature-003 stores one validated design snapshot
+per workshop ticket; a group default may be overridden per ticket.
+
+When older paragraphs in this file mention Gemini, Basic AI, AI pricing,
+independent AI analysis or automatic custom-order acceptance, this integration
+baseline supersedes those statements for the affected Feature-004 flow.
+
 **V1 scope summary:** Account and fixed-role management, public product and workshop catalogues, workshop schedules/bookings, workshop ring design, independent AI support and human-reviewed AI suggestions, Member retail, loyalty/promotions, custom manufacturing, Feature-011 reviews for workshop sessions and retail products, workflow email, operational administration/dashboard, read-only Google Maps information, and approved OTA workshop connectivity. Klook and GetYourGuide are OTA candidates; Mland may synchronize their schedules and availability in sales-closed preparation mode, but neither may accept bookings until its own feature gates pass, including proof that its voucher/ticket delivery supports one Mland-scannable ticket per participant. Staff operates product catalogue and manually maintained available-to-sell quantities. Managers operate workshop schedules/capacity and business approvals, promotions, and the executive dashboard. Admins manage accounts, fixed-role reference, operational parameters, and approved integration credentials. The fixed role vocabulary is defined in [Actors & Roles](#2-actors--roles).
 
 **Technology context:** Separate React + Vite frontend with client-side rendering and Java 21/Spring Boot backend communicating through REST APIs; Spring Data JPA/JPA, Flyway, and MySQL. The backend does not render the application UI; SSR/Thymeleaf/htmx are no longer the UI baseline. HTML email templates are separate from UI rendering. Firebase Authentication remains the identity-provider baseline. Firebase Hosting is preview-only; production origins, hosting, database deployment, CDN behavior, and repository separation are not selected by this decision.

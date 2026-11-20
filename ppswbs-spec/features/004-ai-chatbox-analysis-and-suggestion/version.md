@@ -79,6 +79,18 @@ must use the human-review specification and contract.
 - Customer projections expose status and explanation without raw tokens, storage keys,
   database IDs or private contact information.
 
+### Phase H — Custom-order intake integration (2026-11-20)
+
+- Feature-004 now owns custom design intake, clarification, human review and quote
+  handoff; Custom Manufacturing owns production, balance payment and fulfilment.
+- A Member may submit a Feature-012 `DRAFT` or `VALIDATED` snapshot. Attached or
+  locked designs require cloning before reuse.
+- `CLARIFICATION_REQUIRED` is non-terminal and creates a new auditable revision.
+- Quotes use Manager-configured expiry. No queue slot is held until deposit starts;
+  then the queue hold is at most 15 minutes and the VNPay link is valid for 10.
+- Implementation remains blocked until the new contract, Figma screens, migration
+  plan and payment-facade ownership are reviewed.
+
 ### Documentation and Figma gate
 
 Added `research.md`, the human-review OpenAPI draft, rewritten `spec.md`,

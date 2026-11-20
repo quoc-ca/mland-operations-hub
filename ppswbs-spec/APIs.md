@@ -352,11 +352,26 @@ retained temporarily for migration history.
 | GET | `/api/v1/design-requests` | Member | Own request history only. |
 | GET | `/api/v1/design-review-requests` | Staff/Manager | Pending review queue. |
 | GET | `/api/v1/design-review-requests/{id}` | Staff/Manager | Safe review detail. |
-| POST | `/api/v1/design-review-requests/{id}/decisions` | Staff/Manager | `ACCEPTED` or `REJECTED` with mandatory explanation. |
+| POST | `/api/v1/design-review-requests/{id}/decisions` | Staff/Manager | `CLARIFICATION_REQUIRED`, `ACCEPTED` or `REJECTED` with mandatory explanation. |
 
-All writes use `Idempotency-Key`; review decisions use `If-Match-Version`. No
-endpoint invokes AI or mutates booking, payment, catalogue, custom-manufacturing
-or Feature-012 configured-design state. The old AI OpenAPI contract is deprecated.
+All writes use `Idempotency-Key`; review decisions and revisions use
+`If-Match-Version`. The custom-order intake contract is defined in
+`contracts/custom-design-order-intake.openapi.yaml`. Feature-004 receives
+immutable Feature-012 snapshots through a facade, then hands accepted requests
+to Custom Manufacturing for quote, payment and fulfilment. No direct repository
+access is permitted.
+
+### Feature-004 custom-order intake routes
+
+| Method | Endpoint | Actor | Contract boundary |
+| --- | --- | --- | --- |
+| POST | `/api/v1/custom-design-requests` | Member | Create request from description, images and/or Feature-012 snapshot. |
+| GET | `/api/v1/custom-design-requests/{requestId}` | Member owner | Read safe request, revision, decision and quote projection. |
+| POST | `/api/v1/custom-design-requests/{requestId}` | Member owner | Submit a revision after `CLARIFICATION_REQUIRED`. |
+| POST | `/api/v1/custom-design-requests/{requestId}/decisions` | Staff/Manager | Record clarification, acceptance or rejection with explanation. |
+| POST | `/api/v1/custom-design-requests/{requestId}/quote` | Authorized quote actor | Create a Manager-policy-bound quote handoff; no payment is confirmed by this call. |
+
+The detailed draft is `features/004-ai-chatbox-analysis-and-suggestion/contracts/custom-design-order-intake.openapi.yaml`.
 
 ## Feature-012 — Workshop Ring Design Configuration
 

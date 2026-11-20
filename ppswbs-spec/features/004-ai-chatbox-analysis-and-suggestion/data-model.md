@@ -74,3 +74,18 @@ rejection, conflict and deletion. Raw images, raw tokens and unnecessary PII are
 9. Guest tokens are opaque, scoped, expirable and never raw-logged.
 10. Review history and audit are append-only and not hard-deleted.
 11. No entity or foreign key references Workshop Booking, Payment or Feature-012 internals.
+
+## Custom-order intake additions
+
+The request aggregate is also the intake boundary for a Member custom order. The
+logical model adds `custom_design_request_revisions`, `custom_design_decisions`,
+`custom_design_reference_snapshots` and `custom_order_quote_handoffs`.
+
+- A reference snapshot is immutable and created from a Feature-012 `DRAFT` or
+  `VALIDATED` version through a public facade.
+- `CLARIFICATION_REQUIRED` creates a new revision and returns the request to
+  `NEED_REVIEW`; the previous decision remains audit history.
+- `ACCEPTED` creates a quote handoff but no payment attempt or queue hold.
+- `quote_expires_at` is Manager-policy controlled. Queue reservation starts only
+  with deposit payment and is released on the 15-minute hold deadline.
+- Feature-004 does not own production, balance settlement or fulfilment rows.

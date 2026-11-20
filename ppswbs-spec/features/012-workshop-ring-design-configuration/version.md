@@ -568,6 +568,18 @@ Toàn bộ 5 kịch bản E2E của Feature 012 đã được thực thi và ngh
    - Frontend Vitest suite (`designDomain`, `screens`, `workshopRingDesignApi`): **46/46 tests PASS (100%)**.
    - E2E Browser MCP Scenarios `E2E-012-007` through `E2E-012-011`: **5/5 PASS (100%)**.
 
+## Phase H — Cross-feature integration preparation (2026-11-20)
+
+- Workshop integration is ticket-level: one group default may be overridden per
+  ticket and only `VALIDATED` versions may be attached.
+- Feature-012 exposes an immutable snapshot facade for Feature-004 custom-order
+  intake; this is not a design approval or payment operation.
+- `DRAFT` and `VALIDATED` versions may be copied into a custom-order snapshot.
+  Attached or locked versions require a clone before reuse.
+- Recommendations remain advisory and never select a package or create booking.
+- Backend implementation of this cross-feature facade is pending contract and
+  Figma approval.
+
 ## 5. Incomplete / Next Steps (Release Gates)
 
 ### Giai đoạn 1: Quản trị danh mục động cho Manager (FE-09)

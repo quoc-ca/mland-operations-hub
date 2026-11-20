@@ -11,16 +11,18 @@ Last updated by: Ngô Tiến Đạt
 
 ## 1. Purpose and boundary
 
-Feature-004 lets a Guest or Member submit an independent ring-design request for
-human review. It is not a booking, configured-ring, retail, payment or custom-
-manufacturing workflow.
+Feature-004 is rebaselined as the custom design request and order-intake boundary.
+It lets a Member submit a custom-manufacturing request using text, images and/or
+a Feature-012 configured-design snapshot. Guest access remains limited to public
+design-request tracking and does not create a custom-manufacturing order.
 
 Feature-004 has no AI provider, AI analysis, Basic AI Support, AI price suggestion,
 candidate-feature extraction or automated design decision. Old AI artifacts and
 test evidence are historical only and are not acceptance evidence for this baseline.
 
-The feature must not create, read or mutate booking, package, location, session,
-capacity, ticket, payment, deposit, catalogue price or Feature-012 state.
+The feature does not own configured-design validation, workshop booking, ticket,
+production, payment settlement or fulfilment. It consumes Feature-012 only through
+an approved snapshot facade and hands accepted requests to Custom Manufacturing.
 
 ## 2. Actors and permissions
 
@@ -74,15 +76,17 @@ Guest creation is limited to five requests per calendar day in the system timezo
 The sixth request returns HTTP 429 and does not create a request. Idempotent retry of
 the same command returns the original result and is not counted twice.
 
-## 4. Human review lifecycle
+## 4. Custom request and human review lifecycle
 
 ```text
+NEED_REVIEW → CLARIFICATION_REQUIRED → NEED_REVIEW
 NEED_REVIEW → ACCEPTED
 NEED_REVIEW → REJECTED
 ```
 
-There is no `CLARIFICATION_REQUIRED` state in this V1 baseline. Staff or Manager
-must provide a non-empty bounded explanation for either decision. The decision,
+`CLARIFICATION_REQUIRED` is non-terminal and creates a revision loop. Staff or
+Manager must provide a non-empty bounded explanation for every clarification,
+acceptance or rejection. The decision,
 explanation, actor, role, version and timestamp are append-only audit evidence.
 
 Guest and Member can read the resulting status and explanation through their safe
@@ -120,7 +124,25 @@ DESIGN_REVIEW_STATE_CONFLICT
 DESIGN_REVIEW_ALREADY_DECIDED
 ```
 
-## 6. UI and Figma approval gate
+## 6. Custom design reference and quote handoff
+
+- A Member may submit a persisted Feature-012 `DRAFT` or `VALIDATED` version as
+  reference. A version already `ATTACHED_TO_BOOKING` or `LOCKED` cannot be reused;
+  the Member must clone it first.
+- Feature-004 receives an immutable `CustomDesignReferenceSnapshot`; later edits
+  to the source design never change the request under review.
+- `ACCEPTED` moves the request to quote preparation. It does not create a payment
+  attempt or reserve a production queue slot.
+- Quotes carry Manager-configured `quoteExpiresAt`. An expired quote cannot be
+  paid and requires a new quote.
+- Queue reservation starts only when the Member starts deposit payment. The
+  custom-order queue hold is at most 15 minutes and the VNPay link is valid for
+  10 minutes. Deposit is 50% of the wax-package price.
+- Final balance is proposed by Staff and approved by Manager before payment.
+- Feature-004 owns intake, clarification, review and quote handoff; Custom
+  Manufacturing owns production, balance, fulfilment and closure.
+
+## 7. UI and Figma approval gate
 
 Required screens are customer entry/form, five-image gallery, per-image quality
 feedback, submission confirmation, Guest tracking, Member history, request detail,
@@ -133,7 +155,7 @@ active locale must be used per screen; all Vietnamese text must be valid UTF-8.
 Figma revision and node IDs must be recorded in `version.md`. Coding starts only
 after explicit user approval of the new revision.
 
-## 7. Invariants and non-goals
+## 8. Invariants and non-goals
 
 - A request has 0..5 images and at least one description/image input.
 - Every submitted image has a server-confirmed quality result.
@@ -142,4 +164,5 @@ after explicit user approval of the new revision.
 - Staff and Manager have equal decision authority; Admin does not.
 - Guest tracking is opaque, scoped and expirable.
 - History/audit is not hard-deleted.
-- No AI, booking, payment, catalogue publication or Feature-012 mutation exists.
+- No AI, workshop booking mutation, payment settlement, catalogue publication or
+  direct Feature-012 repository access exists.

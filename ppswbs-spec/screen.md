@@ -707,7 +707,10 @@ Guest/Member Design Request
 
 Guest uses an opaque tracking link; Member uses authenticated ownership. Staff and
 Manager have equal decision authority. Admin has technical/audit visibility only.
-This flow is independent from booking and Feature-012 ring configuration.
+After `ACCEPTED`, the request enters quote handoff. The customer sees a
+Manager-configured quote expiry and starts deposit payment from My Custom Orders;
+the queue is held only during the payment attempt. Feature-004 does not own
+production or fulfilment.
 
 ## Feature-012 workshop booking flow
 
@@ -723,12 +726,13 @@ Package Selection
 → Deposit Payment
 ```
 
-There is one design per booking. Branch selection triggers server-side
-revalidation of material/component compatibility. Evaluation is advisory and
-does not alter package price, deposit or payment. After the booking transaction
-commits, the attached design version is locked and Booking owns the immutable
-snapshot; a failed submission leaves the design retryable. Feature-004 image
-analysis is not part of the default configurator flow.
+There is one design snapshot per ticket. A group may have a default design, and
+each ticket may override it before submission. Branch selection triggers
+server-side revalidation of material/component compatibility. Evaluation and
+recommendation are advisory and do not alter package price, deposit or payment.
+After the booking transaction commits, each attached design version is locked;
+a failed submission leaves designs retryable. Feature-004 custom-order intake is
+not part of the default workshop booking flow.
 
 ## 8. Căn cứ và điểm cần đồng bộ
 
