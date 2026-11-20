@@ -3,38 +3,16 @@ import { SSMClient, SendCommandCommand, GetCommandInvocationCommand } from "@aws
 
 const region = process.env.AWS_REGION || "ap-southeast-1";
 const getEc2InstanceId = () => process.env.STAGING_EC2_ID || "";
-const getAllowedOrigins = () => (process.env.ALLOWED_ORIGINS || "*").split(",").map(o => o.trim());
 
 const ec2 = new EC2Client({ region });
 const ssm = new SSMClient({ region });
 
-function buildCorsHeaders(requestOrigin) {
-  const allowedOrigins = getAllowedOrigins();
-  let origin = "*";
-  if (allowedOrigins.length > 0 && !allowedOrigins.includes("*")) {
-    if (requestOrigin && allowedOrigins.includes(requestOrigin)) {
-      origin = requestOrigin;
-    } else {
-      origin = allowedOrigins[0];
-    }
-  }
-  return {
-    "Access-Control-Allow-Origin": origin,
-    "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type,Authorization,X-Team-Key",
-    "Content-Type": "application/json"
-  };
-}
+// CORS is handled by the Lambda Function URL configuration in Terraform.
+const responseHeaders = { "Content-Type": "application/json" };
 
 export const handler = async (event) => {
   const ec2InstanceId = getEc2InstanceId();
-  const requestOrigin = event.headers?.origin || event.headers?.Origin || "";
-  const headers = buildCorsHeaders(requestOrigin);
-
-  // Xử lý CORS Preflight
-  if (event.requestContext?.http?.method === "OPTIONS" || event.httpMethod === "OPTIONS") {
-    return { statusCode: 200, headers, body: JSON.stringify({ message: "OK" }) };
-  }
+  const headers = responseHeaders;
 
   const path = event.rawPath || event.path || "";
   const method = event.requestContext?.http?.method || event.httpMethod || "GET";
