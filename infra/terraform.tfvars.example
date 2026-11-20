@@ -1,0 +1,22 @@
+# Tiền tố đặt tên và tag cho toàn bộ tài nguyên theo mẫu: mland-test-deploy-*
+name_prefix = "mland-test-deploy"
+
+# Khu vực AWS Region
+aws_region = "ap-southeast-1"
+
+# Tên dự án và môi trường
+project_name = "mland"
+environment  = "test-deploy"
+
+# Cấu hình máy chủ EC2
+instance_type    = "t3.medium"
+root_volume_size = 30
+
+# Nguồn cố định được phép gọi Lambda (CORS Origins)
+cors_allowed_origins = [
+  "http://localhost:5173",
+  "https://mland-staging-management.vercel.app"
+]
+
+# Mã xác nhận phụ của team (tùy chọn)
+team_key = "change-me-to-a-secure-random-string"

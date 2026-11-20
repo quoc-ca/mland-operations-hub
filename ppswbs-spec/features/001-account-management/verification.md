@@ -234,17 +234,17 @@ Do **NOT** sign off FE-001 or hand off to production until:
 - [x] 5. V-13 is executed and its evidence is recorded for the implementation revision.
 - [x] 6. Revision R-MGA (Phase 11, T078–T081) Manager-global authorization alignment is executed and verified.
 - [x] 7. Revision R-MAR (Phase 12, T082–T083) Manager alert recipients facade implemented and covered by unit/integration tests per FR-045.
-- [ ] 8. Revision R-CAR (Phase 13, T084–T088) CARRIER account E2E test execution verified via browsermcp (E2E-001-025 đến E2E-001-028).
+- [x] 8. Revision R-CAR (Phase 13, T084–T088) CARRIER account E2E test execution verified via browsermcp (E2E-001-025 đến E2E-001-028).
 
-## 4.9 Revision R-CAR — CARRIER account evidence (IMPLEMENTED — E2E SPECIFIED)
+## 4.9 Revision R-CAR — CARRIER account evidence (VERIFIED & ACCEPTED)
 
-**Verification status:** Backend and Frontend implemented with Spring Boot integration suite (`CarrierAccountIT.java`) passing and Flyway migration V188 applied. E2E browser test scenarios specified and ready for execution:
+**Verification status:** Backend and Frontend fully verified. Spring Boot integration suite (`CarrierAccountIT.java`) passing, Flyway migration V188 applied, and 100% of E2E browser test scenarios passed with photographic evidence captured via `browsermcp`:
 
-- **E2E Test Specifications**:
-  - [E2E-001-025](test-results/E2E-001-025--admin-carrier-provisioning-and-form-guard.md): Quản trị cấp tài khoản CARRIER — Form guard, mật khẩu chỉ-ghi, loại trừ cơ sở và kích hoạt trực tiếp ACTIVE (`test_case_type: B`).
-  - [E2E-001-026](test-results/E2E-001-026--carrier-signin-direct-routing-and-ui-isolation.md): Đăng nhập tài khoản CARRIER — Điều hướng tức thì tới /carrier, cô lập Topbar và loại trừ dữ liệu Member (`test_case_type: N`).
-  - [E2E-001-027](test-results/E2E-001-027--carrier-authorization-guard-and-route-boundaries.md): Kiểm tra hàng rào phân quyền CARRIER — Chặn Member truy cập /carrier, chặn CARRIER tự sửa profile / địa chỉ và bảo vệ route Admin (`test_case_type: A`).
-  - [E2E-001-028](test-results/E2E-001-028--admin-carrier-lifecycle-governance-and-suspension.md): Vòng đời quản trị CARRIER — Lọc danh sách, bất biến vai trò, Admin bảo trì hồ sơ, tạm khóa và khôi phục (`test_case_type: B`).
+- **E2E Test Specifications & Execution**:
+  - [E2E-001-025](test-results/E2E-001-025--admin-carrier-provisioning-and-form-guard.md): Quản trị cấp tài khoản CARRIER — Form guard, mật khẩu chỉ-ghi, loại trừ cơ sở và kích hoạt trực tiếp ACTIVE (`test_case_type: B`, **PASS** — evidence: `screenshots/E2E-001-025--carrier-provisioning-success.jpg`).
+  - [E2E-001-026](test-results/E2E-001-026--carrier-signin-direct-routing-and-ui-isolation.md): Đăng nhập tài khoản CARRIER — Điều hướng tức thì tới /carrier, cô lập Topbar và loại trừ dữ liệu Member (`test_case_type: N`, **PASS** — evidence: `screenshots/E2E-001-026--carrier-portal-isolated.jpg`).
+  - [E2E-001-027](test-results/E2E-001-027--carrier-authorization-guard-and-route-boundaries.md): Kiểm tra hàng rào phân quyền CARRIER — Chặn Member truy cập /carrier, chặn CARRIER tự sửa profile / địa chỉ và bảo vệ route Admin (`test_case_type: A`, **PASS** — evidence: `screenshots/E2E-001-027--member-blocked-from-carrier.jpg`, `screenshots/E2E-001-027--carrier-redirected-from-profile.jpg`).
+  - [E2E-001-028](test-results/E2E-001-028--admin-carrier-lifecycle-governance-and-suspension.md): Vòng đời quản trị CARRIER — Lọc danh sách, bất biến vai trò, Admin bảo trì hồ sơ, tạm khóa và khôi phục (`test_case_type: B`, **PASS** — evidence: `screenshots/E2E-001-028--admin-carrier-detail-governed.jpg`, `screenshots/E2E-001-028--admin-carrier-suspended.jpg`).
 
 - **Integration & Unit Verification**:
   - `CarrierAccountIT.java`: 10 integration test methods verifying role catalogue, admin provisioning, idempotency conflict, location rejection, weak password rejection, duplicate email conflict, role transition forbidden in both directions, admin profile maintenance vs member self-management, carrier self-edit forbidden, suspension & restoration, and facade/roster exclusion.
