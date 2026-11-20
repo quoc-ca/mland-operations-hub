@@ -85,7 +85,14 @@ logical model adds `custom_design_request_revisions`, `custom_design_decisions`,
   `VALIDATED` version through a public facade.
 - `CLARIFICATION_REQUIRED` creates a new revision and returns the request to
   `NEED_REVIEW`; the previous decision remains audit history.
-- `ACCEPTED` creates a quote handoff but no payment attempt or queue hold.
-- `quote_expires_at` is Manager-policy controlled. Queue reservation starts only
-  with deposit payment and is released on the 15-minute hold deadline.
-- Feature-004 does not own production, balance settlement or fulfilment rows.
+- `ACCEPTED` creates a custom-order quote handoff but no cart line. The order is
+  payable only as one complete quoted amount.
+- `quote_expires_at` is Manager-policy controlled. The payment context and any
+  temporary queue hold expire together at the configured deadline.
+- A custom order retains the immutable quoted total, currency, quote generation,
+  payment deadline, payment status and expiry/cancellation reason.
+- There is no deposit amount, remaining balance, final-balance proposal or
+  partial-payment state in the custom-order model.
+- Feature-004 does not own production, fulfilment rows or payment settlement;
+  Custom Manufacturing owns the full-payment handoff through the payment
+  facade.

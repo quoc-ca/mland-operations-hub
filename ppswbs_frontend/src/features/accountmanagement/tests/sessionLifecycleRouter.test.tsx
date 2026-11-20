@@ -104,6 +104,16 @@ describe('Revision R-SL: Shared Browser Session Lifecycle & Router Boundary (FR-
       }
     });
 
+    it('allows guest to access /design-requests/new directly and renders design workspace for guest', async () => {
+      const session = createControlledSession('signed-out');
+      const { router } = renderRoutes(routes, { path: '/design-requests/new', session });
+
+      expect(router.state.location.pathname).toBe('/design-requests/new');
+      expect(await screen.findByText('Không gian Thiết kế Độc lập')).toBeInTheDocument();
+      expect(screen.getByText(/Bạn đang gửi yêu cầu với tư cách Khách/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Gửi yêu cầu thiết kế/i })).toBeInTheDocument();
+    });
+
     it('renders inline session notice for Member-only /member/cart when signed out', async () => {
       const session = createControlledSession('signed-out');
       renderRoutes(routes, { path: '/member/cart', session });
