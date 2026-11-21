@@ -1,5 +1,5 @@
 import { EC2Client, StartInstancesCommand, StopInstancesCommand, DescribeInstancesCommand } from "@aws-sdk/client-ec2";
-import { SSMClient, SendCommandCommand, GetCommandInvocationCommand } from "@aws-sdk/client-ssm";
+import { SSMClient, SendCommandCommand, GetCommandInvocationCommand, DescribeInstanceInformationCommand } from "@aws-sdk/client-ssm";
 
 const region = process.env.AWS_REGION || "ap-southeast-1";
 const getEc2InstanceId = () => process.env.STAGING_EC2_ID || "";
@@ -21,8 +21,16 @@ export const handler = async (event) => {
     // 1. Lấy trạng thái máy chủ EC2 (GET /staging/status)
     if (method === "GET" && path.endsWith("/status")) {
       const result = await ec2.send(new DescribeInstancesCommand({ InstanceIds: [ec2InstanceId] }));
-      const state = result.Reservations?.[0]?.Instances?.[0]?.State?.Name || "unknown";
-      const publicIp = result.Reservations?.[0]?.Instances?.[0]?.PublicIpAddress || null;
+      const instance = result.Reservations?.[0]?.Instances?.[0];
+      const state = instance?.State?.Name || "unknown";
+      const publicIp = instance?.PublicIpAddress || null;
+      let ssmStatus = "not-applicable";
+      if (state === "running") {
+        const managed = await ssm.send(new DescribeInstanceInformationCommand({
+          Filters: [{ Key: "InstanceIds", Values: [ec2InstanceId] }]
+        }));
+        ssmStatus = managed.InstanceInformationList?.[0]?.PingStatus || "offline";
+      }
       return {
         statusCode: 200,
         headers,
@@ -30,6 +38,7 @@ export const handler = async (event) => {
           instanceId: ec2InstanceId,
           state,
           publicIp,
+          ssmStatus,
           timestamp: new Date().toISOString()
         })
       };
@@ -102,12 +111,14 @@ DEPLOY_LOG="/var/log/mland-deploy.log"
 exec > >(tee -a "\${DEPLOY_LOG}") 2>&1
 echo "=== BAT DAU DEPLOY STAGING (\${BRANCH}) ==="
 if [ ! -d "/opt/mland-staging/.git" ]; then
-    git clone https://github.com/quoc-ca/mland-operations-hub.git /opt/mland-staging
+    sudo -u ubuntu git clone https://github.com/quoc-ca/mland-operations-hub.git /opt/mland-staging
 fi
+chown -R ubuntu:ubuntu /opt/mland-staging
 cd /opt/mland-staging
-git fetch origin
-git checkout "\${BRANCH}"
-git pull origin "\${BRANCH}"
+git -c safe.directory=/opt/mland-staging fetch origin
+git -c safe.directory=/opt/mland-staging checkout "\${BRANCH}"
+git -c safe.directory=/opt/mland-staging pull origin "\${BRANCH}"
+chown -R ubuntu:ubuntu /opt/mland-staging
 if [ -f "/opt/mland-staging/.runtime.env" ]; then
     cat /opt/mland-staging/.runtime.env > /opt/mland-staging/.env
 fi
@@ -124,6 +135,7 @@ EOF
 chmod +x /opt/mland-staging-deploy.sh
 fi`);
 
+      commands.push("chown -R ubuntu:ubuntu /opt/mland-staging")
       commands.push(`/bin/bash /opt/mland-staging-deploy.sh "${branch}"`);
 
       const sendCmd = await ssm.send(new SendCommandCommand({
@@ -184,7 +196,7 @@ fi`);
         DocumentName: "AWS-RunShellScript",
         Parameters: {
           commands: [
-            "if [ -f /var/log/mland-deploy.log ] && [ $(find /var/log/mland-deploy.log -mmin -20 2>/dev/null) ]; then echo '=== DEPLOY LOGS (last 20m) ==='; tail -n 120 /var/log/mland-deploy.log; echo ''; fi; echo '=== DOCKER CONTAINER LOGS ==='; cd /opt/mland-staging && docker compose logs --tail=100 --no-color 2>&1 || echo 'Container logs not available yet'"
+              "echo '=== DEPLOY LOG (last 120 lines) ==='; if [ -f /var/log/mland-deploy.log ]; then tail -n 120 /var/log/mland-deploy.log; else echo 'No deploy log yet'; fi; echo ''; echo '=== BOOTSTRAP LOG (last 50 lines) ==='; if [ -f /var/log/user-data.log ]; then tail -n 50 /var/log/user-data.log; else echo 'No bootstrap log yet'; fi; echo ''; echo '=== CONTAINER STATUS ==='; cd /opt/mland-staging && sudo -u ubuntu docker compose ps -a 2>&1 || echo 'Compose project not available'; echo ''; echo '=== CONTAINER LOGS ==='; cd /opt/mland-staging && sudo -u ubuntu docker compose logs --tail=100 --no-color 2>&1 || echo 'Container logs not available yet'"
           ]
         }
       }));
@@ -198,7 +210,11 @@ fi`);
           CommandId: commandId,
           InstanceId: ec2InstanceId
         }));
-        output = inv.StandardOutputContent || inv.StandardErrorContent || output;
+        output = [
+          `SSM command: ${inv.Status || "Unknown"} (${commandId})`,
+          inv.StandardOutputContent?.trim(),
+          inv.StandardErrorContent?.trim() ? `STDERR:\n${inv.StandardErrorContent.trim()}` : ""
+        ].filter(Boolean).join("\n\n") || "Command completed without output.";
       } catch (err) {
         output = "Waiting for SSM command invocation: " + err.message;
       }

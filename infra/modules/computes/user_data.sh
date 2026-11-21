@@ -62,16 +62,18 @@ echo "=================================================="
 # 1. Clone repository nếu chưa có
 if [ ! -d "/opt/mland-staging/.git" ]; then
     echo "Cloning public repository..."
-    git clone https://github.com/quoc-ca/mland-operations-hub.git /opt/mland-staging
+    sudo -u ubuntu git clone https://github.com/quoc-ca/mland-operations-hub.git /opt/mland-staging
 fi
+chown -R ubuntu:ubuntu /opt/mland-staging
 
 cd /opt/mland-staging
 
 # 2. Fetch và checkout branch mục tiêu
 echo "Fetching origin and checking out branch ${BRANCH}..."
-git fetch origin
-git checkout "${BRANCH}"
-git pull origin "${BRANCH}"
+git -c safe.directory=/opt/mland-staging fetch origin
+git -c safe.directory=/opt/mland-staging checkout "${BRANCH}"
+git -c safe.directory=/opt/mland-staging pull origin "${BRANCH}"
+chown -R ubuntu:ubuntu /opt/mland-staging
 
 # 3. Cấu hình biến môi trường
 if [ -f "/opt/mland-staging/.runtime.env" ]; then
@@ -102,8 +104,8 @@ chown ubuntu:ubuntu /opt/mland-staging-deploy.sh
 
 # Clone truoc repo ngay trong bootstrap
 if [ ! -d "/opt/mland-staging/.git" ]; then
-    git clone https://github.com/quoc-ca/mland-operations-hub.git /opt/mland-staging || true
-    chown -R ubuntu:ubuntu /opt/mland-staging || true
+    sudo -u ubuntu git clone https://github.com/quoc-ca/mland-operations-hub.git /opt/mland-staging || true
 fi
+chown -R ubuntu:ubuntu /opt/mland-staging || true
 
 echo "=== [5/5] Hoan tat bootstrap thanh cong ==="
