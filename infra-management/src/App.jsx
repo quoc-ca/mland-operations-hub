@@ -5,14 +5,6 @@ import { parseEnvContent } from './envParser.js'
 
 const AUTH_KEY = 'infra-management-auth'
 const initialEnv = [{ key: '', value: '' }]
-const checks = [
-  ['EC2 instance', 'AWS state is not available'],
-  ['SSM agent', 'Connection is not available'],
-  ['MySQL', 'Health check is not available'],
-  ['Backend API', 'Health check is not available'],
-  ['Caddy / HTTPS', 'Domain check is not available']
-]
-
 function StatusPill({ status }) {
   return <span className="status-pill">{status}</span>
 }
@@ -95,6 +87,9 @@ function StagingPage({ onNotice, currentUser }) {
   const [logContent, setLogContent] = useState('')
   const [serverStatus, setServerStatus] = useState('STOPPED')
   const [serverIp, setServerIp] = useState('')
+  const [healthChecks, setHealthChecks] = useState([])
+  const [lastOperation, setLastOperation] = useState(null)
+  const [refreshKey, setRefreshKey] = useState(0)
   const [isDeploying, setIsDeploying] = useState(false)
   const fileInputRef = useRef(null)
 
@@ -138,16 +133,24 @@ function StagingPage({ onNotice, currentUser }) {
       // 1. Kiểm tra trạng thái máy chủ EC2 thực tế
       try {
         const statusRes = await fetch(`${controlApiUrl}/staging/status`, { headers: { Accept: 'application/json' } })
+        if (!statusRes.ok) throw new Error(`Status API returned HTTP ${statusRes.status}`)
         if (statusRes.ok) {
           const statusData = await statusRes.json()
           if (!cancelled && statusData.state) {
             const normalized = statusData.state.toUpperCase()
             setServerStatus(normalized === 'PENDING' ? 'STARTING' : normalized)
-            if (statusData.publicIp) setServerIp(statusData.publicIp)
+            setServerIp(statusData.publicIp || '')
+            setHealthChecks([
+              { name: 'EC2 instance', ready: normalized === 'RUNNING', detail: `AWS state: ${normalized}` },
+              { name: 'SSM agent', ready: statusData.ssmStatus === 'Online', detail: `Connection: ${statusData.ssmStatus || 'unknown'}` },
+              { name: 'MySQL', ready: null, detail: 'Container health is shown in the log snapshot' },
+              { name: 'Backend API', ready: null, detail: 'HTTP health endpoint is not configured' },
+              { name: 'Caddy / HTTPS', ready: null, detail: 'Domain and TLS health check is not configured' }
+            ])
           }
         }
-      } catch {
-        /* bỏ qua lỗi poll status */
+      } catch (error) {
+        if (!cancelled) setHealthChecks([{ name: 'Control API', ready: false, detail: error.message || 'Status request failed' }])
       }
 
       // 2. Lấy snapshot log container / deploy
@@ -170,7 +173,7 @@ function StagingPage({ onNotice, currentUser }) {
       cancelled = true
       window.clearInterval(timer)
     }
-  }, [polling, controlApiUrl])
+  }, [polling, controlApiUrl, refreshKey])
 
   const handleStart = async (event) => {
     event.preventDefault()
@@ -200,6 +203,7 @@ function StagingPage({ onNotice, currentUser }) {
       })
       if (!response.ok) throw new Error('Không thể khởi động qua Lambda')
       const data = await response.json().catch(() => ({}))
+      setLastOperation({ name: 'Start', status: data.status || 'SUBMITTED', id: data.instanceId || 'ID not returned', branch: data.branch || gitBranch, at: new Date().toLocaleString() })
       onNotice(data.message || 'EC2 đang trong quá trình khởi động...')
     } catch (err) {
       onNotice(`Lỗi khởi động: ${err.message}`)
@@ -233,6 +237,7 @@ function StagingPage({ onNotice, currentUser }) {
       })
       if (!response.ok) throw new Error('Không thể gửi lệnh deploy tới Lambda')
       const data = await response.json().catch(() => ({}))
+      setLastOperation({ name: 'Deploy', status: data.status || 'SUBMITTED', id: data.commandId || 'ID not returned', branch: data.branch || gitBranch, at: new Date().toLocaleString() })
       onNotice(data.message || 'Lệnh deploy đã được gửi thành công. Đang tiến hành build container...')
     } catch (err) {
       onNotice(`Lỗi deploy: ${err.message}`)
@@ -255,6 +260,7 @@ function StagingPage({ onNotice, currentUser }) {
       })
       if (!response.ok) throw new Error('Không thể dừng qua Lambda')
       const data = await response.json().catch(() => ({}))
+      setLastOperation({ name: 'Stop', status: data.status || 'SUBMITTED', id: data.instanceId || 'ID not returned', branch: gitBranch, at: new Date().toLocaleString() })
       onNotice(data.message || 'Lệnh dừng EC2 đã được gửi thành công.')
     } catch (err) {
       onNotice(`Lỗi dừng EC2: ${err.message}`)
@@ -350,7 +356,7 @@ function StagingPage({ onNotice, currentUser }) {
                     <code>http://{serverIp}</code>
                   </a>
                 ) : (
-                  <code>api-staging.example.com</code>
+                  <span className="empty-value">No public IP available</span>
                 )}
               </dd>
             </div>
@@ -371,15 +377,15 @@ function StagingPage({ onNotice, currentUser }) {
               <p className="eyebrow">READINESS</p>
               <h3>Health checks</h3>
             </div>
-            <span className="check-summary">0 / 5 ready</span>
+            <span className="check-summary">{healthChecks.filter((item) => item.ready === true).length} ready · {healthChecks.filter((item) => item.ready === null).length} not configured</span>
           </div>
           <div className="check-list">
-            {checks.map(([name, message]) => (
+            {healthChecks.map(({ name, detail, ready }) => (
               <div className="check-row" key={name}>
-                <span className="check-state">—</span>
+                <span className="check-state">{ready === true ? '✓' : ready === false ? '!' : '—'}</span>
                 <div>
                   <strong>{name}</strong>
-                  <small>{message}</small>
+                  <small>{detail}</small>
                 </div>
               </div>
             ))}
@@ -394,13 +400,19 @@ function StagingPage({ onNotice, currentUser }) {
               <p className="eyebrow">OPERATIONS</p>
               <h3>Lifecycle timeline</h3>
             </div>
-            <button className="text-button" onClick={() => notConnected('Refresh')}>Refresh ↻</button>
+            <button className="text-button" onClick={() => setRefreshKey((key) => key + 1)}>Refresh ↻</button>
           </div>
-          <div className="empty-state">
+          {lastOperation ? (
+            <div className="operation-entry">
+              <strong>{lastOperation.name}: {lastOperation.status}</strong>
+              <p>Branch <code>{lastOperation.branch}</code> · ID <code>{lastOperation.id}</code></p>
+              <small>{lastOperation.at} · See log snapshot for execution output.</small>
+            </div>
+          ) : <div className="empty-state">
             <div className="empty-icon">◷</div>
             <strong>No operations yet</strong>
             <p>Start an operation to see progress, operation ID and recovery state here.</p>
-          </div>
+          </div>}
         </section>
       </div>
 

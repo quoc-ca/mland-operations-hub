@@ -24,3 +24,4 @@
 .branch-tag{background:#f8f9fa;color:var(--dim);font:600 11px var(--mono);padding:9px 12px;border-right:1px solid #edf0f3}
 .branch-input-row input{flex:1;border:none;outline:none;padding:9px 12px;font:13px var(--mono);color:var(--text);background:transparent}
 .terminal-pre{margin:0;font:11px/1.6 var(--mono);white-space:pre-wrap;word-break:break-all;max-height:260px;overflow-y:auto;width:100%;color:#4b5563}
+.operation-entry{border-top:1px solid #edf0f3;padding:16px 4px;color:var(--muted);font-size:12px;line-height:1.7}.operation-entry strong{color:var(--text)}.operation-entry p{margin:5px 0}.operation-entry small{color:var(--dim)}.check-state:has(+ div small){flex-shrink:0}
