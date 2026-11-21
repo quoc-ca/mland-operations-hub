@@ -7,6 +7,40 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
 
 ## Danh sách lỗi đang theo dõi (Active Defects)
 
+## BUG-E2E-0018 — OPEN
+
+- Ngày: 2026-11-21
+- Phát hiện bởi: Senior QA & System Verification Engineer
+- Feature: 004-design-request-and-human-review & Custom Manufacturing
+- Kịch bản liên quan: [E2E-004-029](ppswbs-spec/features/004-ai-chatbox-analysis-and-suggestion/test-results/e2e/E2E-004-029--member-custom-order-full-payment.md)
+- Mức độ nghiêm trọng: CRITICAL / BLOCKER (Không thể khởi tạo cổng thanh toán VNPay cho đơn hàng gia công tùy chỉnh)
+- Phân loại / Gán cho: Backend / Database Schema
+- Mô tả lỗi: Khi Member bấm nút "Thanh toán toàn bộ ... qua VNPay" trên trang chi tiết đơn hàng gia công tùy chỉnh (`/account/my-custom-orders/:id`), Frontend gọi `POST /api/v1/members/me/custom-orders/{id}/payment`. Tại Backend, `CustomOrderService.startFullPayment` gọi `paymentOwnerRegistry.register(..., PaymentOwnerKind.CUSTOM_ORDER_FULL_PAYMENT, ...)`. Cột `payment_kind` trong bảng cơ sở dữ liệu `payment_owner_registrations` được định nghĩa là `varchar(24)`, trong khi chuỗi giá trị enum `CUSTOM_ORDER_FULL_PAYMENT` có độ dài 25 ký tự. Do đó, MySQL ném ngoại lệ `MysqlDataTruncation: Data truncation: Data too long for column 'payment_kind' at row 1`, khiến giao dịch bị trả về HTTP 500 `INTERNAL_SERVER_ERROR` và người dùng không thể chuyển tiếp sang VNPay Sandbox để thanh toán.
+- Các bước tái hiện:
+  1. Đăng nhập tài khoản Member (`member.test@mland.vn` / `Member@123456`).
+  2. Truy cập `http://localhost:5173/account/my-custom-orders`.
+  3. Mở đơn hàng gia công đã được Manager duyệt báo giá (trạng thái `FULL_PAYMENT_PENDING`, ví dụ `CO-D8FD507B`).
+  4. Bấm nút "Thanh toán toàn bộ 4.500.000 đ qua VNPay".
+- Kết quả mong đợi: Backend đăng ký giao dịch thành công và trả về HTTP 201 kèm URL thanh toán VNPay (`paymentUrl`), trình duyệt điều hướng sang cổng thanh toán VNPay Sandbox.
+- Thực tế quan sát: Giao diện console báo lỗi `Payment start failed: ApiError: An unexpected error occurred`, backend Spring Boot ghi nhận `com.mysql.cj.jdbc.exceptions.MysqlDataTruncation: Data truncation: Data too long for column 'payment_kind' at row 1`.
+- Bằng chứng:
+  - Backend log: `Caused by: com.mysql.cj.jdbc.exceptions.MysqlDataTruncation: Data truncation: Data too long for column 'payment_kind' at row 1`
+  - MySQL Schema: `payment_owner_registrations.payment_kind` là `varchar(24)`.
+  - Enum value: `CUSTOM_ORDER_FULL_PAYMENT` dài 25 ký tự.
+
+## BUG-CONTRACT-0002 — OPEN
+
+- Ngày: 2026-11-21
+- Phát hiện bởi: Senior QA & System Verification Engineer
+- Feature: 004-design-request-and-human-review
+- Kịch bản liên quan: [E2E-004-018](ppswbs-spec/features/004-ai-chatbox-analysis-and-suggestion/test-results/e2e/E2E-004-018--guest-create-request-description.md)
+- Mức độ nghiêm trọng: MINOR / CONTRACT-DEFECT
+- Phân loại / Gán cho: Spec / OpenAPI Contract
+- Mô tả lỗi: Tài liệu hợp đồng OpenAPI định nghĩa `POST /api/v1/design-requests` (và `/api/v1/custom-design-requests`) là Member-only (yêu cầu Bearer token xác thực). Tuy nhiên, `spec.md` của Feature-004 quy định rõ ràng: cả Khách vãng lai (Guest) và Thành viên (Member) đều được phép gửi yêu cầu thiết kế, trong đó Guest được quản lý qua daily rate limit (5 request/ngày) và nhận `X-Guest-Tracking-Token`. Implementation thực tế tại Backend và Frontend tuân thủ đúng theo `spec.md` (hỗ trợ cả Guest và Member). Bản mô tả OpenAPI cần được cập nhật để gỡ bỏ ràng buộc Member-only.
+- Kết quả mong đợi: OpenAPI contract phản ánh chính xác phân quyền: Guest và Member đều có thể tạo design request.
+
+
+
 ## BUG-E2E-0016 — OPEN
 
 - Ngày: 2026-11-17
