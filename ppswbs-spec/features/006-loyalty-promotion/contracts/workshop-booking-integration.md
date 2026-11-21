@@ -1,9 +1,9 @@
 # Hướng dẫn tích hợp: Workshop Booking (003.1) gọi LoyaltyFacade
 
 **Date created**: 2026-10-29
-**Date updated**: 2026-11-12
+**Date updated**: 2026-11-21 (T118, Session 2026-11-21 của spec: lượt voucher đã chốt chỉ trả khi mã còn hiệu lực lúc quyết định hủy); trước đó: 2026-11-12
 **Author**: Đặng Thị Khương
-**Last updated by**: Đặng Thị Khương (booking 0đ, quyết định 2026-11-12)
+**Last updated by**: Đặng Thị Khương
 
 **Status**: Draft cho owner 003.1 (Hồ Hoàng Quốc) review. Theo quyết định **Cách 2** (2026-10-29): `workshopbooking` gọi thẳng `LoyaltyFacade`, phụ thuộc một chiều `workshopbooking → loyaltypromotion::facade`. 006 không viết code trong `workshopbooking`.
 **Sources**: [interfaces](interfaces.md) mục 4, [spec](../spec.md) FR-019–FR-022, FR-028–FR-038, Clarifications 2026-10-29, [integration gates](../integration-gates.md) G-04/G-05. Luồng mẫu chạy được: `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/features/loyaltypromotion/LoyaltyWorkshopFacadeIT.java` (test `referenceBookingFlowForATwoSessionPackage`).
@@ -27,7 +27,7 @@ Chỉ dùng type trong `edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromot
 | Booking 0đ (`postPromotionAmount` = 0, quyết định 2026-11-12) | `settleAcceptedBenefits(outcome WORKSHOP_DEPOSIT_ACCEPTED)` ngay khi 003.1 xác nhận booking | MANDATORY, chung transaction xác nhận booking | Không gọi cổng thanh toán. `proofRef` là tham chiếu ngắn của quyết định xác nhận 0đ (ví dụ `zero-accepted:<bookingRef>`), không phải bằng chứng thanh toán. Về sau vẫn grant bằng `WORKSHOP_COMPLETED_AND_FULLY_PAID` (0 điểm), hủy/no-show như booking thường. |
 | Hoàn thành mọi phiên **và** trả đủ (attendance `ATTENDED` hoặc `PARTIAL`) | `grantEarnedPoints(outcome WORKSHOP_COMPLETED_AND_FULLY_PAID)` | MANDATORY | Cộng điểm một lần theo policy lúc accept, trên `postPromotionAmount`. Thu phần còn lại không giảm lại. Booking `PARTIAL` (có vé no-show nhưng không phải toàn bộ) vẫn được cộng điểm khi folio `FINALIZED` với số dư 0 (quyết định owner 003, 2026-11-05). |
 | Hết hạn cọc chưa trả (đã xác nhận) | `releaseHeldBenefits(UNPAID_EXPIRY_CONFIRMED)` rồi `finishIneligibleEarn(...)` | MANDATORY | Không suy hết hạn từ `originalDeadline`; chỉ gọi khi 003.1 đã phân xử. |
-| Hủy hợp lệ (khách hủy hợp lệ, hoặc Mland hủy và remedy hoàn tiền đã xác minh — quyết định owner 003 D15, 2026-11-05) | `restoreCancelledWorkshopBenefits(VALID_WORKSHOP_CANCELLATION)` rồi `finishIneligibleEarn(...)` | MANDATORY | HELD → release, CONSUMED → hoàn điểm và lượt. Không cộng điểm. |
+| Hủy hợp lệ (khách hủy hợp lệ, hoặc Mland hủy và remedy hoàn tiền đã xác minh — quyết định owner 003 D15, 2026-11-05) | `restoreCancelledWorkshopBenefits(VALID_WORKSHOP_CANCELLATION)` rồi `finishIneligibleEarn(...)` | MANDATORY | HELD → release, CONSUMED → hoàn điểm; lượt voucher chỉ hoàn khi mã còn hiệu lực tại `decisionAt` (FR-035, Session 2026-11-21). Không cộng điểm. |
 | No-show cuối (toàn bộ vé ở mọi phiên bắt buộc đều `NO_SHOW`) | `finishIneligibleEarn(WORKSHOP_NO_SHOW_FINAL)` | MANDATORY | Không hoàn voucher/điểm đã dùng. Folio direct-booking chuyển `CLOSED`. |
 | Đối soát | `findBenefitResult(SourceKind.WORKSHOP, bookingRef)` | read-only | Trạng thái từng phần và earn. |
 
