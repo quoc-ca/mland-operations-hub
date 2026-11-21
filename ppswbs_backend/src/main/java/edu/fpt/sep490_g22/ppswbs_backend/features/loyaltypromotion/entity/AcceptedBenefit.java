@@ -263,6 +263,14 @@ public class AcceptedBenefit {
      * handled on its own, so a retry after a partial result only completes what is missing.
      */
     public Changes restore(String outcomeKey, long outcomeVersion, Instant at) {
+        return restore(outcomeKey, outcomeVersion, at, true);
+    }
+
+    /**
+     * As {@link #restore(String, long, Instant)}; with {@code voucherMayComeBack} false a CONSUMED voucher stays
+     * CONSUMED (its programme window had ended when the cancellation was decided, FR-035), while points still come back.
+     */
+    public Changes restore(String outcomeKey, long outcomeVersion, Instant at, boolean voucherMayComeBack) {
         if (isReplay(restoreOutcomeKey, outcomeKey)) {
             return new Changes(false, false, false);
         }
@@ -286,7 +294,7 @@ public class AcceptedBenefit {
         if (voucherState == ComponentState.HELD) {
             voucherState = ComponentState.RELEASED;
             voucher = true;
-        } else if (voucherState == ComponentState.CONSUMED) {
+        } else if (voucherState == ComponentState.CONSUMED && voucherMayComeBack) {
             voucherState = ComponentState.RESTORED;
             voucherRestoredAt = at;
             voucher = true;

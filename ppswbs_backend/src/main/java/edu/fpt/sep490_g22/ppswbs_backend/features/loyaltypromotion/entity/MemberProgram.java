@@ -68,10 +68,13 @@ public class MemberProgram {
         return savedAt != null;
     }
 
-    /** One slot moves to held for this Member if the current per-member limit allows it. */
+    /**
+     * One slot moves to held for this Member if the current per-member limit allows it. Defensive guard: the locked
+     * quote already refuses a reached limit ({@code VOUCHER_MEMBER_LIMIT_REACHED}), hence the ineligible code (T123).
+     */
     public void hold(long memberLimit) {
         if (heldCount + consumedCount >= memberLimit) {
-            throw new LoyaltyException(LoyaltyErrorCode.QUOTA_LIMIT_CONFLICT,
+            throw new LoyaltyException(LoyaltyErrorCode.PROMOTION_INELIGIBLE,
                     "The per-member limit of this voucher is reached.");
         }
         heldCount++;

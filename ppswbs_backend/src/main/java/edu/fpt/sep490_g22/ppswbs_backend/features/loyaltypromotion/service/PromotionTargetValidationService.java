@@ -18,9 +18,9 @@ import java.util.List;
  * "Target port"). It runs before the registry lock.
  *
  * <ul>
- *   <li>Exactly one provider must serve the scope. Products are served by productmanagement (T091 of 002); the
- *       workshop provider belongs to FE-03 and does not exist yet, so a workshop programme is refused with
- *       {@code DEPENDENCY_UNAVAILABLE}. Nothing is ever accepted unchecked.</li>
+ *   <li>Exactly one provider must serve the scope. Products are served by productmanagement (T091 of 002),
+ *       packages, dates, sessions and branches of workshops by workshopoperations (BE-DESIGN-0008, D-013). Without a
+ *       provider the programme is refused with {@code DEPENDENCY_UNAVAILABLE}. Nothing is ever accepted unchecked.</li>
  *   <li>A target is rejected only when it does not exist, does not belong to its parent product or is
  *       soft-deleted. Unpublished, hidden or stopped products stay valid (spec clarification 2026-10-26).</li>
  *   <li>Loyalty never reads another module's repository; it only sees the immutable facts the port returns.</li>

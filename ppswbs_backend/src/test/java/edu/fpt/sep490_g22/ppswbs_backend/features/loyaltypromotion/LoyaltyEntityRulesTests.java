@@ -56,7 +56,7 @@ class LoyaltyEntityRulesTests {
     void lastSlotCanOnlyBeHeldOnce() {
         PromotionProgram program = voucher(1, 1);
         program.hold();
-        assertCode(program::hold, LoyaltyErrorCode.QUOTA_LIMIT_CONFLICT);
+        assertCode(program::hold, LoyaltyErrorCode.PROMOTION_INELIGIBLE);
         assertThat(program.availableTotal()).isZero();
     }
 
@@ -114,9 +114,9 @@ class LoyaltyEntityRulesTests {
     void memberLimitIsChecked() {
         MemberProgram row = MemberProgram.create(5L, 7L);
         row.hold(1);
-        assertCode(() -> row.hold(1), LoyaltyErrorCode.QUOTA_LIMIT_CONFLICT);
+        assertCode(() -> row.hold(1), LoyaltyErrorCode.PROMOTION_INELIGIBLE);
         row.consume();
-        assertCode(() -> row.hold(1), LoyaltyErrorCode.QUOTA_LIMIT_CONFLICT);
+        assertCode(() -> row.hold(1), LoyaltyErrorCode.PROMOTION_INELIGIBLE);
         row.restore();
         row.hold(1);
     }
@@ -251,6 +251,23 @@ class LoyaltyEntityRulesTests {
         Changes released = heldOnly.restore("cancel-2", 1, NOW);
         assertThat(released.points()).isTrue();
         assertThat(heldOnly.getPointsState()).isEqualTo(ComponentState.RELEASED);
+    }
+
+    @Test
+    void t118AnExpiredUsedVoucherStaysUsedWhilePointsAndAHeldVoucherStillComeBack() {
+        AcceptedBenefit deposited = accepted(SourceKind.WORKSHOP, 200, true);
+        deposited.settle("deposit-1", 1, NOW);
+        Changes restored = deposited.restore("cancel-1", 2, NOW, false);
+        assertThat(restored.points()).isTrue();
+        assertThat(restored.voucher()).isFalse();
+        assertThat(deposited.getPointsState()).isEqualTo(ComponentState.RESTORED);
+        assertThat(deposited.getVoucherState()).isEqualTo(ComponentState.CONSUMED);
+        assertThat(deposited.countsAsVoucherUse()).isTrue();
+        assertThat(deposited.restore("cancel-1", 2, NOW, false).any()).isFalse();
+
+        AcceptedBenefit heldOnly = accepted(SourceKind.WORKSHOP, 0, true);
+        assertThat(heldOnly.restore("cancel-2", 1, NOW, false).voucher()).as("a held use is always released").isTrue();
+        assertThat(heldOnly.getVoucherState()).isEqualTo(ComponentState.RELEASED);
     }
 
     @Test
