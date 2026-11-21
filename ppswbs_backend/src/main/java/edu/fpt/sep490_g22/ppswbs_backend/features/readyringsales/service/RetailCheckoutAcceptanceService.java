@@ -85,7 +85,7 @@ public class RetailCheckoutAcceptanceService {
             case QUOTA_LIMIT_CONFLICT -> new RetailConflictException("RETAIL_VOUCHER_REFUSED",
                 "Voucher đã hết lượt dùng, hoặc bạn đã dùng hết số lần được phép (một đơn chưa thanh toán cũng đang giữ lượt). Hãy chọn voucher khác.");
             case PROMOTION_INELIGIBLE, PROMOTION_NOT_FOUND -> new RetailConflictException("RETAIL_VOUCHER_REFUSED",
-                "Voucher không còn áp dụng cho đơn này (hết hạn, đã tắt, hoặc không đúng sản phẩm/chi nhánh). Hãy chọn voucher khác.");
+                "Voucher không còn áp dụng cho đơn này (đã hết lượt dùng, hết hạn, đã tắt, hoặc không đúng sản phẩm/chi nhánh). Hãy chọn voucher khác.");
             case POINTS_LIMIT_CHANGED, POINTS_USE_NOT_ALLOWED -> new RetailConflictException("RETAIL_POINTS_CHANGED",
                 "Số điểm được dùng cho đơn này vừa thay đổi. Kiểm tra lại điểm rồi bấm Đặt hàng.");
             default -> new RetailConflictException("Ưu đãi của đơn vừa thay đổi. Kiểm tra lại tổng tiền rồi bấm Đặt hàng.");
