@@ -15,11 +15,16 @@ paths:
   /custom-design-requests:
     post:
       operationId: createCustomDesignRequest
-      summary: Create a Member custom-design request
-      security:
-        - firebaseBearer: []
+      summary: Create a Guest or Member custom-design request
+      description: >-
+        Guest and Member may submit a human-reviewed custom-design request.
+        Guest requests are authorized by the optional opaque design-session
+        header and receive an opaque tracking token in the response. Member
+        requests are associated with the Firebase identity when present.
+      security: []
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/GuestDesignSession'
       requestBody:
         required: true
         content:
@@ -40,9 +45,10 @@ paths:
   /custom-design-requests/{requestId}:
     get:
       operationId: getCustomDesignRequest
-      summary: Read the Member's safe request projection
+      summary: Read a safe Guest tracking or Member-owned request projection
       parameters:
         - $ref: '#/components/parameters/RequestId'
+        - $ref: '#/components/parameters/GuestTrackingToken'
       responses:
         '200':
           description: Safe owner projection
@@ -56,10 +62,12 @@ paths:
     post:
       operationId: reviseCustomDesignRequest
       summary: Submit a revision after clarification
+      security: []
       parameters:
         - $ref: '#/components/parameters/RequestId'
         - $ref: '#/components/parameters/IdempotencyKey'
         - $ref: '#/components/parameters/IfMatchVersion'
+        - $ref: '#/components/parameters/GuestTrackingToken'
       requestBody:
         required: true
         content:
@@ -130,6 +138,8 @@ paths:
     get:
       operationId: listMyCustomDesignRequests
       summary: List the Member's own requests and quote summaries
+      security:
+        - firebaseBearer: []
       responses:
         '200':
           description: Member-owned request list
@@ -202,6 +212,18 @@ components:
     RequestId: { name: requestId, in: path, required: true, schema: { type: string } }
     IdempotencyKey: { name: Idempotency-Key, in: header, required: true, schema: { type: string, minLength: 16, maxLength: 128 } }
     IfMatchVersion: { name: If-Match-Version, in: header, required: true, schema: { type: integer, minimum: 1 } }
+    GuestDesignSession:
+      name: X-Guest-Design-Session
+      in: header
+      required: false
+      description: Opaque Guest design session reference; never a raw identity or database ID.
+      schema: { type: string, minLength: 16, maxLength: 256 }
+    GuestTrackingToken:
+      name: X-Guest-Tracking-Token
+      in: header
+      required: false
+      description: Opaque Guest token used to read or revise the Guest's own request.
+      schema: { type: string, minLength: 16, maxLength: 256 }
   schemas:
     CreateCustomDesignRequest:
       type: object
