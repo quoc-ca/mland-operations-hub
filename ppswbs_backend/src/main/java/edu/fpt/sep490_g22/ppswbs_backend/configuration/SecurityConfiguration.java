@@ -145,6 +145,12 @@ public class SecurityConfiguration {
                         // member view, public submit for guest/member)
                         .requestMatchers(HttpMethod.GET, "/api/v1/design-requests/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/design-requests").permitAll()
+                        // Compatibility alias for the same independent human-review request flow.
+                        // Decision and quote endpoints have additional path segments and remain
+                        // protected by the authenticated catch-all below.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/custom-design-requests/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/custom-design-requests").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/custom-design-requests/*").permitAll()
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().denyAll());
 
@@ -162,12 +168,13 @@ public class SecurityConfiguration {
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Correlation-Id", "Idempotency-Key",
                 "If-Match-Version", "X-Guest-Design-Session", "X-Guest-Session-Id", "X-Guest-AI-Session",
+                "X-Guest-Tracking-Token",
                 // Lets the FE bypass the ngrok free-tier browser warning page when the API is
                 // reached through ngrok.
                 "ngrok-skip-browser-warning"));
         configuration.setExposedHeaders(List.of("X-Correlation-Id", "X-Guest-Design-Session", "X-Guest-Session-Id",
                 "X-Guest-AI-Session", "X-AI-Quota-Limit", "X-AI-Quota-Remaining", "X-AI-Quota-Reset-At",
-                "Retry-After"));
+                "X-Guest-Tracking-Token", "Retry-After"));
         configuration.setAllowCredentials(false);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

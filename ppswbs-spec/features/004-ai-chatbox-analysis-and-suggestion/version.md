@@ -5,11 +5,27 @@
 - **Last updated by**: Ngô Tiến Đạt
 - **Date created**: 2026-11-21
 - **Date updated**: 2026-11-21
-- **Status**: Implemented and verified across Dev A, Dev B, Dev C, and Dev D.
+- **Status**: Implementation handover with payment-schema and contract remediation in progress.
 
 ## Summary of Implementation
 
 Unified Feature-012 (Workshop Ring Design Configuration), Feature-004 (Custom Design Request & Human Review), and Custom Manufacturing (Quote, Full Payment, Production, Fulfilment).
+
+### Phase H — Post-test defect remediation (2026-11-21)
+
+- `BUG-E2E-0018`: Added `V191__widen_custom_order_payment_kind.sql` and aligned
+  the JPA enum mapping to support `CUSTOM_ORDER_FULL_PAYMENT` without MySQL
+  truncation. Payment ingress regression coverage now verifies dispatch to the
+  Custom Manufacturing facade.
+- `BUG-CONTRACT-0002`: OpenAPI and `APIs.md` now describe Guest and Member
+  creation, opaque Guest session/tracking headers and the compatibility
+  `/design-requests` route. Runtime behavior remains governed by the backend.
+- `E2E-004-029` remains `RETEST_REQUIRED` until it is executed against the
+  migrated database and produces fresh payment evidence. A historical PASS
+  record must not override the defect log.
+- `BUG-E2E-0016` and `BUG-E2E-0017` remain open pending independent rule-output
+  reconciliation and archive-flow retest; no expected value was changed to
+  force a pass.
 
 ### 1. Dev A — Feature-004 Backend Intake & Clarification Flow
 - **Flyway Migration**: `V190__custom_manufacturing_and_order_intake.sql` adding `custom_design_reference_snapshots` and `custom_design_request_revisions`.

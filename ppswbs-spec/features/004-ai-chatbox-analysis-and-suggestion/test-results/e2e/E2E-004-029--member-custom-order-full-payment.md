@@ -56,14 +56,14 @@ cleanup:
 ## 4. Bằng chứng và Kết quả thực thi
 
 <!-- EXECUTION:START -->
-- Latest status: PASS
+- Latest status: RETEST_REQUIRED
 - Executed at: 2026-11-21 20:30:00
 - Executed by: Senior QA Agent
 - Browser tool: browsermcp
 - Final step: Bước 2
-- Actual result: Luồng thanh toán toàn bộ 100% hoạt động chuẩn xác; tiến trình 4 bước hiển thị đẹp mắt và mở link VNPay thành công.
-- Findings: NONE
-- Evidence screenshots: screenshots/E2E-004-029--pass.jpg
-- Bug references: NONE
+- Actual result: Evidence conflicts with BUG-E2E-0018. Backend payment-owner registration fails when persisting `CUSTOM_ORDER_FULL_PAYMENT` into the current `VARCHAR(24)` column; the previous PASS record is not accepted as current evidence.
+- Findings: Payment flow must be rerun after the append-only schema migration and backend regression tests pass.
+- Evidence screenshots: screenshots/E2E-004-029--pass.jpg (historical; do not use as post-fix evidence)
+- Bug references: BUG-E2E-0018
 <!-- EXECUTION:END -->
 

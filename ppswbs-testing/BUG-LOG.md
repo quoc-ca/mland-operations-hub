@@ -7,6 +7,21 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
 
 ## Danh sách lỗi đang theo dõi (Active Defects)
 
+### Remediation update — 2026-11-21
+
+- `BUG-E2E-0018`: code remediation is present in the current branch through
+  `V191__widen_custom_order_payment_kind.sql` and the aligned JPA column length.
+  Status remains **RETEST_REQUIRED** until Flyway upgrade, payment-owner
+  persistence, VNPay callback and duplicate-callback tests pass on the target
+  database.
+- `BUG-CONTRACT-0002`: OpenAPI, `APIs.md` and public alias security/CORS rules
+  have been aligned for Guest and Member creation. Status remains
+  **RETEST_REQUIRED** until OpenAPI validation and anonymous Guest runtime tests
+  pass for both `/design-requests` and `/custom-design-requests`.
+- `BUG-E2E-0016` and `BUG-E2E-0017` remain **OPEN**. No expected price,
+  difficulty or archive outcome has been changed without a source-of-truth
+  decision and a fresh execution record.
+
 ## BUG-E2E-0018 — OPEN
 
 - Ngày: 2026-11-21

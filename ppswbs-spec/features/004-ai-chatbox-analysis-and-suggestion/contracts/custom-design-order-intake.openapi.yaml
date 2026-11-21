@@ -1,9 +1,9 @@
 openapi: 3.1.0
 info:
   title: Custom Design Request and Order Intake API
-  version: 0.1.0-draft
+  version: 1.0.0
   description: >-
-    Draft contract for the Feature-004 custom-manufacturing intake boundary.
+    Approved implementation contract for the Feature-004 custom-manufacturing intake boundary.
     It does not replace the Custom Manufacturing full-payment, production or
     fulfilment contracts. Custom orders are paid in one complete payment and
     are never added to a retail cart.
@@ -28,12 +28,18 @@ paths:
       requestBody:
         required: true
         content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CreateCustomDesignRequestMultipart'
           application/json:
             schema:
               $ref: '#/components/schemas/CreateCustomDesignRequest'
       responses:
         '201':
           description: Request created in NEED_REVIEW
+          headers:
+            X-Guest-Tracking-Token:
+              $ref: '#/components/headers/GuestTrackingToken'
           content:
             application/json:
               schema:
@@ -46,6 +52,7 @@ paths:
     get:
       operationId: getCustomDesignRequest
       summary: Read a safe Guest tracking or Member-owned request projection
+      security: []
       parameters:
         - $ref: '#/components/parameters/RequestId'
         - $ref: '#/components/parameters/GuestTrackingToken'
@@ -205,6 +212,57 @@ paths:
         '401': { $ref: '#/components/responses/Error' }
         '409': { $ref: '#/components/responses/Error' }
         '422': { $ref: '#/components/responses/Error' }
+  # Compatibility alias implemented by the same controller as
+  # /custom-design-requests. Keep both paths documented until the frontend
+  # canonical route is retired.
+  /design-requests:
+    post:
+      operationId: createDesignRequestCompatibilityAlias
+      summary: Create a Guest or Member design request (compatibility alias)
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/GuestDesignSession'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CreateCustomDesignRequestMultipart'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCustomDesignRequest'
+      responses:
+        '201':
+          description: Request created in NEED_REVIEW
+          headers:
+            X-Guest-Tracking-Token:
+              $ref: '#/components/headers/GuestTrackingToken'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomDesignRequestProjection'
+        '400': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /design-requests/{requestId}:
+    get:
+      operationId: getDesignRequestCompatibilityAlias
+      summary: Read a Guest tracking or Member-owned request projection
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+        - $ref: '#/components/parameters/GuestTrackingToken'
+      responses:
+        '200':
+          description: Safe request projection
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomDesignRequestProjection'
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
 components:
   securitySchemes:
     firebaseBearer: { type: http, scheme: bearer, bearerFormat: Firebase }
@@ -224,7 +282,25 @@ components:
       required: false
       description: Opaque Guest token used to read or revise the Guest's own request.
       schema: { type: string, minLength: 16, maxLength: 256 }
+  headers:
+    GuestTrackingToken:
+      description: Opaque token for the Guest to track the created request.
+      schema: { type: string, minLength: 16, maxLength: 256 }
   schemas:
+    CreateCustomDesignRequestMultipart:
+      type: object
+      description: Multipart projection of the create command; image storage and quality are server-validated.
+      properties:
+        description: { type: string, minLength: 1, maxLength: 4000 }
+        catalogueReference: { type: string, nullable: true }
+        designReference: { type: string, nullable: true }
+        designVersion: { type: integer, minimum: 1, nullable: true }
+        consentVersion: { type: string, nullable: true }
+        consentPurpose: { type: string, nullable: true }
+        images:
+          type: array
+          maxItems: 5
+          items: { type: string, format: binary }
     CreateCustomDesignRequest:
       type: object
       additionalProperties: false
