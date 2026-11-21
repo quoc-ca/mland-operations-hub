@@ -1,7 +1,7 @@
 # Hướng dẫn tích hợp: Workshop Booking (003.1) gọi LoyaltyFacade
 
 **Date created**: 2026-10-29
-**Date updated**: 2026-11-21 (T118, Session 2026-11-21 của spec: lượt voucher đã chốt chỉ trả khi mã còn hiệu lực lúc quyết định hủy); trước đó: 2026-11-12
+**Date updated**: 2026-11-21 (T118, Session 2026-11-21 của spec: lượt voucher đã chốt chỉ trả khi mã còn hiệu lực lúc quyết định hủy; đồng bộ FR-044: chọn AUTO cho workshop không còn là `PROMOTION_INELIGIBLE`); trước đó: 2026-11-12
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -131,7 +131,7 @@ new AuthoritativeOutcome(SourceKind.WORKSHOP, bookingRef, "workshopbooking",
 | Code | Khi nào | 003.1 làm gì |
 | --- | --- | --- |
 | `INVALID_INPUT` | Fact/context sai (sessionRef không phải UUID, danh sách rỗng...) | Lỗi lập trình hoặc dữ liệu nguồn; trả 400. |
-| `PROMOTION_INELIGIBLE` | Mã không có, sai phạm vi (kể cả một phiên ngoài phạm vi), hết hạn/dừng/hết lượt, chưa đủ phí tối thiểu, chọn AUTO cho workshop | Rollback; preview lại và hiện lý do. |
+| `PROMOTION_INELIGIBLE` | Mã không có, sai phạm vi (kể cả một phiên ngoài phạm vi), hết hạn/dừng/hết lượt, chưa đủ phí tối thiểu. Chọn AUTO cho workshop không còn là lỗi (FR-044, Session 2026-11-14): không có giảm tự động nào áp được thì preview chỉ trả lý do `WORKSHOP_NO_AUTO_DISCOUNT_APPLIES`, D = 0 | Rollback; preview lại và hiện lý do. |
 | `POINTS_USE_NOT_ALLOWED`, `POINTS_LIMIT_CHANGED` | Điểm không hợp lệ/không đủ lúc accept | Rollback; preview lại. |
 | `QUOTE_CHANGED` | Digest khác quote khách đã xác nhận | Rollback; preview lại, khách xác nhận lại. |
 | `WORKSHOP_NET_AMOUNT_INVALID` | Phí sau giảm **âm** (chỉ khi dữ liệu sai). Từ 2026-11-12, phí sau giảm bằng 0 **không** còn là lỗi. | Rollback; đối soát dữ liệu. |
