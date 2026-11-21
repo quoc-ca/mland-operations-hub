@@ -26,14 +26,14 @@ This use case includes the following sub-flows:
 
 1. The actor is signed in through the shared Account Management sign-in, the account is active, and the current role is Staff or Manager with product-management permission.
 2. For an update or delete, the product exists and has not been deleted.
-3. For a stock change, the branch is an active branch from the shared branch list maintained by Workshop Management, and a Staff account has at least one assigned branch.
+3. For a stock change, the branch is an active branch from the shared branch list maintained by Workshop Management (a Manager may also change the quantity at an inactive branch), and a Staff account has at least one assigned branch.
 
 #### Normal Flow
 
 **Create Draft Product**
 
 1. The actor opens Product Management and selects New product.
-2. The actor enters the name (1–200 characters), description (1–5,000 characters), an active category, 1–25 distinct sizes from 5 to 29, and for each size a proposed price (positive whole VND). The actor selects at least one active branch and enters, for each selected branch, a quantity for every size (whole number, 0 or more; default 0). A Staff can select only assigned branches. Images are optional for a draft.
+2. The actor enters the name (1–200 characters), description (1–5,000 characters), an active category, 1–25 distinct sizes from 5 to 29, and for each size a proposed price (positive whole VND). The actor selects at least one active branch and enters, for each selected branch, a quantity for every size (whole number, 0 or more; default 0; each quantity field also has − and + buttons that change it by 1 and never below 0). The branch selector shows only active branches, and a Staff can select only assigned branches. Images are optional for a draft.
 3. The system validates all data.
 4. The system assigns a stable numeric product code and one read-only SKU per size in the format `SP{product code}-S{size}`, for example `SP000001-S09`.
 5. The system saves the product as Unpublished with a Draft review record, creates one stock row per size at each selected branch, marks each size as on sale, and records an audit entry. The product is not approved, priced or published automatically.
@@ -49,8 +49,8 @@ This use case includes the following sub-flows:
 
 **Update Product Content and Images**
 
-1. The actor finds the product in the management list, searching by product code, name or SKU and filtering by category, publication status or branch, 20 products per page, newest first; deleted products are not listed. A SKU match shows the matching size. The actor opens the product.
-2. The system displays the product, its sizes and SKUs, review status, proposed, approved and applied prices, publication status, images and, for each size at each branch, the remaining, held and available quantity and the sale status at that branch.
+1. The actor finds the product in the management list, searching by product code, name or SKU and filtering by category, publication status or branch, 20 products per page in a fixed order; deleted products are not listed. A SKU match shows the matching size. The actor opens the product.
+2. The system displays the product, its sizes and SKUs, review status, proposed, approved and applied prices, publication status, images and, for each size at each branch, the remaining, held and available quantity and the sale status at that branch. For each price proposal and review version it also shows who submitted it and when, the submitter's branches at that time, and who decided it and when (see UC-14 and UC-15). A Staff sees every branch, but edit buttons outside the Staff's scope are hidden or disabled.
 3. The actor changes the name, description or category, or adds, replaces, reorders or removes images (JPEG, PNG or WebP, up to 10 images, each at most 5,000,000 bytes, with alt text of 1–200 characters).
 4. The system checks that the data is still the latest version and validates the changes.
 5. The system saves the changes, records an audit entry and confirms (MSG10).
@@ -60,7 +60,7 @@ This use case includes the following sub-flows:
 
 1. The actor selects Add branch, or selects a branch the product is already sold at.
 2. To add a branch, the actor selects an active branch the product is not sold at yet and enters a quantity for every size (default 0). To change existing stock, the actor enters a new quantity for one size at that branch, or selects Stop sale at branch or Resume sale at branch.
-3. The system checks, at the time of the request, that the branch is within the actor's scope: a Manager may act at every branch; a Staff only at branches currently assigned to the account.
+3. The system checks, at the time of the request, that the branch is within the actor's scope: a Manager may act at every active branch; a Staff only at branches currently assigned to the account.
 4. For a quantity change, the system checks that the new quantity is not lower than the quantity held by valid holds at that branch, using the latest hold data. Stock at other branches is not affected.
 5. The system saves the change, records an audit entry and confirms (MSG10). At a branch where sale is stopped, the product keeps its quantities and history but customers cannot select that branch for it; other branches keep selling.
 
@@ -69,7 +69,7 @@ This use case includes the following sub-flows:
 1. The actor selects a size of the product.
 2. The actor enters a new quantity for the size at a branch, or selects Stop sale or Resume sale for the size.
 3. The system checks that the new quantity is not lower than the quantity currently held by valid holds at that branch, using the latest hold data.
-4. For Resume sale, the system checks the size data and price; it does not publish the product.
+4. For Stop sale or Resume sale by a Staff, the system checks that every active branch that sells the size is assigned to the Staff; inactive branches are not counted. For Resume sale, the system also checks the size data and price; it does not publish the product.
 5. The system saves the change, records an audit entry and confirms (MSG10). A stopped size keeps its quantity at every branch, shows a label and cannot be added to a cart at any branch; other sizes are not affected.
 
 **Update Quantity of Several Sizes**
@@ -77,7 +77,7 @@ This use case includes the following sub-flows:
 1. The actor opens Edit quantities of several sizes for one branch and selects sizes one by one or as a size range.
 2. The actor enters one number and chooses Add (added to the remaining quantity, for a restock) or Set to (replaces it), then may still change any row.
 3. The system checks every changed size as in step 3 above before sending anything; only sizes whose quantity changes are saved.
-4. The system saves each size as its own change with its own audit entry; a size that fails does not affect the others. It confirms with the number of sizes saved (MSG10), or lists the sizes that failed and why.
+4. The system saves each size as its own change with its own audit entry; a size that fails does not affect the others. It confirms with the number of sizes saved (MSG10), or lists the sizes that failed and why (MSG54).
 
 **Delete Product**
 
@@ -115,6 +115,10 @@ The system identifies the branch field as invalid (MSG08) and creates nothing.
 **Branch Stock Step 2 — Branch is already added**
 
 The system rejects the request (MSG08) and creates no duplicate stock row. A stock row is never deleted; stopping sale at the branch is used instead of removing it.
+
+**Branch Stock Step 2 — Branch has been deactivated**
+
+Stock that remains at an inactive branch is shown as "Branch #{id}" with a note that the branch is no longer active, and has no Stop sale or Resume sale button. Only a Manager can change its quantity, for example to count stock or set it to 0 when the branch closes, through the per-branch or the per-size quantity change. Adding an inactive branch, changing the sale status there, or any change there by a Staff is rejected as an unknown branch (MSG08). If the branch source cannot answer, the request is not rejected for this reason. Customers still cannot buy at an inactive branch.
 
 **Update Step 3 — Actor tries to add or change sizes**
 
@@ -173,4 +177,4 @@ BR-12-01, BR-12-02, BR-12-03, BR-12-04, BR-12-05, BR-12-06, BR-12-07, BR-12-08, 
 | BR-12-08 | Quantity is kept per size at each branch and cannot be set below the quantity held by valid holds at that branch; the total of a size is for display only. Stop and resume sale of a size apply at every branch; stop and resume sale at a branch apply to the whole product at that branch; neither changes publication. Prices are shared by all branches. Editing several sizes at once is only a way of entering values: each size is still saved and audited on its own. |
 | BR-12-09 | Delete is a confirmed soft delete; a deleted product cannot be edited, reviewed, priced, published, resumed or added to a cart, and its SKUs and history are kept. |
 | BR-12-10 | Every change checks the latest version, saves all or nothing, is idempotent on retry and is audited with actor, object, version, change, time and result for 5 years. |
-| BR-12-11 | A product is sold at one or more active branches from the shared branch list and has exactly one stock row per size at each of those branches; stock rows are never deleted. A Manager manages stock at every branch; a Staff only at branches currently assigned to the account, checked by the system at each request. A customer can buy a size only at a branch where the product and size are on sale, the branch is active and the available quantity is above 0. |
+| BR-12-11 | A product is sold at one or more active branches from the shared branch list and has exactly one stock row per size at each of those branches; stock rows are never deleted. A Manager manages stock at every active branch and may only change the quantity at an inactive branch; a Staff manages stock only at active branches currently assigned to the account, checked by the system at each request, and stops or resumes a size only when every active branch selling it is assigned. The branch selector shows only active branches. A customer can buy a size only at a branch where the product and size are on sale, the branch is active and the available quantity is above 0. |

@@ -2,17 +2,24 @@
 
 ![](assets/screens/48-new-product.png)
 
-This screen allows authorized catalogue maintainers to:
+This screen allows Staff and Managers to:
 
-- Enter a required trimmed name of 1–200 characters, description of 1–5,000 characters and an active category.
-- Configure at least one unique predefined size/engraving variant with a positive whole-VND proposed price and nonnegative integer quantity.
-- Optionally supply at most 10 JPEG/PNG/WebP images, 5 MB each, with alternative text of 1–200 characters and distinct positions.
-- Save a complete unpublished product draft without applying its price or publishing it.
+- Enter the product name, active category and description, with a warning when products with the same name already exist.
+- Select the branches that sell the product.
+- Choose sizes individually or as a range, and enter a price and a quantity per branch for each size.
+- Add up to 10 images with alternative text and order them.
+- As Staff, create an unpublished draft whose prices remain proposals for Manager review.
+- As a Manager, create the product with its prices applied immediately, either unpublished or published at once.
 
 | Field Name | Description |
 | --- | --- |
-| Record code / product or proposal | Read-only stable target references; product identity and price-proposal identity must remain distinguishable. |
-| Applied price | Shows the currently effective Manager-approved price, separately from the proposed amount. |
-| State | Displays publication/proposal facts; an illustrative held label must not create a separate parent-product hold lifecycle. |
-| Create / Propose / Save Draft / Send for Review | Enable only actions appropriate to the current screen and authority; proposal submission does not apply or publish a price. |
-| Approval notice | Explains that Manager review, authorized price application and publication are separate actions. |
+| Product name (Tên sản phẩm) | Required text input. |
+| Category (Danh mục) | Required selection of an active category; when none exists, a link opens Product Categories. |
+| Description (Mô tả) | Required multi-line text. |
+| Selling branches (Chi nhánh bán) | Checkboxes for branches; the price is shared by all branches while quantities are entered per branch. |
+| Sizes (Size, giá đề xuất và số lượng) | Size buttons plus Từ size / Đến size, **Chọn khoảng**, **Chọn tất cả** and **Bỏ chọn**. The size list is fixed once the product is created. |
+| Price per size | "Giá đề xuất (₫)" for Staff; "Giá bán (₫)" for a Manager, applied on creation without a review step. |
+| Quantity per branch | Nonnegative integer quantity of each size at each selected branch. |
+| Images (Ảnh) | **Thêm ảnh (n/10)**, alternative text, move up/down and **Bỏ ảnh**. |
+| After creation (Sau khi tạo) | Manager only: "Chưa công khai" or "Công khai ngay"; publishing requires at least one image. |
+| Tạo sản phẩm / Hủy | Creates the product and opens its management details, or abandons the form. |
