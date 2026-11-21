@@ -34,7 +34,7 @@ The system identifies the invalid value (MSG08), rejects the change and keeps th
 
 **Any step — Actor is not a Manager or the session has expired**
 
-The system rejects the request (MSG01, MSG02). Admin cannot view or change the point policy. A rejected change is recorded as in UC-45.
+The system rejects the request (MSG01, MSG02). Admin cannot view or change the point policy. The point policy page belongs to Promotion Management and is shown only to the Manager role; any other signed-in role that opens it directly is shown the not-found page, as in UC-45. A rejected change is recorded as in UC-45.
 
 **Step 5 — Save not confirmed or response lost**
 

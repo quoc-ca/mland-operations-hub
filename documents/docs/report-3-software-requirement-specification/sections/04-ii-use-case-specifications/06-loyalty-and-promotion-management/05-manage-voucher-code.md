@@ -28,14 +28,14 @@ This use case includes the following sub-flows:
 
 1. The Manager selects New product voucher.
 2. The system generates a code made of `ML` and 8 random characters, excluding 0, O, 1, I and L. The Manager may select Generate another code but cannot type a code.
-3. The Manager enters the name, start and end time, scope (products and/or specific size variants, and optionally one or more active branches; no branch selected means all branches), discount type and value, maximum discount, minimum eligible amount, total uses, uses per Member, and whether points can be combined.
+3. The Manager enters the name, start and end time, scope (products and/or specific size variants, and optionally one or more active branches; no branch selected means all branches), discount type and value, maximum discount for a percentage, minimum eligible amount, total uses, uses per Member, and whether points can be combined. A fixed amount has no separate maximum discount field; the system stores the cap equal to the amount. In the product picker, the Manager can filter by status (All, Public, Not public yet or hidden) and select Choose all on this page or Clear all on this page; these act only on the products shown on the current page.
 4. The system validates the data, scope and code uniqueness.
 5. The system saves the voucher, records a change log and confirms with the code (MSG38). When branches are selected, the product picker suggests only products sold at one or more of those branches; a size not yet sold at any selected branch can still be saved, with a warning.
 
 **Create Workshop Voucher**
 
 1. The Manager selects New workshop voucher; the system generates the code as above.
-2. The Manager enters the name, the period in which the code can be used for booking, the scope, discount type and value, maximum discount, minimum package fee, total uses, uses per Member, and whether points can be combined. For the scope, the package, branch and session are each chosen from the available list as All (no limit) or exactly one item; choosing nothing means the voucher applies to every workshop. The form has no participation-date field, because the booking period is set by the program's validity.
+2. The Manager enters the name, the period in which the code can be used for booking, the scope, discount type and value, maximum discount for a percentage, minimum package fee, total uses, uses per Member, and whether points can be combined. For the scope, the package, branch and session are each chosen from the available list as All (no limit) or exactly one item; choosing nothing means the voucher applies to every workshop. The form has no participation-date field, because the booking period is set by the program's validity.
 3. The system validates and saves the voucher as in Steps 4–5 above.
 
 **View, Edit, Pause or Resume Voucher**
@@ -53,7 +53,7 @@ The form generates another code and submits again, up to 3 times. The system che
 
 **Create Step 4 — Invalid data or scope**
 
-The system rejects invalid fields (MSG08) or an invalid scope, such as a size that does not belong to a selected product, a soft-deleted product, an unknown or inactive branch, or an unknown package or session (MSG40).
+The system rejects invalid fields (MSG08), including, for a fixed amount, a maximum discount sent with the request that differs from the amount, or an invalid scope, such as a size that does not belong to a selected product, a soft-deleted product, an unknown or inactive branch, or an unknown package or session (MSG40).
 
 **View Step 2 — A branch in a product voucher's scope becomes inactive**
 
@@ -62,6 +62,10 @@ The voucher is not paused and its scope does not change; the Manager sees a warn
 **Edit Step 3 — Changing the code or scope**
 
 The system rejects the change (MSG41).
+
+**Edit Step 3 — Changing a fixed discount amount**
+
+The cap is set again equal to the new amount. An earlier fixed voucher whose cap is lower than its amount keeps working as before, and the screen shows the amount actually taken off, the smaller of the amount and the cap.
 
 **Edit Step 3 — Limit lower than used plus held uses**
 
@@ -73,11 +77,11 @@ The same voucher and code are reused with their history and counts; the voucher 
 
 **View Step 2 — A workshop booking that used the voucher is validly cancelled**
 
-The used count and total discount no longer include that booking; the usage and refund history remain available.
+The used count and total discount no longer include that booking; the usage and refund history remain available. If the voucher had already expired when the cancellation was decided, its use is not returned and stays counted as used (UC-50).
 
 **Any step — Actor is not a Manager, session expired or save failed**
 
-The system rejects the request (MSG01, MSG02) or reports that the result is not confirmed (MSG04). A rejected create, edit, pause or resume request is recorded as in UC-45.
+The system rejects the request (MSG01, MSG02) or reports that the result is not confirmed (MSG04). Promotion Management pages are shown only to the Manager role; any other signed-in role that opens one directly is shown the not-found page, as in UC-45. A rejected create, edit, pause or resume request is recorded as in UC-45.
 
 #### Postconditions
 
@@ -94,6 +98,6 @@ BR-46-01, BR-46-02, BR-46-03, BR-46-04, BR-46-05
 |---|---|
 | BR-46-01 | Only a Manager may create, edit, pause or resume vouchers; Admin has no promotion permission. |
 | BR-46-02 | Voucher codes are generated by the system, unique across all vouchers after trimming and ignoring case, never changed and never reused. |
-| BR-46-03 | Discount amounts and caps are positive whole VND, percentages are greater than 0 up to 100%, minimum amounts are whole VND of 0 or more, and use limits are positive whole numbers. |
+| BR-46-03 | Discount amounts and caps are positive whole VND; a cap is entered only for a percentage, and for a fixed amount it is stored equal to the amount. Percentages are greater than 0 up to 100%, minimum amounts are whole VND of 0 or more, and use limits are positive whole numbers. |
 | BR-46-04 | The code and scope, including the branch scope of a product voucher, cannot change after creation; total and per-Member limits cannot be lowered below the current used plus held uses. |
 | BR-46-05 | Pausing, resuming, editing or expiry never changes discounts already accepted; resuming keeps the same code, history and counts and does not extend the voucher. |
