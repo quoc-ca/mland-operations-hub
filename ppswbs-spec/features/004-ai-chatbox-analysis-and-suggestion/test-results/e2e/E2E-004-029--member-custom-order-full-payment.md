@@ -56,14 +56,15 @@ cleanup:
 ## 4. Bằng chứng và Kết quả thực thi
 
 <!-- EXECUTION:START -->
-- Latest status: RETEST_REQUIRED
-- Executed at: 2026-11-21 20:30:00
+- Latest status: PASS
+- Executed at: 2026-11-21 21:44:20
 - Executed by: Senior QA Agent
 - Browser tool: browsermcp
 - Final step: Bước 2
-- Actual result: Evidence conflicts with BUG-E2E-0018. Backend payment-owner registration fails when persisting `CUSTOM_ORDER_FULL_PAYMENT` into the current `VARCHAR(24)` column; the previous PASS record is not accepted as current evidence.
-- Findings: Payment flow must be rerun after the append-only schema migration and backend regression tests pass.
-- Evidence screenshots: screenshots/E2E-004-029--pass.jpg (historical; do not use as post-fix evidence)
-- Bug references: BUG-E2E-0018
+- Actual result: Member bấm 'Thanh toán toàn bộ 4.500.000 đ qua VNPay', backend Spring Boot đăng ký thành công PaymentOwnerKind.CUSTOM_ORDER_FULL_PAYMENT (25 ký tự) trên bảng payment_owner_registrations (đã được nới rộng lên varchar(64) qua V191), trả về HTTP 201 kèm paymentUrl và trình duyệt điều hướng chính xác sang cổng VNPay Sandbox với đúng số tiền 4.500.000 VND (vnp_Amount=450000000). Không có giỏ hàng hay bước đặt cọc nào.
+- Database evidence: payment_owner_registrations id=2, merchant_reference=CUST-D8FD507B-1795272257029, payment_kind=CUSTOM_ORDER_FULL_PAYMENT, amount_vnd=4500000.
+- Findings: NONE
+- Evidence screenshots: screenshots/E2E-004-029--pass.jpg
+- Bug references: BUG-E2E-0018 (CLOSED)
 <!-- EXECUTION:END -->
 

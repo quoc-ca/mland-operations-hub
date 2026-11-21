@@ -20,6 +20,7 @@ export default function DesignEvaluationPage() {
   const [design, setDesign] = useState(null);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(null);
+  const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
 
   const { loading: archiving, error: archiveError, executeArchive } = useWorkshopDesignCommand(isAuthenticated);
 
@@ -50,10 +51,10 @@ export default function DesignEvaluationPage() {
   const t = messages[lang];
 
   const handleArchive = async () => {
-    if (!window.confirm(lang === 'en' ? 'Are you sure you want to archive this design?' : 'Bạn có chắc chắn muốn lưu trữ mẫu thiết kế này không?')) return;
     try {
       const res = await executeArchive(designId, design.designVersion);
       setDesign(res);
+      setShowArchiveConfirm(false);
     } catch {
       // Error handled by command hook
     }
@@ -407,7 +408,7 @@ export default function DesignEvaluationPage() {
                 className="ring-btn-secondary"
                 style={{ color: '#ef4444', borderColor: '#fca5a5' }}
                 disabled={archiving}
-                onClick={handleArchive}
+                onClick={() => setShowArchiveConfirm(true)}
                 data-testid="archive-design-btn"
               >
                 {archiving ? t.archiving : t.archiveDesign}
@@ -416,6 +417,64 @@ export default function DesignEvaluationPage() {
           </div>
         </div>
       </div>
+
+      {showArchiveConfirm && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          data-testid="archive-confirm-dialog"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: '#fff',
+              borderRadius: '8px',
+              padding: '1.5rem',
+              maxWidth: '420px',
+              width: '90%',
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+            }}
+          >
+            <h3 style={{ fontSize: '1.125rem', fontWeight: 600, color: '#1e293b', marginBottom: '0.75rem' }}>
+              {lang === 'en' ? 'Archive Ring Design' : 'Lưu trữ mẫu thiết kế'}
+            </h3>
+            <p style={{ fontSize: '0.875rem', color: '#64748b', marginBottom: '1.25rem', lineHeight: 1.5 }}>
+              {lang === 'en'
+                ? 'Are you sure you want to archive this design? It will no longer be editable.'
+                : 'Bạn có chắc chắn muốn lưu trữ mẫu thiết kế này không? Mẫu thiết kế sẽ chuyển sang trạng thái đã lưu trữ.'}
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+              <button
+                type="button"
+                className="ring-btn-secondary"
+                onClick={() => setShowArchiveConfirm(false)}
+                disabled={archiving}
+                data-testid="cancel-archive-btn"
+              >
+                {lang === 'en' ? 'Cancel' : 'Hủy'}
+              </button>
+              <button
+                type="button"
+                className="ring-btn-primary"
+                style={{ backgroundColor: '#ef4444', borderColor: '#ef4444', color: '#fff' }}
+                onClick={handleArchive}
+                disabled={archiving}
+                data-testid="confirm-archive-btn"
+              >
+                {archiving ? t.archiving : (lang === 'en' ? 'Confirm Archive' : 'Xác nhận lưu trữ')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

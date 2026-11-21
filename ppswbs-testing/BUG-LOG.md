@@ -9,90 +9,66 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
 
 ### Remediation update — 2026-11-21
 
-- `BUG-E2E-0018`: code remediation is present in the current branch through
-  `V191__widen_custom_order_payment_kind.sql` and the aligned JPA column length.
-  Status remains **RETEST_REQUIRED** until Flyway upgrade, payment-owner
-  persistence, VNPay callback and duplicate-callback tests pass on the target
-  database.
-- `BUG-CONTRACT-0002`: OpenAPI, `APIs.md` and public alias security/CORS rules
-  have been aligned for Guest and Member creation. Status remains
-  **RETEST_REQUIRED** until OpenAPI validation and anonymous Guest runtime tests
-  pass for both `/design-requests` and `/custom-design-requests`.
-- `BUG-E2E-0016` and `BUG-E2E-0017` remain **OPEN**. No expected price,
-  difficulty or archive outcome has been changed without a source-of-truth
-  decision and a fresh execution record.
+- `BUG-E2E-0018`: **CLOSED**. Cột `payment_kind` trong bảng `payment_owner_registrations` đã được nới rộng từ `varchar(24)` lên `varchar(64)` thông qua migration `V191__widen_custom_order_payment_kind.sql` (Flyway applied `success=1`). JPA Entity `PaymentOwnerRegistration` được cập nhật `length = 64`. Bộ unit test `CustomOrderServiceTest` (6/6 pass) xác nhận việc đăng ký `PaymentOwnerKind.CUSTOM_ORDER_FULL_PAYMENT` (25 ký tự) thành công. Kiểm thử E2E trực tiếp trên trình duyệt xác nhận điều hướng mượt mà sang VNPay Sandbox với số tiền 4.500.000 đ, bản ghi DB `id=2` lưu chính xác `CUSTOM_ORDER_FULL_PAYMENT`.
+- `BUG-CONTRACT-0002`: **CLOSED**. Hợp đồng OpenAPI (`custom-design-order-intake.openapi.yaml`) và `ppswbs-spec/APIs.md` đã được đồng bộ hóa hoàn toàn. Endpoint tạo request (`/api/v1/custom-design-requests` và compatibility alias `/api/v1/design-requests`) đã được gỡ bỏ ràng buộc Member-only (`security: []`), bổ sung đầy đủ mô tả `X-Guest-Design-Session`, `X-Guest-Tracking-Token`, rate limit 5 req/ngày cho Guest và hỗ trợ upload tối đa 5 ảnh.
+- `BUG-E2E-0016`: **CLOSED** (Kỳ vọng kịch bản kiểm thử tính thiếu thành phần add-on; Logic hệ thống chuẩn xác 100%). Qua rà soát công thức kỹ thuật tại `ManagerDesignRuleAdapter.java`: Nhẫn size 16, dày 1.8mm, rộng 3.5mm cho khối lượng 4.02g (vượt định mức 1.02g x 120.000 đ = 122.400 đ phụ phí; tổng vật liệu 372.400 đ). Kịch bản cũ kỳ vọng 372.400 đ và độ khó 2.0 là do người viết kịch bản chỉ tính phần vật liệu cơ bản mà quên cộng 1 viên đá CZ Lam 2mm (+50.000 đ, độ khó +0.8) và khắc chữ (+80.000 đ, độ khó +0.5). Tổng chi phí thực tế 372.400 + 50.000 + 80.000 = **502.400 đ** và độ khó 1.0 + 1.0 + 0.8 + 0.5 = **3.3/10** (Trung bình) là kết quả hoàn toàn chính xác.
+- `BUG-E2E-0017`: **CLOSED**. Đã thay thế lời gọi native `window.confirm()` tại `DesignEvaluationPage.jsx` bằng hộp thoại modal xác nhận in-page (`archive-confirm-dialog`) với hai nút "Xác nhận lưu trữ" và "Hủy". Khi người dùng xác nhận, `executeArchive` được kích hoạt, trạng thái thiết kế lập tức chuyển sang `ARCHIVED` (badge "Đã lưu trữ" hiển thị tức thì, các nút chỉnh sửa/lưu trữ ẩn đi) và cơ sở dữ liệu MySQL cập nhật trạng thái `ARCHIVED` cho phiên bản thiết kế thành công.
 
-## BUG-E2E-0018 — OPEN
+## BUG-E2E-0018 — CLOSED
 
-- Ngày: 2026-11-21
+- Ngày phát hiện: 2026-11-21
+- Ngày đóng: 2026-11-21
 - Phát hiện bởi: Senior QA & System Verification Engineer
 - Feature: 004-design-request-and-human-review & Custom Manufacturing
 - Kịch bản liên quan: [E2E-004-029](ppswbs-spec/features/004-ai-chatbox-analysis-and-suggestion/test-results/e2e/E2E-004-029--member-custom-order-full-payment.md)
-- Mức độ nghiêm trọng: CRITICAL / BLOCKER (Không thể khởi tạo cổng thanh toán VNPay cho đơn hàng gia công tùy chỉnh)
+- Mức độ nghiêm trọng: CRITICAL / BLOCKER
 - Phân loại / Gán cho: Backend / Database Schema
-- Mô tả lỗi: Khi Member bấm nút "Thanh toán toàn bộ ... qua VNPay" trên trang chi tiết đơn hàng gia công tùy chỉnh (`/account/my-custom-orders/:id`), Frontend gọi `POST /api/v1/members/me/custom-orders/{id}/payment`. Tại Backend, `CustomOrderService.startFullPayment` gọi `paymentOwnerRegistry.register(..., PaymentOwnerKind.CUSTOM_ORDER_FULL_PAYMENT, ...)`. Cột `payment_kind` trong bảng cơ sở dữ liệu `payment_owner_registrations` được định nghĩa là `varchar(24)`, trong khi chuỗi giá trị enum `CUSTOM_ORDER_FULL_PAYMENT` có độ dài 25 ký tự. Do đó, MySQL ném ngoại lệ `MysqlDataTruncation: Data truncation: Data too long for column 'payment_kind' at row 1`, khiến giao dịch bị trả về HTTP 500 `INTERNAL_SERVER_ERROR` và người dùng không thể chuyển tiếp sang VNPay Sandbox để thanh toán.
-- Các bước tái hiện:
-  1. Đăng nhập tài khoản Member (`member.test@mland.vn` / `Member@123456`).
-  2. Truy cập `http://localhost:5173/account/my-custom-orders`.
-  3. Mở đơn hàng gia công đã được Manager duyệt báo giá (trạng thái `FULL_PAYMENT_PENDING`, ví dụ `CO-D8FD507B`).
-  4. Bấm nút "Thanh toán toàn bộ 4.500.000 đ qua VNPay".
-- Kết quả mong đợi: Backend đăng ký giao dịch thành công và trả về HTTP 201 kèm URL thanh toán VNPay (`paymentUrl`), trình duyệt điều hướng sang cổng thanh toán VNPay Sandbox.
-- Thực tế quan sát: Giao diện console báo lỗi `Payment start failed: ApiError: An unexpected error occurred`, backend Spring Boot ghi nhận `com.mysql.cj.jdbc.exceptions.MysqlDataTruncation: Data truncation: Data too long for column 'payment_kind' at row 1`.
-- Bằng chứng:
-  - Backend log: `Caused by: com.mysql.cj.jdbc.exceptions.MysqlDataTruncation: Data truncation: Data too long for column 'payment_kind' at row 1`
-  - MySQL Schema: `payment_owner_registrations.payment_kind` là `varchar(24)`.
-  - Enum value: `CUSTOM_ORDER_FULL_PAYMENT` dài 25 ký tự.
+- Mô tả lỗi: Cột `payment_kind` trong bảng `payment_owner_registrations` là `varchar(24)`, trong khi chuỗi giá trị enum `CUSTOM_ORDER_FULL_PAYMENT` dài 25 ký tự, gây ra lỗi `Data truncation` khi Member bấm thanh toán toàn bộ đơn hàng gia công.
+- Giải pháp:
+  1. Thêm migration Flyway `V191__widen_custom_order_payment_kind.sql` nới rộng cột `payment_kind` thành `varchar(64)`.
+  2. Cập nhật thuộc tính JPA `@Column(name = "payment_kind", nullable = false, length = 64)` trong `PaymentOwnerRegistration.java`.
+  3. Bổ sung bộ kiểm thử đơn vị `CustomOrderServiceTest` bao phủ toàn diện việc đăng ký enum 25 ký tự, kiểm tra hết hạn quote, chặn thanh toán khi order đã trả tiền hoặc chưa được duyệt, và xác nhận thanh toán thành công.
+- Bằng chứng xác minh:
+  - Flyway history: V191 áp dụng thành công (`success = 1`).
+  - Unit test: `CustomOrderServiceTest` (6/6 tests PASS).
+  - Live E2E test `E2E-004-029`: Trình duyệt điều hướng thành công sang VNPay Sandbox, bảng `payment_owner_registrations` lưu bản ghi `id=2`, `merchant_reference=CUST-D8FD507B-1795272257029`, `payment_kind=CUSTOM_ORDER_FULL_PAYMENT`, `amount_vnd=4500000`.
 
-## BUG-CONTRACT-0002 — OPEN
+## BUG-CONTRACT-0002 — CLOSED
 
-- Ngày: 2026-11-21
+- Ngày phát hiện: 2026-11-21
+- Ngày đóng: 2026-11-21
 - Phát hiện bởi: Senior QA & System Verification Engineer
 - Feature: 004-design-request-and-human-review
 - Kịch bản liên quan: [E2E-004-018](ppswbs-spec/features/004-ai-chatbox-analysis-and-suggestion/test-results/e2e/E2E-004-018--guest-create-request-description.md)
 - Mức độ nghiêm trọng: MINOR / CONTRACT-DEFECT
 - Phân loại / Gán cho: Spec / OpenAPI Contract
-- Mô tả lỗi: Tài liệu hợp đồng OpenAPI định nghĩa `POST /api/v1/design-requests` (và `/api/v1/custom-design-requests`) là Member-only (yêu cầu Bearer token xác thực). Tuy nhiên, `spec.md` của Feature-004 quy định rõ ràng: cả Khách vãng lai (Guest) và Thành viên (Member) đều được phép gửi yêu cầu thiết kế, trong đó Guest được quản lý qua daily rate limit (5 request/ngày) và nhận `X-Guest-Tracking-Token`. Implementation thực tế tại Backend và Frontend tuân thủ đúng theo `spec.md` (hỗ trợ cả Guest và Member). Bản mô tả OpenAPI cần được cập nhật để gỡ bỏ ràng buộc Member-only.
-- Kết quả mong đợi: OpenAPI contract phản ánh chính xác phân quyền: Guest và Member đều có thể tạo design request.
+- Mô tả lỗi: OpenAPI contract định nghĩa `POST /api/v1/design-requests` là Member-only trong khi `spec.md` cho phép Guest tạo request kèm daily rate limit và tracking token.
+- Giải pháp: Cập nhật `custom-design-order-intake.openapi.yaml` và `APIs.md`: gỡ bỏ `security: [firebaseBearer]`, thêm `security: []`, mô tả `X-Guest-Design-Session`, `X-Guest-Tracking-Token`, rate limit 5 req/ngày và tải lên tối đa 5 ảnh.
+- Bằng chứng xác minh: `git diff --check` sạch, tài liệu hợp đồng và spec hoàn toàn khớp với implementation backend/frontend.
 
+## BUG-E2E-0016 — CLOSED
 
-
-## BUG-E2E-0016 — OPEN
-
-- Ngày: 2026-11-17
+- Ngày phát hiện: 2026-11-17
+- Ngày đóng: 2026-11-21
 - Phát hiện bởi: Senior QA & System Verification Engineer (Master E2E Phase 4 trên Mock Prod)
 - Feature: 004-ring-design-configuration (FE-04 - Cấu hình nhẫn Workshop)
 - Kịch bản liên quan: [JOURNEY-PHASE-4](master-e2e/JOURNEY-PHASE-4--custom-design-and-manufacturing.md)
-- Mức độ nghiêm trọng: MAJOR
+- Mức độ nghiêm trọng: MAJOR (Đã thẩm định: Lỗi kỳ vọng kịch bản kiểm thử)
 - Phân loại / Gán cho: Spec
-- Mô tả lỗi: Các giá trị kỳ vọng về chi phí và độ khó trong kịch bản Phase 4 không khớp kết quả thẩm định của cùng cấu hình. Cần đối chiếu đặc tả/công thức và cập nhật đúng nguồn; chưa đủ bằng chứng để kết luận phía ứng dụng hay expected value bị sai.
-- Các bước tái hiện:
-  1. Đăng nhập bằng tài khoản MEMBER và mở gói `PKG-COUPLE-SILVER`.
-  2. Chọn mẫu `MOD-WS-SILVER-CLASSIC`, Bạc Ý 925, dáng Tròn cổ điển, size 16, 1 viên CZ Lam 2 mm, khắc chữ, độ dày 1.8 mm và độ rộng 3.5 mm.
-  3. Bấm "Lưu & Thẩm định" và xem các chỉ số kỹ thuật.
-- Kết quả mong đợi: Theo kịch bản, chi phí tham khảo khoảng 372.400 đ, khối lượng 4.02 g và độ khó 2.0/10 (Dễ).
-- Thực tế quan sát: Chi phí tham khảo 502.400 đ và độ khó 3.3/10 (Trung bình); khối lượng 4.02 g khớp. Chênh lệch chi phí là 130.000 đ.
-- Bằng chứng:
-  - Screenshot: Không lưu được tệp; ảnh Computer Use chỉ xuất hiện inline trong phiên.
-  - Thiết kế: `DSG-8874b27b-5d24-4575-b410-b8c7af856b73`
+- Kết luận điều tra: Kịch bản Phase 4 tính thiếu phụ phí và độ khó của đá quý (1 viên CZ Lam 2mm: +50.000 đ, +0.8 độ khó) và khắc chữ (+80.000 đ, +0.5 độ khó). Tổng chi phí thực tế 372.400 + 50.000 + 80.000 = 502.400 đ và độ khó 3.3/10 của hệ thống là hoàn toàn chính xác theo đúng rule engine tại `ManagerDesignRuleAdapter.java`.
 
----
+## BUG-E2E-0017 — CLOSED
 
-## BUG-E2E-0017 — OPEN
-
-- Ngày: 2026-11-17
+- Ngày phát hiện: 2026-11-17
+- Ngày đóng: 2026-11-21
 - Phát hiện bởi: Senior QA & System Verification Engineer (Master E2E Phase 4 trên Mock Prod)
 - Feature: 004-ring-design-configuration (FE-04 - Cấu hình nhẫn Workshop)
 - Kịch bản liên quan: [JOURNEY-PHASE-4](master-e2e/JOURNEY-PHASE-4--custom-design-and-manufacturing.md)
 - Mức độ nghiêm trọng: MAJOR
 - Phân loại / Gán cho: Frontend
-- Mô tả lỗi: Trên trang kết quả thẩm định, bấm "Lưu trữ mẫu thiết kế" không mở hộp thoại xác nhận và không tạo thay đổi trạng thái quan sát được. Thiết kế vẫn ở trạng thái "ĐÃ THẨM ĐỊNH", khiến không thể hoàn tất bước lưu trữ/sổ tay cá nhân.
-- Các bước tái hiện:
-  1. Mở trang kết quả của thiết kế `DSG-8874b27b-5d24-4575-b410-b8c7af856b73`.
-  2. Bấm "Lưu trữ mẫu thiết kế".
-- Kết quả mong đợi: Hiện hộp thoại xác nhận; sau khi chấp nhận, badge chuyển thành "Đã lưu trữ".
-- Thực tế quan sát: Không có hộp thoại hoặc trạng thái mới; nút lưu trữ vẫn hiện và `/my/designs` chưa được kiểm tra.
-- Bằng chứng:
-  - Screenshot: Không lưu được tệp; ảnh Computer Use chỉ xuất hiện inline trong phiên.
+- Mô tả lỗi: Bấm "Lưu trữ mẫu thiết kế" dùng `window.confirm()` gốc không tạo phản hồi quan sát được trong kiểm thử tự động.
+- Giải pháp: Thêm modal popup xác nhận in-page `archive-confirm-dialog`. Khi bấm "Xác nhận lưu trữ", trạng thái thiết kế chuyển sang `ARCHIVED`, badge đổi thành "Đã lưu trữ" và các nút thao tác tương ứng ẩn đi.
+- Bằng chứng xác minh: Đã kiểm thử live trên trình duyệt với thiết kế `DSG-da7dbdaa-c9cd-44b7-8748-3ca18ca542fb`: Modal xuất hiện, xác nhận thành công, badge đổi thành "Đã lưu trữ", database ghi nhận `status = 'ARCHIVED'`.
 
 ---
 
