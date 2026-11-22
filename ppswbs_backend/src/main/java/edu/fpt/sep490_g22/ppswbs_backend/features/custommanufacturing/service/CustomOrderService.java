@@ -166,6 +166,24 @@ public class CustomOrderService {
     }
 
     @Transactional(readOnly = true)
+    public Optional<QuoteProjectionDto> findLatestQuoteByDesignRequestId(String designRequestId) {
+        return customOrderRepository.findByDesignRequestId(designRequestId)
+                .flatMap(order -> quoteRepository.findTopByCustomOrderIdOrderByQuoteGenerationDesc(order.getId()))
+                .map(this::mapToQuoteDto);
+    }
+
+    @Transactional
+    public QuoteProjectionDto approveQuoteByDesignRequestId(
+            String designRequestId,
+            Long managerAccountId,
+            String managerReason
+    ) {
+        CustomOrder order = customOrderRepository.findByDesignRequestId(designRequestId)
+                .orElseThrow(() -> DesignReviewException.notFound("NOT_FOUND", "Không tìm thấy đơn hàng tùy chỉnh cho yêu cầu này."));
+        return approveQuote(order.getId(), null, managerAccountId, managerReason);
+    }
+
+    @Transactional(readOnly = true)
     public List<CustomOrderProjectionDto> listMyCustomOrders(Long memberAccountId) {
         List<CustomOrder> orders = customOrderRepository.findByMemberAccountIdOrderByCreatedAtDesc(memberAccountId);
         return orders.stream()

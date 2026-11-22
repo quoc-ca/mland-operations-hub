@@ -401,6 +401,151 @@ describe('F04-REVIEW-DETAIL Screen (/design-review-requests/:id)', () => {
 
     expect(await screen.findByText(/Bạn không thể tự thẩm duyệt yêu cầu thiết kế do chính mình tạo ra/)).toBeInTheDocument();
   });
+
+  it('prompts confirmation popup when staff sends quote, hides the button after sending and shows success message', async () => {
+    const user = userEvent.setup();
+    mockFetch({
+      'GET /api/v1/design-requests/rev-quote-01': json(200, {
+        id: 'rev-quote-01',
+        requestReference: 'DR-Q01',
+        requestVersion: 1,
+        requestStatus: 'ACTIVE',
+        reviewStatus: 'ACCEPTED',
+        ownershipType: 'MEMBER',
+        description: 'Mẫu nhẫn đính kim cương tự nhiên',
+      }),
+      'POST /api/v1/custom-design-requests/rev-quote-01/quote': json(200, {
+        quoteReference: 'QUO-88889999',
+        totalAmount: '18000000',
+        currency: 'VND',
+        status: 'QUOTE_PENDING',
+        quoteGeneration: 1,
+        approvedByManager: false,
+        managerReason: 'Vàng 18k và kim cương 4.5mm',
+      }),
+    });
+
+    open('/design-review-requests/rev-quote-01', { session: fakeSession('signed-in') });
+
+    expect(await screen.findByText('Báo giá Gia công Tùy chỉnh (Custom Quote)')).toBeInTheDocument();
+
+    const amountInput = screen.getByPlaceholderText(/Ví dụ: 15000000/);
+    await user.type(amountInput, '18000000');
+
+    const reasonInput = screen.getByPlaceholderText(/Ghi chú cơ cấu vật liệu/);
+    await user.type(reasonInput, 'Vàng 18k và kim cương 4.5mm');
+
+    const submitQuoteBtn = screen.getByRole('button', { name: 'Gửi báo giá cho Manager duyệt' });
+    await user.click(submitQuoteBtn);
+
+    // Confirmation dialog must appear
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText('Xác nhận gửi báo giá cho Quản lý')).toBeInTheDocument();
+    expect(within(dialog).getByText(/18\.000\.000 đ/)).toBeInTheDocument();
+
+    // Confirm sending
+    const confirmBtn = within(dialog).getByRole('button', { name: 'Xác nhận gửi' });
+    await user.click(confirmBtn);
+
+    // Success notice displayed
+    expect(await screen.findByText(/Gửi báo giá cho Quản lý \(Manager\) phê duyệt thành công!/)).toBeInTheDocument();
+    expect(screen.getByText('QUO-88889999')).toBeInTheDocument();
+    expect(screen.getByText(/Chờ Quản lý \(Manager\) duyệt/)).toBeInTheDocument();
+
+    // The submit button must disappear so staff cannot click again
+    expect(screen.queryByRole('button', { name: 'Gửi báo giá cho Manager duyệt' })).toBeNull();
+  });
+
+  it('shows error banner when quote submission fails and keeps button for retry', async () => {
+    const user = userEvent.setup();
+    mockFetch({
+      'GET /api/v1/design-requests/rev-quote-err': json(200, {
+        id: 'rev-quote-err',
+        requestReference: 'DR-QERR',
+        requestVersion: 1,
+        requestStatus: 'ACTIVE',
+        reviewStatus: 'ACCEPTED',
+        ownershipType: 'MEMBER',
+        description: 'Mẫu nhẫn hoa văn chạm trổ',
+      }),
+      'POST /api/v1/custom-design-requests/rev-quote-err/quote': json(500, {
+        code: 'INTERNAL_ERROR',
+        message: 'Lỗi máy chủ khi tạo báo giá.',
+      }),
+    });
+
+    open('/design-review-requests/rev-quote-err', { session: fakeSession('signed-in') });
+
+    expect(await screen.findByText('Báo giá Gia công Tùy chỉnh (Custom Quote)')).toBeInTheDocument();
+
+    const amountInput = screen.getByPlaceholderText(/Ví dụ: 15000000/);
+    await user.type(amountInput, '12000000');
+
+    const submitQuoteBtn = screen.getByRole('button', { name: 'Gửi báo giá cho Manager duyệt' });
+    await user.click(submitQuoteBtn);
+
+    const dialog = await screen.findByRole('dialog');
+    const confirmBtn = within(dialog).getByRole('button', { name: 'Xác nhận gửi' });
+    await user.click(confirmBtn);
+
+    expect(await screen.findByText(/✕ Thất bại:/)).toBeInTheDocument();
+    // Button is still present for retrying
+    expect(screen.getByRole('button', { name: 'Gửi báo giá cho Manager duyệt' })).toBeInTheDocument();
+  });
+
+  it('allows Manager to approve pending quote on ReviewDetailPage', async () => {
+    const user = userEvent.setup();
+    mockFetch({
+      'GET /api/v1/accounts/me/profile': json(200, { role: 'MANAGER' }),
+      'GET /api/v1/design-requests/rev-quote-mgr': json(200, {
+        id: 'rev-quote-mgr',
+        requestReference: 'DR-QMGR',
+        requestVersion: 1,
+        requestStatus: 'ACTIVE',
+        reviewStatus: 'ACCEPTED',
+        ownershipType: 'MEMBER',
+        quoteReference: 'QUO-PENDING-01',
+        description: 'Mẫu nhẫn cưới vàng hồng',
+      }),
+      'GET /api/v1/custom-design-requests/rev-quote-mgr/quote': json(200, {
+        quoteReference: 'QUO-PENDING-01',
+        totalAmount: '25000000',
+        currency: 'VND',
+        status: 'QUOTE_PENDING',
+        quoteGeneration: 1,
+        approvedByManager: false,
+        managerReason: 'Chất liệu vàng hồng 18k đính 3 viên kim cương tấm',
+      }),
+      'POST /api/v1/custom-design-requests/rev-quote-mgr/quote/approve': json(200, {
+        quoteReference: 'QUO-PENDING-01',
+        totalAmount: '25000000',
+        currency: 'VND',
+        status: 'QUOTE_READY',
+        quoteGeneration: 1,
+        approvedByManager: true,
+        managerReason: 'Quản lý phê duyệt báo giá',
+      }),
+    });
+
+    open('/design-review-requests/rev-quote-mgr', { session: fakeSession('signed-in') });
+
+    expect(await screen.findByText('QUO-PENDING-01')).toBeInTheDocument();
+    expect(await screen.findByText(/25\.000\.000 đ/)).toBeInTheDocument();
+    expect(screen.getByText(/Chờ Quản lý \(Manager\) duyệt/)).toBeInTheDocument();
+
+    const approveBtn = screen.getByRole('button', { name: 'Phê duyệt Báo giá (Manager Approve)' });
+    await user.click(approveBtn);
+
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText('Xác nhận phê duyệt báo giá')).toBeInTheDocument();
+
+    const confirmApproveBtn = within(dialog).getByRole('button', { name: 'Phê duyệt báo giá' });
+    await user.click(confirmApproveBtn);
+
+    expect(await screen.findByText(/Đã phê duyệt báo giá thành công!/)).toBeInTheDocument();
+    expect(screen.getByText(/Quản lý đã duyệt/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Phê duyệt Báo giá (Manager Approve)' })).toBeNull();
+  });
 });
 
 describe('F04-PRICE-PROPOSAL Screen (/price-proposals/:id/ai-suggestions)', () => {
