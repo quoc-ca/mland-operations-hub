@@ -1,6 +1,7 @@
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
 import { MemberConsultationPage } from '../ui/MemberConsultationPage';
 import { StaffConsultationInboxPage } from '../ui/StaffConsultationInboxPage';
 
@@ -24,7 +25,11 @@ vi.mock('../api/useConsultationChatApi', () => ({
 
 describe('Feature-013 Consultation UI Screens', () => {
   it('renders MemberConsultationPage header and action button', () => {
-    render(<MemberConsultationPage lang="vi" />);
+    render(
+      <MemoryRouter>
+        <MemberConsultationPage lang="vi" />
+      </MemoryRouter>
+    );
     expect(screen.getByText('Tư vấn thiết kế')).toBeInTheDocument();
     expect(screen.getByText('+ Tạo cuộc tư vấn mới')).toBeInTheDocument();
   });
