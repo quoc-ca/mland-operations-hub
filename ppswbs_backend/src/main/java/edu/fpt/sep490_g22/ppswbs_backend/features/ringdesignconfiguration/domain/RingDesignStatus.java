@@ -2,6 +2,7 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.ringdesignconfiguration.domai
 
 public enum RingDesignStatus {
     DRAFT,
+    SAVED,
     VALIDATED,
     ATTACHED_TO_BOOKING,
     LOCKED,

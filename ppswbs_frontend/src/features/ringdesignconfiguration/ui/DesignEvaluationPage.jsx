@@ -4,6 +4,7 @@ import { useWorkshopRingDesignApi } from '../api/useWorkshopRingDesignApi';
 import { useWorkshopDesignCommand } from '../application/useWorkshopDesignCommand';
 import { useAuth } from '../../../shared/auth/AuthProvider';
 import { useLanguage } from '../../../shared/i18n/I18nProvider';
+import { listWorkshopPackages } from '../../../api/workshops';
 import RingPreview from './RingPreview';
 import { derivePreviewModel, getDifficultyMeta } from '../domain/designPreview';
 import { getErrorMessage } from '../domain/designErrors';
@@ -20,8 +21,16 @@ export default function DesignEvaluationPage() {
   const [design, setDesign] = useState(null);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(null);
+  const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
+  const [publishedPackages, setPublishedPackages] = useState([]);
 
   const { loading: archiving, error: archiveError, executeArchive } = useWorkshopDesignCommand(isAuthenticated);
+
+  useEffect(() => {
+    listWorkshopPackages()
+      .then((data) => setPublishedPackages(Array.isArray(data) ? data : []))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (status === 'loading') return;
@@ -49,11 +58,45 @@ export default function DesignEvaluationPage() {
   const lang = language === 'en' ? 'en' : 'vi';
   const t = messages[lang];
 
+  const recommendation = useMemo(() => {
+    const evalData = design?.evaluation || {};
+    const gemCount = previewModel.stones?.length || (previewModel.gemstones || []).reduce((sum, g) => sum + (Number(g.quantity) || 1), 0);
+    const rawDiff = evalData.difficultyScore ?? previewModel.difficultyScore ?? 1;
+    const diffScore = typeof rawDiff === 'number' ? rawDiff : (parseFloat(rawDiff) || 1);
+
+    const waxPkg = publishedPackages.find((p) => p.name?.toLowerCase().includes('wax')) || { packageId: '10', name: 'Gói Wax Casting' };
+    const silverClayPkg = publishedPackages.find((p) => p.name?.toLowerCase().includes('silver clay')) || { packageId: '8', name: 'Gói Silver Clay' };
+    const signaturePkg = publishedPackages.find((p) => p.name?.toLowerCase().includes('signature')) || { packageId: '6', name: 'Gói Signature Workshop' };
+
+    if (diffScore > 9) {
+      return {
+        packageId: waxPkg.packageId,
+        packageName: waxPkg.name || 'Gói Wax Casting',
+        reason: 'Nghệ thuật đúc sáp tinh xảo đảm bảo mọi chi tiết trên thiết kế của bạn sẽ nổi bật hơn',
+        note: 'workshop wax casting sẽ mất 2 buổi vào 2 ngày khác nhau',
+      };
+    }
+    if (gemCount > 5) {
+      return {
+        packageId: silverClayPkg.packageId,
+        packageName: silverClayPkg.name || 'Gói Silver Clay',
+        reason: 'Những viên đá quý của bạn sẽ tỏa sáng như những vì sao khi bạn chọn gói silverclay',
+        note: null,
+      };
+    }
+    return {
+      packageId: signaturePkg.packageId,
+      packageName: signaturePkg.name || 'Gói Signature Workshop',
+      reason: 'Gói signature workshop đảm bảo thiết kế tinh tế của bạn sẽ đạt được kết quả tốt nhất',
+      note: null,
+    };
+  }, [design, previewModel, publishedPackages]);
+
   const handleArchive = async () => {
-    if (!window.confirm(lang === 'en' ? 'Are you sure you want to archive this design?' : 'Bạn có chắc chắn muốn lưu trữ mẫu thiết kế này không?')) return;
     try {
       const res = await executeArchive(designId, design.designVersion);
       setDesign(res);
+      setShowArchiveConfirm(false);
     } catch {
       // Error handled by command hook
     }
@@ -61,6 +104,11 @@ export default function DesignEvaluationPage() {
 
   const handleProceedBooking = () => {
     navigate('/workshops');
+  };
+
+  const handleConsultation = () => {
+    if (!design) return;
+    navigate(`/member/consultations?designReference=${encodeURIComponent(design.designId)}&designVersion=${encodeURIComponent(design.designVersion || 1)}`);
   };
 
   if (loading) {
@@ -401,21 +449,142 @@ export default function DesignEvaluationPage() {
               </button>
             )}
 
+            <button
+              type="button"
+              className="ring-btn-secondary"
+              onClick={handleConsultation}
+              data-testid="consult-design-btn"
+            >
+              {lang === 'en' ? 'Design Consultation' : 'Tư vấn thiết kế'}
+            </button>
+
             {design?.status !== 'ARCHIVED' && design?.status !== 'LOCKED' && design?.status !== 'ATTACHED_TO_BOOKING' && (
               <button
                 type="button"
                 className="ring-btn-secondary"
                 style={{ color: '#ef4444', borderColor: '#fca5a5' }}
                 disabled={archiving}
-                onClick={handleArchive}
+                onClick={() => setShowArchiveConfirm(true)}
                 data-testid="archive-design-btn"
               >
                 {archiving ? t.archiving : t.archiveDesign}
               </button>
             )}
+
+            <div
+              style={{
+                marginTop: '1rem',
+                paddingTop: '1rem',
+                borderTop: '1px solid #e2e8f0',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.5rem',
+              }}
+              data-testid="workshop-recommendation-card"
+            >
+              <div style={{ fontWeight: 700, fontSize: '1rem', color: '#0f172a' }}>
+                Recommended
+              </div>
+              <button
+                type="button"
+                className="ring-btn-primary"
+                style={{
+                  backgroundColor: '#0284c7',
+                  borderColor: '#0284c7',
+                  color: '#ffffff',
+                }}
+                onClick={() => navigate(`/workshops/${encodeURIComponent(recommendation.packageId)}`)}
+                data-testid="recommended-workshop-btn"
+              >
+                {recommendation.packageName}
+              </button>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: '0.85rem',
+                  color: '#475569',
+                  lineHeight: 1.45,
+                }}
+                data-testid="recommended-workshop-reason"
+              >
+                {recommendation.reason}
+              </p>
+              {recommendation.note && (
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: '0.8rem',
+                    color: '#b45309',
+                    fontWeight: 600,
+                    lineHeight: 1.4,
+                  }}
+                  data-testid="recommended-workshop-note"
+                >
+                  ⚠️ Ghi chú: {recommendation.note}
+                </p>
+              )}
+            </div>
           </div>
         </div>
       </div>
+
+      {showArchiveConfirm && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          data-testid="archive-confirm-dialog"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: '#fff',
+              borderRadius: '8px',
+              padding: '1.5rem',
+              maxWidth: '420px',
+              width: '90%',
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+            }}
+          >
+            <h3 style={{ fontSize: '1.125rem', fontWeight: 600, color: '#1e293b', marginBottom: '0.75rem' }}>
+              {lang === 'en' ? 'Archive Ring Design' : 'Lưu trữ mẫu thiết kế'}
+            </h3>
+            <p style={{ fontSize: '0.875rem', color: '#64748b', marginBottom: '1.25rem', lineHeight: 1.5 }}>
+              {lang === 'en'
+                ? 'Are you sure you want to archive this design? It will no longer be editable.'
+                : 'Bạn có chắc chắn muốn lưu trữ mẫu thiết kế này không? Mẫu thiết kế sẽ chuyển sang trạng thái đã lưu trữ.'}
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+              <button
+                type="button"
+                className="ring-btn-secondary"
+                onClick={() => setShowArchiveConfirm(false)}
+                disabled={archiving}
+                data-testid="cancel-archive-btn"
+              >
+                {lang === 'en' ? 'Cancel' : 'Hủy'}
+              </button>
+              <button
+                type="button"
+                className="ring-btn-primary"
+                style={{ backgroundColor: '#ef4444', borderColor: '#ef4444', color: '#fff' }}
+                onClick={handleArchive}
+                disabled={archiving}
+                data-testid="confirm-archive-btn"
+              >
+                {archiving ? t.archiving : (lang === 'en' ? 'Confirm Archive' : 'Xác nhận lưu trữ')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

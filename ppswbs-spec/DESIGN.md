@@ -1313,6 +1313,12 @@ Rất quan trọng đối với EXISTING PROJECT.
 
 Before creating a new component, inspect the prototype and any reusable component introduced later. Extend the closest existing component when the visual and semantic concept match; do not refactor unrelated prototype UI during feature work.
 
+## Existing-style-first rule
+
+The existing application style is the first visual baseline for every new frontend screen or Figma frame. Before introducing a new visual pattern, inspect the closest existing screen in the same user journey and reuse its approved typography, color tokens, spacing, borders, radii, button/input/card patterns, layout grid, responsive behavior, bilingual wording style and interaction states.
+
+Create a new visual pattern only when the existing style cannot represent an explicit feature requirement. In that case, make the smallest reusable extension possible, document the reason, and avoid a one-off component or a parallel visual language. When an existing frame can be updated, update it in place instead of creating a duplicate page or competing baseline. Visual approval does not authorize changes to business behavior, API contracts, permissions or domain state rules.
+
 <!--
 Ví dụ:
 

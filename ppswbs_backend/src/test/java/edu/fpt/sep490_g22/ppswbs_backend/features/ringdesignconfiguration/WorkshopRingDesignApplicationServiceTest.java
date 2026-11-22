@@ -44,7 +44,6 @@ class WorkshopRingDesignApplicationServiceTest {
     private RingDesignIdempotencyService idempotencyService;
     @Mock
     private DesignOptionRulesPort rulesPort;
-    @Spy
     private ObjectMapper objectMapper = new ObjectMapper();
 
     @InjectMocks
@@ -52,6 +51,7 @@ class WorkshopRingDesignApplicationServiceTest {
 
     @BeforeEach
     void setUp() {
+        org.springframework.test.util.ReflectionTestUtils.setField(applicationService, "objectMapper", objectMapper);
     }
 
     @Test
@@ -112,7 +112,7 @@ class WorkshopRingDesignApplicationServiceTest {
     }
 
     @Test
-    @DisplayName("saveVersion should create new immutable row with incremented version and VALIDATED status")
+    @DisplayName("saveVersion should create new immutable row with incremented version and SAVED status")
     void saveVersion_Success() {
         String designId = "DSG-existing-01";
         RingDesign latestVersion = RingDesign.builder()
@@ -149,13 +149,13 @@ class WorkshopRingDesignApplicationServiceTest {
 
         assertThat(response.getDesignId()).isEqualTo(designId);
         assertThat(response.getDesignVersion()).isEqualTo(2);
-        assertThat(response.getStatus()).isEqualTo("VALIDATED");
+        assertThat(response.getStatus()).isEqualTo("SAVED");
         assertThat(response.getEvaluation().getEstimatedPrice()).isEqualTo("1800000.00");
 
         verify(designRepository, times(1)).save(argThat(d ->
                 d.getDesignVersion() == 2 &&
                 d.getSourceDesign() == latestVersion &&
-                d.getStatus() == RingDesignStatus.VALIDATED
+                d.getStatus() == RingDesignStatus.SAVED
         ));
     }
 

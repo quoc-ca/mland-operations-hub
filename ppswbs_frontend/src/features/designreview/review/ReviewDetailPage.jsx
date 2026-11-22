@@ -27,10 +27,36 @@ export default function ReviewDetailPage() {
   const [formError, setFormError] = useState('');
   const [selectedPreviewImage, setSelectedPreviewImage] = useState(null);
 
+  // Quote preparation state
+  const [quoteAmount, setQuoteAmount] = useState('');
+  const [quoteHours, setQuoteHours] = useState('72');
+  const [quoteReason, setQuoteReason] = useState('');
+  const [quoteSuccess, setQuoteSuccess] = useState('');
+
   const { loading, error, data, reload, setData } = useResource(
     () => api.getDesignRequest(reviewRequestId),
     [reviewRequestId]
   );
+
+  async function handlePrepareQuote(e) {
+    e.preventDefault();
+    if (!quoteAmount || Number(quoteAmount) <= 0) {
+      setFormError('Tổng số tiền báo giá phải lớn hơn 0.');
+      return;
+    }
+    await command.run(async () => {
+      const expiresAt = new Date(Date.now() + Number(quoteHours || 72) * 3600 * 1000).toISOString();
+      const res = await api.prepareCustomDesignQuote(reviewRequestId, {
+        totalAmount: quoteAmount,
+        currency: 'VND',
+        quoteExpiresAt: expiresAt,
+        managerReason: quoteReason,
+      });
+      setQuoteSuccess(`Đã tạo báo giá thành công (Mã: ${res.quoteReference}, Tổng tiền: ${Number(res.totalAmount).toLocaleString('vi-VN')} đ)`);
+      reload();
+      return res;
+    });
+  }
 
   async function handleConfirmDecision() {
     setConfirmOpen(false);
@@ -122,6 +148,89 @@ export default function ReviewDetailPage() {
             </div>
           )}
         </div>
+      )}
+
+      {/* Quote Preparation section for Accepted Member Requests */}
+      {isAccepted && (
+        <section className="card" style={{ marginBottom: '1.5rem', padding: '1.5rem', border: '1px solid #bfdbfe', borderRadius: '8px', background: '#eff6ff' }}>
+          <h3 style={{ marginTop: 0, color: '#1e40af', fontSize: '1.2rem', marginBottom: '0.5rem' }}>
+            Chuẩn bị Báo giá Gia công Tùy chỉnh (Custom Quote)
+          </h3>
+          <p style={{ fontSize: '0.9rem', color: '#3b82f6', marginBottom: '1rem' }}>
+            Nhân viên nhập thông tin báo giá 100% để Quản lý (Manager) thẩm định và phê duyệt trước khi chuyển cho Hội viên thanh toán.
+          </p>
+
+          {quoteSuccess && (
+            <div className="alert-banner alert-banner-success" style={{ marginBottom: '1rem', backgroundColor: '#dcfce7', color: '#166534' }}>
+              <p>{quoteSuccess}</p>
+            </div>
+          )}
+
+          {data.quoteReference && (
+            <div style={{ marginBottom: '1rem', padding: '0.75rem', background: '#ffffff', borderRadius: 6, border: '1px solid #dbeafe' }}>
+              <span style={{ fontSize: '0.85rem', color: '#64748b' }}>Mã báo giá hiện tại: </span>
+              <strong>{data.quoteReference}</strong>
+            </div>
+          )}
+
+          <form onSubmit={handlePrepareQuote} className="stack">
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+              <div>
+                <label style={{ display: 'block', fontWeight: 600, fontSize: '0.875rem', marginBottom: '0.25rem' }}>
+                  Tổng tiền báo giá (VNĐ) *
+                </label>
+                <input
+                  type="number"
+                  min="1000"
+                  step="1000"
+                  value={quoteAmount}
+                  onChange={e => setQuoteAmount(e.target.value)}
+                  placeholder="Ví dụ: 15000000"
+                  required
+                  style={{ width: '100%', padding: '0.5rem', borderRadius: 6, border: '1px solid #cbd5e1' }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontWeight: 600, fontSize: '0.875rem', marginBottom: '0.25rem' }}>
+                  Thời hạn thanh toán (Giờ)
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="720"
+                  value={quoteHours}
+                  onChange={e => setQuoteHours(e.target.value)}
+                  placeholder="72"
+                  style={{ width: '100%', padding: '0.5rem', borderRadius: 6, border: '1px solid #cbd5e1' }}
+                />
+              </div>
+            </div>
+
+            <div style={{ marginTop: '0.75rem' }}>
+              <label style={{ display: 'block', fontWeight: 600, fontSize: '0.875rem', marginBottom: '0.25rem' }}>
+                Ghi chú / Căn cứ tính giá cho Manager:
+              </label>
+              <textarea
+                rows={2}
+                value={quoteReason}
+                onChange={e => setQuoteReason(e.target.value)}
+                placeholder="Ghi chú cơ cấu vật liệu, đá quý đính kèm, thời gian gia công dự kiến..."
+                style={{ width: '100%', padding: '0.5rem', borderRadius: 6, border: '1px solid #cbd5e1' }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
+              <button
+                type="submit"
+                className="button button-primary"
+                disabled={command.pending || !quoteAmount}
+                style={{ backgroundColor: '#1d4ed8', color: '#ffffff', padding: '0.5rem 1.25rem' }}
+              >
+                {command.pending ? 'Đang gửi...' : 'Gửi báo giá cho Manager duyệt'}
+              </button>
+            </div>
+          </form>
+        </section>
       )}
 
       {/* Description */}
@@ -233,6 +342,7 @@ export default function ReviewDetailPage() {
               >
                 <option value="ACCEPTED">{t('reviewDetail.decisionAccepted')}</option>
                 <option value="REJECTED">{t('reviewDetail.decisionRejected')}</option>
+                <option value="CLARIFICATION_REQUIRED">Yêu cầu làm rõ thông tin (CLARIFICATION_REQUIRED)</option>
               </select>
             </Field>
 

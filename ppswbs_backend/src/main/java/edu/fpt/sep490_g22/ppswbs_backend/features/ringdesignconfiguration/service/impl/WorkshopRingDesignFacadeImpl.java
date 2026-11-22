@@ -55,10 +55,10 @@ public class WorkshopRingDesignFacadeImpl implements WorkshopRingDesignFacade {
     public void unlockDesignOnBookingRollback(String designId) {
         designRepository.findLatestByDesignReference(designId).ifPresent(design -> {
             if (design.getStatus() == RingDesignStatus.ATTACHED_TO_BOOKING) {
-                design.setStatus(RingDesignStatus.VALIDATED);
+                design.setStatus(RingDesignStatus.SAVED);
                 design.setBookingReference(null);
                 designRepository.save(design);
-                log.info("Rolled back design {} to VALIDATED state after booking failure", designId);
+                log.info("Rolled back design {} to SAVED state after booking failure", designId);
             }
         });
     }
@@ -103,7 +103,6 @@ public class WorkshopRingDesignFacadeImpl implements WorkshopRingDesignFacade {
 
         Map<String, RingDesign> latest = new java.util.LinkedHashMap<>();
         for (RingDesign d : list) {
-            if (d.getStatus() == RingDesignStatus.ARCHIVED) continue;
             RingDesign ex = latest.get(d.getDesignReference());
             if (ex == null || d.getDesignVersion() > ex.getDesignVersion()) {
                 latest.put(d.getDesignReference(), d);
@@ -129,7 +128,6 @@ public class WorkshopRingDesignFacadeImpl implements WorkshopRingDesignFacade {
         }
         if (opt.isEmpty()) return Optional.empty();
         RingDesign d = opt.get();
-        if (d.getStatus() == RingDesignStatus.ARCHIVED) return Optional.empty();
         if (d.getOwnerType() != RingDesignOwnerType.MEMBER || !String.valueOf(memberAccountId).equals(d.getOwnerReference())) {
             return Optional.empty();
         }

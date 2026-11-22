@@ -188,7 +188,7 @@ export default function MainTopbar() {
                   to="/design-requests/new"
                   className={`main-topbar-link ${location.pathname.startsWith('/design-requests') ? 'active' : ''}`}
                 >
-                  Custom
+                  Yêu cầu chế tác
                 </Link>
               )}
               <Link
@@ -298,6 +298,11 @@ export default function MainTopbar() {
                       {userRole === 'MEMBER' && (
                         <Link to="/member/consultations" className="main-topbar-dropdown-item" role="menuitem">
                           <span>💬</span> Tư vấn thiết kế
+                        </Link>
+                      )}
+                      {userRole === 'MEMBER' && (
+                        <Link to="/account/my-custom-orders" className="main-topbar-dropdown-item" role="menuitem">
+                          <span>🔨</span> Đơn hàng thiết kế cá nhân
                         </Link>
                       )}
                       <Link to="/member/orders" className="main-topbar-dropdown-item" role="menuitem">

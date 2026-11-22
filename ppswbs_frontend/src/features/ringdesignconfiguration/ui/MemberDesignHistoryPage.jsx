@@ -322,7 +322,7 @@ export default function MemberDesignHistoryPage() {
             marginBottom: '-2px',
           }}
         >
-          ✍️ Yêu cầu tùy chỉnh (Custom)
+          ✍️ Yêu cầu chế tác
         </button>
       </div>
 
@@ -439,6 +439,16 @@ export default function MemberDesignHistoryPage() {
                         }
                       >
                         {lang === 'en' ? 'Edit' : 'Chỉnh sửa'}
+                      </button>
+                      <button
+                        type="button"
+                        className="ring-btn-secondary"
+                        style={{ whiteSpace: 'nowrap', flexShrink: 0, color: '#0284c7', borderColor: '#bae6fd' }}
+                        onClick={() => navigate(`/design-requests/new?designReference=${encodeURIComponent(d.designId)}`)}
+                        data-testid={`craft-request-btn-${d.designId}`}
+                        title={lang === 'en' ? 'Request custom crafting' : 'Gửi yêu cầu chế tác từ mẫu này'}
+                      >
+                        {lang === 'en' ? 'Craft' : 'Yêu cầu chế tác'}
                       </button>
                       <button
                         type="button"

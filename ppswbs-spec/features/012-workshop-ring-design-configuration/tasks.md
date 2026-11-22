@@ -1,11 +1,29 @@
 # Feature-012 Tasks: Workshop Ring Design Configuration
 
+> Superseding baseline 2026-11-22: booking attachment and the Feature-003
+> facade are retired. Current implementation tasks end at saved-design
+> recommendation and Feature-013 consultation handoff.
+
 Date created: 2026-11-08  
-Date updated: 2026-11-19
+Date updated: 2026-11-22
 Author: Ngô Tiến Đạt  
 Last updated by: Ngô Tiến Đạt  
 
 ## Phase 0 — Baseline and Decisions
+
+## Phase 4 — 2026-11-22 change request: saved recommendation and custom reference
+
+- [ ] Remove current booking attachment endpoint/facade from the implementation
+  path; preserve legacy rows as read-only compatibility data.
+- [ ] Add `SAVED` lifecycle semantics and separate technical evaluation from
+  human approval terminology.
+- [ ] Add catalogue-backed recommendation projection for Signature Silver/Brass,
+  Silver Clay and Wax Casting.
+- [ ] Preserve Explore workshops and make recommendation non-blocking.
+- [ ] Allow Feature-004 to snapshot any owner-visible design state.
+- [ ] Add the saved-design consultation entry point for Guest and Member.
+- [ ] Retire or supersede booking-attachment tests and add recommendation/state
+  regression scenarios.
 
 - [x] Read and apply `ppswbs-spec/AGENT.md`, constitution and design kit.
 - [x] Confirm Feature-012 boundary: Guest and Member workshop ring configuration; advisory price & difficulty scoring only; no direct booking/payment side effects.

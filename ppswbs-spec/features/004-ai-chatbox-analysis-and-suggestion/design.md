@@ -1,7 +1,7 @@
 # Feature-004 Frontend Design — Design Request and Human Review
 
 Date created: 2026-11-20
-Date updated: 2026-11-20
+Date updated: 2026-11-22
 Author: Ngô Tiến Đạt
 Last updated by: Ngô Tiến Đạt
 
@@ -54,9 +54,20 @@ quote states.
 - Use stable test IDs for image slots, quality states, quota messages, decision form,
   explanation field and status/result projections.
 
+## Existing-style-first visual rule
+
+Feature-004 must follow the closest approved existing customer and operations
+patterns before introducing new components. The in-place Figma frames are the
+visual reference for this feature; reuse their layout, typography, tokens,
+spacing, controls, responsive behavior and bilingual interaction states. Any
+new pattern must be the smallest reusable extension required by the human-review
+and custom-order requirements. Visual approval does not change the Feature-004
+business rules, API contract, permission boundary or state lifecycle.
+
 ## Figma gate
 
-Create a new Feature-004 Figma section with Guest/Member customer flows and
-Staff/Manager/Admin operational flows, desktop/mobile variants and all state variants.
-Record node IDs and revision in `version.md`; implementation remains blocked until
-explicit user approval.
+Use the approved existing in-place frames and current application page patterns
+as the Feature-004 visual baseline. Do not create a duplicate Figma page when an
+existing frame can be updated. Record node IDs and revision in `version.md`.
+Visual approval is complete for the current baseline; implementation remains
+subject to the specification, API contract, permission and engineering gates.

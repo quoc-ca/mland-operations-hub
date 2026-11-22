@@ -1,5 +1,9 @@
 #### 8.1.1 My Custom Orders
 
+> **Terminology update (2026-11-22):** The navigation label is **Đơn hàng cá
+> nhân**. Quote history uses **Phiên bản báo giá**. The list may show the
+> owner-provided Feature-012 design snapshot without exposing internal IDs.
+
 ![](assets/screens/28-my-custom-orders.png)
 
 This screen allows Members to:

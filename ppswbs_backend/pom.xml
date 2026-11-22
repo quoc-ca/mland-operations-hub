@@ -172,7 +172,7 @@
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-surefire-plugin</artifactId>
 				<configuration>
-					<argLine>-Dfile.encoding=UTF-8</argLine>
+					<argLine>-Dfile.encoding=UTF-8 -XX:+EnableDynamicAgentLoading --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.util=ALL-UNNAMED</argLine>
 					<!-- Tests must never send real email. A developer's .env may set APP_MAIL_ADAPTER=smtp and
 					     application.properties imports .env; a system property overrides it for every test. -->
 					<systemPropertyVariables>

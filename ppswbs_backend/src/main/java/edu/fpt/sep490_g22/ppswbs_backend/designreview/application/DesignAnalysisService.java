@@ -9,6 +9,8 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.Accou
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountSummary;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorRole;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorStatus;
+import edu.fpt.sep490_g22.ppswbs_backend.features.ringdesignconfiguration.dto.BookingDesignSnapshotDto;
+import edu.fpt.sep490_g22.ppswbs_backend.features.ringdesignconfiguration.facade.WorkshopRingDesignFacade;
 import lombok.Builder;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
@@ -45,6 +47,9 @@ public class DesignAnalysisService {
     private final ReferenceImageStoragePort storagePort;
     private final ImageQualityService imageQualityService;
     private final GuestDesignRequestQuotaService guestQuotaService;
+    private final Optional<WorkshopRingDesignFacade> workshopRingDesignFacade;
+    private final CustomDesignReferenceSnapshotRepository snapshotRepository;
+    private final CustomDesignRequestRevisionRepository revisionRepository;
 
     private static final long MAX_FILE_SIZE = 10L * 1024 * 1024; // 10 MB
     private static final int MAX_DIMENSION = 4096;
@@ -77,6 +82,10 @@ public class DesignAnalysisService {
         private String safeFailureCode;
         private String description;
         private String catalogueReference;
+        private String designReference;
+        private Integer designVersion;
+        private String quoteReference;
+        private Map<String, Object> designSnapshot;
         private List<DesignReviewDtos.ImageProjectionDto> images;
         private String decisionExplanation;
         private String trackingLink;
@@ -88,6 +97,14 @@ public class DesignAnalysisService {
         private Map<String, Object> safeResult;
         private Instant createdAt;
         private Instant updatedAt;
+
+        public Integer getVersion() {
+            return requestVersion;
+        }
+
+        public String getExplanation() {
+            return decisionExplanation;
+        }
     }
 
     /**
@@ -122,9 +139,30 @@ public class DesignAnalysisService {
             Integer designVersion,
             String idempotencyKey,
             List<MultipartFile> files) {
+        return submitDesignRequest(callerUid, guestSessionId, description, catalogueReference, null, null,
+                consentVersion, consentPurpose, designVersion, idempotencyKey, files);
+    }
 
-        log.info("Submitting design request: callerUid={}, guestSessionId={}, designVersion={}",
-                callerUid, guestSessionId, designVersion);
+    /**
+     * Human-reviewed independent design request submission supporting both Guest and Member,
+     * Feature-012 ring design snapshot handoff, and up to 5 images with authoritative server-side blur validation.
+     */
+    @Transactional
+    public DesignRequestViewDto submitDesignRequest(
+            String callerUid,
+            String guestSessionId,
+            String description,
+            String catalogueReference,
+            String designReference,
+            Integer designRingVersion,
+            String consentVersion,
+            String consentPurpose,
+            Integer designVersion,
+            String idempotencyKey,
+            List<MultipartFile> files) {
+
+        log.info("Submitting design request: callerUid={}, guestSessionId={}, designReference={}, designVersion={}",
+                callerUid, guestSessionId, designReference, designVersion);
 
         if (idempotencyKey == null || idempotencyKey.isBlank()) {
             throw DesignReviewException.badRequest("DESIGN_REQUEST_INVALID", "Thiếu Idempotency-Key trong header.");
@@ -175,10 +213,11 @@ public class DesignAnalysisService {
         List<MultipartFile> validFiles = files != null ? files.stream().filter(f -> f != null && !f.isEmpty()).toList() : Collections.emptyList();
         boolean hasDescription = (description != null && !description.trim().isEmpty());
         boolean hasImages = !validFiles.isEmpty();
+        boolean hasSnapshot = (designReference != null && !designReference.isBlank());
 
-        if (!hasDescription && !hasImages) {
+        if (!hasDescription && !hasImages && !hasSnapshot) {
             throw DesignReviewException.badRequest("AI_INPUT_INVALID",
-                    "Yêu cầu phải có mô tả thiết kế hoặc ít nhất một tệp hình ảnh đính kèm.");
+                    "Yêu cầu phải có mô tả thiết kế, mẫu thiết kế Feature-012 hoặc ít nhất một tệp hình ảnh đính kèm.");
         }
 
         if (validFiles.size() > MAX_IMAGE_COUNT) {
@@ -291,6 +330,8 @@ public class DesignAnalysisService {
                 .ownershipType(isMember ? "MEMBER" : "GUEST")
                 .description(sanitizedDescription)
                 .catalogueReference(sanitizedCatalogueRef)
+                .designReference(hasSnapshot ? designReference.trim() : null)
+                .designVersion(hasSnapshot ? (designRingVersion != null ? designRingVersion : 1) : null)
                 .requestVersion(version)
                 .idempotencyKey(idempotencyKey)
                 .requestStatus("ACTIVE")
@@ -301,6 +342,26 @@ public class DesignAnalysisService {
                 .updatedAt(Instant.now())
                 .build();
         requestRepository.save(designRequest);
+
+        // Feature-012 snapshot capture through facade
+        if (hasSnapshot && workshopRingDesignFacade.isPresent()) {
+            workshopRingDesignFacade.get().getDesignSnapshot(designReference.trim()).ifPresent(snapshotDto -> {
+                try {
+                    String json = objectMapper.writeValueAsString(snapshotDto.getSnapshot());
+                    CustomDesignReferenceSnapshot cdrs = CustomDesignReferenceSnapshot.builder()
+                            .requestId(requestId)
+                            .designReference(designReference.trim())
+                            .designVersion(snapshotDto.getDesignVersion() != null ? snapshotDto.getDesignVersion() : 1)
+                            .packageReference(snapshotDto.getPackageReference())
+                            .snapshotJson(json)
+                            .createdAt(Instant.now())
+                            .build();
+                    snapshotRepository.save(cdrs);
+                } catch (Exception e) {
+                    log.warn("Failed to serialize snapshot for request {}: {}", requestId, e.getMessage());
+                }
+            });
+        }
 
         // 7. Store Images in Storage & Database
         for (ValidatedImagePayload payload : validatedPayloads) {
@@ -547,6 +608,16 @@ public class DesignAnalysisService {
             if (explanation != null) safeResult.put("safeExplanation", explanation);
         }
 
+        Map<String, Object> snapshotMap = null;
+        Optional<CustomDesignReferenceSnapshot> snapshotOpt = snapshotRepository.findTopByRequestIdOrderByCreatedAtDesc(request.getId());
+        if (snapshotOpt.isPresent()) {
+            try {
+                snapshotMap = objectMapper.readValue(snapshotOpt.get().getSnapshotJson(), new TypeReference<Map<String, Object>>() {});
+            } catch (Exception e) {
+                log.warn("Failed to parse design snapshot json: {}", e.getMessage());
+            }
+        }
+
         return DesignRequestViewDto.builder()
                 .id(request.getId())
                 .requestReference(request.getRequestReference())
@@ -559,6 +630,10 @@ public class DesignAnalysisService {
                 .safeFailureCode(request.getSafeFailureCode())
                 .description(request.getDescription())
                 .catalogueReference(request.getCatalogueReference())
+                .designReference(request.getDesignReference())
+                .designVersion(request.getDesignVersion())
+                .quoteReference(request.getQuoteReference())
+                .designSnapshot(snapshotMap)
                 .images(imageDtos)
                 .decisionExplanation(request.getDecisionExplanation())
                 .trackingLink(trackingLink)
@@ -571,5 +646,100 @@ public class DesignAnalysisService {
                 .createdAt(request.getCreatedAt())
                 .updatedAt(request.getUpdatedAt())
                 .build();
+    }
+
+    @Transactional
+    public DesignRequestViewDto reviseDesignRequest(
+            String requestId,
+            String description,
+            String designReference,
+            Integer designRingVersion,
+            String clarificationResponse,
+            String callerUid,
+            String guestTrackingToken,
+            Integer ifMatchVersion,
+            List<MultipartFile> files
+    ) {
+        log.info("Submitting revision for design request: id={}, callerUid={}, version={}",
+                requestId, callerUid, ifMatchVersion);
+
+        DesignRequest request = requestRepository.findById(requestId)
+                .or(() -> requestRepository.findByRequestReference(requestId))
+                .orElseThrow(() -> DesignReviewException.notFound("NOT_FOUND", "Không tìm thấy yêu cầu thiết kế."));
+
+        // Ownership validation
+        if (callerUid != null && !callerUid.isBlank()) {
+            AccountSummary member = accountFacade.resolveAccount(callerUid)
+                    .orElseThrow(() -> DesignReviewException.unauthorized("AUTHENTICATION_REQUIRED", "Không tìm thấy tài khoản."));
+            if (!member.accountId().equals(request.getOwnerAccountId())) {
+                throw DesignReviewException.forbidden("ACCESS_DENIED", "Bạn không có quyền chỉnh sửa yêu cầu này.");
+            }
+        } else if (guestTrackingToken != null && !guestTrackingToken.isBlank()) {
+            String hash = hashToken(guestTrackingToken);
+            if (!guestTrackingToken.equals(request.getTrackingToken()) && !hash.equals(request.getTrackingTokenHash())) {
+                throw DesignReviewException.forbidden("ACCESS_DENIED", "Token theo dõi không hợp lệ.");
+            }
+        } else {
+            throw DesignReviewException.unauthorized("AUTHENTICATION_REQUIRED", "Yêu cầu đăng nhập hoặc mã theo dõi.");
+        }
+
+        // State check: Must be in CLARIFICATION_REQUIRED
+        if (request.getReviewStatus() != ReviewStatus.CLARIFICATION_REQUIRED) {
+            throw DesignReviewException.conflict("DESIGN_REQUEST_STATE_CONFLICT",
+                    "Yêu cầu không ở trạng thái yêu cầu làm rõ (CLARIFICATION_REQUIRED).");
+        }
+
+        // Optimistic locking version check
+        if (ifMatchVersion != null && !ifMatchVersion.equals(request.getRequestVersion())) {
+            throw DesignReviewException.conflict("DESIGN_REQUEST_STATE_CONFLICT",
+                    "Phiên bản yêu cầu đã thay đổi, vui lòng tải lại trang.");
+        }
+
+        // Save revision record
+        int newVersion = request.getRequestVersion() + 1;
+        CustomDesignRequestRevision revision = CustomDesignRequestRevision.builder()
+                .requestId(request.getId())
+                .revisionNumber(newVersion)
+                .description(description != null ? description.trim() : request.getDescription())
+                .designReference(designReference != null ? designReference.trim() : request.getDesignReference())
+                .designVersion(designRingVersion != null ? designRingVersion : request.getDesignVersion())
+                .clarificationResponse(clarificationResponse != null ? clarificationResponse.trim() : description)
+                .createdAt(Instant.now())
+                .build();
+        revisionRepository.save(revision);
+
+        if (description != null && !description.trim().isEmpty()) {
+            request.setDescription(description.trim());
+        }
+        if (designReference != null && !designReference.isBlank()) {
+            request.setDesignReference(designReference.trim());
+            request.setDesignVersion(designRingVersion != null ? designRingVersion : 1);
+            if (workshopRingDesignFacade.isPresent()) {
+                workshopRingDesignFacade.get().getDesignSnapshot(designReference.trim()).ifPresent(snapshotDto -> {
+                    try {
+                        String json = objectMapper.writeValueAsString(snapshotDto.getSnapshot());
+                        CustomDesignReferenceSnapshot cdrs = CustomDesignReferenceSnapshot.builder()
+                                .requestId(request.getId())
+                                .designReference(designReference.trim())
+                                .designVersion(snapshotDto.getDesignVersion() != null ? snapshotDto.getDesignVersion() : 1)
+                                .packageReference(snapshotDto.getPackageReference())
+                                .snapshotJson(json)
+                                .createdAt(Instant.now())
+                                .build();
+                        snapshotRepository.save(cdrs);
+                    } catch (Exception e) {
+                        log.warn("Failed to serialize snapshot for request revision {}: {}", request.getId(), e.getMessage());
+                    }
+                });
+            }
+        }
+
+        request.setRequestVersion(newVersion);
+        request.setReviewStatus(ReviewStatus.NEED_REVIEW);
+        request.setNextAction("AWAITING_HUMAN_REVIEW");
+        request.setUpdatedAt(Instant.now());
+        requestRepository.save(request);
+
+        return mapToViewDto(request);
     }
 }

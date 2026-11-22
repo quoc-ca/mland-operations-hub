@@ -1,12 +1,12 @@
 # Date created: 2026-11-08
-# Date updated: 2026-11-19
+# Date updated: 2026-11-22
 # Author: Ngô Tiến Đạt
 # Last updated by: Ngô Tiến Đạt
 
 openapi: 3.1.0
 info:
   title: Feature-012 Workshop Ring Design Configuration API
-  version: 0.4.0
+  version: 0.5.0
   description: >-
     Authoritative contract for Guest and Member workshop ring configuration,
     supporting Silver/Copper/Stainless Steel, sizes 6-29 with perimeter in mm,
@@ -93,7 +93,7 @@ paths:
             schema: { $ref: '#/components/schemas/SaveDesignVersionRequest' }
       responses:
         '200':
-          description: New validated or draft version
+          description: New saved version with separate advisory evaluation
           content:
             application/json:
               schema: { $ref: '#/components/schemas/DesignResponse' }
@@ -130,6 +130,24 @@ paths:
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/BusinessInvalid' }
         '503': { $ref: '#/components/responses/RulesUnavailable' }
+  /workshop-designs/{designId}/recommendation:
+    get:
+      tags: [Workshop Ring Design]
+      summary: Get an advisory workshop recommendation for a saved design
+      operationId: getWorkshopDesignRecommendation
+      parameters:
+        - $ref: '#/components/parameters/DesignId'
+        - $ref: '#/components/parameters/GuestDesignSession'
+      responses:
+        '200':
+          description: Owner-safe non-blocking workshop recommendation
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WorkshopRecommendation' }
+        '401': { $ref: '#/components/responses/SessionExpired' }
+        '403': { $ref: '#/components/responses/AccessDenied' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '503': { $ref: '#/components/responses/RulesUnavailable' }
   /workshop-designs/{designId}/archive:
     post:
       tags: [Workshop Ring Design]
@@ -150,35 +168,6 @@ paths:
         '403': { $ref: '#/components/responses/AccessDenied' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
-  /workshop-designs/{designId}/attach-to-booking:
-    post:
-      tags: [Workshop Ring Design]
-      summary: Return a validated snapshot for Workshop Booking
-      operationId: attachWorkshopDesignToBooking
-      description: >-
-        This is a facade-backed integration command. Feature-012 does not create
-        the booking, hold, invoice, payment or ticket.
-      parameters:
-        - $ref: '#/components/parameters/DesignId'
-        - $ref: '#/components/parameters/GuestDesignSession'
-        - $ref: '#/components/parameters/IdempotencyKey'
-        - $ref: '#/components/parameters/IfMatchVersion'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/AttachDesignRequest' }
-      responses:
-        '200':
-          description: Immutable booking-safe design snapshot
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/BookingDesignSnapshot' }
-        '401': { $ref: '#/components/responses/SessionExpired' }
-        '403': { $ref: '#/components/responses/AccessDenied' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '409': { $ref: '#/components/responses/Conflict' }
-        '422': { $ref: '#/components/responses/BusinessInvalid' }
 components:
   parameters:
     PackageReference:
@@ -434,10 +423,24 @@ components:
         designId: { type: string }
         packageReference: { type: string }
         designVersion: { type: integer, minimum: 1 }
-        status: { type: string, enum: [DRAFT, VALIDATED, ATTACHED_TO_BOOKING, LOCKED, ARCHIVED] }
+        status: { type: string, enum: [DRAFT, SAVED, ARCHIVED] }
         validation: { $ref: '#/components/schemas/ValidationResult' }
         evaluation: { $ref: '#/components/schemas/EvaluationResult' }
         componentSnapshot: { type: object, additionalProperties: true }
+        recommendation: { $ref: '#/components/schemas/WorkshopRecommendation' }
+    WorkshopRecommendation:
+      type: object
+      required: [recommendationCode, packageReference, reason, advisory, rulesVersion]
+      properties:
+        recommendationCode:
+          type: string
+          enum: [SIGNATURE_SILVER, SIGNATURE_BRASS, SILVER_CLAY, WAX_CASTING]
+        packageReference: { type: string, minLength: 1, maxLength: 128 }
+        packageUrl: { type: string, format: uri-reference }
+        reason: { type: string, minLength: 1, maxLength: 500 }
+        note: { type: string, nullable: true, maxLength: 500 }
+        advisory: { type: boolean, const: true }
+        rulesVersion: { type: string, minLength: 1, maxLength: 64 }
     ValidationResult:
       type: object
       required: [valid, reasons]
@@ -483,6 +486,8 @@ components:
         rulesVersion: { type: string, minLength: 1, maxLength: 64 }
         advisory: { type: boolean, const: true }
     AttachDesignRequest:
+      deprecated: true
+      description: Retired historical schema; booking attachment is not supported in the current Feature-012 baseline.
       type: object
       additionalProperties: false
       required: [bookingReference, packageReference, branchReference]
@@ -491,6 +496,8 @@ components:
         packageReference: { type: string, minLength: 1, maxLength: 128 }
         branchReference: { type: string, minLength: 1, maxLength: 128 }
     BookingDesignSnapshot:
+      deprecated: true
+      description: Retired historical schema; use the Feature-004 custom-design snapshot boundary instead.
       type: object
       required: [designReference, designVersion, packageReference, snapshot]
       properties:

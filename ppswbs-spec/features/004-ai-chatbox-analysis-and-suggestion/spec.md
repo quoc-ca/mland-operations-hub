@@ -1,13 +1,13 @@
 # Feature Specification: Design Request and Human Review
 
 Date created: 2026-11-20
-Date updated: 2026-11-20
+Date updated: 2026-11-22
 Author: Ngô Tiến Đạt
 Last updated by: Ngô Tiến Đạt
 
 **Logical feature name:** `004-design-request-and-human-review`
 **Legacy directory:** `004-ai-chatbox-analysis-and-suggestion`
-**Status:** Documentation baseline updated; implementation and Figma approval pending.
+**Status:** Implementation baseline; 2026-11-22 terminology, cross-feature reference and consultation changes documented; implementation pending.
 
 ## 1. Purpose and boundary
 
@@ -24,11 +24,32 @@ The feature does not own configured-design validation, workshop booking, ticket,
 production, payment settlement or fulfilment. It consumes Feature-012 only through
 an approved snapshot facade and hands accepted requests to Custom Manufacturing.
 
+### Superseding change request — 2026-11-22
+
+- The customer-facing tab is named `Yêu cầu chế tác`; the order area is named
+  `Đơn hàng cá nhân`.
+- The custom request copy explains that the customer describes a ring and the
+  shop assesses feasibility and provides a suitable quote.
+- Guest and Member may attach an owner-controlled Feature-012 design in any
+  readable state, including `DRAFT`, `SAVED`, `ARCHIVED`, and legacy states.
+  The server revalidates ownership and creates an immutable snapshot without
+  mutating or unlocking the source design.
+- AI analysis, AI pricing and automated design decisions remain out of scope.
+- Saved-design consultation is launched through Feature-013 with a safe
+  `WORKSHOP_RING_DESIGN` context. Guest and Member are supported; Staff and
+  Manager may participate in the conversation.
+- Quote terminology is `Phiên bản báo giá`; custom orders remain full-payment,
+  no-cart and no-deposit flows.
+
 ## 2. Actors and permissions
 
 ### Route masking synchronization (2026-11-20)
 
-`/design-review-requests*` and `/price-proposals/:proposalId/ai-suggestions` are internal reviewer routes with browser allowlist `STAFF` and `MANAGER`; a signed-in `MEMBER`, `ADMIN`, or `CARRIER` is replaced to `/404` before page render/request. This does not convert the documented `AI_ACTOR_NOT_ALLOWED` API `403` for Basic AI Support into `404`: that endpoint's typed actor policy remains a server-side contract. Public/Member design-request routes retain their current feature rules.
+`/design-review-requests*` are internal reviewer routes with browser allowlist
+`STAFF` and `MANAGER`; a signed-in `MEMBER`, `ADMIN`, or `CARRIER` is replaced
+to `/404` before page render/request. The former price-suggestion and Basic AI
+Support routes are historical and are not part of the current Feature-004
+contract. Public/Guest/Member design-request routes retain their current rules.
 
 | Actor | Allowed capability |
 | --- | --- |
@@ -100,12 +121,25 @@ commands return a conflict.
 ## 5. API baseline
 
 ```text
-POST /api/v1/design-requests
-GET  /api/v1/design-requests/{designRequestId}
+POST /api/v1/design-requests (dual-mapped with /api/v1/custom-design-requests)
+GET  /api/v1/design-requests/{designRequestId} (dual-mapped with /api/v1/custom-design-requests/{id})
 GET  /api/v1/design-requests
+POST /api/v1/custom-design-requests/{id} (submit revision after CLARIFICATION_REQUIRED)
 GET  /api/v1/design-review-requests
 GET  /api/v1/design-review-requests/{reviewRequestId}
-POST /api/v1/design-review-requests/{reviewRequestId}/decisions
+POST /api/v1/design-review-requests/{reviewRequestId}/decisions (CLARIFICATION_REQUIRED, ACCEPTED, REJECTED)
+POST /api/v1/custom-design-requests/{id}/quote (Staff preparation / Manager handoff)
+
+Member Custom Orders & Payment:
+GET  /api/v1/members/me/custom-design-requests
+GET  /api/v1/members/me/custom-orders
+GET  /api/v1/members/me/custom-orders/{customOrderId}
+POST /api/v1/members/me/custom-orders/{customOrderId}/payment (100% full payment only)
+POST /api/v1/members/me/custom-orders/{customOrderId}/request-new-quote
+
+Custom Manufacturing Operations:
+POST /api/v1/custom-orders/{orderId}/approve-quote (Manager approval)
+POST /api/v1/custom-orders/{orderId}/status (Staff/Manager production & fulfilment tracking)
 ```
 
 All writes require `Idempotency-Key`; versioned review decisions require
@@ -130,9 +164,10 @@ DESIGN_REVIEW_ALREADY_DECIDED
 
 ## 6. Custom design reference and quote handoff
 
-- A Member may submit a persisted Feature-012 `DRAFT` or `VALIDATED` version as
-  reference. A version already `ATTACHED_TO_BOOKING` or `LOCKED` cannot be reused;
-  the Member must clone it first.
+- A Guest or Member may submit an owner-verified persisted Feature-012 design
+  reference in any readable lifecycle state, including `DRAFT`, `SAVED` and
+  `ARCHIVED`, subject to source ownership and privacy checks. The reference is
+  copied into an immutable snapshot and is not treated as a booking attachment.
 - Feature-004 receives an immutable `CustomDesignReferenceSnapshot`; later edits
   to the source design never change the request under review.
 - `ACCEPTED` moves the request to quote preparation. It does not create a payment
@@ -162,8 +197,9 @@ states for Guest, Member, Staff, Manager and Admin.
 Each Figma screen needs desktop/mobile variants, loading, empty, validation, blurry
 image, quota, pending, accepted, rejected, token-expired and conflict states. One
 active locale must be used per screen; all Vietnamese text must be valid UTF-8.
-Figma revision and node IDs must be recorded in `version.md`. Coding starts only
-after explicit user approval of the new revision.
+Figma revision and node IDs must be recorded in `version.md`. The current
+in-place visual baseline is approved by the user; coding remains governed by
+the separate contract, permission, data and engineering gates.
 
 ## 8. Invariants and non-goals
 

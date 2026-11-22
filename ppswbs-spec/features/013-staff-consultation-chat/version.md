@@ -1,7 +1,7 @@
 # Feature-013 Version Log — Staff Consultation Chat
 
 **Date created**: 2026-11-18  
-**Date updated**: 2026-11-18  
+**Date updated**: 2026-11-22
 **Author**: Ngô Tiến Đạt  
 **Last updated by**: Ngô Tiến Đạt
 
@@ -28,6 +28,19 @@
 - Added E2E scenarios for pagination, contextless chat, Member hide, Staff scope, Manager close and layout exceptions.
 
 ## Current Verification
+
+## Version 1.2 — 2026-11-22 Guest and saved-design consultation extension
+
+- Guest can start a contextless consultation or open one from an owner-visible
+  Feature-012 design.
+- Member keeps Firebase-authenticated ownership behavior.
+- Staff and Manager can participate in the same conversation; Manager retains
+  global operational authority and Staff remains location-scoped where required.
+- The design context is safe-projection only and does not approve, quote, book,
+  pay for, or mutate the design.
+- Implementation, contract validation and E2E verification are pending.
+
+**Status:** `DOCUMENTATION UPDATED — IMPLEMENTATION PENDING`
 
 - Backend, frontend and E2E verification for Version 1.1 is pending.
 - Flyway `V184` must be validated against `flyway_schema_history` before deployment.

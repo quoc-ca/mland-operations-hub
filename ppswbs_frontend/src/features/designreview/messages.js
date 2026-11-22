@@ -2,7 +2,7 @@ export const designReviewMessages = {
   vi: {
     // Shared & Navigation
     'nav.aiSupport': 'Trợ lý AI',
-    'nav.designWorkspace': 'Không gian Thiết kế',
+    'nav.designWorkspace': 'Yêu cầu Chế tác',
     'nav.reviewQueue': 'Hàng đợi Thẩm duyệt',
     'nav.priceProposal': 'Đề xuất giá AI',
 
@@ -20,9 +20,9 @@ export const designReviewMessages = {
     'aiChat.quotaExceeded': 'Bạn đã sử dụng hết số lượt hỏi AI trong ngày. Lượt hỏi sẽ được làm mới vào lúc 00:00.',
 
     // F04-DESIGN-WORKSPACE
-    'workspace.title': 'Không gian Thiết kế Độc lập',
-    'workspace.subtitle': 'Tạo yêu cầu phân tích thiết kế trang sức. Quy trình này hoạt động độc lập và không yêu cầu đặt trước workshop hay thanh toán.',
-    'workspace.boundaryNotice': 'Yêu cầu thiết kế độc lập không tạo, liên kết hay ràng buộc với mã đặt chỗ workshop, thanh toán hay giữ chỗ.',
+    'workspace.title': 'Biến ý tưởng của bạn thành hiện thực',
+    'workspace.subtitle': 'Hãy mô tả chiếc nhẫn bạn muốn chúng tôi chế tác và chúng tôi sẽ thẩm định và đưa ra giá cả phù hợp cho thiết kế của bạn',
+    'workspace.boundaryNotice': '',
     'workspace.descriptionLabel': 'Mô tả ý tưởng thiết kế',
     'workspace.descriptionPlaceholder': 'Mô tả chi tiết ý tưởng nhẫn, vật liệu mong muốn, họa tiết, phong cách (tối đa 4.000 ký tự)…',
     'workspace.catalogueRefLabel': 'Mã tham chiếu sản phẩm / danh mục (không bắt buộc)',
@@ -192,9 +192,9 @@ export const designReviewMessages = {
     'aiChat.quotaExceeded': 'You have reached your daily AI prompt limit. Quota resets at 00:00.',
 
     // F04-DESIGN-WORKSPACE
-    'workspace.title': 'Independent Design Workspace',
-    'workspace.subtitle': 'Create a jewelry design analysis request. This flow operates independently without requiring a workshop booking or payment.',
-    'workspace.boundaryNotice': 'Independent design requests do not create, link to, or depend on workshop bookings, payments, or capacity holds.',
+    'workspace.title': 'Bringing Your Ideas to Life',
+    'workspace.subtitle': 'Describe the ring you want us to craft, and we will evaluate and propose the best pricing for your bespoke design.',
+    'workspace.boundaryNotice': '',
     'workspace.descriptionLabel': 'Design idea description',
     'workspace.descriptionPlaceholder': 'Describe your ring idea, preferred materials, engravings, style (up to 4,000 characters)…',
     'workspace.catalogueRefLabel': 'Product / Catalogue reference (optional)',
