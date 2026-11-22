@@ -26,10 +26,10 @@
 .md-quality.warn{background:#fff7ed;border-color:#fed7aa;color:#7c2d12}
 .md-quality ul{margin:6px 0 0;padding-left:18px}
 
-.md-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;margin:14px 0 18px}
+.md-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin:14px 0 18px}
 .md-kpi{display:flex;flex-direction:column;gap:8px;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:18px;min-width:0}
 .md-kpi-label{font-size:12px;color:#6b7280;font-weight:600}
-.md-kpi-value{font-size:24px;line-height:1.15;color:#1a1a1a;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.md-kpi-value{font-size:clamp(18px,1.6vw,24px);line-height:1.15;color:#1a1a1a;font-variant-numeric:tabular-nums;white-space:nowrap}
 .md-kpi small{font-size:11px;color:#9ca3af}
 .md-kpi-strong{background:#111827;border-color:#111827}
 .md-kpi-strong .md-kpi-label,.md-kpi-strong small{color:#d1d5db}
@@ -74,7 +74,8 @@
 .md-chart-body{position:relative}
 .md-chart svg{display:block;width:100%;height:220px}
 .md-grid{stroke:#f1f2f4;stroke-width:1}
-.md-axis{font-size:10px;fill:#9ca3af;font-family:inherit}
+.md-axis{font-size:11px;fill:#6b7280;font-family:inherit}
+.md-value{font-size:11px;font-weight:700;font-family:inherit;font-variant-numeric:tabular-nums;paint-order:stroke;stroke:#fff;stroke-width:3px}
 .md-hover-band{fill:#f3f4f6}
 .md-chart-empty{position:absolute;inset:0 0 28px 52px;display:flex;align-items:center;justify-content:center;margin:0;font-size:12px;color:#9ca3af;pointer-events:none}
 .md-tooltip{position:absolute;top:8px;display:flex;flex-direction:column;gap:3px;min-width:150px;padding:8px 10px;background:#111827;color:#f9fafb;border-radius:6px;font-size:12px;pointer-events:none;box-shadow:0 4px 14px rgba(0,0,0,.15)}
@@ -91,3 +92,42 @@
   .md-table th,.md-table td{display:flex;justify-content:space-between;border:0;padding:4px 0;text-align:right}
   .md-table td::before{content:attr(data-label);color:#6b7280;font-size:12px}
 }
+
+/* Dashboard inside the operations shell (2026-11-22): use the full page width, and style the branch picker of the
+   operations block like the other filters. */
+.manager-dashboard.mh-page{max-width:none}
+.manager-dashboard .mh-branch select{border:1px solid #d5d7dc;border-radius:6px;padding:8px 10px;font:inherit;font-size:13px;color:#1a1a1a;background:#fff;min-width:220px}
+
+/* Colour (Thinh, 2026-11-22): each figure keeps one colour everywhere — retail amber, workshop blue, paid orders
+   green, utilization violet, totals dark — so the page reads at a glance. */
+.md-kpi,.md-panel-tone{--tone:#111827;--tone-soft:#f3f4f6;--tone-ink:#111827}
+.tone-amber{--tone:#f59e0b;--tone-soft:#fffbeb;--tone-ink:#b45309}
+.tone-blue{--tone:#2563eb;--tone-soft:#eff6ff;--tone-ink:#1d4ed8}
+.tone-green{--tone:#16a34a;--tone-soft:#f0fdf4;--tone-ink:#15803d}
+.tone-violet{--tone:#7c3aed;--tone-soft:#f5f3ff;--tone-ink:#6d28d9}
+.tone-dark{--tone:#111827;--tone-soft:#f9fafb;--tone-ink:#111827}
+
+.md-kpi[class*=tone-]{position:relative;overflow:hidden;border-color:color-mix(in srgb,var(--tone) 28%,#e5e7eb);background:linear-gradient(180deg,var(--tone-soft),#fff 70%)}
+.md-kpi[class*=tone-]::before{content:"";position:absolute;inset:0 0 auto 0;height:4px;background:var(--tone)}
+.md-kpi[class*=tone-] .md-kpi-label{color:var(--tone-ink)}
+.md-kpi[class*=tone-] .md-kpi-label::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--tone);margin-right:7px;vertical-align:middle}
+.md-kpi.tone-violet .md-meter span{background:var(--tone)}
+.md-kpi-strong{background:linear-gradient(135deg,#111827 0%,#1f2937 60%,#78350f 140%)}
+.md-kpi-strong .md-kpi-value{color:#fcd34d}
+
+.md-panel-tone{border-top:4px solid var(--tone)}
+.md-panel-tone .md-panel-head h2{display:flex;align-items:center;gap:8px;color:var(--tone-ink)}
+.md-panel-tone .md-panel-head h2::before{content:"";width:10px;height:10px;border-radius:3px;background:var(--tone)}
+.md-panel-tone .md-stat{background:var(--tone-soft);border-color:color-mix(in srgb,var(--tone) 18%,#f1f2f4)}
+.md-panel-tone .md-stat .md-kpi-label{color:var(--tone-ink)}
+.md-panel-tone .md-chart{border-color:color-mix(in srgb,var(--tone) 15%,#f1f2f4)}
+.md-panel-tone .md-table tbody tr:hover{background:#fafafa}
+.md-change.good{background:#dcfce7;border-radius:999px;padding:1px 7px;align-self:flex-start}
+.md-change.bad{background:#fee2e2;border-radius:999px;padding:1px 7px;align-self:flex-start}
+
+/* Section titles and the operations block of the dashboard. */
+.manager-dashboard .mh-section-title{display:flex;align-items:center;gap:8px;color:#92400e}
+.manager-dashboard .mh-section-title::before{content:"";width:4px;height:14px;border-radius:2px;background:#f59e0b}
+.manager-dashboard .mh-panel{border-left:4px solid #2563eb;background:linear-gradient(90deg,#eff6ff,#fff 45%)}
+.manager-dashboard .mh-count{color:#1d4ed8}
+
