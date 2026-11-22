@@ -191,13 +191,38 @@ export const handler = async (event) => {
     }
 
     if (method === "GET" && path.endsWith("/logs")) {
-      const commands = [
-        "echo '=== DEPLOY LOG (last 60 lines) ==='; if [ -f /var/log/mland-deploy.log ]; then tail -n 60 /var/log/mland-deploy.log; else echo 'No deploy log yet'; fi",
-        "cd /opt/mland-staging 2>/dev/null || exit 0; for svc in db backend; do cid=$(sudo -H -u ubuntu -- docker compose ps -aq \"$svc\"); if [ -z \"$cid\" ]; then printf 'CHECK|%s|not-created|not-created\\n' \"$svc\"; else state=$(docker inspect --format '{{.State.Status}}' \"$cid\" 2>/dev/null || echo unknown); health=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}not-configured{{end}}' \"$cid\" 2>/dev/null || echo unknown); printf 'CHECK|%s|%s|%s\\n' \"$svc\" \"$state\" \"$health\"; fi; done",
-        "echo ''; echo '=== CONTAINER STATUS ==='; cd /opt/mland-staging && sudo -H -u ubuntu -- docker compose ps -a 2>&1 || echo 'Compose project not available'",
-        "echo ''; echo '=== BACKEND LOGS (last 60 lines) ==='; cd /opt/mland-staging && sudo -H -u ubuntu -- docker compose logs --tail=60 --no-color backend 2>&1 || echo 'Backend container logs not available yet'",
-        "echo ''; echo '=== MYSQL LOGS (last 20 lines) ==='; cd /opt/mland-staging && sudo -H -u ubuntu -- docker compose logs --tail=20 --no-color db 2>&1 || echo 'MySQL container logs not available yet'"
-      ];
+      const source = getQueryParameter(event, "source") || "overview";
+      const checkCommand = "cd /opt/mland-staging 2>/dev/null || exit 0; for svc in db backend; do cid=$(sudo -H -u ubuntu -- docker compose ps -aq \"$svc\"); if [ -z \"$cid\" ]; then printf 'CHECK|%s|not-created|not-created\\n' \"$svc\"; else state=$(docker inspect --format '{{.State.Status}}' \"$cid\" 2>/dev/null || echo unknown); health=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}not-configured{{end}}' \"$cid\" 2>/dev/null || echo unknown); printf 'CHECK|%s|%s|%s\\n' \"$svc\" \"$state\" \"$health\"; fi; done";
+
+      let commands;
+      if (source === "file-error") {
+        commands = [
+          checkCommand,
+          "LOG_DIR=$(ls -td /opt/mland-staging/ppswbs_backend/logs/*/ 2>/dev/null | head -n 1)",
+          "if [ -n \"$LOG_DIR\" ] && [ -f \"$LOG_DIR/error.log\" ] && [ -s \"$LOG_DIR/error.log\" ]; then echo \"=== BACKEND ERROR.LOG: $LOG_DIR/error.log (last 100 lines) ===\"; tail -n 100 \"$LOG_DIR/error.log\"; else echo \"No errors found in $LOG_DIR/error.log (Backend has no errors recorded)\"; fi"
+        ];
+      } else if (source === "file-info") {
+        commands = [
+          checkCommand,
+          "LOG_DIR=$(ls -td /opt/mland-staging/ppswbs_backend/logs/*/ 2>/dev/null | head -n 1)",
+          "if [ -n \"$LOG_DIR\" ] && [ -f \"$LOG_DIR/info.log\" ]; then echo \"=== BACKEND INFO.LOG: $LOG_DIR/info.log (last 100 lines) ===\"; tail -n 100 \"$LOG_DIR/info.log\"; else echo \"No info.log found in $LOG_DIR\"; fi"
+        ];
+      } else if (source === "file-all") {
+        commands = [
+          checkCommand,
+          "LOG_DIR=$(ls -td /opt/mland-staging/ppswbs_backend/logs/*/ 2>/dev/null | head -n 1)",
+          "if [ -n \"$LOG_DIR\" ] && [ -d \"$LOG_DIR\" ]; then echo \"=== BACKEND FILE LOGS ($LOG_DIR) ===\"; if [ -f \"$LOG_DIR/error.log\" ] && [ -s \"$LOG_DIR/error.log\" ]; then echo '--- ERROR.LOG (last 50 lines) ---'; tail -n 50 \"$LOG_DIR/error.log\"; echo ''; fi; if [ -f \"$LOG_DIR/info.log\" ]; then echo '--- INFO.LOG (last 70 lines) ---'; tail -n 70 \"$LOG_DIR/info.log\"; fi; else echo 'Backend log files directory not found yet in /opt/mland-staging/ppswbs_backend/logs'; fi"
+        ];
+      } else {
+        commands = [
+          "echo '=== DEPLOY LOG (last 60 lines) ==='; if [ -f /var/log/mland-deploy.log ]; then tail -n 60 /var/log/mland-deploy.log; else echo 'No deploy log yet'; fi",
+          checkCommand,
+          "echo ''; echo '=== CONTAINER STATUS ==='; cd /opt/mland-staging && sudo -H -u ubuntu -- docker compose ps -a 2>&1 || echo 'Compose project not available'",
+          "echo ''; echo '=== BACKEND LOGS (last 60 lines) ==='; cd /opt/mland-staging && sudo -H -u ubuntu -- docker compose logs --tail=60 --no-color backend 2>&1 || echo 'Backend container logs not available yet'",
+          "echo ''; echo '=== MYSQL LOGS (last 20 lines) ==='; cd /opt/mland-staging && sudo -H -u ubuntu -- docker compose logs --tail=20 --no-color db 2>&1 || echo 'MySQL container logs not available yet'"
+        ];
+      }
+
       const sent = await sendSsm(new SendCommandCommand({
         InstanceIds: [instanceId],
         DocumentName: "AWS-RunShellScript",
@@ -206,7 +231,8 @@ export const handler = async (event) => {
       return jsonResponse(202, {
         commandId: sent.Command?.CommandId,
         status: "COLLECTING_LOGS",
-        message: "Log snapshot command accepted"
+        source,
+        message: `Log snapshot (${source}) command accepted`
       });
     }
 

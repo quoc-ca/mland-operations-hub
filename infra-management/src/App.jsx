@@ -93,6 +93,7 @@ function StagingPage({ onNotice, currentUser }) {
   const [snapshotCommandId, setSnapshotCommandId] = useState('')
   const [isRefreshingLogs, setIsRefreshingLogs] = useState(false)
   const [autoRefreshLogs, setAutoRefreshLogs] = useState(false)
+  const [logSource, setLogSource] = useState('overview')
   const [isStopping, setIsStopping] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
   const [isDeploying, setIsDeploying] = useState(false)
@@ -240,26 +241,27 @@ function StagingPage({ onNotice, currentUser }) {
     }
   }, [polling, controlApiUrl, refreshKey])
 
-  const handleRefreshLogs = useCallback(async () => {
+  const handleRefreshLogs = useCallback(async (sourceOverride) => {
     if (!controlApiUrl) {
       notConnected('Refresh logs')
       return
     }
     if (isRefreshingLogs || snapshotCommandId) return
+    const src = sourceOverride || logSource || 'overview'
     try {
       setIsRefreshingLogs(true)
-      setLogState('Requesting one SSM log snapshot')
-      const response = await fetch(`${controlApiUrl}/staging/logs`, { headers: { Accept: 'application/json' } })
+      setLogState(`Requesting SSM log snapshot (${src})`)
+      const response = await fetch(`${controlApiUrl}/staging/logs?source=${encodeURIComponent(src)}`, { headers: { Accept: 'application/json' } })
       const data = await response.json().catch(() => ({}))
       if (!response.ok) throw new Error(data.error || `Log API returned HTTP ${response.status}`)
       setSnapshotCommandId(data.commandId || '')
-      setLogState(data.message || 'Collecting logs')
+      setLogState(data.message || `Collecting logs (${src})`)
       if (!data.commandId) setIsRefreshingLogs(false)
     } catch (error) {
       setIsRefreshingLogs(false)
       setLogState(`Log request failed: ${error.message}`)
     }
-  }, [controlApiUrl, isRefreshingLogs, snapshotCommandId])
+  }, [controlApiUrl, isRefreshingLogs, snapshotCommandId, logSource])
 
   useEffect(() => {
     const commandId = lastOperation?.commandId
@@ -598,6 +600,21 @@ function StagingPage({ onNotice, currentUser }) {
             <p className="muted log-status">{logState} · {polling ? 'Trạng thái máy: polling 5s' : 'Polling tắt'} {autoRefreshLogs ? '· Auto-pull: BẬT (5s)' : ''}</p>
           </div>
           <div className="log-actions">
+            <select
+              value={logSource}
+              onChange={(e) => {
+                const newSource = e.target.value
+                setLogSource(newSource)
+                handleRefreshLogs(newSource)
+              }}
+              className="log-source-select"
+              title="Chọn nguồn xem log (Console hoặc File log Spring Boot)"
+            >
+              <option value="overview">Console & Overview</option>
+              <option value="file-all">File: All (info + error)</option>
+              <option value="file-error">File: Chỉ lỗi (error.log)</option>
+              <option value="file-info">File: Chỉ info (info.log)</option>
+            </select>
             <button
               type="button"
               className={`text-button ${autoRefreshLogs ? 'active-toggle' : ''}`}
@@ -606,7 +623,7 @@ function StagingPage({ onNotice, currentUser }) {
             >
               {autoRefreshLogs ? 'Auto-pull: BẬT (5s)' : 'Auto-pull: TẮT'}
             </button>
-            <button type="button" className="text-button" onClick={handleRefreshLogs} disabled={isRefreshingLogs}>
+            <button type="button" className="text-button" onClick={() => handleRefreshLogs()} disabled={isRefreshingLogs}>
               {isRefreshingLogs ? 'Collecting...' : 'Refresh logs'}
             </button>
             <button type="button" className="text-button" onClick={() => setPolling((value) => !value)}>
