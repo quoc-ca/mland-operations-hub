@@ -19,10 +19,6 @@ vi.mock('../application/useNotificationApi', () => ({
   useNotificationApi: () => mockApi,
 }));
 
-vi.mock('../../../shared/ui/OperationsSidebar', () => ({
-  default: () => <aside data-testid="sidebar">Sidebar</aside>,
-}));
-
 vi.mock('../../../shared/auth/useRole', () => ({
   useRole: () => 'MANAGER',
 }));

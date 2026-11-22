@@ -113,6 +113,9 @@ public class SecurityConfiguration {
                         // PaymentIngressService performs checksum, owner, amount and deduplication
                         // checks.
                         .requestMatchers(HttpMethod.GET, "/api/v1/integrations/payments/vnpay/events").permitAll()
+                        // Dev-only payment simulator page; the controller exists only when
+                        // payment-simulator.enabled=true, otherwise these paths are a plain 404.
+                        .requestMatchers("/api/v1/integrations/payments/simulator/*").permitAll()
                         // Browser return is display-only. It only redirects to the React result page;
                         // no payment state is accepted from this request.
                         .requestMatchers(HttpMethod.GET, "/payment/vnpay/return").permitAll()

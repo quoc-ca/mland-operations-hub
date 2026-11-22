@@ -70,6 +70,12 @@ public class IdentityGateFilter extends OncePerRequestFilter {
                 && "/api/v1/integrations/payments/vnpay/events".equals(path)) {
             return true;
         }
+        // Dev-only payment simulator page opened by a customer's phone camera; the controller exists only when
+        // payment-simulator.enabled=true, otherwise this path is a 404.
+        if (("GET".equalsIgnoreCase(request.getMethod()) || "POST".equalsIgnoreCase(request.getMethod()))
+                && path.matches("/api/v1/integrations/payments/simulator/[^/]+")) {
+            return true;
+        }
         // 003.4 OTA provider callbacks (contract `security: []`): the provider has no Mland bearer;
         // OtaProviderEventController authenticates X-Ota-Signature itself, fail closed (E3, T118).
         if ("POST".equalsIgnoreCase(request.getMethod())

@@ -6,9 +6,9 @@
 
 **Status**: Ready for implementation (reviewed 2026-11-14)
 
-**Date updated**: 2026-11-14
+**Date updated**: 2026-11-22
 
-**Last updated by**: Thinh
+**Last updated by**: Hồ Hoàng Quốc
 
 **Input**: User description: "Create FE-10 Manager Dashboard with a read-only Executive Revenue Dashboard for authorized Managers; Admin may view only purpose-limited parameter-impact information in FE-09, not FE-10 executive revenue."
 
@@ -138,6 +138,13 @@ An Admin may receive a separate, purpose-limited `Parameter Impact Summary` for 
   2026-11-16). FE-11 added a "Quản lý đánh giá" button in the dashboard header
   that opens `/review-moderation`; it is the only navigation shortcut allowed
   on the dashboard (FR-016). The sidebar link stays the main entry.
+
+### Session 2026-11-22 (navigation shell; owner directive)
+
+- Q: Is the dashboard still its own page with its own menu entry and review-moderation button? → A: It is still the page `/manager/dashboard`, but Manager Home (013) is merged
+  into it: the page also shows today's operations and recent events around the unchanged revenue report (filters, five KPI cards, trends, branch table, FR-016 to FR-030
+  rules unchanged). The sidebar entry becomes the "Dashboard" group of the new rail, and the "Quản lý đánh giá" header button is removed because review moderation is a tab
+  of the "Khách hàng" group. Decision of Hồ Hoàng Quốc; details in `013-manager-home/spec.md` Session 2026-11-22.
 
 ## User Scenarios & Testing
 

@@ -6,7 +6,6 @@ import { ErrorNotice, Loading, useResource } from '../../../../shared/ui/compone
 import { FlashToast } from '../FlashToast';
 import { newCommandId } from '../../../../shared/api/http';
 import { useRetailApi } from '../../application/useRetailApi';
-import { OperationsSidebar } from '../../../../shared/ui/OperationsSidebar';
 import { cardToggleProps, displayTime, orderCode, OrderMoneyRows } from '../orderCode';
 import { ProductThumb } from '../ProductThumb';
 
@@ -62,10 +61,10 @@ function shipmentTab(row) {
 
 export default function StaffRetailOrdersPage({ initialTab }) {
   return <div className="ota-workspace">
-    <OperationsSidebar />
+    
     <main className="ota-main retail-staff-main">
       <div className="ota-topline"><span className="retail-staff-crumb"><Link to="/home">← Trang chủ</Link> MLAND / ĐƠN BÁN LẺ</span><span>● Backend-authorized</span></div>
-      <div className="ota-page-heading"><div><p className="ota-eyebrow">FE-08 · Bán lẻ</p><h1>Đơn bán lẻ tại chi nhánh</h1><p>Chuẩn bị hàng gửi GHTK, thu tiền mặt và giao hàng tại quầy cho chi nhánh của bạn.</p></div></div>
+      <div className="ota-page-heading"><div><p>Chuẩn bị hàng gửi GHTK, thu tiền mặt và giao hàng tại quầy cho chi nhánh của bạn.</p></div></div>
       <RequireSession requiredText="Đăng nhập Staff hoặc Manager được phân công chi nhánh."><StaffOrders initialTab={initialTab} /></RequireSession>
     </main>
   </div>;

@@ -434,7 +434,7 @@ describe('F11-MODERATION-QUEUE Screen (/review-moderation)', () => {
 
     open('/review-moderation', { session: fakeSession('signed-in') });
 
-    expect(await screen.findByText('Quản lý đánh giá')).toBeInTheDocument();
+    expect(await screen.findByText('Staff và Manager xử lý hậu kiểm theo quyền được cấp.')).toBeInTheDocument();
     expect(screen.getByText('Chất lượng không như quảng cáo.')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Xem chi tiết' })).toHaveAttribute('href', '/review-moderation/rev-mod-01');
   });

@@ -5,7 +5,6 @@ import { useAuth } from '../../shared/auth/AuthProvider';
 import { useRole } from '../../shared/auth/useRole';
 import { useHttp } from '../../shared/api/useHttp';
 import { ErrorNotice, Loading, useResource } from '../../shared/ui/components';
-import { OperationsSidebar } from '../../shared/ui/OperationsSidebar';
 import { OperationsAuthWorkspace } from '../../shared/ui/OperationsAuthWorkspace';
 import { Paginator, usePaged } from '../../shared/ui/Paginator';
 import { createOperationsApi } from '../api/operationsApi';
@@ -55,8 +54,8 @@ export default function OperationsDashboardPage() {
   }
   const counts = sessions.reduce((acc, item) => { acc[item.state] = (acc[item.state] || 0) + 1; return acc; }, {});
   return <div className="ota-workspace">
-    <OperationsSidebar />
-    <main className="ota-main"><div className="ota-topline">MLAND / WORKSHOP OPERATIONS <span>● Backend-authorized</span></div><header className="ota-page-heading"><div><p className="ota-eyebrow">TODAY'S WORK</p><h1>{isStaff ? 'Ca của tôi' : 'Workshop session board'}</h1><p>{isStaff ? 'Chỉ hiện các ca bạn được Manager phân công.' : 'Coordinate capacity, check-in and attendance finalization across active sessions.'}</p>{isStaff && (
+    
+    <main className="ota-main"><div className="ota-topline">MLAND / WORKSHOP OPERATIONS <span>● Backend-authorized</span></div><header className="ota-page-heading"><div><p>{isStaff ? 'Chỉ hiện các ca bạn được Manager phân công.' : 'Coordinate capacity, check-in and attendance finalization across active sessions.'}</p>{isStaff && (
         <p className="muted" style={{ marginTop: '6px' }}>
           Chi nhánh của bạn: <strong>{locationsResource.loading ? 'đang tải…' : (locations.length ? locations.map(item => item.name).join(', ') : 'chưa được gán chi nhánh nào, liên hệ Manager')}</strong>
         </p>

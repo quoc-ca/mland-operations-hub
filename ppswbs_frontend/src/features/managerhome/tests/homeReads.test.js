@@ -24,9 +24,4 @@ describe('homeReads', () => {
     expect(JSON.stringify(row)).not.toMatch(/private|metadata/);
   });
 
-  it('reads revenue from the dashboard report for the month with no branch filter', async () => {
-    const http = vi.fn(async () => ({ status: 'PARTIAL', totals: { totalRevenue: '5' }, developmentDemo: true }));
-    expect(await createHomeReads(http).fetchMonthlyRevenue()).toEqual({ status: 'PARTIAL', totalRevenue: '5', isDemo: true });
-    expect(http).toHaveBeenCalledWith('/api/v1/executive-reports', { query: { periodType: 'MONTH' } });
-  });
 });

@@ -1,7 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router';
 import { useTemplates } from '../application/useTemplates';
-import OperationsSidebar from '../../../shared/ui/OperationsSidebar';
 import './notification.css';
 
 function templateStatusBadge(status) {
@@ -22,12 +21,11 @@ export function TemplateListPage() {
 
   return (
     <div className="ota-workspace">
-      <OperationsSidebar />
+      
       <main className="ota-main">
         <div className="nm-container">
           <div className="nm-header">
             <div className="nm-title-group">
-              <h1>Quản lý mẫu thông báo email</h1>
               <p>Danh mục các mẫu thư giao dịch hệ thống và trạng thái phiên bản kích hoạt</p>
             </div>
             <div className="nm-actions">

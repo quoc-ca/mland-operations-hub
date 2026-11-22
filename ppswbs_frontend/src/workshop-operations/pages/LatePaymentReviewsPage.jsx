@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../../shared/auth/AuthProvider';
 import { useRole } from '../../shared/auth/useRole';
 import { Loading, useCommand } from '../../shared/ui/components';
-import { OperationsSidebar } from '../../shared/ui/OperationsSidebar';
 import { OperationsAuthWorkspace } from '../../shared/ui/OperationsAuthWorkspace';
 import { decideLatePaymentReview, listLatePaymentReviews } from '../../api/workshops';
 import '../../ota-connectivity/ota-connectivity.css';
@@ -66,12 +65,10 @@ export default function LatePaymentReviewsPage() {
     }
   }
 
-  return <div className="ota-workspace"><OperationsSidebar /><main className="ota-main">
+  return <div className="ota-workspace"><main className="ota-main">
     <div className="ota-topline">MLAND / LATE PAYMENTS <span>· Backend-authorized</span></div>
     <header className="ota-page-heading">
       <div>
-        <p className="ota-eyebrow">WORKSHOP OPERATIONS</p>
-        <h1>Thanh toán về trễ chờ duyệt</h1>
         <p className="muted">
           Thanh toán về trễ không tự xác nhận lại sẽ chờ Manager (003.1 FR-040a). Hàng đợi xếp theo ca bắt đầu sớm nhất.
           CONFIRM chỉ khả dụng khi điều kiện cho phép, còn lại là REFUND hoàn 100% qua 003.3.

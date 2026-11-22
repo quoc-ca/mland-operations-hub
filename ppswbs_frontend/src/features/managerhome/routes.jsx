@@ -1,6 +1,7 @@
 import React from 'react';
-import ManagerHomePage from './ui/ManagerHomePage';
+import { Navigate } from 'react-router';
 
+// Manager Home was merged into the Manager dashboard (spec 013, navigation decision of 2026-11-22).
 export const managerHomeRoutes = [
-  { path: '/manager/home', element: <ManagerHomePage /> },
+  { path: '/manager/home', element: <Navigate to="/manager/dashboard" replace /> },
 ];

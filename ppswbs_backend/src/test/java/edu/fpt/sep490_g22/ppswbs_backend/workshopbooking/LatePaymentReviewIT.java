@@ -101,18 +101,29 @@ class LatePaymentReviewIT {
             assumeTrue(connection.getMetaData().getDatabaseProductName().toLowerCase().contains("mysql"),
                     "LatePaymentReviewIT requires real MySQL evidence");
         }
-        jdbc.execute("SET FOREIGN_KEY_CHECKS = 0");
-        for (String table : List.of("settlement_notification_handoffs", "settlement_business_audits", "notification_deliveries",
+        // One connection for the whole cleanup: SET FOREIGN_KEY_CHECKS is per session, and with a pooled DataSource each
+        // jdbc.execute may use another connection, so TRUNCATE of a referenced table intermittently failed.
+        var tablesToClear = List.of("settlement_notification_handoffs", "settlement_business_audits", "notification_deliveries",
                 "settlement_refund_account_links", "settlement_refund_requests",
                 "promotion_revision_target", "promotion_revision", "promotion_program", "late_payment_reviews", "booking_group_notification_intents", "group_payment_attempts",
                 "booking_group_magic_links", "ticket_price_snapshots", "ticket_bookings", "booking_group_line_sessions",
                 "booking_group_lines", "booking_groups", "booking_idempotency_records", "booking_audit_evidence",
                 "facade_command_idempotency_records", "ticket_session_entitlements", "attendance_tickets",
                 "capacity_holds", "operations_audit_events", "workshop_sessions", "workshop_slots",
-                "workshop_packages", "workshop_locations")) {
-            jdbc.execute("TRUNCATE TABLE " + table);
-        }
-        jdbc.execute("SET FOREIGN_KEY_CHECKS = 1");
+                "workshop_packages", "workshop_locations");
+        jdbc.execute((java.sql.Connection connection) -> {
+            try (var statement = connection.createStatement()) {
+                statement.execute("SET FOREIGN_KEY_CHECKS = 0");
+                try {
+                    for (String table : tablesToClear) {
+                        statement.execute("TRUNCATE TABLE " + table);
+                    }
+                } finally {
+                    statement.execute("SET FOREIGN_KEY_CHECKS = 1");
+                }
+            }
+            return null;
+        });
         // A throw-away test key: the account number is stored encrypted (WORKSHOP_REFUND_ACCOUNT_KEY in real environments).
         var useKey = edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.RefundAccountCipher.class
                 .getDeclaredMethod("useKeyForTests", String.class);

@@ -6,7 +6,6 @@ import ManagerPaymentReconciliationPage from './ManagerPaymentReconciliationPage
 
 const { list } = vi.hoisted(() => ({ list: vi.fn() }));
 vi.mock('../../application/useRetailApi', () => ({ useRetailApi: () => ({ listPaymentReconciliations: list }) }));
-vi.mock('../../../../shared/ui/OperationsSidebar', () => ({ OperationsSidebar: () => null }));
 vi.mock('../../../../shared/auth/RequireSession', () => ({ RequireSession: ({ children }) => children }));
 vi.mock('../../../../shared/i18n/I18nProvider', () => ({
   LANGUAGES: ['vi'], useLanguage: () => ({ language: 'vi' }), useT: () => key => key,

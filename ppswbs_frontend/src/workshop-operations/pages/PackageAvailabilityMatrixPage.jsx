@@ -5,7 +5,6 @@ import { registerPrivateStateCleanup } from '../../shared/auth/privateStateClean
 import { newCommandId } from '../../shared/api/http';
 import { useHttp } from '../../shared/api/useHttp';
 import { ErrorNotice, Loading, useResource } from '../../shared/ui/components';
-import { OperationsSidebar } from '../../shared/ui/OperationsSidebar';
 import OperationsAuthWorkspace from '../../shared/ui/OperationsAuthWorkspace';
 import { createPackageAvailabilityApi } from '../api/packageAvailabilityApi';
 import PackageAvailabilityMatrix, { cellKey } from '../components/PackageAvailabilityMatrix';
@@ -34,7 +33,7 @@ function DeniedPanel() {
 function Shell({ children }) {
   return (
     <div className="ota-workspace">
-      <OperationsSidebar />
+      
       <main className="ota-main">
         <div className="ota-topline">MLAND / WORKSHOP OPERATIONS <span>● Backend-authorized</span></div>
         {children}
@@ -167,8 +166,6 @@ export default function PackageAvailabilityMatrixPage() {
   const heading = (
     <header className="ota-page-heading">
       <div>
-        <p className="ota-eyebrow">VẬN HÀNH WORKSHOP</p>
-        <h1>Ma trận gói × chi nhánh</h1>
         <p>Chọn gói workshop được bán ở từng chi nhánh. Tắt một ô chỉ ngừng nhận đặt mới, không hủy đơn đã đặt.</p>
       </div>
     </header>
