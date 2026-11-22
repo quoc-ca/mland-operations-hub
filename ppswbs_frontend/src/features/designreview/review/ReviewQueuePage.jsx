@@ -19,7 +19,6 @@ export default function ReviewQueuePage() {
   return (
     <div className="design-container">
       <header className="page-header">
-        <h1>{t('queue.title')}</h1>
         <p className="muted">{t('queue.subtitle')}</p>
       </header>
 

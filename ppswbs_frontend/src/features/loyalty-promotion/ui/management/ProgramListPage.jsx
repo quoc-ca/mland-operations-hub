@@ -5,7 +5,6 @@ import { ErrorNotice, Loading, SuccessNotice } from '../../../../shared/ui/compo
 import { useLoyaltyApi } from '../../application/useLoyaltyApi';
 import { DiscountText, ScopeBadge, useDateTime } from '../display';
 import { messages } from '../messages';
-import { PageTop } from './PromotionManagementLayout';
 import { useCursorList } from '../../application/useCursorList';
 import { Paginator, usePaged } from '../../../../shared/ui/Paginator';
 
@@ -30,10 +29,7 @@ export default function ProgramListPage() {
 
   return (
     <>
-      <PageTop title={t('programs.title')}>
-        <Link className="button primary" to="/promotion-management/programs/new">{t('nav.newProgram')}</Link>
-      </PageTop>
-      <SuccessNotice>{notice && t(notice)}</SuccessNotice>
+            <SuccessNotice>{notice && t(notice)}</SuccessNotice>
       <div className="filter-bar">
         <label>{t('field.scope')}
           <select value={scope} onChange={setFilter('scope')}>

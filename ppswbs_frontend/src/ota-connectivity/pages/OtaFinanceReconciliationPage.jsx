@@ -3,7 +3,6 @@ import { Link } from 'react-router';
 import { useAuth } from '../../shared/auth/AuthProvider';
 import { useOtaConnectivityApi } from '../api/useOtaConnectivityApi';
 import { ErrorNotice, Loading, SuccessNotice } from '../../shared/ui/components';
-import { OperationsSidebar } from '../../shared/ui/OperationsSidebar';
 import { OperationsAuthWorkspace } from '../../shared/ui/OperationsAuthWorkspace';
 import '../ota-connectivity.css';
 
@@ -57,10 +56,9 @@ export default function OtaFinanceReconciliationPage() {
   }
 
   return <div className="ota-workspace">
-    <OperationsSidebar />
+    
     <main className="ota-main"><div className="ota-topline">MLAND / OTA CONNECTIVITY <span>● Backend-authorized</span></div>
-      <header className="ota-page-heading"><div><p className="ota-eyebrow">FINANCE OPERATIONS</p><h1>Payout reconciliation</h1><p>Verify channel payment and payout evidence without exposing provider credentials.</p></div></header>
-      <nav className="ota-nav-tabs" aria-label="OTA Navigation"><Link to="/ota-connectivity/channels">Channels</Link><Link to="/ota-connectivity/reconciliation">Queue</Link><Link className="active" to="/ota-connectivity/finance">Finance</Link><Link to="/ota-connectivity/add-ons">Add-ons</Link></nav>
+      <header className="ota-page-heading"><div><p>Verify channel payment and payout evidence without exposing provider credentials.</p></div></header>
       <SuccessNotice>{success}</SuccessNotice><ErrorNotice error={error} onRetry={read} onReload={read} />
       <section className="ota-panel"><div className="ota-panel-head"><h2>Booking evidence</h2><span className="ota-live">MANAGER ONLY</span></div><form className="ota-inline-form" onSubmit={event => { event.preventDefault(); read(); }}><label>Channel booking ID<input value={bookingId} onChange={e => setBookingId(e.target.value)} placeholder="UUID" /></label><button className="button primary" type="submit" disabled={loading || !bookingId.trim()}>Load evidence</button></form></section>
       {loading && <Loading />}

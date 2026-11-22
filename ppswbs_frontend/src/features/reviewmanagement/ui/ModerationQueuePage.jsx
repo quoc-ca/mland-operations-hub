@@ -28,7 +28,6 @@ export default function ModerationQueuePage() {
             ← Quay lại Trang chủ
           </Link>
         </div>
-        <h1>{t('moderationTitle')}</h1>
         <p className="muted">{t('moderationSubtitle')}</p>
       </header>
 

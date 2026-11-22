@@ -1,6 +1,8 @@
 import React from 'react';
 import { Outlet, useLocation } from 'react-router';
 import MainTopbar from '../shared/ui/MainTopbar';
+import OperationsShell from '../shared/ui/OperationsShell';
+import { isShellPath } from '../shared/nav/navModel';
 
 /** Header and footer for production-oriented feature routes. */
 export default function AppLayout() {
@@ -19,9 +21,10 @@ export default function AppLayout() {
     location.pathname.startsWith('/catalogue-management') ||
     location.pathname === '/home';
 
-  if (isAuthPage || isOperationsWorkspace) {
-    return <Outlet />;
-  }
+  if (isAuthPage) return <Outlet />;
+  // Operations screens sit in the shell: rail of groups, page header with actions, and the group's tabs.
+  if (isShellPath(location.pathname)) return <OperationsShell />;
+  if (isOperationsWorkspace) return <Outlet />;
 
   return (
     <div className="app-layout-wrapper">

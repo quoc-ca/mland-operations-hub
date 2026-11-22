@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useNotificationRequests } from '../application/useNotificationRequests';
 import { useRole } from '../../../shared/auth/useRole';
 import NotificationRequestDetailDrawer from './NotificationRequestDetailDrawer';
-import OperationsSidebar from '../../../shared/ui/OperationsSidebar';
 import './notification.css';
 
 function stateBadgeClass(state) {
@@ -41,12 +40,11 @@ export function NotificationRequestListPage() {
 
   return (
     <div className="ota-workspace">
-      <OperationsSidebar />
+      
       <main className="ota-main">
         <div className="nm-container">
           <div className="nm-header">
             <div className="nm-title-group">
-              <h1>Nhật ký gửi thông báo (Delivery Logs)</h1>
               <p>Chẩn đoán hàng đợi gửi email giao dịch, số lần thử và nhật ký kiểm toán</p>
             </div>
             <div className="nm-actions">

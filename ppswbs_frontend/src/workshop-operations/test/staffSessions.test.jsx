@@ -19,14 +19,14 @@ describe('Session list by role', () => {
   it('tells a Staff with no assigned session to ask a Manager', async () => {
     open('STAFF', []);
 
-    expect(await screen.findByRole('heading', { name: 'Ca của tôi' })).toBeInTheDocument();
+    expect(await screen.findByText('Chỉ hiện các ca bạn được Manager phân công.')).toBeInTheDocument();
     expect(await screen.findByText(/Bạn chưa được phân công ca nào/)).toBeInTheDocument();
   });
 
   it('keeps the Manager board and its own empty message', async () => {
     open('MANAGER', []);
 
-    expect(await screen.findByRole('heading', { name: 'Workshop session board' })).toBeInTheDocument();
+    expect(await screen.findByText(/Coordinate capacity, check-in and attendance/)).toBeInTheDocument();
     expect(await screen.findByText('No sessions match the selected filters.')).toBeInTheDocument();
   });
 });

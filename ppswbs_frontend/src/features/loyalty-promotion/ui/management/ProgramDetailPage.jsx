@@ -55,7 +55,7 @@ export default function ProgramDetailPage() {
 
   return (
     <>
-      <PageTop eyebrow={t('manage.eyebrow')} title={data.name}><Link className="button outline" to="/promotion-management/programs">{t('back')}</Link></PageTop>
+      <PageTop entity eyebrow={t('manage.eyebrow')} title={data.name}><Link className="button outline" to="/promotion-management/programs">{t('back')}</Link></PageTop>
       <SuccessNotice>{notice && t(notice)}</SuccessNotice>
       {program.error && <ErrorNotice error={program.error} messages={messages} onRetry={program.reload} />}
 

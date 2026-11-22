@@ -3,7 +3,6 @@ import { Link } from 'react-router';
 import { useAuth } from '../../shared/auth/AuthProvider';
 import { useHttp } from '../../shared/api/useHttp';
 import { ErrorNotice, Loading, SuccessNotice, useCommand, useResource } from '../../shared/ui/components';
-import { OperationsSidebar } from '../../shared/ui/OperationsSidebar';
 import { OperationsAuthWorkspace } from '../../shared/ui/OperationsAuthWorkspace';
 import { createWorkshopPackageApi } from '../api/packageApi';
 import { createOperationsAdminApi } from '../api/operationsAdminApi';
@@ -134,7 +133,7 @@ export default function PackageAddOnCataloguePage() {
 
   return (
     <div className="ota-workspace">
-      <OperationsSidebar />
+      
 
       <main className="ota-main">
         <div className="ota-topline">
@@ -142,8 +141,6 @@ export default function PackageAddOnCataloguePage() {
         </div>
         <header className="ota-page-heading">
           <div>
-            <p className="ota-eyebrow">CATALOGUE</p>
-            <h1>Package add-on catalogue</h1>
             <p>Quản lý các tùy chọn Add-on gắn kèm theo từng gói Workshop và Chi nhánh vận hành.</p>
           </div>
         </header>

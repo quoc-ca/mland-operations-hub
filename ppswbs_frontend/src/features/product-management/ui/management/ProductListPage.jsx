@@ -9,7 +9,6 @@ import { useRole } from '../../../../shared/auth/useRole';
 import { newCommandId } from '../../../../shared/api/http';
 import { RowActions, awaitingReview } from './RowActions';
 import { messages } from '../messages';
-import { PageTop } from './ManagementLayout';
 import { PageNotice } from './notices';
 import { Pager } from './Pager';
 
@@ -67,10 +66,7 @@ export default function ProductListPage() {
 
   return (
     <>
-      <PageTop eyebrow={t('nav.group')} title={t('list.title')}>
-        <Link className="button primary" to="/catalogue-management/products/new">{t('nav.newProduct')}</Link>
-      </PageTop>
-      <PageNotice notice={location.state?.notice} />
+            <PageNotice notice={location.state?.notice} />
       <form className="filter-bar" onSubmit={apply} role="search">
         <label>{t('public.search')}<input value={draft.q} onChange={set('q')} maxLength={200} /></label>
         <label>{t('public.category')}

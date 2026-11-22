@@ -4,11 +4,6 @@ import { render, screen } from '@testing-library/react';
 import { MemberConsultationPage } from '../ui/MemberConsultationPage';
 import { StaffConsultationInboxPage } from '../ui/StaffConsultationInboxPage';
 
-// Mock OperationsSidebar and useRole
-vi.mock('../../../shared/ui/OperationsSidebar', () => ({
-  OperationsSidebar: () => <div data-testid="operations-sidebar">Sidebar</div>,
-}));
-
 vi.mock('../../../shared/auth/useRole', () => ({
   useRole: () => 'STAFF',
 }));

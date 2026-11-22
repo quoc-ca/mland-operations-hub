@@ -72,7 +72,7 @@ export default function ProductDetailPage() {
 
   return (
     <NoticeContext.Provider value={notice}>
-      <PageTop eyebrow={t('nav.group')} title={data.name}>
+      <PageTop entity eyebrow={t('nav.group')} title={data.name}>
         <Link className="button outline" to="/catalogue-management/products">{t('detail.backToList')}</Link>
       </PageTop>
       <PageNotice notice={notice} />

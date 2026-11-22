@@ -3,7 +3,6 @@ import { useSearchParams } from 'react-router';
 import { useAuth } from '../../shared/auth/AuthProvider';
 import { useHttp } from '../../shared/api/useHttp';
 import { Loading } from '../../shared/ui/components';
-import { OperationsSidebar } from '../../shared/ui/OperationsSidebar';
 import OperationsAuthWorkspace from '../../shared/ui/OperationsAuthWorkspace';
 import { createAuditReviewApi } from '../api/auditReviewApi';
 import AuditFilterBar from '../components/AuditFilterBar';
@@ -20,7 +19,7 @@ const TAB_LABELS = { operations: 'Vận hành', settlement: 'Quyết toán' };
 function Shell({ children }) {
   return (
     <div className="ota-workspace">
-      <OperationsSidebar />
+      
       <main className="ota-main">
         <div className="ota-topline">MLAND / WORKSHOP OPERATIONS <span>● Backend-authorized</span></div>
         {children}
@@ -125,8 +124,6 @@ export default function AuditReviewPage() {
     <Shell>
       <header className="ota-page-heading">
         <div>
-          <p className="ota-eyebrow">VẬN HÀNH WORKSHOP</p>
-          <h1>Nhật ký audit workshop</h1>
           <p>Chỉ đọc. Dòng mới nhất ở trên.{tab === 'operations' ? ' Việc xem nhật ký không được ghi lại.' : ''}</p>
         </div>
       </header>

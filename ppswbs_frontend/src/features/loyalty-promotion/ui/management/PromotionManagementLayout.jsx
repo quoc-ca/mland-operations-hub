@@ -2,7 +2,7 @@ import React from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
 import { RequireSession } from '../../../../shared/auth/RequireSession';
 import { useT } from '../../../../shared/i18n/I18nProvider';
-import { OperationsSidebar } from '../../../../shared/ui/OperationsSidebar';
+import { HeaderActions } from '../../../../shared/ui/OperationsShell';
 import { messages } from '../messages';
 
 /**
@@ -23,7 +23,7 @@ export default function PromotionManagementLayout() {
 
   return (
     <main className="app-shell lp-shell lp-theme">
-      <OperationsSidebar />
+      
       <div className="lp-main">
         <nav className="lp-topbar" aria-label={t('nav.breadcrumb')}>
           <span>MLAND</span>
@@ -39,7 +39,9 @@ export default function PromotionManagementLayout() {
   );
 }
 
-export function PageTop({ title, eyebrow = 'MANAGER', children }) {
+/** Title of a list or form page is in the shell header; only a page about one record (`entity`) keeps its own. */
+export function PageTop({ title, eyebrow = 'MANAGER', children, entity = false }) {
+  if (!entity) return children ? <HeaderActions>{children}</HeaderActions> : null;
   return (
     <div className="workspace-top">
       <div><p className="eyebrow">{eyebrow}</p><h1>{title}</h1></div>

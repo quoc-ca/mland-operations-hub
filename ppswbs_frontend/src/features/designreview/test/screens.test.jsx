@@ -311,7 +311,7 @@ describe('F04-REVIEW-QUEUE Screen (/design-review-requests)', () => {
 
     open('/design-review-requests', { session: fakeSession('signed-in') });
 
-    expect(await screen.findByText('Hàng đợi Thẩm duyệt Thiết kế')).toBeInTheDocument();
+    expect(await screen.findByText(/Danh sách các yêu cầu thiết kế đang chờ nhân sự thẩm duyệt/)).toBeInTheDocument();
     expect(screen.getByText('rev-01')).toBeInTheDocument();
     expect(screen.getByText('DR-001')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Thẩm duyệt' })).toHaveAttribute('href', '/design-review-requests/rev-01');

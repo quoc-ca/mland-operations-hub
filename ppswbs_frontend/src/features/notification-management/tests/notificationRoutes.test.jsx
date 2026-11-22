@@ -54,7 +54,7 @@ describe('Notification Management Routes and Guard', () => {
     });
 
     expect(
-      await screen.findByRole('heading', { name: 'Quản lý mẫu thông báo email' })
+      await screen.findByText(/Danh mục các mẫu thư giao dịch hệ thống/)
     ).toBeInTheDocument();
   });
 
@@ -70,7 +70,7 @@ describe('Notification Management Routes and Guard', () => {
     });
 
     expect(
-      await screen.findByRole('heading', { name: 'Nhật ký gửi thông báo (Delivery Logs)' })
+      await screen.findByText(/Chẩn đoán hàng đợi gửi email giao dịch/)
     ).toBeInTheDocument();
   });
 

@@ -5,7 +5,6 @@ import { useFormat } from '../../../../shared/i18n/I18nProvider';
 import { ErrorNotice, Loading, SuccessNotice, useResource } from '../../../../shared/ui/components';
 import { newCommandId } from '../../../../shared/api/http';
 import { useRetailApi } from '../../application/useRetailApi';
-import { OperationsSidebar } from '../../../../shared/ui/OperationsSidebar';
 import { cardToggleProps, displayTime, orderCode, OrderMoneyRows } from '../orderCode';
 import { ProductThumb } from '../ProductThumb';
 
@@ -44,10 +43,10 @@ function shipmentTab(row) {
 
 export default function StaffRetailOrdersPage({ initialTab = 'AWAITING_CASH' }) {
   return <div className="ota-workspace">
-    <OperationsSidebar />
+    
     <main className="ota-main retail-staff-main">
       <div className="ota-topline"><span className="retail-staff-crumb"><Link to="/home">← Trang chủ</Link> MLAND / ĐƠN BÁN LẺ</span><span>● Backend-authorized</span></div>
-      <div className="ota-page-heading"><div><p className="ota-eyebrow">FE-08 · Bán lẻ</p><h1>Đơn bán lẻ tại chi nhánh</h1><p>Thu tiền mặt, giao hàng tại quầy và gửi hàng GHTK cho chi nhánh của bạn. Vận đơn GHTK là mô phỏng.</p></div></div>
+      <div className="ota-page-heading"><div><p>Thu tiền mặt, giao hàng tại quầy và gửi hàng GHTK cho chi nhánh của bạn. Vận đơn GHTK là mô phỏng.</p></div></div>
       <RequireSession requiredText="Đăng nhập Staff hoặc Manager được phân công chi nhánh."><StaffOrders initialTab={initialTab} /></RequireSession>
     </main>
   </div>;
