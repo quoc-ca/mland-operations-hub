@@ -48,10 +48,16 @@ const collectInvocation = async (commandId, instanceId) => {
     const invocation = await getInvocation(commandId, instanceId);
     let stdout = invocation.StandardOutputContent || "";
     let nextOffset = null;
-    const offsetMatch = stdout.match(/__OFFSET__\|(\d+)/);
+    let fileSize = null;
+    let hasMore = false;
+    const offsetMatch = stdout.match(/__OFFSET__\|(\d+)(?:\|(\d+))?/);
     if (offsetMatch) {
       nextOffset = parseInt(offsetMatch[1], 10);
-      stdout = stdout.replace(/\r?\n?__OFFSET__\|\d+\r?\n?/, "");
+      if (offsetMatch[2]) {
+        fileSize = parseInt(offsetMatch[2], 10);
+        hasMore = nextOffset < fileSize;
+      }
+      stdout = stdout.replace(/\r?\n?__OFFSET__\|\d+(?:\|\d+)?\r?\n?/, "");
     }
     const checks = Object.fromEntries(
       [...stdout.matchAll(/^CHECK\|([^|\r\n]+)\|([^|\r\n]+)\|([^\r\n]+)/gm)]
@@ -67,11 +73,13 @@ const collectInvocation = async (commandId, instanceId) => {
       stdout,
       stderr: invocation.StandardErrorContent || "",
       nextOffset,
+      fileSize,
+      hasMore,
       checks
     };
   } catch (error) {
     if (error.name === "InvocationDoesNotExist") {
-      return { commandId, status: "Pending", statusDetails: "SSM invocation is initializing", responseCode: null, stdout: "", stderr: "", nextOffset: null, checks: {} };
+      return { commandId, status: "Pending", statusDetails: "SSM invocation is initializing", responseCode: null, stdout: "", stderr: "", nextOffset: null, fileSize: null, hasMore: false, checks: {} };
     }
     throw error;
   }
@@ -217,11 +225,15 @@ export const handler = async (event) => {
           "  FILE_SIZE=$(wc -c < \"$TARGET_FILE\" 2>/dev/null || echo 0)",
           `  OFFSET=${offset}`,
           "  if [ \"$FILE_SIZE\" -lt \"$OFFSET\" ]; then OFFSET=0; fi",
-          "  tail -c +$((OFFSET + 1)) \"$TARGET_FILE\"",
-          "  printf '\\n__OFFSET__|%s\\n' \"$FILE_SIZE\"",
+          "  REMAINING=$((FILE_SIZE - OFFSET))",
+          "  CHUNK_LIMIT=15000",
+          "  if [ \"$REMAINING\" -gt \"$CHUNK_LIMIT\" ]; then TO_READ=$CHUNK_LIMIT; else TO_READ=$REMAINING; fi",
+          "  tail -c +$((OFFSET + 1)) \"$TARGET_FILE\" | head -c \"$TO_READ\"",
+          "  NEXT_OFFSET=$((OFFSET + TO_READ))",
+          "  printf '\\n__OFFSET__|%s|%s\\n' \"$NEXT_OFFSET\" \"$FILE_SIZE\"",
           "else",
           "  echo 'No deploy log yet'",
-          "  printf '\\n__OFFSET__|0\\n'",
+          "  printf '\\n__OFFSET__|0|0\\n'",
           "fi"
         ];
       } else if (["file-error", "file-info", "file-warning"].includes(source)) {
@@ -234,11 +246,15 @@ export const handler = async (event) => {
           "  FILE_SIZE=$(wc -c < \"$TARGET_FILE\" 2>/dev/null || echo 0)",
           `  OFFSET=${offset}`,
           "  if [ \"$FILE_SIZE\" -lt \"$OFFSET\" ]; then OFFSET=0; fi",
-          "  tail -c +$((OFFSET + 1)) \"$TARGET_FILE\"",
-          "  printf '\\n__OFFSET__|%s\\n' \"$FILE_SIZE\"",
+          "  REMAINING=$((FILE_SIZE - OFFSET))",
+          "  CHUNK_LIMIT=15000",
+          "  if [ \"$REMAINING\" -gt \"$CHUNK_LIMIT\" ]; then TO_READ=$CHUNK_LIMIT; else TO_READ=$REMAINING; fi",
+          "  tail -c +$((OFFSET + 1)) \"$TARGET_FILE\" | head -c \"$TO_READ\"",
+          "  NEXT_OFFSET=$((OFFSET + TO_READ))",
+          "  printf '\\n__OFFSET__|%s|%s\\n' \"$NEXT_OFFSET\" \"$FILE_SIZE\"",
           "else",
           `  echo 'No ${fileName} found in ' "$LOG_DIR"`,
-          "  printf '\\n__OFFSET__|0\\n'",
+          "  printf '\\n__OFFSET__|0|0\\n'",
           "fi"
         ];
       } else if (source === "file-all") {

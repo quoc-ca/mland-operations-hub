@@ -298,11 +298,13 @@ function StagingPage({ onNotice, currentUser }) {
         if (cancelled) return
         setLastOperation((current) => current?.commandId === commandId ? { ...current, status: operation.status } : current)
         applyOperationChecks(operation.checks)
-        const output = [operation.stdout?.trim(), operation.stderr?.trim() ? `STDERR:\n${operation.stderr.trim()}` : ''].filter(Boolean).join('\n\n')
-        if (output) {
-          setLogContent(output)
-        } else if (operation.status === 'InProgress' && lastOperation?.name === 'Deploy') {
-          setLogContent((current) => current || '[EC2] Lệnh Deploy đang thực thi: đang kéo git branch, dọn log cũ và build Docker Compose... Vui lòng đợi trong giây lát.')
+        if (lastOperation?.name !== 'Deploy') {
+          const output = [operation.stdout?.trim(), operation.stderr?.trim() ? `STDERR:\n${operation.stderr.trim()}` : ''].filter(Boolean).join('\n\n')
+          if (output) {
+            setLogContent(output)
+          }
+        } else if (operation.status === 'Failed' && operation.stderr?.trim()) {
+          setLogContent((prev) => `${prev}\n\n[DEPLOY THẤT BẠI]\n${operation.stderr.trim()}`)
         }
         setLogState(`SSM ${operation.status} · command ${commandId}`)
         if (['Success', 'Failed'].includes(operation.status) && lastOperation?.name === 'Deploy') {
@@ -341,7 +343,8 @@ function StagingPage({ onNotice, currentUser }) {
         if (typeof operation.nextOffset === 'number' && !Number.isNaN(operation.nextOffset)) {
           setLogOffsets((prev) => ({ ...prev, [activeLogSource]: operation.nextOffset }))
         }
-        setLogState(`Log snapshot ${operation.status} · ${activeLogSource} offset: ${operation.nextOffset ?? logOffsets[activeLogSource] ?? 0}`)
+        const hasMoreText = operation.hasMore ? ` (còn ${operation.fileSize - operation.nextOffset} bytes mới)` : ''
+        setLogState(`Log snapshot ${operation.status} · ${activeLogSource} offset: ${operation.nextOffset ?? logOffsets[activeLogSource] ?? 0} bytes${hasMoreText}`)
         if (['Success', 'Failed', 'TimedOut', 'Cancelled', 'Undeliverable', 'Terminated'].includes(operation.status)) {
           setSnapshotCommandId('')
           setIsRefreshingLogs(false)
