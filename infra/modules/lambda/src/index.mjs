@@ -46,21 +46,32 @@ const getInvocation = async (commandId, instanceId) => sendSsm(new GetCommandInv
 const collectInvocation = async (commandId, instanceId) => {
   try {
     const invocation = await getInvocation(commandId, instanceId);
+    let stdout = invocation.StandardOutputContent || "";
+    let nextOffset = null;
+    const offsetMatch = stdout.match(/__OFFSET__\|(\d+)/);
+    if (offsetMatch) {
+      nextOffset = parseInt(offsetMatch[1], 10);
+      stdout = stdout.replace(/\r?\n?__OFFSET__\|\d+\r?\n?/, "");
+    }
+    const checks = Object.fromEntries(
+      [...stdout.matchAll(/^CHECK\|([^|\r\n]+)\|([^|\r\n]+)\|([^\r\n]+)/gm)]
+        .map((match) => [match[1], { state: match[2], health: match[3] }])
+    );
+    stdout = stdout.replace(/^CHECK\|[^\r\n]+\r?\n?/gm, "").trimEnd();
+
     return {
       commandId,
       status: invocation.Status || "Unknown",
       statusDetails: invocation.StatusDetails || "",
       responseCode: invocation.ResponseCode ?? null,
-      stdout: invocation.StandardOutputContent || "",
+      stdout,
       stderr: invocation.StandardErrorContent || "",
-      checks: Object.fromEntries(
-        [...(invocation.StandardOutputContent || "").matchAll(/^CHECK\|([^|\r\n]+)\|([^|\r\n]+)\|([^\r\n]+)/gm)]
-          .map((match) => [match[1], { state: match[2], health: match[3] }])
-      )
+      nextOffset,
+      checks
     };
   } catch (error) {
     if (error.name === "InvocationDoesNotExist") {
-      return { commandId, status: "Pending", statusDetails: "SSM invocation is initializing", responseCode: null, stdout: "", stderr: "" };
+      return { commandId, status: "Pending", statusDetails: "SSM invocation is initializing", responseCode: null, stdout: "", stderr: "", nextOffset: null, checks: {} };
     }
     throw error;
   }
@@ -192,26 +203,49 @@ export const handler = async (event) => {
 
     if (method === "GET" && path.endsWith("/logs")) {
       const source = getQueryParameter(event, "source") || "overview";
+      const rawOffset = getQueryParameter(event, "offset");
+      const offset = Math.max(0, parseInt(rawOffset || "0", 10) || 0);
+
       const checkCommand = "cd /opt/mland-staging 2>/dev/null || exit 0; for svc in db backend; do cid=$(sudo -H -u ubuntu -- docker compose ps -aq \"$svc\"); if [ -z \"$cid\" ]; then printf 'CHECK|%s|not-created|not-created\\n' \"$svc\"; else state=$(docker inspect --format '{{.State.Status}}' \"$cid\" 2>/dev/null || echo unknown); health=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}not-configured{{end}}' \"$cid\" 2>/dev/null || echo unknown); printf 'CHECK|%s|%s|%s\\n' \"$svc\" \"$state\" \"$health\"; fi; done";
 
       let commands;
-      if (source === "file-error") {
+      if (source === "overview") {
         commands = [
           checkCommand,
-          "LOG_DIR=$(ls -td /opt/mland-staging/ppswbs_backend/logs/*/ 2>/dev/null | head -n 1)",
-          "if [ -n \"$LOG_DIR\" ] && [ -f \"$LOG_DIR/error.log\" ] && [ -s \"$LOG_DIR/error.log\" ]; then echo \"=== BACKEND ERROR.LOG: $LOG_DIR/error.log (last 100 lines) ===\"; tail -n 100 \"$LOG_DIR/error.log\"; else echo \"No errors found in $LOG_DIR/error.log (Backend has no errors recorded)\"; fi"
+          "TARGET_FILE=/var/log/mland-deploy.log",
+          "if [ -f \"$TARGET_FILE\" ]; then",
+          "  FILE_SIZE=$(wc -c < \"$TARGET_FILE\" 2>/dev/null || echo 0)",
+          `  OFFSET=${offset}`,
+          "  if [ \"$FILE_SIZE\" -lt \"$OFFSET\" ]; then OFFSET=0; fi",
+          "  tail -c +$((OFFSET + 1)) \"$TARGET_FILE\"",
+          "  printf '\\n__OFFSET__|%s\\n' \"$FILE_SIZE\"",
+          "else",
+          "  echo 'No deploy log yet'",
+          "  printf '\\n__OFFSET__|0\\n'",
+          "fi"
         ];
-      } else if (source === "file-info") {
+      } else if (["file-error", "file-info", "file-warning"].includes(source)) {
+        const fileName = source === "file-error" ? "error.log" : source === "file-warning" ? "warning.log" : "info.log";
         commands = [
           checkCommand,
           "LOG_DIR=$(ls -td /opt/mland-staging/ppswbs_backend/logs/*/ 2>/dev/null | head -n 1)",
-          "if [ -n \"$LOG_DIR\" ] && [ -f \"$LOG_DIR/info.log\" ]; then echo \"=== BACKEND INFO.LOG: $LOG_DIR/info.log (last 100 lines) ===\"; tail -n 100 \"$LOG_DIR/info.log\"; else echo \"No info.log found in $LOG_DIR\"; fi"
+          `TARGET_FILE="$LOG_DIR/${fileName}"`,
+          "if [ -n \"$LOG_DIR\" ] && [ -f \"$TARGET_FILE\" ]; then",
+          "  FILE_SIZE=$(wc -c < \"$TARGET_FILE\" 2>/dev/null || echo 0)",
+          `  OFFSET=${offset}`,
+          "  if [ \"$FILE_SIZE\" -lt \"$OFFSET\" ]; then OFFSET=0; fi",
+          "  tail -c +$((OFFSET + 1)) \"$TARGET_FILE\"",
+          "  printf '\\n__OFFSET__|%s\\n' \"$FILE_SIZE\"",
+          "else",
+          `  echo 'No ${fileName} found in ' "$LOG_DIR"`,
+          "  printf '\\n__OFFSET__|0\\n'",
+          "fi"
         ];
       } else if (source === "file-all") {
         commands = [
           checkCommand,
           "LOG_DIR=$(ls -td /opt/mland-staging/ppswbs_backend/logs/*/ 2>/dev/null | head -n 1)",
-          "if [ -n \"$LOG_DIR\" ] && [ -d \"$LOG_DIR\" ]; then echo \"=== BACKEND FILE LOGS ($LOG_DIR) ===\"; if [ -f \"$LOG_DIR/error.log\" ] && [ -s \"$LOG_DIR/error.log\" ]; then echo '--- ERROR.LOG (last 50 lines) ---'; tail -n 50 \"$LOG_DIR/error.log\"; echo ''; fi; if [ -f \"$LOG_DIR/info.log\" ]; then echo '--- INFO.LOG (last 70 lines) ---'; tail -n 70 \"$LOG_DIR/info.log\"; fi; else echo 'Backend log files directory not found yet in /opt/mland-staging/ppswbs_backend/logs'; fi"
+          "if [ -n \"$LOG_DIR\" ] && [ -d \"$LOG_DIR\" ]; then echo \"=== BACKEND FILE LOGS ($LOG_DIR) ===\"; for fn in error.log warning.log info.log; do if [ -f \"$LOG_DIR/$fn\" ] && [ -s \"$LOG_DIR/$fn\" ]; then echo \"--- $fn (last 50 lines) ---\"; tail -n 50 \"$LOG_DIR/$fn\"; echo ''; fi; done; else echo 'Backend log files directory not found yet in /opt/mland-staging/ppswbs_backend/logs'; fi"
         ];
       } else {
         commands = [
@@ -232,7 +266,8 @@ export const handler = async (event) => {
         commandId: sent.Command?.CommandId,
         status: "COLLECTING_LOGS",
         source,
-        message: `Log snapshot (${source}) command accepted`
+        offset,
+        message: `Log snapshot (${source}, offset ${offset}) command accepted`
       });
     }
 
