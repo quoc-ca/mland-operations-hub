@@ -4,19 +4,9 @@ resource "aws_security_group" "staging_ec2" {
   description = "Firewall controlling access to the staging EC2 server"
   vpc_id      = var.vpc_id
 
-  # Inbound HTTPS (Caddy TLS)
+  # Vercel proxies API requests to the backend over HTTP on the EIP.
   ingress {
-    description      = "Cho phep HTTPS public vao Caddy"
-    from_port        = 443
-    to_port          = 443
-    protocol         = "tcp"
-    cidr_blocks      = ["0.0.0.0/0"]
-    ipv6_cidr_blocks = ["::/0"]
-  }
-
-  # Inbound HTTP (Redirect HTTPS & ACME challenge)
-  ingress {
-    description      = "Cho phep HTTP public de redirect sang HTTPS va ACME challenge"
+    description      = "Public HTTP backend endpoint used by the Vercel API proxy"
     from_port        = 80
     to_port          = 80
     protocol         = "tcp"

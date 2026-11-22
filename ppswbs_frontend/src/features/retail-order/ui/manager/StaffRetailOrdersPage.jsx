@@ -4,6 +4,7 @@ import { RequireSession } from '../../../../shared/auth/RequireSession';
 import { useFormat } from '../../../../shared/i18n/I18nProvider';
 import { ErrorNotice, Loading, useResource } from '../../../../shared/ui/components';
 import { FlashToast } from '../FlashToast';
+import { OPEN_TASK_TABS, pickupTab, shipmentTab } from './staffTabs';
 import { newCommandId } from '../../../../shared/api/http';
 import { useRetailApi } from '../../application/useRetailApi';
 import { cardToggleProps, displayTime, orderCode, OrderMoneyRows } from '../orderCode';
@@ -39,7 +40,7 @@ const TABS = [
 ];
 // Addresses and bookmarks of the former tabs keep working.
 const LEGACY_TABS = { TO_SHIP: 'PREPARING', SHIPPING: 'HANDED_OVER' };
-const OPEN_TASK_TABS = ['AWAITING_CASH', 'PREPARING', 'TO_HAND_OVER'];
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 const timeLeft = deadline => {
   const ms = new Date(deadline).getTime() - Date.now();
@@ -48,16 +49,7 @@ const timeLeft = deadline => {
   return hours >= 24 ? `còn ${Math.floor(hours / 24)} ngày ${hours % 24} giờ` : `còn ${Math.max(hours, 0)} giờ ${Math.floor((ms % 3_600_000) / 60_000)} phút`;
 };
 
-function pickupTab(row) {
-  if (row.order.paymentState === 'ACCEPTED_UNPAID') return 'AWAITING_CASH';
-  if (row.fulfilmentState === 'PICKED_UP') return 'HISTORY';
-  return row.pickupReadyConfirmed ? 'TO_HAND_OVER' : 'PREPARING';
-}
-function shipmentTab(row) {
-  if (row.status === 'PREPARING') return 'PREPARING';
-  if (row.status === 'READY_FOR_CARRIER') return 'AWAITING_CARRIER';
-  return row.status === 'DELIVERED' ? 'HISTORY' : 'HANDED_OVER';
-}
+
 
 export default function StaffRetailOrdersPage({ initialTab }) {
   return <div className="ota-workspace">
@@ -70,7 +62,8 @@ export default function StaffRetailOrdersPage({ initialTab }) {
   </div>;
 }
 
-function StaffOrders({ initialTab }) {
+/** The Staff order list without the page frame, also shown on the Staff home (Session 2026-11-22). */
+export function StaffOrders({ initialTab }) {
   const api = useRetailApi();
   const format = useFormat();
   const wanted = LEGACY_TABS[initialTab] || initialTab;

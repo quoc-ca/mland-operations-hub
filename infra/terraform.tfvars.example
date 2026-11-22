@@ -15,7 +15,7 @@ root_volume_size = 30
 # Nguồn cố định được phép gọi Lambda (CORS Origins)
 cors_allowed_origins = [
   "http://localhost:5173",
-  "https://mland-staging-management.vercel.app"
+  "https://infra-management-git-develop-mland-team.vercel.app"
 ]
 
 # Mã xác nhận phụ của team (tùy chọn)

@@ -10,19 +10,31 @@ const main = () => within(screen.getByRole('main'));
 const profile = role => json(200, { role, fullName: 'Test User', email: 'user@mland.test' });
 
 describe('Staff and Manager home pages', () => {
-  it('shows a Staff their daily work but none of the management sections', async () => {
-    mockFetch({ 'GET /api/v1/accounts/me/profile': profile('STAFF') });
+  it('shows a Staff the Workshop and Orders cards with what waits on each side (Session 2026-11-22)', async () => {
+    const now = Date.now();
+    const iso = offsetMinutes => new Date(now + offsetMinutes * 60_000).toISOString();
+    mockFetch({
+      'GET /api/v1/accounts/me/profile': profile('STAFF'),
+      'GET /api/v1/workshop-sessions': json(200, [
+        { id: 'late', state: 'IN_PROGRESS', locationName: 'Hoàn Kiếm', scheduledStartAt: iso(-180), scheduledEndAt: iso(-60), checkInOpensAt: iso(-210) },
+        { id: 'done', state: 'ATTENDANCE_FINALIZED', scheduledStartAt: iso(-300), scheduledEndAt: iso(-240) },
+      ]),
+      'GET /api/v1/staff/retail-pickups': json(200, [
+        { order: { id: 'o1', paymentState: 'ACCEPTED_UNPAID' }, pickupReadyConfirmed: false },
+        { order: { id: 'o2', paymentState: 'PAID' }, pickupReadyConfirmed: true },
+      ]),
+      'GET /api/v1/staff/retail-shipments': json(200, { items: [] }),
+    });
     renderRoutes(routes, { path: '/staff/home' });
 
-    expect(await screen.findByRole('heading', { name: /Trang chủ nhân viên/ })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /Xin chào/ })).toBeInTheDocument();
     expect(screen.getByText(/Xin chào, Test User/)).toBeInTheDocument();
-    expect(main().getByRole('link', { name: /Ca của tôi/ })).toHaveAttribute('href', '/operations/sessions');
-    expect(main().getByRole('link', { name: /Hóa đơn quyết toán/ })).toHaveAttribute('href', '/settlement');
-    expect(main().getByRole('link', { name: /Quản lý đánh giá/ })).toHaveAttribute('href', '/review-moderation');
-    // Staff and Manager both manage products.
-    expect(main().getByRole('link', { name: /^Sản phẩm/ })).toHaveAttribute('href', '/catalogue-management/products');
-    expect(main().queryByRole('link', { name: /Chương trình ưu đãi/ })).not.toBeInTheDocument();
-    expect(main().queryByRole('link', { name: /Gói workshop/ })).not.toBeInTheDocument();
+    expect(main().getByRole('tab', { name: /Workshop/ })).toHaveAttribute('aria-selected', 'true');
+    // The finished session needs nothing; the one that ended without finalizing is listed first.
+    expect(await main().findByRole('link', { name: /chưa chốt điểm danh/ })).toHaveAttribute('href', '/operations/sessions/late');
+    // The other side says in red how much waits there: one cash order to collect, one pickup to hand over.
+    expect(await main().findByText('2 đơn cần giải quyết')).toBeInTheDocument();
+    expect(main().getByRole('link', { name: 'Hóa đơn quyết toán' })).toHaveAttribute('href', '/settlement');
   });
 
   it('sends a Member who opens an internal home to the general home', async () => {

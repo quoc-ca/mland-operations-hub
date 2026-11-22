@@ -1,253 +1,287 @@
 import { EC2Client, StartInstancesCommand, StopInstancesCommand, DescribeInstancesCommand } from "@aws-sdk/client-ec2";
-import { SSMClient, SendCommandCommand, GetCommandInvocationCommand, DescribeInstanceInformationCommand } from "@aws-sdk/client-ssm";
+import {
+  SSMClient,
+  SendCommandCommand,
+  GetCommandInvocationCommand,
+  DescribeInstanceInformationCommand
+} from "@aws-sdk/client-ssm";
 
 const region = process.env.AWS_REGION || "ap-southeast-1";
 const getEc2InstanceId = () => process.env.STAGING_EC2_ID || "";
-
 const ec2 = new EC2Client({ region });
 const ssm = new SSMClient({ region });
-
-// CORS is handled by the Lambda Function URL configuration in Terraform.
+const sendEc2 = (command) => globalThis.__mockEC2Send?.(command) ?? ec2.send(command);
+const sendSsm = (command) => globalThis.__mockSSMSend?.(command) ?? ssm.send(command);
 const responseHeaders = { "Content-Type": "application/json" };
+const terminalSsmStatuses = new Set([
+  "Success", "Cancelled", "TimedOut", "Failed", "Cancelling", "Undeliverable", "Terminated"
+]);
+
+const jsonResponse = (statusCode, body) => ({
+  statusCode,
+  headers: responseHeaders,
+  body: JSON.stringify(body)
+});
+
+const parseBody = (event) => {
+  if (typeof event.body !== "string") return event.body || {};
+  try {
+    return JSON.parse(event.body || "{}");
+  } catch {
+    return {};
+  }
+};
+
+const getQueryParameter = (event, name) => {
+  if (event.queryStringParameters?.[name]) return event.queryStringParameters[name];
+  const raw = event.rawQueryString || "";
+  return new URLSearchParams(raw).get(name) || "";
+};
+
+const getInvocation = async (commandId, instanceId) => sendSsm(new GetCommandInvocationCommand({
+  CommandId: commandId,
+  InstanceId: instanceId
+}));
+
+const collectInvocation = async (commandId, instanceId) => {
+  try {
+    const invocation = await getInvocation(commandId, instanceId);
+    return {
+      commandId,
+      status: invocation.Status || "Unknown",
+      statusDetails: invocation.StatusDetails || "",
+      responseCode: invocation.ResponseCode ?? null,
+      stdout: invocation.StandardOutputContent || "",
+      stderr: invocation.StandardErrorContent || "",
+      checks: Object.fromEntries(
+        [...(invocation.StandardOutputContent || "").matchAll(/^CHECK\|([^|\r\n]+)\|([^|\r\n]+)\|([^\r\n]+)/gm)]
+          .map((match) => [match[1], { state: match[2], health: match[3] }])
+      )
+    };
+  } catch (error) {
+    if (error.name === "InvocationDoesNotExist") {
+      return { commandId, status: "Pending", statusDetails: "SSM invocation is initializing", responseCode: null, stdout: "", stderr: "" };
+    }
+    throw error;
+  }
+};
+
+const waitForInvocation = async (commandId, instanceId, timeoutMs = 90000) => {
+  const deadline = Date.now() + timeoutMs;
+  let result = { commandId, status: "Pending", responseCode: null, stdout: "", stderr: "" };
+
+  while (Date.now() < deadline) {
+    try {
+      result = await collectInvocation(commandId, instanceId);
+      if (terminalSsmStatuses.has(result.status)) return result;
+    } catch (error) {
+      if (error.name !== "InvocationDoesNotExist") throw error;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+  }
+
+  return { ...result, status: "TimedOut", statusDetails: "Timed out waiting for SSM command completion" };
+};
 
 export const handler = async (event) => {
-  const ec2InstanceId = getEc2InstanceId();
-  const headers = responseHeaders;
-
+  const instanceId = getEc2InstanceId();
   const path = event.rawPath || event.path || "";
   const method = event.requestContext?.http?.method || event.httpMethod || "GET";
 
   try {
-    // 1. Lấy trạng thái máy chủ EC2 (GET /staging/status)
     if (method === "GET" && path.endsWith("/status")) {
-      const result = await ec2.send(new DescribeInstancesCommand({ InstanceIds: [ec2InstanceId] }));
+      const result = await sendEc2(new DescribeInstancesCommand({ InstanceIds: [instanceId] }));
       const instance = result.Reservations?.[0]?.Instances?.[0];
       const state = instance?.State?.Name || "unknown";
-      const publicIp = instance?.PublicIpAddress || null;
       let ssmStatus = "not-applicable";
+
       if (state === "running") {
-        const managed = await ssm.send(new DescribeInstanceInformationCommand({
-          Filters: [{ Key: "InstanceIds", Values: [ec2InstanceId] }]
+        const managed = await sendSsm(new DescribeInstanceInformationCommand({
+          Filters: [{ Key: "InstanceIds", Values: [instanceId] }]
         }));
         ssmStatus = managed.InstanceInformationList?.[0]?.PingStatus || "offline";
       }
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({
-          instanceId: ec2InstanceId,
-          state,
-          publicIp,
-          ssmStatus,
-          timestamp: new Date().toISOString()
-        })
-      };
+
+      return jsonResponse(200, {
+        instanceId,
+        state,
+        publicIp: instance?.PublicIpAddress || null,
+        ssmStatus,
+        timestamp: new Date().toISOString()
+      });
     }
 
-    // 2. Khởi động môi trường Staging (POST /staging/start)
     if (method === "POST" && path.endsWith("/start")) {
-      let body = {};
-      try {
-        body = typeof event.body === "string" ? JSON.parse(event.body || "{}") : (event.body || {});
-      } catch (e) {
-        console.warn("Loi parse JSON body trong /staging/start:", e.message);
-      }
-
-      const branch = (body?.branch || "develop").trim();
-      const runtimeEnv = body?.env && typeof body.env === "object" ? body.env : {};
-      const envKeys = Object.keys(runtimeEnv);
-
-      if (envKeys.length > 0) {
-        console.log(`[START] Nhan duoc ${envKeys.length} bien moi truong cho EC2:`, envKeys.join(", "));
-      }
-
-      await ec2.send(new StartInstancesCommand({ InstanceIds: [ec2InstanceId] }));
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({
-          message: envKeys.length > 0
-            ? `Lệnh khởi động EC2 đã được gửi thành công (đã nhận ${envKeys.length} biến môi trường, branch: ${branch})`
-            : `Lệnh khởi động EC2 đã được gửi thành công (branch: ${branch})`,
-          instanceId: ec2InstanceId,
-          status: "STARTING",
-          branch,
-          envCount: envKeys.length
-        })
-      };
+      await sendEc2(new StartInstancesCommand({ InstanceIds: [instanceId] }));
+      return jsonResponse(200, {
+        message: "EC2 start request accepted. Deploy the application after the instance and SSM agent are ready.",
+        instanceId,
+        status: "STARTING"
+      });
     }
 
-    // 3. Kéo code từ GitHub và build/deploy Staging (POST /staging/deploy)
     if (method === "POST" && path.endsWith("/deploy")) {
-      let body = {};
-      try {
-        body = typeof event.body === "string" ? JSON.parse(event.body || "{}") : (event.body || {});
-      } catch (e) {
-        console.warn("Loi parse JSON body trong /staging/deploy:", e.message);
+      const body = parseBody(event);
+      const branch = (body.branch || "develop").trim();
+      if (!/^[A-Za-z0-9][A-Za-z0-9._/-]*$/.test(branch) || branch.includes("..") || branch.endsWith("/")) {
+        return jsonResponse(400, { error: "Invalid branch name" });
       }
 
-      const branch = (body?.branch || "develop").trim().replace(/[^a-zA-Z0-9_\-\/]/g, "");
-      const runtimeEnv = body?.env && typeof body.env === "object" ? body.env : {};
-      const envKeys = Object.keys(runtimeEnv);
+      const runtimeEnv = body.env && typeof body.env === "object" && !Array.isArray(body.env) ? body.env : {};
+      const envEntries = Object.entries(runtimeEnv);
+      if (envEntries.length === 0) {
+        return jsonResponse(400, {
+          error: "Deployment rejected: 'env' object containing required environment variables is mandatory."
+        });
+      }
 
+      for (const [key, value] of envEntries) {
+        if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key) || value === null || typeof value === "object") {
+          return jsonResponse(400, { error: `Invalid runtime environment entry: ${key}` });
+        }
+      }
+
+      const firebaseConfig = typeof body.firebaseConfig === "string" ? body.firebaseConfig.trim() : "";
+      if (firebaseConfig) {
+        try {
+          JSON.parse(firebaseConfig);
+        } catch {
+          return jsonResponse(400, { error: "Invalid firebaseConfig: must be a valid JSON string" });
+        }
+      }
+
+      const encodedEnv = Buffer.from(JSON.stringify(runtimeEnv)).toString("base64");
       const commands = [
-        "mkdir -p /opt/mland-staging"
+        "install -d -o ubuntu -g ubuntu -m 0750 /opt/mland-staging /opt/mland-staging-runtime",
+        `printf '%s' '${encodedEnv}' | base64 -d > /opt/mland-staging-runtime/runtime-env.json`,
+        "chown ubuntu:ubuntu /opt/mland-staging-runtime/runtime-env.json && chmod 600 /opt/mland-staging-runtime/runtime-env.json"
       ];
 
-      if (envKeys.length > 0) {
-        const envContent = envKeys.map((k) => `${k}=${runtimeEnv[k]}`).join("\n");
-        const b64 = Buffer.from(envContent).toString("base64");
-        commands.push(`echo "${b64}" | base64 -d > /opt/mland-staging/.runtime.env`);
-        console.log(`[DEPLOY] Da cap nhat ${envKeys.length} bien moi truong cho branch: ${branch}`);
+      if (firebaseConfig) {
+        const encodedFirebase = Buffer.from(firebaseConfig).toString("base64");
+        commands.push(`printf '%s' '${encodedFirebase}' | base64 -d > /opt/mland-staging-runtime/firebase-service-account.json`);
+        commands.push("chown ubuntu:ubuntu /opt/mland-staging-runtime/firebase-service-account.json && chmod 600 /opt/mland-staging-runtime/firebase-service-account.json");
+        commands.push("mkdir -p /opt/mland-staging/ppswbs_backend && cp -f /opt/mland-staging-runtime/firebase-service-account.json /opt/mland-staging/ppswbs_backend/firebase-service-account.json && cp -f /opt/mland-staging-runtime/firebase-service-account.json /opt/mland-staging/firebase-service-account.json && chown -R ubuntu:ubuntu /opt/mland-staging/ppswbs_backend/firebase-service-account.json 2>/dev/null || true");
       }
 
-      // Đảm bảo script deploy tồn tại trên máy chủ
-      commands.push(`if [ ! -f /opt/mland-staging-deploy.sh ]; then
-cat << 'EOF' > /opt/mland-staging-deploy.sh
-#!/bin/bash
-set -e
-BRANCH="\${1:-develop}"
-DEPLOY_LOG="/var/log/mland-deploy.log"
-exec > >(tee -a "\${DEPLOY_LOG}") 2>&1
-echo "=== BAT DAU DEPLOY STAGING (\${BRANCH}) ==="
-if [ ! -d "/opt/mland-staging/.git" ]; then
-    sudo -u ubuntu git clone https://github.com/quoc-ca/mland-operations-hub.git /opt/mland-staging
-fi
-chown -R ubuntu:ubuntu /opt/mland-staging
-cd /opt/mland-staging
-git -c safe.directory=/opt/mland-staging fetch origin
-git -c safe.directory=/opt/mland-staging checkout "\${BRANCH}"
-git -c safe.directory=/opt/mland-staging pull origin "\${BRANCH}"
-chown -R ubuntu:ubuntu /opt/mland-staging
-if [ -f "/opt/mland-staging/.runtime.env" ]; then
-    cat /opt/mland-staging/.runtime.env > /opt/mland-staging/.env
-fi
-if [ -f "/opt/mland-staging/.env" ]; then
-    if ! grep -q "^HOST_BE_PORT=" /opt/mland-staging/.env; then
-        echo "HOST_BE_PORT=80" >> /opt/mland-staging/.env
-    fi
-else
-    echo "HOST_BE_PORT=80" > /opt/mland-staging/.env
-fi
-docker compose up -d --build db backend
-echo "=== HOAN TAT DEPLOY STAGING THANH CONG! ==="
-EOF
-chmod +x /opt/mland-staging-deploy.sh
-fi`);
+      commands.push(`sudo -H -u ubuntu -- /opt/mland-staging-deploy.sh '${branch}'`);
 
-      commands.push("chown -R ubuntu:ubuntu /opt/mland-staging")
-      commands.push(`/bin/bash /opt/mland-staging-deploy.sh "${branch}"`);
-
-      const sendCmd = await ssm.send(new SendCommandCommand({
-        InstanceIds: [ec2InstanceId],
+      const sent = await sendSsm(new SendCommandCommand({
+        InstanceIds: [instanceId],
         DocumentName: "AWS-RunShellScript",
         Parameters: { commands }
       }));
+      const commandId = sent.Command?.CommandId;
 
-      const commandId = sendCmd.Command?.CommandId || "unknown";
-
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({
-          message: `Lệnh kéo code (${branch}) và build backend đang chạy ngầm trên EC2`,
-          instanceId: ec2InstanceId,
-          commandId,
-          status: "DEPLOYING",
-          branch,
-          envCount: envKeys.length
-        })
-      };
+      return jsonResponse(202, {
+        message: "Deploy command accepted by SSM",
+        instanceId,
+        commandId,
+        status: "DEPLOYING",
+        branch,
+        envCount: envEntries.length
+      });
     }
 
-    // 4. Dừng môi trường Staging (POST /staging/stop)
+    if (method === "GET" && path.endsWith("/operation")) {
+      const commandId = getQueryParameter(event, "commandId");
+      if (!commandId) return jsonResponse(400, { error: "commandId is required" });
+      const invocation = await collectInvocation(commandId, instanceId);
+      return jsonResponse(invocation.status === "Pending" ? 202 : 200, invocation);
+    }
+
+    if (method === "GET" && path.endsWith("/logs")) {
+      const source = getQueryParameter(event, "source") || "overview";
+      const checkCommand = "cd /opt/mland-staging 2>/dev/null || exit 0; for svc in db backend; do cid=$(sudo -H -u ubuntu -- docker compose ps -aq \"$svc\"); if [ -z \"$cid\" ]; then printf 'CHECK|%s|not-created|not-created\\n' \"$svc\"; else state=$(docker inspect --format '{{.State.Status}}' \"$cid\" 2>/dev/null || echo unknown); health=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}not-configured{{end}}' \"$cid\" 2>/dev/null || echo unknown); printf 'CHECK|%s|%s|%s\\n' \"$svc\" \"$state\" \"$health\"; fi; done";
+
+      let commands;
+      if (source === "file-error") {
+        commands = [
+          checkCommand,
+          "LOG_DIR=$(ls -td /opt/mland-staging/ppswbs_backend/logs/*/ 2>/dev/null | head -n 1)",
+          "if [ -n \"$LOG_DIR\" ] && [ -f \"$LOG_DIR/error.log\" ] && [ -s \"$LOG_DIR/error.log\" ]; then echo \"=== BACKEND ERROR.LOG: $LOG_DIR/error.log (last 100 lines) ===\"; tail -n 100 \"$LOG_DIR/error.log\"; else echo \"No errors found in $LOG_DIR/error.log (Backend has no errors recorded)\"; fi"
+        ];
+      } else if (source === "file-info") {
+        commands = [
+          checkCommand,
+          "LOG_DIR=$(ls -td /opt/mland-staging/ppswbs_backend/logs/*/ 2>/dev/null | head -n 1)",
+          "if [ -n \"$LOG_DIR\" ] && [ -f \"$LOG_DIR/info.log\" ]; then echo \"=== BACKEND INFO.LOG: $LOG_DIR/info.log (last 100 lines) ===\"; tail -n 100 \"$LOG_DIR/info.log\"; else echo \"No info.log found in $LOG_DIR\"; fi"
+        ];
+      } else if (source === "file-all") {
+        commands = [
+          checkCommand,
+          "LOG_DIR=$(ls -td /opt/mland-staging/ppswbs_backend/logs/*/ 2>/dev/null | head -n 1)",
+          "if [ -n \"$LOG_DIR\" ] && [ -d \"$LOG_DIR\" ]; then echo \"=== BACKEND FILE LOGS ($LOG_DIR) ===\"; if [ -f \"$LOG_DIR/error.log\" ] && [ -s \"$LOG_DIR/error.log\" ]; then echo '--- ERROR.LOG (last 50 lines) ---'; tail -n 50 \"$LOG_DIR/error.log\"; echo ''; fi; if [ -f \"$LOG_DIR/info.log\" ]; then echo '--- INFO.LOG (last 70 lines) ---'; tail -n 70 \"$LOG_DIR/info.log\"; fi; else echo 'Backend log files directory not found yet in /opt/mland-staging/ppswbs_backend/logs'; fi"
+        ];
+      } else {
+        commands = [
+          "echo '=== DEPLOY LOG (last 60 lines) ==='; if [ -f /var/log/mland-deploy.log ]; then tail -n 60 /var/log/mland-deploy.log; else echo 'No deploy log yet'; fi",
+          checkCommand,
+          "echo ''; echo '=== CONTAINER STATUS ==='; cd /opt/mland-staging && sudo -H -u ubuntu -- docker compose ps -a 2>&1 || echo 'Compose project not available'",
+          "echo ''; echo '=== BACKEND LOGS (last 60 lines) ==='; cd /opt/mland-staging && sudo -H -u ubuntu -- docker compose logs --tail=60 --no-color backend 2>&1 || echo 'Backend container logs not available yet'",
+          "echo ''; echo '=== MYSQL LOGS (last 20 lines) ==='; cd /opt/mland-staging && sudo -H -u ubuntu -- docker compose logs --tail=20 --no-color db 2>&1 || echo 'MySQL container logs not available yet'"
+        ];
+      }
+
+      const sent = await sendSsm(new SendCommandCommand({
+        InstanceIds: [instanceId],
+        DocumentName: "AWS-RunShellScript",
+        Parameters: { commands }
+      }));
+      return jsonResponse(202, {
+        commandId: sent.Command?.CommandId,
+        status: "COLLECTING_LOGS",
+        source,
+        message: `Log snapshot (${source}) command accepted`
+      });
+    }
+
     if (method === "POST" && path.endsWith("/stop")) {
-      // Gửi lệnh docker compose down qua SSM trước khi tắt máy
+      let ssmResult = null;
       try {
-        await ssm.send(new SendCommandCommand({
-          InstanceIds: [ec2InstanceId],
+        const sent = await sendSsm(new SendCommandCommand({
+          InstanceIds: [instanceId],
           DocumentName: "AWS-RunShellScript",
           Parameters: {
             commands: [
-              "cd /opt/mland-staging && docker compose down || true"
+              "cd /opt/mland-staging && sudo -H -u ubuntu -- docker compose down"
             ]
           }
         }));
-      } catch (e) {
-        console.warn("Khong the gui SSM down truoc khi stop:", e.message);
-      }
-
-      await ec2.send(new StopInstancesCommand({ InstanceIds: [ec2InstanceId] }));
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({
-          message: "Lệnh dừng EC2 đã được gửi thành công",
-          instanceId: ec2InstanceId,
-          status: "STOPPING"
-        })
-      };
-    }
-
-    // 5. Lấy snapshot Logs gần nhất (GET /staging/logs)
-    if (method === "GET" && path.endsWith("/logs")) {
-      const sendCmd = await ssm.send(new SendCommandCommand({
-        InstanceIds: [ec2InstanceId],
-        DocumentName: "AWS-RunShellScript",
-        Parameters: {
-          commands: [
-              "echo '=== DEPLOY LOG (last 120 lines) ==='; if [ -f /var/log/mland-deploy.log ]; then tail -n 120 /var/log/mland-deploy.log; else echo 'No deploy log yet'; fi; echo ''; echo '=== BOOTSTRAP LOG (last 50 lines) ==='; if [ -f /var/log/user-data.log ]; then tail -n 50 /var/log/user-data.log; else echo 'No bootstrap log yet'; fi; echo ''; echo '=== CONTAINER STATUS ==='; cd /opt/mland-staging && sudo -u ubuntu docker compose ps -a 2>&1 || echo 'Compose project not available'; echo ''; echo '=== CONTAINER LOGS ==='; cd /opt/mland-staging && sudo -u ubuntu docker compose logs --tail=100 --no-color 2>&1 || echo 'Container logs not available yet'"
-          ]
+        if (sent.Command?.CommandId) {
+          ssmResult = await waitForInvocation(sent.Command.CommandId, instanceId);
         }
-      }));
-
-      const commandId = sendCmd.Command?.CommandId;
-      // Đợi ngắn để lấy output
-      await new Promise(r => setTimeout(r, 2000));
-      let output = "Logs are being collected...";
-      try {
-        const inv = await ssm.send(new GetCommandInvocationCommand({
-          CommandId: commandId,
-          InstanceId: ec2InstanceId
-        }));
-        output = [
-          `SSM command: ${inv.Status || "Unknown"} (${commandId})`,
-          inv.StandardOutputContent?.trim(),
-          inv.StandardErrorContent?.trim() ? `STDERR:\n${inv.StandardErrorContent.trim()}` : ""
-        ].filter(Boolean).join("\n\n") || "Command completed without output.";
-      } catch (err) {
-        output = "Waiting for SSM command invocation: " + err.message;
+      } catch (error) {
+        ssmResult = { status: "Failed", statusDetails: error.message, responseCode: null, stdout: "", stderr: error.message };
       }
 
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({ logs: output, timestamp: new Date().toISOString() })
-      };
+      await sendEc2(new StopInstancesCommand({ InstanceIds: [instanceId] }));
+      return jsonResponse(200, {
+        message: ssmResult?.status === "Success"
+          ? "Containers stopped and EC2 stop request accepted"
+          : "EC2 stop request accepted; container shutdown did not complete successfully",
+        instanceId,
+        commandId: ssmResult?.commandId || null,
+        composeStatus: ssmResult?.status || "Unavailable",
+        composeError: ssmResult?.stderr || ssmResult?.statusDetails || "",
+        status: "STOPPING"
+      });
     }
 
-    // Mặc định trả về thông tin API
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify({
-        name: "MLAND Staging Control API",
-        instanceId: ec2InstanceId,
-        endpoints: [
-          "GET /staging/status",
-          "POST /staging/start",
-          "POST /staging/deploy",
-          "POST /staging/stop",
-          "GET /staging/logs"
-        ]
-      })
-    };
+    return jsonResponse(200, {
+      name: "MLAND Staging Control API",
+      instanceId,
+      endpoints: [
+        "GET /staging/status",
+        "POST /staging/start",
+        "POST /staging/deploy",
+        "POST /staging/stop",
+        "GET /staging/operation?commandId=...",
+        "GET /staging/logs"
+      ]
+    });
   } catch (error) {
-    console.error("Loi xu ly Lambda:", error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ error: error.message, stack: error.stack })
-    };
+    console.error("Lambda control API error:", error);
+    return jsonResponse(500, { error: error.message || "Internal control API error" });
   }
 };
