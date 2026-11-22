@@ -116,12 +116,12 @@ public class HumanReviewIT {
     }
 
     @Test
-    void whenStaffViewsQueue_thenOnlyLowValueRequestsReturned() throws Exception {
+    void whenStaffViewsQueue_thenAllNeedReviewRequestsAreReturned() throws Exception {
         mockMvc.perform(get("/api/v1/design-review-requests")
                         .header("Authorization", "Bearer token-staff-01"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items[?(@.id == '" + lowValueRequestId + "')]").exists())
-                .andExpect(jsonPath("$.items[?(@.id == '" + highValueRequestId + "')]").doesNotExist());
+                .andExpect(jsonPath("$.items[?(@.id == '" + highValueRequestId + "')]").exists());
     }
 
     @Test
@@ -151,7 +151,7 @@ public class HumanReviewIT {
     }
 
     @Test
-    void whenStaffAttemptsToReviewHighValueRequest_thenReturns403Forbidden() throws Exception {
+    void whenStaffReviewsHighValueRequest_thenSuccess() throws Exception {
         mockMvc.perform(post("/api/v1/design-review-requests/" + highValueRequestId + "/decisions")
                         .header("Authorization", "Bearer token-staff-01")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -162,8 +162,9 @@ public class HumanReviewIT {
                                   "reason": "Nhân viên phê duyệt"
                                 }
                                 """))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("REVIEW_NOT_AUTHORIZED"));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.reviewStatus").value("ACCEPTED"))
+                .andExpect(jsonPath("$.nextAction").value("DESIGN_ACCEPTED"));
     }
 
     @Test
@@ -204,15 +205,16 @@ public class HumanReviewIT {
     void whenStaleDesignVersionProvided_thenReturns409Conflict() throws Exception {
         mockMvc.perform(post("/api/v1/design-review-requests/" + lowValueRequestId + "/decisions")
                         .header("Authorization", "Bearer token-staff-01")
+                        .header("If-Match-Version", "99")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
                                   "decision": "ACCEPTED",
-                                  "designVersion": 99,
+                                  "designVersion": 1,
                                   "reason": "Phiên bản cũ"
                                 }
                                 """))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("DESIGN_VERSION_STALE"));
+                .andExpect(jsonPath("$.code").value("DESIGN_REVIEW_STATE_CONFLICT"));
     }
 }

@@ -88,7 +88,7 @@ public class DesignRequestController {
             headers.add("X-Guest-Tracking-Token", response.getGuestTrackingToken());
         }
 
-        return ResponseEntity.status(HttpStatus.CREATED).headers(headers).body(response);
+        return ResponseEntity.status(HttpStatus.ACCEPTED).headers(headers).body(response);
     }
 
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
@@ -125,7 +125,7 @@ public class DesignRequestController {
             headers.add("X-Guest-Tracking-Token", response.getGuestTrackingToken());
         }
 
-        return ResponseEntity.status(HttpStatus.CREATED).headers(headers).body(response);
+        return ResponseEntity.status(HttpStatus.ACCEPTED).headers(headers).body(response);
     }
 
     @GetMapping
