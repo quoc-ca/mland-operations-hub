@@ -3,7 +3,7 @@ import { Link } from 'react-router';
 import { useAuth } from '../../shared/auth/AuthProvider';
 import { useHttp } from '../../shared/api/useHttp';
 import { ConfirmDialog, ErrorNotice, Field, Loading, SuccessNotice, useCommand, useResource } from '../../shared/ui/components';
-import { OperationsSidebar } from '../../shared/ui/OperationsSidebar';
+import { HeaderActions } from '../../shared/ui/OperationsShell';
 import { OperationsAuthWorkspace } from '../../shared/ui/OperationsAuthWorkspace';
 import { createWorkshopPackageApi } from '../api/packageApi';
 import '../workshop-operations.css';
@@ -134,8 +134,8 @@ export default function WorkshopPackageManagementPage() {
     }
   };
 
-  return <div className="ota-workspace"><OperationsSidebar />
-    <main className="ota-main"><div className="ota-topline">MLAND / WORKSHOP OPERATIONS <span>● Backend-authorized</span></div><header className="ota-page-heading"><div><p className="ota-eyebrow">CATALOGUE</p><h1>Workshop package management</h1><p>Create, edit and retire customer-facing workshop packages.</p></div><button className="button primary" type="button" onClick={startCreate}>Create package</button></header>
+  return <div className="ota-workspace">
+    <main className="ota-main"><div className="ota-topline">MLAND / WORKSHOP OPERATIONS <span>● Backend-authorized</span></div><HeaderActions><button className="button primary" type="button" onClick={startCreate}>Create package</button></HeaderActions><p className="muted">Create, edit and retire customer-facing workshop packages.</p>
       <SuccessNotice>{notice}</SuccessNotice><ErrorNotice error={resource.error} onRetry={resource.reload} onReload={resource.reload} /><ErrorNotice error={command.error} onRetry={command.retry} />
       {resource.loading ? <Loading /> : <section className="ota-panel"><div className="ota-panel-head"><h2>All packages</h2><span>{packages.length} records</span></div>{packages.length === 0 ? <div className="empty-state"><p>No workshop packages found.</p><button className="button outline" type="button" onClick={startCreate}>Create the first package</button></div> : <div className="package-admin-grid">{packages.map(item => <article className="package-admin-card" key={item.packageId}><div className="package-admin-card-head"><div><span className="ops-status">{item.state}</span><h3>{item.name}</h3></div><code>#{item.packageId}</code></div><p>{item.description}</p><dl><div><dt>Price</dt><dd>{Number(item.publicPrice).toLocaleString('vi-VN')} VND</dd></div><div><dt>Tickets</dt><dd>{item.minParticipants}–{item.maxParticipants}</dd></div><div><dt>Sessions</dt><dd>{item.requiredSessionCount}</dd></div></dl><div className="ops-actions">{item.state !== 'RETIRED' && <button className="button outline small" type="button" onClick={() => startEdit(item)}>Edit</button>}{item.state === 'PUBLISHED' && <button className="button danger small" type="button" onClick={() => setRetireTarget(item)}>Retire</button>}</div></article>)}</div>}</section>}
       {mode && <PackageForm form={form} setForm={setForm} errors={errors} pending={command.pending} onSubmit={save} onCancel={() => setMode(null)} mode={mode} />}

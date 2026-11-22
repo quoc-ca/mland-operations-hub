@@ -5,7 +5,6 @@ import { useAuth } from '../../shared/auth/AuthProvider';
 import { useRole } from '../../shared/auth/useRole';
 import { useHttp } from '../../shared/api/useHttp';
 import { ErrorNotice, Loading, SuccessNotice, useCommand, useResource } from '../../shared/ui/components';
-import { OperationsSidebar } from '../../shared/ui/OperationsSidebar';
 import { OperationsAuthWorkspace } from '../../shared/ui/OperationsAuthWorkspace';
 import { createOperationsApi } from '../api/operationsApi';
 import { sessionTimeRange } from './OperationsDashboardPage';
@@ -392,7 +391,7 @@ export default function OperationsSessionPage() {
     return incidentNote.trim() ? `${recoveryReasonCode}: ${incidentNote.trim()}` : recoveryReasonCode;
   };
 
-  return <div className="ota-workspace"><OperationsSidebar /><main className="ota-main">
+  return <div className="ota-workspace"><main className="ota-main">
     <div className="ota-topline">MLAND / SESSION DETAIL <span>· Backend-authorized</span></div>
     <header className="ota-page-heading session-hero">
       <div>

@@ -4,6 +4,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.ringdesignconfiguration.dao.Gu
 import edu.fpt.sep490_g22.ppswbs_backend.features.ringdesignconfiguration.domain.GuestDesignSession;
 import edu.fpt.sep490_g22.ppswbs_backend.features.ringdesignconfiguration.domain.GuestSessionStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.ringdesignconfiguration.service.GuestDesignSessionService;
+import edu.fpt.sep490_g22.ppswbs_backend.features.ringdesignconfiguration.service.impl.GuestDesignSessionServiceImpl;
 import edu.fpt.sep490_g22.ppswbs_backend.features.ringdesignconfiguration.service.RingDesignException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -29,7 +30,7 @@ class GuestDesignSessionServiceTest {
     private GuestDesignSessionRepository sessionRepository;
 
     @InjectMocks
-    private GuestDesignSessionService sessionService;
+    private GuestDesignSessionServiceImpl sessionService;
 
     @BeforeEach
     void setUp() {

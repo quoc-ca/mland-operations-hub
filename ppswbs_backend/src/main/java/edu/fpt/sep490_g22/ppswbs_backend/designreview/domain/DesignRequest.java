@@ -49,6 +49,15 @@ public class DesignRequest {
     @Column(name = "catalogue_reference", length = 128)
     private String catalogueReference;
 
+    @Column(name = "design_reference", length = 64)
+    private String designReference;
+
+    @Column(name = "design_version")
+    private Integer designVersion;
+
+    @Column(name = "quote_reference", length = 64)
+    private String quoteReference;
+
     @Column(name = "request_version", nullable = false)
     @Builder.Default
     private Integer requestVersion = 1;

@@ -397,6 +397,8 @@ describe('Feature-012 Workshop Ring Design Configuration Screens', () => {
 
       const archiveBtn = await screen.findByTestId('archive-design-btn');
       await user.click(archiveBtn);
+      const confirmBtn = await screen.findByTestId('confirm-archive-btn');
+      await user.click(confirmBtn);
 
       expect(await screen.findByText('Đã lưu trữ')).toBeInTheDocument();
     });

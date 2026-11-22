@@ -75,16 +75,6 @@ export function createHomeReads(http) {
       .filter(item => item.active !== false)
       .map(item => ({ id: item.id, name: item.name })),
 
-    /** The dashboard's own read for the current month, no branch filter (research D5). */
-    fetchMonthlyRevenue: async () => {
-      const data = await http('/api/v1/executive-reports', { query: { periodType: 'MONTH' } });
-      return {
-        status: data?.status ?? 'UNAVAILABLE',
-        totalRevenue: data?.totals?.totalRevenue ?? null,
-        isDemo: Boolean(data?.developmentDemo),
-      };
-    },
-
     fetchOperationsDenials: async since => asList(await http(OPERATIONS_AUDIT, { query: { outcome: 'DENIED', from: since, limit: 5 } }))
       .map(auditRow('REFUSED_ATTEMPT', 'operations')),
     /** Denied attempts of the Settlement audit (owner 003.3, `denied=true`); the reason text is never read. */

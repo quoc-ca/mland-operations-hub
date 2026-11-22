@@ -4,7 +4,6 @@ import { Link } from 'react-router';
 import { useAuth } from '../../shared/auth/AuthProvider';
 import { useOtaConnectivityApi } from '../api/useOtaConnectivityApi';
 import { Loading, ErrorNotice, SuccessNotice } from '../../shared/ui/components';
-import { OperationsSidebar } from '../../shared/ui/OperationsSidebar';
 import { OperationsAuthWorkspace } from '../../shared/ui/OperationsAuthWorkspace';
 import { ResolveWorkItemModal } from '../components/ResolveWorkItemModal';
 import '../ota-connectivity.css';
@@ -89,26 +88,17 @@ export default function OtaReconciliationPage() {
 
   return (
     <div className="ota-workspace">
-      <OperationsSidebar />
+      
       <main className="ota-main">
         <div className="ota-topline">MLAND / OTA CONNECTIVITY <span>● Discrepancy queue</span></div>
         <div className="ota-header" style={{ marginTop: '24px' }}>
         <div>
-          <h1>OTA Reconciliation Queue</h1>
           <p className="small muted">
             Review and resolve channel mapping synchronization gaps, suspensions, and discrepancies.
           </p>
         </div>
       </div>
 
-      <nav className="ota-nav-tabs" aria-label="OTA Navigation">
-        <Link to="/ota-connectivity/channels" className="ota-nav-tab">
-          Channel Mappings
-        </Link>
-        <Link to="/ota-connectivity/reconciliation" className="ota-nav-tab active">
-          Reconciliation Queue
-        </Link>
-      </nav>
 
       {successMessage && <SuccessNotice>{successMessage}</SuccessNotice>}
       <ErrorNotice error={error} onRetry={() => loadWorkItems(selectedStatus, selectedCategory)} onReload={() => loadWorkItems(selectedStatus, selectedCategory)} />

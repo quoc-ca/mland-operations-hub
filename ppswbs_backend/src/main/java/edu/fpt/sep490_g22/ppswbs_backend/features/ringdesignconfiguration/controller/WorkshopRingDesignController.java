@@ -34,10 +34,11 @@ public class WorkshopRingDesignController {
 
     @GetMapping
     public ResponseEntity<java.util.List<DesignResponseDto>> listWorkshopDesigns(
-            @RequestHeader(value = "X-Guest-Design-Session", required = false) String guestSessionHeader
+            @RequestHeader(value = "X-Guest-Design-Session", required = false) String guestSessionHeader,
+            @RequestParam(value = "includeArchived", required = false, defaultValue = "false") boolean includeArchived
     ) {
         Long memberAccountId = resolveMemberAccountId();
-        java.util.List<DesignResponseDto> list = applicationService.listMyDesigns(memberAccountId, guestSessionHeader);
+        java.util.List<DesignResponseDto> list = applicationService.listMyDesigns(memberAccountId, guestSessionHeader, includeArchived);
         return ResponseEntity.ok(list);
     }
 

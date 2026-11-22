@@ -1,7 +1,7 @@
 # Implementation Design Approval: Manager Home
 
 **Date created**: 2026-11-18
-**Date updated**: 2026-11-18
+**Date updated**: 2026-11-22
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -28,3 +28,9 @@
 - Scope extension 2026-11-18: Hồ Hoàng Quốc, in this session ("Làm backend"), asked for the owner-side reads, and (relayed from the parent session) as owner of Feature 003 agreed to R-1, R-2, R-3, R-4 and R-5 with the definitions in contracts/reads.md section B. They are built; R-3 has a card because a confirmation list was added to the cash-close screen on the same day. T020 and the review-moderation card are dropped by owner decision 2026-11-18.
 - Open points not decided in the approval statement (architecture.md O-3, O-5, O-7; workflows.md O-7, O-8): implementation applies the closest reading of the spec and records it in the task notes; a card whose list cannot be shown to match its count (FR-004) is not registered.
 - The owner-agreement part of T001 is not obtained and is outside this scope.
+
+## Navigation shell and merged dashboard (2026-11-22)
+
+- Scope: spec "Session 2026-11-22" and tasks T038–T044 (rail of 10 groups, tabs, page header with actions, `useNavBadges`, one dashboard page at `/manager/dashboard`).
+- Approval date: 2026-11-22. Approver: Hồ Hoàng Quốc.
+- Source of approval: the owner's instruction to the implementing session, which names the design as approved on the prototype `claude.ai/artifact/AB3ZMi6aiCwUnS4X6rS28B`. Dropped by the owner on 2026-11-22: the overdue block (T042). Not built in this change: Staff badges, Ctrl K search.

@@ -163,17 +163,4 @@ describe('T129 no Admin business authority', () => {
       expect(screen.queryByText(hidden)).not.toBeInTheDocument();
     }
   });
-
-  it('hides the Workshop Operations menu from an Admin and keeps it for a Manager', async () => {
-    mockFetch({ 'GET /api/v1/accounts/me/profile': profile('ADMIN'), 'GET /api/v1/workshop-sessions': json(200, []) });
-    renderRoutes(operationsRoutes, { path: '/operations/sessions' });
-    const nav = () => within(screen.getByRole('complementary', { name: 'Operations Navigation' }));
-
-    await waitFor(() => expect(nav().getByRole('link', { name: 'Trang chủ' })).toBeInTheDocument());
-    await new Promise(resolve => setTimeout(resolve, 50));
-    for (const hidden of ['Bảng điều phối ca', 'Chi nhánh & khung giờ', 'Gói workshop', 'Add-on gói']) {
-      expect(nav().queryByRole('link', { name: hidden })).not.toBeInTheDocument();
-    }
-    expect(nav().queryByText('VẬN HÀNH WORKSHOP')).not.toBeInTheDocument();
-  });
 });

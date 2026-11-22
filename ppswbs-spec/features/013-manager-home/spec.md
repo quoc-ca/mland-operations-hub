@@ -1,7 +1,7 @@
 # Feature Specification: Manager Home
 
 **Date created**: 2026-11-18
-**Date updated**: 2026-11-18
+**Date updated**: 2026-11-22
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -44,6 +44,42 @@ the queues themselves, push notifications or alerts outside the page, and any fi
 - Q: Are cancelled sessions counted in "sessions today" on the today strip? → A: Yes. All of today's sessions are counted, cancelled ones included, with the number of cancelled ones shown separately ("of which N cancelled"). Check-in progress is measured over the sessions that are not cancelled.
 - Q: Does the recent-events section include refused attempts from the Settlement audit as well as the Operations audit? → A: Yes, both sources, merged newest first. If one source cannot be read, the other is still shown with a note that part of the data is missing.
 - Q: Should a queue card be highlighted when an item has waited too long, or show the count only? → A: Count only in the first version. No "waiting too long" marker; it can be added later once each queue's owner decides a threshold.
+
+### Session 2026-11-22 (navigation shell; owner directive, design approved on a prototype)
+
+Decision of Hồ Hoàng Quốc: the long sidebar is replaced by a navigation shell shared by Manager and Staff, and Manager Home is merged with the Manager
+Dashboard (010). Approved on the prototype `claude.ai/artifact/AB3ZMi6aiCwUnS4X6rS28B` (simulated data). This session **supersedes** the FRs named below.
+
+- **Rail and tabs.** A narrow rail of 10 groups (icon and short label), shown by role with the same rules the old sidebar used (Manager only, Manager and Staff,
+  everyone but Admin); the backend still decides every permission. Inside a group the pages are tabs, at most 5 per group, no horizontal scrolling.
+  Groups and tabs (ids in brackets; they are a contract, see "Badges"): Dashboard [`home`: Manager "Dashboard", Staff "Trang chủ" `/staff/home`] |
+  Sản phẩm [`products`: Danh sách sản phẩm `list`, Danh mục `categories`] | Ưu đãi [`promotions`: Chương trình ưu đãi `programs`, Chính sách điểm `point-policy`] |
+  Khách hàng [`customers`: Duyệt thiết kế `design-review`, Tư vấn khách hàng `consultations`, Đánh giá `reviews`] |
+  Bán lẻ [`retail`: Đơn bán lẻ chi nhánh `orders`, Đối soát thanh toán bán lẻ `reconciliation`] |
+  Workshop [`workshop`: Bảng điều phối ca (Staff: Ca của tôi) `sessions`, Chi nhánh và khung giờ `locations`, Gói workshop `packages`, Hiệu lực gói `availability`, Add-on gói `add-ons`] |
+  Thu tiền [`collect`: Folio vé `folio`, Chốt sổ tiền mặt `cash-close`, Thanh toán về trễ `late-payments`, Đối soát thu tiền `reconciliation`, Khoản thiếu Mland chịu `absorbed`] |
+  Vé và hoàn tiền [`tickets`: Hủy và đổi vé `ticket-actions`, Yêu cầu đổi vé `change-requests`, Hàng đợi hoàn tiền `refunds`, Sự vụ và bồi hoàn `cases`] |
+  Kết nối OTA [`ota`: Kênh đối tác `channels`, Đối soát đồng bộ `reconciliation`, Bằng chứng tài chính `finance`, Add-on tại xưởng `add-ons`] |
+  Hệ thống [`system`: Mẫu thông báo email `email-templates`, Nhật ký gửi thư `delivery-logs`, Nhật ký audit `audit`]. No former menu entry is dropped; the entries
+  "Thêm sản phẩm", "Import Excel", "Tạo chương trình" and "Thêm khung giờ" are no longer menu entries but buttons in the page header.
+- **Rail width and collapse.** The rail is 112px wide (icon above a 13px label). A toggle at the top collapses it to 60px, icon only; labels stay available as tooltips and to screen readers, and the badge stays visible. The choice is kept per browser (`localStorage`, key `ops-rail-collapsed`); the toggle is hidden on phone width (640px and below), where the rail is a horizontal bar. *(decision of Hồ Hoàng Quốc, 2026-11-22)*
+- **Page header.** Every operations page has a header with breadcrumb, title, action buttons and the group's tabs. The own title of about 25 pages is removed so it
+  does not repeat the header; the content below is unchanged. A page with its own header button (for example "Create package") registers it into the header.
+- **Badges (replace FR-003 to FR-006).** The waiting-work queue cards are replaced by count badges on the rail and on the tabs. Hook `useNavBadges(role)` returns
+  `{ status: 'loading' | 'ready', counts: { [groupId]: number, [`${groupId}/${tabId}`]: number } }`. Manager: the existing count reads of `homeReads.js`
+  (design review `customers/design-review`, change requests `tickets/change-requests`, refund queue `tickets/refunds`, cash-close differences
+  `collect/cash-close`, late payments `collect/late-payments`, OTA reconciliation `ota/reconciliation`), read once on entry, cached 30 seconds, refreshed every 60 seconds
+  while the page is visible. A group count is the sum of its tabs' counts and exists only when every one of them was read. A count that cannot be read has no key and no
+  badge; the rail keeps working. Zero shows no badge. Staff: `counts` is empty for now (the Staff badges are a later change by another owner). The tab that carries a
+  badge opens the list filtered to exactly the counted set, so FR-004 still holds.
+- **Dashboard (replaces FR-002, FR-009, FR-011, FR-013, FR-015).** One page, `/manager/dashboard`; `/manager/home` redirects to it. Blocks, each loading and failing on
+  its own: *Vận hành hôm nay* (FR-007, FR-008 unchanged), *Doanh thu và hiệu suất* (the whole 010 report: filters, KPI
+  cards, trends, branch table; default period is the current month) and *Việc gần đây cần chú ý* (FR-010 unchanged). The queue-count table and the shortcuts are removed
+  (badges replace the counts; the rail replaces the shortcuts). There is no timer and no refresh button: reloading the page refreshes (010 FR-023). The role check
+  (FR-001, FR-018) is unchanged. The Staff home is unchanged.
+- **No "needs attention now" block (dropped).** The prototype showed a block for overdue items. Decision of Hồ Hoàng Quốc, 2026-11-22: it is dropped from V1 and not built. "Overdue" has no
+  definition and no owner read, and the waiting counts already show on the rail badges. It can be added later, once the queue owners define a threshold (as in Clarification 5).
+- **Not in this change:** the Ctrl K search box, Staff badges, and dedicated count endpoints.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -175,19 +211,19 @@ A Manager has a short row of shortcuts to the screens used most.
 - **FR-001** *(access)*: Only an active Manager can see Manager Home content. Staff, Admin, Member and signed-out
   visitors see none of its figures; Staff are sent to their own home. The server decides access; hiding a menu entry is not the control.
 - **FR-002** *(sections)*: The page shows, in this order: waiting work (FR-003 to FR-006), today's operations (FR-007), revenue (FR-009),
-  recent events (FR-010), shortcuts (FR-011).
+  recent events (FR-010), shortcuts (FR-011). *(superseded 2026-11-22: sections are Today, Revenue, Recent events; see Session 2026-11-22.)*
 - **FR-003** *(queues)*: The page shows one card for each of these queues, each with the number of items waiting and a link to the
   owning list: late payments, refund queue, ticket change requests awaiting a decision, cash-close differences awaiting
   confirmation, OTA reconciliation items needing attention, customer designs awaiting review (six queues; review moderation is not one of them).
   The cards ship incrementally: a card is shown only once its queue has a count that satisfies FR-004. A queue without such a count is
-  hidden entirely; it is neither shown as unavailable (FR-006) nor as zero (FR-005). Adding a queue's card later does not change the others.
+  hidden entirely; it is neither shown as unavailable (FR-006) nor as zero (FR-005). Adding a queue's card later does not change the others. *(superseded 2026-11-22: queue counts are rail and tab badges; the count-equals-list rule FR-004 still applies to them.)*
 - **FR-004** *(count equals list)*: A card's number MUST equal the number of items the linked list shows when it is opened from the
   card. The card's link carries the filter that defines "waiting" for that queue, so the Manager has no filter to set or clear. A card MUST NOT show a number it cannot back with that list.
 - **FR-005** *(nothing waiting)*: A queue with zero items is shown dimmed and grouped as "no outstanding work". When every shown queue is
-  zero, the page shows one clear state worded "No outstanding work in the queues shown here" (Vietnamese: "Không có việc tồn đọng trong các hàng đợi đang hiển thị"), so a queue that is not shipped yet is never implied to be empty.
+  zero, the page shows one clear state worded "No outstanding work in the queues shown here" (Vietnamese: "Không có việc tồn đọng trong các hàng đợi đang hiển thị"), so a queue that is not shipped yet is never implied to be empty. *(superseded 2026-11-22: a zero count shows no badge; there are no dimmed cards.)*
 - **FR-006** *(independent cards)*: Each shown card loads on its own. A card whose data is loading shows a loading state; a card that
   fails at runtime shows an unavailable state with its own retry. An unavailable card MUST NOT display 0. This differs from a queue
-  whose card is not shipped yet (FR-003), which is hidden, not unavailable.
+  whose card is not shipped yet (FR-003), which is hidden, not unavailable. *(applies 2026-11-22 to the dashboard blocks; a failed count has no badge instead of an unavailable card.)*
 - **FR-007** *(today's operations)*: The page shows the number of workshop sessions scheduled today, cancelled ones included, with the number of cancelled
   sessions shown separately, and the check-in progress (participants checked in out of participants expected, over the sessions that are not cancelled), for all branches or one
   branch chosen by the Manager. "Expected" means the participants who hold a valid ticket for those sessions; it is not the sessions' capacity, which is what the
@@ -198,19 +234,19 @@ A Manager has a short row of shortcuts to the screens used most.
 - **FR-009** *(revenue card)*: The page shows one revenue figure for the current calendar month so far, all permitted branches, in VND. It MUST equal the Manager
   Dashboard's figure for the same period and scope, which is all the branches the Manager is assigned to ("all" in the dashboard's branch filter); a Manager assigned to fewer branches than exist sees the
   revenue of those branches only. Activating it opens the Manager Dashboard. When the figure is unavailable or partial, the card
-  says so and MUST NOT show a guessed value.
+  says so and MUST NOT show a guessed value. *(superseded 2026-11-22: the dashboard shows the full 010 revenue report instead of a card.)*
 - **FR-010** *(recent events)*: The page shows up to five of the most recent events from the last 24 hours, newest first, each with time, who and what, limited
   to what the audit review already exposes (no personal data), and a link to the audit log. The events are refused access attempts from both the Operations audit and the
   Settlement audit, and package availability changes from the Operations audit, merged into one list. If one audit source cannot be read, the events of the other are still
   shown with a note that part of the data is missing; the section is unavailable only when neither source can be read. A source that has not been delivered yet (the
   Settlement audit cannot be narrowed to refused attempts until its owner adds that) is stated as "not yet included", which is different from a failed read.
-- **FR-011** *(shortcuts)*: The page offers a short fixed row of shortcuts to the most used screens. The sidebar remains the full navigation.
+- **FR-011** *(shortcuts)*: The page offers a short fixed row of shortcuts to the most used screens. The sidebar remains the full navigation. *(removed 2026-11-22: the rail replaces shortcuts.)*
 - **FR-012** *(read-only)*: Nothing on the page creates, changes or deletes business data.
 - **FR-013** *(refresh)*: The page loads its data when it opens and on an explicit refresh by the Manager; it MUST NOT refresh on a timer. It shows when the
-  data was last updated, in Vietnam time (UTC+7).
+  data was last updated, in Vietnam time (UTC+7). *(2026-11-22: the dashboard follows 010 FR-023 — loads on open, no refresh button, no timer. The navigation badges refresh every 60 seconds; they are not dashboard data.)*
 - **FR-014** *(refusal)*: If the server refuses a card's data, the card shows no data from that source and the shared access-denied handling applies; no number is
   inferred from another source.
-- **FR-015** *(separate dashboard)*: The Manager Dashboard remains its own page with its own entry in the sidebar; this feature does not change its content, filters or rules.
+- **FR-015** *(separate dashboard)*: The Manager Dashboard remains its own page with its own entry in the sidebar; this feature does not change its content, filters or rules. *(superseded 2026-11-22: Manager Home and the Dashboard are one page at `/manager/dashboard`.)*
 - **FR-016** *(language and layout)*: Labels appear in Vietnamese and English following the existing language choice. The page is usable at 375 px width with cards stacked and no horizontal
   scrolling.
 - **FR-017** *(accessibility)*: Every figure has a text label and state is never conveyed by colour alone; cards are reachable and operable by keyboard.

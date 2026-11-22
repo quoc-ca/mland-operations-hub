@@ -1,7 +1,7 @@
 # Tasks: Manager Home
 
 **Date created**: 2026-11-18
-**Date updated**: 2026-11-18
+**Date updated**: 2026-11-22
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -121,6 +121,20 @@
 
 ---
 
+## Phase 9: Navigation shell and merged dashboard (decision 2026-11-22, spec "Session 2026-11-22")
+
+FE = `ppswbs_frontend/src`. Task numbers continue from T037.
+
+- [x] T038 Navigation shell: `FE/shared/nav/navModel.js` (10 groups, tabs, role visibility, tab links, header actions), `FE/shared/ui/OperationsShell.jsx` and `operationsShell.css` (rail, header with breadcrumb, title, actions and tabs, `HeaderActions` slot), wired in `FE/app/AppLayout.jsx`; the old `OperationsSidebar` is removed and no page renders it. Tests `navModel.test.js` and `OperationsShell.test.jsx`.
+- [x] T039 `FE/shared/nav/useNavBadges.js`: `useNavBadges(role)` returns `{ status, counts }` keyed by `groupId` and `groupId/tabId`; Manager reads the existing counts of `homeReads.js` once, cached 30 s, refreshed every 60 s; Staff returns empty counts; a failed count has no key. Test `useNavBadges.test.jsx`.
+- [x] T040 Merge Manager Home into the dashboard: `/manager/dashboard` shows Today, the 010 revenue report and Recent events, each loading and failing alone; `/manager/home` redirects; queue table, revenue card and shortcuts removed (`FE/features/manager-dashboard/`, `FE/features/managerhome/`); tests `dashboardPage.test.jsx` and `ManagerDashboardPage.test.jsx`.
+- [x] T041 Remove the own title (and the in-page OTA tab strip) of the operations pages the shell now titles; list and form pages of products and promotions move their buttons to the header; "Create package" registers into the header; tests that looked for the removed titles now look for page content.
+- [x] T042 *Cần chú ý gấp* block: **dropped from V1** by owner decision (Hồ Hoàng Quốc, 2026-11-22). "Overdue" has no definition or owner read, and the rail badges already show what is waiting; nothing to build. May be reopened once the queue owners define a threshold.
+- [ ] T043 Staff badges in `useNavBadges` (other owner, after this shell is committed).
+- [ ] T044 Manual check of the shell against the development backend (real counts, real sign-in) at 375 px and desktop. Checked so far: 375 px and 1280 px with simulated data (session and responses stubbed), see Notes.
+
+---
+
 ## Dependencies and order
 
 - T001 (design gate and approval) blocks every code task, T002 onward.
@@ -151,3 +165,4 @@
 - Evidence 2026-11-18 (owner reads, owner agreement Hồ Hoàng Quốc as recorded in approval.md): T030 SettlementAuditReviewServiceTest 12/12, SettlementAuditReviewIT 6/6. T014+T015 ManagerHomeWaitingCountsIT 3/3 (count equals ?waiting=true list; cash-close count equals ?awaitingConfirmation=true list; Staff 403). T016 OtaReconciliationApiTest 16/16 and OtaChannelControllerIT 19/19 on MySQL (count equals list; Admin and Staff refused the count, owner decision: Manager only). T023 WorkshopDaySummaryIT 3/3. OpenAPI: OtaConnectivityOpenApiIT 9/9. Definitions used: refund waiting = PENDING_ACCOUNT/APPROVAL/TRANSFER/RECONCILIATION; OTA = OPEN and ESCALATED; cash close = PENDING_MANAGER_CONFIRMATION; expected = ACTIVE-ticket holders on not-cancelled sessions; denied = action code DENIED_*. T018: a confirmation view was added to the cash-close screen (cashCloseConfirmationView.test.jsx 3/3) so the card opens a list equal to its count. T017/T019/T024/T031 frontend: 47 managerhome tests plus workshop-settlement tests, npm test 119 files all passed, npm run build passed.
 - Backend run 2026-11-18 (003 packages + ModulithArchitectureTests): the first run (1893 tests) had 14 failures and 5 errors in 8 classes. Fixed in tests and contracts only (no product code): WorkshopPackageFacadeIT and WorkshopOtaSnapshotIT activate the Package at the session location (Phase 18 availability); WorkshopSettlementMigrationIT inserts currency_code; WorkshopSettlementContractIT lists the existing change-request-status route (now also in the OpenAPI); WorkshopBookingContractIT reads the contract with CRLF normalised. Re-run after the fixes (1894 tests): 1 failure and 5 errors in 2 classes. BookingIdempotencyIT (H2 table missing, "database is empty") ran early in the run, before the new Manager Home ITs, and RefundReceiptImageMysqlIT uses its own data; both pass when run alone (5/5 and 3/3), so they are order-dependent in the full run. The cause is not proven and neither was fixed.
 - Not ticked: T013, T027, T037 (manual checks against the dev environment not run); T033 (375 px layout CSS written, not checked in a browser); T020 dropped.
+- Evidence 2026-11-22 (navigation shell, frontend only): `npx vitest run` all files passed; `npm run build` passed; there is no lint script in `ppswbs_frontend/package.json`, so no lint ran. Browser check of the shell with stubbed session and data (not the real backend): rail, tabs, header actions and badges at 1280 px and 375 px, no horizontal page scroll; Staff view shows "Trang chủ", "Ca của tôi" and no badges. Not checked: real sign-in, real counts, the other roles' pages beyond Products, Workshop, OTA, Tickets and the dashboard.

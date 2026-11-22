@@ -68,7 +68,7 @@ describe('OTA Connectivity Pages UI & Integration Tests (T025)', () => {
 
       open('/ota-connectivity/channels');
 
-      expect(await screen.findByText('OTA Channel Configuration')).toBeInTheDocument();
+      expect(await screen.findByText(/Manage channel mappings/)).toBeInTheDocument();
       expect(screen.getByText('KLOOK')).toBeInTheDocument();
       expect(screen.getByText('GETYOURGUIDE')).toBeInTheDocument();
 
@@ -257,7 +257,7 @@ describe('OTA Connectivity Pages UI & Integration Tests (T025)', () => {
       const user = userEvent.setup();
       open('/ota-connectivity/reconciliation');
 
-      expect(await screen.findByText('OTA Reconciliation Queue')).toBeInTheDocument();
+      expect(await screen.findByText(/Review and resolve channel mapping synchronization gaps/)).toBeInTheDocument();
       expect(screen.getByText(/Item: w0000000-0000-0000-0000-000000000001/)).toBeInTheDocument();
       expect(screen.getByText(/Item: w0000000-0000-0000-0000-000000000002/)).toBeInTheDocument();
 

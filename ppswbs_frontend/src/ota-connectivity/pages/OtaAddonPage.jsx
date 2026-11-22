@@ -4,7 +4,6 @@ import { newCommandId } from '../../shared/api/http';
 import { useAuth } from '../../shared/auth/AuthProvider';
 import { useOtaConnectivityApi } from '../api/useOtaConnectivityApi';
 import { ErrorNotice, Loading, SuccessNotice } from '../../shared/ui/components';
-import { OperationsSidebar } from '../../shared/ui/OperationsSidebar';
 import { OperationsAuthWorkspace } from '../../shared/ui/OperationsAuthWorkspace';
 import '../ota-connectivity.css';
 
@@ -211,22 +210,14 @@ export default function OtaAddonPage() {
 
   return (
     <div className="ota-workspace">
-      <OperationsSidebar />
+      
       <main className="ota-main">
         <div className="ota-topline">MLAND / OTA CONNECTIVITY <span>● Direct Mland billing</span></div>
         <header className="ota-page-heading">
           <div>
-            <p className="ota-eyebrow">WORKSHOP SERVICE</p>
-            <h1>Shop add-ons</h1>
             <p>Record free engraving or a paid option at the workshop. OTA checkout and channel settlement stay unchanged.</p>
           </div>
         </header>
-        <nav className="ota-nav-tabs" aria-label="OTA Navigation">
-          <Link to="/ota-connectivity/channels">Channels</Link>
-          <Link to="/ota-connectivity/reconciliation">Queue</Link>
-          <Link to="/ota-connectivity/finance">Finance</Link>
-          <Link className="active" to="/ota-connectivity/add-ons">Add-ons</Link>
-        </nav>
         <SuccessNotice>{success}</SuccessNotice>
         <ErrorNotice error={error} />
         <section className="ota-panel ota-addon-layout">
@@ -272,7 +263,6 @@ export default function OtaAddonPage() {
           </form>
 
           <div className="ota-quote-preview">
-            <p className="ota-eyebrow">CURRENT QUOTE</p>
             {quote ? (
               <>
                 <h2>{quote.addonType}</h2>

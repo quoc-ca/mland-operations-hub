@@ -1,0 +1,70 @@
+/* Operations shell: a narrow rail of groups, and in the page a header with title, actions and the group's tabs. */
+.ops-shell { --ops-rail: #17201b; --ops-rail-fg: #c9d2cc; --ops-act: #f2d93a; --ops-ink: #1d2420; --ops-mute: #5d6862; --ops-line: #dfe3df; --ops-red: #b3261e;
+  display: flex; min-height: 100vh; background: #f4f5f7; }
+.ops-rail { width: 112px; transition: width .15s; flex: none; background: var(--ops-rail); display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 12px 6px;
+  position: sticky; top: 0; height: 100vh; overflow-y: auto; overflow-x: hidden; box-sizing: border-box; }
+.ops-logo { width: 34px; height: 34px; flex: none; background: var(--ops-act); color: var(--ops-ink); font-weight: 700; display: flex; align-items: center; justify-content: center; border-radius: 6px; margin-bottom: 10px; text-decoration: none; }
+.ops-rail-nav { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; width: 100%; }
+.ops-rail-item { position: relative; width: 100%; padding: 9px 4px; border-radius: 8px; color: var(--ops-rail-fg); font-size: 13px; line-height: 1.2; text-align: center;
+  text-decoration: none; display: flex; flex-direction: column; align-items: center; gap: 4px; box-sizing: border-box; }
+.ops-rail-item:hover { background: rgba(255, 255, 255, .08); }
+.ops-rail-item.active { background: var(--ops-act); color: var(--ops-ink); font-weight: 600; }
+.ops-rail-item:focus-visible, .ops-tab:focus-visible, .ops-rail-user:focus-visible, .ops-signout:focus-visible { outline: 2px solid var(--ops-act); outline-offset: 2px; }
+.ops-rail-item .ops-badge { position: absolute; top: 2px; right: 10px; }
+.ops-badge { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--ops-red); color: #fff; font-size: 11px; font-weight: 700;
+  display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; }
+.ops-rail-footer { display: flex; flex-direction: column; align-items: center; gap: 6px; padding-top: 8px; width: 100%; }
+.ops-lang { display: flex; gap: 2px; }
+.ops-lang button { border: 0; background: rgba(255, 255, 255, .08); color: var(--ops-rail-fg); font-size: 11px; font-weight: 700; padding: 3px 5px; border-radius: 4px; cursor: pointer; }
+.ops-lang button.active { background: var(--ops-act); color: var(--ops-ink); }
+.ops-rail-user { color: var(--ops-rail-fg); font-size: 12px; text-decoration: none; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 4px 2px; border-radius: 6px; }
+.ops-rail-user.active, .ops-rail-user:hover { color: #fff; }
+.ops-avatar { width: 26px; height: 26px; border-radius: 50%; background: #2c352f; color: #fff; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+.ops-signout { display: flex; flex-direction: column; align-items: center; gap: 3px; border: 0; background: none; color: var(--ops-rail-fg); font-size: 12px; cursor: pointer; padding: 4px 2px; border-radius: 6px; }
+.ops-signout:hover { color: #fff; }
+.ops-signout-error { color: #ff9a91; font-size: 10px; text-align: center; }
+
+.ops-page { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.ops-header { background: #fff; border-bottom: 1px solid var(--ops-line); padding: 14px 32px 0; }
+.ops-crumb { display: flex; flex-wrap: wrap; gap: 6px; color: var(--ops-mute); font-size: 12px; }
+.ops-titlebar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 6px 0 12px; }
+.ops-titlebar h1 { margin: 0; font-size: 22px; font-weight: 600; color: var(--ops-ink); }
+.ops-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.ops-actions-slot { display: contents; }
+.ops-tabs { display: flex; flex-wrap: wrap; gap: 4px; }
+.ops-tab { color: var(--ops-mute); font-size: 14px; text-decoration: none; padding: 8px 12px; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
+.ops-tab:hover { color: var(--ops-ink); }
+.ops-tab.active { color: var(--ops-ink); border-bottom-color: var(--ops-ink); font-weight: 600; }
+.ops-content { flex: 1; min-width: 0; }
+
+.ops-toggle { border: 0; background: rgba(255, 255, 255, .08); color: var(--ops-rail-fg); width: 28px; height: 24px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; margin-bottom: 8px; }
+.ops-toggle:hover { color: #fff; background: rgba(255, 255, 255, .16); }
+.ops-toggle:focus-visible { outline: 2px solid var(--ops-act); outline-offset: 2px; }
+.ops-shell.collapsed .ops-rail { width: 60px; padding-left: 4px; padding-right: 4px; }
+.ops-shell.collapsed .ops-rail-item { padding: 10px 0; }
+.ops-shell.collapsed .ops-rail-item .ops-badge { right: 4px; }
+.ops-shell.collapsed .ops-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.ops-shell.collapsed .ops-lang { flex-direction: column; }
+
+/* Pages written for the old sidebar layout keep their markup; the shell supplies the rail, title and breadcrumb. */
+.ops-content .ota-workspace { display: block; min-height: 0; background: transparent; }
+.ops-content .ota-topline { display: none; }
+.ops-content .ota-main { padding-top: 20px; }
+.ops-content .ota-page-heading { padding: 0 0 16px; }
+.ops-content .app-shell.pm-shell, .ops-content .app-shell.lp-shell { display: block; min-height: 0; }
+.ops-content .pm-topbar, .ops-content .lp-topbar { display: none; }
+.ops-content .pm-shell .workspace, .ops-content .lp-shell .workspace { padding-top: 20px; }
+
+@media (max-width: 640px) {
+  .ops-toggle { display: none; }
+  .ops-shell.collapsed .ops-label { position: static; width: auto; height: auto; overflow: visible; clip: auto; }
+  .ops-shell { flex-direction: column; }
+  .ops-rail { width: 100%; height: auto; position: static; flex-direction: row; align-items: center; overflow-x: auto; overflow-y: hidden; padding: 8px; gap: 2px; }
+  .ops-logo { margin: 0 6px 0 0; }
+  .ops-rail-nav { flex-direction: row; flex: none; width: auto; }
+  .ops-rail-item { width: 76px; flex: none; }
+  .ops-rail-footer { flex-direction: row; width: auto; padding: 0 0 0 6px; flex: none; }
+  .ops-header { padding: 12px 16px 0; }
+  .ops-tabs { overflow-x: visible; }
+  .ops-content .ota-main { padding: 16px 16px 32px; }
+}

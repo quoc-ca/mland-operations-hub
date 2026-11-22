@@ -3,7 +3,6 @@ import { Link, useParams } from 'react-router';
 import { useTemplateVersions } from '../application/useTemplateVersions';
 import TemplateVersionEditorModal from './TemplateVersionEditorModal';
 import TemplatePreviewModal from './TemplatePreviewModal';
-import OperationsSidebar from '../../../shared/ui/OperationsSidebar';
 import './notification.css';
 
 function versionStatusBadge(status) {
@@ -83,7 +82,7 @@ export function TemplateDetailView() {
 
   return (
     <div className="ota-workspace">
-      <OperationsSidebar />
+      
       <main className="ota-main">
         <div className="nm-container">
           <div style={{ marginBottom: '1rem' }}>

@@ -5,7 +5,16 @@ Date updated: 2026-11-14
 Author: Ngô Tiến Đạt
 Last updated by: Ngô Tiến Đạt
 
-**Status:** Implementation completed and verified; Spring Modulith module `features.ringdesignconfiguration` and React frontend verified.
+**Status:** 2026-11-22 lifecycle/recommendation change documented; implementation pending.
+
+Current boundary: Feature-012 owns configuration, saved-design persistence,
+recommendation and safe consultation/reference snapshots. The former booking
+attachment facade and booking snapshot are historical only and must not be
+implemented in the current baseline.
+
+The former booking attachment facade is no longer a current dependency. Feature-
+012 exposes owner-safe design snapshots to Feature-004 and a read-only workshop
+recommendation projection resolved through the catalogue boundary.
 
 ## 1. Design objective and boundaries
 

@@ -45,7 +45,7 @@ describe('Package availability matrix page', () => {
     expect(document.querySelector('[aria-busy="true"]')).not.toBeNull();
     gate.resolve();
     expect(await box('Brass tại Hoàn Kiếm')).toBeChecked();
-    expect(screen.getByRole('heading', { name: 'Ma trận gói × chi nhánh' })).toBeInTheDocument();
+    expect(screen.getByText(/Chọn gói workshop được bán ở từng chi nhánh/)).toBeInTheDocument();
     expect(document.querySelector('[aria-busy="true"]')).toBeNull();
   });
 

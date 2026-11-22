@@ -3,7 +3,6 @@ import { useConsultationChatApi } from '../api/useConsultationChatApi';
 import { consultationMessages } from '../messages';
 import { validateMessageText, countCodePoints, MAX_MESSAGE_LENGTH, POLLING_INTERVAL_MS } from '../domain/chatRules';
 import { newCommandId } from '../../../shared/api/http';
-import { OperationsSidebar } from '../../../shared/ui/OperationsSidebar';
 import { useRole } from '../../../shared/auth/useRole';
 import '../consultation-chat.css';
 
@@ -244,7 +243,7 @@ export function StaffConsultationInboxPage({ lang = 'vi', currentUser = {} }) {
 
   return (
     <div className="ota-workspace">
-      <OperationsSidebar />
+      
       <main className="ota-main">
         <div className="consultation-layout">
       {/* Sidebar */}

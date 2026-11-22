@@ -1,6 +1,8 @@
 import React from 'react';
 import { Outlet, ScrollRestoration, useLocation } from 'react-router';
 import MainTopbar from '../shared/ui/MainTopbar';
+import OperationsShell from '../shared/ui/OperationsShell';
+import { isShellPath } from '../shared/nav/navModel';
 
 /** Header and footer for production-oriented feature routes. */
 export default function AppLayout() {
@@ -22,9 +24,10 @@ export default function AppLayout() {
 
   // Every new page opens at the top; Back and Forward return to where the reader was (2026-11-20: the checkout used to
   // open scrolled down because it kept the cart's scroll position).
-  if (isAuthPage || isOperationsWorkspace) {
-    return <><ScrollRestoration /><Outlet /></>;
-  }
+  if (isAuthPage) return <><ScrollRestoration /><Outlet /></>;
+  // Operations screens sit in the shell: rail of groups, page header with actions, and the group's tabs.
+  if (isShellPath(location.pathname)) return <><ScrollRestoration /><OperationsShell /></>;
+  if (isOperationsWorkspace) return <><ScrollRestoration /><Outlet /></>;
 
   return (
     <div className="app-layout-wrapper">

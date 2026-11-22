@@ -49,12 +49,15 @@ const trend = (overrides = {}) => ({
   ...overrides,
 });
 
+const manager = json(200, { role: 'MANAGER', fullName: 'Quản lý' });
+
 const routes = (reportBody = report(), trendBody = trend()) => ({
+  'GET /api/v1/accounts/me/profile': manager,
   'GET /api/v1/executive-reports': json(200, reportBody),
   'GET /api/v1/executive-reports/trends': json(200, trendBody),
 });
 
-// The sidebar also asks for the profile; count only the dashboard reads.
+// The page also asks for the profile and the operations blocks; count only the revenue report reads.
 const reads = calls => calls.filter(call => call.path === '/api/v1/executive-reports');
 const kpis = () => within(screen.getByRole('region', { name: 'Chỉ số chính' }));
 
@@ -63,8 +66,7 @@ describe('FE-10 Manager dashboard', () => {
     const calls = mockFetch(routes());
     renderRoutes(managerDashboardRoutes, { path: '/manager/dashboard' });
 
-    expect(await screen.findByRole('heading', { name: 'Dashboard điều hành' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Quản lý đánh giá' })).toHaveAttribute('href', '/review-moderation');
+    expect(await screen.findByRole('region', { name: 'Chỉ số chính' })).toBeInTheDocument();
     expect(await kpis().findByText('Tổng doanh thu')).toBeInTheDocument();
     expect(kpis().getAllByRole('article')).toHaveLength(5);
     expect(kpis().getByText('55%')).toBeInTheDocument();
@@ -94,7 +96,7 @@ describe('FE-10 Manager dashboard', () => {
   });
 
   it('shows unknown values as a dash with a partial-data notice, never as zero', async () => {
-    mockFetch({ 'GET /api/v1/executive-reports': json(200, report({
+    mockFetch({ 'GET /api/v1/accounts/me/profile': manager, 'GET /api/v1/executive-reports': json(200, report({
       status: 'PARTIAL',
       totals: values('500000', null, 1, 0, 0),
       branches: [{ locationId: 1, branchName: 'MLAND Hoan Kiem', currency: 'VND', values: values('500000', null, 1, 0, 0) }],
@@ -111,7 +113,7 @@ describe('FE-10 Manager dashboard', () => {
   });
 
   it('explains a refused scope without showing any revenue', async () => {
-    mockFetch({ 'GET /api/v1/executive-reports': json(403, { code: 'MANAGER_REPORTING_FORBIDDEN', message: 'no' }) });
+    mockFetch({ 'GET /api/v1/accounts/me/profile': manager, 'GET /api/v1/executive-reports': json(403, { code: 'MANAGER_REPORTING_FORBIDDEN', message: 'no' }) });
     renderRoutes(managerDashboardRoutes, { path: '/manager/dashboard' });
 
     expect(await screen.findByText(/Chỉ Manager được phân công chi nhánh/)).toBeInTheDocument();

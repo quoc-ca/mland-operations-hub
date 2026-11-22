@@ -10,7 +10,12 @@ public class PaymentOwnerRegistration {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY) private Long id;
     @Column(name="merchant_reference", nullable=false, unique=true, length=128) private String merchantReference;
     @Column(name="booking_reference", nullable=false, length=128) private String bookingReference;
-    @Enumerated(EnumType.STRING) @Column(name="payment_kind", nullable=false, length=24) private PaymentOwnerKind paymentKind;
+    /**
+     * The enum value CUSTOM_ORDER_FULL_PAYMENT is longer than the original
+     * workshop-only payment kinds. Keep the Java mapping aligned with the
+     * append-only schema migration that widened the column.
+     */
+    @Enumerated(EnumType.STRING) @Column(name="payment_kind", nullable=false, length=64) private PaymentOwnerKind paymentKind;
     @Column(name="amount_vnd", nullable=false) private Long amountVnd;
     @Column(name="currency_code", nullable=false, length=3) private String currencyCode;
     @Column(name="provider_create_date", length=14) private String providerCreateDate;

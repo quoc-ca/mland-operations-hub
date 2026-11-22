@@ -115,16 +115,16 @@ describe('F04-DESIGN-WORKSPACE Screen (/design-requests/new)', () => {
   it('allows Guest to access workspace without signing in and shows guest rate limit notice', async () => {
     mockFetch({});
     open('/design-requests/new', { session: fakeSession('signed-out') });
-    expect(await screen.findByText(/Không gian Thiết kế Độc lập/)).toBeInTheDocument();
+    expect(await screen.findByText(/Biến ý tưởng của bạn thành hiện thực/)).toBeInTheDocument();
     expect(screen.getByText(/Bạn đang gửi yêu cầu với tư cách Khách — tối đa 5 yêu cầu\/ngày/)).toBeInTheDocument();
   });
 
-  it('renders independent boundary notice and validates empty input', async () => {
+  it('renders design workspace and validates empty input', async () => {
     const user = userEvent.setup();
     mockFetch({});
     open('/design-requests/new', { session: fakeSession('signed-in') });
 
-    expect(await screen.findByText(/Yêu cầu thiết kế độc lập không tạo, liên kết hay ràng buộc với mã đặt chỗ workshop/)).toBeInTheDocument();
+    expect(await screen.findByText(/Biến ý tưởng của bạn thành hiện thực/)).toBeInTheDocument();
 
     const submitBtn = screen.getByRole('button', { name: 'Gửi yêu cầu thiết kế' });
     await user.click(submitBtn);
@@ -303,7 +303,7 @@ describe('F04-REVIEW-QUEUE Screen (/design-review-requests)', () => {
 
     open('/design-review-requests', { session: fakeSession('signed-in') });
 
-    expect(await screen.findByText('Hàng đợi Thẩm duyệt Thiết kế')).toBeInTheDocument();
+    expect(await screen.findByText(/Danh sách các yêu cầu thiết kế đang chờ nhân sự thẩm duyệt/)).toBeInTheDocument();
     expect(screen.getByText('rev-01')).toBeInTheDocument();
     expect(screen.getByText('DR-001')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Thẩm duyệt' })).toHaveAttribute('href', '/design-review-requests/rev-01');

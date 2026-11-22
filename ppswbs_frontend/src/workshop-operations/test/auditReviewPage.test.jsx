@@ -68,7 +68,7 @@ describe('Audit review page', () => {
   it('lists Operations rows newest first with actor name and id, outcome text, and the 7-day note', async () => {
     const { calls } = open({ [OPS]: json(200, { items: [opsRow(2), opsRow(1, { actor: null, outcome: 'DENIED', sessionId: 2334 })], nextCursor: null }) });
 
-    expect(await screen.findByRole('heading', { name: 'Nhật ký audit workshop' })).toBeInTheDocument();
+    expect(await screen.findByText(/Chỉ đọc. Dòng mới nhất ở trên/)).toBeInTheDocument();
     const rows = await screen.findAllByRole('row');
     expect(rows).toHaveLength(3); // header + 2
     expect(within(rows[1]).getByText('Nguyễn Văn A #12')).toBeInTheDocument();

@@ -5,7 +5,6 @@ import { useHttp } from '../../shared/api/useHttp';
 import { useLanguage } from '../../shared/i18n/I18nProvider';
 import { roleHomePath } from '../../shared/auth/roleHome';
 import { ErrorNotice, Loading, useResource } from '../../shared/ui/components';
-import { OperationsSidebar } from '../../shared/ui/OperationsSidebar';
 import { OperationsAuthWorkspace } from '../../shared/ui/OperationsAuthWorkspace';
 import { operatorSections } from './operatorSections';
 import '../../ota-connectivity/ota-connectivity.css';
@@ -41,7 +40,7 @@ export default function OperatorHomePage({ role }) {
   const title = vi ? 'Trang chủ nhân viên' : 'Staff home';
   return (
     <div className="ota-workspace">
-      <OperationsSidebar />
+      
       <main className="ota-main">
         <div className="ota-topline">MLAND / HOME <span>● Backend-authorized</span></div>
         <header className="ota-page-heading">

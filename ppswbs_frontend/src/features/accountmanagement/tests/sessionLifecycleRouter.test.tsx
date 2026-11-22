@@ -109,7 +109,7 @@ describe('Revision R-SL: Shared Browser Session Lifecycle & Router Boundary (FR-
       const { router } = renderRoutes(routes, { path: '/design-requests/new', session });
 
       expect(router.state.location.pathname).toBe('/design-requests/new');
-      expect(await screen.findByText('Không gian Thiết kế Độc lập')).toBeInTheDocument();
+      expect(await screen.findByText('Biến ý tưởng của bạn thành hiện thực')).toBeInTheDocument();
       expect(screen.getByText(/Bạn đang gửi yêu cầu với tư cách Khách/i)).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /Gửi yêu cầu thiết kế/i })).toBeInTheDocument();
     });

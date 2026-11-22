@@ -1,7 +1,17 @@
 # Feature-013 Tasks
 
+## Phase 2026-11-22 — Guest and saved-design entry point
+
+- [ ] Add Guest opaque consultation session and tracking lifecycle.
+- [ ] Allow Guest to create contextless or owner-validated Feature-012 design
+  conversations.
+- [ ] Add saved-design CTA integration and safe context projection.
+- [ ] Preserve Staff/Manager participation and existing close/reopen rules.
+- [ ] Add Guest, Staff and Manager E2E scenarios for context ownership,
+  unauthorized access, closure and UTF-8 rendering.
+
 **Date created**: 2026-11-18  
-**Date updated**: 2026-11-18  
+**Date updated**: 2026-11-22
 **Author**: Ngô Tiến Đạt  
 **Last updated by**: Ngô Tiến Đạt
 
