@@ -1,7 +1,7 @@
 # Feature-012 Frontend Handoff
 
 Date created: 2026-11-09  
-Date updated: 2026-11-19
+Date updated: 2026-11-22
 Author: Ngô Tiến Đạt  
 Last updated by: Ngô Tiến Đạt  
 
@@ -17,8 +17,8 @@ edits the local draft.
 
 The frontend must support both Guest and Member. It must not create a separate
 business flow for the two actors. Guest session validity, Member ownership,
-option compatibility, evaluation, versioning and booking attachment are backend
-decisions.
+option compatibility, evaluation, versioning and recommendation are backend
+decisions. Booking attachment is retired from the current Feature-012 flow.
 
 ## 2. Figma baseline
 
@@ -28,12 +28,12 @@ decisions.
 | `457:1554` | Desktop configurator, 1440×1080 | Controls panel on the left; preview and summary panel on the right. |
 | `457:1655` | Mobile configurator, 390×844 | Preview first, then vertically spaced controls and primary action. |
 | `457:1698` | Model/blank selection | Published model, alternate model and blank-design cards. |
-| `457:1749` | Validation and estimate | Validated preview, compatibility status, advisory estimate and actions. |
-| `457:1795` | Branch recovery | Unsupported component explanation and safe correction actions. |
+| `457:1749` | Saved design and recommendation | Saved preview, advisory workshop recommendation and consultation action. |
+| `457:1795` | Historical branch recovery | Retained for audit only; not part of the current flow. |
 
-The current Figma revision identifier is not recorded yet. Do not treat the
-frames as formally approved until the user records the Figma revision and
-approval in `approval.md`/`version.md`.
+The existing in-place Figma frames are approved as the visual baseline on
+2026-11-22. This approval covers visual direction and frame reuse only; it does
+not approve new business behavior or API changes.
 
 The Figma component references are:
 
@@ -71,8 +71,9 @@ Route behavior:
 | Guest expiry | Safe recovery state for an expired session; do not reveal whether a design existed. |
 | Branch recovery | Explain incompatibility and preserve the current design for correction/retry. |
 
-The booking flow remains owned by Feature-003. Feature-012 only supplies the
-approved attach adapter/facade boundary.
+The booking flow remains owned by Feature-003. Feature-012 does not supply a
+current booking-attachment adapter; it supplies saved-design recommendation and
+owner-safe consultation/reference projections.
 
 ## 4. Frontend module structure
 
@@ -186,13 +187,17 @@ GET  /api/v1/workshop-designs/{designId}
 POST /api/v1/workshop-designs/{designId}/versions
 POST /api/v1/workshop-designs/{designId}/evaluate
 POST /api/v1/workshop-designs/{designId}/archive
-POST /api/v1/workshop-designs/{designId}/attach-to-booking
+GET  /api/v1/workshop-designs/{designId}/recommendation
 ```
 
 Rules:
 
 - Options are loaded by package context and rendered only after successful
   response.
+- The saved-design screen renders the advisory workshop recommendation and
+  keeps the general workshop discovery action visible.
+- The consultation action hands off an owner-verified design snapshot to
+  Feature-013; it does not create a booking or payment mutation.
 - Guest requests carry the opaque design-session reference through the approved
   transport; Member requests use the shared Firebase-authenticated client.
 - Every write action gets one `Idempotency-Key`; a retry reuses the same key.

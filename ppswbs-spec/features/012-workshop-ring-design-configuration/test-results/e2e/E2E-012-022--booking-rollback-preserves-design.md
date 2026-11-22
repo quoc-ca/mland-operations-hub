@@ -1,6 +1,8 @@
 ---
 format_version: 2
 id: E2E-012-022
+status: SUPERSEDED
+superseded_by: 2026-11-22 saved-design recommendation baseline
 feature: 012-workshop-ring-design-configuration
 test_level: e2e
 test_case_type: B

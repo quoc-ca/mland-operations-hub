@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useSearchParams } from 'react-router';
 import { useConsultationChatApi } from '../api/useConsultationChatApi';
 import { consultationMessages } from '../messages';
 import { validateMessageText, countCodePoints, MAX_MESSAGE_LENGTH, POLLING_INTERVAL_MS } from '../domain/chatRules';
@@ -9,6 +10,11 @@ import '../consultation-chat.css';
 export function MemberConsultationPage({ lang = 'vi' }) {
   const t = consultationMessages[lang] || consultationMessages.vi;
   const api = useConsultationChatApi();
+
+  const [searchParams] = useSearchParams();
+  const designRefParam = searchParams.get('designReference') || searchParams.get('designId');
+  const designVersionParam = searchParams.get('designVersion');
+  const autoAttachedRef = useRef(false);
 
   const [conversations, setConversations] = useState([]);
   const [nextCursor, setNextCursor] = useState(null);
@@ -83,6 +89,36 @@ export function MemberConsultationPage({ lang = 'vi' }) {
   useEffect(() => {
     loadConversations();
   }, [loadConversations]);
+
+  // Handle auto-attaching design reference from URL if provided
+  useEffect(() => {
+    if (!designRefParam || autoAttachedRef.current || loadingList) return;
+    autoAttachedRef.current = true;
+
+    const existing = conversations.find(
+      (c) => c.contextReference === designRefParam || c.contextSnapshot?.displayCode === designRefParam
+    );
+
+    if (existing) {
+      setSelectedRef(existing.conversationReference);
+    } else {
+      (async () => {
+        try {
+          const key = newCommandId();
+          const newConv = await api.createConversation(key, {
+            contextType: 'WORKSHOP_RING_DESIGN',
+            contextReference: designRefParam,
+            contextVersion: designVersionParam ? Number(designVersionParam) : 1,
+            initialMessage: undefined,
+          });
+          setConversations((prev) => [newConv, ...prev]);
+          setSelectedRef(newConv.conversationReference);
+        } catch (err) {
+          setError(err.message || t.errorGeneral);
+        }
+      })();
+    }
+  }, [designRefParam, designVersionParam, conversations, loadingList, api, t.errorGeneral]);
 
   // Load detail when selectedRef changes
   useEffect(() => {

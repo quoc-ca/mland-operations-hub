@@ -37,7 +37,7 @@ describe('Feature-004 & Custom Manufacturing Frontend (Dev C)', () => {
 
     expect(await screen.findByText('CO-A1B2C3D4')).toBeInTheDocument();
     expect(screen.getByText('15.000.000 đ')).toBeInTheDocument();
-    expect(screen.getByText('Thế hệ báo giá: Lần #1')).toBeInTheDocument();
+    expect(screen.getByText('Phiên bản báo giá: Lần #1')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Thanh toán toàn bộ/i })).toBeInTheDocument();
 
     // Invariant checks: NO cart, NO deposit, NO remaining balance
@@ -67,7 +67,7 @@ describe('Feature-004 & Custom Manufacturing Frontend (Dev C)', () => {
     open('/account/my-custom-orders', { session: fakeSession('signed-in') });
 
     // Wait for page to render
-    expect(await screen.findByText('Đơn hàng & Yêu cầu gia công tùy chỉnh')).toBeInTheDocument();
+    expect(await screen.findByText('Đơn hàng cá nhân')).toBeInTheDocument();
 
     // Click Requests tab
     const requestsTab = screen.getByRole('button', { name: /Yêu cầu thiết kế/i });
@@ -142,7 +142,7 @@ describe('Feature-004 & Custom Manufacturing Frontend (Dev C)', () => {
 
     expect(await screen.findByText('CO-DETAIL99')).toBeInTheDocument();
     expect(screen.getByText('20.000.000 đ')).toBeInTheDocument();
-    expect(screen.getByText('Thế hệ báo giá: Lần #2')).toBeInTheDocument();
+    expect(screen.getByText('Phiên bản báo giá: Lần #2')).toBeInTheDocument();
     expect(screen.getByText(/Đã thẩm duyệt chi tiết kỹ thuật/i)).toBeInTheDocument();
     expect(screen.getByText('Solitaire Gold Ring')).toBeInTheDocument();
     expect(screen.getByText(/Thanh toán toàn bộ 20.000.000 đ qua VNPay/i)).toBeInTheDocument();

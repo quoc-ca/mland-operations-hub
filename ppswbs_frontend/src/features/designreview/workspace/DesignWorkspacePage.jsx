@@ -1,9 +1,10 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { useAuth } from '../../../shared/auth/AuthProvider';
 import { useT } from '../../../shared/i18n/I18nProvider';
 import { ErrorNotice, Field, Loading, SuccessNotice, useCommand } from '../../../shared/ui/components';
 import { useDesignReviewApi } from '../api/useDesignReviewApi';
+import { useWorkshopRingDesignApi } from '../../ringdesignconfiguration/api/useWorkshopRingDesignApi';
 import { designReviewMessages } from '../messages';
 import {
   ALLOWED_IMAGE_TYPES,
@@ -20,6 +21,7 @@ export default function DesignWorkspacePage() {
   const t = useT(designReviewMessages);
   const navigate = useNavigate();
   const api = useDesignReviewApi();
+  const workshopRingApi = useWorkshopRingDesignApi();
   const command = useCommand();
   const { status: authStatus, userId } = useAuth();
   const isAuthenticated = authStatus === 'signed-in' || Boolean(userId);
@@ -35,6 +37,27 @@ export default function DesignWorkspacePage() {
   const [errors, setErrors] = useState({});
   const [guestSubmission, setGuestSubmission] = useState(null);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [availableDesigns, setAvailableDesigns] = useState([]);
+  const [selectedDesignRef, setSelectedDesignRef] = useState(ringDesignRef);
+  const [loadingDesigns, setLoadingDesigns] = useState(false);
+
+  useEffect(() => {
+    if (ringDesignRef) {
+      setSelectedDesignRef(ringDesignRef);
+    }
+  }, [ringDesignRef]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    setLoadingDesigns(true);
+    workshopRingApi
+      .listMyDesigns(null, true, true)
+      .then((designs) => {
+        setAvailableDesigns(Array.isArray(designs) ? designs : []);
+      })
+      .catch(() => {})
+      .finally(() => setLoadingDesigns(false));
+  }, [isAuthenticated, workshopRingApi]);
 
   const charCount = [...description].length;
 
@@ -173,7 +196,7 @@ export default function DesignWorkspacePage() {
         key,
         {
           description: description.trim(),
-          designReference: ringDesignRef || null,
+          designReference: selectedDesignRef || ringDesignRef || null,
           consentVersion: selectedImages.length > 0 ? CONSENT_VERSION : null,
           consentPurpose: selectedImages.length > 0 ? CONSENT_PURPOSE : null,
           designVersion: 1,
@@ -275,14 +298,69 @@ export default function DesignWorkspacePage() {
         </div>
       </header>
 
-      <div className="boundary-banner" role="status">
-        <strong>{t('workspace.boundaryNotice')}</strong>
-      </div>
-
       <ErrorNotice error={command.error} messages={designReviewMessages} onRetry={command.retry} />
       {errors.form && <div className="notice error">{errors.form}</div>}
 
       <form onSubmit={handleSubmit} className="stack">
+        {/* Feature-012 Ring Design Attachment */}
+        <div className="field" data-testid="ring-design-attachment-field">
+          <label htmlFor="ring-design-select">
+            Mẫu thiết kế nhẫn Feature-012 đính kèm (Tùy chọn)
+          </label>
+          {isAuthenticated ? (
+            <div>
+              {availableDesigns.length > 0 ? (
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <select
+                    id="ring-design-select"
+                    value={selectedDesignRef}
+                    onChange={(e) => setSelectedDesignRef(e.target.value)}
+                    style={{ flex: 1, minWidth: '240px', padding: '0.5rem', borderRadius: '4px', border: '1px solid #cbd5e1' }}
+                    data-testid="ring-design-select"
+                  >
+                    <option value="">-- Không đính kèm mẫu thiết kế --</option>
+                    {availableDesigns.map((d) => (
+                      <option key={d.designId} value={d.designId}>
+                        {d.designId} · v{d.designVersion} [{d.status}] · {d.materialReference || 'Bạc Ý 925'} · Size {d.ringSize || '8'}
+                      </option>
+                    ))}
+                  </select>
+                  {selectedDesignRef && (
+                    <button
+                      type="button"
+                      className="button outline small"
+                      onClick={() => setSelectedDesignRef('')}
+                      data-testid="clear-design-btn"
+                    >
+                      ✕ Gỡ đính kèm
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <p className="muted small" style={{ margin: 0 }}>
+                  Bạn chưa có mẫu thiết kế nào được lưu.{' '}
+                  <Link to="/workshops" target="_blank">Thiết kế mẫu nhẫn ngay ↗</Link>
+                </p>
+              )}
+            </div>
+          ) : (
+            <div>
+              <input
+                id="ring-design-select"
+                type="text"
+                placeholder="Nhập mã thiết kế (VD: DES-176378...)"
+                value={selectedDesignRef}
+                onChange={(e) => setSelectedDesignRef(e.target.value)}
+                style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #cbd5e1' }}
+                data-testid="guest-ring-design-input"
+              />
+              <span className="muted small">
+                Nếu bạn đã lưu một mẫu thiết kế nhẫn ở bước workshop, nhập mã thiết kế tại đây để nhân viên tham khảo.
+              </span>
+            </div>
+          )}
+        </div>
+
         <Field
           label={t('workspace.descriptionLabel')}
           hint={t('workspace.charCount', { count: charCount })}

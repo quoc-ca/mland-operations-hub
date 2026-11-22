@@ -1,12 +1,12 @@
 # Date created: 2026-11-18
-# Date updated: 2026-11-18
+# Date updated: 2026-11-22
 # Author: Ngô Tiến Đạt
 # Last updated by: Ngô Tiến Đạt
 openapi: 3.0.3
 info:
   title: Staff Consultation Chat API
-  version: 0.1.0-draft
-  description: Draft contract for Feature-013. Spec and facade approvals are pending.
+  version: 0.2.0-change-request
+  description: Contract including Guest opaque sessions and saved Feature-012 design context.
 servers:
   - url: /api/v1
 tags:
@@ -25,8 +25,10 @@ paths:
   /consultations:
     post:
       tags: [consultation-chat]
-      security: [{ bearerAuth: [] }]
-      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      security: [{ bearerAuth: [] }, {}]
+      parameters:
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { $ref: '#/components/parameters/GuestConsultationSession' }
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: '#/components/schemas/CreateConversationRequest' } } }
@@ -38,11 +40,12 @@ paths:
         '409': { $ref: '#/components/responses/Conflict' }
     get:
       tags: [consultation-chat]
-      security: [{ bearerAuth: [] }]
+      security: [{ bearerAuth: [] }, {}]
       parameters:
         - { name: status, in: query, schema: { type: string, enum: [OPEN, CLOSED] } }
         - { name: cursor, in: query, schema: { type: string } }
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 50, default: 20 } }
+        - { $ref: '#/components/parameters/GuestConsultationSession' }
       responses:
         '200': { description: Scoped inbox, content: { application/json: { schema: { $ref: '#/components/schemas/ConversationList' } } } }
         '401': { $ref: '#/components/responses/Unauthorized' }
@@ -132,6 +135,7 @@ components:
     ConversationReference: { name: conversationReference, in: path, required: true, schema: { type: string, minLength: 8, maxLength: 128 } }
     IdempotencyKey: { name: Idempotency-Key, in: header, required: true, schema: { type: string, minLength: 16, maxLength: 128 } }
     IfMatchVersion: { name: If-Match-Version, in: header, required: true, schema: { type: integer, minimum: 1 } }
+    GuestConsultationSession: { name: X-Guest-Consultation-Session, in: header, required: false, schema: { type: string, minLength: 16, maxLength: 256 } }
   schemas:
     ContextOption:
       type: object
@@ -163,7 +167,7 @@ components:
       required: [messageReference, senderRole, text, createdAt]
       properties:
         messageReference: { type: string }
-        senderRole: { type: string, enum: [MEMBER, STAFF, MANAGER] }
+        senderRole: { type: string, enum: [GUEST, MEMBER, STAFF, MANAGER] }
         text: { type: string }
         createdAt: { type: string, format: date-time }
     Conversation:

@@ -1,5 +1,7 @@
 ---
 id: ITC-012-003
+status: SUPERSEDED
+superseded_by: 2026-11-22 saved-design recommendation baseline
 feature: 012-workshop-ring-design-configuration
 test_level: integration
 test_case_type: N

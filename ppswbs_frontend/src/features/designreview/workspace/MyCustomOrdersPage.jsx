@@ -142,10 +142,10 @@ export default function MyCustomOrdersPage() {
     <div className="design-container custom-orders-page">
       <div className="page-header" style={{ marginBottom: '1.5rem' }}>
         <h1 style={{ fontSize: '1.75rem', fontWeight: 600, color: '#0f172a', marginBottom: '0.5rem' }}>
-          Đơn hàng & Yêu cầu gia công tùy chỉnh
+          Đơn hàng cá nhân
         </h1>
         <p style={{ color: '#64748b', fontSize: '0.95rem' }}>
-          Quản lý yêu cầu thiết kế nhẫn độc lập và quy trình sản xuất gia công từ báo giá đến khi bàn giao.
+          Quản lý yêu cầu thiết kế nhẫn và đơn hàng cá nhân
         </p>
       </div>
 
@@ -166,7 +166,7 @@ export default function MyCustomOrdersPage() {
             marginBottom: '-2px'
           }}
         >
-          Đơn hàng gia công (Orders)
+          Đơn hàng cá nhân (Orders)
         </button>
         <button
           type="button"
@@ -202,7 +202,7 @@ export default function MyCustomOrdersPage() {
         <div>
           {orders.length === 0 ? (
             <div style={{ padding: '3rem', textAlign: 'center', background: '#f8fafc', borderRadius: 8 }}>
-              <p style={{ color: '#64748b', marginBottom: '1rem' }}>Bạn chưa có đơn hàng gia công tùy chỉnh nào.</p>
+              <p style={{ color: '#64748b', marginBottom: '1rem' }}>Bạn chưa có đơn hàng thiết kế cá nhân nào.</p>
               <Link to="/design-requests/new" className="button button-primary">
                 Tạo yêu cầu thiết kế mới
               </Link>
@@ -251,7 +251,7 @@ export default function MyCustomOrdersPage() {
                         </span>
                         {quote?.quoteGeneration && (
                           <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.25rem' }}>
-                            Thế hệ báo giá: Lần #{quote.quoteGeneration}
+                            Phiên bản báo giá: Lần #{quote.quoteGeneration}
                           </div>
                         )}
                       </div>

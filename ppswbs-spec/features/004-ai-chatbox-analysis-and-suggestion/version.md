@@ -4,12 +4,71 @@
 - **Author**: Ngô Tiến Đạt
 - **Last updated by**: Ngô Tiến Đạt
 - **Date created**: 2026-11-21
-- **Date updated**: 2026-11-21
+- **Date updated**: 2026-11-22
 - **Status**: Implementation handover with payment-schema and contract remediation in progress.
 
 ## Summary of Implementation
 
+## Current synchronization audit — 2026-11-22
+
+The approved current baseline is human review only. The repository still
+contains historical AI-support, AI-image-analysis and AI-price-suggestion code
+and tests, including the old `PriceProposalIT` suite; these must be retired or
+isolated before the human-review-only contract can be called implementation
+complete. The current backend also requires a separate audit for any remaining
+AI routes, providers, security allowlists and migrations. This entry is an
+implementation blocker, not evidence that the historical AI tests validate the
+current baseline.
+
+The current visual baseline is approved in existing Figma frames. Frontend
+implementation must follow `ppswbs-spec/DESIGN.md` and reuse the existing style
+before introducing any new component or visual pattern.
+
 Unified Feature-012 (Workshop Ring Design Configuration), Feature-004 (Custom Design Request & Human Review), and Custom Manufacturing (Quote, Full Payment, Production, Fulfilment).
+
+## Version 1.9 — 2026-11-22 terminology, design-state and consultation update
+
+- Rename customer UI to `Yêu cầu chế tác` and custom-order UI to `Đơn hàng cá nhân`.
+- Replace `Thế hệ báo giá` with `Phiên bản báo giá`.
+- Allow an owner to attach a Feature-012 design reference from any readable
+  state. Feature-004 stores an immutable snapshot and never changes the source
+  design state.
+- Add saved-design consultation launch through Feature-013 for Guest and Member.
+- Preserve full payment, no cart and no deposit behavior.
+
+### Existing-frame update — 2026-11-22
+
+The current Figma screens were updated in place rather than adding new
+customer pages. Existing Staff review frames `414:1084` and `414:1109` now
+show human-only review, reference images/design snapshots and mandatory written
+explanations. The old Manager AI price frame `414:2984` is explicitly marked
+historical and is not part of the current Feature-004 flow.
+
+### Visual baseline approval — 2026-11-22
+
+The user approved the latest in-place Figma updates as the Feature-004 visual
+baseline. Approved references are the existing Staff human-review queue/detail
+frames `414:1084` and `414:1109`, the historical-only Manager frame
+`414:2984`, and the shared customer page conventions already present in the
+current frontend. The approval is visual only; it does not approve changes to
+Feature-004 business rules, API contracts, permissions, persistence or code.
+
+Feature-004 frontend implementation must follow the existing-style-first rule:
+inspect and reuse the closest existing page, component, token, spacing,
+responsive and bilingual patterns before creating anything new. Any required
+new pattern must be a minimal reusable extension and must be documented with
+its reason.
+
+### Replacement Figma draft — 2026-11-22
+
+- Page: `08 · Frontend Baseline · FE-004 & FE-012` (`572:2`).
+- Customer request: `574:67` desktop and `574:154` mobile.
+- Staff/Manager review detail: `574:102`.
+- These frames are based on the current React/Vite shell but are historical
+  draft references, not the approved current baseline. The approved baseline is
+  the in-place existing-frame update recorded above.
+
+**Status:** `DOCUMENTATION UPDATED — IMPLEMENTATION PENDING — VISUAL BASELINE APPROVED`
 
 ### Phase H — Post-test defect remediation (2026-11-21)
 

@@ -1,7 +1,7 @@
 # Tasks — Feature-004 Design Request and Human Review & Custom Manufacturing Integration
 
 Date created: 2026-11-20
-Date updated: 2026-11-21
+Date updated: 2026-11-22
 Author: Ngô Tiến Đạt
 Last updated by: Ngô Tiến Đạt
 
@@ -32,6 +32,30 @@ Last updated by: Ngô Tiến Đạt
 - [x] Dev D (Documentation sync): Synchronize feature specifications, data models, plans, tasks, and changelog.
 
 ## Phase E — Verification
+
+- [ ] Retire or isolate historical AI-support, AI-image-analysis and AI-price
+  implementation/tests so they cannot be exposed by the current human-review
+  routes or treated as current acceptance evidence.
+
+## Phase F — 2026-11-22 change request
+
+### Replacement Figma baseline
+
+- [x] Recreate Feature-004 customer request and Staff/Manager review screens
+  from the current React/Vite shell and shared visual conventions.
+- [x] Record the approved existing-frame nodes in the Feature-012 cross-feature
+  handoff; the replacement page remains historical.
+- [x] Obtain user approval for the existing-frame visual baseline.
+
+- [ ] Update customer and staff copy to the approved Vietnamese terminology.
+- [ ] Accept any owner-visible Feature-012 design state and capture an
+  immutable snapshot at custom-request submission.
+- [ ] Add the saved-design `Tư vấn thiết kế` entry point for Guest and Member.
+- [ ] Extend Feature-013 context and Guest-session contract as required.
+- [x] Remove remaining obsolete AI-analysis wording from active UI/spec sections;
+  retain only historical audit references.
+- [ ] Add Staff/Manager E2E coverage for design-state references, ownership,
+  mandatory explanations, consultation participation and stale decisions.
 - [x] Backend compilation check with Java 25 (`release 21`).
 - [x] Frontend unit/component tests in `src/features/designreview` (31/31 passing).
 - [x] Session lifecycle regression tests (29/29 passing).

@@ -115,16 +115,16 @@ describe('F04-DESIGN-WORKSPACE Screen (/design-requests/new)', () => {
   it('allows Guest to access workspace without signing in and shows guest rate limit notice', async () => {
     mockFetch({});
     open('/design-requests/new', { session: fakeSession('signed-out') });
-    expect(await screen.findByText(/Không gian Thiết kế Độc lập/)).toBeInTheDocument();
+    expect(await screen.findByText(/Biến ý tưởng của bạn thành hiện thực/)).toBeInTheDocument();
     expect(screen.getByText(/Bạn đang gửi yêu cầu với tư cách Khách — tối đa 5 yêu cầu\/ngày/)).toBeInTheDocument();
   });
 
-  it('renders independent boundary notice and validates empty input', async () => {
+  it('renders design workspace and validates empty input', async () => {
     const user = userEvent.setup();
     mockFetch({});
     open('/design-requests/new', { session: fakeSession('signed-in') });
 
-    expect(await screen.findByText(/Yêu cầu thiết kế độc lập không tạo, liên kết hay ràng buộc với mã đặt chỗ workshop/)).toBeInTheDocument();
+    expect(await screen.findByText(/Biến ý tưởng của bạn thành hiện thực/)).toBeInTheDocument();
 
     const submitBtn = screen.getByRole('button', { name: 'Gửi yêu cầu thiết kế' });
     await user.click(submitBtn);

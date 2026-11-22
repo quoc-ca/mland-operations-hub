@@ -101,7 +101,8 @@ export const messages = {
 
     // Statuses
     DRAFT: 'Bản nháp',
-    VALIDATED: 'Đã thẩm định',
+    SAVED: 'Đã lưu',
+    VALIDATED: 'Đã lưu',
     ATTACHED_TO_BOOKING: 'Đã gắn lịch đặt',
     LOCKED: 'Đã khóa',
     ARCHIVED: 'Đã lưu trữ',
@@ -230,7 +231,8 @@ export const messages = {
     viewMyDesigns: 'My Ring Designs',
 
     DRAFT: 'Draft',
-    VALIDATED: 'Validated',
+    SAVED: 'Saved',
+    VALIDATED: 'Saved',
     ATTACHED_TO_BOOKING: 'Attached to Booking',
     LOCKED: 'Locked',
     ARCHIVED: 'Archived',

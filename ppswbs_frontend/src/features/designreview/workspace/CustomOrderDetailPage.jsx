@@ -91,7 +91,7 @@ export default function CustomOrderDetailPage() {
   if (loading) {
     return (
       <div className="design-container" style={{ padding: '3rem', textAlign: 'center', color: '#64748b' }}>
-        Đang tải thông tin đơn hàng gia công...
+        Đang tải thông tin đơn hàng thiết kế cá nhân...
       </div>
     );
   }
@@ -126,7 +126,7 @@ export default function CustomOrderDetailPage() {
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '1rem', marginBottom: '1.5rem' }}>
         <div>
-          <span style={{ fontSize: '0.85rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Chi tiết đơn hàng gia công</span>
+          <span style={{ fontSize: '0.85rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Chi tiết đơn hàng thiết kế cá nhân</span>
           <h1 style={{ fontSize: '1.75rem', fontWeight: 600, color: '#0f172a', margin: '0.2rem 0' }}>
             {order.customOrderReference}
           </h1>
@@ -210,7 +210,7 @@ export default function CustomOrderDetailPage() {
             <span style={{ fontWeight: 500, color: '#334155' }}>{quote?.quoteReference || '—'}</span>
             {quote?.quoteGeneration && (
               <span style={{ fontSize: '0.8rem', color: '#64748b', display: 'block' }}>
-                Thế hệ báo giá: Lần #{quote.quoteGeneration}
+                Phiên bản báo giá: Lần #{quote.quoteGeneration}
               </span>
             )}
           </div>

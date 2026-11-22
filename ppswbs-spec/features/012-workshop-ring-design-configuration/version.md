@@ -4,12 +4,21 @@
 - **Author**: Ngô Tiến Đạt
 - **Last updated by**: Ngô Tiến Đạt
 - **Date created**: 2026-11-08
-- **Date updated**: 2026-11-19
+- **Date updated**: 2026-11-22
 - **Source of truth**: Feature-012 `spec.md`, `data-model.md`, `contracts/workshop-ring-design.openapi.yaml`, `V110__workshop_ring_design_configuration.sql`, `V143__ring_design_uniform_pricing.sql`, backend Spring Boot implementation, frontend React 19 + Vite implementation, and synchronized project specifications
 
 > This file is an implementation status index. Detailed behavior remains in
 > the Feature-012 artifacts and source code. Phase labels are retained for
 > tracing and audit.
+
+## Current synchronization audit — 2026-11-22
+
+The current baseline ends at `SAVED` design, advisory workshop recommendation
+and optional Feature-013 consultation. The repository still contains legacy
+booking-attachment implementation and tests; those paths must be retired or
+isolated before Feature-012 is implementation-complete under the current
+contract. The approved Figma frames are visual references only and do not
+authorize booking, payment or state-lifecycle changes.
 
 ---
 
@@ -587,3 +596,84 @@ Toàn bộ 5 kịch bản E2E của Feature 012 đã được thực thi và ngh
 
 ### Giai đoạn 2: Phê duyệt chính thức Revision Figma
 - Cập nhật mã revision Figma chính thức khi Tech Lead và UI Designer hoàn thiện rà soát giao diện visual.
+
+## Version 1.3 — 2026-11-22 saved recommendation and custom-reference change
+
+### Superseding decisions
+
+- Feature-012 no longer attaches designs to workshop tickets or bookings.
+- New lifecycle writes are `DRAFT`, `SAVED`, and `ARCHIVED`. `VALIDATED`,
+  `ATTACHED_TO_BOOKING`, and `LOCKED` are legacy-readable only.
+- More than five gemstones recommends Silver Clay; difficulty above nine
+  recommends Wax Casting; if both apply, Wax Casting is primary. Otherwise,
+  material category resolves Signature Silver or Signature Brass through
+  catalogue data.
+- Recommendation keeps all workshop discovery actions visible and does not
+  mutate booking, payment, price, or order state.
+- Feature-004 may snapshot any owner-visible design state, including archived
+  and legacy rows.
+- Saved-design consultation is available to Guest and Member through Feature-
+  013 with an appropriate opaque Guest session or Firebase identity.
+
+### Required work
+
+- Remove booking attachment from current API/design/task baselines.
+- Add recommendation DTO, semantic package lookup, reason text and Wax Casting
+  two-session note.
+- Replace customer-facing “Đã thẩm định” with “Đã lưu” for `SAVED`.
+- Supersede E2E-012-021, E2E-012-022 and ITC-012-003; add threshold, state,
+  recommendation, custom-reference and consultation scenarios.
+
+**Current status:** `DOCUMENTATION UPDATED — IMPLEMENTATION PENDING — VISUAL BASELINE APPROVED`
+
+The earlier approval record and Phase H booking-attachment notes are historical
+only. They must not be used as implementation instructions until the current
+change request is approved.
+
+### Figma draft evidence — approval pending
+
+- File: `mland-operation-hub` (`m5Cyk5rit6lKaX3TPprSow`).
+- Draft page: `07 · Change Request · FE-004 & FE-012` (`569:2`).
+- Feature-012 saved-design recommendation: `569:3` desktop and `569:41` mobile.
+- Feature-004 manufacturing request: `569:22`.
+- Feature-004 consultation context: `569:33`.
+- The frames are editable drafts only; they are not the approved implementation baseline.
+
+### Figma replacement draft — 2026-11-22
+
+The previous Neon Atelier draft was rejected. A replacement was created from
+the current React/Vite implementation and shared page conventions:
+
+- Page: `08 · Frontend Baseline · FE-004 & FE-012` (`572:2`).
+- FE-012 configurator desktop: `574:2`.
+- FE-012 saved-design recommendation desktop: `574:38`.
+- FE-012 saved-design recommendation mobile: `574:134`.
+- FE-004 request desktop: `574:67`.
+- FE-004 reviewer desktop: `574:102`.
+- FE-004 request mobile: `574:154`.
+- Visual evidence was captured for the saved-design and request frames.
+- Status: `APPROVED — VISUAL BASELINE ONLY`.
+
+### Existing-style-first rule — 2026-11-22
+
+The user approved the latest existing-frame updates. Frontend work must first
+reuse the current application style and the closest existing screen pattern:
+page shell, typography, color tokens, spacing, controls, cards, responsive
+behavior, bilingual wording and interaction states. New visual patterns are
+allowed only when an explicit Feature-012 requirement cannot be represented by
+the existing style; they must be minimal, reusable and documented.
+
+This visual approval does not change Feature-012 business behavior, API
+contracts, persistence rules or implementation readiness.
+
+### Existing-frame update — 2026-11-22
+
+The replacement draft was not used as a new baseline. The existing frames were
+updated in place instead:
+
+- Existing Member configurator/saved-design section: `457:1553`.
+- Existing saved-design frame: `457:1749`; recommendation panel `579:1408`;
+  consultation action `579:1415`.
+- Existing UI redesign configurator: desktop `498:482`, mobile `498:581`.
+- Existing homepage custom-request entry point: `498:14`, `498:130`, `498:131`.
+- Status: `APPROVED — VISUAL BASELINE ONLY`.

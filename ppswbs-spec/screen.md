@@ -1,5 +1,18 @@
 # Mland — Screen Flow
 
+## Current Feature-004 and Feature-012 screen baseline — 2026-11-22
+
+The current Feature-004 flow is human review only: image quality validation,
+request submission, Staff/Manager review, mandatory written explanation and
+owner status tracking. It does not render AI analysis, AI pricing or automated
+design decisions.
+
+The current Feature-012 flow ends at saved-design recommendation and Feature-013
+consultation. It does not attach a design to a booking or ticket, perform branch
+revalidation for attachment, create payment, or hide alternative workshops.
+Older booking-attachment and AI-analysis diagrams in this file are historical
+references and must not be used as implementation instructions.
+
 ## Feature-011 Review Management screens
 
 ```text
@@ -312,7 +325,12 @@ flowchart TB
 - Booking Summary hiển thị package, cơ sở, lịch, số người, contact, design đã chọn nếu có, các khoản giá được phép và tiền cọc trước khi xác nhận. Theo hợp đồng hiện có, workshop deposit bằng 50% package; link 10 phút, hold 15 phút. Không lấy giá ước lượng thiết kế làm số tiền phải thu khi chưa có quy tắc được duyệt.
 - Lỗi cơ sở không hỗ trợ design/material, lịch hết chỗ hoặc contact không hợp lệ dẫn về bước cần sửa; thay đổi liên quan phải được kiểm tra lại. QR chỉ hiển thị sau booking confirmed.
 
-### A2.2. Tự làm nhẫn — freestyle và ba nhánh custom
+### A2.2. Historical workshop design branches — superseded
+
+The following diagram is retained for traceability only. It contains former
+AI-analysis and booking-attachment assumptions and must not be used for current
+Feature-004 or Feature-012 implementation. Use the current feature artifacts
+and existing approved Figma frames instead.
 
 ```mermaid
 flowchart TB
@@ -323,7 +341,7 @@ flowchart TB
     Photo["Shop Design Photo Details"]
     Config["Ring Options Configurator"]
     Image["Booking Design Image Upload"]
-    Analysis["AI Analysis and Editable Design Options"]
+    Analysis["Historical AI Analysis and Editable Design Options"]
     Recalculate(["Cập nhật options / ước lượng giá / đánh giá lại độ khó"])
     Difficulty{"Kết quả đánh giá hiện tại"}
     Consult["Design Consultation / Review Request"]
@@ -368,7 +386,7 @@ flowchart TB
 | Shop Design Album / Photo Details | Chọn ảnh mẫu shop; preview và xác nhận mẫu muốn tự làm. Album này phục vụ thiết kế workshop, không phải hành động mua sản phẩm retail. |
 | Ring Options Configurator | Chọn chi tiết/họa tiết và các options được hỗ trợ → xem cấu hình/giá theo quy tắc hiện có → xác nhận → Selected Design Summary. |
 | Booking Design Image Upload | Upload ảnh ý tưởng → kiểm tra file/context → phân tích. Ảnh không hợp lệ hoặc xử lý lỗi cho phép thử ảnh khác. |
-| AI Analysis and Editable Design Options | Hiển thị các thành phần nhận diện, shape/material/options, giá ước lượng và độ khó. Khi sửa options, cập nhật estimate và đánh giá độ khó theo cấu hình mới; không tiếp tục với kết quả của cấu hình cũ. |
+| Historical AI Analysis and Editable Design Options | Historical Feature-004/booking design flow only. Not part of the current human-review or saved-design recommendation baseline. |
 | Design Consultation / Review Request | Gửi cấu hình hiện tại để tư vấn, xem trạng thái chờ và kết quả. Chờ review chưa tạo booking/hold. |
 | Cannot Self-make — Available Alternatives | Cho Member chọn yêu cầu shop làm hoặc quay lại upload/chọn thiết kế khác. Yêu cầu shop làm không tự được chấp nhận hay chuyển thanh toán. |
 | Selected Design Summary | Review mẫu/options đã chốt → Branch Selection → chọn lịch → thông tin → thanh toán như A2. |
@@ -753,3 +771,12 @@ Request accepted
 There is no Add to Cart action for custom orders. If full payment is not verified
 before the quote deadline, the quote/order expires or is cancelled and any
 temporary queue hold is released. Workshop booking deposit flow remains separate.
+# 2026-11-22 screen superseding notes
+
+- Feature-012 saved-design screen contains recommendation, reason, optional Wax
+  Casting two-session note, `Tư vấn thiết kế`, and always-visible `Khám phá các
+  workshop`. It does not contain booking attachment controls.
+- Feature-004 uses `Yêu cầu chế tác` and `Đơn hàng cá nhân`; the design picker may
+  show any owner-visible Feature-012 state without exposing internal IDs.
+- The saved-design consultation action opens Feature-013 with safe design
+  context for Guest or Member. Staff and Manager can participate.

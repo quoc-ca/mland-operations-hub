@@ -1,11 +1,20 @@
 # Feature-012 UI Flow — Workshop Ring Design Configuration
 
 Date created: 2026-11-08
-Date updated: 2026-11-19
+Date updated: 2026-11-22
 Author: Ngô Tiến Đạt
 Last updated by: Ngô Tiến Đạt
 
-**Status:** Implementation completed and verified across all 5 E2E test scenarios.
+**Status:** Visual baseline approved by the user on 2026-11-22; implementation
+remains subject to the feature specification, API and engineering gates.
+
+## Existing-style-first rule
+
+All Feature-012 screens must extend the existing customer journey and shared
+frontend visual language before introducing new UI patterns. Reuse the current
+page shell, typography, spacing, controls, cards, responsive behavior and
+bilingual content conventions. The approved Figma frames are a visual baseline,
+not permission to change business rules, API behavior or design lifecycle.
 
 ## 1. Routes and screens
 
@@ -21,7 +30,8 @@ Last updated by: Ngô Tiến Đạt
 | Evaluation and Summary | `/workshops/:packageReference/design/:designId` | Guest/Member | Show validation, estimate/difficulty as advisory, summary of stones `${quantity}x ${label}`, and current version. |
 | Member Design History | `/my/designs` | Member | Show own current and historical versions; archive unsubmitted designs. |
 | Guest Session Expired | Same design context | Guest | Explain expiry without exposing internal design data. |
-| Branch Compatibility Recovery | Booking transition state | Guest/Member | Explain unsupported option and return to editable design. |
+| Workshop Recommendation | `/workshops/:packageReference/design/:designId` | Guest/Member | Show advisory recommendation, reason, Wax Casting two-session note when applicable, and always keep Explore workshops visible. |
+| Design Consultation Launch | `/workshops/:packageReference/design/:designId` | Guest/Member | Open Feature-013 chat with the saved design context; do not expose raw internal identifiers. |
 
 The primary Figma frames are `457:1553` (section), `457:1554` (desktop
 configuration), `457:1655` (mobile configuration), `457:1698` (model/blank),
@@ -29,9 +39,20 @@ configuration), `457:1655` (mobile configuration), `457:1698` (model/blank),
 
 ## 2. Customer flow
 
+The former Branch Compatibility Recovery and Booking Attachment steps are legacy
+documentation. The current flow ends at a saved design and recommendation:
+
+```text
+Configure design
+→ Save design
+→ SAVED summary
+→ Show recommendation
+→ Edit, archive, consult, or explore any workshop
+```
+
 ```mermaid
 flowchart TD
-  A[Workshop Package Selected] --> B[Design Entry]
+  A[Workshop Package Context] --> B[Design Entry]
   B --> C{Starting point}
   C -->|Published model| D[Model Selection]
   C -->|Blank| E[Blank Design Setup]
@@ -43,15 +64,12 @@ flowchart TD
   I --> J[Save / Evaluate]
   J --> K{Backend result}
   K -->|Invalid| F
-  K -->|Valid| L[Design Summary]
-  L --> M[Branch Selection]
-  M --> N{Branch revalidation}
-  N -->|Compatible| O[Session Selection]
-  N -->|Incompatible| P[Compatibility Recovery]
-  P --> F
-  O --> Q[Booking Information]
-  Q --> R[Booking Summary]
-  R --> S[Booking Submit]
+  K -->|Saved| L[Saved Design Summary]
+  L --> M[Workshop Recommendation]
+  L --> N[Edit Design]
+  L --> O[Archive Design]
+  L --> P[Feature-013 Consultation]
+  M --> Q[Explore All Workshops]
 ```
 
 ## 3. UI state requirements
@@ -78,8 +96,9 @@ flowchart TD
 | Save/Evaluate | `POST /api/v1/workshop-designs/{designId}/versions` or `/evaluate` | Send complete normalized configuration, `Idempotency-Key` and `If-Match-Version`; disable duplicate submission while pending. |
 | Evaluation result | Response from Save/Evaluate or `GET /api/v1/workshop-designs/{designId}` | Replace authoritative version and evaluation snapshot only after a successful response. |
 | Archive | `POST /api/v1/workshop-designs/{designId}/archive` | Confirm intent, send version header and preserve history in the UI. |
-| Branch transition | Booking-owned branch selection plus Feature-012 attach facade | Do not infer compatibility locally; show the recovery frame when backend returns branch incompatibility. |
-| Attach/retry | `POST /api/v1/workshop-designs/{designId}/attach-to-booking` or approved facade adapter | Reuse the same operation reference for a retry; never create payment or booking state in the feature client. |
+| Workshop discovery | Recommendation projection from the saved-design response | Show the advisory package CTA and exact reason text; keep the Explore Workshops action visible and never force the recommendation. |
+| Design consultation | Feature-013 consultation entry with a safe design snapshot | Open a new or existing consultation context with the selected design attached; do not expose internal design IDs or require a booking. |
+| Former booking attachment | Retired endpoint/facade | Do not render or call `attach-to-booking`; historical booking-attachment screens are not part of the current flow. |
 
 The exact request and response fields remain owned by
 `contracts/workshop-ring-design.openapi.yaml`. The UI must use an adapter to
