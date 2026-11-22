@@ -22,6 +22,20 @@ import { ProductStateBadge } from './ProductListPage';
  * Product detail of the management area. Every section sends its own command with the version shown here;
  * after a write (or a 409) the product is read again, while the inputs of the section keep what was typed.
  */
+/**
+ * T182 (FR-051, Q-B3): content, images, prices, review, publication and deletion are shared by every branch, so a Staff
+ * member may change them only for a product sold at one of their branches; a product not yet at any branch is not
+ * restricted. Same rule as the backend (CatalogueBranchScope.requireProduct), which still decides. Until the account's
+ * branches are known (or when they cannot be read) nothing is hidden.
+ */
+export function productOutOfScope(product, myBranches, isManager) {
+  if (isManager || !Array.isArray(myBranches)) return false;
+  const sold = product.branches || [];
+  if (sold.length === 0) return false;
+  const mine = new Set(myBranches.map(branch => String(branch.id)));
+  return !sold.some(branch => mine.has(String(branch.locationId)));
+}
+
 export default function ProductDetailPage() {
   const t = useT(messages);
   const format = useFormat();
@@ -34,6 +48,7 @@ export default function ProductDetailPage() {
   // red, and the mark goes away by itself as soon as the reloaded product has what was missing.
   const [checkMissing, setCheckMissing] = useState(false);
   const isManager = useRole() === 'MANAGER';
+  const branchList = useResource(() => api.listBranches(), []);
   const setCrumb = useOutletContext()?.setCrumb;
   const name = product.data?.name;
   useEffect(() => {
@@ -68,7 +83,8 @@ export default function ProductDetailPage() {
     const first = Object.keys(REQUIREMENT_SECTIONS).find(section => missingRequirements(data)[section]);
     if (first) document.getElementById(REQUIREMENT_SECTIONS[first])?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
   };
-  const context = { product: data, api, reload: product.reload, setNotice, deleted, missing, flagMissing };
+  const outOfScope = productOutOfScope(data, branchList.data, isManager);
+  const context = { product: data, api, reload: product.reload, setNotice, deleted, outOfScope, missing, flagMissing };
 
   return (
     <NoticeContext.Provider value={notice}>

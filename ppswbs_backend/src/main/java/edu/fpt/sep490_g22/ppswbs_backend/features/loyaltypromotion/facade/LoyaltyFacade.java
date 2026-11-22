@@ -10,7 +10,12 @@ public interface LoyaltyFacade {
     /** Read-only breakdown; holds no quota or points and writes nothing. */
     BenefitPreview previewBenefits(TrustedSourceContext context, BenefitSelection selection);
 
-    /** Re-checks terms, holds quota/points and stores the snapshot together with the source accept. */
+    /**
+     * Re-checks terms, holds quota/points and stores the snapshot together with the source accept. Idempotent by
+     * {@code (sourceKind, sourceRef)}: a repeat with the same terms digest and parts returns the stored snapshot, a
+     * different one is {@code IDEMPOTENCY_CONFLICT}. {@code sourceCommandKey} is not stored or compared (T124); it
+     * is kept so the callers of 003.1 and FE-08 do not change.
+     */
     AcceptedBenefitRef reserveAcceptedTransaction(AcceptedSourceContext context, BenefitSelection selection,
                                                   String sourceCommandKey);
 

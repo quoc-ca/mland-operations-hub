@@ -7,6 +7,7 @@ import { ErrorNotice, Loading, useCommand, useResource } from '../../../../share
 import { useRetailApi } from '../../application/useRetailApi';
 import { VoucherPicker } from '../checkout/VoucherPicker';
 import { ProductThumb } from '../ProductThumb';
+import { FlashToast } from '../FlashToast';
 import { bestVoucherCode as bestOf, savedProductVouchers, usePublicProductVouchers, useVoucherOptions, voucherCheckBase, withPublicVouchers } from '../checkout/voucherOptions';
 
 const MAX_QUANTITY = 99;
@@ -54,6 +55,7 @@ function CartContent() {
   const savedVoucherResource = useResource(() => api.listSavedVouchers(), []);
   const command = useCommand();
   const [notice, setNotice] = useState('');
+  const [skipToastOpen, setSkipToastOpen] = useState(true);
   // Per-line quantity problem shown under the quantity box; the reset counter puts the box back to the saved value.
   const [quantityErrors, setQuantityErrors] = useState({});
   const [quantityReset, setQuantityReset] = useState({});
@@ -245,7 +247,7 @@ function CartContent() {
   if (cart.error) return <ErrorNotice error={cart.error} onRetry={cart.reload} />;
   if (lines.length === 0) return (
     <section className="workspace-card empty-state">
-      {skippedByBuyAgain.length > 0 && <p className="notice warning cart-sp-skipped" role="status">Không thêm lại được {skippedByBuyAgain.join(', ')} vì hiện không đủ hàng hoặc đã ngừng bán.</p>}
+      <FlashToast message={skipToastOpen && skippedByBuyAgain.length ? { kind: 'warn', text: `Không thêm lại được ${skippedByBuyAgain.join(', ')} vì hiện không đủ hàng hoặc đã ngừng bán.` } : null} onDone={() => setSkipToastOpen(false)} />
       <p>Giỏ hàng chưa có sản phẩm.</p>
       <Link className="button primary" to="/products">Xem sản phẩm</Link>
     </section>
@@ -253,7 +255,7 @@ function CartContent() {
 
   return (
     <section className="cart-sp">
-      {skippedByBuyAgain.length > 0 && <p className="notice warning cart-sp-skipped" role="status">Không thêm lại được {skippedByBuyAgain.join(', ')} vì hiện không đủ hàng hoặc đã ngừng bán. Các sản phẩm còn lại đã được tích sẵn.</p>}
+      <FlashToast message={skipToastOpen && skippedByBuyAgain.length ? { kind: 'warn', text: `Không thêm lại được ${skippedByBuyAgain.join(', ')} vì hiện không đủ hàng hoặc đã ngừng bán. Các sản phẩm còn lại đã được tích sẵn.` } : null} onDone={() => setSkipToastOpen(false)} />
       <div className="cart-sp-header">
         <label className="cart-sp-check-label"><Checkbox checked={allSelected} indeterminate={!allSelected && selectedLines.length > 0} disabled={!selectableLines.length} onChange={toggleAll} label="Chọn tất cả sản phẩm" /><span>Sản phẩm</span></label>
         <span>Đơn giá</span><span>Số lượng</span><span>Số tiền</span><span>Thao tác</span>

@@ -29,6 +29,9 @@ describe('Manager: no review round for their own product', () => {
     await user.type(screen.getByLabelText('Tên sản phẩm'), 'Nhẫn bạc trơn');
     await user.click(screen.getByRole('button', { name: '12' }));
     expect(screen.getByRole('columnheader', { name: 'Giá bán (₫)' })).toBeInTheDocument();
+    // The box reads the same as its column for a screen reader.
+    expect(screen.getByRole('textbox', { name: 'Giá bán size 12' })).toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: 'Giá đề xuất size 12' })).toBeNull();
     await user.click(screen.getByRole('button', { name: 'Tạo và công khai' }));
 
     expect((await screen.findAllByText(/Cần ít nhất một ảnh/)).length).toBeGreaterThan(0);

@@ -1,4 +1,4 @@
--- V188: Add CARRIER role to accounts table and seed demo fixture
+-- V190 (renumbered from V188, which FE-08 already used): Add CARRIER role to accounts table and seed demo fixture
 -- Revision R-CAR (2026-11-20) approved by Tech Lead Phan Sơn
 
 ALTER TABLE accounts MODIFY COLUMN role ENUM('MEMBER', 'STAFF', 'MANAGER', 'CARRIER', 'ADMIN') NOT NULL DEFAULT 'MEMBER';

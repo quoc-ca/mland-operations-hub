@@ -9,7 +9,7 @@
 |5|MSG05|Error|Data cannot be loaded because of a temporary failure.|The data could not be loaded. Please try again.|
 |6|MSG06|Information|The catalogue search returns no product (UC-10).|No products match your criteria. Change or clear the filters.|
 |7|MSG07|Error|The catalogue search criteria are invalid, such as a keyword over 200 characters, a negative price, a minimum above the maximum or an unknown category (UC-10).|The search criteria are invalid: {reason}.|
-|8|MSG08|Error|A field fails validation when saving a product, category, program or point policy.|{Field} is invalid: {rule}.|
+|8|MSG08|Error|A field fails validation when saving a product, category, program or point policy, or when a management search value is invalid, such as a category name search over 200 characters (UC-18).|{Field} is invalid: {rule}.|
 |9|MSG09|Success|A draft product is created (UC-12).|Product {product code} was created as a draft with SKUs {SKU list}.|
 |10|MSG10|Success|Product content, images, branch stock, quantity, sale status or category changes are saved (UC-12, UC-18). Shown at the top of the page and under the button used.|{What was saved}, e.g. "Quantity of size {size} changed: {old} → {new}." / "Quantities of {n} sizes changed." / "Category "{name}" saved."|
 |11|MSG11|Error|An image breaks the type, size, count or alt-text rules (UC-12).|Images must be JPEG, PNG or WebP, at most 5,000,000 bytes each, up to 10 per product, with alt text of 1–200 characters.|
@@ -36,19 +36,19 @@
 |32|MSG32|Error|An import row is invalid (UC-13).|Row {row}, column {column}: value "{value}" is invalid. {reason}|
 |33|MSG33|Error|The import preview is out of date or older than 60 minutes when the actor confirms (UC-13).|The data has changed since the preview. Please validate the file again.|
 |34|MSG34|Success|The import is completed (UC-13).|{products} draft products were created: {product codes}.|
-|35|MSG35|Warning|The selected size is stopped from sale or not available at any branch (UC-10, UC-11).|This size is not available for purchase.|
-|36|MSG36|Error|The shared branch list is unavailable on the product detail page or the Quick add box (UC-10, UC-11).|The branch list is temporarily unavailable. Please try again.|
-|37|MSG37|Error|Add to cart is selected without a size or branch (UC-11).|Please select a size and a branch before adding to the cart.|
+|35|MSG35|Information|A size is stopped from sale or has no available quantity at the selected branch, or at any branch when none is selected; its cell is dimmed and cannot be selected (UC-10, UC-11).|Out of stock. / Stopped from sale.|
+|36|MSG36|Error|The shared branch list is unavailable on the product detail page or the Quick add box; Add to Cart and Buy Now are disabled until a retry succeeds (UC-10, UC-11).|The branch list is temporarily unavailable. Please try again.|
+|37|MSG37|Error|Add to Cart or Buy Now is selected without a size that can be bought, or without a branch; no request is sent (UC-10, UC-11).|Please select a size. / Please select a branch.|
 |38|MSG38|Success|A voucher or automatic discount is created (UC-45, UC-46).|Program {name} has been created [with code {voucher code}].|
 |39|MSG39|Error|A voucher code already exists after trimming and ignoring case (UC-46).|Voucher code {voucher code} already exists.|
-|40|MSG40|Error|The program scope is invalid (UC-45, UC-46).|The selected scope is invalid: {reason}.|
+|40|MSG40|Error|The program scope is invalid, including a workshop automatic discount without a package or with a branch, date or session (UC-45, UC-46).|The selected scope is invalid: {reason}.|
 |41|MSG41|Error|The Manager tries to change the code or scope of an existing program (UC-45, UC-46).|The code and scope cannot be changed after the program has been created.|
 |42|MSG42|Error|A total or per-Member limit is lower than the used plus held uses (UC-46).|The limit cannot be lower than {used} used plus {held} held uses.|
 |43|MSG43|Success|A program is edited, paused or resumed (UC-45, UC-46).|Program {name} has been {updated / paused / resumed}. Changes apply to new transactions only.|
 |44|MSG44|Warning|Products in a program's scope are hidden, stopped from sale or deleted, or a branch in a product voucher's scope is inactive (UC-45, UC-46).|Some products in this program's scope are hidden, stopped from sale or deleted.|
 |45|MSG45|Information|A Guest selects Save on a voucher (UC-47).|Sign in to save this voucher.|
-|46|MSG46|Success|A Member saves a voucher (UC-47).|The voucher has been saved to your Voucher Wallet.|
-|47|MSG47|Information|A saved voucher has no published product in scope, or its uses or the Member's uses are all used or held (UC-47).|No products currently apply. / No uses left. / You have reached your limit for this voucher.|
+|46|MSG46|Success|A Member saves a voucher (UC-47).|The voucher has been saved to My vouchers.|
+|47|MSG47|Information|A saved voucher has no published product in scope, or its uses or the Member's uses are all used or held; a public card or detail of a voucher whose uses are all used or held (UC-47).|No products currently apply. / Fully claimed. / You used all your uses.|
 |48|MSG48|Error|A voucher cannot be applied to the order or booking, for example the code does not exist, the scope or branch does not match, or the voucher is expired, paused or fully used (UC-48).|This voucher cannot be used: {reason}.|
 |49|MSG49|Error|The Member tries to use points with a voucher that does not allow them (UC-44).|This voucher cannot be combined with loyalty points.|
 |50|MSG50|Error|The number of points is outside the allowed range (UC-44).|You can use from {minimum} to {maximum} points for this transaction.|
@@ -59,3 +59,7 @@
 |55|MSG55|Success|An item is added to the cart from the Quick add box on the product list (UC-10).|"{product name}" was added to your cart. View cart|
 |56|MSG56|Warning|A new product, or a product in an import file, has the same name as an existing product (UC-12, UC-13). Saving or importing is still allowed.|{count} product(s) already have this name: {links}. / {count} product(s) in the file have the name of an existing product. Check them before confirming (the import is still allowed).|
 |57|MSG57|Success / Error|Images are saved, or not saved, for the products just imported (UC-13).|Images saved for {count} products. / Images of {count} products were not saved; see the error on each product and save again.|
+|58|MSG58|Information|A signed-in Staff, Manager or Admin views the Save option of a voucher; only Members have My vouchers (UC-47).|Only members can save vouchers.|
+|59|MSG59|Information|The size conversion chart dialog has no size chart image (UC-10, UC-11).|No size chart image yet.|
+|60|MSG60|Information|The product has no public customer review; five empty stars are shown and no score (UC-11).|No reviews yet|
+|61|MSG61|Information|No category matches the status filter or name search in Category Management (UC-18).|No category matches the filter.|

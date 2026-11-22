@@ -92,4 +92,21 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select p from Product p where p.id in :ids order by p.id")
     List<Product> lockAllByIdIn(@Param("ids") Collection<Long> ids);
+
+    /** 006 sample programmes (PromotionSeedCataloguePort): products not deleted in the category of this name. */
+    @Query("""
+            select p.id from Product p, ProductCategory c
+            where c.id = p.categoryId and c.name = :categoryName and p.deletedAt is null
+            order by p.id""")
+    List<Long> findLiveIdsByCategoryName(@Param("categoryName") String categoryName);
+
+    /** 006 sample programmes: products not deleted with this name. */
+    @Query("select p.id from Product p where p.name = :name and p.deletedAt is null order by p.id")
+    List<Long> findLiveIdsByName(@Param("name") String name);
+
+    /** 006 sample programmes: published products not deleted in the category of this name. */
+    @Query("""
+            select count(p) from Product p, ProductCategory c
+            where c.id = p.categoryId and c.name = :categoryName and p.deletedAt is null and p.published = true""")
+    long countPublishedByCategoryName(@Param("categoryName") String categoryName);
 }

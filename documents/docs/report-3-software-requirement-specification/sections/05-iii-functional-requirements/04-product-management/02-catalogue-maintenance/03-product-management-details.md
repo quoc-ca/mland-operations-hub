@@ -2,18 +2,27 @@
 
 ![](assets/screens/49-product-management-details.png)
 
-This screen allows authorized catalogue maintainers to:
+This screen allows Staff and Managers to:
 
-- Maintain permitted product fields, images and configured variants under the shared limits.
-- Update nonnegative remaining-unsold quantity without reducing it below active held quantity or changing used variant options.
-- Apply an unchanged Manager-approved price through a separate authorized action.
-- Publish or unpublish explicitly after applicable checks; zero quantity alone does not block publication.
-- Receive a rejection for stale edits or changes breaking published prerequisites, while preserving accepted history and valid holds.
+- View the product's publication state, category, first publication time and version.
+- Edit the content (name, category, description) and images.
+- Review each size's SKU, quantity at the selected branch, total across branches, held quantity and applied price.
+- Update quantities per size or for several sizes at once, stop or resume sales of a size or at a branch, and assign further branches.
+- Propose prices, submit them for review and apply approved prices (see Price Proposal Form).
+- Submit a never-published product for initial review, publish or hide it, or delete it.
+
+Staff outside the product's branches see a read-only view.
 
 | Field Name | Description |
 | --- | --- |
-| Record code / product or proposal | Read-only stable target references; product identity and price-proposal identity must remain distinguishable. |
-| Applied price | Shows the currently effective Manager-approved price, separately from the proposed amount. |
-| State | Displays publication/proposal facts; an illustrative held label must not create a separate parent-product hold lifecycle. |
-| Create / Propose / Save Draft / Send for Review | Enable only actions appropriate to the current screen and authority; proposal submission does not apply or publish a price. |
-| Approval notice | Explains that Manager review, authorized price application and publication are separate actions. |
+| Status summary (Trạng thái) | Read-only publication state, category, first publication time and content version. |
+| Content (Nội dung) | Product name, category and description; **Sửa** opens inline editing with **Lưu** / **Hủy**. |
+| Images (Ảnh) | Current images; **Sửa** opens the image editor. |
+| Branch tabs | Select the branch whose quantities are shown and changed; "Ngừng bán tại chi nhánh này" stops sales at that branch. |
+| Sizes and quantities (Size và số lượng) | Per size: SKU, quantity at the branch with **Sửa**, total across branches, held quantity, applied price and sale state with **Ngừng bán size** / **Mở bán lại**. Quantity cannot fall below the held quantity. |
+| Sửa số lượng nhiều size | Bulk quantity editor that adds to or sets the quantity of several sizes. |
+| Price proposals (Đề xuất giá) | Per-size price history and proposal actions, described in Price Proposal Form. |
+| Initial review (Duyệt hồ sơ ban đầu) | For a never-published product: **Gửi duyệt** locks the submitted content for Manager review; the Manager approves or rejects the whole file. |
+| Publication (Công khai) | **Công khai sản phẩm** / **Ẩn sản phẩm**; a size cannot be sold until an approved price has been applied. |
+| Delete (Xóa sản phẩm) | Requires confirmation and cannot be undone. |
+| Về danh sách | Returns to Product Management List. |

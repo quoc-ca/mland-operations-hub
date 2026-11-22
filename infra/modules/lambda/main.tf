@@ -118,6 +118,24 @@ resource "aws_lambda_function" "control_api" {
 }
 
 # Mở cổng HTTPS endpoint qua Lambda Function URL có kiểm soát nguồn CORS
+# Lambda Function URLs created through the API require both permissions.
+# The second permission is restricted to requests that arrive via this URL.
+resource "aws_lambda_permission" "public_function_url" {
+  statement_id           = "AllowPublicFunctionUrl"
+  action                 = "lambda:InvokeFunctionUrl"
+  function_name          = aws_lambda_function.control_api.function_name
+  principal              = "*"
+  function_url_auth_type = "NONE"
+}
+
+resource "aws_lambda_permission" "public_function_url_invoke" {
+  statement_id             = "AllowPublicFunctionUrlInvoke"
+  action                   = "lambda:InvokeFunction"
+  function_name            = aws_lambda_function.control_api.function_name
+  principal                = "*"
+  invoked_via_function_url = true
+}
+
 resource "aws_lambda_function_url" "control_api_url" {
   function_name      = aws_lambda_function.control_api.function_name
   authorization_type = "NONE"

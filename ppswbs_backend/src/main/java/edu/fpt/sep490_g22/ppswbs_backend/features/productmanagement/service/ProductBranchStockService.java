@@ -240,7 +240,7 @@ public class ProductBranchStockService {
                 CatalogueCommandExecutor.digest(request));
         return executor.execute(key, () -> {
             scope.requireBranches(List.of(location));
-            scope.requireActiveBranch(location);
+            scope.requireQuantityEditableBranch(location);
             Long productId = variants.findProductIdById(id)
                     .orElseThrow(() -> new CatalogueException(CatalogueErrorCode.VARIANT_NOT_FOUND));
             var locked = locks.lockProduct(productId);
@@ -287,6 +287,8 @@ public class ProductBranchStockService {
             throw new CatalogueException(CatalogueErrorCode.BRANCH_REQUIRED);
         }
         scope.requireBranches(List.of(rows.getFirst().getLocationId()));
+        // T180: same rule as the per-branch command (FR-050, Session 2026-11-20).
+        scope.requireQuantityEditableBranch(rows.getFirst().getLocationId());
         rows.getFirst().setRemainingUnsold(newTotal);
         stocks.saveAndFlush(rows.getFirst());
         return true;

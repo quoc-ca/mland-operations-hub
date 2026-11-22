@@ -38,16 +38,20 @@ This use case includes the following sub-flows:
 **Quick Add to Cart**
 
 1. The actor selects the cart button on a product card.
-2. The system opens a Quick add box on the list with the same choices as UC-11: a size on sale, a branch that sells that size and has it available, and a quantity.
-3. The actor selects the size, branch and quantity and confirms.
+2. The system opens a Quick add box on the list with the same buy panel and rules as UC-11 View Product Details: the size grid, the branch list, the quantity selector with the available quantity, and the Add to Cart and Buy Now buttons. The price of the selected size is shown under the size grid.
+3. The actor selects a size, a branch and a quantity, in any order, and selects Add to Cart.
 4. The system passes the size variant, branch and quantity to UC-52 Add Product to Cart.
-5. On success, the system closes the box and shows that the item was added, with a link to the cart (MSG55); the actor stays on the list.
+5. On success, the system closes the box and shows that the item was added, with a link to the cart (MSG55); the actor stays on the list. If the actor selects Buy Now instead, the item is added in the same way and the checkout opens as in UC-11.
 
 #### Alternative Flows
 
 **Step 2 — Catalogue retrieval fails**
 
 The system displays a load error with a retry option (MSG05). It does not present the failure as an empty catalogue.
+
+**Step 2 — The list of active branches cannot be read**
+
+The catalogue still loads. Branches that have stock rows on sale are treated as active when availability and Purchasable only are calculated, so a branch that has just been deactivated may still be counted; the cart and checkout check again.
 
 **Step 4 — Invalid or unsupported criteria**
 
@@ -79,11 +83,15 @@ The system sends the Guest to sign in and then returns to the product detail pag
 
 **Quick Add Step 2 — Branch source is unavailable**
 
-The system disables adding and offers a retry (MSG36).
+The system disables Add to Cart and Buy Now and offers a retry (MSG36).
 
-**Quick Add Step 2 — No size can be bought**
+**Quick Add Step 3 — Size cannot be bought**
 
-A stopped size or a product that cannot be bought at any branch cannot be added (MSG35).
+A size that is stopped from sale, or has no available quantity at the selected branch (or at any branch when no branch is selected), is dimmed and cannot be selected (MSG35). A product that cannot be bought at any branch cannot be added.
+
+**Quick Add Step 3 — Size or branch not selected**
+
+The system asks the actor to select a size or a branch (MSG37) and sends no request.
 
 **Quick Add Step 4 — The cart rejects the item**
 
@@ -92,13 +100,13 @@ The system shows the message returned by the cart use case and keeps the box ope
 #### Postconditions
 
 - The actor sees matching public products, or an empty or error state with recovery guidance.
-- Drafts, review records, proposed prices, approved-but-unapplied prices and hold data are not exposed.
+- Drafts, review records, proposed prices, approved-but-unapplied prices, quantities before holds and held quantities are not exposed.
 - Browsing creates no cart, order, payment, hold, voucher or point transaction; Quick add only hands the item to the cart use case.
 - A price shown on a card is for viewing only; the amount paid is calculated again at checkout.
 
 #### Business Rules
 
-BR-10-01, BR-10-02, BR-10-03, BR-10-04, BR-10-05, BR-10-06, BR-10-07
+BR-10-01, BR-10-02, BR-10-03, BR-10-04, BR-10-05, BR-10-06, BR-10-07, BR-10-08
 
 #### Business Rule Definitions
 
@@ -109,5 +117,6 @@ BR-10-01, BR-10-02, BR-10-03, BR-10-04, BR-10-05, BR-10-06, BR-10-07
 | BR-10-03 | A product is purchasable when at least one size can be bought at one or more branches: the size is on sale and on sale at that branch, the branch is active, the available quantity there is above 0 and all publication conditions are met. A combined price and purchasable filter must be satisfied by the same size. |
 | BR-10-04 | The default sort is name A–Z then product identity; price sorts use the lowest price among the sizes that are displayed or match the filters; newest uses the creation time, not price changes or republishing. |
 | BR-10-05 | Results are paged at 20 products per page and the current keyword and filters are kept while paging or sorting. |
-| BR-10-06 | Browsing creates no cart, order, payment, hold, voucher or point record and never exposes internal review or pricing data, internal quantities, held quantities or branches where sale is stopped. |
-| BR-10-07 | Quick add uses the same size, branch and quantity rules and the same cart request as UC-11; the product card is shared with other pages, such as the home page, and shows promotion prices only for viewing. |
+| BR-10-06 | Browsing creates no cart, order, payment, hold, voucher or point record and never exposes internal review or pricing data, quantities before holds, held quantities or branches where sale is stopped. Only the available quantity is returned, for display only. |
+| BR-10-07 | Quick add uses the same buy panel, size, branch and quantity rules and the same cart request as UC-11; the product card is shared with other pages, such as the home page, and shows promotion prices only for viewing. |
+| BR-10-08 | If the list of active branches cannot be read, public reads do not fail: branches with stock rows on sale are treated as active, and the cart and checkout recheck availability. |

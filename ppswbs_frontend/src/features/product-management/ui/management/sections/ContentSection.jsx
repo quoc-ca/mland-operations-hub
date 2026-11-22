@@ -8,7 +8,7 @@ import { MissingNote, sectionClass, useProductCommand } from '../ProductDetailPa
 import { NoticeAt } from '../notices';
 
 /** T050: name, description and category only (PUT products/{id}); sizes and SKUs stay read-only. */
-export function ContentSection({ product, api, reload, setNotice, deleted, missing = {} }) {
+export function ContentSection({ product, api, reload, setNotice, deleted, outOfScope = false, missing = {} }) {
   const t = useT(messages);
   const categories = useResource(() => api.listAllCategories(), []);
   const initial = () => ({ name: product.name, description: product.description || '', categoryId: product.category?.id || '' });
@@ -42,7 +42,7 @@ export function ContentSection({ product, api, reload, setNotice, deleted, missi
     <section className={sectionClass(missing.content)} aria-labelledby="content-title">
       <div className="card-head">
         <h2 id="content-title">{t('section.content')}</h2>
-        {!editing && !deleted && <button type="button" className="button outline" onClick={() => setEditing(true)}>{t('edit')}</button>}
+        {!editing && !deleted && !outOfScope && <button type="button" className="button outline" onClick={() => setEditing(true)}>{t('edit')}</button>}
       </div>
       <MissingNote messageKey={missing.content} />
       {!editing ? (

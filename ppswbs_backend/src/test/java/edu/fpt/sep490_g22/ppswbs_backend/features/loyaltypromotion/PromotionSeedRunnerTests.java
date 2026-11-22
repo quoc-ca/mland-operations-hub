@@ -42,14 +42,11 @@ class PromotionSeedRunnerTests {
             if ("PRODUCT".equals(program.path("scope").asText())) {
                 targets.putArray("productIds").add("1");
             }
-            if (program.path("seedTargets").has("branchCodes")) {
+            if (program.path("seedTargets").has("branchNames")) {
                 targets.putArray("branchIds").add("1");
-            }
-            if (program.path("seedTargets").path("publishedPackages").asBoolean(false)) {
-                targets.putArray("packageIds").add("1");
             }
             assertThatCode(() -> PromotionWriteDtos.parseCreate(body)).as(identity).doesNotThrowAnyException();
         }
-        assertThat(count).isEqualTo(11);
+        assertThat(count).isEqualTo(10);
     }
 }

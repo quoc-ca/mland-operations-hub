@@ -31,7 +31,7 @@ As an authorized catalogue maintainer, I want to apply an approved price to a si
 
 **Step 1 — Several sizes at once**
 
-The actor selects Apply approved prices of N sizes. The system applies each size as its own action; a size that fails does not affect the others.
+The actor selects Apply approved prices of N sizes. The system applies each size as its own action; a size that fails does not affect the others; partial results are reported (MSG54).
 
 **Step 1 — Applied right after approval**
 

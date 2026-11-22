@@ -356,13 +356,15 @@ export default function MainTopbar() {
                               >
                                 <span>🛍️</span> Quản trị Sản phẩm
                               </Link>
-                              <Link
-                                to="/promotion-management/programs"
-                                className="main-topbar-dropdown-item"
-                                role="menuitem"
-                              >
-                                <span>🏷️</span> Quản lý Ưu đãi
-                              </Link>
+                              {userRole === 'MANAGER' && (
+                                <Link
+                                  to="/promotion-management/programs"
+                                  className="main-topbar-dropdown-item"
+                                  role="menuitem"
+                                >
+                                  <span>🏷️</span> Quản lý Ưu đãi
+                                </Link>
+                              )}
                               {userRole === 'MANAGER' && (
                                 <Link
                                   to="/manager/retail-payment-reconciliations"

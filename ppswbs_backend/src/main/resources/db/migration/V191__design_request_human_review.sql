@@ -1,4 +1,4 @@
--- Flyway Migration V188: Design Request and Human Review (Feature 004 Re-architecture)
+-- Flyway Migration V191 (renumbered from V188, which FE-08 already used): Design Request and Human Review (Feature 004 Re-architecture)
 -- Replaces AI analysis with human review by Staff/Manager and supports up to 5 images with blur filtering
 
 ALTER TABLE design_requests
@@ -26,7 +26,9 @@ CREATE TABLE IF NOT EXISTS design_request_images (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_dri_design_request FOREIGN KEY (design_request_id) REFERENCES design_requests(id) ON DELETE CASCADE,
     INDEX idx_dri_request (design_request_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+-- No explicit charset/collation: design_request_id must use the same collation as design_requests.id (V62, database
+-- default), otherwise MySQL refuses the foreign key with error 3780.
+) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS guest_design_request_quota (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,

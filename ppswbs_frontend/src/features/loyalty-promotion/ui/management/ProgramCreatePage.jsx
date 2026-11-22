@@ -40,7 +40,7 @@ const emptyForm = () => ({
 /**
  * T030 create: fields follow kind and scope (an automatic discount always allows points and, for workshops, is
  * targeted by packages only — Session 2026-11-14, FR-044; only a voucher has a code and limits). Product targets are picked from 002's product list (whole product or single sizes);
- * workshop targets are still entered as IDs because 003 offers no picker read yet. Errors keep every value; success
+ * workshop targets are picked from 003's package, branch and session reads (WorkshopTargetPicker). Errors keep every value; success
  * opens the created programme. The voucher code is generated (never typed); if the backend reports it as already
  * issued, a new code is drawn and the request sent again, at most MAX_CODE_DRAWS times. The window starts filled in
  * uses a 24-hour time, and each time is repeated in words under its field.

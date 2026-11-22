@@ -46,15 +46,17 @@ public class LoyaltyPartLifecycleService {
     private final PointLedgerRepository ledger;
     private final LoyaltyLockCoordinator locks;
     private final LoyaltyAuditService audit;
+    private final VoucherValidity validity;
 
     public LoyaltyPartLifecycleService(BenefitEffectSupport effects, BenefitPartSupport partSupport,
                                        PointLedgerRepository ledger, LoyaltyLockCoordinator locks,
-                                       LoyaltyAuditService audit) {
+                                       LoyaltyAuditService audit, VoucherValidity validity) {
         this.effects = effects;
         this.partSupport = partSupport;
         this.ledger = ledger;
         this.locks = locks;
         this.audit = audit;
+        this.validity = validity;
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
@@ -171,14 +173,15 @@ public class LoyaltyPartLifecycleService {
      * A ticket validly cancelled (>= 24 h before its first session) or cancelled by Mland: the ticket's used points
      * come back (held → released, consumed → restored in the original amount) and its earn closes. The group's voucher
      * use comes back once: on a Mland cancellation at once, on a valid cancellation when every ticket ended by a valid
-     * or Mland cancellation.
+     * or Mland cancellation; in both cases only while the voucher is still valid at that decision (FR-035, T118).
      */
     @Transactional(propagation = Propagation.MANDATORY)
     public BenefitResult cancelTicket(AuthoritativeOutcome outcome) {
         boolean mland = outcome.outcome() == OutcomeKind.WORKSHOP_TICKET_MLAND_CANCELLATION;
         require(outcome, mland || outcome.outcome() == OutcomeKind.WORKSHOP_TICKET_VALID_CANCELLATION,
                 "This outcome does not cancel a ticket.");
-        return cancelTicket(outcome, effects.lockFor(outcome), true);
+        BenefitEffectSupport.Locked locked = effects.lockFor(outcome);
+        return cancelTicket(outcome, locked, !validity.consumedAndEnded(locked.benefit(), outcome.decisionAt()));
     }
 
     /** The group voucher states around one Mland ticket cancellation (006 T110). */

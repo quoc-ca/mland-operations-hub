@@ -2,7 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { RequireSession } from '../../../../shared/auth/RequireSession';
 import { useFormat } from '../../../../shared/i18n/I18nProvider';
-import { ErrorNotice, Loading, SuccessNotice, useCommand, useResource } from '../../../../shared/ui/components';
+import { ErrorNotice, Loading, useCommand, useResource } from '../../../../shared/ui/components';
+import { FlashToast } from '../FlashToast';
 import { useRetailApi } from '../../application/useRetailApi';
 import { cardToggleProps, displayTime, orderCode, OrderMoneyRows } from '../orderCode';
 import { ProductThumb } from '../ProductThumb';
@@ -200,7 +201,7 @@ function OrdersContent() {
   return <section className="order-tabs-page">
     <div className="order-tabs" role="tablist" aria-label="Trạng thái đơn mua">{TABS.map(item => <button key={item.key} type="button" role="tab" aria-selected={tab === item.key} className={tab === item.key ? 'active' : ''} onClick={() => setTab(item.key)}>{item.label}{item.key !== 'ALL' && counts[item.key] ? <span className="order-tab-count">{counts[item.key]}</span> : null}</button>)}</div>
     <input className="order-search" value={search} onChange={event => setSearch(event.target.value)} placeholder="Tìm theo mã đơn (ML…) hoặc tên sản phẩm" aria-label="Tìm đơn mua" />
-    {notice && (notice.kind === 'success' ? <SuccessNotice>{notice.text}</SuccessNotice> : <p className={`order-hint order-arrival${notice.kind === 'warn' ? ' warn' : ''}`} role="status">{notice.text}</p>)}
+    <FlashToast message={notice} onDone={() => setNotice(null)} />
     {action.error && <ErrorNotice error={action.error} onRetry={action.retry} onReload={orders.reload} />}
     {visible.length === 0 && <div className="order-empty"><p>{values.length ? 'Chưa có đơn hàng nào ở mục này.' : 'Bạn chưa có đơn mua nào.'}</p>{!values.length && <Link className="button primary" to="/products">Mua sắm ngay</Link>}</div>}
     {visible.map(order => {

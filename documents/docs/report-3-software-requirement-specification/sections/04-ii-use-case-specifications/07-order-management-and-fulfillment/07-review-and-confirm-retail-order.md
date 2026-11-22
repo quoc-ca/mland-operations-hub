@@ -30,7 +30,7 @@ As an authorized shop actor, I want to review a verified paid retail order and b
 
 1. The actor opens a retail order within authorized processing scope.
 2. The system rechecks current action/branch authority and retrieves payment/hold/frozen purchase facts.
-3. The actor reviews the verified paid order in the Đang chuẩn bị hàng tab, its selected method and necessary recipient data.
+3. The actor reviews the verified paid order in the Đơn hàng cần chuẩn bị tab, its selected method and necessary recipient data.
 4. The actor submits confirmation to begin preparation.
 5. The system rechecks current account/delegation, verified paid state, selected valid method/data and current order state.
 6. The system records the paid-to-preparing transition and freezes Member method/recipient editing.

@@ -6,7 +6,7 @@ Manager.
 
 #### Secondary Actors
 
-AI Chatbox Analysis and Suggestion, which may provide an advisory price suggestion.
+AI Chatbox Analysis and Suggestion, which may provide an advisory price suggestion; Account Management, which supplies the names of submitters and deciders.
 
 #### Description
 
@@ -23,7 +23,7 @@ As a Manager, I want to review pending products and price proposals and accept, 
 
 1. The Manager opens the list of pending reviews and proposals. In the product list, a product whose review is Pending shows a Review to approve link instead of a one-click publish button.
 2. The Manager selects a pending item. On the product detail page, the Initial review section is shown to a Manager only while a review submitted by Staff is Pending, or when the review was Rejected (with its reason).
-3. The system displays the submitted product content, images and the proposed price of each size, and any AI price suggestion marked as advisory.
+3. The system displays the submitted product content, images and the proposed price of each size, and any AI price suggestion marked as advisory. For each price proposal version (including in the table for several sizes) and each review version, current and past, it shows the submitter and submission time, the submitter's branches at submission (UC-14), and the Manager who decided and the decision time once decided. A Draft that was never submitted shows no submitter.
 4. For each size, the Manager accepts the proposed price or enters an adjusted final price as a positive whole VND amount; one shared final price can be filled in for the selected sizes.
 5. The Manager confirms the decision.
 6. The system checks that the item is still pending and is the current version.
@@ -45,11 +45,15 @@ The product list shows a View reason link. The Initial review section shows the 
 
 **Step 2 — Several pending sizes decided together**
 
-After the first publication, the Manager can approve or reject several pending price proposals at once; a rejection uses one shared reason. Each size is still its own decision; a size that fails does not affect the others.
+After the first publication, the Manager can approve or reject several pending price proposals at once; a rejection uses one shared reason. Each size is still its own decision; a size that fails does not affect the others; partial results are reported (MSG54).
 
 **Step 4 — Manager reviews own submission**
 
 The Manager may approve or reject their own product or proposal. When a Manager creates a product or uses Publish now, the screen sends the approval with the entered prices itself (UC-12, UC-17); it is still a separate, audited decision.
+
+**Step 3 — A person's name cannot be read**
+
+If the account has no full name, cannot be read or no longer exists, the system shows "Account #{id}" and still shows the rest of the page. A system actor, such as seed data, is shown as "System".
 
 **Step 3 — No AI suggestion is available**
 
@@ -79,7 +83,7 @@ The system records no partial decision (MSG04); a retry does not create a second
 
 #### Business Rules
 
-BR-15-01, BR-15-02, BR-15-03, BR-15-04, BR-15-05
+BR-15-01, BR-15-02, BR-15-03, BR-15-04, BR-15-05, BR-15-06
 
 #### Business Rule Definitions
 
@@ -90,3 +94,4 @@ BR-15-01, BR-15-02, BR-15-03, BR-15-04, BR-15-05
 | BR-15-03 | AI price suggestions are advisory only; their absence does not block a valid manual decision. |
 | BR-15-04 | Each decision records the Manager, time, version and inputs; approval does not apply the price or publish the product. The Manager may choose to apply the approved price right after the decision, which is a separate apply action under UC-16. |
 | BR-15-05 | A review submitted by Staff that is Pending is never approved by a one-click publish action; the Manager reviews it in the Initial review section, where each size price can be changed or the review rejected. |
+| BR-15-06 | The submitter, submitter's branches at submission and decider are shown for information only and do not change permissions or approval and apply conditions. Names are read from Account Management at the time of reading (full name only, otherwise "Account #{id}"); no email, sign-in identifier or token is shown, and these fields are never returned by public reads. Staff and Manager with internal read access see the same information. |

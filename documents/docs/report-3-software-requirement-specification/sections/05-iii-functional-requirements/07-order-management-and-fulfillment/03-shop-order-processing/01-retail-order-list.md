@@ -4,7 +4,7 @@
 
 This screen allows authorized Staff to:
 
-- Browse retail orders within Staff's assigned branches in the tabs Chờ thu tiền mặt, Đang chuẩn bị hàng, Chờ khách nhận, Chờ ĐVVC lấy hàng, Đã bàn giao ĐVVC and Hoàn thành.
+- Browse retail orders within Staff's assigned branches in the tabs Đơn hàng cần chuẩn bị, Chờ ĐVVC lấy hàng, Đã bàn giao ĐVVC, Chờ thu tiền mặt, Chờ khách nhận and Hoàn thành; the page opens at the first tab, left to right, that has orders.
 - See the number of open tasks, Tiền mặt đã thu hôm nay and cash orders whose hold ends in under 24 hours.
 - Search by order code, tracking number or recipient name.
 - Open an order's details and Retail Order Operations.

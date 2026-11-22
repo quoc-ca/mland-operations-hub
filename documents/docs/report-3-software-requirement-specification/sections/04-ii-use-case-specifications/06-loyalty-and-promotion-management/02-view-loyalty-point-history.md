@@ -23,7 +23,6 @@ This use case allows a Member to review the history of their loyalty points. Eac
 1. The Member opens the point history from My Loyalty.
 2. The system loads the Member's own point entries, newest first.
 3. The system displays each entry's type (earned, used, released or refunded), the points changed, the time and the linked order or booking reference.
-4. The Member may open the linked order or booking.
 
 #### Alternative Flows
 

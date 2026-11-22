@@ -16,7 +16,7 @@ import { SubmitterInfo } from './SubmitterInfo';
  * a Manager approves the whole file (an amount for every size, adjustable) or rejects it with a reason — never a
  * part of it. Approval applies and publishes nothing. Cancel never calls the API.
  */
-export function ReviewSection({ product, api, reload, setNotice, deleted, missing = {}, flagMissing = () => {} }) {
+export function ReviewSection({ product, api, reload, setNotice, deleted, outOfScope = false, missing = {}, flagMissing = () => {} }) {
   const t = useT(messages);
   const review = currentReview(product);
   const isManager = useRole() === 'MANAGER'; // only a Manager decides (FR-002); a Staff member would get 403
@@ -44,9 +44,12 @@ export function ReviewSection({ product, api, reload, setNotice, deleted, missin
       {review && <SubmitterInfo item={review} />}
       {review?.state === 'REJECTED' && review.reason && <p className="notice error pre-line">{t('review.rejectedBecause', { reason: review.reason })}</p>}
       {review?.state === 'APPROVED' && <p className="notice success">{t(approvedRows(product).length ? 'review.approvedNext' : 'review.approvedPublishNext')}</p>}
-      {review?.state === 'APPROVED' && !deleted && <ApplyApproved product={product} api={api} reload={reload} setNotice={setNotice} />}
+      {review?.state === 'APPROVED' && !deleted && !outOfScope && <ApplyApproved product={product} api={api} reload={reload} setNotice={setNotice} />}
 
-      {!deleted && review?.state !== 'PENDING' && review?.state !== 'APPROVED' && (
+      {/* US2 scenario 4: a rejected review is resubmitted as a new version, so something must change first; the backend
+          refuses to send the rejected one again (REVIEW_NOT_CURRENT). Any edit opens a new draft with the button. */}
+      {!deleted && !outOfScope && review?.state === 'REJECTED' && <p className="muted small">{t('review.editToResubmit')}</p>}
+      {!deleted && !outOfScope && review?.state !== 'PENDING' && review?.state !== 'APPROVED' && review?.state !== 'REJECTED' && (
         <>
           <p className="muted small">{t('review.prerequisites')}</p>
           {missingList.length > 0 && (

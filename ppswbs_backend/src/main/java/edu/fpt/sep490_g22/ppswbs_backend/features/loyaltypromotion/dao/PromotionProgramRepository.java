@@ -22,6 +22,13 @@ public interface PromotionProgramRepository extends JpaRepository<PromotionProgr
 
     boolean existsByCodeKey(String codeKey);
 
+    /** Sample programmes (PromotionSeedRunner): an automatic discount whose current revision has this name. */
+    @Query("""
+            select count(p) > 0 from PromotionProgram p, PromotionRevision r
+            where r.id = p.currentRevisionId and r.name = :name
+              and p.kind = edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.entity.ProgramKind.AUTO_DISCOUNT""")
+    boolean existsAutoDiscountNamed(@Param("name") String name);
+
     /** The id only: loading the entity here would put a stale, unlocked copy in the persistence context. */
     @Query("select p.id from PromotionProgram p where p.codeKey = :codeKey")
     Optional<Long> findIdByCodeKey(@Param("codeKey") String codeKey);

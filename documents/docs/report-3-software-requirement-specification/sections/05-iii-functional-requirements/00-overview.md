@@ -2,7 +2,7 @@
 
 This section specifies the 78 screen-flow entries, grouped by feature and subfeature. Each screen includes its supplied layout, screen-specific actions and a component/field table, in that order. Shared screens are documented once; role-specific authorization still applies on every access and submission.
 
-**Layout evidence.** Images are unchanged PNG exports from the stakeholder-supplied archive *mland-operation-hub (2).zip*, associated with the [Figma design](https://www.figma.com/design/m5Cyk5rit6lKaX3TPprSow/mland-operation-hub?node-id=0-1). Illustrative names, amounts, dates, counts, branches and statuses are not production data, default values or approved policies. The action lists describe required business behavior; the component tables describe the supplied layouts. Reused mockups may not yet show every required control.
+**Layout evidence.** Images are unchanged PNG exports from the stakeholder-supplied archive *mland-operation-hub (2).zip*, associated with the [Figma design](https://www.figma.com/design/m5Cyk5rit6lKaX3TPprSow/mland-operation-hub?node-id=0-1). Illustrative names, amounts, dates, counts, branches and statuses are not production data, default values or approved policies. The action lists describe required business behavior; the component tables describe the supplied layouts. Reused mockups may not yet show every required control. Exception: the Product Management, Catalogue Price Approval and Loyalty and Promotion Management screens (screens 10, 11, 31, 32, 47–50, 66–69 and 86–92) are 1440×900 captures of the running application on development data instead of mockups.
 
 **Shared field and interaction rules**
 
