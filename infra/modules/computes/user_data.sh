@@ -94,6 +94,13 @@ with open(target, "w", encoding="utf-8") as stream:
 PY_ENV
 chmod 0600 "${REPO_DIR}/.env"
 
+if [ -f "/opt/mland-staging-runtime/firebase-service-account.json" ]; then
+    echo "Copying Firebase service account credentials..."
+    cp -f "/opt/mland-staging-runtime/firebase-service-account.json" "${REPO_DIR}/ppswbs_backend/firebase-service-account.json"
+    cp -f "/opt/mland-staging-runtime/firebase-service-account.json" "${REPO_DIR}/firebase-service-account.json"
+    chmod 0600 "${REPO_DIR}/ppswbs_backend/firebase-service-account.json"
+fi
+
 echo "Building and starting the MySQL and backend containers..."
 docker compose up -d --build db backend
 echo "[$(date -u +'%Y-%m-%dT%H:%M:%SZ')] STAGING DEPLOY COMPLETE"

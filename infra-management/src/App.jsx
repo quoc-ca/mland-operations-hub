@@ -95,7 +95,10 @@ function StagingPage({ onNotice, currentUser }) {
   const [isStopping, setIsStopping] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
   const [isDeploying, setIsDeploying] = useState(false)
+  const [firebaseFileName, setFirebaseFileName] = useState(() => localStorage.getItem('infra-firebase-filename') || '')
+  const [firebaseConfigContent, setFirebaseConfigContent] = useState(() => localStorage.getItem('infra-firebase-content') || '')
   const fileInputRef = useRef(null)
+  const firebaseInputRef = useRef(null)
 
   const controlApiUrl = (import.meta.env.VITE_CONTROL_API_URL || '').replace(/\/$/, '')
 
@@ -123,6 +126,41 @@ function StagingPage({ onNotice, currentUser }) {
     }
     reader.readAsText(file)
     event.target.value = ''
+  }
+
+  const handleFirebaseUpload = (event) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const text = e.target?.result
+      if (typeof text === 'string') {
+        try {
+          JSON.parse(text)
+          setFirebaseConfigContent(text)
+          setFirebaseFileName(file.name)
+          localStorage.setItem('infra-firebase-filename', file.name)
+          localStorage.setItem('infra-firebase-content', text)
+          onNotice(`Đã đính kèm file cấu hình Firebase: "${file.name}"`)
+        } catch {
+          onNotice(`File "${file.name}" không phải là định dạng JSON hợp lệ. Vui lòng kiểm tra lại.`)
+        }
+      }
+    }
+    reader.onerror = () => {
+      onNotice(`Không thể đọc file "${file.name}". Vui lòng thử lại.`)
+    }
+    reader.readAsText(file)
+    event.target.value = ''
+  }
+
+  const handleRemoveFirebase = () => {
+    setFirebaseConfigContent('')
+    setFirebaseFileName('')
+    localStorage.removeItem('infra-firebase-filename')
+    localStorage.removeItem('infra-firebase-content')
+    onNotice('Đã gỡ file cấu hình Firebase.')
   }
 
   const validCount = envRows.filter((r) => r.key.trim()).length
@@ -165,12 +203,24 @@ function StagingPage({ onNotice, currentUser }) {
         const displayState = ({ PENDING: 'STARTING', STOPPING: 'STOPPING', 'SHUTTING-DOWN': 'STOPPING', STOPPED: 'STOPPED', TERMINATED: 'STOPPED' })[normalized] || normalized
         setServerStatus(displayState)
         setServerIp(data.publicIp || '')
-        setHealthChecks((current) => [
-          { name: 'EC2 instance', ready: normalized === 'RUNNING', detail: `AWS state: ${normalized}` },
-          { name: 'SSM agent', ready: data.ssmStatus === 'Online', detail: `Connection: ${data.ssmStatus || 'unknown'}` },
-          ...current.filter((item) => item.name === 'MySQL' || item.name === 'Backend container')
-        ])
-        setLastOperation((current) => current?.name === 'Start'
+        
+        if (normalized === 'STOPPED') {
+          setHealthChecks([
+            { name: 'Control API', ready: true, detail: 'API connected' },
+            { name: 'EC2 instance', ready: false, detail: 'AWS state: STOPPED' },
+            { name: 'SSM agent', ready: false, detail: 'Connection: offline' },
+            { name: 'MySQL', ready: false, detail: 'Instance stopped' },
+            { name: 'Backend container', ready: false, detail: 'Instance stopped' }
+          ])
+        } else {
+          setHealthChecks((current) => [
+            { name: 'EC2 instance', ready: normalized === 'RUNNING', detail: `AWS state: ${normalized}` },
+            { name: 'SSM agent', ready: data.ssmStatus === 'Online', detail: `Connection: ${data.ssmStatus || 'unknown'}` },
+            ...current.filter((item) => item.name === 'MySQL' || item.name === 'Backend container')
+          ])
+        }
+
+        setLastOperation((current) => (current?.name === 'Start' || current?.name === 'Stop')
           ? { ...current, status: displayState }
           : current)
       } catch (error) {
@@ -314,7 +364,8 @@ function StagingPage({ onNotice, currentUser }) {
         body: JSON.stringify({
           owner: currentUser,
           branch: gitBranch,
-          env: envPayload
+          env: envPayload,
+          firebaseConfig: firebaseConfigContent || undefined
         })
       })
       const data = await response.json().catch(() => ({}))
@@ -565,6 +616,45 @@ function StagingPage({ onNotice, currentUser }) {
                   placeholder="develop"
                   spellCheck={false}
                 />
+              </div>
+            </div>
+
+            <div className="form-section branch-section">
+              <input
+                ref={firebaseInputRef}
+                type="file"
+                accept=".json,application/json"
+                style={{ display: 'none' }}
+                onChange={handleFirebaseUpload}
+              />
+              <div className="form-section-title">
+                <div>
+                  <h3>Firebase Service Account (JSON)</h3>
+                  <p className="muted">Đính kèm file cấu hình credentials Firebase Admin (tùy chọn).</p>
+                </div>
+                <div className="env-actions-group">
+                  <button
+                    type="button"
+                    className="import-button"
+                    onClick={() => firebaseInputRef.current?.click()}
+                    title="Upload file JSON Firebase"
+                  >
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="17 8 12 3 7 8" />
+                      <line x1="12" y1="3" x2="12" y2="15" />
+                    </svg>
+                    <span>{firebaseFileName ? 'Đổi file JSON' : 'Upload JSON'}</span>
+                  </button>
+                  {firebaseFileName && (
+                    <button type="button" className="text-button text-muted-action" onClick={handleRemoveFirebase}>Gỡ bỏ</button>
+                  )}
+                </div>
+              </div>
+              <div className="branch-input-row" style={{ padding: '8px 12px', background: firebaseFileName ? '#f0fdf4' : '#fafafa', borderColor: firebaseFileName ? '#86efac' : '#cfd6df' }}>
+                <span style={{ fontSize: '12px', color: firebaseFileName ? '#15803d' : 'var(--dim)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  {firebaseFileName ? `✓ Đã đính kèm: ${firebaseFileName}` : 'Chưa có file (Backend sẽ dùng mock credentials nếu không đính kèm)'}
+                </span>
               </div>
             </div>
             <div className="form-section">

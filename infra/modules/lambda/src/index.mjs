@@ -141,13 +141,30 @@ export const handler = async (event) => {
         }
       }
 
+      const firebaseConfig = typeof body.firebaseConfig === "string" ? body.firebaseConfig.trim() : "";
+      if (firebaseConfig) {
+        try {
+          JSON.parse(firebaseConfig);
+        } catch {
+          return jsonResponse(400, { error: "Invalid firebaseConfig: must be a valid JSON string" });
+        }
+      }
+
       const encodedEnv = Buffer.from(JSON.stringify(runtimeEnv)).toString("base64");
       const commands = [
         "install -d -o ubuntu -g ubuntu -m 0750 /opt/mland-staging /opt/mland-staging-runtime",
         `printf '%s' '${encodedEnv}' | base64 -d > /opt/mland-staging-runtime/runtime-env.json`,
-        "chown ubuntu:ubuntu /opt/mland-staging-runtime/runtime-env.json && chmod 600 /opt/mland-staging-runtime/runtime-env.json",
-        `sudo -H -u ubuntu -- /opt/mland-staging-deploy.sh '${branch}'`
+        "chown ubuntu:ubuntu /opt/mland-staging-runtime/runtime-env.json && chmod 600 /opt/mland-staging-runtime/runtime-env.json"
       ];
+
+      if (firebaseConfig) {
+        const encodedFirebase = Buffer.from(firebaseConfig).toString("base64");
+        commands.push(`printf '%s' '${encodedFirebase}' | base64 -d > /opt/mland-staging-runtime/firebase-service-account.json`);
+        commands.push("chown ubuntu:ubuntu /opt/mland-staging-runtime/firebase-service-account.json && chmod 600 /opt/mland-staging-runtime/firebase-service-account.json");
+        commands.push("mkdir -p /opt/mland-staging/ppswbs_backend && cp -f /opt/mland-staging-runtime/firebase-service-account.json /opt/mland-staging/ppswbs_backend/firebase-service-account.json && cp -f /opt/mland-staging-runtime/firebase-service-account.json /opt/mland-staging/firebase-service-account.json && chown -R ubuntu:ubuntu /opt/mland-staging/ppswbs_backend/firebase-service-account.json 2>/dev/null || true");
+      }
+
+      commands.push(`sudo -H -u ubuntu -- /opt/mland-staging-deploy.sh '${branch}'`);
 
       const sent = await sendSsm(new SendCommandCommand({
         InstanceIds: [instanceId],
