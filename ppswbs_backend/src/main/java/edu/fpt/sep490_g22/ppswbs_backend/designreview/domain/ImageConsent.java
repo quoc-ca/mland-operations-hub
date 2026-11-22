@@ -18,7 +18,7 @@ public class ImageConsent {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "actor_account_id", nullable = false)
+    @Column(name = "actor_account_id")
     private Long actorAccountId;
 
     @Column(name = "design_request_id", length = 36)

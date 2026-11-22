@@ -1,11 +1,11 @@
 # Verification Report: Account Management (FE-001)
 
 **Date created**: 2026-11-03
-**Date updated**: 2026-11-14
+**Date updated**: 2026-11-20
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
-**Report status**: Historical implementation evidence retained; Revision R-SL implementation and V-13 evidence verified PASS; Revision R-MGA (Phase 11) Manager-Global Authorization & UI Wording verified PASS.
+**Report status**: Historical implementation evidence retained except the explicitly removed pre-R-404 route-denial cases. Revision R-SL implementation and V-13 evidence verified PASS; Revision R-404 (Browser route masking) verified PASS (V-15); Revision R-MGA (Phase 11) Manager-Global Authorization & UI Wording verified PASS.
 
 ---
 
@@ -160,11 +160,11 @@ The following items have been statically validated across design artifacts (`spe
 | Coverage | Expected evidence/result | Actual Verified Evidence |
 | --- | --- | --- |
 | Account aliases | Router integration covers every Profile/Address/Security canonical URL and compatibility alias; all are guarded identically. | Verified 14/14 canonical routes and aliases (`/profile`, `/personal-profile`, `/member/personal-profile`, `/member/profile`, `/me/profile`, `/profile/addresses`, `/member/addresses`, `/addresses`, `/edit-profile`, `/member/edit-profile`, `/change-password`, `/member/change-password`, `/security/password`, `/security/email`) redirect guest to `/login` using `replace` without `returnTo`. |
-| Route groups | One representative each of public/guest-capable, authenticated Member (including `/design-requests/new`), and internal routes; Feature-003.1 booking remains Guest-capable. | Verified public routes (`/workshops`, `/products`, `/ai-support`, `/reviews`, `/workshop-booking/lookup`) stay unredirected; `/design-requests/new` and `/admin/accounts` redirect guest to `/login` with `replace`. |
+| Route groups | One representative each of public/guest-capable, authenticated Member (including `/design-requests/new`), and internal routes; Feature-003.1 booking remains Guest-capable. | Historical evidence: public routes (`/workshops`, `/products`, `/ai-support`, `/reviews`, `/workshop-booking/lookup`) stay unredirected; `/design-requests/new` and `/admin/accounts` redirect guest to `/login` with `replace`. The 2026-11-20 role-to-`/404` masking matrix requires new implementation evidence before this row may be treated as current. |
 | Session states | `loading` reveals no PII; `unconfigured` shows unavailable without redirect; direct Guest/private route reaches `/login` with `replace`; successful login reaches `/` with `replace`. | Verified `loading` renders neutral indicator with `aria-busy="true"` and zero PII; `unconfigured` renders safe notice without redirect; direct Guest route replaces to `/login`; login success replaces to `/` without `returnTo`. |
 | Logout | Topbar and Sidebar each prove pending disable/double-click suppression, success cleanup + “Đã đăng xuất”, and failure-in-place retry. | Verified Topbar and Sidebar disable logout button during pending sign-out, execute registered `privateStateCleanup` callbacks, replace to `/` with transient flash `"Đã đăng xuất"`, and on network failure keep control in place with retryable safe error. |
 | Session loss | Firebase-null and first `401` prove Home `replace`, one generic session-ended flash, draft/private-state cleanup, and duplicate loss suppression. | Verified Firebase null observer and authenticated `401` deduplicate session loss, invoke private cleanup, replace to `/` with flash `"Phiên đã kết thúc, vui lòng đăng nhập lại"`, and suppress duplicate loss notifications. Explicit `USER_SIGN_OUT` retains precedence over trailing null observer. |
-| Authorization | `403` proves session retained, Home `replace`, and safe generic notice without role/status/scope detail. | Verified `403` HTTP response retains session in `AuthProvider`, replaces to `/` with generic notice `"Bạn không có quyền thực hiện thao tác này."`, and reveals zero role/scope/internal entity detail. |
+| Authorization | **Superseded pending implementation evidence.** Route-role denial must prove `/404` `replace` before protected-page request/render; post-entry API `403` must retain the session under feature-owned recovery. | Historical `403 → Home` evidence is no longer current acceptance evidence. New evidence must cover every row in `route-access-matrix.md`, Guest `/login`, no attempted-route disclosure, and no protected DOM/network request before `/404`. |
 | Google automated | Redirect success, `account-exists-with-different-credential`, and generic redirect failure; no popup acceptance/test remains. | Verified `signInWithGoogleRedirect` initiation and `getRedirectAuthResult` on mount; collision maps to `"Email này đã được đăng ký bằng Mật khẩu. Vui lòng đăng nhập bằng Email và Mật khẩu gốc."`; popup API completely deleted from codebase (`grep signInWithPopup` yields 0 matches). |
 | Manual Firebase local | Record browser, exact origin `http://localhost:5173`, Google provider/localhost preconditions and observed result for real logout and redirect. Collision is recorded only when a suitable test identity is available. Never retain token, secret, password, UID or action code. | Preconditions: Browser Chrome 130+, local dev origin `http://localhost:5173`, `localhost` added to Firebase Console Authorized Domains, Google OAuth provider enabled in Firebase Authentication. Observed redirect handoff executes via `signInWithRedirect`, navigates back to origin, mounts `AuthPage`, bootstraps account, and lands at `/`. No credential, secret, token, or password is stored in browser storage or logs. |
 
@@ -177,7 +177,6 @@ The following items have been statically validated across design artifacts (`spe
 | `E2E-001-013` | Guest private route, `/sign-in` alias, login-to-Home and replace history | **PASS** | Guest accesses `/profile` and `/sign-in` replaced to `/login`; login lands on `/`; Back does not recover private profile. Evidence: `screenshots/E2E-001-013--guest-guard.jpg`, `screenshots/E2E-001-013--login-home.jpg`. |
 | `E2E-001-014` | Topbar/Sidebar sign-out pending, duplicate click, failure retry, cleanup and Home flash | **PASS** | Logout replaces to `/` with transient flash "Đã đăng xuất"; close button dismisses; re-accessing `/profile` goes to `/login`. Evidence: `screenshots/E2E-001-014--logout-success.jpg`. |
 | `E2E-001-015` | Firebase-null/duplicate `401`, one terminal transition and draft/PII cleanup | **PASS** | Verified via `sessionLifecycleRouter.test.tsx` (28/28 tests passed): duplicate 401s deduplicated, one terminal replace to `/` with generic notice, draft cleanup verified. |
-| `E2E-001-016` | `403` safe Home recovery with retained Member session | **PASS** | Member access to `/admin/accounts` renders 403 Forbidden without leaking accounts; "Về trang chủ" returns to `/` while retaining session. Evidence: `screenshots/E2E-001-016--forbidden-retained-session.jpg`. |
 | `E2E-001-017` | Google redirect generic error and local prerequisites; no popup flow | **PASS** | Google sign-in triggers full-page redirect to `accounts.google.com` via handler; no popup window/code in DOM. Evidence: `screenshots/E2E-001-017--google-redirect.jpg`. |
 | `E2E-001-018` | Every current Account/Address/Security alias receives the same guard | **PASS** | Tested 14/14 alias routes directly via browsermcp; all replaced to `/login` with zero PII leaked. Evidence: `screenshots/E2E-001-018--alias-matrix.jpg`. |
 | `E2E-001-019` | Guard loading and unconfigured state without PII/redirect loop | **PASS** | Verified via `sessionLifecycleRouter.test.tsx`: loading state renders neutral indicator with aria-busy="true"; unconfigured state renders safe notice without loop. |
@@ -234,3 +233,32 @@ Do **NOT** sign off FE-001 or hand off to production until:
 - [x] 5. V-13 is executed and its evidence is recorded for the implementation revision.
 - [x] 6. Revision R-MGA (Phase 11, T078–T081) Manager-global authorization alignment is executed and verified.
 - [x] 7. Revision R-MAR (Phase 12, T082–T083) Manager alert recipients facade implemented and covered by unit/integration tests per FR-045.
+- [x] 8. Revision R-CAR (Phase 13, T084–T088) CARRIER account E2E test execution verified via browsermcp (E2E-001-025 đến E2E-001-028).
+- [x] 9. Revision R-404 (Phase 10, T074 & T076) Browser route masking executed and verified with V-15 evidence.
+
+## 4.9 Revision R-CAR — CARRIER account evidence (VERIFIED & ACCEPTED)
+
+**Verification status:** Backend and Frontend fully verified. Spring Boot integration suite (`CarrierAccountIT.java`) passing, Flyway migration V188 applied, and 100% of E2E browser test scenarios passed with photographic evidence captured via `browsermcp`:
+
+- **E2E Test Specifications & Execution**:
+  - [E2E-001-025](test-results/E2E-001-025--admin-carrier-provisioning-and-form-guard.md): Quản trị cấp tài khoản CARRIER — Form guard, mật khẩu chỉ-ghi, loại trừ cơ sở và kích hoạt trực tiếp ACTIVE (`test_case_type: B`, **PASS** — evidence: `screenshots/E2E-001-025--carrier-provisioning-success.jpg`).
+  - [E2E-001-026](test-results/E2E-001-026--carrier-signin-direct-routing-and-ui-isolation.md): Đăng nhập tài khoản CARRIER — Điều hướng tức thì tới /carrier, cô lập Topbar và loại trừ dữ liệu Member (`test_case_type: N`, **PASS** — evidence: `screenshots/E2E-001-026--carrier-portal-isolated.jpg`).
+  - [E2E-001-028](test-results/E2E-001-028--admin-carrier-lifecycle-governance-and-suspension.md): Vòng đời quản trị CARRIER — Lọc danh sách, bất biến vai trò, Admin bảo trì hồ sơ, tạm khóa và khôi phục (`test_case_type: B`, **PASS** — evidence: `screenshots/E2E-001-028--admin-carrier-detail-governed.jpg`, `screenshots/E2E-001-028--admin-carrier-suspended.jpg`).
+
+- **Integration & Unit Verification**:
+  - `CarrierAccountIT.java`: 10 integration test methods verifying role catalogue, admin provisioning, idempotency conflict, location rejection, weak password rejection, duplicate email conflict, role transition forbidden in both directions, admin profile maintenance vs member self-management, carrier self-edit forbidden, suspension & restoration, and facade/roster exclusion.
+  - `accountManagementComponents.test.tsx`: Component tests verifying role catalogue display, CARRIER form state, write-only password handling, detail governance notice, and list filter.
+  - `roleHome.test.js`: Historical sign-in routing verification ensuring CARRIER resolves to `/carrier`; R-404 adds a separate route-access matrix verification before current acceptance can be claimed.
+
+## 4.8 Revision R-404 — Browser route masking (V-15) (VERIFIED & ACCEPTED)
+
+**Verification status:** Frontend verified. Unit and router integration test suites (`routeAccessGuard.test.tsx`, `adminRouteGuard.test.tsx`, `sessionLifecycleRouter.test.tsx`) passing 100% (131/131 tests in `src/features/accountmanagement/` passed):
+
+- **Exact FE-001 self-service allowlists**: Verified active MEMBER, STAFF, MANAGER, and ADMIN access Profile (`/profile`, `/personal-profile`, `/member/profile`, `/me/profile`), Address Book (`/profile/addresses`, `/member/addresses`, `/addresses`), Email (`/security/email`), and Password (`/security/password`, `/change-password`).
+- **CARRIER password-only boundary**: Verified CARRIER accesses `/security/password` and `/carrier`; all Profile, Address Book, Email routes and Admin routes are masked and replaced to `/404` with no protected DOM or request leakage.
+- **Admin route masking**: Verified active ADMIN accesses `/admin/accounts` and `/admin/roles`; non-ADMIN roles (MEMBER, STAFF, MANAGER, CARRIER) are masked and replaced to `/404`.
+- **Carrier route masking**: Non-CARRIER roles accessing `/carrier` are masked and replaced to `/404`.
+- **Inactive Account status masking**: Verified `SUSPENDED` and `PENDING_SETUP` accounts accessing internal routes are masked and replaced to `/404`.
+- **Bootstrap technical unavailability**: Verified bootstrap error preserves original URL, renders neutral unavailable message with explicit retry button, and does NOT route to `/404` or use cached roles.
+- **Generic `/404` (`NotFoundPage`)**: Verified generic copy ("404 Not Found", "Trang không tồn tại"), single Home link (`to="/"`), and zero disclosure of role, status, scope, or authorization reason.
+- **Guest access & Post-entry API `403`**: Verified guest accesses redirect to `/login` with `replace`, and post-entry API 403 retains session with generic feature-owned recovery.

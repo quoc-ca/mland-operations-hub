@@ -43,16 +43,20 @@ This use case includes the following sub-flows:
 1. The system receives a confirmed valid cancellation of a workshop booking before completion.
 2. If the benefits were only held, the system releases them as above.
 3. If points were deducted, the system returns exactly the same number of points, even if the point value has changed, linked to the original deduction.
-4. If a voucher use was finalized, the system returns one use to the Member and one to the program, even if no points were used. An expired or paused voucher is not extended or reactivated.
+4. If a voucher use was finalized, the system returns one use to the Member and one to the program, even if no points were used, but only if the voucher has not expired at the time the cancellation is decided. If it has expired, the use stays counted as used, while the points used are still returned in full. An expired or paused voucher is not extended or reactivated.
 5. The program's used count and total discount no longer include the cancelled booking; history is kept.
 
 **Refund Benefits of a Workshop Ticket**
 
 1. The system receives a confirmed result for one ticket of a multi-ticket booking: a valid cancellation (at least 24 hours before the first session) or a cancellation by Mland.
 2. The system returns exactly the points used by that ticket, linked to the original deduction; other tickets are not affected.
-3. The system returns the group's voucher use once: as soon as any ticket is cancelled by Mland, or when every ticket has ended in a valid cancellation or a cancellation by Mland.
+3. The system returns the group's voucher use once: as soon as any ticket is cancelled by Mland, or when every ticket has ended in a valid cancellation or a cancellation by Mland. As for a whole booking, the use is returned only if the voucher has not expired at the time the cancellation is decided.
 
 #### Alternative Flows
+
+**Any step — Guest workshop booking**
+
+A Guest booking that received a workshop automatic discount is released or cancelled in the same way, but it has no points or voucher use to return.
 
 **Any step — Result received again or previously only partly completed**
 
@@ -88,7 +92,7 @@ BR-50-01, BR-50-02, BR-50-03, BR-50-04, BR-50-05
 | ID | Rule Definition |
 |---|---|
 | BR-50-01 | Expiry, or cancellation of a retail order before payment, without accepted payment releases held points and voucher uses exactly once, without recording them as used. |
-| BR-50-02 | A confirmed valid workshop cancellation before completion refunds exactly the points deducted and one voucher use to the Member and the program; it does not convert points to money or extend vouchers. |
+| BR-50-02 | A confirmed valid workshop cancellation before completion, or a cancellation by Mland, refunds exactly the points deducted and, only if the voucher has not expired when the cancellation is decided, one voucher use to the Member and the program; held benefits are always released. It does not convert points to money or extend or reactivate vouchers. |
 | BR-50-03 | Release and refund results are tracked per benefit so that retries complete only the missing part and never return a benefit twice. |
 | BR-50-04 | No-shows, unconfirmed or invalid cancellations and completed transactions return no benefits; the outcome is decided only by the confirmed result from the owning feature. |
-| BR-50-05 | For a split retail checkout or a multi-ticket booking, points are released or refunded per branch order or per ticket. The voucher use returns once: for a checkout, when every branch order with a share of the discount ends unpaid; for a booking, when any ticket is cancelled by Mland or every ticket ends in a valid or Mland cancellation. |
+| BR-50-05 | For a split retail checkout or a multi-ticket booking, points are released or refunded per branch order or per ticket. The voucher use returns once: for a checkout, when every branch order with a share of the discount ends unpaid; for a booking, when any ticket is cancelled by Mland or every ticket ends in a valid or Mland cancellation, under the validity condition of BR-50-02. |

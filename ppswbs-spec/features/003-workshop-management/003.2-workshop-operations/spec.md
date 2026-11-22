@@ -2356,3 +2356,7 @@ row above; T115 implements it and the contract test keeps the code in the closed
 
 Workshop checkout/bills, payment collection, refund, customer self-service
 changes, OTA callbacks and ticket delivery to individual participants.
+
+# Route masking synchronization (2026-11-20)
+
+FE-003.2 owns exact browser-route allowlists, not an inferred `/operations` prefix: `/operations/sessions*`, `/operations/packages`, `/workshop-packages`, and `/operations/package-add-ons` allow `STAFF` and `MANAGER`; `/operations/admin`, `/operations/locations`, `/operations/slots`, `/operations/package-availability`, `/operations/late-payments`, and `/operations/audit` allow `MANAGER` only. A signed-in actor outside the stated set is replaced to `/404` before page request/render. Staff location/session assignment checks and each Manager-authorized action remain server-side.

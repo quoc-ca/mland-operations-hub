@@ -91,6 +91,7 @@ export const AdminAccountDetailPage: React.FC = () => {
   }
 
   const isAdminAccount = selectedAccount.role === 'ADMIN';
+  const isCarrier = selectedAccount.role === 'CARRIER';
   const isSuspended = selectedAccount.status === 'SUSPENDED';
   const isPendingSetup = selectedAccount.status === 'PENDING_SETUP';
   const isRevocationPending = selectedAccount.revocationStatus === 'PENDING';
@@ -293,9 +294,11 @@ export const AdminAccountDetailPage: React.FC = () => {
               <td>{selectedAccount.status}</td>
             </tr>
             <tr>
-              <th>{selectedAccount.role === 'MANAGER' ? 'Cơ sở phân công tổ chức:' : 'Cơ sở phân công:'}</th>
+              <th>{isCarrier ? 'Cơ sở phân công:' : selectedAccount.role === 'MANAGER' ? 'Cơ sở phân công tổ chức:' : 'Cơ sở phân công:'}</th>
               <td>
-                {selectedAccount.locationAssignments && selectedAccount.locationAssignments.filter(l => l.active).length > 0 ? (
+                {isCarrier ? (
+                  <span style={{ color: '#6b717f' }}>Không áp dụng (Đối tác giao vận toàn quốc)</span>
+                ) : selectedAccount.locationAssignments && selectedAccount.locationAssignments.filter(l => l.active).length > 0 ? (
                   <div>
                     <span>
                       {selectedAccount.locationAssignments
@@ -346,7 +349,7 @@ export const AdminAccountDetailPage: React.FC = () => {
 
         {/* Action Controls for Status / Resend */}
         <div style={{ marginTop: '1.25rem', display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-          {isPendingSetup && (
+          {isPendingSetup && !isCarrier && (
             <button
               type="button"
               className="account-btn account-btn-secondary account-btn-sm"
@@ -559,6 +562,18 @@ export const AdminAccountDetailPage: React.FC = () => {
               </button>
             </div>
           </form>
+        </section>
+      )}
+
+      {/* Carrier Role Governance Notice (FR-011, FR-012, FR-017) */}
+      {isCarrier && (
+        <section className="account-card" aria-labelledby="carrier-governance-heading">
+          <h2 id="carrier-governance-heading" className="account-card-title">Phạm vi & Phân quyền đối tác</h2>
+          <div className="account-alert account-alert-info">
+            <span>
+              Vai trò Đối tác vận chuyển (GHTK) là vai trò cố định: không áp dụng phân công cơ sở làm việc và không hỗ trợ chuyển đổi vai trò (FR-011, FR-012). Quản trị viên chỉ có thể cập nhật tên hiển thị, số điện thoại liên hệ hoặc tạm khóa/khôi phục tài khoản.
+            </span>
+          </div>
         </section>
       )}
 

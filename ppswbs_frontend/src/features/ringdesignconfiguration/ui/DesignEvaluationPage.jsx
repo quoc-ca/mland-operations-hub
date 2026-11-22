@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router';
 import { useWorkshopRingDesignApi } from '../api/useWorkshopRingDesignApi';
 import { useWorkshopDesignCommand } from '../application/useWorkshopDesignCommand';
 import { useAuth } from '../../../shared/auth/AuthProvider';
+import { useLanguage } from '../../../shared/i18n/I18nProvider';
 import RingPreview from './RingPreview';
 import { derivePreviewModel, getDifficultyMeta } from '../domain/designPreview';
 import { getErrorMessage } from '../domain/designErrors';
@@ -23,6 +24,7 @@ export default function DesignEvaluationPage() {
   const { loading: archiving, error: archiveError, executeArchive } = useWorkshopDesignCommand(isAuthenticated);
 
   useEffect(() => {
+    if (status === 'loading') return;
     async function load() {
       setLoading(true);
       setFetchError(null);
@@ -36,18 +38,19 @@ export default function DesignEvaluationPage() {
       }
     }
     load();
-  }, [api, designId, isAuthenticated]);
+  }, [api, designId, isAuthenticated, status]);
 
   const previewModel = useMemo(() => {
     if (!design?.componentSnapshot) return derivePreviewModel(null);
     return derivePreviewModel(design.componentSnapshot);
   }, [design]);
 
-  const lang = 'vi';
+  const { language } = useLanguage();
+  const lang = language === 'en' ? 'en' : 'vi';
   const t = messages[lang];
 
   const handleArchive = async () => {
-    if (!window.confirm('Bạn có chắc chắn muốn lưu trữ mẫu thiết kế này không?')) return;
+    if (!window.confirm(lang === 'en' ? 'Are you sure you want to archive this design?' : 'Bạn có chắc chắn muốn lưu trữ mẫu thiết kế này không?')) return;
     try {
       const res = await executeArchive(designId, design.designVersion);
       setDesign(res);
@@ -57,8 +60,7 @@ export default function DesignEvaluationPage() {
   };
 
   const handleProceedBooking = () => {
-    // Navigate to Workshop booking flow with package and design context
-    navigate(`/workshops/booking?packageReference=${encodeURIComponent(packageReference)}&designId=${encodeURIComponent(designId)}`);
+    navigate('/workshops');
   };
 
   if (loading) {
@@ -288,26 +290,81 @@ export default function DesignEvaluationPage() {
                     : t.none}
                 </span>
               </div>
-              <div className="ring-summary-item">
+              <div className="ring-summary-item" data-testid="eval-engraving-items">
                 <span className="ring-summary-label">{t.engravingSummary}</span>
-                <span className="ring-summary-value">
-                  {previewModel.engravingText ? `"${previewModel.engravingText}"` : t.none}
+                <div className="ring-summary-value">
+                  {previewModel.engravingItems && previewModel.engravingItems.length > 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                      {previewModel.engravingItems.map((item, idx) => (
+                        <div key={item.id || idx} style={{ fontSize: '0.85rem' }} data-testid={`eval-engraving-item-${idx}`}>
+                          <span style={{
+                            display: 'inline-block',
+                            fontSize: '0.7rem',
+                            padding: '1px 5px',
+                            borderRadius: '4px',
+                            background: '#e0e7ff',
+                            color: '#3730a3',
+                            marginRight: '0.35rem',
+                            fontWeight: 600
+                          }}>
+                            {lang === 'en' ? `Pos #${idx + 1}` : `Vị trí #${idx + 1}`}
+                          </span>
+                          <strong>"{item.content}"</strong>
+                          <span style={{ color: '#64748b', fontSize: '0.75rem', marginLeft: '0.35rem' }}>
+                            ({item.placement === 'OUTER_BAND' ? (lang === 'en' ? 'Outer band' : 'Mặt ngoài') : (lang === 'en' ? 'Inner band' : 'Mặt trong')})
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : previewModel.engravingText ? (
+                    `"${previewModel.engravingText}"`
+                  ) : (
+                    t.none
+                  )}
                   {previewModel.standardEngravingCost > 0 && (
-                    <span style={{ fontSize: '0.8rem', color: '#0369a1', display: 'block', fontWeight: 500 }}>
+                    <span style={{ fontSize: '0.8rem', color: '#0369a1', display: 'block', fontWeight: 500, marginTop: '0.25rem' }}>
                       (+80.000 đ)
                     </span>
                   )}
-                </span>
+                </div>
               </div>
               {previewModel.customImages?.length > 0 && (
                 <div className="ring-summary-item" data-testid="eval-custom-images">
-                  <span className="ring-summary-label">Ảnh khắc laser</span>
-                  <span className="ring-summary-value">
-                    {previewModel.customImages.length} ảnh
-                    <span style={{ fontSize: '0.8rem', color: '#0369a1', display: 'block', fontWeight: 500 }}>
-                      (+{(previewModel.customImages.length * 100000).toLocaleString('vi-VN')} đ)
+                  <span className="ring-summary-label">{lang === 'en' ? 'Laser images' : 'Ảnh khắc laser'}</span>
+                  <div className="ring-summary-value">
+                    <span>
+                      {previewModel.customImages.length} {lang === 'en' ? 'image(s)' : 'ảnh'}
+                      <span style={{ fontSize: '0.8rem', color: '#0369a1', display: 'block', fontWeight: 500 }}>
+                        (+{(previewModel.customImages.length * 100000).toLocaleString('vi-VN')} đ)
+                      </span>
                     </span>
-                  </span>
+                    <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
+                      {previewModel.customImages.map((img, idx) => {
+                        const imgUrl = img.previewDataUrl || img.processedPreviewReference || img.imageReference || img.imageUrl;
+                        return (
+                          <div key={img.id || idx} style={{ border: '1px solid #cbd5e1', borderRadius: '4px', padding: '4px', background: '#f8fafc', textAlign: 'center' }}>
+                            {imgUrl ? (
+                              <img
+                                src={imgUrl}
+                                alt={`Laser ${idx + 1}`}
+                                style={{ width: '56px', height: '56px', objectFit: 'contain', imageRendering: 'pixelated', display: 'block', margin: '0 auto' }}
+                              />
+                            ) : (
+                              <div style={{ width: '56px', height: '56px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', color: '#ef4444' }}>
+                                {lang === 'en' ? 'Image error' : 'Lỗi ảnh'}
+                              </div>
+                            )}
+                            <div style={{ fontSize: '0.65rem', color: '#64748b', marginTop: '2px' }}>
+                              C:{img.contrast ?? 50} S:{img.sharpness ?? 50}
+                            </div>
+                            <div style={{ fontSize: '0.65rem', color: '#94a3b8' }}>
+                              {img.placement === 'OUTER_BAND' ? (lang === 'en' ? 'Outer' : 'Ngoài') : (lang === 'en' ? 'Inner' : 'Trong')}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -319,16 +376,14 @@ export default function DesignEvaluationPage() {
           <RingPreview previewModel={previewModel} readOnly={true} />
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1rem' }}>
-            {design?.status !== 'ARCHIVED' && design?.status !== 'LOCKED' && (
-              <button
-                type="button"
-                className="ring-btn-primary"
-                onClick={handleProceedBooking}
-                data-testid="proceed-booking-btn"
-              >
-                {t.proceedToBooking}
-              </button>
-            )}
+            <button
+              type="button"
+              className="ring-btn-primary"
+              onClick={handleProceedBooking}
+              data-testid="proceed-booking-btn"
+            >
+              {t.proceedToBooking}
+            </button>
 
             {design?.status !== 'LOCKED' && design?.status !== 'ARCHIVED' && (
               <button

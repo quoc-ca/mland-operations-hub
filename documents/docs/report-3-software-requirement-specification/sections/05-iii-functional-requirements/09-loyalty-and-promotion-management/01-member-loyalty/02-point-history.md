@@ -2,16 +2,18 @@
 
 ![](assets/screens/32-point-history.png)
 
-This screen allows Members to:
+Point history is the **Lịch sử điểm** section of the My Loyalty page. It allows Members to:
 
-- Review the Member's own recorded point-event history.
-- View event dates, descriptions, signed point changes and balances.
-- Distinguish posted point movements from pending checkout reservations.
+- Review their own point transactions, newest first.
+- See each transaction's type and source order or workshop booking.
+- Distinguish balance changes from changes to held points.
+- Load further transactions.
 
 | Field Name | Description |
 | --- | --- |
-| Available points | Read-only spendable balance for the current Member; sample balance is not a configured entitlement. |
-| Membership tier | Illustrative tier display. |
-| Transaction count | Read-only count of the Member's recorded point events, not a fixed quota. |
-| Date / description | Read-only point-event time and business description; no mockup date defines an earning trigger. |
-| Change / balance | Signed integer point movement and resulting balance; policy versions govern eligibility and conversion. |
+| Time (Thời gian) | Date and time the transaction was recorded. |
+| Type (Loại) | Tích điểm (earned), Giữ điểm (held), Dùng điểm (spent), Trả điểm giữ (hold released) or Hoàn điểm (refunded). |
+| Source (Nguồn) | The order (Đơn hàng #ref) or workshop booking (Workshop #ref) that caused the transaction. |
+| Balance change (Số dư) | Signed change to the point balance. |
+| Held change (Đang giữ) | Signed change to the held points. |
+| Xem thêm | Loads older transactions; with no transactions the section shows "Bạn chưa có giao dịch điểm nào." |

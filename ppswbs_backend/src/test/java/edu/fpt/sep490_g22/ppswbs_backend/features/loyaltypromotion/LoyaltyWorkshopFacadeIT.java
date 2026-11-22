@@ -672,6 +672,59 @@ class LoyaltyWorkshopFacadeIT {
     }
 
     @Test
+    void t118AValidlyCancelledBookingDoesNotGiveAnExpiredVoucherBackButReturnsThePoints() throws InterruptedException {
+        long packageId = ThreadLocalRandom.current().nextLong(1_000_000L, 9_000_000L);
+        String code = workshopVoucher(packageId, List.of(DAY), java.time.Duration.ofSeconds(4));
+        long memberId = member(1_000);
+        BenefitSelection selection = new BenefitSelection(SelectionChoice.VOUCHER, code, n(200));
+        BenefitPreview preview = loyalty.previewBenefits(booking(memberId, packageId, DAY), selection);
+        String ref = "booking-" + UUID.randomUUID();
+        transaction.executeWithoutResult(status -> loyalty.reserveAcceptedTransaction(
+                accept(booking(memberId, packageId, DAY), ref, preview.termsDigest()), selection, "cmd"));
+        transaction.executeWithoutResult(status -> loyalty.settleAcceptedBenefits(
+                outcome(ref, OutcomeKind.WORKSHOP_DEPOSIT_ACCEPTED, "dep-" + ref, 2)));
+        long consumedBefore = programs.findByCodeKey(code).orElseThrow().getConsumedCount();
+        Thread.sleep(4_500);
+
+        AuthoritativeOutcome cancel = outcome(ref, OutcomeKind.VALID_WORKSHOP_CANCELLATION, "cancel-" + ref, 3);
+        BenefitResult result = transaction.execute(status -> loyalty.restoreCancelledWorkshopBenefits(cancel));
+        assertThat(result.voucherState()).as("an expired voucher stays used").isEqualTo(ComponentState.CONSUMED);
+        assertThat(result.pointsState()).isEqualTo(ComponentState.RESTORED);
+        assertThat(programs.findByCodeKey(code).orElseThrow().getConsumedCount()).isEqualTo(consumedBefore);
+        assertThat(balance(memberId)).as("the 200 points still come back").isEqualTo(n(1_000));
+        BenefitResult repeat = transaction.execute(status -> loyalty.restoreCancelledWorkshopBenefits(cancel));
+        assertThat(repeat.voucherState()).as("a repeat changes nothing").isEqualTo(ComponentState.CONSUMED);
+        assertThat(programs.findByCodeKey(code).orElseThrow().getConsumedCount()).isEqualTo(consumedBefore);
+    }
+
+    @Test
+    void t118EveryTicketValidlyCancelledAfterTheVoucherExpiredKeepsTheVoucherUsed() throws InterruptedException {
+        TicketCart cart = acceptAndSettleThreeTickets(java.time.Duration.ofSeconds(4));
+        long consumedBefore = programs.findByCodeKey(cart.code()).orElseThrow().getConsumedCount();
+        Thread.sleep(4_500);
+        BenefitResult last = null;
+        for (String ticket : List.of("t-1", "t-2", "t-3")) {
+            last = transaction.execute(status -> loyalty.restoreCancelledWorkshopBenefits(
+                    ticketOutcome(cart.ref(), OutcomeKind.WORKSHOP_TICKET_VALID_CANCELLATION, "c-" + ticket, ticket)));
+        }
+        assertThat(last.voucherState()).isEqualTo(ComponentState.CONSUMED);
+        assertThat(programs.findByCodeKey(cart.code()).orElseThrow().getConsumedCount()).isEqualTo(consumedBefore);
+        assertThat(balance(cart.memberId())).as("every ticket's points come back").isEqualTo(n(1_000));
+    }
+
+    @Test
+    void t118AMlandTicketCancellationAfterTheVoucherExpiredKeepsTheVoucherUsed() throws InterruptedException {
+        TicketCart cart = acceptAndSettleThreeTickets(java.time.Duration.ofSeconds(4));
+        long consumedBefore = programs.findByCodeKey(cart.code()).orElseThrow().getConsumedCount();
+        Thread.sleep(4_500);
+        BenefitResult mland = transaction.execute(status -> loyalty.restoreCancelledWorkshopBenefits(
+                ticketOutcome(cart.ref(), OutcomeKind.WORKSHOP_TICKET_MLAND_CANCELLATION, "mland-1", "t-1")));
+        assertThat(mland.voucherState()).isEqualTo(ComponentState.CONSUMED);
+        assertThat(programs.findByCodeKey(cart.code()).orElseThrow().getConsumedCount()).isEqualTo(consumedBefore);
+        assertThat(balance(cart.memberId())).isEqualTo(n(900 + 33));
+    }
+
+    @Test
     void twoConcurrentRestoresOfTheSameGroupGiveTheVoucherBackOnce() throws Exception {
         TicketCart cart = acceptAndSettleThreeTickets();
         long consumedBefore = programs.findByCodeKey(cart.code()).orElseThrow().getConsumedCount();

@@ -4,18 +4,20 @@
 
 This screen allows Members to:
 
-- Select an active processing branch and review the entire cart.
+- Review the ticked lines grouped by branch (Sản phẩm theo chi nhánh).
+- For each branch choose Nhận tại cửa hàng or Giao tận nơi qua GHTK with a saved or new address; the GHTK fee is quoted by GHTK.
 - Apply at most one approved eligible voucher, then approved points, or continue without benefits.
-- Review the positive whole-VND payable amount and submit the complete quote.
-- Accept an order and exact-variant/benefit holds together or none; the original link lasts 10 minutes and hold 15 minutes.
-- Review and resubmit changed or corrected terms before accepting checkout.
+- Choose Thanh toán qua VNPay or Tiền mặt tại quầy (only when every branch is store pickup; goods are held up to 3 days).
+- Press Đặt hàng to accept one order per branch with exact-variant/benefit holds together or none: VNPay opens straight away (15-minute hold); cash opens Đơn mua at Chờ nhận tại cửa hàng.
+- Read the reason above Đặt hàng when the voucher, points or quote changed, and press Cập nhật lại to review the new total before ordering.
 
 | Field Name | Description |
 | --- | --- |
-| Order value / total | Read-only amount; indicative for a cart and frozen after accepted checkout. Sample amounts are not operational prices. |
-| State | Read-only system facts; cart viewing alone creates no hold or accepted order. |
-| Payment | Read-only verified status; a browser return cannot mark paid. |
-| Item / variant | Shows product and exact configured variant; accepted-order identity and options remain frozen. |
-| Quantity / line amount / subtotal | Integer quantities and whole-VND amounts; calculate from applicable terms rather than mockup examples. |
-| Continue | Performs only the eligible next action for this screen and current order/payment state. |
-| Return-URL notice | Explains that payment confirmation comes from verified gateway evidence, not the browser redirect. |
+| Sản phẩm theo chi nhánh | Read-only lines with image, variant, quantity and amount; frozen once the order is accepted. |
+| Nhận hàng | Nhận tại cửa hàng (free) or Giao tận nơi qua GHTK; GHTK is refused for an address GHTK does not serve. |
+| Địa chỉ nhận hàng | Saved-address picker (Địa chỉ của tôi) with + Thêm địa chỉ mới; required for GHTK. |
+| Voucher giảm giá / Giảm bằng điểm | At most one voucher, then points on the remainder; on Mua Ngay the best eligible voucher is preselected. |
+| Phương thức thanh toán | Thanh toán qua VNPay (at least 5.000 đ) or Tiền mặt tại quầy. |
+| Chi tiết thanh toán | Tiền hàng, Phí vận chuyển, discounts and Tổng thanh toán in whole VND, calculated from applicable terms. |
+| Conflict notice / Cập nhật lại | Specific reason when the voucher can no longer be used, the points changed or the quote expired; Cập nhật lại drops the refused benefit and recalculates. |
+| Đặt hàng | Accepts the checkout and opens VNPay or Đơn mua; a browser return from VNPay never marks the order paid. |

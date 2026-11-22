@@ -8,14 +8,22 @@ import { big, createdFirst, unitDiscount } from './productOffers';
  * The rules follow FR-042 for products, applied to ONE ticket of a package:
  * - an automatic discount covers a package when its packageIds include it (it has no other dimension, FR-044);
  * - a voucher covers a package when it has no packageIds or they include it; its branch, date and session limits
- *   cannot be checked before the customer picks them, so they do not narrow the label;
+ *   cannot be checked before the customer picks them, so they do not narrow the label, but a voucher with any of
+ *   those limits is never the estimated "with code" price (it may not apply to the branch, date or session chosen);
  * - D = min(price, cap, floor(price × percent / 100)) or min(price, cap, fixed), and 0 below the minimum package fee
  *   (the same unitDiscount as the product offers, so both pages round the same way);
  * - the largest automatic discount is taken off the price; on equal discounts the programme created first wins;
  * - an automatic discount whose minimum fee is above the price of one ticket is not taken off; it is listed as one
  *   "for orders from …" instead;
- * - vouchers are never taken off (Member-only, with quotas): they are labels. Points are never part of the price.
+ * - vouchers are never taken off the public price (Member-only, with quotas): they are labels, plus one estimated
+ *   "with code" price from a voucher limited by nothing but packages. Points are never part of the price.
  */
+
+const LIMITS_UNKNOWN_FOR_A_PACKAGE = ['branchIds', 'sessionIds', 'workshopDates'];
+
+/** True when the voucher's branch, date and session limits are all empty, so it applies to every ticket of a package. */
+const limitedByPackageOnly = program =>
+  LIMITS_UNKNOWN_FOR_A_PACKAGE.every(name => !(program.targets?.[name] || []).length);
 
 const workshopPrograms = programs => (programs || []).filter(program => program.scope === 'WORKSHOP');
 
@@ -51,11 +59,12 @@ export function offersForPackage(pkg, programs) {
   }
 
   // Estimate for one ticket: the voucher with the largest discount on the price after the automatic discount, among
-  // those whose minimum the ticket reaches. Shown as a Member-only "with code" price; the quote stays the truth.
+  // those whose minimum the ticket reaches and with no branch, date or session limit (FR-045). Shown as a Member-only
+  // "with code" price; the quote stays the truth.
   const afterAuto = price === null ? null : price - discount;
   let bestVoucher = null;
   if (afterAuto !== null && afterAuto > 0n) {
-    for (const program of vouchers) {
+    for (const program of vouchers.filter(limitedByPackageOnly)) {
       const value = unitDiscount(program, afterAuto);
       if (value > 0n && (!bestVoucher || value > bestVoucher.discount)) {
         bestVoucher = { program, discount: value, priceAfter: afterAuto - value };

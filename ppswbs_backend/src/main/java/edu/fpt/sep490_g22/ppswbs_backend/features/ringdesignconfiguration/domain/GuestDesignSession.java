@@ -55,7 +55,7 @@ public class GuestDesignSession {
         Instant now = Instant.now();
         if (issuedAt == null) issuedAt = now;
         if (lastActivityAt == null) lastActivityAt = now;
-        if (expiresAt == null) expiresAt = now.plusSeconds(20 * 60); // 20 minutes inactivity expiry
+        if (expiresAt == null) expiresAt = now.plusSeconds(24 * 60 * 60); // 24 hours inactivity expiry
         if (createdAt == null) createdAt = now;
         if (updatedAt == null) updatedAt = now;
     }
@@ -71,7 +71,7 @@ public class GuestDesignSession {
 
     public void touch(Instant now) {
         this.lastActivityAt = now;
-        this.expiresAt = now.plusSeconds(20 * 60);
+        this.expiresAt = now.plusSeconds(24 * 60 * 60);
     }
 }
 

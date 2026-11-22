@@ -49,7 +49,13 @@ public class RetailCheckoutCancellationService {
             if (checkout.getCancellationUnrestoredQuantity() == null) throw new RetailConflictException("Cancellation result is unavailable");
             return result(checkout, checkout.getCancellationUnrestoredQuantity());
         }
-        if (checkout.getPaymentState() != PaymentState.ACCEPTED_UNPAID || checkout.getPaymentInitiatedAt() != null) {
+        // A VNPay checkout can still be cancelled after the Member opened VNPay but did not pay (Session 2026-11-18). A
+        // payment that arrives later anyway goes to the Manager reconciliation queue (LATE_OR_INVALID_STATE).
+        boolean leftVnpay = checkout.getPaymentState() == PaymentState.PAYMENT_INITIATED && !checkout.isCounterCash();
+        if (checkout.getPaymentState() != PaymentState.ACCEPTED_UNPAID && !leftVnpay) {
+            throw new RetailConflictException("Checkout cannot be cancelled after payment");
+        }
+        if (!leftVnpay && checkout.getPaymentInitiatedAt() != null) {
             throw new RetailConflictException("Checkout cannot be cancelled after payment initiation");
         }
         if (branchParts.acceptedWithParts(checkout)) {

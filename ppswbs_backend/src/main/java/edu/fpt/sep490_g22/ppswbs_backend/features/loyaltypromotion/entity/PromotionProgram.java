@@ -169,11 +169,14 @@ public class PromotionProgram {
         return totalLimit - heldCount - consumedCount;
     }
 
-    /** One slot moves to held. */
+    /**
+     * One slot moves to held. Defensive guard: the locked quote already refuses a voucher with no uses left
+     * ({@code VOUCHER_NO_USES_LEFT}), so this answers as the contract does for an ineligible voucher (T123).
+     */
     public void hold() {
         requireVoucher();
         if (availableTotal() < 1) {
-            throw new LoyaltyException(LoyaltyErrorCode.QUOTA_LIMIT_CONFLICT, "No voucher uses are left.");
+            throw new LoyaltyException(LoyaltyErrorCode.PROMOTION_INELIGIBLE, "No voucher uses are left.");
         }
         heldCount++;
     }

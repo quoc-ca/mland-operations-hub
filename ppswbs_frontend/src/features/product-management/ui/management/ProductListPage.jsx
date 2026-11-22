@@ -91,6 +91,8 @@ export default function ProductListPage() {
         <button className="button primary" type="submit">{t('public.apply')}</button>
       </form>
       {categories.error && !products.error && <ErrorNotice error={categories.error} messages={messages} onRetry={categories.reload} />}
+      {/* T185 (FR-038, FR-051): the branch filter stays empty when the branches cannot be read; say so and offer a retry. */}
+      {branches.error && !products.error && <ErrorNotice error={branches.error} messages={messages} onRetry={branches.reload} />}
       {products.loading && <Loading />}
       {!products.loading && products.error && (
         <div className="workspace-card">

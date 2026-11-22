@@ -4,6 +4,7 @@ import { screen, fireEvent, waitFor } from '@testing-library/react';
 import { renderRoutes, json, mockFetch } from '../../../test/render';
 import { routes } from '../../../app/router';
 import { registerPrivateStateCleanup } from '../../../shared/auth/privateStateCleanup';
+import * as useCurrentAccountModule from '../hooks/useCurrentAccount';
 
 function createControlledSession(initialStatus = 'signed-in') {
   let currentListener: ((state: { status: string }) => void) | null = null;
@@ -43,7 +44,8 @@ describe('Revision R-SL: Shared Browser Session Lifecycle & Router Boundary (FR-
       'GET /api/v1/members/me/ready-ring-orders': json(200, []),
       'GET /api/v1/accounts/me/addresses': json(200, []),
       'GET /api/v1/accounts/me/addresses/default': json(200, null),
-      'GET /api/v1/accounts/me': json(200, { id: '1', role: 'MEMBER', status: 'ACTIVE', email: 'member@mland.vn', locations: [] }),
+      'PUT /api/v1/accounts/me': json(200, { accountId: 1, role: 'MEMBER', status: 'ACTIVE', loginEmail: 'member@mland.vn' }),
+      'GET /api/v1/accounts/me': json(200, { accountId: 1, role: 'MEMBER', status: 'ACTIVE', loginEmail: 'member@mland.vn' }),
     });
   });
 
@@ -94,7 +96,7 @@ describe('Revision R-SL: Shared Browser Session Lifecycle & Router Boundary (FR-
   describe('2. Representative Route Groups & Guest Access Boundary (T072)', () => {
     it('allows guest to access representative public routes without redirect', async () => {
       const session = createControlledSession('signed-out');
-      const publicPaths = ['/workshops', '/products', '/ai-support', '/reviews', '/workshop-booking/lookup'];
+      const publicPaths = ['/workshops', '/products', '/ai-support', '/reviews', '/workshop-booking/lookup', '/design-requests/new'];
 
       for (const path of publicPaths) {
         const { router } = renderRoutes(routes, { path, session });
@@ -102,16 +104,14 @@ describe('Revision R-SL: Shared Browser Session Lifecycle & Router Boundary (FR-
       }
     });
 
-    it('renders inline empty state notice and login CTA for guest accessing /design-requests/new', async () => {
+    it('allows guest to access /design-requests/new directly and renders design workspace for guest', async () => {
       const session = createControlledSession('signed-out');
       const { router } = renderRoutes(routes, { path: '/design-requests/new', session });
 
       expect(router.state.location.pathname).toBe('/design-requests/new');
-      expect(await screen.findByText('Vui lòng đăng nhập để tạo yêu cầu thiết kế tùy chỉnh')).toBeInTheDocument();
-      const loginLinks = screen.getAllByRole('link', { name: /đăng nhập/i });
-      const ctaLink = loginLinks.find(link => link.getAttribute('href') === '/login?returnTo=%2Fdesign-requests%2Fnew');
-      expect(ctaLink).toBeDefined();
-      expect(ctaLink).toHaveAttribute('href', '/login?returnTo=%2Fdesign-requests%2Fnew');
+      expect(await screen.findByText('Không gian Thiết kế Độc lập')).toBeInTheDocument();
+      expect(screen.getByText(/Bạn đang gửi yêu cầu với tư cách Khách/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Gửi yêu cầu thiết kế/i })).toBeInTheDocument();
     });
 
     it('renders inline session notice for Member-only /member/cart when signed out', async () => {
@@ -156,6 +156,22 @@ describe('Revision R-SL: Shared Browser Session Lifecycle & Router Boundary (FR-
     it('Topbar logout suppresses double click, executes private cleanup, replaces to / and renders transient "Đã đăng xuất"', async () => {
       let resolveSignOut!: () => void;
       const session = createControlledSession('signed-in');
+      vi.spyOn(useCurrentAccountModule, 'useCurrentAccount').mockReturnValue({
+        account: {
+          accountId: 1,
+          role: 'MEMBER',
+          status: 'ACTIVE',
+          loginEmail: 'member@mland.vn',
+          revocationStatus: 'NOT_APPLICABLE',
+          createdAt: '2026-11-01',
+          updatedAt: '2026-11-20',
+        },
+        status: 'authenticated',
+        error: null,
+        reloadAccount: vi.fn(),
+        signOut: vi.fn(),
+        retry: vi.fn(),
+      });
       session.signOut.mockImplementationOnce(() => new Promise<void>(res => {
         resolveSignOut = () => {
           session.emitStatus('signed-out');
@@ -203,6 +219,22 @@ describe('Revision R-SL: Shared Browser Session Lifecycle & Router Boundary (FR-
 
     it('Topbar logout failure keeps control in place, enables retry, and does not navigate', async () => {
       const session = createControlledSession('signed-in');
+      vi.spyOn(useCurrentAccountModule, 'useCurrentAccount').mockReturnValue({
+        account: {
+          accountId: 1,
+          role: 'MEMBER',
+          status: 'ACTIVE',
+          loginEmail: 'member@mland.vn',
+          revocationStatus: 'NOT_APPLICABLE',
+          createdAt: '2026-11-01',
+          updatedAt: '2026-11-20',
+        },
+        status: 'authenticated',
+        error: null,
+        reloadAccount: vi.fn(),
+        signOut: vi.fn(),
+        retry: vi.fn(),
+      });
       session.signOut.mockRejectedValueOnce(new Error('Firebase network failure'));
 
       renderRoutes(routes, { path: '/', session });
@@ -222,6 +254,22 @@ describe('Revision R-SL: Shared Browser Session Lifecycle & Router Boundary (FR-
     it('Sidebar logout suppresses double-click, cleans up, and replaces to Home with flash', async () => {
       let resolveSignOut!: () => void;
       const session = createControlledSession('signed-in');
+      vi.spyOn(useCurrentAccountModule, 'useCurrentAccount').mockReturnValue({
+        account: {
+          accountId: 1,
+          role: 'MEMBER',
+          status: 'ACTIVE',
+          loginEmail: 'member@mland.vn',
+          revocationStatus: 'NOT_APPLICABLE',
+          createdAt: '2026-11-01',
+          updatedAt: '2026-11-20',
+        },
+        status: 'authenticated',
+        error: null,
+        reloadAccount: vi.fn(),
+        signOut: vi.fn(),
+        retry: vi.fn(),
+      });
       session.signOut.mockImplementationOnce(() => new Promise<void>(res => {
         resolveSignOut = () => {
           session.emitStatus('signed-out');
@@ -254,6 +302,22 @@ describe('Revision R-SL: Shared Browser Session Lifecycle & Router Boundary (FR-
 
     it('Sidebar logout failure stays in place with safe error and enabled retry', async () => {
       const session = createControlledSession('signed-in');
+      vi.spyOn(useCurrentAccountModule, 'useCurrentAccount').mockReturnValue({
+        account: {
+          accountId: 1,
+          role: 'MEMBER',
+          status: 'ACTIVE',
+          loginEmail: 'member@mland.vn',
+          revocationStatus: 'NOT_APPLICABLE',
+          createdAt: '2026-11-01',
+          updatedAt: '2026-11-20',
+        },
+        status: 'authenticated',
+        error: null,
+        reloadAccount: vi.fn(),
+        signOut: vi.fn(),
+        retry: vi.fn(),
+      });
       session.signOut.mockRejectedValueOnce(new Error('Sign out error'));
 
       renderRoutes(routes, { path: '/catalogue-management/products', session });
@@ -271,6 +335,22 @@ describe('Revision R-SL: Shared Browser Session Lifecycle & Router Boundary (FR-
   describe('5. Session Loss & Deduplication (T069, T070)', () => {
     it('Firebase null after initialization emits SESSION_LOST, executes cleanup once, and replaces to / with flash', async () => {
       const session = createControlledSession('signed-in');
+      vi.spyOn(useCurrentAccountModule, 'useCurrentAccount').mockReturnValue({
+        account: {
+          accountId: 1,
+          role: 'MEMBER',
+          status: 'ACTIVE',
+          loginEmail: 'member@mland.vn',
+          revocationStatus: 'NOT_APPLICABLE',
+          createdAt: '2026-11-01',
+          updatedAt: '2026-11-20',
+        },
+        status: 'authenticated',
+        error: null,
+        reloadAccount: vi.fn(),
+        signOut: vi.fn(),
+        retry: vi.fn(),
+      });
       let cleanupCalls = 0;
       registerPrivateStateCleanup(() => {
         cleanupCalls++;
@@ -295,6 +375,22 @@ describe('Revision R-SL: Shared Browser Session Lifecycle & Router Boundary (FR-
 
     it('explicit USER_SIGN_OUT wins over following Firebase null observer callback', async () => {
       const session = createControlledSession('signed-in');
+      vi.spyOn(useCurrentAccountModule, 'useCurrentAccount').mockReturnValue({
+        account: {
+          accountId: 1,
+          role: 'MEMBER',
+          status: 'ACTIVE',
+          loginEmail: 'member@mland.vn',
+          revocationStatus: 'NOT_APPLICABLE',
+          createdAt: '2026-11-01',
+          updatedAt: '2026-11-20',
+        },
+        status: 'authenticated',
+        error: null,
+        reloadAccount: vi.fn(),
+        signOut: vi.fn(),
+        retry: vi.fn(),
+      });
       const { router } = renderRoutes(routes, { path: '/', session });
 
       const trigger = await screen.findByRole('button', { name: /tài khoản/i });
@@ -319,6 +415,22 @@ describe('Revision R-SL: Shared Browser Session Lifecycle & Router Boundary (FR-
       });
 
       const session = createControlledSession('signed-in');
+      vi.spyOn(useCurrentAccountModule, 'useCurrentAccount').mockReturnValue({
+        account: {
+          accountId: 1,
+          role: 'MEMBER',
+          status: 'ACTIVE',
+          loginEmail: 'member@mland.vn',
+          revocationStatus: 'NOT_APPLICABLE',
+          createdAt: '2026-11-01',
+          updatedAt: '2026-11-20',
+        },
+        status: 'authenticated',
+        error: null,
+        reloadAccount: vi.fn(),
+        signOut: vi.fn(),
+        retry: vi.fn(),
+      });
 
       // Setup backend 401 ACCOUNT_NOT_FOUND on authenticated profile call
       mockFetch({
@@ -353,9 +465,27 @@ describe('Revision R-SL: Shared Browser Session Lifecycle & Router Boundary (FR-
       });
 
       const session = createControlledSession('signed-in');
+      vi.spyOn(useCurrentAccountModule, 'useCurrentAccount').mockReturnValue({
+        account: {
+          accountId: 1,
+          role: 'MEMBER',
+          status: 'ACTIVE',
+          loginEmail: 'member@mland.vn',
+          revocationStatus: 'NOT_APPLICABLE',
+          createdAt: '2026-11-01',
+          updatedAt: '2026-11-20',
+        },
+        status: 'authenticated',
+        error: null,
+        reloadAccount: vi.fn(),
+        signOut: vi.fn(),
+        retry: vi.fn(),
+      });
 
       // Setup backend 403 on an authenticated operation
       mockFetch({
+        'PUT /api/v1/accounts/me': json(200, { accountId: 1, role: 'MEMBER', status: 'ACTIVE', loginEmail: 'member@mland.vn' }),
+        'GET /api/v1/accounts/me': json(200, { accountId: 1, role: 'MEMBER', status: 'ACTIVE', loginEmail: 'member@mland.vn' }),
         'GET /api/v1/accounts/me/profile': json(403, {
           code: 'FORBIDDEN',
           message: 'Target role or branch permission is unauthorized',

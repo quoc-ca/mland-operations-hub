@@ -303,18 +303,24 @@ export function MemberConsultationPage({ lang = 'vi' }) {
                       style={{ width: '100%', height: '100%', borderRadius: '6px', objectFit: 'cover' }}
                     />
                   ) : (
-                    activeConversation.contextType === 'WORKSHOP_RING_DESIGN' ? '💍' : '📝'
+                    activeConversation.contextType === 'WORKSHOP_RING_DESIGN'
+                      ? '💍'
+                      : (activeConversation.contextType === 'INDEPENDENT_DESIGN_REQUEST' ? '📝' : '💬')
                   )}
                 </div>
                 <div className="consultation-context-details">
-                  <h3>{activeConversation.contextSnapshot?.displayName || 'Tư vấn thiết kế'}</h3>
+                  <h3>{activeConversation.contextSnapshot?.displayName || t.generalConsultation || 'Tư vấn chung'}</h3>
                   <div className="consultation-context-tags">
-                    <span className="consultation-context-tag">
-                      {activeConversation.contextSnapshot?.displayCode}
-                    </span>
-                    <span className="consultation-context-tag">
-                      v{activeConversation.contextSnapshot?.designVersion}
-                    </span>
+                    {activeConversation.contextSnapshot?.displayCode && (
+                      <span className="consultation-context-tag">
+                        {activeConversation.contextSnapshot.displayCode}
+                      </span>
+                    )}
+                    {activeConversation.contextSnapshot?.designVersion && (
+                      <span className="consultation-context-tag">
+                        v{activeConversation.contextSnapshot.designVersion}
+                      </span>
+                    )}
                     <span className="consultation-context-tag">
                       {activeConversation.assignedLocationReference || t.unassignedBranch}
                     </span>
@@ -331,7 +337,6 @@ export function MemberConsultationPage({ lang = 'vi' }) {
                     type="button"
                     className="btn-secondary-consultation"
                     onClick={handleClose}
-                    style={{ fontSize: '0.85rem' }}
                   >
                     {t.close}
                   </button>
@@ -340,7 +345,6 @@ export function MemberConsultationPage({ lang = 'vi' }) {
                     type="button"
                     className="btn-secondary-consultation"
                     onClick={handleReopen}
-                    style={{ fontSize: '0.85rem' }}
                   >
                     {t.reopen}
                   </button>
@@ -348,9 +352,8 @@ export function MemberConsultationPage({ lang = 'vi' }) {
                 {isClosed && (
                   <button
                     type="button"
-                    className="btn-secondary-consultation"
+                    className="btn-secondary-consultation btn-danger-consultation"
                     onClick={handleHide}
-                    style={{ fontSize: '0.85rem' }}
                   >
                     {t.deleteChat}
                   </button>

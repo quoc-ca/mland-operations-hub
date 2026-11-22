@@ -1,7 +1,7 @@
 # Quickstart and Validation: Product Management
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-14 (MySQL IT chỉ lấy URL từ `PM_TEST_JDBC_URL`, không rơi về `JDBC_URL`; trước đó: 2026-11-01 (T087 — lệnh hiện hành và điều kiện còn thiếu; trước đó: 2026-10-26 (V1 không MFA theo 001; tên facade identity; tham chiếu 001 mới; lệnh và lớp test thực tế, liên kết validation-report; cập nhật 2026-10-27 sau REST API)))
+**Date updated**: 2026-11-20 (T183 — ghi chú dữ liệu mẫu `V161__add_data.sql`, theo quyết định của Đặng Thị Khương; trước đó: 2026-11-14 (MySQL IT chỉ lấy URL từ `PM_TEST_JDBC_URL`, không rơi về `JDBC_URL`; trước đó: 2026-11-01 (T087 — lệnh hiện hành và điều kiện còn thiếu; trước đó: 2026-10-26 (V1 không MFA theo 001; tên facade identity; tham chiếu 001 mới; lệnh và lớp test thực tế, liên kết validation-report; cập nhật 2026-10-27 sau REST API))))
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -96,3 +96,7 @@ Khi validation fail: giữ nguyên dữ liệu, kiểm tra command receipt trư�
 ### Dữ liệu sản phẩm mẫu (2026-11-13)
 
 Backend tự tạo 4 danh mục và 21 sản phẩm nhẫn đã công khai, có ảnh thật, khi khởi động lần đầu (`CatalogueSeedRunner`, đọc `ppswbs_backend/src/main/resources/catalogue-seed/catalogue-seed.json` và ảnh trong `catalogue-seed/images/`). Chạy nền sau khi ứng dụng sẵn sàng, đi qua đúng các service của màn quản trị (tạo có chi nhánh → gửi duyệt → duyệt → áp dụng giá → công khai), actor nội bộ `system:catalogue-seed`. Điều kiện: Cloudinary đã cấu hình (`CLOUDINARY_*`, thiếu thì log cảnh báo và không tạo gì) và có chi nhánh mã `HN-HOANKIEM`/`HN-TAYHO` (mã không có thì bỏ chi nhánh đó). Sản phẩm đã có (cùng tên, cùng danh mục) được bỏ qua, nên khởi động lại không nhân đôi. Tắt: `CATALOGUE_SEED_ENABLED=false` (hoặc `app.catalogue.seed.enabled=false`). Không chạy trong test.
+
+### Dữ liệu mẫu từ V161 (ghi nhận 2026-11-20, T183)
+
+`V161__add_data.sql` (commit `1aade280`, không thuộc 002) ghi thẳng bằng SQL vào các bảng của 002: sản phẩm, size, tồn kho theo chi nhánh (id chi nhánh cố định 1 và 2), đề xuất và áp dụng giá, hồ sơ duyệt, ảnh. Dữ liệu này đi vòng qua service nên **không có `catalogue_audit_events`** và không có command receipt; ảnh trỏ tới `storage_key` Cloudinary của môi trường dev ở trạng thái `READY`. Chỉ dùng làm dữ liệu mẫu cho dev: không dùng làm bằng chứng audit (FR-027, SC-007), và ở môi trường dùng tài khoản Cloudinary khác thì ảnh của các sản phẩm này sẽ không tải được. Theo quyết định Session 2026-11-20, giữ dữ liệu, không sửa gì và không cần báo owner V161.

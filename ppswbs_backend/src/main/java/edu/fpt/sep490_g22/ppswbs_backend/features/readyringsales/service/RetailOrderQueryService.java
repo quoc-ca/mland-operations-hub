@@ -47,7 +47,8 @@ public class RetailOrderQueryService {
             order.getPaymentState().name(), fulfilment, money(order.getSubtotal()),
             money(order.getShippingCharge()), money(order.getPayableAmount()), checkout.getCreatedAt(), items,
             checkout.getId(), checkout.getPaymentMethod(), checkout.getCounterPaymentDeadline(),
-            RetailOrderCodes.of(order.getId(), checkout.getCreatedAt()), money(discount), together);
+            RetailOrderCodes.of(order.getId(), checkout.getCreatedAt()), money(discount), together, paymentDeadline(checkout),
+            order.getPaidAt(), order.getCompletedAt());
     }
 
     private RetailCataloguePort.CartProductFact currentProduct(VariantLocationKey key) {
@@ -58,6 +59,18 @@ public class RetailOrderQueryService {
     }
 
     private static String money(BigDecimal amount) { return amount.stripTrailingZeros().toPlainString(); }
+
+    /**
+     * Until when an unpaid VNPay checkout is held: its VNPay link expiry when the Member opened VNPay, else the
+     * 15-minute hold from when it was placed (Session 2026-11-18). Null when paid, cancelled, expired or cash.
+     */
+    private static java.time.Instant paymentDeadline(edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.entity.GroupedCheckout checkout) {
+        var state = checkout.getPaymentState();
+        if (checkout.isCounterCash() || (state != edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.entity.PaymentState.ACCEPTED_UNPAID
+            && state != edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.entity.PaymentState.PAYMENT_INITIATED)) return null;
+        if (checkout.getPaymentUrlExpiresAt() != null) return checkout.getPaymentUrlExpiresAt();
+        return checkout.getCreatedAt() == null ? null : checkout.getCreatedAt().plus(RetailPaymentMethods.VNPAY_HOLD);
+    }
 
     private record VariantLocationKey(Long variantId, Long locationId) {}
 }

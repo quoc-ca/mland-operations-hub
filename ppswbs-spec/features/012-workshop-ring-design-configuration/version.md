@@ -4,7 +4,7 @@
 - **Author**: Ngô Tiến Đạt
 - **Last updated by**: Ngô Tiến Đạt
 - **Date created**: 2026-11-08
-- **Date updated**: 2026-11-14
+- **Date updated**: 2026-11-19
 - **Source of truth**: Feature-012 `spec.md`, `data-model.md`, `contracts/workshop-ring-design.openapi.yaml`, `V110__workshop_ring_design_configuration.sql`, `V143__ring_design_uniform_pricing.sql`, backend Spring Boot implementation, frontend React 19 + Vite implementation, and synchronized project specifications
 
 > This file is an implementation status index. Detailed behavior remains in
@@ -535,6 +535,50 @@ Toàn bộ 5 kịch bản E2E của Feature 012 đã được thực thi và ngh
 
 
 
+
+### Phase L — Quota, image preprocessing, preview integrity and i18n correction (Completed 2026-11-20)
+
+1. **Aggregate Gemstone Invariant ($\le 10$)**:
+   - Backend `ManagerDesignRuleAdapter` enforces `totalGemstoneQuantity = Σ component.quantity <= 10`, returns HTTP 422 `GEMSTONE_TOTAL_LIMIT_EXCEEDED`.
+   - Frontend `RingConfigurationPage` displays badge `Total stones: X/10` / `Tổng số đá: X/10`, disables buttons at 10, retains draft without alteration on 11th addition attempt.
+   - Tested and verified via `E2E-012-007` (PASS, screenshots: `E2E-012-007--gemstones-start.jpg`, `E2E-012-007--gemstones-limit.jpg`).
+
+2. **Independent Engraving Quotas (`TEXT <= 2`, `SYMBOL <= 2`, `CUSTOM_IMAGE <= 2`)**:
+   - Backend validates quotas independently, returns specific error codes: `TEXT_ENGRAVING_LIMIT_EXCEEDED`, `SYMBOL_ENGRAVING_LIMIT_EXCEEDED`, `IMAGE_ENGRAVING_LIMIT_EXCEEDED`.
+   - Frontend displays independent counters (`Text: X/2`, `Symbols: X/2`, `Laser images: X/2`), separate add buttons, and localized boundary messages. Removing one item type frees only that quota.
+   - Tested and verified via `E2E-012-008` (PASS, screenshot: `E2E-012-008--engraving-limits.jpg`).
+
+3. **Laser Image Preprocessing Sliders & Persistence**:
+   - Sliders `contrast` (0–100, default 50) and `sharpness` (0–100, default 50) interactive canvas filters in `LaserEngravingImageCropper`.
+   - Persisted across backend DTOs, MySQL JSON snapshot, and restored upon reload. Out of bounds rejected with `IMAGE_PREPROCESSING_INVALID`.
+   - Tested and verified via `E2E-012-009` (PASS, screenshots: `E2E-012-009--image-sliders.jpg`, `E2E-012-009--image-restored.jpg`).
+
+4. **Multi-Engraving Preview & Full Restoration**:
+   - Both configurator and evaluation pages render all text items, symbols, and custom images without reliance on scalar `engravingText` or transient `previewDataUrl`.
+   - Missing images show retry/error state.
+   - Tested and verified via `E2E-012-010` (PASS, screenshots: `E2E-012-010--configurator.jpg`, `E2E-012-010--restored.jpg`).
+
+5. **Locale & Vietnamese Unicode Regression**:
+   - Full bilingual support (`vi` / `en`) via `useLanguage()` from shared `I18nProvider`.
+   - Zero mixed-language fallback, pure UTF-8 diacritics and symbols (`♥`, `∞`, `★`, `✿`, `💍`) render cleanly on SVG without tofu or broken glyphs.
+   - Tested and verified via `E2E-012-011` (PASS, screenshots: `E2E-012-011--vietnamese.jpg`, `E2E-012-011--english.jpg`).
+
+6. **Test Results**:
+   - Backend tests (`ManagerDesignRuleAdapterTest`, `WorkshopRingDesignApplicationServiceTest`, `WorkshopRingDesignControllerMockMvcTest`): **24/24 tests PASS (100%)**.
+   - Frontend Vitest suite (`designDomain`, `screens`, `workshopRingDesignApi`): **46/46 tests PASS (100%)**.
+   - E2E Browser MCP Scenarios `E2E-012-007` through `E2E-012-011`: **5/5 PASS (100%)**.
+
+## Phase H — Cross-feature integration preparation (2026-11-20)
+
+- Workshop integration is ticket-level: one group default may be overridden per
+  ticket and only `VALIDATED` versions may be attached.
+- Feature-012 exposes an immutable snapshot facade for Feature-004 custom-order
+  intake; this is not a design approval or payment operation.
+- `DRAFT` and `VALIDATED` versions may be copied into a custom-order snapshot.
+  Attached or locked versions require a clone before reuse.
+- Recommendations remain advisory and never select a package or create booking.
+- Backend implementation of this cross-feature facade is pending contract and
+  Figma approval.
 
 ## 5. Incomplete / Next Steps (Release Gates)
 

@@ -299,10 +299,11 @@ class AccountManagementIntegrationTests {
         mockMvc.perform(get("/api/v1/admin/roles")
                 .header("Authorization", "Bearer " + token))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.roles.length()").value(4))
+            .andExpect(jsonPath("$.roles.length()").value(5))
             .andExpect(jsonPath("$.roles[0].code").value("MEMBER"))
             .andExpect(jsonPath("$.roles[1].code").value("STAFF"))
             .andExpect(jsonPath("$.roles[2].code").value("MANAGER"))
-            .andExpect(jsonPath("$.roles[3].code").value("ADMIN"));
+            .andExpect(jsonPath("$.roles[3].code").value("CARRIER"))
+            .andExpect(jsonPath("$.roles[4].code").value("ADMIN"));
     }
 }

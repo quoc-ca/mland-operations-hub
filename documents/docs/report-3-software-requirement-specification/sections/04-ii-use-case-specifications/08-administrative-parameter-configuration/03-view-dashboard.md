@@ -30,14 +30,14 @@ Allows the Manager to view consolidated business analytics, workshop utilization
 
 1. The Manager opens the executive revenue dashboard.
 2. The system loads the default reporting period and authorized branch scope.
-3. The Manager selects a period, branch, or supported KPI view.
-4. The system retrieves and aggregates verified revenue, workshop, order, and branch data.
-5. The system displays revenue totals, workshop utilization, retail performance, and branch KPIs with the applicable period and scope.
+3. The Manager selects a day, week, month or year (Vietnam time) and all branches or one branch with a single click.
+4. The system retrieves and aggregates verified revenue, workshop, order, and branch data: finalized workshop folios, workshop tickets and check-ins, and retail orders.
+5. The system displays revenue totals, workshop utilization, retail performance, and branch KPIs with the applicable period and scope, each compared with the previous period of the same length, and trend charts by hour for a day, by day for a week or month and by month for a year: workshop revenue, registered places, check-ins, no-shows and cancellations; retail orders placed, paid and cancelled, and retail revenue.
 6. The Manager reviews the dashboard or changes the filters.
 
 #### Alternative Flows
 
-**Step 2 — data is available**
+**Step 2 — No data is available**
 
 The system displays a zero/empty state with the selected period and does not infer missing transactions.
 

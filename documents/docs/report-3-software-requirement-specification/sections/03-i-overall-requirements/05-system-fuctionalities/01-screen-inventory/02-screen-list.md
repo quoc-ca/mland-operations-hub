@@ -11,8 +11,8 @@
 | 7 | SSO Provider | Authentication | Provides external identity-provider sign-in or registration and returns the authentication result to the system. |
 | 8 | User Profile | Account Management | Displays the signed-in user's permitted profile information and available account actions. |
 | 9 | Change Password | Account Management | Allows eligible users to change a locally managed password; provider-managed credentials remain with the identity provider. |
-| 10 | Product Catalogue | Product Management | Allows visitors and Members to browse, search and filter publicly available products. |
-| 11 | Product Details | Product Management | Displays product images, variants, prices and availability; allows Members to add an eligible variant to their cart. |
+| 10 | Product Catalogue | Product Management | Allows visitors and Members to browse published products, search by name, filter by category, price and stock, sort results and add a variant to the cart. |
+| 11 | Product Details | Product Management | Displays product images, sizes, applied and discounted prices, applicable offers and reviews; allows choosing size, branch and quantity to add to the cart or buy now.
 | 12 | Review List | Public Information | Displays available reviews for visitors to browse. |
 | 13 | Member Dashboard | Dashboard | Provides access to product shopping, workshop booking, custom orders, personal histories and loyalty. |
 | 14 | Staff Dashboard | Dashboard | Provides access to authorized product maintenance, workshop check-in, design review, order operations and final-amount proposals. |
@@ -30,11 +30,11 @@
 | 26 | My Booking | Workshop Booking | Allows Members to browse their own workshop bookings and open booking details. |
 | 27 | Booking Details / QR Code | Workshop Booking | Displays booking and verified payment information and shows the check-in QR code only after booking confirmation. |
 | 28 | My Custom Orders | Custom Manufacturing | Allows Members to browse their own custom orders and access order details or a new request. |
-| 29 | Custom Order Details | Custom Manufacturing | Displays the Member's custom-order progress, Manager-approved final balance, payment status and recorded handoff information. |
+| 29 | Custom Order Details | Custom Manufacturing | Displays the Member's custom-order progress, complete Manager-approved quote, one-time payment status, expiry outcome and recorded handoff information. |
 | 30 | New Custom Order | Custom Manufacturing | Allows Members to submit design, material, contact and applicable completion-date information for a shop-manufacturing request. |
-| 31 | My Loyalty | Loyalty and Promotion Management | Displays the Member's loyalty information and provides access to point history. |
-| 32 | Point History | Loyalty and Promotion Management | Allows Members to review their own recorded point transactions. |
-| 33 | Payment Gateway Redirect | Payment | Routes an eligible retail, workshop-deposit or custom-order payment to the configured payment gateway. |
+| 31 | My Loyalty | Loyalty and Promotion Management | Displays the Member's available, total and held points and the current point policy, with access to point history and saved vouchers.
+| 32 | Point History | Loyalty and Promotion Management | Allows Members to review their own point transactions (earned, held, spent, released and refunded) with their source and balance changes.
+| 33 | Payment Gateway Redirect | Payment | Routes an eligible retail, workshop-deposit or one-time custom-order quote payment to the configured payment gateway. |
 | 34 | Payment Page | Payment | Provides the external payment gateway interface for completing the selected payment. |
 | 35 | Payment Result | Payment | Displays system-verified payment status and links to the relevant booking or order; browser return alone does not confirm payment. |
 | 36 | Design Path Selection | Design Customization | Allows users to choose an existing ring design or supported ring configuration. The image-based design path is visible only to an eligible Member and requires the booking context and consent flow. |
@@ -48,10 +48,10 @@
 | 44 | Ring Attachment | Design Customization | Allows users to configure supported attachments for the selected ring design. |
 | 45 | Ring Engraving | Design Customization | Allows users to specify supported engraving options for the selected ring design. |
 | 46 | Design Review Status and Quote | Design Customization | Displays analysis status, the current estimate context, Staff/Manager review status, Accepted/Rejected/Clarification Required outcome, reason, and the permitted next action. It never treats AI output alone as approval or final price. |
-| 47 | Product Management List | Product Management | Allows authorized maintainers to browse managed products and open product creation or maintenance. |
-| 48 | New Product | Product Management | Allows authorized maintainers to enter product information and save a new product as unpublished. |
-| 49 | Product Management Details | Product Management | Allows authorized maintainers to manage product data, images, variants, quantities, approved-price application and publication while protecting holds and purchase history. |
-| 50 | Price Proposal Form | Product Management | Allows Staff to submit proposed product prices for Manager review without changing applied prices. |
+| 47 | Product Management List | Product Management | Allows Staff and Managers to browse managed products by name or SKU, category, publication state and branch; Managers can publish, hide or open submissions for review.
+| 48 | New Product | Product Management | Allows Staff and Managers to enter product content, selling branches, sizes, prices, per-branch quantities and images; Staff prices stay proposals, Manager prices apply on creation.
+| 49 | Product Management Details | Product Management | Allows Staff and Managers to maintain content, images, sizes, branch quantities and sale state, manage price proposals, submit for initial review, publish or delete while protecting holds.
+| 50 | Price Proposal Form | Product Management | Allows Staff and Managers to propose new prices per size or for several sizes, save drafts, submit them for Manager review and apply approved prices, without changing applied prices on submission.
 | 51 | Workshop Session List | Workshop Management | Allows authorized Staff to browse workshop sessions within their permitted scope. |
 | 52 | Workshop Session Details | Workshop Management | Displays permitted session information and provides access to participant check-in. |
 | 53 | Participant Check-in | Workshop Management | Allows authorized Staff to verify a confirmed booking by QR or manual lookup and record actual attendance. |
@@ -67,10 +67,10 @@
 | 63 | New Session Form / Workshop Session Details | Workshop Management | Allows Managers to create, inspect or edit workshop sessions while protecting existing bookings and holds. |
 | 64 | Staff Assignment | Workshop Management | Allows Managers to assign eligible Staff to workshop sessions after checking assignment conflicts. |
 | 65 | Workshop Configuration | Workshop Management | Allows Managers to configure time slots, capacity, branch materials and options, and holiday or off-day exceptions. |
-| 66 | Price Proposal List | Price Approval | Allows Managers to browse product or workshop-package price proposals and select one for review. |
-| 67 | Price Proposal Review | Price Approval | Allows Managers to decide product or package price proposals; approved retail prices still require separate application and publication. |
-| 68 | Promotion List | Loyalty and Promotion Management | Allows Managers to browse promotions and open their configuration. |
-| 69 | Promotion Details / Form | Loyalty and Promotion Management | Allows Managers to create, edit or change promotion activation subject to validation. |
+| 66 | Pending Price Proposals | Price Approval | Shows Managers the retail price proposals waiting for a decision inside product details, with submitter, branch and price history, and starts approval or rejection per size or in bulk.
+| 67 | Price Proposal Review | Price Approval | Allows Managers to approve a proposal at the proposed or an adjusted price, optionally applying it immediately, or reject it with a required reason.
+| 68 | Promotion List | Loyalty and Promotion Management | Allows Managers to browse vouchers and automatic discounts by scope and state and open their details or create a new programme.
+| 69 | Promotion Form | Loyalty and Promotion Management | Allows Managers to create a voucher or automatic discount for products or workshops with its discount, validity, limits, points setting and targets.
 | 70 | Final Amount Approval List | Custom Manufacturing | Allows Managers to browse final-amount proposals submitted by Staff and select one for final review. |
 | 71 | Final Amount Review / Approval | Custom Manufacturing | Allows Managers to approve the final amount and release the matching payment request, or return the proposal to Staff for revision. |
 | 72 | User Account List | Account Administration | Allows Admins to browse user accounts and open account creation or details. |
@@ -87,3 +87,10 @@
 | 83 | Review Moderation Queue | Review Management | Allows Staff/Managers to open authorized post-publication review actions. |
 | 84 | Review Moderation Details | Review Management | Allows Staff to HIDE and Managers to HIDE/REMOVE with reason and audit evidence. |
 | 85 | Manager Reply Editor | Review Management | Allows one current Manager reply per review and audited reply edits; no threaded replies. |
+| 86 | Product Categories | Product Management | Allows Staff and Managers to create, edit, deactivate and reactivate product categories after reviewing affected products. |
+| 87 | Import Products from Excel | Product Management | Allows Staff and Managers to download a branch-specific template, validate an .xlsx file, review row errors, import products as unpublished drafts and attach images. |
+| 88 | Voucher Store | Loyalty and Promotion Management | Allows visitors and Members to browse public vouchers by scope and lets Members save them. |
+| 89 | Voucher Details | Loyalty and Promotion Management | Displays a public voucher's discount and full conditions and lets Members save it. |
+| 90 | My Saved Vouchers | Loyalty and Promotion Management | Allows Members to review their saved vouchers, separated into usable and expired or unusable, and go to products or workshops to use them. |
+| 91 | Promotion Details | Loyalty and Promotion Management | Allows Managers to view, edit, pause or resume a programme and follow its usage and total discount. |
+| 92 | Point Policy | Loyalty and Promotion Management | Allows Managers to view and change the loyalty-point earning and spending policy, applied only to transactions accepted after saving. |

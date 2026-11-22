@@ -1,42 +1,51 @@
-# Tasks: Feature-004 Frontend and Contract Synchronization
+# Tasks — Feature-004 Design Request and Human Review
 
-**Date created**: 2026-10-21
-**Date updated**: 2026-11-05
-**Author**: Ngô Tiến Đạt
-**Last updated by**: Ngô Tiến Đạt
+Date created: 2026-11-20
+Date updated: 2026-11-20
+Author: Ngô Tiến Đạt
+Last updated by: Ngô Tiến Đạt
 
-Tasks below distinguish completed frontend delivery from remaining contract work.
+## Phase A — Documentation rebasing
 
-## Phase A — Boundary and frontend baseline
+- [ ] Rename logical feature to `004-design-request-and-human-review`.
+- [ ] Remove AI, Gemini, Basic AI and price-suggestion references from Feature-004.
+- [ ] Synchronize `spec-general.md`, `APIs.md`, `DB.md`, `screen.md`, Report 1, Report 3 and registry.
+- [ ] Mark old AI E2E evidence as historical/obsolete.
 
-- [x] T001 Read `ppswbs-spec/AGENT.md` and frontend `AGENT.md`.
-- [x] T002 Confirm independent Design Request boundary.
-- [x] T003 Confirm Guest Basic AI only and Member-only Design Request creation.
-- [x] T004 Confirm description-only, image-only and combined request behavior.
-- [x] T005 Document React/Vite routes, shared modules and UI state rules.
+## Phase B — Contract and data model
 
-## Phase B — Frontend delivery
+- [ ] Define Guest opaque session/tracking token lifecycle and five-request daily quota.
+- [ ] Define five-image request model and image-quality lifecycle.
+- [ ] Define `NEED_REVIEW → ACCEPTED/REJECTED` transitions.
+- [ ] Require bounded explanation for every Staff/Manager decision.
+- [ ] Define idempotency, optimistic version and audit behavior.
+- [ ] Create the human-review OpenAPI contract; do not use the legacy AI contract as baseline.
 
-- [x] T006 Register Feature-004 routes in the application router.
-- [x] T007 Implement Basic AI Support screen and bilingual messages.
-- [x] T008 Implement Member Design Workspace, image validation and consent.
-- [x] T009 Implement owner-safe status/result display.
-- [x] T010 Implement Staff/Manager review queue/detail screens.
-- [x] T011 Implement Manager price suggestion and Admin technical-audit projection.
-- [x] T012 Add frontend API and screen tests for current behavior.
+## Phase C — Figma and frontend specification
 
-## Phase C — Contract and integration blockers
+- [ ] Prepare Guest/Member customer and Staff/Manager operational frames.
+- [ ] Include loading, quality, quota, pending, accepted, rejected, token and conflict states.
+- [ ] Record Figma revision and wait for explicit user approval.
+- [ ] Finalize frontend handoff and screen-to-API mapping after approval.
 
-- [x] T013 Synchronize OpenAPI field names and status codes with the backend, or approve a versioned compatibility contract (`ReviewQueueResponse`, `requestVersion`, `202 Accepted`).
-- [x] T014 Add account bootstrap role/status contract if frontend role-aware navigation is required (`AccountFacade`, `CurrentAccountActor`, `IdentityGateFilter`).
-- [x] T015 Harden backend consent-purpose validation and verify image deletion/retention (`DataRetentionCleanupJob`, `ImageConsentRepository`).
-- [x] T016 Verify live provider, backend integration, migration upgrade and E2E evidence (44/44 backend IT tests passed, E2E-004-001 PASS).
+## Phase D — Implementation handoff
 
-## Phase D — Optional architecture normalization
+- [ ] Backend implements persistence, quality validation, Guest quota and human review.
+- [ ] Frontend implements the approved design and safe projections.
+- [ ] Do not introduce compatibility behavior for the retired AI flow.
 
-- [ ] T017 Plan a separate refactor from the current flat `designreview` slice to `ui/application/domain/infrastructure`.
-- [ ] T018 Preserve route/API behavior and tests during any folder normalization.
+## Phase E — Verification
 
-Implementation must not use the optional refactor to hide unresolved API or business
-contract mismatches. No booking, payment or catalogue publication behavior may be
-introduced by these tasks.
+- [ ] Run backend unit/integration tests.
+- [ ] Run frontend unit/component tests and build.
+- [ ] Run Browser MCP E2E scenarios E2E-004-001 through E2E-004-012.
+- [ ] Record screenshots and execution status; never mark unexecuted tests PASS.
+## Phase F — Custom-order full-payment handoff
+
+- [ ] Add Member Requests and Orders views under My Custom Orders.
+- [ ] Display immutable quote total, currency, quote generation and expiry.
+- [ ] Start exactly one payment attempt for the complete active quote.
+- [ ] Do not add custom orders to the retail cart.
+- [ ] Remove deposit, remaining-balance and final-balance actions from the custom-order UI.
+- [ ] Show quote/payment expiry and cancellation, including request-new-quote where permitted.
+- [ ] Test ownership isolation, duplicate payment commands, stale quote, expired quote and late payment evidence.

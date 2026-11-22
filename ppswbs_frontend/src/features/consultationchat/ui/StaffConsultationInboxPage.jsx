@@ -335,18 +335,24 @@ export function StaffConsultationInboxPage({ lang = 'vi', currentUser = {} }) {
                       style={{ width: '100%', height: '100%', borderRadius: '6px', objectFit: 'cover' }}
                     />
                   ) : (
-                    activeConversation.contextType === 'WORKSHOP_RING_DESIGN' ? '💍' : '📝'
+                    activeConversation.contextType === 'WORKSHOP_RING_DESIGN'
+                      ? '💍'
+                      : (activeConversation.contextType === 'INDEPENDENT_DESIGN_REQUEST' ? '📝' : '💬')
                   )}
                 </div>
                 <div className="consultation-context-details">
-                  <h3>{activeConversation.contextSnapshot?.displayName || 'Tư vấn thiết kế'}</h3>
+                  <h3>{activeConversation.contextSnapshot?.displayName || t.generalConsultation || 'Tư vấn chung'}</h3>
                   <div className="consultation-context-tags">
-                    <span className="consultation-context-tag">
-                      {activeConversation.contextSnapshot?.displayCode}
-                    </span>
-                    <span className="consultation-context-tag">
-                      v{activeConversation.contextSnapshot?.designVersion}
-                    </span>
+                    {activeConversation.contextSnapshot?.displayCode && (
+                      <span className="consultation-context-tag">
+                        {activeConversation.contextSnapshot.displayCode}
+                      </span>
+                    )}
+                    {activeConversation.contextSnapshot?.designVersion && (
+                      <span className="consultation-context-tag">
+                        v{activeConversation.contextSnapshot.designVersion}
+                      </span>
+                    )}
                     <span className="consultation-context-tag">
                       {activeConversation.assignedLocationReference || t.unassignedBranch}
                     </span>
@@ -359,12 +365,15 @@ export function StaffConsultationInboxPage({ lang = 'vi', currentUser = {} }) {
 
               {/* Action Buttons */}
               <div className="consultation-actions">
+                <span className={`consultation-status-badge ${activeConversation.status?.toLowerCase()}`}>
+                  {activeConversation.status === 'OPEN' ? t.statusOpen : t.statusClosed}
+                </span>
+
                 {isManager && (
                   <button
                     type="button"
                     className="btn-secondary-consultation"
                     onClick={() => setIsAssignModalOpen(true)}
-                    style={{ fontSize: '0.85rem' }}
                   >
                     📍 {t.assign}
                   </button>
@@ -375,7 +384,6 @@ export function StaffConsultationInboxPage({ lang = 'vi', currentUser = {} }) {
                     type="button"
                     className="btn-primary-consultation"
                     onClick={handleClaim}
-                    style={{ fontSize: '0.85rem' }}
                   >
                     {t.claim}
                   </button>
@@ -384,7 +392,6 @@ export function StaffConsultationInboxPage({ lang = 'vi', currentUser = {} }) {
                     type="button"
                     className="btn-secondary-consultation"
                     onClick={handleRelease}
-                    style={{ fontSize: '0.85rem' }}
                   >
                     {t.release}
                   </button>
@@ -395,7 +402,6 @@ export function StaffConsultationInboxPage({ lang = 'vi', currentUser = {} }) {
                     type="button"
                     className="btn-secondary-consultation"
                     onClick={handleClose}
-                    style={{ fontSize: '0.85rem' }}
                   >
                     {t.close}
                   </button>
@@ -404,7 +410,6 @@ export function StaffConsultationInboxPage({ lang = 'vi', currentUser = {} }) {
                     type="button"
                     className="btn-secondary-consultation"
                     onClick={handleReopen}
-                    style={{ fontSize: '0.85rem' }}
                   >
                     {t.reopen}
                   </button>

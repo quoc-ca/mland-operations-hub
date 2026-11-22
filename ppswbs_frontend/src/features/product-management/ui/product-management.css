@@ -254,6 +254,9 @@
 .pm-public .detail-grid{grid-template-columns:minmax(0,2fr) minmax(0,3fr);gap:32px;align-items:start;margin-top:0}
 .pm-public .detail-grid>.ring-visual,.pm-public .detail-grid .ring-visual,.pm-public .detail-image{height:auto;aspect-ratio:1/1}
 .pm-public .detail-grid .price{font-size:22px;font-weight:700;margin:0 0 16px}
+.pm-public .detail-grid .detail-price{margin:0 0 16px}
+.pm-public .detail-grid .detail-price .price{margin:0}
+.pm-public .detail-grid .detail-price .offer-now{font-size:22px;font-weight:700}
 .pm-public .detail-grid p{font-size:12px;line-height:1.6;margin:0 0 16px}
 .pm-public .detail-grid .section-title{font-size:15px;margin:24px 0 8px}
 .pm-public .size-list{border-top:1px solid var(--pm-line)}
@@ -468,3 +471,8 @@
 .category-tools select{width:180px}
 .category-tools .button{min-height:40px}
 @media(max-width:600px){.workspace-card .card-head.category-head{flex-direction:column;align-items:stretch}.category-tools,.category-tools input,.category-tools select{width:100%}}
+
+/* Narrow screens: the four-column filter bar above squeezed every box on a phone; two columns, then one. */
+@media(max-width:820px){.pm-public .filter-bar{grid-template-columns:repeat(2,minmax(0,1fr))}.pm-public .filter-bar label:first-child{grid-column:1/-1}}
+@media(max-width:480px){.pm-public .filter-bar{grid-template-columns:minmax(0,1fr)}.pm-public .filter-bar label:first-child{grid-column:auto}.pm-public .filter-bar .button{justify-self:stretch;width:100%}.pm-public .filter-bar .check{justify-self:start;justify-content:flex-start;text-align:left}}
+.pm-public .filter-bar .check input[type=checkbox]{width:auto;flex:0 0 auto}

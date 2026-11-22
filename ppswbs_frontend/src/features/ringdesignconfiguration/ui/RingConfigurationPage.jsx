@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router';
+import { useLanguage } from '../../../shared/i18n/I18nProvider';
 import { useWorkshopDesignOptions } from '../application/useWorkshopDesignOptions';
 import { useWorkshopDesignDraft } from '../application/useWorkshopDesignDraft';
 import { useWorkshopDesignCommand } from '../application/useWorkshopDesignCommand';
@@ -19,6 +20,9 @@ export default function RingConfigurationPage() {
   const navigate = useNavigate();
   const { status, userId } = useAuth();
   const isAuthenticated = status === 'signed-in' || Boolean(userId);
+  const { language } = useLanguage();
+  const lang = language === 'en' ? 'en' : 'vi';
+  const t = messages[lang];
 
   const mode = searchParams.get('mode') || 'BLANK';
   const modelRef = searchParams.get('modelRef') || null;
@@ -47,7 +51,7 @@ export default function RingConfigurationPage() {
     resetDraftFromModel,
     resetFromSavedDesign,
     getPayloadForSave,
-  } = useWorkshopDesignDraft(packageReference);
+  } = useWorkshopDesignDraft(packageReference, null, lang);
 
   const { loading: saving, error: commandError, executeCreate, executeSave } = useWorkshopDesignCommand(isAuthenticated);
 
@@ -84,9 +88,6 @@ export default function RingConfigurationPage() {
       active = false;
     };
   }, [targetDesignId, api, isAuthenticated, resetFromSavedDesign]);
-
-  const lang = 'vi';
-  const t = messages[lang];
 
   const handleSaveAndEvaluate = async () => {
     if (!clientValidation.isValid) return;
@@ -192,7 +193,7 @@ export default function RingConfigurationPage() {
                 <h2 className="ring-section-title">{t.shapeSection}</h2>
                 <p className="ring-section-desc">{t.shapeSectionDesc}</p>
 
-                <DesignControlField label="Dáng đai nhẫn" required errorText={clientValidation.errors.shapeReference}>
+                <DesignControlField label={t.shapeSummary || (lang === 'en' ? 'Band Shape' : 'Dáng đai nhẫn')} required errorText={clientValidation.errors.shapeReference}>
                   <div className="ring-cards-grid" style={{ marginBottom: '1.25rem' }}>
                     {(options?.shapes || []).map((shp) => {
                       const isSelected = draft.shapeReference === shp.reference;
@@ -223,7 +224,7 @@ export default function RingConfigurationPage() {
 
                 <DesignControlField
                   label={t.ringSizeLabel}
-                  helperText={`${t.ringSizeHelper} Đã chọn: Size ${draft.ringSize} — Chu vi: ${getRingCircumferenceMm(draft.ringSize)} mm (Đường kính trong: ~${getRingDiameterMm(draft.ringSize)} mm)`}
+                  helperText={`${t.ringSizeHelper} ${lang === 'en' ? 'Selected' : 'Đã chọn'}: Size ${draft.ringSize} — ${lang === 'en' ? 'Circumference' : 'Chu vi'}: ${getRingCircumferenceMm(draft.ringSize)} mm (${lang === 'en' ? 'Inner diameter' : 'Đường kính trong'}: ~${getRingDiameterMm(draft.ringSize)} mm)`}
                   required
                   errorText={clientValidation.errors.ringSize}
                 >
@@ -253,16 +254,36 @@ export default function RingConfigurationPage() {
               <div className="ring-section-card">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.25rem' }}>
                   <h2 className="ring-section-title" style={{ margin: 0 }}>{t.gemstoneSection}</h2>
-                  {draft.components && draft.components.length > 0 && (
-                    <span className="ring-gemstone-total-badge" data-testid="gemstone-total-badge">
-                      Đã chọn: {draft.components.reduce((sum, c) => sum + (Number(c.quantity) || 1), 0)} viên đá
-                    </span>
-                  )}
+                  <span className="ring-gemstone-total-badge" data-testid="gemstone-total-counter">
+                    {(t.gemstoneTotalCount || 'Tổng số đá: {count}/10').replace('{count}', (draft.components || []).reduce((sum, c) => sum + (Number(c.quantity) || 1), 0))}
+                  </span>
                 </div>
                 <p className="ring-section-desc">{t.gemstoneSectionDesc}</p>
 
+                {((draft.components || []).reduce((sum, c) => sum + (Number(c.quantity) || 1), 0) >= 10) && (
+                  <div
+                    style={{
+                      background: '#fee2e2',
+                      border: '1px solid #f87171',
+                      borderRadius: '8px',
+                      padding: '0.65rem 1rem',
+                      color: '#b91c1c',
+                      fontSize: '0.85rem',
+                      fontWeight: 500,
+                      marginBottom: '1rem',
+                    }}
+                    data-testid="gemstone-limit-reached-message"
+                  >
+                    ⚠️ {t.gemstoneTotalLimitReached || 'Đã đạt giới hạn tối đa 10 viên đá quý.'}
+                  </div>
+                )}
+
                 <div className="ring-gemstone-instruction" data-testid="gemstone-drag-instruction">
-                  ✨ <strong>Tùy chỉnh số lượng & vị trí:</strong> Chọn số lượng từng loại đá, sau đó <strong>nhấn giữ & kéo thả viên đá</strong> trực tiếp trên cửa sổ <em>Mặt chính diện (Top View)</em> để đặt vị trí bất kỳ quanh đường tròn nhẫn!
+                  {lang === 'en' ? (
+                    <>✨ <strong>Customize quantity & placement:</strong> Select quantity for each stone, then <strong>drag & drop the stone</strong> directly on the <em>Top View</em> window to position it anywhere along the ring band!</>
+                  ) : (
+                    <>✨ <strong>Tùy chỉnh số lượng & vị trí:</strong> Chọn số lượng từng loại đá, sau đó <strong>nhấn giữ & kéo thả viên đá</strong> trực tiếp trên cửa sổ <em>Mặt chính diện (Top View)</em> để đặt vị trí bất kỳ quanh đường tròn nhẫn!</>
+                  )}
                 </div>
 
                 <div className="ring-cards-grid">
@@ -271,13 +292,15 @@ export default function RingConfigurationPage() {
                     const isSelected = Boolean(selectedItem);
                     const currentQty = selectedItem ? Number(selectedItem.quantity) || 1 : 0;
                     const maxQty = gem.maxQuantity || 10;
+                    const totalSelected = (draft.components || []).reduce((sum, c) => sum + (Number(c.quantity) || 1), 0);
+                    const isTotalLimitReached = totalSelected >= 10;
 
                     return (
                       <div
                         key={gem.reference}
                         className={`ring-option-card ring-gemstone-card ${isSelected ? 'selected' : ''}`}
                         onClick={() => {
-                          if (!isSelected) {
+                          if (!isSelected && !isTotalLimitReached) {
                             setComponentQuantity(gem.reference, 1, maxQty);
                           }
                         }}
@@ -294,21 +317,28 @@ export default function RingConfigurationPage() {
 
                         <div className="ring-gemstone-footer">
                           <div className="ring-option-price">
-                            {Number(gem.unitPrice).toLocaleString('vi-VN')} đ / viên
-                            <span className="ring-gem-max-label"> (Tối đa {maxQty})</span>
+                            {Number(gem.unitPrice).toLocaleString('vi-VN')} đ / {lang === 'en' ? 'stone' : 'viên'}
+                            <span className="ring-gem-max-label"> ({lang === 'en' ? `Max ${maxQty}` : `Tối đa ${maxQty}`})</span>
                           </div>
 
                           {!isSelected ? (
                             <button
                               type="button"
                               className="ring-gem-btn-add"
+                              disabled={isTotalLimitReached}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setComponentQuantity(gem.reference, 1, maxQty);
+                                if (!isTotalLimitReached) {
+                                  setComponentQuantity(gem.reference, 1, maxQty);
+                                }
+                              }}
+                              style={{
+                                opacity: isTotalLimitReached ? 0.5 : 1,
+                                cursor: isTotalLimitReached ? 'not-allowed' : 'pointer',
                               }}
                               data-testid={`add-gemstone-${gem.reference}`}
                             >
-                              + Thêm đá
+                              {lang === 'en' ? '+ Add stone' : '+ Thêm đá'}
                             </button>
                           ) : (
                             <div
@@ -319,20 +349,24 @@ export default function RingConfigurationPage() {
                                 type="button"
                                 className="ring-stepper-btn ring-stepper-minus"
                                 onClick={() => setComponentQuantity(gem.reference, currentQty - 1, maxQty)}
-                                aria-label={`Giảm số lượng ${gem.name}`}
+                                aria-label={lang === 'en' ? `Decrease quantity of ${gem.name}` : `Giảm số lượng ${gem.name}`}
                                 data-testid={`decrease-gem-${gem.reference}`}
                               >
                                 −
                               </button>
                               <span className="ring-stepper-value" data-testid={`qty-gem-${gem.reference}`}>
-                                {currentQty} viên
+                                {currentQty} {lang === 'en' ? 'stone(s)' : 'viên'}
                               </span>
                               <button
                                 type="button"
                                 className="ring-stepper-btn ring-stepper-plus"
-                                onClick={() => setComponentQuantity(gem.reference, currentQty + 1, maxQty)}
-                                disabled={currentQty >= maxQty}
-                                aria-label={`Tăng số lượng ${gem.name}`}
+                                onClick={() => {
+                                  if (!isTotalLimitReached && currentQty < maxQty) {
+                                    setComponentQuantity(gem.reference, currentQty + 1, maxQty);
+                                  }
+                                }}
+                                disabled={currentQty >= maxQty || isTotalLimitReached}
+                                aria-label={lang === 'en' ? `Increase quantity of ${gem.name}` : `Tăng số lượng ${gem.name}`}
                                 data-testid={`increase-gem-${gem.reference}`}
                               >
                                 +
@@ -372,7 +406,7 @@ export default function RingConfigurationPage() {
                             +{Number(att.unitPrice).toLocaleString('vi-VN')} đ
                           </div>
                           {isSelected && (
-                            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#166534' }}>✓ Đã chọn</span>
+                            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#166534' }}>{lang === 'en' ? '✓ Selected' : '✓ Đã chọn'}</span>
                           )}
                         </div>
                       </div>
@@ -442,77 +476,89 @@ export default function RingConfigurationPage() {
                   </p>
                 </div>
 
-                {draft.engraving?.enabled && (
-                  <div style={{ marginLeft: '1.5rem', marginBottom: '1.5rem' }}>
-                    {/* Standard Engraving Items */}
-                    {((draft.engraving?.items && draft.engraving.items.length > 0)
-                      ? draft.engraving.items
-                      : [
-                        {
-                          id: 'eng-1',
-                          type: 'TEXT',
-                          content: draft.engraving?.text || '',
-                          placement: draft.engraving?.placement || 'INNER_BAND',
-                        },
-                      ]
-                    ).map((item, idx) => {
-                      const updateItem = (patch) => {
-                        const currentItems =
-                          draft.engraving?.items && draft.engraving.items.length > 0
-                            ? [...draft.engraving.items]
-                            : [
-                              {
-                                id: 'eng-1',
-                                type: 'TEXT',
-                                content: draft.engraving?.text || '',
-                                placement: draft.engraving?.placement || 'INNER_BAND',
-                              },
-                            ];
-                        currentItems[idx] = { ...currentItems[idx], ...patch };
-                        const firstText = currentItems[0]?.content || '';
-                        const firstPlacement = currentItems[0]?.placement || 'INNER_BAND';
-                        updateEngraving({
-                          items: currentItems,
-                          text: firstText,
-                          placement: firstPlacement,
-                        });
-                      };
+                {draft.engraving?.enabled && (() => {
+                  const rawItems = draft.engraving?.items || [];
+                  const totalCount = rawItems.length;
+                  const isLimitReached = totalCount >= 2;
 
-                      const removeItem = () => {
-                        const currentItems = draft.engraving?.items?.filter((_, i) => i !== idx) || [];
-                        const firstText = currentItems[0]?.content || '';
-                        const firstPlacement = currentItems[0]?.placement || 'INNER_BAND';
-                        updateEngraving({
-                          items: currentItems,
-                          text: firstText,
-                          placement: firstPlacement,
-                        });
-                      };
-
-                      return (
-                        <div
-                          key={item.id || idx}
+                  return (
+                    <div style={{ marginLeft: '1.5rem', marginBottom: '1.5rem' }}>
+                      {/* Quota Counter */}
+                      <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
+                        <span
                           style={{
-                            padding: '0.75rem',
-                            marginBottom: '0.75rem',
-                            background: '#f8fafc',
-                            border: '1px solid #e2e8f0',
-                            borderRadius: '8px',
+                            fontSize: '0.8rem',
+                            background: isLimitReached ? '#fee2e2' : '#f1f5f9',
+                            color: isLimitReached ? '#e11d48' : '#475569',
+                            padding: '0.15rem 0.5rem',
+                            borderRadius: '999px',
+                            fontWeight: 600,
                           }}
-                          data-testid={`engraving-item-${idx}`}
+                          data-testid="engraving-text-counter"
                         >
+                          {(t.engravingItemsCounter || 'Khắc chữ & biểu tượng: {count}/2').replace('{count}', totalCount)}
+                        </span>
+                      </div>
+
+                      {isLimitReached && (
+                        <div
+                          style={{ color: '#e11d48', fontSize: '0.85rem', marginBottom: '0.5rem', fontWeight: 500 }}
+                          data-testid="text-engraving-limit-message"
+                        >
+                          {t.engravingItemsLimitReached || 'Đã đạt tối đa 2 vị trí khắc chữ & biểu tượng.'}
+                        </div>
+                      )}
+
+                      {/* Standard Engraving Items */}
+                      {rawItems.map((item, idx) => {
+                        const updateItem = (patch) => {
+                          const currentItems = [...rawItems];
+                          currentItems[idx] = { ...currentItems[idx], ...patch };
+                          const firstText = currentItems[0]?.content || '';
+                          const firstPlacement = currentItems[0]?.placement || 'INNER_BAND';
+                          updateEngraving({
+                            items: currentItems,
+                            text: firstText,
+                            placement: firstPlacement,
+                          });
+                        };
+
+                        const removeItem = () => {
+                          const currentItems = rawItems.filter((_, i) => i !== idx);
+                          const firstText = currentItems[0]?.content || '';
+                          const firstPlacement = currentItems[0]?.placement || 'INNER_BAND';
+                          updateEngraving({
+                            items: currentItems,
+                            text: firstText,
+                            placement: firstPlacement,
+                          });
+                        };
+
+                        return (
                           <div
+                            key={item.id || idx}
                             style={{
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              alignItems: 'center',
-                              marginBottom: '0.35rem',
+                              padding: '0.75rem',
+                              marginBottom: '0.75rem',
+                              background: '#f8fafc',
+                              border: '1px solid #e2e8f0',
+                              borderRadius: '8px',
                             }}
+                            data-testid={`engraving-item-${idx}`}
                           >
-                            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#334155' }}>
-                              Vị trí #{idx + 1}
-                            </span>
-                            {(draft.engraving?.items?.length || 0) > 1 && (
+                            <div
+                              style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                marginBottom: '0.35rem',
+                              }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#334155' }}>
+                                  {lang === 'en' ? `Placement #${idx + 1}` : `Vị trí #${idx + 1}`}
+                                </span>
+                              </div>
                               <button
                                 type="button"
                                 onClick={removeItem}
@@ -527,125 +573,128 @@ export default function RingConfigurationPage() {
                               >
                                 {t.removeEngravingItem || 'Xóa'}
                               </button>
-                            )}
-                          </div>
-
-                          <DesignControlField
-                            label={t.engravingTextInputLabel}
-                            errorText={idx === 0 ? clientValidation.errors.engravingText : undefined}
-                          >
-                            <input
-                              type="text"
-                              maxLength={50}
-                              placeholder={t.engravingPlaceholder}
-                              value={item.content || ''}
-                              onChange={(e) => updateItem({ content: e.target.value })}
-                              style={{
-                                width: '100%',
-                                padding: '0.6rem 0.8rem',
-                                borderRadius: '6px',
-                                border: '1px solid #cbd5e1',
-                                fontSize: '0.9rem',
-                              }}
-                              data-testid={idx === 0 ? 'engraving-input' : `engraving-input-${idx}`}
-                            />
-                          </DesignControlField>
-
-                          {/* Quick Symbol Buttons */}
-                          <div
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '0.4rem',
-                              marginTop: '0.35rem',
-                              marginBottom: '0.65rem',
-                            }}
-                          >
-                            <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                              {t.quickSymbols || 'Ký hiệu nhanh:'}
-                            </span>
-                            {['♥', '∞', '★', '✿', '💍'].map((sym) => (
-                              <button
-                                key={sym}
-                                type="button"
-                                onClick={() => updateItem({ content: `${item.content || ''}${sym}` })}
-                                style={{
-                                  border: '1px solid #cbd5e1',
-                                  background: '#ffffff',
-                                  borderRadius: '4px',
-                                  padding: '0.15rem 0.4rem',
-                                  fontSize: '0.85rem',
-                                  cursor: 'pointer',
-                                }}
-                                title={`Chèn ${sym}`}
-                              >
-                                {sym}
-                              </button>
-                            ))}
-                          </div>
-
-                          <DesignControlField label={t.engravingPlacementLabel}>
-                            <div className="ring-pills-row">
-                              <button
-                                type="button"
-                                className={`ring-size-pill ring-placement-pill ${item.placement === 'INNER_BAND' ? 'selected' : ''}`}
-                                onClick={() => updateItem({ placement: 'INNER_BAND' })}
-                                data-testid={idx === 0 ? 'placement-inner' : `placement-inner-${idx}`}
-                              >
-                                {t.innerBand}
-                              </button>
-                              <button
-                                type="button"
-                                className={`ring-size-pill ring-placement-pill ${item.placement === 'OUTER_BAND' ? 'selected' : ''}`}
-                                onClick={() => updateItem({ placement: 'OUTER_BAND' })}
-                                data-testid={idx === 0 ? 'placement-outer' : `placement-outer-${idx}`}
-                              >
-                                {t.outerBand}
-                              </button>
                             </div>
-                          </DesignControlField>
-                        </div>
-                      );
-                    })}
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const currentItems =
-                          draft.engraving?.items && draft.engraving.items.length > 0
-                            ? [...draft.engraving.items]
-                            : [
-                              {
-                                id: 'eng-1',
-                                type: 'TEXT',
-                                content: draft.engraving?.text || '',
-                                placement: draft.engraving?.placement || 'INNER_BAND',
-                              },
-                            ];
-                        currentItems.push({
-                          id: `eng-${Date.now().toString().slice(-4)}`,
-                          type: 'TEXT',
-                          content: '',
-                          placement: 'OUTER_BAND',
-                        });
-                        updateEngraving({ items: currentItems });
-                      }}
-                      style={{
-                        padding: '0.4rem 0.8rem',
-                        background: '#f1f5f9',
-                        border: '1px dashed #94a3b8',
-                        borderRadius: '6px',
-                        color: '#334155',
-                        fontSize: '0.85rem',
-                        cursor: 'pointer',
-                        fontWeight: 500,
-                      }}
-                      data-testid="add-engraving-item-btn"
-                    >
-                      {t.addEngravingItem || '+ Thêm vị trí/nội dung khắc'}
-                    </button>
-                  </div>
-                )}
+                            <DesignControlField
+                              label={t.engravingTextInputLabel || (lang === 'en' ? 'Engraving content (up to 50 characters)' : 'Nội dung khắc (tối đa 50 ký tự)')}
+                              errorText={idx === 0 ? clientValidation.errors.engravingText : undefined}
+                            >
+                              <input
+                                type="text"
+                                maxLength={50}
+                                placeholder={t.engravingPlaceholder || 'Ví dụ: Forever Love 2026 ♥'}
+                                value={item.content || ''}
+                                onChange={(e) => updateItem({ content: e.target.value })}
+                                style={{
+                                  width: '100%',
+                                  padding: '0.6rem 0.8rem',
+                                  borderRadius: '6px',
+                                  border: '1px solid #cbd5e1',
+                                  fontSize: '0.9rem',
+                                }}
+                                data-testid={idx === 0 ? 'engraving-input' : `engraving-input-${idx}`}
+                              />
+                            </DesignControlField>
+
+                            {/* Quick Symbol Buttons */}
+                            <div
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.4rem',
+                                marginTop: '0.35rem',
+                                marginBottom: '0.65rem',
+                              }}
+                            >
+                              <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                                {t.quickSymbols || 'Ký hiệu nhanh:'}
+                              </span>
+                              {['♥', '∞', '★', '✿', '💍'].map((sym) => (
+                                <button
+                                  key={sym}
+                                  type="button"
+                                  onClick={() => {
+                                    const current = item.content || '';
+                                    if (current.length + sym.length <= 50) {
+                                      updateItem({ content: `${current}${sym}` });
+                                    }
+                                  }}
+                                  style={{
+                                    border: '1px solid #cbd5e1',
+                                    background: '#ffffff',
+                                    borderRadius: '4px',
+                                    padding: '0.15rem 0.4rem',
+                                    fontSize: '0.85rem',
+                                    cursor: 'pointer',
+                                  }}
+                                  title={lang === 'en' ? `Insert ${sym}` : `Chèn ${sym}`}
+                                >
+                                  {sym}
+                                </button>
+                              ))}
+                            </div>
+
+                            <DesignControlField label={t.engravingPlacementLabel}>
+                              <div className="ring-pills-row">
+                                <button
+                                  type="button"
+                                  className={`ring-size-pill ring-placement-pill ${item.placement === 'INNER_BAND' ? 'selected' : ''}`}
+                                  onClick={() => updateItem({ placement: 'INNER_BAND' })}
+                                  data-testid={idx === 0 ? 'placement-inner' : `placement-inner-${idx}`}
+                                >
+                                  {t.innerBand}
+                                </button>
+                                <button
+                                  type="button"
+                                  className={`ring-size-pill ring-placement-pill ${item.placement === 'OUTER_BAND' ? 'selected' : ''}`}
+                                  onClick={() => updateItem({ placement: 'OUTER_BAND' })}
+                                  data-testid={idx === 0 ? 'placement-outer' : `placement-outer-${idx}`}
+                                >
+                                  {t.outerBand}
+                                </button>
+                              </div>
+                            </DesignControlField>
+                          </div>
+                        );
+                      })}
+
+                      {/* Add Button */}
+                      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.5rem' }}>
+                        <button
+                          type="button"
+                          disabled={isLimitReached}
+                          onClick={() => {
+                            if (totalCount >= 2) return;
+                            const currentItems = [...rawItems];
+                            currentItems.push({
+                              id: `eng-${Date.now().toString().slice(-4)}`,
+                              type: 'TEXT',
+                              content: '',
+                              placement: 'INNER_BAND',
+                            });
+                            const firstText = currentItems[0]?.content || '';
+                            const firstPlacement = currentItems[0]?.placement || 'INNER_BAND';
+                            updateEngraving({ items: currentItems, text: firstText, placement: firstPlacement });
+                          }}
+                          style={{
+                            padding: '0.4rem 0.8rem',
+                            background: isLimitReached ? '#f8fafc' : '#f1f5f9',
+                            border: '1px dashed #94a3b8',
+                            borderRadius: '6px',
+                            color: isLimitReached ? '#94a3b8' : '#334155',
+                            fontSize: '0.85rem',
+                            cursor: isLimitReached ? 'not-allowed' : 'pointer',
+                            fontWeight: 500,
+                            opacity: isLimitReached ? 0.6 : 1,
+                          }}
+                          data-testid="add-engraving-item-btn"
+                        >
+                          {t.addEngravingItem || '+ Thêm vị trí khắc (Tối đa 2)'}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* Custom Laser Image Cropper */}
                 <LaserEngravingImageCropper
@@ -710,7 +759,7 @@ export default function RingConfigurationPage() {
                       </span>
                     ) : (
                       <span style={{ fontSize: '0.8rem', color: '#166534', display: 'block', fontWeight: 500 }}>
-                        (Định mức ≤ 3.0g)
+                        ({lang === 'en' ? 'Standard quota ≤ 3.0g' : 'Định mức ≤ 3.0g'})
                       </span>
                     )}
                   </span>
@@ -738,9 +787,9 @@ export default function RingConfigurationPage() {
                 </div>
                 {previewModel.customImages?.length > 0 && (
                   <div className="ring-summary-item" data-testid="summary-custom-images">
-                    <span className="ring-summary-label">Ảnh khắc laser</span>
+                    <span className="ring-summary-label">{lang === 'en' ? 'Laser images' : 'Ảnh khắc laser'}</span>
                     <span className="ring-summary-value">
-                      {previewModel.customImages.length} ảnh
+                      {previewModel.customImages.length} {lang === 'en' ? 'image(s)' : 'ảnh'}
                       <span style={{ fontSize: '0.8rem', color: '#0369a1', display: 'block', fontWeight: 500 }}>
                         (+{(previewModel.customImages.length * 100000).toLocaleString('vi-VN')} đ)
                       </span>
@@ -758,6 +807,12 @@ export default function RingConfigurationPage() {
               >
                 {saving ? t.saving : t.saveAndEvaluate}
               </button>
+
+              {commandError && (
+                <div className="ring-error-card" style={{ marginTop: '0.75rem' }} role="alert">
+                  {commandError}
+                </div>
+              )}
             </div>
           </div>
         </div>

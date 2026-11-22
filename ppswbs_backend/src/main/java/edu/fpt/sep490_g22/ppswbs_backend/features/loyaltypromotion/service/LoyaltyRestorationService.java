@@ -19,8 +19,9 @@ import org.springframework.transaction.annotation.Transactional;
  * a no-show, an invalid or unconfirmed cancellation never does. Each component is handled on its own:
  * HELD is released, CONSUMED is restored. Points come back in the exact originally debited amount, linked to the
  * original debit, whatever the current conversion rate; nothing is converted to money and no new points are earned.
- * A voucher use is returned on both the programme total and the Member counter even when no points were used;
- * an expired or paused programme is not reactivated or extended. A retry after a partial result completes only
+ * A voucher use is returned on both the programme total and the Member counter even when no points were used,
+ * but only while the voucher is still valid at the cancellation decision (FR-035, T118, {@link VoucherValidity}):
+ * an expired voucher stays used, and no programme is reactivated or extended. A retry after a partial result completes only
  * what is missing, and never restores twice. Earned points from a completed workshop are never withdrawn.
  */
 @Service
@@ -30,17 +31,20 @@ public class LoyaltyRestorationService {
     private final LoyaltyAuditService audit;
     /** Null only in unit tests that build the service by hand without settlement parts. */
     private final BenefitPartSupport partSupport;
+    /** Null only in unit tests that build the service by hand: every voucher then counts as still valid. */
+    private final VoucherValidity validity;
 
     @org.springframework.beans.factory.annotation.Autowired
     public LoyaltyRestorationService(BenefitEffectSupport effects, LoyaltyAuditService audit,
-                                     BenefitPartSupport partSupport) {
+                                     BenefitPartSupport partSupport, VoucherValidity validity) {
         this.effects = effects;
         this.audit = audit;
         this.partSupport = partSupport;
+        this.validity = validity;
     }
 
     LoyaltyRestorationService(BenefitEffectSupport effects, LoyaltyAuditService audit) {
-        this(effects, audit, null);
+        this(effects, audit, null, null);
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
@@ -56,8 +60,10 @@ public class LoyaltyRestorationService {
                 partSupport == null ? java.util.List.of()
                         : outcome.sourceOutcomeKey().equals(benefit.getRestoreOutcomeKey())
                         ? partSupport.partsOf(benefit) : partSupport.requireWholeAllowed(benefit);
+        // FR-035: a used voucher comes back only while it is still valid at the cancellation decision.
+        boolean voucherMayComeBack = validity == null || !validity.consumedAndEnded(benefit, outcome.decisionAt());
         AcceptedBenefit.Changes changes = benefit.restore(outcome.sourceOutcomeKey(), outcome.sourceOutcomeVersion(),
-                outcome.decisionAt());
+                outcome.decisionAt(), voucherMayComeBack);
         if (changes.points()) {
             if (benefit.getPointsState() == ComponentState.RESTORED) {
                 effects.restorePoints(locked, outcome.decisionAt());

@@ -32,7 +32,7 @@ As a Member, I want to add an existing configured retail variant and quantity to
 3. The Member enters a positive integer quantity and submits Add to Cart.
 4. The system rechecks current account/ownership authority, the configured variant, publication/active-category/public-content eligibility, applied price and requested quantity.
 5. The system saves the selection to the Member's cart, retaining distinct variant/term identities and applying only permitted same-variant merging.
-6. The system records safe attempt evidence and displays the updated cart with current indicative prices.
+6. The system records safe attempt evidence and displays the updated cart with current indicative prices. When the Member chose Mua Ngay instead of Add to Cart, the system adds the line and opens UC45 Checkout Retail Order for that one line, with the best eligible voucher preselected.
 
 #### Alternative Flows
 

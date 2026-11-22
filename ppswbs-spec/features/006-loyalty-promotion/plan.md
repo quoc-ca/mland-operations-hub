@@ -12,7 +12,7 @@
 
 ## Summary
 
-Thêm module loyaltypromotion cho voucher sản phẩm/workshop, giảm tự động sản phẩm và điểm chung. Member kiếm/dùng điểm cả hai dịch vụ, không hạng. Giữ stack modular monolith; JPA transaction cùng source owner để accept+reserve nguyên tử, owner xác minh lifecycle rồi gọi settle/release/restore/earn. Immutable policy/program revisions giữ cam kết cũ, wallet/quota locks và receipts/ledger bảo đảm không dùng/trả/cộng trùng.
+Thêm module loyaltypromotion cho voucher sản phẩm/workshop, giảm tự động sản phẩm/workshop (giảm tự động workshop từ Session 2026-11-14, FR-044) và điểm chung. Member kiếm/dùng điểm cả hai dịch vụ, không hạng. Giữ stack modular monolith; JPA transaction cùng source owner để accept+reserve nguyên tử, owner xác minh lifecycle rồi gọi settle/release/restore/earn. Immutable policy/program revisions giữ cam kết cũ, wallet/quota locks và receipts/ledger bảo đảm không dùng/trả/cộng trùng.
 
 Bốn thông số khởi đầu 10.000đ→1 điểm,1 điểm→100đ,min10,trần10%; workshop voucher→điểm→cọc, chỉ completed AND fully-paid mới earn. [Gates](integration-gates.md) phân biệt dependency code thật còn thiếu với nghiệp vụ đã chốt.
 
@@ -113,7 +113,7 @@ Hai câu trả lời được ghi vào spec A005/A006, FR040/FR041 và acceptanc
 
 - Retail full-paid/zero accepted: owner xác nhận rồi consume và grant một lần. Workshop deposit: consume, chưa grant; owner completed AND fully-paid mới grant theo acceptance policy.
 - Source row/guard phân xử callback vs expiry/cancel/completion trước loyalty. Loyalty không suy failed/expired từ clock hoặc client redirect.
-- Valid workshop cancel: HELD→release, CONSUMED→restore đúng component gốc, trả cả tổng/Member voucher quota dù mã đã hết hạn/dừng; không reactivation, cash conversion hoặc earn.
+- Valid workshop cancel: HELD→release, CONSUMED→restore đúng component gốc; điểm luôn trả đủ, lượt voucher (tổng/Member) chỉ trả khi mã còn hiệu lực tại thời điểm quyết định hủy, mã đã hết hạn thì lượt vẫn tính đã dùng (FR-035, Session 2026-11-21); không reactivation, cash conversion hoặc earn.
 - No-show/invalid cancellation không auto restore. Guest history import không retro-earn.
 - Ledger/receipt/state/counters cùng transaction; component states cho retry phần chưa hoàn. Unique constraint conflict phải rollback rồi đọc committed receipt trong transaction khác, không tiếp tục context rollback-only.
 - Khi source cần bridge outcome đã commit/legacy async, durable source-owned delivery receipt là prerequisite; consumer gọi cùng facade idempotently. Không in-memory notification làm bằng chứng, không loyaltypromotion→source polling/cycle.

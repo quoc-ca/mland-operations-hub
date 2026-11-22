@@ -27,7 +27,7 @@ This use case allows a Member to choose how many available points to use as a no
 3. The system calculates the point discount and shows the item amount, program discount, point discount, shipping (retail only) and total. For a workshop, it shows the fee after discounts, which Workshop Management uses to calculate the deposit and the remaining amount.
 4. The Member confirms the order or booking.
 5. The system rechecks the price, conditions, available points and limits, records the point policy in effect, and holds the points together with the accepted order or booking.
-6. After the retail payment or the workshop deposit is verified, or when Order Management or Workshop Management accepts a valid 0 VND order or booking without the payment gateway, the system deducts the held points once and records a used entry. When a retail checkout is split into branch orders that are paid separately, the points are divided between the branch orders on acceptance, and each branch order deducts its own share when it is paid.
+6. After the retail payment or the workshop deposit is verified, or when Order Management or Workshop Management accepts a valid 0 VND order or booking without the payment gateway, the system deducts the held points once and records a used entry. When a retail checkout is split into branch orders that are paid separately, the points are divided between the branch orders on acceptance, and each branch order deducts its own share when it is paid. For a multi-ticket workshop booking, the points are divided between the tickets on acceptance and deducted once for the whole group when the group deposit is verified.
 
 #### Alternative Flows
 

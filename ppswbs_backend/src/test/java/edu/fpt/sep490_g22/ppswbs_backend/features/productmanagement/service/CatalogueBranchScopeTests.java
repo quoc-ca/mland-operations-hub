@@ -144,6 +144,21 @@ class CatalogueBranchScopeTests {
         assertThatCode(() -> scope.requireActiveBranch(2L)).doesNotThrowAnyException(); // no source wired
     }
 
+    @Test
+    void onlyAManagerChangesTheQuantityAtABranchNoLongerActive() {
+        // T180 (FR-050, Session 2026-11-20): a Manager may count stock or bring it to zero there; Staff may not.
+        CatalogueBranchScope withSource = scopeWithActive(List.of(1L));
+        assertThatCode(() -> withSource.requireQuantityEditableBranch(2L)).doesNotThrowAnyException(); // internal call
+        actAs(ActorRole.MANAGER, List.of());
+        assertThatCode(() -> withSource.requireQuantityEditableBranch(2L)).doesNotThrowAnyException();
+
+        actAs(ActorRole.STAFF, List.of(1L, 2L));
+        assertThatCode(() -> withSource.requireQuantityEditableBranch(1L)).doesNotThrowAnyException();
+        assertThatThrownBy(() -> withSource.requireQuantityEditableBranch(2L))
+                .isInstanceOfSatisfying(CatalogueException.class,
+                        e -> org.assertj.core.api.Assertions.assertThat(e.code()).isEqualTo(CatalogueErrorCode.BRANCH_NOT_FOUND));
+    }
+
     private CatalogueBranchScope scopeWithActive(List<Long> activeIds) {
         @SuppressWarnings("unchecked")
         ObjectProvider<SellingLocationPort> provider = mock(ObjectProvider.class);

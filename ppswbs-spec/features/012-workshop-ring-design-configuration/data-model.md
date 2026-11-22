@@ -1,11 +1,11 @@
 # Feature-012 Data Model — Workshop Ring Design Configuration
 
 Date created: 2026-11-08
-Date updated: 2026-11-14
+Date updated: 2026-11-19
 Author: Ngô Tiến Đạt
 Last updated by: Ngô Tiến Đạt
 
-**Status:** IMPLEMENTED AND VERIFIED; Flyway migrations `V110` and `V120` applied and tested.
+**Status:** IMPLEMENTED BASELINE; quota, preprocessing and preview changes pending implementation and verification.
 
 ## 1. Ownership boundary
 
@@ -66,9 +66,13 @@ Logical relation: `configured_design_gemstone`
 
 - Parent design/version reference.
 - Opaque gemstone/component reference (e.g., `CMP-CZ-WHITE-2MM`, `CMP-CZ-BLUE-2MM`, `CMP-MOISSANITE-1CT`).
-- Positive quantity (clamped to `maxQuantity`: 10 for CZ, 4 for Moissanite).
+- Positive quantity validated against the component's server-provided `maxQuantity`.
 - Optional validated variant, semantic placement (`CENTER`, `ACCENT_LEFT`, `ACCENT_RIGHT`, `HALO`), and visual polar coordinates ($\theta \in [0, 360)$ degrees, radius $R = 85\text{px}$).
 - Source catalogue version.
+
+Aggregate invariant: the sum of all positive component quantities in one design
+version is at most 10. Component-specific `maxQuantity` remains a separate
+constraint, and the persisted snapshot must make the aggregate reproducible.
 
 In physical storage, individual gemstone instances and their visual angles are preserved in the JSON `component_snapshot` (`gemstonePositions: [{ id, stoneIndex, reference, angleDeg }]`).
 
@@ -97,7 +101,12 @@ Logical fields:
   - Type: `TEXT` or `SYMBOL`.
   - Placement: `INNER_BAND` (Mặt trong) or `OUTER_BAND` (Mặt ngoài).
   - Pricing: Flat one-time standard engraving fee (80.000 ₫) regardless of item count or placement.
-- `custom_images`: List of uploaded custom images `[{ id, placement, image_url, crop_x, crop_y, crop_width, crop_height, price }]`.
+- `custom_images`: List of uploaded custom images `[{ id, placement, image_url, crop_x, crop_y, crop_width, crop_height, contrast, sharpness, processed_preview_reference, price }]`.
+- `contrast` and `sharpness` are integers in `0..100`, defaulting to `50`.
+- A safe source or processed-preview reference must be resolvable after reload;
+  a browser-only data URL is not authoritative.
+- Cardinality is independent: at most 2 `TEXT`, 2 `SYMBOL` and 2 custom image
+  items per design version.
   - Placement: `INNER_BAND` or `OUTER_BAND`.
   - Frame constraint: Exactly 160px x 160px crop window with thresholded monochrome black & white laser simulation.
   - Pricing: 100.000 ₫ per uploaded image (`100,000 VND / image`).
@@ -181,6 +190,11 @@ data or unnecessary personal data.
 18. Workshop materials are restricted to Silver 925 (`MAT-SILVER-925`), Copper (`MAT-COPPER`), and Stainless Steel 316L (`MAT-STAINLESS-STEEL`); Gold variants are rejected as inactive options.
 19. Physical dimensions must stay within limits: $1.0\text{mm} \le \text{thickness} \le 3.0\text{mm}$ and $1.5\text{mm} \le \text{band width} \le 6.0\text{mm}$.
 20. Component quantities must satisfy $1 \le \text{quantity} \le \text{maxQuantity}$ per type. On the 2D Top View preview, individual gemstone coordinates are mathematically locked to circle radius $R = 85\text{px}$ from center $(150, 135)$ and cannot be dragged outside or away from the ring band.
+21. Aggregate gemstone quantity across all component types must be at most 10.
+22. Engraving cardinality is independently limited to 2 `TEXT`, 2 `SYMBOL` and 2 custom image items.
+23. Custom-image `contrast` and `sharpness` are persisted integers in `0..100`, default 50.
+24. Saved previews must be reconstructible from persisted safe image/reference data.
+25. Feature-012 messages and preview labels use one active locale and valid UTF-8 without mojibake.
 21. Material cost calculates mass $M = \frac{(P + \pi T) \cdot T \cdot W}{1000} \cdot D$. Rings with $M \le 3.0\text{g}$ use base unit price; every 1 gram exceeding 3.0g incurs an excess surcharge (120.000 ₫/g for Silver).
 
 ## 4. Keys, uniqueness and concurrency
@@ -198,6 +212,19 @@ Proposed logical constraints:
 
 The exact physical indexes, FK actions, version column and idempotency table must
 be reconciled with repository Flyway history before migration.
+
+### 2.10 Custom-order reference snapshot
+
+Feature-004 receives a server-built immutable snapshot through the public facade.
+The snapshot records the selected design version, package context, material,
+shape, size, components, attachments, engraving, dimensions and evaluation
+metadata where available. It does not expose the Guest session value or private
+Member data.
+
+Only `DRAFT` and `VALIDATED` versions may create this snapshot. A version already
+attached to or locked by a workshop booking cannot be reused directly; cloning
+creates a new lineage version first. Changes to the source design never mutate an
+existing custom-order snapshot.
 
 ## 5. Retention and deletion
 

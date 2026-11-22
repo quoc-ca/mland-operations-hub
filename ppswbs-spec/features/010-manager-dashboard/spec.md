@@ -209,6 +209,10 @@ and complete source states and verifies that each state is represented distinctl
 
 ## Requirements
 
+### Route masking synchronization (2026-11-20)
+
+The Manager Dashboard browser route `/manager/dashboard` has the exact allowlist `MANAGER`. A signed-in `MEMBER`, `STAFF`, `ADMIN`, or `CARRIER` direct navigation is replaced to `/404` before a KPI or trend request begins. This is browser non-disclosure only; the Manager-only server authorization in FR-001, FR-003 and FR-017 remains authoritative and API denial remains typed rather than being rewritten by the browser.
+
 ### Functional Requirements
 
 - **FR-001**: The system MUST allow an authenticated active account with

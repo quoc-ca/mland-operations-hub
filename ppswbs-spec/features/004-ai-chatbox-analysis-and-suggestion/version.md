@@ -5,7 +5,36 @@
 - **Last updated by**: Phan Sơn
 - **Date created**: 2026-10-24
 - **Date updated**: 2026-11-18
-- **Source of truth**: Feature-004 `spec.md`, `design.md`, OpenAPI contract, `V182__ai_guest_sessions_and_prompt_quota.sql` and synchronized project specifications
+- **Source of truth**: The 2026-11-20 human-review `spec.md`, `research.md`, `design.md` and `contracts/design-request-human-review.openapi.yaml`. The AI quota contract and `V182__ai_guest_sessions_and_prompt_quota.sql` are historical only.
+
+## Phase I — Custom-order one-time full-payment revision (2026-11-20)
+
+- Custom orders no longer use a deposit, remaining balance, final-balance
+  proposal, or retail cart line.
+- After a valid human review and Manager-approved quote, the Member pays the
+  complete quoted amount from the custom-order detail page in one payment
+  context.
+- The quote stores an immutable total, currency, quote generation and expiry.
+  If verified full payment is not received before expiry, the quote/order is
+  expired or cancelled and any temporary queue hold is released.
+- A new quote is a new immutable generation on the same custom order where the
+  policy permits it; the old quote remains history.
+- The custom-order customer page is split into `Requests` and `Orders` views.
+  It never exposes an Add to Cart action and never treats a custom order as a
+  ready-ring retail order.
+- Updated Feature-004 `spec.md`, `data-model.md`, custom-order OpenAPI,
+  `ppswbs-spec/APIs.md`, `spec-general.md`, `screen.md`, Report 2 scope and
+  Report 3 custom-manufacturing/payment references.
+- Workshop booking deposits and ready-ring retail full payment are unchanged.
+
+### Current status
+
+```text
+CUSTOM ORDER FULL-PAYMENT BASELINE DOCUMENTED
+NO DEPOSIT OR RETAIL CART
+QUOTE EXPIRY/CANCELLATION REQUIRED
+BACKEND/FRONTEND IMPLEMENTATION PENDING CONTRACT REVIEW
+```
 
 ### Phase G — AI Chatbox Daily Quota & Session Accounting (2026-11-18)
 1. **Calendar-Day Quota Enforcement (Asia/Ho_Chi_Minh)**:
@@ -45,6 +74,68 @@
 ---
 
 # Version 1.6 — Feature 004: Custom Design Workspace Refinement & Request Tracking Enhancements
+
+## Phase G — Human Review Rebaseline (2026-11-20)
+
+### New source of truth
+
+Feature-004 is logically renamed to `004-design-request-and-human-review`. The
+legacy directory is retained temporarily for history, but all new implementation
+must use the human-review specification and contract.
+
+> **Historical-content boundary:** Sections below this Phase G baseline may
+> describe the former AI workflow. They are retained for audit/history only and
+> must not be used to implement Feature-004.
+
+### Retired behavior
+
+- Basic AI Support, Gemini, AI image analysis, candidate features, confidence and
+  AI price suggestion are removed from Feature-004.
+- The old 3,000,000 VND Staff/Manager threshold is retired.
+- `CLARIFICATION_REQUIRED` is removed from the V1 review lifecycle.
+- Existing AI E2E results are historical and cannot verify this baseline.
+
+### New behavior
+
+- Guest and Member can create independent requests.
+- Each request accepts a description and/or up to five images.
+- Image quality is checked immediately in the UI and authoritatively by backend.
+- `TOO_BLURRY` blocks submission.
+- Guest quota is five requests per calendar day; the sixth returns HTTP 429.
+- Guest tracking uses an opaque expirable token/link.
+- Staff and Manager have equal accept/reject authority.
+- Every terminal decision requires a mandatory explanation.
+- Customer projections expose status and explanation without raw tokens, storage keys,
+  database IDs or private contact information.
+
+### Phase H — Custom-order intake integration (2026-11-20)
+
+- Feature-004 now owns custom design intake, clarification, human review and quote
+  handoff; Custom Manufacturing owns production, balance payment and fulfilment.
+- A Member may submit a Feature-012 `DRAFT` or `VALIDATED` snapshot. Attached or
+  locked designs require cloning before reuse.
+- `CLARIFICATION_REQUIRED` is non-terminal and creates a new auditable revision.
+- Quotes use Manager-configured expiry. No queue slot is held until deposit starts;
+  then the queue hold is at most 15 minutes and the VNPay link is valid for 10.
+- Implementation remains blocked until the new contract, Figma screens, migration
+  plan and payment-facade ownership are reviewed.
+
+### Documentation and Figma gate
+
+Added `research.md`, the human-review OpenAPI draft, rewritten `spec.md`,
+`data-model.md`, `design.md` and `tasks.md`. A new Figma design pack for Guest,
+Member, Staff, Manager and Admin is required; implementation is blocked until the
+user approves its revision and node mapping.
+
+### Status
+
+```text
+DOCUMENTATION REBASED
+AI BOUNDARY REMOVED
+HUMAN REVIEW BASELINE DRAFT
+FIGMA DESIGN PENDING APPROVAL
+IMPLEMENTATION BLOCKED UNTIL CONTRACT REVIEW
+```
 
 - **Feature**: 004 — AI Chatbox Analysis and Suggestion
 - **Author**: Ngô Tiến Đạt

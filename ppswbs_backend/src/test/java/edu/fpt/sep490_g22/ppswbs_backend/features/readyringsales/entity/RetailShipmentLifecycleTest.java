@@ -23,16 +23,30 @@ class RetailShipmentLifecycleTest {
         assertThat(shipment.getStatus()).isEqualTo(RetailShipmentStatus.PREPARING);
         assertThat(shipment.getMockTrackingNumber()).isEqualTo("S1234567890");
 
-        shipment.advanceTo(RetailShipmentStatus.HANDED_TO_CARRIER, 100L, "STAFF#100", "Handed over");
-        assertThat(shipment.getStatus()).isEqualTo(RetailShipmentStatus.HANDED_TO_CARRIER);
+        shipment.advanceTo(RetailShipmentStatus.READY_FOR_CARRIER, 100L, "STAFF#100", "Packed");
+        assertThat(shipment.getStatus()).isEqualTo(RetailShipmentStatus.READY_FOR_CARRIER);
 
-        shipment.advanceTo(RetailShipmentStatus.IN_TRANSIT, 100L, "STAFF#100", "Courier departed");
-        assertThat(shipment.getStatus()).isEqualTo(RetailShipmentStatus.IN_TRANSIT);
+        shipment.advanceTo(RetailShipmentStatus.HANDED_TO_CARRIER, 100L, "STAFF#100", "Courier collected");
+        assertThat(shipment.getStatus()).isEqualTo(RetailShipmentStatus.HANDED_TO_CARRIER);
 
         shipment.advanceTo(RetailShipmentStatus.DELIVERED, 100L, "STAFF#100", "Delivered to recipient");
         assertThat(shipment.getStatus()).isEqualTo(RetailShipmentStatus.DELIVERED);
         assertThat(shipment.getStatus().isTerminal()).isTrue();
         assertThat(shipment.getHistory()).hasSize(3);
+    }
+
+    @Test
+    void anOlderInTransitShipmentStillReachesDelivered() {
+        var checkout = new GroupedCheckout(1L, "key-1", 1L, BigDecimal.TEN, BigDecimal.ONE, BigDecimal.ZERO);
+        var order = new RetailOrder(checkout, 10L, "GHTK", BigDecimal.TEN, BigDecimal.ONE, BigDecimal.ZERO);
+        var shipment = new RetailShipment(checkout, order, "S1234567890",
+            "Nguyen Van A", "0901234567", "123 Duong A", "HN", "Cau Giay", "Dich Vong");
+
+        shipment.advanceTo(RetailShipmentStatus.READY_FOR_CARRIER, 100L, "STAFF#100", null);
+        shipment.advanceTo(RetailShipmentStatus.HANDED_TO_CARRIER, 100L, "STAFF#100", null);
+        shipment.advanceTo(RetailShipmentStatus.IN_TRANSIT, 100L, "STAFF#100", null);
+        shipment.advanceTo(RetailShipmentStatus.DELIVERED, 100L, "STAFF#100", null);
+        assertThat(shipment.getStatus()).isEqualTo(RetailShipmentStatus.DELIVERED);
     }
 
     @Test
@@ -54,8 +68,8 @@ class RetailShipmentLifecycleTest {
         var shipment = new RetailShipment(checkout, order, "S1234567890",
             "Nguyen Van A", "0901234567", "123 Duong A", "HN", "Cau Giay", "Dich Vong");
 
+        shipment.advanceTo(RetailShipmentStatus.READY_FOR_CARRIER, 100L, "STAFF#100", null);
         shipment.advanceTo(RetailShipmentStatus.HANDED_TO_CARRIER, 100L, "STAFF#100", null);
-        shipment.advanceTo(RetailShipmentStatus.IN_TRANSIT, 100L, "STAFF#100", null);
         shipment.advanceTo(RetailShipmentStatus.DELIVERED, 100L, "STAFF#100", null);
 
         assertThatThrownBy(() -> shipment.advanceTo(RetailShipmentStatus.IN_TRANSIT, 100L, "STAFF#100", "Reopen"))

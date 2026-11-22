@@ -4,17 +4,18 @@
 
 This screen allows Members to:
 
-- Review the Member's own cart and its current indicative prices.
+- Review the Member's own cart grouped by branch, with product images and current indicative prices; the cart opens with no line ticked.
 - Update positive integer quantities, totaling at most 99 per variant across at most 50 lines, subject to availability.
 - Remove cart items and receive validation or stale-edit feedback.
-- Proceed to whole-cart checkout after reviewing any corrected cart contents.
+- Tick the lines to buy (or Chọn tất cả), preview the eligible voucher and member points, and proceed to checkout with only those lines.
+- After Mua lại from an order, find only the re-added rings ticked and a notice listing the rings that could not be added.
 
 | Field Name | Description |
 | --- | --- |
-| Order value / total | Read-only amount; indicative for a cart and frozen after accepted checkout. Sample amounts are not operational prices. |
-| State | Read-only system facts; cart viewing alone creates no hold or accepted order. |
-| Payment | Read-only verified status; a browser return cannot mark paid. |
-| Item / variant | Shows product and exact configured variant; accepted-order identity and options remain frozen. |
-| Quantity / line amount / subtotal | Integer quantities and whole-VND amounts; calculate from applicable terms rather than mockup examples. |
-| Continue | Performs only the eligible next action for this screen and current order/payment state. |
-| Return-URL notice | Explains that payment confirmation comes from verified gateway evidence, not the browser redirect. |
+| Product / variant | Product image, name, SKU and size of the exact configured variant; a line no longer for sale shows Tạm thời không còn bán. |
+| Đơn giá / Số lượng / Số tiền | Indicative unit price, integer quantity with − and + controls, and whole-VND line amount; prices are frozen only at checkout. |
+| Select / Chọn tất cả | Ticks the lines to buy; nothing is ticked when the cart opens except the rings re-added by Mua lại. |
+| Voucher / Điểm thành viên | Shows the best eligible voucher or a typed code and the Member's points; the discount is recalculated at checkout. |
+| Xóa | Removes the line from the cart; it creates no hold or order. |
+| Mua hàng | Opens checkout with the ticked lines; with nothing ticked it shows Hãy chọn ít nhất một sản phẩm để mua. |
+| Empty-cart notice | Giỏ hàng chưa có sản phẩm, with a link to continue shopping. |

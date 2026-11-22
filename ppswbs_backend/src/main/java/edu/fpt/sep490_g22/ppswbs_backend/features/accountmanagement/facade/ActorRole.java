@@ -4,5 +4,6 @@ public enum ActorRole {
     MEMBER,
     STAFF,
     MANAGER,
+    CARRIER,
     ADMIN
 }

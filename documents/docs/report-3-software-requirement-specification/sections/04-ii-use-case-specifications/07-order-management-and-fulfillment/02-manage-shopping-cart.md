@@ -10,7 +10,7 @@ None.
 
 #### Description
 
-As a Member, I want to view my own cart, change quantities and remove lines so that I can review current purchase intent before whole-cart checkout.
+As a Member, I want to view my own cart, change quantities, remove lines and tick the lines I want to buy so that I can review current purchase intent before checkout.
 
 #### Preconditions
 
@@ -29,17 +29,21 @@ As a Member, I want to view my own cart, change quantities and remove lines so t
 
 1. The Member opens Shopping Cart.
 2. The system checks current ownership/account authority and retrieves that Member's unexpired cart, applying the 30-day last-Member-edit retention rule.
-3. The system displays distinct product/variant/options, quantities and current indicative prices/eligibility.
+3. The system displays distinct product image/variant/options, quantities and current indicative prices/eligibility, grouped by branch. The cart opens with no line ticked.
 4. The Member changes a quantity or chooses a line to remove.
 5. The system rechecks authority and validates the requested edit against current line/variant data and logical availability.
 6. The system saves the accepted edit, records safe evidence and displays the revised cart and values.
-7. The Member continues editing or proceeds to UC45 Checkout Retail Order.
+7. The Member continues editing, ticks the lines to buy and proceeds to UC45 Checkout Retail Order with only the ticked lines.
 
 #### Alternative Flows
 
 **Step 2 — Empty cart**
 
 Display an empty-cart result and catalogue guidance, including when cart retention has removed the cart. This is not a retrieval failure; no order/hold can be created from an empty cart.
+
+**Step 1 — Cart opened from Mua lại**
+
+When the Member reorders a past order from Purchase Order History, the system adds its rings to the cart again, skips rings already in the cart or no longer available, ticks only the lines it added and lists the skipped rings. Resume at Step 4.
 
 **Steps 2 and 5 — Another Member's cart or suspended/revoked account**
 

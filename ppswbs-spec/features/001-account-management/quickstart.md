@@ -1,7 +1,7 @@
 # Quickstart Validation Guide: Account Management (FE-001)
 
 **Date created**: 2026-10-26
-**Date updated**: 2026-11-14
+**Date updated**: 2026-11-20
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
@@ -398,3 +398,27 @@ Before handoff, retain evidence for:
 3. Spring Modulith boundary verification — test output confirming `accountmanagement` module detects correctly
 4. Scenarios V-01 through V-12 executed locally — annotated screenshots or test output per scenario
 5. WCAG 2.2 AA baseline — accessibility scan output for all FE-001 screens (frontend foundation owner)
+
+---
+
+## Scenario V-15: Browser route masking
+
+1. For each of MEMBER, STAFF, MANAGER and ADMIN, open every FE-001 Profile, Address, Email and Password canonical route and alias. → each allowed self-service screen loads only after Account bootstrap resolves.
+2. Sign in as CARRIER and open `/security/password`. → password flow loads. Open any Profile, Address or Email route/alias. → exact URL becomes `/404` by replace; no protected page DOM or request occurs.
+3. Sign in as any non-ADMIN role and open `/admin/accounts` or `/admin/roles`; sign in as ADMIN and open those routes. → denied actor reaches generic `/404`, allowed ADMIN reaches its page.
+4. Use a `SUSPENDED` or `PENDING_SETUP` Account against an internal FE-001 route. → exact URL becomes `/404`; no protected request starts.
+5. Simulate Account-bootstrap technical unavailability after valid Firebase session. → keep the original URL, show non-PII unavailable state and explicit retry; do not use stale role data or route to `/404`.
+6. From an allowed page, make an authorized request return `403`. → session remains active and feature-owned recovery runs; it is not a route-mask redirect.
+
+---
+
+## Scenario V-14: CARRIER (GHTK) Admin email/password provisioning
+
+**Demo/test fixture**: create the Firebase identity first, then seed the resulting UID with `ghtk.test@mland.vn` / `CarrierTest@123456`, display name `Đối tác vận chuyển (GHTK)`, phone `0900000000`, and no location. This is an R-CAR-approved demo/test exception matching existing fixtures; do not reuse it in production. Runtime/API password secrecy, audit, and logging rules still apply.
+
+1. ADMIN creates CARRIER with valid email, password, display name and 7–30-character phone, no location. → exactly one ACTIVE CARRIER and Firebase email/password identity, with no invitation or location.
+2. Retry unchanged idempotency key. → original CARRIER returns; changed payload conflicts; no password is returned.
+3. Submit a location, missing phone/password, weak password, or an existing Mland/Firebase email. → reject with no Account mutation; reconciliation leaves no secret in persistence, audit, or logs.
+4. Sign in through the standard email/password UI with the provisioned credential. → existing CARRIER resolves, redirects to `/carrier`, and no Member Account is created.
+5. Wrong password, different identity, or suspended account. → safe denial with no business-data mutation.
+6. Suspend then restore CARRIER. → protected access is denied then fresh sign-in is required after restore.
