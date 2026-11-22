@@ -93,6 +93,8 @@ with open(target, "w", encoding="utf-8") as stream:
         stream.write(f"{key}={quote_compose_value(value)}\n")
 PY_ENV
 chmod 0600 "${REPO_DIR}/.env"
+cp -f "${REPO_DIR}/.env" "${REPO_DIR}/ppswbs_backend/.env"
+chmod 0600 "${REPO_DIR}/ppswbs_backend/.env"
 
 if [ -f "/opt/mland-staging-runtime/firebase-service-account.json" ]; then
     echo "Copying Firebase service account credentials..."

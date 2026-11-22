@@ -192,11 +192,11 @@ export const handler = async (event) => {
 
     if (method === "GET" && path.endsWith("/logs")) {
       const commands = [
-        "echo '=== DEPLOY LOG (last 120 lines) ==='; if [ -f /var/log/mland-deploy.log ]; then tail -n 120 /var/log/mland-deploy.log; else echo 'No deploy log yet'; fi",
-        "echo ''; echo '=== BOOTSTRAP LOG (last 50 lines) ==='; if [ -f /var/log/user-data.log ]; then tail -n 50 /var/log/user-data.log; else echo 'No bootstrap log yet'; fi",
+        "echo '=== DEPLOY LOG (last 60 lines) ==='; if [ -f /var/log/mland-deploy.log ]; then tail -n 60 /var/log/mland-deploy.log; else echo 'No deploy log yet'; fi",
         "cd /opt/mland-staging 2>/dev/null || exit 0; for svc in db backend; do cid=$(sudo -H -u ubuntu -- docker compose ps -aq \"$svc\"); if [ -z \"$cid\" ]; then printf 'CHECK|%s|not-created|not-created\\n' \"$svc\"; else state=$(docker inspect --format '{{.State.Status}}' \"$cid\" 2>/dev/null || echo unknown); health=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}not-configured{{end}}' \"$cid\" 2>/dev/null || echo unknown); printf 'CHECK|%s|%s|%s\\n' \"$svc\" \"$state\" \"$health\"; fi; done",
         "echo ''; echo '=== CONTAINER STATUS ==='; cd /opt/mland-staging && sudo -H -u ubuntu -- docker compose ps -a 2>&1 || echo 'Compose project not available'",
-        "echo ''; echo '=== CONTAINER LOGS ==='; cd /opt/mland-staging && sudo -H -u ubuntu -- docker compose logs --tail=100 --no-color 2>&1 || echo 'Container logs not available yet'"
+        "echo ''; echo '=== BACKEND LOGS (last 60 lines) ==='; cd /opt/mland-staging && sudo -H -u ubuntu -- docker compose logs --tail=60 --no-color backend 2>&1 || echo 'Backend container logs not available yet'",
+        "echo ''; echo '=== MYSQL LOGS (last 20 lines) ==='; cd /opt/mland-staging && sudo -H -u ubuntu -- docker compose logs --tail=20 --no-color db 2>&1 || echo 'MySQL container logs not available yet'"
       ];
       const sent = await sendSsm(new SendCommandCommand({
         InstanceIds: [instanceId],

@@ -92,6 +92,7 @@ function StagingPage({ onNotice, currentUser }) {
   const [lastOperation, setLastOperation] = useState(null)
   const [snapshotCommandId, setSnapshotCommandId] = useState('')
   const [isRefreshingLogs, setIsRefreshingLogs] = useState(false)
+  const [autoRefreshLogs, setAutoRefreshLogs] = useState(false)
   const [isStopping, setIsStopping] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
   const [isDeploying, setIsDeploying] = useState(false)
@@ -239,6 +240,27 @@ function StagingPage({ onNotice, currentUser }) {
     }
   }, [polling, controlApiUrl, refreshKey])
 
+  const handleRefreshLogs = useCallback(async () => {
+    if (!controlApiUrl) {
+      notConnected('Refresh logs')
+      return
+    }
+    if (isRefreshingLogs || snapshotCommandId) return
+    try {
+      setIsRefreshingLogs(true)
+      setLogState('Requesting one SSM log snapshot')
+      const response = await fetch(`${controlApiUrl}/staging/logs`, { headers: { Accept: 'application/json' } })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(data.error || `Log API returned HTTP ${response.status}`)
+      setSnapshotCommandId(data.commandId || '')
+      setLogState(data.message || 'Collecting logs')
+      if (!data.commandId) setIsRefreshingLogs(false)
+    } catch (error) {
+      setIsRefreshingLogs(false)
+      setLogState(`Log request failed: ${error.message}`)
+    }
+  }, [controlApiUrl, isRefreshingLogs, snapshotCommandId])
+
   useEffect(() => {
     const commandId = lastOperation?.commandId
     if (!polling || !controlApiUrl || !commandId || ['Success', 'Failed', 'TimedOut', 'Cancelled', 'Undeliverable', 'Terminated'].includes(lastOperation.status)) return undefined
@@ -250,8 +272,15 @@ function StagingPage({ onNotice, currentUser }) {
         setLastOperation((current) => current?.commandId === commandId ? { ...current, status: operation.status } : current)
         applyOperationChecks(operation.checks)
         const output = [operation.stdout?.trim(), operation.stderr?.trim() ? `STDERR:\n${operation.stderr.trim()}` : ''].filter(Boolean).join('\n\n')
-        if (output) setLogContent(output)
+        if (output) {
+          setLogContent(output)
+        } else if (operation.status === 'InProgress' && lastOperation?.name === 'Deploy') {
+          setLogContent((current) => current || '[EC2] Lệnh Deploy đang thực thi: đang kéo git branch, nạp môi trường và build Docker Compose... Vui lòng đợi trong giây lát.')
+        }
         setLogState(`SSM ${operation.status} · command ${commandId}`)
+        if (['Success', 'Failed'].includes(operation.status) && lastOperation?.name === 'Deploy') {
+          handleRefreshLogs()
+        }
       } catch (error) {
         if (!cancelled) setLogState(`Waiting for SSM output: ${error.message}`)
       }
@@ -262,7 +291,7 @@ function StagingPage({ onNotice, currentUser }) {
       cancelled = true
       window.clearInterval(timer)
     }
-  }, [polling, controlApiUrl, lastOperation?.commandId, lastOperation?.status, readOperation, applyOperationChecks])
+  }, [polling, controlApiUrl, lastOperation?.commandId, lastOperation?.status, lastOperation?.name, readOperation, applyOperationChecks, handleRefreshLogs])
 
   useEffect(() => {
     if (!polling || !controlApiUrl || !snapshotCommandId) return undefined
@@ -295,25 +324,27 @@ function StagingPage({ onNotice, currentUser }) {
     }
   }, [polling, controlApiUrl, snapshotCommandId, readOperation, applyOperationChecks])
 
-  const handleRefreshLogs = async () => {
-    if (!controlApiUrl) {
-      notConnected('Refresh logs')
-      return
-    }
-    try {
-      setIsRefreshingLogs(true)
-      setLogState('Requesting one SSM log snapshot')
-      const response = await fetch(`${controlApiUrl}/staging/logs`, { headers: { Accept: 'application/json' } })
-      const data = await response.json().catch(() => ({}))
-      if (!response.ok) throw new Error(data.error || `Log API returned HTTP ${response.status}`)
-      setSnapshotCommandId(data.commandId || '')
-      setLogState(data.message || 'Collecting logs')
-      if (!data.commandId) setIsRefreshingLogs(false)
-    } catch (error) {
+  // Safety timer to guarantee isRefreshingLogs never stays stuck
+  useEffect(() => {
+    if (!isRefreshingLogs) return undefined
+    const timer = window.setTimeout(() => {
       setIsRefreshingLogs(false)
-      setLogState(`Log request failed: ${error.message}`)
-    }
-  }
+      setSnapshotCommandId('')
+      setLogState((cur) => cur.includes('Collecting') ? 'Log collection timed out' : cur)
+    }, 15000)
+    return () => window.clearTimeout(timer)
+  }, [isRefreshingLogs])
+
+  // Auto-refresh logs every 5s when enabled and machine is running
+  useEffect(() => {
+    if (!autoRefreshLogs || !polling || !controlApiUrl || serverStatus !== 'RUNNING') return undefined
+    if (isRefreshingLogs || snapshotCommandId) return undefined
+
+    const timer = window.setTimeout(() => {
+      handleRefreshLogs()
+    }, 5000)
+    return () => window.clearTimeout(timer)
+  }, [autoRefreshLogs, polling, controlApiUrl, serverStatus, isRefreshingLogs, snapshotCommandId, handleRefreshLogs])
 
   const handleStart = async (event) => {
     event.preventDefault()
@@ -564,14 +595,21 @@ function StagingPage({ onNotice, currentUser }) {
           <div>
             <p className="eyebrow">OBSERVABILITY</p>
             <h3>Log snapshot</h3>
-            <p className="muted log-status">{logState} · {polling ? 'status/command polling every 5s' : 'polling paused'}</p>
+            <p className="muted log-status">{logState} · {polling ? 'Trạng thái máy: polling 5s' : 'Polling tắt'} {autoRefreshLogs ? '· Auto-pull: BẬT (5s)' : ''}</p>
           </div>
           <div className="log-actions">
-            <span className="tail-label">tail 200</span>
-            <button className="text-button" onClick={handleRefreshLogs} disabled={isRefreshingLogs}>
+            <button
+              type="button"
+              className={`text-button ${autoRefreshLogs ? 'active-toggle' : ''}`}
+              onClick={() => setAutoRefreshLogs((value) => !value)}
+              title="Tự động kéo snapshot log về mỗi 5 giây khi máy RUNNING"
+            >
+              {autoRefreshLogs ? 'Auto-pull: BẬT (5s)' : 'Auto-pull: TẮT'}
+            </button>
+            <button type="button" className="text-button" onClick={handleRefreshLogs} disabled={isRefreshingLogs}>
               {isRefreshingLogs ? 'Collecting...' : 'Refresh logs'}
             </button>
-            <button className="text-button" onClick={() => setPolling((value) => !value)}>
+            <button type="button" className="text-button" onClick={() => setPolling((value) => !value)}>
               {polling ? 'Pause polling' : 'Resume polling'}
             </button>
           </div>
