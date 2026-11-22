@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import './App.css'
 import { loginWithGoogle, logoutFirebase } from './firebase.js'
 import { parseEnvContent } from './envParser.js'
@@ -80,6 +80,7 @@ function Login({ onLogin }) {
 
 function StagingPage({ onNotice, currentUser }) {
   const [showStart, setShowStart] = useState(false)
+  const [showDeploy, setShowDeploy] = useState(false)
   const [gitBranch, setGitBranch] = useState('develop')
   const [envRows, setEnvRows] = useState(initialEnv)
   const [polling, setPolling] = useState(true)
@@ -89,6 +90,9 @@ function StagingPage({ onNotice, currentUser }) {
   const [serverIp, setServerIp] = useState('')
   const [healthChecks, setHealthChecks] = useState([])
   const [lastOperation, setLastOperation] = useState(null)
+  const [snapshotCommandId, setSnapshotCommandId] = useState('')
+  const [isRefreshingLogs, setIsRefreshingLogs] = useState(false)
+  const [isStopping, setIsStopping] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
   const [isDeploying, setIsDeploying] = useState(false)
   const fileInputRef = useRef(null)
@@ -123,57 +127,143 @@ function StagingPage({ onNotice, currentUser }) {
 
   const validCount = envRows.filter((r) => r.key.trim()).length
 
+  const applyOperationChecks = useCallback((checks = {}) => {
+    const labels = { db: 'MySQL', backend: 'Backend container' }
+    const updates = Object.entries(checks).map(([key, value]) => {
+      const running = value.state === 'running'
+      const ready = key === 'db' ? running && value.health === 'healthy' : running
+      const detail = key === 'db'
+        ? `Container ${value.state}; Docker health ${value.health}`
+        : `Container ${value.state}; application readiness is not exposed`
+      return { name: labels[key] || key, ready, detail }
+    })
+    if (updates.length) {
+      setHealthChecks((current) => [...current.filter((item) => !updates.some((check) => check.name === item.name)), ...updates])
+    }
+  }, [])
+
+  const readOperation = useCallback(async (commandId) => {
+    const response = await fetch(`${controlApiUrl}/staging/operation?commandId=${encodeURIComponent(commandId)}`, {
+      headers: { Accept: 'application/json' }
+    })
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok && response.status !== 202) throw new Error(data.error || `Operation API returned HTTP ${response.status}`)
+    return data
+  }, [controlApiUrl])
+
   useEffect(() => {
-    if (!polling) return undefined
+    if (!polling || !controlApiUrl) return undefined
     let cancelled = false
-
-    const pollStatusAndLogs = async () => {
-      if (!controlApiUrl) return
-
-      // 1. Kiểm tra trạng thái máy chủ EC2 thực tế
+    const pollStatus = async () => {
       try {
-        const statusRes = await fetch(`${controlApiUrl}/staging/status`, { headers: { Accept: 'application/json' } })
-        if (!statusRes.ok) throw new Error(`Status API returned HTTP ${statusRes.status}`)
-        if (statusRes.ok) {
-          const statusData = await statusRes.json()
-          if (!cancelled && statusData.state) {
-            const normalized = statusData.state.toUpperCase()
-            setServerStatus(normalized === 'PENDING' ? 'STARTING' : normalized)
-            setServerIp(statusData.publicIp || '')
-            setHealthChecks([
-              { name: 'EC2 instance', ready: normalized === 'RUNNING', detail: `AWS state: ${normalized}` },
-              { name: 'SSM agent', ready: statusData.ssmStatus === 'Online', detail: `Connection: ${statusData.ssmStatus || 'unknown'}` },
-              { name: 'MySQL', ready: null, detail: 'Container health is shown in the log snapshot' },
-              { name: 'Backend API', ready: null, detail: 'HTTP health endpoint is not configured' },
-              { name: 'Caddy / HTTPS', ready: null, detail: 'Domain and TLS health check is not configured' }
-            ])
-          }
-        }
+        const response = await fetch(`${controlApiUrl}/staging/status`, { headers: { Accept: 'application/json' } })
+        const data = await response.json().catch(() => ({}))
+        if (!response.ok) throw new Error(data.error || `Status API returned HTTP ${response.status}`)
+        if (cancelled || !data.state) return
+
+        const normalized = data.state.toUpperCase()
+        const displayState = ({ PENDING: 'STARTING', STOPPING: 'STOPPING', 'SHUTTING-DOWN': 'STOPPING', STOPPED: 'STOPPED', TERMINATED: 'STOPPED' })[normalized] || normalized
+        setServerStatus(displayState)
+        setServerIp(data.publicIp || '')
+        setHealthChecks((current) => [
+          { name: 'EC2 instance', ready: normalized === 'RUNNING', detail: `AWS state: ${normalized}` },
+          { name: 'SSM agent', ready: data.ssmStatus === 'Online', detail: `Connection: ${data.ssmStatus || 'unknown'}` },
+          ...current.filter((item) => item.name === 'MySQL' || item.name === 'Backend container')
+        ])
+        setLastOperation((current) => current?.name === 'Start'
+          ? { ...current, status: displayState }
+          : current)
       } catch (error) {
-        if (!cancelled) setHealthChecks([{ name: 'Control API', ready: false, detail: error.message || 'Status request failed' }])
-      }
-
-      // 2. Lấy snapshot log container / deploy
-      try {
-        const logsRes = await fetch(`${controlApiUrl}/staging/logs`, { headers: { Accept: 'application/json' } })
-        if (!logsRes.ok) throw new Error('Control API is not connected')
-        const logsData = await logsRes.json()
-        if (!cancelled) {
-          setLogContent(logsData.logs || '')
-          setLogState(logsData.logs ? 'Log snapshot updated' : 'Waiting for logs')
-        }
-      } catch {
-        if (!cancelled) setLogState('Control API is not connected')
+        if (!cancelled) setHealthChecks((current) => [
+          { name: 'Control API', ready: false, detail: error.message || 'Status request failed' },
+          ...current.filter((item) => item.name === 'MySQL' || item.name === 'Backend container')
+        ])
       }
     }
 
-    pollStatusAndLogs()
-    const timer = window.setInterval(pollStatusAndLogs, 5000)
+    pollStatus()
+    const timer = window.setInterval(pollStatus, 5000)
     return () => {
       cancelled = true
       window.clearInterval(timer)
     }
   }, [polling, controlApiUrl, refreshKey])
+
+  useEffect(() => {
+    const commandId = lastOperation?.commandId
+    if (!polling || !controlApiUrl || !commandId || ['Success', 'Failed', 'TimedOut', 'Cancelled', 'Undeliverable', 'Terminated'].includes(lastOperation.status)) return undefined
+    let cancelled = false
+    const pollOperation = async () => {
+      try {
+        const operation = await readOperation(commandId)
+        if (cancelled) return
+        setLastOperation((current) => current?.commandId === commandId ? { ...current, status: operation.status } : current)
+        applyOperationChecks(operation.checks)
+        const output = [operation.stdout?.trim(), operation.stderr?.trim() ? `STDERR:\n${operation.stderr.trim()}` : ''].filter(Boolean).join('\n\n')
+        if (output) setLogContent(output)
+        setLogState(`SSM ${operation.status} · command ${commandId}`)
+      } catch (error) {
+        if (!cancelled) setLogState(`Waiting for SSM output: ${error.message}`)
+      }
+    }
+    pollOperation()
+    const timer = window.setInterval(pollOperation, 2500)
+    return () => {
+      cancelled = true
+      window.clearInterval(timer)
+    }
+  }, [polling, controlApiUrl, lastOperation?.commandId, lastOperation?.status, readOperation, applyOperationChecks])
+
+  useEffect(() => {
+    if (!polling || !controlApiUrl || !snapshotCommandId) return undefined
+    let cancelled = false
+    const pollSnapshot = async () => {
+      try {
+        const operation = await readOperation(snapshotCommandId)
+        if (cancelled) return
+        applyOperationChecks(operation.checks)
+        const output = [operation.stdout?.trim(), operation.stderr?.trim() ? `STDERR:\n${operation.stderr.trim()}` : ''].filter(Boolean).join('\n\n')
+        if (output) setLogContent(output)
+        setLogState(`Log snapshot ${operation.status}`)
+        if (['Success', 'Failed', 'TimedOut', 'Cancelled', 'Undeliverable', 'Terminated'].includes(operation.status)) {
+          setSnapshotCommandId('')
+          setIsRefreshingLogs(false)
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setLogState(`Log snapshot failed: ${error.message}`)
+          setSnapshotCommandId('')
+          setIsRefreshingLogs(false)
+        }
+      }
+    }
+    pollSnapshot()
+    const timer = window.setInterval(pollSnapshot, 2500)
+    return () => {
+      cancelled = true
+      window.clearInterval(timer)
+    }
+  }, [polling, controlApiUrl, snapshotCommandId, readOperation, applyOperationChecks])
+
+  const handleRefreshLogs = async () => {
+    if (!controlApiUrl) {
+      notConnected('Refresh logs')
+      return
+    }
+    try {
+      setIsRefreshingLogs(true)
+      setLogState('Requesting one SSM log snapshot')
+      const response = await fetch(`${controlApiUrl}/staging/logs`, { headers: { Accept: 'application/json' } })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(data.error || `Log API returned HTTP ${response.status}`)
+      setSnapshotCommandId(data.commandId || '')
+      setLogState(data.message || 'Collecting logs')
+      if (!data.commandId) setIsRefreshingLogs(false)
+    } catch (error) {
+      setIsRefreshingLogs(false)
+      setLogState(`Log request failed: ${error.message}`)
+    }
+  }
 
   const handleStart = async (event) => {
     event.preventDefault()
@@ -183,27 +273,17 @@ function StagingPage({ onNotice, currentUser }) {
       return
     }
 
-    const envPayload = envRows.reduce((acc, row) => {
-      const k = (row.key || '').trim()
-      if (k) acc[k] = row.value ?? ''
-      return acc
-    }, {})
-
     try {
       setServerStatus('STARTING')
-      onNotice(`Lệnh khởi động Staging (branch: ${gitBranch}) đã được gửi tới Lambda...`)
+      onNotice('Đang gửi lệnh khởi động EC2 tới Lambda...')
       const response = await fetch(`${controlApiUrl}/staging/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          owner: currentUser,
-          branch: gitBranch,
-          env: envPayload
-        })
+        body: JSON.stringify({ owner: currentUser })
       })
-      if (!response.ok) throw new Error('Không thể khởi động qua Lambda')
       const data = await response.json().catch(() => ({}))
-      setLastOperation({ name: 'Start', status: data.status || 'SUBMITTED', id: data.instanceId || 'ID not returned', branch: data.branch || gitBranch, at: new Date().toLocaleString() })
+      if (!response.ok) throw new Error(data.error || 'Không thể khởi động qua Lambda')
+      setLastOperation({ name: 'Start', status: data.status || 'STARTING', id: data.instanceId || 'ID not returned', branch: gitBranch, at: new Date().toLocaleString() })
       onNotice(data.message || 'EC2 đang trong quá trình khởi động...')
     } catch (err) {
       onNotice(`Lỗi khởi động: ${err.message}`)
@@ -211,7 +291,9 @@ function StagingPage({ onNotice, currentUser }) {
     }
   }
 
-  const handleDeploy = async () => {
+  const handleDeploy = async (event) => {
+    event.preventDefault()
+    setShowDeploy(false)
     if (!controlApiUrl) {
       notConnected('Deploy')
       return
@@ -235,9 +317,9 @@ function StagingPage({ onNotice, currentUser }) {
           env: envPayload
         })
       })
-      if (!response.ok) throw new Error('Không thể gửi lệnh deploy tới Lambda')
       const data = await response.json().catch(() => ({}))
-      setLastOperation({ name: 'Deploy', status: data.status || 'SUBMITTED', id: data.commandId || 'ID not returned', branch: data.branch || gitBranch, at: new Date().toLocaleString() })
+      if (!response.ok) throw new Error(data.error || 'Không thể gửi lệnh deploy tới Lambda')
+      setLastOperation({ name: 'Deploy', status: data.status || 'DEPLOYING', id: data.commandId || 'ID not returned', commandId: data.commandId || '', branch: data.branch || gitBranch, at: new Date().toLocaleString() })
       onNotice(data.message || 'Lệnh deploy đã được gửi thành công. Đang tiến hành build container...')
     } catch (err) {
       onNotice(`Lỗi deploy: ${err.message}`)
@@ -252,18 +334,23 @@ function StagingPage({ onNotice, currentUser }) {
       return
     }
     try {
+      setIsStopping(true)
       setServerStatus('STOPPING')
       onNotice('Đang gửi lệnh dừng EC2 và container...')
       const response = await fetch(`${controlApiUrl}/staging/stop`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       })
-      if (!response.ok) throw new Error('Không thể dừng qua Lambda')
       const data = await response.json().catch(() => ({}))
-      setLastOperation({ name: 'Stop', status: data.status || 'SUBMITTED', id: data.instanceId || 'ID not returned', branch: gitBranch, at: new Date().toLocaleString() })
-      onNotice(data.message || 'Lệnh dừng EC2 đã được gửi thành công.')
+      if (!response.ok) throw new Error(data.error || 'Không thể dừng qua Lambda')
+      setLastOperation({ name: 'Stop', status: data.status || 'STOPPING', id: data.commandId || data.instanceId || 'ID not returned', commandId: data.commandId || '', branch: gitBranch, at: new Date().toLocaleString() })
+      onNotice(data.composeStatus && data.composeStatus !== 'Success'
+        ? `${data.message}. ${data.composeError || `Compose status: ${data.composeStatus}`}`
+        : (data.message || 'Lệnh dừng EC2 đã được gửi thành công.'))
     } catch (err) {
       onNotice(`Lỗi dừng EC2: ${err.message}`)
+    } finally {
+      setIsStopping(false)
     }
   }
 
@@ -301,18 +388,19 @@ function StagingPage({ onNotice, currentUser }) {
             <div className="action-buttons-group">
               <button
                 className="button primary deploy-btn"
-                onClick={handleDeploy}
+                onClick={() => setShowDeploy(true)}
                 disabled={isDeploying}
-                title="Kéo code mới nhất từ GitHub và rebuild backend"
+                title="Choose the branch and complete runtime environment, then deploy"
               >
                 {isDeploying ? 'Đang deploy...' : 'Deploy / Rebuild ⟳'}
               </button>
               <button
                 className="button secondary stop-btn"
                 onClick={handleStop}
+                disabled={isStopping}
                 title="Dừng EC2 và giải phóng containers"
               >
-                Stop staging
+                {isStopping ? 'Stopping...' : 'Stop staging'}
               </button>
             </div>
           ) : serverStatus === 'STARTING' || serverStatus === 'STOPPING' ? (
@@ -361,6 +449,10 @@ function StagingPage({ onNotice, currentUser }) {
               </dd>
             </div>
             <div>
+              <dt>FE API path</dt>
+              <dd><code>/api/* via Vercel proxy</code></dd>
+            </div>
+            <div>
               <dt>Region</dt>
               <dd><code>ap-southeast-1</code></dd>
             </div>
@@ -377,7 +469,7 @@ function StagingPage({ onNotice, currentUser }) {
               <p className="eyebrow">READINESS</p>
               <h3>Health checks</h3>
             </div>
-            <span className="check-summary">{healthChecks.filter((item) => item.ready === true).length} ready · {healthChecks.filter((item) => item.ready === null).length} not configured</span>
+            <span className="check-summary">{healthChecks.filter((item) => item.ready === true).length} ready · {healthChecks.filter((item) => item.ready === false).length} attention · {healthChecks.filter((item) => item.ready === null).length} waiting</span>
           </div>
           <div className="check-list">
             {healthChecks.map(({ name, detail, ready }) => (
@@ -400,7 +492,7 @@ function StagingPage({ onNotice, currentUser }) {
               <p className="eyebrow">OPERATIONS</p>
               <h3>Lifecycle timeline</h3>
             </div>
-            <button className="text-button" onClick={() => setRefreshKey((key) => key + 1)}>Refresh ↻</button>
+            <button className="text-button" onClick={() => setRefreshKey((key) => key + 1)}>Refresh status ↻</button>
           </div>
           {lastOperation ? (
             <div className="operation-entry">
@@ -421,10 +513,13 @@ function StagingPage({ onNotice, currentUser }) {
           <div>
             <p className="eyebrow">OBSERVABILITY</p>
             <h3>Log snapshot</h3>
-            <p className="muted log-status">{logState} · {polling ? 'polling every 5s' : 'polling paused'}</p>
+            <p className="muted log-status">{logState} · {polling ? 'status/command polling every 5s' : 'polling paused'}</p>
           </div>
           <div className="log-actions">
             <span className="tail-label">tail 200</span>
+            <button className="text-button" onClick={handleRefreshLogs} disabled={isRefreshingLogs}>
+              {isRefreshingLogs ? 'Collecting...' : 'Refresh logs'}
+            </button>
             <button className="text-button" onClick={() => setPolling((value) => !value)}>
               {polling ? 'Pause polling' : 'Resume polling'}
             </button>
@@ -433,32 +528,32 @@ function StagingPage({ onNotice, currentUser }) {
         <div className="terminal">
           <span className="terminal-cursor">$</span>
           <pre className="terminal-pre">
-            {logContent || (logState === 'Control API is not connected' ? 'Logs unavailable until the control API is connected.' : 'Waiting for the first log snapshot...')}
+            {logContent || (logState === 'Control API is not connected' ? 'Logs unavailable until the control API is connected.' : 'Select Refresh logs to collect bootstrap and container output.')}
           </pre>
         </div>
       </section>
 
-      {showStart && (
-        <div className="modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setShowStart(false)}>
-          <form className="modal" onSubmit={handleStart}>
+      {(showStart || showDeploy) && (
+        <div className="modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && (setShowStart(false), setShowDeploy(false))}>
+          <form className="modal" onSubmit={showStart ? handleStart : handleDeploy}>
             <div className="modal-header">
               <div>
-                <p className="eyebrow">CLAIM & START</p>
-                <h2>Start staging</h2>
-                <p className="muted">You will become the owner of this staging session.</p>
+                <p className="eyebrow">{showStart ? 'START EC2' : 'DEPLOY APPLICATION'}</p>
+                <h2>{showStart ? 'Start staging' : 'Deploy staging'}</h2>
+                <p className="muted">{showStart ? 'Starting EC2 does not apply branch or runtime variables.' : 'Deploy pulls the selected branch and replaces the complete runtime environment.'}</p>
               </div>
-              <button type="button" className="close-button" onClick={() => setShowStart(false)} aria-label="Close">×</button>
+              <button type="button" className="close-button" onClick={() => (setShowStart(false), setShowDeploy(false))} aria-label="Close">×</button>
             </div>
             <div className="warning-box">
               <span>!</span>
-              <p>Runtime values are sent to the control API and written to the EC2 runtime environment. They are not stored in this browser or returned in logs.</p>
+              <p>{showStart ? 'Branch and env are only staged in this page. Click Deploy after EC2 and SSM are ready to apply them.' : 'This replaces the prior runtime env set; an empty env list clears it. Values are not logged.'}</p>
             </div>
 
             <div className="form-section branch-section">
               <div className="form-section-title">
                 <div>
                   <h3>Git Repository Branch</h3>
-                  <p className="muted">Nhánh code sẽ được tự động kéo từ GitHub về EC2 và build backend.</p>
+                  <p className="muted">Nhánh được kéo từ GitHub khi bạn bấm Deploy.</p>
                 </div>
               </div>
               <div className="branch-input-row">
@@ -488,7 +583,7 @@ function StagingPage({ onNotice, currentUser }) {
                       {validCount} {validCount === 1 ? 'variable' : 'variables'}
                     </span>
                   </div>
-                  <p className="muted">Optional key/value pairs. Import a .env file or enter variables manually.</p>
+                  <p className="muted">Full runtime environment for the next Deploy. Import a .env file or enter variables manually.</p>
                 </div>
                 <div className="env-actions-group">
                   <button
@@ -547,8 +642,8 @@ function StagingPage({ onNotice, currentUser }) {
               </div>
             </div>
             <div className="modal-footer">
-              <button type="button" className="button secondary" onClick={() => setShowStart(false)}>Cancel</button>
-              <button type="submit" className="button primary">Confirm start <span>→</span></button>
+              <button type="button" className="button secondary" onClick={() => (setShowStart(false), setShowDeploy(false))}>Cancel</button>
+              <button type="submit" className="button primary">{showStart ? 'Start EC2' : 'Deploy / Rebuild'} <span>→</span></button>
             </div>
           </form>
         </div>
