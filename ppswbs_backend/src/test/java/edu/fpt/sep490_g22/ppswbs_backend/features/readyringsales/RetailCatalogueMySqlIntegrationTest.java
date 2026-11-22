@@ -915,8 +915,12 @@ class RetailCatalogueMySqlIntegrationTest {
         assertThat(remainingHold).isEqualTo(BigInteger.ZERO);
     }
 
+    /**
+     * Spec 008, Session 2026-11-18: "Hủy đơn" still works after the Member opened VNPay without paying. It releases the
+     * hold and returns the products to the cart; a payment that arrives afterwards goes to Manager reconciliation.
+     */
     @Test
-    void cancellationAfterPaymentInitiationKeepsInventoryHeld() {
+    void cancellationAfterOpeningVnpayReleasesHoldAndRestoresCart() {
         long product = fixture.publishedProduct(CatalogueTestSupport.STAFF, CatalogueTestSupport.MANAGER);
         long variant = variants.findByProductIdOrderByRingSizeAsc(product).getFirst().getId();
         String random = UUID.randomUUID().toString();
@@ -929,10 +933,12 @@ class RetailCatalogueMySqlIntegrationTest {
         var accepted = acceptance.accept(member, "started-" + random,
             new CheckoutDtos.CreateGroupedCheckoutRequest(choices, preview.previewId(), selection, true));
         transaction.executeWithoutResult(status -> checkouts.lockOwned(accepted.id(), member).orElseThrow().beginPayment());
-        assertThatThrownBy(() -> cancellation.cancel(member, accepted.id())).isInstanceOf(RetailConflictException.class);
+        var cancelled = cancellation.cancel(member, accepted.id());
+        assertThat(cancelled.checkout().paymentState()).isEqualTo("CANCELLED");
+        assertThat(cancelled.unrestoredQuantity()).isZero();
         BigInteger held = transaction.execute(status -> guard.readSnapshots(List.of(variant), Instant.now()).get(variant).heldQuantity());
-        assertThat(held).isEqualTo(BigInteger.ONE);
-        assertThat(cart.getCart(member).lines()).isEmpty();
+        assertThat(held).isEqualTo(BigInteger.ZERO);
+        assertThat(cart.getCart(member).lines()).singleElement().satisfies(line -> assertThat(line.quantity()).isEqualTo(1));
     }
 
     @Test
