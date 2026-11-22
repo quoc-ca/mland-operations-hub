@@ -25,6 +25,11 @@ const ICONS = {
   gear: 'M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2',
 };
 
+const COLLAPSE_KEY = 'ops-rail-collapsed';
+function readCollapsed() {
+  try { return window.localStorage.getItem(COLLAPSE_KEY) === '1'; } catch { return false; }
+}
+
 function Icon({ name }) {
   return (
     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -88,15 +93,16 @@ function RailFooter({ isVi }) {
         <>
           <Link to="/profile" className={`ops-rail-user${pathname === '/profile' ? ' active' : ''}`} title={email || (isVi ? 'Hồ sơ cá nhân' : 'Personal profile')}>
             <span className="ops-avatar" aria-hidden="true">{initial}</span>
-            <span>{isVi ? 'Hồ sơ' : 'Profile'}</span>
+            <span className="ops-label">{isVi ? 'Hồ sơ' : 'Profile'}</span>
           </Link>
           <button type="button" className="ops-signout" onClick={handleSignOut} disabled={busy} aria-busy={busy} title={isVi ? 'Đăng xuất khỏi hệ thống' : 'Sign out'}>
-            {busy ? (isVi ? 'Đang thoát…' : 'Signing out…') : (isVi ? 'Đăng xuất' : 'Sign out')}
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 4H5v16h4M16 8l4 4-4 4M20 12H9" /></svg>
+            <span className="ops-label">{busy ? (isVi ? 'Đang thoát…' : 'Signing out…') : (isVi ? 'Đăng xuất' : 'Sign out')}</span>
           </button>
           {failed && <span className="ops-signout-error" role="alert">{isVi ? 'Đăng xuất thất bại' : 'Sign out failed'}</span>}
         </>
       ) : (
-        <Link to="/login" className="ops-rail-user" aria-label={isVi ? 'Đăng nhập tài khoản' : 'Sign in account'}>{isVi ? 'Đăng nhập' : 'Sign in'}</Link>
+        <Link to="/login" className="ops-rail-user" aria-label={isVi ? 'Đăng nhập tài khoản' : 'Sign in account'}><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 4h4v16h-4M8 8l-4 4 4 4M4 12h11" /></svg><span className="ops-label">{isVi ? 'Đăng nhập' : 'Sign in'}</span></Link>
       )}
     </div>
   );
@@ -115,6 +121,13 @@ export default function OperationsShell() {
   const [slot, setSlot] = useState(null);
   const isVi = language === 'vi';
 
+  const [collapsed, setCollapsed] = useState(readCollapsed);
+  const toggle = () => setCollapsed(prev => {
+    const next = !prev;
+    try { window.localStorage.setItem(COLLAPSE_KEY, next ? '1' : '0'); } catch { /* preference is optional */ }
+    return next;
+  });
+
   const here = locate(pathname);
   const groups = visibleGroups(role);
   const tabs = here ? visibleTabs(here.group, role) : [];
@@ -122,9 +135,12 @@ export default function OperationsShell() {
   const count = key => badges.counts[key];
 
   return (
-    <div className="ops-shell">
+    <div className={`ops-shell${collapsed ? ' collapsed' : ''}`}>
       <aside className="ops-rail" aria-label="Operations Navigation">
         <Link to="/home" className="ops-logo" aria-label="MLAND">M</Link>
+        <button type="button" className="ops-toggle" onClick={toggle} aria-expanded={!collapsed} title={collapsed ? (isVi ? 'Mở rộng thanh điều hướng' : 'Expand navigation') : (isVi ? 'Thu gọn thanh điều hướng' : 'Collapse navigation')} aria-label={collapsed ? (isVi ? 'Mở rộng thanh điều hướng' : 'Expand navigation') : (isVi ? 'Thu gọn thanh điều hướng' : 'Collapse navigation')}>
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={collapsed ? 'M9 6l6 6-6 6' : 'M15 6l-6 6 6 6'} /></svg>
+        </button>
         <nav className="ops-rail-nav" aria-label={isVi ? 'Nhóm chức năng' : 'Feature groups'}>
           {groups.map(({ group, tabs: groupTabs }) => {
             const current = here?.group.id === group.id;
@@ -139,7 +155,7 @@ export default function OperationsShell() {
                 aria-label={Number.isInteger(total) && total > 0 ? `${label}, ${total}` : label}
               >
                 <Icon name={group.icon} />
-                <span>{label}</span>
+                <span className="ops-label">{label}</span>
                 <Badge count={total} label={isVi ? `${total} việc chờ` : `${total} waiting`} />
               </Link>
             );
