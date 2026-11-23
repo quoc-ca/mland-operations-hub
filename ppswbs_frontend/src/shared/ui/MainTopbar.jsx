@@ -98,9 +98,9 @@ export default function MainTopbar() {
               setLoyaltyPoints(pts);
             }
           })
-          .catch(() => {});
+          .catch(() => { });
       })
-      .catch(() => {});
+      .catch(() => { });
 
     return () => {
       active = false;
