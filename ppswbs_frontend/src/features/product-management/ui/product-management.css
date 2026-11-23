@@ -523,6 +523,8 @@
 .pm-theme .collapsible-chevron{flex:none;color:var(--pm-muted);transition:transform .2s ease}
 .pm-theme .collapsible-toggle.open .collapsible-chevron{transform:rotate(180deg)}
 .pm-theme .collapsible-toggle:hover .collapsible-chevron{color:var(--pm-ink)}
+/* T207: a section kept open for a missing requirement cannot fold */
+.pm-theme .collapsible-toggle.locked{cursor:default}
 .pm-theme .workspace-card>.collapsible-heading+[id$='-body']{margin-top:20px}
 .pm-theme h2.collapsible-heading .collapsible-title{font-size:inherit;font-weight:inherit}
 .pm-theme .price-block h3.collapsible-heading{font-size:13px;font-weight:600}

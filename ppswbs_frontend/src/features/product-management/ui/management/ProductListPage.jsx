@@ -3,7 +3,7 @@ import { Link, useLocation, useSearchParams } from 'react-router';
 import { useT } from '../../../../shared/i18n/I18nProvider';
 import { ErrorNotice, Loading, useResource } from '../../../../shared/ui/components';
 import { useCatalogueApi } from '../../application/useCatalogueApi';
-import { listStateOf, productCode, skuMatch } from '../../domain/productRules';
+import { productCode, skuMatch } from '../../domain/productRules';
 import { publishWithoutReview } from '../../application/publishNow';
 import { useRole } from '../../../../shared/auth/useRole';
 import { newCommandId } from '../../../../shared/api/http';
@@ -13,6 +13,7 @@ import { NoticeContext, PageNotice } from './notices';
 import { Pager } from './Pager';
 import { productOutOfScope } from './ProductDetailPage';
 import { PendingPriceList } from './PendingPriceList';
+import { ProductStateBadge } from './ProductStateBadge';
 
 /**
  * FR-064/FR-065 (Session 2026-11-22): one tab per product state, with counts, plus the Manager's price tab. Each tab
@@ -308,14 +309,4 @@ function BranchSaleNote({ product, locationId }) {
   const branch = (product.branches || []).find(item => String(item.locationId) === String(locationId));
   if (!branch || branch.saleEnabled) return null;
   return <><br /><span className="muted small">{t('list.branchStopped')}</span></>;
-}
-
-// FR-064: the state column names the product's tab (Session 2026-11-22), so a hidden product never looks like one ready to publish.
-const STATE_TONE = { PUBLISHED: ' ok', APPROVED: ' warn', PENDING: ' warn', REJECTED: ' danger' };
-
-export function ProductStateBadge({ product }) {
-  const t = useT(messages);
-  const state = listStateOf(product);
-  if (state === 'DELETED') return <span className="status">{t('status.deleted')}</span>;
-  return <span className={`status${STATE_TONE[state] || ''}`}>{t(`list.tab.${state}`)}</span>;
 }

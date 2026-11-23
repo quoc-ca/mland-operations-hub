@@ -9,7 +9,7 @@ import { useRole } from '../../../../../shared/auth/useRole';
 import { useProductCommand } from '../ProductDetailPage';
 import { NoticeAt } from '../notices';
 import { CollapsibleHead, useCollapsible } from '../Collapsible';
-import { ProductStateBadge } from '../ProductListPage';
+import { ProductStateBadge } from '../ProductStateBadge';
 
 /**
  * T040 publication: shows per size the proposed, approved and applied amounts apart, then publishes or hides.

@@ -39,12 +39,16 @@ export function PriceSection({ product, missing = {}, ...context }) {
   });
   // The section itself folds too: open while a size needs someone, with three sizes or fewer, or when something is missing.
   const waiting = variants.filter(variant => needs.includes(currentStatus(variant))).length;
-  const [sectionOpen, toggleSection] = useCollapsible(!collapsible || waiting > 0 || Boolean(linkedSize));
-  const showBody = sectionOpen || Boolean(missing.prices);
+  const [sectionOpen, toggleSection, setSectionOpen] = useCollapsible(!collapsible || waiting > 0 || Boolean(linkedSize));
+  // T207: while prices are missing the section is held open and its toggle locked; once opened that way it stays open
+  // when the missing mark goes away, so it never folds by itself under the user.
+  const forced = Boolean(missing.prices);
+  useEffect(() => { if (forced) setSectionOpen(true); }, [forced, setSectionOpen]);
+  const showBody = sectionOpen || forced;
   useEffect(() => { if (linkedSize) document.getElementById('price-title')?.scrollIntoView?.({ block: 'start' }); }, [linkedSize]);
   return (
     <section className={sectionClass(missing.prices)} aria-labelledby="price-title">
-      <CollapsibleHead id="price-title" title={t('section.prices')} open={showBody} onToggle={toggleSection}
+      <CollapsibleHead id="price-title" title={t('section.prices')} open={showBody} onToggle={toggleSection} locked={forced}
         summary={waiting > 0 ? t('price.waitingCount', { count: waiting }) : t('section.sizeCount', { count: variants.length })} />
       {showBody && (<div id="price-title-body">
       <MissingNote messageKey={missing.prices} />
