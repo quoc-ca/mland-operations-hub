@@ -16,6 +16,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.Price
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.Product;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.ProductCategory;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.ProductVariant;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.ReviewState;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.ObjectProvider;
@@ -258,6 +259,74 @@ class ManagementProductQueryServiceTests {
     void negativePageAndMalformedCategoryAreRejected() {
         assertThatThrownBy(() -> service.list(null, null, null, -1)).isInstanceOf(CatalogueException.class);
         assertThatThrownBy(() -> service.list(null, "01", null, 0)).isInstanceOf(CatalogueException.class);
+    }
+
+    @Test
+    void eachTabSendsItsStateFilterBeforePaging() {
+        when(products.searchManagementIdsByTab(any(), any(), any(), any(), any(), anyBoolean(), anyBoolean(), any(),
+                anyBoolean(), any(), any(), any(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
+
+        service.list(null, "5", true, 0, null, ManagementProductQueryService.ListTab.HIDDEN);
+        verify(products).searchManagementIdsByTab(isNull(), eq(5L), eq(false), eq(true), isNull(), eq(false),
+                eq(false), eq(ReviewState.PENDING), eq(true), isNull(), isNull(), isNull(), eq(PageRequest.of(0, 20)));
+
+        service.list(null, null, null, 0, null, ManagementProductQueryService.ListTab.DRAFT);
+        verify(products).searchManagementIdsByTab(isNull(), isNull(), isNull(), eq(false), eq(ReviewState.DRAFT),
+                eq(true), eq(false), eq(ReviewState.PENDING), eq(true), isNull(), isNull(), isNull(), any(Pageable.class));
+
+        service.list(null, null, null, 0, null, ManagementProductQueryService.ListTab.APPROVED);
+        verify(products).searchManagementIdsByTab(isNull(), isNull(), eq(false), eq(false), eq(ReviewState.APPROVED),
+                eq(false), eq(false), eq(ReviewState.PENDING), eq(true), isNull(), isNull(), isNull(), any(Pageable.class));
+
+        service.list(null, null, null, 0, null, ManagementProductQueryService.ListTab.PRICE_PENDING);
+        verify(products).searchManagementIdsByTab(isNull(), isNull(), isNull(), eq(true), isNull(), eq(false),
+                eq(true), eq(ReviewState.PENDING), eq(true), isNull(), isNull(), isNull(), any(Pageable.class));
+
+        service.list(null, null, null, 0, null, ManagementProductQueryService.ListTab.PRICE_DRAFT);
+        verify(products).searchManagementIdsByTab(isNull(), isNull(), isNull(), eq(true), isNull(), eq(false),
+                eq(true), eq(ReviewState.DRAFT), eq(true), isNull(), isNull(), isNull(), any(Pageable.class));
+    }
+
+    @Test
+    void withoutTabTheOldPublicationFilterStays() {
+        stubSearch(List.of(), 0);
+        service.list(null, null, true, 0, null, null);
+        verify(products).searchManagementIds(isNull(), eq(true), eq(true), isNull(), isNull(), isNull(),
+                eq(PageRequest.of(0, 20)));
+    }
+
+    @Test
+    void unknownTabIsAValidationErrorOnTab() {
+        assertThat(ManagementProductQueryService.parseTab(null)).isNull();
+        assertThat(ManagementProductQueryService.parseTab(" ")).isNull();
+        assertThat(ManagementProductQueryService.parseTab("PENDING")).isEqualTo(ManagementProductQueryService.ListTab.PENDING);
+        assertThatThrownBy(() -> ManagementProductQueryService.parseTab("published"))
+                .isInstanceOfSatisfying(CatalogueException.class, error -> {
+                    assertThat(error.code()).isEqualTo(CatalogueErrorCode.VALIDATION_ERROR);
+                    assertThat(error.fieldErrors()).extracting(field -> field.field()).containsExactly("tab");
+                });
+    }
+
+    @Test
+    void tabCountsGiveEveryTabAndThePriceProposalCount() {
+        when(products.countManagementByTab(any(), any(), any(), any(), any(), anyBoolean(), anyBoolean(), any(),
+                anyBoolean(), any(), any(), any())).thenReturn(3L);
+        when(products.countPriceProposals(any(), any(), any(), any(), any(), anyBoolean(), anyBoolean(), any(),
+                anyBoolean(), any(), any(), any())).thenReturn(4L);
+
+        var counts = service.tabCounts(null, null, null);
+        assertThat(counts.all()).isEqualTo("3");
+        assertThat(counts.hidden()).isEqualTo("3");
+        assertThat(counts.pricePending()).isEqualTo("4");
+        assertThat(counts.priceDraft()).isEqualTo("4");
+        assertThat(counts.priceRejected()).isEqualTo("4");
+        verify(products).countPriceProposals(any(), any(), any(), any(), any(), anyBoolean(), anyBoolean(),
+                eq(ReviewState.DRAFT), anyBoolean(), any(), any(), any());
+        verify(products).countPriceProposals(any(), any(), any(), any(), any(), anyBoolean(), anyBoolean(),
+                eq(ReviewState.REJECTED), anyBoolean(), any(), any(), any());
+        verify(products, times(7)).countManagementByTab(any(), any(), any(), any(), any(), anyBoolean(), anyBoolean(),
+                any(), anyBoolean(), any(), any(), any());
     }
 
     private void stubSearch(List<Long> ids, long total) {

@@ -39,7 +39,8 @@ import java.util.stream.Collectors;
  *
  * <ul>
  *   <li>Eligible: published, not deleted, active category, at least one READY image and an applied price for
- *       every size. Re-checked on every read; an old page grants nothing.</li>
+ *       at least one size; a size without an applied price is left out (FR-070, Session 2026-11-23). Re-checked on
+ *       every read; an old page grants nothing.</li>
  *   <li>Available = remaining unsold − quantity held by valid FE-08 holds. A size can be bought when it is
  *       sale-enabled and available &gt; 0; the product when at least one size can. Every public product was
  *       published, so the hold source is always required; without it the read fails with
@@ -201,7 +202,7 @@ public class PublicCatalogueProjection {
                         .map(Product::getCategoryId).collect(Collectors.toSet())).stream()
                 .collect(Collectors.toMap(ProductCategory::getId, Function.identity()));
         Map<Long, List<ProductVariant>> sizesByProduct = variants.findByProductIdInOrderByProductIdAscRingSizeAsc(ids)
-                .stream().collect(Collectors.groupingBy(ProductVariant::getProductId));
+                .stream().filter(ProductVariant::hasAppliedPrice).collect(Collectors.groupingBy(ProductVariant::getProductId));
         List<ProductImage> allImages = images.findByProductIdInOrderByProductIdAscDisplayPositionAsc(ids);
         Set<UUID> ready = media.findAllById(allImages.stream().map(ProductImage::getMediaObjectId).toList()).stream()
                 .filter(object -> object.getState() == CatalogueMediaObject.State.READY)

@@ -20,6 +20,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.Produ
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.ProductImage;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.ProductReview;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.ProductVariant;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.ReviewState;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -131,6 +132,93 @@ public class ManagementProductQueryService {
     @Transactional(readOnly = true)
     public ManagementProductPage list(String q, String categoryId, Boolean published, Integer page) {
         return list(q, categoryId, published, page, null);
+    }
+
+    /** FR-064/FR-065 list tabs (Session 2026-11-22); the request value is the enum name. */
+    public enum ListTab { DRAFT, PENDING, REJECTED, APPROVED, PUBLISHED, HIDDEN, PRICE_PENDING, PRICE_DRAFT, PRICE_REJECTED }
+
+    /** Repository arguments of one tab; {@link #NONE} = every non-deleted product. */
+    record TabFilter(Boolean published, Boolean everPublished, ReviewState reviewState, boolean draftIfNoReview,
+                     boolean pricePending, ReviewState priceState) {
+
+        static final TabFilter NONE = new TabFilter(null, null, null, false, false, ReviewState.PENDING);
+
+        static TabFilter of(ListTab tab) {
+            return switch (tab) {
+                case DRAFT -> new TabFilter(null, false, ReviewState.DRAFT, true, false, ReviewState.PENDING);
+                case PENDING -> new TabFilter(null, false, ReviewState.PENDING, false, false, ReviewState.PENDING);
+                case REJECTED -> new TabFilter(null, false, ReviewState.REJECTED, false, false, ReviewState.PENDING);
+                case APPROVED -> new TabFilter(false, false, ReviewState.APPROVED, false, false, ReviewState.PENDING);
+                case PUBLISHED -> new TabFilter(true, null, null, false, false, ReviewState.PENDING);
+                case HIDDEN -> new TabFilter(false, true, null, false, false, ReviewState.PENDING);
+                case PRICE_PENDING -> new TabFilter(null, true, null, false, true, ReviewState.PENDING);
+                // FR-065 sub-filter (Session 2026-11-22): standalone price drafts not sent yet.
+                case PRICE_DRAFT -> new TabFilter(null, true, null, false, true, ReviewState.DRAFT);
+                // Sub-filter added 2026-11-23: rejected standalone prices, until the size gets a new proposal.
+                case PRICE_REJECTED -> new TabFilter(null, true, null, false, true, ReviewState.REJECTED);
+            };
+        }
+    }
+
+    /** The tab of a request; null when absent or blank, a validation error on field {@code tab} when unknown. */
+    public static ListTab parseTab(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        try {
+            return ListTab.valueOf(raw.trim());
+        } catch (IllegalArgumentException unknown) {
+            throw CatalogueException.invalidField("tab", "Unknown list tab.");
+        }
+    }
+
+    /** FR-064: {@code tab} decides the state filter when given ({@code published} is then ignored). */
+    @Transactional(readOnly = true)
+    public ManagementProductPage list(String q, String categoryId, Boolean published, Integer page, String locationId,
+                                      ListTab tab) {
+        if (tab == null) {
+            return list(q, categoryId, published, page, locationId);
+        }
+        Keyword keyword = Keyword.parse(q);
+        Long category = categoryId == null ? null : CatalogueValues.parseId("categoryId", categoryId);
+        Long location = locationId == null ? null : CatalogueValues.parseId("locationId", locationId);
+        int pageNumber = page == null ? 0 : page;
+        if (pageNumber < 0) {
+            throw CatalogueException.invalidField("page", "Page must be zero or greater.");
+        }
+        TabFilter filter = TabFilter.of(tab);
+        Page<Long> ids = products.searchManagementIdsByTab(location, category, filter.published(),
+                filter.everPublished(), filter.reviewState(), filter.draftIfNoReview(), filter.pricePending(),
+                filter.priceState(), keyword.anyKeyword(), keyword.namePattern(), keyword.productNumber(),
+                keyword.sku(), PageRequest.of(pageNumber, ManagementProductDtos.PAGE_SIZE));
+        return new ManagementProductPage(load(ids.getContent()), pageNumber, ManagementProductDtos.PAGE_SIZE,
+                Long.toString(ids.getTotalElements()));
+    }
+
+    /** FR-064 counts of every tab for the list filters, with the FR-065 pending, draft and rejected price proposal counts. */
+    @Transactional(readOnly = true)
+    public ManagementProductDtos.TabCounts tabCounts(String q, String categoryId, String locationId) {
+        Keyword keyword = Keyword.parse(q);
+        Long category = categoryId == null ? null : CatalogueValues.parseId("categoryId", categoryId);
+        Long location = locationId == null ? null : CatalogueValues.parseId("locationId", locationId);
+        java.util.function.Function<TabFilter, String> count = filter -> Long.toString(products.countManagementByTab(
+                location, category, filter.published(), filter.everPublished(), filter.reviewState(),
+                filter.draftIfNoReview(), filter.pricePending(), filter.priceState(), keyword.anyKeyword(),
+                keyword.namePattern(), keyword.productNumber(), keyword.sku()));
+        String pricePending = Long.toString(products.countPriceProposals(
+                location, category, null, null, null, false, false, ReviewState.PENDING, keyword.anyKeyword(),
+                keyword.namePattern(), keyword.productNumber(), keyword.sku()));
+        String priceDraft = Long.toString(products.countPriceProposals(
+                location, category, null, null, null, false, false, ReviewState.DRAFT, keyword.anyKeyword(),
+                keyword.namePattern(), keyword.productNumber(), keyword.sku()));
+        String priceRejected = Long.toString(products.countPriceProposals(
+                location, category, null, null, null, false, false, ReviewState.REJECTED, keyword.anyKeyword(),
+                keyword.namePattern(), keyword.productNumber(), keyword.sku()));
+        return new ManagementProductDtos.TabCounts(count.apply(TabFilter.NONE),
+                count.apply(TabFilter.of(ListTab.DRAFT)), count.apply(TabFilter.of(ListTab.PENDING)),
+                count.apply(TabFilter.of(ListTab.REJECTED)), count.apply(TabFilter.of(ListTab.APPROVED)),
+                count.apply(TabFilter.of(ListTab.PUBLISHED)), count.apply(TabFilter.of(ListTab.HIDDEN)), pricePending,
+                priceDraft, priceRejected);
     }
 
     /** {@code locationId}: only products sold at this branch (US10, FR-051); null = every product. */

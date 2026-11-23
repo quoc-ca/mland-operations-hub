@@ -25,6 +25,7 @@ public enum CatalogueErrorCode {
     BRANCH_STOCK_NOT_FOUND(HttpStatus.NOT_FOUND, "The product is not sold at this branch."),
     BRANCH_ALREADY_ADDED(HttpStatus.CONFLICT, "The product is already sold at this branch."),
     BRANCH_REQUIRED(HttpStatus.CONFLICT, "This product is sold at several branches: choose the branch to change."),
+    SIZE_ALREADY_EXISTS(HttpStatus.CONFLICT, "This size is already sold at this branch or already belongs to the product."),
 
     PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, "The product was not found."),
     VARIANT_NOT_FOUND(HttpStatus.NOT_FOUND, "The size was not found."),

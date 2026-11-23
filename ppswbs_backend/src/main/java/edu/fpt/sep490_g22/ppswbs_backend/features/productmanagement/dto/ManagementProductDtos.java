@@ -22,6 +22,15 @@ public final class ManagementProductDtos {
     public record ManagementProductPage(List<ManagementProduct> items, int page, int pageSize, String totalElements) {
     }
 
+    /**
+     * FR-064 counts per list tab for the same filters as the list. {@code pricePending}/{@code priceDraft}/{@code priceRejected} (FR-065) count standalone
+     * proposals, not products.
+     */
+    public record TabCounts(String all, String draft, String pending, String rejected, String approved,
+                            String published, String hidden, String pricePending, String priceDraft,
+                            String priceRejected) {
+    }
+
     public record ManagementProduct(String id, String name, String description, Category category, boolean published,
                                     Instant firstPublishedAt, Instant deletedAt, long contentVersion, long version,
                                     List<ImageReference> images, List<ManagementVariant> variants,

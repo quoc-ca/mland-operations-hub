@@ -11,7 +11,7 @@ export const ACTIONS = {
   submitReview: 'product.review.submit', decideReview: 'product.review.decide',
   publish: 'product.publish', unpublish: 'product.unpublish',
   quantity: 'variant.quantity', saleStatus: 'variant.sale-status',
-  addBranch: 'product.branch.add', branchQuantity: 'variant.branch.quantity', branchSale: 'product.branch.sale',
+  addBranch: 'product.branch.add', addSizes: 'product.size.add', branchQuantity: 'variant.branch.quantity', branchSale: 'product.branch.sale',
   proposePrice: 'price.propose', revisePrice: 'price.revise', submitPrice: 'price.submit', decidePrice: 'price.decide', applyPrice: 'price.apply',
   createCategory: 'category.create', updateCategory: 'category.update', categoryActivation: 'category.activation',
 };
@@ -34,6 +34,8 @@ export function catalogueApi(request) {
 
     // Products (T028, T050, T064)
     listProducts: filters => read('/products', filters),
+    // FR-064 (Session 2026-11-22): counts of every list tab for the same q/categoryId/locationId.
+    countProductTabs: filters => read('/products/tab-counts', filters),
     getProduct: productId => read(`/products/${id(productId)}`),
     createProduct: (key, body) => write('POST', '/products', key, body),
     updateProduct: (key, productId, body) => write('PUT', `/products/${id(productId)}`, key, body),
@@ -60,7 +62,11 @@ export function catalogueApi(request) {
     // Manager's active branches or the Staff member's assigned ones; the backend checks the scope again.
     // Manager's list also carries inactive locations (003.2 FR-012c); a picker offers active ones only.
     listBranches: async () => activeLocations(await request('/api/v1/workshop-locations')),
-    addBranch: (key, productId, expectedVersion, locationId, quantities) => write('POST', `/products/${id(productId)}/branches`, key, { expectedVersion, locationId, quantities }),
+    // FR-069 (Session 2026-11-23): newSizes [{ size, proposedPrice }] adds sizes the product does not have yet.
+    addBranch: (key, productId, expectedVersion, locationId, quantities, newSizes = []) => write('POST', `/products/${id(productId)}/branches`, key,
+      newSizes.length ? { expectedVersion, locationId, quantities, newSizes } : { expectedVersion, locationId, quantities }),
+    // FR-069: sizes [{ size, quantity, proposedPrice? }] at a branch already selling the product; a price only for a new size.
+    addBranchSizes: (key, productId, locationId, expectedVersion, sizes) => write('POST', `/products/${id(productId)}/branches/${id(locationId)}/sizes`, key, { expectedVersion, sizes }),
     setBranchQuantity: (key, variantId, locationId, expectedVersion, quantity) => write('PUT', `/variants/${id(variantId)}/branches/${id(locationId)}/quantity`, key, { expectedVersion, quantity }),
     setBranchSale: (key, productId, locationId, saleEnabled, expectedSaleEnabled) => write('PUT', `/products/${id(productId)}/branches/${id(locationId)}/sale-status`, key, { saleEnabled, expectedSaleEnabled }),
     proposePrice: (key, variantId, expectedVersion, proposedPrice) => write('POST', `/variants/${id(variantId)}/price-proposals`, key, { expectedVersion, proposedPrice }),

@@ -1,4 +1,5 @@
 import React from 'react';
+import { RouteAccessGuard } from '../../../shared/auth/RouteAccessGuard';
 import CategoriesPage from '../ui/management/categories/CategoriesPage';
 import ImportPage from '../ui/management/import/ImportPage';
 import ManagementLayout from '../ui/management/ManagementLayout';
@@ -10,12 +11,14 @@ import PublicProductListPage from '../ui/public/PublicProductListPage';
 import '../ui/product-management.css';
 
 // Routes of 002 (rendered inside the app layout by src/app/router.jsx).
+// /catalogue-management/* is a STAFF and MANAGER route family (route-access-matrix.md, FR-002): any other role is
+// replaced to /404 before the page renders or calls the API. The backend still decides every permission.
 export const productManagementRoutes = [
   { path: '/products', element: <PublicProductListPage /> },
   { path: '/products/:productId', element: <PublicProductDetailPage /> },
   {
     path: '/catalogue-management',
-    element: <ManagementLayout />,
+    element: <RouteAccessGuard allowedRoles={['STAFF', 'MANAGER']}><ManagementLayout /></RouteAccessGuard>,
     children: [
       { index: true, element: <ProductListPage /> },
       { path: 'products', element: <ProductListPage /> },

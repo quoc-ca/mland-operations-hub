@@ -443,7 +443,7 @@
             "schema": {
               "type": "boolean"
             },
-            "description": "Filter current publication flag."
+            "description": "Filter current publication flag. Ignored when tab is given (FR-064, Session 2026-11-22); the management screen uses tab."
           },
           {
             "in": "query",
@@ -453,6 +453,26 @@
               "$ref": "#/components/schemas/Id"
             },
             "description": "Only products sold at this branch (US10)."
+          },
+          {
+            "in": "query",
+            "name": "tab",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "DRAFT",
+                "PENDING",
+                "REJECTED",
+                "APPROVED",
+                "PUBLISHED",
+                "HIDDEN",
+                "PRICE_PENDING",
+                "PRICE_DRAFT",
+                "PRICE_REJECTED"
+              ]
+            },
+            "description": "FR-064 status tab, applied before paging. DRAFT/PENDING/REJECTED/APPROVED: never published, current effective review (highest effective revision) in that state (DRAFT also when no effective review; APPROVED also requires not published). PUBLISHED: published. HIDDEN: published before, not published now. PRICE_PENDING (FR-065): ever published with at least one effective PENDING standalone price proposal; readable with catalogue.read-internal like the list (Staff see it read-only, only a Manager decides). Other values: 400 field tab. PRICE_DRAFT (FR-065 sub-filter): ever published with at least one effective DRAFT standalone price proposal. PRICE_REJECTED (FR-065 sub-filter, 2026-11-23): ever published with at least one effective REJECTED standalone price proposal (a rejected proposal stays effective until the next proposal of its size replaces it)."
           }
         ],
         "responses": {
@@ -644,6 +664,104 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/ProductCreate"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/catalogue-management/products/tab-counts": {
+      "get": {
+        "operationId": "countManagementProductTabs",
+        "summary": "Count products per management list tab (FR-064)",
+        "tags": [
+          "Catalogue management"
+        ],
+        "security": [
+          {
+            "bearerIdentity": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 0,
+              "maxLength": 200
+            },
+            "description": "Search product reference/name or exact variant SKU; show the matching configured size. Preserve internal-only visibility."
+          },
+          {
+            "in": "query",
+            "name": "categoryId",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "description": "Active category only for public filters."
+          },
+          {
+            "in": "query",
+            "name": "locationId",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "description": "Only products sold at this branch (US10)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Counts of every FR-064 tab for the given filters.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                },
+                "description": "No storage of management data or stale availability."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManagementProductTabCounts"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Typed safe error; see interfaces.md error table.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed safe error; see interfaces.md error table.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed safe error; see interfaces.md error table.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
               }
             }
           }
@@ -3977,6 +4095,134 @@
         }
       }
     },
+    "/api/v1/catalogue-management/products/{productId}/branches/{locationId}/sizes": {
+      "post": {
+        "operationId": "addProductBranchSizes",
+        "summary": "FR-069: add sizes (5–29) at a branch where the product is sold; new sizes get a SKU and a proposed price",
+        "tags": [
+          "Catalogue management"
+        ],
+        "security": [
+          {
+            "bearerIdentity": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "productId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "name": "locationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Confirmed result; same-key retry is resolved from the committed receipt after current authorization.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                },
+                "description": "No storage of management data or stale availability."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Typed safe error; see interfaces.md error table.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed safe error; see interfaces.md error table.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed safe error; see interfaces.md error table.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed safe error; see interfaces.md error table.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Typed safe error; see interfaces.md error table.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed safe error; see interfaces.md error table.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BranchSizeAddRequest"
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/catalogue-management/products/{productId}/branches/{locationId}/sale-status": {
       "put": {
         "operationId": "setProductBranchSale",
@@ -5473,6 +5719,55 @@
           "totalElements"
         ]
       },
+      "ManagementProductTabCounts": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "FR-064 tab counts for the same q/categoryId/locationId as the list. pricePending (FR-065) counts effective PENDING standalone price proposals (not products). priceDraft counts effective DRAFT standalone price proposals of ever-published products. priceRejected (2026-11-23) counts effective REJECTED standalone price proposals of ever-published products.",
+        "properties": {
+          "all": {
+            "$ref": "#/components/schemas/Quantity"
+          },
+          "draft": {
+            "$ref": "#/components/schemas/Quantity"
+          },
+          "pending": {
+            "$ref": "#/components/schemas/Quantity"
+          },
+          "rejected": {
+            "$ref": "#/components/schemas/Quantity"
+          },
+          "approved": {
+            "$ref": "#/components/schemas/Quantity"
+          },
+          "published": {
+            "$ref": "#/components/schemas/Quantity"
+          },
+          "hidden": {
+            "$ref": "#/components/schemas/Quantity"
+          },
+          "pricePending": {
+            "$ref": "#/components/schemas/Quantity"
+          },
+          "priceDraft": {
+            "$ref": "#/components/schemas/Quantity"
+          },
+          "priceRejected": {
+            "$ref": "#/components/schemas/Quantity"
+          }
+        },
+        "required": [
+          "all",
+          "draft",
+          "pending",
+          "rejected",
+          "approved",
+          "published",
+          "hidden",
+          "pricePending",
+          "priceDraft",
+          "priceRejected"
+        ]
+      },
       "CategoryPage": {
         "type": "object",
         "additionalProperties": false,
@@ -5798,7 +6093,7 @@
       "BranchAddRequest": {
         "type": "object",
         "additionalProperties": false,
-        "description": "Start selling at another branch; a missing size counts 0. For a product with no branch yet the current quantities move to this first branch when not sent.",
+        "description": "Start selling at another branch; a missing size counts 0. For a product with no branch yet the current quantities move to this first branch when not sent. FR-069 (Session 2026-11-23): newSizes adds sizes the product does not have yet, each with a proposed price; their quantity at this branch comes from quantities (missing = 0). A new size that already exists is 409 SIZE_ALREADY_EXISTS.",
         "properties": {
           "expectedVersion": {
             "type": "integer",
@@ -5813,6 +6108,13 @@
               "$ref": "#/components/schemas/BranchSizeQuantity"
             },
             "maxItems": 25
+          },
+          "newSizes": {
+            "type": "array",
+            "maxItems": 25,
+            "items": {
+              "$ref": "#/components/schemas/NewSizePrice"
+            }
           }
         },
         "required": [
@@ -5987,6 +6289,69 @@
         },
         "required": [
           "locationId"
+        ]
+      },
+      "NewSizePrice": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "FR-069: a size 5–29 the product does not have yet, with its proposed price (independent DRAFT proposal after the first publication; part of the initial review draft before it, FR-011).",
+        "properties": {
+          "size": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 29
+          },
+          "proposedPrice": {
+            "$ref": "#/components/schemas/Amount"
+          }
+        },
+        "required": [
+          "size",
+          "proposedPrice"
+        ]
+      },
+      "BranchSizeAddRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "FR-069 (Session 2026-11-23): sizes to start selling at a branch where the product is already sold. proposedPrice is required for a size the product does not have yet and forbidden for an existing size (only the stock row at this branch is created). Other branches get no row.",
+        "properties": {
+          "expectedVersion": {
+            "$ref": "#/components/schemas/Version"
+          },
+          "sizes": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 25,
+            "items": {
+              "$ref": "#/components/schemas/BranchSizeAdd"
+            }
+          }
+        },
+        "required": [
+          "expectedVersion",
+          "sizes"
+        ]
+      },
+      "BranchSizeAdd": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "size": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 29
+          },
+          "quantity": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,18})$"
+          },
+          "proposedPrice": {
+            "$ref": "#/components/schemas/Amount"
+          }
+        },
+        "required": [
+          "size",
+          "quantity"
         ]
       }
     }

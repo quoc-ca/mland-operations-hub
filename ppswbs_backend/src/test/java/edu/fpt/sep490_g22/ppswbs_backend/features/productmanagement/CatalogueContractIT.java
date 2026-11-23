@@ -100,7 +100,7 @@ class CatalogueContractIT {
     }
 
     @Test
-    void everyContractOperationIsMappedAndTheContractHas59Schemas() {
+    void everyContractOperationIsMappedAndTheContractHas63Schemas() {
         Set<String> mapped = new HashSet<>();
         for (RequestMappingInfo info : mappings.getHandlerMethods().keySet()) {
             for (String pattern : info.getPatternValues()) {
@@ -109,11 +109,14 @@ class CatalogueContractIT {
         }
         List<String> operations = operations().stream().map(op -> op.method + " " + normalize(op.path)).toList();
 
-        // 33 operations + getManagementProductMedia (T103, 2026-11-03) + 3 branch operations (US10, 2026-11-08).
-        assertThat(operations).hasSize(37);
+        // 33 operations + getManagementProductMedia (T103, 2026-11-03) + 3 branch operations (US10, 2026-11-08)
+        // + countManagementProductTabs (FR-064, Session 2026-11-22) + addProductBranchSizes (FR-069, Session 2026-11-23).
+        assertThat(operations).hasSize(39);
         assertThat(mapped).containsAll(operations);
-        // 56 + ActorRef, SubmitterBranches, SubmitterBranch (FR-060/061, approved 2026-11-16).
-        assertThat(contract.get("components").get("schemas").size()).isEqualTo(59);
+        // 56 + ActorRef, SubmitterBranches, SubmitterBranch (FR-060/061, approved 2026-11-16)
+        // + ManagementProductTabCounts (FR-064, Session 2026-11-22)
+        // + NewSizePrice, BranchSizeAddRequest, BranchSizeAdd (FR-069, Session 2026-11-23).
+        assertThat(contract.get("components").get("schemas").size()).isEqualTo(63);
     }
 
     @Test

@@ -15,8 +15,9 @@ import java.util.List;
  * JPQL adapter of the public catalogue (T068). Returns only small scalar rows (sort keys and the facts
  * needed for "can buy"); details are batch-loaded afterwards for the products of one page.
  *
- * <p>Publicly eligible (FR-031): published, not deleted, active category, at least one READY image and an
- * applied price for every size. The query text is fixed; every user value is a bound parameter.
+ * <p>Publicly eligible (FR-031, FR-070 Session 2026-11-23): published, not deleted, active category, at least one
+ * READY image and at least one size with an applied price; only sizes with an applied price are candidates (a size
+ * added later stays hidden until its price is applied). The query text is fixed; every user value is a bound parameter.
  */
 @Repository
 public class PublicCatalogueQueryRepository {
@@ -35,11 +36,9 @@ public class PublicCatalogueQueryRepository {
             from Product p, ProductCategory c, ProductVariant v
             where c.id = p.categoryId and c.active = true
               and p.published = true and p.deletedAt is null
-              and v.productId = p.id
+              and v.productId = p.id and v.appliedPrice is not null
               and exists (select i.id from ProductImage i, CatalogueMediaObject m
                           where i.productId = p.id and m.id = i.mediaObjectId and m.state = :ready)
-              and not exists (select v2.id from ProductVariant v2
-                              where v2.productId = p.id and v2.appliedPrice is null)
             """;
 
     @PersistenceContext
