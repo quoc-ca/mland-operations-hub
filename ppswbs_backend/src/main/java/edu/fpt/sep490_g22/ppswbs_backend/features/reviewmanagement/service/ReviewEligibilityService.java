@@ -7,6 +7,8 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.dao.ReviewRep
 import edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.domain.ContactType;
 import edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.domain.GuestEligibilityHandle;
 import edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.domain.Review;
+import edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.domain.ReviewStatus;
+import edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.dto.ReviewDto;
 import edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.domain.SourceType;
 import edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.dto.EligibleSourceDto;
 import edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.dto.EligibleSourceListResponse;
@@ -130,6 +132,9 @@ public class ReviewEligibilityService {
                     .targetType(item.getTargetType())
                     .targetReference(item.getTargetReference())
                     .targetName(item.getTargetName())
+                    .orderId(item.getOrderId())
+                    .variantId(item.getVariantId())
+                    .size(item.getSize())
                     .completedAt(item.getCompletedAt())
                     .eligible(item.isEligible())
                     .alreadyReviewed(alreadyReviewed)
@@ -196,22 +201,22 @@ public class ReviewEligibilityService {
         List<String> workshopRefs = workshopItems.stream().map(EligibleSourceItem::getSourceReference).toList();
         List<Review> existingWorkshopReviews = workshopRefs.isEmpty() ? Collections.emptyList() :
                 reviewRepository.findBySourceTypeAndSourceReferenceIn(SourceType.WORKSHOP_ATTENDANCE, workshopRefs);
-        Map<String, String> reviewedWorkshopMap = existingWorkshopReviews.stream()
-                .collect(Collectors.toMap(Review::getSourceReference, Review::getId, (a, b) -> a));
+        Map<String, Review> reviewedWorkshopMap = existingWorkshopReviews.stream()
+                .collect(Collectors.toMap(Review::getSourceReference, r -> r, (a, b) -> a));
 
         // Kiểm tra retail đã review
         List<String> retailRefs = retailItems.stream().map(EligibleSourceItem::getSourceReference).toList();
         List<Review> existingRetailReviews = retailRefs.isEmpty() ? Collections.emptyList() :
                 reviewRepository.findBySourceTypeAndSourceReferenceIn(SourceType.RETAIL_ORDER_LINE, retailRefs);
-        Map<String, String> reviewedRetailMap = existingRetailReviews.stream()
-                .collect(Collectors.toMap(Review::getSourceReference, Review::getId, (a, b) -> a));
+        Map<String, Review> reviewedRetailMap = existingRetailReviews.stream()
+                .collect(Collectors.toMap(Review::getSourceReference, r -> r, (a, b) -> a));
 
         List<EligibleSourceDto> dtos = new ArrayList<>();
         for (EligibleSourceItem item : allItems) {
-            String revId = item.getSourceType() == SourceType.WORKSHOP_ATTENDANCE
+            Review review = item.getSourceType() == SourceType.WORKSHOP_ATTENDANCE
                     ? reviewedWorkshopMap.get(item.getSourceReference())
                     : reviewedRetailMap.get(item.getSourceReference());
-            boolean already = revId != null;
+            boolean already = review != null;
 
             dtos.add(EligibleSourceDto.builder()
                     .sourceType(item.getSourceType())
@@ -219,11 +224,15 @@ public class ReviewEligibilityService {
                     .targetType(item.getTargetType())
                     .targetReference(item.getTargetReference())
                     .targetName(item.getTargetName())
+                    .orderId(item.getOrderId())
+                    .variantId(item.getVariantId())
+                    .size(item.getSize())
                     .completedAt(item.getCompletedAt())
                     .eligible(item.isEligible())
                     .alreadyReviewed(already)
-                    .reviewId(revId)
+                    .reviewId(already ? review.getId() : null)
                     .reasonCode(already ? "ALREADY_REVIEWED" : null)
+                    .review(already ? ownReview(review) : null)
                     .build());
         }
 
@@ -232,6 +241,29 @@ public class ReviewEligibilityService {
                 .expiresAt(null)
                 .maskedContact(maskingService.maskMemberDisplayName(memberAccountId, null))
                 .sources(dtos)
+                .build();
+    }
+
+    /** The Member's own review as its owner sees it (same fields and edit rule as GET /reviews/{id} for the owner). */
+    private static ReviewDto ownReview(Review review) {
+        return ReviewDto.builder()
+                .id(review.getId())
+                .sourceType(review.getSourceType())
+                .sourceReference(review.getSourceReference())
+                .targetType(review.getTargetType())
+                .targetReference(review.getTargetReference())
+                .ownerType(review.getOwnerType())
+                .maskedDisplayName(review.getMaskedDisplayName())
+                .packageId(review.getPackageId())
+                .packageName(review.getPackageName())
+                .rating(review.getRating())
+                .bodyText(review.getBodyText())
+                .status(review.getStatus())
+                .imageUrls(review.getImageList())
+                .version(review.getVersion())
+                .createdAt(review.getCreatedAt())
+                .updatedAt(review.getUpdatedAt())
+                .canEdit(review.getStatus() != ReviewStatus.REMOVED)
                 .build();
     }
 

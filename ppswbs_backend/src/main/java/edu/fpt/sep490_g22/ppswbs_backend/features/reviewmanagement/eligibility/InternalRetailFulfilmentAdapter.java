@@ -29,12 +29,18 @@ public class InternalRetailFulfilmentAdapter implements RetailFulfilmentReviewPo
     private static final String BASE_SELECT =
             "SELECT roi.id AS item_id, " +
             "       roi.variant_id AS variant_id, " +
+            "       ro.id AS order_id, " +
+            "       cv.product_id AS product_id, " +
+            "       cv.ring_size AS ring_size, " +
+            "       cp.name AS product_name, " +
             "       ro.created_at AS order_created_at, " +
             "       rgc.member_account_id AS member_account_id, " +
             "       a.login_email AS contact_email, " +
             "       ap.phone AS contact_phone " +
             "FROM retail_order_items roi " +
             "JOIN retail_orders ro ON ro.id = roi.retail_order_id " +
+            "JOIN catalogue_variants cv ON cv.id = roi.variant_id " +
+            "JOIN catalogue_products cp ON cp.id = cv.product_id " +
             "JOIN retail_grouped_checkouts rgc ON rgc.id = ro.grouped_checkout_id " +
             "JOIN accounts a ON a.id = rgc.member_account_id " +
             "LEFT JOIN account_profiles ap ON ap.account_id = a.id " +
@@ -51,8 +57,12 @@ public class InternalRetailFulfilmentAdapter implements RetailFulfilmentReviewPo
                     .sourceType(SourceType.RETAIL_ORDER_LINE)
                     .sourceReference(rs.getString("item_id"))
                     .targetType(TargetType.RETAIL_PRODUCT)
-                    .targetReference(rs.getString("variant_id"))
-                    .targetName("Product Variant #" + rs.getString("variant_id"))
+                    // The review is about the product (spec 011 §7.1, 002 FR-063): the product page finds it by product id.
+                    .targetReference(rs.getString("product_id"))
+                    .targetName(rs.getString("product_name"))
+                    .orderId(rs.getString("order_id"))
+                    .variantId(rs.getString("variant_id"))
+                    .size(rs.getObject("ring_size") != null ? rs.getInt("ring_size") : null)
                     .completedAt(completedAt)
                     .eligible(true)
                     .memberAccountId(memberId)

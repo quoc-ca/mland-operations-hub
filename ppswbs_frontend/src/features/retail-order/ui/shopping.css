@@ -40,3 +40,21 @@
 img.retail-product-placeholder{object-fit:cover;background:#f3f4f6;padding:0}
 /* BUG-E2E-0014: a refused order stays explained above the button */
 .retail-conflict-notice{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:12px 0 0;padding:12px 16px;border:1px solid #fed7aa;border-radius:8px;background:#fff7ed;color:#7c2d12;font-size:13px}.retail-conflict-notice p{margin:0}.retail-conflict-notice .button{flex:none}
+
+/* Session 2026-11-24: "Giỏ hàng", "Đơn mua của tôi" and checkout in the homepage palette (landing.css --ml-*): yellow
+   #eedc35 with dark text for the active/primary, gold #c59a27 for accents. Scoped to .retail-shopping so the Staff
+   and GHTK carrier pages that share retail-orders.css keep their navy. */
+.retail-shopping .button.primary:hover:not(:disabled){background:#d6c526;border-color:#d6c526;color:#1a1a1a}
+.retail-shopping .button.outline:hover:not(:disabled){border-color:#c59a27;color:#8a6a12;background:#fff7df}
+.retail-shopping .order-tabs button:hover{color:#1a1a1a}
+.retail-shopping .order-tabs button.active{color:#1a1a1a;border-bottom-color:#eedc35;font-weight:700}
+.retail-shopping .order-tab-count{background:#eedc35;color:#1a1a1a;font-weight:700}
+.retail-shopping .order-search:focus{outline:none;border-color:#c59a27;box-shadow:0 0 0 2px #fff7df}
+.retail-shopping .order-card:focus-visible{outline-color:#c59a27}
+.retail-shopping .order-card.open{border-color:#c59a27;box-shadow:0 0 0 1px #c59a27}
+.retail-shopping .order-sum strong{color:#1a1a1a}
+.retail-shopping a.order-item-name.order-item-link:hover strong,.retail-shopping a.order-item-name.order-item-link:focus-visible strong{color:#8a6a12}
+.retail-shopping .order-more:hover{color:#8a6a12}
+.retail-shopping .retail-shipping-status{background:#fffbea;border-left-color:#c59a27;color:#5c4a10}
+.retail-shopping .retail-shipping-status .text-link{color:#8a6a12}
+.retail-shopping .address-option.selected strong{color:#8a6a12}

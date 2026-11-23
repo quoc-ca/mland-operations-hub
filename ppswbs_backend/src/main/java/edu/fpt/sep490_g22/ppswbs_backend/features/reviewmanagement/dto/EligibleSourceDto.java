@@ -25,10 +25,17 @@ public class EligibleSourceDto {
     @JsonAlias({"label", "targetName"})
     private String targetName;
 
+    /** Retail only: the order the line belongs to, the ring bought and its size (null for workshops). */
+    private String orderId;
+    private String variantId;
+    private Integer size;
+
     private Instant completedAt;
     private boolean eligible;
     private boolean alreadyReviewed;
     private String reviewId;
     private String reasonCode;
+    /** The Member's own review of this source, when there is one (the "Đã đánh giá" tab). */
+    private ReviewDto review;
 }
 
