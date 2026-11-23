@@ -43,6 +43,10 @@ public class WorkshopCartQuote {
     @Column(name = "eligible_ticket_indexes_json", columnDefinition = "JSON", updatable = false)
     private String eligibleTicketIndexesJson;
 
+    /** 006's per-ticket split of the programme discount (JSON list of ticketIndex/autoVnd/voucherVnd); null before 2026-11-22. */
+    @Column(name = "ticket_shares_json", columnDefinition = "JSON", updatable = false)
+    private String ticketSharesJson;
+
     @Column(name = "point_value_vnd", nullable = false, updatable = false)
     private long pointValueVnd;
 

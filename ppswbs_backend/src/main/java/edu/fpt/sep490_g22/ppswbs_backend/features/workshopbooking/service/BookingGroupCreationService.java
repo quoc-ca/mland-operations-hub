@@ -105,9 +105,8 @@ public class BookingGroupCreationService {
         // covers. Re-applying it here is what the drift checks below are compared against.
         List<Integer> eligibleTickets = readEligibleTickets(quote.getEligibleTicketIndexesJson());
         if (quote.getVoucherDiscountVnd() > 0 || quote.getPointsUsed() > 0) {
-            cart = cart.withAllocation(TicketBenefitAllocator.allocate(
-                    benefits.allocatorInputs(cart, eligibleTickets), quote.getVoucherDiscountVnd(),
-                    quote.getPointsUsed(), quote.getPointValueVnd()));
+            cart = cart.withAllocation(benefits.allocate(cart, quote.getVoucherDiscountVnd(), eligibleTickets,
+                    readShares(quote.getTicketSharesJson()), quote.getPointsUsed(), quote.getPointValueVnd()));
         }
         for (int index = 0; index < stored.size(); index++) {
             if (stored.get(index).pricePerParticipantVnd() != cart.lines().get(index).pricePerParticipantVnd()) {
@@ -275,6 +274,19 @@ public class BookingGroupCreationService {
         }
         if (outcome.expiresAt() == null || outcome.lineHoldReferences().size() != expectedLines) {
             throw new BookingConflictException("Workshop Operations returned an incomplete group hold outcome");
+        }
+    }
+
+    private List<WorkshopCartBenefitService.TicketShare> readShares(String json) {
+        if (json == null || json.isBlank()) {
+            return List.of();
+        }
+        try {
+            return mapper.readValue(json,
+                    new com.fasterxml.jackson.core.type.TypeReference<List<WorkshopCartBenefitService.TicketShare>>() {
+                    });
+        } catch (JsonProcessingException ex) {
+            throw new IllegalStateException("The stored ticket discount split could not be read", ex);
         }
     }
 
