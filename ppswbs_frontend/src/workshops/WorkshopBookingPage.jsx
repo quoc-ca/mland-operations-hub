@@ -25,7 +25,7 @@ import { useHttp } from '../shared/api/useHttp';
 import { useFormat, useLanguage, useT } from '../shared/i18n/I18nProvider';
 import { messages } from './messages';
 import { getEffectiveParticipantMax } from './bookingCapacity';
-import { offersForPackage, usePublicWorkshopPrograms, WorkshopOfferBadges, WorkshopOfferPrice } from '../features/loyalty-promotion/publicOffers';
+import { offersForPackage, usePublicWorkshopPrograms } from '../features/loyalty-promotion/publicOffers';
 import './figmaPublicShell.css';
 
 function formatDate(date) {
@@ -183,7 +183,6 @@ export function WorkshopBookingPage({ packageId }) {
 
   // Display only (FR-052): the amount to pay is always the server quote.
   const publicPrograms = usePublicWorkshopPrograms();
-  const packageOffers = pkg ? offersForPackage(pkg, publicPrograms) : null;
 
   const requiredSessions = Math.max(1, Number(pkg?.requiredSessionCount) || 1);
   const packageMinParticipants = Math.max(1, Number(pkg?.minParticipants) || 1);
@@ -614,18 +613,8 @@ export function WorkshopBookingPage({ packageId }) {
           </section>
         )}
 
+        {(quoteError || quoting) && (
         <section className="workspace-card" style={{ marginTop: '24px' }}>
-          <h2 style={{ marginTop: 0 }}>{t('booking.secBook', { n: bookingMode === 'MEMBER' ? '3' : '2' })}</h2>
-          <p style={{ margin: '0 0 6px' }}>
-            {t('booking.pkgLabel')} <strong>{pkg.name}</strong> {t('booking.unitPrice')}{' '}
-            {/* FR-052: price after the best automatic discount from 006's public gate; the quote below stays the server's. */}
-            <strong><WorkshopOfferPrice offers={packageOffers} voucher={false} fallback={vnd(pkg.publicPrice)} /> {t('booking.perTicket')}</strong> {t('booking.ticketCount')}{' '}
-            <strong>{participantCount}</strong>
-          </p>
-          <WorkshopOfferBadges offers={packageOffers} />
-          <p className="muted" style={{ fontSize: '13px' }}>
-            {t('booking.finalNote')}
-          </p>
           {quoteError && !quoting && (
             <div className="actions" style={{ marginTop: '12px' }}>
               <button type="button" className="button outline" onClick={() => bookNow()} disabled={confirming}>
@@ -644,6 +633,7 @@ export function WorkshopBookingPage({ packageId }) {
             </div>
           )}
         </section>
+        )}
 
         <CartQuotePanel
           quote={quote}
