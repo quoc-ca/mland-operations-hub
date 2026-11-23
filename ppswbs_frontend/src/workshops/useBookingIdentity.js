@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../shared/auth/AuthProvider';
 import { useHttp } from '../shared/api/useHttp';
+import { useT } from '../shared/i18n/I18nProvider';
+import { messages } from './messages';
 
 /**
  * Guest or Member, derived from the session plus the canonical account profile (approved 2026-11-03 journey
@@ -10,6 +12,7 @@ import { useHttp } from '../shared/api/useHttp';
 export function useBookingIdentity() {
   const { status: authStatus, getIdToken } = useAuth();
   const http = useHttp();
+  const t = useT(messages);
   const [profile, setProfile] = useState(null);
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileError, setProfileError] = useState(null);
@@ -29,7 +32,7 @@ export function useBookingIdentity() {
       .catch(error => {
         if (!active) return;
         setProfile(null);
-        setProfileError(error?.message || 'Không thể tải hồ sơ Member.');
+        setProfileError(error?.message || t('helper.profileLoadError'));
       })
       .finally(() => { if (active) setProfileLoading(false); });
     return () => { active = false; };

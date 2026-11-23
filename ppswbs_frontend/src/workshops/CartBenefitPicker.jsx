@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useFormat, useT } from '../shared/i18n/I18nProvider';
 import { messages } from '../features/loyalty-promotion/ui/messages';
+import { messages as workshopMessages } from './messages';
 import { reasonTexts } from '../features/loyalty-promotion/ui/checkout/BenefitSelector';
 import '../features/retail-order/ui/readyringsales.css';
 
@@ -24,6 +25,7 @@ const wholeOf = value => (isWhole(value) ? String(value) : null);
 export function CartBenefitPicker({ selection, onChange, savedVouchers = [], offers = [], packageIds = [], account, quote, pending }) {
   const format = useFormat();
   const t = useT(messages);
+  const tw = useT(workshopMessages);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [typedCode, setTypedCode] = useState('');
 
@@ -40,8 +42,8 @@ export function CartBenefitPicker({ selection, onChange, savedVouchers = [], off
   const benefitText = offer => {
     const discount = offer?.discount;
     if (!discount) return '';
-    const cap = discount.maxDiscountAmount ? `, tối đa ${format.money(discount.maxDiscountAmount)}` : '';
-    return discount.kind === 'PERCENT' ? `Giảm ${discount.percentage}%${cap}` : `Giảm ${format.money(discount.amount)}`;
+    const cap = discount.maxDiscountAmount ? tw('benefit.discount.cap', { amount: format.money(discount.maxDiscountAmount) }) : '';
+    return discount.kind === 'PERCENT' ? tw('benefit.discount.percent', { percent: discount.percentage, cap }) : tw('benefit.discount.amount', { amount: format.money(discount.amount) });
   };
   const offerByCode = Object.fromEntries(offers.map(offer => [offer.code, offer]));
   const suggestions = [
@@ -85,29 +87,29 @@ export function CartBenefitPicker({ selection, onChange, savedVouchers = [], off
   };
 
   return (
-    <section className="retail-benefits" aria-label="Ưu đãi và điểm thành viên">
+    <section className="retail-benefits" aria-label={tw('benefit.aria')}>
       <button type="button" className="retail-benefit-row" onClick={() => setPickerOpen(true)}>
-        <span className="retail-benefit-icon">▣</span><strong>Voucher MLAND</strong>
+        <span className="retail-benefit-icon">▣</span><strong>{tw('benefit.voucher')}</strong>
         <span className={voucherChosen ? 'benefit-applied' : 'muted'}>
           {voucherChosen
             ? (selectedVoucher?.name || suggestions.find(item => item.code === selection.voucherCode)?.name || selection.voucherCode)
-            : 'Chọn hoặc nhập mã'}
+            : tw('benefit.chooseOrEnter')}
         </span>
         <span>›</span>
       </button>
 
-      <div className="retail-benefit-row point-balance" aria-label="Điểm của bạn">
-        <span className="retail-benefit-icon">Ⓟ</span><strong>Điểm của bạn</strong>
+      <div className="retail-benefit-row point-balance" aria-label={tw('benefit.pointsLabel')}>
+        <span className="retail-benefit-icon">Ⓟ</span><strong>{tw('benefit.pointsLabel')}</strong>
         {available === null
-          ? <span className="muted">Chưa tải được số điểm</span>
+          ? <span className="muted">{tw('benefit.pointsNotLoaded')}</span>
           : (
             <span className="point-balance-value">
-              <b>{format.number(available)} điểm</b> khả dụng
+              <b>{tw('benefit.pointsCount', { count: format.number(available) })}</b> {tw('benefit.available')}
               <small>
                 {[
-                  held ? `đang giữ ${format.number(held)} điểm cho đơn khác` : null,
-                  pointValue ? `1 điểm = ${format.money(pointValue)}` : null,
-                  minRedeem && minRedeem !== '0' ? `dùng tối thiểu ${format.number(minRedeem)} điểm` : null,
+                  held ? tw('benefit.held', { count: format.number(held) }) : null,
+                  pointValue ? tw('benefit.pointValue', { amount: format.money(pointValue) }) : null,
+                  minRedeem && minRedeem !== '0' ? tw('benefit.minUse', { count: format.number(minRedeem) }) : null,
                 ].filter(Boolean).join(' · ')}
               </small>
             </span>
@@ -117,17 +119,17 @@ export function CartBenefitPicker({ selection, onChange, savedVouchers = [], off
 
       <label className="retail-benefit-row point-row">
         <span className="retail-benefit-icon" aria-hidden="true" />
-        <strong>Dùng {format.number(limitKnown ? maxPoints : '0')} điểm cho giỏ này</strong>
+        <strong>{tw('benefit.useForCart', { count: format.number(limitKnown ? maxPoints : '0') })}</strong>
         <span className="muted">
-          {!limitKnown ? 'Báo giá giỏ để hệ thống tính số điểm tối đa được dùng…'
-            : belowMinimum ? `Cần tối thiểu ${format.number(minRedeem)} điểm để sử dụng`
-              : canUsePoints ? 'Điểm tối đa theo báo giá hiện tại' : 'Bạn chưa có điểm dùng được cho giỏ này'}
+          {!limitKnown ? tw('benefit.hint.unknown')
+            : belowMinimum ? tw('benefit.hint.belowMin', { count: format.number(minRedeem) })
+              : canUsePoints ? tw('benefit.hint.max') : tw('benefit.hint.none')}
         </span>
         <input
           className="switch"
           type="checkbox"
           role="switch"
-          aria-label="Dùng điểm thành viên"
+          aria-label={tw('benefit.switchAria')}
           checked={pointsOn}
           disabled={pending || ((!canUsePoints) && !pointsOn)}
           onChange={event => onChange({ ...selection, requestedPoints: event.target.checked ? maxPoints : '0' })}
@@ -137,13 +139,13 @@ export function CartBenefitPicker({ selection, onChange, savedVouchers = [], off
       {quote && (
         <div className="retail-benefit-quote breakdown" aria-live="polite">
           <dl>
-            <div><dt>Phí gói workshop</dt><dd>{format.money(quote.grossVnd)}</dd></div>
-            <div><dt>Giảm tự động</dt><dd>−{format.money(quote.autoDiscountVnd ?? 0)}</dd></div>
-            <div><dt>Voucher</dt><dd>−{format.money(quote.voucherDiscountVnd)}</dd></div>
-            <div><dt>Giảm bằng {format.number(quote.pointsUsed ?? '0')} điểm</dt><dd>−{format.money(quote.pointDiscountVnd)}</dd></div>
-            <div><dt>Tiền workshop sau ưu đãi</dt><dd>{format.money(quote.finalTotalVnd)}</dd></div>
-            <div className="total"><dt>Thanh toán khi đặt</dt><dd>{format.money(quote.groupCollectionVnd)}</dd></div>
-            <div><dt>Còn lại thanh toán tại quầy</dt><dd>{format.money(quote.remainingAtCheckoutVnd)}</dd></div>
+            <div><dt>{tw('benefit.fee')}</dt><dd>{format.money(quote.grossVnd)}</dd></div>
+            <div><dt>{tw('benefit.auto')}</dt><dd>−{format.money(quote.autoDiscountVnd ?? 0)}</dd></div>
+            <div><dt>{tw('benefit.voucherRow')}</dt><dd>−{format.money(quote.voucherDiscountVnd)}</dd></div>
+            <div><dt>{tw('benefit.byPoints', { count: format.number(quote.pointsUsed ?? '0') })}</dt><dd>−{format.money(quote.pointDiscountVnd)}</dd></div>
+            <div><dt>{tw('benefit.afterOffers')}</dt><dd>{format.money(quote.finalTotalVnd)}</dd></div>
+            <div className="total"><dt>{tw('benefit.payNow')}</dt><dd>{format.money(quote.groupCollectionVnd)}</dd></div>
+            <div><dt>{tw('benefit.remaining')}</dt><dd>{format.money(quote.remainingAtCheckoutVnd)}</dd></div>
           </dl>
           {/* 006 says why a voucher or the points were not applied; the screen never guesses a reason. */}
           {reasons.length > 0 && <p className="notice error" role="status">{reasons.join(' ')}</p>}
@@ -152,24 +154,24 @@ export function CartBenefitPicker({ selection, onChange, savedVouchers = [], off
 
       {pickerOpen && (
         <div className="benefit-picker-backdrop" role="presentation">
-          <section className="benefit-picker" role="dialog" aria-modal="true" aria-label="Chọn voucher">
+          <section className="benefit-picker" role="dialog" aria-modal="true" aria-label={tw('benefit.dialogAria')}>
             <div className="card-head">
-              <h2>Chọn voucher MLAND</h2>
-              <button type="button" className="text-link" onClick={() => setPickerOpen(false)}>Đóng</button>
+              <h2>{tw('benefit.pickerTitle')}</h2>
+              <button type="button" className="text-link" onClick={() => setPickerOpen(false)}>{tw('benefit.close')}</button>
             </div>
             <div className="voucher-code-entry">
               <input
                 value={typedCode}
                 maxLength="128"
-                placeholder="Nhập mã voucher"
+                placeholder={tw('benefit.codePlaceholder')}
                 onChange={event => setTypedCode(event.target.value)}
                 onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); applyVoucher(typedCode); } }}
               />
-              <button type="button" className="button primary" onClick={() => applyVoucher(typedCode)}>Áp dụng</button>
+              <button type="button" className="button primary" onClick={() => applyVoucher(typedCode)}>{tw('benefit.apply')}</button>
             </div>
-            <h3>Voucher đề xuất</h3>
+            <h3>{tw('benefit.suggested')}</h3>
             {suggestions.length === 0 && (
-              <p className="muted">Hiện chưa có voucher nào áp dụng cho workshop này. Bạn vẫn có thể nhập mã ở trên.</p>
+              <p className="muted">{tw('benefit.noneSuggested')}</p>
             )}
             {suggestions.map(item => (
               <button
@@ -182,7 +184,7 @@ export function CartBenefitPicker({ selection, onChange, savedVouchers = [], off
                 <span className="voucher-stamp">MLAND</span>
                 <span>
                   <strong>{item.name}</strong>
-                  <small>{item.code}{item.benefit ? ` · ${item.benefit}` : ''}{item.saved ? ' · Trong Voucher của tôi' : ''}</small>
+                  <small>{item.code}{item.benefit ? ` · ${item.benefit}` : ''}{item.saved ? ` · ${tw('benefit.savedTag')}` : ''}</small>
                 </span>
                 <span>{item.code === selection.voucherCode && voucherChosen ? '✓' : '○'}</span>
               </button>
