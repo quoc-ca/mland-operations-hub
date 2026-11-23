@@ -29,7 +29,7 @@ const optionsOf = (code, over = {}) => json(200, {
 
 /** Staff picks the replacement from the list instead of typing identifiers, then adds the ticket to the change. */
 async function addTicketToChange(user, code) {
-  await user.type(screen.getByLabelText('Mã vé cần đổi'), code);
+  await user.type(screen.getByLabelText('Ticket code to change'), code);
   await user.click(screen.getByRole('button', { name: 'Show sessions' }));
   const fromRadio = (await screen.findAllByRole('radio')).find(radio => radio.getAttribute('name') === `from-${code}`);
   await user.click(fromRadio);
@@ -55,8 +55,8 @@ describe('Staff ticket cancellation and change', () => {
   it('a Staff or Manager asks for the buyer code with no contact value and is told it goes to the booking email', async () => {
     const calls = mockFetch({ [PROFILE]: asRole('STAFF'), ...verifyHandlers, [`POST ${VERIFY}`]: json(200, { verificationId: 'V-1', maskedEmail: 'ho***@gmail.com' }) });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/settlement/ticket-actions?tab=change' });
-    await user.type(await screen.findByLabelText('Mã đặt chỗ'), 'GRP-1');
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/ticket-actions?tab=change' });
+    await user.type(await screen.findByLabelText('Booking code'), 'GRP-1');
     expect(screen.getByText(/The code is sent to the email the buyer gave when booking/)).toBeInTheDocument();
     expect(screen.queryByLabelText('Contact email')).toBeNull();
     await user.click(screen.getByRole('button', { name: "Send code to the buyer's email" }));
@@ -74,8 +74,8 @@ describe('Staff ticket cancellation and change', () => {
       'POST /api/v1/workshop-tickets/TK-1/changes': json(422, { code: 'SETTLEMENT_VALIDATION_ERROR', correlationId: 'c-422' }),
     });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/settlement/ticket-actions?tab=change' });
-    await user.type(await screen.findByLabelText('Mã đặt chỗ'), 'GRP-1');
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/ticket-actions?tab=change' });
+    await user.type(await screen.findByLabelText('Booking code'), 'GRP-1');
     await user.type(screen.getByLabelText('Reason (required)'), 'x');
     await verifyBuyer(user);
     expect(screen.getByRole('button', { name: 'Change tickets' })).toBeDisabled(); // nothing chosen yet
@@ -93,16 +93,16 @@ describe('Staff ticket cancellation and change', () => {
       'GET /api/v1/workshop-tickets/TK-2/change-options': optionsOf('TK-2', { requiresManager: true, managerRules: ['RESCHEDULE_QUOTA_EXHAUSTED'] }),
     });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/settlement/ticket-actions?tab=change' });
-    await user.type(await screen.findByLabelText('Mã vé cần đổi'), 'TK-1');
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/ticket-actions?tab=change' });
+    await user.type(await screen.findByLabelText('Ticket code to change'), 'TK-1');
     await user.click(screen.getByRole('button', { name: 'Show sessions' }));
     await user.click((await screen.findAllByRole('radio'))[0]);
     const full = (await screen.findAllByRole('combobox')).find(item => item.getAttribute('name') === 'to-TK-1');
     expect(Array.from(full.options).find(option => option.value && option.disabled)).toBeTruthy();
     expect(screen.getByText(/Full/)).toBeInTheDocument();
 
-    await user.clear(screen.getByLabelText('Mã vé cần đổi'));
-    await user.type(screen.getByLabelText('Mã vé cần đổi'), 'TK-2');
+    await user.clear(screen.getByLabelText('Ticket code to change'));
+    await user.type(screen.getByLabelText('Ticket code to change'), 'TK-2');
     await user.click(screen.getByRole('button', { name: 'Show sessions' }));
     await user.click((await screen.findAllByRole('radio'))[0]);
     expect(await screen.findByText(/4 seats left/)).toBeInTheDocument();
@@ -121,9 +121,9 @@ describe('Staff ticket cancellation and change', () => {
       ] }),
     });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/settlement/ticket-actions?tab=cancel' });
-    await user.type(await screen.findByLabelText('Mã đặt chỗ'), 'GRP-1');
-    await user.type(screen.getByLabelText('Mã vé'), 'TK-1, TK-2');
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/ticket-actions?tab=cancel' });
+    await user.type(await screen.findByLabelText('Booking code'), 'GRP-1');
+    await user.type(screen.getByLabelText('Ticket code'), 'TK-1, TK-2');
     await user.type(screen.getByLabelText('Reason (required)'), 'Customer cannot attend');
     const cancel = screen.getByRole('button', { name: 'Cancel selected tickets' });
     expect(cancel).toBeDisabled(); // no buyer proof yet
@@ -146,9 +146,9 @@ describe('Staff ticket cancellation and change', () => {
       'POST /api/v1/workshop-booking-groups/GRP-1/cancellations': json(409, { code: 'TICKET_NOT_CANCELLABLE', correlationId: 'c-9', failingTicketCodes: ['TK-2'] }),
     });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/settlement/ticket-actions?tab=cancel' });
-    await user.type(await screen.findByLabelText('Mã đặt chỗ'), 'GRP-1');
-    await user.type(screen.getByLabelText('Mã vé'), 'TK-1 TK-2');
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/ticket-actions?tab=cancel' });
+    await user.type(await screen.findByLabelText('Booking code'), 'GRP-1');
+    await user.type(screen.getByLabelText('Ticket code'), 'TK-1 TK-2');
     await user.type(screen.getByLabelText('Reason (required)'), 'x');
     await verifyBuyer(user);
     await user.click(screen.getByRole('button', { name: 'Cancel selected tickets' }));
@@ -167,13 +167,13 @@ describe('Staff ticket cancellation and change', () => {
         : json(200, { ticketCode: 'TK-1', applied: true, priceIncreaseAmount: '30000', confirmIncreaseRequired: false, balanceDue: '30000' })),
     });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/settlement/ticket-actions?tab=change' });
-    await user.type(await screen.findByLabelText('Mã đặt chỗ'), 'GRP-1');
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/ticket-actions?tab=change' });
+    await user.type(await screen.findByLabelText('Booking code'), 'GRP-1');
     await addTicketToChange(user, 'TK-1');
     await user.type(screen.getByLabelText('Reason (required)'), 'Buyer asked at the counter');
     await verifyBuyer(user);
     await user.click(screen.getByRole('button', { name: 'Change tickets' }));
-    expect(await screen.findByText('30.000 VND')).toBeInTheDocument();
+    expect(await screen.findByText('30,000 ₫')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Buyer confirms the increase' }));
     expect(await screen.findByText('Change applied.')).toBeInTheDocument();
     const posts = calls.filter(item => item.path.endsWith('/changes'));
@@ -189,8 +189,8 @@ describe('Staff ticket cancellation and change', () => {
       'POST /api/v1/workshop-tickets/TK-1/changes': json(202, { ticketCode: 'TK-1', applied: false, priceIncreaseAmount: '0', confirmIncreaseRequired: false, balanceDue: '0', changeRequestReference: 'CR-5' }),
     });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/settlement/ticket-actions?tab=change' });
-    await user.type(await screen.findByLabelText('Mã đặt chỗ'), 'GRP-1');
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/ticket-actions?tab=change' });
+    await user.type(await screen.findByLabelText('Booking code'), 'GRP-1');
     await addTicketToChange(user, 'TK-1');
     await user.type(screen.getByLabelText('Reason (required)'), 'late');
     await verifyBuyer(user);
@@ -209,9 +209,9 @@ describe('Staff ticket cancellation and change', () => {
       ] }),
     });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/settlement/ticket-actions?tab=cancel' });
-    await user.type(await screen.findByLabelText('Mã đặt chỗ'), 'GRP-1');
-    await user.type(screen.getByLabelText('Mã vé'), 'TK-1, TK-2');
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/ticket-actions?tab=cancel' });
+    await user.type(await screen.findByLabelText('Booking code'), 'GRP-1');
+    await user.type(screen.getByLabelText('Ticket code'), 'TK-1, TK-2');
     await user.type(screen.getByLabelText('Reason (required)'), 'Customer cannot attend');
     await verifyBuyer(user);
     await user.click(screen.getByRole('button', { name: 'Cancel selected tickets' }));
@@ -233,8 +233,8 @@ describe('Staff ticket cancellation and change', () => {
       ] }),
     });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/settlement/ticket-actions?tab=change' });
-    await user.type(await screen.findByLabelText('Mã đặt chỗ'), 'GRP-1');
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/ticket-actions?tab=change' });
+    await user.type(await screen.findByLabelText('Booking code'), 'GRP-1');
     await addTicketToChange(user, 'TK-1');
     await addTicketToChange(user, 'TK-2');
     await user.type(screen.getByLabelText('Reason (required)'), 'Whole family moves');
@@ -250,7 +250,7 @@ describe('Customer refund-account page', () => {
   it('sends the account through the single-use link, keeps the token out of the page, and never shows the account again', async () => {
     const calls = mockFetch({ 'POST /api/v1/refund-account-links/tok123': new Response(null, { status: 204 }) });
     const user = userEvent.setup();
-    const { container } = renderRoutes(settlementRoutes, { path: '/refund-account#tok123', session: fakeSession('signed-out') });
+    const { container } = renderRoutes(settlementRoutes, { language: 'en', path: '/refund-account#tok123', session: fakeSession('signed-out') });
     await user.type(await screen.findByLabelText('Bank'), 'VCB');
     await user.type(screen.getByLabelText('Account number'), '0123456789');
     await user.type(screen.getByLabelText('Account holder name'), 'NGUYEN VAN A');
@@ -267,7 +267,7 @@ describe('Customer refund-account page', () => {
   it('says a used or expired link needs a new one (410) and an unknown link is invalid (404)', async () => {
     mockFetch({ 'POST /api/v1/refund-account-links/old': json(410, { code: 'REFUND_ACCOUNT_LINK_NOT_USABLE', correlationId: 'c' }) });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/refund-account#old', session: fakeSession('signed-out') });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/refund-account#old', session: fakeSession('signed-out') });
     await user.type(await screen.findByLabelText('Bank'), 'VCB');
     await user.type(screen.getByLabelText('Account number'), '1');
     await user.type(screen.getByLabelText('Account holder name'), 'A');
@@ -279,7 +279,7 @@ describe('Customer refund-account page', () => {
 
   it('refuses a link with no token', async () => {
     mockFetch({});
-    renderRoutes(settlementRoutes, { path: '/refund-account', session: fakeSession('signed-out') });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/refund-account', session: fakeSession('signed-out') });
     expect(await screen.findByText(/link is incomplete/)).toBeInTheDocument();
   });
 });
@@ -299,7 +299,7 @@ describe('Customer Mland remedy page', () => {
       'POST /api/v1/workshop-tickets/TK-1/mland-remedy/answers': json(200, {}),
     });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/workshop-tickets/TK-1/remedy', session: fakeSession('signed-out') });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/workshop-tickets/TK-1/remedy', session: fakeSession('signed-out') });
     const radios = await screen.findAllByRole('radio');
     expect(radios[1]).toBeDisabled(); // not selectable
     const send = screen.getByRole('button', { name: 'Send my answer' });
@@ -321,7 +321,7 @@ describe('Customer Mland remedy page', () => {
       'POST /api/v1/workshop-tickets/TK-1/mland-remedy/answers': json(200, {}),
     });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/workshop-tickets/TK-1/remedy' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/workshop-tickets/TK-1/remedy' });
     await user.click(await screen.findByRole('radio', { name: /Refund this ticket/ }));
     await user.click(screen.getByRole('button', { name: 'Send my answer' }));
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Confirm' }));
@@ -337,7 +337,7 @@ describe('Customer Mland remedy page', () => {
       'POST /api/v1/workshop-tickets/TK-1/mland-remedy/answers': json(409, { code: 'REPLACEMENT_SESSION_UNAVAILABLE', correlationId: 'c' }),
     });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/workshop-tickets/TK-1/remedy' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/workshop-tickets/TK-1/remedy' });
     await user.click((await screen.findAllByRole('radio'))[0]);
     await user.click(screen.getByRole('button', { name: 'Send my answer' }));
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Confirm' }));
@@ -347,20 +347,20 @@ describe('Customer Mland remedy page', () => {
 
   it('shows an answered offer read-only', async () => {
     mockFetch({ 'GET /api/v1/workshop-tickets/TK-1/mland-remedy': json(200, { ...OFFER, outcome: 'MOVED', selectedReplacementSessionReference: S1 }) });
-    renderRoutes(settlementRoutes, { path: '/workshop-tickets/TK-1/remedy', session: fakeSession('signed-out') });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/workshop-tickets/TK-1/remedy', session: fakeSession('signed-out') });
     expect(await screen.findByText(/moved to the replacement session/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Send my answer' })).not.toBeInTheDocument();
   });
 
   it('shows the expired-voucher notice on an answered refund, and nothing for ALREADY_RESTORED (T163)', async () => {
     mockFetch({ 'GET /api/v1/workshop-tickets/TK-1/mland-remedy': json(200, { ...OFFER, outcome: 'REFUND', voucherRestoration: { restored: false, reason: 'EXPIRED' } }) });
-    renderRoutes(settlementRoutes, { path: '/workshop-tickets/TK-1/remedy', session: fakeSession('signed-out') });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/workshop-tickets/TK-1/remedy', session: fakeSession('signed-out') });
     expect(await screen.findByLabelText('Voucher not restored')).toHaveTextContent('Your refund is not affected');
   });
 
   it('shows no voucher notice for a restored or already restored voucher', async () => {
     mockFetch({ 'GET /api/v1/workshop-tickets/TK-1/mland-remedy': json(200, { ...OFFER, outcome: 'REFUND', voucherRestoration: { restored: false, reason: null } }) });
-    renderRoutes(settlementRoutes, { path: '/workshop-tickets/TK-1/remedy', session: fakeSession('signed-out') });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/workshop-tickets/TK-1/remedy', session: fakeSession('signed-out') });
     expect(await screen.findByText(/being refunded/)).toBeInTheDocument();
     expect(screen.queryByLabelText('Voucher not restored')).not.toBeInTheDocument();
   });
@@ -371,20 +371,20 @@ describe('Customer ticket folio', () => {
 
   it('reads a Member folio with the bearer', async () => {
     const calls = mockFetch({ 'GET /api/v1/workshop-tickets/TK-1/folio': json(200, FOLIO) });
-    renderRoutes(settlementRoutes, { path: '/workshop-tickets/TK-1/folio' });
-    expect(await screen.findByLabelText('Ticket folio')).toHaveTextContent('450.000 VND');
+    renderRoutes(settlementRoutes, { language: 'en', path: '/workshop-tickets/TK-1/folio' });
+    expect(await screen.findByLabelText('Ticket folio')).toHaveTextContent('450,000 ₫');
     expect(calls[0].headers.Authorization).toBe('Bearer test-token');
   });
 
   it('tells the Member an expired voucher was not restored when the folio carries reason EXPIRED (T163)', async () => {
     mockFetch({ 'GET /api/v1/workshop-tickets/TK-1/folio': json(200, { ...FOLIO, status: 'CLOSED', voucherRestoration: { restored: false, reason: 'EXPIRED' } }) });
-    renderRoutes(settlementRoutes, { path: '/workshop-tickets/TK-1/folio' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/workshop-tickets/TK-1/folio' });
     expect(await screen.findByLabelText('Voucher not restored')).toBeInTheDocument();
   });
 
   it('shows no voucher notice on a folio without an expired voucher', async () => {
     mockFetch({ 'GET /api/v1/workshop-tickets/TK-1/folio': json(200, { ...FOLIO, voucherRestoration: { restored: false, reason: null } }) });
-    renderRoutes(settlementRoutes, { path: '/workshop-tickets/TK-1/folio' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/workshop-tickets/TK-1/folio' });
     expect(await screen.findByLabelText('Ticket folio')).toBeInTheDocument();
     expect(screen.queryByLabelText('Voucher not restored')).not.toBeInTheDocument();
   });
@@ -392,7 +392,7 @@ describe('Customer ticket folio', () => {
   it('gives a Guest a lookup form that sends one contact in the body, never in the URL, and clears it', async () => {
     const calls = mockFetch({ 'POST /api/v1/workshop-tickets/TK-1/folio-lookups': json(200, FOLIO) });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/workshop-tickets/TK-1/folio', session: fakeSession('signed-out') });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/workshop-tickets/TK-1/folio', session: fakeSession('signed-out') });
     const show = await screen.findByRole('button', { name: 'Show my ticket' });
     expect(show).toBeDisabled();
     await user.type(screen.getByLabelText('Email'), 'buyer@example.com');
@@ -408,7 +408,7 @@ describe('Customer ticket folio', () => {
     let status = 404;
     mockFetch({ 'POST /api/v1/workshop-tickets/TK-1/folio-lookups': () => json(status, { code: status === 404 ? 'RESOURCE_NOT_FOUND' : 'RATE_LIMITED', correlationId: 'c' }) });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/workshop-tickets/TK-1/folio', session: fakeSession('signed-out') });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/workshop-tickets/TK-1/folio', session: fakeSession('signed-out') });
     await user.type(await screen.findByLabelText('Email'), 'wrong@example.com');
     await user.click(screen.getByRole('button', { name: 'Show my ticket' }));
     expect(await screen.findByText('We could not find a ticket with this code and contact.')).toBeInTheDocument();

@@ -5,7 +5,10 @@ import { ConfirmDialog, Field, SuccessNotice, useCommand } from '../../shared/ui
 import { createSettlementApi } from '../api/settlementApi';
 import { OpsPage } from '../OpsPage';
 import { useRole } from '../../shared/auth/useRole';
-import { BuyerProof, ProblemNotice, ReasonDialog, VoucherNotRestoredNotice, money, splitList } from '../ui';
+import { useFormat, useLanguage, useT } from '../../shared/i18n/I18nProvider';
+import { formatSessionWindow } from '../../workshops/groupDisplay';
+import { messages } from '../messages';
+import { BuyerProof, ProblemNotice, ReasonDialog, VoucherNotRestoredNotice, splitList } from '../ui';
 import { TicketSessionPicker } from '../../shared/ui/TicketSessionPicker';
 
 /**
@@ -14,6 +17,35 @@ import { TicketSessionPicker } from '../../shared/ui/TicketSessionPicker';
  * Prices, outcomes and queue status are the server's answer; a price increase is shown first and repeated with confirmation.
  */
 export default function TicketActionsPage() {
+  const t = useT(messages);
+  const fmt = useFormat();
+  const { language } = useLanguage();
+  const pickerLabels = {
+    loading: t('picker.loading'),
+    loadFailed: t('picker.loadFailed'),
+    retry: t('picker.retry'),
+    sessionToChange: t('picker.sessionToChange'),
+    bothSessions: t('picker.bothSessions'),
+    sessionLabel: ordinal => t('picker.sessionLabel', { ordinal }),
+    notChangeable: t('picker.notChangeable'),
+    noOptions: t('picker.noOptions'),
+    noPairs: t('picker.noPairs'),
+    seatsLeft: count => t(count === 1 ? 'picker.seatsLeftOne' : 'picker.seatsLeft', { count }),
+    quotaLeft: count => t(count === 1 ? 'picker.quotaLeftOne' : 'picker.quotaLeft', { count }),
+    full: t('picker.full'),
+    needsManager: t('picker.needsManager'),
+    priceIncrease: amount => t('picker.priceIncrease', { amount }),
+    allowanceUsed: t('picker.allowanceUsed'),
+    windowClosed: t('picker.windowClosed'),
+    rule: {
+      CHANGE_ALLOWANCE_EXHAUSTED: t('picker.rule.CHANGE_ALLOWANCE_EXHAUSTED'),
+      ADVANCE_CHANGE_WINDOW_EXPIRED: t('picker.rule.ADVANCE_CHANGE_WINDOW_EXPIRED'),
+      RESCHEDULE_QUOTA_EXHAUSTED: t('picker.rule.RESCHEDULE_QUOTA_EXHAUSTED'),
+    },
+    choose: t('picker.choose'),
+    pickPlaceholder: t('picker.pickPlaceholder'),
+    locationFallback: reference => t('picker.locationFallback', { reference }),
+  };
   const api = createSettlementApi(useHttp());
   const [params] = useSearchParams();
   const tab = params.get('tab') === 'change' ? 'change' : 'cancel';
@@ -49,7 +81,7 @@ export default function TicketActionsPage() {
     if (out.ok) {
       setConfirmCancel(false); setProof(null);
       setResult({ kind: 'cancel', tickets: out.result.tickets || [out.result] });
-      setMessage('Cancellation recorded.');
+      setMessage(t('ta.msg.cancelled'));
     }
   };
 
@@ -63,8 +95,8 @@ export default function TicketActionsPage() {
     if (!out.ok) return;
     const data = out.result;
     setResult({ kind: 'change', data, grouped: changes.length > 1 });
-    if (data.applied) { setProof(null); setMessage('Change applied.'); }
-    else if (data.changeRequestReference) { setProof(null); setMessage('Queued for a Manager decision.'); }
+    if (data.applied) { setProof(null); setMessage(t('ta.msg.applied')); }
+    else if (data.changeRequestReference) { setProof(null); setMessage(t('ta.msg.queued')); }
   };
 
   const grant = async grantReason => {
@@ -72,7 +104,7 @@ export default function TicketActionsPage() {
     const out = await command.run(key => api.grantChangeAllowance(allowanceTicket.trim(), { reason: grantReason }, key));
     if (out.ok) {
       setGranting(false); setAllowanceTicket('');
-      setMessage(`One extra change granted for ${out.result.ticketCode} (${out.result.allowanceReference}). The change itself is still to be made.`);
+      setMessage(t('ta.msg.granted', { code: out.result.ticketCode, ref: out.result.allowanceReference }));
     }
   };
 
@@ -95,103 +127,105 @@ export default function TicketActionsPage() {
   const changeTypeTo = value => { setChangeType(value); setChanges([]); setLoadedCode(''); setSelection(null); };
 
   return (
-    <OpsPage eyebrow="TICKET CANCELLATION AND CHANGE" title={tab === 'change' ? 'Change tickets' : 'Cancel tickets'}
-      intro="Act for the buyer at the counter. The buyer is verified with a code sent to the booking's contact; the reason is required and audited.">
-      <nav className="ota-nav-tabs" aria-label="Ticket actions">
-        <Link className={`ota-nav-tab ${tab === 'cancel' ? 'active' : ''}`} to="/settlement/ticket-actions?tab=cancel">Cancel</Link>
-        <Link className={`ota-nav-tab ${tab === 'change' ? 'active' : ''}`} to="/settlement/ticket-actions?tab=change">Change</Link>
+    <OpsPage title={t(tab === 'change' ? 'ta.titleChange' : 'ta.titleCancel')} intro={t('ta.intro')}>
+      <nav className="ota-nav-tabs" aria-label={t('ta.tabsAria')}>
+        <Link className={`ota-nav-tab ${tab === 'cancel' ? 'active' : ''}`} to="/settlement/ticket-actions?tab=cancel">{t('ta.tabCancel')}</Link>
+        <Link className={`ota-nav-tab ${tab === 'change' ? 'active' : ''}`} to="/settlement/ticket-actions?tab=change">{t('ta.tabChange')}</Link>
       </nav>
       <SuccessNotice>{message}</SuccessNotice>
       <ProblemNotice error={command.error} onRetry={command.retry} />
       <section className="ota-panel">
         <div className="ota-form">
-          <Field label="Mã đặt chỗ" hint={needsGroup ? 'Required for several tickets and for the buyer code.' : 'Needed to send the buyer code.'}>
+          <Field label={t('ta.groupCode')} hint={t(needsGroup ? 'ta.groupHintMulti' : 'ta.groupHintOne')}>
             <input value={groupCode} onChange={event => setGroupCode(event.target.value)} />
           </Field>
           {tab === 'cancel' ? (
-            <Field label="Mã vé" hint="One ticket, or several of the same group (all or none).">
+            <Field label={t('ta.ticketCodes')} hint={t('ta.ticketCodesHint')}>
               <textarea value={ticketText} onChange={event => setTicketText(event.target.value)} placeholder="GRP-…-L0-T1, GRP-…-L0-T2" />
             </Field>
           ) : (<>
-            <Field label="Change type">
+            <Field label={t('ta.changeType')}>
               <select value={changeType} onChange={event => changeTypeTo(event.target.value)}>
-                <option value="ADVANCE">Advance (before the session)</option>
-                <option value="LATE_ARRIVAL">Late arrival</option>
+                <option value="ADVANCE">{t('ta.typeAdvance')}</option>
+                <option value="LATE_ARRIVAL">{t('ta.typeLate')}</option>
               </select>
             </Field>
-            <Field label="Mã vé cần đổi" hint="Enter a ticket code and show its sessions, pick the new session, then add the ticket. Several tickets of one group change together, all or none.">
+            <Field label={t('ta.ticketToChange')} hint={t('ta.ticketToChangeHint')}>
               <input value={builderCode} onChange={event => setBuilderCode(event.target.value)} placeholder="GRP-…-L0-T1" />
             </Field>
-            <button className="button outline" type="button" disabled={!builderCode.trim()} onClick={() => { setSelection(null); setLoadedCode(builderCode.trim()); }}>Show sessions</button>
+            <button className="button outline" type="button" disabled={!builderCode.trim()} onClick={() => { setSelection(null); setLoadedCode(builderCode.trim()); }}>{t('ta.showSessions')}</button>
             {loadedCode && (
-              <section aria-label="Session options">
+              <section aria-label={t('ta.sessionOptions')}>
                 <h3>{loadedCode}</h3>
                 <TicketSessionPicker
                   ticketCode={loadedCode}
                   type={changeType}
                   loadOptions={from => api.getChangeOptions(loadedCode, { type: changeType, from })}
                   onSelect={setSelection}
+                  labels={pickerLabels}
+                  formatWindow={(start, end) => formatSessionWindow(start, end, language)}
+                  formatMoney={value => fmt.money(value)}
                 />
-                {selection?.requiresManager && <p className="muted small" role="note">This choice needs a Manager: the request is queued and the ticket changes only when a Manager approves it.</p>}
-                <button className="button primary" type="button" disabled={!selection} onClick={addToChange}>Add ticket to the change</button>
+                {selection?.requiresManager && <p className="muted small" role="note">{t('ta.needsManager')}</p>}
+                <button className="button primary" type="button" disabled={!selection} onClick={addToChange}>{t('ta.addToChange')}</button>
               </section>
             )}
             {changes.length > 0 && (
-              <ul aria-label="Tickets to change">
+              <ul aria-label={t('ta.ticketsToChange')}>
                 {changes.map(item => (
                   <li key={item.ticketCode}>
-                    {item.ticketCode}: {item.fromSessionReferences.length === 2 ? 'both sessions' : 'one session'} moved{item.targetLocationNames?.length ? ` to ${[...new Set(item.targetLocationNames)].join(', ')}` : ''}{item.requiresManager ? ' (needs a Manager)' : ''}
-                    {' '}<button className="button outline small" type="button" onClick={() => setChanges(list => list.filter(entry => entry.ticketCode !== item.ticketCode))}>Remove</button>
+                    {t('ta.moved', { code: item.ticketCode, sessions: t(item.fromSessionReferences.length === 2 ? 'ta.bothSessions' : 'ta.oneSession'), to: item.targetLocationNames?.length ? t('ta.movedTo', { places: [...new Set(item.targetLocationNames)].join(', ') }) : '', manager: item.requiresManager ? t('ta.needsManagerShort') : '' })}
+                    {' '}<button className="button outline small" type="button" onClick={() => setChanges(list => list.filter(entry => entry.ticketCode !== item.ticketCode))}>{t('ta.remove')}</button>
                   </li>
                 ))}
               </ul>
             )}
           </>)}
-          <Field label="Reason (required)"><textarea value={reason} maxLength={1000} onChange={event => setReason(event.target.value)} /></Field>
+          <Field label={t('ta.reason')}><textarea value={reason} maxLength={1000} onChange={event => setReason(event.target.value)} /></Field>
           <BuyerProof groupCode={groupCode.trim()} onReference={setProof} staffRequest={code => api.requestBuyerVerification(code)} />
           {tab === 'cancel'
-            ? <button className="button danger" type="button" disabled={command.pending || !cancelReady || !proof} onClick={() => setConfirmCancel(true)}>Cancel selected tickets</button>
-            : <button className="button primary" type="button" disabled={command.pending || !changeReady || !proof} onClick={() => change(false)}>Change tickets</button>}
+            ? <button className="button danger" type="button" disabled={command.pending || !cancelReady || !proof} onClick={() => setConfirmCancel(true)}>{t('ta.cancelSelected')}</button>
+            : <button className="button primary" type="button" disabled={command.pending || !changeReady || !proof} onClick={() => change(false)}>{t('ta.changeTickets')}</button>}
         </div>
       </section>
 
       {tab === 'change' && isManager && (
-        <section className="ota-panel" aria-label="Extra change allowance">
-          <h2>Grant one extra change</h2>
-          <p className="muted small">Gives a ticket one more counted change (FR-054). It never performs the change; the buyer or Staff on the buyer's behalf still changes the ticket above.</p>
+        <section className="ota-panel" aria-label={t('ta.allowanceAria')}>
+          <h2>{t('ta.allowanceTitle')}</h2>
+          <p className="muted small">{t('ta.allowanceHint')}</p>
           <div className="ota-inline-form">
-            <label>Mã vé<input value={allowanceTicket} onChange={event => setAllowanceTicket(event.target.value)} placeholder="GRP-…-L0-T1" /></label>
-            <button className="button outline" type="button" disabled={command.pending || !allowanceTicket.trim()} onClick={() => setGranting(true)}>Grant extra change</button>
+            <label>{t('ta.allowanceTicket')}<input value={allowanceTicket} onChange={event => setAllowanceTicket(event.target.value)} placeholder="GRP-…-L0-T1" /></label>
+            <button className="button outline" type="button" disabled={command.pending || !allowanceTicket.trim()} onClick={() => setGranting(true)}>{t('ta.allowanceGrant')}</button>
           </div>
         </section>
       )}
       {awaiting && (
-        <section className="ota-panel" role="status" aria-label="Price increase">
-          <h2>Price increase to confirm</h2>
-          <p>This change raises the price by <strong>{money(increase)}</strong>. Nothing has changed yet. Ask the buyer to confirm the new schedule and amount.</p>
-          <button className="button primary" type="button" disabled={command.pending} onClick={() => change(true)}>Buyer confirms the increase</button>
+        <section className="ota-panel" role="status" aria-label={t('ta.increaseAria')}>
+          <h2>{t('ta.increaseTitle')}</h2>
+          <p>{t('ta.increasePre')}<strong>{fmt.money(increase)}</strong>{t('ta.increasePost')}</p>
+          <button className="button primary" type="button" disabled={command.pending} onClick={() => change(true)}>{t('ta.increaseConfirm')}</button>
         </section>
       )}
       {result?.kind === 'change' && result.data.changeRequestReference && (
-        <section className="ota-panel" role="status"><p>Request <strong>{result.data.changeRequestReference}</strong> waits for a Manager in the <Link to="/settlement/change-requests">change request queue</Link>.</p></section>
+        <section className="ota-panel" role="status"><p>{t('ta.queuedPre')}<strong>{result.data.changeRequestReference}</strong>{t('ta.queuedMid')}<Link to="/settlement/change-requests">{t('ta.queuedLink')}</Link>.</p></section>
       )}
       {result?.kind === 'change' && result.data.applied && (
-        <section className="ota-panel" aria-label="Change result">
-          <h2>Change applied</h2>
+        <section className="ota-panel" aria-label={t('ta.changeResultAria')}>
+          <h2>{t('ta.changeApplied')}</h2>
           <ul>
             {(result.grouped ? result.data.tickets : [result.data]).map(item => (
-              <li key={item.ticketCode}>{item.ticketCode}: balance due {money(item.balanceDue)}{item.priceIncreaseAmount && item.priceIncreaseAmount !== '0' ? `, increase ${money(item.priceIncreaseAmount)}` : ''}</li>
+              <li key={item.ticketCode}>{t('ta.changeLine', { code: item.ticketCode, balance: fmt.money(item.balanceDue), increase: item.priceIncreaseAmount && item.priceIncreaseAmount !== '0' ? t('ta.changeIncrease', { amount: fmt.money(item.priceIncreaseAmount) }) : '' })}</li>
             ))}
           </ul>
         </section>
       )}
       {result?.kind === 'cancel' && (
-        <section className="ota-panel" aria-label="Cancellation result">
-          <h2>Cancelled</h2>
+        <section className="ota-panel" aria-label={t('ta.cancelResultAria')}>
+          <h2>{t('ta.cancelled')}</h2>
           <ul>
             {result.tickets.map(item => (
               <li key={item.ticketCode}>
-                {item.ticketCode}: {item.benefitOutcome === 'VALID_CANCELLATION' ? 'valid cancellation (24 hours or more before the first session)' : 'late cancellation (counts as a no-show for benefits)'}; points returned {item.pointsReturned}{(item.voucherRestoration?.restored ?? item.voucherRestored) ? '; voucher restored' : ''}
+                {t('ta.cancelLine', { code: item.ticketCode, outcome: t(item.benefitOutcome === 'VALID_CANCELLATION' ? 'ta.cancelValid' : 'ta.cancelLate'), points: item.pointsReturned, voucher: (item.voucherRestoration?.restored ?? item.voucherRestored) ? t('ta.voucherRestored') : '' })}
                 <VoucherNotRestoredNotice voucherRestoration={item.voucherRestoration} />
               </li>
             ))}
@@ -199,11 +233,11 @@ export default function TicketActionsPage() {
         </section>
       )}
 
-      <ReasonDialog open={granting} title="Grant one extra change" confirmLabel="Grant" pending={command.pending} onCancel={() => setGranting(false)} onConfirm={grant}>
-        <p>Ticket {allowanceTicket.trim()} gets one more counted change. This is audited.</p>
+      <ReasonDialog open={granting} title={t('ta.grantTitle')} confirmLabel={t('ta.grantConfirm')} pending={command.pending} onCancel={() => setGranting(false)} onConfirm={grant}>
+        <p>{t('ta.grantBody', { code: allowanceTicket.trim() })}</p>
       </ReasonDialog>
-      <ConfirmDialog open={confirmCancel} title="Cancel these tickets" danger confirmLabel="Cancel tickets" pending={command.pending} onCancel={() => setConfirmCancel(false)} onConfirm={cancel}>
-        <p>{tickets.length} ticket(s) will be cancelled{tickets.length > 1 ? ' all or none' : ''}. This cannot be undone. Any refund goes to the bank account the payer provides.</p>
+      <ConfirmDialog open={confirmCancel} title={t('ta.cancelDialogTitle')} danger confirmLabel={t('ta.cancelDialogConfirm')} pending={command.pending} onCancel={() => setConfirmCancel(false)} onConfirm={cancel}>
+        <p>{t('ta.cancelDialogBody', { count: tickets.length, allOrNone: tickets.length > 1 ? t('ta.allOrNone') : '' })}</p>
       </ConfirmDialog>
     </OpsPage>
   );

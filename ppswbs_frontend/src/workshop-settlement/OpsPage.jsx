@@ -1,14 +1,17 @@
 import React from 'react';
+import { useT } from '../shared/i18n/I18nProvider';
+import { messages } from './messages';
 import '../ota-connectivity/ota-connectivity.css';
 import './workshop-settlement.css';
 
 /** Staff/Manager settlement screen frame: sidebar, heading and content. The backend decides every permission. */
-export function OpsPage({ eyebrow = 'SETTLEMENT OPERATIONS', title, intro, children }) {
+export function OpsPage({ eyebrow, title, intro, children }) {
+  const t = useT(messages);
   return (
     <div className="ota-workspace">
       
       <main className="ota-main">
-        <div className="ota-topline">MLAND / WORKSHOP SETTLEMENT <span>● Backend-authorized</span></div>
+        <div className="ota-topline">{t('frame.topline')} <span>● {t('frame.backendAuthorized')}</span></div>
         <header className="ota-page-heading">
           <div>
             
