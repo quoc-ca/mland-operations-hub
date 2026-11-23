@@ -22,7 +22,7 @@ public class PaymentOwnerRegistryImpl implements PaymentOwnerRegistry {
     @Autowired
     public PaymentOwnerRegistryImpl(
             PaymentOwnerRegistrationRepository repository,
-            List<PaymentOwnerHandler> handlerList
+            @org.springframework.context.annotation.Lazy List<PaymentOwnerHandler> handlerList
     ) {
         this.repository = repository;
         if (handlerList != null) {
