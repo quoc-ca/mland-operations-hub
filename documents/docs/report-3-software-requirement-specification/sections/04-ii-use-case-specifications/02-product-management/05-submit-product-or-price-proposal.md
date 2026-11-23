@@ -35,10 +35,10 @@ This use case includes the following sub-flows:
 
 **Submit Price Proposal for an Existing Size**
 
-1. The actor opens a size of a product and selects Propose new price.
+1. The actor opens a size in the Price proposals section of a product and selects Propose a new price, or, in the Prices to review tab of the product list, selects Propose a new price on a rejected price or Submit price on a draft not sent. For a product that has been published before, a Manager changes a price with Change price instead (UC-15).
 2. The actor enters a positive whole VND amount and saves it as Draft or submits it.
 3. The system checks that the size has no other pending proposal.
-4. The system saves the proposal with its own proposal code, version, product, size, amount, submitter and status and, when it is submitted, a snapshot of the submitter's branch scope at that time, records an audit entry and confirms (MSG20). The current applied price stays in use while the proposal is pending.
+4. The system saves the proposal with its own proposal code, version, product, size, amount, submitter and status and, when it is submitted, a snapshot of the submitter's branch scope at that time, records an audit entry and confirms (MSG20). The current applied price stays in use while the proposal is pending, and a submitted proposal of a published product appears in the Prices to review tab.
 
 **Submit Price Proposals for Several Sizes**
 
@@ -77,27 +77,33 @@ The system rejects a zero, negative or non-whole amount (MSG08).
 
 If only the branch names cannot be read from the shared branch list, the submission still succeeds; the snapshot keeps the branch identifiers without names and the screen shows "Branch #{id}". If the submitter's branch scope itself cannot be read, the submission is rejected in the same way as when the account check is unavailable, and no empty snapshot is saved.
 
+**Price Proposal Step 4 — Proposal saved but submission fails**
+
+When a new price entered on a rejected row or for a new size is saved but cannot be submitted, the draft is kept under Drafts not sent in the Prices to review tab and the error is shown.
+
 **Any step — Data changed by another user, save failure or lost response**
 
 The system rejects the stale request (MSG03) or reports that the result is not confirmed (MSG04); a retry does not create a duplicate review record or proposal.
 
 #### Postconditions
 
-- The submitted product version or price proposal is Pending and visible to the Manager in UC-15.
+- The submitted product version is Pending in the Products to review tab, or the price proposal is Pending in the Prices to review tab or with the initial review, and visible to the Manager in UC-15.
 - A proposed price is never used as a selling price.
 - Each size has at most one current pending proposal.
 
 #### Business Rules
 
-BR-14-01, BR-14-02, BR-14-03, BR-14-04, BR-14-05, BR-14-06
+GBR-14, GBR-32, BR-14-01, BR-14-02, BR-14-03, BR-14-04, BR-14-05, BR-14-06
 
 #### Business Rule Definitions
 
 | ID | Rule Definition |
 |---|---|
+| GBR-14 | Product review, price and publication are separate states; a proposed price is applied only after a Manager approves it and it is applied as a separate action. |
+| GBR-32 | Each submission records the submitter's branch scope at that time, and this snapshot is never rewritten; it is shown for information only. |
 | BR-14-01 | A new product can be submitted only with the latest version, an active category, valid content, at least one usable image and a proposed price for every size. |
 | BR-14-02 | Each proposal keeps its own code, version, product, size, terms, amount, submitter and status, and a proposed price is never used as the selling price. |
 | BR-14-03 | Each size has at most one current pending proposal, including those submitted with a new product; editing it creates a new version and invalidates the old one. |
 | BR-14-04 | A rejected product version may be edited and submitted again as a new version; a rejected price cannot be applied. |
-| BR-14-05 | Submitting a new product by hand applies to Staff only, and only for a product sold at one or more of the Staff's assigned branches; a Manager's screens send the submission as a separate command. Prices are shared by all branches. |
+| BR-14-05 | Submitting a new product by hand applies to Staff only, and only for a product sold at one or more of the Staff's assigned branches; a Manager's create screen, Publish now and Change price send the submission as a separate command. Prices are shared by all branches. |
 | BR-14-06 | Each submission of a price proposal or product review records, in the same transaction, the submitter's branch scope at that time: "All branches" for a Manager, or the Staff's assigned branches with their names at that time. The snapshot is never rewritten when assignments, branch names or branch status change later; a resubmission creates a new snapshot. Versions submitted before snapshots existed show "Not recorded", and a system actor shows "System". |

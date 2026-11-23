@@ -13,9 +13,9 @@ One shared balance is used for both retail products and workshops.
 
 | Field Name | Description |
 | --- | --- |
-| Available (Có thể dùng) | Read-only points that can be spent now: the balance minus held points. |
-| Balance (Số dư) | Read-only total point balance. |
-| Held (Đang giữ) | Read-only points reserved by unfinished orders or bookings; they are deducted or returned when the order has an outcome. |
-| Policy rules | Read-only lines from the current point policy, for example "Mỗi 10.000 ₫ được 1 điểm" and "1 điểm = 100 ₫". |
-| Voucher của tôi | Opens My Saved Vouchers. |
+| Available | Read-only points that can be spent now: the balance minus held points. |
+| Balance | Read-only total point balance. |
+| Held | Read-only points reserved by unfinished orders or bookings; they are used or returned when the order is settled. |
+| Policy rules | Read-only lines from the current point policy: "1 point per {amount}", "1 point = {amount}", "At least {points} points per use" and "Points cover at most {percent}% of an order". |
+| My vouchers | Opens My Saved Vouchers. |
 | Signed-in gate | A visitor who is not signed in is asked to sign in with a Member account. |
