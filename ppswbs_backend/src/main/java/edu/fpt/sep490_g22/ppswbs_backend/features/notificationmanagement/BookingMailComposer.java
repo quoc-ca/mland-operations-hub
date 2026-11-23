@@ -14,7 +14,7 @@ final class BookingMailComposer {
     static MailMessage compose(String kind, String bookingReference, BookingNotificationDeliveryPayload payload,
                                String frontendBaseUrl) {
         if (kind != null && kind.startsWith("GROUP_")) {
-            return composeGroup(payload);
+            return composeGroup(payload, frontendBaseUrl);
         }
         String subject = subject(kind, bookingReference);
         if (subject == null) return null;
@@ -61,12 +61,16 @@ final class BookingMailComposer {
      * Booking-group emails (003.1 FR-040/FR-041): Booking renders the approved subject and body; this only lays
      * them out. Returns null when the snapshot has no subject.
      */
-    private static MailMessage composeGroup(BookingNotificationDeliveryPayload payload) {
+    private static MailMessage composeGroup(BookingNotificationDeliveryPayload payload, String frontendBaseUrl) {
         if (payload.renderedSubject() == null || payload.renderedSubject().isBlank()) return null;
         String body = payload.renderedBookingContent() == null ? "" : payload.renderedBookingContent();
         List<String> artifacts = payload.renderedTicketArtifacts() == null ? List.of() : payload.renderedTicketArtifacts();
         StringBuilder text = new StringBuilder(body).append("\n");
         artifacts.forEach(item -> text.append("\n").append(item));
+        String link = absolute(payload.bookingAccessLink(), frontendBaseUrl);
+        if (!link.isEmpty()) {
+            text.append("\n\nXem đặt chỗ tại liên kết riêng sau (đừng chia sẻ cho người khác):\n").append(link);
+        }
         text.append("\n\nCảm ơn bạn đã chọn MLAND.\n");
         StringBuilder html = new StringBuilder("<div style=\"font-family:Arial,sans-serif;color:#1a1a1a;line-height:1.55\">");
         for (String paragraph : body.split("\n\n")) {
@@ -76,6 +80,11 @@ final class BookingMailComposer {
             html.append("<ul>");
             artifacts.forEach(item -> html.append("<li><strong>").append(escape(item)).append("</strong></li>"));
             html.append("</ul>");
+        }
+        if (!link.isEmpty()) {
+            html.append("<p><a href=\"").append(escape(link)).append("\" style=\"display:inline-block;padding:12px 20px;")
+                    .append("background:#002967;color:#fff;text-decoration:none\">Xem đặt chỗ</a></p>")
+                    .append("<p style=\"color:#666;font-size:13px\">Liên kết này là riêng của bạn, đừng chia sẻ cho người khác.</p>");
         }
         html.append("<p>Cảm ơn bạn đã chọn MLAND.</p></div>");
         return new MailMessage(payload.storedRecipient(), payload.renderedSubject(), text.toString(), html.toString());

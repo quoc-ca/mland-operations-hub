@@ -3,22 +3,30 @@ import { Link, useParams } from 'react-router';
 import { useTemplateVersions } from '../application/useTemplateVersions';
 import TemplateVersionEditorModal from './TemplateVersionEditorModal';
 import TemplatePreviewModal from './TemplatePreviewModal';
+import { renderRich } from './richText';
+import { useT, useEnumLabel, useFormat } from '../../../shared/i18n/I18nProvider';
+import { sharedMessages } from '../../../shared/ui/messages';
+import { notificationMessages } from '../messages';
 import './notification.css';
 
-function versionStatusBadge(status) {
+function versionStatusBadge(status, label) {
   switch (status) {
     case 'ACTIVE':
-      return <span className="nm-badge nm-badge-active">Đang áp dụng</span>;
+      return <span className="nm-badge nm-badge-active">{label(status)}</span>;
     case 'DRAFT':
-      return <span className="nm-badge nm-badge-draft">Bản nháp</span>;
+      return <span className="nm-badge nm-badge-draft">{label(status)}</span>;
     case 'DEACTIVATED':
-      return <span className="nm-badge nm-badge-deactivated">Lưu trữ</span>;
+      return <span className="nm-badge nm-badge-deactivated">{label(status)}</span>;
     default:
       return <span className="nm-badge">{status}</span>;
   }
 }
 
 export function TemplateDetailView() {
+  const t = useT(notificationMessages);
+  const ts = useT(sharedMessages);
+  const statusLabel = useEnumLabel(notificationMessages, 'verStatus');
+  const fmt = useFormat();
   const { code } = useParams();
   const {
     template,
@@ -60,10 +68,10 @@ export function TemplateDetailView() {
   const handleSaveDraft = async (body) => {
     if (selectedVersionForEdit) {
       await updateDraft(selectedVersionForEdit.versionNumber, body);
-      setFeedback(`Đã cập nhật bản nháp v${selectedVersionForEdit.versionNumber}.`);
+      setFeedback(t('detail.draftUpdated', { version: selectedVersionForEdit.versionNumber }));
     } else {
       const res = await createDraft(body);
-      setFeedback(`Đã tạo bản nháp mới v${res?.versionNumber || ''}.`);
+      setFeedback(t('detail.draftCreated', { version: res?.versionNumber || '' }));
     }
   };
 
@@ -71,7 +79,7 @@ export function TemplateDetailView() {
     if (!activationTarget) return;
     try {
       await activateVersion(activationTarget.versionNumber);
-      setFeedback(`Đã kích hoạt phiên bản v${activationTarget.versionNumber} thành công.`);
+      setFeedback(t('detail.activated', { version: activationTarget.versionNumber }));
       setActivationTarget(null);
     } catch (err) {
       // Error handled by hook
@@ -87,13 +95,13 @@ export function TemplateDetailView() {
         <div className="nm-container">
           <div style={{ marginBottom: '1rem' }}>
             <Link to="/admin/notifications/templates" className="nm-btn nm-btn-sm">
-              &larr; Quay lại danh sách mẫu thư
+              {t('detail.back')}
             </Link>
           </div>
 
           {loading ? (
             <div style={{ padding: '3rem 0', textAlign: 'center', color: '#64748b' }} role="status">
-              Đang tải dữ liệu mẫu thư…
+              {t('detail.loading')}
             </div>
           ) : error ? (
             <div className="nm-alert nm-alert-danger" role="alert">
@@ -104,7 +112,7 @@ export function TemplateDetailView() {
                 style={{ marginLeft: '1rem' }}
                 onClick={reload}
               >
-                Thử lại
+                {ts('retry')}
               </button>
             </div>
           ) : template ? (
@@ -112,7 +120,7 @@ export function TemplateDetailView() {
               <div className="nm-header">
                 <div className="nm-title-group">
                   <h1>{template.name}</h1>
-                  <p>Mã mẫu: <code>{template.code}</code> &bull; Phân hệ: <strong>{template.owningModule}</strong></p>
+                  <p>{renderRich(t('detail.meta', { code: template.code, module: template.owningModule }))}</p>
                 </div>
                 <div className="nm-actions">
                   <button
@@ -121,7 +129,7 @@ export function TemplateDetailView() {
                     onClick={handleOpenCreateDraft}
                     disabled={actionLoading}
                   >
-                    + Tạo bản nháp mới
+                    {t('detail.createDraft')}
                   </button>
                   <button
                     type="button"
@@ -129,7 +137,7 @@ export function TemplateDetailView() {
                     onClick={reload}
                     disabled={loading || actionLoading}
                   >
-                    Làm mới
+                    {t('refresh')}
                   </button>
                 </div>
               </div>
@@ -141,14 +149,14 @@ export function TemplateDetailView() {
               <div className="nm-card">
                 <div className="nm-card-body">
                   <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem', fontWeight: 600 }}>
-                    Mô tả nghiệp vụ & Biến cho phép
+                    {t('detail.descTitle')}
                   </h3>
                   <p style={{ margin: '0 0 1rem 0', color: '#475569', fontSize: '0.875rem' }}>
-                    {template.description || 'Không có mô tả.'}
+                    {template.description || t('detail.noDescription')}
                   </p>
 
                   <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#334155', marginBottom: '0.25rem' }}>
-                    Danh sách biến được phép (Allowed Placeholders):
+                    {t('detail.allowedList')}
                   </div>
                   <div className="nm-tag-list">
                     {Array.isArray(template.allowedPlaceholders) && template.allowedPlaceholders.length > 0 ? (
@@ -158,7 +166,7 @@ export function TemplateDetailView() {
                         </span>
                       ))
                     ) : (
-                      <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Không có biến nào</span>
+                      <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>{t('detail.noPlaceholders')}</span>
                     )}
                   </div>
                 </div>
@@ -168,19 +176,19 @@ export function TemplateDetailView() {
               <div className="nm-card">
                 <div className="nm-card-body" style={{ paddingBottom: 0 }}>
                   <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem', fontWeight: 600 }}>
-                    Lịch sử các phiên bản nội dung (Version History)
+                    {t('detail.historyTitle')}
                   </h3>
                 </div>
                 <div className="nm-table-container">
                   <table className="nm-table">
                     <thead>
                       <tr>
-                        <th>Phiên bản</th>
-                        <th>Trạng thái</th>
-                        <th>Tiêu đề email (Subject)</th>
-                        <th>Tạo bởi / Ngày tạo</th>
-                        <th>Kích hoạt lúc</th>
-                        <th style={{ textAlign: 'right' }}>Thao tác</th>
+                        <th>{t('detail.colVersion')}</th>
+                        <th>{t('detail.colStatus')}</th>
+                        <th>{t('detail.colSubject')}</th>
+                        <th>{t('detail.colCreated')}</th>
+                        <th>{t('detail.colActivated')}</th>
+                        <th style={{ textAlign: 'right' }}>{t('col.actions')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -190,21 +198,21 @@ export function TemplateDetailView() {
                             <td>
                               <strong>v{ver.versionNumber}</strong>
                             </td>
-                            <td>{versionStatusBadge(ver.status)}</td>
+                            <td>{versionStatusBadge(ver.status, statusLabel)}</td>
                             <td style={{ maxWidth: '300px', wordBreak: 'break-word' }}>
                               {ver.subjectTemplate}
                             </td>
                             <td>
-                              <div>{ver.createdBy || 'Hệ thống'}</div>
+                              <div>{ver.createdBy || t('detail.system')}</div>
                               <small style={{ color: '#64748b' }}>
-                                {ver.createdAt ? new Date(ver.createdAt).toLocaleDateString('vi-VN') : '—'}
+                                {fmt.dateTime(ver.createdAt)}
                               </small>
                             </td>
                             <td>
                               {ver.activatedAt ? (
                                 <div>
                                   <span style={{ fontSize: '0.8125rem' }}>
-                                    {new Date(ver.activatedAt).toLocaleDateString('vi-VN')}
+                                    {fmt.dateTime(ver.activatedAt)}
                                   </span>
                                   <small style={{ display: 'block', color: '#64748b' }}>
                                     {ver.activatedBy}
@@ -222,7 +230,7 @@ export function TemplateDetailView() {
                                   onClick={() => handleOpenPreview(ver.versionNumber)}
                                   disabled={actionLoading}
                                 >
-                                  Xem trước
+                                  {t('detail.preview')}
                                 </button>
                                 {ver.status === 'DRAFT' && (
                                   <>
@@ -232,7 +240,7 @@ export function TemplateDetailView() {
                                       onClick={() => handleOpenEditDraft(ver)}
                                       disabled={actionLoading}
                                     >
-                                      Chỉnh sửa
+                                      {t('detail.edit')}
                                     </button>
                                     <button
                                       type="button"
@@ -240,7 +248,7 @@ export function TemplateDetailView() {
                                       onClick={() => setActivationTarget(ver)}
                                       disabled={actionLoading}
                                     >
-                                      Kích hoạt
+                                      {t('detail.activate')}
                                     </button>
                                   </>
                                 )}
@@ -251,7 +259,7 @@ export function TemplateDetailView() {
                       ) : (
                         <tr>
                           <td colSpan="6" style={{ textAlign: 'center', color: '#64748b', padding: '2rem 0' }}>
-                            Chưa có phiên bản nội dung nào cho mẫu này.
+                            {t('detail.noVersions')}
                           </td>
                         </tr>
                       )}
@@ -292,7 +300,7 @@ export function TemplateDetailView() {
         >
           <div className="nm-modal">
             <div className="nm-modal-header">
-              <h3 id="activate-modal-title">Xác nhận kích hoạt phiên bản v{activationTarget.versionNumber}</h3>
+              <h3 id="activate-modal-title">{t('detail.activateTitle', { version: activationTarget.versionNumber })}</h3>
               <button
                 type="button"
                 className="nm-modal-close"
@@ -304,12 +312,14 @@ export function TemplateDetailView() {
             </div>
             <div className="nm-modal-body">
               <div className="nm-alert nm-alert-warning" role="alert">
-                Kích hoạt phiên bản <strong>v{activationTarget.versionNumber}</strong> sẽ thay thế phiên bản
-                {activeVersion ? <strong> v{activeVersion.versionNumber} </strong> : ' hiện tại '}
-                đang hoạt động. Tất cả email mới phát sinh từ các giao dịch sau thời điểm này sẽ lập tức áp dụng phiên bản mới này.
+                {renderRich(
+                  activeVersion
+                    ? t('detail.activateWarn', { next: activationTarget.versionNumber, current: activeVersion.versionNumber })
+                    : t('detail.activateWarnNoCurrent', { next: activationTarget.versionNumber })
+                )}
               </div>
               <p style={{ fontSize: '0.875rem', color: '#334155', margin: 0 }}>
-                Bạn có chắc chắn muốn kích hoạt phiên bản này?
+                {t('detail.activateAsk')}
               </p>
             </div>
             <div className="nm-modal-footer">
@@ -319,7 +329,7 @@ export function TemplateDetailView() {
                 onClick={() => setActivationTarget(null)}
                 disabled={actionLoading}
               >
-                Hủy
+                {ts('cancel')}
               </button>
               <button
                 type="button"
@@ -327,7 +337,7 @@ export function TemplateDetailView() {
                 onClick={handleConfirmActivate}
                 disabled={actionLoading}
               >
-                {actionLoading ? 'Đang kích hoạt…' : 'Xác nhận kích hoạt'}
+                {actionLoading ? t('detail.activating') : t('detail.activateConfirm')}
               </button>
             </div>
           </div>

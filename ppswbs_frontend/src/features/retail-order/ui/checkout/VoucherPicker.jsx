@@ -1,13 +1,15 @@
 import React, { useMemo, useState } from 'react';
-import { useFormat } from '../../../../shared/i18n/I18nProvider';
-import { useText } from '../useText';
+import { useFormat, useLanguage, useT } from '../../../../shared/i18n/I18nProvider';
+import { messages as retailMessages } from '../../messages';
+import { sharedMessages } from '../../../../shared/ui/messages';
+import { reasonText } from './voucherOptions';
 
 const toBig = value => (/^[0-9]+$/.test(String(value ?? '')) ? BigInt(value) : null);
-/** Marketplace-style short money: 50000 -> "50k", 1000000 -> "1 triệu", otherwise the full amount. */
-export function shortMoney(value, format, en = false) {
+/** Marketplace-style short money: 50000 -> "50k", 1000000 -> "1 triệu" ("1M" in English), otherwise the full amount. */
+export function shortMoney(value, format, t) {
   const amount = toBig(value);
   if (amount == null) return '—';
-  if (amount >= 1_000_000n && amount % 1_000_000n === 0n) return en ? `${amount / 1_000_000n}M` : `${amount / 1_000_000n} triệu`;
+  if (amount >= 1_000_000n && amount % 1_000_000n === 0n) return t('voucher.millions', { count: String(amount / 1_000_000n) });
   if (amount >= 1_000n && amount % 1_000n === 0n) return `${amount / 1_000n}k`;
   return format.money(amount.toString());
 }
@@ -29,18 +31,18 @@ export function voucherSaving(voucher, subtotal) {
 }
 
 function voucherTitle(voucher, format, t) {
-  const en = t('vi', 'en') === 'en';
   const discount = voucher.discount;
   if (!discount) return voucher.name || voucher.code;
-  if (discount.kind === 'FIXED') return t(`Giảm ${shortMoney(discount.amount, format)}`, `${shortMoney(discount.amount, format, true)} off`);
+  if (discount.kind === 'FIXED') return t('voucher.fixedOff', { amount: shortMoney(discount.amount, format, t) });
   const percent = Number(discount.percentage);
   const label = Number.isFinite(percent) ? `${Number(percent.toFixed(2))}%` : discount.percentage;
-  const cap = discount.maxDiscountAmount ? shortMoney(discount.maxDiscountAmount, format, en) : null;
-  return t(`Giảm ${label}${cap ? ` · Giảm tối đa ${cap}` : ''}`, `${label} off${cap ? ` · up to ${cap}` : ''}`);
+  const cap = discount.maxDiscountAmount ? shortMoney(discount.maxDiscountAmount, format, t) : null;
+  return cap ? t('voucher.percentOffCapped', { label, cap }) : t('voucher.percentOff', { label });
 }
 
-const expiryLabel = (value, t) => value
-  ? `${t('HSD', 'Expires')}: ${new Date(value).toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '.')}`
+const EXPIRY_LOCALES = { vi: 'vi-VN', en: 'en-GB' };
+const expiryLabel = (value, t, language) => value
+  ? `${t('voucher.expires')}: ${new Date(value).toLocaleDateString(EXPIRY_LOCALES[language] || EXPIRY_LOCALES.vi, { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '.')}`
   : '';
 
 /**
@@ -49,26 +51,13 @@ const expiryLabel = (value, t) => value
  * bottom with the reason; the best saving is marked.
  */
 /** FE-06 Kho Voucher availability in words (2026-11-23), instead of one "cannot be used now" for every case. */
-export const AVAILABILITY_EN = {
-  SCHEDULED: 'Not started yet',
-  PAUSED: 'This voucher is paused',
-  EXPIRED: 'This voucher has expired',
-  NO_PUBLIC_TARGET: 'No product is covered by this voucher any more',
-  NO_USES_LEFT: 'This voucher has no uses left',
-  MEMBER_LIMIT_REACHED: 'You have used up this voucher',
-};
-export const AVAILABILITY_VI = {
-  SCHEDULED: 'Chưa đến thời gian sử dụng',
-  PAUSED: 'Voucher đang tạm dừng',
-  EXPIRED: 'Voucher đã hết hạn',
-  NO_PUBLIC_TARGET: 'Voucher không còn sản phẩm nào được áp dụng',
-  NO_USES_LEFT: 'Voucher đã hết lượt sử dụng',
-  MEMBER_LIMIT_REACHED: 'Bạn đã dùng hết lượt của voucher này',
-};
+const AVAILABILITY_CODES = ['SCHEDULED', 'PAUSED', 'EXPIRED', 'NO_PUBLIC_TARGET', 'NO_USES_LEFT', 'MEMBER_LIMIT_REACHED'];
 
 export function VoucherPicker({ vouchers, selectedCode, subtotal, rejectedCodes, options = null, onConfirm, onClose }) {
   const format = useFormat();
-  const t = useText();
+  const t = useT(retailMessages);
+  const ts = useT(sharedMessages);
+  const { language } = useLanguage();
   const [draft, setDraft] = useState(selectedCode || null);
   const [typedCode, setTypedCode] = useState('');
   const [typedError, setTypedError] = useState('');
@@ -78,9 +67,9 @@ export function VoucherPicker({ vouchers, selectedCode, subtotal, rejectedCodes,
     const list = vouchers.map(voucher => {
       const minimum = toBig(voucher.minimumEligibleAmount) ?? 0n;
       let reason = null;
-      if (voucher.availability && voucher.availability !== 'ACTIVE') reason = t(AVAILABILITY_VI[voucher.availability] || 'Voucher hiện không dùng được', AVAILABILITY_EN[voucher.availability] || 'This voucher cannot be used now');
-      else if (base != null && base < minimum) reason = t(`Mua thêm ${format.money((minimum - base).toString())} để sử dụng`, `Spend ${format.money((minimum - base).toString())} more to use it`);
-      else if (options?.has(voucher.code) ? !options.get(voucher.code).eligible : rejectedCodes?.has(voucher.code)) reason = (options?.get(voucher.code)?.reason ? t(options.get(voucher.code).reason, options.get(voucher.code).reasonEn || options.get(voucher.code).reason) : null) || t('Không áp dụng cho sản phẩm hoặc chi nhánh trong đơn này', 'Does not apply to the items or branches of this order');
+      if (voucher.availability && voucher.availability !== 'ACTIVE') reason = AVAILABILITY_CODES.includes(voucher.availability) ? t(`voucher.availability.${voucher.availability}`) : t('voucher.unavailable');
+      else if (base != null && base < minimum) reason = t('voucher.spendMoreToUseIt', { amount: format.money((minimum - base).toString()) });
+      else if (options?.has(voucher.code) ? !options.get(voucher.code).eligible : rejectedCodes?.has(voucher.code)) reason = (options?.get(voucher.code)?.reason ? reasonText(options.get(voucher.code).reason, t) : null) || t('voucher.doesNotApplyToThe');
       // The saving FE-06 computed for these lines; an estimate only while that answer is not back yet.
       const real = options?.get(voucher.code);
       return { ...voucher, minimum, reason, saving: reason ? null : real ? real.saving : voucherSaving(voucher, subtotal) };
@@ -94,10 +83,10 @@ export function VoucherPicker({ vouchers, selectedCode, subtotal, rejectedCodes,
   const toggle = code => setDraft(current => (current === code ? null : code));
   const applyTyped = () => {
     const code = typedCode.trim().toUpperCase();
-    if (!code) { setTypedError(t('Nhập mã voucher trước.', 'Enter a voucher code first.')); return; }
+    if (!code) { setTypedError(t('voucher.enterAVoucherCodeFirst')); return; }
     // Same rule as FE-06 promotion codes: 1-128 characters after trimming, no control characters.
-    if ([...code].length > 128) { setTypedError(t('Mã voucher tối đa 128 ký tự.', 'A voucher code has at most 128 characters.')); return; }
-    if (/[\u0000-\u001F\u007F-\u009F]/.test(code)) { setTypedError(t('Mã voucher có ký tự không hợp lệ.', 'The voucher code has invalid characters.')); return; }
+    if ([...code].length > 128) { setTypedError(t('voucher.aVoucherCodeHasAt')); return; }
+    if (/[\u0000-\u001F\u007F-\u009F]/.test(code)) { setTypedError(t('voucher.theVoucherCodeHasInvalid')); return; }
     const known = vouchers.find(item => item.code.toUpperCase() === code);
     setTypedError('');
     setDraft(known ? known.code : code);
@@ -109,40 +98,40 @@ export function VoucherPicker({ vouchers, selectedCode, subtotal, rejectedCodes,
   const card = (voucher, disabled) => <button type="button" key={voucher.code} role="radio" aria-checked={draft === voucher.code}
     className={`voucher-ticket${draft === voucher.code ? ' selected' : ''}${disabled ? ' disabled' : ''}`}
     disabled={disabled} onClick={() => toggle(voucher.code)}>
-    {voucher.code === rows.bestCode && <span className="voucher-best">{t('Lựa chọn tốt nhất', 'Best choice')}</span>}
-    <span className="voucher-ticket-stamp"><strong>MLAND</strong><small>{t('Voucher sản phẩm', 'Product voucher')}</small></span>
+    {voucher.code === rows.bestCode && <span className="voucher-best">{t('voucher.bestChoice')}</span>}
+    <span className="voucher-ticket-stamp"><strong>MLAND</strong><small>{t('voucher.productVoucher')}</small></span>
     <span className="voucher-ticket-body">
       <strong>{voucherTitle(voucher, format, t)}</strong>
-      <span>{t('Đơn tối thiểu', 'Min. spend')} {shortMoney(voucher.minimumEligibleAmount || '0', format, t('vi', 'en') === 'en')}</span>
-      {voucher.reason ? <small className="voucher-ticket-reason">{voucher.reason}</small> : <small>{[voucher.code, expiryLabel(voucher.endAt, t)].filter(Boolean).join(' · ')}</small>}
+      <span>{t('voucher.minSpend')} {shortMoney(voucher.minimumEligibleAmount || '0', format, t)}</span>
+      {voucher.reason ? <small className="voucher-ticket-reason">{voucher.reason}</small> : <small>{[voucher.code, expiryLabel(voucher.endAt, t, language)].filter(Boolean).join(' · ')}</small>}
     </span>
     <span className="voucher-radio" aria-hidden="true" />
   </button>;
 
   return <div className="benefit-picker-backdrop" role="presentation" onClick={event => { if (event.target === event.currentTarget) onClose(); }}>
-    <section className="voucher-sheet" role="dialog" aria-modal="true" aria-label={t('Chọn voucher MLAND', 'Choose an MLAND voucher')}>
-      <div className="voucher-sheet-head"><button type="button" className="voucher-sheet-back" aria-label={t('Đóng', 'Close')} onClick={onClose}>←</button><h2>{t('Chọn voucher MLAND', 'Choose an MLAND voucher')}</h2></div>
+    <section className="voucher-sheet" role="dialog" aria-modal="true" aria-label={t('common.chooseAnMlandVoucher')}>
+      <div className="voucher-sheet-head"><button type="button" className="voucher-sheet-back" aria-label={ts('close')} onClick={onClose}>←</button><h2>{t('common.chooseAnMlandVoucher')}</h2></div>
       <div className="voucher-sheet-entry">
-        <span>{t('Mã voucher', 'Voucher code')}</span>
-        <input value={typedCode} maxLength="128" placeholder={t('Nhập mã voucher', 'Enter a voucher code')} onChange={event => { setTypedCode(event.target.value); setTypedError(''); }} onKeyDown={event => { if (event.key === 'Enter') applyTyped(); }} />
-        <button type="button" className="button outline" disabled={!typedCode.trim()} onClick={applyTyped}>{t('Áp dụng', 'Apply')}</button>
+        <span>{t('voucher.voucherCode')}</span>
+        <input value={typedCode} maxLength="128" placeholder={t('common.enterAVoucherCode')} onChange={event => { setTypedCode(event.target.value); setTypedError(''); }} onKeyDown={event => { if (event.key === 'Enter') applyTyped(); }} />
+        <button type="button" className="button outline" disabled={!typedCode.trim()} onClick={applyTyped}>{t('common.apply')}</button>
       </div>
       {typedError && <p className="voucher-sheet-error">{typedError}</p>}
-      <div className="voucher-sheet-list" role="radiogroup" aria-label={t('Voucher của bạn', 'Your vouchers')}>
-        <h3>{t('Mã giảm giá sản phẩm', 'Product vouchers')}</h3>
+      <div className="voucher-sheet-list" role="radiogroup" aria-label={t('voucher.yourVouchers')}>
+        <h3>{t('voucher.productVouchers')}</h3>
         {typedIsNew && <button type="button" role="radio" aria-checked="true" className="voucher-ticket selected" onClick={() => toggle(draft)}>
-          <span className="voucher-ticket-stamp"><strong>MLAND</strong><small>{t('Mã đã nhập', 'Entered code')}</small></span>
-          <span className="voucher-ticket-body"><strong>{draft}</strong><small>{t('Kiểm tra điều kiện khi áp dụng', 'Conditions are checked when applied')}</small></span>
+          <span className="voucher-ticket-stamp"><strong>MLAND</strong><small>{t('voucher.enteredCode')}</small></span>
+          <span className="voucher-ticket-body"><strong>{draft}</strong><small>{t('voucher.conditionsAreCheckedWhenApplied')}</small></span>
           <span className="voucher-radio" aria-hidden="true" />
         </button>}
-        {rows.usable.length === 0 && rows.blocked.length === 0 && !typedIsNew && <p className="muted">{t('Bạn chưa có voucher nào. Nhập mã ở trên nếu có.', 'You have no vouchers. Enter a code above if you have one.')}</p>}
+        {rows.usable.length === 0 && rows.blocked.length === 0 && !typedIsNew && <p className="muted">{t('voucher.youHaveNoVouchersEnter')}</p>}
         {rows.usable.map(voucher => card(voucher, false))}
-        {rows.blocked.length > 0 && <h3 className="voucher-sheet-subhead">{t('Chưa đủ điều kiện cho đơn này', 'Not eligible for this order')}</h3>}
+        {rows.blocked.length > 0 && <h3 className="voucher-sheet-subhead">{t('voucher.notEligibleForThisOrder')}</h3>}
         {rows.blocked.map(voucher => card(voucher, true))}
       </div>
       <div className="voucher-sheet-foot">
-        <span>{draft ? <>{t('1 voucher đã chọn', '1 voucher selected')}{chosenSaving ? <>{t(', giảm', ', saves')} <b>{format.money(chosenSaving.toString())}</b></> : null}</> : t('Chưa chọn voucher', 'No voucher selected')}</span>
-        <button type="button" className="button primary" onClick={() => onConfirm(draft)}>{t('Đồng ý', 'OK')}</button>
+        <span>{draft ? <>{t('voucher.1VoucherSelected')}{chosenSaving ? <>{t('voucher.saves')} <b>{format.money(chosenSaving.toString())}</b></> : null}</> : t('voucher.noVoucherSelected')}</span>
+        <button type="button" className="button primary" onClick={() => onConfirm(draft)}>{t('voucher.ok')}</button>
       </div>
     </section>
   </div>;

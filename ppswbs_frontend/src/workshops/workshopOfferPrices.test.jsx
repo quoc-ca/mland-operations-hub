@@ -110,16 +110,16 @@ describe('003.1 FR-052 discounted price on the public package surfaces', () => {
     expect(document.querySelector('s')).toBeNull();
   });
 
-  it('booking screen: the package summary shows the discounted unit price and no quote is computed on screen', async () => {
+  it('booking screen: shows no unit-price summary or discount badge and computes no quote on screen', async () => {
     const calls = renderPage(<WorkshopBookingPage packageId="7" />, {
       'GET /api/v1/workshop-packages/7': json(200, PACKAGE),
       // FR-056: an empty branch list means "sold nowhere" and hides the booking controls, so one branch is sold here.
       'GET /api/v1/workshop-packages/7/locations': json(200, [{ id: 1, name: 'Thủ Đức' }]),
       ...promotions([auto()]),
     });
-    const summary = (await screen.findByText(/Đơn giá:/)).closest('p');
-    await expectDiscounted(summary);
-    expect(screen.getByText('Giảm 10%')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: PACKAGE.name })).toBeInTheDocument();
+    expect(screen.queryByText(/Đơn giá:/)).toBeNull();
+    expect(screen.queryByText('Giảm 10%')).toBeNull();
     expect(calls.some(call => call.path === '/api/v1/workshop-cart-quotes')).toBe(false);
   });
 

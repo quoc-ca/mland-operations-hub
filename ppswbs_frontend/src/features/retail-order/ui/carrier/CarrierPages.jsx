@@ -1,48 +1,37 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { RequireSession } from '../../../../shared/auth/RequireSession';
-import { useFormat } from '../../../../shared/i18n/I18nProvider';
+import { useEnumLabel, useFormat, useLanguage, useT } from '../../../../shared/i18n/I18nProvider';
 import { ErrorNotice, Loading, useResource } from '../../../../shared/ui/components';
 import { useRetailApi } from '../../application/useRetailApi';
-import { displayTime } from '../orderCode';
-import { TrendChart, UNIT_LABEL } from '../../../manager-dashboard';
+import { useDisplayTime } from '../orderCode';
+import { TrendChart } from '../../../manager-dashboard';
 import '../../../../ota-connectivity/ota-connectivity.css';
 import './carrier.css';
-import { useText } from '../useText';
+import { messages as retailMessages } from '../../messages';
 
 /**
  * Simulated GHTK partner portal (Session 2026-11-20): an account with role CARRIER sees the GHTK shipments of every
  * Mland branch and records only the courier's steps. Statuses use GHTK's own words.
  */
-export const CARRIER_STATUS = {
-  PREPARING: 'Đã tiếp nhận',
-  READY_FOR_CARRIER: 'Đang lấy hàng',
-  HANDED_TO_CARRIER: 'Đang giao hàng',
-  IN_TRANSIT: 'Đang giao hàng',
-  DELIVERED: 'Đã giao hàng',
-};
+// The wording of each status (carrier.status.*) and tab (carrier.tab.*) is in the dictionary, in GHTK's own words (VI/EN switch, Session 2026-11-23).
 const TABS = [
-  { key: 'RECEIVED', label: 'Đã tiếp nhận', statuses: ['PREPARING'] },
-  { key: 'COLLECTING', label: 'Đang lấy hàng', statuses: ['READY_FOR_CARRIER'] },
-  { key: 'DELIVERING', label: 'Đang giao hàng', statuses: ['HANDED_TO_CARRIER', 'IN_TRANSIT'] },
-  { key: 'DELIVERED', label: 'Đã giao hàng', statuses: ['DELIVERED'] },
+  { key: 'RECEIVED', statuses: ['PREPARING'] },
+  { key: 'COLLECTING', statuses: ['READY_FOR_CARRIER'] },
+  { key: 'DELIVERING', statuses: ['HANDED_TO_CARRIER', 'IN_TRANSIT'] },
+  { key: 'DELIVERED', statuses: ['DELIVERED'] },
 ];
-/** English wording of the GHTK statuses and tabs (VI/EN switch, Session 2026-11-23). */
-export const CARRIER_STATUS_EN = {
-  PREPARING: 'Received', READY_FOR_CARRIER: 'Picking up', HANDED_TO_CARRIER: 'Delivering', IN_TRANSIT: 'Delivering', DELIVERED: 'Delivered',
-};
-const TAB_EN = { RECEIVED: 'Received', COLLECTING: 'Picking up', DELIVERING: 'Delivering', DELIVERED: 'Delivered' };
 export const carrierTab = status => TABS.find(tab => tab.statuses.includes(status))?.key || 'RECEIVED';
 
 /** The GHTK pages sit in the operations shell like Staff and Manager (Session 2026-11-23): the rail is the shell's. */
 function CarrierLayout({ children }) {
-  const t = useText();
+  const t = useT(retailMessages);
   return <div className="carrier-main">
-    <RequireSession requiredText={t('Đăng nhập bằng tài khoản đối tác GHTK.', 'Sign in with a GHTK partner account.')}>{children}</RequireSession>
+    <RequireSession requiredText={t('carrier.signInWithAGhtk')}>{children}</RequireSession>
   </div>;
 }
 
-function accessText(error, t = vi => vi) {
-  if (error?.status === 403) return t('Tài khoản này không phải tài khoản đối tác GHTK đang hoạt động.', 'This account is not an active GHTK partner account.');
+function accessText(error, t) {
+  if (error?.status === 403) return t('carrier.thisAccountIsNotAn');
   return null;
 }
 
@@ -73,7 +62,9 @@ export function CarrierOrdersPage() {
 function CarrierOrders() {
   const api = useRetailApi();
   const format = useFormat();
-  const t = useText();
+  const t = useT(retailMessages);
+  const time = useDisplayTime();
+  const statusLabel = useEnumLabel(retailMessages, 'carrier.status');
   const shipments = useCarrierShipments();
   const branches = useBranches();
   const [tab, setTab] = useState('COLLECTING');
@@ -104,38 +95,38 @@ function CarrierOrders() {
   };
 
   return <>
-    <p className="carrier-intro">{t('Vận đơn của các chi nhánh Mland. Shop chuẩn bị xong thì đơn chuyển sang “Đang lấy hàng”.', 'Shipments of every Mland branch. Once the shop has packed, the shipment moves to “Picking up”.')}</p>
+    <p className="carrier-intro">{t('carrier.shipmentsOfEveryMlandBranch')}</p>
     {shipments.loading && !shipments.data && <Loading />}
     {shipments.error && (accessText(shipments.error, t)
       ? <div className="notice error" role="alert"><p>{accessText(shipments.error, t)}</p></div>
       : <ErrorNotice error={shipments.error} onRetry={shipments.reload} />)}
     {shipments.data && <section className="order-tabs-page carrier-orders">
-      <div className="order-tabs" role="tablist" aria-label={t('Trạng thái vận đơn', 'Shipment status')}>{TABS.map(item => <button key={item.key} type="button" role="tab" aria-selected={tab === item.key} className={tab === item.key ? 'active' : ''} onClick={() => setTab(item.key)}>{t(item.label, TAB_EN[item.key])}{counts[item.key] ? <span className="order-tab-count">{counts[item.key]}</span> : null}</button>)}</div>
-      <input className="order-search" value={search} onChange={event => setSearch(event.target.value)} placeholder={t('Mã vận đơn, mã đơn, tên hoặc SĐT người nhận', 'Tracking number, order code, recipient name or phone')} aria-label={t('Tìm vận đơn', 'Search shipments')} />
+      <div className="order-tabs" role="tablist" aria-label={t('carrier.shipmentStatus')}>{TABS.map(item => <button key={item.key} type="button" role="tab" aria-selected={tab === item.key} className={tab === item.key ? 'active' : ''} onClick={() => setTab(item.key)}>{t(`carrier.tab.${item.key}`)}{counts[item.key] ? <span className="order-tab-count">{counts[item.key]}</span> : null}</button>)}</div>
+      <input className="order-search" value={search} onChange={event => setSearch(event.target.value)} placeholder={t('carrier.trackingNumberOrderCodeRecipient')} aria-label={t('carrier.searchShipments')} />
       {error && <ErrorNotice error={error} />}
-      {tab === 'RECEIVED' && visible.length > 0 && <p className="order-hint">{t('Shop đang chuẩn bị hàng. Chưa cần đến lấy.', 'The shop is still packing. No pickup needed yet.')}</p>}
-      {visible.length === 0 && <div className="order-empty"><p>{term ? t('Không tìm thấy vận đơn phù hợp.', 'No matching shipment.') : t('Không có vận đơn nào ở mục này.', 'No shipment in this tab.')}</p></div>}
+      {tab === 'RECEIVED' && visible.length > 0 && <p className="order-hint">{t('carrier.theShopIsStillPacking')}</p>}
+      {visible.length === 0 && <div className="order-empty"><p>{term ? t('carrier.noMatchingShipment') : t('carrier.noShipmentInThisTab')}</p></div>}
       {visible.map(item => {
         const branch = branches.get(String(item.pickupLocationId));
         const busy = busyId === item.id;
         return <article className="order-card carrier-card" key={item.id}>
           <div className="order-card-top">
             <span className="order-code">{item.trackingNumber}</span>
-            <span className="order-branch">{t(`Đơn ${item.orderCode} · ${item.itemQuantity} sản phẩm`, `Order ${item.orderCode} · ${item.itemQuantity} items`)}</span>
-            <span className={`order-pill carrier-pill-${carrierTab(item.status).toLowerCase()}`}>{t(CARRIER_STATUS[item.status], CARRIER_STATUS_EN[item.status])}</span>
+            <span className="order-branch">{t('carrier.orderItems', { orderCode: item.orderCode, itemQuantity: item.itemQuantity })}</span>
+            <span className={`order-pill carrier-pill-${carrierTab(item.status).toLowerCase()}`}>{statusLabel(item.status)}</span>
           </div>
           <div className="carrier-route">
-            <div><span>{t('Lấy hàng tại', 'Pick up at')}</span><strong>{branch?.name || t(`Chi nhánh #${item.pickupLocationId}`, `Branch #${item.pickupLocationId}`)}</strong><small>{branch?.address || '—'}</small></div>
-            <div><span>{t('Giao đến', 'Deliver to')}</span><strong>{item.recipientName || '—'} · {item.recipientPhone || '—'}</strong><small>{[item.recipientAddress, item.wardName, item.districtName, item.provinceName].filter(Boolean).join(', ')}</small></div>
+            <div><span>{t('carrier.pickUpAt')}</span><strong>{branch?.name || t('common.branchNumber', { locationId: item.pickupLocationId })}</strong><small>{branch?.address || '—'}</small></div>
+            <div><span>{t('carrier.deliverTo')}</span><strong>{item.recipientName || '—'} · {item.recipientPhone || '—'}</strong><small>{[item.recipientAddress, item.wardName, item.districtName, item.provinceName].filter(Boolean).join(', ')}</small></div>
           </div>
           <dl className="order-detail carrier-times">
-            <div><dt>{t('Tiếp nhận', 'Received')}</dt><dd>{displayTime(item.createdAt)}</dd></div>
-            <div><dt>{t('Shop chuẩn bị xong', 'Shop packed')}</dt><dd>{displayTime(item.readyAt)}</dd></div>
-            <div><dt>{t('Đã lấy hàng', 'Picked up')}</dt><dd>{displayTime(item.pickedUpAt)}</dd></div>
-            <div><dt>{t('Giao thành công', 'Delivered')}</dt><dd>{displayTime(item.deliveredAt)}</dd></div>
+            <div><dt>{t('carrier.received')}</dt><dd>{time(item.createdAt)}</dd></div>
+            <div><dt>{t('carrier.shopPacked')}</dt><dd>{time(item.readyAt)}</dd></div>
+            <div><dt>{t('carrier.pickedUp')}</dt><dd>{time(item.pickedUpAt)}</dd></div>
+            <div><dt>{t('common.delivered')}</dt><dd>{time(item.deliveredAt)}</dd></div>
           </dl>
-          {item.status === 'READY_FOR_CARRIER' && <div className="order-actions"><button type="button" className="button primary" disabled={busy} onClick={() => act(item, 'PICKED_UP')}>{busy ? t('Đang lưu…', 'Saving…') : t('Đã lấy hàng', 'Picked up')}</button></div>}
-          {(item.status === 'HANDED_TO_CARRIER' || item.status === 'IN_TRANSIT') && <div className="order-actions">{/* Prepaid: the customer paid goods and shipping online, nothing to collect. */}<span className="carrier-cod"><strong>{t('Thu hộ (COD): 0 ₫', 'Cash on delivery (COD): 0 ₫')}</strong></span><button type="button" className="button primary" disabled={busy} onClick={() => act(item, 'DELIVERED')}>{busy ? t('Đang lưu…', 'Saving…') : t('Giao thành công', 'Delivered')}</button></div>}
+          {item.status === 'READY_FOR_CARRIER' && <div className="order-actions"><button type="button" className="button primary" disabled={busy} onClick={() => act(item, 'PICKED_UP')}>{busy ? t('common.saving') : t('carrier.pickedUp')}</button></div>}
+          {(item.status === 'HANDED_TO_CARRIER' || item.status === 'IN_TRANSIT') && <div className="order-actions">{/* Prepaid: the customer paid goods and shipping online, nothing to collect. */}<span className="carrier-cod"><strong>{t('carrier.cashOnDeliveryCod0')}</strong></span><button type="button" className="button primary" disabled={busy} onClick={() => act(item, 'DELIVERED')}>{busy ? t('common.saving') : t('common.delivered')}</button></div>}
         </article>;
       })}
     </section>}
@@ -144,7 +135,7 @@ function CarrierOrders() {
 
 // ---- Thống kê ---------------------------------------------------------------------------------------------------
 
-const PERIODS = [{ id: 'DAY', label: ['Ngày', 'Day'] }, { id: 'WEEK', label: ['Tuần', 'Week'] }, { id: 'MONTH', label: ['Tháng', 'Month'] }, { id: 'YEAR', label: ['Năm', 'Year'] }];
+const PERIODS = ['DAY', 'WEEK', 'MONTH', 'YEAR'];
 const VN = 7 * 3_600_000;
 const todayVn = () => new Date(Date.now() + VN).toISOString().slice(0, 10);
 const vnParts = ms => { const d = new Date(ms + VN); return { y: d.getUTCFullYear(), m: d.getUTCMonth(), d: d.getUTCDate(), h: d.getUTCHours(), dow: d.getUTCDay() }; };
@@ -204,11 +195,14 @@ export function carrierStats(items, period) {
   };
 }
 
-const duration = (hours, t = vi => vi) => {
+const NUMBER_LOCALES = { vi: 'vi-VN', en: 'en-GB' };
+const duration = (hours, t, language) => {
   if (hours == null) return '—';
-  if (hours < 1) { const m = Math.max(1, Math.round(hours * 60)); return t(`${m} phút`, `${m} min`); }
-  if (hours < 48) return t(`${hours.toLocaleString('vi-VN', { maximumFractionDigits: 1 })} giờ`, `${hours.toLocaleString('en-GB', { maximumFractionDigits: 1 })} h`);
-  return t(`${(hours / 24).toLocaleString('vi-VN', { maximumFractionDigits: 1 })} ngày`, `${(hours / 24).toLocaleString('en-GB', { maximumFractionDigits: 1 })} days`);
+  const digits = { maximumFractionDigits: 1 };
+  const locale = NUMBER_LOCALES[language] || NUMBER_LOCALES.vi;
+  if (hours < 1) return t('carrier.minutes', { minutes: Math.max(1, Math.round(hours * 60)) });
+  if (hours < 48) return t('carrier.hours', { value: hours.toLocaleString(locale, digits) });
+  return t('carrier.days', { value: (hours / 24).toLocaleString(locale, digits) });
 };
 
 export function CarrierStatsPage() {
@@ -217,7 +211,8 @@ export function CarrierStatsPage() {
 
 function CarrierStats() {
   const format = useFormat();
-  const t = useText();
+  const { language } = useLanguage();
+  const t = useT(retailMessages);
   const shipments = useCarrierShipments();
   const branches = useBranches();
   const [type, setType] = useState('MONTH');
@@ -226,16 +221,16 @@ function CarrierStats() {
   const stats = useMemo(() => carrierStats(shipments.data || [], period), [shipments.data, period]);
   const points = period.buckets.map(bucket => ({ label: bucket.label }));
   const count = value => format.number(value);
-  const unit = t(UNIT_LABEL[period.unit] || ['ngày', 'day']);
+  const unit = t(`carrier.unit.${period.unit}`);
 
   return <>
-    <p className="carrier-intro">{t('Số vận đơn tiếp nhận, lấy hàng, giao thành công và cước vận chuyển theo kỳ, giờ Việt Nam.', 'Shipments received, picked up and delivered, and shipping fees per period, Vietnam time.')}</p>
-    <section className="md-filters" aria-label={t('Bộ lọc thống kê', 'Statistics filters')}>
-      <div className="md-filter-group"><span className="md-filter-label">{t('Kỳ', 'Period')}</span>
-        <div className="md-segment" role="radiogroup" aria-label={t('Loại kỳ', 'Period type')}>{PERIODS.map(item => <button key={item.id} type="button" role="radio" aria-checked={type === item.id} className={type === item.id ? 'active' : ''} onClick={() => setType(item.id)}>{t(item.label)}</button>)}</div>
+    <p className="carrier-intro">{t('carrier.shipmentsReceivedPickedUpAnd')}</p>
+    <section className="md-filters" aria-label={t('carrier.statisticsFilters')}>
+      <div className="md-filter-group"><span className="md-filter-label">{t('carrier.period')}</span>
+        <div className="md-segment" role="radiogroup" aria-label={t('carrier.periodType')}>{PERIODS.map(id => <button key={id} type="button" role="radio" aria-checked={type === id} className={type === id ? 'active' : ''} onClick={() => setType(id)}>{t(`carrier.period.${id}`)}</button>)}</div>
       </div>
-      <label className="md-filter-group"><span className="md-filter-label">{t('Ngày', 'Date')}</span>
-        <input type="date" aria-label={t('Chọn ngày', 'Choose a date')} value={anchor} max={todayVn()} onChange={event => { if (event.target.value) { setAnchor(event.target.value); setType('DAY'); } }} />
+      <label className="md-filter-group"><span className="md-filter-label">{t('common.date')}</span>
+        <input type="date" aria-label={t('carrier.chooseADate')} value={anchor} max={todayVn()} onChange={event => { if (event.target.value) { setAnchor(event.target.value); setType('DAY'); } }} />
       </label>
     </section>
     {shipments.loading && !shipments.data && <Loading />}
@@ -243,31 +238,31 @@ function CarrierStats() {
       ? <div className="notice error" role="alert"><p>{accessText(shipments.error, t)}</p></div>
       : <ErrorNotice error={shipments.error} onRetry={shipments.reload} />)}
     {shipments.data && <>
-      <section className="md-kpis carrier-kpis" aria-label={t('Chỉ số giao hàng', 'Delivery figures')}>
-        <Kpi label={t('Vận đơn tiếp nhận', 'Shipments received')} value={count(stats.received)} hint={t('Tạo trong kỳ', 'Created in the period')} />
-        <Kpi label={t('Đã lấy hàng', 'Picked up')} value={count(stats.pickedUp)} hint={t(`Đang chờ lấy: ${count(stats.waitingPickup)}`, `Waiting for pickup: ${count(stats.waitingPickup)}`)} />
-        <Kpi label={t('Giao thành công', 'Delivered')} value={count(stats.delivered)} hint={t(`Đang giao: ${count(stats.delivering)}`, `Delivering: ${count(stats.delivering)}`)} strong />
-        <Kpi label={t('Thời gian giao trung bình', 'Average delivery time')} value={duration(stats.averageHours, t)} hint={t('Từ lúc lấy hàng đến lúc giao', 'From pickup to delivery')} />
-        <Kpi label={t('Cước vận chuyển', 'Shipping fees')} value={format.money(stats.fees)} hint={t('Của các đơn giao thành công', 'Of the delivered shipments')} />
+      <section className="md-kpis carrier-kpis" aria-label={t('carrier.deliveryFigures')}>
+        <Kpi label={t('carrier.shipmentsReceived')} value={count(stats.received)} hint={t('carrier.createdInThePeriod')} />
+        <Kpi label={t('carrier.pickedUp')} value={count(stats.pickedUp)} hint={t('carrier.waitingForPickup', { waitingPickup: count(stats.waitingPickup) })} />
+        <Kpi label={t('common.delivered')} value={count(stats.delivered)} hint={t('carrier.delivering', { delivering: count(stats.delivering) })} strong />
+        <Kpi label={t('carrier.averageDeliveryTime')} value={duration(stats.averageHours, t, language)} hint={t('carrier.fromPickupToDelivery')} />
+        <Kpi label={t('carrier.shippingFees')} value={format.money(stats.fees)} hint={t('carrier.ofTheDeliveredShipments')} />
       </section>
       <section className="md-panel carrier-trend">
-        <div className="md-panel-head"><h2>{t(`Xu hướng theo ${unit}`, `Trend by ${unit}`)}</h2></div>
-        <TrendChart title={t(`Vận đơn theo ${unit}`, `Shipments by ${unit}`)} points={points} format={count}
+        <div className="md-panel-head"><h2>{t('carrier.trendBy', { unit })}</h2></div>
+        <TrendChart title={t('carrier.shipmentsBy', { unit })} points={points} format={count}
           series={[
-            { key: 'received', label: t('Tiếp nhận', 'Received'), color: '#111827', values: stats.trend.received },
-            { key: 'picked', label: t('Lấy hàng', 'Picked up'), color: '#f59e0b', values: stats.trend.pickedUp },
-            { key: 'delivered', label: t('Giao thành công', 'Delivered'), color: '#16a34a', values: stats.trend.delivered },
+            { key: 'received', label: t('carrier.received'), color: '#111827', values: stats.trend.received },
+            { key: 'picked', label: t('carrier.pickedUp2'), color: '#f59e0b', values: stats.trend.pickedUp },
+            { key: 'delivered', label: t('common.delivered'), color: '#16a34a', values: stats.trend.delivered },
           ]} />
       </section>
-      <section className="md-panel" aria-label={t('Theo chi nhánh lấy hàng', 'By pickup branch')}>
-        <div className="md-panel-head"><h2>{t('Theo chi nhánh lấy hàng', 'By pickup branch')}</h2><span className="muted">{t(`${stats.byBranch.length} chi nhánh`, `${stats.byBranch.length} branches`)}</span></div>
-        {stats.byBranch.length === 0 ? <p className="md-empty">{t('Chưa có vận đơn trong kỳ này.', 'No shipment in this period.')}</p> : <div className="md-table-wrap"><table className="md-table">
-          <thead><tr><th scope="col">{t('Chi nhánh', 'Branch')}</th><th scope="col">{t('Tiếp nhận', 'Received')}</th><th scope="col">{t('Giao thành công', 'Delivered')}</th><th scope="col">{t('Cước vận chuyển', 'Shipping fees')}</th></tr></thead>
+      <section className="md-panel" aria-label={t('carrier.byPickupBranch')}>
+        <div className="md-panel-head"><h2>{t('carrier.byPickupBranch')}</h2><span className="muted">{t('common.branches', { count: stats.byBranch.length })}</span></div>
+        {stats.byBranch.length === 0 ? <p className="md-empty">{t('carrier.noShipmentInThisPeriod')}</p> : <div className="md-table-wrap"><table className="md-table">
+          <thead><tr><th scope="col">{t('common.branch')}</th><th scope="col">{t('carrier.received')}</th><th scope="col">{t('common.delivered')}</th><th scope="col">{t('carrier.shippingFees')}</th></tr></thead>
           <tbody>{stats.byBranch.map(row => <tr key={row.locationId}>
-            <th scope="row" data-label={t('Chi nhánh', 'Branch')}>{branches.get(String(row.locationId))?.name || t(`Chi nhánh #${row.locationId}`, `Branch #${row.locationId}`)}</th>
-            <td data-label={t('Tiếp nhận', 'Received')}>{count(row.received)}</td>
-            <td data-label={t('Giao thành công', 'Delivered')}>{count(row.delivered)}</td>
-            <td data-label={t('Cước vận chuyển', 'Shipping fees')}>{format.money(row.fee)}</td>
+            <th scope="row" data-label={t('common.branch')}>{branches.get(String(row.locationId))?.name || t('common.branchNumber', { locationId: row.locationId })}</th>
+            <td data-label={t('carrier.received')}>{count(row.received)}</td>
+            <td data-label={t('common.delivered')}>{count(row.delivered)}</td>
+            <td data-label={t('carrier.shippingFees')}>{format.money(row.fee)}</td>
           </tr>)}</tbody>
         </table></div>}
       </section>

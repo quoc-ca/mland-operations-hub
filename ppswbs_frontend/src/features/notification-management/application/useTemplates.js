@@ -1,8 +1,13 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useT } from '../../../shared/i18n/I18nProvider';
+import { notificationMessages } from '../messages';
 import { useNotificationApi } from './useNotificationApi';
 
 export function useTemplates() {
   const api = useNotificationApi();
+  const t = useT(notificationMessages);
+  const tRef = useRef(t);
+  tRef.current = t;
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -14,7 +19,7 @@ export function useTemplates() {
       const data = await api.listTemplates();
       setTemplates(Array.isArray(data) ? data : []);
     } catch (err) {
-      setError(err?.message || 'Không thể tải danh sách mẫu thông báo');
+      setError(err?.message || tRef.current('tplList.loadError'));
     } finally {
       setLoading(false);
     }
@@ -34,7 +39,7 @@ export function useTemplates() {
       })
       .catch((err) => {
         if (active) {
-          setError(err?.message || 'Không thể tải danh sách mẫu thông báo');
+          setError(err?.message || tRef.current('tplList.loadError'));
           setLoading(false);
         }
       });
