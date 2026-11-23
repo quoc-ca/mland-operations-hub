@@ -18,7 +18,10 @@ public final class PublicPromotionDtos {
     public record PublicPromotion(String id, String kind, String scope, String code, String name, String startAt,
                                   String endAt, PromotionReadDtos.Discount discount, String minimumEligibleAmount,
                                   boolean allowPoints, PromotionReadDtos.Targets targets, String totalLimit,
-                                  String perMemberLimit, String availability) {
+                                  String perMemberLimit, String availability,
+                                  @com.fasterxml.jackson.annotation.JsonInclude(
+                                          com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+                                  String distribution) {
     }
 
     public record PromotionPage(List<PublicPromotion> items, String nextCursor) {

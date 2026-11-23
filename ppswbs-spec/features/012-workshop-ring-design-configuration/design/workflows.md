@@ -5,8 +5,13 @@ Date updated: 2026-11-09
 Author: Ngô Tiến Đạt
 Last updated by: Ngô Tiến Đạt
 
-**Status:** Proposed workflow design; names are logical until API and code
+**Status:** 2026-11-22 workflow change documented; names are logical until API and code
 approval.
+
+The current workflow ends at `SAVED` design summary, advisory workshop
+recommendation and optional Feature-013 consultation. The former booking
+attachment and branch-revalidation workflows are historical and are not current
+frontend or backend actions.
 
 ## W1 — Load package-scoped options
 
@@ -50,29 +55,24 @@ Failure rolls back the version write. A stale version returns
 `409 DESIGN_VERSION_CONFLICT`; the client keeps local input and reloads before
 retrying with a new command key. An identical retry replays the original result.
 
-## W4 — Revalidate after branch selection
+## W4 — Saved-design recommendation
 
-1. Booking supplies package, branch and design version through the public facade.
-2. Feature-012 verifies design ownership and version status.
-3. Rules boundary checks branch material/component support.
-4. If valid, the facade returns an immutable booking-safe snapshot.
-5. If invalid, the facade returns `DESIGN_BRANCH_INCOMPATIBLE` with safe reasons.
+1. The customer saves a design and receives a `SAVED` owner-safe projection.
+2. The server counts gemstones and reads the persisted difficulty score.
+3. The server resolves a semantic package recommendation from catalogue data.
+4. The response includes recommendation code, package link/reference, reason,
+   rule version, and the Wax Casting two-session note when applicable.
+5. The customer may follow the recommendation, edit/archive the design, start
+   consultation, or explore all workshops. No booking or payment mutation occurs.
 
-No booking, capacity hold or payment mutation is performed by Feature-012.
+## W5 — Consultation/reference handoff
 
-## W5 — Attach design during booking retry
-
-1. Feature-003 requests attachment before booking acceptance.
-2. Feature-012 revalidates version, package, branch and ownership under the
-   approved boundary.
-3. Feature-003 atomically persists its own booking snapshot and booking facts.
-4. On booking failure, the configured design remains valid and retryable.
-5. On successful booking submission, Feature-012 marks the version attached and
-   locked according to the approved cross-feature transaction/event boundary.
-
-If the shared transaction cannot span modules, the implementation must use an
-approved atomic command/event/outbox boundary; it must not claim success from a
-partial attach.
+1. Guest or Member selects `Tư vấn thiết kế` from a saved-design page.
+2. Feature-012 verifies ownership or the active Guest session.
+3. Feature-012 returns a safe design snapshot to Feature-013 through the approved
+   boundary; no raw session value, internal database ID or private data crosses it.
+4. Feature-013 opens a new or existing consultation context without creating a
+   booking, payment, approval or order mutation.
 
 ## W6 — Guest session expiry
 
@@ -97,22 +97,18 @@ partial attach.
 - Write retries reuse the original `Idempotency-Key`.
 - Stale writes use `If-Match-Version` and return conflict without partial state.
 - Rule/catalogue outage creates no version and preserves local form input.
-- Booking failure does not delete the design.
-- Late or duplicate attach commands return the existing safe result where the
-  approved idempotency scope matches.
+- Saved-design recommendation and consultation failures do not delete the design.
+- Late or duplicate commands return the existing safe result where the approved
+  idempotency scope matches.
 - Feature-004 responses never bypass these validation or ownership checks.
 
 ## W9 — Booking attachment boundary
 
-The approved logical operation is `attachAndLockDesignForBooking(...)` with
-`ConfiguredDesignBookingCommand`, `ConfiguredDesignBookingSnapshot` and
-`ConfiguredDesignBookingOutcome` boundary types. It revalidates Guest session
-or Member ownership, package/branch compatibility and `VALIDATED` design state.
-It returns a server-built immutable snapshot to Feature-003 and locks the
-design only when the surrounding booking transaction commits. Payment,
-capacity-hold and ticket creation remain outside this operation. A rollback
-leaves the design available for retry; a repeated `operationReference` returns
-the prior outcome, while changed payload with the same reference is a conflict.
+The former `attachAndLockDesignForBooking(...)` operation and its booking
+snapshot types are retained only as historical context. The 2026-11-22
+baseline removes booking attachment from Feature-012. Current consumers must
+use the saved-design recommendation or the Feature-013 consultation handoff;
+no booking, payment, ticket or capacity mutation is created by this feature.
 
 ## W10 — Frontend live-preview interaction
 
@@ -135,7 +131,7 @@ The live preview is visual feedback, not a client-side compatibility or price
 calculation. No API request is made for every slider movement unless a future
 approved contract explicitly requires server preview.
 
-## W11 — Frontend branch recovery
+## W11 — Historical frontend branch recovery (retired)
 
 1. Booking supplies the selected branch context through the approved booking
    integration boundary.

@@ -420,7 +420,7 @@ export function WorkshopCartPage() {
               const quotedLine = shownQuote?.lines?.find(item => item.lineIndex === selectedLines.findIndex(picked => picked.lineId === line.lineId));
               const sumOf = key => (quotedLine?.tickets || []).reduce((sum, ticket) => sum + Number(ticket[key] || 0), 0);
               const lineQuoted = quotedLine && quotedLine.tickets?.length && selectedIds.includes(line.lineId)
-                ? { gross: sumOf('packagePriceVnd'), final: sumOf('finalPriceVnd'), voucher: sumOf('voucherDiscountVnd'), points: sumOf('pointDiscountVnd') }
+                ? { gross: sumOf('packagePriceVnd'), final: sumOf('finalPriceVnd'), auto: sumOf('autoDiscountVnd'), voucher: sumOf('voucherDiscountVnd'), points: sumOf('pointDiscountVnd') }
                 : null;
               return (
                 <li key={line.lineId} className={`cart-row${failed ? ' failed' : ''}`}>
@@ -486,10 +486,11 @@ export function WorkshopCartPage() {
                       <>
                         {lineQuoted.final < lineQuoted.gross && <s className="cart-was">{vnd(lineQuoted.gross)}</s>}
                         <span>{vnd(lineQuoted.final)}</span>
-                        {(lineQuoted.voucher > 0 || lineQuoted.points > 0) && (
+                        {(lineQuoted.auto > 0 || lineQuoted.voucher > 0 || lineQuoted.points > 0) && (
                           <small className="cart-saved">
-                            {lineQuoted.voucher > 0 ? `Voucher −${vnd(lineQuoted.voucher)}` : ''}
-                            {lineQuoted.points > 0 ? `${lineQuoted.voucher > 0 ? ' · ' : ''}Điểm −${vnd(lineQuoted.points)}` : ''}
+                            {lineQuoted.auto > 0 ? `Giảm tự động −${vnd(lineQuoted.auto)}` : ''}
+                            {lineQuoted.voucher > 0 ? `${lineQuoted.auto > 0 ? ' · ' : ''}Voucher −${vnd(lineQuoted.voucher)}` : ''}
+                            {lineQuoted.points > 0 ? `${lineQuoted.auto > 0 || lineQuoted.voucher > 0 ? ' · ' : ''}Điểm −${vnd(lineQuoted.points)}` : ''}
                           </small>
                         )}
                       </>
@@ -529,6 +530,7 @@ export function WorkshopCartPage() {
                   <span className="muted">Tổng sau ưu đãi ({totalTickets} vé)</span>
                   <strong>{vnd((quote || preview).finalTotalVnd)}</strong>
                   <small className="muted">
+                    {Number((quote || preview).autoDiscountVnd || 0) > 0 ? `Giảm tự động −${vnd((quote || preview).autoDiscountVnd)} · ` : ''}
                     {Number((quote || preview).voucherDiscountVnd || 0) > 0 ? `Voucher −${vnd((quote || preview).voucherDiscountVnd)}` : 'Chưa có voucher phù hợp'}
                     {Number((quote || preview).pointDiscountVnd || 0) > 0 ? ` · Điểm −${vnd((quote || preview).pointDiscountVnd)} (${Number((quote || preview).pointsUsed || 0).toLocaleString('vi-VN')} điểm)` : ''}
                   </small>

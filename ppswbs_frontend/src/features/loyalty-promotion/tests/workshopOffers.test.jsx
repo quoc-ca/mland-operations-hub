@@ -69,12 +69,25 @@ describe('offers of a package, one ticket (FR-045 rules 2-5)', () => {
     expect(offersForPackage({ id: 7, price: '500000' }, [program()]).finalPrice).toBe(450000n);
   });
 
-  it('T120: a voucher limited by branch, date or session is a label, never the "with code" price', () => {
+  it('a voucher limited to a branch is counted (Session 2026-11-23); its branch is named on the label', () => {
+    const fixed = amount => ({ kind: 'FIXED_AMOUNT', amount });
+    const anyTicket = voucher({ id: '4', code: 'MLWS100', discount: fixed('100000') });
+    const branchOnly = voucher({ id: '5', code: 'MLWSHK', discount: fixed('200000'), targets: { branchIds: ['2'] } });
+    expect(offersForPackage(pkg, [branchOnly, anyTicket]).bestVoucher).toMatchObject({ program: { code: 'MLWSHK' }, discount: 200000n });
+  });
+
+  it('a branch voucher is counted only for a package that runs at that branch, when 003 says where it runs', () => {
+    const fixed = amount => ({ kind: 'FIXED_AMOUNT', amount });
+    const anyTicket = voucher({ id: '4', code: 'MLWS100', discount: fixed('100000') });
+    const branchOnly = voucher({ id: '5', code: 'MLWSHK', discount: fixed('200000'), targets: { branchIds: ['2'] } });
+    expect(offersForPackage({ ...pkg, branchIds: [2, 3] }, [branchOnly, anyTicket]).bestVoucher.program.code).toBe('MLWSHK');
+    expect(offersForPackage({ ...pkg, branchIds: [3] }, [branchOnly, anyTicket]).bestVoucher.program.code).toBe('MLWS100');
+  });
+
+  it('T120: a voucher limited by date or session is a label, never the "with code" price', () => {
     const fixed = amount => ({ kind: 'FIXED_AMOUNT', amount });
     const anyTicket = voucher({ id: '4', code: 'MLWS100', discount: fixed('100000') });
     const limits = [
-      voucher({ id: '5', code: 'MLWSHK', discount: fixed('200000'), targets: { branchIds: ['2'] } }),
-      voucher({ id: '6', code: 'MLWSDAY', discount: fixed('200000'), targets: { workshopDates: ['2026-12-01'] } }),
       voucher({ id: '7', code: 'MLWSSES', discount: fixed('200000'), targets: { sessionIds: ['9'] } }),
     ];
     for (const limited of limits) {
@@ -127,7 +140,7 @@ describe('workshop offer display', () => {
   it('does not invite a signed-in Member to sign in', async () => {
     show(<WorkshopOfferList offers={offers} />, 'signed-in');
     expect(await screen.findByText('Ưu đãi cho gói này')).toBeInTheDocument();
-    expect(screen.getAllByRole('link', { name: 'Xem và lưu mã' })).toHaveLength(3);
+    expect(screen.getAllByRole('link', { name: 'Xem điều kiện' })).toHaveLength(3);
     expect(screen.queryByText(/Đăng nhập để dùng mã giảm/)).toBeNull();
   });
 

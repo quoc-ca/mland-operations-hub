@@ -2309,3 +2309,15 @@ creates the base schema and `V184__consultation_member_soft_delete.sql` adds
 nullable context support and Member-side hiding. Any future migration must be
 append-only and use a version greater than `V184` after repository and
 `flyway_schema_history` verification.
+# 2026-11-22 cross-feature data notes
+
+- New Feature-012 writes use `DRAFT`, `SAVED`, and `ARCHIVED`. Legacy booking
+  attachment states remain readable only; no new booking attachment relation is
+  created.
+- Feature-004 owns its immutable custom-design reference snapshot and does not
+  mutate Feature-012 rows.
+- Feature-013 owns consultation history and Guest opaque session data. Chat
+  context stores only safe reference/version metadata and never raw design
+  payload or private contact data.
+- No migration is authorized by this documentation update; schema changes must
+  use a new Flyway version after repository/database inventory.

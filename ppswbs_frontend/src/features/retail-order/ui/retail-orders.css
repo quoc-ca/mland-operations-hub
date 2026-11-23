@@ -62,3 +62,6 @@ img.order-thumb{object-fit:cover;background:#f3f4f6}
 .pay-countdown{background:#fff3dc;color:#7a4a00}
 .pay-countdown .countdown{font-variant-numeric:tabular-nums;color:#c2410c}
 .cash-input-error{color:#b42318;font-size:12px;flex-basis:100%}.cash-input input[aria-invalid="true"]{border-color:#b42318}
+
+/* Order money rows: discounts in red like checkout (Thinh, 2026-11-22). */
+.retail-minus dd{color:#ee4d2d}

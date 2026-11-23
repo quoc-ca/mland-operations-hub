@@ -30,7 +30,11 @@ export function VoucherTicket({ promotion, availability, labels, action, showCon
   const shortDate = useShortDate();
   // The Member's own state from the wallet first (it also knows MEMBER_LIMIT_REACHED); otherwise the public card's
   // NO_USES_LEFT (Session 2026-11-14), which every visitor sees.
-  const soldOut = SOLD_OUT[availability] || SOLD_OUT[promotion.availability === 'NO_USES_LEFT' ? 'NO_USES_LEFT' : undefined];
+  const claim = promotion.distribution === 'CLAIM_REQUIRED';
+  // FR-046: a voucher that must be saved and has no use left for anyone reads "Đã hết lượt lưu"; a Member who saved it
+  // keeps their own use, so only the wallet's state (when known) decides for them.
+  const publicOut = promotion.availability === 'NO_USES_LEFT' ? (claim ? 'ticket.claimedOut' : SOLD_OUT.NO_USES_LEFT) : undefined;
+  const soldOut = availability ? SOLD_OUT[availability] : publicOut;
   const branchIds = promotion.targets?.branchIds || [];
   const branches = branchIds.map(id => labels?.branchIds?.[id] || t('targetUnknown.branchIds', { id })).join('; ');
 
@@ -49,6 +53,7 @@ export function VoucherTicket({ promotion, availability, labels, action, showCon
           {promotion.code && <span className="voucher-ticket-code">{promotion.code}</span>}
           <span>{t('ticket.expires', { date: shortDate(promotion.endAt) })}</span>
           <span>{promotion.allowPoints ? t('ticket.points') : t('ticket.noPoints')}</span>
+          {claim && <span className="voucher-ticket-claim">{t('ticket.claimRequired')}</span>}
         </div>
         <div className="voucher-ticket-actions">
           {soldOut ? <span className="voucher-ticket-out" role="status">{t(soldOut)}</span> : action}

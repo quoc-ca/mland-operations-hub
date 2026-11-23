@@ -50,6 +50,8 @@ export function designReviewApi(request) {
     async submitDesignRequest(key, {
       description,
       catalogueReference,
+      designReference,
+      designRingVersion,
       consentVersion,
       consentPurpose,
       designVersion = 1,
@@ -63,6 +65,12 @@ export function designReviewApi(request) {
       }
       if (catalogueReference !== undefined && catalogueReference !== null && catalogueReference !== '') {
         form.append('catalogueReference', catalogueReference);
+      }
+      if (designReference !== undefined && designReference !== null && designReference !== '') {
+        form.append('designReference', designReference);
+      }
+      if (designRingVersion !== undefined && designRingVersion !== null) {
+        form.append('designRingVersion', String(designRingVersion));
       }
       if (consentVersion !== undefined && consentVersion !== null && consentVersion !== '') {
         form.append('consentVersion', consentVersion);
@@ -239,6 +247,91 @@ export function designReviewApi(request) {
           finalPrice: finalPrice !== undefined && finalPrice !== null && finalPrice !== '' ? Number(finalPrice) : null,
           note: note || '',
         },
+        auth: true,
+      });
+    },
+
+    /**
+     * Submit revision after clarification request (Feature-004 Revision Flow).
+     */
+    reviseCustomDesignRequest(requestId, { description, designReference, designVersion, clarificationResponse }, { idempotencyKey, ifMatchVersion } = {}) {
+      const headers = {};
+      if (ifMatchVersion) {
+        headers['If-Match-Version'] = String(ifMatchVersion);
+      }
+      return request(`/api/v1/custom-design-requests/${encodeURIComponent(requestId)}`, {
+        method: 'POST',
+        body: { description, designReference, designVersion, clarificationResponse },
+        idempotencyKey,
+        headers,
+        auth: true,
+      });
+    },
+
+    /**
+     * Staff or Manager prepares quote for an accepted design request.
+     */
+    prepareCustomDesignQuote(requestId, { totalAmount, currency = 'VND', quoteExpiresAt, managerReason }, { idempotencyKey } = {}) {
+      return request(`/api/v1/custom-design-requests/${encodeURIComponent(requestId)}/quote`, {
+        method: 'POST',
+        body: { totalAmount: String(totalAmount), currency, quoteExpiresAt, managerReason },
+        idempotencyKey,
+        auth: true,
+      });
+    },
+
+    /**
+     * Read list of Custom Orders owned by the Member.
+     */
+    listMyCustomOrders() {
+      return request('/api/v1/members/me/custom-orders', {
+        method: 'GET',
+        auth: true,
+      });
+    },
+
+    /**
+     * Read detail of a Custom Order owned by the Member.
+     */
+    getMyCustomOrder(customOrderId) {
+      return request(`/api/v1/members/me/custom-orders/${encodeURIComponent(customOrderId)}`, {
+        method: 'GET',
+        auth: true,
+      });
+    },
+
+    /**
+     * Initiate full payment for a Custom Order quote (100% full payment, NO cart, NO deposit).
+     */
+    startCustomOrderPayment(customOrderId, { idempotencyKey } = {}) {
+      return request(`/api/v1/members/me/custom-orders/${encodeURIComponent(customOrderId)}/payment`, {
+        method: 'POST',
+        idempotencyKey: idempotencyKey || 'cust_pay_' + Date.now(),
+        auth: true,
+      });
+    },
+
+    /**
+     * Request a new quote after previous quote has expired.
+     */
+    requestNewCustomOrderQuote(customOrderId, { idempotencyKey } = {}) {
+      return request(`/api/v1/members/me/custom-orders/${encodeURIComponent(customOrderId)}/request-new-quote`, {
+        method: 'POST',
+        idempotencyKey: idempotencyKey || 'cust_req_' + Date.now(),
+        auth: true,
+      });
+    },
+
+    /**
+     * Manager approves custom order quote.
+     */
+    approveCustomOrderQuote(customOrderId, quoteId, { managerReason } = {}) {
+      const path = quoteId
+        ? `/api/v1/custom-orders/${encodeURIComponent(customOrderId)}/quotes/${encodeURIComponent(quoteId)}/approve`
+        : `/api/v1/custom-orders/${encodeURIComponent(customOrderId)}/quotes/approve`;
+      return request(path, {
+        method: 'POST',
+        body: { managerReason: managerReason || 'Phê duyệt báo giá' },
         auth: true,
       });
     },

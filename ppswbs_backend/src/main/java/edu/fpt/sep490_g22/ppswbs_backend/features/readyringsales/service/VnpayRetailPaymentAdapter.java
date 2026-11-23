@@ -42,7 +42,7 @@ public class VnpayRetailPaymentAdapter implements RetailPaymentPort {
         if (current.isEmpty() || current.stream().anyMatch(h -> h.getStatus() != RetailVariantHoldStatus.HELD || !now.isBefore(h.getExpiresAt())))
             throw new RetailConflictException("Checkout hold expired or is unavailable");
         Instant expiresAt = current.stream().map(h -> h.getExpiresAt()).min(Instant::compareTo).orElseThrow();
-        // The link lives as long as the hold (at most 15 minutes, Session 2026-11-18), so it can be reopened from
+        // The link lives as long as the hold (at most 10 minutes, Session 2026-11-22), so it can be reopened from
         // "Chờ thanh toán" until the order would expire.
         String merchantReference = "RETAIL-" + checkoutId;
         owners.registerOwner(merchantReference, checkoutId, "RETAIL", amountVnd, "VND", PROVIDER_DATE.format(now));

@@ -21,6 +21,7 @@ const routes = [{
     { path: '/settlement/refunds', element: <Page label="Trang hoàn tiền" /> },
     { path: '/operations/sessions', element: <Page label="Trang ca" /> },
     { path: '/staff/home', element: <Page label="Trang chủ staff" /> },
+    { path: '/carrier/orders', element: <Page label="Trang vận đơn" /> },
   ],
 }];
 
@@ -99,6 +100,16 @@ describe('operations shell', () => {
     await new Promise(resolve => setTimeout(resolve, 30));
     expect(calls.filter(call => call.path !== '/api/v1/accounts/me/profile')).toHaveLength(0);
     expect(rail().queryByText('1')).not.toBeInTheDocument();
+  });
+
+  it('gives a GHTK carrier its three pages, the G logo, and language and sign-out at the top right (2026-11-23)', async () => {
+    open('CARRIER', '/carrier/orders', { 'GET /api/v1/carrier/shipments': json(200, { items: [], totalPages: 0 }) });
+    await rail().findByRole('link', { name: /^Đơn hàng/ });
+    expect(rail().getAllByRole('link').map(link => link.getAttribute('href'))).toEqual(['/carrier', '/carrier', '/carrier/orders', '/carrier/stats']);
+    expect(rail().getByRole('link', { name: 'GHTK' })).toBeInTheDocument();
+    expect(rail().queryByRole('button', { name: 'EN' })).not.toBeInTheDocument();
+    expect(rail().queryByRole('link', { name: /Hồ sơ/ })).not.toBeInTheDocument();
+    expect(header().getByRole('button', { name: 'EN' })).toBeInTheDocument();
   });
 
   it('keeps the language switch and the profile link on the rail', async () => {

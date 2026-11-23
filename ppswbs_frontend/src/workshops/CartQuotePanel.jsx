@@ -106,6 +106,11 @@ export function CartQuotePanel({
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
           <span>Tổng giá gói</span><strong>{vnd(quote.grossVnd)}</strong>
         </div>
+        {Number(quote.autoDiscountVnd || 0) > 0 && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#2b8a3e' }}>
+            <span>Giảm tự động</span><span>−{vnd(quote.autoDiscountVnd)}</span>
+          </div>
+        )}
         {Number(quote.voucherDiscountVnd || 0) > 0 && (
           <div style={{ display: 'flex', justifyContent: 'space-between', color: '#2b8a3e' }}>
             <span>Voucher</span><span>−{vnd(quote.voucherDiscountVnd)}</span>

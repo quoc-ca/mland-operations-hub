@@ -17,6 +17,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.entity.Progra
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.entity.PromotionProgram;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.entity.PromotionRevision;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.entity.PromotionTarget;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.entity.VoucherDistribution;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.TargetDimension;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.TargetScope;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.service.LoyaltyCalculator.DiscountTerms;
@@ -241,6 +242,76 @@ class SavedVoucherContractIT {
         assertThat(find(allPublic("PRODUCT"), workshop)).isNull();
         assertError(call(get(PUBLIC).param("scope", "OTHER"), null), 400, "INVALID_INPUT");
         assertError(call(get(PUBLIC).param("limit", "0"), null), 400, "INVALID_INPUT");
+    }
+
+    /** An active voucher that must be saved (FR-046): one use per Member, the given total. */
+    private long claimVoucher(long totalLimit) {
+        Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
+        String code = "SC" + UUID.randomUUID().toString().replace("-", "").substring(0, 10).toUpperCase();
+        return transaction.execute(status -> {
+            PromotionProgram program = programs.saveAndFlush(PromotionProgram.voucher(TargetScope.PRODUCT, code, code,
+                    totalLimit, 1, VoucherDistribution.CLAIM_REQUIRED, now, 1L));
+            PromotionRevision revision = revisions.saveAndFlush(PromotionRevision.create(program.getId(), 1,
+                    ProgramKind.VOUCHER, "Phải lưu", now.minus(1, ChronoUnit.DAYS), now.plus(1, ChronoUnit.DAYS),
+                    DiscountTerms.fixed(BigInteger.valueOf(20_000), BigInteger.valueOf(20_000), BigInteger.ZERO), true,
+                    now, 1L));
+            targets.save(PromotionTarget.create(revision.getId(), TargetScope.PRODUCT, TargetDimension.PRODUCT,
+                    Long.toString(publicProduct)));
+            program.pointToRevision(revision.getId());
+            return program.getId();
+        });
+    }
+
+    private List<JsonNode> allPublic(String scope, String distribution) throws Exception {
+        List<JsonNode> cards = new ArrayList<>();
+        String cursor = null;
+        do {
+            MockHttpServletRequestBuilder request = get(PUBLIC).param("limit", "100").param("scope", scope);
+            if (distribution != null) {
+                request.param("distribution", distribution);
+            }
+            if (cursor != null) {
+                request.param("cursor", cursor);
+            }
+            JsonNode page = ok(call(request, null));
+            page.path("items").forEach(cards::add);
+            cursor = page.path("nextCursor").isNull() ? null : page.path("nextCursor").asText();
+        } while (cursor != null);
+        return cards;
+    }
+
+    @Test
+    void theDistributionFilterHidesVouchersThatMustBeSavedByDefault() throws Exception {
+        // T135, FR-046: checkout pickers read the default (PUBLIC); Kho Voucher reads ALL.
+        long claim = claimVoucher(5);
+        long open = program(ProgramKind.VOUCHER, TargetScope.PRODUCT, -1, 1, publicProduct);
+        assertThat(find(allPublic("PRODUCT", null), claim)).isNull();
+        assertThat(find(allPublic("PRODUCT", null), open).path("distribution").asText()).isEqualTo("PUBLIC");
+        assertThat(find(allPublic("PRODUCT", "CLAIM_REQUIRED"), open)).isNull();
+        JsonNode card = find(allPublic("PRODUCT", "CLAIM_REQUIRED"), claim);
+        assertThat(card.path("distribution").asText()).isEqualTo("CLAIM_REQUIRED");
+        assertThat(find(allPublic("PRODUCT", "ALL"), claim)).isNotNull();
+        assertThat(find(allPublic("PRODUCT", "ALL"), open)).isNotNull();
+        assertError(call(get(PUBLIC).param("distribution", "PRIVATE"), null), 400, "INVALID_INPUT");
+    }
+
+    @Test
+    void aRefusedClaimSaysWhyInTheReasonField() throws Exception {
+        // T131, FR-046(1): 422 PROMOTION_INELIGIBLE with fieldErrors [{field: reason, message: <code>}].
+        long claim = claimVoucher(1);
+        String first = signIn(AccountRole.MEMBER);
+        String second = signIn(AccountRole.MEMBER);
+        ok(save(claim, first));
+        assertThat(find(allPublic("PRODUCT", "ALL"), claim).path("availability").asText()).isEqualTo("NO_USES_LEFT");
+        MvcResult refused = save(claim, second);
+        assertError(refused, 422, "PROMOTION_INELIGIBLE");
+        JsonNode reason = json.readTree(refused.getResponse().getContentAsString()).path("fieldErrors").get(0);
+        assertThat(reason.path("field").asText()).isEqualTo("reason");
+        assertThat(reason.path("message").asText()).isEqualTo("VOUCHER_NO_USES_LEFT");
+        // The first Member keeps their own use: ACTIVE in their wallet although nobody else can claim it.
+        JsonNode wallet = ok(call(get(SAVED), first));
+        assertThat(wallet.path("items").get(0).path("availability").asText()).isEqualTo("ACTIVE");
+        assertThat(wallet.path("items").get(0).path("promotion").path("distribution").asText()).isEqualTo("CLAIM_REQUIRED");
     }
 
     // ----- saved vouchers -----

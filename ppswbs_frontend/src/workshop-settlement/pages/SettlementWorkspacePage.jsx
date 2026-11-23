@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router';
+import { QRCodeSVG } from 'qrcode.react';
 import { useHttp } from '../../shared/api/useHttp';
 import { useRole } from '../../shared/auth/useRole';
 import { Field, Loading, SuccessNotice, useCommand, useResource } from '../../shared/ui/components';
@@ -10,6 +11,17 @@ import { ProblemNotice, ReasonDialog, asList, isWholeVnd, money, when } from '..
 
 const METHOD_ORDER = { BOOKING_TIME: 0, VNPAY: 1, CASH: 2, BANK_TRANSFER: 3 };
 const VNPAY_MINIMUM = 5000;
+
+// Dev-only: when VITE_PAYMENT_SIMULATOR_BASE_URL (a public tunnel to the backend) is set, the customer scans a QR that
+// opens the backend's fake VNPay page instead of the staff browser being taken to VNPay.
+const SIMULATOR_BASE_URL = (import.meta.env.VITE_PAYMENT_SIMULATOR_BASE_URL || '').replace(/\/$/, '');
+export function simulatorLink(paymentUrl, baseUrl = SIMULATOR_BASE_URL) {
+  if (!baseUrl || !paymentUrl) return '';
+  try {
+    const ref = new URL(paymentUrl).searchParams.get('vnp_TxnRef');
+    return ref ? `${baseUrl.replace(/\/$/, '')}/api/v1/integrations/payments/simulator/${encodeURIComponent(ref)}` : '';
+  } catch { return ''; }
+}
 // T145: what each refusal of a cash reversal means (409 codes of FR-036/FR-053).
 const REVERSAL_PROBLEMS = {
   FINAL_BILL_NOT_OPEN: 'The folio is already FINALIZED or CLOSED, so a cash entry cannot be reversed here. Use the folio correction and the bank refund.',
@@ -319,6 +331,12 @@ export default function SettlementWorkspacePage() {
               <div className="settlement-payment-state pending" role="status">
                 <strong>VNPay checkout created</strong>
                 <p>Valid until {when(checkout.expiresAt)}. The part counts only after VNPay’s signed confirmation.</p>
+                {simulatorLink(checkout.url) ? (
+                  <div className="settlement-sim-qr">
+                    <QRCodeSVG value={simulatorLink(checkout.url)} size={200} includeMargin />
+                    <p>Customer scans with the phone camera to pay (test money).</p>
+                  </div>
+                ) : null}
                 <a className="button primary" href={checkout.url} target="_blank" rel="noreferrer">Open VNPay checkout</a>
               </div>
             ) : null}

@@ -48,6 +48,13 @@ describe('FE-08 benefit selection', () => {
     expect(screen.getByText('Cần tối thiểu 100 điểm để sử dụng')).toBeInTheDocument();
   });
 
+  it('says why points show 0 when the chosen voucher cannot be used with points (2026-11-23)', () => {
+    show({ selection: { choice: 'VOUCHER', voucherCode: 'MLTAYHO80', requestedPoints: '0' }, maxPoints: '0', minRedeemPoints: '10',
+      quote: { pointsAllowed: false, appliedVoucherCode: 'MLTAYHO80' }, autoQuote: true });
+    expect(screen.getByRole('checkbox')).toBeDisabled();
+    expect(screen.getByText('Voucher MLTAYHO80 không dùng chung với điểm. Bỏ voucher để dùng điểm.')).toBeInTheDocument();
+  });
+
   it('allows points when the maximum equals the required minimum', () => {
     show({ maxPoints: '100', minRedeemPoints: '100' });
     expect(screen.getByRole('checkbox')).toBeEnabled();

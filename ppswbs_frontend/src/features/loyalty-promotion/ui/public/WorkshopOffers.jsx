@@ -4,6 +4,9 @@ import { useAuth } from '../../../../shared/auth/AuthProvider';
 import { SignInLink } from '../../../../shared/auth/SignInLink';
 import { useFormat, useT } from '../../../../shared/i18n/I18nProvider';
 import { messages } from '../messages';
+import { needsSaving } from '../../domain/productOffers';
+import { useLoyaltyApi } from '../../application/useLoyaltyApi';
+import { usePublicBranchNames } from '../../application/useTargetLabels';
 import './product-offers.css';
 
 /**
@@ -24,6 +27,20 @@ function useValue() {
   return discount => (discount?.kind === 'PERCENT' ? `${discount.percentage}%` : format.money(discount?.amount));
 }
 
+/** "Giá sau voucher {mã}", with "· tại {chi nhánh}" for a voucher limited to branches (Session 2026-11-23). */
+function WorkshopVoucherTag({ program }) {
+  const t = useT(messages);
+  const api = useLoyaltyApi();
+  const ids = (program.targets?.branchIds || []).map(String);
+  const names = usePublicBranchNames(api, ids);
+  const code = program.code || program.name;
+  const known = ids.map(id => names[id]).filter(Boolean);
+  const text = !ids.length ? t('wsOffer.afterVoucher', { code })
+    : known.length === ids.length ? t('offer.afterVoucherAt', { code, branches: known.join(', ') })
+      : t('offer.afterVoucherAtCount', { code, count: ids.length });
+  return <span className="offer-voucher-tag" title={program.name}>{text}</span>;
+}
+
 /**
  * The ONE price of a ticket (like Shopee's "Giá sau voucher"): the original price after the automatic discount and the
  * member's best voucher, in red, with the original struck through and a tag naming the voucher when one is counted.
@@ -42,7 +59,7 @@ export function WorkshopOfferPrice({ offers, fallback, voucher = true }) {
       <span className="price offer-now">{format.money(text(now))}</span>
       <s className="offer-was" aria-label={t('offer.originalPrice', { price: original })}>{original}</s>
       </span>
-      {best && <span className="offer-voucher-tag" title={best.program.name}>{t('wsOffer.afterVoucher', { code: best.program.code || best.program.name })}</span>}
+      {best && <WorkshopVoucherTag program={best.program} />}
     </span>
   );
 }
@@ -65,7 +82,7 @@ export function WorkshopOfferBadges({ offers }) {
   const vouchers = offers.vouchers.slice(0, 2);
   const minimumOf = program => (Number(program.minimumEligibleAmount || 0) > 0 ? t('offer.voucherMinimum', { minimum: format.money(program.minimumEligibleAmount) }) : '');
   vouchers.forEach(program => badges.push(
-    <span key={`v-${program.id}`} className="offer-badge voucher">{t('offer.voucher', { value: value(program.discount) })}{minimumOf(program)}</span>,
+    <span key={`v-${program.id}`} className="offer-badge voucher">{t(needsSaving(program) ? 'offer.claimVoucher' : 'offer.voucher', { value: value(program.discount) })}{minimumOf(program)}</span>,
   ));
   if (vouchers.length && status !== 'signed-in') badges.push(<span key="sign-in" className="offer-applies">{t('wsOffer.signInHint')}</span>);
   if (!badges.length) return null;
@@ -120,9 +137,9 @@ export function WorkshopOfferList({ offers }) {
           <ul>
             {offers.vouchers.map(program => (
               <li key={program.id} className="ws-offer-card">
-                <span className="offer-badge voucher">{t('offer.voucher', { value: value(program.discount) })}</span>
+                <span className="offer-badge voucher">{t(needsSaving(program) ? 'offer.claimVoucher' : 'offer.voucher', { value: value(program.discount) })}</span>
                 <span className="ws-offer-body"><strong>{keepMoneyTogether(program.name)}</strong><small>{voucherDetail(program)}</small></span>
-                <Link className="text-link ws-offer-action" to={`/promotions/${encodeURIComponent(program.id)}`}>{t('offer.view')}</Link>
+                <Link className="text-link ws-offer-action" to={`/promotions/${encodeURIComponent(program.id)}`}>{t(needsSaving(program) ? 'offer.view' : 'offer.viewTerms')}</Link>
               </li>
             ))}
           </ul>

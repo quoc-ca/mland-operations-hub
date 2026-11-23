@@ -28,7 +28,7 @@ that FE-08 is implemented or that production GHTK credentials are available.
 | QS-07 | Member selects GHTK with valid recipient data for one branch order | The development/test mock or approved provider returns a server-issued quote ID; that branch's delivery fee and approved mandatory surcharge are shown before payment. |
 | QS-08 | GHTK recipient data is unsupported | GHTK option is blocked for that branch with correction/pickup guidance; no payment attempt is created. |
 | QS-09 | Full VNPay payment is verified for a grouped checkout | All branch orders become paid once; duplicate callback is a no-op. |
-| QS-10 | Payment is absent after 15-minute hold | Quantities and benefits are released for the grouped checkout; late evidence does not reopen the hold. |
+| QS-10 | Payment is absent after the 10-minute hold | Quantities and benefits are released for the grouped checkout; late evidence does not reopen the hold. |
 | QS-11 | Paid GHTK branch order receives a successful create response | One shipment and provider identifiers are stored for that branch order; it becomes eligible for preparation. |
 | QS-12 | GHTK create response times out after provider accepted the partner ID | The branch order remains paid/shipment-pending; retry uses the same partner ID and does not duplicate shipment. |
 | QS-13 | GHTK webhook is duplicated or out of order | Duplicate is acknowledged safely; stale event does not regress that branch order's current status. |
@@ -44,7 +44,7 @@ that FE-08 is implemented or that production GHTK credentials are available.
 | QS-23 | GHTK is unavailable for one branch in a mixed-branch checkout | Only that branch requires explicit pickup; unaffected branches retain eligible GHTK choices and the recalculated grouped total requires reconfirmation. |
 | QS-24 | A referenced GHTK quote expires or changes before payment | Checkout rejects the stale quote ID and creates no payment attempt; the replacement quote, difference and new grouped total are displayed for explicit reconfirmation. |
 | QS-25 | Fee quotation times out | Cart and in-memory recipient draft remain available; no order/payment is created and the Member can retry or select pickup for the affected branch. |
-| QS-26 | Member cancels an `ACCEPTED_UNPAID` checkout before FE-08 initiates VNPay | The complete inventory/benefit hold is released, the cart is restored, and no provider payment request is made; a `PAYMENT_INITIATED` checkout rejects the same action. |
+| QS-26 | Member cancels an `ACCEPTED_UNPAID` checkout, or a VNPay checkout in `PAYMENT_INITIATED` that was opened but not paid (FR-08-039) | The complete inventory/benefit hold is released and the cart is restored; a payment that still arrives afterwards goes to the Manager reconciliation queue and does not settle the order. |
 | QS-27 | A valid grouped checkout has a payable total of zero | No VNPay request is made; one internal acceptance settles benefits, grants eligible points, and enables fulfilment exactly once. |
 
 ## Required validation commands after implementation

@@ -436,6 +436,13 @@
 .add-to-cart .qty-stepper input{width:60px;min-width:0;height:100%;padding:0;border:0;border-left:1px solid var(--pm-buy-line);border-right:1px solid var(--pm-buy-line);border-radius:0;background:#fff;color:var(--pm-buy-red);font:inherit;font-size:16px;text-align:center;pointer-events:none}
 .add-to-cart .qty-stock{color:#757575;font-size:14px}
 .add-to-cart .buy-prompt{margin:0;color:var(--pm-buy-red);font-size:14px}
+.add-to-cart .buy-limit{margin:-4px 0 0;color:#ee4d2d;font-size:14px}
+.cart-refusal-backdrop{z-index:40;align-items:center!important;padding:16px!important}
+.dialog.cart-refusal{max-width:420px;width:100%;padding:0;border-radius:4px!important;text-align:center;overflow:hidden}
+.cart-refusal-text{margin:0;padding:24px 24px 16px;color:#333;font-size:16px;line-height:1.45}
+.cart-refusal-ref{margin:-8px 0 0;padding:0 24px 16px;color:#999;font-size:12px}
+.cart-refusal-ok{display:block;width:100%;padding:14px;border:0;border-top:1px solid #e8e8e8;background:#fff;color:#ee4d2d;font:inherit;font-size:16px;cursor:pointer}
+.cart-refusal-ok:hover{background:#fafafa}
 .add-to-cart .buy-actions{display:flex;flex-wrap:wrap;gap:16px;margin-top:4px}
 .add-to-cart .buy-add,.add-to-cart .buy-now{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-width:200px;height:48px;padding:0 20px;border:1px solid var(--pm-buy-red);border-radius:2px;font:inherit;font-size:15px;cursor:pointer}
 .add-to-cart .buy-add{background:var(--pm-buy-red-soft);color:var(--pm-buy-red)}

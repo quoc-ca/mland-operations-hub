@@ -1,4 +1,4 @@
-const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080').replace(/\/$/, '');
+const apiBaseUrl = (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8080');
 
 export class RetailApiError extends Error {
   constructor(code, message, correlationId) { super(message); this.code = code; this.correlationId = correlationId; }

@@ -1,12 +1,12 @@
 import React from 'react';
-import { Link, Navigate } from 'react-router';
+import { Navigate } from 'react-router';
 import { useAuth } from '../../shared/auth/AuthProvider';
 import { useHttp } from '../../shared/api/useHttp';
 import { useLanguage } from '../../shared/i18n/I18nProvider';
 import { roleHomePath } from '../../shared/auth/roleHome';
 import { ErrorNotice, Loading, useResource } from '../../shared/ui/components';
 import { OperationsAuthWorkspace } from '../../shared/ui/OperationsAuthWorkspace';
-import { operatorSections } from './operatorSections';
+import StaffHome from './StaffHome';
 import '../../ota-connectivity/ota-connectivity.css';
 import './operatorHome.css';
 
@@ -35,34 +35,13 @@ export default function OperatorHomePage({ role }) {
   if (actualRole !== 'STAFF' && actualRole !== 'MANAGER') return <Navigate to="/" replace />;
   if (actualRole !== role) return <Navigate to={roleHomePath(actualRole)} replace />;
 
-  const sections = operatorSections();
   const name = profile.data?.fullName || profile.data?.email || '';
-  const title = vi ? 'Trang chủ nhân viên' : 'Staff home';
   return (
     <div className="ota-workspace">
       
       <main className="ota-main">
         <div className="ota-topline">MLAND / HOME <span>● Backend-authorized</span></div>
-        <header className="ota-page-heading">
-          <div>
-            <p className="operator-home-hello">{vi ? 'Xin chào' : 'Hello'}{name ? `, ${name}` : ''}</p>
-            <h1>{title}<span className="operator-home-role">{role}</span></h1>
-            <p>{vi ? 'Các việc bạn làm hằng ngày, gom một chỗ.' : 'The work you do every day, in one place.'}</p>
-          </div>
-        </header>
-        {sections.map(section => (
-          <section key={section.id} aria-labelledby={`operator-home-${section.id}`}>
-            <h2 id={`operator-home-${section.id}`} className="operator-home-section">{vi ? section.vi : section.en}</h2>
-            <div className="operator-home-grid">
-              {section.items.map(item => (
-                <Link key={item.to} className="operator-home-card" to={item.to}>
-                  <strong>{vi ? item.vi : item.en}</strong>
-                  <span>{vi ? item.descVi : item.descEn}</span>
-                </Link>
-              ))}
-            </div>
-          </section>
-        ))}
+        <StaffHome name={name} vi={vi} />
       </main>
     </div>
   );

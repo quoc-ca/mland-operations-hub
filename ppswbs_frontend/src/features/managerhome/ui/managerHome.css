@@ -1,5 +1,5 @@
 /* Manager Home. Cards stack at 375 px; state is always said in text, never by colour or dimming alone. */
-.mh-page { max-width: 1100px; }
+.mh-page { max-width: 1600px; }
 .mh-refresh { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .mh-refresh span { font-size: 12px; color: #6b7280; }
 .mh-section { margin-top: 24px; }

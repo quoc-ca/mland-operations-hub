@@ -25,17 +25,37 @@ public final class TicketBenefitAllocator {
     private TicketBenefitAllocator() {
     }
 
-    /** One cart ticket: its package price and whether the voucher scope covers it. */
-    public record TicketInput(long packagePriceVnd, boolean inVoucherScope) {
+    /**
+     * One cart ticket: its package price and whether the voucher scope covers it. {@code autoShareVnd} and
+     * {@code voucherShareVnd} are the ticket's own shares of the automatic discount and the voucher exactly as 006
+     * split them (BenefitPreview.lineDiscounts); they are only read by {@link #allocateShares}.
+     */
+    public record TicketInput(long packagePriceVnd, boolean inVoucherScope, long autoShareVnd, long voucherShareVnd) {
         public TicketInput {
             if (packagePriceVnd < 0) throw new IllegalArgumentException("A ticket price cannot be negative");
+            if (autoShareVnd < 0 || voucherShareVnd < 0) {
+                throw new IllegalArgumentException("A ticket discount cannot be negative");
+            }
+        }
+
+        /** A ticket whose programme discount is spread by {@link #allocate}, not given per ticket. */
+        public TicketInput(long packagePriceVnd, boolean inVoucherScope) {
+            this(packagePriceVnd, inVoucherScope, 0, 0);
         }
     }
 
-    /** Allocation and booking-time collection of one ticket. */
+    /**
+     * Allocation and booking-time collection of one ticket. {@code voucherDiscountVnd} is the ticket's whole
+     * programme discount (automatic + voucher), which is what is stored and settled; {@code autoDiscountVnd} is the
+     * automatic part of it, so the voucher part is the difference.
+     */
     public record TicketResult(long packagePriceVnd, long voucherDiscountVnd, long pointsUsed, long pointDiscountVnd,
                                long finalPriceVnd, long collectedAtBookingVnd, TicketCollectionKind collectionKind,
-                               long remainingVnd) {
+                               long remainingVnd, long autoDiscountVnd) {
+
+        public long voucherOnlyDiscountVnd() {
+            return voucherDiscountVnd - autoDiscountVnd;
+        }
     }
 
     public record GroupResult(List<TicketResult> tickets, long groupCollectionVnd, GroupPaymentMode paymentMode) {
@@ -50,7 +70,6 @@ public final class TicketBenefitAllocator {
                                        long pointValueVnd) {
         if (tickets == null || tickets.isEmpty()) throw new IllegalArgumentException("A cart needs a ticket");
         if (voucherDiscountVnd < 0 || pointsUsed < 0) throw new IllegalArgumentException("Benefits cannot be negative");
-        if (pointsUsed > 0 && pointValueVnd <= 0) throw new IllegalArgumentException("A point needs a positive value");
         int n = tickets.size();
 
         // FR-033: voucher over in-scope tickets by price, never above a ticket's price.
@@ -62,6 +81,37 @@ public final class TicketBenefitAllocator {
             voucherCaps[i] = voucherWeights[i];
         }
         long[] voucher = spread(voucherDiscountVnd, voucherWeights, voucherCaps);
+        return collect(tickets, new long[n], voucher, pointsUsed, pointValueVnd);
+    }
+
+    /**
+     * Same as {@link #allocate} when 006 already split the programme discount per ticket (Session 2026-11-22): a
+     * ticket pays price - its automatic share - its voucher share, and only then are the points spread. Nothing is
+     * split again here, so quote, booking and settlement all see 006's numbers.
+     */
+    public static GroupResult allocateShares(List<TicketInput> tickets, long pointsUsed, long pointValueVnd) {
+        if (tickets == null || tickets.isEmpty()) throw new IllegalArgumentException("A cart needs a ticket");
+        int n = tickets.size();
+        long[] auto = new long[n];
+        long[] voucher = new long[n];
+        for (int i = 0; i < n; i++) {
+            TicketInput t = tickets.get(i);
+            if (t.autoShareVnd() + t.voucherShareVnd() > t.packagePriceVnd()) {
+                throw new IllegalArgumentException("The discount of a ticket cannot exceed its price");
+            }
+            auto[i] = t.autoShareVnd();
+            voucher[i] = t.voucherShareVnd();
+        }
+        return collect(tickets, auto, voucher, pointsUsed, pointValueVnd);
+    }
+
+    private static GroupResult collect(List<TicketInput> tickets, long[] auto, long[] voucherOnly, long pointsUsed,
+                                       long pointValueVnd) {
+        if (pointsUsed < 0) throw new IllegalArgumentException("Benefits cannot be negative");
+        if (pointsUsed > 0 && pointValueVnd <= 0) throw new IllegalArgumentException("A point needs a positive value");
+        int n = tickets.size();
+        long[] voucher = new long[n];
+        for (int i = 0; i < n; i++) voucher[i] = auto[i] + voucherOnly[i];
 
         // FR-034: whole points by post-voucher price; a ticket at 0 gets none; a ticket never spends more than it costs.
         long[] pointWeights = new long[n];
@@ -93,7 +143,7 @@ public final class TicketBenefitAllocator {
             }
             groupCollection += collected;
             results.add(new TicketResult(price, voucher[i], points[i], pointDiscount, finalPrice, collected, kind,
-                    finalPrice - collected));
+                    finalPrice - collected, auto[i]));
         }
 
         if (groupCollection == 0) {
@@ -105,7 +155,7 @@ public final class TicketBenefitAllocator {
             for (TicketResult t : results) {
                 deferred.add(t.finalPriceVnd() == 0 ? t : new TicketResult(t.packagePriceVnd(), t.voucherDiscountVnd(),
                         t.pointsUsed(), t.pointDiscountVnd(), t.finalPriceVnd(), 0,
-                        TicketCollectionKind.DEFERRED_BELOW_VNPAY_MINIMUM, t.finalPriceVnd()));
+                        TicketCollectionKind.DEFERRED_BELOW_VNPAY_MINIMUM, t.finalPriceVnd(), t.autoDiscountVnd()));
             }
             return new GroupResult(deferred, 0, GroupPaymentMode.INTERNAL_DEFERRED);
         }

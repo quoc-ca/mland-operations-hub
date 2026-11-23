@@ -1,7 +1,7 @@
 # Implementation Plan: Loyalty & Promotion Management
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-10-26
+**Date updated**: 2026-11-23 (Scale/Scope theo Session 2026-11-22 của spec: giảm tự động + tối đa một voucher; trước đó: 2026-10-26)
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -28,7 +28,7 @@ Bốn thông số khởi đầu 10.000đ→1 điểm,1 điểm→100đ,min10,tr�
 | Project Type | Backend Java REST (Spring Modulith) cộng frontend React + Vite client-side rendering tách riêng; không service mới, backend không render UI. |
 | Performance Goals | Ưu tiên correctness theo8 SC; chưa cam kết SLA/throughput production vì chưa có baseline. Pagination20/max100, scope queries indexed/batched, short local transactions, không remote calls dưới lock. Đo contention/latency trên fixture MySQL trước rollout, không tự coi benchmark đã đạt. |
 | Constraints | Current local roles/ownership, V1 không MFA theo 001, shared session theo FE-01/001, UI React chỉ qua REST, no raw SQL application, không reset dữ liệu, không points expiry/tiers/retail returns. |
-| Scale/Scope | Ba loại chương trình, một wallet/Member, một chương trình/retail hoặc voucher/booking; immutable revisions, component-level receipts. Tổng số Member/transactions production không phải giả định để tự đặt SLA. |
+| Scale/Scope | Ba loại chương trình, một wallet/Member, mỗi đơn/booking một giảm tự động tốt nhất cộng tối đa một voucher (Session 2026-11-22, FR-015); immutable revisions, component-level receipts. Tổng số Member/transactions production không phải giả định để tự đặt SLA. |
 
 ## Constitution Check
 

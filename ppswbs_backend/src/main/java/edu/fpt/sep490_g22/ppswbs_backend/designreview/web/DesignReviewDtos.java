@@ -161,4 +161,133 @@ public class DesignReviewDtos {
         private AiQuotaDto quota;
         private String guestSessionToken;
     }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class CreateCustomDesignRequestDto {
+        @Size(max = 4000, message = "Mô tả không được vượt quá 4000 ký tự")
+        private String description;
+        private String designReference;
+        private Integer designVersion;
+        private List<String> imageReferences;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class CustomDesignRevisionDto {
+        @Size(max = 4000, message = "Mô tả không được vượt quá 4000 ký tự")
+        private String description;
+        private String designReference;
+        private Integer designVersion;
+        private List<String> imageReferences;
+        private String clarificationResponse;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class CustomDesignDecisionDto {
+        @NotBlank(message = "Decision must not be blank")
+        private String decision; // CLARIFICATION_REQUIRED, ACCEPTED, REJECTED
+        @NotBlank(message = "Explanation must not be blank")
+        @Size(min = 1, max = 2000, message = "Explanation must be between 1 and 2000 characters")
+        private String explanation;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class QuoteCommandDto {
+        @NotBlank(message = "Total amount is required")
+        private String totalAmount;
+        @Builder.Default
+        private String currency = "VND";
+        @NotBlank(message = "Quote expiry is required")
+        private String quoteExpiresAt;
+        private String managerReason;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class CustomDesignRequestProjectionDto {
+        private String requestReference;
+        private String status; // NEED_REVIEW, CLARIFICATION_REQUIRED, ACCEPTED, REJECTED
+        private Integer version;
+        private String explanation;
+        private Object designSnapshot;
+        private String quoteReference;
+        private String description;
+        private List<ImageProjectionDto> images;
+        private String trackingLink;
+        private String createdAt;
+        private String updatedAt;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class QuoteProjectionDto {
+        private String quoteReference;
+        private String status; // QUOTE_READY, FULL_PAYMENT_PENDING, PAID, QUOTE_EXPIRED, PAYMENT_EXPIRED, CANCELLED
+        private String expiresAt;
+        private String totalAmount;
+        @Builder.Default
+        private String currency = "VND";
+        @Builder.Default
+        private String paymentMode = "FULL_CUSTOM_ORDER_PAYMENT";
+        private Integer quoteGeneration;
+        private Boolean approvedByManager;
+        private String managerReason;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class CustomOrderProjectionDto {
+        private String customOrderReference;
+        private String status; // QUOTE_PENDING, FULL_PAYMENT_PENDING, PAID, IN_PRODUCTION, READY_FOR_FULFILMENT, CLOSED, QUOTE_EXPIRED, CANCELLED
+        private QuoteProjectionDto quote;
+        private Object designSnapshot;
+        private String nextAction;
+        private String productionStatus;
+        private String fulfilmentStatus;
+        private String createdAt;
+        private String updatedAt;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class PaymentAttemptProjectionDto {
+        private String paymentAttemptReference;
+        private String status; // INITIATED, PENDING, EXPIRED, PAID, FAILED
+        private String paymentUrl;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class CustomRequestListProjectionDto {
+        private List<CustomDesignRequestProjectionDto> items;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class CustomOrderListProjectionDto {
+        private List<CustomOrderProjectionDto> items;
+    }
 }

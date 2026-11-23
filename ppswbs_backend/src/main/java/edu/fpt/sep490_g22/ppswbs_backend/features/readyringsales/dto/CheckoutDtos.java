@@ -41,14 +41,41 @@ public final class CheckoutDtos {
             this(selection, branchOrders, cartLineIds, null);
         }
     }
+    /**
+     * {@code discountAmount} is the whole programme discount (automatic discount plus voucher). Since FE-06 stacks
+     * them (Session 2026-11-22), {@code autoDiscountAmount} and {@code voucherDiscountAmount} are its two parts; both
+     * are null when FE-06 did not split it.
+     */
     public record BenefitPreviewView(String previewId, String currency, String merchandiseSubtotal,
                                      boolean shippingExcluded, String discountAmount, String pointsDiscountAmount,
                                      String payableAmount, String expiresAt, String shippingTotal,
                                      boolean eligible, List<String> reasons, String maxPoints, String minRedeemPoints,
-                                     List<String> eligibleCartLineIds, String appliedVoucherCode) {
+                                     List<String> eligibleCartLineIds, String appliedVoucherCode,
+                                     String autoDiscountAmount, String voucherDiscountAmount, Boolean pointsAllowed) {
         public BenefitPreviewView {
             reasons = reasons == null ? List.of() : List.copyOf(reasons);
             eligibleCartLineIds = eligibleCartLineIds == null ? List.of() : List.copyOf(eligibleCartLineIds);
+        }
+        /** View without saying whether points may be used with the selection (null = not known). */
+        public BenefitPreviewView(String previewId, String currency, String merchandiseSubtotal,
+                                  boolean shippingExcluded, String discountAmount, String pointsDiscountAmount,
+                                  String payableAmount, String expiresAt, String shippingTotal,
+                                  boolean eligible, List<String> reasons, String maxPoints, String minRedeemPoints,
+                                  List<String> eligibleCartLineIds, String appliedVoucherCode,
+                                  String autoDiscountAmount, String voucherDiscountAmount) {
+            this(previewId, currency, merchandiseSubtotal, shippingExcluded, discountAmount, pointsDiscountAmount,
+                payableAmount, expiresAt, shippingTotal, eligible, reasons, maxPoints, minRedeemPoints,
+                eligibleCartLineIds, appliedVoucherCode, autoDiscountAmount, voucherDiscountAmount, null);
+        }
+        /** View without the two discount parts (before stacking). */
+        public BenefitPreviewView(String previewId, String currency, String merchandiseSubtotal,
+                                  boolean shippingExcluded, String discountAmount, String pointsDiscountAmount,
+                                  String payableAmount, String expiresAt, String shippingTotal,
+                                  boolean eligible, List<String> reasons, String maxPoints, String minRedeemPoints,
+                                  List<String> eligibleCartLineIds, String appliedVoucherCode) {
+            this(previewId, currency, merchandiseSubtotal, shippingExcluded, discountAmount, pointsDiscountAmount,
+                payableAmount, expiresAt, shippingTotal, eligible, reasons, maxPoints, minRedeemPoints,
+                eligibleCartLineIds, appliedVoucherCode, null, null, null);
         }
         /** View without the discounted cart lines and voucher code (the discount then covers every line). */
         public BenefitPreviewView(String previewId, String currency, String merchandiseSubtotal,

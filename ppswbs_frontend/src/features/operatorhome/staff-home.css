@@ -1,0 +1,37 @@
+.staff-home{display:flex;flex-direction:column;gap:22px}
+.staff-home-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.staff-home-card{display:flex;flex-direction:column;align-items:flex-start;gap:16px;min-height:160px;padding:22px 24px;border:2px solid #e5e7eb;border-radius:16px;background:#fff;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.staff-home-card:hover{border-color:#d1d5db}
+.staff-home-card.active{border-color:#e0c800;background:#fffbe0}
+.staff-home-card:focus-visible{outline:2px solid #111827;outline-offset:2px}
+.staff-home-card-head{display:flex;align-items:flex-start;gap:14px;width:100%}
+.staff-home-icon{display:flex;align-items:center;justify-content:center;flex:0 0 auto;width:48px;height:48px;border-radius:12px}
+.staff-home-icon.workshop{background:#e0ecff;color:#1d4ed8}
+.staff-home-icon.orders{background:#fff1d6;color:#b45309}
+.staff-home-card-name{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0}
+.staff-home-card-name strong{font-size:20px;color:#111827}
+.staff-home-card-name small{font-size:13px;color:#4b5563}
+.staff-home-alert{flex:0 0 auto;padding:6px 12px;border-radius:999px;background:#c81e1e;color:#fff;font-size:12px;font-weight:600;white-space:nowrap}
+.staff-home-count{display:flex;align-items:baseline;gap:8px;font-size:14px;color:#4b5563}
+.staff-home-count strong{font-size:36px;color:#111827}
+.staff-home-next{width:100%;box-sizing:border-box;padding:9px 12px;border-radius:10px;background:#fde8e8;color:#9b1c1c;font-size:13px;font-weight:600}
+.staff-home-list{display:flex;flex-direction:column;gap:10px}
+.staff-home-list-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.staff-home-list-head .operator-home-section{margin:0}
+.staff-home-list-head a{font-size:13px;font-weight:600;color:#1d4ed8}
+.staff-home-task{display:flex;align-items:center;gap:14px;padding:16px 18px;border:1px solid #e5e7eb;border-radius:12px;background:#fff;color:inherit;text-decoration:none}
+.staff-home-task:hover{border-color:#111827}
+.staff-home-dot{flex:0 0 auto;width:10px;height:10px;border-radius:50%;background:#9ca3af}
+.staff-home-dot.urgent{background:#c81e1e}
+.staff-home-task-text{display:flex;flex-direction:column;gap:3px;flex:1;min-width:0}
+.staff-home-task-text strong{font-size:15px;color:#111827}
+.staff-home-task-text small{font-size:13px;color:#4b5563}
+.staff-home-task-action{padding:8px 14px;border-radius:8px;background:#eedc35;color:#121316;font-size:13px;font-weight:600;white-space:nowrap}
+.staff-home-empty{margin:0;padding:22px;border:1px dashed #d1d5db;border-radius:12px;background:#fff;color:#4b5563;font-size:14px;text-align:center}
+.staff-home-more{display:flex;flex-wrap:wrap;gap:10px;padding-top:4px}
+.staff-home-more a{padding:8px 12px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;color:#111827;font-size:13px;font-weight:600;text-decoration:none}
+.staff-home-more a:hover{border-color:#111827}
+@media(max-width:720px){.staff-home-cards{grid-template-columns:1fr}.staff-home-card-head{flex-wrap:wrap}}
+
+/* Greeting under the shell title (Session 2026-11-22). */
+.staff-home .operator-home-hello{font-size:18px;font-weight:600;color:#111827;margin:0 0 2px}

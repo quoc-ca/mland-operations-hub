@@ -123,6 +123,11 @@ public class WorkshopRingDesignApplicationService {
 
     @Transactional(readOnly = true)
     public List<DesignResponseDto> listMyDesigns(Long memberAccountId, String guestSessionHeader) {
+        return listMyDesigns(memberAccountId, guestSessionHeader, false);
+    }
+
+    @Transactional(readOnly = true)
+    public List<DesignResponseDto> listMyDesigns(Long memberAccountId, String guestSessionHeader, boolean includeArchived) {
         RingDesignOwnerType ownerType;
         String ownerReference;
 
@@ -157,7 +162,7 @@ public class WorkshopRingDesignApplicationService {
 
         List<RingDesign> latestList = new ArrayList<>();
         for (RingDesign d : latestByRef.values()) {
-            if (d.getStatus() != RingDesignStatus.ARCHIVED) {
+            if (includeArchived || d.getStatus() != RingDesignStatus.ARCHIVED) {
                 latestList.add(d);
             }
         }
@@ -275,7 +280,7 @@ public class WorkshopRingDesignApplicationService {
                 .currency(eval.getCurrency())
                 .difficultyScore(new BigDecimal(eval.getDifficultyScore()))
                 .rulesVersion(eval.getRulesVersion())
-                .status(RingDesignStatus.VALIDATED)
+                .status(RingDesignStatus.SAVED)
                 .build();
 
         RingDesign saved = designRepository.save(newVersion);
@@ -365,9 +370,9 @@ public class WorkshopRingDesignApplicationService {
 
         verifyOwnership(latest, memberAccountId, guestSessionHeader);
 
-        if (latest.getStatus() != RingDesignStatus.VALIDATED) {
+        if (latest.getStatus() != RingDesignStatus.VALIDATED && latest.getStatus() != RingDesignStatus.SAVED) {
             throw RingDesignException.conflict("DESIGN_NOT_VALIDATED",
-                    "Chỉ thiết kế đã được thẩm định (VALIDATED) mới có thể gắn vào lịch đặt.");
+                    "Chỉ thiết kế đã được lưu (SAVED) mới có thể gắn vào lịch đặt.");
         }
 
         if (ifMatchVersion != null && !latest.getDesignVersion().equals(ifMatchVersion.intValue())) {

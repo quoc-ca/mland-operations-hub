@@ -8,7 +8,8 @@ export function loyaltyApi(request) {
 
   return {
     // Public promotions (T070)
-    listPublicPromotions: ({ scope, cursor, limit } = {}) => request('/api/v1/promotions', { query: { scope, cursor, limit }, auth: false }),
+    // distribution (Session 2026-11-22, FR-046): PUBLIC (server default) | CLAIM_REQUIRED | ALL. 006 pages read ALL.
+    listPublicPromotions: ({ scope, cursor, limit, distribution } = {}) => request('/api/v1/promotions', { query: { scope, cursor, limit, distribution }, auth: false }),
     getPublicPromotion: promotionId => request(`/api/v1/promotions/${id(promotionId)}`, { auth: false }),
 
     // Member (T040, T070)

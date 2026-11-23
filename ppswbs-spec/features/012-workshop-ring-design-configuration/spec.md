@@ -1,16 +1,35 @@
 # Feature Specification: Workshop Ring Design Configuration
 
 Date created: 2026-11-08
-Date updated: 2026-11-19
+Date updated: 2026-11-22
 Author: Ngô Tiến Đạt
 Last updated by: Ngô Tiến Đạt
 
 **Feature:** 012 — Workshop Ring Design Configuration  
-**Status:** IMPLEMENTED BASELINE — CHANGE REQUEST PENDING IMPLEMENTATION AND NEW E2E VERIFICATION
+**Status:** IMPLEMENTED BASELINE — 2026-11-22 CHANGE REQUEST DOCUMENTED; IMPLEMENTATION PENDING
 
 > **Change baseline 2026-11-19:** The quota, image preprocessing, preview restoration and locale rules below supersede earlier wording that allowed unlimited engraving items or only validated per-component gemstone quantities. Existing E2E evidence predates these changes.
 
 **Parent business scope:** FE-05 Personalized Design and Quote Workflow  
+
+## Current implementation baseline — 2026-11-22
+
+This superseding baseline governs implementation over earlier booking-attachment
+wording in this document. Feature-012 ends after saving the design and showing
+an advisory workshop recommendation. It does not attach designs to workshop
+tickets or bookings, revalidate branch compatibility for attachment, create
+payment/booking state, or lock a design through booking.
+
+The current customer lifecycle is `DRAFT → SAVED → ARCHIVED`. `VALIDATED` is a
+technical/legacy state only and must not be shown as “Đã thẩm định” on the saved
+design screen. A saved design may open Feature-013 consultation with a safe
+snapshot and may be referenced by Feature-004 custom-design intake.
+
+Recommendations are calculated from the saved design: more than five gemstones
+recommends Silver Clay; difficulty above nine recommends Wax Casting; if both
+conditions apply, Wax Casting is primary. Recommendation is advisory, keeps
+all workshop discovery actions visible, and does not mutate booking, payment,
+price or order state.
 **Source priority:** This feature contract, approved Feature-003 contracts,
 `spec-general.md`, `DB.md`, and approved Report 3 requirements. Existing code or
 visual prototypes are evidence only and do not override a documented decision.
@@ -20,24 +39,53 @@ visual prototypes are evidence only and do not override a documented decision.
 Feature-012 lets a Guest or Member configure one workshop ring from approved
 catalogue options after selecting a workshop package and before selecting a
 branch/session. The feature validates the current configuration, returns an
-advisory estimate/difficulty result, maintains design versions, and exposes a
-safe snapshot for workshop booking.
+advisory estimate/difficulty result, maintains design versions, shows an
+advisory workshop recommendation after saving, and exposes a safe
+owner-verified snapshot for custom-design consultation/order intake.
 
 The feature does not create a booking, hold capacity, initiate payment, issue a
 ticket, publish a product, accept a custom-manufacturing order, or perform AI
 analysis.
 
+### Superseding change request — 2026-11-22
+
+The rules in this section supersede earlier booking-attachment wording in this
+document and its design artifacts:
+
+- Feature-012 no longer attaches a configured design to a workshop ticket or
+  booking. The booking facade, booking snapshot, branch revalidation for
+  attachment, `ATTACHED_TO_BOOKING`, and `LOCKED` are not part of the new
+  customer flow.
+- The new lifecycle is `DRAFT -> SAVED -> ARCHIVED`. `VALIDATED` is not a
+  customer-facing approval state. Existing `VALIDATED`, `ATTACHED_TO_BOOKING`,
+  and `LOCKED` rows are legacy-readable only and must not be created by the new
+  flow.
+- A successful Save operation creates `SAVED`; technical evaluation remains a
+  separate advisory result and never means Staff or Manager approval.
+- A saved design receives an advisory workshop recommendation. More than five
+  gemstones recommends Silver Clay; a difficulty score above nine recommends
+  Wax Casting. If both conditions apply, Wax Casting is the primary
+  recommendation. Otherwise, Signature Silver or Signature Brass is selected
+  from the server catalogue's material category.
+- Recommendations must not alter price, force a booking, hide other workshops,
+  or remove the `Explore workshops` action. Wax Casting must state that it
+  requires two sessions on different days.
+- Feature-004 may consume an immutable snapshot of any owner-visible design
+  state, including archived and legacy rows. Ownership is still revalidated by
+  the server and the source design is never unlocked or mutated.
+
 ## 2. Actors and permissions
 
 | Actor | Allowed actions | Conditions |
 | --- | --- | --- |
-| Guest | Browse options, create/edit/evaluate a draft, view its current summary, and pass a validated design to a booking attempt | Must hold the current opaque design-session reference; session expires after 20 minutes of inactivity. |
-| Member | Browse options, create/edit/evaluate designs, view own current designs and version history, archive own unsubmitted designs, and attach an eligible design to a booking | Firebase identity is authenticated; backend verifies Member status and ownership. |
+| Guest | Browse options, create/edit/evaluate a draft, view its current summary, save it, archive it and follow an advisory workshop recommendation | Must hold the current opaque design-session reference; session expires after 20 minutes of inactivity. |
+| Member | Browse options, create/edit/evaluate designs, view own current designs and version history, save/archive own designs and follow an advisory workshop recommendation | Firebase identity is authenticated; backend verifies Member status and ownership. |
 | Staff | No Feature-012 customer-design mutation or business-rule administration | May receive only data exposed through another approved operational workflow. |
 | Manager | Owns approved business rules, option availability, component price inputs and difficulty rules | Management operations require the separate approved authority contract. |
 | Admin | Technical/audit access only where separately granted | Does not make routine design, price or feasibility decisions. |
-| Workshop Booking | Consumes validated design snapshot through the Feature-012 facade | Must not access Feature-012 repositories directly. |
-| AI Provider | No direct permission | Feature-004 remains the owner of any AI call. |
+| Feature-004 / Feature-013 | Consume an owner-safe saved-design snapshot for custom-design intake or consultation context | Must use the approved facade/projection; must not access Feature-012 repositories directly. |
+| Workshop Booking | No current Feature-012 attachment consumer | Historical booking attachment is retired. |
+| AI Provider | No permission and no current integration | Feature-012 performs no AI call. |
 
 Client-provided owner, role, price, difficulty, compatibility, status or
 booking association is untrusted. All authorization and validation are repeated
@@ -328,15 +376,10 @@ No AI provider is called by Feature-012 to calculate these values.
 
 ## 6. Version and status rules
 
-The logical lifecycle is:
+The current logical lifecycle is:
 
 ```text
-DRAFT
-  → VALIDATED
-  → ATTACHED_TO_BOOKING
-  → LOCKED
-
-DRAFT/VALIDATED → ARCHIVED
+DRAFT → SAVED → ARCHIVED
 ```
 
 Rules:
@@ -344,10 +387,8 @@ Rules:
 - Each successful Save/Evaluate creates a new design version.
 - Older versions remain readable in Member history and audit projections.
 - Only the latest unarchived version may be edited.
-- A version attached to a booking cannot be edited or archived through the
-  customer flow.
-- Booking submission locks the attached version.
-- A failed booking submission does not invalidate or delete the design.
+- Legacy booking states are readable for migration compatibility only and are not
+  created by the current flow.
 - Archive is a soft-delete operation; normal feature actions never hard-delete
   design history.
 
@@ -362,7 +403,7 @@ the existing `DB.md` proposal before migration or implementation.
 - The reference contains no raw email, phone, database ID or design payload.
 - The session is scoped to the Guest flow and expires after 20 minutes of
   inactivity.
-- Expiry removes the ability to mutate or attach the draft.
+- Expiry removes the ability to mutate the draft or create a new snapshot.
 - The expired session response must not reveal whether a particular internal
   design row existed.
 
@@ -401,18 +442,25 @@ reference required by the approved transport and never persists raw identity,
 database IDs or design payloads in local storage. Session persistence and
 cleanup remain backend responsibilities.
 
-## 8. Booking attachment
+## 8. Retired booking attachment
 
-Feature-003 calls the Feature-012 facade with a design reference/version and its
-booking context. Feature-012:
+The former booking attachment contract is retained below only as historical
+context. It is not a current Feature-012 requirement and must not be used for
+new implementation or acceptance testing. Feature-003 no longer consumes a
+Feature-012 booking attachment operation.
+
+The former Feature-003 attachment call is retained only for migration and
+historical test interpretation. It is no longer an active cross-feature flow.
+The former behavior was:
 
 1. Verifies ownership or Guest-session proof.
 2. Verifies the design version is `VALIDATED` and not stale/archived.
 3. Revalidates package and selected branch compatibility.
 4. Returns a safe immutable design snapshot.
 
-Feature-003 stores the snapshot as part of its approved booking boundary. Feature-
-012 does not create booking, invoice, hold, payment or ticket records.
+Feature-003 no longer stores a Feature-012 booking snapshot. Current consumers
+use the saved-design recommendation or the Feature-013 consultation handoff;
+Feature-012 does not create booking, invoice, hold, payment or ticket records.
 
 Attachment must be all-or-nothing from the booking use case's perspective. If
 booking creation or payment preparation fails, the validated design remains
@@ -427,7 +475,7 @@ available for a new attempt and no partial booking side effect is claimed.
 | Save/Evaluate | Own active Guest session | Own design | Deny | Deny as customer actor | Deny |
 | View design/version | Own session only | Own designs only | Deny by default | Approved operational projection only | Technical/audit projection only |
 | Archive unsubmitted design | Own active session where applicable | Own unsubmitted design | Deny | Deny | Deny |
-| Attach to booking | Own active session | Own design | Deny | Deny as customer actor | Deny |
+| Receive workshop recommendation | Own active session | Own design | Deny | Deny as customer actor | Deny |
 | Change business option/rule catalogue | Deny | Deny | Deny unless another approved feature grants catalogue input | Allow under Manager authority | Technical settings only |
 
 ## 10. Error, retry and concurrency behavior
@@ -521,9 +569,9 @@ The logical decisions below are now fixed for design review:
    records lineage and no separate version table is required in V1.
 2. Guest sessions are Feature-012-owned MySQL records with opaque reference or
    digest, `ACTIVE/EXPIRED/REVOKED` state and 20-minute inactivity expiry.
-3. Booking uses synchronous `attachAndLockDesignForBooking(...)`; the design
-   locks only when the booking transaction commits and rollback leaves it
-   retryable.
+3. The former synchronous `attachAndLockDesignForBooking(...)` operation is
+   retired. The current flow ends at saved-design recommendation and optional
+   Feature-013 consultation; no booking transaction locks a Feature-012 design.
 4. Evaluation is delegated to a Manager-owned catalogue/rule facade. Feature-012
    stores safe input/output snapshots and `rules_version`, but no hard-coded
    numerical pricing or difficulty formula.
@@ -573,7 +621,7 @@ snapshot facade. This is a reference handoff, not an approval and not a booking
 mutation.
 
 ```text
-DRAFT or VALIDATED design
+DRAFT, SAVED, ARCHIVED or legacy-readable design
 → createCustomDesignReference(...)
 → immutable CustomDesignReferenceSnapshot
 → Feature-004 custom request review
@@ -581,20 +629,22 @@ DRAFT or VALIDATED design
 
 Rules:
 
-- `DRAFT` and `VALIDATED` versions may be used as custom-order references.
-- `ATTACHED_TO_BOOKING` and `LOCKED` versions cannot be reused directly.
-- Reuse of a locked design requires a new cloned version with lineage evidence.
+- Any owner-visible state may be used as a custom-order reference.
+- Legacy locked rows are copied read-only; no unlock or clone is required by
+  Feature-004 reference capture.
 - Feature-004 stores its own snapshot; later design edits do not change the
   request under review.
 - Feature-012 does not approve, quote, reserve production capacity or initiate
   payment for a custom order.
 
-## 17. Workshop recommendation and ticket assignment
+## 17. Workshop recommendation
 
 Recommendations are advisory and are derived from server-owned package/material,
 gemstone, engraving and difficulty rules. They never select a package, block a
 customer or create a booking.
 
-A group booking may use one default design, but the booking contract stores one
-design snapshot per ticket. Each ticket may override the group default before
-submission. Only `VALIDATED` versions may be attached to tickets.
+More than five gemstones recommends Silver Clay. A difficulty score above nine
+recommends Wax Casting and displays the two-session/two-day note. If both apply,
+Wax Casting is primary. Otherwise the material category resolves Signature
+Silver or Signature Brass. The recommendation is advisory and never hides the
+Explore workshops action.

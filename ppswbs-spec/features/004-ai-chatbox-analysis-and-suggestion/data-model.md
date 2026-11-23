@@ -1,7 +1,7 @@
 # Feature-004 Data Model — Design Request and Human Review
 
 Date created: 2026-11-20
-Date updated: 2026-11-20
+Date updated: 2026-11-21
 Author: Ngô Tiến Đạt
 Last updated by: Ngô Tiến Đạt
 
@@ -75,18 +75,45 @@ rejection, conflict and deletion. Raw images, raw tokens and unnecessary PII are
 10. Review history and audit are append-only and not hard-deleted.
 11. No entity or foreign key references Workshop Booking, Payment or Feature-012 internals.
 
-## Custom-order intake additions
+## Custom-order intake additions (V190 Schema Baseline)
 
 The request aggregate is also the intake boundary for a Member custom order. The
-logical model adds `custom_design_request_revisions`, `custom_design_decisions`,
-`custom_design_reference_snapshots` and `custom_order_quote_handoffs`.
+physical model defines `custom_design_reference_snapshots`, `custom_design_request_revisions`,
+`custom_orders`, `custom_order_quotes`, `custom_order_payment_context`, and
+`custom_order_idempotency_records`:
+
+### `custom_design_reference_snapshots`
+- `snapshot_reference`, `design_reference`, `design_version`.
+- `design_snapshot_json`: Immutable JSON serialization captured from Feature-012 facade.
+- Created when a request references a persisted Feature-012 ring design.
+
+### `custom_design_request_revisions`
+- `revision_reference`, `request_id`, `revision_number`.
+- `description`, `design_reference`, `design_version`, `created_at`.
+- Created when Member submits a revision in response to `CLARIFICATION_REQUIRED`.
+
+### `custom_orders`
+- `custom_order_reference`, `request_reference`, `member_account_id`.
+- `quote_reference`, `quote_generation`.
+- `status`: `QUOTE_PENDING`, `FULL_PAYMENT_PENDING`, `PAID`, `IN_PRODUCTION`, `FULFILLED`, `CLOSED`, `EXPIRED`, `CANCELLED`.
+- `production_status`, `fulfilment_status`, `payment_deadline_at`, `closed_at`.
+
+### `custom_order_quotes`
+- `quote_reference`, `custom_order_reference`, `quote_generation`.
+- `quoted_amount`, `currency` (VND), `status`: `PENDING_APPROVAL`, `APPROVED`, `REJECTED`, `EXPIRED`.
+- `quote_expires_at`, `approved_by_account_id`, `approved_at`, `rejection_reason`.
+
+### `custom_order_payment_context`
+- `payment_reference`, `custom_order_reference`, `quote_reference`, `amount`.
+- `payment_owner_kind`: `CUSTOM_ORDER_FULL_PAYMENT`.
+- `status`: `INITIATED`, `VERIFIED`, `FAILED`, `EXPIRED`.
 
 - A reference snapshot is immutable and created from a Feature-012 `DRAFT` or
   `VALIDATED` version through a public facade.
 - `CLARIFICATION_REQUIRED` creates a new revision and returns the request to
   `NEED_REVIEW`; the previous decision remains audit history.
 - `ACCEPTED` creates a custom-order quote handoff but no cart line. The order is
-  payable only as one complete quoted amount.
+  payable only as one complete quoted amount (100% full payment).
 - `quote_expires_at` is Manager-policy controlled. The payment context and any
   temporary queue hold expire together at the configured deadline.
 - A custom order retains the immutable quoted total, currency, quote generation,

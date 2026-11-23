@@ -21,4 +21,6 @@ public class PackageResponse {
     private Integer minimumSameDaySlotGap;
     private Integer requiredFoundryWorkingDaysBetweenSessions;
     private WorkshopPackageState state;
+    /** Locations where the package is sellable; filled only by the public list so offers can be priced per branch. */
+    private java.util.List<Long> branchIds;
 }

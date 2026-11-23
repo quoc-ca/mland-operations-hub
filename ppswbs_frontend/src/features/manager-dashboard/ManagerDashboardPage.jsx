@@ -6,6 +6,7 @@ import { roleHomePath } from '../../shared/auth/roleHome';
 import { ErrorNotice, Loading, useResource } from '../../shared/ui/components';
 import { OperationsAuthWorkspace } from '../../shared/ui/OperationsAuthWorkspace';
 import { HomeBlocks } from '../managerhome';
+import { useLanguage } from '../../shared/i18n/I18nProvider';
 import RevenueReport from './RevenueReport';
 import '../../ota-connectivity/ota-connectivity.css';
 import './managerDashboard.css';
@@ -18,10 +19,12 @@ import './managerDashboard.css';
 export default function ManagerDashboardPage() {
   const { status } = useAuth();
   const http = useHttp();
+  const { language } = useLanguage();
+  const en = language === 'en';
   const profile = useResource(() => (status === 'signed-in' ? http('/api/v1/accounts/me/profile') : Promise.resolve(null)), [status]);
 
   if (status === 'loading') return <Loading />;
-  if (status !== 'signed-in') return <OperationsAuthWorkspace topline="MLAND / DASHBOARD" message="Đăng nhập bằng tài khoản Manager để xem dashboard." />;
+  if (status !== 'signed-in') return <OperationsAuthWorkspace topline="MLAND / DASHBOARD" message={en ? 'Sign in with a Manager account to see the dashboard.' : 'Đăng nhập bằng tài khoản Manager để xem dashboard.'} />;
   if (profile.error) return <ErrorNotice error={profile.error} onRetry={profile.reload} />;
   if (profile.loading || !profile.data) return <Loading />;
 
@@ -34,7 +37,7 @@ export default function ManagerDashboardPage() {
       <main className="ota-main manager-dashboard mh-page">
         <HomeBlocks revenue={(
           <section aria-labelledby="mh-revenue" className="mh-section">
-            <h2 id="mh-revenue" className="mh-section-title">Doanh thu và hiệu suất</h2>
+            <h2 id="mh-revenue" className="mh-section-title">{en ? 'Revenue and performance' : 'Doanh thu và hiệu suất'}</h2>
             <RevenueReport />
           </section>
         )} />

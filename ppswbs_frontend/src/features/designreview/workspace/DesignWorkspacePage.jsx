@@ -1,9 +1,11 @@
-import React, { useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router';
+import React, { useEffect, useRef, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import { useAuth } from '../../../shared/auth/AuthProvider';
 import { useT } from '../../../shared/i18n/I18nProvider';
 import { ErrorNotice, Field, Loading, SuccessNotice, useCommand } from '../../../shared/ui/components';
 import { useDesignReviewApi } from '../api/useDesignReviewApi';
+import { useWorkshopRingDesignApi } from '../../ringdesignconfiguration/api/useWorkshopRingDesignApi';
+import { derivePreviewModel } from '../../ringdesignconfiguration/domain/designPreview';
 import { designReviewMessages } from '../messages';
 import {
   ALLOWED_IMAGE_TYPES,
@@ -16,15 +18,46 @@ import {
   validateImageFile,
 } from '../rules';
 
+function formatDesignOptionLabel(d) {
+  if (!d) return '';
+  const snap = d.componentSnapshot || {};
+  const preview = derivePreviewModel(snap);
+
+  const mat = preview.material?.label || 'Bạc Ý 925';
+  const shape = preview.shape?.label || 'Tròn cổ điển';
+  const size = `Size ${preview.ringSize || '8'} (${preview.circumferenceMm || 48}mm)`;
+
+  const totalGems = (snap.components || []).reduce((sum, c) => sum + (Number(c.quantity) || 1), 0);
+  const gemsText = totalGems > 0 ? `${totalGems} đá quý` : 'Không đính đá';
+
+  const hasTextEngraving = Boolean(snap.engravingText || (snap.engravings && snap.engravings.length > 0));
+  const hasImgEngraving = Boolean(snap.customImages && snap.customImages.length > 0);
+  let engravingText = 'Không khắc';
+  if (hasTextEngraving && hasImgEngraving) {
+    engravingText = 'Khắc chữ + ảnh';
+  } else if (hasTextEngraving) {
+    engravingText = 'Khắc chữ';
+  } else if (hasImgEngraving) {
+    engravingText = 'Khắc ảnh laser';
+  }
+
+  const shortId = d.designId?.length > 10 ? d.designId.slice(-6).toUpperCase() : d.designId;
+  return `Mẫu #${shortId}: ${mat} · ${shape} · ${size} · ${gemsText} · ${engravingText} (v${d.designVersion || 1})`;
+}
+
 export default function DesignWorkspacePage() {
   const t = useT(designReviewMessages);
   const navigate = useNavigate();
   const api = useDesignReviewApi();
+  const workshopRingApi = useWorkshopRingDesignApi();
   const command = useCommand();
   const { status: authStatus, userId } = useAuth();
   const isAuthenticated = authStatus === 'signed-in' || Boolean(userId);
 
   const fileInputRef = useRef(null);
+
+  const [searchParams] = useSearchParams();
+  const ringDesignRef = searchParams.get('designReference') || searchParams.get('ringDesignReference') || '';
 
   const [description, setDescription] = useState('');
   const [selectedImages, setSelectedImages] = useState([]);
@@ -32,6 +65,28 @@ export default function DesignWorkspacePage() {
   const [errors, setErrors] = useState({});
   const [guestSubmission, setGuestSubmission] = useState(null);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [availableDesigns, setAvailableDesigns] = useState([]);
+  const [selectedDesignRef, setSelectedDesignRef] = useState(ringDesignRef);
+  const [loadingDesigns, setLoadingDesigns] = useState(false);
+  const selectedDesignObj = availableDesigns.find((d) => d.designId === selectedDesignRef);
+
+  useEffect(() => {
+    if (ringDesignRef) {
+      setSelectedDesignRef(ringDesignRef);
+    }
+  }, [ringDesignRef]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    setLoadingDesigns(true);
+    workshopRingApi
+      .listMyDesigns(null, true, true)
+      .then((designs) => {
+        setAvailableDesigns(Array.isArray(designs) ? designs : []);
+      })
+      .catch(() => {})
+      .finally(() => setLoadingDesigns(false));
+  }, [isAuthenticated, workshopRingApi]);
 
   const charCount = [...description].length;
 
@@ -170,6 +225,7 @@ export default function DesignWorkspacePage() {
         key,
         {
           description: description.trim(),
+          designReference: selectedDesignRef || ringDesignRef || null,
           consentVersion: selectedImages.length > 0 ? CONSENT_VERSION : null,
           consentPurpose: selectedImages.length > 0 ? CONSENT_PURPOSE : null,
           designVersion: 1,
@@ -271,14 +327,115 @@ export default function DesignWorkspacePage() {
         </div>
       </header>
 
-      <div className="boundary-banner" role="status">
-        <strong>{t('workspace.boundaryNotice')}</strong>
-      </div>
-
       <ErrorNotice error={command.error} messages={designReviewMessages} onRetry={command.retry} />
       {errors.form && <div className="notice error">{errors.form}</div>}
 
       <form onSubmit={handleSubmit} className="stack">
+        {/* Feature-012 Ring Design Attachment */}
+        <div className="field" data-testid="ring-design-attachment-field">
+          <label htmlFor="ring-design-select">
+            Mẫu thiết kế nhẫn Feature-012 đính kèm (Tùy chọn)
+          </label>
+          {isAuthenticated ? (
+            <div>
+              {availableDesigns.length > 0 ? (
+                <div>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <select
+                      id="ring-design-select"
+                      value={selectedDesignRef}
+                      onChange={(e) => setSelectedDesignRef(e.target.value)}
+                      style={{ flex: 1, minWidth: '260px', padding: '0.6rem 0.75rem', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.875rem' }}
+                      data-testid="ring-design-select"
+                    >
+                      <option value="">-- Không đính kèm mẫu thiết kế --</option>
+                      {availableDesigns.map((d) => (
+                        <option key={d.designId} value={d.designId}>
+                          {formatDesignOptionLabel(d)}
+                        </option>
+                      ))}
+                    </select>
+                    {selectedDesignRef && (
+                      <button
+                        type="button"
+                        className="button outline small"
+                        onClick={() => setSelectedDesignRef('')}
+                        data-testid="clear-design-btn"
+                      >
+                        ✕ Gỡ đính kèm
+                      </button>
+                    )}
+                  </div>
+
+                  {selectedDesignObj && (() => {
+                    const snap = selectedDesignObj.componentSnapshot || {};
+                    const preview = derivePreviewModel(snap);
+                    const totalGems = (snap.components || []).reduce((sum, c) => sum + (Number(c.quantity) || 1), 0);
+                    const cost = selectedDesignObj.evaluation?.estimatedCost;
+                    const diffScore = selectedDesignObj.evaluation?.difficultyScore;
+                    return (
+                      <div
+                        style={{
+                          marginTop: '0.75rem',
+                          padding: '0.875rem 1rem',
+                          background: '#f8fafc',
+                          border: '1px solid #cbd5e1',
+                          borderRadius: '8px',
+                          fontSize: '0.875rem',
+                        }}
+                        data-testid="selected-design-preview-card"
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.625rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                          <span style={{ fontWeight: 600, color: '#0f172a' }}>
+                            💎 Chi tiết mẫu đã chọn: <code style={{ color: '#0284c7', background: '#f1f5f9', padding: '0.15rem 0.4rem', borderRadius: '4px' }}>{selectedDesignObj.designId}</code>
+                          </span>
+                          <span style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem', background: '#e0f2fe', color: '#0369a1', borderRadius: '4px', fontWeight: 600 }}>
+                            Phiên bản {selectedDesignObj.designVersion} · {selectedDesignObj.status || 'SAVED'}
+                          </span>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.5rem', color: '#334155', lineHeight: 1.5 }}>
+                          <div><strong>Chất liệu:</strong> {preview.material?.label || 'Bạc Ý 925'}</div>
+                          <div><strong>Dáng đai:</strong> {preview.shape?.label || 'Tròn cổ điển'}</div>
+                          <div><strong>Kích cỡ:</strong> Size {preview.ringSize || '8'} (Chu vi ~{preview.circumferenceMm} mm)</div>
+                          <div><strong>Kích thước đai:</strong> Dày {preview.thicknessMm} mm · Rộng {preview.bandWidthMm} mm</div>
+                          <div><strong>Đá quý:</strong> {totalGems > 0 ? `${totalGems} viên` : 'Không có'}</div>
+                          <div><strong>Khắc cá nhân:</strong> {snap.engravingText ? `Chữ: "${snap.engravingText}"` : (snap.customImages?.length > 0 ? `${snap.customImages.length} ảnh laser` : 'Không có')}</div>
+                          {cost != null && (
+                            <div><strong>Giá thẩm định ước tính:</strong> {Number(cost).toLocaleString('vi-VN')} đ</div>
+                          )}
+                          {diffScore != null && (
+                            <div><strong>Độ khó tham khảo:</strong> {diffScore}/10</div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              ) : (
+                <p className="muted small" style={{ margin: 0 }}>
+                  Bạn chưa có mẫu thiết kế nào được lưu.{' '}
+                  <Link to="/workshops" target="_blank">Thiết kế mẫu nhẫn ngay ↗</Link>
+                </p>
+              )}
+            </div>
+          ) : (
+            <div>
+              <input
+                id="ring-design-select"
+                type="text"
+                placeholder="Nhập mã thiết kế (VD: DES-176378...)"
+                value={selectedDesignRef}
+                onChange={(e) => setSelectedDesignRef(e.target.value)}
+                style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #cbd5e1' }}
+                data-testid="guest-ring-design-input"
+              />
+              <span className="muted small">
+                Nếu bạn đã lưu một mẫu thiết kế nhẫn ở bước workshop, nhập mã thiết kế tại đây để nhân viên tham khảo.
+              </span>
+            </div>
+          )}
+        </div>
+
         <Field
           label={t('workspace.descriptionLabel')}
           hint={t('workspace.charCount', { count: charCount })}

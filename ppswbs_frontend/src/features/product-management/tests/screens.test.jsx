@@ -1103,6 +1103,24 @@ describe('T072 hand-off to the FE-08 cart', () => {
     expect(calls.find(call => call.method === 'POST').body).toEqual({ variantId: 101, locationId: 9, quantity: 1 });
   });
 
+  it('"Mua Ngay" for a size the cart already holds up to the stock opens checkout with that line (Shopee, 2026-11-23)', async () => {
+    const user = userEvent.setup();
+    mockFetch({
+      'GET /api/v1/products/42': json(200, publicProduct()),
+      'GET /api/v1/product-selling-locations': json(200, locations),
+      'POST /api/v1/members/me/ready-ring-cart/lines': json(409, { code: 'RETAIL_CART_QUANTITY_LIMIT', message: 'Bạn đã có 2 sản phẩm này trong giỏ hàng.' }),
+      'GET /api/v1/members/me/ready-ring-cart': json(200, { version: 3, lines: [{ id: '77', variantId: 101, locationId: 9, quantity: 2 }] }),
+    });
+    const { router } = renderRoutes([...productManagementRoutes, { path: '/member/checkout', element: <p>FE-08 checkout</p> }], { path: '/products/42' });
+    await screen.findByRole('option', { name: /MLAND Thủ Đức/ });
+    await user.click(screen.getByRole('button', { name: 'Size 12' }));
+    await user.selectOptions(screen.getByLabelText('Chi nhánh'), '9');
+    await user.click(screen.getByRole('button', { name: 'Mua Ngay' }));
+    expect(await screen.findByText('FE-08 checkout')).toBeInTheDocument();
+    expect(router.state.location.state).toEqual({ cartLineIds: ['77'] });
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+  });
+
   it('"Mua Ngay" opens the FE-08 cart when the added line is not in the reply (FR-059(4))', async () => {
     const user = userEvent.setup();
     mockFetch({
@@ -1217,8 +1235,11 @@ describe('T072 hand-off to the FE-08 cart', () => {
     await user.click(screen.getByRole('button', { name: 'Size 12' }));
     await user.selectOptions(screen.getByRole('combobox', { name: 'Chi nhánh' }), '3');
     await user.click(screen.getByRole('button', { name: 'Thêm Vào Giỏ Hàng' }));
-    expect(await screen.findByText('Giỏ hàng đã đủ 50 dòng.')).toBeInTheDocument();
-    expect(screen.getByText('Mã tra cứu: c-9')).toBeInTheDocument();
+    const popup = await screen.findByRole('alertdialog');
+    expect(popup).toHaveTextContent('Giỏ hàng đã đủ 50 dòng.');
+    expect(popup).not.toHaveTextContent('c-9');
+    await user.click(screen.getByRole('button', { name: 'Đồng ý' }));
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
   });
 });
 

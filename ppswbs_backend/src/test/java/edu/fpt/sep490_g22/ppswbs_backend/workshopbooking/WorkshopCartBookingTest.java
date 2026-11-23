@@ -249,6 +249,43 @@ class WorkshopCartBookingTest {
         assertThat(quote.appliedDiscount()).isEqualTo("NONE");
     }
 
+    // ---- Session 2026-11-22: the automatic discount and a voucher stack ----
+
+    @Test
+    void theAutomaticDiscountAndAVoucherStackAndAreSplitPerTicketAsLoyaltyGaveThem() {
+        UUID first = publishedLine("7", 600_000, 1, 6, 1, "Clay Workshop");
+        UUID second = publishedLine("8", 400_000, 1, 6, 1, "Silver Workshop");
+        givenMember(42L);
+        // 006: 10% automatic on both (60,000 + 40,000), then a 72,000 voucher that covers only the second ticket.
+        when(loyalty.previewBenefits(any(), any())).thenReturn(new BenefitPreview(
+                BigInteger.valueOf(1_000_000), BigInteger.valueOf(1_000_000), BigInteger.valueOf(172_000),
+                BigInteger.valueOf(828_000), BigInteger.ZERO, BigInteger.ZERO, BigInteger.ZERO, BigInteger.ZERO,
+                BigInteger.ZERO, BigInteger.valueOf(828_000), BigInteger.valueOf(828_000), 5L, 1L, "MLWS20", 3L, true,
+                List.of(), "digest-1", List.of(), List.of(0, 1),
+                9L, 1L, BigInteger.valueOf(100_000), BigInteger.valueOf(72_000),
+                List.of(new LineDiscount(0, BigInteger.valueOf(60_000), BigInteger.ZERO),
+                        new LineDiscount(1, BigInteger.valueOf(40_000), BigInteger.valueOf(72_000)))));
+
+        WorkshopCartQuoteResponse quote = quoteService.quote("Bearer token",
+                cart(line(7L, first, 1), line(8L, second, 1)));
+
+        assertThat(quote.autoDiscountVnd()).isEqualTo(100_000);
+        assertThat(quote.voucherDiscountVnd()).isEqualTo(72_000);
+        assertThat(quote.appliedDiscount()).isEqualTo("VOUCHER");
+        assertThat(quote.finalTotalVnd()).isEqualTo(828_000);
+        WorkshopCartQuoteResponse.QuotedTicket a = quote.lines().get(0).tickets().get(0);
+        WorkshopCartQuoteResponse.QuotedTicket b = quote.lines().get(1).tickets().get(0);
+        assertThat(a.autoDiscountVnd()).isEqualTo(60_000);
+        assertThat(a.voucherDiscountVnd()).isZero();
+        assertThat(a.finalPriceVnd()).isEqualTo(540_000);
+        assertThat(b.autoDiscountVnd()).isEqualTo(40_000);
+        assertThat(b.voucherDiscountVnd()).isEqualTo(72_000);
+        assertThat(b.finalPriceVnd()).isEqualTo(288_000);
+        // The quote stores the whole programme discount and the split, so the group is created from the same numbers.
+        assertThat(saved.get(0).getVoucherDiscountVnd()).isEqualTo(172_000);
+        assertThat(saved.get(0).getTicketSharesJson()).contains("\"voucherVnd\":72000");
+    }
+
     // ---- T105: the automatic workshop discount ----
 
     @Test

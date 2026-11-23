@@ -81,7 +81,7 @@ public class PromotionCreationService {
                 throw new LoyaltyException(LoyaltyErrorCode.CODE_EXISTS, "This voucher code has already been issued.");
             }
             program = PromotionProgram.voucher(request.scope(), request.code().original(), request.code().key(),
-                    request.totalLimit(), request.perMemberLimit(), now, manager);
+                    request.totalLimit(), request.perMemberLimit(), request.distribution(), now, manager);
         } else {
             program = PromotionProgram.autoDiscount(request.scope(), now, manager);
         }

@@ -38,7 +38,8 @@ public class PromotionUsageQueryService {
             return new PromotionUsageDtos.ProgramUsage(program.getId().toString(), program.getTotalLimit().toString(),
                     program.getMemberLimit().toString(), program.getHeldCount().toString(),
                     program.getConsumedCount().toString(),
-                    amount(benefits.sumConsumedVoucherDiscount(programId)));
+                    amount(benefits.sumConsumedVoucherDiscount(programId)),
+                    program.getClaimedCount() == null ? "0" : program.getClaimedCount().toString());
         }
         return new PromotionUsageDtos.AutoUsage(program.getId().toString(),
                 Long.toString(benefits.countSettled(programId)),

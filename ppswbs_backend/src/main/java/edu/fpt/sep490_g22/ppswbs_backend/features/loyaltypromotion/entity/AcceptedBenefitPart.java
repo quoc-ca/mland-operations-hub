@@ -52,6 +52,10 @@ public class AcceptedBenefitPart {
     @Column(name = "program_discount", nullable = false, updatable = false, precision = 19, scale = 0)
     private BigInteger programDiscount;
 
+    /** Session 2026-11-22 (V195): this part's share of the automatic discount; the voucher share is the rest. */
+    @Column(name = "auto_discount", nullable = false, updatable = false, precision = 19, scale = 0)
+    private BigInteger autoDiscount = BigInteger.ZERO;
+
     @Column(name = "points", nullable = false, updatable = false, precision = 19, scale = 0)
     private BigInteger points;
 
@@ -100,7 +104,27 @@ public class AcceptedBenefitPart {
 
     /** The share computed at acceptance (see {@code BenefitPartAllocator}). */
     public record Share(String partRef, BigInteger grossAmount, BigInteger programDiscount, BigInteger points,
-                        BigInteger pointDiscount, BigInteger earnBase, BigInteger earnPoints) {
+                        BigInteger pointDiscount, BigInteger earnBase, BigInteger earnPoints,
+                        BigInteger autoDiscount) {
+
+        public Share {
+            autoDiscount = autoDiscount == null ? BigInteger.ZERO : autoDiscount;
+        }
+
+        /** Shape before Session 2026-11-22: no automatic share. */
+        public Share(String partRef, BigInteger grossAmount, BigInteger programDiscount, BigInteger points,
+                     BigInteger pointDiscount, BigInteger earnBase, BigInteger earnPoints) {
+            this(partRef, grossAmount, programDiscount, points, pointDiscount, earnBase, earnPoints, BigInteger.ZERO);
+        }
+
+        public BigInteger voucherDiscount() {
+            return programDiscount.subtract(autoDiscount);
+        }
+    }
+
+    /** This part's share of the voucher discount (Session 2026-11-22). */
+    public BigInteger getVoucherDiscount() {
+        return programDiscount.subtract(autoDiscount);
     }
 
     public static AcceptedBenefitPart accept(long acceptedBenefitId, int partSeq, Share share) {
@@ -108,12 +132,16 @@ public class AcceptedBenefitPart {
                 .compareTo(share.earnBase()) != 0 || share.earnBase().signum() < 0) {
             throw new IllegalStateException("A part share must add up and must not be negative");
         }
+        if (share.autoDiscount().signum() < 0 || share.autoDiscount().compareTo(share.programDiscount()) > 0) {
+            throw new IllegalStateException("The automatic share must lie within the programme discount");
+        }
         AcceptedBenefitPart part = new AcceptedBenefitPart();
         part.acceptedBenefitId = acceptedBenefitId;
         part.partSeq = partSeq;
         part.partRef = share.partRef();
         part.grossAmount = share.grossAmount();
         part.programDiscount = share.programDiscount();
+        part.autoDiscount = share.autoDiscount();
         part.points = share.points();
         part.pointDiscount = share.pointDiscount();
         part.earnBase = share.earnBase();
@@ -339,7 +367,7 @@ public class AcceptedBenefitPart {
 
     public BenefitPartRef ref() {
         return new BenefitPartRef(partRef, grossAmount, programDiscount, points, pointDiscount, earnBase, earnPoints,
-                pointsState, earnState, closure);
+                pointsState, earnState, closure, autoDiscount, getVoucherDiscount());
     }
 
     private static LoyaltyException conflict(String message) {

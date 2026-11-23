@@ -62,6 +62,7 @@ Dashboard (010). Approved on the prototype `claude.ai/artifact/AB3ZMi6aiCwUnS4X6
   Kết nối OTA [`ota`: Kênh đối tác `channels`, Đối soát đồng bộ `reconciliation`, Bằng chứng tài chính `finance`, Add-on tại xưởng `add-ons`] |
   Hệ thống [`system`: Mẫu thông báo email `email-templates`, Nhật ký gửi thư `delivery-logs`, Nhật ký audit `audit`]. No former menu entry is dropped; the entries
   "Thêm sản phẩm", "Import Excel", "Tạo chương trình" and "Thêm khung giờ" are no longer menu entries but buttons in the page header.
+- **Rail width and collapse.** The rail is 112px wide (icon above a 13px label). A toggle at the top collapses it to 60px, icon only; labels stay available as tooltips and to screen readers, and the badge stays visible. The choice is kept per browser (`localStorage`, key `ops-rail-collapsed`); the toggle is hidden on phone width (640px and below), where the rail is a horizontal bar. *(decision of Hồ Hoàng Quốc, 2026-11-22)*
 - **Page header.** Every operations page has a header with breadcrumb, title, action buttons and the group's tabs. The own title of about 25 pages is removed so it
   does not repeat the header; the content below is unchanged. A page with its own header button (for example "Create package") registers it into the header.
 - **Badges (replace FR-003 to FR-006).** The waiting-work queue cards are replaced by count badges on the rail and on the tabs. Hook `useNavBadges(role)` returns
