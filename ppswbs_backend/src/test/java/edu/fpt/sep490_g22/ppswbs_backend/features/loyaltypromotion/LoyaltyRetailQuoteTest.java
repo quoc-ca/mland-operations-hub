@@ -179,13 +179,16 @@ class LoyaltyRetailQuoteTest {
 
     @Test
     void onlyABranchLimitedVoucherBindsTheDiscountedLinesInTheDigest() {
-        List<SourceLine> cart = List.of(lineAt(1, 11, 500_000, BRANCH_A), lineAt(1, 11, 500_000, BRANCH_B));
-        List<SourceLine> swapped = List.of(lineAt(1, 11, 500_000, BRANCH_B), lineAt(1, 11, 500_000, BRANCH_A));
+        // Between preview and accept the two sizes swap branches: same amounts, but the voucher now discounts the
+        // other size, so the customer must confirm again.
+        List<SourceLine> cart = List.of(lineAt(1, 11, 500_000, BRANCH_A), lineAt(1, 12, 500_000, BRANCH_B));
+        List<SourceLine> moved = List.of(lineAt(1, 11, 500_000, BRANCH_B), lineAt(1, 12, 500_000, BRANCH_A));
         Result before = RetailQuote.compute(cart, select(SelectionChoice.VOUCHER, 0),
                 branchVoucher(Set.of(BRANCH_A)), List.of(), POLICY, n(0), false);
-        Result after = RetailQuote.compute(swapped, select(SelectionChoice.VOUCHER, 0),
+        Result after = RetailQuote.compute(moved, select(SelectionChoice.VOUCHER, 0),
                 branchVoucher(Set.of(BRANCH_A)), List.of(), POLICY, n(0), false);
-        assertThat(RetailQuote.digest(before, 1, n(0))).isNotEqualTo(RetailQuote.digest(after, 1, n(0)));
+        assertThat(after.programDiscount()).isEqualTo(before.programDiscount());
+        assertThat(RetailQuote.digest(before, cart, 1, n(0))).isNotEqualTo(RetailQuote.digest(after, moved, 1, n(0)));
 
         Result plain = RetailQuote.compute(CART, select(SelectionChoice.VOUCHER, 0),
                 voucher(1, percent("10", 50_000, 500_000), true, Set.of(1L)), List.of(), POLICY, n(0), false);
@@ -193,6 +196,53 @@ class LoyaltyRetailQuoteTest {
                 plain.netBeforePoints(), plain.maxPoints(), plain.pointsAllowed(), plain.pointsUsed(),
                 plain.pointDiscount(), plain.earnBase(), plain.candidate(), plain.reasonDetails());
         assertThat(RetailQuote.digest(plain, 1, n(0))).isEqualTo(RetailQuote.digest(plainWithoutLines, 1, n(0)));
+        assertThat(RetailQuote.digest(plain, CART, 1, n(0))).isEqualTo(RetailQuote.digest(plain, 1, n(0)));
+    }
+
+    @Test
+    void theSameLinesInAnotherOrderKeepTheDigestOfABranchLimitedVoucher() {
+        // BUG-INT-0003: the owner may rebuild the lines at accept in another order than at preview.
+        List<SourceLine> preview = List.of(lineAt(1, 11, 500_000, BRANCH_A), lineAt(1, 12, 300_000, BRANCH_B),
+                lineAt(1, 13, 200_000, BRANCH_A));
+        List<SourceLine> accept = List.of(preview.get(2), preview.get(1), preview.get(0));
+        Result before = RetailQuote.compute(preview, select(SelectionChoice.VOUCHER, 0),
+                branchVoucher(Set.of(BRANCH_A)), List.of(), POLICY, n(0), false);
+        Result after = RetailQuote.compute(accept, select(SelectionChoice.VOUCHER, 0),
+                branchVoucher(Set.of(BRANCH_A)), List.of(), POLICY, n(0), true);
+        assertThat(RetailQuote.digest(after, accept, 1, n(0))).isEqualTo(RetailQuote.digest(before, preview, 1, n(0)));
+    }
+
+    @Test
+    void theSameLinesInAnotherOrderKeepTheSplitAndTheDigestOfAVoucherOnTopOfAnAutomaticDiscount() {
+        // BUG-INT-0003: preview in cart order, accept grouped by branch. Two equal lines make the largest remainder
+        // tie, which must not go to whichever line happens to come first.
+        SourceLine a = lineAt(1, 11, 500_000, BRANCH_B);
+        SourceLine b = lineAt(1, 12, 500_000, BRANCH_A);
+        SourceLine c = lineAt(1, 13, 333_333, BRANCH_A);
+        List<SourceLine> preview = List.of(a, b, c);
+        List<SourceLine> accept = List.of(b, c, a);
+        List<Candidate> autos = List.of(auto(2, EARLY, fixed(60_001, 60_001, 0), Set.of(1L)));
+        Candidate voucher = voucher(1, percent("10", 1_000_000, 0), true, Set.of(1L));
+        Result before = RetailQuote.compute(preview, select(SelectionChoice.VOUCHER, 0), voucher, autos, POLICY,
+                n(0), false);
+        Result after = RetailQuote.compute(accept, select(SelectionChoice.VOUCHER, 0), voucher, autos, POLICY,
+                n(0), true);
+
+        assertThat(after.autoDiscount()).isEqualTo(before.autoDiscount());
+        assertThat(after.programDiscount()).isEqualTo(before.programDiscount());
+        for (int i = 0; i < preview.size(); i++) {
+            int j = accept.indexOf(preview.get(i));
+            assertThat(after.lineAutoDiscounts().get(j)).isEqualTo(before.lineAutoDiscounts().get(i));
+            assertThat(after.lineVoucherDiscounts().get(j)).isEqualTo(before.lineVoucherDiscounts().get(i));
+        }
+        assertThat(RetailQuote.digest(after, accept, 1, n(0))).isEqualTo(RetailQuote.digest(before, preview, 1, n(0)));
+
+        // A different split of the same totals is still a different quote.
+        List<SourceLine> otherBranch = List.of(lineAt(1, 11, 500_000, BRANCH_A), b, c);
+        Result moved = RetailQuote.compute(otherBranch, select(SelectionChoice.VOUCHER, 0), voucher, autos, POLICY,
+                n(0), false);
+        assertThat(RetailQuote.digest(moved, otherBranch, 1, n(0)))
+                .isNotEqualTo(RetailQuote.digest(before, preview, 1, n(0)));
     }
 
     @Test
