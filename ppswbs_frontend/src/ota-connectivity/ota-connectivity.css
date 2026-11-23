@@ -263,3 +263,6 @@
 }
 
 .ota-result-card code { color: #123d78; }
+
+/* Nút của biểu mẫu trong lưới không giãn theo chiều cao ô khác cùng hàng (ví dụ Generate sessions cạnh hai nhóm checkbox) */
+.ota-evidence-grid > .actions{align-self:end;align-items:flex-end}
