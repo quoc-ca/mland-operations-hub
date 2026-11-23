@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { ErrorNotice, Field, SuccessNotice, useCommand, useResource } from '../../shared/ui/components';
+import { useEnumLabel, useT } from '../../shared/i18n/I18nProvider';
+import { sharedMessages } from '../../shared/ui/messages';
+import { messages } from '../messages';
 
 const unwrap = data => Array.isArray(data) ? data : data?.items || data?.content || [];
 const locationKey = item => item.id || item.locationId;
 
-export const WEEKDAYS = [
-  ['MONDAY', 'Mon'], ['TUESDAY', 'Tue'], ['WEDNESDAY', 'Wed'], ['THURSDAY', 'Thu'],
-  ['FRIDAY', 'Fri'], ['SATURDAY', 'Sat'], ['SUNDAY', 'Sun'],
-];
+export const WEEKDAYS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
 
 /** Texts for the refusals these forms expect from 003.2; anything else falls back to the shared error texts. */
 export const sessionAdminMessages = {
@@ -26,6 +26,9 @@ const emptyBulk = { locationId: '', slotIds: [], from: '', to: '', weekdays: [],
  * weekdays, in DRAFT or PUBLISHED. The server creates them and reports the combinations it skipped as duplicates.
  */
 export function BulkSessionForm({ api, locations, onDone }) {
+  const t = useT(messages);
+  const weekdayLabel = useEnumLabel(messages, 'weekday');
+  const stateLabel = useEnumLabel(messages, 'sessionState');
   const [form, setForm] = useState(emptyBulk);
   const [formError, setFormError] = useState('');
   const [result, setResult] = useState(null);
@@ -42,16 +45,16 @@ export function BulkSessionForm({ api, locations, onDone }) {
     e.preventDefault();
     setResult(null);
     if (!form.locationId || !form.slotIds.length || !form.from || !form.to || !form.weekdays.length) {
-      setFormError('Location, at least one slot, a date range and at least one weekday are required.');
+      setFormError(t('bulk.required'));
       return;
     }
     const capacity = Number(form.capacity);
     if (!Number.isInteger(capacity) || capacity < 1) {
-      setFormError('Capacity must be a whole number of at least 1.');
+      setFormError(t('bulk.capacity'));
       return;
     }
     if (form.from > form.to) {
-      setFormError('The start date must not be after the end date.');
+      setFormError(t('bulk.dateOrder'));
       return;
     }
     setFormError('');
@@ -70,32 +73,32 @@ export function BulkSessionForm({ api, locations, onDone }) {
     <section className="ota-panel" aria-labelledby="bulk-session-title">
       <div className="ota-panel-head">
         <div>
-          <h2 id="bulk-session-title">Generate sessions</h2>
-          <p className="muted small">Create future sessions for several slots and weekdays at once. Existing sessions are skipped.</p>
+          <h2 id="bulk-session-title">{t('bulk.title')}</h2>
+          <p className="muted small">{t('bulk.subtitle')}</p>
         </div>
       </div>
-      <form className="ota-evidence-grid" onSubmit={submit} aria-label="Generate sessions">
-        <Field label="Location">
+      <form className="ota-evidence-grid" onSubmit={submit} aria-label={t('bulk.title')}>
+        <Field label={t('admin.location')}>
           <select value={form.locationId} onChange={e => setForm({ ...form, locationId: e.target.value, slotIds: [] })}>
-            <option value="">Select location</option>
+            <option value="">{t('admin.selectLocation')}</option>
             {locations.map(item => <option key={locationKey(item)} value={locationKey(item)}>{item.name || item.code}</option>)}
           </select>
         </Field>
-        <Field label="From"><input type="date" value={form.from} onChange={e => setForm({ ...form, from: e.target.value })} /></Field>
-        <Field label="To"><input type="date" value={form.to} onChange={e => setForm({ ...form, to: e.target.value })} /></Field>
-        <Field label="Capacity per session"><input type="number" min="1" value={form.capacity} onChange={e => setForm({ ...form, capacity: e.target.value })} /></Field>
-        <Field label="Initial state">
+        <Field label={t('bulk.from')}><input type="date" value={form.from} onChange={e => setForm({ ...form, from: e.target.value })} /></Field>
+        <Field label={t('bulk.to')}><input type="date" value={form.to} onChange={e => setForm({ ...form, to: e.target.value })} /></Field>
+        <Field label={t('bulk.capacityPer')}><input type="number" min="1" value={form.capacity} onChange={e => setForm({ ...form, capacity: e.target.value })} /></Field>
+        <Field label={t('bulk.initialState')}>
           <select value={form.initialState} onChange={e => setForm({ ...form, initialState: e.target.value })}>
-            <option value="DRAFT">DRAFT</option>
-            <option value="PUBLISHED">PUBLISHED</option>
+            <option value="DRAFT">{stateLabel('DRAFT')}</option>
+            <option value="PUBLISHED">{stateLabel('PUBLISHED')}</option>
           </select>
         </Field>
         <fieldset className="package-checkbox-group">
-          <legend>Slots</legend>
-          {!form.locationId && <p className="muted small">Select a location to choose its slots.</p>}
-          {form.locationId && slots.loading && <p className="muted small" role="status">Loading slots…</p>}
+          <legend>{t('bulk.slots')}</legend>
+          {!form.locationId && <p className="muted small">{t('bulk.pickLocation')}</p>}
+          {form.locationId && slots.loading && <p className="muted small" role="status">{t('bulk.loadingSlots')}</p>}
           {form.locationId && slots.error && <ErrorNotice error={slots.error} onRetry={slots.reload} />}
-          {form.locationId && !slots.loading && !slots.error && slotItems.length === 0 && <p className="muted small">This location has no active slots.</p>}
+          {form.locationId && !slots.loading && !slots.error && slotItems.length === 0 && <p className="muted small">{t('bulk.noSlots')}</p>}
           {slotItems.map(item => (
             <label key={item.id} className="package-checkbox">
               <input type="checkbox" checked={form.slotIds.includes(item.id)} onChange={() => toggle('slotIds', item.id)} />
@@ -104,24 +107,24 @@ export function BulkSessionForm({ api, locations, onDone }) {
           ))}
         </fieldset>
         <fieldset className="package-checkbox-group">
-          <legend>Weekdays</legend>
-          {WEEKDAYS.map(([value, label]) => (
+          <legend>{t('bulk.weekdays')}</legend>
+          {WEEKDAYS.map(value => (
             <label key={value} className="package-checkbox">
-              <input type="checkbox" checked={form.weekdays.includes(value)} onChange={() => toggle('weekdays', value)} /> {label}
+              <input type="checkbox" checked={form.weekdays.includes(value)} onChange={() => toggle('weekdays', value)} /> {weekdayLabel(value)}
             </label>
           ))}
         </fieldset>
         <div className="actions">
-          <button className="button primary" disabled={command.pending}>{command.pending ? 'Generating…' : 'Generate sessions'}</button>
+          <button className="button primary" disabled={command.pending}>{command.pending ? t('bulk.generating') : t('bulk.generate')}</button>
         </div>
       </form>
       <ErrorNotice error={formError ? new Error(formError) : null} />
       <ErrorNotice error={command.error} onRetry={command.retry} />
       {result && (
         <SuccessNotice>
-          <p>{result.created.length} sessions created; {result.skipped.length} skipped as duplicates.</p>
+          <p>{t('bulk.result', { created: result.created.length, skipped: result.skipped.length })}</p>
           {result.skipped.length > 0 && (
-            <ul className="small" aria-label="Skipped duplicates">
+            <ul className="small" aria-label={t('bulk.skippedAria')}>
               {result.skipped.map(item => <li key={item}>{item}</li>)}
             </ul>
           )}
@@ -147,6 +150,8 @@ export function toLocalInput(instant) {
  * (INSUFFICIENT_CAPACITY); a concurrent change is a 409 offering to load the latest session.
  */
 export function SessionEditForm({ api, session, onSaved, onReload, onClose }) {
+  const t = useT(messages);
+  const ts = useT(sharedMessages);
   const [capacity, setCapacity] = useState(String(session.capacity ?? ''));
   const originalOpening = toLocalInput(session.checkInOpensAt);
   const [opening, setOpening] = useState(originalOpening);
@@ -157,11 +162,11 @@ export function SessionEditForm({ api, session, onSaved, onReload, onClose }) {
     e.preventDefault();
     const value = Number(capacity);
     if (!Number.isInteger(value) || value < 1) {
-      setFormError('Capacity must be a whole number of at least 1.');
+      setFormError(t('bulk.capacity'));
       return;
     }
     if (opening && Number.isNaN(new Date(opening).getTime())) {
-      setFormError('Enter a valid check-in opening time.');
+      setFormError(t('sessionEdit.invalidOpening'));
       return;
     }
     setFormError('');
@@ -175,14 +180,14 @@ export function SessionEditForm({ api, session, onSaved, onReload, onClose }) {
   const reload = () => { command.reset(); onReload?.(); };
 
   return (
-    <form className="ota-evidence-grid" onSubmit={submit} aria-label={`Edit session ${session.id}`}>
-      <Field label="Capacity"><input type="number" min="1" value={capacity} onChange={e => setCapacity(e.target.value)} /></Field>
-      <Field label="Check-in opens at" hint={session.checkInOpeningSource === 'MANAGER_SET' ? 'Set by a Manager.' : 'Default: 60 minutes before the start.'}>
+    <form className="ota-evidence-grid" onSubmit={submit} aria-label={t('sessionEdit.aria', { id: session.id })}>
+      <Field label={t('sessionEdit.capacity')}><input type="number" min="1" value={capacity} onChange={e => setCapacity(e.target.value)} /></Field>
+      <Field label={t('sessionEdit.opensAt')} hint={session.checkInOpeningSource === 'MANAGER_SET' ? t('sessionEdit.hintManager') : t('sessionEdit.hintDefault')}>
         <input type="datetime-local" value={opening} onChange={e => setOpening(e.target.value)} />
       </Field>
       <div className="actions">
-        <button className="button primary" disabled={command.pending}>{command.pending ? 'Saving…' : 'Save session'}</button>
-        <button type="button" className="button outline" onClick={onClose} disabled={command.pending}>Close</button>
+        <button className="button primary" disabled={command.pending}>{command.pending ? t('sessionEdit.saving') : t('sessionEdit.save')}</button>
+        <button type="button" className="button outline" onClick={onClose} disabled={command.pending}>{ts('close')}</button>
       </div>
       <ErrorNotice error={formError ? new Error(formError) : null} />
       <ErrorNotice error={command.error} messages={sessionAdminMessages} onRetry={command.retry} onReload={reload} />

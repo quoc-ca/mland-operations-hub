@@ -15,8 +15,8 @@ const resendCalls = calls => calls.filter(call => call.method === 'POST' && call
 beforeEach(() => clearRoleCache());
 
 async function openAndType(user) {
-  renderRoutes(operationsRoutes, { path: '/operations/sessions/session-1' });
-  await user.type(await screen.findByPlaceholderText('GRP-… (Mã đặt chỗ)'), 'BK-1');
+  renderRoutes(operationsRoutes, { language: 'en', path: '/operations/sessions/session-1' });
+  await user.type(await screen.findByPlaceholderText('GRP-… (Booking code)'), 'BK-1');
   return screen.getByRole('button', { name: 'Resend ticket' });
 }
 
@@ -29,7 +29,7 @@ describe('Ticket resend refusals', () => {
     const user = userEvent.setup();
     await user.click(await openAndType(user));
 
-    const alert = await screen.findByText(/thử lại sau 421 giây/);
+    const alert = await screen.findByText(/try again in 421 seconds/);
     expect(alert).toHaveTextContent('TICKET_REDELIVERY_UNAVAILABLE');
     expect(resendCalls(calls)).toHaveLength(1);
     // The generic notice does not repeat it, and the button is usable again.
@@ -45,14 +45,14 @@ describe('Ticket resend refusals', () => {
     const user = userEvent.setup();
     await user.click(await openAndType(user));
 
-    const alert = await screen.findByText(/tối đa 3 lần trong 15 phút/);
-    expect(alert).not.toHaveTextContent('giây');
+    const alert = await screen.findByText(/3 times in 15 minutes/);
+    expect(alert).not.toHaveTextContent('seconds');
     expect(alert).toHaveTextContent('TICKET_REDELIVERY_UNAVAILABLE');
   });
 
   it.each([
-    ['NO_ELIGIBLE_TICKET', /không có vé hợp lệ chưa sử dụng/],
-    ['REDELIVERY_REJECTED_BY_BOOKING', /từ chối gửi lại vé/],
+    ['NO_ELIGIBLE_TICKET', /no valid unused ticket/],
+    ['REDELIVERY_REJECTED_BY_BOOKING', /refused to resend the tickets/],
   ])('explains the 409 INVALID_STATE reason %s', async (reason, text) => {
     mockFetch({
       'GET /api/v1/workshop-sessions/session-1': session(),
@@ -76,11 +76,11 @@ describe('Ticket resend refusals', () => {
     const user = userEvent.setup();
     const button = await openAndType(user);
     await user.click(button);
-    expect(await screen.findByText(/không có vé hợp lệ chưa sử dụng/)).toBeInTheDocument();
+    expect(await screen.findByText(/no valid unused ticket/)).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Resend ticket' }));
     expect(await screen.findByText('Ticket resend requested.')).toBeInTheDocument();
-    expect(screen.queryByText(/không có vé hợp lệ chưa sử dụng/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/no valid unused ticket/)).not.toBeInTheDocument();
   });
 });
 
@@ -113,7 +113,7 @@ describe('Operational commands are locked while a request is pending (T140)', ()
       'POST /api/v1/workshop-sessions/session-1/attendance-finalizations': async () => { await gate; return json(200, { id: 'session-1', state: 'ATTENDANCE_FINALIZED' }); },
     });
     const user = userEvent.setup();
-    renderRoutes(operationsRoutes, { path: '/operations/sessions/session-1' });
+    renderRoutes(operationsRoutes, { language: 'en', path: '/operations/sessions/session-1' });
     await user.click(await screen.findByRole('button', { name: 'Finalize attendance' }));
 
     await waitFor(() => expect(screen.getByRole('button', { name: 'Finalize attendance' })).toBeDisabled());
@@ -122,7 +122,7 @@ describe('Operational commands are locked while a request is pending (T140)', ()
     for (const name of ['Override check-in', 'Mark checked-in', 'Reverse check-in']) {
       expect(screen.getByRole('button', { name })).toBeDisabled();
     }
-    await user.type(screen.getByPlaceholderText('GRP-… (Mã đặt chỗ)'), 'BK-1');
+    await user.type(screen.getByPlaceholderText('GRP-… (Booking code)'), 'BK-1');
     expect(screen.getByRole('button', { name: 'Resend ticket' })).toBeDisabled();
     release();
     await waitFor(() => expect(screen.getByRole('button', { name: 'Resend ticket' })).toBeEnabled());

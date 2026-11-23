@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
 import { ErrorNotice, Field, useCommand } from '../../shared/ui/components';
+import { useT } from '../../shared/i18n/I18nProvider';
+import { sharedMessages } from '../../shared/ui/messages';
+import { messages } from '../messages';
 
 /** Texts for the refusals of PATCH /workshop-slots/{id} (003.2 FR-001e); other errors use the shared texts. */
 export const slotEditMessages = {
@@ -21,6 +24,8 @@ const hhmm = value => (value ? String(value).slice(0, 5) : '');
  * sessions created later (server rule); the server also refuses overlap with another slot of the location.
  */
 export function SlotEditForm({ api, slot, onSaved, onReload, onClose }) {
+  const t = useT(messages);
+  const ts = useT(sharedMessages);
   const [label, setLabel] = useState(slot.label ?? '');
   const [startsAtLocal, setStartsAtLocal] = useState(hhmm(slot.startsAtLocal));
   const [endsAtLocal, setEndsAtLocal] = useState(hhmm(slot.endsAtLocal));
@@ -30,11 +35,11 @@ export function SlotEditForm({ api, slot, onSaved, onReload, onClose }) {
   const submit = async e => {
     e.preventDefault();
     const trimmed = label.trim();
-    if (!trimmed) { setFormError('Slot label is required.'); return; }
-    if (!startsAtLocal || !endsAtLocal) { setFormError('Start and end times are required.'); return; }
-    if (startsAtLocal >= endsAtLocal) { setFormError('Start time must be before end time on the same day.'); return; }
+    if (!trimmed) { setFormError(t('slot.labelRequired')); return; }
+    if (!startsAtLocal || !endsAtLocal) { setFormError(t('slot.timesRequired')); return; }
+    if (startsAtLocal >= endsAtLocal) { setFormError(t('slot.timeOrder')); return; }
     if (trimmed === (slot.label ?? '') && startsAtLocal === hhmm(slot.startsAtLocal) && endsAtLocal === hhmm(slot.endsAtLocal)) {
-      setFormError('Change the label or times before saving.'); return;
+      setFormError(t('slot.noChange')); return;
     }
     setFormError('');
     const body = { label: trimmed, startsAtLocal, endsAtLocal, active: slot.active !== false };
@@ -46,13 +51,13 @@ export function SlotEditForm({ api, slot, onSaved, onReload, onClose }) {
   const reload = () => { command.reset(); onReload?.(); };
 
   return (
-    <form className="ota-evidence-grid" onSubmit={submit} aria-label={`Edit slot ${slot.label}`}>
-      <Field label="Label"><input value={label} onChange={e => setLabel(e.target.value)} /></Field>
-      <Field label="Starts at"><input type="time" value={startsAtLocal} onChange={e => setStartsAtLocal(e.target.value)} /></Field>
-      <Field label="Ends at"><input type="time" value={endsAtLocal} onChange={e => setEndsAtLocal(e.target.value)} /></Field>
+    <form className="ota-evidence-grid" onSubmit={submit} aria-label={t('slot.aria', { label: slot.label })}>
+      <Field label={t('slot.label')}><input value={label} onChange={e => setLabel(e.target.value)} /></Field>
+      <Field label={t('slot.startsAt')}><input type="time" value={startsAtLocal} onChange={e => setStartsAtLocal(e.target.value)} /></Field>
+      <Field label={t('slot.endsAt')}><input type="time" value={endsAtLocal} onChange={e => setEndsAtLocal(e.target.value)} /></Field>
       <div className="actions">
-        <button className="button primary" disabled={command.pending}>{command.pending ? 'Saving…' : 'Save slot'}</button>
-        <button type="button" className="button outline" onClick={onClose} disabled={command.pending}>Close</button>
+        <button className="button primary" disabled={command.pending}>{command.pending ? t('slot.saving') : t('slot.save')}</button>
+        <button type="button" className="button outline" onClick={onClose} disabled={command.pending}>{ts('close')}</button>
       </div>
       <ErrorNotice error={formError ? new Error(formError) : null} />
       <ErrorNotice error={command.error} messages={slotEditMessages} onRetry={retry} onReload={reload} />

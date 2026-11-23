@@ -22,10 +22,10 @@ describe('Assigned Staff on the session page', () => {
       'GET /api/v1/workshop-sessions/session-1': session([33, 41]),
       'GET /api/v1/accounts': staffList,
     });
-    renderRoutes(operationsRoutes, { path: '/operations/sessions/session-1' });
+    renderRoutes(operationsRoutes, { language: 'en', path: '/operations/sessions/session-1' });
 
     expect(await screen.findByText('2 Staff')).toBeInTheDocument();
-    const list = within(await screen.findByRole('region', { name: 'Staff đang phụ trách' }));
+    const list = within(await screen.findByRole('region', { name: 'Staff in charge' }));
     expect(await list.findByText(/Second Staff/)).toBeInTheDocument();
     expect(list.getByText(/Local Test Staff/)).toBeInTheDocument();
     expect(list.getAllByRole('button', { name: 'Remove' })).toHaveLength(2);
@@ -39,9 +39,9 @@ describe('Assigned Staff on the session page', () => {
       'DELETE /api/v1/workshop-sessions/session-1/staff-assignments': json(204),
     });
     const user = userEvent.setup();
-    renderRoutes(operationsRoutes, { path: '/operations/sessions/session-1' });
+    renderRoutes(operationsRoutes, { language: 'en', path: '/operations/sessions/session-1' });
 
-    const list = within(await screen.findByRole('region', { name: 'Staff đang phụ trách' }));
+    const list = within(await screen.findByRole('region', { name: 'Staff in charge' }));
     const secondRow = (await list.findByText(/Second Staff/)).closest('li');
     await user.click(within(secondRow).getByRole('button', { name: 'Remove' }));
 
@@ -51,9 +51,9 @@ describe('Assigned Staff on the session page', () => {
 
   it('says so when nobody is assigned', async () => {
     asManager({ 'GET /api/v1/workshop-sessions/session-1': session([]) });
-    renderRoutes(operationsRoutes, { path: '/operations/sessions/session-1' });
+    renderRoutes(operationsRoutes, { language: 'en', path: '/operations/sessions/session-1' });
 
-    expect(await screen.findByText('Chưa phân công')).toBeInTheDocument();
+    expect(await screen.findByText('Not assigned yet')).toBeInTheDocument();
     expect(screen.getByText('Unassigned')).toBeInTheDocument();
   });
 });

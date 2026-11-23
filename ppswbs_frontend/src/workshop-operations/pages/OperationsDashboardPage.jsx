@@ -4,6 +4,8 @@ import { Link } from 'react-router';
 import { useAuth } from '../../shared/auth/AuthProvider';
 import { useRole } from '../../shared/auth/useRole';
 import { useHttp } from '../../shared/api/useHttp';
+import { useEnumLabel, useT } from '../../shared/i18n/I18nProvider';
+import { messages } from '../messages';
 import { ErrorNotice, Loading, useResource } from '../../shared/ui/components';
 import { OperationsAuthWorkspace } from '../../shared/ui/OperationsAuthWorkspace';
 import { Paginator, usePaged } from '../../shared/ui/Paginator';
@@ -30,6 +32,8 @@ export const sessionTimeRange = item => {
 };
 
 export default function OperationsDashboardPage() {
+  const t = useT(messages);
+  const stateLabel = useEnumLabel(messages, 'sessionState');
   const { status } = useAuth();
   // A Staff member sees only the sessions a Manager assigned to them (the backend filters the list).
   const isStaff = useRole() === 'STAFF';
@@ -40,28 +44,28 @@ export default function OperationsDashboardPage() {
   const http = useHttp();
   const locationsResource = useResource(() => createOperationsAdminApi(http).listLocations(), []);
   const locations = Array.isArray(locationsResource.data) ? locationsResource.data : [];
-  const locationName = id => locations.find(item => String(item.id) === String(id))?.name || (id ? `Chi nhánh #${id}` : '—');
+  const locationName = id => locations.find(item => String(item.id) === String(id))?.name || (id ? t('board.branchFallback', { id }) : '—');
   const sessions = Array.isArray(resource.data) ? resource.data : resource.data?.content || resource.data?.items || [];
   const paged = usePaged(sessions, 15, resource.data);
   if (status === 'loading') return <Loading />;
   if (status !== 'signed-in') {
     return (
       <OperationsAuthWorkspace
-        topline="MLAND / WORKSHOP OPERATIONS"
-        message="Authentication required to access operations."
+        topline={t('topline.operations')}
+        message={t('board.signIn')}
       />
     );
   }
   const counts = sessions.reduce((acc, item) => { acc[item.state] = (acc[item.state] || 0) + 1; return acc; }, {});
   return <div className="ota-workspace">
     
-    <main className="ota-main"><div className="ota-topline">MLAND / WORKSHOP OPERATIONS <span>● Backend-authorized</span></div><header className="ota-page-heading"><div><p>{isStaff ? 'Chỉ hiện các ca bạn được Manager phân công.' : 'Coordinate capacity, check-in and attendance finalization across active sessions.'}</p>{isStaff && (
+    <main className="ota-main"><div className="ota-topline">{t('topline.operations')} <span>● {t('authorized')}</span></div><header className="ota-page-heading"><div><p>{isStaff ? t('board.staffIntro') : t('board.managerIntro')}</p>{isStaff && (
         <p className="muted" style={{ marginTop: '6px' }}>
-          Chi nhánh của bạn: <strong>{locationsResource.loading ? 'đang tải…' : (locations.length ? locations.map(item => item.name).join(', ') : 'chưa được gán chi nhánh nào, liên hệ Manager')}</strong>
+          {t('board.yourBranches')} <strong>{locationsResource.loading ? t('board.loadingLower') : (locations.length ? locations.map(item => item.name).join(', ') : t('board.noBranch'))}</strong>
         </p>
       )}</div></header>
-      <section className="ops-metrics"><div><span>All sessions</span><strong>{sessions.length}</strong></div><div><span>Published</span><strong>{counts.PUBLISHED || 0}</strong></div><div><span>In progress</span><strong>{counts.IN_PROGRESS || 0}</strong></div><div><span>Finalized</span><strong>{counts.ATTENDANCE_FINALIZED || 0}</strong></div></section>
-      <section className="ota-panel"><form className="ota-inline-form ops-filter-form" onSubmit={e => { e.preventDefault(); resource.reload(); }}><label>From<input type="date" value={filters.from} onChange={e => setFilters({ ...filters, from: e.target.value })} /></label><label>To<input type="date" value={filters.to} onChange={e => setFilters({ ...filters, to: e.target.value })} /></label><label>State<select value={filters.state} onChange={e => setFilters({ ...filters, state: e.target.value })}><option value="">All states</option>{['PUBLISHED','SALES_PAUSED','IN_PROGRESS','ATTENDANCE_FINALIZED'].map(v => <option key={v}>{v}</option>)}</select></label><label>Location<select value={filters.locationId} onChange={e => setFilters({ ...filters, locationId: e.target.value })}><option value="">All locations</option>{locations.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><button className="button outline" type="button" onClick={() => setFilters({ state: "", locationId: "", from: "", to: "" })}>Xóa lọc</button></form></section>
-      <ErrorNotice error={resource.error} onRetry={resource.reload} onReload={resource.reload} />{resource.loading ? <Loading /> : sessions.length === 0 ? <div className="empty-state"><p>{isStaff ? 'Bạn chưa được phân công ca nào (hoặc không có ca nào khớp bộ lọc). Liên hệ Manager để được phân công.' : 'No sessions match the selected filters.'}</p></div> : <section className="ota-panel"><div className="ota-panel-head"><h2>Session queue</h2><span>{sessions.length} records</span></div><div className="ops-table-wrap"><table className="ops-table"><thead><tr><th>Date</th><th>Time</th><th>Session</th><th>Location</th><th>Capacity</th><th>State</th><th /></tr></thead><tbody>{paged.pageItems.map(item => <tr key={item.id}><td>{item.workshopDate || '—'}</td><td><strong>{sessionTimeRange(item) || '—'}</strong></td><td><strong>{item.slotId || item.id}</strong><small>{item.id}</small></td><td>{item.locationName || locationName(item.locationId)}</td><td>{item.capacity ?? '—'}</td><td><span className="ops-status">{item.state}</span></td><td><Link className="button outline small" to={`/operations/sessions/${item.id}`}>Open</Link></td></tr>)}</tbody></table></div><Paginator page={paged.page} pageCount={paged.pageCount} onChange={paged.setPage} label="Phân trang bảng điều phối ca" /></section>}
+      <section className="ops-metrics"><div><span>{t('board.metric.all')}</span><strong>{sessions.length}</strong></div><div><span>{stateLabel('PUBLISHED')}</span><strong>{counts.PUBLISHED || 0}</strong></div><div><span>{stateLabel('IN_PROGRESS')}</span><strong>{counts.IN_PROGRESS || 0}</strong></div><div><span>{t('board.metric.finalized')}</span><strong>{counts.ATTENDANCE_FINALIZED || 0}</strong></div></section>
+      <section className="ota-panel"><form className="ota-inline-form ops-filter-form" onSubmit={e => { e.preventDefault(); resource.reload(); }}><label>{t('admin.from')}<input type="date" value={filters.from} onChange={e => setFilters({ ...filters, from: e.target.value })} /></label><label>{t('admin.to')}<input type="date" value={filters.to} onChange={e => setFilters({ ...filters, to: e.target.value })} /></label><label>{t('admin.state')}<select value={filters.state} onChange={e => setFilters({ ...filters, state: e.target.value })}><option value="">{t('admin.allStates')}</option>{['PUBLISHED','SALES_PAUSED','IN_PROGRESS','ATTENDANCE_FINALIZED'].map(v => <option key={v} value={v}>{stateLabel(v)}</option>)}</select></label><label>{t('admin.location')}<select value={filters.locationId} onChange={e => setFilters({ ...filters, locationId: e.target.value })}><option value="">{t('admin.allLocations')}</option>{locations.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><button className="button outline" type="button" onClick={() => setFilters({ state: "", locationId: "", from: "", to: "" })}>{t('admin.clearFilters')}</button></form></section>
+      <ErrorNotice error={resource.error} onRetry={resource.reload} onReload={resource.reload} />{resource.loading ? <Loading /> : sessions.length === 0 ? <div className="empty-state"><p>{isStaff ? t('board.emptyStaff') : t('board.emptyManager')}</p></div> : <section className="ota-panel"><div className="ota-panel-head"><h2>{t('admin.sessionQueue')}</h2><span>{t('records', { count: sessions.length })}</span></div><div className="ops-table-wrap"><table className="ops-table"><thead><tr><th>{t('admin.col.date')}</th><th>{t('admin.col.time')}</th><th>{t('admin.col.session')}</th><th>{t('admin.col.location')}</th><th>{t('admin.col.capacity')}</th><th>{t('admin.state')}</th><th /></tr></thead><tbody>{paged.pageItems.map(item => <tr key={item.id}><td>{item.workshopDate || '—'}</td><td><strong>{sessionTimeRange(item) || '—'}</strong></td><td><strong>{item.slotId || item.id}</strong><small>{item.id}</small></td><td>{item.locationName || locationName(item.locationId)}</td><td>{item.capacity ?? '—'}</td><td><span className="ops-status">{stateLabel(item.state)}</span></td><td><Link className="button outline small" to={`/operations/sessions/${item.id}`}>{t('board.open')}</Link></td></tr>)}</tbody></table></div><Paginator page={paged.page} pageCount={paged.pageCount} onChange={paged.setPage} label={t('board.pagination')} /></section>}
     </main></div>;
 }

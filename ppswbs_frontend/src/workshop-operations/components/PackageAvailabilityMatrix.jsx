@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { useT } from '../../shared/i18n/I18nProvider';
+import { messages } from '../messages';
 
 const MOBILE_QUERY = '(max-width: 767.98px)';
 
@@ -21,16 +23,18 @@ function useIsMobile() {
 }
 
 function LocationBadge({ active }) {
+  const t = useT(messages);
   return (
     <span className={`pam-badge ${active ? 'is-active' : 'is-inactive'}`}>
-      {active ? 'Đang hoạt động' : 'Chưa hoạt động'}
+      {active ? t('pam.active') : t('pam.inactive')}
     </span>
   );
 }
 
 function CellBox({ pkg, location, cell, saving, error, onToggle }) {
+  const t = useT(messages);
   const ticked = cell?.state === 'ACTIVE';
-  const label = `${pkg.name} tại ${location.name}`;
+  const label = t('pam.cell', { package: pkg.name, location: location.name });
   const toggle = () => {
     if (saving) return;
     onToggle(pkg.id, location.id, ticked ? 'INACTIVE' : 'ACTIVE');
@@ -52,7 +56,7 @@ function CellBox({ pkg, location, cell, saving, error, onToggle }) {
       {saving && (
         <span className="pam-saving">
           <span className="pam-spinner" aria-hidden="true" />
-          <span>Đang lưu</span>
+          <span>{t('pam.saving')}</span>
         </span>
       )}
     </span>
@@ -66,6 +70,7 @@ function CellBox({ pkg, location, cell, saving, error, onToggle }) {
 export default function PackageAvailabilityMatrix({
   packages, locations, cells, onToggle, savingCells = {}, cellErrors = {}, layout,
 }) {
+  const t = useT(messages);
   const detected = useIsMobile();
   const mobile = layout ? layout === 'cards' : detected;
   const byKey = new Map(cells.map(cell => [cellKey(cell.packageId, cell.locationId), cell]));
@@ -111,7 +116,7 @@ export default function PackageAvailabilityMatrix({
       <table className="pam-table">
         <thead>
           <tr>
-            <th scope="col">Chi nhánh \ Gói</th>
+            <th scope="col">{t('pam.corner')}</th>
             {packages.map(pkg => <th scope="col" key={pkg.id}>{pkg.name}</th>)}
           </tr>
         </thead>

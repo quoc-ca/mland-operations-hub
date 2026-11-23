@@ -1,5 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../../shared/auth/AuthProvider';
+import { useEnumLabel, useFormat, useT } from '../../shared/i18n/I18nProvider';
+import { sharedMessages } from '../../shared/ui/messages';
+import { messages } from '../messages';
 import { useRole } from '../../shared/auth/useRole';
 import { Loading, useCommand } from '../../shared/ui/components';
 import { OperationsAuthWorkspace } from '../../shared/ui/OperationsAuthWorkspace';
@@ -9,14 +12,18 @@ import '../workshop-operations.css';
 
 // Same standardized reasons as the session page recovery panel (003.1 FR-040a decisions need a reason).
 const REASONS = [
-  { code: 'PROVIDER_CONFIRMED_LATE_DEPOSIT', label: 'PROVIDER_CONFIRMED_LATE_DEPOSIT — Ngân hàng / VNPay đã ghi có tiền (ghi nhận tiền về trễ)' },
-  { code: 'CUSTOMER_PRESENTED_RECEIPT', label: 'CUSTOMER_PRESENTED_RECEIPT — Khách xuất trình biên lai / ủy nhiệm chi giao dịch hợp lệ' },
-  { code: 'DISPUTE_ESCALATION_FINANCE', label: 'DISPUTE_ESCALATION_FINANCE — Khiếu nại thanh toán / chuyển kế toán đối soát' },
-  { code: 'OTHER_REQUIRES_NOTE', label: 'OTHER_REQUIRES_NOTE — Lý do khác (yêu cầu điền chi tiết ở ô ghi chú)' },
+  { code: 'PROVIDER_CONFIRMED_LATE_DEPOSIT' },
+  { code: 'CUSTOMER_PRESENTED_RECEIPT' },
+  { code: 'DISPUTE_ESCALATION_FINANCE' },
+  { code: 'OTHER_REQUIRES_NOTE' },
 ];
 
 /** Manager queue of late payments waiting for a decision (003.1 FR-040a); the backend decides who may read or decide. */
 export default function LatePaymentReviewsPage() {
+  const t = useT(messages);
+  const ts = useT(sharedMessages);
+  const fmt = useFormat();
+  const conditionLabel = useEnumLabel(messages, 'lateCondition');
   const { status, user } = useAuth();
   const role = useRole();
   const command = useCommand();
@@ -35,7 +42,7 @@ export default function LatePaymentReviewsPage() {
       setReviews(await listLatePaymentReviews({ status: 'PENDING_MANAGER', authorization }));
     } catch (e) {
       setReviews(null);
-      setError(e?.detail || e?.message || 'Không tải được hàng đợi thanh toán về trễ.');
+      setError(e?.detail || e?.message || t('late.loadFailed'));
     } finally {
       setLoading(false);
     }
@@ -47,7 +54,7 @@ export default function LatePaymentReviewsPage() {
 
   if (status === 'loading') return <Loading />;
   if (status !== 'signed-in') {
-    return <OperationsAuthWorkspace topline="MLAND / WORKSHOP OPERATIONS" message="Authentication required." />;
+    return <OperationsAuthWorkspace topline={t('topline.operations')} message={t('late.signIn')} />;
   }
 
   const noteMissing = reasonCode === 'OTHER_REQUIRES_NOTE' && !note.trim();
@@ -60,43 +67,42 @@ export default function LatePaymentReviewsPage() {
       decision, reason: fullReason(), authorization, idempotencyKey: key,
     }));
     if (result.ok) {
-      setMessage(decision === 'CONFIRM' ? 'Đã xác nhận thanh toán về trễ.' : 'Đã mở yêu cầu hoàn 100%.');
+      setMessage(decision === 'CONFIRM' ? t('late.confirmed') : t('late.refundOpened'));
       load();
     }
   }
 
   return <div className="ota-workspace"><main className="ota-main">
-    <div className="ota-topline">MLAND / LATE PAYMENTS <span>· Backend-authorized</span></div>
+    <div className="ota-topline">{t('topline.latePayments')} <span>· {t('authorized')}</span></div>
     <header className="ota-page-heading">
       <div>
         <p className="muted">
-          Thanh toán về trễ không tự xác nhận lại sẽ chờ Manager (003.1 FR-040a). Hàng đợi xếp theo ca bắt đầu sớm nhất.
-          CONFIRM chỉ khả dụng khi điều kiện cho phép, còn lại là REFUND hoàn 100% qua 003.3.
+          {t('late.intro')}
         </p>
       </div>
     </header>
     <article className="ota-panel">
       <div className="ota-form-grid" style={{ marginBottom: '12px' }}>
         <label className="full-width">
-          Lý do quyết định (chuẩn hóa) *
+          {t('late.reasonLabel')}
           <select value={reasonCode} onChange={e => setReasonCode(e.target.value)}>
-            {REASONS.map(r => <option key={r.code} value={r.code}>{r.label}</option>)}
+            {REASONS.map(r => <option key={r.code} value={r.code}>{r.code} — {t(`late.reason.${r.code}`)}</option>)}
           </select>
         </label>
         <label className="full-width">
-          Ghi chú chi tiết / mã tham chiếu giao dịch {reasonCode === 'OTHER_REQUIRES_NOTE' ? '*' : '(tùy chọn)'}
+          {t('late.noteLabel', { mark: reasonCode === 'OTHER_REQUIRES_NOTE' ? '*' : t('late.noteOptional') })}
           <textarea value={note} onChange={e => setNote(e.target.value)} />
         </label>
       </div>
       <div className="ops-actions">
         <button className="button outline" disabled={loading} onClick={load}>
-          {loading ? 'Đang tải...' : 'Tải lại hàng đợi'}
+          {loading ? ts('loading') : t('late.reload')}
         </button>
       </div>
       {message && <p role="status">{message}</p>}
       {error && <p role="alert" style={{ color: '#b00' }}>{error}</p>}
       {Array.isArray(reviews) && reviews.length === 0 && (
-        <p className="muted">Không có thanh toán về trễ nào đang chờ Manager.</p>
+        <p className="muted">{t('late.empty')}</p>
       )}
       {Array.isArray(reviews) && reviews.length > 0 && (
         <ul style={{ listStyle: 'none', margin: '12px 0 0', padding: 0, display: 'grid', gap: '10px' }}>
@@ -104,14 +110,14 @@ export default function LatePaymentReviewsPage() {
             <li key={review.reviewId} style={{ border: '1px solid #dcdfe6', padding: '12px' }}>
               <strong>{review.groupCode}</strong>
               <p className="muted" style={{ margin: '4px 0', fontSize: '13px' }}>
-                Số tiền: {review.amount} · Điều kiện không đạt: {(review.failedConditions || []).join(', ') || '—'}
-                {review.resultDueAt ? ` · Phải trả lời trước: ${new Date(review.resultDueAt).toLocaleString('vi-VN')}` : ''}
+                {t('late.amount', { amount: fmt.money(review.amount) })} · {t('late.failedConditions', { list: (review.failedConditions || []).map(conditionLabel).join(', ') || '—' })}
+                {review.resultDueAt ? ` · ${t('late.due', { time: fmt.dateTime(review.resultDueAt) })}` : ''}
               </p>
               <div className="ops-actions">
                 <button className="button outline" disabled={command.pending || !review.confirmAllowed || noteMissing}
-                  onClick={() => decide(review, 'CONFIRM')}>Confirm late payment</button>
+                  onClick={() => decide(review, 'CONFIRM')}>{t('late.confirm')}</button>
                 <button className="button warning" disabled={command.pending || noteMissing}
-                  onClick={() => decide(review, 'REFUND')}>Open 100% refund</button>
+                  onClick={() => decide(review, 'REFUND')}>{t('late.refund')}</button>
               </div>
             </li>
           ))}

@@ -2,6 +2,9 @@ import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { useAuth } from '../../shared/auth/AuthProvider';
 import { useHttp } from '../../shared/api/useHttp';
+import { useEnumLabel, useFormat, useT } from '../../shared/i18n/I18nProvider';
+import { sharedMessages } from '../../shared/ui/messages';
+import { messages } from '../messages';
 import { ConfirmDialog, ErrorNotice, Field, Loading, SuccessNotice, useCommand, useResource } from '../../shared/ui/components';
 import { HeaderActions } from '../../shared/ui/OperationsShell';
 import { OperationsAuthWorkspace } from '../../shared/ui/OperationsAuthWorkspace';
@@ -50,40 +53,45 @@ function toPayload(form) {
   };
 }
 
-function validate(form) {
+function validate(form, t) {
   const errors = {};
-  if (!form.name.trim()) errors.name = 'Enter a package name.';
-  if (!form.description.trim()) errors.description = 'Enter a customer-safe description.';
+  if (!form.name.trim()) errors.name = t('pkg.err.name');
+  if (!form.description.trim()) errors.description = t('pkg.err.description');
   for (const field of ['publicPrice', 'minParticipants', 'maxParticipants', 'requiredSessionCount', 'minimumSameDaySlotGap', 'requiredFoundryWorkingDaysBetweenSessions']) {
     const value = Number(form[field]);
-    if (!Number.isInteger(value) || value < 0) errors[field] = 'Use a non-negative whole number.';
+    if (!Number.isInteger(value) || value < 0) errors[field] = t('pkg.err.wholeNumber');
   }
-  if (Number(form.publicPrice) <= 0) errors.publicPrice = 'Public price must be positive.';
-  if (Number(form.minParticipants) > Number(form.maxParticipants)) errors.maxParticipants = 'Maximum must be at least minimum.';
-  if (Number(form.requiredSessionCount) < 1) errors.requiredSessionCount = 'At least one session is required.';
+  if (Number(form.publicPrice) <= 0) errors.publicPrice = t('pkg.err.price');
+  if (Number(form.minParticipants) > Number(form.maxParticipants)) errors.maxParticipants = t('pkg.err.maxTickets');
+  if (Number(form.requiredSessionCount) < 1) errors.requiredSessionCount = t('pkg.err.sessions');
   return errors;
 }
 
 function PackageForm({ form, setForm, errors, pending, onSubmit, onCancel, mode }) {
+  const t = useT(messages);
+  const ts = useT(sharedMessages);
   const set = field => event => setForm(current => ({ ...current, [field]: event.target.type === 'checkbox' ? event.target.checked : event.target.value }));
   return <form className="ota-panel ota-form package-admin-form" onSubmit={onSubmit} noValidate>
-    <div className="ota-panel-head"><div><h2>{mode === 'edit' ? 'Edit package' : 'Create package draft'}</h2><p className="muted small">Prospective changes only; published history remains immutable.</p></div></div>
+    <div className="ota-panel-head"><div><h2>{mode === 'edit' ? t('pkg.form.edit') : t('pkg.form.create')}</h2><p className="muted small">{t('pkg.form.note')}</p></div></div>
     <div className="ota-evidence-grid">
-      <Field label="Name" error={errors.name}><input value={form.name} onChange={set('name')} maxLength={180} /></Field>
-      <Field label="Public price (VND)" error={errors.publicPrice}><input inputMode="numeric" value={form.publicPrice} onChange={set('publicPrice')} /></Field>
-      <Field label="Minimum tickets" error={errors.minParticipants}><input inputMode="numeric" value={form.minParticipants} onChange={set('minParticipants')} /></Field>
-      <Field label="Maximum tickets" error={errors.maxParticipants}><input inputMode="numeric" value={form.maxParticipants} onChange={set('maxParticipants')} /></Field>
-      <Field label="Required sessions" error={errors.requiredSessionCount}><input inputMode="numeric" value={form.requiredSessionCount} onChange={set('requiredSessionCount')} /></Field>
-      <Field label="Minimum same-day slot gap" error={errors.minimumSameDaySlotGap}><input inputMode="numeric" value={form.minimumSameDaySlotGap} onChange={set('minimumSameDaySlotGap')} /></Field>
-      <Field label="Foundry working days between sessions" error={errors.requiredFoundryWorkingDaysBetweenSessions}><input inputMode="numeric" value={form.requiredFoundryWorkingDaysBetweenSessions} onChange={set('requiredFoundryWorkingDaysBetweenSessions')} /></Field>
-      <label className="package-checkbox"><input type="checkbox" checked={form.sameLocationRequired} onChange={set('sameLocationRequired')} /> Require the same location</label>
+      <Field label={t('pkg.form.name')} error={errors.name}><input value={form.name} onChange={set('name')} maxLength={180} /></Field>
+      <Field label={t('pkg.form.price')} error={errors.publicPrice}><input inputMode="numeric" value={form.publicPrice} onChange={set('publicPrice')} /></Field>
+      <Field label={t('pkg.form.minTickets')} error={errors.minParticipants}><input inputMode="numeric" value={form.minParticipants} onChange={set('minParticipants')} /></Field>
+      <Field label={t('pkg.form.maxTickets')} error={errors.maxParticipants}><input inputMode="numeric" value={form.maxParticipants} onChange={set('maxParticipants')} /></Field>
+      <Field label={t('pkg.form.sessions')} error={errors.requiredSessionCount}><input inputMode="numeric" value={form.requiredSessionCount} onChange={set('requiredSessionCount')} /></Field>
+      <Field label={t('pkg.form.slotGap')} error={errors.minimumSameDaySlotGap}><input inputMode="numeric" value={form.minimumSameDaySlotGap} onChange={set('minimumSameDaySlotGap')} /></Field>
+      <Field label={t('pkg.form.workingDays')} error={errors.requiredFoundryWorkingDaysBetweenSessions}><input inputMode="numeric" value={form.requiredFoundryWorkingDaysBetweenSessions} onChange={set('requiredFoundryWorkingDaysBetweenSessions')} /></Field>
+      <label className="package-checkbox"><input type="checkbox" checked={form.sameLocationRequired} onChange={set('sameLocationRequired')} /> {t('pkg.form.sameLocation')}</label>
     </div>
-    <Field label="Customer-safe description" error={errors.description}><textarea value={form.description} onChange={set('description')} maxLength={1000} /></Field>
-    <div className="actions form-actions"><button className="button primary" type="submit" disabled={pending}>{pending ? 'Saving…' : mode === 'edit' ? 'Save changes' : 'Create draft'}</button><button className="button outline" type="button" onClick={onCancel} disabled={pending}>Cancel</button></div>
+    <Field label={t('pkg.form.description')} error={errors.description}><textarea value={form.description} onChange={set('description')} maxLength={1000} /></Field>
+    <div className="actions form-actions"><button className="button primary" type="submit" disabled={pending}>{pending ? t('pkg.form.saving') : mode === 'edit' ? t('pkg.form.save') : t('pkg.form.createDraft')}</button><button className="button outline" type="button" onClick={onCancel} disabled={pending}>{ts('cancel')}</button></div>
   </form>;
 }
 
 export default function WorkshopPackageManagementPage() {
+  const t = useT(messages);
+  const fmt = useFormat();
+  const stateLabel = useEnumLabel(messages, 'packageState');
   const { status } = useAuth();
   const api = createWorkshopPackageApi(useHttp());
   const resource = useResource(() => api.listManaged(), []);
@@ -100,8 +108,8 @@ export default function WorkshopPackageManagementPage() {
   if (status !== 'signed-in') {
     return (
       <OperationsAuthWorkspace
-        topline="MLAND / WORKSHOP OPERATIONS"
-        message="Authentication required to manage workshop packages."
+        topline={t('topline.operations')}
+        message={t('pkg.signIn')}
       />
     );
   }
@@ -110,7 +118,7 @@ export default function WorkshopPackageManagementPage() {
   const startEdit = item => { setMode('edit'); setSelected(item); setForm(toForm(item)); setErrors({}); setNotice(''); };
   const save = async event => {
     event.preventDefault();
-    const found = validate(form);
+    const found = validate(form, t);
     setErrors(found);
     if (Object.keys(found).length) return;
     const outcome = await command.run(key => mode === 'edit' ? api.update(selected.packageId, toPayload(form), key) : api.createDraft(toPayload(form), key));
@@ -118,7 +126,7 @@ export default function WorkshopPackageManagementPage() {
       setSelected(outcome.result);
       setForm(toForm(outcome.result));
       setMode('edit');
-      setNotice(mode === 'edit' ? 'Package updated.' : 'Draft created. Publish it when the package is ready.');
+      setNotice(mode === 'edit' ? t('pkg.ok.updated') : t('pkg.ok.draftCreated'));
       resource.reload();
     }
   };
@@ -129,17 +137,17 @@ export default function WorkshopPackageManagementPage() {
       setForm(toForm(outcome.result));
       setMode('edit');
       setRetireTarget(null);
-      setNotice(targetState === 'RETIRED' ? 'Package retired.' : 'Package published.');
+      setNotice(targetState === 'RETIRED' ? t('pkg.ok.retired') : t('pkg.ok.published'));
       resource.reload();
     }
   };
 
   return <div className="ota-workspace">
-    <main className="ota-main"><div className="ota-topline">MLAND / WORKSHOP OPERATIONS <span>● Backend-authorized</span></div><HeaderActions><button className="button primary" type="button" onClick={startCreate}>Create package</button></HeaderActions><p className="muted">Create, edit and retire customer-facing workshop packages.</p>
+    <main className="ota-main"><div className="ota-topline">{t('topline.operations')} <span>● {t('authorized')}</span></div><HeaderActions><button className="button primary" type="button" onClick={startCreate}>{t('pkg.create')}</button></HeaderActions><p className="muted">{t('pkg.intro')}</p>
       <SuccessNotice>{notice}</SuccessNotice><ErrorNotice error={resource.error} onRetry={resource.reload} onReload={resource.reload} /><ErrorNotice error={command.error} onRetry={command.retry} />
-      {resource.loading ? <Loading /> : <section className="ota-panel"><div className="ota-panel-head"><h2>All packages</h2><span>{packages.length} records</span></div>{packages.length === 0 ? <div className="empty-state"><p>No workshop packages found.</p><button className="button outline" type="button" onClick={startCreate}>Create the first package</button></div> : <div className="package-admin-grid">{packages.map(item => <article className="package-admin-card" key={item.packageId}><div className="package-admin-card-head"><div><span className="ops-status">{item.state}</span><h3>{item.name}</h3></div><code>#{item.packageId}</code></div><p>{item.description}</p><dl><div><dt>Price</dt><dd>{Number(item.publicPrice).toLocaleString('vi-VN')} VND</dd></div><div><dt>Tickets</dt><dd>{item.minParticipants}–{item.maxParticipants}</dd></div><div><dt>Sessions</dt><dd>{item.requiredSessionCount}</dd></div></dl><div className="ops-actions">{item.state !== 'RETIRED' && <button className="button outline small" type="button" onClick={() => startEdit(item)}>Edit</button>}{item.state === 'PUBLISHED' && <button className="button danger small" type="button" onClick={() => setRetireTarget(item)}>Retire</button>}</div></article>)}</div>}</section>}
+      {resource.loading ? <Loading /> : <section className="ota-panel"><div className="ota-panel-head"><h2>{t('pkg.all')}</h2><span>{t('records', { count: packages.length })}</span></div>{packages.length === 0 ? <div className="empty-state"><p>{t('pkg.empty')}</p><button className="button outline" type="button" onClick={startCreate}>{t('pkg.createFirst')}</button></div> : <div className="package-admin-grid">{packages.map(item => <article className="package-admin-card" key={item.packageId}><div className="package-admin-card-head"><div><span className="ops-status">{stateLabel(item.state)}</span><h3>{item.name}</h3></div><code>#{item.packageId}</code></div><p>{item.description}</p><dl><div><dt>{t('pkg.price')}</dt><dd>{fmt.money(String(item.publicPrice))}</dd></div><div><dt>{t('pkg.tickets')}</dt><dd>{item.minParticipants}–{item.maxParticipants}</dd></div><div><dt>{t('pkg.sessions')}</dt><dd>{item.requiredSessionCount}</dd></div></dl><div className="ops-actions">{item.state !== 'RETIRED' && <button className="button outline small" type="button" onClick={() => startEdit(item)}>{t('pkg.edit')}</button>}{item.state === 'PUBLISHED' && <button className="button danger small" type="button" onClick={() => setRetireTarget(item)}>{t('pkg.retire')}</button>}</div></article>)}</div>}</section>}
       {mode && <PackageForm form={form} setForm={setForm} errors={errors} pending={command.pending} onSubmit={save} onCancel={() => setMode(null)} mode={mode} />}
-      {selected?.state === 'DRAFT' && mode === 'edit' && <section className="ota-panel draft-publish-panel"><div><h2>Draft ready</h2><p>Review the values above, then publish this draft to make it available for customer discovery.</p></div><button className="button primary" type="button" disabled={command.pending} onClick={() => transition(selected, 'PUBLISHED')}>Publish draft</button></section>}
-      <ConfirmDialog open={Boolean(retireTarget)} title="Retire package?" confirmLabel="Retire package" danger pending={command.pending} onCancel={() => setRetireTarget(null)} onConfirm={() => transition(retireTarget, 'RETIRED')}><p>This stops new bookings. Existing booking snapshots are preserved.</p></ConfirmDialog>
+      {selected?.state === 'DRAFT' && mode === 'edit' && <section className="ota-panel draft-publish-panel"><div><h2>{t('pkg.draftReady')}</h2><p>{t('pkg.draftReadyBody')}</p></div><button className="button primary" type="button" disabled={command.pending} onClick={() => transition(selected, 'PUBLISHED')}>{t('pkg.publishDraft')}</button></section>}
+      <ConfirmDialog open={Boolean(retireTarget)} title={t('pkg.retireTitle')} confirmLabel={t('pkg.retireConfirm')} danger pending={command.pending} onCancel={() => setRetireTarget(null)} onConfirm={() => transition(retireTarget, 'RETIRED')}><p>{t('pkg.retireBody')}</p></ConfirmDialog>
     </main></div>;
 }

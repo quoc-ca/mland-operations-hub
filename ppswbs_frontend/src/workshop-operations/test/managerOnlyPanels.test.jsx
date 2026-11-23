@@ -12,7 +12,7 @@ function open(role) {
     'GET /api/v1/accounts/me/profile': json(200, { role }),
     'GET /api/v1/workshop-sessions/session-1': session,
   });
-  renderRoutes(operationsRoutes, { path: '/operations/sessions/session-1' });
+  renderRoutes(operationsRoutes, { language: 'en', path: '/operations/sessions/session-1' });
 }
 
 describe('Manager-only panels on the session page', () => {
