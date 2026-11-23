@@ -68,3 +68,23 @@
   .ops-tabs { overflow-x: visible; }
   .ops-content .ota-main { padding: 16px 16px 32px; }
 }
+
+/* GHTK partner portal (CARRIER, Session 2026-11-23): GHTK green, "G" logo, language and sign-out at the top right. */
+.ops-shell.carrier-theme { --ops-rail: #00602f; --ops-rail-fg: #d7f0e1; --ops-act: #ffffff; --ops-ink: #00602f; }
+.ops-shell.carrier-theme .ops-rail { background: linear-gradient(180deg, #069255 0%, #00602f 100%); }
+.ops-shell.carrier-theme .ops-rail-item.active { color: #00602f; }
+.ops-shell.carrier-theme .ops-rail-item.active svg { stroke: #00602f; }
+.ops-logo.ops-logo-ghtk { background: #fff; color: #069255; font-size: 18px; }
+.ops-shell.carrier-theme .ops-tab.active { color: #00602f; border-bottom-color: #069255; }
+.ops-shell.carrier-theme .ops-titlebar h1 { color: #00602f; }
+.ops-shell.carrier-theme .ops-crumb { color: #069255; font-weight: 600; }
+.ops-topright { float: right; display: flex; align-items: center; gap: 10px; margin-left: 12px; }
+.ops-topright-user { font-size: 13px; color: #374151; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ops-topright .ops-lang button { background: #eef6f1; color: #00602f; padding: 4px 8px; font-size: 12px; }
+.ops-topright .ops-lang button.active { background: #069255; color: #fff; }
+.ops-topright-signout { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #cfe3d7; background: #fff; color: #00602f; font: inherit; font-size: 13px; font-weight: 600; padding: 5px 12px; border-radius: 6px; cursor: pointer; }
+.ops-topright-signout:hover { background: #069255; color: #fff; border-color: #069255; }
+.ops-topright .ops-signout-error { color: #b3261e; }
+.ops-shell.carrier-theme .button.primary, .ops-shell.carrier-theme .account-btn-primary { background: #069255; border-color: #069255; color: #fff; }
+.ops-shell.carrier-theme .button.primary:hover, .ops-shell.carrier-theme .account-btn-primary:hover { background: #00602f; border-color: #00602f; }
+.ops-shell.carrier-theme .md-segment .active { background: #069255; color: #fff; }

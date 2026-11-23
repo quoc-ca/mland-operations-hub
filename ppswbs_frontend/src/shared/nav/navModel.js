@@ -3,10 +3,12 @@
 // Visibility mirrors the old sidebar and is navigation only; the backend decides every permission. A tab that carries a
 // waiting-work badge links to the list filtered to exactly the counted set (spec 013 FR-004).
 
-const any = () => true;
+// CARRIER (GHTK partner, Session 2026-11-23) sees only its own three pages, never the Mland operations groups.
+const any = role => role !== 'CARRIER';
 const manager = role => role === 'MANAGER';
 const staffOrManager = role => role === 'MANAGER' || role === 'STAFF';
-const notAdmin = role => role !== 'ADMIN';
+const notAdmin = role => role !== 'ADMIN' && role !== 'CARRIER';
+const carrier = role => role === 'CARRIER';
 
 /**
  * `match`: exact path, or a prefix when it ends with `*`. `actions` are the header buttons of the tab's own page
@@ -18,7 +20,8 @@ export const GROUPS = [
     tabs: [
       { id: 'dashboard', vi: 'Dashboard', en: 'Dashboard', to: '/manager/dashboard', match: ['/manager/dashboard', '/manager/home'], visible: manager },
       { id: 'staff-home', vi: 'Trang chủ', en: 'Home', to: '/staff/home', match: ['/staff/home'], visible: role => role === 'STAFF' },
-      { id: 'home', vi: 'Trang chủ', en: 'Home', to: '/home', match: ['/home'], visible: role => !staffOrManager(role) },
+      { id: 'home', vi: 'Trang chủ', en: 'Home', to: '/home', match: ['/home'], visible: role => !staffOrManager(role) && !carrier(role) },
+      { id: 'carrier-home', vi: 'Trang chủ', en: 'Home', to: '/carrier', match: ['/carrier'], visible: carrier },
     ],
   },
   {
@@ -114,6 +117,15 @@ export const GROUPS = [
       { id: 'delivery-logs', vi: 'Nhật ký gửi thư', en: 'Delivery logs', to: '/admin/notifications/requests', match: ['/admin/notifications/requests*'], visible: manager },
       { id: 'audit', vi: 'Nhật ký audit', en: 'Audit log', to: '/operations/audit', match: ['/operations/audit*'], visible: manager },
     ],
+  },
+  // GHTK partner portal (CARRIER only, Session 2026-11-23): home is the "home" group's carrier tab.
+  {
+    id: 'carrier-orders', icon: 'truck', vi: 'Đơn hàng', en: 'Shipments',
+    tabs: [{ id: 'orders', vi: 'Đơn hàng', en: 'Shipments', to: '/carrier/orders', match: ['/carrier/orders*'], visible: carrier }],
+  },
+  {
+    id: 'carrier-stats', icon: 'dash', vi: 'Thống kê', en: 'Statistics',
+    tabs: [{ id: 'stats', vi: 'Thống kê', en: 'Statistics', to: '/carrier/stats', match: ['/carrier/stats*'], visible: carrier }],
   },
 ];
 

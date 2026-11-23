@@ -45,3 +45,17 @@ describe('Simulated GHTK portal (Session 2026-11-20)', () => {
     expect(stats.byBranch.find(row => row.locationId === 1)).toMatchObject({ received: 1, delivered: 1, fee: '30000' });
   });
 });
+
+describe('GHTK home page notice (Session 2026-11-23)', () => {
+  it('counts today\'s new shipments in Vietnam time and the ones waiting or on the way', async () => {
+    const { carrierTodayCounts } = await import('../../accountmanagement/components/CarrierPortalPage');
+    const now = Date.parse('2026-11-23T03:00:00Z'); // 10:00 in Vietnam
+    const counts = carrierTodayCounts([
+      { status: 'PREPARING', createdAt: '2026-11-22T18:30:00Z' }, // 01:30 on the 23rd in Vietnam
+      { status: 'READY_FOR_CARRIER', createdAt: '2026-11-23T02:00:00Z' },
+      { status: 'IN_TRANSIT', createdAt: '2026-11-22T16:00:00Z' }, // 23:00 on the 22nd in Vietnam
+      { status: 'DELIVERED', createdAt: '2026-11-20T02:00:00Z' },
+    ], now);
+    expect(counts).toEqual({ today: 2, waitingPickup: 1, delivering: 1 });
+  });
+});

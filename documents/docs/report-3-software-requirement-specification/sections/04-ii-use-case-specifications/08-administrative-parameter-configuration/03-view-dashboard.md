@@ -10,7 +10,7 @@ None
 
 #### Description
 
-Allows the Manager to view consolidated business analytics, workshop utilization, retail revenue, and branch key performance indicators for an authorized reporting period.
+Allows the Manager to view consolidated business analytics, workshop utilization, retail revenue, and branch key performance indicators for an authorized reporting period, together with today's operations and recent events on the same page.
 
 #### Preconditions
 
@@ -28,12 +28,12 @@ Allows the Manager to view consolidated business analytics, workshop utilization
 
 **View Executive Revenue Dashboard**
 
-1. The Manager opens the executive revenue dashboard.
-2. The system loads the default reporting period and authorized branch scope.
+1. The Manager opens Dashboard, the Manager's home page and the first group of the navigation rail.
+2. The system shows today's operations and recent events, and loads the revenue report for the default reporting period (the current month) and all authorized branches.
 3. The Manager selects a day, week, month or year (Vietnam time) and all branches or one branch with a single click.
 4. The system retrieves and aggregates verified revenue, workshop, order, and branch data: finalized workshop folios, workshop tickets and check-ins, and retail orders.
-5. The system displays revenue totals, workshop utilization, retail performance, and branch KPIs with the applicable period and scope, each compared with the previous period of the same length, and trend charts by hour for a day, by day for a week or month and by month for a year: workshop revenue, registered places, check-ins, no-shows and cancellations; retail orders placed, paid and cancelled, and retail revenue.
-6. The Manager reviews the dashboard or changes the filters.
+5. The system displays revenue totals, workshop utilization, retail performance, and branch KPIs with the applicable period and scope, each compared with the previous period of the same length, and trend charts by hour for a day, by day for a week or month and by month for a year: workshop revenue, registered places, check-ins, no-shows and cancellations; retail orders placed, paid and cancelled, and retail revenue. Each figure keeps one colour, every chart writes its values, and all labels follow the VI/EN switch.
+6. The Manager reviews the dashboard, changes the filters or switches the language.
 
 #### Alternative Flows
 

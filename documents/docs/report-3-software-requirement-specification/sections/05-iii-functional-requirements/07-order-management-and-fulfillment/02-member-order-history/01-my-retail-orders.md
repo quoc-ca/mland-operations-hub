@@ -16,6 +16,6 @@ This screen allows Members to:
 | Product lines | Image, name, variant, quantity and amount; accepted-order identity and options remain frozen. |
 | Status | Chờ thanh toán, Đang chuẩn bị hàng, Chờ GHTK lấy hàng, Đang giao hàng, Sẵn sàng nhận hàng, Đã giao, Đã hủy or Đã hủy · quá hạn. |
 | Thành tiền | Frozen payable amount of the branch order in whole VND. |
-| Thanh toán trong | Countdown to the 15-minute hold deadline; afterwards the order is cancelled and the voucher and points are returned. |
+| Thanh toán trong | Countdown to the 10-minute hold deadline; afterwards the order is cancelled and the voucher and points are returned. |
 | Thanh toán / Hủy đơn / Mua lại | Shown only when eligible for the current order/payment state. |
 | Payment notice | Shown at the top for about 5 seconds, then hidden; errors stay on the page. Payment confirmation comes from verified VNPay evidence, not the browser redirect; a cash order shows where and until when to pay. |

@@ -17,10 +17,14 @@ export function useVoucherOptions(api, vouchers, base) {
     let live = true;
     Promise.all(codes.map(code => api.previewBenefits({ ...base, estimateOnly: true, selection: { choice: 'VOUCHER', voucherCode: code, requestedPoints: '0' } })
       .then(result => {
-        const saving = result?.eligible ? BigInt(result.discountAmount || '0') : 0n;
-        return [code, { eligible: saving > 0n, saving }];
+        // Since FE-06 stacks the automatic discount with the voucher (Session 2026-11-22), discountAmount includes the
+        // automatic discount the Member gets anyway; a code's own saving is voucherDiscountAmount.
+        const saving = result?.eligible ? BigInt(result.voucherDiscountAmount ?? result.discountAmount ?? '0') : 0n;
+        // FE-06's own reason, so the picker says why a voucher cannot be used here (2026-11-23).
+        const reason = saving > 0n ? null : voucherReason(result?.reasons);
+        return [code, { eligible: saving > 0n, saving, reason, reasonEn: saving > 0n ? null : voucherReasonEn(result?.reasons) }];
       })
-      .catch(() => [code, { eligible: false, saving: 0n }])))
+      .catch(failure => [code, { eligible: false, saving: 0n, reason: voucherReason([failure?.message]), reasonEn: voucherReasonEn([failure?.message]) }])))
       .then(entries => { if (live) setState({ key, options: new Map(entries) }); });
     return () => { live = false; };
   }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -67,6 +71,41 @@ export function savedProductVouchers(items) {
 export function withPublicVouchers(saved, publicVouchers) {
   const seen = new Set(saved.map(voucher => String(voucher.code).toUpperCase()));
   return [...saved, ...publicVouchers.filter(voucher => !seen.has(String(voucher.code).toUpperCase()))];
+}
+
+/** Vietnamese wording of the FE-06 preview reasons FE-08 shows (FE-06 sends them in English). */
+export const REASON_VI = {
+  'No automatic discount applies to this cart.': 'Giỏ hàng hiện không có ưu đãi tự động phù hợp.',
+  'Save this voucher in Kho Voucher before using it.': 'Hãy lưu voucher này ở Kho Voucher trước khi dùng.',
+  'The automatic discount already covers these items; this voucher gives nothing more.': 'Giảm tự động đã trừ hết phần voucher này áp dụng, mã không giảm thêm được.',
+  'No item in the cart is covered by this voucher.': 'Voucher không áp dụng cho sản phẩm hoặc size trong đơn này.',
+  'This voucher does not apply at the branch of these items.': 'Voucher chỉ áp dụng tại chi nhánh khác, không phải chi nhánh bạn chọn mua.',
+  'The covered items do not reach the minimum amount of this voucher.': 'Sản phẩm được áp dụng chưa đạt giá trị đơn tối thiểu của voucher.',
+  'The voucher code was not found.': 'Không tìm thấy mã voucher.',
+  'This voucher is for workshop bookings, not for products.': 'Voucher này dành cho workshop, không dùng cho nhẫn.',
+  'This promotion is paused.': 'Voucher đang tạm dừng.',
+  'This promotion has not started yet.': 'Voucher chưa đến thời gian sử dụng.',
+  'This promotion has ended.': 'Voucher đã hết hạn.',
+  'This voucher has no uses left.': 'Voucher đã hết lượt sử dụng.',
+  'You have already used this voucher the maximum number of times.': 'Bạn đã dùng voucher này đủ số lần cho phép.',
+  'Points cannot be used with this voucher.': 'Voucher này không dùng chung với điểm.',
+};
+
+/** The first FE-06 reason that concerns the voucher, in Vietnamese, or null. */
+export function voucherReason(reasons) {
+  const known = (reasons || []).filter(reason => reason && reason !== 'No automatic discount applies to this cart.');
+  return known.length ? (REASON_VI[known[0]] || known[0]) : null;
+}
+
+/** The same reason as FE-06 wrote it (English), for the EN language. */
+export function voucherReasonEn(reasons) {
+  const known = (reasons || []).filter(reason => reason && reason !== 'No automatic discount applies to this cart.');
+  return known.length ? known[0] : null;
+}
+
+/** The reasons in Vietnamese; an unknown reason keeps FE-06's text. */
+export function reasonsInVietnamese(reasons) {
+  return (reasons || []).map(reason => REASON_VI[reason] || reason);
 }
 
 /** The usable voucher with the largest real saving, or null. */

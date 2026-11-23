@@ -145,6 +145,11 @@ An Admin may receive a separate, purpose-limited `Parameter Impact Summary` for 
   into it: the page also shows today's operations and recent events around the unchanged revenue report (filters, five KPI cards, trends, branch table, FR-016 to FR-030
   rules unchanged). The sidebar entry becomes the "Dashboard" group of the new rail, and the "Quản lý đánh giá" header button is removed because review moderation is a tab
   of the "Khách hàng" group. Decision of Hồ Hoàng Quốc; details in `013-manager-home/spec.md` Session 2026-11-22.
+- Q: How does the revenue report look inside the shell? → A: (Thinh, 2026-11-22) It uses the full page width. Each figure keeps one colour
+  everywhere: retail amber, workshop blue, paid retail orders green, workshop utilization violet, totals dark. Every label of the revenue
+  report follows the VI/EN switch, like the operations blocks of 013. Trend charts are drawn at their real width (no stretched text), write
+  the value above each bar and point (only each series' peak when a period has more than 16 points), and count charts use whole-number
+  axes. The workshop trend panel shows revenue and participants side by side, then tickets booked and cancelled (FR-031).
 
 ## User Scenarios & Testing
 
@@ -286,6 +291,11 @@ The Manager Dashboard browser route `/manager/dashboard` has the exact allowlist
 - **FR-030**: Each trend summary MUST compare with the previous period of the
   same length. A trend source that cannot be read MUST be named and shown as
   unknown, never as zero (FR-013).
+- **FR-031**: Every label, notice and number format of the revenue report MUST
+  follow the Vietnamese/English language switch. Trend charts MUST show each
+  non-zero value on its bar or point (only each series' peak when a period has
+  more than 16 points), count charts MUST use whole-number axes, and a missing
+  value MUST stay a gap, never a zero (Session 2026-11-22).
 
 ### Key Entities
 

@@ -111,7 +111,7 @@ Since T124 (FE-02 FR-053, 2026-11-12) each held quantity belongs to one
 sale at one branch never reduces what another branch can sell. A legacy
 size-level hold without a branch is counted at every branch of its size.
 
-The maximum unpaid VNPay hold is 15 minutes; a counter cash checkout is held for
+The unpaid VNPay hold is 10 minutes (Session 2026-11-22); a counter cash checkout is held for
 72 hours (FR-08-043). A payment link is valid for at most 10
 minutes. An authoritative unpaid payment failure or expiry releases held
 quantities and benefits and restores the source cart; late or ambiguous payment
@@ -192,7 +192,7 @@ Checkout accepted
         |
 ACCEPTED_UNPAID -- Member cancels --> Hold released / cart restored
         |
-        +-- authoritative payment failure/15-minute expiry --> Hold released / cart restored
+        +-- authoritative payment failure/10-minute expiry --> Hold released / cart restored
         +-- server persists VNPay initiation --> PAYMENT_INITIATED
                                                 | verified full payment
 Paid / fulfilment selected

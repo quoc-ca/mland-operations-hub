@@ -30,7 +30,7 @@ As a Member, I want to pay the full frozen retail amount through VNPay so that m
 
 1. The owning Member is sent to VNPay right after Đặt hàng, or presses Thanh toán on an order in Chờ thanh toán.
 2. The system checks current human access and retrieves its frozen full payable amount/currency/reference, original hold/deadlines and eligible attempt.
-3. The system opens the VNPay link stored for the checkout and its frozen full-amount attempt. The link lasts until the hold expires 15 minutes after checkout acceptance; pressing Thanh toán again reopens the same link and creates no second VNPay transaction or new deadlines.
+3. The system opens the VNPay link stored for the checkout and its frozen full-amount attempt. The link lasts until the hold expires 10 minutes after checkout acceptance; pressing Thanh toán again reopens the same link and creates no second VNPay transaction or new deadlines.
 4. The Member completes the external payment and returns to Purchase Order History.
 5. VNPay sends successful signed IPN evidence, the normal confirmation channel.
 6. The system verifies signature, exact payment/order reference, frozen full amount/currency, successful status and current original attempt/hold/benefit bindings.
@@ -98,7 +98,7 @@ BR-46-01, BR-46-02, BR-46-03, BR-46-04, BR-46-05, BR-46-06, BR-46-07, BR-46-08, 
 | --- | --- |
 | BR-46-01 | Only a matching valid signed successful VNPay IPN or eligible signed QueryDR confirms payment; browser returns and human assertions never do. |
 | BR-46-02 | Verify the frozen full positive whole-VND amount, currency, reference and original variant/benefit bindings; never reprice or reassign accepted terms. |
-| BR-46-03 | Use the single stored VNPay link of the checkout, valid until the original 15-minute hold expires; reopening it creates no second transaction. Eligible QueryDR recovery checks an opened but unconfirmed payment before the hold is released. |
+| BR-46-03 | Use the single stored VNPay link of the checkout, valid until the original 10-minute hold expires; reopening it creates no second transaction. Eligible QueryDR recovery checks an opened but unconfirmed payment before the hold is released. |
 | BR-46-04 | Complete verification and payment acceptance strictly before original hold expiry; first acceptance at/after expiry is an exception regardless of earlier receipt/provider timestamps. |
 | BR-46-05 | Payment consumes held quantities/benefits once; duplicates, reordering, recovery and expiry races cannot repeat effects or both settle and release the same resources. |
 | BR-46-06 | Release unpaid holds at expiry; late or retired/replaced evidence cannot revive holds, settle replacements or automatically fulfil. |

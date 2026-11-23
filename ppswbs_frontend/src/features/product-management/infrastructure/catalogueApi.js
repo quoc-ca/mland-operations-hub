@@ -30,6 +30,7 @@ export function catalogueApi(request) {
 
     // Hand-off to FE-08's cart (T072): the Member's bearer, body { variantId, locationId, quantity } only.
     addCartLine: body => request('/api/v1/members/me/ready-ring-cart/lines', { method: 'POST', body }),
+    readCart: () => request('/api/v1/members/me/ready-ring-cart'),
 
     // Products (T028, T050, T064)
     listProducts: filters => read('/products', filters),

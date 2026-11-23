@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router';
 import { useAuth } from '../../../../shared/auth/AuthProvider';
 import { signInPath } from '../../../../shared/auth/SignInLink';
@@ -170,6 +170,15 @@ export function AddToCartPanel({ product, returnPath, onAdded, sizePrice, onSize
       // The quick add of the list stays on the list (onAdded); the detail page opens the cart as before.
       if (onAdded) { setPending(false); onAdded(); } else navigate('/member/cart');
     } catch (failure) {
+      // Shopee-style (2026-11-23): "Mua Ngay" for a size the cart already holds up to the branch stock goes straight to
+      // checkout with the line already in the cart instead of refusing.
+      if (buyNow && failure?.code === 'RETAIL_CART_QUANTITY_LIMIT') {
+        try {
+          const cart = await api.readCart();
+          const line = (cart?.lines || []).find(item => String(item.variantId) === choice.variantId && String(item.locationId) === choice.locationId);
+          if (line) { navigate('/member/checkout', { state: { cartLineIds: [String(line.id)] } }); return; }
+        } catch { /* fall through to the popup */ }
+      }
       setError(failure);
       setPending(false);
     }
@@ -202,20 +211,36 @@ export function AddToCartPanel({ product, returnPath, onAdded, sizePrice, onSize
           <span className="qty-stock">{chosenVariant ? t('cart.inStock', { count: stock }) : t('cart.pickSizeForStock')}</span>
         </div>
       </div>
+      {chosenVariant && stock > 0 && choice.quantity >= maxQuantity && (
+        <p className="buy-limit">{t('cart.atMaximum')}</p>
+      )}
       {locations.error && <ErrorNotice error={locations.error} messages={messages} onRetry={locations.reload} />}
       {locations.data && locations.data.items.length === 0 && <p className="status">{t('cart.noBranch')}</p>}
       {prompt && <p className="buy-prompt" role="alert">{prompt}</p>}
-      {error && (
-        <div className="notice error" role="alert">
-          <p>{error.message || errorText(error)}</p>
-          {error.correlationId && <p className="muted small">{t('cart.reference', { id: error.correlationId })}</p>}
-        </div>
-      )}
+      {error && <CartRefusalDialog text={error.message || errorText(error)} t={t} onClose={() => setError(null)} />}
       <div className="buy-actions">
         <button type="button" className="buy-add" disabled={blocked} onClick={() => go(false)}>
           <CartIcon />{pending ? t('cart.adding') : t('cart.add')}
         </button>
         <button type="button" className="buy-now" disabled={blocked} onClick={() => go(true)}>{t('cart.buyNow')}</button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Shopee-style refusal (2026-11-23): FE-08's answer to an add (e.g. "Bạn đã có 2 sản phẩm này trong giỏ hàng…") is a
+ * centred popup with one "Đồng ý" button instead of a line under the buttons. Escape closes only this popup.
+ */
+function CartRefusalDialog({ text, t, onClose }) {
+  const okRef = useRef(null);
+  useEffect(() => { okRef.current?.focus(); }, []);
+  return (
+    <div className="dialog-backdrop cart-refusal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
+      <div className="dialog cart-refusal" role="alertdialog" aria-modal="true" aria-label={text}
+        onKeyDown={event => { if (event.key === 'Escape') { event.stopPropagation(); onClose(); } }}>
+        <p className="cart-refusal-text">{text}</p>
+        <button type="button" ref={okRef} className="cart-refusal-ok" onClick={onClose}>{t('cart.ok')}</button>
       </div>
     </div>
   );

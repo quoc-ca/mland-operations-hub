@@ -143,7 +143,7 @@ paths:
     post:
       summary: Initiate one VNPay payment for a grouped checkout
       description: >-
-        The VNPay link lives until the 15-minute hold deadline and is stored;
+        The VNPay link lives until the 10-minute hold deadline and is stored;
         a repeated call before that returns the same link, so one checkout has
         one VNPay transaction (Session 2026-11-18).
       security:
@@ -987,7 +987,7 @@ components:
           type: string
           format: date-time
           nullable: true
-          description: Until when an unpaid VNPay order is held (15 minutes); null otherwise.
+          description: Until when an unpaid VNPay order is held (10 minutes); null otherwise.
         paidAt:
           type: string
           format: date-time

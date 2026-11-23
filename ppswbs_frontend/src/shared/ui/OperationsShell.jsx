@@ -23,6 +23,7 @@ const ICONS = {
   ticket: 'M3 9V6h18v3a3 3 0 0 0 0 6v3H3v-3a3 3 0 0 0 0-6zM13 6v12',
   plug: 'M9 2v6M15 2v6M6 8h12v4a6 6 0 0 1-12 0zM12 18v4',
   gear: 'M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2',
+  truck: 'M1 5h13v11H1zM14 9h4l4 4v3h-8zM5.5 18.5a1.5 1.5 0 1 0 0-.01M17.5 18.5a1.5 1.5 0 1 0 0-.01',
 };
 
 const COLLAPSE_KEY = 'ops-rail-collapsed';
@@ -109,6 +110,43 @@ function RailFooter({ isVi }) {
 }
 
 /**
+ * GHTK partner portal (CARRIER, Session 2026-11-23): language and sign-out sit at the top right of the page, like most
+ * web apps; a carrier has no Mland profile page, so there is no profile link.
+ */
+function CarrierTopRight({ isVi }) {
+  const { status, signOut } = useAuth();
+  const { language, setLanguage } = useLanguage();
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const email = getFirebaseAuth?.()?.currentUser?.email || '';
+  const handleSignOut = async () => {
+    if (busy) return;
+    setBusy(true);
+    setFailed(false);
+    try { await signOut(); } catch { setFailed(true); } finally { setBusy(false); }
+  };
+  return (
+    <div className="ops-topright">
+      {email && <span className="ops-topright-user" title={email}>{email}</span>}
+      <div className="ops-lang" role="group" aria-label="Language">
+        {['vi', 'en'].map(code => (
+          <button key={code} type="button" className={language === code ? 'active' : ''} aria-pressed={language === code} onClick={() => setLanguage(code)}>
+            {code.toUpperCase()}
+          </button>
+        ))}
+      </div>
+      {status === 'signed-in' && (
+        <button type="button" className="ops-topright-signout" onClick={handleSignOut} disabled={busy} aria-busy={busy}>
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 4H5v16h4M16 8l4 4-4 4M20 12H9" /></svg>
+          {busy ? (isVi ? 'Đang thoát…' : 'Signing out…') : (isVi ? 'Đăng xuất' : 'Sign out')}
+        </button>
+      )}
+      {failed && <span className="ops-signout-error" role="alert">{isVi ? 'Đăng xuất thất bại' : 'Sign out failed'}</span>}
+    </div>
+  );
+}
+
+/**
  * Layout of every operations screen (spec 013, navigation decision of 2026-11-22): a rail of groups, and in the page
  * a header (breadcrumb, title, action buttons) with the tabs of the group. Navigation only; the backend decides
  * every permission.
@@ -133,11 +171,14 @@ export default function OperationsShell() {
   const tabs = here ? visibleTabs(here.group, role) : [];
   const actions = here ? pageActions(here, pathname) : [];
   const count = key => badges.counts[key];
+  const isCarrier = role === 'CARRIER';
 
   return (
-    <div className={`ops-shell${collapsed ? ' collapsed' : ''}`}>
+    <div className={`ops-shell${collapsed ? ' collapsed' : ''}${isCarrier ? ' carrier-theme' : ''}`}>
       <aside className="ops-rail" aria-label="Operations Navigation">
-        <Link to="/home" className="ops-logo" aria-label="MLAND">M</Link>
+        {isCarrier
+          ? <Link to="/carrier" className="ops-logo ops-logo-ghtk" aria-label="GHTK">G</Link>
+          : <Link to="/home" className="ops-logo" aria-label="MLAND">M</Link>}
         <button type="button" className="ops-toggle" onClick={toggle} aria-expanded={!collapsed} title={collapsed ? (isVi ? 'Mở rộng thanh điều hướng' : 'Expand navigation') : (isVi ? 'Thu gọn thanh điều hướng' : 'Collapse navigation')} aria-label={collapsed ? (isVi ? 'Mở rộng thanh điều hướng' : 'Expand navigation') : (isVi ? 'Thu gọn thanh điều hướng' : 'Collapse navigation')}>
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={collapsed ? 'M9 6l6 6-6 6' : 'M15 6l-6 6 6 6'} /></svg>
         </button>
@@ -161,14 +202,15 @@ export default function OperationsShell() {
             );
           })}
         </nav>
-        <RailFooter isVi={isVi} />
+        {!isCarrier && <RailFooter isVi={isVi} />}
       </aside>
 
       <div className="ops-page">
         {here && (
           <header className="ops-header">
+            {isCarrier && <CarrierTopRight isVi={isVi} />}
             <nav className="ops-crumb" aria-label="Breadcrumb">
-              <span>MLAND</span>
+              <span>{isCarrier ? 'GHTK × MLAND' : 'MLAND'}</span>
               <span aria-hidden="true">/</span>
               <span>{groupLabel(here.group, language, role)}</span>
               {tabs.length > 1 && <><span aria-hidden="true">/</span><span>{tabLabel(here.tab, language, role)}</span></>}
