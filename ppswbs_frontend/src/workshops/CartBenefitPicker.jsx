@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { useFormat } from '../shared/i18n/I18nProvider';
+import { useFormat, useT } from '../shared/i18n/I18nProvider';
+import { messages } from '../features/loyalty-promotion/ui/messages';
+import { reasonTexts } from '../features/loyalty-promotion/ui/checkout/BenefitSelector';
 import '../features/retail-order/ui/readyringsales.css';
 
 const isWhole = value => /^(0|[1-9][0-9]*)$/.test(String(value ?? ''));
@@ -21,6 +23,7 @@ const wholeOf = value => (isWhole(value) ? String(value) : null);
  */
 export function CartBenefitPicker({ selection, onChange, savedVouchers = [], offers = [], packageIds = [], account, quote, pending }) {
   const format = useFormat();
+  const t = useT(messages);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [typedCode, setTypedCode] = useState('');
 
@@ -63,7 +66,8 @@ export function CartBenefitPicker({ selection, onChange, savedVouchers = [], off
 
   const requested = String(selection.requestedPoints ?? '0');
   const pointsOn = requested !== '0';
-  const reasons = Array.isArray(quote?.reasons) ? quote.reasons.filter(Boolean) : [];
+  // 006's coded reasons are translated; a quote without them keeps the English text.
+  const reasons = reasonTexts(quote, t, format).filter(Boolean);
 
   const applyVoucher = code => {
     const clean = String(code || '').trim();
@@ -134,7 +138,8 @@ export function CartBenefitPicker({ selection, onChange, savedVouchers = [], off
         <div className="retail-benefit-quote breakdown" aria-live="polite">
           <dl>
             <div><dt>Phí gói workshop</dt><dd>{format.money(quote.grossVnd)}</dd></div>
-            <div><dt>Giảm giá voucher</dt><dd>−{format.money(quote.voucherDiscountVnd)}</dd></div>
+            <div><dt>Giảm tự động</dt><dd>−{format.money(quote.autoDiscountVnd ?? 0)}</dd></div>
+            <div><dt>Voucher</dt><dd>−{format.money(quote.voucherDiscountVnd)}</dd></div>
             <div><dt>Giảm bằng {format.number(quote.pointsUsed ?? '0')} điểm</dt><dd>−{format.money(quote.pointDiscountVnd)}</dd></div>
             <div><dt>Tiền workshop sau ưu đãi</dt><dd>{format.money(quote.finalTotalVnd)}</dd></div>
             <div className="total"><dt>Thanh toán khi đặt</dt><dd>{format.money(quote.groupCollectionVnd)}</dd></div>

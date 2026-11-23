@@ -33,7 +33,7 @@ import { messages } from '../messages';
  */
 
 /** Reason texts for the quote: translated from reasonDetails when possible, otherwise the plain reasons. */
-function reasonTexts(quote, t, format) {
+export function reasonTexts(quote, t, format) {
   const details = Array.isArray(quote?.reasonDetails) ? quote.reasonDetails : [];
   const plain = quote?.reasons || [];
   if (details.length === 0) return plain;
