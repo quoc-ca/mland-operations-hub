@@ -16,7 +16,7 @@ import { ReviewSection } from './sections/ReviewSection';
 import { VariantsSection } from './sections/VariantsSection';
 import { PageTop } from './ManagementLayout';
 import { NoticeContext, PageNotice } from './notices';
-import { ProductStateBadge } from './ProductListPage';
+import { ProductStateBadge } from './ProductStateBadge';
 
 /**
  * Product detail of the management area. Every section sends its own command with the version shown here;

@@ -140,6 +140,66 @@ class CatalogueListTabsIT {
         assertThat(ids(productId, ListTab.PRICE_REJECTED)).isEmpty();
     }
 
+    /** T206: the search box narrows the tab list and every count alike (name, product number, SKU). */
+    @Test
+    void theKeywordNarrowsTabListsAndCounts() {
+        long productId = publishedWithAPendingPrice();
+        String category = Long.toString(fixture.categoryOf(productId));
+        String name = products.findById(productId).orElseThrow().getName();
+        String sku = variants.findByProductIdOrderByRingSizeAsc(productId).get(0).getSku();
+        for (String q : List.of(name.substring("Nhẫn ".length(), "Nhẫn ".length() + 8), "SP%06d".formatted(productId), sku)) {
+            TabCounts counts = query.tabCounts(q, category, null);
+            assertThat(counts.all()).as(q).isEqualTo("1");
+            assertThat(counts.published()).as(q).isEqualTo("1");
+            assertThat(counts.pricePending()).as(q).isEqualTo("1");
+            assertThat(listed(q, category, null, ListTab.PUBLISHED)).as(q).containsExactly(productId);
+            assertThat(listed(q, category, null, ListTab.PRICE_PENDING)).as(q).containsExactly(productId);
+        }
+
+        String other = "không khớp " + UUID.randomUUID();
+        TabCounts none = query.tabCounts(other, category, null);
+        assertThat(List.of(none.all(), none.published(), none.pricePending(), none.priceDraft(), none.priceRejected()))
+                .containsOnly("0");
+        assertThat(listed(other, category, null, ListTab.PUBLISHED)).isEmpty();
+        assertThat(listed(other, category, null, ListTab.PRICE_PENDING)).isEmpty();
+    }
+
+    /** T206 (FR-051): the branch filter narrows the tab list and every count to products sold at that branch. */
+    @Test
+    void theBranchFilterNarrowsTabListsAndCounts() {
+        long productId = publishedWithAPendingPrice();
+        String category = Long.toString(fixture.categoryOf(productId));
+        String branch = Long.toString(fixture.testBranch());
+        TabCounts atBranch = query.tabCounts(null, category, branch);
+        assertThat(atBranch.all()).isEqualTo("1");
+        assertThat(atBranch.published()).isEqualTo("1");
+        assertThat(atBranch.pricePending()).isEqualTo("1");
+        assertThat(listed(null, category, branch, ListTab.PUBLISHED)).containsExactly(productId);
+        assertThat(listed(null, category, branch, ListTab.PRICE_PENDING)).containsExactly(productId);
+
+        // A branch where the product is not sold (no stock row there): nothing is counted or listed.
+        String elsewhere = Long.toString(fixture.testBranch() + 1_000_000L);
+        TabCounts notThere = query.tabCounts(null, category, elsewhere);
+        assertThat(List.of(notThere.all(), notThere.published(), notThere.pricePending())).containsOnly("0");
+        assertThat(listed(null, category, elsewhere, ListTab.PUBLISHED)).isEmpty();
+        assertThat(listed(null, category, elsewhere, ListTab.PRICE_PENDING)).isEmpty();
+    }
+
+    /** Published at the test branch, size 5 with a standalone price waiting for a decision. */
+    private long publishedWithAPendingPrice() {
+        long productId = fixture.publishedProduct(STAFF, MANAGER);
+        ProductVariant size = variants.findByProductIdOrderByRingSizeAsc(productId).get(0);
+        long proposalId = Long.parseLong(proposals.create(STAFF, UUID.randomUUID(), size.getId().toString(),
+                size.getVersion(), "199000").resourceId());
+        proposals.submit(STAFF, UUID.randomUUID(), Long.toString(proposalId), fixture.proposal(proposalId).getVersion());
+        return productId;
+    }
+
+    /** Ids of the tab list through the service, as {@code GET /products?tab=} reads it. */
+    private List<Long> listed(String q, String category, String locationId, ListTab tab) {
+        return query.list(q, category, null, 0, locationId, tab).items().stream().map(item -> Long.parseLong(item.id())).toList();
+    }
+
     private long submitted() {
         long productId = fixture.draftProduct(STAFF);
         fixture.addReadyImage(productId, STAFF);
