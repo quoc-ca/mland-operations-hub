@@ -1,4 +1,7 @@
-export const designReviewMessages = {
+import { ordersMessages } from './messages.orders';
+import { screensMessages } from './messages.screens';
+
+const baseMessages = {
   vi: {
     // Shared & Navigation
     'nav.aiSupport': 'Trợ lý AI',
@@ -345,3 +348,8 @@ export const designReviewMessages = {
   },
 };
 
+
+export const designReviewMessages = {
+  vi: { ...baseMessages.vi, ...ordersMessages.vi, ...screensMessages.vi },
+  en: { ...baseMessages.en, ...ordersMessages.en, ...screensMessages.en },
+};

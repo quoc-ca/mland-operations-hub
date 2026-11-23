@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router';
 import { useRole } from '../../../shared/auth/useRole';
-import { useT } from '../../../shared/i18n/I18nProvider';
+import { useEnumLabel, useFormat, useT } from '../../../shared/i18n/I18nProvider';
 import {
   ConfirmDialog,
   ErrorNotice,
@@ -13,11 +13,16 @@ import {
 } from '../../../shared/ui/components';
 import { useDesignReviewApi } from '../api/useDesignReviewApi';
 import { designReviewMessages } from '../messages';
+import { wholeAmount } from '../format';
+import { sharedMessages } from '../../../shared/ui/messages';
 import { LIMITS } from '../rules';
 
 export default function ReviewDetailPage() {
   const { reviewRequestId } = useParams();
   const t = useT(designReviewMessages);
+  const ts = useT(sharedMessages);
+  const fmt = useFormat();
+  const statusLabel = useEnumLabel(designReviewMessages, 'status');
   const api = useDesignReviewApi();
   const command = useCommand();
   const role = useRole();
@@ -59,7 +64,7 @@ export default function ReviewDetailPage() {
   function handleOpenQuoteConfirm(e) {
     e.preventDefault();
     if (!quoteAmount || Number(quoteAmount) <= 0) {
-      setFormError('Tổng số tiền báo giá phải lớn hơn 0.');
+      setFormError(t('rv.zeroQuote'));
       return;
     }
     setFormError('');
@@ -81,13 +86,13 @@ export default function ReviewDetailPage() {
         setQuoteConfirmOpen(false);
         setQuoteSubmitted(true);
         setQuoteData(res);
-        setQuoteSuccess(`Gửi báo giá cho Quản lý (Manager) phê duyệt thành công! (Mã: ${res.quoteReference}, Tổng tiền: ${Number(res.totalAmount).toLocaleString('vi-VN')} đ)`);
+        setQuoteSuccess(t('rv.quoteSentOk', { ref: res.quoteReference, amount: fmt.money(wholeAmount(res.totalAmount)) }));
         setQuoteError('');
         reload();
         return res;
       } catch (err) {
         setQuoteConfirmOpen(false);
-        setQuoteError(err?.message || 'Gửi báo giá cho Quản lý thất bại. Vui lòng kiểm tra lại.');
+        setQuoteError(err?.message || t('rv.quoteSendFailed'));
         throw err;
       }
     });
@@ -102,13 +107,13 @@ export default function ReviewDetailPage() {
         });
         setManagerApproveConfirmOpen(false);
         setQuoteData(res);
-        setQuoteSuccess(`Đã phê duyệt báo giá thành công! Đơn hàng đã chuyển sang trạng thái chờ Hội viên thanh toán 100%. (Mã: ${res.quoteReference})`);
+        setQuoteSuccess(t('rv.approveOk', { ref: res.quoteReference }));
         setQuoteError('');
         reload();
         return res;
       } catch (err) {
         setManagerApproveConfirmOpen(false);
-        setQuoteError(err?.message || 'Phê duyệt báo giá thất bại. Vui lòng thử lại.');
+        setQuoteError(err?.message || t('rv.approveFailed'));
         throw err;
       }
     });
@@ -171,14 +176,14 @@ export default function ReviewDetailPage() {
 
       <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
         <span className="badge-tag badge-status">
-          {t('detail.statusLabel', { status: data.requestStatus || 'UNKNOWN' })}
+          {t('detail.statusLabel', { status: statusLabel(data.requestStatus || 'UNKNOWN') })}
         </span>
         <span className={`badge-tag ${isAccepted ? 'badge-success' : isRejected ? 'badge-danger' : 'badge-warning'}`}>
-          {t('detail.reviewStatusLabel', { status: data.reviewStatus || 'NEED_REVIEW' })}
+          {t('detail.reviewStatusLabel', { status: statusLabel(data.reviewStatus || 'NEED_REVIEW') })}
         </span>
         {data.ownershipType && (
           <span className="badge-tag badge-status">
-            {data.ownershipType === 'MEMBER' ? 'Hội viên' : 'Khách vãng lai'}
+            {data.ownershipType === 'MEMBER' ? t('rv.member') : t('rv.guest')}
           </span>
         )}
       </div>
@@ -192,7 +197,7 @@ export default function ReviewDetailPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
             <span style={{ fontSize: '1.25rem' }}>{isAccepted ? '✅' : '❌'}</span>
             <h3 style={{ margin: 0, color: isAccepted ? '#166534' : '#991b1b' }}>
-              Quyết định: {isAccepted ? 'Chấp thuận (ACCEPTED)' : 'Từ chối (REJECTED)'}
+              {t('rv.decisionPrefix', { decision: isAccepted ? t('reviewDetail.decisionAccepted') : t('reviewDetail.decisionRejected') })}
             </h3>
           </div>
           {explanation && (
@@ -219,21 +224,21 @@ export default function ReviewDetailPage() {
         return (
           <section className="card" style={{ marginBottom: '1.5rem', padding: '1.5rem', border: '1px solid #bfdbfe', borderRadius: '8px', background: '#eff6ff' }}>
             <h3 style={{ marginTop: 0, color: '#1e40af', fontSize: '1.2rem', marginBottom: '0.5rem' }}>
-              Báo giá Gia công Tùy chỉnh (Custom Quote)
+              {t('rv.quoteTitle')}
             </h3>
             <p style={{ fontSize: '0.9rem', color: '#3b82f6', marginBottom: '1rem' }}>
-              Nhân viên nhập thông tin báo giá 100% để Quản lý (Manager) thẩm định và phê duyệt trước khi chuyển cho Hội viên thanh toán.
+              {t('rv.quoteIntro')}
             </p>
 
             {quoteError && (
               <div className="alert-banner alert-banner-danger" style={{ marginBottom: '1rem', backgroundColor: '#fee2e2', color: '#991b1b', padding: '0.75rem 1rem', borderRadius: '6px', border: '1px solid #fca5a5' }}>
-                <p style={{ margin: 0 }}><strong>✕ Thất bại: </strong>{quoteError}</p>
+                <p style={{ margin: 0 }}><strong>{`✕ ${t('rv.failed')}: `}</strong>{quoteError}</p>
               </div>
             )}
 
             {quoteSuccess && (
               <div className="alert-banner alert-banner-success" style={{ marginBottom: '1rem', backgroundColor: '#dcfce7', color: '#166534', padding: '0.75rem 1rem', borderRadius: '6px', border: '1px solid #86efac' }}>
-                <p style={{ margin: 0 }}><strong>✓ Thành công: </strong>{quoteSuccess}</p>
+                <p style={{ margin: 0 }}><strong>{`✓ ${t('rv.success')}: `}</strong>{quoteSuccess}</p>
               </div>
             )}
 
@@ -241,42 +246,42 @@ export default function ReviewDetailPage() {
               <div style={{ background: '#ffffff', borderRadius: 6, border: '1px solid #dbeafe', padding: '1rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
                   <div>
-                    <span style={{ fontSize: '0.85rem', color: '#64748b' }}>Mã báo giá: </span>
+                    <span style={{ fontSize: '0.85rem', color: '#64748b' }}>{t('rv.quoteCode')}: </span>
                     <strong style={{ fontSize: '1.05rem', color: '#1e40af' }}>{activeQuoteRef}</strong>
-                    {quoteGen && <span className="muted small" style={{ marginLeft: '0.5rem' }}>(Lần #{quoteGen})</span>}
+                    {quoteGen && <span className="muted small" style={{ marginLeft: '0.5rem' }}>{t('rv.generation', { n: quoteGen })}</span>}
                   </div>
                   <div>
                     <span className={`badge-tag ${isQuoteApproved ? 'badge-success' : 'badge-warning'}`}>
-                      {isQuoteApproved ? '✓ Quản lý đã duyệt' : '⏳ Chờ Quản lý (Manager) duyệt'}
+                      {isQuoteApproved ? `✓ ${t('rv.approvedByManager')}` : `⏳ ${t('rv.pendingManager')}`}
                     </span>
                   </div>
                 </div>
 
                 {displayAmount && (
                   <div style={{ margin: '0.5rem 0' }}>
-                    <span style={{ fontSize: '0.85rem', color: '#64748b', display: 'block' }}>Tổng tiền báo giá:</span>
+                    <span style={{ fontSize: '0.85rem', color: '#64748b', display: 'block' }}>{t('rv.quoteTotal')}:</span>
                     <span style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a' }}>
-                      {Number(displayAmount).toLocaleString('vi-VN')} đ
+                      {fmt.money(wholeAmount(displayAmount))}
                     </span>
                   </div>
                 )}
 
                 {displayExpiry && (
                   <div style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '0.5rem' }}>
-                    Hạn chót thanh toán: <strong>{new Date(displayExpiry).toLocaleString('vi-VN')}</strong>
+                    {t('rv.payDeadline')}: <strong>{fmt.dateTime(displayExpiry)}</strong>
                   </div>
                 )}
 
                 {displayReason && (
                   <div style={{ fontSize: '0.875rem', color: '#334155', background: '#f8fafc', padding: '0.5rem 0.75rem', borderRadius: 4, margin: '0.5rem 0' }}>
-                    <strong>Ghi chú / Căn cứ tính giá:</strong> {displayReason}
+                    <strong>{t('rv.reasonBasis')}:</strong> {displayReason}
                   </div>
                 )}
 
                 <p className="muted small" style={{ marginTop: '0.75rem', marginBottom: 0 }}>
                   {isQuoteApproved
-                    ? 'Báo giá đã được Quản lý phê duyệt. Hội viên có thể vào xem và thanh toán toàn bộ 100% trong mục Đơn hàng cá nhân.'
-                    : 'Báo giá đã được gửi cho Quản lý phê duyệt. Nút gửi đã được ẩn để tránh gửi trùng lặp.'}
+                    ? t('rv.noteApproved')
+                    : t('rv.notePending')}
                 </p>
 
                 {isManager && !isQuoteApproved && (
@@ -288,7 +293,7 @@ export default function ReviewDetailPage() {
                       disabled={command.pending}
                       style={{ backgroundColor: '#16a34a', color: '#ffffff', padding: '0.5rem 1.25rem' }}
                     >
-                      {command.pending ? 'Đang duyệt...' : 'Phê duyệt Báo giá (Manager Approve)'}
+                      {command.pending ? t('rv.approving') : t('rv.approveButton')}
                     </button>
                   </div>
                 )}
@@ -298,7 +303,7 @@ export default function ReviewDetailPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
                   <div>
                     <label style={{ display: 'block', fontWeight: 600, fontSize: '0.875rem', marginBottom: '0.25rem' }}>
-                      Tổng tiền báo giá (VNĐ) *
+                      {t('rv.amountLabel')}
                     </label>
                     <input
                       type="number"
@@ -309,14 +314,14 @@ export default function ReviewDetailPage() {
                         setQuoteAmount(e.target.value);
                         if (formError) setFormError('');
                       }}
-                      placeholder="Ví dụ: 15000000"
+                      placeholder={t('rv.amountPlaceholder')}
                       required
                       style={{ width: '100%', padding: '0.5rem', borderRadius: 6, border: '1px solid #cbd5e1' }}
                     />
                   </div>
                   <div>
                     <label style={{ display: 'block', fontWeight: 600, fontSize: '0.875rem', marginBottom: '0.25rem' }}>
-                      Thời hạn thanh toán (Giờ)
+                      {t('rv.hoursLabel')}
                     </label>
                     <input
                       type="number"
@@ -332,13 +337,13 @@ export default function ReviewDetailPage() {
 
                 <div style={{ marginTop: '0.75rem' }}>
                   <label style={{ display: 'block', fontWeight: 600, fontSize: '0.875rem', marginBottom: '0.25rem' }}>
-                    Ghi chú / Căn cứ tính giá cho Manager:
+                    {t('rv.quoteReasonLabel')}
                   </label>
                   <textarea
                     rows={2}
                     value={quoteReason}
                     onChange={e => setQuoteReason(e.target.value)}
-                    placeholder="Ghi chú cơ cấu vật liệu, đá quý đính kèm, thời gian gia công dự kiến..."
+                    placeholder={t('rv.quoteReasonPlaceholder')}
                     style={{ width: '100%', padding: '0.5rem', borderRadius: 6, border: '1px solid #cbd5e1' }}
                   />
                 </div>
@@ -356,7 +361,7 @@ export default function ReviewDetailPage() {
                     disabled={command.pending || !quoteAmount}
                     style={{ backgroundColor: '#1d4ed8', color: '#ffffff', padding: '0.5rem 1.25rem' }}
                   >
-                    {command.pending ? 'Đang gửi...' : 'Gửi báo giá cho Manager duyệt'}
+                    {command.pending ? t('rv.sending') : t('rv.sendQuote')}
                   </button>
                 </div>
               </form>
@@ -392,7 +397,7 @@ export default function ReviewDetailPage() {
               >
                 <img
                   src={img.imageUrl || `/api/v1/design-requests/images/${encodeURIComponent(img.imageReference)}`}
-                  alt={img.originalFilename || `Ảnh ${idx + 1}`}
+                  alt={img.originalFilename || t('dd.imageFallback', { n: idx + 1 })}
                   className="image-upload-thumb"
                   onError={e => {
                     e.target.style.opacity = '0.5';
@@ -400,10 +405,10 @@ export default function ReviewDetailPage() {
                 />
                 <div className="image-upload-info">
                   <span style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={img.originalFilename}>
-                    {img.originalFilename || `Ảnh ${idx + 1}`}
+                    {img.originalFilename || t('dd.imageFallback', { n: idx + 1 })}
                   </span>
                   <span className="badge-tag badge-success" style={{ alignSelf: 'flex-start', fontSize: '0.7rem' }}>
-                    ✓ Đạt chất lượng
+                    ✓ {t('rv.qualityOk')}
                   </span>
                 </div>
               </div>
@@ -447,13 +452,13 @@ export default function ReviewDetailPage() {
           >
             <img
               src={selectedPreviewImage.imageUrl || `/api/v1/design-requests/images/${encodeURIComponent(selectedPreviewImage.imageReference)}`}
-              alt={selectedPreviewImage.originalFilename || 'Ảnh mẫu thiết kế'}
+              alt={selectedPreviewImage.originalFilename || t('dd.imageAlt')}
               style={{ maxWidth: '100%', maxHeight: '75vh', objectFit: 'contain' }}
             />
             <div style={{ marginTop: '0.75rem', display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
               <span className="small muted">{selectedPreviewImage.originalFilename}</span>
               <button type="button" className="button outline small" onClick={() => setSelectedPreviewImage(null)}>
-                Đóng
+                {ts('close')}
               </button>
             </div>
           </div>
@@ -474,7 +479,7 @@ export default function ReviewDetailPage() {
               >
                 <option value="ACCEPTED">{t('reviewDetail.decisionAccepted')}</option>
                 <option value="REJECTED">{t('reviewDetail.decisionRejected')}</option>
-                <option value="CLARIFICATION_REQUIRED">Yêu cầu làm rõ thông tin (CLARIFICATION_REQUIRED)</option>
+                <option value="CLARIFICATION_REQUIRED">{t('rv.optClarify')}</option>
               </select>
             </Field>
 
@@ -518,42 +523,42 @@ export default function ReviewDetailPage() {
         pending={command.pending}
         danger={decision === 'REJECTED'}
       >
-        <p>{t('reviewDetail.confirmMessage', { decision: decision === 'ACCEPTED' ? 'Chấp thuận' : 'Từ chối' })}</p>
-        <p><strong>Lý do giải thích:</strong> <em>{reason}</em></p>
+        <p>{t('reviewDetail.confirmMessage', { decision: decision === 'ACCEPTED' ? t('rv.acceptedShort') : t('rv.rejectedShort') })}</p>
+        <p><strong>{t('rv.reasonExplained')}:</strong> <em>{reason}</em></p>
       </ConfirmDialog>
 
       {/* Quote Preparation Confirmation Dialog */}
       <ConfirmDialog
         open={quoteConfirmOpen}
-        title="Xác nhận gửi báo giá cho Quản lý"
-        confirmLabel={command.pending ? 'Đang gửi...' : 'Xác nhận gửi'}
+        title={t('rv.confirmQuoteTitle')}
+        confirmLabel={command.pending ? t('rv.sending') : t('rv.confirmSend')}
         onConfirm={handleConfirmPrepareQuote}
         onCancel={() => { if (!command.pending) setQuoteConfirmOpen(false); }}
         pending={command.pending}
       >
-        <p>Bạn có chắc chắn muốn gửi báo giá này cho Quản lý (Manager) thẩm định và phê duyệt không?</p>
+        <p>{t('rv.confirmQuoteBody')}</p>
         <div style={{ background: '#f8fafc', padding: '0.75rem', borderRadius: 6, margin: '0.75rem 0', border: '1px solid #e2e8f0', fontSize: '0.9rem' }}>
-          <div><strong>Tổng tiền báo giá:</strong> {Number(quoteAmount || 0).toLocaleString('vi-VN')} đ</div>
-          <div><strong>Thời hạn thanh toán:</strong> {quoteHours || 72} giờ</div>
-          {quoteReason && <div><strong>Ghi chú căn cứ:</strong> <em>{quoteReason}</em></div>}
+          <div><strong>{t('rv.quoteTotal')}:</strong> {fmt.money(wholeAmount(quoteAmount || 0))}</div>
+          <div><strong>{t('rv.payDeadline')}:</strong> {t('rv.hoursValue', { hours: quoteHours || 72 })}</div>
+          {quoteReason && <div><strong>{t('rv.basisNote')}:</strong> <em>{quoteReason}</em></div>}
         </div>
         <p className="muted small" style={{ margin: 0 }}>
-          Sau khi xác nhận gửi, báo giá sẽ chuyển sang Quản lý và nút gửi sẽ biến mất để tránh gửi trùng lặp.
+          {t('rv.confirmQuoteNote')}
         </p>
       </ConfirmDialog>
 
       {/* Manager Approve Quote Dialog */}
       <ConfirmDialog
         open={managerApproveConfirmOpen}
-        title="Xác nhận phê duyệt báo giá"
-        confirmLabel={command.pending ? 'Đang phê duyệt...' : 'Phê duyệt báo giá'}
+        title={t('rv.confirmApproveTitle')}
+        confirmLabel={command.pending ? t('rv.approvingPending') : t('rv.approveConfirm')}
         onConfirm={handleConfirmManagerApprove}
         onCancel={() => { if (!command.pending) setManagerApproveConfirmOpen(false); }}
         pending={command.pending}
       >
-        <p>Bạn có chắc chắn muốn phê duyệt báo giá này không?</p>
+        <p>{t('rv.confirmApproveBody')}</p>
         <p className="muted small" style={{ margin: 0 }}>
-          Sau khi duyệt, đơn hàng sẽ chuyển sang trạng thái sẵn sàng để Hội viên thanh toán toàn bộ 100%.
+          {t('rv.confirmApproveNote')}
         </p>
       </ConfirmDialog>
     </div>
