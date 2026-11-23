@@ -1,62 +1,75 @@
 // Derives a 2D local preview model for the interactive SVG RingPreview
+// Palette labels are dictionary keys (labelKey); callers pass `t` to resolve them (default: Vietnamese).
+import { viT } from './designFormat';
 
 export const MATERIAL_PALETTES = {
   'MAT-SILVER-925': {
     primary: '#D6D8DC',
     highlight: '#F3F4F6',
     shadow: '#9CA3AF',
-    label: 'Bạc Ý 925',
+    labelKey: 'material.silver925',
   },
   'MAT-COPPER': {
     primary: '#C86D51',
     highlight: '#F3A683',
     shadow: '#8C3D26',
-    label: 'Đồng (Copper)',
+    labelKey: 'material.copper',
   },
   'MAT-STAINLESS-STEEL': {
     primary: '#94A3B8',
     highlight: '#F1F5F9',
     shadow: '#475569',
-    label: 'Thép không gỉ 316L',
+    labelKey: 'material.steel316',
   },
   // Fallbacks for historical or legacy data
   'MAT-GOLD-14K': {
     primary: '#EAB308',
     highlight: '#FEF08A',
     shadow: '#CA8A04',
-    label: 'Vàng 14K (Ngừng hỗ trợ)',
+    labelKey: 'material.gold14',
   },
   'MAT-ROSE-GOLD-14K': {
     primary: '#E0A899',
     highlight: '#FCE7F3',
     shadow: '#B45309',
-    label: 'Vàng Hồng 14K (Ngừng hỗ trợ)',
+    labelKey: 'material.roseGold14',
   },
   'MAT-WHITE-GOLD-14K': {
     primary: '#E2E8F0',
     highlight: '#FFFFFF',
     shadow: '#64748B',
-    label: 'Vàng Trắng 14K (Ngừng hỗ trợ)',
+    labelKey: 'material.whiteGold14',
   },
 };
 
 export const SHAPE_STROKES = {
-  'SHP-CLASSIC-ROUND': { strokeWidth: 14, style: 'round', label: 'Tròn cổ điển' },
-  'SHP-COMFORT-FIT': { strokeWidth: 18, style: 'comfort', label: 'Vát cong lòng trong' },
-  'SHP-TWISTED': { strokeWidth: 15, style: 'twisted', label: 'Dáng xoắn vô cực' },
-  'SHP-HAMMERED': { strokeWidth: 16, style: 'hammered', label: 'Búa gõ thủ công' },
-  'SHP-SINGLE-TWIST': { strokeWidth: 15, style: 'single-twist', label: 'Dáng xoắn đơn' },
-  'SHP-WAVE': { strokeWidth: 15, style: 'wave', label: 'Dáng lượn sóng' },
-  'SHP-BALL-PEEN': { strokeWidth: 16, style: 'ball-peen', label: 'Bề mặt búa bi hạt tròn' },
-  'SHP-FLAT-BAND': { strokeWidth: 14, style: 'flat', label: 'Đai phẳng công thái học' },
+  'SHP-CLASSIC-ROUND': { strokeWidth: 14, style: 'round', labelKey: 'shape.classicRound' },
+  'SHP-COMFORT-FIT': { strokeWidth: 18, style: 'comfort', labelKey: 'shape.comfortFit' },
+  'SHP-TWISTED': { strokeWidth: 15, style: 'twisted', labelKey: 'shape.twisted' },
+  'SHP-HAMMERED': { strokeWidth: 16, style: 'hammered', labelKey: 'shape.hammered' },
+  'SHP-SINGLE-TWIST': { strokeWidth: 15, style: 'single-twist', labelKey: 'shape.singleTwist' },
+  'SHP-WAVE': { strokeWidth: 15, style: 'wave', labelKey: 'shape.wave' },
+  'SHP-BALL-PEEN': { strokeWidth: 16, style: 'ball-peen', labelKey: 'shape.ballPeen' },
+  'SHP-FLAT-BAND': { strokeWidth: 14, style: 'flat', labelKey: 'shape.flatBand' },
 };
 
 export const GEMSTONE_PALETTES = {
-  'GEM-CZ-WHITE-2MM': { fill: '#F8FAFC', stroke: '#94A3B8', glow: '#E2E8F0', label: 'CZ Trắng 2mm' },
-  'GEM-CZ-BLUE-2MM': { fill: '#38BDF8', stroke: '#0284C7', glow: '#BAE6FD', label: 'CZ Lam 2mm' },
-  'GEM-CZ-RED-2MM': { fill: '#F43F5E', stroke: '#BE123C', glow: '#FECDD3', label: 'CZ Đỏ 2mm' },
-  'GEM-MOISSANITE-3MM': { fill: '#FFFFFF', stroke: '#6366F1', glow: '#C7D2FE', label: 'Moissanite 3mm' },
+  'GEM-CZ-WHITE-2MM': { fill: '#F8FAFC', stroke: '#94A3B8', glow: '#E2E8F0', labelKey: 'gem.czWhite' },
+  'GEM-CZ-BLUE-2MM': { fill: '#38BDF8', stroke: '#0284C7', glow: '#BAE6FD', labelKey: 'gem.czBlue' },
+  'GEM-CZ-RED-2MM': { fill: '#F43F5E', stroke: '#BE123C', glow: '#FECDD3', labelKey: 'gem.czRed' },
+  'GEM-MOISSANITE-3MM': { fill: '#FFFFFF', stroke: '#6366F1', glow: '#C7D2FE', labelKey: 'gem.moissanite' },
 };
+
+/** Label of a palette entry, or the raw reference when the entry is unknown. */
+export function materialLabel(reference, t = viT) {
+  const entry = MATERIAL_PALETTES[reference];
+  return entry ? t(entry.labelKey) : reference;
+}
+
+export function shapeLabel(reference, t = viT) {
+  const entry = SHAPE_STROKES[reference];
+  return entry ? t(entry.labelKey) : reference;
+}
 
 export function getRingCircumferenceMm(size) {
   const s = parseInt(size, 10);
@@ -142,11 +155,12 @@ export function findNextAvailableAngle(existingPositions = [], stepDeg = 22, min
   return 270;
 }
 
-export function derivePreviewModel(draft) {
+export function derivePreviewModel(draft, t = viT) {
+  const withLabel = (entry) => ({ ...entry, label: t(entry.labelKey) });
   if (!draft) {
     return {
-      material: MATERIAL_PALETTES['MAT-SILVER-925'],
-      shape: SHAPE_STROKES['SHP-CLASSIC-ROUND'],
+      material: withLabel(MATERIAL_PALETTES['MAT-SILVER-925']),
+      shape: withLabel(SHAPE_STROKES['SHP-CLASSIC-ROUND']),
       ringSize: '8',
       circumferenceMm: 48,
       diameterMm: '15.3',
@@ -159,8 +173,8 @@ export function derivePreviewModel(draft) {
     };
   }
 
-  const material = MATERIAL_PALETTES[draft.materialReference] || MATERIAL_PALETTES['MAT-SILVER-925'];
-  const shape = SHAPE_STROKES[draft.shapeReference] || SHAPE_STROKES['SHP-CLASSIC-ROUND'];
+  const material = withLabel(MATERIAL_PALETTES[draft.materialReference] || MATERIAL_PALETTES['MAT-SILVER-925']);
+  const shape = withLabel(SHAPE_STROKES[draft.shapeReference] || SHAPE_STROKES['SHP-CLASSIC-ROUND']);
 
   const thicknessMm = typeof draft.thicknessMm === 'number'
     ? Math.min(3.0, Math.max(1.0, Math.round(draft.thicknessMm * 10) / 10))
@@ -183,12 +197,11 @@ export function derivePreviewModel(draft) {
 
   const gemstones = (draft.components || []).map((comp) => {
     const qty = Math.max(1, Number(comp.quantity) || 1);
-    const gemMeta = GEMSTONE_PALETTES[comp.reference] || {
-      fill: '#FFFFFF',
-      stroke: '#94A3B8',
-      glow: '#F1F5F9',
-      label: comp.reference,
-    };
+    const palette = GEMSTONE_PALETTES[comp.reference];
+    const { labelKey, ...paletteRest } = palette || {};
+    const gemMeta = palette
+      ? { ...paletteRest, label: t(labelKey) }
+      : { fill: '#FFFFFF', stroke: '#94A3B8', glow: '#F1F5F9', label: comp.reference };
 
     for (let i = 0; i < qty; i++) {
       const stoneId = `gem-${comp.reference}-${i}`;
@@ -300,12 +313,12 @@ export function derivePreviewModel(draft) {
 
 /**
  * Classifies crafting difficulty score (1-10) formatted to 1 decimal place with notes & recommendations.
- * - 1.0 to 3.0: Dễ
- * - > 3.0 to 6.0: Trung bình
- * - > 6.0 to 9.0: Khó
- * - > 9.0: Rất khó (Khuyến cáo người dùng đổi lại mẫu thiết kế)
+ * - 1.0 to 3.0: easy
+ * - > 3.0 to 6.0: medium
+ * - > 6.0 to 9.0: hard
+ * - > 9.0: very hard (the user is advised to change the design)
  */
-export function getDifficultyMeta(rawScore) {
+export function getDifficultyMeta(rawScore, t = viT) {
   const num = typeof rawScore === 'number' ? rawScore : parseFloat(rawScore);
   const score = isNaN(num) || num <= 0 ? 1.0 : num;
   const formattedScore = score.toFixed(1);
@@ -314,8 +327,8 @@ export function getDifficultyMeta(rawScore) {
     return {
       score: formattedScore,
       level: 'EASY',
-      label: 'Dễ',
-      note: 'Dễ',
+      label: t('difficulty.EASY'),
+      note: t('difficulty.EASY'),
       badgeColor: '#166534',
       badgeBg: '#dcfce7',
       isVeryHard: false,
@@ -325,8 +338,8 @@ export function getDifficultyMeta(rawScore) {
     return {
       score: formattedScore,
       level: 'MEDIUM',
-      label: 'Trung bình',
-      note: 'Trung bình',
+      label: t('difficulty.MEDIUM'),
+      note: t('difficulty.MEDIUM'),
       badgeColor: '#854d0e',
       badgeBg: '#fef3c7',
       isVeryHard: false,
@@ -336,8 +349,8 @@ export function getDifficultyMeta(rawScore) {
     return {
       score: formattedScore,
       level: 'HARD',
-      label: 'Khó',
-      note: 'Khó',
+      label: t('difficulty.HARD'),
+      note: t('difficulty.HARD'),
       badgeColor: '#c2410c',
       badgeBg: '#ffedd5',
       isVeryHard: false,
@@ -347,12 +360,12 @@ export function getDifficultyMeta(rawScore) {
     return {
       score: formattedScore,
       level: 'VERY_HARD',
-      label: 'Rất khó',
-      note: 'Rất khó (Khuyến cáo người dùng đổi lại mẫu thiết kế)',
+      label: t('difficulty.VERY_HARD'),
+      note: t('difficulty.veryHardNote'),
       badgeColor: '#b91c1c',
       badgeBg: '#fee2e2',
       isVeryHard: true,
-      advice: 'Độ khó rất cao (> 9.0). Khuyến cáo người dùng đổi lại mẫu thiết kế để đảm bảo trải nghiệm hoàn thiện tốt nhất tại workshop.',
+      advice: t('difficulty.veryHardAdvice'),
     };
   }
 }

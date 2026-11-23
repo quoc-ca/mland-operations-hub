@@ -3,7 +3,9 @@ import { useParams, useNavigate } from 'react-router';
 import { useWorkshopRingDesignApi } from '../api/useWorkshopRingDesignApi';
 import { useWorkshopDesignCommand } from '../application/useWorkshopDesignCommand';
 import { useAuth } from '../../../shared/auth/AuthProvider';
-import { useLanguage } from '../../../shared/i18n/I18nProvider';
+import { useT, useEnumLabel, useFormat } from '../../../shared/i18n/I18nProvider';
+import { sharedMessages } from '../../../shared/ui/messages';
+import { wholeMoney } from '../domain/designFormat';
 import { listWorkshopPackages } from '../../../api/workshops';
 import RingPreview from './RingPreview';
 import { derivePreviewModel, getDifficultyMeta } from '../domain/designPreview';
@@ -17,6 +19,10 @@ export default function DesignEvaluationPage() {
   const { status, userId } = useAuth();
   const isAuthenticated = status === 'signed-in' || Boolean(userId);
   const api = useWorkshopRingDesignApi();
+  const t = useT(messages);
+  const ts = useT(sharedMessages);
+  const statusLabel = useEnumLabel(messages, 'status');
+  const fmt = useFormat();
 
   const [design, setDesign] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -41,7 +47,7 @@ export default function DesignEvaluationPage() {
         const res = await api.getDesign(designId, null, isAuthenticated);
         setDesign(res);
       } catch (err) {
-        setFetchError(getErrorMessage(err));
+        setFetchError(err);
       } finally {
         setLoading(false);
       }
@@ -50,13 +56,9 @@ export default function DesignEvaluationPage() {
   }, [api, designId, isAuthenticated, status]);
 
   const previewModel = useMemo(() => {
-    if (!design?.componentSnapshot) return derivePreviewModel(null);
-    return derivePreviewModel(design.componentSnapshot);
-  }, [design]);
-
-  const { language } = useLanguage();
-  const lang = language === 'en' ? 'en' : 'vi';
-  const t = messages[lang];
+    if (!design?.componentSnapshot) return derivePreviewModel(null, t);
+    return derivePreviewModel(design.componentSnapshot, t);
+  }, [design, t]);
 
   const recommendation = useMemo(() => {
     const evalData = design?.evaluation || {};
@@ -64,33 +66,33 @@ export default function DesignEvaluationPage() {
     const rawDiff = evalData.difficultyScore ?? previewModel.difficultyScore ?? 1;
     const diffScore = typeof rawDiff === 'number' ? rawDiff : (parseFloat(rawDiff) || 1);
 
-    const waxPkg = publishedPackages.find((p) => p.name?.toLowerCase().includes('wax')) || { packageId: '10', name: 'Gói Wax Casting' };
-    const silverClayPkg = publishedPackages.find((p) => p.name?.toLowerCase().includes('silver clay')) || { packageId: '8', name: 'Gói Silver Clay' };
-    const signaturePkg = publishedPackages.find((p) => p.name?.toLowerCase().includes('signature')) || { packageId: '6', name: 'Gói Signature Workshop' };
+    const waxPkg = publishedPackages.find((p) => p.name?.toLowerCase().includes('wax')) || { packageId: '10', name: t('rec.waxPackage') };
+    const silverClayPkg = publishedPackages.find((p) => p.name?.toLowerCase().includes('silver clay')) || { packageId: '8', name: t('rec.clayPackage') };
+    const signaturePkg = publishedPackages.find((p) => p.name?.toLowerCase().includes('signature')) || { packageId: '6', name: t('rec.signaturePackage') };
 
     if (diffScore > 9) {
       return {
         packageId: waxPkg.packageId,
-        packageName: waxPkg.name || 'Gói Wax Casting',
-        reason: 'Nghệ thuật đúc sáp tinh xảo đảm bảo mọi chi tiết trên thiết kế của bạn sẽ nổi bật hơn',
-        note: 'workshop wax casting sẽ mất 2 buổi vào 2 ngày khác nhau',
+        packageName: waxPkg.name || t('rec.waxPackage'),
+        reason: t('rec.waxReason'),
+        note: t('rec.waxNote'),
       };
     }
     if (gemCount > 5) {
       return {
         packageId: silverClayPkg.packageId,
-        packageName: silverClayPkg.name || 'Gói Silver Clay',
-        reason: 'Những viên đá quý của bạn sẽ tỏa sáng như những vì sao khi bạn chọn gói silverclay',
+        packageName: silverClayPkg.name || t('rec.clayPackage'),
+        reason: t('rec.clayReason'),
         note: null,
       };
     }
     return {
       packageId: signaturePkg.packageId,
-      packageName: signaturePkg.name || 'Gói Signature Workshop',
-      reason: 'Gói signature workshop đảm bảo thiết kế tinh tế của bạn sẽ đạt được kết quả tốt nhất',
+      packageName: signaturePkg.name || t('rec.signaturePackage'),
+      reason: t('rec.signatureReason'),
       note: null,
     };
-  }, [design, previewModel, publishedPackages]);
+  }, [design, previewModel, publishedPackages, t]);
 
   const handleArchive = async () => {
     try {
@@ -114,7 +116,7 @@ export default function DesignEvaluationPage() {
   if (loading) {
     return (
       <div className="ring-design-container" style={{ textAlign: 'center', padding: '4rem' }}>
-        <p>Đang tải kết quả thẩm định thiết kế...</p>
+        <p>{t('eval.loading')}</p>
       </div>
     );
   }
@@ -123,14 +125,14 @@ export default function DesignEvaluationPage() {
     return (
       <div className="ring-design-container">
         <div className="ring-error-card" role="alert">
-          {fetchError}
+          {getErrorMessage(fetchError, t)}
         </div>
         <button
           type="button"
           className="ring-btn-secondary"
           onClick={() => navigate(`/workshops/${encodeURIComponent(packageReference)}/design`)}
         >
-          {t.restartFlow}
+          {t('restartFlow')}
         </button>
       </div>
     );
@@ -143,20 +145,20 @@ export default function DesignEvaluationPage() {
       <div className="ring-design-header">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
-            <h1 className="ring-design-title">{t.evaluationTitle}</h1>
+            <h1 className="ring-design-title">{t('evaluationTitle')}</h1>
             <p className="ring-design-subtitle">
-              Mã thiết kế: <strong>{design?.designId}</strong> · {t.versionLabel} {design?.designVersion}
+              {t('eval.designCode')}: <strong>{design?.designId}</strong> · {t('versionLabel')} {design?.designVersion}
             </p>
           </div>
           <div>
             <span className={`ring-status-badge ${design?.status?.toLowerCase() || 'draft'}`}>
-              {t[design?.status] || design?.status}
+              {statusLabel(design?.status)}
             </span>
           </div>
         </div>
         <div className="ring-notice-banner" role="note">
           <span>ℹ️</span>
-          <span>{t.advisoryWarning}</span>
+          <span>{t('advisoryWarning')}</span>
         </div>
       </div>
 
@@ -181,7 +183,7 @@ export default function DesignEvaluationPage() {
           }}
           data-testid="evaluation-surface-texture-warning"
         >
-          {evalData.warnings?.[0] || t.surfaceTextureWarning}
+          {evalData.warnings?.[0] || t('surfaceTextureWarning')}
         </div>
       )}
 
@@ -190,25 +192,25 @@ export default function DesignEvaluationPage() {
         <div className="ring-controls-panel">
           {/* Card: Advisory Price & Difficulty */}
           <div className="ring-section-card">
-            <h2 className="ring-section-title">Chỉ số ước tính kỹ thuật</h2>
+            <h2 className="ring-section-title">{t('eval.metricsHeading')}</h2>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginTop: '1rem' }}>
               <div style={{ background: '#f8fafc', padding: '1.25rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
                 <div style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '0.35rem' }}>
-                  {t.estimatedPriceLabel}
+                  {t('estimatedPriceLabel')}
                 </div>
                 <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#b45309' }}>
                   {evalData.estimatedPrice
-                    ? `${Number(evalData.estimatedPrice).toLocaleString('vi-VN')} đ`
-                    : 'Theo gói'}
+                    ? wholeMoney(fmt, evalData.estimatedPrice)
+                    : t('eval.perPackage')}
                 </div>
                 <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.25rem' }}>
-                  {t.advisoryBadge} (Không đổi cọc gói)
+                  {t('advisoryBadge')} {t('eval.depositUnchanged')}
                 </div>
               </div>
 
               <div style={{ background: '#f8fafc', padding: '1.25rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
                 <div style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '0.35rem' }}>
-                  Khối lượng ước tính
+                  {t('weightSummary')}
                 </div>
                 <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a' }}>
                   {evalData.estimatedWeightGrams
@@ -217,20 +219,20 @@ export default function DesignEvaluationPage() {
                 </div>
                 <div style={{ fontSize: '0.75rem', color: evalData.excessMaterialCost && Number(evalData.excessMaterialCost) > 0 ? '#b45309' : '#166534', marginTop: '0.25rem' }}>
                   {evalData.excessMaterialCost && Number(evalData.excessMaterialCost) > 0
-                    ? `Vượt mức (+${Number(evalData.excessMaterialCost).toLocaleString('vi-VN')} đ)`
-                    : 'Trong định mức chuẩn (≤ 3.0g)'}
+                    ? t('eval.overQuota', { amount: wholeMoney(fmt, evalData.excessMaterialCost) })
+                    : t('eval.withinQuota')}
                 </div>
               </div>
 
               {(() => {
-                const diffMeta = getDifficultyMeta(evalData.difficultyScore);
+                const diffMeta = getDifficultyMeta(evalData.difficultyScore, t);
                 return (
                   <div
                     style={{ background: '#f8fafc', padding: '1.25rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}
                     data-testid="evaluation-difficulty-card"
                   >
                     <div style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '0.35rem' }}>
-                      {t.difficultyLabel}
+                      {t('difficultyLabel')}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
                       <span style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a' }}>
@@ -253,14 +255,14 @@ export default function DesignEvaluationPage() {
                     <div style={{ fontSize: '0.75rem', color: '#475569', marginTop: '0.35rem', lineHeight: 1.4 }} data-testid="difficulty-note">
                       {diffMeta.isVeryHard ? (
                         <span style={{ color: '#b91c1c', fontWeight: 600 }}>
-                          ⚠️ Ghi chú: {diffMeta.note}
+                          ⚠️ {t('eval.note')}: {diffMeta.note}
                         </span>
                       ) : (
-                        <span>Ghi chú: {diffMeta.note}</span>
+                        <span>{t('eval.note')}: {diffMeta.note}</span>
                       )}
                     </div>
                     <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '0.25rem' }}>
-                      Thang đo: 1-3: Dễ · &gt;3-6: Trung bình · &gt;6-9: Khó · &gt;9: Rất khó
+                      {t('eval.scale')}
                     </div>
                     {diffMeta.isVeryHard && (
                       <div
@@ -276,7 +278,7 @@ export default function DesignEvaluationPage() {
                         }}
                         data-testid="difficulty-very-hard-warning"
                       >
-                        💡 <strong>Khuyến cáo:</strong> {diffMeta.advice}
+                        💡 <strong>{t('eval.advicePrefix')}</strong> {diffMeta.advice}
                       </div>
                     )}
                   </div>
@@ -287,59 +289,59 @@ export default function DesignEvaluationPage() {
 
           {/* Card: Configuration Breakdown */}
           <div className="ring-section-card">
-            <h2 className="ring-section-title">{t.summaryHeading}</h2>
+            <h2 className="ring-section-title">{t('summaryHeading')}</h2>
             <div className="ring-summary-box" style={{ background: 'transparent', padding: 0 }}>
               <div className="ring-summary-item">
-                <span className="ring-summary-label">{t.materialSummary}</span>
+                <span className="ring-summary-label">{t('materialSummary')}</span>
                 <span className="ring-summary-value">{previewModel.material?.label}</span>
               </div>
               <div className="ring-summary-item">
-                <span className="ring-summary-label">{t.shapeSummary}</span>
+                <span className="ring-summary-label">{t('shapeSummary')}</span>
                 <span className="ring-summary-value">{previewModel.shape?.label}</span>
               </div>
               <div className="ring-summary-item">
-                <span className="ring-summary-label">{t.sizeSummary}</span>
-                <span className="ring-summary-value">Size {previewModel.ringSize} ({previewModel.circumferenceMm} mm)</span>
+                <span className="ring-summary-label">{t('sizeSummary')}</span>
+                <span className="ring-summary-value">{t('sizeValue', { size: previewModel.ringSize, mm: previewModel.circumferenceMm })}</span>
               </div>
               <div className="ring-summary-item">
-                <span className="ring-summary-label">{t.thicknessSummary}</span>
+                <span className="ring-summary-label">{t('thicknessSummary')}</span>
                 <span className="ring-summary-value">{previewModel.thicknessMm?.toFixed(1)} mm</span>
               </div>
               <div className="ring-summary-item">
-                <span className="ring-summary-label">{t.bandWidthSummary}</span>
+                <span className="ring-summary-label">{t('bandWidthSummary')}</span>
                 <span className="ring-summary-value">{previewModel.bandWidthMm?.toFixed(1)} mm</span>
               </div>
               <div className="ring-summary-item">
-                <span className="ring-summary-label">{t.weightSummary}</span>
+                <span className="ring-summary-label">{t('weightSummary')}</span>
                 <span className="ring-summary-value">
                   {evalData.estimatedWeightGrams || previewModel.estimatedWeightGrams?.toFixed(2)} g
                   {evalData.excessMaterialCost && Number(evalData.excessMaterialCost) > 0 && (
                     <span style={{ fontSize: '0.8rem', color: '#b45309', display: 'block' }}>
-                      (Phụ phí khối lượng: +{Number(evalData.excessMaterialCost).toLocaleString('vi-VN')} đ)
+                      {t('eval.excessSurcharge', { amount: wholeMoney(fmt, evalData.excessMaterialCost) })}
                     </span>
                   )}
                 </span>
               </div>
               <div className="ring-summary-item">
-                <span className="ring-summary-label">{t.gemstonesSummary}</span>
+                <span className="ring-summary-label">{t('gemstonesSummary')}</span>
                 <span className="ring-summary-value">
                   {previewModel.gemstoneGroups?.length > 0
                     ? previewModel.gemstoneGroups.map((g) => `${g.quantity}x ${g.label}`).join(', ')
                     : previewModel.gemstones?.length > 0
                       ? previewModel.gemstones.map((g) => `${g.quantity || 1}x ${g.label}`).join(', ')
-                      : t.none}
+                      : t('none')}
                 </span>
               </div>
               <div className="ring-summary-item">
-                <span className="ring-summary-label">{t.attachmentsSummary}</span>
+                <span className="ring-summary-label">{t('attachmentsSummary')}</span>
                 <span className="ring-summary-value">
                   {previewModel.attachments.length > 0
                     ? previewModel.attachments.map((a) => `${a.quantity}x ${a.reference}`).join(', ')
-                    : t.none}
+                    : t('none')}
                 </span>
               </div>
               <div className="ring-summary-item" data-testid="eval-engraving-items">
-                <span className="ring-summary-label">{t.engravingSummary}</span>
+                <span className="ring-summary-label">{t('engravingSummary')}</span>
                 <div className="ring-summary-value">
                   {previewModel.engravingItems && previewModel.engravingItems.length > 0 ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
@@ -355,11 +357,11 @@ export default function DesignEvaluationPage() {
                             marginRight: '0.35rem',
                             fontWeight: 600
                           }}>
-                            {lang === 'en' ? `Pos #${idx + 1}` : `Vị trí #${idx + 1}`}
+                            {t('eval.position', { n: idx + 1 })}
                           </span>
                           <strong>"{item.content}"</strong>
                           <span style={{ color: '#64748b', fontSize: '0.75rem', marginLeft: '0.35rem' }}>
-                            ({item.placement === 'OUTER_BAND' ? (lang === 'en' ? 'Outer band' : 'Mặt ngoài') : (lang === 'en' ? 'Inner band' : 'Mặt trong')})
+                            ({item.placement === 'OUTER_BAND' ? t('placement.outerBand') : t('placement.innerBand')})
                           </span>
                         </div>
                       ))}
@@ -367,23 +369,23 @@ export default function DesignEvaluationPage() {
                   ) : previewModel.engravingText ? (
                     `"${previewModel.engravingText}"`
                   ) : (
-                    t.none
+                    t('none')
                   )}
                   {previewModel.standardEngravingCost > 0 && (
                     <span style={{ fontSize: '0.8rem', color: '#0369a1', display: 'block', fontWeight: 500, marginTop: '0.25rem' }}>
-                      (+80.000 đ)
+                      (+{wholeMoney(fmt, 80000)})
                     </span>
                   )}
                 </div>
               </div>
               {previewModel.customImages?.length > 0 && (
                 <div className="ring-summary-item" data-testid="eval-custom-images">
-                  <span className="ring-summary-label">{lang === 'en' ? 'Laser images' : 'Ảnh khắc laser'}</span>
+                  <span className="ring-summary-label">{t('eval.laserImages')}</span>
                   <div className="ring-summary-value">
                     <span>
-                      {previewModel.customImages.length} {lang === 'en' ? 'image(s)' : 'ảnh'}
+                      {t('imageCount', { count: previewModel.customImages.length })}
                       <span style={{ fontSize: '0.8rem', color: '#0369a1', display: 'block', fontWeight: 500 }}>
-                        (+{(previewModel.customImages.length * 100000).toLocaleString('vi-VN')} đ)
+                        (+{wholeMoney(fmt, previewModel.customImages.length * 100000)})
                       </span>
                     </span>
                     <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
@@ -394,19 +396,19 @@ export default function DesignEvaluationPage() {
                             {imgUrl ? (
                               <img
                                 src={imgUrl}
-                                alt={`Laser ${idx + 1}`}
+                                alt={t('eval.laserAlt', { n: idx + 1 })}
                                 style={{ width: '56px', height: '56px', objectFit: 'contain', imageRendering: 'pixelated', display: 'block', margin: '0 auto' }}
                               />
                             ) : (
                               <div style={{ width: '56px', height: '56px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', color: '#ef4444' }}>
-                                {lang === 'en' ? 'Image error' : 'Lỗi ảnh'}
+                                {t('eval.imageError')}
                               </div>
                             )}
                             <div style={{ fontSize: '0.65rem', color: '#64748b', marginTop: '2px' }}>
                               C:{img.contrast ?? 50} S:{img.sharpness ?? 50}
                             </div>
                             <div style={{ fontSize: '0.65rem', color: '#94a3b8' }}>
-                              {img.placement === 'OUTER_BAND' ? (lang === 'en' ? 'Outer' : 'Ngoài') : (lang === 'en' ? 'Inner' : 'Trong')}
+                              {img.placement === 'OUTER_BAND' ? t('placement.outer') : t('placement.inner')}
                             </div>
                           </div>
                         );
@@ -430,7 +432,7 @@ export default function DesignEvaluationPage() {
               onClick={handleProceedBooking}
               data-testid="proceed-booking-btn"
             >
-              {t.proceedToBooking}
+              {t('proceedToBooking')}
             </button>
 
             {design?.status !== 'LOCKED' && design?.status !== 'ARCHIVED' && (
@@ -445,7 +447,7 @@ export default function DesignEvaluationPage() {
                   )
                 }
               >
-                {t.editDesign}
+                {t('editDesign')}
               </button>
             )}
 
@@ -455,7 +457,7 @@ export default function DesignEvaluationPage() {
               onClick={handleConsultation}
               data-testid="consult-design-btn"
             >
-              {lang === 'en' ? 'Design Consultation' : 'Tư vấn thiết kế'}
+              {t('eval.consult')}
             </button>
 
             {design?.status !== 'ARCHIVED' && design?.status !== 'LOCKED' && design?.status !== 'ATTACHED_TO_BOOKING' && (
@@ -467,7 +469,7 @@ export default function DesignEvaluationPage() {
                 onClick={() => setShowArchiveConfirm(true)}
                 data-testid="archive-design-btn"
               >
-                {archiving ? t.archiving : t.archiveDesign}
+                {archiving ? t('archiving') : t('archiveDesign')}
               </button>
             )}
 
@@ -483,7 +485,7 @@ export default function DesignEvaluationPage() {
               data-testid="workshop-recommendation-card"
             >
               <div style={{ fontWeight: 700, fontSize: '1rem', color: '#0f172a' }}>
-                Recommended
+                {t('rec.heading')}
               </div>
               <button
                 type="button"
@@ -520,7 +522,7 @@ export default function DesignEvaluationPage() {
                   }}
                   data-testid="recommended-workshop-note"
                 >
-                  ⚠️ Ghi chú: {recommendation.note}
+                  ⚠️ {t('eval.note')}: {recommendation.note}
                 </p>
               )}
             </div>
@@ -554,12 +556,10 @@ export default function DesignEvaluationPage() {
             }}
           >
             <h3 style={{ fontSize: '1.125rem', fontWeight: 600, color: '#1e293b', marginBottom: '0.75rem' }}>
-              {lang === 'en' ? 'Archive Ring Design' : 'Lưu trữ mẫu thiết kế'}
+              {t('eval.archiveDialogTitle')}
             </h3>
             <p style={{ fontSize: '0.875rem', color: '#64748b', marginBottom: '1.25rem', lineHeight: 1.5 }}>
-              {lang === 'en'
-                ? 'Are you sure you want to archive this design? It will no longer be editable.'
-                : 'Bạn có chắc chắn muốn lưu trữ mẫu thiết kế này không? Mẫu thiết kế sẽ chuyển sang trạng thái đã lưu trữ.'}
+              {t('eval.archiveDialogBody')}
             </p>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
               <button
@@ -569,7 +569,7 @@ export default function DesignEvaluationPage() {
                 disabled={archiving}
                 data-testid="cancel-archive-btn"
               >
-                {lang === 'en' ? 'Cancel' : 'Hủy'}
+                {ts('cancel')}
               </button>
               <button
                 type="button"
@@ -579,7 +579,7 @@ export default function DesignEvaluationPage() {
                 disabled={archiving}
                 data-testid="confirm-archive-btn"
               >
-                {archiving ? t.archiving : (lang === 'en' ? 'Confirm Archive' : 'Xác nhận lưu trữ')}
+                {archiving ? t('archiving') : t('eval.confirmArchive')}
               </button>
             </div>
           </div>

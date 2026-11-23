@@ -1,13 +1,15 @@
 import { useState, useMemo, useCallback } from 'react';
+import { translate } from '../../../shared/i18n/I18nProvider';
+import { messages } from '../messages';
 import { createDefaultDraft, normalizeDraftForSave, validateDraftClient } from '../domain/designDraft';
 import { derivePreviewModel, findNextAvailableAngle } from '../domain/designPreview';
 
-export function useWorkshopDesignDraft(packageReference, initialModel = null, lang = 'vi') {
+export function useWorkshopDesignDraft(packageReference, initialModel = null, t = (key, params) => translate(messages, 'vi', key, params)) {
   const [draft, setDraft] = useState(() => createDefaultDraft(packageReference, initialModel));
   const [isDirty, setIsDirty] = useState(false);
 
-  const previewModel = useMemo(() => derivePreviewModel(draft), [draft]);
-  const clientValidation = useMemo(() => validateDraftClient(draft, lang), [draft, lang]);
+  const previewModel = useMemo(() => derivePreviewModel(draft, t), [draft, t]);
+  const clientValidation = useMemo(() => validateDraftClient(draft, t), [draft, t]);
 
   const updateMaterial = useCallback((materialReference) => {
     setDraft((prev) => ({ ...prev, materialReference }));

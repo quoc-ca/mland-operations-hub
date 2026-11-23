@@ -293,8 +293,8 @@ describe('Design Preview Model Derivation', () => {
   it('returns fallback model when draft is null or undefined', () => {
     const preview = derivePreviewModel(null);
     expect(preview.isNeutral).toBe(true);
-    expect(preview.material).toEqual(MATERIAL_PALETTES['MAT-SILVER-925']);
-    expect(preview.shape).toEqual(SHAPE_STROKES['SHP-CLASSIC-ROUND']);
+    expect(preview.material).toEqual({ ...MATERIAL_PALETTES['MAT-SILVER-925'], label: 'Bạc Ý 925' });
+    expect(preview.shape).toEqual({ ...SHAPE_STROKES['SHP-CLASSIC-ROUND'], label: 'Tròn cổ điển' });
   });
 
   it('derives accurate visual tokens and gemstone glows for selected options', () => {
@@ -338,7 +338,7 @@ describe('Design Error Formatting', () => {
 
   it('falls back to error.message or default text when code is unknown', () => {
     expect(getErrorMessage({ message: 'Custom server error' })).toBe('Custom server error');
-    expect(getErrorMessage(null, 'Mặc định')).toBe('Mặc định');
+    expect(getErrorMessage(null)).toBe('Đã xảy ra lỗi không xác định.');
   });
 });
 

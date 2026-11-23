@@ -1,4 +1,7 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
+import { useT, useFormat } from '../../../shared/i18n/I18nProvider';
+import { messages } from '../messages';
+import { wholeMoney } from '../domain/designFormat';
 
 /**
  * Converts a 160x160 slice of an image to high-contrast black-and-white (monochrome laser engraving)
@@ -103,7 +106,9 @@ export function generateBwLaserPreview(imgElement, cropX, cropY, frameSize = 160
 /**
  * Single image crop card with draggable 160x160 selector and B&W laser preview.
  */
-function CustomImageCard({ item, onUpdate, onRemove, t }) {
+function CustomImageCard({ item, onUpdate, onRemove }) {
+  const t = useT(messages);
+  const fmt = useFormat();
   const imgRef = useRef(null);
   const containerRef = useRef(null);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -228,7 +233,7 @@ function CustomImageCard({ item, onUpdate, onRemove, t }) {
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <span style={{ fontWeight: 600, color: '#1e293b' }}>Ảnh khắc #{item.id}</span>
+          <span style={{ fontWeight: 600, color: '#1e293b' }}>{t('cropper.imageTitle', { id: item.id })}</span>
           <span
             style={{
               fontSize: '0.8rem',
@@ -239,7 +244,7 @@ function CustomImageCard({ item, onUpdate, onRemove, t }) {
               fontWeight: 500,
             }}
           >
-            +100.000 đ
+            +{wholeMoney(fmt, 100000)}
           </span>
         </div>
         <button
@@ -256,7 +261,7 @@ function CustomImageCard({ item, onUpdate, onRemove, t }) {
           }}
           data-testid={`remove-image-${item.id}`}
         >
-          {t.deleteCustomImageBtn || 'Xóa ảnh'}
+          {t('deleteCustomImageBtn')}
         </button>
       </div>
 
@@ -264,7 +269,7 @@ function CustomImageCard({ item, onUpdate, onRemove, t }) {
         {/* Interactive Image Frame selector */}
         <div>
           <div style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '0.5rem' }}>
-            {t.dragFrameHelp || 'Kéo thả khung viền đỏ 160px x 160px để chọn vùng khắc:'}
+            {t('dragFrameHelp')}
           </div>
           <div
             ref={containerRef}
@@ -292,7 +297,7 @@ function CustomImageCard({ item, onUpdate, onRemove, t }) {
                 }}
                 data-testid={`image-error-${item.id}`}
               >
-                <div>⚠️ {t.imageLoadError || 'Không thể tải ảnh khắc.'}</div>
+                <div>⚠️ {t('imageLoadError')}</div>
                 <button
                   type="button"
                   onClick={handleRetry}
@@ -306,14 +311,14 @@ function CustomImageCard({ item, onUpdate, onRemove, t }) {
                   }}
                   data-testid={`retry-load-image-${item.id}`}
                 >
-                  {t.imageRetry || 'Thử lại'}
+                  {t('imageRetry')}
                 </button>
               </div>
             ) : (
               <img
                 ref={imgRef}
                 src={item.imageUrl}
-                alt="Custom uploaded"
+                alt={t('cropper.uploadedAlt')}
                 onLoad={handleImageLoad}
                 onError={handleImageError}
                 style={{
@@ -383,7 +388,7 @@ function CustomImageCard({ item, onUpdate, onRemove, t }) {
         {/* 160x160 Black & White Laser Preview Box and Preprocessing Sliders */}
         <div style={{ flex: '1', minWidth: '180px' }}>
           <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: '0.5rem' }}>
-            {t.laserPreviewTitle || 'Bản xem trước khắc laser (Trắng - Đen 160px x 160px):'}
+            {t('laserPreviewTitle')}
           </div>
 
           <div
@@ -402,22 +407,22 @@ function CustomImageCard({ item, onUpdate, onRemove, t }) {
             data-testid={`laser-preview-${item.id}`}
           >
             {loadError ? (
-              <span style={{ fontSize: '0.75rem', color: '#e11d48' }}>Lỗi tải ảnh</span>
+              <span style={{ fontSize: '0.75rem', color: '#e11d48' }}>{t('cropper.loadFailed')}</span>
             ) : previewUrl ? (
               <img
                 src={previewUrl}
-                alt="Laser preview"
+                alt={t('cropper.previewAlt')}
                 style={{ width: '160px', height: '160px', imageRendering: 'pixelated' }}
               />
             ) : (
-              <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Đang tải...</span>
+              <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{t('cropper.loading')}</span>
             )}
           </div>
 
           {/* Contrast Slider */}
           <div style={{ marginTop: '0.75rem' }} data-testid={`contrast-slider-container-${item.id}`}>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', fontWeight: 500, color: '#334155', marginBottom: '0.25rem' }}>
-              <span>{t.contrastLabel || 'Độ tương phản'}</span>
+              <span>{t('contrastLabel')}</span>
               <span data-testid={`contrast-value-${item.id}`}>{contrast}</span>
             </div>
             <input
@@ -431,14 +436,14 @@ function CustomImageCard({ item, onUpdate, onRemove, t }) {
               data-testid={`contrast-slider-${item.id}`}
             />
             <div style={{ fontSize: '0.7rem', color: '#64748b' }}>
-              {t.contrastHelper || '0 - 100, mặc định 50'}
+              {t('contrastHelper')}
             </div>
           </div>
 
           {/* Sharpness Slider */}
           <div style={{ marginTop: '0.5rem' }} data-testid={`sharpness-slider-container-${item.id}`}>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', fontWeight: 500, color: '#334155', marginBottom: '0.25rem' }}>
-              <span>{t.sharpnessLabel || 'Độ sắc nét'}</span>
+              <span>{t('sharpnessLabel')}</span>
               <span data-testid={`sharpness-value-${item.id}`}>{sharpness}</span>
             </div>
             <input
@@ -452,14 +457,14 @@ function CustomImageCard({ item, onUpdate, onRemove, t }) {
               data-testid={`sharpness-slider-${item.id}`}
             />
             <div style={{ fontSize: '0.7rem', color: '#64748b' }}>
-              {t.sharpnessHelper || '0 - 100, mặc định 50'}
+              {t('sharpnessHelper')}
             </div>
           </div>
 
           {/* Placement Picker */}
           <div style={{ marginTop: '0.75rem' }}>
             <div style={{ fontSize: '0.8rem', fontWeight: 500, color: '#475569', marginBottom: '0.35rem' }}>
-              {t.engravingPlacementLabel || 'Vị trí khắc'}
+              {t('engravingPlacementLabel')}
             </div>
             <div className="ring-pills-row" style={{ gap: '0.5rem' }}>
               <button
@@ -469,7 +474,7 @@ function CustomImageCard({ item, onUpdate, onRemove, t }) {
                 style={{ padding: '0.35rem 0.65rem', fontSize: '0.8rem' }}
                 data-testid={`placement-inner-${item.id}`}
               >
-                {t.innerBand || 'Mặt trong'}
+                {t('innerBand')}
               </button>
               <button
                 type="button"
@@ -478,7 +483,7 @@ function CustomImageCard({ item, onUpdate, onRemove, t }) {
                 style={{ padding: '0.35rem 0.65rem', fontSize: '0.8rem' }}
                 data-testid={`placement-outer-${item.id}`}
               >
-                {t.outerBand || 'Mặt ngoài'}
+                {t('outerBand')}
               </button>
             </div>
           </div>
@@ -488,7 +493,8 @@ function CustomImageCard({ item, onUpdate, onRemove, t }) {
   );
 }
 
-export default function LaserEngravingImageCropper({ customImages = [], onChangeCustomImages, t }) {
+export default function LaserEngravingImageCropper({ customImages = [], onChangeCustomImages }) {
+  const t = useT(messages);
   const fileInputRef = useRef(null);
   const isImageLimitReached = customImages.length >= 2;
 
@@ -577,7 +583,7 @@ export default function LaserEngravingImageCropper({ customImages = [], onChange
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#1e293b', margin: 0 }}>
-              {t.customImageSectionTitle || 'Khắc hình ảnh cá nhân hóa (+100.000 đ / ảnh)'}
+              {t('customImageSectionTitle')}
             </h3>
             <span
               style={{
@@ -590,12 +596,11 @@ export default function LaserEngravingImageCropper({ customImages = [], onChange
               }}
               data-testid="engraving-image-counter"
             >
-              {(t.imageEngravingCounter || 'Ảnh laser: {count}/2').replace('{count}', customImages.length)}
+              {t('imageEngravingCounter', { count: customImages.length })}
             </span>
           </div>
           <p style={{ fontSize: '0.85rem', color: '#64748b', margin: '0.25rem 0 0 0' }}>
-            {t.customImageSectionDesc ||
-              'Tải lên ảnh mẫu (chữ ký, logo). Hệ thống chuyển sang màu đen trắng và đóng khung 160px x 160px để bạn chọn vị trí khắc đẹp nhất (tối đa 2 ảnh).'}
+            {t('customImageSectionDesc')}
           </p>
         </div>
       </div>
@@ -631,7 +636,7 @@ export default function LaserEngravingImageCropper({ customImages = [], onChange
           }}
           data-testid="upload-engraving-image-btn"
         >
-          📷 {t.uploadCustomImageBtn || 'Tải ảnh lên để khắc laser (+100.000 đ)'}
+          📷 {t('uploadCustomImageBtn')}
         </button>
 
         {isImageLimitReached && (
@@ -639,14 +644,14 @@ export default function LaserEngravingImageCropper({ customImages = [], onChange
             style={{ color: '#e11d48', fontSize: '0.85rem', marginTop: '0.25rem', fontWeight: 500 }}
             data-testid="image-engraving-limit-message"
           >
-            {t.imageEngravingLimitReached || 'Đã đạt tối đa 2 ảnh khắc laser.'}
+            {t('imageEngravingLimitReached')}
           </div>
         )}
       </div>
 
       {/* List of uploaded custom image crop cards */}
       {customImages.map((item) => (
-        <CustomImageCard key={item.id} item={item} onUpdate={handleUpdate} onRemove={handleRemove} t={t} />
+        <CustomImageCard key={item.id} item={item} onUpdate={handleUpdate} onRemove={handleRemove} />
       ))}
 
       {/* Fingerprint laser engraving notice */}
@@ -666,7 +671,7 @@ export default function LaserEngravingImageCropper({ customImages = [], onChange
         data-testid="fingerprint-notice"
       >
         <span>💡</span>
-        <span>{t.fingerprintNotice || 'Để có thể khắc lazer vân tay, các bạn hãy đến cửa hàng lấy vân tay trực tiếp nhé'}</span>
+        <span>{t('fingerprintNotice')}</span>
       </div>
     </div>
   );

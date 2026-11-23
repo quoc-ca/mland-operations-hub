@@ -1,4 +1,5 @@
 // Bilingual dictionary for Feature 012 Workshop Ring Design Configuration
+import { uiMessages } from './messages.ui';
 
 export const messages = {
   vi: {
@@ -100,12 +101,12 @@ export const messages = {
     viewMyDesigns: 'Thiết kế của tôi',
 
     // Statuses
-    DRAFT: 'Bản nháp',
-    SAVED: 'Đã lưu',
-    VALIDATED: 'Đã lưu',
-    ATTACHED_TO_BOOKING: 'Đã gắn lịch đặt',
-    LOCKED: 'Đã khóa',
-    ARCHIVED: 'Đã lưu trữ',
+    'status.DRAFT': 'Bản nháp',
+    'status.SAVED': 'Đã lưu',
+    'status.VALIDATED': 'Đã lưu',
+    'status.ATTACHED_TO_BOOKING': 'Đã gắn lịch đặt',
+    'status.LOCKED': 'Đã khóa',
+    'status.ARCHIVED': 'Đã lưu trữ',
 
     // Summary & Evaluation
     evaluationTitle: 'Kết quả thẩm định thiết kế',
@@ -139,6 +140,7 @@ export const messages = {
     noDesignsYet: 'Bạn chưa có mẫu thiết kế nào.',
     createFirstDesign: 'Tạo mẫu nhẫn đầu tiên',
     versionHistory: 'Lịch sử phiên bản',
+    ...uiMessages.vi,
   },
   en: {
     featureTitle: 'Workshop Ring Design Configuration',
@@ -212,6 +214,9 @@ export const messages = {
     circumferenceLabel: 'Circumference',
     thicknessSummary: 'Thickness',
     bandWidthSummary: 'Width',
+    weightSummary: 'Estimated weight',
+    standardWeightNote: 'Standard quota 3.0g',
+    excessWeightNote: 'Every gram above 3g adds 120,000 VND',
     engravingToggleLabel: 'Custom Engraving (+80,000 VND)',
     engravingTextInputLabel: 'Engraving text (up to 50 characters)',
     engravingPlaceholder: 'e.g. Forever Love 2026',
@@ -230,12 +235,12 @@ export const messages = {
     backToModels: 'Back to Models',
     viewMyDesigns: 'My Ring Designs',
 
-    DRAFT: 'Draft',
-    SAVED: 'Saved',
-    VALIDATED: 'Saved',
-    ATTACHED_TO_BOOKING: 'Attached to Booking',
-    LOCKED: 'Locked',
-    ARCHIVED: 'Archived',
+    'status.DRAFT': 'Draft',
+    'status.SAVED': 'Saved',
+    'status.VALIDATED': 'Saved',
+    'status.ATTACHED_TO_BOOKING': 'Attached to Booking',
+    'status.LOCKED': 'Locked',
+    'status.ARCHIVED': 'Archived',
 
     evaluationTitle: 'Design Evaluation Results',
     estimatedPriceLabel: 'Advisory Estimated Cost',
@@ -265,6 +270,7 @@ export const messages = {
     noDesignsYet: 'You have not configured any ring designs yet.',
     createFirstDesign: 'Create Your First Design',
     versionHistory: 'Version History',
+    ...uiMessages.en,
   },
 };
 
