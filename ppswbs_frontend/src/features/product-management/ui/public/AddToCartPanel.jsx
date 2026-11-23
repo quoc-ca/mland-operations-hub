@@ -50,8 +50,10 @@ export function stockOf(variant, locationId) {
  *                   it (FR-059(2), Session 2026-11-20): the detail page shows that price as its big price instead
  * @param onSizeChange optional, called with the chosen size (or null) whenever it changes; the detail page shows that
  *                   size's price as its big price
+ * @param onBranchChange optional, called with the chosen branch ID (or '') whenever it changes; the detail page prices
+ *                   the offers for that branch (006 FR-048, Session 2026-11-23)
  */
-export function AddToCartPanel({ product, returnPath, onAdded, sizePrice, onSizeChange }) {
+export function AddToCartPanel({ product, returnPath, onAdded, sizePrice, onSizeChange, onBranchChange }) {
   const t = useT(messages);
   const errorText = useErrorText(messages);
   const api = useCatalogueApi();
@@ -94,6 +96,10 @@ export function AddToCartPanel({ product, returnPath, onAdded, sizePrice, onSize
   useEffect(() => {
     if (onSizeChange) onSizeChange(chosenVariant || null);
   }, [choice.variantId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (onBranchChange) onBranchChange(choice.locationId || '');
+  }, [choice.locationId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // A branch from returnTo is kept only if something can be bought there.
   useEffect(() => {

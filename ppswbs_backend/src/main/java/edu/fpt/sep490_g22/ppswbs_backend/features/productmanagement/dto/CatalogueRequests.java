@@ -36,8 +36,24 @@ public final class CatalogueRequests {
                                  String reason, List<ReviewPrice> prices) {
     }
 
-    /** US10: start selling at a branch, with a quantity per size (missing size = 0). */
-    public record BranchAddRequest(Long expectedVersion, String locationId, List<BranchSizeQuantity> quantities) {
+    /**
+     * US10: start selling at a branch, with a quantity per size (missing size = 0). FR-069 (Session 2026-11-23):
+     * {@code newSizes} adds sizes the product does not have yet, each with a proposed price.
+     */
+    public record BranchAddRequest(Long expectedVersion, String locationId, List<BranchSizeQuantity> quantities,
+                                   List<NewSizePrice> newSizes) {
+    }
+
+    /** FR-069: a size the product does not have yet, with its proposed price. */
+    public record NewSizePrice(Integer size, String proposedPrice) {
+    }
+
+    /** FR-069: sizes to start selling at a branch where the product is sold. */
+    public record BranchSizeAddRequest(Long expectedVersion, List<BranchSizeAdd> sizes) {
+    }
+
+    /** {@code proposedPrice} only for a size the product does not have yet. */
+    public record BranchSizeAdd(Integer size, String quantity, String proposedPrice) {
     }
 
     public record BranchSizeQuantity(Integer size, String quantity) {

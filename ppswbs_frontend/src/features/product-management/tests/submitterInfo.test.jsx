@@ -4,6 +4,11 @@ import { clearRoleCache } from '../../../shared/auth/useRole';
 import { json, mockFetch, renderRoutes } from '../../../test/render';
 import { productManagementRoutes } from '../routes/productManagementRoutes';
 import { categoryPage, managementProduct } from './fixtures';
+import { beforeEach as beforeEachSignIn } from 'vitest';
+import { signInAs } from './fixtures';
+
+// RouteAccessGuard (T219) reads the 001 Account bootstrap: an active Staff unless a test says otherwise.
+beforeEachSignIn(() => { signInAs('STAFF'); });
 
 // FR-060/FR-061 (Session 2026-11-16): submitter, the submitter's branches at submit time, and decider.
 const M = '/api/v1/catalogue-management';

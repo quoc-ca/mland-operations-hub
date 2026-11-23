@@ -59,7 +59,9 @@ class ProductBranchStockLegacyQuantityTests {
                 mock(PriceProposalRepository.class), provider);
         service = new ProductBranchStockService(stocks, variants, mock(CatalogueLockCoordinator.class),
                 mock(CatalogueAvailabilityService.class), mock(CatalogueAuditWriter.class),
-                mock(CatalogueCommandExecutor.class), scope, provider);
+                mock(CatalogueCommandExecutor.class), scope, provider,
+                mock(edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.ProductRepository.class),
+                mock(PriceProposalRepository.class), mock(ProductReviewInvalidationService.class));
         row = VariantBranchStock.create(VARIANT_ID, CLOSED_BRANCH, BigInteger.valueOf(3));
         when(stocks.findByVariantIdInOrderByVariantIdAscLocationIdAsc(anyCollection())).thenReturn(List.of(row));
         variant = mock(ProductVariant.class);

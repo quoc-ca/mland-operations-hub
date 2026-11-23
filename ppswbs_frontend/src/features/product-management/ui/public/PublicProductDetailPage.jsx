@@ -23,11 +23,13 @@ export default function PublicProductDetailPage() {
   const [imageIndex, setImageIndex] = useState(0);
   const programs = usePublicProductPrograms();
   const [chosenVariant, setChosenVariant] = useState(null);
+  const [chosenBranch, setChosenBranch] = useState('');
 
   // Opening a product (from the list, a card or another product) starts at the top of the page, not at the scroll
-  // position the previous page was left at (which landed on the reviews).
+  // position the previous page was left at (which landed on the reviews), and on its first image (T229, FR-068).
   useEffect(() => {
     setChosenVariant(null);
+    setImageIndex(0);
     if (typeof window.scrollTo === 'function') window.scrollTo(0, 0);
   }, [productId]);
 
@@ -47,8 +49,10 @@ export default function PublicProductDetailPage() {
   }
   const data = product.data;
   const images = [...(data.images || [])].sort((a, b) => a.position - b.position);
-  const image = images[Math.min(imageIndex, images.length - 1)];
-  const offers = offersForProduct(data, programs);
+  const shownIndex = Math.max(0, Math.min(imageIndex, images.length - 1));
+  const image = images[shownIndex];
+  // 006 FR-048 (Session 2026-11-23): once a branch is chosen, only vouchers usable there are counted in the price.
+  const offers = offersForProduct(data, programs, { branchId: chosenBranch });
 
   return (
     <main className="container public-page pm-theme pm-public">
@@ -56,11 +60,11 @@ export default function PublicProductDetailPage() {
       <h1>{data.name}</h1>
       <div className="detail-grid">
         <div>
-          {image ? <img className="detail-image" src={publicImageUrl(image.url)} alt={image.altText} /> : <div className="ring-visual silver" aria-hidden="true"><span /></div>}
+          {image ? <ImageStage images={images} index={shownIndex} onChange={setImageIndex} image={image} /> : <div className="ring-visual silver" aria-hidden="true"><span /></div>}
           {images.length > 1 && (
             <div className="thumbs" role="group" aria-label={t('public.images')}>
               {images.map((item, index) => (
-                <button key={item.id} type="button" className={index === imageIndex ? 'thumb active' : 'thumb'} aria-pressed={index === imageIndex} onClick={() => setImageIndex(index)}>
+                <button key={item.id} type="button" className={index === shownIndex ? 'thumb active' : 'thumb'} aria-pressed={index === shownIndex} onClick={() => setImageIndex(index)}>
                   <img src={publicImageUrl(item.url)} alt={item.altText} />
                 </button>
               ))}
@@ -79,11 +83,46 @@ export default function PublicProductDetailPage() {
           <span className={data.canBuy ? 'status ok' : 'status'}>{data.canBuy ? t('public.canBuy') : t('public.cannotBuy')}</span>
           <ProductOfferList offers={offers} />
           {/* Sizes are boxes in the cart panel: in stock can be chosen, sold out or not on sale is faded. */}
-          <AddToCartPanel product={data} onSizeChange={setChosenVariant} />
+          <AddToCartPanel product={data} onSizeChange={setChosenVariant} onBranchChange={setChosenBranch} />
           <p className="muted small">{t('public.priceNotice')}</p>
         </div>
       </div>
       <ProductReviewSection productId={data.id} productName={data.name} />
     </main>
+  );
+}
+
+/**
+ * FR-068 (Session 2026-11-22): the big image with previous/next buttons when there are two images or more. The buttons
+ * wrap around at both ends, show "n / total", and the arrow keys (while a button has focus) or a horizontal swipe also
+ * change the image. One image: no buttons.
+ */
+function ImageStage({ images, index, onChange, image }) {
+  const t = useT(messages);
+  const [touchX, setTouchX] = useState(null);
+  const several = images.length > 1;
+  const go = step => onChange((index + step + images.length) % images.length);
+  const onKeyDown = event => {
+    if (!several) return;
+    if (event.key === 'ArrowLeft') { event.preventDefault(); go(-1); }
+    if (event.key === 'ArrowRight') { event.preventDefault(); go(1); }
+  };
+  const onTouchEnd = event => {
+    if (!several || touchX === null) return;
+    const moved = event.changedTouches[0].clientX - touchX;
+    setTouchX(null);
+    if (Math.abs(moved) >= 40) go(moved < 0 ? 1 : -1);
+  };
+  return (
+    <div className="detail-stage" onKeyDown={onKeyDown} onTouchStart={event => setTouchX(event.touches[0].clientX)} onTouchEnd={onTouchEnd}>
+      <img className="detail-image" src={publicImageUrl(image.url)} alt={image.altText} />
+      {several && (
+        <>
+          <button type="button" className="stage-nav prev" aria-label={t('public.previousImage')} onClick={() => go(-1)}>‹</button>
+          <button type="button" className="stage-nav next" aria-label={t('public.nextImage')} onClick={() => go(1)}>›</button>
+          <span className="stage-count" aria-live="polite">{t('public.imageCount', { index: index + 1, total: images.length })}</span>
+        </>
+      )}
+    </div>
   );
 }

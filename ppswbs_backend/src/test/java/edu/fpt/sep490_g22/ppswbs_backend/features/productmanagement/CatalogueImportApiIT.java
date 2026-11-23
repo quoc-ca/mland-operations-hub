@@ -230,7 +230,7 @@ class CatalogueImportApiIT {
                 .andExpect(content().bytes(bytes))
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
                         .string("Cache-Control", "no-store"));
-        mvc.perform(as("staff", put(BASE + "/products/" + productId + "/publication"))
+        mvc.perform(as("manager", put(BASE + "/products/" + productId + "/publication"))
                         .header("Idempotency-Key", UUID.randomUUID()).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"expectedVersion\":" + fixture.productVersion(productId) + ",\"published\":false}"))
                 .andExpect(status().isOk());

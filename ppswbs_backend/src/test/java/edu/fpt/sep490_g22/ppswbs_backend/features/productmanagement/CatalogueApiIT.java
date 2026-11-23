@@ -194,7 +194,12 @@ class CatalogueApiIT {
                             .content("{\"expectedVersion\":" + proposal.getVersion() + "}"))
                     .andExpect(status().isOk());
         }
+        // Session 2026-11-23: publication covers every branch, so it is a Manager's action only.
         mvc.perform(as("staff", put("/api/v1/catalogue-management/products/" + productId + "/publication"))
+                        .header("Idempotency-Key", UUID.randomUUID()).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"expectedVersion\":" + fixture.productVersion(productId) + ",\"published\":true}"))
+                .andExpect(status().isForbidden());
+        mvc.perform(as("manager", put("/api/v1/catalogue-management/products/" + productId + "/publication"))
                         .header("Idempotency-Key", UUID.randomUUID()).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"expectedVersion\":" + fixture.productVersion(productId) + ",\"published\":true}"))
                 .andExpect(status().isOk())
@@ -319,6 +324,72 @@ class CatalogueApiIT {
             assertThat(String.valueOf(rows.get(0).get("safe_changes"))).contains("BRANCH_SCOPE_EMPTY")
                     .doesNotContain("Tên không được lưu").doesNotContain("500000");
         }
+    }
+
+    @Test
+    void addingSizesOverHttpBindsTheBodyChecksTheFieldsAndReplaysTheKey() throws Exception {
+        // T222 (FR-069, US10 scenarios 9, 10, 13): the two size-adding routes over the real security chain.
+        long productId = fixture.publishedProduct(CatalogueTestSupport.STAFF, CatalogueTestSupport.MANAGER);
+        String sizes = "/api/v1/catalogue-management/products/" + productId + "/branches/" + branchId + "/sizes";
+        String body = json.writeValueAsString(Map.of("expectedVersion", fixture.productVersion(productId),
+                "sizes", List.of(Map.of("size", 6, "quantity", "2", "proposedPrice", "210000"))));
+
+        // Admin and Member hold no catalogue capability; no key → the command is refused before anything runs.
+        for (String role : List.of("admin", "member")) {
+            mvc.perform(as(role, post(sizes)).header("Idempotency-Key", UUID.randomUUID())
+                            .contentType(MediaType.APPLICATION_JSON).content(body))
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.code").value("CATALOGUE_ACCESS_DENIED"));
+        }
+        mvc.perform(as("staff", post(sizes)).contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().is4xxClientError());
+        mvc.perform(as("staff", post(sizes)).header("Idempotency-Key", UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"expectedVersion\":" + fixture.productVersion(productId)
+                                + ",\"sizes\":[null]}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.fieldErrors[0].field").value(org.hamcrest.Matchers.startsWith("sizes[0]")));
+        mvc.perform(as("staff", post(sizes)).header("Idempotency-Key", UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of(
+                                "expectedVersion", fixture.productVersion(productId),
+                                "sizes", List.of(Map.of("size", 12, "quantity", "1"))))))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("SIZE_ALREADY_EXISTS"));
+
+        UUID key = UUID.randomUUID();
+        JsonNode first = read(mvc.perform(as("staff", post(sizes)).header("Idempotency-Key", key)
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("SIZES_ADDED"))
+                .andExpect(jsonPath("$.resourceId").value(Long.toString(productId)))
+                .andReturn());
+        JsonNode replay = read(mvc.perform(as("staff", post(sizes)).header("Idempotency-Key", key)
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isOk()).andReturn());
+        assertThat(replay).isEqualTo(first);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM catalogue_variants WHERE product_id = ?", Long.class, productId))
+                .isEqualTo(3L);
+
+        // Add a branch with a new size: `newSizes` binds, and a null entry is a field error on newSizes.
+        jdbc.update("INSERT IGNORE INTO workshop_locations (code, display_name, address_snapshot, active) VALUES (?, ?, ?, 1)",
+                "PM-TEST-BRANCH-B", "Chi nhánh kiểm thử B", "Địa chỉ B");
+        jdbc.update("UPDATE workshop_locations SET active = 1 WHERE code = ?", "PM-TEST-BRANCH-B");
+        long branchB = jdbc.queryForObject("SELECT id FROM workshop_locations WHERE code = ?", Long.class, "PM-TEST-BRANCH-B");
+        String branches = "/api/v1/catalogue-management/products/" + productId + "/branches";
+        mvc.perform(as("manager", post(branches)).header("Idempotency-Key", UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"expectedVersion\":" + fixture.productVersion(productId)
+                                + ",\"locationId\":\"" + branchB + "\",\"quantities\":[],\"newSizes\":[null]}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors[0].field").value(org.hamcrest.Matchers.startsWith("newSizes[0]")));
+        mvc.perform(as("manager", post(branches)).header("Idempotency-Key", UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of(
+                                "expectedVersion", fixture.productVersion(productId), "locationId", Long.toString(branchB),
+                                "quantities", List.of(Map.of("size", 9, "quantity", "1")),
+                                "newSizes", List.of(Map.of("size", 9, "proposedPrice", "230000"))))))
+                .andExpect(status().isOk());
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM catalogue_variant_branch_stock s JOIN catalogue_variants v"
+                + " ON v.id = s.variant_id WHERE v.product_id = ? AND v.ring_size = 9 AND s.location_id = ?", Long.class,
+                productId, branchB)).isEqualTo(1L);
     }
 
     @Test

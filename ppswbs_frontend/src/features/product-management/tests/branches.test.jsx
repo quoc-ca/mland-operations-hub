@@ -5,6 +5,11 @@ import { clearRoleCache } from '../../../shared/auth/useRole';
 import { json, mockFetch, renderRoutes } from '../../../test/render';
 import { productManagementRoutes } from '../routes/productManagementRoutes';
 import { actionResult, categoryPage, managementProduct, publicProduct } from './fixtures';
+import { beforeEach as beforeEachSignIn } from 'vitest';
+import { signInAs } from './fixtures';
+
+// RouteAccessGuard (T219) reads the 001 Account bootstrap: an active Staff unless a test says otherwise.
+beforeEachSignIn(() => { signInAs('STAFF'); });
 
 const M = '/api/v1/catalogue-management';
 const PROFILE = 'GET /api/v1/accounts/me/profile';
@@ -175,8 +180,9 @@ describe('US10 FR-051 branch filter on the product list', () => {
     });
     renderRoutes(productManagementRoutes, { path: '/catalogue-management/products' });
     await screen.findByRole('option', { name: 'Tây Hồ' });
+    // FR-064 (Session 2026-11-22): choosing a branch filters at once, there is no "Apply" button.
     await user.selectOptions(screen.getByLabelText('Chi nhánh'), '2');
-    await user.click(screen.getByRole('button', { name: 'Áp dụng' }));
+    expect(screen.queryByRole('button', { name: 'Áp dụng' })).not.toBeInTheDocument();
     await waitFor(() => expect(calls.filter(call => call.path === `${M}/products`).at(-1).query).toEqual({ locationId: '2' }));
   });
 });
@@ -290,7 +296,8 @@ describe('US10 branches on the detail page', () => {
     expect(screen.queryByRole('button', { name: 'Đề xuất giá mới' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Sửa giá đề xuất nhiều size' })).toBeNull();
     expect(screen.queryByRole('button', { name: /Xóa sản phẩm/ })).toBeNull();
-    expect(screen.queryByRole('button', { name: /Ẩn sản phẩm|Công khai/ })).toBeNull();
+    // The section heading 'Công khai' is a fold toggle (Session 2026-11-22); the action buttons are what must be absent.
+    expect(screen.queryByRole('button', { name: /^(Ẩn sản phẩm|Công khai sản phẩm|Công khai ngay)$/ })).toBeNull();
     view.unmount();
 
     // The same product for a Staff member of that branch keeps every button.

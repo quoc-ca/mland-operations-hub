@@ -130,6 +130,34 @@ export function effectiveProposal(variant) {
   return latestEffective(variant.proposals);
 }
 
+/**
+ * FR-067 (Session 2026-11-22): one status per revision of a size's price history, instead of a state column and an
+ * "applied" column. `applied` is true only for the revision whose price is applied now; an approved revision based on an
+ * older applied price can no longer be applied (PRICE_APPLICATION_STALE), so it is superseded like an ineffective one.
+ */
+export function proposalStatus(variant, proposal) {
+  if (proposal.state === 'REJECTED') return 'REJECTED';
+  if (proposal.applied) return 'APPLIED';
+  if (!proposal.effective) return 'SUPERSEDED';
+  if (proposal.state === 'APPROVED') {
+    return Number(proposal.baseAppliedSequence) >= Number(variant.appliedSequence || 0) ? 'APPROVED_WAITING' : 'SUPERSEDED';
+  }
+  return proposal.state; // PENDING or DRAFT
+}
+
+/**
+ * FR-064 (Session 2026-11-22): the list tab a product belongs to, by the same rule the backend uses for the tabs, so the
+ * state column always names the tab: DELETED, PUBLISHED, HIDDEN (published once, not now), else the current review of a
+ * never-published product — DRAFT (none or draft), PENDING, REJECTED or APPROVED (ready to publish).
+ */
+export function listStateOf(product) {
+  if (product.deletedAt) return 'DELETED';
+  if (product.published) return 'PUBLISHED';
+  if (product.firstPublishedAt) return 'HIDDEN';
+  const state = currentReview(product)?.state;
+  return state === 'PENDING' || state === 'REJECTED' || state === 'APPROVED' ? state : 'DRAFT';
+}
+
 export function currentReview(product) {
   return latestEffective(product.reviews);
 }

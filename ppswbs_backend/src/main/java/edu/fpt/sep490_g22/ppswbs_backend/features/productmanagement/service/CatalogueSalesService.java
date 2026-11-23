@@ -130,7 +130,9 @@ public class CatalogueSalesService implements CatalogueSalesFacade {
                     .collect(Collectors.toMap(Product::getId, Function.identity()));
             Set<Long> eligibleProducts = new HashSet<>(publicQueries.findEligibleIds(productIds));
             List<Long> eligible = ids.stream()
-                    .filter(id -> eligibleProducts.contains(sizes.get(id).getProductId()) && sizes.get(id).isSaleEnabled())
+                    // FR-070: a size without an applied price (added later, price pending) is not for sale.
+                    .filter(id -> eligibleProducts.contains(sizes.get(id).getProductId()) && sizes.get(id).isSaleEnabled()
+                            && sizes.get(id).hasAppliedPrice())
                     .toList();
             Map<Long, HeldSnapshot> held = availability.readSnapshots(eligible, now());
 
@@ -217,6 +219,7 @@ public class CatalogueSalesService implements CatalogueSalesFacade {
 
             List<BranchVariant> eligible = ordered.stream()
                     .filter(key -> eligibleProducts.contains(sizes.get(key.variantId()).getProductId())
+                            && sizes.get(key.variantId()).hasAppliedPrice()
                             && sizes.get(key.variantId()).isSaleEnabled() && sells(stock.get(key)))
                     .toList();
             Instant asOf = now();

@@ -64,6 +64,9 @@ Ký hiệu `USn.m` là kịch bản số m trong User Story n; các khoảng FR 
 | FR-043 | US9.5, US9.10 | Giới hạn file, không thực thi công thức, vô hiệu hóa ô nguy hiểm, hết hạn 60 phút. |
 | FR-044 | US9.6 | Xác nhận idempotent, kiểm tra kết quả sau mất phản hồi. |
 | FR-045 | US9.3, US9.8 | Audit từng lần import, không ghi toàn bộ nội dung file. |
+| FR-064, FR-065 | US1.11 | *(Session 2026-11-22)* Tab trạng thái loại trừ nhau, số đếm theo bộ lọc, lọc ngay không cần Áp dụng, tab Đề xuất giá chỉ Manager. |
+| FR-066, FR-067 | US5.7 | *(Session 2026-11-22)* Manager đổi giá một bước, các bước vẫn là lệnh/audit riêng; trạng thái gộp ở lịch sử giá. |
+| FR-068 | US8.12 | *(Session 2026-11-22)* Nút ảnh trước/sau, quay vòng, ẩn khi một ảnh. |
 
 ## Notes
 

@@ -43,7 +43,8 @@ export function ReviewSection({ product, api, reload, setNotice, deleted, outOfS
       <p>{t('review.current')}: <strong>{review ? t(`state.${review.state}`) : t('review.none')}</strong></p>
       {review && <SubmitterInfo item={review} />}
       {review?.state === 'REJECTED' && review.reason && <p className="notice error pre-line">{t('review.rejectedBecause', { reason: review.reason })}</p>}
-      {review?.state === 'APPROVED' && <p className="notice success">{t(approvedRows(product).length ? 'review.approvedNext' : 'review.approvedPublishNext')}</p>}
+      {/* T230 (FR-017, Session 2026-11-23): only a Manager publishes, so a Staff member is told the product waits for one. */}
+      {review?.state === 'APPROVED' && <p className="notice success">{t(`${approvedRows(product).length ? 'review.approvedNext' : 'review.approvedPublishNext'}${isManager ? '' : 'Staff'}`)}</p>}
       {review?.state === 'APPROVED' && !deleted && !outOfScope && <ApplyApproved product={product} api={api} reload={reload} setNotice={setNotice} />}
 
       {/* US2 scenario 4: a rejected review is resubmitted as a new version, so something must change first; the backend
