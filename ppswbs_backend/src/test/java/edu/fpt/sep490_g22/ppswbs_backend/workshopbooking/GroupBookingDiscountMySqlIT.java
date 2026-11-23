@@ -133,7 +133,7 @@ class GroupBookingDiscountMySqlIT {
         Long pkg = packageOf(200_000);
         autoDiscount(List.of(pkg), 50_000, 0);
         JsonNode quote = quote(null, line(pkg, session(10), 2), null);
-        assertThat(quote.get("voucherDiscountVnd").asLong()).isEqualTo(50_000);
+        assertThat(quote.get("autoDiscountVnd").asLong()).isEqualTo(50_000);
         assertThat(quote.get("finalTotalVnd").asLong()).isEqualTo(350_000);
         assertThat(quote.get("groupCollectionVnd").asLong()).isEqualTo(350_000);
 
@@ -147,8 +147,8 @@ class GroupBookingDiscountMySqlIT {
     }
 
     @Test
-    @DisplayName("T097-d2: a Member voucher replaces the automatic discount, they are never added")
-    void memberVoucherReplacesTheAutomaticDiscount() throws Exception {
+    @DisplayName("T097-d2: a Member voucher is added on top of the automatic discount and computed after it")
+    void memberVoucherStacksOnTheAutomaticDiscount() throws Exception {
         Long pkg = packageOf(200_000);
         autoDiscount(List.of(pkg), 50_000, 0);
         WorkshopSession session = session(10);
@@ -157,8 +157,9 @@ class GroupBookingDiscountMySqlIT {
         JsonNode quote = quote("Bearer test-uid:member", line(pkg, session, 2),
                 "{\"choice\":\"VOUCHER\",\"voucherCode\":\"" + voucher + "\"}");
 
+        assertThat(quote.get("autoDiscountVnd").asLong()).isEqualTo(50_000);
         assertThat(quote.get("voucherDiscountVnd").asLong()).isEqualTo(100_000);
-        assertThat(quote.get("finalTotalVnd").asLong()).isEqualTo(300_000);
+        assertThat(quote.get("finalTotalVnd").asLong()).isEqualTo(250_000);
     }
 
     @Test
@@ -168,6 +169,7 @@ class GroupBookingDiscountMySqlIT {
         autoDiscount(List.of(pkg), 50_000, 1_000_000);
         JsonNode quote = quote(null, line(pkg, session(10), 2), null);
 
+        assertThat(quote.get("autoDiscountVnd").asLong()).isZero();
         assertThat(quote.get("voucherDiscountVnd").asLong()).isZero();
         assertThat(quote.get("finalTotalVnd").asLong()).isEqualTo(400_000);
         String code = createGroup(null, quote.get("quoteRef").asText()).get("groupCode").asText();
@@ -182,7 +184,7 @@ class GroupBookingDiscountMySqlIT {
         Long dear = packageOf(200_000);
         autoDiscount(List.of(cheap, dear), 100_001, 0);
         JsonNode quote = quote(null, line(cheap, session(10), 1), null, line(dear, session(11), 1));
-        long total = quote.get("voucherDiscountVnd").asLong();
+        long total = quote.get("autoDiscountVnd").asLong();
         assertThat(total).isEqualTo(100_001);
 
         String code = createGroup(null, quote.get("quoteRef").asText()).get("groupCode").asText();

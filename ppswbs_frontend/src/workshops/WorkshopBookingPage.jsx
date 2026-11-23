@@ -618,7 +618,7 @@ export function WorkshopBookingPage({ packageId }) {
           <p style={{ margin: '0 0 6px' }}>
             Gói: <strong>{pkg.name}</strong> · Đơn giá:{' '}
             {/* FR-052: price after the best automatic discount from 006's public gate; the quote below stays the server's. */}
-            <strong><WorkshopOfferPrice offers={packageOffers} fallback={vnd(pkg.publicPrice)} /> / vé</strong> · Số vé:{' '}
+            <strong><WorkshopOfferPrice offers={packageOffers} voucher={false} fallback={vnd(pkg.publicPrice)} /> / vé</strong> · Số vé:{' '}
             <strong>{participantCount}</strong>
           </p>
           <WorkshopOfferBadges offers={packageOffers} />
