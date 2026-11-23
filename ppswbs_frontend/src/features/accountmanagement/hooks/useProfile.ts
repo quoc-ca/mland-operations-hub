@@ -4,6 +4,7 @@ import {
   ProfileResponse,
 } from '../api/AccountManagementApiClient';
 import { ApiError } from '../../../shared/api/http';
+import { useStableT, viT, Translate } from './useStableT';
 
 export interface FieldErrors {
   fullName?: string;
@@ -15,23 +16,24 @@ const CONTROL_CHARS_REGEX = /[\u0000-\u001F\u007F-\u009F]/;
 
 export function validateProfileInput(
   fullName: string,
-  phone?: string | null
+  phone?: string | null,
+  t: Translate = viT
 ): FieldErrors {
   const errors: FieldErrors = {};
   const trimmedName = fullName.trim();
 
   if (!trimmedName) {
-    errors.fullName = 'Họ và tên là bắt buộc';
+    errors.fullName = t('hook.profile.nameRequired');
   } else if (trimmedName.length > 100) {
-    errors.fullName = 'Họ và tên không được vượt quá 100 ký tự';
+    errors.fullName = t('hook.profile.nameLength');
   } else if (CONTROL_CHARS_REGEX.test(trimmedName)) {
-    errors.fullName = 'Họ và tên không được chứa ký tự điều khiển ISO';
+    errors.fullName = t('hook.profile.nameControl');
   }
 
   if (phone && phone.trim()) {
     const trimmedPhone = phone.trim();
     if (trimmedPhone.length < 7 || trimmedPhone.length > 30) {
-      errors.phone = 'Số điện thoại phải từ 7 đến 30 ký tự';
+      errors.phone = t('hook.profile.phoneLength');
     }
   }
 
@@ -39,6 +41,7 @@ export function validateProfileInput(
 }
 
 export function useProfile() {
+  const t = useStableT();
   const [profile, setProfile] = useState<ProfileResponse | null>(null);
   const [fullName, setFullName] = useState<string>('');
   const [phone, setPhone] = useState<string>('');
@@ -71,7 +74,7 @@ export function useProfile() {
 
   const saveProfile = useCallback(async (): Promise<boolean> => {
     setSuccessNotice(null);
-    const errors = validateProfileInput(fullName, phone);
+    const errors = validateProfileInput(fullName, phone, t);
     setFieldErrors(errors);
 
     if (Object.keys(errors).length > 0) {
@@ -89,7 +92,7 @@ export function useProfile() {
       setProfile(updated);
       setFullName(updated.fullName || '');
       setPhone(updated.phone || '');
-      setSuccessNotice('Thông tin hồ sơ đã được cập nhật thành công');
+      setSuccessNotice(t('hook.profile.saved'));
       return true;
     } catch (err: any) {
       setError(err);

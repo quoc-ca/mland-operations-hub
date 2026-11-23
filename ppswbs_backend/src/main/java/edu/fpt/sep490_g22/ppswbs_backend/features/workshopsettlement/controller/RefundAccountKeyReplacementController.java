@@ -44,7 +44,7 @@ public class RefundAccountKeyReplacementController {
             @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId,
             @Valid @RequestBody KeyReplacementRequest request,
             Authentication authentication) {
-        CurrentAccountActor actor = authorization.requireAdmin(actor(authentication));
+        CurrentAccountActor actor = authorization.requireManager(actor(authentication));
         if (idempotencyKey == null || idempotencyKey.trim().length() < 16 || idempotencyKey.trim().length() > 128) {
             throw new WorkshopSettlementValidationException("IDEMPOTENCY_KEY_REQUIRED");
         }

@@ -8,18 +8,18 @@ import { settlementRoutes } from '../../workshop-settlement/routes';
 describe('Staff/Manager pages without a session', () => {
   it('offers a sign-in link that returns to the session page', async () => {
     const calls = mockFetch({});
-    renderRoutes(operationsRoutes, { path: '/operations/sessions/abc-1', session: fakeSession('signed-out') });
+    renderRoutes(operationsRoutes, { language: 'en', path: '/operations/sessions/abc-1', session: fakeSession('signed-out') });
 
-    const link = await screen.findByRole('link', { name: 'Đăng nhập' });
+    const link = await screen.findByRole('link', { name: 'Sign in' });
     expect(link).toHaveAttribute('href', '/login?returnTo=%2Foperations%2Fsessions%2Fabc-1');
-    expect(screen.getByText(/Staff hoặc Manager/)).toBeInTheDocument();
+    expect(screen.getByText(/Staff or Manager/)).toBeInTheDocument();
     expect(calls).toHaveLength(0);
   });
 
   it('does the same for the settlement workspace', async () => {
     mockFetch({});
-    renderRoutes(settlementRoutes, { path: '/settlement', session: fakeSession('signed-out') });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement', session: fakeSession('signed-out') });
 
-    expect(await screen.findByRole('link', { name: 'Đăng nhập' })).toHaveAttribute('href', '/login?returnTo=%2Fsettlement');
+    expect(await screen.findByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/login?returnTo=%2Fsettlement');
   });
 });

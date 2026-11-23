@@ -151,10 +151,16 @@ class StaffAuthorityIT {
     }
 
     @Test
-    @DisplayName("SC-004 / T138: Admin gets 403 on every Workshop Operations route, including the location list")
+    @DisplayName("Admin may read the location list (owner decision 2026-11-23) but still cannot create one")
+    void adminCanReadLocationList() throws Exception {
+        assertThat(mockMvc.perform(get("/api/v1/workshop-locations").header("Authorization", ADMIN))
+                .andReturn().getResponse().getStatus()).isEqualTo(200);
+    }
+
+    @Test
+    @DisplayName("SC-004 / T138: Admin gets 403 on every Workshop Operations route except the read-only location list")
     void adminIsRefusedOnEveryOperationsRoute() throws Exception {
         List<MockHttpServletRequestBuilder> routes = List.of(
-                get("/api/v1/workshop-locations").header("Authorization", ADMIN),
                 get("/api/v1/workshop-sessions").header("Authorization", ADMIN),
                 get(sessionPath("")).header("Authorization", ADMIN),
                 get(sessionPath("/attendance-roster")).header("Authorization", ADMIN),

@@ -4,17 +4,19 @@ import {
   requestGroupConfirmationDelivery,
   WorkshopApiError,
 } from '../api/workshops';
+import { useLanguage, useT } from '../shared/i18n/I18nProvider';
+import { messages } from './messages';
 import { GroupHoldPanel } from './GroupHoldPanel';
 import { GroupTicketList } from './GroupTicketList';
 import {
-  GROUP_STATUS_LABEL,
-  NON_REFUNDABLE_NOTICE,
   deferredNotice,
   formatSessionWindow,
   groupRemainingVnd,
+  groupStatusLabel,
   isDeferredGroup,
   isFreeGroup,
   needsOnlinePayment,
+  nonRefundableNotice,
   vnd,
 } from './groupDisplay';
 
@@ -46,6 +48,8 @@ export function GroupDetailCard({
   renderTicketExtra,
   renderTicketAction,
 }) {
+  const t = useT(messages);
+  const { language } = useLanguage();
   const [releaseOpen, setReleaseOpen] = useState(false);
   const [releaseReason, setReleaseReason] = useState('');
   const [releasing, setReleasing] = useState(false);
@@ -70,7 +74,7 @@ export function GroupDetailCard({
 
   const release = async () => {
     if (!releaseReason.trim()) {
-      setReleaseError('Vui lòng nhập lý do hủy giữ chỗ.');
+      setReleaseError(t('group.release.reasonRequired'));
       return;
     }
     setReleasing(true);
@@ -87,10 +91,9 @@ export function GroupDetailCard({
       onRefresh?.();
     } catch (error) {
       if (error instanceof WorkshopApiError && error.code === 'PAYMENT_ATTEMPT_EXISTS') {
-        setReleaseError('Đã có thanh toán đang thực hiện cho nhóm này nên không thể hủy giữ chỗ. '
-          + 'Giữ chỗ sẽ tự kết thúc khi hết thời hạn.');
+        setReleaseError(t('group.release.attemptExists'));
       } else {
-        setReleaseError(error?.detail || error?.message || 'Không thể hủy giữ chỗ.');
+        setReleaseError(error?.detail || error?.message || t('group.release.failed'));
       }
     } finally {
       setReleasing(false);
@@ -107,12 +110,12 @@ export function GroupDetailCard({
         contactPhone: !authorization ? proof?.contactPhone || undefined : undefined,
         authorization: authorization || undefined,
       });
-      setResendMessage('Yêu cầu gửi lại email xác nhận đã được tiếp nhận. Email đi tới địa chỉ đã dùng khi đặt.');
+      setResendMessage(t('group.resend.accepted'));
     } catch (error) {
       if (error instanceof WorkshopApiError && error.status === 429) {
-        setResendError('Bạn đã vượt quá giới hạn gửi lại trong giờ này. Vui lòng thử lại sau.');
+        setResendError(t('group.resend.limit'));
       } else {
-        setResendError(error?.detail || error?.message || 'Không thể gửi lại email xác nhận lúc này.');
+        setResendError(error?.detail || error?.message || t('group.resend.failed'));
       }
     } finally {
       setResending(false);
@@ -123,17 +126,17 @@ export function GroupDetailCard({
     <section className="workspace-card group-detail" style={{ marginTop: '24px', borderTop: '4px solid #002967' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #eee', paddingBottom: '16px', gap: '12px', flexWrap: 'wrap' }}>
         <div>
-          <span className="muted" style={{ fontSize: '13px' }}>Mã đặt chỗ</span>
+          <span className="muted" style={{ fontSize: '13px' }}>{t('group.code')}</span>
           <strong style={{ display: 'block', fontSize: '24px', color: '#002967', letterSpacing: '0.05em' }}>
             {group.groupCode}
           </strong>
         </div>
         <div style={{ textAlign: 'right' }}>
           <span className={`status ${confirmed ? 'ok' : ''}`} style={{ fontSize: '14px', fontWeight: 'bold' }}>
-            {GROUP_STATUS_LABEL[group.groupStatus] || group.groupStatus}
+            {groupStatusLabel(group.groupStatus, language) || group.groupStatus}
           </span>
           <span className="muted" style={{ display: 'block', fontSize: '12px', marginTop: '4px' }}>
-            {(group.tickets || []).length} vé · Thanh toán khi đặt: {vnd(group.groupCollectionVnd)}
+            {t('group.summary', { count: (group.tickets || []).length, amount: vnd(group.groupCollectionVnd, language) })}
           </span>
         </div>
       </div>
@@ -142,8 +145,8 @@ export function GroupDetailCard({
         <div style={{ marginTop: '16px' }}>
           {group.lines.map(line => (
             <p key={line.lineIndex} style={{ margin: '4px 0' }}>
-              {line.packageName || `Gói #${line.packageId}`}: <strong>{line.ticketCount ?? line.participantCount} vé</strong>
-              {' · '}{vnd(line.pricePerParticipantVnd)} / vé
+              {line.packageName || t('group.package', { id: line.packageId })}: <strong>{t('group.ticketCount', { count: line.ticketCount ?? line.participantCount })}</strong>
+              {' · '}{t('group.pricePerTicket', { amount: vnd(line.pricePerParticipantVnd, language) })}
             </p>
           ))}
         </div>
@@ -155,39 +158,38 @@ export function GroupDetailCard({
 
       {isDeferredGroup(group.paymentMode) && (
         <p role="note" style={{ marginTop: '14px', padding: '12px 14px', background: '#f0f5ff', borderLeft: '4px solid #002967' }}>
-          {deferredNotice(remaining)}
+          {deferredNotice(remaining, language)}
         </p>
       )}
       {isFreeGroup(group.paymentMode) && (
         <p role="note" style={{ marginTop: '14px', padding: '12px 14px', background: '#f0f9f4', borderLeft: '4px solid #2b8a3e' }}>
-          Ưu đãi đã trả toàn bộ giá vé nên không cần thanh toán online. {NON_REFUNDABLE_NOTICE}
+          {t('group.freeNotice')} {nonRefundableNotice(language)}
         </p>
       )}
 
       {group.groupStatus === 'EXPIRED' && (
         <div style={{ marginTop: '18px', padding: '16px', background: '#fff1f0', border: '1px solid #ffa39e' }}>
           <p style={{ margin: 0, color: '#cf1322' }}>
-            Thời hạn thanh toán đã kết thúc trước khi hệ thống nhận được thanh toán hợp lệ, nên toàn bộ chỗ giữ của nhóm
-            đã được trả lại.
+            {t('group.expired.main')}
           </p>
           <p style={{ margin: '8px 0 0', color: '#595959' }}>
-            Liên kết thanh toán cũ không được cấp lại. Nếu tiền về trễ, hệ thống sẽ liên hệ bạn về cách xử lý.
+            {t('group.expired.note')}
           </p>
           <div style={{ marginTop: '12px' }}>
             {/* Back to the same package at its session picker with the same ticket count, not the package list. */}
-            <a className="button primary" href={rebookHref(group)}>Đặt lại workshop</a>
+            <a className="button primary" href={rebookHref(group)}>{t('group.rebook')}</a>
           </div>
         </div>
       )}
 
       {group.groupStatus === 'CANCELLED' && (
         <p style={{ marginTop: '18px', padding: '16px', background: '#f5f5f5', border: '1px solid #d9d9d9', margin: '18px 0 0', color: '#595959' }}>
-          Nhóm đặt chỗ này đã được hủy và toàn bộ chỗ giữ đã được trả lại.
+          {t('group.cancelled')}
         </p>
       )}
 
       <div style={{ marginTop: '20px' }}>
-        <h3 style={{ margin: '0 0 10px', color: '#002967' }}>Vé của nhóm</h3>
+        <h3 style={{ margin: '0 0 10px', color: '#002967' }}>{t('group.tickets')}</h3>
         <GroupTicketList
           group={group}
           authorization={authorization}
@@ -204,22 +206,22 @@ export function GroupDetailCard({
       <div className="actions" style={{ marginTop: '18px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
         {allowResend && confirmed && (
           <button type="button" className="button outline" onClick={resend} disabled={resending}>
-            {resending ? 'Đang gửi...' : 'Gửi lại email xác nhận'}
+            {resending ? t('group.resend.sending') : t('group.resend.button')}
           </button>
         )}
         {allowRelease && pending && !deadlinePassed && group.hasLivePaymentAttempt !== true && (
           <button type="button" className="button outline" style={{ color: '#b00', borderColor: '#b00' }} onClick={() => setReleaseOpen(true)}>
-            Hủy giữ chỗ
+            {t('group.release.button')}
           </button>
         )}
         {allowRelease && pending && !deadlinePassed && group.hasLivePaymentAttempt === true && (
           <p role="note" className="muted" style={{ margin: 0 }}>
-            Đang có thanh toán thực hiện cho nhóm này nên chưa thể hủy giữ chỗ. Nếu thanh toán không hoàn tất, bạn có thể hủy giữ chỗ sau khi trang cập nhật.
+            {t('group.release.livePayment')}
           </p>
         )}
         {/* Expired and cancelled are final: refreshing can never change them. */}
         {allowManualRefresh && onRefresh && group.groupStatus !== 'EXPIRED' && group.groupStatus !== 'CANCELLED' && !deadlinePassed && (
-          <button type="button" className="button outline" onClick={onRefresh}>Cập nhật trạng thái</button>
+          <button type="button" className="button outline" onClick={onRefresh}>{t('group.refresh')}</button>
         )}
       </div>
 
@@ -228,12 +230,12 @@ export function GroupDetailCard({
 
       {releaseOpen && (
         <div style={{ marginTop: '16px', padding: '16px', background: '#fff', border: '2px solid #b00' }}>
-          <h4 style={{ margin: '0 0 8px', color: '#b00' }}>Xác nhận hủy giữ chỗ của cả nhóm</h4>
+          <h4 style={{ margin: '0 0 8px', color: '#b00' }}>{t('group.release.title')}</h4>
           <p style={{ fontSize: '13px', margin: '0 0 10px' }}>
-            Khi hủy, toàn bộ chỗ giữ của mọi vé trong nhóm được trả lại ngay cho khách khác.
+            {t('group.release.warning')}
           </p>
           <label style={{ display: 'block', marginBottom: '10px' }}>
-            Lý do hủy *
+            {t('group.release.reasonLabel')}
             <input
               type="text"
               value={releaseReason}
@@ -244,10 +246,10 @@ export function GroupDetailCard({
           </label>
           <div style={{ display: 'flex', gap: '10px' }}>
             <button type="button" className="button primary" style={{ background: '#b00', borderColor: '#b00' }} onClick={release} disabled={releasing}>
-              {releasing ? 'Đang hủy...' : 'Đồng ý hủy'}
+              {releasing ? t('group.release.cancelling') : t('group.release.agree')}
             </button>
             <button type="button" className="button outline" onClick={() => setReleaseOpen(false)} disabled={releasing}>
-              Đóng
+              {t('group.close')}
             </button>
           </div>
           {releaseError && <p role="alert" style={{ color: '#b00', marginTop: '8px' }}>{releaseError}</p>}
@@ -258,12 +260,12 @@ export function GroupDetailCard({
 }
 
 /** The session schedule of a group, read from its tickets (every ticket of a line shares the line's sessions). */
-export function groupSessionLabels(group) {
+export function groupSessionLabels(group, language = 'vi') {
   const seen = new Map();
   (group?.tickets || []).forEach(ticket => {
     (ticket.sessions || []).forEach(session => {
       if (!seen.has(session.sessionReference)) {
-        seen.set(session.sessionReference, formatSessionWindow(session.scheduledStart, session.scheduledEnd));
+        seen.set(session.sessionReference, formatSessionWindow(session.scheduledStart, session.scheduledEnd, language));
       }
     });
   });

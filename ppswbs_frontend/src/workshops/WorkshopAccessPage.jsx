@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { exchangeGroupMagicLinkToken, WorkshopApiError } from '../api/workshops';
+import { useT } from '../shared/i18n/I18nProvider';
+import { messages } from './messages';
 import { GroupDetailCard } from './GroupDetailCard';
 import { parseMagicLinkToken } from './magicLinkToken';
 
@@ -9,6 +11,7 @@ import { parseMagicLinkToken } from './magicLinkToken';
  * unknown tokens answer the same 404. A recipient's QR email is not a Magic Link and gives no group view.
  */
 export function WorkshopAccessPage() {
+  const t = useT(messages);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [group, setGroup] = useState(null);
@@ -29,7 +32,7 @@ export function WorkshopAccessPage() {
 
     if (!token) {
       setLoading(false);
-      setError('Không tìm thấy token bảo mật trong liên kết Magic Link. Vui lòng kiểm tra lại liên kết trong email của bạn.');
+      setError({ key: 'access.noToken' });
       return undefined;
     }
 
@@ -41,14 +44,14 @@ export function WorkshopAccessPage() {
         if (!active) return;
         if (err instanceof WorkshopApiError) {
           if (err.status === 404 || err.code === 'MAGIC_LINK_NOT_FOUND' || err.code === 'TOKEN_NOT_FOUND') {
-            setError('Liên kết truy cập Magic Link không tồn tại hoặc đã hết hạn.');
+            setError({ key: 'access.notFound' });
           } else if (err.status === 401 || err.status === 403) {
-            setError('Liên kết truy cập Magic Link đã bị thu hồi hoặc đã bị thay đổi.');
+            setError({ key: 'access.revoked' });
           } else {
-            setError(err.detail || 'Không thể xác thực liên kết truy cập.');
+            setError(err.detail ? { text: err.detail } : { key: 'access.cannotVerify' });
           }
         } else {
-          setError(err?.message || 'Có lỗi xảy ra khi xác thực liên kết Magic Link.');
+          setError(err?.message ? { text: err.message } : { key: 'access.errorGeneric' });
         }
       })
       .finally(() => { if (active) setLoading(false); });
@@ -57,19 +60,19 @@ export function WorkshopAccessPage() {
 
   return (
     <main className="container public-page">
-      <p className="eyebrow">XÁC THỰC MAGIC LINK</p>
-      <h1>Truy cập nhóm đặt chỗ bảo mật</h1>
+      <p className="eyebrow">{t('access.eyebrow')}</p>
+      <h1>{t('access.title')}</h1>
 
-      {loading && <div className="empty-state"><p>Đang xác thực liên kết truy cập an toàn...</p></div>}
+      {loading && <div className="empty-state"><p>{t('access.verifying')}</p></div>}
 
       {error && !loading && (
         <div className="empty-state">
-          <p className="status" style={{ color: '#b00', borderColor: '#b00', marginBottom: '16px' }}>{error}</p>
+          <p className="status" style={{ color: '#b00', borderColor: '#b00', marginBottom: '16px' }}>{error.key ? t(error.key) : error.text}</p>
           <p className="muted" style={{ fontSize: '14px', lineHeight: '1.6' }}>
-            Bạn có thể tra cứu nhóm đặt chỗ bằng mã nhóm và email hoặc số điện thoại đã đặt tại trang Tra cứu.
+            {t('access.lookupHint')}
           </p>
           <div style={{ marginTop: '20px' }}>
-            <a className="button primary" href="/workshop-booking/lookup">Chuyển tới trang Tra cứu</a>
+            <a className="button primary" href="/workshop-booking/lookup">{t('access.toLookup')}</a>
           </div>
         </div>
       )}
@@ -78,8 +81,8 @@ export function WorkshopAccessPage() {
         <>
           <GroupDetailCard group={group} authorization={null} allowRelease={false} allowRecipientChange={false} />
           <div className="actions" style={{ marginTop: '24px' }}>
-            <a className="button outline" href="/workshop-booking/lookup">Quản lý tại trang Tra cứu</a>
-            <a className="button primary" href="/">Về trang chủ</a>
+            <a className="button outline" href="/workshop-booking/lookup">{t('access.manageAtLookup')}</a>
+            <a className="button primary" href="/">{t('access.home')}</a>
           </div>
         </>
       )}

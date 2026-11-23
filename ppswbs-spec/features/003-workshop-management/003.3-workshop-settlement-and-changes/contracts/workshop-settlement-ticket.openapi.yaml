@@ -43,8 +43,8 @@ info:
     object, ATTACHED image not deleted before 5 years after the request reaches
     REFUNDED or CLOSED_UNREACHABLE (delete job T166, after V1).
     Served 2026-11-16 (T154, backend): the two receipt-image routes POST /workshop-refund-requests/{refundId}/receipt-images and
-    GET /workshop-refund-requests/{refundId}/receipt-image (T154). Served 2026-11-16: the Admin-only refund-account key
-    replacement POST /workshop-refund-account-key-replacements (T137; Manager and Staff get 403), the reconciliation list (T133), the absorbed-undercharge
+    GET /workshop-refund-requests/{refundId}/receipt-image (T154). Served 2026-11-16: the Manager-only refund-account key
+    replacement POST /workshop-refund-account-key-replacements (T137; Admin and Staff get 403), the reconciliation list (T133), the absorbed-undercharge
     record, void and list (T135) and the Manager-only cash reversal
     POST /workshop-tickets/{ticketCode}/folio/collections/{collectionId}/cash-reversals
     (T144). The TicketCancellation field voucherRestored is replaced by the
@@ -480,10 +480,10 @@ paths:
         '409': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-refund-account-key-replacements:
     post:
-      summary: Admin replaces the refund-account encryption key operationally (FR-040)
+      summary: Manager replaces the refund-account encryption key operationally (FR-040)
       description: >-
-        FR-040, decided 2026-11-15, served 2026-11-16 (task T137). Admin only
-        (Manager and Staff are 403). Run after the environment variable
+        FR-040, decided 2026-11-15, served 2026-11-16 (task T137). Manager only
+        since 2026-11-23 (Admin and Staff are 403). Run after the environment variable
         WORKSHOP_REFUND_ACCOUNT_KEY was replaced and the service restarted: for
         every refund request still holding an encrypted account number it
         deletes the ciphertext (the mask is kept), returns the request to

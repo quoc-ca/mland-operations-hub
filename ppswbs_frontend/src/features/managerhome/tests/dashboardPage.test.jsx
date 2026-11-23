@@ -176,7 +176,7 @@ describe('access', () => {
   it.each([
     ['STAFF', 'Staff home page'],
     ['MEMBER', 'General home'],
-    ['ADMIN', 'General home'],
+    ['ADMIN', 'Admin accounts'],
   ])('sends %s away and reads no Manager figure', async (role, destination) => {
     const calls = mockFetch(baseHandlers({ 'GET /api/v1/accounts/me/profile': profile(role) }));
     renderRoutes(routes, { path: '/manager/dashboard' });

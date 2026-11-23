@@ -60,9 +60,11 @@ describe('navigation model', () => {
     expect(tabLabel(sessions, 'vi', 'MANAGER')).toBe('Bảng điều phối ca');
   });
 
-  it('shows an Admin no workshop operations and keeps the general home', () => {
+  it('shows an Admin account management as home and no workshop operations', () => {
     const shown = links('ADMIN');
-    expect(shown).toContain('/home');
+    expect(shown).toContain('/admin/accounts');
+    expect(shown).toContain('/admin/roles');
+    expect(shown).not.toContain('/home');
     expect(shown).not.toContain('/operations/sessions');
     expect(shown).not.toContain('/settlement/change-requests');
   });

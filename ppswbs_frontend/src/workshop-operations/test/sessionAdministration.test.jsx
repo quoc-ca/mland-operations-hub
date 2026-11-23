@@ -31,7 +31,7 @@ function adminHandlers(role, extra = {}) {
 
 const openAdmin = (role, extra) => {
   const calls = mockFetch(adminHandlers(role, extra));
-  renderRoutes(operationsRoutes, { path: '/operations/admin?tab=sessions' });
+  renderRoutes(operationsRoutes, { language: 'en', path: '/operations/admin?tab=sessions' });
   return calls;
 };
 
@@ -136,7 +136,7 @@ describe('003.2 T112 Manager session edit (capacity and check-in opening)', () =
     await user.type(within(form).getByLabelText('Capacity'), '2');
     await user.click(within(form).getByRole('button', { name: 'Save session' }));
 
-    expect(await within(form).findByText(/thấp hơn số vé đã xác nhận/)).toBeInTheDocument();
+    expect(await within(form).findByText(/below the tickets and payment holds already committed/)).toBeInTheDocument();
     expect(within(form).getByLabelText('Capacity')).toHaveValue(2);
   });
 
@@ -149,9 +149,9 @@ describe('003.2 T112 Manager session edit (capacity and check-in opening)', () =
     const form = screen.getByRole('form', { name: 'Edit session session-1' });
     await user.click(within(form).getByRole('button', { name: 'Save session' }));
 
-    expect(await within(form).findByText(/Dữ liệu đã thay đổi/)).toBeInTheDocument();
+    expect(await within(form).findByText(/The data changed since you opened it/)).toBeInTheDocument();
     const reads = calls.filter(call => call.method === 'GET' && call.path === '/api/v1/workshop-sessions').length;
-    await user.click(within(form).getByRole('button', { name: 'Tải bản mới nhất' }));
+    await user.click(within(form).getByRole('button', { name: 'Load latest' }));
     await waitFor(() => expect(calls.filter(call => call.method === 'GET' && call.path === '/api/v1/workshop-sessions').length).toBe(reads + 1));
   });
 });
@@ -165,7 +165,7 @@ describe('003.2 T113 Manager reschedule quota on the session page', () => {
       'GET /api/v1/workshop-sessions/session-1': json(200, session),
       ...extra,
     });
-    renderRoutes(operationsRoutes, { path: '/operations/sessions/session-1' });
+    renderRoutes(operationsRoutes, { language: 'en', path: '/operations/sessions/session-1' });
     return calls;
   };
 
@@ -275,7 +275,7 @@ describe('003.2 Session queue filters and columns', () => {
     const listCalls = () => calls.filter(call => call.method === 'GET' && call.path === '/api/v1/workshop-sessions');
     await waitFor(() => expect(listCalls().pop().query).toEqual({ state: 'DRAFT', locationId: '4', from: '2026-12-01', to: '2026-12-31' }));
 
-    await user.click(within(filter).getByRole('button', { name: 'Xóa lọc' }));
+    await user.click(within(filter).getByRole('button', { name: 'Clear filters' }));
     expect(within(filter).getByLabelText('State')).toHaveValue('');
     expect(within(filter).getByLabelText('Location')).toHaveValue('');
     expect(within(filter).getByLabelText('From')).toHaveValue('');

@@ -1,22 +1,24 @@
 import { useId, useState } from 'react';
+import { useEnumLabel, useT } from '../../shared/i18n/I18nProvider';
+import { messages } from '../messages';
 import { OUTCOMES, activeFilterCount, hasReversedRange } from './auditReviewModel';
 
 const FIELDS = {
   operations: [
-    { name: 'action', label: 'Hành động', placeholder: 'VD: SESSION_CREATED' },
-    { name: 'outcome', label: 'Kết quả', options: OUTCOMES },
-    { name: 'actorId', label: 'Người thực hiện (ID)', placeholder: 'ID tài khoản', numeric: true },
-    { name: 'sessionId', label: 'Ca (ID)', placeholder: 'ID ca', numeric: true },
-    { name: 'from', label: 'Từ', datetime: true },
-    { name: 'to', label: 'Đến', datetime: true },
+    { name: 'action', placeholder: 'action' },
+    { name: 'outcome', options: OUTCOMES },
+    { name: 'actorId', placeholder: 'actorId', numeric: true },
+    { name: 'sessionId', placeholder: 'sessionId', numeric: true },
+    { name: 'from', datetime: true },
+    { name: 'to', datetime: true },
   ],
   settlement: [
-    { name: 'actionCode', label: 'Mã hành động', placeholder: 'VD: REFUND_APPROVED' },
-    { name: 'actorId', label: 'Người thực hiện (ID)', numeric: true },
-    { name: 'aggregateType', label: 'Loại đối tượng', placeholder: 'VD: SETTLEMENT_REFUND_REQUEST' },
-    { name: 'aggregateReference', label: 'Mã đối tượng' },
-    { name: 'from', label: 'Từ', datetime: true },
-    { name: 'to', label: 'Đến', datetime: true },
+    { name: 'actionCode', placeholder: 'actionCode' },
+    { name: 'actorId', numeric: true },
+    { name: 'aggregateType', placeholder: 'aggregateType' },
+    { name: 'aggregateReference' },
+    { name: 'from', datetime: true },
+    { name: 'to', datetime: true },
   ],
 };
 
@@ -26,6 +28,8 @@ const FIELDS = {
  * filled. While a page is loading the button is disabled but the filters stay as typed.
  */
 export default function AuditFilterBar({ tab, applied, disabled, onApply }) {
+  const t = useT(messages);
+  const outcomeLabel = useEnumLabel(messages, 'auditOutcome');
   const id = useId();
   const [draft, setDraft] = useState(applied);
   const [open, setOpen] = useState(false);
@@ -49,7 +53,7 @@ export default function AuditFilterBar({ tab, applied, disabled, onApply }) {
   };
 
   return (
-    <form className="audit-filter-bar" onSubmit={submit} aria-label="Bộ lọc nhật ký audit">
+    <form className="audit-filter-bar" onSubmit={submit} aria-label={t('audit.filter.aria')}>
       <button
         type="button"
         className="button outline audit-filter-toggle"
@@ -57,7 +61,7 @@ export default function AuditFilterBar({ tab, applied, disabled, onApply }) {
         aria-controls={`${id}-fields`}
         onClick={() => setOpen(current => !current)}
       >
-        Bộ lọc ({count})
+        {t('audit.filter.toggle', { count })}
       </button>
       <div id={`${id}-fields`} className={`audit-filters ${open ? 'is-open' : ''}`}>
         {fields.map(field => {
@@ -65,18 +69,18 @@ export default function AuditFilterBar({ tab, applied, disabled, onApply }) {
           const invalid = rangeError && (field.name === 'from' || field.name === 'to');
           return (
             <div key={field.name} className="audit-filter-field">
-              <label htmlFor={inputId}>{field.label}</label>
+              <label htmlFor={inputId}>{t(`audit.field.${field.name}`)}</label>
               {field.options ? (
                 <select id={inputId} value={draft[field.name]} onChange={event => change(field.name, event.target.value)}>
-                  <option value="">Tất cả</option>
-                  {field.options.map(option => <option key={option} value={option}>{option}</option>)}
+                  <option value="">{t('audit.all')}</option>
+                  {field.options.map(option => <option key={option} value={option}>{outcomeLabel(option)}</option>)}
                 </select>
               ) : (
                 <input
                   id={inputId}
                   type={field.datetime ? 'datetime-local' : 'text'}
                   inputMode={field.numeric ? 'numeric' : undefined}
-                  placeholder={field.placeholder}
+                  placeholder={field.placeholder ? t(`audit.ph.${field.placeholder}`) : undefined}
                   value={draft[field.name]}
                   aria-invalid={invalid || undefined}
                   onChange={event => change(field.name, event.target.value)}
@@ -85,9 +89,9 @@ export default function AuditFilterBar({ tab, applied, disabled, onApply }) {
             </div>
           );
         })}
-        <button type="submit" className="button primary audit-filter-submit" disabled={disabled}>Lọc</button>
+        <button type="submit" className="button primary audit-filter-submit" disabled={disabled}>{t('audit.apply')}</button>
       </div>
-      {rangeError && <p className="audit-range-error" role="alert">“Từ” phải trước hoặc bằng “Đến”.</p>}
+      {rangeError && <p className="audit-range-error" role="alert">{t('audit.rangeError')}</p>}
     </form>
   );
 }

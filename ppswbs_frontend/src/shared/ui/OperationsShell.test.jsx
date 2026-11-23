@@ -61,7 +61,7 @@ describe('operations shell', () => {
     open('MANAGER', '/settlement/refunds');
     expect(await header().findByRole('heading', { level: 1, name: 'Hàng đợi hoàn tiền' })).toBeInTheDocument();
     const tabs = within(screen.getByRole('navigation', { name: 'Trang trong nhóm' }));
-    expect(tabs.getAllByRole('link').map(link => link.textContent.replace(/\d+$/, ''))).toEqual(['Hủy và đổi vé', 'Yêu cầu đổi vé', 'Hàng đợi hoàn tiền', 'Sự vụ và bồi hoàn']);
+    expect(tabs.getAllByRole('link').map(link => link.textContent.replace(/\d+$/, ''))).toEqual(['Hủy và đổi vé', 'Yêu cầu đổi vé', 'Hàng đợi hoàn tiền', 'Sự vụ và bồi hoàn', 'Thay khóa hoàn tiền']);
     expect(tabs.getByRole('link', { name: /^Hàng đợi hoàn tiền/ })).toHaveAttribute('aria-current', 'page');
     expect(within(screen.getByRole('navigation', { name: 'Breadcrumb' })).getByText('Vé và hoàn tiền')).toBeInTheDocument();
   });

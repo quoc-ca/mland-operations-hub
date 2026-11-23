@@ -1,11 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import './workshopList.css';
 import { listWorkshopPackages } from '../api/workshops';
+import { useFormat, useT } from '../shared/i18n/I18nProvider';
+import { messages } from './messages';
 import { Paginator, usePaged } from '../shared/ui/Paginator';
 import PackageReviewSummary from '../features/reviewmanagement/ui/PackageReviewSummary';
 import { offersForPackage, usePublicWorkshopPrograms, WorkshopOfferBadges, WorkshopOfferPrice } from '../features/loyalty-promotion/publicOffers';
 
 export function WorkshopListPage() {
+  const t = useT(messages);
+  const format = useFormat();
   const programs = usePublicWorkshopPrograms();
   const [packages, setPackages] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -19,7 +23,7 @@ export function WorkshopListPage() {
       const data = await listWorkshopPackages();
       setPackages(Array.isArray(data) ? data : []);
     } catch (err) {
-      setError(err?.detail || err?.message || 'Không thể tải danh sách workshop. Vui lòng thử lại sau.');
+      setError(err?.detail || err?.message || t('list.loadError'));
     } finally {
       setLoading(false);
     }
@@ -31,10 +35,10 @@ export function WorkshopListPage() {
 
   return (
     <main className="container public-page">
-      <p className="eyebrow">WORKSHOP TẠI MLAND</p>
-      <h1>Khám phá các gói Workshop</h1>
+      <p className="eyebrow">{t('list.eyebrow')}</p>
+      <h1>{t('list.title')}</h1>
       <p className="lead">
-        Tự tay chế tác chiếc nhẫn mang đậm dấu ấn cá nhân cùng sự hướng dẫn tận tâm từ nghệ nhân MLAND.
+        {t('list.lead')}
       </p>
 
       <div
@@ -54,7 +58,7 @@ export function WorkshopListPage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <span style={{ fontSize: '1.4rem' }}>💍</span>
           <span style={{ fontSize: '14px', color: '#1e293b' }}>
-            Bạn muốn tùy chọn dáng nhẫn, chất liệu hoặc tự tay thiết kế mẫu trước khi đến lớp?
+            {t('list.designPrompt')}
           </span>
         </div>
         <a
@@ -62,13 +66,13 @@ export function WorkshopListPage() {
           className="button outline"
           style={{ height: '36px', fontSize: '13px', whiteSpace: 'nowrap' }}
         >
-          Cấu hình mẫu nhẫn ngay →
+          {t('list.designCta')}
         </a>
       </div>
 
       {loading && (
         <div className="empty-state">
-          <p>Đang tải danh sách gói workshop...</p>
+          <p>{t('list.loading')}</p>
         </div>
       )}
 
@@ -79,7 +83,7 @@ export function WorkshopListPage() {
           </p>
           <div style={{ marginTop: '16px' }}>
             <button type="button" className="button outline" onClick={fetchPackages}>
-              Thử lại
+              {t('list.retry')}
             </button>
           </div>
         </div>
@@ -87,7 +91,7 @@ export function WorkshopListPage() {
 
       {!loading && !error && packages.length === 0 && (
         <div className="empty-state">
-          <p>Hiện chưa có gói workshop nào được mở bán.</p>
+          <p>{t('list.empty')}</p>
         </div>
       )}
 
@@ -98,28 +102,28 @@ export function WorkshopListPage() {
             const offers = offersForPackage(pkg, programs);
             return (
               <article className="wk-card" key={pkg.packageId}>
-                <div className={`ring-visual ${idx % 2 === 0 ? 'gold' : 'pair'}`} aria-label="Minh họa workshop">
+                <div className={`ring-visual ${idx % 2 === 0 ? 'gold' : 'pair'}`} aria-label={t('list.visualAria')}>
                   <span />
                 </div>
                 <div className="wk-body">
                   <h2 className="wk-name">{pkg.name}</h2>
                   <p className="wk-desc">{pkg.description}</p>
                   <div className="wk-chips">
-                    <span className="wk-chip">⏱ {sessionCount} buổi</span>
-                    <span className="wk-chip">👥 {pkg.minParticipants === pkg.maxParticipants ? `${pkg.maxParticipants} vé` : `${pkg.minParticipants}–${pkg.maxParticipants} vé`}</span>
+                    <span className="wk-chip">{t('list.sessions', { count: sessionCount })}</span>
+                    <span className="wk-chip">👥 {pkg.minParticipants === pkg.maxParticipants ? t('list.tickets', { count: pkg.maxParticipants }) : t('list.ticketsRange', { min: pkg.minParticipants, max: pkg.maxParticipants })}</span>
                     {/* Only worth saying on the card when the package spans several sessions; the package page has the full rules. */}
-                    {sessionCount > 1 && pkg.sameLocationRequired && <span className="wk-chip">📍 Cùng một chi nhánh</span>}
+                    {sessionCount > 1 && pkg.sameLocationRequired && <span className="wk-chip">{t('list.sameBranch')}</span>}
                   </div>
                   {/* FR-052: price after the best automatic discount, from 006's public gate; plain price when none. */}
                   <p className="wk-price">
                     <WorkshopOfferPrice
                       offers={offers}
-                      fallback={`${Number(pkg.publicPrice || 0).toLocaleString('vi-VN')}\u00a0₫`}
-                    /> <small>/ người</small>
+                      fallback={format.money(String(Math.round(Number(pkg.publicPrice || 0))))}
+                    /> <small>{t('list.perPerson')}</small>
                   </p>
                   <WorkshopOfferBadges offers={offers} />
                   <div className="wk-actions">
-                    <a className="button primary" href={`/workshops/${pkg.packageId}?focus=schedule`}>Chọn ca &amp; đặt</a>
+                    <a className="button primary" href={`/workshops/${pkg.packageId}?focus=schedule`}>{t('list.choose')}</a>
                   </div>
                 </div>
               </article>
@@ -127,7 +131,7 @@ export function WorkshopListPage() {
           })}
         </div>
       )}
-      {!loading && !error && <Paginator page={paged.page} pageCount={paged.pageCount} onChange={paged.setPage} label="Phân trang gói workshop" />}
+      {!loading && !error && <Paginator page={paged.page} pageCount={paged.pageCount} onChange={paged.setPage} label={t('list.pagerLabel')} />}
       <PackageReviewSummary allPackages />
     </main>
   );

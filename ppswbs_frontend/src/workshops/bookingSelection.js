@@ -4,6 +4,9 @@
  * it is only a selection, never a price or a quote: the checkout asks the server for the quote.
  */
 
+import { translate } from '../shared/i18n/I18nProvider';
+import { messages } from './messages';
+
 export function buildCheckoutPath(packageId, { locationId, sessionReferences, participantCount, from, to }) {
   const params = new URLSearchParams();
   if (locationId) params.set('locationId', String(locationId));
@@ -27,10 +30,11 @@ export function parseSelection(searchParams) {
 }
 
 /** The first reason the current choice cannot be booked, or null. The server still decides when it is quoted. */
-export function selectionProblem({ requiredSessions, selectedCount, effectiveMax, minParticipants, participantCount }) {
-  if (selectedCount < requiredSessions) return `Vui lòng chọn đủ ${requiredSessions} ca workshop.`;
-  if (effectiveMax < minParticipants) return 'Các ca đã chọn không còn đủ chỗ cho số vé tối thiểu của gói. Vui lòng chọn ca khác.';
-  if (participantCount < minParticipants) return `Số vé tối thiểu là ${minParticipants}.`;
-  if (participantCount > effectiveMax) return `Các ca đã chọn chỉ còn đủ ${effectiveMax} vé.`;
+export function selectionProblem({ requiredSessions, selectedCount, effectiveMax, minParticipants, participantCount }, lang = 'vi') {
+  const L = (key, params) => translate(messages, lang || 'vi', key, params);
+  if (selectedCount < requiredSessions) return L('helper.sel.needSessions', { count: requiredSessions });
+  if (effectiveMax < minParticipants) return L('helper.sel.noCapacity');
+  if (participantCount < minParticipants) return L('helper.sel.minTickets', { count: minParticipants });
+  if (participantCount > effectiveMax) return L('helper.sel.maxTickets', { count: effectiveMax });
   return null;
 }

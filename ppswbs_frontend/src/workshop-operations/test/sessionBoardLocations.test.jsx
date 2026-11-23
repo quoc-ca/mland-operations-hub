@@ -15,17 +15,17 @@ const SESSIONS = [
 describe('session board shows the location name', () => {
   beforeEach(() => clearRoleCache());
 
-  it('names the location in each row, falls back to "Chi nhánh #id" for an unknown one, and filters by a dropdown', async () => {
+  it('names the location in each row, falls back to "Branch #id" for an unknown one, and filters by a dropdown', async () => {
     const calls = mockFetch({
       'GET /api/v1/accounts/me/profile': json(200, { role: 'MANAGER' }),
       'GET /api/v1/workshop-sessions': json(200, SESSIONS),
       'GET /api/v1/workshop-locations': json(200, [{ id: 1, name: 'MLAND Hoàn Kiếm' }, { id: 2, name: 'MLAND Tây Hồ' }]),
     });
-    renderRoutes(operationsRoutes, { path: '/operations/sessions?from=' });
+    renderRoutes(operationsRoutes, { language: 'en', path: '/operations/sessions?from=' });
 
     const rows = await screen.findAllByRole('row');
     expect(within(rows[1]).getByText('MLAND Tây Hồ')).toBeInTheDocument();
-    expect(within(rows[2]).getByText('Chi nhánh #99')).toBeInTheDocument();
+    expect(within(rows[2]).getByText('Branch #99')).toBeInTheDocument();
 
     // Two sessions of one day are told apart by their time.
     expect(within(rows[1]).getByText(sessionTimeRange(SESSIONS[0]))).toBeInTheDocument();
@@ -50,8 +50,8 @@ describe('Staff sees which locations they work at', () => {
       'GET /api/v1/workshop-sessions': json(200, []),
       'GET /api/v1/workshop-locations': json(200, [{ id: 1, name: 'MLAND Hoàn Kiếm' }]),
     });
-    renderRoutes(operationsRoutes, { path: '/operations/sessions' });
+    renderRoutes(operationsRoutes, { language: 'en', path: '/operations/sessions' });
     expect(await screen.findByText('MLAND Hoàn Kiếm', { selector: 'strong' })).toBeInTheDocument();
-    expect(screen.getByText(/Chi nhánh của bạn:/)).toBeInTheDocument();
+    expect(screen.getByText(/Your branches:/)).toBeInTheDocument();
   });
 });

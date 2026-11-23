@@ -6,26 +6,33 @@ import { Loading, useCommand, useResource } from '../../shared/ui/components';
 import { createSettlementApi } from '../api/settlementApi';
 import FolioCorrectionLookup from '../FolioCorrectionLookup';
 import { CustomerPage } from '../OpsPage';
-import { ProblemNotice, VoucherNotRestoredNotice, money } from '../ui';
+import { useEnumLabel, useFormat, useT } from '../../shared/i18n/I18nProvider';
+import { messages } from '../messages';
+import { ProblemNotice, VoucherNotRestoredNotice } from '../ui';
 import { buildContactProof, EMPTY_CONTACT } from '../../workshops/contactValidation';
 import { PhoneInput } from '../../workshops/PhoneInput';
 
 function FolioView({ folio }) {
+  const t = useT(messages);
+  const fmt = useFormat();
+  const folioStatus = useEnumLabel(messages, 'folioStatus');
+  const collectionStatus = useEnumLabel(messages, 'collectionStatus');
+  const methodLabel = useEnumLabel(messages, 'method');
   return (
-    <section className="ota-panel" aria-label="Ticket folio">
-      <div className="ota-panel-head"><h2>{folio.ticketCode}</h2><span className="ops-status">{folio.status}</span></div>
+    <section className="ota-panel" aria-label={t('cf.folioAria')}>
+      <div className="ota-panel-head"><h2>{folio.ticketCode}</h2><span className="ops-status">{folioStatus(folio.status)}</span></div>
       <dl className="ops-facts">
-        <div><dt>Total</dt><dd>{money(folio.totalAmount)}</dd></div>
-        <div><dt>Paid</dt><dd>{money(folio.paidAmount)}</dd></div>
-        {folio.pendingAmount !== undefined && <div><dt>Awaiting verification</dt><dd>{money(folio.pendingAmount)}</dd></div>}
-        <div><dt>Balance due</dt><dd>{money(folio.balanceDue)}</dd></div>
+        <div><dt>{t('cf.total')}</dt><dd>{fmt.money(folio.totalAmount)}</dd></div>
+        <div><dt>{t('cf.paid')}</dt><dd>{fmt.money(folio.paidAmount)}</dd></div>
+        {folio.pendingAmount !== undefined && <div><dt>{t('cf.awaiting')}</dt><dd>{fmt.money(folio.pendingAmount)}</dd></div>}
+        <div><dt>{t('cf.balanceDue')}</dt><dd>{fmt.money(folio.balanceDue)}</dd></div>
       </dl>
       <VoucherNotRestoredNotice voucherRestoration={folio.voucherRestoration} />
       {(folio.collections || []).length > 0 && (
         <table className="ops-table">
-          <thead><tr><th>Method</th><th>Amount</th><th>Status</th></tr></thead>
+          <thead><tr><th>{t('cf.col.method')}</th><th>{t('cf.col.amount')}</th><th>{t('cf.col.status')}</th></tr></thead>
           <tbody>
-            {folio.collections.map(item => <tr key={item.collectionId}><td>{item.method}</td><td>{money(item.amount)}</td><td><span className="ops-status">{item.status}</span></td></tr>)}
+            {folio.collections.map(item => <tr key={item.collectionId}><td>{methodLabel(item.method)}</td><td>{fmt.money(item.amount)}</td><td><span className="ops-status">{collectionStatus(item.status)}</span></td></tr>)}
           </tbody>
         </table>
       )}
@@ -39,6 +46,7 @@ function FolioView({ folio }) {
  * A wrong ticket or a wrong contact gives the same answer.
  */
 export default function CustomerFolioPage() {
+  const t = useT(messages);
   const { ticketCode } = useParams();
   const { status } = useAuth();
   const member = status === 'signed-in';
@@ -48,7 +56,7 @@ export default function CustomerFolioPage() {
   const command = useCommand();
   const own = useResource(() => (member ? api.getFolio(ticketCode) : Promise.resolve(null)), [ticketCode, member]);
 
-  if (status === 'loading') return <CustomerPage title="Ticket payment"><Loading /></CustomerPage>;
+  if (status === 'loading') return <CustomerPage title={t('cf.title')}><Loading /></CustomerPage>;
 
   // One contact only, in the normalized form the server compares by; null while it is empty or malformed.
   const { proof } = buildContactProof({ email: contact.contactEmail, phone: contact.contactPhone, phoneCountry: contact.contactPhoneCountry });
@@ -63,7 +71,7 @@ export default function CustomerFolioPage() {
 
   if (member) {
     return (
-      <CustomerPage title="Ticket payment">
+      <CustomerPage title={t('cf.title')}>
         {own.loading ? <Loading /> : own.data ? (
           <>
             <FolioView folio={own.data} />
@@ -72,22 +80,22 @@ export default function CustomerFolioPage() {
           </>
         )
           : own.error && (own.error.status === 404 || own.error.status === 403)
-            ? <div className="notice error" role="alert"><p>We could not find this ticket for your account.</p></div>
+            ? <div className="notice error" role="alert"><p>{t('cf.notFoundMember')}</p></div>
             : <ProblemNotice error={own.error} onRetry={own.reload} onReload={own.reload} />}
       </CustomerPage>
     );
   }
   const error = command.error;
   return (
-    <CustomerPage title="Ticket payment" intro="Enter the email or phone number you used to book. It is sent securely and is not kept on this page.">
+    <CustomerPage title={t('cf.title')} intro={t('cf.intro')}>
       {guestFolio ? <FolioView folio={guestFolio} /> : (
         <>
           {error?.status === 404
-            ? <div className="notice error" role="alert"><p>We could not find a ticket with this code and contact.</p></div>
+            ? <div className="notice error" role="alert"><p>{t('cf.notFoundGuest')}</p></div>
             : <ProblemNotice error={error} onRetry={command.retry} />}
-          <form className="ota-form" aria-label="Find ticket" onSubmit={lookup}>
-            <label>Email<input type="email" autoComplete="off" value={contact.contactEmail} onChange={event => setContact(v => ({ ...v, contactEmail: event.target.value }))} /></label>
-            <label htmlFor="folio-contact-phone">Phone</label>
+          <form className="ota-form" aria-label={t('cf.findAria')} onSubmit={lookup}>
+            <label>{t('cf.email')}<input type="email" autoComplete="off" value={contact.contactEmail} onChange={event => setContact(v => ({ ...v, contactEmail: event.target.value }))} /></label>
+            <label htmlFor="folio-contact-phone">{t('cf.phone')}</label>
             <PhoneInput
               id="folio-contact-phone"
               country={contact.contactPhoneCountry}
@@ -95,8 +103,8 @@ export default function CustomerFolioPage() {
               onCountryChange={contactPhoneCountry => setContact(v => ({ ...v, contactPhoneCountry }))}
               onValueChange={contactPhone => setContact(v => ({ ...v, contactPhone }))}
             />
-            <p className="muted small">Use one of the two, in a valid format.</p>
-            <button className="button primary" type="submit" disabled={command.pending || !oneContact}>Show my ticket</button>
+            <p className="muted small">{t('cf.useOne')}</p>
+            <button className="button primary" type="submit" disabled={command.pending || !oneContact}>{t('cf.show')}</button>
           </form>
         </>
       )}

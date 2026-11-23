@@ -18,7 +18,7 @@ function openSlots(role, extra = {}) {
     'GET /api/v1/workshop-sessions': json(200, []),
     ...extra,
   });
-  renderRoutes(operationsRoutes, { path: '/operations/admin?tab=slots' });
+  renderRoutes(operationsRoutes, { language: 'en', path: '/operations/admin?tab=slots' });
   return calls;
 }
 

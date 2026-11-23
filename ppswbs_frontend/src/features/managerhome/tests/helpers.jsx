@@ -8,6 +8,7 @@ export const routes = [
   ...managerDashboardRoutes,
   { path: '/staff/home', element: <p>Staff home page</p> },
   { path: '/', element: <p>General home</p> },
+  { path: '/admin/accounts', element: <p>Admin accounts</p> },
   { path: '/operations/audit', element: <p>Audit page</p> },
 ];
 

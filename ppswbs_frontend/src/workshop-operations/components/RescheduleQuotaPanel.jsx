@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
 import { ErrorNotice, Field, SuccessNotice, useCommand } from '../../shared/ui/components';
+import { useT } from '../../shared/i18n/I18nProvider';
+import { sharedMessages } from '../../shared/ui/messages';
+import { messages } from '../messages';
 
 const CLOSED_STATES = ['ATTENDANCE_FINALIZED', 'CANCELLED'];
 
@@ -10,6 +13,7 @@ const CLOSED_STATES = ['ATTENDANCE_FINALIZED', 'CANCELLED'];
  * command carries an Idempotency-Key. The figures shown are the server's (rescheduleQuota, …Overridden, …Used).
  */
 export function RescheduleQuotaPanel({ api, session, onSaved, onReload }) {
+  const t = useT(messages);
   const [quota, setQuota] = useState('');
   const [reason, setReason] = useState('');
   const [formError, setFormError] = useState('');
@@ -19,13 +23,13 @@ export function RescheduleQuotaPanel({ api, session, onSaved, onReload }) {
 
   const send = async value => {
     setNotice('');
-    if (!reason.trim()) { setFormError('A reason is required to change the reschedule quota.'); return; }
-    if (reason.trim().length > 500) { setFormError('The reason must not exceed 500 characters.'); return; }
-    if (value !== null && (!Number.isInteger(value) || value < 0)) { setFormError('The quota must be a whole number of 0 or more.'); return; }
+    if (!reason.trim()) { setFormError(t('quota.reasonRequired')); return; }
+    if (reason.trim().length > 500) { setFormError(t('quota.reasonLength')); return; }
+    if (value !== null && (!Number.isInteger(value) || value < 0)) { setFormError(t('quota.invalid')); return; }
     setFormError('');
     const outcome = await command.run(key => api.setRescheduleQuota(session.id, { quota: value, reason: reason.trim() }, key));
     if (outcome.ok) {
-      setNotice(value === null ? 'Reschedule quota restored to the default.' : value === 0 ? 'Session closed to customer changes.' : 'Reschedule quota updated.');
+      setNotice(value === null ? t('quota.restored') : value === 0 ? t('quota.closed') : t('quota.updated'));
       setQuota('');
       setReason('');
       onSaved?.(outcome.result);
@@ -34,7 +38,7 @@ export function RescheduleQuotaPanel({ api, session, onSaved, onReload }) {
 
   const submit = e => {
     e.preventDefault();
-    if (quota.trim() === '') { setFormError('Enter a quota, or use "Restore default".'); return; }
+    if (quota.trim() === '') { setFormError(t('quota.enter')); return; }
     send(Number(quota));
   };
 
@@ -42,25 +46,25 @@ export function RescheduleQuotaPanel({ api, session, onSaved, onReload }) {
   const used = session.rescheduleQuotaUsed;
   return (
     <article className="ota-panel" aria-labelledby="reschedule-quota-title">
-      <div className="ota-panel-head"><h2 id="reschedule-quota-title">Reschedule quota</h2></div>
+      <div className="ota-panel-head"><h2 id="reschedule-quota-title">{t('quota.title')}</h2></div>
       <dl className="ops-facts">
-        <div><dt>Effective quota</dt><dd>{effective ?? '—'}{effective === 0 ? ' (closed to changes)' : ''}</dd></div>
-        <div><dt>Source</dt><dd>{session.rescheduleQuotaOverridden ? 'Set by a Manager' : 'Default (25% of capacity, at least 1)'}</dd></div>
-        <div><dt>Used</dt><dd>{used ?? '—'}</dd></div>
+        <div><dt>{t('quota.effective')}</dt><dd>{effective ?? '—'}{effective === 0 ? t('quota.closedSuffix') : ''}</dd></div>
+        <div><dt>{t('quota.source')}</dt><dd>{session.rescheduleQuotaOverridden ? t('quota.sourceManager') : t('quota.sourceDefault')}</dd></div>
+        <div><dt>{t('quota.used')}</dt><dd>{used ?? '—'}</dd></div>
       </dl>
       {closed ? (
-        <p className="muted small">The quota cannot change once the session is finalized or cancelled.</p>
+        <p className="muted small">{t('quota.cannotChange')}</p>
       ) : (
-        <form className="ota-form" onSubmit={submit} aria-label="Change reschedule quota">
-          <Field label="New quota" hint="0 closes the session to customer changes. Tickets already moved in keep their seat.">
+        <form className="ota-form" onSubmit={submit} aria-label={t('quota.formAria')}>
+          <Field label={t('quota.new')} hint={t('quota.hint')}>
             <input type="number" min="0" step="1" value={quota} onChange={e => setQuota(e.target.value)} />
           </Field>
-          <Field label="Reason">
+          <Field label={t('quota.reason')}>
             <textarea maxLength={500} value={reason} onChange={e => setReason(e.target.value)} />
           </Field>
           <div className="actions">
-            <button className="button primary" disabled={command.pending}>Set quota</button>
-            <button type="button" className="button outline" disabled={command.pending || !session.rescheduleQuotaOverridden} onClick={() => send(null)}>Restore default</button>
+            <button className="button primary" disabled={command.pending}>{t('quota.set')}</button>
+            <button type="button" className="button outline" disabled={command.pending || !session.rescheduleQuotaOverridden} onClick={() => send(null)}>{t('quota.restore')}</button>
           </div>
         </form>
       )}
