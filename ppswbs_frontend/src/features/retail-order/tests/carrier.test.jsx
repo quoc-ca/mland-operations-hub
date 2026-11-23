@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { carrierPeriod, carrierStats, carrierTab, CARRIER_STATUS } from '../ui/carrier/CarrierPages';
+import { carrierPeriod, carrierStats, carrierTab } from '../ui/carrier/CarrierPages';
+import { messages } from '../messages';
 
 const NOW = Date.parse('2026-11-20T03:00:00Z'); // 20/11 10:00 Vietnam time
 
 describe('Simulated GHTK portal (Session 2026-11-20)', () => {
   it('names each shipment status the way GHTK does', () => {
-    expect(CARRIER_STATUS.PREPARING).toBe('Đã tiếp nhận');
-    expect(CARRIER_STATUS.READY_FOR_CARRIER).toBe('Đang lấy hàng');
+    expect(messages.vi['carrier.status.PREPARING']).toBe('Đã tiếp nhận');
+    expect(messages.vi['carrier.status.READY_FOR_CARRIER']).toBe('Đang lấy hàng');
+    expect(messages.en['carrier.status.PREPARING']).toBe('Received');
     expect(carrierTab('HANDED_TO_CARRIER')).toBe('DELIVERING');
     expect(carrierTab('IN_TRANSIT')).toBe('DELIVERING');
     expect(carrierTab('DELIVERED')).toBe('DELIVERED');
