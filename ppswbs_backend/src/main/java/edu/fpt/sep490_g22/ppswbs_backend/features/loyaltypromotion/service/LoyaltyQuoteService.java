@@ -146,7 +146,8 @@ public class LoyaltyQuoteService {
                 .map(p -> candidate(p, context, TargetScope.PRODUCT)).toList();
         RetailQuote.Result result = RetailQuote.compute(context.lines(), selection, voucher, autos, policy.terms(),
                 available, strict);
-        return new Evaluation(result, policy, RetailQuote.digest(result, policy.getId(), context.shippingAmount()));
+        return new Evaluation(result, policy,
+                RetailQuote.digest(result, context.lines(), policy.getId(), context.shippingAmount()));
     }
 
     /** The programme as a candidate for this context, with the reason it cannot be used if any. */
