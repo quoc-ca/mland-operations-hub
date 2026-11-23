@@ -812,12 +812,15 @@ describe('T071 public catalogue', () => {
       'GET /api/v1/products/42': json(200, publicProduct()),
     });
     open('/products');
-    expect(await screen.findByText('1.125.000 ₫ – 1.170.000 ₫')).toBeInTheDocument();
+    // Spec 006 (2026-11-22): the price also takes off the best voucher, measured after the automatic discount: size 12 = 1.250.000 − 10% − 20.000.
+    expect(await screen.findByText('1.105.000 ₫ – 1.170.000 ₫')).toBeInTheDocument();
+    expect(screen.getByText('Giá sau voucher MLAND20')).toBeInTheDocument();
     expect(screen.getByText('1.250.000 ₫ – 1.300.000 ₫').tagName).toBe('S');
     expect(screen.getByText('Giảm 10%')).toBeInTheDocument();
     // The voucher covers only size 12 of the two sizes: the badge says so.
     expect(screen.getByText('Mã giảm 20.000 ₫ · size 12')).toBeInTheDocument();
-    expect(calls.find(call => call.path === '/api/v1/promotions').query).toEqual({ scope: 'PRODUCT', limit: '100' });
+    // Spec 006 FR-046: the page reads PUBLIC and CLAIM_REQUIRED vouchers both (distribution=ALL), so a saved one can set the price.
+    expect(calls.find(call => call.path === '/api/v1/promotions').query).toEqual({ scope: 'PRODUCT', limit: '100', distribution: 'ALL' });
   });
 
   it('detail lists each offer and says which sizes a partial one covers', async () => {
