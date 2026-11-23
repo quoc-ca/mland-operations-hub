@@ -5,6 +5,10 @@
       "destination": "http://18.136.148.241/api/:path*"
     },
     {
+      "source": "/payment/:path*",
+      "destination": "http://18.136.148.241/payment/:path*"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
