@@ -6,7 +6,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.common.payment.VnpayMerchantOperationsP
 import edu.fpt.sep490_g22.ppswbs_backend.configuration.TimezoneConfiguration;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.service.TokenVerificationService;
-import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.entity.PaymentOwnerKind;
+import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.facade.PaymentOwnerKind;
 import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.facade.PaymentOwnerRegistry;
 import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.service.VnpayChecksumService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.*;

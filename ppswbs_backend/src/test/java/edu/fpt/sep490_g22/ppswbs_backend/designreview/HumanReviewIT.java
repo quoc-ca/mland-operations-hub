@@ -217,4 +217,70 @@ public class HumanReviewIT {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("DESIGN_REVIEW_STATE_CONFLICT"));
     }
+
+    @Test
+    void whenStaffPreparesQuote_andManagerApprovesQuote_thenSuccess() throws Exception {
+        // 1. Staff approves design request first
+        mockMvc.perform(post("/api/v1/design-review-requests/" + lowValueRequestId + "/decisions")
+                        .header("Authorization", "Bearer token-staff-01")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "decision": "ACCEPTED",
+                                  "designVersion": 1,
+                                  "reason": "Mẫu nhẫn đạt tiêu chuẩn gia công"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.reviewStatus").value("ACCEPTED"));
+
+        // 2. Staff prepares quote
+        mockMvc.perform(post("/api/v1/custom-design-requests/" + lowValueRequestId + "/quote")
+                        .header("Authorization", "Bearer token-staff-01")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "totalAmount": "15000000",
+                                  "currency": "VND",
+                                  "quoteExpiresAt": "2026-12-01T00:00:00Z",
+                                  "managerReason": "Bạc 925 đính đá sapphire"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.quoteReference").isNotEmpty())
+                .andExpect(jsonPath("$.status").value("QUOTE_PENDING"))
+                .andExpect(jsonPath("$.approvedByManager").value(false));
+
+        // 3. Manager gets quote
+        mockMvc.perform(get("/api/v1/custom-design-requests/" + lowValueRequestId + "/quote")
+                        .header("Authorization", "Bearer token-manager-01"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalAmount").value("15000000"))
+                .andExpect(jsonPath("$.status").value("QUOTE_PENDING"));
+
+        // 4. Staff attempts to approve quote -> 403 Forbidden
+        mockMvc.perform(post("/api/v1/custom-design-requests/" + lowValueRequestId + "/quote/approve")
+                        .header("Authorization", "Bearer token-staff-01")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "managerReason": "Staff không có quyền duyệt"
+                                }
+                                """))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("REVIEW_NOT_AUTHORIZED"));
+
+        // 5. Manager approves quote -> 200 OK
+        mockMvc.perform(post("/api/v1/custom-design-requests/" + lowValueRequestId + "/quote/approve")
+                        .header("Authorization", "Bearer token-manager-01")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "managerReason": "Quản lý thẩm duyệt báo giá hợp lệ"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("QUOTE_READY"))
+                .andExpect(jsonPath("$.approvedByManager").value(true));
+    }
 }

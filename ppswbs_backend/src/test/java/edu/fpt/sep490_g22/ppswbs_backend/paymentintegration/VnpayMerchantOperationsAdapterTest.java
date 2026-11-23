@@ -3,7 +3,7 @@ package edu.fpt.sep490_g22.ppswbs_backend.paymentintegration;
 import edu.fpt.sep490_g22.ppswbs_backend.common.payment.VnpayMerchantOperationResult;
 import edu.fpt.sep490_g22.ppswbs_backend.common.payment.VnpayQueryDrCommand;
 import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.config.VnpayProperties;
-import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.entity.PaymentOwnerKind;
+import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.facade.PaymentOwnerKind;
 import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.entity.PaymentOwnerRegistration;
 import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.entity.VnpayMerchantOperation;
 import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.facade.PaymentOwnerRegistry;
