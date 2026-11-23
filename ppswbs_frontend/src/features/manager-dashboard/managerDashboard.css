@@ -131,3 +131,23 @@
 .manager-dashboard .mh-panel{border-left:4px solid #2563eb;background:linear-gradient(90deg,#eff6ff,#fff 45%)}
 .manager-dashboard .mh-count{color:#1d4ed8}
 
+
+/* FE-10 best sellers (Thinh, 2026-11-23): two ranked bar lists, retail amber and workshop blue. Names and counts stay
+   in dark ink beside the bar (amber is under 3:1 on white), and a row shows its revenue on hover or focus. */
+.md-top{margin:0 0 18px}
+.md-rank{margin:0}
+.md-rank .md-panel-head{flex-wrap:wrap;gap:4px 12px}
+.md-rank-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.md-rank-row{position:relative;display:grid;grid-template-columns:28px minmax(0,1fr) auto;align-items:center;gap:12px;padding:8px 10px;border-radius:8px;outline:none}
+.md-rank-row:hover,.md-rank-row:focus-visible{background:var(--tone-soft)}
+.md-rank-row:focus-visible{box-shadow:0 0 0 2px var(--tone)}
+.md-rank-badge{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;font-size:12px;font-weight:700;background:var(--tone-soft);color:var(--tone-ink);border:1px solid color-mix(in srgb,var(--tone) 35%,#fff)}
+.md-rank-badge.first{background:var(--tone);color:#fff;border-color:var(--tone)}
+.md-rank-main{display:flex;flex-direction:column;gap:6px;min-width:0}
+.md-rank-name{font-size:13px;font-weight:600;color:#1a1a1a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.md-rank-track{display:block;height:10px;border-radius:999px;background:#f3f4f6;overflow:hidden}
+.md-rank-track span{display:block;height:100%;border-radius:0 4px 4px 0;background:var(--tone);transition:width .3s}
+.md-rank-value{font-size:12px;color:#6b7280;white-space:nowrap;font-variant-numeric:tabular-nums}
+.md-rank-value strong{font-size:16px;color:#1a1a1a}
+.md-rank-tip{display:none;top:auto;bottom:calc(100% - 4px);left:46px;z-index:5}
+.md-rank-row:hover .md-rank-tip,.md-rank-row:focus-visible .md-rank-tip{display:flex}

@@ -51,10 +51,22 @@ const trend = (overrides = {}) => ({
 
 const manager = json(200, { role: 'MANAGER', fullName: 'Quản lý' });
 
-const routes = (reportBody = report(), trendBody = trend()) => ({
+const topSellers = (overrides = {}) => ({
+  scope: { periodType: 'MONTH', startAt: '2026-10-31T17:00:00Z', endAt: '2026-11-14T03:00:00Z', timezone: 'Asia/Ho_Chi_Minh', locationIds: [1, 2] },
+  products: [
+    { id: 7, name: 'Nhẫn bạc Moon', quantity: 12, revenue: '6000000' },
+    { id: 3, name: 'Nhẫn vàng Sun', quantity: 4, revenue: '8000000' },
+  ],
+  packages: [{ id: 2, name: 'Signature Workshop - Silver 925', quantity: 9, revenue: '13500000' }],
+  unavailable: [], lastUpdatedAt: '2026-11-14T03:00:00Z',
+  ...overrides,
+});
+
+const routes = (reportBody = report(), trendBody = trend(), topBody = topSellers()) => ({
   'GET /api/v1/accounts/me/profile': manager,
   'GET /api/v1/executive-reports': json(200, reportBody),
   'GET /api/v1/executive-reports/trends': json(200, trendBody),
+  'GET /api/v1/executive-reports/top-sellers': json(200, topBody),
 });
 
 // The page also asks for the profile and the operations blocks; count only the revenue report reads.
@@ -150,6 +162,35 @@ describe('FE-10 Manager dashboard', () => {
     fireEvent.click(screen.getByRole('radio', { name: 'Năm' }));
     await waitFor(() => expect(calls.filter(c => c.path === '/api/v1/executive-reports/trends')).toHaveLength(2));
     expect(calls.filter(c => c.path === '/api/v1/executive-reports/trends')[1].query.periodType).toBe('YEAR');
+  });
+
+  it('ranks the best-selling products and workshop packages with the same filters', async () => {
+    const calls = mockFetch(routes());
+    renderRoutes(managerDashboardRoutes, { path: '/manager/dashboard' });
+
+    const top = within(await screen.findByRole('region', { name: 'Bán chạy nhất' }));
+    const products = within(await top.findByRole('figure', { name: /Top 5 sản phẩm bán chạy/ }));
+    const rows = products.getAllByRole('listitem');
+    expect(rows).toHaveLength(2);
+    expect(within(rows[0]).getByText('Nhẫn bạc Moon', { selector: '.md-rank-name' })).toBeInTheDocument();
+    expect(rows[0]).toHaveAccessibleName(/1\. Nhẫn bạc Moon: 12 chiếc/);
+    expect(within(rows[1]).getByText('Nhẫn vàng Sun', { selector: '.md-rank-name' })).toBeInTheDocument();
+    const packages = within(top.getByRole('figure', { name: /Top 5 gói workshop/ }));
+    expect(packages.getByRole('listitem')).toHaveAccessibleName(/Signature Workshop - Silver 925: 9 vé/);
+    const topCalls = () => calls.filter(c => c.path === '/api/v1/executive-reports/top-sellers');
+    expect(topCalls()[0].query).toEqual({ periodType: 'MONTH' });
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Tuần' }));
+    await waitFor(() => expect(topCalls()).toHaveLength(2));
+    expect(topCalls()[1].query.periodType).toBe('WEEK');
+  });
+
+  it('tells an unreadable best-seller source apart from a period with no sales', async () => {
+    mockFetch(routes(report(), trend(), topSellers({ products: null, packages: [], unavailable: ['TOP_PRODUCTS'] })));
+    renderRoutes(managerDashboardRoutes, { path: '/manager/dashboard' });
+
+    expect(await screen.findByText('Tạm thời không đọc được dữ liệu này.')).toBeInTheDocument();
+    expect(screen.getByText('Chưa có vé workshop nào được xác nhận trong kỳ này.')).toBeInTheDocument();
   });
 
   it('names a trend source that could not be read and draws it as unknown', async () => {
