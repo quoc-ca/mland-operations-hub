@@ -257,7 +257,7 @@ export default function HomePage() {
         }));
         setWorkshopPackages(mapped);
       })
-      .catch(() => {});
+      .catch(() => { });
 
     // Lấy danh mục sản phẩm nhẫn chế tác sẵn thực tế từ Feature 002
     listPublicProducts({ page: 0, sort: 'newest' })
@@ -282,7 +282,7 @@ export default function HomePage() {
         });
         setReadyRings(mapped);
       })
-      .catch(() => {});
+      .catch(() => { });
 
     return () => {
       active = false;
@@ -311,10 +311,10 @@ export default function HomePage() {
               const orders = Array.isArray(data) ? data : data?.items || [];
               setOrderCount(orders.length);
             })
-            .catch(() => {});
+            .catch(() => { });
         }
       })
-      .catch(() => {});
+      .catch(() => { });
 
     return () => {
       active = false;
@@ -504,30 +504,30 @@ export default function HomePage() {
             READY RINGS — NHẪN CHẾ TÁC THỦ CÔNG SẴN SÀNG GIAO
           </h3>
           {readyProducts.length > 0 ? <PublicProductGrid products={readyProducts} standalone /> : (
-          <div className="landing-rings-grid">
-            {readyRings.map((ring) => (
-              <article key={ring.code} className="landing-ring-card">
-                {ring.imageUrl ? (
-                  <img
-                    src={ring.imageUrl}
-                    alt={ring.name}
-                    className="landing-ring-thumb"
-                  />
-                ) : (
-                  <span className="landing-ring-code-tag">{ring.code}</span>
-                )}
-                {ring.imageUrl && (
-                  <span className="landing-ring-code-tag">{ring.code}</span>
-                )}
-                <h4 className="landing-ring-name">{ring.name}</h4>
-                <p className="landing-ring-material">{ring.material}</p>
-                <p className="landing-ring-price">{ring.price}</p>
-                <Link to={ring.url} className="landing-ring-btn">
-                  Chi tiết →
-                </Link>
-              </article>
-            ))}
-          </div>
+            <div className="landing-rings-grid">
+              {readyRings.map((ring) => (
+                <article key={ring.code} className="landing-ring-card">
+                  {ring.imageUrl ? (
+                    <img
+                      src={ring.imageUrl}
+                      alt={ring.name}
+                      className="landing-ring-thumb"
+                    />
+                  ) : (
+                    <span className="landing-ring-code-tag">{ring.code}</span>
+                  )}
+                  {ring.imageUrl && (
+                    <span className="landing-ring-code-tag">{ring.code}</span>
+                  )}
+                  <h4 className="landing-ring-name">{ring.name}</h4>
+                  <p className="landing-ring-material">{ring.material}</p>
+                  <p className="landing-ring-price">{ring.price}</p>
+                  <Link to={ring.url} className="landing-ring-btn">
+                    Chi tiết →
+                  </Link>
+                </article>
+              ))}
+            </div>
           )}
         </section>
 
@@ -564,6 +564,14 @@ export default function HomePage() {
               title="Dành cho nhân viên check-in và điều phối ca"
             >
               Staff Vận hành {userRole === 'STAFF' && '★'}
+            </Link>
+            <span className="landing-portal-separator">|</span>
+            <Link
+              to="/design-review-requests"
+              className={`landing-portal-link ${userRole === 'STAFF' || userRole === 'MANAGER' ? 'active-role' : ''}`}
+              title="Duyệt yêu cầu thiết kế và báo giá chế tác"
+            >
+              Duyệt Thiết kế {(userRole === 'STAFF' || userRole === 'MANAGER') && '★'}
             </Link>
             <span className="landing-portal-separator">|</span>
             <Link

@@ -101,9 +101,9 @@ export default function MainTopbar() {
               setLoyaltyPoints(pts);
             }
           })
-          .catch(() => {});
+          .catch(() => { });
       })
-      .catch(() => {});
+      .catch(() => { });
 
     return () => {
       active = false;
@@ -293,11 +293,9 @@ export default function MainTopbar() {
                       <Link to="/profile" className="main-topbar-dropdown-item" role="menuitem">
                         <span>👤</span> {t('menu.profile')}
                       </Link>
-                      {!isStaffOrAdmin && (
-                        <Link to="/my/designs" className="main-topbar-dropdown-item" role="menuitem">
-                          <span>💍</span> {t('menu.savedDesigns')}
-                        </Link>
-                      )}
+                      <Link to="/my/designs" className="main-topbar-dropdown-item" role="menuitem">
+                        <span>💍</span> {t('menu.savedDesigns')}
+                      </Link>
                       {userRole === 'MEMBER' && (
                         <Link to="/member/consultations" className="main-topbar-dropdown-item" role="menuitem">
                           <span>💬</span> {t('menu.designConsult')}
@@ -378,6 +376,15 @@ export default function MainTopbar() {
                                 </Link>
                               )}
                             </>
+                          )}
+                          {(userRole === 'STAFF' || userRole === 'MANAGER' || userRole === 'ADMIN') && (
+                            <Link
+                              to="/design-review-requests"
+                              className="main-topbar-dropdown-item"
+                              role="menuitem"
+                            >
+                              <span>🔨</span> Duyệt thiết kế & Báo giá
+                            </Link>
                           )}
                           {(userRole === 'STAFF' || userRole === 'MANAGER' || userRole === 'ADMIN') && (
                             <Link

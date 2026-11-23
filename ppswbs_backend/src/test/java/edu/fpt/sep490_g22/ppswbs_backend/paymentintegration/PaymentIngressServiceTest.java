@@ -7,8 +7,10 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.service.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.WorkshopBookingFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.WorkshopSettlementFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.SettlementPaymentEvidenceOutcome;
+import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.facade.PaymentOwnerHandler;
+import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.facade.PaymentOwnerKind;
+import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.facade.VerifiedPaymentSuccess;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.facade.RetailPaymentEvidenceFacade;
-import edu.fpt.sep490_g22.ppswbs_backend.features.custommanufacturing.facade.CustomOrderPaymentFacade;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -27,7 +29,6 @@ class PaymentIngressServiceTest {
     @Mock WorkshopBookingFacade booking;
     @Mock WorkshopSettlementFacade settlement;
     @Mock RetailPaymentEvidenceFacade retail;
-    @Mock CustomOrderPaymentFacade customOrderPayment;
 
     @Test void rejectsInvalidSignatureWithoutResolvingOwner() {
         when(checksum.valid(anyMap(), any())).thenReturn(false);
@@ -179,13 +180,21 @@ class PaymentIngressServiceTest {
         when(registry.lockOwner("CUSTOM-ORDER-1")).thenReturn(Optional.of(owner));
         when(receipts.existsByDeliveryReference("CUSTOM-ORDER-1|TX-1|00|00")).thenReturn(false);
         when(receipts.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        PaymentOwnerHandler handler = mock(PaymentOwnerHandler.class);
+        when(registry.findHandler(PaymentOwnerKind.CUSTOM_ORDER_FULL_PAYMENT)).thenReturn(Optional.of(handler));
 
-        var outcome = serviceWithCustomPayment().receive(
+        var outcome = service().receive(
                 params("CUSTOM-ORDER-1", "450000000", "00", "TX-1"));
 
         assertThat(outcome.message()).isEqualTo("OK");
-        verify(customOrderPayment).applyVerifiedFullPayment(
-                "CO-1", "CUSTOM-ORDER-1", "TX-1", 4_500_000L, "VND");
+        verify(handler).onPaymentSuccess(argThat(p ->
+                p.ownerKind() == PaymentOwnerKind.CUSTOM_ORDER_FULL_PAYMENT
+                        && "CO-1".equals(p.ownerReference())
+                        && "CUSTOM-ORDER-1".equals(p.paymentReference())
+                        && "TX-1".equals(p.gatewayTransactionReference())
+                        && p.amountVnd() == 4_500_000L
+                        && "VND".equals(p.currencyCode())
+        ));
         verifyNoInteractions(booking, settlement, retail);
     }
 
@@ -307,10 +316,6 @@ class PaymentIngressServiceTest {
     }
 
     private PaymentIngressService service() { return new PaymentIngressService(checksum, registry, receipts, booking, settlement, retail); }
-    private PaymentIngressService serviceWithCustomPayment() {
-        return new PaymentIngressService(checksum, registry, receipts, booking, settlement, retail,
-                Optional.of(customOrderPayment));
-    }
     private PaymentOwnerRegistration owner(long amount) { return PaymentOwnerRegistration.builder().merchantReference("DEP-BK-1-1").bookingReference("BK-1").paymentKind(PaymentOwnerKind.DEPOSIT).amountVnd(amount).currencyCode("VND").build(); }
     private Map<String,String> params(String ref, String amount, String response, String txn) {
         return new HashMap<>(Map.of("vnp_TxnRef", ref, "vnp_Amount", amount, "vnp_CurrCode", "VND", "vnp_ResponseCode", response, "vnp_TransactionStatus", "00", "vnp_TransactionNo", txn, "vnp_SecureHash", "hash"));

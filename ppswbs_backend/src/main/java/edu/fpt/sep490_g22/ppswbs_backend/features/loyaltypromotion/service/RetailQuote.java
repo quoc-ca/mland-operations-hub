@@ -169,9 +169,9 @@ public final class RetailQuote {
             reasons.add(BenefitReason.of(BenefitReasonCode.NO_AUTO_DISCOUNT));
         }
         Candidate autoChosen = bestAuto;
-        List<BigInteger> lineAuto = split(autoDiscount, lines.stream()
+        List<BigInteger> lineAuto = splitByLineKey(autoDiscount, lines.stream()
                 .map(line -> autoChosen != null && matches(line, autoChosen) ? line.lineAmount() : BigInteger.ZERO)
-                .toList());
+                .toList(), lines);
 
         // 2. The voucher on what the automatic discount left of its in-scope lines (FR-014, FR-047).
         Candidate voucherChosen = null;
@@ -210,7 +210,8 @@ public final class RetailQuote {
                 }
             }
         }
-        List<BigInteger> lineVoucher = voucherChosen == null ? zeros(lines.size()) : split(voucherDiscount, voucherBase);
+        List<BigInteger> lineVoucher = voucherChosen == null ? zeros(lines.size())
+                : splitByLineKey(voucherDiscount, voucherBase, lines);
 
         Candidate chosen = voucherChosen != null ? voucherChosen : bestAuto;
         BigInteger eligible = voucherChosen != null ? voucherEligible : autoEligible;
@@ -259,10 +260,67 @@ public final class RetailQuote {
         return java.util.Collections.nCopies(size, BigInteger.ZERO);
     }
 
-    /** SHA-256 (hex) of every value the customer agrees to; the accept transaction must reproduce it exactly. */
-    public static String digest(Result result, long policyId, BigInteger shippingAmount) {
+    /**
+     * {@link #split} over retail lines taken in {@link #lineKey} order, the result back in the owner's line order
+     * (BUG-INT-0003): the owner may send the same lines in another order at accept than at preview, so a tie in the
+     * largest remainder goes to the smaller line key, not to whichever line came first.
+     */
+    static List<BigInteger> splitByLineKey(BigInteger total, List<BigInteger> weights, List<SourceLine> lines) {
+        List<Integer> order = java.util.stream.IntStream.range(0, lines.size()).boxed()
+                .sorted(Comparator.comparing(i -> lineKey(lines.get(i)), LINE_KEY_ORDER)).toList();
+        List<BigInteger> sorted = split(total, order.stream().map(weights::get).toList());
+        BigInteger[] shares = new BigInteger[lines.size()];
+        for (int k = 0; k < order.size(); k++) {
+            shares[order.get(k)] = sorted.get(k);
+        }
+        return List.of(shares);
+    }
+
+    /** What identifies a retail line whatever its position: product, size, branch, quantity and unit price. */
+    private record LineKey(long productId, long variantId, long locationId, long quantity, BigInteger unitAmount) {
+        @Override
+        public String toString() {
+            return productId + "/" + variantId + "@" + locationId + "x" + quantity + "*" + unitAmount;
+        }
+    }
+
+    private static final Comparator<LineKey> LINE_KEY_ORDER = Comparator.comparingLong(LineKey::productId)
+            .thenComparingLong(LineKey::variantId).thenComparingLong(LineKey::locationId)
+            .thenComparingLong(LineKey::quantity).thenComparing(LineKey::unitAmount);
+
+    private static LineKey lineKey(SourceLine line) {
+        return new LineKey(line.productId(), line.variantId(), line.locationId() == null ? 0 : line.locationId(),
+                line.quantity(), line.unitAmount());
+    }
+
+    /**
+     * Retail digest (BUG-INT-0003): like {@link #digest(Result, long, BigInteger)}, but the lines a branch-limited
+     * voucher discounts and the per-line split of a voucher on top of an automatic discount are bound by
+     * {@link #lineKey}, sorted, instead of by position, so the same lines in another order give the same digest while
+     * a line moved to another branch still changes it.
+     */
+    public static String digest(Result result, List<SourceLine> lines, long policyId, BigInteger shippingAmount) {
+        StringBuilder canonical = new StringBuilder(base(result, policyId, shippingAmount));
         Candidate chosen = result.candidate();
-        String canonical = String.join("|",
+        if (chosen != null && !chosen.branchTargets().isEmpty()) {
+            canonical.append("|lines=").append(result.eligibleLines().stream().map(i -> lineKey(lines.get(i)))
+                    .sorted(LINE_KEY_ORDER).toList());
+        }
+        if (result.voucher() != null && result.auto() != null) {
+            List<String> shares = java.util.stream.IntStream.range(0, lines.size()).boxed()
+                    .sorted(Comparator.comparing(i -> lineKey(lines.get(i)), LINE_KEY_ORDER))
+                    .map(i -> lineKey(lines.get(i)) + ":" + result.lineAutoDiscounts().get(i) + "/"
+                            + result.lineVoucherDiscounts().get(i))
+                    .toList();
+            canonical.append("|auto=").append(result.auto().programId()).append('/').append(result.auto().revisionNo())
+                    .append("|autoDiscount=").append(result.autoDiscount()).append("|lineShares=").append(shares);
+        }
+        return sha256(canonical.toString());
+    }
+
+    private static String base(Result result, long policyId, BigInteger shippingAmount) {
+        Candidate chosen = result.candidate();
+        return String.join("|",
                 "policy=" + policyId,
                 "program=" + (chosen == null ? "-" : chosen.programId() + "/" + chosen.revisionNo()),
                 "gross=" + result.grossAmount(),
@@ -272,6 +330,25 @@ public final class RetailQuote {
                 "pointDiscount=" + result.pointDiscount(),
                 "earnBase=" + result.earnBase(),
                 "shipping=" + shippingAmount);
+    }
+
+    private static String sha256(String canonical) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+                    .digest(canonical.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 is not available", e);
+        }
+    }
+
+    /**
+     * SHA-256 (hex) of every value the customer agrees to; the accept transaction must reproduce it exactly. Lines are
+     * bound by position, which is right for workshop tickets (the owner keeps cart order); retail uses
+     * {@link #digest(Result, List, long, BigInteger)}.
+     */
+    public static String digest(Result result, long policyId, BigInteger shippingAmount) {
+        Candidate chosen = result.candidate();
+        String canonical = base(result, policyId, shippingAmount);
         if (chosen != null && !chosen.branchTargets().isEmpty()) {
             // Only branch-limited vouchers bind which lines are discounted, so existing quotes keep their digest.
             canonical = canonical + "|lines=" + result.eligibleLines();
@@ -283,12 +360,7 @@ public final class RetailQuote {
                     + "|autoDiscount=" + result.autoDiscount()
                     + "|lineAuto=" + result.lineAutoDiscounts() + "|lineVoucher=" + result.lineVoucherDiscounts();
         }
-        try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
-                    .digest(canonical.getBytes(StandardCharsets.UTF_8)));
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 is not available", e);
-        }
+        return sha256(canonical);
     }
 
     private static BigInteger eligibleSubtotal(List<SourceLine> lines, Candidate candidate) {

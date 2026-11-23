@@ -1,5 +1,6 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.entity;
 
+import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.facade.PaymentOwnerKind;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.Instant;

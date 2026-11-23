@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router';
+import { useRole } from '../../../shared/auth/useRole';
 import { useT } from '../../../shared/i18n/I18nProvider';
 import {
   ConfirmDialog,
@@ -19,6 +20,8 @@ export default function ReviewDetailPage() {
   const t = useT(designReviewMessages);
   const api = useDesignReviewApi();
   const command = useCommand();
+  const role = useRole();
+  const isManager = role === 'MANAGER';
 
   const [decision, setDecision] = useState('ACCEPTED');
   const [reason, setReason] = useState('');
@@ -32,29 +35,82 @@ export default function ReviewDetailPage() {
   const [quoteHours, setQuoteHours] = useState('72');
   const [quoteReason, setQuoteReason] = useState('');
   const [quoteSuccess, setQuoteSuccess] = useState('');
+  const [quoteError, setQuoteError] = useState('');
+  const [quoteConfirmOpen, setQuoteConfirmOpen] = useState(false);
+  const [quoteSubmitted, setQuoteSubmitted] = useState(false);
+  const [quoteData, setQuoteData] = useState(null);
+  const [managerApproveConfirmOpen, setManagerApproveConfirmOpen] = useState(false);
 
   const { loading, error, data, reload, setData } = useResource(
     () => api.getDesignRequest(reviewRequestId),
     [reviewRequestId]
   );
 
-  async function handlePrepareQuote(e) {
+  useEffect(() => {
+    if (data?.quoteReference) {
+      api.getCustomDesignQuote?.(reviewRequestId)
+        .then(res => {
+          if (res) setQuoteData(res);
+        })
+        .catch(() => {});
+    }
+  }, [data?.quoteReference, reviewRequestId, api]);
+
+  function handleOpenQuoteConfirm(e) {
     e.preventDefault();
     if (!quoteAmount || Number(quoteAmount) <= 0) {
       setFormError('Tổng số tiền báo giá phải lớn hơn 0.');
       return;
     }
+    setFormError('');
+    setQuoteError('');
+    setQuoteConfirmOpen(true);
+  }
+
+  async function handleConfirmPrepareQuote() {
+    if (command.pending) return;
     await command.run(async () => {
-      const expiresAt = new Date(Date.now() + Number(quoteHours || 72) * 3600 * 1000).toISOString();
-      const res = await api.prepareCustomDesignQuote(reviewRequestId, {
-        totalAmount: quoteAmount,
-        currency: 'VND',
-        quoteExpiresAt: expiresAt,
-        managerReason: quoteReason,
-      });
-      setQuoteSuccess(`Đã tạo báo giá thành công (Mã: ${res.quoteReference}, Tổng tiền: ${Number(res.totalAmount).toLocaleString('vi-VN')} đ)`);
-      reload();
-      return res;
+      try {
+        const expiresAt = new Date(Date.now() + Number(quoteHours || 72) * 3600 * 1000).toISOString();
+        const res = await api.prepareCustomDesignQuote(reviewRequestId, {
+          totalAmount: quoteAmount,
+          currency: 'VND',
+          quoteExpiresAt: expiresAt,
+          managerReason: quoteReason,
+        });
+        setQuoteConfirmOpen(false);
+        setQuoteSubmitted(true);
+        setQuoteData(res);
+        setQuoteSuccess(`Gửi báo giá cho Quản lý (Manager) phê duyệt thành công! (Mã: ${res.quoteReference}, Tổng tiền: ${Number(res.totalAmount).toLocaleString('vi-VN')} đ)`);
+        setQuoteError('');
+        reload();
+        return res;
+      } catch (err) {
+        setQuoteConfirmOpen(false);
+        setQuoteError(err?.message || 'Gửi báo giá cho Quản lý thất bại. Vui lòng kiểm tra lại.');
+        throw err;
+      }
+    });
+  }
+
+  async function handleConfirmManagerApprove() {
+    if (command.pending) return;
+    await command.run(async () => {
+      try {
+        const res = await api.approveCustomDesignQuoteByRequestId(reviewRequestId, {
+          managerReason: 'Quản lý phê duyệt báo giá',
+        });
+        setManagerApproveConfirmOpen(false);
+        setQuoteData(res);
+        setQuoteSuccess(`Đã phê duyệt báo giá thành công! Đơn hàng đã chuyển sang trạng thái chờ Hội viên thanh toán 100%. (Mã: ${res.quoteReference})`);
+        setQuoteError('');
+        reload();
+        return res;
+      } catch (err) {
+        setManagerApproveConfirmOpen(false);
+        setQuoteError(err?.message || 'Phê duyệt báo giá thất bại. Vui lòng thử lại.');
+        throw err;
+      }
     });
   }
 
@@ -151,87 +207,163 @@ export default function ReviewDetailPage() {
       )}
 
       {/* Quote Preparation section for Accepted Member Requests */}
-      {isAccepted && (
-        <section className="card" style={{ marginBottom: '1.5rem', padding: '1.5rem', border: '1px solid #bfdbfe', borderRadius: '8px', background: '#eff6ff' }}>
-          <h3 style={{ marginTop: 0, color: '#1e40af', fontSize: '1.2rem', marginBottom: '0.5rem' }}>
-            Chuẩn bị Báo giá Gia công Tùy chỉnh (Custom Quote)
-          </h3>
-          <p style={{ fontSize: '0.9rem', color: '#3b82f6', marginBottom: '1rem' }}>
-            Nhân viên nhập thông tin báo giá 100% để Quản lý (Manager) thẩm định và phê duyệt trước khi chuyển cho Hội viên thanh toán.
-          </p>
+      {isAccepted && (() => {
+        const activeQuoteRef = quoteData?.quoteReference || data.quoteReference;
+        const hasQuote = Boolean(quoteSubmitted || activeQuoteRef);
+        const isQuoteApproved = Boolean(quoteData?.approvedByManager);
+        const quoteGen = quoteData?.quoteGeneration;
+        const displayAmount = quoteData?.totalAmount || quoteAmount;
+        const displayReason = quoteData?.managerReason || quoteReason;
+        const displayExpiry = quoteData?.expiresAt;
 
-          {quoteSuccess && (
-            <div className="alert-banner alert-banner-success" style={{ marginBottom: '1rem', backgroundColor: '#dcfce7', color: '#166534' }}>
-              <p>{quoteSuccess}</p>
-            </div>
-          )}
+        return (
+          <section className="card" style={{ marginBottom: '1.5rem', padding: '1.5rem', border: '1px solid #bfdbfe', borderRadius: '8px', background: '#eff6ff' }}>
+            <h3 style={{ marginTop: 0, color: '#1e40af', fontSize: '1.2rem', marginBottom: '0.5rem' }}>
+              Báo giá Gia công Tùy chỉnh (Custom Quote)
+            </h3>
+            <p style={{ fontSize: '0.9rem', color: '#3b82f6', marginBottom: '1rem' }}>
+              Nhân viên nhập thông tin báo giá 100% để Quản lý (Manager) thẩm định và phê duyệt trước khi chuyển cho Hội viên thanh toán.
+            </p>
 
-          {data.quoteReference && (
-            <div style={{ marginBottom: '1rem', padding: '0.75rem', background: '#ffffff', borderRadius: 6, border: '1px solid #dbeafe' }}>
-              <span style={{ fontSize: '0.85rem', color: '#64748b' }}>Mã báo giá hiện tại: </span>
-              <strong>{data.quoteReference}</strong>
-            </div>
-          )}
-
-          <form onSubmit={handlePrepareQuote} className="stack">
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
-              <div>
-                <label style={{ display: 'block', fontWeight: 600, fontSize: '0.875rem', marginBottom: '0.25rem' }}>
-                  Tổng tiền báo giá (VNĐ) *
-                </label>
-                <input
-                  type="number"
-                  min="1000"
-                  step="1000"
-                  value={quoteAmount}
-                  onChange={e => setQuoteAmount(e.target.value)}
-                  placeholder="Ví dụ: 15000000"
-                  required
-                  style={{ width: '100%', padding: '0.5rem', borderRadius: 6, border: '1px solid #cbd5e1' }}
-                />
+            {quoteError && (
+              <div className="alert-banner alert-banner-danger" style={{ marginBottom: '1rem', backgroundColor: '#fee2e2', color: '#991b1b', padding: '0.75rem 1rem', borderRadius: '6px', border: '1px solid #fca5a5' }}>
+                <p style={{ margin: 0 }}><strong>✕ Thất bại: </strong>{quoteError}</p>
               </div>
-              <div>
-                <label style={{ display: 'block', fontWeight: 600, fontSize: '0.875rem', marginBottom: '0.25rem' }}>
-                  Thời hạn thanh toán (Giờ)
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  max="720"
-                  value={quoteHours}
-                  onChange={e => setQuoteHours(e.target.value)}
-                  placeholder="72"
-                  style={{ width: '100%', padding: '0.5rem', borderRadius: 6, border: '1px solid #cbd5e1' }}
-                />
+            )}
+
+            {quoteSuccess && (
+              <div className="alert-banner alert-banner-success" style={{ marginBottom: '1rem', backgroundColor: '#dcfce7', color: '#166534', padding: '0.75rem 1rem', borderRadius: '6px', border: '1px solid #86efac' }}>
+                <p style={{ margin: 0 }}><strong>✓ Thành công: </strong>{quoteSuccess}</p>
               </div>
-            </div>
+            )}
 
-            <div style={{ marginTop: '0.75rem' }}>
-              <label style={{ display: 'block', fontWeight: 600, fontSize: '0.875rem', marginBottom: '0.25rem' }}>
-                Ghi chú / Căn cứ tính giá cho Manager:
-              </label>
-              <textarea
-                rows={2}
-                value={quoteReason}
-                onChange={e => setQuoteReason(e.target.value)}
-                placeholder="Ghi chú cơ cấu vật liệu, đá quý đính kèm, thời gian gia công dự kiến..."
-                style={{ width: '100%', padding: '0.5rem', borderRadius: 6, border: '1px solid #cbd5e1' }}
-              />
-            </div>
+            {hasQuote ? (
+              <div style={{ background: '#ffffff', borderRadius: 6, border: '1px solid #dbeafe', padding: '1rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  <div>
+                    <span style={{ fontSize: '0.85rem', color: '#64748b' }}>Mã báo giá: </span>
+                    <strong style={{ fontSize: '1.05rem', color: '#1e40af' }}>{activeQuoteRef}</strong>
+                    {quoteGen && <span className="muted small" style={{ marginLeft: '0.5rem' }}>(Lần #{quoteGen})</span>}
+                  </div>
+                  <div>
+                    <span className={`badge-tag ${isQuoteApproved ? 'badge-success' : 'badge-warning'}`}>
+                      {isQuoteApproved ? '✓ Quản lý đã duyệt' : '⏳ Chờ Quản lý (Manager) duyệt'}
+                    </span>
+                  </div>
+                </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
-              <button
-                type="submit"
-                className="button button-primary"
-                disabled={command.pending || !quoteAmount}
-                style={{ backgroundColor: '#1d4ed8', color: '#ffffff', padding: '0.5rem 1.25rem' }}
-              >
-                {command.pending ? 'Đang gửi...' : 'Gửi báo giá cho Manager duyệt'}
-              </button>
-            </div>
-          </form>
-        </section>
-      )}
+                {displayAmount && (
+                  <div style={{ margin: '0.5rem 0' }}>
+                    <span style={{ fontSize: '0.85rem', color: '#64748b', display: 'block' }}>Tổng tiền báo giá:</span>
+                    <span style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a' }}>
+                      {Number(displayAmount).toLocaleString('vi-VN')} đ
+                    </span>
+                  </div>
+                )}
+
+                {displayExpiry && (
+                  <div style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '0.5rem' }}>
+                    Hạn chót thanh toán: <strong>{new Date(displayExpiry).toLocaleString('vi-VN')}</strong>
+                  </div>
+                )}
+
+                {displayReason && (
+                  <div style={{ fontSize: '0.875rem', color: '#334155', background: '#f8fafc', padding: '0.5rem 0.75rem', borderRadius: 4, margin: '0.5rem 0' }}>
+                    <strong>Ghi chú / Căn cứ tính giá:</strong> {displayReason}
+                  </div>
+                )}
+
+                <p className="muted small" style={{ marginTop: '0.75rem', marginBottom: 0 }}>
+                  {isQuoteApproved
+                    ? 'Báo giá đã được Quản lý phê duyệt. Hội viên có thể vào xem và thanh toán toàn bộ 100% trong mục Đơn hàng cá nhân.'
+                    : 'Báo giá đã được gửi cho Quản lý phê duyệt. Nút gửi đã được ẩn để tránh gửi trùng lặp.'}
+                </p>
+
+                {isManager && !isQuoteApproved && (
+                  <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px dashed #cbd5e1' }}>
+                    <button
+                      type="button"
+                      className="button button-primary"
+                      onClick={() => setManagerApproveConfirmOpen(true)}
+                      disabled={command.pending}
+                      style={{ backgroundColor: '#16a34a', color: '#ffffff', padding: '0.5rem 1.25rem' }}
+                    >
+                      {command.pending ? 'Đang duyệt...' : 'Phê duyệt Báo giá (Manager Approve)'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <form onSubmit={handleOpenQuoteConfirm} className="stack">
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+                  <div>
+                    <label style={{ display: 'block', fontWeight: 600, fontSize: '0.875rem', marginBottom: '0.25rem' }}>
+                      Tổng tiền báo giá (VNĐ) *
+                    </label>
+                    <input
+                      type="number"
+                      min="1000"
+                      step="1000"
+                      value={quoteAmount}
+                      onChange={e => {
+                        setQuoteAmount(e.target.value);
+                        if (formError) setFormError('');
+                      }}
+                      placeholder="Ví dụ: 15000000"
+                      required
+                      style={{ width: '100%', padding: '0.5rem', borderRadius: 6, border: '1px solid #cbd5e1' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontWeight: 600, fontSize: '0.875rem', marginBottom: '0.25rem' }}>
+                      Thời hạn thanh toán (Giờ)
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="720"
+                      value={quoteHours}
+                      onChange={e => setQuoteHours(e.target.value)}
+                      placeholder="72"
+                      style={{ width: '100%', padding: '0.5rem', borderRadius: 6, border: '1px solid #cbd5e1' }}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ marginTop: '0.75rem' }}>
+                  <label style={{ display: 'block', fontWeight: 600, fontSize: '0.875rem', marginBottom: '0.25rem' }}>
+                    Ghi chú / Căn cứ tính giá cho Manager:
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={quoteReason}
+                    onChange={e => setQuoteReason(e.target.value)}
+                    placeholder="Ghi chú cơ cấu vật liệu, đá quý đính kèm, thời gian gia công dự kiến..."
+                    style={{ width: '100%', padding: '0.5rem', borderRadius: 6, border: '1px solid #cbd5e1' }}
+                  />
+                </div>
+
+                {formError && (
+                  <div style={{ color: '#dc2626', fontSize: '0.875rem', marginTop: '0.5rem' }}>
+                    {formError}
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
+                  <button
+                    type="submit"
+                    className="button button-primary"
+                    disabled={command.pending || !quoteAmount}
+                    style={{ backgroundColor: '#1d4ed8', color: '#ffffff', padding: '0.5rem 1.25rem' }}
+                  >
+                    {command.pending ? 'Đang gửi...' : 'Gửi báo giá cho Manager duyệt'}
+                  </button>
+                </div>
+              </form>
+            )}
+          </section>
+        );
+      })()}
 
       {/* Description */}
       {data.description && (
@@ -388,6 +520,41 @@ export default function ReviewDetailPage() {
       >
         <p>{t('reviewDetail.confirmMessage', { decision: decision === 'ACCEPTED' ? 'Chấp thuận' : 'Từ chối' })}</p>
         <p><strong>Lý do giải thích:</strong> <em>{reason}</em></p>
+      </ConfirmDialog>
+
+      {/* Quote Preparation Confirmation Dialog */}
+      <ConfirmDialog
+        open={quoteConfirmOpen}
+        title="Xác nhận gửi báo giá cho Quản lý"
+        confirmLabel={command.pending ? 'Đang gửi...' : 'Xác nhận gửi'}
+        onConfirm={handleConfirmPrepareQuote}
+        onCancel={() => { if (!command.pending) setQuoteConfirmOpen(false); }}
+        pending={command.pending}
+      >
+        <p>Bạn có chắc chắn muốn gửi báo giá này cho Quản lý (Manager) thẩm định và phê duyệt không?</p>
+        <div style={{ background: '#f8fafc', padding: '0.75rem', borderRadius: 6, margin: '0.75rem 0', border: '1px solid #e2e8f0', fontSize: '0.9rem' }}>
+          <div><strong>Tổng tiền báo giá:</strong> {Number(quoteAmount || 0).toLocaleString('vi-VN')} đ</div>
+          <div><strong>Thời hạn thanh toán:</strong> {quoteHours || 72} giờ</div>
+          {quoteReason && <div><strong>Ghi chú căn cứ:</strong> <em>{quoteReason}</em></div>}
+        </div>
+        <p className="muted small" style={{ margin: 0 }}>
+          Sau khi xác nhận gửi, báo giá sẽ chuyển sang Quản lý và nút gửi sẽ biến mất để tránh gửi trùng lặp.
+        </p>
+      </ConfirmDialog>
+
+      {/* Manager Approve Quote Dialog */}
+      <ConfirmDialog
+        open={managerApproveConfirmOpen}
+        title="Xác nhận phê duyệt báo giá"
+        confirmLabel={command.pending ? 'Đang phê duyệt...' : 'Phê duyệt báo giá'}
+        onConfirm={handleConfirmManagerApprove}
+        onCancel={() => { if (!command.pending) setManagerApproveConfirmOpen(false); }}
+        pending={command.pending}
+      >
+        <p>Bạn có chắc chắn muốn phê duyệt báo giá này không?</p>
+        <p className="muted small" style={{ margin: 0 }}>
+          Sau khi duyệt, đơn hàng sẽ chuyển sang trạng thái sẵn sàng để Hội viên thanh toán toàn bộ 100%.
+        </p>
       </ConfirmDialog>
     </div>
   );

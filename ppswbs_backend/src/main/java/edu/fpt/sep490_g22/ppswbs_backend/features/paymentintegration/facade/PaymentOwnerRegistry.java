@@ -1,6 +1,5 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.facade;
 
-import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.entity.PaymentOwnerKind;
 import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.entity.PaymentOwnerRegistration;
 import java.util.Optional;
 import edu.fpt.sep490_g22.ppswbs_backend.common.payment.PaymentOwnerRegistrationPort;
@@ -12,6 +11,9 @@ public interface PaymentOwnerRegistry extends PaymentOwnerRegistrationPort {
                                       long amountVnd, String currencyCode, String providerCreateDate);
     Optional<PaymentOwnerRegistration> resolve(String merchantReference);
     Optional<PaymentOwnerRegistration> lockOwner(String merchantReference);
+
+    void registerHandler(PaymentOwnerHandler handler);
+    Optional<PaymentOwnerHandler> findHandler(PaymentOwnerKind kind);
 
     @Override
     default void registerOwner(String merchantReference, String bookingReference, String paymentKind,

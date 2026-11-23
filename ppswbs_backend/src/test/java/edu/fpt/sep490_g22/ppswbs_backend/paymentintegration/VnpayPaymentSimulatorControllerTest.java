@@ -8,7 +8,7 @@ import static org.mockito.Mockito.when;
 
 import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.config.VnpayProperties;
 import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.controller.VnpayPaymentSimulatorController;
-import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.entity.PaymentOwnerKind;
+import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.facade.PaymentOwnerKind;
 import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.entity.PaymentOwnerRegistration;
 import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.facade.PaymentOwnerRegistry;
 import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.service.PaymentIngressService;
