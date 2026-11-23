@@ -8,12 +8,12 @@ This screen allows Managers to:
 - Choose whether the approved price is applied immediately or applied later through a separate action.
 - Reject the proposal with a reason, leaving the applied price unchanged.
 
-Approval does not publish or hide the product; publication remains a separate action.
+The same form is used on a row of the Prices to review tab and in the Price proposals section of Product Management Details. Approval does not publish or hide the product; publication remains a separate action.
 
 | Field Name | Description |
 | --- | --- |
-| Approved price (Giá duyệt (₫)) | Positive whole-VND amount, prefilled with the proposed amount; the Manager may change it. |
-| Apply immediately (Áp dụng giá ngay sau khi duyệt) | Checked by default; when cleared, the approved price waits for **Áp dụng giá đã duyệt**. |
-| Duyệt / Hủy | Records the approval with the Manager as decider, or closes the form without a decision. |
-| Rejection reason (Lý do từ chối) | Required text shown after **Từ chối**; it is recorded in the size's price history. |
-| Decision record | After a decision, the history shows the approved amount, the application state and the deciding Manager with the time. |
+| Approved price (₫) | Positive whole-VND amount, prefilled with the proposed amount; the Manager may change it. |
+| Apply the price right after approving | Ticked by default; when cleared, the approved price waits for **Apply approved price**. |
+| Approve / Cancel | Records the approval with the Manager as decider, or closes the form without a decision. |
+| Rejection reason | Required text shown after **Reject**; it is recorded in the size's price history and shown under the Rejected sub-filter of Prices to review. |
+| Decision record | After a decision, the price history shows the approved amount, the combined state and the deciding Manager with the time. |
