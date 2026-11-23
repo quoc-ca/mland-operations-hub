@@ -59,6 +59,38 @@ class RetailStackedDiscountTest {
     }
 
     @Test
+    void theCartGetsFe06sOwnShareOfEachLine() {
+        var preview = preview(BigInteger.valueOf(172_000), BigInteger.valueOf(100_000), BigInteger.valueOf(72_000),
+            List.of(line(0, 60_000, 0), line(1, 40_000, 72_000)));
+
+        var views = RetailCheckoutQuotePreviewService.cartLineDiscounts(identifiedCartLines(), preview);
+
+        // Not the proportional 103,200 / 68,800: the voucher covers only line B (BUG-INT-0002 note).
+        assertThat(views).extracting("cartLineId", "autoDiscountAmount", "voucherDiscountAmount")
+            .containsExactly(org.assertj.core.groups.Tuple.tuple("line-a", "60000", "0"),
+                org.assertj.core.groups.Tuple.tuple("line-b", "40000", "72000"));
+    }
+
+    @Test
+    void theCartGetsNoSharesWhenTheyDoNotAddUpOrPointOutsideTheSelection() {
+        var notAddingUp = preview(BigInteger.valueOf(172_000), BigInteger.valueOf(100_000), BigInteger.valueOf(72_000),
+            List.of(line(0, 60_000, 0), line(1, 40_000, 70_000)));
+        assertThat(RetailCheckoutQuotePreviewService.cartLineDiscounts(identifiedCartLines(), notAddingUp)).isEmpty();
+
+        var outside = preview(BigInteger.valueOf(172_000), BigInteger.valueOf(100_000), BigInteger.valueOf(72_000),
+            List.of(line(0, 60_000, 0), line(2, 40_000, 72_000)));
+        assertThat(RetailCheckoutQuotePreviewService.cartLineDiscounts(identifiedCartLines(), outside)).isEmpty();
+    }
+
+    private static List<CartLine> identifiedCartLines() {
+        CartLine a = mock(CartLine.class);
+        when(a.getId()).thenReturn("line-a");
+        CartLine b = mock(CartLine.class);
+        when(b.getId()).thenReturn("line-b");
+        return List.of(a, b);
+    }
+
+    @Test
     void aRequestedVoucherCountsOnlyWhenFe06AppliedThatCode() {
         var withVoucher = preview(BigInteger.valueOf(172_000), BigInteger.valueOf(100_000), BigInteger.valueOf(72_000), List.of());
         assertThat(RetailCheckoutQuotePreviewService.appliedCode(withVoucher, " vc20 ")).isTrue();
