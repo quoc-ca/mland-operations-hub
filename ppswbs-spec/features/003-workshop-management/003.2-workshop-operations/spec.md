@@ -97,6 +97,10 @@ assigned to that session** may …".
   remain global and see and operate every session. An Admin is the system
   administrator only and has no Workshop Operations business authority
   (decided 2026-11-15, owner decision Hồ Hoàng Quốc, CHK024; FR-012c).
+  *(Amended 2026-11-23, owner decision Hồ Hoàng Quốc: Admin may call the
+  read-only `GET /api/v1/workshop-locations` and receives every location, so the
+  account-management screens can assign Staff/Manager to a real location; every
+  other route and every write stays refused with `403`.)*
   *(Superseded 2026-11-15: "Manager and Admin remain global and see and operate
   every session in scope".)*
 - **Both checks are made at command time**: active account status, the session

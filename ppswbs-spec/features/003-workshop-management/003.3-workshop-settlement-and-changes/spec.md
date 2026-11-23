@@ -429,7 +429,7 @@ self-service (FR-018 and Scope); whole-booking Mland remedy (FR-020, FR-021).
   in-system in V1 (clarified 2026-11-15): when the key is replaced, every
   request still holding an encrypted number has that ciphertext deleted
   (keeping the mask), returns to `PENDING_ACCOUNT`, and a new account link is
-  sent to the payer; this is done by an Admin-only route (`POST /workshop-refund-account-key-replacements`, reason and Idempotency-Key required, one audit record per request, never returning or logging a number; clarified 2026-11-15) called after the key variable is replaced and the service restarted. *(decided 2026-11-15, checklist CHK021)* The replacement runs in one transaction per request and a rerun is idempotent: it touches only requests that still hold ciphertext; the earlier Manager approval of such a request no longer applies, so a Manager approves again after the new account is entered. Without a reply the request stays
+  sent to the payer; this is done by a Manager-only route (`POST /workshop-refund-account-key-replacements`; moved from Admin to Manager on 2026-11-23, owner decision Hồ Hoàng Quốc, superseding A10, reason and Idempotency-Key required, one audit record per request, never returning or logging a number; clarified 2026-11-15) called after the key variable is replaced and the service restarted. *(decided 2026-11-15, checklist CHK021)* The replacement runs in one transaction per request and a rerun is idempotent: it touches only requests that still hold ciphertext; the earlier Manager approval of such a request no longer applies, so a Manager approves again after the new account is entered. Without a reply the request stays
   `PENDING_ACCOUNT` with reminders on days 3 and 7; after 30 days a Manager may
   close it as `CLOSED_UNREACHABLE` with a reason and reopen it when the customer
   returns. The customer never loses the right to the refund. *(Decided 2026-11-16, R07)* A transfer returned late after `REFUNDED` is handled outside the system; no field is added and a transition from `REFUNDED` is refused with `409`. *(Decided 2026-11-16, A10)* The Admin-only key-replacement route runs a technical operation only and decides nothing about the business; every new approval is made by a Manager. *(Decided 2026-11-16, A11)* In V1 `REFUNDED` is the final state: money the bank returns late after `REFUNDED` is handled outside the system, a Manager writes a note, and the system changes no state.
@@ -1016,7 +1016,7 @@ spec. **Owner/Tech Lead: Hồ Hoàng Quốc.**
 - Q (A03): Does an audited Manager decision resolve a ticket of a Mland-cancelled session, and what about a ticket with no money? → A: The "audited Manager decision" resolution is removed from FR-043 and T167. A ticket with no money collected (`FREE` or deferred) is resolved when the buyer's answer or the default is recorded and its folio closes; no refund request is needed. T167 tests a three-ticket group with one `FREE` ticket: when Mland cancels the session, 003.2 `completeCancellation` is not stuck.
 - Q (A04): Does the FR-056 list include the online booking-time VNPay money? → A: Yes (option B, extended). The list adds method `BOOKING_TIME` (VNPay money paid when booking online), read through a new read-only 003.1 facade operation "list booking-time payments by day and location" that returns stored payment data and never calls VNPay. A row with a successful IPN shows the amount actually received and counts in the total. A row not yet verified (QueryDR not run or failed) shows the requested amount with the state "unverified" (`PENDING_VERIFICATION`) and does NOT count in the confirmed total. Example: online 6,000,000 VND plus counter 1,200,000 VND = 7,200,000 VND, which matches VNPay Merchant Admin (FR-056).
 - Q (A05, A36): What happens to a folio when the buyer cancels? → A: Option A. An `OPEN` folio closes at the amount collected, without debt; a `FINALIZED` folio stays `FINALIZED` (T157). D4 and FR-035 read "(except FR-043)" (FR-041).
-- Q (A10): Is the key replacement route Admin-only? → A: Yes, it stays Admin-only. FR-040 states that the Admin only runs a technical operation and decides nothing about the business; every new approval is made by a Manager.
+- Q (A10): Is the key replacement route Admin-only? → A: *(Superseded 2026-11-23, owner decision Hồ Hoàng Quốc: the route is Manager-only; Admin and Staff get `403`; the Manager runs it after the key variable is replaced and the service restarted. The earlier answer was "Admin-only technical operation".)*
 - Q (A11): What if the bank returns money after `REFUNDED`? → A: In V1 `REFUNDED` is the final state. A late return after `REFUNDED` is handled outside the system, a Manager writes a note, and the system changes no state (FR-040).
 - Q (A12): How is `branch_id` back-filled for existing transfer/VNPAY collections? → A: A one-off Java job calls the 003.1 facade `getTicketFolioContext` for each ticket; rows it cannot resolve stay NULL and are listed in the evidence; no SQL across modules (T133).
 - Q (A15): Does 003.3 need a separate approval file or design pack? → A: No (option B). The owner approved the work already done, and there is no `approval.md` or separate design pack; this exception is recorded in `plan.md`, which also gets short step-by-step workflows for T137, T146, T167 and T170.
@@ -2188,15 +2188,15 @@ T103 on MySQL):
   collection failure marking, extra change, cash-close difference confirmation,
   handover exception, debt record and close, reconciliation list, absorbed
   undercharge record and its void, and the Manager cash reversal of T144) answers
-  a Staff caller with `403` and records no change; the Admin-only refund-account
-  key-replacement route (T137) answers a Manager and a Staff caller with `403`.
+  a Staff caller with `403` and records no change; the Manager-only refund-account
+  key-replacement route (T137, moved to Manager 2026-11-23) answers an Admin and a Staff caller with `403`.
 - **SC-017** *(FR-040; checklist CHK038)*: a refund request in `PENDING_ACCOUNT`
   without a reply sends exactly one reminder on day 3 and one on day 7 and none
   once the account is entered; closing it as `CLOSED_UNREACHABLE` is refused
   before day 30 and allowed from day 30 for a Manager with a reason; reopening
   returns it to `PENDING_ACCOUNT` with a fresh link and leaves the customer's
   entitlement to the refund unchanged.
-- **SC-018** *(FR-040; decided 2026-11-16, R08)*: in 100% of tests a refund-account key replacement is Admin-only (Manager and Staff get `403`), deletes the ciphertext of every request still holding one while keeping the mask, returns each to `PENDING_ACCOUNT` with a revoked old link and a new link sent, writes one audit record per request and never logs a number; a rerun touches only requests still holding ciphertext.
+- **SC-018** *(FR-040; decided 2026-11-16, R08)*: in 100% of tests a refund-account key replacement is Manager-only (Admin and Staff get `403`; moved from Admin 2026-11-23), deletes the ciphertext of every request still holding one while keeping the mask, returns each to `PENDING_ACCOUNT` with a revoked old link and a new link sent, writes one audit record per request and never logs a number; a rerun touches only requests still holding ciphertext.
 - **SC-019** *(FR-036, FR-053; decided 2026-11-16, R08)*: in 100% of tests a Manager cash reversal is dated the current working day and never edits the closed day; `cashDayClosed` is true from the submission of the counted amount (both `PENDING_MANAGER_CONFIRMATION` and `CLOSED`); cash recorded after that submission belongs to the next working day.
 - **SC-020** *(FR-034; decided 2026-11-16, R08)*: in 100% of tests a `PENDING_VERIFICATION` VNPay part older than 24 hours with no successful QueryDR becomes `FAILED` with audit by `SYSTEM`; an inconclusive QueryDR does not fail it; money signed after `FAILED` is accepted in full and routed to an excess refund.
 
@@ -2278,7 +2278,7 @@ T103 on MySQL):
 | A07 | Voucher path replacement | T155 |
 | A08 | `proofReference` optional | contract and T-tasks for transfer proof |
 | A09 | 401/403 corrections | contracts (response codes) |
-| A10 | Admin key replacement | decided: Admin-only (FR-040), T137 |
+| A10 | Key replacement | decided: Manager-only (FR-040), T137; superseded 2026-11-23 (was Admin-only) |
 | A11 | `REFUNDED` final | decided: final in V1 (FR-040) |
 | A12 | Backfill | decided: one-off Java job via `getTicketFolioContext`, T133 |
 | A13 | Link idempotency table | data-model / contract |
