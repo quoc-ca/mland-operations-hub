@@ -1,5 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router';
+import { useT, useLanguage } from '../../../shared/i18n/I18nProvider';
+import { reviewManagementMessages } from '../messages';
 import { useResource, Loading, ErrorNotice } from '../../../shared/ui/components';
 import { useReviewManagementApi } from '../api/useReviewManagementApi';
 import { formatDateTime, formatStars } from '../rules';
@@ -18,6 +20,9 @@ const initialOf = name => {
  * Writing a review is not offered here: it starts from the customer's own bookings.
  */
 export default function PackageReviewSummary({ packageId, packageName, allPackages = false }) {
+  const t = useT(reviewManagementMessages);
+  const { language } = useLanguage();
+  const locale = language === 'en' ? 'en-US' : 'vi-VN';
   const api = useReviewManagementApi();
   const resource = useResource(
     () => (packageId || allPackages
@@ -38,17 +43,17 @@ export default function PackageReviewSummary({ packageId, packageName, allPackag
     <section className="pkg-reviews" aria-labelledby="package-review-title">
       <div className="pkg-reviews-head">
         <div>
-          <p className="eyebrow">{allPackages ? 'ĐÁNH GIÁ WORKSHOP' : 'ĐÁNH GIÁ CỦA GÓI'}</p>
+          <p className="eyebrow">{allPackages ? t('pkgEyebrowAll') : t('pkgEyebrowOne')}</p>
           <h2 id="package-review-title">
-            {allPackages ? 'Khách hàng nói gì về các workshop của MLAND' : `Khách hàng nói gì về ${packageName ? `gói “${packageName}”` : 'gói này'}`}
+            {allPackages ? t('pkgTitleAll') : (packageName ? t('pkgTitleNamed', { name: packageName }) : t('pkgTitleThis'))}
           </h2>
-          <p className="muted">{allPackages ? 'Đánh giá do khách đã tham dự các buổi workshop viết.' : 'Đánh giá do khách đã tham dự các buổi của gói này viết.'}</p>
+          <p className="muted">{allPackages ? t('pkgSubAll') : t('pkgSubOne')}</p>
         </div>
-        <div className="pkg-reviews-score" aria-label="Tổng hợp đánh giá">
+        <div className="pkg-reviews-score" aria-label={t('pkgAggregateLabel')}>
           <div className="pkg-reviews-score-number">{average.toFixed(1)}<small> / 5</small></div>
           <div className="pkg-reviews-score-meta">
             <span className="review-stars" aria-hidden="true">{formatStars(Math.round(average) || 0)}</span>
-            <span>{count} đánh giá công khai</span>
+            <span>{t('publicCount', { count })}</span>
           </div>
         </div>
       </div>
@@ -57,7 +62,7 @@ export default function PackageReviewSummary({ packageId, packageName, allPackag
       <ErrorNotice error={resource.error} messages={{ vi: {}, en: {} }} onReload={resource.reload} />
 
       {!resource.loading && !resource.error && reviews.length === 0 && (
-        <div className="pkg-reviews-empty">{allPackages ? 'Chưa có đánh giá công khai nào.' : 'Gói này chưa có đánh giá công khai.'}</div>
+        <div className="pkg-reviews-empty">{allPackages ? t('pkgEmptyAll') : t('pkgEmptyOne')}</div>
       )}
 
       {!resource.loading && !resource.error && reviews.length > 0 && (
@@ -67,11 +72,11 @@ export default function PackageReviewSummary({ packageId, packageName, allPackag
               <div className="pkg-review-top">
                 <div className="pkg-review-avatar" aria-hidden="true">{initialOf(review.maskedDisplayName)}</div>
                 <div className="pkg-review-who">
-                  <strong>{review.maskedDisplayName || 'Khách hàng Mland'}</strong>
-                  <span>{formatDateTime(review.createdAt)}</span>
+                  <strong>{review.maskedDisplayName || t('defaultReviewer')}</strong>
+                  <span>{formatDateTime(review.createdAt, locale)}</span>
                 </div>
               </div>
-              <div className="review-stars" aria-label={`${review.rating} / 5 sao`}>{formatStars(review.rating)}</div>
+              <div className="review-stars" aria-label={t('starsLabel', { rating: review.rating })}>{formatStars(review.rating)}</div>
               {review.bodyText && <p className="pkg-review-text">{review.bodyText}</p>}
               {allPackages && review.packageName && <span className="pkg-review-package">{review.packageName}</span>}
             </article>
@@ -82,7 +87,7 @@ export default function PackageReviewSummary({ packageId, packageName, allPackag
       {count > reviews.length && (
         <p className="pkg-reviews-more">
           <Link className="button outline" to={allPackages ? '/reviews' : `/reviews?packageId=${encodeURIComponent(packageId)}`}>
-            {allPackages ? `Xem tất cả ${count} đánh giá` : `Xem tất cả ${count} đánh giá của gói`}
+            {allPackages ? t('viewAllReviews', { count }) : t('viewAllPackageReviews', { count })}
           </Link>
         </p>
       )}

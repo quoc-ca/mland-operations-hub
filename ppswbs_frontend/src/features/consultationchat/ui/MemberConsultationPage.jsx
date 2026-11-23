@@ -2,13 +2,15 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router';
 import { useConsultationChatApi } from '../api/useConsultationChatApi';
 import { consultationMessages } from '../messages';
+import { useT, useLanguage } from '../../../shared/i18n/I18nProvider';
 import { validateMessageText, countCodePoints, MAX_MESSAGE_LENGTH, POLLING_INTERVAL_MS } from '../domain/chatRules';
 import { ContextSelectorModal } from './ContextSelectorModal';
 import { newCommandId } from '../../../shared/api/http';
 import '../consultation-chat.css';
 
-export function MemberConsultationPage({ lang = 'vi' }) {
-  const t = consultationMessages[lang] || consultationMessages.vi;
+export function MemberConsultationPage() {
+  const t = useT(consultationMessages);
+  const { language } = useLanguage();
   const api = useConsultationChatApi();
 
   const [searchParams] = useSearchParams();
@@ -57,12 +59,12 @@ export function MemberConsultationPage({ lang = 'vi' }) {
       setHasMore(Boolean(res?.hasMore));
       setSelectedRef((prev) => prev || (items.length > 0 ? items[0].conversationReference : null));
     } catch (err) {
-      if (!silent) setError(err.message || t.errorGeneral);
+      if (!silent) setError(err.message || t('errorGeneral'));
     } finally {
       if (!silent) setLoadingList(false);
       if (append) setLoadingMore(false);
     }
-  }, [t.errorGeneral]);
+  }, [t]);
 
   // Fetch conversation detail
   const loadDetail = useCallback(async (convRef, silent = false) => {
@@ -79,11 +81,11 @@ export function MemberConsultationPage({ lang = 'vi' }) {
         apiRef.current.recordRead(convRef, { messageReference: lastMsg.messageReference }).catch(() => {});
       }
     } catch (err) {
-      if (!silent) setError(err.message || t.errorGeneral);
+      if (!silent) setError(err.message || t('errorGeneral'));
     } finally {
       if (!silent) setLoadingDetail(false);
     }
-  }, [t.errorGeneral]);
+  }, [t]);
 
   // Initial load
   useEffect(() => {
@@ -114,11 +116,11 @@ export function MemberConsultationPage({ lang = 'vi' }) {
           setConversations((prev) => [newConv, ...prev]);
           setSelectedRef(newConv.conversationReference);
         } catch (err) {
-          setError(err.message || t.errorGeneral);
+          setError(err.message || t('errorGeneral'));
         }
       })();
     }
-  }, [designRefParam, designVersionParam, conversations, loadingList, api, t.errorGeneral]);
+  }, [designRefParam, designVersionParam, conversations, loadingList, api, t]);
 
   // Load detail when selectedRef changes
   useEffect(() => {
@@ -166,11 +168,11 @@ export function MemberConsultationPage({ lang = 'vi' }) {
     if (!activeConversation || !messageInput.trim()) return;
 
     if (activeConversation.status === 'CLOSED') {
-      setError(t.chatClosedWarning);
+      setError(t('chatClosedWarning'));
       return;
     }
 
-    const valErr = validateMessageText(messageInput);
+    const valErr = validateMessageText(messageInput, t);
     if (valErr) {
       setError(valErr);
       return;
@@ -189,9 +191,9 @@ export function MemberConsultationPage({ lang = 'vi' }) {
       if (err.status === 429 || err.code === 'CHAT_RATE_LIMITED') {
         const retryAfter = err.retryAfterSeconds || 60;
         setRateLimitSeconds(retryAfter);
-        setError(t.rateLimitWarning.replace('{seconds}', String(retryAfter)));
+        setError(t('rateLimitWarning', { seconds: retryAfter }));
       } else {
-        setError(err.message || t.errorGeneral);
+        setError(err.message || t('errorGeneral'));
       }
     } finally {
       setSending(false);
@@ -200,27 +202,27 @@ export function MemberConsultationPage({ lang = 'vi' }) {
 
   // Close conversation
   const handleClose = async () => {
-    if (!activeConversation || !window.confirm(t.closeConfirm)) return;
+    if (!activeConversation || !window.confirm(t('closeConfirm'))) return;
     try {
       const key = newCommandId();
       const updated = await api.close(key, activeConversation.aggregateVersion, activeConversation.conversationReference);
       setActiveConversation((prev) => ({ ...prev, ...updated }));
       loadConversations(true);
     } catch (err) {
-      setError(err.message || t.errorGeneral);
+      setError(err.message || t('errorGeneral'));
     }
   };
 
   // Reopen conversation
   const handleReopen = async () => {
-    if (!activeConversation || !window.confirm(t.reopenConfirm)) return;
+    if (!activeConversation || !window.confirm(t('reopenConfirm'))) return;
     try {
       const key = newCommandId();
       const updated = await api.reopen(key, activeConversation.aggregateVersion, activeConversation.conversationReference);
       setActiveConversation((prev) => ({ ...prev, ...updated }));
       loadConversations(true);
     } catch (err) {
-      setError(err.message || t.errorGeneral);
+      setError(err.message || t('errorGeneral'));
     }
   };
 
@@ -232,10 +234,10 @@ export function MemberConsultationPage({ lang = 'vi' }) {
   const handleHide = async () => {
     if (!activeConversation) return;
     if (activeConversation.status !== 'CLOSED') {
-      setError(t.deleteRequiresClosed);
+      setError(t('deleteRequiresClosed'));
       return;
     }
-    if (!window.confirm(t.deleteChatConfirm)) return;
+    if (!window.confirm(t('deleteChatConfirm'))) return;
     try {
       await api.hideForMember(newCommandId(), activeConversation.aggregateVersion, activeConversation.conversationReference);
       setConversations((prev) => prev.filter((item) => item.conversationReference !== activeConversation.conversationReference));
@@ -243,7 +245,7 @@ export function MemberConsultationPage({ lang = 'vi' }) {
       setActiveConversation(null);
       setError(null);
     } catch (err) {
-      setError(err.code === 'CHAT_DELETE_REQUIRES_CLOSED' ? t.deleteRequiresClosed : (err.message || t.errorGeneral));
+      setError(err.code === 'CHAT_DELETE_REQUIRES_CLOSED' ? t('deleteRequiresClosed') : (err.message || t('errorGeneral')));
     }
   };
 
@@ -255,32 +257,32 @@ export function MemberConsultationPage({ lang = 'vi' }) {
       {/* Sidebar */}
       <div className="consultation-sidebar">
         <div className="consultation-sidebar-header">
-          <h2 className="consultation-sidebar-title">{t.title}</h2>
+          <h2 className="consultation-sidebar-title">{t('title')}</h2>
           <button
             type="button"
             className="btn-primary-consultation"
             onClick={() => setIsModalOpen(true)}
             style={{ fontSize: '0.85rem', padding: '0.4rem 0.8rem' }}
           >
-            + {t.newConsultation}
+            + {t('newConsultation')}
           </button>
         </div>
 
         <ul className="consultation-items-list">
           {loadingList && conversations.length === 0 ? (
             <li style={{ padding: '2rem', textAlign: 'center', color: '#888' }}>
-              Đang tải danh sách...
+              {t('loadingList')}
             </li>
           ) : conversations.length === 0 ? (
             <li style={{ padding: '2rem', textAlign: 'center', color: '#888' }}>
-              {t.noConversations}
+              {t('noConversations')}
             </li>
           ) : (
             conversations.map((conv) => {
               const isActive = selectedRef === conv.conversationReference;
               const snapshot = conv.contextSnapshot;
               const code = snapshot?.displayCode || conv.conversationReference;
-              const name = snapshot?.displayName || 'Thiết kế';
+              const name = snapshot?.displayName || t('defaultDesignName');
 
               return (
                 <li
@@ -291,19 +293,19 @@ export function MemberConsultationPage({ lang = 'vi' }) {
                   <div className="consultation-item-header">
                     <span className="consultation-item-code">{code}</span>
                     <span className={`consultation-status-badge ${conv.status?.toLowerCase()}`}>
-                      {conv.status === 'OPEN' ? t.statusOpen : t.statusClosed}
+                      {conv.status === 'OPEN' ? t('statusOpen') : t('statusClosed')}
                     </span>
                   </div>
                   <div className="consultation-item-name">{name}</div>
                   <div className="consultation-item-meta">
                     <span>
                       {conv.assignedLocationReference
-                        ? `${t.assignedBranch}: ${conv.assignedLocationReference}`
-                        : t.unassignedBranch}
+                        ? `${t('assignedBranch')}: ${conv.assignedLocationReference}`
+                        : t('unassignedBranch')}
                     </span>
                     {conv.unreadCount > 0 && (
                       <span className="consultation-unread-badge">
-                        {t.unreadBadge.replace('{count}', String(conv.unreadCount))}
+                        {t('unreadBadge', { count: conv.unreadCount })}
                       </span>
                     )}
                   </div>
@@ -314,7 +316,7 @@ export function MemberConsultationPage({ lang = 'vi' }) {
         </ul>
         {hasMore && (
           <button type="button" className="btn-secondary-consultation" onClick={() => loadConversations(false, true)} disabled={loadingMore}>
-            {loadingMore ? '...' : t.loadMore}
+            {loadingMore ? '...' : t('loadMore')}
           </button>
         )}
       </div>
@@ -324,7 +326,7 @@ export function MemberConsultationPage({ lang = 'vi' }) {
         {!activeConversation ? (
           <div className="consultation-empty-state">
             <div style={{ fontSize: '3rem' }}>💬</div>
-            <p>{t.noConversations}</p>
+            <p>{t('noConversations')}</p>
           </div>
         ) : (
           <>
@@ -335,7 +337,7 @@ export function MemberConsultationPage({ lang = 'vi' }) {
                   {activeConversation.contextSnapshot?.preview?.imageUrl ? (
                     <img
                       src={activeConversation.contextSnapshot.preview.imageUrl}
-                      alt="Preview"
+                      alt={t('previewAlt')}
                       style={{ width: '100%', height: '100%', borderRadius: '6px', objectFit: 'cover' }}
                     />
                   ) : (
@@ -345,7 +347,7 @@ export function MemberConsultationPage({ lang = 'vi' }) {
                   )}
                 </div>
                 <div className="consultation-context-details">
-                  <h3>{activeConversation.contextSnapshot?.displayName || t.generalConsultation || 'Tư vấn chung'}</h3>
+                  <h3>{activeConversation.contextSnapshot?.displayName || t('generalConsultation')}</h3>
                   <div className="consultation-context-tags">
                     {activeConversation.contextSnapshot?.displayCode && (
                       <span className="consultation-context-tag">
@@ -358,7 +360,7 @@ export function MemberConsultationPage({ lang = 'vi' }) {
                       </span>
                     )}
                     <span className="consultation-context-tag">
-                      {activeConversation.assignedLocationReference || t.unassignedBranch}
+                      {activeConversation.assignedLocationReference || t('unassignedBranch')}
                     </span>
                   </div>
                 </div>
@@ -366,7 +368,7 @@ export function MemberConsultationPage({ lang = 'vi' }) {
 
               <div className="consultation-actions">
                 <span className={`consultation-status-badge ${activeConversation.status?.toLowerCase()}`}>
-                  {activeConversation.status === 'OPEN' ? t.statusOpen : t.statusClosed}
+                  {activeConversation.status === 'OPEN' ? t('statusOpen') : t('statusClosed')}
                 </span>
                 {activeConversation.status === 'OPEN' ? (
                   <button
@@ -374,7 +376,7 @@ export function MemberConsultationPage({ lang = 'vi' }) {
                     className="btn-secondary-consultation"
                     onClick={handleClose}
                   >
-                    {t.close}
+                    {t('close')}
                   </button>
                 ) : (
                   <button
@@ -382,7 +384,7 @@ export function MemberConsultationPage({ lang = 'vi' }) {
                     className="btn-secondary-consultation"
                     onClick={handleReopen}
                   >
-                    {t.reopen}
+                    {t('reopen')}
                   </button>
                 )}
                 {isClosed && (
@@ -391,7 +393,7 @@ export function MemberConsultationPage({ lang = 'vi' }) {
                     className="btn-secondary-consultation btn-danger-consultation"
                     onClick={handleHide}
                   >
-                    {t.deleteChat}
+                    {t('deleteChat')}
                   </button>
                 )}
               </div>
@@ -403,20 +405,20 @@ export function MemberConsultationPage({ lang = 'vi' }) {
             <div className="consultation-messages-thread">
               {loadingDetail && !activeConversation.messages ? (
                 <div style={{ textAlign: 'center', color: '#888', padding: '2rem' }}>
-                  Đang tải nội dung...
+                  {t('loadingDetail')}
                 </div>
               ) : activeConversation.messages?.length === 0 ? (
                 <div style={{ textAlign: 'center', color: '#888', padding: '3rem' }}>
-                  {t.noMessagesYet}
+                  {t('noMessagesYet')}
                 </div>
               ) : (
                 activeConversation.messages?.map((msg, idx) => {
                   const roleClass = msg.senderRole?.toLowerCase() || 'member';
                   const roleName = msg.senderRole === 'MEMBER'
-                    ? t.senderMember
-                    : (msg.senderRole === 'MANAGER' ? t.senderManager : t.senderStaff);
+                    ? t('senderMember')
+                    : (msg.senderRole === 'MANAGER' ? t('senderManager') : t('senderStaff'));
                   const timeStr = msg.createdAt
-                    ? new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                    ? new Date(msg.createdAt).toLocaleTimeString(language === 'en' ? 'en-US' : 'vi-VN', { hour: '2-digit', minute: '2-digit' })
                     : '';
 
                   return (
@@ -439,13 +441,13 @@ export function MemberConsultationPage({ lang = 'vi' }) {
             <form className="consultation-composer" onSubmit={handleSendMessage}>
               {isClosed ? (
                 <div className="consultation-alert warning" style={{ margin: 0 }}>
-                  {t.chatClosedWarning}
+                  {t('chatClosedWarning')}
                 </div>
               ) : (
                 <>
                   <textarea
                     className="consultation-textarea"
-                    placeholder={t.typeMessagePlaceholder}
+                    placeholder={t('typeMessagePlaceholder')}
                     value={messageInput}
                     onChange={(e) => setMessageInput(e.target.value)}
                     onKeyDown={(e) => {
@@ -463,14 +465,14 @@ export function MemberConsultationPage({ lang = 'vi' }) {
                         currentCount > 1900 ? (currentCount > 2000 ? 'limit-exceeded' : 'limit-near') : ''
                       }`}
                     >
-                      {t.charCount.replace('{count}', String(currentCount))}
+                      {t('charCount', { count: currentCount })}
                     </span>
                     <button
                       type="submit"
                       className="btn-primary-consultation"
                       disabled={sending || !messageInput.trim() || currentCount > 2000 || rateLimitSeconds !== null}
                     >
-                      {sending ? 'Đang gửi...' : t.send}
+                      {sending ? t('sending') : t('send')}
                     </button>
                   </div>
                 </>
@@ -485,7 +487,6 @@ export function MemberConsultationPage({ lang = 'vi' }) {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onCreated={handleCreated}
-        lang={lang}
       />
     </div>
   );

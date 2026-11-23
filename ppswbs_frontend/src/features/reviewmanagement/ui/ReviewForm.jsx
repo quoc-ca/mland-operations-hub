@@ -63,7 +63,7 @@ export default function ReviewForm({ source, handle, existing, onSaved }) {
         setImages(prev => [...prev, ...newImages]);
       })
       .catch(() => {
-        setClientError('Không thể đọc tệp hình ảnh.');
+        setClientError(t('imageReadError'));
       })
       .finally(() => {
         event.target.value = '';

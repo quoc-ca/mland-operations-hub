@@ -1,4 +1,6 @@
 import React from 'react';
+import { useT } from '../../../shared/i18n/I18nProvider';
+import { reviewManagementMessages } from '../messages';
 import { useResource, Loading, ErrorNotice } from '../../../shared/ui/components';
 import { useReviewManagementApi } from '../api/useReviewManagementApi';
 
@@ -12,6 +14,7 @@ export default function WorkshopReviewSummary({
   reviewEligibility = false,
   onReview,
 }) {
+  const t = useT(reviewManagementMessages);
   const api = useReviewManagementApi();
   const resource = useResource(
     () => targetReference
@@ -33,13 +36,13 @@ export default function WorkshopReviewSummary({
     <section className="workshop-review-summary" aria-labelledby="workshop-review-title">
       <div className="workshop-review-heading">
         <div>
-          <p className="eyebrow">WORKSHOP REVIEW · ĐÁNH GIÁ WORKSHOP</p>
-          <h2 id="workshop-review-title">Khách hàng nói gì về buổi workshop</h2>
-          <p className="muted">Review được tính theo workshop session. Chi nhánh chỉ là thông tin ngữ cảnh.</p>
+          <p className="eyebrow">{t('wsEyebrow')}</p>
+          <h2 id="workshop-review-title">{t('wsTitle')}</h2>
+          <p className="muted">{t('wsNote')}</p>
         </div>
-        <div className="workshop-review-aggregate" aria-label="Workshop review aggregate">
+        <div className="workshop-review-aggregate" aria-label={t('wsAggregateLabel')}>
           <strong>{Number(aggregate.averageRating || 0).toFixed(1)} / 5</strong>
-          <span>{Number(aggregate.count || 0)} review công khai</span>
+          <span>{t('wsCount', { count: Number(aggregate.count || 0) })}</span>
         </div>
       </div>
 
@@ -51,18 +54,18 @@ export default function WorkshopReviewSummary({
       />
 
       {!resource.loading && !resource.error && reviews.length === 0 && (
-        <div className="workshop-review-empty">Chưa có review công khai cho buổi workshop này.</div>
+        <div className="workshop-review-empty">{t('wsEmpty')}</div>
       )}
 
       {!resource.loading && !resource.error && reviews.length > 0 && (
         <div className="workshop-review-grid">
           {reviews.map(review => (
             <article className="workshop-review-card" key={review.id}>
-              <div className="review-stars" aria-label={`${review.rating} / 5 stars`}>
+              <div className="review-stars" aria-label={t('starsLabel', { rating: review.rating })}>
                 {'★'.repeat(Math.max(0, Math.min(5, Number(review.rating) || 0)))}
               </div>
               {review.bodyText && <p>{review.bodyText}</p>}
-              <strong>{review.maskedDisplayName || 'Khách hàng Mland'}</strong>
+              <strong>{review.maskedDisplayName || t('defaultReviewer')}</strong>
             </article>
           ))}
         </div>
@@ -75,7 +78,7 @@ export default function WorkshopReviewSummary({
         aria-disabled={!reviewEligibility}
         onClick={onReview}
       >
-        {reviewEligibility ? 'Review workshop · Đánh giá ngay' : 'Available after attendance · Sau khi tham gia'}
+        {reviewEligibility ? t('wsCtaEligible') : t('wsCtaLocked')}
       </button>
     </section>
   );

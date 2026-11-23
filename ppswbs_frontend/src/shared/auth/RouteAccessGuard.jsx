@@ -1,7 +1,9 @@
 import React from 'react';
 import { Navigate, Outlet } from 'react-router';
 import { useCurrentAccount } from '../../features/accountmanagement/hooks/useCurrentAccount';
+import { useT } from '../i18n/I18nProvider';
 import { Loading } from '../ui/components';
+import { sharedMessages } from '../ui/messages';
 
 /**
  * RouteAccessGuard (FR-046 / R-404 / route-access-matrix.md / T074).
@@ -16,6 +18,7 @@ import { Loading } from '../ui/components';
  * - allowed: renders children or <Outlet />.
  */
 export function RouteAccessGuard({ allowedRoles, children }) {
+  const t = useT(sharedMessages);
   const { account, status, retry, reloadAccount } = useCurrentAccount();
 
   if (status === 'loading') {
@@ -33,7 +36,7 @@ export function RouteAccessGuard({ allowedRoles, children }) {
   if (status === 'error' || !account) {
     return (
       <div className="empty-state session-unavailable-state" role="status">
-        <p>Không thể kết nối hoặc xác thực thông tin tài khoản. Vui lòng thử lại.</p>
+        <p>{t('session.authUnavailable')}</p>
         <button
           type="button"
           className="button secondary account-btn-retry"
@@ -45,7 +48,7 @@ export function RouteAccessGuard({ allowedRoles, children }) {
             }
           }}
         >
-          Thử lại
+          {t('retry')}
         </button>
       </div>
     );

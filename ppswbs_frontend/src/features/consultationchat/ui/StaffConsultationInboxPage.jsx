@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useConsultationChatApi } from '../api/useConsultationChatApi';
 import { consultationMessages } from '../messages';
+import { useT, useLanguage } from '../../../shared/i18n/I18nProvider';
 import { validateMessageText, countCodePoints, MAX_MESSAGE_LENGTH, POLLING_INTERVAL_MS } from '../domain/chatRules';
 import { newCommandId } from '../../../shared/api/http';
 import { useRole } from '../../../shared/auth/useRole';
 import '../consultation-chat.css';
 
-export function StaffConsultationInboxPage({ lang = 'vi', currentUser = {} }) {
-  const t = consultationMessages[lang] || consultationMessages.vi;
+export function StaffConsultationInboxPage({ currentUser = {} }) {
+  const t = useT(consultationMessages);
+  const { language } = useLanguage();
   const api = useConsultationChatApi();
   const userRole = useRole();
   const isManager = (currentUser?.role || userRole) === 'MANAGER';
@@ -63,12 +65,12 @@ export function StaffConsultationInboxPage({ lang = 'vi', currentUser = {} }) {
       setHasMore(Boolean(res?.hasMore));
       setSelectedRef((prev) => prev || (items.length > 0 ? items[0].conversationReference : null));
     } catch (err) {
-      if (!silent) setError(err.message || t.errorGeneral);
+      if (!silent) setError(err.message || t('errorGeneral'));
     } finally {
       if (!silent) setLoadingList(false);
       if (append) setLoadingMore(false);
     }
-  }, [t.errorGeneral]);
+  }, [t]);
 
   const loadDetail = useCallback(async (convRef, silent = false) => {
     if (!convRef) return;
@@ -83,11 +85,11 @@ export function StaffConsultationInboxPage({ lang = 'vi', currentUser = {} }) {
         apiRef.current.recordRead(convRef, { messageReference: lastMsg.messageReference }).catch(() => {});
       }
     } catch (err) {
-      if (!silent) setError(err.message || t.errorGeneral);
+      if (!silent) setError(err.message || t('errorGeneral'));
     } finally {
       if (!silent) setLoadingDetail(false);
     }
-  }, [t.errorGeneral]);
+  }, [t]);
 
   useEffect(() => {
     loadConversations();
@@ -129,11 +131,11 @@ export function StaffConsultationInboxPage({ lang = 'vi', currentUser = {} }) {
     if (!activeConversation || !messageInput.trim()) return;
 
     if (activeConversation.status === 'CLOSED') {
-      setError(t.chatClosedWarning);
+      setError(t('chatClosedWarning'));
       return;
     }
 
-    const valErr = validateMessageText(messageInput);
+    const valErr = validateMessageText(messageInput, t);
     if (valErr) {
       setError(valErr);
       return;
@@ -150,7 +152,7 @@ export function StaffConsultationInboxPage({ lang = 'vi', currentUser = {} }) {
       loadDetail(activeConversation.conversationReference, true);
       loadConversations(true);
     } catch (err) {
-      setError(err.message || t.errorGeneral);
+      setError(err.message || t('errorGeneral'));
     } finally {
       setSending(false);
     }
@@ -164,10 +166,10 @@ export function StaffConsultationInboxPage({ lang = 'vi', currentUser = {} }) {
       const key = newCommandId();
       const updated = await api.claim(key, activeConversation.aggregateVersion, activeConversation.conversationReference);
       setActiveConversation((prev) => ({ ...prev, ...updated }));
-      setActionSuccess(t.claimSuccess);
+      setActionSuccess(t('claimSuccess'));
       loadConversations(true);
     } catch (err) {
-      setError(err.message || t.errorGeneral);
+      setError(err.message || t('errorGeneral'));
     }
   };
 
@@ -179,10 +181,10 @@ export function StaffConsultationInboxPage({ lang = 'vi', currentUser = {} }) {
       const key = newCommandId();
       const updated = await api.release(key, activeConversation.aggregateVersion, activeConversation.conversationReference);
       setActiveConversation((prev) => ({ ...prev, ...updated }));
-      setActionSuccess(t.releaseSuccess);
+      setActionSuccess(t('releaseSuccess'));
       loadConversations(true);
     } catch (err) {
-      setError(err.message || t.errorGeneral);
+      setError(err.message || t('errorGeneral'));
     }
   };
 
@@ -202,10 +204,10 @@ export function StaffConsultationInboxPage({ lang = 'vi', currentUser = {} }) {
       );
       setActiveConversation((prev) => ({ ...prev, ...updated }));
       setIsAssignModalOpen(false);
-      setActionSuccess(t.assignSuccess);
+      setActionSuccess(t('assignSuccess'));
       loadConversations(true);
     } catch (err) {
-      setError(err.message || t.errorGeneral);
+      setError(err.message || t('errorGeneral'));
     } finally {
       setAssigning(false);
     }
@@ -213,27 +215,27 @@ export function StaffConsultationInboxPage({ lang = 'vi', currentUser = {} }) {
 
   // Close conversation
   const handleClose = async () => {
-    if (!activeConversation || !window.confirm(t.closeConfirm)) return;
+    if (!activeConversation || !window.confirm(t('closeConfirm'))) return;
     try {
       const key = newCommandId();
       const updated = await api.close(key, activeConversation.aggregateVersion, activeConversation.conversationReference);
       setActiveConversation((prev) => ({ ...prev, ...updated }));
       loadConversations(true);
     } catch (err) {
-      setError(err.message || t.errorGeneral);
+      setError(err.message || t('errorGeneral'));
     }
   };
 
   // Reopen conversation
   const handleReopen = async () => {
-    if (!activeConversation || !window.confirm(t.reopenConfirm)) return;
+    if (!activeConversation || !window.confirm(t('reopenConfirm'))) return;
     try {
       const key = newCommandId();
       const updated = await api.reopen(key, activeConversation.aggregateVersion, activeConversation.conversationReference);
       setActiveConversation((prev) => ({ ...prev, ...updated }));
       loadConversations(true);
     } catch (err) {
-      setError(err.message || t.errorGeneral);
+      setError(err.message || t('errorGeneral'));
     }
   };
 
@@ -249,7 +251,7 @@ export function StaffConsultationInboxPage({ lang = 'vi', currentUser = {} }) {
       {/* Sidebar */}
       <div className="consultation-sidebar">
         <div className="consultation-sidebar-header">
-          <h2 className="consultation-sidebar-title">{t.inboxTitle}</h2>
+          <h2 className="consultation-sidebar-title">{t('inboxTitle')}</h2>
         </div>
 
         <div className="consultation-filter-bar">
@@ -258,27 +260,27 @@ export function StaffConsultationInboxPage({ lang = 'vi', currentUser = {} }) {
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
           >
-            <option value="">{t.allStatuses}</option>
-            <option value="OPEN">{t.filterOpen}</option>
-            <option value="CLOSED">{t.filterClosed}</option>
+            <option value="">{t('allStatuses')}</option>
+            <option value="OPEN">{t('filterOpen')}</option>
+            <option value="CLOSED">{t('filterClosed')}</option>
           </select>
         </div>
 
         <ul className="consultation-items-list">
           {loadingList && conversations.length === 0 ? (
             <li style={{ padding: '2rem', textAlign: 'center', color: '#888' }}>
-              Đang tải danh sách...
+              {t('loadingList')}
             </li>
           ) : conversations.length === 0 ? (
             <li style={{ padding: '2rem', textAlign: 'center', color: '#888' }}>
-              {t.noConversations}
+              {t('noConversations')}
             </li>
           ) : (
             conversations.map((conv) => {
               const isActive = selectedRef === conv.conversationReference;
               const snapshot = conv.contextSnapshot;
               const code = snapshot?.displayCode || conv.conversationReference;
-              const name = snapshot?.displayName || 'Thiết kế';
+              const name = snapshot?.displayName || t('defaultDesignName');
 
               return (
                 <li
@@ -289,17 +291,17 @@ export function StaffConsultationInboxPage({ lang = 'vi', currentUser = {} }) {
                   <div className="consultation-item-header">
                     <span className="consultation-item-code">{code}</span>
                     <span className={`consultation-status-badge ${conv.status?.toLowerCase()}`}>
-                      {conv.status === 'OPEN' ? t.statusOpen : t.statusClosed}
+                      {conv.status === 'OPEN' ? t('statusOpen') : t('statusClosed')}
                     </span>
                   </div>
                   <div className="consultation-item-name">{name}</div>
                   <div className="consultation-item-meta">
                     <span>
-                      {conv.assignedLocationReference || t.unassignedBranch}
+                      {conv.assignedLocationReference || t('unassignedBranch')}
                     </span>
                     {conv.unreadCount > 0 && (
                       <span className="consultation-unread-badge">
-                        {t.unreadBadge.replace('{count}', String(conv.unreadCount))}
+                        {t('unreadBadge', { count: conv.unreadCount })}
                       </span>
                     )}
                   </div>
@@ -310,7 +312,7 @@ export function StaffConsultationInboxPage({ lang = 'vi', currentUser = {} }) {
         </ul>
         {hasMore && (
           <button type="button" className="btn-secondary-consultation" onClick={() => loadConversations(false, true)} disabled={loadingMore}>
-            {loadingMore ? '...' : t.loadMore}
+            {loadingMore ? '...' : t('loadMore')}
           </button>
         )}
       </div>
@@ -320,7 +322,7 @@ export function StaffConsultationInboxPage({ lang = 'vi', currentUser = {} }) {
         {!activeConversation ? (
           <div className="consultation-empty-state">
             <div style={{ fontSize: '3rem' }}>💬</div>
-            <p>{t.noConversations}</p>
+            <p>{t('noConversations')}</p>
           </div>
         ) : (
           <>
@@ -331,7 +333,7 @@ export function StaffConsultationInboxPage({ lang = 'vi', currentUser = {} }) {
                   {activeConversation.contextSnapshot?.preview?.imageUrl ? (
                     <img
                       src={activeConversation.contextSnapshot.preview.imageUrl}
-                      alt="Preview"
+                      alt={t('previewAlt')}
                       style={{ width: '100%', height: '100%', borderRadius: '6px', objectFit: 'cover' }}
                     />
                   ) : (
@@ -341,7 +343,7 @@ export function StaffConsultationInboxPage({ lang = 'vi', currentUser = {} }) {
                   )}
                 </div>
                 <div className="consultation-context-details">
-                  <h3>{activeConversation.contextSnapshot?.displayName || t.generalConsultation || 'Tư vấn chung'}</h3>
+                  <h3>{activeConversation.contextSnapshot?.displayName || t('generalConsultation')}</h3>
                   <div className="consultation-context-tags">
                     {activeConversation.contextSnapshot?.displayCode && (
                       <span className="consultation-context-tag">
@@ -354,10 +356,10 @@ export function StaffConsultationInboxPage({ lang = 'vi', currentUser = {} }) {
                       </span>
                     )}
                     <span className="consultation-context-tag">
-                      {activeConversation.assignedLocationReference || t.unassignedBranch}
+                      {activeConversation.assignedLocationReference || t('unassignedBranch')}
                     </span>
                     <span className="consultation-context-tag">
-                      {activeConversation.claimantRole ? t.claimant : t.unclaimed}
+                      {activeConversation.claimantRole ? t('claimant') : t('unclaimed')}
                     </span>
                   </div>
                 </div>
@@ -366,7 +368,7 @@ export function StaffConsultationInboxPage({ lang = 'vi', currentUser = {} }) {
               {/* Action Buttons */}
               <div className="consultation-actions">
                 <span className={`consultation-status-badge ${activeConversation.status?.toLowerCase()}`}>
-                  {activeConversation.status === 'OPEN' ? t.statusOpen : t.statusClosed}
+                  {activeConversation.status === 'OPEN' ? t('statusOpen') : t('statusClosed')}
                 </span>
 
                 {isManager && (
@@ -375,7 +377,7 @@ export function StaffConsultationInboxPage({ lang = 'vi', currentUser = {} }) {
                     className="btn-secondary-consultation"
                     onClick={() => setIsAssignModalOpen(true)}
                   >
-                    📍 {t.assign}
+                    📍 {t('assign')}
                   </button>
                 )}
 
@@ -385,7 +387,7 @@ export function StaffConsultationInboxPage({ lang = 'vi', currentUser = {} }) {
                     className="btn-primary-consultation"
                     onClick={handleClaim}
                   >
-                    {t.claim}
+                    {t('claim')}
                   </button>
                 ) : (
                   <button
@@ -393,7 +395,7 @@ export function StaffConsultationInboxPage({ lang = 'vi', currentUser = {} }) {
                     className="btn-secondary-consultation"
                     onClick={handleRelease}
                   >
-                    {t.release}
+                    {t('release')}
                   </button>
                 )}
 
@@ -403,7 +405,7 @@ export function StaffConsultationInboxPage({ lang = 'vi', currentUser = {} }) {
                     className="btn-secondary-consultation"
                     onClick={handleClose}
                   >
-                    {t.close}
+                    {t('close')}
                   </button>
                 ) : (
                   <button
@@ -411,7 +413,7 @@ export function StaffConsultationInboxPage({ lang = 'vi', currentUser = {} }) {
                     className="btn-secondary-consultation"
                     onClick={handleReopen}
                   >
-                    {t.reopen}
+                    {t('reopen')}
                   </button>
                 )}
               </div>
@@ -424,21 +426,21 @@ export function StaffConsultationInboxPage({ lang = 'vi', currentUser = {} }) {
             <div className="consultation-messages-thread">
               {loadingDetail && !activeConversation.messages ? (
                 <div style={{ textAlign: 'center', color: '#888', padding: '2rem' }}>
-                  Đang tải nội dung...
+                  {t('loadingDetail')}
                 </div>
               ) : activeConversation.messages?.length === 0 ? (
                 <div style={{ textAlign: 'center', color: '#888', padding: '3rem' }}>
-                  {t.noMessagesYet}
+                  {t('noMessagesYet')}
                 </div>
               ) : (
                 activeConversation.messages?.map((msg, idx) => {
                   const isStaffMsg = msg.senderRole === 'STAFF' || msg.senderRole === 'MANAGER';
                   const roleClass = isStaffMsg ? 'member' : 'staff'; // Staff view: staff messages align right
                   const roleName = msg.senderRole === 'MEMBER'
-                    ? t.senderMember
-                    : (msg.senderRole === 'MANAGER' ? t.senderManager : t.senderStaff);
+                    ? t('senderMember')
+                    : (msg.senderRole === 'MANAGER' ? t('senderManager') : t('senderStaff'));
                   const timeStr = msg.createdAt
-                    ? new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                    ? new Date(msg.createdAt).toLocaleTimeString(language === 'en' ? 'en-US' : 'vi-VN', { hour: '2-digit', minute: '2-digit' })
                     : '';
 
                   return (
@@ -463,20 +465,20 @@ export function StaffConsultationInboxPage({ lang = 'vi', currentUser = {} }) {
             <form className="consultation-composer" onSubmit={handleSendMessage}>
               {isClosed ? (
                 <div className="consultation-alert warning" style={{ margin: 0 }}>
-                  {t.chatClosedWarning}
+                  {t('chatClosedWarning')}
                 </div>
               ) : !isClaimedByMe && !isManager ? (
                 <div className="consultation-alert warning" style={{ margin: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span>{t.mustClaimWarning}</span>
+                  <span>{t('mustClaimWarning')}</span>
                   <button type="button" className="btn-primary-consultation" onClick={handleClaim} style={{ fontSize: '0.8rem', padding: '0.3rem 0.7rem' }}>
-                    {t.claim}
+                    {t('claim')}
                   </button>
                 </div>
               ) : (
                 <>
                   <textarea
                     className="consultation-textarea"
-                    placeholder={t.typeMessagePlaceholder}
+                    placeholder={t('typeMessagePlaceholder')}
                     value={messageInput}
                     onChange={(e) => setMessageInput(e.target.value)}
                     onKeyDown={(e) => {
@@ -494,14 +496,14 @@ export function StaffConsultationInboxPage({ lang = 'vi', currentUser = {} }) {
                         currentCount > 1900 ? (currentCount > 2000 ? 'limit-exceeded' : 'limit-near') : ''
                       }`}
                     >
-                      {t.charCount.replace('{count}', String(currentCount))}
+                      {t('charCount', { count: currentCount })}
                     </span>
                     <button
                       type="submit"
                       className="btn-primary-consultation"
                       disabled={sending || !messageInput.trim() || currentCount > 2000}
                     >
-                      {sending ? 'Đang gửi...' : t.send}
+                      {sending ? t('sending') : t('send')}
                     </button>
                   </div>
                 </>
@@ -516,14 +518,14 @@ export function StaffConsultationInboxPage({ lang = 'vi', currentUser = {} }) {
         <div className="consultation-modal-overlay" onClick={() => setIsAssignModalOpen(false)}>
           <div className="consultation-modal" style={{ maxWidth: '450px' }} onClick={(e) => e.stopPropagation()}>
             <div className="consultation-modal-header">
-              <h3 className="consultation-modal-title">{t.assign}</h3>
+              <h3 className="consultation-modal-title">{t('assign')}</h3>
               <button type="button" className="btn-secondary-consultation" onClick={() => setIsAssignModalOpen(false)}>
                 ✕
               </button>
             </div>
             <form onSubmit={handleAssignSubmit}>
               <div className="consultation-modal-body">
-                <p style={{ margin: 0, color: '#555' }}>{t.selectBranchToAssign}</p>
+                <p style={{ margin: 0, color: '#555' }}>{t('selectBranchToAssign')}</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
                     <input
@@ -533,7 +535,7 @@ export function StaffConsultationInboxPage({ lang = 'vi', currentUser = {} }) {
                       checked={selectedBranch === 'HN-HOANKIEM'}
                       onChange={(e) => setSelectedBranch(e.target.value)}
                     />
-                    <span>{t.branchHN_HOANKIEM} (HN-HOANKIEM)</span>
+                    <span>{t('branchHN_HOANKIEM')} (HN-HOANKIEM)</span>
                   </label>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
                     <input
@@ -543,16 +545,16 @@ export function StaffConsultationInboxPage({ lang = 'vi', currentUser = {} }) {
                       checked={selectedBranch === 'HN-TAYHO'}
                       onChange={(e) => setSelectedBranch(e.target.value)}
                     />
-                    <span>{t.branchHN_TAYHO} (HN-TAYHO)</span>
+                    <span>{t('branchHN_TAYHO')} (HN-TAYHO)</span>
                   </label>
                 </div>
               </div>
               <div className="consultation-modal-footer">
                 <button type="button" className="btn-secondary-consultation" onClick={() => setIsAssignModalOpen(false)}>
-                  {t.cancel}
+                  {t('cancel')}
                 </button>
                 <button type="submit" className="btn-primary-consultation" disabled={assigning}>
-                  {assigning ? 'Đang xử lý...' : t.confirm}
+                  {assigning ? t('processing') : t('confirm')}
                 </button>
               </div>
             </form>

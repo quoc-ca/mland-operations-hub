@@ -126,6 +126,7 @@ export const messagesDetail = {
     'return.profileLoading': 'Đang kiểm tra tài khoản đang đăng nhập…',
     'return.relogin': 'Đăng nhập lại bằng tài khoản Member, hoặc đăng xuất để tra cứu như khách.',
     'return.deadlineLeft': 'Thời hạn thanh toán còn',
+    'return.operator.loadFolio': 'Tải folio',
   },
   en: {
     'detail.branchUnavailable': 'This package is no longer sold at the branch you chose. Please choose another branch.',
@@ -250,5 +251,6 @@ export const messagesDetail = {
     'return.profileLoading': 'Checking the signed-in account…',
     'return.relogin': 'Sign in again with a Member account, or sign out to look up as a guest.',
     'return.deadlineLeft': 'Time left to pay:',
+    'return.operator.loadFolio': 'Load folio',
   },
 };
