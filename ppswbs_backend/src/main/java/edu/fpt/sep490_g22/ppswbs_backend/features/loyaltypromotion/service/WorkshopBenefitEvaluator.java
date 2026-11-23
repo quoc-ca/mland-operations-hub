@@ -23,19 +23,22 @@ import java.util.Set;
  * supplies the package, every selected session (reference, branch, date), the participant count and the package fee.
  *
  * <ul>
- *   <li>At most one automatic discount <em>or</em> one voucher per booking (FR-015). A product voucher or a
+ *   <li>The best automatic discount plus at most one voucher per booking (FR-015, Session 2026-11-22). A product voucher or a
  *       voucher whose package, branch, workshop date or session does not match is refused (dimensions combine with
  *       AND). The booking window is the programme's effective window at the time of booking, separate from the
  *       workshop date.</li>
  *   <li>Workshop automatic discounts (Session 2026-11-14, FR-044) are targeted by package only and apply to every
  *       direct customer, a Guest included. Among the valid ones the largest discount wins, equal discounts go to the
- *       programme created first; a chosen voucher replaces them and the two are never added together.</li>
+ *       programme created first; a chosen voucher is added on top of it (Session 2026-11-22).</li>
  *   <li>The minimum and the discount use the package fee; the cap applies once to the whole booking, never per
  *       participant.</li>
  *   <li>Cart (Session 2026-11-12, 003.1 FR-033): scope is checked per ticket; the minimum and the discount use the
  *       sum of in-scope tickets, the cap applies once to the whole group, and the result lists the in-scope ticket
  *       indexes so 003.1 allocates the discount only to them. Points use the whole cart after the voucher.</li>
- *   <li>Voucher first, then points (cap on the fee after the voucher, never on the deposit). The result is the
+ *   <li>Session 2026-11-22 (FR-015, FR-047): the best automatic discount always applies and is split over its
+ *       in-scope tickets by price; a chosen voucher is added on top and measured on its in-scope tickets after their
+ *       automatic share, then split over them by that amount. The result carries each ticket's two shares.</li>
+ *   <li>Automatic discount and voucher first, then points (cap on the fee after both, never on the deposit). The result is the
  *       post-promotion amount; FE-03 derives the deposit and the remaining amount from it under its own deposit
  *       policy. Loyalty never computes or rounds a deposit.</li>
  *   <li>A post-promotion amount of exactly zero is valid (decision 2026-11-12): FE-03 confirms such a booking without
@@ -69,59 +72,91 @@ public final class WorkshopBenefitEvaluator {
                                              BigInteger availablePoints, boolean strict) {
         List<BenefitReason> reasons = new ArrayList<>();
         BigInteger fee = LoyaltyValues.requireAmount("grossPackageAmount", booking.grossPackageAmount());
-        RetailQuote.Candidate chosen = null;
-        BigInteger discount = BigInteger.ZERO;
-        BigInteger eligible = BigInteger.ZERO;
-        List<Integer> eligibleTickets = List.of();
+        List<WorkshopTicketFact> tickets = ticketsOf(booking);
+        List<BigInteger> prices = tickets.stream().map(WorkshopTicketFact::ticketPrice).toList();
 
-        if (selection.choice() == SelectionChoice.AUTO) {
-            // FR-044/FR-015: the largest discount wins; equal discounts go to the programme created first, so the
-            // candidates arrive in (createdAt, id) order and only a strictly larger discount replaces the choice.
-            Scoped best = null;
-            WorkshopCandidate bestCandidate = null;
-            for (WorkshopCandidate auto : autos) {
-                if (auto.base().unavailable() != null) {
-                    continue;
-                }
-                Scoped scoped = scope(booking, auto);
-                if (scoped.problem() == null && scoped.discount().signum() > 0
-                        && (best == null || scoped.discount().compareTo(best.discount()) > 0)) {
-                    best = scoped;
-                    bestCandidate = auto;
-                }
+        // 1. The best automatic discount, whatever the selection (FR-015, Session 2026-11-22). FR-044: the largest
+        // discount wins; equal discounts go to the programme created first, so the candidates arrive in
+        // (createdAt, id) order and only a strictly larger discount replaces the choice.
+        Scoped bestAuto = null;
+        WorkshopCandidate bestAutoCandidate = null;
+        for (WorkshopCandidate auto : autos) {
+            if (auto.base().unavailable() != null) {
+                continue;
             }
-            if (best == null) {
-                // Never a typed failure, as for retail: the booking simply has no automatic discount.
-                reasons.add(BenefitReason.of(BenefitReasonCode.WORKSHOP_NO_AUTO_DISCOUNT_APPLIES));
-            } else {
-                chosen = bestCandidate.base();
-                eligible = best.amount();
-                discount = best.discount();
-                eligibleTickets = booking.isCart() ? best.tickets() : List.of();
+            Scoped scoped = scope(tickets, prices, auto);
+            if (scoped.problem() == null && scoped.discount().signum() > 0
+                    && (bestAuto == null || scoped.discount().compareTo(bestAuto.discount()) > 0)) {
+                bestAuto = scoped;
+                bestAutoCandidate = auto;
             }
-        } else if (selection.choice() == SelectionChoice.VOUCHER) {
+        }
+        if (bestAuto == null && selection.choice() == SelectionChoice.AUTO) {
+            // Never a typed failure, as for retail: the booking simply has no automatic discount.
+            reasons.add(BenefitReason.of(BenefitReasonCode.WORKSHOP_NO_AUTO_DISCOUNT_APPLIES));
+        }
+        BigInteger autoDiscount = bestAuto == null ? BigInteger.ZERO : bestAuto.discount();
+        List<BigInteger> ticketAuto = bestAuto == null ? RetailQuote.zeros(tickets.size())
+                : RetailQuote.split(autoDiscount, inScopeWeights(prices, bestAuto.tickets()));
+
+        // 2. The voucher on the in-scope tickets after their automatic share (FR-019, FR-047).
+        Scoped voucherScoped = null;
+        if (selection.choice() == SelectionChoice.VOUCHER) {
             if (voucher == null) {
                 refuse(strict, reasons, LoyaltyErrorCode.PROMOTION_INELIGIBLE,
                         BenefitReason.of(BenefitReasonCode.VOUCHER_NOT_FOUND));
             } else if (voucher.base().unavailable() != null) {
                 refuse(strict, reasons, LoyaltyErrorCode.PROMOTION_INELIGIBLE, voucher.base().unavailable());
             } else {
-                Scoped scoped = scope(booking, voucher);
+                List<BigInteger> afterAuto = new ArrayList<>(tickets.size());
+                for (int i = 0; i < tickets.size(); i++) {
+                    afterAuto.add(prices.get(i).subtract(ticketAuto.get(i)));
+                }
+                Scoped scoped = scope(tickets, afterAuto, voucher);
                 if (scoped.problem() != null) {
                     refuse(strict, reasons, LoyaltyErrorCode.PROMOTION_INELIGIBLE,
                             BenefitReason.of(scoped.problem()));
+                } else if (scoped.discount().signum() == 0) {
+                    // T139: nothing left after the automatic discount; never hold a use for 0 VND.
+                    refuse(strict, reasons, LoyaltyErrorCode.PROMOTION_INELIGIBLE,
+                            BenefitReason.of(BenefitReasonCode.VOUCHER_NO_EXTRA_DISCOUNT));
                 } else {
-                    chosen = voucher.base();
-                    eligible = scoped.amount();
-                    discount = scoped.discount();
-                    // The single-package shape keeps no line indexes so its existing quotes keep their digest.
-                    eligibleTickets = booking.isCart() ? scoped.tickets() : List.of();
+                    voucherScoped = scoped;
                 }
             }
         }
+        BigInteger voucherDiscount = voucherScoped == null ? BigInteger.ZERO : voucherScoped.discount();
+        List<BigInteger> ticketVoucher = RetailQuote.zeros(tickets.size());
+        if (voucherScoped != null) {
+            List<BigInteger> weights = new ArrayList<>(tickets.size());
+            for (int i = 0; i < tickets.size(); i++) {
+                weights.add(voucherScoped.tickets().contains(i) ? prices.get(i).subtract(ticketAuto.get(i))
+                        : BigInteger.ZERO);
+            }
+            ticketVoucher = RetailQuote.split(voucherDiscount, weights);
+        }
+
+        RetailQuote.Candidate chosen = voucherScoped != null ? voucher.base()
+                : bestAuto != null ? bestAutoCandidate.base() : null;
+        BigInteger eligible = voucherScoped != null ? voucherScoped.amount()
+                : bestAuto != null ? bestAuto.amount() : BigInteger.ZERO;
+        BigInteger discount = autoDiscount.add(voucherDiscount);
+        // The single-package shape keeps no line indexes so its existing quotes keep their digest.
+        List<Integer> eligibleTickets = List.of();
+        if (booking.isCart()) {
+            java.util.TreeSet<Integer> union = new java.util.TreeSet<>();
+            if (bestAuto != null) {
+                union.addAll(bestAuto.tickets());
+            }
+            if (voucherScoped != null) {
+                union.addAll(voucherScoped.tickets());
+            }
+            eligibleTickets = List.copyOf(union);
+        }
 
         BigInteger net = fee.subtract(discount);
-        boolean pointsAllowed = chosen == null || chosen.allowPoints();
+        // An automatic discount always allows points; a voucher may forbid them.
+        boolean pointsAllowed = voucherScoped == null || voucher.base().allowPoints();
         PointsLimit limit = LoyaltyCalculator.pointsLimit(policy, net, availablePoints, pointsAllowed);
         BigInteger requested = selection.requestedPoints();
         BigInteger used = BigInteger.ZERO;
@@ -148,7 +183,16 @@ public final class WorkshopBenefitEvaluator {
                     BenefitReason.of(BenefitReasonCode.WORKSHOP_NET_AMOUNT_INVALID));
         }
         return new RetailQuote.Result(fee, eligible, discount, net, limit.maxPoints(), pointsAllowed, used, pointDiscount,
-                post, chosen, List.copyOf(reasons), eligibleTickets);
+                post, chosen, List.copyOf(reasons), eligibleTickets, bestAuto == null ? null : bestAutoCandidate.base(),
+                autoDiscount, ticketAuto, ticketVoucher);
+    }
+
+    private static List<BigInteger> inScopeWeights(List<BigInteger> prices, List<Integer> inScope) {
+        List<BigInteger> weights = new ArrayList<>(prices.size());
+        for (int i = 0; i < prices.size(); i++) {
+            weights.add(inScope.contains(i) ? prices.get(i) : BigInteger.ZERO);
+        }
+        return weights;
     }
 
     /**
@@ -163,14 +207,15 @@ public final class WorkshopBenefitEvaluator {
         }
     }
 
-    private static Scoped scope(WorkshopFact booking, WorkshopCandidate candidate) {
+    /** {@code amounts}: each ticket's price, or (for a voucher) its price after the automatic share (FR-047). */
+    private static Scoped scope(List<WorkshopTicketFact> tickets, List<BigInteger> amounts,
+                                WorkshopCandidate candidate) {
         List<Integer> inScope = new ArrayList<>();
         BigInteger inScopeAmount = BigInteger.ZERO;
-        List<WorkshopTicketFact> tickets = ticketsOf(booking);
         for (int i = 0; i < tickets.size(); i++) {
             if (matches(candidate, tickets.get(i))) {
                 inScope.add(i);
-                inScopeAmount = inScopeAmount.add(tickets.get(i).ticketPrice());
+                inScopeAmount = inScopeAmount.add(amounts.get(i));
             }
         }
         if (inScope.isEmpty()) {

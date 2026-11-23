@@ -37,6 +37,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
 /**
@@ -172,6 +173,39 @@ class PromotionCreateContractIT {
         assertThat(program.has("targetCheck")).isFalse();
         detail.remove(java.util.List.of("targetCheck", "targetWarnings"));
         assertThat(detail).isEqualTo(program);
+    }
+
+    @Test
+    void aVoucherCarriesItsDistributionWhichCannotBeChangedLater() throws Exception {
+        // T135, FR-046: PUBLIC when left out; CLAIM_REQUIRED needs one use per Member; never editable.
+        JsonNode publicOne = body(create(manager, UUID.randomUUID(), productVoucher(code(), "")));
+        assertThat(publicOne.path("distribution").asText()).isEqualTo("PUBLIC");
+
+        assertError(create(manager, UUID.randomUUID(), productVoucher(code(), ",\"distribution\":\"CLAIM_REQUIRED\"")),
+                400, "INVALID_INPUT");
+        String claim = productVoucher(code(), ",\"distribution\":\"CLAIM_REQUIRED\"")
+                .replace("\"perMemberLimit\":\"2\"", "\"perMemberLimit\":\"1\"");
+        MvcResult created = create(manager, UUID.randomUUID(), claim);
+        assertThat(created.getResponse().getStatus()).as(created.getResponse().getContentAsString()).isEqualTo(201);
+        JsonNode program = body(created);
+        assertThat(program.path("distribution").asText()).isEqualTo("CLAIM_REQUIRED");
+        assertThat(program.path("perMemberLimit").asText()).isEqualTo("1");
+        JsonNode read = body(perform(get(PROGRAMS + "/" + program.path("id").asText())
+                .header(HttpHeaders.AUTHORIZATION, manager)));
+        assertThat(read.path("distribution").asText()).isEqualTo("CLAIM_REQUIRED");
+
+        assertError(create(manager, UUID.randomUUID(), productVoucher(code(), ",\"distribution\":\"SECRET\"")),
+                400, "INVALID_INPUT");
+        assertError(perform(patch(PROGRAMS + "/" + program.path("id").asText())
+                .contentType(MediaType.APPLICATION_JSON).header(HttpHeaders.AUTHORIZATION, manager)
+                .header("Idempotency-Key", UUID.randomUUID().toString())
+                .content("{\"expectedVersion\":\"" + program.path("version").asText()
+                        + "\",\"distribution\":\"PUBLIC\"}")), 400, "INVALID_INPUT");
+        assertThat(body(perform(get(PROGRAMS + "/" + program.path("id").asText())
+                .header(HttpHeaders.AUTHORIZATION, manager))).path("distribution").asText()).isEqualTo("CLAIM_REQUIRED");
+        // An automatic discount has no distribution and refuses one.
+        assertThat(body(create(manager, UUID.randomUUID(), autoDiscount(""))).has("distribution")).isFalse();
+        assertError(create(manager, UUID.randomUUID(), autoDiscount(",\"distribution\":\"PUBLIC\"")), 400, "INVALID_INPUT");
     }
 
     @Test

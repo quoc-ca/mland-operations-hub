@@ -1,4 +1,4 @@
-import { big, createdFirst, unitDiscount } from './productOffers';
+import { bestVoucherOn, big, countsForPrice, createdFirst, unitDiscount } from './productOffers';
 
 /**
  * Offers shown on 003.1's public workshop package surfaces (006 FR-045, 003.1 FR-052/FR-052a), from 006's public
@@ -15,11 +15,16 @@ import { big, createdFirst, unitDiscount } from './productOffers';
  * - the largest automatic discount is taken off the price; on equal discounts the programme created first wins;
  * - an automatic discount whose minimum fee is above the price of one ticket is not taken off; it is listed as one
  *   "for orders from …" instead;
- * - vouchers are never taken off the public price (Member-only, with quotas): they are labels, plus one estimated
- *   "with code" price from a voucher limited by nothing but packages. Points are never part of the price.
+ * - vouchers are labels, and the best one limited by nothing but packages is also taken off as the "with code"
+ *   price (FR-045(4), FR-048). Points are never part of the price.
+ * Session 2026-11-22 (FR-048): that voucher is the best one the visitor could use — a PUBLIC voucher still usable, or
+ * a voucher ACTIVE in the signed-in Member's wallet (a CLAIM_REQUIRED one included) — and it stacks on the automatic
+ * discount at checkout too (FR-015), so the price is really what one ticket costs with that code.
  */
 
-const LIMITS_UNKNOWN_FOR_A_PACKAGE = ['branchIds', 'sessionIds', 'workshopDates'];
+// Session 2026-11-23: a branch limit no longer keeps a voucher out of the price (the label names the branch); a date
+// or session limit still does, a package has many of them.
+const LIMITS_UNKNOWN_FOR_A_PACKAGE = ['sessionIds', 'workshopDates'];
 
 /** True when the voucher's branch, date and session limits are all empty, so it applies to every ticket of a package. */
 const limitedByPackageOnly = program =>
@@ -39,6 +44,17 @@ export function coversPackage(program, packageId) {
  * of one ticket); `id` / `price` are accepted too. Returns the price of one ticket before and after the best
  * automatic discount, that programme, automatic discounts that need a bigger order, and the vouchers covering it.
  */
+/**
+ * A voucher limited to branches counts for a package only when the package runs at one of them (Session 2026-11-23).
+ * `pkg.branchIds` (the location IDs where the package has sessions) comes from 003; a package read without it is not
+ * narrowed, the label still names the voucher's branches.
+ */
+function runsAtVoucherBranch(program, pkg) {
+  const branches = (program.targets?.branchIds || []).map(String);
+  if (!branches.length || !Array.isArray(pkg?.branchIds)) return true;
+  return pkg.branchIds.some(id => branches.includes(String(id)));
+}
+
 export function offersForPackage(pkg, programs) {
   const packageId = pkg?.packageId ?? pkg?.id;
   const price = big(pkg?.publicPrice ?? pkg?.price);
@@ -64,12 +80,8 @@ export function offersForPackage(pkg, programs) {
   const afterAuto = price === null ? null : price - discount;
   let bestVoucher = null;
   if (afterAuto !== null && afterAuto > 0n) {
-    for (const program of vouchers.filter(limitedByPackageOnly)) {
-      const value = unitDiscount(program, afterAuto);
-      if (value > 0n && (!bestVoucher || value > bestVoucher.discount)) {
-        bestVoucher = { program, discount: value, priceAfter: afterAuto - value };
-      }
-    }
+    bestVoucher = bestVoucherOn(vouchers.filter(program => limitedByPackageOnly(program) && countsForPrice(program)
+      && runsAtVoucherBranch(program, pkg)), afterAuto);
   }
   // The best voucher is listed first so a card showing only two labels never hides it.
   const orderedVouchers = bestVoucher

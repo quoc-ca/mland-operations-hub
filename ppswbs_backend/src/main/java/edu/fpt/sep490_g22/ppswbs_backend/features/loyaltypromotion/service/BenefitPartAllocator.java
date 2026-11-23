@@ -75,6 +75,79 @@ public final class BenefitPartAllocator {
     }
 
     /**
+     * Session 2026-11-22 (FR-047): the quote already split the automatic discount and the voucher over the source
+     * lines, so a part's programme discount is the sum of its lines' shares (kept apart as {@code autoDiscount}).
+     * Points, point discount and earned points are split as before, by each part's amount after both discounts.
+     */
+    public static List<AcceptedBenefitPart.Share> allocate(List<SourceLine> lines, List<SettlementPart> parts,
+                                                           List<BigInteger> lineAuto, List<BigInteger> lineVoucher,
+                                                           BigInteger pointsUsed, BigInteger pointDiscount,
+                                                           BigInteger earnedPoints) {
+        int n = parts.size();
+        List<BigInteger> gross = new ArrayList<>(n);
+        List<BigInteger> auto = new ArrayList<>(n);
+        List<BigInteger> discount = new ArrayList<>(n);
+        for (SettlementPart part : parts) {
+            BigInteger g = BigInteger.ZERO;
+            BigInteger a = BigInteger.ZERO;
+            BigInteger v = BigInteger.ZERO;
+            for (int index : part.lineIndexes()) {
+                g = g.add(lines.get(index).lineAmount());
+                a = a.add(share(lineAuto, index));
+                v = v.add(share(lineVoucher, index));
+            }
+            gross.add(g);
+            auto.add(a);
+            discount.add(a.add(v));
+        }
+        List<BigInteger> net = new ArrayList<>(n);
+        for (int i = 0; i < n; i++) {
+            net.add(gross.get(i).subtract(discount.get(i)));
+        }
+        List<BigInteger> points = largestRemainder(pointsUsed, net);
+        List<BigInteger> pointMoney = largestRemainder(pointDiscount, net);
+        List<BigInteger> earnBase = new ArrayList<>(n);
+        for (int i = 0; i < n; i++) {
+            earnBase.add(net.get(i).subtract(pointMoney.get(i)));
+        }
+        List<BigInteger> earn = largestRemainder(earnedPoints, earnBase);
+        List<AcceptedBenefitPart.Share> shares = new ArrayList<>(n);
+        for (int i = 0; i < n; i++) {
+            if (net.get(i).signum() < 0 || earnBase.get(i).signum() < 0) {
+                throw new IllegalStateException("A part share exceeds the part amount");
+            }
+            shares.add(new AcceptedBenefitPart.Share(parts.get(i).partRef(), gross.get(i), discount.get(i),
+                    points.get(i), pointMoney.get(i), earnBase.get(i), earn.get(i), auto.get(i)));
+        }
+        return shares;
+    }
+
+    /**
+     * Session 2026-11-22 (FR-047): as {@link #allocateTickets(List, List, BigInteger, BigInteger, BigInteger,
+     * BigInteger)} but with the quote's per-ticket shares of the automatic discount and of the voucher.
+     */
+    public static List<AcceptedBenefitPart.Share> allocateTickets(List<WorkshopTicketFact> tickets,
+                                                                  List<BigInteger> ticketAuto,
+                                                                  List<BigInteger> ticketVoucher,
+                                                                  BigInteger pointsUsed, BigInteger pointValue,
+                                                                  BigInteger earnedPoints) {
+        int n = tickets.size();
+        List<BigInteger> gross = new ArrayList<>(n);
+        List<BigInteger> auto = new ArrayList<>(n);
+        List<BigInteger> discount = new ArrayList<>(n);
+        for (int i = 0; i < n; i++) {
+            gross.add(tickets.get(i).ticketPrice());
+            auto.add(share(ticketAuto, i));
+            discount.add(share(ticketAuto, i).add(share(ticketVoucher, i)));
+        }
+        return ticketShares(tickets, gross, discount, auto, pointsUsed, pointValue, earnedPoints);
+    }
+
+    private static BigInteger share(List<BigInteger> shares, int index) {
+        return index < shares.size() ? shares.get(index) : BigInteger.ZERO;
+    }
+
+    /**
      * Workshop cart (Session 2026-11-12, D-012): one share per ticket, with the same rules 003.1 uses so both sides get
      * the same numbers (003.1 FR-033/FR-034): the voucher discount over in-scope tickets by ticket price; points as
      * whole points by the price after the voucher, never more points than a ticket can absorb; the point discount of a
@@ -95,6 +168,15 @@ public final class BenefitPartAllocator {
             inScope.add(eligible.contains(i) ? price : BigInteger.ZERO);
         }
         List<BigInteger> discount = largestRemainder(programDiscount, inScope);
+        return ticketShares(tickets, gross, discount, java.util.Collections.nCopies(n, BigInteger.ZERO), pointsUsed,
+                pointValue, earnedPoints);
+    }
+
+    private static List<AcceptedBenefitPart.Share> ticketShares(List<WorkshopTicketFact> tickets,
+                                                                List<BigInteger> gross, List<BigInteger> discount,
+                                                                List<BigInteger> auto, BigInteger pointsUsed,
+                                                                BigInteger pointValue, BigInteger earnedPoints) {
+        int n = tickets.size();
         List<BigInteger> net = new ArrayList<>(n);
         List<BigInteger> caps = new ArrayList<>(n);
         for (int i = 0; i < n; i++) {
@@ -117,7 +199,7 @@ public final class BenefitPartAllocator {
                 throw new IllegalStateException("A ticket share exceeds the ticket price");
             }
             shares.add(new AcceptedBenefitPart.Share(tickets.get(i).ticketRef(), gross.get(i), discount.get(i),
-                    points.get(i), pointMoney.get(i), earnBase.get(i), earn.get(i)));
+                    points.get(i), pointMoney.get(i), earnBase.get(i), earn.get(i), auto.get(i)));
         }
         return shares;
     }

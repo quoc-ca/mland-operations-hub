@@ -668,7 +668,7 @@ describe('T055 offer picker for checkout', () => {
     const onConfirm = vi.fn();
     render(<I18nProvider initialLanguage="vi"><Host quote={quote} onRecalculate={onRecalculate} onConfirm={onConfirm} /></I18nProvider>);
 
-    await user.click(screen.getByLabelText('Dùng voucher'));
+    await user.click(screen.getByLabelText('Dùng voucher (cộng thêm giảm tự động nếu có)'));
     expect(screen.getAllByRole('option').map(option => option.textContent)).toEqual(['Chọn voucher đã lưu', 'Giảm 10% (MLAND10)']);
     await user.selectOptions(screen.getByLabelText('Chọn từ Voucher của tôi'), 'MLAND10');
     expect(screen.getByLabelText('Mã voucher')).toHaveValue('MLAND10');
@@ -937,7 +937,8 @@ describe('Kho Voucher and Voucher của tôi: saved state and tabs', () => {
     const calls = mockFetch({
       'GET /api/v1/accounts/me/profile': json(200, { role: 'MANAGER' }),
       'GET /api/v1/promotions': json(200, { items: [publicPromotion()], nextCursor: null }),
-      'GET /api/v1/promotions/5': json(200, publicPromotion()),
+      // A voucher that must be saved, so the page would offer Lưu to a Member (Session 2026-11-23).
+      'GET /api/v1/promotions/5': json(200, publicPromotion({ distribution: 'CLAIM_REQUIRED' })),
     });
     const { router } = open('/promotions');
     expect(await screen.findByText('Chỉ thành viên lưu được voucher.')).toBeInTheDocument();

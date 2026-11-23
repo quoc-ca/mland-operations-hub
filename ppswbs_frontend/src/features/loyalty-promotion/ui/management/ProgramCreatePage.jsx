@@ -31,7 +31,7 @@ const pending = {
 const emptyForm = () => ({
   ...defaultWindow(), code: generateVoucherCode(),
   kind: 'VOUCHER', scope: 'PRODUCT', name: '', discountKind: 'PERCENT', percentage: '', amount: '',
-  maxDiscountAmount: '', minimumEligibleAmount: '0', allowPoints: true, totalLimit: '', perMemberLimit: '1',
+  maxDiscountAmount: '', minimumEligibleAmount: '0', allowPoints: true, totalLimit: '', perMemberLimit: '1', distribution: 'PUBLIC',
   productIds: '', variantIds: '', packageIds: '', branchIds: '', sessionIds: '',
   // Session 2026-11-09: branches of a product voucher ('ALL' = every branch, nothing sent).
   branchMode: 'ALL', productBranchIds: [],
@@ -173,8 +173,18 @@ export default function ProgramCreatePage() {
           <>
             <h2 className="section-title">{t('create.limits')}</h2>
             <div className="form-grid">
+              <Field label={t('field.distribution')} error={errorOf('distribution')} hint={t(`distribution.hint.${form.distribution}`)}>
+                <select value={form.distribution} onChange={event => setForm(current => ({
+                  ...current, distribution: event.target.value,
+                  // FR-046: a voucher that must be saved allows exactly one use per Member.
+                  perMemberLimit: event.target.value === 'CLAIM_REQUIRED' ? '1' : current.perMemberLimit,
+                }))}>
+                  <option value="PUBLIC">{t('distribution.PUBLIC')}</option>
+                  <option value="CLAIM_REQUIRED">{t('distribution.CLAIM_REQUIRED')}</option>
+                </select>
+              </Field>
               <Field label={t('field.totalLimit')} error={errorOf('totalLimit')}><input inputMode="numeric" value={form.totalLimit} onChange={set('totalLimit')} /></Field>
-              <Field label={t('field.perMemberLimit')} error={errorOf('perMemberLimit')}><input inputMode="numeric" value={form.perMemberLimit} onChange={set('perMemberLimit')} /></Field>
+              <Field label={t('field.perMemberLimit')} error={errorOf('perMemberLimit')}><input inputMode="numeric" value={form.perMemberLimit} onChange={set('perMemberLimit')} disabled={form.distribution === 'CLAIM_REQUIRED'} /></Field>
             </div>
           </>
         )}

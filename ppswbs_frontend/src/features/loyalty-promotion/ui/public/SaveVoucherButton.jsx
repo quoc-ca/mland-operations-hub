@@ -22,12 +22,17 @@ export function SaveVoucherButton({ promotion, saved: savedBefore = false, onSav
   const api = useLoyaltyApi();
   const command = useCommand();
   const [savedNow, setSavedNow] = useState(false);
+  // T131 (FR-046): a refused claim of a voucher that must be saved carries its reason as the field error "reason".
+  const refusedReason = command.error?.code === 'PROMOTION_INELIGIBLE' ? command.error.fieldError?.('reason') : undefined;
 
   if (status !== 'signed-in') return <SignInLink className="button outline small">{t('public.signInToSave')}</SignInLink>;
   if (role === null) return null;
   if (role !== 'MEMBER') return <p className="muted small">{t('public.membersOnly')}</p>;
   if (savedBefore || savedNow) return <p className="status ok" role="status">{t('public.saved')} <Link className="text-link" to="/me/saved-vouchers">{t('nav.savedVouchers')}</Link></p>;
   const finish = outcome => { if (outcome?.ok) { setSavedNow(true); onSaved?.(promotion.id); } };
+  if (refusedReason === 'VOUCHER_NO_USES_LEFT' || refusedReason === 'VOUCHER_MEMBER_LIMIT_REACHED') {
+    return <p className="voucher-ticket-out" role="status">{t(`save.refused.${refusedReason}`)}</p>;
+  }
   return (
     <div>
       <button type="button" className="button primary small" disabled={command.pending}

@@ -14,6 +14,13 @@ public enum BenefitReasonCode {
     PROMOTION_ENDED("This promotion has ended."),
     VOUCHER_NO_USES_LEFT("This voucher has no uses left."),
     VOUCHER_MEMBER_LIMIT_REACHED("You have already used this voucher the maximum number of times."),
+    /** Session 2026-11-22 (FR-046): a CLAIM_REQUIRED voucher the Member has not saved. */
+    VOUCHER_NOT_SAVED("Save this voucher in Kho Voucher before using it."),
+    /**
+     * T139 (FR-047): the automatic discount already took everything this voucher covers, so it would give 0 VND; it is
+     * refused instead of holding and consuming a use for nothing.
+     */
+    VOUCHER_NO_EXTRA_DISCOUNT("The automatic discount already covers these items; this voucher gives nothing more."),
     NO_COVERED_ITEM("No item in the cart is covered by this voucher."),
     /** Session 2026-11-09: covered items exist, but none was added at a branch the voucher is limited to. */
     BRANCH_NOT_COVERED("This voucher does not apply at the branch of these items."),

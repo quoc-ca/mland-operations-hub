@@ -36,7 +36,10 @@ export default function PromotionDetailPage() {
           <h1>{item.kind === 'VOUCHER' ? t('detail.title') : item.name}</h1>
           {item.kind === 'VOUCHER' && (
             <VoucherTicket promotion={item} labels={labels} availability={wallet.availabilityOf(item.id)} showConditions={false}
-              action={<SaveVoucherButton promotion={item} saved={wallet.isSaved(item.id)} onSaved={wallet.markSaved} />} />
+              action={item.distribution === 'CLAIM_REQUIRED'
+                ? <SaveVoucherButton promotion={item} saved={wallet.isSaved(item.id)} onSaved={wallet.markSaved} />
+                // Session 2026-11-23: a PUBLIC voucher needs no saving; checkout suggests it.
+                : <p className="muted small">{t('public.noSaveNeeded')}</p>} />
           )}
           <section className="voucher-detail-section">
             <h2>{t('detail.offer')}</h2>
