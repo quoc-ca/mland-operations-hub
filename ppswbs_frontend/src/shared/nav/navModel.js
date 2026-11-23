@@ -132,7 +132,14 @@ export const GROUPS = [
 const matches = (pattern, pathname) => (pattern.endsWith('*') ? pathname.startsWith(pattern.slice(0, -1)) : pathname === pattern);
 
 /** The group and tab a path belongs to, whatever the role (a tab hidden from the role is still the place the page is in). */
-export function locate(pathname) {
+export function locate(pathname, search = '') {
+  // /operations/admin holds three in-page tabs. Locations and Slots belong to "Chi nhánh và khung giờ"; the Sessions one
+  // (?tab=sessions) is session administration, so it takes the session tab of the workshop group, not the locations title.
+  if (pathname.startsWith('/operations/admin') && new URLSearchParams(search).get('tab') === 'sessions') {
+    const group = GROUPS.find(item => item.id === 'workshop');
+    const tab = group?.tabs.find(item => item.id === 'sessions');
+    if (group && tab) return { group, tab };
+  }
   for (const group of GROUPS) {
     for (const tab of group.tabs) {
       if (tab.match.some(pattern => matches(pattern, pathname))) return { group, tab };

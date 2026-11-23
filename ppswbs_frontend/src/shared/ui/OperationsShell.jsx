@@ -152,7 +152,7 @@ function CarrierTopRight({ isVi }) {
  * every permission.
  */
 export default function OperationsShell() {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const { language } = useLanguage();
   const role = useRole();
   const badges = useNavBadges(role);
@@ -166,7 +166,7 @@ export default function OperationsShell() {
     return next;
   });
 
-  const here = locate(pathname);
+  const here = locate(pathname, search);
   const groups = visibleGroups(role);
   const tabs = here ? visibleTabs(here.group, role) : [];
   const actions = here ? pageActions(here, pathname) : [];
