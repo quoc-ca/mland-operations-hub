@@ -5,6 +5,8 @@ import { useHttp } from '../api/useHttp';
 import { useCurrentAccount } from '../../features/accountmanagement/hooks/useCurrentAccount';
 import { firebaseAuthClient } from '../../features/accountmanagement/auth/FirebaseAuthClient';
 import { LanguageSwitch } from './components';
+import { useT } from '../i18n/I18nProvider';
+import { topbarMessages } from './topbarMessages';
 import { useCartCounts } from './useCartCounts';
 import { PendingPaymentNotice } from '../../workshops/PendingPaymentNotice';
 import './topbar.css';
@@ -15,6 +17,7 @@ import './topbar.css';
  * Reusable across Landing Page and all application feature pages.
  */
 export default function MainTopbar() {
+  const t = useT(topbarMessages);
   const { status, signOut, getIdToken } = useAuth();
   const http = useHttp();
   const location = useLocation();
@@ -38,7 +41,7 @@ export default function MainTopbar() {
       setIsDropdownOpen(false);
       // Navigation to Home with transient flash notice is handled solely by SessionNavigationBoundary
     } catch (err) {
-      setSignOutError('Đăng xuất thất bại. Vui lòng thử lại.');
+      setSignOutError(t('menu.signOutFailed'));
     } finally {
       setIsSigningOut(false);
     }
@@ -127,7 +130,7 @@ export default function MainTopbar() {
 
   const resolvedName =
     resolvedFullName ||
-    (userEmail ? userEmail.split('@')[0] : 'Tài khoản');
+    (userEmail ? userEmail.split('@')[0] : t('account.fallbackName'));
 
   const userRole = profileData?.role || account?.role || 'MEMBER';
   const isCarrier = userRole === 'CARRIER';
@@ -152,13 +155,13 @@ export default function MainTopbar() {
           MLAND
         </Link>
 
-        <nav className="main-topbar-nav" aria-label="Khám phá">
+        <nav className="main-topbar-nav" aria-label={t('nav.explore')}>
           {isCarrier ? (
             <Link
               to="/carrier"
               className={`main-topbar-link ${location.pathname.startsWith('/carrier') ? 'active' : ''}`}
             >
-              Cổng vận chuyển
+              {t('nav.carrier')}
             </Link>
           ) : (
             <>
@@ -172,9 +175,9 @@ export default function MainTopbar() {
                 <Link
                   to="/workshops/PKG-COUPLE-SILVER/design"
                   className={`main-topbar-link ${isRingDesignActive ? 'active' : ''}`}
-                  title="Tự tay phối dáng nhẫn, chất liệu, kích thước và khắc chữ"
+                  title={t('nav.ringConfigHint')}
                 >
-                  Cấu hình nhẫn
+                  {t('nav.ringConfig')}
                 </Link>
               )}
               <Link
@@ -188,41 +191,41 @@ export default function MainTopbar() {
                   to="/design-requests/new"
                   className={`main-topbar-link ${location.pathname.startsWith('/design-requests') ? 'active' : ''}`}
                 >
-                  Yêu cầu chế tác
+                  {t('nav.designRequest')}
                 </Link>
               )}
               <Link
                 to="/promotions"
                 className={`main-topbar-link ${location.pathname.startsWith('/promotions') ? 'active' : ''}`}
               >
-                Kho Voucher
+                {t('nav.vouchers')}
               </Link>
               <Link
                 to="/workshop-booking/lookup"
                 className={`main-topbar-link ${location.pathname.startsWith('/workshop-booking') && location.pathname !== '/workshop-booking/cart' ? 'active' : ''}`}
               >
-                Tra cứu
+                {t('nav.lookup')}
               </Link>
               {!isStaffOrAdmin && (
                 <Link
                   to="/ai-support"
                   className={`main-topbar-link ${location.pathname.startsWith('/ai-support') ? 'active' : ''}`}
                 >
-                  Trợ lý AI
+                  {t('nav.ai')}
                 </Link>
               )}
               <Link
                 to="/reviews"
                 className={`main-topbar-link ${location.pathname.startsWith('/reviews') ? 'active' : ''}`}
               >
-                Đánh giá
+                {t('nav.reviews')}
               </Link>
               {userRole === 'MEMBER' && (
                 <Link
                   to="/member/consultations"
                   className={`main-topbar-link ${location.pathname.startsWith('/member/consultations') ? 'active' : ''}`}
                 >
-                  Tư vấn
+                  {t('nav.consult')}
                 </Link>
               )}
             </>
@@ -234,8 +237,8 @@ export default function MainTopbar() {
             <Link
               to="/cart"
               className="main-topbar-cart"
-              aria-label={`Giỏ hàng (${cartCounts.product} sản phẩm, ${cartCounts.workshop} workshop)`}
-              title={`Giỏ hàng: ${cartCounts.product} sản phẩm · ${cartCounts.workshop} workshop`}
+              aria-label={t('cart.label', cartCounts)}
+              title={t('cart.title', cartCounts)}
             >
               <span aria-hidden="true">🛒</span>
               {cartCounts.total > 0 && <span className="main-topbar-cart-badge">{cartCounts.total}</span>}
@@ -251,8 +254,8 @@ export default function MainTopbar() {
                 onClick={() => setIsDropdownOpen((prev) => !prev)}
                 aria-expanded={isDropdownOpen}
                 aria-haspopup="true"
-                aria-label={`Tùy chọn tài khoản: ${resolvedName}`}
-                title="Tùy chọn tài khoản"
+                aria-label={t('account.optionsFor', { name: resolvedName })}
+                title={t('account.options')}
               >
                 <span>👤</span>
                 <span className="main-topbar-chip-name">{resolvedName}</span>
@@ -279,47 +282,47 @@ export default function MainTopbar() {
                   {isCarrier ? (
                     <>
                       <Link to="/carrier" className="main-topbar-dropdown-item" role="menuitem">
-                        <span>🚚</span> Cổng đối tác vận chuyển
+                        <span>🚚</span> {t('menu.carrierPortal')}
                       </Link>
                       <Link to="/security/password" className="main-topbar-dropdown-item" role="menuitem">
-                        <span>🔑</span> Đổi mật khẩu
+                        <span>🔑</span> {t('menu.changePassword')}
                       </Link>
                     </>
                   ) : (
                     <>
                       <Link to="/profile" className="main-topbar-dropdown-item" role="menuitem">
-                        <span>👤</span> Hồ sơ cá nhân
+                        <span>👤</span> {t('menu.profile')}
                       </Link>
                       {!isStaffOrAdmin && (
                         <Link to="/my/designs" className="main-topbar-dropdown-item" role="menuitem">
-                          <span>💍</span> Mẫu nhẫn đã lưu
+                          <span>💍</span> {t('menu.savedDesigns')}
                         </Link>
                       )}
                       {userRole === 'MEMBER' && (
                         <Link to="/member/consultations" className="main-topbar-dropdown-item" role="menuitem">
-                          <span>💬</span> Tư vấn thiết kế
+                          <span>💬</span> {t('menu.designConsult')}
                         </Link>
                       )}
                       {userRole === 'MEMBER' && (
                         <Link to="/account/my-custom-orders" className="main-topbar-dropdown-item" role="menuitem">
-                          <span>🔨</span> Đơn hàng thiết kế cá nhân
+                          <span>🔨</span> {t('menu.customOrders')}
                         </Link>
                       )}
                       <Link to="/member/orders" className="main-topbar-dropdown-item" role="menuitem">
-                        <span>📦</span> Đơn hàng của tôi
+                        <span>📦</span> {t('menu.myOrders')}
                       </Link>
                       <Link to="/me/loyalty" className="main-topbar-dropdown-item" role="menuitem">
-                        <span>💎</span> Điểm thưởng tích lũy
+                        <span>💎</span> {t('menu.loyalty')}
                       </Link>
                       <Link to="/me/saved-vouchers" className="main-topbar-dropdown-item" role="menuitem">
-                        <span>🎟️</span> Voucher của tôi
+                        <span>🎟️</span> {t('menu.myVouchers')}
                       </Link>
                       <Link
                         to="/workshop-booking/lookup"
                         className="main-topbar-dropdown-item"
                         role="menuitem"
                       >
-                        <span>🎫</span> Tra cứu vé & Booking
+                        <span>🎫</span> {t('menu.ticketLookup')}
                       </Link>
 
                       {/* Lối tắt quản trị cho nhân sự nội bộ */}
@@ -327,7 +330,7 @@ export default function MainTopbar() {
                         <>
                           <div className="main-topbar-dropdown-divider" />
                           <span className="main-topbar-dropdown-section-title">
-                            Cổng công việc
+                            {t('menu.workPortal')}
                           </span>
                           {userRole === 'STAFF' && (
                             <>
@@ -336,14 +339,14 @@ export default function MainTopbar() {
                                 className="main-topbar-dropdown-item"
                                 role="menuitem"
                               >
-                                <span>🏢</span> Staff Vận hành
+                                <span>🏢</span> {t('menu.staffOps')}
                               </Link>
                               <Link
                                 to="/staff/retail-orders"
                                 className="main-topbar-dropdown-item"
                                 role="menuitem"
                               >
-                                <span>🏪</span> Đơn bán lẻ chi nhánh
+                                <span>🏪</span> {t('menu.branchRetail')}
                               </Link>
                             </>
                           )}
@@ -354,7 +357,7 @@ export default function MainTopbar() {
                                 className="main-topbar-dropdown-item"
                                 role="menuitem"
                               >
-                                <span>🛍️</span> Quản trị Sản phẩm
+                                <span>🛍️</span> {t('menu.productAdmin')}
                               </Link>
                               {userRole === 'MANAGER' && (
                                 <Link
@@ -362,7 +365,7 @@ export default function MainTopbar() {
                                   className="main-topbar-dropdown-item"
                                   role="menuitem"
                                 >
-                                  <span>🏷️</span> Quản lý Ưu đãi
+                                  <span>🏷️</span> {t('menu.promotionAdmin')}
                                 </Link>
                               )}
                               {userRole === 'MANAGER' && (
@@ -371,7 +374,7 @@ export default function MainTopbar() {
                                   className="main-topbar-dropdown-item"
                                   role="menuitem"
                                 >
-                                  <span>💳</span> Đối soát thanh toán
+                                  <span>💳</span> {t('menu.reconciliation')}
                                 </Link>
                               )}
                             </>
@@ -382,7 +385,7 @@ export default function MainTopbar() {
                               className="main-topbar-dropdown-item"
                               role="menuitem"
                             >
-                              <span>⭐</span> Kiểm duyệt Đánh giá
+                              <span>⭐</span> {t('menu.reviewModeration')}
                             </Link>
                           )}
                           {userRole === 'ADMIN' && (
@@ -391,7 +394,7 @@ export default function MainTopbar() {
                               className="main-topbar-dropdown-item"
                               role="menuitem"
                             >
-                              <span>👥</span> Admin Tài khoản
+                              <span>👥</span> {t('menu.adminAccounts')}
                             </Link>
                           )}
                         </>
@@ -408,7 +411,7 @@ export default function MainTopbar() {
                     aria-busy={isSigningOut}
                     role="menuitem"
                   >
-                    <span>🚪</span> {isSigningOut ? 'Đang đăng xuất…' : 'Đăng xuất'}
+                    <span>🚪</span> {isSigningOut ? t('menu.signingOut') : t('menu.signOut')}
                   </button>
                   {signOutError && (
                     <div style={{ color: '#dc2626', fontSize: '0.75rem', padding: '0.25rem 1rem' }} role="alert">
@@ -420,7 +423,7 @@ export default function MainTopbar() {
             </div>
           ) : (
             <Link to="/login" className="main-topbar-login-btn">
-              Đăng nhập
+              {t('menu.signIn')}
             </Link>
           )}
         </div>

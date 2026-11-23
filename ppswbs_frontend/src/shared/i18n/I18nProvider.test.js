@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatMoney, translate } from './I18nProvider';
+import { enumLabel, formatMoney, translate } from './I18nProvider';
 
 describe('i18n', () => {
   const messages = { vi: { hello: 'Xin chào {name}', onlyVi: 'Chỉ có tiếng Việt' }, en: { hello: 'Hello {name}' } };
@@ -8,6 +8,14 @@ describe('i18n', () => {
     expect(translate(messages, 'en', 'hello', { name: 'Mland' })).toBe('Hello Mland');
     expect(translate(messages, 'en', 'onlyVi')).toBe('Chỉ có tiếng Việt');
     expect(translate(messages, 'vi', 'missing')).toBe('missing');
+  });
+
+  it('labels enum values and falls back to the raw value, never to a key', () => {
+    const m = { vi: { 'status.ACTIVE': 'Đang hoạt động' }, en: { 'status.ACTIVE': 'Active' } };
+    expect(enumLabel(m, 'en', 'status', 'ACTIVE')).toBe('Active');
+    expect(enumLabel(m, 'vi', 'status', 'ACTIVE')).toBe('Đang hoạt động');
+    expect(enumLabel(m, 'en', 'status', 'NEW_STATE')).toBe('NEW_STATE');
+    expect(enumLabel(m, 'en', 'status', null)).toBe('—');
   });
 
   it('formats decimal-string VND amounts without losing digits', () => {
