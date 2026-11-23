@@ -5,6 +5,8 @@ import type { User } from 'firebase/auth';
 import { useProfile } from '../hooks/useProfile';
 import { useVerifiedEmailGate } from '../hooks/useVerifiedEmailGate';
 import { firebaseAuthClient } from '../auth/FirebaseAuthClient';
+import { useT } from '../../../shared/i18n/I18nProvider';
+import { accountMessages } from '../messages';
 import '../accountmanagement.css';
 
 export interface ProfilePageProps {
@@ -16,6 +18,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   initialMode,
   initialSection,
 }) => {
+  const t = useT(accountMessages);
   const navigate = useNavigate();
   const {
     profile,
@@ -139,15 +142,15 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     setPasswordSuccess(null);
 
     if (!currentPassword) {
-      setPasswordError('Vui lòng nhập mật khẩu hiện tại.');
+      setPasswordError(t('profile.pwCurrentRequired'));
       return;
     }
     if (newPassword.length < 6) {
-      setPasswordError('Mật khẩu mới phải chứa ít nhất 6 ký tự.');
+      setPasswordError(t('profile.pwTooShort'));
       return;
     }
     if (newPassword !== confirmPassword) {
-      setPasswordError('Mật khẩu xác nhận không khớp.');
+      setPasswordError(t('profile.pwMismatch'));
       return;
     }
 
@@ -156,7 +159,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       // In-place re-authentication via reauthenticateWithCredential before updatePassword (T066)
       await firebaseAuthClient.reauthenticateWithCredential(currentPassword);
       await firebaseAuthClient.updatePassword(newPassword);
-      setPasswordSuccess('Đổi mật khẩu thành công.');
+      setPasswordSuccess(t('profile.pwChanged'));
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
@@ -164,13 +167,13 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       // On re-auth failure (wrong current password), clear only currentPassword, show inline error, retain newPassword/confirmPassword
       setCurrentPassword('');
       if (err?.code === 'auth/wrong-password' || err?.code === 'auth/invalid-credential') {
-        setPasswordError('Mật khẩu hiện tại không chính xác.');
+        setPasswordError(t('profile.pwWrong'));
       } else if (err?.code === 'auth/user-token-expired' || err?.code === 'auth/user-disabled') {
         setNewPassword('');
         setConfirmPassword('');
         handleSessionExpired();
       } else {
-        setPasswordError(err?.message || 'Không thể đổi mật khẩu. Vui lòng thử lại.');
+        setPasswordError(err?.message || t('profile.pwFailed'));
       }
     } finally {
       setPasswordPending(false);
@@ -184,7 +187,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
     const trimmed = newEmail.trim();
     if (!trimmed || !trimmed.includes('@')) {
-      setEmailChangeError('Vui lòng nhập email hợp lệ.');
+      setEmailChangeError(t('profile.emailRequired'));
       return;
     }
 
@@ -196,23 +199,23 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       }
       await firebaseAuthClient.verifyBeforeUpdateEmail(trimmed);
       setEmailChangeSuccess(
-        `Thư xác nhận đã được gửi đến ${trimmed}. Email hiện tại của bạn sẽ được giữ nguyên cho đến khi xác minh hoàn tất.`
+        t('profile.emailSent', { email: trimmed })
       );
       setEmailCurrentPassword('');
       setNewEmail('');
     } catch (err: any) {
       setEmailCurrentPassword('');
       if (err?.code === 'auth/wrong-password' || err?.code === 'auth/invalid-credential') {
-        setEmailChangeError('Mật khẩu hiện tại không chính xác.');
+        setEmailChangeError(t('profile.pwWrong'));
       } else if (err?.code === 'auth/user-token-expired' || err?.code === 'auth/user-disabled') {
         setNewEmail('');
         handleSessionExpired();
       } else if (err?.code === 'auth/email-already-in-use') {
-        setEmailChangeError('Địa chỉ email này đã được sử dụng bởi một tài khoản khác.');
+        setEmailChangeError(t('profile.emailInUse'));
       } else if (err?.code === 'auth/invalid-email') {
-        setEmailChangeError('Địa chỉ email không hợp lệ.');
+        setEmailChangeError(t('profile.emailInvalid'));
       } else {
-        setEmailChangeError(err?.message || 'Không thể gửi thư đổi email. Vui lòng thử lại.');
+        setEmailChangeError(err?.message || t('profile.emailFailed'));
       }
     } finally {
       setEmailChangePending(false);
@@ -223,7 +226,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     return (
       <div className="account-page-container">
         <div className="account-card">
-          <p>Đang tải thông tin hồ sơ tài khoản…</p>
+          <p>{t('profile.loading')}</p>
         </div>
       </div>
     );
@@ -234,12 +237,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     return (
       <div className="account-page-container">
         <div className="account-card" style={{ textAlign: 'center', padding: '3rem 1rem' }}>
-          <h2 style={{ marginBottom: '1rem' }}>Yêu cầu đăng nhập</h2>
+          <h2 style={{ marginBottom: '1rem' }}>{t('profile.signInRequiredTitle')}</h2>
           <p style={{ color: '#4b5563', marginBottom: '1.5rem' }}>
-            Vui lòng đăng nhập vào tài khoản để xem và quản lý hồ sơ cá nhân của bạn.
+            {t('profile.signInRequiredBody')}
           </p>
           <Link to="/login" className="account-btn account-btn-primary">
-            Đăng nhập ngay
+            {t('profile.signInNow')}
           </Link>
         </div>
       </div>
@@ -251,14 +254,14 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       <div className="account-page-container">
         <div>
           <Link to="/carrier" className="account-back-btn">
-            ← Quay lại cổng vận chuyển
+            {t('profile.backToCarrier')}
           </Link>
         </div>
 
         <header className="account-page-header">
-          <h1 className="account-page-title">Đổi mật khẩu đối tác vận chuyển</h1>
+          <h1 className="account-page-title">{t('profile.carrierPwTitle')}</h1>
           <p className="account-page-description">
-            Cập nhật mật khẩu đăng nhập cho tài khoản Đối tác vận chuyển (GHTK).
+            {t('profile.carrierPwDescription')}
           </p>
         </header>
 
@@ -268,7 +271,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
           aria-labelledby="password-heading"
         >
           <h2 id="password-heading" className="account-card-title">
-            Đổi mật khẩu
+            {t('profile.changePassword')}
           </h2>
 
           {passwordSuccess && (
@@ -286,7 +289,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
           <form className="account-form" onSubmit={handlePasswordChange}>
             <div className="account-field">
               <label className="account-label account-label-required" htmlFor="current-password">
-                Mật khẩu hiện tại
+                {t('profile.currentPassword')}
               </label>
               <input
                 id="current-password"
@@ -301,7 +304,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
             <div className="account-field">
               <label className="account-label account-label-required" htmlFor="new-password">
-                Mật khẩu mới
+                {t('profile.newPassword')}
               </label>
               <input
                 id="new-password"
@@ -313,12 +316,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 disabled={passwordPending}
                 autoComplete="new-password"
               />
-              <span className="account-field-hint">Tối thiểu 6 ký tự.</span>
+              <span className="account-field-hint">{t('profile.min6')}</span>
             </div>
 
             <div className="account-field">
               <label className="account-label account-label-required" htmlFor="confirm-password">
-                Xác nhận mật khẩu mới
+                {t('profile.confirmNewPassword')}
               </label>
               <input
                 id="confirm-password"
@@ -338,7 +341,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 className="account-btn account-btn-primary"
                 disabled={passwordPending}
               >
-                {passwordPending ? 'Đang cập nhật…' : 'Cập nhật mật khẩu'}
+                {passwordPending ? t('profile.updating') : t('profile.updatePassword')}
               </button>
             </div>
           </form>
@@ -354,14 +357,14 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       {/* Back button matching Figma */}
       <div>
         <Link to="/" className="account-back-btn">
-          ← Quay lại trang chủ
+          {t('profile.backHome')}
         </Link>
       </div>
 
       <header className="account-page-header">
-        <h1 className="account-page-title">Hồ sơ cá nhân & Bảo mật</h1>
+        <h1 className="account-page-title">{t('profile.title')}</h1>
         <p className="account-page-description">
-          Quản lý thông tin tài khoản thành viên, cập nhật liên hệ và các tùy chọn bảo mật.
+          {t('profile.description')}
         </p>
       </header>
 
@@ -370,12 +373,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         <div
           className="account-alert account-alert-warning"
           role="region"
-          aria-label="Xác thực email"
+          aria-label={t('profile.verifyRegion')}
         >
           <div>
-            <strong>Email của bạn chưa được xác thực!</strong>
+            <strong>{t('profile.unverifiedTitle')}</strong>
             <p style={{ margin: '0.25rem 0 0.5rem 0' }}>
-              Một số tính năng yêu cầu email đã được xác minh. Vui lòng kiểm tra hộp thư đến của bạn.
+              {t('profile.unverifiedBody')}
             </p>
             <div
               style={{
@@ -392,10 +395,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 disabled={!canResend || resending}
               >
                 {resending
-                  ? 'Đang gửi…'
+                  ? t('profile.sending')
                   : resendCooldownSeconds > 0
-                  ? `Gửi lại sau ${resendCooldownSeconds}s`
-                  : 'Gửi lại email xác thực'}
+                  ? t('profile.resendAfter', { seconds: resendCooldownSeconds })
+                  : t('profile.resend')}
               </button>
             </div>
           </div>
@@ -406,13 +409,13 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       <div className="account-gate-box">
         <div>
           <span style={{ fontSize: '0.875rem', color: '#4b5563' }}>
-            Trạng thái xác thực email:{' '}
+            {t('profile.gateStatus')}{' '}
             <strong style={{ color: isVerified ? '#15803d' : '#b45309' }}>
               {gateState === 'checking'
-                ? 'Đang kiểm tra…'
+                ? t('profile.checking')
                 : isVerified
-                ? 'Đã xác thực'
-                : 'Chưa xác thực'}
+                ? t('profile.verified')
+                : t('profile.notVerified')}
             </strong>
           </span>
         </div>
@@ -421,21 +424,21 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
           className="account-reload-btn"
           onClick={checkGate}
           disabled={gateState === 'checking'}
-          aria-label="Kiểm tra lại trạng thái xác thực email"
-          title="Tải lại trạng thái xác thực từ hệ thống"
+          aria-label={t('profile.recheckAria')}
+          title={t('profile.reloadTitle')}
         >
           <span aria-hidden="true">🔄</span>
-          <span>{gateState === 'checking' ? 'Đang kiểm tra…' : 'Tải lại xác thực'}</span>
+          <span>{gateState === 'checking' ? t('profile.checking') : t('profile.reload')}</span>
         </button>
       </div>
 
       {gateError && (
         <div className="account-alert account-alert-error" role="alert">
-          <span>{gateError.message || 'Lỗi khi kiểm tra trạng thái xác thực email.'}</span>
+          <span>{gateError.message || t('profile.gateError')}</span>
         </div>
       )}
 
-      {/* SECTION 1: Personal Profile Overview (Màn Hồ sơ cá nhân theo screen.md) */}
+      {/* SECTION 1: Personal Profile Overview (profile overview screen per screen.md) */}
       <section className="account-card profile-overview-card" aria-labelledby="personal-profile-heading">
         <div className="profile-hero">
           <div className="profile-avatar" aria-hidden="true">
@@ -443,7 +446,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
           </div>
           <div className="profile-hero-info">
             <h2 id="personal-profile-heading">
-              {profile?.fullName || 'Khách hàng thành viên'}
+              {profile?.fullName || t('profile.memberFallback')}
             </h2>
             <p>{profile?.email}</p>
             <div style={{ marginTop: '0.375rem' }}>
@@ -458,7 +461,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   color: isVerified ? '#166534' : '#854d0e',
                 }}
               >
-                {isVerified ? 'Email đã xác thực' : 'Email chưa xác thực'}
+                {isVerified ? t('profile.emailVerifiedBadge') : t('profile.emailUnverifiedBadge')}
               </span>
             </div>
           </div>
@@ -466,33 +469,33 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
         <div className="profile-details-grid">
           <div className="profile-detail-item">
-            <span className="profile-detail-label">Họ và tên</span>
-            <span className="profile-detail-value">{profile?.fullName || '(Chưa cập nhật)'}</span>
+            <span className="profile-detail-label">{t('profile.fullName')}</span>
+            <span className="profile-detail-value">{profile?.fullName || t('profile.notSet')}</span>
           </div>
 
           <div className="profile-detail-item">
-            <span className="profile-detail-label">Email đăng nhập</span>
+            <span className="profile-detail-label">{t('profile.loginEmail')}</span>
             <span className="profile-detail-value">{profile?.email}</span>
           </div>
 
           <div className="profile-detail-item">
-            <span className="profile-detail-label">Số điện thoại</span>
-            <span className="profile-detail-value">{profile?.phone || '(Chưa cập nhật)'}</span>
+            <span className="profile-detail-label">{t('profile.phone')}</span>
+            <span className="profile-detail-value">{profile?.phone || t('profile.notSet')}</span>
           </div>
 
           <div className="profile-detail-item">
-            <span className="profile-detail-label">Mã tài khoản (ID)</span>
+            <span className="profile-detail-label">{t('profile.accountId')}</span>
             <span className="profile-detail-value">#{profile?.id}</span>
           </div>
 
           <div className="profile-detail-item">
-            <span className="profile-detail-label">Trạng thái tài khoản</span>
+            <span className="profile-detail-label">{t('profile.accountStatus')}</span>
             <span className="profile-detail-value">{profile?.status || 'ACTIVE'}</span>
           </div>
 
           <div className="profile-detail-item">
-            <span className="profile-detail-label">Thời điểm tham gia</span>
-            <span className="profile-detail-value">{profile?.createdAt || 'Hôm nay'}</span>
+            <span className="profile-detail-label">{t('profile.joinedAt')}</span>
+            <span className="profile-detail-value">{profile?.createdAt || t('profile.today')}</span>
           </div>
         </div>
 
@@ -502,7 +505,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             className="account-btn account-btn-primary"
             onClick={() => editSectionRef.current?.scrollIntoView({ behavior: 'smooth' })}
           >
-            Chỉnh sửa hồ sơ
+            {t('profile.editProfile')}
           </button>
           {showPasswordSection && (
             <button
@@ -510,7 +513,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
               className="account-btn account-btn-secondary"
               onClick={() => passwordSectionRef.current?.scrollIntoView({ behavior: 'smooth' })}
             >
-              Đổi mật khẩu
+              {t('profile.changePassword')}
             </button>
           )}
           <button
@@ -518,13 +521,13 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             className="account-btn account-btn-secondary"
             onClick={() => emailSectionRef.current?.scrollIntoView({ behavior: 'smooth' })}
           >
-            Thay đổi email
+            {t('profile.changeEmailAction')}
           </button>
           <Link
             to="/profile/addresses"
             className="account-btn account-btn-secondary"
           >
-            Sổ địa chỉ nhận hàng
+            {t('profile.addressBook')}
           </Link>
         </div>
       </section>
@@ -534,14 +537,14 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
             <h2 id="address-book-heading" className="account-card-title" style={{ marginBottom: '0.25rem' }}>
-              Sổ địa chỉ nhận hàng
+              {t('profile.addressBook')}
             </h2>
             <p style={{ color: '#4b5563', margin: 0, fontSize: '0.95rem' }}>
-              Quản lý danh sách địa chỉ giao nhận hàng của bạn (tối đa 10 địa chỉ), tương thích đơn vị vận chuyển GHTK.
+              {t('profile.addressBookDescription')}
             </p>
           </div>
           <Link to="/profile/addresses" className="account-btn account-btn-primary">
-            Quản lý sổ địa chỉ →
+            {t('profile.manageAddresses')}
           </Link>
         </div>
       </section>
@@ -553,7 +556,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         aria-labelledby="profile-heading"
       >
         <h2 id="profile-heading" className="account-card-title">
-          Chỉnh sửa thông tin hồ sơ
+          {t('profile.editHeading')}
         </h2>
 
         {profileSuccess && (
@@ -564,14 +567,14 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
         {profileError && (
           <div className="account-alert account-alert-error" role="alert">
-            <span>{profileError.message || 'Không thể cập nhật hồ sơ.'}</span>
+            <span>{profileError.message || t('profile.updateError')}</span>
           </div>
         )}
 
         <form className="account-form" onSubmit={handleProfileSubmit} noValidate>
           <div className="account-field">
             <label className="account-label" htmlFor="profile-email">
-              Địa chỉ đăng nhập
+              {t('profile.loginAddress')}
             </label>
             <input
               id="profile-email"
@@ -582,13 +585,13 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
               style={{ backgroundColor: '#f3f4f6', cursor: 'not-allowed' }}
             />
             <span className="account-field-hint">
-              Địa chỉ email được định danh bởi nhà cung cấp xác thực. Muốn đổi email hãy dùng phần bên dưới.
+              {t('profile.loginAddressHint')}
             </span>
           </div>
 
           <div className="account-field">
             <label className="account-label account-label-required" htmlFor="profile-name">
-              Họ và tên
+              {t('profile.fullName')}
             </label>
             <input
               id="profile-name"
@@ -606,13 +609,13 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
               </span>
             )}
             <span className="account-field-hint">
-              Tối đa 100 ký tự Unicode, không chứa ký tự điều khiển.
+              {t('profile.nameHint')}
             </span>
           </div>
 
           <div className="account-field">
             <label className="account-label" htmlFor="profile-phone">
-              Số điện thoại
+              {t('profile.phone')}
             </label>
             <input
               id="profile-phone"
@@ -629,7 +632,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 {fieldErrors.phone}
               </span>
             )}
-            <span className="account-field-hint">Từ 7 đến 30 ký tự (không bắt buộc).</span>
+            <span className="account-field-hint">{t('profile.phoneHint')}</span>
           </div>
 
           <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
@@ -637,9 +640,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
               type="submit"
               className="account-btn account-btn-primary"
               disabled={!isVerified || saving}
-              title={!isVerified ? 'Cần xác thực email trước khi lưu thay đổi' : undefined}
+              title={!isVerified ? t('profile.verifyBeforeSave') : undefined}
             >
-              {saving ? 'Đang lưu…' : 'Lưu thay đổi'}
+              {saving ? t('profile.saving') : t('profile.saveChanges')}
             </button>
             <button
               type="button"
@@ -647,11 +650,11 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
               onClick={resetForm}
               disabled={saving}
             >
-              Khôi phục
+              {t('profile.restore')}
             </button>
             {!isVerified && (
               <span style={{ fontSize: '0.8125rem', color: '#b45309' }}>
-                * Bạn cần xác thực email trước khi có thể chỉnh sửa hồ sơ.
+                {t('profile.verifyBeforeEdit')}
               </span>
             )}
           </div>
@@ -666,7 +669,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
           aria-labelledby="password-heading"
         >
           <h2 id="password-heading" className="account-card-title">
-            Đổi mật khẩu
+            {t('profile.changePassword')}
           </h2>
 
           {passwordSuccess && (
@@ -684,7 +687,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
           <form className="account-form" onSubmit={handlePasswordChange}>
             <div className="account-field">
               <label className="account-label account-label-required" htmlFor="current-password">
-                Mật khẩu hiện tại
+                {t('profile.currentPassword')}
               </label>
               <input
                 id="current-password"
@@ -699,7 +702,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
             <div className="account-field">
               <label className="account-label account-label-required" htmlFor="new-password">
-                Mật khẩu mới
+                {t('profile.newPassword')}
               </label>
               <input
                 id="new-password"
@@ -710,12 +713,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 autoComplete="new-password"
                 disabled={passwordPending}
               />
-              <span className="account-field-hint">Tối thiểu 6 ký tự.</span>
+              <span className="account-field-hint">{t('profile.min6')}</span>
             </div>
 
             <div className="account-field">
               <label className="account-label account-label-required" htmlFor="confirm-new-password">
-                Xác nhận mật khẩu mới
+                {t('profile.confirmNewPassword')}
               </label>
               <input
                 id="confirm-new-password"
@@ -734,7 +737,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 className="account-btn account-btn-secondary"
                 disabled={passwordPending || !currentPassword || !newPassword || !confirmPassword}
               >
-                {passwordPending ? 'Đang xử lý…' : 'Cập nhật mật khẩu'}
+                {passwordPending ? t('profile.processing') : t('profile.updatePassword')}
               </button>
             </div>
           </form>
@@ -748,7 +751,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         aria-labelledby="email-change-heading"
       >
         <h2 id="email-change-heading" className="account-card-title">
-          Thay đổi địa chỉ email
+          {t('profile.changeEmailHeading')}
         </h2>
 
         {emailChangeSuccess && (
@@ -766,14 +769,14 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         {isOAuthOnly ? (
           <div className="account-alert account-alert-info" role="status">
             <span>
-              Tài khoản của bạn đăng nhập bằng nhà cung cấp bên ngoài (Google). Vui lòng cập nhật địa chỉ email trực tiếp trên tài khoản Google của bạn.
+              {t('profile.oauthNotice')}
             </span>
           </div>
         ) : (
           <form className="account-form" onSubmit={handleEmailChange}>
             <div className="account-field">
               <label className="account-label" htmlFor="email-current-password">
-                Mật khẩu hiện tại
+                {t('profile.currentPassword')}
               </label>
               <input
                 id="email-current-password"
@@ -788,7 +791,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
             <div className="account-field">
               <label className="account-label account-label-required" htmlFor="new-email">
-                Địa chỉ email mới
+                {t('profile.newEmail')}
               </label>
               <input
                 id="new-email"
@@ -796,11 +799,11 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 className="account-input"
                 value={newEmail}
                 onChange={e => setNewEmail(e.target.value)}
-                placeholder="nhap.email.moi@example.com"
+                placeholder={t('profile.newEmailPlaceholder')}
                 disabled={emailChangePending}
               />
               <span className="account-field-hint">
-                Hệ thống sẽ gửi email xác thực đến địa chỉ mới. Email đăng nhập chỉ thay đổi sau khi bạn xác minh.
+                {t('profile.newEmailHint')}
               </span>
             </div>
 
@@ -810,7 +813,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 className="account-btn account-btn-secondary"
                 disabled={emailChangePending || !newEmail.trim()}
               >
-                {emailChangePending ? 'Đang gửi…' : 'Yêu cầu đổi email'}
+                {emailChangePending ? t('profile.sending') : t('profile.requestEmailChange')}
               </button>
             </div>
           </form>

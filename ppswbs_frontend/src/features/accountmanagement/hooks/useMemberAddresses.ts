@@ -7,6 +7,7 @@ import {
   AdministrativeDivisionResponse,
 } from '../api/AddressApiClient';
 import { ApiError } from '../../../shared/api/http';
+import { useStableT, viT, Translate } from './useStableT';
 
 export function removeDiacritics(str: string): string {
   if (!str) return '';
@@ -29,50 +30,51 @@ export function validatePhoneNumber(phone: string): boolean {
 }
 
 export function validateAddressInput(
-  data: Partial<AddressCreateRequest | AddressUpdateRequest>
+  data: Partial<AddressCreateRequest | AddressUpdateRequest>,
+  t: Translate = viT
 ): Record<string, string> {
   const errors: Record<string, string> = {};
 
   const name = data.recipientName?.trim();
   if (!name) {
-    errors.recipientName = 'Họ và tên người nhận là bắt buộc';
+    errors.recipientName = t('hook.addr.nameRequired');
   } else if (name.length > 255) {
-    errors.recipientName = 'Họ và tên không được vượt quá 255 ký tự';
+    errors.recipientName = t('hook.addr.nameLength');
   } else if (/[\u0000-\u001F\u007F-\u009F]/.test(name)) {
-    errors.recipientName = 'Họ và tên không được chứa ký tự điều khiển ISO';
+    errors.recipientName = t('hook.addr.nameControl');
   }
 
   const phone = data.phoneNumber?.trim();
   if (!phone) {
-    errors.phoneNumber = 'Số điện thoại người nhận là bắt buộc';
+    errors.phoneNumber = t('hook.addr.phoneRequired');
   } else if (!validatePhoneNumber(phone)) {
-    errors.phoneNumber = 'Số điện thoại không hợp lệ (phải là số di động Việt Nam 10 chữ số, ví dụ: 0912345678)';
+    errors.phoneNumber = t('hook.addr.phoneInvalid');
   }
 
   const prov = (data as any).provinceCode || (data as any).provinceName || (data as any).provinceId;
   if (!prov || !String(prov).trim()) {
-    errors.provinceCode = 'Vui lòng chọn Tỉnh/Thành phố';
-    errors.provinceName = 'Vui lòng chọn Tỉnh/Thành phố';
+    errors.provinceCode = t('hook.addr.province');
+    errors.provinceName = t('hook.addr.province');
   }
 
   const comm = (data as any).communeCode || (data as any).communeName || (data as any).wardName || (data as any).wardId;
   if (!comm || !String(comm).trim()) {
-    errors.communeCode = 'Vui lòng chọn Phường/Xã/Khu vực đặc thù';
-    errors.communeName = 'Vui lòng chọn Phường/Xã/Khu vực đặc thù';
-    errors.wardName = 'Vui lòng chọn Phường/Xã';
+    errors.communeCode = t('hook.addr.commune');
+    errors.communeName = t('hook.addr.commune');
+    errors.wardName = t('hook.addr.ward');
   }
 
   if ('districtName' in data && !data.districtName?.trim()) {
-    errors.districtName = 'Vui lòng chọn Quận/Huyện';
+    errors.districtName = t('hook.addr.district');
   }
 
   const detail = data.detailAddress?.trim();
   if (!detail) {
-    errors.detailAddress = 'Địa chỉ chi tiết (số nhà, tên đường...) là bắt buộc';
+    errors.detailAddress = t('hook.addr.detailRequired');
   } else if (detail.length > 255) {
-    errors.detailAddress = 'Địa chỉ chi tiết không được vượt quá 255 ký tự';
+    errors.detailAddress = t('hook.addr.detailLength');
   } else if (/[\u0000-\u001F\u007F-\u009F]/.test(detail)) {
-    errors.detailAddress = 'Địa chỉ chi tiết không được chứa ký tự điều khiển ISO';
+    errors.detailAddress = t('hook.addr.detailControl');
   }
 
   return errors;
@@ -83,6 +85,7 @@ export interface UseMemberAddressesOptions {
 }
 
 export function useMemberAddresses(options: UseMemberAddressesOptions = { autoLoad: true }) {
+  const t = useStableT();
   const [addresses, setAddresses] = useState<AddressResponse[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [saving, setSaving] = useState<boolean>(false);
@@ -98,7 +101,7 @@ export function useMemberAddresses(options: UseMemberAddressesOptions = { autoLo
       const data = await addressApiClient.getOwnAddresses();
       setAddresses(data);
     } catch (err: any) {
-      setError(err?.message || 'Không thể tải danh sách địa chỉ nhận hàng.');
+      setError(err?.message || t('hook.addr.loadError'));
     } finally {
       setLoading(false);
     }
@@ -129,13 +132,13 @@ export function useMemberAddresses(options: UseMemberAddressesOptions = { autoLo
       try {
         const created = await addressApiClient.createOwnAddress(payload);
         await loadAddresses();
-        setSuccessNotice('Thêm địa chỉ nhận hàng thành công.');
+        setSuccessNotice(t('hook.addr.created'));
         return created;
       } catch (err: any) {
         if (err instanceof ApiError && err.status === 409) {
-          setError('Bạn đã đạt giới hạn tối đa 10 địa chỉ nhận hàng.');
+          setError(t('hook.addr.quota'));
         } else {
-          setError(err?.message || 'Không thể tạo mới địa chỉ.');
+          setError(err?.message || t('hook.addr.createError'));
         }
         throw err;
       } finally {
@@ -162,10 +165,10 @@ export function useMemberAddresses(options: UseMemberAddressesOptions = { autoLo
       try {
         const updated = await addressApiClient.updateOwnAddress(id, payload);
         await loadAddresses();
-        setSuccessNotice('Cập nhật địa chỉ thành công.');
+        setSuccessNotice(t('hook.addr.updated'));
         return updated;
       } catch (err: any) {
-        setError(err?.message || 'Không thể cập nhật địa chỉ.');
+        setError(err?.message || t('hook.addr.updateError'));
         throw err;
       } finally {
         setSaving(false);
@@ -182,7 +185,7 @@ export function useMemberAddresses(options: UseMemberAddressesOptions = { autoLo
       // Check if address is default and multiple addresses exist
       const target = addresses.find(a => a.id === id);
       if (target?.isDefault && addresses.length > 1) {
-        const msg = 'Không thể xóa địa chỉ mặc định khi còn các địa chỉ khác. Vui lòng thiết lập địa chỉ khác làm mặc định trước.';
+        const msg = t('hook.addr.deleteDefault');
         setError(msg);
         throw new Error(msg);
       }
@@ -191,9 +194,9 @@ export function useMemberAddresses(options: UseMemberAddressesOptions = { autoLo
       try {
         await addressApiClient.deleteOwnAddress(id);
         await loadAddresses();
-        setSuccessNotice('Đã xóa địa chỉ thành công.');
+        setSuccessNotice(t('hook.addr.deleted'));
       } catch (err: any) {
-        setError(err?.message || 'Không thể xóa địa chỉ.');
+        setError(err?.message || t('hook.addr.deleteError'));
         throw err;
       } finally {
         setDeletingId(null);
@@ -210,10 +213,10 @@ export function useMemberAddresses(options: UseMemberAddressesOptions = { autoLo
       try {
         const res = await addressApiClient.setDefaultAddress(id);
         await loadAddresses();
-        setSuccessNotice('Đã thiết lập địa chỉ mặc định.');
+        setSuccessNotice(t('hook.addr.defaultSet'));
         return res;
       } catch (err: any) {
-        setError(err?.message || 'Không thể thiết lập địa chỉ mặc định.');
+        setError(err?.message || t('hook.addr.defaultError'));
         throw err;
       } finally {
         setSettingDefaultId(null);

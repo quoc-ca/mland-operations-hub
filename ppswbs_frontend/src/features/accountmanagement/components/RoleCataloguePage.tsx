@@ -4,9 +4,12 @@ import {
   accountManagementApiClient,
   RoleCatalogueEntry,
 } from '../api/AccountManagementApiClient';
+import { useT } from '../../../shared/i18n/I18nProvider';
+import { accountMessages } from '../messages';
 import '../accountmanagement.css';
 
 export const RoleCataloguePage: React.FC = () => {
+  const t = useT(accountMessages);
   const [roles, setRoles] = useState<RoleCatalogueEntry[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -23,7 +26,7 @@ export const RoleCataloguePage: React.FC = () => {
         }
       } catch (err: any) {
         if (active) {
-          setError(err?.message || 'Không thể tải danh mục vai trò hệ thống.');
+          setError(err?.message || t('roles.loadError'));
         }
       } finally {
         if (active) {
@@ -36,36 +39,36 @@ export const RoleCataloguePage: React.FC = () => {
     return () => {
       active = false;
     };
-  }, []);
+  }, [t]);
 
   return (
     <div className="account-page-container">
       {/* Back button matching Figma */}
       <div>
         <Link to="/admin/accounts" className="account-back-btn">
-          ← Quay lại
+          {t('roles.back')}
         </Link>
       </div>
 
       {/* Admin Navigation Tabs (Figma F08-F11) */}
-      <nav className="admin-nav-tabs" aria-label="Admin Navigation">
+      <nav className="admin-nav-tabs" aria-label={t('roles.navAria')}>
         <Link to="/admin/accounts" className="admin-nav-tab">
-          Tài khoản
+          {t('roles.navAccounts')}
         </Link>
         <Link to="/admin/roles" className="admin-nav-tab active">
-          Vai trò
+          {t('roles.navRoles')}
         </Link>
       </nav>
 
       <header className="account-page-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-          <h1 className="account-page-title" style={{ margin: 0 }}>Danh mục vai trò hệ thống (Fixed Roles)</h1>
+          <h1 className="account-page-title" style={{ margin: 0 }}>{t('roles.title')}</h1>
           <span className="account-badge account-badge-readonly">
-            Chỉ đọc · 5 vai trò cố định
+            {t('roles.readonlyBadge')}
           </span>
         </div>
         <p className="account-page-description" style={{ marginTop: '0.5rem' }}>
-          Danh mục vai trò hệ thống (Fixed Roles). Tra cứu trách nhiệm và phạm vi. Không thể thêm, đổi tên hoặc xóa vai trò tại đây.
+          {t('roles.description')}
         </p>
       </header>
 
@@ -77,15 +80,15 @@ export const RoleCataloguePage: React.FC = () => {
 
       {loading ? (
         <div className="account-card">
-          <p style={{ color: '#6b717f' }}>Đang tải danh mục vai trò…</p>
+          <p style={{ color: '#6b717f' }}>{t('roles.loading')}</p>
         </div>
       ) : (
         <div className="account-card">
           <table className="account-table">
             <thead>
               <tr>
-                <th style={{ width: '180px' }}>Vai trò</th>
-                <th>Mô tả phạm vi và quyền hạn</th>
+                <th style={{ width: '180px' }}>{t('roles.colRole')}</th>
+                <th>{t('roles.colDescription')}</th>
               </tr>
             </thead>
             <tbody>
@@ -108,18 +111,18 @@ export const RoleCataloguePage: React.FC = () => {
 
           <div style={{ marginTop: '1.5rem', padding: '1rem', backgroundColor: '#f4f5f7', borderRadius: '4px', border: '1px solid #eceef1' }}>
             <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.9rem', fontWeight: 600, color: '#1a1a1a' }}>
-              Quy tắc quản trị vai trò (Role Governance Rules):
+              {t('roles.rulesTitle')}
             </p>
             <ul style={{ margin: 0, paddingLeft: '1.25rem', fontSize: '0.85rem', color: '#6b717f', lineHeight: 1.6 }}>
-              <li>Vai trò được gán trực tiếp cho từng tài khoản; không áp dụng đa vai trò đồng thời.</li>
-              <li>MEMBER được tạo tự động thông qua đăng ký cá nhân tự phục vụ.</li>
-              <li>STAFF được phân công đúng 1 cơ sở (giới hạn quyền truy cập vận hành trong cơ sở đó).</li>
-              <li>MANAGER có một hoặc nhiều phân công cơ sở hỗ trợ tổ chức; phạm vi vận hành cho các tác vụ quản lý của Manager là toàn hệ thống.</li>
-              <li>CARRIER là vai trò đối tác vận chuyển (GHTK) do Quản trị viên khởi tạo trực tiếp ở trạng thái ACTIVE; không phân công cơ sở và không chuyển đổi vai trò.</li>
-              <li>ADMIN là vai trò quản trị hệ thống cao nhất, quản lý tài khoản nội bộ và danh mục vai trò; không thể bị tạm khóa hoặc sửa đổi từ giao diện này.</li>
+              <li>{t('roles.rule1')}</li>
+              <li>{t('roles.rule2')}</li>
+              <li>{t('roles.rule3')}</li>
+              <li>{t('roles.rule4')}</li>
+              <li>{t('roles.rule5')}</li>
+              <li>{t('roles.rule6')}</li>
             </ul>
             <p style={{ margin: '0.75rem 0 0 0', fontSize: '0.85rem', color: '#1a1a1a', fontWeight: 500 }}>
-              💡 Để phân công vai trò STAFF hoặc MANAGER, mở chi tiết tài khoản và chọn cơ sở phù hợp. Phân công cơ sở của Manager hỗ trợ tổ chức và không giới hạn quyền quản lý toàn hệ thống.
+              {t('roles.tip')}
             </p>
           </div>
         </div>
