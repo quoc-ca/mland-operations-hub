@@ -1,28 +1,32 @@
 import { useHttp } from '../../shared/api/useHttp';
 import { useResource } from '../../shared/ui/components';
+import { translate } from '../../shared/i18n/I18nProvider';
+import { operatorHomeMessages } from './messages';
 import { createOperationsApi } from '../../workshop-operations/api/operationsApi';
 import { staffRetailOpenCount } from '../retail-order/ui/manager/staffTabs';
 
 const ZONE = 'Asia/Ho_Chi_Minh';
 const DAY_MS = 24 * 60 * 60 * 1000;
 const dateInVietnam = time => new Date(time).toLocaleDateString('en-CA', { timeZone: ZONE });
-const clock = (time, vi) => new Date(time).toLocaleTimeString(vi ? 'vi-VN' : 'en-GB', { timeZone: ZONE, hour: '2-digit', minute: '2-digit' });
+const clock = (time, language) => new Date(time).toLocaleTimeString(language === 'en' ? 'en-GB' : 'vi-VN', { timeZone: ZONE, hour: '2-digit', minute: '2-digit' });
 const listOf = data => (Array.isArray(data) ? data : data?.items || data?.content || []);
+// Without a translator (the rail badge counts only need how many tasks there are) the texts are built in Vietnamese.
+const viText = (key, params) => translate(operatorHomeMessages, 'vi', key, params);
 
-function minutesText(ms, vi) {
+function minutesText(ms, t) {
   const minutes = Math.max(1, Math.round(ms / 60_000));
-  if (minutes < 60) return vi ? `${minutes} phút` : `${minutes} min`;
+  if (minutes < 60) return t('duration.minutes', { minutes });
   const hours = Math.floor(minutes / 60);
   const rest = minutes % 60;
-  if (vi) return rest ? `${hours} giờ ${rest} phút` : `${hours} giờ`;
-  return rest ? `${hours} h ${rest} min` : `${hours} h`;
+  return rest ? t('duration.hoursMinutes', { hours, minutes: rest }) : t('duration.hours', { hours });
 }
 
 /**
  * What a Staff's workshop sessions need now (Session 2026-11-22), most urgent first. The backend already limits the
  * list to the sessions this Staff may see; sessions that are finalized, cancelled or still drafts need nothing.
+ * `t` is the translator of operatorHomeMessages and `language` the shown language (clock format).
  */
-export function workshopTasks(sessions, now = Date.now(), vi = true) {
+export function workshopTasks(sessions, now = Date.now(), t = viText, language = 'vi') {
   const today = dateInVietnam(now);
   return listOf(sessions)
     .filter(session => ['PUBLISHED', 'SALES_PAUSED', 'IN_PROGRESS'].includes(session.state))
@@ -30,25 +34,25 @@ export function workshopTasks(sessions, now = Date.now(), vi = true) {
       const start = new Date(session.scheduledStartAt).getTime();
       const end = new Date(session.scheduledEndAt).getTime();
       const opens = session.checkInOpensAt ? new Date(session.checkInOpensAt).getTime() : start;
-      const when = clock(start, vi);
+      const when = clock(start, language);
       const where = session.locationName ? ` · ${session.locationName}` : '';
-      const name = (vi ? `Buổi ${when}` : `Session ${when}`) + where;
+      const name = t('task.session', { time: when }) + where;
       if (session.state === 'IN_PROGRESS' && now > end) {
-        return { id: session.id, rank: 0, urgent: true, title: vi ? `${name}: chưa chốt điểm danh` : `${name}: attendance not finalized`,
-          detail: vi ? `Đã kết thúc lúc ${clock(end, vi)}` : `Ended at ${clock(end, vi)}`, action: vi ? 'Chốt điểm danh' : 'Finalize', start };
+        return { id: session.id, rank: 0, urgent: true, title: t('task.notFinalized', { name }),
+          detail: t('task.endedAt', { time: clock(end, language) }), action: t('task.finalize'), start };
       }
       if (session.state === 'IN_PROGRESS') {
-        return { id: session.id, rank: 1, urgent: true, title: vi ? `${name} đang diễn ra` : `${name} is in progress`,
-          detail: vi ? `Kết thúc lúc ${clock(end, vi)}` : `Ends at ${clock(end, vi)}`, action: vi ? 'Check-in khách' : 'Check guests in', start };
+        return { id: session.id, rank: 1, urgent: true, title: t('task.inProgress', { name }),
+          detail: t('task.endsAt', { time: clock(end, language) }), action: t('task.checkIn'), start };
       }
       if (dateInVietnam(start) !== today && start < now) return null;
       if (now >= opens) {
-        return { id: session.id, rank: 2, urgent: true, title: vi ? `${name}: đã mở check-in` : `${name}: check-in is open`,
-          detail: vi ? `Bắt đầu sau ${minutesText(start - now, vi)}` : `Starts in ${minutesText(start - now, vi)}`, action: vi ? 'Check-in khách' : 'Check guests in', start };
+        return { id: session.id, rank: 2, urgent: true, title: t('task.checkInOpen', { name }),
+          detail: t('task.startsIn', { duration: minutesText(start - now, t) }), action: t('task.checkIn'), start };
       }
       if (dateInVietnam(start) !== today) return null;
-      return { id: session.id, rank: 3, urgent: false, title: vi ? `${name} sắp diễn ra` : `${name} is coming up`,
-        detail: vi ? `Mở check-in sau ${minutesText(opens - now, vi)}` : `Check-in opens in ${minutesText(opens - now, vi)}`, action: vi ? 'Xem buổi' : 'Open session', start };
+      return { id: session.id, rank: 3, urgent: false, title: t('task.comingUp', { name }),
+        detail: t('task.checkInOpensIn', { duration: minutesText(opens - now, t) }), action: t('task.openSession'), start };
     })
     .filter(Boolean)
     .sort((a, b) => a.rank - b.rank || a.start - b.start);
