@@ -15,7 +15,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.custommanufacturing.domain.Cus
 import edu.fpt.sep490_g22.ppswbs_backend.features.custommanufacturing.domain.CustomOrderIdempotencyRecord;
 import edu.fpt.sep490_g22.ppswbs_backend.features.custommanufacturing.domain.CustomOrderQuote;
 import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.config.VnpayProperties;
-import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.entity.PaymentOwnerKind;
+import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.facade.PaymentOwnerKind;
 import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.entity.PaymentOwnerRegistration;
 import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.facade.PaymentOwnerRegistry;
 import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.service.VnpayChecksumService;
