@@ -67,6 +67,12 @@ public class WorkshopPackageDiscoveryService {
                 .toList();
     }
 
+    /** IDs of the locations where a published package is sellable (003.2 FR-039); used to price public offers per branch. */
+    @Transactional(readOnly = true)
+    public List<Long> sellableLocationIds(Long packageId) {
+        return availabilityService.activeLocationIds(packageId).stream().sorted().toList();
+    }
+
     /**
      * Returns active locations that currently expose at least one selectable
      * customer session for the published package and requested date window.
@@ -74,6 +80,7 @@ public class WorkshopPackageDiscoveryService {
      * booking must not show inactive or irrelevant operational locations.
      */
     @Transactional(readOnly = true)
+
     public List<LocationResponse> discoverEligibleLocations(Long packageId, LocalDate from, LocalDate to) {
         packageRepository.findById(packageId)
                 .filter(workshopPackage -> workshopPackage.getState() == WorkshopPackageState.PUBLISHED)
