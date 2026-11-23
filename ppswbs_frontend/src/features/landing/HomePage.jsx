@@ -567,6 +567,14 @@ export default function HomePage() {
             </Link>
             <span className="landing-portal-separator">|</span>
             <Link
+              to="/design-review-requests"
+              className={`landing-portal-link ${userRole === 'STAFF' || userRole === 'MANAGER' ? 'active-role' : ''}`}
+              title="Duyệt yêu cầu thiết kế và báo giá chế tác"
+            >
+              Duyệt Thiết kế {(userRole === 'STAFF' || userRole === 'MANAGER') && '★'}
+            </Link>
+            <span className="landing-portal-separator">|</span>
+            <Link
               to="/catalogue-management/products"
               className={`landing-portal-link ${userRole === 'MANAGER' ? 'active-role' : ''}`}
               title="Quản lý danh mục và giá sản phẩm"

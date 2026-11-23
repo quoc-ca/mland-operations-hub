@@ -414,7 +414,7 @@ export default function DesignWorkspacePage() {
               ) : (
                 <p className="muted small" style={{ margin: 0 }}>
                   Bạn chưa có mẫu thiết kế nào được lưu.{' '}
-                  <Link to="/workshops" target="_blank">Thiết kế mẫu nhẫn ngay ↗</Link>
+                  <Link to="/ring-design" target="_blank">Thiết kế mẫu nhẫn ngay ↗</Link>
                 </p>
               )}
             </div>
