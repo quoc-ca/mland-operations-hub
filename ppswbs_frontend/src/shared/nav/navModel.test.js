@@ -101,6 +101,20 @@ describe('navigation model', () => {
     expect(pageActions(locate('/operations/admin'), '/operations/admin').map(action => action.vi)).toEqual(['Thêm khung giờ']);
   });
 
+  it('titles the administration Sessions tab as the session tab, not as locations and slots', () => {
+    const locations = locate('/operations/admin', '?tab=locations');
+    expect(pageTitle(locations, '/operations/admin', 'vi', 'MANAGER')).toBe('Chi nhánh và khung giờ');
+    const slots = locate('/operations/admin', '?tab=slots');
+    expect(pageTitle(slots, '/operations/admin', 'vi', 'MANAGER')).toBe('Chi nhánh và khung giờ');
+
+    const sessions = locate('/operations/admin', '?tab=sessions');
+    expect(sessions.group.id).toBe('workshop');
+    expect(sessions.tab.id).toBe('sessions');
+    expect(pageTitle(sessions, '/operations/admin', 'vi', 'MANAGER')).toBe('Bảng điều phối ca');
+    // The "Thêm khung giờ" button belongs to locations and slots only.
+    expect(pageActions(sessions, '/operations/admin')).toEqual([]);
+  });
+
   it('does not take public or member pages into the shell', () => {
     ['/', '/products', '/member/cart', '/profile', '/login', '/reviews', '/design-requests/new'].forEach(path => expect(isShellPath(path)).toBe(false));
   });

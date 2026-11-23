@@ -179,3 +179,6 @@
   .audit-table tr.audit-detail{margin-top:-8px;border-top:0;border-radius:0 0 8px 8px}
   .audit-error{flex-direction:column;align-items:flex-start}
 }
+
+/* .actions toàn cục (reviewmanagement.css) có margin-top 1rem: trong ô bảng nó đẩy nút xuống thấp hơn các ô cùng hàng */
+.ops-table td .actions{margin-top:0;align-items:center}
