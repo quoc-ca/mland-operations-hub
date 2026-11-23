@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, expect, it } from 'vitest';
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { fakeSession, json, mockFetch, renderRoutes } from '../../test/render';
 import { settlementRoutes } from '../routes';
@@ -45,7 +45,7 @@ async function verifyBuyer(user) {
 async function pickTarget(user) {
   await user.type(await screen.findByLabelText('Ticket code to change'), 'TK-1');
   await user.click(screen.getByRole('button', { name: 'Show sessions' }));
-  await user.click((await screen.findAllByRole('radio'))[0]);
+  await waitFor(() => expect(document.querySelector('select[name^="to-"]')).toBeTruthy());
   return (await screen.findAllByRole('combobox')).find(item => item.getAttribute('name') === 'to-TK-1');
 }
 
