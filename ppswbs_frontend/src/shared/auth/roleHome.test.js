@@ -7,7 +7,7 @@ describe('role home', () => {
     expect(roleHomePath('MANAGER')).toBe('/manager/home');
     expect(roleHomePath('CARRIER')).toBe('/carrier');
     expect(roleHomePath('MEMBER')).toBe('/');
-    expect(roleHomePath('ADMIN')).toBe('/');
+    expect(roleHomePath('ADMIN')).toBe('/admin/accounts');
     expect(roleHomePath(undefined)).toBe('/');
   });
 

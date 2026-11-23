@@ -4,8 +4,9 @@ import { messagesUi } from './messages.ui';
 import { messagesCash } from './messages.cash';
 import { messagesTicket } from './messages.ticket';
 import { messagesCustomer } from './messages.customer';
+import { messagesAdmin } from './messages.admin';
 
-const parts = [messagesUi, messagesCash, messagesTicket, messagesCustomer];
+const parts = [messagesUi, messagesCash, messagesTicket, messagesCustomer, messagesAdmin];
 
 export const messages = {
   vi: Object.assign({}, ...parts.map(part => part.vi)),
