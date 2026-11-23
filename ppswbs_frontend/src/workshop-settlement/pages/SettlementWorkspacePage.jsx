@@ -14,7 +14,13 @@ const VNPAY_MINIMUM = 5000;
 
 // Dev-only: when VITE_PAYMENT_SIMULATOR_BASE_URL (a public tunnel to the backend) is set, the customer scans a QR that
 // opens the backend's fake VNPay page instead of the staff browser being taken to VNPay.
-const SIMULATOR_BASE_URL = (import.meta.env.VITE_PAYMENT_SIMULATOR_BASE_URL || '').replace(/\/$/, '');
+// The simulator is opt-in: VITE_PAYMENT_QR_MODE=simulator. Otherwise the QR carries the real VNPay checkout link, so the
+// customer pays on their own phone and VNPay (sandbox) records the transaction.
+const SIMULATOR_BASE_URL = import.meta.env.VITE_PAYMENT_QR_MODE === 'simulator'
+  ? (import.meta.env.VITE_PAYMENT_SIMULATOR_BASE_URL || '').replace(/\/$/, '') : '';
+export function paymentQrValue(paymentUrl, simulatorBaseUrl = SIMULATOR_BASE_URL) {
+  return simulatorLink(paymentUrl, simulatorBaseUrl) || paymentUrl || '';
+}
 export function simulatorLink(paymentUrl, baseUrl = SIMULATOR_BASE_URL) {
   if (!baseUrl || !paymentUrl) return '';
   try {
@@ -331,10 +337,10 @@ export default function SettlementWorkspacePage() {
               <div className="settlement-payment-state pending" role="status">
                 <strong>VNPay checkout created</strong>
                 <p>Valid until {when(checkout.expiresAt)}. The part counts only after VNPay’s signed confirmation.</p>
-                {simulatorLink(checkout.url) ? (
+                {paymentQrValue(checkout.url) ? (
                   <div className="settlement-sim-qr">
-                    <QRCodeSVG value={simulatorLink(checkout.url)} size={200} includeMargin />
-                    <p>Customer scans with the phone camera to pay (test money).</p>
+                    <QRCodeSVG value={paymentQrValue(checkout.url)} size={200} includeMargin />
+                    <p>Customer scans with the phone camera to open the payment page on their own phone.</p>
                   </div>
                 ) : null}
                 <a className="button primary" href={checkout.url} target="_blank" rel="noreferrer">Open VNPay checkout</a>
