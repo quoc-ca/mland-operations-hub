@@ -317,9 +317,12 @@ function CheckoutContent() {
         if (methodFor(group.locationId) === 'GHTK') await quoteDelivery(group.locationId); // eslint-disable-line no-await-in-loop
       }
       setQuotedKey(null); setRefreshTick(tick => tick + 1);
-      // The server message is already a Vietnamese sentence for benefit refusals; other conflicts keep the generic text.
-      const specific = ['RETAIL_VOUCHER_REFUSED', 'RETAIL_POINTS_CHANGED'].includes(result.error?.code) || /^(Voucher|Ưu đãi|Số điểm)/.test(result.error?.message || '');
-      const notice = specific ? result.error.message
+      // Refusals are recognised by the backend code and shown from the dictionary, so the notice follows the language switch.
+      // The backend sends the generic benefit-changed case under RETAIL_CONFLICT with only a Vietnamese sentence, so that one
+      // is still matched by its text until the backend gives it a code (ERROR-LOG FE-DESIGN-0009).
+      const code = result.error?.code;
+      const notice = code === 'RETAIL_VOUCHER_REFUSED' || code === 'RETAIL_POINTS_CHANGED' ? t(`error.${code}`)
+        : /^Ưu đãi của đơn vừa thay đổi/.test(result.error?.message || '') ? t('checkout.benefitChanged')
         : t('checkout.theOrderQuoteChangedOr');
       setToast(notice);
       setConflictNotice(notice);

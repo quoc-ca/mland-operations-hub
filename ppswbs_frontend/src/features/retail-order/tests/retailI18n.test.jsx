@@ -44,3 +44,13 @@ describe('Retail orders i18n', () => {
     expect(displayTime(null, 'en')).toBe('—');
   });
 });
+
+describe('Retail checkout refusal codes', () => {
+  it('has vi and en text for the codes the order step refuses with', () => {
+    ['error.RETAIL_VOUCHER_REFUSED', 'error.RETAIL_POINTS_CHANGED', 'checkout.benefitChanged'].forEach(key => {
+      expect(messages.vi[key], key).toBeTruthy();
+      expect(messages.en[key], key).toBeTruthy();
+      expect(messages.en[key]).not.toEqual(messages.vi[key]);
+    });
+  });
+});
