@@ -106,10 +106,11 @@ public class LoyaltyReservationService {
         locks.readRegistry();
         PromotionProgram voucher = voucherProgramId == null ? null
                 : locks.lockPrograms(Set.of(voucherProgramId)).get(voucherProgramId);
-        List<PromotionProgram> autos = selection.choice() != SelectionChoice.AUTO ? null
-                : trusted.sourceKind() == SourceKind.WORKSHOP
-                        ? locks.shareActiveWorkshopAutoDiscounts(trusted.at())
-                        : locks.shareActiveAutoDiscounts(trusted.at());
+        // Session 2026-11-22 (FR-015): the automatic discount applies whatever the selection, so it is always read
+        // under the shared lock, after the voucher programme (lock order unchanged).
+        List<PromotionProgram> autos = trusted.sourceKind() == SourceKind.WORKSHOP
+                ? locks.shareActiveWorkshopAutoDiscounts(trusted.at())
+                : locks.shareActiveAutoDiscounts(trusted.at());
         LoyaltyWallet wallet = guest ? null : selection.requestedPoints().signum() > 0
                 ? locks.lockOrOpenWallet(memberId) : locks.lockWallet(memberId).orElse(null);
         MemberProgram counters = voucher == null || voucher.getKind() != ProgramKind.VOUCHER ? null
@@ -127,6 +128,7 @@ public class LoyaltyReservationService {
         }
         RetailQuote.Result result = evaluation.result();
         RetailQuote.Candidate chosen = result.candidate();
+        RetailQuote.Candidate auto = result.auto();
         boolean voucherHeld = chosen != null && chosen.kind() == ProgramKind.VOUCHER;
         if (voucherHeld) {
             voucher.hold();
@@ -143,25 +145,28 @@ public class LoyaltyReservationService {
                 context.termsDigest(), evaluation.policy().getId(), chosen == null ? null : chosen.programId(),
                 chosen == null ? null : chosen.revisionId(), result.grossAmount(), result.programDiscount(), points,
                 result.pointDiscount(), result.earnBase(),
-                trusted.sourceKind() == SourceKind.WORKSHOP ? result.earnBase() : null, voucherHeld), true));
+                trusted.sourceKind() == SourceKind.WORKSHOP ? result.earnBase() : null, voucherHeld,
+                auto == null ? null : auto.programId(), auto == null ? null : auto.revisionId(),
+                result.autoDiscount()), true));
         if (points.signum() > 0) {
             ledger.save(PointLedger.entry(LedgerEntryKind.HOLD, memberId, benefit.getId(), points,
                     wallet.getBalancePoints(), wallet.getHeldPoints(), acceptedAt, null));
         }
         audit.record("source:" + trusted.sourceKind(), "benefit.reserve", "benefit:" + benefit.getId(),
-                "{\"program\":" + (chosen == null ? "null" : chosen.programId()) + ",\"points\":\"" + points
+                "{\"program\":" + (chosen == null ? "null" : chosen.programId())
+                        + ",\"auto\":" + (auto == null ? "null" : auto.programId()) + ",\"points\":\"" + points
                         + "\",\"discount\":\"" + result.programDiscount() + "\"}");
         List<AcceptedBenefitPart.Share> shares = List.of();
         BigInteger earned = guest ? BigInteger.ZERO
                 : LoyaltyCalculator.earnedPoints(evaluation.policy().terms(), result.earnBase());
         if (!context.parts().isEmpty()) {
             // Session 2026-11-12 (D-011): each branch order's share, fixed now with the policy of acceptance.
-            shares = BenefitPartAllocator.allocate(trusted.lines(), context.parts(),
-                    result.eligibleLines(), result.programDiscount(), points, result.pointDiscount(), earned);
+            shares = BenefitPartAllocator.allocate(trusted.lines(), context.parts(), result.lineAutoDiscounts(),
+                    result.lineVoucherDiscounts(), points, result.pointDiscount(), earned);
         } else if (trusted.workshop() != null && trusted.workshop().isCart()) {
             // Session 2026-11-12 (D-012): one share per ticket so 003.3 can earn and give back per ticket.
-            shares = BenefitPartAllocator.allocateTickets(trusted.workshop().tickets(), result.eligibleLines(),
-                    result.programDiscount(), points, evaluation.policy().terms().redeemPointValue(), earned);
+            shares = BenefitPartAllocator.allocateTickets(trusted.workshop().tickets(), result.lineAutoDiscounts(),
+                    result.lineVoucherDiscounts(), points, evaluation.policy().terms().redeemPointValue(), earned);
         }
         if (!shares.isEmpty()) {
             for (int i = 0; i < shares.size(); i++) {
@@ -203,6 +208,7 @@ public class LoyaltyReservationService {
                 benefit.getPointDiscount(), benefit.getPostPromotionAmount(), benefit.getEarnBase(),
                 policyRevision, benefit.getPointsState(), benefit.getVoucherState(), benefit.getEarnState(),
                 parts.findByAcceptedBenefitIdOrderByPartSeqAsc(benefit.getId()).stream()
-                        .map(AcceptedBenefitPart::ref).toList());
+                        .map(AcceptedBenefitPart::ref).toList(),
+                benefit.getAutoDiscount(), benefit.getProgramDiscount().subtract(benefit.getAutoDiscount()));
     }
 }

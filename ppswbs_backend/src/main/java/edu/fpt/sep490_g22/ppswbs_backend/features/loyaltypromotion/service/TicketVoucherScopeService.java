@@ -61,7 +61,8 @@ public class TicketVoucherScopeService {
                 keys(rows, TargetDimension.SESSION));
         boolean inScope = WorkshopBenefitEvaluator.matches(scope, query.asTicketFact());
 
-        BigInteger share = part.getProgramDiscount() == null ? BigInteger.ZERO : part.getProgramDiscount();
+        // Only the voucher share is at stake; the automatic share stays with the ticket (Session 2026-11-22).
+        BigInteger share = part.getVoucherDiscount();
         // A ticket that left scope loses exactly its allocated share; one that had none (it was outside scope at
         // booking) loses nothing and, moved into scope, gains nothing (FR-045).
         return new TicketVoucherScope(true, inScope, inScope ? BigInteger.ZERO : share);

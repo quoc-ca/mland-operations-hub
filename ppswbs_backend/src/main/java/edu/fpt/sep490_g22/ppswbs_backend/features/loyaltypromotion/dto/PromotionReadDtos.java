@@ -19,12 +19,14 @@ public final class PromotionReadDtos {
                           String minimumEligibleAmount, boolean allowPoints, Targets targets, String totalLimit,
                           String perMemberLimit, String createdAt,
                           @JsonInclude(JsonInclude.Include.NON_NULL) String targetCheck,
-                          @JsonInclude(JsonInclude.Include.NON_NULL) List<TargetWarning> targetWarnings) {
+                          @JsonInclude(JsonInclude.Include.NON_NULL) List<TargetWarning> targetWarnings,
+                          @JsonInclude(JsonInclude.Include.NON_NULL) String distribution) {
 
         /** The same programme with the target check of its detail read (getPromotionProgram only). */
         public Program withTargetCheck(String check, List<TargetWarning> warnings) {
             return new Program(id, version, revision, kind, scope, code, status, name, startAt, endAt, discount,
-                    minimumEligibleAmount, allowPoints, targets, totalLimit, perMemberLimit, createdAt, check, warnings);
+                    minimumEligibleAmount, allowPoints, targets, totalLimit, perMemberLimit, createdAt, check, warnings,
+                    distribution);
         }
     }
 

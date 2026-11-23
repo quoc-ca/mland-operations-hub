@@ -2,6 +2,7 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.dto;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.entity.ProgramKind;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.entity.VoucherDistribution;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.LoyaltyException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.TargetDimension;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.TargetRef;
@@ -34,7 +35,8 @@ public final class PromotionWriteDtos {
 
     private static final Set<String> COMMON = Set.of("kind", "scope", "name", "startAt", "endAt", "discount",
             "minimumEligibleAmount", "allowPoints", "targets");
-    private static final Set<String> VOUCHER_ONLY = Set.of("code", "totalLimit", "perMemberLimit");
+    /** {@code distribution} (Session 2026-11-22, FR-046) is optional: PUBLIC when left out. */
+    private static final Set<String> VOUCHER_ONLY = Set.of("code", "totalLimit", "perMemberLimit", "distribution");
 
     private PromotionWriteDtos() {
     }
@@ -42,10 +44,19 @@ public final class PromotionWriteDtos {
     /** A validated create request. {@code code}, {@code totalLimit} and {@code perMemberLimit} are null for AUTO. */
     public record CreateProgram(ProgramKind kind, TargetScope scope, String name, Instant startAt, Instant endAt,
                                 DiscountTerms terms, boolean allowPoints, List<TargetRef> targets,
-                                NormalizedCode code, Long totalLimit, Long perMemberLimit) {
+                                NormalizedCode code, Long totalLimit, Long perMemberLimit,
+                                VoucherDistribution distribution) {
 
         public CreateProgram {
             targets = List.copyOf(targets);
+        }
+
+        /** Shape before Session 2026-11-22: a voucher is PUBLIC. */
+        public CreateProgram(ProgramKind kind, TargetScope scope, String name, Instant startAt, Instant endAt,
+                             DiscountTerms terms, boolean allowPoints, List<TargetRef> targets,
+                             NormalizedCode code, Long totalLimit, Long perMemberLimit) {
+            this(kind, scope, name, startAt, endAt, terms, allowPoints, targets, code, totalLimit, perMemberLimit,
+                    kind == ProgramKind.VOUCHER ? VoucherDistribution.PUBLIC : null);
         }
 
         /** Normalized request for the idempotency digest: same meaning gives the same digest. */
@@ -66,6 +77,10 @@ public final class PromotionWriteDtos {
             view.put("codeOriginal", code == null ? null : code.original());
             view.put("totalLimit", totalLimit);
             view.put("perMemberLimit", perMemberLimit);
+            if (distribution == VoucherDistribution.CLAIM_REQUIRED) {
+                // Only the new distribution is added, so a PUBLIC request keeps the digest it had before V195.
+                view.put("distribution", distribution.name());
+            }
             return view;
         }
     }
@@ -115,13 +130,30 @@ public final class PromotionWriteDtos {
         NormalizedCode code = null;
         Long totalLimit = null;
         Long perMemberLimit = null;
+        VoucherDistribution distribution = null;
         if (kind == ProgramKind.VOUCHER) {
             code = LoyaltyValues.normalizeCode("code", text(body, "code"));
             totalLimit = LoyaltyScalarCodec.parseId("totalLimit", text(body, "totalLimit"));
             perMemberLimit = LoyaltyScalarCodec.parseId("perMemberLimit", text(body, "perMemberLimit"));
+            distribution = distribution(body);
+            if (distribution == VoucherDistribution.CLAIM_REQUIRED && perMemberLimit != 1L) {
+                throw LoyaltyException.invalidField("perMemberLimit",
+                        "A voucher that must be saved allows one use per member.");
+            }
         }
         return new CreateProgram(kind, scope, name, startAt, endAt, terms, allowPoints, targets, code, totalLimit,
-                perMemberLimit);
+                perMemberLimit, distribution);
+    }
+
+    private static VoucherDistribution distribution(JsonNode body) {
+        if (!body.has("distribution") || body.get("distribution").isNull()) {
+            return VoucherDistribution.PUBLIC;
+        }
+        return switch (text(body, "distribution")) {
+            case "PUBLIC" -> VoucherDistribution.PUBLIC;
+            case "CLAIM_REQUIRED" -> VoucherDistribution.CLAIM_REQUIRED;
+            default -> throw LoyaltyException.invalidField("distribution", "Must be PUBLIC or CLAIM_REQUIRED.");
+        };
     }
 
     /**

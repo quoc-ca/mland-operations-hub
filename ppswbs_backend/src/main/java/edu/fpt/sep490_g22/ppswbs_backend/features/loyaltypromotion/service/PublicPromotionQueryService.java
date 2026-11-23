@@ -61,7 +61,21 @@ public class PublicPromotionQueryService {
     }
 
     @Transactional(readOnly = true)
+    /** Shape before Session 2026-11-22: the default distribution filter (PUBLIC). */
     public PublicPromotionDtos.PromotionPage list(Integer limit, String cursor, String scope) {
+        return list(limit, cursor, scope, null);
+    }
+
+    /**
+     * {@code distribution} (Session 2026-11-22, FR-046): {@code PUBLIC} (default) lists automatic discounts and
+     * PUBLIC vouchers, so checkout pickers never offer a voucher that must be saved; {@code CLAIM_REQUIRED} lists only
+     * those; {@code ALL} lists both (Kho Voucher and the offer components of 006).
+     */
+    public PublicPromotionDtos.PromotionPage list(Integer limit, String cursor, String scope, String distribution) {
+        String distributionFilter = distribution == null ? "PUBLIC" : distribution;
+        if (!List.of("PUBLIC", "CLAIM_REQUIRED", "ALL").contains(distributionFilter)) {
+            throw LoyaltyException.invalidField("distribution", "Must be PUBLIC, CLAIM_REQUIRED or ALL.");
+        }
         int size = limit == null ? DEFAULT_LIMIT : limit;
         if (size < 1 || size > MAX_LIMIT) {
             throw LoyaltyException.invalidField("limit", "Must be between 1 and " + MAX_LIMIT + ".");
@@ -90,6 +104,9 @@ public class PublicPromotionQueryService {
             List<PromotionProgram> rows = programs.findPublicPage(scopeFilter, now, afterCreatedAt, afterId,
                     PageRequest.of(0, size + 1));
             for (PromotionProgram row : rows) {
+                if (!matchesDistribution(row, distributionFilter)) {
+                    continue;
+                }
                 Projection projection = project(row);
                 if (!projection.hasPublicTarget()) {
                     continue;
@@ -164,7 +181,8 @@ public class PublicPromotionQueryService {
         PublicPromotionDtos.PublicPromotion card = new PublicPromotionDtos.PublicPromotion(management.id(),
                 management.kind(), management.scope(), management.code(), management.name(), management.startAt(),
                 management.endAt(), management.discount(), management.minimumEligibleAmount(), management.allowPoints(),
-                shown, management.totalLimit(), management.perMemberLimit(), usesAvailability(program));
+                shown, management.totalLimit(), management.perMemberLimit(), usesAvailability(program),
+                management.distribution());
         return new Projection(card, hasPublic, revision);
     }
 
@@ -174,7 +192,16 @@ public class PublicPromotionQueryService {
      * the quote and the order decide under the lock (FR-013).
      */
     private static String usesAvailability(PromotionProgram program) {
+        // A CLAIM_REQUIRED voucher counts its saved uses (FR-046): NO_USES_LEFT reads "Đã hết lượt lưu".
         return program.isVoucher() && program.availableTotal() < 1 ? "NO_USES_LEFT" : "ACTIVE";
+    }
+
+    private static boolean matchesDistribution(PromotionProgram program, String filter) {
+        return switch (filter) {
+            case "ALL" -> true;
+            case "CLAIM_REQUIRED" -> program.isClaimRequired();
+            default -> !program.isClaimRequired();
+        };
     }
 
     private static List<String> keys(List<PromotionTarget> rows, TargetDimension dimension) {

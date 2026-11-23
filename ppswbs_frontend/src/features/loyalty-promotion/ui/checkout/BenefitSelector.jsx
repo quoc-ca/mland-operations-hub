@@ -9,14 +9,18 @@ import { messages } from '../messages';
  * only then can Confirm.
  *
  * Props:
- * - value: { choice: 'NONE'|'AUTO'|'VOUCHER', voucherCode, requestedPoints } (the owner keeps this state)
+ * - value: { choice: 'NONE'|'AUTO'|'VOUCHER', voucherCode, requestedPoints } (the owner keeps this state). Since
+ *   Session 2026-11-22 (FR-015) the automatic discount always applies: the picker offers "no voucher" (NONE; AUTO
+ *   from an owner reads the same) or "a voucher on top" (VOUCHER).
+ * - quote may carry the split of Session 2026-11-22 (FR-047): retail autoDiscountAmount/voucherDiscountAmount,
+ *   workshop autoDiscount/voucherDiscount. With it the breakdown shows the two lines; without it one line.
  * - onChange(value)
  * - quote: owner quote mapped to { merchandiseSubtotal, discountAmount, pointsDiscountAmount, shippingTotal,
  *   shippingExcluded, payableAmount, maxPoints, eligible, reasons } or null before the first calculation
  * - quoteMatches: true when quote was calculated for the current value (otherwise Confirm stays disabled)
  * - savedVouchers: [{ code, name, availability }] from the Member's Kho Voucher (optional)
  * - acknowledged / onAcknowledge(boolean), onRecalculate(), onConfirm(), pending
- * - context: 'retail' (default) or 'workshop'. A workshop has no automatic discount and its quote (FE-03
+ * - context: 'retail' (default) or 'workshop'. The workshop quote (FE-03
  *   WorkshopBookingQuoteResponse) is passed as { grossAmount, programDiscount, pointsUsed, pointDiscount,
  *   postPromotionAmount, depositAmount, remainingAmount, maxPoints, reasons }: depositAmount is what FE-03 collects at
  *   booking under its own rule (003.1 FR-035: full, 200.000 deposit or 0) and remainingAmount the rest; both are
@@ -52,7 +56,17 @@ export function BenefitSelector({ value, onChange, quote, quoteMatches, savedVou
   const pointsInvalid = !/^(0|[1-9][0-9]{0,18})$/.test(String(value.requestedPoints ?? ''));
   const eligible = workshop ? Boolean(quote) && !(quote.reasons?.length) : Boolean(quote?.eligible);
   const canConfirm = Boolean(quote && quoteMatches && eligible && acknowledged && !pending);
-  const choices = workshop ? ['NONE', 'VOUCHER'] : ['NONE', 'AUTO', 'VOUCHER'];
+  const choices = ['NONE', 'VOUCHER'];
+  const chosen = value.choice === 'AUTO' ? 'NONE' : value.choice;
+  const autoAmount = workshop ? quote?.autoDiscount : quote?.autoDiscountAmount;
+  const voucherAmount = workshop ? quote?.voucherDiscount : quote?.voucherDiscountAmount;
+  const split = autoAmount !== undefined && autoAmount !== null && voucherAmount !== undefined && voucherAmount !== null;
+  const discountLines = total => (split ? (
+    <>
+      <div><dt>{t('checkout.autoDiscount')}</dt><dd>−{format.money(autoAmount)}</dd></div>
+      <div><dt>{t('checkout.voucherDiscount')}</dt><dd>−{format.money(voucherAmount)}</dd></div>
+    </>
+  ) : <div><dt>{t('checkout.programDiscount')}</dt><dd>−{format.money(total)}</dd></div>);
   const reasons = reasonTexts(quote, t, format);
 
   return (
@@ -62,7 +76,7 @@ export function BenefitSelector({ value, onChange, quote, quoteMatches, savedVou
         <legend className="sr-only">{t('checkout.choice')}</legend>
         {choices.map(choice => (
           <label className="check-row" key={choice}>
-            <input type="radio" name={`${id}-choice`} checked={value.choice === choice} onChange={() => set({ choice })} /> {t(`checkout.choice.${choice}`)}
+            <input type="radio" name={`${id}-choice`} checked={chosen === choice} onChange={() => set({ choice })} /> {t(`checkout.choice.${choice}`)}
           </label>
         ))}
       </fieldset>
@@ -100,7 +114,7 @@ export function BenefitSelector({ value, onChange, quote, quoteMatches, savedVou
           {workshop ? (
             <dl>
               <div><dt>{t('checkout.workshopGross')}</dt><dd>{format.money(quote.grossAmount)}</dd></div>
-              <div><dt>{t('checkout.programDiscount')}</dt><dd>−{format.money(quote.programDiscount)}</dd></div>
+              {discountLines(quote.programDiscount)}
               <div><dt>{t('checkout.pointsDiscountUsed', { points: format.number(quote.pointsUsed) })}</dt><dd>−{format.money(quote.pointDiscount)}</dd></div>
               <div><dt>{t('checkout.workshopNet')}</dt><dd>{format.money(quote.postPromotionAmount)}</dd></div>
               <div className="total"><dt>{t('checkout.deposit')}</dt><dd>{format.money(quote.depositAmount)}</dd></div>
@@ -109,7 +123,7 @@ export function BenefitSelector({ value, onChange, quote, quoteMatches, savedVou
           ) : (
             <dl>
               <div><dt>{t('checkout.goods')}</dt><dd>{format.money(quote.merchandiseSubtotal)}</dd></div>
-              <div><dt>{t('checkout.programDiscount')}</dt><dd>−{format.money(quote.discountAmount)}</dd></div>
+              {discountLines(quote.discountAmount)}
               <div><dt>{t('checkout.pointsDiscount')}</dt><dd>−{format.money(quote.pointsDiscountAmount)}</dd></div>
               <div><dt>{t('checkout.shipping')}</dt><dd>{quote.shippingExcluded ? t('checkout.shippingLater') : format.money(quote.shippingTotal)}</dd></div>
               <div className="total"><dt>{t('checkout.payable')}</dt><dd>{format.money(quote.payableAmount)}</dd></div>

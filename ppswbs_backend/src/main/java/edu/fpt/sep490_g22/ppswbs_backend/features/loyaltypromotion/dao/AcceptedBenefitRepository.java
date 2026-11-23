@@ -31,18 +31,22 @@ public interface AcceptedBenefitRepository extends JpaRepository<AcceptedBenefit
 
     /** Programme discount of uses that are consumed and not given back (validly cancelled ones are RESTORED). */
     @Query("""
-            select sum(b.programDiscount) from AcceptedBenefit b
+            select sum(b.programDiscount - b.autoDiscount) from AcceptedBenefit b
             where b.programId = :programId
               and b.voucherState = edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.ComponentState.CONSUMED""")
     BigInteger sumConsumedVoucherDiscount(@Param("programId") Long programId);
 
-    /** Settled transactions of an automatic discount (it has no voucher component and no cancellation path). */
-    @Query("select count(b) from AcceptedBenefit b where b.programId = :programId and b.settledAt is not null")
+    /**
+     * Settled transactions of an automatic discount (it has no voucher component and no cancellation path). Since
+     * Session 2026-11-22 (FR-047) the automatic discount is read from {@code autoProgramId}/{@code autoDiscount}, also
+     * when a voucher was added on top (V195 moved the older rows there).
+     */
+    @Query("select count(b) from AcceptedBenefit b where b.autoProgramId = :programId and b.settledAt is not null")
     long countSettled(@Param("programId") Long programId);
 
     @Query("""
-            select sum(b.programDiscount) from AcceptedBenefit b
-            where b.programId = :programId and b.settledAt is not null""")
+            select sum(b.autoDiscount) from AcceptedBenefit b
+            where b.autoProgramId = :programId and b.settledAt is not null""")
     BigInteger sumSettledDiscount(@Param("programId") Long programId);
 
     /** Exclusive lock on the accepted benefit (lock order step 6, the last one). */

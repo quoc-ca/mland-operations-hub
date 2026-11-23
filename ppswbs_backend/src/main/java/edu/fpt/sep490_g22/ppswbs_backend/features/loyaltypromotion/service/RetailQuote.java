@@ -33,8 +33,11 @@ import java.util.Set;
  *       products never reach checkout), so purchasability is the owner's guard (interfaces "Target port").</li>
  *   <li>A line is in scope when it matches every dimension the programme uses (products AND sizes). The minimum and the
  *       discount use only in-scope lines; shipping never takes part.</li>
- *   <li>One programme per order: a chosen voucher replaces automatic discounts; among automatic discounts the largest
- *       discount wins, ties go to the programme created first, then the lower ID.</li>
+ *   <li>Session 2026-11-22 (FR-015, FR-047): the best automatic discount always applies (largest discount, ties go to
+ *       the programme created first, then the lower ID), whatever the selection; a chosen voucher is added on top.
+ *       The automatic discount is split over its in-scope lines by amount (largest remainder); the voucher's minimum,
+ *       cap and discount use its in-scope lines after their automatic share, and the voucher is split over them by
+ *       that remaining amount. Points come after both.</li>
  *   <li>Points cap: {@code 10%} (policy) of the goods total after the programme, before points; an automatic discount
  *       or no programme always allows points, a voucher may forbid them.</li>
  * </ul>
@@ -76,19 +79,54 @@ public final class RetailQuote {
         }
     }
 
-    /** {@code reasonDetails} are the preview reasons as codes (T081); {@link #reasons()} is their English text. */
+    /**
+     * {@code reasonDetails} are the preview reasons as codes (T081); {@link #reasons()} is their English text.
+     *
+     * <p>Session 2026-11-22 (FR-047): {@code candidate} is the voucher when one applies, otherwise the automatic
+     * discount, so every existing reader keeps its meaning; {@code auto} is the automatic discount whenever one
+     * applies (also alone). {@code programDiscount} is the sum of {@code autoDiscount} and the voucher's discount.
+     * {@code lineAutoDiscounts}/{@code lineVoucherDiscounts} hold the share of every source line (retail lines, or
+     * the tickets of a workshop booking), in line order; they add up to the two totals.
+     */
     public record Result(BigInteger grossAmount, BigInteger eligibleSubtotal, BigInteger programDiscount,
                          BigInteger netBeforePoints, BigInteger maxPoints, boolean pointsAllowed, BigInteger pointsUsed,
                          BigInteger pointDiscount, BigInteger earnBase, Candidate candidate,
-                         List<BenefitReason> reasonDetails, List<Integer> eligibleLines) {
+                         List<BenefitReason> reasonDetails, List<Integer> eligibleLines, Candidate auto,
+                         BigInteger autoDiscount, List<BigInteger> lineAutoDiscounts,
+                         List<BigInteger> lineVoucherDiscounts) {
 
         /**
-         * {@code eligibleLines} (Session 2026-11-09): zero-based indexes of the source lines the chosen programme
-         * discounts, so the owner spreads the discount only over branch orders holding them; empty without programme.
+         * {@code eligibleLines} (Session 2026-11-09): zero-based indexes of the source lines the applied programmes
+         * discount (since Session 2026-11-22: in scope of the automatic discount or of the voucher), so the owner
+         * spreads the discount only over branch orders holding them; empty without programme.
          */
         public Result {
             reasonDetails = reasonDetails == null ? List.of() : List.copyOf(reasonDetails);
             eligibleLines = eligibleLines == null ? List.of() : List.copyOf(eligibleLines);
+            autoDiscount = autoDiscount == null ? BigInteger.ZERO : autoDiscount;
+            lineAutoDiscounts = lineAutoDiscounts == null ? List.of() : List.copyOf(lineAutoDiscounts);
+            lineVoucherDiscounts = lineVoucherDiscounts == null ? List.of() : List.copyOf(lineVoucherDiscounts);
+        }
+
+        /** Shape before Session 2026-11-22: one programme, no split. */
+        public Result(BigInteger grossAmount, BigInteger eligibleSubtotal, BigInteger programDiscount,
+                      BigInteger netBeforePoints, BigInteger maxPoints, boolean pointsAllowed, BigInteger pointsUsed,
+                      BigInteger pointDiscount, BigInteger earnBase, Candidate candidate,
+                      List<BenefitReason> reasonDetails, List<Integer> eligibleLines) {
+            this(grossAmount, eligibleSubtotal, programDiscount, netBeforePoints, maxPoints, pointsAllowed, pointsUsed,
+                    pointDiscount, earnBase, candidate, reasonDetails, eligibleLines,
+                    candidate != null && candidate.kind() == ProgramKind.AUTO_DISCOUNT ? candidate : null,
+                    candidate != null && candidate.kind() == ProgramKind.AUTO_DISCOUNT ? programDiscount : null,
+                    List.of(), List.of());
+        }
+
+        /** The voucher applied on top of the automatic discount, or {@code null}. */
+        public Candidate voucher() {
+            return candidate != null && candidate.kind() == ProgramKind.VOUCHER ? candidate : null;
+        }
+
+        public BigInteger voucherDiscount() {
+            return programDiscount.subtract(autoDiscount);
         }
 
         public Result(BigInteger grossAmount, BigInteger eligibleSubtotal, BigInteger programDiscount,
@@ -110,18 +148,51 @@ public final class RetailQuote {
         BigInteger gross = lines.stream().map(SourceLine::lineAmount).reduce(BigInteger.ZERO, BigInteger::add);
         LoyaltyValues.requireAmount("grossAmount", gross);
 
-        Candidate chosen = null;
-        BigInteger eligible = BigInteger.ZERO;
-        BigInteger discount = BigInteger.ZERO;
+        // 1. The best automatic discount, whatever the selection (FR-015): it cannot be declined.
+        Candidate bestAuto = null;
+        BigInteger autoEligible = BigInteger.ZERO;
+        BigInteger autoDiscount = BigInteger.ZERO;
+        Comparator<Candidate> order = Comparator.comparing(Candidate::createdAt).thenComparing(Candidate::programId);
+        for (Candidate auto : autos.stream().sorted(order).toList()) {
+            if (auto.unavailable() != null) {
+                continue;
+            }
+            BigInteger subtotal = eligibleSubtotal(lines, auto);
+            DiscountResult result = LoyaltyCalculator.programDiscount(auto.terms(), subtotal);
+            if (result.eligible() && subtotal.signum() > 0 && result.discount().compareTo(autoDiscount) > 0) {
+                bestAuto = auto;
+                autoEligible = subtotal;
+                autoDiscount = result.discount();
+            }
+        }
+        if (bestAuto == null && selection.choice() == SelectionChoice.AUTO) {
+            reasons.add(BenefitReason.of(BenefitReasonCode.NO_AUTO_DISCOUNT));
+        }
+        Candidate autoChosen = bestAuto;
+        List<BigInteger> lineAuto = split(autoDiscount, lines.stream()
+                .map(line -> autoChosen != null && matches(line, autoChosen) ? line.lineAmount() : BigInteger.ZERO)
+                .toList());
+
+        // 2. The voucher on what the automatic discount left of its in-scope lines (FR-014, FR-047).
+        Candidate voucherChosen = null;
+        BigInteger voucherEligible = BigInteger.ZERO;
+        BigInteger voucherDiscount = BigInteger.ZERO;
+        List<BigInteger> voucherBase = new ArrayList<>(lines.size());
         if (selection.choice() == SelectionChoice.VOUCHER) {
             if (voucher == null) {
                 ineligible(strict, reasons, BenefitReason.of(BenefitReasonCode.VOUCHER_NOT_FOUND));
             } else if (voucher.unavailable() != null) {
                 ineligible(strict, reasons, voucher.unavailable());
             } else {
-                BigInteger subtotal = eligibleSubtotal(lines, voucher);
+                boolean covered = false;
+                for (int i = 0; i < lines.size(); i++) {
+                    boolean inScope = matches(lines.get(i), voucher);
+                    covered |= inScope && lines.get(i).lineAmount().signum() > 0;
+                    voucherBase.add(inScope ? lines.get(i).lineAmount().subtract(lineAuto.get(i)) : BigInteger.ZERO);
+                }
+                BigInteger subtotal = voucherBase.stream().reduce(BigInteger.ZERO, BigInteger::add);
                 DiscountResult result = LoyaltyCalculator.programDiscount(voucher.terms(), subtotal);
-                if (subtotal.signum() == 0) {
+                if (!covered) {
                     // Items are covered but none was added at a branch of the voucher (Session 2026-11-09).
                     boolean branchOnly = !voucher.branchTargets().isEmpty()
                             && lines.stream().anyMatch(line -> matchesItem(line, voucher));
@@ -129,33 +200,24 @@ public final class RetailQuote {
                             : BenefitReasonCode.NO_COVERED_ITEM));
                 } else if (!result.eligible()) {
                     ineligible(strict, reasons, BenefitReason.of(BenefitReasonCode.BELOW_MINIMUM_AMOUNT));
+                } else if (result.discount().signum() == 0) {
+                    // T139: nothing left after the automatic discount; never hold a use for 0 VND.
+                    ineligible(strict, reasons, BenefitReason.of(BenefitReasonCode.VOUCHER_NO_EXTRA_DISCOUNT));
                 } else {
-                    chosen = voucher;
-                    eligible = subtotal;
-                    discount = result.discount();
+                    voucherChosen = voucher;
+                    voucherEligible = subtotal;
+                    voucherDiscount = result.discount();
                 }
-            }
-        } else if (selection.choice() == SelectionChoice.AUTO) {
-            Comparator<Candidate> order = Comparator.comparing(Candidate::createdAt).thenComparing(Candidate::programId);
-            for (Candidate auto : autos.stream().sorted(order).toList()) {
-                if (auto.unavailable() != null) {
-                    continue;
-                }
-                BigInteger subtotal = eligibleSubtotal(lines, auto);
-                DiscountResult result = LoyaltyCalculator.programDiscount(auto.terms(), subtotal);
-                if (result.eligible() && subtotal.signum() > 0 && result.discount().compareTo(discount) > 0) {
-                    chosen = auto;
-                    eligible = subtotal;
-                    discount = result.discount();
-                }
-            }
-            if (chosen == null) {
-                reasons.add(BenefitReason.of(BenefitReasonCode.NO_AUTO_DISCOUNT));
             }
         }
+        List<BigInteger> lineVoucher = voucherChosen == null ? zeros(lines.size()) : split(voucherDiscount, voucherBase);
 
+        Candidate chosen = voucherChosen != null ? voucherChosen : bestAuto;
+        BigInteger eligible = voucherChosen != null ? voucherEligible : autoEligible;
+        BigInteger discount = autoDiscount.add(voucherDiscount);
         BigInteger net = gross.subtract(discount);
-        boolean pointsAllowed = chosen == null || chosen.allowPoints();
+        // An automatic discount always allows points; a voucher may forbid them.
+        boolean pointsAllowed = voucherChosen == null || voucherChosen.allowPoints();
         PointsLimit limit = LoyaltyCalculator.pointsLimit(policy, net, availablePoints, pointsAllowed);
         BigInteger requested = selection.requestedPoints();
         BigInteger used = BigInteger.ZERO;
@@ -178,15 +240,23 @@ public final class RetailQuote {
         BigInteger pointDiscount = LoyaltyCalculator.pointDiscount(policy, used);
         BigInteger earnBase = LoyaltyCalculator.earnBase(net, pointDiscount);
         List<Integer> eligibleLines = new ArrayList<>();
-        if (chosen != null) {
-            for (int i = 0; i < lines.size(); i++) {
-                if (matches(lines.get(i), chosen)) {
-                    eligibleLines.add(i);
-                }
+        for (int i = 0; i < lines.size(); i++) {
+            SourceLine line = lines.get(i);
+            if ((bestAuto != null && matches(line, bestAuto)) || (voucherChosen != null && matches(line, voucherChosen))) {
+                eligibleLines.add(i);
             }
         }
         return new Result(gross, eligible, discount, net, limit.maxPoints(), pointsAllowed, used, pointDiscount,
-                earnBase, chosen, List.copyOf(reasons), eligibleLines);
+                earnBase, chosen, List.copyOf(reasons), eligibleLines, bestAuto, autoDiscount, lineAuto, lineVoucher);
+    }
+
+    /** {@code total} over {@code weights} by largest remainder (FR-047), or zeros when there is nothing to split. */
+    static List<BigInteger> split(BigInteger total, List<BigInteger> weights) {
+        return total.signum() == 0 ? zeros(weights.size()) : BenefitPartAllocator.largestRemainder(total, weights);
+    }
+
+    static List<BigInteger> zeros(int size) {
+        return java.util.Collections.nCopies(size, BigInteger.ZERO);
     }
 
     /** SHA-256 (hex) of every value the customer agrees to; the accept transaction must reproduce it exactly. */
@@ -205,6 +275,13 @@ public final class RetailQuote {
         if (chosen != null && !chosen.branchTargets().isEmpty()) {
             // Only branch-limited vouchers bind which lines are discounted, so existing quotes keep their digest.
             canonical = canonical + "|lines=" + result.eligibleLines();
+        }
+        if (result.voucher() != null && result.auto() != null) {
+            // Session 2026-11-22: a voucher on top of an automatic discount binds both programmes and the split;
+            // a quote with one programme keeps its digest.
+            canonical = canonical + "|auto=" + result.auto().programId() + "/" + result.auto().revisionNo()
+                    + "|autoDiscount=" + result.autoDiscount()
+                    + "|lineAuto=" + result.lineAutoDiscounts() + "|lineVoucher=" + result.lineVoucherDiscounts();
         }
         try {
             return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")

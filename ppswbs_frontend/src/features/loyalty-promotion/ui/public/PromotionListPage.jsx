@@ -15,16 +15,16 @@ import './voucher-wallet.css';
 const SCOPES = ['', 'PRODUCT', 'WORKSHOP'];
 
 /**
- * T070 Kho Voucher: the public vouchers that are running now (the server lists only enabled programmes inside their
- * window), as tickets with "Lưu" and "Điều kiện". Automatic discounts need no saving and are shown on product and
- * package pages, so they are left out here. A ticket is not a quote: whether a voucher applies is decided at checkout.
+ * T070 Kho Voucher: the vouchers that must be saved (CLAIM_REQUIRED) running now, as tickets with "Lưu" and "Điều
+ * kiện" (Session 2026-11-23). PUBLIC vouchers need no saving: they show on product and package pages and checkout
+ * suggests them, so like automatic discounts they are left out here. A ticket is not a quote.
  */
 export default function PromotionListPage() {
   const t = useT(messages);
   const api = useLoyaltyApi();
   const [params, setParams] = useSearchParams();
   const scope = params.get('scope') || '';
-  const list = useCursorList(cursor => api.listPublicPromotions({ scope: scope || undefined, cursor }), [scope]);
+  const list = useCursorList(cursor => api.listPublicPromotions({ scope: scope || undefined, cursor, distribution: 'CLAIM_REQUIRED' }), [scope]);
   const vouchers = list.items.filter(item => item.kind === 'VOUCHER');
   const labels = usePublicTargetLabels(api, vouchers);
   const wallet = useSavedVoucherIds(api);
@@ -33,6 +33,7 @@ export default function PromotionListPage() {
     <main className="container public-page lp-theme lp-public">
       <p className="eyebrow">{t('public.eyebrow')}</p>
       <h1>{t('public.title')}</h1>
+      <p className="muted small">{t('public.claimOnlyHint')}</p>
       <div className="voucher-tabs" role="tablist" aria-label={t('public.tabs')}>
         {SCOPES.map(value => (
           <button key={value || 'ALL'} type="button" role="tab" aria-selected={scope === value} className={scope === value ? 'active' : ''}
