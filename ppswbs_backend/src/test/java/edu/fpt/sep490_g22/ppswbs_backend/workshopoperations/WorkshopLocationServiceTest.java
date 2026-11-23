@@ -93,13 +93,16 @@ public class WorkshopLocationServiceTest {
     class ListLocationsTests {
 
         @Test
-        @DisplayName("Admin is denied listing locations (T129, FR-012c: no Admin business authority)")
-        void adminDeniedFromListingLocations() {
+        @DisplayName("Admin lists every location read-only to assign accounts (owner decision 2026-11-23)")
+        void adminListsAllLocationsReadOnly() {
             when(authorizationService.authenticate(AUTH_HEADER)).thenReturn(adminAccount);
+            when(authorizationService.isAdmin(adminAccount)).thenReturn(true);
+            when(locationRepository.findAll(any(org.springframework.data.domain.Sort.class))).thenReturn(List.of(location1, location2));
 
-            assertThatThrownBy(() -> locationService.listLocations(AUTH_HEADER))
-                    .isInstanceOf(WorkshopForbiddenException.class);
-            verify(locationRepository, never()).findByActiveTrue();
+            List<LocationResponse> responses = locationService.listLocations(AUTH_HEADER);
+
+            assertThat(responses).hasSize(2);
+            verify(locationRepository, never()).findByIdInAndActiveTrue(any());
         }
 
         @Test

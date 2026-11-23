@@ -59,6 +59,10 @@ public class WorkshopOperationsAuthorizationService {
         return account != null && account.role() != null && "MANAGER".equalsIgnoreCase(account.role().name());
     }
 
+    public boolean isAdmin(AccountSummary account) {
+        return account != null && account.role() != null && "ADMIN".equalsIgnoreCase(account.role().name());
+    }
+
     public boolean isStaff(AccountSummary account) {
         return account != null && account.role() != null && "STAFF".equalsIgnoreCase(account.role().name());
     }
