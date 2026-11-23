@@ -181,6 +181,8 @@ function CartContent() {
   const pointsBelowMinimum = isPositive(maxPoints) && isPositive(quote?.minRedeemPoints) && BigInt(maxPoints) < BigInt(quote.minRedeemPoints);
   const canUsePoints = isPositive(maxPoints) && !pointsBelowMinimum;
   const discount = quote?.eligible ? BigInt(quote.discountAmount || '0') : 0n;
+  // The code's own saving: `discountAmount` also includes the automatic discount (BUG-INT-0002).
+  const voucherSaving = quote?.eligible ? BigInt(quote.voucherDiscountAmount ?? quote.discountAmount ?? '0') : 0n;
   // Programme discount spread, in proportion to amount, over only the lines FE-06 says it covers, shown on each line
   // like Shopee. An automatic discount for some products must not lower the price of the other lines.
   const discountedIds = quote?.eligibleCartLineIds?.length ? new Set(quote.eligibleCartLineIds) : null;
@@ -315,7 +317,7 @@ function CartContent() {
           <span className="cart-sp-row-icon" aria-hidden="true">▣</span>
           <strong>Voucher MLAND</strong>
           <span className={selection.choice === 'VOUCHER' ? 'cart-sp-applied' : 'cart-sp-link'}>
-            {selection.choice === 'VOUCHER' ? (discount > 0n ? `${selection.voucherCode} · −${format.money(discount.toString())}` : (selectedVoucher?.name || selection.voucherCode)) : t('Chọn hoặc nhập mã', 'Select or enter a code')}
+            {selection.choice === 'VOUCHER' ? (voucherSaving > 0n ? `${selection.voucherCode} · −${format.money(voucherSaving.toString())}` : (selectedVoucher?.name || selection.voucherCode)) : t('Chọn hoặc nhập mã', 'Select or enter a code')}
           </span>
         </button>
 
