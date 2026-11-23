@@ -348,7 +348,7 @@ class RetailCatalogueMySqlIntegrationTest {
         if (expired) jdbc.update("update retail_variant_holds set expires_at = ? where grouped_checkout_id = ?",
                 java.sql.Timestamp.valueOf("2020-01-01 00:00:00"), checkout.id());
         String merchant = deterministicMerchant ? "RETAIL-" + checkout.id() : "retail-" + random;
-        paymentOwners.register(merchant, checkout.id(), edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.entity.PaymentOwnerKind.RETAIL, 150000L, "VND", "20261104170000");
+        paymentOwners.register(merchant, checkout.id(), edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.facade.PaymentOwnerKind.RETAIL, 150000L, "VND", "20261104170000");
         return new CallbackFixture(checkout.id(), merchant, variant, member);
     }
 
@@ -466,7 +466,7 @@ class RetailCatalogueMySqlIntegrationTest {
         long amount = checkout.getPayableAmount().longValueExact();
         String reference = "RETAIL-" + order.checkout();
         transaction.executeWithoutResult(status -> checkouts.lockOwned(order.checkout(), order.member()).orElseThrow().beginPayment());
-        paymentOwners.register(reference, order.checkout(), edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.entity.PaymentOwnerKind.RETAIL, amount, "VND");
+        paymentOwners.register(reference, order.checkout(), edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.facade.PaymentOwnerKind.RETAIL, amount, "VND");
         var failure = signedRetailCallback(reference, Long.toString(amount * 100), randomProviderTransaction());
         failure.remove("vnp_SecureHash");
         failure.put("vnp_ResponseCode", "24");

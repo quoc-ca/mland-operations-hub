@@ -281,6 +281,27 @@ export function designReviewApi(request) {
     },
 
     /**
+     * Get latest quote for an accepted design request.
+     */
+    getCustomDesignQuote(requestId) {
+      return request(`/api/v1/custom-design-requests/${encodeURIComponent(requestId)}/quote`, {
+        method: 'GET',
+        auth: true,
+      });
+    },
+
+    /**
+     * Manager approves custom design quote by designRequestId.
+     */
+    approveCustomDesignQuoteByRequestId(requestId, { managerReason } = {}) {
+      return request(`/api/v1/custom-design-requests/${encodeURIComponent(requestId)}/quote/approve`, {
+        method: 'POST',
+        body: { managerReason: managerReason || 'Phê duyệt báo giá đơn hàng gia công tùy chỉnh' },
+        auth: true,
+      });
+    },
+
+    /**
      * Read list of Custom Orders owned by the Member.
      */
     listMyCustomOrders() {

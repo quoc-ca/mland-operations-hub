@@ -2,6 +2,7 @@ package edu.fpt.sep490_g22.ppswbs_backend.designreview.web;
 
 import edu.fpt.sep490_g22.ppswbs_backend.designreview.application.DesignAnalysisService;
 import edu.fpt.sep490_g22.ppswbs_backend.designreview.application.DesignReviewException;
+import edu.fpt.sep490_g22.ppswbs_backend.designreview.application.DesignReviewPermissions;
 import edu.fpt.sep490_g22.ppswbs_backend.designreview.application.HumanReviewService;
 import edu.fpt.sep490_g22.ppswbs_backend.designreview.domain.DesignRequestImage;
 import edu.fpt.sep490_g22.ppswbs_backend.designreview.domain.ReviewDecision;
@@ -26,6 +27,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping({"/api/v1/custom-design-requests", "/api/v1/design-requests"})
@@ -279,6 +281,42 @@ public class DesignRequestController {
                 body.getManagerReason()
         );
 
+        return ResponseEntity.ok(quoteDto);
+    }
+
+    @GetMapping("/{designRequestId}/quote")
+    public ResponseEntity<QuoteProjectionDto> getQuote(
+            @PathVariable("designRequestId") String designRequestId,
+            Authentication authentication
+    ) {
+        QuoteProjectionDto quote = customOrderService.findLatestQuoteByDesignRequestId(designRequestId)
+                .orElse(null);
+        if (quote == null) {
+            return ResponseEntity.noContent().build();
+        }
+        return ResponseEntity.ok(quote);
+    }
+
+    @PostMapping("/{designRequestId}/quote/approve")
+    public ResponseEntity<QuoteProjectionDto> approveQuote(
+            @PathVariable("designRequestId") String designRequestId,
+            @RequestBody(required = false) Map<String, String> body,
+            Authentication authentication
+    ) {
+        String callerUid = SecurityIdentityExtractor.requireUid(authentication);
+        boolean isManager = DesignReviewPermissions.isManager(authentication.getAuthorities());
+        if (!isManager) {
+            throw DesignReviewException.forbidden("REVIEW_NOT_AUTHORIZED",
+                    "Chỉ Quản lý (Manager) mới có thẩm quyền phê duyệt báo giá.");
+        }
+        AccountSummary manager = accountFacade.resolveAccount(callerUid)
+                .orElseThrow(() -> DesignReviewException.unauthorized("AUTHENTICATION_REQUIRED", "Không tìm thấy thông tin tài khoản."));
+        String reason = body != null ? body.get("managerReason") : "Phê duyệt báo giá đơn hàng gia công tùy chỉnh";
+        QuoteProjectionDto quoteDto = customOrderService.approveQuoteByDesignRequestId(
+                designRequestId,
+                manager.accountId(),
+                reason
+        );
         return ResponseEntity.ok(quoteDto);
     }
 

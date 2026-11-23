@@ -56,9 +56,56 @@ describe('useNavBadges', () => {
     expect(shown.collect).toBe(4);
   });
 
-  it('gives a Staff empty counts, ready, and reads nothing', async () => {
-    const calls = mockFetch(counts());
+  const hour = 60 * 60 * 1000;
+  const staffWork = (overrides = {}) => ({
+    'GET /api/v1/workshop-sessions': json(200, [
+      // Ended an hour ago, attendance not finalized: counts. In progress now: counts. Cancelled: needs nothing.
+      { id: 's1', state: 'IN_PROGRESS', scheduledStartAt: new Date(Date.now() - 3 * hour).toISOString(), scheduledEndAt: new Date(Date.now() - hour).toISOString() },
+      { id: 's2', state: 'IN_PROGRESS', scheduledStartAt: new Date(Date.now() - hour).toISOString(), scheduledEndAt: new Date(Date.now() + hour).toISOString() },
+      { id: 's3', state: 'CANCELLED', scheduledStartAt: new Date(Date.now() + hour).toISOString(), scheduledEndAt: new Date(Date.now() + 2 * hour).toISOString() },
+    ]),
+    'GET /api/v1/staff/retail-pickups': json(200, [
+      { order: { paymentState: 'ACCEPTED_UNPAID' }, fulfilmentState: 'CREATED', pickupReadyConfirmed: false },
+      { order: { paymentState: 'PAID' }, fulfilmentState: 'PICKED_UP', pickupReadyConfirmed: true },
+    ]),
+    'GET /api/v1/staff/retail-shipments': json(200, { items: [{ status: 'PREPARING' }] }),
+    'GET /api/v1/workshop-change-requests': json(200, [{}, {}, {}]),
+    'GET /api/v1/design-review-requests': json(200, { items: [{}] }),
+    // Two of the three open conversations are unclaimed.
+    'GET /api/v1/consultations': json(200, { items: [{ claimantRole: null }, { claimantRole: 'STAFF' }, { claimantRole: null }], nextCursor: null, hasMore: false }),
+    ...overrides,
+  });
+
+  it('gives a Staff their work counts, by tab and by group, and sends only GET requests', async () => {
+    const calls = mockFetch(staffWork());
     mount('STAFF');
+    await waitFor(() => expect(read().status).toBe('ready'));
+    expect(read().counts).toEqual({
+      'workshop/sessions': 2, workshop: 2,
+      'retail/orders': 2, retail: 2,
+      'tickets/change-requests': 3, tickets: 3,
+      'customers/design-review': 1, 'customers/consultations': 2, customers: 3,
+    });
+    expect(calls).toHaveLength(6);
+    expect(calls.find(call => call.path === '/api/v1/consultations').query).toEqual({ status: 'OPEN', limit: '50' });
+    expect(calls.find(call => call.path === '/api/v1/workshop-change-requests').query).toEqual({ status: 'PENDING' });
+    expect(calls.every(call => call.method === 'GET')).toBe(true);
+  });
+
+  it('leaves out the Staff count that cannot be read and keeps the other', async () => {
+    mockFetch(staffWork({
+      'GET /api/v1/workshop-sessions': json(500, { code: 'X' }),
+      'GET /api/v1/design-review-requests': json(403, { code: 'REVIEW_NOT_AUTHORIZED' }),
+    }));
+    mount('STAFF');
+    await waitFor(() => expect(read().status).toBe('ready'));
+    // The design queue failed, so the customers group (design review plus consultations) has no count, but its readable tab keeps its own.
+    expect(read().counts).toEqual({ 'retail/orders': 2, retail: 2, 'tickets/change-requests': 3, tickets: 3, 'customers/consultations': 2 });
+  });
+
+  it('gives an Admin or a Carrier empty counts, ready, and reads nothing', async () => {
+    const calls = mockFetch(counts());
+    mount('ADMIN');
     await waitFor(() => expect(read()).toEqual({ status: 'ready', counts: {} }));
     expect(calls).toHaveLength(0);
   });

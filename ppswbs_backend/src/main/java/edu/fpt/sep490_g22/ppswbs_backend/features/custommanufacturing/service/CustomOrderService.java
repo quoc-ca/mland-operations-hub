@@ -16,7 +16,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.custommanufacturing.dao.Custom
 import edu.fpt.sep490_g22.ppswbs_backend.features.custommanufacturing.domain.CustomOrder;
 import edu.fpt.sep490_g22.ppswbs_backend.features.custommanufacturing.domain.CustomOrderPaymentContext;
 import edu.fpt.sep490_g22.ppswbs_backend.features.custommanufacturing.domain.CustomOrderQuote;
-import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.entity.PaymentOwnerKind;
+import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.facade.PaymentOwnerKind;
 import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.facade.PaymentOwnerRegistry;
 import edu.fpt.sep490_g22.ppswbs_backend.common.payment.PaymentGatewayCheckoutPort;
 import lombok.RequiredArgsConstructor;
@@ -163,6 +163,24 @@ public class CustomOrderService {
         customOrderRepository.save(order);
 
         return mapToQuoteDto(quote);
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<QuoteProjectionDto> findLatestQuoteByDesignRequestId(String designRequestId) {
+        return customOrderRepository.findByDesignRequestId(designRequestId)
+                .flatMap(order -> quoteRepository.findTopByCustomOrderIdOrderByQuoteGenerationDesc(order.getId()))
+                .map(this::mapToQuoteDto);
+    }
+
+    @Transactional
+    public QuoteProjectionDto approveQuoteByDesignRequestId(
+            String designRequestId,
+            Long managerAccountId,
+            String managerReason
+    ) {
+        CustomOrder order = customOrderRepository.findByDesignRequestId(designRequestId)
+                .orElseThrow(() -> DesignReviewException.notFound("NOT_FOUND", "Không tìm thấy đơn hàng tùy chỉnh cho yêu cầu này."));
+        return approveQuote(order.getId(), null, managerAccountId, managerReason);
     }
 
     @Transactional(readOnly = true)
