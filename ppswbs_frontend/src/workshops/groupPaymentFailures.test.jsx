@@ -326,7 +326,8 @@ describe('003.1 FR-031/FR-045 503 DEPENDENCY_UNAVAILABLE on quote and group crea
     // The chosen session and ticket count stay on the checkout, and the quote can be asked again by hand.
     expect(screen.getByRole('button', { name: 'Báo giá lại' })).toBeEnabled();
     expect(screen.getByText(/\d{2}\/\d{2}\/\d{4}/)).toBeInTheDocument();
-    expect(screen.getByText(/Số vé:/).textContent).toContain('2');
+    // The booking screen no longer prints the ticket count; the quote that was asked still carries it.
+    expect(calls.find(call => call.path === '/api/v1/workshop-cart-quotes').body.lines[0]).toEqual(expect.objectContaining({ participantCount: 2 }));
   });
 
   it('"Đặt ngay" confirm: keeps the quote and typed fields, creates no group view, no retry', async () => {

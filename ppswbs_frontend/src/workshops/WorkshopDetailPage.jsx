@@ -95,7 +95,7 @@ export function WorkshopDetailPage({ packageId }) {
     if (participantCount > 1) next.set('participants', String(participantCount));
     if (from) next.set('from', from);
     if (to) next.set('to', to);
-    if (next.toString() !== searchParams.toString()) setSearchParams(next, { replace: true });
+    if (next.toString() !== searchParams.toString()) setSearchParams(next, { replace: true, preventScrollReset: true });
   }, [locationId, selectedRefs, participantCount, from, to]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // The package's reviews are always shown at the bottom of this page; the button only scrolls down to them.

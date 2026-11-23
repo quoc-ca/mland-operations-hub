@@ -2,6 +2,7 @@ import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, within, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
+import { I18nProvider } from '../../shared/i18n/I18nProvider';
 import HomePage from './HomePage';
 import { AuthProvider } from '../../shared/auth/AuthProvider';
 import * as workshopApi from '../../api/workshops';
@@ -12,6 +13,7 @@ import * as useCurrentAccountModule from '../accountmanagement/hooks/useCurrentA
 function renderHomePage({
   initialAuthState = { status: 'signed-out' },
   httpHandler = vi.fn().mockRejectedValue(new Error('no mock')),
+  language,
 } = {}) {
   const mockAuthSource = {
     watch: (listener) => {
@@ -23,11 +25,13 @@ function renderHomePage({
   };
 
   return render(
-    <AuthProvider source={mockAuthSource}>
-      <MemoryRouter>
-        <HomePage />
-      </MemoryRouter>
-    </AuthProvider>,
+    <I18nProvider initialLanguage={language}>
+      <AuthProvider source={mockAuthSource}>
+        <MemoryRouter>
+          <HomePage />
+        </MemoryRouter>
+      </AuthProvider>
+    </I18nProvider>,
   );
 }
 
@@ -163,14 +167,14 @@ describe('Landing HomePage (Figma Page 01 · Public & Live Features Integration)
   it('renders 3 core workshop packages with correct prices and highlight tag (fallback)', () => {
     renderHomePage();
     expect(screen.getByRole('heading', { level: 4, name: 'Signature Workshop' })).toBeInTheDocument();
-    expect(screen.getByText('490,000 đ / người')).toBeInTheDocument();
+    expect(screen.getByText('490.000 ₫ / người')).toBeInTheDocument();
 
     expect(screen.getByRole('heading', { level: 4, name: 'Silver Clay Workshop' })).toBeInTheDocument();
-    expect(screen.getByText('690,000 đ / người')).toBeInTheDocument();
+    expect(screen.getByText('690.000 ₫ / người')).toBeInTheDocument();
     expect(screen.getByText('Được yêu thích nhất')).toBeInTheDocument();
 
     expect(screen.getByRole('heading', { level: 4, name: 'Wax Carving Workshop' })).toBeInTheDocument();
-    expect(screen.getByText('890,000 đ / người')).toBeInTheDocument();
+    expect(screen.getByText('890.000 ₫ / người')).toBeInTheDocument();
   });
 
   it('fetches and dynamically displays live workshop packages from Feature 003 API', async () => {
@@ -293,6 +297,21 @@ describe('Landing HomePage (Figma Page 01 · Public & Live Features Integration)
     expect(screen.getByText(/45 Tràng Tiền, Quận Hoàn Kiếm/i)).toBeInTheDocument();
     expect(screen.getByText(/128 Nguyễn Đình Chiểu, Quận 3/i)).toBeInTheDocument();
     expect(screen.getByText(/Hotline: 1900 6868/i)).toBeInTheDocument();
+  });
+
+  it('shows the whole landing page in English when the language is en', async () => {
+    vi.spyOn(workshopApi, 'listMemberBookingGroups').mockResolvedValue([]);
+    renderHomePage({ language: 'en', initialAuthState: { status: 'signed-in' } });
+    expect(screen.getByText('YOUR OWN CRAFTING EXPERIENCE')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /BOOK A WORKSHOP NOW/i })).toHaveAttribute('href', '/workshops');
+    expect(screen.getByText('FEATURED CRAFTING WORKSHOP PACKAGES')).toBeInTheDocument();
+    expect(screen.getByText('490,000 ₫ / person')).toBeInTheDocument();
+    expect(screen.getByText('Twilight Twist Silver Ring')).toBeInTheDocument();
+    expect(screen.getByText('🔨 Book a workshop')).toBeInTheDocument();
+    expect(screen.getByText(/Hanoi: 45 Trang Tien/i)).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Mobile navigation' })).toBeInTheDocument();
+    expect(await screen.findByText(/You have no upcoming workshops/i)).toBeInTheDocument();
+    expect(screen.queryByText(/CÁC GÓI WORKSHOP/)).not.toBeInTheDocument();
   });
 
   it('renders mobile sticky bottom navigation with 5 targets', () => {

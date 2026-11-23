@@ -29,7 +29,7 @@ This use case includes the following sub-flows:
 **Release Held Benefits**
 
 1. The system receives a confirmed result that a retail order or workshop booking expired without accepted payment, or that a retail order was cancelled before payment.
-2. The system returns the held points to the available balance and the held voucher use to the Member and the program.
+2. The system returns the held points to the available balance and the held voucher use to the Member and the program. For a voucher that must be saved, the use returns to the Member's saved voucher in My vouchers, so the Member can use it again.
 3. The system records a released entry linked to the transaction. Nothing is recorded as used and no extra points are added.
 
 **Release Benefits of a Branch Order**
@@ -43,7 +43,7 @@ This use case includes the following sub-flows:
 1. The system receives a confirmed valid cancellation of a workshop booking before completion.
 2. If the benefits were only held, the system releases them as above.
 3. If points were deducted, the system returns exactly the same number of points, even if the point value has changed, linked to the original deduction.
-4. If a voucher use was finalized, the system returns one use to the Member and one to the program, even if no points were used, but only if the voucher has not expired at the time the cancellation is decided. If it has expired, the use stays counted as used, while the points used are still returned in full. An expired or paused voucher is not extended or reactivated.
+4. If a voucher use was finalized, the system returns one use to the Member and one to the program, even if no points were used, but only if the voucher has not expired at the time the cancellation is decided. For a voucher that must be saved, the returned use goes back to the Member's saved voucher. If it has expired, the use stays counted as used, while the points used are still returned in full. An expired or paused voucher is not extended or reactivated.
 5. The program's used count and total discount no longer include the cancelled booking; history is kept.
 
 **Refund Benefits of a Workshop Ticket**
@@ -91,7 +91,7 @@ BR-50-01, BR-50-02, BR-50-03, BR-50-04, BR-50-05
 
 | ID | Rule Definition |
 |---|---|
-| BR-50-01 | Expiry, or cancellation of a retail order before payment, without accepted payment releases held points and voucher uses exactly once, without recording them as used. |
+| BR-50-01 | Expiry, or cancellation of a retail order before payment, without accepted payment releases held points and voucher uses exactly once, without recording them as used. A released or refunded use of a voucher that must be saved returns to the Member's saved voucher. |
 | BR-50-02 | A confirmed valid workshop cancellation before completion, or a cancellation by Mland, refunds exactly the points deducted and, only if the voucher has not expired when the cancellation is decided, one voucher use to the Member and the program; held benefits are always released. It does not convert points to money or extend or reactivate vouchers. |
 | BR-50-03 | Release and refund results are tracked per benefit so that retries complete only the missing part and never return a benefit twice. |
 | BR-50-04 | No-shows, unconfirmed or invalid cancellations and completed transactions return no benefits; the outcome is decided only by the confirmed result from the owning feature. |

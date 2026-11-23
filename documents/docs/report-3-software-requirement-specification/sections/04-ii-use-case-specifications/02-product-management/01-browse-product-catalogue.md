@@ -27,21 +27,21 @@ This use case includes the following sub-flows:
 **Browse Product Catalogue**
 
 1. The actor opens the Product Catalogue page.
-2. The system retrieves products that are published, not deleted, belong to an active category, have at least one usable image and have an applied approved price for every size.
-3. The actor optionally enters a keyword, selects a category, enters a price range, selects Purchasable only, and chooses a sort order.
+2. The system retrieves products that are published, not deleted, belong to an active category, have at least one usable image and have at least one size with an applied approved price. Sizes without an applied price are not shown and are not counted in prices, filters or sorting.
+3. The actor optionally enters a keyword, selects a category, enters a price range, selects Only products you can buy, and chooses a sort order.
 4. The system trims the keyword and validates the criteria.
-5. The system matches the keyword as a case-insensitive substring of the product name or description and combines all criteria with AND. When a price range and Purchasable only are both used, the same size must satisfy both.
+5. The system matches the keyword as a case-insensitive substring of the product name or description and combines all criteria with AND. When a price range and Only products you can buy are both used, the same size must satisfy both.
 6. The system sorts the results by name A–Z then product identity by default, or by lowest price, highest price or newest, and returns 20 products per page.
-7. The system displays each product on a product card with its image, name, VND price range (or a single price when all displayed sizes have the same price), an in-stock or out-of-stock label and a cart button. When an automatic discount applies, the card shows the price after the discount with the original price struck through, and promotion labels, under UC-47 View and Save Vouchers.
+7. The system displays each product on a product card with its image, name, VND price range (or a single price when all displayed sizes have the same price), an in-stock or out-of-stock label and a cart button. When an automatic discount applies, the card shows the price after the largest discount with the original price struck through; when a voucher lowers the price of one item further, the card shows the price after the best voucher labelled "Price after voucher {code}", with "· at {branches}" for a voucher limited to some branches (MSG72), and promotion labels, under UC-47 View and Save Vouchers.
 8. The actor changes the page, changes or clears the criteria while keeping the others, selects a product to continue to UC-11 View Product Details, or selects the cart button.
 
 **Quick Add to Cart**
 
 1. The actor selects the cart button on a product card.
-2. The system opens a Quick add box on the list with the same buy panel and rules as UC-11 View Product Details: the size grid, the branch list, the quantity selector with the available quantity, and the Add to Cart and Buy Now buttons. The price of the selected size is shown under the size grid.
-3. The actor selects a size, a branch and a quantity, in any order, and selects Add to Cart.
+2. The system opens a Quick add box on the list with the same buy panel and rules as UC-11 View Product Details: the size grid, the branch list, the quantity selector with the available quantity, and the Add to cart and Buy now buttons. The price of the selected size is shown under the size grid.
+3. The actor selects a size, a branch and a quantity, in any order, and selects Add to cart.
 4. The system passes the size variant, branch and quantity to UC-52 Add Product to Cart.
-5. On success, the system closes the box and shows that the item was added, with a link to the cart (MSG55); the actor stays on the list. If the actor selects Buy Now instead, the item is added in the same way and the checkout opens as in UC-11.
+5. On success, the system closes the box and shows that the item was added, with a link to the cart (MSG55); the actor stays on the list. If the actor selects Buy now instead, the item is added in the same way and the checkout opens as in UC-11.
 
 #### Alternative Flows
 
@@ -51,7 +51,7 @@ The system displays a load error with a retry option (MSG05). It does not presen
 
 **Step 2 — The list of active branches cannot be read**
 
-The catalogue still loads. Branches that have stock rows on sale are treated as active when availability and Purchasable only are calculated, so a branch that has just been deactivated may still be counted; the cart and checkout check again.
+The catalogue still loads. Branches that have stock rows on sale are treated as active when availability and Only products you can buy are calculated, so a branch that has just been deactivated may still be counted; the cart and checkout check again.
 
 **Step 4 — Invalid or unsupported criteria**
 
@@ -63,7 +63,7 @@ The system displays an empty-result message (MSG06) and allows the actor to chan
 
 **Step 7 — All sizes are out of stock**
 
-The product stays visible with an unavailable indication unless Purchasable only is selected. Zero quantity does not unpublish the product.
+The product stays visible with an unavailable indication unless Only products you can buy is selected. Zero quantity does not unpublish the product.
 
 **Step 7 — Image cannot be loaded**
 
@@ -83,7 +83,7 @@ The system sends the Guest to sign in and then returns to the product detail pag
 
 **Quick Add Step 2 — Branch source is unavailable**
 
-The system disables Add to Cart and Buy Now and offers a retry (MSG36).
+The system disables Add to cart and Buy now and offers a retry (MSG36).
 
 **Quick Add Step 3 — Size cannot be bought**
 
@@ -106,14 +106,17 @@ The system shows the message returned by the cart use case and keeps the box ope
 
 #### Business Rules
 
-BR-10-01, BR-10-02, BR-10-03, BR-10-04, BR-10-05, BR-10-06, BR-10-07, BR-10-08
+GBR-26, GBR-31, GBR-33, BR-10-01, BR-10-02, BR-10-03, BR-10-04, BR-10-05, BR-10-06, BR-10-07, BR-10-08
 
 #### Business Rule Definitions
 
 | ID | Rule Definition |
 |---|---|
-| BR-10-01 | Browsing requires no sign-in and returns only products that are published, not deleted, in an active category, with at least one usable image and an applied approved price for every size. Eligibility is checked on every read. |
-| BR-10-02 | The keyword is trimmed, limited to 200 characters and matched as a case-insensitive substring of the name or description; keyword, category, inclusive price bounds and Purchasable only are combined with AND. |
+| GBR-26 | Product cards show the price after the largest automatic discount and then the best voucher for one item, labelled "Price after voucher {code}" ("· at {branch}" for a branch-limited voucher); the display never replaces the checkout quote, and a failure to read promotions never blocks the page. |
+| GBR-31 | Buy now sends the same add-to-cart request as Add to cart and then opens the checkout with only that cart line. |
+| GBR-33 | After a product's first publication, a size without an applied price is not shown publicly, not counted in public prices or filters and cannot be added to the cart; the product stays public. |
+| BR-10-01 | Browsing requires no sign-in and returns only products that are published, not deleted, in an active category, with at least one usable image and at least one size with an applied approved price; only sizes with an applied price are returned. Eligibility is checked on every read. |
+| BR-10-02 | The keyword is trimmed, limited to 200 characters and matched as a case-insensitive substring of the name or description; keyword, category, inclusive price bounds and Only products you can buy are combined with AND. |
 | BR-10-03 | A product is purchasable when at least one size can be bought at one or more branches: the size is on sale and on sale at that branch, the branch is active, the available quantity there is above 0 and all publication conditions are met. A combined price and purchasable filter must be satisfied by the same size. |
 | BR-10-04 | The default sort is name A–Z then product identity; price sorts use the lowest price among the sizes that are displayed or match the filters; newest uses the creation time, not price changes or republishing. |
 | BR-10-05 | Results are paged at 20 products per page and the current keyword and filters are kept while paging or sorting. |

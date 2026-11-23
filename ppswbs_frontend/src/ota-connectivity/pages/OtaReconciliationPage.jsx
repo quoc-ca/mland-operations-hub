@@ -5,6 +5,8 @@ import { useAuth } from '../../shared/auth/AuthProvider';
 import { useOtaConnectivityApi } from '../api/useOtaConnectivityApi';
 import { Loading, ErrorNotice, SuccessNotice } from '../../shared/ui/components';
 import { OperationsAuthWorkspace } from '../../shared/ui/OperationsAuthWorkspace';
+import { useT, useEnumLabel } from '../../shared/i18n/I18nProvider';
+import { otaMessages } from '../messages';
 import { ResolveWorkItemModal } from '../components/ResolveWorkItemModal';
 import '../ota-connectivity.css';
 
@@ -13,6 +15,9 @@ const FILTER_STATUSES = ['ALL', 'NEEDS_ATTENTION', 'OPEN', 'IN_PROGRESS', 'RESOL
 export default function OtaReconciliationPage() {
   const { status: authStatus } = useAuth();
   const api = useOtaConnectivityApi();
+  const t = useT(otaMessages);
+  const workStatusLabel = useEnumLabel(otaMessages, 'workStatus');
+  const categoryLabel = useEnumLabel(otaMessages, 'category');
 
   const [workItems, setWorkItems] = useState([]);
   const [{ status: selectedStatus, category: selectedCategory }, setUrlFilters] = useUrlFilters({ status: 'ALL', category: '' });
@@ -59,7 +64,7 @@ export default function OtaReconciliationPage() {
   const handleResolveDecision = async ({ resolution, reason }) => {
     if (!resolveModal.item) return;
     await api.resolveReconciliationWorkItem(resolveModal.item.workItemId, { resolution, reason });
-    setSuccessMessage(`Resolution "${resolution}" recorded for item ${resolveModal.item.workItemId}.`);
+    setSuccessMessage(t('recon.resolved', { resolution, id: resolveModal.item.workItemId }));
     await loadWorkItems(selectedStatus, selectedCategory);
   };
 
@@ -70,7 +75,7 @@ export default function OtaReconciliationPage() {
       RESOLVED: 'badge-resolved',
       ESCALATED: 'badge-escalated',
     };
-    return <span className={`badge ${map[status] || 'badge-open'}`}>{status}</span>;
+    return <span className={`badge ${map[status] || 'badge-open'}`}>{workStatusLabel(status)}</span>;
   };
 
   if (authStatus === 'loading') {
@@ -81,7 +86,7 @@ export default function OtaReconciliationPage() {
     return (
       <OperationsAuthWorkspace
         topline="MLAND / OTA CONNECTIVITY"
-        message="Authentication required to access OTA Reconciliation Queue."
+        message={t('auth.reconciliation')}
       />
     );
   }
@@ -90,11 +95,11 @@ export default function OtaReconciliationPage() {
     <div className="ota-workspace">
       
       <main className="ota-main">
-        <div className="ota-topline">MLAND / OTA CONNECTIVITY <span>● Discrepancy queue</span></div>
+        <div className="ota-topline">MLAND / OTA CONNECTIVITY <span>● {t('recon.sub')}</span></div>
         <div className="ota-header" style={{ marginTop: '24px' }}>
         <div>
           <p className="small muted">
-            Review and resolve channel mapping synchronization gaps, suspensions, and discrepancies.
+            {t('recon.intro')}
           </p>
         </div>
       </div>
@@ -106,7 +111,7 @@ export default function OtaReconciliationPage() {
       {/* Filter Bar */}
       <div className="filter-bar">
         <div className="filter-group">
-          <span style={{ fontWeight: 600, fontSize: '13px' }}>Filter by Status:</span>
+          <span style={{ fontWeight: 600, fontSize: '13px' }}>{t('recon.filterStatus')}</span>
           {FILTER_STATUSES.map((status) => (
             <button
               key={status}
@@ -115,37 +120,37 @@ export default function OtaReconciliationPage() {
               onClick={() => handleFilterChange(status)}
               disabled={loading}
             >
-              {status}
+              {workStatusLabel(status)}
             </button>
           ))}
         </div>
         {/* Each work item now carries category (contract enum). The filter stays free text plus the INBOUND_EVENT shortcut. */}
         <form
           className="filter-group"
-          aria-label="Filter by category"
+          aria-label={t('recon.filterCategory')}
           onSubmit={(e) => { e.preventDefault(); applyCategory(categoryInput); }}
         >
-          <label htmlFor="ota-work-item-category" style={{ fontWeight: 600, fontSize: '13px' }}>Category:</label>
+          <label htmlFor="ota-work-item-category" style={{ fontWeight: 600, fontSize: '13px' }}>{t('recon.category')}</label>
           <input
             id="ota-work-item-category"
             value={categoryInput}
             onChange={(e) => setCategoryInput(e.target.value)}
-            placeholder="e.g. INBOUND_EVENT"
+            placeholder={t('field.example', { value: 'INBOUND_EVENT' })}
             maxLength={32}
             disabled={loading}
           />
-          <button type="submit" className="button small outline" disabled={loading}>Apply</button>
+          <button type="submit" className="button small outline" disabled={loading}>{t('recon.apply')}</button>
           <button
             type="button"
             className={`button small ${selectedCategory === 'INBOUND_EVENT' ? 'primary' : 'outline'}`}
             onClick={() => applyCategory('INBOUND_EVENT')}
             disabled={loading}
           >
-            INBOUND_EVENT
+            {categoryLabel('INBOUND_EVENT')}
           </button>
           {selectedCategory && (
             <button type="button" className="button small outline" onClick={() => applyCategory('')} disabled={loading}>
-              All categories
+              {t('recon.allCategories')}
             </button>
           )}
         </form>
@@ -156,8 +161,10 @@ export default function OtaReconciliationPage() {
       ) : workItems.length === 0 ? (
         <div className="empty-state" role="status">
           <p>
-            No reconciliation work items found matching status "{selectedStatus}"
-            {selectedCategory ? ` and category "${selectedCategory}"` : ''}.
+            {t('recon.empty', {
+              status: selectedStatus,
+              category: selectedCategory ? t('recon.emptyCategory', { category: selectedCategory }) : '',
+            })}
           </p>
         </div>
       ) : (
@@ -166,13 +173,13 @@ export default function OtaReconciliationPage() {
             <div key={item.workItemId} className="mapping-card">
               <div className="mapping-card-header">
                 <div className="mapping-title">
-                  <span className="mono" style={{ fontSize: '14px' }}>Item: {item.workItemId}</span>
+                  <span className="mono" style={{ fontSize: '14px' }}>{t('recon.item', { id: item.workItemId })}</span>
                   {getStatusBadge(item.status)}
                   {item.safeSummary?.includes('SUSPENDED') && (
-                    <span className="badge badge-suspended">MAPPING SUSPENDED</span>
+                    <span className="badge badge-suspended">{t('recon.mappingSuspended')}</span>
                   )}
                   {item.safeSummary?.includes('SALES_CLOSED') && (
-                    <span className="badge badge-closed">SALES CLOSED</span>
+                    <span className="badge badge-closed">{t('recon.salesClosed')}</span>
                   )}
                 </div>
                 <div className="mapping-actions">
@@ -182,7 +189,7 @@ export default function OtaReconciliationPage() {
                       className="button small primary"
                       onClick={() => setResolveModal({ open: true, item })}
                     >
-                      Resolve Item
+                      {t('recon.resolve')}
                     </button>
                   )}
                 </div>
@@ -190,20 +197,20 @@ export default function OtaReconciliationPage() {
 
               <div className="mapping-grid">
                 <div className="mapping-field">
-                  <span className="mapping-label">Type</span>
-                  <span className="mapping-value mono">{item.category || '—'}</span>
+                  <span className="mapping-label">{t('recon.field.type')}</span>
+                  <span className="mapping-value mono">{categoryLabel(item.category)}</span>
                 </div>
                 <div className="mapping-field">
-                  <span className="mapping-label">Linked Mapping ID</span>
-                  <span className="mapping-value mono">{item.mappingId || 'None (Global)'}</span>
+                  <span className="mapping-label">{t('recon.field.mapping')}</span>
+                  <span className="mapping-value mono">{item.mappingId || t('recon.global')}</span>
                 </div>
                 <div className="mapping-field">
-                  <span className="mapping-label">Correlation ID</span>
+                  <span className="mapping-label">{t('recon.field.correlation')}</span>
                   <span className="mapping-value mono">{item.correlationId || '—'}</span>
                 </div>
                 <div className="mapping-field" style={{ gridColumn: 'span 2' }}>
-                  <span className="mapping-label">Summary / Reason</span>
-                  <span className="mapping-value">{item.safeSummary || 'No summary recorded'}</span>
+                  <span className="mapping-label">{t('recon.field.summary')}</span>
+                  <span className="mapping-value">{item.safeSummary || t('recon.noSummary')}</span>
                 </div>
               </div>
             </div>

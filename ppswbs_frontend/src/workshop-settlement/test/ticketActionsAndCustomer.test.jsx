@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, expect, it } from 'vitest';
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { fakeSession, json, mockFetch, renderRoutes } from '../../test/render';
 import { settlementRoutes } from '../routes';
@@ -31,8 +31,7 @@ const optionsOf = (code, over = {}) => json(200, {
 async function addTicketToChange(user, code) {
   await user.type(screen.getByLabelText('Ticket code to change'), code);
   await user.click(screen.getByRole('button', { name: 'Show sessions' }));
-  const fromRadio = (await screen.findAllByRole('radio')).find(radio => radio.getAttribute('name') === `from-${code}`);
-  await user.click(fromRadio);
+  await waitFor(() => expect(document.querySelector('select[name^="to-"]')).toBeTruthy());
   const toSelect = (await screen.findAllByRole('combobox')).find(item => item.getAttribute('name') === `to-${code}`);
   await user.selectOptions(toSelect, Array.from(toSelect.options).find(option => option.value && !option.disabled).value);
   await user.click(screen.getByRole('button', { name: 'Add ticket to the change' }));
@@ -96,7 +95,7 @@ describe('Staff ticket cancellation and change', () => {
     renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/ticket-actions?tab=change' });
     await user.type(await screen.findByLabelText('Ticket code to change'), 'TK-1');
     await user.click(screen.getByRole('button', { name: 'Show sessions' }));
-    await user.click((await screen.findAllByRole('radio'))[0]);
+    await waitFor(() => expect(document.querySelector('select[name^="to-"]')).toBeTruthy());
     const full = (await screen.findAllByRole('combobox')).find(item => item.getAttribute('name') === 'to-TK-1');
     expect(Array.from(full.options).find(option => option.value && option.disabled)).toBeTruthy();
     expect(screen.getByText(/Full/)).toBeInTheDocument();
@@ -104,7 +103,7 @@ describe('Staff ticket cancellation and change', () => {
     await user.clear(screen.getByLabelText('Ticket code to change'));
     await user.type(screen.getByLabelText('Ticket code to change'), 'TK-2');
     await user.click(screen.getByRole('button', { name: 'Show sessions' }));
-    await user.click((await screen.findAllByRole('radio'))[0]);
+    await waitFor(() => expect(document.querySelector('select[name^="to-"]')).toBeTruthy());
     expect(await screen.findByText(/4 seats left/)).toBeInTheDocument();
     expect(screen.getByText(/Needs a Manager to approve/)).toBeInTheDocument();
     const second = (await screen.findAllByRole('combobox')).find(item => item.getAttribute('name') === 'to-TK-2');
