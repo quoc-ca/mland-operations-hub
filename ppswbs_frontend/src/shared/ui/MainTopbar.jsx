@@ -383,7 +383,7 @@ export default function MainTopbar() {
                               className="main-topbar-dropdown-item"
                               role="menuitem"
                             >
-                              <span>🔨</span> Duyệt thiết kế & Báo giá
+                              <span>🔨</span> {t('menu.designReviewQuote')}
                             </Link>
                           )}
                           {(userRole === 'STAFF' || userRole === 'MANAGER' || userRole === 'ADMIN') && (

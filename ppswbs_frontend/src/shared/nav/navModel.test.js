@@ -120,4 +120,24 @@ describe('navigation model', () => {
   it('does not take public or member pages into the shell', () => {
     ['/', '/products', '/member/cart', '/profile', '/login', '/reviews', '/design-requests/new'].forEach(path => expect(isShellPath(path)).toBe(false));
   });
+
+  it('has both a Vietnamese and an English label on every group, tab and action', () => {
+    GROUPS.forEach(group => {
+      expect(group.vi && group.en).toBeTruthy();
+      group.tabs.forEach(tab => {
+        expect(tab.vi && tab.en).toBeTruthy();
+        expect(Boolean(tab.viStaff)).toBe(Boolean(tab.enStaff));
+        (tab.actions || []).forEach(action => expect(action.vi && action.en).toBeTruthy());
+      });
+    });
+  });
+
+  it('switches labels and page titles between vi and en', () => {
+    const sessions = locate('/operations/sessions');
+    expect(tabLabel(sessions.tab, 'en', 'STAFF')).toBe('My sessions');
+    expect(tabLabel(sessions.tab, 'en', 'MANAGER')).toBe('Session board');
+    const created = locate('/catalogue-management/products/new');
+    expect(pageTitle(created, '/catalogue-management/products/new', 'en', 'MANAGER')).toBe('New product');
+    expect(pageTitle(created, '/catalogue-management/products/new', 'vi', 'MANAGER')).toBe('Thêm sản phẩm');
+  });
 });
