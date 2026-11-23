@@ -1,8 +1,13 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useT } from '../../../shared/i18n/I18nProvider';
+import { notificationMessages } from '../messages';
 import { useNotificationApi } from './useNotificationApi';
 
 export function useNotificationRequests({ initialAutoRefresh = false } = {}) {
   const api = useNotificationApi();
+  const t = useT(notificationMessages);
+  const tRef = useRef(t);
+  tRef.current = t;
   const [filters, setFilters] = useState({
     templateCode: '',
     deliveryState: '',
@@ -36,7 +41,7 @@ export function useNotificationRequests({ initialAutoRefresh = false } = {}) {
           totalPages: response?.totalPages ?? 0,
         });
       } catch (err) {
-        setError(err?.message || 'Không thể tải nhật ký gửi thông báo');
+        setError(err?.message || tRef.current('list.loadError'));
       } finally {
         if (showLoading) setLoading(false);
       }

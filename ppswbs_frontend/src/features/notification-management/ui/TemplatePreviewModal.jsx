@@ -1,4 +1,8 @@
 import React, { useEffect, useState } from 'react';
+import { useT } from '../../../shared/i18n/I18nProvider';
+import { sharedMessages } from '../../../shared/ui/messages';
+import { notificationMessages } from '../messages';
+import { renderRich } from './richText';
 
 const DEFAULT_FIXTURES = {
   customerName: 'Nguyễn Văn A',
@@ -21,6 +25,8 @@ export function TemplatePreviewModal({
   versionNumber,
   onPreview,
 }) {
+  const t = useT(notificationMessages);
+  const ts = useT(sharedMessages);
   const [sampleData, setSampleData] = useState({});
   const [previewResult, setPreviewResult] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -44,7 +50,7 @@ export function TemplatePreviewModal({
         setLoading(true);
         onPreview(versionNumber, initial)
           .then((res) => setPreviewResult(res))
-          .catch((err) => setError(err?.message || 'Không thể render bản xem trước'))
+          .catch((err) => setError(err?.message || t('preview.renderFailed')))
           .finally(() => setLoading(false));
       }
     }
@@ -73,7 +79,7 @@ export function TemplatePreviewModal({
       const res = await onPreview(versionNumber, sampleData);
       setPreviewResult(res);
     } catch (err) {
-      setError(err?.message || 'Không thể render bản xem trước');
+      setError(err?.message || t('preview.renderFailed'));
     } finally {
       setLoading(false);
     }
@@ -90,17 +96,17 @@ export function TemplatePreviewModal({
         <div className="nm-modal-header">
           <div>
             <h3 id="preview-modal-title" style={{ margin: 0 }}>
-              Xem trước mẫu thông báo email
+              {t('preview.title')}
             </h3>
             <div style={{ fontSize: '0.875rem', color: '#64748b', marginTop: '0.25rem' }}>
-              {template?.name} (Phiên bản v{versionNumber})
+              {t('preview.versionLine', { name: template?.name, version: versionNumber })}
             </div>
           </div>
           <button
             type="button"
             className="nm-modal-close"
             onClick={onClose}
-            aria-label="Đóng"
+            aria-label={ts('close')}
           >
             &times;
           </button>
@@ -108,7 +114,7 @@ export function TemplatePreviewModal({
 
         <div className="nm-modal-body">
           <div className="nm-alert nm-alert-info" role="status">
-            <strong>Dữ liệu mẫu an toàn - Không sử dụng dữ liệu khách hàng thật:</strong> Bản xem trước sử dụng dữ liệu giả lập (synthetic fixtures). Không bao giờ hiển thị hoặc nạp thông tin thật của khách hàng, mật khẩu hay mã định danh bảo mật.
+            {renderRich(t('preview.safeNotice'))}
           </div>
 
           {error && <div className="nm-alert nm-alert-danger" role="alert">{error}</div>}
@@ -116,7 +122,7 @@ export function TemplatePreviewModal({
           {/* Sample Data Inputs Accordion */}
           <details style={{ marginBottom: '1rem', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '0.75rem' }}>
             <summary style={{ cursor: 'pointer', fontWeight: 600, color: '#334155' }}>
-              Tùy chỉnh giá trị mẫu ({Object.keys(sampleData).length} biến)
+              {t('preview.customize', { count: Object.keys(sampleData).length })}
             </summary>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '0.75rem', marginTop: '0.75rem' }}>
               {Object.keys(sampleData).map((key) => (
@@ -145,7 +151,7 @@ export function TemplatePreviewModal({
                 onClick={handleRefreshPreview}
                 disabled={loading}
               >
-                {loading ? 'Đang cập nhật…' : 'Cập nhật bản xem trước'}
+                {loading ? t('preview.updating') : t('preview.update')}
               </button>
             </div>
           </details>
@@ -153,7 +159,7 @@ export function TemplatePreviewModal({
           {/* Rendered Subject */}
           {previewResult && (
             <div style={{ marginBottom: '1rem', padding: '0.75rem', backgroundColor: '#f8fafc', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
-              <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b' }}>Tiêu đề thư hiển thị:</span>
+              <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b' }}>{t('preview.renderedSubject')}</span>
               <div style={{ fontSize: '0.9375rem', fontWeight: 600, color: '#0f172a', marginTop: '0.25rem' }}>
                 {previewResult.renderedSubject}
               </div>
@@ -167,46 +173,46 @@ export function TemplatePreviewModal({
               className={`nm-tab-btn ${activeTab === 'html' ? 'active' : ''}`}
               onClick={() => setActiveTab('html')}
             >
-              Giao diện HTML
+              {t('preview.tabHtml')}
             </button>
             <button
               type="button"
               className={`nm-tab-btn ${activeTab === 'text' ? 'active' : ''}`}
               onClick={() => setActiveTab('text')}
             >
-              Nội dung Plain Text
+              {t('preview.tabText')}
             </button>
           </div>
 
           {loading ? (
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '240px' }} role="status">
-              <span>Đang tải bản xem trước…</span>
+              <span>{t('preview.loading')}</span>
             </div>
           ) : previewResult ? (
             <div>
               {activeTab === 'html' ? (
                 <iframe
-                  title="HTML Email Preview"
+                  title={t('preview.frameTitle')}
                   className="nm-preview-frame"
                   sandbox="allow-same-origin"
-                  srcDoc={previewResult.renderedHtml || '<p style="color:#64748b;padding:1rem;">(Không có nội dung HTML)</p>'}
+                  srcDoc={previewResult.renderedHtml || `<p style="color:#64748b;padding:1rem;">${t('preview.noHtml')}</p>`}
                 />
               ) : (
                 <pre className="nm-code-box">
-                  {previewResult.renderedPlainText || '(Không có nội dung Plain Text)'}
+                  {previewResult.renderedPlainText || t('preview.noText')}
                 </pre>
               )}
             </div>
           ) : (
             <div style={{ textAlign: 'center', color: '#64748b', padding: '2rem 0' }}>
-              Chưa có bản xem trước.
+              {t('preview.none')}
             </div>
           )}
         </div>
 
         <div className="nm-modal-footer">
           <button type="button" className="nm-btn" onClick={onClose}>
-            Đóng
+            {ts('close')}
           </button>
         </div>
       </div>

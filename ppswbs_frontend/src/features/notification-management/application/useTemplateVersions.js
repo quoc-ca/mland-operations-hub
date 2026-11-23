@@ -1,8 +1,13 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useT } from '../../../shared/i18n/I18nProvider';
+import { notificationMessages } from '../messages';
 import { useNotificationApi } from './useNotificationApi';
 
 export function useTemplateVersions(code) {
   const api = useNotificationApi();
+  const t = useT(notificationMessages);
+  const tRef = useRef(t);
+  tRef.current = t;
   const [template, setTemplate] = useState(null);
   const [loading, setLoading] = useState(Boolean(code));
   const [error, setError] = useState(null);
@@ -17,7 +22,7 @@ export function useTemplateVersions(code) {
       const data = await api.getTemplate(code);
       setTemplate(data);
     } catch (err) {
-      setError(err?.message || 'Không thể tải thông tin mẫu thông báo');
+      setError(err?.message || tRef.current('detail.loadError'));
     } finally {
       setLoading(false);
     }
@@ -42,7 +47,7 @@ export function useTemplateVersions(code) {
       })
       .catch((err) => {
         if (active) {
-          setError(err?.message || 'Không thể tải thông tin mẫu thông báo');
+          setError(err?.message || tRef.current('detail.loadError'));
           setLoading(false);
         }
       });
@@ -60,7 +65,7 @@ export function useTemplateVersions(code) {
         await reload();
         return result;
       } catch (err) {
-        setActionError(err?.message || 'Không thể tạo bản nháp mới');
+        setActionError(err?.message || tRef.current('detail.createFailed'));
         throw err;
       } finally {
         setActionLoading(false);
@@ -78,7 +83,7 @@ export function useTemplateVersions(code) {
         await reload();
         return result;
       } catch (err) {
-        setActionError(err?.message || 'Không thể cập nhật bản nháp');
+        setActionError(err?.message || tRef.current('detail.updateFailed'));
         throw err;
       } finally {
         setActionLoading(false);
@@ -96,7 +101,7 @@ export function useTemplateVersions(code) {
         await reload();
         return result;
       } catch (err) {
-        setActionError(err?.message || 'Không thể kích hoạt phiên bản');
+        setActionError(err?.message || tRef.current('detail.activateFailed'));
         throw err;
       } finally {
         setActionLoading(false);
@@ -112,7 +117,7 @@ export function useTemplateVersions(code) {
       try {
         return await api.previewTemplate(code, { versionNumber, sampleData });
       } catch (err) {
-        setActionError(err?.message || 'Không thể xem trước nội dung');
+        setActionError(err?.message || tRef.current('detail.previewFailed'));
         throw err;
       } finally {
         setActionLoading(false);
