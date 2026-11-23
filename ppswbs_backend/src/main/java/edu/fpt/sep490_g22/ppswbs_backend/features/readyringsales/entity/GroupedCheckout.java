@@ -95,7 +95,7 @@ public class GroupedCheckout {
      */
     public void resolveFromOrders() {
         if (orders.stream().anyMatch(order -> order.getPaymentState() == PaymentState.ACCEPTED_UNPAID)) return;
-        if (orders.stream().anyMatch(order -> order.getPaymentState() == PaymentState.PAID)) this.paymentState = PaymentState.PAID;
+        if (orders.stream().anyMatch(order -> order.getPaymentState() == PaymentState.PAID || order.getPaymentState() == PaymentState.COMPLETED)) this.paymentState = PaymentState.PAID;
         else if (orders.stream().allMatch(order -> order.getPaymentState() == PaymentState.CANCELLED)) this.paymentState = PaymentState.CANCELLED;
         else this.paymentState = PaymentState.EXPIRED;
     }

@@ -4,6 +4,7 @@ public enum PaymentState {
     ACCEPTED_UNPAID,
     PAYMENT_INITIATED,
     PAID,
+    COMPLETED,
     EXPIRED,
     CANCELLED
 }
