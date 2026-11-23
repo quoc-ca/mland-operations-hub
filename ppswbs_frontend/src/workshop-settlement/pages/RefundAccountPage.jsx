@@ -4,6 +4,8 @@ import { useHttp } from '../../shared/api/useHttp';
 import { Field, useCommand } from '../../shared/ui/components';
 import { createSettlementApi } from '../api/settlementApi';
 import { CustomerPage } from '../OpsPage';
+import { useT } from '../../shared/i18n/I18nProvider';
+import { messages } from '../messages';
 import { AccountReviewStep, ProblemNotice } from '../ui';
 
 /**
@@ -12,6 +14,7 @@ import { AccountReviewStep, ProblemNotice } from '../ui';
  * the holder name is not compared with the payer, and the account number is never shown again after it is sent.
  */
 export default function RefundAccountPage() {
+  const t = useT(messages);
   const api = createSettlementApi(useHttp());
   const token = decodeURIComponent(useLocation().hash.replace(/^#/, ''));
   const [form, setForm] = useState({ bankCode: '', accountNumber: '', holderName: '' });
@@ -36,27 +39,27 @@ export default function RefundAccountPage() {
   const retry = async () => { const out = await command.retry(); if (out?.ok) finish(); };
 
   if (!token) {
-    return <CustomerPage title="Refund account"><div className="notice error" role="alert"><p>This link is incomplete. Open the link from your refund email again.</p></div></CustomerPage>;
+    return <CustomerPage title={t('ra.title')}><div className="notice error" role="alert"><p>{t('ra.incomplete')}</p></div></CustomerPage>;
   }
   if (done) {
-    return <CustomerPage title="Refund account"><div className="notice success" role="status"><p>Thank you. Your bank account was received. We will transfer the refund after it is approved and email you when it is done.</p></div></CustomerPage>;
+    return <CustomerPage title={t('ra.title')}><div className="notice success" role="status"><p>{t('ra.thanks')}</p></div></CustomerPage>;
   }
   const error = command.error;
   return (
-    <CustomerPage title="Where should we send your refund?" intro="Enter your own bank account. This link works once and expires after 7 days.">
+    <CustomerPage title={t('ra.titleAsk')} intro={t('ra.intro')}>
       {error?.status === 410 ? (
-        <div className="notice error" role="alert"><p>This link was already used, replaced or has expired. Ask the shop to send you a new link.</p></div>
+        <div className="notice error" role="alert"><p>{t('ra.used')}</p></div>
       ) : error?.status === 404 ? (
-        <div className="notice error" role="alert"><p>This link is not valid. Open the link from your refund email again.</p></div>
+        <div className="notice error" role="alert"><p>{t('ra.invalid')}</p></div>
       ) : <ProblemNotice error={error} onRetry={retry} />}
       {reviewing ? (
-        <AccountReviewStep details={form} confirmed={confirmed} onConfirmedChange={setConfirmed} onEdit={edit} pending={command.pending} submitLabel="Send account" onSubmit={submit} />
+        <AccountReviewStep details={form} confirmed={confirmed} onConfirmedChange={setConfirmed} onEdit={edit} pending={command.pending} submitLabel={t('ra.sendAccount')} onSubmit={submit} />
       ) : (
-        <form className="ota-form" aria-label="Refund account" onSubmit={review}>
-          <Field label="Bank"><input value={form.bankCode} maxLength={32} autoComplete="off" onChange={event => setForm(v => ({ ...v, bankCode: event.target.value }))} /></Field>
-          <Field label="Account number"><input inputMode="numeric" value={form.accountNumber} maxLength={32} autoComplete="off" onChange={event => setForm(v => ({ ...v, accountNumber: event.target.value }))} /></Field>
-          <Field label="Account holder name" hint="Exactly as your bank shows it."><input value={form.holderName} maxLength={128} autoComplete="off" onChange={event => setForm(v => ({ ...v, holderName: event.target.value }))} /></Field>
-          <button className="button primary" type="submit" disabled={command.pending || !ready}>Review details</button>
+        <form className="ota-form" aria-label={t('ra.formAria')} onSubmit={review}>
+          <Field label={t('ra.bank')}><input value={form.bankCode} maxLength={32} autoComplete="off" onChange={event => setForm(v => ({ ...v, bankCode: event.target.value }))} /></Field>
+          <Field label={t('ra.accountNumber')}><input inputMode="numeric" value={form.accountNumber} maxLength={32} autoComplete="off" onChange={event => setForm(v => ({ ...v, accountNumber: event.target.value }))} /></Field>
+          <Field label={t('ra.holder')} hint={t('ra.holderHint')}><input value={form.holderName} maxLength={128} autoComplete="off" onChange={event => setForm(v => ({ ...v, holderName: event.target.value }))} /></Field>
+          <button className="button primary" type="submit" disabled={command.pending || !ready}>{t('ra.review')}</button>
         </form>
       )}
     </CustomerPage>

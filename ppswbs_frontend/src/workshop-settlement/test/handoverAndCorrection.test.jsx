@@ -30,7 +30,7 @@ describe('T126: Manager handover exception on an unsettled ticket folio (FR-035)
       [`POST ${FOLIO}/handover-exceptions`]: json(201, {}),
     });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/settlement' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement' });
     await openFolio(user);
     await user.click(await screen.findByRole('button', { name: 'Allow handover' }));
     const dialog = screen.getByRole('dialog');
@@ -46,7 +46,7 @@ describe('T126: Manager handover exception on an unsettled ticket folio (FR-035)
     expect(post.body).toEqual({ reason: 'Regular customer, pays tomorrow' });
     expect(post.headers['Idempotency-Key']).toBeTruthy();
     expect(calls.filter(call => call.method === 'GET' && call.path === FOLIO).length).toBeGreaterThan(1);
-    expect(screen.getByText('Balance due').nextSibling).toHaveTextContent('100.000 VND');
+    expect(screen.getByText('Balance due').nextSibling).toHaveTextContent('100,000 ₫');
   });
 
   it('explains a conflict and offers to load the latest folio', async () => {
@@ -55,7 +55,7 @@ describe('T126: Manager handover exception on an unsettled ticket folio (FR-035)
       [`POST ${FOLIO}/handover-exceptions`]: json(409, { code: 'FOLIO_ALREADY_SETTLED', correlationId: 'c-h' }),
     });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/settlement' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement' });
     await openFolio(user);
     await user.click(await screen.findByRole('button', { name: 'Allow handover' }));
     const dialog = screen.getByRole('dialog');
@@ -69,7 +69,7 @@ describe('T126: Manager handover exception on an unsettled ticket folio (FR-035)
   it('is not offered to Staff or on a settled folio', async () => {
     mockFetch({ [PROFILE]: asRole('STAFF'), [`GET ${FOLIO}`]: folio(), [`GET ${FOLIO}/add-ons`]: json(200, []) });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/settlement' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement' });
     await openFolio(user);
     await screen.findByText('Balance due');
     expect(screen.queryByRole('button', { name: 'Allow handover' })).toBeNull();
@@ -78,7 +78,7 @@ describe('T126: Manager handover exception on an unsettled ticket folio (FR-035)
   it('is not offered when nothing is owed', async () => {
     mockFetch({ [PROFILE]: asRole('MANAGER'), [`GET ${FOLIO}`]: folio('0'), [`GET ${FOLIO}/add-ons`]: json(200, []) });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/settlement' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement' });
     await openFolio(user);
     await screen.findByText('Balance due');
     expect(screen.queryByRole('button', { name: 'Allow handover' })).toBeNull();
@@ -92,12 +92,12 @@ describe('T127: read-only view of a posted folio correction (FR-050, FR-048)', (
       [`GET ${FOLIO}/corrections/CORR-1`]: json(200, CORRECTION),
     });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/settlement' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement' });
     await openFolio(user);
     await user.type(await screen.findByLabelText('Correction reference'), 'CORR-1');
     await user.click(screen.getByRole('button', { name: 'View correction' }));
     const details = await screen.findByLabelText('Folio correction');
-    expect(details).toHaveTextContent('50.000 VND');
+    expect(details).toHaveTextContent('50,000 ₫');
     expect(details).toHaveTextContent('PENDING_PROVIDER');
     expect(details).toHaveTextContent('R-1');
     const read = calls.find(call => call.path.endsWith('/corrections/CORR-1'));
@@ -112,7 +112,7 @@ describe('T127: read-only view of a posted folio correction (FR-050, FR-048)', (
       [`GET ${FOLIO}/corrections/CORR-9`]: json(404, { code: 'NOT_FOUND' }),
     });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/settlement' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement' });
     await openFolio(user);
     await user.type(await screen.findByLabelText('Correction reference'), 'CORR-9');
     await user.click(screen.getByRole('button', { name: 'View correction' }));
@@ -125,7 +125,7 @@ describe('T127: read-only view of a posted folio correction (FR-050, FR-048)', (
       [`GET ${FOLIO}/corrections/CORR-1`]: json(200, CORRECTION),
     });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/workshop-tickets/TK-1/folio' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/workshop-tickets/TK-1/folio' });
     await user.type(await screen.findByLabelText('Correction reference'), 'CORR-1');
     await user.click(screen.getByRole('button', { name: 'View correction' }));
     expect(await screen.findByLabelText('Folio correction')).toHaveTextContent('CORR-1');
@@ -134,7 +134,7 @@ describe('T127: read-only view of a posted folio correction (FR-050, FR-048)', (
 
   it('never offers the correction view to a Guest', async () => {
     mockFetch({});
-    renderRoutes(settlementRoutes, { path: '/workshop-tickets/TK-1/folio', session: fakeSession('signed-out') });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/workshop-tickets/TK-1/folio', session: fakeSession('signed-out') });
     await screen.findByRole('button', { name: 'Show my ticket' });
     expect(screen.queryByLabelText('Correction reference')).toBeNull();
   });

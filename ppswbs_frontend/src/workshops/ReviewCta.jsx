@@ -1,4 +1,6 @@
 import React from 'react';
+import { useT } from '../shared/i18n/I18nProvider';
+import { messages } from './messages';
 
 const norm = value => String(value ?? '').trim().toLowerCase();
 
@@ -26,6 +28,7 @@ export function reviewSourceFor(ticket, sources) {
  * transaction detail is shown.
  */
 export function ReviewCta({ ticket, sources, onReview }) {
+  const t = useT(messages);
   const source = reviewSourceFor(ticket, sources);
   if (source) {
     return (
@@ -33,9 +36,9 @@ export function ReviewCta({ ticket, sources, onReview }) {
         type="button"
         className="button primary small"
         onClick={() => onReview(source)}
-        aria-label={`Viết đánh giá cho vé ${ticket.ticketCode}`}
+        aria-label={t('review.writeAria', { code: ticket.ticketCode })}
       >
-        Viết đánh giá
+        {t('review.write')}
       </button>
     );
   }
@@ -46,10 +49,10 @@ export function ReviewCta({ ticket, sources, onReview }) {
       type="button"
       className="button outline small"
       disabled
-      title="Bạn có thể đánh giá ca workshop sau khi đã tham dự."
-      aria-label={`Đánh giá vé ${ticket.ticketCode} sau khi tham dự`}
+      title={t('review.laterTitle')}
+      aria-label={t('review.laterAria', { code: ticket.ticketCode })}
     >
-      Đánh giá sau khi tham dự
+      {t('review.later')}
     </button>
   );
 }

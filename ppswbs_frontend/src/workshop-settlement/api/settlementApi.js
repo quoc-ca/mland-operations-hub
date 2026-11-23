@@ -41,6 +41,9 @@ export function createSettlementApi(http) {
     createFolioCorrection: (code, body, key) => write(`${ticket(code)}/folio/corrections`, body, key),
     getFolioCorrection: (code, ref) => http(`${ticket(code)}/folio/corrections/${enc(ref)}`),
 
+    // Admin-only technical operation (FR-040, A10): after the key is replaced and the service restarted.
+    replaceRefundAccountKey: (body, key) => write('/api/v1/workshop-refund-account-key-replacements', body, key),
+
     // Cash book.
     getExpectedCash: query => http('/api/v1/workshop-cash-closes/expected-cash', { query }),
     // Manager home (013 R-3): the differences waiting for a Manager, exactly what the home card counts.

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { firebaseAuthClient } from '../auth/FirebaseAuthClient';
 import { accountManagementApiClient } from '../api/AccountManagementApiClient';
 import { ApiError } from '../../../shared/api/http';
+import { useStableT } from './useStableT';
 
 export type GateState = 'idle' | 'checking' | 'verified' | 'unverified' | 'error';
 
@@ -29,6 +30,7 @@ export function useVerifiedEmailGate({
   initialVerified = false,
   onSessionExpired,
 }: UseVerifiedEmailGateOptions = {}): UseVerifiedEmailGateResult {
+  const t = useStableT();
   const [gateState, setGateState] = useState<GateState>(
     initialVerified ? 'verified' : 'idle'
   );
@@ -110,7 +112,7 @@ export function useVerifiedEmailGate({
           const sessionErr = new ApiError({
             status: 401,
             code: 'UNAUTHENTICATED',
-            message: 'Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại.',
+            message: t('hook.sessionExpired'),
           });
           setError(sessionErr);
           onSessionExpiredRef.current?.();
@@ -147,7 +149,7 @@ export function useVerifiedEmailGate({
           const sessionErr = new ApiError({
             status: 401,
             code: 'UNAUTHENTICATED',
-            message: 'Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại.',
+            message: t('hook.sessionExpired'),
           });
           setError(sessionErr);
           onSessionExpiredRef.current?.();

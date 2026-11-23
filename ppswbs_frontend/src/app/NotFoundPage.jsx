@@ -1,5 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router';
+import { useT } from '../shared/i18n/I18nProvider';
+import { sharedMessages } from '../shared/ui/messages';
 
 /**
  * NotFoundPage (R-404 / FR-046 / T074).
@@ -8,6 +10,7 @@ import { Link } from 'react-router';
  * Must NOT provide Back action or automatic redirect.
  */
 export default function NotFoundPage() {
+  const t = useT(sharedMessages);
   return (
     <main className="public-page not-found-page">
       <div className="container empty-state" style={{ textAlign: 'center', padding: '4rem 1rem' }}>
@@ -15,14 +18,14 @@ export default function NotFoundPage() {
           404 Not Found
         </p>
         <h1 style={{ fontSize: '2rem', fontWeight: 600, color: '#111827', margin: '0.75rem 0' }}>
-          Trang không tồn tại
+          {t('notFound.title')}
         </h1>
         <p style={{ color: '#4b5563', maxWidth: '480px', margin: '0 auto 1.5rem', lineHeight: '1.5' }}>
-          Địa chỉ bạn yêu cầu không tồn tại hoặc đã được chuyển hướng.
+          {t('notFound.body')}
         </p>
         <div>
           <Link to="/" className="button primary" style={{ display: 'inline-block' }}>
-            Về trang chủ
+            {t('notFound.home')}
           </Link>
         </div>
       </div>

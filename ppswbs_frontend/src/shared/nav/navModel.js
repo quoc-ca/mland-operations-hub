@@ -9,6 +9,7 @@ const manager = role => role === 'MANAGER';
 const staffOrManager = role => role === 'MANAGER' || role === 'STAFF';
 const notAdmin = role => role !== 'ADMIN' && role !== 'CARRIER';
 const carrier = role => role === 'CARRIER';
+const admin = role => role === 'ADMIN';
 
 /**
  * `match`: exact path, or a prefix when it ends with `*`. `actions` are the header buttons of the tab's own page
@@ -20,7 +21,12 @@ export const GROUPS = [
     tabs: [
       { id: 'dashboard', vi: 'Dashboard', en: 'Dashboard', to: '/manager/dashboard', match: ['/manager/dashboard', '/manager/home'], visible: manager },
       { id: 'staff-home', vi: 'Trang chủ', en: 'Home', to: '/staff/home', match: ['/staff/home'], visible: role => role === 'STAFF' },
-      { id: 'home', vi: 'Trang chủ', en: 'Home', to: '/home', match: ['/home'], visible: role => !staffOrManager(role) && !carrier(role) },
+      { id: 'home', vi: 'Trang chủ', en: 'Home', to: '/home', match: ['/home'], visible: role => !staffOrManager(role) && !carrier(role) && !admin(role) },
+      // ADMIN lands on account management (no Mland operations pages for Admin, spec 003.2 FR-012c).
+      {
+        id: 'admin-home', vi: 'Tài khoản', en: 'Accounts', to: '/admin/accounts', match: ['/admin/accounts*'], visible: admin,
+        actions: [{ id: 'new-account', vi: 'Tạo tài khoản nội bộ', en: 'New internal account', to: '/admin/accounts/new', primary: true }],
+      },
       { id: 'carrier-home', vi: 'Trang chủ', en: 'Home', to: '/carrier', match: ['/carrier'], visible: carrier },
     ],
   },
@@ -99,6 +105,7 @@ export const GROUPS = [
       { id: 'change-requests', vi: 'Yêu cầu đổi vé', en: 'Change requests', to: '/settlement/change-requests?status=PENDING', match: ['/settlement/change-requests*'], visible: notAdmin },
       { id: 'refunds', vi: 'Hàng đợi hoàn tiền', en: 'Refund queue', to: '/settlement/refunds?status=WAITING', match: ['/settlement/refunds*'], visible: manager },
       { id: 'cases', vi: 'Sự vụ và bồi hoàn', en: 'Settlement cases', to: '/settlement/cases?tab=cases', match: ['/settlement/cases*'], visible: manager },
+      { id: 'refund-key', vi: 'Thay khóa hoàn tiền', en: 'Refund key', to: '/settlement/refund-account-key', match: ['/settlement/refund-account-key*'], visible: manager },
     ],
   },
   {
@@ -113,6 +120,7 @@ export const GROUPS = [
   {
     id: 'system', icon: 'gear', vi: 'Hệ thống', en: 'System',
     tabs: [
+      { id: 'roles', vi: 'Danh mục vai trò', en: 'Role catalogue', to: '/admin/roles', match: ['/admin/roles*'], visible: admin },
       { id: 'email-templates', vi: 'Mẫu thông báo email', en: 'Email templates', to: '/admin/notifications/templates', match: ['/admin/notifications/templates*'], visible: manager },
       { id: 'delivery-logs', vi: 'Nhật ký gửi thư', en: 'Delivery logs', to: '/admin/notifications/requests', match: ['/admin/notifications/requests*'], visible: manager },
       { id: 'audit', vi: 'Nhật ký audit', en: 'Audit log', to: '/operations/audit', match: ['/operations/audit*'], visible: manager },

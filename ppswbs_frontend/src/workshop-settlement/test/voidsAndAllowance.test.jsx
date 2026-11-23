@@ -30,7 +30,7 @@ describe('Manager void of a folio line or collection (FR-053)', () => {
       [`POST ${FOLIO}/lines/CH-1/voids`]: folio(),
     });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/settlement' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement' });
     await openFolio(user);
     const lines = await screen.findByRole('table', { name: 'Folio lines' });
     expect(within(lines).getAllByRole('button', { name: 'Void line' })).toHaveLength(1); // the VOIDED line has none
@@ -53,9 +53,9 @@ describe('Manager void of a folio line or collection (FR-053)', () => {
       [`POST ${FOLIO}/collections/c-cash/voids`]: json(409, { code: 'CASH_DAY_CLOSED', correlationId: 'c-v' }),
     });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/settlement' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement' });
     await openFolio(user);
-    const cashRow = (await screen.findByText('CASH')).closest('tr');
+    const cashRow = (await screen.findByText('Cash', { selector: 'td' })).closest('tr');
     await user.click(within(cashRow).getByRole('button', { name: 'Void' }));
     const dialog = screen.getByRole('dialog');
     await user.type(within(dialog).getByLabelText('Reason (required)'), 'Wrong amount typed');
@@ -67,7 +67,7 @@ describe('Manager void of a folio line or collection (FR-053)', () => {
   it('offers no void to Staff, and none once the folio is finalized', async () => {
     mockFetch({ [PROFILE]: asRole('STAFF'), [`GET ${FOLIO}`]: folio(), [`GET ${FOLIO}/add-ons`]: json(200, []) });
     const user = userEvent.setup();
-    const { unmount } = renderRoutes(settlementRoutes, { path: '/settlement' });
+    const { unmount } = renderRoutes(settlementRoutes, { language: 'en', path: '/settlement' });
     await openFolio(user);
     await screen.findByRole('table', { name: 'Folio lines' });
     expect(screen.queryByRole('button', { name: 'Void line' })).not.toBeInTheDocument();
@@ -75,7 +75,7 @@ describe('Manager void of a folio line or collection (FR-053)', () => {
     unmount();
 
     mockFetch({ [PROFILE]: asRole('MANAGER'), [`GET ${FOLIO}`]: folio('FINALIZED') });
-    renderRoutes(settlementRoutes, { path: '/settlement' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement' });
     await openFolio(userEvent.setup());
     await screen.findByRole('table', { name: 'Folio lines' });
     expect(screen.queryByRole('button', { name: 'Void line' })).not.toBeInTheDocument();
@@ -89,9 +89,9 @@ describe('Manager extra change allowance (FR-054)', () => {
       'POST /api/v1/workshop-tickets/TK-1/change-allowances': json(201, { allowanceReference: 'AL-1', ticketCode: 'TK-1', reason: 'Goodwill', grantedAt: '2026-11-15T01:00:00Z' }),
     });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/settlement/ticket-actions?tab=change' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/ticket-actions?tab=change' });
     const panel = await screen.findByRole('region', { name: 'Extra change allowance' });
-    await user.type(within(panel).getByLabelText('Mã vé'), 'TK-1');
+    await user.type(within(panel).getByLabelText('Ticket code'), 'TK-1');
     await user.click(within(panel).getByRole('button', { name: 'Grant extra change' }));
     const dialog = screen.getByRole('dialog');
     await user.click(within(dialog).getByRole('button', { name: 'Grant' }));
@@ -107,8 +107,8 @@ describe('Manager extra change allowance (FR-054)', () => {
 
   it('is not shown to Staff', async () => {
     mockFetch({ [PROFILE]: asRole('STAFF') });
-    renderRoutes(settlementRoutes, { path: '/settlement/ticket-actions?tab=change' });
-    await screen.findByLabelText('Mã đặt chỗ');
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/ticket-actions?tab=change' });
+    await screen.findByLabelText('Booking code');
     expect(screen.queryByRole('region', { name: 'Extra change allowance' })).not.toBeInTheDocument();
   });
 });

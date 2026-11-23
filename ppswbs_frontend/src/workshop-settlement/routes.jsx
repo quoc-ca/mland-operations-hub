@@ -11,6 +11,7 @@ import MlandRemedyPage from './pages/MlandRemedyPage';
 import CustomerFolioPage from './pages/CustomerFolioPage';
 import ReconciliationPage from './pages/ReconciliationPage';
 import AbsorbedUnderchargesPage from './pages/AbsorbedUnderchargesPage';
+import RefundAccountKeyReplacementPage from './pages/RefundAccountKeyReplacementPage';
 
 // Staff/Manager screens (the backend decides every permission) and the public customer screens of 003.3.
 export const settlementRoutes = [
@@ -22,6 +23,8 @@ export const settlementRoutes = [
   { path: '/settlement/absorbed-undercharges', element: <StaffArea><AbsorbedUnderchargesPage /></StaffArea> },
   { path: '/settlement/change-requests', element: <StaffArea><ChangeRequestsPage /></StaffArea> },
   { path: '/settlement/ticket-actions', element: <StaffArea><TicketActionsPage /></StaffArea> },
+  // Manager screen (FR-040, moved from Admin 2026-11-23); the backend refuses anyone else.
+  { path: '/settlement/refund-account-key', element: <StaffArea><RefundAccountKeyReplacementPage /></StaffArea> },
   // Customer screens: no sign-in is required; a Member is recognized by the session, a Guest by proof in a request body.
   { path: '/refund-account', element: <RefundAccountPage /> },
   { path: '/workshop-tickets/:ticketCode/remedy', element: <MlandRemedyPage /> },

@@ -1,4 +1,6 @@
 import React, { useEffect, useRef } from 'react';
+import { useT } from '../shared/i18n/I18nProvider';
+import { messages } from './messages';
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
@@ -8,6 +10,7 @@ const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), selec
  * not scroll, and focus returns to the control that opened it.
  */
 export function CartQuoteDialog({ open, title, busy = false, onClose, children }) {
+  const t = useT(messages);
   const dialogRef = useRef(null);
   const returnFocusTo = useRef(null);
 
@@ -44,7 +47,7 @@ export function CartQuoteDialog({ open, title, busy = false, onClose, children }
   return (
     <div className="quote-dialog-backdrop" onMouseDown={event => { if (event.target === event.currentTarget && !busy) onClose?.(); }}>
       <div ref={dialogRef} className="quote-dialog" role="dialog" aria-modal="true" aria-label={title} tabIndex={-1} onKeyDown={onKeyDown}>
-        <button type="button" className="quote-dialog-close" aria-label="Đóng báo giá" disabled={busy} onClick={() => onClose?.()}>×</button>
+        <button type="button" className="quote-dialog-close" aria-label={t('dialog.closeQuote')} disabled={busy} onClick={() => onClose?.()}>×</button>
         {children}
       </div>
     </div>

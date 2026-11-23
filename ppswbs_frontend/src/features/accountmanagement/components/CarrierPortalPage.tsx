@@ -3,7 +3,8 @@ import { Link } from 'react-router';
 import { useCurrentAccount } from '../hooks/useCurrentAccount';
 import { useAuth } from '../../../shared/auth/AuthProvider';
 import { useHttp } from '../../../shared/api/useHttp';
-import { useLanguage } from '../../../shared/i18n/I18nProvider';
+import { useT } from '../../../shared/i18n/I18nProvider';
+import { accountMessages } from '../messages';
 import '../accountmanagement.css';
 
 type Shipment = { status?: string; createdAt?: string };
@@ -46,15 +47,14 @@ function useCarrierToday(enabled: boolean): TodayCounts | null {
 export const CarrierPortalPage: React.FC = () => {
   const { account, status: accountStatus, error } = useCurrentAccount();
   const { signOut } = useAuth();
-  const { language } = useLanguage();
-  const t = (vi: string, en: string) => (language === 'en' ? en : vi);
+  const t = useT(accountMessages);
   const today = useCarrierToday(account?.role === 'CARRIER' && account?.status !== 'SUSPENDED');
 
   if (accountStatus === 'loading') {
     return (
       <div className="account-page-container">
         <div className="account-card">
-          <p style={{ color: '#6b717f' }}>{t('Đang xác thực thông tin tài khoản đối tác vận chuyển…', 'Checking the carrier partner account…')}</p>
+          <p style={{ color: '#6b717f' }}>{t('carrier.checking')}</p>
         </div>
       </div>
     );
@@ -65,11 +65,11 @@ export const CarrierPortalPage: React.FC = () => {
     return (
       <div className="account-page-container">
         <div className="account-alert account-alert-error" role="alert">
-          <span>{t('Tài khoản của bạn không có quyền truy cập Cổng đối tác vận chuyển.', 'Your account cannot access the carrier partner portal.')}</span>
+          <span>{t('carrier.noAccess')}</span>
         </div>
         <div className="account-card" style={{ marginTop: '1rem', textAlign: 'center', padding: '2rem' }}>
           <Link to="/" className="account-btn account-btn-primary">
-            {t('Quay lại trang chủ', 'Back to home')}
+            {t('carrier.backHome')}
           </Link>
         </div>
       </div>
@@ -81,50 +81,50 @@ export const CarrierPortalPage: React.FC = () => {
       <header className="account-page-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
           <h1 className="account-page-title" style={{ margin: 0 }}>
-            {t('Cổng đối tác vận chuyển (GHTK)', 'Carrier partner portal (GHTK)')}
+            {t('carrier.title')}
           </h1>
           <span className="account-badge account-badge-active">
             CARRIER · {account?.status || 'ACTIVE'}
           </span>
         </div>
         <p className="account-page-description" style={{ marginTop: '0.5rem' }}>
-          {t('Hệ thống quản lý dành riêng cho Đối tác giao nhận vận chuyển GHTK. Quản trị phân luồng giao nhận và tiến độ vận đơn.', 'The portal for the GHTK delivery partner: manage pickups, deliveries and shipment progress.')}
+          {t('carrier.description')}
         </p>
       </header>
 
       {error && (
         <div className="account-alert account-alert-error" role="alert">
-          <span>{error.message || t('Lỗi khi đồng bộ dữ liệu tài khoản đối tác.', 'Could not load the partner account.')}</span>
+          <span>{error.message || t('carrier.loadError')}</span>
         </div>
       )}
 
       {account?.status === 'SUSPENDED' && (
         <div className="account-alert account-alert-error" role="alert">
-          <strong>{t('Tài khoản đang bị tạm khóa (SUSPENDED).', 'This account is suspended (SUSPENDED).')}</strong> {t('Vui lòng liên hệ Quản trị viên để được hỗ trợ.', 'Please contact an administrator.')}
+          <strong>{t('carrier.suspended')}</strong> {t('carrier.contactAdmin')}
         </div>
       )}
 
       <div className="account-card" style={{ marginBottom: '1.5rem' }}>
-        <h2 className="account-card-title">{t('Thông tin định danh đối tác', 'Partner identity')}</h2>
+        <h2 className="account-card-title">{t('carrier.identity')}</h2>
         <table className="account-table">
           <tbody>
             <tr>
-              <th style={{ width: '220px' }}>{t('Tên đối tác / Đại diện:', 'Partner / representative:')}</th>
-              <td><strong>{account?.email?.split('@')[0] || t('Đối tác vận chuyển (GHTK)', 'Carrier partner (GHTK)')}</strong></td>
+              <th style={{ width: '220px' }}>{t('carrier.partnerName')}</th>
+              <td><strong>{account?.email?.split('@')[0] || t('carrier.partnerDefault')}</strong></td>
             </tr>
             <tr>
-              <th>{t('Email đăng nhập:', 'Sign-in email:')}</th>
+              <th>{t('carrier.signInEmail')}</th>
               <td>{account?.email || 'ghtk.test@mland.vn'}</td>
             </tr>
             <tr>
-              <th>{t('Vai trò hệ thống:', 'System role:')}</th>
+              <th>{t('carrier.systemRole')}</th>
               <td>
                 <span className="account-badge account-badge-readonly">CARRIER</span>
               </td>
             </tr>
             <tr>
-              <th>{t('Phạm vi cơ sở:', 'Branch scope:')}</th>
-              <td>{t('Toàn quốc (Không giới hạn theo cơ sở đơn lẻ)', 'Nationwide (not limited to one branch)')}</td>
+              <th>{t('carrier.branchScope')}</th>
+              <td>{t('carrier.nationwide')}</td>
             </tr>
           </tbody>
         </table>
@@ -134,15 +134,15 @@ export const CarrierPortalPage: React.FC = () => {
         <div className="account-card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
           <div>
             <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.1rem', color: '#1a1a1a' }}>
-              {t('🚚 Đơn vận chuyển cần giao', '🚚 Shipments to deliver')}
+              {t('carrier.shipmentsTitle')}
             </h3>
             <p style={{ color: '#4b5563', fontSize: '0.9rem', lineHeight: 1.5, margin: 0 }}>
-              {t('Tiếp nhận các đơn hàng trang sức bán lẻ đã chuẩn bị sẵn sàng và bàn giao cho GHTK vận chuyển đến khách hàng.', 'Pick up packed retail jewellery orders and deliver them to customers with GHTK.')}
+              {t('carrier.shipmentsBody')}
             </p>
             {today && (
               <div className="carrier-today" role="status">
-                <strong>{t(`Hôm nay có ${today.today} vận đơn mới`, `${today.today} new shipments today`)}</strong>
-                <span>{t(`${today.waitingPickup} đơn chờ lấy hàng · ${today.delivering} đơn đang giao`, `${today.waitingPickup} waiting for pickup · ${today.delivering} on the way`)}</span>
+                <strong>{t('carrier.todayNew', { count: today.today })}</strong>
+                <span>{t('carrier.todayDetail', { waiting: today.waitingPickup, delivering: today.delivering })}</span>
               </div>
             )}
           </div>
@@ -152,7 +152,7 @@ export const CarrierPortalPage: React.FC = () => {
               className="account-btn account-btn-primary"
               style={{ display: 'inline-block' }}
             >
-              {t('Xem danh sách vận đơn →', 'View shipments →')}
+              {t('carrier.viewShipments')}
             </Link>
           </div>
         </div>
@@ -160,10 +160,10 @@ export const CarrierPortalPage: React.FC = () => {
         <div className="account-card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
           <div>
             <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.1rem', color: '#1a1a1a' }}>
-              {t('🔑 Bảo mật & Mật khẩu', '🔑 Security & password')}
+              {t('carrier.securityTitle')}
             </h3>
             <p style={{ color: '#4b5563', fontSize: '0.9rem', lineHeight: 1.5, margin: 0 }}>
-              {t('Chủ động thay đổi mật khẩu định kỳ để bảo đảm an toàn truy cập tài khoản đối tác vận chuyển.', 'Change your password regularly to keep the carrier account safe.')}
+              {t('carrier.securityBody')}
             </p>
           </div>
           <div style={{ marginTop: '1.25rem' }}>
@@ -172,7 +172,7 @@ export const CarrierPortalPage: React.FC = () => {
               className="account-btn account-btn-secondary"
               style={{ display: 'inline-block' }}
             >
-              {t('Đổi mật khẩu tài khoản →', 'Change password →')}
+              {t('carrier.changePassword')}
             </Link>
           </div>
         </div>

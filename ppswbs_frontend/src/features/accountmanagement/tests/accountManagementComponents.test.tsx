@@ -15,6 +15,11 @@ import { ApiError } from '../../../shared/api/http';
 describe('FE-001 Account Management Components & Hooks', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    vi.spyOn(accountManagementApiClient, 'listWorkshopLocations').mockResolvedValue([
+      { id: 1, code: 'HN-HOANKIEM', name: 'Mland Hà Nội – Hoàn Kiếm', address: '83 Mã Mây', active: true },
+      { id: 2, code: 'HN-TAYHO', name: 'Mland Hà Nội – Tây Hồ', address: 'P105', active: true },
+      { id: 3, code: 'DN-HAICHAU', name: 'Mland Đà Nẵng – Hải Châu', address: '88 Bạch Đằng', active: false },
+    ]);
   });
 
   describe('AuthPage (T018)', () => {
@@ -129,6 +134,12 @@ describe('FE-001 Account Management Components & Hooks', () => {
           <InternalAccountCreatePage />
         </MemoryRouter>
       );
+
+      // Locations come from the API; the first active one is preselected (inactive ones are not offered)
+      await waitFor(() => {
+        expect(screen.getByRole('radio', { name: /Hoàn Kiếm/i })).toBeChecked();
+      });
+      expect(screen.queryByText(/Hải Châu/)).toBeNull();
 
       const nameInput = screen.getByLabelText('Họ và tên');
       fireEvent.change(nameInput, { target: { value: 'Nhân viên Cơ sở 1' } });
@@ -296,7 +307,7 @@ describe('FE-001 Account Management Components & Hooks', () => {
 
       // Wait for checkboxes to be populated
       await waitFor(() => {
-        expect(screen.getByRole('checkbox', { name: /Cơ sở Quận 1/i })).toBeChecked();
+        expect(screen.getByRole('checkbox', { name: /Hoàn Kiếm/i })).toBeChecked();
       });
 
       // Transition role to STAFF
@@ -362,9 +373,9 @@ describe('FE-001 Account Management Components & Hooks', () => {
 
       // Ensure form state has populated from selectedAccount and select location 1
       await waitFor(() => {
-        expect(screen.getByRole('radio', { name: /Cơ sở Quận 1/i })).toBeInTheDocument();
+        expect(screen.getByRole('radio', { name: /Hoàn Kiếm/i })).toBeInTheDocument();
       });
-      const radio = screen.getByRole('radio', { name: /Cơ sở Quận 1/i });
+      const radio = screen.getByRole('radio', { name: /Hoàn Kiếm/i });
       fireEvent.click(radio);
 
       const updateBtn = screen.getByRole('button', { name: 'Cập nhật vai trò & cơ sở' });

@@ -25,7 +25,7 @@ describe('Check-in desk: OTA booking recognition', () => {
       }),
     });
     const user = userEvent.setup();
-    renderRoutes(operationsRoutes, { path: '/operations/sessions/session-1' });
+    renderRoutes(operationsRoutes, { language: 'en', path: '/operations/sessions/session-1' });
     await screen.findByText('Check-in desk');
 
     await lookUp(user, 'BK-OTA-1');
@@ -44,12 +44,12 @@ describe('Check-in desk: OTA booking recognition', () => {
       'GET /api/v1/ota-channel-bookings/lookups': json(404, { code: 'NOT_FOUND', message: 'OTA Channel Booking not found' }),
     });
     const user = userEvent.setup();
-    renderRoutes(operationsRoutes, { path: '/operations/sessions/session-1' });
+    renderRoutes(operationsRoutes, { language: 'en', path: '/operations/sessions/session-1' });
     await screen.findByText('Check-in desk');
 
     await lookUp(user, 'BK-DIRECT-1');
 
-    expect(await screen.findByText(/Tìm thấy 1 vé cho đơn BK-DIRECT-1/)).toBeInTheDocument();
+    expect(await screen.findByText(/Found 1 ticket\(s\) for booking BK-DIRECT-1/)).toBeInTheDocument();
     expect(screen.queryByText(/^OTA ·/)).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Add-on' })).not.toBeInTheDocument();
   });
@@ -61,12 +61,12 @@ describe('Check-in desk: OTA booking recognition', () => {
       'GET /api/v1/ota-channel-bookings/lookups': json(503, { code: 'OTA_UNAVAILABLE', message: 'OTA unavailable' }),
     });
     const user = userEvent.setup();
-    renderRoutes(operationsRoutes, { path: '/operations/sessions/session-1' });
+    renderRoutes(operationsRoutes, { language: 'en', path: '/operations/sessions/session-1' });
     await screen.findByText('Check-in desk');
 
     await lookUp(user, 'BK-2');
 
-    expect(await screen.findByText(/Tìm thấy 1 vé cho đơn BK-2/)).toBeInTheDocument();
+    expect(await screen.findByText(/Found 1 ticket\(s\) for booking BK-2/)).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Add-on' })).not.toBeInTheDocument();
   });
 });

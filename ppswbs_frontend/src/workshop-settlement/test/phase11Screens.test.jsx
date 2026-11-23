@@ -31,7 +31,7 @@ describe('Cash reversal on the ticket folio', () => {
       [REVERSE]: json(201, { reversalReference: 'REV-1', ticketCode: 'TK-1', collectionId: 'c-cash', amountVnd: '-100000', workingDate: '2026-11-17', originalWorkingDate: '2026-11-16', reason: 'typo', recordedBy: 'm', recordedAt: '2026-11-17T01:00:00Z' }),
     });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/settlement' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement' });
     await openFolio(user);
     expect(screen.queryByRole('button', { name: 'Void' })).not.toBeInTheDocument();
     await user.click(await screen.findByRole('button', { name: 'Reverse cash entry' }));
@@ -41,7 +41,7 @@ describe('Cash reversal on the ticket folio', () => {
     expect(calls.some(call => call.method === 'POST')).toBe(false);
     await user.type(within(dialog).getByLabelText('Reason (required)'), 'typed twice');
     await user.click(within(dialog).getByRole('button', { name: 'Reverse cash entry' }));
-    expect(await screen.findByText(/Cash entry reversed: -100\.000 VND recorded on working day 2026-11-17/)).toBeInTheDocument();
+    expect(await screen.findByText(/Cash entry reversed: -100\,000 ₫ recorded on working day 2026-11-17/)).toBeInTheDocument();
     const post = calls.find(call => call.method === 'POST');
     expect(post.body).toEqual({ reason: 'typed twice' });
     expect(post.headers['Idempotency-Key']).toBeTruthy();
@@ -50,7 +50,7 @@ describe('Cash reversal on the ticket folio', () => {
   it('keeps "Void" for a cash collection of an open day and hides the reversal from Staff', async () => {
     mockFetch({ ...base, [PROFILE]: asRole('MANAGER'), [`GET ${FOLIO}`]: folio({ collections: [{ collectionId: 'c-cash', method: 'CASH', amount: '100000', status: 'CONFIRMED', cashDayClosed: false }] }) });
     const user = userEvent.setup();
-    const view = renderRoutes(settlementRoutes, { path: '/settlement' });
+    const view = renderRoutes(settlementRoutes, { language: 'en', path: '/settlement' });
     await openFolio(user);
     expect(await screen.findByRole('button', { name: 'Void' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Reverse cash entry' })).not.toBeInTheDocument();
@@ -59,7 +59,7 @@ describe('Cash reversal on the ticket folio', () => {
 
     mockFetch({ ...base, [PROFILE]: asRole('STAFF'), [`GET ${FOLIO}`]: folio() });
     const staff = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/settlement' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement' });
     await openFolio(staff);
     await screen.findByText('Collections');
     expect(screen.queryByRole('button', { name: 'Reverse cash entry' })).not.toBeInTheDocument();
@@ -72,7 +72,7 @@ describe('Cash reversal on the ticket folio', () => {
   ])('explains the 409 %s', async (code, text) => {
     mockFetch({ ...base, [PROFILE]: asRole('MANAGER'), [`GET ${FOLIO}`]: folio(), [REVERSE]: json(409, { code, correlationId: 'c-1' }) });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/settlement' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement' });
     await openFolio(user);
     await user.click(await screen.findByRole('button', { name: 'Reverse cash entry' }));
     const dialog = screen.getByRole('dialog');
@@ -94,7 +94,7 @@ describe('Absorbed undercharges', () => {
       [`POST ${FOLIO}/absorbed-undercharges/UC-1/voids`]: json(200, { ...RECORD, status: 'VOIDED', voidReason: 'mistake' }),
     });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/settlement' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement' });
     await openFolio(user);
     await user.click(await screen.findByRole('button', { name: 'Record absorbed undercharge' }));
     const dialog = screen.getByRole('dialog');
@@ -114,14 +114,14 @@ describe('Absorbed undercharges', () => {
     await user.type(within(voidDialog).getByLabelText('Reason (required)'), 'mistake');
     await user.click(within(voidDialog).getByRole('button', { name: 'Void record' }));
     expect(await screen.findByText('Absorbed undercharge voided.')).toBeInTheDocument();
-    expect(screen.getByText('VOIDED')).toBeInTheDocument();
+    expect(screen.getByText('Voided')).toBeInTheDocument();
     expect(calls.filter(call => call.method === 'POST')[1].body).toEqual({ reason: 'mistake' });
   });
 
   it('does not offer the record action on an OPEN folio or to Staff, and explains a 422 over the folio total', async () => {
     mockFetch({ [PROFILE]: asRole('MANAGER'), [`GET ${FOLIO}`]: folio(), 'GET /api/v1/workshop-tickets/TK-1/folio/add-ons': json(200, []) });
     const user = userEvent.setup();
-    const view = renderRoutes(settlementRoutes, { path: '/settlement' });
+    const view = renderRoutes(settlementRoutes, { language: 'en', path: '/settlement' });
     await openFolio(user);
     await screen.findByText('Collections');
     expect(screen.queryByRole('button', { name: 'Record absorbed undercharge' })).not.toBeInTheDocument();
@@ -130,7 +130,7 @@ describe('Absorbed undercharges', () => {
 
     mockFetch({ [PROFILE]: asRole('STAFF'), [`GET ${FOLIO}`]: finalized });
     const staff = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/settlement' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement' });
     await openFolio(staff);
     await screen.findByText('Collections');
     expect(screen.queryByRole('button', { name: 'Record absorbed undercharge' })).not.toBeInTheDocument();
@@ -139,7 +139,7 @@ describe('Absorbed undercharges', () => {
   it('shows the 422 cap refusal', async () => {
     mockFetch({ [PROFILE]: asRole('MANAGER'), [`GET ${FOLIO}`]: finalized, [`POST ${FOLIO}/absorbed-undercharges`]: json(422, { code: 'UNDERCHARGE_EXCEEDS_FOLIO_TOTAL' }) });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/settlement' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement' });
     await openFolio(user);
     await user.click(await screen.findByRole('button', { name: 'Record absorbed undercharge' }));
     const dialog = screen.getByRole('dialog');
@@ -160,12 +160,12 @@ describe('Absorbed undercharges', () => {
   it('lists records of a branch and period, marks VOIDED ones and shows the server total of ACTIVE records', async () => {
     const calls = mockFetch({ [PROFILE]: asRole('MANAGER'), 'GET /api/v1/workshop-absorbed-undercharges': json(200, LIST) });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/settlement/absorbed-undercharges' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/absorbed-undercharges' });
     await fill(user);
     expect(await screen.findByText('UC-2')).toBeInTheDocument();
     expect(calls.find(call => call.path.endsWith('/workshop-absorbed-undercharges')).query).toEqual({ locationId: '3', from: '2026-11-01', to: '2026-11-30' });
     expect(screen.getByText(/not in the total: dup/)).toBeInTheDocument();
-    expect(screen.getAllByText('20.000 VND').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('20,000 ₫').length).toBeGreaterThan(0);
     // Only the ACTIVE record can be voided.
     expect(screen.getAllByRole('button', { name: 'Void record' })).toHaveLength(1);
   });
@@ -173,14 +173,14 @@ describe('Absorbed undercharges', () => {
   it('shows the empty state and refuses Staff', async () => {
     mockFetch({ [PROFILE]: asRole('MANAGER'), 'GET /api/v1/workshop-absorbed-undercharges': json(200, { ...LIST, totalVnd: '0', records: [] }) });
     const user = userEvent.setup();
-    const view = renderRoutes(settlementRoutes, { path: '/settlement/absorbed-undercharges' });
+    const view = renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/absorbed-undercharges' });
     await fill(user);
     expect(await screen.findByText(/No absorbed-undercharge record/)).toBeInTheDocument();
     view.unmount();
     clearRoleCache();
 
     mockFetch({ [PROFILE]: asRole('STAFF') });
-    renderRoutes(settlementRoutes, { path: '/settlement/absorbed-undercharges' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/absorbed-undercharges' });
     expect(await screen.findByText(/Only a Manager/)).toBeInTheDocument();
     expect(screen.queryByLabelText('Branch ID')).not.toBeInTheDocument();
   });
@@ -205,27 +205,27 @@ describe('Reconciliation list', () => {
   it('sends the filters, labels the two meanings of BOOKING_TIME, leaves unverified and late rows out of the confirmed total and warns about multi-branch payments', async () => {
     const calls = mockFetch({ [PROFILE]: asRole('MANAGER'), [URL]: json(200, ROWS) });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/settlement/reconciliation' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/reconciliation' });
     await user.selectOptions(await screen.findByLabelText('Method'), 'BOOKING_TIME');
     await show(user);
     expect(await screen.findByText('G-2')).toBeInTheDocument();
     expect(calls.find(call => call.path.endsWith('/workshop-reconciliation-collections')).query).toEqual({ locationId: '3', workingDate: '2026-11-16', method: 'BOOKING_TIME' });
     // 100,000 + 300,000 confirmed; 70,000 unverified, 50,000 late and the excess row do not count.
-    expect(screen.getByText('400.000 VND', { selector: 'strong' })).toBeInTheDocument();
+    expect(screen.getByText('400,000 ₫', { selector: 'strong' })).toBeInTheDocument();
     expect(screen.getAllByText(/whole group payment/).length).toBe(3);
-    expect(screen.getByText(/chưa xác minh/)).toBeInTheDocument();
+    expect(screen.getByText(/unverified/)).toBeInTheDocument();
     expect(screen.getAllByText(/late payment under review/).length).toBeGreaterThan(0);
     expect(screen.getByText('TK-2, TK-3')).toBeInTheDocument();
     expect(screen.getByText(/branches: 3, 4/)).toBeInTheDocument();
     expect(screen.getByRole('alert')).toHaveTextContent(/Do not add the per-branch totals/);
-    expect(screen.getByText(/excess 20\.000 VND, refund R-9/)).toBeInTheDocument();
+    expect(screen.getByText(/excess 20\,000 ₫, refund R-9/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /reconciled/i })).not.toBeInTheDocument();
   });
 
   it('needs a numeric branch and a working day, shows the empty state, and hides the list from Staff', async () => {
     mockFetch({ [PROFILE]: asRole('MANAGER'), [URL]: json(200, []) });
     const user = userEvent.setup();
-    const view = renderRoutes(settlementRoutes, { path: '/settlement/reconciliation' });
+    const view = renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/reconciliation' });
     expect(await screen.findByRole('button', { name: 'Show collections' })).toBeDisabled();
     await show(user);
     expect(await screen.findByText(/No transfer, VNPay or booking-time collection/)).toBeInTheDocument();
@@ -233,7 +233,7 @@ describe('Reconciliation list', () => {
     clearRoleCache();
 
     const calls = mockFetch({ [PROFILE]: asRole('STAFF') });
-    renderRoutes(settlementRoutes, { path: '/settlement/reconciliation' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/reconciliation' });
     expect(await screen.findByText(/Only a Manager/)).toBeInTheDocument();
     expect(calls.some(call => call.path.includes('reconciliation-collections'))).toBe(false);
   });
@@ -242,7 +242,7 @@ describe('Reconciliation list', () => {
     let attempt = 0;
     mockFetch({ [PROFILE]: asRole('MANAGER'), [URL]: () => (++attempt === 1 ? json(503, { code: 'RECONCILIATION_SOURCE_UNAVAILABLE' }) : json(200, ROWS.slice(0, 1))) });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/settlement/reconciliation' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/reconciliation' });
     await show(user);
     expect(await screen.findByText(/no partial list is shown/)).toBeInTheDocument();
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
@@ -302,7 +302,7 @@ describe('Return to account entry and the optional receipt image (refund queue)'
   it.each(['PENDING_APPROVAL', 'PENDING_TRANSFER', 'PENDING_RECONCILIATION'])('lets a Manager return a %s request to account entry with a reason, and not Staff', async status => {
     const calls = mockFetch({ [PROFILE]: asRole('MANAGER'), [LIST]: json(200, [refund({ status })]), [TRANSITION]: json(200, refund({ status: 'PENDING_ACCOUNT', accountNumberMasked: '****1234' })) });
     const user = userEvent.setup();
-    const view = renderRoutes(settlementRoutes, { path: '/settlement/refunds' });
+    const view = renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/refunds' });
     await user.click(await screen.findByText('R-1'));
     await user.click(await screen.findByRole('button', { name: 'Return to account entry' }));
     const dialog = screen.getByRole('dialog');
@@ -316,7 +316,7 @@ describe('Return to account entry and the optional receipt image (refund queue)'
     clearRoleCache();
 
     mockFetch({ [PROFILE]: asRole('STAFF'), [LIST]: json(200, [refund({ status })]) });
-    renderRoutes(settlementRoutes, { path: '/settlement/refunds' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/refunds' });
     await userEvent.setup().click(await screen.findByText('R-1'));
     expect(screen.queryByRole('button', { name: 'Return to account entry' })).not.toBeInTheDocument();
   });
@@ -324,7 +324,7 @@ describe('Return to account entry and the optional receipt image (refund queue)'
   it('explains 409 REFUND_NOT_RETURNABLE', async () => {
     mockFetch({ [PROFILE]: asRole('MANAGER'), [LIST]: json(200, [refund()]), [TRANSITION]: json(409, { code: 'REFUND_NOT_RETURNABLE' }) });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/settlement/refunds' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/refunds' });
     await user.click(await screen.findByText('R-1'));
     await user.click(await screen.findByRole('button', { name: 'Return to account entry' }));
     const dialog = screen.getByRole('dialog');
@@ -339,7 +339,7 @@ describe('Return to account entry and the optional receipt image (refund queue)'
       'PUT /api/v1/workshop-refund-requests/R-1/account': json(422, { code: 'ACCOUNT_CONFIRMATION_REQUIRED' }),
     });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/settlement/refunds' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/refunds' });
     await user.click(await screen.findByText('R-1'));
     await user.type(await screen.findByLabelText('Bank code'), 'VCB');
     await user.type(screen.getByLabelText('Account number'), '0123456789');
@@ -359,7 +359,7 @@ describe('Return to account entry and the optional receipt image (refund queue)'
       [TRANSITION]: json(200, refund({ status: 'PENDING_RECONCILIATION', receiptImageAttached: true })),
     });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/settlement/refunds' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/refunds' });
     await user.click(await screen.findByText('R-1'));
     await user.type(await screen.findByLabelText('Bank transaction reference'), 'FT123');
     await user.upload(screen.getByLabelText(/Receipt image/), png());
@@ -376,7 +376,7 @@ describe('Return to account entry and the optional receipt image (refund queue)'
   it('refuses a PDF and a file over 5,000,000 bytes before upload, and records without an image', async () => {
     const calls = mockFetch({ [PROFILE]: asRole('MANAGER'), [LIST]: json(200, [refund({ status: 'PENDING_TRANSFER' })]) });
     const user = userEvent.setup({ applyAccept: false });
-    renderRoutes(settlementRoutes, { path: '/settlement/refunds' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/refunds' });
     await user.click(await screen.findByText('R-1'));
     await user.upload(await screen.findByLabelText(/Receipt image/), png('r.pdf', 'application/pdf'));
     expect(await screen.findByText(/must be a JPEG, PNG or WebP image/)).toBeInTheDocument();
@@ -393,7 +393,7 @@ describe('Return to account entry and the optional receipt image (refund queue)'
       [TRANSITION]: json(200, refund({ status: 'PENDING_RECONCILIATION' })),
     });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/settlement/refunds' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/refunds' });
     await user.click(await screen.findByText('R-1'));
     await user.type(await screen.findByLabelText('Bank transaction reference'), 'FT123');
     await user.upload(screen.getByLabelText(/Receipt image/), png());
@@ -418,7 +418,7 @@ describe('Return to account entry and the optional receipt image (refund queue)'
       'GET /api/v1/workshop-refund-requests/R-1/receipt-image': () => new Response(new Blob(['x'], { type: 'image/png' }), { status: 200, headers: { 'Content-Type': 'image/png' } }),
     });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/settlement/refunds' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/refunds' });
     await user.click(await screen.findByText('R-1'));
     await user.click(await screen.findByRole('button', { name: 'View receipt image' }));
     expect(await screen.findByRole('img', { name: /Transfer receipt for R-1/ })).toHaveAttribute('src', 'blob:receipt-1');

@@ -440,7 +440,7 @@ for every per-ticket route (see "Per-ticket settlement" above).
 | Refund requests and account | `/workshop-refund-requests`, `…/{refundId}/transitions`, `…/account`, `…/account-link-resends`, `/refund-account-links/{token}` | Manager (every transition in V1); Staff counter entry per FR-040; anonymous single-use link. |
 | Reconciliation list *(planned, T133)* | `GET /workshop-reconciliation-collections` (methods `BANK_TRANSFER`, `VNPAY`, `BOOKING_TIME`; `BOOKING_TIME` depends on 003.1 T150) | Manager only (FR-056). |
 | Absorbed undercharge *(planned, T135)* | `POST …/folio/absorbed-undercharges`, `…/{underchargeReference}/voids`, `GET /workshop-absorbed-undercharges` | Manager only (FR-057). |
-| Refund-account key replacement *(planned, T137)* | `POST /workshop-refund-account-key-replacements` | Admin only (FR-040); Manager and Staff get `403`. |
+| Refund-account key replacement *(planned, T137)* | `POST /workshop-refund-account-key-replacements` | Manager only (FR-040, moved from Admin 2026-11-23); Admin and Staff get `403`. |
 | Refund receipt images *(planned, T154)* | `POST /workshop-refund-requests/{refundId}/receipt-images`, `GET …/receipt-image` | Manager in V1 (FR-039, plan O-1). |
 | Cash reversal *(planned, T144)* | `POST …/folio/collections/{collectionId}/cash-reversals` | Manager only (FR-036). |
 | VNPay ingress | Shared integration contract | `paymentintegration` owns the signed GET; this feature never owns the provider route. |

@@ -6,6 +6,14 @@ export interface LocationRef {
   name: string;
 }
 
+export interface WorkshopLocation {
+  id: number;
+  code: string;
+  name: string;
+  address?: string | null;
+  active: boolean;
+}
+
 export interface AccountResponse {
   id: string;
   email: string;
@@ -363,6 +371,14 @@ export class AccountManagementApiClient {
   ): Promise<AccountSummary> {
     return this.request<AccountSummary>(`/api/v1/admin/accounts/${accountId}/restore`, {
       method: 'POST',
+      correlationId,
+    });
+  }
+
+  // Workshop locations (003.2, read-only for Admin) used to assign Staff/Manager
+  public async listWorkshopLocations(correlationId?: string): Promise<WorkshopLocation[]> {
+    return this.request<WorkshopLocation[]>('/api/v1/workshop-locations', {
+      method: 'GET',
       correlationId,
     });
   }

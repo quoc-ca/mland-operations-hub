@@ -16,7 +16,7 @@ describe('Late payment reviews page', () => {
         { reviewId: 'r1', groupCode: 'GRP-LATE-1', amount: 500000, failedConditions: ['SESSION_STARTED'], confirmAllowed: false },
       ]),
     });
-    renderRoutes(operationsRoutes, { path: '/operations/late-payments' });
+    renderRoutes(operationsRoutes, { language: 'en', path: '/operations/late-payments' });
 
     expect(await screen.findByText('GRP-LATE-1')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Confirm late payment' })).toBeDisabled();
@@ -29,7 +29,7 @@ describe('Late payment reviews page', () => {
       'GET /api/v1/workshop-sessions': json(200, []),
       'GET /api/v1/late-payment-reviews': json(200, []),
     });
-    renderRoutes(operationsRoutes, { path: '/operations/late-payments' });
-    expect(await screen.findByText('Không có thanh toán về trễ nào đang chờ Manager.')).toBeInTheDocument();
+    renderRoutes(operationsRoutes, { language: 'en', path: '/operations/late-payments' });
+    expect(await screen.findByText('No late payment is waiting for a Manager.')).toBeInTheDocument();
   });
 });

@@ -20,14 +20,14 @@ describe('Cash close', () => {
   it('closes the book with the counted cash as text, then a Manager confirms the difference with a reason and a key', async () => {
     const calls = mockFetch(handlers);
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/settlement/cash-close' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/cash-close' });
     await user.type(await screen.findByLabelText('Branch ID'), '3');
     await user.click(screen.getByRole('button', { name: 'Show expected cash' }));
-    expect(await screen.findByText('1.000.000 VND')).toBeInTheDocument();
+    expect(await screen.findByText('1,000,000 ₫')).toBeInTheDocument();
     await user.type(screen.getByLabelText('Counted cash (VND)'), '990000');
     await user.type(screen.getByLabelText(/Difference reason/), 'miscount');
     await user.click(screen.getByRole('button', { name: 'Close cash book' }));
-    expect(await screen.findByText('PENDING_MANAGER_CONFIRMATION')).toBeInTheDocument();
+    expect(await screen.findByText('Awaiting Manager confirmation')).toBeInTheDocument();
     const close = calls.find(call => call.method === 'POST');
     expect(close.body).toEqual({ locationId: 3, workingDate: '2026-11-14', countedAmount: '990000', differenceReason: 'miscount' });
     expect(close.headers['Idempotency-Key']).toBeTruthy();
@@ -53,7 +53,7 @@ describe('Cash close', () => {
   it('does not offer the confirmation to Staff', async () => {
     mockFetch({ ...handlers, [PROFILE]: asRole('STAFF') });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/settlement/cash-close' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/cash-close' });
     await user.type(await screen.findByLabelText('Branch ID'), '3');
     await user.click(screen.getByRole('button', { name: 'Show expected cash' }));
     await user.type(await screen.findByLabelText('Counted cash (VND)'), '990000');
@@ -65,7 +65,7 @@ describe('Cash close', () => {
   it('explains a changed reuse of the Idempotency-Key (409)', async () => {
     mockFetch({ ...handlers, 'POST /api/v1/workshop-cash-closes': json(409, { code: 'IDEMPOTENCY_CONFLICT', correlationId: 'c-1' }) });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/settlement/cash-close' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/cash-close' });
     await user.type(await screen.findByLabelText('Branch ID'), '3');
     await user.click(screen.getByRole('button', { name: 'Show expected cash' }));
     await user.type(await screen.findByLabelText('Counted cash (VND)'), '1000000');
@@ -85,10 +85,10 @@ describe('Refund queue', () => {
       'POST /api/v1/workshop-refund-requests/R-1/transitions': json(200, refund({ status: 'PENDING_TRANSFER' })),
     });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/settlement/refunds' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/refunds' });
     await user.click(await screen.findByText('R-1'));
     expect(screen.getByText(/\*\*\*\*1234/)).toBeInTheDocument();
-    expect(screen.getAllByText('200.000 VND').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('200,000 ₫').length).toBeGreaterThan(0);
     await user.click(await screen.findByRole('button', { name: 'Approve' }));
     expect(await screen.findByText('Refund approved.')).toBeInTheDocument();
     const post = calls.find(call => call.method === 'POST');
@@ -103,7 +103,7 @@ describe('Refund queue', () => {
       'GET /api/v1/workshop-refund-requests/R-1/account-number': json(200, { refundId: 'R-1', bankCode: 'VCB', accountNumber: '0123456789', holderName: 'NGUYEN VAN A' }),
     });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/settlement/refunds' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/refunds' });
     await user.click(await screen.findByText('R-1'));
     expect(screen.queryByText('0123456789')).not.toBeInTheDocument();
     await user.click(await screen.findByRole('button', { name: 'Show full account number' }));
@@ -119,7 +119,7 @@ describe('Refund queue', () => {
       'POST /api/v1/workshop-refund-requests/R-1/transitions': json(200, refund({ status: 'PENDING_RECONCILIATION' })),
     });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/settlement/refunds' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/refunds' });
     await user.click(await screen.findByText('R-1'));
     const submit = await screen.findByRole('button', { name: 'Record transfer' });
     expect(submit).toBeDisabled();
@@ -137,7 +137,7 @@ describe('Refund queue', () => {
       'POST /api/v1/workshop-refund-requests/R-1/transitions': json(409, { code: 'REFUND_NOT_YET_CLOSABLE', correlationId: 'c-2' }),
     });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/settlement/refunds' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/refunds' });
     await user.click(await screen.findByText('R-1'));
     await user.click(await screen.findByRole('button', { name: 'Close as unreachable' }));
     const dialog = screen.getByRole('dialog');
@@ -156,7 +156,7 @@ describe('Refund queue', () => {
       'PUT /api/v1/workshop-refund-requests/R-1/account': json(200, refund({ status: 'PENDING_APPROVAL' })),
     });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/settlement/refunds' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/refunds' });
     await user.click(await screen.findByText('R-1'));
     await user.type(await screen.findByLabelText('Bank code'), 'VCB');
     await user.type(screen.getByLabelText('Account number'), '0123456789');
@@ -184,7 +184,7 @@ describe('Change request queue', () => {
       'POST /api/v1/workshop-change-requests/CR-1/decisions': json(200, { ...request, status: 'APPROVED' }),
     });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/settlement/change-requests' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/change-requests' });
     expect(await screen.findByText('RESCHEDULE_QUOTA_EXHAUSTED')).toBeInTheDocument();
     await user.click(await screen.findByRole('button', { name: 'Approve' }));
     const dialog = screen.getByRole('dialog');
@@ -203,7 +203,7 @@ describe('Change request queue', () => {
       'POST /api/v1/workshop-change-requests/CR-1/decisions': json(409, { code: 'RESCHEDULE_QUOTA_EXHAUSTED', correlationId: 'c-3' }),
     });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/settlement/change-requests' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/change-requests' });
     await user.click(await screen.findByRole('button', { name: 'Reject' }));
     const dialog = screen.getByRole('dialog');
     await user.type(within(dialog).getByLabelText('Reason (required)'), 'No seats');
@@ -213,7 +213,7 @@ describe('Change request queue', () => {
 
   it('gives Staff the queue with the decision buttons (owner decision 2026-11-17)', async () => {
     mockFetch({ [PROFILE]: asRole('STAFF'), 'GET /api/v1/workshop-change-requests': json(200, [request]) });
-    renderRoutes(settlementRoutes, { path: '/settlement/change-requests' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/change-requests' });
     expect(await screen.findByText('CR-1')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Approve' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Reject' })).toBeInTheDocument();
@@ -227,10 +227,10 @@ describe('Change request queue', () => {
       'GET /api/v1/workshop-sessions/to-1': json(200, { id: 'to-1', workshopDate: '2026-12-08', scheduledStartAt: '2026-12-08T07:00:00Z', scheduledEndAt: '2026-12-08T09:00:00Z', locationName: 'Mland TP.HCM' }),
     });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/settlement/change-requests' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/change-requests' });
     await user.click(await screen.findByRole('button', { name: 'Details' }));
     expect(await screen.findByText('Customer is sick')).toBeInTheDocument();
-    expect(screen.getByText('MEMBER · WEB')).toBeInTheDocument();
+    expect(screen.getByText('Member · WEB')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Hide details' }));
     expect(screen.queryByText('Customer is sick')).not.toBeInTheDocument();
   });
@@ -242,7 +242,7 @@ describe('Change request queue', () => {
       'GET /api/v1/workshop-sessions/from-1': json(200, { id: 'from-1', workshopDate: '2026-12-01', scheduledStartAt: '2026-12-01T02:00:00Z', scheduledEndAt: '2026-12-01T04:00:00Z', locationName: 'Mland Hà Nội' }),
       'GET /api/v1/workshop-sessions/to-1': json(200, { id: 'to-1', workshopDate: '2026-12-08', scheduledStartAt: '2026-12-08T07:00:00Z', scheduledEndAt: '2026-12-08T09:00:00Z', locationName: 'Mland TP.HCM' }),
     });
-    renderRoutes(settlementRoutes, { path: '/settlement/change-requests' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/change-requests' });
     expect(await screen.findByText('2026-12-01')).toBeInTheDocument();
     expect(await screen.findByText('2026-12-08')).toBeInTheDocument();
     expect(screen.getByText('Mland Hà Nội')).toBeInTheDocument();
@@ -251,7 +251,7 @@ describe('Change request queue', () => {
 
   it('gives an Admin no queue and no decision buttons, and reads nothing', async () => {
     const calls = mockFetch({ [PROFILE]: asRole('ADMIN'), 'GET /api/v1/workshop-change-requests': json(200, [request]) });
-    renderRoutes(settlementRoutes, { path: '/settlement/change-requests' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/change-requests' });
     expect(await screen.findByText(/Admin accounts have no part in ticket changes/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument();
     expect(screen.queryByText('CR-1')).not.toBeInTheDocument();

@@ -13,7 +13,7 @@ beforeEach(() => clearRoleCache());
 const session = id => json(200, { id, state: 'IN_PROGRESS', locationId: 4, capacity: 10 });
 
 async function fillForm(user, bookingCode, amountVnd, reason = null) {
-  await user.type(screen.getByLabelText('Mã vé (hóa đơn cần sửa)'), bookingCode);
+  await user.type(screen.getByLabelText('Ticket code (folio to correct)'), bookingCode);
   await user.type(screen.getByLabelText('Overcharge refund amount (VND)'), amountVnd);
   if (reason) {
     await user.type(screen.getByLabelText('Correction reason'), reason);
@@ -30,7 +30,7 @@ describe('Manager folio correction operations screen', () => {
       }),
     });
     const user = userEvent.setup();
-    renderRoutes(operationsRoutes, { path: '/operations/sessions/session-1' });
+    renderRoutes(operationsRoutes, { language: 'en', path: '/operations/sessions/session-1' });
 
     expect(await screen.findByRole('heading', { name: 'Manager folio correction' })).toBeInTheDocument();
     await fillForm(user, 'TK-100', '50000', 'Counter overcharge');
@@ -55,13 +55,13 @@ describe('Manager folio correction operations screen', () => {
       }),
     });
     const user = userEvent.setup();
-    renderRoutes(operationsRoutes, { path: '/operations/sessions/session-1' });
+    renderRoutes(operationsRoutes, { language: 'en', path: '/operations/sessions/session-1' });
     await screen.findByRole('heading', { name: 'Manager folio correction' });
     await fillForm(user, 'TK-100', '50000', 'Counter overcharge');
     await user.click(screen.getByRole('button', { name: 'Submit folio correction' }));
     await user.click(await screen.findByRole('button', { name: 'View correction' }));
 
-    expect(await screen.findByLabelText('Folio correction')).toHaveTextContent('PENDING_ACCOUNT');
+    expect(await screen.findByLabelText('Folio correction')).toHaveTextContent('Pending account');
     expect(calls.some(call => call.method === 'GET' && call.path.endsWith('/folio/corrections/CORR-1'))).toBe(true);
   });
 
@@ -73,7 +73,7 @@ describe('Manager folio correction operations screen', () => {
       }),
     });
     const user = userEvent.setup();
-    renderRoutes(operationsRoutes, { path: '/operations/sessions/session-2' });
+    renderRoutes(operationsRoutes, { language: 'en', path: '/operations/sessions/session-2' });
     await screen.findByRole('heading', { name: 'Manager folio correction' });
     await fillForm(user, 'TK-200', '30000', 'Overcharge mistake');
     await user.click(screen.getByRole('button', { name: 'Submit folio correction' }));
@@ -84,7 +84,7 @@ describe('Manager folio correction operations screen', () => {
   it('requires reason before enabling the folio correction command', async () => {
     const calls = asManager({ 'GET /api/v1/workshop-sessions/session-3': session('session-3') });
     const user = userEvent.setup();
-    renderRoutes(operationsRoutes, { path: '/operations/sessions/session-3' });
+    renderRoutes(operationsRoutes, { language: 'en', path: '/operations/sessions/session-3' });
     await screen.findByRole('heading', { name: 'Manager folio correction' });
     await fillForm(user, 'TK-300', '20000');
     expect(screen.getByText('A manager correction reason is required before submitting.')).toBeInTheDocument();
@@ -98,7 +98,7 @@ describe('Manager folio correction operations screen', () => {
       'POST /api/v1/workshop-tickets/TK-400/folio/corrections': () => Promise.reject(new TypeError('Failed to fetch')),
     });
     const user = userEvent.setup();
-    renderRoutes(operationsRoutes, { path: '/operations/sessions/session-4' });
+    renderRoutes(operationsRoutes, { language: 'en', path: '/operations/sessions/session-4' });
     await screen.findByRole('heading', { name: 'Manager folio correction' });
     await fillForm(user, 'TK-400', '20000', 'Refund reason');
     await user.click(screen.getByRole('button', { name: 'Submit folio correction' }));

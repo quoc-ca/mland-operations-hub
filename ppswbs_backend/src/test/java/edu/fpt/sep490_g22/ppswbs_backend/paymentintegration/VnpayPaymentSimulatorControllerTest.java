@@ -52,7 +52,7 @@ class VnpayPaymentSimulatorControllerTest {
         Map<String, String> params = sent.getValue();
         assertThat(params).containsEntry("vnp_TxnRef", "FINAL-BK-1-1").containsEntry("vnp_Amount", "7500000")
                 .containsEntry("vnp_ResponseCode", "00").containsEntry("vnp_TransactionStatus", "00");
-        assertThat(params.get("vnp_TransactionNo")).isNotBlank();
+        assertThat(params.get("vnp_TransactionNo")).isNotBlank().hasSizeLessThanOrEqualTo(15);
         assertThat(checksum.valid(params, params.get("vnp_SecureHash"))).isTrue();
         assertThat(page).contains("Thanh toán thành công");
     }

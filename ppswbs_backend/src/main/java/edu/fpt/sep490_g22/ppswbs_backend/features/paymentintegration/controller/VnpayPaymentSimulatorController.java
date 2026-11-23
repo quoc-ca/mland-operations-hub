@@ -56,7 +56,7 @@ public class VnpayPaymentSimulatorController {
         params.put("vnp_Amount", String.valueOf(owner.getAmountVnd() * 100));
         params.put("vnp_BankCode", "SIM");
         params.put("vnp_OrderInfo", "Payment simulator");
-        params.put("vnp_TransactionNo", "SIM" + System.currentTimeMillis());
+        params.put("vnp_TransactionNo", "S" + System.currentTimeMillis());
         params.put("vnp_PayDate", LocalDateTime.now().format(PAY_DATE));
         params.put("vnp_ResponseCode", "00");
         params.put("vnp_TransactionStatus", "00");

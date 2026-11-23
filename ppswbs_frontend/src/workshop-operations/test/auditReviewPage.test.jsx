@@ -72,9 +72,9 @@ describe('Audit review page', () => {
     const rows = await screen.findAllByRole('row');
     expect(rows).toHaveLength(3); // header + 2
     expect(within(rows[1]).getByText('Nguyễn Văn A #12')).toBeInTheDocument();
-    expect(within(rows[1]).getByText('SUCCESS')).toBeInTheDocument();
+    expect(within(rows[1]).getByText('Thành công')).toBeInTheDocument();
     expect(within(rows[2]).getByText('Hệ thống')).toBeInTheDocument();
-    expect(within(rows[2]).getByText('DENIED')).toBeInTheDocument();
+    expect(within(rows[2]).getByText('Bị từ chối')).toBeInTheDocument();
     expect(within(rows[2]).getByText('#2334')).toBeInTheDocument();
     expect(screen.getByText('Đang hiển thị 7 ngày gần nhất vì chưa chọn “Từ”.')).toBeInTheDocument();
     expect(callsTo(calls, OPS_PATH)[0].query).toEqual({});

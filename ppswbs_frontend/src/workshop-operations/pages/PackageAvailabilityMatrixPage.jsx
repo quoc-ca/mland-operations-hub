@@ -4,6 +4,9 @@ import { useAuth } from '../../shared/auth/AuthProvider';
 import { registerPrivateStateCleanup } from '../../shared/auth/privateStateCleanup';
 import { newCommandId } from '../../shared/api/http';
 import { useHttp } from '../../shared/api/useHttp';
+import { useT } from '../../shared/i18n/I18nProvider';
+import { sharedMessages } from '../../shared/ui/messages';
+import { messages } from '../messages';
 import { ErrorNotice, Loading, useResource } from '../../shared/ui/components';
 import OperationsAuthWorkspace from '../../shared/ui/OperationsAuthWorkspace';
 import { createPackageAvailabilityApi } from '../api/packageAvailabilityApi';
@@ -20,22 +23,24 @@ const replaceCell = (cells, next) => {
 };
 
 function DeniedPanel() {
+  const t = useT(messages);
   return (
     <section className="ota-panel pam-denied">
       <p className="pam-denied-code">403</p>
-      <h2>Bạn không có quyền xem trang này</h2>
-      <p>Chỉ Manager đang hoạt động mới xem và chỉnh được ma trận gói × chi nhánh. Liên hệ Manager nếu bạn cần thay đổi.</p>
-      <Link className="button primary" to="/">Về trang chính</Link>
+      <h2>{t('pam.deniedTitle')}</h2>
+      <p>{t('pam.deniedBody')}</p>
+      <Link className="button primary" to="/">{t('pam.home')}</Link>
     </section>
   );
 }
 
 function Shell({ children }) {
+  const t = useT(messages);
   return (
     <div className="ota-workspace">
       
       <main className="ota-main">
-        <div className="ota-topline">MLAND / WORKSHOP OPERATIONS <span>● Backend-authorized</span></div>
+        <div className="ota-topline">{t('topline.operations')} <span>● {t('authorized')}</span></div>
         {children}
       </main>
     </div>
@@ -43,6 +48,8 @@ function Shell({ children }) {
 }
 
 export default function PackageAvailabilityMatrixPage() {
+  const t = useT(messages);
+  const ts = useT(sharedMessages);
   const { status } = useAuth();
   const http = useHttp();
   const api = useMemo(() => createPackageAvailabilityApi(http), [http]);
@@ -92,7 +99,7 @@ export default function PackageAvailabilityMatrixPage() {
   const names = (packageId, locationId) => {
     const pkg = matrix?.packages?.find(p => p.id === packageId);
     const location = matrix?.locations?.find(l => l.id === locationId);
-    return `${pkg?.name ?? packageId} tại ${location?.name ?? locationId}`;
+    return t('pam.cell', { package: pkg?.name ?? packageId, location: location?.name ?? locationId });
   };
 
   const send = useCallback(async (packageId, locationId, state, version, idempotencyKey, label) => {
@@ -106,7 +113,7 @@ export default function PackageAvailabilityMatrixPage() {
       updateCells(cells => replaceCell(cells, {
         packageId, locationId, state: result.state, version: result.version,
       }));
-      setBanner({ kind: 'success', title: result.state === 'ACTIVE' ? 'Đã bật bán' : 'Đã tắt bán', label });
+      setBanner({ kind: 'success', title: result.state === 'ACTIVE' ? t('pam.on') : t('pam.off'), label });
     } catch (error) {
       if (error?.status === 403) {
         clearAll();
@@ -138,7 +145,7 @@ export default function PackageAvailabilityMatrixPage() {
       savingRef.current = rest;
       setSaving(rest);
     }
-  }, [api, clearAll, updateCells]);
+  }, [api, clearAll, updateCells, t]);
 
   const onToggle = (packageId, locationId, nextState) => {
     const key = cellKey(packageId, locationId);
@@ -157,8 +164,8 @@ export default function PackageAvailabilityMatrixPage() {
   if (!signedIn) {
     return (
       <OperationsAuthWorkspace
-        topline="MLAND / WORKSHOP OPERATIONS"
-        message="Yêu cầu đăng nhập để quản lý ma trận gói × chi nhánh."
+        topline={t('topline.operations')}
+        message={t('pam.signIn')}
       />
     );
   }
@@ -166,7 +173,7 @@ export default function PackageAvailabilityMatrixPage() {
   const heading = (
     <header className="ota-page-heading">
       <div>
-        <p>Chọn gói workshop được bán ở từng chi nhánh. Tắt một ô chỉ ngừng nhận đặt mới, không hủy đơn đã đặt.</p>
+        <p>{t('pam.intro')}</p>
       </div>
     </header>
   );
@@ -187,7 +194,7 @@ export default function PackageAvailabilityMatrixPage() {
   if (resource.loading && !matrix) {
     body = (
       <div className="pam-skeleton" aria-busy="true">
-        <span className="sr-only">Đang tải ma trận…</span>
+        <span className="sr-only">{t('pam.loading')}</span>
         <span /><span /><span /><span />
       </div>
     );
@@ -196,11 +203,11 @@ export default function PackageAvailabilityMatrixPage() {
   } else if (empty) {
     body = (
       <div className="pam-empty">
-        <h3>Chưa có gói hoặc chi nhánh để thiết lập</h3>
-        <p>Hãy tạo gói workshop và chi nhánh trước, sau đó quay lại trang này để chọn gói bán ở từng chi nhánh.</p>
+        <h3>{t('pam.emptyTitle')}</h3>
+        <p>{t('pam.emptyBody')}</p>
         <div className="ops-actions">
-          <Link className="button primary" to="/operations/packages">Đến Gói workshop</Link>
-          <button type="button" className="button outline" onClick={reloadAll}>Tải lại</button>
+          <Link className="button primary" to="/operations/packages">{t('pam.toPackages')}</Link>
+          <button type="button" className="button outline" onClick={reloadAll}>{t('pam.reload')}</button>
         </div>
       </div>
     );
@@ -215,7 +222,7 @@ export default function PackageAvailabilityMatrixPage() {
           savingCells={saving}
           cellErrors={cellErrors}
         />
-        <p className="pam-note">Ô được tick = gói đang bán (ACTIVE) tại chi nhánh đó. Tắt ô chỉ ngừng nhận đặt mới; đơn đã đặt vẫn giữ nguyên.</p>
+        <p className="pam-note">{t('pam.note')}</p>
       </>
     );
   }
@@ -225,32 +232,32 @@ export default function PackageAvailabilityMatrixPage() {
       {heading}
       <section className="ota-panel">
         <div className="ota-panel-head">
-          <div><h2>Gói đang bán theo chi nhánh</h2></div>
-          <button type="button" className="button outline small" onClick={reloadAll}>Tải lại</button>
+          <div><h2>{t('pam.title')}</h2></div>
+          <button type="button" className="button outline small" onClick={reloadAll}>{t('pam.reload')}</button>
         </div>
 
         {resource.error && !readDenied && <ErrorNotice error={resource.error} onRetry={resource.reload} />}
 
         {banner?.kind === 'success' && (
           <div className="pam-banner is-success" role="status">
-            <div><strong>{banner.title}</strong>{banner.label}. Thông báo tự ẩn sau vài giây.</div>
+            <div><strong>{banner.title}</strong>{t('pam.successTail', { label: banner.label })}</div>
           </div>
         )}
         {banner?.kind === 'conflict' && (
           <div className="pam-banner is-conflict" role="status">
             <div>
-              <strong>Ô vừa được thay đổi ở nơi khác</strong>
-              Đã tải lại giá trị mới nhất của {banner.label}. Hãy kiểm tra rồi thao tác lại nếu cần.
+              <strong>{t('pam.conflictTitle')}</strong>
+              {t('pam.conflictBody', { label: banner.label })}
             </div>
-            <button type="button" className="button outline small" onClick={reloadAll}>Tải lại ma trận</button>
+            <button type="button" className="button outline small" onClick={reloadAll}>{t('pam.reloadMatrix')}</button>
           </div>
         )}
         {banner?.kind === 'error' && (
           <div className="pam-banner is-error" role="alert">
             <div>
-              <strong>Không lưu được thay đổi</strong>
-              {banner.label} giữ nguyên giá trị cũ. Vui lòng thử lại.
-              {banner.correlationId && <span className="pam-ref"> Mã tham chiếu: {banner.correlationId}</span>}
+              <strong>{t('pam.errorTitle')}</strong>
+              {t('pam.errorBody', { label: banner.label })}
+              {banner.correlationId && <span className="pam-ref">{t('pam.errorRef', { id: banner.correlationId })}</span>}
             </div>
             <div className="ops-actions">
               {banner.retry && (
@@ -262,18 +269,18 @@ export default function PackageAvailabilityMatrixPage() {
                     banner.retry.version, banner.retry.idempotencyKey, banner.retry.label,
                   )}
                 >
-                  Thử lại
+                  {ts('retry')}
                 </button>
               )}
-              <button type="button" className="button outline small" onClick={reloadAll}>Tải lại ma trận</button>
+              <button type="button" className="button outline small" onClick={reloadAll}>{t('pam.reloadMatrix')}</button>
             </div>
           </div>
         )}
         {!banner && savingKeys.length > 0 && (
           <div className="pam-banner is-saving" role="status">
             <div>
-              <strong>Đang lưu…</strong>
-              {savingLabel}. Ô đang lưu bị vô hiệu, các ô khác vẫn dùng được.
+              <strong>{t('pam.savingTitle')}</strong>
+              {t('pam.savingBody', { label: savingLabel })}
             </div>
           </div>
         )}

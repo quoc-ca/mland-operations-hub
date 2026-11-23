@@ -5,13 +5,13 @@ import { useHttp } from '../../shared/api/useHttp';
 import { ConfirmDialog, Loading, SuccessNotice, useCommand, useResource } from '../../shared/ui/components';
 import { createSettlementApi } from '../api/settlementApi';
 import { CustomerPage } from '../OpsPage';
-import { BuyerProof, ProblemNotice, VoucherNotRestoredNotice, when } from '../ui';
+import { useFormat, useT } from '../../shared/i18n/I18nProvider';
+import { sharedMessages } from '../../shared/ui/messages';
+import { messages } from '../messages';
+import { BuyerProof, ProblemNotice, VoucherNotRestoredNotice } from '../ui';
 
-const CODE_TEXT = {
-  REPLACEMENT_SESSION_UNAVAILABLE: 'That session has no seat left or is no longer sold at that location. Choose another session or ask for a refund.',
-  REPLACEMENT_SESSION_NOT_OFFERED: 'That session is not one of the offered sessions.',
-  ANSWER_DEADLINE_EXPIRED: 'The time to answer has passed. The ticket is refunded.',
-};
+// The text of each refusal is mr.problem.<CODE>.
+const KNOWN_CODES = ['REPLACEMENT_SESSION_UNAVAILABLE', 'REPLACEMENT_SESSION_NOT_OFFERED', 'ANSWER_DEADLINE_EXPIRED'];
 
 /**
  * Buyer answer to an Mland cancellation (FR-043): move to one offered equivalent session or take a refund. A Member is
@@ -19,6 +19,9 @@ const CODE_TEXT = {
  * offer carries no money; a refund goes to the bank account the buyer gives later through the emailed link.
  */
 export default function MlandRemedyPage() {
+  const t = useT(messages);
+  const tShared = useT(sharedMessages);
+  const fmt = useFormat();
   const { ticketCode } = useParams();
   const { status } = useAuth();
   const member = status === 'signed-in';
@@ -31,13 +34,13 @@ export default function MlandRemedyPage() {
   const command = useCommand();
   const offer = useResource(() => (status === 'loading' ? Promise.resolve(null) : api.getMlandRemedy(ticketCode, opts)), [ticketCode, status]);
 
-  if (status === 'loading' || offer.loading) return <CustomerPage title="Your workshop ticket"><Loading /></CustomerPage>;
+  if (status === 'loading' || offer.loading) return <CustomerPage title={t('mr.titleTicket')}><Loading /></CustomerPage>;
   const data = offer.data;
   if (offer.error || !data) {
     return (
-      <CustomerPage title="Your workshop ticket">
+      <CustomerPage title={t('mr.titleTicket')}>
         {offer.error?.status === 404 || offer.error?.status === 403
-          ? <div className="notice error" role="alert"><p>We could not find an offer for this ticket.</p></div>
+          ? <div className="notice error" role="alert"><p>{t('mr.notFound')}</p></div>
           : <ProblemNotice error={offer.error} onRetry={offer.reload} onReload={offer.reload} />}
       </CustomerPage>
     );
@@ -52,42 +55,42 @@ export default function MlandRemedyPage() {
     const body = refund ? { answer: 'REFUND' } : { answer: 'ACCEPT_REPLACEMENT', replacementSessionReference: choice };
     if (proof) body.buyerVerificationReference = proof;
     const out = await command.run(key => api.answerMlandRemedy(ticketCode, body, key, opts));
-    if (out.ok) { setConfirming(false); setProof(null); setMessage(refund ? 'Your refund request was recorded.' : 'Your new session is booked.'); offer.reload(); }
+    if (out.ok) { setConfirming(false); setProof(null); setMessage(t(refund ? 'mr.msg.refund' : 'mr.msg.moved')); offer.reload(); }
     else setConfirming(false);
   };
 
   const error = command.error;
-  const known = error && CODE_TEXT[error.code];
+  const known = error && KNOWN_CODES.includes(error.code) ? t(`mr.problem.${error.code}`) : '';
   return (
-    <CustomerPage title="Your session was cancelled" intro="We had to cancel a session of your ticket. Choose a replacement session or a refund.">
+    <CustomerPage title={t('mr.titleCancelled')} intro={t('mr.intro')}>
       <SuccessNotice>{message}</SuccessNotice>
       {known ? <div className="notice error" role="alert"><p>{known}</p></div> : <ProblemNotice error={error} onRetry={command.retry} onReload={offer.reload} />}
       <section className="ota-panel">
-        <p>Ticket {data.ticketCode}</p>
-        {pending ? <p>Answer before <strong>{when(data.answerDeadlineAt)}</strong>. Without an answer the ticket is refunded.</p>
-          : <p role="status">{data.outcome === 'MOVED' ? 'Your ticket was moved to the replacement session.' : 'Your ticket is being refunded.'}</p>}
+        <p>{t('mr.ticket', { code: data.ticketCode })}</p>
+        {pending ? <p>{t('mr.answerBefore')}<strong>{fmt.dateTime(data.answerDeadlineAt)}</strong>{t('mr.answerAfter')}</p>
+          : <p role="status">{t(data.outcome === 'MOVED' ? 'mr.outcomeMoved' : 'mr.outcomeRefund')}</p>}
         <VoucherNotRestoredNotice voucherRestoration={data.voucherRestoration} />
         {pending && (
           <fieldset className="settlement-addon-options">
-            <legend>Choose one</legend>
+            <legend>{t('mr.chooseOne')}</legend>
             {(data.offeredSessions || []).map(session => (
               <label key={session.sessionReference} className="settlement-addon-option">
                 <input type="radio" name="remedy" value={session.sessionReference} disabled={!session.selectable}
                   checked={choice === session.sessionReference} onChange={() => setChoice(session.sessionReference)} />
-                <span>{session.locationName ? `${session.locationName} – ` : ''}{when(session.startAt)}{session.endAt ? ` – ${when(session.endAt)}` : ''}{session.selectable ? '' : ' (not available)'}</span>
+                <span>{session.locationName ? `${session.locationName} – ` : ''}{fmt.dateTime(session.startAt)}{session.endAt ? ` – ${fmt.dateTime(session.endAt)}` : ''}{session.selectable ? '' : t('mr.notAvailable')}</span>
               </label>
             ))}
             <label className="settlement-addon-option">
               <input type="radio" name="remedy" value="REFUND" checked={refund} onChange={() => setChoice('REFUND')} />
-              <span>Refund this ticket (100%) to my bank account</span>
+              <span>{t('mr.refundOption')}</span>
             </label>
           </fieldset>
         )}
         {pending && !member && <BuyerProof groupCode={data.groupCode} onReference={setProof} />}
-        {pending && <button className="button primary" type="button" disabled={command.pending || !canSend} onClick={() => setConfirming(true)}>Send my answer</button>}
+        {pending && <button className="button primary" type="button" disabled={command.pending || !canSend} onClick={() => setConfirming(true)}>{t('mr.send')}</button>}
       </section>
-      <ConfirmDialog open={confirming} title="Confirm your answer" confirmLabel="Confirm" pending={command.pending} onCancel={() => setConfirming(false)} onConfirm={send}>
-        <p>{refund ? 'The ticket will be refunded to your bank account.' : `Your ticket moves to the chosen session${chosenLocation ? ` at ${chosenLocation}` : ''}.`} Your answer cannot be changed afterwards.</p>
+      <ConfirmDialog open={confirming} title={t('mr.dialogTitle')} confirmLabel={tShared('confirm')} pending={command.pending} onCancel={() => setConfirming(false)} onConfirm={send}>
+        <p>{refund ? t('mr.dialogRefund') : t('mr.dialogMove', { place: chosenLocation ? t('mr.dialogPlace', { place: chosenLocation }) : '' })}{t('mr.dialogFinal')}</p>
       </ConfirmDialog>
     </CustomerPage>
   );

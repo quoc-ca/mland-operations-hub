@@ -17,7 +17,7 @@ function openLocations(role, extra = {}) {
     'GET /api/v1/workshop-sessions': json(200, []),
     ...extra,
   });
-  renderRoutes(operationsRoutes, { path: '/operations/admin?tab=locations' });
+  renderRoutes(operationsRoutes, { language: 'en', path: '/operations/admin?tab=locations' });
   return calls;
 }
 
@@ -80,7 +80,7 @@ describe('003.2 T136 Manager location edit', () => {
     const form = await openEditor(user);
     await user.click(within(form).getByLabelText('Active'));
     await user.click(within(form).getByRole('button', { name: 'Save location' }));
-    expect(await screen.findByText(/vẫn còn buổi workshop chưa kết thúc/)).toBeInTheDocument();
+    expect(await screen.findByText(/while a session that has not ended/)).toBeInTheDocument();
     expect(screen.getByRole('form', { name: 'Edit location Q1' })).toBeInTheDocument();
     expect(within(form).getByLabelText('Active')).not.toBeChecked();
   });
@@ -96,10 +96,10 @@ describe('003.2 T136 Manager location edit', () => {
     await user.clear(name);
     await user.type(name, 'Renamed');
     await user.click(within(form).getByRole('button', { name: 'Save location' }));
-    expect(await screen.findByText('Không tìm thấy địa điểm này. Có thể nó đã bị xóa; hãy tải lại danh sách.')).toBeInTheDocument();
+    expect(await screen.findByText('This location was not found. It may have been removed; reload the list.')).toBeInTheDocument();
     status = 403;
     await user.click(within(form).getByRole('button', { name: 'Save location' }));
-    expect(await screen.findByText('Chỉ Manager đang hoạt động mới được sửa địa điểm.')).toBeInTheDocument();
+    expect(await screen.findByText('Only an active Manager can edit a location.')).toBeInTheDocument();
   });
 
   it('offers a retry after a lost answer and repeats the same Idempotency-Key', async () => {
@@ -113,7 +113,7 @@ describe('003.2 T136 Manager location edit', () => {
     await user.clear(name);
     await user.type(name, 'Retried');
     await user.click(within(form).getByRole('button', { name: 'Save location' }));
-    await user.click(await screen.findByRole('button', { name: 'Thử lại' }));
+    await user.click(await screen.findByRole('button', { name: 'Try again' }));
     expect(await screen.findByText('Location updated.')).toBeInTheDocument();
     const patches = calls.filter(call => call.method === 'PATCH');
     expect(patches).toHaveLength(2);
@@ -141,9 +141,9 @@ describe('003.2 FR-012c inactive locations', () => {
       'GET /api/v1/workshop-sessions': json(200, []),
       'PATCH /api/v1/workshop-locations/5': json(200, { ...inactive, active: true }),
     });
-    renderRoutes(operationsRoutes, { path: '/operations/admin?tab=locations' });
+    renderRoutes(operationsRoutes, { language: 'en', path: '/operations/admin?tab=locations' });
     expect(await screen.findByText('MLAND Quận 2')).toBeInTheDocument();
-    expect(screen.getByText('INACTIVE')).toBeInTheDocument();
+    expect(screen.getByText('Inactive')).toBeInTheDocument();
     const row = screen.getByText('MLAND Quận 2').closest('tr');
     await user.click(within(row).getByRole('button', { name: 'Edit' }));
     const form = await screen.findByRole('form', { name: 'Edit location Q2' });

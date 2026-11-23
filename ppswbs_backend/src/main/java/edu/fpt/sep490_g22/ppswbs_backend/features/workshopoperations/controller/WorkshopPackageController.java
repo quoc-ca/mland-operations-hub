@@ -40,7 +40,13 @@ public class WorkshopPackageController {
 
     @GetMapping("/workshop-packages")
     public List<PackageResponse> listPublishedPackages() {
-        return packageService.listPublished();
+        return packageService.listPublished().stream().map(this::withBranchIds).toList();
+    }
+
+    /** Public surfaces price offers per branch, so every published package carries the locations it is sold at. */
+    private PackageResponse withBranchIds(PackageResponse response) {
+        response.setBranchIds(discoveryService.sellableLocationIds(response.getPackageId()));
+        return response;
     }
 
     @GetMapping("/workshop-package-management/packages")
@@ -65,7 +71,7 @@ public class WorkshopPackageController {
 
     @GetMapping("/workshop-packages/{packageId}")
     public PackageResponse getPublishedPackage(@PathVariable Long packageId) {
-        return packageService.getPublished(packageId);
+        return withBranchIds(packageService.getPublished(packageId));
     }
 
     @PatchMapping("/workshop-packages/{packageId}")
