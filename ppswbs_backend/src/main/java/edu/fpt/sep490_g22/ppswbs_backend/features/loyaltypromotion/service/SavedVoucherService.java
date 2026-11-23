@@ -7,9 +7,13 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.dto.PublicPro
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.entity.MemberProgram;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.entity.ProgramStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.entity.PromotionProgram;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.BenefitReasonCode;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.LoyaltyErrorCode;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.LoyaltyException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.service.LoyaltyCommandService.CommandKey;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.service.LoyaltyCommandService.CommandResult;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -31,6 +35,11 @@ import java.util.UUID;
  * idempotent (the first save time is kept). The row is touched under the programme lock, in the agreed lock order,
  * because checkout may create the same row to count uses. Listing shows each saved voucher with its current terms and
  * availability; being in the list never means it can be used.
+ *
+ * <p>Session 2026-11-22 (FR-046): saving a {@code CLAIM_REQUIRED} voucher is not a shortcut but a claim. The first save
+ * holds one use of the total for the Member ({@code PromotionProgram.claim()}) under the programme and member locks,
+ * so two Members racing for the last use cannot both get it; a repeated save holds nothing more. The Member's saved
+ * use stays {@code ACTIVE} in the wallet while unused, even when the voucher has no use left for anyone else.
  */
 @Service
 public class SavedVoucherService {
@@ -45,6 +54,9 @@ public class SavedVoucherService {
     private final MemberProgramRepository memberPrograms;
     private final PublicPromotionQueryService cards;
     private final Clock clock;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     public SavedVoucherService(LoyaltyCommandService commands, LoyaltyLockCoordinator locks,
                                PromotionProgramRepository programs, MemberProgramRepository memberPrograms,
@@ -68,15 +80,39 @@ public class SavedVoucherService {
             if (!alreadySaved) {
                 cards.requirePublic(programId);
             }
+            // The checks above loaded the programme and the Member row before their locks. A locking read of an
+            // entity already in the persistence context fails with a stale-state error when another Member saved in
+            // between (the race for the last use, FR-046), so both are detached and the locks read them afresh.
+            programs.findById(programId).ifPresent(entityManager::detach);
+            memberPrograms.findByProgramIdAndMemberId(programId, memberId).ifPresent(entityManager::detach);
             locks.readRegistry();
             PromotionProgram program = locks.lockPrograms(Set.of(programId)).get(programId);
             if (!program.isVoucher()) {
                 throw PromotionManagementQueryService.notFound();
             }
             MemberProgram row = locks.lockOrCreateMemberProgram(programId, memberId);
+            if (program.isClaimRequired() && !row.isSaved()) {
+                if (row.getHeldCount() + row.getConsumedCount() >= program.getMemberLimit()) {
+                    throw claimRefused(BenefitReasonCode.VOUCHER_MEMBER_LIMIT_REACHED);
+                }
+                if (program.availableTotal() < 1) {
+                    throw claimRefused(BenefitReasonCode.VOUCHER_NO_USES_LEFT);
+                }
+                program.claim();
+            }
             row.save(LoyaltyValues.truncateToMicros(clock.instant()));
             return new CommandResult("program:" + programId, "{\"saved\":true}", Map.of("programId", programId));
         });
+    }
+
+    /**
+     * T131: a refused claim is 422 PROMOTION_INELIGIBLE like before, and the reason travels as the field error
+     * {@code reason} with the stable code as its message, so the screen can say "Đã hết lượt lưu" or "Bạn đã dùng
+     * hết lượt" instead of the generic text of the error code.
+     */
+    private static LoyaltyException claimRefused(BenefitReasonCode reason) {
+        return new LoyaltyException(LoyaltyErrorCode.PROMOTION_INELIGIBLE, reason.template(),
+                List.of(new LoyaltyException.FieldIssue("reason", reason.name())));
     }
 
     @Transactional(readOnly = true)
@@ -126,6 +162,10 @@ public class SavedVoucherService {
             availability = "EXPIRED";
         } else if (!projection.hasPublicTarget()) {
             availability = "NO_PUBLIC_TARGET";
+        } else if (program.isClaimRequired()) {
+            // The Member's own saved use (FR-046): used or held means the one use per Member is taken.
+            availability = row.getHeldCount() + row.getConsumedCount() >= program.getMemberLimit()
+                    ? "MEMBER_LIMIT_REACHED" : "ACTIVE";
         } else if (program.availableTotal() < 1) {
             // US3.5 (review 2026-11-10, L2): no use left in total; held uses count until released.
             availability = "NO_USES_LEFT";

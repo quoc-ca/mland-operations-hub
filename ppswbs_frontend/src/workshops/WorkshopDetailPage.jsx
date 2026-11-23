@@ -225,7 +225,11 @@ export function WorkshopDetailPage({ packageId }) {
     );
   }
 
-  const offers = offersForPackage(pkg, programs);
+  // Branch-limited vouchers count only where the package is sold; until the locations load the branch is unknown.
+  const offers = offersForPackage(
+    locationsLoaded && locations.length > 0 ? { ...pkg, branchIds: locations.map(location => location.id) } : pkg,
+    programs,
+  );
 
   // Only sessions that are really on the list count; a stale reference from the URL is ignored.
   const sessionsKnown = sessions.length > 0 && !loadingSessions;

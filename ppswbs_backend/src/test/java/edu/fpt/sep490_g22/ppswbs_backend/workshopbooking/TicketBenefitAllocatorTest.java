@@ -212,4 +212,32 @@ class TicketBenefitAllocatorTest {
         assertThatThrownBy(() -> run(List.of(t(1_000)), 0, 1, 0)).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> new TicketInput(-1, true)).isInstanceOf(IllegalArgumentException.class);
     }
+
+    /** Session 2026-11-22: 006 splits the discount per ticket; the allocator must not split it again. */
+    @Test
+    void sharesFromLoyaltyAreUsedAsGivenAndPointsComeAfterBoth() {
+        // 600k and 400k, both -10% automatic; the voucher (72k) covers only the second ticket.
+        GroupResult r = TicketBenefitAllocator.allocateShares(List.of(
+                new TicketInput(600_000, true, 60_000, 0),
+                new TicketInput(400_000, true, 40_000, 72_000)), 0, 0);
+        assertThat(r.tickets().get(0).finalPriceVnd()).isEqualTo(540_000);
+        assertThat(r.tickets().get(0).autoDiscountVnd()).isEqualTo(60_000);
+        assertThat(r.tickets().get(0).voucherOnlyDiscountVnd()).isZero();
+        assertThat(r.tickets().get(1).finalPriceVnd()).isEqualTo(288_000);
+        assertThat(r.tickets().get(1).voucherDiscountVnd()).isEqualTo(112_000);
+        assertThat(r.tickets().get(1).voucherOnlyDiscountVnd()).isEqualTo(72_000);
+
+        // 100 points of 100 VND over the post-discount prices (540k : 288k), whole points only.
+        GroupResult withPoints = TicketBenefitAllocator.allocateShares(List.of(
+                new TicketInput(600_000, true, 60_000, 0),
+                new TicketInput(400_000, true, 40_000, 72_000)), 100, 100);
+        assertThat(withPoints.tickets().stream().mapToLong(TicketResult::pointsUsed).sum()).isEqualTo(100);
+        assertThat(withPoints.tickets().get(0).pointsUsed()).isEqualTo(65);
+    }
+
+    @Test
+    void shareAbovePriceIsRejected() {
+        assertThatThrownBy(() -> TicketBenefitAllocator.allocateShares(
+                List.of(new TicketInput(1_000, true, 600, 500)), 0, 0)).isInstanceOf(IllegalArgumentException.class);
+    }
 }

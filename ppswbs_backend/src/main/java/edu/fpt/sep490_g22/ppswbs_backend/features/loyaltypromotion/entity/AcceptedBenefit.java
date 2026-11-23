@@ -92,6 +92,20 @@ public class AcceptedBenefit {
     @Column(name = "revision_id", updatable = false)
     private Long revisionId;
 
+    /**
+     * Session 2026-11-22 (FR-047, V195): the automatic discount whenever one applied, also when it is alone;
+     * {@code programId}/{@code revisionId} stay the voucher when there is one, otherwise the automatic discount.
+     */
+    @Column(name = "auto_program_id", updatable = false)
+    private Long autoProgramId;
+
+    @Column(name = "auto_revision_id", updatable = false)
+    private Long autoRevisionId;
+
+    /** The automatic discount's part of {@code programDiscount}; the voucher part is the rest. */
+    @Column(name = "auto_discount", nullable = false, updatable = false, precision = 19, scale = 0)
+    private BigInteger autoDiscount = BigInteger.ZERO;
+
     @Column(name = "gross_amount", nullable = false, updatable = false, precision = 19, scale = 0)
     private BigInteger grossAmount;
 
@@ -162,7 +176,24 @@ public class AcceptedBenefit {
                            Instant originalDeadline, long sourceRevision, String acceptedTermsDigest, long policyId,
                            Long programId, Long revisionId, BigInteger grossAmount, BigInteger programDiscount,
                            BigInteger requestedPoints, BigInteger pointDiscount, BigInteger earnBase,
-                           BigInteger postPromotionAmount, boolean voucherHeld) {
+                           BigInteger postPromotionAmount, boolean voucherHeld, Long autoProgramId,
+                           Long autoRevisionId, BigInteger autoDiscount) {
+
+        public Snapshot {
+            autoDiscount = autoDiscount == null ? BigInteger.ZERO : autoDiscount;
+        }
+
+        /** Shape before Session 2026-11-22: one programme. */
+        public Snapshot(SourceKind sourceKind, String sourceRef, Long memberId, Instant acceptedAt,
+                        Instant originalDeadline, long sourceRevision, String acceptedTermsDigest, long policyId,
+                        Long programId, Long revisionId, BigInteger grossAmount, BigInteger programDiscount,
+                        BigInteger requestedPoints, BigInteger pointDiscount, BigInteger earnBase,
+                        BigInteger postPromotionAmount, boolean voucherHeld) {
+            this(sourceKind, sourceRef, memberId, acceptedAt, originalDeadline, sourceRevision, acceptedTermsDigest,
+                    policyId, programId, revisionId, grossAmount, programDiscount, requestedPoints, pointDiscount,
+                    earnBase, postPromotionAmount, voucherHeld, voucherHeld ? null : programId,
+                    voucherHeld ? null : revisionId, voucherHeld || programId == null ? null : programDiscount);
+        }
     }
 
     /** Only transactions a Member made directly on the website qualify; guest history is never retrofitted. */
@@ -196,6 +227,14 @@ public class AcceptedBenefit {
         benefit.revisionId = snapshot.revisionId();
         benefit.grossAmount = snapshot.grossAmount();
         benefit.programDiscount = snapshot.programDiscount();
+        if (snapshot.autoDiscount().signum() < 0 || snapshot.autoDiscount().compareTo(snapshot.programDiscount()) > 0
+                || (snapshot.autoProgramId() == null) != (snapshot.autoRevisionId() == null)
+                || (snapshot.autoProgramId() == null && snapshot.autoDiscount().signum() != 0)) {
+            throw new IllegalStateException("The automatic part of the discount is inconsistent");
+        }
+        benefit.autoProgramId = snapshot.autoProgramId();
+        benefit.autoRevisionId = snapshot.autoRevisionId();
+        benefit.autoDiscount = snapshot.autoDiscount();
         benefit.requestedPoints = snapshot.requestedPoints();
         benefit.pointDiscount = snapshot.pointDiscount();
         benefit.earnBase = snapshot.earnBase();

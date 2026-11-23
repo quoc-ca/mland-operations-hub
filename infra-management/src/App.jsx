@@ -94,6 +94,15 @@ function StagingPage({ onNotice, currentUser }) {
   const [isRefreshingLogs, setIsRefreshingLogs] = useState(false)
   const [autoRefreshLogs, setAutoRefreshLogs] = useState(false)
   const [logSource, setLogSource] = useState('overview')
+  const [activeLogSource, setActiveLogSource] = useState('overview')
+  const [logOffsets, setLogOffsets] = useState({
+    overview: 0,
+    'file-all': 0,
+    'file-error': 0,
+    'file-warning': 0,
+    'file-info': 0
+  })
+  const [cooldown, setCooldown] = useState(0)
   const [isStopping, setIsStopping] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
   const [isDeploying, setIsDeploying] = useState(false)
@@ -241,27 +250,43 @@ function StagingPage({ onNotice, currentUser }) {
     }
   }, [polling, controlApiUrl, refreshKey])
 
-  const handleRefreshLogs = useCallback(async (sourceOverride) => {
+  // Cooldown countdown timer (15s)
+  useEffect(() => {
+    if (cooldown <= 0) return undefined
+    const timer = window.setInterval(() => {
+      setCooldown((prev) => Math.max(0, prev - 1))
+    }, 1000)
+    return () => window.clearInterval(timer)
+  }, [cooldown])
+
+  const handleRefreshLogs = useCallback(async (sourceOverride, isFinalPull = false) => {
     if (!controlApiUrl) {
       notConnected('Refresh logs')
       return
     }
     if (isRefreshingLogs || snapshotCommandId) return
+    if (!isFinalPull && cooldown > 0) return
+
     const src = sourceOverride || logSource || 'overview'
+    const offset = logOffsets[src] || 0
     try {
       setIsRefreshingLogs(true)
-      setLogState(`Requesting SSM log snapshot (${src})`)
-      const response = await fetch(`${controlApiUrl}/staging/logs?source=${encodeURIComponent(src)}`, { headers: { Accept: 'application/json' } })
+      setActiveLogSource(src)
+      setLogState(`Đang yêu cầu SSM snapshot (${src}, offset: ${offset} bytes)...`)
+      const response = await fetch(`${controlApiUrl}/staging/logs?source=${encodeURIComponent(src)}&offset=${encodeURIComponent(offset)}`, { headers: { Accept: 'application/json' } })
       const data = await response.json().catch(() => ({}))
       if (!response.ok) throw new Error(data.error || `Log API returned HTTP ${response.status}`)
       setSnapshotCommandId(data.commandId || '')
-      setLogState(data.message || `Collecting logs (${src})`)
+      setLogState(data.message || `Đang gom log từ host (${src})`)
+      if (!isFinalPull) {
+        setCooldown(15)
+      }
       if (!data.commandId) setIsRefreshingLogs(false)
     } catch (error) {
       setIsRefreshingLogs(false)
-      setLogState(`Log request failed: ${error.message}`)
+      setLogState(`Lỗi yêu cầu log: ${error.message}`)
     }
-  }, [controlApiUrl, isRefreshingLogs, snapshotCommandId, logSource])
+  }, [controlApiUrl, isRefreshingLogs, snapshotCommandId, logSource, logOffsets, cooldown])
 
   useEffect(() => {
     const commandId = lastOperation?.commandId
@@ -273,15 +298,18 @@ function StagingPage({ onNotice, currentUser }) {
         if (cancelled) return
         setLastOperation((current) => current?.commandId === commandId ? { ...current, status: operation.status } : current)
         applyOperationChecks(operation.checks)
-        const output = [operation.stdout?.trim(), operation.stderr?.trim() ? `STDERR:\n${operation.stderr.trim()}` : ''].filter(Boolean).join('\n\n')
-        if (output) {
-          setLogContent(output)
-        } else if (operation.status === 'InProgress' && lastOperation?.name === 'Deploy') {
-          setLogContent((current) => current || '[EC2] Lệnh Deploy đang thực thi: đang kéo git branch, nạp môi trường và build Docker Compose... Vui lòng đợi trong giây lát.')
+        if (lastOperation?.name !== 'Deploy') {
+          const output = [operation.stdout?.trim(), operation.stderr?.trim() ? `STDERR:\n${operation.stderr.trim()}` : ''].filter(Boolean).join('\n\n')
+          if (output) {
+            setLogContent(output)
+          }
+        } else if (operation.status === 'Failed' && operation.stderr?.trim()) {
+          setLogContent((prev) => `${prev}\n\n[DEPLOY THẤT BẠI]\n${operation.stderr.trim()}`)
         }
         setLogState(`SSM ${operation.status} · command ${commandId}`)
         if (['Success', 'Failed'].includes(operation.status) && lastOperation?.name === 'Deploy') {
-          handleRefreshLogs()
+          handleRefreshLogs('overview', true)
+          setCooldown(0)
         }
       } catch (error) {
         if (!cancelled) setLogState(`Waiting for SSM output: ${error.message}`)
@@ -304,8 +332,19 @@ function StagingPage({ onNotice, currentUser }) {
         if (cancelled) return
         applyOperationChecks(operation.checks)
         const output = [operation.stdout?.trim(), operation.stderr?.trim() ? `STDERR:\n${operation.stderr.trim()}` : ''].filter(Boolean).join('\n\n')
-        if (output) setLogContent(output)
-        setLogState(`Log snapshot ${operation.status}`)
+        if (output) {
+          const currentOffset = logOffsets[activeLogSource] || 0
+          if (currentOffset === 0) {
+            setLogContent(output)
+          } else {
+            setLogContent((prev) => (prev ? `${prev}\n${output}` : output))
+          }
+        }
+        if (typeof operation.nextOffset === 'number' && !Number.isNaN(operation.nextOffset)) {
+          setLogOffsets((prev) => ({ ...prev, [activeLogSource]: operation.nextOffset }))
+        }
+        const hasMoreText = operation.hasMore ? ` (còn ${operation.fileSize - operation.nextOffset} bytes mới)` : ''
+        setLogState(`Log snapshot ${operation.status} · ${activeLogSource} offset: ${operation.nextOffset ?? logOffsets[activeLogSource] ?? 0} bytes${hasMoreText}`)
         if (['Success', 'Failed', 'TimedOut', 'Cancelled', 'Undeliverable', 'Terminated'].includes(operation.status)) {
           setSnapshotCommandId('')
           setIsRefreshingLogs(false)
@@ -324,7 +363,7 @@ function StagingPage({ onNotice, currentUser }) {
       cancelled = true
       window.clearInterval(timer)
     }
-  }, [polling, controlApiUrl, snapshotCommandId, readOperation, applyOperationChecks])
+  }, [polling, controlApiUrl, snapshotCommandId, readOperation, applyOperationChecks, logOffsets, activeLogSource])
 
   // Safety timer to guarantee isRefreshingLogs never stays stuck
   useEffect(() => {
@@ -332,21 +371,21 @@ function StagingPage({ onNotice, currentUser }) {
     const timer = window.setTimeout(() => {
       setIsRefreshingLogs(false)
       setSnapshotCommandId('')
-      setLogState((cur) => cur.includes('Collecting') ? 'Log collection timed out' : cur)
+      setLogState((cur) => cur.includes('Collecting') || cur.includes('Đang') ? 'Log collection timed out' : cur)
     }, 15000)
     return () => window.clearTimeout(timer)
   }, [isRefreshingLogs])
 
-  // Auto-refresh logs every 5s when enabled and machine is running
+  // Auto-refresh logs every 15s when enabled and machine is running
   useEffect(() => {
     if (!autoRefreshLogs || !polling || !controlApiUrl || serverStatus !== 'RUNNING') return undefined
-    if (isRefreshingLogs || snapshotCommandId) return undefined
+    if (isRefreshingLogs || snapshotCommandId || cooldown > 0) return undefined
 
     const timer = window.setTimeout(() => {
       handleRefreshLogs()
-    }, 5000)
+    }, 15000)
     return () => window.clearTimeout(timer)
-  }, [autoRefreshLogs, polling, controlApiUrl, serverStatus, isRefreshingLogs, snapshotCommandId, handleRefreshLogs])
+  }, [autoRefreshLogs, polling, controlApiUrl, serverStatus, isRefreshingLogs, snapshotCommandId, cooldown, handleRefreshLogs])
 
   const handleStart = async (event) => {
     event.preventDefault()
@@ -390,6 +429,11 @@ function StagingPage({ onNotice, currentUser }) {
 
     try {
       setIsDeploying(true)
+      setLogOffsets({ overview: 0, 'file-all': 0, 'file-error': 0, 'file-warning': 0, 'file-info': 0 })
+      setLogSource('overview')
+      setActiveLogSource('overview')
+      setCooldown(0)
+      setLogContent('[EC2] Khởi động phiên Deploy mới: Đã dọn sạch log cũ và đặt con trỏ byte về 0.\nĐang gửi lệnh kéo code branch và build Docker Compose... Vui lòng đợi trong giây lát.\n')
       onNotice(`Đang gửi lệnh kéo code branch "${gitBranch}" và build trên EC2...`)
       const response = await fetch(`${controlApiUrl}/staging/deploy`, {
         method: 'POST',
@@ -597,7 +641,7 @@ function StagingPage({ onNotice, currentUser }) {
           <div>
             <p className="eyebrow">OBSERVABILITY</p>
             <h3>Log snapshot</h3>
-            <p className="muted log-status">{logState} · {polling ? 'Trạng thái máy: polling 5s' : 'Polling tắt'} {autoRefreshLogs ? '· Auto-pull: BẬT (5s)' : ''}</p>
+            <p className="muted log-status">{logState} · {polling ? 'Trạng thái máy: polling 5s' : 'Polling tắt'} {autoRefreshLogs ? '· Auto-pull: BẬT (15s)' : ''} · Offset {activeLogSource}: {logOffsets[activeLogSource] || 0} bytes</p>
           </div>
           <div className="log-actions">
             <select
@@ -605,26 +649,45 @@ function StagingPage({ onNotice, currentUser }) {
               onChange={(e) => {
                 const newSource = e.target.value
                 setLogSource(newSource)
-                handleRefreshLogs(newSource)
+                handleRefreshLogs(newSource, true)
               }}
               className="log-source-select"
-              title="Chọn nguồn xem log (Console hoặc File log Spring Boot)"
+              title="Chọn nguồn xem log (Build log hoặc File log Backend)"
             >
-              <option value="overview">Console & Overview</option>
-              <option value="file-all">File: All (info + error)</option>
+              <option value="overview">Build & Deploy log (mland-deploy.log)</option>
+              <option value="file-all">File: All (info + warning + error)</option>
               <option value="file-error">File: Chỉ lỗi (error.log)</option>
+              <option value="file-warning">File: Cảnh báo (warning.log)</option>
               <option value="file-info">File: Chỉ info (info.log)</option>
             </select>
             <button
               type="button"
               className={`text-button ${autoRefreshLogs ? 'active-toggle' : ''}`}
               onClick={() => setAutoRefreshLogs((value) => !value)}
-              title="Tự động kéo snapshot log về mỗi 5 giây khi máy RUNNING"
+              title="Tự động kéo snapshot log về mỗi 15 giây khi máy RUNNING"
             >
-              {autoRefreshLogs ? 'Auto-pull: BẬT (5s)' : 'Auto-pull: TẮT'}
+              {autoRefreshLogs ? 'Auto-pull: BẬT (15s)' : 'Auto-pull: TẮT'}
             </button>
-            <button type="button" className="text-button" onClick={() => handleRefreshLogs()} disabled={isRefreshingLogs}>
-              {isRefreshingLogs ? 'Collecting...' : 'Refresh logs'}
+            <button
+              type="button"
+              className={`text-button ${cooldown > 0 ? 'cooldown-active' : ''}`}
+              onClick={() => handleRefreshLogs()}
+              disabled={isRefreshingLogs || cooldown > 0}
+              title={cooldown > 0 ? `Vui lòng đợi ${cooldown}s trước khi lấy log tiếp theo` : 'Lấy log mới từ điểm đọc gần nhất'}
+            >
+              {isRefreshingLogs ? 'Collecting...' : cooldown > 0 ? `Chờ ${cooldown}s ◷` : 'Lấy log mới ↻'}
+            </button>
+            <button
+              type="button"
+              className="text-button text-muted-action"
+              onClick={() => {
+                setLogOffsets((prev) => ({ ...prev, [logSource]: 0 }))
+                setLogContent('')
+                setLogState(`Đã reset con trỏ ${logSource} về 0`)
+              }}
+              title="Xóa nội dung màn hình và đặt lại con trỏ đọc từ đầu"
+            >
+              Reset con trỏ
             </button>
             <button type="button" className="text-button" onClick={() => setPolling((value) => !value)}>
               {polling ? 'Pause polling' : 'Resume polling'}

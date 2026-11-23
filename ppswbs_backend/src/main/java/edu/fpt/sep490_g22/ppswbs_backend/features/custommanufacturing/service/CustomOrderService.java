@@ -18,7 +18,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.custommanufacturing.domain.Cus
 import edu.fpt.sep490_g22.ppswbs_backend.features.custommanufacturing.domain.CustomOrderQuote;
 import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.entity.PaymentOwnerKind;
 import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.facade.PaymentOwnerRegistry;
-import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.service.VnpayPaymentGatewayCheckoutAdapter;
+import edu.fpt.sep490_g22.ppswbs_backend.common.payment.PaymentGatewayCheckoutPort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -41,7 +41,7 @@ public class CustomOrderService {
     private final DesignRequestRepository designRequestRepository;
     private final CustomDesignReferenceSnapshotRepository snapshotRepository;
     private final PaymentOwnerRegistry paymentOwnerRegistry;
-    private final VnpayPaymentGatewayCheckoutAdapter vnpayAdapter;
+    private final PaymentGatewayCheckoutPort vnpayAdapter;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Transactional

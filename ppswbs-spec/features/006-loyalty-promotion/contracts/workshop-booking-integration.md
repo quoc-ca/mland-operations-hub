@@ -1,7 +1,7 @@
 # Hướng dẫn tích hợp: Workshop Booking (003.1) gọi LoyaltyFacade
 
 **Date created**: 2026-10-29
-**Date updated**: 2026-11-21 (T118, Session 2026-11-21 của spec: lượt voucher đã chốt chỉ trả khi mã còn hiệu lực lúc quyết định hủy; đồng bộ FR-044: chọn AUTO cho workshop không còn là `PROMOTION_INELIGIBLE`); trước đó: 2026-11-12
+**Date updated**: 2026-11-23 (Session 2026-11-22: tranh suất cuối và mã CLAIM_REQUIRED chưa lưu là PROMOTION_INELIGIBLE; trước đó: 2026-11-21 (T118, Session 2026-11-21 của spec: lượt voucher đã chốt chỉ trả khi mã còn hiệu lực lúc quyết định hủy; đồng bộ FR-044: chọn AUTO cho workshop không còn là `PROMOTION_INELIGIBLE`); trước đó: 2026-11-12
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -135,7 +135,7 @@ new AuthoritativeOutcome(SourceKind.WORKSHOP, bookingRef, "workshopbooking",
 | `POINTS_USE_NOT_ALLOWED`, `POINTS_LIMIT_CHANGED` | Điểm không hợp lệ/không đủ lúc accept | Rollback; preview lại. |
 | `QUOTE_CHANGED` | Digest khác quote khách đã xác nhận | Rollback; preview lại, khách xác nhận lại. |
 | `WORKSHOP_NET_AMOUNT_INVALID` | Phí sau giảm **âm** (chỉ khi dữ liệu sai). Từ 2026-11-12, phí sau giảm bằng 0 **không** còn là lỗi. | Rollback; đối soát dữ liệu. |
-| `QUOTA_LIMIT_CONFLICT` | Hết lượt voucher do tranh chấp | Rollback; preview lại. |
+| `PROMOTION_INELIGIBLE` | Hết lượt voucher do tranh chấp (từ T123, trước đó ghi `QUOTA_LIMIT_CONFLICT`), hoặc voucher `CLAIM_REQUIRED` Member chưa lưu (Session 2026-11-22, lý do `VOUCHER_NOT_SAVED`) | Rollback; preview lại. |
 | `IDEMPOTENCY_CONFLICT`, `BENEFIT_STATE_CONFLICT` | Cùng key khác nội dung / outcome mâu thuẫn | Đối soát; không tự đổi key. |
 | `RETRYABLE_CONTENTION` | Lock timeout/deadlock (đã rollback sạch) | Thử lại cả transaction với **cùng** key và nội dung. |
 | `DEPENDENCY_UNAVAILABLE` | Thiếu dependency hoặc nguồn tạm lỗi | 503. |

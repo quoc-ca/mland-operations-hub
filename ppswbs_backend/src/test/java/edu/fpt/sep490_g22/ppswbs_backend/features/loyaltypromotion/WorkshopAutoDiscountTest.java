@@ -226,14 +226,17 @@ class WorkshopAutoDiscountTest {
     }
 
     @Test
-    void aChosenVoucherReplacesTheAutomaticDiscountInsteadOfAddingToIt() {
-        // FR-015: one automatic discount OR one voucher. The voucher selection never looks at the automatic ones.
+    void aChosenVoucherIsAddedOnTopOfTheAutomaticDiscount() {
+        // Session 2026-11-22, FR-015/FR-044: the best automatic discount plus one voucher on the fee left after it.
         RetailQuote.Result result = compute(booking(1_000_000),
                 new BenefitSelection(SelectionChoice.VOUCHER, "WS9", BigInteger.ZERO), voucher(fixed(30_000, 30_000, 0)),
                 List.of(auto(1, EARLIER, fixed(200_000, 200_000, 0), Set.of(1L))), true);
         assertThat(result.candidate().kind()).isEqualTo(ProgramKind.VOUCHER);
-        assertThat(result.programDiscount()).isEqualTo(n(30_000));
-        assertThat(result.netBeforePoints()).isEqualTo(n(970_000));
+        assertThat(result.auto()).isNotNull();
+        assertThat(result.autoDiscount()).isEqualTo(n(200_000));
+        assertThat(result.voucherDiscount()).isEqualTo(n(30_000));
+        assertThat(result.programDiscount()).isEqualTo(n(230_000));
+        assertThat(result.netBeforePoints()).isEqualTo(n(770_000));
     }
 
     @Test

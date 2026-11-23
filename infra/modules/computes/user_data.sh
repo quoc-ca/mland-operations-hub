@@ -45,7 +45,7 @@ DEPLOY_LOG="/var/log/mland-deploy.log"
 RUNTIME_ENV="/opt/mland-staging-runtime/runtime-env.json"
 REPO_DIR="/opt/mland-staging"
 
-exec > >(tee -a "${DEPLOY_LOG}") 2>&1
+exec > >(tee "${DEPLOY_LOG}") 2>&1
 echo "=================================================="
 echo " [$(date -u +'%Y-%m-%dT%H:%M:%SZ')] STAGING DEPLOY START"
 echo " Target branch: ${BRANCH}"
@@ -103,8 +103,12 @@ if [ -f "/opt/mland-staging-runtime/firebase-service-account.json" ]; then
     chmod 0600 "${REPO_DIR}/ppswbs_backend/firebase-service-account.json"
 fi
 
+echo "Cleaning old backend logs for a fresh deployment session..."
+rm -rf "${REPO_DIR}/ppswbs_backend/logs"/* 2>/dev/null || true
+
 echo "Building and starting the MySQL and backend containers..."
-docker compose up -d --build db backend
+docker compose build --progress=plain backend
+docker compose up -d db backend
 echo "[$(date -u +'%Y-%m-%dT%H:%M:%SZ')] STAGING DEPLOY COMPLETE"
 DEPLOY_SCRIPT
 

@@ -291,10 +291,13 @@ public class LoyaltyPartLifecycleService {
         return parts;
     }
 
-    /** A part carries the voucher when it has a share of the programme discount, or when no part has one. */
+    /**
+     * A part carries the voucher when it has a share of the voucher discount, or when no part has one. Since
+     * Session 2026-11-22 the automatic share does not count (FR-047).
+     */
     static boolean isVoucherPart(AcceptedBenefitPart part, List<AcceptedBenefitPart> parts) {
-        boolean anyShare = parts.stream().anyMatch(p -> p.getProgramDiscount().signum() > 0);
-        return !anyShare || part.getProgramDiscount().signum() > 0;
+        boolean anyShare = parts.stream().anyMatch(p -> p.getVoucherDiscount().signum() > 0);
+        return !anyShare || part.getVoucherDiscount().signum() > 0;
     }
 
     private List<AcceptedBenefitPart> partsFor(AcceptedBenefit benefit) {

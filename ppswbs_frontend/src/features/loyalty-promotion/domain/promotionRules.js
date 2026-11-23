@@ -112,6 +112,7 @@ export function createBody(form) {
     body.code = form.code.trim();
     body.totalLimit = form.totalLimit.trim();
     body.perMemberLimit = form.perMemberLimit.trim();
+    body.distribution = form.distribution || 'PUBLIC';
   }
   const lists = form.scope === 'PRODUCT'
     ? { productIds: form.productIds, variantIds: form.variantIds }
@@ -182,6 +183,7 @@ export function checkCreate(form) {
     if (!form.code.trim()) errors.code = 'validation.required';
     if (!isPositive(form.totalLimit.trim())) errors.totalLimit = 'validation.positive';
     if (!isPositive(form.perMemberLimit.trim())) errors.perMemberLimit = 'validation.positive';
+    else if (form.distribution === 'CLAIM_REQUIRED' && form.perMemberLimit.trim() !== '1') errors.perMemberLimit = 'validation.claimOnePerMember';
   }
   if (form.scope === 'PRODUCT' && !splitList(form.productIds).length && !splitList(form.variantIds).length) errors.targets = 'validation.productTarget';
   if (form.scope === 'PRODUCT' && form.kind === 'VOUCHER' && form.branchMode === 'SOME' && !productBranchIds(form).length) {

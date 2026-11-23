@@ -62,7 +62,7 @@ public class RetailOrderQueryService {
 
     /**
      * Until when an unpaid VNPay checkout is held: its VNPay link expiry when the Member opened VNPay, else the
-     * 15-minute hold from when it was placed (Session 2026-11-18). Null when paid, cancelled, expired or cash.
+     * 10-minute hold from when it was placed (Session 2026-11-22). Null when paid, cancelled, expired or cash.
      */
     private static java.time.Instant paymentDeadline(edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.entity.GroupedCheckout checkout) {
         var state = checkout.getPaymentState();

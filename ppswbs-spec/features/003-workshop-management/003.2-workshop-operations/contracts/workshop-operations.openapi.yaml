@@ -795,6 +795,12 @@ components:
           properties:
             packageId: { type: integer, format: int64 }
             state: { $ref: '#/components/schemas/PackageState' }
+            branchIds:
+              type: array
+              items: { type: integer, format: int64 }
+              description: >-
+                Only on the public list GET /workshop-packages: ids of the locations where the package is
+                sellable (FR-039), so public offers can be priced per branch (003.1 / 006 FE-03). Absent elsewhere.
     PackageLifecycleTransitionRequest:
       type: object
       required: [targetState]

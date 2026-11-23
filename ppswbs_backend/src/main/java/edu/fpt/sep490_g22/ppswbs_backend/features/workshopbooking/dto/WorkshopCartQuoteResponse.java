@@ -14,10 +14,11 @@ import java.util.UUID;
  * voucher or point reason, so a refused voucher or a refused point amount says why instead of leaving the customer
  * to guess: the evaluator refuses a requested amount outside [minRedeemPoints, maxPoints] rather than trimming it.
  *
- * <p>{@code voucherDiscountVnd} (cart and ticket) is the programme discount, whichever programme gave it, and
- * {@code appliedDiscount} names that programme (T105, 006 FR-015): {@code AUTO} for the automatic workshop discount
- * every cart receives, Guest included; {@code VOUCHER} when the Member's voucher replaced it; {@code NONE} when no
- * programme discounts the cart.
+ * <p>Session 2026-11-22 (006 FR-015): every cart gets the best automatic workshop discount (Guest included) and a
+ * Member may add one voucher on top. {@code autoDiscountVnd} and {@code voucherDiscountVnd} (cart and ticket) are the
+ * two parts, split per ticket exactly as 006 gave them; a ticket pays price - both - points. {@code appliedDiscount}
+ * is kept for older screens: {@code VOUCHER} when a voucher is part of the price, {@code AUTO} when only the
+ * automatic discount is, {@code NONE} when no programme discounts the cart.
  */
 public record WorkshopCartQuoteResponse(
         String quoteRef,
@@ -35,7 +36,9 @@ public record WorkshopCartQuoteResponse(
         long remainingAtCheckoutVnd,
         String paymentMode,
         List<String> reasons,
-        String appliedDiscount) {
+        String appliedDiscount,
+        long autoDiscountVnd,
+        List<edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.BenefitReason> reasonDetails) {
 
     /** The one programme discount a cart may carry (006 FR-015). */
     public enum AppliedDiscount { NONE, AUTO, VOUCHER }
@@ -67,6 +70,7 @@ public record WorkshopCartQuoteResponse(
             long finalPriceVnd,
             long collectedAtBookingVnd,
             String collectionKind,
-            long remainingVnd) {
+            long remainingVnd,
+            long autoDiscountVnd) {
     }
 }

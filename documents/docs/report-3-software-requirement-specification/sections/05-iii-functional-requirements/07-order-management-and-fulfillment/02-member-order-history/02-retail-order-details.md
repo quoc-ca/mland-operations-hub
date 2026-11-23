@@ -13,7 +13,7 @@ This screen allows Members to:
 | Field Name | Description |
 | --- | --- |
 | Chi nhánh / Mã đơn | Fixed processing branch and order code. |
-| Thời gian đặt / Hạn thanh toán / Hạn giữ hàng | Order time and the hold deadline (15 minutes for VNPay, 3 days for cash at the counter). |
+| Thời gian đặt / Hạn thanh toán / Hạn giữ hàng | Order time and the hold deadline (10 minutes for VNPay, 3 days for cash at the counter). |
 | Thời gian thanh toán | When the verified VNPay payment or the counter cash was recorded. |
 | Nhận hàng lúc / Giao thành công lúc | When the order was handed over at the counter or delivered by GHTK. |
 | Nhận hàng | Nhận tại cửa hàng or Giao tận nơi qua GHTK with recipient name, phone and address; fixed at checkout. |

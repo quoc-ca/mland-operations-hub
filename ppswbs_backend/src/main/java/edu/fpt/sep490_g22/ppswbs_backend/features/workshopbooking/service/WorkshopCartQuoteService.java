@@ -68,10 +68,18 @@ public class WorkshopCartQuoteService {
     /** Which programme discount the quote applied, so the screen never has to guess (T105). */
     static WorkshopCartQuoteResponse.AppliedDiscount appliedDiscountOf(BenefitSelection selection,
                                                                     WorkshopCartBenefitService.CartBenefits applied) {
-        if (applied.voucherDiscountVnd() == 0) {
+        if (applied.programDiscountVnd() == 0) {
             return WorkshopCartQuoteResponse.AppliedDiscount.NONE;
         }
-        return selection.choice() == SelectionChoice.VOUCHER
+        // Without a split (an old-shape preview) the label still follows the choice, as before.
+        if (applied.ticketShares().isEmpty()) {
+            return selection.choice() == SelectionChoice.VOUCHER
+                    ? WorkshopCartQuoteResponse.AppliedDiscount.VOUCHER
+                    : WorkshopCartQuoteResponse.AppliedDiscount.AUTO;
+        }
+        // The automatic discount and a voucher now stack: VOUCHER means a voucher is in the price (the automatic part,
+        // if any, is autoDiscountVnd); AUTO means the automatic discount alone.
+        return applied.voucherDiscountVnd() > 0
                 ? WorkshopCartQuoteResponse.AppliedDiscount.VOUCHER
                 : WorkshopCartQuoteResponse.AppliedDiscount.AUTO;
     }
@@ -117,9 +125,9 @@ public class WorkshopCartQuoteService {
         // at full price; a cart that got no automatic discount keeps an empty benefit snapshot.
         boolean reserves = wantsMemberBenefit || !applied.isEmpty();
         if (!applied.isEmpty()) {
-            cart = cart.withAllocation(TicketBenefitAllocator.allocate(
-                    benefits.allocatorInputs(cart, applied.eligibleTicketIndexes()), applied.voucherDiscountVnd(),
-                    applied.pointsUsed(), applied.pointValueVnd()));
+            cart = cart.withAllocation(benefits.allocate(cart, applied.programDiscountVnd(),
+                    applied.eligibleTicketIndexes(), applied.ticketShares(), applied.pointsUsed(),
+                    applied.pointValueVnd()));
         }
 
         List<StoredLine> stored = cart.lines().stream()
@@ -136,7 +144,8 @@ public class WorkshopCartQuoteService {
                 .benefitSelectionJson(reserves ? write(selection) : null)
                 .eligibleTicketIndexesJson(write(reserves ? applied.eligibleTicketIndexes() : List.of()))
                 .grossVnd(cart.grossVnd())
-                .voucherDiscountVnd(applied.voucherDiscountVnd())
+                .voucherDiscountVnd(applied.programDiscountVnd())
+                .ticketSharesJson(reserves && !applied.ticketShares().isEmpty() ? write(applied.ticketShares()) : null)
                 .pointsUsed(applied.pointsUsed())
                 .pointDiscountVnd(applied.pointDiscountVnd())
                 .pointValueVnd(reserves ? applied.pointValueVnd() : 0)
@@ -162,19 +171,20 @@ public class WorkshopCartQuoteService {
             for (int ordinal = 1; ordinal <= line.participantCount(); ordinal++) {
                 TicketBenefitAllocator.TicketResult ticket = cart.ticket(line.lineIndex(), ordinal);
                 tickets.add(new WorkshopCartQuoteResponse.QuotedTicket(ordinal, ticket.packagePriceVnd(),
-                        ticket.voucherDiscountVnd(), ticket.pointsUsed(), ticket.pointDiscountVnd(),
+                        ticket.voucherOnlyDiscountVnd(), ticket.pointsUsed(), ticket.pointDiscountVnd(),
                         ticket.finalPriceVnd(), ticket.collectedAtBookingVnd(), ticket.collectionKind().name(),
-                        ticket.remainingVnd()));
+                        ticket.remainingVnd(), ticket.autoDiscountVnd()));
             }
             lines.add(new WorkshopCartQuoteResponse.QuotedLine(line.lineIndex(), line.packageId(), line.packageName(),
                     line.pricePerParticipantVnd(), line.participantCount(), sessions, List.copyOf(tickets)));
         }
         return new WorkshopCartQuoteResponse(quote.getQuoteRef(), quote.getExpiresAt(), List.copyOf(lines),
-                cart.grossVnd(), quote.getVoucherDiscountVnd(), quote.getPointsUsed(), quote.getPointDiscountVnd(),
+                cart.grossVnd(), quote.getVoucherDiscountVnd() - shown.autoDiscountVnd(), quote.getPointsUsed(),
+                quote.getPointDiscountVnd(),
                 finalTotal, shown.maxPoints(), shown.minRedeemPoints(), shown.pointValueVnd(),
                 cart.allocation().groupCollectionVnd(),
                 finalTotal - cart.allocation().groupCollectionVnd(), cart.allocation().paymentMode().name(),
-                shown.reasons(), appliedDiscount.name());
+                shown.reasons(), appliedDiscount.name(), shown.autoDiscountVnd(), shown.reasonDetails());
     }
 
     static List<UUID> canonicalUuids(List<String> values) {

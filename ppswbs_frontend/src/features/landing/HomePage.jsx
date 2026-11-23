@@ -243,6 +243,7 @@ export default function HomePage() {
           id: pkg.packageId || String(idx),
           packageId: pkg.packageId,
           publicPrice: pkg.publicPrice,
+          branchIds: pkg.branchIds,
           tag: idx === 1 ? 'Được yêu thích nhất' : `Gói 0${idx + 1} · Workshop`,
           isFeatured: idx === 1,
           title: pkg.name || 'Workshop',
@@ -481,7 +482,7 @@ export default function HomePage() {
                 {/* FR-052: price after the best automatic discount from 006's public gate; plain price when none. */}
                 <p className="landing-workshop-price">
                   <WorkshopOfferPrice offers={pkg.offers} fallback={pkg.price} />
-                  {pkg.offers?.discounted ? ' / người' : null}
+                  {(pkg.offers?.discounted || pkg.offers?.bestVoucher) ? ' / người' : null}
                 </p>
                 <WorkshopOfferBadges offers={pkg.offers} />
                 <Link

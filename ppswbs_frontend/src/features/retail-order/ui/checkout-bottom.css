@@ -65,3 +65,9 @@
 .voucher-sheet-foot b{color:#b45309}
 .voucher-sheet-foot .button{min-width:160px}
 .retail-address-problem{margin:10px 0 0}.retail-address-problem .text-link{margin-left:6px;font-weight:600}
+
+/* Shopee-style discount lines (Thinh, 2026-11-22): every discount in red, savings under the total. */
+.retail-payment-details .retail-minus strong{color:#ee4d2d}
+.retail-payment-details .retail-minus small{color:#9ca3af;font-weight:400}
+.retail-payment-details .retail-saved{margin-top:-8px;font-size:12px}
+.retail-payment-details .retail-saved strong{color:#ee4d2d;font-weight:600}

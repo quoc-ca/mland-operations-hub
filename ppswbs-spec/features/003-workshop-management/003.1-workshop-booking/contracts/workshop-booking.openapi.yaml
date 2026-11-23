@@ -435,27 +435,33 @@ components:
             with CART_BENEFITS_NEED_A_MEMBER.
     CartQuote:
       type: object
-      required: [quoteRef, expiresAt, lines, grossVnd, voucherDiscountVnd, pointsUsed, pointDiscountVnd, finalTotalVnd, maxPoints, minRedeemPoints, pointValueVnd, groupCollectionVnd, remainingAtCheckoutVnd, paymentMode, reasons, appliedDiscount]
+      required: [quoteRef, expiresAt, lines, grossVnd, autoDiscountVnd, voucherDiscountVnd, pointsUsed, pointDiscountVnd, finalTotalVnd, maxPoints, minRedeemPoints, pointValueVnd, groupCollectionVnd, remainingAtCheckoutVnd, paymentMode, reasons, appliedDiscount]
       properties:
         quoteRef: {type: string, format: uuid}
         expiresAt: {type: string, format: date-time, description: 30 minutes after the quote was created.}
         lines: {type: array, items: {$ref: '#/components/schemas/QuotedLine'}}
         grossVnd: {$ref: '#/components/schemas/Vnd'}
+        autoDiscountVnd:
+          allOf: [{$ref: '#/components/schemas/Vnd'}]
+          description: >-
+            Session 2026-11-22 (006 FR-015, FR-047). The group's share of the
+            best automatic workshop discount, which every cart receives, Guest
+            included. Split per ticket exactly as 006 gave it.
         voucherDiscountVnd:
           allOf: [{$ref: '#/components/schemas/Vnd'}]
           description: >-
-            FR-033. The group's programme discount, whichever programme gave it:
-            the automatic workshop discount or the Member's voucher. Which one
-            is `appliedDiscount`; the field keeps its name for compatibility.
+            FR-033. The group's share of the Member's voucher only, added on
+            top of the automatic discount and computed on the amount after it.
+            Before 2026-11-22 this field held the whole programme discount.
         appliedDiscount:
           type: string
           enum: [NONE, AUTO, VOUCHER]
           description: >-
-            T105, 006 FR-015. The one programme discount of this cart. AUTO is
-            the largest automatic workshop discount (006 FR-044), applied to
-            every cart that names no voucher, Guest included. VOUCHER means the
-            Member's voucher replaced it. NONE means no programme discounts the
-            cart.
+            T105, 006 FR-015; kept for older screens. AUTO means only the
+            automatic workshop discount is in the price (006 FR-044). VOUCHER
+            means a Member's voucher is part of the price (the automatic part,
+            if any, is `autoDiscountVnd`). NONE means no programme discounts
+            the cart.
         pointsUsed: {type: integer, format: int64, minimum: 0}
         pointDiscountVnd: {$ref: '#/components/schemas/Vnd'}
         finalTotalVnd: {$ref: '#/components/schemas/Vnd'}
@@ -474,6 +480,17 @@ components:
         groupCollectionVnd: {$ref: '#/components/schemas/Vnd'}
         remainingAtCheckoutVnd: {$ref: '#/components/schemas/Vnd'}
         paymentMode: {$ref: '#/components/schemas/PaymentMode'}
+        reasonDetails:
+          type: array
+          description: >-
+            Same reasons as `reasons`, in the same order, as stable codes with parameters
+            (006 BenefitReason, e.g. VOUCHER_NOT_SAVED, VOUCHER_NO_EXTRA_DISCOUNT) so the screen can translate them.
+          items:
+            type: object
+            required: [code]
+            properties:
+              code: {type: string}
+              params: {type: object, additionalProperties: {type: string}}
         reasons:
           type: array
           items: {type: string}
@@ -504,11 +521,12 @@ components:
         scheduledEnd: {type: string, format: date-time}
     QuotedTicket:
       type: object
-      required: [participantOrdinal, packagePriceVnd, voucherDiscountVnd, pointsUsed, pointDiscountVnd, finalPriceVnd, collectedAtBookingVnd, collectionKind, remainingVnd]
+      required: [participantOrdinal, packagePriceVnd, autoDiscountVnd, voucherDiscountVnd, pointsUsed, pointDiscountVnd, finalPriceVnd, collectedAtBookingVnd, collectionKind, remainingVnd]
       properties:
         participantOrdinal: {type: integer, minimum: 1, description: One-based position of the person inside the line.}
         packagePriceVnd: {$ref: '#/components/schemas/Vnd'}
-        voucherDiscountVnd: {$ref: '#/components/schemas/Vnd'}
+        autoDiscountVnd: {$ref: '#/components/schemas/Vnd', description: The ticket's share of the automatic discount, as 006 split it.}
+        voucherDiscountVnd: {$ref: '#/components/schemas/Vnd', description: The ticket's share of the voucher only, as 006 split it.}
         pointsUsed: {type: integer, format: int64, minimum: 0}
         pointDiscountVnd: {$ref: '#/components/schemas/Vnd'}
         finalPriceVnd: {$ref: '#/components/schemas/Vnd'}

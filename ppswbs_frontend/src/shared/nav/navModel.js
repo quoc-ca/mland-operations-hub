@@ -3,10 +3,12 @@
 // Visibility mirrors the old sidebar and is navigation only; the backend decides every permission. A tab that carries a
 // waiting-work badge links to the list filtered to exactly the counted set (spec 013 FR-004).
 
-const any = () => true;
+// CARRIER (GHTK partner, Session 2026-11-23) sees only its own three pages, never the Mland operations groups.
+const any = role => role !== 'CARRIER';
 const manager = role => role === 'MANAGER';
 const staffOrManager = role => role === 'MANAGER' || role === 'STAFF';
-const notAdmin = role => role !== 'ADMIN';
+const notAdmin = role => role !== 'ADMIN' && role !== 'CARRIER';
+const carrier = role => role === 'CARRIER';
 
 /**
  * `match`: exact path, or a prefix when it ends with `*`. `actions` are the header buttons of the tab's own page
@@ -18,7 +20,8 @@ export const GROUPS = [
     tabs: [
       { id: 'dashboard', vi: 'Dashboard', en: 'Dashboard', to: '/manager/dashboard', match: ['/manager/dashboard', '/manager/home'], visible: manager },
       { id: 'staff-home', vi: 'Trang chủ', en: 'Home', to: '/staff/home', match: ['/staff/home'], visible: role => role === 'STAFF' },
-      { id: 'home', vi: 'Trang chủ', en: 'Home', to: '/home', match: ['/home'], visible: role => !staffOrManager(role) },
+      { id: 'home', vi: 'Trang chủ', en: 'Home', to: '/home', match: ['/home'], visible: role => !staffOrManager(role) && !carrier(role) },
+      { id: 'carrier-home', vi: 'Trang chủ', en: 'Home', to: '/carrier', match: ['/carrier'], visible: carrier },
     ],
   },
   {
@@ -115,12 +118,28 @@ export const GROUPS = [
       { id: 'audit', vi: 'Nhật ký audit', en: 'Audit log', to: '/operations/audit', match: ['/operations/audit*'], visible: manager },
     ],
   },
+  // GHTK partner portal (CARRIER only, Session 2026-11-23): home is the "home" group's carrier tab.
+  {
+    id: 'carrier-orders', icon: 'truck', vi: 'Đơn hàng', en: 'Shipments',
+    tabs: [{ id: 'orders', vi: 'Đơn hàng', en: 'Shipments', to: '/carrier/orders', match: ['/carrier/orders*'], visible: carrier }],
+  },
+  {
+    id: 'carrier-stats', icon: 'dash', vi: 'Thống kê', en: 'Statistics',
+    tabs: [{ id: 'stats', vi: 'Thống kê', en: 'Statistics', to: '/carrier/stats', match: ['/carrier/stats*'], visible: carrier }],
+  },
 ];
 
 const matches = (pattern, pathname) => (pattern.endsWith('*') ? pathname.startsWith(pattern.slice(0, -1)) : pathname === pattern);
 
 /** The group and tab a path belongs to, whatever the role (a tab hidden from the role is still the place the page is in). */
-export function locate(pathname) {
+export function locate(pathname, search = '') {
+  // /operations/admin holds three in-page tabs. Locations and Slots belong to "Chi nhánh và khung giờ"; the Sessions one
+  // (?tab=sessions) is session administration, so it takes the session tab of the workshop group, not the locations title.
+  if (pathname.startsWith('/operations/admin') && new URLSearchParams(search).get('tab') === 'sessions') {
+    const group = GROUPS.find(item => item.id === 'workshop');
+    const tab = group?.tabs.find(item => item.id === 'sessions');
+    if (group && tab) return { group, tab };
+  }
   for (const group of GROUPS) {
     for (const tab of group.tabs) {
       if (tab.match.some(pattern => matches(pattern, pathname))) return { group, tab };

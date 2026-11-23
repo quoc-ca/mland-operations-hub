@@ -66,6 +66,8 @@ class TicketVoucherScopeServiceTest {
         AcceptedBenefitPart part = mock(AcceptedBenefitPart.class);
         when(part.getPartRef()).thenReturn(TICKET);
         when(part.getProgramDiscount()).thenReturn(BigInteger.valueOf(27_273));
+        // Session 2026-11-22: only the voucher share is at stake (no automatic share here).
+        when(part.getVoucherDiscount()).thenReturn(BigInteger.valueOf(27_273));
         AcceptedBenefitPart other = mock(AcceptedBenefitPart.class);
         when(other.getPartRef()).thenReturn("L0-T2");
         when(parts.findByAcceptedBenefitIdOrderByPartSeqAsc(5L)).thenReturn(List.of(other, part));

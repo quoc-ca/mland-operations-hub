@@ -812,12 +812,15 @@ describe('T071 public catalogue', () => {
       'GET /api/v1/products/42': json(200, publicProduct()),
     });
     open('/products');
-    expect(await screen.findByText('1.125.000 ₫ – 1.170.000 ₫')).toBeInTheDocument();
+    // Spec 006 (2026-11-22): the price also takes off the best voucher, measured after the automatic discount: size 12 = 1.250.000 − 10% − 20.000.
+    expect(await screen.findByText('1.105.000 ₫ – 1.170.000 ₫')).toBeInTheDocument();
+    expect(screen.getByText('Giá sau voucher MLAND20')).toBeInTheDocument();
     expect(screen.getByText('1.250.000 ₫ – 1.300.000 ₫').tagName).toBe('S');
     expect(screen.getByText('Giảm 10%')).toBeInTheDocument();
     // The voucher covers only size 12 of the two sizes: the badge says so.
     expect(screen.getByText('Mã giảm 20.000 ₫ · size 12')).toBeInTheDocument();
-    expect(calls.find(call => call.path === '/api/v1/promotions').query).toEqual({ scope: 'PRODUCT', limit: '100' });
+    // Spec 006 FR-046: the page reads PUBLIC and CLAIM_REQUIRED vouchers both (distribution=ALL), so a saved one can set the price.
+    expect(calls.find(call => call.path === '/api/v1/promotions').query).toEqual({ scope: 'PRODUCT', limit: '100', distribution: 'ALL' });
   });
 
   it('detail lists each offer and says which sizes a partial one covers', async () => {
@@ -1103,6 +1106,24 @@ describe('T072 hand-off to the FE-08 cart', () => {
     expect(calls.find(call => call.method === 'POST').body).toEqual({ variantId: 101, locationId: 9, quantity: 1 });
   });
 
+  it('"Mua Ngay" for a size the cart already holds up to the stock opens checkout with that line (Shopee, 2026-11-23)', async () => {
+    const user = userEvent.setup();
+    mockFetch({
+      'GET /api/v1/products/42': json(200, publicProduct()),
+      'GET /api/v1/product-selling-locations': json(200, locations),
+      'POST /api/v1/members/me/ready-ring-cart/lines': json(409, { code: 'RETAIL_CART_QUANTITY_LIMIT', message: 'Bạn đã có 2 sản phẩm này trong giỏ hàng.' }),
+      'GET /api/v1/members/me/ready-ring-cart': json(200, { version: 3, lines: [{ id: '77', variantId: 101, locationId: 9, quantity: 2 }] }),
+    });
+    const { router } = renderRoutes([...productManagementRoutes, { path: '/member/checkout', element: <p>FE-08 checkout</p> }], { path: '/products/42' });
+    await screen.findByRole('option', { name: /MLAND Thủ Đức/ });
+    await user.click(screen.getByRole('button', { name: 'Size 12' }));
+    await user.selectOptions(screen.getByLabelText('Chi nhánh'), '9');
+    await user.click(screen.getByRole('button', { name: 'Mua Ngay' }));
+    expect(await screen.findByText('FE-08 checkout')).toBeInTheDocument();
+    expect(router.state.location.state).toEqual({ cartLineIds: ['77'] });
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+  });
+
   it('"Mua Ngay" opens the FE-08 cart when the added line is not in the reply (FR-059(4))', async () => {
     const user = userEvent.setup();
     mockFetch({
@@ -1217,8 +1238,11 @@ describe('T072 hand-off to the FE-08 cart', () => {
     await user.click(screen.getByRole('button', { name: 'Size 12' }));
     await user.selectOptions(screen.getByRole('combobox', { name: 'Chi nhánh' }), '3');
     await user.click(screen.getByRole('button', { name: 'Thêm Vào Giỏ Hàng' }));
-    expect(await screen.findByText('Giỏ hàng đã đủ 50 dòng.')).toBeInTheDocument();
-    expect(screen.getByText('Mã tra cứu: c-9')).toBeInTheDocument();
+    const popup = await screen.findByRole('alertdialog');
+    expect(popup).toHaveTextContent('Giỏ hàng đã đủ 50 dòng.');
+    expect(popup).not.toHaveTextContent('c-9');
+    await user.click(screen.getByRole('button', { name: 'Đồng ý' }));
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
   });
 });
 

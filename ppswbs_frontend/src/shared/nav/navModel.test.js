@@ -30,8 +30,8 @@ const FILTERED = {
 const filtered = link => FILTERED[link] || link;
 
 describe('navigation model', () => {
-  it('has the ten groups, each with at most five tabs, and unique ids', () => {
-    expect(GROUPS.map(group => group.id)).toEqual(['home', 'products', 'promotions', 'customers', 'retail', 'workshop', 'collect', 'tickets', 'ota', 'system']);
+  it('has the ten groups plus the two GHTK groups, each with at most five tabs, and unique ids', () => {
+    expect(GROUPS.map(group => group.id)).toEqual(['home', 'products', 'promotions', 'customers', 'retail', 'workshop', 'collect', 'tickets', 'ota', 'system', 'carrier-orders', 'carrier-stats']);
     GROUPS.forEach(group => expect(group.tabs.length).toBeLessThanOrEqual(5));
     const keys = GROUPS.flatMap(group => group.tabs.map(tab => tabKey(group, tab)));
     expect(new Set(keys).size).toBe(keys.length);
@@ -74,6 +74,13 @@ describe('navigation model', () => {
     expect(shown).not.toContain('/catalogue-management/products');
   });
 
+  it('shows a GHTK carrier only its home, shipments and statistics (Session 2026-11-23)', () => {
+    expect(visibleGroups('CARRIER').map(entry => entry.group.id)).toEqual(['home', 'carrier-orders', 'carrier-stats']);
+    expect(links('CARRIER')).toEqual(['/carrier', '/carrier/orders', '/carrier/stats']);
+    ['/carrier', '/carrier/orders', '/carrier/stats'].forEach(path => expect(isShellPath(path)).toBe(true));
+    expect(visibleGroups('MANAGER').map(entry => entry.group.id)).not.toContain('carrier-orders');
+  });
+
   it('drops a group that has no tab for the role', () => {
     const staffGroups = visibleGroups('STAFF').map(entry => entry.group.id);
     expect(staffGroups).not.toContain('promotions');
@@ -92,6 +99,20 @@ describe('navigation model', () => {
     expect(pageActions(list, '/catalogue-management/products').map(action => action.vi)).toEqual(['Import Excel', 'Thêm sản phẩm']);
     expect(pageActions(locate('/promotion-management/programs'), '/promotion-management/programs').map(action => action.vi)).toEqual(['Tạo chương trình']);
     expect(pageActions(locate('/operations/admin'), '/operations/admin').map(action => action.vi)).toEqual(['Thêm khung giờ']);
+  });
+
+  it('titles the administration Sessions tab as the session tab, not as locations and slots', () => {
+    const locations = locate('/operations/admin', '?tab=locations');
+    expect(pageTitle(locations, '/operations/admin', 'vi', 'MANAGER')).toBe('Chi nhánh và khung giờ');
+    const slots = locate('/operations/admin', '?tab=slots');
+    expect(pageTitle(slots, '/operations/admin', 'vi', 'MANAGER')).toBe('Chi nhánh và khung giờ');
+
+    const sessions = locate('/operations/admin', '?tab=sessions');
+    expect(sessions.group.id).toBe('workshop');
+    expect(sessions.tab.id).toBe('sessions');
+    expect(pageTitle(sessions, '/operations/admin', 'vi', 'MANAGER')).toBe('Bảng điều phối ca');
+    // The "Thêm khung giờ" button belongs to locations and slots only.
+    expect(pageActions(sessions, '/operations/admin')).toEqual([]);
   });
 
   it('does not take public or member pages into the shell', () => {

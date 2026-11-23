@@ -207,12 +207,51 @@ class LoyaltyRetailQuoteTest {
     }
 
     @Test
-    void choosingAVoucherReplacesTheAutomaticDiscount() {
+    void aChosenVoucherIsAddedOnTopOfTheAutomaticDiscount() {
+        // Session 2026-11-22, FR-015: the best automatic discount stays and the voucher is added on top.
         Result result = RetailQuote.compute(CART, select(SelectionChoice.VOUCHER, 0),
                 voucher(1, fixed(5_000, 5_000, 0), true, Set.of(1L)),
                 List.of(auto(2, EARLY, fixed(30_000, 30_000, 0), Set.of(1L))), POLICY, n(0), false);
-        assertThat(result.programDiscount()).as("never stacked").isEqualTo(n(5_000));
+        assertThat(result.programDiscount()).as("stacked").isEqualTo(n(35_000));
+        assertThat(result.autoDiscount()).isEqualTo(n(30_000));
+        assertThat(result.voucherDiscount()).isEqualTo(n(5_000));
         assertThat(result.candidate().kind()).isEqualTo(ProgramKind.VOUCHER);
+        assertThat(result.auto().programId()).isEqualTo(2L);
+        assertThat(result.lineAutoDiscounts()).containsExactly(n(30_000), n(0));
+        assertThat(result.lineVoucherDiscounts()).containsExactly(n(5_000), n(0));
+    }
+
+    @Test
+    void scenario3a_theVoucherIsMeasuredOnTheLinesAfterTheirAutomaticShare() {
+        // US4 scenario 3a (Session 2026-11-22): A 600.000đ and B 400.000đ in a 10% automatic discount; a 20% voucher
+        // capped at 100.000đ, minimum 300.000đ, covers B only.
+        List<SourceLine> cart = List.of(line(1, 11, 1, 600_000), line(2, 21, 1, 400_000));
+        List<Candidate> autos = List.of(auto(2, EARLY, percent("10", 1_000_000, 0), Set.of(1L, 2L)));
+        Result result = RetailQuote.compute(cart, select(SelectionChoice.VOUCHER, 0),
+                voucher(1, percent("20", 100_000, 300_000), true, Set.of(2L)), autos, POLICY, n(0), false);
+        assertThat(result.autoDiscount()).isEqualTo(n(100_000));
+        assertThat(result.lineAutoDiscounts()).containsExactly(n(60_000), n(40_000));
+        assertThat(result.eligibleSubtotal()).as("B after its automatic share").isEqualTo(n(360_000));
+        assertThat(result.voucherDiscount()).isEqualTo(n(72_000));
+        assertThat(result.lineVoucherDiscounts()).containsExactly(n(0), n(72_000));
+        assertThat(result.programDiscount()).isEqualTo(n(172_000));
+        assertThat(result.eligibleLines()).containsExactly(0, 1);
+
+        Result refused = RetailQuote.compute(cart, select(SelectionChoice.VOUCHER, 0),
+                voucher(1, percent("20", 100_000, 400_000), true, Set.of(2L)), autos, POLICY, n(0), false);
+        assertThat(refused.reasonDetails()).extracting(r -> r.code().name()).containsExactly("BELOW_MINIMUM_AMOUNT");
+        assertThat(refused.programDiscount()).as("the automatic discount still applies").isEqualTo(n(100_000));
+        assertThat(refused.candidate().kind()).isEqualTo(ProgramKind.AUTO_DISCOUNT);
+    }
+
+    @Test
+    void noVoucherStillGetsTheAutomaticDiscount() {
+        // FR-015: NONE means no voucher; the automatic discount cannot be declined.
+        Result result = RetailQuote.compute(CART, select(SelectionChoice.NONE, 0), null,
+                List.of(auto(2, EARLY, fixed(30_000, 30_000, 0), Set.of(1L))), POLICY, n(0), false);
+        assertThat(result.programDiscount()).isEqualTo(n(30_000));
+        assertThat(result.candidate().kind()).isEqualTo(ProgramKind.AUTO_DISCOUNT);
+        assertThat(result.reasonDetails()).isEmpty();
     }
 
     @Test

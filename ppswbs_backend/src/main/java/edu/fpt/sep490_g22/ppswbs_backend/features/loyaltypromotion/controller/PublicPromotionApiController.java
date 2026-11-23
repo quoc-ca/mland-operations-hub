@@ -29,8 +29,10 @@ class PublicPromotionApiController {
     @GetMapping
     ResponseEntity<PublicPromotionDtos.PromotionPage> list(@RequestParam(required = false) Integer limit,
                                                            @RequestParam(required = false) String cursor,
-                                                           @RequestParam(required = false) String scope) {
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(promotions.list(limit, cursor, scope));
+                                                           @RequestParam(required = false) String scope,
+                                                           @RequestParam(required = false) String distribution) {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .body(promotions.list(limit, cursor, scope, distribution));
     }
 
     @GetMapping("/{promotionId}")

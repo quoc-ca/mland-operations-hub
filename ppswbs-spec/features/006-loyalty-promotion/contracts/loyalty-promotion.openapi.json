@@ -55,6 +55,21 @@
             "schema": {
               "$ref": "#/components/schemas/Scope"
             }
+          },
+          {
+            "name": "distribution",
+            "in": "query",
+            "required": false,
+            "description": "Session 2026-11-22 (FR-046): PUBLIC (default) lists automatic discounts and PUBLIC vouchers, so checkout pickers never offer a voucher that must be saved; CLAIM_REQUIRED lists only those; ALL lists both (Kho Voucher and the 006 offer components).",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PUBLIC",
+                "CLAIM_REQUIRED",
+                "ALL"
+              ],
+              "default": "PUBLIC"
+            }
           }
         ],
         "responses": {
@@ -710,7 +725,7 @@
             "$ref": "#/components/responses/DependencyUnavailable"
           }
         },
-        "description": "Save current voucher once; same resource is idempotent, no reservation/quota use. No memberId in input. Only a voucher listed publicly now (enabled, inside its window, with a public target) can be saved; any other programme answers 404 PROMOTION_NOT_FOUND so an ID never reveals a code. A voucher saved earlier stays saveable and listed with its availability (2026-11-10 review). A refused write is audited as request.refused (spec FR-043)."
+        "description": "Save current voucher once; same resource is idempotent, no reservation/quota use for a PUBLIC voucher. Session 2026-11-22 (FR-046): the first save of a CLAIM_REQUIRED voucher claims one use of its total for this Member under the programme lock; no use left or the Member already used it answers 422 PROMOTION_INELIGIBLE with the reason as fieldErrors [{field: reason, message: VOUCHER_NO_USES_LEFT | VOUCHER_MEMBER_LIMIT_REACHED}] (T131), and a repeated save claims nothing more. No memberId in input. Only a voucher listed publicly now (enabled, inside its window, with a public target) can be saved; any other programme answers 404 PROMOTION_NOT_FOUND so an ID never reveals a code. A voucher saved earlier stays saveable and listed with its availability (2026-11-10 review). A refused write is audited as request.refused (spec FR-043)."
       }
     },
     "/api/v1/members/me/loyalty-accounts/current": {
@@ -1290,6 +1305,14 @@
           },
           "perMemberLimit": {
             "$ref": "#/components/schemas/Quota"
+          },
+          "distribution": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VoucherDistribution"
+              }
+            ],
+            "description": "Optional (PUBLIC when left out). CLAIM_REQUIRED requires perMemberLimit = 1, else 400 INVALID_INPUT on perMemberLimit."
           }
         },
         "required": [
@@ -1354,6 +1377,14 @@
           },
           "perMemberLimit": {
             "$ref": "#/components/schemas/Quota"
+          },
+          "distribution": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VoucherDistribution"
+              }
+            ],
+            "description": "Optional (PUBLIC when left out). CLAIM_REQUIRED requires perMemberLimit = 1, else 400 INVALID_INPUT on perMemberLimit."
           }
         },
         "required": [
@@ -1600,6 +1631,14 @@
               "$ref": "#/components/schemas/TargetWarning"
             },
             "description": "Products/sizes of the scope that can no longer be bought since creation (spec clarification 2026-10-26). The programme is not paused or changed; the Manager decides."
+          },
+          "distribution": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VoucherDistribution"
+              }
+            ],
+            "description": "VOUCHER only; omitted for AUTO_DISCOUNT."
           }
         },
         "required": [
@@ -1686,6 +1725,14 @@
               "NO_USES_LEFT"
             ],
             "description": "Session 2026-11-14 (FR-011): NO_USES_LEFT when a voucher's held + consumed uses reached its total limit (held uses count until released); Kho Voucher shows it as \"Đã hết mã\". An automatic discount is always ACTIVE. Information only: the quote and the order decide (FR-013)."
+          },
+          "distribution": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VoucherDistribution"
+              }
+            ],
+            "description": "VOUCHER only; omitted for AUTO_DISCOUNT. A CLAIM_REQUIRED voucher is NO_USES_LEFT when used + held + saved-unused uses reach the total (Đã hết lượt lưu)."
           }
         },
         "required": [
@@ -1726,6 +1773,11 @@
           },
           "committedDiscountAmount": {
             "$ref": "#/components/schemas/NonnegativeAmount"
+          },
+          "claimedCount": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "description": "Session 2026-11-22: saved uses of a CLAIM_REQUIRED voucher not yet held or used (0 for PUBLIC). Not counted as used."
           }
         },
         "required": [
@@ -1790,7 +1842,7 @@
               "NO_USES_LEFT",
               "MEMBER_LIMIT_REACHED"
             ],
-            "description": "NO_PUBLIC_TARGET: product program whose targets are currently all hidden, unpublished or deleted, including a program whose size targets are all no longer public (shown as \"Hiện không có sản phẩm áp dụng\"). NO_USES_LEFT: used plus held uses reached the total limit. MEMBER_LIMIT_REACHED: this Member's used plus held uses reached the per-member limit. Added 2026-11-10 (review); held uses count until released."
+            "description": "NO_PUBLIC_TARGET: product program whose targets are currently all hidden, unpublished or deleted, including a program whose size targets are all no longer public (shown as \"Hiện không có sản phẩm áp dụng\"). NO_USES_LEFT: used plus held uses reached the total limit. MEMBER_LIMIT_REACHED: this Member's used plus held uses reached the per-member limit. Added 2026-11-10 (review); held uses count until released. Session 2026-11-22 (FR-046): for a CLAIM_REQUIRED voucher the Member saved, ACTIVE while the Member's own claimed use is unused (even when the programme has no use left for others), MEMBER_LIMIT_REACHED once it is held or used."
           }
         },
         "required": [
@@ -2115,6 +2167,14 @@
           "targetKey",
           "state"
         ]
+      },
+      "VoucherDistribution": {
+        "type": "string",
+        "enum": [
+          "PUBLIC",
+          "CLAIM_REQUIRED"
+        ],
+        "description": "Session 2026-11-22 (FR-046). PUBLIC: usable without saving. CLAIM_REQUIRED: only a Member who saved it can use it; saving holds one use of the total; perMemberLimit must be 1. Chosen at creation, never changed. Absent for AUTO_DISCOUNT."
       }
     },
     "responses": {

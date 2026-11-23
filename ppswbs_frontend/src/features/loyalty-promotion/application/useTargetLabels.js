@@ -74,13 +74,23 @@ function useLabels(targets, sources, api) {
  * Names of active branches (Session 2026-11-09: "Áp dụng tại" of a product voucher), read once without sign-in when
  * some ID is asked for; a failed read or an inactive branch leaves the name out.
  */
+// One read of the public branch list shared by every caller of the same api (a page of product cards would otherwise
+// ask once per card, Session 2026-11-23); a failed read is forgotten so the next page asks again.
+const branchLists = new WeakMap();
+function publicBranches(api) {
+  if (!branchLists.has(api)) {
+    branchLists.set(api, api.listPublicBranches().catch(error => { branchLists.delete(api); throw error; }));
+  }
+  return branchLists.get(api);
+}
+
 export function usePublicBranchNames(api, branchIds) {
   const [names, setNames] = useState({});
   const key = [...new Set((branchIds || []).map(String))].sort().join(',');
   useEffect(() => {
     if (!key) return undefined;
     let alive = true;
-    api.listPublicBranches()
+    publicBranches(api)
       .then(list => { if (alive) setNames(Object.fromEntries((list?.items || []).map(branch => [String(branch.id), branch.name]))); })
       .catch(() => { /* keep counts only */ });
     return () => { alive = false; };

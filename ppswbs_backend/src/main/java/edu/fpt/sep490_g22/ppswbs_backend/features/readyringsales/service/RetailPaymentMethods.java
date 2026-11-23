@@ -10,8 +10,8 @@ import java.util.Locale;
 
 /** Payment-method rules shared by the preview and acceptance paths (FR-08-041..FR-08-043). */
 public final class RetailPaymentMethods {
-    /** VNPay checkouts keep the original 15-minute hold. */
-    public static final Duration VNPAY_HOLD = Duration.ofMinutes(15);
+    /** VNPay checkouts are held for 10 minutes, and the VNPay link lives as long as the hold (Thinh, 2026-11-22). */
+    public static final Duration VNPAY_HOLD = Duration.ofMinutes(10);
     /** Cash checkouts are held for collection at the branch for 72 hours. */
     public static final Duration CASH_HOLD = Duration.ofHours(72);
 

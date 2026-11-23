@@ -21,6 +21,7 @@ const routes = [{
     { path: '/settlement/refunds', element: <Page label="Trang hoàn tiền" /> },
     { path: '/operations/sessions', element: <Page label="Trang ca" /> },
     { path: '/staff/home', element: <Page label="Trang chủ staff" /> },
+    { path: '/carrier/orders', element: <Page label="Trang vận đơn" /> },
   ],
 }];
 
@@ -90,15 +91,30 @@ describe('operations shell', () => {
     expect(header().queryByRole('link', { name: 'Import Excel' })).not.toBeInTheDocument();
   });
 
-  it('shows a Staff their sessions, their home in the first place and no Manager group, and reads no counts', async () => {
-    const calls = open('STAFF', '/operations/sessions');
+  it('shows a Staff their sessions, their home in the first place and no Manager group, and reads only their own work counts', async () => {
+    const calls = open('STAFF', '/operations/sessions', { 'GET /api/v1/consultations': json(200, { items: [], nextCursor: null, hasMore: false }) });
     expect(await header().findByRole('heading', { level: 1, name: 'Ca của tôi' })).toBeInTheDocument();
     await waitFor(() => expect(rail().getByRole('link', { name: 'Trang chủ' })).toHaveAttribute('href', '/staff/home'));
     expect(rail().queryByRole('link', { name: /Ưu đãi/ })).not.toBeInTheDocument();
     expect(rail().queryByRole('link', { name: /Hệ thống/ })).not.toBeInTheDocument();
     await new Promise(resolve => setTimeout(resolve, 30));
-    expect(calls.filter(call => call.path !== '/api/v1/accounts/me/profile')).toHaveLength(0);
-    expect(rail().queryByText('1')).not.toBeInTheDocument();
+    // Staff badges read lists the backend limits to this Staff (sessions, branch orders, change requests, design queue), never a Manager count.
+    const paths = calls.filter(call => call.path !== '/api/v1/accounts/me/profile').map(call => call.path);
+    const own = ['/api/v1/workshop-sessions', '/api/v1/staff/retail-pickups', '/api/v1/staff/retail-shipments', '/api/v1/workshop-change-requests', '/api/v1/design-review-requests', '/api/v1/consultations'];
+    expect(paths.filter(path => !own.includes(path))).toEqual([]);
+    // The default mocks hold 1 design waiting for review, no open consultation and 2 pending change requests: a Staff sees 1 on Khách hàng and 2 on Vé và hoàn tiền.
+    expect(await rail().findByLabelText('1 việc chờ')).toBeInTheDocument();
+    expect(rail().getByLabelText('2 việc chờ')).toBeInTheDocument();
+  });
+
+  it('gives a GHTK carrier its three pages, the G logo, and language and sign-out at the top right (2026-11-23)', async () => {
+    open('CARRIER', '/carrier/orders', { 'GET /api/v1/carrier/shipments': json(200, { items: [], totalPages: 0 }) });
+    await rail().findByRole('link', { name: /^Đơn hàng/ });
+    expect(rail().getAllByRole('link').map(link => link.getAttribute('href'))).toEqual(['/carrier', '/carrier', '/carrier/orders', '/carrier/stats']);
+    expect(rail().getByRole('link', { name: 'GHTK' })).toBeInTheDocument();
+    expect(rail().queryByRole('button', { name: 'EN' })).not.toBeInTheDocument();
+    expect(rail().queryByRole('link', { name: /Hồ sơ/ })).not.toBeInTheDocument();
+    expect(header().getByRole('button', { name: 'EN' })).toBeInTheDocument();
   });
 
   it('keeps the language switch and the profile link on the rail', async () => {

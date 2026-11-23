@@ -1,3 +1,5 @@
+import { useText } from './useText';
+
 /** Display code of a branch order (FR-08-050/051): server orderCode, else ML + yyMMdd + first 8 id chars. */
 export function orderCode(order, orderedAt) {
   if (order?.orderCode) return order.orderCode;
@@ -46,11 +48,12 @@ export function orderMoney(order, together) {
 
 /** Detail rows shared by Member and Staff: subtotal, shipping only for delivery, discount only when applied. */
 export function OrderMoneyRows({ order, format, together }) {
+  const t = useText();
   const money = orderMoney(order, together);
   return <>
-    <div><dt>Tiền hàng</dt><dd>{format.money(order.subtotal)}</dd></div>
-    {money.hasShipping && <div><dt>Phí vận chuyển</dt><dd>{format.money(order.shippingCharge || '0')}</dd></div>}
-    {money.hasDiscount && <div><dt>Giảm giá (voucher, điểm)</dt><dd>−{format.money(money.discount)}</dd></div>}
-    {money.hasDiscount && money.together > 1 && <div className="wide"><dt>Ghi chú</dt><dd>Đơn tách từ lần đặt gồm {money.together} chi nhánh; giảm giá chia theo tỷ lệ giá trị từng đơn.</dd></div>}
+    <div><dt>{t('Tổng tiền hàng', 'Merchandise subtotal')}</dt><dd>{format.money(order.subtotal)}</dd></div>
+    {money.hasShipping && <div><dt>{t('Tổng tiền phí vận chuyển', 'Shipping total')}</dt><dd>{format.money(order.shippingCharge || '0')}</dd></div>}
+    {money.hasDiscount && <div className="retail-minus"><dt>{t('Tổng ưu đãi (sản phẩm, voucher, điểm)', 'Total discounts (products, voucher, points)')}</dt><dd>−{format.money(money.discount)}</dd></div>}
+    {money.hasDiscount && money.together > 1 && <div className="wide"><dt>{t('Ghi chú', 'Note')}</dt><dd>{t(`Đơn tách từ lần đặt gồm ${money.together} chi nhánh; giảm giá chia theo tỷ lệ giá trị từng đơn.`, `Split from one checkout across ${money.together} branches; discounts are shared by each order's value.`)}</dd></div>}
   </>;
 }

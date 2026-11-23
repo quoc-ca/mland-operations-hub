@@ -484,7 +484,7 @@ public class LatePaymentReviewService {
             WorkshopCartBenefitService.CartBenefits recalculated = benefits.preview(
                     group.getBuyerMemberAccountId(), cart,
                     new BenefitSelection(SelectionChoice.AUTO, null, BigInteger.ZERO));
-            recalculatedDiscount = recalculated.voucherDiscountVnd();
+            recalculatedDiscount = recalculated.programDiscountVnd();
         } catch (RuntimeException ex) {
             log.warn("Could not recalculate automatic discount for group {}: {}", group.getGroupCode(), ex.getMessage());
             return false;
