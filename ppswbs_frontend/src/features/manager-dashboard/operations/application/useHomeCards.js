@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useHttp } from '../../../shared/api/useHttp';
-import { useAuth } from '../../../shared/auth/AuthProvider';
-import { registerPrivateStateCleanup } from '../../../shared/auth/privateStateCleanup';
+import { useHttp } from '../../../../shared/api/useHttp';
+import { useAuth } from '../../../../shared/auth/AuthProvider';
+import { registerPrivateStateCleanup } from '../../../../shared/auth/privateStateCleanup';
 import { createHomeReads } from '../infrastructure/homeReads';
 import { hoursAgoInstant, todayInVietnam } from './vietnamTime';
 
@@ -10,7 +10,7 @@ const idle = { state: 'loading', value: null, error: null };
 
 /**
  * Loads every block of the Manager dashboard's operations part on its own: a failure stays in its own block, a block is
- * dropped on session loss, nothing refreshes on a timer (spec 013 FR-006, FR-013, FR-018). `branch` ('all' or a
+ * dropped on session loss, nothing refreshes on a timer (spec 010 FR-037, FR-023; 014 FR-012). `branch` ('all' or a
  * location id) only affects the today strip (FR-008). Waiting-work counts are not read here: the navigation rail shows
  * them as badges (`useNavBadges`). Returns the state of each block ({ state: loading | ready | unavailable, value, error }).
  */

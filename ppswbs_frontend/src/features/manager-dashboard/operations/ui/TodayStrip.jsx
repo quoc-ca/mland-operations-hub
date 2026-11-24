@@ -1,5 +1,5 @@
 import React from 'react';
-import { useT } from '../../../shared/i18n/I18nProvider';
+import { useT } from '../../../../shared/i18n/I18nProvider';
 import { managerHomeMessages } from './messages';
 
 /** Sessions today and cancelled ones, with a branch picker. Operations only: no revenue and no utilization (FR-007). */

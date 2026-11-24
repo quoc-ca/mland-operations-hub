@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router';
-import { useEnumLabel, useLanguage, useT } from '../../../shared/i18n/I18nProvider';
+import { useEnumLabel, useLanguage, useT } from '../../../../shared/i18n/I18nProvider';
 import { formatVietnamTime } from '../application/vietnamTime';
 import { managerHomeMessages } from './messages';
 

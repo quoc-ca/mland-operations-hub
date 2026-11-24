@@ -6,7 +6,7 @@ import './managerHome.css';
 
 /**
  * The operations half of the Manager dashboard: today's operations, then the caller's revenue block, then recent events.
- * Each block loads and fails on its own. Read-only (spec 013 FR-012).
+ * Each block loads and fails on its own. Read-only (spec 010 FR-015).
  */
 export default function HomeBlocks({ revenue }) {
   const [branch, setBranch] = useState('all'); // kept for the visit only, not a saved preference (FR-008)

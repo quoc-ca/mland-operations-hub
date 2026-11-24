@@ -150,7 +150,7 @@ function CarrierTopRight() {
 }
 
 /**
- * Layout of every operations screen (spec 013, navigation decision of 2026-11-22): a rail of groups, and in the page
+ * Layout of every operations screen (spec 014, navigation decision of 2026-11-22): a rail of groups, and in the page
  * a header (breadcrumb, title, action buttons) with the tabs of the group. Navigation only; the backend decides
  * every permission.
  */

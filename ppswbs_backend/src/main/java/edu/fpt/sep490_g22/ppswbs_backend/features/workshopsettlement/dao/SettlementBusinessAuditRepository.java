@@ -37,7 +37,7 @@ public interface SettlementBusinessAuditRepository extends JpaRepository<Settlem
                                            @Param("beforeId") Long beforeId, Pageable pageable);
 
     /**
-     * Manager home (013 R-5): the same page as {@link #findPage}, but only denied attempts, i.e. rows whose action code
+     * navigation shell and dashboard (014 R-5): the same page as {@link #findPage}, but only denied attempts, i.e. rows whose action code
      * starts with {@code DENIED_} (the way 003.3 records a refused caller). The existing query is left unchanged.
      */
     @Query("""

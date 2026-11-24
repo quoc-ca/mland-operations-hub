@@ -1,8 +1,8 @@
 import React from 'react';
 import { describe, expect, it } from 'vitest';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
-import { executePrivateStateCleanup } from '../../../shared/auth/privateStateCleanup';
-import { fakeSession, json, mockFetch, renderRoutes } from '../../../test/render';
+import { executePrivateStateCleanup } from '../../../../shared/auth/privateStateCleanup';
+import { fakeSession, json, mockFetch, renderRoutes } from '../../../../test/render';
 import { baseHandlers, profile, routes } from './helpers';
 
 const open = async (handlers, options = {}) => {

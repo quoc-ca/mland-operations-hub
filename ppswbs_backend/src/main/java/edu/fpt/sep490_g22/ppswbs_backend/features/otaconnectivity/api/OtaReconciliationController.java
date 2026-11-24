@@ -36,7 +36,7 @@ public class OtaReconciliationController {
         return new OtaReconciliationWorkItemListResponse(reconciliationService.listWorkItems(status, category, actor));
     }
 
-    /** Manager home (013 R-4): {@code ?needsAttention=true} lists exactly what the card counts (OPEN and ESCALATED). */
+    /** navigation shell and dashboard (014 R-4): {@code ?needsAttention=true} lists exactly what the card counts (OPEN and ESCALATED). */
     @GetMapping(params = "needsAttention=true")
     public OtaReconciliationWorkItemListResponse listNeedingAttention(
             @RequestHeader(value = "Authorization", required = false) String authorization) {
@@ -44,7 +44,7 @@ public class OtaReconciliationController {
         return new OtaReconciliationWorkItemListResponse(reconciliationService.listNeedingAttention(actor));
     }
 
-    /** Manager home (013 R-4): {"waiting": n}, the size of the list returned by {@code ?needsAttention=true}. */
+    /** navigation shell and dashboard (014 R-4): {"waiting": n}, the size of the list returned by {@code ?needsAttention=true}. */
     @GetMapping("/needing-attention-count")
     public java.util.Map<String, Long> needingAttentionCount(
             @RequestHeader(value = "Authorization", required = false) String authorization) {

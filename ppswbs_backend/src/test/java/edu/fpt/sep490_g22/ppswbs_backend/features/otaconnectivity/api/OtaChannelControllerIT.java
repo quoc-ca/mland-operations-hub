@@ -168,7 +168,7 @@ class OtaChannelControllerIT {
                 FROM.plusSeconds(3600), FROM.plusSeconds(7200), 10, "PUBLISHED", 1, "test-change-1", FROM));
     }
 
-    /** 013 R-4: on MySQL, the count equals the size of the list the card opens, and only OPEN and ESCALATED count. */
+    /** 014 R-4: on MySQL, the count equals the size of the list the card opens, and only OPEN and ESCALATED count. */
     @Test void needingAttentionCountEqualsTheListTheCardOpens() throws Exception {
         String reference = create().path("mappingId").asText();
         var mapping = mappings.findByPublicReference(reference).orElseThrow();

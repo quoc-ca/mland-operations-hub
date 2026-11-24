@@ -1,6 +1,6 @@
 import React from 'react';
-import { json } from '../../../test/render';
-import { managerDashboardRoutes } from '../../manager-dashboard/routes';
+import { json } from '../../../../test/render';
+import { managerDashboardRoutes } from '../../routes';
 import { managerHomeRoutes } from '../routes';
 
 export const routes = [

@@ -2,7 +2,7 @@ import React from 'react';
 import { describe, expect, it } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
-import { I18nProvider, useLanguage } from '../../../shared/i18n/I18nProvider';
+import { I18nProvider, useLanguage } from '../../../../shared/i18n/I18nProvider';
 import { managerHomeMessages } from '../ui/messages';
 import RecentEvents from '../ui/RecentEvents';
 

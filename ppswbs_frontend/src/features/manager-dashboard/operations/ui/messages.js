@@ -1,4 +1,4 @@
-// Labels of Manager Home in both languages (spec FR-016). Wording follows the spec; only section titles and states are added.
+// Labels of the dashboard operations blocks in both languages (spec 010 FR-038). Wording follows the spec; only section titles and states are added.
 export const managerHomeMessages = {
   vi: {
     retry: 'Thử lại',

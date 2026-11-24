@@ -1,5 +1,5 @@
 // Manager Home: "today" and the 24-hour window are Vietnam calendar time (UTC+7), whatever the browser's time zone
-// (spec FR-007, FR-010; research D7).
+// (spec 010 FR-034, FR-036; research D7).
 const VIETNAM_ZONE = 'Asia/Ho_Chi_Minh';
 
 /** Today's date in Vietnam as yyyy-MM-dd. */

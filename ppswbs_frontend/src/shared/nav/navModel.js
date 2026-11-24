@@ -1,7 +1,7 @@
-// Navigation model of the operations shell (spec 013, decision of 2026-11-22): 10 groups on a rail, each with at most
+// Navigation model of the operations shell (spec 014, decision of 2026-11-22): 10 groups on a rail, each with at most
 // five tabs. Group ids and tab ids are a contract: `useNavBadges` keys its counts by `groupId` and `groupId/tabId`.
 // Visibility mirrors the old sidebar and is navigation only; the backend decides every permission. A tab that carries a
-// waiting-work badge links to the list filtered to exactly the counted set (spec 013 FR-004).
+// waiting-work badge links to the list filtered to exactly the counted set (spec 014 FR-005).
 
 // CARRIER (GHTK partner, Session 2026-11-23) sees only its own three pages, never the Mland operations groups.
 const any = role => role !== 'CARRIER';

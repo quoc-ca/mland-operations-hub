@@ -60,7 +60,7 @@ public class OtaReconciliationService {
     }
 
     /**
-     * Manager home (013 R-4): the one meaning of "needing attention" for reconciliation, used by both the card count
+     * navigation shell and dashboard (014 R-4): the one meaning of "needing attention" for reconciliation, used by both the card count
      * and the list the card opens (FR-004): OPEN and ESCALATED. IN_PROGRESS is being handled and RESOLVED is closed.
      */
     public static final List<String> NEEDS_ATTENTION = List.of(OPEN, ESCALATED);

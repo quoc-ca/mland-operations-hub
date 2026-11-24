@@ -26,7 +26,7 @@ const account = {
 };
 
 /**
- * The Staff home. The Manager home is its own page (feature 013, `features/managerhome`) and no longer a fixed menu.
+ * The Staff home. The Manager home is its own page (feature 010, `features/manager-dashboard`) and no longer a fixed menu.
  */
 export function operatorSections() {
   return [dailyWork, products, account];
