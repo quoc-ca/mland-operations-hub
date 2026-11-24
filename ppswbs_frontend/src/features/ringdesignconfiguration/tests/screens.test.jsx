@@ -1,9 +1,11 @@
 import React from 'react';
-import { screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { fakeSession, json, mockFetch, renderRoutes } from '../../../test/render';
 import { ringDesignConfigurationRoutes } from '../routes';
+import { I18nProvider } from '../../../shared/i18n/I18nProvider';
+import RingPreview from '../ui/RingPreview';
 
 const testRoutes = [
   ...ringDesignConfigurationRoutes,
@@ -575,6 +577,54 @@ describe('Feature-012 Workshop Ring Design Configuration Screens', () => {
       expect(screen.getByText('DSG-PAGE-10')).toBeInTheDocument();
       expect(screen.queryByText('DSG-PAGE-1')).not.toBeInTheDocument();
       expect(screen.getByTestId('workshop-pagination-info')).toHaveTextContent('Hiển thị 6–10 trên tổng số 12 mục');
+    });
+
+    it('renders laser preview gallery on a single non-wrapping row with text-overflow ellipsis when contrast and sharpness are 100', () => {
+      const mockModel = {
+        material: { primary: '#D6D8DC' },
+        shape: { name: 'Round' },
+        customImages: [
+          {
+            id: 'img-1',
+            placement: 'OUTER_BAND',
+            contrast: 100,
+            sharpness: 100,
+            previewDataUrl: 'data:image/png;base64,mock1',
+          },
+          {
+            id: 'img-2',
+            placement: 'INNER_BAND',
+            contrast: 100,
+            sharpness: 100,
+            previewDataUrl: 'data:image/png;base64,mock2',
+          },
+        ],
+      };
+
+      const { getByTestId } = render(
+        <I18nProvider initialLanguage="vi">
+          <RingPreview previewModel={mockModel} />
+        </I18nProvider>
+      );
+
+      const gallery = getByTestId('laser-preview-gallery');
+      expect(gallery).toBeInTheDocument();
+
+      const flexContainer = gallery.querySelector('div[style*="display: flex"]');
+      expect(flexContainer).toHaveStyle({ flexWrap: 'nowrap' });
+
+      const item1 = getByTestId('laser-preview-item-img-1');
+      const item2 = getByTestId('laser-preview-item-img-2');
+      expect(item1).toHaveStyle({ maxWidth: '160px', flex: '0 0 160px' });
+      expect(item2).toHaveStyle({ maxWidth: '160px', flex: '0 0 160px' });
+
+      const caption1 = item1.querySelector('span[title]');
+      expect(caption1).toHaveStyle({ textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
+      expect(caption1.title).toBe('Mặt ngoài (+100k) · C:100 S:100');
+
+      const caption2 = item2.querySelector('span[title]');
+      expect(caption2).toHaveStyle({ textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
+      expect(caption2.title).toBe('Mặt trong (+100k) · C:100 S:100');
     });
   });
 });

@@ -5,10 +5,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.fpt.sep490_g22.ppswbs_backend.designreview.application.DesignReviewException;
 import edu.fpt.sep490_g22.ppswbs_backend.designreview.domain.CustomDesignReferenceSnapshot;
 import edu.fpt.sep490_g22.ppswbs_backend.designreview.domain.DesignRequest;
+import edu.fpt.sep490_g22.ppswbs_backend.designreview.domain.DesignRequestImage;
 import edu.fpt.sep490_g22.ppswbs_backend.designreview.domain.ReviewStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.designreview.infrastructure.CustomDesignReferenceSnapshotRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.designreview.infrastructure.DesignRequestImageRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.designreview.infrastructure.DesignRequestRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.designreview.web.DesignReviewDtos.*;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.custommanufacturing.dao.CustomOrderIdempotencyRecordRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.custommanufacturing.dao.CustomOrderPaymentContextRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.custommanufacturing.dao.CustomOrderQuoteRepository;
@@ -39,9 +42,11 @@ public class CustomOrderService {
     private final CustomOrderPaymentContextRepository paymentContextRepository;
     private final CustomOrderIdempotencyRecordRepository idempotencyRecordRepository;
     private final DesignRequestRepository designRequestRepository;
+    private final DesignRequestImageRepository designRequestImageRepository;
     private final CustomDesignReferenceSnapshotRepository snapshotRepository;
     private final PaymentOwnerRegistry paymentOwnerRegistry;
     private final PaymentGatewayCheckoutPort vnpayAdapter;
+    private final AccountFacade accountFacade;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Transactional
@@ -189,6 +194,28 @@ public class CustomOrderService {
         return orders.stream()
                 .map(this::mapToOrderDto)
                 .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<CustomOrderProjectionDto> listAllCustomOrdersForOperations(String status) {
+        List<CustomOrder> orders;
+        if (status != null && !status.isBlank() && !"ALL".equalsIgnoreCase(status.trim())) {
+            String targetStatus = status.trim().toUpperCase();
+            orders = customOrderRepository.findByStatusOrderByCreatedAtDesc(targetStatus);
+        } else {
+            orders = customOrderRepository.findAllByOrderByCreatedAtDesc();
+        }
+        return orders.stream()
+                .map(this::mapToOrderDto)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public CustomOrderProjectionDto getCustomOrderForOperations(String customOrderIdOrRef) {
+        CustomOrder order = customOrderRepository.findById(customOrderIdOrRef)
+                .or(() -> customOrderRepository.findByCustomOrderReference(customOrderIdOrRef))
+                .orElseThrow(() -> DesignReviewException.notFound("NOT_FOUND", "Không tìm thấy đơn hàng gia công tùy chỉnh."));
+        return mapToOrderDto(order);
     }
 
     @Transactional(readOnly = true)
@@ -434,7 +461,7 @@ public class CustomOrderService {
             default -> null;
         };
 
-        return CustomOrderProjectionDto.builder()
+        CustomOrderProjectionDto.CustomOrderProjectionDtoBuilder builder = CustomOrderProjectionDto.builder()
                 .customOrderReference(order.getCustomOrderReference())
                 .status(order.getStatus())
                 .quote(quoteDto)
@@ -444,6 +471,41 @@ public class CustomOrderService {
                 .fulfilmentStatus(order.getFulfilmentStatus())
                 .createdAt(order.getCreatedAt().toString())
                 .updatedAt(order.getUpdatedAt().toString())
-                .build();
+                .memberAccountId(order.getMemberAccountId())
+                .shippingAddress(order.getShippingAddress());
+
+        if (order.getMemberAccountId() != null && accountFacade != null) {
+            try {
+                accountFacade.findAccountFullName(order.getMemberAccountId()).ifPresent(builder::customerName);
+                accountFacade.findAccountEmail(order.getMemberAccountId()).ifPresent(builder::customerEmail);
+            } catch (Exception e) {
+                log.debug("Could not resolve account info for memberAccountId {}: {}", order.getMemberAccountId(), e.getMessage());
+            }
+        }
+
+        if (order.getDesignRequestId() != null) {
+            builder.designRequestId(order.getDesignRequestId());
+            designRequestRepository.findById(order.getDesignRequestId()).ifPresent(dr -> {
+                builder.designRequestReference(dr.getRequestReference());
+                builder.designOriginalDescription(dr.getDescription());
+                builder.designRef(dr.getDesignReference());
+                builder.staffExplanation(dr.getDecisionExplanation());
+            });
+
+            List<DesignRequestImage> images = designRequestImageRepository.findByDesignRequestId(order.getDesignRequestId());
+            if (images != null && !images.isEmpty()) {
+                List<ImageProjectionDto> imageDtos = images.stream().map(img -> ImageProjectionDto.builder()
+                        .imageReference(img.getImageReference())
+                        .qualityStatus(img.getQualityStatus())
+                        .qualityReason(img.getQualityReason())
+                        .originalFilename(img.getOriginalFilename())
+                        .fileSizeBytes(img.getFileSizeBytes())
+                        .build()
+                ).collect(Collectors.toList());
+                builder.designImages(imageDtos);
+            }
+        }
+
+        return builder.build();
     }
 }

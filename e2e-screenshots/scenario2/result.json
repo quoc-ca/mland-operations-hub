@@ -1,0 +1,55 @@
+{
+  "scenarioId": "E2E-XF-004-012-013-002",
+  "status": "PASS",
+  "isolationKey": "iso_sc2_1795543258185",
+  "designId": "DSG-45f750f6-c088-4ce0-9057-278461c732a5",
+  "designRequestId": "c52d64fd-1e4e-499f-9675-9b72b44b1abf",
+  "customOrderId": "CO-A07322F7",
+  "navCount": 18,
+  "timings": [
+    {
+      "stepName": "1. Member Sign In",
+      "durationSec": "4.61"
+    },
+    {
+      "stepName": "2-4. Ring Configurator & Dynamic Preview",
+      "durationSec": "5.33"
+    },
+    {
+      "stepName": "5-7. Save & Evaluate Design",
+      "durationSec": "2.90"
+    },
+    {
+      "stepName": "8-11. Submit Custom Design Request",
+      "durationSec": "5.67"
+    },
+    {
+      "stepName": "12-14. Staff CLARIFICATION_REQUIRED Decision",
+      "durationSec": "10.72"
+    },
+    {
+      "stepName": "15-18. Member Submit Clarification Response",
+      "durationSec": "14.82"
+    },
+    {
+      "stepName": "19-21. Staff Accept Revised Request",
+      "durationSec": "10.64"
+    },
+    {
+      "stepName": "22. Staff Prepare Quote",
+      "durationSec": "3.16"
+    },
+    {
+      "stepName": "23-25. Manager Approve Quote",
+      "durationSec": "14.09"
+    },
+    {
+      "stepName": "26-30. Member 100% Full Payment",
+      "durationSec": "26.64"
+    },
+    {
+      "stepName": "31-35. Production & Fulfilment Completion",
+      "durationSec": "12.90"
+    }
+  ]
+}

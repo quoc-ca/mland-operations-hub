@@ -1,12 +1,15 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.custommanufacturing.service;
 
+import java.util.List;
 import edu.fpt.sep490_g22.ppswbs_backend.designreview.application.DesignReviewException;
 import edu.fpt.sep490_g22.ppswbs_backend.designreview.domain.DesignRequest;
 import edu.fpt.sep490_g22.ppswbs_backend.designreview.domain.ReviewStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.designreview.infrastructure.CustomDesignReferenceSnapshotRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.designreview.infrastructure.DesignRequestImageRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.designreview.infrastructure.DesignRequestRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.designreview.web.DesignReviewDtos.PaymentAttemptProjectionDto;
 import edu.fpt.sep490_g22.ppswbs_backend.designreview.web.DesignReviewDtos.QuoteProjectionDto;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.custommanufacturing.dao.CustomOrderIdempotencyRecordRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.custommanufacturing.dao.CustomOrderPaymentContextRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.custommanufacturing.dao.CustomOrderQuoteRepository;
@@ -57,10 +60,16 @@ class CustomOrderServiceTest {
     private DesignRequestRepository designRequestRepository;
 
     @Mock
+    private DesignRequestImageRepository designRequestImageRepository;
+
+    @Mock
     private CustomDesignReferenceSnapshotRepository snapshotRepository;
 
     @Mock
     private PaymentOwnerRegistry paymentOwnerRegistry;
+
+    @Mock
+    private AccountFacade accountFacade;
 
     private VnpayPaymentGatewayCheckoutAdapter vnpayAdapter;
 
@@ -87,9 +96,11 @@ class CustomOrderServiceTest {
                 paymentContextRepository,
                 idempotencyRecordRepository,
                 designRequestRepository,
+                designRequestImageRepository,
                 snapshotRepository,
                 paymentOwnerRegistry,
-                vnpayAdapter
+                vnpayAdapter,
+                accountFacade
         );
 
         testOrder = CustomOrder.builder()
@@ -227,5 +238,38 @@ class CustomOrderServiceTest {
 
         verify(quoteRepository).save(testQuote);
         verify(customOrderRepository).save(testOrder);
+    }
+
+    @Test
+    @DisplayName("listAllCustomOrdersForOperations filters by status when status parameter is supplied")
+    void listAllCustomOrdersForOperations_WithStatus_QueriesFiltered() {
+        when(customOrderRepository.findByStatusOrderByCreatedAtDesc("PAID")).thenReturn(List.of(testOrder));
+
+        var result = customOrderService.listAllCustomOrdersForOperations("PAID");
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getCustomOrderReference()).isEqualTo(orderRef);
+        verify(customOrderRepository).findByStatusOrderByCreatedAtDesc("PAID");
+    }
+
+    @Test
+    @DisplayName("listAllCustomOrdersForOperations returns all orders when status is null or ALL")
+    void listAllCustomOrdersForOperations_All_QueriesAll() {
+        when(customOrderRepository.findAllByOrderByCreatedAtDesc()).thenReturn(List.of(testOrder));
+
+        var result = customOrderService.listAllCustomOrdersForOperations("ALL");
+
+        assertThat(result).hasSize(1);
+        verify(customOrderRepository).findAllByOrderByCreatedAtDesc();
+    }
+
+    @Test
+    @DisplayName("getCustomOrderForOperations resolves order by id or reference")
+    void getCustomOrderForOperations_Success() {
+        when(customOrderRepository.findById(orderId)).thenReturn(Optional.of(testOrder));
+
+        var result = customOrderService.getCustomOrderForOperations(orderId);
+
+        assertThat(result.getCustomOrderReference()).isEqualTo(orderRef);
     }
 }

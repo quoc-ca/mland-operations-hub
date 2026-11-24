@@ -8,6 +8,7 @@ import DesignDetailPage from './workspace/DesignDetailPage';
 import DesignWorkspacePage from './workspace/DesignWorkspacePage';
 import MyCustomOrdersPage from './workspace/MyCustomOrdersPage';
 import CustomOrderDetailPage from './workspace/CustomOrderDetailPage';
+import StaffCustomOrdersPage from './workspace/StaffCustomOrdersPage';
 import './designreview.css';
 
 // Routes for Feature-004 Design Request and Custom Manufacturing
@@ -34,6 +35,22 @@ export const designReviewRoutes = [
     element: (
       <RequireSession>
         <CustomOrderDetailPage />
+      </RequireSession>
+    ),
+  },
+  {
+    path: '/staff/custom-orders',
+    element: (
+      <RequireSession>
+        <StaffCustomOrdersPage />
+      </RequireSession>
+    ),
+  },
+  {
+    path: '/manager/custom-orders',
+    element: (
+      <RequireSession>
+        <StaffCustomOrdersPage />
       </RequireSession>
     ),
   },

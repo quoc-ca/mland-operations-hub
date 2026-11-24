@@ -59,6 +59,7 @@ export const GROUPS = [
     id: 'customers', icon: 'chat', vi: 'Khách hàng', en: 'Customers',
     tabs: [
       { id: 'design-review', vi: 'Duyệt thiết kế', en: 'Design review', to: '/design-review-requests', match: ['/design-review-requests*'], visible: staffOrManager },
+      { id: 'custom-orders-ops', vi: 'Đơn gia công', en: 'Custom orders', to: '/staff/custom-orders', match: ['/staff/custom-orders*', '/manager/custom-orders*'], visible: staffOrManager },
       { id: 'consultations', vi: 'Tư vấn khách hàng', en: 'Customer consultation', to: '/operations/consultations', match: ['/operations/consultations*'], visible: staffOrManager },
       { id: 'reviews', vi: 'Đánh giá', en: 'Reviews', to: '/review-moderation', match: ['/review-moderation*'], visible: staffOrManager },
     ],

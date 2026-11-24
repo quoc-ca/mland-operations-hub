@@ -15,6 +15,8 @@ describe('Feature-004 & Custom Manufacturing Frontend (Dev C)', () => {
             customOrderReference: 'CO-A1B2C3D4',
             status: 'FULL_PAYMENT_PENDING',
             createdAt: new Date().toISOString(),
+            designRequestReference: 'DR-REQ777',
+            designOriginalDescription: 'Thiết kế nhẫn hoa hồng',
             quote: {
               quoteReference: 'QUO-12345678',
               quoteGeneration: 1,
@@ -39,6 +41,8 @@ describe('Feature-004 & Custom Manufacturing Frontend (Dev C)', () => {
     expect(screen.getByText(/^15\.000\.000\s₫$/)).toBeInTheDocument();
     expect(screen.getByText('Phiên bản báo giá: Lần #1')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Thanh toán toàn bộ/i })).toBeInTheDocument();
+    expect(screen.getByText(/DR-REQ777/)).toBeInTheDocument();
+    expect(screen.getByText(/Thiết kế nhẫn hoa hồng/)).toBeInTheDocument();
 
     // Invariant checks: NO cart, NO deposit, NO remaining balance
     expect(screen.queryByText(/thêm vào giỏ/i)).not.toBeInTheDocument();
@@ -60,6 +64,7 @@ describe('Feature-004 & Custom Manufacturing Frontend (Dev C)', () => {
           description: 'Mẫu nhẫn hoa văn lá',
           explanation: 'Vui lòng cung cấp thêm kích thước lòng nhẫn chính xác (size mm).',
           decisionExplanation: 'Vui lòng cung cấp thêm kích thước lòng nhẫn chính xác (size mm).',
+          customOrderReference: 'CO-CREATED888',
         },
       ]),
     });
@@ -76,6 +81,7 @@ describe('Feature-004 & Custom Manufacturing Frontend (Dev C)', () => {
     expect(await screen.findByText('DR-REQ001')).toBeInTheDocument();
     expect(screen.getByText('Cần làm rõ thông tin')).toBeInTheDocument();
     expect(screen.getByText(/Vui lòng cung cấp thêm kích thước lòng nhẫn/i)).toBeInTheDocument();
+    expect(screen.getByText(/CO-CREATED888/)).toBeInTheDocument();
 
     const clarifyBtn = screen.getByRole('button', { name: /Phản hồi làm rõ/i });
     expect(clarifyBtn).toBeInTheDocument();
@@ -120,6 +126,10 @@ describe('Feature-004 & Custom Manufacturing Frontend (Dev C)', () => {
         customOrderReference: 'CO-DETAIL99',
         status: 'FULL_PAYMENT_PENDING',
         createdAt: new Date().toISOString(),
+        designRequestReference: 'DR-LINKED123',
+        designOriginalDescription: 'Yêu cầu đính đá kim cương 3ly viền tròn',
+        staffExplanation: 'Đã duyệt phương án đính đá viền.',
+        designImages: [{ imageReference: 'IMG-REF-01', originalFilename: 'sample.png' }],
         quote: {
           quoteReference: 'QUO-DET99',
           quoteGeneration: 2,
@@ -146,6 +156,10 @@ describe('Feature-004 & Custom Manufacturing Frontend (Dev C)', () => {
     expect(screen.getByText(/Đã thẩm duyệt chi tiết kỹ thuật/i)).toBeInTheDocument();
     expect(screen.getByText('Solitaire Gold Ring')).toBeInTheDocument();
     expect(screen.getByText(/Thanh toán toàn bộ 20\.000\.000\s₫ qua VNPay/i)).toBeInTheDocument();
+    expect(screen.getByText(/DR-LINKED123/)).toBeInTheDocument();
+    expect(screen.getByText(/Yêu cầu đính đá kim cương 3ly viền tròn/)).toBeInTheDocument();
+    expect(screen.getByText(/Đã duyệt phương án đính đá viền/)).toBeInTheDocument();
+    expect(screen.getByAltText('sample.png')).toBeInTheDocument();
 
     // No cart or balance
     expect(screen.queryByText(/thêm vào giỏ/i)).not.toBeInTheDocument();
