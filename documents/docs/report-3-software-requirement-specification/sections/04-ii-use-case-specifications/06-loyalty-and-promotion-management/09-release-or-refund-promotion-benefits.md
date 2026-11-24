@@ -29,7 +29,7 @@ This use case includes the following sub-flows:
 **Release Held Benefits**
 
 1. The system receives a confirmed result that a retail order or workshop booking expired without accepted payment, or that a retail order was cancelled before payment.
-2. The system returns the held points to the available balance and the held voucher use to the Member and the program. For a voucher that must be saved, the use returns to the Member's saved voucher in My vouchers, so the Member can use it again.
+2. The system returns the held points to the available balance and the held voucher use to the Member and the program. For a voucher that must be saved, the use returns to the Member's saved voucher in My Saved Vouchers, so the Member can use it again.
 3. The system records a released entry linked to the transaction. Nothing is recorded as used and no extra points are added.
 
 **Release Benefits of a Branch Order**

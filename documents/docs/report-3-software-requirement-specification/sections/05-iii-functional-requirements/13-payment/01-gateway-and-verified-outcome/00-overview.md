@@ -1,1 +1,1 @@
-### 13.1 Gateway and Verified Outcome
+### 13.1 Verified Payment Outcome

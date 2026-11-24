@@ -1,6 +1,6 @@
 #### 9.2.4 Point Policy
 
-![](assets/screens/92-point-policy.png)
+![](assets/screens/70-point-policy.png)
 
 This screen allows Managers to:
 
@@ -15,4 +15,4 @@ This screen allows Managers to:
 | Maximum % payable with points | Highest percentage of an order's value that points may cover. |
 | Rounding | Read-only rounding rule: Round down (drop fractions). |
 | Version | Read-only policy version and effective time. |
-| Change policy | Opens the policy form with the four editable values and **Save** / **Cancel**; existing orders and history keep the policy they were accepted under. |
+| Edit | Opens the **Change policy** form with the four editable values and **Save** / **Cancel**; existing orders and history keep the policy they were accepted under. |

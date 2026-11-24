@@ -25,7 +25,7 @@ This use case includes the following sub-flows:
 
 **Create Automatic Discount**
 
-1. The Manager opens Promotion Management and selects New automatic discount for products or for workshops.
+1. The Manager opens the Promotion List and selects New automatic discount for products or for workshops; the system opens the Promotion Form.
 2. The Manager enters the name, start and end time, scope, discount type (fixed amount or percentage), discount value, maximum discount for a percentage, and minimum eligible amount (for products) or minimum package fee (for workshops). A fixed amount has no separate maximum discount field; the system stores the cap equal to the amount.
    - For products, the scope is products and/or specific size variants such as `SP000001-S09`. In the product picker, the Manager can filter by status (All, Public, Not public yet or hidden) and select Choose all on this page or Clear all on this page; these act only on the products shown on the current page.
    - For workshops, the scope is one or more workshop packages.
@@ -34,7 +34,7 @@ This use case includes the following sub-flows:
 
 **View, Edit, Pause or Resume Automatic Discount**
 
-1. The Manager filters the program list and opens an automatic discount.
+1. The Manager filters the Promotion List and opens an automatic discount in Promotion Details.
 2. The system shows its conditions, time, used count and total discount given, and warns if products in its scope are hidden, stopped from sale or deleted (MSG44). The used count and total discount of a workshop automatic discount include Guest bookings.
 3. The Manager edits the allowed conditions, pauses the discount, or resumes a paused discount.
 4. The system validates the change and saves it; changes apply only to transactions accepted afterwards (MSG43).

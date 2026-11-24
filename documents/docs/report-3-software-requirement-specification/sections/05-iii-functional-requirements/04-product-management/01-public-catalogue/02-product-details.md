@@ -1,6 +1,6 @@
 #### 4.1.2 Product Details
 
-![](assets/screens/11-product-details.png)
+![](assets/screens/09-product-details.png)
 
 This screen allows visitors and Members to:
 

@@ -1,6 +1,6 @@
 #### 9.1.1 My Loyalty
 
-![](assets/screens/31-my-loyalty.png)
+![](assets/screens/35-my-loyalty.png)
 
 This screen allows Members to:
 

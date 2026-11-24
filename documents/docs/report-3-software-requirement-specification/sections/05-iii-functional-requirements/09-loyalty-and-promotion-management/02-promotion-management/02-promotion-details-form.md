@@ -1,6 +1,6 @@
 #### 9.2.2 Promotion Form
 
-![](assets/screens/69-promotion-details-form.png)
+![](assets/screens/68-promotion-form.png)
 
 This screen allows Managers to:
 
@@ -25,4 +25,4 @@ Existing programmes are edited from Promotion Details using the same fields; the
 | Usage limits | Voucher only: total uses and uses per Member; uses per Member is fixed at 1 for a voucher that must be saved. |
 | Distribution | Voucher only: "Public — no saving needed" (default; customers can use it at checkout without saving it) or "Must be saved — saving claims a use" (shown in the Voucher Store with a Save button; each save claims one use of the total; only members who saved it can use it; one use per member). |
 | Targets | Retail voucher: all or selected branches, and whole products or individual sizes; a product automatic discount applies at every branch. Workshop voucher: package, branch and session, each "All" or exactly one item. Workshop automatic discount: one or more packages only, with no branch, date or session limit. |
-| Create programme / Cancel | Validates the complete configuration and creates the programme, then opens its details. |
+| Create programme / Cancel | **Create programme** validates the complete configuration and creates the programme, then opens its details; **Cancel** returns to Promotion List. |

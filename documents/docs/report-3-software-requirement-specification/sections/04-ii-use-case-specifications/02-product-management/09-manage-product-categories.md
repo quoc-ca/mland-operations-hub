@@ -26,14 +26,14 @@ This use case includes the following sub-flows:
 
 **Find Categories**
 
-1. The actor opens Product categories. The Categories section lists all categories ordered by name and then identity.
+1. The actor opens Product Categories. The Categories section lists all categories ordered by name and then identity.
 2. The actor optionally selects a status filter (All, Active or Inactive) and enters part of a category name, then selects Find or presses Enter.
 3. The system trims the name, matches it as a case-insensitive substring of the category name and combines it with the status filter. Filtering is applied before paging, so the total count and the number of pages match the filter.
 4. The system shows the first page of matching categories and keeps the filter and the name in the page address.
 
 **Create or Update Category**
 
-1. The actor opens Product categories and fills in the new category, or selects Edit on an existing category.
+1. The actor opens Product Categories and fills in the new category, or selects Edit on an existing category.
 2. The actor enters a name (1–200 characters) and an optional description (up to 5,000 characters).
 3. The system trims the values and checks that the name is unique across all categories, including inactive ones, ignoring case.
 4. The system saves the category (new categories are active by default), records an audit entry and confirms (MSG10).

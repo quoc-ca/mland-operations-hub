@@ -43,11 +43,11 @@
 |39|MSG39|Error|A voucher code already exists after trimming and ignoring case (UC-46).|Voucher code {voucher code} already exists.|
 |40|MSG40|Error|The program scope is invalid, including a workshop automatic discount without a package or with a branch, date or session (UC-45, UC-46).|The selected scope is invalid: {reason}.|
 |41|MSG41|Error|The Manager tries to change the code or scope of an existing program (UC-45, UC-46).|The code and scope cannot be changed after the program has been created.|
-|42|MSG42|Error|A total or per-Member limit is lower than the used plus held uses (UC-46).|The limit cannot be lower than {used} used plus {held} held uses.|
+|42|MSG42|Error|A total or per-Member limit is lower than the used plus held uses; for a voucher that must be saved, the total limit is also compared with the saved but unused uses (UC-46).|The limit cannot be lower than {used} used plus {held} held uses.|
 |43|MSG43|Success|A program is edited, paused or resumed (UC-45, UC-46).|Program {name} has been {updated / paused / resumed}. Changes apply to new transactions only.|
 |44|MSG44|Warning|Products in a program's scope are hidden, stopped from sale or deleted, or a branch in a product voucher's scope is inactive (UC-45, UC-46).|Some products in this program's scope are hidden, stopped from sale or deleted.|
 |45|MSG45|Information|A Guest selects Save on a voucher (UC-47).|Sign in to save this voucher.|
-|46|MSG46|Success|A Member saves a voucher (UC-47).|The voucher has been saved to My vouchers.|
+|46|MSG46|Success|A Member saves a voucher (UC-47).|The voucher has been saved to My Saved Vouchers.|
 |47|MSG47|Information|A saved voucher has no published product in scope, or its uses or the Member's uses are all used or held; a public card or detail of a voucher whose uses are all used or held, or, for a voucher that must be saved, all used, held or claimed (UC-47).|No products currently apply. / Fully claimed. / All claimed. / You used all your uses.|
 |48|MSG48|Error|A voucher cannot be applied to the order or booking, for example the code does not exist, the scope or branch does not match, the voucher is expired, paused or fully used, a voucher that must be saved has not been saved by the Member, or the automatic discount already covers all its lines so it gives no further discount (UC-48).|This voucher cannot be used: {reason}.|
 |49|MSG49|Error|The Member tries to use points with a voucher that does not allow them (UC-44).|This voucher cannot be combined with loyalty points.|
@@ -59,7 +59,7 @@
 |55|MSG55|Success|An item is added to the cart from the Quick add box on the product list (UC-10).|"{product name}" was added to your cart. View cart|
 |56|MSG56|Warning|A new product, or a product in an import file, has the same name as an existing product (UC-12, UC-13). Saving or importing is still allowed.|{count} product(s) already have this name: {links}. / {count} product(s) in the file have the name of an existing product. Check them before confirming (the import is still allowed).|
 |57|MSG57|Success / Error|Images are saved, or not saved, for the products just imported (UC-13).|Images saved for {count} products. / Images of {count} products were not saved; see the error on each product and save again.|
-|58|MSG58|Information|A signed-in Staff, Manager or Admin views the Save option of a voucher; only Members have My vouchers (UC-47).|Only members can save vouchers.|
+|58|MSG58|Information|A signed-in Staff, Manager or Admin views the Save option of a voucher; only Members have My Saved Vouchers (UC-47).|Only members can save vouchers.|
 |59|MSG59|Information|The size conversion chart dialog has no size chart image (UC-10, UC-11).|No size chart image yet.|
 |60|MSG60|Information|The product has no public customer review; five empty stars are shown and no score (UC-11).|No reviews yet|
 |61|MSG61|Information|No category matches the status filter or name search in Category Management (UC-18).|No category matches the filter.|
