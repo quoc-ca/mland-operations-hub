@@ -90,18 +90,18 @@ A matched, verified definitive terminal failure ends the attempt and releases al
 
 #### Business Rules
 
-BR-46-01, BR-46-02, BR-46-03, BR-46-04, BR-46-05, BR-46-06, BR-46-07, BR-46-08, BR-46-09
+BR-55-01, BR-55-02, BR-55-03, BR-55-04, BR-55-05, BR-55-06, BR-55-07, BR-55-08, BR-55-09
 
 #### Business Rule Definitions
 
 | ID | Rule Definition |
 | --- | --- |
-| BR-46-01 | Only a matching valid signed successful VNPay IPN or eligible signed QueryDR confirms payment; browser returns and human assertions never do. |
-| BR-46-02 | Verify the frozen full positive whole-VND amount, currency, reference and original variant/benefit bindings; never reprice or reassign accepted terms. |
-| BR-46-03 | Use the single stored VNPay link of the checkout, valid until the original 10-minute hold expires; reopening it creates no second transaction. Eligible QueryDR recovery checks an opened but unconfirmed payment before the hold is released. |
-| BR-46-04 | Complete verification and payment acceptance strictly before original hold expiry; first acceptance at/after expiry is an exception regardless of earlier receipt/provider timestamps. |
-| BR-46-05 | Payment consumes held quantities/benefits once; duplicates, reordering, recovery and expiry races cannot repeat effects or both settle and release the same resources. |
-| BR-46-06 | Release unpaid holds at expiry; late or retired/replaced evidence cannot revive holds, settle replacements or automatically fulfil. |
-| BR-46-07 | Catalogue changes/unpublish preserve accepted valid held terms; duplicate evidence never undoes an accepted sale. |
-| BR-46-08 | Unknown outcomes retain the original eligible hold; verified definitive failure releases it. Paid cart cleanup and optional notices follow shared policies without reversing sales. |
-| BR-46-09 | Record each attempt and its actual outcome under the shared audit policy. |
+| BR-55-01 | Only a matching valid signed successful VNPay IPN or eligible signed QueryDR confirms payment; browser returns and human assertions never do. |
+| BR-55-02 | Verify the frozen full positive whole-VND amount, currency, reference and original variant/benefit bindings; never reprice or reassign accepted terms. |
+| BR-55-03 | Use the single stored VNPay link of the checkout, valid until the original 10-minute hold expires; reopening it creates no second transaction. Eligible QueryDR recovery checks an opened but unconfirmed payment before the hold is released. |
+| BR-55-04 | Complete verification and payment acceptance strictly before original hold expiry; first acceptance at/after expiry is an exception regardless of earlier receipt/provider timestamps. |
+| BR-55-05 | Payment consumes held quantities/benefits once; duplicates, reordering, recovery and expiry races cannot repeat effects or both settle and release the same resources. |
+| BR-55-06 | Release unpaid holds at expiry; late or retired/replaced evidence cannot revive holds, settle replacements or automatically fulfil. |
+| BR-55-07 | Catalogue changes/unpublish preserve accepted valid held terms; duplicate evidence never undoes an accepted sale. |
+| BR-55-08 | Unknown outcomes retain the original eligible hold; verified definitive failure releases it. Paid cart cleanup and optional notices follow shared policies without reversing sales. |
+| BR-55-09 | Record each attempt and its actual outcome under the shared audit policy. |

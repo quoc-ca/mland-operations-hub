@@ -15,7 +15,7 @@ describe('F11 booking workshop review summary', () => {
 
     renderRoutes([
       { path: '/booking-review', element: <WorkshopReviewSummary targetReference="SESSION-101" /> },
-    ], { path: '/booking-review', session: fakeSession('signed-out') });
+    ], { path: '/booking-review', session: fakeSession('signed-out'), language: 'en' });
 
     expect(await screen.findByText('Workshop tuyệt vời')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Available after attendance/i })).toBeDisabled();
@@ -24,6 +24,17 @@ describe('F11 booking workshop review summary', () => {
       targetType: 'WORKSHOP_SESSION',
       targetReference: 'SESSION-101',
     });
+  });
+
+  it('shows the Vietnamese heading and locked CTA by default', async () => {
+    mockFetch({ 'GET /api/v1/reviews': json(200, { aggregate: { count: 0, averageRating: 0 }, items: [] }) });
+    renderRoutes([
+      { path: '/booking-review', element: <WorkshopReviewSummary targetReference="SESSION-101" /> },
+    ], { path: '/booking-review', session: fakeSession('signed-out') });
+
+    expect(await screen.findByText('Chưa có review công khai cho buổi workshop này.')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Khách hàng nói gì về buổi workshop' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Sau khi tham gia' })).toBeDisabled();
   });
 
   it('does not call the review API when no concrete session reference exists', async () => {

@@ -27,8 +27,7 @@ public class GeminiRestClientAdapter implements AiTextSupportPort, ImageFeatureA
             @Value("${gemini.api-key:mock}") String apiKey,
             @Value("${gemini.model:gemini-2.5-flash}") String model,
             @Value("${gemini.timeout-seconds:30}") int timeoutSeconds,
-            @Autowired(required = false) ObjectMapper objectMapper
-    ) {
+            @Autowired(required = false) ObjectMapper objectMapper) {
         this.apiKey = apiKey;
         this.model = model;
         this.timeoutSeconds = timeoutSeconds;
@@ -37,7 +36,8 @@ public class GeminiRestClientAdapter implements AiTextSupportPort, ImageFeatureA
 
     @Override
     public TextSupportResult generateSupportResponse(String promptText, String correlationId) {
-        log.info("Generating AI support response: correlationId={}, promptLen={}", correlationId, promptText != null ? promptText.length() : 0);
+        log.info("Generating AI support response: correlationId={}, promptLen={}", correlationId,
+                promptText != null ? promptText.length() : 0);
 
         if (promptText == null || promptText.isBlank()) {
             return new TextSupportResult(null, AiScope.OUT_OF_SCOPE, correlationId, false, "AI_INPUT_INVALID");
@@ -48,19 +48,40 @@ public class GeminiRestClientAdapter implements AiTextSupportPort, ImageFeatureA
         // Scope classification
         AiScope detectedScope;
         String fallbackReply;
-        if (lower.contains("workshop") || lower.contains("khóa học") || lower.contains("lớp") || lower.contains("buổi") || lower.contains("đặt chỗ") || lower.contains("đặt lịch")) {
+        if (lower.contains("workshop") || lower.contains("khóa học") || lower.contains("lớp") || lower.contains("buổi")
+                || lower.contains("đặt chỗ") || lower.contains("đặt lịch") || lower.contains("gói")) {
             detectedScope = AiScope.WORKSHOP;
-            fallbackReply = "Mland tổ chức các buổi workshop chế tác nhẫn bạc thủ công (Gói Couple Silver giá từ 490.000 VNĐ/người, 1 buổi 2.5-3 tiếng) và Điêu khắc sáp phôi độc bản (từ 890.000 VNĐ/người, 2 buổi). Nghệ nhân hướng dẫn 1-kèm-1 tận tâm. Đặt chỗ trực tuyến trên website và đặt cọc 50% qua cổng VNPay (link thanh toán giữ chỗ hiệu lực 10 phút). Bạn có thể dời lịch trước 24 giờ hoàn toàn miễn phí.";
-        } else if (lower.contains("custom") || lower.contains("thiết kế") || lower.contains("theo yêu cầu") || lower.contains("phác thảo") || lower.contains("độc bản")) {
+            fallbackReply = """
+                    Mland tổ chức 5 gói Workshop chế tác nhẫn thủ công đặc sắc:
+                    1. Signature Workshop - Silver 925: 900.000 VNĐ/người (1 buổi, tối đa 4g bạc 925, học cán, hàn, tạo hình, hoàn thiện lấy ngay trong ngày).
+                    2. Signature Workshop - Brass: 750.000 VNĐ/người (1 buổi, tối đa 10g đồng thau nguyên chất, kèm kit chăm sóc, lấy ngay trong ngày).
+                    3. Silver Clay Workshop - 5g: 1.350.000 VNĐ/người (1 buổi, đất sét bạc S999 5g, thiết kế tiêu chuẩn, gắn tối đa 5 viên đá CZ, lấy trong ngày).
+                    4. Silver Clay Workshop - 7g: 1.950.000 VNĐ/người (1 buổi, đất sét bạc S999 7g, đính đá không giới hạn, lấy trong ngày).
+                    5. Wax Casting Workshop: 1.000.000 VNĐ/người (2 buổi, tạo hình sáp phôi chuyên sâu S999/S925/Vàng, 2 buổi cách nhau ít nhất 2 ngày xưởng đúc).
+                    Nghệ nhân hướng dẫn 1-kèm-1. Đặt chỗ trên website, cọc 50% qua VNPay (giữ chỗ 10 phút), đổi ca miễn phí trước 24 giờ.
+                    """;
+        } else if (lower.contains("custom") || lower.contains("thiết kế") || lower.contains("theo yêu cầu")
+                || lower.contains("phác thảo") || lower.contains("độc bản") || lower.contains("chế tác")) {
             detectedScope = AiScope.PRODUCT;
-            fallbackReply = "Mland nhận chế tác nhẫn độc bản theo ý tưởng hoặc ảnh phác thảo của bạn. Bạn vui lòng truy cập trang 'Custom' trên website để gửi mô tả hoặc ảnh tham khảo. Đội ngũ nghệ nhân Mland sẽ kiểm duyệt kỹ thuật, đánh giá độ khó và báo giá chi tiết cho bạn.";
-        } else if (lower.contains("nhẫn") || lower.contains("ring") || lower.contains("sản phẩm") || lower.contains("product") || lower.contains("ready") || lower.contains("bạc")) {
+            fallbackReply = "Mland nhận chế tác nhẫn độc bản theo ý tưởng hoặc ảnh phác thảo của bạn. Bạn vui lòng truy cập trang 'Yêu cầu chế tác' trên website để gửi mô tả hoặc ảnh tham khảo. Đội ngũ nghệ nhân Mland sẽ kiểm duyệt kỹ thuật, đánh giá độ khó và báo giá chi tiết cho bạn.";
+        } else if (lower.contains("nhẫn") || lower.contains("ring") || lower.contains("sản phẩm")
+                || lower.contains("product") || lower.contains("ready") || lower.contains("bạc")
+                || lower.contains("đá")) {
             detectedScope = AiScope.PRODUCT;
-            fallbackReply = "Mland cung cấp các bộ sưu tập nhẫn bạc 925 thủ công và nhẫn đính đá CZ/Moissanite cao cấp, đầy đủ size từ 8 đến 22. Giao hàng toàn quốc qua GHTK (khách hàng được đồng kiểm trước khi thanh toán). Mland hỗ trợ đổi size miễn phí trong 7 ngày và bảo hành đánh bóng bạc trọn đời.";
-        } else if (lower.contains("cửa hàng") || lower.contains("store") || lower.contains("địa chỉ") || lower.contains("giờ mở cửa") || lower.contains("location") || lower.contains("showroom") || lower.contains("chi nhánh")) {
+            fallbackReply = "Mland cung cấp các bộ sưu tập Ready Rings thủ công tinh xảo gồm 4 dòng: Nhẫn bạc trơn (vân búa, mèo xoắn), Nhẫn đá quý (thạch anh tím, peridot, garnet, citrine, hổ phách), Nhẫn mã não (mã não cây, mã não rêu) và Nhẫn đá thô, size 6-14, giá từ 390.000đ - 590.000đ. Giao hàng toàn quốc qua GHTK (đồng kiểm khi nhận). Đổi size 7 ngày và bảo hành đánh bóng bạc trọn đời miễn phí.";
+        } else if (lower.contains("cửa hàng") || lower.contains("store") || lower.contains("địa chỉ")
+                || lower.contains("giờ mở cửa") || lower.contains("location") || lower.contains("showroom")
+                || lower.contains("chi nhánh")) {
             detectedScope = AiScope.STORE;
-            fallbackReply = "Atelier Mland hiện có 2 chi nhánh:\n- Hà Nội: 45 Tràng Tiền, Quận Hoàn Kiếm, Hà Nội.\n- TP. Hồ Chí Minh: 128 Nguyễn Đình Chiểu, Quận 3, TP. Hồ Chí Minh.\nGiờ mở cửa: 09:00 - 21:00 hàng ngày (kể cả Thứ Bảy, Chủ Nhật và ngày lễ). Hotline hỗ trợ: 1900 6868.";
-        } else if (lower.contains("chính sách") || lower.contains("hủy") || lower.contains("hoàn tiền") || lower.contains("faq") || lower.contains("thanh toán") || lower.contains("bảo hành") || lower.contains("đổi trả")) {
+            fallbackReply = """
+                    Atelier Mland hiện có các chi nhánh phục vụ quý khách:
+                    - Cơ sở Hoàn Kiếm: 83 Mã Mây, Hàng Buồm, Hoàn Kiếm, Hà Nội.
+                    - Cơ sở Tây Hồ / Cửa Nam: P105, khu tập thể ngõ 3B Đặng Thái Thân, P. Cửa Nam, Hoàn Kiếm, Hà Nội.
+                    Giờ mở cửa: 09:00 - 21:00 hàng ngày (kể cả Thứ Bảy, Chủ Nhật và ngày lễ). Hotline hỗ trợ: 1900 6868.
+                    """;
+        } else if (lower.contains("chính sách") || lower.contains("hủy") || lower.contains("hoàn tiền")
+                || lower.contains("faq") || lower.contains("thanh toán") || lower.contains("bảo hành")
+                || lower.contains("đổi trả")) {
             detectedScope = AiScope.FAQ;
             fallbackReply = "Chính sách Mland:\n- Đặt cọc workshop: Giữ chỗ yêu cầu đặt cọc 50% qua VNPay (link thanh toán giữ chỗ 10 phút). Đổi lịch workshop miễn phí trước 24 giờ.\n- Đổi trả & Bảo hành: Sản phẩm Ready Rings được đổi size trong 7 ngày và bảo hành đánh bóng, làm sáng bạc trọn đời miễn phí tại mọi chi nhánh.";
         } else {
@@ -87,36 +108,45 @@ public class GeminiRestClientAdapter implements AiTextSupportPort, ImageFeatureA
 
     private String callGeminiLive(String promptText) {
         try {
-            String url = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + apiKey;
+            String url = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key="
+                    + apiKey;
             String systemInstruction = """
-                Bạn là Trợ lý Tư vấn AI của Mland Jewelry Atelier (Xưởng chế tác kim hoàn thủ công Mland).
-                Nhiệm vụ của bạn là giải đáp chính xác, đầy đủ, thân thiện, lịch sự và chuyên nghiệp các thắc mắc của khách hàng dựa trên thông tin chính thức sau:
+                        Bạn là Trợ lý Tư vấn AI của Mland Jewelry Atelier (Xưởng chế tác kim hoàn thủ công Mland).
+                        Nhiệm vụ của bạn là giải đáp chính xác, đầy đủ, thân thiện, lịch sự và chuyên nghiệp các thắc mắc của khách hàng dựa trên thông tin chính thức sau:
 
-                1. WORKSHOP CHẾ TÁC NHẪN BẠC THỦ CÔNG:
-                - Gói Workshop Nhẫn đôi bạc 925 cơ bản (Couple Silver): Tự tay trải nghiệm cán bạc, uốn, hàn, dũa, đánh bóng và khắc laser tên/ngày kỷ niệm. Giá từ 490.000 VNĐ/người. Thời lượng 1 buổi (2.5 - 3 tiếng). Nghệ nhân hướng dẫn 1-kèm-1, 100% tự tay làm ra sản phẩm ưng ý.
-                - Gói Workshop Điêu khắc sáp phôi (Wax Carving): Tự tay tạo hình sáp phôi độc bản, xưởng đúc nung bạc nguyên chất. Giá từ 890.000 VNĐ/người, gồm 2 buổi (buổi 1 tạo hình sáp phôi, buổi 2 hoàn thiện sau khi đúc bạc).
-                - Cách đặt chỗ: Đặt lịch trực tuyến trên website, yêu cầu đặt cọc 50% qua cổng VNPay để giữ chỗ ca (link thanh toán giữ chỗ 10 phút). Được đổi ca miễn phí trước 24 giờ.
+                    1. WORKSHOP CHẾ TÁC NHẪN THỦ CÔNG (5 GÓI CHÍNH THỨC):
+                    - Signature Workshop - Silver 925: Giá 900.000 VNĐ/người. Thời lượng 1 buổi. Tối đa 4g bạc 925. Học kỹ thuật gia nhiệt, hàn nối, tạo hình và khắc chữ laser; hoàn thiện mang nhẫn về ngay trong ngày.
+                    - Signature Workshop - Brass: Giá 750.000 VNĐ/người. Thời lượng 1 buổi. Tối đa 10g đồng thau nguyên chất. Bao gồm bộ kit chăm sóc bề mặt; hoàn thiện mang sản phẩm về ngay trong ngày.
+                    - Silver Clay Workshop - 5g: Giá 1.350.000 VNĐ/người. Thời lượng 1 buổi. Đất sét bạc cao cấp S999 gói 5g, thiết kế nhẫn tiêu chuẩn và gắn tối đa 5 viên đá CZ. Hoàn thiện lấy ngay trong ngày.
+                    - Silver Clay Workshop - 7g: Giá 1.950.000 VNĐ/người. Thời lượng 1 buổi. Đất sét bạc cao cấp S999 gói 7g, đính đá CZ không giới hạn. Hoàn thiện lấy ngay trong ngày.
+                    - Wax Casting Workshop: Giá 1.000.000 VNĐ/người. Gồm 2 buổi trải nghiệm đúc khuôn sáp chuyên sâu S999/S925/Vàng cách nhau ít nhất 2 ngày làm việc xưởng đúc.
+                    - Quy trình đặt chỗ: Đặt lịch trực tuyến trên website, yêu cầu đặt cọc 50% qua cổng VNPay để giữ chỗ ca (link thanh toán giữ chỗ 10 phút). Được đổi ca miễn phí trước 24 giờ.
 
-                2. SẢN PHẨM NHẪN CHẾ TÁC SẴN (READY RINGS):
-                - Bộ sưu tập nhẫn bạc 925 nguyên chất cao cấp, nhẫn đôi, nhẫn đính đá CZ/Moissanite tinh xảo, đầy đủ size từ 8 đến 22.
-                - Giao hàng toàn quốc qua GHTK (Giao Hàng Tiết Kiệm), khách hàng được kiểm tra hàng trước khi thanh toán.
-                - Đổi size miễn phí trong vòng 7 ngày nếu chưa qua sử dụng.
-                - Bảo hành đánh bóng, làm sáng bạc trọn đời miễn phí tại mọi chi nhánh.
+                    2. BỘ SƯU TẬP NHẪN CHẾ TÁC SẴN (READY RINGS):
+                    - Gồm 4 dòng sản phẩm chế tác thủ công tinh xảo:
+                      + Nhẫn bạc trơn (Nhẫn bạc vân búa bản nhọn 390.000đ, Nhẫn bạc mèo xoắn 420.000đ...).
+                      + Nhẫn đá quý tự nhiên đã mài: thạch anh tím, peridot sóng nước, garnet đỏ rượu, xoáy citrine, hổ phách (từ 480.000đ - 590.000đ).
+                      + Nhẫn mã não: mã não cây, mã não rêu mỗi chiếc độc bản vân tự nhiên.
+                      + Nhẫn đá thô: giữ nguyên dáng tinh thể thô độc đáo.
+                    - Đầy đủ size từ 6 đến 14.
+                    - Giao hàng toàn quốc qua GHTK (khách hàng được đồng kiểm trước khi thanh toán).
+                    - Đổi size miễn phí trong vòng 7 ngày nếu chưa qua sử dụng.
+                    - Bảo hành đánh bóng, làm sáng bạc trọn đời miễn phí tại mọi chi nhánh.
 
-                3. DỊCH VỤ THIẾT KẾ RIÊNG (CUSTOM JEWELRY):
-                - Mland nhận chế tác nhẫn độc bản theo ý tưởng hoặc ảnh phác thảo của khách hàng. Khách có thể gửi ảnh và mô tả qua trang 'Custom' trên website để nghệ nhân kiểm duyệt kỹ thuật, đánh giá độ khó và báo giá gia công.
+                    3. DỊCH VỤ THIẾT KẾ RIÊNG (CUSTOM JEWELRY):
+                    - Mland nhận chế tác nhẫn độc bản theo ý tưởng hoặc ảnh phác thảo của khách hàng. Khách có thể gửi ảnh và mô tả qua trang 'Yêu cầu chế tác' trên website để nghệ nhân kiểm duyệt kỹ thuật, đánh giá độ khó và báo giá gia công.
 
-                4. HỆ THỐNG CHI NHÁNH & LIÊN HỆ:
-                - Chi nhánh Hà Nội: 45 Tràng Tiền, Quận Hoàn Kiếm, Hà Nội.
-                - Chi nhánh TP. Hồ Chí Minh: 128 Nguyễn Đình Chiểu, Quận 3, TP. Hồ Chí Minh.
-                - Hotline hỗ trợ: 1900 6868.
-                - Giờ mở cửa: 09:00 - 21:00 tất cả các ngày trong tuần (bao gồm Thứ Bảy, Chủ Nhật và ngày lễ).
+                    4. HỆ THỐNG CHI NHÁNH & LIÊN HỆ:
+                    - Cơ sở Hoàn Kiếm: 83 Mã Mây, Hàng Buồm, Hoàn Kiếm, Hà Nội.
+                    - Cơ sở Tây Hồ / Cửa Nam: P105, khu tập thể ngõ 3B Đặng Thái Thân, P. Cửa Nam, Hoàn Kiếm, Hà Nội.
+                    - Hotline hỗ trợ: 1900 6868.
+                    - Giờ mở cửa: 09:00 - 21:00 tất cả các ngày trong tuần (bao gồm Thứ Bảy, Chủ Nhật và ngày lễ).
 
-                5. NGUYÊN TẮC TƯ VẤN:
-                - Trả lời bằng tiếng Việt tự nhiên, rõ ràng, mạch lạc, có cấu trúc dễ đọc.
-                - Luôn giữ thái độ thân thiện, chào đón khách hàng đến với Mland Atelier.
-                - Nhắc nhở thông tin tư vấn mang tính chất tham khảo, không tự động trừ tiền hay thay đổi trạng thái đơn hàng.
-                """;
+                        5. NGUYÊN TẮC TƯ VẤN:
+                        - Trả lời bằng tiếng Việt tự nhiên, rõ ràng, mạch lạc, có cấu trúc dễ đọc.
+                        - Luôn giữ thái độ thân thiện, chào đón khách hàng đến với Mland Atelier.
+                        - Nhắc nhở thông tin tư vấn mang tính chất tham khảo, không tự động trừ tiền hay thay đổi trạng thái đơn hàng.
+                        """;
 
             var rootNode = objectMapper.createObjectNode();
             var contentsArray = rootNode.putArray("contents");
@@ -135,10 +165,12 @@ public class GeminiRestClientAdapter implements AiTextSupportPort, ImageFeatureA
                     .uri(java.net.URI.create(url))
                     .header("Content-Type", "application/json")
                     .timeout(java.time.Duration.ofSeconds(Math.min(timeoutSeconds, 15)))
-                    .POST(java.net.http.HttpRequest.BodyPublishers.ofString(requestBody, java.nio.charset.StandardCharsets.UTF_8))
+                    .POST(java.net.http.HttpRequest.BodyPublishers.ofString(requestBody,
+                            java.nio.charset.StandardCharsets.UTF_8))
                     .build();
 
-            java.net.http.HttpResponse<String> response = client.send(request, java.net.http.HttpResponse.BodyHandlers.ofString());
+            java.net.http.HttpResponse<String> response = client.send(request,
+                    java.net.http.HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() == 200 && response.body() != null) {
                 JsonNode resRoot = objectMapper.readTree(response.body());
                 JsonNode candidates = resRoot.path("candidates");
@@ -167,18 +199,22 @@ public class GeminiRestClientAdapter implements AiTextSupportPort, ImageFeatureA
     }
 
     private static String escapeJson(String s) {
-        if (s == null) return "";
+        if (s == null)
+            return "";
         return s.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r");
     }
 
     private static String unescapeJson(String s) {
-        if (s == null) return "";
+        if (s == null)
+            return "";
         return s.replace("\\n", "\n").replace("\\r", "\r").replace("\\\"", "\"").replace("\\\\", "\\");
     }
 
     @Override
-    public FeatureAnalysisResult analyzeRingImage(byte[] imageBytes, String contentType, String catalogueReference, String correlationId) {
-        log.info("Analyzing ring reference image: correlationId={}, size={} bytes, contentType={}", correlationId, imageBytes.length, contentType);
+    public FeatureAnalysisResult analyzeRingImage(byte[] imageBytes, String contentType, String catalogueReference,
+            String correlationId) {
+        log.info("Analyzing ring reference image: correlationId={}, size={} bytes, contentType={}", correlationId,
+                imageBytes.length, contentType);
 
         String providerCorrId = "gemini-vision-" + UUID.randomUUID().toString().substring(0, 8);
 
@@ -206,7 +242,8 @@ public class GeminiRestClientAdapter implements AiTextSupportPort, ImageFeatureA
                   "gemstoneSetting": "NONE",
                   "feasibilityScore": 0.92
                 }
-                """, isIntricate ? "WAX_CARVED_SOLITAIRE" : "CLASSIC_SILVER_BAND", isIntricate ? "WAX_CAST_SILVER" : "SILVER_925");
+                """, isIntricate ? "WAX_CARVED_SOLITAIRE" : "CLASSIC_SILVER_BAND",
+                isIntricate ? "WAX_CAST_SILVER" : "SILVER_925");
 
         String confidenceJson = """
                 {
@@ -227,12 +264,12 @@ public class GeminiRestClientAdapter implements AiTextSupportPort, ImageFeatureA
                 safeExplanation,
                 estimatedValue,
                 providerCorrId,
-                null
-        );
+                null);
     }
 
     @Override
-    public PriceSuggestionResult suggestPrice(String proposalId, TargetType targetType, String pricingContextJson, String correlationId) {
+    public PriceSuggestionResult suggestPrice(String proposalId, TargetType targetType, String pricingContextJson,
+            String correlationId) {
         log.info("Generating advisory price suggestion: proposalId={}, targetType={}", proposalId, targetType);
 
         String providerCorrId = "gemini-price-" + UUID.randomUUID().toString().substring(0, 8);
@@ -245,7 +282,6 @@ public class GeminiRestClientAdapter implements AiTextSupportPort, ImageFeatureA
                 basePrice,
                 explanation,
                 providerCorrId,
-                null
-        );
+                null);
     }
 }

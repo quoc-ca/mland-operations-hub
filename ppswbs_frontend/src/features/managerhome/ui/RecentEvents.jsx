@@ -1,12 +1,13 @@
 import React from 'react';
 import { Link } from 'react-router';
-import { useLanguage, useT } from '../../../shared/i18n/I18nProvider';
+import { useEnumLabel, useLanguage, useT } from '../../../shared/i18n/I18nProvider';
 import { formatVietnamTime } from '../application/vietnamTime';
 import { managerHomeMessages } from './messages';
 
 /** Up to five recent refused attempts and package availability changes. Shows time, who and what; never a reason text. */
 export default function RecentEvents({ events, onRetry }) {
   const t = useT(managerHomeMessages);
+  const kindLabel = useEnumLabel(managerHomeMessages, 'events.kind');
   const { language } = useLanguage();
   const value = events.value;
   return (
@@ -30,7 +31,7 @@ export default function RecentEvents({ events, onRetry }) {
                     <li key={item.id ?? `${item.kind}-${item.time}-${index}`}>
                       <time dateTime={item.time || undefined}>{formatVietnamTime(item.time, language)}</time>
                       {' · '}<span>{item.actor || t('events.system')}</span>
-                      {' · '}<span>{t(`events.kind.${item.kind}`)}</span> <code>{item.action}</code>
+                      {' · '}<span>{kindLabel(item.kind)}</span> <code>{item.action}</code>
                     </li>
                   ))}
                 </ul>

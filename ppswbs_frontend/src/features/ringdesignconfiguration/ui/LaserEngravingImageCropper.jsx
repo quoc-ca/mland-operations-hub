@@ -103,7 +103,7 @@ export function generateBwLaserPreview(imgElement, cropX, cropY, frameSize = 160
 /**
  * Single image crop card with draggable 160x160 selector and B&W laser preview.
  */
-function CustomImageCard({ item, onUpdate, onRemove, t }) {
+function CustomImageCard({ item, onUpdate, onRemove, hasStonesOnOuter = false, t }) {
   const imgRef = useRef(null);
   const containerRef = useRef(null);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -473,14 +473,29 @@ function CustomImageCard({ item, onUpdate, onRemove, t }) {
               </button>
               <button
                 type="button"
+                disabled={hasStonesOnOuter}
                 className={`ring-size-pill ring-placement-pill ${item.placement === 'OUTER_BAND' ? 'selected' : ''}`}
-                onClick={() => onUpdate({ ...item, placement: 'OUTER_BAND' })}
-                style={{ padding: '0.35rem 0.65rem', fontSize: '0.8rem' }}
+                onClick={() => {
+                  if (!hasStonesOnOuter) {
+                    onUpdate({ ...item, placement: 'OUTER_BAND' });
+                  }
+                }}
+                style={{
+                  padding: '0.35rem 0.65rem',
+                  fontSize: '0.8rem',
+                  ...(hasStonesOnOuter ? { opacity: 0.5, cursor: 'not-allowed' } : {}),
+                }}
                 data-testid={`placement-outer-${item.id}`}
+                title={hasStonesOnOuter ? 'Do mẫu thiết kế có đính đá ở ngoài nên không thể khắc lazer' : undefined}
               >
                 {t.outerBand || 'Mặt ngoài'}
               </button>
             </div>
+            {hasStonesOnOuter && (
+              <div style={{ color: '#dc2626', fontSize: '0.78rem', marginTop: '0.35rem', fontWeight: 500 }} data-testid={`custom-img-outer-blocked-${item.id}`}>
+                ⚠️ Do mẫu thiết kế có đính đá ở ngoài nên không thể khắc lazer
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -488,13 +503,21 @@ function CustomImageCard({ item, onUpdate, onRemove, t }) {
   );
 }
 
-export default function LaserEngravingImageCropper({ customImages = [], onChangeCustomImages, t }) {
+export default function LaserEngravingImageCropper({ customImages = [], onChangeCustomImages, hasStonesOnOuter = false, t }) {
   const fileInputRef = useRef(null);
   const isImageLimitReached = customImages.length >= 2;
 
   const handleFileUpload = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Kích thước ảnh vượt quá giới hạn 5 MB. Vui lòng chọn tệp nhỏ hơn 5 MB.');
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      return;
+    }
 
     if (customImages.length >= 2) {
       if (fileInputRef.current) {
@@ -646,7 +669,7 @@ export default function LaserEngravingImageCropper({ customImages = [], onChange
 
       {/* List of uploaded custom image crop cards */}
       {customImages.map((item) => (
-        <CustomImageCard key={item.id} item={item} onUpdate={handleUpdate} onRemove={handleRemove} t={t} />
+        <CustomImageCard key={item.id} item={item} onUpdate={handleUpdate} onRemove={handleRemove} hasStonesOnOuter={hasStonesOnOuter} t={t} />
       ))}
 
       {/* Fingerprint laser engraving notice */}

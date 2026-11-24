@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../../shared/auth/AuthProvider';
 import { useT } from '../../../shared/i18n/I18nProvider';
 import { ErrorNotice, Field, Loading, useCommand } from '../../../shared/ui/components';
@@ -13,9 +13,29 @@ export default function AiSupportPage() {
   const command = useCommand();
 
   const [inputMessage, setInputMessage] = useState('');
-  const [messages, setMessages] = useState([]);
+  const [messages, setMessages] = useState(() => {
+    if (typeof localStorage !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('mland_ai_chat_messages');
+        return saved ? JSON.parse(saved) : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  });
   const [clientError, setClientError] = useState('');
-  const [quota, setQuota] = useState(null);
+  const [quota, setQuota] = useState(() => {
+    if (typeof localStorage !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('mland_ai_quota');
+        return saved ? JSON.parse(saved) : null;
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  });
 
   const isMember = status === 'signed-in';
   const defaultLimit = isMember ? 10 : 3;
@@ -23,6 +43,45 @@ export default function AiSupportPage() {
   const currentRemaining = quota ? quota.remaining : defaultLimit;
   const isQuotaExceeded = (quota && quota.remaining <= 0) || command.error?.code === 'AI_DAILY_QUOTA_EXCEEDED';
   const charCount = [...inputMessage].length;
+
+  useEffect(() => {
+    if (typeof localStorage !== 'undefined') {
+      try {
+        localStorage.setItem('mland_ai_chat_messages', JSON.stringify(messages));
+      } catch {}
+    }
+  }, [messages]);
+
+  useEffect(() => {
+    if (typeof localStorage !== 'undefined' && quota) {
+      try {
+        localStorage.setItem('mland_ai_quota', JSON.stringify(quota));
+      } catch {}
+    }
+  }, [quota]);
+
+  useEffect(() => {
+    let active = true;
+    if (api?.getAiQuota) {
+      api.getAiQuota({ auth: isMember })
+        .then(res => {
+          if (active && res) {
+            setQuota(res);
+          }
+        })
+        .catch(() => {});
+    }
+    return () => {
+      active = false;
+    };
+  }, [isMember]);
+
+  const handleClearHistory = () => {
+    setMessages([]);
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem('mland_ai_chat_messages');
+    }
+  };
 
   async function handleSend(e) {
     e.preventDefault();
@@ -79,6 +138,17 @@ export default function AiSupportPage() {
         >
           {t('aiChat.quotaNotice', { remaining: currentRemaining, limit: currentLimit })}
         </span>
+        {messages.length > 0 && (
+          <button
+            type="button"
+            onClick={handleClearHistory}
+            className="button outline small"
+            style={{ marginLeft: '0.75rem', fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}
+            title="Xóa lịch sử trò chuyện"
+          >
+            🗑️ Xóa lịch sử
+          </button>
+        )}
       </header>
 
       <div className="disclaimer-banner" role="note">

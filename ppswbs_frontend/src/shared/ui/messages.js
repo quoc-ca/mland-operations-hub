@@ -38,6 +38,11 @@ export const sharedMessages = {
     'cart.productsHint': 'Nhận tại cửa hàng hoặc giao hàng',
     'cart.workshop': 'Workshop',
     'cart.workshopHint': 'Giữ chỗ và thanh toán một lần khi đặt',
+    'session.authUnavailable': 'Không thể kết nối hoặc xác thực thông tin tài khoản. Vui lòng thử lại.',
+    'session.noticeSignedOut': 'Đã đăng xuất',
+    'session.noticeEnded': 'Phiên đã kết thúc, vui lòng đăng nhập lại',
+    'session.noticeAccountMissing': 'Tài khoản không tồn tại trên hệ thống, vui lòng đăng nhập lại',
+    'session.noticeAccessDenied': 'Bạn không có quyền truy cập chức năng này.',
   },
   en: {
     loading: 'Loading…',
@@ -78,5 +83,10 @@ export const sharedMessages = {
     'cart.productsHint': 'Store pickup or delivery',
     'cart.workshop': 'Workshop',
     'cart.workshopHint': 'Hold seats and pay once when booking',
+    'session.authUnavailable': 'The account could not be reached or verified. Please try again.',
+    'session.noticeSignedOut': 'Signed out',
+    'session.noticeEnded': 'Your session has ended. Please sign in again.',
+    'session.noticeAccountMissing': 'This account does not exist in the system. Please sign in again.',
+    'session.noticeAccessDenied': 'You do not have access to this function.',
   },
 };

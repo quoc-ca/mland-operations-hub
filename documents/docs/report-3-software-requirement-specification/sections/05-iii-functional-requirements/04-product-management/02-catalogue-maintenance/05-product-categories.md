@@ -1,6 +1,6 @@
 #### 4.2.5 Product Categories
 
-![](assets/screens/86-product-categories.png)
+![](assets/screens/51-product-categories.png)
 
 This screen allows Staff and Managers to:
 

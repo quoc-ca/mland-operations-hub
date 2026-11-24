@@ -1,4 +1,5 @@
 // Feature-012 Draft domain logic and normalization
+import { viT } from './designFormat';
 
 export function createDefaultDraft(packageReference = '', sourceModel = null) {
   if (sourceModel) {
@@ -44,44 +45,43 @@ export function createDefaultDraft(packageReference = '', sourceModel = null) {
   };
 }
 
-export function validateDraftClient(draft, lang = 'vi') {
+export function validateDraftClient(draft, t = viT) {
   const errors = {};
-  const isEn = lang === 'en';
 
   if (!draft.packageReference) {
-    errors.packageReference = isEn ? 'Please select a workshop package.' : 'Vui lòng chọn gói workshop.';
+    errors.packageReference = t('validation.package');
   }
   if (!draft.materialReference) {
-    errors.materialReference = isEn ? 'Please select a ring material.' : 'Vui lòng chọn chất liệu nhẫn.';
+    errors.materialReference = t('validation.material');
   }
   if (!draft.shapeReference) {
-    errors.shapeReference = isEn ? 'Please select a band shape.' : 'Vui lòng chọn phom dáng đai nhẫn.';
+    errors.shapeReference = t('validation.shape');
   }
   if (!draft.ringSize) {
-    errors.ringSize = isEn ? 'Please select a ring size.' : 'Vui lòng chọn size nhẫn.';
+    errors.ringSize = t('validation.size');
   }
 
   const totalGemstones = (draft.components || []).reduce((sum, c) => sum + (Number(c.quantity) || 1), 0);
   if (totalGemstones > 10) {
-    errors.components = isEn ? 'Total gemstone quantity cannot exceed 10.' : 'Tổng số lượng đá quý không được vượt quá 10 viên.';
+    errors.components = t('validation.gemstones');
   }
 
   const customImages = draft.engraving?.customImages || [];
   if (customImages.length > 2) {
-    errors.customImages = isEn ? 'Maximum 2 custom laser images allowed.' : 'Số lượng ảnh khắc laser không được vượt quá 2 ảnh.';
+    errors.customImages = t('validation.images');
   }
 
   customImages.forEach((img, idx) => {
     if (img.contrast !== undefined && (img.contrast < 0 || img.contrast > 100)) {
-      errors[`customImage_contrast_${idx}`] = isEn ? 'Contrast must be between 0 and 100.' : 'Độ tương phản phải nằm trong khoảng từ 0 đến 100.';
+      errors[`customImage_contrast_${idx}`] = t('validation.contrast');
       if (!errors.customImages) {
-        errors.customImages = isEn ? 'Image contrast must be between 0 and 100.' : 'Độ tương phản ảnh phải nằm trong khoảng từ 0 đến 100.';
+        errors.customImages = t('validation.imageContrast');
       }
     }
     if (img.sharpness !== undefined && (img.sharpness < 0 || img.sharpness > 100)) {
-      errors[`customImage_sharpness_${idx}`] = isEn ? 'Sharpness must be between 0 and 100.' : 'Độ sắc nét phải nằm trong khoảng từ 0 đến 100.';
+      errors[`customImage_sharpness_${idx}`] = t('validation.sharpness');
       if (!errors.customImages) {
-        errors.customImages = isEn ? 'Image sharpness must be between 0 and 100.' : 'Độ sắc nét ảnh phải nằm trong khoảng từ 0 đến 100.';
+        errors.customImages = t('validation.imageSharpness');
       }
     }
   });
@@ -92,28 +92,41 @@ export function validateDraftClient(draft, lang = 'vi') {
     const symbolItems = items.filter((it) => (it.type || 'TEXT').toUpperCase() === 'SYMBOL');
 
     if (items.length > 2) {
-      errors.engravingText = isEn ? 'Maximum 2 engraving items allowed.' : 'Số lượng mục khắc chữ & biểu tượng không được vượt quá 2 mục.';
+      errors.engravingText = t('validation.engravingItems');
       if (textItems.length > 2) {
-        errors.engravingText = isEn ? 'Maximum 2 text engraving items allowed.' : 'Số lượng chữ khắc không được vượt quá 2 mục.';
+        errors.engravingText = t('validation.engravingTextItems');
       }
       if (symbolItems.length > 2) {
-        errors.engravingSymbol = isEn ? 'Maximum 2 symbol engraving items allowed.' : 'Số lượng biểu tượng khắc không được vượt quá 2 mục.';
+        errors.engravingSymbol = t('validation.engravingSymbolItems');
       }
     }
 
     if (items.length > 0) {
       const emptyItem = items.find((it) => !it.content || it.content.trim().length === 0);
       if (emptyItem) {
-        errors.engravingText = isEn ? 'Please enter engraving content for all added positions.' : 'Vui lòng nhập nội dung cho tất cả các vị trí khắc đã thêm.';
+        errors.engravingText = t('validation.engravingEmpty');
       }
-      const tooLongItem = items.find((it) => it.content && it.content.trim().length > 50);
+      const tooLongItem = items.find((it) => it.content && it.content.length > 50);
       if (tooLongItem) {
-        errors.engravingText = isEn ? 'Engraving content cannot exceed 50 characters per item.' : 'Nội dung mỗi vị trí khắc tối đa 50 ký tự.';
+        errors.engravingText = t('validation.engravingItemLong');
       }
     } else if (!draft.engraving.text || draft.engraving.text.trim().length === 0) {
-      errors.engravingText = isEn ? 'Please enter engraving text or disable engraving.' : 'Vui lòng nhập nội dung khắc hoặc tắt tùy chọn khắc.';
-    } else if (draft.engraving.text.trim().length > 50) {
-      errors.engravingText = isEn ? 'Engraving text cannot exceed 50 characters.' : 'Nội dung khắc tối đa 50 ký tự.';
+      errors.engravingText = t('validation.engravingMissing');
+    } else if (draft.engraving.text.length > 50) {
+      errors.engravingText = t('validation.engravingLong');
+    }
+
+    // Check conflict: Cannot engrave outer band if stones are mounted on outer band
+    if (totalGemstones > 0) {
+      const hasOuterItem = items.some((it) => it.placement === 'OUTER_BAND');
+      const hasOuterPlacement = draft.engraving.placement === 'OUTER_BAND';
+      const hasOuterImg = customImages.some((img) => img.placement === 'OUTER_BAND');
+      if (hasOuterItem || hasOuterPlacement || hasOuterImg) {
+        errors.engraving = t('validation.engravingOuterStoneConflict') || 'Do mẫu thiết kế có đính đá ở ngoài nên không thể khắc lazer';
+        if (!errors.engravingText) {
+          errors.engravingText = t('validation.engravingOuterStoneConflict') || 'Do mẫu thiết kế có đính đá ở ngoài nên không thể khắc lazer';
+        }
+      }
     }
   }
 

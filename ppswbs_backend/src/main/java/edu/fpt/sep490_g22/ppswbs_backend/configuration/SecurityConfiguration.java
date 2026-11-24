@@ -75,6 +75,7 @@ public class SecurityConfiguration {
                         .requestMatchers(HttpMethod.GET, "/api/v1/workshop-packages").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/workshop-packages/*").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/ai-support/messages").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/ai-support/quota").permitAll()
                         // 003.1 FR-031, FR-045, FR-047, FR-048: the group booking journey is open to a
                         // Guest (contract
                         // `security: [{}]`); each service authorizes server-side and a bearer, when
@@ -143,6 +144,7 @@ public class SecurityConfiguration {
                         .requestMatchers(HttpMethod.POST, "/api/v1/workshop-designs/*/versions").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/workshop-designs/*/evaluate").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/workshop-designs/*/archive").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/workshop-designs/*/restore").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/workshop-designs/*/attach-to-booking").permitAll()
                         // Feature-004 Independent Design Requests (safe read for guest lookup and
                         // member view, public submit for guest/member)

@@ -1,6 +1,6 @@
 #### 9.1.3 My Saved Vouchers
 
-![](assets/screens/90-my-saved-vouchers.png)
+![](assets/screens/37-my-saved-vouchers.png)
 
 This screen allows Members to:
 

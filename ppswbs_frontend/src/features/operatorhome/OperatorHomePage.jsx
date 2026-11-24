@@ -2,11 +2,12 @@ import React from 'react';
 import { Navigate } from 'react-router';
 import { useAuth } from '../../shared/auth/AuthProvider';
 import { useHttp } from '../../shared/api/useHttp';
-import { useLanguage } from '../../shared/i18n/I18nProvider';
+import { useT } from '../../shared/i18n/I18nProvider';
 import { roleHomePath } from '../../shared/auth/roleHome';
 import { ErrorNotice, Loading, useResource } from '../../shared/ui/components';
 import { OperationsAuthWorkspace } from '../../shared/ui/OperationsAuthWorkspace';
 import StaffHome from './StaffHome';
+import { operatorHomeMessages } from './messages';
 import '../../ota-connectivity/ota-connectivity.css';
 import './operatorHome.css';
 
@@ -14,8 +15,7 @@ import './operatorHome.css';
 export default function OperatorHomePage({ role }) {
   const { status } = useAuth();
   const http = useHttp();
-  const { language } = useLanguage();
-  const vi = language === 'vi';
+  const t = useT(operatorHomeMessages);
   const profile = useResource(() => (status === 'signed-in' ? http('/api/v1/accounts/me/profile') : Promise.resolve(null)), [status]);
 
   if (status === 'loading') return <Loading />;
@@ -23,7 +23,7 @@ export default function OperatorHomePage({ role }) {
     return (
       <OperationsAuthWorkspace
         topline="MLAND / HOME"
-        message={vi ? 'Đăng nhập bằng tài khoản Staff hoặc Manager để vào trang chủ.' : 'Sign in with a Staff or Manager account to open your home page.'}
+        message={t('page.signIn')}
       />
     );
   }
@@ -40,8 +40,8 @@ export default function OperatorHomePage({ role }) {
     <div className="ota-workspace">
       
       <main className="ota-main">
-        <div className="ota-topline">MLAND / HOME <span>● Backend-authorized</span></div>
-        <StaffHome name={name} vi={vi} />
+        <div className="ota-topline">MLAND / HOME <span>{t('page.authorized')}</span></div>
+        <StaffHome name={name} />
       </main>
     </div>
   );

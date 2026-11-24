@@ -1,4 +1,5 @@
 import React from 'react';
+import { installStackedTableLabels } from './stackedTables';
 import { RequireSession } from '../shared/auth/RequireSession';
 import { useT } from '../shared/i18n/I18nProvider';
 import { sharedMessages } from '../shared/ui/messages';
@@ -10,6 +11,7 @@ import PackageAddOnCataloguePage from './pages/PackageAddOnCataloguePage';
 import PackageAvailabilityMatrixPage from './pages/PackageAvailabilityMatrixPage';
 import LatePaymentReviewsPage from './pages/LatePaymentReviewsPage';
 import AuditReviewPage from './pages/AuditReviewPage';
+installStackedTableLabels();
 
 /** Staff/Manager area: without a session the page shows a sign-in link back to itself (the backend still decides every permission). */
 function StaffArea({ children }) {

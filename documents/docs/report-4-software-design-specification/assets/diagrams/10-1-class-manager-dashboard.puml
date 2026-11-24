@@ -1,0 +1,266 @@
+@startuml
+!pragma charset UTF-8
+skinparam shadowing false
+skinparam roundcorner 0
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam nodesep 40
+skinparam ranksep 70
+skinparam ArrowColor #000000
+skinparam class {
+  BackgroundColor #FFFFFF
+  BorderColor #000000
+  FontStyle bold
+  AttributeFontStyle plain
+}
+hide circle
+hide stereotype
+
+class ExecutiveReportController {
+  -ExecutiveReportService service
+  -ManagerReportingAccess access
+  +getReport(HttpServletRequest request, String periodType, LocalDate anchorDate, List<Long> locationIds) ResponseEntity<ExecutiveReportResponse>
+}
+
+class ExecutiveTrendController {
+  -ExecutiveTrendService service
+  -ManagerReportingAccess access
+  +getTrend(HttpServletRequest request, String periodType, LocalDate anchorDate, List<Long> locationIds) ResponseEntity<ExecutiveTrendResponse>
+}
+
+class ReportingExceptionHandler {
+  ~reporting(ReportingException exception, HttpServletRequest request) ResponseEntity<Map<String, Object>>
+}
+
+class ExecutiveReportResponse {
+  -ReportScope scope
+  -String status
+  -String currency
+  -KpiValues totals
+  -List<BranchKpi> branches
+  -List<SourceQuality> quality
+  -String lastUpdatedAt
+}
+
+class KpiValues {
+  -String retailRevenue
+  -String workshopRevenue
+  -String totalRevenue
+  -Long paidRetailOrderCount
+  -Long checkedInParticipants
+  -Long completedSessionCapacity
+  -Double workshopUtilizationPercent
+}
+
+class BranchKpi {
+  -Long locationId
+  -String branchName
+  -String currency
+  -KpiValues values
+}
+
+class ReportScope {
+  -String periodType
+  -String startAt
+  -String endAt
+  -String timezone
+  -List<Long> locationIds
+}
+
+class SourceQuality {
+  -String source
+  -String status
+  -String asOf
+  -String safeReasonCode
+}
+
+class ExecutiveTrendResponse {
+  -ReportScope scope
+  -String granularity
+  -List<TrendPoint> points
+  -TrendValues current
+  -TrendValues previous
+  -String previousStartAt
+  -String previousEndAt
+  -List<String> unavailable
+  -String lastUpdatedAt
+}
+
+class TrendPoint {
+  -String startAt
+  -String label
+  -TrendValues values
+}
+
+class TrendValues {
+  -Long retailPlaced
+  -Long retailPaid
+  -Long retailCancelled
+  -Long retailExpired
+  -String retailRevenue
+  -Long workshopBooked
+  -Long workshopConfirmed
+  -Long workshopCancelled
+  -Long workshopAbandoned
+  -Long placesRegistered
+  -Long placesCheckedIn
+  -Long placesNoShow
+  -Long placesCancelled
+  -String workshopRevenue
+}
+
+class ExecutiveTopSellerController {
+  -ExecutiveTopSellerService service
+  -ManagerReportingAccess access
+  +getTopSellers(HttpServletRequest request, String periodType, LocalDate anchorDate, List<Long> locationIds) ResponseEntity<ExecutiveTopSellerResponse>
+}
+
+class ExecutiveTopSellerResponse {
+  -ReportScope scope
+  -List<TopSeller> products
+  -List<TopSeller> packages
+  -List<String> unavailable
+  -String lastUpdatedAt
+}
+
+class TopSeller {
+  -Long id
+  -String name
+  -long quantity
+  -String revenue
+}
+
+class ExecutiveTopSellerService {
+  -ReportingTopSellerPort sources
+  -ReportingPeriodResolver periods
+  -Clock clock
+  +topSellers(String periodType, LocalDate anchorDate, List<Long> locationIds) ExecutiveTopSellerResponse
+}
+
+class ReportingTopSellerPort {
+  +topProducts(Collection<Long> locationIds, Instant from, Instant to, int limit) List<ProductSales>
+  +topPackages(Collection<Long> locationIds, Instant from, Instant to, int limit) List<PackageSales>
+}
+
+class JdbcReportingTopSellerAdapter {
+  -NamedParameterJdbcTemplate jdbc
+  +topProducts(Collection<Long> locationIds, Instant from, Instant to, int limit) List<ProductSales>
+  +topPackages(Collection<Long> locationIds, Instant from, Instant to, int limit) List<PackageSales>
+}
+
+class ManagerReportingAccess {
+  +authorize(Object actorCandidate, List<Long> requestedLocationIds) List<Long>
+}
+
+class ReportingException {
+  -HttpStatus status
+  -String code
+  +invalidFilter(String message) ReportingException
+  +unauthenticated() ReportingException
+  +forbidden(String message) ReportingException
+  +sourcesUnavailable() ReportingException
+}
+
+class ExecutiveReportService {
+  -ReportingSourcePort sources
+  -ReportingPeriodResolver periods
+  -Clock clock
+  +report(String periodType, LocalDate anchorDate, List<Long> locationIds) ExecutiveReportResponse
+}
+
+class ExecutiveTrendService {
+  -ReportingTrendPort sources
+  -ReportingPeriodResolver periods
+  -Clock clock
+  +trend(String periodType, LocalDate anchorDate, List<Long> locationIds) ExecutiveTrendResponse
+}
+
+class ReportingPeriodResolver {
+  -Clock clock
+  +resolve(String periodType, LocalDate anchorDate) ReportingPeriod
+}
+
+class ReportingPeriod {
+  -String periodType
+  -Instant startAt
+  -Instant endAt
+}
+
+class ReportSourceQuality {
+  +overall(Collection<SourceStatus> sources) OverallStatus
+}
+
+class ReportingSourcePort {
+  +retailRevenue(Collection<Long> locationIds, Instant from, Instant to) List<RetailBranchRevenue>
+  +workshopRevenue(Collection<Long> locationIds, Instant from, Instant to) WorkshopRevenue
+  +completedSessions(Collection<Long> locationIds, Instant from, Instant to) List<SessionCapacity>
+  +branchNames(Collection<Long> locationIds) Map<Long, String>
+}
+
+class ReportingTrendPort {
+  +retailOrders(Collection<Long> locationIds, Instant from, Instant to) List<RetailOrderHour>
+  +retailRevenue(Collection<Long> locationIds, Instant from, Instant to) List<RevenueHour>
+  +workshopBookings(Collection<Long> locationIds, Instant from, Instant to) List<WorkshopBookingHour>
+  +attendance(Collection<Long> locationIds, Instant from, Instant to) List<AttendanceHour>
+  +workshopRevenue(Collection<Long> locationIds, Instant from, Instant to) List<RevenueHour>
+}
+
+class JdbcReportingSourceAdapter {
+  -NamedParameterJdbcTemplate jdbc
+  +retailRevenue(Collection<Long> locationIds, Instant from, Instant to) List<RetailBranchRevenue>
+  +workshopRevenue(Collection<Long> locationIds, Instant from, Instant to) WorkshopRevenue
+  +completedSessions(Collection<Long> locationIds, Instant from, Instant to) List<SessionCapacity>
+  +branchNames(Collection<Long> locationIds) Map<Long, String>
+}
+
+class JdbcReportingTrendAdapter {
+  -NamedParameterJdbcTemplate jdbc
+  +retailOrders(Collection<Long> locationIds, Instant from, Instant to) List<RetailOrderHour>
+  +retailRevenue(Collection<Long> locationIds, Instant from, Instant to) List<RevenueHour>
+  +workshopBookings(Collection<Long> locationIds, Instant from, Instant to) List<WorkshopBookingHour>
+  +attendance(Collection<Long> locationIds, Instant from, Instant to) List<AttendanceHour>
+  +workshopRevenue(Collection<Long> locationIds, Instant from, Instant to) List<RevenueHour>
+}
+
+class WorkshopFolioSql {
+}
+
+ExecutiveReportController ..> ExecutiveReportResponse
+ExecutiveReportController --> ManagerReportingAccess
+ExecutiveReportController --> ExecutiveReportService
+ExecutiveTrendController ..> ExecutiveTrendResponse
+ExecutiveTrendController --> ManagerReportingAccess
+ExecutiveTrendController --> ExecutiveTrendService
+ReportingExceptionHandler ..> ReportingException
+ManagerReportingAccess ..> ReportingException
+
+ExecutiveReportResponse *-- ReportScope
+ExecutiveReportResponse "1" *-- "1" KpiValues : totals
+ExecutiveReportResponse "1" *-- "*" BranchKpi
+ExecutiveReportResponse "1" *-- "*" SourceQuality
+BranchKpi "1" *-- "1" KpiValues
+ExecutiveTrendResponse *-- ReportScope
+ExecutiveTrendResponse "1" *-- "*" TrendPoint
+TrendPoint "1" *-- "1" TrendValues
+
+ExecutiveReportService --> ReportingPeriodResolver
+ExecutiveReportService --> ReportingSourcePort
+ExecutiveReportService ..> ReportSourceQuality
+ExecutiveTrendService --> ReportingPeriodResolver
+ExecutiveTrendService --> ReportingTrendPort
+ReportingPeriodResolver ..> ReportingPeriod
+
+JdbcReportingSourceAdapter ..|> ReportingSourcePort
+JdbcReportingTrendAdapter ..|> ReportingTrendPort
+JdbcReportingSourceAdapter ..> WorkshopFolioSql
+JdbcReportingTrendAdapter ..> WorkshopFolioSql
+ExecutiveTopSellerController ..> ExecutiveTopSellerResponse
+ExecutiveTopSellerController --> ManagerReportingAccess
+ExecutiveTopSellerController --> ExecutiveTopSellerService
+ExecutiveTopSellerResponse *-- ReportScope
+ExecutiveTopSellerResponse "1" *-- "0..5" TopSeller : products
+ExecutiveTopSellerResponse "1" *-- "0..5" TopSeller : packages
+ExecutiveTopSellerService --> ReportingPeriodResolver
+ExecutiveTopSellerService --> ReportingTopSellerPort
+JdbcReportingTopSellerAdapter ..|> ReportingTopSellerPort
+@enduml

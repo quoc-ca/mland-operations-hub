@@ -4,7 +4,7 @@
 
 This screen allows Staff and Managers to:
 
-- View the product's state, first publication time and version.
+- View the product's state, category, first publication time and version.
 - Edit the content (name, category, description) and images.
 - Review, per branch, each size's SKU, remaining, held and available quantity, applied price and sale state.
 - Update quantities per size or for several sizes at once, stop or resume sales of a size or at a branch, add a selling branch and add sizes at a selling branch.
@@ -15,7 +15,7 @@ Staff outside the product's branches see a read-only view. With more than 3 size
 
 | Field Name | Description |
 | --- | --- |
-| Status summary | Read-only state, first publication time and content version. |
+| Status summary | Read-only state, category, first publication time and version with its content version. |
 | Content | Product name, category and description; **Edit** opens inline editing with **Save** / **Cancel**. |
 | Images | Current images; **Edit** opens the image editor. |
 | Branch tabs | Select the branch whose quantities are shown and changed; **Stop selling at this branch** / **Resume selling at this branch** change sales of the whole product there only. An inactive branch is shown as "Branch #{id} (branch no longer active)" without sale buttons; only a Manager can change its quantities. |

@@ -1,6 +1,6 @@
 #### 9.3.2 Voucher Details
 
-![](assets/screens/89-voucher-details.png)
+![](assets/screens/11-voucher-details.png)
 
 This screen allows visitors and Members to:
 

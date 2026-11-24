@@ -1,6 +1,6 @@
 #### 4.2.6 Import Products from Excel
 
-![](assets/screens/87-import-products-from-excel.png)
+![](assets/screens/52-import-products-from-excel.png)
 
 This screen allows Staff and Managers to:
 

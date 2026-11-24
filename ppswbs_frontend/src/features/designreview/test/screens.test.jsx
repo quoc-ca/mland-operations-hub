@@ -1,8 +1,13 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { fakeSession, json, mockFetch, renderRoutes } from '../../../test/render';
+import { clearRoleCache } from '../../../shared/auth/useRole';
 import { designReviewRoutes } from '../routes';
+
+beforeEach(() => {
+  clearRoleCache();
+});
 
 const open = (path, options) => renderRoutes(designReviewRoutes, { path, ...options });
 
@@ -416,7 +421,7 @@ describe('F04-REVIEW-DETAIL Screen (/design-review-requests/:id)', () => {
       }),
       'POST /api/v1/custom-design-requests/rev-quote-01/quote': json(200, {
         quoteReference: 'QUO-88889999',
-        totalAmount: '18000000',
+        totalAmount: '800000',
         currency: 'VND',
         status: 'QUOTE_PENDING',
         quoteGeneration: 1,
@@ -429,8 +434,8 @@ describe('F04-REVIEW-DETAIL Screen (/design-review-requests/:id)', () => {
 
     expect(await screen.findByText('Báo giá Gia công Tùy chỉnh (Custom Quote)')).toBeInTheDocument();
 
-    const amountInput = screen.getByPlaceholderText(/Ví dụ: 15000000/);
-    await user.type(amountInput, '18000000');
+    const amountInput = screen.getByTestId('quote-amount-input');
+    await user.type(amountInput, '800000');
 
     const reasonInput = screen.getByPlaceholderText(/Ghi chú cơ cấu vật liệu/);
     await user.type(reasonInput, 'Vàng 18k và kim cương 4.5mm');
@@ -441,7 +446,7 @@ describe('F04-REVIEW-DETAIL Screen (/design-review-requests/:id)', () => {
     // Confirmation dialog must appear
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByText('Xác nhận gửi báo giá cho Quản lý')).toBeInTheDocument();
-    expect(within(dialog).getByText(/18\.000\.000 đ/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/800\.000 đ/)).toBeInTheDocument();
 
     // Confirm sending
     const confirmBtn = within(dialog).getByRole('button', { name: 'Xác nhận gửi' });
@@ -478,8 +483,8 @@ describe('F04-REVIEW-DETAIL Screen (/design-review-requests/:id)', () => {
 
     expect(await screen.findByText('Báo giá Gia công Tùy chỉnh (Custom Quote)')).toBeInTheDocument();
 
-    const amountInput = screen.getByPlaceholderText(/Ví dụ: 15000000/);
-    await user.type(amountInput, '12000000');
+    const amountInput = screen.getByTestId('quote-amount-input');
+    await user.type(amountInput, '500000');
 
     const submitQuoteBtn = screen.getByRole('button', { name: 'Gửi báo giá cho Manager duyệt' });
     await user.click(submitQuoteBtn);
@@ -491,6 +496,53 @@ describe('F04-REVIEW-DETAIL Screen (/design-review-requests/:id)', () => {
     expect(await screen.findByText(/✕ Thất bại:/)).toBeInTheDocument();
     // Button is still present for retrying
     expect(screen.getByRole('button', { name: 'Gửi báo giá cho Manager duyệt' })).toBeInTheDocument();
+  });
+
+  it('validates quote amount <= 1000000 and duration 24-72 hours on ReviewDetailPage', async () => {
+    const user = userEvent.setup();
+    mockFetch({
+      'GET /api/v1/accounts/me/profile': json(200, { role: 'STAFF' }),
+      'GET /api/v1/design-requests/rev-validate-01': json(200, {
+        id: 'rev-validate-01',
+        requestReference: 'DR-V01',
+        requestVersion: 1,
+        requestStatus: 'ACTIVE',
+        reviewStatus: 'ACCEPTED',
+        ownershipType: 'MEMBER',
+        description: 'Mẫu nhẫn test validation',
+      }),
+    });
+
+    open('/design-review-requests/rev-validate-01', { session: fakeSession('signed-in') });
+
+    expect(await screen.findByText('Báo giá Gia công Tùy chỉnh (Custom Quote)')).toBeInTheDocument();
+
+    const amountInput = screen.getByTestId('quote-amount-input');
+    const hoursInput = screen.getByTestId('quote-hours-input');
+
+    // Amount > 1000000 shows error
+    await user.type(amountInput, '1500000');
+    expect(screen.getByTestId('quote-amount-error')).toHaveTextContent('Số tiền tối đa không được vượt quá 1.000.000 VNĐ.');
+
+    // Clear and type valid amount
+    await user.clear(amountInput);
+    await user.type(amountInput, '500000');
+    expect(screen.queryByTestId('quote-amount-error')).toBeNull();
+
+    // Hours < 24 shows error
+    await user.clear(hoursInput);
+    await user.type(hoursInput, '12');
+    expect(screen.getByTestId('quote-hours-error')).toHaveTextContent('Thời hạn thanh toán chỉ được phép từ 24 đến 72 giờ.');
+
+    // Hours > 72 shows error
+    await user.clear(hoursInput);
+    await user.type(hoursInput, '100');
+    expect(screen.getByTestId('quote-hours-error')).toHaveTextContent('Thời hạn thanh toán chỉ được phép từ 24 đến 72 giờ.');
+
+    // Valid hours
+    await user.clear(hoursInput);
+    await user.type(hoursInput, '48');
+    expect(screen.queryByTestId('quote-hours-error')).toBeNull();
   });
 
   it('allows Manager to approve pending quote on ReviewDetailPage', async () => {
@@ -533,7 +585,7 @@ describe('F04-REVIEW-DETAIL Screen (/design-review-requests/:id)', () => {
     expect(await screen.findByText(/25\.000\.000 đ/)).toBeInTheDocument();
     expect(screen.getByText(/Chờ Quản lý \(Manager\) duyệt/)).toBeInTheDocument();
 
-    const approveBtn = screen.getByRole('button', { name: 'Phê duyệt Báo giá (Manager Approve)' });
+    const approveBtn = await screen.findByRole('button', { name: 'Phê duyệt Báo giá (Manager Approve)' });
     await user.click(approveBtn);
 
     const dialog = await screen.findByRole('dialog');

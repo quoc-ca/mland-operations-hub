@@ -182,3 +182,13 @@
 
 /* .actions toàn cục (reviewmanagement.css) có margin-top 1rem: trong ô bảng nó đẩy nút xuống thấp hơn các ô cùng hàng */
 .ops-table td .actions{margin-top:0;align-items:center}
+
+/* Phones: each .ops-table row becomes a card; captions come from data-label (see stackedTables.js). */
+@media(max-width:640px){
+.ops-table,.ops-table tbody,.ops-table tr,.ops-table td{display:block;width:100%;box-sizing:border-box}
+.ops-table thead{display:none}
+.ops-table tr{border:1px solid #e5e7eb;border-radius:10px;margin:0 0 10px;padding:6px 12px;background:#fff}
+.ops-table td{display:flex;justify-content:space-between;align-items:center;gap:12px;border-bottom:0;padding:7px 0;white-space:normal;text-align:right;overflow-wrap:anywhere}
+.ops-table td[data-label]:not([data-label=""])::before{content:attr(data-label);flex:none;color:#6b7280;font-size:11px;font-weight:700;text-transform:uppercase;text-align:left}
+.ops-table td[colspan]{display:block;text-align:left}
+}

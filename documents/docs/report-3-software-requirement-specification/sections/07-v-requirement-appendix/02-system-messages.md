@@ -43,11 +43,11 @@
 |39|MSG39|Error|A voucher code already exists after trimming and ignoring case (UC-46).|Voucher code {voucher code} already exists.|
 |40|MSG40|Error|The program scope is invalid, including a workshop automatic discount without a package or with a branch, date or session (UC-45, UC-46).|The selected scope is invalid: {reason}.|
 |41|MSG41|Error|The Manager tries to change the code or scope of an existing program (UC-45, UC-46).|The code and scope cannot be changed after the program has been created.|
-|42|MSG42|Error|A total or per-Member limit is lower than the used plus held uses (UC-46).|The limit cannot be lower than {used} used plus {held} held uses.|
+|42|MSG42|Error|A total or per-Member limit is lower than the used plus held uses; for a voucher that must be saved, the total limit is also compared with the saved but unused uses (UC-46).|The limit cannot be lower than {used} used plus {held} held uses.|
 |43|MSG43|Success|A program is edited, paused or resumed (UC-45, UC-46).|Program {name} has been {updated / paused / resumed}. Changes apply to new transactions only.|
 |44|MSG44|Warning|Products in a program's scope are hidden, stopped from sale or deleted, or a branch in a product voucher's scope is inactive (UC-45, UC-46).|Some products in this program's scope are hidden, stopped from sale or deleted.|
 |45|MSG45|Information|A Guest selects Save on a voucher (UC-47).|Sign in to save this voucher.|
-|46|MSG46|Success|A Member saves a voucher (UC-47).|The voucher has been saved to My vouchers.|
+|46|MSG46|Success|A Member saves a voucher (UC-47).|The voucher has been saved to My Saved Vouchers.|
 |47|MSG47|Information|A saved voucher has no published product in scope, or its uses or the Member's uses are all used or held; a public card or detail of a voucher whose uses are all used or held, or, for a voucher that must be saved, all used, held or claimed (UC-47).|No products currently apply. / Fully claimed. / All claimed. / You used all your uses.|
 |48|MSG48|Error|A voucher cannot be applied to the order or booking, for example the code does not exist, the scope or branch does not match, the voucher is expired, paused or fully used, a voucher that must be saved has not been saved by the Member, or the automatic discount already covers all its lines so it gives no further discount (UC-48).|This voucher cannot be used: {reason}.|
 |49|MSG49|Error|The Member tries to use points with a voucher that does not allow them (UC-44).|This voucher cannot be combined with loyalty points.|
@@ -59,7 +59,7 @@
 |55|MSG55|Success|An item is added to the cart from the Quick add box on the product list (UC-10).|"{product name}" was added to your cart. View cart|
 |56|MSG56|Warning|A new product, or a product in an import file, has the same name as an existing product (UC-12, UC-13). Saving or importing is still allowed.|{count} product(s) already have this name: {links}. / {count} product(s) in the file have the name of an existing product. Check them before confirming (the import is still allowed).|
 |57|MSG57|Success / Error|Images are saved, or not saved, for the products just imported (UC-13).|Images saved for {count} products. / Images of {count} products were not saved; see the error on each product and save again.|
-|58|MSG58|Information|A signed-in Staff, Manager or Admin views the Save option of a voucher; only Members have My vouchers (UC-47).|Only members can save vouchers.|
+|58|MSG58|Information|A signed-in Staff, Manager or Admin views the Save option of a voucher; only Members have My Saved Vouchers (UC-47).|Only members can save vouchers.|
 |59|MSG59|Information|The size conversion chart dialog has no size chart image (UC-10, UC-11).|No size chart image yet.|
 |60|MSG60|Information|The product has no public customer review; five empty stars are shown and no score (UC-11).|No reviews yet|
 |61|MSG61|Information|No category matches the status filter or name search in Category Management (UC-18).|No category matches the filter.|
@@ -75,3 +75,18 @@
 |71|MSG71|Error|A Member saves a voucher that must be saved, but no use is left to claim or the Member has already used their use (UC-47).|All claimed. / You have used your use of this code.|
 |72|MSG72|Information|A product or workshop package price includes the best voucher, or a better voucher must be saved first (UC-47).|"Price after voucher {code}" / "Price after voucher {code} · at {branches}" / "Save code: {value} off"|
 |73|MSG73|Warning|Sizes are added at a branch, but a later step for the price of a new size (submit, approve or apply) fails; the sizes and the steps already done are kept (UC-12, UC-14, UC-15).|"Sizes {sizes} were added, but the price of size {failed} is not finished. Carry on in the Price section."|
+|74|MSG74|Error|A cart quantity is not a whole number from 1 to 99, or is above the quantity left at the branch (UC-52, UC-53).|The quantity must be from 1 to 99. / The branch has only {availableQuantity} of this item left.|
+|75|MSG75|Error|The Member presses Mua hàng with no cart line ticked (UC-53).|Select at least one item to buy.|
+|76|MSG76|Warning|Mua lại could not put some rings of a past order back in the cart (UC-53, UC-56).|Could not add {items} again: not enough stock or no longer sold. The other items are already ticked.|
+|77|MSG77|Error|GHTK is chosen at checkout without a delivery address, or GHTK does not deliver to the address (UC-54).|Add and choose a delivery address before using GHTK. / GHTK does not deliver to this address yet. Choose store pickup or another address.|
+|78|MSG78|Error|The lines chosen for checkout are no longer in the cart (UC-54).|The items you chose are no longer in the cart.|
+|79|MSG79|Success|A retail order is placed, for VNPay or for cash at the counter (UC-54, UC-55).|Order placed, opening the VNPay payment page… / Order placed. Please go to {branch} before {deadline} and pay cash on pickup.|
+|80|MSG80|Error|The order is placed but the VNPay page does not open (UC-55).|The order is placed but the VNPay page did not open. Press pay to try again, or pay later from My orders.|
+|81|MSG81|Success|The VNPay payment of a retail order is verified (UC-55).|Payment successful. Mland is preparing your order.|
+|82|MSG82|Warning|The hold of an unpaid retail order has ended (UC-55, UC-56).|The hold has ended. The order will cancel itself and give back the voucher and points.|
+|83|MSG83|Success|Staff marks a pickup order ready, hands it to the customer or records the counter cash (UC-58 to UC-60).|Order {code} is packed and waits for the customer. / Order {code} handed to the customer. / Order {code}: {payableAmount} collected, order completed.|
+|84|MSG84|Error|An account that is not an active GHTK partner account opens the partner shipment page (UC-61).|This account is not an active GHTK partner account.|
+|85|MSG85|Error|The dashboard or one of its parts cannot be loaded (UC-64).|The dashboard could not be loaded. You can try again. / The trend charts could not be loaded. / The best sellers could not be loaded.|
+|86|MSG86|Error|The Manager chooses an invalid dashboard filter, such as a period entirely in the future (UC-64).|Invalid filter (for example a period entirely in the future). Keeping the last valid result.|
+|87|MSG87|Warning|Some dashboard figures cannot be read (UC-64).|Figures are incomplete. Items marked "—" have no data; they are not zero.|
+|88|MSG88|Information|The chosen period has no data for a dashboard part (UC-64).|No verified transactions in this period. / No product was sold in this period. / No workshop ticket was confirmed in this period.|

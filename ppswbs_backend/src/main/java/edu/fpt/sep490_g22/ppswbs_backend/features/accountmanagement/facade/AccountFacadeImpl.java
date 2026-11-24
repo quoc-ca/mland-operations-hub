@@ -59,6 +59,14 @@ public class AccountFacadeImpl implements AccountFacade {
 
     @Override
     @Transactional(readOnly = true)
+    public Optional<String> findAccountEmail(Long accountId) {
+        if (accountId == null) return Optional.empty();
+        return accountRepository.findById(accountId)
+            .map(Account::getLoginEmail);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<Long> getLocationScope(Long accountId) {
         return locationAssignmentRepository.findByAccountIdAndActiveTrue(accountId).stream()
             .map(AccountLocationAssignment::getLocationId)

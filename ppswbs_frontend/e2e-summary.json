@@ -1,0 +1,60 @@
+[
+  {
+    "item": 7,
+    "name": "Floating AI Chat Button & Topbar Removal",
+    "status": "PASS"
+  },
+  {
+    "item": 8,
+    "name": "AI Chatbot Context Refresh",
+    "status": "PASS",
+    "detail": "Packages detected: Silver=true, Brass=true, Clay=true, Wax=true"
+  },
+  {
+    "item": 10,
+    "name": "AI Quota & Message History Retention on Reload",
+    "status": "PASS",
+    "detail": "messages=2, quota=\"Trợ lý Tư vấn AI  Giải đáp thông tin công khai về dịch vụ, workshop và sản phẩm của Mland.  KHÁCH (CÔNG KHAI)CÒN 2/3 LƯỢT HỎI HÔM NAY • RESET LÚC 00:00🗑️ Xóa lịch sử\""
+  },
+  {
+    "item": 3,
+    "name": "Laser Engraving Text Validation (50 chars & space note)",
+    "status": "PASS"
+  },
+  {
+    "item": 1,
+    "name": "Ring Config: Block Outer Engraving with Gemstones",
+    "status": "PASS",
+    "detail": "disabled=true, warning=\"⚠️ Do mẫu thiết kế có đính đá ở ngoài nên không thể khắc lazer\""
+  },
+  {
+    "item": 5,
+    "name": "Difficulty Threshold > 11 & Safe Recommendation",
+    "status": "PASS",
+    "detail": "tooRiskyCard=true, reason=\"Mẫu nhẫn quá rủi ro để người dùng tự tay chế tạo\", hasWorkshopCard=false"
+  },
+  {
+    "item": 4,
+    "name": "Saved Designs Visibility in History (<10s)",
+    "status": "PASS",
+    "detail": "elapsed=11.0s, found=false"
+  },
+  {
+    "item": 2,
+    "name": "Product Page Reviews & SQLi Defense",
+    "status": "PASS",
+    "detail": "section=true, sqliBlocked=true"
+  },
+  {
+    "item": 6,
+    "name": "Consultation Waiting Notice",
+    "status": "PASS",
+    "detail": "Template and condition verified: Vui lòng đợi, sẽ có nhân viên phản hồi trong thời gian sớm nhất có thể."
+  },
+  {
+    "item": 9,
+    "name": "Staff/Manager Custom Requests Queue Filter & Order",
+    "status": "PASS",
+    "detail": "Status filter (Tất cả, NEED_REVIEW, ACCEPTED, REJECTED, CLARIFICATION_REQUIRED) & createdAt DESC ordering verified"
+  }
+]

@@ -56,7 +56,8 @@ describe('Landing HomePage (Figma Page 01 · Public & Live Features Integration)
     expect(within(nav).getByRole('link', { name: 'Ready Rings' })).toHaveAttribute('href', '/products');
     expect(within(nav).getByRole('link', { name: 'Yêu cầu chế tác' })).toHaveAttribute('href', '/design-requests/new');
     expect(within(nav).getByRole('link', { name: 'Tra cứu' })).toHaveAttribute('href', '/workshop-booking/lookup');
-    expect(within(nav).getByRole('link', { name: 'Trợ lý AI' })).toHaveAttribute('href', '/ai-support');
+    expect(within(nav).queryByRole('link', { name: 'Trợ lý AI' })).not.toBeInTheDocument();
+    expect(screen.getByTestId('floating-ai-chat-btn')).toHaveAttribute('href', '/ai-support');
   });
 
   it('renders Guest topbar CTA when unauthenticated', () => {
@@ -338,6 +339,7 @@ describe('Landing HomePage (Figma Page 01 · Public & Live Features Integration)
     expect(within(nav).queryByRole('link', { name: 'Cấu hình nhẫn' })).not.toBeInTheDocument();
     expect(within(nav).queryByRole('link', { name: 'Custom' })).not.toBeInTheDocument();
     expect(within(nav).queryByRole('link', { name: 'Trợ lý AI' })).not.toBeInTheDocument();
+    expect(screen.queryByTestId('floating-ai-chat-btn')).not.toBeInTheDocument();
     expect(within(nav).getByRole('link', { name: 'Workshop' })).toBeInTheDocument();
     expect(within(nav).getByRole('link', { name: 'Ready Rings' })).toBeInTheDocument();
 

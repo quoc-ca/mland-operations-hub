@@ -130,7 +130,7 @@ export default function AuthPage({ mode = 'signin' }) {
         {errorKey && <div className="auth-notice auth-error" role="alert">{t(errorKey)}</div>}
         {noticeKey && <div className="auth-notice auth-success" role="status">{t(noticeKey)}</div>}
         {bootstrap.error && bootstrap.error.retryable && (
-          <button type="button" className="auth-retry" onClick={retryBootstrap} disabled={buttonPending}>Thử lại</button>
+          <button type="button" className="auth-retry" onClick={retryBootstrap} disabled={buttonPending}>{t('action.retry')}</button>
         )}
         <form onSubmit={submit} noValidate>
           <label className="auth-field">
@@ -149,7 +149,7 @@ export default function AuthPage({ mode = 'signin' }) {
             {fieldErrors.confirmPassword && <small>{fieldErrors.confirmPassword}</small>}
           </label>}
           <button className="auth-submit" type="submit" disabled={buttonPending}>
-            {buttonPending ? 'Đang xử lý…' : t(`${mode}.submit`)}
+            {buttonPending ? t('action.pending') : t(`${mode}.submit`)}
           </button>
         </form>
         {mode === 'signin' && <Link className="auth-link auth-forgot" to="/forgot-password">{t('signin.forgot')}</Link>}

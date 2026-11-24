@@ -1,0 +1,133 @@
+@startuml
+!pragma charset UTF-8
+skinparam shadowing false
+skinparam roundcorner 0
+skinparam sequenceMessageAlign center
+skinparam ParticipantBackgroundColor #FFFFFF
+skinparam ParticipantBorderColor #000000
+skinparam ActorBackgroundColor #FFFFFF
+skinparam ActorBorderColor #000000
+skinparam ArrowColor #000000
+skinparam SequenceLifeLineBorderColor #7B61FF
+skinparam SequenceLifeLineBackgroundColor #F5F5F5
+skinparam SequenceGroupBorderColor #7B61FF
+skinparam SequenceGroupBackgroundColor #FFFFFF
+skinparam SequenceGroupHeaderFontStyle plain
+
+actor "Member" as Member
+participant "MemberOrdersPage /\nMemberCheckoutPage" as UI
+participant "CheckoutController" as Ctl
+participant "RetailPaymentService" as Pay
+participant "VnpayRetailPaymentAdapter" as Adapter
+participant "VNPay" as VNPAY
+participant "PaymentIngressService" as Ingress
+participant "RetailPaymentEvidenceService" as Evidence
+participant "GroupedCheckoutRepository" as Repo
+participant "Database" as DB
+
+Member -> UI : Click "Thanh toán"
+activate UI
+UI -> Ctl : POST /api/v1/ready-ring-checkouts/{checkoutId}/payment
+activate Ctl
+alt Not an Active Member
+  Ctl --> UI : 401 Unauthorized / 403 Forbidden Response
+  UI --> Member : Redirect to Sign-in page / Display error popup
+else Active Member
+  Ctl -> Pay : initiate(memberId, checkoutId)
+  activate Pay
+  Pay -> Repo : lockOwned(checkoutId, memberId)
+  activate Repo
+  Repo -> DB : Execute SELECT ... FOR UPDATE statement on retail_grouped_checkouts
+  activate DB
+  DB --> Repo : Return locked checkout
+  deactivate DB
+  Repo --> Pay : Return GroupedCheckout
+  deactivate Repo
+  alt Checkout Already Paid
+    Pay --> Ctl : Return PaymentRedirectView (PAID, no URL)
+    Ctl --> UI : 200 OK Response
+    UI --> Member : Display the order as paid
+  else VNPay Link of This Checkout Still Valid
+    Pay --> Ctl : Return PaymentRedirectView (stored payment URL)
+    Ctl --> UI : 200 OK Response
+    UI --> Member : Redirect to the same VNPay page
+  else Cash at the Counter, Wrong State or Hold Ended
+    Pay --> Ctl : Throw RetailConflictException
+    Ctl --> UI : 409 Conflict Response (reason)
+    UI --> Member : Display error popup
+  else Waiting for Payment
+    Pay -> Pay : beginPayment() (state PAYMENT_INITIATED)
+    Pay -> Adapter : initiate(checkoutId, payableAmount)
+    activate Adapter
+    Adapter --> Pay : Return signed VNPay URL valid until the 10-minute hold ends
+    deactivate Adapter
+    Pay -> Pay : rememberPaymentLink(paymentUrl, expiresAt)
+    Pay --> Ctl : Return PaymentRedirectView (paymentUrl, expiresAt)
+    Ctl --> UI : 200 OK Response (PaymentRedirectView)
+    UI --> Member : Redirect to VNPay
+  end
+  deactivate Pay
+end
+deactivate Ctl
+deactivate UI
+
+Member -> VNPAY : Pay the order
+activate VNPAY
+VNPAY -> Ingress : GET /api/v1/integrations/payments/vnpay/events (IPN, server to server)
+activate Ingress
+Ingress -> Ingress : Verify checksum and find the payment owner by merchant reference
+alt Invalid Signature or Unknown Merchant Reference
+  Ingress --> VNPAY : IPN response (RspCode 97 / 01)
+else Amount or Currency Does Not Match
+  Ingress --> VNPAY : IPN response (RspCode 04, AMOUNT_CURRENCY_MISMATCH)
+else vnp_ResponseCode = 00 and vnp_TransactionStatus = 00
+  Ingress -> Ingress : Store the IPN receipt
+  Ingress -> Evidence : applyVerifiedPayment(RetailVerifiedPayment)
+  activate Evidence
+  Evidence -> Repo : lockById(checkoutId)
+  activate Repo
+  Repo -> DB : Execute SELECT ... FOR UPDATE statement on retail_grouped_checkouts
+  activate DB
+  DB --> Repo : Return locked checkout
+  deactivate DB
+  Repo --> Evidence : Return GroupedCheckout
+  deactivate Repo
+  alt Hold Ended or Checkout No Longer Waiting for Payment
+    Evidence -> DB : Execute INSERT statement on retail_payment_reconciliation (reason LATE_OR_INVALID_STATE)
+    activate DB
+    DB --> Evidence : Return inserted row
+    deactivate DB
+  else Valid Payment
+    Evidence -> Evidence : Settle the holds of every size × branch under the availability guard
+    Evidence -> Evidence : markPaidWithProof("VNPAY-" + transaction)
+    Evidence -> Repo : saveAndFlush(checkout)
+    activate Repo
+    Repo -> DB : Execute UPDATE statement on retail_grouped_checkouts and retail_orders (PAID)
+    activate DB
+    DB --> Repo : Return updated rows count
+    deactivate DB
+    Repo --> Evidence : Return GroupedCheckout
+    deactivate Repo
+    Evidence -> Evidence : createShipmentsForPaidCheckout(checkout) for GHTK branch orders
+    Evidence -> Evidence : LoyaltyFacade.settleAcceptedBenefits / grantEarnedPoints (FE-06)\nCatalogueSalesFacade.recordAcceptedSale (FE-02)
+  end
+  Evidence --> Ingress : Return
+  deactivate Evidence
+  Ingress --> VNPAY : IPN response (RspCode 00)
+else Payment Failed at VNPay
+  Ingress -> Ingress : Store the IPN receipt only (the checkout keeps waiting until the hold ends)
+  Ingress --> VNPAY : IPN response (RspCode 00)
+end
+deactivate Ingress
+VNPAY --> Member : Redirect browser to the return page
+deactivate VNPAY
+Member -> UI : Open the return page
+activate UI
+UI --> Member : Display the payment result read from the server\n(the browser return never marks the order paid)
+deactivate UI
+
+note over Evidence, DB
+  A payment without a result is checked later by RetailQueryReconciliationService (VNPay QueryDR).
+  A verified payment goes through applyVerifiedPayment; an unresolved one goes to the Manager reconciliation list.
+end note
+@enduml

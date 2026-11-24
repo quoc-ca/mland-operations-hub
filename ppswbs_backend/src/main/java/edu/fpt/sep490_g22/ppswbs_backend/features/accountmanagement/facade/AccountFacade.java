@@ -17,6 +17,8 @@ public interface AccountFacade {
      */
     Optional<String> findAccountFullName(Long accountId);
 
+    Optional<String> findAccountEmail(Long accountId);
+
     List<Long> getLocationScope(Long accountId);
 
     Optional<CurrentAccountActor> resolveActor(String firebaseUid, boolean emailVerified);

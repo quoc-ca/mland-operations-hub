@@ -90,7 +90,7 @@ export default function ModerationDetailPage() {
       <header className="page-header">
         <div style={{ marginBottom: '0.75rem' }}>
           <Link to="/review-moderation" className="button outline small" style={{ textDecoration: 'none' }}>
-            ← Danh sách kiểm duyệt
+            ← {t('backToQueue')}
           </Link>
         </div>
         <h1>{t('moderationTitle')}</h1>
@@ -159,7 +159,7 @@ export default function ModerationDetailPage() {
                 </button>
               ) : (
                 <span className="muted" style={{ fontStyle: 'italic', fontSize: '0.9rem' }}>
-                  Đánh giá đang ở trạng thái ẨN. Chỉ Quản lý (Manager) mới có quyền Khôi phục hoặc Gỡ bỏ.
+                  {t('hiddenManagerOnly')}
                 </span>
               )}
             </>
@@ -217,7 +217,7 @@ export default function ModerationDetailPage() {
 
         {isStaff ? (
           <p className="muted" style={{ fontStyle: 'italic', margin: '0.5rem 0' }}>
-            Chỉ Quản lý (Manager) mới có quyền gửi phản hồi chính thức cho khách hàng.
+            {t('replyManagerOnly')}
           </p>
         ) : (
           <>

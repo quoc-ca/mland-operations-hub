@@ -12,5 +12,7 @@ public interface TemporaryImageReferenceRepository extends JpaRepository<Tempora
 
     Optional<TemporaryImageReference> findByDesignRequestId(String designRequestId);
 
+    List<TemporaryImageReference> findAllByDesignRequestId(String designRequestId);
+
     List<TemporaryImageReference> findByDeletedFalse();
 }

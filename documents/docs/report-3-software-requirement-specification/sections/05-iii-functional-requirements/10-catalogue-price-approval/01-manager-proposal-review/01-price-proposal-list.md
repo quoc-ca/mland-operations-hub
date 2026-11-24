@@ -1,6 +1,6 @@
 #### 10.1.1 Prices to Review
 
-![](assets/screens/66-price-proposal-list.png)
+![](assets/screens/71-prices-to-review.png)
 
 **Prices to review** is the tab of Product Management List that follows price changes of products that have been published before, one row per size. Prices of a never-published product are decided with its initial review and appear under the Products to review tab instead. The tab count is the number of prices waiting for a decision, for Staff and Managers alike. This screen allows Managers and Staff to:
 
@@ -14,7 +14,7 @@
 | Sub-filters | Waiting for review, Drafts not sent (Staff only) and Rejected, each with its own count; Drafts not sent is highlighted for Staff when above 0, and Rejected is never highlighted. |
 | Product name | Link to Product Management Details, with the product code. |
 | Size | The size whose price is proposed. |
-| Applied price | The price customers currently pay; it does not change while the proposal waits or after a rejection. |
+| Applied price | The price customers currently pay; it does not change while the proposal waits or after a rejection; "—" when the size has no applied price yet. |
 | Proposed price / Draft price | The amount proposed, or the amount of the unsent draft. |
 | Submitted by / Rejected by | Staff member or Manager with the time; "Not sent" for a draft. |
 | Decision | Manager: **Approve** / **Reject**, opening Price Proposal Review on the row. Staff: "Waiting for a Manager". |

@@ -1,18 +1,14 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { useLanguage } from '../../shared/i18n/I18nProvider';
-
-/** Picks the Vietnamese or the English wording; the dashboard follows the VI/EN switch (Session 2026-11-22). */
-export function useL() {
-  const { language } = useLanguage();
-  return useCallback((vi, en) => (language === 'en' ? en : vi), [language]);
-}
+import React, { useEffect, useRef, useState } from 'react';
+import { useLanguage, useT } from '../../shared/i18n/I18nProvider';
+import { managerDashboardMessages } from './messages';
 
 /**
  * FE-10 trends (Session 2026-11-16): small hand-drawn SVG charts in the dashboard palette, no chart library.
  * A null value is a source that could not be read and is drawn as a gap, never as zero.
  */
 
-export const UNIT_LABEL = { HOUR: ['giờ', 'hour'], DAY: ['ngày', 'day'], MONTH: ['tháng', 'month'] };
+// Message keys of the chart granularity; the wording lives in messages.js (shared with the simulated GHTK statistics page).
+export const UNIT_LABEL = { HOUR: 'unit.HOUR', DAY: 'unit.DAY', MONTH: 'unit.MONTH' };
 
 const WIDTH = 640; // starting width; the chart then takes its real width so the text is never stretched
 const HEIGHT = 220;
@@ -46,8 +42,9 @@ export function compact(value, en = false) {
  */
 export function TrendChart({ title, points, series, kind = 'line', format = v => v, empty }) {
   const [hover, setHover] = useState(null);
-  const L = useL();
-  const en = L(false, true);
+  const t = useT(managerDashboardMessages);
+  const { language } = useLanguage();
+  const en = language === 'en';
   // Draw at the box's real width (Session 2026-11-22): a stretched SVG made the axis text wide and blurry.
   const bodyRef = useRef(null);
   const [width, setWidth] = useState(WIDTH);
@@ -123,7 +120,7 @@ export function TrendChart({ title, points, series, kind = 'line', format = v =>
         {points.map((p, i) => <rect key={`h${i}`} x={PAD.left + slot * i} y={PAD.top} width={slot} height={innerH}
           fill="transparent" onMouseEnter={() => setHover(i)} />)}
       </svg>
-      {!hasData && <p className="md-chart-empty">{empty || L('Chưa có dữ liệu trong kỳ này.', 'No data in this period.')}</p>}
+      {!hasData && <p className="md-chart-empty">{empty || t('chart.empty')}</p>}
       {hover != null && <div className="md-tooltip" role="status"
         style={{ left: `${Math.min(80, Math.max(4, ((x(hover) - PAD.left) / innerW) * 100))}%` }}>
         <strong>{points[hover].label}</strong>
@@ -135,18 +132,19 @@ export function TrendChart({ title, points, series, kind = 'line', format = v =>
 
 /** Change against the previous period of the same length. */
 export function Change({ current, previous, inverse = false, suffix }) {
-  const L = useL();
-  const vs = suffix ?? L('so với kỳ trước', 'vs previous period');
+  const t = useT(managerDashboardMessages);
+  const { language } = useLanguage();
+  const vs = suffix ?? t('change.vs');
   if (current == null || previous == null) return <small className="md-change">—</small>;
   const cur = Number(current);
   const prev = Number(previous);
-  if (prev === 0) return <small className="md-change">{cur === 0 ? L(`Không đổi ${vs}`, `No change ${vs}`) : L('Kỳ trước chưa có', 'No previous data')}</small>;
+  if (prev === 0) return <small className="md-change">{cur === 0 ? t('change.same', { vs }) : t('change.noPrevious')}</small>;
   const pct = ((cur - prev) / prev) * 100;
-  if (Math.abs(pct) < 0.05) return <small className="md-change">{L(`Không đổi ${vs}`, `No change ${vs}`)}</small>;
+  if (Math.abs(pct) < 0.05) return <small className="md-change">{t('change.same', { vs })}</small>;
   const up = pct > 0;
   const good = inverse ? !up : up;
   return <small className={`md-change ${good ? 'good' : 'bad'}`}>
-    {up ? '▲' : '▼'} {Math.abs(pct).toLocaleString(L('vi-VN', 'en-US'), { maximumFractionDigits: 1 })}% {vs}
+    {up ? '▲' : '▼'} {Math.abs(pct).toLocaleString(language === 'en' ? 'en-US' : 'vi-VN', { maximumFractionDigits: 1 })}% {vs}
   </small>;
 }
 

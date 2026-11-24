@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
 import { useHttp } from '../../../shared/api/useHttp';
-import { workshopRingDesignApi } from './workshopRingDesignApi';
+import { workshopRingDesignApi, getStoredGuestSession, setStoredGuestSession, clearStoredGuestSession } from './workshopRingDesignApi';
+
+export { getStoredGuestSession, setStoredGuestSession, clearStoredGuestSession };
 
 export function useWorkshopRingDesignApi() {
   const request = useHttp();

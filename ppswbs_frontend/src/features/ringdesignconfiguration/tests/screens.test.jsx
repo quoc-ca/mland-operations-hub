@@ -337,7 +337,7 @@ describe('Feature-012 Workshop Ring Design Configuration Screens', () => {
       expect(await screen.findByTestId('design-evaluation-page')).toBeInTheDocument();
       expect(screen.getByText(/Mã thiết kế:/)).toBeInTheDocument();
       expect(screen.getByText('DSG-EVAL-789')).toBeInTheDocument();
-      expect(screen.getByText('350.000 đ')).toBeInTheDocument();
+      expect(screen.getByText('350.000 ₫')).toBeInTheDocument();
       expect(screen.getByText('3.5 / 10')).toBeInTheDocument();
       expect(screen.getByTestId('difficulty-badge')).toHaveTextContent('Trung bình');
       expect(screen.getByTestId('difficulty-note')).toHaveTextContent('Trung bình');
@@ -451,7 +451,7 @@ describe('Feature-012 Workshop Ring Design Configuration Screens', () => {
 
       expect(await screen.findByTestId('member-design-history-page')).toBeInTheDocument();
       expect(await screen.findByText('DSG-DEMO-MEMBER-01')).toBeInTheDocument();
-      expect(screen.getByText('250.000 đ')).toBeInTheDocument();
+      expect(screen.getByText('250.000 ₫')).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Xem chi tiết →' })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Chỉnh sửa' })).toBeInTheDocument();
       expect(screen.getByTestId('delete-design-btn-DSG-DEMO-MEMBER-01')).toBeInTheDocument();

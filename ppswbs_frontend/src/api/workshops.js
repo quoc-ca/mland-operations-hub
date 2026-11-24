@@ -9,6 +9,8 @@ export class WorkshopApiError extends Error {
     this.correlationId = correlationId || null;
     this.detail = detail || message;
     this.data = data || null;
+    // A lost response has no server text; screens fall back to their own bilingual string for the code.
+    if (status === 0) { this.message = ''; this.detail = ''; }
   }
 }
 
@@ -50,10 +52,9 @@ async function request(path, { params = {}, method = 'GET', headers = {}, body =
       body: body !== null && body !== undefined ? (typeof body === 'string' ? body : JSON.stringify(body)) : undefined,
     });
   } catch (error) {
-    throw new WorkshopApiError('Không nhận được phản hồi từ backend.', {
+    throw new WorkshopApiError('', {
       status: 0,
       code: error?.name === 'AbortError' ? 'REQUEST_TIMEOUT' : 'NETWORK_ERROR',
-      detail: 'Không nhận được phản hồi từ backend.',
     });
   }
 

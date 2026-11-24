@@ -5,7 +5,7 @@ export const GUEST_SESSION_KEY = 'mland_guest_design_session';
 
 export function getStoredGuestSession() {
   try {
-    return sessionStorage.getItem(GUEST_SESSION_KEY) || null;
+    return sessionStorage.getItem(GUEST_SESSION_KEY) || localStorage.getItem(GUEST_SESSION_KEY) || null;
   } catch {
     return null;
   }
@@ -15,8 +15,10 @@ export function setStoredGuestSession(token) {
   try {
     if (token) {
       sessionStorage.setItem(GUEST_SESSION_KEY, token);
+      localStorage.setItem(GUEST_SESSION_KEY, token);
     } else {
       sessionStorage.removeItem(GUEST_SESSION_KEY);
+      localStorage.removeItem(GUEST_SESSION_KEY);
     }
   } catch {
     // Ignore storage restrictions
@@ -26,6 +28,7 @@ export function setStoredGuestSession(token) {
 export function clearStoredGuestSession() {
   try {
     sessionStorage.removeItem(GUEST_SESSION_KEY);
+    localStorage.removeItem(GUEST_SESSION_KEY);
   } catch {
     // Ignore storage restrictions
   }
@@ -59,7 +62,7 @@ export function workshopRingDesignApi(request) {
         body,
         idempotencyKey: key,
         headers: buildHeaders(guestSession),
-        auth: isAuthenticated,
+        auth: Boolean(isAuthenticated),
       });
     },
 
@@ -68,7 +71,7 @@ export function workshopRingDesignApi(request) {
         method: 'GET',
         headers: buildHeaders(guestSession),
         query: includeArchived ? { includeArchived: true } : undefined,
-        auth: isAuthenticated,
+        auth: Boolean(isAuthenticated),
       });
     },
 
@@ -76,7 +79,7 @@ export function workshopRingDesignApi(request) {
       return request(`/api/v1/workshop-designs/${encodeURIComponent(designId)}`, {
         method: 'GET',
         headers: buildHeaders(guestSession),
-        auth: isAuthenticated,
+        auth: Boolean(isAuthenticated),
       });
     },
 
@@ -86,7 +89,7 @@ export function workshopRingDesignApi(request) {
         body,
         idempotencyKey: key,
         headers: buildHeaders(guestSession, version),
-        auth: isAuthenticated,
+        auth: Boolean(isAuthenticated),
       });
     },
 
@@ -96,7 +99,7 @@ export function workshopRingDesignApi(request) {
         body,
         idempotencyKey: key,
         headers: buildHeaders(guestSession, version),
-        auth: isAuthenticated,
+        auth: Boolean(isAuthenticated),
       });
     },
 
@@ -105,7 +108,16 @@ export function workshopRingDesignApi(request) {
         method: 'POST',
         idempotencyKey: key,
         headers: buildHeaders(guestSession, version),
-        auth: isAuthenticated,
+        auth: Boolean(isAuthenticated),
+      });
+    },
+
+    restoreDesign(key, designId, version, guestSession, isAuthenticated = false) {
+      return request(`/api/v1/workshop-designs/${encodeURIComponent(designId)}/restore`, {
+        method: 'POST',
+        idempotencyKey: key,
+        headers: buildHeaders(guestSession, version),
+        auth: Boolean(isAuthenticated),
       });
     },
 
@@ -115,7 +127,7 @@ export function workshopRingDesignApi(request) {
         body,
         idempotencyKey: key,
         headers: buildHeaders(guestSession, version),
-        auth: isAuthenticated,
+        auth: Boolean(isAuthenticated),
       });
     },
   };

@@ -43,6 +43,25 @@ export function designReviewApi(request) {
     },
 
     /**
+     * Get current AI support prompt quota status.
+     */
+    async getAiQuota({ auth = false } = {}) {
+      const headers = {};
+      if (!auth && typeof sessionStorage !== 'undefined') {
+        const guestSession = sessionStorage.getItem('mland_guest_ai_session');
+        if (guestSession) {
+          headers['X-Guest-AI-Session'] = guestSession;
+        }
+      }
+      return request('/api/v1/ai-support/quota', {
+        method: 'GET',
+        auth,
+        headers,
+        suppressAccessDenied: true,
+      });
+    },
+
+    /**
      * Submit Independent Design Request (F04-DESIGN-WORKSPACE / F04-IMAGE-UPLOAD / F04-CONSENT / HUMAN REVIEW).
      * Uses multipart/form-data with Idempotency-Key.
      * Supports both Guests (auth = false) and Members (auth = true), and up to 5 images.
@@ -80,17 +99,14 @@ export function designReviewApi(request) {
       }
       form.append('designVersion', String(designVersion || 1));
 
-      const fileList = Array.isArray(images) && images.length > 0
-        ? images
-        : (image ? [image] : []);
-
-      fileList.forEach(file => {
-        if (file) {
-          form.append('images', file);
-        }
-      });
-      if (fileList.length === 1 && fileList[0]) {
-        form.append('image', fileList[0]);
+      if (Array.isArray(images) && images.length > 0) {
+        images.forEach(file => {
+          if (file) {
+            form.append('images', file);
+          }
+        });
+      } else if (image) {
+        form.append('image', image);
       }
 
       const headers = {};
@@ -184,9 +200,11 @@ export function designReviewApi(request) {
 
     /**
      * Read Staff / Manager review queue (F04-REVIEW-QUEUE).
+     * Optionally filtered by review status.
      */
-    getReviewQueue() {
-      return request('/api/v1/design-review-requests', {
+    getReviewQueue(status) {
+      const query = status ? `?status=${encodeURIComponent(status)}` : '';
+      return request(`/api/v1/design-review-requests${query}`, {
         method: 'GET',
         auth: true,
       });

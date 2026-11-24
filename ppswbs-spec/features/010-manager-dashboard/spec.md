@@ -151,6 +151,20 @@ An Admin may receive a separate, purpose-limited `Parameter Impact Summary` for 
   the value above each bar and point (only each series' peak when a period has more than 16 points), and count charts use whole-number
   axes. The workshop trend panel shows revenue and participants side by side, then tickets booked and cancelled (FR-031).
 
+### Session 2026-11-23 (best sellers)
+
+- Q: Does the dashboard show what sells best? → A: Yes (Thinh, 2026-11-23). For the same period and branches the revenue report
+  lists the top 5 products and the top 5 workshop packages, read through `GET /api/v1/executive-reports/top-sellers` with the same
+  filters and Manager scope rule as the KPI report (FR-032, FR-033). There is no previous-period comparison for these lists.
+- Q: Which facts rank products? → A: Units in VND branch orders whose payment became `PAID` in the period, by payment time and
+  order branch (the same facts as the retail revenue KPI). The amount shown is the sold lines at their unit price, before order
+  discounts, so it is not the revenue KPI.
+- Q: Which facts rank workshop packages? → A: Tickets with status confirmed, completed or no-show in booking groups placed in
+  the period (the "confirmed" facts of the ticket trend), at the branch of the line's first session. The amount shown is the
+  package price per participant of those tickets, before promotions. Cancelled or abandoned tickets do not count.
+- Q: How are ties and names settled? → A: More units or tickets first, then the higher amount, then the lower ID. A product uses
+  its current catalogue name; a package uses its current name, or the name snapshot of the booking line if it no longer exists.
+
 ## User Scenarios & Testing
 
 ### User Story 1 - View Executive Manager Dashboard (Priority: P1)
@@ -250,12 +264,15 @@ The Manager Dashboard browser route `/manager/dashboard` has the exact allowlist
 - **FR-014**: The system MUST allow an eligible Manager to retry an unavailable dashboard view.
 - **FR-015**: The system MUST keep dashboard viewing and filtering read-only; these actions MUST NOT change orders, payments, workshop records, products, promotions, or other operational master data.
 - **FR-016**: The V1 dashboard MUST contain only its period/branch filters,
-  five KPI cards, the trend section (FR-027, Session 2026-11-16), per-branch
+  five KPI cards, the trend section (FR-027, Session 2026-11-16), the
+  best-seller lists (FR-032, Session 2026-11-23), per-branch
   KPI rows, data-quality notices, a Retry action after a failed load (page
-  reload is the refresh control, Session 2026-11-14), and one header shortcut
-  to FE-11 review moderation (`/review-moderation`, kept for now, Session
-  2026-11-16); it MUST NOT include other operational-list navigation cards,
-  pending-work cards, or metrics owned by another feature.
+  reload is the refresh control, Session 2026-11-14); it MUST NOT include
+  operational-list navigation cards, pending-work cards, or metrics owned by
+  another feature. The FE-11 review-moderation header shortcut (Session
+  2026-11-16) is removed; review moderation is a tab of the "Khách hàng"
+  group. The Manager Home (013) operations blocks shown around the revenue
+  report on the same page are governed by 013 (Session 2026-11-22).
 - **FR-017**: The system MUST deny access without revealing executive revenue values when the user is unauthenticated, locked, no longer authorized, or outside the Manager role boundary.
 - **FR-018**: The system MUST provide a clear safe state when the session expires or authorization changes during dashboard use.
 - **FR-019**: The system MUST recognize workshop revenue from the final invoice total only after that invoice is fully paid, including recorded actual surcharges and excluding a second count of the earlier 50% deposit; the fully-paid date MUST determine the reporting period.
@@ -296,6 +313,20 @@ The Manager Dashboard browser route `/manager/dashboard` has the exact allowlist
   non-zero value on its bar or point (only each series' peak when a period has
   more than 16 points), count charts MUST use whole-number axes, and a missing
   value MUST stay a gap, never a zero (Session 2026-11-22).
+- **FR-032**: For the selected period and branches the system MUST list the
+  top 5 products by units in VND branch orders paid in the period (FR-026
+  facts) and the top 5 workshop packages by tickets confirmed, completed or
+  marked no-show in booking groups placed in the period at the branch of the
+  first session, read through `GET /api/v1/executive-reports/top-sellers` with
+  the same filters and the same Manager scope rule as the KPI report. Ties go
+  to the higher amount before discounts, then the lower ID (Session
+  2026-11-23).
+- **FR-033**: Each best-seller row MUST show its rank, name, count (units or
+  tickets) and a bar, and on hover or keyboard focus its amount before
+  discounts and its share of the five. A list whose source cannot be read MUST
+  be shown as unavailable, never as empty (FR-013); an empty period MUST show
+  an empty-list notice; a failed load MUST offer Retry without hiding the rest
+  of the dashboard.
 
 ### Key Entities
 
@@ -304,6 +335,7 @@ The Manager Dashboard browser route `/manager/dashboard` has the exact allowlist
 - **Verified Business Record**: A recorded retail, payment, workshop, or branch fact eligible to contribute to a dashboard metric after its owning workflow has verified it. For workshop revenue, this is the fully paid final invoice rather than the deposit as a separate revenue record.
 - **Branch Revenue Contribution**: The product value of a verified branch order after its allocated discounts, excluding delivery fees, attributed to the branch that owns that order.
 - **KPI Snapshot**: The required indicators for a reporting scope: verified retail revenue, verified workshop revenue, total verified revenue, paid retail order count, and workshop utilization. Workshop utilization uses actual check-ins against configured capacity for completed sessions.
+- **Best Seller**: One ranked product or workshop package for a reporting scope, with its count (units or tickets) and its amount before discounts; a read-only aggregate, never an order or ticket row.
 - **Data Quality Notice**: A visible status describing empty, unavailable, or
   partial source data and the time of the last successful dashboard update.
 
@@ -335,7 +367,7 @@ The Manager Dashboard browser route `/manager/dashboard` has the exact allowlist
 - Dashboard values are based on verified recorded business data; pending, failed, or missing transactions are not treated as revenue. A workshop deposit is not counted separately once its fully paid final invoice is recognized, and the fully-paid date assigns that revenue to a reporting period.
 - For a grouped retail payment, each discount is allocated to the applicable branch order before revenue aggregation; delivery fees remain separate from branch and total store revenue.
 - Workshop sessions expose their configured capacity, completion state, and recorded check-ins to FE-10; cancelled and future sessions do not contribute to actual utilization.
-- The initial release does not include exports, scheduled reports, email delivery of reports, custom date ranges, or period-over-period comparison.
+- The initial release does not include exports, scheduled reports, email delivery of reports, or custom date ranges. Comparison with the previous period of the same length is included for the trends (FR-030, Session 2026-11-16); the best-seller lists have none (Session 2026-11-23).
 - The initial release does not include accounting reconciliation, profit calculation, tax reporting, or external carrier tracking.
 - KPI formulas not explicitly defined in this specification will be finalized during planning if they affect implementation or acceptance tests.
 - The permission-matrix conflict concerning Admin access is resolved for this feature by the approved Manager-only direction; the baseline matrix should be synchronized separately.

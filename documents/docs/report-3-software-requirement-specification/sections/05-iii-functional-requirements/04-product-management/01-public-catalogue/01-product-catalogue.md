@@ -1,6 +1,6 @@
 #### 4.1.1 Product Catalogue
 
-![](assets/screens/10-product-catalogue.png)
+![](assets/screens/08-product-catalogue.png)
 
 This screen allows visitors and Members to:
 

@@ -80,7 +80,7 @@ export function PriceTermsModal({ open, mapping, onClose, onSave }) {
         <ErrorNotice error={apiError} />
 
         <form onSubmit={handleSubmit}>
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '12px' }}>
+          <div className="ota-grid-2-1">
             <Field label={t('price.retailAmount')} error={errors.retailAmount || apiError?.fieldError('retailAmount')}>
               <input
                 type="text"
@@ -102,7 +102,7 @@ export function PriceTermsModal({ open, mapping, onClose, onSave }) {
             </Field>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '12px' }}>
+          <div className="ota-grid-2-1">
             <Field label={t('price.netAmount')} error={errors.targetNetAmount || apiError?.fieldError('targetNetAmount')}>
               <input
                 type="text"
@@ -139,7 +139,7 @@ export function PriceTermsModal({ open, mapping, onClose, onSave }) {
             />
           </Field>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          <div className="ota-grid-1-1">
             <Field label={t('price.effectiveFrom')} error={apiError?.fieldError('effectiveFrom')}>
               <input
                 type="datetime-local"
