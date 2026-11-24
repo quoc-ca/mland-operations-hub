@@ -221,7 +221,7 @@ export function WorkshopPaymentReturnPage({ groupCode }) {
               {t('return.operator.note')}
             </p>
             <p style={{ margin: '8px 0 12px' }}>
-              {t('return.operator.step1')} <strong>{t('return.operator.invoice')}</strong>{t('return.operator.step2')} <strong>Load folio</strong>{t('return.operator.step3')}
+              {t('return.operator.step1')} <strong>{t('return.operator.invoice')}</strong>{t('return.operator.step2')} <strong>{t('return.operator.loadFolio')}</strong>{t('return.operator.step3')}
             </p>
             <Link className="button primary" to="/settlement">{t('return.operator.back')}</Link>
           </div>

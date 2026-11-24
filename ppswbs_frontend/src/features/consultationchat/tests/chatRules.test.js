@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest';
+import { translate } from '../../../shared/i18n/I18nProvider';
+import { consultationMessages } from '../messages';
 import { countCodePoints, validateMessageText, MAX_MESSAGE_LENGTH } from '../domain/chatRules';
 
 describe('Feature-013 Chat Domain Rules', () => {
@@ -22,5 +24,11 @@ describe('Feature-013 Chat Domain Rules', () => {
 
     const invalid2001 = 'a'.repeat(2001);
     expect(validateMessageText(invalid2001)).toContain('vượt quá giới hạn 2.000 ký tự');
+  });
+
+  it('returns English validation messages when given the English translator', () => {
+    const t = (key, params) => translate(consultationMessages, 'en', key, params);
+    expect(validateMessageText('', t)).toBe('The message cannot be empty.');
+    expect(validateMessageText('a'.repeat(2001), t)).toContain('2,000 character limit (current: 2001)');
   });
 });

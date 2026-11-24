@@ -1,4 +1,5 @@
 import React from 'react';
+import { installStackedTableLabels } from '../workshop-operations/stackedTables';
 import { StaffArea } from '../workshop-operations/routes';
 import SettlementWorkspacePage from './pages/SettlementWorkspacePage';
 import SettlementCasesPage from './pages/SettlementCasesPage';
@@ -12,6 +13,7 @@ import CustomerFolioPage from './pages/CustomerFolioPage';
 import ReconciliationPage from './pages/ReconciliationPage';
 import AbsorbedUnderchargesPage from './pages/AbsorbedUnderchargesPage';
 import RefundAccountKeyReplacementPage from './pages/RefundAccountKeyReplacementPage';
+installStackedTableLabels();
 
 // Staff/Manager screens (the backend decides every permission) and the public customer screens of 003.3.
 export const settlementRoutes = [

@@ -4,7 +4,8 @@ import { Link, Outlet, useLocation } from 'react-router';
 import { useAuth } from '../auth/AuthProvider';
 import { useRole } from '../auth/useRole';
 import { getFirebaseAuth } from '../auth/firebaseSession';
-import { useLanguage } from '../i18n/I18nProvider';
+import { useLanguage, useT } from '../i18n/I18nProvider';
+import { operationsShellMessages } from './operationsShellMessages';
 import {
   groupLabel, locate, pageActions, pageTitle, tabKey, tabLabel, visibleGroups, visibleTabs,
 } from '../nav/navModel';
@@ -55,7 +56,8 @@ function Badge({ count, label }) {
   return <span className="ops-badge" aria-label={label}>{count > 99 ? '99+' : count}</span>;
 }
 
-function RailFooter({ isVi }) {
+function RailFooter() {
+  const t = useT(operationsShellMessages);
   const { status, signOut } = useAuth();
   const { language, setLanguage } = useLanguage();
   const [busy, setBusy] = useState(false);
@@ -83,7 +85,7 @@ function RailFooter({ isVi }) {
 
   return (
     <div className="ops-rail-footer">
-      <div className="ops-lang" role="group" aria-label="Language">
+      <div className="ops-lang" role="group" aria-label={t('language')}>
         {['vi', 'en'].map(code => (
           <button key={code} type="button" className={language === code ? 'active' : ''} aria-pressed={language === code} onClick={() => setLanguage(code)}>
             {code.toUpperCase()}
@@ -92,18 +94,18 @@ function RailFooter({ isVi }) {
       </div>
       {status === 'signed-in' ? (
         <>
-          <Link to="/profile" className={`ops-rail-user${pathname === '/profile' ? ' active' : ''}`} title={email || (isVi ? 'Hồ sơ cá nhân' : 'Personal profile')}>
+          <Link to="/profile" className={`ops-rail-user${pathname === '/profile' ? ' active' : ''}`} title={email || t('profileTitle')}>
             <span className="ops-avatar" aria-hidden="true">{initial}</span>
-            <span className="ops-label">{isVi ? 'Hồ sơ' : 'Profile'}</span>
+            <span className="ops-label">{t('profile')}</span>
           </Link>
-          <button type="button" className="ops-signout" onClick={handleSignOut} disabled={busy} aria-busy={busy} title={isVi ? 'Đăng xuất khỏi hệ thống' : 'Sign out'}>
+          <button type="button" className="ops-signout" onClick={handleSignOut} disabled={busy} aria-busy={busy} title={t('signOutTitle')}>
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 4H5v16h4M16 8l4 4-4 4M20 12H9" /></svg>
-            <span className="ops-label">{busy ? (isVi ? 'Đang thoát…' : 'Signing out…') : (isVi ? 'Đăng xuất' : 'Sign out')}</span>
+            <span className="ops-label">{busy ? t('signingOut') : t('signOut')}</span>
           </button>
-          {failed && <span className="ops-signout-error" role="alert">{isVi ? 'Đăng xuất thất bại' : 'Sign out failed'}</span>}
+          {failed && <span className="ops-signout-error" role="alert">{t('signOutFailed')}</span>}
         </>
       ) : (
-        <Link to="/login" className="ops-rail-user" aria-label={isVi ? 'Đăng nhập tài khoản' : 'Sign in account'}><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 4h4v16h-4M8 8l-4 4 4 4M4 12h11" /></svg><span className="ops-label">{isVi ? 'Đăng nhập' : 'Sign in'}</span></Link>
+        <Link to="/login" className="ops-rail-user" aria-label={t('signInAccount')}><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 4h4v16h-4M8 8l-4 4 4 4M4 12h11" /></svg><span className="ops-label">{t('signIn')}</span></Link>
       )}
     </div>
   );
@@ -113,7 +115,8 @@ function RailFooter({ isVi }) {
  * GHTK partner portal (CARRIER, Session 2026-11-23): language and sign-out sit at the top right of the page, like most
  * web apps; a carrier has no Mland profile page, so there is no profile link.
  */
-function CarrierTopRight({ isVi }) {
+function CarrierTopRight() {
+  const t = useT(operationsShellMessages);
   const { status, signOut } = useAuth();
   const { language, setLanguage } = useLanguage();
   const [busy, setBusy] = useState(false);
@@ -128,7 +131,7 @@ function CarrierTopRight({ isVi }) {
   return (
     <div className="ops-topright">
       {email && <span className="ops-topright-user" title={email}>{email}</span>}
-      <div className="ops-lang" role="group" aria-label="Language">
+      <div className="ops-lang" role="group" aria-label={t('language')}>
         {['vi', 'en'].map(code => (
           <button key={code} type="button" className={language === code ? 'active' : ''} aria-pressed={language === code} onClick={() => setLanguage(code)}>
             {code.toUpperCase()}
@@ -138,10 +141,10 @@ function CarrierTopRight({ isVi }) {
       {status === 'signed-in' && (
         <button type="button" className="ops-topright-signout" onClick={handleSignOut} disabled={busy} aria-busy={busy}>
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 4H5v16h4M16 8l4 4-4 4M20 12H9" /></svg>
-          {busy ? (isVi ? 'Đang thoát…' : 'Signing out…') : (isVi ? 'Đăng xuất' : 'Sign out')}
+          {busy ? t('signingOut') : t('signOut')}
         </button>
       )}
-      {failed && <span className="ops-signout-error" role="alert">{isVi ? 'Đăng xuất thất bại' : 'Sign out failed'}</span>}
+      {failed && <span className="ops-signout-error" role="alert">{t('signOutFailed')}</span>}
     </div>
   );
 }
@@ -154,6 +157,7 @@ function CarrierTopRight({ isVi }) {
 export default function OperationsShell() {
   const { pathname, search } = useLocation();
   const { language } = useLanguage();
+  const t = useT(operationsShellMessages);
   const role = useRole();
   const badges = useNavBadges(role);
   const [slot, setSlot] = useState(null);
@@ -175,14 +179,14 @@ export default function OperationsShell() {
 
   return (
     <div className={`ops-shell${collapsed ? ' collapsed' : ''}${isCarrier ? ' carrier-theme' : ''}`}>
-      <aside className="ops-rail" aria-label="Operations Navigation">
+      <aside className="ops-rail" aria-label={t('railLabel')}>
         {isCarrier
           ? <Link to="/carrier" className="ops-logo ops-logo-ghtk" aria-label="GHTK">G</Link>
           : <Link to="/home" className="ops-logo" aria-label="MLAND">M</Link>}
-        <button type="button" className="ops-toggle" onClick={toggle} aria-expanded={!collapsed} title={collapsed ? (isVi ? 'Mở rộng thanh điều hướng' : 'Expand navigation') : (isVi ? 'Thu gọn thanh điều hướng' : 'Collapse navigation')} aria-label={collapsed ? (isVi ? 'Mở rộng thanh điều hướng' : 'Expand navigation') : (isVi ? 'Thu gọn thanh điều hướng' : 'Collapse navigation')}>
+        <button type="button" className="ops-toggle" onClick={toggle} aria-expanded={!collapsed} title={collapsed ? t('expandNav') : t('collapseNav')} aria-label={collapsed ? t('expandNav') : t('collapseNav')}>
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={collapsed ? 'M9 6l6 6-6 6' : 'M15 6l-6 6 6 6'} /></svg>
         </button>
-        <nav className="ops-rail-nav" aria-label={isVi ? 'Nhóm chức năng' : 'Feature groups'}>
+        <nav className="ops-rail-nav" aria-label={t('featureGroups')}>
           {groups.map(({ group, tabs: groupTabs }) => {
             const current = here?.group.id === group.id;
             const label = groupLabel(group, language, role);
@@ -197,19 +201,19 @@ export default function OperationsShell() {
               >
                 <Icon name={group.icon} />
                 <span className="ops-label">{label}</span>
-                <Badge count={total} label={isVi ? `${total} việc chờ` : `${total} waiting`} />
+                <Badge count={total} label={t('waiting', { count: total })} />
               </Link>
             );
           })}
         </nav>
-        {!isCarrier && <RailFooter isVi={isVi} />}
+        {!isCarrier && <RailFooter />}
       </aside>
 
       <div className="ops-page">
         {here && (
           <header className="ops-header">
-            {isCarrier && <CarrierTopRight isVi={isVi} />}
-            <nav className="ops-crumb" aria-label="Breadcrumb">
+            {isCarrier && <CarrierTopRight />}
+            <nav className="ops-crumb" aria-label={t('breadcrumb')}>
               <span>{isCarrier ? 'GHTK × MLAND' : 'MLAND'}</span>
               <span aria-hidden="true">/</span>
               <span>{groupLabel(here.group, language, role)}</span>
@@ -225,14 +229,14 @@ export default function OperationsShell() {
               </div>
             </div>
             {tabs.length > 1 && (
-              <div className="ops-tabs" role="navigation" aria-label={isVi ? 'Trang trong nhóm' : 'Pages in this group'}>
+              <div className="ops-tabs" role="navigation" aria-label={t('groupPages')}>
                 {tabs.map(tab => {
                   const active = tab.id === here.tab.id;
                   const total = count(tabKey(here.group, tab));
                   return (
                     <Link key={tab.id} to={tab.to} className={`ops-tab${active ? ' active' : ''}`} aria-current={active ? 'page' : undefined}>
                       {tabLabel(tab, language, role)}
-                      <Badge count={total} label={isVi ? `${total} việc chờ` : `${total} waiting`} />
+                      <Badge count={total} label={t('waiting', { count: total })} />
                     </Link>
                   );
                 })}

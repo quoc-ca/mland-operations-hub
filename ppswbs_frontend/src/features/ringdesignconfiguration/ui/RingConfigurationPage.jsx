@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router';
-import { useLanguage } from '../../../shared/i18n/I18nProvider';
+import { useT, useFormat } from '../../../shared/i18n/I18nProvider';
 import { useWorkshopDesignOptions } from '../application/useWorkshopDesignOptions';
 import { useWorkshopDesignDraft } from '../application/useWorkshopDesignDraft';
 import { useWorkshopDesignCommand } from '../application/useWorkshopDesignCommand';
@@ -11,6 +11,7 @@ import RingPreview from './RingPreview';
 import DesignControlField from './DesignControlField';
 import LaserEngravingImageCropper from './LaserEngravingImageCropper';
 import { getRingCircumferenceMm, getRingDiameterMm } from '../domain/designPreview';
+import { wholeMoney } from '../domain/designFormat';
 import { messages } from '../messages';
 import '../ring-design.css';
 
@@ -20,9 +21,8 @@ export default function RingConfigurationPage() {
   const navigate = useNavigate();
   const { status, userId } = useAuth();
   const isAuthenticated = status === 'signed-in' || Boolean(userId);
-  const { language } = useLanguage();
-  const lang = language === 'en' ? 'en' : 'vi';
-  const t = messages[lang];
+  const t = useT(messages);
+  const fmt = useFormat();
 
   const mode = searchParams.get('mode') || 'BLANK';
   const modelRef = searchParams.get('modelRef') || null;
@@ -51,7 +51,7 @@ export default function RingConfigurationPage() {
     resetDraftFromModel,
     resetFromSavedDesign,
     getPayloadForSave,
-  } = useWorkshopDesignDraft(packageReference, null, lang);
+  } = useWorkshopDesignDraft(packageReference, null, t);
 
   const { loading: saving, error: commandError, executeCreate, executeSave } = useWorkshopDesignCommand(isAuthenticated);
 
@@ -125,7 +125,7 @@ export default function RingConfigurationPage() {
       if (optionsLoading || initialLoading) {
         return (
           <div className="ring-design-container" style={{ textAlign: 'center', padding: '4rem' }}>
-            <p>Đang tải cấu hình thiết kế...</p>
+            <p>{t('cfg.loading')}</p>
           </div>
         );
       }
@@ -133,17 +133,17 @@ export default function RingConfigurationPage() {
       return (
         <div className="ring-design-container" data-testid="ring-configuration-page">
           <div className="ring-design-header">
-            <h1 className="ring-design-title">{t.featureTitle}</h1>
-            <p className="ring-design-subtitle">{t.featureSubtitle}</p>
+            <h1 className="ring-design-title">{t('featureTitle')}</h1>
+            <p className="ring-design-subtitle">{t('featureSubtitle')}</p>
             <div className="ring-notice-banner" role="note">
               <span>⚠️</span>
-              <span>{t.advisoryWarning}</span>
+              <span>{t('advisoryWarning')}</span>
             </div>
           </div>
 
           {optionsError && (
             <div className="ring-error-card" role="alert">
-              {optionsError.message || 'Không thể tải tùy chọn gói workshop.'}
+              {optionsError.message || t('cfg.optionsError')}
             </div>
           )}
 
@@ -158,8 +158,8 @@ export default function RingConfigurationPage() {
             <div className="ring-controls-panel">
               {/* Section 1: Material */}
               <div className="ring-section-card">
-                <h2 className="ring-section-title">{t.materialSection}</h2>
-                <p className="ring-section-desc">{t.materialSectionDesc}</p>
+                <h2 className="ring-section-title">{t('materialSection')}</h2>
+                <p className="ring-section-desc">{t('materialSectionDesc')}</p>
                 <div className="ring-cards-grid">
                   {(options?.materials || []).map((mat) => {
                     const isSelected = draft.materialReference === mat.reference;
@@ -179,7 +179,7 @@ export default function RingConfigurationPage() {
                         </div>
                         {mat.unitPrice && (
                           <div className="ring-option-price">
-                            {Number(mat.unitPrice).toLocaleString('vi-VN')} {mat.currency || 'đ'}
+                            {wholeMoney(fmt, mat.unitPrice)}
                           </div>
                         )}
                       </div>
@@ -190,10 +190,10 @@ export default function RingConfigurationPage() {
 
               {/* Section 2: Shape & Size */}
               <div className="ring-section-card">
-                <h2 className="ring-section-title">{t.shapeSection}</h2>
-                <p className="ring-section-desc">{t.shapeSectionDesc}</p>
+                <h2 className="ring-section-title">{t('shapeSection')}</h2>
+                <p className="ring-section-desc">{t('shapeSectionDesc')}</p>
 
-                <DesignControlField label={t.shapeSummary || (lang === 'en' ? 'Band Shape' : 'Dáng đai nhẫn')} required errorText={clientValidation.errors.shapeReference}>
+                <DesignControlField label={t('shapeSummary')} required errorText={clientValidation.errors.shapeReference}>
                   <div className="ring-cards-grid" style={{ marginBottom: '1.25rem' }}>
                     {(options?.shapes || []).map((shp) => {
                       const isSelected = draft.shapeReference === shp.reference;
@@ -213,7 +213,7 @@ export default function RingConfigurationPage() {
                           </div>
                           {shp.priceAdjustment && Number(shp.priceAdjustment) > 0 && (
                             <div className="ring-option-price">
-                              +{Number(shp.priceAdjustment).toLocaleString('vi-VN')} đ
+                              +{wholeMoney(fmt, shp.priceAdjustment)}
                             </div>
                           )}
                         </div>
@@ -223,8 +223,8 @@ export default function RingConfigurationPage() {
                 </DesignControlField>
 
                 <DesignControlField
-                  label={t.ringSizeLabel}
-                  helperText={`${t.ringSizeHelper} ${lang === 'en' ? 'Selected' : 'Đã chọn'}: Size ${draft.ringSize} — ${lang === 'en' ? 'Circumference' : 'Chu vi'}: ${getRingCircumferenceMm(draft.ringSize)} mm (${lang === 'en' ? 'Inner diameter' : 'Đường kính trong'}: ~${getRingDiameterMm(draft.ringSize)} mm)`}
+                  label={t('ringSizeLabel')}
+                  helperText={t('cfg.sizeSelectedHelper', { helper: t('ringSizeHelper'), size: draft.ringSize, circ: getRingCircumferenceMm(draft.ringSize), diameter: getRingDiameterMm(draft.ringSize) })}
                   required
                   errorText={clientValidation.errors.ringSize}
                 >
@@ -239,9 +239,9 @@ export default function RingConfigurationPage() {
                           className={`ring-size-pill ${isSelected ? 'selected' : ''}`}
                           onClick={() => updateRingSize(size)}
                           data-testid={`size-pill-${size}`}
-                          title={`Size ${size} - Chu vi: ${circ} mm`}
+                          title={t('cfg.sizePillTitle', { size, circ })}
                         >
-                          <span className="ring-size-pill-num">Size {size}</span>
+                          <span className="ring-size-pill-num">{t('sizeShort', { size })}</span>
                           <span className="ring-size-pill-circ">({circ} mm)</span>
                         </button>
                       );
@@ -253,12 +253,12 @@ export default function RingConfigurationPage() {
               {/* Section 3: Gemstones */}
               <div className="ring-section-card">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.25rem' }}>
-                  <h2 className="ring-section-title" style={{ margin: 0 }}>{t.gemstoneSection}</h2>
+                  <h2 className="ring-section-title" style={{ margin: 0 }}>{t('gemstoneSection')}</h2>
                   <span className="ring-gemstone-total-badge" data-testid="gemstone-total-counter">
-                    {(t.gemstoneTotalCount || 'Tổng số đá: {count}/10').replace('{count}', (draft.components || []).reduce((sum, c) => sum + (Number(c.quantity) || 1), 0))}
+                    {t('gemstoneTotalCount', { count: (draft.components || []).reduce((sum, c) => sum + (Number(c.quantity) || 1), 0) })}
                   </span>
                 </div>
-                <p className="ring-section-desc">{t.gemstoneSectionDesc}</p>
+                <p className="ring-section-desc">{t('gemstoneSectionDesc')}</p>
 
                 {((draft.components || []).reduce((sum, c) => sum + (Number(c.quantity) || 1), 0) >= 10) && (
                   <div
@@ -274,16 +274,12 @@ export default function RingConfigurationPage() {
                     }}
                     data-testid="gemstone-limit-reached-message"
                   >
-                    ⚠️ {t.gemstoneTotalLimitReached || 'Đã đạt giới hạn tối đa 10 viên đá quý.'}
+                    ⚠️ {t('gemstoneTotalLimitReached')}
                   </div>
                 )}
 
                 <div className="ring-gemstone-instruction" data-testid="gemstone-drag-instruction">
-                  {lang === 'en' ? (
-                    <>✨ <strong>Customize quantity & placement:</strong> Select quantity for each stone, then <strong>drag & drop the stone</strong> directly on the <em>Top View</em> window to position it anywhere along the ring band!</>
-                  ) : (
-                    <>✨ <strong>Tùy chỉnh số lượng & vị trí:</strong> Chọn số lượng từng loại đá, sau đó <strong>nhấn giữ & kéo thả viên đá</strong> trực tiếp trên cửa sổ <em>Mặt chính diện (Top View)</em> để đặt vị trí bất kỳ quanh đường tròn nhẫn!</>
-                  )}
+                  <>✨ <strong>{t('cfg.instrTitle')}</strong>{t('cfg.instrBefore')}<strong>{t('cfg.instrDrag')}</strong>{t('cfg.instrMid')}<em>{t('cfg.instrView')}</em>{t('cfg.instrAfter')}</>
                 </div>
 
                 <div className="ring-cards-grid">
@@ -317,8 +313,8 @@ export default function RingConfigurationPage() {
 
                         <div className="ring-gemstone-footer">
                           <div className="ring-option-price">
-                            {Number(gem.unitPrice).toLocaleString('vi-VN')} đ / {lang === 'en' ? 'stone' : 'viên'}
-                            <span className="ring-gem-max-label"> ({lang === 'en' ? `Max ${maxQty}` : `Tối đa ${maxQty}`})</span>
+                            {t('cfg.perStone', { price: wholeMoney(fmt, gem.unitPrice) })}
+                            <span className="ring-gem-max-label"> ({t('cfg.max', { max: maxQty })})</span>
                           </div>
 
                           {!isSelected ? (
@@ -338,7 +334,7 @@ export default function RingConfigurationPage() {
                               }}
                               data-testid={`add-gemstone-${gem.reference}`}
                             >
-                              {lang === 'en' ? '+ Add stone' : '+ Thêm đá'}
+                              {t('cfg.addStone')}
                             </button>
                           ) : (
                             <div
@@ -349,13 +345,13 @@ export default function RingConfigurationPage() {
                                 type="button"
                                 className="ring-stepper-btn ring-stepper-minus"
                                 onClick={() => setComponentQuantity(gem.reference, currentQty - 1, maxQty)}
-                                aria-label={lang === 'en' ? `Decrease quantity of ${gem.name}` : `Giảm số lượng ${gem.name}`}
+                                aria-label={t('cfg.decrease', { name: gem.name })}
                                 data-testid={`decrease-gem-${gem.reference}`}
                               >
                                 −
                               </button>
                               <span className="ring-stepper-value" data-testid={`qty-gem-${gem.reference}`}>
-                                {currentQty} {lang === 'en' ? 'stone(s)' : 'viên'}
+                                {t('stoneCount', { count: currentQty })}
                               </span>
                               <button
                                 type="button"
@@ -366,7 +362,7 @@ export default function RingConfigurationPage() {
                                   }
                                 }}
                                 disabled={currentQty >= maxQty || isTotalLimitReached}
-                                aria-label={lang === 'en' ? `Increase quantity of ${gem.name}` : `Tăng số lượng ${gem.name}`}
+                                aria-label={t('cfg.increase', { name: gem.name })}
                                 data-testid={`increase-gem-${gem.reference}`}
                               >
                                 +
@@ -382,8 +378,8 @@ export default function RingConfigurationPage() {
 
               {/* Section 4: Attachments */}
               <div className="ring-section-card">
-                <h2 className="ring-section-title">{t.attachmentSection}</h2>
-                <p className="ring-section-desc">{t.attachmentSectionDesc}</p>
+                <h2 className="ring-section-title">{t('attachmentSection')}</h2>
+                <p className="ring-section-desc">{t('attachmentSectionDesc')}</p>
                 <div className="ring-cards-grid">
                   {(options?.attachments || []).map((att) => {
                     const isSelected = draft.attachments.some((a) => a.reference === att.reference);
@@ -403,10 +399,10 @@ export default function RingConfigurationPage() {
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <div className="ring-option-price">
-                            +{Number(att.unitPrice).toLocaleString('vi-VN')} đ
+                            +{wholeMoney(fmt, att.unitPrice)}
                           </div>
                           {isSelected && (
-                            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#166534' }}>{lang === 'en' ? '✓ Selected' : '✓ Đã chọn'}</span>
+                            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#166534' }}>{t('cfg.selected')}</span>
                           )}
                         </div>
                       </div>
@@ -417,8 +413,8 @@ export default function RingConfigurationPage() {
 
               {/* Section 5: Engraving & Custom Image */}
               <div className="ring-section-card">
-                <h2 className="ring-section-title">{t.engravingSection}</h2>
-                <p className="ring-section-desc">{t.engravingSectionDesc}</p>
+                <h2 className="ring-section-title">{t('engravingSection')}</h2>
+                <p className="ring-section-desc">{t('engravingSectionDesc')}</p>
 
                 {/* Surface Texture Collision Warning */}
                 {previewModel.showSurfaceTextureWarning && (
@@ -438,7 +434,7 @@ export default function RingConfigurationPage() {
                     }}
                     data-testid="surface-texture-warning"
                   >
-                    <span>{t.surfaceTextureWarning}</span>
+                    <span>{t('surfaceTextureWarning')}</span>
                   </div>
                 )}
 
@@ -468,11 +464,10 @@ export default function RingConfigurationPage() {
                       }}
                       data-testid="engraving-toggle"
                     />
-                    <span>{t.standardEngravingTitle || 'Khắc chữ & biểu tượng tiêu chuẩn (Phí 1 lần: +80.000 đ)'}</span>
+                    <span>{t('standardEngravingTitle')}</span>
                   </label>
                   <p style={{ margin: '0.25rem 0 0 1.5rem', fontSize: '0.85rem', color: '#64748b' }}>
-                    {t.standardEngravingDesc ||
-                      'Chỉ trả phí 1 lần (+80.000 đ) — Khắc không giới hạn số lượng chữ và ký hiệu cả mặt trong và mặt ngoài nhẫn.'}
+                    {t('standardEngravingDesc')}
                   </p>
                 </div>
 
@@ -496,7 +491,7 @@ export default function RingConfigurationPage() {
                           }}
                           data-testid="engraving-text-counter"
                         >
-                          {(t.engravingItemsCounter || 'Khắc chữ & biểu tượng: {count}/2').replace('{count}', totalCount)}
+                          {t('engravingItemsCounter', { count: totalCount })}
                         </span>
                       </div>
 
@@ -505,7 +500,7 @@ export default function RingConfigurationPage() {
                           style={{ color: '#e11d48', fontSize: '0.85rem', marginBottom: '0.5rem', fontWeight: 500 }}
                           data-testid="text-engraving-limit-message"
                         >
-                          {t.engravingItemsLimitReached || 'Đã đạt tối đa 2 vị trí khắc chữ & biểu tượng.'}
+                          {t('engravingItemsLimitReached')}
                         </div>
                       )}
 
@@ -556,7 +551,7 @@ export default function RingConfigurationPage() {
                             >
                               <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                                 <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#334155' }}>
-                                  {lang === 'en' ? `Placement #${idx + 1}` : `Vị trí #${idx + 1}`}
+                                  {t('cfg.placementN', { n: idx + 1 })}
                                 </span>
                               </div>
                               <button
@@ -571,18 +566,18 @@ export default function RingConfigurationPage() {
                                 }}
                                 data-testid={`remove-engraving-item-${idx}`}
                               >
-                                {t.removeEngravingItem || 'Xóa'}
+                                {t('removeEngravingItem')}
                               </button>
                             </div>
 
                             <DesignControlField
-                              label={t.engravingTextInputLabel || (lang === 'en' ? 'Engraving content (up to 50 characters)' : 'Nội dung khắc (tối đa 50 ký tự)')}
+                              label={t('engravingTextInputLabel')}
                               errorText={idx === 0 ? clientValidation.errors.engravingText : undefined}
                             >
                               <input
                                 type="text"
                                 maxLength={50}
-                                placeholder={t.engravingPlaceholder || 'Ví dụ: Forever Love 2026 ♥'}
+                                placeholder={t('engravingPlaceholder')}
                                 value={item.content || ''}
                                 onChange={(e) => updateItem({ content: e.target.value })}
                                 style={{
@@ -607,7 +602,7 @@ export default function RingConfigurationPage() {
                               }}
                             >
                               <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                                {t.quickSymbols || 'Ký hiệu nhanh:'}
+                                {t('quickSymbols')}
                               </span>
                               {['♥', '∞', '★', '✿', '💍'].map((sym) => (
                                 <button
@@ -627,14 +622,14 @@ export default function RingConfigurationPage() {
                                     fontSize: '0.85rem',
                                     cursor: 'pointer',
                                   }}
-                                  title={lang === 'en' ? `Insert ${sym}` : `Chèn ${sym}`}
+                                  title={t('cfg.insert', { sym })}
                                 >
                                   {sym}
                                 </button>
                               ))}
                             </div>
 
-                            <DesignControlField label={t.engravingPlacementLabel}>
+                            <DesignControlField label={t('engravingPlacementLabel')}>
                               <div className="ring-pills-row">
                                 <button
                                   type="button"
@@ -642,7 +637,7 @@ export default function RingConfigurationPage() {
                                   onClick={() => updateItem({ placement: 'INNER_BAND' })}
                                   data-testid={idx === 0 ? 'placement-inner' : `placement-inner-${idx}`}
                                 >
-                                  {t.innerBand}
+                                  {t('innerBand')}
                                 </button>
                                 <button
                                   type="button"
@@ -650,7 +645,7 @@ export default function RingConfigurationPage() {
                                   onClick={() => updateItem({ placement: 'OUTER_BAND' })}
                                   data-testid={idx === 0 ? 'placement-outer' : `placement-outer-${idx}`}
                                 >
-                                  {t.outerBand}
+                                  {t('outerBand')}
                                 </button>
                               </div>
                             </DesignControlField>
@@ -689,7 +684,7 @@ export default function RingConfigurationPage() {
                           }}
                           data-testid="add-engraving-item-btn"
                         >
-                          {t.addEngravingItem || '+ Thêm vị trí khắc (Tối đa 2)'}
+                          {t('addEngravingItem')}
                         </button>
                       </div>
                     </div>
@@ -700,7 +695,6 @@ export default function RingConfigurationPage() {
                 <LaserEngravingImageCropper
                   customImages={draft.engraving?.customImages || []}
                   onChangeCustomImages={(customImages) => updateEngraving({ customImages })}
-                  t={t}
                 />
               </div>
             </div>
@@ -708,8 +702,8 @@ export default function RingConfigurationPage() {
             {/* Right Column: Sticky Live Preview & Summary */}
             <div className="ring-preview-panel">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span className="ring-status-badge draft">{t.DRAFT}</span>
-                <span className="ring-advisory-badge">{t.advisoryBadge}</span>
+                <span className="ring-status-badge draft">{t('status.DRAFT')}</span>
+                <span className="ring-advisory-badge">{t('advisoryBadge')}</span>
               </div>
 
               <RingPreview
@@ -721,77 +715,77 @@ export default function RingConfigurationPage() {
 
               {isDirty && (
                 <div style={{ fontSize: '0.85rem', color: '#b45309', background: '#fffbeb', padding: '0.5rem 0.75rem', borderRadius: '6px' }}>
-                  {t.unsavedChangesNotice}
+                  {t('unsavedChangesNotice')}
                 </div>
               )}
 
               <div className="ring-summary-box">
                 <h3 style={{ fontSize: '1rem', fontWeight: 600, margin: '0 0 0.75rem', color: '#0f172a' }}>
-                  {t.summaryHeading}
+                  {t('summaryHeading')}
                 </h3>
                 <div className="ring-summary-item">
-                  <span className="ring-summary-label">{t.materialSummary}</span>
+                  <span className="ring-summary-label">{t('materialSummary')}</span>
                   <span className="ring-summary-value">{previewModel.material?.label}</span>
                 </div>
                 <div className="ring-summary-item">
-                  <span className="ring-summary-label">{t.shapeSummary}</span>
+                  <span className="ring-summary-label">{t('shapeSummary')}</span>
                   <span className="ring-summary-value">{previewModel.shape?.label}</span>
                 </div>
                 <div className="ring-summary-item">
-                  <span className="ring-summary-label">{t.sizeSummary}</span>
-                  <span className="ring-summary-value">Size {previewModel.ringSize} ({previewModel.circumferenceMm} mm)</span>
+                  <span className="ring-summary-label">{t('sizeSummary')}</span>
+                  <span className="ring-summary-value">{t('sizeValue', { size: previewModel.ringSize, mm: previewModel.circumferenceMm })}</span>
                 </div>
                 <div className="ring-summary-item">
-                  <span className="ring-summary-label">{t.thicknessSummary}</span>
+                  <span className="ring-summary-label">{t('thicknessSummary')}</span>
                   <span className="ring-summary-value">{previewModel.thicknessMm?.toFixed(1)} mm</span>
                 </div>
                 <div className="ring-summary-item">
-                  <span className="ring-summary-label">{t.bandWidthSummary}</span>
+                  <span className="ring-summary-label">{t('bandWidthSummary')}</span>
                   <span className="ring-summary-value">{previewModel.bandWidthMm?.toFixed(1)} mm</span>
                 </div>
                 <div className="ring-summary-item">
-                  <span className="ring-summary-label">{t.weightSummary}</span>
+                  <span className="ring-summary-label">{t('weightSummary')}</span>
                   <span className="ring-summary-value" data-testid="weight-summary-value">
                     ~{previewModel.estimatedWeightGrams?.toFixed(2)} g
                     {previewModel.excessWeightGrams > 0 ? (
                       <span style={{ fontSize: '0.8rem', color: '#b45309', display: 'block', fontWeight: 500 }}>
-                        (+{previewModel.excessWeightGrams.toFixed(2)}g: +{previewModel.excessMaterialCost?.toLocaleString('vi-VN')} đ)
+                        (+{previewModel.excessWeightGrams.toFixed(2)}g: +{wholeMoney(fmt, previewModel.excessMaterialCost)})
                       </span>
                     ) : (
                       <span style={{ fontSize: '0.8rem', color: '#166534', display: 'block', fontWeight: 500 }}>
-                        ({lang === 'en' ? 'Standard quota ≤ 3.0g' : 'Định mức ≤ 3.0g'})
+                        ({t('cfg.standardQuota')})
                       </span>
                     )}
                   </span>
                 </div>
                 <div className="ring-summary-item">
-                  <span className="ring-summary-label">{t.gemstonesSummary}</span>
+                  <span className="ring-summary-label">{t('gemstonesSummary')}</span>
                   <span className="ring-summary-value">
                     {previewModel.gemstoneGroups?.length > 0
                       ? previewModel.gemstoneGroups.map((g) => `${g.quantity}x ${g.label}`).join(', ')
                       : previewModel.gemstones?.length > 0
                         ? previewModel.gemstones.map((g) => `${g.quantity || 1}x ${g.label}`).join(', ')
-                        : t.none}
+                        : t('none')}
                   </span>
                 </div>
                 <div className="ring-summary-item">
-                  <span className="ring-summary-label">{t.engravingSummary}</span>
+                  <span className="ring-summary-label">{t('engravingSummary')}</span>
                   <span className="ring-summary-value">
-                    {previewModel.engravingText ? `"${previewModel.engravingText}"` : t.none}
+                    {previewModel.engravingText ? `"${previewModel.engravingText}"` : t('none')}
                     {previewModel.standardEngravingCost > 0 && (
                       <span style={{ fontSize: '0.8rem', color: '#0369a1', display: 'block', fontWeight: 500 }}>
-                        (+80.000 đ)
+                        (+{wholeMoney(fmt, 80000)})
                       </span>
                     )}
                   </span>
                 </div>
                 {previewModel.customImages?.length > 0 && (
                   <div className="ring-summary-item" data-testid="summary-custom-images">
-                    <span className="ring-summary-label">{lang === 'en' ? 'Laser images' : 'Ảnh khắc laser'}</span>
+                    <span className="ring-summary-label">{t('eval.laserImages')}</span>
                     <span className="ring-summary-value">
-                      {previewModel.customImages.length} {lang === 'en' ? 'image(s)' : 'ảnh'}
+                      {t('imageCount', { count: previewModel.customImages.length })}
                       <span style={{ fontSize: '0.8rem', color: '#0369a1', display: 'block', fontWeight: 500 }}>
-                        (+{(previewModel.customImages.length * 100000).toLocaleString('vi-VN')} đ)
+                        (+{wholeMoney(fmt, previewModel.customImages.length * 100000)})
                       </span>
                     </span>
                   </div>
@@ -805,7 +799,7 @@ export default function RingConfigurationPage() {
                 onClick={handleSaveAndEvaluate}
                 data-testid="save-and-evaluate-btn"
               >
-                {saving ? t.saving : t.saveAndEvaluate}
+                {saving ? t('saving') : t('saveAndEvaluate')}
               </button>
 
               {commandError && (

@@ -441,7 +441,7 @@ describe('F04-REVIEW-DETAIL Screen (/design-review-requests/:id)', () => {
     // Confirmation dialog must appear
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByText('Xác nhận gửi báo giá cho Quản lý')).toBeInTheDocument();
-    expect(within(dialog).getByText(/18\.000\.000 đ/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/18\.000\.000\s₫/)).toBeInTheDocument();
 
     // Confirm sending
     const confirmBtn = within(dialog).getByRole('button', { name: 'Xác nhận gửi' });
@@ -530,7 +530,7 @@ describe('F04-REVIEW-DETAIL Screen (/design-review-requests/:id)', () => {
     open('/design-review-requests/rev-quote-mgr', { session: fakeSession('signed-in') });
 
     expect(await screen.findByText('QUO-PENDING-01')).toBeInTheDocument();
-    expect(await screen.findByText(/25\.000\.000 đ/)).toBeInTheDocument();
+    expect(await screen.findByText(/25\.000\.000\s₫/)).toBeInTheDocument();
     expect(screen.getByText(/Chờ Quản lý \(Manager\) duyệt/)).toBeInTheDocument();
 
     const approveBtn = screen.getByRole('button', { name: 'Phê duyệt Báo giá (Manager Approve)' });

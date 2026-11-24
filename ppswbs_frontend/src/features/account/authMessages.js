@@ -37,6 +37,8 @@ export const authMessages = {
     'verification.reminder': 'Tài khoản đã được tạo. Hãy kiểm tra email để xác minh tài khoản.',
     'verification.failed': 'Tài khoản đã được tạo nhưng chưa gửi được email xác minh. Bạn có thể gửi lại sau.',
     'reset.sent': 'Nếu email này tồn tại, hướng dẫn đặt lại mật khẩu đã được gửi. Hãy kiểm tra hộp thư.',
+    'action.retry': 'Thử lại',
+    'action.pending': 'Đang xử lý…',
   },
   en: {
     'signin.title': 'Welcome back',
@@ -76,5 +78,7 @@ export const authMessages = {
     'verification.reminder': 'Your account was created. Check your email to verify it.',
     'verification.failed': 'Your account was created, but the verification email could not be sent. Try again later.',
     'reset.sent': 'If this email exists, password reset instructions have been sent. Check your inbox.',
+    'action.retry': 'Try again',
+    'action.pending': 'Processing…',
   },
 };

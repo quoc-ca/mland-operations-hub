@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
-import { useLanguage } from '../../../shared/i18n/I18nProvider';
+import { useT } from '../../../shared/i18n/I18nProvider';
 import { messages } from '../messages';
 import '../ring-design.css';
 
@@ -10,26 +10,23 @@ export default function BranchCompatibilityPage() {
 
   const packageReference = searchParams.get('packageReference') || '';
   const designId = searchParams.get('designId') || '';
-  const reason = searchParams.get('reason') || 'Chi nhánh này chưa hỗ trợ một số vật liệu kim hoàn đặc thù của mẫu nhẫn.';
-
-  const { language } = useLanguage();
-  const lang = language === 'en' ? 'en' : 'vi';
-  const t = messages[lang];
+  const t = useT(messages);
+  const reason = searchParams.get('reason') || t('branch.defaultReason');
 
   return (
     <div className="ring-design-container" data-testid="branch-compatibility-page">
-      <div className="ring-recovery-card" role="region" aria-label="Branch compatibility warning">
+      <div className="ring-recovery-card" role="region" aria-label={t('branch.ariaLabel')}>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}>
           <div style={{ fontSize: '2rem' }}>⚠️</div>
           <div>
             <h2 style={{ fontSize: '1.25rem', fontWeight: 600, margin: '0 0 0.5rem', color: '#92400e' }}>
-              {t.branchRecoveryTitle}
+              {t('branchRecoveryTitle')}
             </h2>
             <p style={{ fontSize: '0.95rem', margin: '0 0 1rem', lineHeight: 1.5 }}>
-              {t.branchRecoveryDesc}
+              {t('branchRecoveryDesc')}
             </p>
             <div style={{ background: '#fef3c7', padding: '0.75rem 1rem', borderRadius: '6px', marginBottom: '1.5rem', fontWeight: 500 }}>
-              Lý do từ hệ thống: <em>{reason}</em>
+              {t('branch.reasonPrefix')}: <em>{reason}</em>
             </div>
             <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
               <button
@@ -44,7 +41,7 @@ export default function BranchCompatibilityPage() {
                   )
                 }
               >
-                🛠️ {t.branchRecoveryAction}
+                🛠️ {t('branchRecoveryAction')}
               </button>
               <button
                 type="button"
@@ -53,7 +50,7 @@ export default function BranchCompatibilityPage() {
                   navigate(`/workshops/booking?packageReference=${encodeURIComponent(packageReference)}&designId=${encodeURIComponent(designId)}`)
                 }
               >
-                📍 {t.changeBranchAction}
+                📍 {t('changeBranchAction')}
               </button>
             </div>
           </div>

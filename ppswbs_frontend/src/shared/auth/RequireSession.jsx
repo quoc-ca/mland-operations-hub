@@ -32,7 +32,7 @@ export function RequireSession({ children, requiredText }) {
   if (status === 'unconfigured') {
     return (
       <div className="empty-state session-unconfigured-state" role="status">
-        <p>{t('session.unconfigured') || 'Dịch vụ xác thực chưa sẵn sàng.'}</p>
+        <p>{t('session.unconfigured')}</p>
       </div>
     );
   }

@@ -14,22 +14,6 @@ export const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 export const CONSENT_PURPOSE = 'INDEPENDENT_DESIGN_IMAGE_ANALYSIS';
 export const CONSENT_VERSION = 'v1.0';
 
-export function formatVnd(amount) {
-  if (amount === undefined || amount === null || isNaN(Number(amount))) return '—';
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(amount));
-}
-
-export function formatDateTime(isoString) {
-  if (!isoString) return '—';
-  try {
-    const d = new Date(isoString);
-    if (isNaN(d.getTime())) return isoString;
-    return d.toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' });
-  } catch {
-    return isoString;
-  }
-}
-
 export function formatFileSize(bytes) {
   if (!bytes || isNaN(bytes)) return '0 B';
   const units = ['B', 'KB', 'MB', 'GB'];
@@ -114,7 +98,8 @@ export function validateImageDimensions(file) {
   });
 }
 
-export async function detectImageBlur(file, threshold = 80.0) {
+// t: translator (key, params) -> text, so the returned reason follows the UI language.
+export async function detectImageBlur(file, threshold = 80.0, t = key => key) {
   if (
     !file ||
     typeof window === 'undefined' ||
@@ -124,7 +109,7 @@ export async function detectImageBlur(file, threshold = 80.0) {
     typeof URL.createObjectURL !== 'function' ||
     (typeof navigator !== 'undefined' && /jsdom/i.test(navigator.userAgent))
   ) {
-    return { status: 'PASS', score: 100, reason: 'Kiểm tra giả lập' };
+    return { status: 'PASS', score: 100, reason: t('quality.simulated') };
   }
 
   return new Promise((resolve) => {
@@ -144,7 +129,7 @@ export async function detectImageBlur(file, threshold = 80.0) {
 
     const timer = setTimeout(() => {
       cleanup();
-      resolve({ status: 'PASS', score: 100, reason: 'Thời gian chờ vượt quá giới hạn' });
+      resolve({ status: 'PASS', score: 100, reason: t('quality.timeout') });
     }, 2000);
 
     try {
@@ -167,7 +152,7 @@ export async function detectImageBlur(file, threshold = 80.0) {
           canvas.height = h;
           const ctx = canvas.getContext('2d');
           if (!ctx) {
-            resolve({ status: 'PASS', score: 100, reason: 'Không hỗ trợ canvas' });
+            resolve({ status: 'PASS', score: 100, reason: t('quality.noCanvas') });
             return;
           }
           ctx.drawImage(img, 0, 0, w, h);
@@ -184,7 +169,7 @@ export async function detectImageBlur(file, threshold = 80.0) {
           const innerW = w - 2;
           const innerH = h - 2;
           if (innerW <= 0 || innerH <= 0) {
-            resolve({ status: 'PASS', score: 100, reason: 'Ảnh quá nhỏ' });
+            resolve({ status: 'PASS', score: 100, reason: t('quality.tooSmall') });
             return;
           }
 
@@ -213,31 +198,31 @@ export async function detectImageBlur(file, threshold = 80.0) {
             resolve({
               status: 'TOO_BLURRY',
               score: Math.round(variance * 10) / 10,
-              reason: `Hình ảnh quá mờ (${variance.toFixed(1)} / ngưỡng tối thiểu: ${threshold}). Vui lòng chụp/chọn ảnh rõ nét hơn.`
+              reason: t('quality.blurry', { score: variance.toFixed(1), threshold })
             });
           } else {
             resolve({
               status: 'PASS',
               score: Math.round(variance * 10) / 10,
-              reason: `Độ sắc nét đạt chuẩn (${variance.toFixed(1)}).`
+              reason: t('quality.sharp', { score: variance.toFixed(1) })
             });
           }
         } catch {
-          resolve({ status: 'PASS', score: 100, reason: 'Đạt yêu cầu' });
+          resolve({ status: 'PASS', score: 100, reason: t('quality.ok') });
         }
       };
 
       img.onerror = () => {
         clearTimeout(timer);
         cleanup();
-        resolve({ status: 'QUALITY_CHECK_FAILED', score: 0, reason: 'Không thể đọc ảnh' });
+        resolve({ status: 'QUALITY_CHECK_FAILED', score: 0, reason: t('quality.unreadable') });
       };
 
       img.src = objectUrl;
     } catch {
       clearTimeout(timer);
       cleanup();
-      resolve({ status: 'PASS', score: 100, reason: 'Đạt yêu cầu' });
+      resolve({ status: 'PASS', score: 100, reason: t('quality.ok') });
     }
   });
 }

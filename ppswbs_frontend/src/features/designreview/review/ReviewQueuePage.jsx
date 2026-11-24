@@ -1,13 +1,13 @@
 import React from 'react';
 import { Link } from 'react-router';
-import { useT } from '../../../shared/i18n/I18nProvider';
+import { useFormat, useT } from '../../../shared/i18n/I18nProvider';
 import { ErrorNotice, Loading, useResource } from '../../../shared/ui/components';
 import { useDesignReviewApi } from '../api/useDesignReviewApi';
 import { designReviewMessages } from '../messages';
-import { formatDateTime } from '../rules';
 
 export default function ReviewQueuePage() {
   const t = useT(designReviewMessages);
+  const fmt = useFormat();
   const api = useDesignReviewApi();
 
   const { loading, error, data, reload } = useResource(
@@ -38,10 +38,10 @@ export default function ReviewQueuePage() {
             <thead>
               <tr style={{ borderBottom: '2px solid #cbd5e1' }}>
                 <th style={{ padding: '0.75rem' }}>{t('queue.colRef')}</th>
-                <th style={{ padding: '0.75rem' }}>Thời gian gửi</th>
-                <th style={{ padding: '0.75rem' }}>Người gửi</th>
-                <th style={{ padding: '0.75rem' }}>Mô tả ý tưởng</th>
-                <th style={{ padding: '0.75rem' }}>Số ảnh</th>
+                <th style={{ padding: '0.75rem' }}>{t('queue.colSubmittedAt')}</th>
+                <th style={{ padding: '0.75rem' }}>{t('queue.colSubmitter')}</th>
+                <th style={{ padding: '0.75rem' }}>{t('queue.colDescription')}</th>
+                <th style={{ padding: '0.75rem' }}>{t('queue.colImages')}</th>
                 <th style={{ padding: '0.75rem' }}>{t('queue.colStatus')}</th>
                 <th style={{ padding: '0.75rem' }}>{t('queue.colAction')}</th>
               </tr>
@@ -58,18 +58,18 @@ export default function ReviewQueuePage() {
                       )}
                     </td>
                     <td style={{ padding: '0.75rem', fontSize: '0.85rem' }} className="muted">
-                      {formatDateTime(item.createdAt)}
+                      {fmt.dateTime(item.createdAt)}
                     </td>
                     <td style={{ padding: '0.75rem' }}>
                       <span className="badge-tag badge-status">
-                        {item.ownershipType === 'GUEST' || item.guestSessionId ? 'Khách' : 'Hội viên'}
+                        {item.ownershipType === 'GUEST' || item.guestSessionId ? t('queue.guest') : t('rv.member')}
                       </span>
                     </td>
                     <td style={{ padding: '0.75rem', maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={item.description}>
                       {item.description || '—'}
                     </td>
                     <td style={{ padding: '0.75rem' }}>
-                      {imgCount > 0 ? `📷 ${imgCount} ảnh` : '—'}
+                      {imgCount > 0 ? `📷 ${t('queue.imageCount', { count: imgCount })}` : '—'}
                     </td>
                     <td style={{ padding: '0.75rem' }}>
                       <span className="badge-tag badge-warning">

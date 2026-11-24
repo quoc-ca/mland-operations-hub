@@ -80,6 +80,7 @@ export function CartQuotePanel({
               </ul>
             )}
 
+            <div style={{ overflowX: 'auto' }}>
             <table className="cart-quote-tickets" style={{ width: '100%', marginTop: '10px', fontSize: '14px', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ textAlign: 'left' }}>
@@ -102,6 +103,7 @@ export function CartQuotePanel({
                 ))}
               </tbody>
             </table>
+            </div>
           </article>
         ))}
       </div>
