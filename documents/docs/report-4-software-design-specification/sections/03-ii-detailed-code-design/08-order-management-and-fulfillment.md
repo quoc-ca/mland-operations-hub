@@ -2,9 +2,15 @@
 
 ### 8.1 Class Diagram
 
+#### 8.1.1 Cart and Checkout
+
 {{r4-cd-order-management-cart-checkout width=100% align=center}}
 
+#### 8.1.2 Payment, Cancellation and Order History
+
 {{r4-cd-order-management-payment-cancellation-history width=100% align=center}}
+
+#### 8.1.3 Store Pickup and GHTK Shipping
 
 {{r4-cd-order-management-pickup-shipping width=100% align=center}}
 
