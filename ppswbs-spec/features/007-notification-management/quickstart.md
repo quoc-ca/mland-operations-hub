@@ -145,7 +145,7 @@ This guide defines end-to-end and integration verification procedures for Featur
 - `notification_rendition` and `recipient_snapshot` for this request are deleted/scrubbed.
 - A row is inserted in `notification_tombstone` preserving original request ID, business event ref, template code, terminal state, and timestamps.
 
-## R-INV invitation delivery verification plan (pending final review; not executed)
+## R-INV invitation delivery verification plan (scoped design approved; not executed)
 
 Run this section only after FE-001 T110 and FE-007 T038–T043 are implemented with a configured Firebase test project and captured SMTP adapter. Preserve historical FE-007 case results as historical; record source revision, environment, test identities, request/attempt IDs and actual outcome for every case.
 

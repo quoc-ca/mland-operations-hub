@@ -7,7 +7,7 @@
 
 **Base URL**: `/api/v1`
 **Authorization**: `Authorization: Bearer <Firebase_ID_Token>`
-**Scope**: Historical V1 endpoints require `ADMIN` or `MANAGER` at global scope (FR-027). The R-INV manual-invitation operation below is `ADMIN` only and pending final review.
+**Scope**: Historical V1 endpoints require `ADMIN` or `MANAGER` at global scope (FR-027). The R-INV manual-invitation operation below is `ADMIN` only; its scoped design was approved on 2026-11-25 and implementation remains open.
 
 ---
 
@@ -366,12 +366,14 @@ The service resolves the root/original request for lineage, asks the owning sour
 
 ---
 
-### 2.6. `GET /api/v1/admin/notification-requests/{requestId}/manual-invitation` (R-INV pending final review)
+### 2.6. `GET /api/v1/admin/notification-requests/{requestId}/manual-invitation` (R-INV scoped design approved)
+
+The [R-INV OpenAPI path contract](r-inv.openapi.yaml) is the machine-readable DTO/status/header definition for this route; this section supplies the authorization and workflow rules.
 
 Returns the exact pinned invitation email for an ADMIN to copy and send outside the system after FE-007 records terminal `FAILED` from two definite SMTP attempts. It is not a resend or delivery confirmation.
 
 - **Actor**: Authenticated `ACTIVE` ADMIN only; server checks the request belongs to `INTERNAL_ACCOUNT_INVITATION` and the current FE-001 invitation ID/version.
-- **Eligibility**: `FAILED` after two definite attempts, current version unexpired/unused, and no unresolved `UNKNOWN_OUTCOME`. FE-007 calls FE-001's `MANUAL_CONTENT` materialization scope and injects the URL into its pinned subject, HTML and plain-text rendition only in memory.
+- **Eligibility**: FE-007 verifies its authoritative durable `FAILED` state after two definite attempts, current version unexpired/unused, and no unresolved `UNKNOWN_OUTCOME`. It passes the active ADMIN Account ID and `MANUAL_CONTENT` purpose to FE-001, which independently checks active ADMIN and invitation/request binding. A delayed FE-001 status callback does not authorize or prohibit the FE-007 route. FE-007 injects the URL into pinned subject, HTML and plain-text rendition only in memory.
 - **Response 200**: `Cache-Control: no-store`, `Pragma: no-cache`; body contains `requestId`, `invitationVersion`, `subject`, `html`, `plainText`, `expiresAt` and `serverNow`. The response is the deliberate ADMIN-only raw-link exception; no content or URL is persisted, logged, cached in browser storage or shown in general diagnostics. UI renders text safely and offers copy controls rather than executing the HTML.
 
 ```json

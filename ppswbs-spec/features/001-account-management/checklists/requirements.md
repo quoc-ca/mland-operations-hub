@@ -72,5 +72,5 @@
 
 - [x] The revised spec has explicit acceptance for creation-based 48-hour expiry, two definite SMTP attempts and ADMIN manual-content retrieval after `FAILED`.
 - [x] Phase 14's obsolete task queue and role-catalogue endpoint are removed from the current handoff artifacts.
-- [x] Cross-artifact R-INV consistency and contract references passed the 2026-11-24 static review (OpenAPI YAML/links, status wording, task IDs and expiry rule).
+- [ ] For implementation verification after the 2026-11-25 scoped approval, check that local preview uses DEMO/UNAVAILABLE data only, review/JSON show the marker, and MEMBER retirement/email release are denied. Live FE-08/FE-003.1 verdicts and an acceptance fence remain deferred T117; no source-feature artifact was approved by this revision.
 - [ ] A named Tech Lead must approve this exact amended FE-001/FE-007 revision in both approval records before implementation handoff.

@@ -1,6 +1,6 @@
 # Quickstart Validation Guide: Account Management (FE-001)
 
-> **R-INV validation plan pending final review:** After approval and implementation, use a configured Firebase test project and captured mail adapter to create STAFF and MANAGER from ADMIN; inspect 48-hour expiry from invitation creation, two definite SMTP attempts, ADMIN manual-content retrieval after FAILED, five-minute resend rotation and accurate server-based countdown. Complete one setup through password and one through Google redirect; assert the same issued UID/Account ID and correct ACTIVE role home. Separately exercise MEMBER collision review/optional JSON export/retirement with preserved purchase and booking history, Firebase-only collision, all blocked-role collisions, direct login/register before setup, wrong provider email, stale review and provider/mail failures. Record environment/revision and actual results in `verification.md`; this paragraph is a plan, not executed evidence. See [R-INV](design/revision-2026-11-24.md).
+> **R-INV validation plan for approved scoped design; not executed:** After implementation, use a configured Firebase test project and captured mail adapter to create STAFF and MANAGER from ADMIN; inspect 48-hour expiry from invitation creation, two definite SMTP attempts, ADMIN manual-content retrieval after FAILED, five-minute resend rotation and accurate server-based countdown. Complete one setup through password and one through Google redirect; assert the same issued UID/Account ID and correct ACTIVE role home. Separately exercise MEMBER collision review/optional JSON export with visibly labelled DEMO data, verify MEMBER retirement and occupied-email release are denied, then cover Firebase-only collision, blocked-role collisions, direct login/register before setup, wrong provider email, stale review and provider/mail failures. Live MEMBER retirement with preserved history is deferred to T117 and requires authoritative providers plus an approved acceptance/retirement fence. Record environment/revision and actual results in `verification.md`; this paragraph is a plan, not executed evidence. See [R-INV](design/revision-2026-11-24.md).
 
 **Date created**: 2026-10-26
 **Date updated**: 2026-11-24
@@ -143,7 +143,7 @@ Refer to [data-model.md](data-model.md) for entity invariants and [contracts/int
 
 **Expected outcomes**:
 - Account: `status = PENDING_SETUP`; `role = STAFF`; one active AccountLocationAssignment
-- NotificationIntent created (FE-07 delivery is separate)
+- FE-001 invitation/outbox version created with `expiresAt = createdAt + 48 hours`; FE-007 delivery is separate and may remain queued
 - AccountAuditEvent: `action = CREATE_INTERNAL_ACCOUNT`; `outcome = SUCCESS`
 
 **Idempotency**:
@@ -160,17 +160,17 @@ Refer to [data-model.md](data-model.md) for entity invariants and [contracts/int
 
 **Activation**:
 ```
-7. The intended person signs in with their Firebase identity (email matches invitation)
-8. POST /accounts/me (bootstrap)
+7. The intended person opens the current unexpired FE-001 setup link and exchanges it for a bound-UID setup session
+8. Link a password or Google identity to that same Firebase UID; complete setup with backend UID, email and active-scope verification
 ```
-**Expected**: Account transitions to `ACTIVE`; no Member Account created; audit records `ACTIVATION`
+**Expected**: Account transitions to `ACTIVE` on the original Account ID/UID; no Member Account created; audit records `ACTIVATION`. Direct `/login` or `/register` while pending is refused before Member bootstrap.
 
 **Resend (5-min cooldown)**:
 ```
 9. Admin navigates to /admin/accounts/{accountId}
 10. POST /admin/accounts/{accountId}/resend-invitation
 ```
-**Expected**: Fresh setup link sent (via FE-07 intent); no raw link in audit or NotificationIntent
+**Expected**: A new invitation version rotates the old link and starts its own 48-hour window at creation. FE-007 receives the new outbox event; `SENT` is shown only after definite SMTP acceptance. No raw link in audit or notification persistence. After two definite failures, only an active ADMIN may copy the current unexpired pinned message for outside delivery; state remains `FAILED`.
 **After 5 min**: Second resend succeeds; within 5 min: `429` or cooldown error
 
 ---
@@ -207,7 +207,7 @@ Refer to [data-model.md](data-model.md) for entity invariants and [contracts/int
 
 ---
 
-## Scenario V-06: Admin list, filter, and role catalogue (US5)
+## Scenario V-06: Admin list, filter, and fixed-role guidance (US5, R-INV)
 
 **Covers**: FR-016, FR-010, SC-006
 
@@ -220,11 +220,11 @@ Refer to [data-model.md](data-model.md) for entity invariants and [contracts/int
 - `accountId` is opaque positive-integer string
 
 ```
-2. GET /roles
+2. Open the ADMIN create/edit controls; inspect role-selection help and navigation
 ```
 **Expected**:
-- Fixed role catalogue: MEMBER, STAFF, MANAGER, ADMIN with descriptions
-- No permission/role editing controls available in UI
+- Short fixed-role guidance appears in the form only; there is no `/roles` or `/admin/roles` page/API/menu item
+- ADMIN sees Account management and eligible owner self-service navigation only; business routes deny ADMIN before page mount/request
 
 ---
 
@@ -398,7 +398,7 @@ Before handoff, retain evidence for:
 1. Flyway fresh-database migration (V1 to current) — startup log screenshot or CI run
 2. Flyway upgrade migration (V5 baseline → current `AuditOutcome`/`VARCHAR(16)`) — startup log + sample query
 3. Spring Modulith boundary verification — test output confirming `accountmanagement` module detects correctly
-4. Scenarios V-01 through V-12 executed locally — annotated screenshots or test output per scenario
+4. Historical scenarios V-01 through V-12 retain only their actual recorded evidence. R-INV revisions to V-04/V-06 and the new R-INV journey require fresh results after implementation; previous runs are not evidence for the amended steps.
 5. WCAG 2.2 AA baseline — accessibility scan output for all FE-001 screens (frontend foundation owner)
 
 ---
@@ -407,7 +407,7 @@ Before handoff, retain evidence for:
 
 1. For each of MEMBER, STAFF, MANAGER and ADMIN, open every FE-001 Profile, Address, Email and Password canonical route and alias. → each allowed self-service screen loads only after Account bootstrap resolves.
 2. Sign in as CARRIER and open `/security/password`. → password flow loads. Open any Profile, Address or Email route/alias. → exact URL becomes `/404` by replace; no protected page DOM or request occurs.
-3. Sign in as any non-ADMIN role and open `/admin/accounts` or `/admin/roles`; sign in as ADMIN and open those routes. → denied actor reaches generic `/404`, allowed ADMIN reaches its page.
+3. Sign in as any non-ADMIN role and open `/admin/accounts`; denied actor reaches generic `/404`, while ADMIN reaches the Account page. Open retired `/admin/roles` as any role, including ADMIN; no role-catalogue page mounts.
 4. Use a `SUSPENDED` or `PENDING_SETUP` Account against an internal FE-001 route. → exact URL becomes `/404`; no protected request starts.
 5. Simulate Account-bootstrap technical unavailability after valid Firebase session. → keep the original URL, show non-PII unavailable state and explicit retry; do not use stale role data or route to `/404`.
 6. From an allowed page, make an authorized request return `403`. → session remains active and feature-owned recovery runs; it is not a route-mask redirect.

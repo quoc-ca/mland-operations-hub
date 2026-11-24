@@ -27,7 +27,7 @@ paths:
       security: [{ bearerAuth: [] }]
       summary: Fresh MEMBER-only replacement review with source version and inventory
       responses:
-        '200': { description: Current owner-scoped inventory, content: { application/json: { schema: { $ref: '#/components/schemas/ReplacementReview' } } } }
+        '200': { description: Owner-scoped inventory; local demo records are explicitly marked DEMO/UNAVAILABLE and are not retirement evidence, content: { application/json: { schema: { $ref: '#/components/schemas/ReplacementReview' } } } }
         '403': { description: Not ADMIN or target not replaceable }
         '503': { description: A required source is unavailable; retirement blocked }
         default: { $ref: '#/components/responses/SafeError' }
@@ -38,7 +38,7 @@ paths:
       security: [{ bearerAuth: [] }]
       summary: Optional on-demand JSON export of the same MEMBER review inventory
       responses:
-        '200': { description: No-store application/json attachment; no secret or payment credentials, headers: { Content-Disposition: { schema: { type: string } }, Cache-Control: { schema: { type: string, const: no-store } } }, content: { application/json: { schema: { $ref: '#/components/schemas/ReplacementReview' } } } }
+        '200': { description: No-store application/json attachment; DEMO data remains labelled as sample, with no secret or payment credential, headers: { Content-Disposition: { schema: { type: string } }, Cache-Control: { schema: { type: string, const: no-store } } }, content: { application/json: { schema: { $ref: '#/components/schemas/ReplacementReview' } } } }
         '403': { description: Not ADMIN or target not replaceable }
         '503': { description: Source unavailable }
         default: { $ref: '#/components/responses/SafeError' }
@@ -48,12 +48,12 @@ paths:
       operationId: retireMemberForReplacement
       security: [{ bearerAuth: [] }]
       summary: Explicit, idempotent MEMBER retirement after fresh review
-      description: Body carries reviewed account version, source snapshot/version, normalized email and confirmation; Idempotency-Key required.
+      description: Future live-source operation. Until both sources provide authoritative CLEAR/version and the acceptance fence is approved, every MEMBER retirement request fails closed with 409; DEMO preview never authorizes it. Body carries reviewed account version, source snapshot/version, normalized email and confirmation; Idempotency-Key required.
       parameters: [{ name: Idempotency-Key, in: header, required: true, schema: { type: string, minLength: 8, maxLength: 128 } }]
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/RetirementCommand' } } } }
       responses:
         '200': { description: Retirement stage and opaque retired Account ID; historical references retained, content: { application/json: { schema: { $ref: '#/components/schemas/RetirementResult' } } } }
-        '409': { description: Stale review, changed target, duplicate-key mismatch or incomplete retirement; refresh/reconcile }
+        '409': { description: Source is DEMO/UNAVAILABLE, acceptance fence absent, stale review, changed target, duplicate-key mismatch or incomplete retirement; no email release }
         '403': { description: Not ADMIN or target role not MEMBER }
         '503': { description: Provider or source unavailable; no new Staff/Manager creation }
         default: { $ref: '#/components/responses/SafeError' }
@@ -127,21 +127,66 @@ components:
         normalizedEmail: { type: string, format: email }
         outcome: { type: string, enum: [NONE, MEMBER_REVIEW, STAFF_MANAGER_MAINTENANCE, FIREBASE_ONLY, BLOCKED_ROLE] }
         accountId: { type: integer, format: int64, description: ADMIN-visible Account match only }
-    SourceInventory:
+    ObligationBlocker:
       type: object
-      required: [status, sourceVersion, records, openObligations]
+      required: [reference, reasonCode, message]
       properties:
-        status: { type: string, enum: [AVAILABLE, UNAVAILABLE] }
-        sourceVersion: { type: string }
-        records: { type: array, items: { type: object, additionalProperties: true } }
-        openObligations:
-          type: array
-          items:
-            type: object
-            required: [reference, reason]
-            properties:
-              reference: { type: string }
-              reason: { type: string }
+        reference: { type: string }
+        reasonCode: { type: string }
+        message: { type: string, description: Safe ADMIN-facing text; no financial or participant secret }
+    RetailCartLine:
+      type: object
+      required: [productReference, variantReference, displayName, quantity, updatedAt]
+      properties:
+        productReference: { type: string }
+        variantReference: { type: string }
+        displayName: { type: string }
+        quantity: { type: integer, minimum: 1 }
+        updatedAt: { type: string, format: date-time }
+    RetailOrderSummary:
+      type: object
+      required: [orderId, displayCode, acceptedAt, paymentState, fulfilmentState, itemSummary]
+      properties:
+        orderId: { type: string }
+        displayCode: { type: string }
+        acceptedAt: { type: string, format: date-time }
+        paymentState: { type: string }
+        fulfilmentState: { type: string }
+        completedAt: { type: [string, 'null'], format: date-time }
+        itemSummary: { type: string, description: Safe product/quantity summary, no payment credential }
+    WorkshopBookingSummary:
+      type: object
+      required: [bookingReference, acceptedAt, serviceState, financialState, packageSummary]
+      properties:
+        bookingReference: { type: string }
+        acceptedAt: { type: string, format: date-time }
+        serviceState: { type: string }
+        financialState: { type: string }
+        packageSummary: { type: string }
+        outcomeAt: { type: [string, 'null'], format: date-time }
+    RetailReplacementInventory:
+      type: object
+      required: [accountId, status, dataOrigin, sourceVersion, observedAt, cartLines, orders, blockingReferences]
+      properties:
+        accountId: { type: integer, format: int64 }
+        status: { type: string, enum: [CLEAR, BLOCKED, UNAVAILABLE] }
+        dataOrigin: { type: string, enum: [LIVE, DEMO, NONE], description: DEMO is local-only sample; status must be UNAVAILABLE and sourceVersion null }
+        sourceVersion: { type: [string, 'null'], description: Non-null for CLEAR or BLOCKED; null when source cannot provide a trustworthy version }
+        observedAt: { type: string, format: date-time }
+        cartLines: { type: array, items: { $ref: '#/components/schemas/RetailCartLine' } }
+        orders: { type: array, items: { $ref: '#/components/schemas/RetailOrderSummary' } }
+        blockingReferences: { type: array, items: { $ref: '#/components/schemas/ObligationBlocker' } }
+    WorkshopReplacementInventory:
+      type: object
+      required: [accountId, status, dataOrigin, sourceVersion, observedAt, bookings, blockingReferences]
+      properties:
+        accountId: { type: integer, format: int64 }
+        status: { type: string, enum: [CLEAR, BLOCKED, UNAVAILABLE] }
+        dataOrigin: { type: string, enum: [LIVE, DEMO, NONE], description: DEMO is local-only sample; status must be UNAVAILABLE and sourceVersion null }
+        sourceVersion: { type: [string, 'null'], description: Non-null for CLEAR or BLOCKED; null when source cannot provide a trustworthy version }
+        observedAt: { type: string, format: date-time }
+        bookings: { type: array, items: { $ref: '#/components/schemas/WorkshopBookingSummary' } }
+        blockingReferences: { type: array, items: { $ref: '#/components/schemas/ObligationBlocker' } }
     ReplacementReview:
       type: object
       required: [accountId, accountVersion, normalizedEmail, profile, addresses, retail, workshop, generatedAt]
@@ -151,8 +196,8 @@ components:
         normalizedEmail: { type: string, format: email }
         profile: { type: object, description: Name, phone, email and status only, additionalProperties: true }
         addresses: { type: array, items: { type: object, additionalProperties: true } }
-        retail: { $ref: '#/components/schemas/SourceInventory' }
-        workshop: { $ref: '#/components/schemas/SourceInventory' }
+        retail: { $ref: '#/components/schemas/RetailReplacementInventory' }
+        workshop: { $ref: '#/components/schemas/WorkshopReplacementInventory' }
         generatedAt: { type: string, format: date-time }
     RetirementCommand:
       type: object
@@ -217,7 +262,7 @@ components:
         expiresAt: { type: string, format: date-time, description: CreatedAt plus 48 hours }
         serverNow: { type: string, format: date-time }
         deliveryState: { type: string, enum: [QUEUED, PENDING, RETRY_SCHEDULED, SENT, FAILED, UNKNOWN_OUTCOME, CANCELLED] }
-        manualContentEligible: { type: boolean, description: True after two definite failed SMTP attempts while current link is valid }
+        manualContentEligible: { type: boolean, description: FE-001 observed eligibility hint; FE-007's authoritative durable FAILED/two-attempt guard decides the manual API, so this hint may lag a callback }
         notificationRequestId: { type: integer, format: int64, description: Present after FE-007 event consumption }
 x-existing-route-changes:
   create-internal-account: Required normalized email for STAFF/MANAGER and CARRIER; no password for STAFF/MANAGER; full-payload idempotency.
