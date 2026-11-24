@@ -8,6 +8,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.Sett
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementFinalBillLifecycleStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.WorkshopBookingSettlementAdapter;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.WorkshopOperationsSettlementAdapter;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.FolioBalanceService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.WorkshopLoyaltyOutcomeProcessor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -57,7 +58,9 @@ class GroupTicketLoyaltyOutcomeTest {
         when(charges.findByBillReferenceAndLifecycleStatusOrderByIdAsc(anyString(), anyString()))
                 .thenReturn(List.of());
         when(evidence.findByBookingReferenceAndConclusion(anyString(), anyString())).thenReturn(List.of());
-        processor = new WorkshopLoyaltyOutcomeProcessor(bills, charges, evidence, booking, operations, loyalty);
+        FolioBalanceService balances = new FolioBalanceService(charges, evidence,
+                mock(SettlementFolioCollectionRepository.class), mock(SettlementCashReversalRepository.class));
+        processor = new WorkshopLoyaltyOutcomeProcessor(bills, balances, booking, operations, loyalty);
 
         folios.add(folio(TICKET_A));
         folios.add(folio(TICKET_B));

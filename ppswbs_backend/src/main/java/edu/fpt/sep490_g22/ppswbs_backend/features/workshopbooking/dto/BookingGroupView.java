@@ -9,6 +9,8 @@ import java.util.UUID;
  * own status, price breakdown, schedule, masked recipient and attendance. {@code hasLivePaymentAttempt} is true while an INITIATED or PENDING payment attempt exists (FR-032, FR-048): the buyer UI
  * offers "pay again" or "release the hold" only when it is false. {@code qrReference} is given to the buyer
  * only while the ticket is confirmed; {@code ticketReference} only to the owning Member (Feature 011 review matching).
+ * {@code current*Vnd} is the ticket folio's money position now (add-ons and later payments included); null when the
+ * ticket has no folio yet, in which case the booking-time figures are all there is.
  */
 public record BookingGroupView(
         String groupCode,
@@ -41,7 +43,11 @@ public record BookingGroupView(
             String qrReference,
             String ticketReference,
             List<SessionView> sessions,
-            boolean mlandRemedyPending) {
+            boolean mlandRemedyPending,
+            Long currentTotalVnd,
+            Long currentAddOnVnd,
+            Long currentPaidVnd,
+            Long currentBalanceDueVnd) {
     }
 
     public record SessionView(
