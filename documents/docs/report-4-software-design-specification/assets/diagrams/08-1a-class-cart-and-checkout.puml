@@ -1,0 +1,329 @@
+@startuml
+!pragma charset UTF-8
+skinparam shadowing false
+skinparam roundcorner 0
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam nodesep 40
+skinparam ranksep 70
+skinparam ArrowColor #000000
+skinparam class {
+  BackgroundColor #FFFFFF
+  BorderColor #000000
+  FontStyle bold
+  AttributeFontStyle plain
+}
+hide circle
+hide stereotype
+
+class CartController {
+  -RetailActorResolver actorResolver
+  -CartService cartService
+  +getCart(HttpServletRequest request) RetailCartView
+  +addLine(HttpServletRequest request, AddCartLineRequest body) RetailCartView
+  +updateLine(HttpServletRequest request, String lineId, UpdateCartLineRequest body) RetailCartView
+  +removeLine(HttpServletRequest request, String lineId) ResponseEntity<Void>
+}
+
+class CheckoutController {
+  -RetailActorResolver actorResolver
+  -RetailPaymentService paymentService
+  -ObjectProvider<RetailCheckoutQuotePreviewService> quotePreview
+  -ObjectProvider<RetailCheckoutAcceptanceService> acceptance
+  +quoteShipping(HttpServletRequest request, ShippingQuoteRequest body) ShippingQuoteView
+  +previewBenefits(HttpServletRequest request, BenefitPreviewRequest body) BenefitPreviewView
+  +createCheckout(HttpServletRequest request, String idempotencyKey, CreateGroupedCheckoutRequest body) GroupedCheckoutView
+  +initiatePayment(HttpServletRequest request, String checkoutId) PaymentRedirectView
+}
+
+class AddCartLineRequest {
+  -Long variantId
+  -Long locationId
+  -Integer quantity
+}
+
+class RetailCartView {
+  -long version
+  -List<CartLineView> lines
+}
+
+class ShippingQuoteRequest {
+  -Long locationId
+  -RecipientAddressInput recipient
+  -List<String> cartLineIds
+}
+
+class BenefitPreviewRequest {
+  -BenefitSelection selection
+  -List<BranchOrderCheckoutInput> branchOrders
+  -List<String> cartLineIds
+  -String paymentMethod
+  -Boolean estimateOnly
+}
+
+class BenefitPreviewView {
+  -String previewId
+  -String merchandiseSubtotal
+  -String discountAmount
+  -String pointsDiscountAmount
+  -String shippingTotal
+  -String payableAmount
+  -String appliedVoucherCode
+  -List<String> reasons
+  -String expiresAt
+  -List<CartLineDiscountView> cartLineDiscounts
+}
+
+class CartLineDiscountView {
+  -String cartLineId
+  -String autoDiscountAmount
+  -String voucherDiscountAmount
+}
+
+class CreateGroupedCheckoutRequest {
+  -List<BranchOrderCheckoutInput> branchOrders
+  -String benefitPreviewId
+  -BenefitSelection benefitSelection
+  -Boolean benefitTermsAccepted
+  -List<String> cartLineIds
+  -String paymentMethod
+}
+
+class GroupedCheckoutView {
+  -String id
+  -List<RetailOrderView> branchOrders
+  -String combinedSubtotal
+  -String combinedShippingCharge
+  -String combinedPayableAmount
+  -String paymentState
+  -String paymentMethod
+  -String counterPaymentDeadline
+}
+
+class CartService {
+  -RetailCartRepository cartRepository
+  -RetailCataloguePort cataloguePort
+  +getCart(Long memberAccountId) RetailCartView
+  +addLine(Long memberAccountId, AddCartLineRequest request) RetailCartView
+  +updateLine(Long memberAccountId, String lineId, UpdateCartLineRequest request) RetailCartView
+  +removeLine(Long memberAccountId, String lineId) void
+}
+
+class RetailCataloguePort {
+  +isEligibleForCart(Long variantId, Long locationId) boolean
+  +readCartProduct(Long variantId, Long locationId) CartProductFact
+}
+
+class RetailCheckoutQuotePreviewService {
+  -RetailCartRepository carts
+  -RetailCheckoutQuoteRepository quotes
+  -CatalogueSalesFacade catalogue
+  -LoyaltyFacade loyalty
+  -RetailShippingQuotePort shippingQuotes
+  +quoteShipping(Long memberId, ShippingQuoteRequest request) ShippingQuoteView
+  +preview(Long memberId, BenefitPreviewRequest request) BenefitPreviewView
+}
+
+class RetailCheckoutAcceptanceService {
+  -RetailCartRepository carts
+  -RetailCheckoutQuoteRepository quotes
+  -GroupedCheckoutRepository checkouts
+  -CatalogueSalesFacade catalogue
+  -AvailabilityGuardPort guard
+  -RetailVariantHoldLifecycleService holds
+  -LoyaltyFacade loyalty
+  -RetailCheckoutQuoteValidator validator
+  -RetailShipmentCreationService shipmentCreation
+  +accept(Long memberId, String idempotencyKey, CreateGroupedCheckoutRequest request) GroupedCheckoutView
+}
+
+class RetailCheckoutQuoteValidator {
+  +validate(RetailCheckoutQuote quote, RetailCart cart, CreateGroupedCheckoutRequest request, SaleContext context, Instant now) void
+}
+
+class RetailVariantHoldLifecycleService {
+  -RetailVariantHoldRepository holds
+  -RetailAvailabilityGuardService availability
+  +createHeld(GroupedCheckout checkout, Long variantId, Long locationId, int quantity, Instant expiresAt) RetailVariantHold
+  +requireBranchHolds(String checkoutId, List<BranchVariant> keys) List<RetailVariantHold>
+  +settle(RetailVariantHold hold) void
+  +release(RetailVariantHold hold) void
+  +expire(RetailVariantHold hold) void
+}
+
+class LoyaltyFacade {
+  +previewBenefits(TrustedSourceContext context, BenefitSelection selection) BenefitPreview
+  +reserveAcceptedTransaction(AcceptedSourceContext context, BenefitSelection selection, String key) AcceptedBenefitRef
+}
+
+class CatalogueSalesFacade {
+  +readBranchSaleFacts(Collection<BranchVariant> keys) List<BranchCartSaleFact>
+  +withLockedBranchSaleContext(Collection<BranchVariant> keys, Function<SaleContext, T> work) T
+}
+
+class RetailCartRepository {
+  +findByMemberAccountId(Long memberAccountId) Optional<RetailCart>
+  +findLockedByMemberAccountId(Long memberAccountId) Optional<RetailCart>
+}
+
+class RetailCheckoutQuoteRepository {
+  +lockOwned(String id, Long memberId) Optional<RetailCheckoutQuote>
+}
+
+class GroupedCheckoutRepository {
+  +findByMemberAccountIdAndIdempotencyKey(Long memberAccountId, String idempotencyKey) Optional<GroupedCheckout>
+  +lockOwned(String id, Long memberId) Optional<GroupedCheckout>
+  +lockById(String id) Optional<GroupedCheckout>
+}
+
+class RetailVariantHoldRepository {
+  +findByGroupedCheckoutId(String groupedCheckoutId) List<RetailVariantHold>
+  +sumValidHeldByVariantAndLocation(List<Long> variantIds, ...) List<BranchHeldQuantity>
+}
+
+class RetailCart {
+  -String id
+  -Long memberAccountId
+  -Long version
+  -Instant createdAt
+  -Instant updatedAt
+  -List<CartLine> lines
+}
+
+class CartLine {
+  -String id
+  -RetailCart cart
+  -Long variantId
+  -Long locationId
+  -int quantity
+  -Instant createdAt
+  -Instant updatedAt
+}
+
+class RetailCheckoutQuote {
+  -String id
+  -Long memberAccountId
+  -String cartId
+  -long cartVersion
+  -String selectionChoice
+  -String voucherCode
+  -BigInteger requestedPoints
+  -BigInteger merchandiseSubtotal
+  -BigInteger shippingTotal
+  -BigInteger programDiscount
+  -BigInteger pointsDiscount
+  -BigInteger payableTotal
+  -String status
+  -String acceptedCheckoutId
+  -Instant expiresAt
+}
+
+class RetailCheckoutQuoteBranch {
+  -String id
+  -RetailCheckoutQuote quote
+  -Long locationId
+  -String fulfilmentMethod
+  -String shippingQuoteId
+  -BigInteger shippingCharge
+  -BigInteger subtotal
+  -BigInteger discountAmount
+  -String recipientName
+  -String recipientPhone
+  -String recipientAddress
+}
+
+class RetailCheckoutQuoteItem {
+  -String id
+  -RetailCheckoutQuoteBranch branch
+  -Long productId
+  -Long variantId
+  -int quantity
+  -BigInteger unitPrice
+  -BigInteger lineTotal
+}
+
+class GroupedCheckout {
+  -String id
+  -Long memberAccountId
+  -String idempotencyKey
+  -BigDecimal merchandiseSubtotal
+  -BigDecimal shippingCharge
+  -BigDecimal discountAmount
+  -BigDecimal payableAmount
+  -PaymentState paymentState
+  -Instant paymentInitiatedAt
+  -Instant counterPaymentDeadline
+  -List<RetailOrder> orders
+}
+
+class RetailOrder {
+  -String id
+  -GroupedCheckout groupedCheckout
+  -Long locationId
+  -String fulfilmentMethod
+  -PaymentState paymentState
+  -String fulfilmentState
+  -BigDecimal subtotal
+  -BigDecimal shippingCharge
+  -BigDecimal payableAmount
+  -List<OrderItem> items
+}
+
+class OrderItem {
+  -String id
+  -RetailOrder retailOrder
+  -Long variantId
+  -int quantity
+  -BigDecimal unitPrice
+  -BigDecimal lineTotal
+}
+
+class RetailVariantHold {
+  -String id
+  -GroupedCheckout groupedCheckout
+  -Long variantId
+  -Long locationId
+  -int quantity
+  -RetailVariantHoldStatus status
+  -Instant expiresAt
+}
+
+CartController ..> AddCartLineRequest
+CartController ..> RetailCartView
+CartController --> CartService
+CheckoutController ..> ShippingQuoteRequest
+CheckoutController ..> BenefitPreviewRequest
+CheckoutController ..> BenefitPreviewView
+BenefitPreviewView "1" *-- "*" CartLineDiscountView
+CheckoutController ..> CreateGroupedCheckoutRequest
+CheckoutController ..> GroupedCheckoutView
+CheckoutController --> RetailCheckoutQuotePreviewService
+CheckoutController --> RetailCheckoutAcceptanceService
+
+CartService --> RetailCataloguePort
+CartService --> RetailCartRepository
+RetailCheckoutQuotePreviewService --> RetailCartRepository
+RetailCheckoutQuotePreviewService --> RetailCheckoutQuoteRepository
+RetailCheckoutQuotePreviewService --> LoyaltyFacade
+RetailCheckoutQuotePreviewService --> CatalogueSalesFacade
+RetailCheckoutAcceptanceService --> RetailCartRepository
+RetailCheckoutAcceptanceService --> RetailCheckoutQuoteRepository
+RetailCheckoutAcceptanceService --> GroupedCheckoutRepository
+RetailCheckoutAcceptanceService --> RetailCheckoutQuoteValidator
+RetailCheckoutAcceptanceService --> RetailVariantHoldLifecycleService
+RetailCheckoutAcceptanceService --> LoyaltyFacade
+RetailCheckoutAcceptanceService --> CatalogueSalesFacade
+RetailVariantHoldLifecycleService --> RetailVariantHoldRepository
+
+RetailCartRepository ..> RetailCart
+RetailCheckoutQuoteRepository ..> RetailCheckoutQuote
+GroupedCheckoutRepository ..> GroupedCheckout
+RetailVariantHoldRepository ..> RetailVariantHold
+
+RetailCart "1" *-- "*" CartLine
+RetailCheckoutQuote "1" *-- "*" RetailCheckoutQuoteBranch
+RetailCheckoutQuoteBranch "1" *-- "*" RetailCheckoutQuoteItem
+GroupedCheckout "1" *-- "*" RetailOrder
+RetailOrder "1" *-- "*" OrderItem
+GroupedCheckout "1" -- "*" RetailVariantHold
+@enduml

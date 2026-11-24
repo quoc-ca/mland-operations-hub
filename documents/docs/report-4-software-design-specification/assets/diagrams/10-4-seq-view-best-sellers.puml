@@ -1,0 +1,86 @@
+@startuml
+!pragma charset UTF-8
+skinparam shadowing false
+skinparam roundcorner 0
+skinparam sequenceMessageAlign center
+skinparam ParticipantBackgroundColor #FFFFFF
+skinparam ParticipantBorderColor #000000
+skinparam ActorBackgroundColor #FFFFFF
+skinparam ActorBorderColor #000000
+skinparam ArrowColor #000000
+skinparam SequenceLifeLineBorderColor #7B61FF
+skinparam SequenceLifeLineBackgroundColor #F5F5F5
+skinparam SequenceGroupBorderColor #7B61FF
+skinparam SequenceGroupBackgroundColor #FFFFFF
+skinparam SequenceGroupHeaderFontStyle plain
+
+actor "Manager" as Manager
+participant "RevenueReport /\nTopSellers" as UI
+participant "ExecutiveTopSellerController" as Ctl
+participant "ManagerReportingAccess" as Access
+participant "ExecutiveTopSellerService" as Svc
+participant "ReportingPeriodResolver" as Period
+participant "JdbcReportingTopSellerAdapter\n(ReportingTopSellerPort)" as Top
+participant "Database" as DB
+
+Manager -> UI : Open the dashboard or change the filters
+activate UI
+UI -> Ctl : GET /api/v1/executive-reports/top-sellers?periodType&anchorDate&locationId
+activate Ctl
+Ctl -> Access : authorize(actor, locationIds)
+activate Access
+alt User Not Authenticated
+  Access --> Ctl : Throw ReportingException (AUTHENTICATION_REQUIRED)
+  Ctl --> UI : 401 Unauthorized Response
+  UI --> Manager : Redirect to Sign-in page
+else Invalid Filter (Same Branch Listed Twice)
+  Access --> Ctl : Throw ReportingException (REPORTING_FILTER_INVALID)
+  Ctl --> UI : 400 Bad Request Response
+  UI --> Manager : Display "Không tải được danh sách bán chạy" with "Thử lại"
+else Not an Active Manager, No Active Branch, or a Branch Outside the Assignment
+  Access --> Ctl : Throw ReportingException (MANAGER_REPORTING_FORBIDDEN)
+  Ctl --> UI : 403 Forbidden Response
+  UI --> Manager : Display "Không tải được danh sách bán chạy" with "Thử lại"
+else Manager Allowed
+  Access --> Ctl : Return branch IDs
+  deactivate Access
+  Ctl -> Svc : topSellers(periodType, anchorDate, branchIds)
+  activate Svc
+  Svc -> Period : resolve(periodType, anchorDate)
+  activate Period
+  alt Invalid Period
+    Period --> Svc : Throw ReportingException (REPORTING_FILTER_INVALID)
+    Svc --> Ctl : Throw ReportingException
+    Ctl --> UI : 400 Bad Request Response
+    UI --> Manager : Display "Không tải được danh sách bán chạy" with "Thử lại"
+  else Valid Period
+    Period --> Svc : Return ReportingPeriod [from, to) capped at now
+    deactivate Period
+    Svc -> Top : topProducts(branchIds, from, to, 5)
+    activate Top
+    Top -> DB : Execute SELECT statement on retail_order_items, retail_orders, retail_grouped_checkouts,\ncatalogue_variants and catalogue_products (PAID, VND, paid in the period; most units first)
+    activate DB
+    DB --> Top : Return at most 5 rows
+    deactivate DB
+    Top --> Svc : Return list of ProductSales
+    deactivate Top
+    Svc -> Top : topPackages(branchIds, from, to, 5)
+    activate Top
+    Top -> DB : Execute SELECT statement on ticket_bookings, booking_groups, booking_group_lines\nand booking_group_line_sessions (confirmed, completed or no-show; group placed in the period;\nbranch of the first session; most tickets first)
+    activate DB
+    DB --> Top : Return at most 5 rows
+    deactivate DB
+    Top --> Svc : Return list of PackageSales
+    deactivate Top
+    opt A Ranking Query Fails
+      Svc -> Svc : Keep that list null and add TOP_PRODUCTS or TOP_PACKAGES to unavailable
+    end
+    Svc --> Ctl : Return ExecutiveTopSellerResponse
+    deactivate Svc
+    Ctl --> UI : 200 OK Response (ExecutiveTopSellerResponse)
+    UI --> Manager : Display "Top 5 sản phẩm bán chạy" and "Top 5 gói workshop đặt nhiều nhất":\nrank, name, count and bar; amount before discounts and share of the five on hover or focus;\n"Tạm thời không đọc được dữ liệu này" for a null list, an empty-list notice for no sale
+  end
+end
+deactivate Ctl
+deactivate UI
+@enduml

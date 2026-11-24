@@ -218,6 +218,17 @@ period (FR-027 to FR-030).
 - [X] T055 [P] Trend charts and change indicators in `ppswbs_frontend/src/features/manager-dashboard/TrendCharts.jsx` and `ManagerDashboardPage.jsx`, with tests in `ManagerDashboardPage.test.jsx`
 - [ ] T056 Source owners review the trend SQL (FE-08 retail, FE-03 workshop) and confirm whether a no-show's retained deposit should count as workshop revenue
 
+## Phase 8: Best sellers (Session 2026-11-23)
+
+**Goal**: Top 5 products and top 5 workshop packages for the dashboard filters
+(FR-032, FR-033).
+
+- [X] T059 [P] Top-five, unavailable-source, invalid-period and chosen-day tests in `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/features/reporting/service/ExecutiveTopSellerServiceTest.java`
+- [X] T060 Read-only ranking queries (products by units in paid VND orders, packages by confirmed tickets at the first-session branch) in `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/reporting/source/JdbcReportingTopSellerAdapter.java` behind `ReportingTopSellerPort.java`
+- [X] T061 `ExecutiveTopSellerService` and `GET /api/v1/executive-reports/top-sellers` in `ExecutiveTopSellerController.java`, response records in `ExecutiveTopSellerDtos.java`
+- [X] T062 [P] Ranked bar lists with amount and share on hover or focus in `ppswbs_frontend/src/features/manager-dashboard/TopSellers.jsx`, loaded on their own in `RevenueReport.jsx`, styles in `managerDashboard.css`; tests in `ManagerDashboardPage.test.jsx`
+- [ ] T063 Source owners review the best-seller SQL (FE-08 retail, FE-02 catalogue, FE-03 workshop)
+
 ## Dependencies and execution order
 
 ### Phase dependencies

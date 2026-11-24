@@ -1,0 +1,95 @@
+@startuml
+!pragma charset UTF-8
+skinparam shadowing false
+skinparam roundcorner 0
+skinparam sequenceMessageAlign center
+skinparam ParticipantBackgroundColor #FFFFFF
+skinparam ParticipantBorderColor #000000
+skinparam ActorBackgroundColor #FFFFFF
+skinparam ActorBorderColor #000000
+skinparam ArrowColor #000000
+skinparam SequenceLifeLineBorderColor #7B61FF
+skinparam SequenceLifeLineBackgroundColor #F5F5F5
+skinparam SequenceGroupBorderColor #7B61FF
+skinparam SequenceGroupBackgroundColor #FFFFFF
+skinparam SequenceGroupHeaderFontStyle plain
+
+actor "Member" as Member
+participant "AddToCartPanel" as UI
+participant "CartController" as Ctl
+participant "CartService" as Svc
+participant "RetailCataloguePort" as Cat
+participant "RetailCartRepository" as Repo
+participant "Database" as DB
+
+Member -> UI : Choose size, branch, quantity and click "Thêm Vào Giỏ Hàng" or "Mua Ngay"
+activate UI
+alt User Not Signed In
+  UI --> Member : Redirect to Sign-in page
+else User Signed In
+  UI -> Ctl : POST /api/v1/members/me/ready-ring-cart/lines (AddCartLineRequest {variantId, locationId, quantity})
+  activate Ctl
+  alt Not an Active Member
+    Ctl --> UI : 401 Unauthorized / 403 Forbidden Response
+    UI --> Member : Display error popup
+  else Active Member
+    Ctl -> Svc : addLine(memberAccountId, request)
+    activate Svc
+    Svc -> Cat : isEligibleForCart(variantId, locationId)
+    activate Cat
+    Cat --> Svc : Return eligibility
+    deactivate Cat
+    Svc -> Repo : findByMemberAccountId(memberAccountId)
+    activate Repo
+    Repo -> DB : Execute SELECT statement on retail_carts and retail_cart_lines
+    activate DB
+    DB --> Repo : Return cart rows
+    deactivate DB
+    Repo --> Svc : Return RetailCart (new empty cart when none)
+    deactivate Repo
+    Svc -> Cat : readCartProduct(variantId, locationId)
+    activate Cat
+    Cat --> Svc : Return CartProductFact (price, saleEligible, availableQuantity)
+    deactivate Cat
+    alt Not Eligible, Not on Sale, More Than 99 of the Size or More Than 50 Lines
+      Svc --> Ctl : Throw RetailConflictException
+      Ctl --> UI : 409 Conflict Response (reason)
+      UI --> Member : Display popup with the reason and "Đồng ý"
+    else Quantity in Cart + Requested > Branch Stock
+      Svc --> Ctl : Throw RetailConflictException (RETAIL_CART_QUANTITY_LIMIT when the size is already in the cart)
+      Ctl --> UI : 409 Conflict Response ("Bạn đã có n sản phẩm này trong giỏ hàng...")
+      alt "Mua Ngay" and RETAIL_CART_QUANTITY_LIMIT
+        UI -> Ctl : GET /api/v1/members/me/ready-ring-cart
+        Ctl --> UI : 200 OK Response (RetailCartView)
+        UI --> Member : Open checkout page with the existing cart line
+      else Otherwise
+        UI --> Member : Display popup with the message and "Đồng ý"
+      end
+    else Quantity Accepted
+      alt Same Size and Branch Already in Cart
+        Svc -> Svc : Increase quantity of the existing CartLine
+      else New Size or Branch
+        Svc -> Svc : Add new CartLine
+      end
+      Svc -> Repo : save(cart)
+      activate Repo
+      Repo -> DB : Execute INSERT / UPDATE statement on retail_cart_lines
+      activate DB
+      DB --> Repo : Return saved rows
+      deactivate DB
+      Repo --> Svc : Return saved RetailCart
+      deactivate Repo
+      Svc --> Ctl : Return RetailCartView
+      Ctl --> UI : 200 OK Response (RetailCartView)
+      alt "Mua Ngay"
+        UI --> Member : Open checkout page with the new cart line
+      else "Thêm Vào Giỏ Hàng"
+        UI --> Member : Navigate to cart page
+      end
+    end
+    deactivate Svc
+  end
+  deactivate Ctl
+end
+deactivate UI
+@enduml
