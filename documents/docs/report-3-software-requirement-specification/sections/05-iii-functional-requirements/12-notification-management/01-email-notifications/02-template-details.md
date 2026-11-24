@@ -8,7 +8,7 @@ This screen allows Admins and Managers to:
 - Preview any version with editable sample values.
 - Activate a draft so that it replaces the current active version.
 
-Only draft versions can be edited or activated; active and archived versions are read-only. A draft may use only the template's allowed `{{placeholder}}` variables. Activation applies to emails created after that moment; emails already rendered keep their earlier content.
+Only draft versions can be edited or activated; active and archived versions are read-only. A draft may use only the template's allowed placeholder variables (each written inside double curly braces). Activation applies to emails created after that moment; emails already rendered keep their earlier content.
 
 | Field Name | Description |
 | --- | --- |
