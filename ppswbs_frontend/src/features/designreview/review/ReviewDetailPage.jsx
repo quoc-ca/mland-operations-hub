@@ -76,8 +76,8 @@ export default function ReviewDetailPage() {
     if (formError) setFormError('');
     if (!raw) {
       setAmountError('Số tiền không được để trống.');
-    } else if (Number(raw) > 1000000) {
-      setAmountError('Số tiền tối đa không được vượt quá 1.000.000 VNĐ.');
+    } else if (Number(raw) > 1000000000) {
+      setAmountError('Số tiền tối đa không được vượt quá 1.000.000.000 VNĐ.');
     } else if (Number(raw) <= 0) {
       setAmountError('Số tiền phải lớn hơn 0 VNĐ.');
     } else {
@@ -105,9 +105,9 @@ export default function ReviewDetailPage() {
     e.preventDefault();
       const amt = Number(quoteAmount);
       const hrs = Number(quoteHours);
-      if (!quoteAmount || isNaN(amt) || amt <= 0 || amt > 1000000) {
-        setAmountError('Số tiền phải là số nguyên dương từ 1 đến 1.000.000 VNĐ.');
-        setFormError('Vui lòng kiểm tra lại số tiền báo giá (tối đa 1.000.000 VNĐ).');
+      if (!quoteAmount || isNaN(amt) || amt <= 0 || amt > 1000000000) {
+        setAmountError('Số tiền phải là số nguyên dương từ 1 đến 1.000.000.000 VNĐ.');
+        setFormError('Vui lòng kiểm tra lại số tiền báo giá (tối đa 1.000.000.000 VNĐ).');
         return;
       }
       if (!quoteHours || isNaN(hrs) || hrs < 24 || hrs > 72) {
@@ -353,7 +353,7 @@ export default function ReviewDetailPage() {
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
                     <div>
                       <label style={{ display: 'block', fontWeight: 600, fontSize: '0.875rem', marginBottom: '0.25rem' }}>
-                        Tổng tiền báo giá (VNĐ, tối đa 1.000.000 đ) *
+                        Tổng tiền báo giá (VNĐ, tối đa 1.000.000.000 đ) *
                       </label>
                       <input
                         type="text"
@@ -363,7 +363,7 @@ export default function ReviewDetailPage() {
                         value={quoteAmount}
                           onKeyDown = { handleDigitOnlyKeyDown }
                           onChange = { handleAmountChange }
-                          placeholder = "Ví dụ: 800000 (tối đa 1.000.000 đ)"
+                          placeholder = "Ví dụ: 800000 (tối đa 1.000.000.000 đ)"
                           required
                           style = {{
                             width: '100%',

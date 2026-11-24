@@ -190,7 +190,7 @@ async function run() {
 
       const validateAmount = amt => {
         if (!amt) return 'Số tiền không được để trống.';
-        if (Number(amt) > 1000000) return 'Số tiền tối đa không được vượt quá 1.000.000 VNĐ.';
+        if (Number(amt) > 1000000000) return 'Số tiền tối đa không được vượt quá 1.000.000.000 VNĐ.';
         if (Number(amt) <= 0) return 'Số tiền phải lớn hơn 0 VNĐ.';
         return null;
       };
@@ -204,7 +204,7 @@ async function run() {
 
       return {
         letterBlocked: testLetterBlocked,
-        amountOverLimit: validateAmount('1500000') !== null,
+        amountOverLimit: validateAmount('1500000000') !== null,
         amountValid: validateAmount('800000') === null,
         hoursUnderLimit: validateHours('12') !== null,
         hoursOverLimit: validateHours('100') !== null,
@@ -213,7 +213,7 @@ async function run() {
     });
 
     console.log(`- Non-digit hard block verified: ${validatorCheck.letterBlocked}`);
-    console.log(`- Amount > 1,000,000 error verified: ${validatorCheck.amountOverLimit}`);
+    console.log(`- Amount > 1,000,000,000 error verified: ${validatorCheck.amountOverLimit}`);
     console.log(`- Amount 800,000 valid verified: ${validatorCheck.amountValid}`);
     console.log(`- Hours < 24 error verified: ${validatorCheck.hoursUnderLimit}`);
     console.log(`- Hours > 72 error verified: ${validatorCheck.hoursOverLimit}`);
