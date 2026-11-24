@@ -24,3 +24,21 @@ This screen allows Members to:
 | Chi tiết thanh toán | Tổng tiền hàng, Tổng tiền phí vận chuyển, Ưu đãi sản phẩm (automatic discount), Voucher giảm giá (with its code), Giảm bằng điểm, Tổng thanh toán and Tiết kiệm (sum of the discounts), in whole VND; discounts in red. |
 | Conflict notice / Cập nhật lại | Specific reason when the voucher can no longer be used, the points changed or the quote expired; Cập nhật lại drops the refused benefit and recalculates. |
 | Đặt hàng | Accepts the checkout and opens VNPay or Đơn mua; a browser return from VNPay never marks the order paid. |
+
+##### 7.1.2.1 Chọn voucher MLAND (voucher selection dialog)
+
+![](assets/screens/18a-voucher-selection-dialog.png)
+
+The Member opens this dialog from the Voucher MLAND line. At the top is a code field with Áp dụng, to type a voucher code. Below, Mã giảm giá sản phẩm lists the vouchers usable for this order; the one with the largest saving carries Lựa chọn tốt nhất and is preselected, and each card shows the saving, the minimum order and the expiry date. Under Chưa đủ điều kiện cho đơn này the vouchers that cannot be used are greyed out with their reason, such as the Member having used up the voucher or the voucher not applying to a product or size in the order. The footer states how many vouchers are chosen and the discount, and Đồng ý closes the dialog and recalculates the price.
+
+##### 7.1.2.2 Địa chỉ của tôi (saved-address dialog)
+
+![](assets/screens/18b-address-list-dialog.png)
+
+The Member opens this dialog from the address block at the top of the checkout; an address is required only for GHTK delivery. It lists the Member's saved addresses with the recipient name, phone number and full address; the default address carries the tag Mặc định. The Member selects one address, presses Cập nhật to edit an address, or + Thêm địa chỉ mới to add one. Xác nhận applies the selected address to the checkout, and Hủy closes the dialog without changing it.
+
+##### 7.1.2.3 Thêm địa chỉ nhận hàng mới (new-address dialog)
+
+![](assets/screens/18c-new-address-dialog.png)
+
+The form collects Họ và tên người nhận, Số điện thoại, Tỉnh / Thành phố, Phường / Xã / Khu vực đặc thù and Địa chỉ cụ thể (house number, building, street), all required. The fields unlock one after another: the phone number after the name, the province after a valid phone number, the ward after the province and the street address after the ward, and a hint in each locked field names what to fill in first. Loại địa chỉ is Nhà riêng or Văn phòng, and the box Đặt làm địa chỉ giao hàng mặc định makes it the default. Hoàn thành stays disabled until every required field is valid; Hủy or the close icon leaves without saving. The names, phone numbers and addresses in the screenshots are test data.

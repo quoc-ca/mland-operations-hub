@@ -1,27 +1,32 @@
 @startuml
 !pragma charset UTF-8
+hide footbox
 skinparam shadowing false
 skinparam roundcorner 0
 skinparam sequenceMessageAlign center
+skinparam SequenceLifeLineBorderColor #555555
+skinparam SequenceLifeLineBackgroundColor #FFFFFF
+skinparam SequenceGroupBorderColor #000000
+skinparam SequenceGroupBackgroundColor #FFFFFF
+skinparam SequenceStereotypeFontSize 9
+skinparam SequenceStereotypeFontStyle italic
+skinparam ParticipantPadding 20
+skinparam BoxPadding 10
 skinparam ParticipantBackgroundColor #FFFFFF
 skinparam ParticipantBorderColor #000000
 skinparam ActorBackgroundColor #FFFFFF
 skinparam ActorBorderColor #000000
 skinparam ArrowColor #000000
-skinparam SequenceLifeLineBorderColor #7B61FF
-skinparam SequenceLifeLineBackgroundColor #F5F5F5
-skinparam SequenceGroupBorderColor #7B61FF
-skinparam SequenceGroupBackgroundColor #FFFFFF
 skinparam SequenceGroupHeaderFontStyle plain
 
 actor "Member" as Member
-participant "MemberOrdersPage" as UI
-participant "RetailCheckoutCancellationController" as Ctl
-participant "RetailCheckoutCancellationService" as Svc
-participant "RetailUnstartedExpiryJob" as Job
-participant "RetailUnstartedExpiryService" as Expiry
-participant "RetailCartRepository /\nGroupedCheckoutRepository" as Repo
-participant "Database" as DB
+participant "MemberOrdersPage" as UI <<user interaction>>
+participant ":RetailCheckoutCancellationController" as Ctl <<control>>
+participant ":RetailCheckoutCancellationService" as Svc <<service>>
+participant ":RetailUnstartedExpiryJob" as Job <<service>>
+participant ":RetailUnstartedExpiryService" as Expiry <<service>>
+participant ":RetailCartRepository /\nGroupedCheckoutRepository" as Repo <<repository>>
+participant "MySQL Database" as DB <<database>>
 
 == Member cancels an unpaid order ==
 Member -> UI : Click "Hủy đơn" on an order in tab "Chờ thanh toán" or "Chờ nhận tại cửa hàng"
@@ -33,29 +38,29 @@ else One Branch Order Paid in Cash at the Counter
 end
 activate Ctl
 alt Not an Active Member
-  Ctl --> UI : 401 Unauthorized / 403 Forbidden Response
+  Ctl --> UI : HTTP 401 / HTTP 403
   UI --> Member : Redirect to Sign-in page / Display error popup
 else Active Member
   Ctl -> Svc : cancel(memberId, checkoutId) / cancelBranchOrder(memberId, orderId)
   activate Svc
   Svc -> Repo : findLockedByMemberAccountId(memberId), lockOwned(checkoutId, memberId)
   activate Repo
-  Repo -> DB : Execute SELECT ... FOR UPDATE statement on retail_carts and retail_grouped_checkouts
+  Repo -> DB : SELECT FOR UPDATE retail_carts and retail_grouped_checkouts
   activate DB
-  DB --> Repo : Return locked cart and checkout
+  DB --> Repo : locked cart and checkout
   deactivate DB
-  Repo --> Svc : Return RetailCart and GroupedCheckout
+  Repo --> Svc : RetailCart and GroupedCheckout
   deactivate Repo
   alt Checkout Not Found or Not Owned by This Member
     Svc --> Ctl : Throw RetailNotFoundException
-    Ctl --> UI : 404 Not Found Response
+    Ctl --> UI : HTTP 404
     UI --> Member : Display error popup
   else Already Cancelled
-    Svc --> Ctl : Return the earlier CancellationView
-    Ctl --> UI : 200 OK Response (CancellationView)
+    Svc --> Ctl : earlier CancellationView
+    Ctl --> UI : HTTP 200 CancellationView
   else Already Paid, or Cash Already Confirmed by Staff
     Svc --> Ctl : Throw RetailConflictException ("Checkout cannot be cancelled after payment")
-    Ctl --> UI : 409 Conflict Response
+    Ctl --> UI : HTTP 409
     UI --> Member : Display error popup
   else Waiting for Payment (ACCEPTED_UNPAID, or left VNPay without paying)
     Svc -> Svc : Release the holds of every size × branch under the availability guard
@@ -63,15 +68,15 @@ else Active Member
     Svc -> Svc : cancelWithRestoration(unrestoredQuantity)
     Svc -> Repo : saveAndFlush(checkout)
     activate Repo
-    Repo -> DB : Execute UPDATE statement on retail_grouped_checkouts and retail_orders (CANCELLED), INSERT statement on retail_cart_lines
+    Repo -> DB : UPDATE retail_grouped_checkouts and retail_orders (CANCELLED), INSERT statement on retail_cart_lines
     activate DB
-    DB --> Repo : Return updated rows count
+    DB --> Repo : updated rows count
     deactivate DB
-    Repo --> Svc : Return GroupedCheckout
+    Repo --> Svc : GroupedCheckout
     deactivate Repo
     Svc -> Svc : LoyaltyFacade.releaseHeldBenefits(outcome) (FE-06)
-    Svc --> Ctl : Return CancellationView (unrestored quantity, message)
-    Ctl --> UI : 200 OK Response (CancellationView)
+    Svc --> Ctl : CancellationView (unrestored quantity, message)
+    Ctl --> UI : HTTP 200 CancellationView
     UI --> Member : Display "Đã hủy" and the lines back in the cart
   end
   deactivate Svc
@@ -79,10 +84,6 @@ end
 deactivate Ctl
 deactivate UI
 
-note over Svc, DB
-  A VNPay payment that still arrives after the cancellation does not settle the order;
-  it is stored for the Manager reconciliation list (LATE_OR_INVALID_STATE).
-end note
 
 == Scheduled expiry of an order never paid ==
 loop Every 30 seconds (fixed delay), for each due checkout
@@ -91,34 +92,30 @@ loop Every 30 seconds (fixed delay), for each due checkout
   activate Expiry
   Expiry -> Repo : findLockedByMemberAccountId(memberId), lockOwned(checkoutId, memberId)
   activate Repo
-  Repo -> DB : Execute SELECT ... FOR UPDATE statement on retail_carts and retail_grouped_checkouts
+  Repo -> DB : SELECT FOR UPDATE retail_carts and retail_grouped_checkouts
   activate DB
-  DB --> Repo : Return locked cart and checkout
+  DB --> Repo : locked cart and checkout
   deactivate DB
-  Repo --> Expiry : Return RetailCart and GroupedCheckout
+  Repo --> Expiry : RetailCart and GroupedCheckout
   deactivate Repo
   alt Payment Already Started, or Hold Not Ended Yet
-    Expiry --> Job : Return false (skip, nothing released)
+    Expiry --> Job : false (skip, nothing released)
   else Hold Ended Without Payment
     Expiry -> Expiry : Expire the holds and restore the lines to the cart
     Expiry -> Expiry : expireUnpaid()
     Expiry -> Repo : saveAndFlush(checkout)
     activate Repo
-    Repo -> DB : Execute UPDATE statement on retail_grouped_checkouts and retail_orders (EXPIRED)
+    Repo -> DB : UPDATE retail_grouped_checkouts and retail_orders (EXPIRED)
     activate DB
-    DB --> Repo : Return updated rows count
+    DB --> Repo : updated rows count
     deactivate DB
-    Repo --> Expiry : Return GroupedCheckout
+    Repo --> Expiry : GroupedCheckout
     deactivate Repo
     Expiry -> Expiry : LoyaltyFacade.releaseHeldBenefits(outcome) (FE-06)
-    Expiry --> Job : Return true
+    Expiry --> Job : true
   end
   deactivate Expiry
   deactivate Job
 end
 
-note over Job, Expiry
-  RetailConfirmedUnpaidExpiryJob does the same for VNPay checkouts whose payment was started:
-  it expires them only after VNPay confirms that the payment failed.
-end note
 @enduml

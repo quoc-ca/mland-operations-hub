@@ -1,52 +1,57 @@
 @startuml
 !pragma charset UTF-8
+hide footbox
 skinparam shadowing false
 skinparam roundcorner 0
 skinparam sequenceMessageAlign center
+skinparam SequenceLifeLineBorderColor #555555
+skinparam SequenceLifeLineBackgroundColor #FFFFFF
+skinparam SequenceGroupBorderColor #000000
+skinparam SequenceGroupBackgroundColor #FFFFFF
+skinparam SequenceStereotypeFontSize 9
+skinparam SequenceStereotypeFontStyle italic
+skinparam ParticipantPadding 20
+skinparam BoxPadding 10
 skinparam ParticipantBackgroundColor #FFFFFF
 skinparam ParticipantBorderColor #000000
 skinparam ActorBackgroundColor #FFFFFF
 skinparam ActorBorderColor #000000
 skinparam ArrowColor #000000
-skinparam SequenceLifeLineBorderColor #7B61FF
-skinparam SequenceLifeLineBackgroundColor #F5F5F5
-skinparam SequenceGroupBorderColor #7B61FF
-skinparam SequenceGroupBackgroundColor #FFFFFF
 skinparam SequenceGroupHeaderFontStyle plain
 
 actor "Member" as Member
-participant "MemberOrdersPage" as UI
-participant "RetailOrderQueryController" as Ctl
-participant "RetailOrderQueryService" as Svc
-participant "RetailOrderRepository" as Repo
-participant "Database" as DB
-participant "ReviewEligibilityController\n(FE-11)" as Review
+participant "MemberOrdersPage" as UI <<user interaction>>
+participant ":RetailOrderQueryController" as Ctl <<control>>
+participant ":RetailOrderQueryService" as Svc <<service>>
+participant ":RetailOrderRepository" as Repo <<repository>>
+participant "MySQL Database" as DB <<database>>
+participant ":ReviewEligibilityController\n(FE-11)" as Review <<control>>
 
 Member -> UI : Open "Đơn mua"
 activate UI
 UI -> Ctl : GET /api/v1/members/me/ready-ring-orders
 activate Ctl
 alt Not an Active Member
-  Ctl --> UI : 401 Unauthorized / 403 Forbidden Response
+  Ctl --> UI : HTTP 401 / HTTP 403
   UI --> Member : Redirect to Sign-in page / Display error message
 else Active Member
   Ctl -> Svc : list(memberId)
   activate Svc
   Svc -> Repo : findOwnedOrders(memberId)
   activate Repo
-  Repo -> DB : Execute SELECT statement on retail_orders, retail_grouped_checkouts and retail_order_items (newest first)
+  Repo -> DB : SELECT retail_orders, retail_grouped_checkouts and retail_order_items (newest first)
   activate DB
-  DB --> Repo : Return order rows
+  DB --> Repo : order rows
   deactivate DB
-  Repo --> Svc : Return list of RetailOrder
+  Repo --> Svc : list of RetailOrder
   deactivate Repo
   Svc -> Svc : Build RetailOrderHistoryView for each order\n(code ML + order date + 8 characters of the order ID, items, money lines,\npayment and shipment state, VNPay payment deadline)
-  Svc --> Ctl : Return list of RetailOrderHistoryView
+  Svc --> Ctl : list of RetailOrderHistoryView
   deactivate Svc
-  Ctl --> UI : 200 OK Response (list of RetailOrderHistoryView)
+  Ctl --> UI : HTTP 200 list of RetailOrderHistoryView
   UI -> Review : GET /api/v1/reviews/eligible-sources
   activate Review
-  Review --> UI : 200 OK Response (order lines that may be reviewed and those already reviewed)
+  Review --> UI : HTTP 200 order lines that may be reviewed and those already reviewed
   deactivate Review
   UI -> UI : Sort the orders into tabs "Tất cả", "Chờ thanh toán", "Chờ lấy hàng", "Chờ giao hàng",\n"Chờ nhận tại cửa hàng", "Đã giao", "Đã hủy"
   UI --> Member : Display the order list with the 10-minute countdown\nand the buttons "Thanh toán", "Hủy đơn", "Mua lại", and on a delivered or picked-up order\n"Đánh giá" (or "Xem đánh giá" once every line is reviewed)
@@ -58,8 +63,4 @@ end
 deactivate Ctl
 deactivate UI
 
-note over Ctl, DB
-  GET /api/v1/members/me/ready-ring-orders/{orderId} (find) also returns one order of this Member
-  (404 when it is not found or belongs to another Member), but no screen calls it at present.
-end note
 @enduml

@@ -1,5 +1,7 @@
 #### 3.1.3 Carrier Portal
 
+![](assets/screens/96-carrier-portal.png)
+
 This screen allows the Carrier (GHTK) to:
 
 - See the partner identity: display name, sign-in email, role and nationwide branch scope.

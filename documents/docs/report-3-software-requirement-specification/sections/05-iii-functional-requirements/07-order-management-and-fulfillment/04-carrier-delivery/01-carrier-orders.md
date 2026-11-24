@@ -1,5 +1,7 @@
 #### 7.4.1 Carrier Orders
 
+![](assets/screens/97-carrier-orders.png)
+
 This screen allows the Carrier to:
 
 - Browse the GHTK shipments of every Mland branch, newest first, in the tabs Đã tiếp nhận, Đang lấy hàng, Đang giao hàng and Đã giao hàng, each with its count; the page opens at the first tab, left to right, that has shipments.

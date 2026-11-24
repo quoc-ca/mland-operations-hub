@@ -1,5 +1,7 @@
 #### 7.4.2 Carrier Statistics
 
+![](assets/screens/98-carrier-statistics.png)
+
 This screen allows the Carrier to:
 
 - Choose Ngày, Tuần, Tháng or Năm and a date; the period is calculated in Vietnam time.
