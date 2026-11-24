@@ -1,4 +1,5 @@
 # Contract: Reads used by Manager Home
+> **Renamed 2026-11-25:** this folder was `013-manager-home`; it is now `014-navigation-shell`. The spec covers the navigation shell only; the Manager Home dashboard blocks moved into `010-manager-dashboard` (FR-034 to FR-038). This file keeps the earlier Manager Home history and was not rewritten; only the folder path was updated.
 
 **Date created**: 2026-11-18
 **Date updated**: 2026-11-18

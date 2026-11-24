@@ -1,4 +1,5 @@
 # Implementation Design Approval: Manager Home
+> **Renamed 2026-11-25:** this folder was `013-manager-home`; it is now `014-navigation-shell`. The spec covers the navigation shell only; the Manager Home dashboard blocks moved into `010-manager-dashboard` (FR-034 to FR-038). This file keeps the earlier Manager Home history and was not rewritten; only the folder path was updated.
 
 **Date created**: 2026-11-18
 **Date updated**: 2026-11-22
@@ -11,7 +12,7 @@
 
 ## Approved revision and scope
 
-- Design revision: `ppswbs-spec/features/013-manager-home/design/architecture.md` (sha256 prefix `0c19f90a9c59e822`) and `design/workflows.md` (sha256 prefix `045dc25e04730577`), as drafted on 2026-11-18; spec, plan, research, data-model and contracts/reads.md as merged in PR for 013 on develop.
+- Design revision: `ppswbs-spec/features/014-navigation-shell/design/architecture.md` (sha256 prefix `0c19f90a9c59e822`) and `design/workflows.md` (sha256 prefix `045dc25e04730577`), as drafted on 2026-11-18; spec, plan, research, data-model and contracts/reads.md as merged in PR for 013 on develop.
 - Approved implementation scope: wave 1 in full, i.e. the frontend tasks that need no backend change: T002–T013, T021–T022, T025–T029, T032–T037 (late payments, change requests, design review cards; session and cancelled counts; revenue; Operations audit events; shortcuts; polish). Workflows WF-01 to WF-07.
 - Approval date: 2026-11-18
 - Tech Lead: Hồ Hoàng Quốc

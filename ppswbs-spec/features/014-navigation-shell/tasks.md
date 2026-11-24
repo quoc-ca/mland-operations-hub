@@ -1,11 +1,12 @@
 # Tasks: Manager Home
+> **Renamed 2026-11-25:** this folder was `013-manager-home`; it is now `014-navigation-shell`. The spec covers the navigation shell only; the Manager Home dashboard blocks moved into `010-manager-dashboard` (FR-034 to FR-038). This file keeps the earlier Manager Home history and was not rewritten; only the folder path was updated.
 
 **Date created**: 2026-11-18
 **Date updated**: 2026-11-22
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
-**Input**: Design documents from `ppswbs-spec/features/013-manager-home/`
+**Input**: Design documents from `ppswbs-spec/features/014-navigation-shell/`
 
 **Prerequisites**: [plan.md](plan.md), [spec.md](spec.md), [research.md](research.md), [data-model.md](data-model.md), [contracts/reads.md](contracts/reads.md), [quickstart.md](quickstart.md)
 

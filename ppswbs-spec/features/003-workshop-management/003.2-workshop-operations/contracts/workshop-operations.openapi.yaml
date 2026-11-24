@@ -171,7 +171,7 @@ paths:
         - { name: aggregateReference, in: query, required: false, schema: { type: string, maxLength: 128 } }
         - { name: from, in: query, required: false, schema: { type: string, format: date-time } }
         - { name: to, in: query, required: false, schema: { type: string, format: date-time } }
-        - { name: denied, in: query, required: false, schema: { type: boolean }, description: 'Manager home (013 R-5). With true only denied attempts are returned (action code starting with DENIED_); false or absent changes nothing; any other value is 400 VALIDATION_ERROR.' }
+        - { name: denied, in: query, required: false, schema: { type: boolean }, description: 'navigation shell and dashboard (014 R-5). With true only denied attempts are returned (action code starting with DENIED_); false or absent changes nothing; any other value is 400 VALIDATION_ERROR.' }
         - { $ref: '#/components/parameters/AuditCursor' }
         - { $ref: '#/components/parameters/AuditLimit' }
       responses:
@@ -373,7 +373,7 @@ paths:
         '503': { $ref: '#/components/responses/Problem' }
   /workshop-day-summaries:
     get:
-      summary: Sessions and check-in progress of one Vietnam day (Manager home, 013 R-1)
+      summary: Sessions and check-in progress of one Vietnam day (navigation shell and dashboard, 014 R-1)
       description: >-
         Manager only. date defaults to today in Vietnam time. sessions includes cancelled sessions; checkedIn and expected
         count people holding a valid (ACTIVE) ticket for the sessions that are not cancelled, not the capacity of the sessions.

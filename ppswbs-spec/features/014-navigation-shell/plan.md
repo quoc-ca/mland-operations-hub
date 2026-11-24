@@ -1,13 +1,14 @@
 # Implementation Plan: Manager Home
+> **Renamed 2026-11-25:** this folder was `013-manager-home`; it is now `014-navigation-shell`. The spec covers the navigation shell only; the Manager Home dashboard blocks moved into `010-manager-dashboard` (FR-034 to FR-038). This file keeps the earlier Manager Home history and was not rewritten; only the folder path was updated.
 
 **Date created**: 2026-11-18
 **Date updated**: 2026-11-18
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
-**Branch**: `013-manager-home` (spec only; no git branch created) | **Spec**: [spec.md](spec.md)
+**Branch**: `014-navigation-shell` (spec only; no git branch created) | **Spec**: [spec.md](spec.md)
 
-**Input**: Feature specification from `ppswbs-spec/features/013-manager-home/spec.md`
+**Input**: Feature specification from `ppswbs-spec/features/014-navigation-shell/spec.md`
 
 **Status**: DRAFT/PROPOSED. No design approval is recorded in an `approval.md`.
 
@@ -59,7 +60,7 @@ Re-check after design: unchanged; no violation to justify.
 ### Documentation (this feature)
 
 ```text
-ppswbs-spec/features/013-manager-home/
+ppswbs-spec/features/014-navigation-shell/
 ├── plan.md
 ├── research.md
 ├── data-model.md
