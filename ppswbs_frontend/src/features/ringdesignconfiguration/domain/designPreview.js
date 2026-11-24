@@ -343,7 +343,7 @@ export function getDifficultyMeta(rawScore) {
       isVeryHard: false,
       advice: null,
     };
-  } else {
+  } else if (score <= 11.0) {
     return {
       score: formattedScore,
       level: 'VERY_HARD',
@@ -353,6 +353,18 @@ export function getDifficultyMeta(rawScore) {
       badgeBg: '#fee2e2',
       isVeryHard: true,
       advice: 'Độ khó rất cao (> 9.0). Khuyến cáo người dùng đổi lại mẫu thiết kế để đảm bảo trải nghiệm hoàn thiện tốt nhất tại workshop.',
+    };
+  } else {
+    return {
+      score: formattedScore,
+      level: 'TOO_RISKY',
+      label: 'Quá rủi ro',
+      note: 'Mẫu nhẫn quá rủi ro để người dùng tự tay chế tạo',
+      badgeColor: '#7f1d1d',
+      badgeBg: '#fecaca',
+      isVeryHard: true,
+      isTooRisky: true,
+      advice: 'Mẫu nhẫn quá rủi ro để người dùng tự tay chế tạo. Quý khách vui lòng chọn dịch vụ chế tác theo yêu cầu (Custom) để nghệ nhân hỗ trợ gia công chuyên nghiệp.',
     };
   }
 }

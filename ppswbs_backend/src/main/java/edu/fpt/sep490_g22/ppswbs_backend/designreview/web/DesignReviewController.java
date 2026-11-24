@@ -4,6 +4,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.designreview.application.DesignAnalysis
 import edu.fpt.sep490_g22.ppswbs_backend.designreview.application.DesignReviewException;
 import edu.fpt.sep490_g22.ppswbs_backend.designreview.application.HumanReviewService;
 import edu.fpt.sep490_g22.ppswbs_backend.designreview.domain.ReviewDecision;
+import edu.fpt.sep490_g22.ppswbs_backend.designreview.domain.ReviewStatus;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,13 +25,13 @@ public class DesignReviewController {
 
     @GetMapping
     public ResponseEntity<DesignReviewDtos.ReviewQueueDto> getReviewQueue(
-            Authentication authentication
-    ) {
+            @RequestParam(value = "status", required = false) ReviewStatus status,
+            Authentication authentication) {
         String callerUid = SecurityIdentityExtractor.requireUid(authentication);
         List<DesignAnalysisService.DesignRequestViewDto> queue = humanReviewService.getReviewQueue(
                 callerUid,
-                authentication.getAuthorities()
-        );
+                authentication.getAuthorities(),
+                status);
 
         return ResponseEntity.ok(DesignReviewDtos.ReviewQueueDto.builder().items(queue).build());
     }
@@ -38,14 +39,12 @@ public class DesignReviewController {
     @GetMapping("/{reviewRequestId}")
     public ResponseEntity<DesignAnalysisService.DesignRequestViewDto> getReviewDetail(
             @PathVariable("reviewRequestId") String reviewRequestId,
-            Authentication authentication
-    ) {
+            Authentication authentication) {
         String callerUid = SecurityIdentityExtractor.requireUid(authentication);
         DesignAnalysisService.DesignRequestViewDto view = designAnalysisService.getDesignRequestById(
                 reviewRequestId,
                 callerUid,
-                authentication.getAuthorities()
-        );
+                authentication.getAuthorities());
 
         return ResponseEntity.ok(view);
     }
@@ -55,15 +54,15 @@ public class DesignReviewController {
             @PathVariable("reviewRequestId") String reviewRequestId,
             @RequestHeader(value = "If-Match-Version", required = false) Integer ifMatchVersionHeader,
             @Valid @RequestBody DesignReviewDtos.ReviewDecisionRequest body,
-            Authentication authentication
-    ) {
+            Authentication authentication) {
         String callerUid = SecurityIdentityExtractor.requireUid(authentication);
 
         ReviewDecision decision;
         try {
             decision = ReviewDecision.valueOf(body.getDecision().trim().toUpperCase());
         } catch (IllegalArgumentException e) {
-            throw DesignReviewException.badRequest("DESIGN_REQUEST_INVALID", "Quyết định thẩm duyệt không hợp lệ. Phải là ACCEPTED hoặc REJECTED.");
+            throw DesignReviewException.badRequest("DESIGN_REQUEST_INVALID",
+                    "Quyết định thẩm duyệt không hợp lệ. Phải là ACCEPTED hoặc REJECTED.");
         }
 
         Integer version = ifMatchVersionHeader != null ? ifMatchVersionHeader : body.getRequestVersion();
@@ -74,8 +73,7 @@ public class DesignReviewController {
                 version,
                 body.getReason(),
                 callerUid,
-                authentication.getAuthorities()
-        );
+                authentication.getAuthorities());
 
         return ResponseEntity.ok(result);
     }

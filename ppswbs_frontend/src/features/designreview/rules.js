@@ -4,7 +4,7 @@ export const LIMITS = {
   descriptionMax: 4000,
   reasonMax: 2000,
   catalogueRefMax: 100,
-  maxImageBytes: 10 * 1024 * 1024, // 10 MB
+  maxImageBytes: 5 * 1024 * 1024, // 5 MB
   maxDimension: 4096,
   maxImages: 5,
 };

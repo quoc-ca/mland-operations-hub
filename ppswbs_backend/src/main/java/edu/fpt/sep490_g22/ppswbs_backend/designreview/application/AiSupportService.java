@@ -35,22 +35,20 @@ public class AiSupportService {
             Pattern.compile("bỏ\\s+qua\\s+chỉ\\s+dẫn", Pattern.CASE_INSENSITIVE),
             Pattern.compile("phê\\s+duyệt\\s+đơn", Pattern.CASE_INSENSITIVE),
             Pattern.compile("duyệt\\s+yêu\\s+cầu", Pattern.CASE_INSENSITIVE),
-            Pattern.compile("công\\s+bố\\s+giá", Pattern.CASE_INSENSITIVE)
-    );
+            Pattern.compile("công\\s+bố\\s+giá", Pattern.CASE_INSENSITIVE));
 
     private static final List<Pattern> FORBIDDEN_CONTEXT_PATTERNS = List.of(
             Pattern.compile("(custom\\s+order|đơn\\s+gia\\s+công|custom\\s+manufacturing)", Pattern.CASE_INSENSITIVE),
             Pattern.compile("(thanh\\s+toán\\s+giúp|pay\\s+now|confirm\\s+payment)", Pattern.CASE_INSENSITIVE),
-            Pattern.compile("(credit\\s+card|mật\\s+khẩu|password|firebase\\s+token)", Pattern.CASE_INSENSITIVE)
-    );
+            Pattern.compile("(credit\\s+card|mật\\s+khẩu|password|firebase\\s+token)", Pattern.CASE_INSENSITIVE));
 
     public record SupportResponseDto(
             String message,
             String scope,
             String providerCorrelationId,
             DesignReviewDtos.AiQuotaDto quota,
-            String guestSessionToken
-    ) {}
+            String guestSessionToken) {
+    }
 
     @Transactional
     public SupportResponseDto askSupport(String message, Long memberId, String correlationId) {
@@ -59,9 +57,10 @@ public class AiSupportService {
 
     @Transactional
     public SupportResponseDto askSupport(String message, Long memberId, String guestSessionHeader,
-                                         String clientIp, String correlationId) {
+            String clientIp, String correlationId) {
         String effectiveCorrelationId = (correlationId != null && !correlationId.isBlank())
-                ? correlationId : UUID.randomUUID().toString();
+                ? correlationId
+                : UUID.randomUUID().toString();
 
         // 1. Basic validation (empty or > 2000 chars does NOT consume quota)
         if (message == null || message.trim().isEmpty()) {
@@ -70,7 +69,8 @@ public class AiSupportService {
 
         String sanitized = message.trim();
         if (sanitized.length() > MAX_PROMPT_LENGTH) {
-            throw DesignReviewException.badRequest("AI_INPUT_INVALID", "Nội dung câu hỏi vượt quá độ dài cho phép (tối đa 2.000 ký tự).");
+            throw DesignReviewException.badRequest("AI_INPUT_INVALID",
+                    "Nội dung câu hỏi vượt quá độ dài cho phép (tối đa 2.000 ký tự).");
         }
 
         // 2. Resolve Guest session vs Member
@@ -84,8 +84,8 @@ public class AiSupportService {
         } else {
             actorScope = "GUEST";
             if (guestSessionHeader != null && !guestSessionHeader.trim().isBlank()) {
-                Optional<AiGuestSessionService.GuestSessionResult> sessionOpt =
-                        aiGuestSessionService.validateAndTouch(guestSessionHeader.trim());
+                Optional<AiGuestSessionService.GuestSessionResult> sessionOpt = aiGuestSessionService
+                        .validateAndTouch(guestSessionHeader.trim());
                 if (sessionOpt.isEmpty()) {
                     log.warn("Guest provided invalid or expired AI session");
                     throw DesignReviewException.unauthorized("AI_GUEST_SESSION_INVALID",
@@ -114,8 +114,8 @@ public class AiSupportService {
             if (p.matcher(sanitized).find()) {
                 log.warn("Prompt injection attempt detected: correlationId={}", effectiveCorrelationId);
                 recordFailedInteraction(sanitized, memberId, "AI_PROMPT_INJECTION_DETECTED", effectiveCorrelationId);
-            throw withGuestSession(DesignReviewException.unprocessable("AI_PROMPT_INJECTION_DETECTED",
-                    "Nội dung yêu cầu vi phạm chính sách an toàn của hệ thống."), responseGuestSessionToken);
+                throw withGuestSession(DesignReviewException.unprocessable("AI_PROMPT_INJECTION_DETECTED",
+                        "Nội dung yêu cầu vi phạm chính sách an toàn của hệ thống."), responseGuestSessionToken);
             }
         }
 
@@ -124,20 +124,27 @@ public class AiSupportService {
             if (p.matcher(sanitized).find()) {
                 log.warn("Forbidden business context requested: correlationId={}", effectiveCorrelationId);
                 recordFailedInteraction(sanitized, memberId, "AI_CONTEXT_NOT_ALLOWED", effectiveCorrelationId);
-            throw withGuestSession(DesignReviewException.unprocessable("AI_CONTEXT_NOT_ALLOWED",
-                    "Trợ lý AI chỉ giải đáp thông tin công khai và không xử lý thanh toán hay gia công riêng."), responseGuestSessionToken);
+                throw withGuestSession(DesignReviewException.unprocessable("AI_CONTEXT_NOT_ALLOWED",
+                        "Trợ lý AI chỉ giải đáp thông tin công khai và không xử lý thanh toán hay gia công riêng."),
+                        responseGuestSessionToken);
             }
         }
 
         // 6. Call Port
-        AiTextSupportPort.TextSupportResult result = aiTextSupportPort.generateSupportResponse(sanitized, effectiveCorrelationId);
+        AiTextSupportPort.TextSupportResult result = aiTextSupportPort.generateSupportResponse(sanitized,
+                effectiveCorrelationId);
 
         if (!result.success()) {
             recordFailedInteraction(sanitized, memberId, result.failureCode(), effectiveCorrelationId);
             if ("AI_UNAVAILABLE".equals(result.failureCode())) {
-                throw withGuestSession(DesignReviewException.serviceUnavailable("AI_UNAVAILABLE", "Dịch vụ AI tạm thời không phản hồi. Vui lòng thử lại sau."), responseGuestSessionToken);
+                throw withGuestSession(
+                        DesignReviewException.serviceUnavailable("AI_UNAVAILABLE",
+                                "Dịch vụ AI tạm thời không phản hồi. Vui lòng thử lại sau."),
+                        responseGuestSessionToken);
             }
-            throw withGuestSession(DesignReviewException.unprocessable(result.failureCode() != null ? result.failureCode() : "AI_RESPONSE_INVALID", "Không thể xử lý phản hồi từ AI."), responseGuestSessionToken);
+            throw withGuestSession(DesignReviewException.unprocessable(
+                    result.failureCode() != null ? result.failureCode() : "AI_RESPONSE_INVALID",
+                    "Không thể xử lý phản hồi từ AI."), responseGuestSessionToken);
         }
 
         // 7. Persist interaction with 30-day retention
@@ -158,8 +165,33 @@ public class AiSupportService {
                 result.scope().name(),
                 result.providerCorrelationId(),
                 quotaResult.toDto(),
-                responseGuestSessionToken
-        );
+                responseGuestSessionToken);
+    }
+
+    @Transactional(readOnly = true)
+    public DesignReviewDtos.AiQuotaDto peekQuota(Long memberId, String guestSessionHeader) {
+        String actorScope;
+        String quotaIdentifier;
+
+        if (memberId != null) {
+            actorScope = "MEMBER";
+            quotaIdentifier = String.valueOf(memberId);
+        } else {
+            actorScope = "GUEST";
+            if (guestSessionHeader != null && !guestSessionHeader.trim().isBlank()) {
+                Optional<AiGuestSessionService.GuestSessionResult> sessionOpt = aiGuestSessionService
+                        .validateAndTouch(guestSessionHeader.trim());
+                if (sessionOpt.isPresent()) {
+                    quotaIdentifier = sessionOpt.get().sessionDigest();
+                } else {
+                    quotaIdentifier = "anon-guest";
+                }
+            } else {
+                quotaIdentifier = "anon-guest";
+            }
+        }
+
+        return aiPromptQuotaService.peekQuota(actorScope, quotaIdentifier);
     }
 
     private void recordFailedInteraction(String prompt, Long memberId, String failureCode, String correlationId) {

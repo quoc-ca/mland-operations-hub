@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router';
-import { useWorkshopRingDesignApi } from '../api/useWorkshopRingDesignApi';
+import { useWorkshopRingDesignApi, getStoredGuestSession } from '../api/useWorkshopRingDesignApi';
 import { useWorkshopDesignCommand } from '../application/useWorkshopDesignCommand';
 import { useAuth } from '../../../shared/auth/AuthProvider';
 import { useLanguage } from '../../../shared/i18n/I18nProvider';
@@ -29,7 +29,7 @@ export default function DesignEvaluationPage() {
   useEffect(() => {
     listWorkshopPackages()
       .then((data) => setPublishedPackages(Array.isArray(data) ? data : []))
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   useEffect(() => {
@@ -38,7 +38,7 @@ export default function DesignEvaluationPage() {
       setLoading(true);
       setFetchError(null);
       try {
-        const res = await api.getDesign(designId, null, isAuthenticated);
+        const res = await api.getDesign(designId, getStoredGuestSession(), isAuthenticated);
         setDesign(res);
       } catch (err) {
         setFetchError(getErrorMessage(err));
@@ -68,6 +68,15 @@ export default function DesignEvaluationPage() {
     const silverClayPkg = publishedPackages.find((p) => p.name?.toLowerCase().includes('silver clay')) || { packageId: '8', name: 'Gói Silver Clay' };
     const signaturePkg = publishedPackages.find((p) => p.name?.toLowerCase().includes('signature')) || { packageId: '6', name: 'Gói Signature Workshop' };
 
+    if (diffScore > 11) {
+      return {
+        packageId: null,
+        packageName: null,
+        isTooRisky: true,
+        reason: 'Mẫu nhẫn quá rủi ro để người dùng tự tay chế tạo',
+        note: 'Độ khó kỹ thuật vượt quá khả năng thực hiện an toàn tại workshop thủ công. Quý khách vui lòng gửi yêu cầu Chế tác riêng (Custom) để nghệ nhân Mland gia công chuyên nghiệp.',
+      };
+    }
     if (diffScore > 9) {
       return {
         packageId: waxPkg.packageId,
@@ -424,6 +433,44 @@ export default function DesignEvaluationPage() {
           <RingPreview previewModel={previewModel} readOnly={true} />
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1rem' }}>
+            <div
+              style={{
+                background: '#f0fdf4',
+                border: '1px solid #bbf7d0',
+                borderRadius: '8px',
+                padding: '0.75rem 1rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                color: '#166534',
+                fontSize: '0.9rem',
+                fontWeight: 600,
+              }}
+              data-testid="design-saved-status-badge"
+            >
+              <span>✓</span>
+              <span>{t.designSavedSuccess}</span>
+            </div>
+
+            <button
+              type="button"
+              className="ring-btn-secondary"
+              style={{
+                background: '#f0fdf4',
+                borderColor: '#86efac',
+                color: '#166534',
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.4rem',
+              }}
+              onClick={() => navigate('/my/designs')}
+              data-testid="view-saved-designs-btn"
+            >
+              💍 {t.viewSavedDesigns}
+            </button>
+
             <button
               type="button"
               className="ring-btn-primary"
@@ -471,59 +518,119 @@ export default function DesignEvaluationPage() {
               </button>
             )}
 
-            <div
-              style={{
-                marginTop: '1rem',
-                paddingTop: '1rem',
-                borderTop: '1px solid #e2e8f0',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '0.5rem',
-              }}
-              data-testid="workshop-recommendation-card"
-            >
-              <div style={{ fontWeight: 700, fontSize: '1rem', color: '#0f172a' }}>
-                Recommended
+            {recommendation.isTooRisky ? (
+              <div
+                style={{
+                  marginTop: '1rem',
+                  paddingTop: '1rem',
+                  borderTop: '1px solid #e2e8f0',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.65rem',
+                  background: '#fef2f2',
+                  padding: '1rem',
+                  borderRadius: '8px',
+                  border: '1px solid #fecaca',
+                }}
+                data-testid="too-risky-recommendation-card"
+              >
+                <div style={{ fontWeight: 700, fontSize: '1rem', color: '#991b1b', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  ⚠️ Cảnh báo độ khó chế tác
+                </div>
+                <div
+                  style={{
+                    fontSize: '0.9rem',
+                    color: '#991b1b',
+                    fontWeight: 600,
+                    lineHeight: 1.45,
+                  }}
+                  data-testid="recommended-workshop-reason"
+                >
+                  {recommendation.reason}
+                </div>
+                {recommendation.note && (
+                  <div
+                    style={{
+                      fontSize: '0.8rem',
+                      color: '#7f1d1d',
+                      lineHeight: 1.4,
+                    }}
+                    data-testid="recommended-workshop-note"
+                  >
+                    {recommendation.note}
+                  </div>
+                )}
+                <button
+                  type="button"
+                  className="ring-btn-secondary"
+                  style={{
+                    marginTop: '0.35rem',
+                    color: '#0284c7',
+                    borderColor: '#bae6fd',
+                    backgroundColor: '#ffffff',
+                    width: '100%',
+                    textAlign: 'center',
+                  }}
+                  onClick={() => navigate(`/design-requests/new?designReference=${encodeURIComponent(designId)}`)}
+                >
+                  Gửi yêu cầu chế tác Custom cho mẫu này →
+                </button>
               </div>
-              <button
-                type="button"
-                className="ring-btn-primary"
+            ) : (
+              <div
                 style={{
-                  backgroundColor: '#0284c7',
-                  borderColor: '#0284c7',
-                  color: '#ffffff',
+                  marginTop: '1rem',
+                  paddingTop: '1rem',
+                  borderTop: '1px solid #e2e8f0',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.5rem',
                 }}
-                onClick={() => navigate(`/workshops/${encodeURIComponent(recommendation.packageId)}`)}
-                data-testid="recommended-workshop-btn"
+                data-testid="workshop-recommendation-card"
               >
-                {recommendation.packageName}
-              </button>
-              <p
-                style={{
-                  margin: 0,
-                  fontSize: '0.85rem',
-                  color: '#475569',
-                  lineHeight: 1.45,
-                }}
-                data-testid="recommended-workshop-reason"
-              >
-                {recommendation.reason}
-              </p>
-              {recommendation.note && (
+                <div style={{ fontWeight: 700, fontSize: '1rem', color: '#0f172a' }}>
+                  Recommended
+                </div>
+                <button
+                  type="button"
+                  className="ring-btn-primary"
+                  style={{
+                    backgroundColor: '#0284c7',
+                    borderColor: '#0284c7',
+                    color: '#ffffff',
+                  }}
+                  onClick={() => navigate(`/workshops/${encodeURIComponent(recommendation.packageId)}`)}
+                  data-testid="recommended-workshop-btn"
+                >
+                  {recommendation.packageName}
+                </button>
                 <p
                   style={{
                     margin: 0,
-                    fontSize: '0.8rem',
-                    color: '#b45309',
-                    fontWeight: 600,
-                    lineHeight: 1.4,
+                    fontSize: '0.85rem',
+                    color: '#475569',
+                    lineHeight: 1.45,
                   }}
-                  data-testid="recommended-workshop-note"
+                  data-testid="recommended-workshop-reason"
                 >
-                  ⚠️ Ghi chú: {recommendation.note}
+                  {recommendation.reason}
                 </p>
-              )}
-            </div>
+                {recommendation.note && (
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: '0.8rem',
+                      color: '#b45309',
+                      fontWeight: 600,
+                      lineHeight: 1.4,
+                    }}
+                    data-testid="recommended-workshop-note"
+                  >
+                    ⚠️ Ghi chú: {recommendation.note}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -554,12 +661,12 @@ export default function DesignEvaluationPage() {
             }}
           >
             <h3 style={{ fontSize: '1.125rem', fontWeight: 600, color: '#1e293b', marginBottom: '0.75rem' }}>
-              {lang === 'en' ? 'Archive Ring Design' : 'Lưu trữ mẫu thiết kế'}
+              {lang === 'en' ? 'Remove from Saved' : 'Xóa khỏi danh sách đã lưu'}
             </h3>
             <p style={{ fontSize: '0.875rem', color: '#64748b', marginBottom: '1.25rem', lineHeight: 1.5 }}>
               {lang === 'en'
-                ? 'Are you sure you want to archive this design? It will no longer be editable.'
-                : 'Bạn có chắc chắn muốn lưu trữ mẫu thiết kế này không? Mẫu thiết kế sẽ chuyển sang trạng thái đã lưu trữ.'}
+                ? 'Are you sure you want to remove this design from your saved list? It will be moved to archive.'
+                : 'Bạn có chắc chắn muốn xóa mẫu thiết kế này khỏi danh sách đã lưu không? Mẫu thiết kế sẽ được chuyển vào lưu kho/lưu trữ và ẩn khỏi danh sách chính.'}
             </p>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
               <button

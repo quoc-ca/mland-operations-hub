@@ -395,6 +395,16 @@ describe('Difficulty Score Classification & Meta', () => {
     expect(meta2.label).toBe('Rất khó');
     expect(meta2.isVeryHard).toBe(true);
   });
+
+  it('classifies > 11 as Too Risky (Quá rủi ro) without workshop recommendation', () => {
+    const meta = getDifficultyMeta(11.5);
+    expect(meta.score).toBe('11.5');
+    expect(meta.level).toBe('TOO_RISKY');
+    expect(meta.label).toBe('Quá rủi ro');
+    expect(meta.isTooRisky).toBe(true);
+    expect(meta.note).toContain('Mẫu nhẫn quá rủi ro để người dùng tự tay chế tạo');
+    expect(meta.advice).toContain('Mẫu nhẫn quá rủi ro để người dùng tự tay chế tạo');
+  });
 });
 
 describe('Gemstone Non-overlapping Angle Distribution', () => {

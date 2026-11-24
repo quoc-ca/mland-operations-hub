@@ -7,6 +7,7 @@ import { firebaseAuthClient } from '../../features/accountmanagement/auth/Fireba
 import { LanguageSwitch } from './components';
 import { useCartCounts } from './useCartCounts';
 import { PendingPaymentNotice } from '../../workshops/PendingPaymentNotice';
+import FloatingAiChatButton from '../../features/designreview/public/FloatingAiChatButton';
 import './topbar.css';
 
 /**
@@ -203,14 +204,6 @@ export default function MainTopbar() {
               >
                 Tra cứu
               </Link>
-              {!isStaffOrAdmin && (
-                <Link
-                  to="/ai-support"
-                  className={`main-topbar-link ${location.pathname.startsWith('/ai-support') ? 'active' : ''}`}
-                >
-                  Trợ lý AI
-                </Link>
-              )}
               <Link
                 to="/reviews"
                 className={`main-topbar-link ${location.pathname.startsWith('/reviews') ? 'active' : ''}`}
@@ -433,6 +426,7 @@ export default function MainTopbar() {
         </div>
       </header>
       <PendingPaymentNotice enabled={isAuthenticated && account?.role === 'MEMBER'} userKey={currentUser?.uid || null} getIdToken={getIdToken} />
+      <FloatingAiChatButton />
     </div>
   );
 }

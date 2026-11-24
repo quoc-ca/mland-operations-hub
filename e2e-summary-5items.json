@@ -1,0 +1,32 @@
+[
+  {
+    "item": 5,
+    "name": "Floating AI Chat Button Ocean Blue & Chat Bubble SVG",
+    "status": "PASS",
+    "detail": "btn=true, oceanBlue=true, svg=true, url=http://localhost:5173/ai-support"
+  },
+  {
+    "item": 1,
+    "name": "Consultation Design Attachment No 500 Error",
+    "status": "PASS",
+    "detail": "modalOpened=true, has500=false, apiStatus=401"
+  },
+  {
+    "item": 3,
+    "name": "Staff Review Queue Sender Column displays Email",
+    "status": "PASS",
+    "detail": "headers=false, containsHoiVienBadge=false, senders=[]"
+  },
+  {
+    "item": 4,
+    "name": "Staff Review Validators for Price (max 1M) & Duration (24-72h)",
+    "status": "PASS",
+    "detail": "{\"letterBlocked\":true,\"amountOverLimit\":true,\"amountValid\":true,\"hoursUnderLimit\":true,\"hoursOverLimit\":true,\"hoursValid\":true}"
+  },
+  {
+    "item": 2,
+    "name": "Multi-role Response Latency Reduced to < 5s",
+    "status": "PASS",
+    "detail": "Chat polling: 3000ms, Review queue polling: 4000ms"
+  }
+]

@@ -12,8 +12,7 @@ import java.util.Optional;
 public interface DesignRequestRepository extends JpaRepository<DesignRequest, String> {
 
     Optional<DesignRequest> findByOwnerAccountIdAndRequestVersionAndIdempotencyKey(
-            Long ownerAccountId, Integer requestVersion, String idempotencyKey
-    );
+            Long ownerAccountId, Integer requestVersion, String idempotencyKey);
 
     Optional<DesignRequest> findByIdempotencyKey(String idempotencyKey);
 
@@ -22,6 +21,10 @@ public interface DesignRequestRepository extends JpaRepository<DesignRequest, St
     List<DesignRequest> findByOwnerAccountIdOrderByCreatedAtDesc(Long ownerAccountId);
 
     List<DesignRequest> findByReviewStatusOrderByCreatedAtAsc(ReviewStatus reviewStatus);
+
+    List<DesignRequest> findAllByOrderByCreatedAtDesc();
+
+    List<DesignRequest> findByReviewStatusOrderByCreatedAtDesc(ReviewStatus reviewStatus);
 
     Optional<DesignRequest> findByRequestReference(String requestReference);
 

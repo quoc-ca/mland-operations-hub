@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
-import { useWorkshopRingDesignApi } from '../api/useWorkshopRingDesignApi';
+import { useWorkshopRingDesignApi, getStoredGuestSession } from '../api/useWorkshopRingDesignApi';
 import { useDesignReviewApi } from '../../designreview/api/useDesignReviewApi';
 import { useWorkshopDesignCommand } from '../application/useWorkshopDesignCommand';
 import { useAuth } from '../../../shared/auth/AuthProvider';
@@ -39,41 +39,62 @@ export default function MemberDesignHistoryPage() {
   const [designToDelete, setDesignToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState(null);
-  const { executeArchive } = useWorkshopDesignCommand(isAuthenticated);
+  const [includeArchived, setIncludeArchived] = useState(false);
+  const { executeArchive, executeRestore } = useWorkshopDesignCommand(isAuthenticated);
 
   useEffect(() => {
     let active = true;
-    async function loadData() {
-      setLoading(true);
-      setError(null);
-      try {
-        if (activeTab === 'workshop') {
-          const list = await ringApi.listMyDesigns(null, isAuthenticated);
-          if (active) {
-            setDesigns(Array.isArray(list) ? list : []);
-          }
-        } else {
-          // Tab Custom Design Requests
-          if (isAuthenticated) {
-            const list = await designReviewApi.getMyDesignRequests();
+      async function loadData(silent = false) {
+        if (!silent) setLoading(true);
+        setError(null);
+        try {
+          if (activeTab === 'workshop') {
+            const guestSession = getStoredGuestSession();
+            const list = await ringApi.listMyDesigns(guestSession, isAuthenticated, includeArchived);
             if (active) {
-              setCustomRequests(Array.isArray(list) ? list : []);
+              setDesigns(Array.isArray(list) ? list : []);
+            }
+          } else {
+            // Tab Custom Design Requests
+            if (isAuthenticated) {
+              const list = await designReviewApi.getMyDesignRequests();
+              if (active) {
+                setCustomRequests(Array.isArray(list) ? list : []);
+              }
             }
           }
+        } catch (err) {
+            if (active && !silent) {
+              setError(err.message || 'Không thể tải lịch sử thiết kế.');
+            }
+          } finally {
+            if (active && !silent) setLoading(false);
+          }
         }
-      } catch (err) {
-        if (active) {
-          setError(err.message || 'Không thể tải lịch sử thiết kế.');
-        }
-      } finally {
-        if (active) setLoading(false);
-      }
-    }
-    loadData();
-    return () => {
-      active = false;
-    };
-  }, [ringApi, designReviewApi, isAuthenticated, activeTab]);
+        loadData();
+
+        // Polling every 4s and sync on focus/visibility change
+        const interval = setInterval(() => {
+          if (document.visibilityState === 'visible') {
+            loadData(true);
+          }
+        }, 4000);
+
+        const handleFocus = () => loadData(true);
+        const handleVisibility = () => {
+          if (document.visibilityState === 'visible') loadData(true);
+        };
+
+        window.addEventListener('focus', handleFocus);
+        document.addEventListener('visibilitychange', handleVisibility);
+
+        return () => {
+          active = false;
+          clearInterval(interval);
+          window.removeEventListener('focus', handleFocus);
+          document.removeEventListener('visibilitychange', handleVisibility);
+        };
+      }, [ringApi, designReviewApi, isAuthenticated, activeTab, includeArchived]);
 
   const totalWorkshopPages = Math.max(1, Math.ceil(designs.length / ITEMS_PER_PAGE));
   const totalCustomPages = Math.max(1, Math.ceil(customRequests.length / ITEMS_PER_PAGE));
@@ -127,6 +148,17 @@ export default function MemberDesignHistoryPage() {
       setDeleteError(err?.message || (lang === 'en' ? 'Failed to delete design.' : 'Không thể xóa mẫu thiết kế.'));
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleRestoreDesign = async (design) => {
+    try {
+      await executeRestore(design.designId, design.designVersion);
+      setDesigns((prev) =>
+        prev.map((d) => (d.designId === design.designId ? { ...d, status: 'SAVED' } : d))
+      );
+    } catch (err) {
+      setError(err?.message || (lang === 'en' ? 'Failed to restore design.' : 'Không thể khôi phục mẫu thiết kế.'));
     }
   };
 
@@ -285,45 +317,60 @@ export default function MemberDesignHistoryPage() {
       <div
         style={{
           display: 'flex',
-          gap: '0.5rem',
+          justifyContent: 'space-between',
+          alignItems: 'center',
           borderBottom: '2px solid #e2e8f0',
           marginBottom: '1.5rem',
         }}
       >
-        <button
-          type="button"
-          onClick={() => handleTabChange('workshop')}
-          style={{
-            padding: '0.75rem 1.25rem',
-            fontWeight: 600,
-            fontSize: '1rem',
-            border: 'none',
-            background: 'none',
-            cursor: 'pointer',
-            borderBottom: activeTab === 'workshop' ? '3px solid #b45309' : '3px solid transparent',
-            color: activeTab === 'workshop' ? '#b45309' : '#64748b',
-            marginBottom: '-2px',
-          }}
-        >
-          💍 Mẫu nhẫn Workshop
-        </button>
-        <button
-          type="button"
-          onClick={() => handleTabChange('custom')}
-          style={{
-            padding: '0.75rem 1.25rem',
-            fontWeight: 600,
-            fontSize: '1rem',
-            border: 'none',
-            background: 'none',
-            cursor: 'pointer',
-            borderBottom: activeTab === 'custom' ? '3px solid #b45309' : '3px solid transparent',
-            color: activeTab === 'custom' ? '#b45309' : '#64748b',
-            marginBottom: '-2px',
-          }}
-        >
-          ✍️ Yêu cầu chế tác
-        </button>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button
+            type="button"
+            onClick={() => handleTabChange('workshop')}
+            style={{
+              padding: '0.75rem 1.25rem',
+              fontWeight: 600,
+              fontSize: '1rem',
+              border: 'none',
+              background: 'none',
+              cursor: 'pointer',
+              borderBottom: activeTab === 'workshop' ? '3px solid #b45309' : '3px solid transparent',
+              color: activeTab === 'workshop' ? '#b45309' : '#64748b',
+              marginBottom: '-2px',
+            }}
+          >
+            💍 Mẫu nhẫn Workshop
+          </button>
+          <button
+            type="button"
+            onClick={() => handleTabChange('custom')}
+            style={{
+              padding: '0.75rem 1.25rem',
+              fontWeight: 600,
+              fontSize: '1rem',
+              border: 'none',
+              background: 'none',
+              cursor: 'pointer',
+              borderBottom: activeTab === 'custom' ? '3px solid #b45309' : '3px solid transparent',
+              color: activeTab === 'custom' ? '#b45309' : '#64748b',
+              marginBottom: '-2px',
+            }}
+          >
+            ✍️ Yêu cầu chế tác
+          </button>
+        </div>
+
+        {activeTab === 'workshop' && (
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', color: '#475569', cursor: 'pointer', paddingRight: '0.5rem' }}>
+            <input
+              type="checkbox"
+              checked={includeArchived}
+              onChange={(e) => setIncludeArchived(e.target.checked)}
+              data-testid="toggle-include-archived"
+            />
+            <span>{t.showArchivedDesigns}</span>
+          </label>
+        )}
       </div>
 
       {loading && (
@@ -450,33 +497,60 @@ export default function MemberDesignHistoryPage() {
                       >
                         {lang === 'en' ? 'Craft' : 'Yêu cầu chế tác'}
                       </button>
-                      <button
-                        type="button"
-                        style={{
-                          background: '#dc2626',
-                          color: '#ffffff',
-                          border: 'none',
-                          borderRadius: '6px',
-                          padding: '0.45rem 0.85rem',
-                          fontSize: '0.85rem',
-                          fontWeight: 600,
-                          cursor: 'pointer',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '0.35rem',
-                          whiteSpace: 'nowrap',
-                          flexShrink: 0,
-                          transition: 'background 0.15s ease',
-                        }}
-                        onMouseEnter={(e) => (e.currentTarget.style.background = '#b91c1c')}
-                        onMouseLeave={(e) => (e.currentTarget.style.background = '#dc2626')}
-                        onClick={() => setDesignToDelete(d)}
-                        data-testid={`delete-design-btn-${d.designId}`}
-                        title={lang === 'en' ? 'Delete design' : 'Xóa thiết kế'}
-                      >
-                        <span>🗑️</span>
-                        <span>{lang === 'en' ? 'Delete' : 'Xóa'}</span>
-                      </button>
+                      {d.status === 'ARCHIVED' ? (
+                        <button
+                          type="button"
+                          style={{
+                            background: '#16a34a',
+                            color: '#ffffff',
+                            border: 'none',
+                            borderRadius: '6px',
+                            padding: '0.45rem 0.85rem',
+                            fontSize: '0.85rem',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.35rem',
+                            whiteSpace: 'nowrap',
+                            flexShrink: 0,
+                          }}
+                          onClick={() => handleRestoreDesign(d)}
+                          data-testid={`restore-design-btn-${d.designId}`}
+                          title={lang === 'en' ? 'Restore design' : 'Khôi phục thiết kế'}
+                        >
+                          <span>↺</span>
+                          <span>{t.restoreDesign}</span>
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          style={{
+                            background: '#dc2626',
+                            color: '#ffffff',
+                            border: 'none',
+                            borderRadius: '6px',
+                            padding: '0.45rem 0.85rem',
+                            fontSize: '0.85rem',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.35rem',
+                            whiteSpace: 'nowrap',
+                            flexShrink: 0,
+                            transition: 'background 0.15s ease',
+                          }}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = '#b91c1c')}
+                          onMouseLeave={(e) => (e.currentTarget.style.background = '#dc2626')}
+                          onClick={() => setDesignToDelete(d)}
+                          data-testid={`delete-design-btn-${d.designId}`}
+                          title={lang === 'en' ? 'Delete design' : 'Xóa thiết kế'}
+                        >
+                          <span>🗑️</span>
+                          <span>{lang === 'en' ? 'Delete' : 'Xóa'}</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>

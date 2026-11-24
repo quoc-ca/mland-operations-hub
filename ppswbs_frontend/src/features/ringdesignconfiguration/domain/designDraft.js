@@ -106,14 +106,29 @@ export function validateDraftClient(draft, lang = 'vi') {
       if (emptyItem) {
         errors.engravingText = isEn ? 'Please enter engraving content for all added positions.' : 'Vui lòng nhập nội dung cho tất cả các vị trí khắc đã thêm.';
       }
-      const tooLongItem = items.find((it) => it.content && it.content.trim().length > 50);
+      const tooLongItem = items.find((it) => it.content && it.content.length > 50);
       if (tooLongItem) {
-        errors.engravingText = isEn ? 'Engraving content cannot exceed 50 characters per item.' : 'Nội dung mỗi vị trí khắc tối đa 50 ký tự.';
+        errors.engravingText = isEn ? 'Engraving content cannot exceed 50 characters (including spaces).' : 'Nội dung khắc tối đa 50 ký tự (tính cả khoảng trắng).';
       }
     } else if (!draft.engraving.text || draft.engraving.text.trim().length === 0) {
       errors.engravingText = isEn ? 'Please enter engraving text or disable engraving.' : 'Vui lòng nhập nội dung khắc hoặc tắt tùy chọn khắc.';
-    } else if (draft.engraving.text.trim().length > 50) {
-      errors.engravingText = isEn ? 'Engraving text cannot exceed 50 characters.' : 'Nội dung khắc tối đa 50 ký tự.';
+    } else if (draft.engraving.text.length > 50) {
+      errors.engravingText = isEn ? 'Engraving text cannot exceed 50 characters (including spaces).' : 'Nội dung khắc tối đa 50 ký tự (tính cả khoảng trắng).';
+    }
+
+    // Check conflict: Cannot engrave outer band if stones are mounted on outer band
+    if (totalGemstones > 0) {
+      const hasOuterItem = items.some((it) => it.placement === 'OUTER_BAND');
+      const hasOuterPlacement = draft.engraving.placement === 'OUTER_BAND';
+      const hasOuterImg = customImages.some((img) => img.placement === 'OUTER_BAND');
+      if (hasOuterItem || hasOuterPlacement || hasOuterImg) {
+        errors.engraving = isEn
+          ? 'Outer band engraving is not allowed when gemstones are mounted on the outer surface.'
+          : 'Do mẫu thiết kế có đính đá ở ngoài nên không thể khắc lazer';
+        if (!errors.engravingText) {
+          errors.engravingText = 'Do mẫu thiết kế có đính đá ở ngoài nên không thể khắc lazer';
+        }
+      }
     }
   }
 

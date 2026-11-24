@@ -28,10 +28,10 @@ public class AiSupportController {
             @Valid @RequestBody DesignReviewDtos.AiSupportRequest request,
             @RequestHeader(value = "X-Guest-AI-Session", required = false) String guestSessionHeader,
             Authentication authentication,
-            HttpServletRequest servletRequest
-    ) {
+            HttpServletRequest servletRequest) {
         Long memberId = null;
-        if (authentication != null && authentication.isAuthenticated() && authentication.getPrincipal() instanceof CurrentAccountActor actor) {
+        if (authentication != null && authentication.isAuthenticated()
+                && authentication.getPrincipal() instanceof CurrentAccountActor actor) {
             if (actor.role() == ActorRole.MEMBER && actor.status() == ActorStatus.ACTIVE) {
                 memberId = actor.accountId();
             } else {
@@ -46,8 +46,8 @@ public class AiSupportController {
         }
 
         String correlationId = CorrelationIdFilter.current(servletRequest);
-        AiSupportService.SupportResponseDto response =
-                aiSupportService.askSupport(request.getMessage(), memberId, guestSessionHeader, clientIp, correlationId);
+        AiSupportService.SupportResponseDto response = aiSupportService.askSupport(request.getMessage(), memberId,
+                guestSessionHeader, clientIp, correlationId);
 
         HttpHeaders headers = new HttpHeaders();
         if (response.quota() != null) {
@@ -69,5 +69,20 @@ public class AiSupportController {
                         .quota(response.quota())
                         .guestSessionToken(response.guestSessionToken())
                         .build());
+    }
+
+    @GetMapping("/quota")
+    public ResponseEntity<DesignReviewDtos.AiQuotaDto> getQuota(
+            @RequestHeader(value = "X-Guest-AI-Session", required = false) String guestSessionHeader,
+            Authentication authentication) {
+        Long memberId = null;
+        if (authentication != null && authentication.isAuthenticated()
+                && authentication.getPrincipal() instanceof CurrentAccountActor actor) {
+            if (actor.role() == ActorRole.MEMBER && actor.status() == ActorStatus.ACTIVE) {
+                memberId = actor.accountId();
+            }
+        }
+        DesignReviewDtos.AiQuotaDto quota = aiSupportService.peekQuota(memberId, guestSessionHeader);
+        return ResponseEntity.ok(quota);
     }
 }
