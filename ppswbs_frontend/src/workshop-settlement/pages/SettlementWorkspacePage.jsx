@@ -147,6 +147,28 @@ export default function SettlementWorkspacePage() {
     setCollection(v => ({ ...v, amount: unassignedDue > 0 ? String(unassignedDue) : '' }));
   }, [ticketCode, unassignedDue]);
 
+  // While a VNPay QR is on screen the customer pays on their phone, so read the folio quietly every few seconds
+  // (no loading flash) and drop the QR as soon as that collection leaves PENDING_VERIFICATION.
+  const checkoutId = checkout?.collectionId;
+  useEffect(() => {
+    if (!checkout || !ticketCode) return undefined;
+    let stopped = false;
+    const timer = setInterval(async () => {
+      try {
+        const next = await api.getFolio(ticketCode);
+        if (stopped || !next) return;
+        folio.setData(next);
+        const mine = checkoutId ? (next.collections || []).find(c => c.collectionId === checkoutId) : null;
+        if (mine && mine.status !== 'PENDING_VERIFICATION') {
+          setCheckout(null);
+          if (mine.status === 'CONFIRMED') setMessage(t('ws.msg.vnpayPaid'));
+        }
+      } catch { /* keep the QR; the next tick retries */ }
+    }, 4000);
+    return () => { stopped = true; clearInterval(timer); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [checkout, checkoutId, ticketCode]);
+
   async function run(send, success, onDone) {
     setMessage('');
     const out = await command.run(send);
@@ -162,7 +184,7 @@ export default function SettlementWorkspacePage() {
     if (collection.method === 'CASH' && collection.cashReceived.trim()) body.cashReceived = collection.cashReceived.trim();
     if (collection.method === 'BANK_TRANSFER' && collection.reference.trim()) body.customerTransactionReference = collection.reference.trim();
     run(key => api.recordCollection(ticketCode, body, key), t('ws.msg.collectionRecorded'), result => {
-      setCheckout(result?.paymentUrl ? { url: result.paymentUrl, expiresAt: result.paymentExpiresAt } : null);
+      setCheckout(result?.paymentUrl ? { url: result.paymentUrl, expiresAt: result.paymentExpiresAt, collectionId: result.collectionId } : null);
       setCollection(v => ({ ...v, amount: '', cashReceived: '', reference: '' }));
     });
   };
