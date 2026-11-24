@@ -106,14 +106,27 @@ export function validateDraftClient(draft, t = viT) {
       if (emptyItem) {
         errors.engravingText = t('validation.engravingEmpty');
       }
-      const tooLongItem = items.find((it) => it.content && it.content.trim().length > 50);
+      const tooLongItem = items.find((it) => it.content && it.content.length > 50);
       if (tooLongItem) {
         errors.engravingText = t('validation.engravingItemLong');
       }
     } else if (!draft.engraving.text || draft.engraving.text.trim().length === 0) {
       errors.engravingText = t('validation.engravingMissing');
-    } else if (draft.engraving.text.trim().length > 50) {
+    } else if (draft.engraving.text.length > 50) {
       errors.engravingText = t('validation.engravingLong');
+    }
+
+    // Check conflict: Cannot engrave outer band if stones are mounted on outer band
+    if (totalGemstones > 0) {
+      const hasOuterItem = items.some((it) => it.placement === 'OUTER_BAND');
+      const hasOuterPlacement = draft.engraving.placement === 'OUTER_BAND';
+      const hasOuterImg = customImages.some((img) => img.placement === 'OUTER_BAND');
+      if (hasOuterItem || hasOuterPlacement || hasOuterImg) {
+        errors.engraving = t('validation.engravingOuterStoneConflict') || 'Do mẫu thiết kế có đính đá ở ngoài nên không thể khắc lazer';
+        if (!errors.engravingText) {
+          errors.engravingText = t('validation.engravingOuterStoneConflict') || 'Do mẫu thiết kế có đính đá ở ngoài nên không thể khắc lazer';
+        }
+      }
     }
   }
 

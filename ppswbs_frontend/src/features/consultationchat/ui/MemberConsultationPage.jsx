@@ -78,7 +78,7 @@ export function MemberConsultationPage() {
       const msgs = detail?.messages || [];
       if (msgs.length > 0 && detail.unreadCount > 0) {
         const lastMsg = msgs[msgs.length - 1];
-        apiRef.current.recordRead(convRef, { messageReference: lastMsg.messageReference }).catch(() => {});
+        apiRef.current.recordRead(convRef, { messageReference: lastMsg.messageReference }).catch(() => { });
       }
     } catch (err) {
       if (!silent) setError(err.message || t('errorGeneral'));
@@ -136,7 +136,7 @@ export function MemberConsultationPage() {
     scrollToBottom();
   }, [activeConversation?.messages]);
 
-  // Visible-tab polling every 10s
+  // Visible-tab polling every 3s and instant sync on focus / visibility change
   useEffect(() => {
     const poll = () => {
       if (document.visibilityState === 'visible') {
@@ -148,8 +148,18 @@ export function MemberConsultationPage() {
     };
 
     pollTimerRef.current = setInterval(poll, POLLING_INTERVAL_MS);
+    const handleFocus = () => poll();
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') poll();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibility);
+
     return () => {
       if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, [loadConversations, loadDetail]);
 
@@ -434,6 +444,32 @@ export function MemberConsultationPage() {
                   );
                 })
               )}
+              {activeConversation.messages?.length > 0 &&
+                activeConversation.messages[activeConversation.messages.length - 1].senderRole === 'MEMBER' && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      padding: '0.75rem 1rem',
+                      margin: '0.75rem 0',
+                      backgroundColor: '#fffbeb',
+                      border: '1px solid #fde68a',
+                      borderRadius: '8px',
+                      color: '#92400e',
+                      fontSize: '0.85rem',
+                      fontWeight: 500,
+                    }}
+                    data-testid="consultation-waiting-staff-reply"
+                  >
+                    <span>⏳</span>
+                    <span>
+                      {lang === 'en'
+                        ? 'Please wait, our staff will reply to you as soon as possible.'
+                        : 'Vui lòng đợi, sẽ có nhân viên phản hồi trong thời gian sớm nhất có thể.'}
+                    </span>
+                  </div>
+                )}
               <div ref={messagesEndRef} />
             </div>
 
@@ -461,9 +497,8 @@ export function MemberConsultationPage() {
                   />
                   <div className="consultation-composer-footer">
                     <span
-                      className={`consultation-char-counter ${
-                        currentCount > 1900 ? (currentCount > 2000 ? 'limit-exceeded' : 'limit-near') : ''
-                      }`}
+                      className={`consultation-char-counter ${currentCount > 1900 ? (currentCount > 2000 ? 'limit-exceeded' : 'limit-near') : ''
+                        }`}
                     >
                       {t('charCount', { count: currentCount })}
                     </span>

@@ -51,7 +51,7 @@ public class DesignAnalysisService {
     private final CustomDesignReferenceSnapshotRepository snapshotRepository;
     private final CustomDesignRequestRevisionRepository revisionRepository;
 
-    private static final long MAX_FILE_SIZE = 10L * 1024 * 1024; // 10 MB
+    private static final long MAX_FILE_SIZE = 5L * 1024 * 1024; // 5 MB
     private static final int MAX_DIMENSION = 4096;
     private static final int MAX_DESCRIPTION_LENGTH = 4000;
     private static final int MAX_IMAGE_COUNT = 5;
@@ -95,6 +95,7 @@ public class DesignAnalysisService {
         private Map<String, Object> confidence;
         private String safeExplanation;
         private Map<String, Object> safeResult;
+        private String senderEmail;
         private Instant createdAt;
         private Instant updatedAt;
 
@@ -266,7 +267,7 @@ public class DesignAnalysisService {
         for (MultipartFile file : validFiles) {
             if (file.getSize() > MAX_FILE_SIZE) {
                 throw DesignReviewException.unprocessable("IMAGE_TOO_LARGE",
-                        "Kích thước tệp '" + file.getOriginalFilename() + "' vượt quá giới hạn 10 MB.");
+                        "Kích thước tệp '" + file.getOriginalFilename() + "' vượt quá giới hạn 5 MB. Vui lòng chọn tệp nhỏ hơn.");
             }
 
             String contentType = file.getContentType();
@@ -618,6 +619,11 @@ public class DesignAnalysisService {
             }
         }
 
+        String senderEmail = null;
+        if (request.getOwnerAccountId() != null) {
+            senderEmail = accountFacade.findAccountEmail(request.getOwnerAccountId()).orElse(null);
+        }
+
         return DesignRequestViewDto.builder()
                 .id(request.getId())
                 .requestReference(request.getRequestReference())
@@ -643,6 +649,7 @@ public class DesignAnalysisService {
                 .confidence(confidence)
                 .safeExplanation(explanation)
                 .safeResult(safeResult)
+                .senderEmail(senderEmail)
                 .createdAt(request.getCreatedAt())
                 .updatedAt(request.getUpdatedAt())
                 .build();

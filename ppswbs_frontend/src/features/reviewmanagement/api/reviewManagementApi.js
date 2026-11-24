@@ -18,6 +18,9 @@ export function reviewManagementApi(request) {
     listEligibleSources() {
       return request('/api/v1/reviews/eligible-sources', { method: 'GET', auth: true });
     },
+    getMemberEligibleSources() {
+      return this.listEligibleSources();
+    },
     createReview(key, body, auth = false) {
       return request('/api/v1/reviews', { method: 'POST', body, idempotencyKey: key, auth });
     },

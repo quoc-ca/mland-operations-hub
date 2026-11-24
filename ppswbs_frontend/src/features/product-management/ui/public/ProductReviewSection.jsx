@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { useReviewManagementApi, ReviewCard, formatStars } from '../../../reviewmanagement';
+import { useReviewManagementApi, ReviewCard, ReviewForm, formatStars } from '../../../reviewmanagement';
+import { useAuth } from '../../../../shared/auth/AuthProvider';
 import { useT } from '../../../../shared/i18n/I18nProvider';
 import { Loading } from '../../../../shared/ui/components';
 import { messages } from '../messages';
@@ -28,6 +29,33 @@ export default function ProductReviewSection({ productId, productName }) {
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  const { status, userId } = useAuth();
+  const isAuthenticated = status === 'signed-in' || Boolean(userId);
+  const [eligibleItem, setEligibleItem] = useState(null);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+
+  useEffect(() => {
+    const fetchEligible = api?.listEligibleSources || api?.getMemberEligibleSources;
+    if (!productId || !isAuthenticated || typeof fetchEligible !== 'function') {
+      setEligibleItem(null);
+      return;
+    }
+    let active = true;
+    fetchEligible.call(api)
+      .then((res) => {
+        if (!active || !res || !Array.isArray(res.sources)) return;
+        const matching = res.sources.find(
+          (s) => (s.targetType === 'RETAIL_PRODUCT' || !s.targetType) && String(s.targetReference) === String(productId) && s.eligible
+        );
+        setEligibleItem(matching || null);
+      })
+      .catch(() => {
+        // Not eligible or error, ignore
+      });
+    return () => {
+      active = false;
+    };
+  }, [api, productId, isAuthenticated, attempt]);
 
   useEffect(() => {
     if (!productId) return undefined;
@@ -70,22 +98,65 @@ export default function ProductReviewSection({ productId, productName }) {
           <p className="muted product-reviews-lead">{t('customerReview.lead')}</p>
         </div>
 
-        <div className="product-reviews-score-card" data-testid="product-reviews-score">
-          {score.average !== null ? (
-            <div className="product-score-number">
-              {score.average}
-              <small> / 5</small>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.65rem' }}>
+          <div className="product-reviews-score-card" data-testid="product-reviews-score">
+            {score.average !== null ? (
+              <div className="product-score-number">
+                {score.average}
+                <small> / 5</small>
+              </div>
+            ) : (
+              <div className="product-score-number product-score-none">{t('customerReview.noScore')}</div>
+            )}
+            <div className="product-score-meta">
+              <span className={score.average !== null ? 'review-stars' : 'review-stars empty'}
+                role="img" aria-label={score.average !== null ? t('customerReview.starsLabel', { score: score.average }) : t('customerReview.noScore')}>
+                {score.stars}
+              </span>
+              <span className="product-score-count">{t('customerReview.count', { count: score.count })}</span>
             </div>
-          ) : (
-            <div className="product-score-number product-score-none">{t('customerReview.noScore')}</div>
-          )}
-          <div className="product-score-meta">
-            <span className={score.average !== null ? 'review-stars' : 'review-stars empty'}
-              role="img" aria-label={score.average !== null ? t('customerReview.starsLabel', { score: score.average }) : t('customerReview.noScore')}>
-              {score.stars}
-            </span>
-            <span className="product-score-count">{t('customerReview.count', { count: score.count })}</span>
           </div>
+
+          {eligibleItem && !eligibleItem.alreadyReviewed && (
+            <button
+              type="button"
+              className="button primary"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                padding: '0.45rem 0.9rem',
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                backgroundColor: '#b45309',
+                borderColor: '#b45309',
+                color: '#ffffff',
+                borderRadius: '6px',
+                cursor: 'pointer',
+              }}
+              onClick={() => setShowReviewModal(true)}
+              data-testid="write-product-review-btn"
+            >
+              ✍️ Viết đánh giá sản phẩm
+            </button>
+          )}
+
+          {eligibleItem && eligibleItem.alreadyReviewed && (
+            <div
+              style={{
+                fontSize: '0.8rem',
+                color: '#16a34a',
+                fontWeight: 600,
+                background: '#f0fdf4',
+                padding: '0.3rem 0.65rem',
+                borderRadius: '6px',
+                border: '1px solid #bbf7d0',
+              }}
+              data-testid="already-reviewed-badge"
+            >
+              ✓ Bạn đã gửi đánh giá cho sản phẩm này
+            </div>
+          )}
         </div>
       </div>
 
@@ -138,6 +209,84 @@ export default function ProductReviewSection({ productId, productName }) {
       {!loading && !failed && reviews.length > 0 && (
         <div className="product-reviews-list" data-testid="product-reviews-list">
           {reviews.map(review => <ReviewCard key={review.id} review={review} />)}
+        </div>
+      )}
+
+      {showReviewModal && eligibleItem && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          data-testid="product-review-modal"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '1rem',
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: '#ffffff',
+              borderRadius: '12px',
+              padding: '1.5rem',
+              maxWidth: '560px',
+              width: '100%',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              boxShadow: '0 10px 25px rgba(0, 0, 0, 0.2)',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '1rem',
+                borderBottom: '1px solid #e2e8f0',
+                paddingBottom: '0.75rem',
+              }}
+            >
+              <h3 style={{ margin: 0, fontSize: '1.15rem', color: '#0f172a' }}>
+                Đánh giá: {productName || 'Sản phẩm'}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowReviewModal(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '1.25rem',
+                  cursor: 'pointer',
+                  color: '#64748b',
+                }}
+                data-testid="close-review-modal-btn"
+              >
+                ✕
+              </button>
+            </div>
+
+            <ReviewForm
+              source={{
+                sourceType: eligibleItem.sourceType || 'RETAIL_ORDER_LINE',
+                sourceReference: eligibleItem.sourceReference,
+                targetType: 'RETAIL_PRODUCT',
+                targetReference: String(productId),
+                label: productName,
+              }}
+              handle={null}
+              onSaved={async ({ key, ...body }) => {
+                const res = await api.createReview(key, body, true);
+                setShowReviewModal(false);
+                setAttempt((v) => v + 1);
+                setEligibleItem((prev) => (prev ? { ...prev, alreadyReviewed: true } : prev));
+                return res;
+              }}
+            />
+          </div>
         </div>
       )}
     </section>

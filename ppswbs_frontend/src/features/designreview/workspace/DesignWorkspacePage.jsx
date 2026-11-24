@@ -1,13 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { useAuth } from '../../../shared/auth/AuthProvider';
-import { useFormat, useT } from '../../../shared/i18n/I18nProvider';
+import { useT } from '../../../shared/i18n/I18nProvider';
 import { ErrorNotice, Field, Loading, SuccessNotice, useCommand } from '../../../shared/ui/components';
 import { useDesignReviewApi } from '../api/useDesignReviewApi';
 import { useWorkshopRingDesignApi } from '../../ringdesignconfiguration/api/useWorkshopRingDesignApi';
 import { derivePreviewModel } from '../../ringdesignconfiguration/domain/designPreview';
 import { designReviewMessages } from '../messages';
-import { wholeAmount } from '../format';
 import {
   ALLOWED_IMAGE_TYPES,
   CONSENT_PURPOSE,
@@ -19,36 +18,35 @@ import {
   validateImageFile,
 } from '../rules';
 
-function formatDesignOptionLabel(d, t) {
+function formatDesignOptionLabel(d) {
   if (!d) return '';
   const snap = d.componentSnapshot || {};
   const preview = derivePreviewModel(snap);
 
-  const mat = preview.material?.label || t('ws.defaultMaterial');
-  const shape = preview.shape?.label || t('ws.defaultShape');
-  const size = t('ws.sizeShort', { size: preview.ringSize || '8', mm: preview.circumferenceMm || 48 });
+  const mat = preview.material?.label || 'Bạc Ý 925';
+  const shape = preview.shape?.label || 'Tròn cổ điển';
+  const size = `Size ${preview.ringSize || '8'} (${preview.circumferenceMm || 48}mm)`;
 
   const totalGems = (snap.components || []).reduce((sum, c) => sum + (Number(c.quantity) || 1), 0);
-  const gemsText = totalGems > 0 ? t('ws.gemsText', { count: totalGems }) : t('ws.noGems');
+  const gemsText = totalGems > 0 ? `${totalGems} đá quý` : 'Không đính đá';
 
   const hasTextEngraving = Boolean(snap.engravingText || (snap.engravings && snap.engravings.length > 0));
   const hasImgEngraving = Boolean(snap.customImages && snap.customImages.length > 0);
-  let engravingText = t('ws.engNone');
+  let engravingText = 'Không khắc';
   if (hasTextEngraving && hasImgEngraving) {
-    engravingText = t('ws.engBoth');
+    engravingText = 'Khắc chữ + ảnh';
   } else if (hasTextEngraving) {
-    engravingText = t('ws.engText');
+    engravingText = 'Khắc chữ';
   } else if (hasImgEngraving) {
-    engravingText = t('ws.engImage');
+    engravingText = 'Khắc ảnh laser';
   }
 
   const shortId = d.designId?.length > 10 ? d.designId.slice(-6).toUpperCase() : d.designId;
-  return t('ws.optionLabel', { id: shortId, material: mat, shape, size, gems: gemsText, engraving: engravingText, version: d.designVersion || 1 });
+  return `Mẫu #${shortId}: ${mat} · ${shape} · ${size} · ${gemsText} · ${engravingText} (v${d.designVersion || 1})`;
 }
 
 export default function DesignWorkspacePage() {
   const t = useT(designReviewMessages);
-  const fmt = useFormat();
   const navigate = useNavigate();
   const api = useDesignReviewApi();
   const workshopRingApi = useWorkshopRingDesignApi();
@@ -98,16 +96,30 @@ export default function DesignWorkspacePage() {
 
     if (fileInputRef.current) fileInputRef.current.value = '';
 
+    const oversizedFiles = files.filter(f => f.size > LIMITS.maxImageBytes);
+    if (oversizedFiles.length > 0) {
+      const names = oversizedFiles.map(f => `"${f.name}" (${(f.size / (1024 * 1024)).toFixed(1)} MB)`).join(', ');
+      setErrors(prev => ({
+        ...prev,
+        images: `Dung lượng ảnh ${names} vượt quá giới hạn 5 MB. Hệ thống không cho phép tải lên ảnh vượt quá 5 MB, vui lòng chọn ảnh có kích thước nhỏ hơn.`,
+      }));
+    }
+
+    const validSizeFiles = files.filter(f => f.size <= LIMITS.maxImageBytes);
+    if (!validSizeFiles.length) {
+      return;
+    }
+
     const availableSlots = LIMITS.maxImages - selectedImages.length;
     if (availableSlots <= 0) {
       setErrors(prev => ({ ...prev, images: t('validation.maxImagesExceeded') }));
       return;
     }
 
-    const filesToProcess = files.slice(0, availableSlots);
-    if (files.length > availableSlots) {
+    const filesToProcess = validSizeFiles.slice(0, availableSlots);
+    if (validSizeFiles.length > availableSlots) {
       setErrors(prev => ({ ...prev, images: t('validation.maxImagesExceeded') }));
-    } else {
+    } else if (oversizedFiles.length === 0) {
       setErrors(prev => {
         const copy = { ...prev };
         delete copy.images;
@@ -134,7 +146,7 @@ export default function DesignWorkspacePage() {
         updateImageQuality(entry.id, {
           checking: false,
           status: 'INVALID',
-          reasonKey: fileErr,
+          reason: t(fileErr),
         });
         continue;
       }
@@ -144,13 +156,13 @@ export default function DesignWorkspacePage() {
         updateImageQuality(entry.id, {
           checking: false,
           status: 'INVALID',
-          reasonKey: dimErr,
+          reason: t(dimErr),
         });
         continue;
       }
 
       // Laplacian variance blur detection
-      const blurResult = await detectImageBlur(entry.file, 80, t);
+      const blurResult = await detectImageBlur(entry.file, 80);
       updateImageQuality(entry.id, {
         checking: false,
         status: blurResult.status,
@@ -204,12 +216,17 @@ export default function DesignWorkspacePage() {
       newErrors.images = t('validation.maxImagesExceeded');
     }
 
+    const hasOversizedImage = selectedImages.some(item => item.file && item.file.size > LIMITS.maxImageBytes);
+    if (hasOversizedImage) {
+      newErrors.images = t('validation.imageTooLarge');
+    }
+
     if (hasBlurryImage) {
       newErrors.images = t('validation.imageTooBlurry');
     }
 
     if (hasInvalidImage) {
-      newErrors.images = t('ws.imagesInvalid');
+      newErrors.images = 'Một số ảnh không hợp lệ. Vui lòng kiểm tra lại.';
     }
 
     if (selectedImages.length > 0 && !consentAgreed) {
@@ -240,7 +257,7 @@ export default function DesignWorkspacePage() {
     if (res.ok && res.result?.id) {
       if (isAuthenticated) {
         navigate(`/design-requests/${encodeURIComponent(res.result.id)}`, {
-          state: { successMessage: t('workspace.success') },
+          state: { successMessage: 'Yêu cầu đã được gửi thành công, đang đợi phản hồi của nhân viên' },
         });
       } else {
         // Guest submission confirmation screen
@@ -265,9 +282,9 @@ export default function DesignWorkspacePage() {
     return (
       <div className="design-container">
         <header className="page-header">
-          <h1>🎉 {t('ws.successTitle')}</h1>
+          <h1>🎉 Gửi yêu cầu thiết kế thành công!</h1>
           <p className="muted">
-            {t('ws.requestCode')}: <strong>{guestSubmission.requestReference || guestSubmission.id}</strong>
+            Mã yêu cầu: <strong>{guestSubmission.requestReference || guestSubmission.id}</strong>
           </p>
         </header>
 
@@ -286,11 +303,11 @@ export default function DesignWorkspacePage() {
             </button>
           </div>
           <p className="small muted">
-            {t('ws.guestNotice')}
+            * Lưu ý: Vì bạn gửi với tư cách Khách, liên kết trên là cách duy nhất để xem cập nhật và phản hồi thẩm duyệt từ nhân viên cửa hàng.
           </p>
           <div style={{ marginTop: '1.5rem', display: 'flex', gap: '1rem' }}>
             <Link to={trackingUrl} className="button primary">
-              {t('ws.viewProgress')}
+              Xem tiến độ yêu cầu ngay
             </Link>
             <button
               type="button"
@@ -302,7 +319,7 @@ export default function DesignWorkspacePage() {
                 setConsentAgreed(false);
               }}
             >
-              {t('ws.submitAnother')}
+              Gửi yêu cầu thiết kế khác
             </button>
           </div>
         </div>
@@ -318,12 +335,12 @@ export default function DesignWorkspacePage() {
             <h1>{t('workspace.title')}</h1>
             <p className="muted">
               {t('workspace.subtitle')}
-              {!isAuthenticated && ` ${t('ws.guestNote')}`}
+              {!isAuthenticated && ' (Bạn đang gửi yêu cầu với tư cách Khách — tối đa 5 yêu cầu/ngày)'}
             </p>
           </div>
           {isAuthenticated && (
             <Link to="/my/designs?tab=custom" className="button outline small" style={{ textDecoration: 'none' }}>
-              <span>📋</span> {t('ws.myRequests')}
+              <span>📋</span> Xem yêu cầu của tôi
             </Link>
           )}
         </div>
@@ -336,7 +353,7 @@ export default function DesignWorkspacePage() {
         {/* Feature-012 Ring Design Attachment */}
         <div className="field" data-testid="ring-design-attachment-field">
           <label htmlFor="ring-design-select">
-            {t('ws.attachLabel')}
+            Mẫu thiết kế nhẫn Feature-012 đính kèm (Tùy chọn)
           </label>
           {isAuthenticated ? (
             <div>
@@ -350,10 +367,10 @@ export default function DesignWorkspacePage() {
                       style={{ flex: 1, minWidth: '260px', padding: '0.6rem 0.75rem', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.875rem' }}
                       data-testid="ring-design-select"
                     >
-                      <option value="">{t('ws.noAttach')}</option>
+                      <option value="">-- Không đính kèm mẫu thiết kế --</option>
                       {availableDesigns.map((d) => (
                         <option key={d.designId} value={d.designId}>
-                          {formatDesignOptionLabel(d, t)}
+                          {formatDesignOptionLabel(d)}
                         </option>
                       ))}
                     </select>
@@ -364,7 +381,7 @@ export default function DesignWorkspacePage() {
                         onClick={() => setSelectedDesignRef('')}
                         data-testid="clear-design-btn"
                       >
-                        ✕ {t('ws.detach')}
+                        ✕ Gỡ đính kèm
                       </button>
                     )}
                   </div>
@@ -389,24 +406,24 @@ export default function DesignWorkspacePage() {
                       >
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.625rem', flexWrap: 'wrap', gap: '0.5rem' }}>
                           <span style={{ fontWeight: 600, color: '#0f172a' }}>
-                            💎 {t('ws.selectedDetail')}: <code style={{ color: '#0284c7', background: '#f1f5f9', padding: '0.15rem 0.4rem', borderRadius: '4px' }}>{selectedDesignObj.designId}</code>
+                            💎 Chi tiết mẫu đã chọn: <code style={{ color: '#0284c7', background: '#f1f5f9', padding: '0.15rem 0.4rem', borderRadius: '4px' }}>{selectedDesignObj.designId}</code>
                           </span>
                           <span style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem', background: '#e0f2fe', color: '#0369a1', borderRadius: '4px', fontWeight: 600 }}>
-                            {t('ws.designVersion', { version: selectedDesignObj.designVersion })} · {selectedDesignObj.status || 'SAVED'}
+                            Phiên bản {selectedDesignObj.designVersion} · {selectedDesignObj.status || 'SAVED'}
                           </span>
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.5rem', color: '#334155', lineHeight: 1.5 }}>
-                          <div><strong>{t('ws.material')}:</strong> {preview.material?.label || t('ws.defaultMaterial')}</div>
-                          <div><strong>{t('ws.shape')}:</strong> {preview.shape?.label || t('ws.defaultShape')}</div>
-                          <div><strong>{t('ws.size')}:</strong> {t('ws.sizeValue', { size: preview.ringSize || '8', circumference: preview.circumferenceMm })}</div>
-                          <div><strong>{t('ws.bandSize')}:</strong> {t('ws.bandValue', { thickness: preview.thicknessMm, width: preview.bandWidthMm })}</div>
-                          <div><strong>{t('ws.gems')}:</strong> {totalGems > 0 ? t('ws.gemsCount', { count: totalGems }) : t('ws.none')}</div>
-                          <div><strong>{t('ws.engraving')}:</strong> {snap.engravingText ? t('ws.engravingText', { text: snap.engravingText }) : (snap.customImages?.length > 0 ? t('ws.engravingImages', { count: snap.customImages.length }) : t('ws.none'))}</div>
+                          <div><strong>Chất liệu:</strong> {preview.material?.label || 'Bạc Ý 925'}</div>
+                          <div><strong>Dáng đai:</strong> {preview.shape?.label || 'Tròn cổ điển'}</div>
+                          <div><strong>Kích cỡ:</strong> Size {preview.ringSize || '8'} (Chu vi ~{preview.circumferenceMm} mm)</div>
+                          <div><strong>Kích thước đai:</strong> Dày {preview.thicknessMm} mm · Rộng {preview.bandWidthMm} mm</div>
+                          <div><strong>Đá quý:</strong> {totalGems > 0 ? `${totalGems} viên` : 'Không có'}</div>
+                          <div><strong>Khắc cá nhân:</strong> {snap.engravingText ? `Chữ: "${snap.engravingText}"` : (snap.customImages?.length > 0 ? `${snap.customImages.length} ảnh laser` : 'Không có')}</div>
                           {cost != null && (
-                            <div><strong>{t('ws.estimatedCost')}:</strong> {fmt.money(wholeAmount(cost))}</div>
+                            <div><strong>Giá thẩm định ước tính:</strong> {Number(cost).toLocaleString('vi-VN')} đ</div>
                           )}
                           {diffScore != null && (
-                            <div><strong>{t('ws.difficulty')}:</strong> {diffScore}/10</div>
+                            <div><strong>Độ khó tham khảo:</strong> {diffScore}/10</div>
                           )}
                         </div>
                       </div>
@@ -415,8 +432,8 @@ export default function DesignWorkspacePage() {
                 </div>
               ) : (
                 <p className="muted small" style={{ margin: 0 }}>
-                  {t('ws.noDesigns')}{' '}
-                  <Link to="/ring-design" target="_blank">{t('ws.designNow')}</Link>
+                  Bạn chưa có mẫu thiết kế nào được lưu.{' '}
+                  <Link to="/ring-design" target="_blank">Thiết kế mẫu nhẫn ngay ↗</Link>
                 </p>
               )}
             </div>
@@ -425,14 +442,14 @@ export default function DesignWorkspacePage() {
               <input
                 id="ring-design-select"
                 type="text"
-                placeholder={t('ws.codePlaceholder')}
+                placeholder="Nhập mã thiết kế (VD: DES-176378...)"
                 value={selectedDesignRef}
                 onChange={(e) => setSelectedDesignRef(e.target.value)}
                 style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #cbd5e1' }}
                 data-testid="guest-ring-design-input"
               />
               <span className="muted small">
-                {t('ws.codeHint')}
+                Nếu bạn đã lưu một mẫu thiết kế nhẫn ở bước workshop, nhập mã thiết kế tại đây để nhân viên tham khảo.
               </span>
             </div>
           )}
@@ -458,7 +475,7 @@ export default function DesignWorkspacePage() {
 
         <div className="field">
           <label htmlFor="design-images-upload">
-            {t('ws.imagesLabel')}
+            Hình ảnh tham khảo mẫu thiết kế (Tối đa 5 ảnh, định dạng JPEG/PNG/WEBP)
           </label>
           <input
             id="design-images-upload"
@@ -470,7 +487,7 @@ export default function DesignWorkspacePage() {
             disabled={command.pending || selectedImages.length >= LIMITS.maxImages}
           />
           <span className="muted small">
-            {t('ws.imagesSelected', { count: selectedImages.length, max: LIMITS.maxImages })}
+            Đã chọn: {selectedImages.length}/{LIMITS.maxImages} ảnh. Dung lượng tối đa 5 MB/ảnh. Hệ thống tự động kiểm tra độ sắc nét từng ảnh ngay khi chọn.
           </span>
           {errors.images && <span className="field-error" style={{ display: 'block', marginTop: '0.25rem' }}>{errors.images}</span>}
         </div>
@@ -481,7 +498,7 @@ export default function DesignWorkspacePage() {
             <div>
               <strong>{t('validation.imageTooBlurry')}</strong>
               <div style={{ fontSize: '0.8rem', marginTop: '0.2rem' }}>
-                {t('ws.blurDetail')}
+                Ảnh mờ sẽ khiến thợ kim hoàn không thể đánh giá chính xác độ khả thi. Vui lòng gỡ bỏ ảnh mờ và thay bằng ảnh chụp rõ nét hơn.
               </div>
             </div>
           </div>
@@ -504,19 +521,19 @@ export default function DesignWorkspacePage() {
                     <span className="muted">{formatFileSize(img.size)}</span>
                     <div>
                       {isChecking && <span className="badge-tag badge-warning">⏳ {t('validation.imageQualityChecking')}</span>}
-                      {isBlurry && <span className="badge-tag badge-danger">❌ {t('ws.blurryBadge', { score: img.quality.score })}</span>}
+                      {isBlurry && <span className="badge-tag badge-danger">❌ Quá mờ ({img.quality.score})</span>}
                       {isInvalid && (
                         <div>
-                          <span className="badge-tag badge-danger">⚠️ {t('ws.invalidBadge')}</span>
-                          {img.quality.reasonKey && (
+                          <span className="badge-tag badge-danger">⚠️ Lỗi ảnh</span>
+                          {img.quality.reason && (
                             <div className="field-error" style={{ fontSize: '0.75rem', marginTop: '0.25rem' }}>
-                              {t(img.quality.reasonKey)}
+                              {img.quality.reason}
                             </div>
                           )}
                         </div>
                       )}
                       {!isChecking && !isBlurry && !isInvalid && (
-                        <span className="badge-tag badge-success">✓ {t('ws.okBadge')}</span>
+                        <span className="badge-tag badge-success">✓ Đạt chuẩn</span>
                       )}
                     </div>
                   </div>
@@ -527,7 +544,7 @@ export default function DesignWorkspacePage() {
                     onClick={() => handleRemoveImage(img.id)}
                     disabled={command.pending}
                   >
-                    {t('ws.remove')}
+                    Gỡ bỏ
                   </button>
                 </div>
               );
@@ -539,7 +556,7 @@ export default function DesignWorkspacePage() {
           <div className="consent-card" role="region" aria-label={t('consent.title')}>
             <h3>{t('consent.title')}</h3>
             <p className="small muted">
-              {t('ws.consentBody')}
+              Bằng việc gửi hình ảnh, bạn đồng ý cho phép chuyên viên cửa hàng và thợ kim hoàn lưu trữ và xem hình ảnh này để thẩm định tính khả thi của thiết kế thủ công.
             </p>
             <label className="consent-checkbox">
               <input
@@ -575,11 +592,11 @@ export default function DesignWorkspacePage() {
             }
           >
             {command.pending
-              ? t('ws.sending')
+              ? t('common.loading', undefined, 'Đang gửi…')
               : isEvaluatingImages
-              ? t('ws.checkingImages')
+              ? 'Đang kiểm tra ảnh…'
               : hasBlurryImage
-              ? t('ws.replaceBlurry')
+              ? 'Vui lòng thay ảnh mờ'
               : t('workspace.submit')}
           </button>
         </div>
